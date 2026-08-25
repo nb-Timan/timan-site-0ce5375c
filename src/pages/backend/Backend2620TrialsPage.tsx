@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import * as XLSX from "xlsx-js-style";
-import { ClipboardList, Download, Eye, RefreshCcw, Search, Trash2 } from "lucide-react";
+import { ClipboardList, Download, MessageSquareText, RefreshCcw, Search, Trash2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -21,15 +21,6 @@ function fmtDate(value: string | null | undefined): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-function InfoLine({ label, value }: { label: string; value: string | null | undefined }) {
-  return (
-    <div>
-      <dt className="text-xs font-bold uppercase tracking-[0.06em] text-slate-500">{label}</dt>
-      <dd className="mt-1 text-sm font-medium text-slate-900 whitespace-pre-wrap">{value || "-"}</dd>
-    </div>
-  );
 }
 
 function exportTrials(rows: Crm2620Trial[]): void {
@@ -67,7 +58,7 @@ export default function Backend2620TrialsPage() {
   const [rows, setRows] = useState<Crm2620Trial[]>([]);
   const [loadingRows, setLoadingRows] = useState(true);
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<Crm2620Trial | null>(null);
+  const [commentRow, setCommentRow] = useState<Crm2620Trial | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const portalRole = derivePortalRole(appUser);
@@ -94,7 +85,7 @@ export default function Backend2620TrialsPage() {
     try {
       await deleteCrm2620Trial(row.id);
       setRows((current) => current.filter((item) => item.id !== row.id));
-      if (selected?.id === row.id) setSelected(null);
+      if (commentRow?.id === row.id) setCommentRow(null);
     } catch (error) {
       console.error("[Backend2620TrialsPage.delete]", error);
       window.alert("Kunne ikke slette afprøvningen. Prøv at genindlæse og forsøg igen.");
@@ -129,7 +120,7 @@ export default function Backend2620TrialsPage() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage} onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }} />
-      <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-10 sm:px-6">
+      <main className="mx-auto w-full max-w-[1700px] flex-grow px-4 py-10 sm:px-6 lg:px-8 xl:px-12">
         <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
@@ -196,7 +187,7 @@ export default function Backend2620TrialsPage() {
                     <th className="px-4 py-3 text-left">Telefon</th>
                     <th className="px-4 py-3 text-left">E-mail</th>
                     <th className="px-4 py-3 text-left">Timan sælger</th>
-                    <th className="px-4 py-3 text-left">Kommentar</th>
+                    <th className="px-3 py-3 text-left">Kommentar</th>
                     <th className="px-4 py-3 text-right">Handling</th>
                   </tr>
                 </thead>
@@ -206,20 +197,21 @@ export default function Backend2620TrialsPage() {
                       <td className="whitespace-nowrap px-4 py-3 text-slate-600">{fmtDate(row.created_at)}</td>
                       <td className="px-4 py-3 font-semibold text-slate-900">{row.company_cvr}</td>
                       <td className="px-4 py-3 text-slate-700">{row.contact_person}</td>
-                      <td className="min-w-48 px-4 py-3 text-slate-600">{row.address || "-"}</td>
+                      <td className="min-w-40 px-4 py-3 text-slate-600">{row.address || "-"}</td>
                       <td className="px-4 py-3 text-slate-600">{row.zip_city}</td>
                       <td className="px-4 py-3 text-slate-600">{row.country || "-"}</td>
                       <td className="whitespace-nowrap px-4 py-3 text-slate-600">{row.phone}</td>
                       <td className="px-4 py-3 text-slate-600">{row.email}</td>
                       <td className="px-4 py-3 text-slate-600">{row.responsible_seller_name || row.responsible_seller_email || "-"}</td>
-                      <td className="max-w-56 px-4 py-3 text-slate-600">
+                      <td className="max-w-52 px-3 py-3 text-slate-600">
                         {row.comment ? (
                           <button
                             type="button"
-                            onClick={() => setSelected(row)}
-                            className="line-clamp-2 text-left text-xs font-semibold text-emerald-700 underline-offset-2 hover:underline"
+                            onClick={() => setCommentRow(row)}
+                            className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-left text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
                           >
-                            Kommentar: {row.comment}
+                            <MessageSquareText className="h-3.5 w-3.5 shrink-0" />
+                            <span className="line-clamp-1">{row.comment}</span>
                           </button>
                         ) : (
                           "-"
@@ -227,14 +219,6 @@ export default function Backend2620TrialsPage() {
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelected(row)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            Åbn
-                          </button>
                           <button
                             type="button"
                             onClick={() => void handleDelete(row)}
@@ -256,27 +240,21 @@ export default function Backend2620TrialsPage() {
       </main>
       <PortalFooter language={lang} />
 
-      <Dialog open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={!!commentRow} onOpenChange={(open) => { if (!open) setCommentRow(null); }}>
+        <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Afprøvning af 2620</DialogTitle>
+            <DialogTitle>Kommentar</DialogTitle>
           </DialogHeader>
-          {selected && (
-            <dl className="grid gap-4 sm:grid-cols-2">
-              <InfoLine label="Dato" value={fmtDate(selected.created_at)} />
-              <InfoLine label="Firma" value={selected.company_cvr} />
-              <InfoLine label="Kontaktperson" value={selected.contact_person} />
-              <InfoLine label="Adresse" value={selected.address} />
-              <InfoLine label="Postnummer og by" value={selected.zip_city} />
-              <InfoLine label="Land" value={selected.country} />
-              <InfoLine label="Telefon" value={selected.phone} />
-              <InfoLine label="E-mail" value={selected.email} />
-              <InfoLine label="Timan sælger" value={selected.responsible_seller_name || selected.responsible_seller_email} />
-              <InfoLine label="Oprettet af" value={selected.created_by_email} />
-              <div className="sm:col-span-2">
-                <InfoLine label="Kommentar" value={selected.comment} />
+          {commentRow && (
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-bold text-slate-900">{commentRow.company_cvr}</p>
+                <p className="text-xs text-slate-500">{commentRow.contact_person} · {fmtDate(commentRow.created_at)}</p>
               </div>
-            </dl>
+              <p className="whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed text-slate-800">
+                {commentRow.comment}
+              </p>
+            </div>
           )}
         </DialogContent>
       </Dialog>
