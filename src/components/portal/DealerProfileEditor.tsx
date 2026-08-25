@@ -7,6 +7,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, AlertCircle, Save, Plus, Trash2, Loader2 } from "lucide-react";
+import { useBeforeUnload } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/components/ui/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 import type { Language } from "@/types/configurator";
@@ -50,6 +61,25 @@ const ROLE_KEYS_WORKSHOP: ProfileI18nKey[] = [
 const ROLE_KEYS_DIRECTOR: ProfileI18nKey[] = [
   "roleDirector", "roleOwner", "roleManagingDirector", "roleOther",
 ];
+
+const PROFILE_PATCH_KEYS = [
+  "address_line_1", "address_line_2", "postal_code", "city", "country",
+  "vat_number", "director_name", "phone", "email",
+  "latitude", "longitude", "google_place_id", "geocoded_at",
+  "geocoding_status", "geocoding_error",
+  "finance_contact_name", "finance_contact_phone", "finance_contact_email",
+  "invoice_email", "payment_terms", "currency_code",
+  "website", "social_facebook", "social_linkedin", "social_tiktok",
+  "social_youtube", "social_instagram",
+  "sales_contact_name", "sales_contact_phone", "sales_contact_email",
+  "sales_has_multiple",
+  "workshop_contact_name", "workshop_contact_phone", "workshop_contact_email",
+  "workshop_has_multiple",
+  "marketing_contact_name", "marketing_contact_phone", "marketing_contact_email",
+] as const satisfies readonly (keyof UpdateDealerAccountPatch)[];
+
+type ProfilePatchKey = (typeof PROFILE_PATCH_KEYS)[number];
+type SavingSection = SectionKey | "leave";
 
 // ---------- module-scope helpers (stable component identity) ----------
 
@@ -183,6 +213,18 @@ function SectionShell({ skey, title, status, saving, canEdit, onSave, t, childre
   );
 }
 
+function buildProfilePatch(draft: DealerAccount): UpdateDealerAccountPatch {
+  const patch: UpdateDealerAccountPatch = {};
+  for (const key of PROFILE_PATCH_KEYS) {
+    patch[key] = draft[key] as never;
+  }
+  return patch;
+}
+
+function profileValue(value: DealerAccount[ProfilePatchKey]) {
+  return value ?? null;
+}
+
 // ---------- main component ----------
 
 export default function DealerProfileEditor({ dealer, language, canEdit, onUpdated }: Props) {
@@ -195,14 +237,17 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
 
 
   const [draft, setDraft] = useState<DealerAccount>(dealer);
-  const [savingSection, setSavingSection] = useState<SectionKey | null>(null);
+  const [savedDealer, setSavedDealer] = useState<DealerAccount>(dealer);
+  const [savingSection, setSavingSection] = useState<SavingSection | null>(null);
   const [contacts, setContacts] = useState<DealerContact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [directorHasMultiple, setDirectorHasMultiple] = useState(false);
+  const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
 
   // Only re-sync draft when the dealer id changes — not on every prop ref change.
   useEffect(() => {
     setDraft(dealer);
+    setSavedDealer(dealer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealer.id]);
 
@@ -222,6 +267,45 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
 
   const completion = useMemo(() => computeCompletion(draft), [draft]);
 
+  const hasUnsavedChanges = useMemo(() => (
+    PROFILE_PATCH_KEYS.some((key) => profileValue(draft[key]) !== profileValue(savedDealer[key]))
+  ), [draft, savedDealer]);
+
+  useBeforeUnload((event) => {
+    if (!canEdit || !hasUnsavedChanges) return;
+    event.preventDefault();
+    event.returnValue = "";
+  }, { capture: true });
+
+  useEffect(() => {
+    if (!canEdit || !hasUnsavedChanges) return;
+
+    const handleClick = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented
+        || event.button !== 0
+        || event.metaKey
+        || event.ctrlKey
+        || event.shiftKey
+        || event.altKey
+      ) return;
+
+      const target = event.target instanceof Element ? event.target : null;
+      const anchor = target?.closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) return;
+
+      const href = anchor.href;
+      if (!href || href === window.location.href || href.startsWith("mailto:") || href.startsWith("tel:")) return;
+
+      event.preventDefault();
+      event.stopPropagation();
+      setPendingLeaveHref(href);
+    };
+
+    document.addEventListener("click", handleClick, true);
+    return () => document.removeEventListener("click", handleClick, true);
+  }, [canEdit, hasUnsavedChanges]);
+
   const set = <K extends keyof DealerAccount>(key: K, value: DealerAccount[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
@@ -237,16 +321,28 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
       geocoding_error: null,
     }));
 
-  const saveSection = async (section: SectionKey, patch: UpdateDealerAccountPatch) => {
-    if (!canEdit) return;
+  const saveAllProfile = async (section: SavingSection): Promise<boolean> => {
+    if (!canEdit) return false;
     setSavingSection(section);
     try {
-      const res = await updateDealerAccount(dealer.id, patch);
+      const res = await updateDealerAccount(dealer.id, buildProfilePatch(draft));
       if (!res.ok) {
         toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
+        return false;
       } else {
+        const contactResults = await Promise.all(contacts.map((c) => persistContact(c)));
+        const contactError = contactResults.find((r) => !r.ok)?.error;
+        if (contactError) {
+          toast({ title: t("saveError"), description: contactError, variant: "destructive" });
+          return false;
+        }
         toast({ title: t("saved") });
-        if (res.row) { setDraft(res.row); onUpdated?.(res.row); }
+        if (res.row) {
+          setDraft(res.row);
+          setSavedDealer(res.row);
+          onUpdated?.(res.row);
+        }
+        return true;
       }
     } finally {
       setSavingSection(null);
@@ -263,11 +359,15 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   };
   const patchContact = (id: string, patch: Partial<DealerContact>) =>
     setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  const saveContact = async (c: DealerContact) => {
+  const persistContact = async (c: DealerContact) => {
     const res = await upsertDealerContact({
       id: c.id, dealer_account_id: c.dealer_account_id, contact_area: c.contact_area,
       role_title: c.role_title, name: c.name, email: c.email, phone: c.phone, is_primary: c.is_primary,
     });
+    return res;
+  };
+  const saveContact = async (c: DealerContact) => {
+    const res = await persistContact(c);
     if (!res.ok) toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
   };
   const removeContact = async (id: string) => {
@@ -279,7 +379,23 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   const statusOf = (key: SectionKey) =>
     completion.sections.find((s) => s.key === key) ?? { complete: false, filled: 0, required: 0 };
 
+  const leaveHref = pendingLeaveHref;
+  const leaveWithoutSaving = () => {
+    if (!leaveHref) return;
+    setPendingLeaveHref(null);
+    window.location.assign(leaveHref);
+  };
+  const saveAndLeave = async () => {
+    if (!leaveHref) return;
+    const ok = await saveAllProfile("leave");
+    if (ok) {
+      setPendingLeaveHref(null);
+      window.location.assign(leaveHref);
+    }
+  };
+
   return (
+    <>
     <div className="space-y-6">
       {/* Progress strip */}
       <Card>
@@ -311,17 +427,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
       <SectionShell
         skey="company" title={t("sec1")} status={statusOf("company")}
         saving={savingSection === "company"} canEdit={canEdit} t={t}
-        onSave={() => saveSection("company", {
-          address_line_1: draft.address_line_1, address_line_2: draft.address_line_2,
-          postal_code: draft.postal_code, city: draft.city,
-          country: draft.country, vat_number: draft.vat_number, director_name: draft.director_name,
-          phone: draft.phone, email: draft.email,
-          latitude: draft.latitude, longitude: draft.longitude,
-          google_place_id: draft.google_place_id,
-          geocoded_at: draft.geocoded_at,
-          geocoding_status: draft.geocoding_status,
-          geocoding_error: draft.geocoding_error,
-        })}
+        onSave={() => void saveAllProfile("company")}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field id="company_name" label={t("companyName")} value={draft.company_name} onChange={() => {}} disabled required />
@@ -401,14 +507,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
       <SectionShell
         skey="finance" title={t("sec2")} status={statusOf("finance")}
         saving={savingSection === "finance"} canEdit={canEdit} t={t}
-        onSave={() => saveSection("finance", {
-          finance_contact_name: draft.finance_contact_name,
-          finance_contact_phone: draft.finance_contact_phone,
-          finance_contact_email: draft.finance_contact_email,
-          invoice_email: draft.invoice_email,
-          payment_terms: draft.payment_terms,
-          currency_code: draft.currency_code,
-        })}
+        onSave={() => void saveAllProfile("finance")}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field id="finance_contact_name" label={t("financeContactName")} value={draft.finance_contact_name} onChange={(v) => set("finance_contact_name", v)} disabled={!canEdit} required />
@@ -426,12 +525,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         <SectionShell
           skey="sales" title={t("sec4")} status={statusOf("sales")}
           saving={savingSection === "sales"} canEdit={canEdit} t={t}
-          onSave={() => saveSection("sales", {
-            sales_contact_name: draft.sales_contact_name,
-            sales_contact_phone: draft.sales_contact_phone,
-            sales_contact_email: draft.sales_contact_email,
-            sales_has_multiple: draft.sales_has_multiple,
-          })}
+          onSave={() => void saveAllProfile("sales")}
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Field id="sales_contact_name"  label={t("salesContactName")} value={draft.sales_contact_name}  onChange={(v) => set("sales_contact_name", v)} disabled={!canEdit} required />
@@ -453,12 +547,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         <SectionShell
           skey="workshop" title={t("sec5")} status={statusOf("workshop")}
           saving={savingSection === "workshop"} canEdit={canEdit} t={t}
-          onSave={() => saveSection("workshop", {
-            workshop_contact_name: draft.workshop_contact_name,
-            workshop_contact_phone: draft.workshop_contact_phone,
-            workshop_contact_email: draft.workshop_contact_email,
-            workshop_has_multiple: draft.workshop_has_multiple,
-          })}
+          onSave={() => void saveAllProfile("workshop")}
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Field id="workshop_contact_name"  label={t("workshopContactName")} value={draft.workshop_contact_name}  onChange={(v) => set("workshop_contact_name", v)} disabled={!canEdit} required />
@@ -483,11 +572,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         <SectionShell
           skey="marketing" title={t("sec6")} status={statusOf("marketing")}
           saving={savingSection === "marketing"} canEdit={canEdit} t={t}
-          onSave={() => saveSection("marketing", {
-            marketing_contact_name: draft.marketing_contact_name,
-            marketing_contact_phone: draft.marketing_contact_phone,
-            marketing_contact_email: draft.marketing_contact_email,
-          })}
+          onSave={() => void saveAllProfile("marketing")}
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Field id="marketing_contact_name"  label={t("marketingContactName")} value={draft.marketing_contact_name}  onChange={(v) => set("marketing_contact_name", v)} disabled={!canEdit} required />
@@ -500,14 +585,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         <SectionShell
           skey="media" title={t("sec3")} status={statusOf("media")}
           saving={savingSection === "media"} canEdit={canEdit} t={t}
-          onSave={() => saveSection("media", {
-            website: draft.website,
-            social_facebook: draft.social_facebook,
-            social_linkedin: draft.social_linkedin,
-            social_tiktok: draft.social_tiktok,
-            social_youtube: draft.social_youtube,
-            social_instagram: draft.social_instagram,
-          })}
+          onSave={() => void saveAllProfile("media")}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field id="website" label={t("website")} value={draft.website} onChange={(v) => set("website", v)} disabled={!canEdit} required />
@@ -520,6 +598,31 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         </SectionShell>
       </div>
     </div>
+    <AlertDialog open={pendingLeaveHref !== null} onOpenChange={(open) => { if (!open && savingSection !== "leave") setPendingLeaveHref(null); }}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Vil du gemme disse oplysninger?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Du har ændret oplysninger i forhandlerprofilen. Vælg Ja for at gemme alt, eller Nej for at gå videre uden at gemme.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={savingSection === "leave"} onClick={leaveWithoutSaving}>
+            Nej
+          </AlertDialogCancel>
+          <AlertDialogAction
+            disabled={savingSection === "leave"}
+            onClick={(event) => {
+              event.preventDefault();
+              void saveAndLeave();
+            }}
+          >
+            {savingSection === "leave" ? "Gemmer..." : "Ja, gem"}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
