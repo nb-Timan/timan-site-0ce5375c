@@ -186,6 +186,19 @@ const L: Record<string, Record<Language, string>> = {
 };
 const tl = (k: keyof typeof L, lang: Language): string => L[k][lang] ?? L[k].da;
 
+function isServicePartnerAccount(d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type">): boolean {
+  return [d.customer_type, d.customer_type_label, d.dealer_type].some((value) => {
+    const normalized = (value ?? "").toLowerCase().replace(/[\s_-]+/g, "");
+    return normalized === "servicepartner";
+  });
+}
+
+function collaborationPartnerLabel(d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type">): string {
+  if (isDealerCustomerAccount(d)) return "Forhandlerkunde";
+  if (isServicePartnerAccount(d)) return "Servicepartner";
+  return "Samarbejdspartner";
+}
+
 const NOTE_TYPE_LABEL: Record<DealerNoteType, string> = {
   general: "Generel note", call: "Opkald", visit: "Besøg",
   follow_up: "Opfølgning", demo: "Demo", offer: "Tilbud", service: "Service",
@@ -479,6 +492,13 @@ export default function CrmDealerDetailPage() {
   const dealerCustomers = dealers
     .filter((d) => d.parent_account_number === mainAccountNumber && isDealerCustomerAccount(d))
     .sort((a, b) => (a.branch_name || a.company_name).localeCompare(b.branch_name || b.company_name, "da"));
+  const collaborationPartners = dealers
+    .filter((d) => {
+      if (d.parent_account_number !== mainAccountNumber) return false;
+      if (d.is_deleted || d.is_blocked) return false;
+      return isDealerCustomerAccount(d) || isServicePartnerAccount(d);
+    })
+    .sort((a, b) => (a.branch_name || a.company_name).localeCompare(b.branch_name || b.company_name, "da"));
 
   const sellerCtx = getActiveSellerView(appUser.email);
   const effInitials = getEffectiveSellerInitials(appUser);
@@ -769,6 +789,11 @@ export default function CrmDealerDetailPage() {
                   </ul>
                 )}
               </div>
+
+              <CollaborationPartnersPanel
+                partners={collaborationPartners}
+                onOpen={(d) => navigate(`/portal/crm/my-dealers/${d.account_number}`)}
+              />
             </div>
           </div>
         </TabsContent>
@@ -848,6 +873,64 @@ function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: strin
       </div>
       <div className="mt-1 text-lg font-bold text-slate-900">{value}</div>
       {hint && <div className="text-[10px] text-slate-400 mt-0.5">{hint}</div>}
+    </div>
+  );
+}
+
+function CollaborationPartnersPanel({
+  partners,
+  onOpen,
+}: {
+  partners: DealerAccount[];
+  onOpen: (dealer: DealerAccount) => void;
+}) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Samarbejdspartnere</h3>
+        <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold">
+          {partners.length}
+        </span>
+      </div>
+      {partners.length === 0 ? (
+        <p className="text-sm text-slate-500">Ingen samarbejdspartnere tilknyttet endnu.</p>
+      ) : (
+        <div className="max-h-64 overflow-y-auto pr-1">
+          <ul className="space-y-2">
+            {partners.map((partner) => {
+              const label = collaborationPartnerLabel(partner);
+              const location = [partner.postal_code, partner.city].filter(Boolean).join(" ");
+              return (
+                <li key={partner.id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpen(partner)}
+                    className="w-full rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-left transition-colors hover:border-emerald-200 hover:bg-emerald-50/60"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-slate-900">
+                          {partner.branch_name || partner.company_name}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">
+                            {label}
+                          </span>
+                          {partner.account_number && (
+                            <span className="font-mono text-[10px] text-slate-400">#{partner.account_number}</span>
+                          )}
+                        </div>
+                        {location && <div className="mt-1 text-xs text-slate-500 truncate">{location}</div>}
+                      </div>
+                      <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
