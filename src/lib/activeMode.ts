@@ -64,7 +64,7 @@ export const ROLE_PREVIEWS: readonly RolePreview[] = [
   { key: 'timan_service',         label: 'Timan Service' },
   { key: 'timan_importer',        label: 'Timan Importør' },
   { key: 'timan_service_partner', label: 'Timan ServicePartner' },
-  { key: 'dealer_user',           label: 'Dealer User' },
+  { key: 'dealer_user',           label: 'Forhandlerbruger' },
   { key: 'exhibition_user',       label: 'Timan Messe' },
 ];
 

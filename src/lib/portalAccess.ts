@@ -23,6 +23,7 @@ export type PortalRole =
   | 'timan_dealer'
   | 'timan_service_partner'
   | 'dealer_user'
+  | 'private_end_user'
   | 'exhibition_user'
   | 'pending';
 
@@ -34,6 +35,7 @@ export const PORTAL_ROLES: PortalRole[] = [
   'timan_dealer',
   'timan_service_partner',
   'dealer_user',
+  'private_end_user',
   'exhibition_user',
   'pending',
 ];
@@ -46,7 +48,8 @@ export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = 
   timan_importer:        { da: 'Timan Importør',        en: 'Timan Importer',        de: 'Timan Importeur',       it: 'Importatore Timan',     hu: 'Timan Importőr' },
   timan_dealer:          { da: 'Timan Forhandler',      en: 'Timan Dealer',          de: 'Timan Händler',         it: 'Rivenditore Timan',     hu: 'Timan Kereskedő' },
   timan_service_partner: { da: 'Timan Service Partner', en: 'Timan Service Partner', de: 'Timan Service-Partner', it: 'Partner di Servizio',   hu: 'Timan Szervizpartner' },
-  dealer_user:           { da: 'Dealer User',           en: 'Dealer User',           de: 'Händler-Nutzer',        it: 'Utente Rivenditore',    hu: 'Kereskedői Felhasználó' },
+  dealer_user:           { da: 'Forhandlerbruger',      en: 'Forhandlerbruger',      de: 'Forhandlerbruger',      it: 'Forhandlerbruger',      hu: 'Forhandlerbruger' },
+  private_end_user:      { da: 'Privat / Slutbruger',   en: 'Privat / Slutbruger',   de: 'Privat / Slutbruger',   it: 'Privat / Slutbruger',   hu: 'Privat / Slutbruger' },
   exhibition_user:       { da: 'Timan Messe',           en: 'Timan Exhibition',      de: 'Timan Messe',           it: 'Timan Fiera',           hu: 'Timan Kiállítás' },
   pending:               { da: 'Afventer godkendelse',  en: 'Pending approval',      de: 'Wartet auf Genehmigung',it: 'In attesa di approvazione', hu: 'Jóváhagyásra vár' },
 };
@@ -113,6 +116,8 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   dealer_user: [
     'salg_marketing', 'byg_din_timan', 'resources', 'sales_tools', 'videos',
   ],
+  // Private / end user — no portal modules by default.
+  private_end_user: [],
   // Public exhibition / fair demo session — NO portal modules.
   // The /messe pages are public and bypass module_access entirely.
   exhibition_user: [],
@@ -168,6 +173,7 @@ export function getPortalPermissions(role: PortalRole): PortalPermissions {
     case 'timan_service_partner': return FULL;
     // Read-only
     case 'dealer_user':           return READ_ONLY;
+    case 'private_end_user':      return READ_ONLY;
     // Public exhibition demo — no writes, no orders, no claims.
     case 'exhibition_user':       return READ_ONLY;
     default:                      return READ_ONLY;

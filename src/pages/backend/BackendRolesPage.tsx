@@ -26,6 +26,7 @@ const ROLE_DESCRIPTION: Record<PortalRole, string> = {
   timan_dealer:          "Forhandler — bygger maskiner, indsender tilbud, ordrer og claims.",
   timan_service_partner: "Service Partner — opretter og følger op på claims og garantisager.",
   dealer_user:           "Læseadgang for forhandleransatte uden redigerings-rettigheder.",
+  private_end_user:      "Privat / slutbruger — begrænset adgang uden forhandler- eller backend-moduler.",
   exhibition_user:       "Timan Messe — offentlig demo-adgang via QR-kode på messer. Ingen CRM, ordrer eller dealerdata.",
   pending:               "Ny bruger — afventer godkendelse fra Timan Backend admin.",
 };
