@@ -48,8 +48,8 @@ export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = 
   timan_importer:        { da: 'Timan Importør',        en: 'Timan Importer',        de: 'Timan Importeur',       it: 'Importatore Timan',     hu: 'Timan Importőr' },
   timan_dealer:          { da: 'Timan Forhandler',      en: 'Timan Dealer',          de: 'Timan Händler',         it: 'Rivenditore Timan',     hu: 'Timan Kereskedő' },
   timan_service_partner: { da: 'Timan Service Partner', en: 'Timan Service Partner', de: 'Timan Service-Partner', it: 'Partner di Servizio',   hu: 'Timan Szervizpartner' },
-  dealer_user:           { da: 'Forhandlerbruger',      en: 'Dealer user',           de: 'Händler-Nutzer',        it: 'Utente Rivenditore',    hu: 'Kereskedői Felhasználó' },
-  private_end_user:      { da: 'Privat / Slutbruger',   en: 'Private / End user',    de: 'Privat / Endkunde',     it: 'Privato / Cliente finale', hu: 'Magán / végfelhasználó' },
+  dealer_user:           { da: 'Forhandlerbruger',      en: 'Forhandlerbruger',      de: 'Forhandlerbruger',      it: 'Forhandlerbruger',      hu: 'Forhandlerbruger' },
+  private_end_user:      { da: 'Privat / Slutbruger',   en: 'Privat / Slutbruger',   de: 'Privat / Slutbruger',   it: 'Privat / Slutbruger',   hu: 'Privat / Slutbruger' },
   exhibition_user:       { da: 'Timan Messe',           en: 'Timan Exhibition',      de: 'Timan Messe',           it: 'Timan Fiera',           hu: 'Timan Kiállítás' },
   pending:               { da: 'Afventer godkendelse',  en: 'Pending approval',      de: 'Wartet auf Genehmigung',it: 'In attesa di approvazione', hu: 'Jóváhagyásra vár' },
 };
@@ -109,17 +109,15 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
     'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
   ],
-  // Forhandlerbruger: employee at a linked dealer/customer account.
-  // Backend admins can grant extra service modules per user.
-  // Timan CRM and Timan Backend are never granted to this external role.
+  // Read-only / visual access only.
+  // Dealer User is intentionally restricted to Salg & Marketing.
+  // Forhandlerdata is granted only when admins set `allowed_areas` explicitly.
+  // Teknik & Service, Timan CRM and Timan Backend are NEVER granted.
   dealer_user: [
-    'salg_marketing', 'dealer_data', 'byg_din_timan', 'resources', 'sales_tools', 'videos',
-  ],
-  // Private/end-user: same light product experience as the Messe portal by default,
-  // but as a real approved user role and without CRM/backend access.
-  private_end_user: [
     'salg_marketing', 'byg_din_timan', 'resources', 'sales_tools', 'videos',
   ],
+  // Private / end user — no portal modules by default.
+  private_end_user: [],
   // Public exhibition / fair demo session — NO portal modules.
   // The /messe pages are public and bypass module_access entirely.
   exhibition_user: [],
@@ -221,7 +219,7 @@ export function hasInternalMesseAccess(
   if (!user || isMesseVariantUser(user)) return false;
   const role = derivePortalRole(user);
   if (role === 'timan_backend' || role === 'timan_seller' || role === 'timan_service') return true;
-  const externalRoles: PortalRole[] = ['timan_importer', 'timan_dealer', 'timan_service_partner', 'dealer_user', 'private_end_user', 'exhibition_user'];
+  const externalRoles: PortalRole[] = ['timan_importer', 'timan_dealer', 'timan_service_partner', 'dealer_user', 'exhibition_user'];
   if (role && externalRoles.includes(role)) return false;
   return user.role !== 'partner' && Array.isArray(user.allowed_areas) && user.allowed_areas.includes('salg_marketing');
 }

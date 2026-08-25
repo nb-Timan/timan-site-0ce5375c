@@ -61,7 +61,7 @@ export default function MiscPageShell({ title, intro, hideHeader = false, backTo
   if (!appUser) return <Navigate to="/portal" replace />;
   {
     const portalRoleRaw = (appUser as { portal_role?: string | null }).portal_role ?? null;
-    const dealerSideRoles = new Set(['timan_dealer','timan_importer','timan_service_partner','dealer_user','private_end_user','timan_backend','timan_seller','timan_service']);
+    const dealerSideRoles = new Set(['timan_dealer','timan_importer','timan_service_partner','dealer_user','timan_backend','timan_seller','timan_service']);
     if (appUser.role === 'slutkunde' && !(portalRoleRaw && dealerSideRoles.has(portalRoleRaw))) {
       return <Navigate to="/configurator" replace />;
     }

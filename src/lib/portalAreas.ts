@@ -146,10 +146,10 @@ export function isAreaVisible(
   // is no portal_role to grant access.
   if (user.role === 'slutkunde' && !portalRole) return false;
 
-  // External user roles are hard-locked out of Timan CRM and Timan Backend.
-  // Teknik & Service can be granted per user to forhandlerbrugere.
-  if ((portalRole === 'dealer_user' || portalRole === 'private_end_user') && (
-    area.id === 'timan_crm' || area.id === 'timan_backend'
+  // Dealer User is hard-locked out of Teknik & Service, Timan CRM and
+  // Timan Backend regardless of any module_access / allowed_areas override.
+  if (portalRole === 'dealer_user' && (
+    area.id === 'teknik_service' || area.id === 'timan_crm' || area.id === 'timan_backend'
   )) {
     return false;
   }
@@ -176,8 +176,7 @@ export function isAreaVisible(
       portalRole === 'timan_service' ||
       portalRole === 'timan_importer' ||
       portalRole === 'timan_dealer' ||
-      portalRole === 'timan_service_partner' ||
-      portalRole === 'dealer_user'
+      portalRole === 'timan_service_partner'
     );
   }
 

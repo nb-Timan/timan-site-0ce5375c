@@ -87,7 +87,6 @@ export interface BackendUser {
   backend_modules: BackendMetaModule[];
   perms: {
     can_create_claims: boolean;
-    can_create_warranty: boolean;
     can_approve_claims: boolean;
     can_create_tsb: boolean;
     can_manage_users: boolean;
@@ -136,8 +135,6 @@ function seedUser(
     .filter((m) => !(ALL_AREAS as string[]).includes(m));
   const isBackend = role === "timan_backend";
   const isInternal = role === "timan_backend" || role === "timan_seller" || role === "timan_service";
-  const isPrivateEndUser = role === "private_end_user";
-  const canSubmitOrder = role !== "timan_service" && role !== "dealer_user" && role !== "private_end_user";
   return {
     ...partial,
     company: "Timan",
@@ -155,8 +152,7 @@ function seedUser(
     allowed_modules: allowedModules,
     backend_modules: isBackend ? [...BACKEND_META_MODULES] : [],
     perms: {
-      can_create_claims: !isBackend && !isPrivateEndUser, // backend reviews; sellers/service/dealers create
-      can_create_warranty: !isBackend && !isPrivateEndUser,
+      can_create_claims: !isBackend, // backend reviews; sellers/service/dealers create
       can_approve_claims: isInternal,
       can_create_tsb: isBackend,
       can_manage_users: isBackend,
@@ -165,7 +161,7 @@ function seedUser(
       can_save_configurator_as_lead: isBackend || role === "timan_seller",
       news_manage: isBackend,
       can_view_prices: true,
-      can_submit_order: canSubmitOrder,
+      can_submit_order: role !== "timan_service" && role !== "dealer_user",
     },
 
     account_owner_user_id: null,

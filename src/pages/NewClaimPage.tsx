@@ -225,8 +225,7 @@ export default function NewClaimPage() {
     if (authLoading || !appUser) return;
     const role = derivePortalRole(appUser);
     const perms = role ? getPortalPermissions(role) : null;
-    const explicitCanCreateClaim = appUser.permissions?.can_create_claims === true;
-    if (perms && !perms.canCreateClaim && !explicitCanCreateClaim) {
+    if (perms && !perms.canCreateClaim) {
       toast.error(role === 'dealer_user' ? pickT(T.readOnlyMsg, uiLang) : pickT(T.noAccess, uiLang));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -245,7 +244,7 @@ export default function NewClaimPage() {
   const portalRole = derivePortalRole(appUser);
   const allowed = hasModuleAccess(portalRole, 'claims', (appUser.module_access as ModuleAccessKey[] | null | undefined) ?? null);
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
-  const canCreate = !!perms?.canCreateClaim || appUser.permissions?.can_create_claims === true;
+  const canCreate = !!perms?.canCreateClaim;
   const viewVariant = getClaimsViewVariant(portalRole);
 
   // Hard redirect for roles that cannot create claims

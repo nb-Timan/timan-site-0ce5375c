@@ -126,7 +126,7 @@ export async function buildConfiguratorOwnership(
     sellerInitials = initialsFromDisplayName(appUser.display_name) ?? null;
     sellerName = appUser.display_name ?? appUser.email ?? null;
   }
-  // External roles (dealer/importer/service-partner/dealer_user/private_end_user) do not set a seller.
+  // External roles (dealer/importer/service-partner/dealer_user) do not set a seller.
 
   // ── Seller override (from in-configurator picker) ────────────────────
   // Only honoured for backend / timan_seller users. For external roles the

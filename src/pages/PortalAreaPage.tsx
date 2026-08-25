@@ -92,11 +92,11 @@ export default function PortalAreaPage({ areaId }: Props) {
   if (!appUser) return <Navigate to="/portal" replace />;
   // Only true end-customers without any portal role get redirected to the
   // configurator. Dealer-side users (timan_dealer, timan_importer,
-  // timan_service_partner, dealer_user, private_end_user, internal staff) must see the area.
+  // timan_service_partner, dealer_user, internal staff) must see the area.
   {
     const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
     const dealerSideRoles = new Set([
-      'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_user', 'private_end_user',
+      'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_user',
       'timan_backend', 'timan_seller', 'timan_service',
     ]);
     const hasPortalAccess = portalRole ? dealerSideRoles.has(portalRole) : false;

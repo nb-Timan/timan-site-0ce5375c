@@ -27,8 +27,6 @@ import {
   derivePortalRole,
   getPortalPermissions,
   getWarrantyViewVariant,
-  hasModuleAccess,
-  ModuleAccessKey,
 } from "@/lib/portalAccess";
 
 type Page = "dashboard" | "registrations" | "new" | "sync";
@@ -55,8 +53,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
   }
 
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
-  const allowed = hasModuleAccess(portalRole, 'warranty', (appUser.module_access as ModuleAccessKey[] | null | undefined) ?? null);
-  const canCreate = allowed && (!!perms?.canCreateWarranty || appUser.permissions?.can_create_warranty === true);
+  const canCreate = !!perms?.canCreateWarranty;
   const readOnly = !perms?.canEditData;
   const dealerName = appUser.company_dealer ?? "";
 

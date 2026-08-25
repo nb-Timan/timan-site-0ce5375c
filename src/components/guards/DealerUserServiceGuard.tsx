@@ -1,21 +1,25 @@
 import { ReactNode } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
-import { derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { derivePortalRole } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 
 /**
- * Blocks Forhandlerbruger from Teknik & Service URLs unless the user has
- * been granted Teknik & Service access explicitly.
+ * Blocks Dealer User from any Teknik & Service URL.
+ *
+ * Dealer User is restricted to Salg & Marketing (and optionally
+ * Forhandlerdata when explicitly allowed). Direct URL access to
+ * /portal/service/*, /portal/claims, /portal/warranty, /portal/tsb,
+ * /portal/teknik-service is redirected to /portal.
+ *
+ * All other roles (Backend, Sælger, Service, Importør, Forhandler,
+ * Service Partner, Messe) pass through unchanged.
  */
 export function DealerUserServiceGuard({ children }: { children?: ReactNode }) {
   const { appUser, loading } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser) ?? appUser;
   if (loading) return null;
   const role = derivePortalRole(effectiveUser);
-  const moduleOverride = (effectiveUser?.module_access ?? null) as ModuleAccessKey[] | null;
-  if (role === 'dealer_user' && !hasModuleAccess(role, 'teknik_service', moduleOverride)) {
-    return <Navigate to="/portal" replace />;
-  }
+  if (role === 'dealer_user') return <Navigate to="/portal" replace />;
   return <>{children ?? <Outlet />}</>;
 }
