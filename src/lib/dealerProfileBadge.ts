@@ -24,6 +24,7 @@ import {
 import { listDealerContacts } from "@/lib/dealerContactsService";
 import { computeCompletion, type SectionKey } from "@/lib/dealerProfileCompletion";
 import { derivePortalRole } from "@/lib/portalAccess";
+import type { AppUser } from "@/data/appUsers";
 import {
   getActiveSellerView,
   getEffectiveSellerEmail,
@@ -220,8 +221,8 @@ export function useDealerPortfolioProfileBadge(
     display_name?: string | null;
     portal_role?: string | null;
     dealer_number?: string | null;
-    role?: string | null;
-    partner_type?: string | null;
+    role?: AppUser["role"];
+    partner_type?: AppUser["partner_type"];
     module_access?: string[] | null;
   } | null | undefined,
 ): DealerProfileBadge | null {
