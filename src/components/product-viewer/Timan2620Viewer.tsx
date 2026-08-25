@@ -327,6 +327,12 @@ const FODPEDAL_FRONT: PosEntry = {
 
 const STANDARD_FODPEDAL: PosEntry[] = [FODPEDAL_FRONT, FODPEDAL_REAR];
 
+const CAB_FODPEDAL_FRONT: PosEntry = {
+  anchor: { x: 43, y: 57 },
+  callout: { cx: 30, cy: 22 },
+  frame: 1,
+};
+
 const STANDARD_FRONT_BLADE_LAYOUT: Partial<Record<PartId, PosEntry | PosEntry[]>> = {
   dozer_blade: DOZER_BLADE_FRONT,
   fodpedal:   STANDARD_FODPEDAL,
@@ -410,6 +416,27 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
   },
 
   standard_dozer_blade: { ...STANDARD_FRONT_BLADE_LAYOUT },
+
+  standard_v_plow: {
+    v_plow:     { anchor: { x: 25, y: 62 }, callout: { cx: 14, cy: 54 } },
+    fodpedal:   STANDARD_FODPEDAL,
+    motor:      STANDARD_MOTOR,
+    affjedring: STANDARD_AFFJEDRING,
+  },
+
+  cab_v_plow: {
+    v_plow:     { anchor: { x: 24, y: 62 }, callout: { cx: 12, cy: 52 }, frame: 1 },
+    kabine:     { anchor: { x: 48, y: 30 }, callout: { cx: 72, cy: 12 }, frame: 1 },
+    fodpedal:   CAB_FODPEDAL_FRONT,
+    affjedring: affjedring({ x: 56, y: 72 }, 1),
+  },
+
+  cab_dozer_blade: {
+    dozer_blade: { ...DOZER_BLADE_FRONT, frame: 1 },
+    kabine:      { anchor: { x: 48, y: 30 }, callout: { cx: 72, cy: 12 }, frame: 1 },
+    fodpedal:    CAB_FODPEDAL_FRONT,
+    affjedring:  affjedring({ x: 56, y: 72 }, 1),
+  },
 
   // Standard + dozerblad + saltspreder.
   standard_salt_spreader_dozer_blade: {
@@ -495,9 +522,9 @@ function buildHotspots(
   if (equipment.has('v_plow')) visibleParts.add('v_plow');
   if (equipment.has('dozer_blade')) visibleParts.add('dozer_blade');
   if (equipment.has('salt_spreader')) visibleParts.add('salt_spreader');
-  // Fodpedal: Standard base only, rear view (page 2/2), and only when a
-  // dozerblad or saltspreder is fitted.
-  if (imageKey.startsWith('standard')) {
+  // Fodpedal is shown on all standard views and on cabin views that provide
+  // an explicit position.
+  if (imageKey.startsWith('standard') || view.fodpedal) {
     visibleParts.add('fodpedal');
   }
 
