@@ -1594,6 +1594,7 @@ function EditDealerModal({
 interface HeroAction {
   key: string;
   label: string;
+  sublabel?: string;
   icon: React.ReactNode;
   href?: string;
   onClick?: () => void;
@@ -1642,7 +1643,7 @@ function ContactHero({
     primaryRow?.phone || dealer.primary_contact_phone || dealer.sales_contact_phone || null;
 
   // Fallbacks: action cards use company-level data if no primary contact.
-  const callPhone = primaryPhone || dealer.phone || null;
+  const callPhone = dealer.phone || primaryPhone || null;
   const mailAddr  = primaryEmail || dealer.email || null;
 
   const addressLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2, dealer.postal_code, dealer.city, dealer.country]
@@ -1675,7 +1676,7 @@ function ContactHero({
 
   // Only include actions whose data exists.
   const actionsAll: HeroAction[] = [
-    callPhone ? { key: "call",   label: tl("call", lang),          icon: <Phone className="h-5 w-5" />,        href: `tel:${callPhone}` } : null,
+    callPhone ? { key: "call",   label: tl("call", lang), sublabel: callPhone, icon: <Phone className="h-5 w-5" />, href: `tel:${callPhone}` } : null,
     mailAddr  ? { key: "mail",   label: tl("send_mail", lang),     icon: <Mail className="h-5 w-5" />,         href: `mailto:${mailAddr}` } : null,
     mapsHref  ? { key: "route",  label: tl("directions", lang),    icon: <MapPin className="h-5 w-5" />,       href: mapsHref } : null,
     websiteHref ? { key: "web",  label: tl("website", lang),       icon: <Globe className="h-5 w-5" />,        href: websiteHref } : null,
@@ -1755,7 +1756,7 @@ function ContactHero({
 
       {/* Hero card — focus on company contact information */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)] gap-5 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(280px,0.9fr)_minmax(0,2.1fr)] gap-5 items-start">
           {/* Company contact information */}
           <div className="flex items-start gap-4 min-w-0">
             <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-base font-bold shrink-0">
@@ -1791,26 +1792,26 @@ function ContactHero({
 
 
           {/* Action cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2">
             {assignedSellerName && (
-              <div className="col-span-2 sm:col-span-3 lg:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/40 px-3 py-3">
-                <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide font-bold text-emerald-800">
-                  <UserCircle2 className="h-4 w-4" /> Tildelt sælger
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 px-2.5 py-2.5 min-w-0">
+                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-bold text-emerald-800">
+                  <UserCircle2 className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Tildelt sælger</span>
                 </div>
-                <div className="mt-2 text-sm font-bold text-slate-900">{assignedSellerName}</div>
-                <div className="mt-1 space-y-1 text-xs text-slate-600">
+                <div className="mt-2 truncate text-xs font-bold text-slate-900">{assignedSellerName}</div>
+                <div className="mt-1 space-y-1 text-[10px] text-slate-600">
                   {assignedSellerPhone ? (
-                    <a href={`tel:${assignedSellerPhone}`} className="flex items-center gap-1.5 hover:underline">
-                      <Phone className="h-3.5 w-3.5 text-slate-400" /> {assignedSellerPhone}
+                    <a href={`tel:${assignedSellerPhone}`} className="flex items-center gap-1 hover:underline">
+                      <Phone className="h-3 w-3 shrink-0 text-slate-400" /> <span className="truncate">{assignedSellerPhone}</span>
                     </a>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-slate-400">
-                      <Phone className="h-3.5 w-3.5" /> Telefon ikke angivet
+                    <div className="flex items-center gap-1 text-slate-400">
+                      <Phone className="h-3 w-3 shrink-0" /> <span className="truncate">Telefon ikke angivet</span>
                     </div>
                   )}
                   {assignedSellerEmail && (
-                    <a href={`mailto:${assignedSellerEmail}`} className="flex items-center gap-1.5 hover:underline">
-                      <Mail className="h-3.5 w-3.5 text-slate-400" /> {assignedSellerEmail}
+                    <a href={`mailto:${assignedSellerEmail}`} className="flex items-center gap-1 hover:underline">
+                      <Mail className="h-3 w-3 shrink-0 text-slate-400" /> <span className="truncate">{assignedSellerEmail}</span>
                     </a>
                   )}
                 </div>
@@ -1828,6 +1829,7 @@ function ContactHero({
                     {a.icon}
                   </span>
                   <span className="text-[11px] font-semibold leading-tight">{a.label}</span>
+                  {a.sublabel && <span className="max-w-full truncate text-[10px] leading-tight text-slate-500">{a.sublabel}</span>}
                 </>
               );
               if (a.disabled) return <button key={a.key} disabled className={cls}>{inner}</button>;
