@@ -385,7 +385,7 @@ export default function CrmNewDemoLeadPage() {
         competitor_name: competitorsPresent === 'yes' ? (competitorName || null) : null,
         notes_after_demo: notesAfter || null,
         result_status: status,
-        attachments: files,
+        attachments: files as unknown as CrmLeadAttachment[],
         source_lead_id: sourceLeadId,
       });
       toast.success(tt('created_ok', lang));
