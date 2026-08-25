@@ -797,10 +797,7 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
     }
   } catch { /* */ }
 
-  if (fromOrders.length === 0 && fromTable.length === 0) {
-    ensureSeed();
-    return readLS<SalesActual>(LS_ACTUALS);
-  }
+  if (fromOrders.length === 0 && fromTable.length === 0) return [];
 
   // Merge by budget_line_id — orders source wins (it is the live truth).
   const merged = new Map<string, SalesActual>();

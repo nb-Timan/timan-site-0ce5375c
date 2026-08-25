@@ -652,17 +652,24 @@ function dedupOpenLeads(rows: (CrmLead & { legacy_id?: string | null })[]): CrmL
 export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   const limit = opts.limit ?? 200;
   let supRows: CrmLead[] = [];
+  let remoteReadOk = false;
   try {
     let q = supabase.from("crm_leads").select("*").order("created_at", { ascending: false }).limit(limit);
     if (opts.ownerUserId) q = q.eq("owner_user_id", opts.ownerUserId);
     const { data, error } = await q;
     if (error) throw error;
+    remoteReadOk = true;
     if (data) supRows = data as unknown as CrmLead[];
   } catch (err) {
     console.warn("[crm.listLeads] supabase failed → local fallback:", err);
   }
   const deletedIds = readDeletedIds(LS_DELETED_LEADS);
   supRows = supRows.filter((r) => !deletedIds.has(r.id));
+  if (remoteReadOk) {
+    const remoteOnly = ensureLeadNumbers([...supRows]);
+    remoteOnly.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+    return remoteOnly.slice(0, limit);
+  }
   const localRows = readLS<CrmLead>(LS_LEADS).filter((r) => !deletedIds.has(r.id));
   const seeded = seedOpenLeads().filter((r) => !deletedIds.has(r.id));
   let merged = dedupOpenLeads([...supRows, ...localRows, ...seeded] as any);
@@ -848,11 +855,13 @@ function dedupDemoRows(rows: CrmDemoLead[]): CrmDemoLead[] {
 export async function listDemoLeads(opts: ListLeadsOpts = {}): Promise<CrmDemoLead[]> {
   const limit = opts.limit ?? 500;
   let supRows: CrmDemoLead[] = [];
+  let remoteReadOk = false;
   try {
     let q = supabase.from("crm_demo_leads").select("*").order("created_at", { ascending: false }).limit(limit);
     if (opts.ownerUserId) q = q.eq("owner_user_id", opts.ownerUserId);
     const { data, error } = await q;
     if (error) throw error;
+    remoteReadOk = true;
     if (data) supRows = data as unknown as CrmDemoLead[];
   } catch (err) {
     console.warn("[crm.listDemoLeads] supabase failed → local fallback:", err);
@@ -860,6 +869,17 @@ export async function listDemoLeads(opts: ListLeadsOpts = {}): Promise<CrmDemoLe
 
   const deletedIds = readDeletedIds(LS_DELETED_DEMO);
   supRows = supRows.filter((r) => !deletedIds.has(r.id));
+  if (remoteReadOk) {
+    const remoteOnly = ensureDemoNumbers([...supRows]);
+    if (opts.ownerUserId) {
+      return remoteOnly
+        .filter(r => r.owner_user_id === opts.ownerUserId)
+        .sort((a, b) => (b.created_at || b.demo_date || "").localeCompare(a.created_at || a.demo_date || ""))
+        .slice(0, limit);
+    }
+    remoteOnly.sort((a, b) => (b.created_at || b.demo_date || "").localeCompare(a.created_at || a.demo_date || ""));
+    return remoteOnly.slice(0, limit);
+  }
   const localRows = readLS<CrmDemoLead>(LS_DEMO).filter((r) => !deletedIds.has(r.id));
   const seeded = seedDemoRows().filter((r) => !deletedIds.has(r.id));
   // Merge order: user-created (supabase / local) first so they win on dedup.
