@@ -59,6 +59,7 @@ export interface CrmConfigurationRow {
   active_mode: string | null;
   owner_status: string | null;
 
+  lead_id: string | null;
   quote_sent_at: string | null;
   order_sent_at: string | null;
   submitted_at: string | null;

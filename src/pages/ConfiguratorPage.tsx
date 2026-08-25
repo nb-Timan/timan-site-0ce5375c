@@ -82,6 +82,7 @@ const EUR_ONLY_ITEM_IDS = new Set(['712188']);
 
 type MesseProfileAppUser = AppUser & {
   dealer_number?: string | null;
+  company_dealer?: string | null;
   portal_variant?: string | null;
   portal_role?: string | null;
 };

@@ -22,7 +22,7 @@ export type ProfileI18nKey =
   | "roleDirector" | "roleOwner" | "roleManagingDirector"
   | "roleSalesDirector" | "roleSalesRep" | "roleKeyAccount"
   | "roleWorkshopManager" | "roleMechanic" | "rolePartsManager" | "roleStockManager" | "roleServiceCoord"
-  | "roleOther";
+  | "roleOther" | "area_primary";
 
 const dict: Record<Language, Record<ProfileI18nKey, string>> = {
   da: {
@@ -52,7 +52,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleDirector: "Direktør", roleOwner: "Ejer", roleManagingDirector: "Daglig leder",
     roleSalesDirector: "Salgsdirektør", roleSalesRep: "Sælger", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Værkstedschef", roleMechanic: "Mekaniker", rolePartsManager: "Reservedelsansvarlig",
-    roleStockManager: "Lageransvarlig", roleServiceCoord: "Servicekoordinator", roleOther: "Andet",
+    roleStockManager: "Lageransvarlig", roleServiceCoord: "Servicekoordinator", roleOther: "Andet", area_primary: "Primær",
   },
   en: {
     profileTitle: "Dealer profile",
@@ -79,7 +79,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleDirector: "Director", roleOwner: "Owner", roleManagingDirector: "Managing director",
     roleSalesDirector: "Sales Director", roleSalesRep: "Sales Rep", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Workshop Manager", roleMechanic: "Mechanic", rolePartsManager: "Parts Manager",
-    roleStockManager: "Stock Manager", roleServiceCoord: "Service Coordinator", roleOther: "Other",
+    roleStockManager: "Stock Manager", roleServiceCoord: "Service Coordinator", roleOther: "Other", area_primary: "Primary",
   },
   de: {
     profileTitle: "Händlerprofil",
@@ -103,7 +103,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleDirector: "Geschäftsführer", roleOwner: "Inhaber", roleManagingDirector: "Betriebsleiter",
     roleSalesDirector: "Vertriebsleiter", roleSalesRep: "Verkäufer", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Werkstattleiter", roleMechanic: "Mechaniker", rolePartsManager: "Ersatzteilverantwortlicher",
-    roleStockManager: "Lagerverantwortlicher", roleServiceCoord: "Servicekoordinator", roleOther: "Sonstiges",
+    roleStockManager: "Lagerverantwortlicher", roleServiceCoord: "Servicekoordinator", roleOther: "Sonstiges", area_primary: "Primär",
   },
   it: {
     profileTitle: "Profilo concessionario",
@@ -127,7 +127,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleDirector: "Amministratore", roleOwner: "Titolare", roleManagingDirector: "Direttore generale",
     roleSalesDirector: "Direttore vendite", roleSalesRep: "Venditore", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Capo officina", roleMechanic: "Meccanico", rolePartsManager: "Resp. ricambi",
-    roleStockManager: "Resp. magazzino", roleServiceCoord: "Coordinatore service", roleOther: "Altro",
+    roleStockManager: "Resp. magazzino", roleServiceCoord: "Coordinatore service", roleOther: "Altro", area_primary: "Primario",
   },
   hu: {
     profileTitle: "Kereskedői profil",
@@ -151,7 +151,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleDirector: "Ügyvezető", roleOwner: "Tulajdonos", roleManagingDirector: "Cégvezető",
     roleSalesDirector: "Értékesítési igazgató", roleSalesRep: "Értékesítő", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Szervizvezető", roleMechanic: "Szerelő", rolePartsManager: "Alkatrész felelős",
-    roleStockManager: "Raktárfelelős", roleServiceCoord: "Szervizkoordinátor", roleOther: "Egyéb",
+    roleStockManager: "Raktárfelelős", roleServiceCoord: "Szervizkoordinátor", roleOther: "Egyéb", area_primary: "Elsődleges",
   },
 };
 

@@ -220,6 +220,9 @@ export function useDealerPortfolioProfileBadge(
     display_name?: string | null;
     portal_role?: string | null;
     dealer_number?: string | null;
+    role?: string | null;
+    partner_type?: string | null;
+    module_access?: string[] | null;
   } | null | undefined,
 ): DealerProfileBadge | null {
   const [badge, setBadge] = useState<DealerProfileBadge | null>(null);
