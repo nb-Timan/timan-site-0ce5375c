@@ -271,6 +271,47 @@ describe('news service localization', () => {
     });
   });
 
+  it('replaces copied Danish text inside completed Template 04 translations', () => {
+    const result = translateMissingNewsContent(
+      {
+        da: {
+          headline: 'Skivehøster til Timan RC-1000s',
+          body: 'Den hydrauliske skivehøster til Timan RC-1000s er udviklet til professionel slåning af længere og kraftigere græs. To roterende skiver med otte knive giver et rent, jævnt skær og effektiv høst med fokus på god foderkvalitet.',
+          secondaryHeading: 'Skånsom høst',
+          secondaryText: 'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale',
+          specRows: [
+            { label: 'Højde – midte', value: '550 mm' },
+            { label: 'Højde – sider', value: '420 mm' },
+          ],
+        },
+        de: {
+          headline: 'Scheibenmähwerk für Timan RC-1000s',
+          body: 'Den hydrauliske skivehøster til Timan RC-1000s er udviklet til professionel slåning af længere og kraftigere græs. To roterende skiver med otte knive giver et rent, jævnt skær og effektiv høst med fokus på god foderkvalitet.',
+          secondaryHeading: 'Skånsom høst',
+          secondaryText: 'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale',
+          specRows: [
+            { label: 'Højde – midte', value: '550 mm' },
+            { label: 'Højde – sider', value: '420 mm' },
+          ],
+        },
+      },
+      [
+        { key: 'headline', type: 'text', labelKey: 'newsCmsFieldHeadline', required: true },
+        { key: 'body', type: 'textarea', labelKey: 'newsCmsFieldBody', required: false },
+        { key: 'secondaryHeading', type: 'text', labelKey: 'newsCmsFieldSecondaryHeading', required: false },
+        { key: 'secondaryText', type: 'textarea', labelKey: 'newsCmsFieldSecondaryText', required: false },
+        { key: 'specRows', type: 'specRows', labelKey: 'newsCmsFieldSpecRows', required: false },
+      ],
+    );
+
+    expect(result.localizedContent.de.body).toContain('Das hydraulische Scheibenmähwerk');
+    expect(result.localizedContent.de.secondaryHeading).toBe('Schonende Ernte');
+    expect(result.localizedContent.de.secondaryText).toContain('Die rotierende Scheibenkonstruktion');
+    expect(result.localizedContent.de.specRows?.[0]).toMatchObject({ label: 'Höhe - Mitte', value: '550 mm' });
+    expect(result.localizedContent.de.specRows?.[1]).toMatchObject({ label: 'Höhe - Seiten', value: '420 mm' });
+    expect(result.translatedLanguages).toContain('de');
+  });
+
   it('uses the selected source language for missing translations and keeps existing language content', () => {
     const result = translateMissingNewsContent(
       {

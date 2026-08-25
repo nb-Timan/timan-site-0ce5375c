@@ -20,8 +20,10 @@ const SOURCE_TEXT_ALIASES: Record<string, string> = {
   'VÃ¦gt': 'Vægt',
   'HÃ¸jde â€“ midte': 'Højde - midte',
   'HÃ¸jde – midte': 'Højde - midte',
+  'Højde – midte': 'Højde - midte',
   'HÃ¸jde â€“ sider': 'Højde - sider',
   'HÃ¸jde – sider': 'Højde - sider',
+  'Højde – sider': 'Højde - sider',
   'JÃ¦vnt skÃ¦r': 'Jævnt skær',
   'Effektiv hÃ¸st og god foderkvalitet': 'Effektiv høst og god foderkvalitet',
 };
@@ -47,6 +49,8 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Den hydrauliske skivehøster til Timan RC-1000s er udviklet til professionel slåning af længere og kraftigere græs. To roterende skiver med otte knive giver et rent, jævnt skær og effektiv høst med fokus på god foderkvalitet.':
       'The hydraulic disc mower for Timan RC-1000s is developed for professional mowing of longer and stronger grass. Two rotating discs with eight knives provide a clean, even cut and efficient harvesting with focus on good forage quality.',
     'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale.':
+      'The rotating disc construction provides a clean and even cut and helps preserve the quality of the harvested material.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale':
       'The rotating disc construction provides a clean and even cut and helps preserve the quality of the harvested material.',
     'Klippebredde': 'Cutting width',
     'Skiver / knive': 'Discs / knives',
@@ -75,6 +79,12 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Skivehøster til Timan RC-1000s': 'Scheibenmähwerk für Timan RC-1000s',
     'Effektiv høst med et rent og jævnt skær': 'Effiziente Ernte mit sauberem und gleichmäßigem Schnitt',
     'Skånsom høst': 'Schonende Ernte',
+    'Den hydrauliske skivehøster til Timan RC-1000s er udviklet til professionel slåning af længere og kraftigere græs. To roterende skiver med otte knive giver et rent, jævnt skær og effektiv høst med fokus på god foderkvalitet.':
+      'Das hydraulische Scheibenmähwerk für den Timan RC-1000s wurde für professionelles Mähen von längerem und kräftigerem Gras entwickelt. Zwei rotierende Scheiben mit acht Messern sorgen für einen sauberen, gleichmäßigen Schnitt und eine effiziente Ernte mit Fokus auf gute Futterqualität.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale.':
+      'Die rotierende Scheibenkonstruktion sorgt für einen sauberen und gleichmäßigen Schnitt und hilft, die Qualität des geernteten Materials zu erhalten.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale':
+      'Die rotierende Scheibenkonstruktion sorgt für einen sauberen und gleichmäßigen Schnitt und hilft, die Qualität des geernteten Materials zu erhalten.',
     'Klippebredde': 'Schnittbreite',
     'Skiver / knive': 'Scheiben / Messer',
     'Vægt': 'Gewicht',
@@ -102,6 +112,12 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Skivehøster til Timan RC-1000s': 'Falciatrice a dischi per Timan RC-1000s',
     'Effektiv høst med et rent og jævnt skær': 'Raccolta efficiente con taglio pulito e uniforme',
     'Skånsom høst': 'Raccolta delicata',
+    'Den hydrauliske skivehøster til Timan RC-1000s er udviklet til professionel slåning af længere og kraftigere græs. To roterende skiver med otte knive giver et rent, jævnt skær og effektiv høst med fokus på god foderkvalitet.':
+      'La falciatrice a dischi idraulica per Timan RC-1000s è sviluppata per lo sfalcio professionale di erba più alta e robusta. Due dischi rotanti con otto coltelli offrono un taglio pulito e uniforme e una raccolta efficiente con attenzione alla buona qualità del foraggio.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale.':
+      'La costruzione a dischi rotanti offre un taglio pulito e uniforme e aiuta a preservare la qualità del materiale raccolto.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale':
+      'La costruzione a dischi rotanti offre un taglio pulito e uniforme e aiuta a preservare la qualità del materiale raccolto.',
     'Klippebredde': 'Larghezza di taglio',
     'Skiver / knive': 'Dischi / coltelli',
     'Vægt': 'Peso',
@@ -129,6 +145,12 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Skivehøster til Timan RC-1000s': 'Tárcsás kasza Timan RC-1000s-hez',
     'Effektiv høst med et rent og jævnt skær': 'Hatékony betakarítás tiszta és egyenletes vágással',
     'Skånsom høst': 'Kíméletes betakarítás',
+    'Den hydrauliske skivehøster til Timan RC-1000s er udviklet til professionel slåning af længere og kraftigere græs. To roterende skiver med otte knive giver et rent, jævnt skær og effektiv høst med fokus på god foderkvalitet.':
+      'A Timan RC-1000s hidraulikus tárcsás kaszája hosszabb és erősebb fű professzionális kaszálására készült. Két forgó tárcsa nyolc késsel tiszta, egyenletes vágást és hatékony betakarítást biztosít, a jó takarmányminőségre összpontosítva.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale.':
+      'A forgó tárcsás konstrukció tiszta és egyenletes vágást biztosít, és segít megőrizni a betakarított anyag minőségét.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale':
+      'A forgó tárcsás konstrukció tiszta és egyenletes vágást biztosít, és segít megőrizni a betakarított anyag minőségét.',
     'Klippebredde': 'Vágási szélesség',
     'Skiver / knive': 'Tárcsák / kések',
     'Vægt': 'Tömeg',
@@ -156,6 +178,12 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Skivehøster til Timan RC-1000s': 'Slåtteraggregat för Timan RC-1000s',
     'Effektiv høst med et rent og jævnt skær': 'Effektiv skörd med rent och jämnt snitt',
     'Skånsom høst': 'Skonsam skörd',
+    'Den hydrauliske skivehøster til Timan RC-1000s er udviklet til professionel slåning af længere og kraftigere græs. To roterende skiver med otte knive giver et rent, jævnt skær og effektiv høst med fokus på god foderkvalitet.':
+      'Den hydrauliska slåtteraggregatet för Timan RC-1000s är utvecklat för professionell slåtter av längre och kraftigare gräs. Två roterande skivor med åtta knivar ger ett rent, jämnt snitt och effektiv skörd med fokus på god foderkvalitet.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale.':
+      'Den roterande skivkonstruktionen ger ett rent och jämnt snitt och hjälper till att bevara kvaliteten på det skördade materialet.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale':
+      'Den roterande skivkonstruktionen ger ett rent och jämnt snitt och hjälper till att bevara kvaliteten på det skördade materialet.',
     'Klippebredde': 'Klippbredd',
     'Skiver / knive': 'Skivor / knivar',
     'Vægt': 'Vikt',
@@ -183,6 +211,12 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Skivehøster til Timan RC-1000s': 'Faucheuse à disques pour Timan RC-1000s',
     'Effektiv høst med et rent og jævnt skær': 'Récolte efficace avec une coupe nette et régulière',
     'Skånsom høst': 'Récolte délicate',
+    'Den hydrauliske skivehøster til Timan RC-1000s er udviklet til professionel slåning af længere og kraftigere græs. To roterende skiver med otte knive giver et rent, jævnt skær og effektiv høst med fokus på god foderkvalitet.':
+      'La faucheuse à disques hydraulique pour Timan RC-1000s est conçue pour la fauche professionnelle d’herbe plus longue et plus dense. Deux disques rotatifs avec huit couteaux assurent une coupe nette et régulière ainsi qu’une récolte efficace, avec une attention particulière à la qualité du fourrage.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale.':
+      'La construction à disques rotatifs assure une coupe nette et régulière et aide à préserver la qualité de la matière récoltée.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale':
+      'La construction à disques rotatifs assure une coupe nette et régulière et aide à préserver la qualité de la matière récoltée.',
     'Klippebredde': 'Largeur de coupe',
     'Skiver / knive': 'Disques / couteaux',
     'Vægt': 'Poids',
@@ -210,6 +244,12 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Skivehøster til Timan RC-1000s': 'Kosiarka dyskowa do Timan RC-1000s',
     'Effektiv høst med et rent og jævnt skær': 'Efektywny zbiór z czystym i równym cięciem',
     'Skånsom høst': 'Delikatny zbiór',
+    'Den hydrauliske skivehøster til Timan RC-1000s er udviklet til professionel slåning af længere og kraftigere græs. To roterende skiver med otte knive giver et rent, jævnt skær og effektiv høst med fokus på god foderkvalitet.':
+      'Hydrauliczna kosiarka dyskowa do Timan RC-1000s została opracowana do profesjonalnego koszenia dłuższej i mocniejszej trawy. Dwa obracające się dyski z ośmioma nożami zapewniają czyste, równe cięcie oraz efektywny zbiór z naciskiem na dobrą jakość paszy.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale.':
+      'Konstrukcja z obracającymi się dyskami zapewnia czyste i równe cięcie oraz pomaga zachować jakość zebranego materiału.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale':
+      'Konstrukcja z obracającymi się dyskami zapewnia czyste i równe cięcie oraz pomaga zachować jakość zebranego materiału.',
     'Klippebredde': 'Szerokość koszenia',
     'Skiver / knive': 'Dyski / noże',
     'Vægt': 'Waga',
@@ -237,6 +277,12 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Skivehøster til Timan RC-1000s': 'Disková sekačka pro Timan RC-1000s',
     'Effektiv høst med et rent og jævnt skær': 'Efektivní sklizeň s čistým a rovnoměrným řezem',
     'Skånsom høst': 'Šetrná sklizeň',
+    'Den hydrauliske skivehøster til Timan RC-1000s er udviklet til professionel slåning af længere og kraftigere græs. To roterende skiver med otte knive giver et rent, jævnt skær og effektiv høst med fokus på god foderkvalitet.':
+      'Hydraulická disková sekačka pro Timan RC-1000s je vyvinuta pro profesionální sečení delší a silnější trávy. Dva rotující disky s osmi noži zajišťují čistý, rovnoměrný řez a efektivní sklizeň se zaměřením na dobrou kvalitu krmiva.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale.':
+      'Rotující disková konstrukce zajišťuje čistý a rovnoměrný řez a pomáhá zachovat kvalitu sklizeného materiálu.',
+    'Den roterende skivekonstruktion giver et rent og jævnt skær og hjælper med at bevare kvaliteten af det høstede materiale':
+      'Rotující disková konstrukce zajišťuje čistý a rovnoměrný řez a pomáhá zachovat kvalitu sklizeného materiálu.',
     'Klippebredde': 'Šířka záběru',
     'Skiver / knive': 'Disky / nože',
     'Vægt': 'Hmotnost',
@@ -264,6 +310,7 @@ function hasValue(value: unknown): boolean {
 
 function shouldShareKey(key: string): boolean {
   const normalized = key.toLowerCase();
+  if (['x', 'y', 'id'].includes(normalized)) return true;
   return [
     'image',
     'url',
@@ -276,9 +323,6 @@ function shouldShareKey(key: string): boolean {
     'transform',
     'scale',
     'offset',
-    'x',
-    'y',
-    'id',
     'enabled',
     'type',
   ].some((part) => normalized === part || normalized.includes(part));
@@ -294,6 +338,33 @@ function translateText(value: string, lang: PortalUiLanguage): string {
   const memory = TRANSLATION_MEMORY[lang] || {};
   const normalized = normalizeSourceText(value);
   return memory[normalized] || value;
+}
+
+function containsCopiedSourceText(
+  sourceValue: unknown,
+  targetValue: unknown,
+  lang: PortalUiLanguage,
+  key = '',
+): boolean {
+  if (Array.isArray(sourceValue)) {
+    const targetArray = Array.isArray(targetValue) ? targetValue : [];
+    return sourceValue.some((item, index) => containsCopiedSourceText(item, targetArray[index], lang, key));
+  }
+
+  if (isObject(sourceValue)) {
+    const targetObject = isObject(targetValue) ? targetValue : {};
+    return Object.entries(sourceValue).some(([childKey, childValue]) =>
+      containsCopiedSourceText(childValue, targetObject[childKey], lang, childKey),
+    );
+  }
+
+  if (shouldShareKey(key) || typeof sourceValue !== 'string' || typeof targetValue !== 'string') {
+    return false;
+  }
+
+  const normalizedSource = normalizeSourceText(sourceValue);
+  const translatedSource = translateText(sourceValue, lang);
+  return translatedSource !== normalizedSource && normalizeSourceText(targetValue) === normalizedSource;
 }
 
 function mergeTranslatedValue(
@@ -315,11 +386,26 @@ function mergeTranslatedValue(
     }, { ...targetObject });
   }
 
-  if (hasValue(targetValue)) return targetValue;
-
   if (typeof sourceValue === 'string') {
-    return shouldShareKey(key) ? sourceValue : translateText(sourceValue, lang);
+    if (shouldShareKey(key)) return hasValue(targetValue) ? targetValue : sourceValue;
+
+    const normalizedSource = normalizeSourceText(sourceValue);
+    const translatedSource = translateText(sourceValue, lang);
+    if (hasValue(targetValue)) {
+      if (
+        typeof targetValue === 'string' &&
+        translatedSource !== normalizedSource &&
+        normalizeSourceText(targetValue) === normalizedSource
+      ) {
+        return translatedSource;
+      }
+      return targetValue;
+    }
+
+    return translatedSource;
   }
+
+  if (hasValue(targetValue)) return targetValue;
 
   return sourceValue;
 }
@@ -339,7 +425,10 @@ export function translateMissingNewsContent(
     }
 
     const beforeMissing = missingTranslationFields(content, lang, fields);
-    if (beforeMissing.length === 0) {
+    const hasCopiedSourceText = Object.entries(source).some(([key, value]) =>
+      containsCopiedSourceText(value, content[lang]?.[key], lang, key),
+    );
+    if (beforeMissing.length === 0 && !hasCopiedSourceText) {
       acc[lang] = content[lang] || {};
       return acc;
     }
