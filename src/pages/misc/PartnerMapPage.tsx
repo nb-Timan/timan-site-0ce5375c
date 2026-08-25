@@ -987,11 +987,11 @@ export default function PartnerMapPage() {
       maxZoom: 19,
     },
   };
-  const MAP_STYLE_STORAGE_KEY = 'timan.partnerMap.baseStyle';
+  const MAP_STYLE_STORAGE_KEY = 'timan.partnerMap.baseStyle.v2';
   const [mapStyle, setMapStyle] = useState<MapStyleId>(() => {
-    if (typeof window === 'undefined') return 'standard';
+    if (typeof window === 'undefined') return 'satellite';
     const saved = window.localStorage.getItem(MAP_STYLE_STORAGE_KEY);
-    return (saved === 'standard' || saved === 'satellite' || saved === 'terrain' || saved === 'dark') ? saved : 'standard';
+    return (saved === 'standard' || saved === 'satellite' || saved === 'terrain' || saved === 'dark') ? saved : 'satellite';
   });
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem(MAP_STYLE_STORAGE_KEY, mapStyle);
