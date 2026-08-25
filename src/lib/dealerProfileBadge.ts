@@ -39,7 +39,7 @@ export interface DealerProfileBadge {
   total: number;
   missing: number;
   tone: BadgeTone;
-  /** Pre-localised Danish label, e.g. "Mangler 2 af 6" or "Komplet". */
+  /** Pre-localised Danish label, e.g. "Mangler info" or "100% klar". */
   label: string;
 }
 
@@ -53,6 +53,8 @@ const SECTION_LABELS_BY_KEY: Record<SectionKey, string> = {
   workshop: "Værksted",
   marketing: "Marketing",
 };
+
+const SOFT_PROFILE_SECTION_KEYS = new Set<SectionKey>(["media", "marketing"]);
 
 export const DEALER_PROFILE_SECTION_LABELS = [
   SECTION_LABELS_BY_KEY.company,
@@ -79,11 +81,14 @@ export function computeDealerProfileBadge(
   if (!dealer) {
     return { total: 6, missing: 6, tone: "neutral", label: "Ikke udfyldt" };
   }
-  const sections = computeDealerProfileSections(dealer, peopleCount);
-  const total = sections.length;
-  const missing = sections.filter((c) => !c).length;
-  const tone: BadgeTone = missing === 0 ? "green" : missing <= 2 ? "yellow" : "red";
-  const label = missing === 0 ? "Komplet" : `Mangler ${missing} af ${total}`;
+  const completion = computeCompletion(dealer);
+  const missingSections = completion.sections.filter((s) => !s.complete);
+  const total = completion.sections.length;
+  const missing = missingSections.length;
+  const hasCriticalMissing = missingCriticalFields(dealer).length > 0;
+  const onlySoftMissing = missing > 0 && missingSections.every((s) => SOFT_PROFILE_SECTION_KEYS.has(s.key));
+  const tone: BadgeTone = hasCriticalMissing ? "red" : missing === 0 || onlySoftMissing ? "green" : "yellow";
+  const label = missing === 0 ? "100% klar" : hasCriticalMissing ? "Kritisk" : "Mangler info";
   return { total, missing, tone, label };
 }
 
@@ -151,6 +156,14 @@ export function getDealerProfileCriticalMissing(
 ): string[] {
   if (!dealer) return [];
   return missingCriticalFields(dealer);
+}
+
+export function hasOnlySoftDealerProfileMissing(
+  dealer: DealerAccount | null,
+): boolean {
+  if (!dealer || missingCriticalFields(dealer).length > 0) return false;
+  const missingSections = computeCompletion(dealer).sections.filter((s) => !s.complete);
+  return missingSections.length > 0 && missingSections.every((s) => SOFT_PROFILE_SECTION_KEYS.has(s.key));
 }
 
 /**
@@ -259,15 +272,19 @@ export function useDealerPortfolioProfileBadge(
         const critical = relevant.filter((dealer) =>
           computeDealerProfileSeverity(dealer, 0) === "critical"
         ).length;
+        const onlySoftMissing = relevant.filter((dealer) =>
+          hasOnlySoftDealerProfileMissing(dealer)
+        ).length;
+        const needsAttention = incomplete - onlySoftMissing;
 
         if (cancelled) return;
         if (total === 0) {
           setBadge({ total: 0, missing: 0, tone: "neutral", label: "Ingen forhandlere" });
           return;
         }
-        const tone: BadgeTone = critical > 0 ? "red" : incomplete > 0 ? "yellow" : "green";
+        const tone: BadgeTone = critical > 0 ? "red" : needsAttention > 0 ? "yellow" : "green";
         const label = incomplete === 0
-          ? "Komplet"
+          ? "100% klar"
           : critical > 0
             ? `${critical} kritiske · ${incomplete} mangler info`
             : `${incomplete} mangler info`;

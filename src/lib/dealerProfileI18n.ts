@@ -27,7 +27,7 @@ export type ProfileI18nKey =
 const dict: Record<Language, Record<ProfileI18nKey, string>> = {
   da: {
     profileTitle: "Forhandlerprofil",
-    profileSubtitle: "Udfyld jeres stamdata. Du kan gemme hver sektion for sig.",
+    profileSubtitle: "Udfyld jeres stamdata. En Gem-knap gemmer hele profilen.",
     progressComplete: "Profil komplet",
     progressMissing: "Mangler",
     progressFilled: "Profil",
@@ -56,7 +56,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
   },
   en: {
     profileTitle: "Dealer profile",
-    profileSubtitle: "Fill in your company details. Each section can be saved separately.",
+    profileSubtitle: "Fill in your company details. Any Save button saves the full profile.",
     progressComplete: "Profile complete",
     progressMissing: "Missing",
     progressFilled: "Profile",
@@ -83,7 +83,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
   },
   de: {
     profileTitle: "Händlerprofil",
-    profileSubtitle: "Stammdaten ausfüllen. Jeder Abschnitt kann einzeln gespeichert werden.",
+    profileSubtitle: "Stammdaten ausfüllen. Jede Speichern-Schaltfläche speichert das gesamte Profil.",
     progressComplete: "Profil vollständig", progressMissing: "Fehlt", progressFilled: "Profil", progressOf: "von",
     statusComplete: "Vollständig", statusPartial: "Teilweise ausgefüllt", statusEmpty: "Nicht ausgefüllt",
     save: "Speichern", saving: "Speichern…", saved: "Gespeichert", saveError: "Speichern fehlgeschlagen",
@@ -107,7 +107,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
   },
   it: {
     profileTitle: "Profilo concessionario",
-    profileSubtitle: "Compila i dati aziendali. Ogni sezione può essere salvata separatamente.",
+    profileSubtitle: "Compila i dati aziendali. Qualsiasi pulsante Salva salva tutto il profilo.",
     progressComplete: "Profilo completo", progressMissing: "Mancano", progressFilled: "Profilo", progressOf: "di",
     statusComplete: "Completo", statusPartial: "Parzialmente compilato", statusEmpty: "Non compilato",
     save: "Salva", saving: "Salvataggio…", saved: "Salvato", saveError: "Impossibile salvare",
@@ -131,7 +131,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
   },
   hu: {
     profileTitle: "Kereskedői profil",
-    profileSubtitle: "Töltsd ki a cég adatait. Minden szakasz külön menthető.",
+    profileSubtitle: "Töltsd ki a cég adatait. Bármely mentés gomb a teljes profilt menti.",
     progressComplete: "Profil teljes", progressMissing: "Hiányzik", progressFilled: "Profil", progressOf: "/",
     statusComplete: "Teljes", statusPartial: "Részben kitöltve", statusEmpty: "Nincs kitöltve",
     save: "Mentés", saving: "Mentés…", saved: "Mentve", saveError: "Mentés sikertelen",

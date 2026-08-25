@@ -62,6 +62,7 @@ import {
   computeDealerProfileSeverity,
   getDealerProfileMissingLabels,
   getDealerProfileCriticalMissing,
+  hasOnlySoftDealerProfileMissing,
 } from "@/lib/dealerProfileBadge";
 
 
@@ -784,27 +785,32 @@ function ProfileStatusBadge({ dealer, peopleCount }: { dealer: DealerAccount; pe
   const severity = computeDealerProfileSeverity(dealer, peopleCount);
   const missingSections = getDealerProfileMissingLabels(dealer, peopleCount);
   const missingCritical = getDealerProfileCriticalMissing(dealer);
+  const onlySoftMissing = hasOnlySoftDealerProfileMissing(dealer);
   const tone =
     severity === "complete" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+    : severity === "partial" && onlySoftMissing ? "bg-emerald-100 text-emerald-800 border-emerald-200"
     : severity === "partial" ? "bg-amber-100 text-amber-800 border-amber-200"
     : severity === "critical" ? "bg-rose-100 text-rose-800 border-rose-200"
     : "bg-slate-100 text-slate-700 border-slate-200";
   const dot =
     severity === "complete" ? "bg-emerald-500"
+    : severity === "partial" && onlySoftMissing ? "bg-emerald-500"
     : severity === "partial" ? "bg-amber-500"
     : severity === "critical" ? "bg-rose-500"
     : "bg-slate-400";
   const text =
-    severity === "complete" ? "Komplet"
+    severity === "complete" ? "100% klar"
     : severity === "partial" ? "Mangler info"
     : severity === "critical" ? "Kritisk"
     : "—";
   const baseTitle =
     severity === "complete"
-      ? "Profilen er komplet."
+      ? "Profilen er 100% klar."
       : severity === "critical"
         ? "Kritiske stamdata mangler."
-        : "Mangler øvrige profiloplysninger.";
+        : onlySoftMissing
+          ? "Mangler kun mindre profiloplysninger."
+          : "Mangler øvrige profiloplysninger.";
   const parts: string[] = [baseTitle];
   if (severity === "critical" && missingCritical.length > 0) {
     parts.push(`Kritiske felter mangler:\n- ${missingCritical.join("\n- ")}`);
