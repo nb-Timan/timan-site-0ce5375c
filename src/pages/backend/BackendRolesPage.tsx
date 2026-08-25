@@ -43,7 +43,7 @@ const AREA_LABEL: Record<AreaKey, string> = {
 const MODULE_LABEL: Record<string, string> = {
   teknik_service: "Teknik & Service", salg_marketing: "Salg", marketing: "Marketing", timan_backend: "Timan Backend",
   claims: "Service / Claims", tsb: "TSB Portal", warranty: "Garantiregistrering",
-  service_information: "Serviceinformation", byg_din_timan: "Byg din Timan",
+  service_information: "Serviceinformation", messe_portal: "Messe portal", byg_din_timan: "Byg din Timan",
   tilbud: "Tilbud", ordre: "Ordre", resources: "Beregnere & kalkulatorer", sales_tools: "Formularer", contracts: "Kontrakt",
 };
 

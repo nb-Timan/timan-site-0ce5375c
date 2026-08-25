@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
@@ -24,15 +24,26 @@ import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon, CalendarIcon } from 'lucide-react';
+import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon, CalendarIcon, Share2, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { useSellerDirectory, resolveDealerSellerInitials } from '@/lib/sellerDirectory';
 import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
+import {
+  getResponsibleTimanSellerTarget,
+  leadShareMailto,
+  listActiveDealerLeadShareTargets,
+  listLeadShares,
+  resolveAppUserByEmail,
+  shareLead,
+  type CrmLeadShare,
+  type LeadShareTarget,
+} from '@/lib/crmLeadSharingService';
 
 // ---- i18n. English is the fallback. ----
 type TKey =
@@ -265,6 +276,29 @@ function parseLocalIsoDate(value: string): Date | undefined {
   return date;
 }
 
+function formatDateDisplay(value: string): string {
+  const date = parseLocalIsoDate(value);
+  if (!date) return value;
+  return [
+    String(date.getDate()).padStart(2, '0'),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    date.getFullYear(),
+  ].join('-');
+}
+
+function parseDateInput(value: string): string | null {
+  const trimmed = value.trim();
+  const isoMatch = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (isoMatch) {
+    const [, year, month, day] = isoMatch;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  }
+  const danishMatch = trimmed.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (!danishMatch) return null;
+  const [, day, month, year] = danishMatch;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
 function addDaysToIsoDate(baseIso: string, days: number): string {
   const date = parseLocalIsoDate(baseIso) || new Date();
   date.setDate(date.getDate() + days);
@@ -280,7 +314,6 @@ function addMonthsToIsoDate(baseIso: string, months: number): string {
 type DateQuickOption = {
   label: string;
   value: string;
-  manual?: boolean;
 };
 
 function SmartDateField({
@@ -299,19 +332,11 @@ function SmartDateField({
   full?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const selectedDate = parseLocalIsoDate(value);
+  const today = toLocalIsoDate(new Date());
 
-  function openNativePicker() {
+  function openDateOptions() {
     setOpen(true);
-    window.requestAnimationFrame(() => {
-      inputRef.current?.focus();
-      try {
-        inputRef.current?.showPicker?.();
-      } catch {
-        // Browser fallback: the popover calendar is already open.
-      }
-    });
   }
 
   return (
@@ -322,36 +347,33 @@ function SmartDateField({
             role="button"
             tabIndex={0}
             className="relative"
-            onClick={openNativePicker}
+            onClick={openDateOptions}
             onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') openNativePicker();
+              if (event.key === 'Enter' || event.key === ' ') openDateOptions();
             }}
           >
             <input
-              ref={inputRef}
-              type="date"
+              type="text"
+              inputMode="numeric"
+              placeholder="dd-mm-yyyy"
               className={cn(inputCls, 'pr-10 cursor-pointer')}
-              value={value}
-              onChange={(event) => onChange(event.target.value)}
-              onClick={openNativePicker}
+              value={formatDateDisplay(value)}
+              onChange={(event) => onChange(parseDateInput(event.target.value) || event.target.value)}
+              onClick={openDateOptions}
             />
             <CalendarIcon className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           </div>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-[290px] overflow-hidden p-0" align="start">
           <div className="grid grid-cols-2 gap-1 border-b border-slate-100 p-2 sm:grid-cols-3">
             {options.map((option) => (
               <Button
                 key={option.label}
                 type="button"
-                variant={option.value === value && !option.manual ? 'default' : 'ghost'}
+                variant={option.value === value ? 'default' : 'ghost'}
                 size="sm"
-                className={cn('h-8 px-2 text-xs', option.value === value && !option.manual && 'bg-[#0b875b] hover:bg-[#08724e]')}
+                className={cn('h-8 px-2 text-xs', option.value === value && 'bg-[#0b875b] hover:bg-[#08724e]')}
                 onClick={() => {
-                  if (option.manual) {
-                    openNativePicker();
-                    return;
-                  }
                   onChange(option.value);
                   setOpen(false);
                 }}
@@ -371,6 +393,32 @@ function SmartDateField({
             }}
             initialFocus
           />
+          <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-xs text-slate-600"
+              onClick={() => {
+                onChange('');
+                setOpen(false);
+              }}
+            >
+              Ryd
+            </Button>
+            <Button
+              type="button"
+              variant={value === today ? 'default' : 'ghost'}
+              size="sm"
+              className={cn('h-8 px-2 text-xs', value === today && 'bg-[#0b875b] hover:bg-[#08724e]')}
+              onClick={() => {
+                onChange(today);
+                setOpen(false);
+              }}
+            >
+              I dag
+            </Button>
+          </div>
         </PopoverContent>
       </Popover>
     </Field>
@@ -733,6 +781,14 @@ export default function CrmNewLeadPage() {
   const [submitting, setSubmitting] = useState(false);
   // Phase 33 — configurator quotes linked to this lead (edit mode only).
   const [linkedQuotes, setLinkedQuotes] = useState<CrmLeadQuoteRow[]>([]);
+  const [currentShareUser, setCurrentShareUser] = useState<LeadShareTarget | null>(null);
+  const [leadShares, setLeadShares] = useState<CrmLeadShare[]>([]);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [shareTargets, setShareTargets] = useState<LeadShareTarget[]>([]);
+  const [shareTargetId, setShareTargetId] = useState('');
+  const [shareIncludeEmail, setShareIncludeEmail] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
 
   // Dealer picker state
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -745,6 +801,15 @@ export default function CrmNewLeadPage() {
   useEffect(() => {
     if (appUser && !responsibleName) setResponsibleName(appUser.display_name || appUser.email);
   }, [appUser, responsibleName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const user = await resolveAppUserByEmail(appUser?.email);
+      if (!cancelled) setCurrentShareUser(user);
+    })();
+    return () => { cancelled = true; };
+  }, [appUser?.email]);
 
   // Load dealer_accounts (same as Calendar) + sellers list.
   useEffect(() => {
@@ -777,6 +842,25 @@ export default function CrmNewLeadPage() {
       setResponsibleName(me.name || me.email);
     }
   }, [sellers, appUser?.email, responsibleSellerId, isEdit]);
+
+  useEffect(() => {
+    if (isEdit || !lockedDealerNumber || !dealers.length) return;
+    if (linkedDealer && linkedDealer !== lockedDealerNumber) return;
+    const ownDealer = dealers.find((dealer) => dealer.account_number === lockedDealerNumber);
+    if (!ownDealer) return;
+
+    setLinkedDealer(ownDealer.id);
+    if (responsibleSellerId) return;
+
+    const assignedSeller = sellers.find((seller) =>
+      (!!ownDealer.assigned_seller_id && seller.id === ownDealer.assigned_seller_id)
+      || (!!ownDealer.assigned_seller_email && seller.email.toLowerCase() === ownDealer.assigned_seller_email.toLowerCase())
+    );
+    if (assignedSeller) {
+      setResponsibleSellerId(assignedSeller.id);
+      setResponsibleName(assignedSeller.name || assignedSeller.email);
+    }
+  }, [dealers, isEdit, linkedDealer, lockedDealerNumber, responsibleSellerId, sellers]);
 
   // Load existing lead when in edit mode.
   useEffect(() => {
@@ -845,6 +929,16 @@ export default function CrmNewLeadPage() {
     return () => { cancelled = true; };
   }, [isEdit, editId]);
 
+  useEffect(() => {
+    if (!isEdit || !editId) return;
+    let cancelled = false;
+    (async () => {
+      const rows = await listLeadShares(editId);
+      if (!cancelled) setLeadShares(rows);
+    })();
+    return () => { cancelled = true; };
+  }, [isEdit, editId]);
+
   // Phase 33 — load configurator quotes linked to this lead.
   useEffect(() => {
     if (!isEdit || !editId) return;
@@ -882,7 +976,6 @@ export default function CrmNewLeadPage() {
     { label: '-1 dag', value: addDaysToIsoDate(today, -1) },
     { label: 'I dag', value: today },
     { label: '+1 dag', value: addDaysToIsoDate(today, 1) },
-    { label: 'Manuel dato', value: firstContact, manual: true },
   ];
   const relativeDateBase = firstContact || today;
   const relativeDateQuickOptions: DateQuickOption[] = [
@@ -890,10 +983,12 @@ export default function CrmNewLeadPage() {
     { label: '+1 måned', value: addMonthsToIsoDate(relativeDateBase, 1) },
     { label: '+3 måneder', value: addMonthsToIsoDate(relativeDateBase, 3) },
     { label: '+6 måneder', value: addMonthsToIsoDate(relativeDateBase, 6) },
-    { label: 'Manuel dato', value: '', manual: true },
   ];
 
   const isLost = nextActivity === NEXT_ACTIVITY_LOST || stage === 'Lost';
+  const shareDirection = isInternal ? 'timan_to_dealer' : 'dealer_to_timan';
+  const shareButtonLabel = isInternal ? 'Del med forhandler' : 'Del med Timan';
+  const selectedShareTarget = shareTargets.find((target) => target.id === shareTargetId) || null;
 
   const machineEstimate = useMemo(() => {
     const estimate = calculateMachineInterestEstimate(machineTypes, 'da');
@@ -1004,7 +1099,70 @@ export default function CrmNewLeadPage() {
     }
   }
 
-  if (!authLoading && !canCreate) return <Navigate to="/portal/crm" replace />;
+  useEffect(() => {
+    if (!shareDialogOpen || !linkedDealer) return;
+    let cancelled = false;
+    setShareLoading(true);
+    setShareError(null);
+    setShareTargets([]);
+    setShareTargetId('');
+    (async () => {
+      const targets = isInternal
+        ? await listActiveDealerLeadShareTargets(linkedDealer)
+        : await getResponsibleTimanSellerTarget(linkedDealer).then((target) => target ? [target] : []);
+      if (cancelled) return;
+      setShareTargets(targets);
+      setShareTargetId(targets[0]?.id || '');
+      if (targets.length === 0) {
+        setShareError(isInternal
+          ? 'Der er ingen aktive brugere på den valgte forhandler.'
+          : 'Der er ikke fundet en ansvarlig Timan-sælger på forhandleren.');
+      }
+      setShareLoading(false);
+    })().catch(() => {
+      if (cancelled) return;
+      setShareError('Kunne ikke hente modtagere til deling.');
+      setShareLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [shareDialogOpen, linkedDealer, isInternal]);
+
+  async function handleShareLead() {
+    if (!editId || !selectedShareTarget) return;
+    setShareLoading(true);
+    setShareError(null);
+    try {
+      const saved = await shareLead({
+        leadId: editId,
+        sharedBy: currentShareUser,
+        target: selectedShareTarget,
+        dealerAccountId: linkedDealer || null,
+        direction: shareDirection,
+        includeEmail: shareIncludeEmail,
+      });
+      const rows = await listLeadShares(editId);
+      setLeadShares(rows.some((row) => row.id === saved.id) ? rows : [saved, ...rows]);
+      setShareDialogOpen(false);
+      toast.success(shareIncludeEmail ? 'Lead delt. Mail åbnes nu.' : 'Lead delt i portalen.');
+      if (shareIncludeEmail && selectedShareTarget.email) {
+        const leadTitle = title || (editLeadNo != null ? formatLeadNo(editLeadNo) : 'Lead');
+        window.location.href = leadShareMailto({
+          targetEmail: selectedShareTarget.email,
+          leadTitle,
+          leadUrl: `${window.location.origin}/portal/crm/leads/${editId}`,
+          senderName: currentShareUser?.name || appUser?.display_name || appUser?.email,
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      setShareError('Kunne ikke dele leadet.');
+      toast.error('Kunne ikke dele leadet');
+    } finally {
+      setShareLoading(false);
+    }
+  }
+
+  if (!authLoading && !canCreate && !isEdit) return <Navigate to="/portal/crm" replace />;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -1473,6 +1631,40 @@ export default function CrmNewLeadPage() {
             </section>
           )}
 
+          {isEdit && editId && (
+            <section className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-6 mb-5">
+              <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <h3 className="text-[15px] font-semibold text-gray-900">Lead-deling</h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Del samme lead i portalen uden at oprette en kopi.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShareDialogOpen(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] text-white text-sm font-medium px-4 py-2.5 shadow-sm transition"
+                >
+                  <Share2 className="h-4 w-4" />
+                  {shareButtonLabel}
+                </button>
+              </header>
+              {leadShares.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {leadShares.map((share) => (
+                    <span key={share.id} className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
+                      <Share2 className="h-3.5 w-3.5" />
+                      {share.shared_with_name || share.shared_with_email || 'Delt bruger'}
+                      {share.channel === 'portal_email' && <Mail className="h-3.5 w-3.5" />}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Dette lead er ikke delt endnu.</p>
+              )}
+            </section>
+          )}
+
           <Section title={tt('sec_files', lang)} subtitle={tt('sec_files_sub', lang)}>
             <div className="md:col-span-2">
               <label className="flex items-center gap-2 cursor-pointer text-sm border border-dashed border-gray-300 rounded-xl px-4 py-6 justify-center hover:bg-gray-50 transition">
@@ -1550,6 +1742,55 @@ export default function CrmNewLeadPage() {
               {submitting ? tt('saving', lang) : (isEdit ? tt('save_changes', lang) : tt('save', lang))}
             </button>
           </div>
+          <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>{shareButtonLabel}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  Leadet deles altid i portalen. Vælg mail, hvis modtageren også skal have besked.
+                </p>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Modtager
+                  <select
+                    className={cn(inputCls, 'mt-1')}
+                    value={shareTargetId}
+                    onChange={(event) => setShareTargetId(event.target.value)}
+                    disabled={shareLoading || shareTargets.length === 0}
+                  >
+                    {shareTargets.length === 0 && <option value="">Ingen modtager fundet</option>}
+                    {shareTargets.map((target) => (
+                      <option key={target.id} value={target.id}>
+                        {target.name} - {target.email}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={shareIncludeEmail}
+                    onChange={(event) => setShareIncludeEmail(event.target.checked)}
+                  />
+                  Send også som mail
+                </label>
+                {shareError && (
+                  <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    {shareError}
+                  </p>
+                )}
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setShareDialogOpen(false)}>
+                  Annuller
+                </Button>
+                <Button type="button" onClick={handleShareLead} disabled={shareLoading || !selectedShareTarget}>
+                  {shareLoading ? 'Deler...' : 'Del lead'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </form>
         )}
       </div>

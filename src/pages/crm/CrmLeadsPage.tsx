@@ -28,6 +28,7 @@ import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
 import { listScopedConfigurations } from '@/lib/crmRelationsService';
+import { listSharedLeadIdsForUser } from '@/lib/crmLeadSharingService';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -144,6 +145,7 @@ interface UnifiedLead {
   /** Phase 40 — true when the lead was created via the configurator's
    *  "Save as lead" shortcut and still needs completion in CRM. */
   incomplete?: boolean;
+  shared?: boolean;
 }
 
 const STAGE_CLR: Record<string, string> = {
@@ -277,6 +279,7 @@ export default function CrmLeadsPage() {
   const [quoteIdByLeadId, setQuoteIdByLeadId] = useState<Map<string, string>>(() => new Map());
   const [dealerNameById, setDealerNameById] = useState<Map<string, string>>(() => new Map());
   const [sellerId, setSellerId] = useState<string | null>(null);
+  const [sharedLeadIds, setSharedLeadIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
 
   const [tab, setTab] = useState<TabKey>(dealerParam ? 'all' : (isAdmin ? 'all' : 'mine'));
@@ -332,10 +335,11 @@ export default function CrmLeadsPage() {
     (async () => {
       setLoading(true);
       const sid = await resolveSellerId(appUser?.email);
-      const [openAll, demoAll, quoteResult] = await Promise.all([
+      const [openAll, demoAll, quoteResult, nextSharedLeadIds] = await Promise.all([
         listLeads({}),
         listDemoLeads({}),
         listScopedConfigurations({ role: portalRole, sellerId: sid, documentType: 'quote' }),
+        listSharedLeadIdsForUser(sid),
       ]);
       const [openResolved, demoResolved] = await Promise.all([
         resolveSeedOwners(openAll),
@@ -358,10 +362,12 @@ export default function CrmLeadsPage() {
       console.log('[CRM Leads] counts', {
         crm_open_leads: openResolved.length,
         crm_demo_leads: demoResolved.length,
+        shared_open_leads: nextSharedLeadIds.size,
         sellerId: sid,
         email: appUser?.email,
       });
       setSellerId(sid);
+      setSharedLeadIds(nextSharedLeadIds);
       setOpenLeads(openResolved);
       setDemoLeads(demoResolved);
       setQuoteIdByLeadId(new Map(Array.from(nextQuoteIdByLeadId, ([leadId, quote]) => [leadId, quote.id])));
@@ -376,6 +382,7 @@ export default function CrmLeadsPage() {
       const row = mapOpen(lead, dealerNameById);
       row.has_demo = Boolean(lead.converted_demo_lead_id || demoSourceLeadIds.has(lead.id));
       row.quote_id = quoteIdByLeadId.get(lead.id) || null;
+      row.shared = sharedLeadIds.has(lead.id);
       return row;
     });
     const demo = demoLeads.map(mapDemo);
@@ -384,13 +391,14 @@ export default function CrmLeadsPage() {
       const myEmail = (appUser?.email || '').toLowerCase();
       merged = merged.filter(r =>
         (sellerId && r.owner_user_id === sellerId) ||
+        (r.type === 'open' && sharedLeadIds.has(r.id)) ||
         (myEmail && r.owner_email && r.owner_email.toLowerCase() === myEmail) ||
         (myEmail && (r.responsible_name || '').toLowerCase() === myEmail)
       );
     }
     merged.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
     return merged;
-  }, [openLeads, demoLeads, dealerNameById, quoteIdByLeadId, isAdmin, sellerId, appUser?.email]);
+  }, [openLeads, demoLeads, dealerNameById, quoteIdByLeadId, isAdmin, sellerId, appUser?.email, sharedLeadIds]);
 
   const counts = useMemo(() => ({
     all:       allRows.length,
@@ -595,6 +603,11 @@ export default function CrmLeadsPage() {
                           {r.incomplete && (
                             <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-amber-50 text-amber-800 border-amber-200">
                               {({ da: 'Ikke færdig oprettet', en: 'Incomplete lead', de: 'Unvollständiger Lead', it: 'Lead incompleto', hu: 'Hiányos lead' } as Record<Language, string>)[lang]}
+                            </span>
+                          )}
+                          {r.shared && (
+                            <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200">
+                              {lang === 'da' ? 'Delt med dig' : 'Shared with you'}
                             </span>
                           )}
                           {imageAttachments.length > 0 && (

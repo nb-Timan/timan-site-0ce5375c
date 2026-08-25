@@ -29,6 +29,7 @@ export const ALL_MODULES: ModuleAccessKey[] = [
   "contracts",
   "tilbud",
   "ordre",
+  "messe_portal",
   // Teknik & Service
   "claims",
   "warranty",

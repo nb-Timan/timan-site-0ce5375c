@@ -163,6 +163,7 @@ export default function ConfiguratorPage() {
   // both via the same code path. Falls back to logged-in user when no view-as.
   const effectiveUser = useEffectivePortalUser(appUser) ?? appUser;
   const activePortalRole = derivePortalRole(effectiveUser ?? appUser);
+  const isDealerUser = activePortalRole === 'dealer_user';
   const canApplyExtraDealerDiscount = (() => {
     const flag = effectiveUser?.permissions?.can_apply_extra_dealer_discount;
     if (flag === true) return true;
@@ -201,7 +202,7 @@ export default function ConfiguratorPage() {
 
   // Dealer User + Messe pricing rule: see gross list price. Messe may add
   // one manual discount in step 4, but no base/quantity/delivery/demo discounts.
-  const isDealerUserPricing = activePortalRole === 'dealer_user';
+  const isDealerUserPricing = isDealerUser;
   const isGrossPriceMode = isDealerUserPricing || isExhibition;
   const displayCalc = calcResult && isGrossPriceMode
     ? (() => {
@@ -3199,7 +3200,7 @@ export default function ConfiguratorPage() {
                       {T('startNewConfig')}
                     </button>
                   </div>
-                  {isExhibition ? (
+                  {isExhibition && !isDealerUser ? (
                     <button
                       type="button"
                       onClick={() => void (isTimanMesseUser ? handleSaveLeadAndSendOrder() : handleSaveAsLead())}
@@ -3275,7 +3276,7 @@ export default function ConfiguratorPage() {
                 )}
               </button>
             )}
-            {state.step === 4 && state.flowType === 'quote' && (isExhibition || canSaveConfiguratorAsLead) && (() => {
+            {state.step === 4 && state.flowType === 'quote' && ((isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
               const hasRequired = !!((isExhibition || ownership.dealerNumber) && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim() && (!isExhibition || ownership.sellerEmail));
               const label = isTimanMesseUser
                 ? ({ da: 'Gem som lead og send ordre', en: 'Save lead and send order', de: 'Lead speichern und Bestellung senden', it: 'Salva lead e invia ordine', hu: 'Lead mentése és rendelés küldése' }[lang])

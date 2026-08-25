@@ -1,0 +1,28 @@
+Nr,Firma,Adresse,Postnr,By,Bundesland,Latitude,Longitude,Type,Precision,Status
+01,Foras GmbH Schleswig,Werner-von-Siemens-Straße 1,24837,Schleswig,Schleswig-Holstein,54.538096,9.578582,Dealer,rooftop,VERIFIED_NORMALIZED
+02,Foras GmbH Norderstedt,Segeberger Chaussee 188a,22851,Norderstedt,Schleswig-Holstein,53.686847,10.031375,Dealer,rooftop,VERIFIED
+03,Foras GmbH Lamstedt,Bremervörder Straße 57,21769,Lamstedt,Niedersachsen,53.627524,9.090894,Dealer,rooftop,VERIFIED
+04,Foras GmbH Zeven,Zum Hochkamp 2,27404,Zeven,Niedersachsen,53.278009,9.293594,Dealer,rooftop,VERIFIED
+05,Gartec GmbH,Freiheit 30,13597,Berlin,Berlin,52.529405,13.232649,Dealer,rooftop,VERIFIED_BROAD_SEARCH
+06,KTB KommunalTechnik Vertriebs GmbH & Co. KG,Langer Acker 23,30900,Wedemark,Niedersachsen,52.517996,9.735103,Dealer,rooftop,VERIFIED_BROAD_SEARCH
+07,Wäterling Industrievertretungen,Hillenweg 8,38325,Roklum,Niedersachsen,52.069071,10.742332,Dealer,rooftop,VERIFIED_BROAD_SEARCH
+08,Nabert Forst- und Gartentechnik,Nordhäuser Straße 2a,38899,Oberharz am Brocken - Hasselfelde,Sachsen-Anhalt,51.690176,10.849110,Dealer,rooftop,VERIFIED_LOCALITY
+09,KomTec GmbH,Raiffeisenstraße 5a,37124,Rosdorf,Niedersachsen,51.509148,9.911996,Dealer,rooftop,VERIFIED_BROAD_SEARCH
+10,Kobatec GmbH,Brandisstraße 7,06217,Merseburg,Sachsen-Anhalt,51.376981,11.985094,Dealer,rooftop,VERIFIED_NORMALIZED_POSTCODE
+11,Teichert GmbH & Co. KG,Sachsenstraße 1,04749,Jahnatal - Ostrau,Sachsen,51.206543,13.154340,Dealer,rooftop,VERIFIED_LOCALITY_NORMALIZED_POSTCODE
+12,Wilmers Kommunaltechnik GmbH,Über den Erlen 7,57392,Schmallenberg-Bad Fredeburg,Nordrhein-Westfalen,51.185726,8.316411,Dealer,approximate,VERIFIED_APPROXIMATE_LOCALITY
+13,Stöber Gartentecknik Gbr,Stockder Straße 90,42857,Remscheid,Nordrhein-Westfalen,51.184239,7.162630,Dealer,rooftop,VERIFIED_NORMALIZED
+14,Klotz-Motorgeräte,Kirchstraße 3,01689,Niederau,Sachsen,51.174483,13.540281,Service Partner,rooftop,VERIFIED_NORMALIZED
+15,Niehle Gmbh,Saasa 26,07607,Eisenberg,Thüringen,50.970563,11.876321,Service Partner,rooftop,VERIFIED
+16,Hummelmühle-Lockwitz GmbH,Hummelmühle 25,01731,Kreischa,Sachsen,50.966781,13.777474,Dealer,rooftop,VERIFIED_NORMALIZED_POSTCODE
+17,Weimer GmbH Schönau,Ortsstraße 47,99887,Georgenthal - Schönau vor dem Walde,Thüringen,50.857096,10.642159,Dealer,rooftop,VERIFIED_LOCALITY_NORMALIZED
+18,Arold Service & Vetrieb GmbH,Windmühlenstraße 13,07589,Münchenbernsdorf,Thüringen,50.823288,11.926814,Dealer,rooftop,VERIFIED
+19,Weimer GmbH Lollar,Wißmarer Straße 32-34,35457,Lollar,Hessen,50.659719,8.707149,Dealer,rooftop_range_midpoint,VERIFIED_RANGE_MIDPOINT
+20,Schlotter GmbH & Co. KG,Hauptstraße 64,65510,Idstein - Wörsdorf,Hessen,50.241275,8.257395,Dealer,rooftop,VERIFIED_LOCALITY
+21,Weimer GmbH Dietzenbach,Hans-Böckler-Straße 1,63128,Dietzenbach,Hessen,50.017500,8.794591,Dealer,rooftop,VERIFIED
+22,A. Amrhein & Söhne,Goethestraße 4,97493,Bergrheinfeld,Bayern,50.009152,10.185032,Dealer,rooftop,VERIFIED
+23,Tiefel Garten + Forstgeräte GmbH,Obermichelbacher Straße 1,90587,Veitsbronn,Bayern,49.512049,10.884977,Dealer,rooftop,VERIFIED
+24,Alexander Borchers,Saarstraße 24,66787,Wadgassen,Saarland,49.271227,6.796618,Dealer,rooftop,VERIFIED
+25,Radi GmbH & Co. Kg,Spitalstraße 10,89584,Ehingen,Baden-Württemberg,48.280889,9.722652,Dealer,rooftop,VERIFIED_BROAD_SEARCH
+26,Widhopf GmbH Garten- und Kt.,Eichendorffstraße 33-35,85609,Aschheim,Bayern,48.165399,11.736014,Dealer,proximate,VERIFIED_ADDRESS_RANGE_PROXIMATE
+27,Grafmüller Meisterbetrieb,Am Elzdamm 56,79312,Emmendingen,Baden-Württemberg,48.128736,7.821949,Dealer,rooftop,VERIFIED

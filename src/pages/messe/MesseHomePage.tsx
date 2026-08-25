@@ -5,6 +5,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
 import { isMesseEnabled } from '@/lib/exhibitionMode';
+import { derivePortalRole } from '@/lib/portalAccess';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -79,6 +80,10 @@ export default function MesseHomePage() {
   if (!appUser) return null;
 
   const isBackendPreview = canSwitchMode(appUser);
+  const isDealerUser = derivePortalRole(appUser) === 'dealer_user';
+  const visibleQuickActions = isDealerUser
+    ? QUICK_ACTIONS.filter((action) => action.to === '/messe/resources/driftberegner' || action.to === '/messe/resources/co2')
+    : QUICK_ACTIONS;
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -159,7 +164,7 @@ export default function MesseHomePage() {
         <section className="mt-10">
           <h2 className="text-2xl font-bold text-slate-900 mb-4">{t('mh_quick_actions', uiLanguage)}</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
-            {QUICK_ACTIONS.map((action) => {
+            {visibleQuickActions.map((action) => {
               const Icon = action.icon;
               return (
                 <Link

@@ -360,9 +360,7 @@ const MACHINE_CONTENT: Record<MachineKey, MachineContent> = {
     specs: [
       { label: { da: 'Motor', en: 'Engine', de: 'Motor', it: 'Motore', hu: 'Motor' }, value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11' } },
       { label: { da: 'Effekt', en: 'Power', de: 'Leistung', it: 'Potenza', hu: 'Teljesítmény' }, value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW' } },
-      { label: { da: 'Cylindre', en: 'Cylinders', de: 'Zylinder', it: 'Cilindri', hu: 'Hengerek' }, value: { da: '3', en: '3', de: '3', it: '3', hu: '3' } },
       { label: { da: 'Tophastighed', en: 'Top speed', de: 'Höchstgeschwindigkeit', it: 'Velocità max.', hu: 'Végsebesség' }, value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h' } },
-      { label: { da: 'Dieseltank', en: 'Diesel tank', de: 'Dieseltank', it: 'Serbatoio diesel', hu: 'Dízeltank' }, value: { da: '21 liter', en: '21 litres', de: '21 Liter', it: '21 litri', hu: '21 liter' } },
       { label: { da: 'EU Norm', en: 'EU standard', de: 'EU-Norm', it: 'Norma UE', hu: 'EU norma' }, value: { da: 'Stage V', en: 'Stage V', de: 'Stage V', it: 'Stage V', hu: 'Stage V' } },
     ],
     attachments: [
@@ -656,10 +654,10 @@ const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
     {
       title: text('Nøglefunktioner', 'Key features', 'Schlüsselfunktionen', 'Funzioni chiave', 'Fő funkciók'),
       rows: [
-        { label: translatedText('m2620_spec_frontaxle'), value: translatedText('m2620_specv_suspended') },
-        { label: translatedText('m2620_spec_articulation'), value: translatedText('m2620_specv_suspended') },
-        { label: translatedText('m2620_spec_comfort'), value: translatedText('m2620_specv_comfort') },
-        { label: translatedText('m2620_spec_surface'), value: translatedText('m2620_specv_surface') },
+        { label: text('Maskinbredde', 'Machine width', 'Maschinenbreite', 'Larghezza macchina', 'Gép szélessége'), value: text('1.020 mm uden kabine', '1,020 mm without cab', '1.020 mm ohne Kabine', '1.020 mm senza cabina', '1.020 mm fülke nélkül') },
+        { label: text('Venderadius', 'Turning radius', 'Wenderadius', 'Raggio di sterzata', 'Fordulási sugár'), value: text('565 mm indvendig', '565 mm inner', '565 mm innen', '565 mm interno', '565 mm belső') },
+        { label: text('Olieudtag', 'Oil outlet', 'Ölanschluss', 'Presa olio', 'Olajcsatlakozó'), value: text('40 l/min ved 250 bar', '40 l/min at 250 bar', '40 l/min bei 250 bar', '40 l/min a 250 bar', '40 l/min 250 bar nyomáson') },
+        { label: text('Arbejdshydraulik', 'Working hydraulics', 'Arbeitshydraulik', 'Idraulica di lavoro', 'Munkahidraulika'), value: text('Dobbeltvirkende funktioner', 'Double-acting functions', 'Doppeltwirkende Funktionen', 'Funzioni a doppio effetto', 'Kettős működésű funkciók') },
       ],
     },
     {
@@ -667,42 +665,18 @@ const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
       rows: [
         { label: translatedText('m2620_spec_engine'), value: text('Perkins 403J-11') },
         { label: translatedText('m2620_spec_power'), value: translatedText('m2620_specv_power') },
-        { label: translatedText('m2620_spec_cylinders'), value: text('3') },
-        { label: translatedText('m2620_spec_displacement'), value: text('1131 cc') },
+        { label: text('Brændstof', 'Fuel', 'Kraftstoff', 'Carburante', 'Üzemanyag'), value: text('Diesel / HVO biodiesel', 'Diesel / HVO biodiesel', 'Diesel / HVO-Biodiesel', 'Diesel / biodiesel HVO', 'Dízel / HVO biodízel') },
         { label: translatedText('m2620_spec_topspeed'), value: translatedText('m2620_specv_topspeed') },
-        { label: translatedText('m2620_spec_fueltank'), value: translatedText('m2620_specv_fueltank') },
         { label: translatedText('m2620_spec_eustandard'), value: text('Stage V') },
       ],
     },
     {
-      title: text('Transmission og undervogn', 'Transmission and chassis', 'Transmission und Fahrwerk', 'Trasmissione e telaio', 'Hajtás és alváz'),
+      title: text('Træk og manøvrering', 'Drive and manoeuvring', 'Antrieb und Manövrierbarkeit', 'Trazione e manovrabilità', 'Hajtás és manőverezés'),
       rows: [
-        { label: translatedText('m2620_spec_transmission'), value: translatedText('m2620_specv_transmission') },
-        { label: translatedText('m2620_spec_brakes'), value: translatedText('m2620_specv_brakes') },
-        { label: translatedText('m2620_spec_wheelmotors'), value: translatedText('m2620_specv_wheelmotors') },
-        { label: translatedText('m2620_spec_cooling'), value: translatedText('m2620_specv_cooling') },
-        { label: translatedText('m2620_spec_frontaxle'), value: translatedText('m2620_specv_suspended') },
-        { label: translatedText('m2620_spec_articulation'), value: translatedText('m2620_specv_suspended') },
-      ],
-    },
-    {
-      title: text('Kabine og komfort', 'Cab and comfort', 'Kabine und Komfort', 'Cabina e comfort', 'Fülke és kényelem'),
-      rows: [
-        { label: translatedText('m2620_spec_steering'), value: translatedText('m2620_specv_steering') },
-        { label: translatedText('m2620_spec_roofhatch'), value: translatedText('m2620_specv_standard') },
-        { label: translatedText('m2620_spec_cabheater'), value: translatedText('m2620_specv_cabheater') },
-        { label: translatedText('m2620_spec_rearwindows'), value: translatedText('m2620_specv_rearwindows') },
-        { label: translatedText('m2620_spec_worklights'), value: translatedText('m2620_specv_worklights') },
-        { label: translatedText('m2620_spec_wiper'), value: translatedText('m2620_specv_wiper') },
-      ],
-    },
-    {
-      title: translatedText('m2620_extra_heading'),
-      rows: [
-        { label: translatedText('m2620_extra_sunshade'), value: translatedText('m2620_extrav_sunshade') },
-        { label: translatedText('m2620_extra_radio'), value: translatedText('m2620_extrav_radio') },
-        { label: translatedText('m2620_extra_comfortseat'), value: translatedText('m2620_extrav_comfortseat') },
-        { label: translatedText('m2620_extra_deluxeseat'), value: translatedText('m2620_extrav_deluxeseat') },
+        { label: text('Træk', 'Drive', 'Antrieb', 'Trazione', 'Hajtás'), value: text('4-hjulstræk', '4-wheel drive', 'Allradantrieb', 'Trazione integrale', '4 kerék hajtás') },
+        { label: text('Knækled', 'Articulation joint', 'Knickgelenk', 'Snodo articolato', 'Csukló'), value: text('Gummidæmpet knækled', 'Rubber-damped articulation joint', 'Gummigedämpftes Knickgelenk', 'Snodo articolato ammortizzato in gomma', 'Gumicsillapított csukló') },
+        { label: text('Maskinbredde', 'Machine width', 'Maschinenbreite', 'Larghezza macchina', 'Gép szélessége'), value: text('1.020 mm uden kabine', '1,020 mm without cab', '1.020 mm ohne Kabine', '1.020 mm senza cabina', '1.020 mm fülke nélkül') },
+        { label: text('Venderadius indvendig', 'Inner turning radius', 'Innerer Wenderadius', 'Raggio di sterzata interno', 'Belső fordulási sugár'), value: text('565 mm') },
       ],
     },
     {

@@ -112,21 +112,16 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
         t('m2620_motor_b3', lang),
       ],
       technical: [
-        // Left column
         { label: t('m2620_spec_engine', lang), value: 'Perkins 403J-11' },
         { label: t('m2620_spec_power', lang), value: t('m2620_specv_power', lang) },
         { label: t('m2620_spec_cylinders', lang), value: '3' },
-        { label: t('m2620_spec_displacement', lang), value: '1131 cc' },
-        { label: t('m2620_spec_topspeed', lang), value: t('m2620_specv_topspeed', lang) },
         { label: t('m2620_spec_fueltank', lang), value: t('m2620_specv_fueltank', lang) },
-        // Right column — longest values last so they can wrap freely
+        { label: t('m2620_spec_topspeed', lang), value: t('m2620_specv_topspeed', lang) },
         { label: t('m2620_spec_eustandard', lang), value: 'Stage V' },
-        { label: t('m2620_spec_brakes', lang), value: t('m2620_specv_brakes', lang) },
-        { label: t('m2620_spec_wheelmotors', lang), value: t('m2620_specv_wheelmotors', lang) },
         { label: t('m2620_spec_transmission', lang), value: t('m2620_specv_transmission', lang) },
-        { label: t('m2620_spec_cooling', lang), value: t('m2620_specv_cooling', lang) },
+        { label: t('m2620_spec_brakes', lang), value: t('m2620_specv_brakes', lang) },
       ],
-      technicalSplitAt: 6,
+      technicalSplitAt: 4,
 
     },
 
@@ -140,23 +135,6 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
         t('m2620_cab_b2', lang),
         t('m2620_cab_b3', lang),
       ],
-      technical: [
-        { label: t('m2620_spec_steering', lang), value: t('m2620_specv_steering', lang) },
-        { label: t('m2620_spec_roofhatch', lang), value: t('m2620_specv_standard', lang) },
-        { label: t('m2620_spec_cabheater', lang), value: t('m2620_specv_cabheater', lang) },
-        { label: t('m2620_spec_rearwindows', lang), value: t('m2620_specv_rearwindows', lang) },
-        { label: t('m2620_spec_worklights', lang), value: t('m2620_specv_worklights', lang) },
-        { label: t('m2620_spec_wiper', lang), value: t('m2620_specv_wiper', lang) },
-      ],
-      // Cabin: single full-width column, even though there are 6 rows.
-      technicalColumns: 1,
-      extraTitle: t('m2620_extra_heading', lang),
-      extra: [
-        { label: t('m2620_extra_sunshade', lang), value: t('m2620_extrav_sunshade', lang) },
-        { label: t('m2620_extra_radio', lang), value: t('m2620_extrav_radio', lang) },
-        { label: t('m2620_extra_comfortseat', lang), value: t('m2620_extrav_comfortseat', lang) },
-        { label: t('m2620_extra_deluxeseat', lang), value: t('m2620_extrav_deluxeseat', lang) },
-      ],
     },
     affjedring: {
       title: t('m2620_hot_affjedring_title', lang),
@@ -166,14 +144,6 @@ function buildPartContent(lang: string): Record<PartId, PartContent> {
         t('m2620_susp_b1', lang),
         t('m2620_susp_b2', lang),
         t('m2620_susp_b3', lang),
-      ],
-      technical: [
-        // Left column
-        { label: t('m2620_spec_frontaxle', lang), value: t('m2620_specv_suspended', lang) },
-        { label: t('m2620_spec_articulation', lang), value: t('m2620_specv_suspended', lang) },
-        // Right column
-        { label: t('m2620_spec_comfort', lang), value: t('m2620_specv_comfort', lang) },
-        { label: t('m2620_spec_surface', lang), value: t('m2620_specv_surface', lang) },
       ],
       imageUrl: SUSPENSION_DETAIL_IMAGE,
     },
@@ -390,14 +360,20 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
 
   // Saltspreder only — saltspreder bin dominates right side
   standard_salt_spreader: {
-    motor:         STANDARD_MOTOR,
+    motor: [
+      { ...STANDARD_MOTOR, frame: 1 },
+      { anchor: { x: 39, y: 66 }, callout: { cx: 30, cy: 89 }, frame: 2 },
+    ],
     affjedring:    STANDARD_AFFJEDRING,
     salt_spreader: [{ ...STANDARD_SALT_SPREADER, frame: 1 }, SALT_SPREADER_REAR],
     fodpedal:      STANDARD_FODPEDAL,
   },
   cab_salt_spreader: {
     motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 } },
-    kabine:        { anchor: { x: 38, y: 30 }, callout: { cx: 12, cy: 12 } },
+    kabine: [
+      { anchor: { x: 38, y: 30 }, callout: { cx: 12, cy: 12 }, frame: 1 },
+      { anchor: { x: 38, y: 30 }, callout: { cx: 18, cy: 12 }, frame: 2 },
+    ],
     affjedring:    [
       affjedring({ x: 61, y: 68 }, 1),
       AFFJEDRING_REAR,

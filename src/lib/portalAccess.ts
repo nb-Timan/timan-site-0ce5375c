@@ -68,6 +68,7 @@ export type ModuleAccessKey =
   | 'service_information'
   | 'service_tickets'
   | 'machine_search'
+  | 'messe_portal'
   | 'byg_din_timan'
   | 'tilbud'
   | 'ordre'
@@ -82,17 +83,17 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   timan_backend: [
     'teknik_service', 'salg_marketing', 'marketing', 'timan_backend', 'timan_crm', 'dealer_data',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'contracts', 'resources', 'videos',
+    'messe_portal', 'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'contracts', 'resources', 'videos',
   ],
   timan_seller: [
     'teknik_service', 'salg_marketing', 'timan_crm', 'dealer_data',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
+    'messe_portal', 'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
   ],
   timan_service: [
     'teknik_service', 'dealer_data',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'videos',
+    'messe_portal', 'videos',
   ],
   timan_importer: [
     'teknik_service', 'salg_marketing', 'dealer_data',
@@ -114,10 +115,10 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   // Forhandlerdata is granted only when admins set `allowed_areas` explicitly.
   // Teknik & Service, Timan CRM and Timan Backend are NEVER granted.
   dealer_user: [
-    'salg_marketing', 'byg_din_timan', 'resources', 'sales_tools', 'videos',
+    'messe_portal', 'salg_marketing', 'byg_din_timan', 'resources', 'sales_tools', 'videos',
   ],
-  // Private / end user — no portal modules by default.
-  private_end_user: [],
+  // Private / end user — same light product experience as the Messe portal.
+  private_end_user: ['messe_portal'],
   // Public exhibition / fair demo session — NO portal modules.
   // The /messe pages are public and bypass module_access entirely.
   exhibition_user: [],
@@ -222,6 +223,22 @@ export function hasInternalMesseAccess(
   const externalRoles: PortalRole[] = ['timan_importer', 'timan_dealer', 'timan_service_partner', 'dealer_user', 'exhibition_user'];
   if (role && externalRoles.includes(role)) return false;
   return user.role !== 'partner' && Array.isArray(user.allowed_areas) && user.allowed_areas.includes('salg_marketing');
+}
+
+export function hasMessePortalAccess(
+  user: (
+    Pick<AppUser, 'role' | 'partner_type'> & {
+      email?: string | null;
+      portal_role?: string | null;
+      module_access?: string[] | null;
+      portal_variant?: string | null;
+    }
+  ) | null | undefined,
+): boolean {
+  if (!user) return false;
+  if (isMesseVariantUser(user)) return true;
+  const role = derivePortalRole(user);
+  return hasModuleAccess(role, 'messe_portal', user.module_access as ModuleAccessKey[] | null | undefined);
 }
 
 // ---------- Claims view variant ----------

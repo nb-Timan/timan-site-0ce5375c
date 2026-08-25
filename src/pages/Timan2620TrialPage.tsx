@@ -8,6 +8,7 @@ import MesseSubpageHeader from "@/components/messe/MesseSubpageHeader";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { createCrm2620Trial } from "@/lib/crm2620TrialsService";
+import { derivePortalRole } from "@/lib/portalAccess";
 
 type Props = {
   variant?: "portal" | "messe";
@@ -103,6 +104,7 @@ export default function Timan2620TrialPage({ variant = "portal" }: Props) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-sm text-slate-500">...</div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;
+  if (derivePortalRole(appUser) === "dealer_user") return <Navigate to="/messe" replace />;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
