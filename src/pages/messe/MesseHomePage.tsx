@@ -47,7 +47,7 @@ const TILES: Tile[] = [
 const QUICK_ACTIONS = [
   { to: '/messe/resources/driftberegner', icon: Gauge, label: 'mh_drift' },
   { to: '/messe/resources/co2', icon: Leaf, label: 'mh_co2' },
-  { to: '/messe/timan-2620-afproevning', icon: ClipboardList, label: 'Afprøvning af 2620', literalLabel: true },
+  { to: '/messe/timan-2620-afproevning', icon: ClipboardList, label: 'Afprøv Timan 2620', literalLabel: true },
   { to: '/messe/follow-up', icon: ClipboardList, label: 'Messeformular', literalLabel: true },
 ];
 
@@ -158,19 +158,19 @@ export default function MesseHomePage() {
 
         <section className="mt-10">
           <h2 className="text-2xl font-bold text-slate-900 mb-4">{t('mh_quick_actions', uiLanguage)}</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 max-w-5xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 w-full">
             {QUICK_ACTIONS.map((action) => {
               const Icon = action.icon;
               return (
                 <Link
                   key={action.to}
                   to={action.to}
-                  className="flex items-center gap-4 rounded-xl bg-white border border-slate-200 shadow-sm px-5 py-4 hover:shadow-md hover:-translate-y-0.5 transition"
+                  className="flex items-center justify-center gap-4 rounded-xl bg-white border border-slate-200 shadow-sm px-5 py-4 text-center hover:shadow-md hover:-translate-y-0.5 transition"
                 >
                   <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-[#2d5a27]">
                     <Icon className="h-5 w-5" />
                   </span>
-                  <span className="font-bold text-slate-900">{action.literalLabel ? action.label : t(action.label, uiLanguage)}</span>
+                  <span className="font-bold text-slate-900 whitespace-nowrap">{action.literalLabel ? action.label : t(action.label, uiLanguage)}</span>
                 </Link>
               );
             })}
