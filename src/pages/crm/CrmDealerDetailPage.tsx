@@ -126,7 +126,7 @@ const t = (k: keyof typeof T) => T[k].da;
 const L: Record<string, Record<Language, string>> = {
   primary_contact:  { da: "Primær kontaktperson", en: "Primary contact", de: "Hauptansprechpartner", it: "Contatto principale", hu: "Elsődleges kapcsolat" },
   no_primary:       { da: "Primær kontaktperson mangler", en: "Primary contact missing", de: "Hauptansprechpartner fehlt", it: "Contatto principale mancante", hu: "Hiányzó elsődleges kapcsolat" },
-  call:             { da: "Ring", en: "Call", de: "Anrufen", it: "Chiama", hu: "Hívás" },
+  call:             { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Referente", hu: "Kapcsolattartó" },
   send_mail:        { da: "Send mail", en: "Email", de: "E-Mail", it: "Email", hu: "Email" },
   directions:       { da: "Rutevejledning", en: "Directions", de: "Route", it: "Indicazioni", hu: "Útvonal" },
   website:          { da: "Hjemmeside", en: "Website", de: "Webseite", it: "Sito web", hu: "Weboldal" },
@@ -1648,7 +1648,7 @@ function ContactHero({
   // Fallbacks: action cards use company-level data if no primary contact.
   const callPhone = primaryPhone || dealer.phone || null;
   const mailAddr  = primaryEmail || dealer.email || null;
-  const callLabel = primaryName ? tl("contact_call", lang) : tl("call", lang);
+  const callLabel = tl(primaryName ? "contact_call" : "call", lang);
   const callSublabel = primaryName && callPhone ? `${primaryName}\n${callPhone}` : [primaryName, callPhone].filter(Boolean).join("\n");
   const mailSublabel = primaryEmail
     ? [primaryName, primaryEmail].filter(Boolean).join("\n")
