@@ -106,6 +106,8 @@ export default function CrmMyDealersPage() {
   const [q, setQ] = useState("");
   const [profileFilter, setProfileFilter] = useState<"all" | "complete" | "partial" | "critical">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "blocked">("all");
+  const [countryFilter, setCountryFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
 
   const [groupExpanded, setGroupExpanded] = useState<Set<string>>(new Set());
   const [dealerCustomersExpanded, setDealerCustomersExpanded] = useState<Set<string>>(new Set());
@@ -213,12 +215,22 @@ export default function CrmMyDealersPage() {
     return Math.max(s?.user_count ?? 0, linked);
   };
 
+  const countryOptions = Array.from(
+    new Set((dealers ?? []).map((d) => (d.country ?? "").trim()).filter(Boolean)),
+  ).sort((a, b) => formatCountry(a).localeCompare(formatCountry(b), "da"));
+
+  const typeOptions = Array.from(
+    new Set((dealers ?? []).map((d) => (d.customer_type_label || d.customer_type || "").trim()).filter(Boolean)),
+  ).sort((a, b) => a.localeCompare(b, "da"));
+
   const filteredDealers = (dealers ?? []).filter((r) => {
     if (q) {
       const needle = q.toLowerCase();
       if (!`${r.company_name} ${r.account_number} ${r.country ?? ""} ${r.branch_name ?? ""}`
         .toLowerCase().includes(needle)) return false;
     }
+    if (countryFilter !== "all" && (r.country ?? "").trim() !== countryFilter) return false;
+    if (typeFilter !== "all" && (r.customer_type_label || r.customer_type || "").trim() !== typeFilter) return false;
     if (profileFilter !== "all") {
       const sev = computeDealerProfileSeverity(r, dealerPeopleCount(r));
       if (profileFilter === "complete" && sev !== "complete") return false;
@@ -235,7 +247,7 @@ export default function CrmMyDealersPage() {
   const dealersByAcct = new Map<string, DealerAccount>();
   for (const d of dealers ?? []) dealersByAcct.set(d.account_number, d);
   const visibleIds = new Set(filteredDealers.map((d) => d.id));
-  if (q || profileFilter !== "all" || statusFilter !== "all") {
+  if (q || countryFilter !== "all" || typeFilter !== "all" || profileFilter !== "all" || statusFilter !== "all") {
     for (const d of filteredDealers) {
       if (d.parent_account_number) {
         const parent = dealersByAcct.get(d.parent_account_number);
@@ -309,6 +321,32 @@ export default function CrmMyDealersPage() {
             <option value="partial">Mangler info</option>
             <option value="critical">Kritisk</option>
 
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-slate-600">
+          <span className="font-semibold uppercase tracking-wide">Land</span>
+          <select
+            value={countryFilter}
+            onChange={(e) => setCountryFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+          >
+            <option value="all">Alle</option>
+            {countryOptions.map((country) => (
+              <option key={country} value={country}>{formatCountry(country)}</option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-xs text-slate-600">
+          <span className="font-semibold uppercase tracking-wide">Type</span>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
+          >
+            <option value="all">Alle</option>
+            {typeOptions.map((type) => (
+              <option key={type} value={type}>{type}</option>
+            ))}
           </select>
         </label>
         <label className="flex items-center gap-2 text-xs text-slate-600">
