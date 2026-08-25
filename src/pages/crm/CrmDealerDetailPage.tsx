@@ -169,6 +169,7 @@ const L: Record<string, Record<Language, string>> = {
   recent_quotes:    { da: "Seneste tilbud", en: "Recent quotes", de: "Letzte Angebote", it: "Ultimi preventivi", hu: "Legutóbbi árajánlatok" },
   none:             { da: "Ingen", en: "None", de: "Keine", it: "Nessuno", hu: "Nincs" },
   contact_info:     { da: "Firma information", en: "Company information", de: "Firmeninformationen", it: "Informazioni azienda", hu: "Cégadatok" },
+  contact_call:     { da: "Sælger / kontaktperson", en: "Sales / contact person", de: "Vertrieb / Ansprechpartner", it: "Vendite / referente", hu: "Értékesítő / kapcsolattartó" },
   address_line_1:   { da: "Adresse 1", en: "Address line 1", de: "Adresse 1", it: "Indirizzo 1", hu: "Cím 1" },
   address_line_2:   { da: "Adresse 2", en: "Address line 2", de: "Adresse 2", it: "Indirizzo 2", hu: "Cím 2" },
   postal_code:      { da: "Postnummer", en: "Postal code", de: "PLZ", it: "CAP", hu: "Irányítószám" },
@@ -181,7 +182,7 @@ const L: Record<string, Record<Language, string>> = {
   customer_type:    { da: "Forhandlertype", en: "Dealer type", de: "Händlertyp", it: "Tipo dealer", hu: "Kereskedő típus" },
   account_number:   { da: "Kontonummer", en: "Account number", de: "Kundennr.", it: "Numero conto", hu: "Számlaszám" },
   company_name_lbl: { da: "Firmanavn", en: "Company name", de: "Firmenname", it: "Ragione sociale", hu: "Cégnév" },
-  assigned_seller:  { da: "Tildelt Timan-sælger", en: "Assigned Timan seller", de: "Zugewiesener Timan-Verkäufer", it: "Venditore Timan assegnato", hu: "Kijelölt Timan értékesítő" },
+  assigned_seller:  { da: "Timan-sælger", en: "Timan seller", de: "Timan-Verkäufer", it: "Venditore Timan", hu: "Timan értékesítő" },
   created_at_lbl:   { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato il", hu: "Létrehozva" },
   vat:              { da: "CVR/VAT", en: "VAT", de: "USt-IdNr.", it: "P.IVA", hu: "Adószám" },
   status_lbl:       { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Állapot" },
@@ -1644,8 +1645,10 @@ function ContactHero({
     primaryRow?.phone || dealer.primary_contact_phone || dealer.sales_contact_phone || null;
 
   // Fallbacks: action cards use company-level data if no primary contact.
-  const callPhone = dealer.phone || primaryPhone || null;
+  const callPhone = primaryPhone || dealer.phone || null;
   const mailAddr  = primaryEmail || dealer.email || null;
+  const callLabel = primaryName ? tl("contact_call", lang) : tl("call", lang);
+  const callSublabel = [primaryName, callPhone].filter(Boolean).join(" · ");
 
   const addressLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2, dealer.postal_code, dealer.city, dealer.country]
     .filter(Boolean).join(", ");
@@ -1677,7 +1680,7 @@ function ContactHero({
 
   // Only include actions whose data exists.
   const actionsAll: HeroAction[] = [
-    callPhone ? { key: "call",   label: tl("call", lang), sublabel: callPhone, icon: <Phone className="h-5 w-5" />, href: `tel:${callPhone}` } : null,
+    callPhone ? { key: "call",   label: callLabel, sublabel: callSublabel, icon: <Phone className="h-5 w-5" />, href: `tel:${callPhone}` } : null,
     mailAddr  ? { key: "mail",   label: tl("send_mail", lang),     icon: <Mail className="h-5 w-5" />,         href: `mailto:${mailAddr}` } : null,
     mapsHref  ? { key: "route",  label: tl("directions", lang),    icon: <MapPin className="h-5 w-5" />,       href: mapsHref } : null,
     websiteHref ? { key: "web",  label: tl("website", lang),       icon: <Globe className="h-5 w-5" />,        href: websiteHref } : null,
@@ -1797,7 +1800,7 @@ function ContactHero({
             {assignedSellerName && (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 px-2.5 py-2.5 min-w-0">
                 <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-bold text-emerald-800">
-                  <UserCircle2 className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Tildelt sælger</span>
+                  <UserCircle2 className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Timan-sælger</span>
                 </div>
                 <div className="mt-2 truncate text-xs font-bold text-slate-900">{assignedSellerName}</div>
                 <div className="mt-1 space-y-1 text-[10px] text-slate-600">

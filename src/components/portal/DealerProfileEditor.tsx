@@ -100,6 +100,16 @@ function isLocalContact(contact: DealerContact): boolean {
   return contact.id.startsWith("local-");
 }
 
+function contactHasContent(contact: DealerContact): boolean {
+  return Boolean(
+    contact.role_title?.trim() ||
+    contact.name?.trim() ||
+    contact.email?.trim() ||
+    contact.phone?.trim() ||
+    contact.is_primary
+  );
+}
+
 // ---------- module-scope helpers (stable component identity) ----------
 
 interface FieldProps {
@@ -377,6 +387,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   const patchContact = (id: string, patch: Partial<DealerContact>) =>
     setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
   const persistContact = async (c: DealerContact) => {
+    if (isLocalContact(c) && !contactHasContent(c)) return { ok: true };
     const res = await upsertDealerContact({
       id: isLocalContact(c) ? undefined : c.id, dealer_account_id: c.dealer_account_id, contact_area: c.contact_area,
       role_title: c.role_title, name: c.name, email: c.email, phone: c.phone, is_primary: c.is_primary,
@@ -389,9 +400,32 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
     else if (res.row) setContacts((prev) => prev.map((row) => row.id === c.id ? res.row! : row));
   };
   const removeContact = async (id: string) => {
+    const local = contacts.find((c) => c.id === id);
+    if (local && isLocalContact(local)) {
+      setContacts((prev) => prev.filter((c) => c.id !== id));
+      return;
+    }
     const res = await deleteDealerContact(id);
     if (res.ok) setContacts((prev) => prev.filter((c) => c.id !== id));
     else toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
+  };
+  const setPrimaryContact = async (area: DealerContactArea, id: string, checked: boolean) => {
+    const next = contacts.map((c) => (
+      c.contact_area === area ? { ...c, is_primary: checked && c.id === id } : c
+    ));
+    setContacts(next);
+    const changedAreaContacts = next.filter((c) => c.contact_area === area && (!isLocalContact(c) || contactHasContent(c)));
+    const results = await Promise.all(changedAreaContacts.map((c) => persistContact(c)));
+    const error = results.find((r) => !r.ok)?.error;
+    if (error) toast({ title: t("saveError"), description: error, variant: "destructive" });
+    const savedByPreviousId = new Map<string, DealerContact>();
+    changedAreaContacts.forEach((contact, index) => {
+      const saved = results[index]?.row;
+      if (saved) savedByPreviousId.set(contact.id, saved);
+    });
+    if (savedByPreviousId.size > 0) {
+      setContacts((prev) => prev.map((row) => savedByPreviousId.get(row.id) ?? row));
+    }
   };
 
   const statusOf = (key: SectionKey) =>
@@ -516,7 +550,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           <ContactList
             area="director" t={t} roleKeys={ROLE_KEYS_DIRECTOR} canEdit={canEdit}
             contacts={contactsByArea("director")} loading={loadingContacts}
-            onAdd={() => addContact("director")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact}
+            onAdd={() => addContact("director")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
           />
         )}
       </SectionShell>
@@ -556,7 +590,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
             <ContactList
               area="sales" t={t} roleKeys={ROLE_KEYS_SALES} canEdit={canEdit}
               contacts={contactsByArea("sales")} loading={loadingContacts}
-              onAdd={() => addContact("sales")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact}
+              onAdd={() => addContact("sales")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
             />
           )}
         </SectionShell>
@@ -578,7 +612,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
             <ContactList
               area="workshop" t={t} roleKeys={ROLE_KEYS_WORKSHOP} canEdit={canEdit}
               contacts={contactsByArea("workshop")} loading={loadingContacts}
-              onAdd={() => addContact("workshop")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact}
+              onAdd={() => addContact("workshop")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
             />
           )}
         </SectionShell>
@@ -661,7 +695,7 @@ function YesNoToggle({ label, value, onChange, yes, no, disabled }: {
 
 function ContactList({
   area, t, roleKeys, contacts, loading, canEdit,
-  onAdd, onPatch, onSave, onRemove,
+  onAdd, onPatch, onSave, onRemove, onSetPrimary,
 }: {
   area: DealerContactArea;
   t: (k: ProfileI18nKey) => string;
@@ -673,6 +707,7 @@ function ContactList({
   onPatch: (id: string, patch: Partial<DealerContact>) => void;
   onSave: (c: DealerContact) => void;
   onRemove: (id: string) => void;
+  onSetPrimary: (area: DealerContactArea, id: string, checked: boolean) => void;
 }) {
   return (
     <div className="space-y-3 border-t pt-3">
@@ -714,6 +749,18 @@ function ContactList({
                 <Trash2 className="h-4 w-4 text-rose-600" />
               </Button>
             )}
+          </div>
+          <div className="md:col-span-12">
+            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-emerald-600"
+                checked={c.is_primary}
+                disabled={!canEdit}
+                onChange={(event) => onSetPrimary(area, c.id, event.target.checked)}
+              />
+              {t("area_primary")}
+            </label>
           </div>
         </div>
       ))}
