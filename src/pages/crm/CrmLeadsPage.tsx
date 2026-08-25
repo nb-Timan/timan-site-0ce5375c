@@ -10,7 +10,7 @@ import { getActiveSellerView } from '@/lib/activeMode';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   listLeads, listDemoLeads, resolveSeedOwners, updateLead, getLead, deleteLead, deleteDemoLead,
-  CrmLead, CrmDemoLead, type CrmLeadAttachmentPreview,
+  CrmLead, CrmDemoLead, type CrmLeadAttachment, type CrmLeadAttachmentPreview,
   formatLeadNo, formatDemoNo,
   LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   getLeadAttachmentSignedUrls, getLeadImageAttachments,
@@ -335,7 +335,7 @@ export default function CrmLeadsPage() {
       const [openAll, demoAll, quoteResult] = await Promise.all([
         listLeads({}),
         listDemoLeads({}),
-        listScopedConfigurations({ documentType: 'quote' }),
+        listScopedConfigurations({ role: portalRole, sellerId: sid, documentType: 'quote' }),
       ]);
       const [openResolved, demoResolved] = await Promise.all([
         resolveSeedOwners(openAll),
