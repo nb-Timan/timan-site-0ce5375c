@@ -66,11 +66,21 @@ interface Unmatched {
   sharepoint_item_id: string;
   dealer_name_snapshot: string;
 }
+interface RejectedWarrantyRow {
+  sharepoint_item_id: string;
+  dealer_name_snapshot: string;
+  reason: "missing_sharepoint_item_id" | "missing_machine_serial";
+  machine_model: string;
+  customer_name: string;
+}
 interface DryRunResult {
   warranty_table_exists: boolean;
   warranty_table_empty?: boolean;
   resolved_field_names?: Record<string, string | null>;
   fetched: number;
+  processed?: number;
+  rejected_count?: number;
+  rejected_sample?: RejectedWarrantyRow[];
   new: number;
   updates: number;
   unchanged: number;
@@ -98,9 +108,13 @@ interface SyncConflict {
 
 interface SyncResult {
   mode: string;
+  completed?: boolean;
   writes_performed: boolean;
+  fatal_error?: string;
   fetched: number;
   processed: number;
+  rejected_count?: number;
+  rejected_sample?: RejectedWarrantyRow[];
   created: number;
   updated: number;
   unchanged: number;
@@ -171,9 +185,15 @@ export default function WarrantySharePointSyncPanel() {
     const { data, error } = await invokeFn<SyncResult>("sharepoint-warranty-sync");
     if (!error && data) {
       const conf = data.conflicts_count ?? 0;
-      toast.success("Warranty sync gennemført", {
-        description: `${data.created} oprettet · ${data.updated} opdateret · ${data.unchanged} uændret${conf > 0 ? ` · ${conf} konflikt${conf === 1 ? "" : "er"}` : ""}`,
-      });
+      const rejected = data.rejected_count ?? 0;
+      const description = `${data.created} oprettet · ${data.updated} opdateret · ${data.unchanged} uændret · ${rejected} afvist${conf > 0 ? ` · ${conf} konflikt${conf === 1 ? "" : "er"}` : ""}`;
+      if (data.completed === false || data.fatal_error) {
+        toast.error("Warranty sync kunne ikke gemme data", { description: data.fatal_error ?? description });
+      } else if (rejected > 0) {
+        toast.warning("Warranty sync gennemført med afviste rækker", { description });
+      } else {
+        toast.success("Warranty sync gennemført", { description });
+      }
     } else if (error) {
       toast.error("Warranty sync fejlede", { description: error });
     }
@@ -369,19 +389,25 @@ function SyncConfirmView({ dryRun, onConfirm, onCancel }: { dryRun: DryRunResult
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
         <Stat label="Hentes" value={dryRun.fetched} tone="sky" />
+        <Stat label="Kan gemmes" value={dryRun.processed ?? Math.max(0, dryRun.fetched - (dryRun.rejected_count ?? 0))} tone="emerald" />
+        <Stat label="Afvises" value={dryRun.rejected_count ?? 0} tone={(dryRun.rejected_count ?? 0) > 0 ? "rose" : "emerald"} />
         <Stat label="Nye" value={dryRun.new} tone="emerald" />
         <Stat label="Opdateres" value={dryRun.updates} tone="amber" />
         <Stat label="Uændrede" value={dryRun.unchanged} />
       </div>
 
       <ul className="space-y-1 text-sm text-slate-800 list-disc pl-5">
+        <li><strong>{dryRun.processed ?? Math.max(0, dryRun.fetched - (dryRun.rejected_count ?? 0))}</strong> rækker kan gemmes i databasen.</li>
+        <li><strong>{dryRun.rejected_count ?? 0}</strong> rækker afvises før database-write, typisk fordi et DB-krav mangler.</li>
         <li><strong>{dm.safe_matches_count ?? 0}</strong> rækker importeres som <strong>matched</strong> og kobles til forhandler.</li>
         <li><strong>{willImportUnmatched}</strong> rækker importeres <em>uden</em> forhandlerkobling (<code className="font-mono">dealer_account_id = null</code>, <code className="font-mono">dealer_account_number = null</code>). De er kun synlige for Timan Backend og Timan Service indtil de matches.</li>
         <li><strong>0</strong> rækker slettes. Manglende SharePoint-rækker markeres som <code className="font-mono">is_active_in_source = false</code>.</li>
         <li><code className="font-mono">dealer_name_snapshot</code> gemmes altid.</li>
       </ul>
+
+      <RejectedRowsSection rows={dryRun.rejected_sample ?? []} total={dryRun.rejected_count ?? 0} />
 
       <div className="flex items-center justify-end gap-2 pt-2">
         <button type="button" onClick={onCancel} className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
@@ -396,22 +422,31 @@ function SyncConfirmView({ dryRun, onConfirm, onCancel }: { dryRun: DryRunResult
 }
 
 function SyncResultView({ data }: { data: SyncResult }) {
+  const rejectedCount = data.rejected_count ?? 0;
+  const completed = data.completed !== false && !data.fatal_error;
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-900 text-sm flex items-center gap-2">
-        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-        <strong>Sync gennemført.</strong>
+      <div className={`rounded-lg border px-3 py-2 text-sm flex items-start gap-2 ${completed ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-rose-200 bg-rose-50 text-rose-900"}`}>
+        {completed ? <CheckCircle2 className="h-4 w-4 mt-0.5 text-emerald-600" /> : <AlertTriangle className="h-4 w-4 mt-0.5 text-rose-600" />}
+        <div>
+          <strong>{completed ? "Sync gennemført." : "Sync kunne ikke gemme data."}</strong>
+          {data.fatal_error && <p className="mt-1">{data.fatal_error}</p>}
+        </div>
       </div>
 
       <Section title="Importeret">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
           <Stat label="Hentet" value={data.fetched} tone="sky" />
+          <Stat label="Behandlet" value={data.processed} tone="emerald" />
+          <Stat label="Afvist" value={rejectedCount} tone={rejectedCount > 0 ? "rose" : "emerald"} />
           <Stat label="Oprettet" value={data.created} tone="emerald" />
           <Stat label="Opdateret" value={data.updated} tone="amber" />
           <Stat label="Uændret" value={data.unchanged} />
           <Stat label="Konflikter" value={data.conflicts_count ?? 0} tone={(data.conflicts_count ?? 0) > 0 ? "rose" : "emerald"} />
         </div>
       </Section>
+
+      <RejectedRowsSection rows={data.rejected_sample ?? []} total={rejectedCount} />
 
       <Section title="Dealer matching">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -483,6 +518,54 @@ function SyncResultView({ data }: { data: SyncResult }) {
         Varighed: {data.durationMs} ms.
       </p>
     </div>
+  );
+}
+
+function RejectedRowsSection({ rows, total }: { rows: RejectedWarrantyRow[]; total: number }) {
+  if (total <= 0) return null;
+  const labelForReason = (reason: RejectedWarrantyRow["reason"]) => {
+    if (reason === "missing_machine_serial") return "Mangler serienummer";
+    if (reason === "missing_sharepoint_item_id") return "Mangler SharePoint item id";
+    return reason;
+  };
+  return (
+    <Section title={`Afviste rækker (${total})`}>
+      <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-900 text-sm mb-2 flex items-start gap-2">
+        <AlertTriangle className="h-4 w-4 mt-0.5 text-rose-600 flex-shrink-0" />
+        <span>
+          Disse rækker blev ikke skrevet til databasen. De skal enten have det manglende SharePoint-felt rettet, eller også skal DB-kravet ændres med en migration.
+        </span>
+      </div>
+      {rows.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="min-w-full text-xs">
+            <thead className="bg-slate-100 text-slate-700">
+              <tr>
+                <th className="px-2 py-1.5 text-left font-bold">SP item</th>
+                <th className="px-2 py-1.5 text-left font-bold">Forhandler</th>
+                <th className="px-2 py-1.5 text-left font-bold">Maskine</th>
+                <th className="px-2 py-1.5 text-left font-bold">Kunde</th>
+                <th className="px-2 py-1.5 text-left font-bold">Årsag</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((r, i) => (
+                <tr key={`${r.sharepoint_item_id || "missing"}-${i}`}>
+                  <td className="px-2 py-1.5 font-mono text-slate-600">{r.sharepoint_item_id || "—"}</td>
+                  <td className="px-2 py-1.5 text-slate-800">{r.dealer_name_snapshot || "—"}</td>
+                  <td className="px-2 py-1.5 text-slate-800">{r.machine_model || "—"}</td>
+                  <td className="px-2 py-1.5 text-slate-800">{r.customer_name || "—"}</td>
+                  <td className="px-2 py-1.5 font-bold text-rose-800">{labelForReason(r.reason)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {total > rows.length && (
+        <p className="mt-2 text-xs text-slate-500">Viser de første {rows.length} af {total} afviste rækker.</p>
+      )}
+    </Section>
   );
 }
 
@@ -653,8 +736,10 @@ function DryRunView({ data, onRerun }: { data: DryRunResult; onRerun: () => void
   return (
     <>
       <Section title="Hentet fra SharePoint">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
           <Stat label="Hentet" value={data.fetched} tone="sky" />
+          <Stat label="Kan gemmes" value={data.processed ?? Math.max(0, data.fetched - (data.rejected_count ?? 0))} tone="emerald" />
+          <Stat label="Afvises" value={data.rejected_count ?? 0} tone={(data.rejected_count ?? 0) > 0 ? "rose" : "emerald"} />
           <Stat label="Nye" value={data.new} tone="emerald" />
           <Stat label="Opdateres" value={data.updates} tone="amber" />
           <Stat label="Uændrede" value={data.unchanged} />
@@ -670,6 +755,8 @@ function DryRunView({ data, onRerun }: { data: DryRunResult; onRerun: () => void
           </p>
         )}
       </Section>
+
+      <RejectedRowsSection rows={data.rejected_sample ?? []} total={data.rejected_count ?? 0} />
 
       <Section title="Dealer matching">
         <div className="grid grid-cols-3 gap-2 mb-3">

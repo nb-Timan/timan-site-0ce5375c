@@ -66,6 +66,14 @@ interface MappedRow {
   source_created_at: string | null;
 }
 
+interface RejectedRow {
+  sharepoint_item_id: string;
+  dealer_name_snapshot: string;
+  reason: "missing_sharepoint_item_id" | "missing_machine_serial";
+  machine_model: string;
+  customer_name: string;
+}
+
 function parseFormId(raw: unknown): number | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === "number" && Number.isFinite(raw)) return Math.trunc(raw);
@@ -79,6 +87,16 @@ function s(v: unknown): string {
   if (v === null || v === undefined) return "";
   if (typeof v === "string") return v;
   if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(s).filter(Boolean).join(", ");
+  if (typeof v === "object") {
+    const obj = v as Record<string, unknown>;
+    for (const key of ["LookupValue", "lookupValue", "Title", "title", "Value", "value", "Email", "email", "Description", "description"]) {
+      const nested = obj[key];
+      if (typeof nested === "string" || typeof nested === "number" || typeof nested === "boolean") {
+        return String(nested);
+      }
+    }
+  }
   return "";
 }
 
@@ -94,6 +112,19 @@ function normalizeDealer(raw: string): string {
   n = n.replace(/[^a-z0-9]+/g, " ");
   n = n.replace(/\s+/g, " ").trim();
   return n;
+}
+
+function normalizeFieldName(raw: string): string {
+  return (raw ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+function isMissingTableError(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false;
+  return error.code === "42P01" || (error.message ?? "").includes("Could not find the table");
 }
 
 function diceCoefficient(a: string, b: string): number {
@@ -171,7 +202,17 @@ function readField(
   displayName: string,
   extraCandidates: string[] = [],
 ): string {
-  const internal = displayToInternal.get(displayName);
+  const wanted = [displayName, ...extraCandidates];
+  const wantedNorm = new Set(wanted.map(normalizeFieldName));
+  let internal = displayToInternal.get(displayName);
+  if (!internal) {
+    for (const [spDisplay, spInternal] of displayToInternal.entries()) {
+      if (wantedNorm.has(normalizeFieldName(spDisplay))) {
+        internal = spInternal;
+        break;
+      }
+    }
+  }
   const candidates = [
     ...(internal ? [internal] : []),
     displayName,
@@ -184,6 +225,38 @@ function readField(
         return s(v);
       }
     }
+  }
+  for (const [k, v] of Object.entries(fields)) {
+    if (!wantedNorm.has(normalizeFieldName(k))) continue;
+    const str = s(v);
+    if (str.trim()) return str;
+  }
+  return "";
+}
+
+function readMachineSerial(fields: Record<string, unknown>, displayToInternal: Map<string, string>): string {
+  const direct = readField(fields, displayToInternal, FIELD_DISPLAY.machine_serial, [
+    "Maskinens identifikationsnummer",
+    "Maskin identifikationsnummer",
+    "Maskin nr.",
+    "Maskinnr.",
+    "Maskinnummer",
+    "Serienummer",
+    "Serie nr.",
+    "Serial number",
+    "Machine serial number",
+    "Din_x0020_nye_x0020_maskines_x0020_identifikationsnummer",
+  ]);
+  if (direct.trim()) return direct;
+
+  for (const [display, internal] of displayToInternal.entries()) {
+    const n = normalizeFieldName(display);
+    const looksLikeMachineSerial =
+      (n.includes("maskin") || n.includes("machine")) &&
+      (n.includes("identifikationsnummer") || n.includes("serienummer") || n.includes("serial"));
+    if (!looksLikeMachineSerial) continue;
+    const str = s(fields[internal]);
+    if (str.trim()) return str;
   }
   return "";
 }
@@ -286,7 +359,7 @@ Deno.serve(async (req) => {
 
     const mapped: MappedRow[] = items.map((it: any) => {
       const f = (it.fields ?? {}) as Record<string, unknown>;
-      const serialRaw = readField(f, displayToInternal, FIELD_DISPLAY.machine_serial);
+      const serialRaw = readMachineSerial(f, displayToInternal);
       const tools = [
         readField(f, displayToInternal, FIELD_DISPLAY.tool_serial_1),
         readField(f, displayToInternal, FIELD_DISPLAY.tool_serial_2),
@@ -322,18 +395,69 @@ Deno.serve(async (req) => {
 
     // Skip rows with empty SP id or empty serial (DB requires non-empty serial)
     const validRows: MappedRow[] = [];
-    let skippedNoSerial = 0;
-    let skippedNoId = 0;
+    const rejectedRows: RejectedRow[] = [];
     for (const m of mapped) {
-      if (!m.sharepoint_item_id) { skippedNoId++; continue; }
-      if (!m.machine_serial_number) { skippedNoSerial++; continue; }
+      if (!m.sharepoint_item_id) {
+        rejectedRows.push({
+          sharepoint_item_id: "",
+          dealer_name_snapshot: m.dealer_name_snapshot,
+          reason: "missing_sharepoint_item_id",
+          machine_model: m.machine_model,
+          customer_name: m.customer_name,
+        });
+        continue;
+      }
+      if (!m.machine_serial_number) {
+        rejectedRows.push({
+          sharepoint_item_id: m.sharepoint_item_id,
+          dealer_name_snapshot: m.dealer_name_snapshot,
+          reason: "missing_machine_serial",
+          machine_model: m.machine_model,
+          customer_name: m.customer_name,
+        });
+        continue;
+      }
       validRows.push(m);
     }
+    const skippedNoId = rejectedRows.filter((r) => r.reason === "missing_sharepoint_item_id").length;
+    const skippedNoSerial = rejectedRows.filter((r) => r.reason === "missing_machine_serial").length;
     if (skippedNoId > 0) warnings.push(`${skippedNoId} SharePoint-rækker uden item id sprunget over.`);
     if (skippedNoSerial > 0) warnings.push(`${skippedNoSerial} rækker uden serienummer sprunget over (DB-krav).`);
     const missingFormId = validRows.filter((r) => r.sharepoint_form_id === null).length;
     if (missingFormId > 0) {
       warnings.push(`${missingFormId} rækker mangler ID_Forms — falder tilbage til SharePoint item id som certifikatnummer.`);
+    }
+
+    const tableProbe = await admin
+      .from("warranty_registrations")
+      .select("id", { head: true, count: "exact" });
+    if (tableProbe.error && isMissingTableError(tableProbe.error)) {
+      return jsonResp({
+        mode: "real_sync",
+        completed: false,
+        writes_performed: false,
+        fatal_error: "Databasetabellen warranty_registrations mangler eller er ikke opdateret i Supabase schema cache. Sync kan derfor ikke gemme garantiregistreringer.",
+        fetched: mapped.length,
+        processed: validRows.length,
+        rejected_count: rejectedRows.length,
+        rejected_sample: rejectedRows.slice(0, 20),
+        created: 0,
+        updated: 0,
+        unchanged: 0,
+        matched: 0,
+        needs_review: 0,
+        unmatched: 0,
+        deactivated: 0,
+        conflicts_count: 0,
+        warnings: [
+          ...warnings,
+          `Kunne ikke læse warranty_registrations: ${tableProbe.error.message}`,
+        ],
+        durationMs: Date.now() - t0,
+      });
+    }
+    if (tableProbe.error) {
+      warnings.push(`Kunne ikke verificere warranty_registrations før sync: ${tableProbe.error.message}`);
     }
 
     // ---- Load dealer matching inputs ----
@@ -354,7 +478,11 @@ Deno.serve(async (req) => {
         .from("dealer_account_aliases")
         .select("normalized_alias, dealer_account_id, dealer_account_number");
       if (aliasErr) {
-        warnings.push(`Kunne ikke læse dealer_account_aliases: ${aliasErr.message}`);
+        if (isMissingTableError(aliasErr)) {
+          warnings.push("Aliasopslag udeladt — dealer_account_aliases findes ikke endnu.");
+        } else {
+          warnings.push(`Kunne ikke læse dealer_account_aliases: ${aliasErr.message}`);
+        }
       } else {
         for (const a of (aliases ?? []) as any[]) {
           aliasByNorm.set(String(a.normalized_alias ?? ""), {
@@ -655,9 +783,12 @@ Deno.serve(async (req) => {
 
     return jsonResp({
       mode: "real_sync",
+      completed: true,
       writes_performed: true,
       fetched: mapped.length,
       processed: validRows.length,
+      rejected_count: rejectedRows.length,
+      rejected_sample: rejectedRows.slice(0, 20),
       created,
       updated,
       unchanged,
