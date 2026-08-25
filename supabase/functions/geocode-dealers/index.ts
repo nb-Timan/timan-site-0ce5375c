@@ -16,6 +16,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+const DAWA_URL = "https://api.dataforsyningen.dk/adresser";
 const USER_AGENT = "TimanPortal/1.0 (partner-map geocoder; contact: support@timan.dk)";
 const RATE_LIMIT_MS = 1100; // Nominatim policy: max 1 req/sec.
 
@@ -50,10 +51,18 @@ function splitZipCityRaw(zipCityRaw: string | null): { postalCode: string | null
 
 function resolveAddressParts(d: DealerRow) {
   const zipCity = splitZipCityRaw(d.zip_city_raw);
-  const street = d.address_line_1 || d.address;
-  const postalCode = d.postal_code || zipCity.postalCode;
-  const city = d.city || zipCity.city;
-  return { street, postalCode, city, country: d.country };
+  const street = (d.address_line_1 || d.address || "").trim();
+  let postalCode = (d.postal_code || zipCity.postalCode || "").trim();
+  let city = (d.city || zipCity.city || "").trim();
+
+  const citySplit = splitZipCityRaw(city);
+  if (!postalCode && citySplit.postalCode) postalCode = citySplit.postalCode;
+  if (citySplit.postalCode && citySplit.city) city = citySplit.city;
+  if (postalCode && city.toLowerCase().startsWith(`${postalCode.toLowerCase()} `)) {
+    city = city.slice(postalCode.length).trim();
+  }
+
+  return { street, postalCode, city, country: (d.country || "").trim() };
 }
 
 function buildAddress(d: DealerRow): string {
@@ -83,6 +92,36 @@ async function nominatim(address: string): Promise<{ lat: number; lon: number } 
   const lon = parseFloat(json[0].lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
   return { lat, lon };
+}
+
+function isDenmark(country: string | null | undefined): boolean {
+  const value = (country ?? "").trim().toLowerCase();
+  return ["dk", "danmark", "denmark"].includes(value);
+}
+
+async function dawa(parts: ReturnType<typeof resolveAddressParts>): Promise<{ lat: number; lon: number } | null> {
+  if (!isDenmark(parts.country) || !parts.street || (!parts.postalCode && !parts.city)) return null;
+  const query = [parts.street, parts.postalCode, parts.city].filter(Boolean).join(" ");
+  const url = `${DAWA_URL}?struktur=mini&q=${encodeURIComponent(query)}`;
+  const r = await fetch(url, { headers: { "Accept": "application/json" } });
+  if (!r.ok) throw new Error(`dataforsyningen HTTP ${r.status}`);
+  const json = await r.json() as Array<{ x?: number; y?: number }>;
+  const hit = Array.isArray(json) ? json[0] : null;
+  const lat = Number(hit?.y);
+  const lon = Number(hit?.x);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return { lat, lon };
+}
+
+async function geocode(d: DealerRow): Promise<{ lat: number; lon: number } | null> {
+  const parts = resolveAddressParts(d);
+  try {
+    const dkHit = await dawa(parts);
+    if (dkHit) return dkHit;
+  } catch {
+    // Fall back to Nominatim if the Danish address API is temporarily unavailable.
+  }
+  return nominatim(buildAddress(d));
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -137,8 +176,8 @@ Deno.serve(async (req) => {
       query = query.eq("id", dealerId).limit(1);
     }
     if (!dealerId && !retryFailed) {
-      // Skip rows already attempted and failed unless caller asks for retry.
-      query = query.or("geocoding_status.is.null,geocoding_status.eq.pending,geocoding_status.eq.ok");
+      // Retry old "skipped" rows: many were skipped before address fields were fully mapped.
+      query = query.or("geocoding_status.is.null,geocoding_status.eq.pending,geocoding_status.eq.ok,geocoding_status.eq.skipped");
     }
     const { data: rows, error: fetchErr } = await query;
     if (fetchErr) return json({ error: `Kunne ikke hente forhandlere: ${fetchErr.message}` }, 500);
@@ -157,7 +196,7 @@ Deno.serve(async (req) => {
         continue;
       }
       try {
-        const hit = await nominatim(address);
+        const hit = await geocode(r);
         if (!hit) {
           await admin.from("dealer_accounts").update({
             geocoded_at: new Date().toISOString(),

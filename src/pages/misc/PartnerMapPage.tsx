@@ -181,6 +181,31 @@ function normalizeType(t: string | null): PartnerType {
   return 'dealer';
 }
 
+function splitPostalCity(raw: string | null | undefined): { postal: string; city: string } {
+  const value = (raw ?? '').trim();
+  if (!value) return { postal: '', city: '' };
+  const match = value.match(/^(\d{3,10})\s+(.+)$/);
+  if (!match) return { postal: '', city: value };
+  return { postal: match[1], city: match[2].trim() };
+}
+
+function resolveDealerMapAddress(d: DealerAccount): Pick<Partner, 'addressLine1' | 'addressLine2' | 'postal' | 'city'> {
+  const zipCity = splitPostalCity(d.zip_city_raw);
+  const postal = (d.postal_code ?? zipCity.postal).trim();
+  let city = (d.city ?? zipCity.city).trim();
+
+  if (postal && city.toLowerCase().startsWith(`${postal.toLowerCase()} `)) {
+    city = city.slice(postal.length).trim();
+  }
+
+  return {
+    addressLine1: (d.address_line_1 ?? d.address ?? '').trim(),
+    addressLine2: (d.address_line_2 ?? '').trim(),
+    postal,
+    city,
+  };
+}
+
 // Shared pin silhouette — identical geometry for every colour variant.
 function pinSvgMarkup(color: string, width = 36, height = 44): string {
   return `
@@ -1102,16 +1127,17 @@ export default function PartnerMapPage() {
       const st = stats[d.id];
       const hasCoords = d.latitude != null && d.longitude != null;
       const isDealerCustomer = isDealerCustomerAccount(d);
+      const address = resolveDealerMapAddress(d);
       return {
         id: d.id,
         name: d.company_name,
         type: isDealerCustomer ? 'dealer_customer' : normalizeType(d.dealer_type),
         account: d.account_number,
         country: d.country ?? '',
-        city: d.city ?? '',
-        postal: d.postal_code ?? '',
-        addressLine1: d.address_line_1 ?? '',
-        addressLine2: d.address_line_2 ?? '',
+        city: address.city,
+        postal: address.postal,
+        addressLine1: address.addressLine1,
+        addressLine2: address.addressLine2,
         seller: d.assigned_seller_initials,
         sellerName: d.assigned_seller_name,
         sellerEmail: d.assigned_seller_email,

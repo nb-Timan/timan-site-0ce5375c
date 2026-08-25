@@ -67,7 +67,7 @@ export default function GeocodeDealersPanel() {
         <div className="flex-1 min-w-0">
           <h2 className="text-lg font-bold text-slate-900">Geocode forhandlere</h2>
           <p className="mt-1 text-sm text-slate-700">
-            Slår forhandleradresser op server-side (OpenStreetMap) og gemmer latitude/longitude.
+            Slår forhandleradresser op server-side (Dataforsyningen for Danmark, ellers OpenStreetMap) og gemmer latitude/longitude.
             Kører for forhandlere uden koordinater eller med afventende geokodning. Sletter intet.
           </p>
         </div>
