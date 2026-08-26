@@ -242,7 +242,7 @@ const App = () => (
               <Route path="/portal/crm/calendar"   element={<CrmCalendarPage />} />
               <Route path="/portal/crm/quotes"     element={<CrmQuotesOrdersPage mode="quote" />} />
               <Route path="/portal/crm/orders"     element={<CrmQuotesOrdersPage mode="order" />} />
-              <Route path="/portal/crm/reports"    element={<CrmComingSoonPage titleKey="reports" />} />
+              <Route path="/portal/crm/reports"    element={<Navigate to="/portal/crm/dashboard" replace />} />
               <Route path="/portal/videos" element={<VideoGalleryPage />} />
               <Route path="/portal/videos/:categoryId" element={<VideoCategoryPage />} />
               <Route path="/portal/resources" element={<ResourcesPage />} />

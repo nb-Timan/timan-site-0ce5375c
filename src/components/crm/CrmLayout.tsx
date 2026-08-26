@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Activity, FileText, ShoppingCart, BarChart3, Sparkles, Wallet, CalendarDays, Store, Gauge } from 'lucide-react';
+import { LayoutDashboard, Users, Activity, FileText, ShoppingCart, Sparkles, Wallet, CalendarDays, Store, Gauge } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -23,13 +23,11 @@ const NAV: NavItem[] = [
   { tKey: 'crmCalendar',         to: '/portal/crm/calendar',         icon: CalendarDays },
   { tKey: 'crmBudget',           to: '/portal/crm/budget',           icon: Wallet },
   { tKey: 'crmBudgetDashboard',  to: '/portal/crm/budget-dashboard', icon: Gauge },
-  { tKey: 'crmReports',          to: '/portal/crm/reports',          icon: BarChart3 },
 ];
 
 const EXTERNAL_NAV_BLOCKLIST = new Set([
   '/portal/crm/activities',
   '/portal/crm/budget-dashboard',
-  '/portal/crm/reports',
 ]);
 
 interface Props { children: ReactNode; pageTitle?: string }
