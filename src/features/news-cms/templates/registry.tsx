@@ -572,17 +572,17 @@ function Template05({ content, lang }: NewsRendererProps) {
       <div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-7">
         {/* Text column: fixed zones inside the intrinsic A4 canvas. */}
         <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
-          <div className="min-w-0 pt-[7.5rem]">
-            <h3 className="line-clamp-2 text-[2.1rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+          <div className="min-w-0 pt-[6.7rem]">
+            <h3 className="line-clamp-2 text-[2.45rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
               {text(content, 'headline', t('newsCmsWireStoryHeadline', lang))}
             </h3>
-            <p className="mt-2.5 line-clamp-2 text-lg font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+            <p className="mt-2.5 line-clamp-2 text-[1.18rem] font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
               {text(content, 'subtitle', t('newsCmsWireSubtitle', lang))}
             </p>
           </div>
           <div className="mt-5 min-h-0 min-w-0 max-w-full overflow-hidden">
             {body ? (
-              <p className="max-w-full whitespace-pre-line text-[0.86rem] font-normal leading-[1.48] text-slate-700 [overflow-wrap:anywhere]">
+              <p className="max-w-full whitespace-pre-line text-[0.96rem] font-normal leading-[1.5] text-slate-700 [overflow-wrap:anywhere]">
                 {body}
               </p>
             ) : (
@@ -590,8 +590,11 @@ function Template05({ content, lang }: NewsRendererProps) {
             )}
           </div>
           <div className="mt-4 min-w-0">
+            <p className="mb-2 text-[0.78rem] font-black uppercase leading-none tracking-[0.18em] text-emerald-700">
+              {t('newsCmsFieldQuote', lang)}
+            </p>
             <div className="rounded-xl border-l-4 border-emerald-600 bg-emerald-50 p-4">
-              <p className="text-sm font-semibold leading-snug text-slate-700 [overflow-wrap:anywhere]">
+              <p className="text-[0.95rem] font-semibold leading-snug text-slate-700 [overflow-wrap:anywhere]">
                 {quote || t('newsCmsWireHighlightQuote', lang)}
               </p>
             </div>
