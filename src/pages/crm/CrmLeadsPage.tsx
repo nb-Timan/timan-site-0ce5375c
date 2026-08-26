@@ -48,10 +48,12 @@ type TKey =
   | 'page_title' | 'sub_admin' | 'sub_seller' | 'pcs'
   | 'unassigned' | 'new_demo' | 'new_lead'
   | 'tab_all' | 'tab_open' | 'tab_demo' | 'tab_mine' | 'tab_mine_demo'
+  | 'tab_open_demo' | 'tab_won' | 'tab_lost'
   | 'search_ph' | 'all_status' | 'loading' | 'empty_title' | 'empty_sub'
   | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
   | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
   | 'open_lbl' | 'demo_lbl' | 'unassigned_chip' | 'open_link'
+  | 'type_won' | 'type_lost'
   | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
   | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
@@ -71,6 +73,9 @@ const T: Record<TKey, Record<Language, string>> = {
   tab_demo:      { da: 'Demo leads', en: 'Demo leads', de: 'Demo-Leads', it: 'Demo lead', hu: 'Demo leadek' },
   tab_mine:      { da: 'Mine leads', en: 'My leads', de: 'Meine Leads', it: 'I miei lead', hu: 'Saját leadek' },
   tab_mine_demo: { da: 'Mine demoer', en: 'My demos', de: 'Meine Demos', it: 'Le mie demo', hu: 'Saját demók' },
+  tab_open_demo: { da: 'Åbne demo leads', en: 'Open demo leads', de: 'Offene Demo-Leads', it: 'Demo lead aperti', hu: 'Nyitott demo leadek' },
+  tab_won:       { da: 'Vundet leads', en: 'Won leads', de: 'Gewonnene Leads', it: 'Lead vinti', hu: 'Nyertes leadek' },
+  tab_lost:      { da: 'Tabte leads', en: 'Lost leads', de: 'Verlorene Leads', it: 'Lead persi', hu: 'Elveszett leadek' },
   search_ph:     { da: 'Søg titel, kunde, forhandler, sælger eller maskine…', en: 'Search title, customer, dealer, seller or machine…', de: 'Titel, Kunde, Händler, Verkäufer oder Maschine suchen…', it: 'Cerca titolo, cliente, rivenditore, venditore o macchina…', hu: 'Keresés: cím, ügyfél, kereskedő, értékesítő vagy gép…' },
   all_status:    { da: 'Alle statusser', en: 'All statuses', de: 'Alle Status', it: 'Tutti gli stati', hu: 'Összes státusz' },
   loading:       { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…' },
@@ -87,6 +92,8 @@ const T: Record<TKey, Record<Language, string>> = {
   col_action:    { da: 'Handling', en: 'Action', de: 'Aktion', it: 'Azione', hu: 'Művelet' },
   open_lbl:      { da: 'Åben', en: 'Open', de: 'Offen', it: 'Aperto', hu: 'Nyitott' },
   demo_lbl:      { da: 'Demo', en: 'Demo', de: 'Demo', it: 'Demo', hu: 'Demo' },
+  type_won:      { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes' },
+  type_lost:     { da: 'Tabt', en: 'Lost', de: 'Verloren', it: 'Perso', hu: 'Elveszett' },
   unassigned_chip:{ da: 'Utildelt', en: 'Unassigned', de: 'Nicht zugewiesen', it: 'Non assegnato', hu: 'Kiosztatlan' },
   open_link:     { da: 'Åbn', en: 'Open', de: 'Öffnen', it: 'Apri', hu: 'Megnyitás' },
   close_btn:     { da: 'Luk', en: 'Close', de: 'Schließen', it: 'Chiudi', hu: 'Lezárás' },
@@ -257,6 +264,7 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
 
 type TabKey = 'open' | 'open_demo' | 'won' | 'closed' | 'all';
 type SortKey = 'default' | 'title_asc' | 'title_desc' | 'date_desc' | 'date_asc' | 'prob_desc' | 'prob_asc';
+type UserLeadType = 'open' | 'demo' | 'won' | 'lost';
 
 function isWonRow(row: UnifiedLead): boolean {
   return row.status === 'Vundet' || row.status === 'Won';
@@ -273,6 +281,27 @@ function isOpenRow(row: UnifiedLead): boolean {
 function isDemoLikeRow(row: UnifiedLead): boolean {
   return row.type === 'demo' || row.has_demo === true || row.status === 'Demo planlagt';
 }
+
+function getUserLeadType(row: UnifiedLead): UserLeadType {
+  if (isWonRow(row)) return 'won';
+  if (isClosedRow(row)) return 'lost';
+  if (isDemoLikeRow(row)) return 'demo';
+  return 'open';
+}
+
+function getUserLeadTypeLabel(type: UserLeadType, lang: Language): string {
+  if (type === 'won') return tt('type_won', lang);
+  if (type === 'lost') return tt('type_lost', lang);
+  if (type === 'demo') return tt('demo_lbl', lang);
+  return tt('open_lbl', lang);
+}
+
+const USER_LEAD_TYPE_BADGE: Record<UserLeadType, string> = {
+  open: 'bg-amber-50 text-amber-800 border-amber-200',
+  demo: 'bg-sky-50 text-sky-700 border-sky-200',
+  won: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  lost: 'bg-rose-50 text-rose-700 border-rose-200',
+};
 
 function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
   if (sort === 'title_asc') return (a.title || '').localeCompare(b.title || '', 'da');
@@ -298,11 +327,11 @@ export default function CrmLeadsPage() {
   const canDelete = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
 
   const TABS: { key: TabKey; label: string }[] = [
-    { key: 'open',      label: 'Åbne leads' },
-    { key: 'open_demo', label: 'Åbne demo leads' },
-    { key: 'won',       label: 'Vundet leads' },
-    { key: 'closed',    label: 'Lukkede leads' },
-    { key: 'all',       label: 'Alle leads' },
+    { key: 'open',      label: tt('tab_open', lang) },
+    { key: 'open_demo', label: tt('tab_open_demo', lang) },
+    { key: 'won',       label: tt('tab_won', lang) },
+    { key: 'closed',    label: tt('tab_lost', lang) },
+    { key: 'all',       label: tt('tab_all', lang) },
   ];
 
   const [openLeads, setOpenLeads] = useState<CrmLead[]>([]);
@@ -620,17 +649,18 @@ export default function CrmLeadsPage() {
                 {visible.map(r => {
                   const clickable = !!r.detail_href;
                   const imageAttachments = getLeadImageAttachments(r.attachments);
-                  const canActOnOpenLead = r.type === 'open' && r.status !== 'Vundet' && r.status !== 'Tabt';
+                  const userType = getUserLeadType(r);
+                  const canActOnOpenLead = r.type === 'open' && isOpenRow(r);
                   return (
                     <tr key={`${r.type}-${r.id}`}
                       onClick={() => { if (r.detail_href) navigate(r.detail_href); }}
                       className={cn('transition-colors', clickable ? 'cursor-pointer hover:bg-gray-50/60' : 'hover:bg-gray-50/40')}>
                       <td className="px-4 py-3.5">
-                        <span className={cn('inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border',
-                          r.type === 'demo'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-sky-50 text-sky-700 border-sky-200')}>
-                          {r.type === 'demo' ? tt('demo_lbl', lang) : tt('open_lbl', lang)}
+                        <span className={cn(
+                          'inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border',
+                          USER_LEAD_TYPE_BADGE[userType]
+                        )}>
+                          {getUserLeadTypeLabel(userType, lang)}
                         </span>
                       </td>
                       <td className="px-4 py-3.5">
