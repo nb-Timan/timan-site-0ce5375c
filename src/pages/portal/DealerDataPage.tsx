@@ -65,6 +65,10 @@ const T = {
   pageTitle:    { da: 'Forhandlerdata',         en: 'Dealer data',            de: 'Händlerdaten',               it: 'Dati rivenditore',           hu: 'Kereskedői adatok' },
   pageSubtitle: { da: 'Din virksomheds stamdata, kontakter, brugere og handelshistorik hos Timan.', en: 'Your company master data, contacts, users and trading history with Timan.', de: 'Stammdaten, Kontakte, Benutzer und Handelshistorie Ihres Unternehmens bei Timan.', it: 'Dati anagrafici, contatti, utenti e storico commerciale della tua azienda con Timan.', hu: 'Cégének törzsadatai, kapcsolattartói, felhasználói és kereskedelmi előzményei a Timannál.' },
   noDealer:     { da: 'Din bruger er ikke knyttet til en forhandlerkonto endnu. Kontakt Timan for at få adgang til Forhandlerdata.', en: 'Your user is not linked to a dealer account yet. Contact Timan to get access to Dealer data.', de: 'Ihr Benutzer ist noch keinem Händlerkonto zugeordnet. Kontaktieren Sie Timan für den Zugriff auf die Händlerdaten.', it: 'Il tuo utente non è ancora collegato a un account rivenditore. Contatta Timan per accedere ai Dati rivenditore.', hu: 'A felhasználó még nincs kereskedői fiókhoz rendelve. Vegye fel a kapcsolatot a Timannal a hozzáférésért.' },
+  noDealerTitle:{ da: 'Forhandlerkonto mangler', en: 'Dealer account missing', de: 'Händlerkonto fehlt', it: 'Account rivenditore mancante', hu: 'Hiányzó kereskedői fiók' },
+  noDealerUsers:{ da: 'Brugere vises først, når denne bruger er koblet til en forhandlerkonto. Timan-brugere vises ikke her.', en: 'Users are shown once this user is linked to a dealer account. Timan users are not shown here.', de: 'Benutzer werden erst angezeigt, wenn dieser Benutzer einem Händlerkonto zugeordnet ist. Timan-Benutzer werden hier nicht angezeigt.', it: 'Gli utenti vengono mostrati quando questo utente è collegato a un account rivenditore. Gli utenti Timan non vengono mostrati qui.', hu: 'A felhasználók akkor jelennek meg, ha ez a felhasználó kereskedői fiókhoz van rendelve. Timan-felhasználók itt nem jelennek meg.' },
+  contactPerson:{ da: 'Kontaktperson', en: 'Contact person', de: 'Kontaktperson', it: 'Referente', hu: 'Kapcsolattartó' },
+  email:        { da: 'E-mail', en: 'Email', de: 'E-Mail', it: 'E-mail', hu: 'E-mail' },
   loading:      { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…' },
   stamdata:     { da: 'Stamdata', en: 'Master data', de: 'Stammdaten', it: 'Dati anagrafici', hu: 'Törzsadatok' },
   companyName:  { da: 'Firmanavn', en: 'Company name', de: 'Firmenname', it: 'Ragione sociale', hu: 'Cégnév' },
@@ -322,11 +326,40 @@ export default function DealerDataPage() {
         )}
 
         {!dealerNumber && (
-          <Card>
-            <CardContent className="py-8 text-center text-sm text-slate-600">
-              {T.noDealer[lang]}
-            </CardContent>
-          </Card>
+          <>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Hash className="h-5 w-5 text-slate-500" /> {T.stamdata[lang]}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <Field label={T.companyName[lang]} value={effectiveUser?.company_dealer || (effectiveUser as { company?: string | null } | null)?.company || effectiveUser?.display_name || '—'} />
+                <Field label={T.accountNo[lang]} value="—" />
+                <Field label={T.dealerType[lang]} value={portalRole === 'timan_dealer' ? 'Forhandler' : portalRole || '—'} />
+                <Field label={T.country[lang]} value={formatCountry((effectiveUser as { country?: string | null } | null)?.country, lang) || '—'} />
+                <Field label={T.contactPerson[lang]} value={effectiveUser?.display_name || '—'} />
+                <Field label={T.email[lang]} value={effectiveUser?.email || '—'} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="py-5 text-sm text-slate-600">
+                <div className="font-semibold text-slate-900">{T.noDealerTitle[lang]}</div>
+                <div className="mt-1">{T.noDealer[lang]}</div>
+              </CardContent>
+            </Card>
+            <Card id="users" className="scroll-mt-24">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <User className="h-5 w-5 text-slate-500" /> {T.users[lang]}
+                  <Badge variant="secondary" className="ml-1">0</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-slate-500">{T.noDealerUsers[lang]}</p>
+              </CardContent>
+            </Card>
+          </>
         )}
 
         {dealerNumber && loadingData && (

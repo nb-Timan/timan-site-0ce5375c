@@ -4,6 +4,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, hasInternalMesseAccess, hasMessePortalAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { isMessePreviewActive, useMessePreviewVersion } from '@/lib/messePreview';
 import { canSwitchMode } from '@/lib/activeMode';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 
 /**
  * Single guard for /messe/* routes.
@@ -19,15 +20,16 @@ import { canSwitchMode } from '@/lib/activeMode';
 export function MesseRouteGuard({ children, blockDealerUser = false }: { children: ReactNode; blockDealerUser?: boolean }) {
   useMessePreviewVersion();
   const { appUser, loading } = useAppUser();
-  const portalRole = derivePortalRole(appUser);
+  const effectiveUser = useEffectivePortalUser(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   if (loading) return null;
   if (!appUser) return <Navigate to="/portal?redirect=/messe" replace />;
-  if (isMesseVariantUser(appUser) || portalRole === 'exhibition_user') return <>{children}</>;
+  if (isMesseVariantUser(effectiveUser) || portalRole === 'exhibition_user') return <>{children}</>;
   if (portalRole === 'dealer_user') {
-    return !blockDealerUser && hasMessePortalAccess(appUser) ? <>{children}</> : <Navigate to="/messe" replace />;
+    return !blockDealerUser && hasMessePortalAccess(effectiveUser) ? <>{children}</> : <Navigate to="/messe" replace />;
   }
-  if (hasInternalMesseAccess(appUser)) return <>{children}</>;
-  if (hasMessePortalAccess(appUser)) return <>{children}</>;
+  if (hasInternalMesseAccess(effectiveUser)) return <>{children}</>;
+  if (hasMessePortalAccess(effectiveUser)) return <>{children}</>;
   if (canSwitchMode(appUser) && isMessePreviewActive(appUser.email)) {
     return <>{children}</>;
   }
