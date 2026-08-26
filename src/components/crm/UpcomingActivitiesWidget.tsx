@@ -99,11 +99,11 @@ export default function UpcomingActivitiesWidget({
       </CardHeader>
       <CardContent className="space-y-3 px-4 pb-3 flex-1 min-h-0 overflow-hidden">
         {/* Quick stats */}
-        <div className={cn("grid gap-2", statsLayout === "grid2x2" ? "grid-cols-2" : (isAdmin ? "grid-cols-4" : "grid-cols-3"))}>
+        <div className={cn("grid gap-2", isAdmin ? (statsLayout === "grid2x2" ? "grid-cols-2" : "grid-cols-4") : "grid-cols-3")}>
           <Stat icon={Activity} label={T.this_week[lang]} value={stats.inWeek} tone="emerald" />
           <Stat icon={CalendarDays} label={T.demos_month[lang]} value={stats.demosMonth} tone="blue" />
           <Stat icon={AlertTriangle} label={T.overdue[lang]} value={stats.overdue} tone="red" />
-          {(isAdmin || statsLayout === "grid2x2") && (
+          {isAdmin && (
             <Stat icon={AlertTriangle} label={T.no_upcoming[lang]} value={stats.noPlan.length} tone="amber" extra={stats.noPlan.join(" ")} />
           )}
         </div>
