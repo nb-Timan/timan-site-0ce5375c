@@ -560,18 +560,18 @@ function Template04({ content, lang }: NewsRendererProps) {
 }
 
 /**
- * Template 05 uses fixed independent zones: the text column and the image
- * column are separate fixed tracks, and headline/subtitle/body/quote each own
- * a reserved row so long translations never move any other element.
+ * Template 05 is a fixed A4 story composition. It scales as one surface so the
+ * editor preview, overview preview and public modal keep the same wrapping and
+ * do not hide body/key-point text in narrower containers.
  */
 function Template05({ content, lang }: NewsRendererProps) {
   const body = text(content, 'body', '');
   const quote = text(content, 'quote', '');
   return (
-    <TemplateShell lang={lang} logoAlign="left" logoSize="sm">
+    <TemplateShell lang={lang} logoAlign="left" logoSize="sm" scaleToFit>
       <div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-7">
-        {/* Text column: fixed rows — header block, body zone, quote zone. */}
-        <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_9rem] overflow-hidden">
+        {/* Text column: fixed zones inside the intrinsic A4 canvas. */}
+        <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
           <div className="min-w-0 pt-[7.5rem]">
             <h3 className="line-clamp-2 text-[2.1rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
               {text(content, 'headline', t('newsCmsWireStoryHeadline', lang))}
@@ -582,16 +582,16 @@ function Template05({ content, lang }: NewsRendererProps) {
           </div>
           <div className="mt-5 min-h-0 min-w-0 max-w-full overflow-hidden">
             {body ? (
-              <p className="max-w-full whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
+              <p className="max-w-full whitespace-pre-line text-[0.86rem] font-normal leading-[1.48] text-slate-700 [overflow-wrap:anywhere]">
                 {body}
               </p>
             ) : (
               <TextLines lines={5} />
             )}
           </div>
-          <div className="mt-4 min-h-0 min-w-0 overflow-hidden">
-            <div className="h-full overflow-hidden rounded-xl border-l-4 border-emerald-600 bg-emerald-50 p-4">
-              <p className="line-clamp-4 text-sm font-semibold leading-snug text-slate-700 [overflow-wrap:anywhere]">
+          <div className="mt-4 min-w-0">
+            <div className="rounded-xl border-l-4 border-emerald-600 bg-emerald-50 p-4">
+              <p className="text-sm font-semibold leading-snug text-slate-700 [overflow-wrap:anywhere]">
                 {quote || t('newsCmsWireHighlightQuote', lang)}
               </p>
             </div>
