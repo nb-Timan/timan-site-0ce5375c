@@ -19,7 +19,17 @@ import { useEffect, useMemo, useState } from "react";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { useLanguage } from "@/context/LanguageContext";
 import { Language } from "@/types/configurator";
-import { listLeads, formatLeadNo, buildLeadWorkingContributions, type CrmLead, type LeadWorkingContribution } from "@/lib/crmLeadsService";
+import {
+  listLeads,
+  listDemoLeads,
+  resolveSeedOwners,
+  formatLeadNo,
+  formatDemoNo,
+  buildLeadWorkingContributions,
+  type CrmLead,
+  type CrmDemoLead,
+  type LeadWorkingContribution,
+} from "@/lib/crmLeadsService";
 import { isOpenLead, effectiveLeadStatus } from "@/lib/leadStatus";
 import { classifyLeadFollowupUrgency, type LeadFollowupUrgency } from "@/lib/leadFollowupUrgency";
 import {
@@ -93,6 +103,17 @@ export interface SellerCockpitProps {
 // Helpers
 // ────────────────────────────────────────────────────────────
 type Urgency = LeadFollowupUrgency;
+type LeadFocusRow = {
+  id: string;
+  number: string;
+  title: string;
+  owner_user_id: string | null;
+  owner_email: string | null;
+  owner_name: string | null;
+  next_followup_date: string | null;
+  status: string | null;
+};
+
 const URGENCY_META: Record<Urgency, { hex: string; bar: string; ring: string; tKey: string }> = {
   overdue: { hex: "#ef4444", bar: "bg-rose-500",    ring: "bg-rose-50 text-rose-700 border-rose-200",       tKey: "urgency_overdue" },
   soon:    { hex: "#f59e0b", bar: "bg-amber-500",   ring: "bg-amber-50 text-amber-700 border-amber-200",    tKey: "urgency_soon" },
@@ -168,6 +189,60 @@ function pipelineByMachine(leads: CrmLead[]): Record<string, number> {
   return out;
 }
 
+function isOpenDemoLead(row: CrmDemoLead): boolean {
+  const status = (row.result_status || "").toLowerCase();
+  return status !== "vundet" && status !== "won" && status !== "tabt" && status !== "lost" && status !== "no fit";
+}
+
+function buildLeadFocusRows(leads: CrmLead[], demoLeads: CrmDemoLead[]): LeadFocusRow[] {
+  return [
+    ...leads
+      .filter(isOpenLead)
+      .map((l): LeadFocusRow => ({
+        id: l.id,
+        number: formatLeadNo(l.lead_no),
+        title: l.title || "—",
+        owner_user_id: l.owner_user_id,
+        owner_email: l.owner_email || null,
+        owner_name: l.owner_name || null,
+        next_followup_date: l.next_followup_date,
+        status: effectiveLeadStatus(l),
+      })),
+    ...demoLeads
+      .filter(isOpenDemoLead)
+      .map((d): LeadFocusRow => ({
+        id: d.id,
+        number: formatDemoNo(d.demo_no),
+        title: d.title || "—",
+        owner_user_id: d.owner_user_id,
+        owner_email: d.owner_email || null,
+        owner_name: d.owner_name || null,
+        next_followup_date: d.followup_date,
+        status: d.result_status || "Demo",
+      })),
+  ];
+}
+
+function sellerMatchesLeadFocusRow(
+  row: LeadFocusRow,
+  seller: { initials: string; email: string; full_name?: string | null },
+  ownId: string | null,
+): boolean {
+  if (ownId && row.owner_user_id === ownId) return true;
+  const email = seller.email.toLowerCase();
+  const initials = seller.initials.toUpperCase();
+  const fullName = seller.full_name?.toLowerCase() || "";
+  if ((row.owner_email || "").toLowerCase() === email) return true;
+  const nm = (row.owner_name || "").toString();
+  if (nm.toUpperCase() === initials) return true;
+  if (fullName && nm.toLowerCase() === fullName) return true;
+  return (
+    nm.toUpperCase().startsWith(initials + " ") ||
+    nm.toUpperCase().startsWith(initials + "-") ||
+    nm.toUpperCase().startsWith(initials + "/")
+  );
+}
+
 // ────────────────────────────────────────────────────────────
 // Section
 // ────────────────────────────────────────────────────────────
@@ -194,6 +269,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
 
   // ── Data fetch — keeps the page snappy by pulling once per role/seller change ──
   const [allLeads, setAllLeads] = useState<CrmLead[]>([]);
+  const [allDemoLeads, setAllDemoLeads] = useState<CrmDemoLead[]>([]);
   const [allActivities, setAllActivities] = useState<CrmActivity[]>([]);
   const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
   const [forecasts, setForecasts] = useState<BudgetForecast[]>([]);
@@ -203,16 +279,22 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
     let cancelled = false;
     (async () => {
       try {
-        const [leads, acts, lines, fc, ac] = await Promise.all([
-          // Sellers fetch only their own leads; backend fetches all.
-          listLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 500 }),
+        const [rawLeads, rawDemoLeads, acts, lines, fc, ac] = await Promise.all([
+          // Match CRM → Leads: fetch a broad list, then scope locally.
+          listLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 5000 }),
+          listDemoLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 5000 }),
           listActivities({ ownerUserId: isAdmin ? null : sellerId, limit: 500 }),
           listBudgetLines({ year: new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear() }),
           listForecasts(new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear()),
           listSalesActuals(new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear()),
         ]);
+        const [leads, demoLeads] = await Promise.all([
+          resolveSeedOwners(rawLeads),
+          resolveSeedOwners(rawDemoLeads),
+        ]);
         if (cancelled) return;
         setAllLeads(leads);
+        setAllDemoLeads(demoLeads);
         setAllActivities(acts);
         setBudgetLines(lines);
         setForecasts(fc);
@@ -255,6 +337,13 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
     });
   }, [allLeads, activeSeller, isAdmin, sellerId]);
 
+  const scopedLeadFocusRows = useMemo<LeadFocusRow[]>(() => {
+    const rows = buildLeadFocusRows(allLeads, allDemoLeads);
+    if (!activeSeller) return rows;
+    const ownId = !isAdmin && sellerId ? sellerId : null;
+    return rows.filter((row) => sellerMatchesLeadFocusRow(row, activeSeller, ownId));
+  }, [allLeads, allDemoLeads, activeSeller, isAdmin, sellerId]);
+
   const scopedActivities = useMemo(() => {
     if (!activeSeller) return allActivities;
     const initials = activeSeller.initials.toLowerCase();
@@ -287,10 +376,9 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
 
   // ── Lead urgency buckets ──
   const now = new Date();
-  const openLeads = scopedLeads.filter(l => isOpenLead(l));
-  const buckets: Record<Urgency, CrmLead[]> = { overdue: [], soon: [], later: [], none: [] };
-  for (const l of openLeads) buckets[classifyLeadFollowupUrgency(l.next_followup_date, now)].push(l);
-  const totalLeads = openLeads.length;
+  const buckets: Record<Urgency, LeadFocusRow[]> = { overdue: [], soon: [], later: [], none: [] };
+  for (const l of scopedLeadFocusRows) buckets[classifyLeadFollowupUrgency(l.next_followup_date, now)].push(l);
+  const totalLeads = scopedLeadFocusRows.length;
 
   // Pipeline qty per machine still comes from leads (Budget table doesn't
   // track pipeline; this is purely a dashboard add-on, NOT actuals).
@@ -356,16 +444,15 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
     });
     const totals = {
       orders: Math.max(1, perSeller.reduce((s, x) => s + x.agg.totals.ordersQty, 0)),
-      pipeline: Math.max(1, openLeads.length),
+      pipeline: Math.max(1, scopedLeadFocusRows.length),
       budget: Math.max(1, perSeller.reduce((s, x) => s + x.agg.totals.budgetQty, 0)),
     };
+    const leadFocusRows = buildLeadFocusRows(allLeads, allDemoLeads);
     return perSeller.map(({ seller, agg }) => {
-      const ownLeads = allLeads.filter(l =>
-        (l.owner_email || "").toLowerCase() === seller.email.toLowerCase(),
-      );
-      const ownPipeline = ownLeads.filter(l => isOpenLead(l)).length;
-      const overdue = ownLeads.filter(l => isOpenLead(l) && classifyLeadFollowupUrgency(l.next_followup_date, now) === "overdue").length;
-      const noFollow = ownLeads.filter(l => isOpenLead(l) && classifyLeadFollowupUrgency(l.next_followup_date, now) === "none").length;
+      const ownLeads = leadFocusRows.filter((row) => sellerMatchesLeadFocusRow(row, seller, null));
+      const ownPipeline = ownLeads.length;
+      const overdue = ownLeads.filter(l => classifyLeadFollowupUrgency(l.next_followup_date, now) === "overdue").length;
+      const noFollow = ownLeads.filter(l => classifyLeadFollowupUrgency(l.next_followup_date, now) === "none").length;
       const leadHealth = (ownPipeline === 0) ? 100 : Math.max(0, Math.round(100 - ((overdue + noFollow) / ownPipeline) * 100));
       return {
         initials: seller.initials,
@@ -377,7 +464,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
         noFollow,
       };
     });
-  }, [isAdmin, allLeads, budgetLines, forecasts, actuals, openLeads.length, now]);
+  }, [isAdmin, allLeads, allDemoLeads, budgetLines, forecasts, actuals, scopedLeadFocusRows.length, now]);
 
 
   const alerts = useMemo(() => {
@@ -502,10 +589,10 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                             {list.slice(0, 5).map(l => (
                               <div key={l.id} className="space-y-0.5">
                                 <div className="font-medium inline-flex items-baseline gap-1.5">
-                                  <span className="font-mono text-[10px] tabular-nums text-slate-400">{formatLeadNo(l.lead_no)}</span>
+                                  <span className="font-mono text-[10px] tabular-nums text-slate-400">{l.number}</span>
                                   <span>{l.title || "—"}</span>
                                 </div>
-                                <div className="text-slate-500">{effectiveLeadStatus(l)} · {fmtDate(l.next_followup_date, lang)}</div>
+                                <div className="text-slate-500">{l.status || "—"} · {fmtDate(l.next_followup_date, lang)}</div>
                               </div>
                             ))}
                             {list.length > 5 && <div className="text-slate-400">+ {list.length - 5}</div>}
