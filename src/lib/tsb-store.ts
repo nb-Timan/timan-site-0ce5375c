@@ -74,84 +74,11 @@ export interface Tsb {
 
 export const DEALER_DATA_SOURCE: "mock" | "sharepoint" = "mock";
 
-const SYNC_TS = "2026-04-22T08:00:00Z";
+const DEALERS: Dealer[] = [];
 
-const DEALERS: Dealer[] = [
-  { id: "d-nordic", name: "Nordic Machinery Aps", city: "Aarhus", contact: "Lars Jensen", machineCount: 24, sharepointAccount: "100214", sourceSystem: "sharepoint", partnerType: "forhandler", country: "DK", sourceActive: true, inactiveFromSource: false, lastSyncedAt: SYNC_TS },
-  { id: "d-jysk", name: "Jysk Maskincenter", city: "Aalborg", contact: "Mette Sørensen", machineCount: 18, sharepointAccount: "100318", sourceSystem: "sharepoint", partnerType: "servicepartner", country: "DK", sourceActive: true, inactiveFromSource: false, lastSyncedAt: SYNC_TS },
-  { id: "d-syd", name: "Syd Entreprenør Service", city: "Kolding", contact: "Henrik Bach", machineCount: 11, sharepointAccount: "100422", sourceSystem: "sharepoint", partnerType: "forhandler", country: "DK", sourceActive: true, inactiveFromSource: false, lastSyncedAt: SYNC_TS },
-  { id: "d-fyn", name: "Fyns Industri ApS", city: "Odense", contact: "Anne Holm", machineCount: 9, sharepointAccount: "100517", sourceSystem: "sharepoint", partnerType: "servicepartner", country: "DK", sourceActive: true, inactiveFromSource: false, lastSyncedAt: SYNC_TS },
-  { id: "d-sjael", name: "Sjælland Maskiner A/S", city: "Roskilde", contact: "Peter Lund", machineCount: 15, sharepointAccount: "100621", sourceSystem: "sharepoint", partnerType: "forhandler", country: "DK", sourceActive: true, inactiveFromSource: false, lastSyncedAt: SYNC_TS },
-  { id: "d-import-se", name: "Timan Import Sverige AB", city: "Malmö", contact: "Erik Lindqvist", machineCount: 0, sharepointAccount: "200118", sourceSystem: "sharepoint", partnerType: "importor", country: "SE", sourceActive: true, inactiveFromSource: false, lastSyncedAt: SYNC_TS },
-  { id: "d-legacy-bornholm", name: "Bornholm Maskinservice", city: "Rønne", contact: "(historisk kontakt)", machineCount: 3, sharepointAccount: "099887", sourceSystem: "sharepoint", partnerType: "servicepartner", country: "DK", sourceActive: false, inactiveFromSource: true, lastSyncedAt: "2025-11-04T08:00:00Z" },
-];
+const MACHINES: MachineRef[] = [];
 
-const MACHINES: MachineRef[] = [
-  { serial: "TM-X40-18291", model: "X40 Pro", customer: "Bygge A/S", dealerId: "d-nordic" },
-  { serial: "TM-X40-18432", model: "X40 Pro", customer: "Entreprenør H. Olsen", dealerId: "d-nordic" },
-  { serial: "TM-X40-18501", model: "X40 Pro", customer: "Kommune Syd", dealerId: "d-nordic" },
-  { serial: "TM-X40-18622", model: "X40 Standard", customer: "Grus & Sand Aps", dealerId: "d-nordic" },
-  { serial: "TM-X40-18733", model: "X40 Standard", customer: "Landbrug Nord", dealerId: "d-nordic" },
-  { serial: "TM-Z20-22001", model: "Z20", customer: "Jysk Beton", dealerId: "d-jysk" },
-  { serial: "TM-Z20-22014", model: "Z20", customer: "Aalborg Havn", dealerId: "d-jysk" },
-  { serial: "TM-Z20-22078", model: "Z20", customer: "Vendsyssel Entr.", dealerId: "d-jysk" },
-  { serial: "TM-X40-19102", model: "X40 Pro", customer: "Kolding Asfalt", dealerId: "d-syd" },
-  { serial: "TM-X40-19133", model: "X40 Standard", customer: "Trekantens Bygge", dealerId: "d-syd" },
-  { serial: "TM-Z20-22210", model: "Z20", customer: "Fyns Vej & Park", dealerId: "d-fyn" },
-  { serial: "TM-Z20-22245", model: "Z20", customer: "Odense Container", dealerId: "d-fyn" },
-  { serial: "TM-X40-19401", model: "X40 Pro", customer: "Roskilde Bygge", dealerId: "d-sjael" },
-  { serial: "TM-X40-19422", model: "X40 Standard", customer: "Sjælland Grus", dealerId: "d-sjael" },
-];
-
-const initialTsbs: Tsb[] = [
-  {
-    id: "TSB-2026-108",
-    title: "Softwareopdatering — styreenhed v3.2",
-    description: "Opdatering af styreenheden til v3.2 for at rette fejl i tomgangsregulering.",
-    severity: 3, status: "aktiv", createdAt: "2026-03-01", activeFrom: "2026-03-12", deadline: "2026-05-14",
-    documentName: "TSB-2026-108_v1.1_DA.pdf",
-    dealers: [
-      { dealerId: "d-nordic", status: "accepteret", acceptedAt: "2026-03-12", machineSerials: ["TM-X40-18291","TM-X40-18432","TM-X40-18501","TM-X40-18622","TM-X40-18733"] },
-      { dealerId: "d-jysk", status: "accepteret", acceptedAt: "2026-03-14", machineSerials: ["TM-Z20-22001","TM-Z20-22014","TM-Z20-22078"] },
-      { dealerId: "d-syd", status: "afventer", machineSerials: ["TM-X40-19102","TM-X40-19133"] },
-      { dealerId: "d-fyn", status: "afventer", machineSerials: ["TM-Z20-22210","TM-Z20-22245"] },
-    ],
-  },
-  {
-    id: "TSB-2026-103",
-    title: "Tjek af luftfilter — Z-serie",
-    description: "Inspektion og evt. udskiftning af luftfilter på Z20.",
-    severity: 4, status: "aktiv", createdAt: "2026-02-10", activeFrom: "2026-02-15", deadline: "2026-04-30",
-    documentName: "TSB-2026-103_DA.pdf",
-    dealers: [
-      { dealerId: "d-jysk", status: "accepteret", acceptedAt: "2026-02-15", machineSerials: ["TM-Z20-22001","TM-Z20-22014"] },
-      { dealerId: "d-fyn", status: "accepteret", acceptedAt: "2026-02-18", machineSerials: ["TM-Z20-22210","TM-Z20-22245"] },
-    ],
-  },
-  {
-    id: "TSB-2026-095",
-    title: "Kontrol af bremsekreds",
-    description: "Sikkerhedskontrol af bremsekreds på X40 Pro.",
-    severity: 2, status: "aktiv", createdAt: "2026-01-20", activeFrom: "2026-02-01", deadline: "2026-04-10",
-    documentName: "TSB-2026-095_DA.pdf",
-    dealers: [
-      { dealerId: "d-nordic", status: "accepteret", acceptedAt: "2026-02-01", machineSerials: ["TM-X40-18291","TM-X40-18432","TM-X40-18501"] },
-      { dealerId: "d-sjael", status: "afventer", machineSerials: ["TM-X40-19401"] },
-    ],
-  },
-  {
-    id: "TSB-2026-112",
-    title: "Udskiftning af hydraulikventil",
-    description: "Udskiftning af defekt hydraulikventil — Severity 3.",
-    severity: 3, status: "aktiv", createdAt: "2026-04-05", activeFrom: "2026-04-08", deadline: "2026-04-25",
-    documentName: "TSB-2026-112_DA.pdf",
-    dealers: [
-      { dealerId: "d-nordic", status: "afventer", machineSerials: ["TM-X40-18622","TM-X40-18733"] },
-      { dealerId: "d-syd", status: "afventer", machineSerials: ["TM-X40-19102","TM-X40-19133"] },
-      { dealerId: "d-sjael", status: "afventer", machineSerials: ["TM-X40-19401","TM-X40-19422"] },
-    ],
-  },
-];
+const initialTsbs: Tsb[] = [];
 
 // ---------------- Pub/sub store ----------------
 
