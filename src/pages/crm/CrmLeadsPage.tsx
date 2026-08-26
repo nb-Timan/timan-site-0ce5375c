@@ -24,7 +24,7 @@ import {
   NEXT_ACTIVITY_LOST,
   deriveLegacyPipelineStage,
 } from '@/lib/leadStatus';
-import { ArrowDownAZ, Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X, DatabaseZap } from 'lucide-react';
+import { ArrowDownAZ, Plus, Search, Sparkles, TrendingUp, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X, DatabaseZap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
 import { listScopedConfigurations } from '@/lib/crmRelationsService';
@@ -52,7 +52,7 @@ type TKey =
   | 'search_ph' | 'all_status' | 'loading' | 'empty_title' | 'empty_sub'
   | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
   | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
-  | 'open_lbl' | 'demo_lbl' | 'unassigned_chip' | 'open_link'
+  | 'open_lbl' | 'demo_lbl' | 'unassigned_chip'
   | 'type_won' | 'type_lost'
   | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
@@ -95,7 +95,6 @@ const T: Record<TKey, Record<Language, string>> = {
   type_won:      { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes' },
   type_lost:     { da: 'Tabt', en: 'Lost', de: 'Verloren', it: 'Perso', hu: 'Elveszett' },
   unassigned_chip:{ da: 'Utildelt', en: 'Unassigned', de: 'Nicht zugewiesen', it: 'Non assegnato', hu: 'Kiosztatlan' },
-  open_link:     { da: 'Åbn', en: 'Open', de: 'Öffnen', it: 'Apri', hu: 'Megnyitás' },
   close_btn:     { da: 'Luk', en: 'Close', de: 'Schließen', it: 'Chiudi', hu: 'Lezárás' },
   close_title:   { da: 'Luk lead', en: 'Close lead', de: 'Lead schließen', it: 'Chiudi lead', hu: 'Lead lezárása' },
   close_sub:     { da: 'Markér leadet som vundet eller tabt.', en: 'Mark the lead as won or lost.', de: 'Lead als gewonnen oder verloren markieren.', it: 'Segna il lead come vinto o perso.', hu: 'Jelölje a leadet nyertesnek vagy elveszettnek.' },
@@ -265,6 +264,7 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
 type TabKey = 'open' | 'open_demo' | 'won' | 'closed' | 'all';
 type SortKey = 'default' | 'title_asc' | 'title_desc' | 'date_desc' | 'date_asc' | 'prob_desc' | 'prob_asc';
 type UserLeadType = 'open' | 'demo' | 'won' | 'lost';
+type FollowupTone = 'overdue' | 'soon' | 'neutral';
 
 function isWonRow(row: UnifiedLead): boolean {
   return row.status === 'Vundet' || row.status === 'Won';
@@ -302,6 +302,26 @@ const USER_LEAD_TYPE_BADGE: Record<UserLeadType, string> = {
   won: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   lost: 'bg-rose-50 text-rose-700 border-rose-200',
 };
+
+const FOLLOWUP_BADGE: Record<FollowupTone, string> = {
+  overdue: 'bg-rose-50 text-rose-700 border-rose-200',
+  soon: 'bg-amber-50 text-amber-800 border-amber-200',
+  neutral: 'text-gray-600 border-transparent',
+};
+
+function startOfLocalDay(date: Date): Date {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function getFollowupTone(value: string | null | undefined, now = new Date()): FollowupTone {
+  if (!value) return 'neutral';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return 'neutral';
+  const diffDays = Math.floor((startOfLocalDay(date).getTime() - startOfLocalDay(now).getTime()) / (24 * 60 * 60 * 1000));
+  if (diffDays < 0) return 'overdue';
+  if (diffDays <= 20) return 'soon';
+  return 'neutral';
+}
 
 function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
   if (sort === 'title_asc') return (a.title || '').localeCompare(b.title || '', 'da');
@@ -640,7 +660,7 @@ export default function CrmLeadsPage() {
                   <th className="text-left px-4 py-3">{tt('col_owner', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_machine', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_date', lang)}</th>
-                  <th className="text-left px-4 py-3">{tt('col_followup', lang)}</th>
+                  <th className="text-left px-4 py-3 whitespace-nowrap">{tt('col_followup', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_status', lang)}</th>
                   <th className="text-right px-4 py-3">{tt('col_action', lang)}</th>
                 </tr>
@@ -650,6 +670,7 @@ export default function CrmLeadsPage() {
                   const clickable = !!r.detail_href;
                   const imageAttachments = getLeadImageAttachments(r.attachments);
                   const userType = getUserLeadType(r);
+                  const followupTone = getFollowupTone(r.next_followup);
                   const canActOnOpenLead = r.type === 'open' && isOpenRow(r);
                   return (
                     <tr key={`${r.type}-${r.id}`}
@@ -712,7 +733,14 @@ export default function CrmLeadsPage() {
                       </td>
                       <td className="px-4 py-3.5 text-gray-600 max-w-[260px] truncate">{r.machine || '—'}</td>
                       <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{fmtDate(r.date, lang)}</td>
-                      <td className="px-4 py-3.5 text-gray-600 whitespace-nowrap">{fmtDate(r.next_followup, lang)}</td>
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        <span className={cn(
+                          'inline-flex text-[11px] font-medium px-2 py-0.5 rounded-md border tabular-nums',
+                          FOLLOWUP_BADGE[followupTone]
+                        )}>
+                          {fmtDate(r.next_followup, lang)}
+                        </span>
+                      </td>
                       <td className="px-4 py-3.5">
                         {r.status ? (
                           <div className="flex items-center gap-2">
@@ -784,12 +812,7 @@ export default function CrmLeadsPage() {
                               <Trash2 className="h-3.5 w-3.5" /> Slet
                             </button>
                           )}
-                          {r.detail_href ? (
-                            <Link to={r.detail_href} onClick={e => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-[12px] text-[#2d5a27] hover:underline">
-                              {tt('open_link', lang)} <ChevronRight className="h-3.5 w-3.5" />
-                            </Link>
-                          ) : (
+                          {!canActOnOpenLead && !canDelete && (
                             <span className="text-[12px] text-gray-400">—</span>
                           )}
                         </div>
