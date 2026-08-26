@@ -69,7 +69,8 @@ const LT: Record<string, Record<Language, string>> = {
   no_alerts:        { da: "Ingen advarsler — godt arbejde!", en: "No alerts — great work!", de: "Keine Hinweise — top!", it: "Nessun avviso — ottimo!", hu: "Nincs figyelmeztetés!" },
   metric_orders:    { da: "Ordrer %",              en: "Orders %",          de: "Aufträge %",         it: "Ordini %",           hu: "Rendelés %" },
   metric_pipeline:  { da: "Pipeline %",            en: "Pipeline %",        de: "Pipeline %",         it: "Pipeline %",         hu: "Pipeline %" },
-  metric_health:    { da: "Lead helbred %",        en: "Lead health %",     de: "Lead-Gesundheit %",  it: "Salute lead %",      hu: "Lead-egészség %" },
+  metric_health:    { da: "Lead helbred",          en: "Lead health",       de: "Lead-Gesundheit",    it: "Salute lead",        hu: "Lead-egészség" },
+  metric_health_tip:{ da: "Lead Helbred viser andelen af sælgerens aktive leads med sund næste opfølgning. Antallet viser den samlede aktive lead-portefølje.", en: "Lead health shows the share of the seller's active leads with a healthy next follow-up. The count shows the total active lead portfolio.", de: "Lead-Gesundheit zeigt den Anteil aktiver Leads mit gesunder nächster Nachverfolgung. Die Anzahl zeigt das gesamte aktive Lead-Portfolio.", it: "Salute lead mostra la quota di lead attivi con un prossimo follow-up sano. Il numero mostra il portafoglio totale di lead attivi.", hu: "A lead-egészség az egészséges következő követéssel rendelkező aktív leadek arányát mutatja. A darabszám a teljes aktív lead portfólió." },
   metric_budget:    { da: "Budget score %",        en: "Budget score %",    de: "Budget-Score %",     it: "Score budget %",     hu: "Költség pont %" },
   no_budget:        { da: "Intet budget",          en: "No budget",         de: "Kein Budget",        it: "Nessun budget",      hu: "Nincs terv" },
   orders_no_budget: { da: "ordre uden budget",     en: "orders without budget", de: "Aufträge ohne Budget", it: "ordini senza budget", hu: "rendelés terv nélkül" },
@@ -459,6 +460,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
         ordersPct: Math.round((agg.totals.ordersQty / totals.orders) * 100),
         pipelinePct: Math.round((ownPipeline / totals.pipeline) * 100),
         leadHealthPct: leadHealth,
+        activeLeadCount: ownPipeline,
         budgetScorePct: agg.totals.scorePct,
         overdue,
         noFollow,
@@ -745,7 +747,16 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                       <th className="px-2 py-2 font-semibold">{t("cockpit_seller", lang)}</th>
                       <th className="px-2 py-2 font-semibold">{t("metric_orders", lang)}</th>
                       <th className="px-2 py-2 font-semibold">{t("metric_pipeline", lang)}</th>
-                      <th className="px-2 py-2 font-semibold">{t("metric_health", lang)}</th>
+                      <th className="px-2 py-2 font-semibold">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex cursor-help items-center">{t("metric_health", lang)}</span>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs text-xs">
+                            {t("metric_health_tip", lang)}
+                          </TooltipContent>
+                        </Tooltip>
+                      </th>
                       <th className="px-2 py-2 font-semibold">{t("metric_budget", lang)}</th>
                     </tr>
                   </thead>
@@ -755,7 +766,13 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                         <td className="px-2 py-2.5 font-semibold text-slate-800">{c.initials}</td>
                         <td className="px-2 py-2.5"><MiniBar pct={c.ordersPct} hex="#0ea5e9" /></td>
                         <td className="px-2 py-2.5"><MiniBar pct={c.pipelinePct} hex="#8b5cf6" /></td>
-                        <td className="px-2 py-2.5"><MiniBar pct={c.leadHealthPct} hex={c.leadHealthPct >= 75 ? "#10b981" : c.leadHealthPct >= 50 ? "#f59e0b" : "#ef4444"} /></td>
+                        <td className="px-2 py-2.5">
+                          <MiniBar
+                            pct={c.leadHealthPct}
+                            hex={c.leadHealthPct >= 75 ? "#10b981" : c.leadHealthPct >= 50 ? "#f59e0b" : "#ef4444"}
+                            suffix={`${c.activeLeadCount} leads`}
+                          />
+                        </td>
                         <td className="px-2 py-2.5"><MiniBar pct={Math.min(120, c.budgetScorePct)} hex={c.budgetScorePct >= 100 ? "#10b981" : c.budgetScorePct >= 80 ? "#f59e0b" : "#ef4444"} /></td>
                       </tr>
                     ))}
@@ -823,14 +840,16 @@ function SellerChip({ active, onClick, children }: { active: boolean; onClick: (
   );
 }
 
-function MiniBar({ pct, hex }: { pct: number; hex: string }) {
+function MiniBar({ pct, hex, suffix }: { pct: number; hex: string; suffix?: string }) {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
     <div className="flex items-center gap-2">
       <div className="h-2 w-24 rounded-full bg-slate-100 overflow-hidden">
         <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${clamped}%`, background: hex }} />
       </div>
-      <span className="text-[11px] tabular-nums text-slate-600 w-9 text-right">{Math.round(pct)}%</span>
+      <span className={`text-[11px] tabular-nums text-slate-600 text-right ${suffix ? "min-w-[72px]" : "w-9"}`}>
+        {Math.round(pct)}%{suffix ? ` · ${suffix}` : ""}
+      </span>
     </div>
   );
 }
