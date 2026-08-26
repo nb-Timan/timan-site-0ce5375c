@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
 import { listScopedConfigurations } from '@/lib/crmRelationsService';
 import { listSharedLeadIdsForUser } from '@/lib/crmLeadSharingService';
+import { matchesLeadSearch } from '@/lib/crmLeadSearch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import {
@@ -487,14 +488,18 @@ export default function CrmLeadsPage() {
 
     if (stage) r = r.filter(x => x.status === stage);
     if (q.trim()) {
-      const s = q.toLowerCase();
-      r = r.filter(x =>
-        (x.title || '').toLowerCase().includes(s) ||
-        (x.customer || '').toLowerCase().includes(s) ||
-        (x.dealer || '').toLowerCase().includes(s) ||
-        (x.owner_name || '').toLowerCase().includes(s) ||
-        (x.machine || '').toLowerCase().includes(s)
-      );
+      r = r.filter(x => matchesLeadSearch([
+        x.display_no,
+        x.title,
+        x.customer,
+        x.dealer,
+        x.owner_name,
+        x.owner_email,
+        x.responsible_name,
+        x.machine,
+        x.equipment,
+        x.status,
+      ], q));
     }
     return [...r].sort((a, b) => compareRows(a, b, sort));
   }, [allRows, tab, stage, q, sort]);
