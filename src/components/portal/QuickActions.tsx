@@ -93,7 +93,16 @@ export default function QuickActions({ language }: Props) {
         <span className="text-xs text-slate-500">{contextLabel}</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {actions.map(({ labelKey, to, icon: Icon }) => (
+        {actions.map(({ labelKey, to, icon: Icon }) => {
+          const displayLabelKey = labelKey === 'quickActionMyDealers' && (
+            effectiveRoleKey === 'timan_dealer' ||
+            effectiveRoleKey === 'timan_service_partner' ||
+            effectiveRoleKey === 'timan_importer' ||
+            effectiveRoleKey === 'dealer_user'
+          )
+            ? 'quickActionMyPartners'
+            : labelKey;
+          return (
           <Link
             key={to}
             to={to}
@@ -102,9 +111,10 @@ export default function QuickActions({ language }: Props) {
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#2d5a27]/10 text-[#2d5a27] group-hover:bg-[#2d5a27] group-hover:text-white transition">
               <Icon className="h-4 w-4" />
             </span>
-            <span className="text-sm font-semibold text-slate-800">{t(labelKey, language)}</span>
+            <span className="text-sm font-semibold text-slate-800">{t(displayLabelKey, language)}</span>
           </Link>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

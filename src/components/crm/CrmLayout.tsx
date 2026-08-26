@@ -49,18 +49,23 @@ export default function CrmLayout({ children, pageTitle }: Props) {
   // Phase 37 — area access is now driven by per-user `allowed_areas` if set,
   // otherwise it falls back to module_access / role defaults.
   const allowedAreas = effectiveUser?.allowed_areas;
+  const moduleOverride = (
+    effectiveUser?.allowed_modules ?? effectiveUser?.module_access ?? null
+  ) as Parameters<typeof hasModuleAccess>[2];
   const externalCrm = isExternalCrmRole(portalRole);
   const ownDealerDetailMatch = location.pathname.match(/^\/portal\/crm\/my-dealers\/([^/]+)$/);
-  const ownDealerDetailAllowed = Boolean(
+  const hasDealerDataAreaAccess = Array.isArray(allowedAreas) && allowedAreas.length > 0
+    ? allowedAreas.includes('dealer_data')
+    : hasModuleAccess(portalRole, 'dealer_data', moduleOverride);
+  const hasCrmAreaAccess = Array.isArray(allowedAreas) && allowedAreas.length > 0
+    ? allowedAreas.includes('timan_crm')
+    : hasModuleAccess(portalRole, 'timan_crm', moduleOverride);
+  const externalDealerDetailAllowed = Boolean(
     externalCrm &&
     ownDealerDetailMatch &&
-    decodeURIComponent(ownDealerDetailMatch[1]) === effectiveUser?.dealer_number &&
-    Array.isArray(allowedAreas) &&
-    allowedAreas.includes('dealer_data'),
+    hasDealerDataAreaAccess,
   );
-  const crmAreaAllowed = ownDealerDetailAllowed || (Array.isArray(allowedAreas) && allowedAreas.length > 0
-    ? allowedAreas.includes('timan_crm')
-    : hasModuleAccess(portalRole, 'timan_crm', effectiveUser?.module_access as never));
+  const crmAreaAllowed = externalDealerDetailAllowed || hasCrmAreaAccess;
   if (!crmAreaAllowed) {
     return <Navigate to="/portal" replace />;
   }
@@ -71,7 +76,7 @@ export default function CrmLayout({ children, pageTitle }: Props) {
     return <Navigate to="/portal/crm/dashboard" replace />;
   }
   const navItems = externalCrm
-    ? NAV.filter((item) => !EXTERNAL_NAV_BLOCKLIST.has(item.to))
+    ? (hasCrmAreaAccess ? NAV.filter((item) => !EXTERNAL_NAV_BLOCKLIST.has(item.to)) : [])
     : NAV;
 
   return (
@@ -102,7 +107,7 @@ export default function CrmLayout({ children, pageTitle }: Props) {
                     : "text-slate-500 hover:text-slate-900"
                 )}>
                 <Icon className={cn("h-4 w-4 transition-colors", active ? "text-[#2d5a27]" : "text-slate-400 group-hover:text-slate-600")} />
-                {t(item.tKey, uiLanguage)}
+                {t(externalCrm && item.tKey === 'crmMyDealers' ? 'crmMyPartners' : item.tKey, uiLanguage)}
                 <span
                   aria-hidden
                   className={cn(

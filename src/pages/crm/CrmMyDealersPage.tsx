@@ -54,6 +54,9 @@ import {
   getActiveSellerView,
   getEffectiveSellerEmail,
   getEffectiveSellerInitials,
+  SELLER_VIEWS,
+  setActiveMode as setStoredActiveMode,
+  type SellerViewKey,
 } from "@/lib/activeMode";
 import { resolveSellerId } from "@/lib/resolveSellerId";
 import {
@@ -75,9 +78,12 @@ import { sellerInitialsMatch } from "@/lib/sellerInitials";
 
 const T: Record<string, Record<Language, string>> = {
   title:        { da: "Mine forhandlere", en: "My dealers", de: "Meine Händler", it: "I miei rivenditori", hu: "Kereskedőim" },
+  partner_title:{ da: "Mine samarbejdspartnere", en: "My collaboration partners", de: "Meine Partner", it: "I miei partner", hu: "Partnereim" },
   subtitle:     { da: "Forhandlere tildelt dig som Timan sælger.", en: "Dealers assigned to you as Timan seller.", de: "Ihnen zugewiesene Händler.", it: "Rivenditori assegnati a te.", hu: "Hozzád rendelt kereskedők." },
+  partner_subtitle: { da: "Din egen konto og samarbejdspartnere under din forhandlerkonto.", en: "Your own account and partners below your dealer account.", de: "Ihr eigenes Konto und Partner unter Ihrem Händlerkonto.", it: "Il tuo account e i partner collegati.", hu: "Saját fiókja és kapcsolódó partnerei." },
   search:       { da: "Søg på navn, kontonr, by…", en: "Search name, account no, city…", de: "Name, Konto-Nr, Stadt…", it: "Nome, numero conto, città…", hu: "Név, számlaszám, város…" },
   empty:        { da: "Ingen forhandlere tildelt dig endnu.", en: "No dealers assigned to you yet.", de: "Keine Händler zugewiesen.", it: "Nessun rivenditore assegnato.", hu: "Nincs hozzád rendelt kereskedő." },
+  partner_empty:{ da: "Ingen samarbejdspartnere tilknyttet endnu.", en: "No collaboration partners linked yet.", de: "Noch keine Partner verknüpft.", it: "Nessun partner collegato.", hu: "Még nincsenek kapcsolódó partnerek." },
   loading:      { da: "Henter forhandlere…", en: "Loading dealers…", de: "Lade Händler…", it: "Caricamento…", hu: "Betöltés…" },
   c_company:    { da: "Firmanavn", en: "Company", de: "Firma", it: "Azienda", hu: "Cég" },
   c_account:    { da: "Kontonr", en: "Account no", de: "Konto-Nr", it: "Conto", hu: "Számlaszám" },
@@ -91,6 +97,7 @@ const T: Record<string, Record<Language, string>> = {
   c_budget_ytd: { da: "Budget YTD", en: "Budget YTD", de: "Budget YTD", it: "Budget YTD", hu: "Budget YTD" },
   c_budget_status: { da: "Budget status", en: "Budget status", de: "Budget-Status", it: "Stato budget", hu: "Költségvetés-állapot" },
   scope_note:   { da: "Du ser kun forhandlere tildelt dig.", en: "You only see dealers assigned to you.", de: "Nur Ihre zugewiesenen Händler.", it: "Solo i tuoi rivenditori.", hu: "Csak a hozzád rendelt kereskedők." },
+  partner_scope_note: { da: "Du ser kun din egen konto og tilknyttede samarbejdspartnere.", en: "You only see your own account and linked partners.", de: "Sie sehen nur Ihr eigenes Konto und verknüpfte Partner.", it: "Vedi solo il tuo account e i partner collegati.", hu: "Csak a saját fiókját és kapcsolódó partnereit látja." },
   view_as:      { da: "Vises som", en: "Viewing as", de: "Ansicht als", it: "Vista come", hu: "Nézet" },
 };
 
@@ -100,7 +107,8 @@ function fmtDate(iso: string | null): string {
 }
 
 type BackendSellerOverview = {
-  initials: string;
+  initials: SellerViewKey;
+  label: string;
   importers: number;
   dealers: number;
   servicePartners: number;
@@ -123,17 +131,13 @@ function normaliseAccountType(dealer: DealerAccount): "importer" | "dealer" | "s
 
 function buildBackendSellerOverview(
   dealers: DealerAccount[],
-  allUsers: BackendUser[],
   dealersByAcct: Map<string, DealerAccount>,
   absorbedIds: Set<string>,
 ): BackendSellerOverview[] {
-  const activeSellers = allUsers
-    .filter((u) => u.role === "timan_seller" && u.status === "active" && u.approved && u.is_active && u.initials)
-    .sort((a, b) => a.initials.localeCompare(b.initials, "da"));
-
-  const rows = activeSellers.map((seller) => {
+  const rows = SELLER_VIEWS.map((seller) => {
     const counts: BackendSellerOverview = {
-      initials: seller.initials.toUpperCase(),
+      initials: seller.initials,
+      label: seller.label,
       importers: 0,
       dealers: 0,
       servicePartners: 0,
@@ -368,26 +372,37 @@ export default function CrmMyDealersPage() {
   const totalDealersCount = (dealers ?? []).filter((d) => !absorbedIds.has(d.id) && !isDealerCustomerAccount(d)).length;
   const visibleMainCount = filteredDealers.filter((d) => !isDealerCustomerAccount(d)).length;
   const backendSellerOverview = showBackendSellerOverview
-    ? buildBackendSellerOverview(dealers ?? [], allUsers, dealersByAcct, absorbedIds)
+    ? buildBackendSellerOverview(dealers ?? [], dealersByAcct, absorbedIds)
     : [];
+  const openSellerView = (sellerKey: SellerViewKey) => {
+    if (!appUser?.email) return;
+    setStoredActiveMode(appUser.email, sellerKey);
+  };
+  const pageTitle = externalCrm ? T.partner_title[lang] : T.title[lang];
+  const pageSubtitle = externalCrm ? T.partner_subtitle[lang] : T.subtitle[lang];
+  const emptyLabel = externalCrm ? T.partner_empty[lang] : T.empty[lang];
+  const scopeNote = externalCrm ? T.partner_scope_note[lang] : T.scope_note[lang];
 
   return (
-    <CrmLayout pageTitle={T.title[lang]}>
+    <CrmLayout pageTitle={pageTitle}>
       <div className="mb-4 flex items-end justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 bg-[#2d5a27]/10 rounded-xl flex items-center justify-center">
             <Building2 className="h-5 w-5 text-[#2d5a27]" />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-900">{T.title[lang]}</h2>
-            <p className="text-slate-500 text-sm">{T.subtitle[lang]}</p>
+            <h2 className="text-xl font-bold text-slate-900">{pageTitle}</h2>
+            <p className="text-slate-500 text-sm">{pageSubtitle}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {backendSellerOverview.map((sellerRow) => (
-            <div
+            <button
+              type="button"
               key={sellerRow.initials}
-              className="min-w-[118px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm"
+              onClick={() => openSellerView(sellerRow.initials)}
+              className="min-w-[118px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/60"
+              title={`Vis ${sellerRow.label}`}
             >
               <div className="mb-1 font-bold text-slate-900">{sellerRow.initials}</div>
               <div className="grid grid-cols-[1fr_auto] gap-x-2 gap-y-0.5 text-slate-500">
@@ -396,7 +411,7 @@ export default function CrmMyDealersPage() {
                 <span>Servicepartnere</span><span className="font-semibold text-slate-900">{sellerRow.servicePartners}</span>
                 <span>Forhandlerkunder</span><span className="font-semibold text-slate-900">{sellerRow.dealerCustomers}</span>
               </div>
-            </div>
+            </button>
           ))}
           {activeSellerView && (
             <span className="text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 font-semibold">
@@ -405,7 +420,7 @@ export default function CrmMyDealersPage() {
           )}
           {!admin && (
             <span className="text-xs px-3 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200">
-              {T.scope_note[lang]}
+              {scopeNote}
             </span>
           )}
         </div>
@@ -499,7 +514,7 @@ export default function CrmMyDealersPage() {
               <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{T.loading[lang]}</td></tr>
             )}
             {!loadingRows && groups.length === 0 && (
-              <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{T.empty[lang]}</td></tr>
+              <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{emptyLabel}</td></tr>
             )}
             {groups.map((g) => {
               const predecessors = predecessorsByActiveId.get(g.main.id) ?? [];

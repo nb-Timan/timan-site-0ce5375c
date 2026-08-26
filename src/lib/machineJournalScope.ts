@@ -11,7 +11,9 @@
  *                                     those importer accounts (via
  *                                     dealer_accounts.parent_account_number).
  *
- *  - timan_dealer / dealer_user     → own dealer_number / name only.
+ *  - timan_dealer / dealer_user     → own dealer + every dealer with
+ *                                     parent_account_number = own
+ *                                     account_number.
  *
  *  - timan_importer                 → own dealer + every dealer with
  *                                     parent_account_number = own
@@ -185,8 +187,19 @@ export async function buildJournalScope(
   const ownName = norm(appUser.company_dealer || appUser.display_name);
   if (ownName) scope.dealerNames.add(ownName);
 
-  // Dealer / dealer_user → own dealer only.
-  if (DEALER_ONLY.has(role)) return scope;
+  // Dealer / dealer_user -> own dealer + downline partner accounts when this
+  // dealer is the parent/main account.
+  if (DEALER_ONLY.has(role)) {
+    if (appUser.dealer_number) {
+      try {
+        const kids = await fetchChildDealers(appUser.dealer_number);
+        for (const k of kids) addAccountToScope(scope, k);
+      } catch (e) {
+        console.warn("[machineJournalScope] dealer child fetch failed (tolerated)", e);
+      }
+    }
+    return scope;
+  }
 
   // Importer → own dealer + every child via parent_account_number.
   if (IMPORTER.has(role) && appUser.dealer_number) {

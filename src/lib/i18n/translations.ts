@@ -39,6 +39,7 @@ const da: Dict = {
   quickActionCreateDemo: 'Ny demo-registrering',
   quickActionCalendar: 'Kalender',
   quickActionMyDealers: 'Mine forhandlere',
+  quickActionMyPartners: 'Mine samarbejdspartnere',
   quickActionWarrantyRegistrations: 'Registrerede garantibeviser',
   quickActionClaims: 'Alle claims',
   quickActionDrift: 'Driftberegner',
@@ -328,7 +329,7 @@ const da: Dict = {
   labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Virksomhed', labelAddress: 'Adresse',
 
   // CRM nav tabs
-  crmDashboard: 'Dashboard', crmMyDealers: 'Mine forhandlere',
+  crmDashboard: 'Dashboard', crmMyDealers: 'Mine forhandlere', crmMyPartners: 'Mine samarbejdspartnere',
   crmAccounts: 'Konti', crmLeads: 'Leads', crmQuotes: 'Tilbud',
   crmOrders: 'Ordrer', crmActivities: 'Aktiviteter', crmCalendar: 'Kalender',
   crmBudget: 'Budget', crmBudgetDashboard: 'Budget Dashboard', crmReports: 'Rapporter',
@@ -543,6 +544,7 @@ const en: Dict = {
   quickActionCreateDemo: 'New demo registration',
   quickActionCalendar: 'Calendar',
   quickActionMyDealers: 'My dealers',
+  quickActionMyPartners: 'My collaboration partners',
   quickActionWarrantyRegistrations: 'Warranty registrations',
   quickActionClaims: 'All claims',
   quickActionDrift: 'Operating calculator',
@@ -823,7 +825,7 @@ const en: Dict = {
   supportHeading: 'Support', companyHeading: 'Company information',
   labelPhone: 'Phone', labelEmail: 'Email', labelCompany: 'Company', labelAddress: 'Address',
 
-  crmDashboard: 'Dashboard', crmMyDealers: 'My dealers',
+  crmDashboard: 'Dashboard', crmMyDealers: 'My dealers', crmMyPartners: 'My collaboration partners',
   crmAccounts: 'Accounts', crmLeads: 'Leads', crmQuotes: 'Quotes',
   crmOrders: 'Orders', crmActivities: 'Activities', crmCalendar: 'Calendar',
   crmBudget: 'Budget', crmBudgetDashboard: 'Budget Dashboard', crmReports: 'Reports',
@@ -1028,6 +1030,7 @@ const de: Dict = {
   quickActionCreateDemo: 'Neue Demo-Registrierung',
   quickActionCalendar: 'Kalender',
   quickActionMyDealers: 'Meine Händler',
+  quickActionMyPartners: 'Meine Partner',
   quickActionWarrantyRegistrations: 'Garantieregistrierungen',
   quickActionClaims: 'Alle Reklamationen',
   quickActionDrift: 'Betriebsrechner',
@@ -1160,7 +1163,7 @@ const de: Dict = {
   supportHeading: 'Support', companyHeading: 'Firmeninformationen',
   labelPhone: 'Telefon', labelEmail: 'E-Mail', labelCompany: 'Unternehmen', labelAddress: 'Adresse',
 
-  crmMyDealers: 'Meine Händler', crmAccounts: 'Konten', crmLeads: 'Leads',
+  crmMyDealers: 'Meine Händler', crmMyPartners: 'Meine Partner', crmAccounts: 'Konten', crmLeads: 'Leads',
   crmQuotes: 'Angebote', crmOrders: 'Aufträge', crmActivities: 'Aktivitäten',
   crmCalendar: 'Kalender', crmBudget: 'Budget',
   crmScopeAll: 'Alle CRM-Daten anzeigen', crmScopeOwner: 'Nur eigene zugewiesene Konten',
