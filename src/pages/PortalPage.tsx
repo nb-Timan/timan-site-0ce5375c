@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
-import { isMesseVariantUser } from '@/lib/portalAccess';
+import { derivePortalRole, hasModuleAccess, isMesseVariantUser, type ModuleAccessKey } from '@/lib/portalAccess';
 import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -18,7 +18,6 @@ import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper } from 'lucide-react';
 import { t } from '@/lib/i18n/translations';
-import { derivePortalRole } from '@/lib/portalAccess';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -212,10 +211,11 @@ export default function PortalPage() {
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
   const portalRole = derivePortalRole(effectiveUser);
   const realPortalRole = derivePortalRole(appUser);
+  const moduleOverride = (effectiveUser?.module_access as ModuleAccessKey[] | null | undefined) ?? null;
   const showMesseCard = (
     realPortalRole === 'timan_backend' ||
     realPortalRole === 'timan_seller' ||
-    portalRole === 'timan_seller'
+    hasModuleAccess(portalRole, 'messe_portal', moduleOverride)
   );
 
   if (portalRole === 'dealer_user') {
