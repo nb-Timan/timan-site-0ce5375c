@@ -154,28 +154,6 @@ interface UnifiedLead {
   shared?: boolean;
 }
 
-const STAGE_CLR: Record<string, string> = {
-  // New canonical lead-status buckets (effectiveLeadStatus output).
-  Lead:           'bg-sky-50 text-sky-700 border-sky-200',
-  'Demo planlagt':'bg-violet-50 text-violet-700 border-violet-200',
-  'Tilbud sendt': 'bg-amber-50 text-amber-800 border-amber-200',
-  'Follow-up':    'bg-orange-50 text-orange-700 border-orange-200',
-  Vundet:         'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Tabt:           'bg-rose-50 text-rose-700 border-rose-200',
-  // Legacy pipeline_stage labels (still rendered for demos / legacy strings).
-  Qualified:      'bg-violet-50 text-violet-700 border-violet-200',
-  'Offer sent':   'bg-amber-50 text-amber-800 border-amber-200',
-  Negotiation:    'bg-orange-50 text-orange-700 border-orange-200',
-  Won:            'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Lost:           'bg-rose-50 text-rose-700 border-rose-200',
-  // Demo result statuses.
-  'Hot lead':     'bg-rose-50 text-rose-700 border-rose-200',
-  'Warm lead':    'bg-amber-50 text-amber-800 border-amber-200',
-  'Cold lead':    'bg-sky-50 text-sky-700 border-sky-200',
-  'Offer requested': 'bg-violet-50 text-violet-700 border-violet-200',
-  'No fit':       'bg-gray-100 text-gray-700 border-gray-200',
-};
-
 const ST_TKEY: Record<LeadDisplayStatus, TKey> = {
   Lead: 'st_Lead',
   'Demo planlagt': 'st_Demo',
@@ -737,13 +715,10 @@ export default function CrmLeadsPage() {
                       </td>
                       <td className="px-4 py-3.5">
                         {r.status ? (
-                          <div className="flex items-center gap-2">
-                            <span className={cn('inline-flex text-[11px] font-medium px-2 py-0.5 rounded-md border',
-                              STAGE_CLR[r.status] || 'bg-gray-100 text-gray-700 border-gray-200')}>
-                              {localizeStatus(r.status, lang)}
-                            </span>
+                          <div className="flex min-w-[120px] items-center justify-between gap-3 text-[12px] text-gray-700">
+                            <span className="text-left">{localizeStatus(r.status, lang)}</span>
                             {r.probability != null && (
-                              <span className="text-[11px] font-medium text-gray-600 tabular-nums">{r.probability}%</span>
+                              <span className="ml-auto text-right font-medium text-gray-600 tabular-nums">{r.probability}%</span>
                             )}
                           </div>
                         ) : '—'}
