@@ -265,7 +265,7 @@ export default function BackendUsersPage() {
                 <Th>Name</Th>
                 <Th>Email</Th>
                 <Th>Dealer</Th>
-                <Th>Type</Th>
+                <Th>Brugertype</Th>
                 <Th>Tildelt sælger</Th>
                 <Th>Country</Th>
                 <Th>Sprog</Th>
@@ -281,9 +281,9 @@ export default function BackendUsersPage() {
               {users.map((u) => {
                 const langOpt = PORTAL_LANGUAGES.find((l) => l.code === u.language);
                 const dealer = u.dealer_number ? dealers.find((d) => d.account_number === u.dealer_number) : undefined;
-                const dealerType = dealer?.customer_type_label || dealer?.customer_type || null;
-                const inheritedSellerInitials = dealer?.assigned_seller_initials || u.seller_initials || null;
-                const inheritedSellerName = dealer?.assigned_seller_name || null;
+                const userType = PORTAL_ROLE_LABELS[u.role]?.da ?? u.role;
+                const inheritedSellerInitials = dealer?.assigned_seller_initials || u.seller_initials || u.account_owner_initials || null;
+                const inheritedSellerName = dealer?.assigned_seller_name || u.account_owner_name || null;
                 return (
                 <tr key={u.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                   <Td className="font-semibold text-slate-900">
@@ -306,9 +306,9 @@ export default function BackendUsersPage() {
                     )}
                   </Td>
                   <Td>
-                    {dealerType
-                      ? <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">{dealerType}</span>
-                      : <span className="text-slate-400 text-xs">—</span>}
+                    <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">
+                      {userType}
+                    </span>
                   </Td>
                   <Td>
                     {inheritedSellerInitials ? (
@@ -337,7 +337,7 @@ export default function BackendUsersPage() {
                       ? <span className="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-800">Yes</span>
                       : <span className="inline-flex rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-800">No</span>}
                   </Td>
-                  <Td>{PORTAL_ROLE_LABELS[u.role]?.da ?? u.role}</Td>
+                  <Td>{userType}</Td>
                   <Td>{authBadge(u)}</Td>
                   <Td>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -560,6 +560,7 @@ function EditUserModal({
   }
 
   const matchingDealer = dealers.find((d) => d.account_number === draft.dealer_number);
+  const hasUnmatchedDealerNumber = !!draft.dealer_number && !matchingDealer;
   const filteredDealers = dealerQuery
     ? dealers.filter((d) => `${d.company_name} ${d.account_number} ${d.city ?? ""}`.toLowerCase().includes(dealerQuery.toLowerCase())).slice(0, 100)
     : dealers.slice(0, 100);
@@ -622,11 +623,16 @@ function EditUserModal({
               className="w-full mb-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             />
             <select
-              value={matchingDealer?.id ?? ""}
+              value={matchingDealer?.id ?? (hasUnmatchedDealerNumber ? "__unmatched__" : "")}
               onChange={(e) => applyDealer(e.target.value)}
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
             >
               <option value="">— ingen forhandler tilknyttet —</option>
+              {hasUnmatchedDealerNumber && (
+                <option value="__unmatched__">
+                  {draft.dealer_number} · {draft.company_dealer || draft.company || "Ukendt firma"} — findes ikke i dealer_accounts
+                </option>
+              )}
               {filteredDealers.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.account_number} · {d.company_name}{d.country ? ` (${d.country})` : ""}
@@ -641,6 +647,12 @@ function EditUserModal({
                 <div><span className="font-semibold text-slate-500">Sælger initialer:</span> {draft.seller_initials || "—"}</div>
                 <div><span className="font-semibold text-slate-500">Sælger email:</span> {draft.seller_email || "—"}</div>
               </div>
+            )}
+            {hasUnmatchedDealerNumber && (
+              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                Denne bruger har kontonr. {draft.dealer_number}, men kontoen findes ikke som en aktiv forhandlerkonto i dealer_accounts.
+                Tilknyt en eksisterende forhandler fra listen, eller opret/ret forhandlerkontoen i Forhandlere først.
+              </p>
             )}
           </Section>
 
