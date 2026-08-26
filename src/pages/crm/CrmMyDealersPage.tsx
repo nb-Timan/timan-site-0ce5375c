@@ -49,6 +49,7 @@ import { fetchBackendUsers } from "@/lib/backendUsersService";
 import { BackendUser } from "@/lib/backend-users-store";
 import { Language } from "@/types/configurator";
 import {
+  canSwitchMode,
   getActiveMode,
   getActiveSellerView,
   getEffectiveSellerEmail,
@@ -67,6 +68,7 @@ import {
   getDealerProfileCriticalMissing,
   hasOnlySoftDealerProfileMissing,
 } from "@/lib/dealerProfileBadge";
+import { sellerInitialsMatch } from "@/lib/sellerInitials";
 
 
 
@@ -95,6 +97,72 @@ const T: Record<string, Record<Language, string>> = {
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
   try { return new Date(iso).toLocaleDateString("da-DK"); } catch { return "—"; }
+}
+
+type BackendSellerOverview = {
+  initials: string;
+  importers: number;
+  dealers: number;
+  servicePartners: number;
+  dealerCustomers: number;
+};
+
+function normaliseAccountType(dealer: DealerAccount): "importer" | "dealer" | "service_partner" | "dealer_customer" | "other" {
+  if (isDealerCustomerAccount(dealer)) return "dealer_customer";
+  const raw = [dealer.customer_type_label, dealer.customer_type, dealer.dealer_type]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+  if (!raw) return "other";
+  if (raw.includes("import") || raw.includes("importør") || raw.includes("importoer")) return "importer";
+  if (raw.includes("servicepartner")) return "service_partner";
+  if (raw.includes("forhandler") || raw === "dealer") return "dealer";
+  return "other";
+}
+
+function buildBackendSellerOverview(
+  dealers: DealerAccount[],
+  allUsers: BackendUser[],
+  dealersByAcct: Map<string, DealerAccount>,
+  absorbedIds: Set<string>,
+): BackendSellerOverview[] {
+  const activeSellers = allUsers
+    .filter((u) => u.role === "timan_seller" && u.status === "active" && u.approved && u.is_active && u.initials)
+    .sort((a, b) => a.initials.localeCompare(b.initials, "da"));
+
+  const rows = activeSellers.map((seller) => {
+    const counts: BackendSellerOverview = {
+      initials: seller.initials.toUpperCase(),
+      importers: 0,
+      dealers: 0,
+      servicePartners: 0,
+      dealerCustomers: 0,
+    };
+    const seen = new Set<string>();
+    for (const dealer of dealers) {
+      if (absorbedIds.has(dealer.id)) continue;
+      const effectiveSeller = resolveEffectiveSeller(dealer, dealersByAcct);
+      const sellerEmail = seller.email.trim().toLowerCase();
+      const effectiveEmail = effectiveSeller.email?.trim().toLowerCase() ?? "";
+      const matchesSeller =
+        sellerInitialsMatch(effectiveSeller.initials, seller.initials) ||
+        (!!sellerEmail && sellerEmail === effectiveEmail);
+      if (!matchesSeller) continue;
+      const key = dealer.account_number || dealer.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const type = normaliseAccountType(dealer);
+      if (type === "importer") counts.importers += 1;
+      if (type === "dealer") counts.dealers += 1;
+      if (type === "service_partner") counts.servicePartners += 1;
+      if (type === "dealer_customer") counts.dealerCustomers += 1;
+    }
+    return counts;
+  });
+
+  return rows.filter((row) => row.importers + row.dealers + row.servicePartners + row.dealerCustomers > 0);
 }
 
 export default function CrmMyDealersPage() {
@@ -138,6 +206,7 @@ export default function CrmMyDealersPage() {
   }, [appUser?.email]);
 
   const activeSellerView = appUser ? getActiveSellerView(appUser.email) : null;
+  const showBackendSellerOverview = canSwitchMode(appUser) && activeMode === "backend";
 
   useEffect(() => {
     if (!appUser) return;
@@ -298,6 +367,9 @@ export default function CrmMyDealersPage() {
   }
   const totalDealersCount = (dealers ?? []).filter((d) => !absorbedIds.has(d.id) && !isDealerCustomerAccount(d)).length;
   const visibleMainCount = filteredDealers.filter((d) => !isDealerCustomerAccount(d)).length;
+  const backendSellerOverview = showBackendSellerOverview
+    ? buildBackendSellerOverview(dealers ?? [], allUsers, dealersByAcct, absorbedIds)
+    : [];
 
   return (
     <CrmLayout pageTitle={T.title[lang]}>
@@ -312,6 +384,20 @@ export default function CrmMyDealersPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {backendSellerOverview.map((sellerRow) => (
+            <div
+              key={sellerRow.initials}
+              className="min-w-[118px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm"
+            >
+              <div className="mb-1 font-bold text-slate-900">{sellerRow.initials}</div>
+              <div className="grid grid-cols-[1fr_auto] gap-x-2 gap-y-0.5 text-slate-500">
+                <span>Importører</span><span className="font-semibold text-slate-900">{sellerRow.importers}</span>
+                <span>Forhandlere</span><span className="font-semibold text-slate-900">{sellerRow.dealers}</span>
+                <span>Servicepartnere</span><span className="font-semibold text-slate-900">{sellerRow.servicePartners}</span>
+                <span>Forhandlerkunder</span><span className="font-semibold text-slate-900">{sellerRow.dealerCustomers}</span>
+              </div>
+            </div>
+          ))}
           {activeSellerView && (
             <span className="text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 font-semibold">
               {T.view_as[lang]}: {activeSellerView.label}
