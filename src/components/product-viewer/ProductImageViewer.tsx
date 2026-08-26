@@ -229,12 +229,16 @@ export default function ProductImageViewer({
         onPointerLeave={onPointerUp}
         onWheel={onWheel}
       >
+        {hasImage && stageOverlayClassName && (
+          <div aria-hidden className={`absolute inset-0 pointer-events-none z-0 ${stageOverlayClassName}`} />
+        )}
+
         {hasImage ? (
           <img
             src={currentSrc}
             alt={`${config.label} – billede ${frame + 1}/${total}`}
             draggable={false}
-            className={`absolute inset-0 w-full h-full object-contain pointer-events-none transition-all duration-300 ${
+            className={`absolute inset-0 z-[1] w-full h-full object-contain pointer-events-none transition-all duration-300 ${
               hasCalloutHotspot ? 'blur-sm brightness-75' : ''
             }`}
             style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
@@ -245,10 +249,6 @@ export default function ProductImageViewer({
             <div className="text-sm font-medium text-slate-500">Billede mangler endnu</div>
             <div className="text-xs text-slate-400 mt-1">Denne kombination er ikke fotograferet endnu.</div>
           </div>
-        )}
-
-        {hasImage && stageOverlayClassName && (
-          <div aria-hidden className={`absolute inset-0 pointer-events-none z-[2] ${stageOverlayClassName}`} />
         )}
 
         {/* Hotspot connector lines (single SVG overlay so lines never escape the canvas) */}
