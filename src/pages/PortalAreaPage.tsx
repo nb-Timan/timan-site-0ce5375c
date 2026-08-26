@@ -1,5 +1,5 @@
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, LucideIcon } from 'lucide-react';
+import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, ListChecks, LucideIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
@@ -130,6 +130,7 @@ export default function PortalAreaPage({ areaId }: Props) {
       return hasModuleAccess(portalRole, key, moduleOverride);
     });
   const showCreateNewsCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
+  const showNewsOverviewCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -172,6 +173,15 @@ export default function PortalAreaPage({ areaId }: Props) {
               to="/portal/marketing/news"
               icon={Newspaper}
               description={t('newsCmsSubtitle', uiLanguage)}
+            />
+          )}
+          {showNewsOverviewCard && (
+            <PlaceholderCard
+              title={t('newsCmsOverview', uiLanguage)}
+              language={lang}
+              to="/portal/marketing/news/overview"
+              icon={ListChecks}
+              description={t('newsCmsDashboardHelp', uiLanguage)}
             />
           )}
           {area.placeholders.map(p => {
