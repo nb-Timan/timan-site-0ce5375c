@@ -23,3 +23,8 @@ verify_jwt = false
 # addresses (writes only customer_latitude/longitude + status).
 [functions.geocode-warranty-customers]
 verify_jwt = false
+
+# Prepared only. Do not deploy until OPENAI_API_KEY is configured in Supabase
+# Secrets and News CMS has been wired to call the function.
+[functions.translate-news-content]
+verify_jwt = false
