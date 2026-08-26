@@ -119,9 +119,8 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   ],
   // Private / end user — same light product experience as the Messe portal.
   private_end_user: ['messe_portal'],
-  // Public exhibition / fair demo session — NO portal modules.
-  // The /messe pages are public and bypass module_access entirely.
-  exhibition_user: [],
+  // Timan Messe — locked to the Messe layout with product/demo access only.
+  exhibition_user: ['messe_portal', 'byg_din_timan', 'resources', 'videos'],
   // Awaiting admin approval — no module access until approved.
   pending: [],
 
@@ -238,6 +237,7 @@ export function hasMessePortalAccess(
   if (!user) return false;
   if (isMesseVariantUser(user)) return true;
   const role = derivePortalRole(user);
+  if (role === 'exhibition_user') return true;
   return hasModuleAccess(role, 'messe_portal', user.module_access as ModuleAccessKey[] | null | undefined);
 }
 

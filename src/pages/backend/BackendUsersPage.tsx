@@ -680,9 +680,7 @@ function EditUserModal({
                 };
                 setDraft(sanitizeAccessForRole(intermediate));
               }}
-              options={PORTAL_ROLES
-                .filter((r) => r !== "exhibition_user")
-                .map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
+              options={PORTAL_ROLES.map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
             />
           </Section>
 
@@ -708,7 +706,7 @@ function EditUserModal({
               ))}
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
-              Messe Portal: brugeren låses til /messe-layoutet efter login og kan ikke tilgå CRM, Backend, Service eller forhandlerdata. Anbefalet rolle: Dealer User.
+              Messe Portal: brugeren låses til /messe-layoutet efter login og kan ikke tilgå CRM, Backend, Service eller forhandlerdata. Anbefalet rolle: Timan Messe.
             </p>
           </Section>
 

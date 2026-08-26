@@ -221,6 +221,8 @@ export const PAYMENT_AND_DISCOUNT_RESTRICTED_ROLES: PortalRole[] = [
   "timan_importer",
   "timan_service_partner",
   "dealer_user",
+  "private_end_user",
+  "exhibition_user",
   "pending",
 ];
 
@@ -279,17 +281,6 @@ export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
 }
 
 export async function saveBackendUser(id: string, draft: BackendUser): Promise<SaveResult> {
-  // Guard: 'exhibition_user' is a synthetic preview/Messe-mode role and is
-  // intentionally NOT part of the Supabase portal_role enum. Reject any
-  // attempt to persist it instead of triggering a 22P02 enum error.
-  if ((draft.role as string) === "exhibition_user") {
-    return {
-      ok: false,
-      source: "supabase",
-      error: "Timan Messe er en preview-/messevisning og kan ikke gemmes som brugerrolle.",
-    };
-  }
-
   // Security guard: strip backend/CRM access and disallowed quick actions
   // when role is dealer-side, regardless of what the UI sent.
   draft = sanitizeAccessForRole(draft);

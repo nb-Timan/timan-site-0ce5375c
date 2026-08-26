@@ -22,7 +22,7 @@ export function MesseRouteGuard({ children, blockDealerUser = false }: { childre
   const portalRole = derivePortalRole(appUser);
   if (loading) return null;
   if (!appUser) return <Navigate to="/portal?redirect=/messe" replace />;
-  if (isMesseVariantUser(appUser)) return <>{children}</>;
+  if (isMesseVariantUser(appUser) || portalRole === 'exhibition_user') return <>{children}</>;
   if (portalRole === 'dealer_user') {
     return !blockDealerUser && hasMessePortalAccess(appUser) ? <>{children}</> : <Navigate to="/messe" replace />;
   }
@@ -43,7 +43,7 @@ export function PortalLockGuard({ children }: { children: ReactNode }) {
   useMessePreviewVersion();
   const { appUser } = useAppUser();
   const portalRole = derivePortalRole(appUser);
-  if (appUser && (isMesseVariantUser(appUser) || (portalRole === 'dealer_user' && hasMessePortalAccess(appUser)))) {
+  if (appUser && (isMesseVariantUser(appUser) || portalRole === 'exhibition_user' || (portalRole === 'dealer_user' && hasMessePortalAccess(appUser)))) {
     return <Navigate to="/messe" replace />;
   }
   return <>{children}</>;
