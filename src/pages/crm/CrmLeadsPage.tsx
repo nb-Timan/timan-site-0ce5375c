@@ -24,6 +24,7 @@ import {
   NEXT_ACTIVITY_LOST,
   deriveLegacyPipelineStage,
 } from '@/lib/leadStatus';
+import { classifyLeadFollowupUrgency } from '@/lib/leadFollowupUrgency';
 import { ArrowDownAZ, Plus, Search, Sparkles, TrendingUp, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
@@ -292,19 +293,9 @@ const FOLLOWUP_FILTERS: Array<{ key: FollowupFilter; labelKey: TKey }> = [
   { key: 'later', labelKey: 'urgency_later' },
 ];
 
-function startOfLocalDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
 function getFollowupTone(value: string | null | undefined, now = new Date()): FollowupTone {
-  if (!value) return 'neutral';
-  const date = new Date(value);
-  if (isNaN(date.getTime())) return 'neutral';
-  const diffDays = Math.floor((startOfLocalDay(date).getTime() - startOfLocalDay(now).getTime()) / (24 * 60 * 60 * 1000));
-  if (diffDays < 0) return 'overdue';
-  if (diffDays <= 20) return 'soon';
-  if (diffDays <= 60) return 'later';
-  return 'neutral';
+  const urgency = classifyLeadFollowupUrgency(value, now);
+  return urgency === 'none' ? 'neutral' : urgency;
 }
 
 function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {

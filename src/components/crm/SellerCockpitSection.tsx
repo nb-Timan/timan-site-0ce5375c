@@ -21,6 +21,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { Language } from "@/types/configurator";
 import { listLeads, formatLeadNo, buildLeadWorkingContributions, type CrmLead, type LeadWorkingContribution } from "@/lib/crmLeadsService";
 import { isOpenLead, effectiveLeadStatus } from "@/lib/leadStatus";
+import { classifyLeadFollowupUrgency, type LeadFollowupUrgency } from "@/lib/leadFollowupUrgency";
 import {
   listBudgetLines, listForecasts, listSalesActuals, aggregateBudget,
   BUDGET_SELLERS, type BudgetLine, type BudgetForecast, type SalesActual,
@@ -91,24 +92,13 @@ export interface SellerCockpitProps {
 // ────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────
-type Urgency = "overdue" | "soon" | "later" | "none";
+type Urgency = LeadFollowupUrgency;
 const URGENCY_META: Record<Urgency, { hex: string; bar: string; ring: string; tKey: string }> = {
   overdue: { hex: "#ef4444", bar: "bg-rose-500",    ring: "bg-rose-50 text-rose-700 border-rose-200",       tKey: "urgency_overdue" },
   soon:    { hex: "#f59e0b", bar: "bg-amber-500",   ring: "bg-amber-50 text-amber-700 border-amber-200",    tKey: "urgency_soon" },
   later:   { hex: "#10b981", bar: "bg-emerald-500", ring: "bg-emerald-50 text-emerald-700 border-emerald-200", tKey: "urgency_later" },
   none:    { hex: "#94a3b8", bar: "bg-slate-400",   ring: "bg-slate-50 text-slate-700 border-slate-200",    tKey: "urgency_none" },
 };
-
-function classifyUrgency(lead: Pick<CrmLead, "next_followup_date">, now: Date): Urgency {
-  const d = lead.next_followup_date ? new Date(lead.next_followup_date) : null;
-  if (!d || isNaN(d.getTime())) return "none";
-  const day = 24 * 60 * 60 * 1000;
-  const diffDays = Math.floor((d.getTime() - now.getTime()) / day);
-  if (diffDays < 0) return "overdue";
-  if (diffDays <= 20) return "soon";
-  if (diffDays <= 60) return "later";
-  return "later"; // very far future still counts as on-track
-}
 
 // OPEN_STAGES is replaced by the shared isOpenLead() helper from leadStatus.ts
 
@@ -299,7 +289,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
   const now = new Date();
   const openLeads = scopedLeads.filter(l => isOpenLead(l));
   const buckets: Record<Urgency, CrmLead[]> = { overdue: [], soon: [], later: [], none: [] };
-  for (const l of openLeads) buckets[classifyUrgency(l, now)].push(l);
+  for (const l of openLeads) buckets[classifyLeadFollowupUrgency(l.next_followup_date, now)].push(l);
   const totalLeads = openLeads.length;
 
   // Pipeline qty per machine still comes from leads (Budget table doesn't
@@ -374,8 +364,8 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
         (l.owner_email || "").toLowerCase() === seller.email.toLowerCase(),
       );
       const ownPipeline = ownLeads.filter(l => isOpenLead(l)).length;
-      const overdue = ownLeads.filter(l => isOpenLead(l) && classifyUrgency(l, now) === "overdue").length;
-      const noFollow = ownLeads.filter(l => isOpenLead(l) && classifyUrgency(l, now) === "none").length;
+      const overdue = ownLeads.filter(l => isOpenLead(l) && classifyLeadFollowupUrgency(l.next_followup_date, now) === "overdue").length;
+      const noFollow = ownLeads.filter(l => isOpenLead(l) && classifyLeadFollowupUrgency(l.next_followup_date, now) === "none").length;
       const leadHealth = (ownPipeline === 0) ? 100 : Math.max(0, Math.round(100 - ((overdue + noFollow) / ownPipeline) * 100));
       return {
         initials: seller.initials,

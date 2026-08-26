@@ -31,6 +31,8 @@ export default function CrmActivitiesPage() {
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
   const portalRole = derivePortalRole(appUser);
+  const canViewAllActivities =
+    isCrmAdmin(portalRole) || (appUser?.portal_role ?? '').toLowerCase() === 'timan_backend';
   const [searchParams] = useSearchParams();
   const dealerParam = searchParams.get('dealer') || '';
   const [rows, setRows] = useState<CrmActivity[]>([]);
@@ -54,14 +56,13 @@ export default function CrmActivitiesPage() {
     (async () => {
       setLoading(true);
       const sellerId = await resolveSellerId(appUser?.email);
-      const isAdmin = isCrmAdmin(portalRole);
       const [activityList, demoAll] = await Promise.all([
-        listActivities({ ownerUserId: isAdmin ? null : sellerId, limit: 200 }),
+        listActivities({ ownerUserId: canViewAllActivities ? null : sellerId, limit: 500 }),
         listDemoLeads({}),
       ]);
       const demoResolved = await resolveSeedOwners(demoAll);
       const demoActs = demoLeadsToActivities(demoResolved);
-      const visibleDemoActs = isAdmin
+      const visibleDemoActs = canViewAllActivities
         ? demoActs
         : demoActs.filter(a => a.assigned_owner_user_id && a.assigned_owner_user_id === sellerId);
       // Merge & sort newest first; cap at 300.
@@ -74,7 +75,7 @@ export default function CrmActivitiesPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, portalRole]);
+  }, [appUser?.email, canViewAllActivities]);
 
   return (
     <CrmLayout pageTitle="Activities">

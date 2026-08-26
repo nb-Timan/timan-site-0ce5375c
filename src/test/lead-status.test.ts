@@ -11,6 +11,7 @@ import {
   NEXT_ACTIVITY_WON,
   NEXT_ACTIVITY_LOST,
 } from '@/lib/leadStatus';
+import { classifyLeadFollowupUrgency } from '@/lib/leadFollowupUrgency';
 import type { CrmLead } from '@/lib/crmLeadsService';
 
 function lead(partial: Partial<CrmLead>): CrmLead {
@@ -87,6 +88,20 @@ describe('Won/Lost close flow values', () => {
     expect(nextActivityToProbability(na)).toBe(0);
     expect(isLeadClosed(na)).toBe(true);
     expect(deriveLegacyPipelineStage(na)).toBe('Lost');
+  });
+});
+
+describe('lead follow-up urgency', () => {
+  const now = new Date('2026-08-26T19:00:00+02:00');
+
+  it('treats today as soon, not overdue', () => {
+    expect(classifyLeadFollowupUrgency('2026-08-26', now)).toBe('soon');
+  });
+
+  it('keeps every future follow-up in the visible green bucket after 20 days', () => {
+    expect(classifyLeadFollowupUrgency('2026-09-15', now)).toBe('soon');
+    expect(classifyLeadFollowupUrgency('2026-09-16', now)).toBe('later');
+    expect(classifyLeadFollowupUrgency('2026-12-01', now)).toBe('later');
   });
 });
 
