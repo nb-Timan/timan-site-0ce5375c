@@ -165,7 +165,7 @@ const FORM_TEXT = {
   phonePlaceholder: { da: 'Telefon nr.', en: 'Phone no.', de: 'Telefonnummer', it: 'Telefono', hu: 'Telefonszám' },
   emailPlaceholder: { da: 'E-mail', en: 'E-mail', de: 'E-Mail', it: 'E-mail', hu: 'E-mail' },
   commentPlaceholder: { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
-  businessCard: { da: '7. Tilføj billeder (maks. 3)', en: '7. Add images (max. 3)', de: '7. Bilder hinzufügen (max. 3)', it: '7. Aggiungi immagini (max. 3)', hu: '7. Képek hozzáadása (max. 3)' },
+  businessCard: { da: '3a. Visitkort / billeder (maks. 3)', en: '3a. Business card / images (max. 3)', de: '3a. Visitenkarte / Bilder (max. 3)', it: '3a. Biglietto da visita / immagini (max. 3)', hu: '3a. Névjegykártya / képek (max. 3)' },
   submit: { da: 'Gem lead og send mail', en: 'Save lead and send mail', de: 'Lead speichern und E-Mail senden', it: 'Salva lead e invia mail', hu: 'Lead mentése és email küldése' },
   sending: { da: 'Sender...', en: 'Sending...', de: 'Sendet...', it: 'Invio...', hu: 'Küldés...' },
 };
@@ -803,6 +803,46 @@ export default function MesseFollowUpPage() {
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={f('commentPlaceholder')} rows={4} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             </section>
 
+            <section className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <label className="text-sm font-bold">
+                {f('businessCard')}
+                <RequiredMark />
+              </label>
+              <p className="text-xs text-slate-500">
+                Vedhæft et visitkort, hvis du ikke udfylder kundeoplysningerne manuelt.
+              </p>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                onChange={(e) => {
+                  const selectedFiles = Array.from(e.target.files || []);
+                  const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/')).slice(0, 3);
+                  if (selectedFiles.length > 3) toast.warning('Der kan maks. vedhæftes 3 billeder');
+                  if (imageFiles.length < selectedFiles.length && selectedFiles.length <= 3) toast.warning('Kun billedfiler kan vedhæftes');
+                  setBusinessCardFiles(imageFiles);
+                }}
+                className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-800"
+              />
+              {businessCardFiles.length > 0 && (
+                <div className="space-y-1 text-xs text-slate-600">
+                  {businessCardFiles.map((file, index) => (
+                    <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
+                      <span>{index + 1}. {file.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setBusinessCardFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
+                        className="font-semibold text-red-600 hover:text-red-700"
+                      >
+                        Fjern
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
             <section className="space-y-3">
               <RequiredHeading>{f('product')}</RequiredHeading>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -967,43 +1007,6 @@ export default function MesseFollowUpPage() {
               <p className="text-xs text-slate-500">
                 {f('mailTo')}: {responsibleSeller?.email || f('chooseResponsible')}
               </p>
-            </section>
-
-            <section className="space-y-2">
-              <label className="text-sm font-bold">
-                {f('businessCard')}
-                <RequiredMark />
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                multiple
-                onChange={(e) => {
-                  const selectedFiles = Array.from(e.target.files || []);
-                  const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/')).slice(0, 3);
-                  if (selectedFiles.length > 3) toast.warning('Der kan maks. vedhæftes 3 billeder');
-                  if (imageFiles.length < selectedFiles.length && selectedFiles.length <= 3) toast.warning('Kun billedfiler kan vedhæftes');
-                  setBusinessCardFiles(imageFiles);
-                }}
-                className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-800"
-              />
-              {businessCardFiles.length > 0 && (
-                <div className="space-y-1 text-xs text-slate-600">
-                  {businessCardFiles.map((file, index) => (
-                    <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2">
-                      <span>{index + 1}. {file.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setBusinessCardFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
-                        className="font-semibold text-red-600 hover:text-red-700"
-                      >
-                        Fjern
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </section>
 
             <div className="flex justify-end border-t border-slate-200 pt-5">
