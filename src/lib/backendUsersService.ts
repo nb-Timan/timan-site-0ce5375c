@@ -231,8 +231,8 @@ export function isPaymentAndDiscountRestrictedRole(role: string | null | undefin
 }
 
 // External dealer-side portal roles. These users must NEVER have Timan
-// Backend or Timan CRM access, no backend meta modules, and no internal
-// quick actions like "Mine forhandlere". Forhandlerdata replaces CRM for them.
+// Backend access or backend meta modules. Timan CRM is allowed as a scoped
+// external CRM view when an admin grants the area/module explicitly.
 export const DEALER_SIDE_ROLES: PortalRole[] = [
   "timan_dealer",
   "timan_importer",
@@ -256,7 +256,7 @@ function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): Backen
 }
 
 /**
- * Strip backend/CRM access from dealer-side users. Applied both in the
+ * Strip backend access from dealer-side users. Applied both in the
  * editor UI on role-change and at save-time.
  *
  * NOTE: We deliberately do NOT force-add "dealer_data" here. Doing so at
@@ -268,10 +268,10 @@ function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): Backen
 export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
   if (!isDealerSideRole(draft.role)) return draft;
   const allowed_areas = draft.allowed_areas.filter(
-    (a) => a !== "timan_backend" && a !== "timan_crm",
+    (a) => a !== "timan_backend",
   );
   const allowed_modules = draft.allowed_modules.filter(
-    (m) => m !== "timan_backend" && m !== "timan_crm",
+    (m) => m !== "timan_backend",
   );
   const backend_modules: BackendUser["backend_modules"] = [];
   const quick_actions = draft.quick_actions == null

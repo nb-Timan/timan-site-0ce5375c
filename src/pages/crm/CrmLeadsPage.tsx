@@ -4,8 +4,11 @@ import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
-import { isCrmAdmin } from '@/lib/crmScope';
+import { isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { buildJournalScope } from '@/lib/machineJournalScope';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
@@ -55,78 +58,92 @@ type TKey =
   | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
   | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
   | 'open_lbl' | 'demo_lbl' | 'unassigned_chip'
+  | 'incomplete_chip' | 'shared_chip'
   | 'type_won' | 'type_lost'
   | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
   | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
   | 'convert_to_demo' | 'convert_to_quote' | 'go_to_quote'
   | 'urgency_overdue' | 'urgency_soon' | 'urgency_later'
+  | 'sort_default' | 'sort_title_asc' | 'sort_title_desc'
+  | 'sort_date_desc' | 'sort_date_asc' | 'sort_prob_desc' | 'sort_prob_asc'
   | 'st_Lead' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
-const T: Record<TKey, Record<Language, string>> = {
-  page_title:    { da: 'Leads', en: 'Leads', de: 'Leads', it: 'Lead', hu: 'Leadek' },
-  sub_admin:     { da: 'Alle leads og demoer i organisationen', en: 'All leads and demos in the organisation', de: 'Alle Leads und Demos in der Organisation', it: 'Tutti i lead e demo dell\'organizzazione', hu: 'Az összes lead és demo a szervezetben' },
-  sub_seller:    { da: 'Dine tildelte leads og demoer', en: 'Your assigned leads and demos', de: 'Deine zugewiesenen Leads und Demos', it: 'I tuoi lead e demo assegnati', hu: 'A neked rendelt leadek és demók' },
-  pcs:           { da: 'stk', en: 'pcs', de: 'Stk', it: 'pz', hu: 'db' },
-  unassigned:    { da: 'utildelt', en: 'unassigned', de: 'nicht zugewiesen', it: 'non assegnati', hu: 'kiosztatlan' },
-  new_demo:      { da: 'Ny demo-registrering', en: 'New demo registration', de: 'Neue Demo-Registrierung', it: 'Nuova registrazione demo', hu: 'Új demo regisztráció' },
-  new_lead:      { da: 'Nyt lead', en: 'New lead', de: 'Neuer Lead', it: 'Nuovo lead', hu: 'Új lead' },
-  tab_all:       { da: 'Alle leads', en: 'All leads', de: 'Alle Leads', it: 'Tutti i lead', hu: 'Összes lead' },
-  tab_open:      { da: 'Åbne leads', en: 'Open leads', de: 'Offene Leads', it: 'Lead aperti', hu: 'Nyitott leadek' },
-  tab_demo:      { da: 'Demo leads', en: 'Demo leads', de: 'Demo-Leads', it: 'Demo lead', hu: 'Demo leadek' },
-  tab_mine:      { da: 'Mine leads', en: 'My leads', de: 'Meine Leads', it: 'I miei lead', hu: 'Saját leadek' },
-  tab_mine_demo: { da: 'Mine demoer', en: 'My demos', de: 'Meine Demos', it: 'Le mie demo', hu: 'Saját demók' },
-  tab_won:       { da: 'Vundet leads', en: 'Won leads', de: 'Gewonnene Leads', it: 'Lead vinti', hu: 'Nyertes leadek' },
-  tab_lost:      { da: 'Tabte leads', en: 'Lost leads', de: 'Verlorene Leads', it: 'Lead persi', hu: 'Elveszett leadek' },
-  search_ph:     { da: 'Søg titel, kunde, forhandler, sælger eller maskine…', en: 'Search title, customer, dealer, seller or machine…', de: 'Titel, Kunde, Händler, Verkäufer oder Maschine suchen…', it: 'Cerca titolo, cliente, rivenditore, venditore o macchina…', hu: 'Keresés: cím, ügyfél, kereskedő, értékesítő vagy gép…' },
-  all_status:    { da: 'Alle statusser', en: 'All statuses', de: 'Alle Status', it: 'Tutti gli stati', hu: 'Összes státusz' },
-  loading:       { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…' },
-  empty_title:   { da: 'Ingen leads i dette filter', en: 'No leads in this filter', de: 'Keine Leads in diesem Filter', it: 'Nessun lead in questo filtro', hu: 'Nincs lead ebben a szűrőben' },
-  empty_sub:     { da: 'Skift fane eller opret et nyt lead.', en: 'Switch tab or create a new lead.', de: 'Tab wechseln oder neuen Lead erstellen.', it: 'Cambia scheda o crea un nuovo lead.', hu: 'Váltson fület vagy hozzon létre új leadet.' },
-  col_type:      { da: 'Type', en: 'Type', de: 'Typ', it: 'Tipo', hu: 'Típus' },
-  col_title:     { da: 'Titel / Kunde', en: 'Title / Customer', de: 'Titel / Kunde', it: 'Titolo / Cliente', hu: 'Cím / Ügyfél' },
-  col_dealer:    { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
-  col_owner:     { da: 'Ejer', en: 'Owner', de: 'Eigentümer', it: 'Proprietario', hu: 'Tulajdonos' },
-  col_machine:   { da: 'Maskine', en: 'Machine', de: 'Maschine', it: 'Macchina', hu: 'Gép' },
-  col_date:      { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum' },
-  col_followup:  { da: 'Næste opf.', en: 'Next f/u', de: 'Nächste NV', it: 'Prossimo f/u', hu: 'Köv. utánk.' },
-  col_status:    { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Státusz' },
-  col_action:    { da: 'Handling', en: 'Action', de: 'Aktion', it: 'Azione', hu: 'Művelet' },
-  open_lbl:      { da: 'Åben', en: 'Open', de: 'Offen', it: 'Aperto', hu: 'Nyitott' },
-  demo_lbl:      { da: 'Demo', en: 'Demo', de: 'Demo', it: 'Demo', hu: 'Demo' },
-  type_won:      { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes' },
-  type_lost:     { da: 'Tabt', en: 'Lost', de: 'Verloren', it: 'Perso', hu: 'Elveszett' },
-  unassigned_chip:{ da: 'Utildelt', en: 'Unassigned', de: 'Nicht zugewiesen', it: 'Non assegnato', hu: 'Kiosztatlan' },
-  close_btn:     { da: 'Luk', en: 'Close', de: 'Schließen', it: 'Chiudi', hu: 'Lezárás' },
-  close_title:   { da: 'Luk lead', en: 'Close lead', de: 'Lead schließen', it: 'Chiudi lead', hu: 'Lead lezárása' },
-  close_sub:     { da: 'Markér leadet som vundet eller tabt.', en: 'Mark the lead as won or lost.', de: 'Lead als gewonnen oder verloren markieren.', it: 'Segna il lead come vinto o perso.', hu: 'Jelölje a leadet nyertesnek vagy elveszettnek.' },
-  won_label:     { da: 'Ordre vundet', en: 'Order won', de: 'Auftrag gewonnen', it: 'Ordine vinto', hu: 'Megrendelés nyertes' },
-  lost_label:    { da: 'Ordre tabt', en: 'Order lost', de: 'Auftrag verloren', it: 'Ordine perso', hu: 'Megrendelés elveszett' },
-  lost_analysis_title: { da: 'Lost Deal Analysis', en: 'Lost Deal Analysis', de: 'Lost-Deal-Analyse', it: 'Analisi affare perso', hu: 'Elveszített üzlet elemzése' },
-  lost_to:       { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve' },
-  lost_other:    { da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs' },
-  lost_reason:   { da: 'Hvorfor mistede vi ordren', en: 'Why we lost the order', de: 'Warum verloren', it: 'Perché abbiamo perso', hu: 'Miért vesztettük el' },
-  lost_comment:  { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
-  save:          { da: 'Gem', en: 'Save', de: 'Speichern', it: 'Salva', hu: 'Mentés' },
-  cancel:        { da: 'Annuller', en: 'Cancel', de: 'Abbrechen', it: 'Annulla', hu: 'Mégse' },
-  pick:          { da: 'Vælg…', en: 'Select…', de: 'Wählen…', it: 'Seleziona…', hu: 'Válasszon…' },
-  closed_ok:     { da: 'Leadet er lukket.', en: 'Lead closed.', de: 'Lead geschlossen.', it: 'Lead chiuso.', hu: 'Lead lezárva.' },
-  close_err:     { da: 'Kunne ikke lukke leadet.', en: 'Could not close lead.', de: 'Lead konnte nicht geschlossen werden.', it: 'Impossibile chiudere il lead.', hu: 'Nem sikerült lezárni a leadet.' },
-  verify_err:    { da: 'Lukning kunne ikke bekræftes.', en: 'Could not verify close.', de: 'Schließen konnte nicht bestätigt werden.', it: 'Impossibile verificare la chiusura.', hu: 'A lezárás nem erősíthető meg.' },
-  convert_to_demo:{ da: 'Konverter til demo', en: 'Convert to demo', de: 'In Demo umwandeln', it: 'Converti in demo', hu: 'Konvertálás demóvá' },
-  convert_to_quote:{ da: 'Konverter til tilbud', en: 'Convert to quote', de: 'In Angebot umwandeln', it: 'Converti in offerta', hu: 'Konvertálás ajánlattá' },
-  go_to_quote:    { da: 'Gå til tilbud', en: 'Go to quote', de: 'Zum Angebot', it: 'Vai all\'offerta', hu: 'Ugrás az ajánlathoz' },
-  urgency_overdue:{ da: 'Forfalden', en: 'Overdue', de: 'Überfällig', it: 'Scaduto', hu: 'Lejárt' },
-  urgency_soon:   { da: 'Inden 20 dage', en: 'Within 20 days', de: 'In 20 Tagen', it: 'Entro 20 giorni', hu: '20 napon belül' },
-  urgency_later:  { da: 'Inden 2 mdr.', en: 'Within 2 mo.', de: 'In 2 Mon.', it: 'Entro 2 mesi', hu: '2 hónapon belül' },
-  st_Lead:       { da: 'Lead', en: 'Lead', de: 'Lead', it: 'Lead', hu: 'Lead' },
-  st_Demo:       { da: 'Demo planlagt', en: 'Demo planned', de: 'Demo geplant', it: 'Demo pianificata', hu: 'Demo tervezve' },
-  st_Tilbud:     { da: 'Tilbud sendt', en: 'Offer sent', de: 'Angebot gesendet', it: 'Offerta inviata', hu: 'Ajánlat elküldve' },
-  st_Followup:   { da: 'Follow-up', en: 'Follow-up', de: 'Follow-up', it: 'Follow-up', hu: 'Utánkövetés' },
-  st_Vundet:     { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes' },
-  st_Tabt:       { da: 'Tabt', en: 'Lost', de: 'Verloren', it: 'Perso', hu: 'Elveszett' },
+type UiText = Record<Language, string> & Partial<Record<Exclude<PortalUiLanguage, Language>, string>>;
+
+const T: Record<TKey, UiText> = {
+  page_title:    { da: 'Leads', en: 'Leads', de: 'Leads', it: 'Lead', hu: 'Leadek', fr: 'Leads', pl: 'Leady', cs: 'Leady' },
+  sub_admin:     { da: 'Alle leads og demoer i organisationen', en: 'All leads and demos in the organisation', de: 'Alle Leads und Demos in der Organisation', it: 'Tutti i lead e demo dell\'organizzazione', hu: 'Az összes lead és demo a szervezetben', fr: 'Tous les leads et démos de l’organisation', pl: 'Wszystkie leady i dema w organizacji', cs: 'Všechny leady a dema v organizaci' },
+  sub_seller:    { da: 'Dine tildelte leads og demoer', en: 'Your assigned leads and demos', de: 'Deine zugewiesenen Leads und Demos', it: 'I tuoi lead e demo assegnati', hu: 'A neked rendelt leadek és demók', fr: 'Vos leads et démos assignés', pl: 'Twoje przypisane leady i dema', cs: 'Vaše přiřazené leady a dema' },
+  pcs:           { da: 'stk', en: 'pcs', de: 'Stk', it: 'pz', hu: 'db', fr: 'pcs', pl: 'szt.', cs: 'ks' },
+  unassigned:    { da: 'utildelt', en: 'unassigned', de: 'nicht zugewiesen', it: 'non assegnati', hu: 'kiosztatlan', fr: 'non assignés', pl: 'nieprzypisane', cs: 'nepřiřazeno' },
+  new_demo:      { da: 'Ny demo-registrering', en: 'New demo registration', de: 'Neue Demo-Registrierung', it: 'Nuova registrazione demo', hu: 'Új demo regisztráció', fr: 'Nouvel enregistrement démo', pl: 'Nowa rejestracja demo', cs: 'Nová registrace dema' },
+  new_lead:      { da: 'Nyt lead', en: 'New lead', de: 'Neuer Lead', it: 'Nuovo lead', hu: 'Új lead', fr: 'Nouveau lead', pl: 'Nowy lead', cs: 'Nový lead' },
+  tab_all:       { da: 'Alle leads', en: 'All leads', de: 'Alle Leads', it: 'Tutti i lead', hu: 'Összes lead', fr: 'Tous les leads', pl: 'Wszystkie leady', cs: 'Všechny leady' },
+  tab_open:      { da: 'Åbne leads', en: 'Open leads', de: 'Offene Leads', it: 'Lead aperti', hu: 'Nyitott leadek', fr: 'Leads ouverts', pl: 'Otwarte leady', cs: 'Otevřené leady' },
+  tab_demo:      { da: 'Demo leads', en: 'Demo leads', de: 'Demo-Leads', it: 'Demo lead', hu: 'Demo leadek', fr: 'Leads démo', pl: 'Leady demo', cs: 'Demo leady' },
+  tab_mine:      { da: 'Mine leads', en: 'My leads', de: 'Meine Leads', it: 'I miei lead', hu: 'Saját leadek', fr: 'Mes leads', pl: 'Moje leady', cs: 'Moje leady' },
+  tab_mine_demo: { da: 'Mine demoer', en: 'My demos', de: 'Meine Demos', it: 'Le mie demo', hu: 'Saját demók', fr: 'Mes démos', pl: 'Moje dema', cs: 'Moje dema' },
+  tab_won:       { da: 'Vundet leads', en: 'Won leads', de: 'Gewonnene Leads', it: 'Lead vinti', hu: 'Nyertes leadek', fr: 'Leads gagnés', pl: 'Wygrane leady', cs: 'Vyhrané leady' },
+  tab_lost:      { da: 'Tabte leads', en: 'Lost leads', de: 'Verlorene Leads', it: 'Lead persi', hu: 'Elveszett leadek', fr: 'Leads perdus', pl: 'Utracone leady', cs: 'Ztracené leady' },
+  search_ph:     { da: 'Søg titel, kunde, forhandler, sælger eller maskine…', en: 'Search title, customer, dealer, seller or machine…', de: 'Titel, Kunde, Händler, Verkäufer oder Maschine suchen…', it: 'Cerca titolo, cliente, rivenditore, venditore o macchina…', hu: 'Keresés: cím, ügyfél, kereskedő, értékesítő vagy gép…', fr: 'Rechercher titre, client, revendeur, vendeur ou machine…', pl: 'Szukaj tytułu, klienta, dealera, sprzedawcy lub maszyny…', cs: 'Hledat název, zákazníka, prodejce, obchodníka nebo stroj…' },
+  all_status:    { da: 'Alle statusser', en: 'All statuses', de: 'Alle Status', it: 'Tutti gli stati', hu: 'Összes státusz', fr: 'Tous les statuts', pl: 'Wszystkie statusy', cs: 'Všechny stavy' },
+  loading:       { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…', fr: 'Chargement…', pl: 'Ładowanie…', cs: 'Načítání…' },
+  empty_title:   { da: 'Ingen leads i dette filter', en: 'No leads in this filter', de: 'Keine Leads in diesem Filter', it: 'Nessun lead in questo filtro', hu: 'Nincs lead ebben a szűrőben', fr: 'Aucun lead dans ce filtre', pl: 'Brak leadów w tym filtrze', cs: 'V tomto filtru nejsou žádné leady' },
+  empty_sub:     { da: 'Skift fane eller opret et nyt lead.', en: 'Switch tab or create a new lead.', de: 'Tab wechseln oder neuen Lead erstellen.', it: 'Cambia scheda o crea un nuovo lead.', hu: 'Váltson fület vagy hozzon létre új leadet.', fr: 'Changez d’onglet ou créez un nouveau lead.', pl: 'Zmień zakładkę albo utwórz nowy lead.', cs: 'Změňte záložku nebo vytvořte nový lead.' },
+  col_type:      { da: 'Type', en: 'Type', de: 'Typ', it: 'Tipo', hu: 'Típus', fr: 'Type', pl: 'Typ', cs: 'Typ' },
+  col_title:     { da: 'Titel / Kunde', en: 'Title / Customer', de: 'Titel / Kunde', it: 'Titolo / Cliente', hu: 'Cím / Ügyfél', fr: 'Titre / Client', pl: 'Tytuł / Klient', cs: 'Název / Zákazník' },
+  col_dealer:    { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő', fr: 'Revendeur', pl: 'Dealer', cs: 'Prodejce' },
+  col_owner:     { da: 'Ejer', en: 'Owner', de: 'Eigentümer', it: 'Proprietario', hu: 'Tulajdonos', fr: 'Responsable', pl: 'Właściciel', cs: 'Vlastník' },
+  col_machine:   { da: 'Maskine', en: 'Machine', de: 'Maschine', it: 'Macchina', hu: 'Gép', fr: 'Machine', pl: 'Maszyna', cs: 'Stroj' },
+  col_date:      { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum', fr: 'Date', pl: 'Data', cs: 'Datum' },
+  col_followup:  { da: 'Næste opf.', en: 'Next f/u', de: 'Nächste NV', it: 'Prossimo f/u', hu: 'Köv. utánk.', fr: 'Prochain suivi', pl: 'Nast. kontakt', cs: 'Další kontakt' },
+  col_status:    { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Státusz', fr: 'Statut', pl: 'Status', cs: 'Stav' },
+  col_action:    { da: 'Handling', en: 'Action', de: 'Aktion', it: 'Azione', hu: 'Művelet', fr: 'Action', pl: 'Akcja', cs: 'Akce' },
+  open_lbl:      { da: 'Åben', en: 'Open', de: 'Offen', it: 'Aperto', hu: 'Nyitott', fr: 'Ouvert', pl: 'Otwarte', cs: 'Otevřené' },
+  demo_lbl:      { da: 'Demo', en: 'Demo', de: 'Demo', it: 'Demo', hu: 'Demo', fr: 'Démo', pl: 'Demo', cs: 'Demo' },
+  type_won:      { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes', fr: 'Gagné', pl: 'Wygrane', cs: 'Vyhrané' },
+  type_lost:     { da: 'Tabt', en: 'Lost', de: 'Verloren', it: 'Perso', hu: 'Elveszett', fr: 'Perdu', pl: 'Utracone', cs: 'Ztracené' },
+  unassigned_chip:{ da: 'Utildelt', en: 'Unassigned', de: 'Nicht zugewiesen', it: 'Non assegnato', hu: 'Kiosztatlan', fr: 'Non assigné', pl: 'Nieprzypisane', cs: 'Nepřiřazeno' },
+  incomplete_chip:{ da: 'Ikke færdig oprettet', en: 'Incomplete lead', de: 'Unvollständiger Lead', it: 'Lead incompleto', hu: 'Hiányos lead', fr: 'Lead incomplet', pl: 'Niekompletny lead', cs: 'Neúplný lead' },
+  shared_chip:   { da: 'Delt med dig', en: 'Shared with you', de: 'Mit dir geteilt', it: 'Condiviso con te', hu: 'Megosztva veled', fr: 'Partagé avec vous', pl: 'Udostępnione Tobie', cs: 'Sdíleno s vámi' },
+  close_btn:     { da: 'Luk', en: 'Close', de: 'Schließen', it: 'Chiudi', hu: 'Lezárás', fr: 'Fermer', pl: 'Zamknij', cs: 'Zavřít' },
+  close_title:   { da: 'Luk lead', en: 'Close lead', de: 'Lead schließen', it: 'Chiudi lead', hu: 'Lead lezárása', fr: 'Fermer le lead', pl: 'Zamknij lead', cs: 'Zavřít lead' },
+  close_sub:     { da: 'Markér leadet som vundet eller tabt.', en: 'Mark the lead as won or lost.', de: 'Lead als gewonnen oder verloren markieren.', it: 'Segna il lead come vinto o perso.', hu: 'Jelölje a leadet nyertesnek vagy elveszettnek.', fr: 'Marquer le lead comme gagné ou perdu.', pl: 'Oznacz lead jako wygrany lub utracony.', cs: 'Označit lead jako vyhraný nebo ztracený.' },
+  won_label:     { da: 'Ordre vundet', en: 'Order won', de: 'Auftrag gewonnen', it: 'Ordine vinto', hu: 'Megrendelés nyertes', fr: 'Commande gagnée', pl: 'Zamówienie wygrane', cs: 'Objednávka vyhrána' },
+  lost_label:    { da: 'Ordre tabt', en: 'Order lost', de: 'Auftrag verloren', it: 'Ordine perso', hu: 'Megrendelés elveszett', fr: 'Commande perdue', pl: 'Zamówienie utracone', cs: 'Objednávka ztracena' },
+  lost_analysis_title: { da: 'Lost Deal Analysis', en: 'Lost Deal Analysis', de: 'Lost-Deal-Analyse', it: 'Analisi affare perso', hu: 'Elveszített üzlet elemzése', fr: 'Analyse de l’affaire perdue', pl: 'Analiza utraconej sprzedaży', cs: 'Analýza ztraceného obchodu' },
+  lost_to:       { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve', fr: 'Perdu face à un concurrent', pl: 'Utracone na rzecz konkurenta', cs: 'Ztraceno ve prospěch konkurenta' },
+  lost_other:    { da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs', fr: 'Autre concurrent', pl: 'Inny konkurent', cs: 'Jiný konkurent' },
+  lost_reason:   { da: 'Hvorfor mistede vi ordren', en: 'Why we lost the order', de: 'Warum verloren', it: 'Perché abbiamo perso', hu: 'Miért vesztettük el', fr: 'Pourquoi nous avons perdu la commande', pl: 'Dlaczego utraciliśmy zamówienie', cs: 'Proč jsme objednávku ztratili' },
+  lost_comment:  { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés', fr: 'Commentaire', pl: 'Komentarz', cs: 'Komentář' },
+  save:          { da: 'Gem', en: 'Save', de: 'Speichern', it: 'Salva', hu: 'Mentés', fr: 'Enregistrer', pl: 'Zapisz', cs: 'Uložit' },
+  cancel:        { da: 'Annuller', en: 'Cancel', de: 'Abbrechen', it: 'Annulla', hu: 'Mégse', fr: 'Annuler', pl: 'Anuluj', cs: 'Zrušit' },
+  pick:          { da: 'Vælg…', en: 'Select…', de: 'Wählen…', it: 'Seleziona…', hu: 'Válasszon…', fr: 'Sélectionner…', pl: 'Wybierz…', cs: 'Vyberte…' },
+  closed_ok:     { da: 'Leadet er lukket.', en: 'Lead closed.', de: 'Lead geschlossen.', it: 'Lead chiuso.', hu: 'Lead lezárva.', fr: 'Lead fermé.', pl: 'Lead zamknięty.', cs: 'Lead uzavřen.' },
+  close_err:     { da: 'Kunne ikke lukke leadet.', en: 'Could not close lead.', de: 'Lead konnte nicht geschlossen werden.', it: 'Impossibile chiudere il lead.', hu: 'Nem sikerült lezárni a leadet.', fr: 'Impossible de fermer le lead.', pl: 'Nie można zamknąć leada.', cs: 'Lead se nepodařilo zavřít.' },
+  verify_err:    { da: 'Lukning kunne ikke bekræftes.', en: 'Could not verify close.', de: 'Schließen konnte nicht bestätigt werden.', it: 'Impossibile verificare la chiusura.', hu: 'A lezárás nem erősíthető meg.', fr: 'Impossible de vérifier la fermeture.', pl: 'Nie można potwierdzić zamknięcia.', cs: 'Uzavření se nepodařilo ověřit.' },
+  convert_to_demo:{ da: 'Konverter til demo', en: 'Convert to demo', de: 'In Demo umwandeln', it: 'Converti in demo', hu: 'Konvertálás demóvá', fr: 'Convertir en démo', pl: 'Konwertuj na demo', cs: 'Převést na demo' },
+  convert_to_quote:{ da: 'Konverter til tilbud', en: 'Convert to quote', de: 'In Angebot umwandeln', it: 'Converti in offerta', hu: 'Konvertálás ajánlattá', fr: 'Convertir en devis', pl: 'Konwertuj na ofertę', cs: 'Převést na nabídku' },
+  go_to_quote:    { da: 'Gå til tilbud', en: 'Go to quote', de: 'Zum Angebot', it: 'Vai all\'offerta', hu: 'Ugrás az ajánlathoz', fr: 'Aller au devis', pl: 'Przejdź do oferty', cs: 'Přejít na nabídku' },
+  urgency_overdue:{ da: 'Forfalden', en: 'Overdue', de: 'Überfällig', it: 'Scaduto', hu: 'Lejárt', fr: 'En retard', pl: 'Zaległe', cs: 'Po termínu' },
+  urgency_soon:   { da: 'Inden 20 dage', en: 'Within 20 days', de: 'In 20 Tagen', it: 'Entro 20 giorni', hu: '20 napon belül', fr: 'Dans 20 jours', pl: 'W ciągu 20 dni', cs: 'Do 20 dnů' },
+  urgency_later:  { da: 'Inden 2 mdr.', en: 'Within 2 mo.', de: 'In 2 Mon.', it: 'Entro 2 mesi', hu: '2 hónapon belül', fr: 'Dans 2 mois', pl: 'W ciągu 2 mies.', cs: 'Do 2 měs.' },
+  sort_default:   { da: 'Sortér: standard', en: 'Sort: default', de: 'Sortieren: Standard', it: 'Ordina: standard', hu: 'Rendezés: alap', fr: 'Tri : standard', pl: 'Sortuj: standard', cs: 'Řadit: standard' },
+  sort_title_asc: { da: 'Titel: A-Å', en: 'Title: A-Z', de: 'Titel: A-Z', it: 'Titolo: A-Z', hu: 'Cím: A-Z', fr: 'Titre : A-Z', pl: 'Tytuł: A-Z', cs: 'Název: A-Z' },
+  sort_title_desc:{ da: 'Titel: Å-A', en: 'Title: Z-A', de: 'Titel: Z-A', it: 'Titolo: Z-A', hu: 'Cím: Z-A', fr: 'Titre : Z-A', pl: 'Tytuł: Z-A', cs: 'Název: Z-A' },
+  sort_date_desc: { da: 'Dato: nyeste først', en: 'Date: newest first', de: 'Datum: neueste zuerst', it: 'Data: più recenti prima', hu: 'Dátum: legújabb elöl', fr: 'Date : plus récent', pl: 'Data: najnowsze', cs: 'Datum: nejnovější' },
+  sort_date_asc:  { da: 'Dato: ældste først', en: 'Date: oldest first', de: 'Datum: älteste zuerst', it: 'Data: meno recenti prima', hu: 'Dátum: legrégebbi elöl', fr: 'Date : plus ancien', pl: 'Data: najstarsze', cs: 'Datum: nejstarší' },
+  sort_prob_desc: { da: 'Status %: høj til lav', en: 'Status %: high to low', de: 'Status %: hoch zu niedrig', it: 'Status %: alto-basso', hu: 'Státusz %: magas-alacsony', fr: 'Statut % : décroissant', pl: 'Status %: malejąco', cs: 'Stav %: sestupně' },
+  sort_prob_asc:  { da: 'Status %: lav til høj', en: 'Status %: low to high', de: 'Status %: niedrig zu hoch', it: 'Status %: basso-alto', hu: 'Státusz %: alacsony-magas', fr: 'Statut % : croissant', pl: 'Status %: rosnąco', cs: 'Stav %: vzestupně' },
+  st_Lead:       { da: 'Lead', en: 'Lead', de: 'Lead', it: 'Lead', hu: 'Lead', fr: 'Lead', pl: 'Lead', cs: 'Lead' },
+  st_Demo:       { da: 'Demo planlagt', en: 'Demo planned', de: 'Demo geplant', it: 'Demo pianificata', hu: 'Demo tervezve', fr: 'Démo planifiée', pl: 'Demo zaplanowane', cs: 'Demo plánováno' },
+  st_Tilbud:     { da: 'Tilbud sendt', en: 'Offer sent', de: 'Angebot gesendet', it: 'Offerta inviata', hu: 'Ajánlat elküldve', fr: 'Devis envoyé', pl: 'Oferta wysłana', cs: 'Nabídka odeslána' },
+  st_Followup:   { da: 'Follow-up', en: 'Follow-up', de: 'Follow-up', it: 'Follow-up', hu: 'Utánkövetés', fr: 'Suivi', pl: 'Kontakt', cs: 'Kontakt' },
+  st_Vundet:     { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes', fr: 'Gagné', pl: 'Wygrane', cs: 'Vyhrané' },
+  st_Tabt:       { da: 'Tabt', en: 'Lost', de: 'Verloren', it: 'Perso', hu: 'Elveszett', fr: 'Perdu', pl: 'Utracone', cs: 'Ztracené' },
 };
-function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
+function tt(k: TKey, lang: PortalUiLanguage): string { return T[k][lang] || T[k].en; }
 
 // ---------- Unified row ----------
 type LeadType = 'open' | 'demo';
@@ -167,7 +184,7 @@ const ST_TKEY: Record<LeadDisplayStatus, TKey> = {
   Vundet: 'st_Vundet',
   Tabt: 'st_Tabt',
 };
-function localizeStatus(s: string | null | undefined, lang: Language): string {
+function localizeStatus(s: string | null | undefined, lang: PortalUiLanguage): string {
   if (!s) return '—';
   const k = ST_TKEY[s as LeadDisplayStatus];
   return k ? tt(k, lang) : s;
@@ -178,11 +195,21 @@ function formatKr(n: number | null | undefined): string {
   return new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(n);
 }
 
-function fmtDate(s: string | null | undefined, lang: Language): string {
+function fmtDate(s: string | null | undefined, lang: PortalUiLanguage): string {
   if (!s) return '—';
   const d = new Date(s);
   if (isNaN(d.getTime())) return s;
-  const localeMap: Record<Language, string> = { da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
+  const localeMap: Record<PortalUiLanguage, string> = {
+    da: 'da-DK',
+    en: 'en-GB',
+    de: 'de-DE',
+    it: 'it-IT',
+    hu: 'hu-HU',
+    sv: 'sv-SE',
+    fr: 'fr-FR',
+    pl: 'pl-PL',
+    cs: 'cs-CZ',
+  };
   return d.toLocaleDateString(localeMap[lang] || 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
@@ -273,7 +300,7 @@ function getUserLeadType(row: UnifiedLead): UserLeadType {
   return 'open';
 }
 
-function getUserLeadTypeLabel(type: UserLeadType, lang: Language): string {
+function getUserLeadTypeLabel(type: UserLeadType, lang: PortalUiLanguage): string {
   if (type === 'won') return tt('type_won', lang);
   if (type === 'lost') return tt('type_lost', lang);
   if (type === 'demo') return tt('demo_lbl', lang);
@@ -313,12 +340,14 @@ function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
 
 export default function CrmLeadsPage() {
   const { appUser } = useAppUser();
-  const { language: lang } = useLanguage();
+  const effectiveUser = useEffectivePortalUser(appUser);
+  const { uiLanguage: lang } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const dealerParam = searchParams.get('dealer') || '';
-  const portalRole = derivePortalRole(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
+  const externalCrm = isExternalCrmRole(portalRole);
   const canDelete = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
 
   const TABS: { key: TabKey; label: string }[] = [
@@ -332,6 +361,7 @@ export default function CrmLeadsPage() {
   const [demoLeads, setDemoLeads] = useState<CrmDemoLead[]>([]);
   const [quoteIdByLeadId, setQuoteIdByLeadId] = useState<Map<string, string>>(() => new Map());
   const [dealerNameById, setDealerNameById] = useState<Map<string, string>>(() => new Map());
+  const [externalDealerScope, setExternalDealerScope] = useState<{ ids: Set<string>; names: Set<string> } | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [sharedLeadIds, setSharedLeadIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
@@ -392,9 +422,20 @@ export default function CrmLeadsPage() {
       const res = await fetchDealerAccounts({ includeDeleted: true });
       if (cancelled) return;
       setDealerNameById(new Map(res.rows.map((d) => [d.id, d.company_name || d.account_number])));
+      if (externalCrm) {
+        const scope = await buildJournalScope(effectiveUser, portalRole);
+        const nums = new Set(Array.from(scope.dealerNumbers));
+        const visible = res.rows.filter((d) => nums.has((d.account_number || '').trim().toLowerCase()));
+        setExternalDealerScope({
+          ids: new Set(visible.map((d) => d.id)),
+          names: new Set(visible.flatMap((d) => [d.company_name, d.branch_name, d.account_number]).filter(Boolean).map((v) => String(v).trim().toLowerCase())),
+        });
+      } else {
+        setExternalDealerScope(null);
+      }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [externalCrm, effectiveUser?.dealer_number, portalRole]);
 
   useEffect(() => {
     let cancelled = false;
@@ -404,7 +445,13 @@ export default function CrmLeadsPage() {
       const [openAll, demoAll, quoteResult, nextSharedLeadIds] = await Promise.all([
         listLeads({ limit: 5000 }),
         listDemoLeads({ limit: 5000 }),
-        listScopedConfigurations({ role: portalRole, sellerId: sid, documentType: 'quote' }),
+        listScopedConfigurations({
+          role: portalRole,
+          sellerId: sid,
+          dealerNumber: effectiveUser?.dealer_number ?? null,
+          dealerNumbers: externalCrm ? Array.from((await buildJournalScope(effectiveUser, portalRole)).dealerNumbers) : null,
+          documentType: 'quote',
+        }),
         listSharedLeadIdsForUser(sid),
       ]);
       const [openResolved, demoResolved] = await Promise.all([
@@ -440,7 +487,7 @@ export default function CrmLeadsPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email]);
+  }, [appUser?.email, effectiveUser?.dealer_number, portalRole, externalCrm]);
 
   const allRows: UnifiedLead[] = useMemo(() => {
     const demoSourceLeadIds = new Set(demoLeads.map((demo) => demo.source_lead_id).filter(Boolean) as string[]);
@@ -453,7 +500,13 @@ export default function CrmLeadsPage() {
     });
     const demo = demoLeads.map(mapDemo);
     let merged = [...open, ...demo];
-    if (!isAdmin) {
+    if (externalCrm && externalDealerScope) {
+      merged = merged.filter((r) => {
+        const dealer = (r.dealer || '').trim().toLowerCase();
+        return (r.type === 'open' && r.id && externalDealerScope.ids.has((openLeads.find((l) => l.id === r.id)?.linked_dealer_id || '')))
+          || (dealer && externalDealerScope.names.has(dealer));
+      });
+    } else if (!isAdmin) {
       const myEmail = (appUser?.email || '').toLowerCase();
       merged = merged.filter(r =>
         (sellerId && r.owner_user_id === sellerId) ||
@@ -464,7 +517,7 @@ export default function CrmLeadsPage() {
     }
     merged.sort((a, b) => compareRows(a, b, 'default'));
     return merged;
-  }, [openLeads, demoLeads, dealerNameById, quoteIdByLeadId, isAdmin, sellerId, appUser?.email, sharedLeadIds]);
+  }, [openLeads, demoLeads, dealerNameById, quoteIdByLeadId, externalCrm, externalDealerScope, isAdmin, sellerId, appUser?.email, sharedLeadIds]);
 
   const counts = useMemo(() => ({
     all:       allRows.length,
@@ -651,13 +704,13 @@ export default function CrmLeadsPage() {
           <ArrowDownAZ className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <select value={sort} onChange={e=>setSort(e.target.value as SortKey)}
             className="w-full rounded-xl border border-gray-200 text-sm pl-10 pr-3 py-2.5 bg-white">
-            <option value="default">Sortér: standard</option>
-            <option value="title_asc">Titel: A-Å</option>
-            <option value="title_desc">Titel: Å-A</option>
-            <option value="date_desc">Dato: nyeste først</option>
-            <option value="date_asc">Dato: ældste først</option>
-            <option value="prob_desc">Status %: høj til lav</option>
-            <option value="prob_asc">Status %: lav til høj</option>
+            <option value="default">{tt('sort_default', lang)}</option>
+            <option value="title_asc">{tt('sort_title_asc', lang)}</option>
+            <option value="title_desc">{tt('sort_title_desc', lang)}</option>
+            <option value="date_desc">{tt('sort_date_desc', lang)}</option>
+            <option value="date_asc">{tt('sort_date_asc', lang)}</option>
+            <option value="prob_desc">{tt('sort_prob_desc', lang)}</option>
+            <option value="prob_asc">{tt('sort_prob_asc', lang)}</option>
           </select>
         </div>
       </div>
@@ -715,12 +768,12 @@ export default function CrmLeadsPage() {
                           <span className="font-medium text-gray-900 truncate max-w-[260px]">{r.title}</span>
                           {r.incomplete && (
                             <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-amber-50 text-amber-800 border-amber-200">
-                              {({ da: 'Ikke færdig oprettet', en: 'Incomplete lead', de: 'Unvollständiger Lead', it: 'Lead incompleto', hu: 'Hiányos lead' } as Record<Language, string>)[lang]}
+                              {tt('incomplete_chip', lang)}
                             </span>
                           )}
                           {r.shared && (
                             <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200">
-                              {lang === 'da' ? 'Delt med dig' : 'Shared with you'}
+                              {tt('shared_chip', lang)}
                             </span>
                           )}
                           {imageAttachments.length > 0 && (

@@ -11,7 +11,9 @@ import BudgetUnlockModal from "@/components/crm/BudgetUnlockModal";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
-import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
+import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
+import { useEffectivePortalUser } from "@/lib/viewAsUser";
+import { buildJournalScope } from "@/lib/machineJournalScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
 import { getEffectiveSellerEmail, getActiveSellerView } from "@/lib/activeMode";
 import { cn } from "@/lib/utils";
@@ -328,11 +330,13 @@ type WorkingDraft = Record<string, number[]>; // budget_line_id -> 12 numbers
 
 export default function CrmBudgetPage() {
   const { appUser, loading } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
-  const portalRole = derivePortalRole(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
   const isSeller = isScopedSeller(portalRole);
-  const allowed = isAdmin || isSeller;
+  const externalCrm = isExternalCrmRole(portalRole);
+  const allowed = isAdmin || isSeller || externalCrm;
 
   const [year, setYear] = useState<number>(availableYears()[0]);
   const [lines, setLines] = useState<BudgetLine[]>([]);
@@ -453,6 +457,19 @@ export default function CrmBudgetPage() {
   useEffect(() => {
     if (!allowed) return;
     setBusy(true);
+    if (externalCrm) {
+      (async () => {
+        const scope = await buildJournalScope(effectiveUser, portalRole);
+        const dealerNumbers = Array.from(scope.dealerNumbers);
+        const dl = await listBudgetDealerLines(year);
+        setLines([]);
+        setForecasts([]);
+        setActuals([]);
+        setLeadContribs([]);
+        setDealerLines(dl.filter((line) => isDealerNumberAllowed(line.dealer_account_number, dealerNumbers)));
+      })().finally(() => setBusy(false));
+      return;
+    }
     Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year), listLeads({ limit: 1000 }), listBudgetDealerLines(year)])
       .then(([l, f, a, leads, dl]) => {
         setLines(l); setForecasts(f); setActuals(a);
@@ -471,7 +488,7 @@ export default function CrmBudgetPage() {
     listBudgetAccessWindows(year).then(setAccessWindows).catch(() => setAccessWindows([]));
     // Always exit edit mode when year changes.
     setEditModeUntil(null);
-  }, [year, allowed]);
+  }, [year, allowed, externalCrm, effectiveUser?.dealer_number, portalRole]);
 
   // Load open configurator quotes from the SAME source as CRM → Tilbud
   // (crm_configurations_view, via crmRelationsService) so the Pipeline/Tilbud
@@ -488,17 +505,21 @@ export default function CrmBudgetPage() {
       const sellerEmail = sellerView?.email
         ?? (portalRole === 'timan_seller' ? appUser?.email?.toLowerCase() ?? null : null);
       const sid = appUser?.email ? await resolveSellerId(appUser.email) : null;
+      const dealerNumbers = externalCrm
+        ? Array.from((await buildJournalScope(effectiveUser, portalRole)).dealerNumbers)
+        : null;
       const { rows } = await listScopedOpenQuotes({
         role: portalRole,
         sellerId: sid,
         sellerInitials,
         sellerEmail,
-        dealerNumber: appUser?.dealer_number ?? null,
+        dealerNumber: effectiveUser?.dealer_number ?? null,
+        dealerNumbers,
       });
       if (!cancelled) setQuotePipelineRows(rows);
     })();
     return () => { cancelled = true; };
-  }, [year, allowed, appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole]);
+  }, [year, allowed, appUser?.email, effectiveUser?.dealer_number, appUser?.display_name, portalRole, externalCrm]);
 
   // Resolve the current user's identity for scoping. We support multiple
   // matching strategies because seed rows may have been created before the
@@ -864,6 +885,57 @@ export default function CrmBudgetPage() {
           <ShieldAlert className="h-8 w-8 text-amber-500 mx-auto mb-3" />
           <h2 className="text-lg font-semibold text-slate-900">{T.no_access[lang]}</h2>
           <p className="text-sm text-slate-500 mt-1">{T.no_access_msg[lang]}</p>
+        </div>
+      </CrmLayout>
+    );
+  }
+
+  if (externalCrm) {
+    const activeDealerLines = dealerLines.filter((line) => !line.excluded_from_total);
+    const budgetQty = activeDealerLines.reduce((sum, line) => sum + (Number(line.qty) || 0), 0);
+    const pipelineValue = quotePipelineRows.reduce((sum, row) => sum + (row.total_value_dkk || 0), 0);
+    const productTotals = new Map<string, { product: string; qty: number }>();
+    for (const line of activeDealerLines) {
+      const key = line.product_key || line.product_name || line.item_number || "—";
+      const prev = productTotals.get(key) ?? { product: line.product_name || key, qty: 0 };
+      prev.qty += Number(line.qty) || 0;
+      productTotals.set(key, prev);
+    }
+    return (
+      <CrmLayout pageTitle={T.page_title[lang]}>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Kpi label={T.kpi_budget[lang]} value={`${budgetQty.toLocaleString("da-DK")} ${T.pcs[lang]}`} Icon={Wallet} tone="primary" />
+            <Kpi label={T.legend_pipe[lang]} value={fmtDKK(pipelineValue)} Icon={FileText} tone="ok" />
+            <Kpi label={T.col_total[lang]} value={`${activeDealerLines.length.toLocaleString("da-DK")} linjer`} Icon={Calendar} tone="warn" />
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h2 className="text-base font-semibold text-slate-900">{T.annual_budget[lang]}</h2>
+            </div>
+            {busy ? (
+              <p className="p-5 text-sm text-slate-500">{T.loading[lang]}</p>
+            ) : productTotals.size === 0 ? (
+              <p className="p-5 text-sm text-slate-500">{T.empty_year[lang]}</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                  <tr>
+                    <th className="text-left px-5 py-3">{T.col_model[lang]}</th>
+                    <th className="text-right px-5 py-3">{T.col_total[lang]}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Array.from(productTotals.values()).sort((a, b) => a.product.localeCompare(b.product, "da")).map((row) => (
+                    <tr key={row.product} className="border-t border-slate-100">
+                      <td className="px-5 py-3 font-medium text-slate-900">{row.product}</td>
+                      <td className="px-5 py-3 text-right tabular-nums">{row.qty.toLocaleString("da-DK")} {T.pcs[lang]}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </CrmLayout>
     );

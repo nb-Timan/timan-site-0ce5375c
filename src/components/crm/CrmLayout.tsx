@@ -6,7 +6,8 @@ import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
-import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
+import { canUseCrm, isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { cn } from '@/lib/utils';
 import LastChangedLine from '@/components/portal/LastChangedLine';
 import { t } from '@/lib/i18n/translations';
@@ -25,6 +26,12 @@ const NAV: NavItem[] = [
   { tKey: 'crmReports',          to: '/portal/crm/reports',          icon: BarChart3 },
 ];
 
+const EXTERNAL_NAV_BLOCKLIST = new Set([
+  '/portal/crm/activities',
+  '/portal/crm/budget-dashboard',
+  '/portal/crm/reports',
+]);
+
 interface Props { children: ReactNode; pageTitle?: string }
 
 export default function CrmLayout({ children, pageTitle }: Props) {
@@ -32,26 +39,34 @@ export default function CrmLayout({ children, pageTitle }: Props) {
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
+  const effectiveUser = useEffectivePortalUser(appUser);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
 
-  const portalRole = derivePortalRole(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   // Legacy `role` can still be "slutkunde" for real portal users that were
   // later upgraded to Timan Seller/Backend/etc. Trust portal_role first.
   if (appUser.role === 'slutkunde' && !portalRole) return <Navigate to="/configurator" replace />;
   // Phase 37 — area access is now driven by per-user `allowed_areas` if set,
   // otherwise it falls back to module_access / role defaults.
-  const allowedAreas = appUser.allowed_areas;
+  const allowedAreas = effectiveUser?.allowed_areas;
   const crmAreaAllowed = Array.isArray(allowedAreas) && allowedAreas.length > 0
     ? allowedAreas.includes('timan_crm')
-    : hasModuleAccess(portalRole, 'timan_crm', appUser.module_access as never);
+    : hasModuleAccess(portalRole, 'timan_crm', effectiveUser?.module_access as never);
   if (!crmAreaAllowed) {
     return <Navigate to="/portal" replace />;
   }
-  if (!isCrmAdmin(portalRole) && !isScopedSeller(portalRole)) {
+  if (!canUseCrm(portalRole)) {
     return <Navigate to="/portal" replace />;
   }
+  const externalCrm = isExternalCrmRole(portalRole);
+  if (externalCrm && EXTERNAL_NAV_BLOCKLIST.has(location.pathname)) {
+    return <Navigate to="/portal/crm/dashboard" replace />;
+  }
+  const navItems = externalCrm
+    ? NAV.filter((item) => !EXTERNAL_NAV_BLOCKLIST.has(item.to))
+    : NAV;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -69,7 +84,7 @@ export default function CrmLayout({ children, pageTitle }: Props) {
         </div>
 
         <nav className="relative flex flex-wrap items-center gap-1 mb-6 border-b border-slate-200/80">
-          {NAV.map(item => {
+          {navItems.map(item => {
             const active = location.pathname === item.to;
             const Icon = item.icon;
             return (

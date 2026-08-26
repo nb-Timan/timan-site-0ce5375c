@@ -4,9 +4,11 @@ import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { listCrmAccounts, CrmAccount, accountDisplayName } from '@/lib/crmAccountsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
-import { isCrmAdmin } from '@/lib/crmScope';
+import { isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
+import { buildJournalScope } from '@/lib/machineJournalScope';
 import { Language } from '@/types/configurator';
 
 const T: Record<string, Record<Language, string>> = {
@@ -32,9 +34,10 @@ const ROLE_LABEL: Record<string, string> = {
 
 export default function CrmAccountsPage() {
   const { appUser } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
-  const portalRole = derivePortalRole(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
 
   const [accounts, setAccounts] = useState<CrmAccount[]>([]);
@@ -48,14 +51,17 @@ export default function CrmAccountsPage() {
     (async () => {
       setLoading(true);
       const sellerId = await resolveSellerId(appUser?.email);
-      const r = await listCrmAccounts({ role: portalRole, sellerId });
+      const dealerNumbers = isExternalCrmRole(portalRole)
+        ? Array.from((await buildJournalScope(effectiveUser, portalRole)).dealerNumbers)
+        : null;
+      const r = await listCrmAccounts({ role: portalRole, sellerId, dealerNumbers });
       if (cancelled) return;
       setAccounts(r.accounts);
       setErrorMsg(r.source === 'fallback' ? T.source_fallback[lang] : null);
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, portalRole, lang]);
+  }, [appUser?.email, effectiveUser?.dealer_number, portalRole, lang]);
 
   const owners = useMemo(() => {
     const map = new Map<string, string>();

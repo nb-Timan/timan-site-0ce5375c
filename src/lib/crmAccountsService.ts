@@ -10,7 +10,7 @@
  */
 import { supabase } from "@/lib/supabase";
 import { PortalRole } from "@/lib/portalAccess";
-import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
+import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
 import { AKR_SEED_ACCOUNTS } from "@/lib/akrTestSeed";
 
 export interface CrmAccount {
@@ -38,6 +38,7 @@ const ACCOUNT_PORTAL_ROLES = new Set(["timan_dealer", "timan_importer", "timan_s
 export interface ListAccountsOpts {
   role: PortalRole | null;
   sellerId: string | null;
+  dealerNumbers?: string[] | null;
 }
 
 export interface ListAccountsResult {
@@ -48,7 +49,7 @@ export interface ListAccountsResult {
 
 export async function listCrmAccounts(opts: ListAccountsOpts): Promise<ListAccountsResult> {
   if (!opts.role) return { accounts: [], source: "fallback" };
-  if (!isCrmAdmin(opts.role) && !isScopedSeller(opts.role)) {
+  if (!isCrmAdmin(opts.role) && !isScopedSeller(opts.role) && !isExternalCrmRole(opts.role)) {
     return { accounts: [], source: "fallback" };
   }
 
@@ -82,10 +83,19 @@ export async function listCrmAccounts(opts: ListAccountsOpts): Promise<ListAccou
         source: "supabase",
       };
     }
+    if (isExternalCrmRole(opts.role)) {
+      return {
+        accounts: mapped.filter((a) => isDealerNumberAllowed(a.dealer_number, opts.dealerNumbers)),
+        source: "supabase",
+      };
+    }
     return { accounts: mapped, source: "supabase" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // Fallback: still expose AKR demo accounts so the CRM is usable in preview.
+    if (isExternalCrmRole(opts.role)) {
+      return { accounts: [], source: "fallback", error: msg };
+    }
     if (isScopedSeller(opts.role)) {
       return { accounts: akrSeedAccounts, source: "fallback", error: msg };
     }

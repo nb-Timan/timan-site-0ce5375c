@@ -5,6 +5,7 @@
  * Visible to:
  *   • timan_seller (Timan Sælger)
  *   • Backend users in seller mode (derivePortalRole maps them to seller).
+ *   • External CRM users, scoped to their own downline partner chain.
  *
  * Scope:
  *   The effective seller comes from getEffective*Seller* helpers, which
@@ -28,7 +29,9 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useCountryFormatter } from "@/lib/formatCountry";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { derivePortalRole } from "@/lib/portalAccess";
-import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
+import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
+import { useEffectivePortalUser } from "@/lib/viewAsUser";
+import { buildJournalScope } from "@/lib/machineJournalScope";
 import {
   DealerAccount,
   DealerAccountStats,
@@ -96,6 +99,7 @@ function fmtDate(iso: string | null): string {
 
 export default function CrmMyDealersPage() {
   const { appUser, loading } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
@@ -116,9 +120,10 @@ export default function CrmMyDealersPage() {
   const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
   const budgetYear = new Date().getFullYear();
 
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
+  const portalRole = useMemo(() => derivePortalRole(effectiveUser), [effectiveUser]);
   const admin = isCrmAdmin(portalRole);
   const seller = isScopedSeller(portalRole);
+  const externalCrm = isExternalCrmRole(portalRole);
 
   // Re-render when the backend user switches active seller view.
   const [activeMode, setActiveMode] = useState<string>(() => getActiveMode(appUser?.email));
@@ -159,7 +164,7 @@ export default function CrmMyDealersPage() {
           setStatsMap(map);
           setAllUsers(uRes.users);
           setError(dRes.error ?? sRes.error ?? null);
-        } else {
+        } else if (seller) {
           // Seller view (real seller OR backend in "view-as <seller>" mode).
           const [scopeRes, uRes] = await Promise.all([
             fetchDealerAccountsForSeller({ initials, email: effEmail }),
@@ -171,6 +176,21 @@ export default function CrmMyDealersPage() {
           setStatsMap(scopeRes.stats);
           setAllUsers(uRes.users);
           setError(scopeRes.error ?? null);
+        } else if (externalCrm) {
+          const [scopeRes, dRes, sRes, uRes] = await Promise.all([
+            buildJournalScope(effectiveUser, portalRole),
+            fetchDealerAccounts({ includeDeleted: false }),
+            fetchDealerAccountStats(),
+            fetchBackendUsers(),
+          ]);
+          if (cancelled) return;
+          loadedDealers = dRes.rows.filter((d) => isDealerNumberAllowed(d.account_number, Array.from(scopeRes.dealerNumbers)));
+          setDealers(loadedDealers);
+          const map: Record<string, DealerAccountStats> = {};
+          for (const s of sRes.rows) map[s.id] = s;
+          setStatsMap(map);
+          setAllUsers(uRes.users.filter((u) => isDealerNumberAllowed(u.dealer_number, Array.from(scopeRes.dealerNumbers))));
+          setError(dRes.error ?? sRes.error ?? null);
         }
 
         // Build dealer-budget index (YTD budget + realised) — uses the same
@@ -186,6 +206,7 @@ export default function CrmMyDealersPage() {
               sellerInitials: initials,
               sellerEmail: effEmail,
               dealerNumber: appUser?.dealer_number ?? null,
+              dealerNumbers: externalCrm ? loadedDealers.map((d) => d.account_number) : null,
             },
           });
           if (!cancelled) setBudgetIndex(idx);
@@ -197,7 +218,7 @@ export default function CrmMyDealersPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, admin, activeMode, activeSellerView, budgetYear, portalRole]);
+  }, [appUser, effectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole]);
 
   // Successor index — must be computed unconditionally before any early return
   // so the number of hooks remains stable across renders.
@@ -208,7 +229,7 @@ export default function CrmMyDealersPage() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (!admin && !seller) return <Navigate to="/portal" replace />;
+  if (!admin && !seller && !externalCrm) return <Navigate to="/portal" replace />;
 
   const dealerPeopleCount = (d: DealerAccount): number => {
     const s = statsMap[d.id];

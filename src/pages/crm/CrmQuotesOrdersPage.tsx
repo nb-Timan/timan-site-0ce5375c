@@ -26,7 +26,10 @@ import EditOrderOwnershipModal from '@/components/crm/EditOrderOwnershipModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { resolveSellerId } from '@/lib/resolveSellerId';
+import { buildJournalScope } from '@/lib/machineJournalScope';
+import { isExternalCrmRole } from '@/lib/crmScope';
 import { getActiveSellerView } from '@/lib/activeMode';
 import {
   listCrmConfigurations,
@@ -99,8 +102,9 @@ function statusBadge(status: string | null): { label: string; cls: string } {
 
 export default function CrmQuotesOrdersPage({ mode }: Props) {
   const { appUser } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
-  const portalRole = derivePortalRole(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const dealerParam = searchParams.get('dealer') || '';
@@ -133,7 +137,10 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       const sellerInitials = sellerView?.initials
         ?? (isSeller && appUser?.display_name ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null : null);
       const sellerEmail = sellerView?.email ?? (isSeller ? appUser?.email?.toLowerCase() ?? null : null);
-      const dealerNumber = appUser?.dealer_number ?? null;
+      const dealerNumber = effectiveUser?.dealer_number ?? null;
+      const dealerNumbers = isExternalCrmRole(portalRole)
+        ? Array.from((await buildJournalScope(effectiveUser, portalRole)).dealerNumbers)
+        : null;
 
       const { rows: fetched, error: err } = await listCrmConfigurations({
         role: portalRole,
@@ -141,6 +148,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
         sellerInitials,
         sellerEmail,
         dealerNumber,
+        dealerNumbers,
         documentType: mode,
       });
       if (cancelled) return;
@@ -149,7 +157,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, appUser?.display_name, appUser?.dealer_number, portalRole, mode, isSeller, reloadKey]);
+  }, [appUser?.email, appUser?.display_name, effectiveUser, portalRole, mode, isSeller, reloadKey]);
 
   const handleRowClick = useCallback((r: CrmConfigurationRow) => {
     if (canEditOwnership) setEditingRow(r);

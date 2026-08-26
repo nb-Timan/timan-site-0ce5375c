@@ -35,6 +35,20 @@ export function isScopedSeller(role: PortalRole | null): boolean {
   return role === "timan_seller";
 }
 
+/** External roles that may use the limited CRM when granted CRM access. */
+export function isExternalCrmRole(role: PortalRole | null): boolean {
+  return (
+    role === "timan_importer" ||
+    role === "timan_dealer" ||
+    role === "timan_service_partner" ||
+    role === "dealer_user"
+  );
+}
+
+export function canUseCrm(role: PortalRole | null): boolean {
+  return isCrmAdmin(role) || isScopedSeller(role) || isExternalCrmRole(role);
+}
+
 /** Roles that can see everything in the CRM (no scoping). */
 export function isCrmAdmin(role: PortalRole | null): boolean {
   return role === "timan_backend" || role === "timan_service";
@@ -47,6 +61,16 @@ export function canSellerSeeAccount(scope: SellerScope, account: AccountLike): b
   if (account.account_owner_user_id === scope.sellerId) return true;
   if (scope.extraAccountIds?.includes(account.id)) return true;
   return false;
+}
+
+export function normalizeDealerNumber(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+export function isDealerNumberAllowed(value: string | null | undefined, dealerNumbers?: string[] | null): boolean {
+  const n = normalizeDealerNumber(value);
+  if (!n) return false;
+  return new Set((dealerNumbers ?? []).map(normalizeDealerNumber).filter(Boolean)).has(n);
 }
 
 export function canSellerSeeOffer(scope: SellerScope, offer: OfferOrderLike): boolean {

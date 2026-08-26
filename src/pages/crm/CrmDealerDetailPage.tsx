@@ -9,8 +9,8 @@
  *  • Notehistorik (internal Timan-only)
  *  • Næste opfølgning at the top
  *
- * INTERNAL ONLY — external dealer/service-partner/importer roles cannot
- * reach this route (see access guard below). Notes never leak.
+ * External CRM users may reach this route only for dealers in their
+ * downline partner scope. Internal notes stay hidden from external roles.
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -37,7 +37,9 @@ import {
   requestDealerGeocoding,
 } from "@/lib/dealerGeocodingService";
 import { derivePortalRole } from "@/lib/portalAccess";
-import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
+import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
+import { useEffectivePortalUser } from "@/lib/viewAsUser";
+import { buildJournalScope } from "@/lib/machineJournalScope";
 import {
   DealerAccount, DealerAccountStats,
   fetchDealerAccounts, fetchDealerAccountStats,
@@ -226,6 +228,7 @@ function startOfIsoWeek(d: Date): Date {
 export default function CrmDealerDetailPage() {
   const { accountNumber = "" } = useParams<{ accountNumber: string }>();
   const { appUser, loading } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
@@ -255,10 +258,11 @@ export default function CrmDealerDetailPage() {
   const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
   const budgetYear = new Date().getFullYear();
 
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
+  const portalRole = useMemo(() => derivePortalRole(effectiveUser), [effectiveUser]);
   const admin = isCrmAdmin(portalRole);
   const seller = isScopedSeller(portalRole);
-  const canAccess = admin || seller;
+  const externalCrm = isExternalCrmRole(portalRole);
+  const canAccess = admin || seller || externalCrm;
 
   const [activeMode, setActiveMode] = useState<string>(() => getActiveMode(appUser?.email));
   useEffect(() => {
@@ -277,20 +281,29 @@ export default function CrmDealerDetailPage() {
     let cancelled = false;
     (async () => {
       setBusy(true);
-      const [dRes, sRes, uRes] = await Promise.all([
+      const [scopeRes, dRes, sRes, uRes] = await Promise.all([
+        externalCrm ? buildJournalScope(effectiveUser, portalRole) : Promise.resolve(null),
         fetchDealerAccounts({ includeDeleted: false }),
         fetchDealerAccountStats(),
         fetchBackendUsers(),
       ]);
       if (cancelled) return;
-      setDealers(dRes.rows);
+      const scopedDealerNumbers = scopeRes ? Array.from(scopeRes.dealerNumbers) : null;
+      const visibleDealers = scopedDealerNumbers
+        ? dRes.rows.filter((d) => isDealerNumberAllowed(d.account_number, scopedDealerNumbers))
+        : dRes.rows;
+      setDealers(visibleDealers);
       const map: Record<string, DealerAccountStats> = {};
       for (const s of sRes.rows) map[s.id] = s;
       setStats(map);
-      setUsers(uRes.users);
+      setUsers(scopedDealerNumbers
+        ? uRes.users.filter((u) => isDealerNumberAllowed(u.dealer_number, scopedDealerNumbers))
+        : uRes.users);
       const cal = await listCalendarActivities({});
       if (cancelled) return;
-      setCalendar(cal);
+      setCalendar(scopedDealerNumbers
+        ? cal.filter((a) => !a.account_id || visibleDealers.some((d) => d.id === a.account_id))
+        : cal);
       // Fetch live quotes + orders for ALL accessible scopes — backend admin
       // fetches everything (no scoping), seller fetches their own. We then
       // filter client-side by dealer_number so branch/group toggle works.
@@ -305,7 +318,8 @@ export default function CrmDealerDetailPage() {
           sellerId,
           sellerInitials,
           sellerEmail,
-          dealerNumber: appUser?.dealer_number ?? null,
+          dealerNumber: effectiveUser?.dealer_number ?? null,
+          dealerNumbers: scopedDealerNumbers,
         } as const;
         const [qRes, oRes, leadsRes, demosRes] = await Promise.all([
           listScopedOpenQuotes(filterBase),
@@ -323,7 +337,7 @@ export default function CrmDealerDetailPage() {
         try {
           const idx = await buildDealerBudgetIndex({
             year: budgetYear,
-            dealers: dRes.rows,
+            dealers: visibleDealers,
             filter: filterBase,
           });
           if (!cancelled) setBudgetIndex(idx);
@@ -336,7 +350,7 @@ export default function CrmDealerDetailPage() {
       setBusy(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser, accountNumber, portalRole, budgetYear, seller]);
+  }, [appUser, effectiveUser, accountNumber, portalRole, budgetYear, seller, externalCrm]);
 
   const dealer = useMemo(
     () => dealers.find(d => d.account_number === accountNumber) ?? null,
@@ -358,7 +372,10 @@ export default function CrmDealerDetailPage() {
 
   // Load notes (whenever scope changes)
   useEffect(() => {
-    if (!dealer) return;
+    if (!dealer || !admin) {
+      setNotes([]);
+      return;
+    }
     let cancelled = false;
     (async () => {
       const n = await listDealerNotesForNumbers(scopeNumbers);
@@ -366,7 +383,7 @@ export default function CrmDealerDetailPage() {
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealer?.id, scope, branchNumbers.join(",")]);
+  }, [dealer?.id, scope, branchNumbers.join(","), admin]);
 
   // Load extra dealer_contacts (sales/workshop/parts/marketing/finance).
   useEffect(() => {

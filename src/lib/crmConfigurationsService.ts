@@ -12,7 +12,7 @@
  *     (resolved via assigned_seller_id OR seller_initials/seller_email).
  *   • Timan Sælger (real seller)        → see rows owned by themselves.
  *   • External dealer/importer/service  → see rows whose dealer_number
- *     matches their app_users.dealer_number.
+ *     matches their allowed dealer chain.
  *
  * Pricing, calculations, PDFs, n8n flows are NOT touched.
  */
@@ -76,6 +76,8 @@ export interface CrmConfigurationFilter {
   sellerEmail?: string | null;
   /** dealer_number from the logged-in external user's app_users row. */
   dealerNumber?: string | null;
+  /** Expanded external dealer chain, normalized by the caller. */
+  dealerNumbers?: string[] | null;
   /** 'quote' or 'order' to filter the result set. */
   documentType: CrmDocumentType;
 }
@@ -140,8 +142,16 @@ export function rowVisibleToScope(
     return false;
   }
 
-  // External dealer-side roles: scope by dealer_number.
-  if (filter.dealerNumber && row.dealer_number === filter.dealerNumber) return true;
+  // External dealer-side roles: scope by own dealer or expanded partner chain.
+  const allowedDealerNumbers = new Set(
+    [filter.dealerNumber, ...(filter.dealerNumbers ?? [])]
+      .map((v) => (v ?? '').trim().toLowerCase())
+      .filter(Boolean),
+  );
+  const rowDealerNumbers = [row.dealer_number, row.dealer_account_number]
+    .map((v) => (v ?? '').trim().toLowerCase())
+    .filter(Boolean);
+  if (rowDealerNumbers.some((n) => allowedDealerNumbers.has(n))) return true;
   return false;
 }
 

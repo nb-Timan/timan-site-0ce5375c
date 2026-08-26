@@ -16,6 +16,7 @@ import { ExternalLink } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { listCrmAccounts, CrmAccount, accountDisplayName } from '@/lib/crmAccountsService';
 import { listActivities, CrmActivity, CrmActivityType } from '@/lib/crmActivitiesService';
 import { listScopedOrdersWithValue, CrmOrderWithValue } from '@/lib/crmConfigurationsService';
@@ -26,7 +27,8 @@ import { listActivities as listCalendarActivities, type CalendarActivity } from 
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { BUDGET_SELLERS } from '@/lib/crmBudgetService';
-import { isCrmAdmin } from '@/lib/crmScope';
+import { isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
+import { buildJournalScope } from '@/lib/machineJournalScope';
 import { formatDate } from '@/lib/format-date';
 import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
 import { Language } from '@/types/configurator';
@@ -193,9 +195,11 @@ function prettyType(t: CrmActivityType): string { return t.replace(/_/g, ' '); }
 // ────────────────────────────────────────────────────────────
 export default function CrmDashboardPage() {
   const { appUser } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
-  const portalRole = derivePortalRole(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
+  const externalCrm = isExternalCrmRole(portalRole);
 
   const [accounts, setAccounts] = useState<CrmAccount[]>([]);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
@@ -239,24 +243,44 @@ export default function CrmDashboardPage() {
 
       const sellerInitials = pickedSeller?.initials ?? ownInitials;
       const sellerEmail = pickedSeller?.email ?? ownEmail;
-      const dealerNumber = appUser?.dealer_number ?? null;
+      const dealerNumber = effectiveUser?.dealer_number ?? null;
+      const dealerNumbers = externalCrm
+        ? Array.from((await buildJournalScope(effectiveUser, portalRole)).dealerNumbers)
+        : null;
 
       // When a specific seller is picked we narrow the role to 'timan_seller'
       // so the scoped services apply seller-level filters even for admins.
       const effectiveRole = pickedSeller ? 'timan_seller' : portalRole;
       const effectiveAdmin = isAdmin && !pickedSeller;
 
-      const scopeFilter = { role: effectiveRole, sellerId: sid, sellerInitials, sellerEmail, dealerNumber };
+      const scopeFilter = { role: effectiveRole, sellerId: sid, sellerInitials, sellerEmail, dealerNumber, dealerNumbers };
 
-      const acc = await listCrmAccounts({ role: effectiveRole, sellerId: sid });
-      const act = await listActivities({ ownerUserId: effectiveAdmin ? null : sid, limit: 500 });
+      const acc = await listCrmAccounts({ role: effectiveRole, sellerId: sid, dealerNumbers });
+      const accountIds = new Set(acc.accounts.map((a) => a.id));
+      const accountNames = new Set(
+        acc.accounts.flatMap((a) => [a.company, a.full_name, a.dealer_number])
+          .filter(Boolean)
+          .map((v) => String(v).trim().toLowerCase()),
+      );
+      const rawAct = await listActivities({ ownerUserId: effectiveAdmin ? null : (externalCrm ? null : sid), limit: 500 });
+      const act = externalCrm
+        ? rawAct.filter((a) => (a.account_id && accountIds.has(a.account_id)) || (a.account_name && accountNames.has(a.account_name.trim().toLowerCase())))
+        : rawAct;
       const ord = await listScopedOrdersWithValue(scopeFilter);
       const quo = await listScopedOpenQuotes(scopeFilter);
-      const lds = await listLeads({ ownerUserId: effectiveAdmin ? null : sid, limit: 500 });
-      const cal = await listCalendarActivities({
-        sellerInitials: effectiveAdmin ? null : sellerInitials,
-        sellerUserId: effectiveAdmin ? null : sid,
+      const rawLeads = await listLeads({ ownerUserId: effectiveAdmin ? null : (externalCrm ? null : sid), limit: 500 });
+      const lds = externalCrm
+        ? rawLeads.filter((l) => {
+            const linked = (l.linked_dealer_id || '').trim().toLowerCase();
+            return (linked && (accountIds.has(l.linked_dealer_id || '') || accountNames.has(linked)))
+              || Array.from(accountNames).some((name) => name.length >= 3 && (l.title || '').toLowerCase().includes(name));
+          })
+        : rawLeads;
+      const rawCal = await listCalendarActivities({
+        sellerInitials: effectiveAdmin ? null : (externalCrm ? null : sellerInitials),
+        sellerUserId: effectiveAdmin ? null : (externalCrm ? null : sid),
       });
+      const cal = externalCrm ? rawCal.filter((a) => !a.account_id || accountIds.has(a.account_id)) : rawCal;
       if (cancelled) return;
       setSellerId(sid);
       setAccounts(acc.accounts);
@@ -267,7 +291,7 @@ export default function CrmDashboardPage() {
       setCalendar(cal);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, topSellerInitials, leadRefreshToken]);
+  }, [appUser?.email, effectiveUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, externalCrm, topSellerInitials, leadRefreshToken]);
 
   // Build pipeline-by-stage from the SHARED CRM sources used elsewhere.
   // - won  → won leads plus orders (same as CRM → Ordrer & Lukkede ordrer KPI)

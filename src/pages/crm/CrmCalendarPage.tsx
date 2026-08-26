@@ -14,7 +14,9 @@ import WeekOverviewPanel from "@/components/crm/WeekOverviewPanel";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { derivePortalRole } from "@/lib/portalAccess";
-import { isCrmAdmin, isScopedSeller } from "@/lib/crmScope";
+import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
+import { useEffectivePortalUser } from "@/lib/viewAsUser";
+import { buildJournalScope } from "@/lib/machineJournalScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
 import { getActiveSellerView } from "@/lib/activeMode";
 import { listCrmAccounts, type CrmAccount } from "@/lib/crmAccountsService";
@@ -85,10 +87,12 @@ function buildGrid(month: Date): CalGridDay[] {
 
 export default function CrmCalendarPage() {
   const { appUser } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
-  const portalRole = derivePortalRole(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
   const isSeller = isScopedSeller(portalRole);
+  const externalCrm = isExternalCrmRole(portalRole);
 
   const [month, setMonth] = useState<Date>(() => startOfMonth(new Date()));
   const [activities, setActivities] = useState<CalendarActivity[]>([]);
@@ -119,15 +123,19 @@ export default function CrmCalendarPage() {
     let cancelled = false;
     (async () => {
       const sid = await resolveSellerId(appUser?.email);
-      const acc = await listCrmAccounts({ role: portalRole, sellerId: sid });
+      const dealerNumbers = externalCrm
+        ? Array.from((await buildJournalScope(effectiveUser, portalRole)).dealerNumbers)
+        : null;
+      const acc = await listCrmAccounts({ role: portalRole, sellerId: sid, dealerNumbers });
       const filterInitials = isAdmin ? sellerFilter : (currentSellerInitials || "all");
-      const list = await listActivities({ sellerInitials: filterInitials });
+      const list = await listActivities({ sellerInitials: externalCrm ? null : filterInitials });
+      const accountIds = new Set(acc.accounts.map((a) => a.id));
       if (cancelled) return;
       setAccounts(acc.accounts);
-      setActivities(list);
+      setActivities(externalCrm ? list.filter((a) => !a.account_id || accountIds.has(a.account_id)) : list);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, portalRole, isAdmin, sellerFilter, currentSellerInitials, reloadKey]);
+  }, [appUser?.email, effectiveUser?.dealer_number, portalRole, isAdmin, externalCrm, sellerFilter, currentSellerInitials, reloadKey]);
 
   const grid = useMemo(() => buildGrid(month), [month]);
   const eventsByDay = useMemo(() => {
@@ -141,7 +149,7 @@ export default function CrmCalendarPage() {
     return map;
   }, [activities]);
 
-  if (!isAdmin && !isSeller) {
+  if (!isAdmin && !isSeller && !externalCrm) {
     return <CrmLayout pageTitle={T.page_title[lang]}><p className="text-sm text-gray-500">{T.no_access[lang]}</p></CrmLayout>;
   }
 

@@ -785,7 +785,7 @@ function EditUserModal({
           <Section title="Allowed Areas">
             {(() => {
               const dealerSide = isDealerSideRole(draft.role);
-              const FORBIDDEN_AREAS: AreaKey[] = ["timan_backend", "timan_crm"];
+              const FORBIDDEN_AREAS: AreaKey[] = ["timan_backend"];
               return (
                 <>
                   <CheckboxGroup
@@ -803,7 +803,7 @@ function EditUserModal({
                   />
                   {dealerSide && (
                     <p className="mt-2 text-[11px] text-slate-500">
-                      Eksterne dealer-side roller har ikke adgang til Timan Backend eller Timan CRM. Forhandlerdata erstatter CRM.
+                      Eksterne dealer-side roller kan få begrænset CRM-adgang, men har ikke adgang til Timan Backend.
                     </p>
                   )}
                 </>
@@ -815,7 +815,7 @@ function EditUserModal({
           <Section title="Allowed Modules">
             {(() => {
               const dealerSide = isDealerSideRole(draft.role);
-              const FORBIDDEN_MODULES: ModuleAccessKey[] = ["timan_backend", "timan_crm"];
+              const FORBIDDEN_MODULES: ModuleAccessKey[] = ["timan_backend"];
               const groupedKeys = new Set<ModuleAccessKey>(MODULE_GROUPS.flatMap((g) => g.modules));
               const otherModules = ALL_MODULES.filter((m) => !groupedKeys.has(m));
               const renderGroup = (label: string, modules: ModuleAccessKey[]) => (
@@ -857,7 +857,7 @@ function EditUserModal({
                   </div>
                   {dealerSide && (
                     <p className="mt-2 text-[11px] text-slate-500">
-                      Eksterne dealer-side roller har ikke adgang til Timan Backend eller Timan CRM.
+                      Eksterne dealer-side roller kan få begrænset CRM-adgang, men har ikke adgang til Timan Backend.
                     </p>
                   )}
                 </>
