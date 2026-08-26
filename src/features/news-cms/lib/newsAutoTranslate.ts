@@ -4,6 +4,13 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
 type TranslationMemory = Partial<Record<PortalUiLanguage, Record<string, string>>>;
 
+const CS200_BODY_INTRO =
+  'CS-200 kombinerer tallerkenspreder og valseudlægger i én fleksibel løsning. Skift mellem præcis udlægning og bred spredning direkte fra kabinen, og tilpas arbejdet til alt fra smalle stier til større arealer. CS-200 findes både til Timan 3330 og i en version til traktor.';
+const CS200_BODY_CONTROL =
+  'Den elektriske betjening gør det nemt at justere spredningen under arbejdet, mens den hurtige til- og frakobling gør det enkelt at skifte mellem forskellige opgaver og redskaber.';
+const CS200_QUOTE =
+  'Vi er meget tilfredse med, hvor hurtigt CS-200 kan kobles på og af. Med den elektriske betjening kan vi styre det hele fra kabinen, og det er virkelig luksus i en travl vinterhverdag';
+
 const SOURCE_TEXT_ALIASES: Record<string, string> = {
   'MÃ¸d Timan 2620': 'Mød Timan 2620',
   'Timan 2620 er vores nye kompakte redskabsbÃ¦rer, udviklet til professionelle, der har brug for hÃ¸j fleksibilitet pÃ¥ begrÃ¦nset plads. Med fokus pÃ¥ komfort, enkel betjening og et bredt udvalg af redskaber er Timan 2620 skabt til at lÃ¸se mange forskellige opgaver Ã¥ret rundt.':
@@ -65,7 +72,19 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Effektiv høst og god foderkvalitet': 'Efficient harvesting and good forage quality',
     'CS-200 – én spreder, flere muligheder': 'CS-200 - one spreader, many possibilities',
     'Effektiv vintertjeneste – på Timan 3330 eller traktor': 'Efficient winter service - on Timan 3330 or tractor',
+    [CS200_BODY_INTRO]:
+      'CS-200 combines a disc spreader and roller spreader in one flexible solution. Switch between precise laying and broad spreading directly from the cab, and adapt the work from narrow paths to larger areas. CS-200 is available both for Timan 3330 and in a tractor version.',
+    [CS200_BODY_CONTROL]:
+      'The electric operation makes it easy to adjust spreading while working, while quick coupling and uncoupling makes it simple to switch between different tasks and attachments.',
     'Derfor CS-200': 'Why CS-200',
+    '✓ 2-i-1 – tallerkenspreder og valseudlægger': '✓ 2-in-1 - disc spreader and roller spreader',
+    '✓ 1-6 m spredebredde': '✓ 1-6 m spreading width',
+    '✓ Elektrisk betjening direkte fra kabinen': '✓ Electric operation directly from the cab',
+    '✓ Hurtig og enkel til- og frakobling': '✓ Fast and simple coupling and uncoupling',
+    '✓ Præcis dosering til forskellige opgaver': '✓ Precise dosing for different tasks',
+    '✓ Fås til både Timan 3330 og traktor': '✓ Available for both Timan 3330 and tractor',
+    [CS200_QUOTE]:
+      'We are very pleased with how quickly the CS-200 can be coupled and uncoupled. With the electric operation we can control everything from the cab, which is a real luxury in a busy winter season',
     'Elektrisk betjening': 'Electric operation',
     'Fleksibel montering': 'Flexible mounting',
     'Jævn og præcis dosering': 'Even and precise dosing',
@@ -105,7 +124,19 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Effektiv høst og god foderkvalitet': 'Effiziente Ernte und gute Futterqualität',
     'CS-200 – én spreder, flere muligheder': 'CS-200 - ein Streuer, viele Möglichkeiten',
     'Effektiv vintertjeneste – på Timan 3330 eller traktor': 'Effizienter Winterdienst - mit Timan 3330 oder Traktor',
+    [CS200_BODY_INTRO]:
+      'CS-200 kombiniert Tellerstreuer und Walzenstreuer in einer flexiblen Lösung. Wechseln Sie direkt von der Kabine aus zwischen präziser Ausbringung und breiter Streuung und passen Sie die Arbeit an schmale Wege ebenso wie an größere Flächen an. CS-200 ist sowohl für Timan 3330 als auch in einer Traktorversion erhältlich.',
+    [CS200_BODY_CONTROL]:
+      'Die elektrische Bedienung macht es einfach, die Streuung während der Arbeit anzupassen, während das schnelle An- und Abkoppeln den Wechsel zwischen verschiedenen Aufgaben und Anbaugeräten erleichtert.',
     'Derfor CS-200': 'Darum CS-200',
+    '✓ 2-i-1 – tallerkenspreder og valseudlægger': '✓ 2-in-1 - Tellerstreuer und Walzenstreuer',
+    '✓ 1-6 m spredebredde': '✓ 1-6 m Streubreite',
+    '✓ Elektrisk betjening direkte fra kabinen': '✓ Elektrische Bedienung direkt aus der Kabine',
+    '✓ Hurtig og enkel til- og frakobling': '✓ Schnelles und einfaches An- und Abkoppeln',
+    '✓ Præcis dosering til forskellige opgaver': '✓ Präzise Dosierung für unterschiedliche Aufgaben',
+    '✓ Fås til både Timan 3330 og traktor': '✓ Erhältlich für Timan 3330 und Traktor',
+    [CS200_QUOTE]:
+      'Wir sind sehr zufrieden damit, wie schnell der CS-200 an- und abgekoppelt werden kann. Mit der elektrischen Bedienung können wir alles aus der Kabine steuern, das ist wirklich Luxus im hektischen Winteralltag',
     'Elektrisk betjening': 'Elektrische Bedienung',
     'Fleksibel montering': 'Flexible Montage',
     'Jævn og præcis dosering': 'Gleichmäßige und präzise Dosierung',
@@ -393,7 +424,22 @@ function translateText(value: string, lang: PortalUiLanguage): string {
   if (lang === 'da') return normalizeSourceText(value);
   const memory = TRANSLATION_MEMORY[lang] || {};
   const normalized = normalizeSourceText(value);
-  return memory[normalized] || value;
+  if (memory[normalized]) return memory[normalized];
+
+  const lines = value.split('\n');
+  let translatedAnyLine = false;
+  const translatedLines = lines.map((line) => {
+    const leading = line.match(/^\s*/)?.[0] ?? '';
+    const trailing = line.match(/\s*$/)?.[0] ?? '';
+    const trimmed = line.trim();
+    if (!trimmed) return line;
+    const translatedLine = memory[normalizeSourceText(trimmed)];
+    if (!translatedLine) return line;
+    translatedAnyLine = true;
+    return `${leading}${translatedLine}${trailing}`;
+  });
+
+  return translatedAnyLine ? translatedLines.join('\n') : value;
 }
 
 function containsCopiedSourceText(

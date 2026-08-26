@@ -393,4 +393,48 @@ describe('news service localization', () => {
     expect(result.translatedLanguages).toContain('de');
     expect(result.translatedLanguages).not.toContain('en');
   });
+
+  it('auto-translates Template 05 CS-200 body text and quote to German', () => {
+    const template = getNewsTemplate('template-05-story-layout');
+    const body = [
+      'CS-200 kombinerer tallerkenspreder og valseudlægger i én fleksibel løsning. Skift mellem præcis udlægning og bred spredning direkte fra kabinen, og tilpas arbejdet til alt fra smalle stier til større arealer. CS-200 findes både til Timan 3330 og i en version til traktor.',
+      '',
+      'Den elektriske betjening gør det nemt at justere spredningen under arbejdet, mens den hurtige til- og frakobling gør det enkelt at skifte mellem forskellige opgaver og redskaber.',
+      '',
+      'Derfor CS-200',
+      '',
+      '✓ 2-i-1 – tallerkenspreder og valseudlægger',
+      '✓ 1-6 m spredebredde',
+      '✓ Elektrisk betjening direkte fra kabinen',
+      '✓ Hurtig og enkel til- og frakobling',
+      '✓ Præcis dosering til forskellige opgaver',
+      '✓ Fås til både Timan 3330 og traktor',
+    ].join('\n');
+    const quote = 'Vi er meget tilfredse med, hvor hurtigt CS-200 kan kobles på og af. Med den elektriske betjening kan vi styre det hele fra kabinen, og det er virkelig luksus i en travl vinterhverdag';
+
+    const result = translateMissingNewsContent(
+      {
+        da: {
+          headline: 'CS-200 – én spreder, flere muligheder',
+          subtitle: 'Effektiv vintertjeneste – på Timan 3330 eller traktor',
+          body,
+          quote,
+        },
+        de: {
+          headline: 'CS-200 - ein Streuer, viele Möglichkeiten',
+          subtitle: 'Effizienter Winterdienst - mit Timan 3330 oder Traktor',
+          body,
+          quote,
+        },
+      },
+      template.fields,
+      'da',
+    );
+
+    expect(result.localizedContent.de.body).toContain('CS-200 kombiniert Tellerstreuer');
+    expect(result.localizedContent.de.body).toContain('✓ 2-in-1 - Tellerstreuer und Walzenstreuer');
+    expect(result.localizedContent.de.body).not.toContain('tallerkenspreder');
+    expect(result.localizedContent.de.quote).toContain('Wir sind sehr zufrieden');
+    expect(result.translatedLanguages).toContain('de');
+  });
 });
