@@ -49,16 +49,24 @@ export default function CrmLayout({ children, pageTitle }: Props) {
   // Phase 37 — area access is now driven by per-user `allowed_areas` if set,
   // otherwise it falls back to module_access / role defaults.
   const allowedAreas = effectiveUser?.allowed_areas;
-  const crmAreaAllowed = Array.isArray(allowedAreas) && allowedAreas.length > 0
+  const externalCrm = isExternalCrmRole(portalRole);
+  const ownDealerDetailMatch = location.pathname.match(/^\/portal\/crm\/my-dealers\/([^/]+)$/);
+  const ownDealerDetailAllowed = Boolean(
+    externalCrm &&
+    ownDealerDetailMatch &&
+    decodeURIComponent(ownDealerDetailMatch[1]) === effectiveUser?.dealer_number &&
+    Array.isArray(allowedAreas) &&
+    allowedAreas.includes('dealer_data'),
+  );
+  const crmAreaAllowed = ownDealerDetailAllowed || (Array.isArray(allowedAreas) && allowedAreas.length > 0
     ? allowedAreas.includes('timan_crm')
-    : hasModuleAccess(portalRole, 'timan_crm', effectiveUser?.module_access as never);
+    : hasModuleAccess(portalRole, 'timan_crm', effectiveUser?.module_access as never));
   if (!crmAreaAllowed) {
     return <Navigate to="/portal" replace />;
   }
   if (!canUseCrm(portalRole)) {
     return <Navigate to="/portal" replace />;
   }
-  const externalCrm = isExternalCrmRole(portalRole);
   if (externalCrm && EXTERNAL_NAV_BLOCKLIST.has(location.pathname)) {
     return <Navigate to="/portal/crm/dashboard" replace />;
   }

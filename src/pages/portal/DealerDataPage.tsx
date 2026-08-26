@@ -264,6 +264,16 @@ export default function DealerDataPage() {
   // Dealer-side users may still have legacy role='slutkunde' but a real portal_role.
   if (appUser.role === 'slutkunde' && !portalRole) return <Navigate to="/configurator" replace />;
 
+  const externalDealerRoles = new Set([
+    'timan_dealer',
+    'timan_importer',
+    'timan_service_partner',
+    'dealer_user',
+  ]);
+  if (portalRole && externalDealerRoles.has(portalRole) && dealerNumber) {
+    return <Navigate to={`/portal/crm/my-dealers/${encodeURIComponent(dealerNumber)}`} replace />;
+  }
+
   // Internal Timan staff (backend/seller/service) may always edit the dealer
   // profile they are viewing — including dealers reached via ?accountNumber=…
   // from CRM. External dealer-side roles edit only their own account (RLS).
