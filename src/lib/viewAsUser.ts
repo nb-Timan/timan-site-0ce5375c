@@ -60,7 +60,7 @@ async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
     preferred_language: (row.preferred_language as string | null) ?? null,
     preferred_currency: (row.preferred_currency as string | null) ?? null,
     company_dealer: (row.company_dealer as string | null) ?? null,
-    module_access: ((row.module_access as string[] | null) ?? (row.allowed_modules as string[] | null)) ?? null,
+    module_access: ((row.allowed_modules as string[] | null) ?? (row.module_access as string[] | null)) ?? null,
     allowed_areas: (row.allowed_areas as string[] | null) ?? null,
     allowed_modules: (row.allowed_modules as string[] | null) ?? null,
     status: (row.status as string | null) ?? null,
@@ -135,6 +135,7 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
       allowed_modules: target.allowed_modules ?? null,
       permissions: target.permissions ?? null,
       quick_actions: target.quick_actions ?? null,
+      portal_variant: target.portal_variant ?? appUser.portal_variant,
       dealer_number: target.dealer_number ?? null,
       company_dealer: target.company_dealer ?? null,
     };

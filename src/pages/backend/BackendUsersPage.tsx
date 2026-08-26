@@ -920,27 +920,19 @@ function EditUserModal({
               Vælg hvilke genvejskort brugeren ser øverst på portal-forsiden.
               Når intet er valgt manuelt, anvendes standarder for rollen.
             </p>
-            {(() => {
-              const dealerSide = isDealerSideRole(draft.role);
-              return (
-                <CheckboxGroup
-                  items={QUICK_ACTION_KEYS.map((k) => ({
-                    value: k,
-                    label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
-                    disabled: dealerSide && k === "my_dealers",
-                  }))}
-                  checked={((draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as string[])
-                    .filter((k) => !(dealerSide && k === "my_dealers"))}
-                  onChange={(key) => {
-                    const k = key as QuickActionKey;
-                    if (dealerSide && k === "my_dealers") return;
-                    const current = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
-                    const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
-                    setDraft({ ...draft, quick_actions: next });
-                  }}
-                />
-              );
-            })()}
+            <CheckboxGroup
+              items={QUICK_ACTION_KEYS.map((k) => ({
+                value: k,
+                label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
+              }))}
+              checked={(draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as string[]}
+              onChange={(key) => {
+                const k = key as QuickActionKey;
+                const current = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
+                const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
+                setDraft({ ...draft, quick_actions: next });
+              }}
+            />
           </Section>
         </div>
 

@@ -237,7 +237,7 @@ function rowToSessionUser(row: Record<string, unknown>): SessionUser {
     preferred_language: (row.preferred_language as string | null) ?? null,
     preferred_currency: (row.preferred_currency as string | null) ?? null,
     company_dealer: (row.company_dealer as string | null) ?? null,
-    module_access: ((row.module_access as string[] | null) ?? (row.allowed_modules as string[] | null)) ?? null,
+    module_access: ((row.allowed_modules as string[] | null) ?? (row.module_access as string[] | null)) ?? null,
     allowed_areas: (row.allowed_areas as string[] | null) ?? null,
     allowed_modules: (row.allowed_modules as string[] | null) ?? null,
     status: (row.status as string | null) ?? null,

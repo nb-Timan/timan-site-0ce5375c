@@ -274,10 +274,7 @@ export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
     (m) => m !== "timan_backend",
   );
   const backend_modules: BackendUser["backend_modules"] = [];
-  const quick_actions = draft.quick_actions == null
-    ? null
-    : draft.quick_actions.filter((q) => q !== "my_dealers");
-  return { ...draft, allowed_areas, allowed_modules, backend_modules, quick_actions };
+  return { ...draft, allowed_areas, allowed_modules, backend_modules };
 }
 
 export async function saveBackendUser(id: string, draft: BackendUser): Promise<SaveResult> {

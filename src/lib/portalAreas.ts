@@ -131,7 +131,12 @@ export const PORTAL_AREAS: PortalArea[] = [
  */
 export function isAreaVisible(
   area: PortalArea,
-  user: (AppUser & { portal_role?: string | null; module_access?: string[] | null; allowed_areas?: string[] | null }) | null,
+  user: (AppUser & {
+    portal_role?: string | null;
+    module_access?: string[] | null;
+    allowed_areas?: string[] | null;
+    allowed_modules?: string[] | null;
+  }) | null,
 ): boolean {
   if (!user) return false;
 
@@ -183,7 +188,12 @@ export function isAreaVisible(
   const key = area.id as ModuleAccessKey;
 
   if (portalRole) {
-    return hasModuleAccess(portalRole, key, user.module_access as ModuleAccessKey[] | null | undefined);
+    const moduleOverride = (
+      (user.allowed_modules as ModuleAccessKey[] | null | undefined) ??
+      (user.module_access as ModuleAccessKey[] | null | undefined) ??
+      null
+    );
+    return hasModuleAccess(portalRole, key, moduleOverride);
   }
 
   switch (area.id) {

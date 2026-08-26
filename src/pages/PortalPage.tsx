@@ -211,7 +211,11 @@ export default function PortalPage() {
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
   const portalRole = derivePortalRole(effectiveUser);
   const realPortalRole = derivePortalRole(appUser);
-  const moduleOverride = (effectiveUser?.module_access as ModuleAccessKey[] | null | undefined) ?? null;
+  const moduleOverride = (
+    (effectiveUser?.allowed_modules as ModuleAccessKey[] | null | undefined) ??
+    (effectiveUser?.module_access as ModuleAccessKey[] | null | undefined) ??
+    null
+  );
   const showMesseCard = (
     realPortalRole === 'timan_backend' ||
     realPortalRole === 'timan_seller' ||

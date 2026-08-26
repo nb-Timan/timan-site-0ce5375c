@@ -46,7 +46,10 @@ export default function QuickActions({ language }: Props) {
   const isBackend = realRole === 'timan_backend';
   const portalRole = derivePortalRole(effectiveUser);
   const effectiveRoleKey = portalRole || (effectiveUser.portal_role || '').toLowerCase();
-  const moduleOverride = (effectiveUser.module_access ?? null) as ModuleAccessKey[] | null;
+  const moduleOverride = (
+    effectiveUser.allowed_modules ?? effectiveUser.module_access ?? null
+  ) as ModuleAccessKey[] | null;
+  const hasCrmAccess = hasModuleAccess(portalRole, 'timan_crm', moduleOverride);
 
   let actions: Action[] = [];
   let contextLabel = '';
@@ -60,7 +63,7 @@ export default function QuickActions({ language }: Props) {
     effectiveRoleKey === 'timan_importer' ||
     effectiveRoleKey === 'dealer_user'
   ) {
-    actions = DEALER_ACTIONS;
+    actions = hasCrmAccess ? [...INTERNAL_ACTIONS, ...DEALER_ACTIONS] : DEALER_ACTIONS;
     contextLabel = t('quickActionsContextDealer', language);
   } else if (effectiveRoleKey === 'timan_backend' || effectiveRoleKey === 'timan_seller') {
     actions = INTERNAL_ACTIONS;
