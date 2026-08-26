@@ -48,7 +48,7 @@ type TKey =
   | 'page_title' | 'sub_admin' | 'sub_seller' | 'pcs'
   | 'unassigned' | 'new_demo' | 'new_lead'
   | 'tab_all' | 'tab_open' | 'tab_demo' | 'tab_mine' | 'tab_mine_demo'
-  | 'tab_open_demo' | 'tab_won' | 'tab_lost'
+  | 'tab_won' | 'tab_lost'
   | 'search_ph' | 'all_status' | 'loading' | 'empty_title' | 'empty_sub'
   | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
   | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
@@ -73,7 +73,6 @@ const T: Record<TKey, Record<Language, string>> = {
   tab_demo:      { da: 'Demo leads', en: 'Demo leads', de: 'Demo-Leads', it: 'Demo lead', hu: 'Demo leadek' },
   tab_mine:      { da: 'Mine leads', en: 'My leads', de: 'Meine Leads', it: 'I miei lead', hu: 'Saját leadek' },
   tab_mine_demo: { da: 'Mine demoer', en: 'My demos', de: 'Meine Demos', it: 'Le mie demo', hu: 'Saját demók' },
-  tab_open_demo: { da: 'Åbne demo leads', en: 'Open demo leads', de: 'Offene Demo-Leads', it: 'Demo lead aperti', hu: 'Nyitott demo leadek' },
   tab_won:       { da: 'Vundet leads', en: 'Won leads', de: 'Gewonnene Leads', it: 'Lead vinti', hu: 'Nyertes leadek' },
   tab_lost:      { da: 'Tabte leads', en: 'Lost leads', de: 'Verlorene Leads', it: 'Lead persi', hu: 'Elveszett leadek' },
   search_ph:     { da: 'Søg titel, kunde, forhandler, sælger eller maskine…', en: 'Search title, customer, dealer, seller or machine…', de: 'Titel, Kunde, Händler, Verkäufer oder Maschine suchen…', it: 'Cerca titolo, cliente, rivenditore, venditore o macchina…', hu: 'Keresés: cím, ügyfél, kereskedő, értékesítő vagy gép…' },
@@ -261,7 +260,7 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
   };
 }
 
-type TabKey = 'open' | 'open_demo' | 'won' | 'closed' | 'all';
+type TabKey = 'open' | 'won' | 'closed' | 'all';
 type SortKey = 'default' | 'title_asc' | 'title_desc' | 'date_desc' | 'date_asc' | 'prob_desc' | 'prob_asc';
 type UserLeadType = 'open' | 'demo' | 'won' | 'lost';
 type FollowupTone = 'overdue' | 'soon' | 'neutral';
@@ -348,7 +347,6 @@ export default function CrmLeadsPage() {
 
   const TABS: { key: TabKey; label: string }[] = [
     { key: 'open',      label: tt('tab_open', lang) },
-    { key: 'open_demo', label: tt('tab_open_demo', lang) },
     { key: 'won',       label: tt('tab_won', lang) },
     { key: 'closed',    label: tt('tab_lost', lang) },
     { key: 'all',       label: tt('tab_all', lang) },
@@ -483,16 +481,14 @@ export default function CrmLeadsPage() {
 
   const counts = useMemo(() => ({
     all:       allRows.length,
-    open:      allRows.filter(r => r.type === 'open' && !isDemoLikeRow(r) && isOpenRow(r)).length,
-    open_demo: allRows.filter(r => isDemoLikeRow(r) && isOpenRow(r)).length,
+    open:      allRows.filter(isOpenRow).length,
     won:       allRows.filter(isWonRow).length,
     closed:    allRows.filter(r => isClosedRow(r) && !isWonRow(r)).length,
   }), [allRows]);
 
   const visible = useMemo(() => {
     let r = allRows;
-    if (tab === 'open') r = r.filter(x => x.type === 'open' && !isDemoLikeRow(x) && isOpenRow(x));
-    else if (tab === 'open_demo') r = r.filter(x => isDemoLikeRow(x) && isOpenRow(x));
+    if (tab === 'open') r = r.filter(isOpenRow);
     else if (tab === 'won') r = r.filter(isWonRow);
     else if (tab === 'closed') r = r.filter(x => isClosedRow(x) && !isWonRow(x));
 
