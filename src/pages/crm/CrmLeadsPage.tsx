@@ -295,13 +295,6 @@ function getUserLeadTypeLabel(type: UserLeadType, lang: Language): string {
   return tt('open_lbl', lang);
 }
 
-const USER_LEAD_TYPE_BADGE: Record<UserLeadType, string> = {
-  open: 'bg-amber-50 text-amber-800 border-amber-200',
-  demo: 'bg-sky-50 text-sky-700 border-sky-200',
-  won: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  lost: 'bg-rose-50 text-rose-700 border-rose-200',
-};
-
 const FOLLOWUP_BADGE: Record<FollowupTone, string> = {
   overdue: 'bg-rose-50 text-rose-700 border-rose-200',
   soon: 'bg-amber-50 text-amber-800 border-amber-200',
@@ -675,7 +668,7 @@ export default function CrmLeadsPage() {
                       <td className="px-4 py-3.5">
                         <span className={cn(
                           'inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border',
-                          USER_LEAD_TYPE_BADGE[userType]
+                          FOLLOWUP_BADGE[followupTone]
                         )}>
                           {getUserLeadTypeLabel(userType, lang)}
                         </span>
