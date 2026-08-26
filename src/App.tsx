@@ -219,6 +219,7 @@ const App = () => (
               <Route path="/portal/marketing" element={<PortalAreaPage areaId="marketing" />} />
               <Route path="/portal/marketing/news" element={<MesseNewsPage mode="marketing" />} />
               <Route path="/portal/marketing/news/overview" element={<BackendNewsPage />} />
+              <Route path="/portal/marketing/site-features" element={<BackendChangelogPage />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
               <Route path="/portal/dealer-data" element={<DealerDataPage />} />
               <Route path="/portal/crm" element={<PortalCrmPage />} />

@@ -1,5 +1,5 @@
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, ListChecks, LucideIcon } from 'lucide-react';
+import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, ListChecks, Sparkles, LucideIcon } from 'lucide-react';
 import { useEffect } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
@@ -182,6 +182,15 @@ export default function PortalAreaPage({ areaId }: Props) {
               to="/portal/marketing/news/overview"
               icon={ListChecks}
               description={t('newsCmsDashboardHelp', uiLanguage)}
+            />
+          )}
+          {areaId === 'marketing' && canManageNewsContent(effectiveUser) && (
+            <PlaceholderCard
+              title="Nye features på sitet"
+              language={lang}
+              to="/portal/marketing/site-features"
+              icon={Sparkles}
+              description="Gennemgå produktændringer og publicér udvalgte poster til Hvad er nyt?"
             />
           )}
           {area.placeholders.map(p => {

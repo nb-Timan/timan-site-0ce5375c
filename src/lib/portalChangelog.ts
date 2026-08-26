@@ -10,6 +10,7 @@
 import { useCallback, useSyncExternalStore } from 'react';
 import { Language } from '@/types/configurator';
 import { PortalAreaId } from '@/lib/portalAreas';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { SessionUser } from '@/context/AppUserContext';
 import {
   subscribeChangelog,
@@ -40,6 +41,8 @@ export type ChangelogRole =
   | 'admin'
   | 'dealer';
 
+type ChangelogText = Record<Language, string> & Partial<Record<Exclude<PortalUiLanguage, Language>, string>>;
+
 export interface ChangeLogEntry {
   id: string;
   module_key: ModuleKey;
@@ -50,13 +53,13 @@ export interface ChangeLogEntry {
    * 'tsb_portal'). Entries without submodule_key are module-level changes.
    */
   submodule_key?: string;
-  module_name: Record<Language, string>;
+  module_name: ChangelogText;
   /** ISO timestamp of when the change went live. */
   changed_at: string;
-  title: Record<Language, string>;
-  description?: Record<Language, string>;
+  title: ChangelogText;
+  description?: ChangelogText;
   /** Short change note shown after the timestamp on module pages. */
-  note?: Record<Language, string>;
+  note?: ChangelogText;
   /** Roles allowed to see the entry. Empty / undefined / contains 'all' = everyone. */
   role_visibility?: ChangelogRole[];
   /** If set, only these UI languages render it. Undefined = all languages. */
@@ -105,20 +108,20 @@ export function hrefForEntry(entry: ChangeLogEntry): string | null {
 export const CHANGELOG_LABELS: Record<
   'whatsNew' | 'latestChanges' | 'lastChanged' | 'changed' | 'updated'
   | 'important' | 'newTag' | 'viewAll' | 'empty',
-  Record<Language, string>
+  ChangelogText
 > = {
-  whatsNew:     { da: 'Hvad er nyt?', en: 'What\u2019s new?', de: 'Was ist neu?', it: 'Cosa c\u2019è di nuovo?', hu: 'Mi az új?' },
-  latestChanges:{ da: 'Seneste ændringer', en: 'Latest changes', de: 'Letzte Änderungen', it: 'Ultime modifiche', hu: 'Legutóbbi változások' },
-  lastChanged:  { da: 'Senest ændret', en: 'Last changed', de: 'Zuletzt geändert', it: 'Ultima modifica', hu: 'Utoljára módosítva' },
-  changed:      { da: 'Ændret', en: 'Changed', de: 'Geändert', it: 'Modificato', hu: 'Módosítva' },
-  updated:      { da: 'Opdateret', en: 'Updated', de: 'Aktualisiert', it: 'Aggiornato', hu: 'Frissítve' },
-  important:    { da: 'Vigtig', en: 'Important', de: 'Wichtig', it: 'Importante', hu: 'Fontos' },
-  newTag:       { da: 'Ny', en: 'New', de: 'Neu', it: 'Nuovo', hu: 'Új' },
-  viewAll:      { da: 'Se alle ændringer', en: 'View all changes', de: 'Alle Änderungen anzeigen', it: 'Vedi tutte le modifiche', hu: 'Összes változás' },
-  empty:        { da: 'Ingen ændringer endnu.', en: 'No changes yet.', de: 'Noch keine Änderungen.', it: 'Ancora nessuna modifica.', hu: 'Még nincsenek változások.' },
+  whatsNew:     { da: 'Hvad er nyt?', en: 'What\u2019s new?', de: 'Was ist neu?', it: 'Cosa c\u2019è di nuovo?', hu: 'Mi az új?', fr: 'Quoi de neuf ?', pl: 'Co nowego?', cs: 'Co je nového?' },
+  latestChanges:{ da: 'Seneste ændringer', en: 'Latest changes', de: 'Letzte Änderungen', it: 'Ultime modifiche', hu: 'Legutóbbi változások', fr: 'Dernières modifications', pl: 'Najnowsze zmiany', cs: 'Poslední změny' },
+  lastChanged:  { da: 'Senest ændret', en: 'Last changed', de: 'Zuletzt geändert', it: 'Ultima modifica', hu: 'Utoljára módosítva', fr: 'Dernière modification', pl: 'Ostatnia zmiana', cs: 'Naposledy změněno' },
+  changed:      { da: 'Ændret', en: 'Changed', de: 'Geändert', it: 'Modificato', hu: 'Módosítva', fr: 'Modifié', pl: 'Zmieniono', cs: 'Změněno' },
+  updated:      { da: 'Opdateret', en: 'Updated', de: 'Aktualisiert', it: 'Aggiornato', hu: 'Frissítve', fr: 'Mis à jour', pl: 'Zaktualizowano', cs: 'Aktualizováno' },
+  important:    { da: 'Vigtig', en: 'Important', de: 'Wichtig', it: 'Importante', hu: 'Fontos', fr: 'Important', pl: 'Ważne', cs: 'Důležité' },
+  newTag:       { da: 'Ny', en: 'New', de: 'Neu', it: 'Nuovo', hu: 'Új', fr: 'Nouveau', pl: 'Nowe', cs: 'Nové' },
+  viewAll:      { da: 'Se alle ændringer', en: 'View all changes', de: 'Alle Änderungen anzeigen', it: 'Vedi tutte le modifiche', hu: 'Összes változás', fr: 'Voir toutes les modifications', pl: 'Zobacz wszystkie zmiany', cs: 'Zobrazit všechny změny' },
+  empty:        { da: 'Ingen ændringer endnu.', en: 'No changes yet.', de: 'Noch keine Änderungen.', it: 'Ancora nessuna modifica.', hu: 'Még nincsenek változások.', fr: 'Aucune modification pour le moment.', pl: 'Brak zmian.', cs: 'Zatím žádné změny.' },
 };
 
-export function t(key: keyof typeof CHANGELOG_LABELS, language: Language): string {
+export function t(key: keyof typeof CHANGELOG_LABELS, language: PortalUiLanguage): string {
   return CHANGELOG_LABELS[key][language] || CHANGELOG_LABELS[key].da;
 }
 
@@ -201,6 +204,9 @@ export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
       de: 'Budgetansicht korrigiert',
       it: 'Visualizzazione budget corretta',
       hu: 'Költségvetés-nézet javítva',
+      fr: 'Vue budget corrigée',
+      pl: 'Widok budżetu poprawiony',
+      cs: 'Zobrazení rozpočtu opraveno',
     },
     note: {
       da: 'Budgetvisning rettet',
@@ -208,6 +214,9 @@ export const CHANGELOG_ENTRIES: ChangeLogEntry[] = [
       de: 'Budgetansicht korrigiert',
       it: 'Visualizzazione budget corretta',
       hu: 'Költségvetés-nézet javítva',
+      fr: 'Vue budget corrigée',
+      pl: 'Widok budżetu poprawiony',
+      cs: 'Zobrazení rozpočtu opraveno',
     },
   },
   {

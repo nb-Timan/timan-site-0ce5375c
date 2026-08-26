@@ -18,7 +18,7 @@ interface Props {
 
 export default function LastChangedLine({ moduleKey, markReadOnMount = true, className }: Props) {
   const { appUser } = useAppUser();
-  const { language: lang } = useLanguage();
+  const { language: lang, uiLanguage } = useLanguage();
   const { latestForModule, markModuleRead } = useChangelog(appUser, lang);
   const entry = latestForModule(moduleKey);
 
@@ -29,7 +29,7 @@ export default function LastChangedLine({ moduleKey, markReadOnMount = true, cla
 
   if (!entry) return null;
 
-  const note = entry.note?.[lang] || entry.note?.en;
+  const note = entry.note?.[uiLanguage] || entry.note?.[lang] || entry.note?.en;
 
   return (
     <div
@@ -39,7 +39,7 @@ export default function LastChangedLine({ moduleKey, markReadOnMount = true, cla
       )}
     >
       <Clock className="h-3.5 w-3.5 text-gray-400" />
-      <span className="font-medium text-gray-600">{t('lastChanged', lang)}:</span>
+      <span className="font-medium text-gray-600">{t('lastChanged', uiLanguage)}:</span>
       <span className="tabular-nums">{formatChangedAt(entry.changed_at)}</span>
       {note && (
         <>
@@ -50,7 +50,7 @@ export default function LastChangedLine({ moduleKey, markReadOnMount = true, cla
       {entry.is_major && (
         <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 text-rose-700 px-1.5 py-0.5 text-[10px] font-bold uppercase">
           <Star className="h-3 w-3" />
-          {t('important', lang)}
+          {t('important', uiLanguage)}
         </span>
       )}
     </div>

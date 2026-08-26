@@ -83,7 +83,7 @@ function buildGroups(): Group[] {
       description: "Systemstatus, mail-log, job queue, change log og persistence audit.",
       items: [
         { title: "Nyheder", icon: Newspaper, to: "/portal/backend/news", description: "Administrér nyheder, kladder, skabeloner og publicering til Seneste nyt." },
-        { title: "Seneste ændringer", icon: Sparkles, to: "/portal/backend/changelog", description: "Administrér portalens change log — opret, redigér og slet ændringer som vises på forsiden og modulkort." },
+        { title: "Nye features på sitet", icon: Sparkles, to: "/portal/backend/changelog", description: "Gennemgå produktændringer og publicér udvalgte poster til Hvad er nyt?" },
         { title: "Persistence Audit", icon: FileSearch, to: "/portal/backend/persistence-audit", description: "Tjek dataintegritet og overvåg gemte ressourcer." },
         { title: "Mail Log", icon: Mail, description: "Log over udsendte mails fra portalen." },
         { title: "Job Queue", icon: ListChecks, description: "Baggrundsjobs og kørselshistorik." },

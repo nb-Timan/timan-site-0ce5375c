@@ -1,15 +1,9 @@
 /**
- * Portal change log — Supabase data service (Phase 3).
+ * Site/product changelog service.
  *
- * Loads entries from `public.portal_change_log` and caches them in-memory.
- * Falls back to the hardcoded demo entries (CHANGELOG_ENTRIES) when the
- * table is empty or unreachable.
- *
- * Rows are stored mono-lingually in the DB (`language` column). To stay
- * compatible with the existing UI which expects multilingual records, each
- * row is materialised into a `ChangeLogEntry` whose multilingual fields are
- * filled with the same string on every language key. Language fallback to
- * Danish is applied at query time (see `filterByLanguage`).
+ * Public portal UI reads only `site_change_public_entries`, which contains
+ * user-facing published text. Marketing/Backend administration reads the
+ * internal `site_change_entries` table.
  */
 import { supabase } from './supabase';
 import {
@@ -21,22 +15,86 @@ import {
 import { Language } from '@/types/configurator';
 
 const LANG_KEYS: Language[] = ['da', 'en', 'de', 'it', 'hu'];
+const PAGE_SIZE = 1000;
 
-export interface PortalChangeLogRow {
+export type SiteChangeStatus = 'new' | 'draft' | 'published' | 'archived';
+export type SiteChangeRecommendation = 'publish' | 'maybe' | 'internal';
+
+export interface SiteChangeEntryRow {
   id: string;
-  module_key: string;
-  module_name: string;
-  submodule_key: string | null;
-  changed_at: string;
+  source: string;
+  source_ref: string | null;
+  implemented_at: string;
+  title_internal: string;
+  description_internal: string | null;
+  technical_description: string | null;
+  title_public: string | null;
+  description_public: string | null;
+  module: string;
+  change_type: string;
+  affected_roles: string[];
+  user_impact_score: number;
+  technical_impact_score: number;
+  publish_recommendation: SiteChangeRecommendation;
+  is_important: boolean;
+  status: SiteChangeStatus;
+  published_at: string | null;
+  archived_at: string | null;
+  reviewed_at: string | null;
+  created_by: string | null;
+  updated_by: string | null;
+  published_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SiteChangePublicRow {
+  id: string;
+  published_at: string;
+  implemented_at: string;
   title: string;
   description: string | null;
-  role_visibility: string[] | null;
-  language: string;
-  is_major: boolean;
-  is_new_until: string | null;
-  created_at?: string;
-  updated_at?: string;
-  created_by?: string | null;
+  module: string;
+  change_type: string;
+  affected_roles: string[];
+  is_important: boolean;
+  source_ref: string | null;
+  updated_at: string;
+}
+
+export interface ChangelogDraft {
+  id?: string;
+  source: string;
+  source_ref?: string | null;
+  implemented_at: string;
+  title_internal: string;
+  description_internal?: string | null;
+  technical_description?: string | null;
+  title_public?: string | null;
+  description_public?: string | null;
+  module: string;
+  change_type: string;
+  affected_roles: string[];
+  user_impact_score: number;
+  technical_impact_score: number;
+  publish_recommendation: SiteChangeRecommendation;
+  is_important: boolean;
+  status: SiteChangeStatus;
+  published_at?: string | null;
+  archived_at?: string | null;
+  reviewed_at?: string | null;
+}
+
+export interface ChangelogListOptions {
+  page?: number;
+  pageSize?: number;
+  status?: SiteChangeStatus | 'all';
+  recommendation?: SiteChangeRecommendation | 'all';
+  module?: string;
+  role?: string;
+  changeType?: string;
+  minUserImpact?: number;
+  search?: string;
 }
 
 function fanout(text: string | null | undefined): Record<Language, string> {
@@ -44,31 +102,85 @@ function fanout(text: string | null | undefined): Record<Language, string> {
   return LANG_KEYS.reduce((acc, k) => { acc[k] = v; return acc; }, {} as Record<Language, string>);
 }
 
-export function rowToEntry(row: PortalChangeLogRow): ChangeLogEntry & { _lang: Language; _rowLang: string } {
-  const lang = (LANG_KEYS as string[]).includes(row.language) ? (row.language as Language) : 'da';
+function moduleName(module: string): string {
+  const labels: Record<string, string> = {
+    crm: 'CRM',
+    leads: 'Leads',
+    dealer_data: 'Forhandlerdata',
+    dealer_portal: 'Forhandlerportal',
+    service: 'Service & Teknik',
+    messe: 'Messe',
+    marketing: 'Marketing',
+    map: 'Kort',
+    warranty: 'Garantiregistrering',
+    claims: 'Claims',
+    tsb: 'TSB',
+    users: 'Brugere',
+    budget: 'Budget',
+    quotes: 'Tilbud',
+    orders: 'Ordrer',
+    backend: 'Backend',
+    misc: 'Formularer',
+    configurator: 'Konfigurator',
+    partner_map: 'Partnerkort',
+  };
+  return labels[module] || module;
+}
+
+function moduleToKey(module: string): ModuleKey {
+  const map: Record<string, ModuleKey> = {
+    map: 'partner_map',
+    partner_map: 'misc',
+    dealer_portal: 'dealer_data',
+    leads: 'crm',
+    budget: 'crm',
+    quotes: 'crm',
+    orders: 'crm',
+    users: 'backend',
+    marketing: 'backend',
+    tsb: 'service',
+  };
+  return map[module] || (module as ModuleKey);
+}
+
+function rolesToLegacyBuckets(roles: string[]): ChangelogRole[] {
+  const out = new Set<ChangelogRole>();
+  for (const role of roles) {
+    if (role === 'all') out.add('all');
+    if (role === 'timan_backend' || role === 'admin') out.add('backend').add('admin');
+    if (role === 'timan_seller' || role === 'sales') out.add('sales');
+    if (role === 'timan_service' || role === 'service') out.add('service');
+    if (
+      role === 'dealer' ||
+      role === 'timan_dealer' ||
+      role === 'dealer_user' ||
+      role === 'timan_importer' ||
+      role === 'timan_service_partner'
+    ) out.add('dealer');
+  }
+  return out.size > 0 ? Array.from(out) : ['all'];
+}
+
+export function publicRowToEntry(row: SiteChangePublicRow): ChangeLogEntry {
   return {
     id: row.id,
-    module_key: row.module_key as ModuleKey,
-    submodule_key: row.submodule_key || undefined,
-    module_name: fanout(row.module_name),
-    changed_at: row.changed_at,
+    module_key: moduleToKey(row.module),
+    module_name: fanout(moduleName(row.module)),
+    changed_at: row.published_at,
     title: fanout(row.title),
     description: row.description ? fanout(row.description) : undefined,
-    note: fanout(row.title), // module-page line uses note; reuse title when no separate note column
-    role_visibility: (row.role_visibility || ['all']) as ChangelogRole[],
-    is_major: !!row.is_major,
-    is_new_until: row.is_new_until || undefined,
-    _lang: lang,
-    _rowLang: row.language,
+    note: fanout(row.title),
+    role_visibility: rolesToLegacyBuckets(row.affected_roles || ['all']),
+    is_major: !!row.is_important,
   };
 }
 
-// ---------- In-memory cache ----------
+// ---------- In-memory public cache ----------
 
 type CacheState =
   | { status: 'idle' }
   | { status: 'loading' }
-  | { status: 'ready'; rows: PortalChangeLogRow[] }
+  | { status: 'ready'; rows: SiteChangePublicRow[] }
   | { status: 'fallback' };
 
 let cache: CacheState = { status: 'idle' };
@@ -91,131 +203,169 @@ export function getChangelogSnapshot(): string {
   return snapshotToken;
 }
 
+async function fetchAllPublicRows(): Promise<SiteChangePublicRow[]> {
+  const rows: SiteChangePublicRow[] = [];
+  let from = 0;
+  for (;;) {
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from('site_change_public_entries')
+      .select('*')
+      .order('published_at', { ascending: false })
+      .range(from, to);
+    if (error) throw error;
+    const batch = (data || []) as SiteChangePublicRow[];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return rows;
+}
+
 export async function loadChangelogFromSupabase(force = false): Promise<void> {
   if (!force && (cache.status === 'loading' || cache.status === 'ready' || cache.status === 'fallback')) return;
   cache = { status: 'loading' };
   bumpSnapshot();
   try {
-    const { data, error } = await supabase
-      .from('portal_change_log')
-      .select('*')
-      .order('changed_at', { ascending: false })
-      .limit(200);
-    if (error || !data || data.length === 0) {
-      cache = { status: 'fallback' };
-    } else {
-      cache = { status: 'ready', rows: data as PortalChangeLogRow[] };
-    }
+    const rows = await fetchAllPublicRows();
+    cache = rows.length > 0 ? { status: 'ready', rows } : { status: 'fallback' };
   } catch {
     cache = { status: 'fallback' };
   }
   bumpSnapshot();
 }
 
-/** Force a refetch (e.g. after an admin edit). */
 export async function refreshChangelog(): Promise<void> {
   await loadChangelogFromSupabase(true);
 }
 
-/** Synchronous accessor — returns rows for the UI. Triggers a load when idle. */
-export function getEntriesForLanguage(language: Language): ChangeLogEntry[] {
-  if (cache.status === 'idle') {
-    // Kick off background load — UI will re-render via subscription.
-    void loadChangelogFromSupabase();
-  }
+export function getEntriesForLanguage(_language: Language): ChangeLogEntry[] {
+  if (cache.status === 'idle') void loadChangelogFromSupabase();
   if (cache.status === 'ready') {
-    const rows = cache.rows.map(rowToEntry);
-    return filterByLanguage(rows, language);
+    return cache.rows.map(publicRowToEntry).sort((a, b) => (a.changed_at < b.changed_at ? 1 : -1));
   }
   return CHANGELOG_ENTRIES;
 }
 
-/** Per-module language fallback: prefer rows in `language`, else Danish. */
-function filterByLanguage(
-  rows: (ChangeLogEntry & { _rowLang: string })[],
-  language: Language,
-): ChangeLogEntry[] {
-  const byModule = new Map<string, ChangeLogEntry[]>();
-  for (const r of rows) {
-    const list = byModule.get(r.module_key) || [];
-    list.push(r);
-    byModule.set(r.module_key, list);
-  }
-  const out: ChangeLogEntry[] = [];
-  for (const [, list] of byModule) {
-    const inLang = list.filter(r => (r as any)._rowLang === language);
-    const picked = inLang.length > 0 ? inLang : list.filter(r => (r as any)._rowLang === 'da');
-    // If no Danish either, fall back to whatever is there so admin sees data.
-    out.push(...(picked.length > 0 ? picked : list));
-  }
-  return out.sort((a, b) => (a.changed_at < b.changed_at ? 1 : -1));
-}
-
 // ---------- Admin CRUD helpers ----------
 
-export interface ChangelogDraft {
-  id?: string;
-  module_key: string;
-  module_name: string;
-  submodule_key?: string | null;
-  title: string;
-  description?: string | null;
-  changed_at: string;            // ISO
-  language: string;              // da/en/...
-  is_major: boolean;
-  is_new_until?: string | null;  // ISO or null
-  role_visibility: string[];
+function applyFilters(query: any, options: ChangelogListOptions) {
+  let q = query;
+  if (options.status && options.status !== 'all') q = q.eq('status', options.status);
+  if (options.recommendation && options.recommendation !== 'all') q = q.eq('publish_recommendation', options.recommendation);
+  if (options.module && options.module !== 'all') q = q.eq('module', options.module);
+  if (options.role && options.role !== 'all') q = q.contains('affected_roles', [options.role]);
+  if (options.changeType && options.changeType !== 'all') q = q.eq('change_type', options.changeType);
+  if (options.minUserImpact) q = q.gte('user_impact_score', options.minUserImpact);
+  if (options.search?.trim()) {
+    const s = `%${options.search.trim()}%`;
+    q = q.or(`title_internal.ilike.${s},description_internal.ilike.${s},title_public.ilike.${s},description_public.ilike.${s},source_ref.ilike.${s}`);
+  }
+  return q;
 }
 
-export async function adminListChangelog(): Promise<{ rows: PortalChangeLogRow[]; error: string | null }> {
+export async function adminListChangelog(options: ChangelogListOptions = {}): Promise<{ rows: SiteChangeEntryRow[]; count: number; error: string | null }> {
+  const page = Math.max(0, options.page ?? 0);
+  const pageSize = Math.min(Math.max(10, options.pageSize ?? 50), 100);
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+
+  let query = supabase
+    .from('site_change_entries')
+    .select('*', { count: 'exact' });
+  query = applyFilters(query, options)
+    .order('implemented_at', { ascending: false })
+    .range(from, to);
+
+  const { data, error, count } = await query;
+  if (error) return { rows: [], count: 0, error: error.message };
+  return { rows: (data || []) as SiteChangeEntryRow[], count: count || 0, error: null };
+}
+
+function toPayload(draft: ChangelogDraft) {
+  const now = new Date().toISOString();
+  const status = draft.status;
+  return {
+    source: draft.source || 'manual',
+    source_ref: draft.source_ref || null,
+    implemented_at: draft.implemented_at,
+    title_internal: draft.title_internal,
+    description_internal: draft.description_internal || null,
+    technical_description: draft.technical_description || null,
+    title_public: draft.title_public || null,
+    description_public: draft.description_public || null,
+    module: draft.module,
+    change_type: draft.change_type,
+    affected_roles: draft.affected_roles?.length ? draft.affected_roles : ['all'],
+    user_impact_score: draft.user_impact_score,
+    technical_impact_score: draft.technical_impact_score,
+    publish_recommendation: draft.publish_recommendation,
+    is_important: draft.is_important,
+    status,
+    published_at: status === 'published' ? (draft.published_at || now) : null,
+    archived_at: status === 'archived' ? (draft.archived_at || now) : null,
+    reviewed_at: status !== 'new' ? (draft.reviewed_at || now) : null,
+  };
+}
+
+export async function adminCreateChangelog(draft: ChangelogDraft): Promise<{ row: SiteChangeEntryRow | null; error: string | null }> {
   const { data, error } = await supabase
-    .from('portal_change_log')
+    .from('site_change_entries')
+    .insert(toPayload(draft))
     .select('*')
-    .order('changed_at', { ascending: false })
-    .limit(500);
-  if (error) return { rows: [], error: error.message };
-  return { rows: (data || []) as PortalChangeLogRow[], error: null };
-}
-
-export async function adminCreateChangelog(draft: ChangelogDraft): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('portal_change_log').insert({
-    module_key: draft.module_key,
-    module_name: draft.module_name,
-    submodule_key: draft.submodule_key || null,
-    title: draft.title,
-    description: draft.description || null,
-    changed_at: draft.changed_at,
-    language: draft.language,
-    is_major: draft.is_major,
-    is_new_until: draft.is_new_until || null,
-    role_visibility: draft.role_visibility,
-  });
-  if (error) return { error: error.message };
+    .maybeSingle();
+  if (error) return { row: null, error: error.message };
   await refreshChangelog();
-  return { error: null };
+  return { row: data as SiteChangeEntryRow, error: null };
 }
 
 export async function adminUpdateChangelog(id: string, draft: ChangelogDraft): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('portal_change_log').update({
-    module_key: draft.module_key,
-    module_name: draft.module_name,
-    submodule_key: draft.submodule_key || null,
-    title: draft.title,
-    description: draft.description || null,
-    changed_at: draft.changed_at,
-    language: draft.language,
-    is_major: draft.is_major,
-    is_new_until: draft.is_new_until || null,
-    role_visibility: draft.role_visibility,
-  }).eq('id', id);
+  const { error } = await supabase
+    .from('site_change_entries')
+    .update(toPayload(draft))
+    .eq('id', id);
   if (error) return { error: error.message };
   await refreshChangelog();
   return { error: null };
 }
 
 export async function adminDeleteChangelog(id: string): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('portal_change_log').delete().eq('id', id);
+  const { error } = await supabase.from('site_change_entries').delete().eq('id', id);
   if (error) return { error: error.message };
   await refreshChangelog();
   return { error: null };
+}
+
+export async function adminUpdateChangelogStatus(id: string, status: SiteChangeStatus): Promise<{ error: string | null }> {
+  const now = new Date().toISOString();
+  const patch: Record<string, string | null> = {
+    status,
+    reviewed_at: status === 'new' ? null : now,
+    published_at: status === 'published' ? now : null,
+    archived_at: status === 'archived' ? now : null,
+  };
+  const { error } = await supabase.from('site_change_entries').update(patch).eq('id', id);
+  if (error) return { error: error.message };
+  await refreshChangelog();
+  return { error: null };
+}
+
+export function recommendPublication(userImpact: number, technicalImpact: number): SiteChangeRecommendation {
+  if (userImpact >= 8) return 'publish';
+  if (userImpact <= 2 && technicalImpact <= 5) return 'internal';
+  return 'maybe';
+}
+
+export function inferModuleFromFiles(files: string[]): string {
+  const haystack = files.join('\n').toLowerCase();
+  if (haystack.includes('/crm/') || haystack.includes('crm')) return 'crm';
+  if (haystack.includes('partnermap') || haystack.includes('partner-map') || haystack.includes('map')) return 'map';
+  if (haystack.includes('dealer')) return 'dealer_data';
+  if (haystack.includes('messe')) return 'messe';
+  if (haystack.includes('tsb')) return 'tsb';
+  if (haystack.includes('warranty')) return 'warranty';
+  if (haystack.includes('claim')) return 'claims';
+  if (haystack.includes('news') || haystack.includes('marketing')) return 'marketing';
+  if (haystack.includes('backend')) return 'backend';
+  return 'backend';
 }
