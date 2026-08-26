@@ -59,6 +59,7 @@ type TKey =
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
   | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
   | 'convert_to_demo' | 'convert_to_quote' | 'go_to_quote'
+  | 'urgency_overdue' | 'urgency_soon' | 'urgency_later'
   | 'st_Lead' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
 const T: Record<TKey, Record<Language, string>> = {
@@ -114,6 +115,9 @@ const T: Record<TKey, Record<Language, string>> = {
   convert_to_demo:{ da: 'Konverter til demo', en: 'Convert to demo', de: 'In Demo umwandeln', it: 'Converti in demo', hu: 'Konvertálás demóvá' },
   convert_to_quote:{ da: 'Konverter til tilbud', en: 'Convert to quote', de: 'In Angebot umwandeln', it: 'Converti in offerta', hu: 'Konvertálás ajánlattá' },
   go_to_quote:    { da: 'Gå til tilbud', en: 'Go to quote', de: 'Zum Angebot', it: 'Vai all\'offerta', hu: 'Ugrás az ajánlathoz' },
+  urgency_overdue:{ da: 'Forfalden', en: 'Overdue', de: 'Überfällig', it: 'Scaduto', hu: 'Lejárt' },
+  urgency_soon:   { da: 'Inden 20 dage', en: 'Within 20 days', de: 'In 20 Tagen', it: 'Entro 20 giorni', hu: '20 napon belül' },
+  urgency_later:  { da: 'Inden 2 mdr.', en: 'Within 2 mo.', de: 'In 2 Mon.', it: 'Entro 2 mesi', hu: '2 hónapon belül' },
   st_Lead:       { da: 'Lead', en: 'Lead', de: 'Lead', it: 'Lead', hu: 'Lead' },
   st_Demo:       { da: 'Demo planlagt', en: 'Demo planned', de: 'Demo geplant', it: 'Demo pianificata', hu: 'Demo tervezve' },
   st_Tilbud:     { da: 'Tilbud sendt', en: 'Offer sent', de: 'Angebot gesendet', it: 'Offerta inviata', hu: 'Ajánlat elküldve' },
@@ -242,7 +246,8 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
 type TabKey = 'open' | 'won' | 'closed' | 'all';
 type SortKey = 'default' | 'title_asc' | 'title_desc' | 'date_desc' | 'date_asc' | 'prob_desc' | 'prob_asc';
 type UserLeadType = 'open' | 'demo' | 'won' | 'lost';
-type FollowupTone = 'overdue' | 'soon' | 'neutral';
+type FollowupTone = 'overdue' | 'soon' | 'later' | 'neutral';
+type FollowupFilter = Exclude<FollowupTone, 'neutral'>;
 
 function isWonRow(row: UnifiedLead): boolean {
   return row.status === 'Vundet' || row.status === 'Won';
@@ -277,8 +282,15 @@ function getUserLeadTypeLabel(type: UserLeadType, lang: Language): string {
 const FOLLOWUP_BADGE: Record<FollowupTone, string> = {
   overdue: 'bg-rose-50 text-rose-700 border-rose-200',
   soon: 'bg-amber-50 text-amber-800 border-amber-200',
+  later: 'bg-emerald-50 text-emerald-700 border-emerald-200',
   neutral: 'text-gray-600 border-transparent',
 };
+
+const FOLLOWUP_FILTERS: Array<{ key: FollowupFilter; labelKey: TKey }> = [
+  { key: 'overdue', labelKey: 'urgency_overdue' },
+  { key: 'soon', labelKey: 'urgency_soon' },
+  { key: 'later', labelKey: 'urgency_later' },
+];
 
 function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -291,6 +303,7 @@ function getFollowupTone(value: string | null | undefined, now = new Date()): Fo
   const diffDays = Math.floor((startOfLocalDay(date).getTime() - startOfLocalDay(now).getTime()) / (24 * 60 * 60 * 1000));
   if (diffDays < 0) return 'overdue';
   if (diffDays <= 20) return 'soon';
+  if (diffDays <= 60) return 'later';
   return 'neutral';
 }
 
@@ -333,6 +346,7 @@ export default function CrmLeadsPage() {
   const [loading, setLoading] = useState(true);
 
   const [tab, setTab] = useState<TabKey>(dealerParam ? 'all' : 'open');
+  const [followupFilter, setFollowupFilter] = useState<FollowupFilter | null>(null);
   const [q, setQ] = useState(dealerParam);
   const [stage, setStage] = useState<string>('');
   const [sort, setSort] = useState<SortKey>('default');
@@ -342,7 +356,13 @@ export default function CrmLeadsPage() {
   const [quoteConvertBusyId, setQuoteConvertBusyId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ title: string; images: CrmLeadAttachmentPreview[] } | null>(null);
 
-  useEffect(() => { if (dealerParam) { setQ(dealerParam); setTab('all'); } }, [dealerParam]);
+  useEffect(() => {
+    if (dealerParam) {
+      setQ(dealerParam);
+      setTab('all');
+      setFollowupFilter(null);
+    }
+  }, [dealerParam]);
 
   const refreshLeads = async () => {
     const openAll = await listLeads({ limit: 5000 });
@@ -369,7 +389,11 @@ export default function CrmLeadsPage() {
     }
   }
 
-  useEffect(() => { if (!dealerParam) setTab('open'); }, [dealerParam]);
+  useEffect(() => {
+    if (!dealerParam) {
+      setTab('open');
+    }
+  }, [dealerParam]);
 
   useEffect(() => {
     let cancelled = false;
@@ -458,12 +482,23 @@ export default function CrmLeadsPage() {
     closed:    allRows.filter(r => isClosedRow(r) && !isWonRow(r)).length,
   }), [allRows]);
 
+  const followupCounts = useMemo(() => {
+    const next: Record<FollowupFilter, number> = { overdue: 0, soon: 0, later: 0 };
+    for (const row of allRows) {
+      if (!isOpenRow(row)) continue;
+      const tone = getFollowupTone(row.next_followup);
+      if (tone === 'overdue' || tone === 'soon' || tone === 'later') next[tone] += 1;
+    }
+    return next;
+  }, [allRows]);
+
   const visible = useMemo(() => {
     let r = allRows;
     if (tab === 'open') r = r.filter(isOpenRow);
     else if (tab === 'won') r = r.filter(isWonRow);
     else if (tab === 'closed') r = r.filter(x => isClosedRow(x) && !isWonRow(x));
 
+    if (followupFilter) r = r.filter(x => isOpenRow(x) && getFollowupTone(x.next_followup) === followupFilter);
     if (stage) r = r.filter(x => x.status === stage);
     if (q.trim()) {
       r = r.filter(x => matchesLeadSearch([
@@ -480,7 +515,7 @@ export default function CrmLeadsPage() {
       ], q));
     }
     return [...r].sort((a, b) => compareRows(a, b, sort));
-  }, [allRows, tab, stage, q, sort]);
+  }, [allRows, tab, followupFilter, stage, q, sort]);
 
   const totalValue = useMemo(() => visible.reduce((s, x) => s + (x.value || 0), 0), [visible]);
   const unassignedCount = useMemo(
@@ -558,26 +593,59 @@ export default function CrmLeadsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-1.5 mb-4">
-        {TABS.map(t => {
-          const active = tab === t.key;
-          const c = counts[t.key];
-          return (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={cn(
-                'inline-flex items-center gap-2 text-sm px-3.5 py-2 rounded-xl border transition',
-                active
-                  ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
-                  : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-              )}>
-              {t.label}
-              <span className={cn(
-                'inline-flex min-w-[20px] justify-center items-center text-[11px] px-1.5 py-0.5 rounded-md tabular-nums',
-                active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
-              )}>{c}</span>
-            </button>
-          );
-        })}
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div className="flex flex-wrap gap-1.5">
+          {TABS.map(t => {
+            const active = tab === t.key && followupFilter === null;
+            const c = counts[t.key];
+            return (
+              <button
+                key={t.key}
+                onClick={() => {
+                  setTab(t.key);
+                  setFollowupFilter(null);
+                }}
+                className={cn(
+                  'inline-flex items-center gap-2 text-sm px-3.5 py-2 rounded-xl border transition',
+                  active
+                    ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
+                    : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                )}>
+                {t.label}
+                <span className={cn(
+                  'inline-flex min-w-[20px] justify-center items-center text-[11px] px-1.5 py-0.5 rounded-md tabular-nums',
+                  active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                )}>{c}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex flex-wrap gap-1.5 xl:mx-auto">
+          {FOLLOWUP_FILTERS.map((item) => {
+            const active = followupFilter === item.key;
+            const c = followupCounts[item.key];
+            return (
+              <button
+                key={item.key}
+                onClick={() => {
+                  setTab('open');
+                  setFollowupFilter(active ? null : item.key);
+                }}
+                className={cn(
+                  'inline-flex items-center gap-2 text-sm px-3.5 py-2 rounded-xl border transition',
+                  FOLLOWUP_BADGE[item.key],
+                  active ? 'shadow-sm ring-2 ring-offset-1 ring-current/20' : 'hover:bg-white'
+                )}
+              >
+                {tt(item.labelKey, lang)}
+                <span className={cn(
+                  'inline-flex min-w-[20px] justify-center items-center text-[11px] px-1.5 py-0.5 rounded-md tabular-nums',
+                  active ? 'bg-white/60' : 'bg-white/70'
+                )}>{c}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Filter strip */}
