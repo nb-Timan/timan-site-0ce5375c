@@ -259,7 +259,7 @@ export default function BackendNewsPage() {
               <Newspaper className="h-6 w-6 text-emerald-600" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">{viewMode === 'editor' ? t('newsCmsCreateCardTitle', uiLanguage) : t('newsCmsTitle', uiLanguage)}</h1>
+              <h1 className="text-3xl font-bold text-slate-900">{viewMode === 'editor' ? t('newsCmsCreateCardTitle', uiLanguage) : t('newsCmsOverview', uiLanguage)}</h1>
               <p className="mt-1 text-sm text-slate-500">{t('newsCmsSubtitle', uiLanguage)}</p>
             </div>
           </div>

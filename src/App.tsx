@@ -215,7 +215,8 @@ const App = () => (
               <Route path="/portal/teknik-service" element={<DealerUserServiceGuard><PortalAreaPage areaId="teknik_service" /></DealerUserServiceGuard>} />
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
               <Route path="/portal/marketing" element={<PortalAreaPage areaId="marketing" />} />
-              <Route path="/portal/marketing/news" element={<BackendNewsPage />} />
+              <Route path="/portal/marketing/news" element={<MesseNewsPage mode="marketing" />} />
+              <Route path="/portal/marketing/news/overview" element={<BackendNewsPage />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
               <Route path="/portal/dealer-data" element={<DealerDataPage />} />
               <Route path="/portal/crm" element={<PortalCrmPage />} />
