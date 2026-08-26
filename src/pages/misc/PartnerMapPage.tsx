@@ -57,6 +57,18 @@ const TIMAN_GREEN = '#2d5a27';
 const TIMAN_GOLD = '#c9a227';
 const TIMAN_HQ_COORDS: [number, number] = [56.1986, 8.3032];
 const TIMAN_HQ_ADDRESS = 'Osvald Pedersens Vej 2A-D, 6980 Tim';
+const CARTO_BASEMAP_KEY = (
+  (typeof window !== 'undefined' ? window.__TIMAN_PUBLIC_CONFIG__?.VITE_CARTO_BASEMAP_KEY : undefined) ||
+  (import.meta.env.VITE_CARTO_BASEMAP_KEY as string | undefined) ||
+  (import.meta.env.VITE_CARTO_MAPS_API_KEY as string | undefined) ||
+  (import.meta.env.VITE_CARTO_API_KEY as string | undefined) ||
+  ''
+).trim();
+
+function withCartoBasemapKey(url: string): string {
+  if (!CARTO_BASEMAP_KEY) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}key=${encodeURIComponent(CARTO_BASEMAP_KEY)}`;
+}
 
 const TYPE_COLORS: Record<PartnerType, string> = {
   dealer: '#dc2626',
@@ -98,6 +110,14 @@ const T: Record<string, Record<Language, string>> = {
   mapSatellite: { da: 'Satellit', en: 'Satellite', de: 'Satellit', it: 'Satellite', hu: 'Műhold' },
   mapTerrain: { da: 'Terræn', en: 'Terrain', de: 'Gelände', it: 'Terreno', hu: 'Terep' },
   mapDark: { da: 'Mørk', en: 'Dark', de: 'Dunkel', it: 'Scura', hu: 'Sötét' },
+  cartoKeyMissingTitle: { da: 'CARTO basemap key mangler', en: 'CARTO basemap key is missing', de: 'CARTO Basemap-Key fehlt', it: 'Manca la chiave basemap CARTO', hu: 'Hiányzik a CARTO basemap kulcs' },
+  cartoKeyMissingBody: {
+    da: 'Standard og Mørk bruger CARTO. Sæt VITE_CARTO_BASEMAP_KEY i public runtime-config.js for at vise disse kortlag uden vandmærke.',
+    en: 'Standard and Dark use CARTO. Set VITE_CARTO_BASEMAP_KEY in public runtime-config.js to show these base layers without a watermark.',
+    de: 'Standard und Dunkel verwenden CARTO. Setzen Sie VITE_CARTO_BASEMAP_KEY in public runtime-config.js, um diese Kartenebenen ohne Wasserzeichen anzuzeigen.',
+    it: 'Standard e Scura usano CARTO. Imposta VITE_CARTO_BASEMAP_KEY in public runtime-config.js per mostrare questi livelli senza watermark.',
+    hu: 'A Standard és Sötét CARTO-t használ. Állítsa be a VITE_CARTO_BASEMAP_KEY értéket a public runtime-config.js fájlban a vízjel nélküli megjelenítéshez.',
+  },
   area: { da: 'Område', en: 'Area', de: 'Gebiet', it: 'Area', hu: 'Terület' },
   areaNone: { da: 'Ingen', en: 'None', de: 'Keine', it: 'Nessuna', hu: 'Nincs' },
   areaGermanyPlz2: { da: 'Germany - Postleitzahl-Leitregionen (PLZ2)', en: 'Germany - Postal-code regions (PLZ2)', de: 'Deutschland - Postleitzahl-Leitregionen (PLZ2)', it: 'Germania - regioni CAP (PLZ2)', hu: 'Németország - irányítószám-régiók (PLZ2)' },
@@ -1108,7 +1128,7 @@ export default function PartnerMapPage() {
   const MAP_STYLES: Record<MapStyleId, { label: string; url: string; attribution: string; subdomains?: string[]; maxZoom?: number }> = {
     standard: {
       label: 'Standard',
-      url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      url: withCartoBasemapKey('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'),
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: ['a','b','c','d'],
       maxZoom: 19,
@@ -1129,7 +1149,7 @@ export default function PartnerMapPage() {
     },
     dark: {
       label: 'Mørk',
-      url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      url: withCartoBasemapKey('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'),
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
       subdomains: ['a','b','c','d'],
       maxZoom: 19,
@@ -1144,6 +1164,9 @@ export default function PartnerMapPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') window.localStorage.setItem(MAP_STYLE_STORAGE_KEY, mapStyle);
   }, [mapStyle]);
+  const selectedMapStyle = MAP_STYLES[mapStyle];
+  const isCartoBasemap = mapStyle === 'standard' || mapStyle === 'dark';
+  const canRenderBaseLayer = !isCartoBasemap || !!CARTO_BASEMAP_KEY;
 
   
   const [resultsOpen, setResultsOpen] = useState(true);
@@ -1849,13 +1872,15 @@ export default function PartnerMapPage() {
                     style={{ height: '100%', width: '100%' }}
                     worldCopyJump={true}
                   >
-                    <TileLayer
-                      key={mapStyle}
-                      attribution={MAP_STYLES[mapStyle].attribution}
-                      url={MAP_STYLES[mapStyle].url}
-                      subdomains={MAP_STYLES[mapStyle].subdomains ?? ['a','b','c']}
-                      maxZoom={MAP_STYLES[mapStyle].maxZoom}
-                    />
+                    {canRenderBaseLayer && (
+                      <TileLayer
+                        key={mapStyle}
+                        attribution={selectedMapStyle.attribution}
+                        url={selectedMapStyle.url}
+                        subdomains={selectedMapStyle.subdomains ?? ['a','b','c']}
+                        maxZoom={selectedMapStyle.maxZoom}
+                      />
+                    )}
                     <CtrlWheelZoom />
                     <MapResizer trigger={`${selectedId}-${resultsOpen}-${isFullscreen}`} />
                     <MapView fitTo={fitTo} resetTo={resetTarget} resetTick={resetTick} />
@@ -1901,6 +1926,18 @@ export default function PartnerMapPage() {
                   {administrativeOverlay === 'de_plz2' && administrativeOverlayError && (
                     <div className="absolute top-3 left-3 z-[500] max-w-xs rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-sm">
                       {administrativeOverlayError}
+                    </div>
+                  )}
+
+                  {!canRenderBaseLayer && (
+                    <div className="absolute top-3 left-3 z-[500] max-w-sm rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 shadow-sm">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <div>
+                          <div className="font-bold">{T.cartoKeyMissingTitle[lang]}</div>
+                          <div className="mt-1 leading-snug">{T.cartoKeyMissingBody[lang]}</div>
+                        </div>
+                      </div>
                     </div>
                   )}
 
