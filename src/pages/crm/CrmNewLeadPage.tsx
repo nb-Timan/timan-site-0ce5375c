@@ -44,6 +44,10 @@ import {
   type CrmLeadShare,
   type LeadShareTarget,
 } from '@/lib/crmLeadSharingService';
+import {
+  getMissingOrdinaryCrmLeadFields,
+  type OrdinaryCrmLeadRequiredField,
+} from '@/lib/crmLeadValidation';
 
 // ---- i18n. English is the fallback. ----
 type TKey =
@@ -65,7 +69,7 @@ type TKey =
   | 'pick_files' | 'mine_dealers' | 'other_dealers'
   | 'loading_dealers' | 'no_match' | 'search_dealer'
   | 'val_title' | 'val_seller' | 'val_dealer' | 'val_first' | 'val_close'
-  | 'val_followup' | 'val_contact' | 'val_customer' | 'val_next_act'
+  | 'val_followup' | 'val_contact' | 'val_customer' | 'val_next_act' | 'val_required'
   | 'created_ok' | 'created_err' | 'edit_title' | 'edit_sub' | 'updated_ok' | 'updated_err' | 'save_changes' | 'loading';
 
 const T: Record<TKey, Record<Language, string>> = {
@@ -147,6 +151,7 @@ const T: Record<TKey, Record<Language, string>> = {
   val_contact:   { da: 'Vælg kontakttype.', en: 'Select contact type.', de: 'Kontakttyp wählen.', it: 'Selezionare il tipo di contatto.', hu: 'Válasszon kapcsolattípust.' },
   val_customer:  { da: 'Vælg kundetype.', en: 'Select customer type.', de: 'Kundentyp wählen.', it: 'Selezionare il tipo di cliente.', hu: 'Válasszon ügyféltípust.' },
   val_next_act:  { da: 'Vælg næste aktivitet.', en: 'Select next activity.', de: 'Nächste Aktivität wählen.', it: 'Selezionare la prossima attività.', hu: 'Válasszon következő tevékenységet.' },
+  val_required:  { da: 'Feltet er påkrævet.', en: 'This field is required.', de: 'Dieses Feld ist erforderlich.', it: 'Campo obbligatorio.', hu: 'Ez a mező kötelező.' },
   created_ok:    { da: 'Lead oprettet', en: 'Lead created', de: 'Lead erstellt', it: 'Lead creato', hu: 'Lead létrehozva' },
   created_err:   { da: 'Kunne ikke oprette lead', en: 'Could not create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'Nem sikerült létrehozni a leadet' },
   edit_title:    { da: 'Rediger lead', en: 'Edit lead', de: 'Lead bearbeiten', it: 'Modifica lead', hu: 'Lead szerkesztése' },
@@ -160,24 +165,27 @@ function tt(k: TKey, lang: Language): string { return T[k][lang] || T[k].en; }
 
 
 // ---- Tiny shared form primitives (kept in this file to avoid extra files) ----
-function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function Section({ title, subtitle, children, required }: { title: string; subtitle?: string; children: React.ReactNode; required?: boolean }) {
   return (
     <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
       <header className="mb-5">
-        <h3 className="text-[15px] font-semibold text-gray-900">{title}</h3>
+        <h3 className="text-[15px] font-semibold text-gray-900">
+          {title} {required && <span className="text-rose-500">*</span>}
+        </h3>
         {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
       </header>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">{children}</div>
     </section>
   );
 }
-function Field({ label, required, children, full }: { label: string; required?: boolean; children: React.ReactNode; full?: boolean }) {
+function Field({ label, required, children, full, error }: { label: string; required?: boolean; children: React.ReactNode; full?: boolean; error?: string }) {
   return (
     <label className={cn('flex flex-col gap-1.5', full && 'md:col-span-2')}>
       <span className="text-[12px] font-medium text-gray-700">
         {label} {required && <span className="text-rose-500">*</span>}
       </span>
       {children}
+      {error && <span className="text-[11px] font-medium text-rose-600">{error}</span>}
     </label>
   );
 }
@@ -259,6 +267,7 @@ function buildStructuredContactInformation(info: StructuredContactInfo): string 
 }
 
 const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none transition';
+const inputErrorCls = 'border-rose-300 bg-rose-50/40 focus:border-rose-500 focus:ring-rose-500/10';
 const taCls = inputCls + ' min-h-[90px] resize-y';
 
 function toLocalIsoDate(date: Date): string {
@@ -789,6 +798,7 @@ export default function CrmNewLeadPage() {
   const [shareIncludeEmail, setShareIncludeEmail] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<OrdinaryCrmLeadRequiredField, string>>>({});
 
   // Dealer picker state
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -1023,7 +1033,25 @@ export default function CrmNewLeadPage() {
     && nextActivity
     && contactType
     && customerType
+    && machineTypes.length > 0
+    && contactCompany.trim()
+    && contactPersonName.trim()
+    && contactPhone.trim()
+    && contactEmail.trim()
+    && contactPostalCode.trim()
+    && contactCity.trim()
+    && country.trim()
   );
+  const fieldError = (field: OrdinaryCrmLeadRequiredField) => fieldErrors[field];
+  const requiredInputClass = (field: OrdinaryCrmLeadRequiredField) => cn(inputCls, fieldError(field) && inputErrorCls);
+  const clearFieldError = (field: OrdinaryCrmLeadRequiredField) => {
+    if (!fieldErrors[field]) return;
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   useEffect(() => {
     const hasMeaningfulSavedEstimate = isEdit
@@ -1054,6 +1082,7 @@ export default function CrmNewLeadPage() {
   function handleMachineTypesChange(next: string[]) {
     setMachineTypesChanged(true);
     setMachineTypes(next);
+    if (next.length > 0) clearFieldError('machineTypes');
   }
 
   useEffect(() => {
@@ -1088,6 +1117,7 @@ export default function CrmNewLeadPage() {
   function handleCountryChoiceChange(value: (typeof COUNTRY_OPTIONS)[number]) {
     setCountryChoice(value);
     setCountry(value === 'Other' ? '' : value);
+    if (value !== 'Other') clearFieldError('country');
   }
 
   // Auto-derive probability + legacy pipeline stage from next_activity selection.
@@ -1175,6 +1205,24 @@ export default function CrmNewLeadPage() {
     if (!contactType)        { toast.error(tt('val_contact', lang)); return; }
     if (!customerType)       { toast.error(tt('val_customer', lang)); return; }
     if (!nextActivity)       { toast.error(tt('val_next_act', lang)); return; }
+    const missingFields = getMissingOrdinaryCrmLeadFields({
+      machineTypes,
+      contactCompany,
+      contactPersonName,
+      contactPhone,
+      contactEmail,
+      contactPostalCode,
+      contactCity,
+      country,
+    });
+    if (missingFields.length > 0) {
+      setFieldErrors(
+        Object.fromEntries(missingFields.map((field) => [field, tt('val_required', lang)])) as Partial<Record<OrdinaryCrmLeadRequiredField, string>>
+      );
+      toast.error(tt('val_required', lang));
+      return;
+    }
+    setFieldErrors({});
 
     setSubmitting(true);
     try {
@@ -1380,34 +1428,79 @@ export default function CrmNewLeadPage() {
           </Section>
 
           <Section title={tt('sec_contact_info_structured', lang)} subtitle={tt('sec_contact_info_structured_sub', lang)}>
-            <Field label={tt('lbl_contact_company', lang)}>
-              <input className={inputCls} value={contactCompany} onChange={e=>setContactCompany(e.target.value)} />
+            <Field label={tt('lbl_contact_company', lang)} required error={fieldError('contactCompany')}>
+              <input
+                className={requiredInputClass('contactCompany')}
+                value={contactCompany}
+                onChange={e=>{
+                  setContactCompany(e.target.value);
+                  if (e.target.value.trim()) clearFieldError('contactCompany');
+                }}
+              />
             </Field>
-            <Field label={tt('lbl_contact_person', lang)}>
-              <input className={inputCls} value={contactPersonName} onChange={e=>setContactPersonName(e.target.value)} />
+            <Field label={tt('lbl_contact_person', lang)} required error={fieldError('contactPersonName')}>
+              <input
+                className={requiredInputClass('contactPersonName')}
+                value={contactPersonName}
+                onChange={e=>{
+                  setContactPersonName(e.target.value);
+                  if (e.target.value.trim()) clearFieldError('contactPersonName');
+                }}
+              />
             </Field>
-            <Field label={tt('lbl_contact_phone', lang)}>
-              <input type="tel" className={inputCls} value={contactPhone} onChange={e=>setContactPhone(e.target.value)} />
+            <Field label={tt('lbl_contact_phone', lang)} required error={fieldError('contactPhone')}>
+              <input
+                type="tel"
+                className={requiredInputClass('contactPhone')}
+                value={contactPhone}
+                onChange={e=>{
+                  setContactPhone(e.target.value);
+                  if (e.target.value.trim()) clearFieldError('contactPhone');
+                }}
+              />
             </Field>
-            <Field label={tt('lbl_contact_email', lang)}>
-              <input type="email" className={inputCls} value={contactEmail} onChange={e=>setContactEmail(e.target.value)} />
+            <Field label={tt('lbl_contact_email', lang)} required error={fieldError('contactEmail')}>
+              <input
+                type="email"
+                className={requiredInputClass('contactEmail')}
+                value={contactEmail}
+                onChange={e=>{
+                  setContactEmail(e.target.value);
+                  if (e.target.value.trim()) clearFieldError('contactEmail');
+                }}
+              />
             </Field>
             <Field label={tt('lbl_contact_address', lang)} full>
               <input className={inputCls} value={contactAddress} onChange={e=>setContactAddress(e.target.value)} />
             </Field>
-            <Field label={tt('lbl_contact_postal_code', lang)}>
-              <input className={inputCls} value={contactPostalCode} onChange={e=>setContactPostalCode(e.target.value)} />
-            </Field>
-            <Field label={tt('lbl_contact_city', lang)}>
-              <input className={inputCls} value={contactCity} onChange={e=>setContactCity(e.target.value)} />
-            </Field>
-            <Field label={tt('lbl_country', lang)} full>
+            <Field label={tt('lbl_contact_postal_code', lang)} required error={fieldError('contactPostalCode')}>
               <input
-                className={inputCls}
+                className={requiredInputClass('contactPostalCode')}
+                value={contactPostalCode}
+                onChange={e=>{
+                  setContactPostalCode(e.target.value);
+                  if (e.target.value.trim()) clearFieldError('contactPostalCode');
+                }}
+              />
+            </Field>
+            <Field label={tt('lbl_contact_city', lang)} required error={fieldError('contactCity')}>
+              <input
+                className={requiredInputClass('contactCity')}
+                value={contactCity}
+                onChange={e=>{
+                  setContactCity(e.target.value);
+                  if (e.target.value.trim()) clearFieldError('contactCity');
+                }}
+              />
+            </Field>
+            <Field label={tt('lbl_country', lang)} required full error={fieldError('country')}>
+              <input
+                className={requiredInputClass('country')}
                 value={country}
                 onChange={e=>{
                   const nextCountry = e.target.value;
                   setCountry(nextCountry);
+                  if (nextCountry.trim()) clearFieldError('country');
                   if (nextCountry === 'Danmark' || nextCountry === 'Tyskland') {
                     setCountryChoice(nextCountry);
                   } else {
@@ -1418,9 +1511,14 @@ export default function CrmNewLeadPage() {
             </Field>
           </Section>
 
-          <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)}>
+          <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)} required>
             <div className="md:col-span-2">
-              <MachineInterestPicker value={machineTypes} onChange={handleMachineTypesChange} />
+              <div className={cn('rounded-xl', fieldError('machineTypes') && 'ring-2 ring-rose-300 ring-offset-2')}>
+                <MachineInterestPicker value={machineTypes} onChange={handleMachineTypesChange} />
+              </div>
+              {fieldError('machineTypes') && (
+                <p className="mt-2 text-[11px] font-medium text-rose-600">{fieldError('machineTypes')}</p>
+              )}
               {machineEstimate.unmappedItems.length > 0 && (
                 <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                   Kunne ikke matche pris for: {machineEstimate.unmappedItems.join(', ')}
@@ -1492,8 +1590,8 @@ export default function CrmNewLeadPage() {
                   ))}
                 </select>
               </Field>
-              <Field label={tt('lbl_country', lang)}>
-                <select className={inputCls} value={countryChoice} onChange={e=>handleCountryChoiceChange(e.target.value as (typeof COUNTRY_OPTIONS)[number])}>
+              <Field label={tt('lbl_country', lang)} required error={fieldError('country')}>
+                <select className={requiredInputClass('country')} value={countryChoice} onChange={e=>handleCountryChoiceChange(e.target.value as (typeof COUNTRY_OPTIONS)[number])}>
                   {COUNTRY_OPTIONS.map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
@@ -1512,8 +1610,16 @@ export default function CrmNewLeadPage() {
                 </Field>
               )}
               {countryChoice === 'Other' && (
-                <Field label="Land" full>
-                  <input className={inputCls} value={country} onChange={e=>setCountry(e.target.value)} placeholder="Skriv land" />
+                <Field label="Land" required full error={fieldError('country')}>
+                  <input
+                    className={requiredInputClass('country')}
+                    value={country}
+                    onChange={e=>{
+                      setCountry(e.target.value);
+                      if (e.target.value.trim()) clearFieldError('country');
+                    }}
+                    placeholder="Skriv land"
+                  />
                 </Field>
               )}
             </div>
