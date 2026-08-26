@@ -19,7 +19,7 @@ import {
   updateSharedNewsField,
   updateFlyerPagesField,
 } from '@/features/news-cms/lib/newsContent';
-import { translateMissingNewsContent } from '@/features/news-cms/lib/newsAutoTranslate';
+import { markNewsLanguageAsManual, translateNewsContentDynamically } from '@/features/news-cms/lib/dynamicNewsTranslation';
 import type { NewsCmsPost } from '@/lib/newsService';
 import NewsTemplatePicker from './NewsTemplatePicker';
 import NewsFieldEditor from './NewsFieldEditor';
@@ -40,8 +40,8 @@ interface Props {
   uiLanguage: PortalUiLanguage;
   initialPost?: NewsCmsPost | null;
   onCancel?: () => void;
-  onSaveDraft: (payload: { id?: string; templateId: NewsTemplateId; localizedContent: LocalizedNewsContent; templateData: Record<string, unknown> }) => Promise<void>;
-  onPublish: (payload: { id?: string; templateId: NewsTemplateId; localizedContent: LocalizedNewsContent; templateData: Record<string, unknown> }) => Promise<void>;
+  onSaveDraft: (payload: { id?: string; templateId: NewsTemplateId; localizedContent: LocalizedNewsContent; templateData: Record<string, unknown>; sourceLanguage: PortalUiLanguage }) => Promise<void>;
+  onPublish: (payload: { id?: string; templateId: NewsTemplateId; localizedContent: LocalizedNewsContent; templateData: Record<string, unknown>; sourceLanguage: PortalUiLanguage }) => Promise<void>;
   saving?: boolean;
 }
 
@@ -158,18 +158,45 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   };
 
   const saveDraft = async () => {
-    const translationResult = translateMissingNewsContent(localizedContent, template.fields, editLanguage, initialPost?.localized_content);
+    setPublishWarning(null);
+    setTranslateStatus('Oversætter nyheden...');
+    const translationResult = await translateNewsContentDynamically({
+      localizedContent,
+      previousLocalizedContent: initialPost?.localized_content,
+      templateData,
+      fields: template.fields,
+      sourceLanguage: editLanguage,
+    });
+    if (translationResult.error) {
+      setTranslateStatus(null);
+      try {
+        await onSaveDraft({ id: initialPost?.id, templateId, localizedContent, templateData, sourceLanguage: editLanguage });
+        setSavedOnce(true);
+        setPublishWarning(`Oversættelse mislykkedes: ${translationResult.error}. Kildeteksten er gemt som kladde uden automatisk oversættelse.`);
+      } catch (error) {
+        setPublishWarning(error instanceof Error ? error.message : 'Kladden kunne ikke gemmes.');
+      }
+      return;
+    }
+
     const contentToSave = translationResult.localizedContent;
+    const templateDataToSave = translationResult.templateData;
     if (translationResult.translatedLanguages.length > 0) {
       setLocalizedContent(contentToSave);
+      setTemplateData(templateDataToSave);
       const labels = translationResult.translatedLanguages
         .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
         .join(', ');
       setTranslateStatus(`${t('newsCmsTranslateMissingDone', uiLanguage)} ${labels}`);
+    } else {
+      setTranslateStatus(null);
     }
-    setPublishWarning(null);
-    await onSaveDraft({ id: initialPost?.id, templateId, localizedContent: contentToSave, templateData });
-    setSavedOnce(true);
+    try {
+      await onSaveDraft({ id: initialPost?.id, templateId, localizedContent: contentToSave, templateData: templateDataToSave, sourceLanguage: editLanguage });
+      setSavedOnce(true);
+    } catch (error) {
+      setPublishWarning(error instanceof Error ? error.message : 'Kladden kunne ikke gemmes.');
+    }
   };
 
   const publish = async () => {
@@ -178,8 +205,22 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
       return;
     }
 
-    const translationResult = translateMissingNewsContent(localizedContent, template.fields, editLanguage, initialPost?.localized_content);
+    setTranslateStatus('Oversætter nyheden...');
+    const translationResult = await translateNewsContentDynamically({
+      localizedContent,
+      previousLocalizedContent: initialPost?.localized_content,
+      templateData,
+      fields: template.fields,
+      sourceLanguage: editLanguage,
+    });
+    if (translationResult.error) {
+      setTranslateStatus(null);
+      setPublishWarning(`Oversættelse mislykkedes: ${translationResult.error}. Nyheden er ikke publiceret med dansk fallback.`);
+      return;
+    }
+
     const contentToPublish = translationResult.localizedContent;
+    const templateDataToPublish = translationResult.templateData;
     const remainingMissingLanguages = missingNewsLanguages(contentToPublish, template.fields);
 
     if (remainingMissingLanguages.length > 0) {
@@ -192,14 +233,21 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
 
     if (translationResult.translatedLanguages.length) {
       setLocalizedContent(contentToPublish);
+      setTemplateData(templateDataToPublish);
       const labels = translationResult.translatedLanguages
         .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
         .join(', ');
       setTranslateStatus(`${t('newsCmsTranslateMissingDone', uiLanguage)} ${labels}`);
+    } else {
+      setTranslateStatus(null);
     }
 
     setPublishWarning(null);
-    await onPublish({ id: initialPost?.id, templateId, localizedContent: contentToPublish, templateData });
+    try {
+      await onPublish({ id: initialPost?.id, templateId, localizedContent: contentToPublish, templateData: templateDataToPublish, sourceLanguage: editLanguage });
+    } catch (error) {
+      setPublishWarning(error instanceof Error ? error.message : 'Nyheden kunne ikke publiceres.');
+    }
   };
 
   return (
@@ -348,26 +396,31 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                     setLocalizedContent((current) => updateSharedNewsField(current, fieldKey, value))
                   }
                   onChange={(value) =>
-                    setLocalizedContent((current) => {
-                      if (field.type === 'featureBlocks') {
-                        return updateFeatureBlocksField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
-                      }
-                      if (field.type === 'techBlocks') {
-                        return updateTechBlocksField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
-                      }
-                      if (field.type === 'specRows') {
-                        return updateSpecRowsField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
-                      }
-                      if (field.type === 'flyerPages') {
-                        return updateFlyerPagesField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
-                      }
-                      if (field.type === 'ctaLinks') {
-                        return updateCtaLinksField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
-                      }
-                      return ['text', 'textarea', 'richtext'].includes(field.type)
-                        ? updateLocalizedNewsField(current, editLanguage, field.key, value)
-                        : updateSharedNewsField(current, field.key, value);
-                    })
+                    {
+                      setTemplateData((current) => markNewsLanguageAsManual(current, editLanguage));
+                      setTranslateStatus(null);
+                      setPublishWarning(null);
+                      setLocalizedContent((current) => {
+                        if (field.type === 'featureBlocks') {
+                          return updateFeatureBlocksField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
+                        }
+                        if (field.type === 'techBlocks') {
+                          return updateTechBlocksField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
+                        }
+                        if (field.type === 'specRows') {
+                          return updateSpecRowsField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
+                        }
+                        if (field.type === 'flyerPages') {
+                          return updateFlyerPagesField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
+                        }
+                        if (field.type === 'ctaLinks') {
+                          return updateCtaLinksField(current, editLanguage, field.key, (value as Array<Record<string, unknown>>) || []);
+                        }
+                        return ['text', 'textarea', 'richtext'].includes(field.type)
+                          ? updateLocalizedNewsField(current, editLanguage, field.key, value)
+                          : updateSharedNewsField(current, field.key, value);
+                      });
+                    }
                   }
                 />
               ))}

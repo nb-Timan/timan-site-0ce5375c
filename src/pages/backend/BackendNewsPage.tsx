@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { completedNewsLanguages, missingNewsLanguages, resolveNewsRenderContent } from '@/features/news-cms/lib/newsContent';
-import { translateMissingNewsContent } from '@/features/news-cms/lib/newsAutoTranslate';
+import { translateNewsContentDynamically } from '@/features/news-cms/lib/dynamicNewsTranslation';
 import NewsSharedEditor from '@/features/news-cms/editor/NewsSharedEditor';
 import { getNewsTemplate, NEWS_TEMPLATE_REGISTRY } from '@/features/news-cms/templates/registry';
 import type { NewsTemplateId } from '@/features/news-cms/templates/types';
@@ -195,7 +195,19 @@ export default function BackendNewsPage() {
     setError(null);
     if (status === 'published') {
       const template = getNewsTemplate(row.template_id);
-      const translationResult = translateMissingNewsContent(row.localized_content || {}, template.fields, uiLanguage);
+      const translationResult = await translateNewsContentDynamically({
+        localizedContent: row.localized_content || {},
+        previousLocalizedContent: row.localized_content,
+        templateData: row.template_data || {},
+        fields: template.fields,
+        sourceLanguage: uiLanguage,
+      });
+      if (translationResult.error) {
+        setSaving(false);
+        setError(`Oversættelse mislykkedes: ${translationResult.error}. Nyheden er ikke publiceret med fallback.`);
+        return;
+      }
+
       const missing = missingNewsLanguages(translationResult.localizedContent, template.fields);
       if (missing.length > 0) {
         setSaving(false);
@@ -207,8 +219,9 @@ export default function BackendNewsPage() {
         id: row.id,
         template_id: row.template_id as NewsTemplateId,
         localized_content: translationResult.localizedContent,
-        template_data: row.template_data || {},
+        template_data: translationResult.templateData,
         assets: row.assets || [],
+        source_language: uiLanguage,
       });
       setSaving(false);
       if (publishResult.error) {
@@ -359,11 +372,12 @@ export default function BackendNewsPage() {
                 template_id: payload.templateId,
                 localized_content: payload.localizedContent,
                 template_data: payload.templateData,
+                source_language: payload.sourceLanguage,
               });
               setSaving(false);
               if (result.error) {
                 setError(result.error);
-                return;
+                throw new Error(result.error);
               }
               setMessage(t('newsCmsDraftSaved', uiLanguage));
               await reload();
@@ -376,11 +390,12 @@ export default function BackendNewsPage() {
                 template_id: payload.templateId,
                 localized_content: payload.localizedContent,
                 template_data: payload.templateData,
+                source_language: payload.sourceLanguage,
               });
               setSaving(false);
               if (result.error) {
                 setError(result.error);
-                return;
+                throw new Error(result.error);
               }
               setMessage(t('newsCmsPublished', uiLanguage));
               setEditingPost(null);

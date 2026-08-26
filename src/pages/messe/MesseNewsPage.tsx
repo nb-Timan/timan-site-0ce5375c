@@ -28,7 +28,7 @@ import { Button } from '@/components/ui/button';
 import { getNewsTemplate } from '@/features/news-cms/templates/registry';
 import type { NewsTemplateId } from '@/features/news-cms/templates/types';
 import { missingNewsLanguages } from '@/features/news-cms/lib/newsContent';
-import { translateMissingNewsContent } from '@/features/news-cms/lib/newsAutoTranslate';
+import { translateNewsContentDynamically } from '@/features/news-cms/lib/dynamicNewsTranslation';
 import {
   getAttachmentOptionsForMachine,
   getCombinedAttachmentOptions,
@@ -142,7 +142,19 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
     setError(null);
     if (status === 'published') {
       const template = getNewsTemplate(post.template_id);
-      const translationResult = translateMissingNewsContent(post.localized_content || {}, template.fields, uiLanguage);
+      const translationResult = await translateNewsContentDynamically({
+        localizedContent: post.localized_content || {},
+        previousLocalizedContent: post.localized_content,
+        templateData: post.template_data || {},
+        fields: template.fields,
+        sourceLanguage: uiLanguage,
+      });
+      if (translationResult.error) {
+        setSavingPostId(null);
+        setError(`Oversættelse mislykkedes: ${translationResult.error}. Nyheden er ikke publiceret med fallback.`);
+        return;
+      }
+
       const missing = missingNewsLanguages(translationResult.localizedContent, template.fields);
       if (missing.length > 0) {
         setSavingPostId(null);
@@ -154,8 +166,9 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
         id: post.id,
         template_id: post.template_id as NewsTemplateId,
         localized_content: translationResult.localizedContent,
-        template_data: post.template_data || {},
+        template_data: translationResult.templateData,
         assets: post.assets || [],
+        source_language: uiLanguage,
       });
       setSavingPostId(null);
       if (publishResult.error) {

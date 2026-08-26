@@ -47,6 +47,7 @@ export interface NewsCmsDraftInput {
   template_data?: Record<string, unknown>;
   assets?: unknown[];
   status?: NewsStatus;
+  source_language?: PortalUiLanguage;
 }
 
 export const NEWS_MANUAL_ORDER_KEY = 'manual_order';
@@ -253,7 +254,7 @@ export async function adminListNewsPosts(): Promise<{ rows: NewsCmsPost[]; error
 }
 
 export async function adminSaveNewsDraft(input: NewsCmsDraftInput): Promise<{ row: NewsCmsPost | null; error: string | null }> {
-  const legacy = legacyFieldsFromLocalizedContent(input.localized_content);
+  const legacy = legacyFieldsFromLocalizedContent(input.localized_content, input.source_language || 'da');
   const now = new Date().toISOString();
   const payload = {
     template_id: input.template_id,
