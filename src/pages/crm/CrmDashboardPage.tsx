@@ -28,6 +28,7 @@ import { getActiveSellerView } from '@/lib/activeMode';
 import { BUDGET_SELLERS } from '@/lib/crmBudgetService';
 import { isCrmAdmin } from '@/lib/crmScope';
 import { formatDate } from '@/lib/format-date';
+import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
 import { Language } from '@/types/configurator';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
@@ -1325,6 +1326,27 @@ interface PipelineRow {
   href: string | null;  // open link
 }
 
+function dashboardNumber(value: unknown): number {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+  if (typeof value !== 'string') return 0;
+
+  const normalized = value
+    .trim()
+    .replace(/\./g, '')
+    .replace(',', '.')
+    .replace(/[^\d.-]/g, '');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function leadPipelineValue(lead: CrmLead): number {
+  const savedValue = dashboardNumber(lead.estimated_value);
+  if (savedValue > 0) return Math.round(savedValue);
+
+  const machineEstimate = calculateMachineInterestEstimate(lead.machine_types, 'da').total;
+  return machineEstimate > 0 ? machineEstimate : 0;
+}
+
 function buildPipelineRows(args: {
   orders: CrmOrderWithValue[];
   openQuotes: ScopedConfiguration[];
@@ -1344,7 +1366,7 @@ function buildPipelineRows(args: {
       title: o.title || '—',
       dealer: o.dealer_company_name || o.dealer_name || '—',
       seller: o.seller_initials || o.seller_name || '—',
-      value: o.total_value_dkk || 0,
+      value: dashboardNumber(o.total_value_dkk),
       status: o.case_status || 'ordre_afgivet',
       date: o.closed_at,
       href: '/portal/crm/orders',
@@ -1360,7 +1382,7 @@ function buildPipelineRows(args: {
       title: q.title || '—',
       dealer: q.dealer_company_name || q.dealer_name || '—',
       seller: q.seller_initials || q.seller_name || '—',
-      value: q.total_value_dkk || 0,
+      value: dashboardNumber(q.total_value_dkk),
       status: q.case_status || 'sent',
       date: q.month_iso,
       href: '/portal/crm/quotes',
@@ -1384,7 +1406,7 @@ function buildPipelineRows(args: {
       title: l.title || '—',
       dealer: '—',
       seller: l.owner_name || '—',
-      value: l.estimated_value || 0,
+      value: leadPipelineValue(l),
       status,
       date: l.updated_at || l.created_at,
       href: `/portal/crm/leads/${l.id}`,
