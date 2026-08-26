@@ -396,7 +396,12 @@ export default function CrmLeadsPage() {
         (myEmail && (r.responsible_name || '').toLowerCase() === myEmail)
       );
     }
-    merged.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    merged.sort((a, b) => {
+      const aLegacy = /^G-/.test(a.display_no || '');
+      const bLegacy = /^G-/.test(b.display_no || '');
+      if (aLegacy !== bLegacy) return aLegacy ? 1 : -1;
+      return (b.date || '').localeCompare(a.date || '');
+    });
     return merged;
   }, [openLeads, demoLeads, dealerNameById, quoteIdByLeadId, isAdmin, sellerId, appUser?.email, sharedLeadIds]);
 
