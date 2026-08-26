@@ -10,11 +10,11 @@ import {
   canSwitchMode,
   getActiveMode,
   setActiveMode,
-  SELLER_VIEWS,
+  USER_VIEWS,
   ROLE_PREVIEWS,
   type ActiveMode,
+  type UserView,
 } from '@/lib/activeMode';
-import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
@@ -54,20 +54,22 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
 
   const showModeSwitch = canSwitchMode(user);
   const [activeMode, setActiveModeState] = useState<ActiveMode>(() => getActiveMode(user.email));
-  const activeSellerView = activeMode === 'backend' || (typeof activeMode === 'string' && activeMode.startsWith('role:'))
+  const activeUserView = activeMode === 'backend' || (typeof activeMode === 'string' && activeMode.startsWith('role:'))
     ? null
-    : SELLER_VIEWS.find((v) => v.key === activeMode) || null;
+    : USER_VIEWS.find((v) => v.key === activeMode) || null;
   const activeRolePreview = typeof activeMode === 'string' && activeMode.startsWith('role:')
     ? ROLE_PREVIEWS.find((r) => `role:${r.key}` === activeMode) || null
     : null;
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
-  const sellerDir = useSellerDirectory();
-  const sellerSuffix = t('quickActionsContextSeller', uiLanguage);
-  function viewDisplay(v: typeof SELLER_VIEWS[number]) {
-    return resolveSellerDisplay(
-      { email: v.email, initialsKey: v.initials, fallbackInitials: v.initials, fallbackName: '' },
-      sellerDir,
-    );
+  const backendUserLabel = `TB – ${t('portalHeaderBackendMode', uiLanguage)}`;
+
+  function userViewRoleLabel(v: UserView): string {
+    if (v.viewRole === 'dealer') return t('quickActionsContextDealer', uiLanguage);
+    return t('quickActionsContextSeller', uiLanguage);
+  }
+
+  function userViewLabel(v: UserView): string {
+    return `${v.initials} – ${userViewRoleLabel(v)}`;
   }
 
   // Keep local state in sync with cross-tab/in-tab mode changes.
@@ -316,7 +318,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-bold uppercase tracking-wide transition ${
                       activeRolePreview
                         ? 'bg-purple-50 border-purple-300 text-purple-800 hover:bg-purple-100'
-                        : activeSellerView
+                        : activeUserView
                         ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
                         : 'bg-[#2d5a27]/10 border-[#2d5a27]/30 text-[#2d5a27] hover:bg-[#2d5a27]/15'
                     }`}
@@ -327,14 +329,9 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                     <span>
                       {activeRolePreview
                         ? activeRolePreview.label
-                        : activeSellerView
-                        ? (() => {
-                            const d = viewDisplay(activeSellerView);
-                            return d.full_name
-                              ? `${d.initials} ${d.full_name}`
-                              : `${d.initials} ${sellerSuffix}`;
-                          })()
-                        : t('portalHeaderBackendMode', uiLanguage)}
+                        : activeUserView
+                        ? userViewLabel(activeUserView)
+                        : backendUserLabel}
                     </span>
                     <ChevronDown className="w-3 h-3" />
                   </button>
@@ -344,6 +341,9 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                       className="absolute right-0 mt-1 w-60 max-h-[70vh] overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
                       onMouseDown={(e) => e.preventDefault()}
                     >
+                      <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
+                        {t('portalHeaderSwitchMode', uiLanguage)}
+                      </div>
                       <button
                         type="button"
                         role="menuitemradio"
@@ -351,21 +351,10 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                         onClick={() => chooseMode('backend')}
                         className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                       >
-                        <span className="font-medium">{t('portalHeaderBackendMode', uiLanguage)}</span>
+                        <span className="font-medium">{backendUserLabel}</span>
                         {activeMode === 'backend' && <Check className="w-4 h-4 text-[#2d5a27]" />}
                       </button>
-                      <div className="my-1 border-t border-gray-100" />
-                      <div className="px-3 pb-1 pt-0.5 text-[10px] uppercase tracking-wide text-gray-400 font-semibold">
-                        {t('portalHeaderSwitchMode', uiLanguage)}
-                      </div>
-                      {SELLER_VIEWS.map(v => {
-                        const d = viewDisplay(v);
-                        const firstName = (d.full_name || '').trim().split(/\s+/)[0] || '';
-                        const label = d.initials && firstName
-                          ? `${d.initials} ${firstName}`
-                          : d.initials
-                            ? `${d.initials} ${sellerSuffix}`
-                            : firstName || v.email;
+                      {USER_VIEWS.map(v => {
                         return (
                           <button
                             key={v.key}
@@ -375,7 +364,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                             onClick={() => chooseMode(v.key)}
                             className="w-full flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50"
                           >
-                            <span className="font-medium">{label}</span>
+                            <span className="font-medium">{userViewLabel(v)}</span>
                             {activeMode === v.key && <Check className="w-4 h-4 text-amber-600" />}
                           </button>
                         );
@@ -427,11 +416,11 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
           </div>
         </div>
       </div>
-      {showModeSwitch && activeSellerView && (
+      {showModeSwitch && activeUserView && (
         <div className="bg-amber-50 border-t border-amber-200 text-amber-800 text-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">
             <span className="font-bold uppercase tracking-wide">
-              {t('portalHeaderViewingAs', uiLanguage)} {activeSellerView.label}
+              {t('portalHeaderViewingAs', uiLanguage)} {userViewLabel(activeUserView)}
             </span>
             <span className="opacity-80">— {t('portalHeaderFilteredNote', uiLanguage)}</span>
           </div>

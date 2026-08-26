@@ -5,8 +5,8 @@
  * - Active mode is a UI-only override stored in localStorage, keyed by the
  *   logged-in user's email.
  * - Any user whose real portal_role is `timan_backend` may switch their
- *   active view to "Backend" (default) or to any of the predefined seller
- *   views (BP / JTN / EM / AKR / NB). Normal Timan Sælger users are NOT
+ *   active view to "Backend" (default) or to any of the predefined user
+ *   views (BP / JTN / EM / AKR / NB / DVP). Normal Timan Sælger users are NOT
  *   allowed to switch — they always see their own seller scope.
  * - When a seller view is active:
  *     • derivePortalRole() returns `timan_seller`.
@@ -20,11 +20,22 @@
  */
 
 export type SellerViewKey = 'BP' | 'JTN' | 'EM' | 'AKR' | 'NB';
+export type UserViewKey = SellerViewKey | 'DVP';
+export type UserViewRole = 'seller' | 'dealer';
 
 export interface SellerView {
   key: SellerViewKey;
   initials: SellerViewKey;
   email: string;
+  label: string;
+}
+
+export interface UserView {
+  key: UserViewKey;
+  initials: UserViewKey;
+  email: string;
+  portalRole: 'timan_seller' | 'timan_dealer';
+  viewRole: UserViewRole;
   label: string;
 }
 
@@ -37,10 +48,27 @@ export const SELLER_VIEWS: readonly SellerView[] = [
   { key: 'NB',  initials: 'NB',  email: 'nb@timan.dk',  label: 'NB Sælger' },
 ];
 
+/** Concrete users a backend user may preview from the quick switcher. */
+export const USER_VIEWS: readonly UserView[] = [
+  ...SELLER_VIEWS.map((v) => ({
+    ...v,
+    portalRole: 'timan_seller' as const,
+    viewRole: 'seller' as const,
+  })),
+  {
+    key: 'DVP',
+    initials: 'DVP',
+    email: 'dagvilpet@gmail.com',
+    portalRole: 'timan_dealer',
+    viewRole: 'dealer',
+    label: 'DVP Forhandler',
+  },
+];
+
 /**
  * Active mode value:
  *  - 'backend' → no override, full backend view.
- *  - SellerViewKey → view as that seller.
+ *  - UserViewKey → view as that configured user.
  *
  * Legacy values 'seller' (from the old BP/NB-only switch) are migrated on
  * read into the seller view matching the user's own email when possible.
@@ -70,7 +98,7 @@ export const ROLE_PREVIEWS: readonly RolePreview[] = [
 
 const ROLE_PREVIEW_KEYS = ROLE_PREVIEWS.map((r) => r.key) as readonly string[];
 
-export type ActiveMode = 'backend' | SellerViewKey | `role:${RolePreviewKey}`;
+export type ActiveMode = 'backend' | UserViewKey | `role:${RolePreviewKey}`;
 
 const STORAGE_PREFIX = 'timan.activeMode.';
 
@@ -102,6 +130,18 @@ export function getSellerViewByEmail(email: string | null | undefined): SellerVi
   return SELLER_VIEWS.find((v) => v.email === e) || null;
 }
 
+export function getUserViewByKey(key: string | null | undefined): UserView | null {
+  if (!key) return null;
+  const k = key.toUpperCase() as UserViewKey;
+  return USER_VIEWS.find((v) => v.key === k) || null;
+}
+
+export function getUserViewByEmail(email: string | null | undefined): UserView | null {
+  const e = normEmail(email);
+  if (!e) return null;
+  return USER_VIEWS.find((v) => v.email === e) || null;
+}
+
 /**
  * Read the active mode for the given logged-in user email.
  * Migrates the legacy 'seller' value (BP/NB-only switch) into the matching
@@ -122,7 +162,7 @@ export function getActiveMode(email: string | null | undefined): ActiveMode {
       const own = getSellerViewByEmail(e);
       return own ? own.key : 'backend';
     }
-    const view = getSellerViewByKey(v);
+    const view = getUserViewByKey(v);
     return view ? view.key : 'backend';
   } catch {
     return 'backend';
@@ -140,11 +180,18 @@ export function setActiveMode(email: string | null | undefined, mode: ActiveMode
   }
 }
 
-/** Resolve the SellerView the given backend user is currently viewing as, or null when in Backend or role-preview mode. */
-export function getActiveSellerView(email: string | null | undefined): SellerView | null {
+/** Resolve the concrete user view, or null when in Backend or role-preview mode. */
+export function getActiveUserView(email: string | null | undefined): UserView | null {
   const mode = getActiveMode(email);
   if (mode === 'backend' || (typeof mode === 'string' && mode.startsWith('role:'))) return null;
-  return getSellerViewByKey(mode);
+  return getUserViewByKey(mode);
+}
+
+/** Resolve the SellerView the given backend user is currently viewing as, or null when in Backend, dealer or role-preview mode. */
+export function getActiveSellerView(email: string | null | undefined): SellerView | null {
+  const view = getActiveUserView(email);
+  if (!view || view.viewRole !== 'seller') return null;
+  return getSellerViewByKey(view.key);
 }
 
 /** Resolve the active external role preview, or null. */

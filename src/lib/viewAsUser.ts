@@ -2,7 +2,7 @@
  * View-as / effective portal user resolution.
  *
  * Background:
- *   - A Timan Backend user can switch into "view as <Seller>" or
+ *   - A Timan Backend user can switch into "view as <User>" or
  *     "view as <External role>" mode via active-mode (localStorage).
  *   - Until now `derivePortalRole` returned the previewed role, but the
  *     CACHED `module_access` / `permissions` still belonged to the backend
@@ -12,8 +12,8 @@
  * This hook returns an "effective" SessionUser-shape object that:
  *   - keeps the logged-in user's identity (email, display_name) for UI,
  *   - but overrides `portal_role`, `module_access`, `permissions`, `role`,
- *     `partner_type` from the previewed seller's live `app_users` row when
- *     a seller view-as mode is active.
+ *     `partner_type` from the previewed user's live `app_users` row when
+ *     a concrete user view-as mode is active.
  *   - For `role:<external>` previews we just override `portal_role` and
  *     clear `module_access` so the role's defaults apply.
  *
@@ -25,7 +25,7 @@ import { supabase } from '@/lib/supabase';
 import { SessionUser } from '@/context/AppUserContext';
 import {
   getActiveMode,
-  getActiveSellerView,
+  getActiveUserView,
   getActiveRolePreview,
   canSwitchMode,
 } from '@/lib/activeMode';
@@ -95,10 +95,10 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
 
   useEffect(() => {
     if (!appUser || !canSwitchMode(appUser)) { setTarget(null); return; }
-    const seller = getActiveSellerView(appUser.email);
-    if (!seller) { setTarget(null); return; }
+    const viewUser = getActiveUserView(appUser.email);
+    if (!viewUser) { setTarget(null); return; }
     let cancelled = false;
-    fetchUserByEmail(seller.email).then((u) => { if (!cancelled) setTarget(u); });
+    fetchUserByEmail(viewUser.email).then((u) => { if (!cancelled) setTarget(u); });
     return () => { cancelled = true; };
   }, [appUser, rev]);
 
@@ -129,7 +129,7 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
       partner_type: target.partner_type,
       can_view_prices: target.can_view_prices,
       can_submit_order: target.can_submit_order,
-      portal_role: target.portal_role ?? 'timan_seller',
+      portal_role: target.portal_role ?? appUser.portal_role,
       module_access: target.module_access ?? null,
       allowed_areas: target.allowed_areas ?? null,
       allowed_modules: target.allowed_modules ?? null,

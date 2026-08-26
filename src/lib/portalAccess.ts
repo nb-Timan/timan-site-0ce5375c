@@ -12,7 +12,7 @@
 
 import { AppUser } from '@/data/appUsers';
 import { Language } from '@/types/configurator';
-import { canSwitchMode, getActiveSellerView, getActiveRolePreview } from '@/lib/activeMode';
+import { canSwitchMode, getActiveRolePreview, getActiveUserView } from '@/lib/activeMode';
 
 // ---------- Portal roles (internal English keys) ----------
 export type PortalRole =
@@ -307,14 +307,15 @@ export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> &
   })();
 
   // Active-mode override: any backend user can choose to view the portal
-  // as one of the predefined Timan sellers (BP / JTN / EM / AKR / NB).
+  // as one of the predefined concrete users (BP / JTN / EM / AKR / NB / DVP).
   // The DB role is unchanged — this only controls navigation, area
   // visibility, claims/warranty view variant and CRM scoping. Backend
   // pages remain reachable by switching back to Backend mode.
   if (baseRole === 'timan_backend' && canSwitchMode(user)) {
     const rolePreview = getActiveRolePreview(user.email);
     if (rolePreview) return rolePreview.key as PortalRole;
-    if (getActiveSellerView(user.email)) return 'timan_seller';
+    const userView = getActiveUserView(user.email);
+    if (userView) return userView.portalRole as PortalRole;
   }
   return baseRole;
 }
