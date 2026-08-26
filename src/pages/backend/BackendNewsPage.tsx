@@ -651,6 +651,7 @@ export default function BackendNewsPage() {
                   lang={uiLanguage}
                   template={template}
                   content={getPreviewContent(previewPost, uiLanguage)}
+                  templateData={previewPost.template_data}
                   mode="preview"
                 />
               );

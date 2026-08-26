@@ -75,7 +75,7 @@ export default function PublicNewsPostModal({ post, language, onClose }: Props) 
         </div>
         <div className="overflow-auto bg-slate-100 p-4 sm:p-6">
           {template && content ? (
-            <NewsRenderSurface lang={language} template={template} content={content} mode="public" />
+            <NewsRenderSurface lang={language} template={template} content={content} templateData={post.template_data} mode="public" />
           ) : (
             <article className="mx-auto max-w-3xl rounded-2xl bg-white p-5 shadow-sm">
               <img

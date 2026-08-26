@@ -5,6 +5,7 @@ import { t } from '@/lib/i18n/translations';
 import { FeatureIconMark, normalizeFeatureBlocks } from '@/features/news-cms/lib/featureIcons';
 import { filledSpecRows, normalizeTechBlocks } from '@/features/news-cms/lib/techBlocks';
 import { activeCtaLinks, ctaTypeOption, invalidCtaLinks } from '@/features/news-cms/lib/ctaLinks';
+import { newsTypographyStyle, type NewsTypographyScale } from '@/features/news-cms/lib/newsTypography';
 import {
   activeFlyerLinks,
 
@@ -116,6 +117,12 @@ function imageTransform(content: Record<string, unknown>, key: string): NewsImag
 const A4_BASE_WIDTH = 1123;
 const A4_BASE_HEIGHT = 794;
 
+const TEXT_SCALE_SM: NewsTypographyScale = { '-3': '0.62rem', '-2': '0.68rem', '-1': '0.74rem', 1: '0.88rem', 2: '0.96rem', 3: '1.04rem' };
+const TEXT_SCALE_MD: NewsTypographyScale = { '-3': '0.76rem', '-2': '0.84rem', '-1': '0.9rem', 1: '1.05rem', 2: '1.14rem', 3: '1.22rem' };
+const TEXT_SCALE_LG: NewsTypographyScale = { '-3': '0.95rem', '-2': '1.05rem', '-1': '1.12rem', 1: '1.32rem', 2: '1.45rem', 3: '1.58rem' };
+const TEXT_SCALE_XL: NewsTypographyScale = { '-3': '1.45rem', '-2': '1.7rem', '-1': '1.95rem', 1: '2.32rem', 2: '2.48rem', 3: '2.6rem' };
+const TEXT_SCALE_HERO: NewsTypographyScale = { '-3': '2rem', '-2': '2.2rem', '-1': '2.35rem', 1: '2.65rem', 2: '2.85rem', 3: '3rem' };
+
 /**
  * Renders a fixed A4 design box and scales the whole composition down to the
  * available width, so the geometry stays proportional at every preview size
@@ -217,7 +224,7 @@ function TextLines({ lines = 4 }: { lines?: number }) {
   );
 }
 
-function CtaRow({ content, lang }: NewsRendererProps) {
+function CtaRow({ content, lang, templateData }: NewsRendererProps) {
   const ctas = activeCtaLinks(content.ctaLinks);
   if (ctas.length === 0) return null;
   return (
@@ -238,7 +245,7 @@ function CtaRow({ content, lang }: NewsRendererProps) {
             }`}
           >
             <Icon className="h-4 w-4 shrink-0" />
-            <span className="min-w-0 [overflow-wrap:anywhere]">{cta.label}</span>
+            <span className="min-w-0 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'ctaLinks.label', TEXT_SCALE_SM)}>{cta.label}</span>
           </a>
         );
       })}
@@ -246,7 +253,7 @@ function CtaRow({ content, lang }: NewsRendererProps) {
   );
 }
 
-function Template01({ content, lang, mode }: NewsRendererProps) {
+function Template01({ content, lang, mode, templateData }: NewsRendererProps) {
   const features = normalizeFeatureBlocks(content.features);
   const mainImage = text(content, 'mainImage', '');
   return (
@@ -269,14 +276,14 @@ function Template01({ content, lang, mode }: NewsRendererProps) {
             <Badge className="h-4 w-4" />
             {t('newsCmsCategoryProductAnnouncement', lang)}
           </div>
-          <h3 className="text-[2.15rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+          <h3 className="text-[2.15rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'headline', TEXT_SCALE_XL)}>
             {text(content, 'headline', t('newsCmsWireHeadline', lang))}
           </h3>
-          <p className="mt-2 text-xl font-semibold not-italic leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+          <p className="mt-2 text-xl font-semibold not-italic leading-snug text-emerald-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'subtitle', TEXT_SCALE_LG)}>
             {text(content, 'subtitle', t('newsCmsWireSubtitle', lang))}
           </p>
           {text(content, 'body', '') ? (
-            <p className="mt-3 max-w-prose whitespace-pre-line text-[0.95rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
+            <p className="mt-3 max-w-prose whitespace-pre-line text-[0.95rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'body', TEXT_SCALE_MD)}>
               {text(content, 'body', '')}
             </p>
           ) : null}
@@ -287,11 +294,11 @@ function Template01({ content, lang, mode }: NewsRendererProps) {
                 className="flex min-h-[7.5rem] min-w-0 flex-col overflow-hidden rounded-lg border border-emerald-100 bg-emerald-50 p-3"
               >
                 <FeatureIconMark block={feature} />
-                <p className="mt-2 min-w-0 text-[0.8rem] font-bold leading-tight text-slate-950 [hyphens:auto] [overflow-wrap:anywhere]">
+                <p className="mt-2 min-w-0 text-[0.8rem] font-bold leading-tight text-slate-950 [hyphens:auto] [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'features.heading', TEXT_SCALE_SM)}>
                   {feature.heading || t('newsCmsFeatureHeading', lang)}
                 </p>
                 {feature.description ? (
-                  <p className="mt-1 min-w-0 text-[0.68rem] font-normal leading-[1.35] text-slate-600 [hyphens:auto] [overflow-wrap:anywhere]">
+                  <p className="mt-1 min-w-0 text-[0.68rem] font-normal leading-[1.35] text-slate-600 [hyphens:auto] [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'features.description', TEXT_SCALE_SM)}>
                     {feature.description}
                   </p>
                 ) : (
@@ -300,7 +307,7 @@ function Template01({ content, lang, mode }: NewsRendererProps) {
               </div>
             ))}
           </div>
-          <CtaRow content={content} lang={lang} mode={mode} />
+          <CtaRow content={content} lang={lang} templateData={templateData} mode={mode} />
         </div>
       </div>
     </TemplateShell>
@@ -339,7 +346,7 @@ function TemplateImage({
   );
 }
 
-function Template02({ content, lang }: NewsRendererProps) {
+function Template02({ content, lang, templateData }: NewsRendererProps) {
   const body = text(content, 'body', '');
   const caption = text(content, 'imageCaption', '');
   const mainImage = text(content, 'mainImage', '');
@@ -349,21 +356,21 @@ function Template02({ content, lang }: NewsRendererProps) {
       <div className="grid h-full min-w-0 grid-cols-[1.05fr_0.95fr] gap-8">
         <div className="flex min-w-0 flex-col pt-[44%]">
           <div className="mb-4 h-1.5 w-28 shrink-0 rounded-full bg-emerald-600" />
-          <h3 className="text-[2.15rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+          <h3 className="text-[2.15rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'headline', TEXT_SCALE_XL)}>
             {text(content, 'headline', t('newsCmsWireHeadline', lang))}
           </h3>
-          <p className="mt-2 text-lg font-semibold leading-snug text-slate-600 [overflow-wrap:anywhere]">
+          <p className="mt-2 text-lg font-semibold leading-snug text-slate-600 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'subtitle', TEXT_SCALE_LG)}>
             {text(content, 'subtitle', t('newsCmsWireSubtitle', lang))}
           </p>
           <div className="mt-4 rounded-xl border-l-4 border-rose-500 bg-rose-50 p-3.5">
             <Quote className="mb-1.5 h-4 w-4 text-rose-500" />
-            <p className="text-sm font-semibold leading-snug text-slate-700 [overflow-wrap:anywhere]">
+            <p className="text-sm font-semibold leading-snug text-slate-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'quote', TEXT_SCALE_MD)}>
               {text(content, 'quote', t('newsCmsWireQuote', lang))}
             </p>
           </div>
           <div className="mt-4 min-h-0 flex-1 overflow-hidden">
             {body ? (
-              <p className="whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
+              <p className="whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'body', TEXT_SCALE_MD)}>
                 {body}
               </p>
             ) : (
@@ -387,7 +394,7 @@ function Template02({ content, lang }: NewsRendererProps) {
             />
             <div className="flex min-w-0 flex-col justify-center border-l-2 border-emerald-500 pl-3">
               {caption ? (
-                <p className="line-clamp-3 text-[0.78rem] font-medium leading-[1.35] text-slate-600 [overflow-wrap:anywhere]">
+                <p className="line-clamp-3 text-[0.78rem] font-medium leading-[1.35] text-slate-600 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'imageCaption', TEXT_SCALE_SM)}>
                   {caption}
                 </p>
               ) : (
@@ -402,15 +409,15 @@ function Template02({ content, lang }: NewsRendererProps) {
 }
 
 
-function Template03({ content, lang }: NewsRendererProps) {
+function Template03({ content, lang, templateData }: NewsRendererProps) {
   return (
     <TemplateShell lang={lang}>
       <div className="relative h-full overflow-hidden rounded-xl">
         <ImageBox label={t('newsCmsWireHeroImage', lang)} className="absolute inset-0 h-full border-none bg-slate-200" />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-transparent" />
         <div className="relative flex h-full max-w-lg flex-col justify-center text-white">
-          <h3 className="text-4xl font-black leading-tight">{text(content, 'headline', t('newsCmsWireHeroHeadline', lang))}</h3>
-          <p className="mt-4 text-lg">{text(content, 'subtitle', t('newsCmsWireIntro', lang))}</p>
+          <h3 className="text-4xl font-black leading-tight" style={newsTypographyStyle(templateData, 'headline', TEXT_SCALE_HERO)}>{text(content, 'headline', t('newsCmsWireHeroHeadline', lang))}</h3>
+          <p className="mt-4 text-lg" style={newsTypographyStyle(templateData, 'subtitle', TEXT_SCALE_LG)}>{text(content, 'subtitle', t('newsCmsWireIntro', lang))}</p>
           <div className="mt-7 flex gap-3">
             {[1, 2, 3].map((item) => <span key={item} className="h-12 w-28 rounded-lg bg-white/20" />)}
           </div>
@@ -430,7 +437,7 @@ function Template03({ content, lang }: NewsRendererProps) {
  * percentages of the fixed A4 column, so the geometry scales as one
  * composition and no text can move or resize it.
  */
-function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'content' | 'lang'>) {
+function Template04Composition({ content, lang, templateData }: Pick<NewsRendererProps, 'content' | 'lang' | 'templateData'>) {
   const productImage = text(content, 'productImage', '');
   const secondaryImage = text(content, 'secondaryImage', '');
   const secondaryHeading = text(content, 'secondaryHeading', '');
@@ -463,10 +470,10 @@ function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'conte
       </div>
 
       <div className="absolute bottom-[1.1rem] left-[122.5%] z-20 flex h-[13.25rem] w-[46%] min-w-0 flex-col justify-start overflow-hidden pt-1">
-        <p className="line-clamp-2 text-[1.5rem] font-bold leading-tight text-emerald-700 [overflow-wrap:anywhere]">
+        <p className="line-clamp-2 text-[1.5rem] font-bold leading-tight text-emerald-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'secondaryHeading', TEXT_SCALE_LG)}>
           {secondaryHeading || t('newsCmsWireSecondaryHeading', lang)}
         </p>
-        <p className="mt-2 line-clamp-5 text-[1.1rem] font-normal leading-[1.45] text-slate-700 [overflow-wrap:anywhere]">
+        <p className="mt-2 line-clamp-5 text-[1.1rem] font-normal leading-[1.45] text-slate-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'secondaryText', TEXT_SCALE_MD)}>
           {secondaryText || t('newsCmsWireSecondaryText', lang)}
         </p>
       </div>
@@ -475,7 +482,7 @@ function Template04Composition({ content, lang }: Pick<NewsRendererProps, 'conte
   );
 }
 
-function Template04({ content, lang }: NewsRendererProps) {
+function Template04({ content, lang, templateData }: NewsRendererProps) {
   const blocks = normalizeTechBlocks(content.techBlocks);
   const specs = filledSpecRows(content.specRows);
   const body = text(content, 'body', '');
@@ -483,7 +490,7 @@ function Template04({ content, lang }: NewsRendererProps) {
     <TemplateShell lang={lang} logoSize="sm" scaleToFit>
 
       <div className="grid h-full min-w-0 grid-cols-[0.98fr_1.02fr] gap-6">
-        <Template04Composition content={content} lang={lang} />
+        <Template04Composition content={content} lang={lang} templateData={templateData} />
 
         {/* Right column = fixed branding zone (logo) + content zone strictly below it. */}
         <div className="grid min-h-0 min-w-0 grid-rows-[10.5rem_minmax(0,1fr)] overflow-hidden">
@@ -497,16 +504,16 @@ function Template04({ content, lang }: NewsRendererProps) {
           */}
           <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
             <div className="min-w-0 flex-none overflow-hidden">
-              <h3 className="line-clamp-2 text-3xl font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+              <h3 className="line-clamp-2 text-3xl font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'headline', TEXT_SCALE_HERO)}>
                 {text(content, 'headline', t('newsCmsWireTechnicalFeature', lang))}
               </h3>
-              <p className="mt-1.5 line-clamp-2 text-lg font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+              <p className="mt-1.5 line-clamp-2 text-lg font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'subtitle', TEXT_SCALE_LG)}>
                 {text(content, 'subtitle', t('newsCmsWireMachineFunction', lang))}
               </p>
             </div>
             <div className="mt-2.5 min-h-[6rem] min-w-0 max-w-full flex-[0_1_auto] overflow-hidden">
               {body ? (
-                <p className="max-w-full whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
+                <p className="max-w-full whitespace-pre-line text-[0.9rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'body', TEXT_SCALE_MD)}>
                   {body}
                 </p>
               ) : null}
@@ -521,11 +528,11 @@ function Template04({ content, lang }: NewsRendererProps) {
                 >
                   <FeatureIconMark block={block} size="sm" />
                   <div className="min-w-0">
-                    <p className="line-clamp-2 text-[1rem] font-black leading-tight text-slate-950 [overflow-wrap:anywhere]">
+                    <p className="line-clamp-2 text-[1rem] font-black leading-tight text-slate-950 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'techBlocks.heading', TEXT_SCALE_MD)}>
                       {block.heading || t('newsCmsTechHeading', lang)}
                     </p>
                     {block.description ? (
-                      <p className="mt-0.5 line-clamp-2 text-[0.8rem] font-medium leading-[1.32] text-slate-600 [overflow-wrap:anywhere]">
+                      <p className="mt-0.5 line-clamp-2 text-[0.8rem] font-medium leading-[1.32] text-slate-600 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'techBlocks.description', TEXT_SCALE_SM)}>
                         {block.description}
                       </p>
                     ) : null}
@@ -543,8 +550,8 @@ function Template04({ content, lang }: NewsRendererProps) {
                   <dl className="grid grid-cols-2 gap-x-5 gap-y-1">
                     {specs.map((row, index) => (
                       <div key={index} className="flex min-w-0 items-baseline justify-between gap-2 border-b border-slate-200 pb-1">
-                        <dt className="min-w-0 text-[0.84rem] font-semibold text-slate-500 [overflow-wrap:anywhere]">{row.label}</dt>
-                        <dd className="min-w-0 text-right text-[0.84rem] font-bold text-slate-900 [overflow-wrap:anywhere]">{row.value}</dd>
+                        <dt className="min-w-0 text-[0.84rem] font-semibold text-slate-500 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'specRows.label', TEXT_SCALE_SM)}>{row.label}</dt>
+                        <dd className="min-w-0 text-right text-[0.84rem] font-bold text-slate-900 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'specRows.value', TEXT_SCALE_SM)}>{row.value}</dd>
                       </div>
                     ))}
                   </dl>
@@ -564,7 +571,7 @@ function Template04({ content, lang }: NewsRendererProps) {
  * editor preview, overview preview and public modal keep the same wrapping and
  * do not hide body/key-point text in narrower containers.
  */
-function Template05({ content, lang }: NewsRendererProps) {
+function Template05({ content, lang, templateData }: NewsRendererProps) {
   const body = text(content, 'body', '');
   const quote = text(content, 'quote', '');
   return (
@@ -572,17 +579,17 @@ function Template05({ content, lang }: NewsRendererProps) {
       <div className="grid h-full min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-7">
         {/* Text column: fixed zones inside the intrinsic A4 canvas. */}
         <div className="grid min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
-          <div className="min-w-0 pt-[6.7rem]">
-            <h3 className="line-clamp-2 text-[2.45rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+          <div className="min-w-0 pt-[8rem]">
+            <h3 className="line-clamp-2 text-[2.45rem] font-black leading-tight tracking-tight text-slate-950 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'headline', TEXT_SCALE_HERO)}>
               {text(content, 'headline', t('newsCmsWireStoryHeadline', lang))}
             </h3>
-            <p className="mt-2.5 line-clamp-2 text-[1.18rem] font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+            <p className="mt-2.5 line-clamp-2 text-[1.18rem] font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'subtitle', TEXT_SCALE_LG)}>
               {text(content, 'subtitle', t('newsCmsWireSubtitle', lang))}
             </p>
           </div>
           <div className="mt-5 min-h-0 min-w-0 max-w-full overflow-hidden">
             {body ? (
-              <p className="max-w-full whitespace-pre-line text-[0.96rem] font-normal leading-[1.5] text-slate-700 [overflow-wrap:anywhere]">
+              <p className="max-w-full whitespace-pre-line text-[0.96rem] font-normal leading-[1.5] text-slate-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'body', TEXT_SCALE_MD)}>
                 {body}
               </p>
             ) : (
@@ -594,7 +601,7 @@ function Template05({ content, lang }: NewsRendererProps) {
               {t('newsCmsFieldQuote', lang)}
             </p>
             <div className="rounded-xl border-l-4 border-emerald-600 bg-emerald-50 p-4">
-              <p className="text-[0.95rem] font-semibold leading-snug text-slate-700 [overflow-wrap:anywhere]">
+              <p className="text-[0.95rem] font-semibold leading-snug text-slate-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'quote', TEXT_SCALE_MD)}>
                 {quote || t('newsCmsWireHighlightQuote', lang)}
               </p>
             </div>
@@ -634,7 +641,7 @@ function FlyerNewsBadge({ lang }: { lang: NewsRendererProps['lang'] }) {
 }
 
 /** Page 1 – hero / intro. */
-function FlyerPage1({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererProps['lang'] }) {
+function FlyerPage1({ page, lang, templateData }: { page: NewsFlyerPage; lang: NewsRendererProps['lang']; templateData?: NewsRendererProps['templateData'] }) {
   return (
     <TemplateShell lang={lang} logoAlign="left" logoSize="sm" scaleToFit>
       <div className="grid h-full min-w-0 grid-cols-[1.04fr_0.96fr] gap-8">
@@ -643,16 +650,16 @@ function FlyerPage1({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererPro
           <div aria-hidden />
           <div className="min-w-0">
             <div className="mb-4 h-1.5 w-28 rounded-full bg-emerald-600" />
-            <h3 className="line-clamp-3 text-[2.35rem] font-black leading-[1.08] tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+            <h3 className="line-clamp-3 text-[2.35rem] font-black leading-[1.08] tracking-tight text-slate-950 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.headline', TEXT_SCALE_HERO)}>
               {page.headline || t('newsCmsWireHeadline', lang)}
             </h3>
-            <p className="mt-3 line-clamp-2 text-xl font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+            <p className="mt-3 line-clamp-2 text-xl font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.subtitle', TEXT_SCALE_LG)}>
               {page.subtitle || t('newsCmsWireSubtitle', lang)}
             </p>
           </div>
           <div className="mt-5 min-h-0 min-w-0 overflow-hidden border-t border-slate-200 pt-4">
             {page.body ? (
-              <p className="max-w-full whitespace-pre-line text-[0.95rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]">
+              <p className="max-w-full whitespace-pre-line text-[0.95rem] font-normal leading-6 text-slate-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.body', TEXT_SCALE_MD)}>
                 {page.body}
               </p>
             ) : (
@@ -675,7 +682,7 @@ function FlyerPage1({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererPro
  * top, then a body column beside a small secondary image, closing with three
  * fixed highlight cards.
  */
-function FlyerPage2({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererProps['lang'] }) {
+function FlyerPage2({ page, lang, templateData }: { page: NewsFlyerPage; lang: NewsRendererProps['lang']; templateData?: NewsRendererProps['templateData'] }) {
   const highlights = normalizeFlyerHighlights(page.highlights);
   return (
     <TemplateShell lang={lang} scaleToFit showLogo={false} showDecor={false}>
@@ -694,10 +701,10 @@ function FlyerPage2({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererPro
 
         {/* Header zone. */}
         <div className="min-w-0">
-          <h3 className="line-clamp-2 text-[1.85rem] font-black leading-[1.1] tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+          <h3 className="line-clamp-2 text-[1.85rem] font-black leading-[1.1] tracking-tight text-slate-950 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.headline', TEXT_SCALE_XL)}>
             {page.headline || t('newsCmsWireHeadline', lang)}
           </h3>
-          <p className="mt-1.5 line-clamp-1 text-base font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+          <p className="mt-1.5 line-clamp-1 text-base font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.subtitle', TEXT_SCALE_LG)}>
             {page.subtitle || t('newsCmsWireSubtitle', lang)}
           </p>
         </div>
@@ -706,7 +713,7 @@ function FlyerPage2({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererPro
         <div className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)_13rem] gap-5 overflow-hidden">
           <div className="min-h-0 min-w-0 overflow-hidden border-t border-slate-200 pt-3">
             {page.body ? (
-              <p className="max-w-full whitespace-pre-line text-[0.86rem] font-normal leading-[1.55] text-slate-700 [overflow-wrap:anywhere]">
+              <p className="max-w-full whitespace-pre-line text-[0.86rem] font-normal leading-[1.55] text-slate-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.body', TEXT_SCALE_MD)}>
                 {page.body}
               </p>
             ) : (
@@ -722,10 +729,10 @@ function FlyerPage2({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererPro
             <div key={index} className="flex min-w-0 items-start gap-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70 p-3">
               <FeatureIconMark block={block} size="sm" />
               <div className="min-w-0">
-                <p className="line-clamp-1 text-[0.8rem] font-bold leading-tight text-slate-900 [overflow-wrap:anywhere]">
+                <p className="line-clamp-1 text-[0.8rem] font-bold leading-tight text-slate-900 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.highlights.heading', TEXT_SCALE_SM)}>
                   {block.heading || `${t('newsCmsFlyerHighlight', lang)} ${index + 1}`}
                 </p>
-                <p className="mt-1 line-clamp-2 text-[0.72rem] font-normal leading-snug text-slate-600 [overflow-wrap:anywhere]">
+                <p className="mt-1 line-clamp-2 text-[0.72rem] font-normal leading-snug text-slate-600 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.highlights.description', TEXT_SCALE_SM)}>
                   {block.description || t('newsCmsWireBody', lang)}
                 </p>
               </div>
@@ -738,7 +745,7 @@ function FlyerPage2({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererPro
 }
 
 /** Page 3 – specifications and closing call to action. */
-function FlyerPage3({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererProps['lang'] }) {
+function FlyerPage3({ page, lang, templateData }: { page: NewsFlyerPage; lang: NewsRendererProps['lang']; templateData?: NewsRendererProps['templateData'] }) {
   const specs = filledFlyerSpecs(page.specs);
   const links = activeFlyerLinks(page.links);
   return (
@@ -748,13 +755,13 @@ function FlyerPage3({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererPro
         <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-6 border-b border-slate-200 pb-4">
           <img src={timanLogo} alt="TIMAN" className="h-16 w-auto shrink-0 object-contain" draggable={false} />
           <div className="min-w-0">
-            <h3 className="line-clamp-2 text-[1.7rem] font-black leading-[1.1] tracking-tight text-slate-950 [overflow-wrap:anywhere]">
+            <h3 className="line-clamp-2 text-[1.7rem] font-black leading-[1.1] tracking-tight text-slate-950 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.headline', TEXT_SCALE_XL)}>
               {page.headline || t('newsCmsWireHeadline', lang)}
             </h3>
-            <p className="mt-1 line-clamp-1 text-[0.95rem] font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]">
+            <p className="mt-1 line-clamp-1 text-[0.95rem] font-semibold leading-snug text-emerald-700 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.subtitle', TEXT_SCALE_MD)}>
               {page.subtitle || t('newsCmsWireSubtitle', lang)}
             </p>
-            <p className="mt-1.5 line-clamp-2 text-[0.82rem] font-normal leading-[1.5] text-slate-600 [overflow-wrap:anywhere]">
+            <p className="mt-1.5 line-clamp-2 text-[0.82rem] font-normal leading-[1.5] text-slate-600 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.body', TEXT_SCALE_SM)}>
               {page.body || t('newsCmsWireBody', lang)}
             </p>
           </div>
@@ -779,8 +786,8 @@ function FlyerPage3({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererPro
                     key={index}
                     className="flex items-baseline justify-between gap-4 border-b border-dotted border-slate-300 py-[0.52rem]"
                   >
-                    <dt className="line-clamp-1 min-w-0 text-[0.85rem] font-medium text-slate-600 [overflow-wrap:anywhere]">{row.label}</dt>
-                    <dd className="line-clamp-1 shrink-0 text-[0.9rem] font-bold text-slate-900 [overflow-wrap:anywhere]">{row.value}</dd>
+                    <dt className="line-clamp-1 min-w-0 text-[0.85rem] font-medium text-slate-600 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.specs.label', TEXT_SCALE_SM)}>{row.label}</dt>
+                    <dd className="line-clamp-1 shrink-0 text-[0.9rem] font-bold text-slate-900 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.specs.value', TEXT_SCALE_SM)}>{row.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -805,7 +812,7 @@ function FlyerPage3({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererPro
                     : 'border-2 border-[var(--timan-green)] bg-white text-emerald-700'
                 }`}
               >
-                <span className="line-clamp-1 [overflow-wrap:anywhere]">{link.label}</span>
+                <span className="line-clamp-1 [overflow-wrap:anywhere]" style={newsTypographyStyle(templateData, 'flyerPages.links.label', TEXT_SCALE_SM)}>{link.label}</span>
               </a>
             ))}
             <span className="ml-auto flex shrink-0 items-center gap-1.5">
@@ -819,16 +826,16 @@ function FlyerPage3({ page, lang }: { page: NewsFlyerPage; lang: NewsRendererPro
   );
 }
 
-function Template06({ content, lang, page = 1 }: NewsRendererProps) {
+function Template06({ content, lang, templateData, page = 1 }: NewsRendererProps) {
   const pages = flyerPagesFromContent(content);
   const index = Math.min(Math.max(page, 1), pages.length) - 1;
   const current = pages[index] || emptyFlyerPage(index);
-  if (index === 1) return <FlyerPage2 page={current} lang={lang} />;
-  if (index === 2) return <FlyerPage3 page={current} lang={lang} />;
-  return <FlyerPage1 page={current} lang={lang} />;
+  if (index === 1) return <FlyerPage2 page={current} lang={lang} templateData={templateData} />;
+  if (index === 2) return <FlyerPage3 page={current} lang={lang} templateData={templateData} />;
+  return <FlyerPage1 page={current} lang={lang} templateData={templateData} />;
 }
 
-function CustomTiman3330Seat({ content, lang }: NewsRendererProps) {
+function CustomTiman3330Seat({ content, lang, templateData }: NewsRendererProps) {
   const mainImage = text(content, 'mainImage', '');
   const headline = text(content, 'headline', 'Superior operator comfort');
   const subtitle = text(content, 'subtitle', 'Timan 3330');
@@ -851,9 +858,9 @@ function CustomTiman3330Seat({ content, lang }: NewsRendererProps) {
           <span className="mb-5 inline-flex w-fit rounded-full bg-emerald-50 px-4 py-1.5 text-sm font-black uppercase tracking-[0.12em] text-emerald-700">
             {t('newsCmsBadgeNews', lang)}
           </span>
-          <h2 className="max-w-[30rem] text-5xl font-black leading-[0.98] tracking-normal text-slate-950">{headline}</h2>
-          <p className="mt-4 max-w-[31rem] text-2xl font-bold leading-snug text-emerald-700">{subtitle}</p>
-          {body && <p className="mt-6 max-w-[33rem] text-lg leading-8 text-slate-700">{body}</p>}
+          <h2 className="max-w-[30rem] text-5xl font-black leading-[0.98] tracking-normal text-slate-950" style={newsTypographyStyle(templateData, 'headline', TEXT_SCALE_HERO)}>{headline}</h2>
+          <p className="mt-4 max-w-[31rem] text-2xl font-bold leading-snug text-emerald-700" style={newsTypographyStyle(templateData, 'subtitle', TEXT_SCALE_LG)}>{subtitle}</p>
+          {body && <p className="mt-6 max-w-[33rem] text-lg leading-8 text-slate-700" style={newsTypographyStyle(templateData, 'body', TEXT_SCALE_LG)}>{body}</p>}
           {ctaUrl && (
             <a
               href={ctaUrl}
@@ -861,7 +868,7 @@ function CustomTiman3330Seat({ content, lang }: NewsRendererProps) {
               rel="noopener noreferrer"
               className="mt-8 inline-flex w-fit rounded-xl bg-[var(--timan-green)] px-6 py-3 text-base font-bold text-white shadow-sm"
             >
-              {ctaLabel}
+              <span style={newsTypographyStyle(templateData, 'cta_label', TEXT_SCALE_MD)}>{ctaLabel}</span>
             </a>
           )}
         </div>

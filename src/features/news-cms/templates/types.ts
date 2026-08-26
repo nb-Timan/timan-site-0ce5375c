@@ -91,6 +91,7 @@ export interface NewsValidationResult {
 export interface NewsRendererProps {
   lang: PortalUiLanguage;
   content: Record<string, unknown>;
+  templateData?: Record<string, unknown> | null;
   mode: 'editor' | 'preview' | 'public';
   /** 1-based page index for multi-page templates (Template 06). */
   page?: number;

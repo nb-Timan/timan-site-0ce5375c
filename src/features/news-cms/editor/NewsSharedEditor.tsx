@@ -33,6 +33,7 @@ import {
   NEWS_TOPIC_UI_TEXT,
   normalizeNewsTopicData,
 } from '@/features/news-cms/lib/newsTaxonomy';
+import { getNewsTypography, setNewsTypographySetting, type NewsTypographySetting } from '@/features/news-cms/lib/newsTypography';
 
 type StepId = 1 | 2 | 3 | 4 | 5;
 
@@ -126,6 +127,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   const canPublish = validation.valid;
   const newsTopic = normalizeNewsTopicData(templateData.news_topic);
   const attachmentOptions = getAttachmentOptionsForMachine(newsTopic.target);
+  const typography = useMemo(() => getNewsTypography(templateData), [templateData]);
 
   const updateNewsTopic = (patch: Partial<typeof newsTopic>) => {
     setTemplateData((current) => {
@@ -197,6 +199,11 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     } catch (error) {
       setPublishWarning(error instanceof Error ? error.message : 'Kladden kunne ikke gemmes.');
     }
+  };
+
+  const updateTypography = (fieldPath: string, setting: NewsTypographySetting | null) => {
+    setTemplateData((current) => setNewsTypographySetting(current, fieldPath, setting));
+    setPublishWarning(null);
   };
 
   const publish = async () => {
@@ -295,7 +302,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                 <span className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1 text-rose-700">{t('newsCmsEditableContent', uiLanguage)}</span>
               </div>
             </div>
-            <NewsRenderSurface lang={uiLanguage} template={template} content={activeContent} mode="editor" />
+            <NewsRenderSurface lang={uiLanguage} template={template} content={activeContent} templateData={templateData} mode="editor" />
           </section>
         </div>
       )}
@@ -392,6 +399,8 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                   field={field}
                   value={activeContent[field.key]}
                   content={activeContent}
+                  typography={typography}
+                  onTypographyChange={updateTypography}
                   onMetaChange={(fieldKey, value) =>
                     setLocalizedContent((current) => updateSharedNewsField(current, fieldKey, value))
                   }
@@ -436,7 +445,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               </div>
             )}
           </section>
-          <NewsPreviewPane lang={editLanguage} template={template} content={activeContent} />
+          <NewsPreviewPane lang={editLanguage} template={template} content={activeContent} templateData={templateData} />
         </div>
       )}
 
@@ -451,7 +460,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               <div><span className="block text-xs font-bold uppercase text-slate-400">{t('newsCmsColumnStatus', uiLanguage)}</span>{t('newsCmsStatusDraft', uiLanguage)}</div>
             </div>
           </aside>
-          <NewsPreviewPane lang={editLanguage} template={template} content={activeContent} />
+          <NewsPreviewPane lang={editLanguage} template={template} content={activeContent} templateData={templateData} />
         </div>
       )}
 

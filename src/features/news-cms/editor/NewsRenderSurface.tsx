@@ -9,6 +9,7 @@ interface Props {
   lang: PortalUiLanguage;
   template: NewsTemplateDefinition;
   content: Record<string, unknown>;
+  templateData?: Record<string, unknown> | null;
   mode?: 'editor' | 'preview' | 'public';
 }
 
@@ -16,7 +17,7 @@ interface Props {
  * Renders a template and, for multi-page templates, an editor-only page
  * navigator underneath. The navigator is never part of the A4 design.
  */
-export default function NewsRenderSurface({ lang, template, content, mode = 'preview' }: Props) {
+export default function NewsRenderSurface({ lang, template, content, templateData, mode = 'preview' }: Props) {
   const Renderer = template.Renderer;
   const pageCount = template.pageMode === 'multiple' ? clampFlyerPageCount(content.pageCount) : 1;
   const [page, setPage] = useState(1);
@@ -27,7 +28,7 @@ export default function NewsRenderSurface({ lang, template, content, mode = 'pre
 
   return (
     <div>
-      <Renderer lang={lang} content={content} mode={mode} page={page} />
+      <Renderer lang={lang} content={content} templateData={templateData} mode={mode} page={page} />
       {pageCount > 1 && (
         <div className="mt-3 flex items-center justify-center gap-3">
           <button
