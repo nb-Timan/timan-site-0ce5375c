@@ -24,7 +24,7 @@ import {
   NEXT_ACTIVITY_LOST,
   deriveLegacyPipelineStage,
 } from '@/lib/leadStatus';
-import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X, DatabaseZap } from 'lucide-react';
+import { ArrowDownAZ, Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X, DatabaseZap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
 import { listScopedConfigurations } from '@/lib/crmRelationsService';
@@ -226,6 +226,7 @@ function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
     value: l.estimated_value,
     detail_href: `/portal/crm/leads/${l.id}`,
     attachments: l.attachments || [],
+    has_demo: l.demo_has_run === 'yes',
     incomplete: l.incomplete_from_configurator === true,
   };
 }
@@ -254,7 +255,37 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
   };
 }
 
-type TabKey = 'all' | 'open' | 'demo' | 'mine' | 'mine_demo';
+type TabKey = 'open' | 'open_demo' | 'won' | 'closed' | 'all';
+type SortKey = 'default' | 'title_asc' | 'title_desc' | 'date_desc' | 'date_asc' | 'prob_desc' | 'prob_asc';
+
+function isWonRow(row: UnifiedLead): boolean {
+  return row.status === 'Vundet' || row.status === 'Won';
+}
+
+function isClosedRow(row: UnifiedLead): boolean {
+  return row.status === 'Tabt' || row.status === 'Lost' || row.status === 'No fit';
+}
+
+function isOpenRow(row: UnifiedLead): boolean {
+  return !isWonRow(row) && !isClosedRow(row);
+}
+
+function isDemoLikeRow(row: UnifiedLead): boolean {
+  return row.type === 'demo' || row.has_demo === true || row.status === 'Demo planlagt';
+}
+
+function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
+  if (sort === 'title_asc') return (a.title || '').localeCompare(b.title || '', 'da');
+  if (sort === 'title_desc') return (b.title || '').localeCompare(a.title || '', 'da');
+  if (sort === 'date_desc') return (b.date || '').localeCompare(a.date || '');
+  if (sort === 'date_asc') return (a.date || '').localeCompare(b.date || '');
+  if (sort === 'prob_desc') return (b.probability ?? -1) - (a.probability ?? -1);
+  if (sort === 'prob_asc') return (a.probability ?? 999) - (b.probability ?? 999);
+  const aLegacy = /^G-/.test(a.display_no || '');
+  const bLegacy = /^G-/.test(b.display_no || '');
+  if (aLegacy !== bLegacy) return aLegacy ? 1 : -1;
+  return (b.date || '').localeCompare(a.date || '');
+}
 
 export default function CrmLeadsPage() {
   const { appUser } = useAppUser();
@@ -267,11 +298,11 @@ export default function CrmLeadsPage() {
   const canDelete = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
 
   const TABS: { key: TabKey; label: string }[] = [
-    { key: 'all',       label: tt('tab_all', lang) },
-    { key: 'open',      label: tt('tab_open', lang) },
-    { key: 'demo',      label: tt('tab_demo', lang) },
-    { key: 'mine',      label: tt('tab_mine', lang) },
-    { key: 'mine_demo', label: tt('tab_mine_demo', lang) },
+    { key: 'open',      label: 'Åbne leads' },
+    { key: 'open_demo', label: 'Åbne demo leads' },
+    { key: 'won',       label: 'Vundet leads' },
+    { key: 'closed',    label: 'Lukkede leads' },
+    { key: 'all',       label: 'Alle leads' },
   ];
 
   const [openLeads, setOpenLeads] = useState<CrmLead[]>([]);
@@ -282,9 +313,10 @@ export default function CrmLeadsPage() {
   const [sharedLeadIds, setSharedLeadIds] = useState<Set<string>>(() => new Set());
   const [loading, setLoading] = useState(true);
 
-  const [tab, setTab] = useState<TabKey>(dealerParam ? 'all' : (isAdmin ? 'all' : 'mine'));
+  const [tab, setTab] = useState<TabKey>(dealerParam ? 'all' : 'open');
   const [q, setQ] = useState(dealerParam);
   const [stage, setStage] = useState<string>('');
+  const [sort, setSort] = useState<SortKey>('default');
   const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UnifiedLead | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -318,7 +350,7 @@ export default function CrmLeadsPage() {
     }
   }
 
-  useEffect(() => { if (!dealerParam) setTab(isAdmin ? 'all' : 'mine'); }, [isAdmin, dealerParam]);
+  useEffect(() => { if (!dealerParam) setTab('open'); }, [dealerParam]);
 
   useEffect(() => {
     let cancelled = false;
@@ -380,7 +412,7 @@ export default function CrmLeadsPage() {
     const demoSourceLeadIds = new Set(demoLeads.map((demo) => demo.source_lead_id).filter(Boolean) as string[]);
     const open = openLeads.map((lead) => {
       const row = mapOpen(lead, dealerNameById);
-      row.has_demo = Boolean(lead.converted_demo_lead_id || demoSourceLeadIds.has(lead.id));
+      row.has_demo = Boolean(row.has_demo || lead.converted_demo_lead_id || demoSourceLeadIds.has(lead.id));
       row.quote_id = quoteIdByLeadId.get(lead.id) || null;
       row.shared = sharedLeadIds.has(lead.id);
       return row;
@@ -396,43 +428,24 @@ export default function CrmLeadsPage() {
         (myEmail && (r.responsible_name || '').toLowerCase() === myEmail)
       );
     }
-    merged.sort((a, b) => {
-      const aLegacy = /^G-/.test(a.display_no || '');
-      const bLegacy = /^G-/.test(b.display_no || '');
-      if (aLegacy !== bLegacy) return aLegacy ? 1 : -1;
-      return (b.date || '').localeCompare(a.date || '');
-    });
+    merged.sort((a, b) => compareRows(a, b, 'default'));
     return merged;
   }, [openLeads, demoLeads, dealerNameById, quoteIdByLeadId, isAdmin, sellerId, appUser?.email, sharedLeadIds]);
 
   const counts = useMemo(() => ({
     all:       allRows.length,
-    open:      allRows.filter(r => r.type === 'open').length,
-    demo:      allRows.filter(r => r.type === 'demo').length,
-    mine:      allRows.filter(r => r.type === 'open' && (
-                  (sellerId && r.owner_user_id === sellerId) ||
-                  (!!appUser?.email && (r.owner_email || '').toLowerCase() === appUser.email.toLowerCase())
-                )).length,
-    mine_demo: allRows.filter(r => r.type === 'demo' && (
-                  (sellerId && r.owner_user_id === sellerId) ||
-                  (!!appUser?.email && (r.owner_email || '').toLowerCase() === appUser.email.toLowerCase())
-                )).length,
-  }), [allRows, sellerId, appUser?.email]);
+    open:      allRows.filter(r => r.type === 'open' && !isDemoLikeRow(r) && isOpenRow(r)).length,
+    open_demo: allRows.filter(r => isDemoLikeRow(r) && isOpenRow(r)).length,
+    won:       allRows.filter(isWonRow).length,
+    closed:    allRows.filter(r => isClosedRow(r) && !isWonRow(r)).length,
+  }), [allRows]);
 
   const visible = useMemo(() => {
     let r = allRows;
-    if (tab === 'open') r = r.filter(x => x.type === 'open');
-    else if (tab === 'demo') r = r.filter(x => x.type === 'demo');
-    else if (tab === 'mine') r = r.filter(x =>
-      x.type === 'open' && (
-        (sellerId && x.owner_user_id === sellerId) ||
-        (!!appUser?.email && (x.owner_email || '').toLowerCase() === appUser.email.toLowerCase())
-      ));
-    else if (tab === 'mine_demo') r = r.filter(x =>
-      x.type === 'demo' && (
-        (sellerId && x.owner_user_id === sellerId) ||
-        (!!appUser?.email && (x.owner_email || '').toLowerCase() === appUser.email.toLowerCase())
-      ));
+    if (tab === 'open') r = r.filter(x => x.type === 'open' && !isDemoLikeRow(x) && isOpenRow(x));
+    else if (tab === 'open_demo') r = r.filter(x => isDemoLikeRow(x) && isOpenRow(x));
+    else if (tab === 'won') r = r.filter(isWonRow);
+    else if (tab === 'closed') r = r.filter(x => isClosedRow(x) && !isWonRow(x));
 
     if (stage) r = r.filter(x => x.status === stage);
     if (q.trim()) {
@@ -445,8 +458,8 @@ export default function CrmLeadsPage() {
         (x.machine || '').toLowerCase().includes(s)
       );
     }
-    return r;
-  }, [allRows, tab, stage, q, sellerId, appUser?.email]);
+    return [...r].sort((a, b) => compareRows(a, b, sort));
+  }, [allRows, tab, stage, q, sort]);
 
   const totalValue = useMemo(() => visible.reduce((s, x) => s + (x.value || 0), 0), [visible]);
   const unassignedCount = useMemo(
@@ -560,6 +573,19 @@ export default function CrmLeadsPage() {
           <option disabled>──────────</option>
           {['Hot lead','Warm lead','Cold lead','Offer requested','No fit'].map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+        <div className="relative min-w-[230px]">
+          <ArrowDownAZ className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <select value={sort} onChange={e=>setSort(e.target.value as SortKey)}
+            className="w-full rounded-xl border border-gray-200 text-sm pl-10 pr-3 py-2.5 bg-white">
+            <option value="default">Sortér: standard</option>
+            <option value="title_asc">Titel: A-Å</option>
+            <option value="title_desc">Titel: Å-A</option>
+            <option value="date_desc">Dato: nyeste først</option>
+            <option value="date_asc">Dato: ældste først</option>
+            <option value="prob_desc">Status %: høj til lav</option>
+            <option value="prob_asc">Status %: lav til høj</option>
+          </select>
+        </div>
       </div>
 
       {/* Table */}
