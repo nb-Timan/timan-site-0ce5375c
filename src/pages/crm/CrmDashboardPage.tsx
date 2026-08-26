@@ -98,7 +98,6 @@ const PIPELINE_STAGES: StageMeta[] = [
   { key: 'lead',  tKey: 'stage_lead',  bar: 'bg-gradient-to-r from-slate-300 to-slate-400',   hex: '#94a3b8', ring: 'bg-slate-100 text-slate-600' },
   { key: 'demo',  tKey: 'stage_demo',  bar: 'bg-gradient-to-r from-sky-400 to-sky-500',       hex: '#0ea5e9', ring: 'bg-sky-100 text-sky-700' },
   { key: 'quote', tKey: 'stage_quote', bar: 'bg-gradient-to-r from-amber-400 to-amber-500',   hex: '#f59e0b', ring: 'bg-amber-100 text-amber-700' },
-  { key: 'neg',   tKey: 'stage_neg',   bar: 'bg-gradient-to-r from-violet-400 to-violet-500', hex: '#8b5cf6', ring: 'bg-violet-100 text-violet-700' },
   { key: 'won',   tKey: 'stage_won',   bar: 'bg-gradient-to-r from-emerald-500 to-[#2d5a27]', hex: '#2d5a27', ring: 'bg-emerald-100 text-emerald-700' },
   { key: 'lost',  tKey: 'stage_lost',  bar: 'bg-gradient-to-r from-rose-400 to-rose-500',     hex: '#f43f5e', ring: 'bg-rose-100 text-rose-700' },
 ];
@@ -271,9 +270,9 @@ export default function CrmDashboardPage() {
   }, [appUser?.email, appUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, topSellerInitials, leadRefreshToken]);
 
   // Build pipeline-by-stage from the SHARED CRM sources used elsewhere.
-  // - won  → orders (same as CRM → Ordrer & Lukkede ordrer KPI)
+  // - won  → won leads plus orders (same as CRM → Ordrer & Lukkede ordrer KPI)
   // - quote → openQuotes (same as CRM → Tilbud & Pipeline value)
-  // - lead/neg/lost → crm_leads pipeline_stage
+  // - lead/won/lost → crm_leads status
   // - demo → crm_calendar_activities (type=demo, status=planned)
   const pipelineRows = useMemo(() => buildPipelineRows({ orders, openQuotes, leads, calendar }), [orders, openQuotes, leads, calendar]);
 
@@ -284,7 +283,7 @@ export default function CrmDashboardPage() {
       const value = items.reduce((s, x) => s + (x.value || 0), 0);
       return { key: meta.key, bar: meta.bar, hex: meta.hex, ring: meta.ring, value, count: items.length };
     });
-    const openKeys: Array<StageMeta['key']> = ['lead','demo','quote','neg'];
+    const openKeys: Array<StageMeta['key']> = ['lead','demo','quote'];
     const pipelineValue = byStage.filter(s => openKeys.includes(s.key)).reduce((s, x) => s + x.value, 0);
     const pipelineValueEur = openQuotes
       .filter(q => q.currency === 'EUR')
@@ -625,8 +624,10 @@ export default function CrmDashboardPage() {
                     </span>
                   </div>
                   {(() => {
-                    const totalValue = Math.max(1, metrics.pipelineByStage.reduce((s, x) => s + x.value, 0));
-                    const segs = metrics.pipelineByStage.filter(s => s.value > 0);
+                    const openPipelineKeys: Array<StageMeta['key']> = ['lead', 'demo', 'quote'];
+                    const openPipelineStages = metrics.pipelineByStage.filter(s => openPipelineKeys.includes(s.key));
+                    const totalValue = Math.max(1, metrics.pipelineValue);
+                    const segs = openPipelineStages.filter(s => s.value > 0);
                     return (
                       <>
                         <div className="flex h-3 w-full rounded-full overflow-hidden bg-slate-100 ring-1 ring-slate-200/60">
@@ -645,7 +646,7 @@ export default function CrmDashboardPage() {
                           })}
                         </div>
                         <div className="mt-4 space-y-2">
-                          {metrics.pipelineByStage.filter(s => s.count > 0 || s.value > 0).map(s => {
+                          {openPipelineStages.filter(s => s.count > 0 || s.value > 0).map(s => {
                             const pct = totalValue === 0 ? 0 : Math.round((s.value / totalValue) * 100);
                             return (
                               <button
@@ -1147,7 +1148,7 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
     return { key: meta.key, bar: meta.bar, hex: meta.hex, ring: meta.ring, value, count: rows.length };
   });
 
-  const openStages: Array<StageMeta['key']> = ['lead','demo','quote','neg'];
+  const openStages: Array<StageMeta['key']> = ['lead','demo','quote'];
   const pipelineValue = byStage.filter(s => openStages.includes(s.key)).reduce((sum, s) => sum + s.value, 0);
 
   // Pipeline pct change — value created this month vs prev same window (proxy)
@@ -1290,7 +1291,7 @@ function buildPipelineTrend(activities: CrmActivity[]): Array<{ label: string; v
   const days = 30;
   const buckets: number[] = new Array(days).fill(0);
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  const open = new Set(['lead','demo','quote','neg']);
+  const open = new Set(['lead','demo','quote']);
   for (const a of activities) {
     const stage = classifyStage(a);
     if (!stage || !open.has(stage)) continue;
@@ -1391,19 +1392,19 @@ function buildPipelineRows(args: {
     });
   }
 
-  // Lead / Forhandling / Tabt → next_activity (legacy pipeline_stage fallback)
+  // CRM leads → shared lead-status helper. Open follow-up work stays in
+  // Lead/Demo; there is no separate user-facing "Forhandling" bucket here.
   for (const l of args.leads) {
     const status = effectiveLeadStatus(l);
     let bucket: StageMeta['key'] | null = null;
-    if (status === 'Vundet') continue; // won handled by orders to avoid double-counting
-    if (status === 'Tabt') bucket = 'lost';
+    if (status === 'Vundet') bucket = 'won';
+    else if (status === 'Tabt') bucket = 'lost';
     else if (status === 'Tilbud sendt') continue; // handled via openQuotes
     else if (status === 'Demo planlagt') bucket = 'demo';
-    else if (status === 'Follow-up') bucket = 'neg';
     else bucket = 'lead';
     const row: PipelineRow = {
       id: l.id,
-      type: bucket === 'neg' ? 'Forhandling' : bucket === 'lost' ? 'Tabt' : bucket === 'demo' ? 'Demo' : 'Lead',
+      type: bucket === 'won' ? 'Lead' : bucket === 'lost' ? 'Tabt' : bucket === 'demo' ? 'Demo' : 'Lead',
       number: formatLeadNo(l.lead_no),
       title: l.title || '—',
       dealer: '—',
