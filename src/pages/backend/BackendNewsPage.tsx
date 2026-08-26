@@ -1,7 +1,7 @@
 import NewsRenderSurface from '@/features/news-cms/editor/NewsRenderSurface';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Archive, Eye, FilePenLine, Newspaper, Plus, RotateCcw, Search, Send, Trash2, Undo2 } from 'lucide-react';
+import { Archive, ArrowDown, ArrowUp, Eye, FilePenLine, GripVertical, Newspaper, Plus, RotateCcw, Search, Send, Trash2, Undo2 } from 'lucide-react';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { Button } from '@/components/ui/button';
@@ -32,14 +32,17 @@ import {
   adminDeleteNewsPost,
   adminPublishNewsPost,
   adminSaveNewsDraft,
+  adminUpdateNewsManualOrder,
   adminUpdateNewsStatus,
+  getNewsManualOrder,
+  sortNewsByManualOrder,
   type NewsCmsPost,
   type NewsStatus,
 } from '@/lib/newsService';
 
 type ViewMode = 'dashboard' | 'editor';
 type StatusFilter = 'all' | NewsStatus;
-type SortKey = 'title' | 'template' | 'status' | 'updated' | 'published';
+type SortKey = 'manual' | 'title' | 'template' | 'status' | 'updated' | 'published';
 
 function effectiveStatus(row: NewsCmsPost): NewsStatus {
   return row.status || (row.is_active ? 'published' : 'draft');
@@ -124,7 +127,8 @@ export default function BackendNewsPage() {
   const [languageFilter, setLanguageFilter] = useState('all');
   const [machineFilter, setMachineFilter] = useState('all');
   const [attachmentFilter, setAttachmentFilter] = useState('all');
-  const [sortKey, setSortKey] = useState<SortKey>('updated');
+  const [sortKey, setSortKey] = useState<SortKey>('manual');
+  const [draggingPostId, setDraggingPostId] = useState<string | null>(null);
 
   const canManage = useMemo(() => canManageNewsContent(appUser), [appUser]);
 
@@ -159,6 +163,11 @@ export default function BackendNewsPage() {
         return [row.title, row.excerpt || '', topicLabel].some((value) => value.toLowerCase().includes(normalizedSearch));
       })
       .sort((a, b) => {
+        if (sortKey === 'manual') {
+          const orderDiff = getNewsManualOrder(a) - getNewsManualOrder(b);
+          if (orderDiff !== 0) return orderDiff;
+          return new Date(b.published_at || b.updated_at || b.created_at || 0).getTime() - new Date(a.published_at || a.updated_at || a.created_at || 0).getTime();
+        }
         if (sortKey === 'title') return a.title.localeCompare(b.title, 'da');
         if (sortKey === 'template') return String(a.template_id || '').localeCompare(String(b.template_id || ''), 'da');
         if (sortKey === 'status') return effectiveStatus(a).localeCompare(effectiveStatus(b), 'da');
@@ -218,6 +227,54 @@ export default function BackendNewsPage() {
     }
     setMessage(t('newsCmsStatusUpdated', uiLanguage));
     await reload();
+  };
+
+  const saveManualOrder = async (reorderedRows: NewsCmsPost[]) => {
+    setSaving(true);
+    setMessage(null);
+    setError(null);
+    setSortKey('manual');
+    const result = await adminUpdateNewsManualOrder(reorderedRows);
+    setSaving(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setRows(sortNewsByManualOrder(reorderedRows));
+    setMessage('Nyhedsrækkefølge gemt.');
+  };
+
+  const movePost = async (row: NewsCmsPost, direction: -1 | 1) => {
+    const orderedRows = sortNewsByManualOrder(rows);
+    const currentIndex = orderedRows.findIndex((item) => item.id === row.id);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= orderedRows.length) return;
+
+    const reorderedRows = [...orderedRows];
+    [reorderedRows[currentIndex], reorderedRows[nextIndex]] = [reorderedRows[nextIndex], reorderedRows[currentIndex]];
+
+    await saveManualOrder(reorderedRows);
+  };
+
+  const moveDraggedPost = async (targetRow: NewsCmsPost) => {
+    if (!draggingPostId || draggingPostId === targetRow.id) {
+      setDraggingPostId(null);
+      return;
+    }
+
+    const orderedRows = sortNewsByManualOrder(rows);
+    const draggedIndex = orderedRows.findIndex((item) => item.id === draggingPostId);
+    const targetIndex = orderedRows.findIndex((item) => item.id === targetRow.id);
+    if (draggedIndex < 0 || targetIndex < 0) {
+      setDraggingPostId(null);
+      return;
+    }
+
+    const reorderedRows = [...orderedRows];
+    const [draggedRow] = reorderedRows.splice(draggedIndex, 1);
+    reorderedRows.splice(targetIndex, 0, draggedRow);
+    setDraggingPostId(null);
+    await saveManualOrder(reorderedRows);
   };
 
   const deletePost = async (row: NewsCmsPost) => {
@@ -412,6 +469,7 @@ export default function BackendNewsPage() {
                   {NEWS_TOPIC_UI_TEXT.resetFilterLabel[uiLanguage]}
                 </button>
                 <select value={sortKey} onChange={(event) => setSortKey(event.target.value as SortKey)} className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                  <option value="manual">Sortér: valgt rækkefølge</option>
                   <option value="updated">{t('newsCmsSortUpdated', uiLanguage)}</option>
                   <option value="published">{t('newsCmsSortPublished', uiLanguage)}</option>
                   <option value="title">{t('newsCmsSortTitle', uiLanguage)}</option>
@@ -425,6 +483,7 @@ export default function BackendNewsPage() {
               <table className="min-w-full text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
+                    <th className="w-[120px] px-4 py-3 text-left font-semibold">Rækkefølge</th>
                     <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnTitle', uiLanguage)}</th>
                     <th className="px-4 py-3 text-left font-semibold">{t('newsCmsColumnTemplate', uiLanguage)}</th>
                     <th className="px-4 py-3 text-left font-semibold">{NEWS_TOPIC_UI_TEXT.topicColumn[uiLanguage]}</th>
@@ -437,12 +496,46 @@ export default function BackendNewsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map((row) => {
+                  {filteredRows.map((row, index) => {
                     const status = effectiveStatus(row);
                     const template = getNewsTemplate(row.template_id);
                     const topic = getNewsTopicForDisplay(row);
+                    const orderedRows = sortNewsByManualOrder(rows);
+                    const manualIndex = orderedRows.findIndex((item) => item.id === row.id);
                     return (
-                      <tr key={row.id} className="border-t border-slate-100 align-top hover:bg-slate-50/70">
+                      <tr
+                        key={row.id}
+                        draggable={!saving}
+                        onDragStart={() => setDraggingPostId(row.id)}
+                        onDragOver={(event) => event.preventDefault()}
+                        onDrop={() => void moveDraggedPost(row)}
+                        onDragEnd={() => setDraggingPostId(null)}
+                        className={`border-t border-slate-100 align-top hover:bg-slate-50/70 ${draggingPostId === row.id ? 'opacity-50' : ''}`}
+                      >
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-1">
+                            <GripVertical className="h-4 w-4 cursor-grab text-slate-300" aria-hidden="true" />
+                            <span className="min-w-6 text-xs font-bold text-slate-500">{index + 1}</span>
+                            <button
+                              type="button"
+                              disabled={saving || manualIndex <= 0}
+                              onClick={() => void movePost(row, -1)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+                              aria-label="Flyt nyhed op"
+                            >
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={saving || manualIndex < 0 || manualIndex >= orderedRows.length - 1}
+                              onClick={() => void movePost(row, 1)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+                              aria-label="Flyt nyhed ned"
+                            >
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
                         <td className="min-w-[260px] px-4 py-4">
                           <div className="font-semibold text-slate-900">{row.title}</div>
                           {row.excerpt && <div className="mt-1 line-clamp-2 max-w-md text-xs text-slate-500">{row.excerpt}</div>}
@@ -509,14 +602,14 @@ export default function BackendNewsPage() {
                   })}
                   {!loadingRows && filteredRows.length === 0 && (
                     <tr>
-                      <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={9}>
+                      <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={10}>
                         {t('newsCmsNoRows', uiLanguage)}
                       </td>
                     </tr>
                   )}
                   {loadingRows && (
                     <tr>
-                      <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={9}>{t('loading', uiLanguage)}</td>
+                      <td className="px-4 py-10 text-center text-sm text-slate-500" colSpan={10}>{t('loading', uiLanguage)}</td>
                     </tr>
                   )}
                 </tbody>

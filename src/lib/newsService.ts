@@ -49,6 +49,8 @@ export interface NewsCmsDraftInput {
   status?: NewsStatus;
 }
 
+export const NEWS_MANUAL_ORDER_KEY = 'manual_order';
+
 const LEGACY_NEWS_SELECT = 'id, title, excerpt, image_url, link_url, category, published_at, is_active, source';
 const CMS_NEWS_SELECT = `${LEGACY_NEWS_SELECT}, template_id, status, slug, localized_content, template_data, assets, created_at, updated_at, created_by, updated_by, published_by`;
 
@@ -146,8 +148,31 @@ function toPublicNewsPost(row: NewsCmsPost, lang: PortalUiLanguage): NewsPost {
   };
 }
 
+export function getNewsManualOrder(row: Pick<NewsPost, 'template_data' | 'published_at' | 'updated_at' | 'created_at'>): number {
+  const value = row.template_data?.[NEWS_MANUAL_ORDER_KEY];
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  const fallbackDate = row.published_at || row.updated_at || row.created_at || '';
+  const timestamp = new Date(fallbackDate).getTime();
+  return Number.isFinite(timestamp) ? -timestamp : Number.MAX_SAFE_INTEGER;
+}
+
+export function sortNewsByManualOrder<T extends Pick<NewsPost, 'template_data' | 'published_at' | 'updated_at' | 'created_at'>>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => {
+    const orderDiff = getNewsManualOrder(a) - getNewsManualOrder(b);
+    if (orderDiff !== 0) return orderDiff;
+    const aDate = a.published_at || a.updated_at || a.created_at || '';
+    const bDate = b.published_at || b.updated_at || b.created_at || '';
+    return new Date(bDate).getTime() - new Date(aDate).getTime();
+  });
+}
+
 /**
- * Fetch the N newest active news posts, sorted by published_at desc.
+ * Fetch the N active news posts shown first in the news feed.
  * Returns [] if the table doesn't exist yet or on any error — caller
  * is responsible for showing placeholder content in that case.
  */
@@ -157,8 +182,7 @@ export async function fetchLatestNews(limit = 4, language: PortalUiLanguage = 'd
       .from('news_posts')
       .select(CMS_NEWS_SELECT)
       .eq('is_active', true)
-      .order('published_at', { ascending: false })
-      .limit(limit);
+      .order('published_at', { ascending: false });
 
     if (error) {
       // Table may not exist yet — caller falls back to placeholders.
@@ -173,7 +197,7 @@ export async function fetchLatestNews(limit = 4, language: PortalUiLanguage = 'd
       if (fallback.error) return [];
       return (fallback.data ?? []) as NewsPost[];
     }
-    return ((data ?? []) as NewsCmsPost[]).map((row) => toPublicNewsPost(row, language));
+    return sortNewsByManualOrder((data ?? []) as NewsCmsPost[]).slice(0, limit).map((row) => toPublicNewsPost(row, language));
   } catch (err) {
     console.warn('[newsService] fetchLatestNews exception:', err);
     return [];
@@ -225,7 +249,7 @@ export async function adminListNewsPosts(): Promise<{ rows: NewsCmsPost[]; error
 
     return { rows: legacyRows as NewsCmsPost[], error: null };
   }
-  return { rows: (data || []) as NewsCmsPost[], error: null };
+  return { rows: sortNewsByManualOrder((data || []) as NewsCmsPost[]), error: null };
 }
 
 export async function adminSaveNewsDraft(input: NewsCmsDraftInput): Promise<{ row: NewsCmsPost | null; error: string | null }> {
@@ -269,6 +293,23 @@ export async function adminUpdateNewsStatus(id: string, status: NewsStatus): Pro
 
   const { error } = await supabase.from('news_posts').update(payload).eq('id', id);
   return { error: error?.message || null };
+}
+
+export async function adminUpdateNewsManualOrder(rows: Pick<NewsCmsPost, 'id' | 'template_data'>[]): Promise<{ error: string | null }> {
+  for (const [index, row] of rows.entries()) {
+    const templateData = {
+      ...(row.template_data || {}),
+      [NEWS_MANUAL_ORDER_KEY]: index + 1,
+    };
+    const { error } = await supabase
+      .from('news_posts')
+      .update({ template_data: templateData, updated_at: new Date().toISOString() })
+      .eq('id', row.id);
+
+    if (error) return { error: error.message };
+  }
+
+  return { error: null };
 }
 
 export async function adminDeleteNewsPost(id: string): Promise<{ error: string | null }> {
