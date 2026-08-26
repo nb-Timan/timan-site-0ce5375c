@@ -6,6 +6,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
 import { isMesseEnabled } from '@/lib/exhibitionMode';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import timanLogo from '@/assets/timan-logo.png';
 import DemoModeBadge from '@/components/messe/DemoModeBadge';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -54,6 +55,7 @@ const QUICK_ACTIONS = [
 
 export default function MesseHomePage() {
   const { appUser, logout } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { language: legacyLanguage, uiLanguage, setLanguage } = useLanguage();
   const [enabled, setEnabled] = useState<boolean>(() => isMesseEnabled());
   const navigate = useNavigate();
@@ -80,7 +82,7 @@ export default function MesseHomePage() {
   if (!appUser) return null;
 
   const isBackendPreview = canSwitchMode(appUser);
-  const isDealerUser = derivePortalRole(appUser) === 'dealer_user';
+  const isDealerUser = derivePortalRole(effectiveUser) === 'dealer_user';
   const visibleQuickActions = isDealerUser
     ? QUICK_ACTIONS.filter((action) => action.to === '/messe/resources/driftberegner' || action.to === '/messe/resources/co2')
     : QUICK_ACTIONS;

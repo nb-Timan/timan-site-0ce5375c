@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, hasInternalMesseAccess, hasMessePortalAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { isMessePreviewActive, useMessePreviewVersion } from '@/lib/messePreview';
-import { canSwitchMode } from '@/lib/activeMode';
+import { canSwitchMode, getActiveUserView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 
 /**
@@ -24,6 +24,8 @@ export function MesseRouteGuard({ children, blockDealerUser = false }: { childre
   const portalRole = derivePortalRole(effectiveUser);
   if (loading) return null;
   if (!appUser) return <Navigate to="/portal?redirect=/messe" replace />;
+  const concreteViewAs = canSwitchMode(appUser) ? getActiveUserView(appUser.email) : null;
+  if (concreteViewAs && effectiveUser === appUser) return null;
   if (isMesseVariantUser(effectiveUser) || portalRole === 'exhibition_user') return <>{children}</>;
   if (portalRole === 'dealer_user') {
     return !blockDealerUser && hasMessePortalAccess(effectiveUser) ? <>{children}</> : <Navigate to="/messe" replace />;

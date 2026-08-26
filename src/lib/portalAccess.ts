@@ -230,6 +230,7 @@ export function hasMessePortalAccess(
       email?: string | null;
       portal_role?: string | null;
       module_access?: string[] | null;
+      allowed_modules?: string[] | null;
       portal_variant?: string | null;
     }
   ) | null | undefined,
@@ -238,7 +239,11 @@ export function hasMessePortalAccess(
   if (isMesseVariantUser(user)) return true;
   const role = derivePortalRole(user);
   if (role === 'exhibition_user') return true;
-  return hasModuleAccess(role, 'messe_portal', user.module_access as ModuleAccessKey[] | null | undefined);
+  const moduleOverride = (
+    (user.module_access as ModuleAccessKey[] | null | undefined) ??
+    (user.allowed_modules as ModuleAccessKey[] | null | undefined)
+  );
+  return hasModuleAccess(role, 'messe_portal', moduleOverride);
 }
 
 // ---------- Claims view variant ----------
