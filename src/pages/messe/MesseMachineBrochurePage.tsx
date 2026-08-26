@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import type { PointerEvent as ReactPointerEvent } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
+import type { ComponentType, CSSProperties, ReactNode, Ref } from 'react';
 import { Link } from 'react-router-dom';
+import HTMLFlipBook from 'react-pageflip';
 import {
   BookOpen,
   ChevronLeft,
@@ -807,17 +808,6 @@ function usePrefersReducedMotion() {
   return reducedMotion;
 }
 
-type PageFlipState = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  currentX: number;
-  currentY: number;
-  startedAt: number;
-  horizontal: boolean;
-  settling: 'none' | 'back' | 'forward';
-};
-
 interface BrochureSpreadViewerProps {
   title: string;
   lang: PortalUiLanguage;
@@ -826,11 +816,79 @@ interface BrochureSpreadViewerProps {
   rightPage?: number;
   brochurePageCount: number;
   isSinglePageSpread: boolean;
-  canGoBack: boolean;
-  canGoNext: boolean;
-  goBack: () => void;
-  goNext: () => void;
+  onPageChange: (page: number) => void;
 }
+
+type FlipBookPageApi = {
+  getCurrentPageIndex: () => number;
+  turnToPage: (pageNum: number) => void;
+};
+
+type FlipBookRef = {
+  pageFlip: () => FlipBookPageApi;
+};
+
+type FlipBookEvent = {
+  data: number;
+};
+
+const PageFlipBook = HTMLFlipBook as ComponentType<{
+  width: number;
+  height: number;
+  size: 'fixed' | 'stretch';
+  minWidth: number;
+  maxWidth: number;
+  minHeight: number;
+  maxHeight: number;
+  drawShadow: boolean;
+  flippingTime: number;
+  usePortrait: boolean;
+  startZIndex: number;
+  autoSize: boolean;
+  maxShadowOpacity: number;
+  showCover: boolean;
+  mobileScrollSupport: boolean;
+  swipeDistance: number;
+  clickEventForward: boolean;
+  useMouseEvents: boolean;
+  renderOnlyPageLengthChange: boolean;
+  startPage: number;
+  className: string;
+  style: CSSProperties;
+  onFlip: (event: FlipBookEvent) => void;
+  children: ReactNode;
+  ref?: Ref<FlipBookRef>;
+}>;
+
+interface BrochureFlipPageProps {
+  title: string;
+  lang: PortalUiLanguage;
+  page: number;
+  pageSrc: (page: number) => string;
+}
+
+const BrochureFlipPage = forwardRef<HTMLDivElement, BrochureFlipPageProps>(function BrochureFlipPage(
+  { title, lang, page, pageSrc },
+  ref,
+) {
+  return (
+    <div
+      ref={ref}
+      className="relative h-full w-full overflow-hidden bg-white shadow-[inset_-18px_0_24px_-26px_rgba(15,23,42,0.75)]"
+    >
+      <img
+        src={pageSrc(page)}
+        alt={`${title} ${tr(T.page, lang)} ${page}`}
+        className="h-full w-full select-none object-contain"
+        draggable={false}
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-slate-950/10 to-transparent"
+      />
+    </div>
+  );
+});
 
 function BrochureSpreadViewer({
   title,
@@ -840,141 +898,75 @@ function BrochureSpreadViewer({
   rightPage,
   brochurePageCount,
   isSinglePageSpread,
-  canGoBack,
-  canGoNext,
-  goBack,
-  goNext,
+  onPageChange,
 }: BrochureSpreadViewerProps) {
   const reducedMotion = usePrefersReducedMotion();
-  const surfaceRef = useRef<HTMLDivElement | null>(null);
-  const settleTimerRef = useRef<number | null>(null);
-  const [flip, setFlip] = useState<PageFlipState | null>(null);
+  const bookRef = useRef<FlipBookRef | null>(null);
+  const activePage = currentSpread[0] ?? 1;
+  const pages = Array.from({ length: brochurePageCount }, (_, index) => index + 1);
 
   useEffect(() => {
-    return () => {
-      if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
-    };
-  }, []);
-
-  const clearSettleTimer = () => {
-    if (settleTimerRef.current) {
-      window.clearTimeout(settleTimerRef.current);
-      settleTimerRef.current = null;
+    const api = bookRef.current?.pageFlip?.();
+    if (!api) return;
+    const targetIndex = Math.max(0, Math.min(brochurePageCount - 1, activePage - 1));
+    if (api.getCurrentPageIndex() !== targetIndex) {
+      api.turnToPage(targetIndex);
     }
+  }, [activePage, brochurePageCount]);
+
+  const handleFlip = (event: FlipBookEvent) => {
+    const nextPage = Math.max(1, Math.min(brochurePageCount, Number(event.data) + 1));
+    onPageChange(nextPage);
   };
 
-  const finishFlip = (direction: 'next' | 'back') => {
-    if (direction === 'next') goNext();
-    else goBack();
-    setFlip(null);
-  };
-
-  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    clearSettleTimer();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setFlip({
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      currentX: event.clientX,
-      currentY: event.clientY,
-      startedAt: performance.now(),
-      horizontal: false,
-      settling: 'none',
-    });
-  };
-
-  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-    setFlip((current) => {
-      if (!current || current.pointerId !== event.pointerId || current.settling !== 'none') return current;
-      const dx = event.clientX - current.startX;
-      const dy = event.clientY - current.startY;
-      const horizontal = current.horizontal || (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15);
-      if (horizontal) event.preventDefault();
-      return {
-        ...current,
-        currentX: event.clientX,
-        currentY: event.clientY,
-        horizontal,
-      };
-    });
-  };
-
-  const handlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (!flip || flip.pointerId !== event.pointerId) return;
-
-    const surfaceWidth = surfaceRef.current?.clientWidth || 1;
-    const dx = flip.currentX - flip.startX;
-    const elapsed = Math.max(1, performance.now() - flip.startedAt);
-    const velocity = Math.abs(dx) / elapsed;
-    const wantsNext = dx < 0;
-    const wantsBack = dx > 0;
-    const canMove = (wantsNext && canGoNext) || (wantsBack && canGoBack);
-    const shouldTurn = flip.horizontal && canMove && (Math.abs(dx) > surfaceWidth * 0.16 || velocity > 0.55);
-
-    if (!flip.horizontal || !shouldTurn) {
-      clearSettleTimer();
-      setFlip({ ...flip, settling: 'back' });
-      settleTimerRef.current = window.setTimeout(() => setFlip(null), 190);
-      return;
-    }
-
-    const direction = wantsNext ? 'next' : 'back';
-    clearSettleTimer();
-    if (reducedMotion) {
-      finishFlip(direction);
-      return;
-    }
-
-    setFlip({ ...flip, settling: 'forward', currentX: flip.startX + (wantsNext ? -surfaceWidth : surfaceWidth) });
-    settleTimerRef.current = window.setTimeout(() => finishFlip(direction), 210);
-  };
-
-  const rawDragX = flip ? flip.currentX - flip.startX : 0;
-  const blockedDirection = (rawDragX < 0 && !canGoNext) || (rawDragX > 0 && !canGoBack);
-  const dragX = blockedDirection ? rawDragX * 0.22 : rawDragX;
-  const surfaceWidth = surfaceRef.current?.clientWidth || 1;
-  const progress = Math.min(1, Math.abs(dragX) / Math.max(1, surfaceWidth * 0.46));
-  const isDragging = Boolean(flip?.horizontal && flip.settling === 'none');
-  const isSettling = Boolean(flip?.settling && flip.settling !== 'none');
-  const direction = dragX < 0 ? 'next' : 'back';
-  const originClass = direction === 'next' ? 'origin-left' : 'origin-right';
-  const rotate = direction === 'next' ? -progress * 58 : progress * 58;
-  const lift = progress * 18;
-  const skew = direction === 'next' ? progress * 4 : -progress * 4;
-  const pageTransform = flip?.horizontal && !reducedMotion
-    ? `translate3d(${dragX * 0.34}px, ${-lift}px, 0) rotateY(${rotate}deg) skewY(${skew}deg)`
-    : undefined;
-
-  const transitionClass = isSettling ? 'transition-transform duration-200 ease-out' : isDragging ? '' : 'transition-transform duration-150 ease-out';
-  const foldOpacity = flip?.horizontal && !reducedMotion ? Math.min(0.38, 0.08 + progress * 0.3) : 0;
+  if (!reducedMotion) {
+    return (
+      <div className="relative overflow-hidden rounded-lg bg-slate-100/70 px-2 py-3 shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200 sm:px-4">
+        <div className="mx-auto flex h-[76vh] min-h-[620px] w-full items-center justify-center overflow-hidden">
+          <PageFlipBook
+            ref={bookRef}
+            width={620}
+            height={820}
+            size="stretch"
+            minWidth={280}
+            maxWidth={1400}
+            minHeight={360}
+            maxHeight={980}
+            drawShadow
+            flippingTime={950}
+            usePortrait
+            startZIndex={5}
+            autoSize
+            maxShadowOpacity={0.55}
+            showCover
+            mobileScrollSupport={false}
+            swipeDistance={22}
+            clickEventForward
+            useMouseEvents
+            renderOnlyPageLengthChange={false}
+            startPage={Math.max(0, activePage - 1)}
+            className="brochure-pageflip"
+            style={{}}
+            onFlip={handleFlip}
+          >
+            {pages.map((page) => (
+              <BrochureFlipPage key={page} title={title} lang={lang} page={page} pageSrc={pageSrc} />
+            ))}
+          </PageFlipBook>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      ref={surfaceRef}
-      className="relative touch-pan-y select-none overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200"
-      onPointerDown={handlePointerDown}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerEnd}
-      onPointerCancel={handlePointerEnd}
-      style={{ perspective: '1800px' }}
-    >
+    <div className="relative touch-pan-y select-none overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200">
       <div className={`relative grid h-[76vh] min-h-[620px] grid-cols-1 ${isSinglePageSpread ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
-        <div
-          className={`relative z-10 flex min-h-0 items-center justify-center bg-white p-2 ${isSinglePageSpread ? '' : 'md:border-r md:border-slate-100'} ${flip?.horizontal ? `${originClass} ${transitionClass}` : ''}`}
-          style={{ transform: pageTransform, transformStyle: 'preserve-3d' }}
-        >
+        <div className={`relative z-10 flex min-h-0 items-center justify-center bg-white p-2 ${isSinglePageSpread ? '' : 'md:border-r md:border-slate-100'}`}>
           <img
             src={pageSrc(currentSpread[0])}
             alt={`${title} ${tr(T.page, lang)} ${currentSpread[0]}`}
             className="h-full w-full object-contain"
             draggable={false}
-          />
-          <div
-            aria-hidden
-            className={`pointer-events-none absolute inset-0 ${direction === 'next' ? 'bg-gradient-to-r' : 'bg-gradient-to-l'} from-transparent via-slate-950/10 to-white/55`}
-            style={{ opacity: foldOpacity }}
           />
         </div>
         {!isSinglePageSpread && (
@@ -992,14 +984,6 @@ function BrochureSpreadViewer({
           </div>
         )}
       </div>
-
-      {flip?.horizontal && (
-        <div
-          aria-hidden
-          className={`pointer-events-none absolute inset-y-0 z-20 w-24 ${direction === 'next' ? 'left-0 bg-gradient-to-r' : 'right-0 bg-gradient-to-l'} from-slate-950/15 to-transparent`}
-          style={{ opacity: progress * 0.55 }}
-        />
-      )}
     </div>
   );
 }
@@ -1059,12 +1043,17 @@ export default function MesseMachineBrochurePage({
 
 
   const pageSrc = (page: number) => (pageBase ? `${pageBase}/page-${page}.jpg` : '');
-  const brochureSpreads = isTiman2620 && brochurePageCount === 4
-    ? [[1], [2, 3], [4]]
-    : Array.from({ length: Math.ceil(brochurePageCount / 2) }, (_, index) => {
-        const page = index * 2 + 1;
-        return page + 1 <= brochurePageCount ? [page, page + 1] : [page];
-      });
+  const brochureSpreads = (() => {
+    if (brochurePageCount <= 0) return [];
+    if (brochurePageCount === 1) return [[1]];
+
+    const spreads: number[][] = [[1]];
+    for (let page = 2; page < brochurePageCount; page += 2) {
+      spreads.push(page + 1 < brochurePageCount ? [page, page + 1] : [page]);
+    }
+    spreads.push([brochurePageCount]);
+    return spreads;
+  })();
   const currentSpreadIndex = Math.max(0, brochureSpreads.findIndex((spread) => spread[0] === leftPage));
   const currentSpread = brochureSpreads[currentSpreadIndex] ?? [leftPage];
   const rightPage = currentSpread[1];
@@ -1079,6 +1068,10 @@ export default function MesseMachineBrochurePage({
     const index = Math.max(0, brochureSpreads.findIndex((spread) => spread[0] === page));
     return brochureSpreads[Math.min(brochureSpreads.length - 1, index + 1)]?.[0] ?? page;
   });
+  const goToBrochurePage = (page: number) => {
+    const matchingSpread = brochureSpreads.find((spread) => spread.includes(page));
+    setLeftPage(matchingSpread?.[0] ?? 1);
+  };
   const spreadLabel = isSinglePageSpread
     ? `${currentSpread[0]}`
     : `${currentSpread[0]}-${rightPage}`;
@@ -1402,18 +1395,8 @@ export default function MesseMachineBrochurePage({
               rightPage={rightPage}
               brochurePageCount={brochurePageCount}
               isSinglePageSpread={isSinglePageSpread}
-              canGoBack={canGoBack}
-              canGoNext={canGoNext}
-              goBack={goBack}
-              goNext={goNext}
+              onPageChange={goToBrochurePage}
             />
-
-            {!isSinglePageSpread && (
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-y-5 left-1/2 hidden w-16 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent md:block"
-              />
-            )}
 
             <div className="mt-4 flex items-center justify-center gap-3">
               <button
