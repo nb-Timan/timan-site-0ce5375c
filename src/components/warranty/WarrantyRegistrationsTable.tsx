@@ -28,7 +28,6 @@ import {
   fetchWarrantyRegistrations,
   type DbWarrantyRegistration,
 } from "@/lib/warrantyRegistrationsService";
-import { useAppUser } from "@/context/AppUserContext";
 import { formatDate, formatDateTime } from "@/lib/format-date";
 import { useRegistrationHistory } from "@/lib/warrantyHistoryService";
 import { supabase } from "@/lib/supabase";
@@ -106,10 +105,8 @@ function cmp(a: string | number, b: string | number): number {
 
 export function WarrantyRegistrationsTable({
   scope,
-  dealerName,
 }: Props) {
-  const { appUser } = useAppUser();
-  const role = appUser?.portal_role ?? null;
+  const { role, scope: teknikScope } = useTeknikScope();
   const showMatchStatus = role === "timan_backend" || role === "timan_service";
   const canEdit = role === "timan_backend" || role === "timan_service";
   const { records: all, loading, error } = useWarrantyRegistrationsDb();
@@ -154,7 +151,6 @@ export function WarrantyRegistrationsTable({
     return selectedSnapshotRef.current;
   }, [selectedId, records]);
 
-  const { scope: teknikScope } = useTeknikScope();
   const scoped = useMemo(() => {
     if (scope === "admin") {
       // Seller / dealer / importer / service partner: filter by assigned dealers.
@@ -163,10 +159,11 @@ export function WarrantyRegistrationsTable({
         dealer_name: r.dealerName,
       }));
     }
-    if (!dealerName) return [];
-    const needle = dealerName.toLowerCase();
-    return records.filter((r) => r.dealerName.toLowerCase() === needle);
-  }, [records, scope, dealerName, teknikScope]);
+    return applyScopeFilter(teknikScope, records, (r) => ({
+      dealer_number: r.dealerAccountNumber,
+      dealer_name: r.dealerName,
+    }));
+  }, [records, scope, teknikScope]);
 
   const dealers = useMemo(() => {
     const set = new Set<string>();

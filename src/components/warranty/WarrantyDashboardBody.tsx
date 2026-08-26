@@ -44,6 +44,7 @@ import {
   type DbWarrantyRegistration,
 } from "@/lib/warrantyRegistrationsService";
 import { formatDate } from "@/lib/format-date";
+import { useTeknikScope, applyScopeFilter } from "@/lib/useTeknikScope";
 
 export type WarrantyScope = "admin" | "dealer";
 
@@ -112,16 +113,18 @@ function monthlySeries(records: DbWarrantyRegistration[], months = 6) {
   return buckets;
 }
 
-export function WarrantyDashboardBody({ scope, dealerName }: Props) {
+export function WarrantyDashboardBody({ scope }: Props) {
   const { records: all } = useWarrantyRegistrationsDb();
+  const { scope: teknikScope } = useTeknikScope();
   const [chartRange, setChartRange] = useState<6 | 12>(6);
 
   const records = useMemo(() => {
     if (scope === "admin") return all;
-    if (!dealerName) return [];
-    const needle = dealerName.toLowerCase();
-    return all.filter((r) => r.dealerName.toLowerCase() === needle);
-  }, [all, scope, dealerName]);
+    return applyScopeFilter(teknikScope, all, (r) => ({
+      dealer_number: r.dealerAccountNumber,
+      dealer_name: r.dealerName,
+    }));
+  }, [all, scope, teknikScope]);
 
   const stats = useMemo(() => {
     const total = totalCount(records);

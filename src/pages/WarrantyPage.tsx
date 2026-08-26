@@ -6,6 +6,7 @@
  */
 import { Navigate } from "react-router-dom";
 import { useAppUser } from "@/context/AppUserContext";
+import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { useLanguage } from "@/context/LanguageContext";
 import { t } from "@/lib/i18n/translations";
 import { WarrantyAdminSidebarLayout } from "@/components/warranty/WarrantyAdminSidebarLayout";
@@ -33,6 +34,7 @@ type Page = "dashboard" | "registrations" | "new" | "sync";
 
 export default function WarrantyPage({ page }: { page: Page }) {
   const { appUser, loading } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { uiLanguage } = useLanguage();
 
   if (loading) {
@@ -45,7 +47,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
 
   if (!appUser) return <Navigate to="/portal" replace />;
 
-  const portalRole = derivePortalRole(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   const variant = getWarrantyViewVariant(portalRole);
 
   if (variant === "none") {
@@ -55,7 +57,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
   const canCreate = !!perms?.canCreateWarranty;
   const readOnly = !perms?.canEditData;
-  const dealerName = appUser.company_dealer ?? "";
+  const dealerName = effectiveUser?.company_dealer ?? "";
 
   // /new is dealer-side only and never available to read-only users
   if (page === "new" && (variant !== "dealer" || !canCreate)) {
