@@ -369,10 +369,13 @@ const VIEW_POSITIONS: Record<string, Partial<Record<PartId, PosEntry | PosEntry[
     fodpedal:      STANDARD_FODPEDAL,
   },
   cab_salt_spreader: {
-    motor:         { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 } },
+    motor: [
+      { anchor: { x: 67, y: 62 }, callout: { cx: 91, cy: 82 }, frame: 1 },
+      { anchor: { x: 39, y: 66 }, callout: { cx: 30, cy: 89 }, frame: 2 },
+    ],
     kabine: [
       { anchor: { x: 38, y: 30 }, callout: { cx: 12, cy: 12 }, frame: 1 },
-      { anchor: { x: 38, y: 30 }, callout: { cx: 18, cy: 12 }, frame: 2 },
+      { anchor: { x: 44, y: 27 }, callout: { cx: 18, cy: 12 }, frame: 2 },
     ],
     affjedring:    [
       affjedring({ x: 61, y: 68 }, 1),
