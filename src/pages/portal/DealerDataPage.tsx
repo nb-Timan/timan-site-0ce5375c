@@ -29,6 +29,7 @@ import {
 } from '@/lib/portalFormsService';
 import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 
 import { supabase } from '@/lib/supabase';
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
@@ -46,6 +47,9 @@ interface DealerUserRow {
   is_active: boolean | null;
   last_login: string | null;
   preferred_language: string | null;
+  account_owner_initials?: string | null;
+  account_owner_name?: string | null;
+  account_owner_email?: string | null;
 }
 
 
@@ -108,6 +112,20 @@ function fmtMoney(n: number | null | undefined, lang: Language = 'da'): string {
   catch { return String(n); }
 }
 
+function formatOwnerLabel(owner: Pick<DealerUserRow, 'account_owner_initials' | 'account_owner_name' | 'account_owner_email'> | null | undefined): string | null {
+  const initials = (owner?.account_owner_initials || '').trim();
+  const name = (owner?.account_owner_name || owner?.account_owner_email || '').trim();
+  if (initials && name) return `${initials} - ${name}`;
+  return initials || name || null;
+}
+
+function formatDealerSellerLabel(dealer: Pick<DealerAccount, 'assigned_seller_initials' | 'assigned_seller_name' | 'assigned_seller_email'> | null | undefined): string | null {
+  const initials = (dealer?.assigned_seller_initials || '').trim();
+  const name = (dealer?.assigned_seller_name || dealer?.assigned_seller_email || '').trim();
+  if (initials && name) return `${initials} - ${name}`;
+  return initials || name || null;
+}
+
 function toErrorText(error: unknown): string {
   if (!error) return '';
   if (typeof error === 'string') return error;
@@ -129,11 +147,12 @@ function toErrorText(error: unknown): string {
 
 export default function DealerDataPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
+  const portalRole = useMemo(() => derivePortalRole(effectiveUser), [effectiveUser]);
 
   // Internal Timan roles may view ANY dealer via ?accountNumber=… from CRM.
   // External dealer roles (forhandler/importer/servicepartner/dealer_user) are
@@ -141,7 +160,7 @@ export default function DealerDataPage() {
   const internalRoles = new Set(['timan_backend', 'timan_seller', 'timan_service']);
   const isInternal = !!portalRole && internalRoles.has(portalRole);
   const overrideAccountNumber = isInternal ? (searchParams.get('accountNumber') || '').trim() || null : null;
-  const dealerNumber = overrideAccountNumber ?? appUser?.dealer_number ?? null;
+  const dealerNumber = overrideAccountNumber ?? effectiveUser?.dealer_number ?? null;
   const cameFromCrm = !!overrideAccountNumber;
 
   const [dealer, setDealer] = useState<DealerAccount | null>(null);
@@ -150,6 +169,7 @@ export default function DealerDataPage() {
   const [submissions, setSubmissions] = useState<PortalFormSubmission[]>([]);
   const [quotes, setQuotes] = useState<CrmConfigurationRow[]>([]);
   const [orders, setOrders] = useState<CrmConfigurationRow[]>([]);
+  const [accountOwnerLabel, setAccountOwnerLabel] = useState<string | null>(null);
 
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,11 +177,22 @@ export default function DealerDataPage() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!dealerNumber) { setLoadingData(false); return; }
+    if (!dealerNumber) {
+      setDealer(null);
+      setUsers([]);
+      setContacts([]);
+      setSubmissions([]);
+      setQuotes([]);
+      setOrders([]);
+      setAccountOwnerLabel(null);
+      setLoadingData(false);
+      return;
+    }
 
     (async () => {
       setLoadingData(true);
       setError(null);
+      setAccountOwnerLabel(null);
       try {
         const [dealerRes, configsQuoteRes, configsOrderRes, subsRes, usersRes] = await Promise.all([
           fetchDealerAccountByNumber(dealerNumber),
@@ -180,7 +211,7 @@ export default function DealerDataPage() {
           listPortalFormSubmissions({ formType: 'dealer_invoice_accept', limit: 100 }),
           supabase
             .from('app_users')
-            .select('id, email, full_name, role, portal_role, status, approved, is_active, last_login, preferred_language')
+            .select('id, email, full_name, role, portal_role, status, approved, is_active, last_login, preferred_language, account_owner_initials, account_owner_name, account_owner_email')
             .eq('dealer_number', dealerNumber)
             .order('email', { ascending: true }),
         ]);
@@ -200,6 +231,8 @@ export default function DealerDataPage() {
 
         const u = (usersRes.data ?? []) as DealerUserRow[];
         setUsers(u);
+        const ownerSource = u.find((row) => row.account_owner_initials || row.account_owner_name || row.account_owner_email);
+        setAccountOwnerLabel(formatOwnerLabel(ownerSource));
 
         // Load extra dealer_contacts once the dealer row is known.
         if (dealerRes.row?.id) {
@@ -243,7 +276,7 @@ export default function DealerDataPage() {
     console.log('[DealerDataPage] canEditProfile:', canEditProfile, 'portalRole:', portalRole, 'dealerNumber:', dealerNumber);
   }
 
-  const dealerName = dealer?.company_name || appUser.company_dealer || '—';
+  const dealerName = dealer?.company_name || effectiveUser?.company_dealer || '—';
 
   // Status label for dealer_invoice_accept submissions
   const acceptLabel = (payload: Record<string, unknown>): { label: string; tone: 'ok' | 'warn' | 'no' } => {
@@ -322,7 +355,7 @@ export default function DealerDataPage() {
                 <Field label={T.accountNo[lang]} value={dealer.account_number || '—'} />
                 <Field label={T.dealerType[lang]} value={dealer.customer_type_label || dealer.customer_type || '—'} />
                 <Field label={T.country[lang]} value={formatCountry(dealer.country, lang) || '—'} />
-                <Field label={T.seller[lang]} value={dealer.assigned_seller_name || dealer.assigned_seller_initials || '—'} />
+                <Field label={T.seller[lang]} value={accountOwnerLabel || formatDealerSellerLabel(dealer) || '—'} />
                 <Field label={T.status[lang]} value={dealer.is_blocked ? (<Badge className="bg-rose-600 hover:bg-rose-600 text-white">{T.blocked[lang]}</Badge>) : dealer.is_deleted ? T.deleted[lang] : T.active[lang]} />
               </CardContent>
             </Card>
