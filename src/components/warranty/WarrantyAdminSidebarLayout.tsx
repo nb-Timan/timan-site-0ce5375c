@@ -32,22 +32,23 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   match: string;
+  exact?: boolean;
 }
 
 const ADMIN_NAV: NavItem[] = [
-  { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty" },
+  { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty", exact: true },
   { to: "/portal/service/warranty/registrations", label: "Registrerede garantibeviser", icon: FileBadge, match: "/portal/service/warranty/registrations" },
   { to: "/portal/service/warranty/sync", label: "Synkronisering", icon: RefreshCw, match: "/portal/service/warranty/sync" },
 ];
 
 const DEALER_NAV: NavItem[] = [
-  { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty" },
+  { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty", exact: true },
   { to: "/portal/service/warranty/registrations", label: "Mine registreringer", icon: ClipboardList, match: "/portal/service/warranty/registrations" },
   { to: "/portal/service/warranty/new", label: "Ny registrering", icon: PlusCircle, match: "/portal/service/warranty/new" },
 ];
 
 const DEALER_NAV_READONLY: NavItem[] = [
-  { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty" },
+  { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty", exact: true },
   { to: "/portal/service/warranty/registrations", label: "Mine registreringer", icon: ClipboardList, match: "/portal/service/warranty/registrations" },
 ];
 
@@ -136,9 +137,9 @@ export function WarrantyAdminSidebarLayout({
           <nav className="sticky top-[88px] space-y-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
             {nav.map((item) => {
               const Icon = item.icon;
-              const active =
-                location.pathname === item.match ||
-                location.pathname.startsWith(item.match + "/");
+              const active = item.exact
+                ? location.pathname === item.match
+                : location.pathname === item.match || location.pathname.startsWith(item.match + "/");
               return (
                 <Link
                   key={item.to}
