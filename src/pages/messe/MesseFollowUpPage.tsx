@@ -14,6 +14,7 @@ import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { buildMesseLeadMailRecipients } from '@/lib/messeLeadMail';
 import type { CrmLead, CrmLeadAttachment } from '@/lib/crmLeadsService';
 
 type LeadType = 'dealer' | 'customer' | '';
@@ -636,18 +637,19 @@ export default function MesseFollowUpPage() {
             console.error('[messe lead attachment links] failed:', error);
           }
         }
-        const sellerRecipientEmail = clean(responsibleSeller.email);
-        const extraRecipientEmail = clean(email);
-        const recipientEmails = Array.from(new Set([sellerRecipientEmail, extraRecipientEmail].filter(Boolean)));
+        const mailRecipients = buildMesseLeadMailRecipients(responsibleSeller.email, email);
         await sendLeadMail({
           source: 'messe_follow_up_form',
           lead_id: lead.id,
           lead_no: lead.lead_no,
           created_at: new Date().toISOString(),
-          recipient_email: sellerRecipientEmail,
-          extra_recipient_email: extraRecipientEmail || null,
-          recipient_emails: recipientEmails,
-          to: recipientEmails,
+          recipient_email: mailRecipients.recipientEmail,
+          extra_recipient_email: mailRecipients.extraRecipientEmail,
+          recipient_emails: mailRecipients.to,
+          to: mailRecipients.to,
+          bcc: mailRecipients.bcc,
+          bcc_recipients: mailRecipients.bcc,
+          bccRecipients: mailRecipients.bcc,
           responsible_seller: {
             id: ownerId,
             name: responsibleSeller.full_name || responsibleSeller.initials,
