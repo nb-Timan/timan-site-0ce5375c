@@ -24,7 +24,7 @@ import {
   NEXT_ACTIVITY_LOST,
   deriveLegacyPipelineStage,
 } from '@/lib/leadStatus';
-import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X } from 'lucide-react';
+import { Plus, Search, Sparkles, TrendingUp, ChevronRight, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X, DatabaseZap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
 import { listScopedConfigurations } from '@/lib/crmRelationsService';
@@ -294,7 +294,7 @@ export default function CrmLeadsPage() {
   useEffect(() => { if (dealerParam) { setQ(dealerParam); setTab('all'); } }, [dealerParam]);
 
   const refreshLeads = async () => {
-    const openAll = await listLeads({});
+    const openAll = await listLeads({ limit: 5000 });
     const openResolved = await resolveSeedOwners(openAll);
     setOpenLeads(openResolved);
   };
@@ -336,8 +336,8 @@ export default function CrmLeadsPage() {
       setLoading(true);
       const sid = await resolveSellerId(appUser?.email);
       const [openAll, demoAll, quoteResult, nextSharedLeadIds] = await Promise.all([
-        listLeads({}),
-        listDemoLeads({}),
+        listLeads({ limit: 5000 }),
+        listDemoLeads({ limit: 5000 }),
         listScopedConfigurations({ role: portalRole, sellerId: sid, documentType: 'quote' }),
         listSharedLeadIdsForUser(sid),
       ]);
@@ -501,6 +501,12 @@ export default function CrmLeadsPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <Link to="/portal/crm/leads/import-preview"
+              className="inline-flex items-center gap-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 hover:border-amber-300 text-sm font-medium px-4 py-2.5 shadow-sm transition">
+              <DatabaseZap className="h-4 w-4" /> Historisk import-preview
+            </Link>
+          )}
           <Link to="/portal/crm/demo-leads/new"
             className="inline-flex items-center gap-2 rounded-xl bg-white hover:bg-gray-50 text-[#2d5a27] border border-[#2d5a27]/30 hover:border-[#2d5a27] text-sm font-medium px-4 py-2.5 shadow-sm transition">
             <Plus className="h-4 w-4" /> {tt('new_demo', lang)}

@@ -28,3 +28,6 @@ verify_jwt = false
 # Secrets and News CMS has been wired to call the function.
 [functions.translate-news-content]
 verify_jwt = false
+
+[functions.import-legacy-leads]
+verify_jwt = false

@@ -330,12 +330,14 @@ function notifyCrmLeadsChanged(): void {
 // row has a number it is never overwritten.
 
 export const LEAD_NO_PREFIX = "L-";
+export const LEGACY_LEAD_NO_PREFIX = "G-";
 export const DEMO_NO_PREFIX = "D-";
 const LEAD_NO_START = 1001;
 const DEMO_NO_START = 8000;
 
 export function formatLeadNo(n: number | null | undefined): string {
-  return n == null ? "—" : `${LEAD_NO_PREFIX}${n}`;
+  if (n == null) return "—";
+  return n >= 5000 ? `${LEGACY_LEAD_NO_PREFIX}${n}` : `${LEAD_NO_PREFIX}${n}`;
 }
 export function formatDemoNo(n: number | null | undefined): string {
   return n == null ? "—" : `${DEMO_NO_PREFIX}${n}`;
@@ -650,7 +652,7 @@ function dedupOpenLeads(rows: (CrmLead & { legacy_id?: string | null })[]): CrmL
 }
 
 export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
-  const limit = opts.limit ?? 200;
+  const limit = opts.limit ?? 5000;
   let supRows: CrmLead[] = [];
   let remoteReadOk = false;
   try {

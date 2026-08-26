@@ -17,6 +17,8 @@ import CrmActivitiesPage from "./pages/crm/CrmActivitiesPage";
 import CrmComingSoonPage from "./pages/crm/CrmComingSoonPage";
 import CrmQuotesOrdersPage from "./pages/crm/CrmQuotesOrdersPage";
 import CrmLeadsPage from "./pages/crm/CrmLeadsPage";
+import CrmLegacyLeadsImportPreviewPage from "./pages/crm/CrmLegacyLeadsImportPreviewPage";
+import CrmLegacyLeadImportPreviewDetailPage from "./pages/crm/CrmLegacyLeadImportPreviewDetailPage";
 import CrmNewLeadPage from "./pages/crm/CrmNewLeadPage";
 import CrmDemoLeadsPage from "./pages/crm/CrmDemoLeadsPage";
 import CrmNewDemoLeadPage from "./pages/crm/CrmNewDemoLeadPage";
@@ -228,6 +230,8 @@ const App = () => (
               <Route path="/portal/crm/accounts/:id" element={<CrmAccountDetailPage />} />
               <Route path="/portal/crm/activities" element={<CrmActivitiesPage />} />
               <Route path="/portal/crm/leads"          element={<CrmLeadsPage />} />
+              <Route path="/portal/crm/leads/import-preview" element={<CrmLegacyLeadsImportPreviewPage />} />
+              <Route path="/portal/crm/leads/import-preview/:legacyId" element={<CrmLegacyLeadImportPreviewDetailPage />} />
              <Route path="/portal/crm/leads/new"      element={<CrmNewLeadPage />} />
              <Route path="/portal/crm/leads/:id"      element={<CrmNewLeadPage />} />
               <Route path="/portal/crm/demo-leads"     element={<CrmDemoLeadsPage />} />
