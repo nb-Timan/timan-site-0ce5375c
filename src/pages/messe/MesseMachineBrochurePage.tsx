@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookOpen,
@@ -792,6 +793,217 @@ const tr = (value: Localized, lang: PortalUiLanguage) => {
   return value.en || value.da;
 };
 
+function usePrefersReducedMotion() {
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReducedMotion(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener('change', update);
+    return () => mediaQuery.removeEventListener('change', update);
+  }, []);
+
+  return reducedMotion;
+}
+
+type PageFlipState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  currentX: number;
+  currentY: number;
+  startedAt: number;
+  horizontal: boolean;
+  settling: 'none' | 'back' | 'forward';
+};
+
+interface BrochureSpreadViewerProps {
+  title: string;
+  lang: PortalUiLanguage;
+  pageSrc: (page: number) => string;
+  currentSpread: number[];
+  rightPage?: number;
+  brochurePageCount: number;
+  isSinglePageSpread: boolean;
+  canGoBack: boolean;
+  canGoNext: boolean;
+  goBack: () => void;
+  goNext: () => void;
+}
+
+function BrochureSpreadViewer({
+  title,
+  lang,
+  pageSrc,
+  currentSpread,
+  rightPage,
+  brochurePageCount,
+  isSinglePageSpread,
+  canGoBack,
+  canGoNext,
+  goBack,
+  goNext,
+}: BrochureSpreadViewerProps) {
+  const reducedMotion = usePrefersReducedMotion();
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+  const settleTimerRef = useRef<number | null>(null);
+  const [flip, setFlip] = useState<PageFlipState | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+    };
+  }, []);
+
+  const clearSettleTimer = () => {
+    if (settleTimerRef.current) {
+      window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
+  };
+
+  const finishFlip = (direction: 'next' | 'back') => {
+    if (direction === 'next') goNext();
+    else goBack();
+    setFlip(null);
+  };
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    clearSettleTimer();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setFlip({
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      currentX: event.clientX,
+      currentY: event.clientY,
+      startedAt: performance.now(),
+      horizontal: false,
+      settling: 'none',
+    });
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    setFlip((current) => {
+      if (!current || current.pointerId !== event.pointerId || current.settling !== 'none') return current;
+      const dx = event.clientX - current.startX;
+      const dy = event.clientY - current.startY;
+      const horizontal = current.horizontal || (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.15);
+      if (horizontal) event.preventDefault();
+      return {
+        ...current,
+        currentX: event.clientX,
+        currentY: event.clientY,
+        horizontal,
+      };
+    });
+  };
+
+  const handlePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!flip || flip.pointerId !== event.pointerId) return;
+
+    const surfaceWidth = surfaceRef.current?.clientWidth || 1;
+    const dx = flip.currentX - flip.startX;
+    const elapsed = Math.max(1, performance.now() - flip.startedAt);
+    const velocity = Math.abs(dx) / elapsed;
+    const wantsNext = dx < 0;
+    const wantsBack = dx > 0;
+    const canMove = (wantsNext && canGoNext) || (wantsBack && canGoBack);
+    const shouldTurn = flip.horizontal && canMove && (Math.abs(dx) > surfaceWidth * 0.16 || velocity > 0.55);
+
+    if (!flip.horizontal || !shouldTurn) {
+      clearSettleTimer();
+      setFlip({ ...flip, settling: 'back' });
+      settleTimerRef.current = window.setTimeout(() => setFlip(null), 190);
+      return;
+    }
+
+    const direction = wantsNext ? 'next' : 'back';
+    clearSettleTimer();
+    if (reducedMotion) {
+      finishFlip(direction);
+      return;
+    }
+
+    setFlip({ ...flip, settling: 'forward', currentX: flip.startX + (wantsNext ? -surfaceWidth : surfaceWidth) });
+    settleTimerRef.current = window.setTimeout(() => finishFlip(direction), 210);
+  };
+
+  const rawDragX = flip ? flip.currentX - flip.startX : 0;
+  const blockedDirection = (rawDragX < 0 && !canGoNext) || (rawDragX > 0 && !canGoBack);
+  const dragX = blockedDirection ? rawDragX * 0.22 : rawDragX;
+  const surfaceWidth = surfaceRef.current?.clientWidth || 1;
+  const progress = Math.min(1, Math.abs(dragX) / Math.max(1, surfaceWidth * 0.46));
+  const isDragging = Boolean(flip?.horizontal && flip.settling === 'none');
+  const isSettling = Boolean(flip?.settling && flip.settling !== 'none');
+  const direction = dragX < 0 ? 'next' : 'back';
+  const originClass = direction === 'next' ? 'origin-left' : 'origin-right';
+  const rotate = direction === 'next' ? -progress * 58 : progress * 58;
+  const lift = progress * 18;
+  const skew = direction === 'next' ? progress * 4 : -progress * 4;
+  const pageTransform = flip?.horizontal && !reducedMotion
+    ? `translate3d(${dragX * 0.34}px, ${-lift}px, 0) rotateY(${rotate}deg) skewY(${skew}deg)`
+    : undefined;
+
+  const transitionClass = isSettling ? 'transition-transform duration-200 ease-out' : isDragging ? '' : 'transition-transform duration-150 ease-out';
+  const foldOpacity = flip?.horizontal && !reducedMotion ? Math.min(0.38, 0.08 + progress * 0.3) : 0;
+
+  return (
+    <div
+      ref={surfaceRef}
+      className="relative touch-pan-y select-none overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      style={{ perspective: '1800px' }}
+    >
+      <div className={`relative grid h-[76vh] min-h-[620px] grid-cols-1 ${isSinglePageSpread ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
+        <div
+          className={`relative z-10 flex min-h-0 items-center justify-center bg-white p-2 ${isSinglePageSpread ? '' : 'md:border-r md:border-slate-100'} ${flip?.horizontal ? `${originClass} ${transitionClass}` : ''}`}
+          style={{ transform: pageTransform, transformStyle: 'preserve-3d' }}
+        >
+          <img
+            src={pageSrc(currentSpread[0])}
+            alt={`${title} ${tr(T.page, lang)} ${currentSpread[0]}`}
+            className="h-full w-full object-contain"
+            draggable={false}
+          />
+          <div
+            aria-hidden
+            className={`pointer-events-none absolute inset-0 ${direction === 'next' ? 'bg-gradient-to-r' : 'bg-gradient-to-l'} from-transparent via-slate-950/10 to-white/55`}
+            style={{ opacity: foldOpacity }}
+          />
+        </div>
+        {!isSinglePageSpread && (
+          <div className="hidden min-h-0 items-center justify-center bg-white p-2 md:flex">
+            {rightPage && rightPage <= brochurePageCount ? (
+              <img
+                src={pageSrc(rightPage)}
+                alt={`${title} ${tr(T.page, lang)} ${rightPage}`}
+                className="h-full w-full object-contain"
+                draggable={false}
+              />
+            ) : (
+              <div className="h-full w-full rounded-sm bg-slate-50" />
+            )}
+          </div>
+        )}
+      </div>
+
+      {flip?.horizontal && (
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-y-0 z-20 w-24 ${direction === 'next' ? 'left-0 bg-gradient-to-r' : 'right-0 bg-gradient-to-l'} from-slate-950/15 to-transparent`}
+          style={{ opacity: progress * 0.55 }}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function MesseMachineBrochurePage({
   machineKey,
   title,
@@ -1182,28 +1394,19 @@ export default function MesseMachineBrochurePage({
           bodyClass="px-3 sm:px-5 py-4"
         >
           <div className="relative rounded-xl bg-slate-100 p-3 sm:p-5">
-            <div className={`relative grid h-[76vh] min-h-[620px] grid-cols-1 overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200 ${isSinglePageSpread ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
-              <div className={`flex min-h-0 items-center justify-center bg-white p-2 ${isSinglePageSpread ? '' : 'md:border-r md:border-slate-100'}`}>
-                <img
-                  src={pageSrc(currentSpread[0])}
-                  alt={`${title} ${tr(T.page, lang)} ${currentSpread[0]}`}
-                  className="h-full w-full object-contain"
-                />
-              </div>
-              {!isSinglePageSpread && (
-              <div className="hidden min-h-0 items-center justify-center bg-white p-2 md:flex">
-                {rightPage && rightPage <= brochurePageCount ? (
-                  <img
-                    src={pageSrc(rightPage)}
-                    alt={`${title} ${tr(T.page, lang)} ${rightPage}`}
-                    className="h-full w-full object-contain"
-                  />
-                ) : (
-                  <div className="h-full w-full rounded-sm bg-slate-50" />
-                )}
-              </div>
-              )}
-            </div>
+            <BrochureSpreadViewer
+              title={title}
+              lang={lang}
+              pageSrc={pageSrc}
+              currentSpread={currentSpread}
+              rightPage={rightPage}
+              brochurePageCount={brochurePageCount}
+              isSinglePageSpread={isSinglePageSpread}
+              canGoBack={canGoBack}
+              canGoNext={canGoNext}
+              goBack={goBack}
+              goNext={goNext}
+            />
 
             {!isSinglePageSpread && (
               <div
