@@ -446,10 +446,10 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
         )}
 
         {/* Lead Fokus + Budget Fokus */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
           {/* ── LEAD FOKUS ── */}
-          <article className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-16px_rgba(15,23,42,0.18)] transition-shadow p-6">
-            <header className="flex items-start justify-between gap-3 mb-5">
+          <article className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-16px_rgba(15,23,42,0.18)] transition-shadow p-5 lg:h-full">
+            <header className="flex items-start justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-base font-semibold text-gray-900 inline-flex items-center gap-2.5">
                   <span className="h-8 w-8 rounded-lg bg-gradient-to-br from-rose-50 to-amber-50 text-rose-600 inline-flex items-center justify-center ring-1 ring-rose-100">
@@ -463,9 +463,9 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
             </header>
 
             {totalLeads === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center">
-                <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 inline-flex items-center justify-center mb-3">
-                  <Clock className="h-6 w-6" />
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
+                <div className="h-8 w-8 rounded-lg bg-white text-emerald-600 inline-flex items-center justify-center ring-1 ring-emerald-100">
+                  <Clock className="h-4 w-4" />
                 </div>
                 <p className="text-sm text-slate-500">{t("no_leads", lang)}</p>
               </div>
@@ -487,59 +487,41 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                   })}
                 </div>
 
-                {/* Per-bucket lists with tooltips */}
-                <div className="mt-5 space-y-4">
-                  {(["overdue", "soon", "later", "none"] as Urgency[]).map(u => {
-                    const list = buckets[u];
-                    if (list.length === 0) return null;
+                {/* Compact clickable urgency summary */}
+                <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {(["overdue", "soon", "later"] as Urgency[]).map(u => {
                     const meta = URGENCY_META[u];
+                    const list = buckets[u];
                     return (
-                      <div key={u}>
-                        <div className="flex items-center justify-between mb-2">
-                          <span className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full border ${meta.ring}`}>
-                            <span className="h-1.5 w-1.5 rounded-full" style={{ background: meta.hex }} />
-                            {t(meta.tKey, lang)}
-                          </span>
-                          <span className="text-[11px] text-slate-500 tabular-nums">{list.length}</span>
-                        </div>
-                        <ul className="space-y-1">
-                          {list.slice(0, 3).map(l => (
-                            <Tooltip key={l.id}>
-                              <TooltipTrigger asChild>
-                                <li>
-                                  <Link
-                                    to={`/portal/crm/leads/${l.id}`}
-                                    className="flex items-center justify-between gap-3 text-xs px-2 py-1.5 rounded-md hover:bg-slate-50 cursor-pointer"
-                                  >
-                                    <span className="truncate text-slate-800 font-medium inline-flex items-baseline gap-1.5">
-                                      <span className="font-mono text-[10px] tabular-nums text-slate-400 shrink-0">{formatLeadNo(l.lead_no)}</span>
-                                      <span className="truncate">{l.title || "—"}</span>
-                                    </span>
-                                    <span className="shrink-0 text-slate-400 tabular-nums">{fmtDate(l.next_followup_date, lang)}</span>
-                                  </Link>
-                                </li>
-                              </TooltipTrigger>
-                              <TooltipContent className="max-w-xs">
-                                <div className="text-xs space-y-0.5">
-                                  <div className="font-semibold inline-flex items-baseline gap-1.5">
-                                    <span className="font-mono text-[10px] tabular-nums text-slate-400">{formatLeadNo(l.lead_no)}</span>
-                                    <span>{l.title || "—"}</span>
-                                  </div>
-                                  {l.contact_information && <div>{l.contact_information}</div>}
-                                  {l.linked_dealer_id && <div className="text-slate-500">Dealer: {l.linked_dealer_id}</div>}
-                                  {l.machine_types?.length > 0 && <div>{l.machine_types.join(", ")}</div>}
-                                  <div className="text-slate-500">{effectiveLeadStatus(l)} · {fmtDate(l.next_followup_date, lang)}</div>
-                                  {l.estimated_value != null && <div className="font-medium">{l.estimated_value.toLocaleString("da-DK")} kr.</div>}
-                                  {l.owner_name && <div className="text-slate-500">{l.owner_name}</div>}
+                      <Tooltip key={u}>
+                        <TooltipTrigger asChild>
+                          <Link
+                            to="/portal/crm/leads"
+                            className={`min-w-0 rounded-xl border px-3 py-2.5 transition hover:shadow-sm ${meta.ring}`}
+                          >
+                            <span className="flex items-center gap-2 text-[11px] font-semibold">
+                              <span className="h-2 w-2 rounded-full shrink-0" style={{ background: meta.hex }} />
+                              <span className="truncate">{t(meta.tKey, lang)}</span>
+                            </span>
+                            <span className="mt-1 block text-lg font-bold tabular-nums text-slate-900">{list.length}</span>
+                          </Link>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <div className="text-xs space-y-1">
+                            <div className="font-semibold">{t(meta.tKey, lang)} · {list.length}</div>
+                            {list.slice(0, 5).map(l => (
+                              <div key={l.id} className="space-y-0.5">
+                                <div className="font-medium inline-flex items-baseline gap-1.5">
+                                  <span className="font-mono text-[10px] tabular-nums text-slate-400">{formatLeadNo(l.lead_no)}</span>
+                                  <span>{l.title || "—"}</span>
                                 </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          ))}
-                          {list.length > 3 && (
-                            <li className="text-[11px] text-slate-400 pl-2">+ {list.length - 3}</li>
-                          )}
-                        </ul>
-                      </div>
+                                <div className="text-slate-500">{effectiveLeadStatus(l)} · {fmtDate(l.next_followup_date, lang)}</div>
+                              </div>
+                            ))}
+                            {list.length > 5 && <div className="text-slate-400">+ {list.length - 5}</div>}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
                     );
                   })}
                 </div>
@@ -548,8 +530,8 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
           </article>
 
           {/* ── BUDGET FOKUS ── */}
-          <article className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-16px_rgba(15,23,42,0.18)] transition-shadow p-6">
-            <header className="flex items-start justify-between gap-3 mb-5">
+          <article className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.08)] hover:shadow-[0_2px_4px_rgba(15,23,42,0.05),0_16px_40px_-16px_rgba(15,23,42,0.18)] transition-shadow p-5 lg:h-full">
+            <header className="flex items-start justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-base font-semibold text-gray-900 inline-flex items-center gap-2.5">
                   <span className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-50 to-sky-50 text-emerald-700 inline-flex items-center justify-center ring-1 ring-emerald-100">
@@ -561,7 +543,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
               </div>
             </header>
 
-            <div className="space-y-4">
+            <div className="space-y-2.5">
               {machineRows.map(row => {
                 const noBudget = row.budgetQty === 0;
                 const orphanOrders = noBudget && row.ordersQty > 0;
@@ -572,7 +554,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                   <Tooltip key={row.key}>
                     <TooltipTrigger asChild>
                       <div className="cursor-default">
-                        <div className="flex items-center justify-between text-sm mb-1.5">
+                        <div className="flex items-center justify-between text-sm mb-1">
                           <span className="font-medium text-slate-800 inline-flex items-center gap-1.5">
                             {row.label}
                             {row.leadQty > 0 && (
@@ -601,7 +583,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
                             )}
                           </span>
                         </div>
-                        <div className="h-2.5 w-full rounded-full bg-slate-100 overflow-hidden flex">
+                        <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden flex">
                           {!noBudget && (
                             <>
                               <div className={`${score.bar} h-full transition-[width] duration-700`} style={{ width: `${ordersPct}%` }} />
@@ -657,7 +639,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
             </div>
 
             {/* Legend */}
-            <div className="mt-5 flex items-center gap-4 text-[11px] text-slate-500">
+            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-500">
               <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-emerald-500" /> ≥100%</span>
               <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-amber-500" /> ≥80%</span>
               <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-rose-500" /> &lt;80%</span>
