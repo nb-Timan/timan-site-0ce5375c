@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Eye, FileCheck2, Languages, Save, Send, WandSparkles } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Eye, FileCheck2, Languages, Save, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
@@ -157,24 +157,18 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     });
   };
 
-  const translateMissingLanguages = () => {
-    const result = translateMissingNewsContent(localizedContent, template.fields, editLanguage);
-    setLocalizedContent(result.localizedContent);
-
-    if (result.translatedLanguages.length > 0) {
-      const labels = result.translatedLanguages
+  const saveDraft = async () => {
+    const translationResult = translateMissingNewsContent(localizedContent, template.fields, editLanguage, initialPost?.localized_content);
+    const contentToSave = translationResult.localizedContent;
+    if (translationResult.translatedLanguages.length > 0) {
+      setLocalizedContent(contentToSave);
+      const labels = translationResult.translatedLanguages
         .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
         .join(', ');
       setTranslateStatus(`${t('newsCmsTranslateMissingDone', uiLanguage)} ${labels}`);
-      return;
     }
-
-    setTranslateStatus(t('newsCmsTranslateMissingNone', uiLanguage));
-  };
-
-  const saveDraft = async () => {
     setPublishWarning(null);
-    await onSaveDraft({ id: initialPost?.id, templateId, localizedContent, templateData });
+    await onSaveDraft({ id: initialPost?.id, templateId, localizedContent: contentToSave, templateData });
     setSavedOnce(true);
   };
 
@@ -184,10 +178,8 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
       return;
     }
 
-    const translationResult = missingLanguages.length > 0
-      ? translateMissingNewsContent(localizedContent, template.fields, editLanguage)
-      : null;
-    const contentToPublish = translationResult?.localizedContent || localizedContent;
+    const translationResult = translateMissingNewsContent(localizedContent, template.fields, editLanguage, initialPost?.localized_content);
+    const contentToPublish = translationResult.localizedContent;
     const remainingMissingLanguages = missingNewsLanguages(contentToPublish, template.fields);
 
     if (remainingMissingLanguages.length > 0) {
@@ -198,7 +190,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
       return;
     }
 
-    if (translationResult?.translatedLanguages.length) {
+    if (translationResult.translatedLanguages.length) {
       setLocalizedContent(contentToPublish);
       const labels = translationResult.translatedLanguages
         .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
@@ -292,14 +284,11 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               </div>
             )}
             <p className="mb-4 text-xs text-slate-400">{t('newsCmsSharedAcrossLanguages', uiLanguage)}</p>
-            <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
-              <Button type="button" variant="outline" className="w-full justify-center bg-white" onClick={translateMissingLanguages}>
-                <WandSparkles className="mr-2 h-4 w-4 text-emerald-700" />
-                {t('newsCmsTranslateMissingButton', uiLanguage)}
-              </Button>
-              <p className="mt-2 text-xs text-emerald-800">{t('newsCmsTranslateMissingHelp', uiLanguage)}</p>
-              {translateStatus && <p className="mt-2 text-xs font-semibold text-emerald-900">{translateStatus}</p>}
-            </div>
+            {translateStatus && (
+              <div className="mb-4 rounded-xl border border-emerald-100 bg-emerald-50/60 px-4 py-3 text-xs font-semibold text-emerald-900">
+                {translateStatus}
+              </div>
+            )}
             {missingLanguages.length > 0 && (
               <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
                 <span className="font-bold">{t('newsCmsPublishAutoTranslate', uiLanguage)}</span> {missingLanguageLabels}

@@ -352,4 +352,45 @@ describe('news service localization', () => {
     expect(result.translatedLanguages).toContain('da');
     expect(result.translatedLanguages).not.toContain('de');
   });
+
+  it('updates stale auto-translated news fields when the source language changes', () => {
+    const fields = [
+      { key: 'headline', type: 'text', labelKey: 'newsCmsFieldHeadline', required: true },
+      { key: 'subtitle', type: 'text', labelKey: 'newsCmsFieldSubtitle', required: false },
+    ];
+    const previous = {
+      da: {
+        headline: 'Skivehøster til Timan RC-1000s',
+        subtitle: 'Effektiv høst med et rent og jævnt skær',
+      },
+      de: {
+        headline: 'Scheibenmähwerk für Timan RC-1000s',
+        subtitle: 'Effiziente Ernte mit sauberem und gleichmäßigem Schnitt',
+      },
+      en: {
+        headline: 'Manually tuned English headline',
+        subtitle: 'Manually tuned English subtitle',
+      },
+    };
+    const current = {
+      ...previous,
+      da: {
+        headline: 'CS-200 – én spreder, flere muligheder',
+        subtitle: 'Effektiv vintertjeneste – på Timan 3330 eller traktor',
+      },
+    };
+
+    const result = translateMissingNewsContent(current, fields, 'da', previous);
+
+    expect(result.localizedContent.de).toMatchObject({
+      headline: 'CS-200 - ein Streuer, viele Möglichkeiten',
+      subtitle: 'Effizienter Winterdienst - mit Timan 3330 oder Traktor',
+    });
+    expect(result.localizedContent.en).toMatchObject({
+      headline: 'Manually tuned English headline',
+      subtitle: 'Manually tuned English subtitle',
+    });
+    expect(result.translatedLanguages).toContain('de');
+    expect(result.translatedLanguages).not.toContain('en');
+  });
 });

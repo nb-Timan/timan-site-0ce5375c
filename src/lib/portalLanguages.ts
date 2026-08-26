@@ -16,6 +16,11 @@
  *  - Signup form (Preferred language dropdown)
  *  - Backend Users admin (Edit user > Language)
  *  - PortalHeader language selector
+ *
+ * Platform contract:
+ *  - New user-facing UI must read `useLanguage().uiLanguage`.
+ *  - Dynamic translated content must try the selected `uiLanguage` before any
+ *    fallback. Do not hardcode Danish as the first rendered language.
  */
 
 import type { Language } from '@/types/configurator';

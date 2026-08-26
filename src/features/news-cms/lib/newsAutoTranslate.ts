@@ -63,6 +63,13 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Robust og kompakt konstruktion': 'Robust and compact construction',
     'Jævnt skær': 'Even cut',
     'Effektiv høst og god foderkvalitet': 'Efficient harvesting and good forage quality',
+    'CS-200 – én spreder, flere muligheder': 'CS-200 - one spreader, many possibilities',
+    'Effektiv vintertjeneste – på Timan 3330 eller traktor': 'Efficient winter service - on Timan 3330 or tractor',
+    'Derfor CS-200': 'Why CS-200',
+    'Elektrisk betjening': 'Electric operation',
+    'Fleksibel montering': 'Flexible mounting',
+    'Jævn og præcis dosering': 'Even and precise dosing',
+    'Velegnet til både Timan 3330 og traktor': 'Suitable for both Timan 3330 and tractor',
   },
   de: {
     'Nyhed': 'Neuheit',
@@ -96,6 +103,13 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Robust og kompakt konstruktion': 'Robuste und kompakte Konstruktion',
     'Jævnt skær': 'Gleichmäßiger Schnitt',
     'Effektiv høst og god foderkvalitet': 'Effiziente Ernte und gute Futterqualität',
+    'CS-200 – én spreder, flere muligheder': 'CS-200 - ein Streuer, viele Möglichkeiten',
+    'Effektiv vintertjeneste – på Timan 3330 eller traktor': 'Effizienter Winterdienst - mit Timan 3330 oder Traktor',
+    'Derfor CS-200': 'Darum CS-200',
+    'Elektrisk betjening': 'Elektrische Bedienung',
+    'Fleksibel montering': 'Flexible Montage',
+    'Jævn og præcis dosering': 'Gleichmäßige und präzise Dosierung',
+    'Velegnet til både Timan 3330 og traktor': 'Geeignet für Timan 3330 und Traktor',
   },
   it: {
     'Nyhed': 'Novità',
@@ -129,6 +143,13 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Robust og kompakt konstruktion': 'Costruzione robusta e compatta',
     'Jævnt skær': 'Taglio uniforme',
     'Effektiv høst og god foderkvalitet': 'Raccolta efficiente e buona qualità del foraggio',
+    'CS-200 – én spreder, flere muligheder': 'CS-200 - uno spargitore, molte possibilità',
+    'Effektiv vintertjeneste – på Timan 3330 eller traktor': 'Servizio invernale efficiente - su Timan 3330 o trattore',
+    'Derfor CS-200': 'Perché CS-200',
+    'Elektrisk betjening': 'Comando elettrico',
+    'Fleksibel montering': 'Montaggio flessibile',
+    'Jævn og præcis dosering': 'Dosaggio uniforme e preciso',
+    'Velegnet til både Timan 3330 og traktor': 'Adatto sia per Timan 3330 sia per trattore',
   },
   hu: {
     'Nyhed': 'Hír',
@@ -162,6 +183,13 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Robust og kompakt konstruktion': 'Robusztus és kompakt felépítés',
     'Jævnt skær': 'Egyenletes vágás',
     'Effektiv høst og god foderkvalitet': 'Hatékony betakarítás és jó takarmányminőség',
+    'CS-200 – én spreder, flere muligheder': 'CS-200 - egy szóró, sok lehetőség',
+    'Effektiv vintertjeneste – på Timan 3330 eller traktor': 'Hatékony téli szolgálat - Timan 3330-on vagy traktoron',
+    'Derfor CS-200': 'Ezért CS-200',
+    'Elektrisk betjening': 'Elektromos vezérlés',
+    'Fleksibel montering': 'Rugalmas felszerelés',
+    'Jævn og præcis dosering': 'Egyenletes és pontos adagolás',
+    'Velegnet til både Timan 3330 og traktor': 'Timan 3330-hoz és traktorhoz is alkalmas',
   },
   sv: {
     'Nyhed': 'Nyhet',
@@ -195,6 +223,13 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Robust og kompakt konstruktion': 'Robust och kompakt konstruktion',
     'Jævnt skær': 'Jämnt snitt',
     'Effektiv høst og god foderkvalitet': 'Effektiv skörd och god foderkvalitet',
+    'CS-200 – én spreder, flere muligheder': 'CS-200 - en spridare, många möjligheter',
+    'Effektiv vintertjeneste – på Timan 3330 eller traktor': 'Effektiv vintertjänst - på Timan 3330 eller traktor',
+    'Derfor CS-200': 'Därför CS-200',
+    'Elektrisk betjening': 'Elektrisk manövrering',
+    'Fleksibel montering': 'Flexibel montering',
+    'Jævn og præcis dosering': 'Jämn och exakt dosering',
+    'Velegnet til både Timan 3330 og traktor': 'Lämplig för både Timan 3330 och traktor',
   },
   fr: {
     'Nyhed': 'Actualité',
@@ -228,6 +263,13 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Robust og kompakt konstruktion': 'Construction robuste et compacte',
     'Jævnt skær': 'Coupe régulière',
     'Effektiv høst og god foderkvalitet': 'Récolte efficace et bonne qualité du fourrage',
+    'CS-200 – én spreder, flere muligheder': 'CS-200 - un épandeur, de nombreuses possibilités',
+    'Effektiv vintertjeneste – på Timan 3330 eller traktor': 'Service hivernal efficace - sur Timan 3330 ou tracteur',
+    'Derfor CS-200': 'Pourquoi CS-200',
+    'Elektrisk betjening': 'Commande électrique',
+    'Fleksibel montering': 'Montage flexible',
+    'Jævn og præcis dosering': 'Dosage régulier et précis',
+    'Velegnet til både Timan 3330 og traktor': 'Convient au Timan 3330 comme au tracteur',
   },
   pl: {
     'Nyhed': 'Nowość',
@@ -261,6 +303,13 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Robust og kompakt konstruktion': 'Solidna i kompaktowa konstrukcja',
     'Jævnt skær': 'Równe cięcie',
     'Effektiv høst og god foderkvalitet': 'Efektywny zbiór i dobra jakość paszy',
+    'CS-200 – én spreder, flere muligheder': 'CS-200 - jeden rozsiewacz, wiele możliwości',
+    'Effektiv vintertjeneste – på Timan 3330 eller traktor': 'Efektywna obsługa zimowa - na Timan 3330 lub ciągniku',
+    'Derfor CS-200': 'Dlaczego CS-200',
+    'Elektrisk betjening': 'Sterowanie elektryczne',
+    'Fleksibel montering': 'Elastyczny montaż',
+    'Jævn og præcis dosering': 'Równomierne i precyzyjne dozowanie',
+    'Velegnet til både Timan 3330 og traktor': 'Odpowiedni zarówno do Timan 3330, jak i ciągnika',
   },
   cs: {
     'Nyhed': 'Novinka',
@@ -294,6 +343,13 @@ const TRANSLATION_MEMORY: TranslationMemory = {
     'Robust og kompakt konstruktion': 'Robustní a kompaktní konstrukce',
     'Jævnt skær': 'Rovnoměrný řez',
     'Effektiv høst og god foderkvalitet': 'Efektivní sklizeň a dobrá kvalita krmiva',
+    'CS-200 – én spreder, flere muligheder': 'CS-200 - jeden sypač, mnoho možností',
+    'Effektiv vintertjeneste – på Timan 3330 eller traktor': 'Efektivní zimní údržba - na Timan 3330 nebo traktoru',
+    'Derfor CS-200': 'Proč CS-200',
+    'Elektrisk betjening': 'Elektrické ovládání',
+    'Fleksibel montering': 'Flexibilní montáž',
+    'Jævn og præcis dosering': 'Rovnoměrné a přesné dávkování',
+    'Velegnet til både Timan 3330 og traktor': 'Vhodné pro Timan 3330 i traktor',
   },
 };
 
@@ -367,21 +423,50 @@ function containsCopiedSourceText(
   return translatedSource !== normalizedSource && normalizeSourceText(targetValue) === normalizedSource;
 }
 
+function containsOutdatedAutoTranslation(
+  previousSourceValue: unknown,
+  targetValue: unknown,
+  lang: PortalUiLanguage,
+  key = '',
+): boolean {
+  if (Array.isArray(previousSourceValue)) {
+    const targetArray = Array.isArray(targetValue) ? targetValue : [];
+    return previousSourceValue.some((item, index) => containsOutdatedAutoTranslation(item, targetArray[index], lang, key));
+  }
+
+  if (isObject(previousSourceValue)) {
+    const targetObject = isObject(targetValue) ? targetValue : {};
+    return Object.entries(previousSourceValue).some(([childKey, childValue]) =>
+      containsOutdatedAutoTranslation(childValue, targetObject[childKey], lang, childKey),
+    );
+  }
+
+  if (shouldShareKey(key) || typeof previousSourceValue !== 'string' || typeof targetValue !== 'string') {
+    return false;
+  }
+
+  const previousAutoTranslation = translateText(previousSourceValue, lang);
+  return previousAutoTranslation !== normalizeSourceText(previousSourceValue) && targetValue.trim() === previousAutoTranslation;
+}
+
 function mergeTranslatedValue(
   sourceValue: unknown,
   targetValue: unknown,
   lang: PortalUiLanguage,
+  previousSourceValue?: unknown,
   key = '',
 ): unknown {
   if (Array.isArray(sourceValue)) {
     const targetArray = Array.isArray(targetValue) ? targetValue : [];
-    return sourceValue.map((item, index) => mergeTranslatedValue(item, targetArray[index], lang, key));
+    const previousSourceArray = Array.isArray(previousSourceValue) ? previousSourceValue : [];
+    return sourceValue.map((item, index) => mergeTranslatedValue(item, targetArray[index], lang, previousSourceArray[index], key));
   }
 
   if (isObject(sourceValue)) {
     const targetObject = isObject(targetValue) ? targetValue : {};
+    const previousSourceObject = isObject(previousSourceValue) ? previousSourceValue : {};
     return Object.entries(sourceValue).reduce<Record<string, unknown>>((acc, [childKey, childValue]) => {
-      acc[childKey] = mergeTranslatedValue(childValue, targetObject[childKey], lang, childKey);
+      acc[childKey] = mergeTranslatedValue(childValue, targetObject[childKey], lang, previousSourceObject[childKey], childKey);
       return acc;
     }, { ...targetObject });
   }
@@ -395,7 +480,8 @@ function mergeTranslatedValue(
       if (
         typeof targetValue === 'string' &&
         translatedSource !== normalizedSource &&
-        normalizeSourceText(targetValue) === normalizedSource
+        (normalizeSourceText(targetValue) === normalizedSource ||
+          (typeof previousSourceValue === 'string' && containsOutdatedAutoTranslation(previousSourceValue, targetValue, lang, key)))
       ) {
         return translatedSource;
       }
@@ -414,8 +500,10 @@ export function translateMissingNewsContent(
   content: LocalizedNewsContent,
   fields: Array<Pick<NewsFieldDefinition, 'key' | 'type' | 'labelKey' | 'required'>>,
   sourceLanguage: PortalUiLanguage = 'da',
+  previousContent?: LocalizedNewsContent | null,
 ): { localizedContent: LocalizedNewsContent; translatedLanguages: PortalUiLanguage[] } {
   const source = content[sourceLanguage] || {};
+  const previousSource = previousContent?.[sourceLanguage] || {};
   const translatedLanguages: PortalUiLanguage[] = [];
 
   const localizedContent = NEWS_CONTENT_LANGUAGES.reduce<LocalizedNewsContent>((acc, lang) => {
@@ -428,13 +516,16 @@ export function translateMissingNewsContent(
     const hasCopiedSourceText = Object.entries(source).some(([key, value]) =>
       containsCopiedSourceText(value, content[lang]?.[key], lang, key),
     );
-    if (beforeMissing.length === 0 && !hasCopiedSourceText) {
+    const hasOutdatedAutoTranslation = Object.entries(previousSource).some(([key, value]) =>
+      containsOutdatedAutoTranslation(value, content[lang]?.[key], lang, key),
+    );
+    if (beforeMissing.length === 0 && !hasCopiedSourceText && !hasOutdatedAutoTranslation) {
       acc[lang] = content[lang] || {};
       return acc;
     }
 
     acc[lang] = Object.entries(source).reduce<Record<string, unknown>>((next, [key, value]) => {
-      next[key] = mergeTranslatedValue(value, next[key], lang, key);
+      next[key] = mergeTranslatedValue(value, next[key], lang, previousSource[key], key);
       return next;
     }, { ...(content[lang] || {}) });
     translatedLanguages.push(lang);

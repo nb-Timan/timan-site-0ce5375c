@@ -8,9 +8,28 @@ import {
 } from '@/lib/portalLanguages';
 
 const FALLBACK: PortalUiLanguage = FALLBACK_LANGUAGE;
+const STORAGE_KEY = 'timan.language';
 
 function normalizeOrFallback(lang: string | null | undefined): PortalUiLanguage {
   return normalizePortalLanguageCode(lang) || FALLBACK;
+}
+
+function readStoredLanguage(): PortalUiLanguage | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return normalizePortalLanguageCode(window.localStorage.getItem(STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredLanguage(lang: PortalUiLanguage) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, lang);
+  } catch {
+    // Storage is optional; the in-memory language still updates.
+  }
 }
 
 interface LanguageContextValue {
@@ -39,26 +58,40 @@ interface LanguageContextValue {
 const LanguageContext = createContext<LanguageContextValue | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [uiLanguage, setUiLanguageState] = useState<PortalUiLanguage>(FALLBACK);
+  const [uiLanguage, setUiLanguageState] = useState<PortalUiLanguage>(() => readStoredLanguage() || FALLBACK);
   const manualOverrideRef = useRef(false);
 
   const setLanguage = useCallback((lang: PortalUiLanguage) => {
+    const normalized = normalizeOrFallback(lang);
     manualOverrideRef.current = true;
-    setUiLanguageState(normalizeOrFallback(lang));
+    writeStoredLanguage(normalized);
+    setUiLanguageState(normalized);
   }, []);
 
   const setAutoLanguage = useCallback((lang: PortalUiLanguage) => {
+    const normalized = normalizeOrFallback(lang);
     manualOverrideRef.current = false;
-    setUiLanguageState(normalizeOrFallback(lang));
+    writeStoredLanguage(normalized);
+    setUiLanguageState(normalized);
   }, []);
 
   const applyPreferredLanguage = useCallback((lang: string | null | undefined) => {
     if (manualOverrideRef.current) return;
+    const stored = readStoredLanguage();
+    if (stored) {
+      setUiLanguageState(stored);
+      return;
+    }
     setUiLanguageState(normalizeOrFallback(lang));
   }, []);
 
   const resetLanguageForIdentity = useCallback((lang: string | null | undefined) => {
     manualOverrideRef.current = false;
+    const stored = readStoredLanguage();
+    if (stored) {
+      setUiLanguageState(stored);
+      return;
+    }
     setUiLanguageState(normalizeOrFallback(lang));
   }, []);
 
