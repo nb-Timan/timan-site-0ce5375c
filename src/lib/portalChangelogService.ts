@@ -143,19 +143,31 @@ function moduleToKey(module: string): ModuleKey {
   return map[module] || (module as ModuleKey);
 }
 
-function rolesToLegacyBuckets(roles: string[]): ChangelogRole[] {
+function normalizeRoleVisibility(roles: string[]): ChangelogRole[] {
   const out = new Set<ChangelogRole>();
   for (const role of roles) {
     if (role === 'all') out.add('all');
-    if (role === 'timan_backend' || role === 'admin') out.add('backend').add('admin');
-    if (role === 'timan_seller' || role === 'sales') out.add('sales');
-    if (role === 'timan_service' || role === 'service') out.add('service');
+    if (role === 'timan_backend') out.add('timan_backend').add('backend').add('admin');
+    if (role === 'admin') out.add('backend').add('admin');
+    if (role === 'timan_seller') out.add('timan_seller').add('sales');
+    if (role === 'sales') out.add('sales');
+    if (role === 'timan_service') out.add('timan_service').add('service');
+    if (role === 'service') out.add('service');
+    if (role === 'timan_importer') out.add('timan_importer');
+    if (role === 'timan_dealer') out.add('timan_dealer');
+    if (role === 'timan_service_partner') out.add('timan_service_partner');
+    if (role === 'dealer_customer') out.add('dealer_customer');
+    if (role === 'dealer_user') out.add('dealer_user');
+    if (role === 'private_end_user') out.add('private_end_user');
+    if (role === 'exhibition_user') out.add('exhibition_user').add('timan_messe');
+    if (role === 'timan_messe') out.add('timan_messe').add('exhibition_user');
     if (
       role === 'dealer' ||
       role === 'timan_dealer' ||
       role === 'dealer_user' ||
       role === 'timan_importer' ||
-      role === 'timan_service_partner'
+      role === 'timan_service_partner' ||
+      role === 'dealer_customer'
     ) out.add('dealer');
   }
   return out.size > 0 ? Array.from(out) : ['all'];
@@ -170,7 +182,7 @@ export function publicRowToEntry(row: SiteChangePublicRow): ChangeLogEntry {
     title: fanout(row.title),
     description: row.description ? fanout(row.description) : undefined,
     note: fanout(row.title),
-    role_visibility: rolesToLegacyBuckets(row.affected_roles || ['all']),
+    role_visibility: normalizeRoleVisibility(row.affected_roles || ['all']),
     is_major: !!row.is_important,
   };
 }

@@ -28,9 +28,39 @@ const MODULES = [
   "users", "budget", "quotes", "orders", "backend",
 ] as const;
 const TYPES = ["all", "feature", "improvement", "bugfix", "security", "performance", "backend", "data", "ui_ux", "integration"] as const;
-const ROLES = ["all", "timan_backend", "timan_seller", "timan_service", "timan_dealer", "dealer_user", "timan_importer", "timan_service_partner", "timan_messe", "private_end_user", "sales", "service", "dealer"] as const;
+const ROLES = [
+  "all",
+  "timan_backend",
+  "timan_seller",
+  "timan_service",
+  "timan_importer",
+  "timan_dealer",
+  "timan_service_partner",
+  "dealer_customer",
+  "private_end_user",
+  "exhibition_user",
+] as const;
 const STATUSES: Array<SiteChangeStatus | "all"> = ["all", "new", "draft", "published", "archived"];
 const RECOMMENDATIONS: Array<SiteChangeRecommendation | "all"> = ["all", "publish", "maybe", "internal"];
+
+const ROLE_LABEL: Record<string, string> = {
+  all: "Alle",
+  timan_backend: "Timan Backend",
+  timan_seller: "Timan Sælger",
+  timan_service: "Timan Service",
+  timan_importer: "Importør",
+  timan_dealer: "Forhandler",
+  timan_service_partner: "Servicepartner",
+  dealer_customer: "Forhandlerkunde",
+  private_end_user: "Privat / slutbruger",
+  exhibition_user: "Timan Messe",
+  timan_messe: "Timan Messe",
+  dealer_user: "Forhandlerbruger",
+  sales: "Timan Sælger",
+  service: "Timan Service",
+  dealer: "Forhandler",
+  admin: "Timan Backend",
+};
 
 const STATUS_LABEL: Record<SiteChangeStatus | "all", string> = {
   all: "Alle",
@@ -64,6 +94,10 @@ function toIsoDate(value: string): string {
 function formatDate(value: string | null | undefined): string {
   if (!value) return "-";
   return new Date(value).toLocaleDateString("da-DK", { day: "2-digit", month: "2-digit", year: "2-digit" });
+}
+
+function roleLabel(role: string): string {
+  return ROLE_LABEL[role] || role;
 }
 
 function statusClass(status: SiteChangeStatus) {
@@ -314,7 +348,7 @@ export default function BackendChangelogPage() {
               {MODULES.map((m) => <option key={m} value={m}>{m === "all" ? "Alle moduler" : m}</option>)}
             </Select>
             <Select label="Rolle" value={roleFilter} onChange={(v) => { setPage(0); setRoleFilter(v); }}>
-              {ROLES.map((r) => <option key={r} value={r}>{r === "all" ? "Alle roller" : r}</option>)}
+              {ROLES.map((r) => <option key={r} value={r}>{r === "all" ? "Alle målgrupper" : roleLabel(r)}</option>)}
             </Select>
             <Select label="Type" value={typeFilter} onChange={(v) => { setPage(0); setTypeFilter(v); }}>
               {TYPES.map((t) => <option key={t} value={t}>{t === "all" ? "Alle typer" : t}</option>)}
@@ -360,7 +394,7 @@ export default function BackendChangelogPage() {
                       </td>
                       <td className="px-4 py-4 text-slate-600">{row.module}</td>
                       <td className="px-4 py-4 text-slate-600">{row.change_type}</td>
-                      <td className="min-w-[180px] px-4 py-4 text-xs text-slate-500">{row.affected_roles.join(", ")}</td>
+                      <td className="min-w-[180px] px-4 py-4 text-xs text-slate-500">{row.affected_roles.map(roleLabel).join(", ")}</td>
                       <td className="px-4 py-4 text-xs text-slate-600">
                         <div>Bruger: <strong>{row.user_impact_score}/10</strong></div>
                         <div>Teknisk: <strong>{row.technical_impact_score}/10</strong></div>
@@ -482,7 +516,7 @@ export default function BackendChangelogPage() {
                       const active = draft.affected_roles.includes(role);
                       return (
                         <button key={role} type="button" onClick={() => toggleRole(role)} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${active ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
-                          {role}
+                          {roleLabel(role)}
                         </button>
                       );
                     })}

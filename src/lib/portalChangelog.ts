@@ -39,7 +39,18 @@ export type ChangelogRole =
   | 'service'
   | 'backend'
   | 'admin'
-  | 'dealer';
+  | 'dealer'
+  | 'timan_backend'
+  | 'timan_seller'
+  | 'timan_service'
+  | 'timan_importer'
+  | 'timan_dealer'
+  | 'timan_service_partner'
+  | 'dealer_customer'
+  | 'dealer_user'
+  | 'private_end_user'
+  | 'exhibition_user'
+  | 'timan_messe';
 
 type ChangelogText = Record<Language, string> & Partial<Record<Exclude<PortalUiLanguage, Language>, string>>;
 
@@ -288,18 +299,27 @@ export function mapUserToChangelogRoles(
   const legacy = (user.role || '').toString();
   switch (portalRole) {
     case 'timan_backend':
-      out.add('backend'); out.add('admin'); out.add('sales'); out.add('service'); break;
+      out.add('timan_backend'); out.add('backend'); out.add('admin'); out.add('sales'); out.add('service'); break;
     case 'timan_seller':
-      out.add('sales'); break;
+      out.add('timan_seller'); out.add('sales'); break;
     case 'timan_service':
-      out.add('service'); break;
+      out.add('timan_service'); out.add('service'); break;
     case 'timan_importer':
+      out.add('timan_importer'); out.add('dealer'); break;
     case 'timan_dealer':
+      out.add('timan_dealer'); out.add('dealer'); break;
     case 'timan_service_partner':
+      out.add('timan_service_partner'); out.add('dealer'); break;
+    case 'dealer_customer':
+      out.add('dealer_customer'); out.add('dealer'); break;
     case 'dealer_user':
-      out.add('dealer'); break;
+      out.add('dealer_user'); out.add('dealer'); break;
+    case 'private_end_user':
+      out.add('private_end_user'); break;
+    case 'exhibition_user':
+      out.add('exhibition_user'); out.add('timan_messe'); break;
   }
-  if (legacy === 'timan_saelger') out.add('sales');
+  if (legacy === 'timan_saelger') out.add('sales').add('timan_seller');
   if (legacy === 'partner') out.add('dealer');
   return out;
 }

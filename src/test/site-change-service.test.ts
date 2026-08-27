@@ -32,8 +32,28 @@ describe('site change service', () => {
     expect(entry.title.da).toBe('Nye muligheder for forhandlere');
     expect(entry.description?.da).toBe('Forhandlere kan arbejde med egne leads.');
     expect(entry.module_key).toBe('dealer_data');
-    expect(entry.role_visibility).toEqual(['dealer']);
+    expect(entry.role_visibility).toEqual(['timan_dealer', 'dealer', 'dealer_user']);
     expect(entry.is_major).toBe(true);
     expect('technical_description' in entry).toBe(false);
+  });
+
+  it('keeps specific audience roles separate for published changes', () => {
+    const importerEntry = publicRowToEntry({
+      id: 'change-importer',
+      published_at: '2026-08-26T12:00:00.000Z',
+      implemented_at: '2026-08-25T12:00:00.000Z',
+      title: 'Importørnyhed',
+      description: null,
+      module: 'dealer_portal',
+      change_type: 'feature',
+      affected_roles: ['timan_importer', 'exhibition_user'],
+      is_important: false,
+      source_ref: null,
+      updated_at: '2026-08-26T12:00:00.000Z',
+    });
+
+    expect(importerEntry.role_visibility).toContain('timan_importer');
+    expect(importerEntry.role_visibility).toContain('exhibition_user');
+    expect(importerEntry.role_visibility).toContain('timan_messe');
   });
 });
