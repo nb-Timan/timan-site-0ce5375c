@@ -64,7 +64,7 @@ type TKey =
   | 'close_btn' | 'close_title' | 'close_sub' | 'won_label' | 'lost_label'
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
   | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
-  | 'convert_to_demo' | 'convert_to_quote' | 'go_to_quote'
+  | 'convert_to_demo' | 'convert_to_quote' | 'convert_label' | 'to_demo_label' | 'to_quote_label' | 'go_to_quote'
   | 'urgency_overdue' | 'urgency_soon' | 'urgency_later'
   | 'sort_default' | 'sort_title_asc' | 'sort_title_desc'
   | 'sort_date_desc' | 'sort_date_asc' | 'sort_prob_desc' | 'sort_prob_asc'
@@ -132,6 +132,9 @@ const T: Record<TKey, UiText> = {
   verify_err:    { da: 'Lukning kunne ikke bekræftes.', en: 'Could not verify close.', de: 'Schließen konnte nicht bestätigt werden.', it: 'Impossibile verificare la chiusura.', hu: 'A lezárás nem erősíthető meg.', fr: 'Impossible de vérifier la fermeture.', pl: 'Nie można potwierdzić zamknięcia.', cs: 'Uzavření se nepodařilo ověřit.' },
   convert_to_demo:{ da: 'Konverter til demo', en: 'Convert to demo', de: 'In Demo umwandeln', it: 'Converti in demo', hu: 'Konvertálás demóvá', fr: 'Convertir en démo', pl: 'Konwertuj na demo', cs: 'Převést na demo' },
   convert_to_quote:{ da: 'Konverter til tilbud', en: 'Convert to quote', de: 'In Angebot umwandeln', it: 'Converti in offerta', hu: 'Konvertálás ajánlattá', fr: 'Convertir en devis', pl: 'Konwertuj na ofertę', cs: 'Převést na nabídku' },
+  convert_label: { da: 'Konverter', en: 'Convert', de: 'Umwandeln', it: 'Converti', hu: 'Konvertálás', fr: 'Convertir', pl: 'Konwertuj', cs: 'Převést' },
+  to_demo_label: { da: 'til demo', en: 'to demo', de: 'in Demo', it: 'in demo', hu: 'demóvá', fr: 'en démo', pl: 'na demo', cs: 'na demo' },
+  to_quote_label:{ da: 'til tilbud', en: 'to quote', de: 'in Angebot', it: 'in offerta', hu: 'ajánlattá', fr: 'en devis', pl: 'na ofertę', cs: 'na nabídku' },
   go_to_quote:    { da: 'Gå til tilbud', en: 'Go to quote', de: 'Zum Angebot', it: 'Vai all\'offerta', hu: 'Ugrás az ajánlathoz', fr: 'Aller au devis', pl: 'Przejdź do oferty', cs: 'Přejít na nabídku' },
   urgency_overdue:{ da: 'Forfalden', en: 'Overdue', de: 'Überfällig', it: 'Scaduto', hu: 'Lejárt', fr: 'En retard', pl: 'Zaległe', cs: 'Po termínu' },
   urgency_soon:   { da: 'Inden 20 dage', en: 'Within 20 days', de: 'In 20 Tagen', it: 'Entro 20 giorni', hu: '20 napon belül', fr: 'Dans 20 jours', pl: 'W ciągu 20 dni', cs: 'Do 20 dnů' },
@@ -348,6 +351,21 @@ function splitFilterValues(value: string | null | undefined): string[] {
     .split(',')
     .map((part) => part.trim())
     .filter(Boolean);
+}
+
+function CompactConvertLabel({
+  primary,
+  secondary,
+}: {
+  primary: string;
+  secondary: string;
+}) {
+  return (
+    <span className="flex flex-col items-start leading-none">
+      <span className="text-[12px] font-semibold leading-3 text-slate-900">{primary}</span>
+      <span className="text-[10px] leading-3 text-slate-500">{secondary}</span>
+    </span>
+  );
 }
 
 function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
@@ -882,7 +900,7 @@ export default function CrmLeadsPage() {
                           <div className="text-xs text-gray-500 truncate max-w-[260px]">{r.customer}</div>
                         )}
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 max-w-[180px] truncate">{r.dealer || '—'}</td>
+                      <td className="px-4 py-3.5 text-gray-600 max-w-[220px] truncate">{r.dealer || '—'}</td>
                       <td className="px-4 py-3.5">
                         {r.owner_name ? (
                           <span className="text-gray-700">{r.owner_name}</span>
@@ -904,7 +922,7 @@ export default function CrmLeadsPage() {
                       </td>
                       <td className="px-4 py-3.5">
                         {r.status ? (
-                          <div className="flex min-w-[120px] items-center justify-between gap-3 text-[12px] text-gray-700">
+                          <div className="flex min-w-[140px] items-center justify-between gap-3 text-[12px] text-gray-700">
                             <span className="text-left">{localizeStatus(r.status, lang)}</span>
                             {r.probability != null && (
                               <span className="ml-auto text-right font-medium text-gray-600 tabular-nums">{r.probability}%</span>
@@ -912,17 +930,19 @@ export default function CrmLeadsPage() {
                           </div>
                         ) : '—'}
                       </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-3">
+                      <td className="px-2 py-3.5 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           {canActOnOpenLead && (
                             <>
                               {!r.has_demo && (
                                 <Link
                                   to={`/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(r.id)}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  className="inline-flex items-center gap-1 text-[12px] text-violet-700 hover:underline"
+                                  aria-label={tt('convert_to_demo', lang)}
+                                  className="inline-flex h-8 items-center gap-1.5 text-left text-violet-700 hover:underline"
                                 >
-                                  <Sparkles className="h-3.5 w-3.5" /> {tt('convert_to_demo', lang)}
+                                  <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                                  <CompactConvertLabel primary={tt('convert_label', lang)} secondary={tt('to_demo_label', lang)} />
                                 </Link>
                               )}
                               {r.quote_id ? (
@@ -941,9 +961,11 @@ export default function CrmLeadsPage() {
                                     e.stopPropagation();
                                     void handleConvertToQuote(r.id);
                                   }}
-                                  className="inline-flex items-center gap-1 text-[12px] text-emerald-700 hover:underline disabled:opacity-50"
+                                  aria-label={tt('convert_to_quote', lang)}
+                                  className="inline-flex h-8 items-center gap-1.5 text-left text-emerald-700 hover:underline disabled:opacity-50"
                                 >
-                                  <FileText className="h-3.5 w-3.5" /> {tt('convert_to_quote', lang)}
+                                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                                  <CompactConvertLabel primary={tt('convert_label', lang)} secondary={tt('to_quote_label', lang)} />
                                 </button>
                               )}
                               <button
