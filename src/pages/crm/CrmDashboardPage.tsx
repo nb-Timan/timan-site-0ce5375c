@@ -320,11 +320,11 @@ export default function CrmDashboardPage() {
     const monthStart = startOfMonth(now);
     const prevWindow = sameTimePrevMonth(now);
     const leadsThis = activeLeadRows.filter((row) => {
-      const d = new Date(row.date);
+      const d = new Date(row.metricDate || row.date);
       return !Number.isNaN(d.getTime()) && d >= monthStart;
     }).length;
     const leadsPrev = activeLeadRows.filter((row) => {
-      const d = new Date(row.date);
+      const d = new Date(row.metricDate || row.date);
       return !Number.isNaN(d.getTime()) && d >= prevWindow.from && d <= prevWindow.to;
     }).length;
     return {
@@ -1350,6 +1350,7 @@ interface PipelineRow {
   value: number;
   status: string;
   date: string;         // ISO
+  metricDate?: string;  // ISO used for month-over-month KPI comparisons
   href: string | null;  // open link
 }
 
@@ -1436,6 +1437,7 @@ function buildPipelineRows(args: {
       value: leadPipelineValue(l),
       status,
       date: l.updated_at || l.created_at,
+      metricDate: l.first_contact_date || l.created_at,
       href: `/portal/crm/leads/${l.id}`,
     };
     out[bucket].push(row);
@@ -1455,6 +1457,7 @@ function buildPipelineRows(args: {
       value: 0,
       status: c.status || 'planned',
       date: c.start_datetime,
+      metricDate: c.start_datetime,
       href: '/portal/crm/calendar',
     });
   }
