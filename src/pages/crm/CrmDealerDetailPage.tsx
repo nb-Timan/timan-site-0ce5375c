@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { listDealerContacts, type DealerContact } from "@/lib/dealerContactsService";
 import type { Language } from "@/types/configurator";
 import { toast } from "sonner";
-import { useAppUser } from "@/context/AppUserContext";
+import { useAppUser, type SessionUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCountryFormatter, formatCountry as formatCountryFn } from "@/lib/formatCountry";
 import CrmLayout from "@/components/crm/CrmLayout";
@@ -207,6 +207,82 @@ function collaborationPartnerLabel(d: Pick<DealerAccount, "customer_type" | "cus
   return "Samarbejdspartner";
 }
 
+function fallbackDealerFromUser(user: SessionUser | null, accountNumber: string): DealerAccount | null {
+  if (!user?.dealer_number || user.dealer_number !== accountNumber) return null;
+  const now = new Date().toISOString();
+  return {
+    id: `app-user-${accountNumber}`,
+    account_number: accountNumber,
+    company_name: user.company_dealer || accountNumber,
+    customer_type: user.portal_role === "timan_importer" ? "Importer" : user.portal_role === "timan_service_partner" ? "Service Partner" : "Forhandler",
+    customer_type_label: user.portal_role === "timan_importer" ? "Importør" : user.portal_role === "timan_service_partner" ? "Servicepartner" : "Forhandler",
+    dealer_type: null,
+    country: null,
+    postal_code: null,
+    city: null,
+    address: null,
+    address_line_1: null,
+    address_line_2: null,
+    zip_city_raw: null,
+    email: null,
+    phone: null,
+    vat_number: null,
+    primary_contact_name: null,
+    primary_contact_email: null,
+    primary_contact_phone: null,
+    assigned_seller_initials: null,
+    assigned_seller_name: null,
+    assigned_seller_email: null,
+    source_created_at: null,
+    source_changed_at: null,
+    is_blocked: false,
+    blocked_at: null,
+    blocked_by: null,
+    is_deleted: false,
+    deleted_at: null,
+    deleted_by: null,
+    parent_account_number: null,
+    is_main_account: true,
+    branch_name: null,
+    director_name: null,
+    invoice_email: null,
+    payment_terms: null,
+    currency_code: null,
+    finance_contact_name: null,
+    finance_contact_phone: null,
+    finance_contact_email: null,
+    website: null,
+    social_facebook: null,
+    social_linkedin: null,
+    social_tiktok: null,
+    social_youtube: null,
+    social_instagram: null,
+    sales_contact_name: null,
+    sales_contact_phone: null,
+    sales_contact_email: null,
+    sales_has_multiple: false,
+    workshop_contact_name: null,
+    workshop_contact_phone: null,
+    workshop_contact_email: null,
+    workshop_has_multiple: false,
+    marketing_contact_name: null,
+    marketing_contact_phone: null,
+    marketing_contact_email: null,
+    latitude: null,
+    longitude: null,
+    geocoded_at: null,
+    geocoding_status: null,
+    geocoding_error: null,
+    google_place_id: null,
+    successor_dealer_id: null,
+    successor_dealer_account_number: null,
+    closed_reason: null,
+    closed_at: null,
+    created_at: now,
+    updated_at: now,
+  };
+}
+
 const NOTE_TYPE_LABEL: Record<DealerNoteType, string> = {
   general: "Generel note", call: "Opkald", visit: "Besøg",
   follow_up: "Opfølgning", demo: "Demo", offer: "Tilbud", service: "Service",
@@ -296,33 +372,37 @@ export default function CrmDealerDetailPage() {
     let cancelled = false;
     (async () => {
       setBusy(true);
-      const [scopeRes, dRes, sRes, uRes] = await Promise.all([
-        externalCrm ? buildJournalScope(effectiveUser, portalRole) : Promise.resolve(null),
-        fetchDealerAccounts({ includeDeleted: false }),
-        fetchDealerAccountStats(),
-        fetchBackendUsers(),
-      ]);
-      if (cancelled) return;
-      const scopedDealerNumbers = scopeRes ? Array.from(scopeRes.dealerNumbers) : null;
-      const visibleDealers = scopedDealerNumbers
-        ? dRes.rows.filter((d) => isDealerNumberAllowed(d.account_number, scopedDealerNumbers))
-        : dRes.rows;
-      setDealers(visibleDealers);
-      const map: Record<string, DealerAccountStats> = {};
-      for (const s of sRes.rows) map[s.id] = s;
-      setStats(map);
-      setUsers(scopedDealerNumbers
-        ? uRes.users.filter((u) => isDealerNumberAllowed(u.dealer_number, scopedDealerNumbers))
-        : uRes.users);
-      const cal = await listCalendarActivities({});
-      if (cancelled) return;
-      setCalendar(scopedDealerNumbers
-        ? cal.filter((a) => !a.account_id || visibleDealers.some((d) => d.id === a.account_id))
-        : cal);
-      // Fetch live quotes + orders for ALL accessible scopes — backend admin
-      // fetches everything (no scoping), seller fetches their own. We then
-      // filter client-side by dealer_number so branch/group toggle works.
       try {
+        const [scopeRes, dRes, sRes, uRes] = await Promise.all([
+          externalCrm ? buildJournalScope(effectiveUser, portalRole) : Promise.resolve(null),
+          fetchDealerAccounts({ includeDeleted: false }),
+          fetchDealerAccountStats(),
+          fetchBackendUsers(),
+        ]);
+        if (cancelled) return;
+        const scopedDealerNumbers = scopeRes ? Array.from(scopeRes.dealerNumbers) : null;
+        const visibleDealers = scopedDealerNumbers
+          ? dRes.rows.filter((d) => isDealerNumberAllowed(d.account_number, scopedDealerNumbers))
+          : dRes.rows;
+        const fallbackDealer = externalCrm ? fallbackDealerFromUser(effectiveUser, accountNumber) : null;
+        const dealerRows = fallbackDealer && !visibleDealers.some((d) => d.account_number === fallbackDealer.account_number)
+          ? [...visibleDealers, fallbackDealer]
+          : visibleDealers;
+        setDealers(dealerRows);
+        const map: Record<string, DealerAccountStats> = {};
+        for (const s of sRes.rows) map[s.id] = s;
+        setStats(map);
+        setUsers(scopedDealerNumbers
+          ? uRes.users.filter((u) => isDealerNumberAllowed(u.dealer_number, scopedDealerNumbers))
+          : uRes.users);
+        const cal = await listCalendarActivities({});
+        if (cancelled) return;
+        setCalendar(scopedDealerNumbers
+          ? cal.filter((a) => !a.account_id || dealerRows.some((d) => d.id === a.account_id))
+          : cal);
+        // Fetch live quotes + orders for ALL accessible scopes — backend admin
+        // fetches everything (no scoping), seller fetches their own. We then
+        // filter client-side by dealer_number so branch/group toggle works.
         const sellerView = getActiveSellerView(appUser?.email);
         const sellerId = await resolveSellerId(sellerView?.email ?? appUser?.email);
         const sellerInitials = sellerView?.initials
@@ -352,7 +432,7 @@ export default function CrmDealerDetailPage() {
         try {
           const idx = await buildDealerBudgetIndex({
             year: budgetYear,
-            dealers: visibleDealers,
+            dealers: dealerRows,
             filter: filterBase,
           });
           if (!cancelled) setBudgetIndex(idx);
@@ -360,9 +440,22 @@ export default function CrmDealerDetailPage() {
           console.warn('[CrmDealerDetailPage] budget index failed:', e);
         }
       } catch (e) {
-        console.warn('[CrmDealerDetailPage] failed to fetch CRM configurations:', e);
+        console.warn('[CrmDealerDetailPage] failed to fetch dealer detail:', e);
+        if (!cancelled) {
+          const fallbackDealer = externalCrm ? fallbackDealerFromUser(effectiveUser, accountNumber) : null;
+          setDealers(fallbackDealer ? [fallbackDealer] : []);
+          setStats({});
+          setUsers([]);
+          setCalendar([]);
+          setDealerQuotes([]);
+          setDealerOrders([]);
+          setAllLeads([]);
+          setAllDemos([]);
+          setBudgetIndex(null);
+        }
+      } finally {
+        if (!cancelled) setBusy(false);
       }
-      setBusy(false);
     })();
     return () => { cancelled = true; };
   }, [appUser, effectiveUser, accountNumber, portalRole, budgetYear, seller, externalCrm]);
@@ -425,7 +518,7 @@ export default function CrmDealerDetailPage() {
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!canAccess) return <Navigate to="/portal" replace />;
 
-  if (!busy && !dealer && externalCrm && effectiveUser?.dealer_number && accountNumber !== effectiveUser.dealer_number) {
+  if (externalCrm && effectiveUser?.dealer_number && accountNumber !== effectiveUser.dealer_number) {
     return <Navigate to={`/portal/crm/my-dealers/${encodeURIComponent(effectiveUser.dealer_number)}`} replace />;
   }
 
@@ -1976,11 +2069,15 @@ function ContactHero({
     null;
 
   // Only include actions whose data exists.
+  const dealerDataHref = dealer.account_number
+    ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}`
+    : "/portal/dealer-data";
   const actionsAll: HeroAction[] = [
     callPhone ? { key: "call",   label: callLabel, sublabel: callSublabel, icon: <Phone className="h-5 w-5" />, href: `tel:${callPhone}` } : null,
     mailAddr  ? { key: "mail",   label: tl("send_mail", lang), sublabel: mailSublabel || undefined, icon: <Mail className="h-5 w-5" />, href: `mailto:${mailAddr}` } : null,
     mapsHref  ? { key: "route",  label: tl("directions", lang),    icon: <MapPin className="h-5 w-5" />,       href: mapsHref } : null,
     websiteHref ? { key: "web",  label: tl("website", lang),       icon: <Globe className="h-5 w-5" />,        href: websiteHref } : null,
+    { key: "dealer-data", label: tl("open_dealer_data", lang), icon: <Building2 className="h-5 w-5" />, href: dealerDataHref },
   ].filter(Boolean) as HeroAction[];
   const actions = actionsAll;
 

@@ -277,13 +277,24 @@ export default function PortalPage() {
             }
             const titleKey = AREA_TITLE_KEY[area.id];
             const descKey = AREA_DESC_KEY[area.id];
-            const cardTo = area.id === 'dealer_data' && (
+            const internalDealerData =
               portalRole === 'timan_backend'
               || portalRole === 'timan_seller'
-              || portalRole === 'timan_service'
-            )
-              ? '/portal/crm/my-dealers'
+              || portalRole === 'timan_service';
+            const externalDealerData =
+              portalRole === 'timan_dealer'
+              || portalRole === 'timan_importer'
+              || portalRole === 'timan_service_partner'
+              || portalRole === 'dealer_customer'
+              || portalRole === 'dealer_user';
+            const ownDealerPath = effectiveUser?.dealer_number
+              ? `/portal/crm/my-dealers/${encodeURIComponent(effectiveUser.dealer_number)}`
               : meta.to;
+            const cardTo = area.id === 'dealer_data' && internalDealerData
+              ? '/portal/crm/my-dealers'
+              : area.id === 'dealer_data' && externalDealerData
+                ? ownDealerPath
+                : meta.to;
             return (
               <AreaCard
                 key={area.id}
