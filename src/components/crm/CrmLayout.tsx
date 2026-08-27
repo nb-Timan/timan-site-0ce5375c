@@ -5,7 +5,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
+import { derivePortalRole, hasAreaAccess } from '@/lib/portalAccess';
 import { canUseCrm, isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { cn } from '@/lib/utils';
@@ -46,20 +46,10 @@ export default function CrmLayout({ children, pageTitle }: Props) {
   // Legacy `role` can still be "slutkunde" for real portal users that were
   // later upgraded to Timan Seller/Backend/etc. Trust portal_role first.
   if (appUser.role === 'slutkunde' && !portalRole) return <Navigate to="/configurator" replace />;
-  // Phase 37 — area access is now driven by per-user `allowed_areas` if set,
-  // otherwise it falls back to module_access / role defaults.
-  const allowedAreas = effectiveUser?.allowed_areas;
-  const moduleOverride = (
-    effectiveUser?.allowed_modules ?? effectiveUser?.module_access ?? null
-  ) as Parameters<typeof hasModuleAccess>[2];
   const externalCrm = isExternalCrmRole(portalRole);
   const ownDealerDetailMatch = location.pathname.match(/^\/portal\/crm\/my-dealers\/([^/]+)$/);
-  const hasDealerDataAreaAccess = Array.isArray(allowedAreas) && allowedAreas.length > 0
-    ? allowedAreas.includes('dealer_data')
-    : hasModuleAccess(portalRole, 'dealer_data', moduleOverride);
-  const hasCrmAreaAccess = Array.isArray(allowedAreas) && allowedAreas.length > 0
-    ? allowedAreas.includes('timan_crm')
-    : hasModuleAccess(portalRole, 'timan_crm', moduleOverride);
+  const hasDealerDataAreaAccess = hasAreaAccess(effectiveUser, 'dealer_data');
+  const hasCrmAreaAccess = hasAreaAccess(effectiveUser, 'timan_crm');
   const externalDealerDetailAllowed = Boolean(
     externalCrm &&
     ownDealerDetailMatch &&

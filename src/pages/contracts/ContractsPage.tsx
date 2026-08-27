@@ -6,7 +6,7 @@ import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { derivePortalRole, hasModuleAccess, type ModuleAccessKey } from '@/lib/portalAccess';
+import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 
 const CONTRACT_DOCS = [
   { title: 'Forhandlerkontrakt Timan', href: '/contracts/forhandlerkontrakt-timan.pdf' },
@@ -79,7 +79,7 @@ export default function ContractsPage() {
   }));
 
   const portalRole = derivePortalRole(appUser);
-  const moduleOverride = (appUser?.module_access ?? null) as ModuleAccessKey[] | null;
+  const moduleOverride = getUserModuleAccessOverride(appUser);
   const hasAccess = portalRole === 'timan_backend' || hasModuleAccess(portalRole, 'contracts', moduleOverride);
 
   const ready = useMemo(

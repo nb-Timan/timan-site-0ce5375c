@@ -6,7 +6,7 @@
 import { AppUser } from '@/data/appUsers';
 import { Language } from '@/types/configurator';
 import { PortalModuleId } from '@/lib/portalModules';
-import { canManageNewsContent, derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { hasAreaAccess } from '@/lib/portalAccess';
 
 export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
 
@@ -138,72 +138,5 @@ export function isAreaVisible(
     allowed_modules?: string[] | null;
   }) | null,
 ): boolean {
-  if (!user) return false;
-
-  const portalRole = derivePortalRole(user);
-
-  if (area.id === 'marketing') {
-    return canManageNewsContent(user);
-  }
-
-  // Legacy role column may say 'slutkunde' for users that have since been
-  // assigned a real portal_role (e.g. timan_dealer). Only bail when there
-  // is no portal_role to grant access.
-  if (user.role === 'slutkunde' && !portalRole) return false;
-
-  // Dealer User is hard-locked out of Teknik & Service and Timan Backend.
-  // Limited Timan CRM may be granted explicitly via allowed_areas/module_access.
-  if (portalRole === 'dealer_user' && (
-    area.id === 'teknik_service' || area.id === 'timan_backend'
-  )) {
-    return false;
-  }
-
-  // Highest priority: explicit per-user `allowed_areas` set in Backend → Brugere.
-  // If the admin saved an allowed_areas list, it is the source of truth for
-  // which area cards/pages this user can see. An empty/null array falls
-  // through to role defaults so legacy rows aren't accidentally locked out.
-  const allowed = user.allowed_areas;
-  if (Array.isArray(allowed) && allowed.length > 0) {
-    return allowed.includes(area.id);
-  }
-
-  // Forhandlerdata: external dealer-side roles see their own dealer record.
-  // Internal Timan roles (backend, seller, service) also see it so they can
-  // verify what external users see. Dealer User is intentionally excluded
-  // from the default — they only see Forhandlerdata when an admin set
-  // `allowed_areas` to include it explicitly (handled above).
-  if (area.id === 'dealer_data') {
-    if (!portalRole) return false;
-    return (
-      portalRole === 'timan_backend' ||
-      portalRole === 'timan_seller' ||
-      portalRole === 'timan_service' ||
-      portalRole === 'timan_importer' ||
-      portalRole === 'timan_dealer' ||
-      portalRole === 'timan_service_partner'
-    );
-  }
-
-  const key = area.id as ModuleAccessKey;
-
-  if (portalRole) {
-    const moduleOverride = (
-      (user.allowed_modules as ModuleAccessKey[] | null | undefined) ??
-      (user.module_access as ModuleAccessKey[] | null | undefined) ??
-      null
-    );
-    return hasModuleAccess(portalRole, key, moduleOverride);
-  }
-
-  switch (area.id) {
-    case 'salg_marketing':
-    case 'teknik_service':
-      return user.role === 'timan_saelger' || user.role === 'partner';
-    case 'timan_crm':
-    case 'timan_backend':
-      return false;
-    default:
-      return false;
-  }
+  return hasAreaAccess(user, area.id);
 }

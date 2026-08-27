@@ -16,6 +16,7 @@ import { Navigate } from "react-router-dom";
 import { useAppUser } from "@/context/AppUserContext";
 import {
   derivePortalRole,
+  getUserModuleAccessOverride,
   hasModuleAccess,
   PortalRole,
 } from "@/lib/portalAccess";
@@ -25,6 +26,7 @@ import type { AppUser } from "@/data/appUsers";
 type UserLike =
   | (Pick<AppUser, "role" | "partner_type"> & {
       module_access?: string[] | null;
+      allowed_modules?: string[] | null;
       permissions?: Record<string, boolean> | null;
       portal_role?: string | null;
       email?: string | null;
@@ -34,7 +36,7 @@ type UserLike =
 const TSB_INTERNAL_ROLES: PortalRole[] = ["timan_backend", "timan_service", "timan_seller"];
 
 function moduleOverride(user: UserLike): ModuleAccessKey[] | null {
-  return (user?.module_access ?? null) as ModuleAccessKey[] | null;
+  return getUserModuleAccessOverride(user);
 }
 
 export function canAccessTsb(

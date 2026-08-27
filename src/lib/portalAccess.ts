@@ -22,6 +22,7 @@ export type PortalRole =
   | 'timan_importer'
   | 'timan_dealer'
   | 'timan_service_partner'
+  | 'dealer_customer'
   | 'dealer_user'
   | 'private_end_user'
   | 'exhibition_user'
@@ -34,6 +35,7 @@ export const PORTAL_ROLES: PortalRole[] = [
   'timan_importer',
   'timan_dealer',
   'timan_service_partner',
+  'dealer_customer',
   'dealer_user',
   'private_end_user',
   'exhibition_user',
@@ -48,6 +50,7 @@ export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = 
   timan_importer:        { da: 'Timan Importør',        en: 'Timan Importer',        de: 'Timan Importeur',       it: 'Importatore Timan',     hu: 'Timan Importőr' },
   timan_dealer:          { da: 'Timan Forhandler',      en: 'Timan Dealer',          de: 'Timan Händler',         it: 'Rivenditore Timan',     hu: 'Timan Kereskedő' },
   timan_service_partner: { da: 'Timan Service Partner', en: 'Timan Service Partner', de: 'Timan Service-Partner', it: 'Partner di Servizio',   hu: 'Timan Szervizpartner' },
+  dealer_customer:       { da: 'Forhandlerkunde',       en: 'Dealer customer',       de: 'Händlerkunde',          it: 'Cliente rivenditore',   hu: 'Kereskedői ügyfél' },
   dealer_user:           { da: 'Forhandlerbruger',      en: 'Forhandlerbruger',      de: 'Forhandlerbruger',      it: 'Forhandlerbruger',      hu: 'Forhandlerbruger' },
   private_end_user:      { da: 'Privat / Slutbruger',   en: 'Privat / Slutbruger',   de: 'Privat / Slutbruger',   it: 'Privat / Slutbruger',   hu: 'Privat / Slutbruger' },
   exhibition_user:       { da: 'Timan Messe',           en: 'Timan Exhibition',      de: 'Timan Messe',           it: 'Timan Fiera',           hu: 'Timan Kiállítás' },
@@ -76,6 +79,26 @@ export type ModuleAccessKey =
   | 'contracts'
   | 'resources'
   | 'videos';
+
+export type PortalAreaAccessKey =
+  | 'teknik_service'
+  | 'salg_marketing'
+  | 'marketing'
+  | 'timan_crm'
+  | 'timan_backend'
+  | 'dealer_data';
+
+export type PortalAccessUser = (
+  Pick<AppUser, 'role' | 'partner_type'> & {
+    email?: string | null;
+    portal_role?: string | null;
+    module_access?: string[] | null;
+    allowed_areas?: string[] | null;
+    allowed_modules?: string[] | null;
+    permissions?: Record<string, boolean> | null;
+    portal_variant?: string | null;
+  }
+);
 
 
 // ---------- Default per-role module access ----------
@@ -108,6 +131,10 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   timan_service_partner: [
     'teknik_service', 'salg_marketing', 'dealer_data',
     'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
+    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
+  ],
+  dealer_customer: [
+    'salg_marketing', 'dealer_data',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
   ],
   // Read-only / visual access only.
@@ -171,6 +198,7 @@ export function getPortalPermissions(role: PortalRole): PortalPermissions {
     case 'timan_importer':        return FULL;
     case 'timan_dealer':          return FULL;
     case 'timan_service_partner': return FULL;
+    case 'dealer_customer':       return READ_ONLY;
     // Read-only
     case 'dealer_user':           return READ_ONLY;
     case 'private_end_user':      return READ_ONLY;
@@ -184,9 +212,9 @@ export function canManageNewsContent(
   user: ({ permissions?: Record<string, boolean> | null; portal_role?: string | null; module_access?: string[] | null; allowed_areas?: string[] | null } & Pick<AppUser, 'role' | 'partner_type'>) | null | undefined,
 ): boolean {
   if (!user) return false;
+  if (Array.isArray(user.allowed_areas)) return user.allowed_areas.includes('marketing');
   const role = derivePortalRole(user);
   if (role && getPortalPermissions(role).canManageNews) return true;
-  if (Array.isArray(user.allowed_areas) && user.allowed_areas.includes('marketing')) return true;
   return user.permissions?.news_manage === true;
 }
 
@@ -212,6 +240,7 @@ export function hasInternalMesseAccess(
       email?: string | null;
       portal_role?: string | null;
       module_access?: string[] | null;
+      allowed_modules?: string[] | null;
       allowed_areas?: string[] | null;
       portal_variant?: string | null;
     }
@@ -219,8 +248,12 @@ export function hasInternalMesseAccess(
 ): boolean {
   if (!user || isMesseVariantUser(user)) return false;
   const role = derivePortalRole(user);
+  const moduleOverride = getUserModuleAccessOverride(user);
+  if (Array.isArray(moduleOverride)) {
+    return hasModuleAccess(role, 'messe_portal', moduleOverride);
+  }
   if (role === 'timan_backend' || role === 'timan_seller' || role === 'timan_service') return true;
-  const externalRoles: PortalRole[] = ['timan_importer', 'timan_dealer', 'timan_service_partner', 'dealer_user', 'exhibition_user'];
+  const externalRoles: PortalRole[] = ['timan_importer', 'timan_dealer', 'timan_service_partner', 'dealer_customer', 'dealer_user', 'exhibition_user'];
   if (role && externalRoles.includes(role)) return false;
   return user.role !== 'partner' && Array.isArray(user.allowed_areas) && user.allowed_areas.includes('salg_marketing');
 }
@@ -240,10 +273,7 @@ export function hasMessePortalAccess(
   if (isMesseVariantUser(user)) return true;
   const role = derivePortalRole(user);
   if (role === 'exhibition_user') return true;
-  const moduleOverride = (
-    (user.module_access as ModuleAccessKey[] | null | undefined) ??
-    (user.allowed_modules as ModuleAccessKey[] | null | undefined)
-  );
+  const moduleOverride = getUserModuleAccessOverride(user);
   return hasModuleAccess(role, 'messe_portal', moduleOverride);
 }
 
@@ -262,6 +292,7 @@ export function getClaimsViewVariant(role: PortalRole | null): ClaimsViewVariant
     case 'timan_importer':
     case 'timan_dealer':
     case 'timan_service_partner':
+    case 'dealer_customer':
     case 'dealer_user':
       return 'dealer';
     default:
@@ -284,6 +315,7 @@ export function getWarrantyViewVariant(role: PortalRole | null): WarrantyViewVar
     case 'timan_importer':
     case 'timan_dealer':
     case 'timan_service_partner':
+    case 'dealer_customer':
     case 'dealer_user':
       return 'dealer';
     default:
@@ -333,7 +365,53 @@ export function hasModuleAccess(
   override?: ModuleAccessKey[] | null,
 ): boolean {
   if (!role) return false;
-  const list = override && override.length > 0 ? override : DEFAULT_MODULE_ACCESS[role];
+  const list = Array.isArray(override) ? override : DEFAULT_MODULE_ACCESS[role];
   return list.includes(key);
 }
 
+export function getUserModuleAccessOverride(
+  user: Pick<PortalAccessUser, 'allowed_modules' | 'module_access'> | null | undefined,
+): ModuleAccessKey[] | null {
+  if (!user) return null;
+  if (Array.isArray(user.allowed_modules)) return user.allowed_modules as ModuleAccessKey[];
+  if (Array.isArray(user.module_access)) return user.module_access as ModuleAccessKey[];
+  return null;
+}
+
+export function hasAreaAccess(
+  user: PortalAccessUser | null | undefined,
+  area: PortalAreaAccessKey,
+): boolean {
+  if (!user) return false;
+  const role = derivePortalRole(user);
+
+  // Highest priority: manual Backend → Brugere area choices.
+  // Empty array means "no areas"; null/undefined means "use role defaults".
+  if (Array.isArray(user.allowed_areas)) {
+    return user.allowed_areas.includes(area);
+  }
+
+  if (user.role === 'slutkunde' && !role) return false;
+
+  if (area === 'marketing') {
+    return canManageNewsContent(user);
+  }
+
+  const moduleOverride = getUserModuleAccessOverride(user);
+
+  if (area === 'dealer_data') {
+    if (!role) return false;
+    if (hasModuleAccess(role, 'dealer_data', moduleOverride)) return true;
+    return (
+      role === 'timan_backend' ||
+      role === 'timan_seller' ||
+      role === 'timan_service' ||
+      role === 'timan_importer' ||
+      role === 'timan_dealer' ||
+      role === 'timan_service_partner' ||
+      role === 'dealer_customer'
+    );
+  }
+
+  return hasModuleAccess(role, area as ModuleAccessKey, moduleOverride);
+}

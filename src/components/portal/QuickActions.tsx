@@ -3,7 +3,7 @@ import { Plus, FlaskConical, Calendar, Users, ShieldCheck, FileWarning, Gauge, L
 import { useAppUser } from '@/context/AppUserContext';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
-import { hasModuleAccess, ModuleAccessKey, derivePortalRole, PortalRole } from '@/lib/portalAccess';
+import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey, PortalRole } from '@/lib/portalAccess';
 import { QUICK_ACTION_KEYS, QuickActionKey, DEFAULT_QUICK_ACTIONS } from '@/lib/backend-users-store';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
@@ -46,9 +46,7 @@ export default function QuickActions({ language }: Props) {
   const isBackend = realRole === 'timan_backend';
   const portalRole = derivePortalRole(effectiveUser);
   const effectiveRoleKey = portalRole || (effectiveUser.portal_role || '').toLowerCase();
-  const moduleOverride = (
-    effectiveUser.allowed_modules ?? effectiveUser.module_access ?? null
-  ) as ModuleAccessKey[] | null;
+  const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   const hasCrmAccess = hasModuleAccess(portalRole, 'timan_crm', moduleOverride);
 
   let actions: Action[] = [];
@@ -61,6 +59,7 @@ export default function QuickActions({ language }: Props) {
     effectiveRoleKey === 'timan_dealer' ||
     effectiveRoleKey === 'timan_service_partner' ||
     effectiveRoleKey === 'timan_importer' ||
+    effectiveRoleKey === 'dealer_customer' ||
     effectiveRoleKey === 'dealer_user'
   ) {
     actions = hasCrmAccess ? [...INTERNAL_ACTIONS, ...DEALER_ACTIONS] : DEALER_ACTIONS;
@@ -98,6 +97,7 @@ export default function QuickActions({ language }: Props) {
             effectiveRoleKey === 'timan_dealer' ||
             effectiveRoleKey === 'timan_service_partner' ||
             effectiveRoleKey === 'timan_importer' ||
+            effectiveRoleKey === 'dealer_customer' ||
             effectiveRoleKey === 'dealer_user'
           )
             ? 'quickActionMyPartners'

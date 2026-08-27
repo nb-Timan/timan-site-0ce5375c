@@ -15,10 +15,10 @@ import { pickT } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import {
   derivePortalRole,
+  getUserModuleAccessOverride,
   getPortalPermissions,
   hasModuleAccess,
   getClaimsViewVariant,
-  ModuleAccessKey,
 } from '@/lib/portalAccess';
 import {
   saveClaim,
@@ -242,7 +242,7 @@ export default function NewClaimPage() {
   if (appUser.role === 'slutkunde') return <Navigate to="/configurator" replace />;
 
   const portalRole = derivePortalRole(appUser);
-  const allowed = hasModuleAccess(portalRole, 'claims', (appUser.module_access as ModuleAccessKey[] | null | undefined) ?? null);
+  const allowed = hasModuleAccess(portalRole, 'claims', getUserModuleAccessOverride(appUser));
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
   const canCreate = !!perms?.canCreateClaim;
   const viewVariant = getClaimsViewVariant(portalRole);

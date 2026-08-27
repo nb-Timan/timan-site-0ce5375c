@@ -12,7 +12,7 @@ import BackendHome from '@/components/portal/BackendHome';
 import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
-import { canManageNewsContent, derivePortalRole, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
@@ -92,11 +92,11 @@ export default function PortalAreaPage({ areaId }: Props) {
   if (!appUser) return <Navigate to="/portal" replace />;
   // Only true end-customers without any portal role get redirected to the
   // configurator. Dealer-side users (timan_dealer, timan_importer,
-  // timan_service_partner, dealer_user, internal staff) must see the area.
+  // timan_service_partner, dealer_customer, dealer_user, internal staff) must see the area.
   {
     const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
     const dealerSideRoles = new Set([
-      'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_user',
+      'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_customer', 'dealer_user',
       'timan_backend', 'timan_seller', 'timan_service',
     ]);
     const hasPortalAccess = portalRole ? dealerSideRoles.has(portalRole) : false;
@@ -109,7 +109,7 @@ export default function PortalAreaPage({ areaId }: Props) {
   if (!area || !isAreaVisible(area, effectiveUser)) return <Navigate to="/portal" replace />;
 
   const portalRole = derivePortalRole(effectiveUser);
-  const moduleOverride = (effectiveUser?.module_access ?? null) as ModuleAccessKey[] | null;
+  const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   // Map portal-module ids → ModuleAccessKey for permission gating.
   const MODULE_ACCESS_MAP: Record<string, ModuleAccessKey | null> = {
     configurator: 'byg_din_timan',

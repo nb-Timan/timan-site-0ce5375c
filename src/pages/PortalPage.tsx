@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
-import { derivePortalRole, hasModuleAccess, isMesseVariantUser, type ModuleAccessKey } from '@/lib/portalAccess';
+import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -157,12 +157,12 @@ export default function PortalPage() {
 
   // Only true end-customers without any portal role go straight to the
   // configurator. Dealer-side users (timan_dealer, timan_importer,
-  // timan_service_partner, dealer_user) must land on /portal even if their
+  // timan_service_partner, dealer_customer, dealer_user) must land on /portal even if their
   // legacy `role` column still says 'slutkunde'.
   {
     const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
     const dealerSideRoles = new Set([
-      'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_user',
+      'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_customer', 'dealer_user',
       'timan_backend', 'timan_seller', 'timan_service',
     ]);
     const hasPortalAccess = portalRole ? dealerSideRoles.has(portalRole) : false;
@@ -211,11 +211,7 @@ export default function PortalPage() {
   const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
   const portalRole = derivePortalRole(effectiveUser);
   const realPortalRole = derivePortalRole(appUser);
-  const moduleOverride = (
-    (effectiveUser?.allowed_modules as ModuleAccessKey[] | null | undefined) ??
-    (effectiveUser?.module_access as ModuleAccessKey[] | null | undefined) ??
-    null
-  );
+  const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   const showMesseCard = (
     realPortalRole === 'timan_backend' ||
     realPortalRole === 'timan_seller' ||

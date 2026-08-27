@@ -6,7 +6,7 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 
-import { derivePortalRole, hasModuleAccess } from '@/lib/portalAccess';
+import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 
 import LastChangedLine from '@/components/portal/LastChangedLine';
 import type { ModuleKey } from '@/lib/portalChangelog';
@@ -69,9 +69,9 @@ export default function MiscPageShell({ title, intro, hideHeader = false, backTo
 
   // Gate behind sales_tools (same key used for the "Formularer" module card).
   const portalRole = derivePortalRole(appUser);
-  const override = (appUser.module_access ?? null) as ('sales_tools' | string)[] | null;
+  const override = getUserModuleAccessOverride(appUser);
   const allowed = portalRole
-    ? hasModuleAccess(portalRole, 'sales_tools', override as never)
+    ? hasModuleAccess(portalRole, 'sales_tools', override)
     : appUser.role === 'timan_saelger' || appUser.role === 'partner';
   if (!allowed) return <Navigate to="/portal/salg-marketing" replace />;
 

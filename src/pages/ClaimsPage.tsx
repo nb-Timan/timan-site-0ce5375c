@@ -20,10 +20,10 @@ import { useLanguage } from "@/context/LanguageContext";
 import { t } from "@/lib/i18n/translations";
 import {
   derivePortalRole,
+  getUserModuleAccessOverride,
   getPortalPermissions,
   hasModuleAccess,
   getClaimsViewVariant,
-  type ModuleAccessKey,
 } from "@/lib/portalAccess";
 import AdminClaimsDashboardPage from "@/pages/claims/AdminClaimsDashboardPage";
 import AdminClaimsAllPage from "@/pages/claims/AdminClaimsAllPage";
@@ -58,7 +58,7 @@ export default function ClaimsPage() {
   const allowed = hasModuleAccess(
     role,
     "claims",
-    (appUser.module_access as ModuleAccessKey[] | null | undefined) ?? null,
+    getUserModuleAccessOverride(appUser),
   );
   const variant = getClaimsViewVariant(role);
   const perms = role ? getPortalPermissions(role) : null;
