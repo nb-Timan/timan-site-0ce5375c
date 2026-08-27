@@ -21,7 +21,6 @@ import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import {
-  derivePortalRole,
   getPortalPermissions,
   PORTAL_ROLES,
   PORTAL_ROLE_LABELS,
@@ -159,8 +158,10 @@ export default function BackendUsersPage() {
     (window as unknown as { __timanUsersSnapshot?: BackendUser[] }).__timanUsersSnapshot = users;
   }, [users]);
 
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
-  const perms = portalRole ? getPortalPermissions(portalRole) : null;
+  const realPortalRole = (appUser?.portal_role && (PORTAL_ROLES as string[]).includes(appUser.portal_role))
+    ? appUser.portal_role as PortalRole
+    : null;
+  const perms = realPortalRole ? getPortalPermissions(realPortalRole) : null;
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
@@ -427,6 +428,16 @@ export default function BackendUsersPage() {
           onClose={() => setEditingId(null)}
           onSave={async (patch) => {
             setSaveError(null);
+            if (patch.id !== editing.id) {
+              const error = "Kunne ikke gemme: modalens bruger matcher ikke den valgte bruger.";
+              setSaveError(error);
+              toast({
+                title: "Kunne ikke gemme bruger",
+                description: error,
+                variant: "destructive",
+              });
+              return { ok: false, error };
+            }
             const res = await saveBackendUser(editing.id, patch);
             clearSellerIdCache(editing.email);
             clearViewAsCache(editing.email);
@@ -580,7 +591,7 @@ function EditUserModal({
       <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full my-8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 sticky top-0 bg-white z-10">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Rediger bruger</h2>
+            <h2 className="text-lg font-bold text-slate-900">Rediger bruger: {user.name}</h2>
             <p className="text-xs text-slate-500">{user.email}</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100">
