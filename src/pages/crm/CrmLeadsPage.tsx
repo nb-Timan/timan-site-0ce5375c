@@ -361,7 +361,7 @@ function CompactConvertLabel({
   secondary: string;
 }) {
   return (
-    <span className="flex flex-col items-start leading-none">
+    <span className="flex flex-col items-center text-center leading-none">
       <span className="text-[12px] font-semibold leading-3 text-slate-900">{primary}</span>
       <span className="text-[10px] leading-3 text-slate-500">{secondary}</span>
     </span>
@@ -939,9 +939,8 @@ export default function CrmLeadsPage() {
                                   to={`/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(r.id)}`}
                                   onClick={(e) => e.stopPropagation()}
                                   aria-label={tt('convert_to_demo', lang)}
-                                  className="inline-flex h-8 items-center gap-1.5 text-left text-violet-700 hover:underline"
+                                  className="inline-flex h-8 min-w-[58px] items-center justify-center text-center text-violet-700 hover:underline"
                                 >
-                                  <Sparkles className="h-3.5 w-3.5 shrink-0" />
                                   <CompactConvertLabel primary={tt('convert_label', lang)} secondary={tt('to_demo_label', lang)} />
                                 </Link>
                               )}
@@ -962,9 +961,8 @@ export default function CrmLeadsPage() {
                                     void handleConvertToQuote(r.id);
                                   }}
                                   aria-label={tt('convert_to_quote', lang)}
-                                  className="inline-flex h-8 items-center gap-1.5 text-left text-emerald-700 hover:underline disabled:opacity-50"
+                                  className="inline-flex h-8 min-w-[58px] items-center justify-center text-center text-emerald-700 hover:underline disabled:opacity-50"
                                 >
-                                  <FileText className="h-3.5 w-3.5 shrink-0" />
                                   <CompactConvertLabel primary={tt('convert_label', lang)} secondary={tt('to_quote_label', lang)} />
                                 </button>
                               )}
