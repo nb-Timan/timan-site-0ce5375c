@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, ClipboardList, Loader2, Mail } from 'lucide-react';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
@@ -20,6 +20,8 @@ import type { CrmLead, CrmLeadAttachment } from '@/lib/crmLeadsService';
 type LeadType = 'dealer' | 'customer' | '';
 type YesNo = 'yes' | 'no' | '';
 type CountryQuickChoice = 'de' | 'dk' | 'other' | '';
+type FormSectionKey = 'country' | 'dealerCustomer' | 'customerInfo' | 'businessCard' | 'product' | 'demo' | 'responsible';
+type FormSectionErrors = Partial<Record<FormSectionKey, string>>;
 type MesseMailAttachment = CrmLeadAttachment & {
   signed_url: string | null;
 };
@@ -169,6 +171,15 @@ const FORM_TEXT = {
   businessCard: { da: '3a. Visitkort / billeder (maks. 3)', en: '3a. Business card / images (max. 3)', de: '3a. Visitenkarte / Bilder (max. 3)', it: '3a. Biglietto da visita / immagini (max. 3)', hu: '3a. Névjegykártya / képek (max. 3)' },
   submit: { da: 'Gem lead og send mail', en: 'Save lead and send mail', de: 'Lead speichern und E-Mail senden', it: 'Salva lead e invia mail', hu: 'Lead mentése és email küldése' },
   sending: { da: 'Sender...', en: 'Sending...', de: 'Sendet...', it: 'Invio...', hu: 'Küldés...' },
+  errCountry: { da: 'Mangler valg af land', en: 'Choose a country', de: 'Land auswählen', it: 'Scegli un paese', hu: 'Válasszon országot' },
+  errDealerCustomer: { da: 'Vælg forhandler eller kunde', en: 'Choose dealer or customer', de: 'Händler oder Kunde auswählen', it: 'Scegli rivenditore o cliente', hu: 'Válasszon kereskedőt vagy ügyfelet' },
+  errCustomerInfo: { da: 'Udfyld kundeoplysninger eller vedhæft visitkort/billede', en: 'Fill in customer information or attach a business card/image', de: 'Kundendaten ausfüllen oder Visitenkarte/Bild anhängen', it: 'Compila i dati cliente oppure allega biglietto da visita/immagine', hu: 'Töltse ki az ügyféladatokat, vagy csatoljon névjegykártyát/képet' },
+  errBusinessCard: { da: 'Vedhæft visitkort/billede eller udfyld kundeoplysninger', en: 'Attach a business card/image or fill in customer information', de: 'Visitenkarte/Bild anhängen oder Kundendaten ausfüllen', it: 'Allega biglietto da visita/immagine oppure compila i dati cliente', hu: 'Csatoljon névjegykártyát/képet, vagy töltse ki az ügyféladatokat' },
+  errProduct: { da: 'Vælg mindst ét produkt', en: 'Choose at least one product', de: 'Mindestens ein Produkt auswählen', it: 'Scegli almeno un prodotto', hu: 'Válasszon legalább egy terméket' },
+  errEquipment: { da: 'Vælg mindst ét redskab', en: 'Choose at least one equipment item', de: 'Mindestens ein Anbaugerät auswählen', it: 'Scegli almeno un accessorio', hu: 'Válasszon legalább egy eszközt' },
+  errDemo: { da: 'Vælg ja eller nej', en: 'Choose yes or no', de: 'Ja oder Nein auswählen', it: 'Scegli sì o no', hu: 'Válasszon igen vagy nem' },
+  errResponsible: { da: 'Vælg Timan sælger', en: 'Choose Timan seller', de: 'Timan Verkäufer auswählen', it: 'Scegli venditore Timan', hu: 'Válasszon Timan értékesítőt' },
+  errSubmit: { da: 'Formularen mangler oplysninger. Ret de markerede sektioner.', en: 'The form is missing information. Fix the marked sections.', de: 'Im Formular fehlen Angaben. Bitte die markierten Abschnitte korrigieren.', it: 'Nel modulo mancano informazioni. Correggi le sezioni evidenziate.', hu: 'Az űrlapon adatok hiányoznak. Javítsa a megjelölt szakaszokat.' },
 };
 
 function clean(value: string): string {
@@ -246,6 +257,34 @@ function RequiredHeading({ children }: { children: React.ReactNode }) {
       <RequiredMark />
     </h2>
   );
+}
+
+function FormSection({
+  children,
+  error,
+  forwardedRef,
+}: {
+  children: React.ReactNode;
+  error?: string;
+  forwardedRef?: React.RefObject<HTMLElement>;
+}) {
+  return (
+    <section
+      ref={forwardedRef}
+      className={`space-y-3 rounded-xl border p-4 transition sm:p-5 ${
+        error
+          ? 'border-rose-200 bg-rose-50/70'
+          : 'border-slate-200 bg-slate-50/70'
+      }`}
+    >
+      {children}
+    </section>
+  );
+}
+
+function SectionError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="text-xs font-semibold text-rose-700">{message}</p>;
 }
 
 function FlagIcon({ code, className }: { code: string; className?: string }) {
@@ -358,6 +397,27 @@ export default function MesseFollowUpPage() {
   const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
   const [businessCardFiles, setBusinessCardFiles] = useState<File[]>([]);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+
+  const countrySectionRef = useRef<HTMLElement>(null);
+  const dealerCustomerSectionRef = useRef<HTMLElement>(null);
+  const customerInfoSectionRef = useRef<HTMLElement>(null);
+  const businessCardSectionRef = useRef<HTMLElement>(null);
+  const productSectionRef = useRef<HTMLElement>(null);
+  const demoSectionRef = useRef<HTMLElement>(null);
+  const responsibleSectionRef = useRef<HTMLElement>(null);
+  const countryFirstButtonRef = useRef<HTMLButtonElement>(null);
+  const countrySelectRef = useRef<HTMLSelectElement>(null);
+  const dealerTypeFirstButtonRef = useRef<HTMLButtonElement>(null);
+  const companyInputRef = useRef<HTMLInputElement>(null);
+  const contactInputRef = useRef<HTMLInputElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const businessCardInputRef = useRef<HTMLInputElement>(null);
+  const firstProductInputRef = useRef<HTMLInputElement>(null);
+  const firstEquipmentInputRef = useRef<HTMLInputElement>(null);
+  const demoFirstButtonRef = useRef<HTMLButtonElement>(null);
+  const firstSellerButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -511,25 +571,112 @@ export default function MesseFollowUpPage() {
       ? 'border-emerald-700 bg-emerald-200/70 ring-2 ring-emerald-300/70'
       : 'border-slate-400 bg-white'
   }`;
-  const isFormReady = Boolean(
-    selectedLeadCountry &&
-    leadType &&
-    products.length > 0 &&
-    hasRequiredEquipment &&
-    wantsDemo &&
-    responsibleSeller &&
-    (hasCustomerInfo || hasBusinessCard),
+  function buildValidationErrors(): FormSectionErrors {
+    const errors: FormSectionErrors = {};
+    if (!selectedLeadCountry || (countryQuickChoice === 'other' && !clean(specificCountry))) {
+      errors.country = f('errCountry');
+    }
+    if (!leadType) errors.dealerCustomer = f('errDealerCustomer');
+    if (!hasCustomerInfo && !hasBusinessCard) {
+      errors.customerInfo = f('errCustomerInfo');
+      errors.businessCard = f('errBusinessCard');
+    }
+    if (products.length === 0) {
+      errors.product = f('errProduct');
+    } else if (!hasRequiredEquipment) {
+      errors.product = f('errEquipment');
+    }
+    if (!wantsDemo) errors.demo = f('errDemo');
+    if (!responsibleSeller) errors.responsible = f('errResponsible');
+    return errors;
+  }
+
+  const formErrors = useMemo(
+    () => attemptedSubmit ? buildValidationErrors() : {},
+    [
+      attemptedSubmit,
+      selectedLeadCountry,
+      countryQuickChoice,
+      specificCountry,
+      leadType,
+      hasCustomerInfo,
+      hasBusinessCard,
+      products,
+      hasRequiredEquipment,
+      wantsDemo,
+      responsibleSeller,
+      textLanguage,
+    ],
   );
 
+  const sectionRefs: Record<FormSectionKey, React.RefObject<HTMLElement>> = {
+    country: countrySectionRef,
+    dealerCustomer: dealerCustomerSectionRef,
+    customerInfo: customerInfoSectionRef,
+    businessCard: businessCardSectionRef,
+    product: productSectionRef,
+    demo: demoSectionRef,
+    responsible: responsibleSectionRef,
+  };
+
+  const sectionOrder: FormSectionKey[] = ['country', 'dealerCustomer', 'customerInfo', 'businessCard', 'product', 'demo', 'responsible'];
+
+  function focusFirstField(section: FormSectionKey) {
+    if (section === 'country') {
+      if (countryQuickChoice === 'other') countrySelectRef.current?.focus();
+      else countryFirstButtonRef.current?.focus();
+      return;
+    }
+    if (section === 'dealerCustomer') {
+      dealerTypeFirstButtonRef.current?.focus();
+      return;
+    }
+    if (section === 'customerInfo') {
+      if (!clean(company)) companyInputRef.current?.focus();
+      else if (!clean(contactPerson)) contactInputRef.current?.focus();
+      else if (!clean(address)) addressInputRef.current?.focus();
+      else if (!clean(phone)) phoneInputRef.current?.focus();
+      else companyInputRef.current?.focus();
+      return;
+    }
+    if (section === 'businessCard') {
+      businessCardInputRef.current?.focus();
+      return;
+    }
+    if (section === 'product') {
+      if (products.length === 0) firstProductInputRef.current?.focus();
+      else firstEquipmentInputRef.current?.focus();
+      return;
+    }
+    if (section === 'demo') {
+      demoFirstButtonRef.current?.focus();
+      return;
+    }
+    firstSellerButtonRef.current?.focus();
+  }
+
+  function scrollToFirstError(errors: FormSectionErrors) {
+    const firstError = sectionOrder.find((section) => errors[section]);
+    if (!firstError) return;
+    requestAnimationFrame(() => {
+      sectionRefs[firstError].current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      window.setTimeout(() => focusFirstField(firstError), 300);
+    });
+  }
+
+  const hasCustomerInfoError = Boolean(formErrors.customerInfo && !hasBusinessCard);
+  const fieldClass = (invalid: boolean) => `rounded-lg border px-3 py-2 text-sm outline-none transition ${
+    invalid
+      ? 'border-rose-300 bg-rose-50 focus:border-rose-400 focus:ring-2 focus:ring-rose-100'
+      : 'border-slate-200 bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100'
+  }`;
+
   function validate(): boolean {
-    if (countryQuickChoice === 'other' && !clean(specificCountry)) { toast.error('Vælg specifikt land'); return false; }
-    if (!leadType) { toast.error('Vælg forhandler eller kunde'); return false; }
-    if ((products.includes('Equipment') || products.includes('Loader line / Tractor Equipment')) && equipmentItems.length === 0) { toast.error('Vælg mindst et redskab'); return false; }
-    if (products.length === 0) { toast.error('Vælg mindst ét produkt'); return false; }
-    if (!wantsDemo) { toast.error('Vælg om kunden ønsker demonstration'); return false; }
-    if (!responsibleSeller) { toast.error('Vælg Timan sælger'); return false; }
-    if (!hasCustomerInfo && !hasBusinessCard) {
-      toast.error('Udfyld firma/CVR, kontaktperson, adresse og telefon - eller vedhaeft visitkort/billede');
+    const errors = buildValidationErrors();
+    if (Object.keys(errors).length > 0) {
+      setAttemptedSubmit(true);
+      toast.error(f('errSubmit'));
+      scrollToFirstError(errors);
       return false;
     }
     return true;
@@ -732,15 +879,17 @@ export default function MesseFollowUpPage() {
           </section>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <section className="space-y-3">
+            <FormSection forwardedRef={countrySectionRef} error={formErrors.country}>
               <RequiredHeading>{f('country')}</RequiredHeading>
+              <SectionError message={formErrors.country} />
               <div className="flex flex-wrap gap-2">
                 {([
                   ['dk', f('denmark')],
                   ['de', f('germany')],
                   ['other', f('other')],
-                ] as [Exclude<CountryQuickChoice, ''>, string][]).map(([value, label]) => (
+                ] as [Exclude<CountryQuickChoice, ''>, string][]).map(([value, label], index) => (
                   <button
+                    ref={index === 0 ? countryFirstButtonRef : undefined}
                     type="button"
                     key={value}
                     onClick={() => handleCountryChoice(value)}
@@ -757,23 +906,26 @@ export default function MesseFollowUpPage() {
               </div>
               {countryQuickChoice === 'other' && (
                 <select
+                  ref={countrySelectRef}
                   value={specificCountry}
                   onChange={(e) => {
                     setSpecificCountry(e.target.value);
                   }}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm"
+                  className={fieldClass(Boolean(formErrors.country && !clean(specificCountry)))}
                 >
                   <option value="">{f('chooseCountry')}</option>
                   {otherCountryOptions.map((country) => <option key={country} value={country}>{country}</option>)}
                 </select>
               )}
-            </section>
+            </FormSection>
 
-            <section className="space-y-3">
+            <FormSection forwardedRef={dealerCustomerSectionRef} error={formErrors.dealerCustomer}>
               <RequiredHeading>{f('dealerCustomer')}</RequiredHeading>
+              <SectionError message={formErrors.dealerCustomer} />
               <div className="grid gap-3 sm:grid-cols-2">
-                {(['dealer', 'customer'] as Exclude<LeadType, ''>[]).map((type) => (
+                {(['dealer', 'customer'] as Exclude<LeadType, ''>[]).map((type, index) => (
                   <button
+                    ref={index === 0 ? dealerTypeFirstButtonRef : undefined}
                     type="button"
                     key={type}
                     onClick={() => setLeadType(type)}
@@ -790,30 +942,33 @@ export default function MesseFollowUpPage() {
                   </button>
                 ))}
               </div>
-            </section>
+            </FormSection>
 
-            <section className="space-y-3">
+            <FormSection forwardedRef={customerInfoSectionRef} error={formErrors.customerInfo}>
               <RequiredHeading>{f('customerInfo')}</RequiredHeading>
+              <SectionError message={formErrors.customerInfo} />
               <div className="grid gap-3 sm:grid-cols-2">
-                <input value={company} onChange={(e) => setCompany(e.target.value)} placeholder={`${f('companyPlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder={`${f('contactPlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder={`${f('addressPlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={zipCity} onChange={(e) => setZipCity(e.target.value)} placeholder={f('zipCityPlaceholder')} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={`${f('phonePlaceholder')} *`} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={f('emailPlaceholder')} type="email" className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                <input ref={companyInputRef} value={company} onChange={(e) => setCompany(e.target.value)} placeholder={`${f('companyPlaceholder')} *`} className={fieldClass(hasCustomerInfoError && !clean(company))} />
+                <input ref={contactInputRef} value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} placeholder={`${f('contactPlaceholder')} *`} className={fieldClass(hasCustomerInfoError && !clean(contactPerson))} />
+                <input ref={addressInputRef} value={address} onChange={(e) => setAddress(e.target.value)} placeholder={`${f('addressPlaceholder')} *`} className={fieldClass(hasCustomerInfoError && !clean(address))} />
+                <input value={zipCity} onChange={(e) => setZipCity(e.target.value)} placeholder={f('zipCityPlaceholder')} className={fieldClass(false)} />
+                <input ref={phoneInputRef} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={`${f('phonePlaceholder')} *`} className={fieldClass(hasCustomerInfoError && !clean(phone))} />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={f('emailPlaceholder')} type="email" className={fieldClass(false)} />
               </div>
-              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={f('commentPlaceholder')} rows={4} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-            </section>
+              <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={f('commentPlaceholder')} rows={4} className={`w-full ${fieldClass(false)}`} />
+            </FormSection>
 
-            <section className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <FormSection forwardedRef={businessCardSectionRef} error={formErrors.businessCard}>
               <label className="text-sm font-bold">
                 {f('businessCard')}
                 <RequiredMark />
               </label>
+              <SectionError message={formErrors.businessCard} />
               <p className="text-xs text-slate-500">
                 Vedhæft et visitkort, hvis du ikke udfylder kundeoplysningerne manuelt.
               </p>
               <input
+                ref={businessCardInputRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
@@ -843,14 +998,16 @@ export default function MesseFollowUpPage() {
                   ))}
                 </div>
               )}
-            </section>
+            </FormSection>
 
-            <section className="space-y-3">
+            <FormSection forwardedRef={productSectionRef} error={formErrors.product}>
               <RequiredHeading>{f('product')}</RequiredHeading>
+              <SectionError message={formErrors.product} />
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                {PRODUCTS.map((product) => (
+                {PRODUCTS.map((product, index) => (
                   <label key={product} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
                     <input
+                      ref={index === 0 ? firstProductInputRef : undefined}
                       type="checkbox"
                       checked={products.includes(product)}
                       onChange={() => toggleProduct(product)}
@@ -867,7 +1024,7 @@ export default function MesseFollowUpPage() {
                   </summary>
                   <div className="mt-3 grid gap-3 lg:grid-cols-2">
                     <div className="space-y-3">
-                      {EQUIPMENT_GROUPS.filter((group) => group.machine === 'RC-1000s' || group.machine === 'Timan 2620').map((group) => {
+                      {EQUIPMENT_GROUPS.filter((group) => group.machine === 'RC-1000s' || group.machine === 'Timan 2620').map((group, groupIndex) => {
                         const active = group.machine === 'RC-1000s'
                           ? isEquipmentBoxActive('rc1000')
                           : isEquipmentBoxActive('2620');
@@ -881,9 +1038,10 @@ export default function MesseFollowUpPage() {
                               </div>
                             )}
                             <div className="space-y-2">
-                              {group.items.map((item) => (
+                              {group.items.map((item, itemIndex) => (
                                 <label key={`${group.machine}-${item}`} className="flex items-center gap-2 text-sm text-slate-700">
                                   <input
+                                    ref={groupIndex === 0 && itemIndex === 0 ? firstEquipmentInputRef : undefined}
                                     type="checkbox"
                                     checked={equipmentItems.includes(`${group.machine} - ${item}`)}
                                     onChange={() => toggleEquipment(`${group.machine} - ${item}`)}
@@ -947,13 +1105,15 @@ export default function MesseFollowUpPage() {
                   </div>
                 </details>
               )}
-            </section>
+            </FormSection>
 
-            <section className="space-y-3">
+            <FormSection forwardedRef={demoSectionRef} error={formErrors.demo}>
               <RequiredHeading>{f('demo')}</RequiredHeading>
+              <SectionError message={formErrors.demo} />
               <div className="grid gap-3 sm:grid-cols-2">
-                {(['yes', 'no'] as const).map((value) => (
+                {(['yes', 'no'] as const).map((value, index) => (
                   <button
+                    ref={index === 0 ? demoFirstButtonRef : undefined}
                     type="button"
                     key={value}
                     onClick={() => setWantsDemo(value)}
@@ -967,15 +1127,17 @@ export default function MesseFollowUpPage() {
                   </button>
                 ))}
               </div>
-            </section>
-            <section className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            </FormSection>
+            <FormSection forwardedRef={responsibleSectionRef} error={formErrors.responsible}>
               <div className="flex items-center justify-between gap-3">
                 <RequiredHeading>{f('responsible')}</RequiredHeading>
                 {loadingData && <Loader2 className="h-4 w-4 animate-spin text-slate-500" />}
               </div>
+              <SectionError message={formErrors.responsible} />
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {sellerOptions.map((seller) => (
+                {sellerOptions.map((seller, index) => (
                   <button
+                    ref={index === 0 ? firstSellerButtonRef : undefined}
                     type="button"
                     key={seller.id}
                     onClick={() => setSellerEmail(seller.email)}
@@ -1009,12 +1171,12 @@ export default function MesseFollowUpPage() {
               <p className="text-xs text-slate-500">
                 {f('mailTo')}: {responsibleSeller?.email || f('chooseResponsible')}
               </p>
-            </section>
+            </FormSection>
 
             <div className="flex justify-end border-t border-slate-200 pt-5">
               <button
                 type="submit"
-                disabled={submitting || !isFormReady}
+                disabled={submitting}
                 className="inline-flex items-center gap-2 rounded-full bg-emerald-700 px-6 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
