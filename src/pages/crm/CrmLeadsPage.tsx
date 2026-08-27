@@ -386,8 +386,8 @@ function CompactConvertLabel({
 }) {
   return (
     <span className="flex flex-col items-center text-center leading-none">
-      <span className="text-[12px] font-semibold leading-3 text-slate-900">{primary}</span>
-      <span className="text-[10px] leading-3 text-slate-500">{secondary}</span>
+      <span className="text-[12px] font-semibold leading-3 text-current">{primary}</span>
+      <span className="text-[10px] leading-3 text-current opacity-80">{secondary}</span>
     </span>
   );
 }
