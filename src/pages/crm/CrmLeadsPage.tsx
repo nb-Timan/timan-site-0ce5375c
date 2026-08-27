@@ -21,7 +21,6 @@ import {
 import {
   effectiveLeadStatus,
   effectiveLeadProbability,
-  LEAD_DISPLAY_STATUSES,
   type LeadDisplayStatus,
   NEXT_ACTIVITY_WON,
   NEXT_ACTIVITY_LOST,
@@ -55,6 +54,8 @@ type TKey =
   | 'tab_all' | 'tab_open' | 'tab_demo' | 'tab_mine' | 'tab_mine_demo'
   | 'tab_won' | 'tab_lost'
   | 'search_ph' | 'all_status' | 'loading' | 'empty_title' | 'empty_sub'
+  | 'all_types' | 'all_machines' | 'all_equipment'
+  | 'filter_type' | 'filter_machine' | 'filter_equipment'
   | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
   | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
   | 'open_lbl' | 'demo_lbl' | 'unassigned_chip'
@@ -88,6 +89,12 @@ const T: Record<TKey, UiText> = {
   tab_lost:      { da: 'Tabte leads', en: 'Lost leads', de: 'Verlorene Leads', it: 'Lead persi', hu: 'Elveszett leadek', fr: 'Leads perdus', pl: 'Utracone leady', cs: 'Ztracené leady' },
   search_ph:     { da: 'Søg titel, kunde, forhandler, sælger eller maskine…', en: 'Search title, customer, dealer, seller or machine…', de: 'Titel, Kunde, Händler, Verkäufer oder Maschine suchen…', it: 'Cerca titolo, cliente, rivenditore, venditore o macchina…', hu: 'Keresés: cím, ügyfél, kereskedő, értékesítő vagy gép…', fr: 'Rechercher titre, client, revendeur, vendeur ou machine…', pl: 'Szukaj tytułu, klienta, dealera, sprzedawcy lub maszyny…', cs: 'Hledat název, zákazníka, prodejce, obchodníka nebo stroj…' },
   all_status:    { da: 'Alle statusser', en: 'All statuses', de: 'Alle Status', it: 'Tutti gli stati', hu: 'Összes státusz', fr: 'Tous les statuts', pl: 'Wszystkie statusy', cs: 'Všechny stavy' },
+  all_types:      { da: 'Alle typer', en: 'All types', de: 'Alle Typen', it: 'Tutti i tipi', hu: 'Összes típus', fr: 'Tous les types', pl: 'Wszystkie typy', cs: 'Všechny typy' },
+  all_machines:   { da: 'Alle maskiner', en: 'All machines', de: 'Alle Maschinen', it: 'Tutte le macchine', hu: 'Összes gép', fr: 'Toutes les machines', pl: 'Wszystkie maszyny', cs: 'Všechny stroje' },
+  all_equipment:  { da: 'Alle redskaber', en: 'All equipment', de: 'Alle Geräte', it: 'Tutte le attrezzature', hu: 'Összes eszköz', fr: 'Tous les équipements', pl: 'Cały osprzęt', cs: 'Všechno vybavení' },
+  filter_type:    { da: 'Type', en: 'Type', de: 'Typ', it: 'Tipo', hu: 'Típus', fr: 'Type', pl: 'Typ', cs: 'Typ' },
+  filter_machine: { da: 'Maskine', en: 'Machine', de: 'Maschine', it: 'Macchina', hu: 'Gép', fr: 'Machine', pl: 'Maszyna', cs: 'Stroj' },
+  filter_equipment:{ da: 'Redskab', en: 'Equipment', de: 'Gerät', it: 'Attrezzatura', hu: 'Eszköz', fr: 'Équipement', pl: 'Osprzęt', cs: 'Vybavení' },
   loading:       { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…', fr: 'Chargement…', pl: 'Ładowanie…', cs: 'Načítání…' },
   empty_title:   { da: 'Ingen leads i dette filter', en: 'No leads in this filter', de: 'Keine Leads in diesem Filter', it: 'Nessun lead in questo filtro', hu: 'Nincs lead ebben a szűrőben', fr: 'Aucun lead dans ce filtre', pl: 'Brak leadów w tym filtrze', cs: 'V tomto filtru nejsou žádné leady' },
   empty_sub:     { da: 'Skift fane eller opret et nyt lead.', en: 'Switch tab or create a new lead.', de: 'Tab wechseln oder neuen Lead erstellen.', it: 'Cambia scheda o crea un nuovo lead.', hu: 'Váltson fület vagy hozzon létre új leadet.', fr: 'Changez d’onglet ou créez un nouveau lead.', pl: 'Zmień zakładkę albo utwórz nowy lead.', cs: 'Změňte záložku nebo vytvořte nový lead.' },
@@ -213,6 +220,15 @@ function fmtDate(s: string | null | undefined, lang: PortalUiLanguage): string {
   return d.toLocaleDateString(localeMap[lang] || 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function statusFilterKey(row: UnifiedLead): string {
+  return `${row.status || ''}::${row.probability ?? ''}`;
+}
+
+function statusFilterLabel(row: UnifiedLead, lang: PortalUiLanguage): string {
+  const status = localizeStatus(row.status, lang);
+  return row.probability == null ? status : `${status} · ${row.probability}%`;
+}
+
 function looksLikeUuid(value: string | null | undefined): boolean {
   return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -277,6 +293,8 @@ type UserLeadType = 'open' | 'demo' | 'won' | 'lost';
 type FollowupTone = 'overdue' | 'soon' | 'later' | 'neutral';
 type FollowupFilter = Exclude<FollowupTone, 'neutral'>;
 
+const USER_LEAD_TYPES: UserLeadType[] = ['open', 'demo', 'won', 'lost'];
+
 function isWonRow(row: UnifiedLead): boolean {
   return row.status === 'Vundet' || row.status === 'Won';
 }
@@ -290,7 +308,7 @@ function isOpenRow(row: UnifiedLead): boolean {
 }
 
 function isDemoLikeRow(row: UnifiedLead): boolean {
-  return row.type === 'demo' || row.has_demo === true || row.status === 'Demo planlagt';
+  return row.type === 'demo' || row.has_demo === true;
 }
 
 function getUserLeadType(row: UnifiedLead): UserLeadType {
@@ -323,6 +341,13 @@ const FOLLOWUP_FILTERS: Array<{ key: FollowupFilter; labelKey: TKey }> = [
 function getFollowupTone(value: string | null | undefined, now = new Date()): FollowupTone {
   const urgency = classifyLeadFollowupUrgency(value, now);
   return urgency === 'none' ? 'neutral' : urgency;
+}
+
+function splitFilterValues(value: string | null | undefined): string[] {
+  return (value || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
@@ -369,6 +394,9 @@ export default function CrmLeadsPage() {
   const [tab, setTab] = useState<TabKey>(dealerParam ? 'all' : 'open');
   const [followupFilter, setFollowupFilter] = useState<FollowupFilter | null>(null);
   const [q, setQ] = useState(dealerParam);
+  const [typeFilter, setTypeFilter] = useState<UserLeadType | ''>('');
+  const [machineFilter, setMachineFilter] = useState('');
+  const [equipmentFilter, setEquipmentFilter] = useState('');
   const [stage, setStage] = useState<string>('');
   const [sort, setSort] = useState<SortKey>('default');
   const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
@@ -536,6 +564,39 @@ export default function CrmLeadsPage() {
     return next;
   }, [allRows]);
 
+  const typeOptions = useMemo(() => {
+    return USER_LEAD_TYPES.filter((type) => allRows.some((row) => getUserLeadType(row) === type));
+  }, [allRows]);
+
+  const machineOptions = useMemo(() => {
+    const values = new Set<string>();
+    allRows.forEach((row) => {
+      splitFilterValues(row.machine).forEach((value) => {
+        if (value !== '—') values.add(value);
+      });
+    });
+    return [...values].sort((a, b) => a.localeCompare(b, 'da'));
+  }, [allRows]);
+
+  const equipmentOptions = useMemo(() => {
+    const values = new Set<string>();
+    allRows.forEach((row) => {
+      splitFilterValues(row.equipment).forEach((value) => {
+        if (value !== '—') values.add(value);
+      });
+    });
+    return [...values].sort((a, b) => a.localeCompare(b, 'da'));
+  }, [allRows]);
+
+  const statusOptions = useMemo(() => {
+    const values = new Map<string, string>();
+    allRows.forEach((row) => {
+      if (!row.status) return;
+      values.set(statusFilterKey(row), statusFilterLabel(row, lang));
+    });
+    return [...values.entries()].sort((a, b) => a[1].localeCompare(b[1], 'da'));
+  }, [allRows, lang]);
+
   const visible = useMemo(() => {
     let r = allRows;
     if (tab === 'open') r = r.filter(isOpenRow);
@@ -543,7 +604,10 @@ export default function CrmLeadsPage() {
     else if (tab === 'closed') r = r.filter(x => isClosedRow(x) && !isWonRow(x));
 
     if (followupFilter) r = r.filter(x => isOpenRow(x) && getFollowupTone(x.next_followup) === followupFilter);
-    if (stage) r = r.filter(x => x.status === stage);
+    if (typeFilter) r = r.filter(x => getUserLeadType(x) === typeFilter);
+    if (machineFilter) r = r.filter(x => splitFilterValues(x.machine).includes(machineFilter));
+    if (equipmentFilter) r = r.filter(x => splitFilterValues(x.equipment).includes(equipmentFilter));
+    if (stage) r = r.filter(x => statusFilterKey(x) === stage);
     if (q.trim()) {
       r = r.filter(x => matchesLeadSearch([
         x.display_no,
@@ -559,7 +623,7 @@ export default function CrmLeadsPage() {
       ], q));
     }
     return [...r].sort((a, b) => compareRows(a, b, sort));
-  }, [allRows, tab, followupFilter, stage, q, sort]);
+  }, [allRows, tab, followupFilter, typeFilter, machineFilter, equipmentFilter, stage, q, sort]);
 
   const totalValue = useMemo(() => visible.reduce((s, x) => s + (x.value || 0), 0), [visible]);
   const unassignedCount = useMemo(
@@ -687,18 +751,37 @@ export default function CrmLeadsPage() {
       </div>
 
       {/* Filter strip */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5 flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5 flex flex-col xl:flex-row xl:flex-wrap gap-3">
+        <div className="relative min-w-[260px] flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input value={q} onChange={e=>setQ(e.target.value)} placeholder={tt('search_ph', lang)}
             className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none" />
         </div>
+        <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value as UserLeadType | '')}
+          aria-label={tt('filter_type', lang)}
+          className="min-w-[150px] rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+          <option value="">{tt('all_types', lang)}</option>
+          {typeOptions.map((type) => (
+            <option key={type} value={type}>{tt('filter_type', lang)}: {getUserLeadTypeLabel(type, lang)}</option>
+          ))}
+        </select>
+        <select value={machineFilter} onChange={e=>setMachineFilter(e.target.value)}
+          aria-label={tt('filter_machine', lang)}
+          className="min-w-[170px] rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+          <option value="">{tt('all_machines', lang)}</option>
+          {machineOptions.map((machine) => <option key={machine} value={machine}>{machine}</option>)}
+        </select>
+        <select value={equipmentFilter} onChange={e=>setEquipmentFilter(e.target.value)}
+          aria-label={tt('filter_equipment', lang)}
+          className="min-w-[170px] rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white"
+          disabled={equipmentOptions.length === 0}>
+          <option value="">{tt('all_equipment', lang)}</option>
+          {equipmentOptions.map((equipment) => <option key={equipment} value={equipment}>{equipment}</option>)}
+        </select>
         <select value={stage} onChange={e=>setStage(e.target.value)}
-          className="rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+          className="min-w-[180px] rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_status', lang)}</option>
-          {LEAD_DISPLAY_STATUSES.map(s => <option key={s} value={s}>{localizeStatus(s, lang)}</option>)}
-          <option disabled>──────────</option>
-          {['Hot lead','Warm lead','Cold lead','Offer requested','No fit'].map(s => <option key={s} value={s}>{s}</option>)}
+          {statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
         <div className="relative min-w-[230px]">
           <ArrowDownAZ className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
