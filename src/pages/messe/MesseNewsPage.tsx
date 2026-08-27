@@ -24,6 +24,7 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { canManageNewsContent } from '@/lib/portalAccess';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { Button } from '@/components/ui/button';
 import { getNewsTemplate } from '@/features/news-cms/templates/registry';
 import type { NewsTemplateId } from '@/features/news-cms/templates/types';
@@ -69,7 +70,8 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
   const { appUser, loading, logout } = useAppUser();
   const navigate = useNavigate();
   const isMarketingMode = mode === 'marketing';
-  const canManage = useMemo(() => canManageNewsContent(appUser), [appUser]);
+  const effectiveUser = useEffectivePortalUser(appUser);
+  const canManage = useMemo(() => canManageNewsContent(effectiveUser), [effectiveUser]);
 
   const loadNews = async () => {
     setError(null);

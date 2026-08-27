@@ -15,6 +15,7 @@ import type { NewsTemplateId } from '@/features/news-cms/templates/types';
 import { t } from '@/lib/i18n/translations';
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { canManageNewsContent } from '@/lib/portalAccess';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import {
   getAttachmentOptionsForMachine,
   getCombinedAttachmentOptions,
@@ -130,7 +131,8 @@ export default function BackendNewsPage() {
   const [sortKey, setSortKey] = useState<SortKey>('manual');
   const [draggingPostId, setDraggingPostId] = useState<string | null>(null);
 
-  const canManage = useMemo(() => canManageNewsContent(appUser), [appUser]);
+  const effectiveUser = useEffectivePortalUser(appUser);
+  const canManage = useMemo(() => canManageNewsContent(effectiveUser), [effectiveUser]);
 
   const reload = async () => {
     setLoadingRows(true);
