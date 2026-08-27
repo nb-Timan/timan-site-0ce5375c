@@ -16,6 +16,7 @@ import {
   adminUpdateChangelog,
   adminUpdateChangelogStatus,
   recommendPublication,
+  syncSiteChangesFromGitHub,
   type ChangelogDraft,
   type SiteChangeEntryRow,
   type SiteChangeRecommendation,
@@ -171,6 +172,7 @@ export default function BackendChangelogPage() {
   const [count, setCount] = useState(0);
   const [loadingRows, setLoadingRows] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [syncingGitHub, setSyncingGitHub] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -283,6 +285,20 @@ export default function BackendChangelogPage() {
     }));
   };
 
+  const syncGitHub = async () => {
+    setSyncingGitHub(true);
+    setError(null);
+    setMessage(null);
+    const result = await syncSiteChangesFromGitHub();
+    setSyncingGitHub(false);
+    if (!result.ok) {
+      setError(result.error || "GitHub-synkronisering fejlede.");
+      return;
+    }
+    setMessage(`GitHub synkroniseret: ${result.imported ?? 0} nye, ${result.skipped ?? 0} sprunget over.`);
+    await reload(0);
+  };
+
   if (loading) return <div className="min-h-screen bg-slate-50" />;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!canManage) return <Navigate to="/portal/marketing" replace />;
@@ -314,13 +330,23 @@ export default function BackendChangelogPage() {
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void reload()}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void syncGitHub()}
+              disabled={syncingGitHub}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> {syncingGitHub ? "Synkroniserer..." : "Synkronisér GitHub"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void reload()}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
+            </button>
+          </div>
         </div>
 
         {message && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{message}</div>}

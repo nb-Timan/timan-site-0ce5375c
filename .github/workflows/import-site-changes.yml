@@ -1,0 +1,31 @@
+name: Import site changes
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  import-site-changes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send commits to Supabase
+        env:
+          SUPABASE_FUNCTION_URL: ${{ secrets.SUPABASE_FUNCTION_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SITE_CHANGE_SYNC_SECRET: ${{ secrets.SITE_CHANGE_SYNC_SECRET }}
+          EVENT_PATH: ${{ github.event_path }}
+        run: |
+          if [ -z "$SUPABASE_FUNCTION_URL" ] || [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$SITE_CHANGE_SYNC_SECRET" ]; then
+            echo "Missing SUPABASE_FUNCTION_URL, SUPABASE_ANON_KEY or SITE_CHANGE_SYNC_SECRET."
+            exit 1
+          fi
+
+          curl --fail --show-error --silent \
+            --request POST \
+            --header "Content-Type: application/json" \
+            --header "apikey: $SUPABASE_ANON_KEY" \
+            --header "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            --header "x-site-change-sync-secret: $SITE_CHANGE_SYNC_SECRET" \
+            --data @"$EVENT_PATH" \
+            "$SUPABASE_FUNCTION_URL"

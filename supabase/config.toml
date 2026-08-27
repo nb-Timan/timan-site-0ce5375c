@@ -31,3 +31,6 @@ verify_jwt = false
 
 [functions.import-legacy-leads]
 verify_jwt = false
+
+[functions.import-site-changes-from-github]
+verify_jwt = false

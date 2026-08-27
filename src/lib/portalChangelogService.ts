@@ -97,6 +97,15 @@ export interface ChangelogListOptions {
   search?: string;
 }
 
+export interface SiteChangeGitHubSyncResult {
+  ok?: boolean;
+  imported?: number;
+  skipped?: number;
+  commits?: string[];
+  message?: string;
+  error?: string;
+}
+
 function fanout(text: string | null | undefined): Record<Language, string> {
   const v = text ?? '';
   return LANG_KEYS.reduce((acc, k) => { acc[k] = v; return acc; }, {} as Record<Language, string>);
@@ -360,6 +369,15 @@ export async function adminUpdateChangelogStatus(id: string, status: SiteChangeS
   if (error) return { error: error.message };
   await refreshChangelog();
   return { error: null };
+}
+
+export async function syncSiteChangesFromGitHub(): Promise<SiteChangeGitHubSyncResult> {
+  const { data, error } = await supabase.functions.invoke<SiteChangeGitHubSyncResult>("import-site-changes-from-github", {
+    body: { mode: "manual", limit: 25 },
+  });
+  if (error) return { ok: false, error: error.message };
+  if (data?.error) return { ...data, ok: false };
+  return data || { ok: true, imported: 0, skipped: 0 };
 }
 
 export function recommendPublication(userImpact: number, technicalImpact: number): SiteChangeRecommendation {
