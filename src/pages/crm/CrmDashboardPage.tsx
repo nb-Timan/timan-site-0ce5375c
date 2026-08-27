@@ -30,7 +30,7 @@ import { BUDGET_SELLERS } from '@/lib/crmBudgetService';
 import { isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
 import { buildJournalScope } from '@/lib/machineJournalScope';
 import { formatDate } from '@/lib/format-date';
-import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
+import { getLeadPipelineValue } from '@/lib/crmPipelineValue';
 import { Language } from '@/types/configurator';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
@@ -1367,14 +1367,6 @@ function dashboardNumber(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function leadPipelineValue(lead: CrmLead): number {
-  const savedValue = dashboardNumber(lead.estimated_value);
-  if (savedValue > 0) return Math.round(savedValue);
-
-  const machineEstimate = calculateMachineInterestEstimate(lead.machine_types, 'da').total;
-  return machineEstimate > 0 ? machineEstimate : 0;
-}
-
 function buildPipelineRows(args: {
   orders: CrmOrderWithValue[];
   openQuotes: ScopedConfiguration[];
@@ -1434,7 +1426,7 @@ function buildPipelineRows(args: {
       title: l.title || '—',
       dealer: '—',
       seller: l.owner_name || '—',
-      value: leadPipelineValue(l),
+      value: getLeadPipelineValue(l),
       status,
       date: l.updated_at || l.created_at,
       metricDate: l.first_contact_date || l.created_at,
