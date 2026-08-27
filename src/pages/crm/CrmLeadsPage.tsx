@@ -11,6 +11,7 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { buildJournalScope } from '@/lib/machineJournalScope';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { resolveSellerId } from '@/lib/resolveSellerId';
+import { resolveSellerDisplay, useSellerDirectory, type SellerDirectory } from '@/lib/sellerDirectory';
 import {
   listLeads, listDemoLeads, resolveSeedOwners, updateLead, getLead, deleteLead, deleteDemoLead,
   CrmLead, CrmDemoLead, type CrmLeadAttachment, type CrmLeadAttachmentPreview,
@@ -223,6 +224,29 @@ function fmtDate(s: string | null | undefined, lang: PortalUiLanguage): string {
   return d.toLocaleDateString(localeMap[lang] || 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function initialsFromName(name: string | null | undefined): string {
+  return (name || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase();
+}
+
+function ownerInitials(row: UnifiedLead, sellerDirectory: SellerDirectory): string {
+  const display = resolveSellerDisplay(
+    {
+      id: row.owner_user_id,
+      email: row.owner_email,
+      fallbackInitials: initialsFromName(row.owner_name),
+      fallbackName: row.owner_name,
+    },
+    sellerDirectory,
+  );
+  return display.initials || initialsFromName(row.owner_name);
+}
+
 function statusFilterKey(row: UnifiedLead): string {
   return `${row.status || ''}::${row.probability ?? ''}`;
 }
@@ -392,6 +416,7 @@ export default function CrmLeadsPage() {
   const isAdmin = isCrmAdmin(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
   const canDelete = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
+  const sellerDirectory = useSellerDirectory();
 
   const TABS: { key: TabKey; label: string }[] = [
     { key: 'open',      label: tt('tab_open', lang) },
@@ -903,7 +928,7 @@ export default function CrmLeadsPage() {
                       <td className="px-4 py-3.5 text-gray-600 max-w-[220px] truncate">{r.dealer || '—'}</td>
                       <td className="px-4 py-3.5">
                         {r.owner_name ? (
-                          <span className="text-gray-700">{r.owner_name}</span>
+                          <span className="font-medium text-gray-700">{ownerInitials(r, sellerDirectory)}</span>
                         ) : (
                           <span className="inline-flex text-[11px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
                             {tt('unassigned_chip', lang)}
