@@ -447,6 +447,8 @@ export default function CrmLeadsPage() {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [quoteConvertBusyId, setQuoteConvertBusyId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ title: string; images: CrmLeadAttachmentPreview[] } | null>(null);
+  const topFilterButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm leading-none transition whitespace-nowrap';
+  const topActionButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium leading-none shadow-sm transition whitespace-nowrap';
 
   useEffect(() => {
     if (dealerParam) {
@@ -728,9 +730,9 @@ export default function CrmLeadsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-center">
-        <div className="flex flex-wrap gap-1.5">
-          {TABS.map(t => {
+      <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {TABS.filter((t) => t.key === 'open').map(t => {
             const active = tab === t.key && followupFilter === null;
             const c = counts[t.key];
             return (
@@ -741,7 +743,55 @@ export default function CrmLeadsPage() {
                   setFollowupFilter(null);
                 }}
                 className={cn(
-                  'inline-flex items-center gap-2 text-sm px-3.5 py-2 rounded-xl border transition',
+                  topFilterButtonClass,
+                  active
+                    ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
+                    : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                )}>
+                {t.label}
+                <span className={cn(
+                  'inline-flex min-w-[20px] justify-center items-center text-[11px] px-1.5 py-0.5 rounded-md tabular-nums',
+                  active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+                )}>{c}</span>
+              </button>
+            );
+          })}
+          {FOLLOWUP_FILTERS.map((item) => {
+            const active = followupFilter === item.key;
+            const c = followupCounts[item.key];
+            return (
+              <button
+                key={item.key}
+                onClick={() => {
+                  setTab('open');
+                  setFollowupFilter(active ? null : item.key);
+                }}
+                className={cn(
+                  topFilterButtonClass,
+                  FOLLOWUP_BADGE[item.key],
+                  active ? 'shadow-sm ring-2 ring-offset-1 ring-current/20' : 'hover:bg-white'
+                )}
+              >
+                {tt(item.labelKey, lang)}
+                <span className={cn(
+                  'inline-flex min-w-[20px] justify-center items-center text-[11px] px-1.5 py-0.5 rounded-md tabular-nums',
+                  active ? 'bg-white/60' : 'bg-white/70'
+                )}>{c}</span>
+              </button>
+            );
+          })}
+          {TABS.filter((t) => t.key === 'all').map(t => {
+            const active = tab === t.key && followupFilter === null;
+            const c = counts[t.key];
+            return (
+              <button
+                key={t.key}
+                onClick={() => {
+                  setTab(t.key);
+                  setFollowupFilter(null);
+                }}
+                className={cn(
+                  topFilterButtonClass,
                   active
                     ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
                     : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
@@ -755,39 +805,37 @@ export default function CrmLeadsPage() {
             );
           })}
         </div>
-        <div className="flex flex-wrap gap-1.5 xl:mx-auto">
-          {FOLLOWUP_FILTERS.map((item) => {
-            const active = followupFilter === item.key;
-            const c = followupCounts[item.key];
+        <div className="flex flex-wrap items-center gap-2 xl:ml-auto">
+          {TABS.filter((t) => t.key === 'won' || t.key === 'closed').map(t => {
+            const active = tab === t.key && followupFilter === null;
+            const c = counts[t.key];
             return (
               <button
-                key={item.key}
+                key={t.key}
                 onClick={() => {
-                  setTab('open');
-                  setFollowupFilter(active ? null : item.key);
+                  setTab(t.key);
+                  setFollowupFilter(null);
                 }}
                 className={cn(
-                  'inline-flex items-center gap-2 text-sm px-3.5 py-2 rounded-xl border transition',
-                  FOLLOWUP_BADGE[item.key],
-                  active ? 'shadow-sm ring-2 ring-offset-1 ring-current/20' : 'hover:bg-white'
-                )}
-              >
-                {tt(item.labelKey, lang)}
+                  topFilterButtonClass,
+                  active
+                    ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
+                    : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                )}>
+                {t.label}
                 <span className={cn(
                   'inline-flex min-w-[20px] justify-center items-center text-[11px] px-1.5 py-0.5 rounded-md tabular-nums',
-                  active ? 'bg-white/60' : 'bg-white/70'
+                  active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
                 )}>{c}</span>
               </button>
             );
           })}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 xl:ml-auto">
           <Link to="/portal/crm/demo-leads/new"
-            className="inline-flex items-center gap-2 rounded-xl bg-white hover:bg-gray-50 text-[#2d5a27] border border-[#2d5a27]/30 hover:border-[#2d5a27] text-sm font-medium px-4 py-2 shadow-sm transition">
+            className={cn(topActionButtonClass, 'bg-white text-[#2d5a27] border border-[#2d5a27]/30 hover:border-[#2d5a27] hover:bg-gray-50')}>
             <Plus className="h-4 w-4" /> {tt('new_demo', lang)}
           </Link>
           <Link to="/portal/crm/leads/new"
-            className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] text-white text-sm font-medium px-4 py-2 shadow-sm transition">
+            className={cn(topActionButtonClass, 'bg-[#2d5a27] text-white hover:bg-[#234820]')}>
             <Plus className="h-4 w-4" /> {tt('new_lead', lang)}
           </Link>
         </div>
