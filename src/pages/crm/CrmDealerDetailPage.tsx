@@ -19,6 +19,7 @@ import {
   FileText, ClipboardList, TrendingUp,
   CheckCircle2, AlertCircle, Pencil,
   Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
+  Save, Send, Trash2, X,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -57,8 +58,9 @@ import {
   type CalendarActivity, type CalendarActivityType,
 } from "@/lib/crmCalendarService";
 import {
-  createDealerNote, listDealerNotesForNumbers,
-  type DealerNote, type DealerNoteType,
+  createDealerNote, createDealerNoteComment, deleteDealerNote,
+  listDealerNoteComments, listDealerNotesForNumbers, shareDealerNote, updateDealerNote,
+  type DealerNote, type DealerNoteAuthorParty, type DealerNoteComment, type DealerNoteType,
 } from "@/lib/dealerNotesService";
 import {
   getEffectiveSellerInitials, getEffectiveSellerEmail,
@@ -218,6 +220,12 @@ function fmtDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   try { return new Date(iso).toLocaleString("da-DK", { dateStyle: "short", timeStyle: "short" }); } catch { return "—"; }
 }
+function groupNoteComments(rows: DealerNoteComment[]): Record<string, DealerNoteComment[]> {
+  return rows.reduce<Record<string, DealerNoteComment[]>>((acc, row) => {
+    acc[row.note_id] = [...(acc[row.note_id] || []), row];
+    return acc;
+  }, {});
+}
 function startOfIsoWeek(d: Date): Date {
   const x = new Date(d); x.setHours(0,0,0,0);
   const day = (x.getDay() + 6) % 7;
@@ -240,6 +248,11 @@ export default function CrmDealerDetailPage() {
   const [users, setUsers] = useState<BackendUser[]>([]);
   const [calendar, setCalendar] = useState<CalendarActivity[]>([]);
   const [notes, setNotes] = useState<DealerNote[]>([]);
+  const [noteComments, setNoteComments] = useState<Record<string, DealerNoteComment[]>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
+  const [noteBusyId, setNoteBusyId] = useState<string | null>(null);
   const [dealerContacts, setDealerContacts] = useState<DealerContact[]>([]);
   const [scope, setScope] = useState<"branch" | "group">("branch");
   const [showNoteModal, setShowNoteModal] = useState(false);
@@ -263,6 +276,8 @@ export default function CrmDealerDetailPage() {
   const seller = isScopedSeller(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
   const canAccess = admin || seller || externalCrm;
+  const canUseNotes = admin || seller || externalCrm;
+  const noteAuthorParty: DealerNoteAuthorParty = externalCrm ? "dealer" : "timan";
 
   const [activeMode, setActiveMode] = useState<string>(() => getActiveMode(appUser?.email));
   useEffect(() => {
@@ -372,18 +387,23 @@ export default function CrmDealerDetailPage() {
 
   // Load notes (whenever scope changes)
   useEffect(() => {
-    if (!dealer || !admin) {
+    if (!dealer || !canUseNotes) {
       setNotes([]);
+      setNoteComments({});
       return;
     }
     let cancelled = false;
     (async () => {
       const n = await listDealerNotesForNumbers(scopeNumbers);
-      if (!cancelled) setNotes(n);
+      const comments = await listDealerNoteComments(n.map((note) => note.id));
+      if (!cancelled) {
+        setNotes(n);
+        setNoteComments(groupNoteComments(comments));
+      }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dealer?.id, scope, branchNumbers.join(","), admin]);
+  }, [dealer?.id, scope, branchNumbers.join(","), canUseNotes]);
 
   // Load extra dealer_contacts (sales/workshop/parts/marketing/finance).
   useEffect(() => {
@@ -404,6 +424,10 @@ export default function CrmDealerDetailPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!canAccess) return <Navigate to="/portal" replace />;
+
+  if (!busy && !dealer && externalCrm && effectiveUser?.dealer_number && accountNumber !== effectiveUser.dealer_number) {
+    return <Navigate to={`/portal/crm/my-dealers/${encodeURIComponent(effectiveUser.dealer_number)}`} replace />;
+  }
 
   if (!busy && !dealer) {
     return (
@@ -522,6 +546,108 @@ export default function CrmDealerDetailPage() {
   const sellerCtx = getActiveSellerView(appUser.email);
   const effInitials = getEffectiveSellerInitials(appUser);
   const effEmail = getEffectiveSellerEmail(appUser);
+  const currentEmail = (effEmail || appUser?.email || "").toLowerCase();
+
+  function isNoteOwner(note: DealerNote): boolean {
+    const noteEmail = (note.created_by_email || "").toLowerCase();
+    const noteInitials = (note.seller_initials || "").toUpperCase();
+    return Boolean(noteEmail && currentEmail && noteEmail === currentEmail)
+      || Boolean(noteInitials && effInitials && noteInitials === effInitials.toUpperCase());
+  }
+
+  function canManageNote(note: DealerNote): boolean {
+    return admin || isNoteOwner(note);
+  }
+
+  function notePartyLabel(note: DealerNote): string {
+    return note.author_party === "dealer" ? (dealer?.branch_name || dealer?.company_name || "Forhandler") : "Timan";
+  }
+
+  function canCommentNote(note: DealerNote): boolean {
+    return canUseNotes && note.visibility === "shared";
+  }
+
+  const internalNotes = notes.filter((note) =>
+    note.visibility !== "shared" && note.author_party === noteAuthorParty
+  );
+  const sharedNotes = notes.filter((note) => note.visibility === "shared");
+
+  async function handleUpdateNote(note: DealerNote) {
+    const text = editingNoteText.trim();
+    if (!text) {
+      toast.error("Noten må ikke være tom.");
+      return;
+    }
+    setNoteBusyId(note.id);
+    const res = await updateDealerNote(note.id, {
+      note_type: note.note_type,
+      note_text: text,
+      follow_up_date: note.follow_up_date,
+    });
+    setNoteBusyId(null);
+    if (!res.ok) {
+      toast.error(res.error || "Kunne ikke gemme noten.");
+      return;
+    }
+    setNotes((prev) => prev.map((row) => row.id === note.id ? { ...row, note_text: text } : row));
+    setEditingNoteId(null);
+    setEditingNoteText("");
+    toast.success("Noten er opdateret.");
+  }
+
+  async function handleDeleteNote(note: DealerNote) {
+    if (!window.confirm("Vil du slette noten?")) return;
+    setNoteBusyId(note.id);
+    const res = await deleteDealerNote(note.id);
+    setNoteBusyId(null);
+    if (!res.ok) {
+      toast.error(res.error || "Kunne ikke slette noten.");
+      return;
+    }
+    setNotes((prev) => prev.filter((row) => row.id !== note.id));
+    setNoteComments((prev) => {
+      const next = { ...prev };
+      delete next[note.id];
+      return next;
+    });
+    toast.success("Noten er slettet.");
+  }
+
+  async function handleAddComment(note: DealerNote) {
+    if (!canCommentNote(note)) return;
+    const text = (commentDrafts[note.id] || "").trim();
+    if (!text) return;
+    setNoteBusyId(note.id);
+    const comment = await createDealerNoteComment({
+      note_id: note.id,
+      comment_text: text,
+      created_by_user_id: null,
+      created_by_email: effEmail || appUser?.email || null,
+      seller_initials: effInitials || null,
+    });
+    setNoteBusyId(null);
+    setNoteComments((prev) => ({
+      ...prev,
+      [note.id]: [...(prev[note.id] || []), comment],
+    }));
+    setCommentDrafts((prev) => ({ ...prev, [note.id]: "" }));
+  }
+
+  async function handleShareNote(note: DealerNote) {
+    setNoteBusyId(note.id);
+    const sharedAt = new Date().toISOString();
+    const res = await shareDealerNote(note.id);
+    setNoteBusyId(null);
+    if (!res.ok) {
+      toast.error(res.error || "Kunne ikke dele noten.");
+      return;
+    }
+    setNotes((prev) => prev.map((row) => row.id === note.id
+      ? { ...row, visibility: "shared", shared_at: sharedAt }
+      : row
+    ));
+    toast.success("Noten er delt.");
+  }
 
   async function handleAddNote(input: NewNoteForm) {
     if (!dealer) return;
@@ -529,11 +655,14 @@ export default function CrmDealerDetailPage() {
       dealer_number: dealer.account_number,
       dealer_name: dealer.branch_name || dealer.company_name,
       created_by_user_id: null,
-      created_by_email: appUser?.email ?? null,
+      created_by_email: effEmail || appUser?.email || null,
       seller_initials: effInitials || null,
       note_type: input.note_type,
       note_text: input.note_text,
       follow_up_date: input.follow_up_date || null,
+      visibility: input.share_note ? "shared" : "internal",
+      author_party: noteAuthorParty,
+      shared_at: input.share_note ? new Date().toISOString() : null,
     });
     let linkedActivityId: string | null = null;
     if (input.create_calendar) {
@@ -559,18 +688,166 @@ export default function CrmDealerDetailPage() {
         dealer_number: dealer.account_number,
         dealer_name: dealer.branch_name || dealer.company_name,
         created_by_user_id: null,
-        created_by_email: appUser?.email ?? null,
+        created_by_email: effEmail || appUser?.email || null,
         seller_initials: effInitials || null,
         note_type: "follow_up",
         note_text: `Kalenderaktivitet oprettet: ${created.title} (${activityTypeMeta(created.activity_type).label.da}) — ${fmtDateTime(created.start_datetime)} · sælger ${created.seller_initials || "—"}`,
         linked_activity_id: created.id,
         follow_up_date: created.start_datetime,
+        visibility: "internal",
+        author_party: noteAuthorParty,
       });
       const cal = await listCalendarActivities({});
       setCalendar(cal);
     }
     setNotes(prev => [{ ...note, linked_activity_id: linkedActivityId ?? note.linked_activity_id }, ...prev]);
     setShowNoteModal(false);
+  }
+
+  function renderNoteCard(n: DealerNote) {
+    const comments = noteComments[n.id] || [];
+    const canShare = n.visibility !== "shared" && canManageNote(n);
+    return (
+      <li key={n.id} className={`rounded-lg border p-3 ${n.visibility === "shared" ? "border-emerald-200 bg-emerald-50/40" : "border-slate-100 bg-slate-50/50"}`}>
+        <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
+            <span>·</span>
+            <span>{notePartyLabel(n)}</span>
+            <span>·</span>
+            <span>{fmtDateTime(n.created_at)}</span>
+            <span>·</span>
+            <span>{n.seller_initials || "—"}</span>
+          </div>
+          {n.visibility === "shared" && (
+            <span className="rounded-full border border-emerald-200 bg-white px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+              Delt
+            </span>
+          )}
+        </div>
+        {n.follow_up_date && (
+          <div className="mb-2">
+            <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
+              Opfølgning: {fmtDateTime(n.follow_up_date)}
+            </span>
+          </div>
+        )}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            {editingNoteId === n.id ? (
+              <textarea
+                value={editingNoteText}
+                onChange={(e) => setEditingNoteText(e.target.value)}
+                rows={3}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              />
+            ) : (
+              <p className="text-sm text-slate-800 whitespace-pre-wrap">{n.note_text}</p>
+            )}
+          </div>
+          {canManageNote(n) && (
+            <div className="flex shrink-0 items-center gap-1">
+              {editingNoteId === n.id ? (
+                <>
+                  <button
+                    type="button"
+                    disabled={noteBusyId === n.id}
+                    onClick={() => void handleUpdateNote(n)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                    title="Gem note"
+                  >
+                    <Save className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={noteBusyId === n.id}
+                    onClick={() => { setEditingNoteId(null); setEditingNoteText(""); }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+                    title="Annullér"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.note_text); }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                    title="Ret note"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={noteBusyId === n.id}
+                    onClick={() => void handleDeleteNote(n)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-white text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                    title="Slet note"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+        {canShare && (
+          <button
+            type="button"
+            disabled={noteBusyId === n.id}
+            onClick={() => void handleShareNote(n)}
+            className="mt-2 inline-flex items-center rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+          >
+            {noteAuthorParty === "timan" ? "Del med forhandler" : "Del med Timan"}
+          </button>
+        )}
+        {comments.length > 0 && (
+          <div className="mt-3 space-y-1.5 border-l-2 border-emerald-200 pl-3">
+            {comments.map((comment) => (
+              <div key={comment.id} className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700">
+                <div className="mb-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                  <span>{comment.seller_initials || comment.created_by_email || "Kommentar"}</span>
+                  <span>·</span>
+                  <span>{fmtDateTime(comment.created_at)}</span>
+                </div>
+                <p className="whitespace-pre-wrap">{comment.comment_text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {canCommentNote(n) && (
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              value={commentDrafts[n.id] || ""}
+              onChange={(e) => setCommentDrafts((prev) => ({ ...prev, [n.id]: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void handleAddComment(n);
+                }
+              }}
+              placeholder="Tilføj kommentar..."
+              className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            />
+            <button
+              type="button"
+              disabled={noteBusyId === n.id || !(commentDrafts[n.id] || "").trim()}
+              onClick={() => void handleAddComment(n)}
+              className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              <Send className="h-3.5 w-3.5" />
+              Kommentér
+            </button>
+          </div>
+        )}
+        {n.linked_activity_id && (
+          <Link to="/portal/crm/calendar" className="text-[11px] text-emerald-700 underline mt-2 inline-block">
+            Se tilknyttet kalenderaktivitet →
+          </Link>
+        )}
+      </li>
+    );
   }
 
   async function handleSaveDealer(patch: UpdateDealerAccountPatch): Promise<{ ok: boolean; error?: string }> {
@@ -734,7 +1011,7 @@ export default function CrmDealerDetailPage() {
             <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 flex items-center gap-2">
-                  Seneste noter
+                  Noter
                   <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal">{notes.length}</span>
                 </h3>
                 <button onClick={() => setShowNoteModal(true)}
@@ -745,41 +1022,30 @@ export default function CrmDealerDetailPage() {
                   {t("add_note")}
                 </button>
               </div>
-              {notes.length === 0 ? (
-                <p className="text-sm text-slate-500">{t("no_notes")}</p>
-              ) : (
-                <>
-                  <ul className="space-y-2">
-                    {notes.slice(0, 10).map((n) => (
-                      <li key={n.id} className="border border-slate-100 rounded-lg p-3 bg-slate-50/50">
-                        <div className="flex items-center justify-between gap-2 text-xs text-slate-500 mb-1 flex-wrap">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
-                            <span>·</span>
-                            <span>{fmtDateTime(n.created_at)}</span>
-                            <span>·</span>
-                            <span>sælger {n.seller_initials || "—"}</span>
-                          </div>
-                          {n.follow_up_date && (
-                            <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
-                              Opfølgning: {fmtDateTime(n.follow_up_date)}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-slate-800 whitespace-pre-wrap">{n.note_text}</p>
-                        {n.linked_activity_id && (
-                          <Link to="/portal/crm/calendar" className="text-[11px] text-emerald-700 underline mt-1 inline-block">
-                            Se tilknyttet kalenderaktivitet →
-                          </Link>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                  {notes.length > 10 && (
-                    <p className="mt-3 text-[11px] text-slate-500">Viser de 10 nyeste af {notes.length} noter.</p>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="min-w-0">
+                  <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Interne noter
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-700">{internalNotes.length}</span>
+                  </h4>
+                  {internalNotes.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-3 text-sm text-slate-500">{t("no_notes")}</p>
+                  ) : (
+                    <ul className="space-y-2">{internalNotes.slice(0, 10).map(renderNoteCard)}</ul>
                   )}
-                </>
-              )}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-emerald-700">
+                    Delte noter
+                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800">{sharedNotes.length}</span>
+                  </h4>
+                  {sharedNotes.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-emerald-100 bg-emerald-50/30 p-3 text-sm text-slate-500">Ingen delte noter endnu.</p>
+                  ) : (
+                    <ul className="space-y-2">{sharedNotes.slice(0, 10).map(renderNoteCard)}</ul>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* RIGHT — Seneste tilbud + Seneste aktiviteter (stacked) */}
@@ -851,6 +1117,7 @@ export default function CrmDealerDetailPage() {
       {showNoteModal && (
         <NoteModal
           dealerLabel={dealer.branch_name || dealer.company_name}
+          shareLabel={noteAuthorParty === "timan" ? "Del med forhandler" : "Del med Timan"}
           onCancel={() => setShowNoteModal(false)}
           onSave={handleAddNote}
         />
@@ -1264,14 +1531,16 @@ interface NewNoteForm {
   note_type: DealerNoteType;
   note_text: string;
   follow_up_date: string;
+  share_note: boolean;
   create_calendar: boolean;
   cal_title: string;
   cal_type: CalendarActivityType;
   cal_when: string;
 }
 
-function NoteModal({ dealerLabel, onCancel, onSave }: {
+function NoteModal({ dealerLabel, shareLabel, onCancel, onSave }: {
   dealerLabel: string;
+  shareLabel: string;
   onCancel: () => void;
   onSave: (input: NewNoteForm) => void | Promise<void>;
 }) {
@@ -1279,6 +1548,7 @@ function NoteModal({ dealerLabel, onCancel, onSave }: {
     note_type: "general",
     note_text: "",
     follow_up_date: "",
+    share_note: false,
     create_calendar: false,
     cal_title: "",
     cal_type: "demo",
@@ -1290,7 +1560,7 @@ function NoteModal({ dealerLabel, onCancel, onSave }: {
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 overflow-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 mt-12">
         <h2 className="text-lg font-bold text-slate-900 mb-1">Tilføj note</h2>
-        <p className="text-xs text-slate-500 mb-4">Forhandler: {dealerLabel} · intern note (vises ikke for eksterne)</p>
+        <p className="text-xs text-slate-500 mb-4">Forhandler: {dealerLabel} · intern som standard</p>
 
         <label className="block text-xs font-bold text-slate-600 mb-1">Notetype</label>
         <select value={form.note_type}
@@ -1311,6 +1581,12 @@ function NoteModal({ dealerLabel, onCancel, onSave }: {
         <input type="datetime-local" value={form.follow_up_date}
           onChange={(e) => setForm(f => ({ ...f, follow_up_date: e.target.value }))}
           className="w-full mb-3 rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+
+        <label className="flex items-center gap-2 mb-3 rounded-lg border border-emerald-100 bg-emerald-50/50 px-3 py-2 text-sm font-semibold text-emerald-900">
+          <input type="checkbox" checked={form.share_note}
+            onChange={(e) => setForm(f => ({ ...f, share_note: e.target.checked }))} />
+          {shareLabel}
+        </label>
 
         <label className="flex items-center gap-2 mb-3 text-sm">
           <input type="checkbox" checked={form.create_calendar}
