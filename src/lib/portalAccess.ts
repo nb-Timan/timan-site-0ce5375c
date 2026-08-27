@@ -181,11 +181,12 @@ export function getPortalPermissions(role: PortalRole): PortalPermissions {
 }
 
 export function canManageNewsContent(
-  user: ({ permissions?: Record<string, boolean> | null; portal_role?: string | null; module_access?: string[] | null } & Pick<AppUser, 'role' | 'partner_type'>) | null | undefined,
+  user: ({ permissions?: Record<string, boolean> | null; portal_role?: string | null; module_access?: string[] | null; allowed_areas?: string[] | null } & Pick<AppUser, 'role' | 'partner_type'>) | null | undefined,
 ): boolean {
   if (!user) return false;
   const role = derivePortalRole(user);
   if (role && getPortalPermissions(role).canManageNews) return true;
+  if (Array.isArray(user.allowed_areas) && user.allowed_areas.includes('marketing')) return true;
   return user.permissions?.news_manage === true;
 }
 
@@ -335,3 +336,4 @@ export function hasModuleAccess(
   const list = override && override.length > 0 ? override : DEFAULT_MODULE_ACCESS[role];
   return list.includes(key);
 }
+
