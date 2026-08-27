@@ -842,15 +842,15 @@ export default function CrmLeadsPage() {
       </div>
 
       {/* Filter strip */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5 flex flex-col xl:flex-row xl:flex-wrap gap-3">
-        <div className="relative min-w-[260px] flex-1">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.05fr)_minmax(130px,0.5fr)_minmax(190px,0.95fr)_minmax(160px,0.75fr)_minmax(160px,0.75fr)_minmax(185px,0.8fr)] gap-3">
+        <div className="relative min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input value={q} onChange={e=>setQ(e.target.value)} placeholder={tt('search_ph', lang)}
             className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none" />
         </div>
         <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value as UserLeadType | '')}
           aria-label={tt('filter_type', lang)}
-          className="min-w-[150px] rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+          className="min-w-0 w-full rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_types', lang)}</option>
           {typeOptions.map((type) => (
             <option key={type} value={type}>{tt('filter_type', lang)}: {getUserLeadTypeLabel(type, lang)}</option>
@@ -858,23 +858,23 @@ export default function CrmLeadsPage() {
         </select>
         <select value={machineFilter} onChange={e=>setMachineFilter(e.target.value)}
           aria-label={tt('filter_machine', lang)}
-          className="min-w-[170px] rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+          className="min-w-0 w-full rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_machines', lang)}</option>
           {machineOptions.map((machine) => <option key={machine} value={machine}>{machine}</option>)}
         </select>
         <select value={equipmentFilter} onChange={e=>setEquipmentFilter(e.target.value)}
           aria-label={tt('filter_equipment', lang)}
-          className="min-w-[170px] rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white"
+          className="min-w-0 w-full rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white"
           disabled={equipmentOptions.length === 0}>
           <option value="">{tt('all_equipment', lang)}</option>
           {equipmentOptions.map((equipment) => <option key={equipment} value={equipment}>{equipment}</option>)}
         </select>
         <select value={stage} onChange={e=>setStage(e.target.value)}
-          className="min-w-[180px] rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+          className="min-w-0 w-full rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_status', lang)}</option>
           {statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <div className="relative min-w-[230px]">
+        <div className="relative min-w-0">
           <ArrowDownAZ className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <select value={sort} onChange={e=>setSort(e.target.value as SortKey)}
             className="w-full rounded-xl border border-gray-200 text-sm pl-10 pr-3 py-2.5 bg-white">
