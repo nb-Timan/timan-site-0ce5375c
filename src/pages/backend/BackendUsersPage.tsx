@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Check, KeyRound, Mail, Pencil, RotateCcw, Users as UsersIcon, X } from "lucide-react";
+import { Check, KeyRound, Mail, Pencil, RotateCcw, ShieldAlert, Users as UsersIcon, X } from "lucide-react";
 import { callAdminUserAction } from "@/lib/adminUserActions";
 import { clearSellerIdCache } from "@/lib/resolveSellerId";
 import { clearViewAsCache } from "@/lib/viewAsUser";
@@ -425,6 +425,7 @@ export default function BackendUsersPage() {
         <EditUserModal
           key={editing.id}
           user={editing}
+          currentAdminEmail={appUser.email}
           onClose={() => setEditingId(null)}
           onSave={async (patch) => {
             setSaveError(null);
@@ -492,10 +493,12 @@ function Td({ children, className = "" }: { children: React.ReactNode; className
 
 function EditUserModal({
   user,
+  currentAdminEmail,
   onClose,
   onSave,
 }: {
   user: BackendUser;
+  currentAdminEmail: string;
   onClose: () => void;
   onSave: (patch: BackendUser) => Promise<{ ok: boolean; error?: string }>;
 }) {
@@ -504,6 +507,7 @@ function EditUserModal({
   const [localError, setLocalError] = useState<string | null>(null);
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [dealerQuery, setDealerQuery] = useState("");
+  const editingOwnUser = user.email.toLowerCase() === currentAdminEmail.toLowerCase();
 
   useEffect(() => {
     let cancelled = false;
@@ -600,6 +604,20 @@ function EditUserModal({
         </div>
 
         <div className="px-6 py-5 space-y-6">
+          {editingOwnUser && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <div className="flex items-start gap-2">
+                <ShieldAlert className="mt-0.5 h-4 w-4 flex-none" />
+                <div>
+                  <p className="font-bold">Du redigerer din egen administratorkonto.</p>
+                  <p className="mt-1 text-xs">
+                    Rolle, status, adgangsområder, moduler, permissions og hurtige handlinger kan ikke ændres på din egen bruger.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Basic */}
           <Section title="Basic">
             <Grid>
@@ -671,7 +689,9 @@ function EditUserModal({
             <Select
               label="Portal role"
               value={draft.role}
+              disabled={editingOwnUser}
               onChange={(v) => {
+                if (editingOwnUser) return;
                 const newRole = v as PortalRole;
                 const restricted = isPaymentAndDiscountRestrictedRole(newRole);
                 const dealerSide = isDealerSideRole(newRole);
@@ -741,13 +761,19 @@ function EditUserModal({
                 <button
                   key={s}
                   type="button"
+                  disabled={editingOwnUser}
                   onClick={() => {
+                    if (editingOwnUser) return;
                     if (s === "active") setDraft({ ...draft, status: s, approved: true, is_active: true });
                     else if (s === "pending") setDraft({ ...draft, status: s, approved: false, is_active: false });
                     else setDraft({ ...draft, status: s, approved: true, is_active: false });
                   }}
                   className={`rounded-lg px-3 py-1.5 text-xs font-bold border ${
-                    draft.status === s
+                    editingOwnUser
+                      ? draft.status === s
+                        ? `${STATUS_PILL[s]} border-transparent opacity-70 cursor-not-allowed`
+                        : "bg-white border-slate-100 text-slate-400 cursor-not-allowed"
+                    : draft.status === s
                       ? `${STATUS_PILL[s]} border-transparent`
                       : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                   }`}
@@ -815,12 +841,12 @@ function EditUserModal({
                     items={ALL_AREAS.map((a) => ({
                       value: a,
                       label: AREA_LABEL[a],
-                      disabled: dealerSide && FORBIDDEN_AREAS.includes(a),
+                      disabled: editingOwnUser || (dealerSide && FORBIDDEN_AREAS.includes(a)),
                     }))}
                     checked={draft.allowed_areas}
                     onChange={(v) => {
                       const area = v as AreaKey;
-                      if (dealerSide && FORBIDDEN_AREAS.includes(area)) return;
+                      if (editingOwnUser || (dealerSide && FORBIDDEN_AREAS.includes(area))) return;
                       setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, area) });
                     }}
                   />
@@ -848,12 +874,12 @@ function EditUserModal({
                     items={modules.map((m) => ({
                       value: m,
                       label: MODULE_LABEL[m] || m,
-                      disabled: dealerSide && FORBIDDEN_MODULES.includes(m),
+                      disabled: editingOwnUser || (dealerSide && FORBIDDEN_MODULES.includes(m)),
                     }))}
                     checked={draft.allowed_modules}
                     onChange={(v) => {
                       const mod = v as ModuleAccessKey;
-                      if (dealerSide && FORBIDDEN_MODULES.includes(mod)) return;
+                      if (editingOwnUser || (dealerSide && FORBIDDEN_MODULES.includes(mod))) return;
                       setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, mod) });
                     }}
                   />
@@ -869,11 +895,11 @@ function EditUserModal({
                       items={BACKEND_META_MODULES.map((m) => ({
                         value: m,
                         label: BACKEND_MODULE_LABEL[m],
-                        disabled: dealerSide,
+                        disabled: editingOwnUser || dealerSide,
                       }))}
                       checked={dealerSide ? [] : draft.backend_modules}
                       onChange={(v) => {
-                        if (dealerSide) return;
+                        if (editingOwnUser || dealerSide) return;
                         setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, v as BackendMetaModule) });
                       }}
                     />
@@ -908,16 +934,17 @@ function EditUserModal({
                       { value: "can_create_claims", label: "Can create claims" },
                       { value: "can_approve_claims", label: "Can approve claims" },
                       { value: "can_create_tsb", label: "Can create TSB" },
-                      { value: "can_manage_users", label: "Can manage users", disabled: dealerSide },
-                      { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser", disabled: restricted },
-                      { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount", disabled: restricted },
+                      { value: "can_manage_users", label: "Can manage users", disabled: editingOwnUser || dealerSide },
+                      { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser", disabled: editingOwnUser || restricted },
+                      { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount", disabled: editingOwnUser || restricted },
                       { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
                       { value: "news_manage", label: "Administrér nyheder / Manage news" },
-                    ]}
+                    ].map((item) => ({ ...item, disabled: editingOwnUser || item.disabled }))}
                     checked={(Object.entries(effectivePerms) as [keyof BackendUser["perms"], boolean][])
                       .filter(([, v]) => v)
                       .map(([k]) => k)}
                     onChange={(key) => {
+                      if (editingOwnUser) return;
                       if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;
                       if (dealerSide && key === "can_manage_users") return;
                       setDraft({
@@ -947,10 +974,12 @@ function EditUserModal({
               items={QUICK_ACTION_KEYS.map((k) => ({
                 value: k,
                 label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
+                disabled: editingOwnUser,
               }))}
               checked={(draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as string[]}
               onChange={(key) => {
                 const k = key as QuickActionKey;
+                if (editingOwnUser) return;
                 const current = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
                 const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
                 setDraft({ ...draft, quick_actions: next });
@@ -1016,15 +1045,16 @@ function Input({ label, value, onChange }: { label: string; value: string; onCha
   );
 }
 function Select({
-  label, value, onChange, options,
-}: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[] }) {
+  label, value, onChange, options, disabled = false,
+}: { label: string; value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; disabled?: boolean }) {
   return (
     <label className="block">
       <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">{label}</span>
       <select
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none"
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
       >
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
