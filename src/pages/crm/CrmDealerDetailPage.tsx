@@ -568,7 +568,7 @@ export default function CrmDealerDetailPage() {
   }
 
   const internalNotes = notes.filter((note) =>
-    note.visibility !== "shared" && note.author_party === noteAuthorParty
+    note.visibility !== "shared" && (admin || note.author_party === noteAuthorParty)
   );
   const sharedNotes = notes.filter((note) => note.visibility === "shared");
 
