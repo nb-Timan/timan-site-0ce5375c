@@ -351,6 +351,7 @@ export interface ListCalendarOpts {
   sellerInitials?: string | null; // null/"all" → no filter
   sellerUserId?: string | null;
   accountId?: string | null;
+  accountIds?: string[] | null;
   fromIso?: string | null;
   toIso?: string | null;
 }
@@ -374,6 +375,7 @@ export async function listActivities(opts: ListCalendarOpts = {}): Promise<Calen
       q = q.or(orParts.join(","));
     }
     if (opts.accountId) q = q.eq("account_id", opts.accountId);
+    else if (opts.accountIds && opts.accountIds.length > 0) q = q.in("account_id", opts.accountIds);
     if (opts.fromIso) q = q.gte("start_datetime", opts.fromIso);
     if (opts.toIso) q = q.lte("start_datetime", opts.toIso);
     const { data, error } = await q;
@@ -383,6 +385,7 @@ export async function listActivities(opts: ListCalendarOpts = {}): Promise<Calen
         let q2 = supabase.from("crm_calendar_activities").select("*").order("start_datetime", { ascending: true }).limit(2000);
         q2 = q2.eq("seller_initials", wantInitials);
         if (opts.accountId) q2 = q2.eq("account_id", opts.accountId);
+        else if (opts.accountIds && opts.accountIds.length > 0) q2 = q2.in("account_id", opts.accountIds);
         if (opts.fromIso) q2 = q2.gte("start_datetime", opts.fromIso);
         if (opts.toIso) q2 = q2.lte("start_datetime", opts.toIso);
         const retry = await q2;
@@ -405,6 +408,10 @@ export async function listActivities(opts: ListCalendarOpts = {}): Promise<Calen
     });
   }
   if (opts.accountId) rows = rows.filter(r => r.account_id === opts.accountId);
+  else if (opts.accountIds && opts.accountIds.length > 0) {
+    const ids = new Set(opts.accountIds);
+    rows = rows.filter(r => !!r.account_id && ids.has(r.account_id));
+  }
   if (opts.fromIso) rows = rows.filter(r => r.start_datetime >= opts.fromIso!);
   if (opts.toIso) rows = rows.filter(r => r.start_datetime <= opts.toIso!);
   return rows.sort((a, b) => a.start_datetime.localeCompare(b.start_datetime));

@@ -155,6 +155,30 @@ export function rowVisibleToScope(
   return false;
 }
 
+function configDealerNumbers(filter: CrmConfigurationFilter): string[] {
+  const seen = new Set<string>();
+  for (const raw of [filter.dealerNumber, ...(filter.dealerNumbers ?? [])]) {
+    const value = (raw ?? '').trim();
+    if (value) seen.add(value);
+  }
+  return Array.from(seen);
+}
+
+function quotePostgrestValue(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+function dealerNumberOrFilter(numbers: string[], includeAccountNumber: boolean): string {
+  const list = numbers.map(quotePostgrestValue).join(',');
+  const parts = [`dealer_number.in.(${list})`];
+  if (includeAccountNumber) parts.push(`dealer_account_number.in.(${list})`);
+  return parts.join(',');
+}
+
+function isMissingDealerAccountNumber(error: { message?: string } | null | undefined): boolean {
+  return /dealer_account_number/i.test(error?.message ?? '');
+}
+
 /**
  * Fetch quotes or orders for the current scope.
  * Tries the crm_configurations_view first, then falls back to selecting
@@ -164,51 +188,60 @@ export async function listCrmConfigurations(
   filter: CrmConfigurationFilter,
 ): Promise<{ rows: CrmConfigurationRow[]; error?: string }> {
   const docType = filter.documentType;
+  const dealerNumbers = configDealerNumbers(filter);
 
   // Prefer the view (joins dealer_accounts for company name + country).
   let rows: CrmConfigurationRow[] = [];
   let viewError: string | null = null;
 
   try {
-    let q = supabase
-      .from('crm_configurations_view')
-      .select('*')
-      .neq('case_status', 'deleted');
-    // Converted legacy quotes may have document_type='quote' while
-    // case_type/status were correctly saved as an order. Treat those rows as
-    // orders on read; hide order-like rows from active Tilbud.
-    // NOTE: crm_configurations_view does NOT expose case_type (it is folded
-    // into document_type via coalesce). Only reference columns the view
-    // actually has, otherwise PostgREST errors and we lose all rows.
-    if (docType === 'order') {
-      q = q.or('document_type.eq.order,case_status.eq.ordre_afgivet');
-    } else {
-      q = q.eq('document_type', 'quote')
-        .neq('case_status', 'ordre_afgivet');
-    }
-    const { data, error } = await q
-      .order('created_at', { ascending: false })
-      .limit(500);
+    const runViewQuery = (includeAccountNumber: boolean) => {
+      let q = supabase
+        .from('crm_configurations_view')
+        .select('*')
+        .neq('case_status', 'deleted');
+      // Converted legacy quotes may have document_type='quote' while
+      // case_type/status were correctly saved as an order. Treat those rows as
+      // orders on read; hide order-like rows from active Tilbud.
+      // NOTE: crm_configurations_view does NOT expose case_type (it is folded
+      // into document_type via coalesce). Only reference columns the view
+      // actually has, otherwise PostgREST errors and we lose all rows.
+      if (docType === 'order') {
+        q = q.or('document_type.eq.order,case_status.eq.ordre_afgivet');
+      } else {
+        q = q.eq('document_type', 'quote')
+          .neq('case_status', 'ordre_afgivet');
+      }
+      if (dealerNumbers.length > 0) q = q.or(dealerNumberOrFilter(dealerNumbers, includeAccountNumber));
+      return q.order('created_at', { ascending: false }).limit(500);
+    };
+    let result = await runViewQuery(true);
+    if (result.error && isMissingDealerAccountNumber(result.error)) result = await runViewQuery(false);
+    const { data, error } = result;
     if (error) throw error;
     rows = (data ?? []).map((r) => rowToConfig(r as Record<string, unknown>));
   } catch (e) {
     viewError = e instanceof Error ? e.message : String(e);
     // Fallback: direct select from configurations.
     try {
-      let q = supabase
-        .from('configurations')
-        .select('*')
-        .neq('case_status', 'deleted');
-      if (docType === 'order') {
-        q = q.or('document_type.eq.order,case_type.eq.order,case_status.eq.ordre_afgivet');
-      } else {
-        q = q.or('document_type.eq.quote,case_type.eq.quote')
-          .neq('case_status', 'ordre_afgivet')
-          .or('case_type.is.null,case_type.neq.order');
-      }
-      const { data, error } = await q
-        .order('created_at', { ascending: false })
-        .limit(500);
+      const runTableQuery = (includeAccountNumber: boolean) => {
+        let q = supabase
+          .from('configurations')
+          .select('*')
+          .neq('case_status', 'deleted');
+        if (docType === 'order') {
+          q = q.or('document_type.eq.order,case_type.eq.order,case_status.eq.ordre_afgivet');
+        } else {
+          q = q.or('document_type.eq.quote,case_type.eq.quote')
+            .neq('case_status', 'ordre_afgivet')
+            .or('case_type.is.null,case_type.neq.order');
+        }
+        if (dealerNumbers.length > 0) q = q.or(dealerNumberOrFilter(dealerNumbers, includeAccountNumber));
+        return q.order('created_at', { ascending: false }).limit(500);
+      };
+      let result = await runTableQuery(true);
+      if (result.error && isMissingDealerAccountNumber(result.error)) result = await runTableQuery(false);
+      const { data, error } = result;
       if (error) throw error;
       rows = (data ?? []).map((r) => rowToConfig(r as Record<string, unknown>));
     } catch (e2) {

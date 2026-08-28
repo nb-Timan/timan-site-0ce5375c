@@ -43,14 +43,14 @@ import { useEffectivePortalUser } from "@/lib/viewAsUser";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import {
   DealerAccount, DealerAccountStats,
-  fetchDealerAccounts, fetchDealerAccountStats,
+  fetchDealerAccountFamilyByNumber, fetchDealerAccountStatsByNumbers,
   updateDealerAccount, type UpdateDealerAccountPatch,
   isDealerInactive, dealerLifecycleStatus, resolveActiveDealer, isDealerCustomerAccount,
   DEALER_TYPE_OPTIONS,
   dealerTypeFromCustomerType,
 } from "@/lib/dealerAccountsService";
-import { fetchBackendUsers } from "@/lib/backendUsersService";
 import type { BackendUser } from "@/lib/backend-users-store";
+import { supabase } from "@/lib/supabase";
 import {
   listActivities as listCalendarActivities,
   createActivity as createCalendarActivity,
@@ -309,6 +309,110 @@ function startOfIsoWeek(d: Date): Date {
   return x;
 }
 
+const DETAIL_USER_COLUMNS = [
+  "id", "email", "full_name", "initials", "company", "country", "postal_code", "preferred_language",
+  "dealer_number", "company_dealer", "seller_initials", "seller_email", "portal_role", "status",
+  "approved", "is_active", "last_login",
+  "account_owner_user_id", "account_owner_name", "account_owner_initials", "account_owner_email",
+].join(", ");
+
+function detailUserFromRow(row: Record<string, unknown>): BackendUser {
+  const name = String(row.full_name || row.email || "");
+  const explicitInitials = String(row.initials || "").trim();
+  const initials = explicitInitials || name
+    .split(/\s+/)
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 3)
+    .join("")
+    .toUpperCase();
+  const language = String(row.preferred_language || "da").toLowerCase();
+  return {
+    id: String(row.id),
+    initials: initials.toUpperCase().slice(0, 4) || "?",
+    name,
+    email: String(row.email || ""),
+    company: String(row.company || ""),
+    country: String(row.country || "DK"),
+    postal_code: (row.postal_code as string | null) ?? null,
+    language: (["da", "en", "de", "it", "hu"].includes(language) ? language : "da") as BackendUser["language"],
+    dealer_number: (row.dealer_number as string | null) ?? null,
+    company_dealer: (row.company_dealer as string | null) ?? null,
+    seller_initials: (row.seller_initials as string | null) ?? null,
+    seller_email: (row.seller_email as string | null) ?? null,
+    notes: null,
+    role: ((row.portal_role as BackendUser["role"] | null) ?? "dealer_user"),
+    status: row.status === "blocked" ? "blocked" : row.status === "pending" ? "pending" : "active",
+    approved: row.approved !== false,
+    is_active: row.is_active !== false,
+    allowed_areas: [],
+    allowed_modules: [],
+    backend_modules: [],
+    perms: {
+      can_create_claims: false,
+      can_approve_claims: false,
+      can_create_tsb: false,
+      can_manage_users: false,
+      can_manage_payment_terms: false,
+      can_apply_extra_dealer_discount: false,
+      can_save_configurator_as_lead: false,
+      news_manage: false,
+      can_view_prices: false,
+      can_submit_order: false,
+    },
+    account_owner_user_id: (row.account_owner_user_id as string | null) ?? null,
+    account_owner_name: (row.account_owner_name as string | null) ?? null,
+    account_owner_initials: (row.account_owner_initials as string | null) ?? null,
+    account_owner_email: (row.account_owner_email as string | null) ?? null,
+    last_login_at: (row.last_login as string | null) ?? null,
+  };
+}
+
+async function fetchDealerDetailUsers(dealers: DealerAccount[]): Promise<BackendUser[]> {
+  const dealerNumbers = Array.from(new Set(dealers.map((d) => d.account_number).filter(Boolean)));
+  const sellerEmails = Array.from(new Set(dealers
+    .map((d) => d.assigned_seller_email?.trim().toLowerCase())
+    .filter((email): email is string => Boolean(email))));
+  const byId = new Map<string, BackendUser>();
+
+  const addRows = (rows: unknown[] | null | undefined) => {
+    for (const row of (rows ?? []) as Record<string, unknown>[]) {
+      const user = detailUserFromRow(row);
+      byId.set(user.id, user);
+    }
+  };
+
+  if (dealerNumbers.length > 0) {
+    const { data, error } = await supabase
+      .from("app_users")
+      .select(DETAIL_USER_COLUMNS)
+      .in("dealer_number", dealerNumbers)
+      .order("email", { ascending: true });
+    if (error) throw error;
+    addRows(data);
+  }
+
+  if (sellerEmails.length > 0) {
+    const { data, error } = await supabase
+      .from("app_users")
+      .select(DETAIL_USER_COLUMNS)
+      .in("email", sellerEmails)
+      .order("email", { ascending: true });
+    if (error) throw error;
+    addRows(data);
+  }
+
+  const { data: timanUsers, error: timanUsersError } = await supabase
+    .from("app_users")
+    .select(DETAIL_USER_COLUMNS)
+    .in("portal_role", ["timan_seller", "timan_backend"])
+    .order("email", { ascending: true });
+  if (timanUsersError) throw timanUsersError;
+  addRows(timanUsers);
+
+  return Array.from(byId.values()).sort((a, b) => a.email.localeCompare(b.email));
+}
+
 export default function CrmDealerDetailPage() {
   const { accountNumber = "" } = useParams<{ accountNumber: string }>();
   const { appUser, loading } = useAppUser();
@@ -373,11 +477,9 @@ export default function CrmDealerDetailPage() {
     (async () => {
       setBusy(true);
       try {
-        const [scopeRes, dRes, sRes, uRes] = await Promise.all([
+        const [scopeRes, dRes] = await Promise.all([
           externalCrm ? buildJournalScope(effectiveUser, portalRole) : Promise.resolve(null),
-          fetchDealerAccounts({ includeDeleted: false }),
-          fetchDealerAccountStats(),
-          fetchBackendUsers(),
+          fetchDealerAccountFamilyByNumber(accountNumber, { includeDeleted: false }),
         ]);
         if (cancelled) return;
         const scopedDealerNumbers = scopeRes ? Array.from(scopeRes.dealerNumbers) : null;
@@ -388,21 +490,37 @@ export default function CrmDealerDetailPage() {
         const dealerRows = fallbackDealer && !visibleDealers.some((d) => d.account_number === fallbackDealer.account_number)
           ? [...visibleDealers, fallbackDealer]
           : visibleDealers;
+        if (dealerRows.length === 0) {
+          setDealers([]);
+          setStats({});
+          setUsers([]);
+          setCalendar([]);
+          setDealerQuotes([]);
+          setDealerOrders([]);
+          setAllLeads([]);
+          setAllDemos([]);
+          setBudgetIndex(null);
+          return;
+        }
+        const dealerNumbers = Array.from(new Set(dealerRows.map((d) => d.account_number).filter(Boolean)));
+        const dealerIds = Array.from(new Set(dealerRows.map((d) => d.id).filter(Boolean)));
+        const [sRes, detailUsers, cal] = await Promise.all([
+          fetchDealerAccountStatsByNumbers(dealerNumbers),
+          fetchDealerDetailUsers(dealerRows),
+          listCalendarActivities({ accountIds: dealerIds }),
+        ]);
+        if (cancelled) return;
         setDealers(dealerRows);
         const map: Record<string, DealerAccountStats> = {};
         for (const s of sRes.rows) map[s.id] = s;
         setStats(map);
-        setUsers(scopedDealerNumbers
-          ? uRes.users.filter((u) => isDealerNumberAllowed(u.dealer_number, scopedDealerNumbers))
-          : uRes.users);
-        const cal = await listCalendarActivities({});
-        if (cancelled) return;
+        setUsers(detailUsers);
         setCalendar(scopedDealerNumbers
           ? cal.filter((a) => !a.account_id || dealerRows.some((d) => d.id === a.account_id))
           : cal);
         // Fetch live quotes + orders for ALL accessible scopes — backend admin
-        // fetches everything (no scoping), seller fetches their own. We then
-        // filter client-side by dealer_number so branch/group toggle works.
+        // and sellers now fetch only this dealer family. We still keep the
+        // existing client-side match below so branch/group toggle works.
         const sellerView = getActiveSellerView(appUser?.email);
         const sellerId = await resolveSellerId(sellerView?.email ?? appUser?.email);
         const sellerInitials = sellerView?.initials
@@ -413,14 +531,17 @@ export default function CrmDealerDetailPage() {
           sellerId,
           sellerInitials,
           sellerEmail,
-          dealerNumber: effectiveUser?.dealer_number ?? null,
-          dealerNumbers: scopedDealerNumbers,
+          dealerNumber: externalCrm ? effectiveUser?.dealer_number ?? null : null,
+          dealerNumbers,
         } as const;
         const [qRes, oRes, leadsRes, demosRes] = await Promise.all([
           listScopedOpenQuotes(filterBase),
           listScopedOrdersWithValue(filterBase),
-          listLeads({ limit: 500 }),
-          listDemoLeads({ limit: 500 }),
+          listLeads({ limit: 500, linkedDealerIds: dealerIds }),
+          listDemoLeads({
+            limit: 500,
+            dealerCompanies: Array.from(new Set(dealerRows.flatMap((d) => [d.company_name, d.branch_name].filter(Boolean) as string[]))),
+          }),
         ]);
         if (!cancelled) {
           setDealerQuotes(qRes.rows);
@@ -790,7 +911,13 @@ export default function CrmDealerDetailPage() {
         visibility: "internal",
         author_party: noteAuthorParty,
       });
-      const cal = await listCalendarActivities({});
+      const calendarDealerIds = Array.from(new Set(
+        dealers
+          .filter((d) => scopeNumbers.includes(d.account_number))
+          .map((d) => d.id)
+          .filter(Boolean),
+      ));
+      const cal = await listCalendarActivities({ accountIds: calendarDealerIds });
       setCalendar(cal);
     }
     setNotes(prev => [{ ...note, linked_activity_id: linkedActivityId ?? note.linked_activity_id }, ...prev]);
@@ -950,8 +1077,8 @@ export default function CrmDealerDetailPage() {
       toast.error(res.error || "Kunne ikke opdatere forhandleren.");
       return res;
     }
-    // Refresh dealer list (and detail derives from it)
-    const dRes = await fetchDealerAccounts({ includeDeleted: false });
+    // Refresh only this dealer family; the detail view derives from it.
+    const dRes = await fetchDealerAccountFamilyByNumber(accountNumber, { includeDeleted: false });
     setDealers(dRes.rows);
     toast.success("Forhandleren er opdateret.");
     setShowEditDealer(false);
@@ -1228,7 +1355,7 @@ export default function CrmDealerDetailPage() {
           onCancel={() => setShowEditDealer(false)}
           onSave={handleSaveDealer}
           onGeocoded={async () => {
-            const dRes = await fetchDealerAccounts({ includeDeleted: false });
+            const dRes = await fetchDealerAccountFamilyByNumber(accountNumber, { includeDeleted: false });
             setDealers(dRes.rows);
           }}
         />

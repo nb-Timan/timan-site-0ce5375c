@@ -651,7 +651,12 @@ export async function getLead(id: string): Promise<CrmLead | null> {
   return seeded ? ensureLeadNumbers([seeded])[0] : null;
 }
 
-export interface ListLeadsOpts { ownerUserId?: string | null; limit?: number }
+export interface ListLeadsOpts {
+  ownerUserId?: string | null;
+  limit?: number;
+  linkedDealerIds?: string[] | null;
+  dealerCompanies?: string[] | null;
+}
 
 export interface CrmLeadsPageRow {
   id: string;
@@ -822,6 +827,7 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   try {
     let q = supabase.from("crm_leads").select("*").order("created_at", { ascending: false }).limit(limit);
     if (opts.ownerUserId) q = q.eq("owner_user_id", opts.ownerUserId);
+    if (opts.linkedDealerIds && opts.linkedDealerIds.length > 0) q = q.in("linked_dealer_id", opts.linkedDealerIds);
     const { data, error } = await q;
     if (error) throw error;
     remoteReadOk = true;
@@ -840,6 +846,10 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   const seeded = seedOpenLeads().filter((r) => !deletedIds.has(r.id));
   let merged = dedupOpenLeads([...supRows, ...localRows, ...seeded] as any);
   if (opts.ownerUserId) merged = merged.filter(r => r.owner_user_id === opts.ownerUserId);
+  if (opts.linkedDealerIds && opts.linkedDealerIds.length > 0) {
+    const ids = new Set(opts.linkedDealerIds);
+    merged = merged.filter(r => !!r.linked_dealer_id && ids.has(r.linked_dealer_id));
+  }
   merged.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
   // Assign stable lead_no to any row missing one (older rows / offline-created),
   // then persist back so the same numbers stick across reloads.
@@ -1025,6 +1035,7 @@ export async function listDemoLeads(opts: ListLeadsOpts = {}): Promise<CrmDemoLe
   try {
     let q = supabase.from("crm_demo_leads").select("*").order("created_at", { ascending: false }).limit(limit);
     if (opts.ownerUserId) q = q.eq("owner_user_id", opts.ownerUserId);
+    if (opts.dealerCompanies && opts.dealerCompanies.length > 0) q = q.in("dealer_company", opts.dealerCompanies);
     const { data, error } = await q;
     if (error) throw error;
     remoteReadOk = true;
@@ -1053,6 +1064,13 @@ export async function listDemoLeads(opts: ListLeadsOpts = {}): Promise<CrmDemoLe
 
   if (opts.ownerUserId) {
     merged = merged.filter(r => r.owner_user_id === opts.ownerUserId);
+  }
+  if (opts.dealerCompanies && opts.dealerCompanies.length > 0) {
+    const names = new Set(opts.dealerCompanies.map((name) => name.trim().toLowerCase()).filter(Boolean));
+    merged = merged.filter(r => {
+      const dealerCompany = (r.dealer_company || "").trim().toLowerCase();
+      return dealerCompany && names.has(dealerCompany);
+    });
   }
   // Sort newest first by created_at then demo_date.
   merged.sort((a, b) => (b.created_at || b.demo_date || "").localeCompare(a.created_at || a.demo_date || ""));

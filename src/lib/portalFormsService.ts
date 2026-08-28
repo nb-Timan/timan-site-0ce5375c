@@ -76,6 +76,7 @@ export async function submitPortalForm(
 
 export async function listPortalFormSubmissions(opts?: {
   formType?: PortalFormType;
+  dealerAccountNumber?: string | null;
   limit?: number;
 }): Promise<PortalFormSubmission[]> {
   let q = supabase
@@ -84,6 +85,7 @@ export async function listPortalFormSubmissions(opts?: {
     .order('created_at', { ascending: false })
     .limit(opts?.limit ?? 200);
   if (opts?.formType) q = q.eq('form_type', opts.formType);
+  if (opts?.dealerAccountNumber) q = q.eq('dealer_account_number', opts.dealerAccountNumber);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as PortalFormSubmission[];

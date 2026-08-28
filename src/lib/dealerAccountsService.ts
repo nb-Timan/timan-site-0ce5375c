@@ -713,6 +713,47 @@ export async function fetchDealerAccountStats(): Promise<{
   return { source: "supabase", rows };
 }
 
+export async function fetchDealerAccountStatsByNumbers(
+  accountNumbers: string[],
+): Promise<{ rows: DealerAccountStats[]; error?: string }> {
+  const numbers = Array.from(new Set(accountNumbers.map((n) => n.trim()).filter(Boolean)));
+  if (numbers.length === 0) return { rows: [] };
+
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) return { rows: [], error: "Supabase Auth session påkrævet." };
+
+    const { data, error } = await supabase
+      .from("dealer_account_stats")
+      .select("*")
+      .in("account_number", numbers)
+      .order("company_name", { ascending: true });
+    if (error) throw error;
+
+    const rows = (data ?? []).map(rowToStats);
+    try {
+      const overlay = await loadDealerActivityOverlay(rows);
+      for (const r of rows) {
+        const o = overlay.byDealerId.get(r.id);
+        if (!o) continue;
+        r.quote_count = o.quote;
+        r.order_count = o.order;
+        r.activity_count = o.quote + o.order;
+        if (o.last && (!r.last_activity_at || o.last > r.last_activity_at)) {
+          r.last_activity_at = o.last;
+        }
+      }
+    } catch (e) {
+      console.warn("[dealerAccountsService] scoped overlay failed", e);
+    }
+    return { rows };
+  } catch (e) {
+    const all = await fetchDealerAccountStats();
+    if (all.error) return { rows: [], error: all.error };
+    return { rows: all.rows.filter((row) => numbers.includes(row.account_number)) };
+  }
+}
+
 /**
  * Fetch dealer stats filtered to a specific seller (by initials and/or email).
  * Used by the seller-facing "Mine forhandlere" page so only assigned dealers
@@ -1150,6 +1191,36 @@ export async function fetchDealerAccountByNumber(
     return { row: data ? rowToDealer(data as Record<string, unknown>) : null };
   } catch (e) {
     return { row: null, error: describeSupabaseError("fetchDealerAccountByNumber", e) };
+  }
+}
+
+export async function fetchDealerAccountFamilyByNumber(
+  accountNumber: string | null | undefined,
+  opts: { includeDeleted?: boolean } = {},
+): Promise<{ rows: DealerAccount[]; error?: string }> {
+  const an = (accountNumber ?? "").trim();
+  if (!an) return { rows: [] };
+  try {
+    const selected = await fetchDealerAccountByNumber(an);
+    if (selected.error) return { rows: [], error: selected.error };
+    if (!selected.row) return { rows: [] };
+
+    const rootAccountNumber = selected.row.parent_account_number || selected.row.account_number;
+    let q = supabase
+      .from("dealer_accounts")
+      .select("*")
+      .or(`account_number.eq.${rootAccountNumber},parent_account_number.eq.${rootAccountNumber}`)
+      .order("company_name", { ascending: true });
+    if (!opts.includeDeleted) q = q.eq("is_deleted", false);
+
+    const { data, error } = await q;
+    if (error) throw error;
+    const rows = (data ?? []).map((row) => rowToDealer(row as Record<string, unknown>));
+    if (rows.some((row) => row.id === selected.row?.id)) return { rows };
+    if (!opts.includeDeleted && selected.row.is_deleted) return { rows };
+    return { rows: [selected.row, ...rows] };
+  } catch (e) {
+    return { rows: [], error: describeSupabaseError("fetchDealerAccountFamilyByNumber", e) };
   }
 }
 

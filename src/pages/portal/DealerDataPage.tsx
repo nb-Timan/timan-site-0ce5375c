@@ -212,7 +212,7 @@ export default function DealerDataPage() {
             dealerNumber,
             documentType: 'order',
           }),
-          listPortalFormSubmissions({ formType: 'dealer_invoice_accept', limit: 100 }),
+          listPortalFormSubmissions({ formType: 'dealer_invoice_accept', dealerAccountNumber: dealerNumber, limit: 100 }),
           supabase
             .from('app_users')
             .select('id, email, full_name, role, portal_role, status, approved, is_active, last_login, preferred_language, account_owner_initials, account_owner_name, account_owner_email')
@@ -227,11 +227,7 @@ export default function DealerDataPage() {
         setQuotes(configsQuoteRes.rows.filter((r) => r.dealer_number === dealerNumber));
         setOrders(configsOrderRes.rows.filter((r) => r.dealer_number === dealerNumber));
 
-        // listPortalFormSubmissions returns globally readable rows by RLS;
-        // narrow to this dealer in the client.
-        setSubmissions(
-          (subsRes ?? []).filter((s) => s.dealer_account_number === dealerNumber),
-        );
+        setSubmissions(subsRes ?? []);
 
         const u = (usersRes.data ?? []) as DealerUserRow[];
         setUsers(u);
