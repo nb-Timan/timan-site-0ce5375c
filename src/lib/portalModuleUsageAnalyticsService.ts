@@ -188,20 +188,38 @@ function normalizeAnalytics(payload: any): PortalUsageAnalytics {
   };
 }
 
+function normalizeFilterOptions(payload: any): PortalUsageAnalytics["filters"] {
+  return {
+    users: Array.isArray(payload?.users) ? payload.users : [],
+    roles: Array.isArray(payload?.roles) ? payload.roles.filter(Boolean) : [],
+    dealer_numbers: Array.isArray(payload?.dealer_numbers) ? payload.dealer_numbers.filter(Boolean) : [],
+    modules: Array.isArray(payload?.modules) ? payload.modules.filter(Boolean) : [],
+  };
+}
+
 export async function fetchPortalUsageAnalytics(filters: PortalUsageAnalyticsFilters = {}): Promise<PortalUsageAnalytics> {
   const clean = (values: string[] | null | undefined) => {
     const out = Array.from(new Set((values || []).map((value) => value.trim().toLowerCase()).filter(Boolean)));
     return out.length ? out : null;
   };
 
-  const { data, error } = await supabase.rpc("get_backend_user_activity_analytics_v2", {
-    p_user_keys: clean(filters.userKeys),
-    p_roles: clean(filters.roles),
-    p_dealer_numbers: clean(filters.dealerNumbers),
-    p_module_keys: clean(filters.moduleKeys),
-    p_days: filters.days ?? 30,
-  });
+  const [analyticsResult, filterResult] = await Promise.all([
+    supabase.rpc("get_backend_user_activity_analytics_v2", {
+      p_user_keys: clean(filters.userKeys),
+      p_roles: clean(filters.roles),
+      p_dealer_numbers: clean(filters.dealerNumbers),
+      p_module_keys: clean(filters.moduleKeys),
+      p_days: filters.days ?? 30,
+    }),
+    supabase.rpc("get_backend_portal_analytics_filter_options"),
+  ]);
 
-  if (error) throw error;
-  return normalizeAnalytics(data);
+  if (analyticsResult.error) throw analyticsResult.error;
+  const analytics = normalizeAnalytics(analyticsResult.data);
+  if (!filterResult.error) {
+    analytics.filters = normalizeFilterOptions(filterResult.data);
+  } else {
+    console.warn("[portalModuleUsageAnalyticsService] Could not fetch active user filter options", filterResult.error);
+  }
+  return analytics;
 }

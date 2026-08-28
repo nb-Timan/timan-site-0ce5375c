@@ -130,6 +130,10 @@ function displayUserName(user: { display_name?: string | null; email?: string | 
   return (user.display_name?.trim() || user.email || "Ukendt bruger").trim();
 }
 
+function userKey(user: { user_id?: string | null; email?: string | null }): string {
+  return String(user.user_id || user.email || "").trim().toLowerCase();
+}
+
 function displayRole(role: string | null | undefined): string {
   const labels: Record<string, string> = {
     timan_backend: "Timan Backend",
@@ -330,6 +334,16 @@ export default function BackendPortalAnalyticsPage() {
     setter(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
   };
 
+  const toggleUser = (value: string) => {
+    setSelectedRoles([]);
+    toggleValue(selectedUserKeys, value, setSelectedUserKeys);
+  };
+
+  const toggleRole = (value: string) => {
+    setSelectedUserKeys([]);
+    toggleValue(selectedRoles, value, setSelectedRoles);
+  };
+
   const resetScope = () => {
     setSelectedUserKeys([]);
     setSelectedRoles([]);
@@ -337,13 +351,24 @@ export default function BackendPortalAnalyticsPage() {
   };
 
   const applyRoleGroup = (roles: readonly string[]) => {
+    const groupUserKeys = (filterOptions?.users || [])
+      .filter((user) => user.portal_role && roles.includes(user.portal_role))
+      .map(userKey)
+      .filter(Boolean);
+
+    if (groupUserKeys.length > 0) {
+      setSelectedUserKeys(Array.from(new Set(groupUserKeys)));
+      setSelectedRoles([]);
+      return;
+    }
+
     setSelectedUserKeys([]);
     setSelectedRoles(Array.from(new Set(roles)));
   };
 
   const selectCurrentBackendUser = () => {
-    const key = appUser?.email || "";
-    setSelectedUserKeys(key ? [String(key)] : []);
+    const key = (appUser?.email || "").trim().toLowerCase();
+    setSelectedUserKeys(key ? [key] : []);
     setSelectedRoles([]);
   };
 
@@ -389,16 +414,24 @@ export default function BackendPortalAnalyticsPage() {
                 Hele portalen
               </Button>
               {ROLE_GROUPS.map((group) => {
-                const active = group.roles.every((role) => selectedRoles.includes(role))
-                  && selectedRoles.length === group.roles.length
-                  && selectedUserKeys.length === 0;
+                const groupUserKeys = (filterOptions?.users || [])
+                  .filter((user) => user.portal_role && group.roles.includes(user.portal_role))
+                  .map(userKey)
+                  .filter(Boolean);
+                const active = groupUserKeys.length > 0
+                  ? groupUserKeys.every((key) => selectedUserKeys.includes(key))
+                    && selectedUserKeys.every((key) => groupUserKeys.includes(key))
+                    && selectedRoles.length === 0
+                  : group.roles.every((role) => selectedRoles.includes(role))
+                    && selectedRoles.length === group.roles.length
+                    && selectedUserKeys.length === 0;
                 return (
                   <Button key={group.key} size="sm" variant={active ? "default" : "outline"} onClick={() => applyRoleGroup(group.roles)}>
                     {group.label}
                   </Button>
                 );
               })}
-              <Button size="sm" variant={selectedUserKeys.includes(String(appUser?.email || "")) ? "default" : "outline"} onClick={selectCurrentBackendUser}>
+              <Button size="sm" variant={selectedUserKeys.includes((appUser?.email || "").trim().toLowerCase()) ? "default" : "outline"} onClick={selectCurrentBackendUser}>
                 Min backend
               </Button>
             </div>
@@ -411,14 +444,14 @@ export default function BackendPortalAnalyticsPage() {
                 </div>
                 <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
                   {(filterOptions?.users || []).map((user) => {
-                    const key = String(user.user_id || user.email);
+                    const key = userKey(user);
                     return (
                       <label key={key} className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
                         <input
                           type="checkbox"
                           className="mt-1 h-4 w-4 accent-emerald-700"
                           checked={selectedUserKeys.includes(key)}
-                          onChange={() => toggleValue(selectedUserKeys, key, setSelectedUserKeys)}
+                          onChange={() => toggleUser(key)}
                         />
                         <span>
                           <span className="block font-medium text-slate-900">{displayUserName(user)}</span>
@@ -442,7 +475,7 @@ export default function BackendPortalAnalyticsPage() {
                         type="checkbox"
                         className="h-4 w-4 accent-emerald-700"
                         checked={selectedRoles.includes(value)}
-                        onChange={() => toggleValue(selectedRoles, value, setSelectedRoles)}
+                        onChange={() => toggleRole(value)}
                       />
                       <span>{displayRole(value)}</span>
                     </label>
