@@ -1,62 +1,85 @@
 import {
+  Activity,
   BarChart3,
+  BookOpen,
+  Boxes,
   Cable,
+  CalendarDays,
   ClipboardList,
+  Contact,
   Database,
   FileText,
+  FormInput,
+  Gauge,
+  GitBranch,
+  KeyRound,
   Mail,
+  Map,
   Megaphone,
+  MessageSquareText,
+  MonitorCog,
+  Newspaper,
+  Package,
+  Route,
   Server,
   Settings,
+  ShieldCheck,
   ShoppingBag,
   Sparkles,
+  Tags,
   Upload,
   Users,
+  Video,
+  WalletCards,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
 
-export type SystemMapNodeKind = "portal" | "module" | "integration";
-
-export type SystemMapNodeId =
-  | "portal"
-  | "crm"
-  | "sales"
-  | "marketing"
-  | "dealer_data"
-  | "service"
-  | "messe"
-  | "import"
-  | "system_admin"
-  | "sharepoint"
-  | "erp"
-  | "supabase"
-  | "email"
-  | "documents";
+export type SystemMapNodeKind = "portal" | "module" | "feature" | "data" | "technical" | "integration";
+export type SystemMapArea = "crm" | "sales" | "marketing" | "dealer_data" | "service" | "messe" | "import" | "system";
+export type SystemMapNodeId = string;
 
 export interface SystemMapNode {
   id: SystemMapNodeId;
   title: string;
   subtitle: string;
   kind: SystemMapNodeKind;
+  area?: SystemMapArea;
+  parentId?: SystemMapNodeId;
   color: string;
   position: { x: number; y: number };
+  dnaPosition: { x: number; y: number };
+  minZoom: number;
   icon: LucideIcon;
   tables: string[];
   services: string[];
+  routes: string[];
   receivesFrom: string[];
   sendsTo: string[];
   integrations: string[];
   explanation: string;
 }
 
+const AREA_COLORS: Record<SystemMapArea, string> = {
+  crm: "emerald",
+  sales: "blue",
+  marketing: "purple",
+  dealer_data: "amber",
+  service: "cyan",
+  messe: "rose",
+  import: "orange",
+  system: "slate",
+};
+
 export interface SystemMapEdge {
   from: SystemMapNodeId;
   to: SystemMapNodeId;
   label: string;
+  kind?: "data" | "navigation" | "sync" | "permission";
+  minZoom?: number;
 }
 
-export const systemMapNodes: SystemMapNode[] = [
+const baseNodes: SystemMapNode[] = [
   {
     id: "portal",
     title: "Timan Partner Portal",
@@ -64,39 +87,50 @@ export const systemMapNodes: SystemMapNode[] = [
     kind: "portal",
     color: "emerald",
     position: { x: 50, y: 50 },
+    dnaPosition: { x: 1400, y: 900 },
+    minZoom: 0.35,
     icon: Sparkles,
     tables: ["app_users", "portal_module_usage", "audit_log"],
     services: ["AppUserContext", "portalAccess", "visitorTracking"],
+    routes: ["/portal"],
     receivesFrom: ["Supabase Auth", "Portal routes", "Aktiv rolle/vis-som"],
     sendsTo: ["Omraader", "moduler", "tracking", "audit"],
     integrations: ["Supabase"],
-    explanation: "Portalen samler adgang, sprog, brugerrolle og navigation. Modulerne nedenfor deler samme bruger- og adgangsgrundlag.",
+    explanation: "Portalen samler adgang, sprog, brugerrolle og navigation. Modulerne deler samme bruger- og adgangsgrundlag.",
   },
   {
     id: "crm",
     title: "CRM / Leads",
     subtitle: "Leads, demoer og pipeline",
     kind: "module",
+    area: "crm",
     color: "emerald",
-    position: { x: 26, y: 20 },
+    position: { x: 34, y: 27 },
+    dnaPosition: { x: 920, y: 520 },
+    minZoom: 0.35,
     icon: BarChart3,
     tables: ["crm_leads", "crm_demo_leads", "crm_activities", "crm_calendar_activities"],
     services: ["crmLeadsService", "crmDashboardKpisService", "crmCalendarService", "crmScope"],
+    routes: ["/portal/crm/dashboard", "/portal/crm/leads", "/portal/crm/activities"],
     receivesFrom: ["Messe lead capture", "Konfigurator gem som lead", "Sælger-scope"],
     sendsTo: ["Dashboard KPI'er", "Kalender", "Tilbud/ordre-flow"],
     integrations: ["Supabase", "n8n calendar webhook"],
-    explanation: "CRM bruger Supabase-data til leads, demoer, aktiviteter og dashboard-KPI'er. Dashboardet bruger flere server-side RPC'er.",
+    explanation: "CRM bruger Supabase-data til leads, demoer, aktiviteter og dashboard-KPI'er. Dashboardet bruger server-side RPC'er.",
   },
   {
     id: "sales",
     title: "Salg",
     subtitle: "Konfigurator, tilbud og ordrer",
     kind: "module",
+    area: "sales",
     color: "blue",
-    position: { x: 50, y: 13 },
+    position: { x: 50, y: 20 },
+    dnaPosition: { x: 1420, y: 470 },
+    minZoom: 0.35,
     icon: ShoppingBag,
     tables: ["configurations", "configuration_user_hidden", "crm_number_sequences"],
     services: ["configurationsService", "crmConfigurationsService", "quoteContentSummary", "webhookUrls"],
+    routes: ["/configurator", "/portal/crm/quotes", "/portal/crm/orders"],
     receivesFrom: ["CRM leads", "Forhandlerdata", "Prislister"],
     sendsTo: ["PDF", "E-mail/n8n", "CRM tilbud/ordrer", "Budget"],
     integrations: ["Supabase", "PDF/document generation", "E-mail/n8n"],
@@ -107,12 +141,16 @@ export const systemMapNodes: SystemMapNode[] = [
     title: "Marketing",
     subtitle: "Nyheder og site features",
     kind: "module",
-    color: "lime",
-    position: { x: 74, y: 20 },
+    area: "marketing",
+    color: "purple",
+    position: { x: 66, y: 27 },
+    dnaPosition: { x: 1920, y: 520 },
+    minZoom: 0.35,
     icon: Megaphone,
     tables: ["news_posts", "site_change_entries"],
     services: ["newsService", "portalChangelogService", "newsCmsTranslations"],
-    receivesFrom: ["Backend changelog", "Marketing editor"],
+    routes: ["/portal/marketing/news", "/portal/marketing/site-features"],
+    receivesFrom: ["Marketing editor", "Backend changelog"],
     sendsTo: ["Portal forside", "Messe nyheder", "Hvad er nyt?"],
     integrations: ["Supabase"],
     explanation: "Marketing administrerer nyheder og publicerede ændringer. Publiceret indhold vises i portalens 'Hvad er nyt?'.",
@@ -122,11 +160,15 @@ export const systemMapNodes: SystemMapNode[] = [
     title: "Forhandlerdata",
     subtitle: "Konti, relationer og noter",
     kind: "module",
-    color: "indigo",
-    position: { x: 20, y: 50 },
+    area: "dealer_data",
+    color: "amber",
+    position: { x: 29, y: 56 },
+    dnaPosition: { x: 850, y: 1040 },
+    minZoom: 0.35,
     icon: Users,
     tables: ["dealer_accounts", "dealer_account_aliases", "crm_dealer_notes", "dealer_contacts"],
     services: ["dealerAccountsService", "crmAccountsService", "dealerScope", "partnerRelationsService"],
+    routes: ["/portal/dealer-data", "/portal/crm/my-dealers"],
     receivesFrom: ["SharePoint forhandler-sync", "Brugeradministration", "Partner relationer"],
     sendsTo: ["CRM scope", "Partnerkort", "Warranty matching", "Forhandlerprofil"],
     integrations: ["Supabase", "SharePoint"],
@@ -137,11 +179,15 @@ export const systemMapNodes: SystemMapNode[] = [
     title: "Service",
     subtitle: "Warranty, TSB og maskiner",
     kind: "module",
-    color: "orange",
-    position: { x: 80, y: 50 },
+    area: "service",
+    color: "cyan",
+    position: { x: 71, y: 56 },
+    dnaPosition: { x: 1990, y: 1040 },
+    minZoom: 0.35,
     icon: Wrench,
     tables: ["warranty_registrations", "warranty_registration_history", "service_machines", "service_registrations"],
     services: ["warrantyRegistrationsService", "warrantyMachinePinsService", "machineJournalService", "serviceMaintenanceService"],
+    routes: ["/portal/service/warranty", "/portal/service/tsb", "/portal/service/machines"],
     receivesFrom: ["SharePoint warranty-sync", "Forhandlerdata", "Maskinregistreringer"],
     sendsTo: ["Partnerkort", "Maskinjournal", "TSB visninger"],
     integrations: ["Supabase", "SharePoint"],
@@ -152,11 +198,15 @@ export const systemMapNodes: SystemMapNode[] = [
     title: "Messe",
     subtitle: "QR-flow og messeleads",
     kind: "module",
-    color: "purple",
-    position: { x: 26, y: 80 },
+    area: "messe",
+    color: "rose",
+    position: { x: 41, y: 79 },
+    dnaPosition: { x: 1120, y: 1490 },
+    minZoom: 0.35,
     icon: ClipboardList,
     tables: ["crm_leads", "portal_form_submissions", "guest_sessions"],
     services: ["messeLeadCapture", "portalFormsService", "MesseRouteGuard", "visitorTracking"],
+    routes: ["/messe", "/messe/follow-up", "/messe/partner-map"],
     receivesFrom: ["Offentlige messeformularer", "Partnerkort", "Konfigurator"],
     sendsTo: ["CRM leads", "Portal analytics", "E-mail/n8n messe lead"],
     integrations: ["Supabase", "E-mail/n8n"],
@@ -164,14 +214,18 @@ export const systemMapNodes: SystemMapNode[] = [
   },
   {
     id: "import",
-    title: "Import",
+    title: "Data & Integrationer",
     subtitle: "Sync, geocoding og dataload",
     kind: "module",
-    color: "cyan",
-    position: { x: 50, y: 87 },
+    area: "import",
+    color: "orange",
+    position: { x: 50, y: 88 },
+    dnaPosition: { x: 1420, y: 1700 },
+    minZoom: 0.35,
     icon: Upload,
     tables: ["sharepoint_sync_logs", "dealer_accounts", "warranty_registrations", "price_list_items", "crm_budget_rows"],
     services: ["SharePointSyncPanel", "WarrantySharePointSyncPanel", "dealerImportService", "priceListService", "syncStatusBadge"],
+    routes: ["/portal/backend/data", "/portal/backend/dealer-import", "/portal/backend/budget-import"],
     receivesFrom: ["SharePoint", "Excel-filer", "Prislister"],
     sendsTo: ["Forhandlerdata", "Service", "Budget", "Salg"],
     integrations: ["SharePoint", "Supabase", "ERP/prisliste-import"],
@@ -182,28 +236,39 @@ export const systemMapNodes: SystemMapNode[] = [
     title: "System & Admin",
     subtitle: "Brugere, roller og audit",
     kind: "module",
+    area: "system",
     color: "slate",
-    position: { x: 74, y: 80 },
+    position: { x: 59, y: 79 },
+    dnaPosition: { x: 1740, y: 1490 },
+    minZoom: 0.35,
     icon: Settings,
     tables: ["app_users", "audit_log", "portal_module_usage", "guest_sessions"],
     services: ["backendUsersService", "module-access-store", "audit-log-store", "portalModuleUsageAnalyticsService"],
+    routes: ["/portal/backend/users", "/portal/backend/audit-log", "/portal/backend/portal-analytics"],
     receivesFrom: ["Supabase Auth", "Brugereditor", "Portal tracking"],
     sendsTo: ["Access-resolver", "Audit Log", "Portal Analytics"],
     integrations: ["Supabase"],
     explanation: "System & Admin styrer brugere, roller, moduladgang, audit log og brugeraktivitet.",
   },
+];
+
+const integrationNodes: SystemMapNode[] = [
   {
     id: "sharepoint",
     title: "SharePoint",
     subtitle: "Forhandler- og warranty-kilde",
     kind: "integration",
+    area: "import",
     color: "sky",
-    position: { x: 8, y: 24 },
+    position: { x: 10, y: 30 },
+    dnaPosition: { x: 260, y: 660 },
+    minZoom: 0.35,
     icon: Cable,
     tables: ["sharepoint_sync_logs"],
     services: ["sharepoint-dealers-*", "sharepoint-warranty-*"],
+    routes: ["/portal/backend/data"],
     receivesFrom: ["Eksterne SharePoint-lister"],
-    sendsTo: ["Import", "Forhandlerdata", "Service"],
+    sendsTo: ["Data & Integrationer", "Forhandlerdata", "Service"],
     integrations: ["SharePoint"],
     explanation: "SharePoint bruges som ekstern kilde til forhandler- og warranty-sync via backend/edge-funktioner.",
   },
@@ -212,11 +277,15 @@ export const systemMapNodes: SystemMapNode[] = [
     title: "ERP / Priser",
     subtitle: "Priser og økonomidata",
     kind: "integration",
+    area: "import",
     color: "amber",
-    position: { x: 92, y: 24 },
+    position: { x: 10, y: 50 },
+    dnaPosition: { x: 2550, y: 650 },
+    minZoom: 0.35,
     icon: Server,
     tables: ["price_list_items", "price_list_import_runs"],
     services: ["priceListService", "pricePublishService"],
+    routes: ["/portal/backend/price-lists"],
     receivesFrom: ["Excel/importfiler", "Prislister"],
     sendsTo: ["Salg", "Budget", "Konfigurator"],
     integrations: ["ERP/prisliste-import"],
@@ -227,26 +296,53 @@ export const systemMapNodes: SystemMapNode[] = [
     title: "Supabase",
     subtitle: "Database, Auth og Edge Functions",
     kind: "integration",
+    area: "system",
     color: "emerald",
-    position: { x: 8, y: 76 },
+    position: { x: 10, y: 70 },
+    dnaPosition: { x: 260, y: 1290 },
+    minZoom: 0.35,
     icon: Database,
     tables: ["public schema", "auth users", "storage"],
     services: ["supabase client", "Supabase RPC", "Edge Functions"],
+    routes: [],
     receivesFrom: ["Portal writes", "Import jobs", "Auth"],
     sendsTo: ["Alle portalfunktioner"],
     integrations: ["Supabase"],
     explanation: "Supabase er portalens database- og auth-lag samt hjem for RPC'er og Edge Functions.",
   },
   {
+    id: "microsoft_365",
+    title: "Microsoft 365",
+    subtitle: "SharePoint, Excel og mailmiljø",
+    kind: "integration",
+    area: "import",
+    color: "sky",
+    position: { x: 90, y: 30 },
+    dnaPosition: { x: 2550, y: 970 },
+    minZoom: 0.45,
+    icon: MonitorCog,
+    tables: ["sharepoint_sync_logs"],
+    services: ["SharePoint import panels", "Excel import"],
+    routes: ["/portal/backend/data"],
+    receivesFrom: ["Timan datafiler"],
+    sendsTo: ["SharePoint", "E-mail / n8n"],
+    integrations: ["Microsoft 365"],
+    explanation: "Microsoft 365 er miljøet omkring SharePoint, Excel-importer og nogle mailflows.",
+  },
+  {
     id: "email",
     title: "E-mail / n8n",
     subtitle: "Tilbud, ordrer og kalender",
     kind: "integration",
+    area: "sales",
     color: "rose",
-    position: { x: 92, y: 76 },
+    position: { x: 90, y: 50 },
+    dnaPosition: { x: 2550, y: 1290 },
+    minZoom: 0.35,
     icon: Mail,
     tables: ["configuration_email_log", "crm_calendar_activities"],
     services: ["webhookUrls", "configurationEmailLogService", "crmCalendarService"],
+    routes: ["/portal/backend/data"],
     receivesFrom: ["Salg", "Messe", "CRM kalender"],
     sendsTo: ["Modtagere", "n8n workflows", "Mail-log"],
     integrations: ["E-mail", "n8n"],
@@ -257,39 +353,228 @@ export const systemMapNodes: SystemMapNode[] = [
     title: "PDF / dokumenter",
     subtitle: "Tilbud, ordrer og brochurer",
     kind: "integration",
+    area: "sales",
     color: "violet",
-    position: { x: 63, y: 62 },
+    position: { x: 90, y: 70 },
+    dnaPosition: { x: 2550, y: 1605 },
+    minZoom: 0.35,
     icon: FileText,
     tables: ["configurations", "storage"],
     services: ["html2canvas", "jsPDF", "brochure pages"],
+    routes: ["/portal/resources", "/portal/crm/quotes"],
     receivesFrom: ["Salg", "Brochurevisninger"],
     sendsTo: ["Download", "Storage", "E-mail payload"],
     integrations: ["PDF/document generation"],
     explanation: "Dokumentlaget genererer og viser PDF'er, tilbud, ordrer og brochuremateriale, når brugeren åbner de tunge flows.",
   },
+  {
+    id: "external_apis",
+    title: "Eksterne API'er",
+    subtitle: "Kort, geocoding og runtime config",
+    kind: "integration",
+    area: "import",
+    color: "orange",
+    position: { x: 90, y: 86 },
+    dnaPosition: { x: 2550, y: 1880 },
+    minZoom: 0.65,
+    icon: Route,
+    tables: ["runtime-config.js"],
+    services: ["PartnerMapPage", "dealerGeocodingService", "CARTO basemaps"],
+    routes: ["/portal/misc/partner-map"],
+    receivesFrom: ["Runtime config", "Dealer geocoding"],
+    sendsTo: ["Partnerkort", "Kortvisninger"],
+    integrations: ["CARTO", "OpenStreetMap"],
+    explanation: "Eksterne API'er bruges blandt andet til kort, geocoding og basemap-visninger.",
+  },
 ];
 
+const featureNodes: SystemMapNode[] = [
+  node("crm_dashboard", "Dashboard", "KPI'er og sælgerfilter", "feature", "crm", "crm", 700, 260, 0.75, Gauge, ["crm_dashboard_kpis"], ["crmDashboardKpisService"], ["/portal/crm/dashboard"], "Server-side KPI'er for lead, pipeline, ordre og aktivitet."),
+  node("crm_leads", "Leads", "Åbne leads og demoer", "feature", "crm", "crm", 720, 430, 0.72, Sparkles, ["crm_leads"], ["crmLeadsService", "crmPipelineValue"], ["/portal/crm/leads"], "Leadlisten, filtre, pipelineværdi og konverteringer."),
+  node("crm_demo_leads", "Demo-leads", "Demo-flow og afholdt demo", "feature", "crm", "crm", 590, 520, 0.95, ClipboardList, ["crm_demo_leads", "crm_leads"], ["crmLeadsService"], ["/portal/crm/demo-leads"], "Demoer er knyttet til leadstatus og konverteringsflow."),
+  node("crm_activities", "Aktiviteter", "Opfølgninger og historik", "feature", "crm", "crm", 850, 590, 0.9, Activity, ["crm_activities", "crm_calendar_activities"], ["crmActivitiesService", "crmCalendarService"], ["/portal/crm/activities"], "Aktiviteter viser hændelser på leads og opfølgninger."),
+  node("crm_calendar", "Kalender", "Planlagte aktiviteter", "feature", "crm", "crm", 1030, 560, 0.95, CalendarDays, ["crm_calendar_activities"], ["crmCalendarService"], ["/portal/crm/calendar"], "Kalenderen viser planlagte CRM-aktiviteter og n8n kalenderflow."),
+  node("crm_pipeline", "Pipeline", "Værdi, status og forecast", "feature", "crm", "crm", 900, 340, 1.05, BarChart3, ["crm_leads.pipeline_value_snapshot"], ["crmPipelineValue"], ["/portal/crm/dashboard"], "Pipelineværdi samles fra snapshotfeltet og bruges i dashboardet."),
+  node("lead_status", "Lead-status", "Åben, vundet, tabt", "data", "crm", "crm_leads", 510, 360, 1.28, Tags, ["crm_leads.status"], ["leadStatus"], ["/portal/crm/leads"], "Status styrer filtrering og pipelinefordeling."),
+  node("lead_owner", "Ejer", "Sælgerinitialer og scope", "data", "crm", "crm_leads", 510, 450, 1.28, Contact, ["crm_leads.seller_id"], ["crmScope", "resolveSellerId"], ["/portal/crm/leads"], "Ejer bruges til sælgerfilter og Backend Alle."),
+  node("lead_notes", "Interne / delte noter", "data", "crm", "crm_leads", 510, 610, 1.3, MessageSquareText, ["crm_dealer_notes"], ["dealerNotesService"], ["/portal/crm/my-dealers"], "Noter kan være interne eller delt mellem Timan og partner."),
+  node("lead_followups", "Opfølgninger", "Næste opfølgning", "data", "crm", "crm_leads", 1030, 420, 1.25, CalendarDays, ["next_follow_up_date"], ["leadFollowupUrgency"], ["/portal/crm/leads"], "Opfølgningsdato driver Lead Fokus og deadlines."),
+  node("lead_conversions", "Konverteringer", "Lead til demo/tilbud", "feature", "crm", "crm_leads", 1100, 270, 1.18, GitBranch, ["crm_leads", "configurations"], ["crmLeadSharingService", "crmConfigurationsService"], ["/portal/crm/leads"], "Konverteringer forbinder CRM med demo, tilbud og konfigurator."),
+
+  node("configurator", "Byg din Timan", "Konfigurator", "feature", "sales", "sales", 1420, 680, 0.72, Boxes, ["configurations"], ["ConfiguratorPage", "configurationsService"], ["/configurator"], "Konfiguratoren opbygger tilbud og ordrer ud fra maskiner, udstyr, priser og kundeinfo."),
+  node("config_step_machine", "Trin 1: Maskinvalg", "Maskiner og kategorier", "feature", "sales", "configurator", 1240, 800, 1.0, Package, ["configurations.state_json"], ["machineCategories"], ["/configurator"], "Første trin vælger maskine eller redskabstype."),
+  node("config_step_delivery", "Trin 2: Levering", "Leveringsdato og start", "feature", "sales", "configurator", 1410, 865, 1.05, CalendarDays, ["configurations.state_json"], ["useConfigurator"], ["/configurator"], "Leverings- og startvalg gemmes i konfigurationens state."),
+  node("config_step_options", "Trin 3: Udstyr/priser", "Tilvalg, rabat og pris", "feature", "sales", "configurator", 1590, 800, 1.05, Tags, ["configurations.state_json", "price_list_items"], ["priceListService", "quoteContentSummary"], ["/configurator"], "Tilvalg og rabatter påvirker den endelige tilbuds- og ordreværdi."),
+  node("config_step_customer", "Trin 4: Kunde", "Kunde, forhandler og afslutning", "feature", "sales", "configurator", 1590, 965, 1.05, Contact, ["configurations.state_json", "dealer_accounts"], ["crmAccountsService"], ["/configurator"], "Kunde- og forhandlerdata binder konfigurationen til CRM."),
+  node("quotes", "Tilbud", "Tilbudsværdi og PDF", "feature", "sales", "sales", 1280, 1130, 0.9, FileText, ["configurations"], ["crmConfigurationsService", "quoteContentSummary"], ["/portal/crm/quotes"], "Tilbud kommer fra configurations og kan sendes som PDF/mail."),
+  node("orders", "Ordrer", "Ordreværdi og lukning", "feature", "sales", "sales", 1540, 1130, 0.9, ShoppingBag, ["configurations"], ["crmConfigurationsService"], ["/portal/crm/orders"], "Ordrer bruger samme konfigurationsgrundlag som tilbud."),
+  node("saved_cases", "Gemte/lukkede sager", "Min konto og skjulte sager", "feature", "sales", "configurator", 1740, 680, 1.1, WalletCards, ["configuration_user_hidden"], ["configurationsService"], ["/configurator"], "Brugere kan gemme, åbne og skjule egne konfigurationer."),
+  node("machine_timan_2620", "Timan 2620", "Maskine", "data", "sales", "config_step_machine", 1130, 925, 1.35, Package, ["configurations.state_json"], ["ConfiguratorPage"], ["/portal/timan-2620"], "Timan 2620 findes i konfigurator og messevisninger."),
+  node("machine_timan_3330", "Timan 3330", "Maskine", "data", "sales", "config_step_machine", 1130, 1025, 1.35, Package, ["configurations.state_json"], ["ConfiguratorPage"], ["/configurator"], "Timan 3330 bruges i leads, konfigurator og tilbud."),
+  node("machine_rc_751", "RC-751", "Redskab", "data", "sales", "config_step_machine", 1130, 1125, 1.35, Package, ["configurations.state_json"], ["ConfiguratorPage"], ["/messe/rc-751"], "RC-751 bruges i konfigurator, messe og serviceflows."),
+  node("machine_rc_1000s", "RC-1000s", "Redskab", "data", "sales", "config_step_machine", 1130, 1225, 1.35, Package, ["configurations.state_json"], ["ConfiguratorPage"], ["/messe/rc-1000s"], "RC-1000s bruges i konfigurator, messe og serviceflows."),
+  node("machine_loader_line", "Loader Line", "Kategori", "data", "sales", "config_step_machine", 1130, 1325, 1.4, Package, ["configurations.state_json"], ["ConfiguratorPage"], ["/configurator"], "Loader Line og traktormonterede redskaber er produktvalg i konfiguratorflowet."),
+
+  node("messe_form", "Messeformular", "Follow-up og QR", "feature", "messe", "messe", 910, 1650, 0.9, FormInput, ["portal_form_submissions", "crm_leads"], ["MesseFollowUpPage", "messeLeadCapture"], ["/messe/follow-up"], "Messeformularen opretter messeleads og mailflow."),
+  node("messe_leads", "Messe Lead", "Lead fra messe", "feature", "messe", "messe_form", 1050, 1760, 0.95, Sparkles, ["crm_leads"], ["messeLeadCapture"], ["/portal/crm/leads"], "Messeleads sendes videre til CRM og sælgere."),
+  node("messe_partner_map", "Partnerkort", "Kort og forhandlere", "feature", "messe", "messe", 1220, 1660, 0.95, Map, ["dealer_accounts"], ["PartnerMapPage"], ["/messe/partner-map", "/portal/misc/partner-map"], "Partnerkort viser forhandlere, servicepartnere og importører på kort."),
+  node("messe_brochures", "Brochurer", "PDF og produktsider", "feature", "messe", "messe", 1310, 1810, 1.05, BookOpen, ["storage"], ["MesseMachineBrochurePage"], ["/messe/rc-751", "/messe/rc-1000s"], "Brochurer og maskinsider åbnes først ved behov."),
+  node("messe_video", "Videoer", "Video galleri", "feature", "messe", "messe", 900, 1860, 1.1, Video, ["videoCategories"], ["MesseVideoPage", "VideoGalleryPage"], ["/messe/video", "/portal/videos"], "Videoer bruges i messe og portalens videogalleri."),
+  node("messe_trials", "Afprøvninger", "Timan 2620 trial", "feature", "messe", "messe", 1180, 1960, 1.15, ClipboardList, ["trial submissions"], ["Timan2620TrialPage"], ["/messe/timan-2620-afproevning"], "Afprøvningsflowet indsamler test og feedback."),
+
+  node("news", "Nyheder", "CMS og publicering", "feature", "marketing", "marketing", 1840, 700, 0.9, Newspaper, ["news_posts"], ["newsService", "newsCmsTranslations"], ["/portal/marketing/news/overview"], "Nyheder oprettes og publiceres fra Marketing."),
+  node("site_features", "Nye features på sitet", "Intern changelog", "feature", "marketing", "marketing", 2050, 700, 0.9, Sparkles, ["site_change_entries", "site_change_public_entries"], ["portalChangelogService"], ["/portal/marketing/site-features"], "Marketing vælger hvilke ændringer der publiceres til 'Hvad er nyt?'."),
+  node("marketing_targets", "Målgrupper", "Roller og segmenter", "data", "marketing", "site_features", 2140, 850, 1.2, Users, ["site_change_entries.target_audiences"], ["portalChangelogService"], ["/portal/marketing/site-features"], "Målgrupper styrer hvem en publiceret ændring er relevant for."),
+  node("campaigns", "Kampagner/materialer", "Marketingmateriale", "feature", "marketing", "marketing", 1930, 900, 1.1, Megaphone, ["news_posts"], ["newsService"], ["/portal/marketing"], "Marketing-området samler kampagner, nyheder og materialer."),
+  node("messe_news", "Messe-nyheder", "Nyheder i messeflow", "feature", "marketing", "news", 1740, 860, 1.15, Newspaper, ["news_posts"], ["MesseNewsPage"], ["/messe/nyt"], "Nyheder kan vises i messeportalen."),
+
+  node("dealer_profile", "Forhandlerprofil", "Stamdata og overblik", "feature", "dealer_data", "dealer_data", 670, 1210, 0.9, Contact, ["dealer_accounts", "dealer_contacts"], ["crmAccountsService"], ["/portal/crm/my-dealers"], "Forhandlerprofilen viser stamdata, KPI'er, noter og relationer."),
+  node("dealer_relations", "Samarbejdspartnere", "Parent/children", "feature", "dealer_data", "dealer_data", 870, 1330, 1.0, GitBranch, ["dealer_accounts.parent_account_number"], ["partnerRelationsService"], ["/portal/backend/partner-relations"], "Relationer binder importører, forhandlere, servicepartnere og forhandlerkunder sammen."),
+  node("dealer_notes", "Noter", "Interne og delte noter", "data", "dealer_data", "dealer_profile", 620, 1390, 1.2, MessageSquareText, ["crm_dealer_notes"], ["dealerNotesService"], ["/portal/crm/my-dealers"], "Noter hører til forhandlerprofilen og kan deles efter visibility-regler."),
+  node("dealer_users", "Brugere/kontakter", "Partnerbrugere", "data", "dealer_data", "dealer_profile", 520, 1270, 1.25, Users, ["app_users", "dealer_contacts"], ["backendUsersService"], ["/portal/backend/users"], "Partnerbrugere kobles til dealer_accounts."),
+  node("dealer_geocoding", "Geocoding", "Koordinater og adresse", "feature", "dealer_data", "dealer_data", 730, 1510, 1.2, Map, ["dealer_accounts.latitude", "dealer_accounts.longitude"], ["dealerGeocodingService"], ["/portal/backend/data?tab=forhandlere"], "Geocoding gør det muligt at vise partnere som prikker på kortet."),
+
+  node("warranty", "Warranty", "Garantiregistreringer", "feature", "service", "service", 2150, 1210, 0.9, ShieldCheck, ["warranty_registrations"], ["warrantyRegistrationsService"], ["/portal/service/warranty"], "Warranty samler garantiregistreringer og matching."),
+  node("tsb", "TSB", "Technical Service Bulletins", "feature", "service", "service", 2320, 1330, 0.95, ClipboardList, ["tsb records"], ["TsbAccessGuard"], ["/portal/service/tsb"], "TSB-området håndterer tekniske service bulletins."),
+  node("machine_journal", "Maskinjournal", "Maskiner og historik", "feature", "service", "service", 2050, 1390, 1.0, Wrench, ["service_machines", "service_registrations"], ["machineJournalService"], ["/portal/service/machines"], "Maskinjournal samler servicehistorik pr. serienummer."),
+  node("claims", "Claims", "Reklamationer", "feature", "service", "service", 2240, 1510, 1.05, ClipboardList, ["claims"], ["claimsService"], ["/portal/service/claims"], "Claims bruges til reklamationer og sagsbehandling."),
+
+  node("dealer_import", "Dealer Import", "Forhandlerimport", "feature", "import", "import", 1210, 1880, 0.95, Upload, ["dealer_accounts", "sharepoint_sync_logs"], ["dealerImportService"], ["/portal/backend/dealer-import"], "Dealer Import opdaterer forhandlerdata fra eksterne kilder."),
+  node("budget_import", "Budget Import", "Excel til CRM Budget", "feature", "import", "import", 1440, 1940, 1.0, Upload, ["crm_budget_rows"], ["budgetImportService"], ["/portal/backend/budget-import"], "Budget Import flytter Excel-budgetter ind i CRM Budget."),
+  node("price_lists", "Prislister", "Prisimport og publicering", "feature", "import", "import", 1660, 1880, 0.95, Tags, ["price_list_items", "price_list_import_runs"], ["priceListService"], ["/portal/backend/price-lists"], "Prislister forsyner konfigurator og budget med priser."),
+  node("sync_logs", "Sync logs", "Historik og fejl", "technical", "import", "import", 1440, 2110, 1.3, Activity, ["sharepoint_sync_logs"], ["syncStatusBadge"], ["/portal/backend/data"], "Sync logs viser importstatus, fejl og historik."),
+
+  node("users_admin", "Brugere", "App users og roller", "feature", "system", "system_admin", 1600, 1660, 0.95, Users, ["app_users"], ["backendUsersService"], ["/portal/backend/users"], "Brugeradministration styrer portalbrugere og deres adgang."),
+  node("roles_access", "Roller og modul-adgang", "feature", "system", "system_admin", 1780, 1730, 1.0, KeyRound, ["app_users.allowed_areas", "app_users.allowed_modules"], ["module-access-store", "sessionPermissionDefaults"], ["/portal/backend/roles", "/portal/backend/module-access"], "Roller og moduladgang er grundlaget for navigation og guards."),
+  node("audit_log", "Audit Log", "Hvem ændrede hvad", "feature", "system", "system_admin", 1960, 1660, 1.0, ClipboardList, ["audit_log"], ["audit-log-store"], ["/portal/backend/audit-log"], "Audit Log viser kritiske ændringer med actor, record og old/new values."),
+  node("portal_analytics", "Portal Analytics", "Modulbrug", "feature", "system", "system_admin", 1880, 1880, 1.05, BarChart3, ["portal_module_usage", "guest_sessions"], ["portalModuleUsageAnalyticsService"], ["/portal/backend/portal-analytics"], "Portal Analytics viser brug af moduler og aktiv tid."),
+  node("route_guards", "Route guards", "Adgang og redirect", "technical", "system", "roles_access", 1660, 1990, 1.35, Route, ["app_users"], ["portalAccess", "MesseRouteGuard", "TsbAccessGuard"], ["/portal"], "Route guards sikrer adgang efter effektiv rolle og tilvalg."),
+  node("edge_functions", "Edge Functions / RPC", "Server-side logik", "technical", "system", "supabase", 520, 1500, 1.4, Server, ["Supabase RPC", "Edge Functions"], ["admin-user-actions", "geocode-dealers"], [], "Server-side funktioner bruges til admin-handlinger, imports og KPI'er."),
+];
+
+function node(
+  id: SystemMapNodeId,
+  title: string,
+  subtitle: string,
+  kind: SystemMapNodeKind,
+  area: SystemMapArea,
+  parentId: SystemMapNodeId,
+  x: number,
+  y: number,
+  minZoom: number,
+  icon: LucideIcon,
+  tables: string[],
+  services: string[],
+  routes: string[],
+  explanation: string,
+): SystemMapNode {
+  const knownParents = [...baseNodes, ...integrationNodes];
+  const parent = knownParents.find((item) => item.id === parentId);
+  const areaNode = baseNodes.find((item) => item.area === area);
+  return {
+    id,
+    title,
+    subtitle,
+    kind,
+    area,
+    parentId,
+    color: parent?.color ?? areaNode?.color ?? AREA_COLORS[area],
+    position: parent?.position ?? areaNode?.position ?? { x: 50, y: 50 },
+    dnaPosition: { x, y },
+    minZoom,
+    icon,
+    tables,
+    services,
+    routes,
+    receivesFrom: parent ? [parent.title] : areaNode ? [areaNode.title] : [],
+    sendsTo: [],
+    integrations: parent?.integrations ?? areaNode?.integrations ?? [],
+    explanation,
+  };
+}
+
+export const systemRegistryNodes: SystemMapNode[] = [...baseNodes, ...integrationNodes, ...featureNodes];
+
+export const systemMapNodes: SystemMapNode[] = systemRegistryNodes.filter((nodeItem) =>
+  nodeItem.kind === "portal" || (nodeItem.kind === "module" && !nodeItem.parentId) || nodeItem.kind === "integration"
+);
+
+export const systemDnaNodes: SystemMapNode[] = systemRegistryNodes;
+
 export const systemMapEdges: SystemMapEdge[] = [
-  { from: "sharepoint", to: "import", label: "sync" },
-  { from: "import", to: "dealer_data", label: "stamdata" },
-  { from: "import", to: "service", label: "warranty" },
-  { from: "import", to: "sales", label: "priser" },
-  { from: "erp", to: "import", label: "priser" },
-  { from: "dealer_data", to: "crm", label: "scope" },
-  { from: "dealer_data", to: "service", label: "matching" },
-  { from: "messe", to: "crm", label: "leads" },
-  { from: "crm", to: "sales", label: "tilbud" },
-  { from: "sales", to: "documents", label: "PDF" },
-  { from: "sales", to: "email", label: "webhook" },
-  { from: "crm", to: "email", label: "kalender" },
-  { from: "system_admin", to: "portal", label: "adgang" },
-  { from: "portal", to: "supabase", label: "data" },
-  { from: "supabase", to: "crm", label: "RPC" },
-  { from: "supabase", to: "marketing", label: "CMS" },
-  { from: "supabase", to: "dealer_data", label: "konti" },
-  { from: "supabase", to: "service", label: "service" },
+  { from: "sharepoint", to: "import", label: "sync", kind: "sync" },
+  { from: "microsoft_365", to: "sharepoint", label: "kilde", kind: "sync", minZoom: 0.65 },
+  { from: "import", to: "dealer_data", label: "stamdata", kind: "data" },
+  { from: "import", to: "service", label: "warranty", kind: "data" },
+  { from: "import", to: "sales", label: "priser", kind: "data" },
+  { from: "erp", to: "import", label: "priser", kind: "sync" },
+  { from: "dealer_data", to: "crm", label: "scope", kind: "permission" },
+  { from: "dealer_data", to: "service", label: "matching", kind: "data" },
+  { from: "messe", to: "crm", label: "leads", kind: "data" },
+  { from: "crm", to: "sales", label: "tilbud", kind: "data" },
+  { from: "sales", to: "documents", label: "PDF", kind: "data" },
+  { from: "sales", to: "email", label: "webhook", kind: "data" },
+  { from: "crm", to: "email", label: "kalender", kind: "data" },
+  { from: "system_admin", to: "portal", label: "adgang", kind: "permission" },
+  { from: "portal", to: "supabase", label: "data", kind: "data" },
+  { from: "supabase", to: "crm", label: "RPC", kind: "data" },
+  { from: "supabase", to: "marketing", label: "CMS", kind: "data" },
+  { from: "supabase", to: "dealer_data", label: "konti", kind: "data" },
+  { from: "supabase", to: "service", label: "service", kind: "data" },
+  { from: "external_apis", to: "dealer_data", label: "geocoding", kind: "sync", minZoom: 0.8 },
+  { from: "external_apis", to: "messe", label: "kort", kind: "data", minZoom: 0.8 },
+];
+
+export const systemDnaEdges: SystemMapEdge[] = [
+  ...systemMapEdges,
+  ...systemDnaNodes
+    .filter((nodeItem) => nodeItem.parentId)
+    .map((nodeItem) => ({
+      from: nodeItem.parentId as SystemMapNodeId,
+      to: nodeItem.id,
+      label: "indeholder",
+      kind: "navigation" as const,
+      minZoom: Math.max(0.7, nodeItem.minZoom - 0.1),
+    })),
+  { from: "messe_form", to: "messe_leads", label: "opretter", kind: "data", minZoom: 0.9 },
+  { from: "messe_leads", to: "crm_leads", label: "bliver til", kind: "data", minZoom: 0.95 },
+  { from: "crm_leads", to: "crm_activities", label: "aktivitet", kind: "data", minZoom: 1.0 },
+  { from: "crm_leads", to: "lead_conversions", label: "konverteres", kind: "data", minZoom: 1.1 },
+  { from: "lead_conversions", to: "quotes", label: "tilbud", kind: "data", minZoom: 1.0 },
+  { from: "quotes", to: "configurator", label: "konfiguration", kind: "data", minZoom: 0.95 },
+  { from: "configurator", to: "orders", label: "ordre", kind: "data", minZoom: 0.95 },
+  { from: "orders", to: "dealer_profile", label: "kunde/forhandler", kind: "data", minZoom: 1.0 },
+  { from: "dealer_profile", to: "crm_dashboard", label: "KPI", kind: "data", minZoom: 1.0 },
+  { from: "price_lists", to: "config_step_options", label: "priser", kind: "data", minZoom: 1.05 },
+  { from: "dealer_import", to: "dealer_profile", label: "opdaterer", kind: "sync", minZoom: 1.0 },
+  { from: "warranty", to: "machine_journal", label: "maskiner", kind: "data", minZoom: 1.05 },
+  { from: "news", to: "messe_news", label: "publicerer", kind: "data", minZoom: 1.1 },
+  { from: "site_features", to: "portal", label: "Hvad er nyt", kind: "data", minZoom: 0.95 },
+  { from: "users_admin", to: "roles_access", label: "tildeler", kind: "permission", minZoom: 1.0 },
+  { from: "roles_access", to: "route_guards", label: "styrer", kind: "permission", minZoom: 1.25 },
+  { from: "route_guards", to: "portal", label: "adgang", kind: "permission", minZoom: 1.25 },
+  { from: "audit_log", to: "users_admin", label: "logger", kind: "data", minZoom: 1.1 },
+  { from: "portal_analytics", to: "portal", label: "brug", kind: "data", minZoom: 1.05 },
+  { from: "edge_functions", to: "supabase", label: "server", kind: "data", minZoom: 1.35 },
+];
+
+export const featuredDataFlow: SystemMapNodeId[] = [
+  "messe_form",
+  "messe_leads",
+  "crm_leads",
+  "crm_activities",
+  "lead_conversions",
+  "quotes",
+  "configurator",
+  "orders",
+  "dealer_profile",
+  "crm_dashboard",
 ];
 
 export function findSystemMapNode(id: SystemMapNodeId): SystemMapNode {
-  return systemMapNodes.find((node) => node.id === id) ?? systemMapNodes[0];
+  return systemRegistryNodes.find((nodeItem) => nodeItem.id === id) ?? systemRegistryNodes[0];
+}
+
+export function getSystemMapChildren(id: SystemMapNodeId): SystemMapNode[] {
+  return systemRegistryNodes.filter((nodeItem) => nodeItem.parentId === id);
 }
