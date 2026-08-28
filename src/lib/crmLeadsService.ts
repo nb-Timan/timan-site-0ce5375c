@@ -10,6 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
 import { BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, localizedName } from "@/lib/crmBudgetService";
+import { getLeadPipelineValueSnapshot } from "@/lib/crmPipelineValue";
 import machineDemoSeed from "@/data/machineDemoSeed.json";
 import openLeadsSeed from "@/data/openLeadsSeed.json";
 
@@ -216,6 +217,9 @@ export interface CrmLead {
   country: string | null;
   notes: string | null;
   estimated_value: number | null;
+  pipeline_value_snapshot?: number | null;
+  pipeline_value_snapshot_reason?: string | null;
+  pipeline_value_snapshot_updated_at?: string | null;
   probability: number | null;
   pipeline_stage: PipelineStage;
   lost_competitor: string | null;
@@ -392,6 +396,10 @@ function isUuid(value: string | null | undefined): boolean {
 export async function createLead(input: NewCrmLead, opts: { requireRemote?: boolean } = {}): Promise<CrmLead> {
   const now = new Date().toISOString();
   const row: CrmLead = { ...input, id: uuid(), created_at: now, updated_at: now };
+  const pipelineSnapshot = getLeadPipelineValueSnapshot(row);
+  row.pipeline_value_snapshot = pipelineSnapshot.value;
+  row.pipeline_value_snapshot_reason = pipelineSnapshot.reason;
+  row.pipeline_value_snapshot_updated_at = pipelineSnapshot.updatedAt;
 
   // Pre-assign a stable local fallback lead_no based on what we've seen so
   // far (LS + seed). The Supabase sequence is authoritative — if the insert
@@ -427,6 +435,9 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       country: row.country,
       notes: row.notes,
       estimated_value: row.estimated_value,
+      pipeline_value_snapshot: pipelineSnapshot.value,
+      pipeline_value_snapshot_reason: pipelineSnapshot.reason,
+      pipeline_value_snapshot_updated_at: pipelineSnapshot.updatedAt,
       probability: row.probability,
       pipeline_stage: row.pipeline_stage,
       lost_competitor: row.lost_competitor,
@@ -579,6 +590,13 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
     merged = { ...base, ...patch, id, updated_at: now } as CrmLead;
     local.unshift(merged);
   }
+  const pipelineSnapshot = getLeadPipelineValueSnapshot(merged);
+  merged.pipeline_value_snapshot = pipelineSnapshot.value;
+  merged.pipeline_value_snapshot_reason = pipelineSnapshot.reason;
+  merged.pipeline_value_snapshot_updated_at = pipelineSnapshot.updatedAt;
+  if (existingIdx >= 0) {
+    local[existingIdx] = merged;
+  }
   writeLS<CrmLead>(LS_LEADS, local);
 
   try {
@@ -600,6 +618,9 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
       country: merged.country,
       notes: merged.notes,
       estimated_value: merged.estimated_value,
+      pipeline_value_snapshot: pipelineSnapshot.value,
+      pipeline_value_snapshot_reason: pipelineSnapshot.reason,
+      pipeline_value_snapshot_updated_at: pipelineSnapshot.updatedAt,
       probability: merged.probability,
       pipeline_stage: merged.pipeline_stage,
       lost_competitor: merged.lost_competitor,

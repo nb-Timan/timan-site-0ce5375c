@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateMachineInterestEstimate } from "@/lib/leadToConfiguratorDraft";
-import { getLeadPipelineValue, parsePipelineNumber } from "@/lib/crmPipelineValue";
+import { getLeadPipelineValue, getLeadPipelineValueSnapshot, parsePipelineNumber } from "@/lib/crmPipelineValue";
 import type { CrmLead } from "@/lib/crmLeadsService";
 
 function lead(input: Partial<CrmLead>): Pick<CrmLead, "estimated_value" | "machine_types"> {
@@ -50,5 +50,20 @@ describe("getLeadPipelineValue", () => {
 
     expect(getLeadPipelineValue(row)).toBe(previousDashboardRule(row));
     expect(getLeadPipelineValue(row)).toBe(1235);
+  });
+
+  it("describes why the snapshot value was selected", () => {
+    expect(getLeadPipelineValueSnapshot(lead({ estimated_value: 100, machine_types: ["RC-751"] }))).toMatchObject({
+      value: 100,
+      reason: "estimated_value",
+    });
+    expect(getLeadPipelineValueSnapshot(lead({ machine_types: ["RC-751"] }))).toMatchObject({
+      value: 167_500,
+      reason: "machine_types_price",
+    });
+    expect(getLeadPipelineValueSnapshot(lead({ machine_types: ["Full Line"] }))).toMatchObject({
+      value: 0,
+      reason: "zero_unmapped_or_group_only_machine_types",
+    });
   });
 });
