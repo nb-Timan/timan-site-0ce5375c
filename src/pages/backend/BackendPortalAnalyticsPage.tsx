@@ -1,510 +1,495 @@
 /**
- * Timan Backend → Portal Analytics
+ * Timan Backend -> Portal Analytics
  * Route: /portal/backend/portal-analytics
- * Access: portal_role === 'timan_backend' only.
  *
- * Reads from guest_visitors, guest_sessions, portal_activity_log, app_users.
+ * Reads aggregated module usage through get_backend_user_activity_analytics().
+ * Raw portal_module_usage rows stay in Supabase.
  */
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { BarChart3 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { useAppUser } from "@/context/AppUserContext";
-import { useLanguage } from "@/context/LanguageContext";
+import {
+  Activity,
+  BarChart3,
+  CalendarDays,
+  Clock3,
+  MonitorUp,
+  RefreshCw,
+  UserRound,
+  Users,
+} from "lucide-react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { derivePortalRole } from "@/lib/portalAccess";
+import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { formatDateTime } from "@/lib/format-date";
+import { derivePortalRole } from "@/lib/portalAccess";
+import {
+  fetchPortalUsageAnalytics,
+  type PortalUsageAnalytics,
+  type PortalUsageComparisonPeriod,
+  type PortalUsageModuleSummary,
+} from "@/lib/portalModuleUsageAnalyticsService";
 
-interface SessionRow {
-  id: string;
-  visitor_uid: string;
-  user_type: string;
-  email: string | null;
-  country: string | null;
-  postal_code: string | null;
-  language: string | null;
-  started_at: string;
-  ended_at: string | null;
-  duration_seconds: number | null;
-  last_seen: string | null;
+const ALL = "__all__";
+const PERIODS = [
+  { value: "7", label: "7 dage" },
+  { value: "30", label: "30 dage" },
+  { value: "90", label: "90 dage" },
+  { value: "365", label: "12 mdr." },
+];
+
+const MODULE_COLORS = ["#047857", "#2563eb", "#7c3aed", "#f59e0b", "#e11d48", "#0891b2", "#65a30d"];
+
+function formatSeconds(seconds: number | null | undefined): string {
+  const total = Math.max(0, Math.round(seconds || 0));
+  if (total < 60) return total ? `${total} sek.` : "0 min.";
+  const minutes = Math.floor(total / 60);
+  if (minutes < 60) return `${minutes} min.`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} t ${rest} min.` : `${hours} t`;
 }
 
-interface ActivityRow {
-  id: string;
-  visitor_uid: string;
-  user_type: string;
-  email: string | null;
-  country: string | null;
-  postal_code: string | null;
-  language: string | null;
-  path: string;
-  module: string | null;
-  created_at: string;
+function formatModuleKey(key: string | null | undefined): string {
+  if (!key) return "Ingen modul";
+  const labels: Record<string, string> = {
+    backend_portal_analytics: "Backend: Portal Analytics",
+    backend_users: "Backend: Brugere",
+    backend_roles: "Backend: Roller",
+    backend_module_access: "Backend: Moduladgang",
+    backend_audit_log: "Backend: Audit log",
+    crm_dashboard: "CRM Dashboard",
+    crm_leads: "Leads",
+    crm_demo_leads: "Demo-leads",
+    crm_quotes: "Tilbud",
+    crm_orders: "Ordrer",
+    crm_activities: "Aktiviteter",
+    crm_calendar: "Kalender",
+    crm_budget: "Budget",
+    crm_budget_dashboard: "Budget Dashboard",
+    crm_dealers: "Mine forhandlere",
+    marketing: "Marketing",
+    marketing_news: "Marketing: Nyheder",
+    marketing_site_features: "Marketing: Nye features",
+    dealer_data: "Forhandlerdata",
+    configurator: "Konfigurator",
+    partner_map: "Partnerkort",
+    messe: "Messe",
+    messe_partner_map: "Messe: Partnerkort",
+    service: "Teknik & Service",
+    service_tsb: "TSB",
+  };
+  if (labels[key]) return labels[key];
+  return key
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
-interface VisitorRow {
-  visitor_uid: string;
-  email: string | null;
-  country: string | null;
-  postal_code: string | null;
-  language: string | null;
-  first_visit_at: string;
-  last_visit_at: string;
-  visit_count: number;
-  converted_to_user: boolean;
+function displayUserName(user: { display_name?: string | null; email?: string | null }): string {
+  return (user.display_name?.trim() || user.email || "Ukendt bruger").trim();
 }
 
-interface AppUserLite {
-  email: string;
-  display_name: string | null;
-  initials: string | null;
-  role: string | null;
-  portal_role: string | null;
+function comparisonLabel(period: PortalUsageComparisonPeriod | undefined): string {
+  if (!period) return "Ingen data";
+  const current = period.current_visits || 0;
+  const previous = period.previous_visits || 0;
+  if (previous === 0) return current > 0 ? `${current} vs. 0 · Ny aktivitet` : "0 vs. 0";
+  const pct = Math.round(((current - previous) / previous) * 100);
+  const sign = pct > 0 ? "+" : "";
+  return `${sign}${pct}%`;
 }
 
-function userDisplayName(u: AppUserLite | undefined, fallbackEmail?: string | null): string {
-  return (u?.display_name?.trim() || u?.initials?.trim() || fallbackEmail || u?.email || "").trim();
-}
-
-function startOfTodayISO() {
-  const d = new Date(); d.setHours(0, 0, 0, 0); return d.toISOString();
-}
-function daysAgoISO(days: number) {
-  const d = new Date(); d.setDate(d.getDate() - days); return d.toISOString();
-}
-
-function effectiveDuration(s: SessionRow): number | null {
-  if (s.duration_seconds && s.duration_seconds > 0) return s.duration_seconds;
-  const endStr = s.last_seen || s.ended_at;
-  if (!endStr) return null;
-  const start = new Date(s.started_at).getTime();
-  const end = new Date(endStr).getTime();
-  if (!isFinite(start) || !isFinite(end) || end <= start) return null;
-  return Math.round((end - start) / 1000);
-}
-
-function fmtDuration(sec: number | null): string {
-  if (sec == null || sec < 60) return "Under 1 min";
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${m} min ${s} sek`;
-}
-
-function Kpi({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: string | number;
+  sub?: string;
+}) {
   return (
-    <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle></CardHeader>
+    <Card className="rounded-lg">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</CardTitle>
+        <Icon className="h-4 w-4 text-emerald-600" />
+      </CardHeader>
       <CardContent>
-        <div className="text-3xl font-bold">{value}</div>
-        {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
+        <div className="text-2xl font-bold text-slate-950">{value}</div>
+        {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
       </CardContent>
     </Card>
   );
 }
 
-function topN<T extends string>(items: (T | null | undefined)[], n = 5): { key: T; count: number }[] {
-  const map = new Map<T, number>();
-  items.forEach(i => { if (!i) return; map.set(i, (map.get(i) || 0) + 1); });
-  return Array.from(map.entries())
-    .map(([key, count]) => ({ key, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, n);
+function EmptyChart() {
+  return <div className="flex h-full items-center justify-center text-sm text-slate-400">Ingen data endnu.</div>;
 }
 
-function lc(e: string | null | undefined): string {
-  return (e || "").trim().toLowerCase();
+function ModuleBars({ rows, valueKey = "visit_count" }: { rows: PortalUsageModuleSummary[]; valueKey?: "visit_count" | "active_seconds" }) {
+  const data = rows.slice(0, 8).map((row) => ({
+    name: formatModuleKey(row.module_key),
+    value: row[valueKey] || 0,
+  }));
+  if (!data.some((row) => row.value > 0)) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 18 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="name" tick={{ fontSize: 11 }} interval={0} angle={-12} textAnchor="end" height={54} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={34} />
+        <Tooltip formatter={(value: number) => valueKey === "active_seconds" ? formatSeconds(value) : value} />
+        <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+          {data.map((_, index) => <Cell key={index} fill={MODULE_COLORS[index % MODULE_COLORS.length]} />)}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ActiveDaysChart({ rows }: { rows: PortalUsageAnalytics["active_days_over_time"] }) {
+  const data = rows.map((row) => ({
+    day: new Date(row.day).toLocaleDateString("da-DK", { day: "2-digit", month: "2-digit" }),
+    active_users: row.active_users,
+    visits: row.visit_count,
+  }));
+  if (!data.some((row) => row.active_users > 0 || row.visits > 0)) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="day" tick={{ fontSize: 11 }} minTickGap={24} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={34} />
+        <Tooltip />
+        <Line type="monotone" dataKey="active_users" name="Aktive brugere" stroke="#047857" strokeWidth={2} dot={false} />
+        <Line type="monotone" dataKey="visits" name="Besøg" stroke="#2563eb" strokeWidth={2} dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function DataTable({ analytics }: { analytics: PortalUsageAnalytics }) {
+  return (
+    <Card className="rounded-lg">
+      <CardHeader>
+        <CardTitle className="text-base">Brugere</CardTitle>
+      </CardHeader>
+      <CardContent className="overflow-x-auto">
+        <table className="w-full min-w-[980px] text-sm">
+          <thead className="border-b text-left text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="py-2 pr-4">Bruger</th>
+              <th className="py-2 pr-4">Rolle</th>
+              <th className="py-2 pr-4">Forhandler</th>
+              <th className="py-2 pr-4">Seneste login</th>
+              <th className="py-2 pr-4">Aktive dage 7/30/90</th>
+              <th className="py-2 pr-4">Sessioner</th>
+              <th className="py-2 pr-4">Besøg</th>
+              <th className="py-2 pr-4">Aktiv tid</th>
+              <th className="py-2 pr-4">Mest brugte modul</th>
+            </tr>
+          </thead>
+          <tbody>
+            {analytics.users.map((user) => (
+              <tr key={`${user.user_id || user.email}`} className="border-b last:border-0">
+                <td className="py-3 pr-4">
+                  <div className="font-semibold text-slate-950">{displayUserName(user)}</div>
+                  <div className="text-xs text-slate-500">{user.email}</div>
+                </td>
+                <td className="py-3 pr-4 text-slate-700">{user.portal_role || "-"}</td>
+                <td className="py-3 pr-4 text-slate-700">{user.dealer_number || "-"}</td>
+                <td className="py-3 pr-4 text-slate-700">{user.last_login ? formatDateTime(user.last_login) : "-"}</td>
+                <td className="py-3 pr-4 font-medium text-slate-800">
+                  {user.active_days_7} / {user.active_days_30} / {user.active_days_90}
+                </td>
+                <td className="py-3 pr-4 text-slate-700">{user.session_count}</td>
+                <td className="py-3 pr-4 text-slate-700">{user.visit_count}</td>
+                <td className="py-3 pr-4 text-slate-700">{formatSeconds(user.active_seconds)}</td>
+                <td className="py-3 pr-4 text-slate-700">{formatModuleKey(user.top_module)}</td>
+              </tr>
+            ))}
+            {analytics.users.length === 0 && (
+              <tr>
+                <td colSpan={9} className="py-10 text-center text-slate-400">Ingen brugeraktivitet matcher filtrene.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function BackendPortalAnalyticsPage() {
-  const { appUser, loading, setAppUser, logout } = useAppUser();
+  const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-
-  const [visitors, setVisitors] = useState<VisitorRow[]>([]);
-  const [sessions, setSessions] = useState<SessionRow[]>([]);
-  const [activity, setActivity] = useState<ActivityRow[]>([]);
-  const [users, setUsers] = useState<AppUserLite[]>([]);
-  const [busy, setBusy] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-  const [filter, setFilter] = useState<string>("all"); // 'all' | 'sellers' | email
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setBusy(true);
-      try {
-        const since = daysAgoISO(30);
-        const [v, s, a, u] = await Promise.all([
-          supabase.from("guest_visitors").select("*").order("last_visit_at", { ascending: false }).limit(2000),
-          supabase.from("guest_sessions").select("*").gte("started_at", since).order("started_at", { ascending: false }).limit(5000),
-          supabase.from("portal_activity_log").select("*").gte("created_at", since).order("created_at", { ascending: false }).limit(5000),
-          supabase.from("app_users").select("email,display_name,initials,role,portal_role"),
-        ]);
-        if (cancelled) return;
-        if (v.error) throw v.error;
-        if (s.error) throw s.error;
-        if (a.error) throw a.error;
-        if (u.error) throw u.error;
-        setVisitors((v.data || []) as VisitorRow[]);
-        setSessions((s.data || []) as SessionRow[]);
-        setActivity((a.data || []) as ActivityRow[]);
-        setUsers((u.data || []) as AppUserLite[]);
-      } catch (e: any) {
-        setErr(e?.message || String(e));
-      } finally {
-        if (!cancelled) setBusy(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
   const portalRole = appUser ? derivePortalRole(appUser) : null;
 
-  // Email → user lookup
-  const userByEmail = useMemo(() => {
-    const m = new Map<string, AppUserLite>();
-    users.forEach(u => { if (u.email) m.set(lc(u.email), u); });
-    return m;
-  }, [users]);
+  const [userId, setUserId] = useState(ALL);
+  const [role, setRole] = useState(ALL);
+  const [dealerNumber, setDealerNumber] = useState(ALL);
+  const [moduleKey, setModuleKey] = useState(ALL);
+  const [days, setDays] = useState("30");
+  const [analytics, setAnalytics] = useState<PortalUsageAnalytics | null>(null);
+  const [busy, setBusy] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const sellerEmails = useMemo(
-    () => new Set(users.filter(u => u.portal_role === "timan_seller").map(u => lc(u.email))),
-    [users]
-  );
+  useEffect(() => {
+    if (portalRole !== "timan_backend") return;
+    let cancelled = false;
+    setBusy(true);
+    setErr(null);
 
-  // Apply filter
-  const fSessions = useMemo(() => {
-    if (filter === "all") return sessions;
-    if (filter === "sellers") return sessions.filter(s => sellerEmails.has(lc(s.email)));
-    return sessions.filter(s => lc(s.email) === filter);
-  }, [sessions, filter, sellerEmails]);
+    fetchPortalUsageAnalytics({
+      userId: userId === ALL ? null : userId,
+      role: role === ALL ? null : role,
+      dealerNumber: dealerNumber === ALL ? null : dealerNumber,
+      moduleKey: moduleKey === ALL ? null : moduleKey,
+      days: Number(days),
+    })
+      .then((data) => {
+        if (!cancelled) setAnalytics(data);
+      })
+      .catch((error: any) => {
+        if (!cancelled) setErr(error?.message || String(error));
+      })
+      .finally(() => {
+        if (!cancelled) setBusy(false);
+      });
 
-  const fActivity = useMemo(() => {
-    if (filter === "all") return activity;
-    if (filter === "sellers") return activity.filter(a => sellerEmails.has(lc(a.email)));
-    return activity.filter(a => lc(a.email) === filter);
-  }, [activity, filter, sellerEmails]);
-
-  const fVisitors = useMemo(() => {
-    if (filter === "all") return visitors;
-    if (filter === "sellers") return visitors.filter(v => sellerEmails.has(lc(v.email)));
-    return visitors.filter(v => lc(v.email) === filter);
-  }, [visitors, filter, sellerEmails]);
-
-  const metrics = useMemo(() => {
-    const today = startOfTodayISO();
-    const d7 = daysAgoISO(7);
-    const d30 = daysAgoISO(30);
-
-    const sessionsToday = fSessions.filter(s => s.started_at >= today).length;
-    const sessions7 = fSessions.filter(s => s.started_at >= d7).length;
-    const sessions30 = fSessions.filter(s => s.started_at >= d30).length;
-
-    const firstTime = fVisitors.filter(v => v.visit_count <= 1).length;
-    const returning = fVisitors.filter(v => v.visit_count > 1).length;
-
-    const durs = fSessions.map(effectiveDuration).filter((d): d is number => d != null && d > 0);
-    const avgDur = durs.length ? Math.round(durs.reduce((a, b) => a + b, 0) / durs.length) : null;
-
-    const guestSessions = fSessions.filter(s => s.user_type === "guest").length;
-    const authSessions = fSessions.filter(s => s.user_type === "authenticated").length;
-
-    const topModules = topN(fActivity.map(a => a.module || "?"), 6);
-    const topCountries = topN(fVisitors.map(v => v.country || "?"), 8);
-    const topPostals = topN(fVisitors.map(v => v.postal_code || "?"), 8);
-    const topLangs = topN(fVisitors.map(v => v.language || "?"), 6);
-
-    return { sessionsToday, sessions7, sessions30, firstTime, returning, avgDur, guestSessions, authSessions, topModules, topCountries, topPostals, topLangs };
-  }, [fSessions, fVisitors, fActivity]);
-
-  // Per-user aggregation (authenticated only)
-  const perUser = useMemo(() => {
-    const today = startOfTodayISO();
-    const d7 = daysAgoISO(7);
-    const map = new Map<string, {
-      email: string;
-      name: string;
-      role: string;
-      portalRole: string;
-      visitsToday: number;
-      visits7: number;
-      visits30: number;
-      visits: number;
-      lastVisit: string | null;
-      durations: number[];
-      modules: Map<string, number>;
-    }>();
-    const ensure = (email: string) => {
-      const key = lc(email);
-      if (!map.has(key)) {
-        const u = userByEmail.get(key);
-        map.set(key, {
-          email,
-          name: userDisplayName(u, email),
-          role: u?.role || "—",
-          portalRole: u?.portal_role || "—",
-          visitsToday: 0, visits7: 0, visits30: 0, visits: 0,
-          lastVisit: null, durations: [], modules: new Map(),
-        });
-      }
-      return map.get(key)!;
+    return () => {
+      cancelled = true;
     };
+  }, [dealerNumber, days, moduleKey, portalRole, refreshKey, role, userId]);
 
-    sessions.filter(s => s.user_type === "authenticated" && s.email).forEach(s => {
-      const e = ensure(s.email!);
-      e.visits += 1;
-      if (s.started_at >= today) e.visitsToday += 1;
-      if (s.started_at >= d7) e.visits7 += 1;
-      e.visits30 += 1; // already filtered to last 30d
-      if (!e.lastVisit || s.started_at > e.lastVisit) e.lastVisit = s.started_at;
-      const d = effectiveDuration(s);
-      if (d != null && d > 0) e.durations.push(d);
-    });
-    activity.filter(a => a.user_type === "authenticated" && a.email).forEach(a => {
-      const e = ensure(a.email!);
-      const m = a.module || "?";
-      e.modules.set(m, (e.modules.get(m) || 0) + 1);
-    });
+  const selectedUser = useMemo(() => analytics?.users[0] || null, [analytics]);
+  const filterOptions = analytics?.filters;
 
-    return Array.from(map.values()).map(u => {
-      const avg = u.durations.length ? Math.round(u.durations.reduce((a, b) => a + b, 0) / u.durations.length) : null;
-      const total = u.durations.reduce((a, b) => a + b, 0);
-      let topMod: string = "—"; let topCount = 0;
-      u.modules.forEach((c, m) => { if (c > topCount) { topCount = c; topMod = m; } });
-      return { ...u, avg, total, topMod };
-    }).sort((a, b) => (b.lastVisit || "").localeCompare(a.lastVisit || ""));
-  }, [sessions, activity, userByEmail]);
-
-  const perUserFiltered = useMemo(() => {
-    if (filter === "all") return perUser;
-    if (filter === "sellers") return perUser.filter(u => u.portalRole === "timan_seller");
-    return perUser.filter(u => lc(u.email) === filter);
-  }, [perUser, filter]);
-
-  const sellerRows = useMemo(
-    () => perUser.filter(u => u.portalRole === "timan_seller")
-      .filter(u => filter === "all" || filter === "sellers" || lc(u.email) === filter),
-    [perUser, filter]
-  );
-
-  // Build user options for filter dropdown
-  const userOptions = useMemo(() => {
-    return perUser
-      .map(u => ({ value: lc(u.email), label: `${u.name} (${u.email})` }))
-      .sort((a, b) => a.label.localeCompare(b.label));
-  }, [perUser]);
-
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
+  if (loading) {
+    return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Indlæser...</div>;
+  }
   if (!appUser) return <Navigate to="/portal" replace />;
   if (portalRole !== "timan_backend") return <Navigate to="/portal" replace />;
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <PortalHeader user={appUser} language={lang} onLanguageChange={setLanguage} onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }} />
+    <div className="flex min-h-screen flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <PortalHeader
+        user={appUser}
+        language={lang}
+        onLanguageChange={setLanguage}
+        onLogout={async () => {
+          await logout();
+          navigate("/portal", { replace: true });
+        }}
+      />
 
-      <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-10 flex-grow w-full">
-        <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+      <main className="mx-auto w-full max-w-[1700px] flex-grow px-4 py-8 sm:px-6 lg:px-8 xl:px-12">
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <BarChart3 className="h-7 w-7 text-emerald-600" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-50">
+              <BarChart3 className="h-6 w-6 text-emerald-700" />
+            </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Portal Analytics</h1>
-              <p className="text-gray-600 text-sm">Besøgende, sessioner og modulbrug — sidste 30 dage.</p>
+              <h1 className="text-3xl font-bold text-slate-950">Portal Analytics</h1>
+              <p className="text-sm text-slate-600">Brugeraktivitet pr. modul, bygget på server-side summeringer.</p>
             </div>
           </div>
-          <div className="min-w-[280px]">
-            <label className="block text-xs text-gray-500 mb-1">Filtrér</label>
-            <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+          <Button variant="outline" onClick={() => setRefreshKey((key) => key + 1)} disabled={busy}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Genindlæs
+          </Button>
+        </div>
+
+        <Card className="mb-6 rounded-lg">
+          <CardContent className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
+            <Select value={userId} onValueChange={setUserId}>
+              <SelectTrigger><SelectValue placeholder="Bruger" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Alle brugere</SelectItem>
-                <SelectItem value="sellers">Sælgere</SelectItem>
-                {userOptions.map(o => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                <SelectItem value={ALL}>Alle brugere</SelectItem>
+                {(filterOptions?.users || []).map((user) => (
+                  <SelectItem key={user.user_id || user.email} value={user.user_id || user.email}>
+                    {displayUserName(user)} · {user.email}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+
+            <Select value={role} onValueChange={setRole}>
+              <SelectTrigger><SelectValue placeholder="Rolle" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Alle roller</SelectItem>
+                {(filterOptions?.roles || []).map((value) => (
+                  <SelectItem key={value} value={value}>{value}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={dealerNumber} onValueChange={setDealerNumber}>
+              <SelectTrigger><SelectValue placeholder="Forhandler" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Alle forhandlere</SelectItem>
+                {(filterOptions?.dealer_numbers || []).map((value) => (
+                  <SelectItem key={value} value={value}>{value}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={moduleKey} onValueChange={setModuleKey}>
+              <SelectTrigger><SelectValue placeholder="Modul" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL}>Alle moduler</SelectItem>
+                {(filterOptions?.modules || []).map((value) => (
+                  <SelectItem key={value} value={value}>{formatModuleKey(value)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={days} onValueChange={setDays}>
+              <SelectTrigger><SelectValue placeholder="Periode" /></SelectTrigger>
+              <SelectContent>
+                {PERIODS.map((period) => (
+                  <SelectItem key={period.value} value={period.value}>{period.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </CardContent>
+        </Card>
+
+        {err && (
+          <div className="mb-6 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+            Fejl: {err}
           </div>
-        </div>
+        )}
 
-        {err && <div className="mb-4 p-3 rounded-md bg-rose-50 text-rose-700 text-sm">Fejl: {err}. Sørg for at SQL-migrationen er kørt (phase29).</div>}
-        {busy && <div className="text-sm text-gray-500">Indlæser…</div>}
-
-        {!busy && (
-          <>
-            {/* KPI cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-              <Kpi label="Besøg i dag" value={metrics.sessionsToday} />
-              <Kpi label="Sidste 7 dage" value={metrics.sessions7} />
-              <Kpi label="Sidste 30 dage" value={metrics.sessions30} />
-              <Kpi label="Gns. session" value={fmtDuration(metrics.avgDur)} />
-              <Kpi label="Førstegangsbesøg" value={metrics.firstTime} />
-              <Kpi label="Tilbagevendende" value={metrics.returning} />
-              <Kpi label="Gæster" value={metrics.guestSessions} />
-              <Kpi label="Loggede ind" value={metrics.authSessions} />
+        {busy || !analytics ? (
+          <div className="rounded-lg border bg-white p-8 text-center text-sm text-slate-500">Henter brugeraktivitet...</div>
+        ) : (
+          <div className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <KpiCard icon={Users} label="Aktive brugere" value={analytics.totals.user_count} sub={`Periode: ${analytics.period.days} dage`} />
+              <KpiCard icon={MonitorUp} label="Sessioner" value={analytics.totals.session_count} sub={`${analytics.totals.visit_count} modulbesøg`} />
+              <KpiCard icon={Clock3} label="Samlet aktiv tid" value={formatSeconds(analytics.totals.active_seconds)} sub={`Senest: ${analytics.totals.last_active_at ? formatDateTime(analytics.totals.last_active_at) : "-"}`} />
+              <KpiCard icon={CalendarDays} label="Aktive dage 7/30/90" value={`${analytics.totals.active_days_7}/${analytics.totals.active_days_30}/${analytics.totals.active_days_90}`} />
             </div>
 
-            {/* Sælgeraktivitet */}
-            <Card className="mb-8">
-              <CardHeader><CardTitle className="text-base">Sælgeraktivitet</CardTitle></CardHeader>
-              <CardContent className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-left text-xs uppercase text-gray-500 border-b">
-                    <tr>
-                      <th className="py-2 pr-3">Sælger</th>
-                      <th className="py-2 pr-3">Email</th>
-                      <th className="py-2 pr-3">I dag</th>
-                      <th className="py-2 pr-3">7 dage</th>
-                      <th className="py-2 pr-3">30 dage</th>
-                      <th className="py-2 pr-3">Seneste besøg</th>
-                      <th className="py-2 pr-3">Gns. session</th>
-                      <th className="py-2 pr-3">Mest brugte modul</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sellerRows.map(r => (
-                      <tr key={r.email} className="border-b last:border-0 hover:bg-gray-50">
-                        <td className="py-2 pr-3 font-medium">{r.name}</td>
-                        <td className="py-2 pr-3 text-gray-600">{r.email}</td>
-                        <td className="py-2 pr-3">{r.visitsToday}</td>
-                        <td className="py-2 pr-3">{r.visits7}</td>
-                        <td className="py-2 pr-3">{r.visits30}</td>
-                        <td className="py-2 pr-3">{r.lastVisit ? formatDateTime(r.lastVisit) : "—"}</td>
-                        <td className="py-2 pr-3">{fmtDuration(r.avg)}</td>
-                        <td className="py-2 pr-3">{r.topMod}</td>
-                      </tr>
-                    ))}
-                    {sellerRows.length === 0 && (
-                      <tr><td colSpan={8} className="py-8 text-center text-gray-400">Ingen sælgeraktivitet endnu.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-
-            {/* Brugeraktivitet */}
-            <Card className="mb-8">
-              <CardHeader><CardTitle className="text-base">Brugeraktivitet</CardTitle></CardHeader>
-              <CardContent className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-left text-xs uppercase text-gray-500 border-b">
-                    <tr>
-                      <th className="py-2 pr-3">Bruger</th>
-                      <th className="py-2 pr-3">Email</th>
-                      <th className="py-2 pr-3">Rolle</th>
-                      <th className="py-2 pr-3">Antal besøg</th>
-                      <th className="py-2 pr-3">Seneste besøg</th>
-                      <th className="py-2 pr-3">Samlet tid</th>
-                      <th className="py-2 pr-3">Gns. session</th>
-                      <th className="py-2 pr-3">Mest brugte modul</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {perUserFiltered.map(r => (
-                      <tr key={r.email} className="border-b last:border-0 hover:bg-gray-50">
-                        <td className="py-2 pr-3 font-medium">{r.name}</td>
-                        <td className="py-2 pr-3 text-gray-600">{r.email}</td>
-                        <td className="py-2 pr-3">{r.portalRole}</td>
-                        <td className="py-2 pr-3">{r.visits}</td>
-                        <td className="py-2 pr-3">{r.lastVisit ? formatDateTime(r.lastVisit) : "—"}</td>
-                        <td className="py-2 pr-3">{fmtDuration(r.total || null)}</td>
-                        <td className="py-2 pr-3">{fmtDuration(r.avg)}</td>
-                        <td className="py-2 pr-3">{r.topMod}</td>
-                      </tr>
-                    ))}
-                    {perUserFiltered.length === 0 && (
-                      <tr><td colSpan={8} className="py-8 text-center text-gray-400">Ingen brugeraktivitet endnu.</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </CardContent>
-            </Card>
-
-            {/* Breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <BreakdownCard title="Mest brugte moduler" rows={metrics.topModules} />
-              <BreakdownCard title="Lande" rows={metrics.topCountries} />
-              <BreakdownCard title="Postnumre" rows={metrics.topPostals} />
-              <BreakdownCard title="Sprog" rows={metrics.topLangs} />
+            <div className="grid gap-4 md:grid-cols-3">
+              <KpiCard icon={Activity} label="Denne uge vs. sidste uge" value={comparisonLabel(analytics.comparisons.week)} sub={`${analytics.comparisons.week.current_visits} vs. ${analytics.comparisons.week.previous_visits} besøg`} />
+              <KpiCard icon={Activity} label="Denne måned vs. sidste måned" value={comparisonLabel(analytics.comparisons.month)} sub={`${analytics.comparisons.month.current_visits} vs. ${analytics.comparisons.month.previous_visits} besøg`} />
+              <KpiCard icon={Activity} label="Samme periode sidste år" value={comparisonLabel(analytics.comparisons.same_period_last_year)} sub={`${analytics.comparisons.same_period_last_year.current_visits} vs. ${analytics.comparisons.same_period_last_year.previous_visits} besøg`} />
             </div>
 
-            {/* Recent sessions */}
-            <Card>
-              <CardHeader><CardTitle className="text-base">Seneste sessioner</CardTitle></CardHeader>
+            {selectedUser && userId !== ALL && (
+              <Card className="rounded-lg border-emerald-100 bg-emerald-50/40">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <UserRound className="h-4 w-4 text-emerald-700" />
+                    Valgt bruger
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-4 text-sm md:grid-cols-4">
+                  <div>
+                    <div className="text-xs uppercase text-slate-500">Navn</div>
+                    <div className="font-semibold text-slate-950">{displayUserName(selectedUser)}</div>
+                    <div className="text-xs text-slate-500">{selectedUser.email}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase text-slate-500">Seneste login</div>
+                    <div className="font-semibold text-slate-950">{selectedUser.last_login ? formatDateTime(selectedUser.last_login) : "-"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase text-slate-500">Sessioner / aktiv tid</div>
+                    <div className="font-semibold text-slate-950">{selectedUser.session_count} · {formatSeconds(selectedUser.active_seconds)}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase text-slate-500">Mest brugte modul</div>
+                    <div className="font-semibold text-slate-950">{formatModuleKey(selectedUser.top_module)}</div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            <div className="grid gap-6 xl:grid-cols-2">
+              <Card className="rounded-lg">
+                <CardHeader><CardTitle className="text-base">Modulbrug denne uge</CardTitle></CardHeader>
+                <CardContent className="h-[280px]"><ModuleBars rows={analytics.module_usage_this_week} /></CardContent>
+              </Card>
+
+              <Card className="rounded-lg">
+                <CardHeader><CardTitle className="text-base">Modulbrug sidste 30 dage</CardTitle></CardHeader>
+                <CardContent className="h-[280px]"><ModuleBars rows={analytics.module_usage_last_30_days} /></CardContent>
+              </Card>
+
+              <Card className="rounded-lg">
+                <CardHeader><CardTitle className="text-base">Aktive dage over tid</CardTitle></CardHeader>
+                <CardContent className="h-[280px]"><ActiveDaysChart rows={analytics.active_days_over_time} /></CardContent>
+              </Card>
+
+              <Card className="rounded-lg">
+                <CardHeader><CardTitle className="text-base">Aktiv tid pr. modul</CardTitle></CardHeader>
+                <CardContent className="h-[280px]"><ModuleBars rows={analytics.modules} valueKey="active_seconds" /></CardContent>
+              </Card>
+            </div>
+
+            <Card className="rounded-lg">
+              <CardHeader><CardTitle className="text-base">Moduler</CardTitle></CardHeader>
               <CardContent className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-left text-xs uppercase text-gray-500 border-b">
+                <table className="w-full min-w-[720px] text-sm">
+                  <thead className="border-b text-left text-xs uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="py-2 pr-3">Tidspunkt</th>
-                      <th className="py-2 pr-3">Bruger</th>
-                      <th className="py-2 pr-3">Land</th>
-                      <th className="py-2 pr-3">Postnr.</th>
-                      <th className="py-2 pr-3">Sprog</th>
-                      <th className="py-2 pr-3">Varighed</th>
-                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-4">Modul</th>
+                      <th className="py-2 pr-4">Brugere</th>
+                      <th className="py-2 pr-4">Sessioner</th>
+                      <th className="py-2 pr-4">Besøg</th>
+                      <th className="py-2 pr-4">Aktiv tid</th>
+                      <th className="py-2 pr-4">Senest aktiv</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {fSessions.slice(0, 50).map(s => {
-                      const u = s.email ? userByEmail.get(lc(s.email)) : null;
-                      return (
-                        <tr key={s.id} className="border-b last:border-0 hover:bg-gray-50">
-                          <td className="py-2 pr-3 text-gray-700">{formatDateTime(s.started_at)}</td>
-                          <td className="py-2 pr-3">{userDisplayName(u ?? undefined, s.email) || <span className="text-gray-400">Gæst</span>}</td>
-                          <td className="py-2 pr-3">{s.country || "—"}</td>
-                          <td className="py-2 pr-3">{s.postal_code || "—"}</td>
-                          <td className="py-2 pr-3">{s.language || "—"}</td>
-                          <td className="py-2 pr-3">{fmtDuration(effectiveDuration(s))}</td>
-                          <td className="py-2 pr-3">
-                            <span className={`inline-block text-xs px-2 py-0.5 rounded-full ${s.user_type === "authenticated" ? "bg-emerald-100 text-emerald-800" : "bg-gray-100 text-gray-700"}`}>
-                              {s.user_type === "authenticated" ? "Registreret" : "Gæst"}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {fSessions.length === 0 && (
-                      <tr><td colSpan={7} className="py-8 text-center text-gray-400">Ingen sessioner endnu.</td></tr>
+                    {analytics.modules.map((module) => (
+                      <tr key={module.module_key} className="border-b last:border-0">
+                        <td className="py-3 pr-4 font-semibold text-slate-950">{formatModuleKey(module.module_key)}</td>
+                        <td className="py-3 pr-4 text-slate-700">{module.user_count || 0}</td>
+                        <td className="py-3 pr-4 text-slate-700">{module.session_count || 0}</td>
+                        <td className="py-3 pr-4 text-slate-700">{module.visit_count}</td>
+                        <td className="py-3 pr-4 text-slate-700">{formatSeconds(module.active_seconds)}</td>
+                        <td className="py-3 pr-4 text-slate-700">{module.last_active_at ? formatDateTime(module.last_active_at) : "-"}</td>
+                      </tr>
+                    ))}
+                    {analytics.modules.length === 0 && (
+                      <tr><td colSpan={6} className="py-10 text-center text-slate-400">Ingen modulbrug endnu.</td></tr>
                     )}
                   </tbody>
                 </table>
               </CardContent>
             </Card>
-          </>
+
+            <DataTable analytics={analytics} />
+          </div>
         )}
       </main>
 
       <PortalFooter language={lang} />
     </div>
-  );
-}
-
-function BreakdownCard({ title, rows }: { title: string; rows: { key: string; count: number }[] }) {
-  const max = rows[0]?.count || 1;
-  return (
-    <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-sm">{title}</CardTitle></CardHeader>
-      <CardContent>
-        {rows.length === 0 ? (
-          <p className="text-xs text-gray-400">Ingen data.</p>
-        ) : (
-          <ul className="space-y-2">
-            {rows.map(r => (
-              <li key={r.key}>
-                <div className="flex justify-between text-xs text-gray-700">
-                  <span className="truncate">{r.key}</span>
-                  <span className="text-gray-500">{r.count}</span>
-                </div>
-                <div className="h-1.5 bg-gray-100 rounded mt-1">
-                  <div className="h-1.5 bg-emerald-500 rounded" style={{ width: `${(r.count / max) * 100}%` }} />
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
   );
 }
