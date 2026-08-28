@@ -27,6 +27,7 @@ import { Building2, ChevronDown, ChevronRight, GitBranch, Search, Star } from "l
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCountryFormatter } from "@/lib/formatCountry";
+import { t as i18n } from "@/lib/i18n/translations";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
@@ -72,6 +73,7 @@ import {
   hasOnlySoftDealerProfileMissing,
 } from "@/lib/dealerProfileBadge";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
+import type { PortalUiLanguage } from "@/lib/portalLanguages";
 
 
 
@@ -129,6 +131,36 @@ function normaliseAccountType(dealer: DealerAccount): "importer" | "dealer" | "s
   return "other";
 }
 
+function text(key: string, lang: PortalUiLanguage): string {
+  return i18n(`crmMyDealers${key}`, lang);
+}
+
+function dealerTypeText(type: ReturnType<typeof normaliseAccountType> | "branch", lang: PortalUiLanguage): string {
+  switch (type) {
+    case "importer":
+      return text("TypeImporter", lang);
+    case "dealer":
+      return text("TypeDealer", lang);
+    case "service_partner":
+      return text("TypeServicePartner", lang);
+    case "dealer_customer":
+      return text("TypeDealerCustomer", lang);
+    case "branch":
+      return text("TypeBranch", lang);
+    default:
+      return "—";
+  }
+}
+
+function dealerTypeFilterText(value: string, lang: PortalUiLanguage): string {
+  const normalized = value.toLowerCase().replace(/[\s_-]+/g, "");
+  if (normalized.includes("import")) return text("TypeImporter", lang);
+  if (normalized.includes("servicepartner")) return text("TypeServicePartner", lang);
+  if (normalized.includes("forhandlerkunde") || normalized.includes("dealercustomer")) return text("TypeDealerCustomer", lang);
+  if (normalized.includes("forhandler") || normalized === "dealer") return text("TypeDealer", lang);
+  return value;
+}
+
 function buildBackendSellerOverview(
   dealers: DealerAccount[],
   dealersByAcct: Map<string, DealerAccount>,
@@ -172,7 +204,7 @@ function buildBackendSellerOverview(
 export default function CrmMyDealersPage() {
   const { appUser, loading } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
-  const { language: lang } = useLanguage();
+  const { language: lang, uiLanguage } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -402,14 +434,14 @@ export default function CrmMyDealersPage() {
               key={sellerRow.initials}
               onClick={() => openSellerView(sellerRow.initials)}
               className="min-w-[118px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/60"
-              title={`Vis ${sellerRow.label}`}
+              title={text("ViewSeller", uiLanguage).replace("{seller}", sellerRow.label)}
             >
               <div className="mb-1 font-bold text-slate-900">{sellerRow.initials}</div>
               <div className="grid grid-cols-[1fr_auto] gap-x-2 gap-y-0.5 text-slate-500">
-                <span>Importører</span><span className="font-semibold text-slate-900">{sellerRow.importers}</span>
-                <span>Forhandlere</span><span className="font-semibold text-slate-900">{sellerRow.dealers}</span>
-                <span>Servicepartnere</span><span className="font-semibold text-slate-900">{sellerRow.servicePartners}</span>
-                <span>Forhandlerkunder</span><span className="font-semibold text-slate-900">{sellerRow.dealerCustomers}</span>
+                <span>{text("Importers", uiLanguage)}</span><span className="font-semibold text-slate-900">{sellerRow.importers}</span>
+                <span>{text("Dealers", uiLanguage)}</span><span className="font-semibold text-slate-900">{sellerRow.dealers}</span>
+                <span>{text("ServicePartners", uiLanguage)}</span><span className="font-semibold text-slate-900">{sellerRow.servicePartners}</span>
+                <span>{text("DealerCustomers", uiLanguage)}</span><span className="font-semibold text-slate-900">{sellerRow.dealerCustomers}</span>
               </div>
             </button>
           ))}
@@ -433,55 +465,55 @@ export default function CrmMyDealersPage() {
             className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm" />
         </div>
         <label className="flex items-center gap-2 text-xs text-slate-600">
-          <span className="font-semibold uppercase tracking-wide">Profilstatus</span>
+          <span className="font-semibold uppercase tracking-wide">{text("FilterProfileStatus", uiLanguage)}</span>
           <select
             value={profileFilter}
             onChange={(e) => setProfileFilter(e.target.value as typeof profileFilter)}
             className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
           >
-            <option value="all">Alle</option>
-            <option value="complete">Komplet</option>
-            <option value="partial">Mangler info</option>
-            <option value="critical">Kritisk</option>
+            <option value="all">{text("FilterAll", uiLanguage)}</option>
+            <option value="complete">{text("FilterComplete", uiLanguage)}</option>
+            <option value="partial">{text("FilterMissingInfo", uiLanguage)}</option>
+            <option value="critical">{text("FilterCritical", uiLanguage)}</option>
 
           </select>
         </label>
         <label className="flex items-center gap-2 text-xs text-slate-600">
-          <span className="font-semibold uppercase tracking-wide">Land</span>
+          <span className="font-semibold uppercase tracking-wide">{text("FilterCountry", uiLanguage)}</span>
           <select
             value={countryFilter}
             onChange={(e) => setCountryFilter(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
           >
-            <option value="all">Alle</option>
+            <option value="all">{text("FilterAll", uiLanguage)}</option>
             {countryOptions.map((country) => (
               <option key={country} value={country}>{formatCountry(country)}</option>
             ))}
           </select>
         </label>
         <label className="flex items-center gap-2 text-xs text-slate-600">
-          <span className="font-semibold uppercase tracking-wide">Type</span>
+          <span className="font-semibold uppercase tracking-wide">{text("FilterType", uiLanguage)}</span>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
             className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
           >
-            <option value="all">Alle</option>
+            <option value="all">{text("FilterAll", uiLanguage)}</option>
             {typeOptions.map((type) => (
-              <option key={type} value={type}>{type}</option>
+              <option key={type} value={type}>{dealerTypeFilterText(type, uiLanguage)}</option>
             ))}
           </select>
         </label>
         <label className="flex items-center gap-2 text-xs text-slate-600">
-          <span className="font-semibold uppercase tracking-wide">Status</span>
+          <span className="font-semibold uppercase tracking-wide">{text("FilterStatus", uiLanguage)}</span>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
             className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
           >
-            <option value="all">Alle</option>
-            <option value="active">Aktive</option>
-            <option value="blocked">Spærrede</option>
+            <option value="all">{text("FilterAll", uiLanguage)}</option>
+            <option value="active">{text("FilterActive", uiLanguage)}</option>
+            <option value="blocked">{text("FilterBlocked", uiLanguage)}</option>
           </select>
         </label>
       </div>
@@ -554,6 +586,7 @@ export default function CrmMyDealersPage() {
                     usersExpanded,
                     setUsersExpanded,
                     budgetIndex,
+                    lang: uiLanguage,
                     budgetAccountNumbers: hasBranches
                       ? [g.main.account_number, ...g.branches.map((b) => b.account_number)]
                       : [g.main.account_number],
@@ -568,6 +601,7 @@ export default function CrmMyDealersPage() {
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
+                        lang: uiLanguage,
                         budgetAccountNumbers: [b.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                         formatCountry,
@@ -582,6 +616,7 @@ export default function CrmMyDealersPage() {
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
+                        lang: uiLanguage,
                         budgetAccountNumbers: [c.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                         formatCountry,
@@ -596,6 +631,7 @@ export default function CrmMyDealersPage() {
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
+                        lang: uiLanguage,
                         budgetAccountNumbers: [p.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
                         formatCountry,
@@ -635,6 +671,7 @@ interface RowProps {
   usersExpanded: Set<string>;
   setUsersExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
   budgetIndex: DealerBudgetIndex | null;
+  lang: PortalUiLanguage;
   budgetAccountNumbers: string[];
   onOpenDetail?: (d: DealerAccount) => void;
   formatCountry: (v: string | null | undefined) => string;
@@ -653,7 +690,7 @@ function renderRow(p: RowProps) {
     : p.allUsers.filter((u) => u.dealer_number === p.r.account_number);
   const eff = resolveEffectiveSeller(p.r, p.dealersByAcct);
   const usersOpen = p.usersExpanded.has(p.r.id);
-  const branchBadge = p.variant === "branch" ? branchRelationBadgeLabel(p.r, p.dealersByAcct) : null;
+  const branchBadge = p.variant === "branch" ? branchRelationBadgeLabel(p.r, p.dealersByAcct, p.lang) : null;
   return (
     <>
       <tr
@@ -670,7 +707,7 @@ function renderRow(p: RowProps) {
               <button type="button"
                 onClick={(e) => { e.stopPropagation(); p.onToggle?.(); }}
                 className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
-                aria-label={p.open ? "Skjul filialer" : "Vis filialer"}>
+                aria-label={p.open ? text("HideBranches", p.lang) : text("ShowBranches", p.lang)}>
                 {p.open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               </button>
             ) : (
@@ -682,7 +719,7 @@ function renderRow(p: RowProps) {
                   const n = new Set(prev); if (n.has(p.r.id)) n.delete(p.r.id); else n.add(p.r.id); return n;
                 }); }}
                 className="text-[10px] font-bold rounded px-1.5 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700"
-                aria-label="Vis brugere">
+                aria-label={text("ShowUsers", p.lang)}>
                 {usersOpen ? "−" : "+"}
               </button>
             )}
@@ -694,17 +731,17 @@ function renderRow(p: RowProps) {
             <span>{p.r.branch_name || p.r.company_name}</span>
             {p.r.is_blocked && (
               <span className="inline-flex items-center gap-1 rounded-full bg-rose-600 px-2 py-0.5 text-[10px] font-bold text-white">
-                Spærret
+                {text("StatusBlocked", p.lang)}
               </span>
             )}
             {p.r.is_deleted && (
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-700 px-2 py-0.5 text-[10px] font-bold text-white">
-                Lukket
+                {text("StatusDeleted", p.lang)}
               </span>
             )}
             {p.isMain && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200">
-                <Star className="h-2.5 w-2.5" /> Hoved{p.branchCount > 0 ? ` (${p.branchCount})` : ""}
+                <Star className="h-2.5 w-2.5" /> {text("Main", p.lang)}{p.branchCount > 0 ? ` (${p.branchCount})` : ""}
               </span>
             )}
             {p.variant === "main" && p.dealerCustomerCount > 0 && (
@@ -716,18 +753,18 @@ function renderRow(p: RowProps) {
                     ? "bg-emerald-50 text-emerald-800 border-emerald-200"
                     : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
                 }`}
-                aria-label={p.dealerCustomersOpen ? "Skjul forhandlerkunder" : "Vis forhandlerkunder"}
+                aria-label={p.dealerCustomersOpen ? text("HideDealerCustomers", p.lang) : text("ShowDealerCustomers", p.lang)}
               >
                 {p.dealerCustomersOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                Forhandlerkunder ({p.dealerCustomerCount})
+                {text("DealerCustomers", p.lang)} ({p.dealerCustomerCount})
               </button>
             )}
             {p.variant === "main" && p.successorCount > 0 && (
               <span
                 className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-800 border border-indigo-200"
-                title="Tidligere forhandlere overtaget af denne"
+                title={text("TakenOverTitle", p.lang)}
               >
-                Overtaget ({p.successorCount})
+                {text("TakenOver", p.lang)} ({p.successorCount})
               </span>
             )}
             {p.variant === "branch" && (
@@ -737,24 +774,24 @@ function renderRow(p: RowProps) {
             )}
             {p.variant === "dealer_customer" && (
               <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-600">
-                Forhandlerkunde
+                {text("TypeDealerCustomer", p.lang)}
               </span>
             )}
             {p.variant === "successor" && (
               <span
                 className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-800"
-                title={`Overtaget af aktiv efterfølger — historikken bliver på denne konto (${dealerLifecycleStatus(p.r)})`}
+                title={`${text("TakenOverSuccessorTitle", p.lang)} (${dealerLifecycleStatus(p.r)})`}
               >
-                Overtaget
+                {text("TakenOver", p.lang)}
               </span>
             )}
           </div>
         </Td>
         <Td>{p.r.account_number}</Td>
-        <Td>{p.r.customer_type_label || p.r.customer_type || "—"}</Td>
+        <Td>{dealerTypeText(normaliseAccountType(p.r), p.lang)}</Td>
         <Td>{p.formatCountry(p.r.country) || "—"}</Td>
         <Td>
-          <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} />
+          <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} lang={p.lang} />
         </Td>
         <Td>
           <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${(own.user > 0 || linkedUsers.length > 0) ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
@@ -776,12 +813,12 @@ function renderRow(p: RowProps) {
             <span className="ml-1 text-[10px] text-slate-500">(Σ {p.agg.order_count})</span>
           )}
         </Td>
-        <BudgetYtdCell budgetIndex={p.budgetIndex} accountNumbers={p.budgetAccountNumbers} />
+        <BudgetYtdCell budgetIndex={p.budgetIndex} accountNumbers={p.budgetAccountNumbers} lang={p.lang} />
         <BudgetStatusCell budgetIndex={p.budgetIndex} accountNumbers={p.budgetAccountNumbers} />
         <Td className="text-slate-500 text-xs whitespace-nowrap">
           {fmtDate(p.agg?.last_activity_at ?? own.last)}
           {eff.inherited && eff.initials && (
-            <div className="text-[10px] text-slate-400 font-normal">Sælger arvet: {eff.initials}</div>
+            <div className="text-[10px] text-slate-400 font-normal">{text("SellerInherited", p.lang)}: {eff.initials}</div>
           )}
         </Td>
       </tr>
@@ -789,7 +826,7 @@ function renderRow(p: RowProps) {
         <tr className="bg-slate-50/60">
           <td colSpan={12} className="px-6 py-3">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-              {linkedUsers.length} bruger{linkedUsers.length === 1 ? "" : "e"} — {p.r.branch_name || p.r.company_name}
+              {linkedUsers.length} {linkedUsers.length === 1 ? text("UserSingular", p.lang) : text("UserPlural", p.lang)} — {p.r.branch_name || p.r.company_name}
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {linkedUsers.map((u) => (
@@ -802,7 +839,7 @@ function renderRow(p: RowProps) {
                     </div>
                   </div>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${u.approved ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                    {u.approved ? "Approved" : "Pending"}
+                    {u.approved ? text("Approved", p.lang) : text("Pending", p.lang)}
                   </span>
                 </div>
               ))}
@@ -824,13 +861,14 @@ function Td({ children, className = "" }: { children: React.ReactNode; className
 function BudgetYtdCell({
   budgetIndex,
   accountNumbers,
-}: { budgetIndex: DealerBudgetIndex | null; accountNumbers: string[] }) {
+  lang,
+}: { budgetIndex: DealerBudgetIndex | null; accountNumbers: string[]; lang: PortalUiLanguage }) {
   if (!budgetIndex) {
     return <Td className="text-slate-400 text-xs">…</Td>;
   }
   const t = aggregateDealerBudget(budgetIndex, accountNumbers);
   if (t.noBudget) {
-    return <Td className="text-slate-400 text-xs whitespace-nowrap">Intet budget</Td>;
+    return <Td className="text-slate-400 text-xs whitespace-nowrap">{text("NoBudget", lang)}</Td>;
   }
   return (
     <Td className="text-slate-800 text-sm whitespace-nowrap font-semibold">
@@ -873,19 +911,20 @@ function BudgetStatusCell({
 function branchRelationBadgeLabel(
   dealer: DealerAccount,
   dealersByAcct: Map<string, DealerAccount>,
+  lang: PortalUiLanguage,
 ): string {
   const normalizedTypes = [dealer.customer_type_label, dealer.customer_type, dealer.dealer_type]
     .map((value) => (value ?? "").toLowerCase().replace(/[\s_-]+/g, ""))
     .filter(Boolean);
-  if (normalizedTypes.some((type) => type.includes("servicepartner"))) return "Service Partner";
-  if (normalizedTypes.some((type) => type.includes("import"))) return "Importør";
+  if (normalizedTypes.some((type) => type.includes("servicepartner"))) return text("TypeServicePartner", lang);
+  if (normalizedTypes.some((type) => type.includes("import"))) return text("TypeImporter", lang);
   if (normalizedTypes.some((type) => type.includes("forhandlerkunde") || type.includes("dealercustomer"))) {
-    return "Forhandlerkunde";
+    return text("TypeDealerCustomer", lang);
   }
 
   const parent = dealer.parent_account_number ? dealersByAcct.get(dealer.parent_account_number) : null;
-  if (parent && isSameCompanyBranch(parent.company_name, dealer.company_name)) return "Filial";
-  return "Forhandler";
+  if (parent && isSameCompanyBranch(parent.company_name, dealer.company_name)) return text("TypeBranch", lang);
+  return text("TypeDealer", lang);
 }
 
 function isSameCompanyBranch(parentName: string | null | undefined, childName: string | null | undefined): boolean {
@@ -903,7 +942,7 @@ function normalizeCompanyBase(value: string | null | undefined): string {
     .trim();
 }
 
-function ProfileStatusBadge({ dealer, peopleCount }: { dealer: DealerAccount; peopleCount: number }) {
+function ProfileStatusBadge({ dealer, peopleCount, lang }: { dealer: DealerAccount; peopleCount: number; lang: PortalUiLanguage }) {
   const severity = computeDealerProfileSeverity(dealer, peopleCount);
   const missingSections = getDealerProfileMissingLabels(dealer, peopleCount);
   const missingCritical = getDealerProfileCriticalMissing(dealer);
@@ -921,24 +960,24 @@ function ProfileStatusBadge({ dealer, peopleCount }: { dealer: DealerAccount; pe
     : severity === "critical" ? "bg-rose-500"
     : "bg-slate-400";
   const text =
-    severity === "complete" ? "100% klar"
-    : severity === "partial" ? "Mangler info"
-    : severity === "critical" ? "Kritisk"
+    severity === "complete" ? i18n("crmProfileReady", lang)
+    : severity === "partial" ? i18n("crmProfileMissingInfo", lang)
+    : severity === "critical" ? i18n("crmProfileCritical", lang)
     : "—";
   const baseTitle =
     severity === "complete"
-      ? "Profilen er 100% klar."
+      ? i18n("crmProfileReadyTitle", lang)
       : severity === "critical"
-        ? "Kritiske stamdata mangler."
+        ? i18n("crmProfileCriticalTitle", lang)
         : onlySoftMissing
-          ? "Mangler kun mindre profiloplysninger."
-          : "Mangler øvrige profiloplysninger.";
+          ? i18n("crmProfileMinorMissingTitle", lang)
+          : i18n("crmProfileOtherMissingTitle", lang);
   const parts: string[] = [baseTitle];
   if (severity === "critical" && missingCritical.length > 0) {
-    parts.push(`Kritiske felter mangler:\n- ${missingCritical.join("\n- ")}`);
+    parts.push(`${i18n("crmProfileCriticalFieldsMissing", lang)}:\n- ${missingCritical.join("\n- ")}`);
   }
   if (severity !== "complete" && missingSections.length > 0) {
-    parts.push(`Sektioner som mangler:\n- ${missingSections.join("\n- ")}`);
+    parts.push(`${i18n("crmProfileSectionsMissing", lang)}:\n- ${missingSections.join("\n- ")}`);
   }
   const title = parts.join("\n\n");
   return (
