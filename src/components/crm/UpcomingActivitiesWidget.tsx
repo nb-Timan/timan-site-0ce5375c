@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { CalendarDays, ArrowRight, Activity, AlertTriangle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { listActivities, activityTypeMeta, activityAllSellerInitials, type CalendarActivity } from "@/lib/crmCalendarService";
+import { fetchCrmDashboardCalendarActivityKpis, type CrmDashboardCalendarActivityKpis } from "@/lib/crmDashboardKpisService";
 import { BUDGET_SELLERS } from "@/lib/crmBudgetService";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -41,6 +42,7 @@ export default function UpcomingActivitiesWidget({
   const { language: lang } = useLanguage();
   const isAdmin = isCrmAdmin(derivePortalRole(appUser));
   const [rows, setRows] = useState<CalendarActivity[]>([]);
+  const [serverKpis, setServerKpis] = useState<CrmDashboardCalendarActivityKpis | null>(null);
 
   const myInitials = useMemo(() => {
     const email = (appUser?.email || "").toLowerCase();
@@ -53,10 +55,23 @@ export default function UpcomingActivitiesWidget({
       const effectiveInitials = isAdmin
         ? (sellerInitialsOverride ?? null)
         : (myInitials || "all");
+      const rpcKpis = await fetchCrmDashboardCalendarActivityKpis({
+        sellerInitials: effectiveInitials === "all" ? null : effectiveInitials,
+      });
+      if (rpcKpis) {
+        if (!cancelled) {
+          setServerKpis(rpcKpis);
+          setRows(rpcKpis.upcomingRows as unknown as CalendarActivity[]);
+        }
+        return;
+      }
       const list = await listActivities(
         isAdmin && !sellerInitialsOverride ? {} : { sellerInitials: effectiveInitials || "all" }
       );
-      if (!cancelled) setRows(list);
+      if (!cancelled) {
+        setServerKpis(null);
+        setRows(list);
+      }
     })();
     return () => { cancelled = true; };
   }, [isAdmin, myInitials, sellerInitialsOverride]);
@@ -72,6 +87,14 @@ export default function UpcomingActivitiesWidget({
     .slice(0, 8);
 
   const stats = useMemo(() => {
+    if (serverKpis) {
+      return {
+        inWeek: serverKpis.activitiesThisWeek,
+        demosMonth: serverKpis.demosThisMonth,
+        overdue: serverKpis.overdueCount,
+        noPlan: serverKpis.noPlanInitials,
+      };
+    }
     const inWeek = rows.filter(r => {
       const t = new Date(r.start_datetime).getTime();
       return r.status !== "canceled" && t >= startOfWeek.getTime() && t < endOfWeek.getTime();
@@ -84,7 +107,7 @@ export default function UpcomingActivitiesWidget({
     const sellersWithPlan = new Set(rows.filter(r => r.status !== "canceled" && new Date(r.start_datetime).getTime() >= now.getTime()).map(r => r.seller_initials || ""));
     const noPlan = ["BP","EM","JTN","AKR"].filter(i => !sellersWithPlan.has(i));
     return { inWeek, demosMonth, overdue, noPlan };
-  }, [rows]);
+  }, [rows, serverKpis]);
 
   return (
     <Card className="rounded-2xl border-gray-100 h-full flex flex-col">

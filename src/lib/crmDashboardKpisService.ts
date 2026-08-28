@@ -81,6 +81,17 @@ export type CrmDashboardSalesOutcomeKpis = {
   };
 };
 
+export type CrmDashboardCalendarActivityKpis = {
+  activitiesThisWeek: number;
+  demosThisMonth: number;
+  overdueCount: number;
+  noPlanInitials: string[];
+  upcomingRows: Array<Record<string, unknown>>;
+  rawRecordsScanned: {
+    crmCalendarActivities: number;
+  };
+};
+
 type RpcPayload = {
   active_leads?: number;
   lead_count?: number;
@@ -143,6 +154,17 @@ type SalesOutcomeRpcPayload = {
   };
 };
 
+type CalendarActivityRpcPayload = {
+  activities_this_week?: number;
+  demos_this_month?: number;
+  overdue_count?: number;
+  no_plan_initials?: unknown;
+  upcoming_rows?: unknown;
+  raw_records_scanned?: {
+    crm_calendar_activities?: number;
+  };
+};
+
 function numberValue(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {
@@ -199,6 +221,23 @@ function mapSalesOutcomePayload(payload: SalesOutcomeRpcPayload): CrmDashboardSa
       crmActivities: numberValue(payload.raw_records_scanned?.crm_activities),
       lostActivities: numberValue(payload.raw_records_scanned?.lost_activities),
       quoteCreatedActivities: numberValue(payload.raw_records_scanned?.quote_created_activities),
+    },
+  };
+}
+
+function stringList(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function mapCalendarActivityPayload(payload: CalendarActivityRpcPayload): CrmDashboardCalendarActivityKpis {
+  return {
+    activitiesThisWeek: numberValue(payload.activities_this_week),
+    demosThisMonth: numberValue(payload.demos_this_month),
+    overdueCount: numberValue(payload.overdue_count),
+    noPlanInitials: stringList(payload.no_plan_initials),
+    upcomingRows: rawRows(payload.upcoming_rows),
+    rawRecordsScanned: {
+      crmCalendarActivities: numberValue(payload.raw_records_scanned?.crm_calendar_activities),
     },
   };
 }
@@ -286,4 +325,19 @@ export async function fetchCrmDashboardSalesOutcomeKpis(opts: {
   }
 
   return mapSalesOutcomePayload((data || {}) as SalesOutcomeRpcPayload);
+}
+
+export async function fetchCrmDashboardCalendarActivityKpis(opts: {
+  sellerInitials?: string | null;
+}): Promise<CrmDashboardCalendarActivityKpis | null> {
+  const { data, error } = await supabase.rpc("crm_dashboard_calendar_activity_kpis", {
+    p_seller_initials: opts.sellerInitials || null,
+  });
+
+  if (error) {
+    console.warn("[crmDashboardKpis] calendar activity rpc failed, dashboard will use local calculation:", error);
+    return null;
+  }
+
+  return mapCalendarActivityPayload((data || {}) as CalendarActivityRpcPayload);
 }
