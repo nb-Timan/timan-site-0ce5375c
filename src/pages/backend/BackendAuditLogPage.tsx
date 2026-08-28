@@ -21,6 +21,8 @@ const ACTION_PILL: Record<AuditEntry["action"], string> = {
   approve: "bg-emerald-100 text-emerald-800",
   reject:  "bg-amber-100 text-amber-800",
   login:   "bg-slate-100 text-slate-700",
+  invite:  "bg-cyan-100 text-cyan-800",
+  reset:   "bg-amber-100 text-amber-800",
 };
 
 export default function BackendAuditLogPage() {

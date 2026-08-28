@@ -10,7 +10,7 @@
 import { supabase } from "@/lib/supabase";
 
 export type AuditAction =
-  | "create" | "update" | "delete" | "approve" | "reject" | "login";
+  | "create" | "update" | "delete" | "approve" | "reject" | "login" | "invite" | "reset";
 
 export type AuditValue = string | number | boolean | null | { [k: string]: unknown } | unknown[];
 
@@ -92,9 +92,7 @@ export async function fetchAuditEntries(limit = 500): Promise<AuditEntry[]> {
       .order("created_at", { ascending: false })
       .limit(limit);
     if (error) throw error;
-    if (data && data.length > 0) {
-      return (data as Record<string, unknown>[]).map(rowToEntry);
-    }
+    if (data) return (data as Record<string, unknown>[]).map(rowToEntry);
   } catch (err) {
     console.warn("[audit_log.fetch] supabase failed → local fallback:", err);
   }

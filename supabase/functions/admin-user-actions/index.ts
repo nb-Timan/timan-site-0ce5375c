@@ -85,6 +85,18 @@ const PROTECTED_COLUMNS = [
 /** Never writable through this function, by anyone. */
 const NEVER_WRITABLE = new Set(["id", "auth_user_id", "user_id", "created_at", "login_count"]);
 
+const AUDIT_IGNORED_COLUMNS = new Set(["updated_at"]);
+const AUDIT_SENSITIVE_COLUMNS = new Set([
+  "password",
+  "token",
+  "secret",
+  "credential",
+  "access_token",
+  "refresh_token",
+  "service_role_key",
+  "supabase_service_role_key",
+]);
+
 interface RequestBody {
   action: Action;
   email: string;
@@ -115,6 +127,54 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
+}
+
+function normalizeForAudit(value: unknown): unknown {
+  if (value === undefined) return null;
+  return value;
+}
+
+function auditValuesEqual(a: unknown, b: unknown): boolean {
+  return JSON.stringify(normalizeForAudit(a)) === JSON.stringify(normalizeForAudit(b));
+}
+
+function shouldAuditColumn(column: string): boolean {
+  const lower = column.toLowerCase();
+  if (AUDIT_IGNORED_COLUMNS.has(lower)) return false;
+  if (AUDIT_SENSITIVE_COLUMNS.has(lower)) return false;
+  return !Array.from(AUDIT_SENSITIVE_COLUMNS).some((needle) => lower.includes(needle));
+}
+
+function auditDiff(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>,
+  columns: string[],
+): { changed: string[]; old_value: Record<string, unknown>; new_value: Record<string, unknown> } {
+  const changed: string[] = [];
+  const old_value: Record<string, unknown> = {};
+  const new_value: Record<string, unknown> = {};
+
+  for (const column of columns) {
+    if (!shouldAuditColumn(column)) continue;
+    const oldVal = normalizeForAudit(before[column]);
+    const newVal = normalizeForAudit(after[column]);
+    if (auditValuesEqual(oldVal, newVal)) continue;
+    changed.push(column);
+    old_value[column] = oldVal;
+    new_value[column] = newVal;
+  }
+
+  changed.sort();
+  return { changed, old_value, new_value };
+}
+
+function auditSnapshot(row: Record<string, unknown>, columns: string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const column of columns) {
+    if (!shouldAuditColumn(column)) continue;
+    out[column] = normalizeForAudit(row[column]);
+  }
+  return out;
 }
 
 Deno.serve(async (req) => {
@@ -348,13 +408,15 @@ Deno.serve(async (req) => {
       result = await admin.from("app_users").update(working).eq("id", appUserId).select("*").maybeSingle();
     }
 
-    const changedProtected = PROTECTED_COLUMNS.filter(
-      (c) => c in working &&
-        JSON.stringify(working[c] ?? null) !==
-          JSON.stringify((before as Record<string, unknown>)[c] ?? null),
-    );
+    const auditColumns = Object.keys(working).filter((c) => c !== "updated_at");
+    const afterForAudit = result.data
+      ? (result.data as Record<string, unknown>)
+      : { ...(before as Record<string, unknown>), ...working };
+    const audit = auditDiff(before as Record<string, unknown>, afterForAudit, auditColumns);
+    const changedProtected = audit.changed.filter((c) => PROTECTED_COLUMNS.includes(c));
 
     await writeAudit(admin, {
+      actor_user_id: (callerRow?.id as string) ?? null,
       actor_email: callerEmail,
       actor_name: (callerRow?.full_name as string) ?? null,
       actor_role: (callerRow?.portal_role as string) ?? null,
@@ -362,8 +424,10 @@ Deno.serve(async (req) => {
       module: "backend_users",
       record_type: "app_users",
       record_id: appUserId,
-      record_label: String((before as Record<string, unknown>).email ?? appUserId),
-      changed: changedProtected,
+      record_label: `${String((before as Record<string, unknown>).full_name ?? "").trim() || "Bruger"} · ${String((before as Record<string, unknown>).email ?? appUserId)}`,
+      changed: audit.changed,
+      old_value: audit.changed.length ? audit.old_value : null,
+      new_value: audit.changed.length ? audit.new_value : null,
       status: result.error ? "failure" : "success",
     });
 
@@ -385,13 +449,14 @@ Deno.serve(async (req) => {
     const appUserId = (body.app_user_id ?? "").trim();
     if (!appUserId) return json({ error: "app_user_id mangler." }, 400);
     const { data: before } = await admin
-      .from("app_users").select("id, email, auth_user_id").eq("id", appUserId).maybeSingle();
+      .from("app_users").select("*").eq("id", appUserId).maybeSingle();
     if (!before) return json({ error: "Brugeren findes ikke." }, 404);
     if (String(before.email ?? "").toLowerCase() === callerEmail) {
       return json({ error: "Du kan ikke slette din egen bruger." }, 403);
     }
     const { error } = await admin.from("app_users").delete().eq("id", appUserId);
     await writeAudit(admin, {
+      actor_user_id: (callerRow?.id as string) ?? null,
       actor_email: callerEmail,
       actor_name: (callerRow?.full_name as string) ?? null,
       actor_role: (callerRow?.portal_role as string) ?? null,
@@ -399,8 +464,10 @@ Deno.serve(async (req) => {
       module: "backend_users",
       record_type: "app_users",
       record_id: appUserId,
-      record_label: String(before.email ?? appUserId),
+      record_label: `${String(before.full_name ?? "").trim() || "Bruger"} · ${String(before.email ?? appUserId)}`,
       changed: ["*"],
+      old_value: auditSnapshot(before as Record<string, unknown>, ["email", "full_name", "portal_role", "role", "status", "approved", "is_active", "allowed_areas", "allowed_modules", "backend_modules", "permissions", "quick_actions"]),
+      new_value: null,
       status: error ? "failure" : "success",
     });
     if (error) return json({ error: `Sletning fejlede: ${error.message}` }, 500);
@@ -657,6 +724,7 @@ async function touchAppUser(
 async function writeAudit(
   admin: ReturnType<typeof createClient>,
   entry: {
+    actor_user_id?: string | null;
     actor_email: string;
     actor_name: string | null;
     actor_role: string | null;
@@ -666,11 +734,14 @@ async function writeAudit(
     record_id: string;
     record_label: string;
     changed: string[];
+    old_value: Record<string, unknown> | null;
+    new_value: Record<string, unknown> | null;
     status: "success" | "failure";
   },
 ) {
   try {
     await admin.from("audit_log").insert({
+      actor_user_id: entry.actor_user_id ?? null,
       actor_email: entry.actor_email,
       actor_name: entry.actor_name,
       actor_role: entry.actor_role,
@@ -679,8 +750,9 @@ async function writeAudit(
       record_type: entry.record_type,
       record_id: entry.record_id,
       record_label: entry.record_label,
-      old_value: null,
-      new_value: entry.changed.length ? `changed: ${entry.changed.join(", ")}` : null,
+      old_value: entry.old_value,
+      new_value: entry.new_value,
+      changed_fields: entry.changed,
       status: entry.status,
     });
   } catch {
