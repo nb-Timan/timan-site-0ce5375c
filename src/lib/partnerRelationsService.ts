@@ -1,8 +1,9 @@
 /**
  * Partner relations service.
  *
- * Reads/writes the two partner-hierarchy relationships used by Machine
- * Journal access control:
+ * Reads/writes partner relationships.
+ *
+ * The old Machine Journal scope relations are still kept:
  *
  *  - Importer → child dealer
  *      Reuses public.dealer_accounts.parent_account_number. No new table.
@@ -17,12 +18,91 @@
  */
 import { supabase } from "@/lib/supabase";
 
+export type PartnerAccountRelationType =
+  | "importer_has_dealer"
+  | "importer_has_service_partner"
+  | "importer_has_dealer_customer"
+  | "dealer_has_service_partner"
+  | "dealer_has_dealer_customer"
+  | "service_partner_has_dealer_customer"
+  | "service_partner_has_dealer";
+
+export interface PartnerAccountRelation {
+  id: string;
+  source_account_id: string;
+  target_account_id: string;
+  relation_type: PartnerAccountRelationType;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ServicePartnerLink {
   id: string;
   service_partner_account_id: string;
   dealer_account_id: string;
   active: boolean;
   created_at: string;
+}
+
+export async function listPartnerAccountRelations(): Promise<PartnerAccountRelation[]> {
+  const { data, error } = await supabase
+    .from("partner_account_relations")
+    .select("id, source_account_id, target_account_id, relation_type, active, created_at, updated_at")
+    .order("created_at", { ascending: false });
+  if (error) {
+    console.warn("[partnerRelations] listPartnerAccountRelations failed", error.message);
+    return [];
+  }
+  return (data ?? []) as PartnerAccountRelation[];
+}
+
+export async function upsertPartnerAccountRelation(
+  sourceAccountId: string,
+  targetAccountId: string,
+  relationType: PartnerAccountRelationType,
+  active: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!sourceAccountId || !targetAccountId || !relationType) {
+    return { ok: false, error: "Vælg fra, relation og til" };
+  }
+  if (sourceAccountId === targetAccountId) {
+    return { ok: false, error: "En virksomhed kan ikke kobles til sig selv" };
+  }
+  const { error } = await supabase
+    .from("partner_account_relations")
+    .upsert(
+      {
+        source_account_id: sourceAccountId,
+        target_account_id: targetAccountId,
+        relation_type: relationType,
+        active,
+      },
+      { onConflict: "source_account_id,target_account_id,relation_type" },
+    );
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function setPartnerAccountRelationActive(
+  id: string,
+  active: boolean,
+): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase
+    .from("partner_account_relations")
+    .update({ active })
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+export async function deletePartnerAccountRelation(id: string): Promise<{ ok: boolean; error?: string }> {
+  const { error } = await supabase
+    .from("partner_account_relations")
+    .delete()
+    .eq("id", id);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
 }
 
 export async function listServicePartnerLinks(): Promise<ServicePartnerLink[]> {
