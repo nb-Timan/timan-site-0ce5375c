@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   featuredDataFlow,
   getFeaturedDataFlow,
+  getSystemDnaNodePosition,
   getSystemDnaZoomForNode,
   getSystemDnaZoomStage,
   getVisibleSystemDnaNodes,
@@ -16,6 +17,19 @@ import {
 } from "@/lib/systemDataflowMap";
 
 describe("Backend system dataflow map", () => {
+  function expectNoCenterCollisions(nodeIds: SystemMapNodeId[], zoom: number, minDistance: number) {
+    const positions = nodeIds.map((id) => ({ id, position: getSystemDnaNodePosition(findSystemMapNode(id), zoom) }));
+
+    for (let index = 0; index < positions.length; index += 1) {
+      for (let otherIndex = index + 1; otherIndex < positions.length; otherIndex += 1) {
+        const first = positions[index];
+        const second = positions[otherIndex];
+        const distance = Math.hypot(first.position.x - second.position.x, first.position.y - second.position.y);
+        expect(distance, `${first.id} overlaps ${second.id}`).toBeGreaterThanOrEqual(minDistance);
+      }
+    }
+  }
+
   it("contains the required first-version modules", () => {
     const ids = new Set(systemMapNodes.map((node) => node.id));
 
@@ -152,6 +166,41 @@ describe("Backend system dataflow map", () => {
     expect(new Set(areaNodes.map((node) => node.id)).has("crm_leads")).toBe(true);
     expect(new Set(featureNodes.map((node) => node.id)).has("lead_conversions")).toBe(true);
     expect(new Set(technicalNodes.map((node) => node.id)).has("edge_functions")).toBe(true);
+  });
+
+  it("keeps semantic zoom layout deterministic without changing node or edge counts", () => {
+    expect(systemDnaNodes.length).toBe(78);
+    expect(systemDnaEdges.length).toBe(128);
+
+    const first = getSystemDnaNodePosition(findSystemMapNode("crm_leads"), SYSTEM_DNA_ZOOM_LEVELS[2].zoom);
+    const second = getSystemDnaNodePosition(findSystemMapNode("crm_leads"), SYSTEM_DNA_ZOOM_LEVELS[2].zoom);
+
+    expect(second).toEqual(first);
+  });
+
+  it("spreads the CRM feature cluster at semantic feature zoom", () => {
+    expectNoCenterCollisions(
+      [
+        "crm",
+        "crm_dashboard",
+        "crm_leads",
+        "crm_demo_leads",
+        "crm_activities",
+        "crm_calendar",
+        "crm_pipeline",
+        "lead_conversions",
+      ],
+      SYSTEM_DNA_ZOOM_LEVELS[2].zoom,
+      235,
+    );
+  });
+
+  it("spreads lead detail nodes at technical zoom", () => {
+    expectNoCenterCollisions(
+      ["crm_leads", "lead_status", "lead_owner", "lead_notes", "lead_followups"],
+      SYSTEM_DNA_ZOOM_LEVELS[3].zoom,
+      145,
+    );
   });
 
   it("supports semantic drill-down paths", () => {

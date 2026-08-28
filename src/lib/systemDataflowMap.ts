@@ -95,6 +95,11 @@ export interface SystemDnaZoomLevel {
   description: string;
 }
 
+export interface SystemDnaPoint {
+  x: number;
+  y: number;
+}
+
 export const SYSTEM_DNA_ZOOM_LEVELS: SystemDnaZoomLevel[] = [
   { id: "world", title: "Hele systemet", zoom: 0.52, description: "Hovedområder og centrale eksterne systemer." },
   { id: "area", title: "Områder", zoom: 0.9, description: "Moduler, større features og brugerrejser." },
@@ -531,6 +536,70 @@ export const systemMapNodes: SystemMapNode[] = systemRegistryNodes.filter((nodeI
 );
 
 export const systemDnaNodes: SystemMapNode[] = systemRegistryNodes;
+
+const expandedDnaPositions: Partial<Record<SystemMapNodeId, { feature?: SystemDnaPoint; technical?: SystemDnaPoint }>> = {
+  crm_dashboard: { feature: { x: 620, y: 230 } },
+  crm_leads: { feature: { x: 620, y: 520 } },
+  crm_demo_leads: { feature: { x: 360, y: 660 } },
+  crm_activities: { feature: { x: 820, y: 800 } },
+  crm_calendar: { feature: { x: 1160, y: 660 } },
+  crm_pipeline: { feature: { x: 1080, y: 330 } },
+  lead_conversions: { feature: { x: 1390, y: 220 } },
+  lead_status: { technical: { x: 350, y: 360 } },
+  lead_owner: { technical: { x: 350, y: 510 } },
+  lead_notes: { technical: { x: 420, y: 820 } },
+  lead_followups: { technical: { x: 1200, y: 510 } },
+
+  configurator: { feature: { x: 1420, y: 660 } },
+  config_step_machine: { feature: { x: 1120, y: 780 } },
+  config_step_delivery: { feature: { x: 1370, y: 930 } },
+  config_step_options: { feature: { x: 1680, y: 780 } },
+  config_step_customer: { feature: { x: 1700, y: 1010 } },
+  quotes: { feature: { x: 1210, y: 1220 } },
+  orders: { feature: { x: 1590, y: 1220 } },
+  saved_cases: { feature: { x: 1760, y: 620 } },
+  machine_timan_2620: { technical: { x: 890, y: 910 } },
+  machine_timan_3330: { technical: { x: 890, y: 1030 } },
+  machine_rc_751: { technical: { x: 890, y: 1150 } },
+  machine_rc_1000s: { technical: { x: 890, y: 1270 } },
+  machine_loader_line: { technical: { x: 890, y: 1390 } },
+
+  messe_form: { feature: { x: 880, y: 1660 } },
+  messe_leads: { feature: { x: 1080, y: 1820 } },
+  messe_partner_map: { feature: { x: 1260, y: 1640 } },
+  messe_brochures: { feature: { x: 1330, y: 1880 } },
+  messe_video: { feature: { x: 850, y: 1920 } },
+  messe_trials: { feature: { x: 1160, y: 2020 } },
+
+  news: { feature: { x: 1760, y: 720 } },
+  site_features: { feature: { x: 2070, y: 720 } },
+  marketing_targets: { feature: { x: 2240, y: 920 } },
+  campaigns: { feature: { x: 1960, y: 940 } },
+  messe_news: { feature: { x: 1650, y: 920 } },
+};
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function mixPoint(from: SystemDnaPoint, to: SystemDnaPoint, progress: number): SystemDnaPoint {
+  return {
+    x: from.x + (to.x - from.x) * progress,
+    y: from.y + (to.y - from.y) * progress,
+  };
+}
+
+export function getSystemDnaNodePosition(node: SystemMapNode, zoom: number): SystemDnaPoint {
+  const expanded = expandedDnaPositions[node.id];
+  if (!expanded) return node.dnaPosition;
+
+  const featureProgress = clamp((zoom - 1.02) / 0.24, 0, 1);
+  const technicalProgress = clamp((zoom - 1.28) / 0.2, 0, 1);
+  const featurePosition = expanded.feature ? mixPoint(node.dnaPosition, expanded.feature, featureProgress) : node.dnaPosition;
+
+  if (!expanded.technical) return featurePosition;
+  return mixPoint(featurePosition, expanded.technical, technicalProgress);
+}
 
 export const systemMapEdges: SystemMapEdge[] = [
   { from: "sharepoint", to: "import", label: "sync", kind: "sync" },

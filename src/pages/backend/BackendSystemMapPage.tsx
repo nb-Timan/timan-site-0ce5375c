@@ -36,6 +36,7 @@ import {
   findSystemMapNode,
   getFeaturedDataFlow,
   getSystemDnaFocusIds,
+  getSystemDnaNodePosition,
   getSystemDnaZoomForNode,
   getSystemDnaZoomStage,
   getSystemMapChildren,
@@ -393,6 +394,7 @@ function DnaNode({
   active,
   dimmed,
   zoom,
+  position,
   onSelect,
 }: {
   node: SystemMapNode;
@@ -400,6 +402,7 @@ function DnaNode({
   active: boolean;
   dimmed: boolean;
   zoom: number;
+  position: { x: number; y: number };
   onSelect: (id: SystemMapNodeId) => void;
 }) {
   const Icon = node.icon;
@@ -416,14 +419,15 @@ function DnaNode({
       type="button"
       onClick={() => onSelect(node.id)}
       className={[
-        "absolute -translate-x-1/2 -translate-y-1/2 rounded-2xl border text-left shadow-2xl backdrop-blur transition",
+        "absolute -translate-x-1/2 -translate-y-1/2 select-none rounded-2xl border text-left shadow-2xl backdrop-blur transition",
         isCompact ? "w-[190px] p-2.5" : node.kind === "portal" ? "w-[270px] p-4" : "w-[230px] p-3",
         isProcessNode ? "border-dashed" : "",
         colors.dna,
         selected ? "ring-2 ring-white" : "",
         active ? "opacity-100" : dimmed ? "opacity-20" : "opacity-90",
       ].join(" ")}
-      style={{ left: node.dnaPosition.x, top: node.dnaPosition.y }}
+      style={{ left: position.x, top: position.y }}
+      draggable={false}
     >
       <div className="flex items-center gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/12 text-white">
@@ -520,9 +524,10 @@ function SystemDna({
 
   const centerNode = useCallback((id: SystemMapNodeId, nextZoom = zoom) => {
     const node = findSystemMapNode(id);
+    const position = getSystemDnaNodePosition(node, nextZoom);
     const box = canvasRef.current?.getBoundingClientRect();
     if (!box) return;
-    setPan({ x: box.width / 2 - node.dnaPosition.x * nextZoom, y: box.height / 2 - node.dnaPosition.y * nextZoom });
+    setPan({ x: box.width / 2 - position.x * nextZoom, y: box.height / 2 - position.y * nextZoom });
   }, [zoom]);
 
   const fitToScreen = useCallback(() => {
@@ -578,6 +583,8 @@ function SystemDna({
   };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("input, textarea, select")) return;
+    event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     setDragStart({ x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y });
   };
@@ -601,21 +608,42 @@ function SystemDna({
     setZoom(Math.min(1.85, Math.max(0.38, touchStart.zoom * (distance / touchStart.distance))));
   };
 
-  const toggleFullscreen = async () => {
-    const element = canvasRef.current;
-    if (!element) return;
-    if (!document.fullscreenElement) {
-      await element.requestFullscreen?.();
-      setFullscreen(true);
-    } else {
-      await document.exitFullscreen?.();
-      setFullscreen(false);
-    }
+  useEffect(() => {
+    if (!dragStart) return;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+    };
+  }, [dragStart]);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [fullscreen]);
+
+  const toggleFullscreen = () => {
+    setFullscreen((value) => !value);
+    window.setTimeout(() => centerNode(selectedId, zoom), 0);
   };
 
   return (
-    <section className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-950 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-slate-900 px-4 py-3">
+    <section
+      className={[
+        "overflow-hidden border border-slate-800 bg-slate-950 shadow-sm",
+        fullscreen ? "fixed inset-0 z-50 rounded-none" : "rounded-3xl",
+      ].join(" ")}
+    >
+      <div
+        className={[
+          "flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-slate-900 px-4 py-3",
+          fullscreen ? "absolute left-0 right-0 top-0 z-20 bg-slate-950/90 backdrop-blur" : "",
+        ].join(" ")}
+      >
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={onBackToOverview}>
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -682,15 +710,18 @@ function SystemDna({
             {flowMode ? `Vis alt (${selectedFlow.length})` : "Følg data"}
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={toggleFullscreen}>
-            <Maximize2 className="mr-2 h-4 w-4" />
-            {fullscreen ? "Exit" : "Fullscreen"}
+            {fullscreen ? <X className="mr-2 h-4 w-4" /> : <Maximize2 className="mr-2 h-4 w-4" />}
+            {fullscreen ? "Exit fullscreen" : "Fullscreen"}
           </Button>
         </div>
       </div>
 
       <div
         ref={canvasRef}
-        className="relative h-[calc(100vh-245px)] min-h-[720px] cursor-grab touch-none overflow-hidden bg-[radial-gradient(circle_at_center,_#1e293b_0,_#020617_72%)] active:cursor-grabbing"
+        className={[
+          "relative select-none cursor-grab touch-none overflow-hidden bg-[radial-gradient(circle_at_center,_#1e293b_0,_#020617_72%)] active:cursor-grabbing",
+          fullscreen ? "h-screen min-h-0" : "h-[calc(100vh-245px)] min-h-[720px]",
+        ].join(" ")}
         onWheel={onWheel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -718,25 +749,27 @@ function SystemDna({
               if ((edge.minZoom ?? 0.35) > zoom) return null;
               const from = findSystemMapNode(edge.from);
               const to = findSystemMapNode(edge.to);
+              const fromPosition = getSystemDnaNodePosition(from, zoom);
+              const toPosition = getSystemDnaNodePosition(to, zoom);
               const active = selectedConnections.has(edge.from) && selectedConnections.has(edge.to);
               const hiddenByFilter = !visibleNodeIds.has(edge.from) || !visibleNodeIds.has(edge.to);
               return (
                 <g key={`${edge.from}-${edge.to}-${edge.label}`} opacity={hiddenByFilter ? 0.05 : flowMode && !active ? 0.08 : active ? 0.95 : 0.28}>
                   <line
-                    x1={from.dnaPosition.x}
-                    y1={from.dnaPosition.y}
-                    x2={to.dnaPosition.x}
-                    y2={to.dnaPosition.y}
+                    x1={fromPosition.x}
+                    y1={fromPosition.y}
+                    x2={toPosition.x}
+                    y2={toPosition.y}
                     stroke={active ? colorFor(from).line : "#94a3b8"}
                     strokeWidth={active ? 4 : edge.kind === "navigation" ? 1.4 : 2.2}
                     strokeDasharray={edge.kind === "navigation" ? "8 10" : edge.kind === "permission" ? "4 8" : undefined}
                     strokeLinecap="round"
                     markerEnd={edge.kind === "navigation" ? undefined : "url(#dna-arrowhead)"}
                   />
-                  {active && zoom >= 1.24 && edge.kind !== "navigation" && (
+                  {active && zoom >= 1.38 && edge.kind !== "navigation" && (
                     <text
-                      x={(from.dnaPosition.x + to.dnaPosition.x) / 2}
-                      y={(from.dnaPosition.y + to.dnaPosition.y) / 2 - 12}
+                      x={(fromPosition.x + toPosition.x) / 2}
+                      y={(fromPosition.y + toPosition.y) / 2 - 12}
                       fill="#e2e8f0"
                       fontSize="18"
                       textAnchor="middle"
@@ -755,6 +788,7 @@ function SystemDna({
           {systemDnaNodes.map((node) => {
             const hiddenByFilter = !visibleNodeIds.has(node.id);
             if (node.minZoom > zoom && node.id !== selectedId) return null;
+            const position = getSystemDnaNodePosition(node, zoom);
             return (
               <DnaNode
                 key={node.id}
@@ -763,6 +797,7 @@ function SystemDna({
                 active={selectedConnections.has(node.id)}
                 dimmed={hiddenByFilter || (flowMode && !selectedConnections.has(node.id))}
                 zoom={zoom}
+                position={position}
                 onSelect={drillIntoNode}
               />
             );
