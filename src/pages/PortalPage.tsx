@@ -93,7 +93,7 @@ export default function PortalPage() {
     portalRoleForBadge === 'timan_seller' ||
     portalRoleForBadge === 'timan_service'
   ) ? dealerPortfolioBadge : dealerProfileBadge;
-  const changelog = useChangelog(appUser, lang);
+  const changelog = useChangelog(appUser, uiLanguage);
 
   if (loading) {
     return (

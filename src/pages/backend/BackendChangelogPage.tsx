@@ -16,13 +16,16 @@ import {
   adminListChangelog,
   adminUpdateChangelog,
   adminUpdateChangelogStatus,
+  missingSiteChangeLanguages,
   recommendPublication,
   syncSiteChangesFromGitHub,
   type ChangelogDraft,
+  type SiteChangeLocalizedText,
   type SiteChangeEntryRow,
   type SiteChangeRecommendation,
   type SiteChangeStatus,
 } from "@/lib/portalChangelogService";
+import { PORTAL_LANGUAGES, type PortalUiLanguage } from "@/lib/portalLanguages";
 
 const MODULES = [
   "all", "crm", "leads", "dealer_portal", "dealer_data", "service",
@@ -125,6 +128,7 @@ function emptyDraft(): ChangelogDraft {
     technical_description: "",
     title_public: "",
     description_public: "",
+    localized_content: {},
     module: "crm",
     change_type: "improvement",
     affected_roles: ["all"],
@@ -149,6 +153,7 @@ function rowToDraft(row: SiteChangeEntryRow): ChangelogDraft {
     technical_description: row.technical_description || "",
     title_public: row.title_public || "",
     description_public: row.description_public || "",
+    localized_content: row.localized_content || {},
     module: row.module,
     change_type: row.change_type,
     affected_roles: row.affected_roles?.length ? row.affected_roles : ["all"],
@@ -163,9 +168,40 @@ function rowToDraft(row: SiteChangeEntryRow): ChangelogDraft {
   };
 }
 
+function languageFlag(code: PortalUiLanguage) {
+  return PORTAL_LANGUAGES.find((lang) => lang.code === code)?.flag || code.toUpperCase();
+}
+
+function getLocalizedDraftField(draft: ChangelogDraft, lang: PortalUiLanguage, key: keyof SiteChangeLocalizedText): string {
+  const value = draft.localized_content?.[lang]?.[key];
+  if (typeof value === "string") return value;
+  if (lang === "da" && key === "title") return draft.title_public || draft.title_internal || "";
+  if (lang === "da" && key === "description") return draft.description_public || "";
+  return "";
+}
+
+function updateLocalizedDraftField(
+  draft: ChangelogDraft,
+  lang: PortalUiLanguage,
+  key: keyof SiteChangeLocalizedText,
+  value: string,
+): ChangelogDraft {
+  const nextLocalized = {
+    ...(draft.localized_content || {}),
+    [lang]: {
+      ...(draft.localized_content?.[lang] || {}),
+      [key]: value,
+    },
+  };
+  const patch: Partial<ChangelogDraft> = { localized_content: nextLocalized };
+  if (lang === "da" && key === "title") patch.title_public = value;
+  if (lang === "da" && key === "description") patch.description_public = value;
+  return { ...draft, ...patch };
+}
+
 export default function BackendChangelogPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { language, setLanguage } = useLanguage();
+  const { language, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const effectiveUser = useEffectivePortalUser(appUser);
   const canManage = useMemo(() => canManageNewsContent(effectiveUser), [effectiveUser]);
@@ -187,6 +223,7 @@ export default function BackendChangelogPage() {
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<SiteChangeEntryRow | null>(null);
   const [draft, setDraft] = useState<ChangelogDraft>(emptyDraft());
+  const [contentLanguage, setContentLanguage] = useState<PortalUiLanguage>(uiLanguage);
 
   const reload = async (nextPage = page) => {
     setLoadingRows(true);
@@ -221,6 +258,7 @@ export default function BackendChangelogPage() {
   const startEdit = (row: SiteChangeEntryRow) => {
     setEditing(row);
     setDraft(rowToDraft(row));
+    setContentLanguage(uiLanguage);
   };
 
   const cancelEdit = () => {
@@ -419,6 +457,11 @@ export default function BackendChangelogPage() {
                         <div className="font-semibold text-slate-900">{row.title_internal}</div>
                         {row.description_internal && <div className="mt-1 line-clamp-2 text-xs text-slate-500">{row.description_internal}</div>}
                         {row.source_ref && <div className="mt-1 font-mono text-[11px] text-slate-400">{row.source_ref}</div>}
+                        {missingSiteChangeLanguages(row).length > 0 && (
+                          <div className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200">
+                            Mangler: {missingSiteChangeLanguages(row).map(languageFlag).join(", ")}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-4 text-slate-600">{row.module}</td>
                       <td className="px-4 py-4 text-slate-600">{row.change_type}</td>
@@ -504,11 +547,30 @@ export default function BackendChangelogPage() {
                 <Field label="Teknisk beskrivelse">
                   <textarea rows={3} value={draft.technical_description || ""} onChange={(event) => setDraft({ ...draft, technical_description: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
                 </Field>
-                <Field label="Publiceret titel">
-                  <input value={draft.title_public || ""} placeholder={draft.title_internal} onChange={(event) => setDraft({ ...draft, title_public: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+                <Field label="Publiceret sprog">
+                  <select value={contentLanguage} onChange={(event) => setContentLanguage(event.target.value as PortalUiLanguage)} className="w-full rounded-lg border border-slate-200 px-3 py-2">
+                    {PORTAL_LANGUAGES.map((lang) => <option key={lang.code} value={lang.code}>{lang.flag} - {lang.label}</option>)}
+                  </select>
                 </Field>
-                <Field label="Publiceret tekst">
-                  <textarea rows={3} value={draft.description_public || ""} onChange={(event) => setDraft({ ...draft, description_public: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-emerald-900">
+                  Publicerede tekster gemmes pr. portalsprog. Mangler et sprog, bruger forsiden engelsk og derefter dansk/originaltekst som fallback.
+                </div>
+                <Field label={`Publiceret titel (${languageFlag(contentLanguage)})`}>
+                  <input
+                    value={getLocalizedDraftField(draft, contentLanguage, "title")}
+                    placeholder={contentLanguage === "da" ? draft.title_internal : "Oversat titel"}
+                    onChange={(event) => setDraft(updateLocalizedDraftField(draft, contentLanguage, "title", event.target.value))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                  />
+                </Field>
+                <Field label={`Publiceret tekst (${languageFlag(contentLanguage)})`}>
+                  <textarea
+                    rows={3}
+                    value={getLocalizedDraftField(draft, contentLanguage, "description")}
+                    placeholder={contentLanguage === "da" ? draft.description_internal || "" : "Oversat kort tekst"}
+                    onChange={(event) => setDraft(updateLocalizedDraftField(draft, contentLanguage, "description", event.target.value))}
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2"
+                  />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Modul">

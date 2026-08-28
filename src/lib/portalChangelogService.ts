@@ -12,10 +12,19 @@ import {
   ModuleKey,
   ChangelogRole,
 } from './portalChangelog';
-import { Language } from '@/types/configurator';
+import { PORTAL_LANGUAGE_CODES, portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
 
-const LANG_KEYS: Language[] = ['da', 'en', 'de', 'it', 'hu'];
 const PAGE_SIZE = 1000;
+
+export type SiteChangeLocalizedText = {
+  title?: string | null;
+  description?: string | null;
+  note?: string | null;
+  module_label?: string | null;
+  change_type_label?: string | null;
+};
+
+export type SiteChangeLocalizedContent = Partial<Record<PortalUiLanguage | string, SiteChangeLocalizedText>>;
 
 export type SiteChangeStatus = 'new' | 'draft' | 'published' | 'archived';
 export type SiteChangeRecommendation = 'publish' | 'maybe' | 'internal';
@@ -30,6 +39,7 @@ export interface SiteChangeEntryRow {
   technical_description: string | null;
   title_public: string | null;
   description_public: string | null;
+  localized_content: SiteChangeLocalizedContent | null;
   module: string;
   change_type: string;
   affected_roles: string[];
@@ -54,6 +64,7 @@ export interface SiteChangePublicRow {
   implemented_at: string;
   title: string;
   description: string | null;
+  localized_content: SiteChangeLocalizedContent | null;
   module: string;
   change_type: string;
   affected_roles: string[];
@@ -72,6 +83,7 @@ export interface ChangelogDraft {
   technical_description?: string | null;
   title_public?: string | null;
   description_public?: string | null;
+  localized_content?: SiteChangeLocalizedContent | null;
   module: string;
   change_type: string;
   affected_roles: string[];
@@ -106,34 +118,82 @@ export interface SiteChangeGitHubSyncResult {
   error?: string;
 }
 
-function fanout(text: string | null | undefined): Record<Language, string> {
-  const v = text ?? '';
-  return LANG_KEYS.reduce((acc, k) => { acc[k] = v; return acc; }, {} as Record<Language, string>);
+function localizedText(values: SiteChangeLocalizedContent | null | undefined, key: keyof SiteChangeLocalizedText, language: PortalUiLanguage): string {
+  if (!values) return '';
+  const byLanguage = values as Record<string, SiteChangeLocalizedText | undefined>;
+  for (const languageKey of portalLanguageLookupOrder(language, true)) {
+    const value = byLanguage[languageKey]?.[key];
+    if (typeof value === 'string' && value.trim()) return value;
+  }
+  return '';
 }
 
-function moduleName(module: string): string {
-  const labels: Record<string, string> = {
-    crm: 'CRM',
-    leads: 'Leads',
-    dealer_data: 'Forhandlerdata',
-    dealer_portal: 'Forhandlerportal',
-    service: 'Service & Teknik',
-    messe: 'Messe',
-    marketing: 'Marketing',
-    map: 'Kort',
-    warranty: 'Garantiregistrering',
-    claims: 'Claims',
-    tsb: 'TSB',
-    users: 'Brugere',
-    budget: 'Budget',
-    quotes: 'Tilbud',
-    orders: 'Ordrer',
-    backend: 'Backend',
-    misc: 'Formularer',
-    configurator: 'Konfigurator',
-    partner_map: 'Partnerkort',
+function localizeFromContent(
+  content: SiteChangeLocalizedContent | null | undefined,
+  key: keyof SiteChangeLocalizedText,
+  fallback: string | null | undefined,
+): Record<PortalUiLanguage, string> {
+  return PORTAL_LANGUAGE_CODES.reduce((acc, lang) => {
+    acc[lang] = localizedText(content, key, lang) || fallback || '';
+    return acc;
+  }, {} as Record<PortalUiLanguage, string>);
+}
+
+const MODULE_LABELS: Record<string, Partial<Record<PortalUiLanguage, string>>> = {
+  crm: { da: 'CRM', en: 'CRM', de: 'CRM', it: 'CRM', hu: 'CRM', sv: 'CRM', fr: 'CRM', pl: 'CRM', cs: 'CRM' },
+  leads: { da: 'Leads', en: 'Leads', de: 'Leads', it: 'Lead', hu: 'Érdeklődők', sv: 'Leads', fr: 'Leads', pl: 'Leady', cs: 'Leady' },
+  dealer_data: { da: 'Forhandlerdata', en: 'Dealer data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok', sv: 'Återförsäljardata', fr: 'Données revendeur', pl: 'Dane dealera', cs: 'Data prodejce' },
+  dealer_portal: { da: 'Forhandlerportal', en: 'Dealer portal', de: 'Händlerportal', it: 'Portale rivenditore', hu: 'Kereskedői portál', sv: 'Återförsäljarportal', fr: 'Portail revendeur', pl: 'Portal dealera', cs: 'Portál prodejce' },
+  service: { da: 'Service & Teknik', en: 'Service & Technical', de: 'Service & Technik', it: 'Assistenza e tecnica', hu: 'Szerviz és műszaki', sv: 'Service och teknik', fr: 'Service et technique', pl: 'Serwis i technika', cs: 'Servis a technika' },
+  messe: { da: 'Messe', en: 'Exhibition', de: 'Messe', it: 'Fiera', hu: 'Kiállítás', sv: 'Mässa', fr: 'Salon', pl: 'Targi', cs: 'Veletrh' },
+  marketing: { da: 'Marketing', en: 'Marketing', de: 'Marketing', it: 'Marketing', hu: 'Marketing', sv: 'Marketing', fr: 'Marketing', pl: 'Marketing', cs: 'Marketing' },
+  map: { da: 'Kort', en: 'Map', de: 'Karte', it: 'Mappa', hu: 'Térkép', sv: 'Karta', fr: 'Carte', pl: 'Mapa', cs: 'Mapa' },
+  warranty: { da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung', it: 'Registrazione garanzia', hu: 'Garanciaregisztráció', sv: 'Garantiregistrering', fr: 'Enregistrement de garantie', pl: 'Rejestracja gwarancji', cs: 'Registrace záruky' },
+  claims: { da: 'Claims', en: 'Claims', de: 'Reklamationen', it: 'Reclami', hu: 'Reklamációk', sv: 'Reklamationer', fr: 'Réclamations', pl: 'Reklamacje', cs: 'Reklamace' },
+  tsb: { da: 'TSB', en: 'TSB', de: 'TSB', it: 'TSB', hu: 'TSB', sv: 'TSB', fr: 'TSB', pl: 'TSB', cs: 'TSB' },
+  users: { da: 'Brugere', en: 'Users', de: 'Benutzer', it: 'Utenti', hu: 'Felhasználók', sv: 'Användare', fr: 'Utilisateurs', pl: 'Użytkownicy', cs: 'Uživatelé' },
+  budget: { da: 'Budget', en: 'Budget', de: 'Budget', it: 'Budget', hu: 'Költségvetés', sv: 'Budget', fr: 'Budget', pl: 'Budżet', cs: 'Rozpočet' },
+  quotes: { da: 'Tilbud', en: 'Quotes', de: 'Angebote', it: 'Offerte', hu: 'Ajánlatok', sv: 'Offerter', fr: 'Devis', pl: 'Oferty', cs: 'Nabídky' },
+  orders: { da: 'Ordrer', en: 'Orders', de: 'Aufträge', it: 'Ordini', hu: 'Megrendelések', sv: 'Order', fr: 'Commandes', pl: 'Zamówienia', cs: 'Objednávky' },
+  backend: { da: 'Backend', en: 'Backend', de: 'Backend', it: 'Backend', hu: 'Backend', sv: 'Backend', fr: 'Backend', pl: 'Backend', cs: 'Backend' },
+  misc: { da: 'Formularer', en: 'Forms', de: 'Formulare', it: 'Moduli', hu: 'Űrlapok', sv: 'Formulär', fr: 'Formulaires', pl: 'Formularze', cs: 'Formuláře' },
+  configurator: { da: 'Konfigurator', en: 'Configurator', de: 'Konfigurator', it: 'Configuratore', hu: 'Konfigurátor', sv: 'Konfigurator', fr: 'Configurateur', pl: 'Konfigurator', cs: 'Konfigurátor' },
+  partner_map: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép', sv: 'Partnerkarta', fr: 'Carte partenaires', pl: 'Mapa partnerów', cs: 'Mapa partnerů' },
+};
+
+function moduleName(module: string): Partial<Record<PortalUiLanguage, string>> {
+  const labels = MODULE_LABELS[module] || {};
+  if (Object.keys(labels).length > 0) return labels;
+  return PORTAL_LANGUAGE_CODES.reduce((acc, lang) => {
+    acc[lang] = module;
+    return acc;
+  }, {} as Partial<Record<PortalUiLanguage, string>>);
+}
+
+export function localizedContentFromDraft(draft: Pick<ChangelogDraft, 'localized_content' | 'title_public' | 'description_public' | 'title_internal' | 'module' | 'change_type'>): SiteChangeLocalizedContent {
+  const base = draft.localized_content || {};
+  const daTitle = draft.title_public || draft.title_internal || '';
+  const daDescription = draft.description_public || '';
+  return {
+    ...base,
+    da: {
+      ...(base.da || {}),
+      title: base.da?.title || daTitle,
+      description: base.da?.description || daDescription,
+      note: base.da?.note || daTitle,
+      module_label: base.da?.module_label || moduleName(draft.module).da || draft.module,
+      change_type_label: base.da?.change_type_label || draft.change_type,
+    },
   };
-  return labels[module] || module;
+}
+
+export function missingSiteChangeLanguages(row: Pick<SiteChangeEntryRow, 'localized_content' | 'title_public' | 'title_internal'>): PortalUiLanguage[] {
+  const content = row.localized_content || {};
+  return PORTAL_LANGUAGE_CODES.filter((lang) => {
+    const exact = content[lang];
+    if (lang === 'da') return !(exact?.title || row.title_public || row.title_internal);
+    return !(exact?.title && String(exact.title).trim());
+  });
 }
 
 function moduleToKey(module: string): ModuleKey {
@@ -183,14 +243,24 @@ function normalizeRoleVisibility(roles: string[]): ChangelogRole[] {
 }
 
 export function publicRowToEntry(row: SiteChangePublicRow): ChangeLogEntry {
+  const localizedContent = row.localized_content || {};
+  const moduleLabels = moduleName(row.module);
+  const mergedContent = PORTAL_LANGUAGE_CODES.reduce((acc, lang) => {
+    acc[lang] = {
+      module_label: moduleLabels[lang] || moduleLabels.en || moduleLabels.da || row.module,
+      ...(localizedContent[lang] || {}),
+    };
+    return acc;
+  }, {} as SiteChangeLocalizedContent);
+
   return {
     id: row.id,
     module_key: moduleToKey(row.module),
-    module_name: fanout(moduleName(row.module)),
+    module_name: localizeFromContent(mergedContent, 'module_label', row.module),
     changed_at: row.published_at,
-    title: fanout(row.title),
-    description: row.description ? fanout(row.description) : undefined,
-    note: fanout(row.title),
+    title: localizeFromContent(mergedContent, 'title', row.title),
+    description: row.description || row.localized_content ? localizeFromContent(mergedContent, 'description', row.description) : undefined,
+    note: localizeFromContent(mergedContent, 'note', row.title),
     role_visibility: normalizeRoleVisibility(row.affected_roles || ['all']),
     is_major: !!row.is_important,
   };
@@ -315,6 +385,7 @@ function toPayload(draft: ChangelogDraft) {
     technical_description: draft.technical_description || null,
     title_public: draft.title_public || null,
     description_public: draft.description_public || null,
+    localized_content: localizedContentFromDraft(draft),
     module: draft.module,
     change_type: draft.change_type,
     affected_roles: draft.affected_roles?.length ? draft.affected_roles : ['all'],

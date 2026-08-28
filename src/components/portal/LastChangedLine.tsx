@@ -19,7 +19,7 @@ interface Props {
 export default function LastChangedLine({ moduleKey, markReadOnMount = true, className }: Props) {
   const { appUser } = useAppUser();
   const { language: lang, uiLanguage } = useLanguage();
-  const { latestForModule, markModuleRead } = useChangelog(appUser, lang);
+  const { latestForModule, markModuleRead } = useChangelog(appUser, uiLanguage);
   const entry = latestForModule(moduleKey);
 
   useEffect(() => {

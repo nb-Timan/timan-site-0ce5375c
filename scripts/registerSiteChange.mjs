@@ -50,6 +50,15 @@ const payload = {
   technical_description: args.get('technical-description') || args.get('technicalDescription') || (files.length ? `Changed files: ${files.join(', ')}` : null),
   title_public: args.get('public-title') || null,
   description_public: args.get('public-description') || null,
+  localized_content: {
+    da: {
+      title: args.get('public-title') || title,
+      description: args.get('public-description') || '',
+      note: args.get('public-title') || title,
+      module_label: moduleName,
+      change_type_label: args.get('type') || 'improvement',
+    },
+  },
   module: moduleName,
   change_type: args.get('type') || 'improvement',
   affected_roles: roles.length ? roles : ['all'],

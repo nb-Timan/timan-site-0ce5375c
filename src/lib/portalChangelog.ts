@@ -74,7 +74,7 @@ export interface ChangeLogEntry {
   /** Roles allowed to see the entry. Empty / undefined / contains 'all' = everyone. */
   role_visibility?: ChangelogRole[];
   /** If set, only these UI languages render it. Undefined = all languages. */
-  languages?: Language[];
+  languages?: PortalUiLanguage[];
   /** Highlighted "Vigtig" indicator in the panel. */
   is_major?: boolean;
   /** Optional ISO date — entry shows "Ny" until this moment. */
@@ -327,7 +327,7 @@ export function mapUserToChangelogRoles(
 function isEntryVisible(
   entry: ChangeLogEntry,
   user: Pick<SessionUser, 'portal_role' | 'role'> | null,
-  language: Language,
+  language: PortalUiLanguage,
 ): boolean {
   if (entry.languages && !entry.languages.includes(language)) return false;
   const vis = entry.role_visibility;
@@ -342,7 +342,7 @@ function isEntryVisible(
 
 export function getVisibleEntries(
   user: Pick<SessionUser, 'email' | 'portal_role' | 'role'> | null,
-  language: Language,
+  language: PortalUiLanguage,
 ): ChangeLogEntry[] {
   return CHANGELOG_ENTRIES
     .filter(e => isEntryVisible(e, user, language))
@@ -353,7 +353,7 @@ export function getVisibleEntries(
 /** Recent changes for the user's roles, newest first. */
 export function getRecentChangesForRole(
   user: Pick<SessionUser, 'email' | 'portal_role' | 'role'> | null,
-  language: Language,
+  language: PortalUiLanguage,
   limit = 5,
 ): ChangeLogEntry[] {
   return getVisibleEntries(user, language).slice(0, limit);
@@ -363,7 +363,7 @@ export function getRecentChangesForRole(
 export function getLatestChangeForModule(
   moduleKey: ModuleKey,
   user: Pick<SessionUser, 'email' | 'portal_role' | 'role'> | null,
-  language: Language,
+  language: PortalUiLanguage,
 ): ChangeLogEntry | null {
   return getVisibleEntries(user, language).find(e => e.module_key === moduleKey) || null;
 }
@@ -519,7 +519,7 @@ export interface UseChangelogResult {
 
 export function useChangelog(
   user: Pick<SessionUser, 'email' | 'portal_role' | 'role'> | null,
-  language: Language,
+  language: PortalUiLanguage,
 ): UseChangelogResult {
   const userKey = getUserKey(user);
 

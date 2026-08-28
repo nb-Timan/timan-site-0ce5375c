@@ -12,7 +12,7 @@ import {
 import { useAppUser } from '@/context/AppUserContext';
 import { PortalAreaId } from '@/lib/portalAreas';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
-import { mapUiLanguageToLegacy, portalLanguageLookupOrder } from '@/lib/portalLanguages';
+import { portalLanguageLookupOrder } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 
 const AREA_ROUTE: Record<PortalAreaId, string> = {
@@ -42,8 +42,7 @@ function pickLocalizedRecord(values: Partial<Record<string, string>>, language: 
 export default function LatestChanges({ language, limit = 5 }: Props) {
   const { appUser } = useAppUser();
   const navigate = useNavigate();
-  const legacyLanguage = mapUiLanguageToLegacy(language);
-  const { entries, isRead, markEntryRead } = useChangelog(appUser, legacyLanguage);
+  const { entries, isRead, markEntryRead } = useChangelog(appUser, language);
 
   const shown = entries.slice(0, limit);
 

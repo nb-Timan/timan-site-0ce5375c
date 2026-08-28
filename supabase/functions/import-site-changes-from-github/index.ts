@@ -45,6 +45,7 @@ type SiteChangeInsert = {
   technical_description: string;
   title_public: string | null;
   description_public: string | null;
+  localized_content: Record<string, Record<string, string>>;
   module: string;
   change_type: string;
   affected_roles: string[];
@@ -160,6 +161,15 @@ function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInser
     ].filter((line) => line !== null).join("\n"),
     title_public: null,
     description_public: null,
+    localized_content: {
+      da: {
+        title,
+        description: "",
+        note: title,
+        module_label: module,
+        change_type_label: changeType,
+      },
+    },
     module,
     change_type: changeType,
     affected_roles: inferRoles(module),
