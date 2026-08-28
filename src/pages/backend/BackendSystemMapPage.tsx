@@ -4,6 +4,7 @@
  */
 import {
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -37,7 +38,6 @@ import {
   getSystemMapChildren,
   systemDnaEdges,
   systemDnaNodes,
-  systemMapEdges,
   type SystemMapArea,
   type SystemMapNode,
   type SystemMapNodeId,
@@ -130,9 +130,48 @@ const COLOR_CLASSES: Record<
 };
 
 const OVERVIEW_NODE_IDS = ["crm", "sales", "marketing", "dealer_data", "service", "messe", "import", "system_admin"];
-const INPUT_NODE_IDS = ["sharepoint", "erp", "supabase"];
-const OUTPUT_NODE_IDS = ["microsoft_365", "email", "documents", "external_apis"];
+const INPUT_NODE_IDS = ["sharepoint", "microsoft_365", "erp", "supabase"];
+const OUTPUT_NODE_IDS = ["email", "documents", "external_apis", "portal_analytics"];
 const DNA_WORLD = { width: 2820, height: 2240 };
+
+const OVERVIEW_POSITIONS: Record<string, { x: number; y: number }> = {
+  sharepoint: { x: 8.5, y: 19 },
+  microsoft_365: { x: 8.5, y: 33 },
+  erp: { x: 8.5, y: 47 },
+  supabase: { x: 8.5, y: 61 },
+  crm: { x: 29, y: 27 },
+  sales: { x: 29, y: 48 },
+  service: { x: 29, y: 69 },
+  marketing: { x: 50, y: 18 },
+  system_admin: { x: 50, y: 72 },
+  dealer_data: { x: 71, y: 27 },
+  import: { x: 71, y: 48 },
+  messe: { x: 71, y: 69 },
+  email: { x: 91.5, y: 19 },
+  documents: { x: 91.5, y: 33 },
+  external_apis: { x: 91.5, y: 47 },
+  portal_analytics: { x: 91.5, y: 61 },
+  portal: { x: 50, y: 46 },
+};
+
+const OVERVIEW_LINES: Array<{ from: string; to: string; colorFrom?: string; dashed?: boolean }> = [
+  { from: "sharepoint", to: "crm", dashed: true },
+  { from: "microsoft_365", to: "sales", dashed: true },
+  { from: "erp", to: "service", dashed: true },
+  { from: "supabase", to: "crm", dashed: true },
+  { from: "crm", to: "portal", colorFrom: "crm" },
+  { from: "sales", to: "portal", colorFrom: "sales" },
+  { from: "service", to: "portal", colorFrom: "service" },
+  { from: "marketing", to: "portal", colorFrom: "marketing" },
+  { from: "system_admin", to: "portal", colorFrom: "system_admin" },
+  { from: "dealer_data", to: "portal", colorFrom: "dealer_data" },
+  { from: "import", to: "portal", colorFrom: "import" },
+  { from: "messe", to: "portal", colorFrom: "messe" },
+  { from: "portal", to: "email", colorFrom: "portal" },
+  { from: "portal", to: "documents", colorFrom: "sales" },
+  { from: "portal", to: "external_apis", colorFrom: "import" },
+  { from: "portal", to: "portal_analytics", colorFrom: "system_admin" },
+];
 
 function colorFor(node: SystemMapNode) {
   return COLOR_CLASSES[node.color] ?? COLOR_CLASSES.slate;
@@ -235,97 +274,150 @@ function DetailList({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function OverviewPill({ node, selected, onSelect }: { node: SystemMapNode; selected: boolean; onSelect: (id: SystemMapNodeId) => void }) {
+function OverviewPill({
+  node,
+  selected,
+  onSelect,
+  compact = false,
+}: {
+  node: SystemMapNode;
+  selected: boolean;
+  onSelect: (id: SystemMapNodeId) => void;
+  compact?: boolean;
+}) {
   const Icon = node.icon;
   const colors = colorFor(node);
+  const position = OVERVIEW_POSITIONS[node.id] ?? node.position;
   return (
     <button
       type="button"
       onClick={() => onSelect(node.id)}
       className={[
-        "absolute flex -translate-x-1/2 -translate-y-1/2 items-center gap-3 rounded-2xl border px-4 py-3 text-left shadow-sm transition hover:-translate-y-[52%] hover:shadow-md",
+        "absolute flex -translate-x-1/2 -translate-y-1/2 items-start gap-3 rounded-2xl border text-left shadow-sm transition hover:-translate-y-[52%] hover:shadow-md",
+        compact ? "w-[180px] px-3 py-3" : "w-[235px] px-4 py-4",
         colors.soft,
         selected ? colors.selected : "",
-        node.kind === "integration" ? "w-[210px]" : "w-[225px]",
       ].join(" ")}
-      style={{ left: `${node.position.x}%`, top: `${node.position.y}%` }}
+      style={{ left: `${position.x}%`, top: `${position.y}%` }}
     >
-      <span className={["flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", colors.icon].join(" ")}>
+      <span className={["flex shrink-0 items-center justify-center rounded-xl", compact ? "h-8 w-8" : "h-10 w-10", colors.icon].join(" ")}>
         <Icon className="h-5 w-5" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-sm font-black">{node.title}</span>
+        <span className={["block truncate font-black", compact ? "text-xs" : "text-sm"].join(" ")}>{node.title}</span>
         <span className="block truncate text-xs font-semibold text-slate-500">{node.subtitle}</span>
+        {compact && (
+          <span className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+            Aktiv
+          </span>
+        )}
+        {!compact && (
+          <ul className="mt-2 space-y-0.5 text-xs font-semibold text-slate-600">
+            {getSystemMapChildren(node.id).slice(0, 4).map((child) => (
+              <li key={child.id} className="truncate">- {child.title}</li>
+            ))}
+          </ul>
+        )}
       </span>
     </button>
   );
 }
 
 function SystemOverview({ selectedId, onSelect }: { selectedId: SystemMapNodeId; onSelect: (id: SystemMapNodeId) => void }) {
-  const visibleEdges = systemMapEdges.filter((edge) =>
-    [edge.from, edge.to].some((id) => id === selectedId) || selectedId === "portal"
-  );
   return (
-    <section className="relative h-[760px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#ecfdf5_0,_#ffffff_35%,_#f8fafc_100%)]" />
+    <section className="relative h-[860px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#eef2ff_0,_#ffffff_38%,_#f8fafc_100%)]" />
+
+      <div className="absolute left-5 top-5 z-10 rounded-2xl border border-slate-200 bg-white/92 p-3 shadow-sm">
+        <h2 className="text-xs font-black uppercase tracking-wide text-slate-500">Datakilder</h2>
+        <p className="mt-1 max-w-[150px] text-xs font-semibold text-slate-500">Kilder der fodrer portalen.</p>
+      </div>
+      <div className="absolute right-5 top-5 z-10 rounded-2xl border border-slate-200 bg-white/92 p-3 text-right shadow-sm">
+        <h2 className="text-xs font-black uppercase tracking-wide text-slate-500">Output & integrationer</h2>
+        <p className="mt-1 max-w-[170px] text-xs font-semibold text-slate-500">Det portalen sender videre.</p>
+      </div>
+
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
         <defs>
           <marker id="overview-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
             <path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8" />
           </marker>
         </defs>
-        {visibleEdges.map((edge) => {
-          const from = findSystemMapNode(edge.from);
-          const to = findSystemMapNode(edge.to);
-          const active = selectedId === edge.from || selectedId === edge.to;
+        {OVERVIEW_LINES.map((edge) => {
+          const fromNode = findSystemMapNode(edge.from);
+          const toNode = findSystemMapNode(edge.to);
+          const from = OVERVIEW_POSITIONS[edge.from] ?? fromNode.position;
+          const to = OVERVIEW_POSITIONS[edge.to] ?? toNode.position;
+          const colorNode = findSystemMapNode(edge.colorFrom ?? edge.from);
+          const active = selectedId === edge.from || selectedId === edge.to || selectedId === "portal";
           return (
             <line
-              key={`${edge.from}-${edge.to}`}
-              x1={from.position.x}
-              y1={from.position.y}
-              x2={to.position.x}
-              y2={to.position.y}
-              stroke={active ? colorFor(from).line : "#cbd5e1"}
-              strokeWidth={active ? 0.42 : 0.22}
+              key={`${edge.from}-${edge.to}-${edge.colorFrom ?? "base"}`}
+              x1={from.x}
+              y1={from.y}
+              x2={to.x}
+              y2={to.y}
+              stroke={active ? colorFor(colorNode).line : "#cbd5e1"}
+              strokeWidth={active ? 0.36 : 0.18}
+              strokeDasharray={edge.dashed ? "1.1 1.1" : undefined}
               strokeLinecap="round"
               markerEnd="url(#overview-arrow)"
-              opacity={active || selectedId === "portal" ? 0.72 : 0.18}
+              opacity={active ? 0.72 : 0.16}
             />
           );
         })}
       </svg>
 
-      <div className="absolute left-8 top-8 rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-500 shadow-sm">
-        Datakilder / input
-      </div>
-      <div className="absolute right-8 top-8 rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-xs font-black uppercase tracking-wide text-slate-500 shadow-sm">
-        Output / integrationer
-      </div>
-
       <button
         type="button"
         onClick={() => onSelect("portal")}
         className={[
-          "absolute left-1/2 top-1/2 flex w-[280px] -translate-x-1/2 -translate-y-1/2 flex-col items-center rounded-3xl border border-emerald-300 bg-white px-7 py-8 text-center shadow-xl transition hover:shadow-2xl",
+          "absolute left-1/2 top-[46%] flex h-[230px] w-[230px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-indigo-200 bg-white text-center shadow-[0_0_0_18px_rgba(99,102,241,0.08),0_20px_60px_rgba(15,23,42,0.16)] transition hover:shadow-[0_0_0_22px_rgba(99,102,241,0.12),0_24px_70px_rgba(15,23,42,0.2)]",
           selectedId === "portal" ? "ring-2 ring-emerald-400" : "",
         ].join(" ")}
       >
-        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-          <Network className="h-7 w-7" />
+        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
+          <Network className="h-6 w-6" />
         </span>
-        <span className="mt-4 text-xl font-black text-slate-950">Timan Partner Portal</span>
-        <span className="mt-1 text-sm font-semibold text-slate-500">Adgang, data og moduler samlet</span>
+        <span className="mt-4 text-lg font-black text-slate-950">Timan Partner Portal</span>
+        <span className="mt-1 text-xs font-bold uppercase tracking-wide text-slate-500">Central platform</span>
+        <span className="mt-2 text-xs font-semibold text-emerald-700">Supabase</span>
       </button>
 
-      {[...INPUT_NODE_IDS, ...OVERVIEW_NODE_IDS, ...OUTPUT_NODE_IDS].map((id) => {
+      {INPUT_NODE_IDS.map((id) => {
+        const node = findSystemMapNode(id);
+        return <OverviewPill key={node.id} node={node} selected={selectedId === node.id} onSelect={onSelect} compact />;
+      })}
+      {OVERVIEW_NODE_IDS.map((id) => {
         const node = findSystemMapNode(id);
         return <OverviewPill key={node.id} node={node} selected={selectedId === node.id} onSelect={onSelect} />;
       })}
+      {OUTPUT_NODE_IDS.map((id) => {
+        const node = findSystemMapNode(id);
+        return <OverviewPill key={`${node.id}-output`} node={node} selected={selectedId === node.id} onSelect={onSelect} compact />;
+      })}
 
-      <div className="absolute bottom-5 left-1/2 w-[min(640px,calc(100%-32px))] -translate-x-1/2 rounded-2xl border border-slate-200 bg-white/95 p-4 text-center shadow-lg">
-        <p className="text-sm font-semibold text-slate-600">
-          Klik på et område for at fremhæve forbindelserne. Tekniske detaljer ligger i System DNA.
-        </p>
+      <div className="absolute bottom-5 left-5 right-5 grid gap-4 md:grid-cols-4">
+        <OverviewStatusCard title="System status" rows={["System: Aktiv", "Database: Aktiv", "Integrationer: Aktiv", "Storage: Aktiv"]} />
+        <OverviewStatusCard title="Dataflow i dag" rows={["Ingen live-tal endnu", "Klar til server-side metrics"]} />
+        <OverviewStatusCard title="Performance" rows={["Ingen live-tal endnu", "Brug Portal Analytics til faktisk måling"]} />
+        <OverviewStatusCard title="Seneste hændelser" rows={["Se Audit Log og Data & Integrationer", "Ingen fiktive hændelser vist"]} />
+      </div>
+    </section>
+  );
+}
+
+function OverviewStatusCard({ title, rows }: { title: string; rows: string[] }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+      <h3 className="text-xs font-black uppercase tracking-wide text-slate-500">{title}</h3>
+      <div className="mt-3 space-y-2">
+        {rows.map((row) => (
+          <div key={row} className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
+            <span className="truncate">{row}</span>
+            {row.includes("Aktiv") && <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />}
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -404,6 +496,7 @@ function SystemDna({
   const [flowMode, setFlowMode] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const didInitialFitRef = useRef(false);
 
   const selectedConnections = useMemo(() => {
     const ids = new Set<SystemMapNodeId>(flowMode ? featuredDataFlow : [selectedId]);
@@ -445,6 +538,20 @@ function SystemDna({
     setZoom(0.52);
     setPan({ x: -520, y: -360 });
   }, []);
+
+  useEffect(() => {
+    if (didInitialFitRef.current) return;
+    didInitialFitRef.current = true;
+    window.setTimeout(() => {
+      if (selectedId === "portal") {
+        fitToScreen();
+        return;
+      }
+      const nextZoom = 0.72;
+      setZoom(nextZoom);
+      centerNode(selectedId, nextZoom);
+    }, 0);
+  }, [centerNode, fitToScreen, selectedId]);
 
   const handleSearch = useCallback(() => {
     const q = query.trim().toLowerCase();
