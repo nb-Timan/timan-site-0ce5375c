@@ -18,7 +18,7 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
-import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
+import { isBackendActor } from "@/lib/portalAccess";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 import {
   BUDGET_SELLERS,
@@ -214,8 +214,7 @@ export default function BackendBudgetImportPage() {
   const [filter, setFilter] = useState<"all" | RowStatus>("all");
   const [year, setYear] = useState<number>(new Date().getFullYear());
 
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
-  const perms = portalRole ? getPortalPermissions(portalRole) : null;
+  const isBackend = useMemo(() => isBackendActor(appUser), [appUser]);
   const { toast } = useToast();
 
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -229,7 +228,7 @@ export default function BackendBudgetImportPage() {
   };
 
   useEffect(() => {
-    if (!appUser || !perms?.isBackend) return;
+    if (!appUser || !isBackend) return;
     let cancelled = false;
     (async () => {
       setBusyLoad(true);
@@ -243,7 +242,7 @@ export default function BackendBudgetImportPage() {
       setBusyLoad(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser, perms?.isBackend, year]);
+  }, [appUser, isBackend, year]);
 
   const rows = useMemo(() => parseInput(text, dealers, existing), [text, dealers, existing]);
   const visible = useMemo(() => filter === "all" ? rows : rows.filter((r) => r.status === filter), [rows, filter]);
@@ -336,7 +335,7 @@ export default function BackendBudgetImportPage() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
+  if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>

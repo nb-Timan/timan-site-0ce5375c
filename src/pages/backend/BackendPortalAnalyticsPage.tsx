@@ -37,7 +37,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { formatDateTime } from "@/lib/format-date";
-import { derivePortalRole } from "@/lib/portalAccess";
+import { isBackendActor } from "@/lib/portalAccess";
 import {
   fetchPortalUsageAnalytics,
   type PortalUsageAnalytics,
@@ -243,7 +243,7 @@ export default function BackendPortalAnalyticsPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const portalRole = appUser ? derivePortalRole(appUser) : null;
+  const isBackend = isBackendActor(appUser);
 
   const [userId, setUserId] = useState(ALL);
   const [role, setRole] = useState(ALL);
@@ -256,7 +256,7 @@ export default function BackendPortalAnalyticsPage() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
-    if (portalRole !== "timan_backend") return;
+    if (!isBackend) return;
     let cancelled = false;
     setBusy(true);
     setErr(null);
@@ -281,7 +281,7 @@ export default function BackendPortalAnalyticsPage() {
     return () => {
       cancelled = true;
     };
-  }, [dealerNumber, days, moduleKey, portalRole, refreshKey, role, userId]);
+  }, [dealerNumber, days, isBackend, moduleKey, refreshKey, role, userId]);
 
   const selectedUser = useMemo(() => analytics?.users[0] || null, [analytics]);
   const filterOptions = analytics?.filters;
@@ -290,7 +290,7 @@ export default function BackendPortalAnalyticsPage() {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Indlæser...</div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (portalRole !== "timan_backend") return <Navigate to="/portal" replace />;
+  if (!isBackend) return <Navigate to="/portal" replace />;
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>

@@ -16,7 +16,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useCountryFormatter, formatCountry as formatCountryFn } from "@/lib/formatCountry";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
-import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
+import { isBackendActor } from "@/lib/portalAccess";
 import {
   DealerAccount,
   DealerAccountStats,
@@ -154,10 +154,9 @@ export default function BackendDealerAccountsPage() {
     else if (authChecked) setLoadingRows(false);
   }, [authChecked, hasSupabaseSession, reload]);
 
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
-  const perms = portalRole ? getPortalPermissions(portalRole) : null;
+  const isBackend = useMemo(() => isBackendActor(appUser), [appUser]);
 
-  const showDealerDataButton = portalRole === "timan_backend" || portalRole === "timan_service" || portalRole === "timan_seller";
+  const showDealerDataButton = isBackend;
 
   const filtered = useMemo(() => rows.filter((r) => {
     if (country && r.country !== country) return false;
@@ -214,7 +213,7 @@ export default function BackendDealerAccountsPage() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
+  if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
   const countries = Array.from(new Set(rows.map((r) => r.country).filter(Boolean))).sort() as string[];
   const customerTypes = Array.from(

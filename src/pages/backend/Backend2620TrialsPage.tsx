@@ -7,7 +7,7 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
+import { isBackendActor } from "@/lib/portalAccess";
 import { deleteCrm2620Trial, listCrm2620Trials, type Crm2620Trial } from "@/lib/crm2620TrialsService";
 
 function fmtDate(value: string | null | undefined): string {
@@ -61,8 +61,7 @@ export default function Backend2620TrialsPage() {
   const [commentRow, setCommentRow] = useState<Crm2620Trial | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const portalRole = derivePortalRole(appUser);
-  const perms = portalRole ? getPortalPermissions(portalRole) : null;
+  const isBackend = isBackendActor(appUser);
 
   async function refresh() {
     setLoadingRows(true);
@@ -115,7 +114,7 @@ export default function Backend2620TrialsPage() {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-sm text-slate-500">...</div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
+  if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>

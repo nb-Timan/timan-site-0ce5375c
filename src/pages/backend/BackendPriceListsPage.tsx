@@ -25,7 +25,7 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
-import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
+import { isBackendActor } from "@/lib/portalAccess";
 import {
   listPriceItems,
   listImportLogs,
@@ -74,8 +74,7 @@ export default function BackendPriceListsPage() {
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
 
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
-  const perms = portalRole ? getPortalPermissions(portalRole) : null;
+  const isBackend = useMemo(() => isBackendActor(appUser), [appUser]);
 
   const [tab, setTab] = useState<Tab>("list");
   const [items, setItems] = useState<PriceListItem[]>([]);
@@ -101,10 +100,10 @@ export default function BackendPriceListsPage() {
   async function reloadLogs() { setLogs(await listImportLogs()); }
 
   useEffect(() => {
-    if (!appUser || !perms?.isBackend) return;
+    if (!appUser || !isBackend) return;
     void reload();
     void reloadLogs();
-  }, [appUser, perms?.isBackend]);
+  }, [appUser, isBackend]);
 
   // ---- ALL hooks must run before any early return ----
   const groupMap = useMemo(() => buildVarenrGroupMap(), []);
@@ -173,7 +172,7 @@ export default function BackendPriceListsPage() {
   // Early returns now happen AFTER all hooks have been called.
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
+  if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     setSummary(null); setPreview(null); setParseErrors([]);

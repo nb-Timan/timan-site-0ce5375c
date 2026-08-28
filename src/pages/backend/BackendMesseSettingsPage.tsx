@@ -13,7 +13,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { derivePortalRole, getPortalPermissions } from '@/lib/portalAccess';
+import { isBackendActor } from '@/lib/portalAccess';
 import { getMesseUrl, isMesseEnabled, setMesseEnabled } from '@/lib/exhibitionMode';
 
 export default function BackendMesseSettingsPage() {
@@ -30,14 +30,13 @@ export default function BackendMesseSettingsPage() {
     QRCode.toCanvas(canvasRef.current, url, { width: 320, margin: 2 }).catch(() => { /* ignore */ });
   }, [url]);
 
-  const portalRole = derivePortalRole(appUser);
-  const perms = portalRole ? getPortalPermissions(portalRole) : null;
+  const isBackend = isBackendActor(appUser);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
+  if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
   function toggle() {
     const next = !enabled;

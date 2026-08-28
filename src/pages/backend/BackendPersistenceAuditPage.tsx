@@ -15,8 +15,7 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useNavigate } from "react-router-dom";
-import { derivePortalRole } from "@/lib/portalAccess";
-import { isCrmAdmin } from "@/lib/crmScope";
+import { isBackendActor } from "@/lib/portalAccess";
 import { supabase } from "@/lib/supabase";
 
 interface AuditTarget {
@@ -128,8 +127,7 @@ export default function BackendPersistenceAuditPage() {
   const [rows, setRows] = useState<AuditResult[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
-  const allowed = useMemo(() => isCrmAdmin(portalRole), [portalRole]);
+  const allowed = useMemo(() => isBackendActor(appUser), [appUser]);
 
   async function run() {
     setLoading(true);

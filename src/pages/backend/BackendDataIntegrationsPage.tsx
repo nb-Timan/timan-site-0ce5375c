@@ -25,7 +25,7 @@ import WarrantySharePointSyncPanel from "@/components/warranty/WarrantySharePoin
 import { WarrantyDealerLinkBackfillPanel } from "@/components/warranty/WarrantyDealerLinkBackfillPanel";
 import SyncSection from "@/components/backend/SyncSection";
 import { useLatestDealerSyncLog, badgeFromLatest } from "@/lib/syncStatusBadge";
-import { derivePortalRole, getPortalPermissions } from "@/lib/portalAccess";
+import { isBackendActor } from "@/lib/portalAccess";
 
 type TabKey = "forhandlere" | "garanti" | "prislister" | "budget" | "brugere" | "historik" | "crm-reset";
 const VALID_TABS: TabKey[] = ["forhandlere", "garanti", "prislister", "budget", "brugere", "historik", "crm-reset"];
@@ -35,14 +35,13 @@ export default function BackendDataIntegrationsPage() {
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
-  const perms = portalRole ? getPortalPermissions(portalRole) : null;
+  const isBackend = useMemo(() => isBackendActor(appUser), [appUser]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
+  if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
   const tabParam = (params.get("tab") ?? "forhandlere") as TabKey;
   const activeTab: TabKey = VALID_TABS.includes(tabParam) ? tabParam : "forhandlere";

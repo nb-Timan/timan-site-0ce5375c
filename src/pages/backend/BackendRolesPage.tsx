@@ -12,7 +12,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import {
-  derivePortalRole, getPortalPermissions, PORTAL_ROLES, PORTAL_ROLE_LABELS,
+  getPortalPermissions, isBackendActor, PORTAL_ROLES, PORTAL_ROLE_LABELS,
   PortalRole, DEFAULT_MODULE_ACCESS, ModuleAccessKey,
 } from "@/lib/portalAccess";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
@@ -67,12 +67,11 @@ export default function BackendRolesPage() {
     return () => { cancelled = true; unsub(); };
   }, []);
 
-  const portalRole = useMemo(() => derivePortalRole(appUser), [appUser]);
-  const perms = portalRole ? getPortalPermissions(portalRole) : null;
+  const isBackend = useMemo(() => isBackendActor(appUser), [appUser]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
+  if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
   const counts = PORTAL_ROLES.reduce<Record<PortalRole, number>>((acc, r) => {
     acc[r] = users.filter((u) => u.role === r).length;

@@ -326,24 +326,25 @@ export function getWarrantyViewVariant(role: PortalRole | null): WarrantyViewVar
 // ---------- Mapping from existing AppUser → PortalRole ----------
 // Keeps backward compat with current UserRole/PartnerType so we don't break
 // configurator, pricing or auth.
-export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> & { email?: string | null; portal_role?: string | null; module_access?: string[] | null }) | null): PortalRole | null {
+export function deriveStoredPortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> & { portal_role?: string | null; module_access?: string[] | null }) | null): PortalRole | null {
   if (!user) return null;
-  const baseRole: PortalRole | null = (() => {
-    if (user.portal_role && (PORTAL_ROLES as string[]).includes(user.portal_role)) {
-      return user.portal_role as PortalRole;
+  if (user.portal_role && (PORTAL_ROLES as string[]).includes(user.portal_role)) {
+    return user.portal_role as PortalRole;
+  }
+  if (user.role === 'timan_saelger') return 'timan_seller';
+  if (user.role === 'partner') {
+    switch (user.partner_type) {
+      case 'forhandler':      return 'timan_dealer';
+      case 'service_partner': return user.module_access?.includes('tsb') ? 'timan_service' : 'timan_service_partner';
+      case 'importoer':       return 'timan_importer';
+      default:                return 'dealer_user';
     }
-    if (user.role === 'timan_saelger') return 'timan_seller';
-    if (user.role === 'partner') {
-      switch (user.partner_type) {
-        case 'forhandler':      return 'timan_dealer';
-        case 'service_partner': return user.module_access?.includes('tsb') ? 'timan_service' : 'timan_service_partner';
-        case 'importoer':       return 'timan_importer';
-        default:                return 'dealer_user';
-      }
-    }
-    return null;
-  })();
+  }
+  return null;
+}
 
+export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> & { email?: string | null; portal_role?: string | null; module_access?: string[] | null }) | null): PortalRole | null {
+  const baseRole = deriveStoredPortalRole(user);
   // Active-mode override: any backend user can choose to view the portal
   // as one of the predefined concrete users (BP / JTN / EM / AKR / NB / DVP).
   // The DB role is unchanged — this only controls navigation, area
@@ -356,6 +357,10 @@ export function derivePortalRole(user: (Pick<AppUser, 'role' | 'partner_type'> &
     if (userView) return userView.portalRole as PortalRole;
   }
   return baseRole;
+}
+
+export function isBackendActor(user: (Pick<AppUser, 'role' | 'partner_type'> & { portal_role?: string | null; module_access?: string[] | null }) | null | undefined): boolean {
+  return deriveStoredPortalRole(user ?? null) === 'timan_backend';
 }
 
 // ---------- Helpers ----------

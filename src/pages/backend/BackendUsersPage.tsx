@@ -21,12 +21,12 @@ import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import {
-  getPortalPermissions,
   PORTAL_ROLES,
   PORTAL_ROLE_LABELS,
   DEFAULT_MODULE_ACCESS,
   PortalRole,
   ModuleAccessKey,
+  isBackendActor,
 } from "@/lib/portalAccess";
 import {
   ALL_AREAS,
@@ -158,16 +158,13 @@ export default function BackendUsersPage() {
     (window as unknown as { __timanUsersSnapshot?: BackendUser[] }).__timanUsersSnapshot = users;
   }, [users]);
 
-  const realPortalRole = (appUser?.portal_role && (PORTAL_ROLES as string[]).includes(appUser.portal_role))
-    ? appUser.portal_role as PortalRole
-    : null;
-  const perms = realPortalRole ? getPortalPermissions(realPortalRole) : null;
+  const isBackend = isBackendActor(appUser);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (!perms?.isBackend) return <Navigate to="/portal/backend" replace />;
+  if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
   const editing = editingId ? users.find((u) => u.id === editingId) : null;
 

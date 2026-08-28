@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAppUser } from "@/context/AppUserContext";
-import { derivePortalRole } from "@/lib/portalAccess";
+import { isBackendActor } from "@/lib/portalAccess";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useLanguage } from "@/context/LanguageContext";
@@ -33,13 +33,11 @@ import {
   setImporterParent,
 } from "@/lib/partnerRelationsService";
 
-const STAFF = new Set(["timan_backend", "timan_service"]);
-
 export default function BackendPartnerRelationsPage() {
   const { appUser, logout } = useAppUser();
   const { language, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const role = derivePortalRole(appUser);
+  const isBackend = isBackendActor(appUser);
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [spLinks, setSpLinks] = useState<ServicePartnerLink[]>([]);
@@ -123,7 +121,7 @@ export default function BackendPartnerRelationsPage() {
   }, [dealers]);
 
   if (!appUser) return <Navigate to="/" replace />;
-  if (!STAFF.has(role ?? "")) return <Navigate to="/portal" replace />;
+  if (!isBackend) return <Navigate to="/portal" replace />;
 
   async function onSaveImporter() {
     if (!impParent || !impChild) { setImpMsg("Vælg importør og forhandler"); return; }
