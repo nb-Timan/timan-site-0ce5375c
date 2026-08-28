@@ -48,7 +48,6 @@ import {
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
 import { BackendUser } from "@/lib/backend-users-store";
-import { Language } from "@/types/configurator";
 import {
   canSwitchMode,
   getActiveMode,
@@ -74,34 +73,27 @@ import {
 } from "@/lib/dealerProfileBadge";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
-
-
-
-
-const T: Record<string, Record<Language, string>> = {
-  title:        { da: "Mine forhandlere", en: "My dealers", de: "Meine Händler", it: "I miei rivenditori", hu: "Kereskedőim" },
-  partner_title:{ da: "Mine samarbejdspartnere", en: "My collaboration partners", de: "Meine Partner", it: "I miei partner", hu: "Partnereim" },
-  subtitle:     { da: "Forhandlere tildelt dig som Timan sælger.", en: "Dealers assigned to you as Timan seller.", de: "Ihnen zugewiesene Händler.", it: "Rivenditori assegnati a te.", hu: "Hozzád rendelt kereskedők." },
-  partner_subtitle: { da: "Din egen konto og samarbejdspartnere under din forhandlerkonto.", en: "Your own account and partners below your dealer account.", de: "Ihr eigenes Konto und Partner unter Ihrem Händlerkonto.", it: "Il tuo account e i partner collegati.", hu: "Saját fiókja és kapcsolódó partnerei." },
-  search:       { da: "Søg på navn, kontonr, by…", en: "Search name, account no, city…", de: "Name, Konto-Nr, Stadt…", it: "Nome, numero conto, città…", hu: "Név, számlaszám, város…" },
-  empty:        { da: "Ingen forhandlere tildelt dig endnu.", en: "No dealers assigned to you yet.", de: "Keine Händler zugewiesen.", it: "Nessun rivenditore assegnato.", hu: "Nincs hozzád rendelt kereskedő." },
-  partner_empty:{ da: "Ingen samarbejdspartnere tilknyttet endnu.", en: "No collaboration partners linked yet.", de: "Noch keine Partner verknüpft.", it: "Nessun partner collegato.", hu: "Még nincsenek kapcsolódó partnerek." },
-  loading:      { da: "Henter forhandlere…", en: "Loading dealers…", de: "Lade Händler…", it: "Caricamento…", hu: "Betöltés…" },
-  c_company:    { da: "Firmanavn", en: "Company", de: "Firma", it: "Azienda", hu: "Cég" },
-  c_account:    { da: "Kontonr", en: "Account no", de: "Konto-Nr", it: "Conto", hu: "Számlaszám" },
-  c_type:       { da: "Type", en: "Type", de: "Typ", it: "Tipo", hu: "Típus" },
-  c_country:    { da: "Land", en: "Country", de: "Land", it: "Paese", hu: "Ország" },
-  c_profile:    { da: "Profilstatus", en: "Profile status", de: "Profilstatus", it: "Stato profilo", hu: "Profil állapot" },
-  c_users:      { da: "Brugere", en: "Users", de: "Nutzer", it: "Utenti", hu: "Felh." },
-  c_quotes:     { da: "Tilbud", en: "Quotes", de: "Angebote", it: "Preventivi", hu: "Ajánlat" },
-  c_orders:     { da: "Ordrer", en: "Orders", de: "Orders", it: "Ordini", hu: "Rendelés" },
-  c_last:       { da: "Sidste aktivitet", en: "Last activity", de: "Letzte Aktivität", it: "Ultima attività", hu: "Utolsó akt." },
-  c_budget_ytd: { da: "Budget YTD", en: "Budget YTD", de: "Budget YTD", it: "Budget YTD", hu: "Budget YTD" },
-  c_budget_status: { da: "Budget status", en: "Budget status", de: "Budget-Status", it: "Stato budget", hu: "Költségvetés-állapot" },
-  scope_note:   { da: "Du ser kun forhandlere tildelt dig.", en: "You only see dealers assigned to you.", de: "Nur Ihre zugewiesenen Händler.", it: "Solo i tuoi rivenditori.", hu: "Csak a hozzád rendelt kereskedők." },
-  partner_scope_note: { da: "Du ser kun din egen konto og tilknyttede samarbejdspartnere.", en: "You only see your own account and linked partners.", de: "Sie sehen nur Ihr eigenes Konto und verknüpfte Partner.", it: "Vedi solo il tuo account e i partner collegati.", hu: "Csak a saját fiókját és kapcsolódó partnereit látja." },
-  view_as:      { da: "Vises som", en: "Viewing as", de: "Ansicht als", it: "Vista come", hu: "Nézet" },
+const profileTextKeyByDanishLabel: Record<string, string> = {
+  "Firma information": "crmProfileSectionCompany",
+  "Økonomi": "crmProfileSectionFinance",
+  "Medier": "crmProfileSectionMedia",
+  "Salg": "crmProfileSectionSales",
+  "Værksted": "crmProfileSectionWorkshop",
+  "Marketing": "crmProfileSectionMarketing",
+  "Firmanavn": "crmProfileFieldCompanyName",
+  "Adresse 1": "crmProfileFieldAddressLine1",
+  "Postnummer": "crmProfileFieldPostalCode",
+  "By": "crmProfileFieldCity",
+  "Land": "crmProfileFieldCountry",
+  "Koordinater": "crmProfileFieldCoordinates",
+  "Telefon eller e-mail": "crmProfileFieldPhoneOrEmail",
+  "E-mail til faktura": "crmProfileFieldInvoiceEmail",
 };
+
+function profileLabel(label: string, lang: PortalUiLanguage): string {
+  const key = profileTextKeyByDanishLabel[label];
+  return key ? i18n(key, lang) : label;
+}
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -204,7 +196,7 @@ function buildBackendSellerOverview(
 export default function CrmMyDealersPage() {
   const { appUser, loading } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
-  const { language: lang, uiLanguage } = useLanguage();
+  const { uiLanguage } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -289,13 +281,23 @@ export default function CrmMyDealersPage() {
             fetchBackendUsers(),
           ]);
           if (cancelled) return;
-          loadedDealers = dRes.rows.filter((d) => isDealerNumberAllowed(d.account_number, Array.from(scopeRes.dealerNumbers)));
+          const scopedDealerNumbers = Array.from(scopeRes.dealerNumbers);
+          loadedDealers = dRes.rows.filter((d) => isDealerNumberAllowed(d.account_number, scopedDealerNumbers));
           setDealers(loadedDealers);
           const map: Record<string, DealerAccountStats> = {};
           for (const s of sRes.rows) map[s.id] = s;
           setStatsMap(map);
-          setAllUsers(uRes.users.filter((u) => isDealerNumberAllowed(u.dealer_number, Array.from(scopeRes.dealerNumbers))));
-          setError(dRes.error ?? sRes.error ?? null);
+          setAllUsers(uRes.users.filter((u) => isDealerNumberAllowed(u.dealer_number, scopedDealerNumbers)));
+          const ownDealerNumber = (effectiveUser?.dealer_number ?? "").trim();
+          const ownDealerExists = ownDealerNumber
+            ? loadedDealers.some((d) => isDealerNumberAllowed(d.account_number, [ownDealerNumber]))
+            : false;
+          const missingOwnAccountError = !ownDealerNumber
+            ? i18n("crmMyDealersPartnerMissingLink", uiLanguage)
+            : !ownDealerExists
+              ? i18n("crmMyDealersPartnerMissingAccount", uiLanguage).replace("{account}", ownDealerNumber)
+              : null;
+          setError(missingOwnAccountError ?? dRes.error ?? sRes.error ?? null);
         }
 
         // Build dealer-budget index (YTD budget + realised) — uses the same
@@ -318,12 +320,14 @@ export default function CrmMyDealersPage() {
         } catch (e) {
           console.warn("[CrmMyDealersPage] budget index failed:", e);
         }
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       } finally {
         if (!cancelled) setLoadingRows(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, effectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole]);
+  }, [appUser, effectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage]);
 
   // Successor index — must be computed unconditionally before any early return
   // so the number of hooks remains stable across renders.
@@ -410,10 +414,10 @@ export default function CrmMyDealersPage() {
     if (!appUser?.email) return;
     setStoredActiveMode(appUser.email, sellerKey);
   };
-  const pageTitle = externalCrm ? T.partner_title[lang] : T.title[lang];
-  const pageSubtitle = externalCrm ? T.partner_subtitle[lang] : T.subtitle[lang];
-  const emptyLabel = externalCrm ? T.partner_empty[lang] : T.empty[lang];
-  const scopeNote = externalCrm ? T.partner_scope_note[lang] : T.scope_note[lang];
+  const pageTitle = externalCrm ? i18n("crmMyPartners", uiLanguage) : i18n("crmMyDealers", uiLanguage);
+  const pageSubtitle = externalCrm ? i18n("crmMyDealersPartnerSubtitle", uiLanguage) : i18n("crmMyDealersSubtitle", uiLanguage);
+  const emptyLabel = externalCrm ? i18n("crmMyDealersPartnerEmpty", uiLanguage) : i18n("crmMyDealersEmpty", uiLanguage);
+  const scopeNote = externalCrm ? i18n("crmMyDealersPartnerScopeNote", uiLanguage) : i18n("crmMyDealersScopeNote", uiLanguage);
 
   return (
     <CrmLayout pageTitle={pageTitle}>
@@ -447,7 +451,7 @@ export default function CrmMyDealersPage() {
           ))}
           {activeSellerView && (
             <span className="text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 font-semibold">
-              {T.view_as[lang]}: {activeSellerView.label}
+              {i18n("crmMyDealersViewAs", uiLanguage)}: {activeSellerView.label}
             </span>
           )}
           {!admin && (
@@ -461,7 +465,7 @@ export default function CrmMyDealersPage() {
       <div className="mb-4 bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center gap-3">
         <div className="relative max-w-md flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={T.search[lang]}
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={i18n("crmMyDealersSearch", uiLanguage)}
             className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm" />
         </div>
         <label className="flex items-center gap-2 text-xs text-slate-600">
@@ -528,22 +532,22 @@ export default function CrmMyDealersPage() {
           <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
             <tr>
               <Th />
-              <Th>{T.c_company[lang]}</Th>
-              <Th>{T.c_account[lang]}</Th>
-              <Th>{T.c_type[lang]}</Th>
-              <Th>{T.c_country[lang]}</Th>
-              <Th>{T.c_profile[lang]}</Th>
-              <Th>{T.c_users[lang]}</Th>
-              <Th>{T.c_quotes[lang]}</Th>
-              <Th>{T.c_orders[lang]}</Th>
-              <Th>{T.c_budget_ytd[lang]}</Th>
-              <Th>{T.c_budget_status[lang]}</Th>
-              <Th>{T.c_last[lang]}</Th>
+              <Th>{i18n("crmMyDealersColCompany", uiLanguage)}</Th>
+              <Th>{i18n("crmMyDealersColAccount", uiLanguage)}</Th>
+              <Th>{i18n("crmMyDealersColType", uiLanguage)}</Th>
+              <Th>{i18n("crmMyDealersColCountry", uiLanguage)}</Th>
+              <Th>{i18n("crmMyDealersColProfile", uiLanguage)}</Th>
+              <Th>{i18n("crmMyDealersColUsers", uiLanguage)}</Th>
+              <Th>{i18n("crmMyDealersColQuotes", uiLanguage)}</Th>
+              <Th>{i18n("crmMyDealersColOrders", uiLanguage)}</Th>
+              <Th>{i18n("crmMyDealersColBudgetYtd", uiLanguage)}</Th>
+              <Th>{i18n("crmMyDealersColBudgetStatus", uiLanguage)}</Th>
+              <Th>{i18n("crmMyDealersColLastActivity", uiLanguage)}</Th>
             </tr>
           </thead>
           <tbody>
             {loadingRows && (
-              <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{T.loading[lang]}</td></tr>
+              <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{i18n("crmMyDealersLoading", uiLanguage)}</td></tr>
             )}
             {!loadingRows && groups.length === 0 && (
               <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{emptyLabel}</td></tr>
@@ -974,10 +978,10 @@ function ProfileStatusBadge({ dealer, peopleCount, lang }: { dealer: DealerAccou
           : i18n("crmProfileOtherMissingTitle", lang);
   const parts: string[] = [baseTitle];
   if (severity === "critical" && missingCritical.length > 0) {
-    parts.push(`${i18n("crmProfileCriticalFieldsMissing", lang)}:\n- ${missingCritical.join("\n- ")}`);
+    parts.push(`${i18n("crmProfileCriticalFieldsMissing", lang)}:\n- ${missingCritical.map((label) => profileLabel(label, lang)).join("\n- ")}`);
   }
   if (severity !== "complete" && missingSections.length > 0) {
-    parts.push(`${i18n("crmProfileSectionsMissing", lang)}:\n- ${missingSections.join("\n- ")}`);
+    parts.push(`${i18n("crmProfileSectionsMissing", lang)}:\n- ${missingSections.map((label) => profileLabel(label, lang)).join("\n- ")}`);
   }
   const title = parts.join("\n\n");
   return (
