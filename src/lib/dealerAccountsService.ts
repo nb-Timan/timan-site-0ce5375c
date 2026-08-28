@@ -1206,16 +1206,30 @@ export async function fetchDealerAccountFamilyByNumber(
     if (!selected.row) return { rows: [] };
 
     const rootAccountNumber = selected.row.parent_account_number || selected.row.account_number;
-    let q = supabase
+    let rootQuery = supabase
       .from("dealer_accounts")
       .select("*")
-      .or(`account_number.eq.${rootAccountNumber},parent_account_number.eq.${rootAccountNumber}`)
+      .eq("account_number", rootAccountNumber)
       .order("company_name", { ascending: true });
-    if (!opts.includeDeleted) q = q.eq("is_deleted", false);
+    let childrenQuery = supabase
+      .from("dealer_accounts")
+      .select("*")
+      .eq("parent_account_number", rootAccountNumber)
+      .order("company_name", { ascending: true });
+    if (!opts.includeDeleted) {
+      rootQuery = rootQuery.eq("is_deleted", false);
+      childrenQuery = childrenQuery.eq("is_deleted", false);
+    }
 
-    const { data, error } = await q;
-    if (error) throw error;
-    const rows = (data ?? []).map((row) => rowToDealer(row as Record<string, unknown>));
+    const [rootRes, childrenRes] = await Promise.all([rootQuery, childrenQuery]);
+    if (rootRes.error) throw rootRes.error;
+    if (childrenRes.error) throw childrenRes.error;
+    const rowsById = new Map<string, DealerAccount>();
+    for (const row of [...(rootRes.data ?? []), ...(childrenRes.data ?? [])]) {
+      const dealer = rowToDealer(row as Record<string, unknown>);
+      rowsById.set(dealer.id, dealer);
+    }
+    const rows = Array.from(rowsById.values()).sort((a, b) => a.company_name.localeCompare(b.company_name));
     if (rows.some((row) => row.id === selected.row?.id)) return { rows };
     if (!opts.includeDeleted && selected.row.is_deleted) return { rows };
     return { rows: [selected.row, ...rows] };
