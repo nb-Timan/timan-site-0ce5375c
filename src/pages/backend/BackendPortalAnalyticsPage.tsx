@@ -11,6 +11,7 @@ import {
   Activity,
   BarChart3,
   CalendarDays,
+  CheckSquare,
   Clock3,
   MonitorUp,
   RefreshCw,
@@ -52,6 +53,29 @@ const PERIODS = [
   { value: "90", label: "90 dage" },
   { value: "365", label: "12 mdr." },
 ];
+
+const ROLE_GROUPS = [
+  {
+    key: "dealers",
+    label: "Forhandlere",
+    roles: ["timan_dealer", "dealer_user"],
+  },
+  {
+    key: "partners",
+    label: "Importør + forhandler + servicepartner",
+    roles: ["timan_importer", "timan_dealer", "timan_service_partner", "dealer_user"],
+  },
+  {
+    key: "sellers",
+    label: "Timan-sælgere",
+    roles: ["timan_seller"],
+  },
+  {
+    key: "timan",
+    label: "Alle Timan",
+    roles: ["timan_backend", "timan_seller", "timan_service", "exhibition_user"],
+  },
+] as const;
 
 const MODULE_COLORS = ["#047857", "#2563eb", "#7c3aed", "#f59e0b", "#e11d48", "#0891b2", "#65a30d"];
 
@@ -104,6 +128,22 @@ function formatModuleKey(key: string | null | undefined): string {
 
 function displayUserName(user: { display_name?: string | null; email?: string | null }): string {
   return (user.display_name?.trim() || user.email || "Ukendt bruger").trim();
+}
+
+function displayRole(role: string | null | undefined): string {
+  const labels: Record<string, string> = {
+    timan_backend: "Timan Backend",
+    timan_seller: "Timan Sælger",
+    timan_service: "Timan Service",
+    timan_importer: "Importør",
+    timan_dealer: "Forhandler",
+    timan_service_partner: "Servicepartner",
+    dealer_customer: "Forhandlerkunde",
+    dealer_user: "Forhandlerbruger",
+    private_end_user: "Privat / slutbruger",
+    exhibition_user: "Timan Messe",
+  };
+  return role ? labels[role] || role : "-";
 }
 
 function comparisonLabel(period: PortalUsageComparisonPeriod | undefined): string {
@@ -215,7 +255,7 @@ function DataTable({ analytics }: { analytics: PortalUsageAnalytics }) {
                   <div className="font-semibold text-slate-950">{displayUserName(user)}</div>
                   <div className="text-xs text-slate-500">{user.email}</div>
                 </td>
-                <td className="py-3 pr-4 text-slate-700">{user.portal_role || "-"}</td>
+                <td className="py-3 pr-4 text-slate-700">{displayRole(user.portal_role)}</td>
                 <td className="py-3 pr-4 text-slate-700">{user.dealer_number || "-"}</td>
                 <td className="py-3 pr-4 text-slate-700">{user.last_login ? formatDateTime(user.last_login) : "-"}</td>
                 <td className="py-3 pr-4 font-medium text-slate-800">
@@ -245,10 +285,9 @@ export default function BackendPortalAnalyticsPage() {
   const navigate = useNavigate();
   const isBackend = isBackendActor(appUser);
 
-  const [userId, setUserId] = useState(ALL);
-  const [role, setRole] = useState(ALL);
-  const [dealerNumber, setDealerNumber] = useState(ALL);
-  const [moduleKey, setModuleKey] = useState(ALL);
+  const [selectedUserKeys, setSelectedUserKeys] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [selectedModuleKeys, setSelectedModuleKeys] = useState<string[]>([]);
   const [days, setDays] = useState("30");
   const [analytics, setAnalytics] = useState<PortalUsageAnalytics | null>(null);
   const [busy, setBusy] = useState(true);
@@ -262,10 +301,9 @@ export default function BackendPortalAnalyticsPage() {
     setErr(null);
 
     fetchPortalUsageAnalytics({
-      userId: userId === ALL ? null : userId,
-      role: role === ALL ? null : role,
-      dealerNumber: dealerNumber === ALL ? null : dealerNumber,
-      moduleKey: moduleKey === ALL ? null : moduleKey,
+      userKeys: selectedUserKeys,
+      roles: selectedRoles,
+      moduleKeys: selectedModuleKeys,
       days: Number(days),
     })
       .then((data) => {
@@ -281,10 +319,33 @@ export default function BackendPortalAnalyticsPage() {
     return () => {
       cancelled = true;
     };
-  }, [dealerNumber, days, isBackend, moduleKey, refreshKey, role, userId]);
+  }, [days, isBackend, refreshKey, selectedModuleKeys, selectedRoles, selectedUserKeys]);
 
   const selectedUser = useMemo(() => analytics?.users[0] || null, [analytics]);
   const filterOptions = analytics?.filters;
+  const hasAudienceFilter = selectedUserKeys.length > 0 || selectedRoles.length > 0;
+  const hasAnyFilter = hasAudienceFilter || selectedModuleKeys.length > 0;
+
+  const toggleValue = (current: string[], value: string, setter: (next: string[]) => void) => {
+    setter(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
+  };
+
+  const resetScope = () => {
+    setSelectedUserKeys([]);
+    setSelectedRoles([]);
+    setSelectedModuleKeys([]);
+  };
+
+  const applyRoleGroup = (roles: readonly string[]) => {
+    setSelectedUserKeys([]);
+    setSelectedRoles(Array.from(new Set(roles)));
+  };
+
+  const selectCurrentBackendUser = () => {
+    const key = appUser?.email || "";
+    setSelectedUserKeys(key ? [String(key)] : []);
+    setSelectedRoles([]);
+  };
 
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Indlæser...</div>;
@@ -322,57 +383,103 @@ export default function BackendPortalAnalyticsPage() {
         </div>
 
         <Card className="mb-6 rounded-lg">
-          <CardContent className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-5">
-            <Select value={userId} onValueChange={setUserId}>
-              <SelectTrigger><SelectValue placeholder="Bruger" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Alle brugere</SelectItem>
-                {(filterOptions?.users || []).map((user) => (
-                  <SelectItem key={user.user_id || user.email} value={user.user_id || user.email}>
-                    {displayUserName(user)} · {user.email}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <CardContent className="space-y-4 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant={!hasAnyFilter ? "default" : "outline"} onClick={resetScope}>
+                Hele portalen
+              </Button>
+              {ROLE_GROUPS.map((group) => {
+                const active = group.roles.every((role) => selectedRoles.includes(role))
+                  && selectedRoles.length === group.roles.length
+                  && selectedUserKeys.length === 0;
+                return (
+                  <Button key={group.key} size="sm" variant={active ? "default" : "outline"} onClick={() => applyRoleGroup(group.roles)}>
+                    {group.label}
+                  </Button>
+                );
+              })}
+              <Button size="sm" variant={selectedUserKeys.includes(String(appUser?.email || "")) ? "default" : "outline"} onClick={selectCurrentBackendUser}>
+                Min backend
+              </Button>
+            </div>
 
-            <Select value={role} onValueChange={setRole}>
-              <SelectTrigger><SelectValue placeholder="Rolle" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Alle roller</SelectItem>
-                {(filterOptions?.roles || []).map((value) => (
-                  <SelectItem key={value} value={value}>{value}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr]">
+              <div className="rounded-lg border bg-white p-3">
+                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <CheckSquare className="h-4 w-4 text-emerald-700" />
+                  Vælg enkelte brugere
+                </div>
+                <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
+                  {(filterOptions?.users || []).map((user) => {
+                    const key = String(user.user_id || user.email);
+                    return (
+                      <label key={key} className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
+                        <input
+                          type="checkbox"
+                          className="mt-1 h-4 w-4 accent-emerald-700"
+                          checked={selectedUserKeys.includes(key)}
+                          onChange={() => toggleValue(selectedUserKeys, key, setSelectedUserKeys)}
+                        />
+                        <span>
+                          <span className="block font-medium text-slate-900">{displayUserName(user)}</span>
+                          <span className="block text-xs text-slate-500">{user.email} · {displayRole(user.portal_role)}</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {(filterOptions?.users || []).length === 0 && (
+                    <p className="px-2 py-3 text-sm text-slate-400">Ingen brugere med aktivitet endnu.</p>
+                  )}
+                </div>
+              </div>
 
-            <Select value={dealerNumber} onValueChange={setDealerNumber}>
-              <SelectTrigger><SelectValue placeholder="Forhandler" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Alle forhandlere</SelectItem>
-                {(filterOptions?.dealer_numbers || []).map((value) => (
-                  <SelectItem key={value} value={value}>{value}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <div className="rounded-lg border bg-white p-3">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Roller / brugergrupper</div>
+                <div className="space-y-1">
+                  {(filterOptions?.roles || []).map((value) => (
+                    <label key={value} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-emerald-700"
+                        checked={selectedRoles.includes(value)}
+                        onChange={() => toggleValue(selectedRoles, value, setSelectedRoles)}
+                      />
+                      <span>{displayRole(value)}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
 
-            <Select value={moduleKey} onValueChange={setModuleKey}>
-              <SelectTrigger><SelectValue placeholder="Modul" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>Alle moduler</SelectItem>
-                {(filterOptions?.modules || []).map((value) => (
-                  <SelectItem key={value} value={value}>{formatModuleKey(value)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <div className="grid gap-3">
+                <Select
+                  value={selectedModuleKeys.length === 1 ? selectedModuleKeys[0] : ALL}
+                  onValueChange={(value) => setSelectedModuleKeys(value === ALL ? [] : [value])}
+                >
+                  <SelectTrigger><SelectValue placeholder="Modul" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={ALL}>Alle moduler</SelectItem>
+                    {(filterOptions?.modules || []).map((value) => (
+                      <SelectItem key={value} value={value}>{formatModuleKey(value)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <Select value={days} onValueChange={setDays}>
-              <SelectTrigger><SelectValue placeholder="Periode" /></SelectTrigger>
-              <SelectContent>
-                {PERIODS.map((period) => (
-                  <SelectItem key={period.value} value={period.value}>{period.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select value={days} onValueChange={setDays}>
+                  <SelectTrigger><SelectValue placeholder="Periode" /></SelectTrigger>
+                  <SelectContent>
+                    {PERIODS.map((period) => (
+                      <SelectItem key={period.value} value={period.value}>{period.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="rounded-lg border bg-slate-50 p-3 text-xs text-slate-500">
+                  {hasAudienceFilter
+                    ? `${selectedUserKeys.length} brugere · ${selectedRoles.length} roller valgt`
+                    : "Viser hele portalen"}
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -399,7 +506,7 @@ export default function BackendPortalAnalyticsPage() {
               <KpiCard icon={Activity} label="Samme periode sidste år" value={comparisonLabel(analytics.comparisons.same_period_last_year)} sub={`${analytics.comparisons.same_period_last_year.current_visits} vs. ${analytics.comparisons.same_period_last_year.previous_visits} besøg`} />
             </div>
 
-            {selectedUser && userId !== ALL && (
+            {selectedUser && selectedUserKeys.length === 1 && selectedRoles.length === 0 && (
               <Card className="rounded-lg border-emerald-100 bg-emerald-50/40">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">

@@ -79,10 +79,10 @@ export interface PortalUsageAnalytics {
 }
 
 export interface PortalUsageAnalyticsFilters {
-  userId?: string | null;
-  role?: string | null;
-  dealerNumber?: string | null;
-  moduleKey?: string | null;
+  userKeys?: string[] | null;
+  roles?: string[] | null;
+  dealerNumbers?: string[] | null;
+  moduleKeys?: string[] | null;
   days?: number;
 }
 
@@ -189,11 +189,16 @@ function normalizeAnalytics(payload: any): PortalUsageAnalytics {
 }
 
 export async function fetchPortalUsageAnalytics(filters: PortalUsageAnalyticsFilters = {}): Promise<PortalUsageAnalytics> {
-  const { data, error } = await supabase.rpc("get_backend_user_activity_analytics", {
-    p_user_id: filters.userId || null,
-    p_role: filters.role || null,
-    p_dealer_number: filters.dealerNumber || null,
-    p_module_key: filters.moduleKey || null,
+  const clean = (values: string[] | null | undefined) => {
+    const out = Array.from(new Set((values || []).map((value) => value.trim().toLowerCase()).filter(Boolean)));
+    return out.length ? out : null;
+  };
+
+  const { data, error } = await supabase.rpc("get_backend_user_activity_analytics_v2", {
+    p_user_keys: clean(filters.userKeys),
+    p_roles: clean(filters.roles),
+    p_dealer_numbers: clean(filters.dealerNumbers),
+    p_module_keys: clean(filters.moduleKeys),
     p_days: filters.days ?? 30,
   });
 
