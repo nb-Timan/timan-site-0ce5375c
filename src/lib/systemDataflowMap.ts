@@ -79,6 +79,22 @@ export interface SystemMapEdge {
   minZoom?: number;
 }
 
+export type SystemDnaZoomLevelId = "world" | "area" | "feature" | "technical";
+
+export interface SystemDnaZoomLevel {
+  id: SystemDnaZoomLevelId;
+  title: string;
+  zoom: number;
+  description: string;
+}
+
+export const SYSTEM_DNA_ZOOM_LEVELS: SystemDnaZoomLevel[] = [
+  { id: "world", title: "Hele systemet", zoom: 0.52, description: "Hovedområder og centrale eksterne systemer." },
+  { id: "area", title: "Områder", zoom: 0.9, description: "Moduler, større features og brugerrejser." },
+  { id: "feature", title: "Features", zoom: 1.24, description: "Underfunktioner, dataobjekter og konkrete flows." },
+  { id: "technical", title: "Teknisk DNA", zoom: 1.48, description: "Tabeller, services, routes, RPC'er og Edge Functions." },
+];
+
 const baseNodes: SystemMapNode[] = [
   {
     id: "portal",
@@ -588,10 +604,127 @@ export const featuredDataFlow: SystemMapNodeId[] = [
   "crm_dashboard",
 ];
 
+export const featuredDataFlows: Record<string, SystemMapNodeId[]> = {
+  messe_form: ["messe_form", "messe_leads", "crm_leads", "lead_conversions", "quotes", "configurator", "orders"],
+  messe_leads: ["messe_leads", "crm_leads", "lead_conversions", "quotes", "configurator", "orders"],
+  crm_leads: ["crm_leads", "lead_conversions", "quotes", "configurator", "orders", "documents", "email"],
+  lead_conversions: ["crm_leads", "lead_conversions", "quotes", "configurator", "orders", "documents", "email"],
+  configurator: [
+    "configurator",
+    "config_step_machine",
+    "config_step_delivery",
+    "config_step_options",
+    "config_step_customer",
+    "quotes",
+    "orders",
+    "documents",
+    "email",
+  ],
+  quotes: ["crm_leads", "lead_conversions", "quotes", "configurator", "documents", "email"],
+  orders: ["quotes", "configurator", "orders", "dealer_profile", "crm_dashboard"],
+  news: ["news", "site_features", "messe_news", "portal"],
+  site_features: ["site_features", "portal", "marketing"],
+  marketing: ["marketing", "news", "site_features", "messe_news", "portal"],
+};
+
 export function findSystemMapNode(id: SystemMapNodeId): SystemMapNode {
   return systemRegistryNodes.find((nodeItem) => nodeItem.id === id) ?? systemRegistryNodes[0];
 }
 
 export function getSystemMapChildren(id: SystemMapNodeId): SystemMapNode[] {
   return systemRegistryNodes.filter((nodeItem) => nodeItem.parentId === id);
+}
+
+export function getSystemDnaZoomStage(zoom: number): SystemDnaZoomLevel {
+  return [...SYSTEM_DNA_ZOOM_LEVELS].reverse().find((level) => zoom >= level.zoom - 0.02) ?? SYSTEM_DNA_ZOOM_LEVELS[0];
+}
+
+export function getSystemDnaZoomForNode(node: SystemMapNode, currentZoom = 0.52): number {
+  const targetZoom =
+    node.kind === "portal"
+      ? SYSTEM_DNA_ZOOM_LEVELS[0].zoom
+      : node.kind === "module" || node.kind === "integration"
+        ? SYSTEM_DNA_ZOOM_LEVELS[1].zoom
+        : node.kind === "feature" || node.kind === "process" || node.kind === "tool"
+          ? Math.max(SYSTEM_DNA_ZOOM_LEVELS[2].zoom, node.minZoom + 0.1)
+          : Math.max(SYSTEM_DNA_ZOOM_LEVELS[3].zoom, node.minZoom + 0.08);
+
+  return Math.min(1.85, Math.max(currentZoom, targetZoom));
+}
+
+export function getSystemDnaAncestors(id: SystemMapNodeId): SystemMapNodeId[] {
+  const ancestors: SystemMapNodeId[] = [];
+  let current = findSystemMapNode(id);
+
+  while (current.parentId) {
+    ancestors.push(current.parentId);
+    current = findSystemMapNode(current.parentId);
+  }
+
+  return ancestors;
+}
+
+export function getSystemDnaDescendantIds(id: SystemMapNodeId, maxDepth = 2): SystemMapNodeId[] {
+  const descendants: SystemMapNodeId[] = [];
+
+  function walk(parentId: SystemMapNodeId, depth: number) {
+    if (depth > maxDepth) return;
+    for (const child of getSystemMapChildren(parentId)) {
+      descendants.push(child.id);
+      walk(child.id, depth + 1);
+    }
+  }
+
+  walk(id, 1);
+  return descendants;
+}
+
+export function getFeaturedDataFlow(selectedId: SystemMapNodeId): SystemMapNodeId[] {
+  if (featuredDataFlows[selectedId]) return featuredDataFlows[selectedId];
+
+  const selectedAncestors = getSystemDnaAncestors(selectedId);
+  const ancestorFlow = selectedAncestors.find((ancestorId) => featuredDataFlows[ancestorId]);
+  if (ancestorFlow) return featuredDataFlows[ancestorFlow];
+
+  return featuredDataFlow;
+}
+
+export function getSystemDnaFocusIds(selectedId: SystemMapNodeId, includeEdges = true): Set<SystemMapNodeId> {
+  const ids = new Set<SystemMapNodeId>([
+    selectedId,
+    ...getSystemDnaAncestors(selectedId),
+    ...getSystemDnaDescendantIds(selectedId, 1),
+  ]);
+
+  if (!includeEdges) return ids;
+
+  for (const edge of systemDnaEdges) {
+    if (ids.has(edge.from)) ids.add(edge.to);
+    if (ids.has(edge.to)) ids.add(edge.from);
+  }
+
+  return ids;
+}
+
+export function getVisibleSystemDnaNodes(
+  zoom: number,
+  area: "all" | SystemMapArea = "all",
+  query = "",
+): SystemMapNode[] {
+  const q = query.trim().toLowerCase();
+
+  return systemDnaNodes.filter((nodeItem) => {
+    if (nodeItem.minZoom > zoom) return false;
+    if (area !== "all" && nodeItem.area !== area) return false;
+    if (!q) return true;
+    return [
+      nodeItem.title,
+      nodeItem.subtitle,
+      nodeItem.explanation,
+      ...nodeItem.tables,
+      ...nodeItem.services,
+      ...nodeItem.routes,
+      ...nodeItem.integrations,
+    ].some((value) => value.toLowerCase().includes(q));
+  });
 }

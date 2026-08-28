@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   featuredDataFlow,
+  getFeaturedDataFlow,
+  getSystemDnaZoomForNode,
+  getSystemDnaZoomStage,
+  getVisibleSystemDnaNodes,
+  SYSTEM_DNA_ZOOM_LEVELS,
+  findSystemMapNode,
   systemDnaEdges,
   systemDnaNodes,
   systemMapEdges,
@@ -102,5 +108,46 @@ describe("Backend system dataflow map", () => {
     expect(edgeKeys.has("lovable_deploy->portal")).toBe(true);
     expect(edgeKeys.has("codebase->supabase_migrations")).toBe(true);
     expect(edgeKeys.has("supabase_migrations->supabase")).toBe(true);
+  });
+
+  it("reveals more System DNA information as the user zooms in", () => {
+    const worldNodes = getVisibleSystemDnaNodes(SYSTEM_DNA_ZOOM_LEVELS[0].zoom);
+    const areaNodes = getVisibleSystemDnaNodes(SYSTEM_DNA_ZOOM_LEVELS[1].zoom);
+    const featureNodes = getVisibleSystemDnaNodes(SYSTEM_DNA_ZOOM_LEVELS[2].zoom);
+    const technicalNodes = getVisibleSystemDnaNodes(SYSTEM_DNA_ZOOM_LEVELS[3].zoom);
+
+    expect(worldNodes.length).toBeLessThan(areaNodes.length);
+    expect(areaNodes.length).toBeLessThan(featureNodes.length);
+    expect(featureNodes.length).toBeLessThan(technicalNodes.length);
+
+    expect(new Set(worldNodes.map((node) => node.id)).has("crm")).toBe(true);
+    expect(new Set(worldNodes.map((node) => node.id)).has("crm_leads")).toBe(false);
+    expect(new Set(areaNodes.map((node) => node.id)).has("crm_leads")).toBe(true);
+    expect(new Set(featureNodes.map((node) => node.id)).has("lead_conversions")).toBe(true);
+    expect(new Set(technicalNodes.map((node) => node.id)).has("edge_functions")).toBe(true);
+  });
+
+  it("supports semantic drill-down paths", () => {
+    expect(getSystemDnaZoomStage(getSystemDnaZoomForNode(findSystemMapNode("crm"))).id).toBe("area");
+    expect(getSystemDnaZoomStage(getSystemDnaZoomForNode(findSystemMapNode("crm_leads"))).id).toBe("feature");
+    expect(getSystemDnaZoomStage(getSystemDnaZoomForNode(findSystemMapNode("lead_notes"))).id).toBe("technical");
+    expect(getSystemDnaZoomStage(getSystemDnaZoomForNode(findSystemMapNode("config_step_machine"))).id).toBe("feature");
+    expect(getSystemDnaZoomStage(getSystemDnaZoomForNode(findSystemMapNode("messe_form"))).id).toBe("feature");
+    expect(getSystemDnaZoomStage(getSystemDnaZoomForNode(findSystemMapNode("news"))).id).toBe("feature");
+  });
+
+  it("uses contextual data-flow chains for selected features", () => {
+    expect(getFeaturedDataFlow("messe_form")).toEqual([
+      "messe_form",
+      "messe_leads",
+      "crm_leads",
+      "lead_conversions",
+      "quotes",
+      "configurator",
+      "orders",
+    ]);
+    expect(getFeaturedDataFlow("crm_leads")).toContain("documents");
+    expect(getFeaturedDataFlow("configurator")).toContain("config_step_machine");
+    expect(getFeaturedDataFlow("news")).toContain("messe_news");
   });
 });

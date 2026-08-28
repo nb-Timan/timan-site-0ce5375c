@@ -33,9 +33,14 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { isBackendActor } from "@/lib/portalAccess";
 import {
-  featuredDataFlow,
   findSystemMapNode,
+  getFeaturedDataFlow,
+  getSystemDnaFocusIds,
+  getSystemDnaZoomForNode,
+  getSystemDnaZoomStage,
   getSystemMapChildren,
+  getVisibleSystemDnaNodes,
+  SYSTEM_DNA_ZOOM_LEVELS,
   systemDnaEdges,
   systemDnaNodes,
   type SystemMapArea,
@@ -417,8 +422,11 @@ function DnaNode({
 }) {
   const Icon = node.icon;
   const colors = colorFor(node);
-  const showSubtitle = zoom >= 0.72;
-  const showDetails = zoom >= 1.18;
+  const children = getSystemMapChildren(node.id);
+  const showSubtitle = zoom >= 0.68;
+  const showChildren = zoom >= 0.92 && children.length > 0;
+  const showFeatureDetails = zoom >= 1.18;
+  const showTechnicalDetails = zoom >= 1.42;
   const isCompact = node.kind === "data" || node.kind === "technical";
   const isProcessNode = node.kind === "process" || node.kind === "tool";
   return (
@@ -444,10 +452,34 @@ function DnaNode({
           {showSubtitle && <span className="block truncate text-xs font-semibold text-slate-300">{node.subtitle}</span>}
         </span>
       </div>
-      {showDetails && (
+      {showChildren && (
+        <div className="mt-2 space-y-1 border-t border-white/10 pt-2">
+          {children.slice(0, 4).map((child) => (
+            <span key={child.id} className="block truncate text-[10px] font-bold text-slate-200">
+              {child.title}
+            </span>
+          ))}
+          {children.length > 4 && <span className="block text-[10px] font-bold text-slate-400">+{children.length - 4} flere</span>}
+        </div>
+      )}
+      {showFeatureDetails && node.routes.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {node.routes.slice(0, 2).map((item) => (
+            <span key={item} className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-200">
+              {item}
+            </span>
+          ))}
+        </div>
+      )}
+      {showTechnicalDetails && (
         <div className="mt-2 flex flex-wrap gap-1">
           {node.tables.slice(0, 2).map((item) => (
             <span key={item} className="rounded-full border border-white/10 bg-white/10 px-2 py-0.5 text-[10px] font-bold text-slate-200">
+              {item}
+            </span>
+          ))}
+          {node.services.slice(0, 1).map((item) => (
+            <span key={item} className="rounded-full border border-white/10 bg-slate-950/40 px-2 py-0.5 text-[10px] font-bold text-slate-300">
               {item}
             </span>
           ))}
@@ -476,32 +508,30 @@ function SystemDna({
   const [fullscreen, setFullscreen] = useState(false);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const didInitialFitRef = useRef(false);
+  const selectedFlow = useMemo(() => getFeaturedDataFlow(selectedId), [selectedId]);
+  const zoomStage = useMemo(() => getSystemDnaZoomStage(zoom), [zoom]);
+  const zoomLevelCounts = useMemo(
+    () =>
+      SYSTEM_DNA_ZOOM_LEVELS.map((level) => ({
+        ...level,
+        count: getVisibleSystemDnaNodes(level.zoom, "all", "").length,
+      })),
+    [],
+  );
 
   const selectedConnections = useMemo(() => {
-    const ids = new Set<SystemMapNodeId>(flowMode ? featuredDataFlow : [selectedId]);
+    const ids = flowMode ? new Set<SystemMapNodeId>(selectedFlow) : getSystemDnaFocusIds(selectedId);
+    if (flowMode) return ids;
+
     for (const edge of systemDnaEdges) {
       if (ids.has(edge.from)) ids.add(edge.to);
       if (ids.has(edge.to)) ids.add(edge.from);
     }
     return ids;
-  }, [flowMode, selectedId]);
+  }, [flowMode, selectedFlow, selectedId]);
 
   const visibleNodes = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return systemDnaNodes.filter((node) => {
-      if (node.minZoom > zoom) return false;
-      if (area !== "all" && node.area !== area) return false;
-      if (!q) return true;
-      return [
-        node.title,
-        node.subtitle,
-        node.explanation,
-        ...node.tables,
-        ...node.services,
-        ...node.routes,
-        ...node.integrations,
-      ].some((value) => value.toLowerCase().includes(q));
-    });
+    return getVisibleSystemDnaNodes(zoom, area, query);
   }, [area, query, zoom]);
 
   const visibleNodeIds = useMemo(() => new Set<SystemMapNodeId>(visibleNodes.map((node) => node.id)), [visibleNodes]);
@@ -518,6 +548,14 @@ function SystemDna({
     setPan({ x: -520, y: -360 });
   }, []);
 
+  const drillIntoNode = useCallback((id: SystemMapNodeId) => {
+    const node = findSystemMapNode(id);
+    const nextZoom = getSystemDnaZoomForNode(node, zoom);
+    setZoom(nextZoom);
+    onSelect(id);
+    window.setTimeout(() => centerNode(id, nextZoom), 0);
+  }, [centerNode, onSelect, zoom]);
+
   useEffect(() => {
     if (didInitialFitRef.current) return;
     didInitialFitRef.current = true;
@@ -526,11 +564,11 @@ function SystemDna({
         fitToScreen();
         return;
       }
-      const nextZoom = 0.72;
+      const nextZoom = getSystemDnaZoomForNode(findSystemMapNode(selectedId), zoom);
       setZoom(nextZoom);
       centerNode(selectedId, nextZoom);
     }, 0);
-  }, [centerNode, fitToScreen, selectedId]);
+  }, [centerNode, fitToScreen, selectedId, zoom]);
 
   const handleSearch = useCallback(() => {
     const q = query.trim().toLowerCase();
@@ -546,11 +584,11 @@ function SystemDna({
       ].some((value) => value.toLowerCase().includes(q))
     );
     if (!hit) return;
-    const nextZoom = Math.max(1.05, hit.minZoom + 0.08);
+    const nextZoom = getSystemDnaZoomForNode(hit, zoom);
     setZoom(nextZoom);
     onSelect(hit.id);
     window.setTimeout(() => centerNode(hit.id, nextZoom), 0);
-  }, [centerNode, onSelect, query]);
+  }, [centerNode, onSelect, query, zoom]);
 
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -616,6 +654,24 @@ function SystemDna({
           <Button type="button" variant="secondary" size="sm" onClick={handleSearch}>Find</Button>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {zoomLevelCounts.map((level) => (
+            <button
+              key={level.id}
+              type="button"
+              onClick={() => {
+                setZoom(level.zoom);
+                window.setTimeout(() => centerNode(selectedId, level.zoom), 0);
+              }}
+              className={[
+                "rounded-full border px-3 py-1.5 text-xs font-black transition",
+                zoomStage.id === level.id ? "border-emerald-300 bg-emerald-300 text-slate-950" : "border-white/15 text-slate-300 hover:bg-white/10",
+              ].join(" ")}
+              title={`${level.description} ${level.count} noder.`}
+            >
+              {level.title}
+              <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">{level.count}</span>
+            </button>
+          ))}
           {(["all", "crm", "sales", "marketing", "dealer_data", "service", "messe", "import", "system"] as const).map((filter) => (
             <button
               key={filter}
@@ -641,7 +697,7 @@ function SystemDna({
           </Button>
           <Button type="button" variant={flowMode ? "default" : "secondary"} size="sm" onClick={() => setFlowMode((value) => !value)}>
             <Layers3 className="mr-2 h-4 w-4" />
-            {flowMode ? "Vis alt" : "Følg data"}
+            {flowMode ? `Vis alt (${selectedFlow.length})` : "Følg data"}
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={toggleFullscreen}>
             <Maximize2 className="mr-2 h-4 w-4" />
@@ -725,10 +781,7 @@ function SystemDna({
                 active={selectedConnections.has(node.id)}
                 dimmed={hiddenByFilter || (flowMode && !selectedConnections.has(node.id))}
                 zoom={zoom}
-                onSelect={(id) => {
-                  onSelect(id);
-                  centerNode(id);
-                }}
+                onSelect={drillIntoNode}
               />
             );
           })}
@@ -737,9 +790,9 @@ function SystemDna({
         <div className="absolute bottom-4 left-4 rounded-2xl border border-white/10 bg-slate-950/80 p-3 text-xs font-semibold text-slate-200 shadow-2xl backdrop-blur">
           <div className="flex items-center gap-2 text-white">
             <Compass className="h-4 w-4" />
-            Zoom {Math.round(zoom * 100)}%
+            {zoomStage.title} · Zoom {Math.round(zoom * 100)}%
           </div>
-          <div className="mt-1 text-slate-400">Træk med mus/touch. Scroll eller pinch for zoom.</div>
+          <div className="mt-1 text-slate-400">{visibleNodes.length} synlige noder. Træk med mus/touch. Scroll eller pinch for zoom.</div>
         </div>
 
         <div className="absolute bottom-4 right-4 h-36 w-56 rounded-2xl border border-white/10 bg-slate-950/80 p-2 shadow-2xl backdrop-blur">
@@ -748,10 +801,7 @@ function SystemDna({
               <button
                 key={node.id}
                 type="button"
-                onClick={() => {
-                  onSelect(node.id);
-                  centerNode(node.id);
-                }}
+                onClick={() => drillIntoNode(node.id)}
                 className={[
                   "absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full",
                   selectedId === node.id ? "bg-white" : "bg-emerald-300",
