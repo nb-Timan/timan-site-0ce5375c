@@ -1,5 +1,5 @@
 /**
- * Marketing -> Nye features på sitet.
+ * Marketing site feature changelog editor.
  *
  * Internal product changelog editor. This is separate from News CMS.
  */
@@ -12,11 +12,8 @@ import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { canManageNewsContent } from "@/lib/portalAccess";
 import { useEffectivePortalUserState } from "@/lib/viewAsUser";
-import {
-  interpolateSiteFeatureLabel,
-  siteFeatureT,
-  type SiteFeatureI18nKey,
-} from "@/lib/i18n/siteFeatureTranslations";
+import { t } from "@/lib/i18n/translations";
+import { type SiteFeatureI18nKey } from "@/lib/i18n/siteFeatureTranslations";
 import {
   adminListChangelog,
   adminUpdateChangelog,
@@ -87,6 +84,39 @@ const REC_LABEL_KEY: Record<SiteChangeRecommendation | "all", SiteFeatureI18nKey
   internal: "siteFeaturesRecInternal",
 };
 
+const MODULE_LABEL_KEY: Record<(typeof MODULES)[number], SiteFeatureI18nKey> = {
+  all: "siteFeaturesAllModules",
+  crm: "siteFeaturesModuleCrm",
+  leads: "siteFeaturesModuleLeads",
+  dealer_portal: "siteFeaturesModuleDealerPortal",
+  dealer_data: "siteFeaturesModuleDealerData",
+  service: "siteFeaturesModuleService",
+  messe: "siteFeaturesModuleMesse",
+  marketing: "siteFeaturesModuleMarketing",
+  map: "siteFeaturesModuleMap",
+  warranty: "siteFeaturesModuleWarranty",
+  claims: "siteFeaturesModuleClaims",
+  tsb: "siteFeaturesModuleTsb",
+  users: "siteFeaturesModuleUsers",
+  budget: "siteFeaturesModuleBudget",
+  quotes: "siteFeaturesModuleQuotes",
+  orders: "siteFeaturesModuleOrders",
+  backend: "siteFeaturesModuleBackend",
+};
+
+const TYPE_LABEL_KEY: Record<(typeof TYPES)[number], SiteFeatureI18nKey> = {
+  all: "siteFeaturesAllTypes",
+  feature: "siteFeaturesTypeFeature",
+  improvement: "siteFeaturesTypeImprovement",
+  bugfix: "siteFeaturesTypeBugfix",
+  security: "siteFeaturesTypeSecurity",
+  performance: "siteFeaturesTypePerformance",
+  backend: "siteFeaturesTypeBackend",
+  data: "siteFeaturesTypeData",
+  ui_ux: "siteFeaturesTypeUiUx",
+  integration: "siteFeaturesTypeIntegration",
+};
+
 const DATE_LOCALE: Record<PortalUiLanguage, string> = {
   da: "da-DK",
   en: "en-GB",
@@ -120,15 +150,32 @@ function formatDate(value: string | null | undefined, lang: PortalUiLanguage): s
 
 function roleLabel(role: string, lang: PortalUiLanguage): string {
   const key = ROLE_LABEL_KEY[role];
-  return key ? siteFeatureT(key, lang) : role;
+  return key ? t(key, lang) : role;
 }
 
 function statusLabel(status: SiteChangeStatus | "all", lang: PortalUiLanguage): string {
-  return siteFeatureT(STATUS_LABEL_KEY[status], lang);
+  return t(STATUS_LABEL_KEY[status], lang);
 }
 
 function recommendationLabel(recommendation: SiteChangeRecommendation | "all", lang: PortalUiLanguage): string {
-  return siteFeatureT(REC_LABEL_KEY[recommendation], lang);
+  return t(REC_LABEL_KEY[recommendation], lang);
+}
+
+function moduleLabel(module: string, lang: PortalUiLanguage): string {
+  const key = MODULE_LABEL_KEY[module as (typeof MODULES)[number]];
+  return key ? t(key, lang) : module;
+}
+
+function changeTypeLabel(changeType: string, lang: PortalUiLanguage): string {
+  const key = TYPE_LABEL_KEY[changeType as (typeof TYPES)[number]];
+  return key ? t(key, lang) : changeType;
+}
+
+function interpolateLabel(template: string, values: Record<string, string | number>): string {
+  return Object.entries(values).reduce(
+    (label, [key, value]) => label.replaceAll(`{${key}}`, String(value)),
+    template,
+  );
 }
 
 function statusClass(status: SiteChangeStatus) {
@@ -231,7 +278,7 @@ export default function BackendChangelogPage() {
   const navigate = useNavigate();
   const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const canManage = useMemo(() => canManageNewsContent(effectiveUser), [effectiveUser]);
-  const st = useMemo(() => (key: SiteFeatureI18nKey) => siteFeatureT(key, uiLanguage), [uiLanguage]);
+  const st = useMemo(() => (key: SiteFeatureI18nKey) => t(key, uiLanguage), [uiLanguage]);
 
   const [rows, setRows] = useState<SiteChangeEntryRow[]>([]);
   const [count, setCount] = useState(0);
@@ -340,7 +387,7 @@ export default function BackendChangelogPage() {
       setError(result.error);
       return;
     }
-    setMessage(interpolateSiteFeatureLabel("siteFeaturesStatusChanged", uiLanguage, { status: statusLabel(status, uiLanguage) }));
+    setMessage(interpolateLabel(st("siteFeaturesStatusChanged"), { status: statusLabel(status, uiLanguage) }));
     await reload();
   };
 
@@ -362,7 +409,7 @@ export default function BackendChangelogPage() {
       setError(result.error || st("siteFeaturesGitHubFailed"));
       return;
     }
-    setMessage(interpolateSiteFeatureLabel("siteFeaturesGitHubSynced", uiLanguage, {
+    setMessage(interpolateLabel(st("siteFeaturesGitHubSynced"), {
       imported: result.imported ?? 0,
       skipped: result.skipped ?? 0,
     }));
@@ -441,13 +488,13 @@ export default function BackendChangelogPage() {
               {RECOMMENDATIONS.map((r) => <option key={r} value={r}>{recommendationLabel(r, uiLanguage)}</option>)}
             </Select>
             <Select label={st("siteFeaturesModule")} value={moduleFilter} onChange={(v) => { setPage(0); setModuleFilter(v); }}>
-              {MODULES.map((m) => <option key={m} value={m}>{m === "all" ? st("siteFeaturesAllModules") : m}</option>)}
+              {MODULES.map((m) => <option key={m} value={m}>{moduleLabel(m, uiLanguage)}</option>)}
             </Select>
             <Select label={st("siteFeaturesRole")} value={roleFilter} onChange={(v) => { setPage(0); setRoleFilter(v); }}>
               {ROLES.map((r) => <option key={r} value={r}>{r === "all" ? st("siteFeaturesAllAudiences") : roleLabel(r, uiLanguage)}</option>)}
             </Select>
             <Select label={st("siteFeaturesType")} value={typeFilter} onChange={(v) => { setPage(0); setTypeFilter(v); }}>
-              {TYPES.map((t) => <option key={t} value={t}>{t === "all" ? st("siteFeaturesAllTypes") : t}</option>)}
+              {TYPES.map((t) => <option key={t} value={t}>{changeTypeLabel(t, uiLanguage)}</option>)}
             </Select>
             <Select label={st("siteFeaturesImpact")} value={String(minImpact)} onChange={(v) => { setPage(0); setMinImpact(Number(v)); }}>
               {[0, 1, 3, 5, 7, 9].map((n) => <option key={n} value={n}>{n === 0 ? st("siteFeaturesAll") : `${n}+`}</option>)}
@@ -493,8 +540,8 @@ export default function BackendChangelogPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-slate-600">{row.module}</td>
-                      <td className="px-4 py-4 text-slate-600">{row.change_type}</td>
+                      <td className="px-4 py-4 text-slate-600">{moduleLabel(row.module, uiLanguage)}</td>
+                      <td className="px-4 py-4 text-slate-600">{changeTypeLabel(row.change_type, uiLanguage)}</td>
                       <td className="min-w-[180px] px-4 py-4 text-xs text-slate-500">{row.affected_roles.map((role) => roleLabel(role, uiLanguage)).join(", ")}</td>
                       <td className="px-4 py-4 text-xs text-slate-600">
                         <div>{st("siteFeaturesUser")}: <strong>{row.user_impact_score}/10</strong></div>
@@ -605,12 +652,12 @@ export default function BackendChangelogPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <Field label={st("siteFeaturesModule")}>
                     <select value={draft.module} onChange={(event) => setDraft({ ...draft, module: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2">
-                      {MODULES.filter((m) => m !== "all").map((m) => <option key={m} value={m}>{m}</option>)}
+                      {MODULES.filter((m) => m !== "all").map((m) => <option key={m} value={m}>{moduleLabel(m, uiLanguage)}</option>)}
                     </select>
                   </Field>
                   <Field label={st("siteFeaturesType")}>
                     <select value={draft.change_type} onChange={(event) => setDraft({ ...draft, change_type: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2">
-                      {TYPES.filter((t) => t !== "all").map((t) => <option key={t} value={t}>{t}</option>)}
+                      {TYPES.filter((t) => t !== "all").map((t) => <option key={t} value={t}>{changeTypeLabel(t, uiLanguage)}</option>)}
                     </select>
                   </Field>
                 </div>

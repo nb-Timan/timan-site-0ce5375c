@@ -16,7 +16,6 @@ import { canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, ha
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
-import { siteFeatureT } from '@/lib/i18n/siteFeatureTranslations';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -187,11 +186,11 @@ export default function PortalAreaPage({ areaId }: Props) {
           )}
           {areaId === 'marketing' && canManageNewsContent(effectiveUser) && (
             <PlaceholderCard
-              title={siteFeatureT('siteFeaturesTitle', uiLanguage)}
+              title={t('siteFeaturesTitle', uiLanguage)}
               language={lang}
               to="/portal/marketing/site-features"
               icon={Sparkles}
-              description={siteFeatureT('siteFeaturesCardDescription', uiLanguage)}
+              description={t('siteFeaturesCardDescription', uiLanguage)}
             />
           )}
           {area.placeholders.map(p => {

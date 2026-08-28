@@ -87,7 +87,32 @@ export type SiteFeatureI18nKey =
   | 'siteFeaturesRoleDealerCustomer'
   | 'siteFeaturesRolePrivateEndUser'
   | 'siteFeaturesRoleExhibition'
-  | 'siteFeaturesRoleDealerUser';
+  | 'siteFeaturesRoleDealerUser'
+  | 'siteFeaturesModuleCrm'
+  | 'siteFeaturesModuleLeads'
+  | 'siteFeaturesModuleDealerPortal'
+  | 'siteFeaturesModuleDealerData'
+  | 'siteFeaturesModuleService'
+  | 'siteFeaturesModuleMesse'
+  | 'siteFeaturesModuleMarketing'
+  | 'siteFeaturesModuleMap'
+  | 'siteFeaturesModuleWarranty'
+  | 'siteFeaturesModuleClaims'
+  | 'siteFeaturesModuleTsb'
+  | 'siteFeaturesModuleUsers'
+  | 'siteFeaturesModuleBudget'
+  | 'siteFeaturesModuleQuotes'
+  | 'siteFeaturesModuleOrders'
+  | 'siteFeaturesModuleBackend'
+  | 'siteFeaturesTypeFeature'
+  | 'siteFeaturesTypeImprovement'
+  | 'siteFeaturesTypeBugfix'
+  | 'siteFeaturesTypeSecurity'
+  | 'siteFeaturesTypePerformance'
+  | 'siteFeaturesTypeBackend'
+  | 'siteFeaturesTypeData'
+  | 'siteFeaturesTypeUiUx'
+  | 'siteFeaturesTypeIntegration';
 
 type Dict = Record<SiteFeatureI18nKey, string>;
 
@@ -179,6 +204,31 @@ const da: Dict = {
   siteFeaturesRolePrivateEndUser: 'Privat / slutbruger',
   siteFeaturesRoleExhibition: 'Timan Messe',
   siteFeaturesRoleDealerUser: 'Forhandlerbruger',
+  siteFeaturesModuleCrm: 'CRM',
+  siteFeaturesModuleLeads: 'Leads',
+  siteFeaturesModuleDealerPortal: 'Forhandlerportal',
+  siteFeaturesModuleDealerData: 'Forhandlerdata',
+  siteFeaturesModuleService: 'Service & Teknik',
+  siteFeaturesModuleMesse: 'Messe',
+  siteFeaturesModuleMarketing: 'Marketing',
+  siteFeaturesModuleMap: 'Kort',
+  siteFeaturesModuleWarranty: 'Garantiregistrering',
+  siteFeaturesModuleClaims: 'Reklamationer',
+  siteFeaturesModuleTsb: 'TSB',
+  siteFeaturesModuleUsers: 'Brugere',
+  siteFeaturesModuleBudget: 'Budget',
+  siteFeaturesModuleQuotes: 'Tilbud',
+  siteFeaturesModuleOrders: 'Ordrer',
+  siteFeaturesModuleBackend: 'Backend',
+  siteFeaturesTypeFeature: 'Feature',
+  siteFeaturesTypeImprovement: 'Forbedring',
+  siteFeaturesTypeBugfix: 'Fejlrettelse',
+  siteFeaturesTypeSecurity: 'Sikkerhed',
+  siteFeaturesTypePerformance: 'Performance',
+  siteFeaturesTypeBackend: 'Backend',
+  siteFeaturesTypeData: 'Data',
+  siteFeaturesTypeUiUx: 'UI/UX',
+  siteFeaturesTypeIntegration: 'Integration',
 };
 
 const en: Dict = {
@@ -269,6 +319,31 @@ const en: Dict = {
   siteFeaturesRolePrivateEndUser: 'Private / end user',
   siteFeaturesRoleExhibition: 'Timan Exhibition',
   siteFeaturesRoleDealerUser: 'Dealer user',
+  siteFeaturesModuleCrm: 'CRM',
+  siteFeaturesModuleLeads: 'Leads',
+  siteFeaturesModuleDealerPortal: 'Dealer portal',
+  siteFeaturesModuleDealerData: 'Dealer data',
+  siteFeaturesModuleService: 'Service & Technical',
+  siteFeaturesModuleMesse: 'Exhibition',
+  siteFeaturesModuleMarketing: 'Marketing',
+  siteFeaturesModuleMap: 'Map',
+  siteFeaturesModuleWarranty: 'Warranty',
+  siteFeaturesModuleClaims: 'Claims',
+  siteFeaturesModuleTsb: 'TSB',
+  siteFeaturesModuleUsers: 'Users',
+  siteFeaturesModuleBudget: 'Budget',
+  siteFeaturesModuleQuotes: 'Quotes',
+  siteFeaturesModuleOrders: 'Orders',
+  siteFeaturesModuleBackend: 'Backend',
+  siteFeaturesTypeFeature: 'Feature',
+  siteFeaturesTypeImprovement: 'Improvement',
+  siteFeaturesTypeBugfix: 'Bug fix',
+  siteFeaturesTypeSecurity: 'Security',
+  siteFeaturesTypePerformance: 'Performance',
+  siteFeaturesTypeBackend: 'Backend',
+  siteFeaturesTypeData: 'Data',
+  siteFeaturesTypeUiUx: 'UI/UX',
+  siteFeaturesTypeIntegration: 'Integration',
 };
 
 const de: Dict = {
@@ -356,6 +431,31 @@ const de: Dict = {
   siteFeaturesRolePrivateEndUser: 'Privat / Endkunde',
   siteFeaturesRoleExhibition: 'Timan Messe',
   siteFeaturesRoleDealerUser: 'Händlerbenutzer',
+  siteFeaturesModuleCrm: 'CRM',
+  siteFeaturesModuleLeads: 'Leads',
+  siteFeaturesModuleDealerPortal: 'Händlerportal',
+  siteFeaturesModuleDealerData: 'Händlerdaten',
+  siteFeaturesModuleService: 'Service & Technik',
+  siteFeaturesModuleMesse: 'Messe',
+  siteFeaturesModuleMarketing: 'Marketing',
+  siteFeaturesModuleMap: 'Karte',
+  siteFeaturesModuleWarranty: 'Garantieregistrierung',
+  siteFeaturesModuleClaims: 'Reklamationen',
+  siteFeaturesModuleTsb: 'TSB',
+  siteFeaturesModuleUsers: 'Benutzer',
+  siteFeaturesModuleBudget: 'Budget',
+  siteFeaturesModuleQuotes: 'Angebote',
+  siteFeaturesModuleOrders: 'Aufträge',
+  siteFeaturesModuleBackend: 'Backend',
+  siteFeaturesTypeFeature: 'Funktion',
+  siteFeaturesTypeImprovement: 'Verbesserung',
+  siteFeaturesTypeBugfix: 'Fehlerbehebung',
+  siteFeaturesTypeSecurity: 'Sicherheit',
+  siteFeaturesTypePerformance: 'Performance',
+  siteFeaturesTypeBackend: 'Backend',
+  siteFeaturesTypeData: 'Daten',
+  siteFeaturesTypeUiUx: 'UI/UX',
+  siteFeaturesTypeIntegration: 'Integration',
 };
 
 const it: Dict = {
