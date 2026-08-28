@@ -32,6 +32,7 @@ import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { isBackendActor } from "@/lib/portalAccess";
+import { clampSystemDnaZoom, screenToWorld, zoomToScreenPoint, zoomToWorldPoint } from "@/lib/systemDnaViewport";
 import {
   findSystemMapNode,
   getFeaturedDataFlow,
@@ -487,7 +488,11 @@ function SystemDna({
   const [zoom, setZoom] = useState(0.52);
   const [pan, setPan] = useState({ x: -520, y: -360 });
   const [dragStart, setDragStart] = useState<{ x: number; y: number; panX: number; panY: number } | null>(null);
-  const [touchStart, setTouchStart] = useState<{ distance: number; zoom: number } | null>(null);
+  const [touchStart, setTouchStart] = useState<{
+    distance: number;
+    zoom: number;
+    worldPoint: { x: number; y: number };
+  } | null>(null);
   const [query, setQuery] = useState("");
   const [area, setArea] = useState<"all" | SystemMapArea>("all");
   const [flowMode, setFlowMode] = useState(false);
@@ -579,7 +584,11 @@ function SystemDna({
 
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
-    setZoom((value) => Math.min(1.85, Math.max(0.38, value + (event.deltaY > 0 ? -0.08 : 0.08))));
+    const box = event.currentTarget.getBoundingClientRect();
+    const point = { x: event.clientX - box.left, y: event.clientY - box.top };
+    const nextZoom = clampSystemDnaZoom(zoom * Math.exp(-event.deltaY * 0.0012));
+    setPan(zoomToScreenPoint({ pan, oldZoom: zoom, newZoom: nextZoom, point }));
+    setZoom(nextZoom);
   };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -596,16 +605,30 @@ function SystemDna({
 
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     if (event.touches.length !== 2) return;
+    event.preventDefault();
+    const box = event.currentTarget.getBoundingClientRect();
     const [first, second] = [event.touches[0], event.touches[1]];
     const distance = Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
-    setTouchStart({ distance, zoom });
+    const point = {
+      x: (first.clientX + second.clientX) / 2 - box.left,
+      y: (first.clientY + second.clientY) / 2 - box.top,
+    };
+    setTouchStart({ distance, zoom, worldPoint: screenToWorld(point, pan, zoom) });
   };
 
   const onTouchMove = (event: TouchEvent<HTMLDivElement>) => {
     if (!touchStart || event.touches.length !== 2) return;
+    event.preventDefault();
+    const box = event.currentTarget.getBoundingClientRect();
     const [first, second] = [event.touches[0], event.touches[1]];
     const distance = Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
-    setZoom(Math.min(1.85, Math.max(0.38, touchStart.zoom * (distance / touchStart.distance))));
+    const nextZoom = clampSystemDnaZoom(touchStart.zoom * (distance / touchStart.distance));
+    const point = {
+      x: (first.clientX + second.clientX) / 2 - box.left,
+      y: (first.clientY + second.clientY) / 2 - box.top,
+    };
+    setPan(zoomToWorldPoint({ worldPoint: touchStart.worldPoint, newZoom: nextZoom, screenPoint: point }));
+    setZoom(nextZoom);
   };
 
   useEffect(() => {
