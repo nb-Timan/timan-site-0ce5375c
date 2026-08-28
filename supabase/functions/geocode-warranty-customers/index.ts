@@ -12,7 +12,7 @@
 //   customer_geocoding_status + customer_geocoding_error.
 // - Sletter ALDRIG data. Rører ALDRIG dealer-koblinger eller PII-felter.
 //
-// Body (optional): { limit?: number, retryFailed?: boolean }
+// Body (optional): { limit?: number, retryFailed?: boolean, warrantyId?: string }
 // Returns: { found, geocoded, skipped, failed, errors: [...] }
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -94,19 +94,28 @@ Deno.serve(async (req) => {
       return json({ error: "Kun Timan Backend / Timan Service må køre geocoding." }, 403);
     }
 
-    let body: { limit?: number; retryFailed?: boolean } = {};
+    let body: { limit?: number; retryFailed?: boolean; warrantyId?: string } = {};
     try { body = await req.json(); } catch { /* empty body ok */ }
     const limit = Math.max(1, Math.min(500, Number(body.limit ?? 200)));
     const retryFailed = body.retryFailed === true;
+    const warrantyId = typeof body.warrantyId === "string" && body.warrantyId.trim()
+      ? body.warrantyId.trim()
+      : null;
 
     let query = admin
       .from("warranty_registrations")
       .select(
         "id,certificate_number,customer_address,customer_postal_code,customer_city,customer_country,customer_geocoding_status",
       )
-      .is("customer_latitude", null)
       .limit(limit);
-    if (!retryFailed) {
+
+    if (warrantyId) {
+      query = query.eq("id", warrantyId).limit(1);
+    } else {
+      query = query.is("customer_latitude", null);
+    }
+
+    if (!warrantyId && !retryFailed) {
       query = query.or(
         "customer_geocoding_status.is.null,customer_geocoding_status.eq.pending,customer_geocoding_status.eq.ok",
       );
