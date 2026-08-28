@@ -24,11 +24,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { listDealerContacts, type DealerContact } from "@/lib/dealerContactsService";
-import type { Language } from "@/types/configurator";
 import { toast } from "sonner";
 import { useAppUser, type SessionUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useCountryFormatter, formatCountry as formatCountryFn } from "@/lib/formatCountry";
+import { mapUiLanguageToLegacy, type PortalUiLanguage } from "@/lib/portalLanguages";
 import CrmLayout from "@/components/crm/CrmLayout";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 import {
@@ -127,7 +127,8 @@ const T = {
 const t = (k: keyof typeof T) => T[k].da;
 
 /** New multilang strings for redesigned dealer detail. */
-const L: Record<string, Record<Language, string>> = {
+type DealerDetailText = Partial<Record<PortalUiLanguage, string>> & { da: string; en?: string };
+const L: Record<string, DealerDetailText> = {
   primary_contact:  { da: "Primær kontaktperson", en: "Primary contact", de: "Hauptansprechpartner", it: "Contatto principale", hu: "Elsődleges kapcsolat" },
   no_primary:       { da: "Primær kontaktperson mangler", en: "Primary contact missing", de: "Hauptansprechpartner fehlt", it: "Contatto principale mancante", hu: "Hiányzó elsődleges kapcsolat" },
   call:             { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Referente", hu: "Kapcsolattartó" },
@@ -190,8 +191,58 @@ const L: Record<string, Record<Language, string>> = {
   created_at_lbl:   { da: "Oprettet", en: "Created", de: "Erstellt", it: "Creato il", hu: "Létrehozva" },
   vat:              { da: "CVR/VAT", en: "VAT", de: "USt-IdNr.", it: "P.IVA", hu: "Adószám" },
   status_lbl:       { da: "Status", en: "Status", de: "Status", it: "Stato", hu: "Állapot" },
+  dealer:           { da: "Forhandler", en: "Dealer", de: "Händler", it: "Rivenditore", hu: "Kereskedő", sv: "Återförsäljare", fr: "Revendeur", pl: "Dealer", cs: "Prodejce" },
+  importer:         { da: "Importør", en: "Importer", de: "Importeur", it: "Importatore", hu: "Importőr", sv: "Importör", fr: "Importateur", pl: "Importer", cs: "Importér" },
+  service_partner:  { da: "Servicepartner", en: "Service partner", de: "Servicepartner", it: "Partner assistenza", hu: "Szervizpartner", sv: "Servicepartner", fr: "Partenaire service", pl: "Partner serwisowy", cs: "Servisní partner" },
+  dealer_customer:  { da: "Forhandlerkunde", en: "Dealer customer", de: "Händlerkunde", it: "Cliente rivenditore", hu: "Kereskedő ügyfele", sv: "Återförsäljarkund", fr: "Client revendeur", pl: "Klient dealera", cs: "Zákazník prodejce" },
+  collaboration_partner: { da: "Samarbejdspartner", en: "Collaboration partner", de: "Kooperationspartner", it: "Partner", hu: "Partner", sv: "Samarbetspartner", fr: "Partenaire", pl: "Partner", cs: "Partner" },
+  collaboration_partners: { da: "Samarbejdspartnere", en: "Collaboration partners", de: "Kooperationspartner", it: "Partner", hu: "Partnerek", sv: "Samarbetspartner", fr: "Partenaires", pl: "Partnerzy", cs: "Partneři" },
+  show_all:         { da: "Vis alle", en: "Show all", de: "Alle anzeigen", it: "Mostra tutti", hu: "Összes megjelenítése", sv: "Visa alla", fr: "Tout afficher", pl: "Pokaż wszystkie", cs: "Zobrazit vše" },
+  branch:           { da: "Filial", en: "Branch", de: "Filiale", it: "Filiale", hu: "Telephely", sv: "Filial", fr: "Filiale", pl: "Oddział", cs: "Pobočka" },
+  group:            { da: "Gruppe", en: "Group", de: "Gruppe", it: "Gruppo", hu: "Csoport", sv: "Grupp", fr: "Groupe", pl: "Grupa", cs: "Skupina" },
+  main_account:     { da: "Hovedkonto", en: "Main account", de: "Hauptkonto", it: "Account principale", hu: "Fő fiók", sv: "Huvudkonto", fr: "Compte principal", pl: "Konto główne", cs: "Hlavní účet" },
+  no_budget:        { da: "Intet budget", en: "No budget", de: "Kein Budget", it: "Nessun budget", hu: "Nincs költségvetés", sv: "Ingen budget", fr: "Aucun budget", pl: "Brak budżetu", cs: "Žádný rozpočet" },
+  edit_dealer:      { da: "Rediger forhandler", en: "Edit dealer", de: "Händler bearbeiten", it: "Modifica rivenditore", hu: "Kereskedő szerkesztése", sv: "Redigera återförsäljare", fr: "Modifier le revendeur", pl: "Edytuj dealera", cs: "Upravit prodejce" },
+  notes_heading:    { da: "Noter", en: "Notes", de: "Notizen", it: "Note", hu: "Jegyzetek", sv: "Anteckningar", fr: "Notes", pl: "Notatki", cs: "Poznámky" },
+  internal_notes:   { da: "Interne noter", en: "Internal notes", de: "Interne Notizen", it: "Note interne", hu: "Belső jegyzetek", sv: "Interna anteckningar", fr: "Notes internes", pl: "Notatki wewnętrzne", cs: "Interní poznámky" },
+  shared_notes:     { da: "Delte noter", en: "Shared notes", de: "Geteilte Notizen", it: "Note condivise", hu: "Megosztott jegyzetek", sv: "Delade anteckningar", fr: "Notes partagées", pl: "Notatki udostępnione", cs: "Sdílené poznámky" },
+  no_shared_notes:  { da: "Ingen delte noter endnu.", en: "No shared notes yet.", de: "Noch keine geteilten Notizen.", it: "Ancora nessuna nota condivisa.", hu: "Még nincsenek megosztott jegyzetek.", sv: "Inga delade anteckningar ännu.", fr: "Aucune note partagée pour le moment.", pl: "Brak udostępnionych notatek.", cs: "Zatím žádné sdílené poznámky." },
+  shared:           { da: "Delt", en: "Shared", de: "Geteilt", it: "Condivisa", hu: "Megosztva", sv: "Delad", fr: "Partagée", pl: "Udostępnione", cs: "Sdíleno" },
+  add_note_title:   { da: "Tilføj note", en: "Add note", de: "Notiz hinzufügen", it: "Aggiungi nota", hu: "Jegyzet hozzáadása", sv: "Lägg till anteckning", fr: "Ajouter une note", pl: "Dodaj notatkę", cs: "Přidat poznámku" },
+  dealer_internal_default: { da: "Forhandler: {dealer} · intern som standard", en: "Dealer: {dealer} · internal by default", de: "Händler: {dealer} · standardmäßig intern", it: "Rivenditore: {dealer} · interna come standard", hu: "Kereskedő: {dealer} · alapértelmezetten belső", sv: "Återförsäljare: {dealer} · intern som standard", fr: "Revendeur : {dealer} · interne par défaut", pl: "Dealer: {dealer} · domyślnie wewnętrzna", cs: "Prodejce: {dealer} · výchozí interní" },
+  note_text:        { da: "Notetekst", en: "Note text", de: "Notiztext", it: "Testo nota", hu: "Jegyzet szövege", sv: "Anteckningstext", fr: "Texte de la note", pl: "Treść notatki", cs: "Text poznámky" },
+  followup_optional:{ da: "Opfølgningsdato (valgfri)", en: "Follow-up date (optional)", de: "Nachfassdatum (optional)", it: "Data follow-up (facoltativa)", hu: "Utánkövetési dátum (opcionális)", sv: "Uppföljningsdatum (valfritt)", fr: "Date de suivi (facultatif)", pl: "Data działania następczego (opcjonalnie)", cs: "Datum následné akce (volitelné)" },
+  create_calendar:  { da: "Opret også kalenderaktivitet", en: "Also create calendar activity", de: "Auch Kalenderaktivität erstellen", it: "Crea anche attività calendario", hu: "Naptári aktivitás létrehozása is", sv: "Skapa även kalenderaktivitet", fr: "Créer aussi une activité calendrier", pl: "Utwórz także aktywność kalendarza", cs: "Vytvořit také aktivitu kalendáře" },
+  activity_title:   { da: "Aktivitetstitel", en: "Activity title", de: "Aktivitätstitel", it: "Titolo attività", hu: "Aktivitás címe", sv: "Aktivitetstitel", fr: "Titre de l’activité", pl: "Tytuł aktywności", cs: "Název aktivity" },
+  activity_type:    { da: "Aktivitetstype", en: "Activity type", de: "Aktivitätstyp", it: "Tipo attività", hu: "Aktivitás típusa", sv: "Aktivitetstyp", fr: "Type d’activité", pl: "Typ aktywności", cs: "Typ aktivity" },
+  date_time:        { da: "Dato/tid", en: "Date/time", de: "Datum/Uhrzeit", it: "Data/ora", hu: "Dátum/idő", sv: "Datum/tid", fr: "Date/heure", pl: "Data/godzina", cs: "Datum/čas" },
+  saving:           { da: "Gemmer…", en: "Saving…", de: "Speichern…", it: "Salvataggio…", hu: "Mentés…", sv: "Sparar…", fr: "Enregistrement…", pl: "Zapisywanie…", cs: "Ukládání…" },
+  save_note:        { da: "Gem note", en: "Save note", de: "Notiz speichern", it: "Salva nota", hu: "Jegyzet mentése", sv: "Spara anteckning", fr: "Enregistrer la note", pl: "Zapisz notatkę", cs: "Uložit poznámku" },
+  cancel:           { da: "Annullér", en: "Cancel", de: "Abbrechen", it: "Annulla", hu: "Mégse", sv: "Avbryt", fr: "Annuler", pl: "Anuluj", cs: "Zrušit" },
+  no_partners:      { da: "Ingen samarbejdspartnere tilknyttet endnu.", en: "No collaboration partners yet.", de: "Noch keine Kooperationspartner verknüpft.", it: "Nessun partner collegato.", hu: "Még nincs kapcsolt partner.", sv: "Inga samarbetspartner ännu.", fr: "Aucun partenaire lié pour le moment.", pl: "Brak powiązanych partnerów.", cs: "Zatím žádní propojení partneři." },
+  open_page:        { da: "Åbn side", en: "Open page", de: "Seite öffnen", it: "Apri pagina", hu: "Oldal megnyitása", sv: "Öppna sida", fr: "Ouvrir la page", pl: "Otwórz stronę", cs: "Otevřít stránku" },
+  quotes:           { da: "Tilbud", en: "Quotes", de: "Angebote", it: "Preventivi", hu: "Árajánlatok", sv: "Offerter", fr: "Devis", pl: "Oferty", cs: "Nabídky" },
+  orders:           { da: "Ordrer", en: "Orders", de: "Aufträge", it: "Ordini", hu: "Rendelések", sv: "Order", fr: "Commandes", pl: "Zamówienia", cs: "Objednávky" },
+  activities_short: { da: "Akt.", en: "Act.", de: "Akt.", it: "Att.", hu: "Akt.", sv: "Akt.", fr: "Act.", pl: "Akt.", cs: "Akt." },
+  open_leads:       { da: "Åbne leads", en: "Open leads", de: "Offene Leads", it: "Lead aperti", hu: "Nyitott leadek", sv: "Öppna leads", fr: "Leads ouverts", pl: "Otwarte leady", cs: "Otevřené leady" },
+  demo_leads:       { da: "Demo leads", en: "Demo leads", de: "Demo-Leads", it: "Lead demo", hu: "Demó leadek", sv: "Demo-leads", fr: "Leads démo", pl: "Leady demo", cs: "Demo leady" },
+  activities_month: { da: "Aktiviteter denne måned", en: "Activities this month", de: "Aktivitäten diesen Monat", it: "Attività questo mese", hu: "Aktivitások ebben a hónapban", sv: "Aktiviteter denna månad", fr: "Activités ce mois-ci", pl: "Aktywności w tym miesiącu", cs: "Aktivity tento měsíc" },
+  pipeline:         { da: "Pipeline", en: "Pipeline", de: "Pipeline", it: "Pipeline", hu: "Pipeline", sv: "Pipeline", fr: "Pipeline", pl: "Pipeline", cs: "Pipeline" },
+  see_orders:       { da: "Se ordrer →", en: "View orders →", de: "Aufträge ansehen →", it: "Vedi ordini →", hu: "Rendelések megtekintése →", sv: "Visa order →", fr: "Voir les commandes →", pl: "Zobacz zamówienia →", cs: "Zobrazit objednávky →" },
+  see_quotes:       { da: "Se tilbud →", en: "View quotes →", de: "Angebote ansehen →", it: "Vedi preventivi →", hu: "Árajánlatok megtekintése →", sv: "Visa offerter →", fr: "Voir les devis →", pl: "Zobacz oferty →", cs: "Zobrazit nabídky →" },
+  see_leads:        { da: "Se leads →", en: "View leads →", de: "Leads ansehen →", it: "Vedi lead →", hu: "Leadek megtekintése →", sv: "Visa leads →", fr: "Voir les leads →", pl: "Zobacz leady →", cs: "Zobrazit leady →" },
+  see_activities:   { da: "Se aktiviteter →", en: "View activities →", de: "Aktivitäten ansehen →", it: "Vedi attività →", hu: "Aktivitások megtekintése →", sv: "Visa aktiviteter →", fr: "Voir les activités →", pl: "Zobacz aktywności →", cs: "Zobrazit aktivity →" },
+  service_cases:    { da: "Servicesager", en: "Service cases", de: "Servicefälle", it: "Casi assistenza", hu: "Szervizügyek", sv: "Serviceärenden", fr: "Cas service", pl: "Sprawy serwisowe", cs: "Servisní případy" },
+  warranty_regs:    { da: "Garantiregistreringer", en: "Warranty registrations", de: "Garantieregistrierungen", it: "Registrazioni garanzia", hu: "Garanciaregisztrációk", sv: "Garantiregistreringar", fr: "Enregistrements garantie", pl: "Rejestracje gwarancji", cs: "Registrace záruk" },
+  note_general:     { da: "Generel note", en: "General note", de: "Allgemeine Notiz", it: "Nota generale", hu: "Általános jegyzet", sv: "Allmän anteckning", fr: "Note générale", pl: "Notatka ogólna", cs: "Obecná poznámka" },
+  note_call:        { da: "Opkald", en: "Call", de: "Anruf", it: "Chiamata", hu: "Hívás", sv: "Samtal", fr: "Appel", pl: "Rozmowa", cs: "Hovor" },
+  note_visit:       { da: "Besøg", en: "Visit", de: "Besuch", it: "Visita", hu: "Látogatás", sv: "Besök", fr: "Visite", pl: "Wizyta", cs: "Návštěva" },
+  note_follow_up:   { da: "Opfølgning", en: "Follow-up", de: "Nachverfolgung", it: "Follow-up", hu: "Utánkövetés", sv: "Uppföljning", fr: "Suivi", pl: "Działanie następcze", cs: "Následná akce" },
+  note_demo:        { da: "Demo", en: "Demo", de: "Demo", it: "Demo", hu: "Demó", sv: "Demo", fr: "Démo", pl: "Demo", cs: "Demo" },
+  note_offer:       { da: "Tilbud", en: "Offer", de: "Angebot", it: "Offerta", hu: "Ajánlat", sv: "Offert", fr: "Offre", pl: "Oferta", cs: "Nabídka" },
+  note_service:     { da: "Service", en: "Service", de: "Service", it: "Assistenza", hu: "Szerviz", sv: "Service", fr: "Service", pl: "Serwis", cs: "Servis" },
 };
-const tl = (k: keyof typeof L, lang: Language): string => L[k][lang] ?? L[k].da;
+const tl = (k: keyof typeof L, lang: PortalUiLanguage): string => L[k][lang] ?? L[k].en ?? L[k].da;
 
 function isServicePartnerAccount(d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type">): boolean {
   return [d.customer_type, d.customer_type_label, d.dealer_type].some((value) => {
@@ -200,11 +251,25 @@ function isServicePartnerAccount(d: Pick<DealerAccount, "customer_type" | "custo
   });
 }
 
-function collaborationPartnerLabel(d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type" | "parent_account_number">): string {
-  if (isDealerCustomerAccount(d)) return "Forhandlerkunde";
-  if (isServicePartnerAccount(d)) return "Servicepartner";
-  if (d.parent_account_number) return "Forhandler";
-  return "Samarbejdspartner";
+function dealerPresentationType(
+  d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type" | "parent_account_number">,
+  lang: PortalUiLanguage,
+): string {
+  if (isDealerCustomerAccount(d)) return tl("dealer_customer", lang);
+  if (isServicePartnerAccount(d)) return tl("service_partner", lang);
+  const raw = [d.customer_type, d.customer_type_label, d.dealer_type]
+    .map((value) => (value ?? "").toLowerCase().replace(/[\s_-]+/g, ""))
+    .find(Boolean);
+  if (raw === "importer" || raw === "importør" || raw === "importeur") return tl("importer", lang);
+  if (d.parent_account_number || raw === "dealer" || raw === "forhandler") return tl("dealer", lang);
+  return tl("collaboration_partner", lang);
+}
+
+function collaborationPartnerLabel(
+  d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type" | "parent_account_number">,
+  lang: PortalUiLanguage,
+): string {
+  return dealerPresentationType(d, lang);
 }
 
 function fallbackDealerFromUser(user: SessionUser | null, accountNumber: string): DealerAccount | null {
@@ -283,10 +348,19 @@ function fallbackDealerFromUser(user: SessionUser | null, accountNumber: string)
   };
 }
 
-const NOTE_TYPE_LABEL: Record<DealerNoteType, string> = {
-  general: "Generel note", call: "Opkald", visit: "Besøg",
-  follow_up: "Opfølgning", demo: "Demo", offer: "Tilbud", service: "Service",
+const NOTE_TYPE_KEY: Record<DealerNoteType, keyof typeof L> = {
+  general: "note_general",
+  call: "note_call",
+  visit: "note_visit",
+  follow_up: "note_follow_up",
+  demo: "note_demo",
+  offer: "note_offer",
+  service: "note_service",
 };
+
+function noteTypeLabel(type: DealerNoteType, lang: PortalUiLanguage): string {
+  return tl(NOTE_TYPE_KEY[type] ?? "note_general", lang);
+}
 
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -417,7 +491,8 @@ export default function CrmDealerDetailPage() {
   const { accountNumber = "" } = useParams<{ accountNumber: string }>();
   const { appUser, loading } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
-  const { language: lang } = useLanguage();
+  const { uiLanguage: lang } = useLanguage();
+  const legacyLang = mapUiLanguageToLegacy(lang);
   const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -688,7 +763,7 @@ export default function CrmDealerDetailPage() {
     upcomingPlanned && (!upcomingNote || upcomingPlanned.start_datetime <= (upcomingNote.follow_up_date || ""))
       ? { date: upcomingPlanned.start_datetime, title: upcomingPlanned.title, seller: upcomingPlanned.seller_initials, status: upcomingPlanned.status, kind: "activity" as const }
       : upcomingNote
-        ? { date: upcomingNote.follow_up_date!, title: NOTE_TYPE_LABEL[upcomingNote.note_type], seller: upcomingNote.seller_initials, status: "planned", kind: "note" as const }
+        ? { date: upcomingNote.follow_up_date!, title: noteTypeLabel(upcomingNote.note_type, lang), seller: upcomingNote.seller_initials, status: "planned", kind: "note" as const }
         : null;
 
   // Stats from dealer_account_stats view (legacy fallback only).
@@ -881,7 +956,7 @@ export default function CrmDealerDetailPage() {
     let linkedActivityId: string | null = null;
     if (input.create_calendar) {
       const created = await createCalendarActivity({
-        title: input.cal_title || `${NOTE_TYPE_LABEL[input.note_type]} — ${dealer.branch_name || dealer.company_name}`,
+        title: input.cal_title || `${noteTypeLabel(input.note_type, lang)} — ${dealer.branch_name || dealer.company_name}`,
         start_datetime: input.cal_when || new Date().toISOString(),
         activity_type: input.cal_type,
         account_id: dealer.id,
@@ -905,7 +980,7 @@ export default function CrmDealerDetailPage() {
         created_by_email: effEmail || appUser?.email || null,
         seller_initials: effInitials || null,
         note_type: "follow_up",
-        note_text: `Kalenderaktivitet oprettet: ${created.title} (${activityTypeMeta(created.activity_type).label.da}) — ${fmtDateTime(created.start_datetime)} · sælger ${created.seller_initials || "—"}`,
+        note_text: `Kalenderaktivitet oprettet: ${created.title} (${activityTypeMeta(created.activity_type).label[legacyLang] ?? activityTypeMeta(created.activity_type).label.da}) — ${fmtDateTime(created.start_datetime)} · sælger ${created.seller_initials || "—"}`,
         linked_activity_id: created.id,
         follow_up_date: created.start_datetime,
         visibility: "internal",
@@ -931,7 +1006,7 @@ export default function CrmDealerDetailPage() {
       <li key={n.id} className={`rounded-lg border p-3 ${n.visibility === "shared" ? "border-emerald-200 bg-emerald-50/40" : "border-slate-100 bg-slate-50/50"}`}>
         <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-bold text-slate-700">{NOTE_TYPE_LABEL[n.note_type]}</span>
+            <span className="font-bold text-slate-700">{noteTypeLabel(n.note_type, lang)}</span>
             <span>·</span>
             <span>{notePartyLabel(n)}</span>
             <span>·</span>
@@ -1199,6 +1274,7 @@ export default function CrmDealerDetailPage() {
               monthActs={monthActsCount}
               fmtKr={fmtKr}
               dealerName={dealer.branch_name || dealer.company_name || ""}
+              lang={lang}
             />
 
 
@@ -1231,7 +1307,7 @@ export default function CrmDealerDetailPage() {
             <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 flex items-center gap-2">
-                  Noter
+                  {tl("notes_heading", lang)}
                   <span className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal">{notes.length}</span>
                 </h3>
                 <button onClick={() => setShowNoteModal(true)}
@@ -1245,7 +1321,7 @@ export default function CrmDealerDetailPage() {
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 <div className="min-w-0">
                   <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Interne noter
+                    {tl("internal_notes", lang)}
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-700">{internalNotes.length}</span>
                   </h4>
                   {internalNotes.length === 0 ? (
@@ -1256,11 +1332,11 @@ export default function CrmDealerDetailPage() {
                 </div>
                 <div className="min-w-0">
                   <h4 className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-emerald-700">
-                    Delte noter
+                    {tl("shared_notes", lang)}
                     <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] text-emerald-800">{sharedNotes.length}</span>
                   </h4>
                   {sharedNotes.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-emerald-100 bg-emerald-50/30 p-3 text-sm text-slate-500">Ingen delte noter endnu.</p>
+                    <p className="rounded-lg border border-dashed border-emerald-100 bg-emerald-50/30 p-3 text-sm text-slate-500">{tl("no_shared_notes", lang)}</p>
                   ) : (
                     <ul className="space-y-2">{sharedNotes.slice(0, 10).map(renderNoteCard)}</ul>
                   )}
@@ -1290,7 +1366,7 @@ export default function CrmDealerDetailPage() {
                 ) : (
                   <ul className="text-sm space-y-1.5">
                     {[...activitiesForScope].sort((a,b)=>b.start_datetime.localeCompare(a.start_datetime)).slice(0,5).map(a => (
-                      <li key={a.id} className="truncate"><span className="text-slate-500">{fmtDate(a.start_datetime)}:</span> {a.title || activityTypeMeta(a.activity_type).label.da}</li>
+                      <li key={a.id} className="truncate"><span className="text-slate-500">{fmtDate(a.start_datetime)}:</span> {a.title || (activityTypeMeta(a.activity_type).label[legacyLang] ?? activityTypeMeta(a.activity_type).label.da)}</li>
                     ))}
                   </ul>
                 )}
@@ -1299,6 +1375,7 @@ export default function CrmDealerDetailPage() {
               <CollaborationPartnersPanel
                 partners={collaborationPartners}
                 stats={stats}
+                lang={lang}
                 onOpenList={() => setShowCollaborationModal(true)}
               />
             </div>
@@ -1338,6 +1415,7 @@ export default function CrmDealerDetailPage() {
         <NoteModal
           dealerLabel={dealer.branch_name || dealer.company_name}
           shareLabel={noteAuthorParty === "timan" ? "Del med forhandler" : "Del med Timan"}
+          lang={lang}
           onCancel={() => setShowNoteModal(false)}
           onSave={handleAddNote}
         />
@@ -1365,6 +1443,7 @@ export default function CrmDealerDetailPage() {
         open={showCollaborationModal}
         partners={collaborationPartners}
         stats={stats}
+        lang={lang}
         formatCountry={formatCountry}
         onClose={() => setShowCollaborationModal(false)}
         onOpenDealer={(d) => {
@@ -1391,10 +1470,12 @@ function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: strin
 function CollaborationPartnersPanel({
   partners,
   stats,
+  lang,
   onOpenList,
 }: {
   partners: DealerAccount[];
   stats: Record<string, DealerAccountStats>;
+  lang: PortalUiLanguage;
   onOpenList: () => void;
 }) {
   const preview = partners.slice(0, 3);
@@ -1407,24 +1488,24 @@ function CollaborationPartnersPanel({
           onClick={onOpenList}
           className="text-left text-sm font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-700"
         >
-          Samarbejdspartnere
+          {tl("collaboration_partners", lang)}
         </button>
         <button
           type="button"
           onClick={onOpenList}
           className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold hover:bg-emerald-50 hover:text-emerald-700"
-          aria-label={`Vis ${partners.length} samarbejdspartnere`}
+          aria-label={`${tl("open_page", lang)} ${partners.length}`}
         >
           {partners.length}
         </button>
       </div>
       {partners.length === 0 ? (
-        <p className="text-sm text-slate-500">Ingen samarbejdspartnere tilknyttet endnu.</p>
+        <p className="text-sm text-slate-500">{tl("no_partners", lang)}</p>
       ) : (
         <div>
           <ul className="space-y-2">
             {preview.map((partner) => {
-              const label = collaborationPartnerLabel(partner);
+              const label = collaborationPartnerLabel(partner, lang);
               const partnerStats = stats[partner.id];
               const location = [partner.postal_code, partner.city].filter(Boolean).join(" ");
               return (
@@ -1449,9 +1530,9 @@ function CollaborationPartnersPanel({
                         </div>
                         {location && <div className="mt-1 text-xs text-slate-500 truncate">{location}</div>}
                         <div className="mt-2 flex gap-3 text-[10px] text-slate-500">
-                          <span><strong className="text-slate-800">{partnerStats?.quote_count ?? 0}</strong> Tilbud</span>
-                          <span><strong className="text-slate-800">{partnerStats?.order_count ?? 0}</strong> Ordrer</span>
-                          <span><strong className="text-slate-800">{partnerStats?.activity_count ?? 0}</strong> Akt.</span>
+                          <span><strong className="text-slate-800">{partnerStats?.quote_count ?? 0}</strong> {tl("quotes", lang)}</span>
+                          <span><strong className="text-slate-800">{partnerStats?.order_count ?? 0}</strong> {tl("orders", lang)}</span>
+                          <span><strong className="text-slate-800">{partnerStats?.activity_count ?? 0}</strong> {tl("activities_short", lang)}</span>
                         </div>
                       </div>
                       <ArrowRight className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
@@ -1467,7 +1548,7 @@ function CollaborationPartnersPanel({
               onClick={onOpenList}
               className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
             >
-              Vis alle {partners.length} <ArrowRight className="h-3.5 w-3.5" />
+              {tl("show_all", lang)} {partners.length} <ArrowRight className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
@@ -1480,6 +1561,7 @@ function CollaborationPartnersModal({
   open,
   partners,
   stats,
+  lang,
   formatCountry,
   onClose,
   onOpenDealer,
@@ -1487,6 +1569,7 @@ function CollaborationPartnersModal({
   open: boolean;
   partners: DealerAccount[];
   stats: Record<string, DealerAccountStats>;
+  lang: PortalUiLanguage;
   formatCountry: (country: string | null | undefined) => string;
   onClose: () => void;
   onOpenDealer: (dealer: DealerAccount) => void;
@@ -1496,7 +1579,7 @@ function CollaborationPartnersModal({
       <DialogContent className="max-w-5xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Samarbejdspartnere
+            {tl("collaboration_partners", lang)}
             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">{partners.length}</span>
           </DialogTitle>
         </DialogHeader>
@@ -1504,13 +1587,13 @@ function CollaborationPartnersModal({
         {partners.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
             <Building2 className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-500">Ingen samarbejdspartnere tilknyttet endnu.</p>
+            <p className="text-sm text-slate-500">{tl("no_partners", lang)}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {partners.map((partner) => {
               const partnerStats = stats[partner.id];
-              const label = collaborationPartnerLabel(partner);
+              const label = collaborationPartnerLabel(partner, lang);
               const location = [partner.postal_code, partner.city].filter(Boolean).join(" ");
               const query = `?dealer=${encodeURIComponent(partner.account_number)}`;
 
@@ -1538,31 +1621,31 @@ function CollaborationPartnersModal({
                       onClick={() => onOpenDealer(partner)}
                       className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
                     >
-                      Åbn side
+                      {tl("open_page", lang)}
                     </button>
                   </div>
 
                   <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
                     <Link to={`/portal/crm/quotes${query}`} className="rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 hover:border-emerald-200 hover:bg-emerald-50">
                       <div className="font-bold text-slate-900">{partnerStats?.quote_count ?? 0}</div>
-                      <div className="text-slate-500">Tilbud</div>
+                      <div className="text-slate-500">{tl("quotes", lang)}</div>
                     </Link>
                     <Link to={`/portal/crm/orders${query}`} className="rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 hover:border-emerald-200 hover:bg-emerald-50">
                       <div className="font-bold text-slate-900">{partnerStats?.order_count ?? 0}</div>
-                      <div className="text-slate-500">Ordrer</div>
+                      <div className="text-slate-500">{tl("orders", lang)}</div>
                     </Link>
                     <Link to={`/portal/crm/calendar${query}`} className="rounded-xl border border-slate-100 bg-slate-50 px-2 py-2 hover:border-emerald-200 hover:bg-emerald-50">
                       <div className="font-bold text-slate-900">{partnerStats?.activity_count ?? 0}</div>
-                      <div className="text-slate-500">Akt.</div>
+                      <div className="text-slate-500">{tl("activities_short", lang)}</div>
                     </Link>
                   </div>
 
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold">
                     <Link to={`/portal/service/claims${query}`} className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
-                      <ClipboardList className="h-3.5 w-3.5" /> Servicesager
+                      <ClipboardList className="h-3.5 w-3.5" /> {tl("service_cases", lang)}
                     </Link>
                     <Link to={`/portal/service/warranty/registrations${query}`} className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-slate-700 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
-                      <FileText className="h-3.5 w-3.5" /> Garantiregistreringer
+                      <FileText className="h-3.5 w-3.5" /> {tl("warranty_regs", lang)}
                     </Link>
                   </div>
                 </div>
@@ -1758,9 +1841,10 @@ interface NewNoteForm {
   cal_when: string;
 }
 
-function NoteModal({ dealerLabel, shareLabel, onCancel, onSave }: {
+function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
   dealerLabel: string;
   shareLabel: string;
+  lang: PortalUiLanguage;
   onCancel: () => void;
   onSave: (input: NewNoteForm) => void | Promise<void>;
 }) {
@@ -1779,25 +1863,25 @@ function NoteModal({ dealerLabel, shareLabel, onCancel, onSave }: {
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 overflow-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 mt-12">
-        <h2 className="text-lg font-bold text-slate-900 mb-1">Tilføj note</h2>
-        <p className="text-xs text-slate-500 mb-4">Forhandler: {dealerLabel} · intern som standard</p>
+        <h2 className="text-lg font-bold text-slate-900 mb-1">{tl("add_note_title", lang)}</h2>
+        <p className="text-xs text-slate-500 mb-4">{tl("dealer_internal_default", lang).replace("{dealer}", dealerLabel)}</p>
 
-        <label className="block text-xs font-bold text-slate-600 mb-1">Notetype</label>
+        <label className="block text-xs font-bold text-slate-600 mb-1">{tl("note_type", lang)}</label>
         <select value={form.note_type}
           onChange={(e) => setForm(f => ({ ...f, note_type: e.target.value as DealerNoteType }))}
           className="w-full mb-3 rounded-lg border border-slate-200 px-3 py-2 text-sm">
-          {(Object.keys(NOTE_TYPE_LABEL) as DealerNoteType[]).map(k => (
-            <option key={k} value={k}>{NOTE_TYPE_LABEL[k]}</option>
+          {(Object.keys(NOTE_TYPE_KEY) as DealerNoteType[]).map(k => (
+            <option key={k} value={k}>{noteTypeLabel(k, lang)}</option>
           ))}
         </select>
 
-        <label className="block text-xs font-bold text-slate-600 mb-1">Notetekst</label>
+        <label className="block text-xs font-bold text-slate-600 mb-1">{tl("note_text", lang)}</label>
         <textarea value={form.note_text}
           onChange={(e) => setForm(f => ({ ...f, note_text: e.target.value }))}
           rows={4}
           className="w-full mb-3 rounded-lg border border-slate-200 px-3 py-2 text-sm" />
 
-        <label className="block text-xs font-bold text-slate-600 mb-1">Opfølgningsdato (valgfri)</label>
+        <label className="block text-xs font-bold text-slate-600 mb-1">{tl("followup_optional", lang)}</label>
         <input type="datetime-local" value={form.follow_up_date}
           onChange={(e) => setForm(f => ({ ...f, follow_up_date: e.target.value }))}
           className="w-full mb-3 rounded-lg border border-slate-200 px-3 py-2 text-sm" />
@@ -1811,23 +1895,23 @@ function NoteModal({ dealerLabel, shareLabel, onCancel, onSave }: {
         <label className="flex items-center gap-2 mb-3 text-sm">
           <input type="checkbox" checked={form.create_calendar}
             onChange={(e) => setForm(f => ({ ...f, create_calendar: e.target.checked }))} />
-          Opret også kalenderaktivitet
+          {tl("create_calendar", lang)}
         </label>
 
         {form.create_calendar && (
           <div className="border border-slate-200 rounded-lg p-3 mb-3 bg-slate-50">
-            <label className="block text-xs font-bold text-slate-600 mb-1">Aktivitetstitel</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1">{tl("activity_title", lang)}</label>
             <input value={form.cal_title}
               onChange={(e) => setForm(f => ({ ...f, cal_title: e.target.value }))}
               placeholder={`Aktivitet — ${dealerLabel}`}
               className="w-full mb-2 rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-            <label className="block text-xs font-bold text-slate-600 mb-1">Aktivitetstype</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1">{tl("activity_type", lang)}</label>
             <select value={form.cal_type}
               onChange={(e) => setForm(f => ({ ...f, cal_type: e.target.value as CalendarActivityType }))}
               className="w-full mb-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
-              {ACTIVITY_TYPES.map(a => <option key={a.key} value={a.key}>{a.label.da}</option>)}
+              {ACTIVITY_TYPES.map(a => <option key={a.key} value={a.key}>{a.label[mapUiLanguageToLegacy(lang)] ?? a.label.da}</option>)}
             </select>
-            <label className="block text-xs font-bold text-slate-600 mb-1">Dato/tid</label>
+            <label className="block text-xs font-bold text-slate-600 mb-1">{tl("date_time", lang)}</label>
             <input type="datetime-local" value={form.cal_when}
               onChange={(e) => setForm(f => ({ ...f, cal_when: e.target.value }))}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
@@ -1835,7 +1919,7 @@ function NoteModal({ dealerLabel, shareLabel, onCancel, onSave }: {
         )}
 
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100">Annullér</button>
+          <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100">{tl("cancel", lang)}</button>
           <button
             disabled={saving || !form.note_text.trim()}
             onClick={async () => {
@@ -1851,7 +1935,7 @@ function NoteModal({ dealerLabel, shareLabel, onCancel, onSave }: {
               } finally { setSaving(false); }
             }}
             className="px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">
-            {saving ? "Gemmer…" : "Gem note"}
+            {saving ? tl("saving", lang) : tl("save_note", lang)}
           </button>
         </div>
       </div>
@@ -2138,7 +2222,7 @@ function ContactHero({
   dealer: DealerAccount;
   contacts: DealerContact[];
   users: BackendUser[];
-  lang: Language;
+  lang: PortalUiLanguage;
   admin: boolean;
   isBranch: boolean;
   mainDealer: DealerAccount | null;
@@ -2224,19 +2308,19 @@ function ContactHero({
           <div className="text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
             <span className="font-mono">#{dealer.account_number}</span>
             <span>·</span>
-            <span>{dealer.customer_type_label || dealer.customer_type || "—"}</span>
-            {dealer.country && <><span>·</span><span>{formatCountryFn(dealer.country, lang)}</span></>}
+            <span>{dealerPresentationType(dealer, lang)}</span>
+            {dealer.country && <><span>·</span><span>{formatCountryFn(dealer.country, mapUiLanguageToLegacy(lang))}</span></>}
             <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
               {tl("status_active", lang)}
             </span>
             {isBranch && mainDealer && (
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
-                <GitBranch className="h-3 w-3" /> Filial · {mainDealer.company_name}
+                <GitBranch className="h-3 w-3" /> {tl("branch", lang)} · {mainDealer.company_name}
               </span>
             )}
             {dealer.is_main_account && (
               <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200">
-                <Star className="h-3 w-3" /> Hovedkonto
+                <Star className="h-3 w-3" /> {tl("main_account", lang)}
               </span>
             )}
           </div>
@@ -2247,25 +2331,25 @@ function ContactHero({
             <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
               <button onClick={() => setScope("branch")}
                 className={`px-2.5 py-1 rounded-md font-semibold ${scope==="branch" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
-                Filial
+                {tl("branch", lang)}
               </button>
               <button onClick={() => setScope("group")}
                 className={`px-2.5 py-1 rounded-md font-semibold ${scope==="group" ? "bg-white shadow text-slate-900" : "text-slate-600"}`}>
-                Gruppe ({branchCount})
+                {tl("group", lang)} ({branchCount})
               </button>
             </div>
           )}
           {admin && (
             <button onClick={onEdit}
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-bold">
-              <Pencil className="h-3.5 w-3.5" /> Rediger forhandler
+              <Pencil className="h-3.5 w-3.5" /> {tl("edit_dealer", lang)}
             </button>
           )}
           {budgetTotals && (
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 min-w-[180px]">
               <div className="text-[10px] uppercase font-bold tracking-wide text-slate-500">Budget YTD {budgetYear}</div>
               {budgetTotals.noBudget ? (
-                <div className="text-xs text-slate-500 mt-0.5">Intet budget</div>
+                <div className="text-xs text-slate-500 mt-0.5">{tl("no_budget", lang)}</div>
               ) : (
                 <div className="text-sm font-bold text-slate-900 mt-0.5 flex items-baseline gap-1.5">
                   <span>{Math.round(budgetTotals.ytdRealisedQty)}/{Math.round(budgetTotals.ytdBudgetQty)} stk.</span>
@@ -2370,30 +2454,31 @@ function ContactHero({
 // Order: Orders, Quotes, Leads + Demos (combined), Activities this month, Pipeline
 // ============================================================================
 function KpiStrip({
-  orders, quotes, pipelineValue, openLeads, openDemos, monthActs, fmtKr, dealerName,
+  orders, quotes, pipelineValue, openLeads, openDemos, monthActs, fmtKr, dealerName, lang,
 }: {
   orders: number; quotes: number; pipelineValue: number;
   openLeads: number; openDemos: number; monthActs: number;
   fmtKr: (n: number) => string;
   dealerName?: string;
+  lang: PortalUiLanguage;
 }) {
   const dq = dealerName ? `?dealer=${encodeURIComponent(dealerName)}` : "";
   const cols: Array<{ key: string; label: string; value: React.ReactNode; icon: React.ReactNode; tint: string; link?: { href: string; label: string }; emphasis?: boolean }> = [
-    { key: "orders",   label: "Ordrer", value: String(orders), icon: <FileText className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", link: { href: `/portal/crm/orders${dq}`, label: "Se ordrer →" } },
-    { key: "quotes",   label: "Tilbud", value: String(quotes), icon: <FileText className="h-4 w-4" />, tint: "bg-sky-100 text-sky-700", link: { href: `/portal/crm/quotes${dq}`, label: "Se tilbud →" } },
+    { key: "orders",   label: tl("orders", lang), value: String(orders), icon: <FileText className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", link: { href: `/portal/crm/orders${dq}`, label: tl("see_orders", lang) } },
+    { key: "quotes",   label: tl("quotes", lang), value: String(quotes), icon: <FileText className="h-4 w-4" />, tint: "bg-sky-100 text-sky-700", link: { href: `/portal/crm/quotes${dq}`, label: tl("see_quotes", lang) } },
     {
-      key: "leads", label: "Åbne leads + Demo leads", tint: "bg-amber-100 text-amber-700",
+      key: "leads", label: `${tl("open_leads", lang)} + ${tl("demo_leads", lang)}`, tint: "bg-amber-100 text-amber-700",
       icon: <TrendingUp className="h-4 w-4" />,
       value: (
         <div className="text-sm font-bold text-slate-900 leading-tight space-y-0.5">
-          <div><span className="text-2xl">{openLeads}</span> <span className="text-xs font-semibold text-slate-500">åbne leads</span></div>
-          <div><span className="text-2xl">{openDemos}</span> <span className="text-xs font-semibold text-slate-500">demo leads</span></div>
+          <div><span className="text-2xl">{openLeads}</span> <span className="text-xs font-semibold text-slate-500">{tl("open_leads", lang).toLowerCase()}</span></div>
+          <div><span className="text-2xl">{openDemos}</span> <span className="text-xs font-semibold text-slate-500">{tl("demo_leads", lang).toLowerCase()}</span></div>
         </div>
       ),
-      link: { href: `/portal/crm/leads${dq}`, label: "Se leads →" },
+      link: { href: `/portal/crm/leads${dq}`, label: tl("see_leads", lang) },
     },
-    { key: "acts",     label: "Aktiviteter denne måned", value: String(monthActs), icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: `/portal/crm/activities${dq}`, label: "Se aktiviteter →" } },
-    { key: "pipeline", label: "Pipeline", value: pipelineValue > 0 ? fmtKr(pipelineValue) : "—", icon: <TrendingUp className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", emphasis: true },
+    { key: "acts",     label: tl("activities_month", lang), value: String(monthActs), icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: `/portal/crm/activities${dq}`, label: tl("see_activities", lang) } },
+    { key: "pipeline", label: tl("pipeline", lang), value: pipelineValue > 0 ? fmtKr(pipelineValue) : "—", icon: <TrendingUp className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", emphasis: true },
   ];
 
 
@@ -2439,7 +2524,7 @@ function ContactsList({
 }: {
   dealer: DealerAccount;
   extraContacts: DealerContact[];
-  lang: Language;
+  lang: PortalUiLanguage;
 }) {
   const rows: ContactCardRow[] = [
     { area: tl("area_primary", lang),   name: dealer.primary_contact_name,   email: dealer.primary_contact_email,   phone: dealer.primary_contact_phone },
@@ -2506,7 +2591,7 @@ function UsersAndContactsPanel({
   dealer: DealerAccount;
   portalUsers: BackendUser[];
   contacts: DealerContact[];
-  lang: Language;
+  lang: PortalUiLanguage;
 }) {
   const dealerDataHref = dealer.account_number
     ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}#users`
