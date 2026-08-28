@@ -212,9 +212,9 @@ export function canManageNewsContent(
   user: ({ permissions?: Record<string, boolean> | null; portal_role?: string | null; module_access?: string[] | null; allowed_areas?: string[] | null } & Pick<AppUser, 'role' | 'partner_type'>) | null | undefined,
 ): boolean {
   if (!user) return false;
-  if (Array.isArray(user.allowed_areas)) return user.allowed_areas.includes('marketing');
   const role = derivePortalRole(user);
   if (role && getPortalPermissions(role).canManageNews) return true;
+  if (Array.isArray(user.allowed_areas)) return user.allowed_areas.includes('marketing');
   return user.permissions?.news_manage === true;
 }
 
@@ -365,6 +365,7 @@ export function hasModuleAccess(
   override?: ModuleAccessKey[] | null,
 ): boolean {
   if (!role) return false;
+  if (role === 'timan_backend') return true;
   const list = Array.isArray(override) ? override : DEFAULT_MODULE_ACCESS[role];
   return list.includes(key);
 }
@@ -384,6 +385,10 @@ export function hasAreaAccess(
 ): boolean {
   if (!user) return false;
   const role = derivePortalRole(user);
+
+  // Timan Backend is super-admin. Role defaults are the minimum access, so
+  // manual user settings must never hide an area that Backend can manage.
+  if (role === 'timan_backend') return true;
 
   // Highest priority: manual Backend → Brugere area choices.
   // Empty array means "no areas"; null/undefined means "use role defaults".

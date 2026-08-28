@@ -8,6 +8,13 @@ const seller = {
   portal_role: 'timan_seller',
 };
 
+const backend = {
+  email: 'nb@timan.dk',
+  role: 'timan_saelger',
+  partner_type: null,
+  portal_role: 'timan_backend',
+};
+
 describe('portal access precedence', () => {
   it('uses role defaults when no manual area override exists', () => {
     expect(hasAreaAccess(seller, 'timan_crm')).toBe(true);
@@ -24,5 +31,10 @@ describe('portal access precedence', () => {
 
   it('respects an explicitly empty module override', () => {
     expect(hasModuleAccess('timan_seller', 'timan_crm', [])).toBe(false);
+  });
+
+  it('keeps Timan Backend role access as the minimum access', () => {
+    expect(hasAreaAccess({ ...backend, allowed_areas: ['salg_marketing'] }, 'marketing')).toBe(true);
+    expect(hasModuleAccess('timan_backend', 'marketing', [])).toBe(true);
   });
 });

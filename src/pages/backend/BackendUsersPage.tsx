@@ -611,7 +611,7 @@ function EditUserModal({
                 <div>
                   <p className="font-bold">Du redigerer din egen administratorkonto.</p>
                   <p className="mt-1 text-xs">
-                    Rolle, status, adgangsområder, moduler, permissions og hurtige handlinger kan ikke ændres på din egen bruger.
+                    Du kan ændre egne områder, moduler, features og hurtige handlinger. Rolle, status og sidste adgang til brugeradministration er beskyttet.
                   </p>
                 </div>
               </div>

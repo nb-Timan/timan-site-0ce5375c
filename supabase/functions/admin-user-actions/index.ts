@@ -305,19 +305,30 @@ Deno.serve(async (req) => {
     if (beforeErr) return json({ error: `Kunne ikke læse bruger: ${beforeErr.message}` }, 500);
     if (!before) return json({ error: "Brugeren findes ikke." }, 404);
 
-    // Self-escalation guard: an admin cannot change their own role/permissions
-    // or de/re-activate themselves through this endpoint.
+    // Self-lockout guard: an admin can tune their own areas/modules/features,
+    // but cannot change role/status or remove the permission that lets them
+    // administer users and recover access.
     const isSelf =
       String((before as Record<string, unknown>).email ?? "").toLowerCase() === callerEmail ||
       (before as Record<string, unknown>).auth_user_id === callerAuthId;
     if (isSelf) {
-      for (const col of ["portal_role", "role", "permissions", "approved", "is_active", "status", "backend_modules"]) {
+      for (const col of ["portal_role", "role", "approved", "is_active", "status"]) {
         if (col in patch && JSON.stringify(patch[col] ?? null) !== JSON.stringify((before as Record<string, unknown>)[col] ?? null)) {
           return json(
-            { error: "Du kan ikke ændre din egen rolle, godkendelse, status eller rettigheder." },
+            { error: "Du kan ikke ændre din egen rolle, godkendelse eller status." },
             403,
           );
         }
+      }
+      if (
+        "permissions" in patch &&
+        (patch.permissions as Record<string, unknown> | null | undefined)?.can_manage_users === false &&
+        ((before as Record<string, unknown>).permissions as Record<string, unknown> | null | undefined)?.can_manage_users !== false
+      ) {
+        return json(
+          { error: "Du kan ikke fjerne din egen adgang til brugeradministration." },
+          403,
+        );
       }
     }
 
