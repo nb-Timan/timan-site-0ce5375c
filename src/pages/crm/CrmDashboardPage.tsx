@@ -470,14 +470,14 @@ export default function CrmDashboardPage() {
           <div className="min-w-0 flex flex-col gap-3">
             {/* Pipeline value — compact dark green (also shows Aktive leads) */}
             <Link to="/portal/crm/quotes" className="group block w-full flex-1">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-3 flex items-center gap-3 h-full min-h-[88px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0f2e1f] via-[#143a26] to-[#1f5535] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-3 grid grid-cols-[minmax(0,1fr)_1px_5.5rem_1px_minmax(7rem,7.75rem)] sm:grid-cols-[minmax(8.75rem,1fr)_1px_5.5rem_3rem_1px_minmax(7.5rem,8.75rem)] items-center gap-2 h-full min-h-[88px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
                   style={{ background: 'radial-gradient(closest-side, rgba(16,185,129,0.6), transparent 70%)' }}
                 />
                 {/* Main metric */}
-                <div className="relative min-w-0 flex-1">
+                <div className="relative min-w-0">
                   <div className="flex min-w-0 items-center gap-2">
                     <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm shrink-0">
                       <Target className="h-3 w-3" strokeWidth={2} />
@@ -485,9 +485,6 @@ export default function CrmDashboardPage() {
                     <p className="min-w-0 truncate text-[10px] uppercase tracking-[0.12em] text-emerald-100/80 font-semibold">
                       {T.kpi_pipeline[lang]}
                     </p>
-                    <div className="ml-1 shrink-0">
-                      <HeroTrend pct={metrics.pipelinePctChange} lang={lang} />
-                    </div>
                   </div>
                   <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums mt-1">
                     {fmtKr(metrics.pipelineValue)}
@@ -498,23 +495,28 @@ export default function CrmDashboardPage() {
                     </p>
                   )}
                 </div>
+                <div className="h-12 w-px bg-white/15" aria-hidden />
+                <div className="relative flex min-w-0 items-center justify-center">
+                  <HeroTrend pct={metrics.pipelinePctChange} lang={lang} />
+                </div>
                 {/* Compact sparkline */}
-                <div className="relative hidden sm:block w-10 xl:w-14 h-8 shrink-0 opacity-90 -ml-1">
+                <div className="relative hidden sm:block h-8 min-w-0 opacity-90">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trend30}>
                       <Line type="monotone" dataKey="value" stroke="#a7f3d0" strokeWidth={1.75} dot={false} isAnimationActive={false} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
+                <div className="h-12 w-px bg-white/15" aria-hidden />
                 {/* Embedded KPI slot — separated by a thin divider */}
-                <div className="relative mr-2 shrink-0 w-[136px] max-w-[40%] pl-3 border-l border-white/15 flex flex-col items-start justify-center gap-1">
-                  <div className="flex w-full min-w-0 items-start gap-1">
+                <div className="relative min-w-0 flex flex-col items-center justify-center gap-1 text-center">
+                  <div className="flex w-full min-w-0 items-start justify-center gap-1">
                     <Sparkles className="mt-px h-3 w-3 shrink-0 text-emerald-100/80" strokeWidth={2} />
                     <p className="min-w-0 text-[9.5px] uppercase tracking-[0.06em] leading-[1.05] text-emerald-100/80 font-semibold">
                       {T.kpi_leads[lang]}
                     </p>
                   </div>
-                  <div className="flex flex-nowrap items-center gap-2">
+                  <div className="flex flex-nowrap items-center justify-center gap-2">
                     <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums">
                       {metrics.activeLeads}
                     </p>
@@ -526,14 +528,14 @@ export default function CrmDashboardPage() {
 
             {/* Closed Orders — compact dark navy (also shows Vundne ordrer) */}
             <Link to="/portal/crm/orders" className="group block w-full flex-1">
-              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-3 flex items-center gap-3 h-full min-h-[88px]">
+              <div className="relative overflow-hidden rounded-2xl border border-slate-200/70 bg-gradient-to-br from-[#0b1e3a] via-[#11284a] to-[#1c3a66] text-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.35)] hover:shadow-[0_20px_60px_-16px_rgba(15,23,42,0.45)] hover:-translate-y-0.5 transition-all duration-300 px-4 py-3 grid grid-cols-[minmax(0,1fr)_1px_5.5rem_1px_minmax(7rem,7.75rem)] sm:grid-cols-[minmax(8.75rem,1fr)_1px_5.5rem_3rem_1px_minmax(7.5rem,8.75rem)] items-center gap-2 h-full min-h-[88px]">
                 <div
                   aria-hidden
                   className="pointer-events-none absolute -top-16 -right-16 h-56 w-56 rounded-full opacity-30 blur-3xl"
                   style={{ background: 'radial-gradient(closest-side, rgba(56,189,248,0.55), transparent 70%)' }}
                 />
                 {/* Main metric */}
-                <div className="relative min-w-0 flex-1">
+                <div className="relative min-w-0">
                   <div className="flex min-w-0 items-center gap-2">
                     <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm shrink-0">
                       <ShoppingCart className="h-3 w-3" strokeWidth={2} />
@@ -541,9 +543,6 @@ export default function CrmDashboardPage() {
                     <p className="min-w-0 truncate text-[10px] uppercase tracking-[0.12em] text-sky-100/80 font-semibold">
                       {T.kpi_closed[lang]}
                     </p>
-                    <div className="ml-1 shrink-0">
-                      <HeroTrend pct={metrics.closedPctChange} lang={lang} />
-                    </div>
                   </div>
                   <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums mt-1">
                     {fmtKr(metrics.closedValueThisMonth)}
@@ -554,8 +553,12 @@ export default function CrmDashboardPage() {
                     </p>
                   )}
                 </div>
+                <div className="h-12 w-px bg-white/15" aria-hidden />
+                <div className="relative flex min-w-0 items-center justify-center">
+                  <HeroTrend pct={metrics.closedPctChange} lang={lang} />
+                </div>
                 {/* Compact bar chart */}
-                <div className="relative hidden sm:flex items-end gap-[2px] w-10 xl:w-14 h-8 shrink-0 -ml-1">
+                <div className="relative hidden sm:flex min-w-0 items-end gap-[2px] h-8">
                   {CLOSED_BARS.map((h, i) => (
                     <span
                       key={i}
@@ -564,15 +567,16 @@ export default function CrmDashboardPage() {
                     />
                   ))}
                 </div>
+                <div className="h-12 w-px bg-white/15" aria-hidden />
                 {/* Embedded KPI slot — separated by a thin divider */}
-                <div className="relative mr-2 shrink-0 w-[136px] max-w-[40%] pl-3 border-l border-white/15 flex flex-col items-start justify-center gap-1">
-                  <div className="flex w-full min-w-0 items-start gap-1">
+                <div className="relative min-w-0 flex flex-col items-center justify-center gap-1 text-center">
+                  <div className="flex w-full min-w-0 items-start justify-center gap-1">
                     <Trophy className="mt-px h-3 w-3 shrink-0 text-sky-100/80" strokeWidth={2} />
                     <p className="min-w-0 text-[9.5px] uppercase tracking-[0.06em] leading-[1.05] text-sky-100/80 font-semibold">
                       {T.kpi_won[lang]}
                     </p>
                   </div>
-                  <div className="flex flex-nowrap items-center gap-1.5">
+                  <div className="flex flex-nowrap items-center justify-center gap-1.5">
                     <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums">
                       {metrics.wonOrdersCount}
                     </p>
@@ -1141,7 +1145,7 @@ function HeroTrend({ pct, lang }: { pct: number; lang: Language }) {
     'bg-white/10 text-white/80 ring-white/20';
   const label = Math.abs(pct) <= 2 ? T.stable[lang] : `${pct > 0 ? '+' : ''}${pct}%`;
   return (
-    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ring-1 backdrop-blur-sm ${cls}`}>
+    <span className={`inline-flex max-w-full items-center justify-center gap-1 whitespace-nowrap text-xs font-semibold px-2 py-1 rounded-full ring-1 backdrop-blur-sm ${cls}`}>
       <TrendIcon className="h-3.5 w-3.5" />{label}
     </span>
   );
