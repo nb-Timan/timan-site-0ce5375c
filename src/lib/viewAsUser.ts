@@ -28,6 +28,7 @@ import {
   getActiveUserView,
   getActiveRolePreview,
   canSwitchMode,
+  type UserView,
 } from '@/lib/activeMode';
 import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 
@@ -159,24 +160,38 @@ export function useEffectivePortalUserState(appUser: SessionUser | null): {
 
   if (target) {
     return {
-      effectiveUser: {
-        ...appUser,
-        role: target.role,
-        partner_type: target.partner_type,
-        can_view_prices: target.can_view_prices,
-        can_submit_order: target.can_submit_order,
-        portal_role: target.portal_role ?? appUser.portal_role,
-        module_access: target.module_access ?? null,
-        allowed_areas: target.allowed_areas ?? null,
-        allowed_modules: target.allowed_modules ?? null,
-        permissions: target.permissions ?? null,
-        quick_actions: target.quick_actions ?? null,
-        portal_variant: target.portal_variant ?? appUser.portal_variant,
-        dealer_number: target.dealer_number ?? null,
-        company_dealer: target.company_dealer ?? null,
-      },
+      effectiveUser: mergeEffectivePortalUser(appUser, target, viewUser),
       resolving: false,
     };
   }
   return { effectiveUser: appUser, resolving };
+}
+
+export function mergeEffectivePortalUser(
+  appUser: SessionUser,
+  target: SessionUser,
+  viewUser: UserView | null,
+): SessionUser {
+  const targetStoredRole = (target.portal_role || '').toLowerCase();
+  const isSameBackendUserInSellerMode =
+    viewUser?.viewRole === 'seller' &&
+    target.email?.toLowerCase() === appUser.email?.toLowerCase() &&
+    targetStoredRole === 'timan_backend';
+
+  return {
+    ...appUser,
+    role: target.role,
+    partner_type: target.partner_type,
+    can_view_prices: target.can_view_prices,
+    can_submit_order: target.can_submit_order,
+    portal_role: isSameBackendUserInSellerMode ? viewUser.portalRole : (target.portal_role ?? appUser.portal_role),
+    module_access: isSameBackendUserInSellerMode ? null : (target.module_access ?? null),
+    allowed_areas: isSameBackendUserInSellerMode ? null : (target.allowed_areas ?? null),
+    allowed_modules: isSameBackendUserInSellerMode ? null : (target.allowed_modules ?? null),
+    permissions: isSameBackendUserInSellerMode ? null : (target.permissions ?? null),
+    quick_actions: isSameBackendUserInSellerMode ? null : (target.quick_actions ?? null),
+    portal_variant: target.portal_variant ?? appUser.portal_variant,
+    dealer_number: target.dealer_number ?? null,
+    company_dealer: target.company_dealer ?? null,
+  };
 }
