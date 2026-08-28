@@ -20,6 +20,7 @@ import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
 import { getPortalBackInfo } from '@/lib/portalBackNav';
+import BackendSideNav from '@/components/portal/BackendSideNav';
 
 const LANGS = PORTAL_LANGUAGES;
 
@@ -47,6 +48,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const location = useLocation();
+  const showBackendSideNav = location.pathname === '/portal/backend' || location.pathname.startsWith('/portal/backend/');
 
   // Backend users see a notification badge when new users are awaiting
   // approval. Polled lightly every 60s.
@@ -174,6 +176,11 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     };
   }, []);
 
+  useEffect(() => {
+    document.documentElement.classList.toggle('timan-backend-nav-active', showBackendSideNav);
+    return () => document.documentElement.classList.remove('timan-backend-nav-active');
+  }, [showBackendSideNav]);
+
   const toggleFullscreen = () => {
     const doc = document as Document & {
       webkitFullscreenElement?: Element | null;
@@ -191,6 +198,17 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   };
 
   return (
+    <>
+    {showBackendSideNav && (
+      <style>{`
+        @media (min-width: 1024px) {
+          .timan-backend-nav-active main {
+            padding-left: 18rem !important;
+            max-width: none !important;
+          }
+        }
+      `}</style>
+    )}
     <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20 items-center">
@@ -440,5 +458,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
         </div>
       )}
     </nav>
+    {showBackendSideNav && <BackendSideNav />}
+    </>
   );
 }

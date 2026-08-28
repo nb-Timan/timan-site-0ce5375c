@@ -168,6 +168,7 @@ const BackendMesseSettingsPage = lazy(() => import("./pages/backend/BackendMesse
 const BackendNewsPage = lazy(() => import("./pages/backend/BackendNewsPage"));
 const Backend2620TrialsPage = lazy(() => import("./pages/backend/Backend2620TrialsPage"));
 const BackendSystemMapPage = lazy(() => import("./pages/backend/BackendSystemMapPage"));
+const BackendSectionPage = lazy(() => import("./pages/backend/BackendSectionPage"));
 
 const MiscPage = lazy(() => import("./pages/misc/MiscPage"));
 const MiscFormsPage = lazy(() => import("./pages/misc/MiscFormsPage"));
@@ -236,6 +237,11 @@ const App = () => (
               <Route path="/portal/marketing/news/overview" element={<BackendNewsPage />} />
               <Route path="/portal/marketing/site-features" element={<BackendChangelogPage />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
+              <Route path="/portal/backend/brugerstyring" element={<BackendSectionPage sectionId="user-management" />} />
+              <Route path="/portal/backend/partnerstyring" element={<BackendSectionPage sectionId="partner-management" />} />
+              <Route path="/portal/backend/data-integrationer" element={<BackendSectionPage sectionId="data-integrations" />} />
+              <Route path="/portal/backend/analyse" element={<BackendSectionPage sectionId="analytics" />} />
+              <Route path="/portal/backend/system" element={<BackendSectionPage sectionId="system" />} />
               <Route path="/portal/dealer-data" element={<DealerDataPage />} />
               <Route path="/portal/crm" element={<PortalCrmPage />} />
               <Route path="/portal/crm/dashboard"  element={<CrmDashboardPage />} />

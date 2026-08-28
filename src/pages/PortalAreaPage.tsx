@@ -148,7 +148,7 @@ export default function PortalAreaPage({ areaId }: Props) {
         </div>
 
         {areaId === 'timan_backend' ? (
-          <BackendHome language={lang} />
+          <BackendHome />
         ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 ${areaId === 'teknik_service' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
           {areaModules.map(m => {

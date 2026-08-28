@@ -1,124 +1,53 @@
 /**
- * Grupperet forside for Timan Backend.
+ * Timan Backend dashboard.
  *
- * Erstatter det flade placeholder-grid med fem tydelige sektioner:
- *   1. Brugerstyring
- *   2. Partnerstyring
- *   3. Data & Integrationer
- *   4. Analyse
- *   5. System
- *
- * Alle eksisterende routes bevares — kort der ikke har en endelig side
- * vises som "Kommer snart" (PlaceholderCard uden `to`).
- *
- * Ingen permission-ændringer: hele siden vises kun til brugere som
- * `isAreaVisible` allerede har godkendt for `timan_backend`.
+ * Dashboardet er nu en kort forside med genveje til de faste Backend-
+ * hovedområder. De konkrete administrationskort ligger på hver
+ * hovedområdes egen oversigtsside.
  */
-import {
-  Users, ShieldCheck, KeyRound, ScrollText,
-  Building2, Link2, Map, MapPin,
-  Database, BarChart3, Upload,
-  Mail, ListChecks, Activity, FileSearch, QrCode, LucideIcon,
-  ClipboardList, Network,
-} from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
+import { backendSections } from "@/lib/backendNavigation";
 
-import PlaceholderCard from "@/components/portal/PlaceholderCard";
-import { Language } from "@/types/configurator";
-
-interface Item {
-  title: string;
-  description: string;
-  icon: LucideIcon;
-  to?: string;
-}
-
-interface Group {
-  title: string;
-  description: string;
-  items: Item[];
-}
-
-function buildGroups(): Group[] {
-  return [
-    {
-      title: "Brugerstyring",
-      description: "Brugere, roller, modul-adgang og audit log.",
-      items: [
-        { title: "Brugere", icon: Users, to: "/portal/backend/users", description: "Administrér alle portal-brugere, godkend nye signups og tildel roller." },
-        { title: "Roller", icon: ShieldCheck, to: "/portal/backend/roles", description: "Definér portal-roller og standard-rettigheder." },
-        { title: "Modul-adgang", icon: KeyRound, to: "/portal/backend/module-access", description: "Styr hvilke moduler hver rolle har adgang til." },
-        { title: "Audit Log", icon: ScrollText, to: "/portal/backend/audit-log", description: "Se ændringer på brugere, roller og adgang." },
-      ],
-    },
-    {
-      title: "Partnerstyring",
-      description: "Forhandlere, matching og geografisk dækning.",
-      items: [
-        { title: "Forhandlere", icon: Building2, to: "/portal/backend/dealer-accounts", description: "Master-overblik over alle forhandlere, service partnere og importører." },
-        { title: "Dealer Matching", icon: Link2, to: "/portal/backend/data?tab=garanti", description: "Manuel matching af garantiregistreringer mod forhandlere." },
-        { title: "Partnerkort administration", icon: Map, description: "Administrér det offentlige partnerkort." },
-        { title: "Partner relationer", icon: Link2, to: "/portal/backend/partner-relations", description: "Importør→forhandler-hierarki og service-partner→forhandler-relationer for Min Maskine adgang." },
-        { title: "Geografisk dækning", icon: MapPin, to: "/portal/backend/data?tab=forhandlere", description: "Geocoding af forhandleradresser og dækningsoverblik." },
-      ],
-    },
-    {
-      title: "Data & Integrationer",
-      description: "Import, eksport, SharePoint sync, warranty sync, ERP, budgetimport og geocoding.",
-      items: [
-        { title: "Data & Integrationer", icon: Database, to: "/portal/backend/data", description: "Samlet kontrolcenter for alle imports, eksports og syncs — med status og historik." },
-        { title: "Budget Import", icon: Upload, to: "/portal/backend/budget-import", description: "Importér sælgerbudgetter fra Excel-oversigt til CRM Budget." },
-        { title: "Afprøvning af 2620", icon: ClipboardList, to: "/portal/backend/timan-2620-afproevning", description: "Se indsendelser fra det selvstændige 2620-afprøvningsflow." },
-      ],
-    },
-    {
-      title: "Analyse",
-      description: "Portal-brug og aktivitetsanalyse.",
-      items: [
-        { title: "Portal Analytics", icon: BarChart3, to: "/portal/backend/portal-analytics", description: "Brug af portalen — besøg, sessioner og moduler." },
-      ],
-    },
-    {
-      title: "System",
-      description: "Systemstatus, mail-log, job queue og persistence audit.",
-      items: [
-        { title: "Systemkort", icon: Network, to: "/portal/backend/system-map", description: "Visuelt overblik over portalen, moduler, integrationer og dataflows." },
-        { title: "Persistence Audit", icon: FileSearch, to: "/portal/backend/persistence-audit", description: "Tjek dataintegritet og overvåg gemte ressourcer." },
-        { title: "Mail Log", icon: Mail, description: "Log over udsendte mails fra portalen." },
-        { title: "Job Queue", icon: ListChecks, description: "Baggrundsjobs og kørselshistorik." },
-        { title: "Systemstatus", icon: Activity, description: "Edge functions, database og integrationer." },
-        { title: "Timan Messe", icon: QrCode, to: "/portal/backend/messe", description: "Aktivér offentlig QR-adgang til /messe og download QR-kode til messer." },
-      ],
-    },
-
-  ];
-}
-
-interface Props { language: Language }
-
-export default function BackendHome({ language }: Props) {
-  const groups = buildGroups();
+export default function BackendHome() {
   return (
-    <div className="space-y-12">
-      {groups.map((g) => (
-        <section key={g.title}>
-          <div className="mb-5">
-            <h2 className="text-xl font-bold text-slate-900">{g.title}</h2>
-            <p className="mt-1 text-sm text-slate-600">{g.description}</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {g.items.map((it) => (
-              <PlaceholderCard
-                key={it.title}
-                title={it.title}
-                language={language}
-                to={it.to}
-                icon={it.icon}
-                description={it.description}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
+    <div className="space-y-8">
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Backend Dashboard</p>
+        <h2 className="mt-2 text-2xl font-black text-slate-950">Vælg et hovedområde i venstremenuen</h2>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-700">
+          Backend er nu delt op i få faste områder. Det gør brugeradministration,
+          partnerdata, integrationer, analyse og systemværktøjer nemmere at finde.
+        </p>
+      </section>
+
+      <section>
+        <div className="mb-5">
+          <h2 className="text-xl font-black text-slate-950">Hovedområder</h2>
+          <p className="mt-1 text-sm text-slate-600">Åbn et område for at se de relevante eksisterende funktioner.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {backendSections.map((section) => {
+            const Icon = section.icon;
+            return (
+              <Link
+                key={section.id}
+                to={section.to}
+                className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-emerald-200 hover:shadow-md"
+              >
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+                  <Icon className="h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-black text-slate-950">{section.title}</h3>
+                <p className="mt-2 min-h-[44px] text-sm leading-6 text-slate-600">{section.description}</p>
+                <div className="mt-5 inline-flex items-center gap-2 text-sm font-black text-emerald-700">
+                  Åbn område <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 }
