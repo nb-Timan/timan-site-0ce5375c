@@ -75,7 +75,8 @@ export interface SystemMapEdge {
   from: SystemMapNodeId;
   to: SystemMapNodeId;
   label: string;
-  kind?: "data" | "navigation" | "sync" | "permission";
+  kind?: "data" | "navigation" | "sync" | "permission" | "conversion" | "dependency" | "development";
+  direction?: "forward" | "bidirectional";
   minZoom?: number;
 }
 
@@ -613,7 +614,7 @@ export const systemMapEdges: SystemMapEdge[] = [
   { from: "dealer_data", to: "messe", label: "partnerkort", kind: "data", minZoom: 0.8 },
   { from: "messe", to: "crm", label: "leads", kind: "data" },
   { from: "marketing", to: "messe", label: "nyheder", kind: "data", minZoom: 0.8 },
-  { from: "crm", to: "sales", label: "tilbud", kind: "data" },
+  { from: "crm", to: "sales", label: "tilbud/status", kind: "conversion", direction: "bidirectional" },
   { from: "sales", to: "documents", label: "PDF", kind: "data" },
   { from: "sales", to: "email", label: "webhook", kind: "data" },
   { from: "crm", to: "email", label: "kalender", kind: "data" },
@@ -665,11 +666,11 @@ export const systemDnaEdges: SystemMapEdge[] = [
   { from: "messe_form", to: "messe_leads", label: "opretter", kind: "data", minZoom: 0.9 },
   { from: "messe_leads", to: "crm_leads", label: "bliver til", kind: "data", minZoom: 0.95 },
   { from: "crm_leads", to: "crm_activities", label: "aktivitet", kind: "data", minZoom: 1.0 },
-  { from: "crm_leads", to: "lead_conversions", label: "konverteres", kind: "data", minZoom: 1.1 },
-  { from: "lead_conversions", to: "crm_demo_leads", label: "demo", kind: "data", minZoom: 1.0 },
-  { from: "lead_conversions", to: "configurator", label: "starter tilbud", kind: "data", minZoom: 1.0 },
+  { from: "crm_leads", to: "lead_conversions", label: "konverteres", kind: "conversion", minZoom: 1.1 },
+  { from: "lead_conversions", to: "crm_demo_leads", label: "demo", kind: "conversion", minZoom: 1.0 },
+  { from: "lead_conversions", to: "configurator", label: "starter tilbud", kind: "conversion", minZoom: 1.0 },
   { from: "configurator", to: "quotes", label: "gemmer tilbud", kind: "data", minZoom: 0.95 },
-  { from: "quotes", to: "orders", label: "bliver ordre", kind: "data", minZoom: 1.0 },
+  { from: "quotes", to: "orders", label: "bliver ordre", kind: "conversion", minZoom: 1.0 },
   { from: "configurator", to: "orders", label: "ordre", kind: "data", minZoom: 0.95 },
   { from: "configurator", to: "documents", label: "PDF", kind: "data", minZoom: 1.0 },
   { from: "quotes", to: "documents", label: "tilbuds-PDF", kind: "data", minZoom: 1.05 },
@@ -697,15 +698,15 @@ export const systemDnaEdges: SystemMapEdge[] = [
   { from: "audit_log", to: "users_admin", label: "logger", kind: "data", minZoom: 1.1 },
   { from: "portal_analytics", to: "portal", label: "brug", kind: "data", minZoom: 1.05 },
   { from: "edge_functions", to: "supabase", label: "server", kind: "data", minZoom: 1.35 },
-  { from: "product_owner", to: "codex_agent", label: "opgave", kind: "data", minZoom: 1.0 },
-  { from: "codex_agent", to: "codebase", label: "ændrer kode", kind: "data", minZoom: 1.0 },
-  { from: "codebase", to: "github_repo", label: "commit/push", kind: "sync", minZoom: 1.0 },
-  { from: "github_repo", to: "github_actions", label: "workflow", kind: "sync", minZoom: 1.08 },
-  { from: "github_actions", to: "test_build", label: "validerer", kind: "sync", minZoom: 1.08 },
-  { from: "test_build", to: "lovable_deploy", label: "klar til deploy", kind: "sync", minZoom: 1.08 },
-  { from: "lovable_deploy", to: "portal", label: "frontend", kind: "data", minZoom: 1.08 },
-  { from: "codebase", to: "supabase_migrations", label: "migration/RPC", kind: "sync", minZoom: 1.12 },
-  { from: "supabase_migrations", to: "supabase", label: "deploy", kind: "sync", minZoom: 1.12 },
+  { from: "product_owner", to: "codex_agent", label: "opgave", kind: "development", minZoom: 1.0 },
+  { from: "codex_agent", to: "codebase", label: "ændrer kode", kind: "development", minZoom: 1.0 },
+  { from: "codebase", to: "github_repo", label: "commit/push", kind: "development", minZoom: 1.0 },
+  { from: "github_repo", to: "github_actions", label: "workflow", kind: "development", minZoom: 1.08 },
+  { from: "github_actions", to: "test_build", label: "validerer", kind: "development", minZoom: 1.08 },
+  { from: "test_build", to: "lovable_deploy", label: "klar til deploy", kind: "development", minZoom: 1.08 },
+  { from: "lovable_deploy", to: "portal", label: "frontend", kind: "development", minZoom: 1.08 },
+  { from: "codebase", to: "supabase_migrations", label: "migration/RPC", kind: "development", minZoom: 1.12 },
+  { from: "supabase_migrations", to: "supabase", label: "deploy", kind: "development", minZoom: 1.12 },
 ];
 
 export const featuredDataFlow: SystemMapNodeId[] = [

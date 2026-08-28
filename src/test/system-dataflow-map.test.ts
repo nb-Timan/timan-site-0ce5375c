@@ -86,7 +86,8 @@ describe("Backend system dataflow map", () => {
     const ids = new Set<SystemMapNodeId>(systemDnaNodes.map((node) => node.id));
     const validKinds = new Set(["portal", "module", "feature", "data", "technical", "integration", "process", "tool"]);
     const validAreas = new Set(["crm", "sales", "marketing", "dealer_data", "service", "messe", "import", "system"]);
-    const validEdgeKinds = new Set(["data", "navigation", "sync", "permission"]);
+    const validEdgeKinds = new Set(["data", "navigation", "sync", "permission", "conversion", "dependency", "development"]);
+    const validDirections = new Set(["forward", "bidirectional"]);
     const missingEdges = systemDnaEdges.flatMap((edge) => [
       ...(ids.has(edge.from) ? [] : [`missing source: ${edge.from} -> ${edge.to}`]),
       ...(ids.has(edge.to) ? [] : [`missing target: ${edge.from} -> ${edge.to}`]),
@@ -105,12 +106,34 @@ describe("Backend system dataflow map", () => {
     for (const edge of systemDnaEdges) {
       expect(edge.label.trim().length).toBeGreaterThan(0);
       if (edge.kind) expect(validEdgeKinds.has(edge.kind), `Invalid edge kind for ${edge.from}->${edge.to}: ${edge.kind}`).toBe(true);
+      if (edge.direction) {
+        expect(validDirections.has(edge.direction), `Invalid edge direction for ${edge.from}->${edge.to}: ${edge.direction}`).toBe(true);
+      }
     }
   });
 
   it("does not contain exact duplicate DNA relations", () => {
-    const keys = systemDnaEdges.map((edge) => `${edge.from}->${edge.to}::${edge.kind ?? "data"}::${edge.label}`);
+    const keys = systemDnaEdges.map((edge) => `${edge.from}->${edge.to}::${edge.kind ?? "data"}::${edge.direction ?? "forward"}::${edge.label}`);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("does not contain duplicate DNA relations with the same semantics", () => {
+    const keys = systemDnaEdges.map((edge) => {
+      const direction = edge.direction ?? "forward";
+      const endpoints =
+        direction === "bidirectional" ? [edge.from, edge.to].sort().join("<->") : `${edge.from}->${edge.to}`;
+      return `${endpoints}::${edge.kind ?? "data"}::${edge.label}`;
+    });
+
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("models CRM and Sales as a clear bidirectional conversion flow", () => {
+    const crmSalesEdge = systemDnaEdges.find((edge) => edge.from === "crm" && edge.to === "sales");
+
+    expect(crmSalesEdge).toBeDefined();
+    expect(crmSalesEdge?.kind).toBe("conversion");
+    expect(crmSalesEdge?.direction).toBe("bidirectional");
   });
 
   it("uses existing nodes in the featured data flow", () => {

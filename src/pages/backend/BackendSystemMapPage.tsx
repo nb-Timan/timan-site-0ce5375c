@@ -47,6 +47,7 @@ import {
   systemDnaEdges,
   systemDnaNodes,
   type SystemMapArea,
+  type SystemMapEdge,
   type SystemMapNode,
   type SystemMapNodeId,
 } from "@/lib/systemDataflowMap";
@@ -161,6 +162,76 @@ const OVERVIEW_POSITIONS: Record<string, { x: number; y: number }> = {
   portal_analytics: { x: 91.5, y: 61 },
   portal: { x: 50, y: 46 },
 };
+
+const AREA_FOCUS_NODE_IDS: Record<SystemMapArea, SystemMapNodeId> = {
+  crm: "crm",
+  sales: "sales",
+  marketing: "marketing",
+  dealer_data: "dealer_data",
+  service: "service",
+  messe: "messe",
+  import: "import",
+  system: "system_admin",
+};
+
+const DNA_EDGE_STYLES: Record<
+  NonNullable<SystemMapEdge["kind"]>,
+  { label: string; strokeWidth: number; dash?: string; color?: string }
+> = {
+  data: { label: "Primært dataflow", strokeWidth: 2.4 },
+  sync: { label: "Sync/import", strokeWidth: 2.4, dash: "10 7", color: "#38bdf8" },
+  conversion: { label: "Konvertering", strokeWidth: 3, dash: "8 7", color: "#a855f7" },
+  permission: { label: "Adgang/scope", strokeWidth: 2, dash: "4 8", color: "#f59e0b" },
+  dependency: { label: "Afhængighed", strokeWidth: 1.6, dash: "5 8", color: "#94a3b8" },
+  development: { label: "Udvikling/deploy", strokeWidth: 2.3, dash: "9 6", color: "#fb923c" },
+  navigation: { label: "Indeholder/struktur", strokeWidth: 1.35, dash: "8 10", color: "#64748b" },
+};
+
+function edgeKey(edge: SystemMapEdge) {
+  return `${edge.from}->${edge.to}::${edge.kind ?? "data"}::${edge.label}`;
+}
+
+function edgeKindLabel(edge: SystemMapEdge) {
+  return DNA_EDGE_STYLES[edge.kind ?? "data"].label;
+}
+
+function DnaLegend() {
+  const items: Array<{ kind: NonNullable<SystemMapEdge["kind"]>; text: string }> = [
+    { kind: "data", text: "Fast linje = primært dataflow" },
+    { kind: "sync", text: "Stiplet = sync/import" },
+    { kind: "conversion", text: "Lilla stiplet = konvertering" },
+    { kind: "permission", text: "Orange stiplet = adgang/scope" },
+    { kind: "development", text: "Udvikling/deploy" },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-bold text-slate-300">
+      <span className="text-white">Forklaring</span>
+      {items.map((item) => {
+        const style = DNA_EDGE_STYLES[item.kind];
+        return (
+          <span key={item.kind} className="inline-flex items-center gap-1.5">
+            <svg width="24" height="8" viewBox="0 0 24 8" aria-hidden="true">
+              <line
+                x1="1"
+                y1="4"
+                x2="23"
+                y2="4"
+                stroke={style.color ?? "#94a3b8"}
+                strokeWidth="2"
+                strokeDasharray={style.dash}
+                strokeLinecap="round"
+              />
+            </svg>
+            {item.text}
+          </span>
+        );
+      })}
+      <span>-&gt; dataretning</span>
+      <span>&lt;-&gt; begge veje</span>
+    </div>
+  );
+}
 
 function colorFor(node: SystemMapNode) {
   return COLOR_CLASSES[node.color] ?? COLOR_CLASSES.slate;
@@ -397,6 +468,7 @@ function DnaNode({
   zoom,
   position,
   onSelect,
+  onHover,
 }: {
   node: SystemMapNode;
   selected: boolean;
@@ -405,6 +477,7 @@ function DnaNode({
   zoom: number;
   position: { x: number; y: number };
   onSelect: (id: SystemMapNodeId) => void;
+  onHover: (id: SystemMapNodeId | null) => void;
 }) {
   const Icon = node.icon;
   const colors = colorFor(node);
@@ -429,6 +502,8 @@ function DnaNode({
       ].join(" ")}
       style={{ left: position.x, top: position.y }}
       draggable={false}
+      onMouseEnter={() => onHover(node.id)}
+      onMouseLeave={() => onHover(null)}
     >
       <div className="flex items-center gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/12 text-white">
@@ -497,9 +572,18 @@ function SystemDna({
   const [area, setArea] = useState<"all" | SystemMapArea>("all");
   const [flowMode, setFlowMode] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [hoveredNodeId, setHoveredNodeId] = useState<SystemMapNodeId | null>(null);
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const didInitialFitRef = useRef(false);
   const selectedFlow = useMemo(() => getFeaturedDataFlow(selectedId), [selectedId]);
+  const selectedFlowEdges = useMemo(() => {
+    const keys = new Set<string>();
+    for (let index = 0; index < selectedFlow.length - 1; index += 1) {
+      keys.add(`${selectedFlow[index]}->${selectedFlow[index + 1]}`);
+    }
+    return keys;
+  }, [selectedFlow]);
   const zoomStage = useMemo(() => getSystemDnaZoomStage(zoom), [zoom]);
   const zoomLevelCounts = useMemo(
     () =>
@@ -511,15 +595,23 @@ function SystemDna({
   );
 
   const selectedConnections = useMemo(() => {
-    const ids = flowMode ? new Set<SystemMapNodeId>(selectedFlow) : getSystemDnaFocusIds(selectedId);
+    const focusRoot = area === "all" ? selectedId : AREA_FOCUS_NODE_IDS[area];
+    const ids = flowMode ? new Set<SystemMapNodeId>(selectedFlow) : getSystemDnaFocusIds(focusRoot);
     if (flowMode) return ids;
 
     for (const edge of systemDnaEdges) {
       if (ids.has(edge.from)) ids.add(edge.to);
       if (ids.has(edge.to)) ids.add(edge.from);
     }
+    if (hoveredNodeId) {
+      ids.add(hoveredNodeId);
+      for (const edge of systemDnaEdges) {
+        if (edge.from === hoveredNodeId) ids.add(edge.to);
+        if (edge.to === hoveredNodeId) ids.add(edge.from);
+      }
+    }
     return ids;
-  }, [flowMode, selectedFlow, selectedId]);
+  }, [area, flowMode, hoveredNodeId, selectedFlow, selectedId]);
 
   const visibleNodes = useMemo(() => {
     return getVisibleSystemDnaNodes(zoom, area, query);
@@ -581,6 +673,15 @@ function SystemDna({
     onSelect(hit.id);
     window.setTimeout(() => centerNode(hit.id, nextZoom), 0);
   }, [centerNode, onSelect, query, zoom]);
+
+  const handleAreaFilter = useCallback((filter: "all" | SystemMapArea) => {
+    setArea(filter);
+    if (filter === "all") return;
+    const focusNodeId = AREA_FOCUS_NODE_IDS[filter];
+    const nextZoom = Math.max(zoom, SYSTEM_DNA_ZOOM_LEVELS[1].zoom);
+    setZoom(nextZoom);
+    window.setTimeout(() => centerNode(focusNodeId, nextZoom), 0);
+  }, [centerNode, zoom]);
 
   const onWheel = (event: WheelEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -709,7 +810,7 @@ function SystemDna({
             <button
               key={filter}
               type="button"
-              onClick={() => setArea(filter)}
+              onClick={() => handleAreaFilter(filter)}
               className={[
                 "rounded-full border px-3 py-1.5 text-xs font-black",
                 area === filter ? "border-white bg-white text-slate-950" : "border-white/15 text-slate-300 hover:bg-white/10",
@@ -737,6 +838,7 @@ function SystemDna({
             {fullscreen ? "Exit fullscreen" : "Fullscreen"}
           </Button>
         </div>
+        <DnaLegend />
       </div>
 
       <div
@@ -767,6 +869,9 @@ function SystemDna({
               <marker id="dna-arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
                 <path d="M0,0 L8,4 L0,8 Z" fill="#94a3b8" />
               </marker>
+              <marker id="dna-arrowhead-active" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+                <path d="M0,0 L9,4.5 L0,9 Z" fill="#e2e8f0" />
+              </marker>
             </defs>
             {systemDnaEdges.map((edge) => {
               if ((edge.minZoom ?? 0.35) > zoom) return null;
@@ -774,25 +879,52 @@ function SystemDna({
               const to = findSystemMapNode(edge.to);
               const fromPosition = getSystemDnaNodePosition(from, zoom);
               const toPosition = getSystemDnaNodePosition(to, zoom);
-              const active = selectedConnections.has(edge.from) && selectedConnections.has(edge.to);
+              const key = edgeKey(edge);
+              const edgePairKey = `${edge.from}->${edge.to}`;
+              const reverseEdgePairKey = `${edge.to}->${edge.from}`;
+              const flowActive =
+                flowMode &&
+                (selectedFlowEdges.has(edgePairKey) || (edge.direction === "bidirectional" && selectedFlowEdges.has(reverseEdgePairKey)));
+              const hoverActive = hoveredEdgeId === key || hoveredNodeId === edge.from || hoveredNodeId === edge.to;
+              const focusActive = selectedConnections.has(edge.from) && selectedConnections.has(edge.to);
+              const active = flowActive || hoverActive || (!flowMode && focusActive);
               const hiddenByFilter = !visibleNodeIds.has(edge.from) || !visibleNodeIds.has(edge.to);
+              const style = DNA_EDGE_STYLES[edge.kind ?? "data"];
+              const stroke = active ? style.color ?? colorFor(from).line : style.color ?? "#94a3b8";
+              const midX = (fromPosition.x + toPosition.x) / 2;
+              const midY = (fromPosition.y + toPosition.y) / 2;
               return (
-                <g key={`${edge.from}-${edge.to}-${edge.label}`} opacity={hiddenByFilter ? 0.05 : flowMode && !active ? 0.08 : active ? 0.95 : 0.28}>
+                <g
+                  key={key}
+                  opacity={active ? 0.98 : flowMode ? 0.06 : hiddenByFilter ? 0.08 : 0.22}
+                  onMouseEnter={() => setHoveredEdgeId(key)}
+                  onMouseLeave={() => setHoveredEdgeId(null)}
+                >
                   <line
                     x1={fromPosition.x}
                     y1={fromPosition.y}
                     x2={toPosition.x}
                     y2={toPosition.y}
-                    stroke={active ? colorFor(from).line : "#94a3b8"}
-                    strokeWidth={active ? 4 : edge.kind === "navigation" ? 1.4 : 2.2}
-                    strokeDasharray={edge.kind === "navigation" ? "8 10" : edge.kind === "permission" ? "4 8" : undefined}
+                    stroke="transparent"
+                    strokeWidth="24"
                     strokeLinecap="round"
-                    markerEnd={edge.kind === "navigation" ? undefined : "url(#dna-arrowhead)"}
                   />
-                  {active && zoom >= 1.38 && edge.kind !== "navigation" && (
+                  <line
+                    x1={fromPosition.x}
+                    y1={fromPosition.y}
+                    x2={toPosition.x}
+                    y2={toPosition.y}
+                    stroke={stroke}
+                    strokeWidth={active ? style.strokeWidth + 1.5 : style.strokeWidth}
+                    strokeDasharray={style.dash}
+                    strokeLinecap="round"
+                    markerStart={edge.direction === "bidirectional" && edge.kind !== "navigation" ? active ? "url(#dna-arrowhead-active)" : "url(#dna-arrowhead)" : undefined}
+                    markerEnd={edge.kind === "navigation" ? undefined : active ? "url(#dna-arrowhead-active)" : "url(#dna-arrowhead)"}
+                  />
+                  {active && zoom >= 1.12 && edge.kind !== "navigation" && (
                     <text
-                      x={(fromPosition.x + toPosition.x) / 2}
-                      y={(fromPosition.y + toPosition.y) / 2 - 12}
+                      x={midX}
+                      y={midY - 12}
                       fill="#e2e8f0"
                       fontSize="18"
                       textAnchor="middle"
@@ -802,6 +934,17 @@ function SystemDna({
                     >
                       {edge.label}
                     </text>
+                  )}
+                  {hoveredEdgeId === key && (
+                    <g transform={`translate(${midX - 130} ${midY + 18})`} pointerEvents="none">
+                      <rect width="260" height="66" rx="16" fill="#020617" stroke="#475569" strokeWidth="1.5" opacity="0.96" />
+                      <text x="14" y="24" fill="#f8fafc" fontSize="15" fontWeight="800">
+                        {from.title} {edge.direction === "bidirectional" ? "<->" : "->"} {to.title}
+                      </text>
+                      <text x="14" y="48" fill="#cbd5e1" fontSize="13" fontWeight="700">
+                        Type: {edgeKindLabel(edge)}
+                      </text>
+                    </g>
                   )}
                 </g>
               );
@@ -818,10 +961,11 @@ function SystemDna({
                 node={node}
                 selected={selectedId === node.id}
                 active={selectedConnections.has(node.id)}
-                dimmed={hiddenByFilter || (flowMode && !selectedConnections.has(node.id))}
+                dimmed={(hiddenByFilter && !selectedConnections.has(node.id)) || (flowMode && !selectedConnections.has(node.id))}
                 zoom={zoom}
                 position={position}
                 onSelect={drillIntoNode}
+                onHover={setHoveredNodeId}
               />
             );
           })}
