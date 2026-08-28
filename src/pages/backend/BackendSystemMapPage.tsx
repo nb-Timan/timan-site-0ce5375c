@@ -227,8 +227,8 @@ function DnaLegend() {
           </span>
         );
       })}
-      <span>-&gt; dataretning</span>
-      <span>&lt;-&gt; begge veje</span>
+      <span>Hover viser retning</span>
+      <span>Følg data viser hele kæden</span>
     </div>
   );
 }
@@ -865,14 +865,6 @@ function SystemDna({
           }}
         >
           <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${DNA_WORLD.width} ${DNA_WORLD.height}`} aria-hidden="true">
-            <defs>
-              <marker id="dna-arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-                <path d="M0,0 L8,4 L0,8 Z" fill="#94a3b8" />
-              </marker>
-              <marker id="dna-arrowhead-active" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
-                <path d="M0,0 L9,4.5 L0,9 Z" fill="#e2e8f0" />
-              </marker>
-            </defs>
             {systemDnaEdges.map((edge) => {
               if ((edge.minZoom ?? 0.35) > zoom) return null;
               const from = findSystemMapNode(edge.from);
@@ -893,6 +885,9 @@ function SystemDna({
               const stroke = active ? style.color ?? colorFor(from).line : style.color ?? "#94a3b8";
               const midX = (fromPosition.x + toPosition.x) / 2;
               const midY = (fromPosition.y + toPosition.y) / 2;
+              const labelFontSize = Math.max(9, Math.min(15, 14 / zoom));
+              const labelStrokeWidth = Math.max(2.5, Math.min(5, 4 / zoom));
+              const labelOffset = Math.max(8, 12 / zoom);
               return (
                 <g
                   key={key}
@@ -918,19 +913,17 @@ function SystemDna({
                     strokeWidth={active ? style.strokeWidth + 1.5 : style.strokeWidth}
                     strokeDasharray={style.dash}
                     strokeLinecap="round"
-                    markerStart={edge.direction === "bidirectional" && edge.kind !== "navigation" ? active ? "url(#dna-arrowhead-active)" : "url(#dna-arrowhead)" : undefined}
-                    markerEnd={edge.kind === "navigation" ? undefined : active ? "url(#dna-arrowhead-active)" : "url(#dna-arrowhead)"}
                   />
                   {active && zoom >= 1.12 && edge.kind !== "navigation" && (
                     <text
                       x={midX}
-                      y={midY - 12}
+                      y={midY - labelOffset}
                       fill="#e2e8f0"
-                      fontSize="18"
+                      fontSize={labelFontSize}
                       textAnchor="middle"
                       paintOrder="stroke"
                       stroke="#020617"
-                      strokeWidth="5"
+                      strokeWidth={labelStrokeWidth}
                     >
                       {edge.label}
                     </text>
