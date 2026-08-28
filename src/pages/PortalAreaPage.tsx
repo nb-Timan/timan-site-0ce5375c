@@ -16,6 +16,7 @@ import { canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, ha
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
+import { siteFeatureT } from '@/lib/i18n/siteFeatureTranslations';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -186,11 +187,11 @@ export default function PortalAreaPage({ areaId }: Props) {
           )}
           {areaId === 'marketing' && canManageNewsContent(effectiveUser) && (
             <PlaceholderCard
-              title="Nye features på sitet"
+              title={siteFeatureT('siteFeaturesTitle', uiLanguage)}
               language={lang}
               to="/portal/marketing/site-features"
               icon={Sparkles}
-              description="Gennemgå produktændringer og publicér udvalgte poster til Hvad er nyt?"
+              description={siteFeatureT('siteFeaturesCardDescription', uiLanguage)}
             />
           )}
           {area.placeholders.map(p => {

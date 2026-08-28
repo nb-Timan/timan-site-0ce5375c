@@ -13,6 +13,11 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import { canManageNewsContent } from "@/lib/portalAccess";
 import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 import {
+  interpolateSiteFeatureLabel,
+  siteFeatureT,
+  type SiteFeatureI18nKey,
+} from "@/lib/i18n/siteFeatureTranslations";
+import {
   adminListChangelog,
   adminUpdateChangelog,
   adminUpdateChangelogStatus,
@@ -48,38 +53,50 @@ const ROLES = [
 const STATUSES: Array<SiteChangeStatus | "all"> = ["all", "new", "draft", "published", "archived"];
 const RECOMMENDATIONS: Array<SiteChangeRecommendation | "all"> = ["all", "publish", "maybe", "internal"];
 
-const ROLE_LABEL: Record<string, string> = {
-  all: "Alle",
-  timan_backend: "Timan Backend",
-  timan_seller: "Timan Sælger",
-  timan_service: "Timan Service",
-  timan_importer: "Importør",
-  timan_dealer: "Forhandler",
-  timan_service_partner: "Servicepartner",
-  dealer_customer: "Forhandlerkunde",
-  private_end_user: "Privat / slutbruger",
-  exhibition_user: "Timan Messe",
-  timan_messe: "Timan Messe",
-  dealer_user: "Forhandlerbruger",
-  sales: "Timan Sælger",
-  service: "Timan Service",
-  dealer: "Forhandler",
-  admin: "Timan Backend",
+const ROLE_LABEL_KEY: Record<string, SiteFeatureI18nKey> = {
+  all: "siteFeaturesRoleAll",
+  timan_backend: "siteFeaturesRoleBackend",
+  timan_seller: "siteFeaturesRoleSeller",
+  timan_service: "siteFeaturesRoleService",
+  timan_importer: "siteFeaturesRoleImporter",
+  timan_dealer: "siteFeaturesRoleDealer",
+  timan_service_partner: "siteFeaturesRoleServicePartner",
+  dealer_customer: "siteFeaturesRoleDealerCustomer",
+  private_end_user: "siteFeaturesRolePrivateEndUser",
+  exhibition_user: "siteFeaturesRoleExhibition",
+  timan_messe: "siteFeaturesRoleExhibition",
+  dealer_user: "siteFeaturesRoleDealerUser",
+  sales: "siteFeaturesRoleSeller",
+  service: "siteFeaturesRoleService",
+  dealer: "siteFeaturesRoleDealer",
+  admin: "siteFeaturesRoleBackend",
 };
 
-const STATUS_LABEL: Record<SiteChangeStatus | "all", string> = {
-  all: "Alle",
-  new: "Ny / ikke gennemgået",
-  draft: "Kladde",
-  published: "Publiceret",
-  archived: "Arkiveret",
+const STATUS_LABEL_KEY: Record<SiteChangeStatus | "all", SiteFeatureI18nKey> = {
+  all: "siteFeaturesAll",
+  new: "siteFeaturesStatusNew",
+  draft: "siteFeaturesStatusDraft",
+  published: "siteFeaturesStatusPublished",
+  archived: "siteFeaturesStatusArchived",
 };
 
-const REC_LABEL: Record<SiteChangeRecommendation | "all", string> = {
-  all: "Alle anbefalinger",
-  publish: "Publicér",
-  maybe: "Måske",
-  internal: "Internt",
+const REC_LABEL_KEY: Record<SiteChangeRecommendation | "all", SiteFeatureI18nKey> = {
+  all: "siteFeaturesAllRecommendations",
+  publish: "siteFeaturesRecPublish",
+  maybe: "siteFeaturesRecMaybe",
+  internal: "siteFeaturesRecInternal",
+};
+
+const DATE_LOCALE: Record<PortalUiLanguage, string> = {
+  da: "da-DK",
+  en: "en-GB",
+  de: "de-DE",
+  it: "it-IT",
+  hu: "hu-HU",
+  sv: "sv-SE",
+  fr: "fr-FR",
+  pl: "pl-PL",
+  cs: "cs-CZ",
 };
 
 function dateInput(value: string | null | undefined): string {
@@ -96,13 +113,22 @@ function toIsoDate(value: string): string {
   return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
 }
 
-function formatDate(value: string | null | undefined): string {
+function formatDate(value: string | null | undefined, lang: PortalUiLanguage): string {
   if (!value) return "-";
-  return new Date(value).toLocaleDateString("da-DK", { day: "2-digit", month: "2-digit", year: "2-digit" });
+  return new Date(value).toLocaleDateString(DATE_LOCALE[lang], { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
-function roleLabel(role: string): string {
-  return ROLE_LABEL[role] || role;
+function roleLabel(role: string, lang: PortalUiLanguage): string {
+  const key = ROLE_LABEL_KEY[role];
+  return key ? siteFeatureT(key, lang) : role;
+}
+
+function statusLabel(status: SiteChangeStatus | "all", lang: PortalUiLanguage): string {
+  return siteFeatureT(STATUS_LABEL_KEY[status], lang);
+}
+
+function recommendationLabel(recommendation: SiteChangeRecommendation | "all", lang: PortalUiLanguage): string {
+  return siteFeatureT(REC_LABEL_KEY[recommendation], lang);
 }
 
 function statusClass(status: SiteChangeStatus) {
@@ -205,6 +231,7 @@ export default function BackendChangelogPage() {
   const navigate = useNavigate();
   const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const canManage = useMemo(() => canManageNewsContent(effectiveUser), [effectiveUser]);
+  const st = useMemo(() => (key: SiteFeatureI18nKey) => siteFeatureT(key, uiLanguage), [uiLanguage]);
 
   const [rows, setRows] = useState<SiteChangeEntryRow[]>([]);
   const [count, setCount] = useState(0);
@@ -280,11 +307,11 @@ export default function BackendChangelogPage() {
   const saveDraft = async (status?: SiteChangeStatus) => {
     if (!editing) return;
     if (!draft.title_internal.trim()) {
-      setError("Intern titel skal udfyldes.");
+      setError(st("siteFeaturesInternalTitleRequired"));
       return;
     }
     if ((status || draft.status) === "published" && !((draft.title_public || draft.title_internal).trim())) {
-      setError("Publiceret titel skal udfyldes før publicering.");
+      setError(st("siteFeaturesPublishedTitleRequired"));
       return;
     }
     setSaving(true);
@@ -297,7 +324,7 @@ export default function BackendChangelogPage() {
       setError(result.error);
       return;
     }
-    setMessage(status === "published" ? "Ændringen er publiceret." : "Ændringen er gemt.");
+    setMessage(status === "published" ? st("siteFeaturesPublishedMessage") : st("siteFeaturesSavedMessage"));
     setEditing(null);
     setDraft(emptyDraft());
     await reload();
@@ -313,7 +340,7 @@ export default function BackendChangelogPage() {
       setError(result.error);
       return;
     }
-    setMessage(`Status ændret til ${STATUS_LABEL[status]}.`);
+    setMessage(interpolateSiteFeatureLabel("siteFeaturesStatusChanged", uiLanguage, { status: statusLabel(status, uiLanguage) }));
     await reload();
   };
 
@@ -332,10 +359,13 @@ export default function BackendChangelogPage() {
     const result = await syncSiteChangesFromGitHub();
     setSyncingGitHub(false);
     if (!result.ok) {
-      setError(result.error || "GitHub-synkronisering fejlede.");
+      setError(result.error || st("siteFeaturesGitHubFailed"));
       return;
     }
-    setMessage(`GitHub synkroniseret: ${result.imported ?? 0} nye, ${result.skipped ?? 0} sprunget over.`);
+    setMessage(interpolateSiteFeatureLabel("siteFeaturesGitHubSynced", uiLanguage, {
+      imported: result.imported ?? 0,
+      skipped: result.skipped ?? 0,
+    }));
     await reload(0);
   };
 
@@ -364,9 +394,9 @@ export default function BackendChangelogPage() {
               <Sparkles className="h-6 w-6 text-emerald-700" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Nye features på sitet</h1>
+              <h1 className="text-3xl font-bold text-slate-900">{st("siteFeaturesTitle")}</h1>
               <p className="mt-1 text-sm text-slate-500">
-                Intern produkt-changelog. Marketing vælger selv hvad der publiceres under Hvad er nyt?
+                {st("siteFeaturesSubtitle")}
               </p>
             </div>
           </div>
@@ -377,14 +407,14 @@ export default function BackendChangelogPage() {
               disabled={syncingGitHub}
               className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50"
             >
-              <Sparkles className="h-3.5 w-3.5" /> {syncingGitHub ? "Synkroniserer..." : "Synkronisér GitHub"}
+              <Sparkles className="h-3.5 w-3.5" /> {syncingGitHub ? st("siteFeaturesSyncingGitHub") : st("siteFeaturesSyncGitHub")}
             </button>
             <button
               type="button"
               onClick={() => void reload()}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
             >
-              <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
+              <RotateCcw className="h-3.5 w-3.5" /> {st("siteFeaturesReload")}
             </button>
           </div>
         </div>
@@ -395,32 +425,32 @@ export default function BackendChangelogPage() {
         <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_180px_180px_170px_170px_150px_110px]">
             <label className="block">
-              <span className="mb-1 block text-[11px] font-bold uppercase text-slate-500">Søg</span>
+              <span className="mb-1 block text-[11px] font-bold uppercase text-slate-500">{st("siteFeaturesSearch")}</span>
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 onKeyDown={(event) => { if (event.key === "Enter") applySearch(); }}
-                placeholder="Titel, beskrivelse eller commit..."
+                placeholder={st("siteFeaturesSearchPlaceholder")}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-emerald-300 focus:ring-2 focus:ring-emerald-100"
               />
             </label>
-            <Select label="Status" value={statusFilter} onChange={(v) => { setPage(0); setStatusFilter(v as SiteChangeStatus | "all"); }}>
-              {STATUSES.map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+            <Select label={st("siteFeaturesStatus")} value={statusFilter} onChange={(v) => { setPage(0); setStatusFilter(v as SiteChangeStatus | "all"); }}>
+              {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s, uiLanguage)}</option>)}
             </Select>
-            <Select label="Anbefaling" value={recFilter} onChange={(v) => { setPage(0); setRecFilter(v as SiteChangeRecommendation | "all"); }}>
-              {RECOMMENDATIONS.map((r) => <option key={r} value={r}>{REC_LABEL[r]}</option>)}
+            <Select label={st("siteFeaturesRecommendation")} value={recFilter} onChange={(v) => { setPage(0); setRecFilter(v as SiteChangeRecommendation | "all"); }}>
+              {RECOMMENDATIONS.map((r) => <option key={r} value={r}>{recommendationLabel(r, uiLanguage)}</option>)}
             </Select>
-            <Select label="Modul" value={moduleFilter} onChange={(v) => { setPage(0); setModuleFilter(v); }}>
-              {MODULES.map((m) => <option key={m} value={m}>{m === "all" ? "Alle moduler" : m}</option>)}
+            <Select label={st("siteFeaturesModule")} value={moduleFilter} onChange={(v) => { setPage(0); setModuleFilter(v); }}>
+              {MODULES.map((m) => <option key={m} value={m}>{m === "all" ? st("siteFeaturesAllModules") : m}</option>)}
             </Select>
-            <Select label="Rolle" value={roleFilter} onChange={(v) => { setPage(0); setRoleFilter(v); }}>
-              {ROLES.map((r) => <option key={r} value={r}>{r === "all" ? "Alle målgrupper" : roleLabel(r)}</option>)}
+            <Select label={st("siteFeaturesRole")} value={roleFilter} onChange={(v) => { setPage(0); setRoleFilter(v); }}>
+              {ROLES.map((r) => <option key={r} value={r}>{r === "all" ? st("siteFeaturesAllAudiences") : roleLabel(r, uiLanguage)}</option>)}
             </Select>
-            <Select label="Type" value={typeFilter} onChange={(v) => { setPage(0); setTypeFilter(v); }}>
-              {TYPES.map((t) => <option key={t} value={t}>{t === "all" ? "Alle typer" : t}</option>)}
+            <Select label={st("siteFeaturesType")} value={typeFilter} onChange={(v) => { setPage(0); setTypeFilter(v); }}>
+              {TYPES.map((t) => <option key={t} value={t}>{t === "all" ? st("siteFeaturesAllTypes") : t}</option>)}
             </Select>
-            <Select label="Impact" value={String(minImpact)} onChange={(v) => { setPage(0); setMinImpact(Number(v)); }}>
-              {[0, 1, 3, 5, 7, 9].map((n) => <option key={n} value={n}>{n === 0 ? "Alle" : `${n}+`}</option>)}
+            <Select label={st("siteFeaturesImpact")} value={String(minImpact)} onChange={(v) => { setPage(0); setMinImpact(Number(v)); }}>
+              {[0, 1, 3, 5, 7, 9].map((n) => <option key={n} value={n}>{n === 0 ? st("siteFeaturesAll") : `${n}+`}</option>)}
             </Select>
           </div>
           <button
@@ -428,7 +458,7 @@ export default function BackendChangelogPage() {
             onClick={applySearch}
             className="mt-3 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
           >
-            Anvend søgning
+            {st("siteFeaturesApplySearch")}
           </button>
         </section>
 
@@ -438,70 +468,70 @@ export default function BackendChangelogPage() {
               <table className="min-w-full text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
-                    <th className="px-4 py-3 text-left font-semibold">Dato</th>
-                    <th className="px-4 py-3 text-left font-semibold">Feature</th>
-                    <th className="px-4 py-3 text-left font-semibold">Område</th>
-                    <th className="px-4 py-3 text-left font-semibold">Type</th>
-                    <th className="px-4 py-3 text-left font-semibold">Målgruppe</th>
-                    <th className="px-4 py-3 text-left font-semibold">Impact</th>
-                    <th className="px-4 py-3 text-left font-semibold">Anbefaling</th>
-                    <th className="px-4 py-3 text-left font-semibold">Status</th>
-                    <th className="px-4 py-3 text-right font-semibold">Handling</th>
+                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesDate")}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesFeature")}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesArea")}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesType")}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesAudience")}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesImpact")}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesRecommendation")}</th>
+                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesStatus")}</th>
+                    <th className="px-4 py-3 text-right font-semibold">{st("siteFeaturesAction")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.id} className={`border-t border-slate-100 align-top hover:bg-slate-50/70 ${editing?.id === row.id ? "bg-emerald-50/40" : ""}`}>
-                      <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">{formatDate(row.implemented_at)}</td>
+                      <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">{formatDate(row.implemented_at, uiLanguage)}</td>
                       <td className="min-w-[260px] px-4 py-4">
                         <div className="font-semibold text-slate-900">{row.title_internal}</div>
                         {row.description_internal && <div className="mt-1 line-clamp-2 text-xs text-slate-500">{row.description_internal}</div>}
                         {row.source_ref && <div className="mt-1 font-mono text-[11px] text-slate-400">{row.source_ref}</div>}
                         {missingSiteChangeLanguages(row).length > 0 && (
                           <div className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200">
-                            Mangler: {missingSiteChangeLanguages(row).map(languageFlag).join(", ")}
+                            {st("siteFeaturesMissing")} {missingSiteChangeLanguages(row).map(languageFlag).join(", ")}
                           </div>
                         )}
                       </td>
                       <td className="px-4 py-4 text-slate-600">{row.module}</td>
                       <td className="px-4 py-4 text-slate-600">{row.change_type}</td>
-                      <td className="min-w-[180px] px-4 py-4 text-xs text-slate-500">{row.affected_roles.map(roleLabel).join(", ")}</td>
+                      <td className="min-w-[180px] px-4 py-4 text-xs text-slate-500">{row.affected_roles.map((role) => roleLabel(role, uiLanguage)).join(", ")}</td>
                       <td className="px-4 py-4 text-xs text-slate-600">
-                        <div>Bruger: <strong>{row.user_impact_score}/10</strong></div>
-                        <div>Teknisk: <strong>{row.technical_impact_score}/10</strong></div>
+                        <div>{st("siteFeaturesUser")}: <strong>{row.user_impact_score}/10</strong></div>
+                        <div>{st("siteFeaturesTechnical")}: <strong>{row.technical_impact_score}/10</strong></div>
                       </td>
                       <td className="px-4 py-4">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${recommendationClass(row.publish_recommendation)}`}>
-                          {REC_LABEL[row.publish_recommendation]}
+                          {recommendationLabel(row.publish_recommendation, uiLanguage)}
                         </span>
                       </td>
                       <td className="px-4 py-4">
                         <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${statusClass(row.status)}`}>
-                          {STATUS_LABEL[row.status]}
+                          {statusLabel(row.status, uiLanguage)}
                         </span>
                       </td>
                       <td className="min-w-[230px] px-4 py-4">
                         <div className="flex flex-wrap justify-end gap-2">
                           <button type="button" onClick={() => startEdit(row)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                            <FilePenLine className="h-3.5 w-3.5" /> Redigér
+                            <FilePenLine className="h-3.5 w-3.5" /> {st("siteFeaturesEdit")}
                           </button>
                           {row.status !== "published" && row.status !== "archived" && (
                             <button type="button" disabled={saving} onClick={() => void quickStatus(row, "published")} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
-                              <Send className="h-3.5 w-3.5" /> Publicér
+                              <Send className="h-3.5 w-3.5" /> {st("siteFeaturesPublish")}
                             </button>
                           )}
                           {row.status === "published" && (
                             <button type="button" disabled={saving} onClick={() => void quickStatus(row, "draft")} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">
-                              <Undo2 className="h-3.5 w-3.5" /> Afpublicér
+                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesUnpublish")}
                             </button>
                           )}
                           {row.status !== "archived" ? (
                             <button type="button" disabled={saving} onClick={() => void quickStatus(row, "archived")} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
-                              <Archive className="h-3.5 w-3.5" /> Arkivér
+                              <Archive className="h-3.5 w-3.5" /> {st("siteFeaturesArchive")}
                             </button>
                           ) : (
                             <button type="button" disabled={saving} onClick={() => void quickStatus(row, "draft")} className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">
-                              <Undo2 className="h-3.5 w-3.5" /> Gendan
+                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesRestore")}
                             </button>
                           )}
                         </div>
@@ -509,104 +539,104 @@ export default function BackendChangelogPage() {
                     </tr>
                   ))}
                   {!loadingRows && rows.length === 0 && (
-                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">Ingen ændringer matcher filtrene.</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesNoFilterMatches")}</td></tr>
                   )}
                   {loadingRows && (
-                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">Henter ændringer...</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesLoadingChanges")}</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
             <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
-              <span>{count} ændringer i alt</span>
+              <span>{count} {st("siteFeaturesTotalChanges")}</span>
               <div className="flex items-center gap-2">
-                <button type="button" disabled={page <= 0} onClick={() => { const p = page - 1; setPage(p); void reload(p); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-semibold disabled:opacity-40">Forrige</button>
-                <span>Side {page + 1} / {pageCount}</span>
-                <button type="button" disabled={page >= pageCount - 1} onClick={() => { const p = page + 1; setPage(p); void reload(p); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-semibold disabled:opacity-40">Næste</button>
+                <button type="button" disabled={page <= 0} onClick={() => { const p = page - 1; setPage(p); void reload(p); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-semibold disabled:opacity-40">{st("siteFeaturesPrevious")}</button>
+                <span>{st("siteFeaturesPage")} {page + 1} / {pageCount}</span>
+                <button type="button" disabled={page >= pageCount - 1} onClick={() => { const p = page + 1; setPage(p); void reload(p); }} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-semibold disabled:opacity-40">{st("siteFeaturesNext")}</button>
               </div>
             </div>
           </section>
 
           <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900">{editing ? "Redigér publicering" : "Vælg en ændring"}</h2>
+            <h2 className="text-base font-bold text-slate-900">{editing ? st("siteFeaturesEditPublishing") : st("siteFeaturesSelectChange")}</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Marketing kan omskrive bruger-teksten. Den interne tekniske tekst bevares.
+              {st("siteFeaturesSidePanelHelp")}
             </p>
 
             {editing ? (
               <div className="mt-4 space-y-3 text-sm">
-                <Field label="Implementeret dato">
+                <Field label={st("siteFeaturesImplementedDate")}>
                   <input type="date" value={dateInput(draft.implemented_at)} onChange={(event) => setDraft({ ...draft, implemented_at: toIsoDate(event.target.value) })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
                 </Field>
-                <Field label="Intern titel">
+                <Field label={st("siteFeaturesInternalTitle")}>
                   <input value={draft.title_internal} onChange={(event) => setDraft({ ...draft, title_internal: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
                 </Field>
-                <Field label="Intern beskrivelse">
+                <Field label={st("siteFeaturesInternalDescription")}>
                   <textarea rows={3} value={draft.description_internal || ""} onChange={(event) => setDraft({ ...draft, description_internal: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
                 </Field>
-                <Field label="Teknisk beskrivelse">
+                <Field label={st("siteFeaturesTechnicalDescription")}>
                   <textarea rows={3} value={draft.technical_description || ""} onChange={(event) => setDraft({ ...draft, technical_description: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
                 </Field>
-                <Field label="Publiceret sprog">
+                <Field label={st("siteFeaturesPublishedLanguage")}>
                   <select value={contentLanguage} onChange={(event) => setContentLanguage(event.target.value as PortalUiLanguage)} className="w-full rounded-lg border border-slate-200 px-3 py-2">
                     {PORTAL_LANGUAGES.map((lang) => <option key={lang.code} value={lang.code}>{lang.flag} - {lang.label}</option>)}
                   </select>
                 </Field>
                 <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 text-xs text-emerald-900">
-                  Publicerede tekster gemmes pr. portalsprog. Mangler et sprog, bruger forsiden engelsk og derefter dansk/originaltekst som fallback.
+                  {st("siteFeaturesLocalizedHelp")}
                 </div>
-                <Field label={`Publiceret titel (${languageFlag(contentLanguage)})`}>
+                <Field label={`${st("siteFeaturesPublishedTitle")} (${languageFlag(contentLanguage)})`}>
                   <input
                     value={getLocalizedDraftField(draft, contentLanguage, "title")}
-                    placeholder={contentLanguage === "da" ? draft.title_internal : "Oversat titel"}
+                    placeholder={contentLanguage === "da" ? draft.title_internal : st("siteFeaturesTranslatedTitlePlaceholder")}
                     onChange={(event) => setDraft(updateLocalizedDraftField(draft, contentLanguage, "title", event.target.value))}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2"
                   />
                 </Field>
-                <Field label={`Publiceret tekst (${languageFlag(contentLanguage)})`}>
+                <Field label={`${st("siteFeaturesPublishedText")} (${languageFlag(contentLanguage)})`}>
                   <textarea
                     rows={3}
                     value={getLocalizedDraftField(draft, contentLanguage, "description")}
-                    placeholder={contentLanguage === "da" ? draft.description_internal || "" : "Oversat kort tekst"}
+                    placeholder={contentLanguage === "da" ? draft.description_internal || "" : st("siteFeaturesTranslatedTextPlaceholder")}
                     onChange={(event) => setDraft(updateLocalizedDraftField(draft, contentLanguage, "description", event.target.value))}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2"
                   />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Modul">
+                  <Field label={st("siteFeaturesModule")}>
                     <select value={draft.module} onChange={(event) => setDraft({ ...draft, module: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2">
                       {MODULES.filter((m) => m !== "all").map((m) => <option key={m} value={m}>{m}</option>)}
                     </select>
                   </Field>
-                  <Field label="Type">
+                  <Field label={st("siteFeaturesType")}>
                     <select value={draft.change_type} onChange={(event) => setDraft({ ...draft, change_type: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2">
                       {TYPES.filter((t) => t !== "all").map((t) => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </Field>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <Field label="Brugerimpact">
+                  <Field label={st("siteFeaturesUserImpact")}>
                     <input type="number" min={1} max={10} value={draft.user_impact_score} onChange={(event) => setDraft({ ...draft, user_impact_score: Number(event.target.value) })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
                   </Field>
-                  <Field label="Teknisk impact">
+                  <Field label={st("siteFeaturesTechnicalImpact")}>
                     <input type="number" min={1} max={10} value={draft.technical_impact_score} onChange={(event) => setDraft({ ...draft, technical_impact_score: Number(event.target.value) })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
                   </Field>
                 </div>
                 <button type="button" onClick={autoRecommendation} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Foreslå anbefaling
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {st("siteFeaturesSuggestRecommendation")}
                 </button>
-                <Field label="Anbefaling">
+                <Field label={st("siteFeaturesRecommendation")}>
                   <select value={draft.publish_recommendation} onChange={(event) => setDraft({ ...draft, publish_recommendation: event.target.value as SiteChangeRecommendation })} className="w-full rounded-lg border border-slate-200 px-3 py-2">
-                    {RECOMMENDATIONS.filter((r) => r !== "all").map((r) => <option key={r} value={r}>{REC_LABEL[r]}</option>)}
+                    {RECOMMENDATIONS.filter((r) => r !== "all").map((r) => <option key={r} value={r}>{recommendationLabel(r, uiLanguage)}</option>)}
                   </select>
                 </Field>
-                <Field label="Målgruppe">
+                <Field label={st("siteFeaturesAudience")}>
                   <div className="flex flex-wrap gap-1.5">
                     {ROLES.map((role) => {
                       const active = draft.affected_roles.includes(role);
                       return (
                         <button key={role} type="button" onClick={() => toggleRole(role)} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${active ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}>
-                          {roleLabel(role)}
+                          {roleLabel(role, uiLanguage)}
                         </button>
                       );
                     })}
@@ -614,17 +644,17 @@ export default function BackendChangelogPage() {
                 </Field>
                 <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
                   <input type="checkbox" checked={draft.is_important} onChange={(event) => setDraft({ ...draft, is_important: event.target.checked })} />
-                  <span className="font-semibold text-slate-700">Vigtigt</span>
+                  <span className="font-semibold text-slate-700">{st("siteFeaturesImportant")}</span>
                 </label>
                 <div className="flex flex-wrap gap-2 pt-2">
-                  <button type="button" disabled={saving} onClick={() => void saveDraft()} className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">Gem</button>
-                  <button type="button" disabled={saving} onClick={() => void saveDraft("published")} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">Gem og publicér</button>
-                  <button type="button" onClick={cancelEdit} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Annullér</button>
+                  <button type="button" disabled={saving} onClick={() => void saveDraft()} className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50">{st("siteFeaturesSave")}</button>
+                  <button type="button" disabled={saving} onClick={() => void saveDraft("published")} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{st("siteFeaturesSaveAndPublish")}</button>
+                  <button type="button" onClick={cancelEdit} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{st("siteFeaturesCancel")}</button>
                 </div>
               </div>
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
-                Vælg en ændring i listen for at gennemgå, omskrive, markere vigtig og publicere.
+                {st("siteFeaturesSelectChangeHelp")}
               </div>
             )}
           </aside>
