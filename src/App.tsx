@@ -1,78 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppUserProvider } from "@/context/AppUserContext";
 import { LanguageProvider } from "@/context/LanguageContext";
-import PortalPage from "./pages/PortalPage";
-import PortalAreaPage from "./pages/PortalAreaPage";
-import PortalCrmPage from "./pages/PortalCrmPage";
-import CrmDashboardPage from "./pages/crm/CrmDashboardPage";
-
-import CrmMyDealersPage from "./pages/crm/CrmMyDealersPage";
-import CrmDealerDetailPage from "./pages/crm/CrmDealerDetailPage";
-import CrmAccountDetailPage from "./pages/crm/CrmAccountDetailPage";
-import CrmActivitiesPage from "./pages/crm/CrmActivitiesPage";
-import CrmComingSoonPage from "./pages/crm/CrmComingSoonPage";
-import CrmQuotesOrdersPage from "./pages/crm/CrmQuotesOrdersPage";
-import CrmLeadsPage from "./pages/crm/CrmLeadsPage";
-import CrmLegacyLeadsImportPreviewPage from "./pages/crm/CrmLegacyLeadsImportPreviewPage";
-import CrmLegacyLeadImportPreviewDetailPage from "./pages/crm/CrmLegacyLeadImportPreviewDetailPage";
-import CrmNewLeadPage from "./pages/crm/CrmNewLeadPage";
-import CrmDemoLeadsPage from "./pages/crm/CrmDemoLeadsPage";
-import CrmNewDemoLeadPage from "./pages/crm/CrmNewDemoLeadPage";
-import CrmDemoLeadDetailPage from "./pages/crm/CrmDemoLeadDetailPage";
-import CrmBudgetPage from "./pages/crm/CrmBudgetPage";
-import CrmBudgetDashboardPage from "./pages/crm/CrmBudgetDashboardPage";
-import CrmCalendarPage from "./pages/crm/CrmCalendarPage";
-import ConfiguratorPage from "./pages/ConfiguratorPage";
-import VideoGalleryPage from "./pages/VideoGalleryPage";
-import VideoCategoryPage from "./pages/VideoCategoryPage";
-import ResourcesPage from "./pages/ResourcesPage";
-import DriftberegnerPage from "./pages/DriftberegnerPage";
-import Co2CalculatorPage from "./pages/Co2CalculatorPage";
-import Timan2620TrialPage from "./pages/Timan2620TrialPage";
-import ContractsPage from "./pages/contracts/ContractsPage";
-import ClaimsPage from "./pages/ClaimsPage";
-import ClaimDetailPage from "./pages/ClaimDetailPage";
-import NewClaimPage from "./pages/NewClaimPage";
-import TsbDashboardPage from "./pages/tsb/TsbDashboardPage";
-import TsbListPage from "./pages/tsb/TsbListPage";
-import TsbDetailPage from "./pages/tsb/TsbDetailPage";
-import NewTsbPage from "./pages/tsb/NewTsbPage";
-import TsbDealersPage from "./pages/tsb/TsbDealersPage";
-import TsbMachinesPage from "./pages/tsb/TsbMachinesPage";
-import TsbUsersPage from "./pages/tsb/TsbUsersPage";
-import TsbCountriesPage from "./pages/tsb/TsbCountriesPage";
-import TsbSettingsPage from "./pages/tsb/TsbSettingsPage";
 import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
-import WarrantyPage from "./pages/WarrantyPage";
-
-import ServiceMaintenancePage from "./pages/ServiceMaintenancePage";
-import ServiceRegistrationDetailPage from "./pages/service/ServiceRegistrationDetailPage";
-import ServiceTicketsPage from "./pages/service/ServiceTicketsPage";
-import ServiceTicketDetailPage from "./pages/service/ServiceTicketDetailPage";
-import MachineSearchPage from "./pages/service/MachineSearchPage";
-import MachineJournalPage from "./pages/service/MachineJournalPage";
-
-import BackendUsersPage from "./pages/backend/BackendUsersPage";
-import BackendRolesPage from "./pages/backend/BackendRolesPage";
-import BackendModuleAccessPage from "./pages/backend/BackendModuleAccessPage";
-import BackendAuditLogPage from "./pages/backend/BackendAuditLogPage";
-import NotFound from "./pages/NotFound.tsx";
-import UpdatePasswordPage from "./pages/UpdatePasswordPage";
-
-import MiscPage from "./pages/misc/MiscPage";
-import MiscFormsPage from "./pages/misc/MiscFormsPage";
-import BudgetFeedbackFormPage from "./pages/misc/BudgetFeedbackFormPage";
-import DealerInvoiceAcceptFormPage from "./pages/misc/DealerInvoiceAcceptFormPage";
-import CompanyContactInfoFormPage from "./pages/misc/CompanyContactInfoFormPage";
-import PartnerMapPage from "./pages/misc/PartnerMapPage";
-import DealerDataPage from "./pages/portal/DealerDataPage";
-
 import VisitorTracker from "./components/portal/VisitorTracker";
-import { useEffect, useRef, useState } from "react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { getActiveSellerView, type SellerView } from "@/lib/activeMode";
@@ -152,27 +87,6 @@ function PreferredLanguageBootstrap() {
   ]);
   return null;
 }
-import BackendPortalAnalyticsPage from "./pages/backend/BackendPortalAnalyticsPage";
-import BackendPersistenceAuditPage from "./pages/backend/BackendPersistenceAuditPage";
-import BackendDealerAccountsPage from "./pages/backend/BackendDealerAccountsPage";
-import BackendDealerImportPage from "./pages/backend/BackendDealerImportPage";
-import BackendBudgetImportPage from "./pages/backend/BackendBudgetImportPage";
-import BackendSellersPage from "./pages/backend/BackendSellersPage";
-import BackendPriceListsPage from "./pages/backend/BackendPriceListsPage";
-import BackendDataIntegrationsPage from "./pages/backend/BackendDataIntegrationsPage";
-import BackendChangelogPage from "./pages/backend/BackendChangelogPage";
-import BackendPartnerRelationsPage from "./pages/backend/BackendPartnerRelationsPage";
-import BackendMesseSettingsPage from "./pages/backend/BackendMesseSettingsPage";
-import BackendNewsPage from "./pages/backend/BackendNewsPage";
-import Backend2620TrialsPage from "./pages/backend/Backend2620TrialsPage";
-
-import MesseHomePage from "./pages/messe/MesseHomePage";
-import MesseVideoPage from "./pages/messe/MesseVideoPage";
-import MesseNewsPage from "./pages/messe/MesseNewsPage";
-import MesseTiman2620Page from "./pages/messe/MesseTiman2620Page";
-import MesseFollowUpPage from "./pages/messe/MesseFollowUpPage";
-import MesseMachineBrochurePage from "./pages/messe/MesseMachineBrochurePage";
-import { MesseConfiguratorPage, MessePartnerMapPage } from "./pages/messe/MesseWrappers";
 import { MesseRouteGuard, PortalLockGuard } from "./components/messe/MesseGuards";
 import { DealerUserServiceGuard } from "./components/guards/DealerUserServiceGuard";
 
@@ -183,6 +97,105 @@ ensureAkrSeed();
 
 const queryClient = new QueryClient();
 
+const PortalPage = lazy(() => import("./pages/PortalPage"));
+const PortalAreaPage = lazy(() => import("./pages/PortalAreaPage"));
+const PortalCrmPage = lazy(() => import("./pages/PortalCrmPage"));
+const DealerDataPage = lazy(() => import("./pages/portal/DealerDataPage"));
+const UpdatePasswordPage = lazy(() => import("./pages/UpdatePasswordPage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+const CrmDashboardPage = lazy(() => import("./pages/crm/CrmDashboardPage"));
+const CrmMyDealersPage = lazy(() => import("./pages/crm/CrmMyDealersPage"));
+const CrmDealerDetailPage = lazy(() => import("./pages/crm/CrmDealerDetailPage"));
+const CrmAccountDetailPage = lazy(() => import("./pages/crm/CrmAccountDetailPage"));
+const CrmActivitiesPage = lazy(() => import("./pages/crm/CrmActivitiesPage"));
+const CrmQuotesOrdersPage = lazy(() => import("./pages/crm/CrmQuotesOrdersPage"));
+const CrmLeadsPage = lazy(() => import("./pages/crm/CrmLeadsPage"));
+const CrmLegacyLeadsImportPreviewPage = lazy(() => import("./pages/crm/CrmLegacyLeadsImportPreviewPage"));
+const CrmLegacyLeadImportPreviewDetailPage = lazy(() => import("./pages/crm/CrmLegacyLeadImportPreviewDetailPage"));
+const CrmNewLeadPage = lazy(() => import("./pages/crm/CrmNewLeadPage"));
+const CrmDemoLeadsPage = lazy(() => import("./pages/crm/CrmDemoLeadsPage"));
+const CrmNewDemoLeadPage = lazy(() => import("./pages/crm/CrmNewDemoLeadPage"));
+const CrmDemoLeadDetailPage = lazy(() => import("./pages/crm/CrmDemoLeadDetailPage"));
+const CrmBudgetPage = lazy(() => import("./pages/crm/CrmBudgetPage"));
+const CrmBudgetDashboardPage = lazy(() => import("./pages/crm/CrmBudgetDashboardPage"));
+const CrmCalendarPage = lazy(() => import("./pages/crm/CrmCalendarPage"));
+
+const ConfiguratorPage = lazy(() => import("./pages/ConfiguratorPage"));
+const VideoGalleryPage = lazy(() => import("./pages/VideoGalleryPage"));
+const VideoCategoryPage = lazy(() => import("./pages/VideoCategoryPage"));
+const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
+const DriftberegnerPage = lazy(() => import("./pages/DriftberegnerPage"));
+const Co2CalculatorPage = lazy(() => import("./pages/Co2CalculatorPage"));
+const Timan2620TrialPage = lazy(() => import("./pages/Timan2620TrialPage"));
+const ContractsPage = lazy(() => import("./pages/contracts/ContractsPage"));
+
+const ClaimsPage = lazy(() => import("./pages/ClaimsPage"));
+const ClaimDetailPage = lazy(() => import("./pages/ClaimDetailPage"));
+const NewClaimPage = lazy(() => import("./pages/NewClaimPage"));
+const WarrantyPage = lazy(() => import("./pages/WarrantyPage"));
+const ServiceMaintenancePage = lazy(() => import("./pages/ServiceMaintenancePage"));
+const ServiceRegistrationDetailPage = lazy(() => import("./pages/service/ServiceRegistrationDetailPage"));
+const ServiceTicketsPage = lazy(() => import("./pages/service/ServiceTicketsPage"));
+const ServiceTicketDetailPage = lazy(() => import("./pages/service/ServiceTicketDetailPage"));
+const MachineSearchPage = lazy(() => import("./pages/service/MachineSearchPage"));
+const MachineJournalPage = lazy(() => import("./pages/service/MachineJournalPage"));
+const TsbDashboardPage = lazy(() => import("./pages/tsb/TsbDashboardPage"));
+const TsbListPage = lazy(() => import("./pages/tsb/TsbListPage"));
+const TsbDetailPage = lazy(() => import("./pages/tsb/TsbDetailPage"));
+const NewTsbPage = lazy(() => import("./pages/tsb/NewTsbPage"));
+const TsbDealersPage = lazy(() => import("./pages/tsb/TsbDealersPage"));
+const TsbMachinesPage = lazy(() => import("./pages/tsb/TsbMachinesPage"));
+const TsbUsersPage = lazy(() => import("./pages/tsb/TsbUsersPage"));
+const TsbCountriesPage = lazy(() => import("./pages/tsb/TsbCountriesPage"));
+const TsbSettingsPage = lazy(() => import("./pages/tsb/TsbSettingsPage"));
+
+const BackendUsersPage = lazy(() => import("./pages/backend/BackendUsersPage"));
+const BackendRolesPage = lazy(() => import("./pages/backend/BackendRolesPage"));
+const BackendModuleAccessPage = lazy(() => import("./pages/backend/BackendModuleAccessPage"));
+const BackendAuditLogPage = lazy(() => import("./pages/backend/BackendAuditLogPage"));
+const BackendPortalAnalyticsPage = lazy(() => import("./pages/backend/BackendPortalAnalyticsPage"));
+const BackendPersistenceAuditPage = lazy(() => import("./pages/backend/BackendPersistenceAuditPage"));
+const BackendDealerAccountsPage = lazy(() => import("./pages/backend/BackendDealerAccountsPage"));
+const BackendDealerImportPage = lazy(() => import("./pages/backend/BackendDealerImportPage"));
+const BackendBudgetImportPage = lazy(() => import("./pages/backend/BackendBudgetImportPage"));
+const BackendSellersPage = lazy(() => import("./pages/backend/BackendSellersPage"));
+const BackendPriceListsPage = lazy(() => import("./pages/backend/BackendPriceListsPage"));
+const BackendDataIntegrationsPage = lazy(() => import("./pages/backend/BackendDataIntegrationsPage"));
+const BackendChangelogPage = lazy(() => import("./pages/backend/BackendChangelogPage"));
+const BackendPartnerRelationsPage = lazy(() => import("./pages/backend/BackendPartnerRelationsPage"));
+const BackendMesseSettingsPage = lazy(() => import("./pages/backend/BackendMesseSettingsPage"));
+const BackendNewsPage = lazy(() => import("./pages/backend/BackendNewsPage"));
+const Backend2620TrialsPage = lazy(() => import("./pages/backend/Backend2620TrialsPage"));
+
+const MiscPage = lazy(() => import("./pages/misc/MiscPage"));
+const MiscFormsPage = lazy(() => import("./pages/misc/MiscFormsPage"));
+const BudgetFeedbackFormPage = lazy(() => import("./pages/misc/BudgetFeedbackFormPage"));
+const DealerInvoiceAcceptFormPage = lazy(() => import("./pages/misc/DealerInvoiceAcceptFormPage"));
+const CompanyContactInfoFormPage = lazy(() => import("./pages/misc/CompanyContactInfoFormPage"));
+const PartnerMapPage = lazy(() => import("./pages/misc/PartnerMapPage"));
+
+const MesseHomePage = lazy(() => import("./pages/messe/MesseHomePage"));
+const MesseVideoPage = lazy(() => import("./pages/messe/MesseVideoPage"));
+const MesseNewsPage = lazy(() => import("./pages/messe/MesseNewsPage"));
+const MesseTiman2620Page = lazy(() => import("./pages/messe/MesseTiman2620Page"));
+const MesseFollowUpPage = lazy(() => import("./pages/messe/MesseFollowUpPage"));
+const MesseMachineBrochurePage = lazy(() => import("./pages/messe/MesseMachineBrochurePage"));
+const MesseConfiguratorPage = lazy(() =>
+  import("./pages/messe/MesseWrappers").then((module) => ({ default: module.MesseConfiguratorPage }))
+);
+const MessePartnerMapPage = lazy(() =>
+  import("./pages/messe/MesseWrappers").then((module) => ({ default: module.MessePartnerMapPage }))
+);
+
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">
+      Henter...
+    </div>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -191,6 +204,7 @@ const App = () => (
       <BrowserRouter>
         <AppUserProvider>
           <LanguageProvider>
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               {/* Public Timan Messe / exhibition routes (no auth required) */}
               <Route path="/messe" element={<MesseRouteGuard><MesseHomePage /></MesseRouteGuard>} />
@@ -310,6 +324,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
             <VisitorTracker />
             <PreferredLanguageBootstrap />
           </LanguageProvider>
