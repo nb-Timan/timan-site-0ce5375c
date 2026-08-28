@@ -325,7 +325,7 @@ function OverviewPill({
 
 function SystemOverview({ selectedId, onSelect }: { selectedId: SystemMapNodeId; onSelect: (id: SystemMapNodeId) => void }) {
   return (
-    <section className="relative h-[860px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+    <section className="relative h-[720px] overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_#eef2ff_0,_#ffffff_38%,_#f8fafc_100%)]" />
 
       <div className="absolute left-5 top-5 z-10 rounded-2xl border border-slate-200 bg-white/92 p-3 shadow-sm">
@@ -396,29 +396,6 @@ function SystemOverview({ selectedId, onSelect }: { selectedId: SystemMapNodeId;
         const node = findSystemMapNode(id);
         return <OverviewPill key={`${node.id}-output`} node={node} selected={selectedId === node.id} onSelect={onSelect} compact />;
       })}
-
-      <div className="absolute bottom-5 left-5 right-5 grid gap-4 md:grid-cols-4">
-        <OverviewStatusCard title="System status" rows={["System: Aktiv", "Database: Aktiv", "Integrationer: Aktiv", "Storage: Aktiv"]} />
-        <OverviewStatusCard title="Dataflow i dag" rows={["Ingen live-tal endnu", "Klar til server-side metrics"]} />
-        <OverviewStatusCard title="Performance" rows={["Ingen live-tal endnu", "Brug Portal Analytics til faktisk måling"]} />
-        <OverviewStatusCard title="Seneste hændelser" rows={["Se Audit Log og Data & Integrationer", "Ingen fiktive hændelser vist"]} />
-      </div>
-    </section>
-  );
-}
-
-function OverviewStatusCard({ title, rows }: { title: string; rows: string[] }) {
-  return (
-    <section className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
-      <h3 className="text-xs font-black uppercase tracking-wide text-slate-500">{title}</h3>
-      <div className="mt-3 space-y-2">
-        {rows.map((row) => (
-          <div key={row} className="flex items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600">
-            <span className="truncate">{row}</span>
-            {row.includes("Aktiv") && <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" />}
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
@@ -443,6 +420,7 @@ function DnaNode({
   const showSubtitle = zoom >= 0.72;
   const showDetails = zoom >= 1.18;
   const isCompact = node.kind === "data" || node.kind === "technical";
+  const isProcessNode = node.kind === "process" || node.kind === "tool";
   return (
     <button
       type="button"
@@ -450,6 +428,7 @@ function DnaNode({
       className={[
         "absolute -translate-x-1/2 -translate-y-1/2 rounded-2xl border text-left shadow-2xl backdrop-blur transition",
         isCompact ? "w-[190px] p-2.5" : node.kind === "portal" ? "w-[270px] p-4" : "w-[230px] p-3",
+        isProcessNode ? "border-dashed" : "",
         colors.dna,
         selected ? "ring-2 ring-white" : "",
         active ? "opacity-100" : dimmed ? "opacity-20" : "opacity-90",

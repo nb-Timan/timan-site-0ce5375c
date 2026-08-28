@@ -35,7 +35,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type SystemMapNodeKind = "portal" | "module" | "feature" | "data" | "technical" | "integration";
+export type SystemMapNodeKind = "portal" | "module" | "feature" | "data" | "technical" | "integration" | "process" | "tool";
 export type SystemMapArea = "crm" | "sales" | "marketing" | "dealer_data" | "service" | "messe" | "import" | "system";
 export type SystemMapNodeId = string;
 
@@ -450,6 +450,14 @@ const featureNodes: SystemMapNode[] = [
   node("portal_analytics", "Portal Analytics", "Modulbrug", "feature", "system", "system_admin", 1880, 1880, 1.05, BarChart3, ["portal_module_usage", "guest_sessions"], ["portalModuleUsageAnalyticsService"], ["/portal/backend/portal-analytics"], "Portal Analytics viser brug af moduler og aktiv tid."),
   node("route_guards", "Route guards", "Adgang og redirect", "technical", "system", "roles_access", 1660, 1990, 1.35, Route, ["app_users"], ["portalAccess", "MesseRouteGuard", "TsbAccessGuard"], ["/portal"], "Route guards sikrer adgang efter effektiv rolle og tilvalg."),
   node("edge_functions", "Edge Functions / RPC", "Server-side logik", "technical", "system", "supabase", 520, 1500, 1.4, Server, ["Supabase RPC", "Edge Functions"], ["admin-user-actions", "geocode-dealers"], [], "Server-side funktioner bruges til admin-handlinger, imports og KPI'er."),
+  node("product_owner", "Product Owner / Idé", "Forbedringsønsker", "process", "system", "system_admin", 470, 2100, 1.05, Sparkles, ["AGENTS.md", "pasted task prompts"], ["Codex task flow"], [], "Idéer og konkrete ønsker starter som menneskelig prioritering, før de bliver til kodeændringer."),
+  node("codex_agent", "Codex", "Udviklingsagent", "tool", "system", "product_owner", 720, 2100, 1.05, Sparkles, ["working tree"], ["Codex", "npm scripts", "Supabase CLI"], [], "Codex arbejder i kodebasen, tester ændringer og sender relevante commits gennem Git/GitHub."),
+  node("codebase", "Kodebase", "React, Vite og Supabase", "technical", "system", "codex_agent", 970, 2100, 1.05, GitBranch, ["src", "supabase", ".github"], ["Vite", "Vitest", "Supabase migrations"], [], "Kodebasen indeholder portalens frontend, tests, workflows og databaseændringer."),
+  node("github_repo", "GitHub", "Versioner og main branch", "technical", "system", "codebase", 1220, 2100, 1.05, GitBranch, [".git", "origin/main"], ["Git", "GitHub repository"], [], "GitHub er versionshistorik og forbindelsen videre til workflows og Lovable-sync."),
+  node("github_actions", "GitHub Actions", "Workflows", "tool", "system", "github_repo", 1470, 2100, 1.12, Activity, [".github/workflows"], ["build/test workflows", "Import site changes"], [], "GitHub Actions kører de workflows, der faktisk findes i repoet, når de er aktiveret og konfigureret."),
+  node("test_build", "Tests / build", "Kvalitetskontrol", "technical", "system", "github_actions", 1720, 2100, 1.12, Gauge, ["package.json", "vitest.config.ts"], ["npm run test", "npm run build", "git diff --check"], [], "Tests og build validerer ændringer før de bruges som grundlag for deployment."),
+  node("lovable_deploy", "Lovable / Deployment", "Preview og produktion", "tool", "system", "test_build", 1970, 2100, 1.12, Upload, ["dist", "public/runtime-config.js"], ["Lovable sync", "Vite build"], [], "Lovable bygger/deployer frontend ud fra GitHub-flowet og bruger public runtime config ved behov."),
+  node("supabase_migrations", "Supabase migrations", "Databaseændringer", "technical", "system", "codebase", 1220, 1930, 1.18, Database, ["supabase/migrations", "Supabase RPC", "Edge Functions"], ["Supabase CLI"], [], "Supabase migrations og RPC'er deployes særskilt, når en ændring kræver database- eller server-side logik."),
 ];
 
 function node(
@@ -556,6 +564,15 @@ export const systemDnaEdges: SystemMapEdge[] = [
   { from: "audit_log", to: "users_admin", label: "logger", kind: "data", minZoom: 1.1 },
   { from: "portal_analytics", to: "portal", label: "brug", kind: "data", minZoom: 1.05 },
   { from: "edge_functions", to: "supabase", label: "server", kind: "data", minZoom: 1.35 },
+  { from: "product_owner", to: "codex_agent", label: "opgave", kind: "data", minZoom: 1.0 },
+  { from: "codex_agent", to: "codebase", label: "ændrer kode", kind: "data", minZoom: 1.0 },
+  { from: "codebase", to: "github_repo", label: "commit/push", kind: "sync", minZoom: 1.0 },
+  { from: "github_repo", to: "github_actions", label: "workflow", kind: "sync", minZoom: 1.08 },
+  { from: "github_actions", to: "test_build", label: "validerer", kind: "sync", minZoom: 1.08 },
+  { from: "test_build", to: "lovable_deploy", label: "klar til deploy", kind: "sync", minZoom: 1.08 },
+  { from: "lovable_deploy", to: "portal", label: "frontend", kind: "data", minZoom: 1.08 },
+  { from: "codebase", to: "supabase_migrations", label: "migration/RPC", kind: "sync", minZoom: 1.12 },
+  { from: "supabase_migrations", to: "supabase", label: "deploy", kind: "sync", minZoom: 1.12 },
 ];
 
 export const featuredDataFlow: SystemMapNodeId[] = [

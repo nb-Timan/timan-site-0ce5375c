@@ -44,7 +44,7 @@ describe("Backend system dataflow map", () => {
 
   it("keeps the expanded DNA model connected to real nodes", () => {
     const ids = new Set<SystemMapNodeId>(systemDnaNodes.map((node) => node.id));
-    const validKinds = new Set(["portal", "module", "feature", "data", "technical", "integration"]);
+    const validKinds = new Set(["portal", "module", "feature", "data", "technical", "integration", "process", "tool"]);
     const validAreas = new Set(["crm", "sales", "marketing", "dealer_data", "service", "messe", "import", "system"]);
     const missingEdges = systemDnaEdges.flatMap((edge) => [
       ...(ids.has(edge.from) ? [] : [`missing source: ${edge.from} -> ${edge.to}`]),
@@ -74,5 +74,33 @@ describe("Backend system dataflow map", () => {
     for (const nodeId of featuredDataFlow) {
       expect(ids.has(nodeId)).toBe(true);
     }
+  });
+
+  it("models the actual development and deployment flow in System DNA", () => {
+    const ids = new Set(systemDnaNodes.map((node) => node.id));
+    const edgeKeys = new Set(systemDnaEdges.map((edge) => `${edge.from}->${edge.to}`));
+
+    for (const nodeId of [
+      "product_owner",
+      "codex_agent",
+      "codebase",
+      "github_repo",
+      "github_actions",
+      "test_build",
+      "lovable_deploy",
+      "supabase_migrations",
+    ]) {
+      expect(ids.has(nodeId)).toBe(true);
+    }
+
+    expect(edgeKeys.has("product_owner->codex_agent")).toBe(true);
+    expect(edgeKeys.has("codex_agent->codebase")).toBe(true);
+    expect(edgeKeys.has("codebase->github_repo")).toBe(true);
+    expect(edgeKeys.has("github_repo->github_actions")).toBe(true);
+    expect(edgeKeys.has("github_actions->test_build")).toBe(true);
+    expect(edgeKeys.has("test_build->lovable_deploy")).toBe(true);
+    expect(edgeKeys.has("lovable_deploy->portal")).toBe(true);
+    expect(edgeKeys.has("codebase->supabase_migrations")).toBe(true);
+    expect(edgeKeys.has("supabase_migrations->supabase")).toBe(true);
   });
 });
