@@ -242,7 +242,7 @@ function DetailModal({ node, onClose, onDna }: { node: SystemMapNode | null; onC
         )}
 
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <DetailList title="Children" items={children.map((child) => child.title)} />
+          <DetailList title="Underfunktioner" items={children.map((child) => child.title)} />
           <DetailList title="Routes" items={node.routes} />
           <DetailList title="Tabeller / data" items={node.tables} />
           <DetailList title="Services" items={node.services} />
@@ -308,7 +308,7 @@ function OverviewPill({
         <span className="block truncate text-xs font-semibold text-slate-500">{node.subtitle}</span>
         {compact && (
           <span className="mt-2 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700">
-            Aktiv
+            Registreret
           </span>
         )}
         {!compact && (
