@@ -1,9 +1,13 @@
 name: Import site changes
 
+# Temporarily manual only.
+# Re-enable automatic import by adding the push trigger back when these
+# repository secrets are configured:
+# - SUPABASE_FUNCTION_URL
+# - SUPABASE_ANON_KEY
+# - SITE_CHANGE_SYNC_SECRET
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   import-site-changes:
