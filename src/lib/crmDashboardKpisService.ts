@@ -66,6 +66,21 @@ export type CrmDashboardQuoteOrderKpis = {
   orderRows: Array<Record<string, unknown>>;
 };
 
+export type CrmDashboardSalesOutcomeKpis = {
+  wonOrdersCount: number;
+  lostCount: number;
+  winRate: number;
+  avgSalesDays: number;
+  salesCyclesCount: number;
+  rawRecordsScanned: {
+    configurations: number;
+    orders: number;
+    crmActivities: number;
+    lostActivities: number;
+    quoteCreatedActivities: number;
+  };
+};
+
 type RpcPayload = {
   active_leads?: number;
   lead_count?: number;
@@ -113,6 +128,21 @@ type QuoteOrderRpcPayload = {
   order_rows?: unknown;
 };
 
+type SalesOutcomeRpcPayload = {
+  won_orders_count?: number;
+  lost_count?: number;
+  win_rate?: number;
+  avg_sales_days?: number;
+  sales_cycles_count?: number;
+  raw_records_scanned?: {
+    configurations?: number;
+    orders?: number;
+    crm_activities?: number;
+    lost_activities?: number;
+    quote_created_activities?: number;
+  };
+};
+
 function numberValue(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {
@@ -153,6 +183,23 @@ function mapQuoteOrderPayload(payload: QuoteOrderRpcPayload): CrmDashboardQuoteO
       won: rows(payload.stage_rows?.won),
     },
     orderRows: rawRows(payload.order_rows),
+  };
+}
+
+function mapSalesOutcomePayload(payload: SalesOutcomeRpcPayload): CrmDashboardSalesOutcomeKpis {
+  return {
+    wonOrdersCount: numberValue(payload.won_orders_count),
+    lostCount: numberValue(payload.lost_count),
+    winRate: numberValue(payload.win_rate),
+    avgSalesDays: numberValue(payload.avg_sales_days),
+    salesCyclesCount: numberValue(payload.sales_cycles_count),
+    rawRecordsScanned: {
+      configurations: numberValue(payload.raw_records_scanned?.configurations),
+      orders: numberValue(payload.raw_records_scanned?.orders),
+      crmActivities: numberValue(payload.raw_records_scanned?.crm_activities),
+      lostActivities: numberValue(payload.raw_records_scanned?.lost_activities),
+      quoteCreatedActivities: numberValue(payload.raw_records_scanned?.quote_created_activities),
+    },
   };
 }
 
@@ -220,4 +267,23 @@ export async function fetchCrmDashboardQuoteOrderKpis(opts: {
   }
 
   return mapQuoteOrderPayload((data || {}) as QuoteOrderRpcPayload);
+}
+
+export async function fetchCrmDashboardSalesOutcomeKpis(opts: {
+  sellerUserId?: string | null;
+  sellerInitials?: string | null;
+  sellerEmail?: string | null;
+}): Promise<CrmDashboardSalesOutcomeKpis | null> {
+  const { data, error } = await supabase.rpc("crm_dashboard_sales_outcome_kpis", {
+    p_seller_user_id: opts.sellerUserId || null,
+    p_seller_initials: opts.sellerInitials || null,
+    p_seller_email: opts.sellerEmail || null,
+  });
+
+  if (error) {
+    console.warn("[crmDashboardKpis] sales outcome rpc failed, dashboard will use local calculation:", error);
+    return null;
+  }
+
+  return mapSalesOutcomePayload((data || {}) as SalesOutcomeRpcPayload);
 }

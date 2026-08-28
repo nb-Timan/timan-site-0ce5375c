@@ -34,8 +34,10 @@ import { getLeadPipelineValue } from '@/lib/crmPipelineValue';
 import {
   fetchCrmDashboardLeadKpis,
   fetchCrmDashboardQuoteOrderKpis,
+  fetchCrmDashboardSalesOutcomeKpis,
   type CrmDashboardLeadKpis,
   type CrmDashboardQuoteOrderKpis,
+  type CrmDashboardSalesOutcomeKpis,
 } from '@/lib/crmDashboardKpisService';
 import { Language } from '@/types/configurator';
 import {
@@ -215,6 +217,7 @@ export default function CrmDashboardPage() {
   const [calendar, setCalendar] = useState<CalendarActivity[]>([]);
   const [serverLeadKpis, setServerLeadKpis] = useState<CrmDashboardLeadKpis | null>(null);
   const [serverQuoteOrderKpis, setServerQuoteOrderKpis] = useState<CrmDashboardQuoteOrderKpis | null>(null);
+  const [serverSalesOutcomeKpis, setServerSalesOutcomeKpis] = useState<CrmDashboardSalesOutcomeKpis | null>(null);
   const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [openStage, setOpenStage] = useState<StageMeta['key'] | null>(null);
@@ -279,6 +282,11 @@ export default function CrmDashboardPage() {
         sellerInitials: effectiveAdmin ? null : sellerInitials,
         sellerEmail: effectiveAdmin ? null : sellerEmail,
       });
+      const salesOutcomeKpis = externalCrm ? null : await fetchCrmDashboardSalesOutcomeKpis({
+        sellerUserId: effectiveAdmin ? null : sid,
+        sellerInitials: effectiveAdmin ? null : sellerInitials,
+        sellerEmail: effectiveAdmin ? null : sellerEmail,
+      });
       let orderRows: CrmOrderWithValue[] = [];
       let quoteRows: ScopedConfiguration[] = [];
       if (quoteOrderKpis) {
@@ -322,6 +330,7 @@ export default function CrmDashboardPage() {
       setCalendar(cal);
       setServerLeadKpis(rpcKpis);
       setServerQuoteOrderKpis(quoteOrderKpis);
+      setServerSalesOutcomeKpis(salesOutcomeKpis);
     })();
     return () => { cancelled = true; };
   }, [appUser?.email, effectiveUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, externalCrm, topSellerInitials, leadRefreshToken]);
@@ -377,9 +386,11 @@ export default function CrmDashboardPage() {
       leadsPctChange: pctChange(leadsThis, leadsPrev),
       pipelineValue,
       pipelineValueEur,
+      winRate: serverSalesOutcomeKpis?.winRate ?? base.winRate,
+      avgSalesDays: serverSalesOutcomeKpis?.avgSalesDays ?? base.avgSalesDays,
       pipelineByStage: byStage,
     };
-  }, [activities, orders, isAdmin, pipelineRows, openQuotes, serverQuoteOrderKpis]);
+  }, [activities, orders, isAdmin, pipelineRows, openQuotes, serverQuoteOrderKpis, serverSalesOutcomeKpis]);
 
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
