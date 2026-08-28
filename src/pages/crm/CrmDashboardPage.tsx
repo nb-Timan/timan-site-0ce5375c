@@ -477,15 +477,15 @@ export default function CrmDashboardPage() {
                   style={{ background: 'radial-gradient(closest-side, rgba(16,185,129,0.6), transparent 70%)' }}
                 />
                 {/* Main metric */}
-                <div className="relative min-w-0">
-                  <div className="flex items-center gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
                     <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm shrink-0">
                       <Target className="h-3 w-3" strokeWidth={2} />
                     </div>
-                    <p className="text-[10px] uppercase tracking-[0.12em] text-emerald-100/80 font-semibold whitespace-nowrap">
+                    <p className="min-w-0 truncate text-[10px] uppercase tracking-[0.12em] text-emerald-100/80 font-semibold">
                       {T.kpi_pipeline[lang]}
                     </p>
-                    <div className="ml-2">
+                    <div className="ml-1 shrink-0">
                       <HeroTrend pct={metrics.pipelinePctChange} lang={lang} />
                     </div>
                   </div>
@@ -499,7 +499,7 @@ export default function CrmDashboardPage() {
                   )}
                 </div>
                 {/* Compact sparkline */}
-                <div className="relative hidden sm:block w-16 h-8 shrink-0 opacity-90 -ml-1">
+                <div className="relative hidden sm:block w-10 xl:w-14 h-8 shrink-0 opacity-90 -ml-1">
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={trend30}>
                       <Line type="monotone" dataKey="value" stroke="#a7f3d0" strokeWidth={1.75} dot={false} isAnimationActive={false} />
@@ -507,14 +507,14 @@ export default function CrmDashboardPage() {
                   </ResponsiveContainer>
                 </div>
                 {/* Embedded KPI slot — separated by a thin divider */}
-                <div className="relative shrink-0 w-[112px] pl-3 ml-auto border-l border-white/15 flex flex-col items-start justify-center gap-1">
-                  <div className="flex items-center gap-1">
-                    <Sparkles className="h-3 w-3 text-emerald-100/80" strokeWidth={2} />
-                    <p className="text-[9.5px] uppercase tracking-[0.1em] text-emerald-100/80 font-semibold whitespace-nowrap">
+                <div className="relative mr-2 shrink-0 w-[136px] max-w-[40%] pl-3 border-l border-white/15 flex flex-col items-start justify-center gap-1">
+                  <div className="flex w-full min-w-0 items-start gap-1">
+                    <Sparkles className="mt-px h-3 w-3 shrink-0 text-emerald-100/80" strokeWidth={2} />
+                    <p className="min-w-0 text-[9.5px] uppercase tracking-[0.06em] leading-[1.05] text-emerald-100/80 font-semibold">
                       {T.kpi_leads[lang]}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-nowrap items-center gap-2">
                     <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums">
                       {metrics.activeLeads}
                     </p>
@@ -533,15 +533,15 @@ export default function CrmDashboardPage() {
                   style={{ background: 'radial-gradient(closest-side, rgba(56,189,248,0.55), transparent 70%)' }}
                 />
                 {/* Main metric */}
-                <div className="relative min-w-0">
-                  <div className="flex items-center gap-2">
+                <div className="relative min-w-0 flex-1">
+                  <div className="flex min-w-0 items-center gap-2">
                     <div className="h-6 w-6 rounded-lg bg-white/10 ring-1 ring-white/20 flex items-center justify-center backdrop-blur-sm shrink-0">
                       <ShoppingCart className="h-3 w-3" strokeWidth={2} />
                     </div>
-                    <p className="text-[10px] uppercase tracking-[0.12em] text-sky-100/80 font-semibold whitespace-nowrap">
+                    <p className="min-w-0 truncate text-[10px] uppercase tracking-[0.12em] text-sky-100/80 font-semibold">
                       {T.kpi_closed[lang]}
                     </p>
-                    <div className="ml-2">
+                    <div className="ml-1 shrink-0">
                       <HeroTrend pct={metrics.closedPctChange} lang={lang} />
                     </div>
                   </div>
@@ -555,7 +555,7 @@ export default function CrmDashboardPage() {
                   )}
                 </div>
                 {/* Compact bar chart */}
-                <div className="relative hidden sm:flex items-end gap-[2px] w-16 h-8 shrink-0 -ml-1">
+                <div className="relative hidden sm:flex items-end gap-[2px] w-10 xl:w-14 h-8 shrink-0 -ml-1">
                   {CLOSED_BARS.map((h, i) => (
                     <span
                       key={i}
@@ -565,14 +565,14 @@ export default function CrmDashboardPage() {
                   ))}
                 </div>
                 {/* Embedded KPI slot — separated by a thin divider */}
-                <div className="relative shrink-0 w-[112px] pl-3 ml-auto border-l border-white/15 flex flex-col items-start justify-center gap-1">
-                  <div className="flex items-center gap-1">
-                    <Trophy className="h-3 w-3 text-sky-100/80" strokeWidth={2} />
-                    <p className="text-[9.5px] uppercase tracking-[0.1em] text-sky-100/80 font-semibold whitespace-nowrap">
+                <div className="relative mr-2 shrink-0 w-[136px] max-w-[40%] pl-3 border-l border-white/15 flex flex-col items-start justify-center gap-1">
+                  <div className="flex w-full min-w-0 items-start gap-1">
+                    <Trophy className="mt-px h-3 w-3 shrink-0 text-sky-100/80" strokeWidth={2} />
+                    <p className="min-w-0 text-[9.5px] uppercase tracking-[0.06em] leading-[1.05] text-sky-100/80 font-semibold">
                       {T.kpi_won[lang]}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-nowrap items-center gap-1.5">
                     <p className="text-[1.15rem] leading-none font-bold tracking-tight tabular-nums">
                       {metrics.wonOrdersCount}
                     </p>
