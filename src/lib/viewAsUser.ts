@@ -84,7 +84,22 @@ export function clearViewAsCache(email?: string | null) {
  * `appUser` reference unchanged.
  */
 export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser | null {
+  const state = useEffectivePortalUserState(appUser);
+  return state.effectiveUser ?? appUser;
+}
+
+/**
+ * Same resolver as useEffectivePortalUser, but also exposes whether a
+ * concrete view-as user is still being loaded. Route guards should wait for
+ * this before redirecting, otherwise they can briefly evaluate a mixed state:
+ * active preview role + real backend user's own access fields.
+ */
+export function useEffectivePortalUserState(appUser: SessionUser | null): {
+  effectiveUser: SessionUser | null;
+  resolving: boolean;
+} {
   const [target, setTarget] = useState<SessionUser | null>(null);
+  const [resolving, setResolving] = useState(false);
   const [rev, setRev] = useState(0);
 
   // Listen for view-as switches and user-edit-driven cache busts.
@@ -95,51 +110,73 @@ export function useEffectivePortalUser(appUser: SessionUser | null): SessionUser
   }, []);
 
   useEffect(() => {
-    if (!appUser || !canSwitchMode(appUser)) { setTarget(null); return; }
+    if (!appUser || !canSwitchMode(appUser)) { setTarget(null); setResolving(false); return; }
     const viewUser = getActiveUserView(appUser.email);
-    if (!viewUser) { setTarget(null); return; }
+    if (!viewUser) { setTarget(null); setResolving(false); return; }
     let cancelled = false;
-    fetchUserByEmail(viewUser.email).then((u) => { if (!cancelled) setTarget(u); });
+    setResolving(true);
+    fetchUserByEmail(viewUser.email)
+      .then((u) => {
+        if (cancelled) return;
+        setTarget(u);
+        setResolving(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setTarget(null);
+        setResolving(false);
+      });
     return () => { cancelled = true; };
   }, [appUser, rev]);
 
-  if (!appUser) return null;
-  if (!canSwitchMode(appUser)) return appUser;
+  if (!appUser) return { effectiveUser: null, resolving: false };
+  if (!canSwitchMode(appUser)) return { effectiveUser: appUser, resolving: false };
 
   // Role preview (no actual user row to fetch — clear module_access so
   // role defaults apply).
   const mode = getActiveMode(appUser.email);
+  const viewUser = getActiveUserView(appUser.email);
   if (typeof mode === 'string' && mode.startsWith('role:')) {
     const preview = getActiveRolePreview(appUser.email);
-    if (!preview) return appUser;
+    if (!preview) return { effectiveUser: appUser, resolving: false };
     return {
-      ...appUser,
-      portal_role: preview.key,
-      module_access: null,
-      allowed_areas: null,
-      allowed_modules: null,
-      permissions: null,
-      quick_actions: null,
+      effectiveUser: {
+        ...appUser,
+        portal_role: preview.key,
+        module_access: null,
+        allowed_areas: null,
+        allowed_modules: null,
+        permissions: null,
+        quick_actions: null,
+      },
+      resolving: false,
     };
+  }
+
+  if (viewUser && !target) {
+    return { effectiveUser: null, resolving: true };
   }
 
   if (target) {
     return {
-      ...appUser,
-      role: target.role,
-      partner_type: target.partner_type,
-      can_view_prices: target.can_view_prices,
-      can_submit_order: target.can_submit_order,
-      portal_role: target.portal_role ?? appUser.portal_role,
-      module_access: target.module_access ?? null,
-      allowed_areas: target.allowed_areas ?? null,
-      allowed_modules: target.allowed_modules ?? null,
-      permissions: target.permissions ?? null,
-      quick_actions: target.quick_actions ?? null,
-      portal_variant: target.portal_variant ?? appUser.portal_variant,
-      dealer_number: target.dealer_number ?? null,
-      company_dealer: target.company_dealer ?? null,
+      effectiveUser: {
+        ...appUser,
+        role: target.role,
+        partner_type: target.partner_type,
+        can_view_prices: target.can_view_prices,
+        can_submit_order: target.can_submit_order,
+        portal_role: target.portal_role ?? appUser.portal_role,
+        module_access: target.module_access ?? null,
+        allowed_areas: target.allowed_areas ?? null,
+        allowed_modules: target.allowed_modules ?? null,
+        permissions: target.permissions ?? null,
+        quick_actions: target.quick_actions ?? null,
+        portal_variant: target.portal_variant ?? appUser.portal_variant,
+        dealer_number: target.dealer_number ?? null,
+        company_dealer: target.company_dealer ?? null,
+      },
+      resolving: false,
     };
   }
-  return appUser;
+  return { effectiveUser: appUser, resolving };
 }

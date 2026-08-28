@@ -12,6 +12,7 @@ import {
   setActiveMode,
   USER_VIEWS,
   ROLE_PREVIEWS,
+  getUserViewByEmail,
   type ActiveMode,
   type UserView,
 } from '@/lib/activeMode';
@@ -61,7 +62,9 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
     ? ROLE_PREVIEWS.find((r) => `role:${r.key}` === activeMode) || null
     : null;
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
-  const backendUserLabel = `TB – ${t('portalHeaderBackendMode', uiLanguage)}`;
+  const ownBackendView = getUserViewByEmail(user.email);
+  const backendInitials = ownBackendView?.initials || 'TB';
+  const backendUserLabel = `${backendInitials} – ${t('portalHeaderBackendMode', uiLanguage)}`;
 
   function userViewRoleLabel(v: UserView): string {
     if (v.viewRole === 'dealer') return t('quickActionsContextDealer', uiLanguage);

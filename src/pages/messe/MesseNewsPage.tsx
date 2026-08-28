@@ -24,7 +24,7 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { canManageNewsContent } from '@/lib/portalAccess';
-import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Button } from '@/components/ui/button';
 import { getNewsTemplate } from '@/features/news-cms/templates/registry';
 import type { NewsTemplateId } from '@/features/news-cms/templates/types';
@@ -70,7 +70,7 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
   const { appUser, loading, logout } = useAppUser();
   const navigate = useNavigate();
   const isMarketingMode = mode === 'marketing';
-  const effectiveUser = useEffectivePortalUser(appUser);
+  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const canManage = useMemo(() => canManageNewsContent(effectiveUser), [effectiveUser]);
 
   const loadNews = async () => {
@@ -106,10 +106,6 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
     };
   }, [appUser, canManage, isMarketingMode, loading, uiLanguage]);
 
-  if (loading) return <div className="min-h-screen bg-slate-50" />;
-  if (!appUser) return isMarketingMode ? <Navigate to="/portal" replace /> : null;
-  if (isMarketingMode && !canManage) return <Navigate to="/portal/marketing" replace />;
-
   const cardClass =
     'group relative text-left bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm flex flex-col h-full transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-slate-300 cursor-pointer';
 
@@ -136,6 +132,10 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
   );
   const showCuratedFallback = !isMarketingMode && (news ?? []).length === 0;
   const hasActiveTopicFilter = machineFilter !== 'all' || attachmentFilter !== 'all';
+
+  if (loading || resolvingEffectiveUser) return <div className="min-h-screen bg-slate-50" />;
+  if (!appUser) return isMarketingMode ? <Navigate to="/portal" replace /> : null;
+  if (isMarketingMode && !canManage) return <Navigate to="/portal/marketing" replace />;
 
   const updateStatus = async (event: React.MouseEvent, post: NewsPost, status: NewsStatus) => {
     event.stopPropagation();

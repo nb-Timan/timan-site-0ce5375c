@@ -13,7 +13,7 @@ import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
 import { canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
-import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
 
@@ -77,7 +77,7 @@ export default function PortalAreaPage({ areaId }: Props) {
   const navigate = useNavigate();
   // Hooks must run unconditionally on every render — keep this above all
   // early returns so the hook count is stable while `loading` flips.
-  const effectiveUser = useEffectivePortalUser(appUser);
+  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const { markAreaRead, submoduleBadge, markSubmoduleRead, moduleBadge } = useChangelog(appUser, lang);
   useEffect(() => {
     // Mark only module-level area entries read on mount. Submodule-tagged
@@ -86,7 +86,7 @@ export default function PortalAreaPage({ areaId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [areaId, appUser?.email]);
 
-  if (loading) {
+  if (loading || resolvingEffectiveUser) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;

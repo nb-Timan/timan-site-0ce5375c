@@ -11,7 +11,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { canManageNewsContent } from "@/lib/portalAccess";
-import { useEffectivePortalUser } from "@/lib/viewAsUser";
+import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 import {
   adminListChangelog,
   adminUpdateChangelog,
@@ -203,7 +203,7 @@ export default function BackendChangelogPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const effectiveUser = useEffectivePortalUser(appUser);
+  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const canManage = useMemo(() => canManageNewsContent(effectiveUser), [effectiveUser]);
 
   const [rows, setRows] = useState<SiteChangeEntryRow[]>([]);
@@ -339,7 +339,7 @@ export default function BackendChangelogPage() {
     await reload(0);
   };
 
-  if (loading) return <div className="min-h-screen bg-slate-50" />;
+  if (loading || resolvingEffectiveUser) return <div className="min-h-screen bg-slate-50" />;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!canManage) return <Navigate to="/portal/marketing" replace />;
 

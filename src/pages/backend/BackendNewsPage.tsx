@@ -15,7 +15,7 @@ import type { NewsTemplateId } from '@/features/news-cms/templates/types';
 import { t } from '@/lib/i18n/translations';
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { canManageNewsContent } from '@/lib/portalAccess';
-import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import {
   getAttachmentOptionsForMachine,
   getCombinedAttachmentOptions,
@@ -131,7 +131,7 @@ export default function BackendNewsPage() {
   const [sortKey, setSortKey] = useState<SortKey>('manual');
   const [draggingPostId, setDraggingPostId] = useState<string | null>(null);
 
-  const effectiveUser = useEffectivePortalUser(appUser);
+  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const canManage = useMemo(() => canManageNewsContent(effectiveUser), [effectiveUser]);
 
   const reload = async () => {
@@ -308,7 +308,7 @@ export default function BackendNewsPage() {
     await reload();
   };
 
-  if (loading) return <div className="min-h-screen bg-slate-50" />;
+  if (loading || resolvingEffectiveUser) return <div className="min-h-screen bg-slate-50" />;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!canManage) return <Navigate to="/portal/backend" replace />;
 
