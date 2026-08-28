@@ -13,8 +13,8 @@ import { getActiveSellerView } from '@/lib/activeMode';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { resolveSellerDisplay, useSellerDirectory, type SellerDirectory } from '@/lib/sellerDirectory';
 import {
-  listLeads, listDemoLeads, resolveSeedOwners, updateLead, getLead, deleteLead, deleteDemoLead,
-  CrmLead, CrmDemoLead, type CrmLeadAttachment, type CrmLeadAttachmentPreview,
+  listLeadsPage, updateLead, getLead, deleteLead, deleteDemoLead,
+  CrmLead, type CrmLeadAttachment, type CrmLeadAttachmentPreview, type CrmLeadsPageQueryResult,
   formatLeadNo, formatDemoNo,
   LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   getLeadAttachmentSignedUrls, getLeadImageAttachments,
@@ -31,7 +31,6 @@ import { classifyLeadFollowupUrgency } from '@/lib/leadFollowupUrgency';
 import { ArrowDownAZ, Plus, Search, Sparkles, TrendingUp, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
-import { listScopedConfigurations } from '@/lib/crmRelationsService';
 import { listSharedLeadIdsForUser } from '@/lib/crmLeadSharingService';
 import { matchesLeadSearch } from '@/lib/crmLeadSearch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -69,6 +68,7 @@ type TKey =
   | 'urgency_overdue' | 'urgency_soon' | 'urgency_later'
   | 'sort_default' | 'sort_title_asc' | 'sort_title_desc'
   | 'sort_date_desc' | 'sort_date_asc' | 'sort_prob_desc' | 'sort_prob_asc'
+  | 'page_prev' | 'page_next' | 'page_range'
   | 'st_Lead' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
 type UiText = Record<Language, string> & Partial<Record<Exclude<PortalUiLanguage, Language>, string>>;
@@ -147,6 +147,9 @@ const T: Record<TKey, UiText> = {
   sort_date_asc:  { da: 'Dato: ældste først', en: 'Date: oldest first', de: 'Datum: älteste zuerst', it: 'Data: meno recenti prima', hu: 'Dátum: legrégebbi elöl', fr: 'Date : plus ancien', pl: 'Data: najstarsze', cs: 'Datum: nejstarší' },
   sort_prob_desc: { da: 'Status %: høj til lav', en: 'Status %: high to low', de: 'Status %: hoch zu niedrig', it: 'Status %: alto-basso', hu: 'Státusz %: magas-alacsony', fr: 'Statut % : décroissant', pl: 'Status %: malejąco', cs: 'Stav %: sestupně' },
   sort_prob_asc:  { da: 'Status %: lav til høj', en: 'Status %: low to high', de: 'Status %: niedrig zu hoch', it: 'Status %: basso-alto', hu: 'Státusz %: alacsony-magas', fr: 'Statut % : croissant', pl: 'Status %: rosnąco', cs: 'Stav %: vzestupně' },
+  page_prev:      { da: 'Forrige', en: 'Previous', de: 'Zurück', it: 'Precedente', hu: 'Előző', fr: 'Précédent', pl: 'Poprzednia', cs: 'Předchozí' },
+  page_next:      { da: 'Næste', en: 'Next', de: 'Weiter', it: 'Successiva', hu: 'Következő', fr: 'Suivant', pl: 'Następna', cs: 'Další' },
+  page_range:     { da: 'Viser', en: 'Showing', de: 'Zeigt', it: 'Mostra', hu: 'Megjelenítve', fr: 'Affichage', pl: 'Pokazuje', cs: 'Zobrazuje' },
   st_Lead:       { da: 'Lead', en: 'Lead', de: 'Lead', it: 'Lead', hu: 'Lead', fr: 'Lead', pl: 'Lead', cs: 'Lead' },
   st_Demo:       { da: 'Demo planlagt', en: 'Demo planned', de: 'Demo geplant', it: 'Demo pianificata', hu: 'Demo tervezve', fr: 'Démo planifiée', pl: 'Demo zaplanowane', cs: 'Demo plánováno' },
   st_Tilbud:     { da: 'Tilbud sendt', en: 'Offer sent', de: 'Angebot gesendet', it: 'Offerta inviata', hu: 'Ajánlat elküldve', fr: 'Devis envoyé', pl: 'Oferta wysłana', cs: 'Nabídka odeslána' },
@@ -365,6 +368,8 @@ const FOLLOWUP_FILTERS: Array<{ key: FollowupFilter; labelKey: TKey }> = [
   { key: 'later', labelKey: 'urgency_later' },
 ];
 
+const PAGE_SIZE = 50;
+
 function getFollowupTone(value: string | null | undefined, now = new Date()): FollowupTone {
   const urgency = classifyLeadFollowupUrgency(value, now);
   return urgency === 'none' ? 'neutral' : urgency;
@@ -425,14 +430,12 @@ export default function CrmLeadsPage() {
     { key: 'all',       label: tt('tab_all', lang) },
   ];
 
-  const [openLeads, setOpenLeads] = useState<CrmLead[]>([]);
-  const [demoLeads, setDemoLeads] = useState<CrmDemoLead[]>([]);
-  const [quoteIdByLeadId, setQuoteIdByLeadId] = useState<Map<string, string>>(() => new Map());
-  const [dealerNameById, setDealerNameById] = useState<Map<string, string>>(() => new Map());
   const [externalDealerScope, setExternalDealerScope] = useState<{ ids: Set<string>; names: Set<string> } | null>(null);
+  const [externalScopeLoading, setExternalScopeLoading] = useState(false);
   const [sellerId, setSellerId] = useState<string | null>(null);
-  const [sharedLeadIds, setSharedLeadIds] = useState<Set<string>>(() => new Set());
+  const [pageResult, setPageResult] = useState<CrmLeadsPageQueryResult | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [tab, setTab] = useState<TabKey>(dealerParam ? 'all' : 'open');
   const [followupFilter, setFollowupFilter] = useState<FollowupFilter | null>(null);
@@ -442,6 +445,7 @@ export default function CrmLeadsPage() {
   const [equipmentFilter, setEquipmentFilter] = useState('');
   const [stage, setStage] = useState<string>('');
   const [sort, setSort] = useState<SortKey>('default');
+  const [page, setPage] = useState(0);
   const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UnifiedLead | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -459,13 +463,11 @@ export default function CrmLeadsPage() {
   }, [dealerParam]);
 
   const refreshLeads = async () => {
-    const openAll = await listLeads({ limit: 5000 });
-    const openResolved = await resolveSeedOwners(openAll);
-    setOpenLeads(openResolved);
+    setReloadKey((value) => value + 1);
   };
 
   async function handleConvertToQuote(leadId: string) {
-    const lead = openLeads.find(l => l.id === leadId);
+    const lead = await getLead(leadId);
     if (!lead || quoteConvertBusyId) return;
     setQuoteConvertBusyId(leadId);
     try {
@@ -492,19 +494,26 @@ export default function CrmLeadsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const res = await fetchDealerAccounts({ includeDeleted: true });
-      if (cancelled) return;
-      setDealerNameById(new Map(res.rows.map((d) => [d.id, d.company_name || d.account_number])));
-      if (externalCrm) {
-        const scope = await buildJournalScope(effectiveUser, portalRole);
-        const nums = new Set(Array.from(scope.dealerNumbers));
-        const visible = res.rows.filter((d) => nums.has((d.account_number || '').trim().toLowerCase()));
-        setExternalDealerScope({
-          ids: new Set(visible.map((d) => d.id)),
-          names: new Set(visible.flatMap((d) => [d.company_name, d.branch_name, d.account_number]).filter(Boolean).map((v) => String(v).trim().toLowerCase())),
-        });
-      } else {
+      setExternalScopeLoading(true);
+      try {
+        const res = await fetchDealerAccounts({ includeDeleted: true });
+        if (cancelled) return;
+        if (externalCrm) {
+          const scope = await buildJournalScope(effectiveUser, portalRole);
+          const nums = new Set(Array.from(scope.dealerNumbers));
+          const visible = res.rows.filter((d) => nums.has((d.account_number || '').trim().toLowerCase()));
+          setExternalDealerScope({
+            ids: new Set(visible.map((d) => d.id)),
+            names: new Set(visible.flatMap((d) => [d.company_name, d.branch_name, d.account_number]).filter(Boolean).map((v) => String(v).trim().toLowerCase())),
+          });
+        } else {
+          setExternalDealerScope(null);
+        }
+      } catch (err) {
+        console.warn('[CRM Leads] dealer scope failed:', err);
         setExternalDealerScope(null);
+      } finally {
+        if (!cancelled) setExternalScopeLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -513,168 +522,83 @@ export default function CrmLeadsPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (externalScopeLoading) return;
       setLoading(true);
       const sid = await resolveSellerId(appUser?.email);
-      const [openAll, demoAll, quoteResult, nextSharedLeadIds] = await Promise.all([
-        listLeads({ limit: 5000 }),
-        listDemoLeads({ limit: 5000 }),
-        listScopedConfigurations({
-          role: portalRole,
-          sellerId: sid,
-          dealerNumber: effectiveUser?.dealer_number ?? null,
-          dealerNumbers: externalCrm ? Array.from((await buildJournalScope(effectiveUser, portalRole)).dealerNumbers) : null,
-          documentType: 'quote',
-        }),
+      const [nextSharedLeadIds] = await Promise.all([
         listSharedLeadIdsForUser(sid),
       ]);
-      const [openResolved, demoResolved] = await Promise.all([
-        resolveSeedOwners(openAll),
-        resolveSeedOwners(demoAll),
-      ]);
       if (cancelled) return;
-      const nextQuoteIdByLeadId = new Map<string, { id: string; date: string }>();
-      for (const quote of quoteResult.rows) {
-        if (!quote.lead_id) continue;
-        const date = quote.quote_sent_at || quote.last_saved_at || quote.created_at || '';
-        const existing = nextQuoteIdByLeadId.get(quote.lead_id);
-        if (!existing || date.localeCompare(existing.date) > 0) {
-          nextQuoteIdByLeadId.set(quote.lead_id, { id: quote.id, date });
-        }
+      try {
+        const result = await listLeadsPage({
+          isAdmin,
+          ownerUserId: sid,
+          ownerEmail: appUser?.email ?? null,
+          sharedLeadIds: Array.from(nextSharedLeadIds),
+          externalDealerIds: externalDealerScope ? Array.from(externalDealerScope.ids) : [],
+          externalDealerNames: externalDealerScope ? Array.from(externalDealerScope.names) : [],
+          tab,
+          followupFilter,
+          typeFilter,
+          machineFilter,
+          equipmentFilter,
+          statusFilter: stage,
+          search: q,
+          sort,
+          limit: PAGE_SIZE,
+          offset: page * PAGE_SIZE,
+        });
+        setSellerId(sid);
+        setPageResult(result);
+      } catch (err) {
+        console.error('[CRM Leads] page query failed:', err);
+        toast.error(lang === 'da' ? 'Kunne ikke hente leads' : 'Could not load leads');
+        setPageResult(null);
       }
-      if (quoteResult.error) {
-        console.warn('[CRM Leads] quote lookup failed:', quoteResult.error);
-      }
-      // eslint-disable-next-line no-console
-      console.log('[CRM Leads] counts', {
-        crm_open_leads: openResolved.length,
-        crm_demo_leads: demoResolved.length,
-        shared_open_leads: nextSharedLeadIds.size,
-        sellerId: sid,
-        email: appUser?.email,
-      });
-      setSellerId(sid);
-      setSharedLeadIds(nextSharedLeadIds);
-      setOpenLeads(openResolved);
-      setDemoLeads(demoResolved);
-      setQuoteIdByLeadId(new Map(Array.from(nextQuoteIdByLeadId, ([leadId, quote]) => [leadId, quote.id])));
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, effectiveUser?.dealer_number, portalRole, externalCrm]);
+  }, [appUser?.email, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, machineFilter, equipmentFilter, page, portalRole, q, reloadKey, sort, stage, tab, typeFilter]);
 
-  const allRows: UnifiedLead[] = useMemo(() => {
-    const demoSourceLeadIds = new Set(demoLeads.map((demo) => demo.source_lead_id).filter(Boolean) as string[]);
-    const open = openLeads.map((lead) => {
-      const row = mapOpen(lead, dealerNameById);
-      row.has_demo = Boolean(row.has_demo || lead.converted_demo_lead_id || demoSourceLeadIds.has(lead.id));
-      row.quote_id = quoteIdByLeadId.get(lead.id) || null;
-      row.shared = sharedLeadIds.has(lead.id);
-      return row;
-    });
-    const demo = demoLeads.map(mapDemo);
-    let merged = [...open, ...demo];
-    if (externalCrm && externalDealerScope) {
-      merged = merged.filter((r) => {
-        const dealer = (r.dealer || '').trim().toLowerCase();
-        return (r.type === 'open' && r.id && externalDealerScope.ids.has((openLeads.find((l) => l.id === r.id)?.linked_dealer_id || '')))
-          || (dealer && externalDealerScope.names.has(dealer));
-      });
-    } else if (!isAdmin) {
-      const myEmail = (appUser?.email || '').toLowerCase();
-      merged = merged.filter(r =>
-        (sellerId && r.owner_user_id === sellerId) ||
-        (r.type === 'open' && sharedLeadIds.has(r.id)) ||
-        (myEmail && r.owner_email && r.owner_email.toLowerCase() === myEmail) ||
-        (myEmail && (r.responsible_name || '').toLowerCase() === myEmail)
-      );
-    }
-    merged.sort((a, b) => compareRows(a, b, 'default'));
-    return merged;
-  }, [openLeads, demoLeads, dealerNameById, quoteIdByLeadId, externalCrm, externalDealerScope, isAdmin, sellerId, appUser?.email, sharedLeadIds]);
+  useEffect(() => {
+    setPage(0);
+  }, [tab, followupFilter, q, typeFilter, machineFilter, equipmentFilter, stage, sort]);
 
-  const counts = useMemo(() => ({
-    all:       allRows.length,
-    open:      allRows.filter(isOpenRow).length,
-    won:       allRows.filter(isWonRow).length,
-    closed:    allRows.filter(r => isClosedRow(r) && !isWonRow(r)).length,
-  }), [allRows]);
+  const visible = useMemo<UnifiedLead[]>(
+    () => (pageResult?.rows ?? []).map((row) => ({ ...row, detail_href: row.detail_href || null })),
+    [pageResult],
+  );
 
-  const followupCounts = useMemo(() => {
-    const next: Record<FollowupFilter, number> = { overdue: 0, soon: 0, later: 0 };
-    for (const row of allRows) {
-      if (!isOpenRow(row)) continue;
-      const tone = getFollowupTone(row.next_followup);
-      if (tone === 'overdue' || tone === 'soon' || tone === 'later') next[tone] += 1;
-    }
-    return next;
-  }, [allRows]);
+  const counts = pageResult?.counts ?? { all: 0, open: 0, won: 0, closed: 0 };
+  const followupCounts = pageResult?.followup_counts ?? { overdue: 0, soon: 0, later: 0 };
 
   const typeOptions = useMemo(() => {
-    return USER_LEAD_TYPES.filter((type) => allRows.some((row) => getUserLeadType(row) === type));
-  }, [allRows]);
+    const allowed = new Set(pageResult?.options.types ?? []);
+    return USER_LEAD_TYPES.filter((type) => allowed.has(type));
+  }, [pageResult?.options.types]);
 
   const machineOptions = useMemo(() => {
-    const values = new Set<string>();
-    allRows.forEach((row) => {
-      splitFilterValues(row.machine).forEach((value) => {
-        if (value !== '—') values.add(value);
-      });
-    });
-    return [...values].sort((a, b) => a.localeCompare(b, 'da'));
-  }, [allRows]);
+    return pageResult?.options.machines ?? [];
+  }, [pageResult?.options.machines]);
 
   const equipmentOptions = useMemo(() => {
-    const values = new Set<string>();
-    allRows.forEach((row) => {
-      splitFilterValues(row.equipment).forEach((value) => {
-        if (value !== '—') values.add(value);
-      });
-    });
-    return [...values].sort((a, b) => a.localeCompare(b, 'da'));
-  }, [allRows]);
+    return pageResult?.options.equipment ?? [];
+  }, [pageResult?.options.equipment]);
 
   const statusOptions = useMemo(() => {
     const values = new Map<string, string>();
-    allRows.forEach((row) => {
+    (pageResult?.options.statuses ?? []).forEach((row) => {
       if (!row.status) return;
-      values.set(statusFilterKey(row), statusFilterLabel(row, lang));
+      values.set(row.value, row.probability == null ? localizeStatus(row.status, lang) : `${localizeStatus(row.status, lang)} · ${row.probability}%`);
     });
     return [...values.entries()].sort((a, b) => a[1].localeCompare(b[1], 'da'));
-  }, [allRows, lang]);
+  }, [lang, pageResult?.options.statuses]);
 
-  const visible = useMemo(() => {
-    let r = allRows;
-    if (tab === 'open') r = r.filter(isOpenRow);
-    else if (tab === 'won') r = r.filter(isWonRow);
-    else if (tab === 'closed') r = r.filter(x => isClosedRow(x) && !isWonRow(x));
-
-    if (followupFilter) r = r.filter(x => isOpenRow(x) && getFollowupTone(x.next_followup) === followupFilter);
-    if (typeFilter) r = r.filter(x => getUserLeadType(x) === typeFilter);
-    if (machineFilter) r = r.filter(x => splitFilterValues(x.machine).includes(machineFilter));
-    if (equipmentFilter) r = r.filter(x => splitFilterValues(x.equipment).includes(equipmentFilter));
-    if (stage) r = r.filter(x => statusFilterKey(x) === stage);
-    if (q.trim()) {
-      r = r.filter(x => matchesLeadSearch([
-        x.display_no,
-        x.title,
-        x.customer,
-        x.dealer,
-        x.owner_name,
-        x.owner_email,
-        x.responsible_name,
-        x.machine,
-        x.equipment,
-        x.status,
-      ], q));
-    }
-    return [...r].sort((a, b) => compareRows(a, b, sort));
-  }, [allRows, tab, followupFilter, typeFilter, machineFilter, equipmentFilter, stage, q, sort]);
-
-  const totalValue = useMemo(() => visible.reduce((s, x) => s + (x.value || 0), 0), [visible]);
-  const unassignedCount = useMemo(
-    () => allRows.filter(x => !x.owner_user_id).length,
-    [allRows]
-  );
+  const totalValue = pageResult?.total_value ?? 0;
+  const totalCount = pageResult?.total_count ?? 0;
+  const unassignedCount = pageResult?.unassigned_count ?? 0;
+  const pageStart = totalCount === 0 ? 0 : (pageResult?.page_offset ?? 0) + 1;
+  const pageEnd = Math.min((pageResult?.page_offset ?? 0) + visible.length, totalCount);
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
@@ -697,11 +621,7 @@ export default function CrmLeadsPage() {
         toast.error('Kunne ikke slette leadet.');
         return;
       }
-      if (deleteTarget.type === 'demo') {
-        setDemoLeads((prev) => prev.filter((x) => x.id !== deleteTarget.id));
-      } else {
-        setOpenLeads((prev) => prev.filter((x) => x.id !== deleteTarget.id));
-      }
+      await refreshLeads();
       toast.success(deleteTarget.type === 'demo' ? 'Demo-lead er slettet.' : 'Lead er slettet.');
       setDeleteTarget(null);
     } finally {
@@ -719,7 +639,7 @@ export default function CrmLeadsPage() {
           </h2>
           <p className="text-sm text-gray-500 mt-0.5">
             {isAdmin ? tt('sub_admin', lang) : tt('sub_seller', lang)}
-            {' · '}{visible.length} {tt('pcs', lang)}{totalValue > 0 ? ` · ${formatKr(totalValue)}` : ''}
+            {' · '}{totalCount} {tt('pcs', lang)}{totalValue > 0 ? ` · ${formatKr(totalValue)}` : ''}
             {isAdmin && unassignedCount > 0 && (
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-50 text-amber-800 border border-amber-200">
                 {unassignedCount} {tt('unassigned', lang)}
@@ -1042,8 +962,9 @@ export default function CrmLeadsPage() {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const lead = openLeads.find(l => l.id === r.id);
-                                  if (lead) setCloseTarget(lead);
+                                  getLead(r.id).then((lead) => {
+                                    if (lead) setCloseTarget(lead);
+                                  });
                                 }}
                                 className="inline-flex items-center gap-1 text-[12px] text-rose-700 hover:underline"
                               >
@@ -1073,6 +994,31 @@ export default function CrmLeadsPage() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+        {!loading && totalCount > PAGE_SIZE && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-3 text-sm text-gray-600">
+            <span>
+              {tt('page_range', lang)} {pageStart}-{pageEnd} / {totalCount}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page === 0}
+                onClick={() => setPage((value) => Math.max(0, value - 1))}
+                className="inline-flex h-9 items-center justify-center rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {tt('page_prev', lang)}
+              </button>
+              <button
+                type="button"
+                disabled={pageEnd >= totalCount}
+                onClick={() => setPage((value) => value + 1)}
+                className="inline-flex h-9 items-center justify-center rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {tt('page_next', lang)}
+              </button>
+            </div>
           </div>
         )}
       </div>

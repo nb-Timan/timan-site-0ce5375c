@@ -653,6 +653,149 @@ export async function getLead(id: string): Promise<CrmLead | null> {
 
 export interface ListLeadsOpts { ownerUserId?: string | null; limit?: number }
 
+export interface CrmLeadsPageRow {
+  id: string;
+  display_no: string;
+  type: "open" | "demo";
+  title: string;
+  customer: string | null;
+  dealer: string | null;
+  owner_user_id: string | null;
+  owner_name: string | null;
+  owner_email: string | null;
+  responsible_name: string | null;
+  machine: string | null;
+  equipment: string | null;
+  date: string | null;
+  next_followup: string | null;
+  status: string | null;
+  probability: number | null;
+  value: number | null;
+  detail_href: string;
+  attachments: CrmLeadAttachment[];
+  has_demo?: boolean;
+  incomplete?: boolean;
+  shared?: boolean;
+  quote_id?: string | null;
+}
+
+export interface CrmLeadsPageStatusOption {
+  value: string;
+  status: string;
+  probability: number | null;
+}
+
+export interface CrmLeadsPageQueryResult {
+  rows: CrmLeadsPageRow[];
+  counts: { all: number; open: number; won: number; closed: number };
+  followup_counts: { overdue: number; soon: number; later: number };
+  unassigned_count: number;
+  total_count: number;
+  total_value: number;
+  page_limit: number;
+  page_offset: number;
+  options: {
+    types: string[];
+    machines: string[];
+    equipment: string[];
+    statuses: CrmLeadsPageStatusOption[];
+  };
+  raw_records_scanned?: {
+    crm_leads?: number;
+    crm_demo_leads?: number;
+    scoped_rows?: number;
+  };
+}
+
+export interface ListLeadsPageOpts {
+  isAdmin: boolean;
+  ownerUserId?: string | null;
+  ownerEmail?: string | null;
+  sharedLeadIds?: string[];
+  externalDealerIds?: string[];
+  externalDealerNames?: string[];
+  tab?: string;
+  followupFilter?: string | null;
+  typeFilter?: string | null;
+  machineFilter?: string | null;
+  equipmentFilter?: string | null;
+  statusFilter?: string | null;
+  search?: string | null;
+  sort?: string;
+  limit?: number;
+  offset?: number;
+}
+
+function numberOrZero(value: unknown): number {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function arrayOrEmpty<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value as T[] : [];
+}
+
+function normalizePageResult(payload: unknown): CrmLeadsPageQueryResult {
+  const obj = (payload ?? {}) as Record<string, any>;
+  const counts = (obj.counts ?? {}) as Record<string, unknown>;
+  const followup = (obj.followup_counts ?? {}) as Record<string, unknown>;
+  const options = (obj.options ?? {}) as Record<string, unknown>;
+  return {
+    rows: arrayOrEmpty<CrmLeadsPageRow>(obj.rows).map((row) => ({
+      ...row,
+      attachments: arrayOrEmpty<CrmLeadAttachment>(row.attachments),
+      probability: row.probability == null ? null : numberOrZero(row.probability),
+      value: row.value == null ? null : numberOrZero(row.value),
+    })),
+    counts: {
+      all: numberOrZero(counts.all),
+      open: numberOrZero(counts.open),
+      won: numberOrZero(counts.won),
+      closed: numberOrZero(counts.closed),
+    },
+    followup_counts: {
+      overdue: numberOrZero(followup.overdue),
+      soon: numberOrZero(followup.soon),
+      later: numberOrZero(followup.later),
+    },
+    unassigned_count: numberOrZero(obj.unassigned_count),
+    total_count: numberOrZero(obj.total_count),
+    total_value: numberOrZero(obj.total_value),
+    page_limit: numberOrZero(obj.page_limit) || 50,
+    page_offset: numberOrZero(obj.page_offset),
+    options: {
+      types: arrayOrEmpty<string>(options.types),
+      machines: arrayOrEmpty<string>(options.machines).sort((a, b) => a.localeCompare(b, "da")),
+      equipment: arrayOrEmpty<string>(options.equipment).sort((a, b) => a.localeCompare(b, "da")),
+      statuses: arrayOrEmpty<CrmLeadsPageStatusOption>(options.statuses),
+    },
+    raw_records_scanned: obj.raw_records_scanned,
+  };
+}
+
+export async function listLeadsPage(opts: ListLeadsPageOpts): Promise<CrmLeadsPageQueryResult> {
+  const { data, error } = await supabase.rpc("crm_leads_page_query", {
+    p_is_admin: opts.isAdmin,
+    p_owner_user_id: opts.ownerUserId ?? null,
+    p_owner_email: opts.ownerEmail ?? null,
+    p_shared_lead_ids: opts.sharedLeadIds ?? [],
+    p_external_dealer_ids: opts.externalDealerIds ?? [],
+    p_external_dealer_names: opts.externalDealerNames ?? [],
+    p_tab: opts.tab ?? "open",
+    p_followup_filter: opts.followupFilter ?? null,
+    p_type_filter: opts.typeFilter ?? null,
+    p_machine_filter: opts.machineFilter ?? null,
+    p_equipment_filter: opts.equipmentFilter ?? null,
+    p_status_filter: opts.statusFilter ?? null,
+    p_search: opts.search ?? null,
+    p_sort: opts.sort ?? "default",
+    p_limit: opts.limit ?? 50,
+    p_offset: opts.offset ?? 0,
+  });
+  if (error) throw error;
+  return normalizePageResult(data);
+}
+
 function seedOpenLeads(): CrmLead[] {
   return (openLeadsSeed as unknown as (CrmLead & { owner_email?: string | null })[]).map(r => ({ ...r }));
 }
