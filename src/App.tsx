@@ -167,6 +167,7 @@ const BackendPartnerRelationsPage = lazy(() => import("./pages/backend/BackendPa
 const BackendMesseSettingsPage = lazy(() => import("./pages/backend/BackendMesseSettingsPage"));
 const BackendNewsPage = lazy(() => import("./pages/backend/BackendNewsPage"));
 const Backend2620TrialsPage = lazy(() => import("./pages/backend/Backend2620TrialsPage"));
+const BackendSystemMapPage = lazy(() => import("./pages/backend/BackendSystemMapPage"));
 
 const MiscPage = lazy(() => import("./pages/misc/MiscPage"));
 const MiscFormsPage = lazy(() => import("./pages/misc/MiscFormsPage"));
@@ -318,6 +319,7 @@ const App = () => (
               <Route path="/portal/backend/partner-relations" element={<BackendPartnerRelationsPage />} />
               <Route path="/portal/backend/messe" element={<BackendMesseSettingsPage />} />
               <Route path="/portal/backend/timan-2620-afproevning" element={<Backend2620TrialsPage />} />
+              <Route path="/portal/backend/system-map" element={<BackendSystemMapPage />} />
 
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<PortalLockGuard><ConfiguratorPage /></PortalLockGuard>} />

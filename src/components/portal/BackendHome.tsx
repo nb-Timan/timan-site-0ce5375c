@@ -19,7 +19,7 @@ import {
   Building2, Link2, Map, MapPin,
   Database, BarChart3, Upload,
   Mail, ListChecks, Activity, FileSearch, QrCode, LucideIcon,
-  ClipboardList,
+  ClipboardList, Network,
 } from "lucide-react";
 
 import PlaceholderCard from "@/components/portal/PlaceholderCard";
@@ -81,6 +81,7 @@ function buildGroups(): Group[] {
       title: "System",
       description: "Systemstatus, mail-log, job queue og persistence audit.",
       items: [
+        { title: "Systemkort", icon: Network, to: "/portal/backend/system-map", description: "Visuelt overblik over portalen, moduler, integrationer og dataflows." },
         { title: "Persistence Audit", icon: FileSearch, to: "/portal/backend/persistence-audit", description: "Tjek dataintegritet og overvåg gemte ressourcer." },
         { title: "Mail Log", icon: Mail, description: "Log over udsendte mails fra portalen." },
         { title: "Job Queue", icon: ListChecks, description: "Baggrundsjobs og kørselshistorik." },
