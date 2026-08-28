@@ -390,12 +390,6 @@ function BudgetTab() {
         toLabel="Åbn Budget Import"
         icon={BarChart3}
       />
-      <ComingSoonCard
-        title="Budget Dashboard"
-        description="Følg op på sælgerbudgetter og forhandlerlinjer i CRM."
-        to="/portal/crm/budget"
-        toLabel="Åbn Budget Dashboard"
-      />
       <ComingSoonCard title="Eksport budget" description="CSV-eksport af budget pr. sælger eller forhandler." icon={FileDown} />
     </>
   );

@@ -5,7 +5,7 @@
  *   1. Brugerstyring
  *   2. Partnerstyring
  *   3. Data & Integrationer
- *   4. Analyse & Budget
+ *   4. Analyse
  *   5. System
  *
  * Alle eksisterende routes bevares — kort der ikke har en endelig side
@@ -17,8 +17,8 @@
 import {
   Users, ShieldCheck, KeyRound, ScrollText,
   Building2, Link2, Map, MapPin,
-  Database, BarChart3, Upload, LineChart,
-  Mail, ListChecks, Activity, FileSearch, Sparkles, QrCode, Newspaper, LucideIcon,
+  Database, BarChart3, Upload,
+  Mail, ListChecks, Activity, FileSearch, QrCode, LucideIcon,
   ClipboardList,
 } from "lucide-react";
 
@@ -63,27 +63,24 @@ function buildGroups(): Group[] {
     },
     {
       title: "Data & Integrationer",
-      description: "Import, eksport, SharePoint sync, warranty sync, ERP og geocoding.",
+      description: "Import, eksport, SharePoint sync, warranty sync, ERP, budgetimport og geocoding.",
       items: [
         { title: "Data & Integrationer", icon: Database, to: "/portal/backend/data", description: "Samlet kontrolcenter for alle imports, eksports og syncs — med status og historik." },
+        { title: "Budget Import", icon: Upload, to: "/portal/backend/budget-import", description: "Importér sælgerbudgetter fra Excel-oversigt til CRM Budget." },
         { title: "Afprøvning af 2620", icon: ClipboardList, to: "/portal/backend/timan-2620-afproevning", description: "Se indsendelser fra det selvstændige 2620-afprøvningsflow." },
       ],
     },
     {
-      title: "Analyse & Budget",
-      description: "Portal-brug, budgetimport og dashboards.",
+      title: "Analyse",
+      description: "Portal-brug og aktivitetsanalyse.",
       items: [
         { title: "Portal Analytics", icon: BarChart3, to: "/portal/backend/portal-analytics", description: "Brug af portalen — besøg, sessioner og moduler." },
-        { title: "Budget Import", icon: Upload, to: "/portal/backend/budget-import", description: "Importér sælgerbudgetter fra Excel-oversigt til CRM Budget." },
-        { title: "Budget Dashboard", icon: LineChart, to: "/portal/crm/budget", description: "Følg op på sælgerbudgetter og forhandlerlinjer." },
       ],
     },
     {
       title: "System",
-      description: "Systemstatus, mail-log, job queue, change log og persistence audit.",
+      description: "Systemstatus, mail-log, job queue og persistence audit.",
       items: [
-        { title: "Nyheder", icon: Newspaper, to: "/portal/backend/news", description: "Administrér nyheder, kladder, skabeloner og publicering til Seneste nyt." },
-        { title: "Nye features på sitet", icon: Sparkles, to: "/portal/backend/changelog", description: "Gennemgå produktændringer og publicér udvalgte poster til Hvad er nyt?" },
         { title: "Persistence Audit", icon: FileSearch, to: "/portal/backend/persistence-audit", description: "Tjek dataintegritet og overvåg gemte ressourcer." },
         { title: "Mail Log", icon: Mail, description: "Log over udsendte mails fra portalen." },
         { title: "Job Queue", icon: ListChecks, description: "Baggrundsjobs og kørselshistorik." },
