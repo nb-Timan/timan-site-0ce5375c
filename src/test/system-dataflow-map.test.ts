@@ -11,6 +11,7 @@ import {
   systemDnaNodes,
   systemMapEdges,
   systemMapNodes,
+  systemOverviewLines,
   type SystemMapNodeId,
 } from "@/lib/systemDataflowMap";
 
@@ -48,10 +49,30 @@ describe("Backend system dataflow map", () => {
     }
   });
 
+  it("keeps overview connections evidence-based and connected to known nodes", () => {
+    const ids = new Set<SystemMapNodeId>(systemDnaNodes.map((node) => node.id));
+    const lineKeys = new Set(systemOverviewLines.map((line) => `${line.from}->${line.to}`));
+
+    for (const line of systemOverviewLines) {
+      expect(ids.has(line.from), `Unknown overview source: ${line.from}`).toBe(true);
+      expect(ids.has(line.to), `Unknown overview target: ${line.to}`).toBe(true);
+      if (line.colorFrom) expect(ids.has(line.colorFrom), `Unknown overview color source: ${line.colorFrom}`).toBe(true);
+    }
+
+    expect(lineKeys.has("sharepoint->crm")).toBe(false);
+    expect(lineKeys.has("microsoft_365->sales")).toBe(false);
+    expect(lineKeys.has("erp->service")).toBe(false);
+    expect(lineKeys.has("erp->import")).toBe(true);
+    expect(lineKeys.has("import->sales")).toBe(true);
+    expect(lineKeys.has("crm->sales")).toBe(true);
+    expect(lineKeys.has("dealer_data->messe")).toBe(true);
+  });
+
   it("keeps the expanded DNA model connected to real nodes", () => {
     const ids = new Set<SystemMapNodeId>(systemDnaNodes.map((node) => node.id));
     const validKinds = new Set(["portal", "module", "feature", "data", "technical", "integration", "process", "tool"]);
     const validAreas = new Set(["crm", "sales", "marketing", "dealer_data", "service", "messe", "import", "system"]);
+    const validEdgeKinds = new Set(["data", "navigation", "sync", "permission"]);
     const missingEdges = systemDnaEdges.flatMap((edge) => [
       ...(ids.has(edge.from) ? [] : [`missing source: ${edge.from} -> ${edge.to}`]),
       ...(ids.has(edge.to) ? [] : [`missing target: ${edge.from} -> ${edge.to}`]),
@@ -69,7 +90,13 @@ describe("Backend system dataflow map", () => {
 
     for (const edge of systemDnaEdges) {
       expect(edge.label.trim().length).toBeGreaterThan(0);
+      if (edge.kind) expect(validEdgeKinds.has(edge.kind), `Invalid edge kind for ${edge.from}->${edge.to}: ${edge.kind}`).toBe(true);
     }
+  });
+
+  it("does not contain exact duplicate DNA relations", () => {
+    const keys = systemDnaEdges.map((edge) => `${edge.from}->${edge.to}::${edge.kind ?? "data"}::${edge.label}`);
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it("uses existing nodes in the featured data flow", () => {
@@ -142,9 +169,11 @@ describe("Backend system dataflow map", () => {
       "messe_leads",
       "crm_leads",
       "lead_conversions",
-      "quotes",
       "configurator",
+      "quotes",
       "orders",
+      "documents",
+      "email",
     ]);
     expect(getFeaturedDataFlow("crm_leads")).toContain("documents");
     expect(getFeaturedDataFlow("configurator")).toContain("config_step_machine");

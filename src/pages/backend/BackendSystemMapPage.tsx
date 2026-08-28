@@ -41,6 +41,7 @@ import {
   getSystemMapChildren,
   getVisibleSystemDnaNodes,
   SYSTEM_DNA_ZOOM_LEVELS,
+  systemOverviewLines,
   systemDnaEdges,
   systemDnaNodes,
   type SystemMapArea,
@@ -158,25 +159,6 @@ const OVERVIEW_POSITIONS: Record<string, { x: number; y: number }> = {
   portal_analytics: { x: 91.5, y: 61 },
   portal: { x: 50, y: 46 },
 };
-
-const OVERVIEW_LINES: Array<{ from: string; to: string; colorFrom?: string; dashed?: boolean }> = [
-  { from: "sharepoint", to: "crm", dashed: true },
-  { from: "microsoft_365", to: "sales", dashed: true },
-  { from: "erp", to: "service", dashed: true },
-  { from: "supabase", to: "crm", dashed: true },
-  { from: "crm", to: "portal", colorFrom: "crm" },
-  { from: "sales", to: "portal", colorFrom: "sales" },
-  { from: "service", to: "portal", colorFrom: "service" },
-  { from: "marketing", to: "portal", colorFrom: "marketing" },
-  { from: "system_admin", to: "portal", colorFrom: "system_admin" },
-  { from: "dealer_data", to: "portal", colorFrom: "dealer_data" },
-  { from: "import", to: "portal", colorFrom: "import" },
-  { from: "messe", to: "portal", colorFrom: "messe" },
-  { from: "portal", to: "email", colorFrom: "portal" },
-  { from: "portal", to: "documents", colorFrom: "sales" },
-  { from: "portal", to: "external_apis", colorFrom: "import" },
-  { from: "portal", to: "portal_analytics", colorFrom: "system_admin" },
-];
 
 function colorFor(node: SystemMapNode) {
   return COLOR_CLASSES[node.color] ?? COLOR_CLASSES.slate;
@@ -348,7 +330,7 @@ function SystemOverview({ selectedId, onSelect }: { selectedId: SystemMapNodeId;
             <path d="M0,0 L6,3 L0,6 Z" fill="#94a3b8" />
           </marker>
         </defs>
-        {OVERVIEW_LINES.map((edge) => {
+        {systemOverviewLines.map((edge) => {
           const fromNode = findSystemMapNode(edge.from);
           const toNode = findSystemMapNode(edge.to);
           const from = OVERVIEW_POSITIONS[edge.from] ?? fromNode.position;

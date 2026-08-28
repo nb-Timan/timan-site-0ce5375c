@@ -79,6 +79,13 @@ export interface SystemMapEdge {
   minZoom?: number;
 }
 
+export interface SystemOverviewLine {
+  from: SystemMapNodeId;
+  to: SystemMapNodeId;
+  colorFrom?: SystemMapNodeId;
+  dashed?: boolean;
+}
+
 export type SystemDnaZoomLevelId = "world" | "area" | "feature" | "technical";
 
 export interface SystemDnaZoomLevel {
@@ -534,7 +541,9 @@ export const systemMapEdges: SystemMapEdge[] = [
   { from: "erp", to: "import", label: "priser", kind: "sync" },
   { from: "dealer_data", to: "crm", label: "scope", kind: "permission" },
   { from: "dealer_data", to: "service", label: "matching", kind: "data" },
+  { from: "dealer_data", to: "messe", label: "partnerkort", kind: "data", minZoom: 0.8 },
   { from: "messe", to: "crm", label: "leads", kind: "data" },
+  { from: "marketing", to: "messe", label: "nyheder", kind: "data", minZoom: 0.8 },
   { from: "crm", to: "sales", label: "tilbud", kind: "data" },
   { from: "sales", to: "documents", label: "PDF", kind: "data" },
   { from: "sales", to: "email", label: "webhook", kind: "data" },
@@ -546,6 +555,31 @@ export const systemMapEdges: SystemMapEdge[] = [
   { from: "supabase", to: "dealer_data", label: "konti", kind: "data" },
   { from: "supabase", to: "service", label: "service", kind: "data" },
   { from: "external_apis", to: "messe", label: "kort", kind: "data", minZoom: 0.8 },
+];
+
+export const systemOverviewLines: SystemOverviewLine[] = [
+  { from: "sharepoint", to: "import", dashed: true },
+  { from: "microsoft_365", to: "sharepoint", dashed: true },
+  { from: "erp", to: "import", dashed: true },
+  { from: "supabase", to: "portal", dashed: true },
+  { from: "crm", to: "portal", colorFrom: "crm" },
+  { from: "sales", to: "portal", colorFrom: "sales" },
+  { from: "service", to: "portal", colorFrom: "service" },
+  { from: "marketing", to: "portal", colorFrom: "marketing" },
+  { from: "system_admin", to: "portal", colorFrom: "system_admin" },
+  { from: "dealer_data", to: "portal", colorFrom: "dealer_data" },
+  { from: "import", to: "portal", colorFrom: "import" },
+  { from: "messe", to: "portal", colorFrom: "messe" },
+  { from: "dealer_data", to: "crm", colorFrom: "dealer_data", dashed: true },
+  { from: "dealer_data", to: "messe", colorFrom: "dealer_data", dashed: true },
+  { from: "messe", to: "crm", colorFrom: "messe", dashed: true },
+  { from: "crm", to: "sales", colorFrom: "crm", dashed: true },
+  { from: "import", to: "sales", colorFrom: "import", dashed: true },
+  { from: "sales", to: "documents", colorFrom: "sales" },
+  { from: "sales", to: "email", colorFrom: "sales" },
+  { from: "crm", to: "email", colorFrom: "crm", dashed: true },
+  { from: "external_apis", to: "messe", colorFrom: "import", dashed: true },
+  { from: "portal", to: "portal_analytics", colorFrom: "system_admin" },
 ];
 
 export const systemDnaEdges: SystemMapEdge[] = [
@@ -563,18 +597,30 @@ export const systemDnaEdges: SystemMapEdge[] = [
   { from: "messe_leads", to: "crm_leads", label: "bliver til", kind: "data", minZoom: 0.95 },
   { from: "crm_leads", to: "crm_activities", label: "aktivitet", kind: "data", minZoom: 1.0 },
   { from: "crm_leads", to: "lead_conversions", label: "konverteres", kind: "data", minZoom: 1.1 },
-  { from: "lead_conversions", to: "quotes", label: "tilbud", kind: "data", minZoom: 1.0 },
-  { from: "quotes", to: "configurator", label: "konfiguration", kind: "data", minZoom: 0.95 },
+  { from: "lead_conversions", to: "crm_demo_leads", label: "demo", kind: "data", minZoom: 1.0 },
+  { from: "lead_conversions", to: "configurator", label: "starter tilbud", kind: "data", minZoom: 1.0 },
+  { from: "configurator", to: "quotes", label: "gemmer tilbud", kind: "data", minZoom: 0.95 },
+  { from: "quotes", to: "orders", label: "bliver ordre", kind: "data", minZoom: 1.0 },
   { from: "configurator", to: "orders", label: "ordre", kind: "data", minZoom: 0.95 },
+  { from: "configurator", to: "documents", label: "PDF", kind: "data", minZoom: 1.0 },
+  { from: "quotes", to: "documents", label: "tilbuds-PDF", kind: "data", minZoom: 1.05 },
+  { from: "orders", to: "documents", label: "ordre-PDF", kind: "data", minZoom: 1.05 },
+  { from: "documents", to: "email", label: "vedhæftes", kind: "data", minZoom: 1.05 },
   { from: "orders", to: "dealer_profile", label: "kunde/forhandler", kind: "data", minZoom: 1.0 },
   { from: "dealer_profile", to: "crm_dashboard", label: "KPI", kind: "data", minZoom: 1.0 },
+  { from: "erp", to: "price_lists", label: "importgrundlag", kind: "sync", minZoom: 0.95 },
+  { from: "price_lists", to: "configurator", label: "publicerede priser", kind: "data", minZoom: 0.95 },
   { from: "price_lists", to: "config_step_options", label: "priser", kind: "data", minZoom: 1.05 },
   { from: "dealer_import", to: "dealer_profile", label: "opdaterer", kind: "sync", minZoom: 1.0 },
+  { from: "dealer_data", to: "messe_partner_map", label: "forhandlere", kind: "data", minZoom: 0.95 },
+  { from: "external_apis", to: "messe_partner_map", label: "kortlag", kind: "data", minZoom: 0.95 },
+  { from: "messe_form", to: "email", label: "messe-mail", kind: "data", minZoom: 1.0 },
   { from: "warranty", to: "machine_journal", label: "maskiner", kind: "data", minZoom: 1.05 },
   { from: "external_apis", to: "dealer_geocoding", label: "geocoding", kind: "sync", minZoom: 0.8 },
   { from: "dealer_geocoding", to: "dealer_data", label: "partner-koordinater", kind: "data", minZoom: 0.9 },
   { from: "dealer_geocoding", to: "service", label: "garantikunde-koordinater", kind: "data", minZoom: 0.9 },
   { from: "news", to: "messe_news", label: "publicerer", kind: "data", minZoom: 1.1 },
+  { from: "news", to: "portal", label: "Seneste nyt", kind: "data", minZoom: 0.95 },
   { from: "site_features", to: "portal", label: "Hvad er nyt", kind: "data", minZoom: 0.95 },
   { from: "users_admin", to: "roles_access", label: "tildeler", kind: "permission", minZoom: 1.0 },
   { from: "roles_access", to: "route_guards", label: "styrer", kind: "permission", minZoom: 1.25 },
@@ -607,10 +653,10 @@ export const featuredDataFlow: SystemMapNodeId[] = [
 ];
 
 export const featuredDataFlows: Record<string, SystemMapNodeId[]> = {
-  messe_form: ["messe_form", "messe_leads", "crm_leads", "lead_conversions", "quotes", "configurator", "orders"],
-  messe_leads: ["messe_leads", "crm_leads", "lead_conversions", "quotes", "configurator", "orders"],
-  crm_leads: ["crm_leads", "lead_conversions", "quotes", "configurator", "orders", "documents", "email"],
-  lead_conversions: ["crm_leads", "lead_conversions", "quotes", "configurator", "orders", "documents", "email"],
+  messe_form: ["messe_form", "messe_leads", "crm_leads", "lead_conversions", "configurator", "quotes", "orders", "documents", "email"],
+  messe_leads: ["messe_leads", "crm_leads", "lead_conversions", "configurator", "quotes", "orders"],
+  crm_leads: ["crm_leads", "lead_conversions", "configurator", "quotes", "orders", "documents", "email"],
+  lead_conversions: ["crm_leads", "lead_conversions", "configurator", "quotes", "orders", "documents", "email"],
   configurator: [
     "configurator",
     "config_step_machine",
@@ -622,7 +668,7 @@ export const featuredDataFlows: Record<string, SystemMapNodeId[]> = {
     "documents",
     "email",
   ],
-  quotes: ["crm_leads", "lead_conversions", "quotes", "configurator", "documents", "email"],
+  quotes: ["crm_leads", "lead_conversions", "configurator", "quotes", "documents", "email"],
   orders: ["quotes", "configurator", "orders", "dealer_profile", "crm_dashboard"],
   news: ["news", "site_features", "messe_news", "portal"],
   site_features: ["site_features", "portal", "marketing"],
