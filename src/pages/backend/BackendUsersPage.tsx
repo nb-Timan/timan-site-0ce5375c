@@ -589,6 +589,37 @@ function EditUserModal({
   // If a dealer is linked, the dealer's assigned seller is the source of
   // truth — show it read-only and hide the manual dropdown.
   const dealerSellerLocked = !!draft.dealer_number && (!!draft.seller_initials || !!draft.seller_email);
+  const roleDefaults = DEFAULT_MODULE_ACCESS[draft.role] || [];
+  const roleDefaultAreas = roleDefaults.filter((m): m is AreaKey => (ALL_AREAS as string[]).includes(m));
+  const roleDefaultModules = roleDefaults.filter((m) => !(ALL_AREAS as string[]).includes(m));
+  const roleDefaultBackendModules: BackendMetaModule[] = draft.role === "timan_backend" ? [...BACKEND_META_MODULES] : [];
+  const effectiveAllowedAreas = draft.role === "timan_backend"
+    ? Array.from(new Set([...roleDefaultAreas, ...draft.allowed_areas]))
+    : draft.allowed_areas;
+  const effectiveAllowedModules = draft.role === "timan_backend"
+    ? Array.from(new Set([...roleDefaultModules, ...draft.allowed_modules]))
+    : draft.allowed_modules;
+  const effectiveBackendModules = draft.role === "timan_backend"
+    ? Array.from(new Set([...roleDefaultBackendModules, ...draft.backend_modules]))
+    : draft.backend_modules;
+
+  function accessLabel(label: string, inherited: boolean, manual: boolean) {
+    return (
+      <>
+        <span>{label}</span>
+        {inherited && (
+          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
+            Fra rolle
+          </span>
+        )}
+        {!inherited && manual && (
+          <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-blue-700">
+            Manuelt
+          </span>
+        )}
+      </>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
@@ -840,13 +871,13 @@ function EditUserModal({
                   <CheckboxGroup
                     items={ALL_AREAS.map((a) => ({
                       value: a,
-                      label: AREA_LABEL[a],
-                      disabled: editingOwnUser || (dealerSide && FORBIDDEN_AREAS.includes(a)),
+                      label: accessLabel(AREA_LABEL[a], roleDefaultAreas.includes(a), draft.allowed_areas.includes(a)),
+                      disabled: (draft.role === "timan_backend" && roleDefaultAreas.includes(a)) || (dealerSide && FORBIDDEN_AREAS.includes(a)),
                     }))}
-                    checked={draft.allowed_areas}
+                    checked={effectiveAllowedAreas}
                     onChange={(v) => {
                       const area = v as AreaKey;
-                      if (editingOwnUser || (dealerSide && FORBIDDEN_AREAS.includes(area))) return;
+                      if ((draft.role === "timan_backend" && roleDefaultAreas.includes(area)) || (dealerSide && FORBIDDEN_AREAS.includes(area))) return;
                       setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, area) });
                     }}
                   />
@@ -873,13 +904,13 @@ function EditUserModal({
                   <CheckboxGroup
                     items={modules.map((m) => ({
                       value: m,
-                      label: MODULE_LABEL[m] || m,
-                      disabled: editingOwnUser || (dealerSide && FORBIDDEN_MODULES.includes(m)),
+                      label: accessLabel(MODULE_LABEL[m] || m, roleDefaultModules.includes(m), draft.allowed_modules.includes(m)),
+                      disabled: (draft.role === "timan_backend" && roleDefaultModules.includes(m)) || (dealerSide && FORBIDDEN_MODULES.includes(m)),
                     }))}
-                    checked={draft.allowed_modules}
+                    checked={effectiveAllowedModules}
                     onChange={(v) => {
                       const mod = v as ModuleAccessKey;
-                      if (editingOwnUser || (dealerSide && FORBIDDEN_MODULES.includes(mod))) return;
+                      if ((draft.role === "timan_backend" && roleDefaultModules.includes(mod)) || (dealerSide && FORBIDDEN_MODULES.includes(mod))) return;
                       setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, mod) });
                     }}
                   />
@@ -894,13 +925,14 @@ function EditUserModal({
                     <CheckboxGroup
                       items={BACKEND_META_MODULES.map((m) => ({
                         value: m,
-                        label: BACKEND_MODULE_LABEL[m],
-                        disabled: editingOwnUser || dealerSide,
+                        label: accessLabel(BACKEND_MODULE_LABEL[m], roleDefaultBackendModules.includes(m), draft.backend_modules.includes(m)),
+                        disabled: (draft.role === "timan_backend" && roleDefaultBackendModules.includes(m)) || dealerSide,
                       }))}
-                      checked={dealerSide ? [] : draft.backend_modules}
+                      checked={dealerSide ? [] : effectiveBackendModules}
                       onChange={(v) => {
-                        if (editingOwnUser || dealerSide) return;
-                        setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, v as BackendMetaModule) });
+                        const mod = v as BackendMetaModule;
+                        if ((draft.role === "timan_backend" && roleDefaultBackendModules.includes(mod)) || dealerSide) return;
+                        setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, mod) });
                       }}
                     />
                   </div>
@@ -935,16 +967,16 @@ function EditUserModal({
                       { value: "can_approve_claims", label: "Can approve claims" },
                       { value: "can_create_tsb", label: "Can create TSB" },
                       { value: "can_manage_users", label: "Can manage users", disabled: editingOwnUser || dealerSide },
-                      { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser", disabled: editingOwnUser || restricted },
-                      { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount", disabled: editingOwnUser || restricted },
+                      { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser", disabled: restricted },
+                      { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount", disabled: restricted },
                       { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
                       { value: "news_manage", label: "Administrér nyheder / Manage news" },
-                    ].map((item) => ({ ...item, disabled: editingOwnUser || item.disabled }))}
+                    ]}
                     checked={(Object.entries(effectivePerms) as [keyof BackendUser["perms"], boolean][])
                       .filter(([, v]) => v)
                       .map(([k]) => k)}
                     onChange={(key) => {
-                      if (editingOwnUser) return;
+                      if (editingOwnUser && key === "can_manage_users") return;
                       if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;
                       if (dealerSide && key === "can_manage_users") return;
                       setDraft({
@@ -974,12 +1006,10 @@ function EditUserModal({
               items={QUICK_ACTION_KEYS.map((k) => ({
                 value: k,
                 label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
-                disabled: editingOwnUser,
               }))}
               checked={(draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as string[]}
               onChange={(key) => {
                 const k = key as QuickActionKey;
-                if (editingOwnUser) return;
                 const current = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
                 const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
                 setDraft({ ...draft, quick_actions: next });
@@ -1064,7 +1094,7 @@ function Select({
 function CheckboxGroup({
   items, checked, onChange,
 }: {
-  items: { value: string; label: string; disabled?: boolean }[];
+  items: { value: string; label: React.ReactNode; disabled?: boolean }[];
   checked: string[];
   onChange: (value: string) => void;
 }) {
@@ -1086,7 +1116,7 @@ function CheckboxGroup({
               onChange={() => !it.disabled && onChange(it.value)}
               className="h-3.5 w-3.5"
             />
-            <span className="font-semibold">{it.label}</span>
+            <span className="flex min-w-0 flex-wrap items-center gap-1 font-semibold">{it.label}</span>
           </label>
         );
       })}
