@@ -1,12 +1,15 @@
-import { useMemo, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { CalendarDays, Download, FileSignature, FileText, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { fetchDealerAccountByNumber } from '@/lib/dealerAccountsService';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
+import { supabase } from '@/lib/supabase';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 
 const CONTRACT_DOCS = [
   { title: 'Forhandlerkontrakt Timan', href: '/contracts/forhandlerkontrakt-timan.pdf' },
@@ -17,19 +20,24 @@ const CONTRACT_DOCS = [
 ];
 
 type ContractForm = {
-  timanCompany: string;
-  timanAddress: string;
-  timanPostalCity: string;
-  timanCvr: string;
   dealerName: string;
   dealerAddress: string;
   dealerPostalCity: string;
   dealerCvr: string;
   contactPerson: string;
   contactTitle: string;
-  timanSeller: string;
+  timanSellerName: string;
+  timanSellerEmail: string;
+  timanSellerPhone: string;
   contractDate: string;
   signatureDataUrl: string | null;
+};
+
+const TIMAN_COMPANY_INFO = {
+  company: 'Timan A/S',
+  cvr: '27609627',
+  address: 'Osvald Pedersens Vej 2A-D',
+  postalCity: '6980 Tim',
 };
 
 function todayIso() {
@@ -58,42 +66,100 @@ function safeFilePart(value: string) {
 
 export default function ContractsPage() {
   const { appUser, loading, logout } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [signatureName, setSignatureName] = useState('');
+  const dealerAccountNumber = (searchParams.get('accountNumber') || searchParams.get('dealer') || '').trim();
 
   const [form, setForm] = useState<ContractForm>(() => ({
-    timanCompany: 'Timan A/S',
-    timanAddress: 'Osvald Pedersens Vej 2A-D',
-    timanPostalCity: '6980 Tim',
-    timanCvr: '27609627',
     dealerName: '',
     dealerAddress: '',
     dealerPostalCity: '',
     dealerCvr: '',
     contactPerson: '',
     contactTitle: '',
-    timanSeller: appUser?.display_name ?? '',
+    timanSellerName: '',
+    timanSellerEmail: '',
+    timanSellerPhone: '',
     contractDate: todayIso(),
     signatureDataUrl: null,
   }));
 
-  const portalRole = derivePortalRole(appUser);
-  const moduleOverride = getUserModuleAccessOverride(appUser);
+  useEffect(() => {
+    if (!effectiveUser) return;
+    let cancelled = false;
+
+    const applySeller = (phone = '') => {
+      if (cancelled) return;
+      setForm((current) => ({
+        ...current,
+        timanSellerName: effectiveUser.display_name || effectiveUser.email || '',
+        timanSellerEmail: effectiveUser.email || '',
+        timanSellerPhone: phone,
+      }));
+    };
+
+    const userPhone = (effectiveUser as unknown as Record<string, unknown>).phone
+      || (effectiveUser as unknown as Record<string, unknown>).phone_number
+      || (effectiveUser as unknown as Record<string, unknown>).mobile
+      || (effectiveUser as unknown as Record<string, unknown>).telephone;
+    if (typeof userPhone === 'string' && userPhone.trim()) {
+      applySeller(userPhone.trim());
+      return () => { cancelled = true; };
+    }
+
+    supabase
+      .from('app_users')
+      .select('*')
+      .eq('email', effectiveUser.email.toLowerCase())
+      .maybeSingle()
+      .then(({ data }) => {
+        const row = (data ?? {}) as Record<string, unknown>;
+        const phone = row.phone || row.phone_number || row.mobile || row.telephone;
+        applySeller(typeof phone === 'string' ? phone.trim() : '');
+      })
+      .catch(() => applySeller(''));
+
+    return () => { cancelled = true; };
+  }, [effectiveUser]);
+
+  useEffect(() => {
+    if (!dealerAccountNumber) return;
+    let cancelled = false;
+    fetchDealerAccountByNumber(dealerAccountNumber).then(({ row, error }) => {
+      if (cancelled) return;
+      if (error) {
+        toast.error('Kunne ikke hente forhandlerdata til kontrakten.');
+        return;
+      }
+      if (!row) return;
+      setForm((current) => ({
+        ...current,
+        dealerName: row.company_name || current.dealerName,
+        dealerAddress: [row.address_line_1 || row.address, row.address_line_2].filter(Boolean).join(', ') || current.dealerAddress,
+        dealerPostalCity: [row.postal_code, row.city].filter(Boolean).join(' ') || row.zip_city_raw || current.dealerPostalCity,
+        dealerCvr: row.vat_number || current.dealerCvr,
+        contactPerson: row.primary_contact_name || row.sales_contact_name || current.contactPerson,
+      }));
+    });
+    return () => { cancelled = true; };
+  }, [dealerAccountNumber]);
+
+  const portalRole = derivePortalRole(effectiveUser);
+  const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   const hasAccess = portalRole === 'timan_backend' || hasModuleAccess(portalRole, 'contracts', moduleOverride);
 
   const ready = useMemo(
     () => Boolean(
-      form.timanCompany.trim()
-      && form.timanAddress.trim()
-      && form.timanPostalCity.trim()
-      && form.timanCvr.trim()
-      && form.dealerName.trim()
+      form.dealerName.trim()
       && form.dealerAddress.trim()
       && form.dealerPostalCity.trim()
       && form.dealerCvr.trim()
       && form.contactPerson.trim()
-      && form.timanSeller.trim()
+      && form.timanSellerName.trim()
+      && form.timanSellerEmail.trim()
       && form.contractDate,
     ),
     [form],
@@ -123,7 +189,7 @@ export default function ContractsPage() {
 
   const generatePdf = async () => {
     if (!ready) {
-      toast.error('Udfyld Timan-oplysninger, forhandlerdata, kontaktperson, Timan sælger og dato.');
+      toast.error('Udfyld forhandlerdata, kontaktperson og dato. Timan-sælger udfyldes automatisk.');
       return;
     }
 
@@ -142,13 +208,21 @@ export default function ContractsPage() {
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(10);
     pdf.setTextColor(17, 24, 39);
-    pdf.text(form.timanCompany.trim(), left, y);
+    pdf.text(TIMAN_COMPANY_INFO.company, left, y);
     y += 5;
-    pdf.text(form.timanAddress.trim(), left, y);
+    pdf.text(TIMAN_COMPANY_INFO.address, left, y);
     y += 5;
-    pdf.text(form.timanPostalCity.trim(), left, y);
+    pdf.text(TIMAN_COMPANY_INFO.postalCity, left, y);
     y += 5;
-    pdf.text(`CVR: ${form.timanCvr.trim()}`, left, y);
+    pdf.text(`CVR: ${TIMAN_COMPANY_INFO.cvr}`, left, y);
+    y += 5;
+    pdf.text(`Timan sælger: ${form.timanSellerName.trim()}`, left, y);
+    y += 5;
+    pdf.text(`E-mail: ${form.timanSellerEmail.trim()}`, left, y);
+    if (form.timanSellerPhone.trim()) {
+      y += 5;
+      pdf.text(`Telefon: ${form.timanSellerPhone.trim()}`, left, y);
+    }
 
     const boxX = 82;
     const boxY = 20;
@@ -179,7 +253,9 @@ export default function ContractsPage() {
     const rows: Array<[string, string]> = [
       ['Kontaktperson', form.contactPerson.trim()],
       ['Titel', form.contactTitle.trim() || '-'],
-      ['Timan sælger', form.timanSeller.trim()],
+      ['Timan sælger', form.timanSellerName.trim()],
+      ['Sælgers e-mail', form.timanSellerEmail.trim()],
+      ['Sælgers telefon', form.timanSellerPhone.trim() || '-'],
     ];
 
     rows.forEach(([label, value]) => {
@@ -212,10 +288,10 @@ export default function ContractsPage() {
 
     pdf.setTextColor(17, 24, 39);
     pdf.setFont('helvetica', 'normal');
-    pdf.text(form.timanCompany.trim(), left, y);
+    pdf.text(TIMAN_COMPANY_INFO.company, left, y);
     pdf.text(form.dealerName.trim(), 116, y);
     y += 7;
-    pdf.text(`Navn: ${form.timanSeller.trim()}`, left, y);
+    pdf.text(`Navn: ${form.timanSellerName.trim()}`, left, y);
     pdf.text(`Navn: ${form.contactPerson.trim()}`, 116, y);
     y += 7;
     pdf.text('Titel:', left, y);
@@ -292,18 +368,36 @@ export default function ContractsPage() {
             </div>
 
             <div className="space-y-7">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Timan-oplysninger</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <TextField label="Firma *" value={form.timanCompany} onChange={(value) => update('timanCompany', value)} />
-                  <TextField label="CVR *" value={form.timanCvr} onChange={(value) => update('timanCvr', value)} />
-                  <TextField label="Adresse *" value={form.timanAddress} onChange={(value) => update('timanAddress', value)} />
-                  <TextField label="Postnr. og by *" value={form.timanPostalCity} onChange={(value) => update('timanPostalCity', value)} />
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-emerald-900 mb-4">Timan-oplysninger</h3>
+                <div className="space-y-5">
+                  <div>
+                    <p className="text-lg font-bold text-emerald-950">{TIMAN_COMPANY_INFO.company}</p>
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <InfoField label="Firma" value={TIMAN_COMPANY_INFO.company} />
+                      <InfoField label="CVR" value={TIMAN_COMPANY_INFO.cvr} />
+                      <InfoField label="Adresse" value={TIMAN_COMPANY_INFO.address} />
+                      <InfoField label="Postnr. og by" value={TIMAN_COMPANY_INFO.postalCity} />
+                    </div>
+                  </div>
+                  <div className="border-t border-emerald-200 pt-4">
+                    <p className="text-sm font-bold uppercase tracking-wide text-emerald-900">Timan sælger</p>
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <InfoField label="Navn" value={form.timanSellerName || '—'} />
+                      <InfoField label="E-mail" value={form.timanSellerEmail || '—'} />
+                      {form.timanSellerPhone.trim() && (
+                        <InfoField label="Telefon" value={form.timanSellerPhone} />
+                      )}
+                    </div>
+                    {!form.timanSellerPhone.trim() && (
+                      <p className="mt-2 text-xs text-emerald-800/70">Telefon vises automatisk, hvis den er registreret på brugerprofilen.</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Forhandleroplysninger</h3>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900 mb-3">Forhandleroplysninger</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <TextField label="Forhandlernavn *" value={form.dealerName} onChange={(value) => update('dealerName', value)} placeholder="Fx Danish Agro Machinery - Kolding" />
                   <TextField label="CVR *" value={form.dealerCvr} onChange={(value) => update('dealerCvr', value)} />
@@ -311,7 +405,6 @@ export default function ContractsPage() {
                   <TextField label="Postnr. og by *" value={form.dealerPostalCity} onChange={(value) => update('dealerPostalCity', value)} />
                   <TextField label="Kontaktperson *" value={form.contactPerson} onChange={(value) => update('contactPerson', value)} placeholder="Navn på kontaktperson" />
                   <TextField label="Titel" value={form.contactTitle} onChange={(value) => update('contactTitle', value)} placeholder="Fx ejer, salgschef eller direktør" />
-                  <TextField label="Timan sælger *" value={form.timanSeller} onChange={(value) => update('timanSeller', value)} placeholder="Navn på Timan sælger" />
                   <label className="block">
                     <span className="text-sm font-semibold text-gray-700">Dato *</span>
                     <input
@@ -325,10 +418,10 @@ export default function ContractsPage() {
               </div>
 
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Digital signatur</h3>
+                <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Forhandlerens digitale signatur</h3>
                 <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center hover:border-amber-300 hover:bg-amber-50">
                   <Upload className="h-5 w-5 text-amber-700" />
-                  <span className="mt-2 text-sm font-semibold text-gray-800">Upload signaturbillede</span>
+                  <span className="mt-2 text-sm font-semibold text-gray-800">Upload forhandlerens signaturbillede</span>
                   <span className="mt-1 text-xs text-gray-500">{signatureName || 'Valgfrit - PNG eller JPG'}</span>
                   <input
                     type="file"
@@ -404,5 +497,14 @@ function TextField({
         placeholder={placeholder}
       />
     </label>
+  );
+}
+
+function InfoField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-emerald-100 bg-white/70 px-4 py-3">
+      <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-900/70">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-emerald-950">{value}</div>
+    </div>
   );
 }
