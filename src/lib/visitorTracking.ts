@@ -10,11 +10,17 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import type { SessionUser } from "@/context/AppUserContext";
 
 const VISITOR_KEY = "timan.visitor.uid";
 const SESSION_ID_KEY = "timan.visitor.sid";
 const SESSION_START_KEY = "timan.visitor.sstart";
 const GUEST_META_KEY = "timan.visitor.meta"; // {country, postal_code, email?}
+
+const MODULE_HEARTBEAT_MS = 45_000;
+const MODULE_ACTIVE_WINDOW_MS = 120_000;
+const MODULE_ACTIVE_SECONDS_CAP = 90;
+const ACTIVITY_EVENTS = ["pointerdown", "mousemove", "keydown", "scroll", "touchstart"] as const;
 
 export interface GuestMeta {
   country?: string | null;
@@ -75,6 +81,10 @@ function getOrStartSessionId(): string {
   } catch {
     return uuid();
   }
+}
+
+export function getPortalSessionId(): string {
+  return getOrStartSessionId();
 }
 
 function browserLanguage(): string | null {
@@ -241,6 +251,103 @@ function deriveModule(path: string): string | null {
   return seg[1] || "portal";
 }
 
+export function derivePortalModuleKey(path: string): string | null {
+  const clean = path.split("?")[0]?.split("#")[0] || "/";
+  const seg = clean.split("/").filter(Boolean);
+  if (seg[0] === "messe") {
+    if (seg[1] === "konfigurator") return "messe_configurator";
+    if (seg[1] === "partner-map") return "messe_partner_map";
+    if (seg[1] === "video") return "messe_video";
+    if (seg[1] === "nyt") return "messe_news";
+    if (seg[1] === "follow-up") return "messe_follow_up";
+    if (seg[1]) return `messe_${seg[1].replace(/-/g, "_")}`;
+    return "messe";
+  }
+  if (seg[0] === "configurator") return "configurator";
+  if (seg[0] !== "portal") return null;
+  if (!seg[1]) return "portal_home";
+
+  if (seg[1] === "crm") {
+    const crmArea = seg[2] || "dashboard";
+    if (crmArea === "my-dealers" || crmArea === "accounts" || crmArea === "konti") return "crm_dealers";
+    if (crmArea === "demo-leads") return "crm_demo_leads";
+    if (crmArea === "budget-dashboard") return "crm_budget_dashboard";
+    return `crm_${crmArea.replace(/-/g, "_")}`;
+  }
+
+  if (seg[1] === "backend") {
+    return seg[2] ? `backend_${seg[2].replace(/-/g, "_")}` : "backend";
+  }
+
+  if (seg[1] === "marketing") {
+    return seg[2] ? `marketing_${seg[2].replace(/-/g, "_")}` : "marketing";
+  }
+
+  if (seg[1] === "service") {
+    return seg[2] ? `service_${seg[2].replace(/-/g, "_")}` : "service";
+  }
+
+  if (seg[1] === "misc") {
+    if (seg[2] === "partner-map") return "partner_map";
+    if (seg[2] === "forms") return "forms";
+    return "misc";
+  }
+
+  if (seg[1] === "resources") {
+    return seg[2] ? `resource_${seg[2].replace(/-/g, "_")}` : "resources";
+  }
+
+  if (seg[1] === "dealer-data") return "dealer_data";
+  if (seg[1] === "videos") return "videos";
+  if (seg[1] === "contracts") return "contracts";
+  if (seg[1] === "timan-2620-afproevning") return "timan_2620_trial";
+  if (seg[1] === "timan-2620") return "timan_2620";
+  return seg[1].replace(/-/g, "_");
+}
+
+export function shouldCountModuleHeartbeat(input: {
+  visible: boolean;
+  nowMs: number;
+  lastInteractionMs: number;
+  activeWindowMs?: number;
+}): boolean {
+  return input.visible && input.nowMs - input.lastInteractionMs <= (input.activeWindowMs ?? MODULE_ACTIVE_WINDOW_MS);
+}
+
+export function calculateModuleActiveSeconds(input: {
+  nowMs: number;
+  lastHeartbeatMs: number;
+  maxSeconds?: number;
+}): number {
+  const elapsedSeconds = Math.max(0, Math.round((input.nowMs - input.lastHeartbeatMs) / 1000));
+  return Math.min(elapsedSeconds, input.maxSeconds ?? MODULE_ACTIVE_SECONDS_CAP);
+}
+
+export async function recordPortalModuleUsage(input: {
+  user: SessionUser | null;
+  path: string;
+  activeSeconds?: number;
+  visitIncrement?: number;
+}): Promise<void> {
+  if (!input.user?.email) return;
+  const moduleKey = derivePortalModuleKey(input.path);
+  if (!moduleKey) return;
+
+  try {
+    const activeSeconds = Math.max(0, Math.min(input.activeSeconds ?? 0, MODULE_ACTIVE_SECONDS_CAP));
+    const visitIncrement = input.visitIncrement ? 1 : 0;
+    const { error } = await supabase.rpc("record_portal_module_usage", {
+      p_session_id: getPortalSessionId(),
+      p_module_key: moduleKey,
+      p_active_seconds: activeSeconds,
+      p_visit_increment: visitIncrement,
+    });
+    if (error) throw error;
+  } catch (err) {
+    console.error("[visitorTracking] recordPortalModuleUsage failed:", err);
+  }
+}
+
 /**
  * Close current session (best-effort, called on unload).
  */
@@ -261,6 +368,17 @@ export function endSessionBeacon(): void {
  */
 let unloadAttached = false;
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+let activityListenerAttached = false;
+let lastModuleInteractionAt = Date.now();
+
+function markModuleInteraction(): void {
+  lastModuleInteractionAt = Date.now();
+}
+
+export function getLastModuleInteractionAt(): number {
+  return lastModuleInteractionAt;
+}
+
 export function attachSessionEndListener(): void {
   if (unloadAttached || typeof window === "undefined") return;
   unloadAttached = true;
@@ -274,4 +392,19 @@ export function attachSessionEndListener(): void {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") void touchSessionLastSeen(true);
   });
+}
+
+export function attachModuleActivityListener(): void {
+  if (activityListenerAttached || typeof window === "undefined") return;
+  activityListenerAttached = true;
+  ACTIVITY_EVENTS.forEach((eventName) => {
+    window.addEventListener(eventName, markModuleInteraction, { passive: true });
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") markModuleInteraction();
+  });
+}
+
+export function getModuleHeartbeatIntervalMs(): number {
+  return MODULE_HEARTBEAT_MS;
 }
