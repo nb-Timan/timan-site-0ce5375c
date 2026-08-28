@@ -21,7 +21,7 @@ import { listCrmAccounts, CrmAccount, accountDisplayName } from '@/lib/crmAccoun
 import { listActivities, CrmActivity, CrmActivityType } from '@/lib/crmActivitiesService';
 import { listScopedOrdersWithValue, CrmOrderWithValue } from '@/lib/crmConfigurationsService';
 import { listScopedOpenQuotes, type ScopedConfiguration } from '@/lib/crmRelationsService';
-import { listLeads, type CrmLead, formatLeadNo } from '@/lib/crmLeadsService';
+import { listLeads, listDemoLeads, resolveSeedOwners, demoLeadsToActivities, type CrmLead, formatLeadNo } from '@/lib/crmLeadsService';
 import { effectiveLeadStatus } from '@/lib/leadStatus';
 import { listActivities as listCalendarActivities, type CalendarActivity } from '@/lib/crmCalendarService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
@@ -211,6 +211,7 @@ export default function CrmDashboardPage() {
 
   const [accounts, setAccounts] = useState<CrmAccount[]>([]);
   const [activities, setActivities] = useState<CrmActivity[]>([]);
+  const [recentActivities, setRecentActivities] = useState<CrmActivity[]>([]);
   const [orders, setOrders] = useState<CrmOrderWithValue[]>([]);
   const [openQuotes, setOpenQuotes] = useState<ScopedConfiguration[]>([]);
   const [leads, setLeads] = useState<CrmLead[]>([]);
@@ -277,6 +278,19 @@ export default function CrmDashboardPage() {
       const act = externalCrm
         ? rawAct.filter((a) => (a.account_id && accountIds.has(a.account_id)) || (a.account_name && accountNames.has(a.account_name.trim().toLowerCase())))
         : rawAct;
+      const demoResolved = await resolveSeedOwners(await listDemoLeads({}));
+      const demoActs = demoLeadsToActivities(demoResolved);
+      const scopedDemoActs = effectiveAdmin
+        ? demoActs
+        : externalCrm
+          ? demoActs.filter((a) => {
+              const accountName = (a.account_name || '').trim().toLowerCase();
+              return !!accountName && accountNames.has(accountName);
+            })
+          : demoActs.filter((a) => !!a.assigned_owner_user_id && a.assigned_owner_user_id === sid);
+      const mergedRecentActivities = [...act, ...scopedDemoActs]
+        .sort((a, b) => (b.activity_date || '').localeCompare(a.activity_date || ''))
+        .slice(0, 50);
       const quoteOrderKpis = externalCrm ? null : await fetchCrmDashboardQuoteOrderKpis({
         sellerUserId: effectiveAdmin ? null : sid,
         sellerInitials: effectiveAdmin ? null : sellerInitials,
@@ -324,6 +338,7 @@ export default function CrmDashboardPage() {
       setSellerId(sid);
       setAccounts(acc.accounts);
       setActivities(act);
+      setRecentActivities(mergedRecentActivities);
       setOrders(orderRows);
       setOpenQuotes(quoteRows);
       setLeads(lds);
@@ -398,7 +413,7 @@ export default function CrmDashboardPage() {
   // built-in empty states) when there is no CRM data yet.
   const metrics = realMetrics;
   const trend30 = realTrend30;
-  const previewActivities = activities;
+  const previewActivities = recentActivities;
 
   return (
     <CrmLayout pageTitle="Dashboard">
