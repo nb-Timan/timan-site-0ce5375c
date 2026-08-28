@@ -23,7 +23,7 @@ interface Summary {
   errors?: GeocodeError[];
 }
 
-export default function GeocodeDealersPanel() {
+export default function GeocodeDealersPanel({ onCompleted }: { onCompleted?: () => void } = {}) {
   const { appUser } = useAppUser();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Summary | null>(null);
@@ -49,6 +49,7 @@ export default function GeocodeDealersPanel() {
       if (fnErr) throw new Error(fnErr.message);
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
       setResult(data as Summary);
+      onCompleted?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

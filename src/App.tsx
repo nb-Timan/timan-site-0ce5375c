@@ -162,6 +162,7 @@ const BackendBudgetImportPage = lazy(() => import("./pages/backend/BackendBudget
 const BackendSellersPage = lazy(() => import("./pages/backend/BackendSellersPage"));
 const BackendPriceListsPage = lazy(() => import("./pages/backend/BackendPriceListsPage"));
 const BackendDataIntegrationsPage = lazy(() => import("./pages/backend/BackendDataIntegrationsPage"));
+const BackendGeocodingPage = lazy(() => import("./pages/backend/BackendGeocodingPage"));
 const BackendChangelogPage = lazy(() => import("./pages/backend/BackendChangelogPage"));
 const BackendPartnerRelationsPage = lazy(() => import("./pages/backend/BackendPartnerRelationsPage"));
 const BackendMesseSettingsPage = lazy(() => import("./pages/backend/BackendMesseSettingsPage"));
@@ -320,6 +321,7 @@ const App = () => (
               <Route path="/portal/backend/persistence-audit" element={<BackendPersistenceAuditPage />} />
               <Route path="/portal/backend/price-lists" element={<BackendPriceListsPage />} />
               <Route path="/portal/backend/data" element={<BackendDataIntegrationsPage />} />
+              <Route path="/portal/backend/geocoding" element={<BackendGeocodingPage />} />
               <Route path="/portal/backend/changelog" element={<BackendChangelogPage />} />
               <Route path="/portal/backend/news" element={<BackendNewsPage />} />
               <Route path="/portal/backend/partner-relations" element={<BackendPartnerRelationsPage />} />

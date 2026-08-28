@@ -448,7 +448,7 @@ const featureNodes: SystemMapNode[] = [
   node("dealer_relations", "Samarbejdspartnere", "Parent/children", "feature", "dealer_data", "dealer_data", 870, 1330, 1.0, GitBranch, ["dealer_accounts.parent_account_number"], ["partnerRelationsService"], ["/portal/backend/partner-relations"], "Relationer binder importører, forhandlere, servicepartnere og forhandlerkunder sammen."),
   node("dealer_notes", "Noter", "Interne og delte noter", "data", "dealer_data", "dealer_profile", 620, 1390, 1.2, MessageSquareText, ["crm_dealer_notes"], ["dealerNotesService"], ["/portal/crm/my-dealers"], "Noter hører til forhandlerprofilen og kan deles efter visibility-regler."),
   node("dealer_users", "Brugere/kontakter", "Partnerbrugere", "data", "dealer_data", "dealer_profile", 520, 1270, 1.25, Users, ["app_users", "dealer_contacts"], ["backendUsersService"], ["/portal/backend/users"], "Partnerbrugere kobles til dealer_accounts."),
-  node("dealer_geocoding", "Geocoding", "Koordinater og adresse", "feature", "dealer_data", "dealer_data", 730, 1510, 1.2, Map, ["dealer_accounts.latitude", "dealer_accounts.longitude"], ["dealerGeocodingService"], ["/portal/backend/data?tab=forhandlere"], "Geocoding gør det muligt at vise partnere som prikker på kortet."),
+  node("dealer_geocoding", "Geocoding", "Adresser og koordinater", "feature", "import", "import", 1020, 1510, 1.0, Map, ["dealer_accounts.latitude", "dealer_accounts.longitude", "warranty_registrations.customer_latitude", "warranty_registrations.customer_longitude"], ["geocode-dealers", "geocode-warranty-customers", "dealerGeocodingService"], ["/portal/backend/geocoding"], "Geocoding samler adresseberigelse for partnerkonti og garantikunder, så kort og geografiske visninger kan bruge koordinater."),
 
   node("warranty", "Warranty", "Garantiregistreringer", "feature", "service", "service", 2150, 1210, 0.9, ShieldCheck, ["warranty_registrations"], ["warrantyRegistrationsService"], ["/portal/service/warranty"], "Warranty samler garantiregistreringer og matching."),
   node("tsb", "TSB", "Technical Service Bulletins", "feature", "service", "service", 2320, 1330, 0.95, ClipboardList, ["tsb records"], ["TsbAccessGuard"], ["/portal/service/tsb"], "TSB-området håndterer tekniske service bulletins."),
@@ -545,7 +545,6 @@ export const systemMapEdges: SystemMapEdge[] = [
   { from: "supabase", to: "marketing", label: "CMS", kind: "data" },
   { from: "supabase", to: "dealer_data", label: "konti", kind: "data" },
   { from: "supabase", to: "service", label: "service", kind: "data" },
-  { from: "external_apis", to: "dealer_data", label: "geocoding", kind: "sync", minZoom: 0.8 },
   { from: "external_apis", to: "messe", label: "kort", kind: "data", minZoom: 0.8 },
 ];
 
@@ -572,6 +571,9 @@ export const systemDnaEdges: SystemMapEdge[] = [
   { from: "price_lists", to: "config_step_options", label: "priser", kind: "data", minZoom: 1.05 },
   { from: "dealer_import", to: "dealer_profile", label: "opdaterer", kind: "sync", minZoom: 1.0 },
   { from: "warranty", to: "machine_journal", label: "maskiner", kind: "data", minZoom: 1.05 },
+  { from: "external_apis", to: "dealer_geocoding", label: "geocoding", kind: "sync", minZoom: 0.8 },
+  { from: "dealer_geocoding", to: "dealer_data", label: "partner-koordinater", kind: "data", minZoom: 0.9 },
+  { from: "dealer_geocoding", to: "service", label: "garantikunde-koordinater", kind: "data", minZoom: 0.9 },
   { from: "news", to: "messe_news", label: "publicerer", kind: "data", minZoom: 1.1 },
   { from: "site_features", to: "portal", label: "Hvad er nyt", kind: "data", minZoom: 0.95 },
   { from: "users_admin", to: "roles_access", label: "tildeler", kind: "permission", minZoom: 1.0 },

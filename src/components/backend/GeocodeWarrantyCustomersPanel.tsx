@@ -23,7 +23,7 @@ interface Summary {
   errors?: { certificate: string | null; reason: string }[];
 }
 
-export default function GeocodeWarrantyCustomersPanel() {
+export default function GeocodeWarrantyCustomersPanel({ onCompleted }: { onCompleted?: () => void } = {}) {
   const { appUser } = useAppUser();
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Summary | null>(null);
@@ -44,6 +44,7 @@ export default function GeocodeWarrantyCustomersPanel() {
       if (fnErr) throw new Error(fnErr.message);
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
       setResult(data as Summary);
+      onCompleted?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

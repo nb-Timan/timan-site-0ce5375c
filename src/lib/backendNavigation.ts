@@ -87,6 +87,7 @@ export const backendSections: BackendSection[] = [
     icon: Database,
     items: [
       { title: "Data & Integrationer", icon: Database, to: "/portal/backend/data", description: "Samlet kontrolcenter for imports, eksports og syncs med status og historik." },
+      { title: "Geocoding", icon: MapPin, to: "/portal/backend/geocoding", description: "Geokod adresser til Partnerkort, garantikort og geografiske visninger." },
       { title: "Dealer Import", icon: Upload, to: "/portal/backend/dealer-import", description: "Importér og opdatér forhandlerdata fra SharePoint/CSV-kilder." },
       { title: "Budget Import", icon: Upload, to: "/portal/backend/budget-import", description: "Importér sælgerbudgetter fra Excel-oversigt til CRM Budget." },
       { title: "Prislister", icon: Tag, to: "/portal/backend/price-lists", description: "Importér, ret og publicér prislistedata." },

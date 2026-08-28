@@ -10,7 +10,7 @@
  */
 import { useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Database, Building2, FileText, Tag, BarChart3, Users as UsersIcon, History, ExternalLink, FileDown, RotateCcw, AlertTriangle } from "lucide-react";
+import { Database, Building2, FileText, Tag, BarChart3, Users as UsersIcon, History, ExternalLink, FileDown, RotateCcw, AlertTriangle, MapPin } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -18,8 +18,6 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/lib/supabase";
 import SharePointSyncPanel from "@/components/backend/SharePointSyncPanel";
-import GeocodeDealersPanel from "@/components/backend/GeocodeDealersPanel";
-import GeocodeWarrantyCustomersPanel from "@/components/backend/GeocodeWarrantyCustomersPanel";
 import SharePointWarrantyProbeButton from "@/components/backend/SharePointWarrantyProbeButton";
 import WarrantySharePointSyncPanel from "@/components/warranty/WarrantySharePointSyncPanel";
 import { WarrantyDealerLinkBackfillPanel } from "@/components/warranty/WarrantyDealerLinkBackfillPanel";
@@ -293,12 +291,13 @@ function DealerTab() {
         <SharePointSyncPanel />
       </SyncSection>
 
-      <SyncSection
+      <ComingSoonCard
         title="Geocoding"
-        description="Find geokoordinater for forhandlere uden lat/lng — bruges af partnerkort og dækningsanalyse."
-      >
-        <GeocodeDealersPanel />
-      </SyncSection>
+        description="Geocoding håndteres samlet for partnerkonti, garantikunder og andre adressekilder."
+        to="/portal/backend/geocoding"
+        toLabel="Administrér geocoding"
+        icon={MapPin}
+      />
 
       <ComingSoonCard
         title="Import firma- og kontaktinformation"
@@ -348,12 +347,13 @@ function WarrantyTab() {
         <WarrantyDealerLinkBackfillPanel />
       </SyncSection>
 
-      <SyncSection
-        title="Geocoding (kundeadresser)"
-        description="Find geokoordinater for kundeadresser på garantiregistreringer — bruges af machine-laget på partnerkortet."
-      >
-        <GeocodeWarrantyCustomersPanel />
-      </SyncSection>
+      <ComingSoonCard
+        title="Geocoding af garantikunder"
+        description="Kundeadresser på garantiregistreringer geokodes på den samlede Geocoding-side."
+        to="/portal/backend/geocoding"
+        toLabel="Administrér geocoding"
+        icon={MapPin}
+      />
 
 
       <ComingSoonCard
@@ -426,7 +426,7 @@ function HistoryTab() {
         to="/portal/service/warranty"
         toLabel="Se på Warranty"
       />
-      <ComingSoonCard title="Geocoding logs" description="Log over geocoding-kørsler og fejl." />
+      <ComingSoonCard title="Geocoding" description="Samlet status, kørsel og fejl for adresse-geocoding." to="/portal/backend/geocoding" toLabel="Åbn Geocoding" icon={MapPin} />
       <ComingSoonCard title="Import logs" description="Samlet historik for Excel-imports (forhandlere, budget, prislister)." />
     </>
   );
