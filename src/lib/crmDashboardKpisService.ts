@@ -42,6 +42,30 @@ export type CrmDashboardLeadKpis = {
   };
 };
 
+export type CrmDashboardQuoteOrderKpis = {
+  quoteCount: number;
+  quoteValueDkk: number;
+  quoteValueEur: number;
+  orderCount: number;
+  orderValueDkk: number;
+  orderValueEur: number;
+  closedCountThisMonth: number;
+  closedValueThisMonth: number;
+  closedValueThisMonthEur: number;
+  wonPctChange: number;
+  closedPctChange: number;
+  rawRecordsScanned: {
+    configurations: number;
+    quotes: number;
+    orders: number;
+  };
+  stageRows: {
+    quote: CrmDashboardPipelineRow[];
+    won: CrmDashboardPipelineRow[];
+  };
+  orderRows: Array<Record<string, unknown>>;
+};
+
 type RpcPayload = {
   active_leads?: number;
   lead_count?: number;
@@ -65,6 +89,30 @@ type RpcPayload = {
   stage_rows?: Partial<CrmDashboardLeadKpis["stageRows"]>;
 };
 
+type QuoteOrderRpcPayload = {
+  quote_count?: number;
+  quote_value_dkk?: number | string;
+  quote_value_eur?: number | string;
+  order_count?: number;
+  order_value_dkk?: number | string;
+  order_value_eur?: number | string;
+  closed_count_this_month?: number;
+  closed_value_this_month?: number | string;
+  closed_value_this_month_eur?: number | string;
+  won_pct_change?: number;
+  closed_pct_change?: number;
+  raw_records_scanned?: {
+    configurations?: number;
+    quotes?: number;
+    orders?: number;
+  };
+  stage_rows?: {
+    quote?: unknown;
+    won?: unknown;
+  };
+  order_rows?: unknown;
+};
+
 function numberValue(value: unknown): number {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "string") {
@@ -74,8 +122,38 @@ function numberValue(value: unknown): number {
   return 0;
 }
 
+function rawRows(value: unknown): Array<Record<string, unknown>> {
+  return Array.isArray(value) ? value as Array<Record<string, unknown>> : [];
+}
+
 function rows(value: unknown): CrmDashboardPipelineRow[] {
   return Array.isArray(value) ? value as CrmDashboardPipelineRow[] : [];
+}
+
+function mapQuoteOrderPayload(payload: QuoteOrderRpcPayload): CrmDashboardQuoteOrderKpis {
+  return {
+    quoteCount: numberValue(payload.quote_count),
+    quoteValueDkk: numberValue(payload.quote_value_dkk),
+    quoteValueEur: numberValue(payload.quote_value_eur),
+    orderCount: numberValue(payload.order_count),
+    orderValueDkk: numberValue(payload.order_value_dkk),
+    orderValueEur: numberValue(payload.order_value_eur),
+    closedCountThisMonth: numberValue(payload.closed_count_this_month),
+    closedValueThisMonth: numberValue(payload.closed_value_this_month),
+    closedValueThisMonthEur: numberValue(payload.closed_value_this_month_eur),
+    wonPctChange: numberValue(payload.won_pct_change),
+    closedPctChange: numberValue(payload.closed_pct_change),
+    rawRecordsScanned: {
+      configurations: numberValue(payload.raw_records_scanned?.configurations),
+      quotes: numberValue(payload.raw_records_scanned?.quotes),
+      orders: numberValue(payload.raw_records_scanned?.orders),
+    },
+    stageRows: {
+      quote: rows(payload.stage_rows?.quote),
+      won: rows(payload.stage_rows?.won),
+    },
+    orderRows: rawRows(payload.order_rows),
+  };
 }
 
 function mapPayload(payload: RpcPayload): CrmDashboardLeadKpis {
@@ -123,4 +201,23 @@ export async function fetchCrmDashboardLeadKpis(opts: {
   }
 
   return mapPayload((data || {}) as RpcPayload);
+}
+
+export async function fetchCrmDashboardQuoteOrderKpis(opts: {
+  sellerUserId?: string | null;
+  sellerInitials?: string | null;
+  sellerEmail?: string | null;
+}): Promise<CrmDashboardQuoteOrderKpis | null> {
+  const { data, error } = await supabase.rpc("crm_dashboard_quote_order_kpis", {
+    p_seller_user_id: opts.sellerUserId || null,
+    p_seller_initials: opts.sellerInitials || null,
+    p_seller_email: opts.sellerEmail || null,
+  });
+
+  if (error) {
+    console.warn("[crmDashboardKpis] quote/order rpc failed, dashboard will use local calculation:", error);
+    return null;
+  }
+
+  return mapQuoteOrderPayload((data || {}) as QuoteOrderRpcPayload);
 }

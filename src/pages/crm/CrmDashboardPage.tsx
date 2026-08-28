@@ -31,7 +31,12 @@ import { isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
 import { buildJournalScope } from '@/lib/machineJournalScope';
 import { formatDate } from '@/lib/format-date';
 import { getLeadPipelineValue } from '@/lib/crmPipelineValue';
-import { fetchCrmDashboardLeadKpis, type CrmDashboardLeadKpis } from '@/lib/crmDashboardKpisService';
+import {
+  fetchCrmDashboardLeadKpis,
+  fetchCrmDashboardQuoteOrderKpis,
+  type CrmDashboardLeadKpis,
+  type CrmDashboardQuoteOrderKpis,
+} from '@/lib/crmDashboardKpisService';
 import { Language } from '@/types/configurator';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
@@ -209,6 +214,7 @@ export default function CrmDashboardPage() {
   const [leads, setLeads] = useState<CrmLead[]>([]);
   const [calendar, setCalendar] = useState<CalendarActivity[]>([]);
   const [serverLeadKpis, setServerLeadKpis] = useState<CrmDashboardLeadKpis | null>(null);
+  const [serverQuoteOrderKpis, setServerQuoteOrderKpis] = useState<CrmDashboardQuoteOrderKpis | null>(null);
   const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [openStage, setOpenStage] = useState<StageMeta['key'] | null>(null);
@@ -268,8 +274,23 @@ export default function CrmDashboardPage() {
       const act = externalCrm
         ? rawAct.filter((a) => (a.account_id && accountIds.has(a.account_id)) || (a.account_name && accountNames.has(a.account_name.trim().toLowerCase())))
         : rawAct;
-      const ord = await listScopedOrdersWithValue(scopeFilter);
-      const quo = await listScopedOpenQuotes(scopeFilter);
+      const quoteOrderKpis = externalCrm ? null : await fetchCrmDashboardQuoteOrderKpis({
+        sellerUserId: effectiveAdmin ? null : sid,
+        sellerInitials: effectiveAdmin ? null : sellerInitials,
+        sellerEmail: effectiveAdmin ? null : sellerEmail,
+      });
+      let orderRows: CrmOrderWithValue[] = [];
+      let quoteRows: ScopedConfiguration[] = [];
+      if (quoteOrderKpis) {
+        orderRows = quoteOrderKpis.orderRows as unknown as CrmOrderWithValue[];
+      } else {
+        const [ord, quo] = await Promise.all([
+          listScopedOrdersWithValue(scopeFilter),
+          listScopedOpenQuotes(scopeFilter),
+        ]);
+        orderRows = ord.rows;
+        quoteRows = quo.rows;
+      }
       const rpcKpis = externalCrm ? null : await fetchCrmDashboardLeadKpis({
         sellerUserId: effectiveAdmin ? null : sid,
         sellerInitials: effectiveAdmin ? null : sellerInitials,
@@ -295,11 +316,12 @@ export default function CrmDashboardPage() {
       setSellerId(sid);
       setAccounts(acc.accounts);
       setActivities(act);
-      setOrders(ord.rows);
-      setOpenQuotes(quo.rows);
+      setOrders(orderRows);
+      setOpenQuotes(quoteRows);
       setLeads(lds);
       setCalendar(cal);
       setServerLeadKpis(rpcKpis);
+      setServerQuoteOrderKpis(quoteOrderKpis);
     })();
     return () => { cancelled = true; };
   }, [appUser?.email, effectiveUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, externalCrm, topSellerInitials, leadRefreshToken]);
@@ -311,15 +333,16 @@ export default function CrmDashboardPage() {
   // - demo → crm_calendar_activities (type=demo, status=planned)
   const localPipelineRows = useMemo(() => buildPipelineRows({ orders, openQuotes, leads, calendar }), [orders, openQuotes, leads, calendar]);
   const pipelineRows = useMemo(() => {
-    if (!serverLeadKpis) return localPipelineRows;
+    if (!serverLeadKpis && !serverQuoteOrderKpis) return localPipelineRows;
     return {
       ...localPipelineRows,
-      lead: serverLeadKpis.stageRows.lead,
-      demo: serverLeadKpis.stageRows.demo,
-      won: [...localPipelineRows.won, ...serverLeadKpis.stageRows.won],
-      lost: serverLeadKpis.stageRows.lost,
+      lead: serverLeadKpis?.stageRows.lead ?? localPipelineRows.lead,
+      demo: serverLeadKpis?.stageRows.demo ?? localPipelineRows.demo,
+      quote: serverQuoteOrderKpis?.stageRows.quote ?? localPipelineRows.quote,
+      won: [...localPipelineRows.won, ...(serverLeadKpis?.stageRows.won ?? [])],
+      lost: serverLeadKpis?.stageRows.lost ?? localPipelineRows.lost,
     };
-  }, [localPipelineRows, serverLeadKpis]);
+  }, [localPipelineRows, serverLeadKpis, serverQuoteOrderKpis]);
 
   const realMetrics = useMemo(() => {
     const base = deriveMetrics(activities, orders, isAdmin);
@@ -330,7 +353,7 @@ export default function CrmDashboardPage() {
     });
     const openKeys: Array<StageMeta['key']> = ['lead','demo','quote'];
     const pipelineValue = byStage.filter(s => openKeys.includes(s.key)).reduce((s, x) => s + x.value, 0);
-    const pipelineValueEur = openQuotes
+    const pipelineValueEur = serverQuoteOrderKpis?.quoteValueEur ?? openQuotes
       .filter(q => q.currency === 'EUR')
       .reduce((s, q) => s + (q.total_value || 0), 0);
     const activeLeadRows = [
@@ -356,7 +379,7 @@ export default function CrmDashboardPage() {
       pipelineValueEur,
       pipelineByStage: byStage,
     };
-  }, [activities, orders, isAdmin, pipelineRows, openQuotes]);
+  }, [activities, orders, isAdmin, pipelineRows, openQuotes, serverQuoteOrderKpis]);
 
   const realTrend30 = useMemo(() => buildPipelineTrend(activities), [activities]);
 
