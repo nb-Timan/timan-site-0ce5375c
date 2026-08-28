@@ -16,6 +16,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { isPortalApprovedDealerMatch } from "../_shared/warranty-match-protection.ts";
 
 const SP_HOSTNAME = "timandk.sharepoint.com";
 const SP_SITE_PATH = "sites/SalgMarketingTiman";
@@ -405,7 +406,7 @@ Deno.serve(async (req) => {
         const { data, error } = await admin
           .from("warranty_registrations")
           .select(
-            "sharepoint_item_id, dealer_name_snapshot, machine_serial_number, machine_model, delivery_date, customer_name, customer_email",
+            "sharepoint_item_id, dealer_name_snapshot, machine_serial_number, machine_model, delivery_date, customer_name, customer_email, dealer_account_id, dealer_account_number, dealer_match_status, dealer_match_method, dealer_match_confidence, dealer_match_reviewed_by, dealer_match_reviewed_at",
           )
           .in("sharepoint_item_id", ids);
         if (error) {
@@ -486,7 +487,7 @@ Deno.serve(async (req) => {
       dealer_account_id: string;
       dealer_company_name: string;
       dealer_account_number: string | null;
-      reason: "exact" | "alias";
+      reason: "exact" | "alias" | "portal_approved";
     }
     interface NeedsReview {
       sharepoint_item_id: string;
@@ -506,8 +507,24 @@ Deno.serve(async (req) => {
     const safe_matches: SafeMatch[] = [];
     const needs_review: NeedsReview[] = [];
     const unmatched: Unmatched[] = [];
+    let manual_matches_preserved_count = 0;
 
     for (const m of validRows) {
+      const ex = existingById.get(m.sharepoint_item_id);
+      if (isPortalApprovedDealerMatch(ex)) {
+        const dealer = dealerList.find((d) => d.id === ex.dealer_account_id);
+        safe_matches.push({
+          sharepoint_item_id: m.sharepoint_item_id,
+          dealer_name_snapshot: m.dealer_name_snapshot,
+          dealer_account_id: String(ex.dealer_account_id),
+          dealer_company_name: dealer?.company_name ?? "(manuel dealer-kobling)",
+          dealer_account_number: ex.dealer_account_number ?? dealer?.account_number ?? null,
+          reason: "portal_approved",
+        });
+        manual_matches_preserved_count++;
+        continue;
+      }
+
       const rawName = m.dealer_name_snapshot;
       if (!rawName) {
         unmatched.push({ sharepoint_item_id: m.sharepoint_item_id, dealer_name_snapshot: "" });
@@ -602,6 +619,7 @@ Deno.serve(async (req) => {
         needs_review: needs_review.slice(0, 200),
         unmatched: unmatched.slice(0, 200),
       },
+      manual_matches_preserved_count,
       sample_new: newRows.slice(0, 10),
       sample_updates: updateRows.slice(0, 10),
       warnings,

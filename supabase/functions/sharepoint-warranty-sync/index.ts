@@ -25,6 +25,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { isPortalApprovedDealerMatch } from "../_shared/warranty-match-protection.ts";
 
 const SP_HOSTNAME = "timandk.sharepoint.com";
 const SP_SITE_PATH = "sites/SalgMarketingTiman";
@@ -671,18 +672,14 @@ Deno.serve(async (req) => {
         last_synced_at: new Date().toISOString(),
       };
 
-      // ---- Preserve manual dealer matches ----
-      // If timan_backend/timan_service has manually linked this row to a
-      // dealer (dealer_match_method = 'manual'), SharePoint sync must NEVER
-      // downgrade or rewrite the dealer link — even if the SP name now
-      // matches another dealer or matches nothing.
-      const exMethod = ex?.dealer_match_method as string | null | undefined;
-      const exDealerId = ex?.dealer_account_id as string | null | undefined;
-      if (ex && exMethod === "manual" && exDealerId) {
+      // ---- Preserve portal-approved dealer matches ----
+      // If Timan has manually linked/reviewed this row in the portal,
+      // SharePoint sync must NEVER downgrade or rewrite the dealer link.
+      if (isPortalApprovedDealerMatch(ex)) {
         payload.dealer_account_id = ex.dealer_account_id;
         payload.dealer_account_number = ex.dealer_account_number ?? null;
         payload.dealer_match_status = "matched";
-        payload.dealer_match_method = "manual";
+        payload.dealer_match_method = ex.dealer_match_method ?? "manual";
         payload.dealer_match_confidence = ex.dealer_match_confidence ?? null;
         manualMatchesPreservedCount++;
       }

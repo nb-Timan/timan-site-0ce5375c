@@ -50,7 +50,7 @@ interface SafeMatch {
   dealer_account_id: string;
   dealer_company_name: string;
   dealer_account_number: string | null;
-  reason: "exact" | "alias";
+  reason: "exact" | "alias" | "portal_approved";
 }
 interface NeedsReview {
   sharepoint_item_id: string;
@@ -92,6 +92,7 @@ interface DryRunResult {
     needs_review: NeedsReview[];
     unmatched: Unmatched[];
   };
+  manual_matches_preserved_count?: number;
   warnings: string[];
   durationMs: number;
 }
@@ -471,7 +472,7 @@ function SyncResultView({ data }: { data: SyncResult }) {
           />
         </div>
         <p className="mt-2 text-xs text-slate-600">
-          Manuelle forhandlerkoblinger (<code className="font-mono">dealer_match_method = manual</code>) og felter rettet i portalen
+          Manuelle/godkendte forhandlerkoblinger og felter rettet i portalen
           (<code className="font-mono">change_source = portal_edit</code>) overskrives aldrig af SharePoint-sync.
         </p>
       </Section>
@@ -759,11 +760,20 @@ function DryRunView({ data, onRerun }: { data: DryRunResult; onRerun: () => void
       <RejectedRowsSection rows={data.rejected_sample ?? []} total={data.rejected_count ?? 0} />
 
       <Section title="Dealer matching">
-        <div className="grid grid-cols-3 gap-2 mb-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
           <Stat label="Sikre matches" value={dm.safe_matches_count ?? 0} tone="emerald" />
           <Stat label="Kræver gennemgang" value={dm.needs_review_count ?? 0} tone="amber" />
           <Stat label="Unmatched" value={dm.unmatched_count ?? 0} tone="rose" />
+          <Stat
+            label="Manuelle/godkendte bevaret"
+            value={data.manual_matches_preserved_count ?? 0}
+            tone={(data.manual_matches_preserved_count ?? 0) > 0 ? "emerald" : "slate"}
+          />
         </div>
+        <p className="mb-3 text-xs text-slate-600">
+          Portal-godkendte eller manuelt valgte forhandlerkoblinger bevares. SharePoint kan stadig opdatere rå garanti-data,
+          men må ikke nulstille den godkendte kobling.
+        </p>
 
         {safeMatches.length > 0 && (
           <details className="rounded-lg border border-emerald-200 mb-2">
@@ -788,7 +798,9 @@ function DryRunView({ data, onRerun }: { data: DryRunResult; onRerun: () => void
                       <td className="px-2 py-1.5">{m.dealer_name_snapshot || <em className="text-slate-400">(tomt)</em>}</td>
                       <td className="px-2 py-1.5 font-bold text-emerald-700">{m.dealer_company_name}</td>
                       <td className="px-2 py-1.5 font-mono text-slate-700">{m.dealer_account_number ?? "—"}</td>
-                      <td className="px-2 py-1.5 text-slate-600">{m.reason}</td>
+                      <td className="px-2 py-1.5 text-slate-600">
+                        {m.reason === "portal_approved" ? "portal-godkendt" : m.reason}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
