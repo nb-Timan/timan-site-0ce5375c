@@ -31,6 +31,7 @@ import { isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
 import { buildJournalScope } from '@/lib/machineJournalScope';
 import { formatDate } from '@/lib/format-date';
 import { getLeadPipelineValue } from '@/lib/crmPipelineValue';
+import { fetchCrmDashboardLeadKpis, type CrmDashboardLeadKpis } from '@/lib/crmDashboardKpisService';
 import { Language } from '@/types/configurator';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
@@ -207,6 +208,7 @@ export default function CrmDashboardPage() {
   const [openQuotes, setOpenQuotes] = useState<ScopedConfiguration[]>([]);
   const [leads, setLeads] = useState<CrmLead[]>([]);
   const [calendar, setCalendar] = useState<CalendarActivity[]>([]);
+  const [serverLeadKpis, setServerLeadKpis] = useState<CrmDashboardLeadKpis | null>(null);
   const [selectedSellerInitials, setSelectedSellerInitials] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [openStage, setOpenStage] = useState<StageMeta['key'] | null>(null);
@@ -268,19 +270,27 @@ export default function CrmDashboardPage() {
         : rawAct;
       const ord = await listScopedOrdersWithValue(scopeFilter);
       const quo = await listScopedOpenQuotes(scopeFilter);
-      const rawLeads = await listLeads({ ownerUserId: effectiveAdmin ? null : (externalCrm ? null : sid), limit: 500 });
-      const lds = externalCrm
-        ? rawLeads.filter((l) => {
-            const linked = (l.linked_dealer_id || '').trim().toLowerCase();
-            return (linked && (accountIds.has(l.linked_dealer_id || '') || accountNames.has(linked)))
-              || Array.from(accountNames).some((name) => name.length >= 3 && (l.title || '').toLowerCase().includes(name));
-          })
-        : rawLeads;
-      const rawCal = await listCalendarActivities({
-        sellerInitials: effectiveAdmin ? null : (externalCrm ? null : sellerInitials),
-        sellerUserId: effectiveAdmin ? null : (externalCrm ? null : sid),
+      const rpcKpis = externalCrm ? null : await fetchCrmDashboardLeadKpis({
+        sellerUserId: effectiveAdmin ? null : sid,
+        sellerInitials: effectiveAdmin ? null : sellerInitials,
       });
-      const cal = externalCrm ? rawCal.filter((a) => !a.account_id || accountIds.has(a.account_id)) : rawCal;
+      let lds: CrmLead[] = [];
+      let cal: CalendarActivity[] = [];
+      if (!rpcKpis || externalCrm) {
+        const rawLeads = await listLeads({ ownerUserId: effectiveAdmin ? null : (externalCrm ? null : sid), limit: 500 });
+        lds = externalCrm
+          ? rawLeads.filter((l) => {
+              const linked = (l.linked_dealer_id || '').trim().toLowerCase();
+              return (linked && (accountIds.has(l.linked_dealer_id || '') || accountNames.has(linked)))
+                || Array.from(accountNames).some((name) => name.length >= 3 && (l.title || '').toLowerCase().includes(name));
+            })
+          : rawLeads;
+        const rawCal = await listCalendarActivities({
+          sellerInitials: effectiveAdmin ? null : (externalCrm ? null : sellerInitials),
+          sellerUserId: effectiveAdmin ? null : (externalCrm ? null : sid),
+        });
+        cal = externalCrm ? rawCal.filter((a) => !a.account_id || accountIds.has(a.account_id)) : rawCal;
+      }
       if (cancelled) return;
       setSellerId(sid);
       setAccounts(acc.accounts);
@@ -289,6 +299,7 @@ export default function CrmDashboardPage() {
       setOpenQuotes(quo.rows);
       setLeads(lds);
       setCalendar(cal);
+      setServerLeadKpis(rpcKpis);
     })();
     return () => { cancelled = true; };
   }, [appUser?.email, effectiveUser?.dealer_number, appUser?.display_name, portalRole, isAdmin, externalCrm, topSellerInitials, leadRefreshToken]);
@@ -298,7 +309,17 @@ export default function CrmDashboardPage() {
   // - quote → openQuotes (same as CRM → Tilbud & Pipeline value)
   // - lead/won/lost → crm_leads status
   // - demo → crm_calendar_activities (type=demo, status=planned)
-  const pipelineRows = useMemo(() => buildPipelineRows({ orders, openQuotes, leads, calendar }), [orders, openQuotes, leads, calendar]);
+  const localPipelineRows = useMemo(() => buildPipelineRows({ orders, openQuotes, leads, calendar }), [orders, openQuotes, leads, calendar]);
+  const pipelineRows = useMemo(() => {
+    if (!serverLeadKpis) return localPipelineRows;
+    return {
+      ...localPipelineRows,
+      lead: serverLeadKpis.stageRows.lead,
+      demo: serverLeadKpis.stageRows.demo,
+      won: [...localPipelineRows.won, ...serverLeadKpis.stageRows.won],
+      lost: serverLeadKpis.stageRows.lost,
+    };
+  }, [localPipelineRows, serverLeadKpis]);
 
   const realMetrics = useMemo(() => {
     const base = deriveMetrics(activities, orders, isAdmin);
