@@ -13,7 +13,7 @@ import QuickActions from '@/components/portal/QuickActions';
 import DealerUserHome from '@/components/portal/DealerUserHome';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
-import { useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
+import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { Language } from '@/types/configurator';
 import { Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper } from 'lucide-react';
@@ -263,8 +263,8 @@ export default function PortalPage() {
             const hasMajor = changelog.hasMajorUnreadForArea(area.id);
             let updateBadge: { label: string } | null = null;
             if (latest && unreadCount > 0) {
-              const newLabel = t('newTag', uiLanguage).toUpperCase();
-              const impLabel = t('important', uiLanguage).toUpperCase();
+              const newLabel = t('portalNewTag', uiLanguage).toUpperCase();
+              const impLabel = t('portalImportantTag', uiLanguage).toUpperCase();
               if (hasMajor) {
                 updateBadge = {
                   label: unreadCount > 1 ? `${impLabel} · ${newLabel} ${unreadCount}` : impLabel,
@@ -304,7 +304,9 @@ export default function PortalPage() {
                 to={cardTo}
                 icon={meta.icon}
                 accent={meta.accent}
-                badge={area.id === 'dealer_data' ? dealerBadge : null}
+                badge={area.id === 'dealer_data' && dealerBadge
+                  ? { tone: dealerBadge.tone, label: formatDealerProfileBadgeLabel(dealerBadge, uiLanguage) }
+                  : null}
                 updateBadge={updateBadge}
               />
             );

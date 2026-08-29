@@ -25,6 +25,8 @@ import { listDealerContacts } from "@/lib/dealerContactsService";
 import { computeCompletion, type SectionKey } from "@/lib/dealerProfileCompletion";
 import { derivePortalRole } from "@/lib/portalAccess";
 import type { AppUser } from "@/data/appUsers";
+import { t } from "@/lib/i18n/translations";
+import type { PortalUiLanguage } from "@/lib/portalLanguages";
 import {
   getActiveSellerView,
   getEffectiveSellerEmail,
@@ -39,9 +41,11 @@ export type BadgeTone = "green" | "yellow" | "red" | "neutral";
 export interface DealerProfileBadge {
   total: number;
   missing: number;
+  critical?: number;
   tone: BadgeTone;
   /** Pre-localised Danish label, e.g. "Mangler info" or "100% klar". */
   label: string;
+  labelKind?: "not_filled" | "empty" | "complete" | "critical_missing" | "missing_info";
 }
 
 /** Display labels (Danish) for the 6 profile sections, in the same order
@@ -80,7 +84,7 @@ export function computeDealerProfileBadge(
   peopleCount: number,
 ): DealerProfileBadge {
   if (!dealer) {
-    return { total: 6, missing: 6, tone: "neutral", label: "Ikke udfyldt" };
+    return { total: 6, missing: 6, critical: 0, tone: "neutral", label: "Ikke udfyldt", labelKind: "not_filled" };
   }
   const completion = computeCompletion(dealer);
   const missingSections = completion.sections.filter((s) => !s.complete);
@@ -90,7 +94,23 @@ export function computeDealerProfileBadge(
   const onlySoftMissing = missing > 0 && missingSections.every((s) => SOFT_PROFILE_SECTION_KEYS.has(s.key));
   const tone: BadgeTone = hasCriticalMissing ? "red" : missing === 0 || onlySoftMissing ? "green" : "yellow";
   const label = missing === 0 ? "100% klar" : hasCriticalMissing ? "Kritisk" : "Mangler info";
-  return { total, missing, tone, label };
+  return { total, missing, critical: hasCriticalMissing ? 1 : 0, tone, label, labelKind: hasCriticalMissing ? "critical_missing" : missing === 0 ? "complete" : "missing_info" };
+}
+
+export function formatDealerProfileBadgeLabel(
+  badge: DealerProfileBadge,
+  language: PortalUiLanguage | string,
+): string {
+  if (badge.labelKind === "not_filled") return t("dealerProfileBadgeNotFilled", language);
+  if (badge.labelKind === "empty") return t("dealerProfileBadgeNoDealers", language);
+  if (badge.labelKind === "complete" || badge.missing === 0) return t("dealerProfileBadgeComplete", language);
+
+  const missingInfo = t("dealerProfileBadgeMissingInfo", language);
+  if (badge.labelKind === "critical_missing" || (badge.critical ?? 0) > 0) {
+    const critical = t("dealerProfileBadgeCriticalPlural", language);
+    return `${badge.critical ?? 0} ${critical} · ${badge.missing} ${missingInfo}`;
+  }
+  return `${badge.missing} ${missingInfo}`;
 }
 
 export function getDealerProfileMissingLabels(
@@ -283,7 +303,7 @@ export function useDealerPortfolioProfileBadge(
 
         if (cancelled) return;
         if (total === 0) {
-          setBadge({ total: 0, missing: 0, tone: "neutral", label: "Ingen forhandlere" });
+          setBadge({ total: 0, missing: 0, critical: 0, tone: "neutral", label: "Ingen forhandlere", labelKind: "empty" });
           return;
         }
         const tone: BadgeTone = critical > 0 ? "red" : needsAttention > 0 ? "yellow" : "green";
@@ -292,7 +312,14 @@ export function useDealerPortfolioProfileBadge(
           : critical > 0
             ? `${critical} kritiske · ${incomplete} mangler info`
             : `${incomplete} mangler info`;
-        setBadge({ total, missing: incomplete, tone, label });
+        setBadge({
+          total,
+          missing: incomplete,
+          critical,
+          tone,
+          label,
+          labelKind: incomplete === 0 ? "complete" : critical > 0 ? "critical_missing" : "missing_info",
+        });
       } catch {
         if (!cancelled) setBadge(null);
       }
