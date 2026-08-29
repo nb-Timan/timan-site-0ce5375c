@@ -28,6 +28,13 @@ import { hideConfigurationForScope } from '@/lib/userHiddenConfigurationsService
 import { resolveHideScopeForCurrentUser } from '@/lib/configurationsService';
 import { calcConfigurationTotals, formatMoney } from '@/lib/calcConfiguration';
 import {
+  AccountCaseStatusFilter,
+  buildAccountCaseLines,
+  buildAccountCaseSummary,
+  buildReorderDraft,
+  filterAccountCases,
+} from '@/lib/configuratorAccountSummaries';
+import {
   buildConfiguratorOwnership,
   isExternalDealerRole,
   externalDealerHasLink,
@@ -47,7 +54,7 @@ interface Props {
   language: PortalUiLanguage | Language | string;
   currentState: ConfiguratorState;
   onLogout: () => void;
-  onRestoreState: (state: ConfiguratorState, configId: string, ownership?: {
+  onRestoreState: (state: ConfiguratorState, configId: string | null, ownership?: {
     seller_initials: string | null;
     seller_email: string | null;
     seller_name: string | null;
@@ -55,7 +62,7 @@ interface Props {
     dealer_number: string | null;
     dealer_name: string | null;
     dealer_account_id: string | null;
-  }) => void;
+  }, options?: { asNewDraft?: boolean }) => void;
   onSavedConfiguration: (configId: string, quoteNumber?: string | null, orderNumber?: string | null) => void;
   /** Optional pre-built ownership payload (from the in-configurator picker). */
   ownershipOverride?: () => Promise<ConfiguratorOwnership>;
@@ -111,6 +118,10 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const [saving, setSaving] = useState(false);
   const [confirmHideId, setConfirmHideId] = useState<string | null>(null);
   const [hiding, setHiding] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<AccountCaseStatusFilter>('all');
+  const [search, setSearch] = useState('');
+  const [detailItem, setDetailItem] = useState<SavedConfiguration | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const canSave = currentState.step === 4
     && currentState.firmanavn.trim() !== ''
@@ -239,6 +250,47 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     setOpen(false);
   };
 
+  const handleShowDetails = async (item: SavedConfiguration) => {
+    setDetailLoading(true);
+    try {
+      const saved = await loadConfigurationById(item.id, userEmail);
+      if (!saved) {
+        toast.error(tx('openFailed'));
+        return;
+      }
+      setDetailItem(saved);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleReorder = async (item: SavedConfiguration) => {
+    const saved = await loadConfigurationById(item.id, userEmail);
+
+    if (!saved) {
+      toast.error(tx('openFailed'));
+      return;
+    }
+
+    if (!saved.has_full_state) {
+      toast.error(tx('missingState'));
+      return;
+    }
+
+    onRestoreState(buildReorderDraft(saved.state_json), null, {
+      seller_initials: saved.seller_initials,
+      seller_email: saved.seller_email,
+      seller_name: saved.seller_name,
+      assigned_seller_id: saved.assigned_seller_id,
+      dealer_number: saved.dealer_number,
+      dealer_name: saved.dealer_name,
+      dealer_account_id: saved.dealer_account_id,
+    }, { asNewDraft: true });
+    setDetailItem(null);
+    setOpen(false);
+    toast.success(tx('reorderStarted'), { description: tx('reorderStartedDescription') });
+  };
+
   const handleNoteChange = async (id: string, text: string) => {
     setSavedItems(prev => prev.map(i => i.id === id ? { ...i, internal_note: text } : i));
     await updateConfigurationNote(id, text);
@@ -287,6 +339,26 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     return totals;
   }, [savedItems]);
 
+  const filteredItems = useMemo(
+    () => filterAccountCases(savedItems, statusFilter, search),
+    [savedItems, search, statusFilter],
+  );
+
+  const detailSummary = useMemo(
+    () => detailItem ? buildAccountCaseSummary(detailItem, language) : null,
+    [detailItem, language],
+  );
+
+  const detailLines = useMemo(
+    () => detailItem ? buildAccountCaseLines(detailItem.state_json, language) : [],
+    [detailItem, language],
+  );
+
+  const detailTotals = useMemo(
+    () => detailItem ? calcConfigurationTotals(detailItem.state_json) : null,
+    [detailItem],
+  );
+
   const tx = useMemo(() => {
     const strings: Record<string, Record<string, string>> = {
       myAccount:           { da: 'Min konto',                                en: 'My account',                          de: 'Mein Konto',                          it: 'Il mio account',                                  hu: 'Fiókom',                                        sv: 'Mitt konto',                                  fr: 'Mon compte',                                pl: 'Moje konto',                                cs: 'Můj účet' },
@@ -299,6 +371,37 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       nameCase:            { da: 'Navngiv sag...',                          en: 'Name case...',                        de: 'Fall benennen...',                    it: 'Nomina caso...',                                  hu: 'Ügy elnevezése...',                             sv: 'Namnge ärende...',                            fr: 'Nommer le dossier...',                      pl: 'Nazwij sprawę...',                          cs: 'Pojmenovat případ...' },
       save:                { da: 'Gem',                                     en: 'Save',                                de: 'Speichern',                           it: 'Salva',                                           hu: 'Mentés',                                        sv: 'Spara',                                       fr: 'Enregistrer',                               pl: 'Zapisz',                                    cs: 'Uložit' },
       noCases:             { da: 'Ingen gemte sager',                       en: 'No saved cases',                      de: 'Keine gespeicherten Fälle',           it: 'Nessun caso salvato',                             hu: 'Nincsenek mentett ügyek',                       sv: 'Inga sparade ärenden',                        fr: 'Aucun dossier enregistré',                  pl: 'Brak zapisanych spraw',                     cs: 'Žádné uložené případy' },
+      myOrders:            { da: 'Mine ordrer',                             en: 'My orders',                           de: 'Meine Bestellungen',                  it: 'I miei ordini',                                  hu: 'Rendeléseim',                                  sv: 'Mina ordrar',                                fr: 'Mes commandes',                            pl: 'Moje zamówienia',                         cs: 'Moje objednávky' },
+      accountOrdersIntro:  { da: 'Overblik over dine tilbud, ordrer og tidligere konfigurationer.', en: 'Overview of your quotes, orders and previous configurations.', de: 'Überblick über Ihre Angebote, Bestellungen und früheren Konfigurationen.', it: 'Panoramica di preventivi, ordini e configurazioni precedenti.', hu: 'Ajánlatok, rendelések és korábbi konfigurációk áttekintése.', sv: 'Översikt över offerter, ordrar och tidigare konfigurationer.', fr: 'Vue d’ensemble de vos devis, commandes et configurations précédentes.', pl: 'Przegląd ofert, zamówień i poprzednich konfiguracji.', cs: 'Přehled nabídek, objednávek a předchozích konfigurací.' },
+      filterAll:           { da: 'Alle',                                    en: 'All',                                 de: 'Alle',                                it: 'Tutti',                                           hu: 'Összes',                                        sv: 'Alla',                                        fr: 'Tous',                                      pl: 'Wszystkie',                                cs: 'Vše' },
+      filterActive:        { da: 'Aktive',                                  en: 'Active',                              de: 'Aktiv',                               it: 'Attivi',                                          hu: 'Aktív',                                         sv: 'Aktiva',                                      fr: 'Actives',                                   pl: 'Aktywne',                                  cs: 'Aktivní' },
+      filterSent:          { da: 'Sendt/lukket',                            en: 'Sent/closed',                         de: 'Gesendet/geschlossen',                it: 'Inviati/chiusi',                                  hu: 'Elküldve/lezárva',                              sv: 'Skickade/stängda',                           fr: 'Envoyées/clôturées',                       pl: 'Wysłane/zamknięte',                      cs: 'Odeslané/uzavřené' },
+      filterPaused:        { da: 'På pause',                                en: 'Paused',                              de: 'Pausiert',                            it: 'In pausa',                                        hu: 'Szünetel',                                      sv: 'Pausade',                                    fr: 'En pause',                                  pl: 'Wstrzymane',                               cs: 'Pozastavené' },
+      searchOrders:        { da: 'Søg ordrenr., kunde eller forhandler...', en: 'Search order no., customer or dealer...', de: 'Bestellnr., Kunde oder Händler suchen...', it: 'Cerca n. ordine, cliente o rivenditore...', hu: 'Rendelésszám, ügyfél vagy kereskedő keresése...', sv: 'Sök ordernr, kund eller återförsäljare...', fr: 'Rechercher n° commande, client ou revendeur...', pl: 'Szukaj nr zamówienia, klienta lub dealera...', cs: 'Hledat č. objednávky, zákazníka nebo prodejce...' },
+      customer:            { da: 'Kunde',                                   en: 'Customer',                            de: 'Kunde',                               it: 'Cliente',                                         hu: 'Ügyfél',                                        sv: 'Kund',                                        fr: 'Client',                                    pl: 'Klient',                                    cs: 'Zákazník' },
+      dealer:              { da: 'Forhandler',                              en: 'Dealer',                              de: 'Händler',                             it: 'Rivenditore',                                    hu: 'Kereskedő',                                     sv: 'Återförsäljare',                            fr: 'Revendeur',                                 pl: 'Dealer',                                    cs: 'Prodejce' },
+      totalPrice:          { da: 'Totalpris',                               en: 'Total price',                         de: 'Gesamtpreis',                         it: 'Prezzo totale',                                  hu: 'Teljes ár',                                     sv: 'Totalpris',                                  fr: 'Prix total',                                pl: 'Cena łączna',                              cs: 'Celková cena' },
+      machine:             { da: 'Maskine/model',                           en: 'Machine/model',                       de: 'Maschine/Modell',                     it: 'Macchina/modello',                              hu: 'Gép/modell',                                    sv: 'Maskin/modell',                              fr: 'Machine/modèle',                            pl: 'Maszyna/model',                            cs: 'Stroj/model' },
+      latestChange:        { da: 'Seneste ændring',                         en: 'Latest change',                       de: 'Letzte Änderung',                     it: 'Ultima modifica',                                hu: 'Utolsó módosítás',                              sv: 'Senaste ändring',                            fr: 'Dernière modification',                     pl: 'Ostatnia zmiana',                          cs: 'Poslední změna' },
+      details:             { da: 'Se detaljer',                             en: 'View details',                        de: 'Details anzeigen',                    it: 'Vedi dettagli',                                 hu: 'Részletek',                                     sv: 'Visa detaljer',                              fr: 'Voir les détails',                         pl: 'Zobacz szczegóły',                         cs: 'Zobrazit detaily' },
+      reorder:             { da: 'Genbestil',                               en: 'Reorder',                             de: 'Erneut bestellen',                    it: 'Riordina',                                       hu: 'Újrarendelés',                                  sv: 'Beställ igen',                               fr: 'Commander à nouveau',                      pl: 'Zamów ponownie',                          cs: 'Objednat znovu' },
+      orderDetails:        { da: 'Ordredetaljer',                           en: 'Order details',                       de: 'Bestelldetails',                      it: 'Dettagli ordine',                               hu: 'Rendelés részletei',                            sv: 'Orderdetaljer',                              fr: 'Détails de la commande',                   pl: 'Szczegóły zamówienia',                    cs: 'Detaily objednávky' },
+      contact:             { da: 'Kontaktperson',                           en: 'Contact',                             de: 'Kontaktperson',                       it: 'Contatto',                                        hu: 'Kapcsolattartó',                                sv: 'Kontaktperson',                             fr: 'Contact',                                   pl: 'Kontakt',                                  cs: 'Kontakt' },
+      phone:               { da: 'Telefon',                                 en: 'Phone',                               de: 'Telefon',                             it: 'Telefono',                                       hu: 'Telefon',                                       sv: 'Telefon',                                    fr: 'Téléphone',                                pl: 'Telefon',                                  cs: 'Telefon' },
+      email:               { da: 'E-mail',                                  en: 'Email',                               de: 'E-Mail',                              it: 'E-mail',                                         hu: 'E-mail',                                        sv: 'E-post',                                     fr: 'E-mail',                                   pl: 'E-mail',                                  cs: 'E-mail' },
+      seller:              { da: 'Sælger',                                  en: 'Seller',                              de: 'Verkäufer',                           it: 'Venditore',                                      hu: 'Értékesítő',                                    sv: 'Säljare',                                    fr: 'Vendeur',                                  pl: 'Sprzedawca',                              cs: 'Prodejce' },
+      deliveryDate:        { da: 'Leveringsdato',                           en: 'Delivery date',                       de: 'Lieferdatum',                         it: 'Data di consegna',                               hu: 'Szállítási dátum',                              sv: 'Leveransdatum',                             fr: 'Date de livraison',                       pl: 'Data dostawy',                            cs: 'Datum dodání' },
+      deliveryMethod:      { da: 'Leveringsmetode',                         en: 'Delivery method',                     de: 'Liefermethode',                       it: 'Metodo di consegna',                            hu: 'Szállítási mód',                                sv: 'Leveransmetod',                             fr: 'Mode de livraison',                       pl: 'Metoda dostawy',                          cs: 'Způsob dodání' },
+      itemNo:              { da: 'Varenummer',                              en: 'Item no.',                            de: 'Artikelnr.',                          it: 'N. articolo',                                    hu: 'Cikkszám',                                      sv: 'Artikelnummer',                             fr: 'N° article',                               pl: 'Nr artykułu',                             cs: 'Č. položky' },
+      description:         { da: 'Beskrivelse',                             en: 'Description',                         de: 'Beschreibung',                        it: 'Descrizione',                                   hu: 'Leírás',                                        sv: 'Beskrivning',                                fr: 'Description',                              pl: 'Opis',                                     cs: 'Popis' },
+      note:                { da: 'Note',                                    en: 'Note',                                de: 'Notiz',                               it: 'Nota',                                           hu: 'Megjegyzés',                                    sv: 'Not',                                        fr: 'Note',                                      pl: 'Notatka',                                  cs: 'Poznámka' },
+      unitPrice:           { da: 'Pris pr. stk.',                           en: 'Unit price',                          de: 'Stückpreis',                          it: 'Prezzo unitario',                               hu: 'Egységár',                                      sv: 'Pris/st.',                                   fr: 'Prix unitaire',                           pl: 'Cena jedn.',                              cs: 'Jedn. cena' },
+      quantity:            { da: 'Antal',                                   en: 'Quantity',                            de: 'Menge',                               it: 'Quantità',                                       hu: 'Mennyiség',                                     sv: 'Antal',                                      fr: 'Quantité',                                pl: 'Ilość',                                   cs: 'Množství' },
+      lineTotal:           { da: 'I alt',                                   en: 'Total',                               de: 'Gesamt',                              it: 'Totale',                                         hu: 'Összesen',                                      sv: 'Totalt',                                     fr: 'Total',                                    pl: 'Razem',                                   cs: 'Celkem' },
+      subtotal:            { da: 'Subtotal',                                en: 'Subtotal',                            de: 'Zwischensumme',                       it: 'Subtotale',                                      hu: 'Részösszeg',                                    sv: 'Delsumma',                                   fr: 'Sous-total',                              pl: 'Suma częściowa',                         cs: 'Mezisoučet' },
+      discount:            { da: 'Rabat',                                   en: 'Discount',                            de: 'Rabatt',                              it: 'Sconto',                                         hu: 'Kedvezmény',                                    sv: 'Rabatt',                                     fr: 'Remise',                                   pl: 'Rabat',                                   cs: 'Sleva' },
+      reorderStarted:      { da: 'Ny ordrekladde åbnet',                    en: 'New order draft opened',              de: 'Neuer Bestellentwurf geöffnet',       it: 'Nuova bozza ordine aperta',                     hu: 'Új rendelési vázlat megnyitva',                 sv: 'Ny orderutkast öppnat',                     fr: 'Nouveau brouillon de commande ouvert',      pl: 'Otworzono nowy szkic zamówienia',          cs: 'Otevřen nový koncept objednávky' },
+      reorderStartedDescription: { da: 'Den gamle ordre er uændret. Valgene er kopieret til en ny redigerbar konfiguration med aktuelle priser.', en: 'The old order is unchanged. Choices were copied into a new editable configuration with current prices.', de: 'Die alte Bestellung bleibt unverändert. Die Auswahl wurde in eine neue bearbeitbare Konfiguration mit aktuellen Preisen kopiert.', it: 'Il vecchio ordine resta invariato. Le scelte sono copiate in una nuova configurazione modificabile con prezzi attuali.', hu: 'A régi rendelés változatlan. A választások új, szerkeszthető konfigurációba kerültek aktuális árakkal.', sv: 'Den gamla ordern är oförändrad. Valen kopierades till en ny redigerbar konfiguration med aktuella priser.', fr: 'L’ancienne commande reste inchangée. Les choix ont été copiés dans une nouvelle configuration modifiable avec les prix actuels.', pl: 'Stare zamówienie pozostaje bez zmian. Wybory skopiowano do nowej edytowalnej konfiguracji z aktualnymi cenami.', cs: 'Původní objednávka zůstává beze změny. Volby byly zkopírovány do nové upravitelné konfigurace s aktuálními cenami.' },
       quote:               { da: 'Tilbud',                                  en: 'Quote',                               de: 'Angebot',                             it: 'Preventivo',                                      hu: 'Árajánlat',                                     sv: 'Offert',                                      fr: 'Devis',                                     pl: 'Oferta',                                    cs: 'Nabídka' },
       order:               { da: 'Ordre',                                   en: 'Order',                               de: 'Bestellung',                          it: 'Ordine',                                          hu: 'Rendelés',                                      sv: 'Order',                                       fr: 'Commande',                                  pl: 'Zamówienie',                                cs: 'Objednávka' },
       internalNote:        { da: 'Intern note',                             en: 'Internal note',                       de: 'Interne Notiz',                       it: 'Nota interna',                                    hu: 'Belső jegyzet',                                 sv: 'Intern anteckning',                           fr: 'Note interne',                              pl: 'Notatka wewnętrzna',                        cs: 'Interní poznámka' },
@@ -448,152 +551,128 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
             </div>
           </div>
 
-          {/* Saved items */}
+          {/* Orders */}
           <div className="pt-3">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800">{tx('savedCases')}</h3>
+            <div className="flex flex-col gap-1 mb-4">
+              <h3 className="text-lg font-bold text-gray-900">{tx('myOrders')}</h3>
+              <p className="text-sm text-gray-500">{tx('accountOrdersIntro')}</p>
             </div>
 
+            <div className="flex flex-col lg:flex-row gap-3 mb-4">
+              <div className="flex flex-wrap gap-2">
+                {([
+                  ['all', 'filterAll'],
+                  ['active', 'filterActive'],
+                  ['sent', 'filterSent'],
+                  ['paused', 'filterPaused'],
+                ] as Array<[AccountCaseStatusFilter, string]>).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setStatusFilter(value)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+                      statusFilter === value
+                        ? 'bg-gray-950 text-white border-gray-950'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    {tx(label)}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder={tx('searchOrders')}
+                className="lg:ml-auto w-full lg:w-80 rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-emerald-500 focus:outline-none"
+              />
+            </div>
 
             {savedItems.length === 0 ? (
               <p className="text-sm text-gray-400 italic">{tx('noCases')}</p>
+            ) : filteredItems.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">{tx('noCases')}</p>
             ) : (
-              <div className="space-y-3 max-h-[50vh] overflow-y-auto">
-                {savedItems.map(item => (
-                  <div key={item.id} className="p-4 border rounded-xl bg-gray-50 space-y-3">
-                    {(() => {
-                      const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU', sv: 'sv-SE', fr: 'fr-FR', pl: 'pl-PL', cs: 'cs-CZ' } as Record<string, string>)[language as string] || 'en-GB';
-                      const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(dateLocale) : null;
-                      const createdAt = fmt(item.created_case_at) || fmt(item.created_at);
-                      const quoteSentAt = fmt(item.quote_sent_at);
-                      const orderSentAt = fmt(item.order_sent_at) || (item.case_status === 'ordre_afgivet' ? fmt(item.submitted_at) : null);
-                      return (
-                        <div className="flex gap-4">
-                          {/* Left: case info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="text-base font-semibold text-gray-900 truncate">{item.title}</div>
-                            {item.state_json?.firmanavn && (
-                              <div className="text-sm text-gray-500 truncate mt-0.5">{item.state_json.firmanavn}</div>
-                            )}
-                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              <span className="text-sm text-gray-400">
-                                {item.case_type === 'quote' ? tx('quote') : tx('order')}
-                              </span>
-                              {item.case_status === 'ordre_afgivet' && (
-                                <>
-                                  <span className="text-sm text-gray-300">·</span>
-                                  <span className={`px-2 py-0.5 rounded text-sm font-semibold ${statusColor(item.case_status)}`}>
-                                    {statusLabel(item.case_status, language)}
-                                  </span>
-                                </>
-                              )}
-                              {item.pdf_downloaded && (
-                                <>
-                                  <span className="text-sm text-gray-300">·</span>
-                                  <span className="text-xs text-blue-500 font-medium">📄 PDF</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
+              <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-gray-200">
+                <div className="hidden lg:grid grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_1fr_auto] gap-3 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                  <div>{tx('orderNumber')}</div>
+                  <div>{tx('customer')}</div>
+                  <div>{tx('dealer')}</div>
+                  <div>{tx('machine')}</div>
+                  <div>{tx('statusActive')}</div>
+                  <div className="text-right">{tx('totalPrice')}</div>
+                  <div className="text-right">{tx('details')}</div>
+                </div>
 
-                          {/* Middle: dates + references */}
-                          <div className="flex-shrink-0 min-w-[180px] space-y-1">
-                            {/* Dates block */}
-                            <div className="text-xs space-y-0.5">
-                              <div className="flex justify-between gap-3">
-                                <span className="text-gray-500">{tx('createdCaseAt')}</span>
-                                <span className="font-semibold text-gray-800 tabular-nums">{createdAt ?? '-'}</span>
-                              </div>
-                              <div className="flex justify-between gap-3">
-                                <span className="text-gray-500">{tx('quoteSentAt')}</span>
-                                <span className="font-semibold text-gray-800 tabular-nums">{quoteSentAt ?? '-'}</span>
-                              </div>
-                              <div className="flex justify-between gap-3">
-                                <span className="text-gray-500">{tx('orderSentAt')}</span>
-                                <span className="font-semibold text-gray-800 tabular-nums">{orderSentAt ?? '-'}</span>
-                              </div>
-                            </div>
-                            {/* Reference numbers */}
-                            <div className="text-xs space-y-0.5 border-t border-gray-200 pt-1">
-                              <div className="flex justify-between gap-3">
-                                <span className="text-gray-500">{tx('quoteNumber')}</span>
-                                <span className="font-semibold text-gray-800 tabular-nums">{item.quote_number ?? '-'}</span>
-                              </div>
-                              <div className="flex justify-between gap-3">
-                                <span className="text-gray-500">{tx('orderNumber')}</span>
-                                <span className="font-semibold text-gray-800 tabular-nums">{item.order_number ?? '-'}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Right: internal note */}
-                          <div className="w-40 flex-shrink-0">
-                            <div className="text-xs font-medium text-gray-400 mb-1">📝 {tx('internalNote')}</div>
-                            <textarea
-                              rows={2}
-                              value={item.internal_note || ''}
-                              onChange={e => handleNoteChange(item.id, e.target.value)}
-                              placeholder={tx('writeNote')}
-                              className="w-full text-xs border border-gray-200 rounded-md px-2 py-1.5 resize-none bg-white focus:border-gray-400 transition"
-                            />
-                          </div>
+                <div className="divide-y divide-gray-100">
+                  {filteredItems.map(item => {
+                    const summary = buildAccountCaseSummary(item, language);
+                    const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU', sv: 'sv-SE', fr: 'fr-FR', pl: 'pl-PL', cs: 'cs-CZ' } as Record<string, string>)[language as string] || 'en-GB';
+                    const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(dateLocale) : '-';
+                    return (
+                      <div key={item.id} className="grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_1fr_auto] gap-3 px-4 py-4 text-sm">
+                        <div>
+                          <div className="font-bold text-gray-900">{summary.reference}</div>
+                          <div className="text-xs text-gray-500">{fmt(summary.orderDate)}</div>
                         </div>
-                      );
-                    })()}
-                    {/* Action buttons */}
-                    <div className="flex gap-2">
-                      {/* PDF icon — only shown for sent orders with a stored PDF, or for
-                          ordre_afgivet rows (where PDF viewing is the expected action).
-                          For non-sent cases the "Åbn" button below handles reopening — the
-                          PDF button must never silently load/reopen the case. */}
-                      {(item.sent_pdf_path || item.case_status === 'ordre_afgivet') && (
-                        <button
-                          onClick={() => void handleOpenPdf(item)}
-                          title={item.sent_pdf_path ? tx('openSentPdf') : tx('pdfNotStored')}
-                          aria-label={item.sent_pdf_path ? tx('openSentPdf') : tx('pdfNotStored')}
-                          className={`text-sm px-2.5 py-1.5 rounded-lg font-medium border transition flex items-center gap-1 ${
-                            item.sent_pdf_path
-                              ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                              : 'bg-white text-gray-400 border-gray-200 hover:bg-gray-50'
-                          }`}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                          </svg>
-                          PDF
-                        </button>
-                      )}
-                      {item.case_status !== 'ordre_afgivet' && (
-                        <button
-                          onClick={() => void handleOpen(item)}
-                          className="text-sm px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium"
-                        >
-                          {tx('open')}
-                        </button>
-                      )}
-                      {item.case_status !== 'ordre_afgivet' && (
-                        <button
-                          onClick={() => handleToggleStatus(item.id)}
-                          title={item.case_status === 'aktiv' ? tx('clickToPause') : tx('clickToActivate')}
-                          className={`text-sm px-3 py-1.5 rounded-lg font-semibold transition ${
-                            item.case_status === 'aktiv'
-                              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                              : 'bg-amber-400 text-amber-900 hover:bg-amber-500'
-                          }`}
-                        >
-                          {item.case_status === 'aktiv' ? tx('statusActive') : tx('statusPaused')}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => setConfirmHideId(item.id)}
-                        className="text-sm px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-medium"
-                      >
-                        {tx('delete')}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                        <div className="min-w-0">
+                          <div className="font-semibold text-gray-900 truncate">{summary.customerName}</div>
+                          <div className="text-xs text-gray-500 truncate">{summary.contactName}</div>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-medium text-gray-800 truncate">{summary.dealerName}</div>
+                          <div className="text-xs text-gray-500 truncate">{summary.dealerNumber ?? '-'}</div>
+                        </div>
+                        <div className="text-gray-700">{summary.machineLabel}</div>
+                        <div>
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${statusColor(item.case_status)}`}>
+                            {statusLabel(item.case_status, language)}
+                          </span>
+                          <div className="text-xs text-gray-500 mt-1">{fmt(summary.latestChange)}</div>
+                        </div>
+                        <div className="lg:text-right font-bold text-gray-900 tabular-nums">
+                          {formatMoney(summary.totalPrice, mapUiLanguageToLegacy(language))}
+                        </div>
+                        <div className="flex lg:justify-end gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => void handleShowDetails(item)}
+                            disabled={detailLoading}
+                            className="text-xs px-3 py-1.5 bg-white text-gray-800 border border-gray-200 rounded-lg hover:bg-gray-50 font-semibold disabled:opacity-60"
+                          >
+                            {tx('details')}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleReorder(item)}
+                            className="text-xs px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold"
+                          >
+                            {tx('reorder')}
+                          </button>
+                          {item.case_status !== 'ordre_afgivet' && (
+                            <button
+                              type="button"
+                              onClick={() => void handleOpen(item)}
+                              className="text-xs px-3 py-1.5 bg-gray-950 text-white rounded-lg hover:bg-gray-800 font-semibold"
+                            >
+                              {tx('open')}
+                            </button>
+                          )}
+                          {(item.sent_pdf_path || item.case_status === 'ordre_afgivet') && (
+                            <button
+                              type="button"
+                              onClick={() => void handleOpenPdf(item)}
+                              title={item.sent_pdf_path ? tx('openSentPdf') : tx('pdfNotStored')}
+                              className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 font-semibold"
+                            >
+                              PDF
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -607,6 +686,98 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               {tx('logout')}
             </button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={detailItem !== null} onOpenChange={(nextOpen) => !nextOpen && setDetailItem(null)}>
+        <DialogContent className="w-[95vw] sm:max-w-none md:!max-w-[1100px] max-h-[90vh] overflow-y-auto overflow-x-hidden">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{tx('orderDetails')}</DialogTitle>
+          </DialogHeader>
+
+          {detailSummary && detailTotals && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">{tx('customer')}</div>
+                  <div className="font-bold text-gray-900">{detailSummary.customerName}</div>
+                  <div className="text-sm text-gray-600">{tx('contact')}: {detailSummary.contactName}</div>
+                  <div className="text-sm text-gray-600">{tx('phone')}: {detailSummary.customerPhone}</div>
+                  <div className="text-sm text-gray-600">{tx('email')}: {detailSummary.customerEmail}</div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">{tx('dealer')}</div>
+                  <div className="font-bold text-gray-900">{detailSummary.dealerName}</div>
+                  <div className="text-sm text-gray-600">{tx('orderNumber')}: {detailSummary.reference}</div>
+                  <div className="text-sm text-gray-600">{tx('seller')}: {detailSummary.sellerName}</div>
+                  <div className="text-sm text-gray-600">{tx('email')}: {detailSummary.sellerEmail}</div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">{tx('order')}</div>
+                  <div className="font-bold text-gray-900">{statusLabel(detailItem!.case_status, language)}</div>
+                  <div className="text-sm text-gray-600">{tx('deliveryDate')}: {detailSummary.deliveryDate || '-'}</div>
+                  <div className="text-sm text-gray-600">{tx('deliveryMethod')}: {detailSummary.deliveryMethod || '-'}</div>
+                  <div className="text-sm text-gray-600">{tx('latestChange')}: {detailSummary.latestChange ? new Date(detailSummary.latestChange).toLocaleString() : '-'}</div>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-gray-200 overflow-hidden">
+                <div className="grid grid-cols-[1fr_2fr_1fr_1fr_0.7fr_1fr] gap-3 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                  <div>{tx('itemNo')}</div>
+                  <div>{tx('description')}</div>
+                  <div>{tx('note')}</div>
+                  <div className="text-right">{tx('unitPrice')}</div>
+                  <div className="text-right">{tx('quantity')}</div>
+                  <div className="text-right">{tx('lineTotal')}</div>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {detailLines.map((line, index) => (
+                    <div key={`${line.itemNo}-${index}`} className="grid grid-cols-[1fr_2fr_1fr_1fr_0.7fr_1fr] gap-3 px-4 py-3 text-sm">
+                      <div className="font-mono text-xs text-gray-600">{line.itemNo}</div>
+                      <div className="font-medium text-gray-900">{line.description}</div>
+                      <div className="text-gray-500">{line.note || '-'}</div>
+                      <div className="text-right tabular-nums">{formatMoney(line.unitPrice, mapUiLanguageToLegacy(language))}</div>
+                      <div className="text-right tabular-nums">{line.quantity}</div>
+                      <div className="text-right font-semibold tabular-nums">{formatMoney(line.total, mapUiLanguageToLegacy(language))}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="border-t border-gray-200 bg-white px-4 py-3 space-y-1">
+                  <div className="flex justify-end gap-6 text-sm">
+                    <span className="text-gray-500">{tx('subtotal')}</span>
+                    <span className="w-32 text-right font-semibold tabular-nums">{formatMoney(detailTotals.subtotal, mapUiLanguageToLegacy(language))}</span>
+                  </div>
+                  <div className="flex justify-end gap-6 text-sm">
+                    <span className="text-gray-500">{tx('discount')}</span>
+                    <span className="w-32 text-right font-semibold tabular-nums">{formatMoney(detailTotals.totalDiscount, mapUiLanguageToLegacy(language))}</span>
+                  </div>
+                  <div className="flex justify-end gap-6 text-base">
+                    <span className="font-bold text-gray-900">{tx('totalPrice')}</span>
+                    <span className="w-32 text-right font-bold tabular-nums">{formatMoney(detailTotals.finalPrice, mapUiLanguageToLegacy(language))}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                {detailItem!.sent_pdf_path && (
+                  <button
+                    type="button"
+                    onClick={() => void handleOpenPdf(detailItem!)}
+                    className="text-sm px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 font-semibold"
+                  >
+                    PDF
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void handleReorder(detailItem!)}
+                  className="text-sm px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold"
+                >
+                  {tx('reorder')}
+                </button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

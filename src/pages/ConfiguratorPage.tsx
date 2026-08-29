@@ -3352,10 +3352,18 @@ export default function ConfiguratorPage() {
                 } catch { /* ignore */ }
                 navigate('/portal', { replace: true });
               }}
-              onRestoreState={(restored, configId, savedOwnership) => {
+              onRestoreState={(restored, configId, savedOwnership, options) => {
                 setState(restored);
-                setSavedConfigurationId(configId);
-                setIsSavedCurrent(true);
+                if (options?.asNewDraft) {
+                  setSavedConfigurationId(null);
+                  setSavedQuoteNumber(null);
+                  setSavedOrderNumber(null);
+                  setSavedSourceQuoteNumber(null);
+                  setIsSavedCurrent(false);
+                } else {
+                  setSavedConfigurationId(configId);
+                  setIsSavedCurrent(true);
+                }
                 // Restore dealer/seller picker from the saved snapshot so the
                 // "Forhandler" dropdown does not reset to "Ingen valgt".
                 if (savedOwnership) {
