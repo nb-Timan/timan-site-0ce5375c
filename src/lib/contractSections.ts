@@ -23,7 +23,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'purpose_prices_orders_portal',
     title: 'Formål, priser, ordre og forhandlerportal',
-    source: 'Forhandlerkontrakt Timan, punkt 1, 2 og 10',
+    source: 'Kontrakt, punkt 1, 2 og 10',
     blocks: [
       {
         heading: '1. Formål',
@@ -61,7 +61,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'territory',
     title: 'Område og Bilag 3',
-    source: 'Forhandlerkontrakt Timan, punkt 3 + Bilag 3',
+    source: 'Kontrakt, punkt 3 + Bilag 3',
     blocks: [
       {
         heading: 'Bilag 3: Området',
@@ -99,7 +99,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'discount_structure',
     title: 'Rabatstruktur og Bilag 2',
-    source: 'Forhandlerkontrakt Timan, punkt 4 + Bilag 2',
+    source: 'Kontrakt, punkt 4 + Bilag 2',
     blocks: [
       {
         heading: '4. Rabatstruktur',
@@ -116,11 +116,10 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'demo_machines',
     title: 'Demo-maskiner',
-    source: 'Forhandlerkontrakt Timan, punkt 5',
+    source: 'Kontrakt, punkt 5',
     blocks: [
       {
         heading: '5. Demo-maskiner',
-        paragraphs: ['Demo-rabat: Rabat på demo-maskiner. Bilag 2.'],
         bullets: [
           'Det forventes at {{partnerDefinite}} investere i demo-maskiner.',
           '{{partnerDefiniteCapitalized}} kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.',
@@ -133,7 +132,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'spare_parts_service',
     title: 'Reservedele og service',
-    source: 'Forhandlerkontrakt Timan, punkt 6',
+    source: 'Kontrakt, punkt 6',
     blocks: [
       {
         heading: '6. Reservedele og Service',
@@ -150,7 +149,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'marketing',
     title: 'Marketing',
-    source: 'Forhandlerkontrakt Timan, punkt 7 og 7.1',
+    source: 'Kontrakt, punkt 7 og 7.1',
     blocks: [
       {
         heading: '7. Marketingforpligtelser {{partnerLabel}}',
@@ -173,7 +172,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'sales_service_days',
     title: 'Salgs- og servicedage og Bilag 1',
-    source: 'Forhandlerkontrakt Timan, punkt 8 + Bilag 1',
+    source: 'Kontrakt, punkt 8 + Bilag 1',
     blocks: [
       {
         heading: '8. Salgs- og servicedage',
@@ -239,7 +238,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'payment_delivery',
     title: 'Betaling og levering',
-    source: 'Forhandlerkontrakt Timan, punkt 9 + Bilag 4',
+    source: 'Kontrakt, punkt 9 + Bilag 4',
     blocks: [
       {
         heading: '9. Betaling og Levering',
@@ -304,7 +303,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'termination',
     title: 'Opsigelse og afsluttende vilkår',
-    source: 'Forhandlerkontrakt Timan, punkt 11',
+    source: 'Kontrakt, punkt 11',
     blocks: [
       {
         heading: '11. Varighed og opsigelse',

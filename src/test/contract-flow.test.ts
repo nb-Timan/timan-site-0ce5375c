@@ -235,6 +235,39 @@ describe('contract flow', () => {
     expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'payment_delivery')?.source).toContain('Bilag 4');
   });
 
+  it('uses neutral guided contract source references without changing official document titles', () => {
+    expect(GUIDED_CONTRACT_SECTIONS.map((section) => section.source)).toEqual([
+      'Kontrakt, punkt 1, 2 og 10',
+      'Kontrakt, punkt 3 + Bilag 3',
+      'Kontrakt, punkt 4 + Bilag 2',
+      'Kontrakt, punkt 5',
+      'Kontrakt, punkt 6',
+      'Kontrakt, punkt 7 og 7.1',
+      'Kontrakt, punkt 8 + Bilag 1',
+      'Kontrakt, punkt 9 + Bilag 4',
+      'Kontrakt, punkt 11',
+    ]);
+    expect(JSON.stringify(GUIDED_CONTRACT_SECTIONS)).not.toContain('Forhandlerkontrakt Timan, punkt');
+
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    expect(source).toContain("'Forhandlerkontrakt Timan'");
+    expect(source).toContain('FORHANDLERKONTRAKT - GENNEMGANG OG UNDERSKRIFT');
+    expect(source).toContain('Timan_Forhandlerkontrakt_');
+  });
+
+  it('removes the redundant demo discount helper from complete rendered contracts', () => {
+    for (const partnerType of CONTRACT_PARTNER_TYPES) {
+      const legalSections = renderGuidedContractSections({
+        companyName: partnerType === 'importer' ? 'ABC Maschinen GmbH' : partnerType === 'service_partner' ? 'Service Pro ApS' : 'Dealer House A/S',
+        partnerType,
+      });
+      const bodyText = JSON.stringify(legalSections);
+
+      expect(bodyText).not.toContain('Demo-rabat: Rabat på demo-maskiner. Bilag 2.');
+      expect(bodyText).toContain('Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.');
+    }
+  });
+
   it('removes the redundant territory intro and starts directly at Appendix 3 content', () => {
     const territory = GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'territory');
     expect(territory?.blocks[0].heading).toBe('Bilag 3: Området');
