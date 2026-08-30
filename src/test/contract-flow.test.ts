@@ -443,12 +443,20 @@ describe('contract flow', () => {
 
   it('shows the important service terms panel and editable hourly rate in step 6', () => {
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const start = source.indexOf('function SparePartsServiceSection');
+    const end = source.indexOf('function ContractLegalSectionHeader');
+    const sparePartsServiceSection = source.slice(start, end);
 
     expect(source).toContain('Vigtige servicevilkår');
     expect(source).toContain('Aftalt timetakst for reklamationsarbejde');
     expect(source).toContain('Reklamationsarbejde må først påbegyndes');
+    expect(source).toContain('Fragt og levering');
+    expect(source).toContain('Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.');
     expect(source).toContain('Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan med samme timetakst.');
     expect(source).toContain('shouldResetContractServiceConfirmation');
+    expect(sparePartsServiceSection).toContain('<ul className="space-y-2.5 text-sm leading-6 text-gray-700">');
+    expect(sparePartsServiceSection).not.toContain("['Fragt', 'Timan betaler fragt tur/retur");
+    expect(sparePartsServiceSection).not.toContain('className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"');
   });
 
   it('shows the payment terms dropdown in the payment delivery step', () => {

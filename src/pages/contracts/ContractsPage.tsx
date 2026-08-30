@@ -1719,16 +1719,27 @@ function SparePartsServiceSection({
   const sparePartsBlocks = section.blocks.slice(0, 1);
   const serviceBlocks = section.blocks.slice(1);
   const validRate = isValidContractServiceHourlyRateDkk(serviceHourlyRateDkk);
+  const compactSparePartsBlocks = sparePartsBlocks.map((block) => ({
+    ...block,
+    bullets: block.bullets?.filter((bullet) => bullet !== 'Levering af reservedele er – Frit leveret med transportøren der vælges af Timan.'),
+  }));
+  const importantServiceTerms = [
+    ['Reklamation', 'Reklamationsarbejde må først påbegyndes, når Timan har udstedt et reklamationsnummer.'],
+    ['Garantiregistrering', 'Garantiregistreringen skal ske med korrekt fakturadato til slutkunden i henhold til eksisterende kontraktvilkår.'],
+    ['Demomaskiner', 'Demomaskiner har særlige garantiregler, og maksimal garanti er 24 måneder i henhold til servicebetingelser.'],
+    ['Reklamationsdele', 'Reklamationsdelen skal opbevares i minimum 6 måneder eller fremsendes efter anmodning fra Timans serviceafdeling.'],
+    ['Fragt og levering', 'Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.'],
+  ] as const;
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
       <ContractLegalSectionHeader section={section} />
       <div className="mt-5 space-y-5">
-        {sparePartsBlocks.map((block, index) => (
+        {compactSparePartsBlocks.map((block, index) => (
           <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
         ))}
 
-        <section className="rounded-2xl border border-emerald-200 bg-white p-5">
+        <section className="rounded-2xl border border-emerald-200 bg-white p-4">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-emerald-700" />
             <div>
@@ -1738,20 +1749,18 @@ function SparePartsServiceSection({
           </div>
 
           <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
-            <div className="grid gap-3 md:grid-cols-2">
-              {[
-                ['Reklamation', 'Reklamationsarbejde må først påbegyndes, når Timan har udstedt et reklamationsnummer.'],
-                ['Garantiregistrering', 'Garantiregistreringen skal ske med korrekt fakturadato til slutkunden i henhold til eksisterende kontraktvilkår.'],
-                ['Demomaskiner', 'Demomaskiner har særlige garantiregler, og maksimal garanti er 24 måneder i henhold til servicebetingelser.'],
-                ['Reklamationsdele', 'Reklamationsdelen skal opbevares i minimum 6 måneder eller fremsendes efter anmodning fra Timans serviceafdeling.'],
-                ['Fragt', 'Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.'],
-              ].map(([title, body]) => (
-                <div key={title} className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                  <p className="text-sm font-bold text-gray-950">{title}</p>
-                  <p className="mt-1 text-sm leading-6 text-gray-700">{body}</p>
-                </div>
+            <ul className="space-y-2.5 text-sm leading-6 text-gray-700">
+              {importantServiceTerms.map(([title, body]) => (
+                <li key={title} className="flex gap-3">
+                  <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-emerald-700" />
+                  <span>
+                    <strong className="text-gray-950">{title}</strong>
+                    <br />
+                    {body}
+                  </span>
+                </li>
               ))}
-            </div>
+            </ul>
 
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
               <p className="text-sm font-bold text-emerald-950">Godtgørelse</p>
