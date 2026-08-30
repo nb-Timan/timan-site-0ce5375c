@@ -288,14 +288,14 @@ const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, Cont
     },
   ),
   territory: allLanguageLabels(
-    { title: 'Område og Bilag 3', shortTitle: 'Område', intro: 'Gennemgå kontraktens områdebestemmelser sammen med Bilag 3 om salgsområdet.' },
-    { title: 'Territory and Appendix 3', shortTitle: 'Territory', intro: 'Review the contract territory provisions together with Appendix 3 about the sales territory.' },
-    { de: { title: 'Gebiet und Anhang 3', shortTitle: 'Gebiet', intro: 'Prüfen Sie die Gebietsbestimmungen des Vertrags zusammen mit Anhang 3 zum Vertriebsgebiet.' } },
+    { title: 'Område', shortTitle: 'Område', intro: 'Gennemgå kontraktens områdebestemmelser og salgsområdet.' },
+    { title: 'Territory', shortTitle: 'Territory', intro: 'Review the contract territory provisions and the sales territory.' },
+    { de: { title: 'Gebiet', shortTitle: 'Gebiet', intro: 'Prüfen Sie die Gebietsbestimmungen des Vertrags und das Vertriebsgebiet.' } },
   ),
   discount_structure: allLanguageLabels(
-    { title: 'Rabatstruktur og Bilag 2', shortTitle: 'Rabat', intro: 'Gennemgå den eksisterende rabatstruktur, beregningsregler og visualisering fra Bilag 2.' },
-    { title: 'Discount structure and Appendix 2', shortTitle: 'Discount', intro: 'Review the existing discount structure, calculation rules and visualization from Appendix 2.' },
-    { de: { title: 'Rabattstruktur und Anhang 2', shortTitle: 'Rabatt', intro: 'Prüfen Sie die bestehende Rabattstruktur, Berechnungsregeln und Visualisierung aus Anhang 2.' } },
+    { title: 'Rabatstruktur', shortTitle: 'Rabat', intro: 'Gennemgå den eksisterende rabatstruktur, beregningsregler og visualisering.' },
+    { title: 'Discount structure', shortTitle: 'Discount', intro: 'Review the existing discount structure, calculation rules and visualization.' },
+    { de: { title: 'Rabattstruktur', shortTitle: 'Rabatt', intro: 'Prüfen Sie die bestehende Rabattstruktur, Berechnungsregeln und Visualisierung.' } },
   ),
   demo_machines: allLanguageLabels(
     { title: 'Demo-maskiner', shortTitle: 'Demo', intro: 'Gennemgå de eksisterende bestemmelser om demo-maskiner, demo-rabat og videresalg.' },

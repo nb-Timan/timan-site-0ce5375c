@@ -566,6 +566,7 @@ export default function ContractsPage() {
   const activeStep = CONTRACT_STEPS[activeStepIndex];
   const activeStepLabel = getContractStepLabel(activeStep.id, uiLanguage);
   const appendixLabel = getContractAppendixLabel(uiLanguage);
+  const showActiveStepAppendixBadge = activeStep.appendix && activeStep.id !== 'territory' && activeStep.id !== 'discount_structure';
   const status = getContractStatus(form, confirmations);
   const workflowStatus: ContractWorkflowStatus = contractRecord?.contract_status ?? (status === 'Draft' ? 'draft' : status === 'In review' ? 'guided_review' : 'ready_for_signature');
   const workflowStatusLabel = getContractWorkflowStatusLabel(workflowStatus);
@@ -1108,7 +1109,7 @@ export default function ContractsPage() {
               <p className="text-sm font-bold uppercase tracking-wide text-amber-700">Trin {activeStepIndex + 1} af {CONTRACT_STEPS.length}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <h2 className="text-2xl font-bold text-gray-950">{activeStepLabel.title}</h2>
-                {activeStep.appendix && (
+                {showActiveStepAppendixBadge && (
                   <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-amber-800">
                     {appendixLabel}
                   </span>
@@ -1814,8 +1815,10 @@ function ContractLegalSectionHeader({ section }: { section: GuidedContractSectio
     <div className="flex items-start gap-3">
       <FileText className="mt-1 h-5 w-5 text-gray-500" />
       <div>
-        <h3 className="text-lg font-bold text-gray-950">{section.title}</h3>
-        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{section.source}</p>
+        <h3 className="text-lg font-bold text-gray-950">{section.guidedTitle ?? section.title}</h3>
+        {!section.hideGuidedSource && (
+          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{section.source}</p>
+        )}
       </div>
     </div>
   );

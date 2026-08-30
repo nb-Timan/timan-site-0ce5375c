@@ -18,7 +18,9 @@ export type ContractTextBlock = {
 export type GuidedContractSection = {
   stepId: Exclude<ContractStepId, 'parties' | 'full_contract' | 'signature'>;
   title: string;
+  guidedTitle?: string;
   source: string;
+  hideGuidedSource?: boolean;
   blocks: readonly ContractTextBlock[];
 };
 
@@ -73,7 +75,9 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'territory',
     title: 'Område og Bilag 3',
+    guidedTitle: 'Område',
     source: 'Kontrakt, punkt 3 + Bilag 3',
+    hideGuidedSource: true,
     blocks: [
       {
         heading: 'Bilag 3: Området',
@@ -103,7 +107,9 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'discount_structure',
     title: 'Rabatstruktur og Bilag 2',
+    guidedTitle: 'Rabatstruktur',
     source: 'Kontrakt, punkt 4 + Bilag 2',
+    hideGuidedSource: true,
     blocks: [
       {
         heading: '4. Rabatstruktur',

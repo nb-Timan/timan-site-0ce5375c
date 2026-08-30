@@ -195,8 +195,8 @@ describe('contract flow', () => {
     expect(CONTRACT_STEPS.map((step) => getContractStepLabel(step.id, 'da').title)).toEqual([
       'Oplysninger',
       'Formål, priser, ordre og forhandlerportal',
-      'Område og Bilag 3',
-      'Rabatstruktur og Bilag 2',
+      'Område',
+      'Rabatstruktur',
       'Demo-maskiner',
       'Reservedele og service',
       'Marketing',
@@ -244,6 +244,35 @@ describe('contract flow', () => {
     expect(CONTRACT_STEPS.find((step) => step.id === 'spare_parts_service')?.appendix).toBe(true);
     expect(CONTRACT_STEPS.find((step) => step.id === 'territory')?.appendix).toBe(true);
     expect(CONTRACT_STEPS.find((step) => step.id === 'payment_delivery')?.appendix).toBe(true);
+  });
+
+  it('hides appendix labels and source references from territory and discount guided step UI', () => {
+    const territoryStep = CONTRACT_STEPS.find((step) => step.id === 'territory');
+    const discountStep = CONTRACT_STEPS.find((step) => step.id === 'discount_structure');
+    const territorySection = GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'territory');
+    const discountSection = GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'discount_structure');
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(getContractStepLabel('territory', 'da').title).toBe('Område');
+    expect(getContractStepLabel('discount_structure', 'da').title).toBe('Rabatstruktur');
+    expect(getContractStepLabel('territory', 'en').title).toBe('Territory');
+    expect(getContractStepLabel('discount_structure', 'en').title).toBe('Discount structure');
+    expect(getContractStepLabel('territory', 'de').title).toBe('Gebiet');
+    expect(getContractStepLabel('discount_structure', 'de').title).toBe('Rabattstruktur');
+
+    expect(territoryStep?.appendix).toBe(true);
+    expect(discountStep?.appendix).toBe(true);
+    expect(territorySection?.title).toBe('Område og Bilag 3');
+    expect(discountSection?.title).toBe('Rabatstruktur og Bilag 2');
+    expect(territorySection?.guidedTitle).toBe('Område');
+    expect(discountSection?.guidedTitle).toBe('Rabatstruktur');
+    expect(territorySection?.source).toBe('Kontrakt, punkt 3 + Bilag 3');
+    expect(discountSection?.source).toBe('Kontrakt, punkt 4 + Bilag 2');
+    expect(territorySection?.hideGuidedSource).toBe(true);
+    expect(discountSection?.hideGuidedSource).toBe(true);
+    expect(source).toContain("activeStep.id !== 'territory' && activeStep.id !== 'discount_structure'");
+    expect(source).toContain('section.guidedTitle ?? section.title');
+    expect(source).toContain('!section.hideGuidedSource');
   });
 
   it('keeps the appendix 2 web diagram constrained to the contract width', () => {
