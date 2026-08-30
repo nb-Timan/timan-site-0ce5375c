@@ -16,6 +16,7 @@ import {
   hasReachedContractStatus,
   hasRequiredPartyData,
   normalizeContractConfirmations,
+  normalizeContractStepId,
   TIMAN_COMPANY_INFO,
   type ContractConfirmations,
   type ContractFormData,
@@ -34,6 +35,7 @@ import {
   CONTRACT_PARTNER_TYPES,
   inferContractPartnerTypeFromDealerAccount,
 } from '@/lib/contractPartnerTerms';
+import { t } from '@/lib/i18n/translations';
 
 const completeForm: ContractFormData = {
   partnerType: 'dealer',
@@ -58,7 +60,6 @@ const confirmed: ContractConfirmations = {
   demo_machines: { confirmed: true, confirmedAt: '2026-08-29T10:06:00.000Z', confirmedBy: 'Birger Pedersen' },
   spare_parts_service: { confirmed: true, confirmedAt: '2026-08-29T10:08:00.000Z', confirmedBy: 'Birger Pedersen' },
   marketing: { confirmed: true, confirmedAt: '2026-08-29T10:10:00.000Z', confirmedBy: 'Birger Pedersen' },
-  sales_service_days: { confirmed: true, confirmedAt: '2026-08-29T10:12:00.000Z', confirmedBy: 'Birger Pedersen' },
   payment_delivery: { confirmed: true, confirmedAt: '2026-08-29T10:14:00.000Z', confirmedBy: 'Birger Pedersen' },
   termination: { confirmed: true, confirmedAt: '2026-08-29T10:16:00.000Z', confirmedBy: 'Birger Pedersen' },
   full_contract: { confirmed: true, confirmedAt: '2026-08-29T10:15:00.000Z', confirmedBy: 'Birger Pedersen' },
@@ -121,7 +122,6 @@ describe('contract flow', () => {
       'demo_machines',
       'spare_parts_service',
       'marketing',
-      'sales_service_days',
       'payment_delivery',
       'termination',
       'full_contract',
@@ -135,7 +135,6 @@ describe('contract flow', () => {
       'Demo-maskiner',
       'Reservedele og service',
       'Marketing',
-      'Salgs- og servicedage og Bilag 1',
       'Betaling og levering',
       'Opsigelse og afsluttende vilkår',
       'Gennemlæs',
@@ -176,7 +175,7 @@ describe('contract flow', () => {
 
   it('marks the discount and service steps as appendices', () => {
     expect(CONTRACT_STEPS.find((step) => step.id === 'discount_structure')?.appendix).toBe(true);
-    expect(CONTRACT_STEPS.find((step) => step.id === 'sales_service_days')?.appendix).toBe(true);
+    expect(CONTRACT_STEPS.find((step) => step.id === 'spare_parts_service')?.appendix).toBe(true);
     expect(CONTRACT_STEPS.find((step) => step.id === 'territory')?.appendix).toBe(true);
     expect(CONTRACT_STEPS.find((step) => step.id === 'payment_delivery')?.appendix).toBe(true);
   });
@@ -213,8 +212,17 @@ describe('contract flow', () => {
     expect(legacy.territory.confirmed).toBe(true);
     expect(legacy.discount_structure.confirmed).toBe(true);
     expect(legacy.demo_machines.confirmed).toBe(true);
-    expect(legacy.sales_service_days.confirmed).toBe(true);
+    expect(legacy.spare_parts_service.confirmed).toBe(true);
     expect(legacy.payment_delivery.confirmed).toBe(true);
+  });
+
+  it('maps legacy sales and service step state into the combined spare parts step', () => {
+    const legacyConfirmation = { confirmed: true, confirmedAt: '2026-08-29T10:12:00.000Z', confirmedBy: 'Birger Pedersen' };
+    const legacy = normalizeContractConfirmations({ sales_service_days: legacyConfirmation });
+
+    expect(normalizeContractStepId('sales_service_days')).toBe('spare_parts_service');
+    expect(legacy.spare_parts_service).toEqual(legacyConfirmation);
+    expect(CONTRACT_STEPS.map((step) => step.id)).not.toContain('sales_service_days');
   });
 
   it('places appendices in the requested guided steps', () => {
@@ -225,14 +233,36 @@ describe('contract flow', () => {
       'demo_machines',
       'spare_parts_service',
       'marketing',
-      'sales_service_days',
       'payment_delivery',
       'termination',
     ]);
     expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'territory')?.source).toContain('Bilag 3');
     expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'discount_structure')?.source).toContain('Bilag 2');
-    expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'sales_service_days')?.source).toContain('Bilag 1');
+    expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'spare_parts_service')?.source).toContain('Bilag 1');
     expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'payment_delivery')?.source).toContain('Bilag 4');
+  });
+
+  it('combines spare parts and sales service content in the guided spare parts step', () => {
+    const spareParts = GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'spare_parts_service');
+    const text = JSON.stringify(spareParts);
+
+    expect(spareParts?.source).toBe('Kontrakt, punkt 6 og 8 + Bilag 1');
+    expect(text).toContain("Reservedele bestilles via Timan A/S' webshop.");
+    expect(text).toContain('8. Salgs- og servicedage');
+    expect(text).toContain('Bilag 1: Service og garanti betingelser');
+    expect(text).not.toContain('Service betingelser: se Bilag 1.');
+    expect(GUIDED_CONTRACT_SECTIONS.map((section) => section.stepId)).not.toContain('sales_service_days');
+  });
+
+  it('renders the spare parts portal link text through portal translations', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain('SPARE_PARTS_PORTAL_URL');
+    expect(source).toContain('https://cloud.interactivespares.com/timan/categorie/0000+-+Front+page');
+    expect(source).toContain('target="_blank"');
+    expect(source).toContain('rel="noreferrer noopener"');
+    expect(t('contractSparePartsPortalLink', 'da')).toBe('Reservedelsportal');
+    expect(t('contractSparePartsPortalLink', 'en')).toBe('Spare parts portal');
   });
 
   it('uses neutral guided contract source references without changing official document titles', () => {
@@ -241,9 +271,8 @@ describe('contract flow', () => {
       'Kontrakt, punkt 3 + Bilag 3',
       'Kontrakt, punkt 4 + Bilag 2',
       'Kontrakt, punkt 5',
-      'Kontrakt, punkt 6',
+      'Kontrakt, punkt 6 og 8 + Bilag 1',
       'Kontrakt, punkt 7 og 7.1',
-      'Kontrakt, punkt 8 + Bilag 1',
       'Kontrakt, punkt 9 + Bilag 4',
       'Kontrakt, punkt 11',
     ]);
@@ -286,10 +315,9 @@ describe('contract flow', () => {
     expect(JSON.stringify(byStep.discount_structure)).toContain('Se bilag 2.');
     expect(getVisibleGuidedUiText(byStep.discount_structure)).not.toContain('Se bilag 2.');
 
-    expect(JSON.stringify(byStep.sales_service_days)).toContain('Bilag 1: Service og garanti betingelser');
-    expect(getVisibleGuidedUiText(byStep.sales_service_days)).not.toContain('Bilag 1: Service og garanti betingelser');
-    expect(JSON.stringify(byStep.spare_parts_service)).toContain('Service betingelser: se Bilag 1.');
-    expect(getVisibleGuidedUiText(byStep.spare_parts_service)).toContain('Service betingelser: se Bilag 1.');
+    expect(JSON.stringify(byStep.spare_parts_service)).toContain('Bilag 1: Service og garanti betingelser');
+    expect(getVisibleGuidedUiText(byStep.spare_parts_service)).not.toContain('Bilag 1: Service og garanti betingelser');
+    expect(JSON.stringify(byStep.spare_parts_service)).not.toContain('Service betingelser: se Bilag 1.');
 
     expect(JSON.stringify(byStep.territory)).toContain('Bilag 3: Området');
     expect(getVisibleGuidedUiText(byStep.territory)).not.toContain('Bilag 3: Området');

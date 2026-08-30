@@ -25,6 +25,7 @@ import {
   getContractStatus,
   getRequiredConfirmationForStep,
   hasRequiredPartyData,
+  normalizeContractStepId,
 } from '@/lib/contractFlow';
 import {
   addSignedUrlsToUploadVersions,
@@ -63,6 +64,7 @@ import {
   inferContractPartnerTypeFromDealerAccount,
   type ContractPartnerType,
 } from '@/lib/contractPartnerTerms';
+import { t } from '@/lib/i18n/translations';
 
 const CONTRACT_DOCS = [
   { title: 'Forhandlerkontrakt Timan', href: '/contracts/forhandlerkontrakt-timan.pdf', section: 'Hovedaftale' },
@@ -73,6 +75,8 @@ const CONTRACT_DOCS = [
 ];
 
 const CONTRACT_SIDEBAR_STEP_ID: (typeof CONTRACT_STEPS)[number]['id'] = 'full_contract';
+const SPARE_PARTS_PORTAL_URL = 'https://cloud.interactivespares.com/timan/categorie/0000+-+Front+page';
+const SPARE_PARTS_PORTAL_BULLET = "Reservedele bestilles via Timan A/S' webshop.";
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -437,7 +441,7 @@ export default function ContractsPage() {
         }));
         setConfirmations({ ...EMPTY_CONTRACT_CONFIRMATIONS, ...row.confirmations });
         setFinalSnapshot(row.final_snapshot);
-        const stepIndex = CONTRACT_STEPS.findIndex((step) => step.id === row.current_step);
+        const stepIndex = CONTRACT_STEPS.findIndex((step) => step.id === normalizeContractStepId(row.current_step));
         setActiveStepIndex(stepIndex >= 0 ? stepIndex : 0);
         if (row.signature_data_url) setSignatureName('Gemt signatur');
       } else {
@@ -1268,7 +1272,11 @@ function ReviewStep({
   );
 }
 
-function ContractLegalSection({ section }: { section: { title: string; source: string; blocks: readonly ContractTextBlock[] } }) {
+function ContractLegalSection({ section }: { section: GuidedContractSection }) {
+  const isCombinedSparePartsStep = section.stepId === 'spare_parts_service';
+  const sparePartsBlocks = isCombinedSparePartsStep ? section.blocks.slice(0, 1) : section.blocks;
+  const salesServiceBlocks = isCombinedSparePartsStep ? section.blocks.slice(1) : [];
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
       <div className="flex items-start gap-3">
@@ -1279,15 +1287,31 @@ function ContractLegalSection({ section }: { section: { title: string; source: s
         </div>
       </div>
       <div className="mt-5 space-y-5">
-        {section.blocks.map((block, index) => (
-          <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
-        ))}
+        {isCombinedSparePartsStep ? (
+          <div className="grid gap-5 lg:grid-cols-2">
+            <div className="space-y-5">
+              {sparePartsBlocks.map((block, index) => (
+                <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
+              ))}
+            </div>
+            <div className="space-y-5 border-t border-gray-200 pt-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
+              {salesServiceBlocks.map((block, index) => (
+                <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
+              ))}
+            </div>
+          </div>
+        ) : (
+          section.blocks.map((block, index) => (
+            <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
+          ))
+        )}
       </div>
     </div>
   );
 }
 
 function ContractTextBlockView({ block, sectionTitle }: { block: ContractTextBlock; sectionTitle: string }) {
+  const { uiLanguage } = useLanguage();
   const displayHeading = block.heading ? getGuidedContractDisplayHeading(block.heading) : '';
   const showHeading = displayHeading && !shouldHideGuidedContractUiText(displayHeading, sectionTitle);
   const paragraphs = (block.paragraphs ?? []).filter((paragraph) => !shouldHideGuidedContractUiText(paragraph, sectionTitle));
@@ -1302,7 +1326,22 @@ function ContractTextBlockView({ block, sectionTitle }: { block: ContractTextBlo
       {bullets.length > 0 && (
         <ul className="space-y-1 pl-5">
           {bullets.map((bullet) => (
-            <li key={bullet} className="list-disc">{bullet}</li>
+            <li key={bullet} className="list-disc">
+              {bullet}
+              {bullet === SPARE_PARTS_PORTAL_BULLET && (
+                <>
+                  {' '}
+                  <a
+                    href={SPARE_PARTS_PORTAL_URL}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="font-bold text-amber-800 underline underline-offset-2 hover:text-amber-900"
+                  >
+                    {t('contractSparePartsPortalLink', uiLanguage)}
+                  </a>
+                </>
+              )}
+            </li>
           ))}
         </ul>
       )}

@@ -132,7 +132,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'spare_parts_service',
     title: 'Reservedele og service',
-    source: 'Kontrakt, punkt 6',
+    source: 'Kontrakt, punkt 6 og 8 + Bilag 1',
     blocks: [
       {
         heading: '6. Reservedele og Service',
@@ -141,39 +141,8 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           'Reservedele bestilles via Timan A/S\' webshop.',
           'Rabat på reservedele følger grundrabatten, der er gældende for maskiner.',
           'Levering af reservedele er – Frit leveret med transportøren der vælges af Timan.',
-          'Service betingelser: se Bilag 1.',
         ],
       },
-    ],
-  },
-  {
-    stepId: 'marketing',
-    title: 'Marketing',
-    source: 'Kontrakt, punkt 7 og 7.1',
-    blocks: [
-      {
-        heading: '7. Marketingforpligtelser {{partnerLabel}}',
-        bullets: [
-          '{{partnerDefiniteCapitalized}} skal promovere Timan A/S\' brand med tekst og billeder på {{partnerPossessive}} hjemmeside.',
-          'De nyeste billeder af Timan-maskiner og redskaber skal løbende opdateres ved ændringer.',
-          'Brugen af Timan-logo, farver og design skal være på hjemmesiden og altid i den nyeste version.',
-        ],
-      },
-      {
-        heading: '7.1 Marketingforpligtelser Timan',
-        bullets: [
-          '{{partnerPossessiveCapitalized}} oplysninger (navn og adresse) vil blive fremhævet på Timans officielle hjemmeside.',
-          'Adgang til Timans digitale platforme for markedsføringsmateriale.',
-          'Timan stiller brochurer og andet digitalt salgsmateriale til rådighed.',
-        ],
-      },
-    ],
-  },
-  {
-    stepId: 'sales_service_days',
-    title: 'Salgs- og servicedage og Bilag 1',
-    source: 'Kontrakt, punkt 8 + Bilag 1',
-    blocks: [
       {
         heading: '8. Salgs- og servicedage',
         paragraphs: ['{{partnerDefiniteCapitalized}} forpligter sig til at have mindst én sælger/demonstratør samt servicetekniker til at være:'],
@@ -232,6 +201,29 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
       {
         heading: '8. Kontakt',
         paragraphs: ['Serviceafdelingen kontaktes pr telefon eller på mail Service@timan.dk'],
+      },
+    ],
+  },
+  {
+    stepId: 'marketing',
+    title: 'Marketing',
+    source: 'Kontrakt, punkt 7 og 7.1',
+    blocks: [
+      {
+        heading: '7. Marketingforpligtelser {{partnerLabel}}',
+        bullets: [
+          '{{partnerDefiniteCapitalized}} skal promovere Timan A/S\' brand med tekst og billeder på {{partnerPossessive}} hjemmeside.',
+          'De nyeste billeder af Timan-maskiner og redskaber skal løbende opdateres ved ændringer.',
+          'Brugen af Timan-logo, farver og design skal være på hjemmesiden og altid i den nyeste version.',
+        ],
+      },
+      {
+        heading: '7.1 Marketingforpligtelser Timan',
+        bullets: [
+          '{{partnerPossessiveCapitalized}} oplysninger (navn og adresse) vil blive fremhævet på Timans officielle hjemmeside.',
+          'Adgang til Timans digitale platforme for markedsføringsmateriale.',
+          'Timan stiller brochurer og andet digitalt salgsmateriale til rådighed.',
+        ],
       },
     ],
   },

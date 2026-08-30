@@ -9,7 +9,6 @@ export type ContractStepId =
   | 'demo_machines'
   | 'spare_parts_service'
   | 'marketing'
-  | 'sales_service_days'
   | 'payment_delivery'
   | 'termination'
   | 'full_contract'
@@ -22,7 +21,6 @@ export type ContractConfirmationId =
   | 'demo_machines'
   | 'spare_parts_service'
   | 'marketing'
-  | 'sales_service_days'
   | 'payment_delivery'
   | 'termination'
   | 'full_contract';
@@ -173,7 +171,8 @@ export const CONTRACT_STEPS: Array<{
     id: 'spare_parts_service',
     title: 'Reservedele og service',
     shortTitle: 'Reservedele',
-    intro: 'Gennemgå hovedkontraktens almindelige bestemmelser om reservedele og service.',
+    intro: 'Gennemgå hovedkontraktens almindelige bestemmelser om reservedele, service, salgs- og servicedage.',
+    appendix: true,
     confirmationId: 'spare_parts_service',
   },
   {
@@ -182,14 +181,6 @@ export const CONTRACT_STEPS: Array<{
     shortTitle: 'Marketing',
     intro: 'Gennemgå de eksisterende marketingforpligtelser for samarbejdspartneren og Timan.',
     confirmationId: 'marketing',
-  },
-  {
-    id: 'sales_service_days',
-    title: 'Salgs- og servicedage og Bilag 1',
-    shortTitle: 'Salgs/service',
-    intro: 'Gennemgå krav til salgs- og servicedage sammen med Bilag 1 om service og garanti.',
-    appendix: true,
-    confirmationId: 'sales_service_days',
   },
   {
     id: 'payment_delivery',
@@ -249,7 +240,6 @@ const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, Cont
   demo_machines: allLanguageLabels({ title: 'Demo-maskiner', shortTitle: 'Demo' }, { title: 'Demo machines', shortTitle: 'Demo' }),
   spare_parts_service: allLanguageLabels({ title: 'Reservedele og service', shortTitle: 'Reservedele' }, { title: 'Spare parts and service', shortTitle: 'Spare parts' }),
   marketing: allLanguageLabels({ title: 'Marketing', shortTitle: 'Marketing' }, { title: 'Marketing', shortTitle: 'Marketing' }),
-  sales_service_days: allLanguageLabels({ title: 'Salgs- og servicedage og Bilag 1', shortTitle: 'Salgs/service' }, { title: 'Sales and service days and Appendix 1', shortTitle: 'Sales/service' }),
   payment_delivery: allLanguageLabels({ title: 'Betaling og levering', shortTitle: 'Betaling' }, { title: 'Payment and delivery', shortTitle: 'Payment' }),
   termination: allLanguageLabels({ title: 'Opsigelse og afsluttende vilkår', shortTitle: 'Opsigelse' }, { title: 'Termination and final terms', shortTitle: 'Termination' }),
   full_contract: allLanguageLabels({ title: 'Gennemlæs', shortTitle: 'Gennemlæs' }, { title: 'Review', shortTitle: 'Review' }),
@@ -318,7 +308,6 @@ export const EMPTY_CONTRACT_CONFIRMATIONS: ContractConfirmations = {
   demo_machines: { confirmed: false },
   spare_parts_service: { confirmed: false },
   marketing: { confirmed: false },
-  sales_service_days: { confirmed: false },
   payment_delivery: { confirmed: false },
   termination: { confirmed: false },
   full_contract: { confirmed: false },
@@ -346,10 +335,18 @@ export function normalizeContractConfirmations(
     normalized.demo_machines = source.responsibilities;
     normalized.spare_parts_service = source.responsibilities;
     normalized.marketing = source.responsibilities;
-    normalized.sales_service_days = source.responsibilities;
+  }
+  if (source.sales_service_days?.confirmed && !normalized.spare_parts_service.confirmed) {
+    normalized.spare_parts_service = source.sales_service_days;
   }
 
   return normalized;
+}
+
+export function normalizeContractStepId(stepId: string | null | undefined): ContractStepId {
+  if (stepId === 'sales_service_days') return 'spare_parts_service';
+  if (CONTRACT_STEPS.some((step) => step.id === stepId)) return stepId as ContractStepId;
+  return 'parties';
 }
 
 export function getRequiredConfirmationForStep(stepId: ContractStepId) {
