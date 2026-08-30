@@ -10,7 +10,7 @@
  */
 import { useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Database, Building2, FileText, Tag, BarChart3, Users as UsersIcon, History, ExternalLink, FileDown, RotateCcw, AlertTriangle, MapPin } from "lucide-react";
+import { Database, Building2, FileText, Tag, BarChart3, Users as UsersIcon, History, ExternalLink, FileDown, RotateCcw, AlertTriangle, MapPin, ArchiveRestore, ShieldAlert } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -24,9 +24,25 @@ import { WarrantyDealerLinkBackfillPanel } from "@/components/warranty/WarrantyD
 import SyncSection from "@/components/backend/SyncSection";
 import { useLatestDealerSyncLog, badgeFromLatest } from "@/lib/syncStatusBadge";
 import { isBackendActor } from "@/lib/portalAccess";
+import {
+  DATA_TRACE_LOOKUP_TYPES,
+  displayTraceTableName,
+  executeDataTraceDeletion,
+  executeDataTraceRestore,
+  expectedDeleteConfirmation,
+  expectedRestoreConfirmation,
+  normalizeDeletionNumber,
+  previewDataTraceDeletion,
+  previewDataTraceRestore,
+  type DataTraceDeletePreview,
+  type DataTraceDeleteResult,
+  type DataTraceLookupType,
+  type DataTraceRestorePreview,
+  type DataTraceRestoreResult,
+} from "@/lib/dataTraceArchiveService";
 
-type TabKey = "forhandlere" | "garanti" | "prislister" | "budget" | "brugere" | "historik" | "crm-reset";
-const VALID_TABS: TabKey[] = ["forhandlere", "garanti", "prislister", "budget", "brugere", "historik", "crm-reset"];
+type TabKey = "forhandlere" | "garanti" | "prislister" | "budget" | "brugere" | "historik" | "data-trace" | "crm-reset";
+const VALID_TABS: TabKey[] = ["forhandlere", "garanti", "prislister", "budget", "brugere", "historik", "data-trace", "crm-reset"];
 
 export default function BackendDataIntegrationsPage() {
   const { appUser, loading, setAppUser, logout } = useAppUser();
@@ -79,6 +95,7 @@ export default function BackendDataIntegrationsPage() {
             <TabsTrigger value="budget" className="data-[state=active]:bg-white"><BarChart3 className="h-4 w-4 mr-2" />Budget</TabsTrigger>
             <TabsTrigger value="brugere" className="data-[state=active]:bg-white"><UsersIcon className="h-4 w-4 mr-2" />Brugere</TabsTrigger>
             <TabsTrigger value="historik" className="data-[state=active]:bg-white"><History className="h-4 w-4 mr-2" />Sync Historik</TabsTrigger>
+            <TabsTrigger value="data-trace" className="data-[state=active]:bg-white"><ShieldAlert className="h-4 w-4 mr-2" />Slet / gendan</TabsTrigger>
             <TabsTrigger value="crm-reset" className="data-[state=active]:bg-white"><RotateCcw className="h-4 w-4 mr-2" />CRM nulstilling</TabsTrigger>
           </TabsList>
 
@@ -88,6 +105,7 @@ export default function BackendDataIntegrationsPage() {
           <TabsContent value="budget"><BudgetTab /></TabsContent>
           <TabsContent value="brugere"><UsersTab /></TabsContent>
           <TabsContent value="historik"><HistoryTab /></TabsContent>
+          <TabsContent value="data-trace"><DataTraceArchiveTab /></TabsContent>
           <TabsContent value="crm-reset"><CrmResetTab /></TabsContent>
         </Tabs>
       </main>
@@ -102,6 +120,244 @@ export default function BackendDataIntegrationsPage() {
 // ──────────────────────────────────────────────────────────────────────────────
 
 const CRM_RESET_CONFIRMATION = "NULSTIL CRM";
+
+function DataTraceArchiveTab() {
+  const [lookupType, setLookupType] = useState<DataTraceLookupType>("quote");
+  const [identifier, setIdentifier] = useState("");
+  const [reason, setReason] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [deletePreview, setDeletePreview] = useState<DataTraceDeletePreview | null>(null);
+  const [deleteResult, setDeleteResult] = useState<DataTraceDeleteResult | null>(null);
+  const [restoreNumber, setRestoreNumber] = useState("");
+  const [restoreConfirmation, setRestoreConfirmation] = useState("");
+  const [restorePreview, setRestorePreview] = useState<DataTraceRestorePreview | null>(null);
+  const [restoreResult, setRestoreResult] = useState<DataTraceRestoreResult | null>(null);
+  const [busy, setBusy] = useState<"delete-preview" | "delete" | "restore-preview" | "restore" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const expectedDelete = expectedDeleteConfirmation(identifier);
+  const expectedRestore = restorePreview?.confirmationText || expectedRestoreConfirmation(restoreNumber);
+  const canDelete = !!deletePreview?.supported && (deletePreview.recordCount || 0) > 0 && reason.trim().length > 0 && deleteConfirmation.trim() === expectedDelete && !busy;
+  const canRestore = !!restorePreview && restorePreview.status === "deleted" && restoreConfirmation.trim() === expectedRestore && !busy;
+
+  async function loadDeletePreview() {
+    setBusy("delete-preview");
+    setError(null);
+    setDeleteResult(null);
+    setDeleteConfirmation("");
+    try {
+      setDeletePreview(await previewDataTraceDeletion(lookupType, identifier));
+    } catch (err) {
+      setDeletePreview(null);
+      setError(err instanceof Error ? err.message : "Preview fejlede.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runDelete() {
+    if (!canDelete) return;
+    setBusy("delete");
+    setError(null);
+    try {
+      const result = await executeDataTraceDeletion(lookupType, identifier, reason, deleteConfirmation);
+      setDeleteResult(result);
+      setDeletePreview(null);
+      setReason("");
+      setDeleteConfirmation("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Sletning fejlede.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function loadRestorePreview() {
+    setBusy("restore-preview");
+    setError(null);
+    setRestoreResult(null);
+    setRestoreConfirmation("");
+    try {
+      setRestorePreview(await previewDataTraceRestore(restoreNumber));
+    } catch (err) {
+      setRestorePreview(null);
+      setError(err instanceof Error ? err.message : "Gendannelses-preview fejlede.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runRestore() {
+    if (!canRestore) return;
+    setBusy("restore");
+    setError(null);
+    try {
+      const result = await executeDataTraceRestore(restoreNumber, restoreConfirmation);
+      setRestoreResult(result);
+      setRestorePreview(null);
+      setRestoreConfirmation("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gendannelse fejlede.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <SyncSection
+      title="Slet / gendan dataspor"
+      description="Fjern et komplet dataspor fra det aktive system eller gendan en tidligere sletning via slettenummer."
+    >
+      <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 shadow-sm">
+        <div className="flex gap-3">
+          <div className="mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100">
+            <ShieldAlert className="h-5 w-5 text-red-700" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-900">High-risk backendfunktion</h3>
+            <p className="mt-1 text-sm text-slate-700">
+              Preview ændrer intet. Sletning kræver begrundelse og præcis manuel bekræftelse. Arkivet ligger i et privat Supabase-schema uden almindelig portaladgang.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {error && <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700">{error}</div>}
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-start gap-3">
+            <Database className="mt-1 h-5 w-5 text-red-700" />
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Find data via eksisterende ID</h3>
+              <p className="mt-1 text-sm text-slate-600">Søg først, gennemgå preview, og skriv derefter bekræftelsen.</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-[220px_1fr]">
+            <label className="block text-sm font-bold text-slate-700">
+              Type
+              <select value={lookupType} onChange={(event) => setLookupType(event.target.value as DataTraceLookupType)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
+                {DATA_TRACE_LOOKUP_TYPES.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+              </select>
+            </label>
+            <label className="block text-sm font-bold text-slate-700">
+              Identifier
+              <input value={identifier} onChange={(event) => setIdentifier(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" placeholder="Fx O-1234" />
+            </label>
+          </div>
+
+          <button type="button" onClick={loadDeletePreview} disabled={!identifier.trim() || !!busy} className="mt-4 inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50">
+            Hent preview
+          </button>
+
+          {deletePreview && (
+            <div className="mt-5 space-y-4">
+              {!deletePreview.supported ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{deletePreview.reason}</div>
+              ) : (
+                <>
+                  <TracePreviewList title="Vil blive fjernet fra det aktive system" rows={deletePreview.willRemove || []} />
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <h4 className="text-sm font-bold text-emerald-900">Beholdes</h4>
+                    <ul className="mt-2 space-y-1 text-sm text-emerald-900">
+                      {(deletePreview.willKeep || []).map((item, index) => <li key={index}>{item.label}</li>)}
+                    </ul>
+                  </div>
+                  <label className="block text-sm font-bold text-slate-700">
+                    Begrundelse *
+                    <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" placeholder="Fx testdata efter test af ordreflow" />
+                  </label>
+                  <label className="block text-sm font-bold text-red-900">
+                    Skriv {expectedDelete}
+                    <input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} className="mt-1 w-full rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-bold" />
+                  </label>
+                  <button type="button" onClick={runDelete} disabled={!canDelete} className="inline-flex items-center rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:bg-slate-300">
+                    Slet dataspor
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {deleteResult && (
+            <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+              <p className="font-black">Sletning gennemført</p>
+              <p>Datasporret er fjernet fra det aktive system.</p>
+              <p className="mt-2 text-lg font-black">Slettenummer: {deleteResult.deletionNumber}</p>
+              <p className="mt-1">Gem dette nummer, hvis sletningen senere skal fortrydes.</p>
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-start gap-3">
+            <ArchiveRestore className="mt-1 h-5 w-5 text-[#2d5a27]" />
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Fortryd sletning</h3>
+              <p className="mt-1 text-sm text-slate-600">Indtast slettenummer, gennemgå preview og bekræft restore.</p>
+            </div>
+          </div>
+
+          <label className="block text-sm font-bold text-slate-700">
+            Slettenummer
+            <input value={restoreNumber} onChange={(event) => setRestoreNumber(normalizeDeletionNumber(event.target.value))} className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm" placeholder="SLET-0147" />
+          </label>
+          <button type="button" onClick={loadRestorePreview} disabled={!restoreNumber.trim() || !!busy} className="mt-4 inline-flex items-center rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50">
+            Hent gendannelses-preview
+          </button>
+
+          {restorePreview && (
+            <div className="mt-5 space-y-4">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+                <p><strong>Slettenummer:</strong> {restorePreview.deletionNumber}</p>
+                <p><strong>Status:</strong> {restorePreview.status}</p>
+                <p><strong>Root:</strong> {restorePreview.rootLookupType} · {restorePreview.rootIdentifier}</p>
+                <p><strong>Records:</strong> {restorePreview.recordCount}</p>
+              </div>
+              <TracePreviewList title="Denne sletning indeholder" rows={restorePreview.tables || []} />
+              <label className="block text-sm font-bold text-emerald-900">
+                Skriv {expectedRestore}
+                <input value={restoreConfirmation} onChange={(event) => setRestoreConfirmation(event.target.value)} className="mt-1 w-full rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm font-bold" />
+              </label>
+              <button type="button" onClick={runRestore} disabled={!canRestore} className="inline-flex items-center rounded-lg bg-[#2d5a27] px-4 py-2 text-sm font-bold text-white hover:bg-[#21451d] disabled:bg-slate-300">
+                Gendan dataspor
+              </button>
+            </div>
+          )}
+
+          {restoreResult && (
+            <div className={`mt-5 rounded-xl border p-4 text-sm ${restoreResult.status === "restore_blocked" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+              <p className="font-black">{restoreResult.status === "restore_blocked" ? "Gendannelse blokeret" : "Gendannelse gennemført"}</p>
+              <p>{restoreResult.status === "restore_blocked" ? `${restoreResult.deletionNumber} blev ikke gendannet.` : `${restoreResult.deletionNumber} er gendannet med ${restoreResult.recordCount} records.`}</p>
+              <p className="mt-1">{restoreResult.message}</p>
+            </div>
+          )}
+        </section>
+      </div>
+    </SyncSection>
+  );
+}
+
+function TracePreviewList({ title, rows }: { title: string; rows: Array<{ table?: string; table_name?: string; count: number }> }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <h4 className="text-sm font-bold text-slate-900">{title}</h4>
+      {rows.length === 0 ? (
+        <p className="mt-2 text-sm text-slate-500">Ingen records fundet.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-slate-200 text-sm">
+          {rows.map((row) => (
+            <li key={displayTraceTableName(row)} className="flex items-center justify-between py-2">
+              <span className="font-semibold text-slate-700">{displayTraceTableName(row)}</span>
+              <span className="font-black tabular-nums text-slate-950">{row.count}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 type CrmSalesResetPreview = {
   counts?: Record<string, number>;
