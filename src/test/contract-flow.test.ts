@@ -20,11 +20,17 @@ import {
   type ContractConfirmations,
   type ContractFormData,
 } from '@/lib/contractFlow';
-import { GUIDED_CONTRACT_SECTIONS } from '@/lib/contractSections';
-import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS } from '@/lib/contractAppendix2';
+import { GUIDED_CONTRACT_SECTIONS, renderGuidedContractSections } from '@/lib/contractSections';
+import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import { buildDealerContractDraftKey, getCurrentStepId } from '@/lib/dealerContractsService';
+import {
+  CONTRACT_PARTNER_TYPE_LABELS,
+  CONTRACT_PARTNER_TYPES,
+  inferContractPartnerTypeFromDealerAccount,
+} from '@/lib/contractPartnerTerms';
 
 const completeForm: ContractFormData = {
+  partnerType: 'dealer',
   dealerName: 'Metec Metal Technology Inc',
   dealerAddress: '20 Terry Fox Dr.',
   dealerPostalCode: 'K0B 1R0',
@@ -55,6 +61,7 @@ const confirmed: ContractConfirmations = {
 describe('contract flow', () => {
   it('requires Timan seller and dealer party data before signature', () => {
     expect(hasRequiredPartyData(completeForm)).toBe(true);
+    expect(hasRequiredPartyData({ ...completeForm, partnerType: '' })).toBe(false);
     expect(hasRequiredPartyData({ ...completeForm, timanSellerEmail: '' })).toBe(false);
     expect(hasRequiredPartyData({ ...completeForm, dealerCity: '' })).toBe(false);
   });
@@ -129,6 +136,26 @@ describe('contract flow', () => {
     }
   });
 
+  it('defines the allowed contract partner labels for every portal language without dealer customers', () => {
+    const languages = ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'] as const;
+    expect(CONTRACT_PARTNER_TYPES).toEqual(['dealer', 'importer', 'service_partner']);
+    for (const partnerType of CONTRACT_PARTNER_TYPES) {
+      for (const language of languages) {
+        expect(CONTRACT_PARTNER_TYPE_LABELS[partnerType][language]).toBeTruthy();
+      }
+    }
+    expect(JSON.stringify(CONTRACT_PARTNER_TYPE_LABELS).toLowerCase()).not.toContain('forhandlerkunde');
+    expect(JSON.stringify(CONTRACT_PARTNER_TYPE_LABELS).toLowerCase()).not.toContain('dealer customer');
+  });
+
+  it('infers contract partner type from existing dealer account type fields only when safe', () => {
+    expect(inferContractPartnerTypeFromDealerAccount({ customer_type: 'Forhandler' })).toBe('dealer');
+    expect(inferContractPartnerTypeFromDealerAccount({ customer_type_label: 'Importør' })).toBe('importer');
+    expect(inferContractPartnerTypeFromDealerAccount({ dealer_type: 'Service Partner' })).toBe('service_partner');
+    expect(inferContractPartnerTypeFromDealerAccount({ customer_type: 'Forhandlerkunde' })).toBeNull();
+    expect(inferContractPartnerTypeFromDealerAccount({ customer_type: 'Slutkunde' })).toBeNull();
+  });
+
   it('marks the discount and service steps as appendices', () => {
     expect(CONTRACT_STEPS.find((step) => step.id === 'discount_structure')?.appendix).toBe(true);
     expect(CONTRACT_STEPS.find((step) => step.id === 'sales_service_days')?.appendix).toBe(true);
@@ -190,6 +217,31 @@ describe('contract flow', () => {
     expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'payment_delivery')?.source).toContain('Bilag 4');
   });
 
+  it('removes the redundant territory intro and starts directly at Appendix 3 content', () => {
+    const territory = GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'territory');
+    expect(territory?.blocks[0].heading).toBe('Bilag 3: Området');
+    expect(JSON.stringify(territory)).not.toContain('3. Område');
+    expect(JSON.stringify(territory)).not.toContain('Se bilag 3.');
+  });
+
+  it.each([
+    ['dealer', 'forhandler', 'forhandleren'],
+    ['importer', 'importør', 'importøren'],
+    ['service_partner', 'servicepartner', 'servicepartneren'],
+  ] as const)('renders contract party text dynamically for %s', (partnerType, singular, definite) => {
+    const companyName = partnerType === 'importer' ? 'ABC Maschinen GmbH' : partnerType === 'service_partner' ? 'Service Pro ApS' : 'Dealer House A/S';
+    const legalSections = renderGuidedContractSections({ companyName, partnerType });
+    const appendix2Paragraphs = renderAppendix2Paragraphs(partnerType);
+    const text = `${JSON.stringify(legalSections)} ${appendix2Paragraphs.join(' ')}`;
+
+    expect(text).toContain(`Timan A/S og ${companyName}, herefter nævnt som ${singular}`);
+    expect(text).toContain(definite);
+    expect(text).not.toContain('xxxx');
+    expect(text).not.toContain('xxx');
+    expect(text).not.toContain('{{');
+    expect(text).not.toContain('}}');
+  });
+
   it('stores the contract snapshot with Timan data and signature state', () => {
     const signedForm = { ...completeForm, signatureDataUrl: 'data:image/png;base64,test' };
     const snapshot = buildContractSnapshot(signedForm, confirmed);
@@ -230,8 +282,8 @@ describe('contract flow', () => {
       contractId: 'contract-1',
       contractNumber: 'DC-2026-1000',
       workflowStatus: 'ready_for_signature',
-      legalSections: GUIDED_CONTRACT_SECTIONS,
-      appendices: { appendix2Paragraphs: APPENDIX_2_PARAGRAPHS },
+      legalSections: renderGuidedContractSections({ companyName: completeForm.dealerName, partnerType: completeForm.partnerType }),
+      appendices: { appendix2Paragraphs: renderAppendix2Paragraphs(completeForm.partnerType) },
       completedGuidedReviewAt: '2026-08-30T08:00:00.000Z',
       completedGuidedReviewBy: 'Birger Pedersen',
       completedGuidedReviewByEmail: 'bp@timan.dk',
@@ -241,8 +293,8 @@ describe('contract flow', () => {
     expect(snapshot.contractId).toBe('contract-1');
     expect(snapshot.contractNumber).toBe('DC-2026-1000');
     expect(snapshot.workflowStatus).toBe('ready_for_signature');
-    expect(snapshot.legalSections).toEqual(GUIDED_CONTRACT_SECTIONS);
-    expect(snapshot.appendices).toEqual({ appendix2Paragraphs: APPENDIX_2_PARAGRAPHS });
+    expect(JSON.stringify(snapshot.legalSections)).toContain('Timan A/S og Metec Metal Technology Inc');
+    expect(snapshot.appendices).toEqual({ appendix2Paragraphs: renderAppendix2Paragraphs(completeForm.partnerType) });
     expect(snapshot.completedGuidedReviewByEmail).toBe('bp@timan.dk');
     expect(snapshot.expectedSignedPages).toBe(5);
   });
@@ -284,7 +336,7 @@ describe('contract flow', () => {
       'Er leveringstiden over 3mdr. fra ordren bliver afgivet, vil man kunne opnå ekstra rabat.',
       'Der ydes ikke bestillingsrabat på demomaskiner.',
       '5. Rabat 3. Egen demonstration - egen salg.',
-      'Opnår forhandleren et salg uden Timan har været involveret i en demonstration, til skønnes dette.',
+      'Opnår {{partnerDefinite}} et salg uden Timan har været involveret i en demonstration, til skønnes dette.',
       'Demorabatten ydes på grundmaskinen eksklusivt udstyr.',
       'Demonstrationsrabatten gives som en kreditnota, der modregnes ved fremtidige køb hos Timan.',
       '6. Udregning af rabat.',
@@ -293,5 +345,6 @@ describe('contract flow', () => {
     expect(APPENDIX_2_EXAMPLE_LINES[0]).toBe('Den maximale rabat, som kan opnåes på en maskine og redskaber er: 25% + 4% + 2% = 29,44 %');
     expect(APPENDIX_2_EXAMPLE_LINES[0]).not.toContain('31');
     expect(APPENDIX_2_EXAMPLE_LINES[1]).toBe('Når garantiregistreringen er gennemført, vil beløbet på 3.100 kr. blive udstedt som en kreditnota, der kan anvendes ved fremtidige køb hos Timan.');
+    expect(renderAppendix2Paragraphs('importer')[13]).toBe('Opnår importøren et salg uden Timan har været involveret i en demonstration, til skønnes dette.');
   });
 });

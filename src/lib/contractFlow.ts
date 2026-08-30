@@ -1,4 +1,5 @@
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import type { ContractPartnerType } from '@/lib/contractPartnerTerms';
 
 export type ContractStepId =
   | 'parties'
@@ -41,6 +42,7 @@ export type ContractWorkflowStatus =
 export type ContractStatus = LegacyContractStatus;
 
 export type ContractFormData = {
+  partnerType: ContractPartnerType | '';
   dealerName: string;
   dealerAddress: string;
   dealerPostalCode: string;
@@ -70,7 +72,7 @@ export type ContractConfirmation = {
 
 export type ContractConfirmations = Record<ContractConfirmationId, ContractConfirmation>;
 
-export const CONTRACT_VERSION = 'forhandlerkontrakt-timan-2026-08';
+export const CONTRACT_VERSION = 'forhandlerkontrakt-timan-2026-08-partner-type';
 
 export const CONTRACT_STATUS_LABELS_DA: Record<ContractWorkflowStatus, string> = {
   draft: 'Kladde',
@@ -135,7 +137,7 @@ export const CONTRACT_STEPS: Array<{
     id: 'parties',
     title: 'Oplysninger',
     shortTitle: 'Oplysninger',
-    intro: 'Start med at kontrollere, at Timan-oplysninger og forhandleroplysninger er korrekte. Det er de data, der bruges videre i aftalen og PDF’en.',
+    intro: 'Start med at vælge partnertype og kontrollere, at Timan-oplysninger og virksomhedsoplysninger er korrekte. Det er de data, der bruges videre i aftalen og PDF’en.',
   },
   {
     id: 'purpose_prices_orders_portal',
@@ -178,7 +180,7 @@ export const CONTRACT_STEPS: Array<{
     id: 'marketing',
     title: 'Marketing',
     shortTitle: 'Marketing',
-    intro: 'Gennemgå de eksisterende marketingforpligtelser for forhandleren og Timan.',
+    intro: 'Gennemgå de eksisterende marketingforpligtelser for samarbejdspartneren og Timan.',
     confirmationId: 'marketing',
   },
   {
@@ -215,7 +217,7 @@ export const CONTRACT_STEPS: Array<{
     id: 'signature',
     title: 'Underskrift',
     shortTitle: 'Underskrift',
-    intro: 'Når alle obligatoriske trin er gennemgået, kan forhandlerens digitale signatur tilføjes og den endelige PDF genereres.',
+    intro: 'Når alle obligatoriske trin er gennemgået, kan partnerens digitale signatur tilføjes og den endelige PDF genereres.',
   },
 ];
 
@@ -361,7 +363,8 @@ export function canLeaveContractStep(stepId: ContractStepId, confirmations: Cont
 
 export function hasRequiredPartyData(form: ContractFormData) {
   return Boolean(
-    form.dealerName.trim()
+    form.partnerType
+    && form.dealerName.trim()
     && form.dealerAddress.trim()
     && form.dealerPostalCode.trim()
     && form.dealerCity.trim()
@@ -433,6 +436,7 @@ export function buildContractSnapshot(
       sellerPhone: form.timanSellerPhone,
     },
     dealer: {
+      partnerType: form.partnerType,
       name: form.dealerName,
       cvr: form.dealerCvr,
       address: form.dealerAddress,

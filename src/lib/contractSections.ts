@@ -1,4 +1,5 @@
 import type { ContractStepId } from '@/lib/contractFlow';
+import { getContractPartnerTerms, type ContractPartnerType } from '@/lib/contractPartnerTerms';
 
 export type ContractTextBlock = {
   heading?: string;
@@ -13,6 +14,11 @@ export type GuidedContractSection = {
   blocks: readonly ContractTextBlock[];
 };
 
+export type ContractTextRenderContext = {
+  companyName: string;
+  partnerType: ContractPartnerType | '' | null | undefined;
+};
+
 export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'purpose_prices_orders_portal',
@@ -22,7 +28,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
       {
         heading: '1. Formål',
         paragraphs: [
-          'Formålet med denne kontrakt er at fastlægge vilkårene for samarbejdet mellem Timan A/S og xxxx DK A/S,    herefter nævnt som forhandler, vedrørende salg af Timan-maskiner og tilhørende produkter.',
+          'Formålet med denne kontrakt er at fastlægge vilkårene for samarbejdet mellem Timan A/S og {{companyName}}, herefter nævnt som {{partnerSingular}}, vedrørende salg af Timan-maskiner og tilhørende produkter.',
         ],
       },
       {
@@ -39,7 +45,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         heading: '10. Årligt forhandlermøde',
         paragraphs: [
           'Et årligt forhandlermøde afholdes i perioden oktober - februar enten fysisk eller via Teams.',
-          'Forhandleren forpligter sig til at levere firma- og kontaktoplysninger via QR-kode nederst på siden.',
+          '{{partnerDefiniteCapitalized}} forpligter sig til at levere firma- og kontaktoplysninger via QR-kode nederst på siden.',
           'Vi forventer, at de involverede personer tilmelder sig vores nyhedsbrev, hvor der kommer relevante forhandlerinformationer.',
           '(Vi deler ikke personoplysninger med tredje part, QR-kode også nederst på siden)',
         ],
@@ -47,7 +53,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           'Gennemgang af årets resultater.',
           'Budgetgennemgang',
           'Gennemgang af planlagte aktiviteter.',
-          'Forhandleren forpligter sig til at udfylde et kort spørgeskema vedrørende samarbejdet, aktivitetsplan for det kommende år.',
+          '{{partnerDefiniteCapitalized}} forpligter sig til at udfylde et kort spørgeskema vedrørende samarbejdet, aktivitetsplan for det kommende år.',
         ],
       },
     ],
@@ -57,7 +63,6 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
     title: 'Område og Bilag 3',
     source: 'Forhandlerkontrakt Timan, punkt 3 + Bilag 3',
     blocks: [
-      { heading: '3. Område', paragraphs: ['Se bilag 3.'] },
       {
         heading: 'Bilag 3: Området',
         paragraphs: [
@@ -65,7 +70,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           'Inden for det primære område vil Timan ikke indgå aftaler med nye forhandlere.',
           'Slutkunderne vælger selv hvilken forhandler de ønsker at handle med .',
           'Hvis Timan kontaktes gives dette lead til nærmeste forhandler ud fra kundens oplysninger.',
-          'Hvis en slutkunde inden for dette område ønsker at bestille reservedele via Timan’s webshop, skal dette aftales på forhånd med forhandleren, og forhandleren retter efterfølgende henvendelse til Timan - faktureringen vil ske gennem forhandleren.',
+          'Hvis en slutkunde inden for dette område ønsker at bestille reservedele via Timan’s webshop, skal dette aftales på forhånd med {{partnerDefinite}}, og {{partnerDefinite}} retter efterfølgende henvendelse til Timan - faktureringen vil ske gennem {{partnerDefinite}}.',
           'Brutto prisen vil være synlig for alle, prisen til slutkunden aftales mellem forhandler og slutkunde.',
           '2. Området omfatter som kortet også viser:',
           'Primære område:',
@@ -79,14 +84,14 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         heading: 'Sekundær område',
         bullets: [
           'Danmark – syd for linjen Hobro – Skive',
-          'I dette område må forhandleren udføre opsøgende salg.',
+          'I dette område må {{partnerDefinite}} udføre opsøgende salg.',
           'Det markerede sekundære område er et område hvor Timan ikke har nogen forhandler men en service partner.',
         ],
       },
       {
-        heading: 'Område hvor forhandleren ikke må sælge',
+        heading: 'Område hvor {{partnerDefinite}} ikke må sælge',
         bullets: [
-          'Nord for linjen Hobro – Skive må forhandleren ikke lave opsøgende salg.',
+          'Nord for linjen Hobro – Skive må {{partnerDefinite}} ikke lave opsøgende salg.',
         ],
       },
     ],
@@ -102,7 +107,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         bullets: [
           'Flere maskiner: Køb af flere maskiner giver yderligere rabat.',
           'Længere leveringstid: Ved leveringstid over 3 mdr. tilbydes øget rabat.',
-          'Salg uden demonstration: Hvis forhandleren opnår et salg uden, at Timan har været involveret i en demonstration, til skønnes dette med rabat.',
+          'Salg uden demonstration: Hvis {{partnerDefinite}} opnår et salg uden, at Timan har været involveret i en demonstration, til skønnes dette med rabat.',
           'Se bilag 2.',
         ],
       },
@@ -117,8 +122,8 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         heading: '5. Demo-maskiner',
         paragraphs: ['Demo-rabat: Rabat på demo-maskiner. Bilag 2.'],
         bullets: [
-          'Det forventes at forhandleren investere i demo-maskiner.',
-          'Forhandleren kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.',
+          'Det forventes at {{partnerDefinite}} investere i demo-maskiner.',
+          '{{partnerDefiniteCapitalized}} kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.',
           'Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.',
           'Overholdes dette ikke vil Timan opkræve differencen til den almindelige maskinrabat.',
         ],
@@ -132,7 +137,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
     blocks: [
       {
         heading: '6. Reservedele og Service',
-        paragraphs: ['Forhandleren forpligter sig til at varetage alt support omkring service og reservedele f.eks. :'],
+        paragraphs: ['{{partnerDefiniteCapitalized}} forpligter sig til at varetage alt support omkring service og reservedele f.eks. :'],
         bullets: [
           'Reservedele bestilles via Timan A/S\' webshop.',
           'Rabat på reservedele følger grundrabatten, der er gældende for maskiner.',
@@ -148,9 +153,9 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
     source: 'Forhandlerkontrakt Timan, punkt 7 og 7.1',
     blocks: [
       {
-        heading: '7. Marketingforpligtelser Forhandler',
+        heading: '7. Marketingforpligtelser {{partnerLabel}}',
         bullets: [
-          'Forhandleren skal promovere Timan A/S\' brand med tekst og billeder på forhandlerens hjemmeside.',
+          '{{partnerDefiniteCapitalized}} skal promovere Timan A/S\' brand med tekst og billeder på {{partnerPossessive}} hjemmeside.',
           'De nyeste billeder af Timan-maskiner og redskaber skal løbende opdateres ved ændringer.',
           'Brugen af Timan-logo, farver og design skal være på hjemmesiden og altid i den nyeste version.',
         ],
@@ -158,7 +163,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
       {
         heading: '7.1 Marketingforpligtelser Timan',
         bullets: [
-          'Forhandlerens oplysninger (navn og adresse) vil blive fremhævet på Timans officielle hjemmeside.',
+          '{{partnerPossessiveCapitalized}} oplysninger (navn og adresse) vil blive fremhævet på Timans officielle hjemmeside.',
           'Adgang til Timans digitale platforme for markedsføringsmateriale.',
           'Timan stiller brochurer og andet digitalt salgsmateriale til rådighed.',
         ],
@@ -172,7 +177,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
     blocks: [
       {
         heading: '8. Salgs- og servicedage',
-        paragraphs: ['Forhandleren forpligter sig til at have mindst én sælger/demonstratør samt servicetekniker til at være:'],
+        paragraphs: ['{{partnerDefiniteCapitalized}} forpligter sig til at have mindst én sælger/demonstratør samt servicetekniker til at være:'],
         bullets: [
           'Opdateret på Timan’s produkter + To salgsdage ved Timan A/S i Tim det første år.',
           'Opdateret med teknisk viden på Timan’s produkter + En service dag ved Timan A/S i Tim det første år.',
@@ -189,20 +194,20 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           'En reklamation må ikke påbegyndes inden Timan har udstedt en reklamations nummer.',
           'Ved akut udkald kontaktes Timan ved først kommende lejlighed for at aftale det videre forløb.',
           'Reklamationer må kun udføres af autoriseret Timan forhandler.',
-          'Reklamationssager behandles i samarbejde med forhandleren for at sikre en hurtig og effektiv løsning.',
+          'Reklamationssager behandles i samarbejde med {{partnerDefinite}} for at sikre en hurtig og effektiv løsning.',
         ],
       },
       {
         heading: '2. Garanti registreringer',
         paragraphs: [
-          'Alle garantiregistreringer skal udføres af forhandleren med fakturadato fra forhandler til slutkunden.  Registreringen foretages via Forms-formularen, som kan tilgås via linket på forhandlerportalen, eller ved hjælp af QR -koden, der findes i alle manualer, der følger med maskinen.',
+          'Alle garantiregistreringer skal udføres af {{partnerDefinite}} med fakturadato fra {{partnerSingular}} til slutkunden.  Registreringen foretages via Forms-formularen, som kan tilgås via linket på forhandlerportalen, eller ved hjælp af QR -koden, der findes i alle manualer, der følger med maskinen.',
           '2.1 Garantibetingelser for demomaskiner:',
         ],
         bullets: [
-          'Der ydes maksimalt 24 måneders garanti på demomaskiner regnet fra fakturadato til forhandleren.',
+          'Der ydes maksimalt 24 måneders garanti på demomaskiner regnet fra fakturadato til {{partnerDefinite}}.',
           'Ved salg af demomaskiner efter 9-12 måneder gives 12 måneders garanti fra Timan.',
           'Ved salg efter 12 måneder reduceres garantiperioden tilsvarende med 1 måneder for hver efterfølgende måned, maskinen er i brug før salget.',
-          'Udlejes demomaskinen yders der 12 måneders garanti fra fakturadato til forhandleren.',
+          'Udlejes demomaskinen yders der 12 måneders garanti fra fakturadato til {{partnerDefinite}}.',
         ],
       },
       {
@@ -307,7 +312,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med  et opsigelsesvarsel første ganag på 24 måneder herefter 6 måneder.',
           'Fornyelse af kontrakten sker automatisk med ét år ad gangen senest 1. september, med mindre en af parterne skriftligt ønsker genforhandling senest 1. august samme år.',
           'Hvis betalinger ikke finder sted senest 8 dage efter, det på fakturaen anvist betalingsdato. Samt modtagelse af rykker fra Timan kan aftalen opsiges med 1 månedes varsel.',
-          'Ved opsigelse af kontrakten er det forhandlerens pligt at fjerne Timan -navnet og produktsider fra forhandlerens markedsføringsmateriale og bygning.',
+          'Ved opsigelse af kontrakten er det {{partnerPossessive}} pligt at fjerne Timan -navnet og produktsider fra {{partnerPossessive}} markedsføringsmateriale og bygning.',
           'Ved retslige tvister afgøres dette ved Sø og Handelsretten i Danmark.',
         ],
       },
@@ -315,6 +320,39 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   },
 ];
 
+function capitalize(value: string) {
+  return value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}` : value;
+}
+
+function renderContractText(value: string, context: ContractTextRenderContext): string {
+  const terms = getContractPartnerTerms(context.partnerType);
+  const companyName = context.companyName.trim();
+
+  return value
+    .replaceAll('{{companyName}}', companyName)
+    .replaceAll('{{partnerLabel}}', terms?.label ?? '')
+    .replaceAll('{{partnerSingular}}', terms?.singular ?? '')
+    .replaceAll('{{partnerDefinite}}', terms?.definite ?? '')
+    .replaceAll('{{partnerDefiniteCapitalized}}', terms ? capitalize(terms.definite) : '')
+    .replaceAll('{{partnerPossessive}}', terms?.possessive ?? '')
+    .replaceAll('{{partnerPossessiveCapitalized}}', terms ? capitalize(terms.possessive) : '');
+}
+
+export function renderGuidedContractSections(context: ContractTextRenderContext): GuidedContractSection[] {
+  return GUIDED_CONTRACT_SECTIONS.map((section) => ({
+    ...section,
+    blocks: section.blocks.map((block) => ({
+      heading: block.heading ? renderContractText(block.heading, context) : undefined,
+      paragraphs: block.paragraphs?.map((paragraph) => renderContractText(paragraph, context)),
+      bullets: block.bullets?.map((bullet) => renderContractText(bullet, context)),
+    })),
+  }));
+}
+
 export function getGuidedContractSection(stepId: ContractStepId) {
   return GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === stepId) ?? null;
+}
+
+export function getRenderedGuidedContractSection(stepId: ContractStepId, context: ContractTextRenderContext) {
+  return renderGuidedContractSections(context).find((section) => section.stepId === stepId) ?? null;
 }

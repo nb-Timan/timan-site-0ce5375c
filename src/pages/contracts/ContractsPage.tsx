@@ -47,8 +47,20 @@ import { fetchDealerAccountByNumber } from '@/lib/dealerAccountsService';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
-import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS } from '@/lib/contractAppendix2';
-import { GUIDED_CONTRACT_SECTIONS, getGuidedContractSection, type ContractTextBlock } from '@/lib/contractSections';
+import { APPENDIX_2_EXAMPLE_LINES, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
+import {
+  getRenderedGuidedContractSection,
+  renderGuidedContractSections,
+  type GuidedContractSection,
+  type ContractTextBlock,
+} from '@/lib/contractSections';
+import {
+  CONTRACT_PARTNER_TYPES,
+  getContractPartnerTerms,
+  getContractPartnerTypeLabel,
+  inferContractPartnerTypeFromDealerAccount,
+  type ContractPartnerType,
+} from '@/lib/contractPartnerTerms';
 
 const CONTRACT_DOCS = [
   { title: 'Forhandlerkontrakt Timan', href: '/contracts/forhandlerkontrakt-timan.pdf', section: 'Hovedaftale' },
@@ -106,6 +118,7 @@ function ensurePdfSpace(pdf: any, y: number, needed = 18) {
 }
 
 function addPhysicalSignatureFieldsToPdf(pdf: any, snapshot: ContractSnapshot) {
+  const partnerTerms = getContractPartnerTerms(snapshot.dealer.partnerType) ?? getContractPartnerTerms('dealer')!;
   const pageCount = pdf.getNumberOfPages();
   for (let page = 1; page <= pageCount; page += 1) {
     pdf.setPage(page);
@@ -127,7 +140,7 @@ function addPhysicalSignatureFieldsToPdf(pdf: any, snapshot: ContractSnapshot) {
         { label: 'Underskrift', value: '', x: 143, w: 51 },
       ]
       : [
-        { label: 'Forhandler initialer', value: snapshot.dealer.contactPerson || '', x: 16, w: 60 },
+        { label: `${partnerTerms.label} initialer`, value: snapshot.dealer.contactPerson || '', x: 16, w: 60 },
         { label: 'Dato', value: formatDateDa(snapshot.contractDate), x: 82, w: 36 },
       ];
 
@@ -174,10 +187,18 @@ function drawContractTextBlockPdf(pdf: any, block: ContractTextBlock, left: numb
   return y + 2;
 }
 
-function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number) {
+function getSnapshotLegalSections(snapshot: ContractSnapshot): GuidedContractSection[] {
+  if (Array.isArray(snapshot.legalSections)) return snapshot.legalSections as GuidedContractSection[];
+  return renderGuidedContractSections({
+    companyName: snapshot.dealer.name,
+    partnerType: snapshot.dealer.partnerType,
+  });
+}
+
+function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number, sections: GuidedContractSection[], appendix2Paragraphs: string[]) {
   let y = 18;
 
-  GUIDED_CONTRACT_SECTIONS.forEach((section, index) => {
+  sections.forEach((section, index) => {
     y = ensurePdfSpace(pdf, y, 24);
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(11);
@@ -194,7 +215,7 @@ function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number) {
       if (y > 30) {
         pdf.addPage();
       }
-      drawAppendix2Pdf(pdf, left, right);
+      drawAppendix2Pdf(pdf, left, right, appendix2Paragraphs);
       y = 132;
     }
   });
@@ -202,11 +223,11 @@ function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number) {
   return y;
 }
 
-function drawAppendix2Pdf(pdf: any, left: number, right: number) {
+function drawAppendix2Pdf(pdf: any, left: number, right: number, paragraphs: string[]) {
   let y = 16;
   const width = right - left;
 
-  APPENDIX_2_PARAGRAPHS.forEach((paragraph, index) => {
+  paragraphs.forEach((paragraph, index) => {
     const isHeading = index === 0 || /^\d+\./.test(paragraph);
     pdf.setFont('helvetica', isHeading ? 'bold' : 'normal');
     pdf.setFontSize(isHeading ? 9.5 : 8);
@@ -382,6 +403,7 @@ export default function ContractsPage() {
     timanSellerPhone: '',
     contractDate: todayIso(),
     signatureDataUrl: null,
+    partnerType: '',
   }));
 
   const [confirmations, setConfirmations] = useState<ContractConfirmations>(EMPTY_CONTRACT_CONFIRMATIONS);
@@ -486,6 +508,7 @@ export default function ContractsPage() {
         dealerCity: row.city || split.city || current.dealerCity,
         dealerCvr: row.vat_number || current.dealerCvr,
         contactPerson: row.primary_contact_name || row.sales_contact_name || current.contactPerson,
+        partnerType: current.partnerType || inferContractPartnerTypeFromDealerAccount(row) || '',
       }));
     });
     return () => { cancelled = true; };
@@ -593,7 +616,7 @@ export default function ContractsPage() {
       return;
     }
     if (activeStep.id === 'parties' && !hasRequiredPartyData(form)) {
-      toast.error('Udfyld Timan-sælger og forhandleroplysninger, før du går videre.');
+      toast.error('Vælg partnertype og udfyld Timan-sælger samt virksomhedsoplysninger, før du går videre.');
       return;
     }
     setActiveStepIndex((current) => Math.min(current + 1, CONTRACT_STEPS.length - 1));
@@ -627,13 +650,18 @@ export default function ContractsPage() {
       setContractRecord(saved.row);
     }
 
+    const legalSections = renderGuidedContractSections({
+      companyName: form.dealerName,
+      partnerType: form.partnerType,
+    });
+    const appendix2Paragraphs = renderAppendix2Paragraphs(form.partnerType);
     const completedAt = new Date().toISOString();
     const snapshot = buildContractSnapshot(form, confirmations, {
       contractId: id,
       contractNumber: contractRecord?.contract_number,
       workflowStatus: 'ready_for_signature',
-      legalSections: GUIDED_CONTRACT_SECTIONS,
-      appendices: { appendix2Paragraphs: APPENDIX_2_PARAGRAPHS, appendix2ExampleLines: APPENDIX_2_EXAMPLE_LINES },
+      legalSections,
+      appendices: { appendix2Paragraphs, appendix2ExampleLines: APPENDIX_2_EXAMPLE_LINES },
       completedGuidedReviewAt: completedAt,
       completedGuidedReviewBy: effectiveUser?.display_name || effectiveUser?.email || form.timanSellerName,
       completedGuidedReviewByEmail: effectiveUser?.email || form.timanSellerEmail,
@@ -691,6 +719,11 @@ export default function ContractsPage() {
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
     const pdfSnapshot = snapshot;
+    const partnerTerms = getContractPartnerTerms(pdfSnapshot.dealer.partnerType) ?? getContractPartnerTerms('dealer')!;
+    const legalSections = getSnapshotLegalSections(pdfSnapshot);
+    const appendix2Paragraphs = Array.isArray((pdfSnapshot.appendices as { appendix2Paragraphs?: unknown } | null)?.appendix2Paragraphs)
+      ? (pdfSnapshot.appendices as { appendix2Paragraphs: string[] }).appendix2Paragraphs
+      : renderAppendix2Paragraphs(pdfSnapshot.dealer.partnerType);
     const timan = pdfSnapshot.timan;
     const dealer = pdfSnapshot.dealer;
     const left = 16;
@@ -714,7 +747,7 @@ export default function ContractsPage() {
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(17, 24, 39);
     pdf.text('Timan', left, y);
-    pdf.text('Forhandler', 112, y);
+    pdf.text(partnerTerms.label, 112, y);
     y += 6;
     pdf.setFont('helvetica', 'normal');
     pdf.text(timan.company, left, y);
@@ -748,10 +781,10 @@ export default function ContractsPage() {
     pdf.text('1. Oplysninger', left, y);
     y += 8;
     pdf.setFont('helvetica', 'normal');
-    pdf.text('Timan-oplysninger, aktiv Timan-sælger, forhandleroplysninger og kontaktperson er vist ovenfor.', left, y);
+    pdf.text(`Timan-oplysninger, aktiv Timan-sælger, ${partnerTerms.singular}oplysninger og kontaktperson er vist ovenfor.`, left, y);
 
     pdf.addPage();
-    drawGuidedContractSectionsPdf(pdf, left, right);
+    drawGuidedContractSectionsPdf(pdf, left, right, legalSections, appendix2Paragraphs);
 
     pdf.addPage();
     y = 18;
@@ -786,7 +819,7 @@ export default function ContractsPage() {
     pdf.text(`Dato: ${formatDateDa(pdfSnapshot.contractDate)}`, left, y);
     pdf.text(`Dato: ${formatDateDa(pdfSnapshot.contractDate)}`, 112, y);
     pdf.text('Timan underskrift______________________', left, y + 24);
-    pdf.text('Forhandler underskrift_________________', 112, y + 24);
+    pdf.text(`${partnerTerms.signatureLabel}_________________`, 112, y + 24);
 
     addPhysicalSignatureFieldsToPdf(pdf, pdfSnapshot);
     const pageCount = pdf.getNumberOfPages();
@@ -1114,9 +1147,25 @@ function PartiesStep({
       </div>
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900 mb-3">Forhandleroplysninger</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900 mb-3">Samarbejdspartner</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <TextField label="Forhandlernavn *" value={form.dealerName} onChange={(value) => update('dealerName', value)} placeholder="Fx Danish Agro Machinery - Kolding" disabled={locked} />
+          <label className="block">
+            <span className="text-sm font-semibold text-gray-700">Partnertype *</span>
+            <select
+              value={form.partnerType}
+              disabled={locked}
+              onChange={(e) => update('partnerType', e.target.value as ContractPartnerType | '')}
+              className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+            >
+              <option value="">Vælg partnertype...</option>
+              {CONTRACT_PARTNER_TYPES.map((partnerType) => (
+                <option key={partnerType} value={partnerType}>
+                  {getContractPartnerTypeLabel(partnerType, 'da')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <TextField label="Firmanavn *" value={form.dealerName} onChange={(value) => update('dealerName', value)} placeholder="Fx ABC Maschinen GmbH" disabled={locked} />
           <TextField label="CVR *" value={form.dealerCvr} onChange={(value) => update('dealerCvr', value)} disabled={locked} />
           <TextField label="Adresse *" value={form.dealerAddress} onChange={(value) => update('dealerAddress', value)} disabled={locked} />
           <TextField label="Postnr. *" value={form.dealerPostalCode} onChange={(value) => update('dealerPostalCode', value)} disabled={locked} />
@@ -1160,7 +1209,12 @@ function ReviewStep({
   locked?: boolean;
 }) {
   const fullContract = stepId === 'full_contract';
-  const section = getGuidedContractSection(stepId);
+  const contractTextContext = {
+    companyName: form.dealerName,
+    partnerType: form.partnerType,
+  };
+  const section = getRenderedGuidedContractSection(stepId, contractTextContext);
+  const contractSections = renderGuidedContractSections(contractTextContext);
 
   return (
     <div className="space-y-5">
@@ -1170,10 +1224,10 @@ function ReviewStep({
 
       {fullContract && (
         <div className="space-y-5">
-          {GUIDED_CONTRACT_SECTIONS.map((contractSection) => (
+          {contractSections.map((contractSection) => (
             <div key={contractSection.stepId} className="space-y-5">
               <ContractLegalSection section={contractSection} />
-              {contractSection.stepId === 'discount_structure' && <Appendix2DiscountSection />}
+              {contractSection.stepId === 'discount_structure' && <Appendix2DiscountSection partnerType={form.partnerType} />}
             </div>
           ))}
         </div>
@@ -1184,7 +1238,7 @@ function ReviewStep({
       )}
 
       {stepId === 'discount_structure' && !fullContract && (
-        <Appendix2DiscountSection />
+        <Appendix2DiscountSection partnerType={form.partnerType} />
       )}
 
       {confirmationId && (
@@ -1292,6 +1346,7 @@ function SignatureStep({
   const hasPdf = uploadedFiles.some((file) => file.mime_type === 'application/pdf');
   const uploadComplete = hasPdf || expectedPages <= 1 || uploadedFiles.length >= expectedPages;
   const canUpload = workflowStatus === 'awaiting_signed_upload' || workflowStatus === 'changes_requested';
+  const partnerTerms = getContractPartnerTerms(form.partnerType) ?? getContractPartnerTerms('dealer')!;
 
   return (
     <div className="space-y-6">
@@ -1309,10 +1364,10 @@ function SignatureStep({
 
       {!locked && (
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Forhandlerens digitale signatur</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">{partnerTerms.possessive} digitale signatur</h3>
           <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center hover:border-amber-300 hover:bg-amber-50">
             <Upload className="h-5 w-5 text-amber-700" />
-            <span className="mt-2 text-sm font-semibold text-gray-800">Upload forhandlerens signaturbillede</span>
+            <span className="mt-2 text-sm font-semibold text-gray-800">Upload {partnerTerms.possessive} signaturbillede</span>
             <span className="mt-1 text-xs text-gray-500">{signatureName || 'Valgfrit - PNG eller JPG'}</span>
             <input
               type="file"
@@ -1453,11 +1508,12 @@ function InfoMini({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Appendix2DiscountSection() {
+function Appendix2DiscountSection({ partnerType }: { partnerType: ContractFormData['partnerType'] }) {
+  const paragraphs = renderAppendix2Paragraphs(partnerType);
   return (
     <div className="space-y-5 rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
       <div className="space-y-4 text-sm leading-6 text-gray-700">
-        {APPENDIX_2_PARAGRAPHS.map((paragraph, index) => {
+        {paragraphs.map((paragraph, index) => {
           const isHeading = index === 0 || /^\d+\./.test(paragraph);
           return (
             <p key={paragraph} className={isHeading ? 'font-bold text-gray-950' : ''}>
@@ -1604,6 +1660,7 @@ function ProgressSteps({
 }
 
 function ContractSummary({ form }: { form: ContractFormData }) {
+  const partnerLabel = form.partnerType ? getContractPartnerTypeLabel(form.partnerType, 'da') : 'Samarbejdspartner';
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
@@ -1615,7 +1672,7 @@ function ContractSummary({ form }: { form: ContractFormData }) {
         {form.timanSellerPhone && <p className="text-sm text-emerald-900">{form.timanSellerPhone}</p>}
       </div>
       <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900">Forhandler</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900">{partnerLabel}</h3>
         <p className="mt-3 text-lg font-bold text-amber-950">{form.dealerName || '-'}</p>
         <p className="text-sm text-amber-900">{form.dealerAddress || '-'}</p>
         <p className="text-sm text-amber-900">{`${form.dealerPostalCode} ${form.dealerCity}`.trim() || '-'}</p>

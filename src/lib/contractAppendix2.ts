@@ -1,3 +1,5 @@
+import { getContractPartnerTerms, type ContractPartnerType } from '@/lib/contractPartnerTerms';
+
 export const APPENDIX_2_PARAGRAPHS = [
   'Bilag 2: Rabat.',
   '1. Målet med rabattstrukturen.',
@@ -12,7 +14,7 @@ export const APPENDIX_2_PARAGRAPHS = [
   'Er leveringstiden over 3mdr. fra ordren bliver afgivet, vil man kunne opnå ekstra rabat.',
   'Der ydes ikke bestillingsrabat på demomaskiner.',
   '5. Rabat 3. Egen demonstration - egen salg.',
-  'Opnår forhandleren et salg uden Timan har været involveret i en demonstration, til skønnes dette.',
+  'Opnår {{partnerDefinite}} et salg uden Timan har været involveret i en demonstration, til skønnes dette.',
   'Demorabatten ydes på grundmaskinen eksklusivt udstyr.',
   'Demonstrationsrabatten gives som en kreditnota, der modregnes ved fremtidige køb hos Timan.',
   '6. Udregning af rabat.',
@@ -23,3 +25,10 @@ export const APPENDIX_2_EXAMPLE_LINES = [
   'Den maximale rabat, som kan opnåes på en maskine og redskaber er: 25% + 4% + 2% = 29,44 %',
   'Når garantiregistreringen er gennemført, vil beløbet på 3.100 kr. blive udstedt som en kreditnota, der kan anvendes ved fremtidige køb hos Timan.',
 ] as const;
+
+export function renderAppendix2Paragraphs(partnerType: ContractPartnerType | '' | null | undefined): string[] {
+  const terms = getContractPartnerTerms(partnerType);
+  return APPENDIX_2_PARAGRAPHS.map((paragraph) => (
+    paragraph.replaceAll('{{partnerDefinite}}', terms?.definite ?? '')
+  ));
+}

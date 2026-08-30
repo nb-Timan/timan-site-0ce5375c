@@ -12,6 +12,7 @@ import {
   getWorkflowStatusFromLegacy,
   getCompletedContractStepIds,
 } from "@/lib/contractFlow";
+import { normalizeContractPartnerType } from "@/lib/contractPartnerTerms";
 
 export const DEALER_CONTRACTS_BUCKET = "dealer-contracts";
 
@@ -130,6 +131,7 @@ function rowToContractRecord(row: Record<string, unknown>): DealerContractRecord
     completed_steps: Array.isArray(row.completed_steps) ? (row.completed_steps as string[]) : [],
     confirmations: normalizeContractConfirmations((row.confirmations || {}) as Partial<Record<string, { confirmed: boolean; confirmedAt?: string; confirmedBy?: string }>>),
     form_data: {
+      partnerType: normalizeContractPartnerType(formData.partnerType) ?? "",
       dealerName: formData.dealerName ?? "",
       dealerAddress: formData.dealerAddress ?? "",
       dealerPostalCode: formData.dealerPostalCode ?? "",
