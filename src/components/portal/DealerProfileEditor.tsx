@@ -5,7 +5,7 @@
  * (not inside the parent render) so React keeps the same component
  * identity across renders and inputs don't remount on every keystroke.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { CheckCircle2, AlertCircle, Save, Plus, Trash2, Loader2 } from "lucide-react";
 import { useBeforeUnload } from "react-router-dom";
 
@@ -601,10 +601,19 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           saving={savingSection === "workshop"} canEdit={canEdit} t={t}
           onSave={() => void saveAllProfile("workshop")}
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field id="workshop_contact_name"  label={t("workshopContactName")} value={draft.workshop_contact_name}  onChange={(v) => set("workshop_contact_name", v)} disabled={!canEdit} required />
-            <Field id="workshop_contact_phone" label={t("workshopPhone")}       value={draft.workshop_contact_phone} onChange={(v) => set("workshop_contact_phone", v)} disabled={!canEdit} />
-            <Field id="workshop_contact_email" label={t("workshopEmail")}       value={draft.workshop_contact_email} onChange={(v) => set("workshop_contact_email", v)} disabled={!canEdit} type="email" required />
+          <div className="space-y-3">
+            <ContactBlock
+              title={`${t("contact")} 1`}
+              primaryControl={<Badge variant="secondary">{t("area_primary")}</Badge>}
+            >
+              <div>
+                <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("role")}</Label>
+                <Input value="" disabled placeholder="—" />
+              </div>
+              <Field id="workshop_contact_name" label={t("name")} value={draft.workshop_contact_name} onChange={(v) => set("workshop_contact_name", v)} disabled={!canEdit} required />
+              <Field id="workshop_contact_email" label={t("email")} value={draft.workshop_contact_email} onChange={(v) => set("workshop_contact_email", v)} disabled={!canEdit} type="email" required />
+              <Field id="workshop_contact_phone" label={t("phone")} value={draft.workshop_contact_phone} onChange={(v) => set("workshop_contact_phone", v)} disabled={!canEdit} />
+            </ContactBlock>
           </div>
           <YesNoToggle label={t("workshopMultiple")} value={draft.workshop_has_multiple} disabled={!canEdit}
             onChange={(v) => set("workshop_has_multiple", v)} yes={t("yes")} no={t("no")} />
@@ -693,6 +702,131 @@ function YesNoToggle({ label, value, onChange, yes, no, disabled }: {
   );
 }
 
+function ContactBlock({
+  title,
+  primaryControl,
+  removeControl,
+  children,
+}: {
+  title: string;
+  primaryControl?: ReactNode;
+  removeControl?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold text-slate-900">{title}</p>
+          {primaryControl}
+        </div>
+        {removeControl}
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-start">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function RoleSelect({
+  contact,
+  t,
+  roleKeys,
+  canEdit,
+  onPatch,
+  onSave,
+}: {
+  contact: DealerContact;
+  t: (k: ProfileI18nKey) => string;
+  roleKeys: ProfileI18nKey[];
+  canEdit: boolean;
+  onPatch: (id: string, patch: Partial<DealerContact>) => void;
+  onSave: (c: DealerContact) => void;
+}) {
+  return (
+    <>
+      <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("role")}</Label>
+      <select
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+        value={contact.role_title ?? ""}
+        disabled={!canEdit}
+        onChange={(e) => onPatch(contact.id, { role_title: e.target.value })}
+        onBlur={() => onSave(contact)}
+      >
+        <option value="">—</option>
+        {roleKeys.map((k) => <option key={k} value={t(k)}>{t(k)}</option>)}
+      </select>
+    </>
+  );
+}
+
+function ContactFields({
+  c,
+  t,
+  roleKeys,
+  canEdit,
+  onPatch,
+  onSave,
+}: {
+  c: DealerContact;
+  t: (k: ProfileI18nKey) => string;
+  roleKeys: ProfileI18nKey[];
+  canEdit: boolean;
+  onPatch: (id: string, patch: Partial<DealerContact>) => void;
+  onSave: (c: DealerContact) => void;
+}) {
+  return (
+    <>
+      <div>
+        <RoleSelect contact={c} t={t} roleKeys={roleKeys} canEdit={canEdit} onPatch={onPatch} onSave={onSave} />
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("name")}</Label>
+        <Input value={c.name ?? ""} disabled={!canEdit}
+          onChange={(e) => onPatch(c.id, { name: e.target.value })} onBlur={() => onSave(c)} />
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("email")}</Label>
+        <Input type="email" value={c.email ?? ""} disabled={!canEdit}
+          onChange={(e) => onPatch(c.id, { email: e.target.value })} onBlur={() => onSave(c)} />
+      </div>
+      <div>
+        <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("phone")}</Label>
+        <Input value={c.phone ?? ""} disabled={!canEdit}
+          onChange={(e) => onPatch(c.id, { phone: e.target.value })} onBlur={() => onSave(c)} />
+      </div>
+    </>
+  );
+}
+
+function PrimaryContactCheckbox({
+  area,
+  contact,
+  t,
+  canEdit,
+  onSetPrimary,
+}: {
+  area: DealerContactArea;
+  contact: DealerContact;
+  t: (k: ProfileI18nKey) => string;
+  canEdit: boolean;
+  onSetPrimary: (area: DealerContactArea, id: string, checked: boolean) => void;
+}) {
+  return (
+    <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
+      <input
+        type="checkbox"
+        className="h-4 w-4 rounded border-slate-300 text-emerald-600"
+        checked={contact.is_primary}
+        disabled={!canEdit}
+        onChange={(event) => onSetPrimary(area, contact.id, event.target.checked)}
+      />
+      {t("area_primary")}
+    </label>
+  );
+}
+
 function ContactList({
   area, t, roleKeys, contacts, loading, canEdit,
   onAdd, onPatch, onSave, onRemove, onSetPrimary,
@@ -713,20 +847,28 @@ function ContactList({
     <div className="space-y-3 border-t pt-3">
       {loading && <p className="text-xs text-slate-500">…</p>}
       {!loading && contacts.length === 0 && <p className="text-xs text-slate-500">—</p>}
-      {contacts.map((c) => (
+      {contacts.map((c, index) => area === "workshop" ? (
+        <ContactBlock
+          key={c.id}
+          title={`${t("contact")} ${index + 2}`}
+          primaryControl={c.is_primary ? <Badge variant="secondary">{t("area_primary")}</Badge> : undefined}
+          removeControl={
+            canEdit ? (
+              <Button size="icon" variant="ghost" onClick={() => onRemove(c.id)} aria-label={t("removePerson")}>
+                <Trash2 className="h-4 w-4 text-rose-600" />
+              </Button>
+            ) : undefined
+          }
+        >
+          <ContactFields c={c} t={t} roleKeys={roleKeys} canEdit={canEdit} onPatch={onPatch} onSave={onSave} />
+          <div className="sm:col-span-2 xl:col-span-4">
+            <PrimaryContactCheckbox area={area} contact={c} t={t} canEdit={canEdit} onSetPrimary={onSetPrimary} />
+          </div>
+        </ContactBlock>
+      ) : (
         <div key={c.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
           <div className="md:col-span-3">
-            <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("role")}</Label>
-            <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              value={c.role_title ?? ""}
-              disabled={!canEdit}
-              onChange={(e) => onPatch(c.id, { role_title: e.target.value })}
-              onBlur={() => onSave(c)}
-            >
-              <option value="">—</option>
-              {roleKeys.map((k) => <option key={k} value={t(k)}>{t(k)}</option>)}
-            </select>
+            <RoleSelect contact={c} t={t} roleKeys={roleKeys} canEdit={canEdit} onPatch={onPatch} onSave={onSave} />
           </div>
           <div className="md:col-span-3">
             <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("name")}</Label>
@@ -751,16 +893,7 @@ function ContactList({
             )}
           </div>
           <div className="md:col-span-12">
-            <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600">
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-emerald-600"
-                checked={c.is_primary}
-                disabled={!canEdit}
-                onChange={(event) => onSetPrimary(area, c.id, event.target.checked)}
-              />
-              {t("area_primary")}
-            </label>
+            <PrimaryContactCheckbox area={area} contact={c} t={t} canEdit={canEdit} onSetPrimary={onSetPrimary} />
           </div>
         </div>
       ))}

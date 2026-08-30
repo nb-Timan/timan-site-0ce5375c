@@ -18,7 +18,7 @@ export type ProfileI18nKey =
   | "workshopContactName" | "workshopPhone" | "workshopEmail" | "workshopMultiple"
   | "marketingContactName" | "marketingPhone" | "marketingEmail"
   | "yes" | "no" | "addPerson" | "removePerson"
-  | "role" | "name"
+  | "role" | "name" | "contact"
   | "roleDirector" | "roleOwner" | "roleManagingDirector"
   | "roleSalesDirector" | "roleSalesRep" | "roleKeyAccount"
   | "roleWorkshopManager" | "roleMechanic" | "rolePartsManager" | "roleStockManager" | "roleServiceCoord"
@@ -48,7 +48,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     workshopContactName: "Værksted/reservedel kontaktperson", workshopPhone: "Telefon", workshopEmail: "E-mail", workshopMultiple: "Flere personer?",
     marketingContactName: "Marketing kontaktperson", marketingPhone: "Telefon", marketingEmail: "E-mail",
     yes: "Ja", no: "Nej", addPerson: "Tilføj person", removePerson: "Fjern",
-    role: "Rolle", name: "Navn",
+    role: "Rolle", name: "Navn", contact: "Kontakt",
     roleDirector: "Direktør", roleOwner: "Ejer", roleManagingDirector: "Daglig leder",
     roleSalesDirector: "Salgsdirektør", roleSalesRep: "Sælger", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Værkstedschef", roleMechanic: "Mekaniker", rolePartsManager: "Reservedelsansvarlig",
@@ -75,7 +75,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     workshopContactName: "Workshop/parts contact", workshopPhone: "Phone", workshopEmail: "E-mail", workshopMultiple: "More people?",
     marketingContactName: "Marketing contact", marketingPhone: "Phone", marketingEmail: "E-mail",
     yes: "Yes", no: "No", addPerson: "Add person", removePerson: "Remove",
-    role: "Role", name: "Name",
+    role: "Role", name: "Name", contact: "Contact",
     roleDirector: "Director", roleOwner: "Owner", roleManagingDirector: "Managing director",
     roleSalesDirector: "Sales Director", roleSalesRep: "Sales Rep", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Workshop Manager", roleMechanic: "Mechanic", rolePartsManager: "Parts Manager",
@@ -99,7 +99,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     workshopContactName: "Werkstatt/Ersatzteil-Kontakt", workshopPhone: "Telefon", workshopEmail: "E-Mail", workshopMultiple: "Weitere Personen?",
     marketingContactName: "Marketingkontakt", marketingPhone: "Telefon", marketingEmail: "E-Mail",
     yes: "Ja", no: "Nein", addPerson: "Person hinzufügen", removePerson: "Entfernen",
-    role: "Rolle", name: "Name",
+    role: "Rolle", name: "Name", contact: "Kontakt",
     roleDirector: "Geschäftsführer", roleOwner: "Inhaber", roleManagingDirector: "Betriebsleiter",
     roleSalesDirector: "Vertriebsleiter", roleSalesRep: "Verkäufer", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Werkstattleiter", roleMechanic: "Mechaniker", rolePartsManager: "Ersatzteilverantwortlicher",
@@ -123,7 +123,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     workshopContactName: "Contatto officina/ricambi", workshopPhone: "Telefono", workshopEmail: "E-mail", workshopMultiple: "Altre persone?",
     marketingContactName: "Contatto marketing", marketingPhone: "Telefono", marketingEmail: "E-mail",
     yes: "Sì", no: "No", addPerson: "Aggiungi persona", removePerson: "Rimuovi",
-    role: "Ruolo", name: "Nome",
+    role: "Ruolo", name: "Nome", contact: "Contatto",
     roleDirector: "Amministratore", roleOwner: "Titolare", roleManagingDirector: "Direttore generale",
     roleSalesDirector: "Direttore vendite", roleSalesRep: "Venditore", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Capo officina", roleMechanic: "Meccanico", rolePartsManager: "Resp. ricambi",
@@ -147,7 +147,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     workshopContactName: "Szerviz/alkatrész kapcsolattartó", workshopPhone: "Telefon", workshopEmail: "E-mail", workshopMultiple: "Több személy?",
     marketingContactName: "Marketing kapcsolattartó", marketingPhone: "Telefon", marketingEmail: "E-mail",
     yes: "Igen", no: "Nem", addPerson: "Személy hozzáadása", removePerson: "Eltávolítás",
-    role: "Szerep", name: "Név",
+    role: "Szerep", name: "Név", contact: "Kapcsolat",
     roleDirector: "Ügyvezető", roleOwner: "Tulajdonos", roleManagingDirector: "Cégvezető",
     roleSalesDirector: "Értékesítési igazgató", roleSalesRep: "Értékesítő", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Szervizvezető", roleMechanic: "Szerelő", rolePartsManager: "Alkatrész felelős",
