@@ -6,7 +6,7 @@
  * identity across renders and inputs don't remount on every keystroke.
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { CheckCircle2, AlertCircle, Save, Plus, Trash2, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, Save, Plus, Trash2, Loader2, ArrowRightLeft, CopyPlus } from "lucide-react";
 import { useBeforeUnload } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 import type { Language } from "@/types/configurator";
@@ -70,6 +78,26 @@ const ROLE_KEYS_DIRECTOR: ProfileI18nKey[] = [
 const ROLE_KEYS_MARKETING: ProfileI18nKey[] = [
   "roleMarketingManager", "roleMarketingCoordinator", "roleSocialMedia", "roleWebsiteManager", "roleCommunications", "roleOther",
 ];
+
+const CONTACT_AREA_CONFIG: Array<{
+  area: DealerContactArea;
+  labelKey: ProfileI18nKey;
+  roleKeys: ProfileI18nKey[];
+}> = [
+  { area: "director", labelKey: "sec1", roleKeys: ROLE_KEYS_DIRECTOR },
+  { area: "finance", labelKey: "sec2", roleKeys: ROLE_KEYS_FINANCE },
+  { area: "parts", labelKey: "sec3", roleKeys: ROLE_KEYS_PURCHASING },
+  { area: "sales", labelKey: "sec4", roleKeys: ROLE_KEYS_SALES },
+  { area: "workshop", labelKey: "sec5", roleKeys: ROLE_KEYS_WORKSHOP },
+  { area: "marketing", labelKey: "sec6", roleKeys: ROLE_KEYS_MARKETING },
+];
+
+type ContactTransferMode = "move" | "duplicate";
+type ContactTransferDialogState = {
+  mode: ContactTransferMode;
+  contact: DealerContact;
+  targetArea: DealerContactArea;
+};
 
 const PROFILE_PATCH_KEYS = [
   "address_line_1", "address_line_2", "postal_code", "city", "country",
@@ -279,6 +307,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   const [savingSection, setSavingSection] = useState<SavingSection | null>(null);
   const [contacts, setContacts] = useState<DealerContact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
+  const [contactTransfer, setContactTransfer] = useState<ContactTransferDialogState | null>(null);
   const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
 
   // Only re-sync draft when the dealer id changes — not on every prop ref change.
@@ -388,9 +417,13 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   // -------- contact list helpers --------
   const contactsByArea = (area: DealerContactArea) => contacts.filter((c) => c.contact_area === area);
 
-  const addContact = (area: DealerContactArea) => {
+  const markLegacyMultiple = (area: DealerContactArea) => {
     if (area === "sales") set("sales_has_multiple", true);
     if (area === "workshop") set("workshop_has_multiple", true);
+  };
+
+  const addContact = (area: DealerContactArea) => {
+    markLegacyMultiple(area);
     setContacts((prev) => [...prev, createLocalContact(dealer.id, area)]);
   };
   const patchContact = (id: string, patch: Partial<DealerContact>) =>
@@ -437,6 +470,78 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
     }
   };
 
+  const openContactTransfer = (mode: ContactTransferMode, contact: DealerContact) => {
+    const fallbackArea = CONTACT_AREA_CONFIG.find((option) => option.area !== contact.contact_area)?.area ?? "sales";
+    setContactTransfer({ mode, contact, targetArea: fallbackArea });
+  };
+
+  const closeContactTransfer = () => setContactTransfer(null);
+
+  const applyContactTransfer = async () => {
+    if (!contactTransfer) return;
+    const { mode, contact, targetArea } = contactTransfer;
+    const nextContact: DealerContact = {
+      ...contact,
+      contact_area: targetArea,
+      role_title: null,
+      is_primary: false,
+    };
+
+    if (mode === "move") {
+      if (isLocalContact(contact)) {
+        markLegacyMultiple(targetArea);
+        setContacts((prev) => prev.map((row) => row.id === contact.id ? nextContact : row));
+        closeContactTransfer();
+        return;
+      }
+      const res = await upsertDealerContact({
+        id: contact.id,
+        dealer_account_id: contact.dealer_account_id,
+        contact_area: targetArea,
+        role_title: null,
+        name: contact.name,
+        email: contact.email,
+        phone: contact.phone,
+        is_primary: false,
+      });
+      if (!res.ok || !res.row) {
+        toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
+        return;
+      }
+      markLegacyMultiple(targetArea);
+      setContacts((prev) => prev.map((row) => row.id === contact.id ? res.row! : row));
+      closeContactTransfer();
+      return;
+    }
+
+    const duplicate = createLocalContact(dealer.id, targetArea);
+    duplicate.name = contact.name;
+    duplicate.email = contact.email;
+    duplicate.phone = contact.phone;
+    if (isLocalContact(contact)) {
+      markLegacyMultiple(targetArea);
+      setContacts((prev) => [...prev, duplicate]);
+      closeContactTransfer();
+      return;
+    }
+    const res = await upsertDealerContact({
+      dealer_account_id: contact.dealer_account_id,
+      contact_area: targetArea,
+      role_title: null,
+      name: contact.name,
+      email: contact.email,
+      phone: contact.phone,
+      is_primary: false,
+    });
+    if (!res.ok || !res.row) {
+      toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
+      return;
+    }
+    markLegacyMultiple(targetArea);
+    setContacts((prev) => [...prev, res.row!]);
+    closeContactTransfer();
+  };
+
   const statusOf = (key: SectionKey) =>
     completion.sections.find((s) => s.key === key) ?? { complete: false, filled: 0, required: 0 };
 
@@ -454,6 +559,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
       window.location.assign(leaveHref);
     }
   };
+
+  const transferContactName = contactTransfer?.contact.name?.trim() || t("contact");
+  const transferOptions = CONTACT_AREA_CONFIG.filter((option) => option.area !== contactTransfer?.contact.contact_area);
 
   return (
     <>
@@ -560,6 +668,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           contacts={contactsByArea("director")} loading={loadingContacts}
           firstContactNumber={2}
           onAdd={() => addContact("director")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+          onTransfer={openContactTransfer}
         />
       </SectionShell>
 
@@ -590,6 +699,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           contacts={contactsByArea("finance")} loading={loadingContacts}
           firstContactNumber={2}
           onAdd={() => addContact("finance")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+          onTransfer={openContactTransfer}
         />
       </SectionShell>
 
@@ -604,6 +714,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
             area="parts" t={t} roleKeys={ROLE_KEYS_PURCHASING} canEdit={canEdit}
             contacts={contactsByArea("parts")} loading={loadingContacts}
             onAdd={() => addContact("parts")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+            onTransfer={openContactTransfer}
           />
         </SectionShell>
 
@@ -623,6 +734,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
             contacts={contactsByArea("sales")} loading={loadingContacts}
             firstContactNumber={2}
             onAdd={() => addContact("sales")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+            onTransfer={openContactTransfer}
           />
         </SectionShell>
       </div>
@@ -645,6 +757,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
             contacts={contactsByArea("workshop")} loading={loadingContacts}
             firstContactNumber={2}
             onAdd={() => addContact("workshop")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+            onTransfer={openContactTransfer}
           />
         </SectionShell>
         {/* Marketing */}
@@ -663,10 +776,48 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
             contacts={contactsByArea("marketing")} loading={loadingContacts}
             firstContactNumber={2}
             onAdd={() => addContact("marketing")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+            onTransfer={openContactTransfer}
           />
         </SectionShell>
       </div>
     </div>
+    <Dialog open={contactTransfer !== null} onOpenChange={(open) => { if (!open) closeContactTransfer(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>
+            {contactTransfer?.mode === "move"
+              ? t("movePersonTo").replace("{name}", transferContactName)
+              : t("duplicatePersonTo").replace("{name}", transferContactName)}
+          </DialogTitle>
+          <DialogDescription>
+            {contactTransfer?.mode === "move" ? t("movePersonHelp") : t("duplicatePersonHelp")}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label className="text-xs uppercase tracking-wide text-slate-500">{t("targetDepartment")}</Label>
+          <select
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={contactTransfer?.targetArea ?? ""}
+            onChange={(event) => {
+              const targetArea = event.target.value as DealerContactArea;
+              setContactTransfer((current) => current ? { ...current, targetArea } : current);
+            }}
+          >
+            {transferOptions.map((option) => (
+              <option key={option.area} value={option.area}>{t(option.labelKey)}</option>
+            ))}
+          </select>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button type="button" variant="outline" onClick={closeContactTransfer}>
+            {t("cancel")}
+          </Button>
+          <Button type="button" onClick={() => void applyContactTransfer()}>
+            {contactTransfer?.mode === "move" ? t("confirmMove") : t("confirmDuplicate")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     <AlertDialog open={pendingLeaveHref !== null} onOpenChange={(open) => { if (!open && savingSection !== "leave") setPendingLeaveHref(null); }}>
       <AlertDialogContent>
         <AlertDialogHeader>
@@ -866,7 +1017,7 @@ function PrimaryContactCheckbox({
 
 function ContactList({
   area, t, roleKeys, contacts, loading, canEdit, firstContactNumber = 1,
-  onAdd, onPatch, onSave, onRemove, onSetPrimary,
+  onAdd, onPatch, onSave, onRemove, onSetPrimary, onTransfer,
 }: {
   area: DealerContactArea;
   t: (k: ProfileI18nKey) => string;
@@ -880,6 +1031,7 @@ function ContactList({
   onSave: (c: DealerContact) => void;
   onRemove: (id: string) => void;
   onSetPrimary: (area: DealerContactArea, id: string, checked: boolean) => void;
+  onTransfer: (mode: ContactTransferMode, contact: DealerContact) => void;
 }) {
   return (
     <div className="space-y-3 border-t pt-3">
@@ -892,9 +1044,29 @@ function ContactList({
           primaryControl={c.is_primary ? <Badge variant="secondary">{t("area_primary")}</Badge> : undefined}
           removeControl={
             canEdit ? (
-              <Button size="icon" variant="ghost" onClick={() => onRemove(c.id)} aria-label={t("removePerson")}>
-                <Trash2 className="h-4 w-4 text-rose-600" />
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onTransfer("move", c)}
+                  aria-label={t("movePerson")}
+                  title={t("movePerson")}
+                >
+                  <ArrowRightLeft className="h-4 w-4 text-slate-600" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onTransfer("duplicate", c)}
+                  aria-label={t("duplicatePerson")}
+                  title={t("duplicatePerson")}
+                >
+                  <CopyPlus className="h-4 w-4 text-slate-600" />
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => onRemove(c.id)} aria-label={t("removePerson")} title={t("removePerson")}>
+                  <Trash2 className="h-4 w-4 text-rose-600" />
+                </Button>
+              </div>
             ) : undefined
           }
         >

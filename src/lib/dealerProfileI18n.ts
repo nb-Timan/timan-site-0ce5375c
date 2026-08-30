@@ -17,7 +17,9 @@ export type ProfileI18nKey =
   | "salesContactName" | "salesPhone" | "salesEmail" | "salesMultiple"
   | "workshopContactName" | "workshopPhone" | "workshopEmail" | "workshopMultiple"
   | "marketingContactName" | "marketingPhone" | "marketingEmail"
-  | "yes" | "no" | "addPerson" | "removePerson"
+  | "yes" | "no" | "addPerson" | "removePerson" | "movePerson" | "duplicatePerson"
+  | "movePersonTo" | "duplicatePersonTo" | "movePersonHelp" | "duplicatePersonHelp"
+  | "targetDepartment" | "cancel" | "confirmMove" | "confirmDuplicate"
   | "role" | "name" | "contact"
   | "roleDirector" | "roleOwner" | "roleManagingDirector" | "roleAdministration"
   | "roleFinanceManager" | "roleBookkeeper" | "roleInvoicing" | "roleAccountsPayableReceivable"
@@ -50,7 +52,11 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     salesContactName: "Salg kontaktperson", salesPhone: "Telefon", salesEmail: "E-mail", salesMultiple: "Flere salgspersoner?",
     workshopContactName: "Værksted/reservedel kontaktperson", workshopPhone: "Telefon", workshopEmail: "E-mail", workshopMultiple: "Flere personer?",
     marketingContactName: "Marketing kontaktperson", marketingPhone: "Telefon", marketingEmail: "E-mail",
-    yes: "Ja", no: "Nej", addPerson: "Tilføj person", removePerson: "Fjern",
+    yes: "Ja", no: "Nej", addPerson: "Tilføj person", removePerson: "Fjern", movePerson: "Flyt person", duplicatePerson: "Duplikér person",
+    movePersonTo: "Flyt {name} til:", duplicatePersonTo: "Duplikér {name} til:",
+    movePersonHelp: "Navn, e-mail og telefon bevares. Rollen nulstilles.",
+    duplicatePersonHelp: "Originalen beholdes. Rollen i den nye afdeling nulstilles.",
+    targetDepartment: "Mål-afdeling", cancel: "Annuller", confirmMove: "Flyt", confirmDuplicate: "Duplikér",
     role: "Rolle", name: "Navn", contact: "Kontakt",
     roleDirector: "Direktør", roleOwner: "Ejer", roleManagingDirector: "Daglig leder", roleAdministration: "Administration",
     roleFinanceManager: "Økonomiansvarlig", roleBookkeeper: "Bogholder", roleInvoicing: "Fakturering", roleAccountsPayableReceivable: "Debitor/kreditor",
@@ -81,7 +87,11 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     salesContactName: "Sales contact", salesPhone: "Phone", salesEmail: "E-mail", salesMultiple: "More sales people?",
     workshopContactName: "Workshop/parts contact", workshopPhone: "Phone", workshopEmail: "E-mail", workshopMultiple: "More people?",
     marketingContactName: "Marketing contact", marketingPhone: "Phone", marketingEmail: "E-mail",
-    yes: "Yes", no: "No", addPerson: "Add person", removePerson: "Remove",
+    yes: "Yes", no: "No", addPerson: "Add person", removePerson: "Remove", movePerson: "Move person", duplicatePerson: "Duplicate person",
+    movePersonTo: "Move {name} to:", duplicatePersonTo: "Duplicate {name} to:",
+    movePersonHelp: "Name, e-mail and phone are kept. The role is reset.",
+    duplicatePersonHelp: "The original is kept. The role in the new department is reset.",
+    targetDepartment: "Target department", cancel: "Cancel", confirmMove: "Move", confirmDuplicate: "Duplicate",
     role: "Role", name: "Name", contact: "Contact",
     roleDirector: "Director", roleOwner: "Owner", roleManagingDirector: "Managing director", roleAdministration: "Administration",
     roleFinanceManager: "Finance manager", roleBookkeeper: "Bookkeeper", roleInvoicing: "Invoicing", roleAccountsPayableReceivable: "Accounts payable/receivable",
@@ -109,7 +119,11 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     salesContactName: "Vertriebskontakt", salesPhone: "Telefon", salesEmail: "E-Mail", salesMultiple: "Mehrere Vertriebsmitarbeiter?",
     workshopContactName: "Werkstatt/Ersatzteil-Kontakt", workshopPhone: "Telefon", workshopEmail: "E-Mail", workshopMultiple: "Weitere Personen?",
     marketingContactName: "Marketingkontakt", marketingPhone: "Telefon", marketingEmail: "E-Mail",
-    yes: "Ja", no: "Nein", addPerson: "Person hinzufügen", removePerson: "Entfernen",
+    yes: "Ja", no: "Nein", addPerson: "Person hinzufügen", removePerson: "Entfernen", movePerson: "Person verschieben", duplicatePerson: "Person duplizieren",
+    movePersonTo: "{name} verschieben nach:", duplicatePersonTo: "{name} duplizieren nach:",
+    movePersonHelp: "Name, E-Mail und Telefon bleiben erhalten. Die Rolle wird zurückgesetzt.",
+    duplicatePersonHelp: "Das Original bleibt erhalten. Die Rolle in der neuen Abteilung wird zurückgesetzt.",
+    targetDepartment: "Zielabteilung", cancel: "Abbrechen", confirmMove: "Verschieben", confirmDuplicate: "Duplizieren",
     role: "Rolle", name: "Name", contact: "Kontakt",
     roleDirector: "Geschäftsführer", roleOwner: "Inhaber", roleManagingDirector: "Betriebsleiter", roleAdministration: "Administration",
     roleFinanceManager: "Finanzverantwortlicher", roleBookkeeper: "Buchhalter", roleInvoicing: "Fakturierung", roleAccountsPayableReceivable: "Debitoren/Kreditoren",
@@ -137,7 +151,11 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     salesContactName: "Contatto vendite", salesPhone: "Telefono", salesEmail: "E-mail", salesMultiple: "Altri venditori?",
     workshopContactName: "Contatto officina/ricambi", workshopPhone: "Telefono", workshopEmail: "E-mail", workshopMultiple: "Altre persone?",
     marketingContactName: "Contatto marketing", marketingPhone: "Telefono", marketingEmail: "E-mail",
-    yes: "Sì", no: "No", addPerson: "Aggiungi persona", removePerson: "Rimuovi",
+    yes: "Sì", no: "No", addPerson: "Aggiungi persona", removePerson: "Rimuovi", movePerson: "Sposta persona", duplicatePerson: "Duplica persona",
+    movePersonTo: "Sposta {name} in:", duplicatePersonTo: "Duplica {name} in:",
+    movePersonHelp: "Nome, e-mail e telefono vengono mantenuti. Il ruolo viene azzerato.",
+    duplicatePersonHelp: "L'originale viene mantenuto. Il ruolo nella nuova area viene azzerato.",
+    targetDepartment: "Area di destinazione", cancel: "Annulla", confirmMove: "Sposta", confirmDuplicate: "Duplica",
     role: "Ruolo", name: "Nome", contact: "Contatto",
     roleDirector: "Amministratore", roleOwner: "Titolare", roleManagingDirector: "Direttore generale", roleAdministration: "Amministrazione",
     roleFinanceManager: "Responsabile finanza", roleBookkeeper: "Contabile", roleInvoicing: "Fatturazione", roleAccountsPayableReceivable: "Debitori/creditori",
@@ -165,7 +183,11 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     salesContactName: "Értékesítési kapcsolattartó", salesPhone: "Telefon", salesEmail: "E-mail", salesMultiple: "Több értékesítő?",
     workshopContactName: "Szerviz/alkatrész kapcsolattartó", workshopPhone: "Telefon", workshopEmail: "E-mail", workshopMultiple: "Több személy?",
     marketingContactName: "Marketing kapcsolattartó", marketingPhone: "Telefon", marketingEmail: "E-mail",
-    yes: "Igen", no: "Nem", addPerson: "Személy hozzáadása", removePerson: "Eltávolítás",
+    yes: "Igen", no: "Nem", addPerson: "Személy hozzáadása", removePerson: "Eltávolítás", movePerson: "Személy áthelyezése", duplicatePerson: "Személy duplikálása",
+    movePersonTo: "{name} áthelyezése ide:", duplicatePersonTo: "{name} duplikálása ide:",
+    movePersonHelp: "A név, e-mail és telefon megmarad. A szerep törlődik.",
+    duplicatePersonHelp: "Az eredeti megmarad. Az új részlegen a szerep törlődik.",
+    targetDepartment: "Célrészleg", cancel: "Mégse", confirmMove: "Áthelyezés", confirmDuplicate: "Duplikálás",
     role: "Szerep", name: "Név", contact: "Kapcsolat",
     roleDirector: "Ügyvezető", roleOwner: "Tulajdonos", roleManagingDirector: "Cégvezető", roleAdministration: "Adminisztráció",
     roleFinanceManager: "Pénzügyi felelős", roleBookkeeper: "Könyvelő", roleInvoicing: "Számlázás", roleAccountsPayableReceivable: "Követelések/tartozások",

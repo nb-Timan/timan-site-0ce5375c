@@ -42,4 +42,11 @@ describe("dealer profile i18n", () => {
     expect(tProfile("da", "roleLogisticsManager")).toBe("Logistikansvarlig");
     expect(tProfile("da", "roleLogisticsCoordinator")).toBe("Logistikkoordinator");
   });
+
+  it("contains move and duplicate contact labels", () => {
+    expect(tProfile("da", "movePerson")).toBe("Flyt person");
+    expect(tProfile("da", "duplicatePerson")).toBe("Duplikér person");
+    expect(tProfile("en", "movePersonHelp")).toBe("Name, e-mail and phone are kept. The role is reset.");
+    expect(tProfile("en", "duplicatePersonHelp")).toBe("The original is kept. The role in the new department is reset.");
+  });
 });
