@@ -10,4 +10,12 @@ describe("dealer profile i18n", () => {
     expect(tProfile("it", "roleSalesCoordinator")).toBe("Coordinatore vendite");
     expect(tProfile("hu", "roleSalesCoordinator")).toBe("Értékesítési koordinátor");
   });
+
+  it("contains the parts purchasing contact role", () => {
+    expect(tProfile("da", "rolePartsPurchasing")).toBe("Indkøb / reservedele");
+    expect(tProfile("en", "rolePartsPurchasing")).toBe("Purchasing / spare parts");
+    expect(tProfile("de", "rolePartsPurchasing")).toBe("Einkauf / Ersatzteile");
+    expect(tProfile("it", "rolePartsPurchasing")).toBe("Acquisti / ricambi");
+    expect(tProfile("hu", "rolePartsPurchasing")).toBe("Beszerzés / alkatrészek");
+  });
 });

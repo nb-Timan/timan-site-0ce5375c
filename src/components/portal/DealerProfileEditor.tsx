@@ -55,7 +55,7 @@ const ROLE_KEYS_SALES: ProfileI18nKey[] = [
   "roleSalesDirector", "roleSalesRep", "roleSalesCoordinator", "roleKeyAccount", "roleOther",
 ];
 const ROLE_KEYS_WORKSHOP: ProfileI18nKey[] = [
-  "roleWorkshopManager", "roleMechanic", "rolePartsManager",
+  "roleWorkshopManager", "roleMechanic", "rolePartsManager", "rolePartsPurchasing",
   "roleStockManager", "roleServiceCoord", "roleOther",
 ];
 const ROLE_KEYS_DIRECTOR: ProfileI18nKey[] = [
