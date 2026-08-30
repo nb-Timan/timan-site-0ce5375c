@@ -652,11 +652,6 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           <Field id="phone" label={t("phone")} value={draft.phone} onChange={(v) => set("phone", v)} disabled={!canEdit} required />
           <Field id="email" label={t("email")} value={draft.email} onChange={(v) => set("email", v)} disabled={!canEdit} type="email" required />
           <Field id="website" label={t("website")} value={draft.website} onChange={(v) => set("website", v)} disabled={!canEdit} required />
-          <Field id="social_facebook" label={t("facebook")} value={draft.social_facebook} onChange={(v) => set("social_facebook", v)} disabled={!canEdit} />
-          <Field id="social_linkedin" label={t("linkedin")} value={draft.social_linkedin} onChange={(v) => set("social_linkedin", v)} disabled={!canEdit} />
-          <Field id="social_tiktok" label={t("tiktok")} value={draft.social_tiktok} onChange={(v) => set("social_tiktok", v)} disabled={!canEdit} />
-          <Field id="social_youtube" label={t("youtube")} value={draft.social_youtube} onChange={(v) => set("social_youtube", v)} disabled={!canEdit} />
-          <Field id="social_instagram" label={t("instagram")} value={draft.social_instagram} onChange={(v) => set("social_instagram", v)} disabled={!canEdit} />
         </div>
         <ProfileContactBlock title={`${t("contact")} 1`} roleLabel={t("roleDirector")} roleFieldLabel={t("role")} primaryLabel={t("area_primary")} primary>
           <Field id="director_name" label={t("name")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
@@ -771,6 +766,13 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
             <Field id="marketing_contact_email" label={t("email")} value={draft.marketing_contact_email} onChange={(v) => set("marketing_contact_email", v)} disabled={!canEdit} type="email" required />
             <Field id="marketing_contact_phone" label={t("phone")} value={draft.marketing_contact_phone} onChange={(v) => set("marketing_contact_phone", v)} disabled={!canEdit} />
           </ProfileContactBlock>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field id="social_facebook" label={t("facebook")} value={draft.social_facebook} onChange={(v) => set("social_facebook", v)} disabled={!canEdit} />
+            <Field id="social_linkedin" label={t("linkedin")} value={draft.social_linkedin} onChange={(v) => set("social_linkedin", v)} disabled={!canEdit} />
+            <Field id="social_tiktok" label={t("tiktok")} value={draft.social_tiktok} onChange={(v) => set("social_tiktok", v)} disabled={!canEdit} />
+            <Field id="social_youtube" label={t("youtube")} value={draft.social_youtube} onChange={(v) => set("social_youtube", v)} disabled={!canEdit} />
+            <Field id="social_instagram" label={t("instagram")} value={draft.social_instagram} onChange={(v) => set("social_instagram", v)} disabled={!canEdit} />
+          </div>
           <ContactList
             area="marketing" t={t} roleKeys={ROLE_KEYS_MARKETING} canEdit={canEdit}
             contacts={contactsByArea("marketing")} loading={loadingContacts}
