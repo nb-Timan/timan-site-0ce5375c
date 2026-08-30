@@ -1545,7 +1545,7 @@ function Appendix2DiscountSection({ partnerType }: { partnerType: ContractFormDa
             </div>
           </div>
 
-          <div className="hidden min-w-0 grid-cols-[0.9fr_1.45fr_1fr_1.1fr] border-b-2 border-[#2f711c] pb-3 text-center text-sm font-bold text-gray-950 md:grid lg:text-base xl:text-lg">
+          <div className="hidden min-w-0 grid-cols-[0.9fr_1.45fr_1fr_1.1fr] border-b-2 border-[#2f711c] pb-3 text-center text-sm font-bold text-gray-950 md:grid lg:text-base">
             <p>Grundrabat</p>
             <p>Stk. rabat</p>
             <p>Leveringsrabat</p>
@@ -1556,9 +1556,9 @@ function Appendix2DiscountSection({ partnerType }: { partnerType: ContractFormDa
             <div className="min-w-0">
               <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">Grundrabat</p>
               <div className="flex min-w-0 items-center justify-center gap-3">
-                <div className="flex aspect-square w-full max-w-32 flex-col items-center justify-center rounded-full border border-[#79a45e] bg-[#fbfdf9] text-center md:max-w-28 lg:max-w-32 xl:max-w-36">
-                  <p className="text-4xl font-black leading-none text-[#36780f] md:text-3xl lg:text-4xl xl:text-5xl">25%</p>
-                  <p className="mt-2 text-sm font-semibold text-gray-950 md:text-xs lg:text-sm xl:text-base">Grund rabat</p>
+                <div className="flex aspect-square w-full max-w-28 flex-col items-center justify-center rounded-full border border-[#79a45e] bg-[#fbfdf9] text-center md:max-w-24 lg:max-w-28 xl:max-w-32">
+                  <p className="text-3xl font-black leading-none text-[#36780f] md:text-2xl lg:text-3xl xl:text-4xl">25%</p>
+                  <p className="mt-2 text-sm font-semibold text-gray-950 md:text-xs lg:text-sm">Grund rabat</p>
                 </div>
                 <div className="hidden text-3xl font-light text-[#36780f] md:block lg:text-4xl">→</div>
               </div>
@@ -1568,13 +1568,13 @@ function Appendix2DiscountSection({ partnerType }: { partnerType: ContractFormDa
               <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">Stk. rabat</p>
               <div className="relative min-h-44 w-full min-w-0">
                 <svg className="h-auto w-full min-w-0 overflow-visible" viewBox="0 0 320 190" role="img" aria-label="Styk-rabat stiger fra 0 til 2 og 4 procent">
-                  <path d="M22 150 H105 V96 H188 V42 H278" fill="none" stroke="#36780f" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
-                  <text x="62" y="136" textAnchor="middle" className="fill-gray-950 text-[19px] font-semibold">1 stk.</text>
-                  <text x="62" y="168" textAnchor="middle" className="fill-[#36780f] text-[30px] font-black">+0%</text>
-                  <text x="145" y="82" textAnchor="middle" className="fill-gray-950 text-[19px] font-semibold">2-3 stk.</text>
-                  <text x="145" y="114" textAnchor="middle" className="fill-[#36780f] text-[30px] font-black">+2%</text>
-                  <text x="235" y="28" textAnchor="middle" className="fill-gray-950 text-[19px] font-semibold">4 stk. og &gt;</text>
-                  <text x="235" y="60" textAnchor="middle" className="fill-[#36780f] text-[30px] font-black">+4%</text>
+                  <path d="M28 150 H108 V100 H190 V50 H272" fill="none" stroke="#36780f" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" />
+                  <text x="66" y="136" textAnchor="middle" className="fill-gray-950 text-[17px] font-semibold">1 stk.</text>
+                  <text x="66" y="166" textAnchor="middle" className="fill-[#36780f] text-[26px] font-black">+0%</text>
+                  <text x="148" y="86" textAnchor="middle" className="fill-gray-950 text-[17px] font-semibold">2-3 stk.</text>
+                  <text x="148" y="116" textAnchor="middle" className="fill-[#36780f] text-[26px] font-black">+2%</text>
+                  <text x="234" y="36" textAnchor="middle" className="fill-gray-950 text-[17px] font-semibold">4 stk. og &gt;</text>
+                  <text x="234" y="66" textAnchor="middle" className="fill-[#36780f] text-[26px] font-black">+4%</text>
                 </svg>
                 <div className="hidden absolute right-0 top-1/2 -translate-y-1/2 text-3xl font-light text-[#36780f] md:block lg:text-4xl">→</div>
               </div>
@@ -1584,13 +1584,13 @@ function Appendix2DiscountSection({ partnerType }: { partnerType: ContractFormDa
               <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">Leveringsrabat</p>
               <div className="flex min-w-0 items-center justify-center gap-3">
                 <div className="flex w-full min-w-0 flex-col items-center justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-3 py-5 text-center md:min-h-48 lg:min-h-56">
-                  <div className="relative flex aspect-square w-24 items-center justify-center rounded-full border border-[#8bb06f] md:w-20 lg:w-24 xl:w-28">
-                    <div className="absolute -inset-2 rounded-full border-[6px] border-[#36780f] border-b-transparent border-l-transparent" />
-                    <div className="absolute -inset-2 rotate-180 rounded-full border-[6px] border-[#36780f] border-b-transparent border-l-transparent" />
+                  <div className="relative flex aspect-square w-[5.25rem] items-center justify-center rounded-full border border-[#8bb06f] md:w-[4.75rem] lg:w-[5.25rem] xl:w-24">
+                    <div className="absolute -inset-1.5 rounded-full border-[5px] border-[#36780f] border-b-transparent border-l-transparent" />
+                    <div className="absolute -inset-1.5 rotate-180 rounded-full border-[5px] border-[#36780f] border-b-transparent border-l-transparent" />
                   <div>
                     <p className="text-sm font-bold text-gray-950 md:text-xs lg:text-sm">Leveringstid:</p>
                     <p className="text-sm font-bold text-gray-950 md:text-xs lg:text-sm">Over 3 mdr.</p>
-                    <p className="mt-1 text-2xl font-black text-[#36780f] lg:text-3xl">+2%</p>
+                    <p className="mt-1 text-xl font-black text-[#36780f] lg:text-2xl">+2%</p>
                   </div>
                 </div>
                   <p className="mt-4 text-xs font-medium leading-5 text-gray-950 lg:text-sm">Rabatten gives ved leveringstid over 3 måneder.</p>
@@ -1601,29 +1601,29 @@ function Appendix2DiscountSection({ partnerType }: { partnerType: ContractFormDa
 
             <div className="min-w-0">
               <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">Demonstrationsrabat</p>
-              <div className="flex min-h-48 min-w-0 flex-col justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-4 py-5 text-gray-950 lg:min-h-52 lg:px-5 xl:px-7">
-                <div className="flex min-w-0 items-center justify-center gap-3 lg:gap-5">
-                  <div className="h-12 w-12 flex-none rotate-[-38deg] rounded-lg border-[3px] border-gray-950 lg:h-14 lg:w-14 xl:h-16 xl:w-16">
-                  <div className="ml-auto mr-2 mt-2 h-3.5 w-3.5 rounded-full border-[3px] border-gray-950" />
+              <div className="flex min-h-48 min-w-0 flex-col justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-4 py-5 text-gray-950 lg:min-h-52 lg:px-5 xl:px-6">
+                <div className="flex min-w-0 items-center justify-center gap-3 lg:gap-4">
+                  <div className="h-11 w-11 flex-none rotate-[-38deg] rounded-lg border-[3px] border-gray-950 lg:h-12 lg:w-12 xl:h-14 xl:w-14">
+                  <div className="ml-auto mr-2 mt-2 h-3 w-3 rounded-full border-[3px] border-gray-950" />
                 </div>
                   <div className="min-w-0">
-                    <p className="text-base font-semibold leading-6 md:text-sm lg:text-base xl:text-lg">Egen</p>
-                    <p className="text-base font-semibold leading-6 md:text-sm lg:text-base xl:text-lg">demonstrationsrabat</p>
-                    <p className="mt-2 text-3xl font-black text-[#36780f] md:text-2xl lg:text-3xl xl:text-4xl">3100 kr.</p>
+                    <p className="text-sm font-semibold leading-6 lg:text-base">Egen</p>
+                    <p className="text-sm font-semibold leading-6 lg:text-base">demonstrationsrabat</p>
+                    <p className="mt-2 text-2xl font-black text-[#36780f] lg:text-2xl xl:text-3xl">3100 kr.</p>
                   </div>
                 </div>
                 <div className="my-5 h-px bg-[#a9c794]" />
-                <p className="text-center text-sm font-medium leading-6 md:text-xs lg:text-sm xl:text-base">Udbetales som kreditnota<br />ved garantiregistrering.</p>
+                <p className="text-center text-sm font-medium leading-6 md:text-xs lg:text-sm">Udbetales som kreditnota<br />ved garantiregistrering.</p>
               </div>
             </div>
           </div>
 
-          <div className="flex min-w-0 flex-col items-center gap-4 rounded-2xl border border-emerald-500 bg-[#fbfdf9] px-4 py-5 text-center text-gray-950 sm:flex-row sm:text-left lg:gap-6 lg:px-6 xl:gap-8 xl:px-8">
-            <div className="flex h-16 w-16 flex-none items-center justify-center rounded-full border-[4px] border-[#36780f] text-3xl font-black text-[#36780f] lg:h-20 lg:w-20 lg:text-4xl">%</div>
-            <div className="flex min-w-0 flex-wrap items-baseline justify-center gap-x-4 gap-y-2 text-sm sm:justify-start lg:text-base xl:gap-x-8">
-              <p className="text-lg font-black text-[#36780f] lg:text-xl">Eksempel:</p>
+          <div className="flex min-w-0 flex-col items-center gap-4 rounded-2xl border border-emerald-500 bg-[#fbfdf9] px-4 py-5 text-center text-gray-950 sm:flex-row sm:text-left lg:gap-6 lg:px-6 xl:gap-7 xl:px-8">
+            <div className="flex h-14 w-14 flex-none items-center justify-center rounded-full border-[3px] border-[#36780f] text-2xl font-black text-[#36780f] lg:h-16 lg:w-16 lg:text-3xl">%</div>
+            <div className="flex min-w-0 flex-wrap items-baseline justify-center gap-x-4 gap-y-2 text-sm sm:justify-start lg:text-base xl:gap-x-7">
+              <p className="text-base font-black text-[#36780f] lg:text-lg">Eksempel:</p>
               <p>Den maksimale rabat, som kan opnås på en maskine og redskaber er:</p>
-              <p className="text-lg font-black text-[#36780f] lg:text-xl">25% + 4% + 2% = 29,44 %</p>
+              <p className="text-base font-black text-[#36780f] lg:text-lg">25% + 4% + 2% = 29,44 %</p>
             </div>
           </div>
         </div>
