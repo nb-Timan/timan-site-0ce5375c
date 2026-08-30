@@ -233,11 +233,11 @@ describe('contract flow', () => {
     const displayHeadings = sourceHeadings.map((heading) => getGuidedContractDisplayHeading(heading!));
 
     expect(sourceHeadings).toContain('1. Formål');
-    expect(sourceHeadings).toContain('2. Priser, ordre og forhandler portal');
+    expect(sourceHeadings).toContain('2. Priser, ordre og forhandlerportal');
     expect(sourceHeadings).toContain('10. Årligt forhandlermøde');
     expect(sourceHeadings).toContain('7.1 Marketingforpligtelser Timan');
     expect(displayHeadings).toContain('Formål');
-    expect(displayHeadings).toContain('Priser, ordre og forhandler portal');
+    expect(displayHeadings).toContain('Priser, ordre og forhandlerportal');
     expect(displayHeadings).toContain('Årligt forhandlermøde');
     expect(displayHeadings).toContain('Marketingforpligtelser Timan');
     expect(displayHeadings).toContain('Bilag 3: Området');
@@ -247,10 +247,10 @@ describe('contract flow', () => {
   });
 
   it.each([
-    ['dealer', 'forhandler', 'forhandleren'],
-    ['importer', 'importør', 'importøren'],
-    ['service_partner', 'servicepartner', 'servicepartneren'],
-  ] as const)('renders contract party text dynamically for %s', (partnerType, singular, definite) => {
+    ['dealer', 'forhandler', 'forhandleren', 'forhandlere', 'forhandlerportalen'],
+    ['importer', 'importør', 'importøren', 'importører', 'importørportalen'],
+    ['service_partner', 'servicepartner', 'servicepartneren', 'servicepartnere', 'servicepartnerportalen'],
+  ] as const)('renders contract party text dynamically for %s', (partnerType, singular, definite, plural, portal) => {
     const companyName = partnerType === 'importer' ? 'ABC Maschinen GmbH' : partnerType === 'service_partner' ? 'Service Pro ApS' : 'Dealer House A/S';
     const legalSections = renderGuidedContractSections({ companyName, partnerType });
     const appendix2Paragraphs = renderAppendix2Paragraphs(partnerType);
@@ -258,10 +258,33 @@ describe('contract flow', () => {
 
     expect(text).toContain(`Timan A/S og ${companyName}, herefter nævnt som ${singular}`);
     expect(text).toContain(definite);
+    expect(text).toContain(plural);
+    expect(text).toContain(portal);
     expect(text).not.toContain('xxxx');
     expect(text).not.toContain('xxx');
     expect(text).not.toContain('{{');
     expect(text).not.toContain('}}');
+  });
+
+  it.each([
+    ['importer', 'ABC Maschinen GmbH', ['forhandleren', 'forhandlerens', 'forhandler portalen', 'forhandlerportalen']],
+    ['service_partner', 'Service Pro ApS', ['forhandleren', 'forhandlerens', 'importøren', 'importørens', 'forhandler portalen', 'forhandlerportalen']],
+    ['dealer', 'Dealer House A/S', ['importøren', 'importørens', 'servicepartneren', 'servicepartnerens', 'importørportalen', 'servicepartnerportalen']],
+  ] as const)('does not render the contract party as another partner type for %s', (partnerType, companyName, forbiddenTerms) => {
+    const legalSections = renderGuidedContractSections({ companyName, partnerType });
+    const appendix2Paragraphs = renderAppendix2Paragraphs(partnerType);
+    const bodyText = [
+      ...legalSections.flatMap((section) => section.blocks.flatMap((block) => [
+        block.heading,
+        ...(block.paragraphs ?? []),
+        ...(block.bullets ?? []),
+      ])),
+      ...appendix2Paragraphs,
+    ].filter(Boolean).join('\n').toLowerCase();
+
+    for (const forbidden of forbiddenTerms) {
+      expect(bodyText).not.toContain(forbidden);
+    }
   });
 
   it('stores the contract snapshot with Timan data and signature state', () => {
@@ -347,7 +370,7 @@ describe('contract flow', () => {
     expect(APPENDIX_2_PARAGRAPHS).toEqual([
       'Bilag 2: Rabat.',
       '1. Målet med rabattstrukturen.',
-      'Vores mål med rabattstrukturen er at sikre en ensartet og fair behandling af alle forhandlere med gensidig respekt, men samtidig belønne de forhandler der yder en ekstra instans.',
+      'Vores mål med rabattstrukturen er at sikre en ensartet og fair behandling af alle {{partnerPlural}} med gensidig respekt, men samtidig belønne de {{partnerPlural}} der yder en ekstra instans.',
       '2. Grund rabatten.',
       'Grund rabat: 25%.',
       'Demonstrationsmaskine rabat: 25%-10%',
@@ -367,6 +390,7 @@ describe('contract flow', () => {
     expect(APPENDIX_2_EXAMPLE_LINES[0]).toBe('Den maximale rabat, som kan opnåes på en maskine og redskaber er: 25% + 4% + 2% = 29,44 %');
     expect(APPENDIX_2_EXAMPLE_LINES[0]).not.toContain('31');
     expect(APPENDIX_2_EXAMPLE_LINES[1]).toBe('Når garantiregistreringen er gennemført, vil beløbet på 3.100 kr. blive udstedt som en kreditnota, der kan anvendes ved fremtidige køb hos Timan.');
+    expect(renderAppendix2Paragraphs('importer')[2]).toContain('alle importører');
     expect(renderAppendix2Paragraphs('importer')[13]).toBe('Opnår importøren et salg uden Timan har været involveret i en demonstration, til skønnes dette.');
   });
 });

@@ -32,21 +32,21 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         ],
       },
       {
-        heading: '2. Priser, ordre og forhandler portal',
+        heading: '2. Priser, ordre og {{partnerSingular}}portal',
         paragraphs: [
           'Der arbejdes altid efter til enhver tid gældende prisliste.',
           'Ved prisreguleringer reguleres priserne på afgivende ordre, til levering med 3 måneders horisont eller derover.',
           'Ved ordre udfyldes prislisteformularen og sendes til Timan’s sælger som bekræftet ordre.',
-          'Prislisten findes på forhandler portalen, som kun forhandlere har adgang til.',
-          'På forhandler portalerne findes også salgsmateriale og service oplysninger',
+          'Prislisten findes på {{partnerPortal}}, som kun {{partnerPlural}} har adgang til.',
+          'På {{partnerPortal}} findes også salgsmateriale og service oplysninger',
         ],
       },
       {
-        heading: '10. Årligt forhandlermøde',
+        heading: '10. Årligt {{partnerAnnualMeeting}}',
         paragraphs: [
-          'Et årligt forhandlermøde afholdes i perioden oktober - februar enten fysisk eller via Teams.',
+          'Et årligt {{partnerAnnualMeeting}} afholdes i perioden oktober - februar enten fysisk eller via Teams.',
           '{{partnerDefiniteCapitalized}} forpligter sig til at levere firma- og kontaktoplysninger via QR-kode nederst på siden.',
-          'Vi forventer, at de involverede personer tilmelder sig vores nyhedsbrev, hvor der kommer relevante forhandlerinformationer.',
+          'Vi forventer, at de involverede personer tilmelder sig vores nyhedsbrev, hvor der kommer relevante {{partnerSingular}}informationer.',
           '(Vi deler ikke personoplysninger med tredje part, QR-kode også nederst på siden)',
         ],
         bullets: [
@@ -67,11 +67,11 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         heading: 'Bilag 3: Området',
         paragraphs: [
           '1. Aftalen (salg og reservedele)',
-          'Inden for det primære område vil Timan ikke indgå aftaler med nye forhandlere.',
-          'Slutkunderne vælger selv hvilken forhandler de ønsker at handle med .',
-          'Hvis Timan kontaktes gives dette lead til nærmeste forhandler ud fra kundens oplysninger.',
+          'Inden for det primære område vil Timan ikke indgå aftaler med nye {{partnerPlural}}.',
+          'Slutkunderne vælger selv hvilken {{partnerSingular}} de ønsker at handle med .',
+          'Hvis Timan kontaktes gives dette lead til nærmeste {{partnerSingular}} ud fra kundens oplysninger.',
           'Hvis en slutkunde inden for dette område ønsker at bestille reservedele via Timan’s webshop, skal dette aftales på forhånd med {{partnerDefinite}}, og {{partnerDefinite}} retter efterfølgende henvendelse til Timan - faktureringen vil ske gennem {{partnerDefinite}}.',
-          'Brutto prisen vil være synlig for alle, prisen til slutkunden aftales mellem forhandler og slutkunde.',
+          'Brutto prisen vil være synlig for alle, prisen til slutkunden aftales mellem {{partnerSingular}} og slutkunde.',
           '2. Området omfatter som kortet også viser:',
           'Primære område:',
         ],
@@ -200,7 +200,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
       {
         heading: '2. Garanti registreringer',
         paragraphs: [
-          'Alle garantiregistreringer skal udføres af {{partnerDefinite}} med fakturadato fra {{partnerSingular}} til slutkunden.  Registreringen foretages via Forms-formularen, som kan tilgås via linket på forhandlerportalen, eller ved hjælp af QR -koden, der findes i alle manualer, der følger med maskinen.',
+          'Alle garantiregistreringer skal udføres af {{partnerDefinite}} med fakturadato fra {{partnerSingular}} til slutkunden.  Registreringen foretages via Forms-formularen, som kan tilgås via linket på {{partnerPortal}}, eller ved hjælp af QR -koden, der findes i alle manualer, der følger med maskinen.',
           '2.1 Garantibetingelser for demomaskiner:',
         ],
         bullets: [
@@ -334,8 +334,11 @@ function renderContractText(value: string, context: ContractTextRenderContext): 
     .replaceAll('{{partnerSingular}}', terms?.singular ?? '')
     .replaceAll('{{partnerDefinite}}', terms?.definite ?? '')
     .replaceAll('{{partnerDefiniteCapitalized}}', terms ? capitalize(terms.definite) : '')
+    .replaceAll('{{partnerPlural}}', terms?.plural ?? '')
     .replaceAll('{{partnerPossessive}}', terms?.possessive ?? '')
-    .replaceAll('{{partnerPossessiveCapitalized}}', terms ? capitalize(terms.possessive) : '');
+    .replaceAll('{{partnerPossessiveCapitalized}}', terms ? capitalize(terms.possessive) : '')
+    .replaceAll('{{partnerPortal}}', terms?.portal ?? '')
+    .replaceAll('{{partnerAnnualMeeting}}', terms?.annualMeeting ?? '');
 }
 
 export function renderGuidedContractSections(context: ContractTextRenderContext): GuidedContractSection[] {

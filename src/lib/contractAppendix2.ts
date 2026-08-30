@@ -3,7 +3,7 @@ import { getContractPartnerTerms, type ContractPartnerType } from '@/lib/contrac
 export const APPENDIX_2_PARAGRAPHS = [
   'Bilag 2: Rabat.',
   '1. Målet med rabattstrukturen.',
-  'Vores mål med rabattstrukturen er at sikre en ensartet og fair behandling af alle forhandlere med gensidig respekt, men samtidig belønne de forhandler der yder en ekstra instans.',
+  'Vores mål med rabattstrukturen er at sikre en ensartet og fair behandling af alle {{partnerPlural}} med gensidig respekt, men samtidig belønne de {{partnerPlural}} der yder en ekstra instans.',
   '2. Grund rabatten.',
   'Grund rabat: 25%.',
   'Demonstrationsmaskine rabat: 25%-10%',
@@ -29,6 +29,8 @@ export const APPENDIX_2_EXAMPLE_LINES = [
 export function renderAppendix2Paragraphs(partnerType: ContractPartnerType | '' | null | undefined): string[] {
   const terms = getContractPartnerTerms(partnerType);
   return APPENDIX_2_PARAGRAPHS.map((paragraph) => (
-    paragraph.replaceAll('{{partnerDefinite}}', terms?.definite ?? '')
+    paragraph
+      .replaceAll('{{partnerDefinite}}', terms?.definite ?? '')
+      .replaceAll('{{partnerPlural}}', terms?.plural ?? '')
   ));
 }

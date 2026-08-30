@@ -6,7 +6,10 @@ export type ContractPartnerTerms = {
   label: string;
   singular: string;
   definite: string;
+  plural: string;
   possessive: string;
+  portal: string;
+  annualMeeting: string;
   signatureLabel: string;
 };
 
@@ -53,21 +56,30 @@ const DA_TERMS: Record<ContractPartnerType, ContractPartnerTerms> = {
     label: 'Forhandler',
     singular: 'forhandler',
     definite: 'forhandleren',
+    plural: 'forhandlere',
     possessive: 'forhandlerens',
+    portal: 'forhandlerportalen',
+    annualMeeting: 'forhandlermøde',
     signatureLabel: 'Forhandler underskrift',
   },
   importer: {
     label: 'Importør',
     singular: 'importør',
     definite: 'importøren',
+    plural: 'importører',
     possessive: 'importørens',
+    portal: 'importørportalen',
+    annualMeeting: 'importørmøde',
     signatureLabel: 'Importør underskrift',
   },
   service_partner: {
     label: 'Servicepartner',
     singular: 'servicepartner',
     definite: 'servicepartneren',
+    plural: 'servicepartnere',
     possessive: 'servicepartnerens',
+    portal: 'servicepartnerportalen',
+    annualMeeting: 'servicepartnermøde',
     signatureLabel: 'Servicepartner underskrift',
   },
 };
