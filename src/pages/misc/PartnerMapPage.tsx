@@ -24,6 +24,12 @@ import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory'
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { formatDate } from '@/lib/format-date';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import {
+  DENMARK_MUNICIPALITIES_GEOJSON_URL,
+  getDenmarkMunicipalityLabel,
+  getDenmarkMunicipalityDisplayName,
+  parseDenmarkMunicipalitiesGeoJson,
+} from '@/lib/denmarkMunicipalities';
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 
 type PartnerType = 'dealer' | 'service_partner' | 'importer' | 'demo_location' | 'dealer_customer';
@@ -133,12 +139,13 @@ const EUROPE_VIEW: Position = { center: [50.5, 9.5], zoom: 4 };
 const WORLD_VIEW: Position = { center: [25, 10], zoom: 2 };
 const GERMANY_BOUNDS: [number, number, number, number] = [47.3, 5.9, 55.1, 15.0];
 
-type AdministrativeOverlayId = 'none' | 'de_plz2';
+type AdministrativeOverlayId = 'none' | 'de_plz2' | 'dk_municipalities';
 
 const GERMANY_PLZ2_LABEL_OVERRIDES: Record<string, [number, number]> = {
   '71': [48.91, 9.19],
   '91': [49.28, 10.75],
 };
+const DENMARK_BOUNDS: [number, number, number, number] = [54.5, 8.0, 57.8, 15.2];
 
 type Continent = 'europe' | 'north_america' | 'south_america' | 'asia' | 'africa' | 'oceania' | 'other';
 
@@ -631,6 +638,127 @@ function GermanyPlz2Overlay({
       group.removeFrom(map);
     };
   }, [enabled, map, onError]);
+
+  return null;
+}
+
+function DenmarkMunicipalitiesOverlay({
+  enabled,
+  onError,
+  lang,
+}: {
+  enabled: boolean;
+  onError: (message: string | null) => void;
+  lang: Language;
+}) {
+  const map = useMap();
+  const selectedCodeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      onError(null);
+      selectedCodeRef.current = null;
+      return;
+    }
+
+    let alive = true;
+    const group = L.layerGroup();
+    const container = map.getContainer();
+
+    if (!map.getPane('pm-dk-municipality-fill-pane')) {
+      map.createPane('pm-dk-municipality-fill-pane');
+    }
+    const fillPane = map.getPane('pm-dk-municipality-fill-pane');
+    if (fillPane) {
+      fillPane.style.zIndex = '360';
+      fillPane.style.pointerEvents = 'auto';
+    }
+
+    group.addTo(map);
+    map.flyToBounds(
+      L.latLngBounds(
+        [DENMARK_BOUNDS[0], DENMARK_BOUNDS[1]],
+        [DENMARK_BOUNDS[2], DENMARK_BOUNDS[3]],
+      ),
+      { padding: [36, 36], maxZoom: 7, duration: 0.7 },
+    );
+
+    const styleFor = (feature: GeoJSON.Feature | undefined, hovered = false): L.PathOptions => {
+      const selected = String(feature?.properties?.kode ?? '') === selectedCodeRef.current;
+      return {
+        color: selected ? '#174c2b' : '#287a48',
+        weight: selected ? 2.4 : hovered ? 1.8 : 1,
+        opacity: selected ? 0.95 : hovered ? 0.9 : 0.66,
+        fillColor: selected ? '#2fb36d' : '#2fb36d',
+        fillOpacity: selected ? 0.22 : hovered ? 0.14 : 0.07,
+      };
+    };
+
+    fetch(DENMARK_MUNICIPALITIES_GEOJSON_URL)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (!alive) return;
+        const municipalities = parseDenmarkMunicipalitiesGeoJson(data);
+        onError(null);
+        const layer = L.geoJSON(municipalities, {
+          pane: 'pm-dk-municipality-fill-pane',
+          style: (feature) => styleFor(feature),
+          onEachFeature: (feature, featureLayer) => {
+            const municipality = getDenmarkMunicipalityDisplayName(feature);
+            const code = String(feature?.properties?.kode ?? '');
+            const path = featureLayer as L.Path;
+            const bounds = (featureLayer as L.Polygon).getBounds?.();
+            featureLayer.bindTooltip(municipality, {
+              direction: 'top',
+              className: 'pm-plz2-hover-label',
+              opacity: 0.95,
+            });
+            featureLayer.bindPopup(
+              `<div class="pm-plz2-popup"><div>${escapeHtml(getDenmarkMunicipalityLabel('municipality', lang))}: <strong>${escapeHtml(municipality)}</strong></div></div>`,
+              { closeButton: true, maxWidth: 220 },
+            );
+            featureLayer.on({
+              mouseover: () => {
+                container.classList.add('pm-dk-municipality-hovering');
+                path.setStyle(styleFor(feature, true));
+              },
+              mouseout: () => {
+                container.classList.remove('pm-dk-municipality-hovering');
+                path.setStyle(styleFor(feature));
+              },
+              click: () => {
+                selectedCodeRef.current = code;
+                layer.eachLayer((item) => {
+                  const itemFeature = (item as { feature?: GeoJSON.Feature }).feature;
+                  if ((item as L.Path).setStyle) {
+                    (item as L.Path).setStyle(styleFor(itemFeature));
+                  }
+                });
+                path.setStyle(styleFor(feature));
+                if (bounds?.isValid()) {
+                  map.fitBounds(bounds, { padding: [32, 32], maxZoom: 10 });
+                }
+              },
+            });
+          },
+        });
+        group.addLayer(layer);
+      })
+      .catch(() => {
+        if (!alive) return;
+        onError('Kommuneområder kunne ikke indlæses.');
+      });
+
+    return () => {
+      alive = false;
+      selectedCodeRef.current = null;
+      container.classList.remove('pm-dk-municipality-hovering');
+      group.removeFrom(map);
+    };
+  }, [enabled, lang, map, onError]);
 
   return null;
 }
@@ -1709,13 +1837,14 @@ export default function PartnerMapPage() {
                     onChange={(e) => {
                       const nextOverlay = e.target.value as AdministrativeOverlayId;
                       setAdministrativeOverlay(nextOverlay);
-                      if (nextOverlay === 'de_plz2') setMapStyle('standard');
+                      if (nextOverlay === 'de_plz2' || nextOverlay === 'dk_municipalities') setMapStyle('standard');
                     }}
                     title={T.area[lang]}
                     className="h-9 pl-2 pr-2 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:text-[#2d5a27] focus:outline-none focus:border-[#2d5a27] cursor-pointer max-w-[240px]"
                   >
                     <option value="none">{T.area[lang]}: {T.areaNone[lang]}</option>
                     <option value="de_plz2">{T.area[lang]}: {T.areaGermanyPlz2[lang]}</option>
+                    <option value="dk_municipalities">{T.area[lang]}: {getDenmarkMunicipalityLabel('areaDenmarkMunicipalities', lang)}</option>
                   </select>
                 </div>
                 {fullscreenSupported && (
@@ -1889,6 +2018,11 @@ export default function PartnerMapPage() {
                       enabled={administrativeOverlay === 'de_plz2'}
                       onError={setAdministrativeOverlayError}
                     />
+                    <DenmarkMunicipalitiesOverlay
+                      enabled={administrativeOverlay === 'dk_municipalities'}
+                      onError={setAdministrativeOverlayError}
+                      lang={lang}
+                    />
                     <TimanHeadquartersLayer lang={uiLanguage} partners={partners} />
                     {showPartnerLayer && (
                       <ClusterLayer
@@ -1923,7 +2057,7 @@ export default function PartnerMapPage() {
                     )}
                   </div>
 
-                  {administrativeOverlay === 'de_plz2' && administrativeOverlayError && (
+                  {administrativeOverlay !== 'none' && administrativeOverlayError && (
                     <div className="absolute top-3 left-3 z-[500] max-w-xs rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 shadow-sm">
                       {administrativeOverlayError}
                     </div>

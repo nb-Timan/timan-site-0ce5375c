@@ -1,0 +1,16 @@
+Denmark municipalities / Kommuneinddeling overlay data
+
+Source:
+https://api.dataforsyningen.dk/kommuner?format=geojson&struktur=flad&udenforkommuneinddeling=false
+
+Provider:
+Styrelsen for Dataforsyning og Infrastruktur (SDFI) via Dataforsyningen / DAWA.
+
+The file public/data/denmark-municipalities.geojson contains a local, simplified
+GeoJSON FeatureCollection with 98 Danish municipalities. Each feature keeps the
+stable municipality code (kode), municipality name (navn), and Polygon/MultiPolygon
+geometry for web-map display.
+
+The original downloaded GeoJSON was approximately 118 MB. The checked-in web
+version is simplified to keep Partnerkort responsive and is loaded only when the
+Denmark municipalities overlay is selected.
