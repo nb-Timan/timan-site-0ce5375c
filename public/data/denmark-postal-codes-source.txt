@@ -1,0 +1,5 @@
+Source: Dataforsyningen / DAWA postnumre
+URL: https://api.dataforsyningen.dk/postnumre?format=geojson&srid=4326
+Downloaded: 2026-08-30
+Contents: Danish postal-code polygons with nr, navn and dagi_id properties.
+Processing: Coordinates were rounded and simplified for local web-map use. The source data remains postal-code areas, not municipalities.

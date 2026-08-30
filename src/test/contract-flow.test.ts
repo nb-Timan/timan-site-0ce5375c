@@ -320,7 +320,7 @@ describe('contract flow', () => {
   it('renders territory postal values as compact input fields instead of a free-text textarea', () => {
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
     const start = source.indexOf('function TerritoryAreaEditor');
-    const end = source.indexOf('function TerritoryMiniMap');
+    const end = source.indexOf('function SparePartsServiceSection');
     const territoryEditor = source.slice(start, end);
 
     expect(territoryEditor).toContain('getContractPostalFieldValues');
@@ -329,6 +329,7 @@ describe('contract flow', () => {
     expect(territoryEditor).toContain('+ Tilføj flere postnumre');
     expect(territoryEditor).toContain('Fjern række');
     expect(territoryEditor).toContain('buildContractTerritoryAreaFromPostalFields');
+    expect(source).toContain('<ContractTerritoryMap');
     expect(territoryEditor).not.toContain('<textarea');
   });
 

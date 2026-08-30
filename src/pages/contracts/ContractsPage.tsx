@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, Download, FileSignature, FileText, Globe2, Lock, MapPinned, Save, Trash2, Upload } from 'lucide-react';
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, Download, FileSignature, FileText, Lock, Save, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
+import { ContractTerritoryMap } from '@/components/contracts/ContractTerritoryMap';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import {
@@ -71,7 +72,6 @@ import {
   describeContractSecondaryTerritoryArea,
   describeContractTerritoryArea,
   getContractTerritoryCountryLabel,
-  getContractTerritoryMapBands,
   getContractTerritoryPostalLabel,
   hasValidContractTerritory,
   isValidContractTerritoryArea,
@@ -1472,7 +1472,7 @@ function TerritoryStepFields({
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5">
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,460px)]">
         <div className="space-y-5">
           <TerritoryAreaEditor
             title="Primært område"
@@ -1517,7 +1517,7 @@ function TerritoryStepFields({
           )}
         </div>
 
-        <TerritoryMiniMap
+        <ContractTerritoryMap
           primaryTerritory={primaryTerritory}
           secondaryTerritory={secondaryTerritory}
           language={uiLanguage}
@@ -1694,83 +1694,6 @@ function chunkPostalFields(fields: string[]) {
     rows.push(fields.slice(index, index + 6));
   }
   return rows;
-}
-
-function TerritoryMiniMap({
-  primaryTerritory,
-  secondaryTerritory,
-  language,
-}: {
-  primaryTerritory: ContractTerritoryArea;
-  secondaryTerritory: ContractSecondaryTerritoryArea;
-  language: string;
-}) {
-  const visibleSecondary = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory);
-  const countries = Array.from(new Set([
-    primaryTerritory.country,
-    ...(visibleSecondary ? [secondaryTerritory.country] : []),
-  ]));
-  const primaryDescription = describeContractTerritoryArea(primaryTerritory, language);
-  const secondaryDescription = describeContractSecondaryTerritoryArea(secondaryTerritory, language);
-
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-slate-50 p-4">
-      <div className="flex items-center gap-2">
-        <MapPinned className="h-5 w-5 text-emerald-800" />
-        <h3 className="text-sm font-black text-gray-950">Mini-kort</h3>
-      </div>
-      <div className="mt-3 grid gap-3">
-        {countries.map((country) => {
-          const primaryBands = primaryTerritory.country === country
-            ? getContractTerritoryMapBands(primaryTerritory, 'primary')
-            : [];
-          const secondaryBands = visibleSecondary && secondaryTerritory.country === country
-            ? getContractTerritoryMapBands(secondaryTerritory, 'secondary')
-            : [];
-
-          return (
-            <div key={country} className="rounded-xl border border-slate-200 bg-white p-3">
-              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
-                <Globe2 className="h-4 w-4" />
-                {getContractTerritoryCountryLabel(country, language)}
-              </div>
-              <div className="relative h-44 overflow-hidden rounded-xl border border-slate-300 bg-gradient-to-b from-slate-100 to-slate-200">
-                <div className="absolute inset-x-8 inset-y-4 rounded-[34%] border border-slate-400/70 bg-white/70 shadow-inner" />
-                {[...primaryBands, ...secondaryBands].map((band) => (
-                  <div
-                    key={band.key}
-                    className={`absolute left-10 right-10 rounded-full border text-center text-[11px] font-black leading-6 shadow-sm ${
-                      band.variant === 'primary'
-                        ? 'border-emerald-700 bg-emerald-600/75 text-white'
-                        : 'border-amber-700 bg-amber-500/75 text-gray-950'
-                    }`}
-                    style={{ top: `${band.top}%`, height: `${band.height}%` }}
-                  >
-                    <span className="sr-only">{band.variant === 'primary' ? 'Primært område' : 'Sekundært område'} </span>
-                    {band.label}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mt-3 space-y-2 text-xs leading-5 text-gray-700">
-        {primaryDescription && (
-          <div className="flex gap-2">
-            <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-emerald-700" />
-            <span><strong>Primært:</strong> {primaryDescription}</span>
-          </div>
-        )}
-        {secondaryDescription && (
-          <div className="flex gap-2">
-            <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-amber-500" />
-            <span><strong>Sekundært:</strong> {secondaryDescription}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 }
 
 function SparePartsServiceSection({
