@@ -3,6 +3,7 @@ import { getContractPartnerTerms, type ContractPartnerType } from '@/lib/contrac
 import {
   describeContractSecondaryTerritoryArea,
   describeContractTerritoryArea,
+  getContractTerritoryDisplayItems,
   type ContractSecondaryTerritoryArea,
   type ContractTerritoryArea,
 } from '@/lib/contractTerritory';
@@ -346,6 +347,16 @@ function renderContractText(value: string, context: ContractTextRenderContext): 
     .replaceAll('{{paymentTermsLegalText}}', renderContractPaymentTermLegalText(context.paymentTerm));
 }
 
+function renderContractBulletText(value: string, context: ContractTextRenderContext) {
+  if (value === '{{primaryTerritoryDescription}}') {
+    return getContractTerritoryDisplayItems(context.primaryTerritory, 'da');
+  }
+  if (value === '{{secondaryTerritoryDescription}}') {
+    return getContractTerritoryDisplayItems(context.secondaryTerritory, 'da');
+  }
+  return [renderContractText(value, context)];
+}
+
 export function renderGuidedContractSections(context: ContractTextRenderContext): GuidedContractSection[] {
   return GUIDED_CONTRACT_SECTIONS.map((section) => ({
     ...section,
@@ -353,7 +364,7 @@ export function renderGuidedContractSections(context: ContractTextRenderContext)
       .map((block) => ({
         heading: block.heading ? renderContractText(block.heading, context) : undefined,
         paragraphs: block.paragraphs?.map((paragraph) => renderContractText(paragraph, context)).filter(Boolean),
-        bullets: block.bullets?.map((bullet) => renderContractText(bullet, context)).filter(Boolean),
+        bullets: block.bullets?.flatMap((bullet) => renderContractBulletText(bullet, context)).filter(Boolean),
       }))
       .filter((block) => (
         section.stepId !== 'territory'

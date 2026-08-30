@@ -69,8 +69,7 @@ import {
   CONTRACT_TERRITORY_COUNTRIES,
   createEmptyContractTerritoryArea,
   createEmptySecondaryContractTerritoryArea,
-  describeContractSecondaryTerritoryArea,
-  describeContractTerritoryArea,
+  getContractTerritoryDisplayItems,
   getContractTerritoryCountryLabel,
   getContractTerritoryPostalLabel,
   hasValidContractTerritory,
@@ -2300,8 +2299,12 @@ function ProgressSteps({
 
 function ContractSummary({ form }: { form: ContractFormData }) {
   const partnerLabel = form.partnerType ? getContractPartnerTypeLabel(form.partnerType, 'da') : 'Samarbejdspartner';
-  const primaryDescription = describeContractTerritoryArea(form.primaryTerritory, 'da');
-  const secondaryDescription = describeContractSecondaryTerritoryArea(form.secondaryTerritory, 'da');
+  const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
+  const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
+  const primaryItems = getContractTerritoryDisplayItems(form.primaryTerritory, 'da');
+  const secondaryItems = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory)
+    ? getContractTerritoryDisplayItems(secondaryTerritory, 'da')
+    : [];
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
@@ -2323,9 +2326,23 @@ function ContractSummary({ form }: { form: ContractFormData }) {
       </div>
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 lg:col-span-2">
         <h3 className="text-sm font-bold uppercase tracking-wide text-gray-600">Område</h3>
-        <p className="mt-3 text-sm font-semibold text-gray-950">Primært område: {primaryDescription || '-'}</p>
-        {secondaryDescription && (
-          <p className="mt-1 text-sm font-semibold text-gray-950">Sekundært område: {secondaryDescription}</p>
+        <div className="mt-3 text-sm font-semibold text-gray-950">
+          <p>Primært område:</p>
+          {primaryItems.length > 0 ? (
+            <ul className="mt-1 space-y-1 pl-5">
+              {primaryItems.map((item) => <li key={item} className="list-disc">{item}</li>)}
+            </ul>
+          ) : (
+            <p className="mt-1">-</p>
+          )}
+        </div>
+        {secondaryItems.length > 0 && (
+          <div className="mt-3 text-sm font-semibold text-gray-950">
+            <p>Sekundært område:</p>
+            <ul className="mt-1 space-y-1 pl-5">
+              {secondaryItems.map((item) => <li key={item} className="list-disc">{item}</li>)}
+            </ul>
+          </div>
         )}
       </div>
     </div>

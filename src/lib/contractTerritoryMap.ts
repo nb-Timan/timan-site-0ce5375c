@@ -5,6 +5,7 @@ import {
   type ContractTerritoryArea,
   type ContractTerritoryCountryCode,
 } from '@/lib/contractTerritory';
+import { resolveContractPostalAreaMetadata } from '@/lib/contractPostalMetadata';
 
 export type ContractTerritoryMapVariant = 'primary' | 'secondary';
 
@@ -117,7 +118,8 @@ export const CONTRACT_TERRITORY_MAP_COUNTRIES: Record<ContractTerritoryCountryCo
     getFeatureMeta: (feature) => {
       const nr = String(feature?.properties?.nr ?? '').trim();
       if (!/^\d{4}$/.test(nr)) return null;
-      const name = String(feature?.properties?.navn ?? '').trim();
+      const name = resolveContractPostalAreaMetadata('DK', nr)?.locality
+        || String(feature?.properties?.navn ?? '').trim();
       return { key: nr, label: name ? `${nr} ${name}` : nr };
     },
   },

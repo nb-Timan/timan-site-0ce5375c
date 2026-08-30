@@ -1,4 +1,5 @@
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { resolveContractPostalAreaMetadata } from '@/lib/contractPostalMetadata';
 
 export type ContractTerritoryCountryCode = 'DK' | 'DE';
 
@@ -273,6 +274,19 @@ export function serializeContractPostalInput(area: ContractTerritoryArea) {
     .join(', ');
 }
 
+function formatContractTerritoryPostalEntry(
+  area: ContractTerritoryArea,
+  entry: ContractPostalEntry,
+) {
+  if (entry.postalRange) return `${entry.postalRange.from}–${entry.postalRange.to}`;
+  if (!entry.postalCode) return '';
+
+  const metadata = resolveContractPostalAreaMetadata(area.country, entry.postalCode);
+  return metadata?.locality
+    ? `${entry.postalCode} ${metadata.locality}`
+    : entry.postalCode;
+}
+
 export function isValidContractTerritoryArea(area: ContractTerritoryArea) {
   if (area.wholeCountry) return true;
   const normalized = normalizeContractTerritoryArea(area);
@@ -308,13 +322,23 @@ export function describeContractTerritoryArea(
   areaInput: unknown,
   language: PortalUiLanguage | string | null | undefined = 'da',
 ) {
+  return getContractTerritoryDisplayItems(areaInput, language).join(', ');
+}
+
+export function getContractTerritoryDisplayItems(
+  areaInput: unknown,
+  language: PortalUiLanguage | string | null | undefined = 'da',
+) {
   const area = normalizeContractTerritoryArea(areaInput);
   const country = getContractTerritoryCountryLabel(area.country, language);
   if (area.wholeCountry) {
-    return language === 'en' ? `${country} - Whole country` : `${country} - Hele landet`;
+    return [language === 'en' ? `${country} - Whole country` : `${country} - Hele landet`];
   }
-  const postalItems = serializeContractPostalInput(area);
-  return postalItems ? `${country} - ${postalItems}` : '';
+  const postalItems = area.postalEntries
+    .filter((entry) => entry.postalCode || entry.postalRange)
+    .map((entry) => formatContractTerritoryPostalEntry(area, entry))
+    .filter(Boolean);
+  return postalItems.map((item) => `${country} – ${item}`);
 }
 
 export function describeContractSecondaryTerritoryArea(

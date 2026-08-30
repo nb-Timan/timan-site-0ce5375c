@@ -41,6 +41,7 @@ import {
   createEmptyContractTerritoryArea,
   describeContractSecondaryTerritoryArea,
   describeContractTerritoryArea,
+  getContractTerritoryDisplayItems,
   hasValidContractTerritory,
   parseContractPostalFieldValue,
   parseContractPostalInput,
@@ -183,7 +184,27 @@ describe('contract flow', () => {
       { input: '5000-5999', postalRange: { from: '5000', to: '5999' } },
       { input: '6000', postalCode: '6000' },
     ]);
-    expect(snapshot.primaryDescription).toBe('Danmark - 5000-5999, 6000');
+    expect(snapshot.primaryDescription).toBe('Danmark – 5000–5999, Danmark – 6000 Kolding');
+  });
+
+  it('enriches known Danish postal codes with city names without changing stored values', () => {
+    const parsed = parseContractPostalInput('6950, 6940, 5000-5999, 1234', 'DK');
+    const area = {
+      country: 'DK',
+      wholeCountry: false,
+      postalEntries: parsed.postalEntries,
+      postalCodes: parsed.postalCodes,
+      postalRanges: parsed.postalRanges,
+    };
+
+    expect(serializeContractPostalInput(area)).toBe('6950, 6940, 5000-5999, 1234');
+    expect(getContractTerritoryDisplayItems(area, 'da')).toEqual([
+      'Danmark – 6950 Ringkøbing',
+      'Danmark – 6940 Lem St',
+      'Danmark – 5000–5999',
+      'Danmark – 1234',
+    ]);
+    expect(describeContractTerritoryArea(area, 'da')).toBe('Danmark – 6950 Ringkøbing, Danmark – 6940 Lem St, Danmark – 5000–5999, Danmark – 1234');
   });
 
   it('requires a valid service hourly rate before signature readiness', () => {
@@ -687,18 +708,19 @@ describe('contract flow', () => {
     }).find((section) => section.stepId === 'territory');
     const text = JSON.stringify(territory);
 
-    expect(describeContractTerritoryArea(form.primaryTerritory, 'da')).toBe('Tyskland - 20000-29999, 10115');
-    expect(describeContractSecondaryTerritoryArea(form.secondaryTerritory, 'da')).toBe('Tyskland - 70000-79999');
-    expect(text).toContain('Tyskland - 20000-29999, 10115');
-    expect(text).toContain('Tyskland - 70000-79999');
+    expect(describeContractTerritoryArea(form.primaryTerritory, 'da')).toBe('Tyskland – 20000–29999, Tyskland – 10115');
+    expect(describeContractSecondaryTerritoryArea(form.secondaryTerritory, 'da')).toBe('Tyskland – 70000–79999');
+    expect(text).toContain('Tyskland – 20000–29999');
+    expect(text).toContain('Tyskland – 10115');
+    expect(text).toContain('Tyskland – 70000–79999');
     expect(text).not.toContain('Fyn, Tåsinge');
     expect(text).not.toContain('Hobro');
   });
 
   it.each([
-    ['dealer', 'DK', false, '5000-5999', 'Danmark - 5000-5999'],
+    ['dealer', 'DK', false, '5000-5999', 'Danmark – 5000–5999'],
     ['importer', 'DE', true, '', 'Tyskland - Hele landet'],
-    ['service_partner', 'DK', false, '6000', 'Danmark - 6000'],
+    ['service_partner', 'DK', false, '6000', 'Danmark – 6000 Kolding'],
   ] as const)('renders complete territory snapshots for %s contracts', (partnerType, country, wholeCountry, postalInput, expectedDescription) => {
     const parsed = parseContractPostalInput(postalInput, country);
     const form: ContractFormData = {
