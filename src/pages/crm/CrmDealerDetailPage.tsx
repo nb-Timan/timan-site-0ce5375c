@@ -19,7 +19,7 @@ import {
   FileText, ClipboardList, TrendingUp,
   CheckCircle2, AlertCircle, Pencil,
   Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
-  Save, Send, Trash2, X,
+  Save, Send, Trash2, X, Wrench, Clock, AlertTriangle,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -84,6 +84,11 @@ import {
 } from "@/lib/crmLeadsService";
 import { fetchDealerContractsForDealerAccount, type DealerContractRecord } from "@/lib/dealerContractsService";
 import { getContractWorkflowStatusLabel } from "@/lib/contractFlow";
+import {
+  getDemoOverviewMachines,
+  listDealerMachineRegister,
+  type DealerMachineRegisterRow,
+} from "@/lib/dealerMachineRegisterService";
 import { isOpenLead } from "@/lib/leadStatus";
 import {
   buildDealerBudgetIndex,
@@ -146,6 +151,7 @@ const L: Record<string, DealerDetailText> = {
   tab_activities:   { da: "Aktiviteter", en: "Activities", de: "Aktivitäten", it: "Attività", hu: "Tevékenységek" },
   tab_notes:        { da: "Noter", en: "Notes", de: "Notizen", it: "Note", hu: "Jegyzetek" },
   tab_documents:    { da: "Dokumenter", en: "Documents", de: "Dokumente", it: "Documenti", hu: "Dokumentumok" },
+  tab_machines:     { da: "Maskiner", en: "Machines", de: "Maschinen", it: "Macchine", hu: "Gépek" },
   tab_company:      { da: "Firmaoplysninger", en: "Company info", de: "Firmendaten", it: "Dati azienda", hu: "Cégadatok" },
   tab_users:        { da: "Brugere", en: "Users", de: "Benutzer", it: "Utenti", hu: "Felhasználók" },
   active_portal_users: { da: "Aktive portalbrugere", en: "Active portal users", de: "Aktive Portalbenutzer", it: "Utenti portale attivi", hu: "Aktív portálfelhasználók" },
@@ -158,6 +164,27 @@ const L: Record<string, DealerDetailText> = {
   area:             { da: "Område", en: "Area", de: "Bereich", it: "Area", hu: "Terület" },
   comment:          { da: "Kommentar", en: "Comment", de: "Kommentar", it: "Commento", hu: "Megjegyzés" },
   no_documents:     { da: "Ingen dokumenter endnu.", en: "No documents yet.", de: "Noch keine Dokumente.", it: "Nessun documento.", hu: "Még nincsenek dokumentumok." },
+  demo_machines:    { da: "Demo-maskiner", en: "Demo machines", de: "Demomaschinen", it: "Macchine demo", hu: "Demógépek" },
+  no_active_demo_machines: { da: "Ingen aktive demo-maskiner", en: "No active demo machines", de: "Keine aktiven Demomaschinen", it: "Nessuna macchina demo attiva", hu: "Nincs aktív demógép" },
+  no_machines:      { da: "Ingen maskiner", en: "No machines", de: "Keine Maschinen", it: "Nessuna macchina", hu: "Nincs gép" },
+  view_machines:    { da: "Se maskiner", en: "View machines", de: "Maschinen anzeigen", it: "Vedi macchine", hu: "Gépek megtekintése" },
+  all_machines:     { da: "Alle", en: "All", de: "Alle", it: "Tutte", hu: "Összes" },
+  serial_number:    { da: "Serienummer", en: "Serial number", de: "Seriennummer", it: "Numero di serie", hu: "Sorozatszám" },
+  machine_model:    { da: "Model/type", en: "Model/type", de: "Modell/Typ", it: "Modello/tipo", hu: "Modell/típus" },
+  order_no:         { da: "Ordrenr.", en: "Order no.", de: "Auftragsnr.", it: "N. ordine", hu: "Rendelésszám" },
+  delivery_date:    { da: "Levering", en: "Delivery", de: "Lieferung", it: "Consegna", hu: "Szállítás" },
+  customer:         { da: "Kunde", en: "Customer", de: "Kunde", it: "Cliente", hu: "Ügyfél" },
+  warranty_sp:      { da: "Garanti/SP", en: "Warranty/SP", de: "Garantie/SP", it: "Garanzia/SP", hu: "Garancia/SP" },
+  lifecycle_status: { da: "Lifecycle-status", en: "Lifecycle status", de: "Lifecycle-Status", it: "Stato lifecycle", hu: "Életciklus állapot" },
+  normal_machine:   { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál" },
+  active_demo:      { da: "Aktiv demo", en: "Active demo", de: "Aktive Demo", it: "Demo attiva", hu: "Aktív demó" },
+  ready_for_sale:   { da: "Klar til salg", en: "Ready for sale", de: "Verkaufsbereit", it: "Pronta per la vendita", hu: "Eladásra kész" },
+  sold_early:       { da: "Solgt før tilladt dato", en: "Sold before allowed date", de: "Vor erlaubtem Datum verkauft", it: "Venduta prima della data consentita", hu: "Engedélyezett dátum előtt eladva" },
+  sold_registered:  { da: "Solgt/garantiregistreret", en: "Sold/warranty registered", de: "Verkauft/garantieregistriert", it: "Venduta/registrata in garanzia", hu: "Eladva/garanciára regisztrálva" },
+  demo_missing_delivery: { da: "Demo - leveringsdato mangler", en: "Demo - delivery date missing", de: "Demo - Lieferdatum fehlt", it: "Demo - data consegna mancante", hu: "Demó - szállítási dátum hiányzik" },
+  days_left:        { da: "dage tilbage", en: "days left", de: "Tage verbleiben", it: "giorni rimanenti", hu: "nap van hátra" },
+  days_early:       { da: "dage før tid", en: "days early", de: "Tage zu früh", it: "giorni in anticipo", hu: "nappal korábban" },
+  after_9_months:   { da: "efter 9 mdr.", en: "after 9 months", de: "nach 9 Monaten", it: "dopo 9 mesi", hu: "9 hónap után" },
 
   role:             { da: "Rolle", en: "Role", de: "Rolle", it: "Ruolo", hu: "Szerep" },
   phone:            { da: "Telefon", en: "Phone", de: "Telefon", it: "Telefono", hu: "Telefon" },
@@ -531,6 +558,8 @@ export default function CrmDealerDetailPage() {
   const [showEditDealer, setShowEditDealer] = useState(false);
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("overview");
+  const [dealerMachines, setDealerMachines] = useState<DealerMachineRegisterRow[]>([]);
+  const [machineStatusFilter, setMachineStatusFilter] = useState<"all" | "demo_attention">("all");
   const [busy, setBusy] = useState(true);
   // Live CRM configurations (same source as CRM → Tilbud / Ordrer).
   // Used for accurate Tilbud / Ordrer / Vundne ordrer / Pipeline-værdi KPIs
@@ -602,6 +631,7 @@ export default function CrmDealerDetailPage() {
           setCalendar([]);
           setDealerQuotes([]);
           setDealerOrders([]);
+          setDealerMachines([]);
           setAllLeads([]);
           setAllDemos([]);
           setBudgetIndex(null);
@@ -661,6 +691,15 @@ export default function CrmDealerDetailPage() {
           setAllLeads(leadsRes);
           setAllDemos(demosRes);
         }
+        try {
+          const rootDealer = dealerRows.find((d) => d.account_number === accountNumber) ?? dealerRows[0] ?? null;
+          const machineScope = await buildJournalScope(effectiveUser, portalRole);
+          const machineRows = rootDealer ? await listDealerMachineRegister(rootDealer, machineScope) : [];
+          if (!cancelled) setDealerMachines(machineRows);
+        } catch (e) {
+          console.warn("[CrmDealerDetailPage] dealer machines failed:", e);
+          if (!cancelled) setDealerMachines([]);
+        }
         // Dealer budget index (year-scoped) using same data as Budget Dashboard.
         try {
           const idx = await buildDealerBudgetIndex({
@@ -682,6 +721,7 @@ export default function CrmDealerDetailPage() {
           setCalendar([]);
           setDealerQuotes([]);
           setDealerOrders([]);
+          setDealerMachines([]);
           setAllLeads([]);
           setAllDemos([]);
           setBudgetIndex(null);
@@ -839,6 +879,8 @@ export default function CrmDealerDetailPage() {
   const matchesDealer = (key: string | null) => !!key && dealerKeySet.has(key);
 
   const dealerQuotesInScope = dealerQuotes.filter((r) => matchesDealer(r.dealer_key ?? dealerKeyOf(r)));
+  const demoOverviewMachines = getDemoOverviewMachines(dealerMachines);
+  const displayedDealerMachines = machineStatusFilter === "demo_attention" ? demoOverviewMachines : dealerMachines;
   // Orders: match using the SAME canonical dealer-key resolution as quotes
   // (dealer_account_id → dealer_number/account_number → normalized name).
   // Previously this only checked dealer_number, which missed orders where
@@ -1334,6 +1376,7 @@ export default function CrmDealerDetailPage() {
             ["overview", tl("tab_overview", lang)],
             ["users", `${tl("tab_users", lang)} (${linkedUsers.length + dealerContacts.length})`],
             ["documents", tl("tab_documents", lang)],
+            ["machines", tl("tab_machines", lang)],
           ] as const).map(([val, label]) => (
             <TabsTrigger
               key={val}
@@ -1424,6 +1467,15 @@ export default function CrmDealerDetailPage() {
                 lang={lang}
                 onOpenList={() => setShowCollaborationModal(true)}
               />
+
+              <CrmDemoMachinesPanel
+                rows={demoOverviewMachines}
+                lang={lang}
+                onOpenMachines={() => {
+                  setMachineStatusFilter("demo_attention");
+                  setActiveTab("machines");
+                }}
+              />
             </div>
           </div>
         </TabsContent>
@@ -1494,6 +1546,17 @@ export default function CrmDealerDetailPage() {
           </div>
         </TabsContent>
 
+
+        {/* MACHINES — serial-based machine register + demo lifecycle */}
+        <TabsContent value="machines" className="mt-0">
+          <CrmMachineRegisterPanel
+            rows={displayedDealerMachines}
+            allCount={dealerMachines.length}
+            filter={machineStatusFilter}
+            onFilterChange={setMachineStatusFilter}
+            lang={lang}
+          />
+        </TabsContent>
 
 
       </Tabs>
@@ -1639,6 +1702,214 @@ function CollaborationPartnersPanel({
               {tl("show_all", lang)} {partners.length} <ArrowRight className="h-3.5 w-3.5" />
             </button>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function crmLifecycleMeta(row: DealerMachineRegisterRow, lang: PortalUiLanguage) {
+  switch (row.lifecycle) {
+    case "active_demo":
+      return {
+        label: tl("active_demo", lang),
+        detail: row.daysRemaining != null ? `${row.daysRemaining} ${tl("days_left", lang)}` : null,
+        badge: "bg-amber-100 text-amber-800 hover:bg-amber-100",
+        icon: <Clock className="h-3.5 w-3.5" />,
+      };
+    case "ready_for_sale":
+      return {
+        label: tl("ready_for_sale", lang),
+        detail: row.demoSaleEligibleAt ? `${tl("after_9_months", lang)}: ${fmtDate(row.demoSaleEligibleAt)}` : null,
+        badge: "bg-emerald-100 text-emerald-800 hover:bg-emerald-100",
+        icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+      };
+    case "sold_early":
+      return {
+        label: tl("sold_early", lang),
+        detail: row.daysSoldEarly != null ? `${row.daysSoldEarly} ${tl("days_early", lang)}` : null,
+        badge: "bg-rose-100 text-rose-800 hover:bg-rose-100",
+        icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      };
+    case "sold_registered":
+      return {
+        label: tl("sold_registered", lang),
+        detail: row.warrantyRegistrationDate ? fmtDate(row.warrantyRegistrationDate) : null,
+        badge: "bg-slate-100 text-slate-700 hover:bg-slate-100",
+        icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+      };
+    case "demo_missing_delivery":
+      return {
+        label: tl("demo_missing_delivery", lang),
+        detail: null,
+        badge: "bg-amber-100 text-amber-800 hover:bg-amber-100",
+        icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      };
+    default:
+      return {
+        label: tl("normal_machine", lang),
+        detail: null,
+        badge: "bg-slate-100 text-slate-700 hover:bg-slate-100",
+        icon: null,
+      };
+  }
+}
+
+function CrmDemoMachinesPanel({
+  rows,
+  lang,
+  onOpenMachines,
+}: {
+  rows: DealerMachineRegisterRow[];
+  lang: PortalUiLanguage;
+  onOpenMachines: () => void;
+}) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <button
+          type="button"
+          onClick={onOpenMachines}
+          className="text-left text-sm font-bold uppercase tracking-wide text-slate-500 hover:text-emerald-700"
+        >
+          {tl("demo_machines", lang)}
+        </button>
+        <button
+          type="button"
+          onClick={onOpenMachines}
+          className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold hover:bg-emerald-50 hover:text-emerald-700"
+          aria-label={`${tl("view_machines", lang)} ${rows.length}`}
+        >
+          {rows.length}
+        </button>
+      </div>
+      {rows.length === 0 ? (
+        <p className="text-sm text-slate-500">{tl("no_active_demo_machines", lang)}</p>
+      ) : (
+        <div className="space-y-2">
+          {rows.slice(0, 4).map((row) => {
+            const meta = crmLifecycleMeta(row, lang);
+            return (
+              <button
+                key={row.normalizedSerial}
+                type="button"
+                onClick={onOpenMachines}
+                className="w-full rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-left transition-colors hover:border-emerald-200 hover:bg-emerald-50/60"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-slate-900">
+                      {row.machineModel || row.machineType || "—"}
+                    </div>
+                    <div className="mt-0.5 font-mono text-xs text-slate-500">{row.serial}</div>
+                    {meta.detail && <div className="mt-1 text-xs text-slate-500">{meta.detail}</div>}
+                  </div>
+                  <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${meta.badge}`}>
+                    {meta.icon}{meta.label}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+          {rows.length > 4 && (
+            <button
+              type="button"
+              onClick={onOpenMachines}
+              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
+            >
+              {tl("show_all", lang)} {rows.length} <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CrmMachineRegisterPanel({
+  rows,
+  allCount,
+  filter,
+  onFilterChange,
+  lang,
+}: {
+  rows: DealerMachineRegisterRow[];
+  allCount: number;
+  filter: "all" | "demo_attention";
+  onFilterChange: (next: "all" | "demo_attention") => void;
+  lang: PortalUiLanguage;
+}) {
+  return (
+    <div className="bg-white border border-slate-200 rounded-2xl p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 flex items-center gap-2">
+          <Wrench className="h-4 w-4" />
+          {tl("tab_machines", lang)}
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{allCount}</span>
+        </h3>
+        <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm">
+          <button
+            type="button"
+            onClick={() => onFilterChange("all")}
+            className={`rounded-md px-3 py-1.5 font-semibold ${filter === "all" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`}
+          >
+            {tl("all_machines", lang)}
+          </button>
+          <button
+            type="button"
+            onClick={() => onFilterChange("demo_attention")}
+            className={`rounded-md px-3 py-1.5 font-semibold ${filter === "demo_attention" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`}
+          >
+            {tl("demo_machines", lang)}
+          </button>
+        </div>
+      </div>
+      {rows.length === 0 ? (
+        <div className="py-8 text-center">
+          <Wrench className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-sm text-slate-500">{tl("no_machines", lang)}</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="py-2 pr-3">{tl("serial_number", lang)}</th>
+                <th className="py-2 pr-3">{tl("machine_model", lang)}</th>
+                <th className="py-2 pr-3">{tl("order_no", lang)}</th>
+                <th className="py-2 pr-3">{tl("delivery_date", lang)}</th>
+                <th className="py-2 pr-3">{tl("status", lang)}</th>
+                <th className="py-2 pr-3">{tl("customer", lang)}</th>
+                <th className="py-2 pr-3">{tl("warranty_sp", lang)}</th>
+                <th className="py-2 pr-3">{tl("lifecycle_status", lang)}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((row) => {
+                const meta = crmLifecycleMeta(row, lang);
+                return (
+                  <tr key={row.normalizedSerial}>
+                    <td className="py-3 pr-3 font-mono font-semibold text-slate-900 whitespace-nowrap">{row.serial}</td>
+                    <td className="py-3 pr-3 text-slate-700">{row.machineModel || row.machineType || "—"}</td>
+                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{row.orderNumber || "—"}</td>
+                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{fmtDate(row.deliveryDate)}</td>
+                    <td className="py-3 pr-3 text-slate-700">{row.machineKind === "demo" ? "Demo" : tl("normal_machine", lang)}</td>
+                    <td className="py-3 pr-3 text-slate-700">{row.customerName || "—"}</td>
+                    <td className="py-3 pr-3 text-slate-700">
+                      <div>{row.warrantyCertificate || "—"}</div>
+                      {row.warrantyRegistrationDate && <div className="text-xs text-slate-500">{fmtDate(row.warrantyRegistrationDate)}</div>}
+                    </td>
+                    <td className="py-3 pr-3">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${meta.badge}`}>
+                        {meta.icon}{meta.label}
+                      </span>
+                      {meta.detail && <div className="mt-1 text-xs text-slate-500">{meta.detail}</div>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
