@@ -2612,6 +2612,9 @@ function ContactHero({
 
   const addressLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2, dealer.postal_code, dealer.city, dealer.country]
     .filter(Boolean).join(", ");
+  const addressPrimaryLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2].filter(Boolean).join(", ");
+  const addressSecondaryLine = [dealer.postal_code, dealer.city].filter(Boolean).join(" ");
+  const addressSublabel = [addressPrimaryLine, addressSecondaryLine].filter(Boolean).join("\n") || undefined;
   const hasCoords = typeof dealer.latitude === "number" && typeof dealer.longitude === "number";
   const mapsHref = hasCoords
     ? `https://www.google.com/maps/dir/?api=1&destination=${dealer.latitude},${dealer.longitude}`
@@ -2620,6 +2623,9 @@ function ContactHero({
       : undefined;
   const websiteHref = dealer.website
     ? (dealer.website.startsWith("http") ? dealer.website : `https://${dealer.website}`)
+    : undefined;
+  const websiteDisplay = dealer.website
+    ? dealer.website.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/g, "")
     : undefined;
   const assignedSeller = users.find((u) => {
     const dealerSellerId = (dealer as unknown as { assigned_seller_user_id?: string | null }).assigned_seller_user_id;
@@ -2645,8 +2651,8 @@ function ContactHero({
   const actionsAll: HeroAction[] = [
     callPhone ? { key: "call",   label: callLabel, sublabel: callSublabel, icon: <Phone className="h-5 w-5" />, href: `tel:${callPhone}` } : null,
     mailAddr  ? { key: "mail",   label: tl("send_mail", lang), sublabel: mailSublabel || undefined, icon: <Mail className="h-5 w-5" />, href: `mailto:${mailAddr}` } : null,
-    mapsHref  ? { key: "route",  label: tl("directions", lang),    icon: <MapPin className="h-5 w-5" />,       href: mapsHref } : null,
-    websiteHref ? { key: "web",  label: tl("website", lang),       icon: <Globe className="h-5 w-5" />,        href: websiteHref } : null,
+    mapsHref  ? { key: "route",  label: tl("directions", lang), sublabel: addressSublabel, icon: <MapPin className="h-5 w-5" />, href: mapsHref } : null,
+    websiteHref ? { key: "web",  label: tl("website", lang), sublabel: websiteDisplay, icon: <Globe className="h-5 w-5" />, href: websiteHref } : null,
     { key: "dealer-data", label: tl("open_dealer_data", lang), icon: <Building2 className="h-5 w-5" />, href: dealerDataHref },
   ].filter(Boolean) as HeroAction[];
   const actions = actionsAll;
@@ -2720,32 +2726,23 @@ function ContactHero({
         </div>
       </div>
 
-      {/* Hero card — focus on company contact information */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(280px,0.9fr)_minmax(0,2.1fr)] gap-5 items-start">
-          {/* Company contact information */}
+      {/* Hero card — compact action header */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(220px,0.65fr)_minmax(0,2.35fr)] gap-4 items-stretch">
+          {/* Company identity */}
           <div className="flex items-start gap-4 min-w-0">
             <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-base font-bold shrink-0">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">{tl("contact_info", lang)}</div>
-              <div className="space-y-1 text-xs text-slate-700">
-                {addressLine && (
-                  <div className="flex items-start gap-1.5"><MapPin className="h-3.5 w-3.5 mt-0.5 text-slate-400 shrink-0" /><span className="truncate">{addressLine}</span></div>
-                )}
-                {dealer.phone && (
-                  <div className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" /><a href={`tel:${dealer.phone}`} className="hover:underline">{dealer.phone}</a></div>
-                )}
-                {dealer.email && (
-                  <div className="flex items-center gap-1.5 min-w-0"><Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" /><a href={`mailto:${dealer.email}`} className="truncate hover:underline">{dealer.email}</a></div>
-                )}
-                {websiteHref && (
-                  <div className="flex items-center gap-1.5 min-w-0"><Globe className="h-3.5 w-3.5 text-slate-400 shrink-0" /><a href={websiteHref} target="_blank" rel="noreferrer" className="truncate hover:underline">{dealer.website}</a></div>
-                )}
-                {!dealer.phone && !dealer.email && !addressLine && (
-                  <div className="text-slate-400 italic">—</div>
-                )}
+              <div className="space-y-1">
+                <div className="truncate text-sm font-bold text-slate-900">{dealer.branch_name || dealer.company_name}</div>
+                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+                  <span className="font-mono">#{dealer.account_number}</span>
+                  <span>·</span>
+                  <span>{dealerPresentationType(dealer, lang)}</span>
+                </div>
               </div>
             </div>
           </div>
