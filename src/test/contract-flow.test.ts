@@ -282,6 +282,21 @@ describe('contract flow', () => {
     expect(t('contractFullTextHeading', 'da')).toBe('Kontrakten');
   });
 
+  it('keeps the guided contract step navigation compact on desktop', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const start = source.indexOf('function ProgressSteps');
+    const end = source.indexOf('function ContractSummary');
+    const progressSteps = source.slice(start, end);
+
+    expect(progressSteps).toContain('lg:grid-cols-11');
+    expect(progressSteps).toContain('lg:overflow-x-visible');
+    expect(progressSteps).toContain('auto-cols-[5.9rem]');
+    expect(progressSteps).toContain('text-[9px]');
+    expect(progressSteps).toContain('text-[11px]');
+    expect(progressSteps).not.toContain('w-32');
+    expect(progressSteps).not.toContain('auto-cols-[8rem]');
+  });
+
   it('maps old draft confirmations into the new section ids', () => {
     const legacy = normalizeContractConfirmations({
       collaboration: { confirmed: true, confirmedAt: '2026-08-29T10:00:00.000Z', confirmedBy: 'Birger Pedersen' },

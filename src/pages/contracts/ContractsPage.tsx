@@ -2258,8 +2258,8 @@ function ProgressSteps({
   language: string;
 }) {
   return (
-    <div className="overflow-x-auto pb-0.5">
-      <div className="flex min-w-max gap-1.5">
+    <div className="overflow-x-auto pb-0.5 lg:overflow-x-visible">
+      <div className="grid min-w-max grid-flow-col auto-cols-[5.9rem] gap-1 lg:min-w-0 lg:grid-flow-row lg:auto-cols-auto lg:grid-cols-11 lg:gap-1.5">
         {CONTRACT_STEPS.map((step, index) => {
           const label = getContractStepLabel(step.id, language);
           const confirmationId = step.confirmationId;
@@ -2269,13 +2269,13 @@ function ProgressSteps({
           return (
             <div
               key={step.id}
-              className={`w-32 shrink-0 rounded-xl border px-2.5 py-2 ${active ? 'border-gray-950 bg-gray-950 text-white' : complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-gray-200 bg-white text-gray-600'}`}
+              className={`min-w-0 rounded-lg border px-1.5 py-1.5 ${active ? 'border-gray-950 bg-gray-950 text-white' : complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-gray-200 bg-white text-gray-600'}`}
             >
-              <div className="flex items-center justify-between gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wide leading-none">Trin {index + 1}</span>
-                {complete || (confirmationId && confirmed) ? <CheckCircle2 className="h-3.5 w-3.5 flex-none" /> : null}
+              <div className="flex min-w-0 items-center justify-between gap-1">
+                <span className="text-[9px] font-bold uppercase leading-none tracking-wide">Trin {index + 1}</span>
+                {complete || (confirmationId && confirmed) ? <CheckCircle2 className="h-3 w-3 flex-none" /> : null}
               </div>
-              <p className="mt-1 text-xs font-bold leading-snug">{label.shortTitle}</p>
+              <p className="mt-0.5 break-words text-[11px] font-bold leading-tight">{label.shortTitle}</p>
             </div>
           );
         })}
