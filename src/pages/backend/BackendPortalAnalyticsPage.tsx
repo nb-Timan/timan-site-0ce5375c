@@ -110,7 +110,7 @@ function formatModuleKey(key: string | null | undefined): string {
     marketing: "Marketing",
     marketing_news: "Marketing: Nyheder",
     marketing_site_features: "Marketing: Nye features",
-    dealer_data: "Forhandlerdata",
+    dealer_data: "Partnerdata",
     configurator: "Konfigurator",
     partner_map: "Partnerkort",
     messe: "Messe",

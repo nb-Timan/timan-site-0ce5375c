@@ -141,7 +141,7 @@ export function t(key: keyof typeof CHANGELOG_LABELS, language: PortalUiLanguage
 const M = {
   partner_map: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép' },
   misc:        { da: 'Formularer', en: 'Forms', de: 'Formulare', it: 'Moduli', hu: 'Űrlapok' },
-  dealer_data: { da: 'Forhandlerdata', en: 'Dealer data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok' },
+  dealer_data: { da: 'Partnerdata', en: 'Partner data', de: 'Partnerdaten', it: 'Dati partner', hu: 'Partneradatok' },
   crm:         { da: 'CRM', en: 'CRM', de: 'CRM', it: 'CRM', hu: 'CRM' },
   warranty:    { da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung', it: 'Registrazione garanzia', hu: 'Garanciaregisztráció' },
   claims:      { da: 'Reklamationer', en: 'Claims', de: 'Reklamationen', it: 'Reclami', hu: 'Reklamációk' },

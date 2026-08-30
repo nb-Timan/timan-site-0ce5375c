@@ -278,7 +278,7 @@ export default function BackendDealerAccountsPage() {
             <div className="flex-1">
               <p className="font-semibold">Supabase-login påkrævet</p>
               <p className="mt-1 text-rose-800">
-                Forhandler-data er beskyttet af Row Level Security og kan kun læses af godkendte
+                Partnerdata er beskyttet af Row Level Security og kan kun læses af godkendte
                 Timan Backend brugere. Du har en lokal session, men ingen aktiv Supabase Auth session.
                 Log ind igen med din email og adgangskode for at se data.
               </p>
@@ -760,7 +760,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                 to={`/portal/dealer-data?accountNumber=${encodeURIComponent(r.account_number)}`}
                 className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2 py-1.5 text-xs font-bold text-white hover:bg-emerald-700"
               >
-                <FileText className="h-3 w-3" /> Forhandlerdata
+                <FileText className="h-3 w-3" /> Partnerdata
               </Link>
             )}
             {r.is_deleted ? (
@@ -829,7 +829,7 @@ function renderDealerRow(opts: RenderRowOpts): React.ReactNode {
                       to={`/portal/dealer-data?accountNumber=${encodeURIComponent(r.account_number)}`}
                       className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-2.5 py-1.5 text-[11px] font-bold hover:bg-emerald-100"
                     >
-                      <FileText className="h-3 w-3" /> Åbn Forhandlerdata
+                      <FileText className="h-3 w-3" /> Åbn Partnerdata
                     </Link>
                   </div>
                 )}

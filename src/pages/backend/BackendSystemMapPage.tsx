@@ -816,7 +816,7 @@ function SystemDna({
                 area === filter ? "border-white bg-white text-slate-950" : "border-white/15 text-slate-300 hover:bg-white/10",
               ].join(" ")}
             >
-              {filter === "all" ? "Alle" : filter === "dealer_data" ? "Forhandlerdata" : filter}
+              {filter === "all" ? "Alle" : filter === "dealer_data" ? "Partnerdata" : filter}
             </button>
           ))}
           <Button type="button" variant="secondary" size="icon" onClick={() => setZoom((value) => Math.max(0.38, value - 0.1))} aria-label="Zoom ud">

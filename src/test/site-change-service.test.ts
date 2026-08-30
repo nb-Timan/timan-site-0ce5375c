@@ -82,8 +82,8 @@ describe('site change service', () => {
     expect(entry.title.fr).toBe('Titre français');
     expect(entry.title.pl).toBe('English title');
     expect(entry.description?.pl).toBe('English text.');
-    expect(entry.module_name.de).toBe('Händlerdaten');
-    expect(entry.module_name.fr).toBe('Données revendeur');
+    expect(entry.module_name.de).toBe('Partnerdaten');
+    expect(entry.module_name.fr).toBe('Données partenaire');
   });
 
   it('keeps specific audience roles separate for published changes', () => {

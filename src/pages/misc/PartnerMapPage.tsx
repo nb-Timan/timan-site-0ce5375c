@@ -25,6 +25,14 @@ import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { formatDate } from '@/lib/format-date';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import {
+  PARTNER_ACCOUNT_MAP_TYPE_IDS,
+  getPartnerAccountTypeColor,
+  getPartnerAccountTypeLabel,
+  isPublicPartnerAccountType,
+  resolvePartnerAccountType,
+  type PartnerAccountTypeId,
+} from '@/lib/partnerAccountTypes';
+import {
   DENMARK_MUNICIPALITIES_GEOJSON_URL,
   getDenmarkMunicipalityLabel,
   getDenmarkMunicipalityDisplayName,
@@ -32,7 +40,7 @@ import {
 } from '@/lib/denmarkMunicipalities';
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 
-type PartnerType = 'dealer' | 'service_partner' | 'importer' | 'demo_location' | 'dealer_customer';
+type PartnerType = PartnerAccountTypeId;
 
 interface Partner {
   id: string;
@@ -76,23 +84,10 @@ function withCartoBasemapKey(url: string): string {
   return `${url}${url.includes('?') ? '&' : '?'}key=${encodeURIComponent(CARTO_BASEMAP_KEY)}`;
 }
 
-const TYPE_COLORS: Record<PartnerType, string> = {
-  dealer: '#dc2626',
-  service_partner: '#16a34a',
-  importer: '#2563eb',
-  demo_location: '#7c3aed',
-  dealer_customer: '#64748b',
-};
-
 const T: Record<string, Record<Language, string>> = {
   title: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép' },
-  intro: { da: 'Forhandlere fra SharePoint/Supabase. Manglende koordinater vises i panelet til højre.', en: 'Dealers from SharePoint/Supabase.', de: 'Händler aus SharePoint/Supabase.', it: 'Rivenditori da SharePoint/Supabase.', hu: 'Forgalmazók SharePoint/Supabase-ből.' },
+  intro: { da: 'Partnere fra SharePoint/Supabase. Manglende koordinater vises i panelet til højre.', en: 'Partners from SharePoint/Supabase.', de: 'Partner aus SharePoint/Supabase.', it: 'Partner da SharePoint/Supabase.', hu: 'Partnerek SharePoint/Supabase-ből.' },
   search: { da: 'Søg på land, by, sælger, firma eller kontonr.', en: 'Search…', de: 'Suchen…', it: 'Cerca…', hu: 'Keresés…' },
-  dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Forgalmazó' },
-  service_partner: { da: 'Servicepartner', en: 'Service partner', de: 'Servicepartner', it: 'Servizio', hu: 'Szervizpartner' },
-  importer: { da: 'Importør', en: 'Importer', de: 'Importeur', it: 'Importatore', hu: 'Importőr' },
-  demo_location: { da: 'Demonstrationer', en: 'Demonstrations', de: 'Demonstrationen', it: 'Dimostrazioni', hu: 'Bemutatók' },
-  dealer_customer: { da: 'Forhandlerkunde', en: 'Dealer customer', de: 'Dealer customer', it: 'Cliente rivenditore', hu: 'Dealer customer' },
   allSellers: { da: 'Alle sælgere', en: 'All sellers', de: 'Alle', it: 'Tutti', hu: 'Mind' },
   resetView: { da: 'Vis Europa', en: 'Show Europe', de: 'Europa', it: 'Europa', hu: 'Európa' },
   users: { da: 'Brugere', en: 'Users', de: 'Benutzer', it: 'Utenti', hu: 'Felh.' },
@@ -220,12 +215,12 @@ const EXPECTED_EUROPE = ['Denmark','Sweden','Norway','Finland','Germany','Nether
 function countryKey(name: string): string { return name.trim().toLowerCase(); }
 function getCountryInfo(name: string) { return COUNTRY_INFO[countryKey(name)]; }
 
-function normalizeType(t: string | null): PartnerType {
-  const v = (t ?? '').toLowerCase();
-  if (v === 'service_partner' || v === 'service' || v === 'servicepartner') return 'service_partner';
-  if (v === 'importer' || v === 'importør') return 'importer';
-  if (v === 'demo_location' || v === 'demo') return 'demo_location';
-  return 'dealer';
+function partnerTypeLabel(type: PartnerType, lang: Language): string {
+  return getPartnerAccountTypeLabel(type, lang as PortalUiLanguage);
+}
+
+function partnerTypeColor(type: PartnerType): string {
+  return getPartnerAccountTypeColor(type);
 }
 
 function splitPostalCity(raw: string | null | undefined): { postal: string; city: string } {
@@ -263,7 +258,7 @@ function pinSvgMarkup(color: string, width = 36, height = 44): string {
 }
 
 function makePinDivIcon(type: PartnerType, selected: boolean): L.DivIcon {
-  const color = TYPE_COLORS[type];
+  const color = partnerTypeColor(type);
   const sel = selected ? 'pm-pin--selected' : '';
   const html = `
     <div class="pm-pin ${sel}">${pinSvgMarkup(color)}</div>`;
@@ -833,8 +828,8 @@ function ClusterLayer({
       });
 
       if (hoverCapable) {
-        const color = TYPE_COLORS[p.type];
-        const typeLabel = T[p.type][lang];
+        const color = partnerTypeColor(p.type);
+        const typeLabel = partnerTypeLabel(p.type, lang);
         const sellerText = [p.sellerName, p.seller ? `(${p.seller})` : ''].filter(Boolean).join(' ');
         const sellerLine = sellerText
           ? `<div class="pm-tt-row"><span class="pm-tt-k">${escapeHtml(tSeller)}:</span> ${escapeHtml(sellerText)}</div>`
@@ -892,8 +887,8 @@ function ClusterLayer({
       const headerCount = lang === 'da' ? 'partnere' : lang === 'de' ? 'Partner' : lang === 'it' ? 'partner' : lang === 'hu' ? 'partner' : 'partners';
       const moreLabel = lang === 'da' ? 'flere' : lang === 'de' ? 'weitere' : lang === 'it' ? 'altri' : lang === 'hu' ? 'további' : 'more';
       const rows = shown.map((p) => {
-        const color = TYPE_COLORS[p.type];
-        const typeLabel = T[p.type][lang];
+        const color = partnerTypeColor(p.type);
+        const typeLabel = partnerTypeLabel(p.type, lang);
         return `<button type="button" class="pm-tt-cluster-row" data-partner-id="${escapeHtml(p.id)}">
           <span class="pm-tt-cluster-dot" style="background:${color}"></span>
           <span class="pm-tt-cluster-name">${escapeHtml(p.name)}</span>
@@ -961,8 +956,8 @@ function ClusterLayer({
         const headerCount = lang === 'da' ? 'partnere' : lang === 'de' ? 'Partner' : lang === 'it' ? 'partner' : lang === 'hu' ? 'partner' : 'partners';
         const moreLabel = lang === 'da' ? 'flere' : lang === 'de' ? 'weitere' : lang === 'it' ? 'altri' : lang === 'hu' ? 'további' : 'more';
         const rows = shown.map((p) => {
-          const color = TYPE_COLORS[p.type];
-          const typeLabel = T[p.type][lang];
+          const color = partnerTypeColor(p.type);
+          const typeLabel = partnerTypeLabel(p.type, lang);
           return `<button type="button" class="pm-tt-cluster-row" data-partner-id="${escapeHtml(p.id)}">
             <span class="pm-tt-cluster-dot" style="background:${color}"></span>
             <span class="pm-tt-cluster-name">${escapeHtml(p.name)}</span>
@@ -1241,7 +1236,7 @@ export default function PartnerMapPage() {
     return (d.initials || '').toUpperCase() || null;
   }, [sellerDir, effectiveUser?.email, appUser]);
   const [search, setSearch] = useState('');
-  const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer']));
+  const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer','supplier']));
   const [sellerFilter, setSellerFilter] = useState<string>('all');
   // Phase 60 — successor filter. Default: kun aktive forhandlere på kortet.
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
@@ -1346,7 +1341,10 @@ export default function PartnerMapPage() {
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
+      const accountType = resolvePartnerAccountType(d);
       const isDealerCustomer = isDealerCustomerAccount(d);
+      if (isPublicMesseMapView && !isPublicPartnerAccountType(accountType)) return false;
+      if (!isPublicMesseMapView && !canSeeInternalMapFeatures && !isPublicPartnerAccountType(accountType)) return false;
       if (isPublicMesseMapView && isDealerCustomer) return false;
       if (isDealerCustomer && !canOpenCrm) return false;
       // Dealer-side users may see all partner accounts (Forhandler, Servicepartner,
@@ -1355,11 +1353,11 @@ export default function PartnerMapPage() {
       // inactive status filtering is internal-only; dealer-side users see all active
       // partners (and skip soft-deleted/blocked accounts to avoid stale entries).
       if (isDealerSide) {
-        if (normalizeType(d.dealer_type) === 'demo_location') return false;
+        if (accountType === 'demo_location') return false;
         if (d.is_deleted || d.is_blocked) return false;
         return true;
       }
-      if (!canSeeDemoLocations && normalizeType(d.dealer_type) === 'demo_location') return false;
+      if (!canSeeDemoLocations && accountType === 'demo_location') return false;
       if (d.is_deleted && statusFilter === 'active') return false;
       if (d.is_blocked && statusFilter === 'active') return false;
       if (statusFilter === 'inactive' && !d.is_blocked && !d.is_deleted) return false;
@@ -1369,12 +1367,13 @@ export default function PartnerMapPage() {
     .map((d) => {
       const st = stats[d.id];
       const hasCoords = d.latitude != null && d.longitude != null;
+      const accountType = resolvePartnerAccountType(d);
       const isDealerCustomer = isDealerCustomerAccount(d);
       const address = resolveDealerMapAddress(d);
       return {
         id: d.id,
         name: d.company_name,
-        type: isDealerCustomer ? 'dealer_customer' : normalizeType(d.dealer_type),
+        type: isDealerCustomer ? 'dealer_customer' : accountType,
         account: d.account_number,
         country: d.country ?? '',
         city: address.city,
@@ -1761,7 +1760,8 @@ export default function PartnerMapPage() {
                 {search && (<button onClick={() => setSearch('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"><X className="h-4 w-4" /></button>)}
               </div>
               <div className="flex items-center gap-1.5">
-                {(['dealer','service_partner','importer','demo_location','dealer_customer'] as PartnerType[])
+                {PARTNER_ACCOUNT_MAP_TYPE_IDS
+                  .filter((t) => isPublicPartnerAccountType(t) || canSeeInternalMapFeatures)
                   .filter((t) => t !== 'demo_location' || canSeeDemoLocations)
                   .filter((t) => t !== 'dealer_customer' || canOpenCrm)
                   .map((t) => {
@@ -1769,8 +1769,8 @@ export default function PartnerMapPage() {
                   return (
                     <button key={t} onClick={() => toggleType(t)}
                       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-medium transition-colors ${on ? 'bg-gray-50 text-gray-800 border border-gray-200' : 'bg-white text-gray-400 border border-transparent hover:border-gray-200'}`}>
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: on ? TYPE_COLORS[t] : '#d1d5db' }} />
-                      {T[t][lang]}
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ background: on ? partnerTypeColor(t) : '#d1d5db' }} />
+                      {partnerTypeLabel(t, lang)}
                     </button>
                   );
                 })}
@@ -1975,7 +1975,7 @@ export default function PartnerMapPage() {
                                 onClick={() => focusPartner(p)}
                                 className={`w-full text-left px-3 py-2 border-b border-gray-50 hover:bg-white transition-colors flex items-start gap-2 ${isSel ? 'bg-white' : ''}`}
                               >
-                                <span className="mt-1 w-2.5 h-2.5 rounded-full shrink-0" style={{ background: TYPE_COLORS[p.type] }} />
+                                <span className="mt-1 w-2.5 h-2.5 rounded-full shrink-0" style={{ background: partnerTypeColor(p.type) }} />
                                 <div className="min-w-0 flex-1">
                                   <div className={`text-xs font-semibold truncate ${isSel ? 'text-[#2d5a27]' : 'text-gray-900'}`}>{p.name}</div>
                                   <div className="text-[10px] text-gray-500 truncate">
@@ -2105,13 +2105,13 @@ export default function PartnerMapPage() {
                             lg:right-8
                             animate-in slide-in-from-bottom sm:slide-in-from-right duration-300 overflow-y-auto">
             <div className="relative">
-              <div className="h-2" style={{ background: TYPE_COLORS[selected.type] }} />
+              <div className="h-2" style={{ background: partnerTypeColor(selected.type) }} />
               <div className="px-5 pt-4 pb-3 border-b border-gray-100">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-sm" style={{ background: TYPE_COLORS[selected.type] }}>
-                        {T[selected.type][lang]}
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-sm" style={{ background: partnerTypeColor(selected.type) }}>
+                        {partnerTypeLabel(selected.type, lang)}
                       </span>
                       {selected.account && (
                         <span className="text-[10px] font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">#{selected.account}</span>

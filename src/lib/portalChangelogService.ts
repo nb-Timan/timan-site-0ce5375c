@@ -142,7 +142,7 @@ function localizeFromContent(
 const MODULE_LABELS: Record<string, Partial<Record<PortalUiLanguage, string>>> = {
   crm: { da: 'CRM', en: 'CRM', de: 'CRM', it: 'CRM', hu: 'CRM', sv: 'CRM', fr: 'CRM', pl: 'CRM', cs: 'CRM' },
   leads: { da: 'Leads', en: 'Leads', de: 'Leads', it: 'Lead', hu: 'Érdeklődők', sv: 'Leads', fr: 'Leads', pl: 'Leady', cs: 'Leady' },
-  dealer_data: { da: 'Forhandlerdata', en: 'Dealer data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok', sv: 'Återförsäljardata', fr: 'Données revendeur', pl: 'Dane dealera', cs: 'Data prodejce' },
+  dealer_data: { da: 'Partnerdata', en: 'Partner data', de: 'Partnerdaten', it: 'Dati partner', hu: 'Partneradatok', sv: 'Partnerdata', fr: 'Données partenaire', pl: 'Dane partnera', cs: 'Data partnera' },
   dealer_portal: { da: 'Forhandlerportal', en: 'Dealer portal', de: 'Händlerportal', it: 'Portale rivenditore', hu: 'Kereskedői portál', sv: 'Återförsäljarportal', fr: 'Portail revendeur', pl: 'Portal dealera', cs: 'Portál prodejce' },
   service: { da: 'Service & Teknik', en: 'Service & Technical', de: 'Service & Technik', it: 'Assistenza e tecnica', hu: 'Szerviz és műszaki', sv: 'Service och teknik', fr: 'Service et technique', pl: 'Serwis i technika', cs: 'Servis a technika' },
   messe: { da: 'Messe', en: 'Exhibition', de: 'Messe', it: 'Fiera', hu: 'Kiállítás', sv: 'Mässa', fr: 'Salon', pl: 'Targi', cs: 'Veletrh' },

@@ -12,6 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import { listScopedOrdersWithValue } from "@/lib/crmConfigurationsService";
 import { dealerKeyOf } from "@/lib/crmRelationsService";
+import { normalizePartnerAccountType, resolvePartnerAccountType } from "@/lib/partnerAccountTypes";
 
 export interface DealerAccount {
   id: string;
@@ -102,10 +103,7 @@ export function isDealerInactive(d: Pick<DealerAccount, "is_deleted" | "is_block
 export function isDealerCustomerAccount(
   d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type">,
 ): boolean {
-  return [d.customer_type, d.customer_type_label, d.dealer_type].some((value) => {
-    const normalized = (value ?? "").toLowerCase().replace(/[\s_-]+/g, "");
-    return normalized === "forhandlerkunde" || normalized === "dealercustomer";
-  });
+  return resolvePartnerAccountType(d) === "dealer_customer";
 }
 
 
@@ -223,7 +221,7 @@ export async function fetchDealerAccounts(opts: { includeDeleted?: boolean } = {
       source: "fallback",
       rows: [],
       error:
-        "Du er ikke logget ind med Supabase Auth. Forhandler-data kræver, at " +
+        "Du er ikke logget ind med Supabase Auth. Partnerdata kræver, at " +
         "du logger ind med email og adgangskode som godkendt Timan Backend bruger.",
     };
   }
@@ -1270,10 +1268,7 @@ export const DEALER_TYPE_OPTIONS = [
 ] as const;
 
 export function dealerTypeFromCustomerType(label: string | null | undefined): string | null {
-  if (label === "Service Partner") return "service_partner";
-  if (label === "Importør") return "importer";
-  if (!label) return null;
-  return "dealer";
+  return normalizePartnerAccountType(label);
 }
 
 /** Map SharePoint/CSV A_B_KUNDE value to the visible customer type label. */

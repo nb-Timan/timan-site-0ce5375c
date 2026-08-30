@@ -96,7 +96,7 @@ export const PORTAL_AREAS: PortalArea[] = [
   },
   {
     id: 'dealer_data',
-    title: { da: 'Forhandlerdata', en: 'Dealer Data', de: 'Händlerdaten', it: 'Dati rivenditore', hu: 'Kereskedői adatok' },
+    title: { da: 'Partnerdata', en: 'Partner data', de: 'Partnerdaten', it: 'Dati partner', hu: 'Partneradatok' },
     description: {
       da: 'Stamdata, kontaktinformation, brugere og dine tilbud/ordrer.',
       en: 'Master data, contacts, users and your quotes/orders.',
