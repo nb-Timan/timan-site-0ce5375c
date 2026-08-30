@@ -11,6 +11,8 @@ import {
   canLeaveContractStep,
   canPrepareContractForSignature,
   CONTRACT_STEPS,
+  getContractAppendixLabel,
+  getContractStepLabel,
   type ContractSnapshot,
   type ContractStatus,
   ContractConfirmations,
@@ -30,17 +32,17 @@ import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS } from '@/lib/contractA
 
 const CONTRACT_DOCS = [
   { title: 'Forhandlerkontrakt Timan', href: '/contracts/forhandlerkontrakt-timan.pdf', section: 'Hovedaftale' },
-  { title: 'Bilag 1 - Service', href: '/contracts/bilag-1-service-kontrakt-timan.pdf', section: 'Timans ansvar' },
-  { title: 'Bilag 2 - Rabat', href: '/contracts/bilag-2-rabat-kontrakt-timan.pdf', section: 'Kommercielle vilkår' },
   { title: 'Bilag 3 - Salgsområde', href: '/contracts/bilag-3-salgsomraade-kontrakt-timan.pdf', section: 'Samarbejde' },
+  { title: 'Bilag 2 - Rabat', href: '/contracts/bilag-2-rabat-kontrakt-timan.pdf', section: 'Rabatstruktur' },
   { title: 'Bilag 4 - Salgs- og leveringsbetingelser', href: '/contracts/bilag-4-salgs-og-leveringsbetingelser-timan.pdf', section: 'Kommercielle vilkår' },
+  { title: 'Bilag 1 - Service', href: '/contracts/bilag-1-service-kontrakt-timan.pdf', section: 'Service' },
 ];
 
 const STEP_DOCUMENTS: Partial<Record<(typeof CONTRACT_STEPS)[number]['id'], typeof CONTRACT_DOCS>> = {
   collaboration: CONTRACT_DOCS.filter((doc) => ['Hovedaftale', 'Samarbejde'].includes(doc.section)),
-  timan_responsibility: CONTRACT_DOCS.filter((doc) => ['Hovedaftale', 'Timans ansvar'].includes(doc.section)),
-  dealer_responsibility: CONTRACT_DOCS.filter((doc) => doc.section === 'Hovedaftale'),
-  commercial_terms: CONTRACT_DOCS.filter((doc) => ['Kommercielle vilkår', 'Hovedaftale'].includes(doc.section)),
+  commercial_terms: CONTRACT_DOCS.filter((doc) => doc.section === 'Rabatstruktur'),
+  dealer_responsibility: CONTRACT_DOCS.filter((doc) => doc.section === 'Kommercielle vilkår'),
+  timan_responsibility: CONTRACT_DOCS.filter((doc) => doc.section === 'Service'),
   full_contract: CONTRACT_DOCS,
 };
 
@@ -234,7 +236,7 @@ function drawAppendix2Pdf(pdf: any, left: number, right: number) {
 export default function ContractsPage() {
   const { appUser, loading, logout } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [activeStepIndex, setActiveStepIndex] = useState(0);
@@ -373,6 +375,8 @@ export default function ContractsPage() {
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   const hasAccess = portalRole === 'timan_backend' || hasModuleAccess(portalRole, 'contracts', moduleOverride);
   const activeStep = CONTRACT_STEPS[activeStepIndex];
+  const activeStepLabel = getContractStepLabel(activeStep.id, uiLanguage);
+  const appendixLabel = getContractAppendixLabel(uiLanguage);
   const status = getContractStatus(form, confirmations);
   const isSigned = status === 'Signed';
   const readyForSignature = canPrepareContractForSignature(form, confirmations);
@@ -583,11 +587,14 @@ export default function ContractsPage() {
     pdf.text('Bekræftelser', left, y);
     y += 6;
     pdf.setFont('helvetica', 'normal');
-    Object.entries(pdfSnapshot.confirmations).forEach(([key, confirmation]) => {
-      const confirmedAt = confirmation.confirmedAt ? new Date(confirmation.confirmedAt).toLocaleString('da-DK') : '-';
-      pdf.text(`${key}: ${confirmation.confirmed ? 'Bekræftet' : 'Ikke bekræftet'} · ${confirmedAt} · ${confirmation.confirmedBy || '-'}`, left, y);
-      y += 6;
-    });
+    CONTRACT_STEPS
+      .filter((step) => step.confirmationId)
+      .forEach((step) => {
+        const confirmation = pdfSnapshot.confirmations[step.confirmationId!];
+        const confirmedAt = confirmation.confirmedAt ? new Date(confirmation.confirmedAt).toLocaleString('da-DK') : '-';
+        pdf.text(`${getContractStepLabel(step.id, 'da').title}: ${confirmation.confirmed ? 'Bekræftet' : 'Ikke bekræftet'} · ${confirmedAt} · ${confirmation.confirmedBy || '-'}`, left, y);
+        y += 6;
+      });
 
     y = 222;
     pdf.setDrawColor(81, 127, 202);
@@ -683,7 +690,7 @@ export default function ContractsPage() {
                 Gem kladde
               </button>
             </div>
-            <ProgressSteps activeStepIndex={activeStepIndex} confirmations={confirmations} />
+            <ProgressSteps activeStepIndex={activeStepIndex} confirmations={confirmations} language={uiLanguage} />
           </div>
         </div>
       </header>
@@ -693,7 +700,14 @@ export default function ContractsPage() {
           <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
             <div className="mb-6">
               <p className="text-sm font-bold uppercase tracking-wide text-amber-700">Trin {activeStepIndex + 1} af {CONTRACT_STEPS.length}</p>
-              <h2 className="mt-1 text-2xl font-bold text-gray-950">{activeStep.title}</h2>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <h2 className="text-2xl font-bold text-gray-950">{activeStepLabel.title}</h2>
+                {activeStep.appendix && (
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-amber-800">
+                    {appendixLabel}
+                  </span>
+                )}
+              </div>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">{activeStep.intro}</p>
             </div>
 
@@ -1081,11 +1095,20 @@ function Appendix2DiscountSection() {
   );
 }
 
-function ProgressSteps({ activeStepIndex, confirmations }: { activeStepIndex: number; confirmations: ContractConfirmations }) {
+function ProgressSteps({
+  activeStepIndex,
+  confirmations,
+  language,
+}: {
+  activeStepIndex: number;
+  confirmations: ContractConfirmations;
+  language: string;
+}) {
   return (
     <div className="overflow-x-auto pb-0.5">
       <div className="grid min-w-[720px] grid-cols-7 gap-1.5 md:w-full">
         {CONTRACT_STEPS.map((step, index) => {
+          const label = getContractStepLabel(step.id, language);
           const confirmationId = step.confirmationId;
           const confirmed = !confirmationId || confirmations[confirmationId]?.confirmed;
           const active = index === activeStepIndex;
@@ -1099,7 +1122,7 @@ function ProgressSteps({ activeStepIndex, confirmations }: { activeStepIndex: nu
                 <span className="text-[10px] font-bold uppercase tracking-wide leading-none">Trin {index + 1}</span>
                 {complete || (confirmationId && confirmed) ? <CheckCircle2 className="h-3.5 w-3.5 flex-none" /> : null}
               </div>
-              <p className="mt-1 text-xs font-bold leading-snug">{step.shortTitle}</p>
+              <p className="mt-1 text-xs font-bold leading-snug">{label.shortTitle}</p>
             </div>
           );
         })}

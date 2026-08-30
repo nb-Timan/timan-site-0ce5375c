@@ -5,7 +5,9 @@ import {
   buildContractSnapshot,
   EMPTY_CONTRACT_CONFIRMATIONS,
   CONTRACT_STEPS,
+  CONTRACT_APPENDIX_LABELS,
   getCompletedContractStepIds,
+  getContractStepLabel,
   getContractStatus,
   hasRequiredPartyData,
   TIMAN_COMPANY_INFO,
@@ -67,15 +69,46 @@ describe('contract flow', () => {
     expect(getCompletedContractStepIds(4, confirmed)).toEqual([
       'parties',
       'collaboration',
-      'timan_responsibility',
+      'commercial_terms',
       'dealer_responsibility',
     ]);
   });
 
-  it('labels the discount step as Rabat struktur', () => {
-    const discountStep = CONTRACT_STEPS.find((step) => step.id === 'commercial_terms');
-    expect(discountStep?.title).toBe('Rabat struktur');
-    expect(discountStep?.shortTitle).toBe('Rabat struktur');
+  it('uses the new guided contract step order and Danish labels', () => {
+    expect(CONTRACT_STEPS.map((step) => step.id)).toEqual([
+      'parties',
+      'collaboration',
+      'commercial_terms',
+      'dealer_responsibility',
+      'timan_responsibility',
+      'full_contract',
+      'signature',
+    ]);
+    expect(CONTRACT_STEPS.map((step) => getContractStepLabel(step.id, 'da').title)).toEqual([
+      'Oplysninger',
+      'Salgsområder og samarbejde',
+      'Rabatstruktur (Bilag)',
+      'Salgs- og leveringsbetingelser',
+      'Service (Bilag)',
+      'Gennemlæs',
+      'Underskrift',
+    ]);
+  });
+
+  it('defines guided contract step labels for every portal language', () => {
+    const languages = ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'] as const;
+    for (const language of languages) {
+      expect(CONTRACT_APPENDIX_LABELS[language]).toBeTruthy();
+      for (const step of CONTRACT_STEPS) {
+        expect(getContractStepLabel(step.id, language).title).toBeTruthy();
+        expect(getContractStepLabel(step.id, language).shortTitle).toBeTruthy();
+      }
+    }
+  });
+
+  it('marks the discount and service steps as appendices', () => {
+    expect(CONTRACT_STEPS.find((step) => step.id === 'commercial_terms')?.appendix).toBe(true);
+    expect(CONTRACT_STEPS.find((step) => step.id === 'timan_responsibility')?.appendix).toBe(true);
   });
 
   it('stores the contract snapshot with Timan data and signature state', () => {
