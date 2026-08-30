@@ -18,38 +18,50 @@ describe('contract territory map config', () => {
     expect(CONTRACT_TERRITORY_MAP_COUNTRIES.DE.geoJsonUrl).toBe('/data/germany-plz2.geojson');
   });
 
-  it('resolves German PLZ entries to existing PLZ2 regions', () => {
+  it('uses selected German PLZ2 regions and keeps postal fields separate', () => {
     const area: ContractTerritoryArea = {
       country: 'DE',
       wholeCountry: false,
+      selectedRegions: [
+        { id: '20', name: 'PLZ2 20' },
+        { id: '34', name: 'PLZ2 34' },
+      ],
       municipalities: [],
       postalEntries: [
-        { input: '39104', postalCode: '39104' },
-        { input: '20000-29999', postalRange: { from: '20000', to: '29999' } },
+        { input: '10115', postalCode: '10115' },
+        { input: '34117', postalCode: '34117' },
       ],
-      postalCodes: ['39104'],
-      postalRanges: [{ from: '20000', to: '29999' }],
+      postalCodes: ['10115', '34117'],
+      postalRanges: [],
     };
 
-    expect(getContractTerritoryMapRegionKeys(area)).toEqual([
-      '20',
-      '21',
-      '22',
-      '23',
-      '24',
-      '25',
-      '26',
-      '27',
-      '28',
-      '29',
-      '39',
-    ]);
+    expect(getContractTerritoryMapRegionKeys(area)).toEqual(['20', '34']);
+    expect(hasContractTerritoryMapSelection(area)).toBe(true);
+  });
+
+  it('does not use German postal entries as map region keys', () => {
+    const area: ContractTerritoryArea = {
+      country: 'DE',
+      wholeCountry: false,
+      selectedRegions: [],
+      municipalities: [],
+      postalEntries: [{ input: '10115', postalCode: '10115' }],
+      postalCodes: ['10115'],
+      postalRanges: [],
+    };
+
+    expect(getContractTerritoryMapRegionKeys(area)).toEqual([]);
+    expect(hasContractTerritoryMapSelection(area)).toBe(false);
   });
 
   it('resolves Danish map regions from municipalities and keeps postal fields separate', () => {
     const area: ContractTerritoryArea = {
       country: 'DK',
       wholeCountry: false,
+      selectedRegions: [
+        { id: '0657', name: 'Herning' },
+        { id: '0760', name: 'Ringkøbing-Skjern' },
+      ],
       municipalities: [
         { id: '0657', name: 'Herning' },
         { id: '0760', name: 'Ringkøbing-Skjern' },
@@ -69,6 +81,7 @@ describe('contract territory map config', () => {
     const area: ContractTerritoryArea = {
       country: 'DK',
       wholeCountry: false,
+      selectedRegions: [],
       municipalities: [],
       postalEntries: [{ input: '6950', postalCode: '6950' }],
       postalCodes: ['6950'],
@@ -111,6 +124,7 @@ describe('contract territory map config', () => {
     expect(hasContractTerritoryMapSelection({
       country: 'DE',
       wholeCountry: true,
+      selectedRegions: [],
       municipalities: [],
       postalEntries: [],
       postalCodes: [],

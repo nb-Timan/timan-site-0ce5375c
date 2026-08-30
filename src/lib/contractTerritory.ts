@@ -3,10 +3,12 @@ import { resolveContractPostalAreaMetadata } from '@/lib/contractPostalMetadata'
 
 export type ContractTerritoryCountryCode = 'DK' | 'DE';
 
-export type ContractTerritoryMunicipality = {
+export type ContractTerritoryRegion = {
   id: string;
   name: string;
 };
+
+export type ContractTerritoryMunicipality = ContractTerritoryRegion;
 
 export type ContractPostalRange = {
   from: string;
@@ -22,6 +24,7 @@ export type ContractPostalEntry = {
 export type ContractTerritoryArea = {
   country: ContractTerritoryCountryCode;
   wholeCountry: boolean;
+  selectedRegions: ContractTerritoryRegion[];
   municipalities: ContractTerritoryMunicipality[];
   postalEntries: ContractPostalEntry[];
   postalCodes: string[];
@@ -154,30 +157,33 @@ function unique(values: string[]) {
   return Array.from(new Set(values));
 }
 
-export function normalizeContractTerritoryMunicipality(value: unknown): ContractTerritoryMunicipality | null {
-  const raw = value as Partial<ContractTerritoryMunicipality> | null | undefined;
+export function normalizeContractTerritoryRegion(value: unknown): ContractTerritoryRegion | null {
+  const raw = value as Partial<ContractTerritoryRegion> | null | undefined;
   const id = String(raw?.id ?? '').trim();
   const name = String(raw?.name ?? '').trim();
-  if (!/^\d{4}$/.test(id) || !name) return null;
+  if (!/^\d{2,4}$/.test(id) || !name) return null;
   return { id, name };
 }
 
-export function normalizeContractTerritoryMunicipalities(value: unknown): ContractTerritoryMunicipality[] {
+export function normalizeContractTerritoryRegions(value: unknown): ContractTerritoryRegion[] {
   const items = Array.isArray(value) ? value : [];
-  const byId = new Map<string, ContractTerritoryMunicipality>();
+  const byId = new Map<string, ContractTerritoryRegion>();
 
   for (const item of items) {
-    const municipality = normalizeContractTerritoryMunicipality(item);
-    if (municipality && !byId.has(municipality.id)) byId.set(municipality.id, municipality);
+    const region = normalizeContractTerritoryRegion(item);
+    if (region && !byId.has(region.id)) byId.set(region.id, region);
   }
 
   return Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name, 'da'));
 }
 
+export const normalizeContractTerritoryMunicipalities = normalizeContractTerritoryRegions;
+
 export function createEmptyContractTerritoryArea(country: ContractTerritoryCountryCode = 'DK'): ContractTerritoryArea {
   return {
     country,
     wholeCountry: false,
+    selectedRegions: [],
     municipalities: [],
     postalEntries: [],
     postalCodes: [],
@@ -206,6 +212,13 @@ export function normalizeContractTerritoryArea(
     .map((range) => normalizePostalRange(range, digits))
     .filter((range): range is ContractPostalRange => Boolean(range));
   const rawPostalEntries = Array.isArray(raw?.postalEntries) ? raw.postalEntries : [];
+  const selectedRegions = raw?.wholeCountry
+    ? []
+    : normalizeContractTerritoryRegions(
+        Array.isArray(raw?.selectedRegions)
+          ? raw.selectedRegions
+          : raw?.municipalities,
+      );
   const postalEntries = rawPostalEntries.length > 0
     ? rawPostalEntries.map((entry) => normalizePostalEntry(entry, digits))
     : [
@@ -217,9 +230,8 @@ export function normalizeContractTerritoryArea(
   return {
     country,
     wholeCountry: Boolean(raw?.wholeCountry),
-    municipalities: country === 'DK' && !raw?.wholeCountry
-      ? normalizeContractTerritoryMunicipalities(raw?.municipalities)
-      : [],
+    selectedRegions,
+    municipalities: country === 'DK' ? selectedRegions : [],
     postalEntries,
     postalCodes: unique(validEntries.map((entry) => entry.postalCode).filter((code): code is string => Boolean(code))),
     postalRanges: validEntries.map((entry) => entry.postalRange).filter((range): range is ContractPostalRange => Boolean(range)),
@@ -317,15 +329,16 @@ function formatContractTerritoryPostalEntry(
     : entry.postalCode;
 }
 
-function formatContractTerritoryMunicipalityName(municipality: ContractTerritoryMunicipality) {
-  return /\bkommune$/i.test(municipality.name) ? municipality.name : `${municipality.name} Kommune`;
+function formatContractTerritoryRegionName(area: ContractTerritoryArea, region: ContractTerritoryRegion) {
+  if (area.country === 'DK' && !/\bkommune$/i.test(region.name)) return `${region.name} Kommune`;
+  return region.name;
 }
 
 export function isValidContractTerritoryArea(area: ContractTerritoryArea) {
   if (area.wholeCountry) return true;
   const normalized = normalizeContractTerritoryArea(area);
   const firstEntry = normalized.postalEntries[0];
-  return Boolean(firstEntry?.postalCode || firstEntry?.postalRange);
+  return normalized.selectedRegions.length > 0 || Boolean(firstEntry?.postalCode || firstEntry?.postalRange);
 }
 
 export function hasValidContractTerritory(form: {
@@ -368,16 +381,17 @@ export function getContractTerritoryDisplayItems(
   if (area.wholeCountry) {
     return [language === 'en' ? `${country} - Whole country` : `${country} - Hele landet`];
   }
-  const municipalityItems = area.country === 'DK'
-    ? area.municipalities.map((municipality) => `${language === 'en' ? 'Municipality' : 'Kommune'}: ${formatContractTerritoryMunicipalityName(municipality)}`)
-    : [];
+  const regionLabel = area.country === 'DK'
+    ? (language === 'en' ? 'Municipality' : 'Kommune')
+    : (language === 'en' ? 'Selected area' : 'Valgt område');
+  const regionItems = area.selectedRegions.map((region) => `${regionLabel}: ${formatContractTerritoryRegionName(area, region)}`);
   const postalItems = area.postalEntries
     .filter((entry) => entry.postalCode || entry.postalRange)
     .map((entry) => formatContractTerritoryPostalEntry(area, entry))
     .filter(Boolean);
   return [
     `${language === 'en' ? 'Country' : 'Land'}: ${country}`,
-    ...municipalityItems,
+    ...regionItems,
     ...postalItems.map((item) => `${language === 'en' ? 'Postal code' : 'Postnummer'}: ${item}`),
   ];
 }

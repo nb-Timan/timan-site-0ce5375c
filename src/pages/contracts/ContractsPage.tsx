@@ -80,7 +80,7 @@ import {
   serializeContractPostalInput,
   type ContractSecondaryTerritoryArea,
   type ContractTerritoryArea,
-  type ContractTerritoryMunicipality,
+  type ContractTerritoryRegion,
 } from '@/lib/contractTerritory';
 import {
   DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
@@ -1465,13 +1465,13 @@ function TerritoryStepFields({
   const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
   const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
   const primaryValid = isValidContractTerritoryArea(primaryTerritory);
-  const [municipalitySelectionTarget, setMunicipalitySelectionTarget] = useState<'primary' | 'secondary'>('primary');
+  const [regionSelectionTarget, setRegionSelectionTarget] = useState<'primary' | 'secondary'>('primary');
 
   useEffect(() => {
-    if (!secondaryTerritory.enabled && municipalitySelectionTarget === 'secondary') {
-      setMunicipalitySelectionTarget('primary');
+    if (!secondaryTerritory.enabled && regionSelectionTarget === 'secondary') {
+      setRegionSelectionTarget('primary');
     }
-  }, [municipalitySelectionTarget, secondaryTerritory.enabled]);
+  }, [regionSelectionTarget, secondaryTerritory.enabled]);
 
   const setPrimaryTerritory = (territory: ContractTerritoryArea) => {
     onChange({ primaryTerritory: normalizeContractTerritoryArea(territory) });
@@ -1490,8 +1490,8 @@ function TerritoryStepFields({
             onChange={setPrimaryTerritory}
             locked={locked}
             required
-            mapSelectionActive={municipalitySelectionTarget === 'primary'}
-            onActivateMapSelection={() => setMunicipalitySelectionTarget('primary')}
+            mapSelectionActive={regionSelectionTarget === 'primary'}
+            onActivateMapSelection={() => setRegionSelectionTarget('primary')}
           />
 
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -1517,8 +1517,8 @@ function TerritoryStepFields({
                   territory={secondaryTerritory}
                   onChange={(territory) => setSecondaryTerritory({ ...territory, enabled: true })}
                   locked={locked}
-                  mapSelectionActive={municipalitySelectionTarget === 'secondary'}
-                  onActivateMapSelection={() => setMunicipalitySelectionTarget('secondary')}
+                  mapSelectionActive={regionSelectionTarget === 'secondary'}
+                  onActivateMapSelection={() => setRegionSelectionTarget('secondary')}
                 />
               </div>
             )}
@@ -1526,7 +1526,7 @@ function TerritoryStepFields({
 
           {!primaryValid && (
             <p className="text-sm font-semibold text-amber-800">
-              Primært område er obligatorisk. Vælg hele landet eller angiv mindst ét gyldigt postnummer/postnummerinterval.
+              Primært område er obligatorisk. Vælg hele landet, vælg et område på kortet eller angiv mindst ét gyldigt postnummer/postnummerinterval.
             </p>
           )}
         </div>
@@ -1534,7 +1534,7 @@ function TerritoryStepFields({
         <ContractTerritoryMap
           primaryTerritory={primaryTerritory}
           secondaryTerritory={secondaryTerritory}
-          municipalitySelectionTarget={municipalitySelectionTarget}
+          regionSelectionTarget={regionSelectionTarget}
           language={uiLanguage}
           onPrimaryTerritoryChange={setPrimaryTerritory}
           onSecondaryTerritoryChange={setSecondaryTerritory}
@@ -1563,6 +1563,7 @@ function TerritoryAreaEditor({
 }) {
   const { uiLanguage } = useLanguage();
   const postalLabel = getContractTerritoryPostalLabel(territory.country, uiLanguage);
+  const regionUi = getTerritoryRegionUiLabels(territory.country);
   const [postalFields, setPostalFields] = useState(() => getContractPostalFieldValues(territory));
 
   useEffect(() => {
@@ -1625,7 +1626,7 @@ function TerritoryAreaEditor({
             <button
               type="button"
               disabled={locked}
-              onClick={() => onChange({ ...territory, wholeCountry: true, municipalities: [], postalEntries: [], postalCodes: [], postalRanges: [] })}
+              onClick={() => onChange({ ...territory, wholeCountry: true, selectedRegions: [], municipalities: [], postalEntries: [], postalCodes: [], postalRanges: [] })}
               className={`px-3 py-3 font-bold transition disabled:cursor-not-allowed ${territory.wholeCountry ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
             >
               Hele landet
@@ -1644,12 +1645,12 @@ function TerritoryAreaEditor({
 
       {!territory.wholeCountry && (
         <div className="space-y-4">
-          {territory.country === 'DK' && (
+          {regionUi && (
             <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <span className="text-sm font-bold text-gray-950">Valgte kommuner</span>
-                  <p className="mt-1 text-xs text-gray-600">Klik kommuner på kortet. Postnumre indtastes manuelt nedenfor.</p>
+                  <span className="text-sm font-bold text-gray-950">{regionUi.title}</span>
+                  <p className="mt-1 text-xs text-gray-600">{regionUi.help}</p>
                 </div>
                 {!locked && (
                   <button
@@ -1661,23 +1662,23 @@ function TerritoryAreaEditor({
                   </button>
                 )}
               </div>
-              {territory.municipalities.length > 0 ? (
+              {territory.selectedRegions.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {territory.municipalities.map((municipality) => (
+                  {territory.selectedRegions.map((region) => (
                     <button
-                      key={municipality.id}
+                      key={region.id}
                       type="button"
                       disabled={locked}
-                      onClick={() => removeTerritoryMunicipality(territory, municipality.id, onChange)}
+                      onClick={() => removeTerritoryRegion(territory, region.id, onChange)}
                       className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-900 disabled:cursor-not-allowed disabled:opacity-75"
                     >
-                      {formatTerritoryMunicipalityName(municipality)}
+                      {formatTerritoryRegionName(territory, region)}
                       {!locked && <span aria-hidden="true">×</span>}
                     </button>
                   ))}
                 </div>
               ) : (
-                <p className="mt-3 text-xs font-semibold text-gray-500">Ingen kommuner valgt.</p>
+                <p className="mt-3 text-xs font-semibold text-gray-500">{regionUi.empty}</p>
               )}
             </div>
           )}
@@ -1741,18 +1742,41 @@ function TerritoryAreaEditor({
   );
 }
 
-function formatTerritoryMunicipalityName(municipality: ContractTerritoryMunicipality) {
-  return /\bkommune$/i.test(municipality.name) ? municipality.name : `${municipality.name} Kommune`;
+function getTerritoryRegionUiLabels(country: ContractTerritoryArea['country']) {
+  if (country === 'DK') {
+    return {
+      title: 'Valgte kommuner',
+      help: 'Klik kommuner på kortet. Postnumre indtastes manuelt nedenfor.',
+      empty: 'Ingen kommuner valgt.',
+    };
+  }
+
+  if (country === 'DE') {
+    return {
+      title: 'Valgte områder',
+      help: 'Klik PLZ2-områder på kortet. Postnumre indtastes manuelt nedenfor.',
+      empty: 'Ingen områder valgt.',
+    };
+  }
+
+  return null;
 }
 
-function removeTerritoryMunicipality(
+function formatTerritoryRegionName(territory: ContractTerritoryArea, region: ContractTerritoryRegion) {
+  if (territory.country === 'DK' && !/\bkommune$/i.test(region.name)) return `${region.name} Kommune`;
+  return region.name;
+}
+
+function removeTerritoryRegion(
   territory: ContractTerritoryArea,
-  municipalityId: string,
+  regionId: string,
   onChange: (territory: ContractTerritoryArea) => void,
 ) {
+  const selectedRegions = territory.selectedRegions.filter((region) => region.id !== regionId);
   onChange({
     ...territory,
-    municipalities: territory.municipalities.filter((municipality) => municipality.id !== municipalityId),
+    selectedRegions,
+    municipalities: territory.country === 'DK' ? selectedRegions : [],
   });
 }
 

@@ -79,6 +79,7 @@ const completeForm: ContractFormData = {
   primaryTerritory: {
     country: 'DK',
     wholeCountry: false,
+    selectedRegions: [],
     municipalities: [],
     postalCodes: [],
     postalRanges: [{ from: '5000', to: '5999' }],
@@ -86,6 +87,7 @@ const completeForm: ContractFormData = {
   secondaryTerritory: {
     country: 'DK',
     wholeCountry: false,
+    selectedRegions: [],
     municipalities: [],
     postalCodes: [],
     postalRanges: [],
@@ -194,6 +196,10 @@ describe('contract flow', () => {
     const area = {
       country: 'DK',
       wholeCountry: false,
+      selectedRegions: [
+        { id: '0760', name: 'Ringkøbing-Skjern' },
+        { id: '0657', name: 'Herning' },
+      ],
       municipalities: [
         { id: '0760', name: 'Ringkøbing-Skjern' },
         { id: '0657', name: 'Herning' },
@@ -365,7 +371,7 @@ describe('contract flow', () => {
     expect(territoryEditor).not.toContain('<textarea');
   });
 
-  it('keeps Danish municipality map selection separate from manual postal fields', () => {
+  it('keeps map region selection separate from manual postal fields', () => {
     const contractsSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
     const mapSource = readFileSync('src/components/contracts/ContractTerritoryMap.tsx', 'utf8');
     const start = contractsSource.indexOf('function TerritoryAreaEditor');
@@ -374,14 +380,17 @@ describe('contract flow', () => {
 
     expect(territoryEditor).toContain('Valgte kommuner');
     expect(territoryEditor).toContain('Klik kommuner på kortet. Postnumre indtastes manuelt nedenfor.');
-    expect(territoryEditor).toContain('removeTerritoryMunicipality');
+    expect(territoryEditor).toContain('Valgte områder');
+    expect(territoryEditor).toContain('Klik PLZ2-områder på kortet. Postnumre indtastes manuelt nedenfor.');
+    expect(territoryEditor).toContain('removeTerritoryRegion');
+    expect(territoryEditor).toContain('selectedRegions');
     expect(territoryEditor).toContain('buildContractTerritoryAreaFromPostalFields');
-    expect(contractsSource).toContain('municipalitySelectionTarget');
+    expect(contractsSource).toContain('regionSelectionTarget');
     expect(contractsSource).toContain('onPrimaryTerritoryChange={setPrimaryTerritory}');
     expect(contractsSource).toContain('onSecondaryTerritoryChange={setSecondaryTerritory}');
     expect(mapSource).toContain("config.datasetId === 'dk_municipalities' ? parseDenmarkMunicipalitiesGeoJson(geoJson) : geoJson");
-    expect(mapSource).toContain('toggleContractTerritoryMunicipality');
-    expect(mapSource).not.toContain('postalCodes.push(municipality');
+    expect(mapSource).toContain('toggleContractTerritoryRegion');
+    expect(mapSource).not.toContain('postalCodes.push(region');
   });
 
   it('keeps the appendix 2 web diagram constrained to the contract width', () => {
@@ -730,14 +739,21 @@ describe('contract flow', () => {
       primaryTerritory: {
         country: 'DE',
         wholeCountry: false,
+        selectedRegions: [
+          { id: '20', name: 'PLZ2 20' },
+          { id: '34', name: 'PLZ2 34' },
+        ],
         municipalities: [],
+        postalEntries: germanPrimary.postalEntries,
         postalCodes: germanPrimary.postalCodes,
         postalRanges: germanPrimary.postalRanges,
       },
       secondaryTerritory: {
         country: 'DE',
         wholeCountry: false,
+        selectedRegions: [{ id: '70', name: 'PLZ2 70' }],
         municipalities: [],
+        postalEntries: germanSecondary.postalEntries,
         postalCodes: germanSecondary.postalCodes,
         postalRanges: germanSecondary.postalRanges,
         enabled: true,
@@ -751,9 +767,12 @@ describe('contract flow', () => {
     }).find((section) => section.stepId === 'territory');
     const text = JSON.stringify(territory);
 
-    expect(describeContractTerritoryArea(form.primaryTerritory, 'da')).toBe('Land: Tyskland, Postnummer: 20000–29999, Postnummer: 10115');
-    expect(describeContractSecondaryTerritoryArea(form.secondaryTerritory, 'da')).toBe('Land: Tyskland, Postnummer: 70000–79999');
+    expect(describeContractTerritoryArea(form.primaryTerritory, 'da')).toBe('Land: Tyskland, Valgt område: PLZ2 20, Valgt område: PLZ2 34, Postnummer: 10115, Postnummer: 20000–29999');
+    expect(describeContractSecondaryTerritoryArea(form.secondaryTerritory, 'da')).toBe('Land: Tyskland, Valgt område: PLZ2 70, Postnummer: 70000–79999');
     expect(text).toContain('Land: Tyskland');
+    expect(text).toContain('Valgt område: PLZ2 20');
+    expect(text).toContain('Valgt område: PLZ2 34');
+    expect(text).toContain('Valgt område: PLZ2 70');
     expect(text).toContain('Postnummer: 20000–29999');
     expect(text).toContain('Postnummer: 10115');
     expect(text).toContain('Postnummer: 70000–79999');
@@ -773,14 +792,18 @@ describe('contract flow', () => {
       primaryTerritory: {
         country,
         wholeCountry,
+        selectedRegions: [],
         municipalities: [],
+        postalEntries: parsed.postalEntries,
         postalCodes: parsed.postalCodes,
         postalRanges: parsed.postalRanges,
       },
       secondaryTerritory: {
         country,
         wholeCountry: false,
+        selectedRegions: [],
         municipalities: [],
+        postalEntries: [],
         postalCodes: [],
         postalRanges: [],
         enabled: false,

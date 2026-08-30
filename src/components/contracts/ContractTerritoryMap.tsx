@@ -10,7 +10,7 @@ import {
   normalizeContractTerritoryArea,
   type ContractSecondaryTerritoryArea,
   type ContractTerritoryArea,
-  type ContractTerritoryMunicipality,
+  type ContractTerritoryRegion,
 } from '@/lib/contractTerritory';
 import {
   getContractTerritoryMapCountryConfig,
@@ -116,7 +116,7 @@ function styleForFeature(variant: ContractTerritoryMapVariant | null, hovered = 
 function ContractTerritoryGeoJsonLayer({
   primaryTerritory,
   secondaryTerritory,
-  municipalitySelectionTarget,
+  regionSelectionTarget,
   language,
   onStatus,
   onPrimaryTerritoryChange,
@@ -124,14 +124,14 @@ function ContractTerritoryGeoJsonLayer({
 }: {
   primaryTerritory: ContractTerritoryArea;
   secondaryTerritory: ContractSecondaryTerritoryArea;
-  municipalitySelectionTarget: ContractTerritoryMapVariant;
+  regionSelectionTarget: ContractTerritoryMapVariant;
   language: PortalUiLanguage | string;
   onStatus: (status: 'loading' | 'ready' | 'error') => void;
   onPrimaryTerritoryChange?: (territory: ContractTerritoryArea) => void;
   onSecondaryTerritoryChange?: (territory: ContractSecondaryTerritoryArea) => void;
 }) {
   const map = useMap();
-  const stateKey = `${getContractTerritoryMapStateKey(primaryTerritory)}|${secondaryTerritory.enabled ? getContractTerritoryMapStateKey(secondaryTerritory) : 'secondary-off'}|${municipalitySelectionTarget}`;
+  const stateKey = `${getContractTerritoryMapStateKey(primaryTerritory)}|${secondaryTerritory.enabled ? getContractTerritoryMapStateKey(secondaryTerritory) : 'secondary-off'}|${regionSelectionTarget}`;
 
   useEffect(() => {
     let alive = true;
@@ -150,10 +150,10 @@ function ContractTerritoryGeoJsonLayer({
     }
 
     const normalizedPrimary = normalizeContractTerritoryArea(primaryTerritory);
-    const validSecondary = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory);
+    const visibleSecondary = secondaryTerritory.enabled && hasContractTerritoryMapSelection(secondaryTerritory);
     const areaSpecs = [
       { area: normalizedPrimary, variant: 'primary' as const, valid: hasContractTerritoryMapSelection(normalizedPrimary) },
-      ...(validSecondary ? [{ area: normalizeContractTerritoryArea(secondaryTerritory), variant: 'secondary' as const, valid: true }] : []),
+      ...(visibleSecondary ? [{ area: normalizeContractTerritoryArea(secondaryTerritory), variant: 'secondary' as const, valid: true }] : []),
     ];
     const configs = Array.from(new Map(areaSpecs.map((spec) => [spec.area.country, getContractTerritoryMapCountryConfig(spec.area.country)])).values());
     const selectedBounds = L.latLngBounds([]);
@@ -192,9 +192,7 @@ function ContractTerritoryGeoJsonLayer({
               const path = featureLayer as L.Path;
               const bounds = (featureLayer as L.Polygon).getBounds?.();
               const variant = getFeatureVariant(meta.key, specsForCountry);
-              const municipality = config.country === 'DK'
-                ? { id: meta.key, name: meta.label.replace(/\s+Kommune$/i, '') }
-                : null;
+              const region = { id: meta.key, name: meta.label };
 
               if (variant && bounds?.isValid()) {
                 selectedBounds.extend(bounds);
@@ -223,12 +221,12 @@ function ContractTerritoryGeoJsonLayer({
                   }
                 },
                 click: () => {
-                  if (municipality) {
-                    const targetArea = municipalitySelectionTarget === 'secondary'
+                  if (region) {
+                    const targetArea = regionSelectionTarget === 'secondary'
                       ? normalizeContractTerritoryArea(secondaryTerritory)
                       : normalizedPrimary;
-                    const nextArea = toggleContractTerritoryMunicipality(targetArea, municipality);
-                    if (municipalitySelectionTarget === 'secondary' && secondaryTerritory.enabled && onSecondaryTerritoryChange) {
+                    const nextArea = toggleContractTerritoryRegion(targetArea, region);
+                    if (regionSelectionTarget === 'secondary' && secondaryTerritory.enabled && onSecondaryTerritoryChange) {
                       onSecondaryTerritoryChange({ ...nextArea, enabled: true });
                     } else if (onPrimaryTerritoryChange) {
                       onPrimaryTerritoryChange(nextArea);
@@ -239,7 +237,7 @@ function ContractTerritoryGeoJsonLayer({
                   }
                   selectedLayerRef.current = path;
                   selectedStyleRef.current = { variant };
-                  path.setStyle(styleForFeature(variant, false, true));
+                  path.setStyle(styleForFeature(regionSelectionTarget, false, true));
                   if (bounds?.isValid()) {
                     map.fitBounds(bounds, { padding: [28, 28], maxZoom: 11 });
                   }
@@ -267,7 +265,7 @@ function ContractTerritoryGeoJsonLayer({
       container.classList.remove('contract-territory-hovering');
       group.removeFrom(map);
     };
-  }, [map, onStatus, language, stateKey, municipalitySelectionTarget, onPrimaryTerritoryChange, onSecondaryTerritoryChange, primaryTerritory, secondaryTerritory]);
+  }, [map, onStatus, language, stateKey, regionSelectionTarget, onPrimaryTerritoryChange, onSecondaryTerritoryChange, primaryTerritory, secondaryTerritory]);
 
   return null;
 }
@@ -285,29 +283,33 @@ function getFeatureVariant(
   return null;
 }
 
-function toggleContractTerritoryMunicipality(
+function toggleContractTerritoryRegion(
   area: ContractTerritoryArea,
-  municipality: ContractTerritoryMunicipality,
+  region: ContractTerritoryRegion,
 ): ContractTerritoryArea {
-  if (area.country !== 'DK' || area.wholeCountry) return area;
-  const exists = area.municipalities.some((item) => item.id === municipality.id);
-  const municipalities = exists
-    ? area.municipalities.filter((item) => item.id !== municipality.id)
-    : [...area.municipalities, municipality].sort((a, b) => a.name.localeCompare(b.name, 'da'));
-  return { ...area, municipalities };
+  if (area.wholeCountry) return area;
+  const exists = area.selectedRegions.some((item) => item.id === region.id);
+  const selectedRegions = exists
+    ? area.selectedRegions.filter((item) => item.id !== region.id)
+    : [...area.selectedRegions, region].sort((a, b) => a.name.localeCompare(b.name, 'da'));
+  return {
+    ...area,
+    selectedRegions,
+    municipalities: area.country === 'DK' ? selectedRegions : [],
+  };
 }
 
 export function ContractTerritoryMap({
   primaryTerritory,
   secondaryTerritory,
-  municipalitySelectionTarget = 'primary',
+  regionSelectionTarget = 'primary',
   language,
   onPrimaryTerritoryChange,
   onSecondaryTerritoryChange,
 }: {
   primaryTerritory: ContractTerritoryArea;
   secondaryTerritory: ContractSecondaryTerritoryArea;
-  municipalitySelectionTarget?: ContractTerritoryMapVariant;
+  regionSelectionTarget?: ContractTerritoryMapVariant;
   language: PortalUiLanguage | string;
   onPrimaryTerritoryChange?: (territory: ContractTerritoryArea) => void;
   onSecondaryTerritoryChange?: (territory: ContractSecondaryTerritoryArea) => void;
@@ -348,7 +350,7 @@ export function ContractTerritoryMap({
           <ContractTerritoryGeoJsonLayer
             primaryTerritory={primaryTerritory}
             secondaryTerritory={secondaryTerritory}
-            municipalitySelectionTarget={municipalitySelectionTarget}
+            regionSelectionTarget={regionSelectionTarget}
             language={language}
             onStatus={setStatus}
             onPrimaryTerritoryChange={onPrimaryTerritoryChange}

@@ -1,8 +1,6 @@
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import {
   normalizeContractTerritoryArea,
-  type ContractPostalRange,
-  type ContractTerritoryArea,
   type ContractTerritoryCountryCode,
 } from '@/lib/contractTerritory';
 import {
@@ -163,47 +161,9 @@ export function getContractTerritoryMapLabel(
   return labels[language as PortalUiLanguage] ?? labels.da;
 }
 
-function getRegionKeysForRange(
-  range: ContractPostalRange,
-  config: ContractTerritoryMapCountryConfig,
-) {
-  const divisor = 10 ** (config.postalDigits - config.regionDigits);
-  const start = Math.floor(Number(range.from) / divisor);
-  const end = Math.floor(Number(range.to) / divisor);
-  const from = Math.min(start, end);
-  const to = Math.max(start, end);
-  const keys: string[] = [];
-
-  for (let value = from; value <= to; value += 1) {
-    keys.push(String(value).padStart(config.regionDigits, '0'));
-  }
-
-  return keys;
-}
-
 export function getContractTerritoryMapRegionKeys(areaInput: unknown) {
   const area = normalizeContractTerritoryArea(areaInput);
-  const config = getContractTerritoryMapCountryConfig(area.country);
-  const keys = new Set<string>();
-
-  if (area.country === 'DK') {
-    for (const municipality of area.municipalities) {
-      keys.add(municipality.id);
-    }
-    return Array.from(keys).sort();
-  }
-
-  for (const code of area.postalCodes) {
-    keys.add(code.slice(0, config.regionDigits));
-  }
-
-  for (const range of area.postalRanges) {
-    for (const key of getRegionKeysForRange(range, config)) {
-      keys.add(key);
-    }
-  }
-
-  return Array.from(keys).sort();
+  return area.selectedRegions.map((region) => region.id).sort();
 }
 
 export function hasContractTerritoryMapSelection(areaInput: unknown) {
