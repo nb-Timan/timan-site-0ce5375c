@@ -862,6 +862,7 @@ function ReviewStep({
 }) {
   const docs = STEP_DOCUMENTS[stepId] ?? [];
   const fullContract = stepId === 'full_contract';
+  const showLegalDocumentBox = stepId !== 'commercial_terms' && docs.length > 0;
 
   return (
     <div className="space-y-5">
@@ -873,31 +874,33 @@ function ReviewStep({
         <Appendix2DiscountSection />
       )}
 
-      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-        <div className="flex items-start gap-3">
-          <FileText className="mt-1 h-5 w-5 text-gray-500" />
-          <div>
-            <h3 className="text-lg font-bold text-gray-950">Juridisk kontrakttekst</h3>
-            <p className="mt-1 text-sm leading-6 text-gray-600">
-              Den juridiske tekst ligger i de eksisterende kontrakt-PDF’er. De er source of truth, og denne guidede visning ændrer ikke vilkårene.
-            </p>
+      {showLegalDocumentBox && (
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+          <div className="flex items-start gap-3">
+            <FileText className="mt-1 h-5 w-5 text-gray-500" />
+            <div>
+              <h3 className="text-lg font-bold text-gray-950">Juridisk kontrakttekst</h3>
+              <p className="mt-1 text-sm leading-6 text-gray-600">
+                Den juridiske tekst ligger i de eksisterende kontrakt-PDF’er. De er source of truth, og denne guidede visning ændrer ikke vilkårene.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3">
+            {docs.map((doc) => (
+              <a
+                key={doc.href}
+                href={doc.href}
+                target="_blank"
+                rel="noreferrer"
+                className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm hover:border-amber-300 hover:bg-amber-50 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <span className="font-bold text-gray-900">{doc.title}</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Læs hele afsnittet</span>
+              </a>
+            ))}
           </div>
         </div>
-        <div className="mt-4 grid gap-3">
-          {docs.map((doc) => (
-            <a
-              key={doc.href}
-              href={doc.href}
-              target="_blank"
-              rel="noreferrer"
-              className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm hover:border-amber-300 hover:bg-amber-50 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <span className="font-bold text-gray-900">{doc.title}</span>
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Læs hele afsnittet</span>
-            </a>
-          ))}
-        </div>
-      </div>
+      )}
 
       {confirmationId && (
         <div className={`rounded-2xl border p-5 ${confirmation?.confirmed ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>

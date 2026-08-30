@@ -125,6 +125,13 @@ describe('contract flow', () => {
     expect(appendixSection).not.toContain('min-w-[980px]');
   });
 
+  it('does not duplicate the legal document box on the full appendix 2 step', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain("const showLegalDocumentBox = stepId !== 'commercial_terms' && docs.length > 0;");
+    expect(source).toContain("const fullContract = stepId === 'full_contract';");
+  });
+
   it('stores the contract snapshot with Timan data and signature state', () => {
     const signedForm = { ...completeForm, signatureDataUrl: 'data:image/png;base64,test' };
     const snapshot = buildContractSnapshot(signedForm, confirmed);
