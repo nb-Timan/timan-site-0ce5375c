@@ -259,6 +259,50 @@ describe('contract flow', () => {
     expect(appendixSection).not.toContain('min-w-[980px]');
   });
 
+  it('builds the appendix 2 discount diagram from translatable DOM text without the demo icon', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const start = source.indexOf('function Appendix2DiscountSection');
+    const end = source.indexOf('function ProgressSteps');
+    const appendixSection = source.slice(start, end);
+    const discountLabelKeys = [
+      'contractDiscountMachineOrderGroup',
+      'contractDiscountWarrantyRefundGroup',
+      'contractDiscountBaseDiscount',
+      'contractDiscountQuantityDiscount',
+      'contractDiscountDeliveryDiscount',
+      'contractDiscountDemoDiscount',
+      'contractDiscountBaseDiscountLabel',
+      'contractDiscountOnePiece',
+      'contractDiscountTwoThreePieces',
+      'contractDiscountFourPlusPieces',
+      'contractDiscountDeliveryTime',
+      'contractDiscountOverThreeMonths',
+      'contractDiscountDeliveryExplanation',
+      'contractDiscountOwnDemoDiscount',
+      'contractDiscountDemoRefundExplanation',
+      'contractDiscountExample',
+      'contractDiscountExampleText',
+      'contractDiscountStairAria',
+    ];
+
+    for (const key of discountLabelKeys) {
+      expect(appendixSection).toContain(key);
+      for (const language of ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs']) {
+        expect(t(key, language)).toBeTruthy();
+        expect(t(key, language)).not.toBe(key);
+      }
+    }
+
+    expect(appendixSection).toContain("aria-label={t('contractDiscountStairAria', language)}");
+    expect(appendixSection).toContain('rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-3 py-4');
+    expect(appendixSection).toContain('relative flex aspect-square w-24 items-center justify-center rounded-full border border-[#79a45e]');
+    expect(appendixSection).toContain('items-center justify-center rounded-2xl border border-[#79a45e]');
+    expect(appendixSection).not.toContain('rotate-[-38deg]');
+    expect(appendixSection).not.toContain('rounded-lg border-[3px] border-gray-950');
+    expect(appendixSection).not.toContain('<img');
+    expect(appendixSection).not.toContain('canvas');
+  });
+
   it('does not duplicate the legal document box on the full appendix 2 step', () => {
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
 

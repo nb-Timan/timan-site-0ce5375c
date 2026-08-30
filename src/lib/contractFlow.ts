@@ -230,38 +230,108 @@ export const CONTRACT_STEPS: Array<{
   },
 ];
 
-type ContractStepLabel = Pick<(typeof CONTRACT_STEPS)[number], 'title' | 'shortTitle'>;
+type ContractStepLabel = Pick<(typeof CONTRACT_STEPS)[number], 'title' | 'shortTitle' | 'intro'>;
 
 const allLanguageLabels = (
   da: ContractStepLabel,
   en: ContractStepLabel = da,
+  overrides: Partial<Record<Exclude<PortalUiLanguage, 'da' | 'en'>, ContractStepLabel>> = {},
 ): Record<PortalUiLanguage, ContractStepLabel> => ({
   da,
   en,
-  de: da,
-  it: da,
-  hu: da,
-  sv: da,
-  fr: da,
-  pl: da,
-  cs: da,
+  de: overrides.de ?? en,
+  it: overrides.it ?? en,
+  hu: overrides.hu ?? en,
+  sv: overrides.sv ?? en,
+  fr: overrides.fr ?? en,
+  pl: overrides.pl ?? en,
+  cs: overrides.cs ?? en,
 });
 
 const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, ContractStepLabel>> = {
-  parties: allLanguageLabels({ title: 'Oplysninger', shortTitle: 'Oplysninger' }, { title: 'Details', shortTitle: 'Details' }),
-  purpose_prices_orders_portal: allLanguageLabels(
-    { title: 'Formål, priser, ordre og forhandlerportal', shortTitle: 'Formål' },
-    { title: 'Purpose, prices, orders and dealer portal', shortTitle: 'Purpose and portal' },
+  parties: allLanguageLabels(
+    {
+      title: 'Oplysninger',
+      shortTitle: 'Oplysninger',
+      intro: 'Start med at vælge partnertype og kontrollere, at Timan-oplysninger og virksomhedsoplysninger er korrekte. Det er de data, der bruges videre i aftalen og PDF’en.',
+    },
+    {
+      title: 'Details',
+      shortTitle: 'Details',
+      intro: 'Start by choosing the partner type and checking that Timan details and company details are correct. These are the data used later in the agreement and PDF.',
+    },
+    {
+      de: {
+        title: 'Angaben',
+        shortTitle: 'Angaben',
+        intro: 'Wählen Sie zuerst den Partnertyp und prüfen Sie, dass Timan-Angaben und Unternehmensangaben korrekt sind. Diese Daten werden später im Vertrag und in der PDF verwendet.',
+      },
+    },
   ),
-  territory: allLanguageLabels({ title: 'Område og Bilag 3', shortTitle: 'Område' }, { title: 'Territory and Appendix 3', shortTitle: 'Territory' }),
-  discount_structure: allLanguageLabels({ title: 'Rabatstruktur og Bilag 2', shortTitle: 'Rabat' }, { title: 'Discount structure and Appendix 2', shortTitle: 'Discount' }),
-  demo_machines: allLanguageLabels({ title: 'Demo-maskiner', shortTitle: 'Demo' }, { title: 'Demo machines', shortTitle: 'Demo' }),
-  spare_parts_service: allLanguageLabels({ title: 'Reservedele og service', shortTitle: 'Reservedele' }, { title: 'Spare parts and service', shortTitle: 'Spare parts' }),
-  marketing: allLanguageLabels({ title: 'Marketing', shortTitle: 'Marketing' }, { title: 'Marketing', shortTitle: 'Marketing' }),
-  payment_delivery: allLanguageLabels({ title: 'Betaling og levering', shortTitle: 'Betaling' }, { title: 'Payment and delivery', shortTitle: 'Payment' }),
-  termination: allLanguageLabels({ title: 'Opsigelse og afsluttende vilkår', shortTitle: 'Opsigelse' }, { title: 'Termination and final terms', shortTitle: 'Termination' }),
-  full_contract: allLanguageLabels({ title: 'Gennemlæs', shortTitle: 'Gennemlæs' }, { title: 'Review', shortTitle: 'Review' }),
-  signature: allLanguageLabels({ title: 'Underskrift', shortTitle: 'Underskrift' }, { title: 'Signature', shortTitle: 'Signature' }),
+  purpose_prices_orders_portal: allLanguageLabels(
+    {
+      title: 'Formål, priser, ordre og forhandlerportal',
+      shortTitle: 'Formål',
+      intro: 'Gennemgå formål, priser, ordre, forhandlerportal og årligt forhandlermøde.',
+    },
+    {
+      title: 'Purpose, prices, orders and dealer portal',
+      shortTitle: 'Purpose and portal',
+      intro: 'Review purpose, prices, orders, dealer portal and the annual dealer meeting.',
+    },
+    {
+      de: {
+        title: 'Zweck, Preise, Bestellungen und Händlerportal',
+        shortTitle: 'Zweck',
+        intro: 'Prüfen Sie Zweck, Preise, Bestellungen, Händlerportal und das jährliche Händlertreffen.',
+      },
+    },
+  ),
+  territory: allLanguageLabels(
+    { title: 'Område og Bilag 3', shortTitle: 'Område', intro: 'Gennemgå kontraktens områdebestemmelser sammen med Bilag 3 om salgsområdet.' },
+    { title: 'Territory and Appendix 3', shortTitle: 'Territory', intro: 'Review the contract territory provisions together with Appendix 3 about the sales territory.' },
+    { de: { title: 'Gebiet und Anhang 3', shortTitle: 'Gebiet', intro: 'Prüfen Sie die Gebietsbestimmungen des Vertrags zusammen mit Anhang 3 zum Vertriebsgebiet.' } },
+  ),
+  discount_structure: allLanguageLabels(
+    { title: 'Rabatstruktur og Bilag 2', shortTitle: 'Rabat', intro: 'Gennemgå den eksisterende rabatstruktur, beregningsregler og visualisering fra Bilag 2.' },
+    { title: 'Discount structure and Appendix 2', shortTitle: 'Discount', intro: 'Review the existing discount structure, calculation rules and visualization from Appendix 2.' },
+    { de: { title: 'Rabattstruktur und Anhang 2', shortTitle: 'Rabatt', intro: 'Prüfen Sie die bestehende Rabattstruktur, Berechnungsregeln und Visualisierung aus Anhang 2.' } },
+  ),
+  demo_machines: allLanguageLabels(
+    { title: 'Demo-maskiner', shortTitle: 'Demo', intro: 'Gennemgå de eksisterende bestemmelser om demo-maskiner, demo-rabat og videresalg.' },
+    { title: 'Demo machines', shortTitle: 'Demo', intro: 'Review the existing provisions about demo machines, demo discount and resale.' },
+    { de: { title: 'Demo-Maschinen', shortTitle: 'Demo', intro: 'Prüfen Sie die bestehenden Bestimmungen zu Demo-Maschinen, Demo-Rabatt und Weiterverkauf.' } },
+  ),
+  spare_parts_service: allLanguageLabels(
+    { title: 'Reservedele og service', shortTitle: 'Reservedele', intro: 'Gennemgå hovedkontraktens almindelige bestemmelser om reservedele, service, salgs- og servicedage.' },
+    { title: 'Spare parts and service', shortTitle: 'Spare parts', intro: 'Review the main contract provisions about spare parts, service, sales days and service days.' },
+    { de: { title: 'Ersatzteile und Service', shortTitle: 'Ersatzteile', intro: 'Prüfen Sie die Bestimmungen des Hauptvertrags zu Ersatzteilen, Service sowie Verkaufs- und Servicetagen.' } },
+  ),
+  marketing: allLanguageLabels(
+    { title: 'Marketing', shortTitle: 'Marketing', intro: 'Gennemgå de eksisterende marketingforpligtelser for samarbejdspartneren og Timan.' },
+    { title: 'Marketing', shortTitle: 'Marketing', intro: 'Review the existing marketing obligations for the partner and Timan.' },
+    { de: { title: 'Marketing', shortTitle: 'Marketing', intro: 'Prüfen Sie die bestehenden Marketingpflichten des Partners und von Timan.' } },
+  ),
+  payment_delivery: allLanguageLabels(
+    { title: 'Betaling og levering', shortTitle: 'Betaling', intro: 'Gennemgå betaling, levering og Bilag 4 med salgs- og leveringsbetingelser.' },
+    { title: 'Payment and delivery', shortTitle: 'Payment', intro: 'Review payment, delivery and Appendix 4 with terms and conditions of sale and delivery.' },
+    { de: { title: 'Zahlung und Lieferung', shortTitle: 'Zahlung', intro: 'Prüfen Sie Zahlung, Lieferung und Anhang 4 mit Verkaufs- und Lieferbedingungen.' } },
+  ),
+  termination: allLanguageLabels(
+    { title: 'Opsigelse og afsluttende vilkår', shortTitle: 'Opsigelse', intro: 'Gennemgå varighed, opsigelse og de afsluttende vilkår før samlet gennemlæsning.' },
+    { title: 'Termination and final terms', shortTitle: 'Termination', intro: 'Review duration, termination and the final terms before the full review.' },
+    { de: { title: 'Kündigung und Schlussbestimmungen', shortTitle: 'Kündigung', intro: 'Prüfen Sie Laufzeit, Kündigung und Schlussbestimmungen vor der vollständigen Durchsicht.' } },
+  ),
+  full_contract: allLanguageLabels(
+    { title: 'Gennemlæs', shortTitle: 'Gennemlæs', intro: 'Læs hele aftalepakken samlet i samme rækkefølge, som den dokumenteres i PDF’en. Først derefter kan aftalen gøres klar til underskrift.' },
+    { title: 'Review', shortTitle: 'Review', intro: 'Read the full agreement package in the same order as documented in the PDF. Only then can the agreement be prepared for signature.' },
+    { de: { title: 'Durchsicht', shortTitle: 'Durchsicht', intro: 'Lesen Sie das gesamte Vertragspaket in derselben Reihenfolge, wie es in der PDF dokumentiert wird. Erst danach kann der Vertrag zur Unterschrift vorbereitet werden.' } },
+  ),
+  signature: allLanguageLabels(
+    { title: 'Underskrift', shortTitle: 'Underskrift', intro: 'Når alle obligatoriske trin er gennemgået, kan partnerens digitale signatur tilføjes og den endelige PDF genereres.' },
+    { title: 'Signature', shortTitle: 'Signature', intro: 'When all mandatory steps have been reviewed, the partner’s digital signature can be added and the final PDF generated.' },
+    { de: { title: 'Unterschrift', shortTitle: 'Unterschrift', intro: 'Wenn alle Pflichtschritte geprüft wurden, kann die digitale Signatur des Partners hinzugefügt und die finale PDF erstellt werden.' } },
+  ),
 };
 
 export const CONTRACT_APPENDIX_LABELS: Record<PortalUiLanguage, string> = {
