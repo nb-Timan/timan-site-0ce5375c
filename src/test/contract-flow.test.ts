@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import {
   canLeaveContractStep,
   canPrepareContractForSignature,
@@ -109,6 +110,19 @@ describe('contract flow', () => {
   it('marks the discount and service steps as appendices', () => {
     expect(CONTRACT_STEPS.find((step) => step.id === 'commercial_terms')?.appendix).toBe(true);
     expect(CONTRACT_STEPS.find((step) => step.id === 'timan_responsibility')?.appendix).toBe(true);
+  });
+
+  it('keeps the appendix 2 web diagram constrained to the contract width', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const start = source.indexOf('function Appendix2DiscountSection');
+    const end = source.indexOf('function ProgressSteps');
+    const appendixSection = source.slice(start, end);
+
+    expect(appendixSection).toContain('max-w-full');
+    expect(appendixSection).toContain('min-w-0');
+    expect(appendixSection).toContain('overflow-hidden');
+    expect(appendixSection).not.toContain('overflow-x-auto');
+    expect(appendixSection).not.toContain('min-w-[980px]');
   });
 
   it('stores the contract snapshot with Timan data and signature state', () => {

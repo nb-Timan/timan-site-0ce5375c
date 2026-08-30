@@ -998,9 +998,9 @@ function Appendix2DiscountSection() {
         })}
       </div>
 
-      <div className="overflow-x-auto rounded-2xl border border-emerald-200 bg-white p-4 shadow-inner">
-        <div className="min-w-[980px]">
-          <div className="grid grid-cols-[3fr_1.05fr] gap-5 text-center text-lg font-bold text-gray-950">
+      <div className="w-full max-w-full min-w-0 overflow-hidden rounded-2xl border border-emerald-200 bg-white p-3 shadow-inner sm:p-4">
+        <div className="w-full max-w-full min-w-0">
+          <div className="grid min-w-0 grid-cols-1 gap-3 text-center text-base font-bold text-gray-950 md:grid-cols-[3fr_1.05fr] lg:text-lg">
             <div>
               <p>Hele maskinordren inkl. redskaber.</p>
               <div className="mt-2 h-8 rounded-t-xl border-x-2 border-t-2 border-[#2f711c]" />
@@ -1011,82 +1011,85 @@ function Appendix2DiscountSection() {
             </div>
           </div>
 
-          <div className="grid grid-cols-[1.05fr_1.8fr_1.25fr_1.45fr] border-b-2 border-[#2f711c] pb-4 text-center text-lg font-bold text-gray-950">
+          <div className="hidden min-w-0 grid-cols-[0.9fr_1.45fr_1fr_1.1fr] border-b-2 border-[#2f711c] pb-3 text-center text-sm font-bold text-gray-950 md:grid lg:text-base xl:text-lg">
             <p>Grundrabat</p>
             <p>Stk. rabat</p>
             <p>Leveringsrabat</p>
             <p>Demonstrationsrabat</p>
           </div>
 
-          <div className="grid grid-cols-[1.05fr_1.8fr_1.25fr_1.45fr] items-center gap-6 py-7">
-            <div className="flex items-center justify-center gap-6">
-              <div className="flex h-36 w-36 flex-col items-center justify-center rounded-full border border-[#79a45e] bg-[#fbfdf9] text-center">
-                <p className="text-5xl font-black leading-none text-[#36780f]">25%</p>
-                <p className="mt-3 text-base font-semibold text-gray-950">Grund rabat</p>
+          <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 py-5 md:grid-cols-[0.9fr_1.45fr_1fr_1.1fr] md:items-center md:gap-3 lg:gap-4">
+            <div className="min-w-0">
+              <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">Grundrabat</p>
+              <div className="flex min-w-0 items-center justify-center gap-3">
+                <div className="flex aspect-square w-full max-w-32 flex-col items-center justify-center rounded-full border border-[#79a45e] bg-[#fbfdf9] text-center md:max-w-28 lg:max-w-32 xl:max-w-36">
+                  <p className="text-4xl font-black leading-none text-[#36780f] md:text-3xl lg:text-4xl xl:text-5xl">25%</p>
+                  <p className="mt-2 text-sm font-semibold text-gray-950 md:text-xs lg:text-sm xl:text-base">Grund rabat</p>
+                </div>
+                <div className="hidden text-3xl font-light text-[#36780f] md:block lg:text-4xl">→</div>
               </div>
-              <div className="text-4xl font-light text-[#36780f]">→</div>
             </div>
 
-            <div className="relative h-56">
-              <div className="absolute bottom-9 left-4 h-1.5 w-28 rounded-full bg-[#36780f]" />
-              <div className="absolute bottom-9 left-32 h-20 w-1.5 rounded-full bg-[#36780f]" />
-              <div className="absolute bottom-[7.05rem] left-32 h-1.5 w-28 rounded-full bg-[#36780f]" />
-              <div className="absolute bottom-[7.05rem] left-60 h-20 w-1.5 rounded-full bg-[#36780f]" />
-              <div className="absolute bottom-[11.95rem] left-60 h-1.5 w-32 rounded-full bg-[#36780f]" />
-
-              <div className="absolute bottom-2 left-14 text-center">
-                <p className="text-lg font-semibold text-gray-950">1 stk.</p>
-                <p className="text-3xl font-black text-[#36780f]">+0%</p>
+            <div className="min-w-0">
+              <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">Stk. rabat</p>
+              <div className="relative min-h-44 w-full min-w-0">
+                <svg className="h-auto w-full min-w-0 overflow-visible" viewBox="0 0 320 190" role="img" aria-label="Styk-rabat stiger fra 0 til 2 og 4 procent">
+                  <path d="M22 150 H105 V96 H188 V42 H278" fill="none" stroke="#36780f" strokeWidth="7" strokeLinecap="round" strokeLinejoin="round" />
+                  <text x="62" y="136" textAnchor="middle" className="fill-gray-950 text-[19px] font-semibold">1 stk.</text>
+                  <text x="62" y="168" textAnchor="middle" className="fill-[#36780f] text-[30px] font-black">+0%</text>
+                  <text x="145" y="82" textAnchor="middle" className="fill-gray-950 text-[19px] font-semibold">2-3 stk.</text>
+                  <text x="145" y="114" textAnchor="middle" className="fill-[#36780f] text-[30px] font-black">+2%</text>
+                  <text x="235" y="28" textAnchor="middle" className="fill-gray-950 text-[19px] font-semibold">4 stk. og &gt;</text>
+                  <text x="235" y="60" textAnchor="middle" className="fill-[#36780f] text-[30px] font-black">+4%</text>
+                </svg>
+                <div className="hidden absolute right-0 top-1/2 -translate-y-1/2 text-3xl font-light text-[#36780f] md:block lg:text-4xl">→</div>
               </div>
-              <div className="absolute bottom-[5.6rem] left-40 text-center">
-                <p className="text-lg font-semibold text-gray-950">2-3 stk.</p>
-                <p className="text-3xl font-black text-[#36780f]">+2%</p>
-              </div>
-              <div className="absolute bottom-[10.5rem] left-[16.5rem] text-center">
-                <p className="text-lg font-semibold text-gray-950">4 stk. og &gt;</p>
-                <p className="text-3xl font-black text-[#36780f]">+4%</p>
-              </div>
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 text-4xl font-light text-[#36780f]">→</div>
             </div>
 
-            <div className="flex items-center justify-center gap-5">
-              <div className="flex h-56 w-full max-w-[210px] flex-col items-center justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-4 text-center">
-                <div className="relative flex h-28 w-28 items-center justify-center rounded-full border border-[#8bb06f]">
-                  <div className="absolute -inset-3 rounded-full border-[7px] border-[#36780f] border-l-transparent border-b-transparent" />
-                  <div className="absolute -inset-3 rotate-180 rounded-full border-[7px] border-[#36780f] border-l-transparent border-b-transparent" />
+            <div className="min-w-0">
+              <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">Leveringsrabat</p>
+              <div className="flex min-w-0 items-center justify-center gap-3">
+                <div className="flex w-full min-w-0 flex-col items-center justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-3 py-5 text-center md:min-h-48 lg:min-h-56">
+                  <div className="relative flex aspect-square w-24 items-center justify-center rounded-full border border-[#8bb06f] md:w-20 lg:w-24 xl:w-28">
+                    <div className="absolute -inset-2 rounded-full border-[6px] border-[#36780f] border-b-transparent border-l-transparent" />
+                    <div className="absolute -inset-2 rotate-180 rounded-full border-[6px] border-[#36780f] border-b-transparent border-l-transparent" />
                   <div>
-                    <p className="text-base font-bold text-gray-950">Leveringstid:</p>
-                    <p className="text-base font-bold text-gray-950">Over 3 mdr.</p>
-                    <p className="mt-1 text-3xl font-black text-[#36780f]">+2%</p>
+                    <p className="text-sm font-bold text-gray-950 md:text-xs lg:text-sm">Leveringstid:</p>
+                    <p className="text-sm font-bold text-gray-950 md:text-xs lg:text-sm">Over 3 mdr.</p>
+                    <p className="mt-1 text-2xl font-black text-[#36780f] lg:text-3xl">+2%</p>
                   </div>
                 </div>
-                <p className="mt-5 text-sm font-medium leading-5 text-gray-950">Rabatten gives ved leveringstid over 3 måneder.</p>
+                  <p className="mt-4 text-xs font-medium leading-5 text-gray-950 lg:text-sm">Rabatten gives ved leveringstid over 3 måneder.</p>
+                </div>
+                <div className="hidden text-3xl font-light text-[#36780f] md:block lg:text-4xl">→</div>
               </div>
-              <div className="text-4xl font-light text-[#36780f]">→</div>
             </div>
 
-            <div className="flex h-52 flex-col justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-7 text-gray-950">
-              <div className="flex items-center gap-5">
-                <div className="h-16 w-16 rotate-[-38deg] rounded-lg border-[3px] border-gray-950">
+            <div className="min-w-0">
+              <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">Demonstrationsrabat</p>
+              <div className="flex min-h-48 min-w-0 flex-col justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-4 py-5 text-gray-950 lg:min-h-52 lg:px-5 xl:px-7">
+                <div className="flex min-w-0 items-center justify-center gap-3 lg:gap-5">
+                  <div className="h-12 w-12 flex-none rotate-[-38deg] rounded-lg border-[3px] border-gray-950 lg:h-14 lg:w-14 xl:h-16 xl:w-16">
                   <div className="ml-auto mr-2 mt-2 h-3.5 w-3.5 rounded-full border-[3px] border-gray-950" />
                 </div>
-                <div>
-                  <p className="text-lg font-semibold leading-6">Egen</p>
-                  <p className="text-lg font-semibold leading-6">demonstrationsrabat</p>
-                  <p className="mt-3 text-4xl font-black text-[#36780f]">3100 kr.</p>
+                  <div className="min-w-0">
+                    <p className="text-base font-semibold leading-6 md:text-sm lg:text-base xl:text-lg">Egen</p>
+                    <p className="text-base font-semibold leading-6 md:text-sm lg:text-base xl:text-lg">demonstrationsrabat</p>
+                    <p className="mt-2 text-3xl font-black text-[#36780f] md:text-2xl lg:text-3xl xl:text-4xl">3100 kr.</p>
+                  </div>
                 </div>
+                <div className="my-5 h-px bg-[#a9c794]" />
+                <p className="text-center text-sm font-medium leading-6 md:text-xs lg:text-sm xl:text-base">Udbetales som kreditnota<br />ved garantiregistrering.</p>
               </div>
-              <div className="my-6 h-px bg-[#a9c794]" />
-              <p className="text-center text-base font-medium leading-6">Udbetales som kreditnota<br />ved garantiregistrering.</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-8 rounded-2xl border border-emerald-500 bg-[#fbfdf9] px-8 py-5 text-gray-950">
-            <div className="flex h-20 w-20 flex-none items-center justify-center rounded-full border-[4px] border-[#36780f] text-4xl font-black text-[#36780f]">%</div>
-            <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 text-base">
-              <p className="text-xl font-black text-[#36780f]">Eksempel:</p>
+          <div className="flex min-w-0 flex-col items-center gap-4 rounded-2xl border border-emerald-500 bg-[#fbfdf9] px-4 py-5 text-center text-gray-950 sm:flex-row sm:text-left lg:gap-6 lg:px-6 xl:gap-8 xl:px-8">
+            <div className="flex h-16 w-16 flex-none items-center justify-center rounded-full border-[4px] border-[#36780f] text-3xl font-black text-[#36780f] lg:h-20 lg:w-20 lg:text-4xl">%</div>
+            <div className="flex min-w-0 flex-wrap items-baseline justify-center gap-x-4 gap-y-2 text-sm sm:justify-start lg:text-base xl:gap-x-8">
+              <p className="text-lg font-black text-[#36780f] lg:text-xl">Eksempel:</p>
               <p>Den maksimale rabat, som kan opnås på en maskine og redskaber er:</p>
-              <p className="text-xl font-black text-[#36780f]">25% + 4% + 2% = 29,44 %</p>
+              <p className="text-lg font-black text-[#36780f] lg:text-xl">25% + 4% + 2% = 29,44 %</p>
             </div>
           </div>
         </div>
