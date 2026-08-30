@@ -2326,7 +2326,7 @@ function Appendix2DiscountSection({ partnerType, language }: { partnerType: Cont
               <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">{labels.deliveryDiscount}</p>
               <div className="flex min-w-0 items-center justify-center gap-2">
                 <div className="flex w-full min-w-0 flex-col items-center justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-3 py-5 text-center md:min-h-52 lg:min-h-56">
-                  <div className="relative flex aspect-square w-28 items-center justify-center rounded-full border border-[#79a45e] md:w-[6.8rem] lg:w-[7.2rem]">
+                  <div className="relative flex aspect-square w-32 items-center justify-center rounded-full border border-[#79a45e] md:w-32 lg:w-[8.25rem]">
                     <div className="px-2 text-center">
                       <p className="text-[11px] font-bold leading-tight text-gray-950 lg:text-[12px]">{labels.deliveryTime}</p>
                       <p className="text-[11px] font-bold leading-tight text-gray-950 lg:text-[12px]">{labels.overThreeMonths}</p>

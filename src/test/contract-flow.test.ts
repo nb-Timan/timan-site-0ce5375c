@@ -442,8 +442,8 @@ describe('contract flow', () => {
 
     expect(appendixSection).toContain("aria-label={t('contractDiscountStairAria', language)}");
     expect(appendixSection).toContain('rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-3 py-4');
-    expect(appendixSection).toContain('relative flex aspect-square w-28 items-center justify-center rounded-full border border-[#79a45e]');
-    expect(appendixSection).toContain('md:w-[6.8rem] lg:w-[7.2rem]');
+    expect(appendixSection).toContain('relative flex aspect-square w-32 items-center justify-center rounded-full border border-[#79a45e]');
+    expect(appendixSection).toContain('md:w-32 lg:w-[8.25rem]');
     expect(appendixSection).toContain('items-center justify-center rounded-2xl border border-[#79a45e]');
     expect(appendixSection).not.toContain('rotate-[-38deg]');
     expect(appendixSection).not.toContain('rounded-lg border-[3px] border-gray-950');
