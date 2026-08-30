@@ -11,14 +11,17 @@ import {
   canLeaveContractStep,
   canPrepareContractForSignature,
   CONTRACT_STEPS,
-  CONTRACT_VERSION,
+  type ContractSnapshot,
+  type ContractStatus,
   ContractConfirmations,
   ContractFormData,
   EMPTY_CONTRACT_CONFIRMATIONS,
+  TIMAN_COMPANY_INFO,
   getContractStatus,
   getRequiredConfirmationForStep,
   hasRequiredPartyData,
 } from '@/lib/contractFlow';
+import { fetchDealerContractDraft, getCurrentStepId, saveDealerContractDraft } from '@/lib/dealerContractsService';
 import { fetchDealerAccountByNumber } from '@/lib/dealerAccountsService';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
@@ -38,13 +41,6 @@ const STEP_DOCUMENTS: Partial<Record<(typeof CONTRACT_STEPS)[number]['id'], type
   dealer_responsibility: CONTRACT_DOCS.filter((doc) => doc.section === 'Hovedaftale'),
   commercial_terms: CONTRACT_DOCS.filter((doc) => ['Kommercielle vilkår', 'Hovedaftale'].includes(doc.section)),
   full_contract: CONTRACT_DOCS,
-};
-
-const TIMAN_COMPANY_INFO = {
-  company: 'Timan A/S',
-  cvr: '27609627',
-  address: 'Osvald Pedersens Vej 2A-D',
-  postalCity: '6980 Tim',
 };
 
 function todayIso() {
@@ -88,10 +84,14 @@ export default function ContractsPage() {
   const [searchParams] = useSearchParams();
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [signatureName, setSignatureName] = useState('');
+  const [contractRowId, setContractRowId] = useState<string | null>(null);
+  const [contractLoaded, setContractLoaded] = useState(false);
+  const [contractLoadError, setContractLoadError] = useState<string | null>(null);
+  const [finalSnapshot, setFinalSnapshot] = useState<ContractSnapshot | null>(null);
   const dealerAccountNumber = (searchParams.get('accountNumber') || searchParams.get('dealer') || '').trim();
 
   const draftKey = useMemo(() => (
-    `timan-contract-draft:${effectiveUser?.email ?? 'anonymous'}:${dealerAccountNumber || 'manual'}`
+    `${effectiveUser?.email?.toLowerCase() ?? 'anonymous'}:${dealerAccountNumber || 'manual'}`
   ), [dealerAccountNumber, effectiveUser?.email]);
 
   const [form, setForm] = useState<ContractFormData>(() => ({
@@ -112,17 +112,44 @@ export default function ContractsPage() {
   const [confirmations, setConfirmations] = useState<ContractConfirmations>(EMPTY_CONTRACT_CONFIRMATIONS);
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(draftKey);
-      if (!saved) return;
-      const parsed = JSON.parse(saved) as { form?: Partial<ContractFormData>; confirmations?: Partial<ContractConfirmations>; step?: number };
-      if (parsed.form) setForm((current) => ({ ...current, ...parsed.form }));
-      if (parsed.confirmations) setConfirmations((current) => ({ ...current, ...parsed.confirmations }));
-      if (typeof parsed.step === 'number') setActiveStepIndex(Math.min(Math.max(parsed.step, 0), CONTRACT_STEPS.length - 1));
-    } catch {
-      window.localStorage.removeItem(draftKey);
-    }
-  }, [draftKey]);
+    if (!effectiveUser?.email) return;
+    let cancelled = false;
+    setContractLoaded(false);
+    setContractLoadError(null);
+
+    fetchDealerContractDraft({
+      ownerEmail: effectiveUser.email,
+      dealerAccountNumber,
+    }).then(({ row, error }) => {
+      if (cancelled) return;
+      if (error) {
+        setContractLoadError(error);
+        toast.error('Kunne ikke hente gemt kontraktkladde.');
+        setContractLoaded(true);
+        return;
+      }
+      if (row) {
+        setContractRowId(row.id);
+        setForm((current) => ({
+          ...current,
+          ...row.form_data,
+          signatureDataUrl: row.signature_data_url,
+        }));
+        setConfirmations({ ...EMPTY_CONTRACT_CONFIRMATIONS, ...row.confirmations });
+        setFinalSnapshot(row.final_snapshot);
+        const stepIndex = CONTRACT_STEPS.findIndex((step) => step.id === row.current_step);
+        setActiveStepIndex(stepIndex >= 0 ? stepIndex : 0);
+        if (row.signature_data_url) setSignatureName('Gemt signatur');
+      } else {
+        setContractRowId(null);
+        setFinalSnapshot(null);
+        setSignatureName('');
+      }
+      setContractLoaded(true);
+    });
+
+    return () => { cancelled = true; };
+  }, [dealerAccountNumber, draftKey, effectiveUser?.email]);
 
   useEffect(() => {
     if (!effectiveUser) return;
@@ -132,9 +159,9 @@ export default function ContractsPage() {
       if (cancelled) return;
       setForm((current) => ({
         ...current,
-        timanSellerName: effectiveUser.display_name || effectiveUser.email || '',
-        timanSellerEmail: effectiveUser.email || '',
-        timanSellerPhone: phone,
+        timanSellerName: current.timanSellerName || effectiveUser.display_name || effectiveUser.email || '',
+        timanSellerEmail: current.timanSellerEmail || effectiveUser.email || '',
+        timanSellerPhone: current.timanSellerPhone || phone,
       }));
     };
 
@@ -202,10 +229,49 @@ export default function ContractsPage() {
   };
 
   const saveDraft = () => {
-    const snapshot = buildContractSnapshot(form, confirmations);
-    window.localStorage.setItem(draftKey, JSON.stringify({ form, confirmations, step: activeStepIndex, snapshot }));
-    toast.success('Kontraktkladde gemt.');
+    void persistContract({ showToast: true });
   };
+
+  const getSnapshotForStatus = (nextStatus: ContractStatus): ContractSnapshot | null => {
+    if (finalSnapshot?.status === 'Signed') return finalSnapshot;
+    if (nextStatus !== 'Signed') return finalSnapshot;
+    return buildContractSnapshot(form, confirmations);
+  };
+
+  const persistContract = async (options: { showToast?: boolean; snapshot?: ContractSnapshot | null } = {}) => {
+    if (!effectiveUser?.email || !contractLoaded) return;
+    if (status === 'Signed' && finalSnapshot?.status === 'Signed') return;
+    const snapshot = options.snapshot ?? getSnapshotForStatus(status);
+    const { row, error } = await saveDealerContractDraft({
+      id: contractRowId,
+      ownerEmail: effectiveUser.email,
+      ownerName: effectiveUser.display_name || effectiveUser.email,
+      dealerAccountNumber,
+      activeStepIndex,
+      form,
+      confirmations,
+      status,
+      finalSnapshot: snapshot,
+    });
+    if (error) {
+      toast.error('Kontraktkladde kunne ikke gemmes.');
+      return;
+    }
+    if (row) {
+      setContractRowId(row.id);
+      setFinalSnapshot(row.final_snapshot);
+    }
+    if (options.showToast) toast.success('Kontraktkladde gemt.');
+  };
+
+  useEffect(() => {
+    if (!effectiveUser?.email || !contractLoaded) return;
+    if (status === 'Signed' && finalSnapshot?.status === 'Signed') return;
+    const timer = window.setTimeout(() => {
+      void persistContract();
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [activeStepIndex, confirmations, contractLoaded, dealerAccountNumber, effectiveUser?.email, form, status]);
 
   const confirmSection = () => {
     if (!currentConfirmationId || !effectiveUser) return;
@@ -257,11 +323,38 @@ export default function ContractsPage() {
       return;
     }
 
-    const snapshot = buildContractSnapshot(form, confirmations);
-    window.localStorage.setItem(draftKey, JSON.stringify({ form, confirmations, step: activeStepIndex, snapshot }));
+    const snapshot = finalSnapshot?.status === 'Signed'
+      ? finalSnapshot
+      : buildContractSnapshot(form, confirmations);
+    const signedSnapshot = snapshot.status === 'Signed'
+      ? snapshot
+      : buildContractSnapshot({ ...form, signatureDataUrl: form.signatureDataUrl }, confirmations);
+
+    if (signedSnapshot.status === 'Signed' && !finalSnapshot) {
+      const { row, error } = await saveDealerContractDraft({
+        id: contractRowId,
+        ownerEmail: effectiveUser?.email || form.timanSellerEmail,
+        ownerName: effectiveUser?.display_name || effectiveUser?.email || form.timanSellerName,
+        dealerAccountNumber,
+        activeStepIndex,
+        form,
+        confirmations,
+        status: 'Signed',
+        finalSnapshot: signedSnapshot,
+      });
+      if (error) {
+        toast.error('Kontrakten kunne ikke låses som Signed.');
+        return;
+      }
+      setContractRowId(row?.id ?? contractRowId);
+      setFinalSnapshot(row?.final_snapshot ?? signedSnapshot);
+    }
 
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pdfSnapshot = finalSnapshot?.status === 'Signed' ? finalSnapshot : signedSnapshot;
+    const timan = pdfSnapshot.timan;
+    const dealer = pdfSnapshot.dealer;
     const left = 16;
     const right = 194;
     let y = 18;
@@ -275,9 +368,9 @@ export default function ContractsPage() {
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(9);
     pdf.setTextColor(107, 114, 128);
-    pdf.text(`Kontraktversion: ${CONTRACT_VERSION}`, left, y);
+    pdf.text(`Kontraktversion: ${pdfSnapshot.version}`, left, y);
     y += 5;
-    pdf.text(`Snapshot oprettet: ${new Date(snapshot.createdAt).toLocaleString('da-DK')}`, left, y);
+    pdf.text(`Snapshot oprettet: ${new Date(pdfSnapshot.createdAt).toLocaleString('da-DK')}`, left, y);
     y += 9;
 
     pdf.setFont('helvetica', 'bold');
@@ -286,26 +379,26 @@ export default function ContractsPage() {
     pdf.text('Forhandler', 112, y);
     y += 6;
     pdf.setFont('helvetica', 'normal');
-    pdf.text(TIMAN_COMPANY_INFO.company, left, y);
-    pdf.text(form.dealerName.trim(), 112, y);
+    pdf.text(timan.company, left, y);
+    pdf.text(dealer.name.trim(), 112, y);
     y += 5;
-    pdf.text(`CVR: ${TIMAN_COMPANY_INFO.cvr}`, left, y);
-    pdf.text(`CVR: ${form.dealerCvr.trim()}`, 112, y);
+    pdf.text(`CVR: ${timan.cvr}`, left, y);
+    pdf.text(`CVR: ${dealer.cvr.trim()}`, 112, y);
     y += 5;
-    pdf.text(TIMAN_COMPANY_INFO.address, left, y);
-    pdf.text(form.dealerAddress.trim(), 112, y);
+    pdf.text(timan.address, left, y);
+    pdf.text(dealer.address.trim(), 112, y);
     y += 5;
-    pdf.text(TIMAN_COMPANY_INFO.postalCity, left, y);
-    pdf.text(`${form.dealerPostalCode.trim()} ${form.dealerCity.trim()}`.trim(), 112, y);
+    pdf.text(timan.postalCity, left, y);
+    pdf.text(`${dealer.postalCode.trim()} ${dealer.city.trim()}`.trim(), 112, y);
     y += 8;
-    pdf.text(`Timan sælger: ${form.timanSellerName.trim()}`, left, y);
-    pdf.text(`Kontakt: ${form.contactPerson.trim()}`, 112, y);
+    pdf.text(`Timan sælger: ${timan.sellerName.trim()}`, left, y);
+    pdf.text(`Kontakt: ${dealer.contactPerson.trim()}`, 112, y);
     y += 5;
-    pdf.text(`E-mail: ${form.timanSellerEmail.trim()}`, left, y);
-    pdf.text(`Titel: ${form.contactTitle.trim() || '-'}`, 112, y);
-    if (form.timanSellerPhone.trim()) {
+    pdf.text(`E-mail: ${timan.sellerEmail.trim()}`, left, y);
+    pdf.text(`Titel: ${dealer.contactTitle.trim() || '-'}`, 112, y);
+    if (timan.sellerPhone.trim()) {
       y += 5;
-      pdf.text(`Telefon: ${form.timanSellerPhone.trim()}`, left, y);
+      pdf.text(`Telefon: ${timan.sellerPhone.trim()}`, left, y);
     }
 
     y += 10;
@@ -327,7 +420,7 @@ export default function ContractsPage() {
     pdf.text('Bekræftelser', left, y);
     y += 6;
     pdf.setFont('helvetica', 'normal');
-    Object.entries(confirmations).forEach(([key, confirmation]) => {
+    Object.entries(pdfSnapshot.confirmations).forEach(([key, confirmation]) => {
       const confirmedAt = confirmation.confirmedAt ? new Date(confirmation.confirmedAt).toLocaleString('da-DK') : '-';
       pdf.text(`${key}: ${confirmation.confirmed ? 'Bekræftet' : 'Ikke bekræftet'} · ${confirmedAt} · ${confirmation.confirmedBy || '-'}`, left, y);
       y += 6;
@@ -342,17 +435,17 @@ export default function ContractsPage() {
     pdf.text('Underskrifter', left, y);
     y += 8;
     pdf.setFont('helvetica', 'normal');
-    pdf.text(`${TIMAN_COMPANY_INFO.company} · ${form.timanSellerName.trim()}`, left, y);
-    pdf.text(`${form.dealerName.trim()} · ${form.contactPerson.trim()}`, 112, y);
+    pdf.text(`${timan.company} · ${timan.sellerName.trim()}`, left, y);
+    pdf.text(`${dealer.name.trim()} · ${dealer.contactPerson.trim()}`, 112, y);
     y += 8;
-    pdf.text(`Dato: ${formatDateDa(form.contractDate)}`, left, y);
-    pdf.text(`Dato: ${formatDateDa(form.contractDate)}`, 112, y);
-    if (form.signatureDataUrl) {
+    pdf.text(`Dato: ${formatDateDa(pdfSnapshot.contractDate)}`, left, y);
+    pdf.text(`Dato: ${formatDateDa(pdfSnapshot.contractDate)}`, 112, y);
+    if (pdfSnapshot.signatureDataUrl) {
       try {
-        pdf.addImage(form.signatureDataUrl, 'PNG', 112, y + 3, 45, 14, undefined, 'FAST');
+        pdf.addImage(pdfSnapshot.signatureDataUrl, 'PNG', 112, y + 3, 45, 14, undefined, 'FAST');
       } catch {
         try {
-          pdf.addImage(form.signatureDataUrl, 'JPEG', 112, y + 3, 45, 14, undefined, 'FAST');
+          pdf.addImage(pdfSnapshot.signatureDataUrl, 'JPEG', 112, y + 3, 45, 14, undefined, 'FAST');
         } catch {
           // Keep the signature line if the browser cannot embed the uploaded image.
         }
@@ -361,7 +454,7 @@ export default function ContractsPage() {
     pdf.text('Timan underskrift______________________', left, y + 24);
     pdf.text('Forhandler underskrift_________________', 112, y + 24);
 
-    const fileName = `Timan_Forhandlerkontrakt_${safeFilePart(form.dealerName)}_${form.contractDate}.pdf`;
+    const fileName = `Timan_Forhandlerkontrakt_${safeFilePart(dealer.name)}_${pdfSnapshot.contractDate}.pdf`;
     pdf.save(fileName);
   };
 
@@ -375,6 +468,23 @@ export default function ContractsPage() {
 
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!hasAccess) return <Navigate to="/portal/salg-marketing" replace />;
+  if (!contractLoaded && effectiveUser?.email) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-sm text-gray-500">Henter kontraktkladde...</div>
+      </div>
+    );
+  }
+  if (contractLoadError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
+          <p className="font-bold">Kontraktkladde kunne ikke hentes</p>
+          <p className="mt-2">Prøv at genindlæse siden. Hvis fejlen fortsætter, mangler kontrakt-persistence muligvis at blive deployet.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>

@@ -30,6 +30,13 @@ export type ContractFormData = {
   signatureDataUrl: string | null;
 };
 
+export type TimanCompanyInfo = {
+  company: string;
+  cvr: string;
+  address: string;
+  postalCity: string;
+};
+
 export type ContractConfirmation = {
   confirmed: boolean;
   confirmedAt?: string;
@@ -39,6 +46,13 @@ export type ContractConfirmation = {
 export type ContractConfirmations = Record<ContractConfirmationId, ContractConfirmation>;
 
 export const CONTRACT_VERSION = 'forhandlerkontrakt-timan-2026-08';
+
+export const TIMAN_COMPANY_INFO: TimanCompanyInfo = {
+  company: 'Timan A/S',
+  cvr: '27609627',
+  address: 'Osvald Pedersens Vej 2A-D',
+  postalCity: '6980 Tim',
+};
 
 export const CONTRACT_STEPS: Array<{
   id: ContractStepId;
@@ -137,12 +151,31 @@ export function getContractStatus(form: ContractFormData, confirmations: Contrac
   return 'Draft';
 }
 
+export function getCompletedContractStepIds(
+  activeStepIndex: number,
+  confirmations: ContractConfirmations,
+): ContractStepId[] {
+  return CONTRACT_STEPS
+    .filter((step, index) => {
+      const confirmationId = step.confirmationId;
+      const confirmed = !confirmationId || Boolean(confirmations[confirmationId]?.confirmed);
+      return index < activeStepIndex && confirmed;
+    })
+    .map((step) => step.id);
+}
+
+export type ContractSnapshot = ReturnType<typeof buildContractSnapshot>;
+
 export function buildContractSnapshot(form: ContractFormData, confirmations: ContractConfirmations) {
   return {
     version: CONTRACT_VERSION,
     createdAt: new Date().toISOString(),
     status: getContractStatus(form, confirmations),
     timan: {
+      company: TIMAN_COMPANY_INFO.company,
+      cvr: TIMAN_COMPANY_INFO.cvr,
+      address: TIMAN_COMPANY_INFO.address,
+      postalCity: TIMAN_COMPANY_INFO.postalCity,
       sellerName: form.timanSellerName,
       sellerEmail: form.timanSellerEmail,
       sellerPhone: form.timanSellerPhone,
@@ -158,5 +191,6 @@ export function buildContractSnapshot(form: ContractFormData, confirmations: Con
     },
     contractDate: form.contractDate,
     confirmations,
+    signatureDataUrl: form.signatureDataUrl,
   };
 }
