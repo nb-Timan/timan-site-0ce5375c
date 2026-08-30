@@ -62,6 +62,7 @@ import {
   resolvePaymentTerms,
   getPaymentTermsLabel,
 } from '@/lib/paymentTerms';
+import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
 
 // Configurator language selector — uses the 9 portal UI languages.
 // Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
@@ -1513,146 +1514,45 @@ export default function ConfiguratorPage() {
     }
 
     try {
-      const html2canvasModule = await import('html2canvas');
-      const html2canvas = html2canvasModule.default;
       const jsPDFModule = await import('jspdf');
       const { jsPDF } = jsPDFModule;
-
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageW = pdf.internal.pageSize.getWidth();
-      const pageH = pdf.internal.pageSize.getHeight();
-      const marginTop = 10;
-      const marginBottom = 18; // generous bottom margin so footer text never clips
-      const marginX = 10;
-      const contentW = pageW - marginX * 2;
-      const contentH = pageH - marginTop - marginBottom;
-      const pxPerMm = 96 / 25.4;
-      const renderW = Math.round(contentW * pxPerMm);
-
-      // Clone into offscreen container — no max-height / overflow:hidden so the
-      // full content height is measurable and rasterisable.
-      const renderRoot = document.createElement('div');
-      renderRoot.style.cssText = `position:fixed;left:-99999px;top:0;width:${renderW}px;background:#fff;overflow:visible;max-height:none;height:auto;`;
-      document.body.appendChild(renderRoot);
-
-      const clone = el.cloneNode(true) as HTMLElement;
-      clone.style.cssText = 'width:100%;max-width:none;max-height:none;height:auto;margin:0;padding:0 0 24px 0;background:#fff;overflow:visible;';
-      try {
-        clone.innerHTML = buildConfirmationHtml({
-          quoteNumber: activeQuoteNumber,
-          orderNumber: activeOrderNumber,
-          sourceQuoteNumber: savedSourceQuoteNumber,
-          flowType: effectiveFlowType,
-        });
-      } catch { /* fallback to original cloned DOM */ }
-      renderRoot.appendChild(clone);
-
-      // Inject page-break CSS for keep-together blocks (totals + machine blocks).
-      // Marks: data-pdf-keep="1" (totals), data-pdf-block (machine groups).
-      const pdfStyle = document.createElement('style');
-      pdfStyle.textContent = `
-        [data-pdf-keep], [data-pdf-block] {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-        * { overflow: visible !important; max-height: none !important; }
-      `;
-      renderRoot.appendChild(pdfStyle);
-
-      await new Promise(r => requestAnimationFrame(r));
-
-      // Capture geometry BEFORE rasterising so we can choose safe slice
-      // boundaries that don't clip text or split the price summary.
-      const rootRect = renderRoot.getBoundingClientRect();
-      const cssH = Math.max(renderRoot.scrollHeight, clone.scrollHeight);
-
-      const breakPointsCss = new Set<number>([0, cssH]);
-      const keepRanges: Array<{ top: number; bottom: number }> = [];
-      const allEls = clone.querySelectorAll<HTMLElement>('*');
-      allEls.forEach(node => {
-        const r = node.getBoundingClientRect();
-        const top = r.top - rootRect.top;
-        const bottom = r.bottom - rootRect.top;
-        if (node.hasAttribute('data-pdf-keep')) {
-          keepRanges.push({ top, bottom });
-          breakPointsCss.add(top);
-        }
-        if (r.height > 0 && r.height < 200 && node.children.length === 0) {
-          breakPointsCss.add(bottom);
-        }
+      const selectedBulletsArr = salesArgsData
+        ? salesArgsData.defaultBullets.concat(salesArgsData.extraBullets).filter(b => selectedSalesBullets.has(b))
+        : [];
+      const selectedRecArr = recommendationData
+        ? recommendationData.defaultBullets.concat(recommendationData.extraBullets).filter(b => selectedRecBullets.has(b))
+        : [];
+      const pdf = buildConfiguratorPdf({
+        jsPDF,
+        state,
+        calcResult: displayCalc!,
+        flowType: effectiveFlowType,
+        quoteNumber: activeQuoteNumber,
+        orderNumber: activeOrderNumber,
+        sourceQuoteNumber: savedSourceQuoteNumber,
+        showPrices: permissions.canSeePrices,
+        uiLanguage: lang,
+        contentLanguage: contentUiLang,
+        T,
+        TC,
+        includeSalesArgs,
+        salesArguments: salesArgsData ? {
+          title: { da: 'Fordele ved den valgte løsning', en: 'Benefits of the chosen solution', de: 'Vorteile der gewählten Lösung', it: 'Vantaggi della soluzione scelta', hu: 'A választott megoldás előnyei' }[lang] || 'Benefits of the chosen solution',
+          body: `${salesArgsData.heading}\n\n${salesArgsData.paragraph}\n\n${selectedBulletsArr.map(b => `• ${b}`).join('\n')}`,
+        } : null,
+        includeRecommendation,
+        recommendation: recommendationData ? {
+          title: { da: 'Timans anbefaling', en: 'Timan Recommends', de: 'Timan empfiehlt', it: 'Timan raccomanda', hu: 'Timan ajánlása' }[lang] || 'Timan Recommends',
+          body: `${recommendationData.heading}\n\n${recommendationData.paragraph}\n\n${selectedRecArr.map(b => `• ${b}`).join('\n')}`,
+        } : null,
       });
 
-      const canvas = await html2canvas(renderRoot, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        windowWidth: renderW,
-        windowHeight: cssH,
-        height: cssH,
-      });
-      document.body.removeChild(renderRoot);
-
-      const canvasW = canvas.width;
-      const canvasH = canvas.height;
-      const cssToCanvas = canvasH / cssH;
-      const canvasPxPerMm = canvasW / contentW;
-      const maxSliceH = Math.floor(contentH * canvasPxPerMm);
-
-      const breaks = Array.from(breakPointsCss)
-        .map(v => Math.round(v * cssToCanvas))
-        .filter(v => v >= 0 && v <= canvasH)
-        .sort((a, b) => a - b);
-      const keepRangesCanvas = keepRanges.map(k => ({
-        top: Math.round(k.top * cssToCanvas),
-        bottom: Math.round(k.bottom * cssToCanvas),
-      }));
-
-      let yOffset = 0;
-      let pageNum = 0;
-      while (yOffset < canvasH - 1) {
-        if (pageNum > 0) pdf.addPage();
-        const remaining = canvasH - yOffset;
-
-        // If everything that's left fits on this page, take it all.
-        let cut: number;
-        if (remaining <= maxSliceH) {
-          cut = canvasH;
-        } else {
-          const hardLimit = yOffset + maxSliceH;
-          cut = hardLimit;
-          for (let i = breaks.length - 1; i >= 0; i--) {
-            if (breaks[i] > yOffset && breaks[i] <= hardLimit) { cut = breaks[i]; break; }
-          }
-          // Don't split a keep-together block: move cut to its top if possible.
-          for (const k of keepRangesCanvas) {
-            if (k.top > yOffset && k.top < cut && k.bottom > cut) {
-              if (k.bottom - k.top <= maxSliceH) cut = k.top;
-            }
-          }
-          if (cut <= yOffset) cut = hardLimit;
-        }
-
-        const sliceH = cut - yOffset;
-        const sliceCanvas = document.createElement('canvas');
-        sliceCanvas.width = canvasW;
-        sliceCanvas.height = sliceH;
-        const ctx = sliceCanvas.getContext('2d')!;
-        ctx.drawImage(canvas, 0, yOffset, canvasW, sliceH, 0, 0, canvasW, sliceH);
-
-        const imgData = sliceCanvas.toDataURL('image/jpeg', 0.95);
-        const imgH = (sliceH / canvasPxPerMm);
-        pdf.addImage(imgData, 'JPEG', marginX, marginTop, contentW, imgH);
-
-        yOffset = cut;
-        pageNum++;
-      }
-
-
-
-      const pdfTitle = effectiveFlowType === 'quote' ? T('quote') : T('order');
       const refNum = activeOrderNumber || activeQuoteNumber || savedOrderNumber || savedQuoteNumber || '';
-      const refSuffix = refNum ? `_${refNum}` : '';
-      const pdfFilename = `Timan_${pdfTitle}${refSuffix}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const pdfFilename = buildConfiguratorPdfFilename({
+        flowType: effectiveFlowType,
+        refNumber: refNum,
+        T,
+      });
       pdf.save(pdfFilename);
 
       // Capture PDF as base64 for webhook payload (strip data URI prefix)

@@ -447,7 +447,7 @@ const integrationNodes: SystemMapNode[] = [
     minZoom: 0.35,
     icon: FileText,
     tables: ["configurations", "storage"],
-    services: ["html2canvas", "jsPDF", "brochure pages"],
+    services: ["configuratorPdf", "jsPDF", "brochure pages"],
     routes: ["/portal/resources", "/portal/crm/quotes"],
     receivesFrom: ["Salg", "Brochurevisninger"],
     sendsTo: ["Download", "Storage", "E-mail payload"],
