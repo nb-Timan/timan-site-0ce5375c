@@ -49,6 +49,14 @@ import {
   normalizeContractServiceHourlyRateDkk,
   shouldResetContractServiceConfirmation,
 } from '@/lib/contractServiceTerms';
+import {
+  CONTRACT_PAYMENT_TERM_OPTIONS,
+  DEFAULT_CONTRACT_PAYMENT_TERM,
+  contractPaymentTermHasMissingLegalText,
+  getContractPaymentTermLabel,
+  renderContractPaymentTermLegalText,
+  shouldResetContractPaymentConfirmation,
+} from '@/lib/contractPaymentTerms';
 import { t } from '@/lib/i18n/translations';
 
 const completeForm: ContractFormData = {
@@ -78,6 +86,7 @@ const completeForm: ContractFormData = {
     enabled: false,
   },
   serviceHourlyRateDkk: DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
+  paymentTerm: DEFAULT_CONTRACT_PAYMENT_TERM,
   signatureDataUrl: null,
 };
 
@@ -141,6 +150,15 @@ describe('contract flow', () => {
     expect(normalizeContractServiceHourlyRateDkk(undefined)).toBe(360);
     expect(normalizeContractServiceHourlyRateDkk('425')).toBe(425);
     expect(formatContractServiceHourlyRatePerHourDkk(425)).toBe('425 kr./time');
+  });
+
+  it('defaults new contracts to net 21 payment terms', () => {
+    expect(completeForm.paymentTerm).toBe('net_21');
+    expect(DEFAULT_CONTRACT_PAYMENT_TERM).toBe('net_21');
+    expect(CONTRACT_PAYMENT_TERM_OPTIONS).toEqual(['net_21', 'net_30', 'cbs']);
+    expect(getContractPaymentTermLabel('net_21', 'da')).toBe('Netto 21 dage');
+    expect(getContractPaymentTermLabel('net_30', 'da')).toBe('Netto 30 dage');
+    expect(getContractPaymentTermLabel('cbs', 'da')).toBe('CBS');
   });
 
   it('marks signed only after signature exists on a fully confirmed contract', () => {
@@ -348,10 +366,47 @@ describe('contract flow', () => {
     expect(JSON.stringify(snapshot.legalSections)).toContain('425 kr. pr. forbrugt time');
   });
 
+  it('renders and stores dynamic contract payment terms', () => {
+    const form: ContractFormData = { ...completeForm, paymentTerm: 'net_30' };
+    const legalSections = renderGuidedContractSections({
+      companyName: form.dealerName,
+      partnerType: form.partnerType,
+      primaryTerritory: form.primaryTerritory,
+      secondaryTerritory: form.secondaryTerritory,
+      serviceHourlyRateDkk: form.serviceHourlyRateDkk,
+      paymentTerm: form.paymentTerm,
+    });
+    const snapshot = buildContractSnapshot(form, confirmed, { legalSections });
+    const text = JSON.stringify(snapshot.legalSections);
+
+    expect(renderContractPaymentTermLegalText('net_21')).toBe('Betalingsbetingelser: Betaling forfalder netto 21 dage fra fakturadato.');
+    expect(renderContractPaymentTermLegalText('net_30')).toBe('Betalingsbetingelser: Betaling forfalder netto 30 dage fra fakturadato.');
+    expect(text).toContain('Betalingsbetingelser: Betaling forfalder netto 30 dage fra fakturadato. Ved manglende betaling');
+    expect(text).not.toContain('netto 21 dage fra fakturadato. Ved manglende betaling');
+    expect(snapshot.paymentTerms).toEqual({
+      paymentTerm: 'net_30',
+      label: 'Netto 30 dage',
+      legalText: 'Betalingsbetingelser: Betaling forfalder netto 30 dage fra fakturadato.',
+      cbsLegalTextMissing: false,
+    });
+  });
+
+  it('keeps CBS selectable while flagging the missing legal source text', () => {
+    expect(contractPaymentTermHasMissingLegalText('cbs')).toBe(true);
+    expect(renderContractPaymentTermLegalText('cbs')).toBe('Betalingsbetingelser: CBS.');
+    expect(buildContractSnapshot({ ...completeForm, paymentTerm: 'cbs' }, confirmed).paymentTerms.cbsLegalTextMissing).toBe(true);
+  });
+
   it('invalidates the spare parts service confirmation when the hourly rate changes', () => {
     expect(shouldResetContractServiceConfirmation(360, 425, true)).toBe(true);
     expect(shouldResetContractServiceConfirmation(360, 425, false)).toBe(false);
     expect(shouldResetContractServiceConfirmation('360', 360, true)).toBe(false);
+  });
+
+  it('invalidates payment delivery confirmation when payment terms change', () => {
+    expect(shouldResetContractPaymentConfirmation('net_21', 'net_30', true)).toBe(true);
+    expect(shouldResetContractPaymentConfirmation('net_21', 'net_30', false)).toBe(false);
+    expect(shouldResetContractPaymentConfirmation('net_21', 'net_21', true)).toBe(false);
   });
 
   it('shows the important service terms panel and editable hourly rate in step 6', () => {
@@ -362,6 +417,17 @@ describe('contract flow', () => {
     expect(source).toContain('Reklamationsarbejde må først påbegyndes');
     expect(source).toContain('Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan med samme timetakst.');
     expect(source).toContain('shouldResetContractServiceConfirmation');
+  });
+
+  it('shows the payment terms dropdown in the payment delivery step', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain('PaymentDeliverySection');
+    expect(source).toContain('contractPaymentTermsLabel');
+    expect(source).toContain('CONTRACT_PAYMENT_TERM_OPTIONS.map');
+    expect(source).toContain('shouldResetContractPaymentConfirmation');
+    expect(t('contractPaymentTermsLabel', 'da')).toBe('Betalingsbetingelser');
+    expect(t('contractPaymentTermsLabel', 'en')).toBe('Payment terms');
   });
 
   it('renders the spare parts portal link text through portal translations', () => {

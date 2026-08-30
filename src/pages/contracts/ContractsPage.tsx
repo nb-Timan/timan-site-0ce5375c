@@ -88,6 +88,15 @@ import {
   isValidContractServiceHourlyRateDkk,
   shouldResetContractServiceConfirmation,
 } from '@/lib/contractServiceTerms';
+import {
+  CONTRACT_PAYMENT_TERM_OPTIONS,
+  DEFAULT_CONTRACT_PAYMENT_TERM,
+  contractPaymentTermHasMissingLegalText,
+  getContractPaymentTermLabel,
+  normalizeContractPaymentTerm,
+  shouldResetContractPaymentConfirmation,
+  type ContractPaymentTermId,
+} from '@/lib/contractPaymentTerms';
 import { t } from '@/lib/i18n/translations';
 
 const CONTRACT_DOCS = [
@@ -225,6 +234,7 @@ function getSnapshotLegalSections(snapshot: ContractSnapshot): GuidedContractSec
     primaryTerritory: snapshot.territory?.primaryTerritory,
     secondaryTerritory: snapshot.territory?.secondaryTerritory,
     serviceHourlyRateDkk: snapshot.serviceTerms?.hourlyRateDkk,
+    paymentTerm: snapshot.paymentTerms?.paymentTerm,
   });
 }
 
@@ -438,6 +448,7 @@ export default function ContractsPage() {
     primaryTerritory: createEmptyContractTerritoryArea(),
     secondaryTerritory: createEmptySecondaryContractTerritoryArea(),
     serviceHourlyRateDkk: DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
+    paymentTerm: DEFAULT_CONTRACT_PAYMENT_TERM,
     signatureDataUrl: null,
     partnerType: '',
   }));
@@ -599,6 +610,24 @@ export default function ContractsPage() {
     setForm((current) => ({ ...current, serviceHourlyRateDkk: value }));
   };
 
+  const updatePaymentTerm = (value: ContractPaymentTermId) => {
+    const nextTerm = normalizeContractPaymentTerm(value);
+    setConfirmations((current) => {
+      if (!shouldResetContractPaymentConfirmation(
+        form.paymentTerm,
+        nextTerm,
+        Boolean(current.payment_delivery?.confirmed),
+      )) {
+        return current;
+      }
+      return {
+        ...current,
+        payment_delivery: { confirmed: false },
+      };
+    });
+    setForm((current) => ({ ...current, paymentTerm: nextTerm }));
+  };
+
   const saveDraft = () => {
     void persistContract({ showToast: true });
   };
@@ -729,6 +758,7 @@ export default function ContractsPage() {
       primaryTerritory: form.primaryTerritory,
       secondaryTerritory: form.secondaryTerritory,
       serviceHourlyRateDkk: form.serviceHourlyRateDkk,
+      paymentTerm: form.paymentTerm,
     });
     const appendix2Paragraphs = renderAppendix2Paragraphs(form.partnerType);
     const completedAt = new Date().toISOString();
@@ -1103,6 +1133,7 @@ export default function ContractsPage() {
                   form={form}
                   onFormPatch={updateForm}
                   onServiceHourlyRateChange={updateServiceHourlyRate}
+                  onPaymentTermChange={updatePaymentTerm}
                   locked={isLockedContract}
                 />
                 {activeStep.id === 'full_contract' && (
@@ -1279,6 +1310,7 @@ function ReviewStep({
   form,
   onFormPatch,
   onServiceHourlyRateChange,
+  onPaymentTermChange,
   locked,
 }: {
   stepId: (typeof CONTRACT_STEPS)[number]['id'];
@@ -1288,6 +1320,7 @@ function ReviewStep({
   form: ContractFormData;
   onFormPatch: (patch: Partial<ContractFormData>) => void;
   onServiceHourlyRateChange: (value: number) => void;
+  onPaymentTermChange: (value: ContractPaymentTermId) => void;
   locked?: boolean;
 }) {
   const fullContract = stepId === 'full_contract';
@@ -1323,6 +1356,13 @@ function ReviewStep({
                   locked
                   showEditableRate={false}
                 />
+              ) : contractSection.stepId === 'payment_delivery' ? (
+                <PaymentDeliverySection
+                  section={contractSection}
+                  paymentTerm={form.paymentTerm}
+                  locked
+                  showEditableTerm={false}
+                />
               ) : (
                 <ContractLegalSection section={contractSection} />
               )}
@@ -1346,6 +1386,13 @@ function ReviewStep({
               section={section}
               serviceHourlyRateDkk={form.serviceHourlyRateDkk}
               onServiceHourlyRateChange={onServiceHourlyRateChange}
+              locked={locked}
+            />
+          ) : section.stepId === 'payment_delivery' ? (
+            <PaymentDeliverySection
+              section={section}
+              paymentTerm={form.paymentTerm}
+              onPaymentTermChange={onPaymentTermChange}
               locked={locked}
             />
           ) : (
@@ -1752,6 +1799,63 @@ function ContractLegalSectionHeader({ section }: { section: GuidedContractSectio
       <div>
         <h3 className="text-lg font-bold text-gray-950">{section.title}</h3>
         <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{section.source}</p>
+      </div>
+    </div>
+  );
+}
+
+function PaymentDeliverySection({
+  section,
+  paymentTerm,
+  onPaymentTermChange,
+  locked,
+  showEditableTerm = true,
+}: {
+  section: GuidedContractSection;
+  paymentTerm: ContractPaymentTermId;
+  onPaymentTermChange?: (value: ContractPaymentTermId) => void;
+  locked?: boolean;
+  showEditableTerm?: boolean;
+}) {
+  const { uiLanguage } = useLanguage();
+  const cbsNeedsLegalText = contractPaymentTermHasMissingLegalText(paymentTerm);
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+      <ContractLegalSectionHeader section={section} />
+      <div className="mt-5 space-y-5">
+        <section className="rounded-2xl border border-amber-200 bg-white p-5">
+          <label className="block">
+            <span className="text-sm font-bold text-gray-950">{t('contractPaymentTermsLabel', uiLanguage)}</span>
+            {showEditableTerm && onPaymentTermChange ? (
+              <select
+                value={paymentTerm}
+                disabled={locked}
+                onChange={(event) => onPaymentTermChange(event.target.value as ContractPaymentTermId)}
+                className="mt-2 w-full max-w-sm rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+              >
+                {CONTRACT_PAYMENT_TERM_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {getContractPaymentTermLabel(option, uiLanguage)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="mt-2 text-sm font-black text-gray-950">
+                {getContractPaymentTermLabel(paymentTerm, uiLanguage)}
+              </p>
+            )}
+          </label>
+          {cbsNeedsLegalText && (
+            <p className="mt-3 max-w-2xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
+              CBS er valgt, men der findes endnu ikke en fuld juridisk CBS-formulering i kontraktens source of truth.
+            </p>
+          )}
+        </section>
+
+        {section.blocks.map((block, index) => (
+          <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
+        ))}
       </div>
     </div>
   );

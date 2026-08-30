@@ -10,6 +10,10 @@ import {
   buildContractServiceTermsSnapshot,
   isValidContractServiceHourlyRateDkk,
 } from '@/lib/contractServiceTerms';
+import {
+  buildContractPaymentTermsSnapshot,
+  type ContractPaymentTermId,
+} from '@/lib/contractPaymentTerms';
 
 export type ContractStepId =
   | 'parties'
@@ -65,6 +69,7 @@ export type ContractFormData = {
   primaryTerritory: ContractTerritoryArea;
   secondaryTerritory: ContractSecondaryTerritoryArea;
   serviceHourlyRateDkk: number;
+  paymentTerm: ContractPaymentTermId;
   signatureDataUrl: string | null;
 };
 
@@ -459,6 +464,7 @@ export function buildContractSnapshot(
     },
     territory: buildContractTerritorySnapshot(form),
     serviceTerms: buildContractServiceTermsSnapshot(form),
+    paymentTerms: buildContractPaymentTermsSnapshot(form),
     contractDate: form.contractDate,
     legalSections: options.legalSections ?? null,
     appendices: options.appendices ?? null,

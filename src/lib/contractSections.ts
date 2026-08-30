@@ -7,6 +7,7 @@ import {
   type ContractTerritoryArea,
 } from '@/lib/contractTerritory';
 import { formatContractServiceHourlyRateDkk } from '@/lib/contractServiceTerms';
+import { renderContractPaymentTermLegalText } from '@/lib/contractPaymentTerms';
 
 export type ContractTextBlock = {
   heading?: string;
@@ -27,6 +28,7 @@ export type ContractTextRenderContext = {
   primaryTerritory?: ContractTerritoryArea;
   secondaryTerritory?: ContractSecondaryTerritoryArea;
   serviceHourlyRateDkk?: number;
+  paymentTerm?: string;
 };
 
 export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
@@ -241,7 +243,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           'Tim (Carriage Paid To) – Incoterms® 2020.',
           'Se mere om leveringsbetingelser: bilag 4.',
           'Opstart af maskine pålægges et gebyr i henhold til gældende prisliste.',
-          'Betalingsbetingelser: Betaling forfalder netto 21 dage fra fakturadato. Ved manglende betaling vil der blive pålagt',
+          '{{paymentTermsLegalText}} Ved manglende betaling vil der blive pålagt',
           'lovbestemte renter.',
         ],
       },
@@ -334,7 +336,8 @@ function renderContractText(value: string, context: ContractTextRenderContext): 
     .replaceAll('{{partnerAnnualMeeting}}', terms?.annualMeeting ?? '')
     .replaceAll('{{primaryTerritoryDescription}}', describeContractTerritoryArea(context.primaryTerritory, 'da'))
     .replaceAll('{{secondaryTerritoryDescription}}', describeContractSecondaryTerritoryArea(context.secondaryTerritory, 'da'))
-    .replaceAll('{{serviceHourlyRateDkk}}', formatContractServiceHourlyRateDkk(context.serviceHourlyRateDkk));
+    .replaceAll('{{serviceHourlyRateDkk}}', formatContractServiceHourlyRateDkk(context.serviceHourlyRateDkk))
+    .replaceAll('{{paymentTermsLegalText}}', renderContractPaymentTermLegalText(context.paymentTerm));
 }
 
 export function renderGuidedContractSections(context: ContractTextRenderContext): GuidedContractSection[] {
