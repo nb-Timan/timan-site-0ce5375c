@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { screenToWorld, worldToScreen, zoomToScreenPoint, zoomToWorldPoint } from "@/lib/systemDnaViewport";
+import {
+  SYSTEM_DNA_INITIAL_ZOOM,
+  SYSTEM_DNA_MAX_ZOOM,
+  SYSTEM_DNA_MIN_ZOOM,
+  SYSTEM_DNA_WHEEL_SENSITIVITY,
+  centerPanOnWorldPoint,
+  fitViewportToPoints,
+  screenToWorld,
+  worldToScreen,
+  zoomToScreenPoint,
+  zoomToWorldPoint,
+} from "@/lib/systemDnaViewport";
 
 describe("system DNA viewport zoom", () => {
   const pan = { x: -520, y: -360 };
@@ -29,5 +40,40 @@ describe("system DNA viewport zoom", () => {
 
     expect(rendered.x).toBeCloseTo(screenPoint.x, 8);
     expect(rendered.y).toBeCloseTo(screenPoint.y, 8);
+  });
+
+  it("uses a calibrated start zoom for a denser 100 percent browser view", () => {
+    expect(SYSTEM_DNA_INITIAL_ZOOM).toBe(0.38);
+    expect(SYSTEM_DNA_MIN_ZOOM).toBeLessThan(SYSTEM_DNA_INITIAL_ZOOM);
+    expect(SYSTEM_DNA_MAX_ZOOM).toBe(1.65);
+    expect(SYSTEM_DNA_WHEEL_SENSITIVITY).toBeLessThan(0.0012);
+  });
+
+  it("can center Timan Partner Portal from its actual world position", () => {
+    const viewport = { width: 1440, height: 760 };
+    const portalCenter = { x: 1400, y: 900 };
+    const nextPan = centerPanOnWorldPoint(portalCenter, viewport, SYSTEM_DNA_INITIAL_ZOOM);
+    const rendered = worldToScreen(portalCenter, nextPan, SYSTEM_DNA_INITIAL_ZOOM);
+
+    expect(rendered.x).toBeCloseTo(viewport.width / 2, 8);
+    expect(rendered.y).toBeCloseTo(viewport.height / 2, 8);
+  });
+
+  it("fits to actual visible point bounds instead of a fixed pan offset", () => {
+    const viewport = { width: 1440, height: 760 };
+    const points = [
+      { x: 920, y: 520 },
+      { x: 1400, y: 900 },
+      { x: 2230, y: 940 },
+    ];
+
+    const fitted = fitViewportToPoints({ points, viewport });
+    expect(fitted).not.toBeNull();
+    expect(fitted?.zoom).toBeGreaterThanOrEqual(SYSTEM_DNA_MIN_ZOOM);
+    expect(fitted?.zoom).toBeLessThanOrEqual(SYSTEM_DNA_MAX_ZOOM);
+
+    const renderedCenter = worldToScreen({ x: 1575, y: 730 }, fitted!.pan, fitted!.zoom);
+    expect(renderedCenter.x).toBeCloseTo(viewport.width / 2, 8);
+    expect(renderedCenter.y).toBeCloseTo(viewport.height / 2, 8);
   });
 });

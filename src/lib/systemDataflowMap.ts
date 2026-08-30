@@ -34,9 +34,10 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import { SYSTEM_DNA_INITIAL_ZOOM, SYSTEM_DNA_MAX_ZOOM } from "@/lib/systemDnaViewport";
 
 export type SystemMapNodeKind = "portal" | "module" | "feature" | "data" | "technical" | "integration" | "process" | "tool";
-export type SystemMapArea = "crm" | "sales" | "marketing" | "dealer_data" | "service" | "messe" | "import" | "system";
+export type SystemMapArea = "crm" | "sales" | "marketing" | "dealer_data" | "service" | "calendar" | "projects" | "messe" | "import" | "system";
 export type SystemMapNodeId = string;
 
 export interface SystemMapNode {
@@ -66,6 +67,8 @@ const AREA_COLORS: Record<SystemMapArea, string> = {
   marketing: "purple",
   dealer_data: "amber",
   service: "cyan",
+  calendar: "teal",
+  projects: "indigo",
   messe: "rose",
   import: "orange",
   system: "slate",
@@ -102,8 +105,8 @@ export interface SystemDnaPoint {
 }
 
 export const SYSTEM_DNA_ZOOM_LEVELS: SystemDnaZoomLevel[] = [
-  { id: "world", title: "Hele systemet", zoom: 0.52, description: "Hovedområder og centrale eksterne systemer." },
-  { id: "area", title: "Områder", zoom: 0.9, description: "Moduler, større features og brugerrejser." },
+  { id: "world", title: "Hele systemet", zoom: SYSTEM_DNA_INITIAL_ZOOM, description: "Hovedområder og centrale eksterne systemer." },
+  { id: "area", title: "Områder", zoom: 0.74, description: "Moduler, større features og brugerrejser." },
   { id: "feature", title: "Features", zoom: 1.24, description: "Underfunktioner, dataobjekter og konkrete flows." },
   { id: "technical", title: "Teknisk DNA", zoom: 1.48, description: "Tabeller, services, routes, RPC'er og Edge Functions." },
 ];
@@ -138,12 +141,12 @@ const baseNodes: SystemMapNode[] = [
     dnaPosition: { x: 920, y: 520 },
     minZoom: 0.35,
     icon: BarChart3,
-    tables: ["crm_leads", "crm_demo_leads", "crm_activities", "crm_calendar_activities"],
-    services: ["crmLeadsService", "crmDashboardKpisService", "crmCalendarService", "crmScope"],
+    tables: ["crm_leads", "crm_demo_leads", "crm_activities"],
+    services: ["crmLeadsService", "crmDashboardKpisService", "crmScope"],
     routes: ["/portal/crm/dashboard", "/portal/crm/leads", "/portal/crm/activities"],
     receivesFrom: ["Messe lead capture", "Konfigurator gem som lead", "Sælger-scope"],
     sendsTo: ["Dashboard KPI'er", "Kalender", "Tilbud/ordre-flow"],
-    integrations: ["Supabase", "n8n calendar webhook"],
+    integrations: ["Supabase"],
     explanation: "CRM bruger Supabase-data til leads, demoer, aktiviteter og dashboard-KPI'er. Dashboardet bruger server-side RPC'er.",
   },
   {
@@ -221,6 +224,44 @@ const baseNodes: SystemMapNode[] = [
     sendsTo: ["Partnerkort", "Maskinjournal", "TSB visninger"],
     integrations: ["Supabase", "SharePoint"],
     explanation: "Service samler garanti, maskiner, servicehistorik og TSB-relaterede visninger. Warranty-data kan komme fra SharePoint-sync.",
+  },
+  {
+    id: "calendar",
+    title: "Kalender",
+    subtitle: "Aftaler, aktiviteter og deadlines",
+    kind: "module",
+    area: "calendar",
+    color: "teal",
+    position: { x: 80, y: 43 },
+    dnaPosition: { x: 2230, y: 760 },
+    minZoom: 0.35,
+    icon: CalendarDays,
+    tables: ["crm_calendar_activities"],
+    services: ["crmCalendarService"],
+    routes: ["/portal/crm/calendar"],
+    receivesFrom: ["CRM aktiviteter", "Sælger-opfølgninger"],
+    sendsTo: ["E-mail/n8n kalenderflow", "CRM dashboard"],
+    integrations: ["Supabase", "n8n calendar webhook"],
+    explanation: "Kalender er et selvstændigt portalmodul for aftaler, aktiviteter og deadlines. Det bruger crm_calendar_activities og eksisterende n8n-kalenderintegration.",
+  },
+  {
+    id: "projects",
+    title: "Projekter",
+    subtitle: "Projekter, opgaver og opfølgning",
+    kind: "module",
+    area: "projects",
+    color: "indigo",
+    position: { x: 50, y: 68 },
+    dnaPosition: { x: 1450, y: 1390 },
+    minZoom: 0.35,
+    icon: ClipboardList,
+    tables: [],
+    services: [],
+    routes: [],
+    receivesFrom: ["Kommende Project & Task Management"],
+    sendsTo: [],
+    integrations: [],
+    explanation: "Projekter er reserveret som selvstændigt hovedmodul for Project & Task Management. Relationer til CRM, kalender, service og andre områder tilføjes først, når de faktisk implementeres.",
   },
   {
     id: "messe",
@@ -422,7 +463,7 @@ const featureNodes: SystemMapNode[] = [
   node("crm_leads", "Leads", "Åbne leads og demoer", "feature", "crm", "crm", 720, 430, 0.72, Sparkles, ["crm_leads"], ["crmLeadsService", "crmPipelineValue"], ["/portal/crm/leads"], "Leadlisten, filtre, pipelineværdi og konverteringer."),
   node("crm_demo_leads", "Demo-leads", "Demo-flow og afholdt demo", "feature", "crm", "crm", 590, 520, 0.95, ClipboardList, ["crm_demo_leads", "crm_leads"], ["crmLeadsService"], ["/portal/crm/demo-leads"], "Demoer er knyttet til leadstatus og konverteringsflow."),
   node("crm_activities", "Aktiviteter", "Opfølgninger og historik", "feature", "crm", "crm", 850, 590, 0.9, Activity, ["crm_activities", "crm_calendar_activities"], ["crmActivitiesService", "crmCalendarService"], ["/portal/crm/activities"], "Aktiviteter viser hændelser på leads og opfølgninger."),
-  node("crm_calendar", "Kalender", "Planlagte aktiviteter", "feature", "crm", "crm", 1030, 560, 0.95, CalendarDays, ["crm_calendar_activities"], ["crmCalendarService"], ["/portal/crm/calendar"], "Kalenderen viser planlagte CRM-aktiviteter og n8n kalenderflow."),
+  node("crm_calendar", "Kalenderaktiviteter", "Aftaler, aktiviteter og deadlines", "feature", "calendar", "calendar", 2230, 940, 0.95, CalendarDays, ["crm_calendar_activities"], ["crmCalendarService"], ["/portal/crm/calendar"], "Kalenderen viser planlagte CRM-aktiviteter og n8n kalenderflow."),
   node("crm_pipeline", "Pipeline", "Værdi, status og forecast", "feature", "crm", "crm", 900, 340, 1.05, BarChart3, ["crm_leads.pipeline_value_snapshot"], ["crmPipelineValue"], ["/portal/crm/dashboard"], "Pipelineværdi samles fra snapshotfeltet og bruges i dashboardet."),
   node("lead_status", "Lead-status", "Åben, vundet, tabt", "data", "crm", "crm_leads", 510, 360, 1.28, Tags, ["crm_leads.status"], ["leadStatus"], ["/portal/crm/leads"], "Status styrer filtrering og pipelinefordeling."),
   node("lead_owner", "Ejer", "Sælgerinitialer og scope", "data", "crm", "crm_leads", 510, 450, 1.28, Contact, ["crm_leads.seller_id"], ["crmScope", "resolveSellerId"], ["/portal/crm/leads"], "Ejer bruges til sælgerfilter og Backend Alle."),
@@ -543,7 +584,7 @@ const expandedDnaPositions: Partial<Record<SystemMapNodeId, { feature?: SystemDn
   crm_leads: { feature: { x: 620, y: 520 } },
   crm_demo_leads: { feature: { x: 360, y: 660 } },
   crm_activities: { feature: { x: 820, y: 800 } },
-  crm_calendar: { feature: { x: 1160, y: 660 } },
+  crm_calendar: { feature: { x: 2230, y: 940 } },
   crm_pipeline: { feature: { x: 1080, y: 330 } },
   lead_conversions: { feature: { x: 1390, y: 220 } },
   lead_status: { technical: { x: 350, y: 360 } },
@@ -615,12 +656,14 @@ export const systemMapEdges: SystemMapEdge[] = [
   { from: "messe", to: "crm", label: "leads", kind: "data" },
   { from: "marketing", to: "messe", label: "nyheder", kind: "data", minZoom: 0.8 },
   { from: "crm", to: "sales", label: "tilbud/status", kind: "conversion", direction: "bidirectional" },
+  { from: "crm", to: "calendar", label: "aktiviteter", kind: "data" },
   { from: "sales", to: "documents", label: "PDF", kind: "data" },
   { from: "sales", to: "email", label: "webhook", kind: "data" },
-  { from: "crm", to: "email", label: "kalender", kind: "data" },
+  { from: "calendar", to: "email", label: "kalender", kind: "data" },
   { from: "system_admin", to: "portal", label: "adgang", kind: "permission" },
   { from: "portal", to: "supabase", label: "data", kind: "data" },
   { from: "supabase", to: "crm", label: "RPC", kind: "data" },
+  { from: "supabase", to: "calendar", label: "aktiviteter", kind: "data" },
   { from: "supabase", to: "marketing", label: "CMS", kind: "data" },
   { from: "supabase", to: "dealer_data", label: "konti", kind: "data" },
   { from: "supabase", to: "service", label: "service", kind: "data" },
@@ -635,6 +678,8 @@ export const systemOverviewLines: SystemOverviewLine[] = [
   { from: "crm", to: "portal", colorFrom: "crm" },
   { from: "sales", to: "portal", colorFrom: "sales" },
   { from: "service", to: "portal", colorFrom: "service" },
+  { from: "calendar", to: "portal", colorFrom: "calendar" },
+  { from: "projects", to: "portal", colorFrom: "projects" },
   { from: "marketing", to: "portal", colorFrom: "marketing" },
   { from: "system_admin", to: "portal", colorFrom: "system_admin" },
   { from: "dealer_data", to: "portal", colorFrom: "dealer_data" },
@@ -643,11 +688,12 @@ export const systemOverviewLines: SystemOverviewLine[] = [
   { from: "dealer_data", to: "crm", colorFrom: "dealer_data", dashed: true },
   { from: "dealer_data", to: "messe", colorFrom: "dealer_data", dashed: true },
   { from: "messe", to: "crm", colorFrom: "messe", dashed: true },
+  { from: "crm", to: "calendar", colorFrom: "crm", dashed: true },
   { from: "crm", to: "sales", colorFrom: "crm", dashed: true },
   { from: "import", to: "sales", colorFrom: "import", dashed: true },
   { from: "sales", to: "documents", colorFrom: "sales" },
   { from: "sales", to: "email", colorFrom: "sales" },
-  { from: "crm", to: "email", colorFrom: "crm", dashed: true },
+  { from: "calendar", to: "email", colorFrom: "calendar", dashed: true },
   { from: "external_apis", to: "messe", colorFrom: "import", dashed: true },
   { from: "portal", to: "portal_analytics", colorFrom: "system_admin" },
 ];
@@ -757,7 +803,7 @@ export function getSystemDnaZoomStage(zoom: number): SystemDnaZoomLevel {
   return [...SYSTEM_DNA_ZOOM_LEVELS].reverse().find((level) => zoom >= level.zoom - 0.02) ?? SYSTEM_DNA_ZOOM_LEVELS[0];
 }
 
-export function getSystemDnaZoomForNode(node: SystemMapNode, currentZoom = 0.52): number {
+export function getSystemDnaZoomForNode(node: SystemMapNode, currentZoom = SYSTEM_DNA_INITIAL_ZOOM): number {
   const targetZoom =
     node.kind === "portal"
       ? SYSTEM_DNA_ZOOM_LEVELS[0].zoom
@@ -767,7 +813,7 @@ export function getSystemDnaZoomForNode(node: SystemMapNode, currentZoom = 0.52)
           ? Math.max(SYSTEM_DNA_ZOOM_LEVELS[2].zoom, node.minZoom + 0.1)
           : Math.max(SYSTEM_DNA_ZOOM_LEVELS[3].zoom, node.minZoom + 0.08);
 
-  return Math.min(1.85, Math.max(currentZoom, targetZoom));
+  return Math.min(SYSTEM_DNA_MAX_ZOOM, Math.max(currentZoom, targetZoom));
 }
 
 export function getSystemDnaAncestors(id: SystemMapNodeId): SystemMapNodeId[] {

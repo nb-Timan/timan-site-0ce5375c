@@ -32,7 +32,17 @@ import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { isBackendActor } from "@/lib/portalAccess";
-import { clampSystemDnaZoom, screenToWorld, zoomToScreenPoint, zoomToWorldPoint } from "@/lib/systemDnaViewport";
+import {
+  SYSTEM_DNA_INITIAL_ZOOM,
+  SYSTEM_DNA_WHEEL_SENSITIVITY,
+  SYSTEM_DNA_ZOOM_BUTTON_STEP,
+  centerPanOnWorldPoint,
+  clampSystemDnaZoom,
+  fitViewportToPoints,
+  screenToWorld,
+  zoomToScreenPoint,
+  zoomToWorldPoint,
+} from "@/lib/systemDnaViewport";
 import {
   findSystemMapNode,
   getFeaturedDataFlow,
@@ -120,6 +130,22 @@ const COLOR_CLASSES: Record<
     dna: "border-sky-300/60 bg-sky-300/15 text-sky-50",
     badge: "bg-sky-50 text-sky-800 border-sky-200",
   },
+  teal: {
+    soft: "border-teal-200 bg-teal-50 text-teal-950",
+    icon: "bg-teal-100 text-teal-700",
+    selected: "ring-2 ring-teal-400",
+    line: "#0f766e",
+    dna: "border-teal-300/60 bg-teal-300/15 text-teal-50",
+    badge: "bg-teal-50 text-teal-800 border-teal-200",
+  },
+  indigo: {
+    soft: "border-indigo-200 bg-indigo-50 text-indigo-950",
+    icon: "bg-indigo-100 text-indigo-700",
+    selected: "ring-2 ring-indigo-400",
+    line: "#4f46e5",
+    dna: "border-indigo-300/60 bg-indigo-300/15 text-indigo-50",
+    badge: "bg-indigo-50 text-indigo-800 border-indigo-200",
+  },
   slate: {
     soft: "border-slate-200 bg-white text-slate-950",
     icon: "bg-slate-100 text-slate-700",
@@ -138,7 +164,7 @@ const COLOR_CLASSES: Record<
   },
 };
 
-const OVERVIEW_NODE_IDS = ["crm", "sales", "marketing", "dealer_data", "service", "messe", "import", "system_admin"];
+const OVERVIEW_NODE_IDS = ["crm", "sales", "marketing", "dealer_data", "service", "calendar", "projects", "messe", "import", "system_admin"];
 const INPUT_NODE_IDS = ["sharepoint", "microsoft_365", "erp", "supabase"];
 const OUTPUT_NODE_IDS = ["email", "documents", "external_apis", "portal_analytics"];
 const DNA_WORLD = { width: 2820, height: 2240 };
@@ -152,10 +178,12 @@ const OVERVIEW_POSITIONS: Record<string, { x: number; y: number }> = {
   sales: { x: 29, y: 48 },
   service: { x: 29, y: 69 },
   marketing: { x: 50, y: 18 },
-  system_admin: { x: 50, y: 72 },
+  calendar: { x: 50, y: 72 },
   dealer_data: { x: 71, y: 27 },
   import: { x: 71, y: 48 },
   messe: { x: 71, y: 69 },
+  projects: { x: 50, y: 86 },
+  system_admin: { x: 71, y: 86 },
   email: { x: 91.5, y: 19 },
   documents: { x: 91.5, y: 33 },
   external_apis: { x: 91.5, y: 47 },
@@ -169,6 +197,8 @@ const AREA_FOCUS_NODE_IDS: Record<SystemMapArea, SystemMapNodeId> = {
   marketing: "marketing",
   dealer_data: "dealer_data",
   service: "service",
+  calendar: "calendar",
+  projects: "projects",
   messe: "messe",
   import: "import",
   system: "system_admin",
@@ -554,14 +584,16 @@ function DnaNode({
 function SystemDna({
   selectedId,
   onSelect,
+  onFocus,
   onBackToOverview,
 }: {
   selectedId: SystemMapNodeId;
   onSelect: (id: SystemMapNodeId) => void;
+  onFocus: (id: SystemMapNodeId) => void;
   onBackToOverview: () => void;
 }) {
-  const [zoom, setZoom] = useState(0.52);
-  const [pan, setPan] = useState({ x: -520, y: -360 });
+  const [zoom, setZoom] = useState(SYSTEM_DNA_INITIAL_ZOOM);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const [dragStart, setDragStart] = useState<{ x: number; y: number; panX: number; panY: number } | null>(null);
   const [touchStart, setTouchStart] = useState<{
     distance: number;
@@ -576,6 +608,8 @@ function SystemDna({
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const didInitialFitRef = useRef(false);
+  const viewportStateRef = useRef({ zoom: SYSTEM_DNA_INITIAL_ZOOM, pan: { x: 0, y: 0 }, selectedId });
+  const viewportSizeRef = useRef<{ width: number; height: number } | null>(null);
   const selectedFlow = useMemo(() => getFeaturedDataFlow(selectedId), [selectedId]);
   const selectedFlowEdges = useMemo(() => {
     const keys = new Set<string>();
@@ -619,18 +653,39 @@ function SystemDna({
 
   const visibleNodeIds = useMemo(() => new Set<SystemMapNodeId>(visibleNodes.map((node) => node.id)), [visibleNodes]);
 
+  useEffect(() => {
+    viewportStateRef.current = { zoom, pan, selectedId };
+  }, [pan, selectedId, zoom]);
+
+  const getCanvasViewport = useCallback(() => {
+    const box = canvasRef.current?.getBoundingClientRect();
+    return box ? { width: box.width, height: box.height } : null;
+  }, []);
+
   const centerNode = useCallback((id: SystemMapNodeId, nextZoom = zoom) => {
     const node = findSystemMapNode(id);
     const position = getSystemDnaNodePosition(node, nextZoom);
-    const box = canvasRef.current?.getBoundingClientRect();
-    if (!box) return;
-    setPan({ x: box.width / 2 - position.x * nextZoom, y: box.height / 2 - position.y * nextZoom });
-  }, [zoom]);
+    const viewport = getCanvasViewport();
+    if (!viewport) return;
+    setPan(centerPanOnWorldPoint(position, viewport, nextZoom));
+  }, [getCanvasViewport, zoom]);
+
+  const resetToPortal = useCallback(() => {
+    const nextZoom = SYSTEM_DNA_INITIAL_ZOOM;
+    setZoom(nextZoom);
+    onFocus("portal");
+    window.setTimeout(() => centerNode("portal", nextZoom), 0);
+  }, [centerNode, onFocus]);
 
   const fitToScreen = useCallback(() => {
-    setZoom(0.52);
-    setPan({ x: -520, y: -360 });
-  }, []);
+    const viewport = getCanvasViewport();
+    if (!viewport) return;
+    const points = visibleNodes.map((node) => getSystemDnaNodePosition(node, zoom));
+    const fitted = fitViewportToPoints({ points, viewport });
+    if (!fitted) return;
+    setZoom(fitted.zoom);
+    setPan(fitted.pan);
+  }, [getCanvasViewport, visibleNodes, zoom]);
 
   const drillIntoNode = useCallback((id: SystemMapNodeId) => {
     const node = findSystemMapNode(id);
@@ -645,14 +700,14 @@ function SystemDna({
     didInitialFitRef.current = true;
     window.setTimeout(() => {
       if (selectedId === "portal") {
-        fitToScreen();
+        resetToPortal();
         return;
       }
       const nextZoom = getSystemDnaZoomForNode(findSystemMapNode(selectedId), zoom);
       setZoom(nextZoom);
       centerNode(selectedId, nextZoom);
     }, 0);
-  }, [centerNode, fitToScreen, selectedId, zoom]);
+  }, [centerNode, resetToPortal, selectedId, zoom]);
 
   const handleSearch = useCallback(() => {
     const q = query.trim().toLowerCase();
@@ -687,7 +742,7 @@ function SystemDna({
     event.preventDefault();
     const box = event.currentTarget.getBoundingClientRect();
     const point = { x: event.clientX - box.left, y: event.clientY - box.top };
-    const nextZoom = clampSystemDnaZoom(zoom * Math.exp(-event.deltaY * 0.0012));
+    const nextZoom = clampSystemDnaZoom(zoom * Math.exp(-event.deltaY * SYSTEM_DNA_WHEEL_SENSITIVITY));
     setPan(zoomToScreenPoint({ pan, oldZoom: zoom, newZoom: nextZoom, point }));
     setZoom(nextZoom);
   };
@@ -755,6 +810,28 @@ function SystemDna({
     window.setTimeout(() => centerNode(selectedId, zoom), 0);
   };
 
+  useEffect(() => {
+    const onResize = () => {
+      const viewport = getCanvasViewport();
+      if (!viewport) return;
+      const previousViewport = viewportSizeRef.current ?? viewport;
+      viewportSizeRef.current = viewport;
+      const { zoom: currentZoom, pan: currentPan, selectedId: currentSelectedId } = viewportStateRef.current;
+      if (currentSelectedId === "portal" && Math.abs(currentZoom - SYSTEM_DNA_INITIAL_ZOOM) < 0.01) {
+        const portalPosition = getSystemDnaNodePosition(findSystemMapNode("portal"), SYSTEM_DNA_INITIAL_ZOOM);
+        setPan(centerPanOnWorldPoint(portalPosition, viewport, SYSTEM_DNA_INITIAL_ZOOM));
+        return;
+      }
+
+      const centerPoint = { x: previousViewport.width / 2, y: previousViewport.height / 2 };
+      const worldCenter = screenToWorld(centerPoint, currentPan, currentZoom);
+      setPan(centerPanOnWorldPoint(worldCenter, viewport, currentZoom));
+    };
+
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [getCanvasViewport]);
+
   return (
     <section
       className={[
@@ -806,7 +883,7 @@ function SystemDna({
               <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">{level.count}</span>
             </button>
           ))}
-          {(["all", "crm", "sales", "marketing", "dealer_data", "service", "messe", "import", "system"] as const).map((filter) => (
+          {(["all", "crm", "sales", "marketing", "dealer_data", "service", "calendar", "projects", "messe", "import", "system"] as const).map((filter) => (
             <button
               key={filter}
               type="button"
@@ -816,14 +893,18 @@ function SystemDna({
                 area === filter ? "border-white bg-white text-slate-950" : "border-white/15 text-slate-300 hover:bg-white/10",
               ].join(" ")}
             >
-              {filter === "all" ? "Alle" : filter === "dealer_data" ? "Partnerdata" : filter}
+              {filter === "all" ? "Alle" : filter === "dealer_data" ? "Partnerdata" : filter === "calendar" ? "Kalender" : filter === "projects" ? "Projekter" : filter}
             </button>
           ))}
-          <Button type="button" variant="secondary" size="icon" onClick={() => setZoom((value) => Math.max(0.38, value - 0.1))} aria-label="Zoom ud">
+          <Button type="button" variant="secondary" size="icon" onClick={() => setZoom((value) => clampSystemDnaZoom(value - SYSTEM_DNA_ZOOM_BUTTON_STEP))} aria-label="Zoom ud">
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <Button type="button" variant="secondary" size="icon" onClick={() => setZoom((value) => Math.min(1.85, value + 0.1))} aria-label="Zoom ind">
+          <Button type="button" variant="secondary" size="icon" onClick={() => setZoom((value) => clampSystemDnaZoom(value + SYSTEM_DNA_ZOOM_BUTTON_STEP))} aria-label="Zoom ind">
             <ZoomIn className="h-4 w-4" />
+          </Button>
+          <Button type="button" variant="secondary" size="sm" onClick={resetToPortal}>
+            <Compass className="mr-2 h-4 w-4" />
+            Nulstil
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={fitToScreen}>
             <Focus className="mr-2 h-4 w-4" />
@@ -1025,6 +1106,15 @@ export default function BackendSystemMapPage() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams, view]);
 
+  const focusNode = useCallback((nodeId: SystemMapNodeId) => {
+    setSelectedId(nodeId);
+    setDetailNodeId(null);
+    const next = new URLSearchParams(searchParams);
+    next.set("node", nodeId);
+    if (view === "dna") next.set("view", "dna");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, view]);
+
   if (loading) {
     return <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm text-slate-500">Henter...</div>;
   }
@@ -1064,7 +1154,7 @@ export default function BackendSystemMapPage() {
         {view === "overview" ? (
           <SystemOverview selectedId={selectedId} onSelect={selectNode} />
         ) : (
-          <SystemDna selectedId={selectedId} onSelect={selectNode} onBackToOverview={() => setView("overview")} />
+          <SystemDna selectedId={selectedId} onSelect={selectNode} onFocus={focusNode} onBackToOverview={() => setView("overview")} />
         )}
       </main>
 

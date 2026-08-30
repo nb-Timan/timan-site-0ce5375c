@@ -38,6 +38,8 @@ describe("Backend system dataflow map", () => {
     expect(ids.has("marketing")).toBe(true);
     expect(ids.has("dealer_data")).toBe(true);
     expect(ids.has("service")).toBe(true);
+    expect(ids.has("calendar")).toBe(true);
+    expect(ids.has("projects")).toBe(true);
     expect(ids.has("messe")).toBe(true);
     expect(ids.has("import")).toBe(true);
     expect(ids.has("system_admin")).toBe(true);
@@ -85,7 +87,7 @@ describe("Backend system dataflow map", () => {
   it("keeps the expanded DNA model connected to real nodes", () => {
     const ids = new Set<SystemMapNodeId>(systemDnaNodes.map((node) => node.id));
     const validKinds = new Set(["portal", "module", "feature", "data", "technical", "integration", "process", "tool"]);
-    const validAreas = new Set(["crm", "sales", "marketing", "dealer_data", "service", "messe", "import", "system"]);
+    const validAreas = new Set(["crm", "sales", "marketing", "dealer_data", "service", "calendar", "projects", "messe", "import", "system"]);
     const validEdgeKinds = new Set(["data", "navigation", "sync", "permission", "conversion", "dependency", "development"]);
     const validDirections = new Set(["forward", "bidirectional"]);
     const missingEdges = systemDnaEdges.flatMap((edge) => [
@@ -192,8 +194,8 @@ describe("Backend system dataflow map", () => {
   });
 
   it("keeps semantic zoom layout deterministic without changing node or edge counts", () => {
-    expect(systemDnaNodes.length).toBe(78);
-    expect(systemDnaEdges.length).toBe(128);
+    expect(systemDnaNodes.length).toBe(80);
+    expect(systemDnaEdges.length).toBe(130);
 
     const first = getSystemDnaNodePosition(findSystemMapNode("crm_leads"), SYSTEM_DNA_ZOOM_LEVELS[2].zoom);
     const second = getSystemDnaNodePosition(findSystemMapNode("crm_leads"), SYSTEM_DNA_ZOOM_LEVELS[2].zoom);
@@ -209,13 +211,39 @@ describe("Backend system dataflow map", () => {
         "crm_leads",
         "crm_demo_leads",
         "crm_activities",
-        "crm_calendar",
         "crm_pipeline",
         "lead_conversions",
       ],
       SYSTEM_DNA_ZOOM_LEVELS[2].zoom,
       235,
     );
+  });
+
+  it("models Calendar and Projects as standalone main modules", () => {
+    const calendar = findSystemMapNode("calendar");
+    const projects = findSystemMapNode("projects");
+    const calendarFeature = findSystemMapNode("crm_calendar");
+    const overviewLineKeys = new Set(systemOverviewLines.map((line) => `${line.from}->${line.to}`));
+    const dnaEdgeKeys = new Set(systemDnaEdges.map((edge) => `${edge.from}->${edge.to}`));
+
+    expect(calendar.kind).toBe("module");
+    expect(calendar.title).toBe("Kalender");
+    expect(calendar.subtitle).toBe("Aftaler, aktiviteter og deadlines");
+    expect(calendar.parentId).toBeUndefined();
+    expect(calendar.routes).toContain("/portal/crm/calendar");
+    expect(calendarFeature.parentId).toBe("calendar");
+
+    expect(projects.kind).toBe("module");
+    expect(projects.title).toBe("Projekter");
+    expect(projects.subtitle).toBe("Projekter, opgaver og opfølgning");
+    expect(projects.parentId).toBeUndefined();
+    expect(projects.routes).toEqual([]);
+    expect(projects.tables).toEqual([]);
+
+    expect(overviewLineKeys.has("calendar->portal")).toBe(true);
+    expect(overviewLineKeys.has("projects->portal")).toBe(true);
+    expect(dnaEdgeKeys.has("crm->calendar")).toBe(true);
+    expect(dnaEdgeKeys.has("calendar->email")).toBe(true);
   });
 
   it("spreads lead detail nodes at technical zoom", () => {
