@@ -89,8 +89,8 @@ export const CONTRACT_STEPS: Array<{
   },
   {
     id: 'commercial_terms',
-    title: 'Kommercielle vilkår',
-    shortTitle: 'Vilkår',
+    title: 'Rabat struktur',
+    shortTitle: 'Rabat struktur',
     intro: 'Dette trin samler de økonomiske og kommercielle bilag, fx rabat, salgsområde og salgs-/leveringsbetingelser.',
     confirmationId: 'commercial_terms',
   },

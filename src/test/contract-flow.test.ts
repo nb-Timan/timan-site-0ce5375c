@@ -4,6 +4,7 @@ import {
   canPrepareContractForSignature,
   buildContractSnapshot,
   EMPTY_CONTRACT_CONFIRMATIONS,
+  CONTRACT_STEPS,
   getCompletedContractStepIds,
   getContractStatus,
   hasRequiredPartyData,
@@ -69,6 +70,12 @@ describe('contract flow', () => {
       'timan_responsibility',
       'dealer_responsibility',
     ]);
+  });
+
+  it('labels the discount step as Rabat struktur', () => {
+    const discountStep = CONTRACT_STEPS.find((step) => step.id === 'commercial_terms');
+    expect(discountStep?.title).toBe('Rabat struktur');
+    expect(discountStep?.shortTitle).toBe('Rabat struktur');
   });
 
   it('stores the contract snapshot with Timan data and signature state', () => {

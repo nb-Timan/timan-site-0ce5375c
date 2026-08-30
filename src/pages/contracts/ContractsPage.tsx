@@ -99,95 +99,136 @@ function drawAppendix2Pdf(pdf: any, left: number, right: number) {
   });
 
   y += 2;
-  pdf.setDrawColor(209, 213, 219);
-  pdf.setFillColor(250, 253, 251);
-  pdf.roundedRect(left, y, width, 112, 4, 4, 'FD');
-
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(8.5);
-  pdf.setTextColor(6, 95, 70);
-  pdf.text('Hele maskinordren inkl. redskaber', left + 6, y + 9);
-
-  const modelY = y + 16;
-  const baseX = left + 8;
-  const stepX = left + 54;
-  const deliveryX = left + 132;
-  const refundX = left + 8;
-
-  pdf.setDrawColor(167, 243, 208);
-  pdf.setFillColor(236, 253, 245);
-  pdf.roundedRect(baseX, modelY, 34, 24, 3, 3, 'FD');
-  pdf.setTextColor(6, 78, 59);
-  pdf.setFontSize(7.5);
-  pdf.text('Grundrabat', baseX + 5, modelY + 8);
-  pdf.setFontSize(16);
-  pdf.text('25%', baseX + 8, modelY + 18);
-
-  pdf.setDrawColor(186, 230, 253);
+  pdf.setDrawColor(46, 125, 23);
   pdf.setFillColor(255, 255, 255);
-  pdf.roundedRect(stepX, modelY, 68, 42, 3, 3, 'FD');
-  pdf.setTextColor(12, 74, 110);
-  pdf.setFontSize(7.5);
-  pdf.text('Stk. rabat', stepX + 4, modelY + 7);
-  const stepBaseY = modelY + 36;
-  const steps = [
-    { label: '1 stk.', value: '+0%', h: 12 },
-    { label: '2-3 stk.', value: '+2%', h: 18 },
-    { label: '4 stk. og over', value: '+4%', h: 24 },
-  ];
-  steps.forEach((step, index) => {
-    const x = stepX + 5 + index * 20;
-    pdf.setFillColor(224, 242, 254);
-    pdf.rect(x, stepBaseY - step.h, 16, step.h, 'F');
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(7);
-    pdf.text(step.value, x + 4, stepBaseY - step.h + 6);
-    pdf.setFontSize(6.2);
-    pdf.text(step.label, x + 1, stepBaseY + 5, { maxWidth: 18 });
-  });
+  pdf.roundedRect(left, y, width, 107, 3, 3, 'FD');
 
-  pdf.setDrawColor(253, 230, 138);
-  pdf.setFillColor(255, 251, 235);
-  pdf.roundedRect(deliveryX, modelY, 48, 24, 3, 3, 'FD');
-  pdf.setTextColor(146, 64, 14);
-  pdf.setFontSize(7.5);
-  pdf.text('Leveringsrabat', deliveryX + 5, modelY + 8);
-  pdf.setFontSize(15);
-  pdf.text('+2%', deliveryX + 15, modelY + 18);
-  pdf.setFontSize(6.5);
-  pdf.text('Leveringstid: Over 3 mdr.', deliveryX + 4, modelY + 30, { maxWidth: 42 });
-
-  pdf.setDrawColor(16, 185, 129);
-  pdf.line(baseX + 36, modelY + 12, stepX - 3, modelY + 12);
-  pdf.line(stepX + 70, modelY + 12, deliveryX - 3, modelY + 12);
-
-  const refundY = modelY + 57;
+  const machineX = left + 2;
+  const machineW = 128;
+  const refundX = left + 136;
+  const refundW = width - 138;
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(8);
-  pdf.setTextColor(91, 33, 182);
-  pdf.text('Refusion ved garantiregistrering', refundX, refundY);
-  pdf.setDrawColor(221, 214, 254);
-  pdf.setFillColor(245, 243, 255);
-  pdf.roundedRect(refundX, refundY + 5, 82, 22, 3, 3, 'FD');
-  pdf.setFontSize(7.5);
-  pdf.text('Demonstrationsrabat', refundX + 6, refundY + 13);
-  pdf.setFontSize(14);
-  pdf.text('3.100 kr.', refundX + 6, refundY + 23);
-  pdf.setFontSize(6.5);
-  pdf.text('Egen demonstrationsrabat', refundX + 48, refundY + 23);
+  pdf.setFontSize(8.7);
+  pdf.setTextColor(17, 24, 39);
+  pdf.text('Hele maskinordren inkl. redskaber.', machineX + machineW / 2, y + 9, { align: 'center' });
+  pdf.text('Refusion ved garantiregistrering.', refundX + refundW / 2, y + 9, { align: 'center' });
 
-  const exampleY = refundY + 36;
-  pdf.setDrawColor(167, 243, 208);
-  pdf.setFillColor(236, 253, 245);
-  pdf.roundedRect(left + 6, exampleY, width - 12, 28, 3, 3, 'FD');
-  pdf.setTextColor(6, 78, 59);
+  pdf.setDrawColor(46, 125, 23);
+  pdf.line(machineX, y + 13, machineX, y + 18);
+  pdf.line(machineX, y + 13, machineX + machineW, y + 13);
+  pdf.line(machineX + machineW, y + 13, machineX + machineW, y + 18);
+  pdf.line(refundX, y + 13, refundX, y + 18);
+  pdf.line(refundX, y + 13, refundX + refundW, y + 13);
+  pdf.line(refundX + refundW, y + 13, refundX + refundW, y + 18);
+
+  const headerY = y + 30;
+  pdf.setFontSize(7.8);
+  pdf.text('Grundrabat', left + 20, headerY);
+  pdf.text('Stk. rabat', left + 68, headerY);
+  pdf.text('Leveringsrabat', left + 111, headerY);
+  pdf.text('Demonstrationsrabat', left + 155, headerY);
+  pdf.line(left + 2, headerY + 5, right - 2, headerY + 5);
+
+  const contentY = headerY + 22;
+  pdf.setDrawColor(111, 148, 75);
+  pdf.circle(left + 20, contentY + 12, 13, 'S');
+  pdf.setTextColor(46, 125, 23);
+  pdf.setFontSize(19);
+  pdf.text('25%', left + 20, contentY + 14, { align: 'center' });
+  pdf.setTextColor(17, 24, 39);
+  pdf.setFontSize(6.7);
+  pdf.text('Grund rabat', left + 20, contentY + 22, { align: 'center' });
+
+  pdf.setDrawColor(46, 125, 23);
+  pdf.line(left + 35, contentY + 12, left + 43, contentY + 12);
+  pdf.text('>', left + 44, contentY + 14);
+
+  const stairX = left + 50;
+  const stairBaseY = contentY + 33;
+  pdf.setLineWidth(1.2);
+  pdf.line(stairX, stairBaseY, stairX + 18, stairBaseY);
+  pdf.line(stairX + 18, stairBaseY, stairX + 18, stairBaseY - 14);
+  pdf.line(stairX + 18, stairBaseY - 14, stairX + 37, stairBaseY - 14);
+  pdf.line(stairX + 37, stairBaseY - 14, stairX + 37, stairBaseY - 28);
+  pdf.line(stairX + 37, stairBaseY - 28, stairX + 57, stairBaseY - 28);
+  pdf.setLineWidth(0.2);
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(8);
-  pdf.text('Eksempel:', left + 11, exampleY + 8);
+  pdf.setFontSize(7.4);
+  pdf.setTextColor(17, 24, 39);
+  pdf.text('1 stk.', stairX + 10, stairBaseY - 8, { align: 'center' });
+  pdf.text('2-3 stk.', stairX + 29, stairBaseY - 22, { align: 'center' });
+  pdf.text('4 stk. og >', stairX + 48, stairBaseY - 36, { align: 'center' });
+  pdf.setTextColor(46, 125, 23);
+  pdf.setFontSize(10);
+  pdf.text('+0%', stairX + 10, stairBaseY - 1, { align: 'center' });
+  pdf.text('+2%', stairX + 29, stairBaseY - 15, { align: 'center' });
+  pdf.text('+4%', stairX + 48, stairBaseY - 29, { align: 'center' });
+
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(7.2);
-  pdf.text(APPENDIX_2_EXAMPLE_LINES[0], left + 11, exampleY + 15, { maxWidth: width - 22 });
-  pdf.text(APPENDIX_2_EXAMPLE_LINES[1], left + 11, exampleY + 22, { maxWidth: width - 22 });
+  pdf.setFontSize(8);
+  pdf.line(left + 110, contentY + 12, left + 118, contentY + 12);
+  pdf.text('>', left + 119, contentY + 14);
+
+  const deliveryX = left + 123;
+  pdf.setDrawColor(111, 148, 75);
+  pdf.setFillColor(253, 255, 250);
+  pdf.roundedRect(deliveryX, contentY - 9, 35, 46, 3, 3, 'FD');
+  pdf.circle(deliveryX + 17.5, contentY + 12, 12, 'S');
+  pdf.setTextColor(17, 24, 39);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(7);
+  pdf.text('Leveringstid:', deliveryX + 17.5, contentY + 8, { align: 'center' });
+  pdf.text('Over 3 mdr.', deliveryX + 17.5, contentY + 14, { align: 'center' });
+  pdf.setTextColor(46, 125, 23);
+  pdf.setFontSize(10);
+  pdf.text('+2%', deliveryX + 17.5, contentY + 21, { align: 'center' });
+  pdf.setTextColor(17, 24, 39);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(6.2);
+  pdf.text('Rabatten gives ved', deliveryX + 17.5, contentY + 32, { align: 'center' });
+  pdf.text('leveringstid over 3 måneder.', deliveryX + 17.5, contentY + 38, { align: 'center' });
+
+  pdf.setDrawColor(46, 125, 23);
+  pdf.line(deliveryX + 38, contentY + 12, deliveryX + 46, contentY + 12);
+  pdf.text('>', deliveryX + 47, contentY + 14);
+
+  const demoX = left + 167;
+  pdf.setDrawColor(111, 148, 75);
+  pdf.setFillColor(253, 255, 250);
+  pdf.roundedRect(demoX, contentY - 8, 25, 45, 3, 3, 'FD');
+  pdf.setTextColor(17, 24, 39);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(6.6);
+  pdf.text('Egen', demoX + 14, contentY + 3);
+  pdf.text('demonstrationsrabat', demoX + 14, contentY + 10);
+  pdf.setTextColor(46, 125, 23);
+  pdf.setFontSize(11);
+  pdf.text('3100 kr.', demoX + 14, contentY + 19);
+  pdf.setDrawColor(167, 191, 139);
+  pdf.line(demoX + 3, contentY + 26, demoX + 22, contentY + 26);
+  pdf.setTextColor(17, 24, 39);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(5.9);
+  pdf.text('Udbetales som kreditnota', demoX + 12.5, contentY + 33, { align: 'center' });
+  pdf.text('ved garantiregistrering.', demoX + 12.5, contentY + 39, { align: 'center' });
+
+  const exampleY = y + 90;
+  pdf.setDrawColor(67, 160, 71);
+  pdf.setFillColor(250, 253, 250);
+  pdf.roundedRect(left + 2, exampleY, width - 4, 14, 2, 2, 'FD');
+  pdf.circle(left + 13, exampleY + 7, 5, 'S');
+  pdf.setTextColor(46, 125, 23);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8);
+  pdf.text('%', left + 13, exampleY + 9, { align: 'center' });
+  pdf.text('Eksempel:', left + 26, exampleY + 6);
+  pdf.setTextColor(17, 24, 39);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(6.7);
+  pdf.text('Den maksimale rabat, som kan opnås på en maskine og redskaber er:', left + 26, exampleY + 11);
+  pdf.setTextColor(46, 125, 23);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('25% + 4% + 2% = 29,44 %', left + 103, exampleY + 11);
 }
 
 export default function ContractsPage() {
@@ -943,79 +984,98 @@ function Appendix2DiscountSection() {
         })}
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-5">
-        <div className="grid gap-5 xl:grid-cols-[1fr_260px]">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">Hele maskinordren inkl. redskaber</p>
-            <div className="mt-4 grid gap-4 lg:grid-cols-[160px_1fr_180px] lg:items-center">
-              <DiscountBox title="Grundrabat" value="25%" tone="emerald" />
-              <div className="relative min-h-[210px] rounded-2xl border border-sky-200 bg-white/80 p-4">
-                <p className="text-sm font-bold text-sky-950">Stk. rabat</p>
-                <div className="mt-4 grid grid-cols-3 items-end gap-3">
-                  <DiscountStep label="1 stk." value="+0%" height="h-16" />
-                  <DiscountStep label="2-3 stk." value="+2%" height="h-24" />
-                  <DiscountStep label="4 stk. og over" value="+4%" height="h-32" />
-                </div>
-                <div className="mt-4 h-px bg-sky-100" />
-                <p className="mt-3 text-xs font-semibold text-sky-800">
-                  Rabatten stiger trinvist efter antal maskiner pr. ordre.
-                </p>
+      <div className="overflow-x-auto rounded-2xl border border-emerald-200 bg-white p-4 shadow-inner">
+        <div className="min-w-[980px]">
+          <div className="grid grid-cols-[3fr_1.05fr] gap-5 text-center text-lg font-bold text-gray-950">
+            <div>
+              <p>Hele maskinordren inkl. redskaber.</p>
+              <div className="mt-2 h-8 rounded-t-xl border-x-2 border-t-2 border-[#2f711c]" />
+            </div>
+            <div>
+              <p>Refusion ved garantiregistrering.</p>
+              <div className="mt-2 h-8 rounded-t-xl border-x-2 border-t-2 border-[#2f711c]" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-[1.05fr_1.8fr_1.25fr_1.45fr] border-b-2 border-[#2f711c] pb-4 text-center text-lg font-bold text-gray-950">
+            <p>Grundrabat</p>
+            <p>Stk. rabat</p>
+            <p>Leveringsrabat</p>
+            <p>Demonstrationsrabat</p>
+          </div>
+
+          <div className="grid grid-cols-[1.05fr_1.8fr_1.25fr_1.45fr] items-center gap-6 py-7">
+            <div className="flex items-center justify-center gap-6">
+              <div className="flex h-36 w-36 flex-col items-center justify-center rounded-full border border-[#79a45e] bg-[#fbfdf9] text-center">
+                <p className="text-5xl font-black leading-none text-[#36780f]">25%</p>
+                <p className="mt-3 text-base font-semibold text-gray-950">Grund rabat</p>
               </div>
-              <DiscountBox title="Leveringsrabat" value="+2%" note="Leveringstid: Over 3 mdr." tone="amber" />
+              <div className="text-4xl font-light text-[#36780f]">→</div>
+            </div>
+
+            <div className="relative h-56">
+              <div className="absolute bottom-9 left-4 h-1.5 w-28 rounded-full bg-[#36780f]" />
+              <div className="absolute bottom-9 left-32 h-20 w-1.5 rounded-full bg-[#36780f]" />
+              <div className="absolute bottom-[7.05rem] left-32 h-1.5 w-28 rounded-full bg-[#36780f]" />
+              <div className="absolute bottom-[7.05rem] left-60 h-20 w-1.5 rounded-full bg-[#36780f]" />
+              <div className="absolute bottom-[11.95rem] left-60 h-1.5 w-32 rounded-full bg-[#36780f]" />
+
+              <div className="absolute bottom-2 left-14 text-center">
+                <p className="text-lg font-semibold text-gray-950">1 stk.</p>
+                <p className="text-3xl font-black text-[#36780f]">+0%</p>
+              </div>
+              <div className="absolute bottom-[5.6rem] left-40 text-center">
+                <p className="text-lg font-semibold text-gray-950">2-3 stk.</p>
+                <p className="text-3xl font-black text-[#36780f]">+2%</p>
+              </div>
+              <div className="absolute bottom-[10.5rem] left-[16.5rem] text-center">
+                <p className="text-lg font-semibold text-gray-950">4 stk. og &gt;</p>
+                <p className="text-3xl font-black text-[#36780f]">+4%</p>
+              </div>
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 text-4xl font-light text-[#36780f]">→</div>
+            </div>
+
+            <div className="flex items-center justify-center gap-5">
+              <div className="flex h-56 w-full max-w-[210px] flex-col items-center justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-4 text-center">
+                <div className="relative flex h-28 w-28 items-center justify-center rounded-full border border-[#8bb06f]">
+                  <div className="absolute -inset-3 rounded-full border-[7px] border-[#36780f] border-l-transparent border-b-transparent" />
+                  <div className="absolute -inset-3 rotate-180 rounded-full border-[7px] border-[#36780f] border-l-transparent border-b-transparent" />
+                  <div>
+                    <p className="text-base font-bold text-gray-950">Leveringstid:</p>
+                    <p className="text-base font-bold text-gray-950">Over 3 mdr.</p>
+                    <p className="mt-1 text-3xl font-black text-[#36780f]">+2%</p>
+                  </div>
+                </div>
+                <p className="mt-5 text-sm font-medium leading-5 text-gray-950">Rabatten gives ved leveringstid over 3 måneder.</p>
+              </div>
+              <div className="text-4xl font-light text-[#36780f]">→</div>
+            </div>
+
+            <div className="flex h-52 flex-col justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-7 text-gray-950">
+              <div className="flex items-center gap-5">
+                <div className="h-16 w-16 rotate-[-38deg] rounded-lg border-[3px] border-gray-950">
+                  <div className="ml-auto mr-2 mt-2 h-3.5 w-3.5 rounded-full border-[3px] border-gray-950" />
+                </div>
+                <div>
+                  <p className="text-lg font-semibold leading-6">Egen</p>
+                  <p className="text-lg font-semibold leading-6">demonstrationsrabat</p>
+                  <p className="mt-3 text-4xl font-black text-[#36780f]">3100 kr.</p>
+                </div>
+              </div>
+              <div className="my-6 h-px bg-[#a9c794]" />
+              <p className="text-center text-base font-medium leading-6">Udbetales som kreditnota<br />ved garantiregistrering.</p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-violet-200 bg-white/85 p-4">
-            <p className="text-xs font-bold uppercase tracking-wide text-violet-800">Refusion ved garantiregistrering</p>
-            <div className="mt-4 rounded-xl bg-violet-50 p-4 text-center">
-              <p className="text-sm font-bold text-violet-950">Demonstrationsrabat</p>
-              <p className="mt-2 text-2xl font-black text-violet-900">3.100 kr.</p>
-              <p className="mt-2 text-xs font-semibold text-violet-700">Egen demonstrationsrabat</p>
+          <div className="flex items-center gap-8 rounded-2xl border border-emerald-500 bg-[#fbfdf9] px-8 py-5 text-gray-950">
+            <div className="flex h-20 w-20 flex-none items-center justify-center rounded-full border-[4px] border-[#36780f] text-4xl font-black text-[#36780f]">%</div>
+            <div className="flex flex-wrap items-baseline gap-x-8 gap-y-2 text-base">
+              <p className="text-xl font-black text-[#36780f]">Eksempel:</p>
+              <p>Den maksimale rabat, som kan opnås på en maskine og redskaber er:</p>
+              <p className="text-xl font-black text-[#36780f]">25% + 4% + 2% = 29,44 %</p>
             </div>
           </div>
         </div>
-
-        <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
-          <p className="font-bold">Eksempel:</p>
-          <p>{APPENDIX_2_EXAMPLE_LINES[0]}</p>
-          <p className="mt-2">{APPENDIX_2_EXAMPLE_LINES[1]}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DiscountBox({
-  title,
-  value,
-  note,
-  tone,
-}: {
-  title: string;
-  value: string;
-  note?: string;
-  tone: 'emerald' | 'amber';
-}) {
-  const toneClass = tone === 'emerald'
-    ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
-    : 'border-amber-200 bg-amber-50 text-amber-950';
-  return (
-    <div className={`rounded-2xl border p-4 text-center ${toneClass}`}>
-      <p className="text-sm font-bold">{title}</p>
-      <p className="mt-2 text-3xl font-black">{value}</p>
-      {note && <p className="mt-2 text-xs font-semibold opacity-80">{note}</p>}
-    </div>
-  );
-}
-
-function DiscountStep({ label, value, height }: { label: string; value: string; height: string }) {
-  return (
-    <div className="flex flex-col items-center">
-      <div className={`flex w-full items-center justify-center rounded-t-xl bg-sky-100 px-2 ${height}`}>
-        <span className="text-lg font-black text-sky-900">{value}</span>
-      </div>
-      <div className="w-full rounded-b-xl border border-t-0 border-sky-200 bg-white px-2 py-2 text-center text-xs font-bold text-sky-950">
-        {label}
       </div>
     </div>
   );
