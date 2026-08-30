@@ -12,6 +12,7 @@ import LatestChanges from '@/components/portal/LatestChanges';
 import QuickActions from '@/components/portal/QuickActions';
 import DealerUserHome from '@/components/portal/DealerUserHome';
 import { PORTAL_AREAS, isAreaVisible } from '@/lib/portalAreas';
+import { sortPortalHomeCards } from '@/lib/portalHomeOrder';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
@@ -211,7 +212,6 @@ export default function PortalPage() {
     );
   }
 
-  const visibleAreas = PORTAL_AREAS.filter(area => isAreaVisible(area, effectiveUser));
   const portalRole = derivePortalRole(effectiveUser);
   const realPortalRole = derivePortalRole(appUser);
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
@@ -220,6 +220,12 @@ export default function PortalPage() {
     realPortalRole === 'timan_seller' ||
     hasModuleAccess(portalRole, 'messe_portal', moduleOverride)
   );
+  const visibleHomeCards = sortPortalHomeCards([
+    ...PORTAL_AREAS
+      .filter(area => isAreaVisible(area, effectiveUser))
+      .map((area) => ({ kind: 'area' as const, id: area.id, area })),
+    ...(showMesseCard ? [{ kind: 'messe' as const, id: 'messe' as const }] : []),
+  ]);
 
   if (portalRole === 'dealer_user') {
     return (
@@ -258,7 +264,21 @@ export default function PortalPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {visibleAreas.map(area => {
+          {visibleHomeCards.map(card => {
+            if (card.kind === 'messe') {
+              return (
+                <AreaCard
+                  key="messe"
+                  title={t('portalMesseTitle', uiLanguage)}
+                  description={t('portalMesseDesc', uiLanguage)}
+                  cta={t('openArea', uiLanguage)}
+                  to="/messe"
+                  icon={Sparkles}
+                  accent="violet"
+                />
+              );
+            }
+            const area = card.area;
             const meta = AREA_META[area.id];
             if (!meta) return null;
             const latest = changelog.latestForArea(area.id);
@@ -314,16 +334,6 @@ export default function PortalPage() {
               />
             );
           })}
-          {showMesseCard && (
-            <AreaCard
-              title={t('portalMesseTitle', uiLanguage)}
-              description={t('portalMesseDesc', uiLanguage)}
-              cta={t('openArea', uiLanguage)}
-              to="/messe"
-              icon={Sparkles}
-              accent="violet"
-            />
-          )}
         </div>
 
         <QuickActions language={uiLanguage} />
