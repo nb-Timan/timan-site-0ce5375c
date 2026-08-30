@@ -113,10 +113,11 @@ const MODULE_GROUPS: { label: string; modules: ModuleAccessKey[] }[] = [
 ];
 
 const QUICK_ACTION_LABEL: Record<QuickActionKey, { da: string; en: string }> = {
-  create_lead:  { da: "Opret nyt lead",        en: "Create new lead" },
-  create_demo:  { da: "Ny demo-registrering",  en: "New demo registration" },
-  calendar:     { da: "Kalender",              en: "Calendar" },
-  my_dealers:   { da: "Mine forhandlere",      en: "My dealers" },
+  create_lead:           { da: "Opret nyt lead",             en: "Create new lead" },
+  create_demo:           { da: "Ny demo-registrering",       en: "New demo registration" },
+  company_contact_info:  { da: "Ny samarbejdspartner",       en: "New collaboration partner" },
+  dealer_invoice_accept: { da: "Forhandler faktura accept",  en: "Dealer invoice acceptance" },
+  partner_map:           { da: "Partnerkort",                en: "Partner map" },
 };
 
 function formatLastLogin(iso: string | null): string {

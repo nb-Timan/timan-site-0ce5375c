@@ -5,7 +5,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
 import { derivePortalRole } from '@/lib/portalAccess';
-import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
+import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   createLead, updateLead, getLead, NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
@@ -732,7 +732,7 @@ export default function CrmNewLeadPage() {
   const { id: editId } = useParams<{ id: string }>();
   const isEdit = !!editId;
   const portalRole = derivePortalRole(appUser);
-  const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
+  const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole) || isExternalCrmRole(portalRole);
 
   // External users: dealer is auto-filled and locked.
   const isInternal = isCrmAdmin(portalRole) || isScopedSeller(portalRole);

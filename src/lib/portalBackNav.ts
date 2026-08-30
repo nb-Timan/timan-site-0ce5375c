@@ -11,8 +11,10 @@
  *   /portal/resources/co2             → /portal/resources       ("beregnere")
  *   /portal/resources                 → /portal/salg-marketing  ("Salg & Marketing")
  *   /portal/misc/forms/*              → /portal/misc/forms      ("Formularer")
+ *   /portal/misc/forms/company-contact-info → /portal          ("portal")
+ *   /portal/misc/forms/dealer-invoice-accept → /portal         ("portal")
  *   /portal/misc/forms                → /portal/salg-marketing  ("Salg & Marketing")
- *   /portal/misc/partner-map          → /portal/salg-marketing  ("Salg")
+ *   /portal/misc/partner-map          → /portal                 ("portal")
  *   /portal/misc                      → /portal/salg-marketing  ("Salg & Marketing")
  *   /portal/videos/*                  → /portal/videos          ("Videoer")
  *   /portal/videos                    → /portal/salg-marketing  ("Salg & Marketing")
@@ -114,9 +116,11 @@ const RULES: ParentRule[] = [
   { match: p => eq(p, '/portal/resources'),               to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
 
   // Formularer + standalone partner map
+  { match: p => eq(p, '/portal/misc/forms/company-contact-info'), to: '/portal', labelKey: 'portal' },
+  { match: p => eq(p, '/portal/misc/forms/dealer-invoice-accept'), to: '/portal', labelKey: 'portal' },
   { match: p => startsWith(p, '/portal/misc/forms') && !eq(p, '/portal/misc/forms'), to: '/portal/misc/forms', labelKey: 'forms' },
   { match: p => eq(p, '/portal/misc/forms'),              to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
-  { match: p => eq(p, '/portal/misc/partner-map'),        to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
+  { match: p => eq(p, '/portal/misc/partner-map'),        to: '/portal', labelKey: 'portal' },
   { match: p => startsWith(p, '/portal/misc') && !eq(p, '/portal/misc'), to: '/portal/misc', labelKey: 'misc' },
   { match: p => eq(p, '/portal/misc'),                    to: '/portal/salg-marketing', labelKey: 'sales_marketing' },
   { match: p => eq(p, '/portal/contracts'),               to: '/portal/salg-marketing', labelKey: 'sales_marketing' },

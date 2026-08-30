@@ -5,7 +5,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
 import { derivePortalRole } from '@/lib/portalAccess';
-import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
+import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   createDemoLead, getLead, formatLeadNo,
@@ -192,7 +192,7 @@ export default function CrmNewDemoLeadPage() {
   const [searchParams] = useSearchParams();
   const fromLeadId = searchParams.get('fromLead') || '';
   const portalRole = derivePortalRole(appUser);
-  const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
+  const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole) || isExternalCrmRole(portalRole);
 
   const today = new Date().toISOString().slice(0, 10);
 

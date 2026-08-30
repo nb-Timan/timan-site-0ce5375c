@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, FileCheck2, Building2 } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
 import MiscPageShell from './MiscPageShell';
 import { Language } from '@/types/configurator';
@@ -23,24 +23,6 @@ const T: Record<string, Record<Language, string>> = {
     hu: 'Küldjön visszajelzést a budgetjéről — módosítások, megjegyzések vagy jóváhagyás a Timannak.',
   },
 
-  invoiceTitle: { da: 'Forhandler faktura-accept', en: 'Dealer invoice acceptance', de: 'Händler-Rechnungsannahme', it: 'Accettazione fattura rivenditore', hu: 'Kereskedői számla elfogadás' },
-  invoiceDesc: {
-    da: 'Bekræft modtagelse og accept af en faktura fra Timan som forhandler.',
-    en: 'Confirm receipt and acceptance of an invoice from Timan as a dealer.',
-    de: 'Bestätigen Sie als Händler den Erhalt und die Annahme einer Rechnung von Timan.',
-    it: 'Conferma la ricezione e accettazione di una fattura Timan come rivenditore.',
-    hu: 'Erősítse meg kereskedőként a Timan számla átvételét és elfogadását.',
-  },
-
-  contactTitle: { da: 'Firma- og kontaktinformation', en: 'Company and contact info', de: 'Firmen- und Kontaktdaten', it: 'Informazioni aziendali e contatti', hu: 'Cég- és kapcsolati adatok' },
-  contactDesc: {
-    da: 'Opdatér firmaoplysninger, adresse og primære kontaktpersoner hos Timan.',
-    en: 'Update company details, address and primary contacts with Timan.',
-    de: 'Aktualisieren Sie Firmenangaben, Adresse und Hauptkontakte bei Timan.',
-    it: 'Aggiorna dati aziendali, indirizzo e contatti principali con Timan.',
-    hu: 'Frissítse a cég adatait, címét és fő kapcsolattartóit a Timannál.',
-  },
-
   open: { da: 'Åbn formular →', en: 'Open form →', de: 'Formular öffnen →', it: 'Apri modulo →', hu: 'Űrlap megnyitása →' },
 };
 
@@ -57,8 +39,6 @@ export default function MiscFormsPage() {
 
   const cards: Card[] = [
     { href: '/portal/misc/forms/budget-feedback',      title: T.budgetTitle[lang],  desc: T.budgetDesc[lang],  Icon: TrendingUp },
-    { href: '/portal/misc/forms/dealer-invoice-accept', title: T.invoiceTitle[lang], desc: T.invoiceDesc[lang], Icon: FileCheck2 },
-    { href: '/portal/misc/forms/company-contact-info',  title: T.contactTitle[lang], desc: T.contactDesc[lang], Icon: Building2 },
   ];
 
   return (

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Plus, FlaskConical, Calendar, Users, ShieldCheck, FileWarning, Gauge, Leaf } from 'lucide-react';
+import { Building2, FileCheck2, FlaskConical, MapPinned, Plus, ShieldCheck, FileWarning } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
@@ -19,18 +19,20 @@ interface Action {
 const INTERNAL_ACTIONS: Action[] = [
   { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'timan_crm' },
   { key: 'create_demo', labelKey: 'quickActionCreateDemo', to: '/portal/crm/demo-leads/new', icon: FlaskConical, requires: 'timan_crm' },
-  { key: 'calendar', labelKey: 'quickActionCalendar', to: '/portal/crm/calendar', icon: Calendar, requires: 'timan_crm' },
-  { key: 'my_dealers', labelKey: 'quickActionMyDealers', to: '/portal/crm/my-dealers', icon: Users, requires: 'timan_crm' },
+  { key: 'company_contact_info', labelKey: 'quickActionCompanyContactInfo', to: '/portal/misc/forms/company-contact-info', icon: Building2, requires: 'sales_tools' },
+  { key: 'partner_map', labelKey: 'quickActionPartnerMap', to: '/portal/misc/partner-map', icon: MapPinned, requires: 'sales_tools' },
+];
+
+const PARTNER_ACTIONS: Action[] = [
+  { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'sales_tools' },
+  { key: 'create_demo', labelKey: 'quickActionCreateDemo', to: '/portal/crm/demo-leads/new', icon: FlaskConical, requires: 'sales_tools' },
+  { key: 'dealer_invoice_accept', labelKey: 'quickActionDealerInvoiceAccept', to: '/portal/misc/forms/dealer-invoice-accept', icon: FileCheck2, requires: 'sales_tools' },
+  { key: 'partner_map', labelKey: 'quickActionPartnerMap', to: '/portal/misc/partner-map', icon: MapPinned, requires: 'sales_tools' },
 ];
 
 const SERVICE_ACTIONS: Action[] = [
   { labelKey: 'quickActionWarrantyRegistrations', to: '/portal/service/warranty/registrations', icon: ShieldCheck, requires: 'warranty' },
   { labelKey: 'quickActionClaims', to: '/portal/service/claims', icon: FileWarning, requires: 'claims' },
-];
-
-const DEALER_ACTIONS: Action[] = [
-  { labelKey: 'quickActionDrift', to: '/portal/resources/driftberegner', icon: Gauge, requires: 'resources' },
-  { labelKey: 'quickActionCo2', to: '/portal/resources/co2', icon: Leaf, requires: 'resources' },
 ];
 
 interface Props {
@@ -47,7 +49,6 @@ export default function QuickActions({ language }: Props) {
   const portalRole = derivePortalRole(effectiveUser);
   const effectiveRoleKey = portalRole || (effectiveUser.portal_role || '').toLowerCase();
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
-  const hasCrmAccess = hasModuleAccess(portalRole, 'timan_crm', moduleOverride);
 
   let actions: Action[] = [];
   let contextLabel = '';
@@ -62,7 +63,7 @@ export default function QuickActions({ language }: Props) {
     effectiveRoleKey === 'dealer_customer' ||
     effectiveRoleKey === 'dealer_user'
   ) {
-    actions = hasCrmAccess ? [...INTERNAL_ACTIONS, ...DEALER_ACTIONS] : DEALER_ACTIONS;
+    actions = PARTNER_ACTIONS;
     contextLabel = t('quickActionsContextDealer', language);
   } else if (effectiveRoleKey === 'timan_backend' || effectiveRoleKey === 'timan_seller') {
     actions = INTERNAL_ACTIONS;
@@ -78,7 +79,10 @@ export default function QuickActions({ language }: Props) {
 
   const qaSetting = (effectiveUser.quick_actions ?? null) as QuickActionKey[] | null;
   const roleForQa: PortalRole | null = portalRole;
-  const qaAllowed: QuickActionKey[] = Array.isArray(qaSetting)
+  const rawQaSetting = (effectiveUser.quick_actions ?? null) as string[] | null;
+  const hasLegacyQuickActions = Array.isArray(rawQaSetting)
+    && rawQaSetting.some((key) => key === 'calendar' || key === 'my_dealers');
+  const qaAllowed: QuickActionKey[] = Array.isArray(qaSetting) && !hasLegacyQuickActions
     ? qaSetting.filter((key): key is QuickActionKey => (QUICK_ACTION_KEYS as readonly string[]).includes(key))
     : (roleForQa ? (DEFAULT_QUICK_ACTIONS[roleForQa] ?? []) : []);
   actions = actions.filter((action) => !action.key || qaAllowed.includes(action.key));
@@ -93,15 +97,6 @@ export default function QuickActions({ language }: Props) {
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {actions.map(({ labelKey, to, icon: Icon }) => {
-          const displayLabelKey = labelKey === 'quickActionMyDealers' && (
-            effectiveRoleKey === 'timan_dealer' ||
-            effectiveRoleKey === 'timan_service_partner' ||
-            effectiveRoleKey === 'timan_importer' ||
-            effectiveRoleKey === 'dealer_customer' ||
-            effectiveRoleKey === 'dealer_user'
-          )
-            ? 'quickActionMyPartners'
-            : labelKey;
           return (
           <Link
             key={to}
@@ -111,7 +106,12 @@ export default function QuickActions({ language }: Props) {
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#2d5a27]/10 text-[#2d5a27] group-hover:bg-[#2d5a27] group-hover:text-white transition">
               <Icon className="h-4 w-4" />
             </span>
-            <span className="text-sm font-semibold text-slate-800">{t(displayLabelKey, language)}</span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-slate-800">{t(labelKey, language)}</span>
+              {labelKey === 'quickActionCompanyContactInfo' && (
+                <span className="block text-xs font-medium text-slate-500">{t('quickActionCompanyContactInfoDesc', language)}</span>
+              )}
+            </span>
           </Link>
           );
         })}

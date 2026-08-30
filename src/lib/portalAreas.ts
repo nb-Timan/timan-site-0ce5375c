@@ -8,7 +8,7 @@ import { Language } from '@/types/configurator';
 import { PortalModuleId } from '@/lib/portalModules';
 import { hasAreaAccess } from '@/lib/portalAccess';
 
-export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
+export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'calendar' | 'marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
 
 export interface PortalArea {
   id: PortalAreaId;
@@ -31,7 +31,20 @@ export const PORTAL_AREAS: PortalArea[] = [
       it: 'Configuratore, preventivi, ordini e strumenti di vendita.',
       hu: 'Konfigurátor, árajánlatok, rendelések és értékesítési eszközök.',
     },
-    moduleIds: ['configurator', 'videos', 'resources', 'partner_map', 'misc', 'contracts'],
+    moduleIds: ['configurator', 'videos', 'resources', 'misc', 'contracts'],
+    placeholders: [],
+  },
+  {
+    id: 'calendar',
+    title: { da: 'Kalender', en: 'Calendar', de: 'Kalender', it: 'Calendario', hu: 'Naptár' },
+    description: {
+      da: 'Planlagte aktiviteter, opfølgninger og sælgeraftaler.',
+      en: 'Planned activities, follow-ups and seller appointments.',
+      de: 'Geplante Aktivitäten, Nachfassaktionen und Verkäufertermine.',
+      it: 'Attività pianificate, follow-up e appuntamenti dei venditori.',
+      hu: 'Tervezett tevékenységek, utánkövetések és értékesítői találkozók.',
+    },
+    moduleIds: [],
     placeholders: [],
   },
   {

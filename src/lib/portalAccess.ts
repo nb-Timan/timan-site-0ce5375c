@@ -83,6 +83,7 @@ export type ModuleAccessKey =
 export type PortalAreaAccessKey =
   | 'teknik_service'
   | 'salg_marketing'
+  | 'calendar'
   | 'marketing'
   | 'timan_crm'
   | 'timan_backend'
@@ -405,6 +406,11 @@ export function hasAreaAccess(
 
   if (area === 'marketing') {
     return canManageNewsContent(user);
+  }
+
+  if (area === 'calendar') {
+    const moduleOverride = getUserModuleAccessOverride(user);
+    return hasModuleAccess(role, 'timan_crm', moduleOverride);
   }
 
   const moduleOverride = getUserModuleAccessOverride(user);

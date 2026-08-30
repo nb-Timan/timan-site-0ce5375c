@@ -45,17 +45,18 @@ export type BackendMetaModule = typeof BACKEND_META_MODULES[number];
  * Portal front-page "Hurtige handlinger" / "Quick actions" keys.
  * Stored in app_users.quick_actions (jsonb). NULL = role defaults (fallback).
  */
-export const QUICK_ACTION_KEYS = ["create_lead", "create_demo", "calendar", "my_dealers"] as const;
+export const QUICK_ACTION_KEYS = ["create_lead", "create_demo", "company_contact_info", "dealer_invoice_accept", "partner_map"] as const;
 export type QuickActionKey = typeof QUICK_ACTION_KEYS[number];
 
 /** Default quick actions per portal role. Used when quick_actions is NULL. */
 export const DEFAULT_QUICK_ACTIONS: Record<PortalRole, QuickActionKey[]> = {
-  timan_backend: ["create_lead", "create_demo", "calendar", "my_dealers"],
-  timan_seller:  ["create_lead", "create_demo", "calendar", "my_dealers"],
+  timan_backend: ["create_lead", "create_demo", "company_contact_info", "partner_map"],
+  timan_seller:  ["create_lead", "create_demo", "company_contact_info", "partner_map"],
   timan_service: [],
-  timan_importer: [],
-  timan_dealer: [],
-  timan_service_partner: [],
+  timan_importer: ["create_lead", "create_demo", "dealer_invoice_accept", "partner_map"],
+  timan_dealer: ["create_lead", "create_demo", "dealer_invoice_accept", "partner_map"],
+  timan_service_partner: ["create_lead", "create_demo", "dealer_invoice_accept", "partner_map"],
+  dealer_customer: [],
   dealer_user: [],
   private_end_user: [],
   exhibition_user: [],
