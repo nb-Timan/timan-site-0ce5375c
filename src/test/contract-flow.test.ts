@@ -265,6 +265,23 @@ describe('contract flow', () => {
     expect(source).toContain("const fullContract = stepId === 'full_contract';");
   });
 
+  it('keeps the review and signature top cards separate from full-width contract text', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const topAreaStart = source.indexOf('function ContractReviewTopArea');
+    const topAreaEnd = source.indexOf('function ContractStatusCard');
+    const topArea = source.slice(topAreaStart, topAreaEnd);
+
+    expect(source).not.toContain('CONTRACT_SIDEBAR_STEP_ID');
+    expect(source).not.toContain('showContractSidebar');
+    expect(source).toContain('contractFullTextHeading');
+    expect(source).toContain('contractFullTextIntro');
+    expect(topArea).toContain('xl:grid-cols-[minmax(0,1fr)_340px]');
+    expect(topArea).toContain('<ContractSummary form={form} />');
+    expect(topArea).toContain('<ContractStatusCard status={workflowStatusLabel} readyForSignature={readyForSignature} />');
+    expect(topArea).toContain('<DocumentList />');
+    expect(t('contractFullTextHeading', 'da')).toBe('Kontrakten');
+  });
+
   it('maps old draft confirmations into the new section ids', () => {
     const legacy = normalizeContractConfirmations({
       collaboration: { confirmed: true, confirmedAt: '2026-08-29T10:00:00.000Z', confirmedBy: 'Birger Pedersen' },

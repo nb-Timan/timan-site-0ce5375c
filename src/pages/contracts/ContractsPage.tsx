@@ -107,7 +107,6 @@ const CONTRACT_DOCS = [
   { title: 'Bilag 4 - Salgs- og leveringsbetingelser', href: '/contracts/bilag-4-salgs-og-leveringsbetingelser-timan.pdf', section: 'Kommercielle vilkår' },
 ];
 
-const CONTRACT_SIDEBAR_STEP_ID: (typeof CONTRACT_STEPS)[number]['id'] = 'full_contract';
 const SPARE_PARTS_PORTAL_URL = 'https://cloud.interactivespares.com/timan/categorie/0000+-+Front+page';
 const SPARE_PARTS_PORTAL_BULLET = "Reservedele bestilles via Timan A/S' webshop.";
 
@@ -583,7 +582,6 @@ export default function ContractsPage() {
       : true;
   const currentStepConfirmed = currentStepValid
     && (!currentConfirmationId || Boolean(confirmations[currentConfirmationId]?.confirmed));
-  const showContractSidebar = activeStep.id === CONTRACT_SIDEBAR_STEP_ID;
 
   const update = (key: keyof ContractFormData, value: string | null) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -1104,7 +1102,7 @@ export default function ContractsPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
-        <div className={`grid grid-cols-1 gap-6 ${showContractSidebar ? 'xl:grid-cols-[1fr_340px]' : ''}`}>
+        <div className="grid grid-cols-1 gap-6">
           <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
             <div className="mb-6">
               <p className="text-sm font-bold uppercase tracking-wide text-amber-700">Trin {activeStepIndex + 1} af {CONTRACT_STEPS.length}</p>
@@ -1134,6 +1132,8 @@ export default function ContractsPage() {
                   onFormPatch={updateForm}
                   onServiceHourlyRateChange={updateServiceHourlyRate}
                   onPaymentTermChange={updatePaymentTerm}
+                  workflowStatusLabel={workflowStatusLabel}
+                  readyForSignature={readyForSignature}
                   locked={isLockedContract}
                 />
                 {activeStep.id === 'full_contract' && (
@@ -1169,6 +1169,7 @@ export default function ContractsPage() {
                 activeUploadVersion={activeUploadVersion}
                 latestSubmittedUploadVersion={latestSubmittedUploadVersion}
                 uploadBusy={uploadBusy}
+                workflowStatusLabel={workflowStatusLabel}
                 onSignedFilesUpload={handleSignedFilesUpload}
                 onRemoveSignedFile={removeSignedFile}
                 onMoveSignedFile={moveSignedFile}
@@ -1201,13 +1202,6 @@ export default function ContractsPage() {
               )}
             </div>
           </section>
-
-          {showContractSidebar && (
-            <aside className="space-y-4">
-              <ContractStatusCard status={workflowStatusLabel} workflowStatus={workflowStatus} readyForSignature={readyForSignature} />
-              <DocumentList />
-            </aside>
-          )}
         </div>
       </main>
 
@@ -1311,6 +1305,8 @@ function ReviewStep({
   onFormPatch,
   onServiceHourlyRateChange,
   onPaymentTermChange,
+  workflowStatusLabel,
+  readyForSignature,
   locked,
 }: {
   stepId: (typeof CONTRACT_STEPS)[number]['id'];
@@ -1321,8 +1317,11 @@ function ReviewStep({
   onFormPatch: (patch: Partial<ContractFormData>) => void;
   onServiceHourlyRateChange: (value: number) => void;
   onPaymentTermChange: (value: ContractPaymentTermId) => void;
+  workflowStatusLabel: string;
+  readyForSignature: boolean;
   locked?: boolean;
 }) {
+  const { uiLanguage } = useLanguage();
   const fullContract = stepId === 'full_contract';
   const isTerritoryStep = stepId === 'territory';
   const isServiceStep = stepId === 'spare_parts_service';
@@ -1335,6 +1334,7 @@ function ReviewStep({
     primaryTerritory: form.primaryTerritory,
     secondaryTerritory: form.secondaryTerritory,
     serviceHourlyRateDkk: form.serviceHourlyRateDkk,
+    paymentTerm: form.paymentTerm,
   };
   const section = getRenderedGuidedContractSection(stepId, contractTextContext);
   const contractSections = renderGuidedContractSections(contractTextContext);
@@ -1342,11 +1342,19 @@ function ReviewStep({
   return (
     <div className="space-y-5">
       {fullContract && (
-        <ContractSummary form={form} />
+        <ContractReviewTopArea
+          form={form}
+          workflowStatusLabel={workflowStatusLabel}
+          readyForSignature={readyForSignature}
+        />
       )}
 
       {fullContract && (
         <div className="space-y-5">
+          <div>
+            <h3 className="text-xl font-black text-gray-950">{t('contractFullTextHeading', uiLanguage)}</h3>
+            <p className="mt-1 text-sm leading-6 text-gray-600">{t('contractFullTextIntro', uiLanguage)}</p>
+          </div>
           {contractSections.map((contractSection) => (
             <div key={contractSection.stepId} className="space-y-5">
               {contractSection.stepId === 'spare_parts_service' ? (
@@ -1927,6 +1935,7 @@ function SignatureStep({
   activeUploadVersion,
   latestSubmittedUploadVersion,
   uploadBusy,
+  workflowStatusLabel,
   onSignedFilesUpload,
   onRemoveSignedFile,
   onMoveSignedFile,
@@ -1945,6 +1954,7 @@ function SignatureStep({
   activeUploadVersion: DealerContractUploadVersion | null;
   latestSubmittedUploadVersion: DealerContractUploadVersion | null;
   uploadBusy: boolean;
+  workflowStatusLabel: string;
   onSignedFilesUpload: (files: FileList | null) => void;
   onRemoveSignedFile: (file: DealerContractUploadFile) => void;
   onMoveSignedFile: (file: DealerContractUploadFile, direction: -1 | 1) => void;
@@ -1960,7 +1970,11 @@ function SignatureStep({
 
   return (
     <div className="space-y-6">
-      <ContractSummary form={form} />
+      <ContractReviewTopArea
+        form={form}
+        workflowStatusLabel={workflowStatusLabel}
+        readyForSignature={readyForSignature}
+      />
 
       {!readyForSignature && (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
@@ -2300,6 +2314,26 @@ function ContractSummary({ form }: { form: ContractFormData }) {
           <p className="mt-1 text-sm font-semibold text-gray-950">Sekundært område: {secondaryDescription}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+function ContractReviewTopArea({
+  form,
+  workflowStatusLabel,
+  readyForSignature,
+}: {
+  form: ContractFormData;
+  workflowStatusLabel: string;
+  readyForSignature: boolean;
+}) {
+  return (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <ContractSummary form={form} />
+      <aside className="space-y-4">
+        <ContractStatusCard status={workflowStatusLabel} readyForSignature={readyForSignature} />
+        <DocumentList />
+      </aside>
     </div>
   );
 }
