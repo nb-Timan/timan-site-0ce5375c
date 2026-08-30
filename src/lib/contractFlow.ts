@@ -6,6 +6,10 @@ import {
   type ContractSecondaryTerritoryArea,
   type ContractTerritoryArea,
 } from '@/lib/contractTerritory';
+import {
+  buildContractServiceTermsSnapshot,
+  isValidContractServiceHourlyRateDkk,
+} from '@/lib/contractServiceTerms';
 
 export type ContractStepId =
   | 'parties'
@@ -60,6 +64,7 @@ export type ContractFormData = {
   contractDate: string;
   primaryTerritory: ContractTerritoryArea;
   secondaryTerritory: ContractSecondaryTerritoryArea;
+  serviceHourlyRateDkk: number;
   signatureDataUrl: string | null;
 };
 
@@ -384,6 +389,7 @@ export function hasRequiredPartyData(form: ContractFormData) {
 export function canPrepareContractForSignature(form: ContractFormData, confirmations: ContractConfirmations) {
   return hasRequiredPartyData(form)
     && hasValidContractTerritory(form)
+    && isValidContractServiceHourlyRateDkk(form.serviceHourlyRateDkk)
     && Object.values(confirmations).every((confirmation) => confirmation.confirmed);
 }
 
@@ -452,6 +458,7 @@ export function buildContractSnapshot(
       contactTitle: form.contactTitle,
     },
     territory: buildContractTerritorySnapshot(form),
+    serviceTerms: buildContractServiceTermsSnapshot(form),
     contractDate: form.contractDate,
     legalSections: options.legalSections ?? null,
     appendices: options.appendices ?? null,

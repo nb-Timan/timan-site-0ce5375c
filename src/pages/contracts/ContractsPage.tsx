@@ -82,6 +82,12 @@ import {
   type ContractSecondaryTerritoryArea,
   type ContractTerritoryArea,
 } from '@/lib/contractTerritory';
+import {
+  DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
+  formatContractServiceHourlyRatePerHourDkk,
+  isValidContractServiceHourlyRateDkk,
+  shouldResetContractServiceConfirmation,
+} from '@/lib/contractServiceTerms';
 import { t } from '@/lib/i18n/translations';
 
 const CONTRACT_DOCS = [
@@ -218,6 +224,7 @@ function getSnapshotLegalSections(snapshot: ContractSnapshot): GuidedContractSec
     partnerType: snapshot.dealer.partnerType,
     primaryTerritory: snapshot.territory?.primaryTerritory,
     secondaryTerritory: snapshot.territory?.secondaryTerritory,
+    serviceHourlyRateDkk: snapshot.serviceTerms?.hourlyRateDkk,
   });
 }
 
@@ -430,6 +437,7 @@ export default function ContractsPage() {
     contractDate: todayIso(),
     primaryTerritory: createEmptyContractTerritoryArea(),
     secondaryTerritory: createEmptySecondaryContractTerritoryArea(),
+    serviceHourlyRateDkk: DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
     signatureDataUrl: null,
     partnerType: '',
   }));
@@ -556,9 +564,14 @@ export default function ContractsPage() {
   const readyForSignature = canPrepareContractForSignature(form, confirmations);
   const currentConfirmationId = getRequiredConfirmationForStep(activeStep.id);
   const validPrimaryTerritory = hasValidContractTerritory(form);
-  const currentStepConfirmed = activeStep.id === 'territory'
-    ? validPrimaryTerritory && Boolean(currentConfirmationId && confirmations[currentConfirmationId]?.confirmed)
-    : !currentConfirmationId || confirmations[currentConfirmationId]?.confirmed;
+  const validServiceHourlyRate = isValidContractServiceHourlyRateDkk(form.serviceHourlyRateDkk);
+  const currentStepValid = activeStep.id === 'territory'
+    ? validPrimaryTerritory
+    : activeStep.id === 'spare_parts_service'
+      ? validServiceHourlyRate
+      : true;
+  const currentStepConfirmed = currentStepValid
+    && (!currentConfirmationId || Boolean(confirmations[currentConfirmationId]?.confirmed));
   const showContractSidebar = activeStep.id === CONTRACT_SIDEBAR_STEP_ID;
 
   const update = (key: keyof ContractFormData, value: string | null) => {
@@ -567,6 +580,23 @@ export default function ContractsPage() {
 
   const updateForm = (patch: Partial<ContractFormData>) => {
     setForm((current) => ({ ...current, ...patch }));
+  };
+
+  const updateServiceHourlyRate = (value: number) => {
+    setConfirmations((current) => {
+      if (!shouldResetContractServiceConfirmation(
+        form.serviceHourlyRateDkk,
+        value,
+        Boolean(current.spare_parts_service?.confirmed),
+      )) {
+        return current;
+      }
+      return {
+        ...current,
+        spare_parts_service: { confirmed: false },
+      };
+    });
+    setForm((current) => ({ ...current, serviceHourlyRateDkk: value }));
   };
 
   const saveDraft = () => {
@@ -654,6 +684,10 @@ export default function ContractsPage() {
       toast.error('Vælg et gyldigt primært område, før du går videre.');
       return;
     }
+    if (activeStep.id === 'spare_parts_service' && !validServiceHourlyRate) {
+      toast.error('Angiv en gyldig timetakst for reklamationsarbejde, før du går videre.');
+      return;
+    }
     if (activeStep.id === 'parties' && !hasRequiredPartyData(form)) {
       toast.error('Vælg partnertype og udfyld Timan-sælger samt virksomhedsoplysninger, før du går videre.');
       return;
@@ -694,6 +728,7 @@ export default function ContractsPage() {
       partnerType: form.partnerType,
       primaryTerritory: form.primaryTerritory,
       secondaryTerritory: form.secondaryTerritory,
+      serviceHourlyRateDkk: form.serviceHourlyRateDkk,
     });
     const appendix2Paragraphs = renderAppendix2Paragraphs(form.partnerType);
     const completedAt = new Date().toISOString();
@@ -1067,6 +1102,7 @@ export default function ContractsPage() {
                   onConfirm={confirmSection}
                   form={form}
                   onFormPatch={updateForm}
+                  onServiceHourlyRateChange={updateServiceHourlyRate}
                   locked={isLockedContract}
                 />
                 {activeStep.id === 'full_contract' && (
@@ -1242,6 +1278,7 @@ function ReviewStep({
   onConfirm,
   form,
   onFormPatch,
+  onServiceHourlyRateChange,
   locked,
 }: {
   stepId: (typeof CONTRACT_STEPS)[number]['id'];
@@ -1250,16 +1287,21 @@ function ReviewStep({
   onConfirm: () => void;
   form: ContractFormData;
   onFormPatch: (patch: Partial<ContractFormData>) => void;
+  onServiceHourlyRateChange: (value: number) => void;
   locked?: boolean;
 }) {
   const fullContract = stepId === 'full_contract';
   const isTerritoryStep = stepId === 'territory';
+  const isServiceStep = stepId === 'spare_parts_service';
   const territoryValid = !isTerritoryStep || hasValidContractTerritory(form);
+  const serviceHourlyRateValid = !isServiceStep || isValidContractServiceHourlyRateDkk(form.serviceHourlyRateDkk);
+  const stepValid = territoryValid && serviceHourlyRateValid;
   const contractTextContext = {
     companyName: form.dealerName,
     partnerType: form.partnerType,
     primaryTerritory: form.primaryTerritory,
     secondaryTerritory: form.secondaryTerritory,
+    serviceHourlyRateDkk: form.serviceHourlyRateDkk,
   };
   const section = getRenderedGuidedContractSection(stepId, contractTextContext);
   const contractSections = renderGuidedContractSections(contractTextContext);
@@ -1274,7 +1316,16 @@ function ReviewStep({
         <div className="space-y-5">
           {contractSections.map((contractSection) => (
             <div key={contractSection.stepId} className="space-y-5">
-              <ContractLegalSection section={contractSection} />
+              {contractSection.stepId === 'spare_parts_service' ? (
+                <SparePartsServiceSection
+                  section={contractSection}
+                  serviceHourlyRateDkk={form.serviceHourlyRateDkk}
+                  locked
+                  showEditableRate={false}
+                />
+              ) : (
+                <ContractLegalSection section={contractSection} />
+              )}
               {contractSection.stepId === 'discount_structure' && <Appendix2DiscountSection partnerType={form.partnerType} />}
             </div>
           ))}
@@ -1290,7 +1341,16 @@ function ReviewStep({
               locked={locked}
             />
           )}
-          <ContractLegalSection section={section} />
+          {section.stepId === 'spare_parts_service' ? (
+            <SparePartsServiceSection
+              section={section}
+              serviceHourlyRateDkk={form.serviceHourlyRateDkk}
+              onServiceHourlyRateChange={onServiceHourlyRateChange}
+              locked={locked}
+            />
+          ) : (
+            <ContractLegalSection section={section} />
+          )}
         </>
       )}
 
@@ -1305,11 +1365,16 @@ function ReviewStep({
               Vælg et gyldigt primært område, før dette trin kan bekræftes.
             </p>
           )}
-          <label className={`flex items-start gap-3 ${territoryValid && !locked ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
+          {isServiceStep && !serviceHourlyRateValid && (
+            <p className="mb-3 text-sm font-semibold text-amber-900">
+              Angiv en gyldig timetakst for reklamationsarbejde, før dette trin kan bekræftes.
+            </p>
+          )}
+          <label className={`flex items-start gap-3 ${stepValid && !locked ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
             <input
               type="checkbox"
               checked={Boolean(confirmation?.confirmed)}
-              disabled={locked || !territoryValid}
+              disabled={locked || !stepValid}
               onChange={onConfirm}
               className="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600 disabled:cursor-not-allowed"
             />
@@ -1583,39 +1648,123 @@ function TerritoryMiniMap({
   );
 }
 
-function ContractLegalSection({ section }: { section: GuidedContractSection }) {
-  const isCombinedSparePartsStep = section.stepId === 'spare_parts_service';
-  const sparePartsBlocks = isCombinedSparePartsStep ? section.blocks.slice(0, 1) : section.blocks;
-  const salesServiceBlocks = isCombinedSparePartsStep ? section.blocks.slice(1) : [];
+function SparePartsServiceSection({
+  section,
+  serviceHourlyRateDkk,
+  onServiceHourlyRateChange,
+  locked,
+  showEditableRate = true,
+}: {
+  section: GuidedContractSection;
+  serviceHourlyRateDkk: number;
+  onServiceHourlyRateChange?: (value: number) => void;
+  locked?: boolean;
+  showEditableRate?: boolean;
+}) {
+  const sparePartsBlocks = section.blocks.slice(0, 1);
+  const serviceBlocks = section.blocks.slice(1);
+  const validRate = isValidContractServiceHourlyRateDkk(serviceHourlyRateDkk);
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-      <div className="flex items-start gap-3">
-        <FileText className="mt-1 h-5 w-5 text-gray-500" />
-        <div>
-          <h3 className="text-lg font-bold text-gray-950">{section.title}</h3>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{section.source}</p>
-        </div>
-      </div>
+      <ContractLegalSectionHeader section={section} />
       <div className="mt-5 space-y-5">
-        {isCombinedSparePartsStep ? (
-          <div className="grid gap-5 lg:grid-cols-2">
-            <div className="space-y-5">
-              {sparePartsBlocks.map((block, index) => (
-                <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
-              ))}
-            </div>
-            <div className="space-y-5 border-t border-gray-200 pt-5 lg:border-l lg:border-t-0 lg:pl-5 lg:pt-0">
-              {salesServiceBlocks.map((block, index) => (
-                <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
-              ))}
+        {sparePartsBlocks.map((block, index) => (
+          <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
+        ))}
+
+        <section className="rounded-2xl border border-emerald-200 bg-white p-5">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-emerald-700" />
+            <div>
+              <h4 className="text-base font-black text-gray-950">Vigtige servicevilkår</h4>
+              <p className="mt-1 text-sm leading-6 text-gray-600">Kort samtaleoverblik. De fulde servicebetingelser står nedenfor.</p>
             </div>
           </div>
-        ) : (
-          section.blocks.map((block, index) => (
+
+          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
+            <div className="grid gap-3 md:grid-cols-2">
+              {[
+                ['Reklamation', 'Reklamationsarbejde må først påbegyndes, når Timan har udstedt et reklamationsnummer.'],
+                ['Garantiregistrering', 'Garantiregistreringen skal ske med korrekt fakturadato til slutkunden i henhold til eksisterende kontraktvilkår.'],
+                ['Demomaskiner', 'Demomaskiner har særlige garantiregler, og maksimal garanti er 24 måneder i henhold til servicebetingelser.'],
+                ['Reklamationsdele', 'Reklamationsdelen skal opbevares i minimum 6 måneder eller fremsendes efter anmodning fra Timans serviceafdeling.'],
+                ['Fragt', 'Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.'],
+              ].map(([title, body]) => (
+                <div key={title} className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  <p className="text-sm font-bold text-gray-950">{title}</p>
+                  <p className="mt-1 text-sm leading-6 text-gray-700">{body}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+              <p className="text-sm font-bold text-emerald-950">Godtgørelse</p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">Aftalt timetakst</p>
+              {showEditableRate && onServiceHourlyRateChange ? (
+                <label className="mt-2 block">
+                  <span className="text-xs font-semibold text-emerald-950">Aftalt timetakst for reklamationsarbejde</span>
+                  <div className="flex items-center overflow-hidden rounded-xl border border-emerald-300 bg-white">
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={Number.isFinite(serviceHourlyRateDkk) ? serviceHourlyRateDkk : ''}
+                      disabled={locked}
+                      onChange={(event) => {
+                        const nextValue = event.target.value === '' ? 0 : Number(event.target.value);
+                        onServiceHourlyRateChange(nextValue);
+                      }}
+                      className="min-w-0 flex-1 border-0 px-3 py-2 text-lg font-black text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+                    />
+                    <span className="border-l border-emerald-200 px-3 text-xs font-bold text-emerald-900">DKK/time</span>
+                  </div>
+                </label>
+              ) : (
+                <p className="mt-2 text-2xl font-black text-emerald-900">
+                  {formatContractServiceHourlyRatePerHourDkk(serviceHourlyRateDkk)}
+                </p>
+              )}
+              {!validRate && (
+                <p className="mt-2 text-xs font-semibold text-amber-900">Angiv et beløb over 0 kr.</p>
+              )}
+              <p className="mt-3 text-sm leading-6 text-emerald-950">
+                Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan med samme timetakst.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-5 xl:grid-cols-2">
+          {serviceBlocks.map((block, index) => (
             <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
-          ))
-        )}
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContractLegalSectionHeader({ section }: { section: GuidedContractSection }) {
+  return (
+    <div className="flex items-start gap-3">
+      <FileText className="mt-1 h-5 w-5 text-gray-500" />
+      <div>
+        <h3 className="text-lg font-bold text-gray-950">{section.title}</h3>
+        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{section.source}</p>
+      </div>
+    </div>
+  );
+}
+
+function ContractLegalSection({ section }: { section: GuidedContractSection }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+      <ContractLegalSectionHeader section={section} />
+      <div className="mt-5 space-y-5">
+        {section.blocks.map((block, index) => (
+          <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
+        ))}
       </div>
     </div>
   );

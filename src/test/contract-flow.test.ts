@@ -43,6 +43,12 @@ import {
   hasValidContractTerritory,
   parseContractPostalInput,
 } from '@/lib/contractTerritory';
+import {
+  DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
+  formatContractServiceHourlyRatePerHourDkk,
+  normalizeContractServiceHourlyRateDkk,
+  shouldResetContractServiceConfirmation,
+} from '@/lib/contractServiceTerms';
 import { t } from '@/lib/i18n/translations';
 
 const completeForm: ContractFormData = {
@@ -71,6 +77,7 @@ const completeForm: ContractFormData = {
     postalRanges: [],
     enabled: false,
   },
+  serviceHourlyRateDkk: DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
   signatureDataUrl: null,
 };
 
@@ -126,6 +133,14 @@ describe('contract flow', () => {
     expect(hasValidContractTerritory(emptyTerritoryForm)).toBe(false);
     expect(canPrepareContractForSignature(emptyTerritoryForm, confirmed)).toBe(false);
     expect(hasValidContractTerritory({ ...emptyTerritoryForm, primaryTerritory: { ...emptyTerritoryForm.primaryTerritory, wholeCountry: true } })).toBe(true);
+  });
+
+  it('requires a valid service hourly rate before signature readiness', () => {
+    expect(canPrepareContractForSignature(completeForm, confirmed)).toBe(true);
+    expect(canPrepareContractForSignature({ ...completeForm, serviceHourlyRateDkk: 0 }, confirmed)).toBe(false);
+    expect(normalizeContractServiceHourlyRateDkk(undefined)).toBe(360);
+    expect(normalizeContractServiceHourlyRateDkk('425')).toBe(425);
+    expect(formatContractServiceHourlyRatePerHourDkk(425)).toBe('425 kr./time');
   });
 
   it('marks signed only after signature exists on a fully confirmed contract', () => {
@@ -284,6 +299,69 @@ describe('contract flow', () => {
     expect(text).toContain('Bilag 1: Service og garanti betingelser');
     expect(text).not.toContain('Service betingelser: se Bilag 1.');
     expect(GUIDED_CONTRACT_SECTIONS.map((section) => section.stepId)).not.toContain('sales_service_days');
+  });
+
+  it('renders the contract service hourly rate in key legal service terms', () => {
+    const defaultSections = renderGuidedContractSections({
+      companyName: completeForm.dealerName,
+      partnerType: completeForm.partnerType,
+      primaryTerritory: completeForm.primaryTerritory,
+      secondaryTerritory: completeForm.secondaryTerritory,
+      serviceHourlyRateDkk: completeForm.serviceHourlyRateDkk,
+    });
+    const changedSections = renderGuidedContractSections({
+      companyName: completeForm.dealerName,
+      partnerType: completeForm.partnerType,
+      primaryTerritory: completeForm.primaryTerritory,
+      secondaryTerritory: completeForm.secondaryTerritory,
+      serviceHourlyRateDkk: 425,
+    });
+    const defaultText = JSON.stringify(defaultSections);
+    const changedText = JSON.stringify(changedSections);
+
+    expect(defaultText).toContain('Timan betaler 360 kr. pr. forbrugt time');
+    expect(defaultText).toContain('360 kr. pr. køretime');
+    expect(defaultText).not.toContain('360kr');
+    expect(changedText).toContain('Timan betaler 425 kr. pr. forbrugt time');
+    expect(changedText).toContain('425 kr. pr. køretime');
+    expect(changedText).not.toContain('360 kr. pr. forbrugt time');
+  });
+
+  it('stores the contract-specific service hourly rate in the snapshot', () => {
+    const form: ContractFormData = { ...completeForm, serviceHourlyRateDkk: 425 };
+    const legalSections = renderGuidedContractSections({
+      companyName: form.dealerName,
+      partnerType: form.partnerType,
+      primaryTerritory: form.primaryTerritory,
+      secondaryTerritory: form.secondaryTerritory,
+      serviceHourlyRateDkk: form.serviceHourlyRateDkk,
+    });
+    const snapshot = buildContractSnapshot(form, confirmed, { legalSections });
+
+    expect(snapshot.serviceTerms).toEqual({
+      currency: 'DKK',
+      hourlyRateDkk: 425,
+      laborHourlyRateDkk: 425,
+      travelHourlyRateDkk: 425,
+      rateModel: 'shared_labor_and_travel_rate',
+    });
+    expect(JSON.stringify(snapshot.legalSections)).toContain('425 kr. pr. forbrugt time');
+  });
+
+  it('invalidates the spare parts service confirmation when the hourly rate changes', () => {
+    expect(shouldResetContractServiceConfirmation(360, 425, true)).toBe(true);
+    expect(shouldResetContractServiceConfirmation(360, 425, false)).toBe(false);
+    expect(shouldResetContractServiceConfirmation('360', 360, true)).toBe(false);
+  });
+
+  it('shows the important service terms panel and editable hourly rate in step 6', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain('Vigtige servicevilkår');
+    expect(source).toContain('Aftalt timetakst for reklamationsarbejde');
+    expect(source).toContain('Reklamationsarbejde må først påbegyndes');
+    expect(source).toContain('Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan med samme timetakst.');
+    expect(source).toContain('shouldResetContractServiceConfirmation');
   });
 
   it('renders the spare parts portal link text through portal translations', () => {
@@ -541,11 +619,19 @@ describe('contract flow', () => {
   });
 
   it('freezes legal text and review actor details into the locked snapshot', () => {
-    const snapshot = buildContractSnapshot(completeForm, confirmed, {
+    const changedRateForm: ContractFormData = { ...completeForm, serviceHourlyRateDkk: 425 };
+    const legalSections = renderGuidedContractSections({
+      companyName: changedRateForm.dealerName,
+      partnerType: changedRateForm.partnerType,
+      primaryTerritory: changedRateForm.primaryTerritory,
+      secondaryTerritory: changedRateForm.secondaryTerritory,
+      serviceHourlyRateDkk: changedRateForm.serviceHourlyRateDkk,
+    });
+    const snapshot = buildContractSnapshot(changedRateForm, confirmed, {
       contractId: 'contract-1',
       contractNumber: 'DC-2026-1000',
       workflowStatus: 'ready_for_signature',
-      legalSections: renderGuidedContractSections({ companyName: completeForm.dealerName, partnerType: completeForm.partnerType }),
+      legalSections,
       appendices: { appendix2Paragraphs: renderAppendix2Paragraphs(completeForm.partnerType) },
       completedGuidedReviewAt: '2026-08-30T08:00:00.000Z',
       completedGuidedReviewBy: 'Birger Pedersen',
@@ -557,6 +643,8 @@ describe('contract flow', () => {
     expect(snapshot.contractNumber).toBe('DC-2026-1000');
     expect(snapshot.workflowStatus).toBe('ready_for_signature');
     expect(JSON.stringify(snapshot.legalSections)).toContain('Timan A/S og Metec Metal Technology Inc');
+    expect(JSON.stringify(snapshot.legalSections)).toContain('425 kr. pr. forbrugt time');
+    expect(JSON.stringify(snapshot.legalSections)).not.toContain('500 kr. pr. forbrugt time');
     expect(snapshot.appendices).toEqual({ appendix2Paragraphs: renderAppendix2Paragraphs(completeForm.partnerType) });
     expect(snapshot.completedGuidedReviewByEmail).toBe('bp@timan.dk');
     expect(snapshot.expectedSignedPages).toBe(5);

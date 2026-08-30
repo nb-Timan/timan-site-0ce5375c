@@ -17,6 +17,7 @@ import {
   normalizeContractSecondaryTerritoryArea,
   normalizeContractTerritoryArea,
 } from "@/lib/contractTerritory";
+import { normalizeContractServiceHourlyRateDkk } from "@/lib/contractServiceTerms";
 
 export const DEALER_CONTRACTS_BUCKET = "dealer-contracts";
 
@@ -149,6 +150,7 @@ function rowToContractRecord(row: Record<string, unknown>): DealerContractRecord
       contractDate: formData.contractDate ?? "",
       primaryTerritory: normalizeContractTerritoryArea(formData.primaryTerritory),
       secondaryTerritory: normalizeContractSecondaryTerritoryArea(formData.secondaryTerritory),
+      serviceHourlyRateDkk: normalizeContractServiceHourlyRateDkk(formData.serviceHourlyRateDkk),
       signatureDataUrl,
     },
     contract_version: String(row.contract_version ?? CONTRACT_VERSION),

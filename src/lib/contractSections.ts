@@ -6,6 +6,7 @@ import {
   type ContractSecondaryTerritoryArea,
   type ContractTerritoryArea,
 } from '@/lib/contractTerritory';
+import { formatContractServiceHourlyRateDkk } from '@/lib/contractServiceTerms';
 
 export type ContractTextBlock = {
   heading?: string;
@@ -25,6 +26,7 @@ export type ContractTextRenderContext = {
   partnerType: ContractPartnerType | '' | null | undefined;
   primaryTerritory?: ContractTerritoryArea;
   secondaryTerritory?: ContractSecondaryTerritoryArea;
+  serviceHourlyRateDkk?: number;
 };
 
 export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
@@ -188,9 +190,9 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
       {
         heading: '4. Timeløn og Transport',
         bullets: [
-          'Timan betaler 360kr pr. forbrugt time i forbindelse med udbedring af reklamationer.',
+          'Timan betaler {{serviceHourlyRateDkk}} pr. forbrugt time i forbindelse med udbedring af reklamationer.',
           'Timesatsen er baseret på dækning af de interne udgifter',
-          'Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan. 360kr pr. køretime.',
+          'Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan. {{serviceHourlyRateDkk}} pr. køretime.',
           'Timan dækker ikke transportomkostninger for maskinen eller andre følgeomkostninger i forbindelse med reklamationer.',
         ],
       },
@@ -331,7 +333,8 @@ function renderContractText(value: string, context: ContractTextRenderContext): 
     .replaceAll('{{partnerPortal}}', terms?.portal ?? '')
     .replaceAll('{{partnerAnnualMeeting}}', terms?.annualMeeting ?? '')
     .replaceAll('{{primaryTerritoryDescription}}', describeContractTerritoryArea(context.primaryTerritory, 'da'))
-    .replaceAll('{{secondaryTerritoryDescription}}', describeContractSecondaryTerritoryArea(context.secondaryTerritory, 'da'));
+    .replaceAll('{{secondaryTerritoryDescription}}', describeContractSecondaryTerritoryArea(context.secondaryTerritory, 'da'))
+    .replaceAll('{{serviceHourlyRateDkk}}', formatContractServiceHourlyRateDkk(context.serviceHourlyRateDkk));
 }
 
 export function renderGuidedContractSections(context: ContractTextRenderContext): GuidedContractSection[] {
