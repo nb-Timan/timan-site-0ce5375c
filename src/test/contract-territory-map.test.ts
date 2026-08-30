@@ -7,12 +7,13 @@ import {
   getContractTerritoryMapRegionKeys,
   hasContractTerritoryMapSelection,
 } from '@/lib/contractTerritoryMap';
+import { DENMARK_MUNICIPALITIES_EXPECTED_COUNT, DENMARK_MUNICIPALITIES_GEOJSON_URL, parseDenmarkMunicipalitiesGeoJson } from '@/lib/denmarkMunicipalities';
 import type { ContractTerritoryArea } from '@/lib/contractTerritory';
 
 describe('contract territory map config', () => {
-  it('uses postal-code datasets for Denmark and Germany', () => {
-    expect(CONTRACT_TERRITORY_MAP_COUNTRIES.DK.datasetId).toBe('dk_postal_codes');
-    expect(CONTRACT_TERRITORY_MAP_COUNTRIES.DK.geoJsonUrl).toBe('/data/denmark-postal-codes.geojson');
+  it('uses municipalities for Denmark and PLZ2 for Germany', () => {
+    expect(CONTRACT_TERRITORY_MAP_COUNTRIES.DK.datasetId).toBe('dk_municipalities');
+    expect(CONTRACT_TERRITORY_MAP_COUNTRIES.DK.geoJsonUrl).toBe(DENMARK_MUNICIPALITIES_GEOJSON_URL);
     expect(CONTRACT_TERRITORY_MAP_COUNTRIES.DE.datasetId).toBe('de_plz2');
     expect(CONTRACT_TERRITORY_MAP_COUNTRIES.DE.geoJsonUrl).toBe('/data/germany-plz2.geojson');
   });
@@ -21,6 +22,7 @@ describe('contract territory map config', () => {
     const area: ContractTerritoryArea = {
       country: 'DE',
       wholeCountry: false,
+      municipalities: [],
       postalEntries: [
         { input: '39104', postalCode: '39104' },
         { input: '20000-29999', postalRange: { from: '20000', to: '29999' } },
@@ -44,31 +46,48 @@ describe('contract territory map config', () => {
     ]);
   });
 
-  it('resolves Danish postal entries to individual postal-code areas', () => {
+  it('resolves Danish map regions from municipalities and keeps postal fields separate', () => {
     const area: ContractTerritoryArea = {
       country: 'DK',
       wholeCountry: false,
-      postalEntries: [
-        { input: '5000', postalCode: '5000' },
-        { input: '5200-5210', postalRange: { from: '5200', to: '5210' } },
+      municipalities: [
+        { id: '0657', name: 'Herning' },
+        { id: '0760', name: 'Ringkøbing-Skjern' },
       ],
-      postalCodes: ['5000'],
-      postalRanges: [{ from: '5200', to: '5210' }],
+      postalEntries: [
+        { input: '6950', postalCode: '6950' },
+        { input: '6900', postalCode: '6900' },
+      ],
+      postalCodes: ['6950', '6900'],
+      postalRanges: [],
     };
 
-    expect(getContractTerritoryMapRegionKeys(area)).toContain('5000');
-    expect(getContractTerritoryMapRegionKeys(area)).toContain('5200');
-    expect(getContractTerritoryMapRegionKeys(area)).toContain('5210');
+    expect(getContractTerritoryMapRegionKeys(area)).toEqual(['0657', '0760']);
   });
 
-  it('parses local Denmark postal-code GeoJSON with stable postal IDs', () => {
+  it('does not use Danish postal entries as map region keys', () => {
+    const area: ContractTerritoryArea = {
+      country: 'DK',
+      wholeCountry: false,
+      municipalities: [],
+      postalEntries: [{ input: '6950', postalCode: '6950' }],
+      postalCodes: ['6950'],
+      postalRanges: [],
+    };
+
+    expect(getContractTerritoryMapRegionKeys(area)).toEqual([]);
+    expect(hasContractTerritoryMapSelection(area)).toBe(false);
+  });
+
+  it('parses local Denmark municipality GeoJSON with stable municipality IDs', () => {
     const config = getContractTerritoryMapCountryConfig('DK');
     const data = JSON.parse(readFileSync(`public${config.geoJsonUrl}`, 'utf8')) as GeoJSON.FeatureCollection;
-    const odense = data.features.find((feature) => config.getFeatureMeta(feature)?.key === '5000');
+    const municipalities = parseDenmarkMunicipalitiesGeoJson(data);
+    const odense = municipalities.features.find((feature) => config.getFeatureMeta(feature)?.key === '0461');
 
-    expect(data.features.length).toBeGreaterThan(1000);
-    expect(new Set(data.features.map((feature) => config.getFeatureMeta(feature)?.key).filter(Boolean)).size).toBe(data.features.length);
-    expect(config.getFeatureMeta(odense!)?.label).toContain('Odense');
+    expect(municipalities.features).toHaveLength(DENMARK_MUNICIPALITIES_EXPECTED_COUNT);
+    expect(new Set(municipalities.features.map((feature) => config.getFeatureMeta(feature)?.key).filter(Boolean)).size).toBe(DENMARK_MUNICIPALITIES_EXPECTED_COUNT);
+    expect(config.getFeatureMeta(odense!)?.label).toBe('Odense Kommune');
     expect(odense?.geometry.type).toMatch(/Polygon/);
   });
 
@@ -92,6 +111,7 @@ describe('contract territory map config', () => {
     expect(hasContractTerritoryMapSelection({
       country: 'DE',
       wholeCountry: true,
+      municipalities: [],
       postalEntries: [],
       postalCodes: [],
       postalRanges: [],

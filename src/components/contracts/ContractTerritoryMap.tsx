@@ -10,6 +10,7 @@ import {
   normalizeContractTerritoryArea,
   type ContractSecondaryTerritoryArea,
   type ContractTerritoryArea,
+  type ContractTerritoryMunicipality,
 } from '@/lib/contractTerritory';
 import {
   getContractTerritoryMapCountryConfig,
@@ -20,6 +21,7 @@ import {
   type ContractTerritoryMapCountryConfig,
   type ContractTerritoryMapVariant,
 } from '@/lib/contractTerritoryMap';
+import { parseDenmarkMunicipalitiesGeoJson } from '@/lib/denmarkMunicipalities';
 
 const PRIMARY_COLOR = '#287a48';
 const PRIMARY_FILL = '#2fb36d';
@@ -114,16 +116,22 @@ function styleForFeature(variant: ContractTerritoryMapVariant | null, hovered = 
 function ContractTerritoryGeoJsonLayer({
   primaryTerritory,
   secondaryTerritory,
+  municipalitySelectionTarget,
   language,
   onStatus,
+  onPrimaryTerritoryChange,
+  onSecondaryTerritoryChange,
 }: {
   primaryTerritory: ContractTerritoryArea;
   secondaryTerritory: ContractSecondaryTerritoryArea;
+  municipalitySelectionTarget: ContractTerritoryMapVariant;
   language: PortalUiLanguage | string;
   onStatus: (status: 'loading' | 'ready' | 'error') => void;
+  onPrimaryTerritoryChange?: (territory: ContractTerritoryArea) => void;
+  onSecondaryTerritoryChange?: (territory: ContractSecondaryTerritoryArea) => void;
 }) {
   const map = useMap();
-  const stateKey = `${getContractTerritoryMapStateKey(primaryTerritory)}|${secondaryTerritory.enabled ? getContractTerritoryMapStateKey(secondaryTerritory) : 'secondary-off'}`;
+  const stateKey = `${getContractTerritoryMapStateKey(primaryTerritory)}|${secondaryTerritory.enabled ? getContractTerritoryMapStateKey(secondaryTerritory) : 'secondary-off'}|${municipalitySelectionTarget}`;
 
   useEffect(() => {
     let alive = true;
@@ -154,7 +162,10 @@ function ContractTerritoryGeoJsonLayer({
     configs.forEach((config) => fallbackBounds.extend(boundsFromConfig(config)));
     onStatus('loading');
 
-    Promise.all(configs.map((config) => loadGeoJson(config.geoJsonUrl).then((geoJson) => ({ config, geoJson }))))
+    Promise.all(configs.map((config) => loadGeoJson(config.geoJsonUrl).then((geoJson) => ({
+      config,
+      geoJson: config.datasetId === 'dk_municipalities' ? parseDenmarkMunicipalitiesGeoJson(geoJson) : geoJson,
+    }))))
       .then((items) => {
         if (!alive) return;
 
@@ -181,6 +192,9 @@ function ContractTerritoryGeoJsonLayer({
               const path = featureLayer as L.Path;
               const bounds = (featureLayer as L.Polygon).getBounds?.();
               const variant = getFeatureVariant(meta.key, specsForCountry);
+              const municipality = config.country === 'DK'
+                ? { id: meta.key, name: meta.label.replace(/\s+Kommune$/i, '') }
+                : null;
 
               if (variant && bounds?.isValid()) {
                 selectedBounds.extend(bounds);
@@ -209,6 +223,17 @@ function ContractTerritoryGeoJsonLayer({
                   }
                 },
                 click: () => {
+                  if (municipality) {
+                    const targetArea = municipalitySelectionTarget === 'secondary'
+                      ? normalizeContractTerritoryArea(secondaryTerritory)
+                      : normalizedPrimary;
+                    const nextArea = toggleContractTerritoryMunicipality(targetArea, municipality);
+                    if (municipalitySelectionTarget === 'secondary' && secondaryTerritory.enabled && onSecondaryTerritoryChange) {
+                      onSecondaryTerritoryChange({ ...nextArea, enabled: true });
+                    } else if (onPrimaryTerritoryChange) {
+                      onPrimaryTerritoryChange(nextArea);
+                    }
+                  }
                   if (selectedLayerRef.current && selectedStyleRef.current) {
                     selectedLayerRef.current.setStyle(styleForFeature(selectedStyleRef.current.variant));
                   }
@@ -242,7 +267,7 @@ function ContractTerritoryGeoJsonLayer({
       container.classList.remove('contract-territory-hovering');
       group.removeFrom(map);
     };
-  }, [map, onStatus, language, stateKey]);
+  }, [map, onStatus, language, stateKey, municipalitySelectionTarget, onPrimaryTerritoryChange, onSecondaryTerritoryChange, primaryTerritory, secondaryTerritory]);
 
   return null;
 }
@@ -260,14 +285,32 @@ function getFeatureVariant(
   return null;
 }
 
+function toggleContractTerritoryMunicipality(
+  area: ContractTerritoryArea,
+  municipality: ContractTerritoryMunicipality,
+): ContractTerritoryArea {
+  if (area.country !== 'DK' || area.wholeCountry) return area;
+  const exists = area.municipalities.some((item) => item.id === municipality.id);
+  const municipalities = exists
+    ? area.municipalities.filter((item) => item.id !== municipality.id)
+    : [...area.municipalities, municipality].sort((a, b) => a.name.localeCompare(b.name, 'da'));
+  return { ...area, municipalities };
+}
+
 export function ContractTerritoryMap({
   primaryTerritory,
   secondaryTerritory,
+  municipalitySelectionTarget = 'primary',
   language,
+  onPrimaryTerritoryChange,
+  onSecondaryTerritoryChange,
 }: {
   primaryTerritory: ContractTerritoryArea;
   secondaryTerritory: ContractSecondaryTerritoryArea;
+  municipalitySelectionTarget?: ContractTerritoryMapVariant;
   language: PortalUiLanguage | string;
+  onPrimaryTerritoryChange?: (territory: ContractTerritoryArea) => void;
+  onSecondaryTerritoryChange?: (territory: ContractSecondaryTerritoryArea) => void;
 }) {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const validPrimary = isValidContractTerritoryArea(primaryTerritory);
@@ -305,8 +348,11 @@ export function ContractTerritoryMap({
           <ContractTerritoryGeoJsonLayer
             primaryTerritory={primaryTerritory}
             secondaryTerritory={secondaryTerritory}
+            municipalitySelectionTarget={municipalitySelectionTarget}
             language={language}
             onStatus={setStatus}
+            onPrimaryTerritoryChange={onPrimaryTerritoryChange}
+            onSecondaryTerritoryChange={onSecondaryTerritoryChange}
           />
           <MapResizer trigger={stateKey} />
         </MapContainer>

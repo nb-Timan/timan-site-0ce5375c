@@ -79,12 +79,14 @@ const completeForm: ContractFormData = {
   primaryTerritory: {
     country: 'DK',
     wholeCountry: false,
+    municipalities: [],
     postalCodes: [],
     postalRanges: [{ from: '5000', to: '5999' }],
   },
   secondaryTerritory: {
     country: 'DK',
     wholeCountry: false,
+    municipalities: [],
     postalCodes: [],
     postalRanges: [],
     enabled: false,
@@ -184,7 +186,7 @@ describe('contract flow', () => {
       { input: '5000-5999', postalRange: { from: '5000', to: '5999' } },
       { input: '6000', postalCode: '6000' },
     ]);
-    expect(snapshot.primaryDescription).toBe('Danmark – 5000–5999, Danmark – 6000 Kolding');
+    expect(snapshot.primaryDescription).toBe('Land: Danmark, Postnummer: 5000–5999, Postnummer: 6000 Kolding');
   });
 
   it('enriches known Danish postal codes with city names without changing stored values', () => {
@@ -192,6 +194,10 @@ describe('contract flow', () => {
     const area = {
       country: 'DK',
       wholeCountry: false,
+      municipalities: [
+        { id: '0760', name: 'Ringkøbing-Skjern' },
+        { id: '0657', name: 'Herning' },
+      ],
       postalEntries: parsed.postalEntries,
       postalCodes: parsed.postalCodes,
       postalRanges: parsed.postalRanges,
@@ -199,12 +205,15 @@ describe('contract flow', () => {
 
     expect(serializeContractPostalInput(area)).toBe('6950, 6940, 5000-5999, 1234');
     expect(getContractTerritoryDisplayItems(area, 'da')).toEqual([
-      'Danmark – 6950 Ringkøbing',
-      'Danmark – 6940 Lem St',
-      'Danmark – 5000–5999',
-      'Danmark – 1234',
+      'Land: Danmark',
+      'Kommune: Herning Kommune',
+      'Kommune: Ringkøbing-Skjern Kommune',
+      'Postnummer: 6950 Ringkøbing',
+      'Postnummer: 6940 Lem St',
+      'Postnummer: 5000–5999',
+      'Postnummer: 1234',
     ]);
-    expect(describeContractTerritoryArea(area, 'da')).toBe('Danmark – 6950 Ringkøbing, Danmark – 6940 Lem St, Danmark – 5000–5999, Danmark – 1234');
+    expect(describeContractTerritoryArea(area, 'da')).toBe('Land: Danmark, Kommune: Herning Kommune, Kommune: Ringkøbing-Skjern Kommune, Postnummer: 6950 Ringkøbing, Postnummer: 6940 Lem St, Postnummer: 5000–5999, Postnummer: 1234');
   });
 
   it('requires a valid service hourly rate before signature readiness', () => {
@@ -354,6 +363,25 @@ describe('contract flow', () => {
     expect(territoryEditor).toContain('buildContractTerritoryAreaFromPostalFields');
     expect(source).toContain('<ContractTerritoryMap');
     expect(territoryEditor).not.toContain('<textarea');
+  });
+
+  it('keeps Danish municipality map selection separate from manual postal fields', () => {
+    const contractsSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const mapSource = readFileSync('src/components/contracts/ContractTerritoryMap.tsx', 'utf8');
+    const start = contractsSource.indexOf('function TerritoryAreaEditor');
+    const end = contractsSource.indexOf('function SparePartsServiceSection');
+    const territoryEditor = contractsSource.slice(start, end);
+
+    expect(territoryEditor).toContain('Valgte kommuner');
+    expect(territoryEditor).toContain('Klik kommuner på kortet. Postnumre indtastes manuelt nedenfor.');
+    expect(territoryEditor).toContain('removeTerritoryMunicipality');
+    expect(territoryEditor).toContain('buildContractTerritoryAreaFromPostalFields');
+    expect(contractsSource).toContain('municipalitySelectionTarget');
+    expect(contractsSource).toContain('onPrimaryTerritoryChange={setPrimaryTerritory}');
+    expect(contractsSource).toContain('onSecondaryTerritoryChange={setSecondaryTerritory}');
+    expect(mapSource).toContain("config.datasetId === 'dk_municipalities' ? parseDenmarkMunicipalitiesGeoJson(geoJson) : geoJson");
+    expect(mapSource).toContain('toggleContractTerritoryMunicipality');
+    expect(mapSource).not.toContain('postalCodes.push(municipality');
   });
 
   it('keeps the appendix 2 web diagram constrained to the contract width', () => {
@@ -702,12 +730,14 @@ describe('contract flow', () => {
       primaryTerritory: {
         country: 'DE',
         wholeCountry: false,
+        municipalities: [],
         postalCodes: germanPrimary.postalCodes,
         postalRanges: germanPrimary.postalRanges,
       },
       secondaryTerritory: {
         country: 'DE',
         wholeCountry: false,
+        municipalities: [],
         postalCodes: germanSecondary.postalCodes,
         postalRanges: germanSecondary.postalRanges,
         enabled: true,
@@ -721,19 +751,20 @@ describe('contract flow', () => {
     }).find((section) => section.stepId === 'territory');
     const text = JSON.stringify(territory);
 
-    expect(describeContractTerritoryArea(form.primaryTerritory, 'da')).toBe('Tyskland – 20000–29999, Tyskland – 10115');
-    expect(describeContractSecondaryTerritoryArea(form.secondaryTerritory, 'da')).toBe('Tyskland – 70000–79999');
-    expect(text).toContain('Tyskland – 20000–29999');
-    expect(text).toContain('Tyskland – 10115');
-    expect(text).toContain('Tyskland – 70000–79999');
+    expect(describeContractTerritoryArea(form.primaryTerritory, 'da')).toBe('Land: Tyskland, Postnummer: 20000–29999, Postnummer: 10115');
+    expect(describeContractSecondaryTerritoryArea(form.secondaryTerritory, 'da')).toBe('Land: Tyskland, Postnummer: 70000–79999');
+    expect(text).toContain('Land: Tyskland');
+    expect(text).toContain('Postnummer: 20000–29999');
+    expect(text).toContain('Postnummer: 10115');
+    expect(text).toContain('Postnummer: 70000–79999');
     expect(text).not.toContain('Fyn, Tåsinge');
     expect(text).not.toContain('Hobro');
   });
 
   it.each([
-    ['dealer', 'DK', false, '5000-5999', 'Danmark – 5000–5999'],
+    ['dealer', 'DK', false, '5000-5999', 'Land: Danmark, Postnummer: 5000–5999'],
     ['importer', 'DE', true, '', 'Tyskland - Hele landet'],
-    ['service_partner', 'DK', false, '6000', 'Danmark – 6000 Kolding'],
+    ['service_partner', 'DK', false, '6000', 'Land: Danmark, Postnummer: 6000 Kolding'],
   ] as const)('renders complete territory snapshots for %s contracts', (partnerType, country, wholeCountry, postalInput, expectedDescription) => {
     const parsed = parseContractPostalInput(postalInput, country);
     const form: ContractFormData = {
@@ -742,12 +773,14 @@ describe('contract flow', () => {
       primaryTerritory: {
         country,
         wholeCountry,
+        municipalities: [],
         postalCodes: parsed.postalCodes,
         postalRanges: parsed.postalRanges,
       },
       secondaryTerritory: {
         country,
         wholeCountry: false,
+        municipalities: [],
         postalCodes: [],
         postalRanges: [],
         enabled: false,
@@ -764,7 +797,9 @@ describe('contract flow', () => {
 
     expect(buildContractTerritorySnapshot(form).primaryDescription).toBe(expectedDescription);
     expect(snapshot.territory.primaryDescription).toBe(expectedDescription);
-    expect(text).toContain(expectedDescription);
+    for (const item of getContractTerritoryDisplayItems(form.primaryTerritory, 'da')) {
+      expect(text).toContain(item);
+    }
     expect(text).not.toContain('{{primaryTerritoryDescription}}');
     expect(text).not.toContain('Sekundær område');
   });

@@ -5,7 +5,11 @@ import {
   type ContractTerritoryArea,
   type ContractTerritoryCountryCode,
 } from '@/lib/contractTerritory';
-import { resolveContractPostalAreaMetadata } from '@/lib/contractPostalMetadata';
+import {
+  DENMARK_MUNICIPALITIES_GEOJSON_URL,
+  getDenmarkMunicipalityDisplayName,
+  type DenmarkMunicipalityFeature,
+} from '@/lib/denmarkMunicipalities';
 
 export type ContractTerritoryMapVariant = 'primary' | 'secondary';
 
@@ -18,7 +22,7 @@ export type ContractTerritoryMapFeatureMeta = {
 
 export type ContractTerritoryMapCountryConfig = {
   country: ContractTerritoryCountryCode;
-  datasetId: 'dk_postal_codes' | 'de_plz2';
+  datasetId: 'dk_municipalities' | 'de_plz2';
   datasetLabel: Record<PortalUiLanguage, string>;
   geoJsonUrl: string;
   bounds: ContractTerritoryMapBounds;
@@ -99,28 +103,26 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
 export const CONTRACT_TERRITORY_MAP_COUNTRIES: Record<ContractTerritoryCountryCode, ContractTerritoryMapCountryConfig> = {
   DK: {
     country: 'DK',
-    datasetId: 'dk_postal_codes',
+    datasetId: 'dk_municipalities',
     datasetLabel: {
-      da: 'Danmark - postnummerområder',
-      en: 'Denmark - postal-code areas',
-      de: 'Daenemark - Postleitzahlgebiete',
-      it: 'Danimarca - aree CAP',
-      hu: 'Dania - iranyitoszam-teruletek',
-      sv: 'Danmark - postnummeromraden',
-      fr: 'Danemark - zones de codes postaux',
-      pl: 'Dania - obszary kodow pocztowych',
-      cs: 'Dansko - oblasti PSC',
+      da: 'Danmark - kommuner',
+      en: 'Denmark - municipalities',
+      de: 'Daenemark - Kommunen',
+      it: 'Danimarca - comuni',
+      hu: 'Dania - onkormanyzatok',
+      sv: 'Danmark - kommuner',
+      fr: 'Danemark - communes',
+      pl: 'Dania - gminy',
+      cs: 'Dansko - obce',
     },
-    geoJsonUrl: '/data/denmark-postal-codes.geojson',
+    geoJsonUrl: DENMARK_MUNICIPALITIES_GEOJSON_URL,
     bounds: [54.5, 8.0, 57.8, 15.2],
     postalDigits: 4,
     regionDigits: 4,
     getFeatureMeta: (feature) => {
-      const nr = String(feature?.properties?.nr ?? '').trim();
-      if (!/^\d{4}$/.test(nr)) return null;
-      const name = resolveContractPostalAreaMetadata('DK', nr)?.locality
-        || String(feature?.properties?.navn ?? '').trim();
-      return { key: nr, label: name ? `${nr} ${name}` : nr };
+      const code = String(feature?.properties?.kode ?? '').trim();
+      if (!/^\d{4}$/.test(code)) return null;
+      return { key: code, label: getDenmarkMunicipalityDisplayName(feature as DenmarkMunicipalityFeature) };
     },
   },
   DE: {
@@ -183,6 +185,13 @@ export function getContractTerritoryMapRegionKeys(areaInput: unknown) {
   const area = normalizeContractTerritoryArea(areaInput);
   const config = getContractTerritoryMapCountryConfig(area.country);
   const keys = new Set<string>();
+
+  if (area.country === 'DK') {
+    for (const municipality of area.municipalities) {
+      keys.add(municipality.id);
+    }
+    return Array.from(keys).sort();
+  }
 
   for (const code of area.postalCodes) {
     keys.add(code.slice(0, config.regionDigits));
