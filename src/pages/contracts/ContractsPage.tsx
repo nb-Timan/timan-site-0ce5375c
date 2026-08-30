@@ -29,22 +29,15 @@ import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '
 import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS } from '@/lib/contractAppendix2';
+import { GUIDED_CONTRACT_SECTIONS, getGuidedContractSection, type ContractTextBlock } from '@/lib/contractSections';
 
 const CONTRACT_DOCS = [
   { title: 'Forhandlerkontrakt Timan', href: '/contracts/forhandlerkontrakt-timan.pdf', section: 'Hovedaftale' },
   { title: 'Bilag 3 - Salgsområde', href: '/contracts/bilag-3-salgsomraade-kontrakt-timan.pdf', section: 'Samarbejde' },
   { title: 'Bilag 2 - Rabat', href: '/contracts/bilag-2-rabat-kontrakt-timan.pdf', section: 'Rabatstruktur' },
-  { title: 'Bilag 4 - Salgs- og leveringsbetingelser', href: '/contracts/bilag-4-salgs-og-leveringsbetingelser-timan.pdf', section: 'Kommercielle vilkår' },
   { title: 'Bilag 1 - Service', href: '/contracts/bilag-1-service-kontrakt-timan.pdf', section: 'Service' },
+  { title: 'Bilag 4 - Salgs- og leveringsbetingelser', href: '/contracts/bilag-4-salgs-og-leveringsbetingelser-timan.pdf', section: 'Kommercielle vilkår' },
 ];
-
-const STEP_DOCUMENTS: Partial<Record<(typeof CONTRACT_STEPS)[number]['id'], typeof CONTRACT_DOCS>> = {
-  collaboration: CONTRACT_DOCS.filter((doc) => ['Hovedaftale', 'Samarbejde'].includes(doc.section)),
-  commercial_terms: CONTRACT_DOCS.filter((doc) => doc.section === 'Rabatstruktur'),
-  dealer_responsibility: CONTRACT_DOCS.filter((doc) => doc.section === 'Kommercielle vilkår'),
-  timan_responsibility: CONTRACT_DOCS.filter((doc) => doc.section === 'Service'),
-  full_contract: CONTRACT_DOCS,
-};
 
 const CONTRACT_SIDEBAR_STEP_ID: (typeof CONTRACT_STEPS)[number]['id'] = 'full_contract';
 
@@ -85,6 +78,71 @@ function drawWrappedPdfText(pdf: any, text: string, x: number, y: number, maxWid
   const lines = pdf.splitTextToSize(text, maxWidth);
   pdf.text(lines, x, y);
   return y + lines.length * lineHeight;
+}
+
+function ensurePdfSpace(pdf: any, y: number, needed = 18) {
+  if (y + needed <= 282) return y;
+  pdf.addPage();
+  return 18;
+}
+
+function drawContractTextBlockPdf(pdf: any, block: ContractTextBlock, left: number, right: number, y: number) {
+  const width = right - left;
+  y = ensurePdfSpace(pdf, y, 18);
+
+  if (block.heading) {
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9);
+    pdf.setTextColor(17, 24, 39);
+    y = drawWrappedPdfText(pdf, block.heading, left, y, width, 4.2);
+    y += 1.8;
+  }
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7.6);
+  pdf.setTextColor(31, 41, 55);
+
+  block.paragraphs?.forEach((paragraph) => {
+    y = ensurePdfSpace(pdf, y, 12);
+    y = drawWrappedPdfText(pdf, paragraph, left, y, width, 3.7);
+    y += 1.4;
+  });
+
+  block.bullets?.forEach((bullet) => {
+    y = ensurePdfSpace(pdf, y, 10);
+    y = drawWrappedPdfText(pdf, `- ${bullet}`, left + 3, y, width - 3, 3.7);
+    y += 1.2;
+  });
+
+  return y + 2;
+}
+
+function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number) {
+  let y = 18;
+
+  GUIDED_CONTRACT_SECTIONS.forEach((section, index) => {
+    y = ensurePdfSpace(pdf, y, 24);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(17, 24, 39);
+    y = drawWrappedPdfText(pdf, `${index + 2}. ${section.title}`, left, y, right - left, 4.8);
+    y += 2;
+
+    section.blocks.forEach((block) => {
+      y = drawContractTextBlockPdf(pdf, block, left, right, y);
+    });
+
+    if (section.stepId === 'discount_structure') {
+      y = ensurePdfSpace(pdf, y, 124);
+      if (y > 30) {
+        pdf.addPage();
+      }
+      drawAppendix2Pdf(pdf, left, right);
+      y = 132;
+    }
+  });
+
+  return y;
 }
 
 function drawAppendix2Pdf(pdf: any, left: number, right: number) {
@@ -567,16 +625,13 @@ export default function ContractsPage() {
     y += 8;
 
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Kontraktpakke', left, y);
-    y += 6;
+    pdf.text('1. Oplysninger', left, y);
+    y += 8;
     pdf.setFont('helvetica', 'normal');
-    CONTRACT_DOCS.forEach((doc, index) => {
-      pdf.text(`${index + 1}. ${doc.title}`, left, y);
-      y += 6;
-    });
+    pdf.text('Timan-oplysninger, aktiv Timan-sælger, forhandleroplysninger og kontaktperson er vist ovenfor.', left, y);
 
     pdf.addPage();
-    drawAppendix2Pdf(pdf, left, right);
+    drawGuidedContractSectionsPdf(pdf, left, right);
 
     pdf.addPage();
     y = 18;
@@ -860,9 +915,8 @@ function ReviewStep({
   onConfirm: () => void;
   form: ContractFormData;
 }) {
-  const docs = STEP_DOCUMENTS[stepId] ?? [];
   const fullContract = stepId === 'full_contract';
-  const showLegalDocumentBox = stepId !== 'commercial_terms' && docs.length > 0;
+  const section = getGuidedContractSection(stepId);
 
   return (
     <div className="space-y-5">
@@ -870,36 +924,23 @@ function ReviewStep({
         <ContractSummary form={form} />
       )}
 
-      {stepId === 'commercial_terms' && (
-        <Appendix2DiscountSection />
+      {fullContract && (
+        <div className="space-y-5">
+          {GUIDED_CONTRACT_SECTIONS.map((contractSection) => (
+            <div key={contractSection.stepId} className="space-y-5">
+              <ContractLegalSection section={contractSection} />
+              {contractSection.stepId === 'discount_structure' && <Appendix2DiscountSection />}
+            </div>
+          ))}
+        </div>
       )}
 
-      {showLegalDocumentBox && (
-        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-          <div className="flex items-start gap-3">
-            <FileText className="mt-1 h-5 w-5 text-gray-500" />
-            <div>
-              <h3 className="text-lg font-bold text-gray-950">Juridisk kontrakttekst</h3>
-              <p className="mt-1 text-sm leading-6 text-gray-600">
-                Den juridiske tekst ligger i de eksisterende kontrakt-PDF’er. De er source of truth, og denne guidede visning ændrer ikke vilkårene.
-              </p>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3">
-            {docs.map((doc) => (
-              <a
-                key={doc.href}
-                href={doc.href}
-                target="_blank"
-                rel="noreferrer"
-                className="flex flex-col gap-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm hover:border-amber-300 hover:bg-amber-50 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <span className="font-bold text-gray-900">{doc.title}</span>
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Læs hele afsnittet</span>
-              </a>
-            ))}
-          </div>
-        </div>
+      {section && (
+        <ContractLegalSection section={section} />
+      )}
+
+      {stepId === 'discount_structure' && !fullContract && (
+        <Appendix2DiscountSection />
       )}
 
       {confirmationId && (
@@ -921,6 +962,43 @@ function ReviewStep({
             </span>
           </label>
         </div>
+      )}
+    </div>
+  );
+}
+
+function ContractLegalSection({ section }: { section: { title: string; source: string; blocks: readonly ContractTextBlock[] } }) {
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+      <div className="flex items-start gap-3">
+        <FileText className="mt-1 h-5 w-5 text-gray-500" />
+        <div>
+          <h3 className="text-lg font-bold text-gray-950">{section.title}</h3>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{section.source}</p>
+        </div>
+      </div>
+      <div className="mt-5 space-y-5">
+        {section.blocks.map((block, index) => (
+          <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ContractTextBlockView({ block }: { block: ContractTextBlock }) {
+  return (
+    <div className="space-y-2 text-sm leading-6 text-gray-700">
+      {block.heading && <h4 className="font-bold text-gray-950">{block.heading}</h4>}
+      {block.paragraphs?.map((paragraph) => (
+        <p key={paragraph}>{paragraph}</p>
+      ))}
+      {block.bullets && (
+        <ul className="space-y-1 pl-5">
+          {block.bullets.map((bullet) => (
+            <li key={bullet} className="list-disc">{bullet}</li>
+          ))}
+        </ul>
       )}
     </div>
   );
@@ -1112,7 +1190,7 @@ function ProgressSteps({
 }) {
   return (
     <div className="overflow-x-auto pb-0.5">
-      <div className="grid min-w-[720px] grid-cols-7 gap-1.5 md:w-full">
+      <div className="flex min-w-max gap-1.5">
         {CONTRACT_STEPS.map((step, index) => {
           const label = getContractStepLabel(step.id, language);
           const confirmationId = step.confirmationId;
@@ -1122,7 +1200,7 @@ function ProgressSteps({
           return (
             <div
               key={step.id}
-              className={`rounded-xl border px-2.5 py-2 ${active ? 'border-gray-950 bg-gray-950 text-white' : complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-gray-200 bg-white text-gray-600'}`}
+              className={`w-32 shrink-0 rounded-xl border px-2.5 py-2 ${active ? 'border-gray-950 bg-gray-950 text-white' : complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-gray-200 bg-white text-gray-600'}`}
             >
               <div className="flex items-center justify-between gap-1.5">
                 <span className="text-[10px] font-bold uppercase tracking-wide leading-none">Trin {index + 1}</span>

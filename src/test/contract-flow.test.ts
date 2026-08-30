@@ -11,10 +11,12 @@ import {
   getContractStepLabel,
   getContractStatus,
   hasRequiredPartyData,
+  normalizeContractConfirmations,
   TIMAN_COMPANY_INFO,
   type ContractConfirmations,
   type ContractFormData,
 } from '@/lib/contractFlow';
+import { GUIDED_CONTRACT_SECTIONS } from '@/lib/contractSections';
 import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS } from '@/lib/contractAppendix2';
 import { buildDealerContractDraftKey, getCurrentStepId } from '@/lib/dealerContractsService';
 
@@ -34,9 +36,15 @@ const completeForm: ContractFormData = {
 };
 
 const confirmed: ContractConfirmations = {
-  collaboration: { confirmed: true, confirmedAt: '2026-08-29T10:00:00.000Z', confirmedBy: 'Birger Pedersen' },
-  responsibilities: { confirmed: true, confirmedAt: '2026-08-29T10:05:00.000Z', confirmedBy: 'Birger Pedersen' },
-  commercial_terms: { confirmed: true, confirmedAt: '2026-08-29T10:10:00.000Z', confirmedBy: 'Birger Pedersen' },
+  purpose_prices_orders_portal: { confirmed: true, confirmedAt: '2026-08-29T10:00:00.000Z', confirmedBy: 'Birger Pedersen' },
+  territory: { confirmed: true, confirmedAt: '2026-08-29T10:02:00.000Z', confirmedBy: 'Birger Pedersen' },
+  discount_structure: { confirmed: true, confirmedAt: '2026-08-29T10:04:00.000Z', confirmedBy: 'Birger Pedersen' },
+  demo_machines: { confirmed: true, confirmedAt: '2026-08-29T10:06:00.000Z', confirmedBy: 'Birger Pedersen' },
+  spare_parts_service: { confirmed: true, confirmedAt: '2026-08-29T10:08:00.000Z', confirmedBy: 'Birger Pedersen' },
+  marketing: { confirmed: true, confirmedAt: '2026-08-29T10:10:00.000Z', confirmedBy: 'Birger Pedersen' },
+  sales_service_days: { confirmed: true, confirmedAt: '2026-08-29T10:12:00.000Z', confirmedBy: 'Birger Pedersen' },
+  payment_delivery: { confirmed: true, confirmedAt: '2026-08-29T10:14:00.000Z', confirmedBy: 'Birger Pedersen' },
+  termination: { confirmed: true, confirmedAt: '2026-08-29T10:16:00.000Z', confirmedBy: 'Birger Pedersen' },
   full_contract: { confirmed: true, confirmedAt: '2026-08-29T10:15:00.000Z', confirmedBy: 'Birger Pedersen' },
 };
 
@@ -48,8 +56,8 @@ describe('contract flow', () => {
   });
 
   it('blocks leaving steps that need confirmation until confirmed', () => {
-    expect(canLeaveContractStep('collaboration', EMPTY_CONTRACT_CONFIRMATIONS)).toBe(false);
-    expect(canLeaveContractStep('collaboration', confirmed)).toBe(true);
+    expect(canLeaveContractStep('territory', EMPTY_CONTRACT_CONFIRMATIONS)).toBe(false);
+    expect(canLeaveContractStep('territory', confirmed)).toBe(true);
     expect(canLeaveContractStep('parties', EMPTY_CONTRACT_CONFIRMATIONS)).toBe(true);
   });
 
@@ -69,28 +77,38 @@ describe('contract flow', () => {
     expect(getCurrentStepId(99)).toBe('signature');
     expect(getCompletedContractStepIds(4, confirmed)).toEqual([
       'parties',
-      'collaboration',
-      'commercial_terms',
-      'dealer_responsibility',
+      'purpose_prices_orders_portal',
+      'territory',
+      'discount_structure',
     ]);
   });
 
   it('uses the new guided contract step order and Danish labels', () => {
     expect(CONTRACT_STEPS.map((step) => step.id)).toEqual([
       'parties',
-      'collaboration',
-      'commercial_terms',
-      'dealer_responsibility',
-      'timan_responsibility',
+      'purpose_prices_orders_portal',
+      'territory',
+      'discount_structure',
+      'demo_machines',
+      'spare_parts_service',
+      'marketing',
+      'sales_service_days',
+      'payment_delivery',
+      'termination',
       'full_contract',
       'signature',
     ]);
     expect(CONTRACT_STEPS.map((step) => getContractStepLabel(step.id, 'da').title)).toEqual([
       'Oplysninger',
-      'Salgsområder og samarbejde',
-      'Rabatstruktur (Bilag)',
-      'Salgs- og leveringsbetingelser',
-      'Service (Bilag)',
+      'Formål, priser, ordre og forhandlerportal',
+      'Område og Bilag 3',
+      'Rabatstruktur og Bilag 2',
+      'Demo-maskiner',
+      'Reservedele og service',
+      'Marketing',
+      'Salgs- og servicedage og Bilag 1',
+      'Betaling og levering',
+      'Opsigelse og afsluttende vilkår',
       'Gennemlæs',
       'Underskrift',
     ]);
@@ -108,8 +126,10 @@ describe('contract flow', () => {
   });
 
   it('marks the discount and service steps as appendices', () => {
-    expect(CONTRACT_STEPS.find((step) => step.id === 'commercial_terms')?.appendix).toBe(true);
-    expect(CONTRACT_STEPS.find((step) => step.id === 'timan_responsibility')?.appendix).toBe(true);
+    expect(CONTRACT_STEPS.find((step) => step.id === 'discount_structure')?.appendix).toBe(true);
+    expect(CONTRACT_STEPS.find((step) => step.id === 'sales_service_days')?.appendix).toBe(true);
+    expect(CONTRACT_STEPS.find((step) => step.id === 'territory')?.appendix).toBe(true);
+    expect(CONTRACT_STEPS.find((step) => step.id === 'payment_delivery')?.appendix).toBe(true);
   });
 
   it('keeps the appendix 2 web diagram constrained to the contract width', () => {
@@ -128,8 +148,42 @@ describe('contract flow', () => {
   it('does not duplicate the legal document box on the full appendix 2 step', () => {
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
 
-    expect(source).toContain("const showLegalDocumentBox = stepId !== 'commercial_terms' && docs.length > 0;");
+    expect(source).not.toContain('Læs hele afsnittet');
     expect(source).toContain("const fullContract = stepId === 'full_contract';");
+  });
+
+  it('maps old draft confirmations into the new section ids', () => {
+    const legacy = normalizeContractConfirmations({
+      collaboration: { confirmed: true, confirmedAt: '2026-08-29T10:00:00.000Z', confirmedBy: 'Birger Pedersen' },
+      responsibilities: { confirmed: true, confirmedAt: '2026-08-29T10:05:00.000Z', confirmedBy: 'Birger Pedersen' },
+      commercial_terms: { confirmed: true, confirmedAt: '2026-08-29T10:10:00.000Z', confirmedBy: 'Birger Pedersen' },
+      full_contract: { confirmed: true, confirmedAt: '2026-08-29T10:15:00.000Z', confirmedBy: 'Birger Pedersen' },
+    });
+
+    expect(legacy.purpose_prices_orders_portal.confirmed).toBe(true);
+    expect(legacy.territory.confirmed).toBe(true);
+    expect(legacy.discount_structure.confirmed).toBe(true);
+    expect(legacy.demo_machines.confirmed).toBe(true);
+    expect(legacy.sales_service_days.confirmed).toBe(true);
+    expect(legacy.payment_delivery.confirmed).toBe(true);
+  });
+
+  it('places appendices in the requested guided steps', () => {
+    expect(GUIDED_CONTRACT_SECTIONS.map((section) => section.stepId)).toEqual([
+      'purpose_prices_orders_portal',
+      'territory',
+      'discount_structure',
+      'demo_machines',
+      'spare_parts_service',
+      'marketing',
+      'sales_service_days',
+      'payment_delivery',
+      'termination',
+    ]);
+    expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'territory')?.source).toContain('Bilag 3');
+    expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'discount_structure')?.source).toContain('Bilag 2');
+    expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'sales_service_days')?.source).toContain('Bilag 1');
+    expect(GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'payment_delivery')?.source).toContain('Bilag 4');
   });
 
   it('stores the contract snapshot with Timan data and signature state', () => {

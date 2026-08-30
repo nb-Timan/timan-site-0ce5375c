@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import {
   CONTRACT_VERSION,
   CONTRACT_STEPS,
+  normalizeContractConfirmations,
   type ContractConfirmations,
   type ContractFormData,
   type ContractSnapshot,
@@ -70,7 +71,7 @@ function rowToContractRecord(row: Record<string, unknown>): DealerContractRecord
     owner_name: (row.owner_name as string | null) ?? null,
     current_step: String(row.current_step ?? "parties"),
     completed_steps: Array.isArray(row.completed_steps) ? (row.completed_steps as string[]) : [],
-    confirmations: ((row.confirmations || {}) as ContractConfirmations),
+    confirmations: normalizeContractConfirmations((row.confirmations || {}) as Partial<Record<string, { confirmed: boolean; confirmedAt?: string; confirmedBy?: string }>>),
     form_data: {
       dealerName: formData.dealerName ?? "",
       dealerAddress: formData.dealerAddress ?? "",

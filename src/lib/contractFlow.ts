@@ -2,17 +2,28 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
 export type ContractStepId =
   | 'parties'
-  | 'collaboration'
-  | 'timan_responsibility'
-  | 'dealer_responsibility'
-  | 'commercial_terms'
+  | 'purpose_prices_orders_portal'
+  | 'territory'
+  | 'discount_structure'
+  | 'demo_machines'
+  | 'spare_parts_service'
+  | 'marketing'
+  | 'sales_service_days'
+  | 'payment_delivery'
+  | 'termination'
   | 'full_contract'
   | 'signature';
 
 export type ContractConfirmationId =
-  | 'collaboration'
-  | 'responsibilities'
-  | 'commercial_terms'
+  | 'purpose_prices_orders_portal'
+  | 'territory'
+  | 'discount_structure'
+  | 'demo_machines'
+  | 'spare_parts_service'
+  | 'marketing'
+  | 'sales_service_days'
+  | 'payment_delivery'
+  | 'termination'
   | 'full_contract';
 
 export type ContractStatus = 'Draft' | 'In review' | 'Ready for signature' | 'Signed' | 'Archived';
@@ -71,33 +82,71 @@ export const CONTRACT_STEPS: Array<{
     intro: 'Start med at kontrollere, at Timan-oplysninger og forhandleroplysninger er korrekte. Det er de data, der bruges videre i aftalen og PDF’en.',
   },
   {
-    id: 'collaboration',
-    title: 'Salgsområder og samarbejde',
-    shortTitle: 'Salgsområder og samarbejde',
-    intro: 'Her gennemgår sælger og forhandler samarbejdsmodel, salgsområder og de eksisterende samarbejdsvilkår.',
-    confirmationId: 'collaboration',
+    id: 'purpose_prices_orders_portal',
+    title: 'Formål, priser, ordre og forhandlerportal',
+    shortTitle: 'Formål og portal',
+    intro: 'Gennemgå formål, priser, ordre, forhandlerportal og årligt forhandlermøde.',
+    confirmationId: 'purpose_prices_orders_portal',
   },
   {
-    id: 'commercial_terms',
-    title: 'Rabatstruktur (Bilag)',
-    shortTitle: 'Rabatstruktur (Bilag)',
-    intro: 'Dette bilag samler den eksisterende rabatstruktur og den visuelle rabatmodel.',
+    id: 'territory',
+    title: 'Område og Bilag 3',
+    shortTitle: 'Område',
+    intro: 'Gennemgå kontraktens områdebestemmelser sammen med Bilag 3 om salgsområdet.',
     appendix: true,
-    confirmationId: 'commercial_terms',
+    confirmationId: 'territory',
   },
   {
-    id: 'dealer_responsibility',
-    title: 'Salgs- og leveringsbetingelser',
-    shortTitle: 'Salgs- og leveringsbetingelser',
-    intro: 'Her gennemgås de eksisterende afsnit om salg, ordre, levering, betaling og øvrige kommercielle vilkår.',
-  },
-  {
-    id: 'timan_responsibility',
-    title: 'Service (Bilag)',
-    shortTitle: 'Service (Bilag)',
-    intro: 'Dette bilag samler det eksisterende service-relaterede indhold fra kontraktpakken.',
+    id: 'discount_structure',
+    title: 'Rabatstruktur og Bilag 2',
+    shortTitle: 'Rabat',
+    intro: 'Gennemgå den eksisterende rabatstruktur, beregningsregler og visualisering fra Bilag 2.',
     appendix: true,
-    confirmationId: 'responsibilities',
+    confirmationId: 'discount_structure',
+  },
+  {
+    id: 'demo_machines',
+    title: 'Demo-maskiner',
+    shortTitle: 'Demo',
+    intro: 'Gennemgå de eksisterende bestemmelser om demo-maskiner, demo-rabat og videresalg.',
+    confirmationId: 'demo_machines',
+  },
+  {
+    id: 'spare_parts_service',
+    title: 'Reservedele og service',
+    shortTitle: 'Reservedele',
+    intro: 'Gennemgå hovedkontraktens almindelige bestemmelser om reservedele og service.',
+    confirmationId: 'spare_parts_service',
+  },
+  {
+    id: 'marketing',
+    title: 'Marketing',
+    shortTitle: 'Marketing',
+    intro: 'Gennemgå de eksisterende marketingforpligtelser for forhandleren og Timan.',
+    confirmationId: 'marketing',
+  },
+  {
+    id: 'sales_service_days',
+    title: 'Salgs- og servicedage og Bilag 1',
+    shortTitle: 'Salgs/service',
+    intro: 'Gennemgå krav til salgs- og servicedage sammen med Bilag 1 om service og garanti.',
+    appendix: true,
+    confirmationId: 'sales_service_days',
+  },
+  {
+    id: 'payment_delivery',
+    title: 'Betaling og levering',
+    shortTitle: 'Betaling',
+    intro: 'Gennemgå betaling, levering og Bilag 4 med salgs- og leveringsbetingelser.',
+    appendix: true,
+    confirmationId: 'payment_delivery',
+  },
+  {
+    id: 'termination',
+    title: 'Opsigelse og afsluttende vilkår',
+    shortTitle: 'Opsigelse',
+    intro: 'Gennemgå varighed, opsigelse og de afsluttende vilkår før samlet gennemlæsning.',
+    confirmationId: 'termination',
   },
   {
     id: 'full_contract',
@@ -116,84 +165,37 @@ export const CONTRACT_STEPS: Array<{
 
 type ContractStepLabel = Pick<(typeof CONTRACT_STEPS)[number], 'title' | 'shortTitle'>;
 
+const allLanguageLabels = (
+  da: ContractStepLabel,
+  en: ContractStepLabel = da,
+): Record<PortalUiLanguage, ContractStepLabel> => ({
+  da,
+  en,
+  de: da,
+  it: da,
+  hu: da,
+  sv: da,
+  fr: da,
+  pl: da,
+  cs: da,
+});
+
 const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, ContractStepLabel>> = {
-  parties: {
-    da: { title: 'Oplysninger', shortTitle: 'Oplysninger' },
-    en: { title: 'Details', shortTitle: 'Details' },
-    de: { title: 'Informationen', shortTitle: 'Informationen' },
-    it: { title: 'Informazioni', shortTitle: 'Informazioni' },
-    hu: { title: 'Információk', shortTitle: 'Információk' },
-    sv: { title: 'Uppgifter', shortTitle: 'Uppgifter' },
-    fr: { title: 'Informations', shortTitle: 'Informations' },
-    pl: { title: 'Informacje', shortTitle: 'Informacje' },
-    cs: { title: 'Informace', shortTitle: 'Informace' },
-  },
-  collaboration: {
-    da: { title: 'Salgsområder og samarbejde', shortTitle: 'Salgsområder og samarbejde' },
-    en: { title: 'Sales areas and collaboration', shortTitle: 'Sales areas and collaboration' },
-    de: { title: 'Verkaufsgebiete und Zusammenarbeit', shortTitle: 'Verkaufsgebiete und Zusammenarbeit' },
-    it: { title: 'Aree di vendita e collaborazione', shortTitle: 'Aree di vendita e collaborazione' },
-    hu: { title: 'Értékesítési területek és együttműködés', shortTitle: 'Értékesítési területek' },
-    sv: { title: 'Försäljningsområden och samarbete', shortTitle: 'Försäljningsområden' },
-    fr: { title: 'Zones de vente et collaboration', shortTitle: 'Zones de vente' },
-    pl: { title: 'Obszary sprzedaży i współpraca', shortTitle: 'Obszary sprzedaży' },
-    cs: { title: 'Prodejní oblasti a spolupráce', shortTitle: 'Prodejní oblasti' },
-  },
-  commercial_terms: {
-    da: { title: 'Rabatstruktur (Bilag)', shortTitle: 'Rabatstruktur (Bilag)' },
-    en: { title: 'Discount structure (Appendix)', shortTitle: 'Discount structure' },
-    de: { title: 'Rabattstruktur (Anhang)', shortTitle: 'Rabattstruktur' },
-    it: { title: 'Struttura sconti (Allegato)', shortTitle: 'Struttura sconti' },
-    hu: { title: 'Kedvezménystruktúra (Melléklet)', shortTitle: 'Kedvezménystruktúra' },
-    sv: { title: 'Rabattstruktur (Bilaga)', shortTitle: 'Rabattstruktur' },
-    fr: { title: 'Structure de remise (Annexe)', shortTitle: 'Structure de remise' },
-    pl: { title: 'Struktura rabatów (Załącznik)', shortTitle: 'Struktura rabatów' },
-    cs: { title: 'Struktura slev (Příloha)', shortTitle: 'Struktura slev' },
-  },
-  dealer_responsibility: {
-    da: { title: 'Salgs- og leveringsbetingelser', shortTitle: 'Salgs- og leveringsbetingelser' },
-    en: { title: 'Sales and delivery terms', shortTitle: 'Sales and delivery terms' },
-    de: { title: 'Verkaufs- und Lieferbedingungen', shortTitle: 'Verkaufs- und Lieferbedingungen' },
-    it: { title: 'Condizioni di vendita e consegna', shortTitle: 'Vendita e consegna' },
-    hu: { title: 'Értékesítési és szállítási feltételek', shortTitle: 'Értékesítési feltételek' },
-    sv: { title: 'Försäljnings- och leveransvillkor', shortTitle: 'Försäljning och leverans' },
-    fr: { title: 'Conditions de vente et de livraison', shortTitle: 'Vente et livraison' },
-    pl: { title: 'Warunki sprzedaży i dostawy', shortTitle: 'Sprzedaż i dostawa' },
-    cs: { title: 'Prodejní a dodací podmínky', shortTitle: 'Prodej a dodání' },
-  },
-  timan_responsibility: {
-    da: { title: 'Service (Bilag)', shortTitle: 'Service (Bilag)' },
-    en: { title: 'Service (Appendix)', shortTitle: 'Service' },
-    de: { title: 'Service (Anhang)', shortTitle: 'Service' },
-    it: { title: 'Service (Allegato)', shortTitle: 'Service' },
-    hu: { title: 'Szerviz (Melléklet)', shortTitle: 'Szerviz' },
-    sv: { title: 'Service (Bilaga)', shortTitle: 'Service' },
-    fr: { title: 'Service (Annexe)', shortTitle: 'Service' },
-    pl: { title: 'Serwis (Załącznik)', shortTitle: 'Serwis' },
-    cs: { title: 'Servis (Příloha)', shortTitle: 'Servis' },
-  },
-  full_contract: {
-    da: { title: 'Gennemlæs', shortTitle: 'Gennemlæs' },
-    en: { title: 'Review', shortTitle: 'Review' },
-    de: { title: 'Durchlesen', shortTitle: 'Durchlesen' },
-    it: { title: 'Revisione', shortTitle: 'Revisione' },
-    hu: { title: 'Áttekintés', shortTitle: 'Áttekintés' },
-    sv: { title: 'Granska', shortTitle: 'Granska' },
-    fr: { title: 'Relecture', shortTitle: 'Relecture' },
-    pl: { title: 'Przegląd', shortTitle: 'Przegląd' },
-    cs: { title: 'Kontrola', shortTitle: 'Kontrola' },
-  },
-  signature: {
-    da: { title: 'Underskrift', shortTitle: 'Underskrift' },
-    en: { title: 'Signature', shortTitle: 'Signature' },
-    de: { title: 'Unterschrift', shortTitle: 'Unterschrift' },
-    it: { title: 'Firma', shortTitle: 'Firma' },
-    hu: { title: 'Aláírás', shortTitle: 'Aláírás' },
-    sv: { title: 'Underskrift', shortTitle: 'Underskrift' },
-    fr: { title: 'Signature', shortTitle: 'Signature' },
-    pl: { title: 'Podpis', shortTitle: 'Podpis' },
-    cs: { title: 'Podpis', shortTitle: 'Podpis' },
-  },
+  parties: allLanguageLabels({ title: 'Oplysninger', shortTitle: 'Oplysninger' }, { title: 'Details', shortTitle: 'Details' }),
+  purpose_prices_orders_portal: allLanguageLabels(
+    { title: 'Formål, priser, ordre og forhandlerportal', shortTitle: 'Formål og portal' },
+    { title: 'Purpose, prices, orders and dealer portal', shortTitle: 'Purpose and portal' },
+  ),
+  territory: allLanguageLabels({ title: 'Område og Bilag 3', shortTitle: 'Område' }, { title: 'Territory and Appendix 3', shortTitle: 'Territory' }),
+  discount_structure: allLanguageLabels({ title: 'Rabatstruktur og Bilag 2', shortTitle: 'Rabat' }, { title: 'Discount structure and Appendix 2', shortTitle: 'Discount' }),
+  demo_machines: allLanguageLabels({ title: 'Demo-maskiner', shortTitle: 'Demo' }, { title: 'Demo machines', shortTitle: 'Demo' }),
+  spare_parts_service: allLanguageLabels({ title: 'Reservedele og service', shortTitle: 'Reservedele' }, { title: 'Spare parts and service', shortTitle: 'Spare parts' }),
+  marketing: allLanguageLabels({ title: 'Marketing', shortTitle: 'Marketing' }, { title: 'Marketing', shortTitle: 'Marketing' }),
+  sales_service_days: allLanguageLabels({ title: 'Salgs- og servicedage og Bilag 1', shortTitle: 'Salgs/service' }, { title: 'Sales and service days and Appendix 1', shortTitle: 'Sales/service' }),
+  payment_delivery: allLanguageLabels({ title: 'Betaling og levering', shortTitle: 'Betaling' }, { title: 'Payment and delivery', shortTitle: 'Payment' }),
+  termination: allLanguageLabels({ title: 'Opsigelse og afsluttende vilkår', shortTitle: 'Opsigelse' }, { title: 'Termination and final terms', shortTitle: 'Termination' }),
+  full_contract: allLanguageLabels({ title: 'Gennemlæs', shortTitle: 'Gennemlæs' }, { title: 'Review', shortTitle: 'Review' }),
+  signature: allLanguageLabels({ title: 'Underskrift', shortTitle: 'Underskrift' }, { title: 'Signature', shortTitle: 'Signature' }),
 };
 
 export const CONTRACT_APPENDIX_LABELS: Record<PortalUiLanguage, string> = {
@@ -223,11 +225,45 @@ export function getContractAppendixLabel(language: PortalUiLanguage | string | n
 }
 
 export const EMPTY_CONTRACT_CONFIRMATIONS: ContractConfirmations = {
-  collaboration: { confirmed: false },
-  responsibilities: { confirmed: false },
-  commercial_terms: { confirmed: false },
+  purpose_prices_orders_portal: { confirmed: false },
+  territory: { confirmed: false },
+  discount_structure: { confirmed: false },
+  demo_machines: { confirmed: false },
+  spare_parts_service: { confirmed: false },
+  marketing: { confirmed: false },
+  sales_service_days: { confirmed: false },
+  payment_delivery: { confirmed: false },
+  termination: { confirmed: false },
   full_contract: { confirmed: false },
 };
+
+export function normalizeContractConfirmations(
+  confirmations: Partial<Record<string, ContractConfirmation>> | null | undefined,
+): ContractConfirmations {
+  const source = confirmations ?? {};
+  const normalized: ContractConfirmations = { ...EMPTY_CONTRACT_CONFIRMATIONS };
+
+  (Object.keys(EMPTY_CONTRACT_CONFIRMATIONS) as ContractConfirmationId[]).forEach((id) => {
+    normalized[id] = source[id] ?? EMPTY_CONTRACT_CONFIRMATIONS[id];
+  });
+
+  if (source.collaboration?.confirmed) {
+    normalized.purpose_prices_orders_portal = source.collaboration;
+    normalized.territory = source.collaboration;
+  }
+  if (source.commercial_terms?.confirmed) {
+    normalized.discount_structure = source.commercial_terms;
+    normalized.payment_delivery = source.commercial_terms;
+  }
+  if (source.responsibilities?.confirmed) {
+    normalized.demo_machines = source.responsibilities;
+    normalized.spare_parts_service = source.responsibilities;
+    normalized.marketing = source.responsibilities;
+    normalized.sales_service_days = source.responsibilities;
+  }
+
+  return normalized;
+}
 
 export function getRequiredConfirmationForStep(stepId: ContractStepId) {
   return CONTRACT_STEPS.find((step) => step.id === stepId)?.confirmationId;
