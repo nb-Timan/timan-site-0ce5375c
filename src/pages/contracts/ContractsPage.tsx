@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, Download, FileSignature, FileText, Lock, Save, Trash2, Upload } from 'lucide-react';
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, Download, FileSignature, FileText, Globe2, Lock, MapPinned, Save, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -64,6 +64,24 @@ import {
   inferContractPartnerTypeFromDealerAccount,
   type ContractPartnerType,
 } from '@/lib/contractPartnerTerms';
+import {
+  CONTRACT_TERRITORY_COUNTRIES,
+  createEmptyContractTerritoryArea,
+  createEmptySecondaryContractTerritoryArea,
+  describeContractSecondaryTerritoryArea,
+  describeContractTerritoryArea,
+  getContractTerritoryCountryLabel,
+  getContractTerritoryMapBands,
+  getContractTerritoryPostalLabel,
+  hasValidContractTerritory,
+  isValidContractTerritoryArea,
+  normalizeContractSecondaryTerritoryArea,
+  normalizeContractTerritoryArea,
+  parseContractPostalInput,
+  serializeContractPostalInput,
+  type ContractSecondaryTerritoryArea,
+  type ContractTerritoryArea,
+} from '@/lib/contractTerritory';
 import { t } from '@/lib/i18n/translations';
 
 const CONTRACT_DOCS = [
@@ -198,6 +216,8 @@ function getSnapshotLegalSections(snapshot: ContractSnapshot): GuidedContractSec
   return renderGuidedContractSections({
     companyName: snapshot.dealer.name,
     partnerType: snapshot.dealer.partnerType,
+    primaryTerritory: snapshot.territory?.primaryTerritory,
+    secondaryTerritory: snapshot.territory?.secondaryTerritory,
   });
 }
 
@@ -408,6 +428,8 @@ export default function ContractsPage() {
     timanSellerEmail: '',
     timanSellerPhone: '',
     contractDate: todayIso(),
+    primaryTerritory: createEmptyContractTerritoryArea(),
+    secondaryTerritory: createEmptySecondaryContractTerritoryArea(),
     signatureDataUrl: null,
     partnerType: '',
   }));
@@ -533,11 +555,18 @@ export default function ContractsPage() {
   const isSigned = workflowStatus === 'approved' || workflowStatus === 'archived';
   const readyForSignature = canPrepareContractForSignature(form, confirmations);
   const currentConfirmationId = getRequiredConfirmationForStep(activeStep.id);
-  const currentStepConfirmed = !currentConfirmationId || confirmations[currentConfirmationId]?.confirmed;
+  const validPrimaryTerritory = hasValidContractTerritory(form);
+  const currentStepConfirmed = activeStep.id === 'territory'
+    ? validPrimaryTerritory && Boolean(currentConfirmationId && confirmations[currentConfirmationId]?.confirmed)
+    : !currentConfirmationId || confirmations[currentConfirmationId]?.confirmed;
   const showContractSidebar = activeStep.id === CONTRACT_SIDEBAR_STEP_ID;
 
   const update = (key: keyof ContractFormData, value: string | null) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const updateForm = (patch: Partial<ContractFormData>) => {
+    setForm((current) => ({ ...current, ...patch }));
   };
 
   const saveDraft = () => {
@@ -621,6 +650,10 @@ export default function ContractsPage() {
       toast.error('Bekræft dette afsnit, før du går videre.');
       return;
     }
+    if (activeStep.id === 'territory' && !validPrimaryTerritory) {
+      toast.error('Vælg et gyldigt primært område, før du går videre.');
+      return;
+    }
     if (activeStep.id === 'parties' && !hasRequiredPartyData(form)) {
       toast.error('Vælg partnertype og udfyld Timan-sælger samt virksomhedsoplysninger, før du går videre.');
       return;
@@ -659,6 +692,8 @@ export default function ContractsPage() {
     const legalSections = renderGuidedContractSections({
       companyName: form.dealerName,
       partnerType: form.partnerType,
+      primaryTerritory: form.primaryTerritory,
+      secondaryTerritory: form.secondaryTerritory,
     });
     const appendix2Paragraphs = renderAppendix2Paragraphs(form.partnerType);
     const completedAt = new Date().toISOString();
@@ -1031,6 +1066,7 @@ export default function ContractsPage() {
                   confirmation={currentConfirmationId ? confirmations[currentConfirmationId] : undefined}
                   onConfirm={confirmSection}
                   form={form}
+                  onFormPatch={updateForm}
                   locked={isLockedContract}
                 />
                 {activeStep.id === 'full_contract' && (
@@ -1205,6 +1241,7 @@ function ReviewStep({
   confirmation,
   onConfirm,
   form,
+  onFormPatch,
   locked,
 }: {
   stepId: (typeof CONTRACT_STEPS)[number]['id'];
@@ -1212,12 +1249,17 @@ function ReviewStep({
   confirmation?: { confirmed: boolean; confirmedAt?: string; confirmedBy?: string };
   onConfirm: () => void;
   form: ContractFormData;
+  onFormPatch: (patch: Partial<ContractFormData>) => void;
   locked?: boolean;
 }) {
   const fullContract = stepId === 'full_contract';
+  const isTerritoryStep = stepId === 'territory';
+  const territoryValid = !isTerritoryStep || hasValidContractTerritory(form);
   const contractTextContext = {
     companyName: form.dealerName,
     partnerType: form.partnerType,
+    primaryTerritory: form.primaryTerritory,
+    secondaryTerritory: form.secondaryTerritory,
   };
   const section = getRenderedGuidedContractSection(stepId, contractTextContext);
   const contractSections = renderGuidedContractSections(contractTextContext);
@@ -1240,7 +1282,16 @@ function ReviewStep({
       )}
 
       {section && (
-        <ContractLegalSection section={section} />
+        <>
+          {isTerritoryStep && (
+            <TerritoryStepFields
+              form={form}
+              onChange={onFormPatch}
+              locked={locked}
+            />
+          )}
+          <ContractLegalSection section={section} />
+        </>
       )}
 
       {stepId === 'discount_structure' && !fullContract && (
@@ -1249,11 +1300,16 @@ function ReviewStep({
 
       {confirmationId && (
         <div className={`rounded-2xl border p-5 ${confirmation?.confirmed ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
-          <label className="flex cursor-pointer items-start gap-3">
+          {isTerritoryStep && !territoryValid && (
+            <p className="mb-3 text-sm font-semibold text-amber-900">
+              Vælg et gyldigt primært område, før dette trin kan bekræftes.
+            </p>
+          )}
+          <label className={`flex items-start gap-3 ${territoryValid && !locked ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
             <input
               type="checkbox"
               checked={Boolean(confirmation?.confirmed)}
-              disabled={locked}
+              disabled={locked || !territoryValid}
               onChange={onConfirm}
               className="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600 disabled:cursor-not-allowed"
             />
@@ -1268,6 +1324,261 @@ function ReviewStep({
           </label>
         </div>
       )}
+    </div>
+  );
+}
+
+function TerritoryStepFields({
+  form,
+  onChange,
+  locked,
+}: {
+  form: ContractFormData;
+  onChange: (patch: Partial<ContractFormData>) => void;
+  locked?: boolean;
+}) {
+  const { uiLanguage } = useLanguage();
+  const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
+  const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
+  const primaryValid = isValidContractTerritoryArea(primaryTerritory);
+
+  const setPrimaryTerritory = (territory: ContractTerritoryArea) => {
+    onChange({ primaryTerritory: normalizeContractTerritoryArea(territory) });
+  };
+  const setSecondaryTerritory = (territory: ContractSecondaryTerritoryArea) => {
+    onChange({ secondaryTerritory: normalizeContractSecondaryTerritoryArea(territory, primaryTerritory.country) });
+  };
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="space-y-5">
+          <TerritoryAreaEditor
+            title="Primært område"
+            territory={primaryTerritory}
+            onChange={setPrimaryTerritory}
+            locked={locked}
+            required
+          />
+
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <label className="flex items-center gap-3 text-sm font-bold text-gray-950">
+              <input
+                type="checkbox"
+                checked={secondaryTerritory.enabled}
+                disabled={locked}
+                onChange={(event) => setSecondaryTerritory({
+                  ...secondaryTerritory,
+                  enabled: event.target.checked,
+                  country: secondaryTerritory.country || primaryTerritory.country,
+                })}
+                className="h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600 disabled:cursor-not-allowed"
+              />
+              Tilføj sekundært område
+            </label>
+
+            {secondaryTerritory.enabled && (
+              <div className="mt-4 border-t border-gray-200 pt-4">
+                <TerritoryAreaEditor
+                  title="Sekundært område"
+                  territory={secondaryTerritory}
+                  onChange={(territory) => setSecondaryTerritory({ ...territory, enabled: true })}
+                  locked={locked}
+                />
+              </div>
+            )}
+          </div>
+
+          {!primaryValid && (
+            <p className="text-sm font-semibold text-amber-800">
+              Primært område er obligatorisk. Vælg hele landet eller angiv mindst ét gyldigt postnummer/postnummerinterval.
+            </p>
+          )}
+        </div>
+
+        <TerritoryMiniMap
+          primaryTerritory={primaryTerritory}
+          secondaryTerritory={secondaryTerritory}
+          language={uiLanguage}
+        />
+      </div>
+    </div>
+  );
+}
+
+function TerritoryAreaEditor({
+  title,
+  territory,
+  onChange,
+  locked,
+  required,
+}: {
+  title: string;
+  territory: ContractTerritoryArea;
+  onChange: (territory: ContractTerritoryArea) => void;
+  locked?: boolean;
+  required?: boolean;
+}) {
+  const { uiLanguage } = useLanguage();
+  const postalLabel = getContractTerritoryPostalLabel(territory.country, uiLanguage);
+  const postalValue = serializeContractPostalInput(territory);
+
+  const setCountry = (country: ContractTerritoryArea['country']) => {
+    onChange({
+      ...createEmptyContractTerritoryArea(country),
+      wholeCountry: territory.wholeCountry,
+    });
+  };
+
+  const setPostalInput = (input: string) => {
+    const parsed = parseContractPostalInput(input, territory.country);
+    onChange({
+      ...territory,
+      wholeCountry: false,
+      postalCodes: parsed.postalCodes,
+      postalRanges: parsed.postalRanges,
+    });
+  };
+
+  return (
+    <section className="space-y-4">
+      <h3 className="text-base font-black text-gray-950">
+        {title}{required ? ' *' : ''}
+      </h3>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className="block">
+          <span className="text-sm font-semibold text-gray-700">Land</span>
+          <select
+            value={territory.country}
+            disabled={locked}
+            onChange={(event) => setCountry(event.target.value as ContractTerritoryArea['country'])}
+            className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+          >
+            {CONTRACT_TERRITORY_COUNTRIES.map((country) => (
+              <option key={country.code} value={country.code}>
+                {getContractTerritoryCountryLabel(country.code, uiLanguage)}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div>
+          <span className="text-sm font-semibold text-gray-700">Område</span>
+          <div className="mt-2 grid grid-cols-2 overflow-hidden rounded-xl border border-gray-300 bg-white text-sm">
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => onChange({ ...territory, wholeCountry: true, postalCodes: [], postalRanges: [] })}
+              className={`px-3 py-3 font-bold transition disabled:cursor-not-allowed ${territory.wholeCountry ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+            >
+              Hele landet
+            </button>
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => onChange({ ...territory, wholeCountry: false })}
+              className={`border-l border-gray-300 px-3 py-3 font-bold transition disabled:cursor-not-allowed ${!territory.wholeCountry ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+            >
+              Afgrænset
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {!territory.wholeCountry && (
+        <label className="block">
+          <span className="text-sm font-semibold text-gray-700">{postalLabel}</span>
+          <textarea
+            value={postalValue}
+            disabled={locked}
+            onChange={(event) => setPostalInput(event.target.value)}
+            rows={3}
+            placeholder={territory.country === 'DE' ? '10115, 20000-29999' : '5000-5999, 6000'}
+            className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+          />
+          <span className="mt-1 block text-xs text-gray-500">
+            Brug komma eller linjeskift mellem flere postnumre og intervaller.
+          </span>
+        </label>
+      )}
+    </section>
+  );
+}
+
+function TerritoryMiniMap({
+  primaryTerritory,
+  secondaryTerritory,
+  language,
+}: {
+  primaryTerritory: ContractTerritoryArea;
+  secondaryTerritory: ContractSecondaryTerritoryArea;
+  language: string;
+}) {
+  const visibleSecondary = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory);
+  const countries = Array.from(new Set([
+    primaryTerritory.country,
+    ...(visibleSecondary ? [secondaryTerritory.country] : []),
+  ]));
+  const primaryDescription = describeContractTerritoryArea(primaryTerritory, language);
+  const secondaryDescription = describeContractSecondaryTerritoryArea(secondaryTerritory, language);
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-slate-50 p-4">
+      <div className="flex items-center gap-2">
+        <MapPinned className="h-5 w-5 text-emerald-800" />
+        <h3 className="text-sm font-black text-gray-950">Mini-kort</h3>
+      </div>
+      <div className="mt-3 grid gap-3">
+        {countries.map((country) => {
+          const primaryBands = primaryTerritory.country === country
+            ? getContractTerritoryMapBands(primaryTerritory, 'primary')
+            : [];
+          const secondaryBands = visibleSecondary && secondaryTerritory.country === country
+            ? getContractTerritoryMapBands(secondaryTerritory, 'secondary')
+            : [];
+
+          return (
+            <div key={country} className="rounded-xl border border-slate-200 bg-white p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <Globe2 className="h-4 w-4" />
+                {getContractTerritoryCountryLabel(country, language)}
+              </div>
+              <div className="relative h-44 overflow-hidden rounded-xl border border-slate-300 bg-gradient-to-b from-slate-100 to-slate-200">
+                <div className="absolute inset-x-8 inset-y-4 rounded-[34%] border border-slate-400/70 bg-white/70 shadow-inner" />
+                {[...primaryBands, ...secondaryBands].map((band) => (
+                  <div
+                    key={band.key}
+                    className={`absolute left-10 right-10 rounded-full border text-center text-[11px] font-black leading-6 shadow-sm ${
+                      band.variant === 'primary'
+                        ? 'border-emerald-700 bg-emerald-600/75 text-white'
+                        : 'border-amber-700 bg-amber-500/75 text-gray-950'
+                    }`}
+                    style={{ top: `${band.top}%`, height: `${band.height}%` }}
+                  >
+                    <span className="sr-only">{band.variant === 'primary' ? 'Primært område' : 'Sekundært område'} </span>
+                    {band.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 space-y-2 text-xs leading-5 text-gray-700">
+        {primaryDescription && (
+          <div className="flex gap-2">
+            <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-emerald-700" />
+            <span><strong>Primært:</strong> {primaryDescription}</span>
+          </div>
+        )}
+        {secondaryDescription && (
+          <div className="flex gap-2">
+            <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-amber-500" />
+            <span><strong>Sekundært:</strong> {secondaryDescription}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1709,6 +2020,8 @@ function ProgressSteps({
 
 function ContractSummary({ form }: { form: ContractFormData }) {
   const partnerLabel = form.partnerType ? getContractPartnerTypeLabel(form.partnerType, 'da') : 'Samarbejdspartner';
+  const primaryDescription = describeContractTerritoryArea(form.primaryTerritory, 'da');
+  const secondaryDescription = describeContractSecondaryTerritoryArea(form.secondaryTerritory, 'da');
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
@@ -1727,6 +2040,13 @@ function ContractSummary({ form }: { form: ContractFormData }) {
         <p className="mt-3 text-sm font-bold text-amber-950">{form.contactPerson || '-'}</p>
         <p className="text-sm text-amber-900">{form.contactTitle || 'Titel ikke angivet'}</p>
         <p className="mt-2 text-sm text-amber-900">Dato: {formatDateDa(form.contractDate)}</p>
+      </div>
+      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 lg:col-span-2">
+        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-600">Område</h3>
+        <p className="mt-3 text-sm font-semibold text-gray-950">Primært område: {primaryDescription || '-'}</p>
+        {secondaryDescription && (
+          <p className="mt-1 text-sm font-semibold text-gray-950">Sekundært område: {secondaryDescription}</p>
+        )}
       </div>
     </div>
   );

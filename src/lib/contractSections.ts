@@ -1,5 +1,11 @@
 import type { ContractStepId } from '@/lib/contractFlow';
 import { getContractPartnerTerms, type ContractPartnerType } from '@/lib/contractPartnerTerms';
+import {
+  describeContractSecondaryTerritoryArea,
+  describeContractTerritoryArea,
+  type ContractSecondaryTerritoryArea,
+  type ContractTerritoryArea,
+} from '@/lib/contractTerritory';
 
 export type ContractTextBlock = {
   heading?: string;
@@ -17,6 +23,8 @@ export type GuidedContractSection = {
 export type ContractTextRenderContext = {
   companyName: string;
   partnerType: ContractPartnerType | '' | null | undefined;
+  primaryTerritory?: ContractTerritoryArea;
+  secondaryTerritory?: ContractSecondaryTerritoryArea;
 };
 
 export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
@@ -76,22 +84,14 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           'Primære område:',
         ],
         bullets: [
-          'Danmark - Fyn, Tåsinge, Ærø samt Langeland',
-          'Timan har i dag aftale med Axel Knudsen Middelfart og Have Park Center Svendborg (service partner)',
+          '{{primaryTerritoryDescription}}',
         ],
       },
       {
         heading: 'Sekundær område',
         bullets: [
-          'Danmark – syd for linjen Hobro – Skive',
+          '{{secondaryTerritoryDescription}}',
           'I dette område må {{partnerDefinite}} udføre opsøgende salg.',
-          'Det markerede sekundære område er et område hvor Timan ikke har nogen forhandler men en service partner.',
-        ],
-      },
-      {
-        heading: 'Område hvor {{partnerDefinite}} ikke må sælge',
-        bullets: [
-          'Nord for linjen Hobro – Skive må {{partnerDefinite}} ikke lave opsøgende salg.',
         ],
       },
     ],
@@ -329,17 +329,25 @@ function renderContractText(value: string, context: ContractTextRenderContext): 
     .replaceAll('{{partnerPossessive}}', terms?.possessive ?? '')
     .replaceAll('{{partnerPossessiveCapitalized}}', terms ? capitalize(terms.possessive) : '')
     .replaceAll('{{partnerPortal}}', terms?.portal ?? '')
-    .replaceAll('{{partnerAnnualMeeting}}', terms?.annualMeeting ?? '');
+    .replaceAll('{{partnerAnnualMeeting}}', terms?.annualMeeting ?? '')
+    .replaceAll('{{primaryTerritoryDescription}}', describeContractTerritoryArea(context.primaryTerritory, 'da'))
+    .replaceAll('{{secondaryTerritoryDescription}}', describeContractSecondaryTerritoryArea(context.secondaryTerritory, 'da'));
 }
 
 export function renderGuidedContractSections(context: ContractTextRenderContext): GuidedContractSection[] {
   return GUIDED_CONTRACT_SECTIONS.map((section) => ({
     ...section,
-    blocks: section.blocks.map((block) => ({
-      heading: block.heading ? renderContractText(block.heading, context) : undefined,
-      paragraphs: block.paragraphs?.map((paragraph) => renderContractText(paragraph, context)),
-      bullets: block.bullets?.map((bullet) => renderContractText(bullet, context)),
-    })),
+    blocks: section.blocks
+      .map((block) => ({
+        heading: block.heading ? renderContractText(block.heading, context) : undefined,
+        paragraphs: block.paragraphs?.map((paragraph) => renderContractText(paragraph, context)).filter(Boolean),
+        bullets: block.bullets?.map((bullet) => renderContractText(bullet, context)).filter(Boolean),
+      }))
+      .filter((block) => (
+        section.stepId !== 'territory'
+        || block.heading !== 'Sekundær område'
+        || describeContractSecondaryTerritoryArea(context.secondaryTerritory, 'da')
+      )),
   }));
 }
 

@@ -1,5 +1,11 @@
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { ContractPartnerType } from '@/lib/contractPartnerTerms';
+import {
+  buildContractTerritorySnapshot,
+  hasValidContractTerritory,
+  type ContractSecondaryTerritoryArea,
+  type ContractTerritoryArea,
+} from '@/lib/contractTerritory';
 
 export type ContractStepId =
   | 'parties'
@@ -52,6 +58,8 @@ export type ContractFormData = {
   timanSellerEmail: string;
   timanSellerPhone: string;
   contractDate: string;
+  primaryTerritory: ContractTerritoryArea;
+  secondaryTerritory: ContractSecondaryTerritoryArea;
   signatureDataUrl: string | null;
 };
 
@@ -375,6 +383,7 @@ export function hasRequiredPartyData(form: ContractFormData) {
 
 export function canPrepareContractForSignature(form: ContractFormData, confirmations: ContractConfirmations) {
   return hasRequiredPartyData(form)
+    && hasValidContractTerritory(form)
     && Object.values(confirmations).every((confirmation) => confirmation.confirmed);
 }
 
@@ -442,6 +451,7 @@ export function buildContractSnapshot(
       contactPerson: form.contactPerson,
       contactTitle: form.contactTitle,
     },
+    territory: buildContractTerritorySnapshot(form),
     contractDate: form.contractDate,
     legalSections: options.legalSections ?? null,
     appendices: options.appendices ?? null,

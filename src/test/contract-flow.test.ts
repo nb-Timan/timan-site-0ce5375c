@@ -35,6 +35,14 @@ import {
   CONTRACT_PARTNER_TYPES,
   inferContractPartnerTypeFromDealerAccount,
 } from '@/lib/contractPartnerTerms';
+import {
+  buildContractTerritorySnapshot,
+  createEmptyContractTerritoryArea,
+  describeContractSecondaryTerritoryArea,
+  describeContractTerritoryArea,
+  hasValidContractTerritory,
+  parseContractPostalInput,
+} from '@/lib/contractTerritory';
 import { t } from '@/lib/i18n/translations';
 
 const completeForm: ContractFormData = {
@@ -50,6 +58,19 @@ const completeForm: ContractFormData = {
   timanSellerEmail: 'bp@timan.dk',
   timanSellerPhone: '',
   contractDate: '2026-08-29',
+  primaryTerritory: {
+    country: 'DK',
+    wholeCountry: false,
+    postalCodes: [],
+    postalRanges: [{ from: '5000', to: '5999' }],
+  },
+  secondaryTerritory: {
+    country: 'DK',
+    wholeCountry: false,
+    postalCodes: [],
+    postalRanges: [],
+    enabled: false,
+  },
   signatureDataUrl: null,
 };
 
@@ -94,6 +115,17 @@ describe('contract flow', () => {
   it('only prepares contract for signature after all confirmations are complete', () => {
     expect(canPrepareContractForSignature(completeForm, EMPTY_CONTRACT_CONFIRMATIONS)).toBe(false);
     expect(canPrepareContractForSignature(completeForm, confirmed)).toBe(true);
+  });
+
+  it('requires a valid primary territory before signature readiness', () => {
+    const emptyTerritoryForm: ContractFormData = {
+      ...completeForm,
+      primaryTerritory: createEmptyContractTerritoryArea('DK'),
+    };
+
+    expect(hasValidContractTerritory(emptyTerritoryForm)).toBe(false);
+    expect(canPrepareContractForSignature(emptyTerritoryForm, confirmed)).toBe(false);
+    expect(hasValidContractTerritory({ ...emptyTerritoryForm, primaryTerritory: { ...emptyTerritoryForm.primaryTerritory, wholeCountry: true } })).toBe(true);
   });
 
   it('marks signed only after signature exists on a fully confirmed contract', () => {
@@ -303,6 +335,81 @@ describe('contract flow', () => {
     expect(shouldHideGuidedContractUiText('Bilag 3: Området', territory!.title)).toBe(true);
     expect(JSON.stringify(territory)).not.toContain('3. Område');
     expect(JSON.stringify(territory)).not.toContain('Se bilag 3.');
+  });
+
+  it('renders Appendix 3 territory text from structured primary and secondary data', () => {
+    const germanPrimary = parseContractPostalInput('10115, 20000-29999', 'DE');
+    const germanSecondary = parseContractPostalInput('70000-79999', 'DE');
+    const form: ContractFormData = {
+      ...completeForm,
+      partnerType: 'dealer',
+      primaryTerritory: {
+        country: 'DE',
+        wholeCountry: false,
+        postalCodes: germanPrimary.postalCodes,
+        postalRanges: germanPrimary.postalRanges,
+      },
+      secondaryTerritory: {
+        country: 'DE',
+        wholeCountry: false,
+        postalCodes: germanSecondary.postalCodes,
+        postalRanges: germanSecondary.postalRanges,
+        enabled: true,
+      },
+    };
+    const territory = renderGuidedContractSections({
+      companyName: form.dealerName,
+      partnerType: form.partnerType,
+      primaryTerritory: form.primaryTerritory,
+      secondaryTerritory: form.secondaryTerritory,
+    }).find((section) => section.stepId === 'territory');
+    const text = JSON.stringify(territory);
+
+    expect(describeContractTerritoryArea(form.primaryTerritory, 'da')).toBe('Tyskland - 20000-29999, 10115');
+    expect(describeContractSecondaryTerritoryArea(form.secondaryTerritory, 'da')).toBe('Tyskland - 70000-79999');
+    expect(text).toContain('Tyskland - 20000-29999, 10115');
+    expect(text).toContain('Tyskland - 70000-79999');
+    expect(text).not.toContain('Fyn, Tåsinge');
+    expect(text).not.toContain('Hobro');
+  });
+
+  it.each([
+    ['dealer', 'DK', false, '5000-5999', 'Danmark - 5000-5999'],
+    ['importer', 'DE', true, '', 'Tyskland - Hele landet'],
+    ['service_partner', 'DK', false, '6000', 'Danmark - 6000'],
+  ] as const)('renders complete territory snapshots for %s contracts', (partnerType, country, wholeCountry, postalInput, expectedDescription) => {
+    const parsed = parseContractPostalInput(postalInput, country);
+    const form: ContractFormData = {
+      ...completeForm,
+      partnerType,
+      primaryTerritory: {
+        country,
+        wholeCountry,
+        postalCodes: parsed.postalCodes,
+        postalRanges: parsed.postalRanges,
+      },
+      secondaryTerritory: {
+        country,
+        wholeCountry: false,
+        postalCodes: [],
+        postalRanges: [],
+        enabled: false,
+      },
+    };
+    const legalSections = renderGuidedContractSections({
+      companyName: form.dealerName,
+      partnerType: form.partnerType,
+      primaryTerritory: form.primaryTerritory,
+      secondaryTerritory: form.secondaryTerritory,
+    });
+    const snapshot = buildContractSnapshot(form, confirmed, { legalSections });
+    const text = JSON.stringify(snapshot.legalSections);
+
+    expect(buildContractTerritorySnapshot(form).primaryDescription).toBe(expectedDescription);
+    expect(snapshot.territory.primaryDescription).toBe(expectedDescription);
+    expect(text).toContain(expectedDescription);
+    expect(text).not.toContain('{{primaryTerritoryDescription}}');
+    expect(text).not.toContain('Sekundær område');
   });
 
   it('hides redundant appendix labels in the guided UI without changing legal source text', () => {

@@ -13,6 +13,10 @@ import {
   getCompletedContractStepIds,
 } from "@/lib/contractFlow";
 import { normalizeContractPartnerType } from "@/lib/contractPartnerTerms";
+import {
+  normalizeContractSecondaryTerritoryArea,
+  normalizeContractTerritoryArea,
+} from "@/lib/contractTerritory";
 
 export const DEALER_CONTRACTS_BUCKET = "dealer-contracts";
 
@@ -143,6 +147,8 @@ function rowToContractRecord(row: Record<string, unknown>): DealerContractRecord
       timanSellerEmail: formData.timanSellerEmail ?? "",
       timanSellerPhone: formData.timanSellerPhone ?? "",
       contractDate: formData.contractDate ?? "",
+      primaryTerritory: normalizeContractTerritoryArea(formData.primaryTerritory),
+      secondaryTerritory: normalizeContractSecondaryTerritoryArea(formData.secondaryTerritory),
       signatureDataUrl,
     },
     contract_version: String(row.contract_version ?? CONTRACT_VERSION),
