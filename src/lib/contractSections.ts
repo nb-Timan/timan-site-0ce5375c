@@ -356,3 +356,7 @@ export function getGuidedContractSection(stepId: ContractStepId) {
 export function getRenderedGuidedContractSection(stepId: ContractStepId, context: ContractTextRenderContext) {
   return renderGuidedContractSections(context).find((section) => section.stepId === stepId) ?? null;
 }
+
+export function getGuidedContractDisplayHeading(heading: string) {
+  return heading.replace(/^\d+(?:\.\d+)*\.?\s+/, '');
+}

@@ -49,6 +49,7 @@ import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { APPENDIX_2_EXAMPLE_LINES, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import {
+  getGuidedContractDisplayHeading,
   getRenderedGuidedContractSection,
   renderGuidedContractSections,
   type GuidedContractSection,
@@ -1288,7 +1289,7 @@ function ContractLegalSection({ section }: { section: { title: string; source: s
 function ContractTextBlockView({ block }: { block: ContractTextBlock }) {
   return (
     <div className="space-y-2 text-sm leading-6 text-gray-700">
-      {block.heading && <h4 className="font-bold text-gray-950">{block.heading}</h4>}
+      {block.heading && <h4 className="font-bold text-gray-950">{getGuidedContractDisplayHeading(block.heading)}</h4>}
       {block.paragraphs?.map((paragraph) => (
         <p key={paragraph}>{paragraph}</p>
       ))}

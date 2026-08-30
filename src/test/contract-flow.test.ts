@@ -20,7 +20,7 @@ import {
   type ContractConfirmations,
   type ContractFormData,
 } from '@/lib/contractFlow';
-import { GUIDED_CONTRACT_SECTIONS, renderGuidedContractSections } from '@/lib/contractSections';
+import { GUIDED_CONTRACT_SECTIONS, getGuidedContractDisplayHeading, renderGuidedContractSections } from '@/lib/contractSections';
 import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import { buildDealerContractDraftKey, getCurrentStepId } from '@/lib/dealerContractsService';
 import {
@@ -222,6 +222,28 @@ describe('contract flow', () => {
     expect(territory?.blocks[0].heading).toBe('Bilag 3: Området');
     expect(JSON.stringify(territory)).not.toContain('3. Område');
     expect(JSON.stringify(territory)).not.toContain('Se bilag 3.');
+  });
+
+  it('hides legal point numbers in guided UI headings without changing source headings', () => {
+    const rendered = renderGuidedContractSections({
+      companyName: completeForm.dealerName,
+      partnerType: completeForm.partnerType,
+    });
+    const sourceHeadings = rendered.flatMap((section) => section.blocks.map((block) => block.heading).filter(Boolean));
+    const displayHeadings = sourceHeadings.map((heading) => getGuidedContractDisplayHeading(heading!));
+
+    expect(sourceHeadings).toContain('1. Formål');
+    expect(sourceHeadings).toContain('2. Priser, ordre og forhandler portal');
+    expect(sourceHeadings).toContain('10. Årligt forhandlermøde');
+    expect(sourceHeadings).toContain('7.1 Marketingforpligtelser Timan');
+    expect(displayHeadings).toContain('Formål');
+    expect(displayHeadings).toContain('Priser, ordre og forhandler portal');
+    expect(displayHeadings).toContain('Årligt forhandlermøde');
+    expect(displayHeadings).toContain('Marketingforpligtelser Timan');
+    expect(displayHeadings).toContain('Bilag 3: Området');
+    expect(displayHeadings).not.toContain('1. Formål');
+    expect(displayHeadings).not.toContain('10. Årligt forhandlermøde');
+    expect(displayHeadings).not.toContain('7.1 Marketingforpligtelser Timan');
   });
 
   it.each([
