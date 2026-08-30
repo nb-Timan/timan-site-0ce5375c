@@ -1023,8 +1023,8 @@ function DiscountStep({ label, value, height }: { label: string; value: string; 
 
 function ProgressSteps({ activeStepIndex, confirmations }: { activeStepIndex: number; confirmations: ContractConfirmations }) {
   return (
-    <div className="overflow-x-auto pb-1">
-      <div className="grid min-w-[860px] grid-cols-7 gap-2">
+    <div className="overflow-x-auto pb-0.5">
+      <div className="grid min-w-[720px] grid-cols-7 gap-1.5 md:w-full">
         {CONTRACT_STEPS.map((step, index) => {
           const confirmationId = step.confirmationId;
           const confirmed = !confirmationId || confirmations[confirmationId]?.confirmed;
@@ -1033,13 +1033,13 @@ function ProgressSteps({ activeStepIndex, confirmations }: { activeStepIndex: nu
           return (
             <div
               key={step.id}
-              className={`rounded-2xl border px-3 py-3 ${active ? 'border-gray-950 bg-gray-950 text-white' : complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-gray-200 bg-white text-gray-600'}`}
+              className={`rounded-xl border px-2.5 py-2 ${active ? 'border-gray-950 bg-gray-950 text-white' : complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-gray-200 bg-white text-gray-600'}`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-bold uppercase tracking-wide">Trin {index + 1}</span>
-                {complete || (confirmationId && confirmed) ? <CheckCircle2 className="h-4 w-4" /> : null}
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wide leading-none">Trin {index + 1}</span>
+                {complete || (confirmationId && confirmed) ? <CheckCircle2 className="h-3.5 w-3.5 flex-none" /> : null}
               </div>
-              <p className="mt-1 text-sm font-bold">{step.shortTitle}</p>
+              <p className="mt-1 text-xs font-bold leading-snug">{step.shortTitle}</p>
             </div>
           );
         })}
