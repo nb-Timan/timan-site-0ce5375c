@@ -10,6 +10,7 @@ export type ProfileI18nKey =
   | "statusComplete" | "statusPartial" | "statusEmpty"
   | "save" | "saving" | "saved" | "saveError" | "required"
   | "sec1" | "sec2" | "sec3" | "sec4" | "sec5" | "sec6"
+  | "companySectionCompany" | "companySectionAddressContact" | "companySectionManagementContacts"
   | "companyName" | "address" | "addressLine1" | "addressLine2" | "postalCode" | "city" | "country"
   | "vatNumber" | "directorName" | "directorMultiple" | "phone" | "email"
   | "financeContactName" | "financePhone" | "financeEmail" | "invoiceEmail" | "paymentTerms" | "currencyCode"
@@ -44,6 +45,9 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     required: "påkrævet",
     sec1: "Firma & ledelse", sec2: "Økonomi", sec3: "Indkøb & logistik",
     sec4: "Salg", sec5: "Værksted & service", sec6: "Marketing",
+    companySectionCompany: "Virksomhed",
+    companySectionAddressContact: "Adresse & kontakt",
+    companySectionManagementContacts: "Ledelse og kontaktpersoner",
     companyName: "Firmanavn", address: "Firma adresse", addressLine1: "Adresse 1", addressLine2: "Adresse 2", postalCode: "Postnummer", city: "By", country: "Land",
     vatNumber: "CVR/VAT nr.", directorName: "Direktør navn", directorMultiple: "Flere direktører?", phone: "Telefon", email: "E-mail",
     financeContactName: "Økonomi kontaktperson", financePhone: "Telefon", financeEmail: "E-mail", invoiceEmail: "E-mail til faktura",
@@ -79,6 +83,9 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     required: "required",
     sec1: "Company & management", sec2: "Finance", sec3: "Purchasing & logistics",
     sec4: "Sales", sec5: "Workshop & service", sec6: "Marketing",
+    companySectionCompany: "Company",
+    companySectionAddressContact: "Address & contact",
+    companySectionManagementContacts: "Management and contacts",
     companyName: "Company name", address: "Address", addressLine1: "Address line 1", addressLine2: "Address line 2", postalCode: "Postal code", city: "City", country: "Country",
     vatNumber: "VAT no.", directorName: "Director name", directorMultiple: "More directors?", phone: "Phone", email: "E-mail",
     financeContactName: "Finance contact", financePhone: "Phone", financeEmail: "E-mail", invoiceEmail: "Invoice e-mail",
@@ -111,6 +118,9 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     required: "erforderlich",
     sec1: "Firma & Leitung", sec2: "Finanzen", sec3: "Einkauf & Logistik",
     sec4: "Vertrieb", sec5: "Werkstatt & Service", sec6: "Marketing",
+    companySectionCompany: "Unternehmen",
+    companySectionAddressContact: "Adresse & Kontakt",
+    companySectionManagementContacts: "Leitung und Kontakte",
     companyName: "Firmenname", address: "Adresse", addressLine1: "Adresse 1", addressLine2: "Adresse 2", postalCode: "PLZ", city: "Stadt", country: "Land",
     vatNumber: "USt-IdNr.", directorName: "Geschäftsführer", directorMultiple: "Weitere Geschäftsführer?", phone: "Telefon", email: "E-Mail",
     financeContactName: "Buchhaltungskontakt", financePhone: "Telefon", financeEmail: "E-Mail", invoiceEmail: "Rechnungs-E-Mail",
@@ -143,6 +153,9 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     required: "obbligatorio",
     sec1: "Azienda e direzione", sec2: "Finanza", sec3: "Acquisti e logistica",
     sec4: "Vendite", sec5: "Officina e assistenza", sec6: "Marketing",
+    companySectionCompany: "Azienda",
+    companySectionAddressContact: "Indirizzo e contatto",
+    companySectionManagementContacts: "Direzione e contatti",
     companyName: "Ragione sociale", address: "Indirizzo", addressLine1: "Indirizzo 1", addressLine2: "Indirizzo 2", postalCode: "CAP", city: "Città", country: "Paese",
     vatNumber: "Partita IVA", directorName: "Amministratore", directorMultiple: "Più amministratori?", phone: "Telefono", email: "E-mail",
     financeContactName: "Contatto amministrazione", financePhone: "Telefono", financeEmail: "E-mail", invoiceEmail: "E-mail fatture",
@@ -175,6 +188,9 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     required: "kötelező",
     sec1: "Cég és vezetés", sec2: "Pénzügy", sec3: "Beszerzés és logisztika",
     sec4: "Értékesítés", sec5: "Műhely és szerviz", sec6: "Marketing",
+    companySectionCompany: "Cég",
+    companySectionAddressContact: "Cím és kapcsolat",
+    companySectionManagementContacts: "Vezetés és kapcsolattartók",
     companyName: "Cégnév", address: "Cím", addressLine1: "Cím 1", addressLine2: "Cím 2", postalCode: "Irányítószám", city: "Város", country: "Ország",
     vatNumber: "Adószám", directorName: "Ügyvezető", directorMultiple: "Több ügyvezető?", phone: "Telefon", email: "E-mail",
     financeContactName: "Pénzügyi kapcsolattartó", financePhone: "Telefon", financeEmail: "E-mail", invoiceEmail: "Számla e-mail",

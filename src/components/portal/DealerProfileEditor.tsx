@@ -247,6 +247,15 @@ interface SectionShellProps {
   children: React.ReactNode;
 }
 
+function ProfileSubsection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3 border-b border-slate-100 pb-4 last:border-b-0 last:pb-0">
+      <h3 className="text-sm font-black text-slate-900">{title}</h3>
+      {children}
+    </section>
+  );
+}
+
 function SectionShell({ skey, title, status, saving, canEdit, onSave, t, children }: SectionShellProps) {
   const badge = status.complete ? (
     <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
@@ -598,73 +607,81 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         saving={savingSection === "company"} canEdit={canEdit} t={t}
         onSave={() => void saveAllProfile("company")}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field id="company_name" label={t("companyName")} value={draft.company_name} onChange={() => {}} disabled required />
-          <AddressField
-            id="address_line_1"
-            label={t("addressLine1")}
-            value={draft.address_line_1}
-            disabled={!canEdit}
-            required
-            addressParts={{ address_line_1: draft.address_line_1, postal_code: draft.postal_code, city: draft.city, country: draft.country }}
-            onChange={(v) => {
-              // Manual edit after a Places pick → coordinates / place_id may be stale, clear them.
-              setDraft((d) => ({
-                ...d,
-                address_line_1: v,
-                latitude: null,
-                longitude: null,
-                google_place_id: null,
-                geocoded_at: null,
-                geocoding_status: "pending",
-                geocoding_error: null,
-              }));
-            }}
-            onResolve={(r) => {
-              setDraft((d) => ({
-                ...d,
-                address_line_1: r.address_line_1 ?? r.formatted ?? d.address_line_1,
-                postal_code: r.postal_code ?? d.postal_code,
-                city: r.city ?? d.city,
-                country: r.country_name ?? d.country,
-                latitude: r.latitude ?? d.latitude,
-                longitude: r.longitude ?? d.longitude,
-                google_place_id: r.google_place_id ?? d.google_place_id,
-                geocoded_at: typeof r.latitude === "number" && typeof r.longitude === "number"
-                  ? new Date().toISOString()
-                  : d.geocoded_at,
-                geocoding_status: typeof r.latitude === "number" && typeof r.longitude === "number"
-                  ? "ok"
-                  : d.geocoding_status,
-                geocoding_error: typeof r.latitude === "number" && typeof r.longitude === "number"
-                  ? null
-                  : d.geocoding_error,
-              }));
-            }}
-          />
-          <Field id="address_line_2" label={t("addressLine2")} value={draft.address_line_2} onChange={(v) => set("address_line_2", v)} disabled={!canEdit} />
-          <div className="grid grid-cols-2 gap-3">
+        <ProfileSubsection title={t("companySectionCompany")}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Field id="company_name" label={t("companyName")} value={draft.company_name} onChange={() => {}} disabled required />
+            <Field id="vat_number" label={t("vatNumber")} value={draft.vat_number} onChange={(v) => set("vat_number", v)} disabled={!canEdit} required />
+            <Field id="country" label={t("country")} value={draft.country} onChange={(v) => setAddressPart("country", v)} disabled={!canEdit} required />
+            <Field id="website" label={t("website")} value={draft.website} onChange={(v) => set("website", v)} disabled={!canEdit} required />
+          </div>
+        </ProfileSubsection>
+
+        <ProfileSubsection title={t("companySectionAddressContact")}>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <AddressField
+              id="address_line_1"
+              label={t("addressLine1")}
+              value={draft.address_line_1}
+              disabled={!canEdit}
+              required
+              addressParts={{ address_line_1: draft.address_line_1, postal_code: draft.postal_code, city: draft.city, country: draft.country }}
+              onChange={(v) => {
+                // Manual edit after a Places pick → coordinates / place_id may be stale, clear them.
+                setDraft((d) => ({
+                  ...d,
+                  address_line_1: v,
+                  latitude: null,
+                  longitude: null,
+                  google_place_id: null,
+                  geocoded_at: null,
+                  geocoding_status: "pending",
+                  geocoding_error: null,
+                }));
+              }}
+              onResolve={(r) => {
+                setDraft((d) => ({
+                  ...d,
+                  address_line_1: r.address_line_1 ?? r.formatted ?? d.address_line_1,
+                  postal_code: r.postal_code ?? d.postal_code,
+                  city: r.city ?? d.city,
+                  country: r.country_name ?? d.country,
+                  latitude: r.latitude ?? d.latitude,
+                  longitude: r.longitude ?? d.longitude,
+                  google_place_id: r.google_place_id ?? d.google_place_id,
+                  geocoded_at: typeof r.latitude === "number" && typeof r.longitude === "number"
+                    ? new Date().toISOString()
+                    : d.geocoded_at,
+                  geocoding_status: typeof r.latitude === "number" && typeof r.longitude === "number"
+                    ? "ok"
+                    : d.geocoding_status,
+                  geocoding_error: typeof r.latitude === "number" && typeof r.longitude === "number"
+                    ? null
+                    : d.geocoding_error,
+                }));
+              }}
+            />
+            <Field id="address_line_2" label={t("addressLine2")} value={draft.address_line_2} onChange={(v) => set("address_line_2", v)} disabled={!canEdit} />
             <Field id="postal_code" label={t("postalCode")} value={draft.postal_code} onChange={(v) => setAddressPart("postal_code", v)} disabled={!canEdit} required />
             <Field id="city" label={t("city")} value={draft.city} onChange={(v) => setAddressPart("city", v)} disabled={!canEdit} required />
+            <Field id="phone" label={t("phone")} value={draft.phone} onChange={(v) => set("phone", v)} disabled={!canEdit} required />
+            <Field id="email" label={t("email")} value={draft.email} onChange={(v) => set("email", v)} disabled={!canEdit} type="email" required />
           </div>
-          <Field id="country" label={t("country")} value={draft.country} onChange={(v) => setAddressPart("country", v)} disabled={!canEdit} required />
-          <Field id="vat_number" label={t("vatNumber")} value={draft.vat_number} onChange={(v) => set("vat_number", v)} disabled={!canEdit} required />
-          <Field id="phone" label={t("phone")} value={draft.phone} onChange={(v) => set("phone", v)} disabled={!canEdit} required />
-          <Field id="email" label={t("email")} value={draft.email} onChange={(v) => set("email", v)} disabled={!canEdit} type="email" required />
-          <Field id="website" label={t("website")} value={draft.website} onChange={(v) => set("website", v)} disabled={!canEdit} required />
-        </div>
-        <ProfileContactBlock title={`${t("contact")} 1`} roleLabel={t("roleDirector")} roleFieldLabel={t("role")} primaryLabel={t("area_primary")} primary>
-          <Field id="director_name" label={t("name")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
-          <Field id="director_email" label={t("email")} value={null} onChange={() => {}} disabled />
-          <Field id="director_phone" label={t("phone")} value={null} onChange={() => {}} disabled />
-        </ProfileContactBlock>
-        <ContactList
-          area="director" t={t} roleKeys={ROLE_KEYS_DIRECTOR} canEdit={canEdit}
-          contacts={contactsByArea("director")} loading={loadingContacts}
-          firstContactNumber={2}
-          onAdd={() => addContact("director")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
-          onTransfer={openContactTransfer}
-        />
+        </ProfileSubsection>
+
+        <ProfileSubsection title={t("companySectionManagementContacts")}>
+          <ProfileContactBlock title={`${t("contact")} 1`} roleLabel={t("roleDirector")} roleFieldLabel={t("role")} primaryLabel={t("area_primary")} primary>
+            <Field id="director_name" label={t("name")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
+            <Field id="director_email" label={t("email")} value={null} onChange={() => {}} disabled />
+            <Field id="director_phone" label={t("phone")} value={null} onChange={() => {}} disabled />
+          </ProfileContactBlock>
+          <ContactList
+            area="director" t={t} roleKeys={ROLE_KEYS_DIRECTOR} canEdit={canEdit}
+            contacts={contactsByArea("director")} loading={loadingContacts}
+            firstContactNumber={2}
+            onAdd={() => addContact("director")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+            onTransfer={openContactTransfer}
+          />
+        </ProfileSubsection>
       </SectionShell>
 
       {/* 2) Finance */}
