@@ -144,6 +144,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
     stepId: 'spare_parts_service',
     title: 'Reservedele og service',
     source: 'Kontrakt, punkt 6 og 8 + Bilag 1',
+    hideGuidedSource: true,
     blocks: [
       {
         heading: '6. Reservedele og Service',

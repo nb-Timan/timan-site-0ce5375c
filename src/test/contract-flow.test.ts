@@ -333,7 +333,9 @@ describe('contract flow', () => {
     expect(discountSection?.source).toBe('Kontrakt, punkt 4 + Bilag 2');
     expect(territorySection?.hideGuidedSource).toBe(true);
     expect(discountSection?.hideGuidedSource).toBe(true);
-    expect(source).toContain("activeStep.id !== 'territory' && activeStep.id !== 'discount_structure'");
+    expect(source).toContain("activeStep.id !== 'territory'");
+    expect(source).toContain("activeStep.id !== 'discount_structure'");
+    expect(source).toContain("activeStep.id !== 'spare_parts_service'");
     expect(source).toContain('section.guidedTitle ?? section.title');
     expect(source).toContain('!section.hideGuidedSource');
   });
@@ -504,6 +506,7 @@ describe('contract flow', () => {
     const text = JSON.stringify(spareParts);
 
     expect(spareParts?.source).toBe('Kontrakt, punkt 6 og 8 + Bilag 1');
+    expect(spareParts?.hideGuidedSource).toBe(true);
     expect(text).toContain("Reservedele bestilles via Timan A/S' webshop.");
     expect(text).toContain('8. Salgs- og servicedage');
     expect(text).toContain('Bilag 1: Service og garanti betingelser');
@@ -607,14 +610,19 @@ describe('contract flow', () => {
     const end = source.indexOf('function ContractLegalSectionHeader');
     const sparePartsServiceSection = source.slice(start, end);
 
-    expect(source).toContain('Vigtige servicevilkår');
+    expect(source).toContain('contractImportantSparePartsServiceTermsHeading');
+    expect(source).toContain('contractImportantServiceTermsIntro');
     expect(source).toContain('Aftalt timetakst for reklamationsarbejde');
     expect(source).toContain('Reklamationsarbejde må først påbegyndes');
     expect(source).toContain('Fragt og levering');
     expect(source).toContain('Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.');
     expect(source).toContain('Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan med samme timetakst.');
     expect(source).toContain('shouldResetContractServiceConfirmation');
+    expect(source).toContain("activeStep.id !== 'spare_parts_service'");
+    expect(sparePartsServiceSection).toContain('heading: undefined');
+    expect(sparePartsServiceSection).toContain("key={`${section.title}-intro-${index}`}");
     expect(sparePartsServiceSection).toContain('<ul className="space-y-2.5 text-sm leading-6 text-gray-700">');
+    expect(sparePartsServiceSection).not.toContain('<ContractLegalSectionHeader section={section} />');
     expect(sparePartsServiceSection).not.toContain("['Fragt', 'Timan betaler fragt tur/retur");
     expect(sparePartsServiceSection).not.toContain('className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"');
   });
@@ -639,6 +647,10 @@ describe('contract flow', () => {
     expect(source).toContain('rel="noreferrer noopener"');
     expect(t('contractSparePartsPortalLink', 'da')).toBe('Reservedelsportal');
     expect(t('contractSparePartsPortalLink', 'en')).toBe('Spare parts portal');
+    expect(t('contractImportantSparePartsServiceTermsHeading', 'da')).toBe('Vigtige reservedels- og servicevilkår');
+    expect(t('contractImportantSparePartsServiceTermsHeading', 'en')).toBe('Important spare parts and service terms');
+    expect(t('contractImportantServiceTermsIntro', 'da')).toBe('Kort samtaleoverblik. De fulde servicebetingelser står nedenfor.');
+    expect(t('contractImportantServiceTermsIntro', 'en')).toBe('Brief conversation overview. The full service terms are below.');
   });
 
   it('uses neutral guided contract source references without changing official document titles', () => {

@@ -565,7 +565,10 @@ export default function ContractsPage() {
   const activeStep = CONTRACT_STEPS[activeStepIndex];
   const activeStepLabel = getContractStepLabel(activeStep.id, uiLanguage);
   const appendixLabel = getContractAppendixLabel(uiLanguage);
-  const showActiveStepAppendixBadge = activeStep.appendix && activeStep.id !== 'territory' && activeStep.id !== 'discount_structure';
+  const showActiveStepAppendixBadge = activeStep.appendix
+    && activeStep.id !== 'territory'
+    && activeStep.id !== 'discount_structure'
+    && activeStep.id !== 'spare_parts_service';
   const status = getContractStatus(form, confirmations);
   const workflowStatus: ContractWorkflowStatus = contractRecord?.contract_status ?? (status === 'Draft' ? 'draft' : status === 'In review' ? 'guided_review' : 'ready_for_signature');
   const workflowStatusLabel = getContractWorkflowStatusLabel(workflowStatus);
@@ -1713,6 +1716,7 @@ function SparePartsServiceSection({
   const validRate = isValidContractServiceHourlyRateDkk(serviceHourlyRateDkk);
   const compactSparePartsBlocks = sparePartsBlocks.map((block) => ({
     ...block,
+    heading: undefined,
     bullets: block.bullets?.filter((bullet) => bullet !== 'Levering af reservedele er – Frit leveret med transportøren der vælges af Timan.'),
   }));
   const importantServiceTerms = [
@@ -1725,22 +1729,23 @@ function SparePartsServiceSection({
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-      <ContractLegalSectionHeader section={section} />
-      <div className="mt-5 space-y-5">
-        {compactSparePartsBlocks.map((block, index) => (
-          <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
-        ))}
-
+      <div className="space-y-5">
         <section className="rounded-2xl border border-emerald-200 bg-white p-4">
           <div className="flex items-start gap-3">
             <CheckCircle2 className="mt-0.5 h-5 w-5 flex-none text-emerald-700" />
             <div>
-              <h4 className="text-base font-black text-gray-950">Vigtige servicevilkår</h4>
-              <p className="mt-1 text-sm leading-6 text-gray-600">Kort samtaleoverblik. De fulde servicebetingelser står nedenfor.</p>
+              <h4 className="text-base font-black text-gray-950">{t('contractImportantSparePartsServiceTermsHeading', uiLanguage)}</h4>
+              <p className="mt-1 text-sm leading-6 text-gray-600">{t('contractImportantServiceTermsIntro', uiLanguage)}</p>
             </div>
           </div>
 
-          <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="mt-4 space-y-4">
+            {compactSparePartsBlocks.map((block, index) => (
+              <ContractTextBlockView key={`${section.title}-intro-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
+            ))}
+          </div>
+
+          <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
             <ul className="space-y-2.5 text-sm leading-6 text-gray-700">
               {importantServiceTerms.map(([title, body]) => (
                 <li key={title} className="flex gap-3">
