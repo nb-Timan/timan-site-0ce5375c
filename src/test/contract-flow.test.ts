@@ -294,8 +294,12 @@ describe('contract flow', () => {
     expect(progressSteps).toContain('auto-cols-[5.9rem]');
     expect(progressSteps).toContain('<div className="relative flex min-w-0 items-center justify-center gap-1">');
     expect(progressSteps).toContain('<span className="text-[9px] font-bold uppercase leading-none tracking-wide">Trin {index + 1}</span>');
-    expect(progressSteps).toContain('className="absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 flex-none"');
     expect(progressSteps).toContain('<p className="mt-0.5 break-words text-center text-[10px] font-medium leading-tight">{label.shortTitle}</p>');
+    expect(progressSteps).toContain("active ? 'border-gray-950 bg-gray-950 text-white'");
+    expect(progressSteps).toContain("complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950'");
+    expect(progressSteps).toContain("'border-gray-200 bg-white text-gray-600'");
+    expect(progressSteps).not.toContain('<CheckCircle2');
+    expect(progressSteps).not.toContain('absolute right-0 top-1/2 h-3 w-3');
     expect(progressSteps).not.toContain('w-32');
     expect(progressSteps).not.toContain('auto-cols-[8rem]');
   });

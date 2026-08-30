@@ -2282,7 +2282,6 @@ function ProgressSteps({
             >
               <div className="relative flex min-w-0 items-center justify-center gap-1">
                 <span className="text-[9px] font-bold uppercase leading-none tracking-wide">Trin {index + 1}</span>
-                {complete || (confirmationId && confirmed) ? <CheckCircle2 className="absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 flex-none" /> : null}
               </div>
               <p className="mt-0.5 break-words text-center text-[10px] font-medium leading-tight">{label.shortTitle}</p>
             </div>
