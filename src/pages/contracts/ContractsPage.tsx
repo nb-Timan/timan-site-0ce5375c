@@ -26,6 +26,7 @@ import { fetchDealerAccountByNumber } from '@/lib/dealerAccountsService';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS } from '@/lib/contractAppendix2';
 
 const CONTRACT_DOCS = [
   { title: 'Forhandlerkontrakt Timan', href: '/contracts/forhandlerkontrakt-timan.pdf', section: 'Hovedaftale' },
@@ -42,6 +43,8 @@ const STEP_DOCUMENTS: Partial<Record<(typeof CONTRACT_STEPS)[number]['id'], type
   commercial_terms: CONTRACT_DOCS.filter((doc) => ['Kommercielle vilkår', 'Hovedaftale'].includes(doc.section)),
   full_contract: CONTRACT_DOCS,
 };
+
+const CONTRACT_SIDEBAR_STEP_ID: (typeof CONTRACT_STEPS)[number]['id'] = 'full_contract';
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
@@ -74,6 +77,117 @@ function splitPostalCity(value: string) {
     postalCode: match?.[1] ?? trimmed,
     city: match?.[2] ?? '',
   };
+}
+
+function drawWrappedPdfText(pdf: any, text: string, x: number, y: number, maxWidth: number, lineHeight = 4.2) {
+  const lines = pdf.splitTextToSize(text, maxWidth);
+  pdf.text(lines, x, y);
+  return y + lines.length * lineHeight;
+}
+
+function drawAppendix2Pdf(pdf: any, left: number, right: number) {
+  let y = 16;
+  const width = right - left;
+
+  APPENDIX_2_PARAGRAPHS.forEach((paragraph, index) => {
+    const isHeading = index === 0 || /^\d+\./.test(paragraph);
+    pdf.setFont('helvetica', isHeading ? 'bold' : 'normal');
+    pdf.setFontSize(isHeading ? 9.5 : 8);
+    pdf.setTextColor(17, 24, 39);
+    y = drawWrappedPdfText(pdf, paragraph, left, y, width, isHeading ? 4.6 : 4);
+    y += isHeading ? 2 : 1.5;
+  });
+
+  y += 2;
+  pdf.setDrawColor(209, 213, 219);
+  pdf.setFillColor(250, 253, 251);
+  pdf.roundedRect(left, y, width, 112, 4, 4, 'FD');
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(6, 95, 70);
+  pdf.text('Hele maskinordren inkl. redskaber', left + 6, y + 9);
+
+  const modelY = y + 16;
+  const baseX = left + 8;
+  const stepX = left + 54;
+  const deliveryX = left + 132;
+  const refundX = left + 8;
+
+  pdf.setDrawColor(167, 243, 208);
+  pdf.setFillColor(236, 253, 245);
+  pdf.roundedRect(baseX, modelY, 34, 24, 3, 3, 'FD');
+  pdf.setTextColor(6, 78, 59);
+  pdf.setFontSize(7.5);
+  pdf.text('Grundrabat', baseX + 5, modelY + 8);
+  pdf.setFontSize(16);
+  pdf.text('25%', baseX + 8, modelY + 18);
+
+  pdf.setDrawColor(186, 230, 253);
+  pdf.setFillColor(255, 255, 255);
+  pdf.roundedRect(stepX, modelY, 68, 42, 3, 3, 'FD');
+  pdf.setTextColor(12, 74, 110);
+  pdf.setFontSize(7.5);
+  pdf.text('Stk. rabat', stepX + 4, modelY + 7);
+  const stepBaseY = modelY + 36;
+  const steps = [
+    { label: '1 stk.', value: '+0%', h: 12 },
+    { label: '2-3 stk.', value: '+2%', h: 18 },
+    { label: '4 stk. og over', value: '+4%', h: 24 },
+  ];
+  steps.forEach((step, index) => {
+    const x = stepX + 5 + index * 20;
+    pdf.setFillColor(224, 242, 254);
+    pdf.rect(x, stepBaseY - step.h, 16, step.h, 'F');
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7);
+    pdf.text(step.value, x + 4, stepBaseY - step.h + 6);
+    pdf.setFontSize(6.2);
+    pdf.text(step.label, x + 1, stepBaseY + 5, { maxWidth: 18 });
+  });
+
+  pdf.setDrawColor(253, 230, 138);
+  pdf.setFillColor(255, 251, 235);
+  pdf.roundedRect(deliveryX, modelY, 48, 24, 3, 3, 'FD');
+  pdf.setTextColor(146, 64, 14);
+  pdf.setFontSize(7.5);
+  pdf.text('Leveringsrabat', deliveryX + 5, modelY + 8);
+  pdf.setFontSize(15);
+  pdf.text('+2%', deliveryX + 15, modelY + 18);
+  pdf.setFontSize(6.5);
+  pdf.text('Leveringstid: Over 3 mdr.', deliveryX + 4, modelY + 30, { maxWidth: 42 });
+
+  pdf.setDrawColor(16, 185, 129);
+  pdf.line(baseX + 36, modelY + 12, stepX - 3, modelY + 12);
+  pdf.line(stepX + 70, modelY + 12, deliveryX - 3, modelY + 12);
+
+  const refundY = modelY + 57;
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8);
+  pdf.setTextColor(91, 33, 182);
+  pdf.text('Refusion ved garantiregistrering', refundX, refundY);
+  pdf.setDrawColor(221, 214, 254);
+  pdf.setFillColor(245, 243, 255);
+  pdf.roundedRect(refundX, refundY + 5, 82, 22, 3, 3, 'FD');
+  pdf.setFontSize(7.5);
+  pdf.text('Demonstrationsrabat', refundX + 6, refundY + 13);
+  pdf.setFontSize(14);
+  pdf.text('3.100 kr.', refundX + 6, refundY + 23);
+  pdf.setFontSize(6.5);
+  pdf.text('Egen demonstrationsrabat', refundX + 48, refundY + 23);
+
+  const exampleY = refundY + 36;
+  pdf.setDrawColor(167, 243, 208);
+  pdf.setFillColor(236, 253, 245);
+  pdf.roundedRect(left + 6, exampleY, width - 12, 28, 3, 3, 'FD');
+  pdf.setTextColor(6, 78, 59);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8);
+  pdf.text('Eksempel:', left + 11, exampleY + 8);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7.2);
+  pdf.text(APPENDIX_2_EXAMPLE_LINES[0], left + 11, exampleY + 15, { maxWidth: width - 22 });
+  pdf.text(APPENDIX_2_EXAMPLE_LINES[1], left + 11, exampleY + 22, { maxWidth: width - 22 });
 }
 
 export default function ContractsPage() {
@@ -223,6 +337,7 @@ export default function ContractsPage() {
   const readyForSignature = canPrepareContractForSignature(form, confirmations);
   const currentConfirmationId = getRequiredConfirmationForStep(activeStep.id);
   const currentStepConfirmed = !currentConfirmationId || confirmations[currentConfirmationId]?.confirmed;
+  const showContractSidebar = activeStep.id === CONTRACT_SIDEBAR_STEP_ID;
 
   const update = (key: keyof ContractFormData, value: string | null) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -415,8 +530,15 @@ export default function ContractsPage() {
       y += 6;
     });
 
-    y += 4;
+    pdf.addPage();
+    drawAppendix2Pdf(pdf, left, right);
+
+    pdf.addPage();
+    y = 18;
+
     pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(17, 24, 39);
     pdf.text('Bekræftelser', left, y);
     y += 6;
     pdf.setFont('helvetica', 'normal');
@@ -526,7 +648,7 @@ export default function ContractsPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
+        <div className={`grid grid-cols-1 gap-6 ${showContractSidebar ? 'xl:grid-cols-[1fr_340px]' : ''}`}>
           <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
             <div className="mb-6">
               <p className="text-sm font-bold uppercase tracking-wide text-amber-700">Trin {activeStepIndex + 1} af {CONTRACT_STEPS.length}</p>
@@ -586,10 +708,12 @@ export default function ContractsPage() {
             </div>
           </section>
 
-          <aside className="space-y-4">
-            <ContractStatusCard status={status} readyForSignature={readyForSignature} />
-            <DocumentList />
-          </aside>
+          {showContractSidebar && (
+            <aside className="space-y-4">
+              <ContractStatusCard status={status} readyForSignature={readyForSignature} />
+              <DocumentList />
+            </aside>
+          )}
         </div>
       </main>
 
@@ -688,6 +812,10 @@ function ReviewStep({
     <div className="space-y-5">
       {fullContract && (
         <ContractSummary form={form} />
+      )}
+
+      {stepId === 'commercial_terms' && (
+        <Appendix2DiscountSection />
       )}
 
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
@@ -797,6 +925,98 @@ function SignatureStep({
         Generér endelig kontrakt-PDF
       </button>
       <p className="text-xs text-gray-500">Status: {status}. PDF’en gemmer et snapshot af de data og bekræftelser, der er gennemgået i flowet.</p>
+    </div>
+  );
+}
+
+function Appendix2DiscountSection() {
+  return (
+    <div className="space-y-5 rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+      <div className="space-y-4 text-sm leading-6 text-gray-700">
+        {APPENDIX_2_PARAGRAPHS.map((paragraph, index) => {
+          const isHeading = index === 0 || /^\d+\./.test(paragraph);
+          return (
+            <p key={paragraph} className={isHeading ? 'font-bold text-gray-950' : ''}>
+              {paragraph}
+            </p>
+          );
+        })}
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-emerald-50 via-white to-amber-50 p-5">
+        <div className="grid gap-5 xl:grid-cols-[1fr_260px]">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-emerald-800">Hele maskinordren inkl. redskaber</p>
+            <div className="mt-4 grid gap-4 lg:grid-cols-[160px_1fr_180px] lg:items-center">
+              <DiscountBox title="Grundrabat" value="25%" tone="emerald" />
+              <div className="relative min-h-[210px] rounded-2xl border border-sky-200 bg-white/80 p-4">
+                <p className="text-sm font-bold text-sky-950">Stk. rabat</p>
+                <div className="mt-4 grid grid-cols-3 items-end gap-3">
+                  <DiscountStep label="1 stk." value="+0%" height="h-16" />
+                  <DiscountStep label="2-3 stk." value="+2%" height="h-24" />
+                  <DiscountStep label="4 stk. og over" value="+4%" height="h-32" />
+                </div>
+                <div className="mt-4 h-px bg-sky-100" />
+                <p className="mt-3 text-xs font-semibold text-sky-800">
+                  Rabatten stiger trinvist efter antal maskiner pr. ordre.
+                </p>
+              </div>
+              <DiscountBox title="Leveringsrabat" value="+2%" note="Leveringstid: Over 3 mdr." tone="amber" />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-violet-200 bg-white/85 p-4">
+            <p className="text-xs font-bold uppercase tracking-wide text-violet-800">Refusion ved garantiregistrering</p>
+            <div className="mt-4 rounded-xl bg-violet-50 p-4 text-center">
+              <p className="text-sm font-bold text-violet-950">Demonstrationsrabat</p>
+              <p className="mt-2 text-2xl font-black text-violet-900">3.100 kr.</p>
+              <p className="mt-2 text-xs font-semibold text-violet-700">Egen demonstrationsrabat</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950">
+          <p className="font-bold">Eksempel:</p>
+          <p>{APPENDIX_2_EXAMPLE_LINES[0]}</p>
+          <p className="mt-2">{APPENDIX_2_EXAMPLE_LINES[1]}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DiscountBox({
+  title,
+  value,
+  note,
+  tone,
+}: {
+  title: string;
+  value: string;
+  note?: string;
+  tone: 'emerald' | 'amber';
+}) {
+  const toneClass = tone === 'emerald'
+    ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+    : 'border-amber-200 bg-amber-50 text-amber-950';
+  return (
+    <div className={`rounded-2xl border p-4 text-center ${toneClass}`}>
+      <p className="text-sm font-bold">{title}</p>
+      <p className="mt-2 text-3xl font-black">{value}</p>
+      {note && <p className="mt-2 text-xs font-semibold opacity-80">{note}</p>}
+    </div>
+  );
+}
+
+function DiscountStep({ label, value, height }: { label: string; value: string; height: string }) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className={`flex w-full items-center justify-center rounded-t-xl bg-sky-100 px-2 ${height}`}>
+        <span className="text-lg font-black text-sky-900">{value}</span>
+      </div>
+      <div className="w-full rounded-b-xl border border-t-0 border-sky-200 bg-white px-2 py-2 text-center text-xs font-bold text-sky-950">
+        {label}
+      </div>
     </div>
   );
 }
