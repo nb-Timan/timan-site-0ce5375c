@@ -37,11 +37,14 @@ import {
 } from '@/lib/contractPartnerTerms';
 import {
   buildContractTerritorySnapshot,
+  buildContractTerritoryAreaFromPostalFields,
   createEmptyContractTerritoryArea,
   describeContractSecondaryTerritoryArea,
   describeContractTerritoryArea,
   hasValidContractTerritory,
+  parseContractPostalFieldValue,
   parseContractPostalInput,
+  serializeContractPostalInput,
 } from '@/lib/contractTerritory';
 import {
   DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
@@ -142,6 +145,45 @@ describe('contract flow', () => {
     expect(hasValidContractTerritory(emptyTerritoryForm)).toBe(false);
     expect(canPrepareContractForSignature(emptyTerritoryForm, confirmed)).toBe(false);
     expect(hasValidContractTerritory({ ...emptyTerritoryForm, primaryTerritory: { ...emptyTerritoryForm.primaryTerritory, wholeCountry: true } })).toBe(true);
+  });
+
+  it('stores territory postal codes as ordered field entries with first field required', () => {
+    const emptyArea = createEmptyContractTerritoryArea('DK');
+    const secondOnly = buildContractTerritoryAreaFromPostalFields(emptyArea, ['', '5000', '', '', '', '']);
+    const firstValid = buildContractTerritoryAreaFromPostalFields(emptyArea, ['5000', '5200', '', '', '', '5000-5999']);
+
+    expect(secondOnly.postalEntries).toHaveLength(6);
+    expect(secondOnly.postalCodes).toEqual(['5000']);
+    expect(hasValidContractTerritory({ primaryTerritory: secondOnly })).toBe(false);
+    expect(firstValid.postalEntries.map((entry) => entry.input)).toEqual(['5000', '5200', '', '', '', '5000-5999']);
+    expect(firstValid.postalCodes).toEqual(['5000', '5200']);
+    expect(firstValid.postalRanges).toEqual([{ from: '5000', to: '5999' }]);
+    expect(hasValidContractTerritory({ primaryTerritory: firstValid })).toBe(true);
+    expect(serializeContractPostalInput(firstValid)).toBe('5000, 5200, 5000-5999');
+  });
+
+  it('accepts Danish 4-digit and German 5-digit postal field values and intervals', () => {
+    expect(parseContractPostalFieldValue('5000', 'DK')).toEqual({ input: '5000', postalCode: '5000' });
+    expect(parseContractPostalFieldValue('5000-5999', 'DK')).toEqual({ input: '5000-5999', postalRange: { from: '5000', to: '5999' } });
+    expect(parseContractPostalFieldValue('10115', 'DE')).toEqual({ input: '10115', postalCode: '10115' });
+    expect(parseContractPostalFieldValue('29999-20000', 'DE')).toEqual({ input: '20000-29999', postalRange: { from: '20000', to: '29999' } });
+    expect(parseContractPostalFieldValue('5000', 'DE')).toEqual({ input: '5000' });
+  });
+
+  it('keeps old territory drafts with postalCodes and postalRanges backward compatible', () => {
+    const oldDraftArea = {
+      country: 'DK',
+      wholeCountry: false,
+      postalCodes: ['6000'],
+      postalRanges: [{ from: '5000', to: '5999' }],
+    };
+    const snapshot = buildContractTerritorySnapshot({ primaryTerritory: oldDraftArea });
+
+    expect(snapshot.primaryTerritory.postalEntries).toEqual([
+      { input: '5000-5999', postalRange: { from: '5000', to: '5999' } },
+      { input: '6000', postalCode: '6000' },
+    ]);
+    expect(snapshot.primaryDescription).toBe('Danmark - 5000-5999, 6000');
   });
 
   it('requires a valid service hourly rate before signature readiness', () => {
@@ -273,6 +315,21 @@ describe('contract flow', () => {
     expect(source).toContain("activeStep.id !== 'territory' && activeStep.id !== 'discount_structure'");
     expect(source).toContain('section.guidedTitle ?? section.title');
     expect(source).toContain('!section.hideGuidedSource');
+  });
+
+  it('renders territory postal values as compact input fields instead of a free-text textarea', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const start = source.indexOf('function TerritoryAreaEditor');
+    const end = source.indexOf('function TerritoryMiniMap');
+    const territoryEditor = source.slice(start, end);
+
+    expect(territoryEditor).toContain('getContractPostalFieldValues');
+    expect(territoryEditor).toContain('chunkPostalFields');
+    expect(territoryEditor).toContain('Postnr. {fieldIndex + 1}');
+    expect(territoryEditor).toContain('+ Tilføj flere postnumre');
+    expect(territoryEditor).toContain('Fjern række');
+    expect(territoryEditor).toContain('buildContractTerritoryAreaFromPostalFields');
+    expect(territoryEditor).not.toContain('<textarea');
   });
 
   it('keeps the appendix 2 web diagram constrained to the contract width', () => {

@@ -7,9 +7,16 @@ export type ContractPostalRange = {
   to: string;
 };
 
+export type ContractPostalEntry = {
+  input: string;
+  postalCode?: string;
+  postalRange?: ContractPostalRange;
+};
+
 export type ContractTerritoryArea = {
   country: ContractTerritoryCountryCode;
   wholeCountry: boolean;
+  postalEntries: ContractPostalEntry[];
   postalCodes: string[];
   postalRanges: ContractPostalRange[];
 };
@@ -105,6 +112,37 @@ function normalizePostalRange(value: unknown, digits: number): ContractPostalRan
   return Number(from) <= Number(to) ? { from, to } : { from: to, to: from };
 }
 
+function normalizePostalEntryInput(input: unknown, digits: number): ContractPostalEntry {
+  const value = String(input ?? '').trim();
+  const range = value.match(/^(\d+)\s*-\s*(\d+)$/);
+  if (range) {
+    const normalizedRange = normalizePostalRange({ from: range[1], to: range[2] }, digits);
+    return normalizedRange
+      ? { input: `${normalizedRange.from}-${normalizedRange.to}`, postalRange: normalizedRange }
+      : { input: value };
+  }
+
+  const code = normalizePostalCode(value, digits);
+  return code ? { input: code, postalCode: code } : { input: value };
+}
+
+function normalizePostalEntry(value: unknown, digits: number): ContractPostalEntry {
+  if (typeof value === 'string') return normalizePostalEntryInput(value, digits);
+  const entry = value as Partial<ContractPostalEntry> | null | undefined;
+  if (typeof entry?.input === 'string') return normalizePostalEntryInput(entry.input, digits);
+  if (entry?.postalRange) return normalizePostalEntryInput(`${entry.postalRange.from}-${entry.postalRange.to}`, digits);
+  if (entry?.postalCode) return normalizePostalEntryInput(entry.postalCode, digits);
+  return { input: '' };
+}
+
+function postalEntryFromRange(range: ContractPostalRange): ContractPostalEntry {
+  return { input: `${range.from}-${range.to}`, postalRange: range };
+}
+
+function postalEntryFromCode(code: string): ContractPostalEntry {
+  return { input: code, postalCode: code };
+}
+
 function unique(values: string[]) {
   return Array.from(new Set(values));
 }
@@ -113,6 +151,7 @@ export function createEmptyContractTerritoryArea(country: ContractTerritoryCount
   return {
     country,
     wholeCountry: false,
+    postalEntries: [],
     postalCodes: [],
     postalRanges: [],
   };
@@ -132,16 +171,27 @@ export function normalizeContractTerritoryArea(
   const raw = value as Partial<ContractTerritoryArea> | null | undefined;
   const country = isTerritoryCountryCode(raw?.country) ? raw.country : fallbackCountry;
   const digits = COUNTRY_BY_CODE.get(country)?.postalDigits ?? 4;
+  const legacyCodes = unique((Array.isArray(raw?.postalCodes) ? raw.postalCodes : [])
+    .map((code) => normalizePostalCode(code, digits))
+    .filter(Boolean));
+  const legacyRanges = (Array.isArray(raw?.postalRanges) ? raw.postalRanges : [])
+    .map((range) => normalizePostalRange(range, digits))
+    .filter((range): range is ContractPostalRange => Boolean(range));
+  const rawPostalEntries = Array.isArray(raw?.postalEntries) ? raw.postalEntries : [];
+  const postalEntries = rawPostalEntries.length > 0
+    ? rawPostalEntries.map((entry) => normalizePostalEntry(entry, digits))
+    : [
+        ...legacyRanges.map(postalEntryFromRange),
+        ...legacyCodes.map(postalEntryFromCode),
+      ];
+  const validEntries = postalEntries.filter((entry) => entry.postalCode || entry.postalRange);
 
   return {
     country,
     wholeCountry: Boolean(raw?.wholeCountry),
-    postalCodes: unique((Array.isArray(raw?.postalCodes) ? raw.postalCodes : [])
-      .map((code) => normalizePostalCode(code, digits))
-      .filter(Boolean)),
-    postalRanges: (Array.isArray(raw?.postalRanges) ? raw.postalRanges : [])
-      .map((range) => normalizePostalRange(range, digits))
-      .filter((range): range is ContractPostalRange => Boolean(range)),
+    postalEntries,
+    postalCodes: unique(validEntries.map((entry) => entry.postalCode).filter((code): code is string => Boolean(code))),
+    postalRanges: validEntries.map((entry) => entry.postalRange).filter((range): range is ContractPostalRange => Boolean(range)),
   };
 }
 
@@ -160,6 +210,7 @@ export function parseContractPostalInput(input: string, countryCode: ContractTer
   const digits = COUNTRY_BY_CODE.get(countryCode)?.postalDigits ?? 4;
   const postalCodes: string[] = [];
   const postalRanges: ContractPostalRange[] = [];
+  const postalEntries: ContractPostalEntry[] = [];
   const invalidTokens: string[] = [];
 
   input
@@ -172,7 +223,9 @@ export function parseContractPostalInput(input: string, countryCode: ContractTer
         const from = normalizePostalCode(range[1], digits);
         const to = normalizePostalCode(range[2], digits);
         if (from && to) {
-          postalRanges.push(Number(from) <= Number(to) ? { from, to } : { from: to, to: from });
+          const postalRange = Number(from) <= Number(to) ? { from, to } : { from: to, to: from };
+          postalRanges.push(postalRange);
+          postalEntries.push(postalEntryFromRange(postalRange));
           return;
         }
       }
@@ -180,6 +233,7 @@ export function parseContractPostalInput(input: string, countryCode: ContractTer
       const code = normalizePostalCode(token, digits);
       if (code) {
         postalCodes.push(code);
+        postalEntries.push(postalEntryFromCode(code));
         return;
       }
 
@@ -187,21 +241,43 @@ export function parseContractPostalInput(input: string, countryCode: ContractTer
     });
 
   return {
+    postalEntries,
     postalCodes: unique(postalCodes),
     postalRanges,
     invalidTokens,
   };
 }
 
+export function parseContractPostalFieldValue(input: string, countryCode: ContractTerritoryCountryCode) {
+  const digits = COUNTRY_BY_CODE.get(countryCode)?.postalDigits ?? 4;
+  return normalizePostalEntryInput(input, digits);
+}
+
+export function buildContractTerritoryAreaFromPostalFields(
+  area: ContractTerritoryArea,
+  fieldValues: string[],
+): ContractTerritoryArea {
+  const digits = COUNTRY_BY_CODE.get(area.country)?.postalDigits ?? 4;
+  return normalizeContractTerritoryArea({
+    ...area,
+    wholeCountry: false,
+    postalEntries: fieldValues.map((value) => normalizePostalEntryInput(value, digits)),
+  }, area.country);
+}
+
 export function serializeContractPostalInput(area: ContractTerritoryArea) {
-  return [
-    ...area.postalRanges.map((range) => `${range.from}-${range.to}`),
-    ...area.postalCodes,
-  ].join(', ');
+  const normalized = normalizeContractTerritoryArea(area);
+  return normalized.postalEntries
+    .filter((entry) => entry.postalCode || entry.postalRange)
+    .map((entry) => entry.postalRange ? `${entry.postalRange.from}-${entry.postalRange.to}` : entry.postalCode!)
+    .join(', ');
 }
 
 export function isValidContractTerritoryArea(area: ContractTerritoryArea) {
-  return area.wholeCountry || area.postalCodes.length > 0 || area.postalRanges.length > 0;
+  if (area.wholeCountry) return true;
+  const normalized = normalizeContractTerritoryArea(area);
+  const firstEntry = normalized.postalEntries[0];
+  return Boolean(firstEntry?.postalCode || firstEntry?.postalRange);
 }
 
 export function hasValidContractTerritory(form: {

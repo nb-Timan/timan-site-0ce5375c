@@ -75,9 +75,9 @@ import {
   getContractTerritoryPostalLabel,
   hasValidContractTerritory,
   isValidContractTerritoryArea,
+  buildContractTerritoryAreaFromPostalFields,
   normalizeContractSecondaryTerritoryArea,
   normalizeContractTerritoryArea,
-  parseContractPostalInput,
   serializeContractPostalInput,
   type ContractSecondaryTerritoryArea,
   type ContractTerritoryArea,
@@ -1542,7 +1542,11 @@ function TerritoryAreaEditor({
 }) {
   const { uiLanguage } = useLanguage();
   const postalLabel = getContractTerritoryPostalLabel(territory.country, uiLanguage);
-  const postalValue = serializeContractPostalInput(territory);
+  const [postalFields, setPostalFields] = useState(() => getContractPostalFieldValues(territory));
+
+  useEffect(() => {
+    setPostalFields(getContractPostalFieldValues(territory));
+  }, [territory.country, territory.wholeCountry, serializeContractPostalInput(territory)]);
 
   const setCountry = (country: ContractTerritoryArea['country']) => {
     onChange({
@@ -1551,14 +1555,24 @@ function TerritoryAreaEditor({
     });
   };
 
-  const setPostalInput = (input: string) => {
-    const parsed = parseContractPostalInput(input, territory.country);
-    onChange({
-      ...territory,
-      wholeCountry: false,
-      postalCodes: parsed.postalCodes,
-      postalRanges: parsed.postalRanges,
-    });
+  const setPostalField = (index: number, input: string) => {
+    const nextFields = [...postalFields];
+    nextFields[index] = input;
+    setPostalFields(nextFields);
+    onChange(buildContractTerritoryAreaFromPostalFields(territory, nextFields));
+  };
+
+  const addPostalFieldRow = () => {
+    const nextFields = [...postalFields, ...Array(6).fill('')];
+    setPostalFields(nextFields);
+    onChange(buildContractTerritoryAreaFromPostalFields(territory, nextFields));
+  };
+
+  const removePostalFieldRow = (rowIndex: number) => {
+    if (rowIndex === 0) return;
+    const nextFields = postalFields.filter((_, index) => Math.floor(index / 6) !== rowIndex);
+    setPostalFields(nextFields);
+    onChange(buildContractTerritoryAreaFromPostalFields(territory, nextFields));
   };
 
   return (
@@ -1590,7 +1604,7 @@ function TerritoryAreaEditor({
             <button
               type="button"
               disabled={locked}
-              onClick={() => onChange({ ...territory, wholeCountry: true, postalCodes: [], postalRanges: [] })}
+              onClick={() => onChange({ ...territory, wholeCountry: true, postalEntries: [], postalCodes: [], postalRanges: [] })}
               className={`px-3 py-3 font-bold transition disabled:cursor-not-allowed ${territory.wholeCountry ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
             >
               Hele landet
@@ -1608,23 +1622,78 @@ function TerritoryAreaEditor({
       </div>
 
       {!territory.wholeCountry && (
-        <label className="block">
+        <div className="block">
           <span className="text-sm font-semibold text-gray-700">{postalLabel}</span>
-          <textarea
-            value={postalValue}
-            disabled={locked}
-            onChange={(event) => setPostalInput(event.target.value)}
-            rows={3}
-            placeholder={territory.country === 'DE' ? '10115, 20000-29999' : '5000-5999, 6000'}
-            className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
-          />
+          <div className="mt-2 space-y-3">
+            {chunkPostalFields(postalFields).map((row, rowIndex) => (
+              <div key={rowIndex} className="rounded-xl border border-gray-200 bg-white p-3">
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {row.map((value, columnIndex) => {
+                    const fieldIndex = rowIndex * 6 + columnIndex;
+                    return (
+                      <label key={fieldIndex} className="block">
+                        <span className="text-xs font-semibold text-gray-600">
+                          Postnr. {fieldIndex + 1}{fieldIndex === 0 && required ? ' *' : ''}
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={value}
+                          disabled={locked}
+                          onChange={(event) => setPostalField(fieldIndex, event.target.value)}
+                          placeholder={territory.country === 'DE' ? (fieldIndex === 0 ? '10115' : '20000-29999') : (fieldIndex === 0 ? '5000' : '5000-5999')}
+                          className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+                {rowIndex > 0 && !locked && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removePostalFieldRow(rowIndex)}
+                      className="text-xs font-bold text-gray-500 hover:text-red-700"
+                    >
+                      Fjern række
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
           <span className="mt-1 block text-xs text-gray-500">
-            Brug komma eller linjeskift mellem flere postnumre og intervaller.
+            Angiv mindst ét postnummer. Du kan tilføje flere felter efter behov.
           </span>
-        </label>
+          {!locked && (
+            <button
+              type="button"
+              onClick={addPostalFieldRow}
+              className="mt-3 inline-flex items-center rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-bold text-emerald-800 hover:bg-emerald-50"
+            >
+              + Tilføj flere postnumre
+            </button>
+          )}
+        </div>
       )}
     </section>
   );
+}
+
+function getContractPostalFieldValues(territory: ContractTerritoryArea) {
+  const values = territory.postalEntries.length > 0
+    ? territory.postalEntries.map((entry) => entry.input)
+    : serializeContractPostalInput(territory).split(',').map((value) => value.trim()).filter(Boolean);
+  const minFields = Math.max(6, Math.ceil(Math.max(values.length, 1) / 6) * 6);
+  return [...values, ...Array(Math.max(0, minFields - values.length)).fill('')];
+}
+
+function chunkPostalFields(fields: string[]) {
+  const rows: string[][] = [];
+  for (let index = 0; index < fields.length; index += 6) {
+    rows.push(fields.slice(index, index + 6));
+  }
+  return rows;
 }
 
 function TerritoryMiniMap({
