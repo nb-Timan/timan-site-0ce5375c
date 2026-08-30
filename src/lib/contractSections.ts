@@ -84,7 +84,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         paragraphs: [
           '1. Aftalen (salg og reservedele)',
           'Inden for det primære område vil Timan ikke indgå aftaler med nye {{partnerPlural}}.',
-          'Slutkunderne vælger selv hvilken {{partnerSingular}} de ønsker at handle med .',
+          'Slutkunden bestemmer selv, hvilken Timan-samarbejdspartner de ønsker at handle med.',
           'Hvis Timan kontaktes gives dette lead til nærmeste {{partnerSingular}} ud fra kundens oplysninger.',
           'Hvis en slutkunde inden for dette område ønsker at bestille reservedele via Timan’s webshop, skal dette aftales på forhånd med {{partnerDefinite}}, og {{partnerDefinite}} retter efterfølgende henvendelse til Timan - faktureringen vil ske gennem {{partnerDefinite}}.',
           'Brutto prisen vil være synlig for alle, prisen til slutkunden aftales mellem {{partnerSingular}} og slutkunde.',

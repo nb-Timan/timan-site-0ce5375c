@@ -805,6 +805,20 @@ describe('contract flow', () => {
     expect(text).not.toContain('}}');
   });
 
+  it.each(CONTRACT_PARTNER_TYPES)('keeps the end-customer choice sentence neutral for %s contracts', (partnerType) => {
+    const legalSections = renderGuidedContractSections({
+      companyName: partnerType === 'importer' ? 'ABC Maschinen GmbH' : partnerType === 'service_partner' ? 'Service Pro ApS' : 'Dealer House A/S',
+      partnerType,
+    });
+    const text = JSON.stringify(legalSections);
+
+    expect(text).toContain('Slutkunden bestemmer selv, hvilken Timan-samarbejdspartner de ønsker at handle med.');
+    expect(text).not.toContain('Slutkunderne vælger selv hvilken');
+    expect(text).not.toContain('hvilken importør de ønsker at handle med');
+    expect(text).not.toContain('hvilken forhandler de ønsker at handle med');
+    expect(text).not.toContain('hvilken servicepartner de ønsker at handle med');
+  });
+
   it.each([
     ['importer', 'ABC Maschinen GmbH', ['forhandleren', 'forhandlerens', 'forhandler portalen', 'forhandlerportalen']],
     ['service_partner', 'Service Pro ApS', ['forhandleren', 'forhandlerens', 'importøren', 'importørens', 'forhandler portalen', 'forhandlerportalen']],
