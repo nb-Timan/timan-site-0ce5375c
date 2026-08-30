@@ -58,8 +58,8 @@ const I18N = {
   area: {
     director:  { da: "Direktør",    en: "Director",   de: "Geschäftsführer", it: "Amministratore", hu: "Ügyvezető" },
     sales:     { da: "Salg",       en: "Sales",      de: "Vertrieb",   it: "Vendite",   hu: "Értékesítés" },
-    workshop:  { da: "Værksted",   en: "Workshop",   de: "Werkstatt",  it: "Officina",  hu: "Szerviz" },
-    parts:     { da: "Reservedele",en: "Spare parts",de: "Ersatzteile",it: "Ricambi",   hu: "Alkatrész" },
+    workshop:  { da: "Værksted & service", en: "Workshop & service", de: "Werkstatt & Service", it: "Officina e assistenza", hu: "Műhely és szerviz" },
+    parts:     { da: "Indkøb & logistik", en: "Purchasing & logistics", de: "Einkauf & Logistik", it: "Acquisti e logistica", hu: "Beszerzés és logisztika" },
     marketing: { da: "Marketing",  en: "Marketing",  de: "Marketing",  it: "Marketing", hu: "Marketing" },
     finance:   { da: "Økonomi",    en: "Finance",    de: "Buchhaltung",it: "Amministrazione", hu: "Pénzügy" },
   },

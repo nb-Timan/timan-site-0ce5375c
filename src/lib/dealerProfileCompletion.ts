@@ -4,7 +4,7 @@
  */
 import type { DealerAccount } from "@/lib/dealerAccountsService";
 
-export type SectionKey = "company" | "finance" | "media" | "sales" | "workshop" | "marketing";
+export type SectionKey = "company" | "finance" | "purchasing" | "sales" | "workshop" | "marketing";
 
 export interface SectionStatus {
   key: SectionKey;
@@ -42,6 +42,7 @@ function requiredFields(d: DealerAccount | null): Record<SectionKey, string[]> {
       d?.director_name ?? "",
       d?.phone ?? "",
       d?.email ?? "",
+      d?.website ?? "",
       hasCoordinates(d) ? "koordinater" : "",
     ],
     finance: [
@@ -49,9 +50,7 @@ function requiredFields(d: DealerAccount | null): Record<SectionKey, string[]> {
       d?.finance_contact_email ?? "",
       d?.invoice_email ?? "",
     ],
-    media: [
-      d?.website ?? "",
-    ],
+    purchasing: [],
     sales: [
       d?.sales_contact_name ?? "",
       d?.sales_contact_email ?? "",

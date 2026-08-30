@@ -52,14 +52,23 @@ interface Props {
 }
 
 const ROLE_KEYS_SALES: ProfileI18nKey[] = [
-  "roleSalesDirector", "roleSalesRep", "roleSalesCoordinator", "roleKeyAccount", "roleOther",
+  "roleSalesDirector", "roleSalesManager", "roleSalesRep", "roleSalesCoordinator", "roleKeyAccount", "roleOther",
+];
+const ROLE_KEYS_FINANCE: ProfileI18nKey[] = [
+  "roleFinanceManager", "roleBookkeeper", "roleInvoicing", "roleAccountsPayableReceivable", "roleAdministration", "roleOther",
+];
+const ROLE_KEYS_PURCHASING: ProfileI18nKey[] = [
+  "rolePurchasingManager", "rolePurchaser", "rolePartsPurchasing", "roleLogisticsManager", "roleLogisticsCoordinator", "roleOther",
 ];
 const ROLE_KEYS_WORKSHOP: ProfileI18nKey[] = [
-  "roleWorkshopManager", "roleMechanic", "rolePartsManager", "rolePartsPurchasing",
-  "roleStockManager", "roleServiceCoord", "roleOther",
+  "roleWorkshopManager", "roleServiceManager", "roleServiceTechnician", "roleMechanic",
+  "roleServiceCoord", "rolePartsManager", "roleOther",
 ];
 const ROLE_KEYS_DIRECTOR: ProfileI18nKey[] = [
-  "roleDirector", "roleOwner", "roleManagingDirector", "roleOther",
+  "roleDirector", "roleOwner", "roleManagingDirector", "roleAdministration", "roleOther",
+];
+const ROLE_KEYS_MARKETING: ProfileI18nKey[] = [
+  "roleMarketingManager", "roleMarketingCoordinator", "roleSocialMedia", "roleWebsiteManager", "roleCommunications", "roleOther",
 ];
 
 const PROFILE_PATCH_KEYS = [
@@ -270,7 +279,6 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   const [savingSection, setSavingSection] = useState<SavingSection | null>(null);
   const [contacts, setContacts] = useState<DealerContact[]>([]);
   const [loadingContacts, setLoadingContacts] = useState(true);
-  const [directorHasMultiple, setDirectorHasMultiple] = useState(false);
   const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
 
   // Only re-sync draft when the dealer id changes — not on every prop ref change.
@@ -287,7 +295,6 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
       const rows = await listDealerContacts(dealer.id);
       if (!cancelled) {
         setContacts(rows);
-        setDirectorHasMultiple(rows.some((c) => c.contact_area === "director"));
         setLoadingContacts(false);
       }
     })();
@@ -382,6 +389,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   const contactsByArea = (area: DealerContactArea) => contacts.filter((c) => c.contact_area === area);
 
   const addContact = (area: DealerContactArea) => {
+    if (area === "sales") set("sales_has_multiple", true);
+    if (area === "workshop") set("workshop_has_multiple", true);
     setContacts((prev) => [...prev, createLocalContact(dealer.id, area)]);
   };
   const patchContact = (id: string, patch: Partial<DealerContact>) =>
@@ -483,17 +492,6 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field id="company_name" label={t("companyName")} value={draft.company_name} onChange={() => {}} disabled required />
-          <div className="space-y-3">
-            <Field id="director_name" label={t("directorName")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
-            <YesNoToggle
-              label={t("directorMultiple")}
-              value={directorHasMultiple}
-              disabled={!canEdit}
-              onChange={setDirectorHasMultiple}
-              yes={t("yes")}
-              no={t("no")}
-            />
-          </div>
           <AddressField
             id="address_line_1"
             label={t("addressLine1")}
@@ -545,14 +543,24 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           <Field id="vat_number" label={t("vatNumber")} value={draft.vat_number} onChange={(v) => set("vat_number", v)} disabled={!canEdit} required />
           <Field id="phone" label={t("phone")} value={draft.phone} onChange={(v) => set("phone", v)} disabled={!canEdit} required />
           <Field id="email" label={t("email")} value={draft.email} onChange={(v) => set("email", v)} disabled={!canEdit} type="email" required />
+          <Field id="website" label={t("website")} value={draft.website} onChange={(v) => set("website", v)} disabled={!canEdit} required />
+          <Field id="social_facebook" label={t("facebook")} value={draft.social_facebook} onChange={(v) => set("social_facebook", v)} disabled={!canEdit} />
+          <Field id="social_linkedin" label={t("linkedin")} value={draft.social_linkedin} onChange={(v) => set("social_linkedin", v)} disabled={!canEdit} />
+          <Field id="social_tiktok" label={t("tiktok")} value={draft.social_tiktok} onChange={(v) => set("social_tiktok", v)} disabled={!canEdit} />
+          <Field id="social_youtube" label={t("youtube")} value={draft.social_youtube} onChange={(v) => set("social_youtube", v)} disabled={!canEdit} />
+          <Field id="social_instagram" label={t("instagram")} value={draft.social_instagram} onChange={(v) => set("social_instagram", v)} disabled={!canEdit} />
         </div>
-        {directorHasMultiple && (
-          <ContactList
-            area="director" t={t} roleKeys={ROLE_KEYS_DIRECTOR} canEdit={canEdit}
-            contacts={contactsByArea("director")} loading={loadingContacts}
-            onAdd={() => addContact("director")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
-          />
-        )}
+        <ProfileContactBlock title={`${t("contact")} 1`} roleLabel={t("roleDirector")} roleFieldLabel={t("role")} primaryLabel={t("area_primary")} primary>
+          <Field id="director_name" label={t("name")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
+          <Field id="director_email" label={t("email")} value={null} onChange={() => {}} disabled />
+          <Field id="director_phone" label={t("phone")} value={null} onChange={() => {}} disabled />
+        </ProfileContactBlock>
+        <ContactList
+          area="director" t={t} roleKeys={ROLE_KEYS_DIRECTOR} canEdit={canEdit}
+          contacts={contactsByArea("director")} loading={loadingContacts}
+          firstContactNumber={2}
+          onAdd={() => addContact("director")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+        />
       </SectionShell>
 
       {/* 2) Finance */}
@@ -561,101 +569,101 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         saving={savingSection === "finance"} canEdit={canEdit} t={t}
         onSave={() => void saveAllProfile("finance")}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field id="finance_contact_name" label={t("financeContactName")} value={draft.finance_contact_name} onChange={(v) => set("finance_contact_name", v)} disabled={!canEdit} required />
-          <Field id="finance_contact_email" label={t("financeEmail")} value={draft.finance_contact_email} onChange={(v) => set("finance_contact_email", v)} disabled={!canEdit} type="email" required />
+        <ProfileContactBlock
+          title={`${t("contact")} 1`}
+          roleLabel={t("roleFinanceManager")}
+          roleFieldLabel={t("role")}
+          primaryLabel={t("area_primary")}
+          primary
+        >
+          <Field id="finance_contact_name" label={t("name")} value={draft.finance_contact_name} onChange={(v) => set("finance_contact_name", v)} disabled={!canEdit} required />
+          <Field id="finance_contact_email" label={t("email")} value={draft.finance_contact_email} onChange={(v) => set("finance_contact_email", v)} disabled={!canEdit} type="email" required />
+          <Field id="finance_contact_phone" label={t("phone")} value={draft.finance_contact_phone} onChange={(v) => set("finance_contact_phone", v)} disabled={!canEdit} />
+        </ProfileContactBlock>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field id="invoice_email" label={t("invoiceEmail")} value={draft.invoice_email} onChange={(v) => set("invoice_email", v)} disabled={!canEdit} type="email" required />
-          <Field id="finance_contact_phone" label={t("financePhone")} value={draft.finance_contact_phone} onChange={(v) => set("finance_contact_phone", v)} disabled={!canEdit} />
           <Field id="payment_terms" label={t("paymentTerms")} value={draft.payment_terms} onChange={(v) => set("payment_terms", v)} disabled={!canEdit} />
           <Field id="currency_code" label={t("currencyCode")} value={draft.currency_code} onChange={(v) => set("currency_code", v)} disabled={!canEdit} />
         </div>
+        <ContactList
+          area="finance" t={t} roleKeys={ROLE_KEYS_FINANCE} canEdit={canEdit}
+          contacts={contactsByArea("finance")} loading={loadingContacts}
+          firstContactNumber={2}
+          onAdd={() => addContact("finance")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+        />
       </SectionShell>
 
-      {/* 3) Sales + Workshop side-by-side on lg+ */}
+      {/* 3) Purchasing/logistics + Sales side-by-side on lg+ */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        <SectionShell
+          skey="purchasing" title={t("sec3")} status={statusOf("purchasing")}
+          saving={savingSection === "purchasing"} canEdit={canEdit} t={t}
+          onSave={() => void saveAllProfile("purchasing")}
+        >
+          <ContactList
+            area="parts" t={t} roleKeys={ROLE_KEYS_PURCHASING} canEdit={canEdit}
+            contacts={contactsByArea("parts")} loading={loadingContacts}
+            onAdd={() => addContact("parts")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+          />
+        </SectionShell>
+
         {/* Sales */}
         <SectionShell
           skey="sales" title={t("sec4")} status={statusOf("sales")}
           saving={savingSection === "sales"} canEdit={canEdit} t={t}
           onSave={() => void saveAllProfile("sales")}
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field id="sales_contact_name"  label={t("salesContactName")} value={draft.sales_contact_name}  onChange={(v) => set("sales_contact_name", v)} disabled={!canEdit} required />
-            <Field id="sales_contact_phone" label={t("salesPhone")}       value={draft.sales_contact_phone} onChange={(v) => set("sales_contact_phone", v)} disabled={!canEdit} />
-            <Field id="sales_contact_email" label={t("salesEmail")}       value={draft.sales_contact_email} onChange={(v) => set("sales_contact_email", v)} disabled={!canEdit} type="email" required />
-          </div>
-          <YesNoToggle label={t("salesMultiple")} value={draft.sales_has_multiple} disabled={!canEdit}
-            onChange={(v) => set("sales_has_multiple", v)} yes={t("yes")} no={t("no")} />
-          {draft.sales_has_multiple && (
-            <ContactList
-              area="sales" t={t} roleKeys={ROLE_KEYS_SALES} canEdit={canEdit}
-              contacts={contactsByArea("sales")} loading={loadingContacts}
-              onAdd={() => addContact("sales")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
-            />
-          )}
+          <ProfileContactBlock title={`${t("contact")} 1`} roleLabel={t("roleSalesRep")} roleFieldLabel={t("role")} primaryLabel={t("area_primary")} primary>
+            <Field id="sales_contact_name" label={t("name")} value={draft.sales_contact_name} onChange={(v) => set("sales_contact_name", v)} disabled={!canEdit} required />
+            <Field id="sales_contact_email" label={t("email")} value={draft.sales_contact_email} onChange={(v) => set("sales_contact_email", v)} disabled={!canEdit} type="email" required />
+            <Field id="sales_contact_phone" label={t("phone")} value={draft.sales_contact_phone} onChange={(v) => set("sales_contact_phone", v)} disabled={!canEdit} />
+          </ProfileContactBlock>
+          <ContactList
+            area="sales" t={t} roleKeys={ROLE_KEYS_SALES} canEdit={canEdit}
+            contacts={contactsByArea("sales")} loading={loadingContacts}
+            firstContactNumber={2}
+            onAdd={() => addContact("sales")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+          />
         </SectionShell>
+      </div>
 
+      {/* 4) Workshop/service + Marketing side-by-side on lg+ */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         {/* Workshop & parts */}
         <SectionShell
           skey="workshop" title={t("sec5")} status={statusOf("workshop")}
           saving={savingSection === "workshop"} canEdit={canEdit} t={t}
           onSave={() => void saveAllProfile("workshop")}
         >
-          <div className="space-y-3">
-            <ContactBlock
-              title={`${t("contact")} 1`}
-              primaryControl={<Badge variant="secondary">{t("area_primary")}</Badge>}
-            >
-              <div>
-                <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("role")}</Label>
-                <Input value="" disabled placeholder="—" />
-              </div>
-              <Field id="workshop_contact_name" label={t("name")} value={draft.workshop_contact_name} onChange={(v) => set("workshop_contact_name", v)} disabled={!canEdit} required />
-              <Field id="workshop_contact_email" label={t("email")} value={draft.workshop_contact_email} onChange={(v) => set("workshop_contact_email", v)} disabled={!canEdit} type="email" required />
-              <Field id="workshop_contact_phone" label={t("phone")} value={draft.workshop_contact_phone} onChange={(v) => set("workshop_contact_phone", v)} disabled={!canEdit} />
-            </ContactBlock>
-          </div>
-          <YesNoToggle label={t("workshopMultiple")} value={draft.workshop_has_multiple} disabled={!canEdit}
-            onChange={(v) => set("workshop_has_multiple", v)} yes={t("yes")} no={t("no")} />
-          {draft.workshop_has_multiple && (
-            <ContactList
-              area="workshop" t={t} roleKeys={ROLE_KEYS_WORKSHOP} canEdit={canEdit}
-              contacts={contactsByArea("workshop")} loading={loadingContacts}
-              onAdd={() => addContact("workshop")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
-            />
-          )}
+          <ProfileContactBlock title={`${t("contact")} 1`} roleLabel={t("roleWorkshopManager")} roleFieldLabel={t("role")} primaryLabel={t("area_primary")} primary>
+            <Field id="workshop_contact_name" label={t("name")} value={draft.workshop_contact_name} onChange={(v) => set("workshop_contact_name", v)} disabled={!canEdit} required />
+            <Field id="workshop_contact_email" label={t("email")} value={draft.workshop_contact_email} onChange={(v) => set("workshop_contact_email", v)} disabled={!canEdit} type="email" required />
+            <Field id="workshop_contact_phone" label={t("phone")} value={draft.workshop_contact_phone} onChange={(v) => set("workshop_contact_phone", v)} disabled={!canEdit} />
+          </ProfileContactBlock>
+          <ContactList
+            area="workshop" t={t} roleKeys={ROLE_KEYS_WORKSHOP} canEdit={canEdit}
+            contacts={contactsByArea("workshop")} loading={loadingContacts}
+            firstContactNumber={2}
+            onAdd={() => addContact("workshop")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+          />
         </SectionShell>
-      </div>
-
-      {/* 4) Marketing + Media side-by-side on lg+ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
         {/* Marketing */}
         <SectionShell
           skey="marketing" title={t("sec6")} status={statusOf("marketing")}
           saving={savingSection === "marketing"} canEdit={canEdit} t={t}
           onSave={() => void saveAllProfile("marketing")}
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field id="marketing_contact_name"  label={t("marketingContactName")} value={draft.marketing_contact_name}  onChange={(v) => set("marketing_contact_name", v)} disabled={!canEdit} required />
-            <Field id="marketing_contact_phone" label={t("marketingPhone")}       value={draft.marketing_contact_phone} onChange={(v) => set("marketing_contact_phone", v)} disabled={!canEdit} />
-            <Field id="marketing_contact_email" label={t("marketingEmail")}       value={draft.marketing_contact_email} onChange={(v) => set("marketing_contact_email", v)} disabled={!canEdit} type="email" required />
-          </div>
-        </SectionShell>
-
-        {/* Media */}
-        <SectionShell
-          skey="media" title={t("sec3")} status={statusOf("media")}
-          saving={savingSection === "media"} canEdit={canEdit} t={t}
-          onSave={() => void saveAllProfile("media")}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field id="website" label={t("website")} value={draft.website} onChange={(v) => set("website", v)} disabled={!canEdit} required />
-            <Field id="social_facebook"  label={t("facebook")}  value={draft.social_facebook}  onChange={(v) => set("social_facebook", v)} disabled={!canEdit} />
-            <Field id="social_linkedin"  label={t("linkedin")}  value={draft.social_linkedin}  onChange={(v) => set("social_linkedin", v)} disabled={!canEdit} />
-            <Field id="social_tiktok"    label={t("tiktok")}    value={draft.social_tiktok}    onChange={(v) => set("social_tiktok", v)} disabled={!canEdit} />
-            <Field id="social_youtube"   label={t("youtube")}   value={draft.social_youtube}   onChange={(v) => set("social_youtube", v)} disabled={!canEdit} />
-            <Field id="social_instagram" label={t("instagram")} value={draft.social_instagram} onChange={(v) => set("social_instagram", v)} disabled={!canEdit} />
-          </div>
+          <ProfileContactBlock title={`${t("contact")} 1`} roleLabel={t("roleMarketingManager")} roleFieldLabel={t("role")} primaryLabel={t("area_primary")} primary>
+            <Field id="marketing_contact_name" label={t("name")} value={draft.marketing_contact_name} onChange={(v) => set("marketing_contact_name", v)} disabled={!canEdit} required />
+            <Field id="marketing_contact_email" label={t("email")} value={draft.marketing_contact_email} onChange={(v) => set("marketing_contact_email", v)} disabled={!canEdit} type="email" required />
+            <Field id="marketing_contact_phone" label={t("phone")} value={draft.marketing_contact_phone} onChange={(v) => set("marketing_contact_phone", v)} disabled={!canEdit} />
+          </ProfileContactBlock>
+          <ContactList
+            area="marketing" t={t} roleKeys={ROLE_KEYS_MARKETING} canEdit={canEdit}
+            contacts={contactsByArea("marketing")} loading={loadingContacts}
+            firstContactNumber={2}
+            onAdd={() => addContact("marketing")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+          />
         </SectionShell>
       </div>
     </div>
@@ -726,6 +734,35 @@ function ContactBlock({
         {children}
       </div>
     </div>
+  );
+}
+
+function ProfileContactBlock({
+  title,
+  roleLabel,
+  roleFieldLabel,
+  primaryLabel,
+  primary,
+  children,
+}: {
+  title: string;
+  roleLabel: string;
+  roleFieldLabel: string;
+  primaryLabel: string;
+  primary?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <ContactBlock
+      title={title}
+      primaryControl={primary ? <Badge variant="secondary">{primaryLabel}</Badge> : undefined}
+    >
+      <div>
+        <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{roleFieldLabel}</Label>
+        <Input value={roleLabel} disabled />
+      </div>
+      {children}
+    </ContactBlock>
   );
 }
 
@@ -828,7 +865,7 @@ function PrimaryContactCheckbox({
 }
 
 function ContactList({
-  area, t, roleKeys, contacts, loading, canEdit,
+  area, t, roleKeys, contacts, loading, canEdit, firstContactNumber = 1,
   onAdd, onPatch, onSave, onRemove, onSetPrimary,
 }: {
   area: DealerContactArea;
@@ -837,6 +874,7 @@ function ContactList({
   contacts: DealerContact[];
   loading: boolean;
   canEdit: boolean;
+  firstContactNumber?: number;
   onAdd: () => void;
   onPatch: (id: string, patch: Partial<DealerContact>) => void;
   onSave: (c: DealerContact) => void;
@@ -847,10 +885,10 @@ function ContactList({
     <div className="space-y-3 border-t pt-3">
       {loading && <p className="text-xs text-slate-500">…</p>}
       {!loading && contacts.length === 0 && <p className="text-xs text-slate-500">—</p>}
-      {contacts.map((c, index) => area === "workshop" ? (
+      {contacts.map((c, index) => (
         <ContactBlock
           key={c.id}
-          title={`${t("contact")} ${index + 2}`}
+          title={`${t("contact")} ${index + firstContactNumber}`}
           primaryControl={c.is_primary ? <Badge variant="secondary">{t("area_primary")}</Badge> : undefined}
           removeControl={
             canEdit ? (
@@ -865,37 +903,6 @@ function ContactList({
             <PrimaryContactCheckbox area={area} contact={c} t={t} canEdit={canEdit} onSetPrimary={onSetPrimary} />
           </div>
         </ContactBlock>
-      ) : (
-        <div key={c.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
-          <div className="md:col-span-3">
-            <RoleSelect contact={c} t={t} roleKeys={roleKeys} canEdit={canEdit} onPatch={onPatch} onSave={onSave} />
-          </div>
-          <div className="md:col-span-3">
-            <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("name")}</Label>
-            <Input value={c.name ?? ""} disabled={!canEdit}
-              onChange={(e) => onPatch(c.id, { name: e.target.value })} onBlur={() => onSave(c)} />
-          </div>
-          <div className="md:col-span-3">
-            <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("email")}</Label>
-            <Input type="email" value={c.email ?? ""} disabled={!canEdit}
-              onChange={(e) => onPatch(c.id, { email: e.target.value })} onBlur={() => onSave(c)} />
-          </div>
-          <div className="md:col-span-2">
-            <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("phone")}</Label>
-            <Input value={c.phone ?? ""} disabled={!canEdit}
-              onChange={(e) => onPatch(c.id, { phone: e.target.value })} onBlur={() => onSave(c)} />
-          </div>
-          <div className="md:col-span-1 flex justify-end">
-            {canEdit && (
-              <Button size="icon" variant="ghost" onClick={() => onRemove(c.id)} aria-label={t("removePerson")}>
-                <Trash2 className="h-4 w-4 text-rose-600" />
-              </Button>
-            )}
-          </div>
-          <div className="md:col-span-12">
-            <PrimaryContactCheckbox area={area} contact={c} t={t} canEdit={canEdit} onSetPrimary={onSetPrimary} />
-          </div>
-        </div>
       ))}
       {canEdit && (
         <Button size="sm" variant="outline" onClick={onAdd}>
