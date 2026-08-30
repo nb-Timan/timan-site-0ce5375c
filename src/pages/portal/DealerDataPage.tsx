@@ -5,7 +5,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { Building2, Hash, User, FileText, Package, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Building2, CheckCircle2, Clock, FileText, Hash, Package, User, Wrench, XCircle } from 'lucide-react';
 
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -14,6 +14,7 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 import {
   fetchDealerAccountByNumber,
@@ -30,6 +31,12 @@ import {
 import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { buildJournalScope } from '@/lib/machineJournalScope';
+import {
+  getDemoOverviewMachines,
+  listDealerMachineRegister,
+  type DealerMachineRegisterRow,
+} from '@/lib/dealerMachineRegisterService';
 
 import { supabase } from '@/lib/supabase';
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
@@ -95,6 +102,29 @@ const T = {
   unknown:      { da: 'Ukendt', en: 'Unknown', de: 'Unbekannt', it: 'Sconosciuto', hu: 'Ismeretlen' },
   openQuotes:   { da: 'Åbne tilbud', en: 'Open quotes', de: 'Offene Angebote', it: 'Preventivi aperti', hu: 'Nyitott árajánlatok' },
   orders:       { da: 'Ordrer', en: 'Orders', de: 'Aufträge', it: 'Ordini', hu: 'Rendelések' },
+  overview:     { da: 'Overblik', en: 'Overview', de: 'Übersicht', it: 'Panoramica', hu: 'Áttekintés' },
+  documents:    { da: 'Dokumenter', en: 'Documents', de: 'Dokumente', it: 'Documenti', hu: 'Dokumentumok' },
+  machines:     { da: 'Maskiner', en: 'Machines', de: 'Maschinen', it: 'Macchine', hu: 'Gépek' },
+  demoMachines: { da: 'Demo-maskiner', en: 'Demo machines', de: 'Demomaschinen', it: 'Macchine demo', hu: 'Demógépek' },
+  demoNone:     { da: 'Ingen aktive demo-opmærksomheder.', en: 'No active demo attention items.', de: 'Keine aktiven Demo-Hinweise.', it: 'Nessuna demo da evidenziare.', hu: 'Nincs aktív demó figyelmeztetés.' },
+  viewMachines: { da: 'Se maskiner', en: 'View machines', de: 'Maschinen anzeigen', it: 'Vedi macchine', hu: 'Gépek megtekintése' },
+  all:          { da: 'Alle', en: 'All', de: 'Alle', it: 'Tutte', hu: 'Összes' },
+  serial:       { da: 'Serienummer', en: 'Serial number', de: 'Seriennummer', it: 'Numero di serie', hu: 'Sorozatszám' },
+  model:        { da: 'Model/type', en: 'Model/type', de: 'Modell/Typ', it: 'Modello/tipo', hu: 'Modell/típus' },
+  orderNo:      { da: 'Ordrenr.', en: 'Order no.', de: 'Auftragsnr.', it: 'N. ordine', hu: 'Rendelésszám' },
+  delivery:     { da: 'Levering', en: 'Delivery', de: 'Lieferung', it: 'Consegna', hu: 'Szállítás' },
+  customer:     { da: 'Kunde', en: 'Customer', de: 'Kunde', it: 'Cliente', hu: 'Ügyfél' },
+  warranty:     { da: 'Garanti/SP', en: 'Warranty/SP', de: 'Garantie/SP', it: 'Garanzia/SP', hu: 'Garancia/SP' },
+  lifecycle:    { da: 'Lifecycle-status', en: 'Lifecycle status', de: 'Lifecycle-Status', it: 'Stato lifecycle', hu: 'Életciklus állapot' },
+  normalMachine:{ da: 'Normal', en: 'Normal', de: 'Normal', it: 'Normale', hu: 'Normál' },
+  activeDemo:   { da: 'Aktiv demo', en: 'Active demo', de: 'Aktive Demo', it: 'Demo attiva', hu: 'Aktív demó' },
+  readySale:    { da: 'Klar til salg', en: 'Ready for sale', de: 'Verkaufsbereit', it: 'Pronta per la vendita', hu: 'Eladásra kész' },
+  soldEarly:    { da: 'Solgt før tilladt dato', en: 'Sold before allowed date', de: 'Vor erlaubtem Datum verkauft', it: 'Venduta prima della data consentita', hu: 'Engedélyezett dátum előtt eladva' },
+  soldRegistered:{ da: 'Solgt/garantiregistreret', en: 'Sold/warranty registered', de: 'Verkauft/garantieregistriert', it: 'Venduta/registrata in garanzia', hu: 'Eladva/garanciára regisztrálva' },
+  deliveryMissing:{ da: 'Demo - leveringsdato mangler', en: 'Demo - delivery date missing', de: 'Demo - Lieferdatum fehlt', it: 'Demo - data consegna mancante', hu: 'Demó - szállítási dátum hiányzik' },
+  daysLeft:     { da: 'dage tilbage', en: 'days left', de: 'Tage verbleiben', it: 'giorni rimanenti', hu: 'nap van hátra' },
+  daysEarly:    { da: 'dage før tid', en: 'days early', de: 'Tage zu früh', it: 'giorni in anticipo', hu: 'nappal korábban' },
+  after9Months: { da: 'efter 9 mdr.', en: 'after 9 months', de: 'nach 9 Monaten', it: 'dopo 9 mesi', hu: '9 hónap után' },
   noEntries:    { da: 'Ingen poster.', en: 'No entries.', de: 'Keine Einträge.', it: 'Nessuna voce.', hu: 'Nincs bejegyzés.' },
   number:       { da: 'Nr.', en: 'No.', de: 'Nr.', it: 'N.', hu: 'Sz.' },
   title:        { da: 'Titel', en: 'Title', de: 'Titel', it: 'Titolo', hu: 'Cím' },
@@ -173,7 +203,10 @@ export default function DealerDataPage() {
   const [submissions, setSubmissions] = useState<PortalFormSubmission[]>([]);
   const [quotes, setQuotes] = useState<CrmConfigurationRow[]>([]);
   const [orders, setOrders] = useState<CrmConfigurationRow[]>([]);
+  const [machines, setMachines] = useState<DealerMachineRegisterRow[]>([]);
+  const [machineStatusFilter, setMachineStatusFilter] = useState<'all' | 'demo_attention'>('all');
   const [accountOwnerLabel, setAccountOwnerLabel] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -188,6 +221,7 @@ export default function DealerDataPage() {
       setSubmissions([]);
       setQuotes([]);
       setOrders([]);
+      setMachines([]);
       setAccountOwnerLabel(null);
       setLoadingData(false);
       return;
@@ -242,6 +276,14 @@ export default function DealerDataPage() {
           setContacts([]);
         }
 
+        if (dealerRes.row) {
+          const machineScope = await buildJournalScope(effectiveUser, portalRole);
+          const rows = await listDealerMachineRegister(dealerRes.row, machineScope);
+          if (!cancelled) setMachines(rows);
+        } else {
+          setMachines([]);
+        }
+
       } catch (e) {
         if (!cancelled) setError(toErrorText(e));
       } finally {
@@ -250,7 +292,7 @@ export default function DealerDataPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [dealerNumber, portalRole]);
+  }, [dealerNumber, effectiveUser, portalRole]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
@@ -278,6 +320,10 @@ export default function DealerDataPage() {
   }
 
   const dealerName = dealer?.company_name || effectiveUser?.company_dealer || '—';
+  const demoOverviewMachines = useMemo(() => getDemoOverviewMachines(machines), [machines]);
+  const displayedMachines = useMemo(() => (
+    machineStatusFilter === 'demo_attention' ? demoOverviewMachines : machines
+  ), [demoOverviewMachines, machineStatusFilter, machines]);
 
   // Status label for dealer_invoice_accept submissions
   const acceptLabel = (payload: Record<string, unknown>): { label: string; tone: 'ok' | 'warn' | 'no' } => {
@@ -380,7 +426,25 @@ export default function DealerDataPage() {
         )}
 
         {dealer && (
-          <>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList className="flex flex-wrap h-auto bg-transparent p-0 border-b border-slate-200 rounded-none gap-1 w-full justify-start">
+              {([
+                ['overview', T.overview[lang]],
+                ['users', `${T.users[lang]} (${users.length + contacts.length})`],
+                ['documents', T.documents[lang]],
+                ['machines', `${T.machines[lang]} (${machines.length})`],
+              ] as const).map(([key, label]) => (
+                <TabsTrigger
+                  key={key}
+                  value={key}
+                  className="rounded-none border-b-2 border-transparent bg-transparent px-4 py-2 text-sm font-semibold text-slate-600 shadow-none data-[state=active]:border-slate-900 data-[state=active]:bg-transparent data-[state=active]:text-slate-950 data-[state=active]:shadow-none"
+                >
+                  {label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+
+            <TabsContent value="overview" className="mt-0 space-y-4">
             {/* 1) Stamdata (read-only) */}
             <Card>
               <CardHeader>
@@ -398,6 +462,27 @@ export default function DealerDataPage() {
               </CardContent>
             </Card>
 
+            <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-4 items-start">
+              {/* 3) Dealer profile (Phase 52 — self-service) */}
+              <DealerProfileEditor
+                dealer={dealer}
+                language={lang}
+                canEdit={canEditProfile}
+                onUpdated={(next) => setDealer(next)}
+              />
+              <DemoMachinesWidget
+                rows={demoOverviewMachines}
+                lang={lang}
+                t={T}
+                onOpenMachines={() => {
+                  setMachineStatusFilter('demo_attention');
+                  setActiveTab('machines');
+                }}
+              />
+            </div>
+            </TabsContent>
+
+            <TabsContent value="users" className="mt-0 space-y-4">
             {/* 2) Registrerede brugere — portal users + dealer_contacts deduped */}
             <Card id="users" className="scroll-mt-24">
               <CardHeader>
@@ -410,17 +495,9 @@ export default function DealerDataPage() {
                 <RegisteredUsersTable portalUsers={users} contacts={contacts} language={lang} />
               </CardContent>
             </Card>
+            </TabsContent>
 
-            {/* 3) Dealer profile (Phase 52 — self-service) */}
-            <DealerProfileEditor
-              dealer={dealer}
-              language={lang}
-              canEdit={canEditProfile}
-              onUpdated={(next) => setDealer(next)}
-            />
-
-
-
+            <TabsContent value="documents" className="mt-0 space-y-4">
             {/* 4) Forhandler accept / Fakturering */}
             <Card>
               <CardHeader>
@@ -495,7 +572,19 @@ export default function DealerDataPage() {
               lang={lang}
               t={T}
             />
-          </>
+            </TabsContent>
+
+            <TabsContent value="machines" className="mt-0 space-y-4">
+              <MachineRegisterTable
+                rows={displayedMachines}
+                allCount={machines.length}
+                filter={machineStatusFilter}
+                onFilterChange={setMachineStatusFilter}
+                lang={lang}
+                t={T}
+              />
+            </TabsContent>
+          </Tabs>
         )}
       </main>
 
@@ -512,6 +601,192 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
       <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
       <div className="text-sm text-slate-900 font-medium">{value}</div>
     </div>
+  );
+}
+
+function lifecycleMeta(row: DealerMachineRegisterRow, lang: Language, t: typeof T) {
+  switch (row.lifecycle) {
+    case 'active_demo':
+      return {
+        label: t.activeDemo[lang],
+        detail: row.daysRemaining != null ? `${row.daysRemaining} ${t.daysLeft[lang]}` : null,
+        badge: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
+        icon: <Clock className="h-3.5 w-3.5" />,
+      };
+    case 'ready_for_sale':
+      return {
+        label: t.readySale[lang],
+        detail: row.demoSaleEligibleAt ? `${t.after9Months[lang]}: ${fmtDate(row.demoSaleEligibleAt, lang)}` : null,
+        badge: 'bg-emerald-100 text-emerald-800 hover:bg-emerald-100',
+        icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+      };
+    case 'sold_early':
+      return {
+        label: t.soldEarly[lang],
+        detail: row.daysSoldEarly != null ? `${row.daysSoldEarly} ${t.daysEarly[lang]}` : null,
+        badge: 'bg-rose-100 text-rose-800 hover:bg-rose-100',
+        icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      };
+    case 'sold_registered':
+      return {
+        label: t.soldRegistered[lang],
+        detail: row.warrantyRegistrationDate ? fmtDate(row.warrantyRegistrationDate, lang) : null,
+        badge: 'bg-slate-100 text-slate-700 hover:bg-slate-100',
+        icon: <CheckCircle2 className="h-3.5 w-3.5" />,
+      };
+    case 'demo_missing_delivery':
+      return {
+        label: t.deliveryMissing[lang],
+        detail: null,
+        badge: 'bg-amber-100 text-amber-800 hover:bg-amber-100',
+        icon: <AlertTriangle className="h-3.5 w-3.5" />,
+      };
+    default:
+      return {
+        label: t.normalMachine[lang],
+        detail: null,
+        badge: 'bg-slate-100 text-slate-700 hover:bg-slate-100',
+        icon: null,
+      };
+  }
+}
+
+function DemoMachinesWidget({
+  rows, lang, t, onOpenMachines,
+}: {
+  rows: DealerMachineRegisterRow[];
+  lang: Language;
+  t: typeof T;
+  onOpenMachines: () => void;
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg flex items-center gap-2">
+          <Wrench className="h-5 w-5 text-slate-500" /> {t.demoMachines[lang]}
+          <Badge variant="secondary" className="ml-1">{rows.length}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {rows.length === 0 ? (
+          <p className="text-sm text-slate-500">{t.demoNone[lang]}</p>
+        ) : (
+          <div className="space-y-2">
+            {rows.slice(0, 4).map((row) => {
+              const meta = lifecycleMeta(row, lang, t);
+              return (
+                <div key={row.normalizedSerial} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-mono text-sm font-semibold text-slate-900">{row.serial}</div>
+                      <div className="text-xs text-slate-500">{row.machineModel || row.machineType || '—'}</div>
+                    </div>
+                    <Badge className={`${meta.badge} inline-flex gap-1`}>
+                      {meta.icon}{meta.label}
+                    </Badge>
+                  </div>
+                  {meta.detail && <div className="mt-1 text-xs text-slate-600">{meta.detail}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={onOpenMachines}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          {t.viewMachines[lang]}
+        </button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function MachineRegisterTable({
+  rows, allCount, filter, onFilterChange, lang, t,
+}: {
+  rows: DealerMachineRegisterRow[];
+  allCount: number;
+  filter: 'all' | 'demo_attention';
+  onFilterChange: (next: 'all' | 'demo_attention') => void;
+  lang: Language;
+  t: typeof T;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Wrench className="h-5 w-5 text-slate-500" /> {t.machines[lang]}
+            <Badge variant="secondary" className="ml-1">{allCount}</Badge>
+          </CardTitle>
+          <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => onFilterChange('all')}
+              className={`rounded-md px-3 py-1.5 font-semibold ${filter === 'all' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
+            >
+              {t.all[lang]}
+            </button>
+            <button
+              type="button"
+              onClick={() => onFilterChange('demo_attention')}
+              className={`rounded-md px-3 py-1.5 font-semibold ${filter === 'demo_attention' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-600 hover:text-slate-950'}`}
+            >
+              {t.demoMachines[lang]}
+            </button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="text-sm text-slate-500">{t.noEntries[lang]}</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-xs uppercase text-slate-500 border-b">
+                <tr>
+                  <th className="py-2 pr-4">{t.serial[lang]}</th>
+                  <th className="py-2 pr-4">{t.model[lang]}</th>
+                  <th className="py-2 pr-4">{t.orderNo[lang]}</th>
+                  <th className="py-2 pr-4">{t.delivery[lang]}</th>
+                  <th className="py-2 pr-4">{t.dealerType[lang]}</th>
+                  <th className="py-2 pr-4">{t.customer[lang]}</th>
+                  <th className="py-2 pr-4">{t.warranty[lang]}</th>
+                  <th className="py-2 pr-4">{t.lifecycle[lang]}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const meta = lifecycleMeta(row, lang, t);
+                  return (
+                    <tr key={row.normalizedSerial} className="border-b last:border-0 align-top">
+                      <td className="py-2 pr-4 font-mono font-semibold whitespace-nowrap">{row.serial}</td>
+                      <td className="py-2 pr-4">{row.machineModel || row.machineType || '—'}</td>
+                      <td className="py-2 pr-4 whitespace-nowrap">{row.orderNumber || '—'}</td>
+                      <td className="py-2 pr-4 whitespace-nowrap">{fmtDate(row.deliveryDate, lang)}</td>
+                      <td className="py-2 pr-4">{row.machineKind === 'demo' ? 'Demo' : t.normalMachine[lang]}</td>
+                      <td className="py-2 pr-4">{row.customerName || '—'}</td>
+                      <td className="py-2 pr-4">
+                        <div>{row.warrantyCertificate || '—'}</div>
+                        {row.warrantyRegistrationDate && <div className="text-xs text-slate-500">{fmtDate(row.warrantyRegistrationDate, lang)}</div>}
+                      </td>
+                      <td className="py-2 pr-4">
+                        <Badge className={`${meta.badge} inline-flex gap-1`}>
+                          {meta.icon}{meta.label}
+                        </Badge>
+                        {meta.detail && <div className="mt-1 text-xs text-slate-500">{meta.detail}</div>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
