@@ -2287,22 +2287,22 @@ function Appendix2DiscountSection({ partnerType, language }: { partnerType: Cont
             </div>
           </div>
 
-          <div className="hidden min-w-0 grid-cols-[0.78fr_1.48fr_1.13fr_1.16fr] gap-3 border-b-2 border-[#2f711c] pb-4 pt-1 text-center text-sm font-bold text-gray-950 md:grid lg:text-base">
+          <div className="hidden min-w-0 grid-cols-[0.82fr_1.4fr_1.13fr_1.16fr] gap-2 border-b-2 border-[#2f711c] pb-4 pt-1 text-center text-sm font-bold text-gray-950 md:grid lg:text-base">
             <p>{labels.baseDiscount}</p>
             <p>{labels.quantityDiscount}</p>
             <p>{labels.deliveryDiscount}</p>
             <p>{labels.demoDiscount}</p>
           </div>
 
-          <div className="grid min-w-0 grid-cols-1 items-stretch gap-5 py-5 md:grid-cols-[0.78fr_1.48fr_1.13fr_1.16fr] md:items-center md:gap-3 lg:gap-4">
+          <div className="grid min-w-0 grid-cols-1 items-stretch gap-5 py-5 md:grid-cols-[0.82fr_1.4fr_1.13fr_1.16fr] md:items-center md:gap-2 lg:gap-2">
             <div className="min-w-0">
               <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">{labels.baseDiscount}</p>
-              <div className="flex min-w-0 items-center justify-center gap-3">
+              <div className="relative flex min-w-0 items-center justify-start md:justify-center">
                 <div className="flex aspect-square w-full max-w-28 flex-col items-center justify-center rounded-full border border-[#79a45e] bg-[#fbfdf9] text-center md:max-w-24 lg:max-w-28 xl:max-w-[7.5rem]">
                   <p className="text-3xl font-black leading-none text-[#36780f] md:text-2xl lg:text-[2rem]">25%</p>
                   <p className="mt-2 px-2 text-sm font-semibold leading-tight text-gray-950 md:text-xs">{labels.baseDiscountLabel}</p>
                 </div>
-                <div className="hidden text-2xl font-light text-[#36780f] md:block lg:text-3xl">→</div>
+                <div className="hidden absolute right-[-0.15rem] top-1/2 -translate-y-1/2 text-xl font-light text-[#36780f] md:block lg:text-2xl">→</div>
               </div>
             </div>
 
@@ -2318,13 +2318,13 @@ function Appendix2DiscountSection({ partnerType, language }: { partnerType: Cont
                   <text x="266" y="52" textAnchor="middle" className="fill-gray-950 text-[15px] font-semibold">{labels.fourPlusPieces}</text>
                   <text x="266" y="100" textAnchor="middle" className="fill-[#36780f] text-[23px] font-black">+4%</text>
                 </svg>
-                <div className="hidden absolute right-[-0.35rem] top-1/2 -translate-y-1/2 text-2xl font-light text-[#36780f] md:block lg:text-3xl">→</div>
+                <div className="hidden absolute right-[-0.15rem] top-1/2 -translate-y-1/2 text-xl font-light text-[#36780f] md:block lg:text-2xl">→</div>
               </div>
             </div>
 
             <div className="min-w-0">
               <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">{labels.deliveryDiscount}</p>
-              <div className="flex min-w-0 items-center justify-center gap-2">
+              <div className="relative flex min-w-0 items-center justify-center">
                 <div className="flex w-full min-w-0 flex-col items-center justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-3 py-5 text-center md:min-h-52 lg:min-h-56">
                   <div className="relative flex aspect-square w-32 items-center justify-center rounded-full border border-[#79a45e] md:w-32 lg:w-[8.25rem]">
                     <div className="px-2 text-center">
@@ -2335,7 +2335,7 @@ function Appendix2DiscountSection({ partnerType, language }: { partnerType: Cont
                   </div>
                   <p className="mt-4 max-w-[10rem] text-[11px] font-medium leading-4 text-gray-950 lg:text-xs">{labels.deliveryExplanation}</p>
                 </div>
-                <div className="hidden text-2xl font-light text-[#36780f] md:block lg:text-3xl">→</div>
+                <div className="hidden absolute right-[-0.15rem] top-1/2 -translate-y-1/2 text-xl font-light text-[#36780f] md:block lg:text-2xl">→</div>
               </div>
             </div>
 
