@@ -7,12 +7,15 @@ export const PORTAL_HOME_AREA_ORDER = [
   'marketing',
   'teknik_service',
   'calendar',
+  'projects',
   'messe',
   'timan_backend',
 ] as const;
 
+export type PortalHomeAreaOrderId = (typeof PORTAL_HOME_AREA_ORDER)[number];
+
 export type PortalHomeCard =
-  | { kind: 'area'; id: PortalArea['id']; area?: PortalArea }
+  | { kind: 'area'; id: PortalArea['id'] | 'projects'; area?: PortalArea }
   | { kind: 'messe'; id: 'messe' };
 
 export function sortPortalHomeCards<T extends PortalHomeCard>(cards: T[]): T[] {

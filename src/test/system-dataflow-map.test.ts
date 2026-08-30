@@ -13,8 +13,11 @@ import {
   systemMapEdges,
   systemMapNodes,
   systemOverviewLines,
+  SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_BY_AREA,
+  SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_IDS,
   type SystemMapNodeId,
 } from "@/lib/systemDataflowMap";
+import { PORTAL_HOME_AREA_ORDER } from "@/lib/portalHomeOrder";
 
 describe("Backend system dataflow map", () => {
   function expectNoCenterCollisions(nodeIds: SystemMapNodeId[], zoom: number, minDistance: number) {
@@ -43,6 +46,28 @@ describe("Backend system dataflow map", () => {
     expect(ids.has("messe")).toBe(true);
     expect(ids.has("import")).toBe(true);
     expect(ids.has("system_admin")).toBe(true);
+  });
+
+  it("uses portal home order as the first System-overblik module ring", () => {
+    expect(SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_IDS).toEqual([
+      "sales",
+      "dealer_data",
+      "crm",
+      "marketing",
+      "service",
+      "calendar",
+      "projects",
+      "messe",
+      "system_admin",
+    ]);
+    expect(Object.keys(SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_BY_AREA)).toEqual([...PORTAL_HOME_AREA_ORDER]);
+
+    expect(findSystemMapNode("sales").title).toBe("Salg");
+    expect(findSystemMapNode("dealer_data").title).toBe("Partnerdata");
+    expect(findSystemMapNode("crm").title).toBe("Timan CRM");
+    expect(findSystemMapNode("service").title).toBe("Teknik & Service");
+    expect(findSystemMapNode("messe").title).toBe("Timan Messe");
+    expect(findSystemMapNode("system_admin").title).toBe("Timan Backend");
   });
 
   it("contains the expected real integrations", () => {

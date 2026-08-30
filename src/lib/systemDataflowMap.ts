@@ -34,6 +34,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import { PORTAL_HOME_AREA_ORDER, type PortalHomeAreaOrderId } from "@/lib/portalHomeOrder";
 import { SYSTEM_DNA_INITIAL_ZOOM, SYSTEM_DNA_MAX_ZOOM } from "@/lib/systemDnaViewport";
 
 export type SystemMapNodeKind = "portal" | "module" | "feature" | "data" | "technical" | "integration" | "process" | "tool";
@@ -132,7 +133,7 @@ const baseNodes: SystemMapNode[] = [
   },
   {
     id: "crm",
-    title: "CRM / Leads",
+    title: "Timan CRM",
     subtitle: "Leads, demoer og pipeline",
     kind: "module",
     area: "crm",
@@ -208,7 +209,7 @@ const baseNodes: SystemMapNode[] = [
   },
   {
     id: "service",
-    title: "Service",
+    title: "Teknik & Service",
     subtitle: "Warranty, TSB og maskiner",
     kind: "module",
     area: "service",
@@ -265,7 +266,7 @@ const baseNodes: SystemMapNode[] = [
   },
   {
     id: "messe",
-    title: "Messe",
+    title: "Timan Messe",
     subtitle: "QR-flow og messeleads",
     kind: "module",
     area: "messe",
@@ -303,7 +304,7 @@ const baseNodes: SystemMapNode[] = [
   },
   {
     id: "system_admin",
-    title: "System & Admin",
+    title: "Timan Backend",
     subtitle: "Brugere, roller og audit",
     kind: "module",
     area: "system",
@@ -318,9 +319,25 @@ const baseNodes: SystemMapNode[] = [
     receivesFrom: ["Supabase Auth", "Brugereditor", "Portal tracking"],
     sendsTo: ["Access-resolver", "Audit Log", "Portal Analytics"],
     integrations: ["Supabase"],
-    explanation: "System & Admin styrer brugere, roller, moduladgang, audit log og brugeraktivitet.",
+    explanation: "Timan Backend styrer brugere, roller, moduladgang, audit log og brugeraktivitet.",
   },
 ];
+
+export const SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_BY_AREA: Record<PortalHomeAreaOrderId, SystemMapNodeId> = {
+  salg_marketing: "sales",
+  dealer_data: "dealer_data",
+  timan_crm: "crm",
+  marketing: "marketing",
+  teknik_service: "service",
+  calendar: "calendar",
+  projects: "projects",
+  messe: "messe",
+  timan_backend: "system_admin",
+};
+
+export const SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_IDS: SystemMapNodeId[] = PORTAL_HOME_AREA_ORDER.map(
+  (areaId) => SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_BY_AREA[areaId],
+);
 
 const integrationNodes: SystemMapNode[] = [
   {

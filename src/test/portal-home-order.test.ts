@@ -21,6 +21,7 @@ describe('portal home module order', () => {
       'marketing',
       'timan_backend',
       'dealer_data',
+      'projects',
       'messe',
       'timan_crm',
     ]))).toEqual([
@@ -30,6 +31,7 @@ describe('portal home module order', () => {
       'marketing',
       'teknik_service',
       'calendar',
+      'projects',
       'messe',
       'timan_backend',
     ]);
@@ -42,6 +44,7 @@ describe('portal home module order', () => {
       'teknik_service',
       'salg_marketing',
       'dealer_data',
+      'projects',
       'messe',
     ]))).toEqual([
       'salg_marketing',
@@ -49,6 +52,7 @@ describe('portal home module order', () => {
       'timan_crm',
       'teknik_service',
       'calendar',
+      'projects',
       'messe',
     ]);
   });

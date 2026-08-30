@@ -53,6 +53,7 @@ import {
   getSystemMapChildren,
   getVisibleSystemDnaNodes,
   SYSTEM_DNA_ZOOM_LEVELS,
+  SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_IDS,
   systemOverviewLines,
   systemDnaEdges,
   systemDnaNodes,
@@ -164,31 +165,32 @@ const COLOR_CLASSES: Record<
   },
 };
 
-const OVERVIEW_NODE_IDS = ["crm", "sales", "marketing", "dealer_data", "service", "calendar", "projects", "messe", "import", "system_admin"];
+const OVERVIEW_NODE_IDS = SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_IDS;
+const SUPPORT_NODE_IDS = ["import"];
 const INPUT_NODE_IDS = ["sharepoint", "microsoft_365", "erp", "supabase"];
 const OUTPUT_NODE_IDS = ["email", "documents", "external_apis", "portal_analytics"];
 const DNA_WORLD = { width: 2820, height: 2240 };
 
 const OVERVIEW_POSITIONS: Record<string, { x: number; y: number }> = {
-  sharepoint: { x: 8.5, y: 19 },
-  microsoft_365: { x: 8.5, y: 33 },
-  erp: { x: 8.5, y: 47 },
-  supabase: { x: 8.5, y: 61 },
-  crm: { x: 29, y: 27 },
-  sales: { x: 29, y: 48 },
-  service: { x: 29, y: 69 },
-  marketing: { x: 50, y: 18 },
-  calendar: { x: 50, y: 72 },
-  dealer_data: { x: 71, y: 27 },
-  import: { x: 71, y: 48 },
-  messe: { x: 71, y: 69 },
-  projects: { x: 50, y: 86 },
-  system_admin: { x: 71, y: 86 },
-  email: { x: 91.5, y: 19 },
-  documents: { x: 91.5, y: 33 },
-  external_apis: { x: 91.5, y: 47 },
-  portal_analytics: { x: 91.5, y: 61 },
-  portal: { x: 50, y: 46 },
+  sharepoint: { x: 8, y: 18 },
+  microsoft_365: { x: 8, y: 34 },
+  erp: { x: 8, y: 50 },
+  supabase: { x: 8, y: 66 },
+  sales: { x: 50, y: 12 },
+  dealer_data: { x: 28, y: 24 },
+  crm: { x: 72, y: 24 },
+  marketing: { x: 20, y: 48 },
+  service: { x: 80, y: 48 },
+  calendar: { x: 28, y: 73 },
+  projects: { x: 50, y: 88 },
+  messe: { x: 72, y: 73 },
+  system_admin: { x: 50, y: 27 },
+  import: { x: 92, y: 86 },
+  email: { x: 92, y: 18 },
+  documents: { x: 92, y: 34 },
+  external_apis: { x: 92, y: 50 },
+  portal_analytics: { x: 92, y: 66 },
+  portal: { x: 50, y: 50 },
 };
 
 const AREA_FOCUS_NODE_IDS: Record<SystemMapArea, SystemMapNodeId> = {
@@ -481,6 +483,10 @@ function SystemOverview({ selectedId, onSelect }: { selectedId: SystemMapNodeId;
       {OVERVIEW_NODE_IDS.map((id) => {
         const node = findSystemMapNode(id);
         return <OverviewPill key={node.id} node={node} selected={selectedId === node.id} onSelect={onSelect} />;
+      })}
+      {SUPPORT_NODE_IDS.map((id) => {
+        const node = findSystemMapNode(id);
+        return <OverviewPill key={node.id} node={node} selected={selectedId === node.id} onSelect={onSelect} compact />;
       })}
       {OUTPUT_NODE_IDS.map((id) => {
         const node = findSystemMapNode(id);
