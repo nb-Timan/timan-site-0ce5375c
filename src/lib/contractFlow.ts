@@ -158,7 +158,7 @@ export const CONTRACT_STEPS: Array<{
   {
     id: 'purpose_prices_orders_portal',
     title: 'Formål, priser, ordre og forhandlerportal',
-    shortTitle: 'Formål og portal',
+    shortTitle: 'Formål',
     intro: 'Gennemgå formål, priser, ordre, forhandlerportal og årligt forhandlermøde.',
     confirmationId: 'purpose_prices_orders_portal',
   },
@@ -250,7 +250,7 @@ const allLanguageLabels = (
 const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, ContractStepLabel>> = {
   parties: allLanguageLabels({ title: 'Oplysninger', shortTitle: 'Oplysninger' }, { title: 'Details', shortTitle: 'Details' }),
   purpose_prices_orders_portal: allLanguageLabels(
-    { title: 'Formål, priser, ordre og forhandlerportal', shortTitle: 'Formål og portal' },
+    { title: 'Formål, priser, ordre og forhandlerportal', shortTitle: 'Formål' },
     { title: 'Purpose, prices, orders and dealer portal', shortTitle: 'Purpose and portal' },
   ),
   territory: allLanguageLabels({ title: 'Område og Bilag 3', shortTitle: 'Område' }, { title: 'Territory and Appendix 3', shortTitle: 'Territory' }),

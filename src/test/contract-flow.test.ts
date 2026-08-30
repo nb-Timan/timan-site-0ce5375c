@@ -205,6 +205,7 @@ describe('contract flow', () => {
       'Gennemlæs',
       'Underskrift',
     ]);
+    expect(getContractStepLabel('purpose_prices_orders_portal', 'da').shortTitle).toBe('Formål');
   });
 
   it('defines guided contract step labels for every portal language', () => {
@@ -291,8 +292,10 @@ describe('contract flow', () => {
     expect(progressSteps).toContain('lg:grid-cols-11');
     expect(progressSteps).toContain('lg:overflow-x-visible');
     expect(progressSteps).toContain('auto-cols-[5.9rem]');
+    expect(progressSteps).toContain('<div className="relative flex min-w-0 items-center justify-center gap-1">');
     expect(progressSteps).toContain('<span className="text-[9px] font-bold uppercase leading-none tracking-wide">Trin {index + 1}</span>');
-    expect(progressSteps).toContain('<p className="mt-0.5 break-words text-[10px] font-medium leading-tight">{label.shortTitle}</p>');
+    expect(progressSteps).toContain('className="absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 flex-none"');
+    expect(progressSteps).toContain('<p className="mt-0.5 break-words text-center text-[10px] font-medium leading-tight">{label.shortTitle}</p>');
     expect(progressSteps).not.toContain('w-32');
     expect(progressSteps).not.toContain('auto-cols-[8rem]');
   });

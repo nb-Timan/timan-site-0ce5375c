@@ -2280,11 +2280,11 @@ function ProgressSteps({
               key={step.id}
               className={`min-w-0 rounded-lg border px-1.5 py-1.5 ${active ? 'border-gray-950 bg-gray-950 text-white' : complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-gray-200 bg-white text-gray-600'}`}
             >
-              <div className="flex min-w-0 items-center justify-between gap-1">
+              <div className="relative flex min-w-0 items-center justify-center gap-1">
                 <span className="text-[9px] font-bold uppercase leading-none tracking-wide">Trin {index + 1}</span>
-                {complete || (confirmationId && confirmed) ? <CheckCircle2 className="h-3 w-3 flex-none" /> : null}
+                {complete || (confirmationId && confirmed) ? <CheckCircle2 className="absolute right-0 top-1/2 h-3 w-3 -translate-y-1/2 flex-none" /> : null}
               </div>
-              <p className="mt-0.5 break-words text-[10px] font-medium leading-tight">{label.shortTitle}</p>
+              <p className="mt-0.5 break-words text-center text-[10px] font-medium leading-tight">{label.shortTitle}</p>
             </div>
           );
         })}
