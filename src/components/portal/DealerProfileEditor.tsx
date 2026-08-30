@@ -52,7 +52,7 @@ interface Props {
 }
 
 const ROLE_KEYS_SALES: ProfileI18nKey[] = [
-  "roleSalesDirector", "roleSalesRep", "roleKeyAccount", "roleOther",
+  "roleSalesDirector", "roleSalesRep", "roleSalesCoordinator", "roleKeyAccount", "roleOther",
 ];
 const ROLE_KEYS_WORKSHOP: ProfileI18nKey[] = [
   "roleWorkshopManager", "roleMechanic", "rolePartsManager",

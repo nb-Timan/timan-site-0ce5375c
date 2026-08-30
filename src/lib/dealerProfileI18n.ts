@@ -20,7 +20,7 @@ export type ProfileI18nKey =
   | "yes" | "no" | "addPerson" | "removePerson"
   | "role" | "name" | "contact"
   | "roleDirector" | "roleOwner" | "roleManagingDirector"
-  | "roleSalesDirector" | "roleSalesRep" | "roleKeyAccount"
+  | "roleSalesDirector" | "roleSalesRep" | "roleSalesCoordinator" | "roleKeyAccount"
   | "roleWorkshopManager" | "roleMechanic" | "rolePartsManager" | "roleStockManager" | "roleServiceCoord"
   | "roleOther" | "area_primary";
 
@@ -50,7 +50,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     yes: "Ja", no: "Nej", addPerson: "Tilføj person", removePerson: "Fjern",
     role: "Rolle", name: "Navn", contact: "Kontakt",
     roleDirector: "Direktør", roleOwner: "Ejer", roleManagingDirector: "Daglig leder",
-    roleSalesDirector: "Salgsdirektør", roleSalesRep: "Sælger", roleKeyAccount: "Key Account",
+    roleSalesDirector: "Salgsdirektør", roleSalesRep: "Sælger", roleSalesCoordinator: "Salgskoordinator", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Værkstedschef", roleMechanic: "Mekaniker", rolePartsManager: "Reservedelsansvarlig",
     roleStockManager: "Lageransvarlig", roleServiceCoord: "Servicekoordinator", roleOther: "Andet", area_primary: "Primær",
   },
@@ -77,7 +77,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     yes: "Yes", no: "No", addPerson: "Add person", removePerson: "Remove",
     role: "Role", name: "Name", contact: "Contact",
     roleDirector: "Director", roleOwner: "Owner", roleManagingDirector: "Managing director",
-    roleSalesDirector: "Sales Director", roleSalesRep: "Sales Rep", roleKeyAccount: "Key Account",
+    roleSalesDirector: "Sales Director", roleSalesRep: "Sales Rep", roleSalesCoordinator: "Sales Coordinator", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Workshop Manager", roleMechanic: "Mechanic", rolePartsManager: "Parts Manager",
     roleStockManager: "Stock Manager", roleServiceCoord: "Service Coordinator", roleOther: "Other", area_primary: "Primary",
   },
@@ -101,7 +101,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     yes: "Ja", no: "Nein", addPerson: "Person hinzufügen", removePerson: "Entfernen",
     role: "Rolle", name: "Name", contact: "Kontakt",
     roleDirector: "Geschäftsführer", roleOwner: "Inhaber", roleManagingDirector: "Betriebsleiter",
-    roleSalesDirector: "Vertriebsleiter", roleSalesRep: "Verkäufer", roleKeyAccount: "Key Account",
+    roleSalesDirector: "Vertriebsleiter", roleSalesRep: "Verkäufer", roleSalesCoordinator: "Vertriebskoordinator", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Werkstattleiter", roleMechanic: "Mechaniker", rolePartsManager: "Ersatzteilverantwortlicher",
     roleStockManager: "Lagerverantwortlicher", roleServiceCoord: "Servicekoordinator", roleOther: "Sonstiges", area_primary: "Primär",
   },
@@ -125,7 +125,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     yes: "Sì", no: "No", addPerson: "Aggiungi persona", removePerson: "Rimuovi",
     role: "Ruolo", name: "Nome", contact: "Contatto",
     roleDirector: "Amministratore", roleOwner: "Titolare", roleManagingDirector: "Direttore generale",
-    roleSalesDirector: "Direttore vendite", roleSalesRep: "Venditore", roleKeyAccount: "Key Account",
+    roleSalesDirector: "Direttore vendite", roleSalesRep: "Venditore", roleSalesCoordinator: "Coordinatore vendite", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Capo officina", roleMechanic: "Meccanico", rolePartsManager: "Resp. ricambi",
     roleStockManager: "Resp. magazzino", roleServiceCoord: "Coordinatore service", roleOther: "Altro", area_primary: "Primario",
   },
@@ -149,7 +149,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     yes: "Igen", no: "Nem", addPerson: "Személy hozzáadása", removePerson: "Eltávolítás",
     role: "Szerep", name: "Név", contact: "Kapcsolat",
     roleDirector: "Ügyvezető", roleOwner: "Tulajdonos", roleManagingDirector: "Cégvezető",
-    roleSalesDirector: "Értékesítési igazgató", roleSalesRep: "Értékesítő", roleKeyAccount: "Key Account",
+    roleSalesDirector: "Értékesítési igazgató", roleSalesRep: "Értékesítő", roleSalesCoordinator: "Értékesítési koordinátor", roleKeyAccount: "Key Account",
     roleWorkshopManager: "Szervizvezető", roleMechanic: "Szerelő", rolePartsManager: "Alkatrész felelős",
     roleStockManager: "Raktárfelelős", roleServiceCoord: "Szervizkoordinátor", roleOther: "Egyéb", area_primary: "Elsődleges",
   },
