@@ -363,3 +363,17 @@ export function getRenderedGuidedContractSection(stepId: ContractStepId, context
 export function getGuidedContractDisplayHeading(heading: string) {
   return heading.replace(/^\d+(?:\.\d+)*\.?\s+/, '');
 }
+
+export function shouldHideGuidedContractUiText(value: string, sectionTitle: string) {
+  const normalized = value.trim().replace(/\s+/g, ' ');
+  const sectionAppendixMatch = sectionTitle.match(/Bilag\s+(\d+)/i);
+  const sectionAppendixNo = sectionAppendixMatch?.[1];
+  if (!sectionAppendixNo) return false;
+
+  const appendixHeading = new RegExp(`^Bilag\\s+${sectionAppendixNo}\\s*:`, 'i');
+  if (appendixHeading.test(normalized)) return true;
+
+  const seeAppendix = new RegExp(`^(?:Service betingelser:\\s*)?se\\s+bilag\\s+${sectionAppendixNo}\\.?$`, 'i');
+  const seeMoreAppendix = new RegExp(`^se\\s+mere\\s+om\\s+.+:\\s*bilag\\s+${sectionAppendixNo}\\.?$`, 'i');
+  return seeAppendix.test(normalized) || seeMoreAppendix.test(normalized);
+}

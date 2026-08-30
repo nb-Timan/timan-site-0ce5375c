@@ -52,6 +52,7 @@ import {
   getGuidedContractDisplayHeading,
   getRenderedGuidedContractSection,
   renderGuidedContractSections,
+  shouldHideGuidedContractUiText,
   type GuidedContractSection,
   type ContractTextBlock,
 } from '@/lib/contractSections';
@@ -1279,23 +1280,28 @@ function ContractLegalSection({ section }: { section: { title: string; source: s
       </div>
       <div className="mt-5 space-y-5">
         {section.blocks.map((block, index) => (
-          <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} />
+          <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
         ))}
       </div>
     </div>
   );
 }
 
-function ContractTextBlockView({ block }: { block: ContractTextBlock }) {
+function ContractTextBlockView({ block, sectionTitle }: { block: ContractTextBlock; sectionTitle: string }) {
+  const displayHeading = block.heading ? getGuidedContractDisplayHeading(block.heading) : '';
+  const showHeading = displayHeading && !shouldHideGuidedContractUiText(displayHeading, sectionTitle);
+  const paragraphs = (block.paragraphs ?? []).filter((paragraph) => !shouldHideGuidedContractUiText(paragraph, sectionTitle));
+  const bullets = (block.bullets ?? []).filter((bullet) => !shouldHideGuidedContractUiText(bullet, sectionTitle));
+
   return (
     <div className="space-y-2 text-sm leading-6 text-gray-700">
-      {block.heading && <h4 className="font-bold text-gray-950">{getGuidedContractDisplayHeading(block.heading)}</h4>}
-      {block.paragraphs?.map((paragraph) => (
+      {showHeading && <h4 className="font-bold text-gray-950">{displayHeading}</h4>}
+      {paragraphs.map((paragraph) => (
         <p key={paragraph}>{paragraph}</p>
       ))}
-      {block.bullets && (
+      {bullets.length > 0 && (
         <ul className="space-y-1 pl-5">
-          {block.bullets.map((bullet) => (
+          {bullets.map((bullet) => (
             <li key={bullet} className="list-disc">{bullet}</li>
           ))}
         </ul>
@@ -1510,7 +1516,9 @@ function InfoMini({ label, value }: { label: string; value: string }) {
 }
 
 function Appendix2DiscountSection({ partnerType }: { partnerType: ContractFormData['partnerType'] }) {
-  const paragraphs = renderAppendix2Paragraphs(partnerType);
+  const paragraphs = renderAppendix2Paragraphs(partnerType).filter(
+    (paragraph) => !shouldHideGuidedContractUiText(paragraph, 'Rabatstruktur og Bilag 2'),
+  );
   return (
     <div className="space-y-5 rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
       <div className="space-y-4 text-sm leading-6 text-gray-700">

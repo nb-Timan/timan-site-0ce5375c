@@ -20,7 +20,13 @@ import {
   type ContractConfirmations,
   type ContractFormData,
 } from '@/lib/contractFlow';
-import { GUIDED_CONTRACT_SECTIONS, getGuidedContractDisplayHeading, renderGuidedContractSections } from '@/lib/contractSections';
+import {
+  GUIDED_CONTRACT_SECTIONS,
+  getGuidedContractDisplayHeading,
+  renderGuidedContractSections,
+  shouldHideGuidedContractUiText,
+  type GuidedContractSection,
+} from '@/lib/contractSections';
 import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import { buildDealerContractDraftKey, getCurrentStepId } from '@/lib/dealerContractsService';
 import {
@@ -57,6 +63,18 @@ const confirmed: ContractConfirmations = {
   termination: { confirmed: true, confirmedAt: '2026-08-29T10:16:00.000Z', confirmedBy: 'Birger Pedersen' },
   full_contract: { confirmed: true, confirmedAt: '2026-08-29T10:15:00.000Z', confirmedBy: 'Birger Pedersen' },
 };
+
+function getVisibleGuidedUiText(section: GuidedContractSection) {
+  const sectionContext = `${section.title} ${section.source}`;
+  return section.blocks.flatMap((block) => {
+    const heading = block.heading ? getGuidedContractDisplayHeading(block.heading) : '';
+    return [
+      heading && !shouldHideGuidedContractUiText(heading, sectionContext) ? heading : null,
+      ...(block.paragraphs ?? []).filter((paragraph) => !shouldHideGuidedContractUiText(paragraph, sectionContext)),
+      ...(block.bullets ?? []).filter((bullet) => !shouldHideGuidedContractUiText(bullet, sectionContext)),
+    ].filter(Boolean);
+  }).join('\n');
+}
 
 describe('contract flow', () => {
   it('requires Timan seller and dealer party data before signature', () => {
@@ -220,8 +238,40 @@ describe('contract flow', () => {
   it('removes the redundant territory intro and starts directly at Appendix 3 content', () => {
     const territory = GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'territory');
     expect(territory?.blocks[0].heading).toBe('Bilag 3: Området');
+    expect(shouldHideGuidedContractUiText('Bilag 3: Området', territory!.title)).toBe(true);
     expect(JSON.stringify(territory)).not.toContain('3. Område');
     expect(JSON.stringify(territory)).not.toContain('Se bilag 3.');
+  });
+
+  it('hides redundant appendix labels in the guided UI without changing legal source text', () => {
+    const sections = renderGuidedContractSections({
+      companyName: completeForm.dealerName,
+      partnerType: completeForm.partnerType,
+    });
+    const byStep = Object.fromEntries(sections.map((section) => [section.stepId, section]));
+
+    expect(JSON.stringify(byStep.discount_structure)).toContain('Se bilag 2.');
+    expect(getVisibleGuidedUiText(byStep.discount_structure)).not.toContain('Se bilag 2.');
+
+    expect(JSON.stringify(byStep.sales_service_days)).toContain('Bilag 1: Service og garanti betingelser');
+    expect(getVisibleGuidedUiText(byStep.sales_service_days)).not.toContain('Bilag 1: Service og garanti betingelser');
+    expect(JSON.stringify(byStep.spare_parts_service)).toContain('Service betingelser: se Bilag 1.');
+    expect(getVisibleGuidedUiText(byStep.spare_parts_service)).toContain('Service betingelser: se Bilag 1.');
+
+    expect(JSON.stringify(byStep.territory)).toContain('Bilag 3: Området');
+    expect(getVisibleGuidedUiText(byStep.territory)).not.toContain('Bilag 3: Området');
+
+    expect(JSON.stringify(byStep.payment_delivery)).toContain('Bilag 4: Salgs- og leveringsbetingelser');
+    expect(JSON.stringify(byStep.payment_delivery)).toContain('Se mere om leveringsbetingelser: bilag 4.');
+    expect(getVisibleGuidedUiText(byStep.payment_delivery)).not.toContain('Bilag 4: Salgs- og leveringsbetingelser');
+    expect(getVisibleGuidedUiText(byStep.payment_delivery)).not.toContain('Se mere om leveringsbetingelser: bilag 4.');
+
+    const appendix2SourceParagraphs = renderAppendix2Paragraphs('dealer');
+    const appendix2UiParagraphs = appendix2SourceParagraphs.filter(
+      (paragraph) => !shouldHideGuidedContractUiText(paragraph, 'Rabatstruktur og Bilag 2'),
+    );
+    expect(appendix2SourceParagraphs[0]).toBe('Bilag 2: Rabat.');
+    expect(appendix2UiParagraphs).not.toContain('Bilag 2: Rabat.');
   });
 
   it('hides legal point numbers in guided UI headings without changing source headings', () => {
