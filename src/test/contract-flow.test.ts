@@ -291,8 +291,8 @@ describe('contract flow', () => {
     expect(progressSteps).toContain('lg:grid-cols-11');
     expect(progressSteps).toContain('lg:overflow-x-visible');
     expect(progressSteps).toContain('auto-cols-[5.9rem]');
-    expect(progressSteps).toContain('text-[9px]');
-    expect(progressSteps).toContain('text-[11px]');
+    expect(progressSteps).toContain('<span className="text-[9px] font-bold uppercase leading-none tracking-wide">Trin {index + 1}</span>');
+    expect(progressSteps).toContain('<p className="mt-0.5 break-words text-[10px] font-medium leading-tight">{label.shortTitle}</p>');
     expect(progressSteps).not.toContain('w-32');
     expect(progressSteps).not.toContain('auto-cols-[8rem]');
   });

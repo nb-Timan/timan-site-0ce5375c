@@ -2284,7 +2284,7 @@ function ProgressSteps({
                 <span className="text-[9px] font-bold uppercase leading-none tracking-wide">Trin {index + 1}</span>
                 {complete || (confirmationId && confirmed) ? <CheckCircle2 className="h-3 w-3 flex-none" /> : null}
               </div>
-              <p className="mt-0.5 break-words text-[11px] font-bold leading-tight">{label.shortTitle}</p>
+              <p className="mt-0.5 break-words text-[10px] font-medium leading-tight">{label.shortTitle}</p>
             </div>
           );
         })}
