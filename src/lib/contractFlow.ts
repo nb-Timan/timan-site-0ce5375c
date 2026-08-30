@@ -26,7 +26,19 @@ export type ContractConfirmationId =
   | 'termination'
   | 'full_contract';
 
-export type ContractStatus = 'Draft' | 'In review' | 'Ready for signature' | 'Signed' | 'Archived';
+export type LegacyContractStatus = 'Draft' | 'In review' | 'Ready for signature' | 'Signed' | 'Archived';
+
+export type ContractWorkflowStatus =
+  | 'draft'
+  | 'guided_review'
+  | 'ready_for_signature'
+  | 'awaiting_signed_upload'
+  | 'submitted_for_approval'
+  | 'changes_requested'
+  | 'approved'
+  | 'archived';
+
+export type ContractStatus = LegacyContractStatus;
 
 export type ContractFormData = {
   dealerName: string;
@@ -59,6 +71,50 @@ export type ContractConfirmation = {
 export type ContractConfirmations = Record<ContractConfirmationId, ContractConfirmation>;
 
 export const CONTRACT_VERSION = 'forhandlerkontrakt-timan-2026-08';
+
+export const CONTRACT_STATUS_LABELS_DA: Record<ContractWorkflowStatus, string> = {
+  draft: 'Kladde',
+  guided_review: 'Under gennemgang',
+  ready_for_signature: 'Klar til underskrift',
+  awaiting_signed_upload: 'Afventer underskrevet kontrakt',
+  submitted_for_approval: 'Sendt til Timan-godkendelse',
+  changes_requested: 'Kræver ny upload',
+  approved: 'Godkendt',
+  archived: 'Arkiveret',
+};
+
+export const CONTRACT_PROGRESS_STEPS: Array<{
+  id: ContractWorkflowStatus;
+  label: string;
+}> = [
+  { id: 'ready_for_signature', label: 'Gennemgået' },
+  { id: 'awaiting_signed_upload', label: 'Klar til underskrift' },
+  { id: 'changes_requested', label: 'Upload' },
+  { id: 'submitted_for_approval', label: 'Timan-godkendelse' },
+  { id: 'approved', label: 'Godkendt' },
+];
+
+const CONTRACT_STATUS_ORDER: Record<ContractWorkflowStatus, number> = {
+  draft: 0,
+  guided_review: 1,
+  ready_for_signature: 2,
+  awaiting_signed_upload: 3,
+  changes_requested: 3,
+  submitted_for_approval: 4,
+  approved: 5,
+  archived: 6,
+};
+
+export const ALLOWED_CONTRACT_STATUS_TRANSITIONS: Record<ContractWorkflowStatus, ContractWorkflowStatus[]> = {
+  draft: ['guided_review', 'ready_for_signature'],
+  guided_review: ['ready_for_signature'],
+  ready_for_signature: ['awaiting_signed_upload'],
+  awaiting_signed_upload: ['submitted_for_approval'],
+  submitted_for_approval: ['changes_requested', 'approved'],
+  changes_requested: ['submitted_for_approval'],
+  approved: ['archived'],
+  archived: [],
+};
 
 export const TIMAN_COMPANY_INFO: TimanCompanyInfo = {
   company: 'Timan A/S',
@@ -224,6 +280,35 @@ export function getContractAppendixLabel(language: PortalUiLanguage | string | n
   return CONTRACT_APPENDIX_LABELS[language as PortalUiLanguage] ?? CONTRACT_APPENDIX_LABELS.da;
 }
 
+export function getContractWorkflowStatusLabel(status: ContractWorkflowStatus | string | null | undefined) {
+  return CONTRACT_STATUS_LABELS_DA[(status || 'draft') as ContractWorkflowStatus] ?? CONTRACT_STATUS_LABELS_DA.draft;
+}
+
+export function getLegacyContractStatus(status: ContractWorkflowStatus): LegacyContractStatus {
+  if (status === 'approved') return 'Signed';
+  if (status === 'archived') return 'Archived';
+  if (status === 'ready_for_signature' || status === 'awaiting_signed_upload') return 'Ready for signature';
+  if (status === 'guided_review' || status === 'submitted_for_approval' || status === 'changes_requested') return 'In review';
+  return 'Draft';
+}
+
+export function getWorkflowStatusFromLegacy(status: LegacyContractStatus | string | null | undefined): ContractWorkflowStatus {
+  if (status === 'Signed') return 'approved';
+  if (status === 'Archived') return 'archived';
+  if (status === 'Ready for signature') return 'ready_for_signature';
+  if (status === 'In review') return 'guided_review';
+  return 'draft';
+}
+
+export function canTransitionContractStatus(from: ContractWorkflowStatus, to: ContractWorkflowStatus) {
+  if (from === to) return true;
+  return ALLOWED_CONTRACT_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+export function hasReachedContractStatus(current: ContractWorkflowStatus, target: ContractWorkflowStatus) {
+  return CONTRACT_STATUS_ORDER[current] >= CONTRACT_STATUS_ORDER[target];
+}
+
 export const EMPTY_CONTRACT_CONFIRMATIONS: ContractConfirmations = {
   purpose_prices_orders_portal: { confirmed: false },
   territory: { confirmed: false },
@@ -315,11 +400,29 @@ export function getCompletedContractStepIds(
 
 export type ContractSnapshot = ReturnType<typeof buildContractSnapshot>;
 
-export function buildContractSnapshot(form: ContractFormData, confirmations: ContractConfirmations) {
+export function buildContractSnapshot(
+  form: ContractFormData,
+  confirmations: ContractConfirmations,
+  options: {
+    contractId?: string | null;
+    contractNumber?: string | null;
+    workflowStatus?: ContractWorkflowStatus;
+    legalSections?: unknown;
+    appendices?: unknown;
+    completedGuidedReviewAt?: string;
+    completedGuidedReviewBy?: string | null;
+    completedGuidedReviewByEmail?: string | null;
+    expectedSignedPages?: number | null;
+  } = {},
+) {
   return {
+    contractId: options.contractId ?? null,
+    contractNumber: options.contractNumber ?? null,
     version: CONTRACT_VERSION,
     createdAt: new Date().toISOString(),
-    status: getContractStatus(form, confirmations),
+    status: getLegacyContractStatus(options.workflowStatus ?? getWorkflowStatusFromLegacy(getContractStatus(form, confirmations))),
+    workflowStatus: options.workflowStatus ?? getWorkflowStatusFromLegacy(getContractStatus(form, confirmations)),
+    lockedAt: options.completedGuidedReviewAt ?? null,
     timan: {
       company: TIMAN_COMPANY_INFO.company,
       cvr: TIMAN_COMPANY_INFO.cvr,
@@ -339,7 +442,13 @@ export function buildContractSnapshot(form: ContractFormData, confirmations: Con
       contactTitle: form.contactTitle,
     },
     contractDate: form.contractDate,
+    legalSections: options.legalSections ?? null,
+    appendices: options.appendices ?? null,
     confirmations,
     signatureDataUrl: form.signatureDataUrl,
+    completedGuidedReviewAt: options.completedGuidedReviewAt ?? null,
+    completedGuidedReviewBy: options.completedGuidedReviewBy ?? null,
+    completedGuidedReviewByEmail: options.completedGuidedReviewByEmail ?? null,
+    expectedSignedPages: options.expectedSignedPages ?? null,
   };
 }

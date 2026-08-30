@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, Download, FileSignature, FileText, Lock, Save, Upload } from 'lucide-react';
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, Download, FileSignature, FileText, Lock, Save, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -13,8 +13,11 @@ import {
   CONTRACT_STEPS,
   getContractAppendixLabel,
   getContractStepLabel,
+  getContractWorkflowStatusLabel,
+  hasReachedContractStatus,
   type ContractSnapshot,
   type ContractStatus,
+  type ContractWorkflowStatus,
   ContractConfirmations,
   ContractFormData,
   EMPTY_CONTRACT_CONFIRMATIONS,
@@ -23,7 +26,23 @@ import {
   getRequiredConfirmationForStep,
   hasRequiredPartyData,
 } from '@/lib/contractFlow';
-import { fetchDealerContractDraft, getCurrentStepId, saveDealerContractDraft } from '@/lib/dealerContractsService';
+import {
+  addSignedUrlsToUploadVersions,
+  completeDealerContractGuidedReview,
+  createDealerContractUploadVersion,
+  deleteDealerContractUploadFile,
+  fetchDealerContractDraft,
+  fetchDealerContractUploadVersions,
+  getCurrentStepId,
+  markDealerContractPdfGenerated,
+  reorderDealerContractUploadFiles,
+  saveDealerContractDraft,
+  submitDealerContractUpload,
+  uploadDealerContractFile,
+  type DealerContractRecord,
+  type DealerContractUploadFile,
+  type DealerContractUploadVersion,
+} from '@/lib/dealerContractsService';
 import { fetchDealerAccountByNumber } from '@/lib/dealerAccountsService';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
@@ -84,6 +103,44 @@ function ensurePdfSpace(pdf: any, y: number, needed = 18) {
   if (y + needed <= 282) return y;
   pdf.addPage();
   return 18;
+}
+
+function addPhysicalSignatureFieldsToPdf(pdf: any, snapshot: ContractSnapshot) {
+  const pageCount = pdf.getNumberOfPages();
+  for (let page = 1; page <= pageCount; page += 1) {
+    pdf.setPage(page);
+    const isLastPage = page === pageCount;
+    const y = isLastPage ? 246 : 266;
+    pdf.setDrawColor(156, 163, 175);
+    pdf.setTextColor(55, 65, 81);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7);
+    pdf.text(isLastPage ? 'Fysisk underskrift' : 'Initialer', 16, y - 4);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(6.8);
+
+    const fields = isLastPage
+      ? [
+        { label: 'Navn', value: snapshot.dealer.contactPerson || '', x: 16, w: 39 },
+        { label: 'Dato', value: formatDateDa(snapshot.contractDate), x: 60, w: 28 },
+        { label: 'Firma', value: snapshot.dealer.name || '', x: 93, w: 45 },
+        { label: 'Underskrift', value: '', x: 143, w: 51 },
+      ]
+      : [
+        { label: 'Forhandler initialer', value: snapshot.dealer.contactPerson || '', x: 16, w: 60 },
+        { label: 'Dato', value: formatDateDa(snapshot.contractDate), x: 82, w: 36 },
+      ];
+
+    fields.forEach((field) => {
+      pdf.text(field.label, field.x, y);
+      if (field.value) pdf.text(String(field.value).slice(0, 32), field.x, y + 5);
+      pdf.line(field.x, y + 8, field.x + field.w, y + 8);
+    });
+
+    pdf.setFontSize(6.4);
+    pdf.setTextColor(107, 114, 128);
+    pdf.text(`Side ${page} af ${pageCount}`, 194, 286, { align: 'right' });
+  }
 }
 
 function drawContractTextBlockPdf(pdf: any, block: ContractTextBlock, left: number, right: number, y: number) {
@@ -300,9 +357,12 @@ export default function ContractsPage() {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [signatureName, setSignatureName] = useState('');
   const [contractRowId, setContractRowId] = useState<string | null>(null);
+  const [contractRecord, setContractRecord] = useState<DealerContractRecord | null>(null);
   const [contractLoaded, setContractLoaded] = useState(false);
   const [contractLoadError, setContractLoadError] = useState<string | null>(null);
   const [finalSnapshot, setFinalSnapshot] = useState<ContractSnapshot | null>(null);
+  const [uploadVersions, setUploadVersions] = useState<DealerContractUploadVersion[]>([]);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const dealerAccountNumber = (searchParams.get('accountNumber') || searchParams.get('dealer') || '').trim();
 
   const draftKey = useMemo(() => (
@@ -345,6 +405,7 @@ export default function ContractsPage() {
       }
       if (row) {
         setContractRowId(row.id);
+        setContractRecord(row);
         setForm((current) => ({
           ...current,
           ...row.form_data,
@@ -357,6 +418,7 @@ export default function ContractsPage() {
         if (row.signature_data_url) setSignatureName('Gemt signatur');
       } else {
         setContractRowId(null);
+        setContractRecord(null);
         setFinalSnapshot(null);
         setSignatureName('');
       }
@@ -436,7 +498,10 @@ export default function ContractsPage() {
   const activeStepLabel = getContractStepLabel(activeStep.id, uiLanguage);
   const appendixLabel = getContractAppendixLabel(uiLanguage);
   const status = getContractStatus(form, confirmations);
-  const isSigned = status === 'Signed';
+  const workflowStatus: ContractWorkflowStatus = contractRecord?.contract_status ?? (status === 'Draft' ? 'draft' : status === 'In review' ? 'guided_review' : 'ready_for_signature');
+  const workflowStatusLabel = getContractWorkflowStatusLabel(workflowStatus);
+  const isLockedContract = hasReachedContractStatus(workflowStatus, 'ready_for_signature');
+  const isSigned = workflowStatus === 'approved' || workflowStatus === 'archived';
   const readyForSignature = canPrepareContractForSignature(form, confirmations);
   const currentConfirmationId = getRequiredConfirmationForStep(activeStep.id);
   const currentStepConfirmed = !currentConfirmationId || confirmations[currentConfirmationId]?.confirmed;
@@ -458,7 +523,7 @@ export default function ContractsPage() {
 
   const persistContract = async (options: { showToast?: boolean; snapshot?: ContractSnapshot | null } = {}) => {
     if (!effectiveUser?.email || !contractLoaded) return;
-    if (status === 'Signed' && finalSnapshot?.status === 'Signed') return;
+    if (!['draft', 'guided_review'].includes(workflowStatus)) return;
     const snapshot = options.snapshot ?? getSnapshotForStatus(status);
     const { row, error } = await saveDealerContractDraft({
       id: contractRowId,
@@ -477,6 +542,7 @@ export default function ContractsPage() {
     }
     if (row) {
       setContractRowId(row.id);
+      setContractRecord(row);
       setFinalSnapshot(row.final_snapshot);
     }
     if (options.showToast) toast.success('Kontraktkladde gemt.');
@@ -489,7 +555,25 @@ export default function ContractsPage() {
       void persistContract();
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [activeStepIndex, confirmations, contractLoaded, dealerAccountNumber, effectiveUser?.email, form, status]);
+  }, [activeStepIndex, confirmations, contractLoaded, dealerAccountNumber, effectiveUser?.email, form, status, workflowStatus]);
+
+  const refreshUploadVersions = async (contractId = contractRowId) => {
+    if (!contractId) return;
+    const { rows, error } = await fetchDealerContractUploadVersions(contractId);
+    if (error) {
+      toast.error('Kunne ikke hente uploadede kontraktdokumenter.');
+      return;
+    }
+    setUploadVersions(await addSignedUrlsToUploadVersions(rows));
+  };
+
+  useEffect(() => {
+    if (!contractRowId || !hasReachedContractStatus(workflowStatus, 'awaiting_signed_upload')) {
+      setUploadVersions([]);
+      return;
+    }
+    void refreshUploadVersions(contractRowId);
+  }, [contractRowId, workflowStatus]);
 
   const confirmSection = () => {
     if (!currentConfirmationId || !effectiveUser) return;
@@ -517,6 +601,60 @@ export default function ContractsPage() {
 
   const goPrevious = () => setActiveStepIndex((current) => Math.max(current - 1, 0));
 
+  const completeGuidedReview = async () => {
+    if (!readyForSignature) {
+      toast.error('Udfyld parterne og bekræft alle kontraktafsnit først.');
+      return;
+    }
+    let id = contractRowId;
+    if (!id) {
+      const saved = await saveDealerContractDraft({
+        ownerEmail: effectiveUser?.email || form.timanSellerEmail,
+        ownerName: effectiveUser?.display_name || effectiveUser?.email || form.timanSellerName,
+        dealerAccountNumber,
+        activeStepIndex,
+        form,
+        confirmations,
+        status: 'Ready for signature',
+        finalSnapshot: null,
+      });
+      if (saved.error || !saved.row) {
+        toast.error('Kontrakten kunne ikke gemmes før låsning.');
+        return;
+      }
+      id = saved.row.id;
+      setContractRowId(id);
+      setContractRecord(saved.row);
+    }
+
+    const completedAt = new Date().toISOString();
+    const snapshot = buildContractSnapshot(form, confirmations, {
+      contractId: id,
+      contractNumber: contractRecord?.contract_number,
+      workflowStatus: 'ready_for_signature',
+      legalSections: GUIDED_CONTRACT_SECTIONS,
+      appendices: { appendix2Paragraphs: APPENDIX_2_PARAGRAPHS, appendix2ExampleLines: APPENDIX_2_EXAMPLE_LINES },
+      completedGuidedReviewAt: completedAt,
+      completedGuidedReviewBy: effectiveUser?.display_name || effectiveUser?.email || form.timanSellerName,
+      completedGuidedReviewByEmail: effectiveUser?.email || form.timanSellerEmail,
+      expectedSignedPages: 1,
+    });
+    const { row, error } = await completeDealerContractGuidedReview({
+      contractId: id,
+      snapshot,
+      expectedSignedPages: 1,
+    });
+    if (error || !row) {
+      toast.error('Kontraktgennemgangen kunne ikke afsluttes.');
+      return;
+    }
+    setContractRecord(row);
+    setContractRowId(row.id);
+    setFinalSnapshot(row.final_snapshot);
+    setActiveStepIndex(CONTRACT_STEPS.length - 1);
+    toast.success('Kontraktgennemgangen er afsluttet og låst.');
+  };
+
   const handleSignatureUpload = (file: File | undefined) => {
     if (!file) {
       update('signatureDataUrl', null);
@@ -541,36 +679,18 @@ export default function ContractsPage() {
       return;
     }
 
-    const snapshot = finalSnapshot?.status === 'Signed'
-      ? finalSnapshot
-      : buildContractSnapshot(form, confirmations);
-    const signedSnapshot = snapshot.status === 'Signed'
-      ? snapshot
-      : buildContractSnapshot({ ...form, signatureDataUrl: form.signatureDataUrl }, confirmations);
-
-    if (signedSnapshot.status === 'Signed' && !finalSnapshot) {
-      const { row, error } = await saveDealerContractDraft({
-        id: contractRowId,
-        ownerEmail: effectiveUser?.email || form.timanSellerEmail,
-        ownerName: effectiveUser?.display_name || effectiveUser?.email || form.timanSellerName,
-        dealerAccountNumber,
-        activeStepIndex,
-        form,
-        confirmations,
-        status: 'Signed',
-        finalSnapshot: signedSnapshot,
-      });
-      if (error) {
-        toast.error('Kontrakten kunne ikke låses som Signed.');
-        return;
-      }
-      setContractRowId(row?.id ?? contractRowId);
-      setFinalSnapshot(row?.final_snapshot ?? signedSnapshot);
+    if (!contractRowId || !hasReachedContractStatus(workflowStatus, 'ready_for_signature')) {
+      toast.error('Afslut kontraktgennemgangen, før PDF’en genereres.');
+      return;
     }
+
+    const snapshot = finalSnapshot?.workflowStatus === 'ready_for_signature' || finalSnapshot?.workflowStatus === 'awaiting_signed_upload' || finalSnapshot?.workflowStatus === 'approved'
+      ? finalSnapshot
+      : buildContractSnapshot(form, confirmations, { contractId: contractRowId, workflowStatus: 'ready_for_signature' });
 
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
-    const pdfSnapshot = finalSnapshot?.status === 'Signed' ? finalSnapshot : signedSnapshot;
+    const pdfSnapshot = snapshot;
     const timan = pdfSnapshot.timan;
     const dealer = pdfSnapshot.dealer;
     const left = 16;
@@ -665,22 +785,116 @@ export default function ContractsPage() {
     y += 8;
     pdf.text(`Dato: ${formatDateDa(pdfSnapshot.contractDate)}`, left, y);
     pdf.text(`Dato: ${formatDateDa(pdfSnapshot.contractDate)}`, 112, y);
-    if (pdfSnapshot.signatureDataUrl) {
-      try {
-        pdf.addImage(pdfSnapshot.signatureDataUrl, 'PNG', 112, y + 3, 45, 14, undefined, 'FAST');
-      } catch {
-        try {
-          pdf.addImage(pdfSnapshot.signatureDataUrl, 'JPEG', 112, y + 3, 45, 14, undefined, 'FAST');
-        } catch {
-          // Keep the signature line if the browser cannot embed the uploaded image.
-        }
-      }
-    }
     pdf.text('Timan underskrift______________________', left, y + 24);
     pdf.text('Forhandler underskrift_________________', 112, y + 24);
 
+    addPhysicalSignatureFieldsToPdf(pdf, pdfSnapshot);
+    const pageCount = pdf.getNumberOfPages();
+    const marked = await markDealerContractPdfGenerated(contractRowId, pageCount);
+    if (marked.error || !marked.row) {
+      toast.error('PDF’en blev ikke markeret som genereret i databasen.');
+      return;
+    }
+    setContractRecord(marked.row);
+    setFinalSnapshot(marked.row.final_snapshot ?? pdfSnapshot);
+
     const fileName = `Timan_Forhandlerkontrakt_${safeFilePart(dealer.name)}_${pdfSnapshot.contractDate}.pdf`;
     pdf.save(fileName);
+    toast.success('PDF genereret. Kontrakten afventer nu underskrevet upload.');
+  };
+
+  const activeUploadVersion = uploadVersions.find((version) => version.status === 'draft')
+    ?? uploadVersions.find((version) => version.status === 'changes_requested')
+    ?? null;
+
+  const latestSubmittedUploadVersion = uploadVersions.find((version) => version.status === 'submitted')
+    ?? uploadVersions.find((version) => version.status === 'approved')
+    ?? uploadVersions[0]
+    ?? null;
+
+  const ensureDraftUploadVersion = async () => {
+    if (!contractRowId) return null;
+    const existing = uploadVersions.find((version) => version.status === 'draft');
+    if (existing) return existing;
+    const { row, error } = await createDealerContractUploadVersion(contractRowId);
+    if (error || !row) {
+      toast.error('Kunne ikke starte en ny uploadversion.');
+      return null;
+    }
+    await refreshUploadVersions(contractRowId);
+    return row;
+  };
+
+  const handleSignedFilesUpload = async (files: FileList | null) => {
+    if (!files?.length || !contractRowId) return;
+    const version = await ensureDraftUploadVersion();
+    if (!version) return;
+    setUploadBusy(true);
+    try {
+      const currentCount = version.files.length;
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        const { error } = await uploadDealerContractFile({
+          contractId: contractRowId,
+          uploadVersionId: version.id,
+          file,
+          sortOrder: currentCount + index,
+        });
+        if (error) throw new Error(error);
+      }
+      await refreshUploadVersions(contractRowId);
+      toast.success('Upload gemt.');
+    } catch {
+      toast.error('En eller flere filer kunne ikke uploades.');
+    } finally {
+      setUploadBusy(false);
+    }
+  };
+
+  const removeSignedFile = async (file: DealerContractUploadFile) => {
+    setUploadBusy(true);
+    const error = await deleteDealerContractUploadFile(file);
+    if (error) toast.error('Filen kunne ikke fjernes.');
+    else {
+      await refreshUploadVersions();
+      toast.success('Filen er fjernet.');
+    }
+    setUploadBusy(false);
+  };
+
+  const moveSignedFile = async (file: DealerContractUploadFile, direction: -1 | 1) => {
+    const version = uploadVersions.find((item) => item.id === file.upload_version_id);
+    if (!version) return;
+    const files = [...version.files];
+    const index = files.findIndex((item) => item.id === file.id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= files.length) return;
+    [files[index], files[nextIndex]] = [files[nextIndex], files[index]];
+    setUploadBusy(true);
+    const error = await reorderDealerContractUploadFiles(files);
+    if (error) toast.error('Rækkefølgen kunne ikke gemmes.');
+    else await refreshUploadVersions();
+    setUploadBusy(false);
+  };
+
+  const submitUpload = async () => {
+    const version = uploadVersions.find((item) => item.status === 'draft');
+    if (!version || !contractRowId) return;
+    const expectedPages = contractRecord?.expected_signed_pages ?? 0;
+    const hasPdf = version.files.some((file) => file.mime_type === 'application/pdf');
+    if (!hasPdf && expectedPages > 1 && version.files.length < expectedPages) {
+      toast.error(`Der mangler sider: ${version.files.length} af ${expectedPages} sider uploadet.`);
+      return;
+    }
+    const { error } = await submitDealerContractUpload(version.id);
+    if (error) {
+      toast.error('Uploaden kunne ikke sendes til Timan.');
+      return;
+    }
+    const reloaded = await fetchDealerContractDraft({ ownerEmail: effectiveUser?.email || form.timanSellerEmail, dealerAccountNumber });
+    if (reloaded.row) setContractRecord(reloaded.row);
+    await refreshUploadVersions(contractRowId);
+    toast.success('Kontrakten er sendt til Timan-godkendelse.');
   };
 
   if (loading) {
@@ -767,17 +981,35 @@ export default function ContractsPage() {
             </div>
 
             {activeStep.id === 'parties' && (
-              <PartiesStep form={form} update={update} locked={isSigned} />
+              <PartiesStep form={form} update={update} locked={isLockedContract} />
             )}
 
             {activeStep.id !== 'parties' && activeStep.id !== 'signature' && (
-              <ReviewStep
-                stepId={activeStep.id}
-                confirmationId={currentConfirmationId}
-                confirmation={currentConfirmationId ? confirmations[currentConfirmationId] : undefined}
-                onConfirm={confirmSection}
-                form={form}
-              />
+              <>
+                <ReviewStep
+                  stepId={activeStep.id}
+                  confirmationId={currentConfirmationId}
+                  confirmation={currentConfirmationId ? confirmations[currentConfirmationId] : undefined}
+                  onConfirm={confirmSection}
+                  form={form}
+                  locked={isLockedContract}
+                />
+                {activeStep.id === 'full_contract' && (
+                  <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                    <p className="text-sm font-bold text-emerald-950">Når alt er gennemlæst, kan kontraktversionen låses.</p>
+                    <p className="mt-1 text-sm text-emerald-900">Herefter bygger PDF og upload på dette faste snapshot.</p>
+                    <button
+                      type="button"
+                      onClick={completeGuidedReview}
+                      disabled={!readyForSignature || isLockedContract}
+                      className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                    >
+                      <Lock className="h-4 w-4" />
+                      {isLockedContract ? 'Kontraktgennemgang afsluttet' : 'Afslut kontraktgennemgang'}
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
             {activeStep.id === 'signature' && (
@@ -788,7 +1020,17 @@ export default function ContractsPage() {
                 signatureName={signatureName}
                 onSignatureUpload={handleSignatureUpload}
                 onGeneratePdf={generatePdf}
-                locked={isSigned}
+                locked={isLockedContract}
+                workflowStatus={workflowStatus}
+                contract={contractRecord}
+                uploadVersions={uploadVersions}
+                activeUploadVersion={activeUploadVersion}
+                latestSubmittedUploadVersion={latestSubmittedUploadVersion}
+                uploadBusy={uploadBusy}
+                onSignedFilesUpload={handleSignedFilesUpload}
+                onRemoveSignedFile={removeSignedFile}
+                onMoveSignedFile={moveSignedFile}
+                onSubmitUpload={submitUpload}
               />
             )}
 
@@ -820,7 +1062,7 @@ export default function ContractsPage() {
 
           {showContractSidebar && (
             <aside className="space-y-4">
-              <ContractStatusCard status={status} readyForSignature={readyForSignature} />
+              <ContractStatusCard status={workflowStatusLabel} workflowStatus={workflowStatus} readyForSignature={readyForSignature} />
               <DocumentList />
             </aside>
           )}
@@ -908,12 +1150,14 @@ function ReviewStep({
   confirmation,
   onConfirm,
   form,
+  locked,
 }: {
   stepId: (typeof CONTRACT_STEPS)[number]['id'];
   confirmationId?: string;
   confirmation?: { confirmed: boolean; confirmedAt?: string; confirmedBy?: string };
   onConfirm: () => void;
   form: ContractFormData;
+  locked?: boolean;
 }) {
   const fullContract = stepId === 'full_contract';
   const section = getGuidedContractSection(stepId);
@@ -949,8 +1193,9 @@ function ReviewStep({
             <input
               type="checkbox"
               checked={Boolean(confirmation?.confirmed)}
+              disabled={locked}
               onChange={onConfirm}
-              className="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600"
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600 disabled:cursor-not-allowed"
             />
             <span>
               <span className="block text-sm font-bold text-gray-950">Vi har gennemgået og forstået dette afsnit.</span>
@@ -1012,6 +1257,16 @@ function SignatureStep({
   onSignatureUpload,
   onGeneratePdf,
   locked,
+  workflowStatus,
+  contract,
+  uploadVersions,
+  activeUploadVersion,
+  latestSubmittedUploadVersion,
+  uploadBusy,
+  onSignedFilesUpload,
+  onRemoveSignedFile,
+  onMoveSignedFile,
+  onSubmitUpload,
 }: {
   form: ContractFormData;
   status: string;
@@ -1020,7 +1275,24 @@ function SignatureStep({
   onSignatureUpload: (file: File | undefined) => void;
   onGeneratePdf: () => void;
   locked: boolean;
+  workflowStatus: ContractWorkflowStatus;
+  contract: DealerContractRecord | null;
+  uploadVersions: DealerContractUploadVersion[];
+  activeUploadVersion: DealerContractUploadVersion | null;
+  latestSubmittedUploadVersion: DealerContractUploadVersion | null;
+  uploadBusy: boolean;
+  onSignedFilesUpload: (files: FileList | null) => void;
+  onRemoveSignedFile: (file: DealerContractUploadFile) => void;
+  onMoveSignedFile: (file: DealerContractUploadFile, direction: -1 | 1) => void;
+  onSubmitUpload: () => void;
 }) {
+  const expectedPages = contract?.expected_signed_pages ?? 0;
+  const draftUpload = uploadVersions.find((version) => version.status === 'draft') ?? null;
+  const uploadedFiles = draftUpload?.files ?? activeUploadVersion?.files ?? [];
+  const hasPdf = uploadedFiles.some((file) => file.mime_type === 'application/pdf');
+  const uploadComplete = hasPdf || expectedPages <= 1 || uploadedFiles.length >= expectedPages;
+  const canUpload = workflowStatus === 'awaiting_signed_upload' || workflowStatus === 'changes_requested';
+
   return (
     <div className="space-y-6">
       <ContractSummary form={form} />
@@ -1035,32 +1307,148 @@ function SignatureStep({
         </div>
       )}
 
-      <div>
-        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Forhandlerens digitale signatur</h3>
-        <label className={`flex flex-col items-center justify-center rounded-2xl border border-dashed px-4 py-5 text-center ${locked ? 'cursor-not-allowed border-gray-200 bg-gray-100' : 'cursor-pointer border-gray-300 bg-gray-50 hover:border-amber-300 hover:bg-amber-50'}`}>
-          <Upload className="h-5 w-5 text-amber-700" />
-          <span className="mt-2 text-sm font-semibold text-gray-800">{locked ? 'Signaturen er låst på denne kontrakt' : 'Upload forhandlerens signaturbillede'}</span>
-          <span className="mt-1 text-xs text-gray-500">{signatureName || 'Valgfrit - PNG eller JPG'}</span>
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp"
-            className="sr-only"
-            disabled={!readyForSignature || locked}
-            onChange={(e) => onSignatureUpload(e.target.files?.[0])}
-          />
-        </label>
-      </div>
+      {!locked && (
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">Forhandlerens digitale signatur</h3>
+          <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center hover:border-amber-300 hover:bg-amber-50">
+            <Upload className="h-5 w-5 text-amber-700" />
+            <span className="mt-2 text-sm font-semibold text-gray-800">Upload forhandlerens signaturbillede</span>
+            <span className="mt-1 text-xs text-gray-500">{signatureName || 'Valgfrit - PNG eller JPG'}</span>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="sr-only"
+              disabled={!readyForSignature}
+              onChange={(e) => onSignatureUpload(e.target.files?.[0])}
+            />
+          </label>
+        </div>
+      )}
+
+      {contract && (
+        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <InfoMini label="Kontraktnummer" value={contract.contract_number || contract.id.slice(0, 8)} />
+            <InfoMini label="Version" value={contract.contract_version} />
+            <InfoMini label="Dato" value={formatDateDa(contract.final_snapshot?.contractDate || form.contractDate)} />
+            <InfoMini label="Status" value={getContractWorkflowStatusLabel(workflowStatus)} />
+          </div>
+        </div>
+      )}
 
       <button
         type="button"
         onClick={onGeneratePdf}
-        disabled={!readyForSignature}
+        disabled={!readyForSignature || !hasReachedContractStatus(workflowStatus, 'ready_for_signature') || workflowStatus === 'submitted_for_approval' || workflowStatus === 'approved' || workflowStatus === 'archived'}
         className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gray-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
       >
         <Download className="h-4 w-4" />
-        Generér endelig kontrakt-PDF
+        Generér kontrakt til underskrift
       </button>
-      <p className="text-xs text-gray-500">Status: {status}. PDF’en gemmer et snapshot af de data og bekræftelser, der er gennemgået i flowet.</p>
+      <p className="text-xs text-gray-500">Status: {status}. PDF’en bygges fra den låste kontraktversion, når gennemgangen er afsluttet.</p>
+
+      {canUpload && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-base font-bold text-amber-950">Upload underskrevet kontrakt</h3>
+              <p className="mt-1 text-sm text-amber-900">
+                {hasPdf ? 'Samlet PDF uploadet.' : expectedPages > 1 ? `${uploadedFiles.length} af ${expectedPages} sider uploadet` : `${uploadedFiles.length} fil(er) uploadet`}
+              </p>
+            </div>
+            <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-amber-900 shadow-sm ring-1 ring-amber-200 hover:bg-amber-100">
+              <Upload className="h-4 w-4" />
+              Vælg filer
+              <input
+                type="file"
+                multiple
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                className="sr-only"
+                disabled={uploadBusy}
+                onChange={(event) => onSignedFilesUpload(event.target.files)}
+              />
+            </label>
+          </div>
+
+          {workflowStatus === 'changes_requested' && latestSubmittedUploadVersion?.review_comment && (
+            <div className="mt-4 rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-red-900">
+              <p className="font-bold">Timan beder om ny upload</p>
+              <p className="mt-1">{latestSubmittedUploadVersion.review_comment}</p>
+            </div>
+          )}
+
+          {uploadedFiles.length > 0 && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {uploadedFiles.map((file, index) => (
+                <div key={file.id} className="rounded-xl border border-amber-200 bg-white p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold text-gray-950">{file.file_name}</p>
+                      <p className="mt-1 text-xs text-gray-500">{file.mime_type === 'application/pdf' ? 'PDF' : `Side ${index + 1}`}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onRemoveSignedFile(file)}
+                      disabled={uploadBusy}
+                      className="rounded-full p-2 text-gray-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
+                      title="Fjern fil"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {file.signed_url && file.mime_type.startsWith('image/') && (
+                    <img src={file.signed_url} alt={file.file_name} className="mt-3 h-36 w-full rounded-lg object-cover" />
+                  )}
+                  {file.signed_url && file.mime_type === 'application/pdf' && (
+                    <a href={file.signed_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-bold text-amber-800 hover:underline">
+                      Åbn PDF
+                    </a>
+                  )}
+                  {!hasPdf && (
+                    <div className="mt-3 flex gap-2">
+                      <button type="button" onClick={() => onMoveSignedFile(file, -1)} disabled={index === 0 || uploadBusy} className="rounded-full border border-gray-200 px-3 py-1 text-xs font-bold disabled:opacity-40">Op</button>
+                      <button type="button" onClick={() => onMoveSignedFile(file, 1)} disabled={index === uploadedFiles.length - 1 || uploadBusy} className="rounded-full border border-gray-200 px-3 py-1 text-xs font-bold disabled:opacity-40">Ned</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={onSubmitUpload}
+            disabled={!draftUpload || !uploadComplete || uploadBusy}
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gray-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Send til Timan-godkendelse
+          </button>
+        </div>
+      )}
+
+      {workflowStatus === 'submitted_for_approval' && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-950">
+          <p className="font-bold">Kontrakten er sendt til Timan-godkendelse.</p>
+          <p className="mt-1">Uploadversionen er låst, mens Timan gennemgår dokumentet.</p>
+        </div>
+      )}
+
+      {(workflowStatus === 'approved' || workflowStatus === 'archived') && latestSubmittedUploadVersion && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-950">
+          <p className="font-bold">Kontrakten er godkendt og arkiveret.</p>
+          <p className="mt-1">Den godkendte uploadversion kan ikke overskrives.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoMini({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="mt-1 break-words text-sm font-semibold text-gray-950">{value || '-'}</p>
     </div>
   );
 }

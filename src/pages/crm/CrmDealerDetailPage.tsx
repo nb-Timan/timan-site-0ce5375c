@@ -82,6 +82,8 @@ import {
   listLeads, listDemoLeads, formatLeadNo, formatDemoNo,
   type CrmLead, type CrmDemoLead,
 } from "@/lib/crmLeadsService";
+import { fetchDealerContractsForDealerAccount, type DealerContractRecord } from "@/lib/dealerContractsService";
+import { getContractWorkflowStatusLabel } from "@/lib/contractFlow";
 import { isOpenLead } from "@/lib/leadStatus";
 import {
   buildDealerBudgetIndex,
@@ -536,6 +538,7 @@ export default function CrmDealerDetailPage() {
   // and only counts via created_by_user_id (misses backend/seller-created ones).
   const [dealerQuotes, setDealerQuotes] = useState<ScopedConfiguration[]>([]);
   const [dealerOrders, setDealerOrders] = useState<CrmOrderWithValue[]>([]);
+  const [dealerContracts, setDealerContracts] = useState<DealerContractRecord[]>([]);
   const [allLeads, setAllLeads] = useState<CrmLead[]>([]);
   const [allDemos, setAllDemos] = useState<CrmDemoLead[]>([]);
   const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
@@ -735,6 +738,15 @@ export default function CrmDealerDetailPage() {
     listDealerContacts(dealer.id).then((rows) => { if (!cancelled) setDealerContacts(rows); });
     return () => { cancelled = true; };
   }, [dealer?.id]);
+
+  useEffect(() => {
+    if (!dealer?.account_number) { setDealerContracts([]); return; }
+    let cancelled = false;
+    fetchDealerContractsForDealerAccount(dealer.account_number).then(({ rows }) => {
+      if (!cancelled) setDealerContracts(rows);
+    });
+    return () => { cancelled = true; };
+  }, [dealer?.account_number]);
 
   useEffect(() => {
     if (!dealer || !admin || searchParams.get("edit") !== "1") return;
@@ -1434,9 +1446,51 @@ export default function CrmDealerDetailPage() {
 
         {/* DOCUMENTS — placeholder until document module exists */}
         <TabsContent value="documents" className="mt-0">
-          <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center">
-            <FileText className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-            <p className="text-sm text-slate-500">{tl("no_documents", lang)}</p>
+          <div className="bg-white border border-slate-200 rounded-2xl p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Kontrakter</h3>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{dealerContracts.length}</span>
+            </div>
+            {dealerContracts.length === 0 ? (
+              <div className="py-6 text-center">
+                <FileText className="h-8 w-8 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm text-slate-500">{tl("no_documents", lang)}</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="py-2 pr-3">Kontrakt</th>
+                      <th className="py-2 pr-3">Version</th>
+                      <th className="py-2 pr-3">Status</th>
+                      <th className="py-2 pr-3">Dato</th>
+                      <th className="py-2 pr-3">Timan-sælger</th>
+                      <th className="py-2 pr-3">Åbn</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {dealerContracts.map((contract) => (
+                      <tr key={contract.id}>
+                        <td className="py-3 pr-3 font-semibold text-slate-900">{contract.contract_number || contract.id.slice(0, 8)}</td>
+                        <td className="py-3 pr-3 text-slate-700">{contract.contract_version}</td>
+                        <td className="py-3 pr-3 text-slate-700">{getContractWorkflowStatusLabel(contract.contract_status)}</td>
+                        <td className="py-3 pr-3 text-slate-700">{fmtDate(contract.approved_at || contract.updated_at)}</td>
+                        <td className="py-3 pr-3 text-slate-700">{contract.form_data.timanSellerName || contract.guided_review_completed_by_name || "-"}</td>
+                        <td className="py-3 pr-3">
+                          <Link
+                            to={`/portal/contracts?accountNumber=${encodeURIComponent(dealer.account_number)}`}
+                            className="font-bold text-emerald-700 hover:underline"
+                          >
+                            Åbn
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </TabsContent>
 

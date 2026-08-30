@@ -72,6 +72,7 @@ export const backendSections: BackendSection[] = [
     icon: Building2,
     items: [
       { title: "Forhandlere", icon: Building2, to: "/portal/backend/dealer-accounts", description: "Master-overblik over alle forhandlere, servicepartnere og importører." },
+      { title: "Kontraktgodkendelse", icon: ScrollText, to: "/portal/backend/contracts", description: "Gennemgå underskrevne forhandlerkontrakter og godkend arkivering." },
       { title: "Dealer Matching", icon: Link2, to: "/portal/backend/data?tab=garanti", description: "Manuel matching af garantiregistreringer mod forhandlere." },
       { title: "Partner relationer", icon: Link2, to: "/portal/backend/partner-relations", description: "Importør→forhandler-hierarki og servicepartner→forhandler-relationer." },
       { title: "Geografisk dækning", icon: MapPin, to: "/portal/backend/data?tab=forhandlere", description: "Geocoding af forhandleradresser og dækningsoverblik." },

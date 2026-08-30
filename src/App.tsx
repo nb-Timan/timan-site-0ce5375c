@@ -157,6 +157,7 @@ const BackendAuditLogPage = lazy(() => import("./pages/backend/BackendAuditLogPa
 const BackendPortalAnalyticsPage = lazy(() => import("./pages/backend/BackendPortalAnalyticsPage"));
 const BackendPersistenceAuditPage = lazy(() => import("./pages/backend/BackendPersistenceAuditPage"));
 const BackendDealerAccountsPage = lazy(() => import("./pages/backend/BackendDealerAccountsPage"));
+const BackendContractApprovalsPage = lazy(() => import("./pages/backend/BackendContractApprovalsPage"));
 const BackendDealerImportPage = lazy(() => import("./pages/backend/BackendDealerImportPage"));
 const BackendBudgetImportPage = lazy(() => import("./pages/backend/BackendBudgetImportPage"));
 const BackendSellersPage = lazy(() => import("./pages/backend/BackendSellersPage"));
@@ -315,6 +316,7 @@ const App = () => (
               <Route path="/portal/backend/audit-log" element={<BackendAuditLogPage />} />
               <Route path="/portal/backend/portal-analytics" element={<BackendPortalAnalyticsPage />} />
               <Route path="/portal/backend/dealer-accounts" element={<BackendDealerAccountsPage />} />
+              <Route path="/portal/backend/contracts" element={<BackendContractApprovalsPage />} />
               <Route path="/portal/backend/dealer-import" element={<BackendDealerImportPage />} />
               <Route path="/portal/backend/budget-import" element={<BackendBudgetImportPage />} />
               <Route path="/portal/backend/sellers" element={<BackendSellersPage />} />

@@ -4,12 +4,16 @@ import {
   canLeaveContractStep,
   canPrepareContractForSignature,
   buildContractSnapshot,
+  canTransitionContractStatus,
   EMPTY_CONTRACT_CONFIRMATIONS,
+  CONTRACT_STATUS_LABELS_DA,
   CONTRACT_STEPS,
   CONTRACT_APPENDIX_LABELS,
+  getContractWorkflowStatusLabel,
   getCompletedContractStepIds,
   getContractStepLabel,
   getContractStatus,
+  hasReachedContractStatus,
   hasRequiredPartyData,
   normalizeContractConfirmations,
   TIMAN_COMPANY_INFO,
@@ -194,6 +198,70 @@ describe('contract flow', () => {
     expect(snapshot.timan.sellerEmail).toBe('bp@timan.dk');
     expect(snapshot.dealer.name).toBe('Metec Metal Technology Inc');
     expect(snapshot.signatureDataUrl).toBe('data:image/png;base64,test');
+  });
+
+  it('uses stable workflow status ids with Danish labels', () => {
+    expect(Object.keys(CONTRACT_STATUS_LABELS_DA)).toEqual([
+      'draft',
+      'guided_review',
+      'ready_for_signature',
+      'awaiting_signed_upload',
+      'submitted_for_approval',
+      'changes_requested',
+      'approved',
+      'archived',
+    ]);
+    expect(getContractWorkflowStatusLabel('submitted_for_approval')).toBe('Sendt til Timan-godkendelse');
+    expect(getContractWorkflowStatusLabel('unknown')).toBe('Kladde');
+  });
+
+  it('allows only the intended contract status transitions', () => {
+    expect(canTransitionContractStatus('draft', 'ready_for_signature')).toBe(true);
+    expect(canTransitionContractStatus('ready_for_signature', 'awaiting_signed_upload')).toBe(true);
+    expect(canTransitionContractStatus('submitted_for_approval', 'changes_requested')).toBe(true);
+    expect(canTransitionContractStatus('submitted_for_approval', 'approved')).toBe(true);
+    expect(canTransitionContractStatus('approved', 'awaiting_signed_upload')).toBe(false);
+    expect(canTransitionContractStatus('archived', 'draft')).toBe(false);
+    expect(hasReachedContractStatus('approved', 'awaiting_signed_upload')).toBe(true);
+  });
+
+  it('freezes legal text and review actor details into the locked snapshot', () => {
+    const snapshot = buildContractSnapshot(completeForm, confirmed, {
+      contractId: 'contract-1',
+      contractNumber: 'DC-2026-1000',
+      workflowStatus: 'ready_for_signature',
+      legalSections: GUIDED_CONTRACT_SECTIONS,
+      appendices: { appendix2Paragraphs: APPENDIX_2_PARAGRAPHS },
+      completedGuidedReviewAt: '2026-08-30T08:00:00.000Z',
+      completedGuidedReviewBy: 'Birger Pedersen',
+      completedGuidedReviewByEmail: 'bp@timan.dk',
+      expectedSignedPages: 5,
+    });
+
+    expect(snapshot.contractId).toBe('contract-1');
+    expect(snapshot.contractNumber).toBe('DC-2026-1000');
+    expect(snapshot.workflowStatus).toBe('ready_for_signature');
+    expect(snapshot.legalSections).toEqual(GUIDED_CONTRACT_SECTIONS);
+    expect(snapshot.appendices).toEqual({ appendix2Paragraphs: APPENDIX_2_PARAGRAPHS });
+    expect(snapshot.completedGuidedReviewByEmail).toBe('bp@timan.dk');
+    expect(snapshot.expectedSignedPages).toBe(5);
+  });
+
+  it('defines database workflow primitives for uploads, approval, RLS and private storage', () => {
+    const migration = readFileSync('supabase/migrations/20260830081914_dealer_contract_approval_workflow.sql', 'utf8');
+
+    expect(migration).toContain("'dealer-contracts'");
+    expect(migration).toContain('public.dealer_contract_upload_versions');
+    expect(migration).toContain('public.dealer_contract_upload_files');
+    expect(migration).toContain('complete_dealer_contract_guided_review');
+    expect(migration).toContain('submit_dealer_contract_upload');
+    expect(migration).toContain('request_dealer_contract_new_upload');
+    expect(migration).toContain('approve_dealer_contract_upload');
+    expect(migration).toContain('public.can_approve_dealer_contract');
+    expect(migration).toContain('public.can_access_dealer_contract_storage');
+    expect(migration).toContain("public.audit_dealer_contract_event");
+    expect(migration).toContain("uv.status = 'draft'");
+    expect(migration).toContain("contract_status = 'approved'");
   });
 
   it('uses a stable draft key per seller and dealer account', () => {
