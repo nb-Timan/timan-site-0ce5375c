@@ -1,0 +1,22 @@
+Sweden municipalities / Kommunindelning overlay data
+
+Source:
+Statistics Sweden (SCB) digital boundaries for counties and municipalities.
+https://www.scb.se/hitta-statistik/regional-statistik-och-kartor/regionala-indelningar/digitala-granser/
+
+Provider:
+Statistiska centralbyrån (SCB). SCB notes that Sweden has 290 municipalities
+and provides simplified digital municipal boundaries for thematic map display.
+
+License:
+SCB open data uses CC0. Source attribution is recommended as "Källa: SCB" or
+"Source: Statistics Sweden", but is not required by the license.
+
+The file public/data/sweden-municipalities.geojson contains a local, simplified
+GeoJSON FeatureCollection with 290 Swedish municipalities. Each feature keeps
+the stable municipality code (kode), municipality name (navn), and
+Polygon/MultiPolygon geometry for responsive web-map display.
+
+The checked-in web version is loaded lazily only when the Sweden municipalities
+overlay is selected in Partnerkort or when Sweden territory is shown in the
+guided contract territory map.

@@ -38,6 +38,12 @@ import {
   getDenmarkMunicipalityDisplayName,
   parseDenmarkMunicipalitiesGeoJson,
 } from '@/lib/denmarkMunicipalities';
+import {
+  SWEDEN_MUNICIPALITIES_GEOJSON_URL,
+  getSwedenMunicipalityLabel,
+  getSwedenMunicipalityDisplayName,
+  parseSwedenMunicipalitiesGeoJson,
+} from '@/lib/swedenMunicipalities';
 import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 
 type PartnerType = PartnerAccountTypeId;
@@ -134,13 +140,14 @@ const EUROPE_VIEW: Position = { center: [50.5, 9.5], zoom: 4 };
 const WORLD_VIEW: Position = { center: [25, 10], zoom: 2 };
 const GERMANY_BOUNDS: [number, number, number, number] = [47.3, 5.9, 55.1, 15.0];
 
-type AdministrativeOverlayId = 'none' | 'de_plz2' | 'dk_municipalities';
+type AdministrativeOverlayId = 'none' | 'de_plz2' | 'dk_municipalities' | 'se_municipalities';
 
 const GERMANY_PLZ2_LABEL_OVERRIDES: Record<string, [number, number]> = {
   '71': [48.91, 9.19],
   '91': [49.28, 10.75],
 };
 const DENMARK_BOUNDS: [number, number, number, number] = [54.5, 8.0, 57.8, 15.2];
+const SWEDEN_BOUNDS: [number, number, number, number] = [55.0, 10.8, 69.2, 24.2];
 
 type Continent = 'europe' | 'north_america' | 'south_america' | 'asia' | 'africa' | 'oceania' | 'other';
 
@@ -751,6 +758,130 @@ function DenmarkMunicipalitiesOverlay({
       alive = false;
       selectedCodeRef.current = null;
       container.classList.remove('pm-dk-municipality-hovering');
+      group.removeFrom(map);
+    };
+  }, [enabled, lang, map, onError]);
+
+  return null;
+}
+
+function SwedenMunicipalitiesOverlay({
+  enabled,
+  onError,
+  lang,
+}: {
+  enabled: boolean;
+  onError: (message: string | null) => void;
+  lang: Language;
+}) {
+  const map = useMap();
+  const selectedCodesRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!enabled) {
+      onError(null);
+      selectedCodesRef.current = new Set();
+      return;
+    }
+
+    let alive = true;
+    const group = L.layerGroup();
+    const container = map.getContainer();
+
+    if (!map.getPane('pm-se-municipality-fill-pane')) {
+      map.createPane('pm-se-municipality-fill-pane');
+    }
+    const fillPane = map.getPane('pm-se-municipality-fill-pane');
+    if (fillPane) {
+      fillPane.style.zIndex = '360';
+      fillPane.style.pointerEvents = 'auto';
+    }
+
+    group.addTo(map);
+    map.flyToBounds(
+      L.latLngBounds(
+        [SWEDEN_BOUNDS[0], SWEDEN_BOUNDS[1]],
+        [SWEDEN_BOUNDS[2], SWEDEN_BOUNDS[3]],
+      ),
+      { padding: [36, 36], maxZoom: 5, duration: 0.7 },
+    );
+
+    const styleFor = (feature: GeoJSON.Feature | undefined, hovered = false): L.PathOptions => {
+      const selected = selectedCodesRef.current.has(String(feature?.properties?.kode ?? ''));
+      return {
+        color: selected ? '#174c2b' : '#287a48',
+        weight: selected ? 2.4 : hovered ? 1.8 : 1,
+        opacity: selected ? 0.95 : hovered ? 0.9 : 0.66,
+        fillColor: '#2fb36d',
+        fillOpacity: selected ? 0.22 : hovered ? 0.14 : 0.07,
+      };
+    };
+
+    fetch(SWEDEN_MUNICIPALITIES_GEOJSON_URL)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        if (!alive) return;
+        const municipalities = parseSwedenMunicipalitiesGeoJson(data);
+        onError(null);
+        const layer = L.geoJSON(municipalities, {
+          pane: 'pm-se-municipality-fill-pane',
+          style: (feature) => styleFor(feature),
+          onEachFeature: (feature, featureLayer) => {
+            const municipality = getSwedenMunicipalityDisplayName(feature);
+            const code = String(feature?.properties?.kode ?? '');
+            const path = featureLayer as L.Path;
+            const bounds = (featureLayer as L.Polygon).getBounds?.();
+            featureLayer.bindTooltip(municipality, {
+              direction: 'top',
+              className: 'pm-plz2-hover-label',
+              opacity: 0.95,
+            });
+            featureLayer.bindPopup(
+              `<div class="pm-plz2-popup"><div>${escapeHtml(getSwedenMunicipalityLabel('municipality', lang))}: <strong>${escapeHtml(municipality)}</strong></div></div>`,
+              { closeButton: true, maxWidth: 220 },
+            );
+            featureLayer.on({
+              mouseover: () => {
+                container.classList.add('pm-se-municipality-hovering');
+                path.setStyle(styleFor(feature, true));
+              },
+              mouseout: () => {
+                container.classList.remove('pm-se-municipality-hovering');
+                path.setStyle(styleFor(feature));
+              },
+              click: () => {
+                if (selectedCodesRef.current.has(code)) {
+                  selectedCodesRef.current.delete(code);
+                } else {
+                  selectedCodesRef.current.add(code);
+                }
+                layer.eachLayer((item) => {
+                  const itemFeature = (item as { feature?: GeoJSON.Feature }).feature;
+                  if ((item as L.Path).setStyle) {
+                    (item as L.Path).setStyle(styleFor(itemFeature));
+                  }
+                });
+                if (bounds?.isValid()) {
+                  map.fitBounds(bounds, { padding: [32, 32], maxZoom: 9 });
+                }
+              },
+            });
+          },
+        });
+        group.addLayer(layer);
+      })
+      .catch(() => {
+        if (!alive) return;
+        onError('Svenske kommuneområder kunne ikke indlæses.');
+      });
+
+    return () => {
+      alive = false;
+      selectedCodesRef.current = new Set();
+      container.classList.remove('pm-se-municipality-hovering');
       group.removeFrom(map);
     };
   }, [enabled, lang, map, onError]);
@@ -1837,7 +1968,7 @@ export default function PartnerMapPage() {
                     onChange={(e) => {
                       const nextOverlay = e.target.value as AdministrativeOverlayId;
                       setAdministrativeOverlay(nextOverlay);
-                      if (nextOverlay === 'de_plz2' || nextOverlay === 'dk_municipalities') setMapStyle('standard');
+                      if (nextOverlay === 'de_plz2' || nextOverlay === 'dk_municipalities' || nextOverlay === 'se_municipalities') setMapStyle('standard');
                     }}
                     title={T.area[lang]}
                     className="h-9 pl-2 pr-2 text-xs font-medium bg-white border border-gray-200 rounded-md text-gray-700 hover:text-[#2d5a27] focus:outline-none focus:border-[#2d5a27] cursor-pointer max-w-[240px]"
@@ -1845,6 +1976,7 @@ export default function PartnerMapPage() {
                     <option value="none">{T.area[lang]}: {T.areaNone[lang]}</option>
                     <option value="de_plz2">{T.area[lang]}: {T.areaGermanyPlz2[lang]}</option>
                     <option value="dk_municipalities">{T.area[lang]}: {getDenmarkMunicipalityLabel('areaDenmarkMunicipalities', lang)}</option>
+                    <option value="se_municipalities">{T.area[lang]}: {getSwedenMunicipalityLabel('areaSwedenMunicipalities', lang)}</option>
                   </select>
                 </div>
                 {fullscreenSupported && (
@@ -2020,6 +2152,11 @@ export default function PartnerMapPage() {
                     />
                     <DenmarkMunicipalitiesOverlay
                       enabled={administrativeOverlay === 'dk_municipalities'}
+                      onError={setAdministrativeOverlayError}
+                      lang={lang}
+                    />
+                    <SwedenMunicipalitiesOverlay
+                      enabled={administrativeOverlay === 'se_municipalities'}
                       onError={setAdministrativeOverlayError}
                       lang={lang}
                     />
