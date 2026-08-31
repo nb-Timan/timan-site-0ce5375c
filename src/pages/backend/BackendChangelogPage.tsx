@@ -18,6 +18,7 @@ import {
   adminListChangelog,
   adminUpdateChangelog,
   adminUpdateChangelogStatus,
+  getPublishedFeatureContent,
   missingSiteChangeLanguages,
   recommendPublication,
   syncSiteChangesFromGitHub,
@@ -527,12 +528,17 @@ export default function BackendChangelogPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((row) => (
+                  {rows.map((row) => {
+                    const published = getPublishedFeatureContent(row, uiLanguage);
+                    return (
                     <tr key={row.id} className={`border-t border-slate-100 align-top hover:bg-slate-50/70 ${editing?.id === row.id ? "bg-emerald-50/40" : ""}`}>
                       <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">{formatDate(row.implemented_at, uiLanguage)}</td>
                       <td className="min-w-[260px] px-4 py-4">
-                        <div className="font-semibold text-slate-900">{row.title_internal}</div>
-                        {row.description_internal && <div className="mt-1 line-clamp-2 text-xs text-slate-500">{row.description_internal}</div>}
+                        <div className="font-semibold text-slate-900">{published.title}</div>
+                        {published.description && <div className="mt-1 line-clamp-3 text-xs leading-snug text-slate-600">{published.description}</div>}
+                        <div className="mt-2 text-[11px] text-slate-400">
+                          {st("siteFeaturesInternalTitle")}: {row.title_internal}
+                        </div>
                         {row.source_ref && <div className="mt-1 font-mono text-[11px] text-slate-400">{row.source_ref}</div>}
                         {missingSiteChangeLanguages(row).length > 0 && (
                           <div className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200">
@@ -540,7 +546,7 @@ export default function BackendChangelogPage() {
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-slate-600">{moduleLabel(row.module, uiLanguage)}</td>
+                      <td className="px-4 py-4 text-slate-600">{published.moduleLabel || moduleLabel(row.module, uiLanguage)}</td>
                       <td className="px-4 py-4 text-slate-600">{changeTypeLabel(row.change_type, uiLanguage)}</td>
                       <td className="min-w-[180px] px-4 py-4 text-xs text-slate-500">{row.affected_roles.map((role) => roleLabel(role, uiLanguage)).join(", ")}</td>
                       <td className="px-4 py-4 text-xs text-slate-600">
@@ -584,7 +590,8 @@ export default function BackendChangelogPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   {!loadingRows && rows.length === 0 && (
                     <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesNoFilterMatches")}</td></tr>
                   )}

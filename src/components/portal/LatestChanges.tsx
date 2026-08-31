@@ -72,24 +72,34 @@ export default function LatestChanges({ language, limit = 5 }: Props) {
           {shown.map(entry => {
             const read = isRead(entry.id);
             const showNew = !read && isStillNew(entry);
+            const moduleName = pickLocalizedRecord(entry.module_name, language);
+            const title = pickLocalizedRecord(entry.title, language);
+            const description = pickLocalizedRecord(entry.description || {}, language);
             return (
               <li key={entry.id}>
                 <button
                   type="button"
                   onClick={() => handleClick(entry)}
                   className={cn(
-                    'w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm transition-colors',
+                    'w-full text-left flex items-start gap-3 px-4 py-3 text-sm transition-colors',
                     read ? 'text-gray-500 hover:bg-gray-50' : 'text-gray-900 hover:bg-gray-50',
                   )}
                 >
-                  <span className={cn('font-mono text-xs tabular-nums shrink-0', read ? 'text-gray-400' : 'text-gray-500')}>
-                    {formatChangedDate(entry.changed_at)}
+                  <span className="min-w-0 flex-1">
+                    <span className={cn('block font-semibold leading-snug', read ? 'text-gray-600' : 'text-gray-950')}>
+                      {title}
+                    </span>
+                    {description && (
+                      <span className={cn('mt-0.5 line-clamp-2 block text-xs leading-snug', read ? 'text-gray-400' : 'text-gray-600')}>
+                        {description}
+                      </span>
+                    )}
+                    <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
+                      <span>{t('siteFeaturesArea', language)}: {moduleName}</span>
+                      <span aria-hidden="true">·</span>
+                      <span className="font-mono tabular-nums">{formatChangedDate(entry.changed_at)}</span>
+                    </span>
                   </span>
-                  <span className="text-gray-300">·</span>
-                  <span className={cn('font-semibold shrink-0', read ? 'text-gray-500' : 'text-[#2d5a27]')}>
-                    {pickLocalizedRecord(entry.module_name, language)}:
-                  </span>
-                  <span className="truncate">{pickLocalizedRecord(entry.title, language)}</span>
                   <span className="flex items-center gap-1.5 ml-auto shrink-0">
                     {showNew && (
                       <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 px-2 py-0.5 text-[10px] font-bold uppercase">

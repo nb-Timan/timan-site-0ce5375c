@@ -9,6 +9,9 @@ const corsHeaders = {
 const DEFAULT_REPOSITORY = "nb-Timan/timan-site-0ce5375c";
 const DEFAULT_BRANCH = "main";
 const DEFAULT_LIMIT = 25;
+const PORTAL_LANGUAGES = ["da", "en", "de", "it", "hu", "sv", "fr", "pl", "cs"] as const;
+
+type PortalLanguage = typeof PORTAL_LANGUAGES[number];
 
 type GitHubCommitInput = {
   id?: string;
@@ -54,6 +57,81 @@ type SiteChangeInsert = {
   publish_recommendation: "publish" | "maybe" | "internal";
   is_important: boolean;
   status: "new";
+};
+
+const MODULE_LABELS: Record<string, Partial<Record<PortalLanguage, string>>> = {
+  crm: { da: "CRM", en: "CRM", de: "CRM", it: "CRM", hu: "CRM", sv: "CRM", fr: "CRM", pl: "CRM", cs: "CRM" },
+  dealer_data: { da: "Partnerdata", en: "Partner data", de: "Partnerdaten", it: "Dati partner", hu: "Partneradatok", sv: "Partnerdata", fr: "Données partenaire", pl: "Dane partnera", cs: "Data partnera" },
+  dealer_portal: { da: "Forhandlerportal", en: "Dealer portal", de: "Händlerportal", it: "Portale rivenditore", hu: "Kereskedői portál", sv: "Återförsäljarportal", fr: "Portail revendeur", pl: "Portal dealera", cs: "Portál prodejce" },
+  service: { da: "Service & Teknik", en: "Service & Technical", de: "Service & Technik", it: "Assistenza e tecnica", hu: "Szerviz és műszaki", sv: "Service och teknik", fr: "Service et technique", pl: "Serwis i technika", cs: "Servis a technika" },
+  messe: { da: "Messe", en: "Exhibition", de: "Messe", it: "Fiera", hu: "Kiállítás", sv: "Mässa", fr: "Salon", pl: "Targi", cs: "Veletrh" },
+  marketing: { da: "Marketing", en: "Marketing", de: "Marketing", it: "Marketing", hu: "Marketing", sv: "Marketing", fr: "Marketing", pl: "Marketing", cs: "Marketing" },
+  map: { da: "Kort / Kontrakt", en: "Map / Contract", de: "Karte / Vertrag", it: "Mappa / Contratto", hu: "Térkép / Szerződés", sv: "Karta / Avtal", fr: "Carte / Contrat", pl: "Mapa / Umowa", cs: "Mapa / Smlouva" },
+  warranty: { da: "Garantiregistrering", en: "Warranty registration", de: "Garantieregistrierung", it: "Registrazione garanzia", hu: "Garanciaregisztráció", sv: "Garantiregistrering", fr: "Enregistrement de garantie", pl: "Rejestracja gwarancji", cs: "Registrace záruky" },
+  claims: { da: "Reklamationer", en: "Claims", de: "Reklamationen", it: "Reclami", hu: "Reklamációk", sv: "Reklamationer", fr: "Réclamations", pl: "Reklamacje", cs: "Reklamace" },
+  budget: { da: "Budget", en: "Budget", de: "Budget", it: "Budget", hu: "Költségvetés", sv: "Budget", fr: "Budget", pl: "Budżet", cs: "Rozpočet" },
+  quotes: { da: "Tilbud", en: "Quotes", de: "Angebote", it: "Offerte", hu: "Ajánlatok", sv: "Offerter", fr: "Devis", pl: "Oferty", cs: "Nabídky" },
+  orders: { da: "Ordrer", en: "Orders", de: "Aufträge", it: "Ordini", hu: "Megrendelések", sv: "Order", fr: "Commandes", pl: "Zamówienia", cs: "Objednávky" },
+  backend: { da: "Backend", en: "Backend", de: "Backend", it: "Backend", hu: "Backend", sv: "Backend", fr: "Backend", pl: "Backend", cs: "Backend" },
+};
+
+const AREA_PREFIX: Record<PortalLanguage, string> = {
+  da: "Område",
+  en: "Area",
+  de: "Bereich",
+  it: "Area",
+  hu: "Terület",
+  sv: "Område",
+  fr: "Zone",
+  pl: "Obszar",
+  cs: "Oblast",
+};
+
+const MODULE_PUBLIC_TEXT: Record<string, Record<PortalLanguage, { title: string; description: string; note: string }>> = {
+  crm: {
+    da: { title: "CRM er forbedret", description: "CRM-arbejdet er blevet gjort mere overskueligt, så leads, opfølgning og salgsarbejde er lettere at holde styr på.", note: "CRM forbedret" },
+    en: { title: "CRM has been improved", description: "CRM work has been made clearer, so leads, follow-up and sales activity are easier to manage.", note: "CRM improved" },
+    de: { title: "CRM wurde verbessert", description: "Die CRM-Arbeit ist übersichtlicher geworden, damit Leads, Nachverfolgung und Verkauf leichter gesteuert werden können.", note: "CRM verbessert" },
+    it: { title: "CRM migliorato", description: "Il lavoro CRM è più chiaro, così lead, follow-up e attività commerciali sono più facili da gestire.", note: "CRM migliorato" },
+    hu: { title: "A CRM továbbfejlesztve", description: "A CRM-munka áttekinthetőbb lett, így a leadek, utánkövetések és értékesítési feladatok könnyebben kezelhetők.", note: "CRM fejlesztve" },
+    sv: { title: "CRM har förbättrats", description: "CRM-arbetet har blivit tydligare, så leads, uppföljning och försäljning blir lättare att hantera.", note: "CRM förbättrat" },
+    fr: { title: "Le CRM a été amélioré", description: "Le travail CRM est plus clair, afin de mieux gérer les leads, le suivi et les activités commerciales.", note: "CRM amélioré" },
+    pl: { title: "CRM został ulepszony", description: "Praca w CRM jest bardziej przejrzysta, dzięki czemu leady, działania następcze i sprzedaż są łatwiejsze do obsługi.", note: "CRM ulepszony" },
+    cs: { title: "CRM bylo vylepšeno", description: "Práce v CRM je přehlednější, takže leady, následné kroky a prodejní aktivity se snáze řídí.", note: "CRM vylepšeno" },
+  },
+  dealer_data: {
+    da: { title: "Partnerdata er forbedret", description: "Partneroplysninger og kontaktdata er blevet lettere at finde, vedligeholde og bruge i det daglige arbejde.", note: "Partnerdata forbedret" },
+    en: { title: "Partner data has been improved", description: "Partner information and contact data are easier to find, maintain and use in daily work.", note: "Partner data improved" },
+    de: { title: "Partnerdaten wurden verbessert", description: "Partnerinformationen und Kontaktdaten sind leichter zu finden, zu pflegen und im Alltag zu nutzen.", note: "Partnerdaten verbessert" },
+    it: { title: "Dati partner migliorati", description: "Le informazioni partner e i dati di contatto sono più facili da trovare, mantenere e usare nel lavoro quotidiano.", note: "Dati partner migliorati" },
+    hu: { title: "Partneradatok továbbfejlesztve", description: "A partnerinformációk és kapcsolattartási adatok könnyebben megtalálhatók, karbantarthatók és használhatók.", note: "Partneradatok fejlesztve" },
+    sv: { title: "Partnerdata har förbättrats", description: "Partnerinformation och kontaktdata är lättare att hitta, underhålla och använda i det dagliga arbetet.", note: "Partnerdata förbättrat" },
+    fr: { title: "Les données partenaires ont été améliorées", description: "Les informations partenaires et les coordonnées sont plus faciles à trouver, maintenir et utiliser au quotidien.", note: "Données partenaires améliorées" },
+    pl: { title: "Dane partnera zostały ulepszone", description: "Informacje o partnerach i dane kontaktowe są łatwiejsze do znalezienia, utrzymania i użycia na co dzień.", note: "Dane partnera ulepszone" },
+    cs: { title: "Data partnerů byla vylepšena", description: "Informace o partnerech a kontaktní údaje se snáze hledají, udržují a používají v každodenní práci.", note: "Data partnerů vylepšena" },
+  },
+  map: {
+    da: { title: "Forbedret områdekort", description: "Kort og områdevalg er blevet mere overskuelige, så geografiske områder kan aflæses og bruges mere sikkert.", note: "Områdekort forbedret" },
+    en: { title: "Improved territory map", description: "Maps and territory selection are clearer, so geographic areas can be reviewed and used more reliably.", note: "Territory map improved" },
+    de: { title: "Verbesserte Gebietskarte", description: "Karten und Gebietsauswahl sind übersichtlicher, sodass geografische Bereiche zuverlässiger geprüft und genutzt werden können.", note: "Gebietskarte verbessert" },
+    it: { title: "Mappa aree migliorata", description: "Mappe e selezione delle aree sono più chiare, così le aree geografiche possono essere controllate e usate meglio.", note: "Mappa aree migliorata" },
+    hu: { title: "Továbbfejlesztett területtérkép", description: "A térképek és területválasztás áttekinthetőbbek, így a földrajzi területek megbízhatóbban használhatók.", note: "Területtérkép fejlesztve" },
+    sv: { title: "Förbättrad områdeskarta", description: "Kartor och områdesval är tydligare, så geografiska områden kan granskas och användas mer säkert.", note: "Områdeskarta förbättrad" },
+    fr: { title: "Carte des zones améliorée", description: "Les cartes et la sélection de zones sont plus claires, afin d’examiner et d’utiliser les zones géographiques plus sûrement.", note: "Carte des zones améliorée" },
+    pl: { title: "Ulepszona mapa obszarów", description: "Mapy i wybór obszarów są bardziej przejrzyste, więc obszary geograficzne można sprawdzać i używać pewniej.", note: "Mapa obszarów ulepszona" },
+    cs: { title: "Vylepšená mapa oblastí", description: "Mapy a výběr oblastí jsou přehlednější, takže geografické oblasti lze spolehlivěji kontrolovat a používat.", note: "Mapa oblastí vylepšena" },
+  },
+  marketing: {
+    da: { title: "Marketing-indhold er forbedret", description: "Marketing kan lettere styre publiceret indhold, sprog og visning i portalen.", note: "Marketing forbedret" },
+    en: { title: "Marketing content has been improved", description: "Marketing can manage published content, languages and portal display more easily.", note: "Marketing improved" },
+    de: { title: "Marketing-Inhalte wurden verbessert", description: "Marketing kann veröffentlichte Inhalte, Sprachen und Portalanzeige einfacher steuern.", note: "Marketing verbessert" },
+    it: { title: "Contenuti marketing migliorati", description: "Il Marketing può gestire più facilmente contenuti pubblicati, lingue e visualizzazione nel portale.", note: "Marketing migliorato" },
+    hu: { title: "Marketingtartalom továbbfejlesztve", description: "A Marketing könnyebben kezelheti a közzétett tartalmat, nyelveket és portálmegjelenítést.", note: "Marketing fejlesztve" },
+    sv: { title: "Marketinginnehåll har förbättrats", description: "Marketing kan enklare styra publicerat innehåll, språk och visning i portalen.", note: "Marketing förbättrat" },
+    fr: { title: "Le contenu marketing a été amélioré", description: "Le marketing peut gérer plus facilement les contenus publiés, les langues et l’affichage du portail.", note: "Marketing amélioré" },
+    pl: { title: "Treści marketingowe zostały ulepszone", description: "Marketing może łatwiej zarządzać opublikowanymi treściami, językami i widokiem portalu.", note: "Marketing ulepszony" },
+    cs: { title: "Marketingový obsah byl vylepšen", description: "Marketing může snadněji spravovat zveřejněný obsah, jazyky a zobrazení v portálu.", note: "Marketing vylepšen" },
+  },
 };
 
 function json(body: unknown, status = 200): Response {
@@ -129,15 +207,96 @@ function impactFor(type: string, module: string): { user: number; technical: num
   return { user: 4, technical: 4, recommendation: "maybe" };
 }
 
+function moduleLabel(module: string, language: PortalLanguage): string {
+  const labels = MODULE_LABELS[module] || {};
+  return labels[language] || labels.en || labels.da || module;
+}
+
+function cleanPublicTitle(value: string): string {
+  return value
+    .replace(/^(feat|fix|chore|refactor|style|test|docs|build|ci)(\([^)]+\))?:\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function fallbackPublicText(module: string, changeType: string, language: PortalLanguage): { title: string; description: string; note: string } {
+  const area = moduleLabel(module, language);
+  const bugfix: Record<PortalLanguage, string> = {
+    da: `${area} er blevet rettet, så funktionen virker mere stabilt for brugerne.`,
+    en: `${area} has been corrected so the feature works more reliably for users.`,
+    de: `${area} wurde korrigiert, damit die Funktion für Benutzer zuverlässiger arbeitet.`,
+    it: `${area} è stato corretto, così la funzione è più stabile per gli utenti.`,
+    hu: `${area} javítva lett, így a funkció megbízhatóbban működik a felhasználók számára.`,
+    sv: `${area} har rättats, så funktionen fungerar mer stabilt för användarna.`,
+    fr: `${area} a été corrigé afin que la fonction soit plus fiable pour les utilisateurs.`,
+    pl: `${area} został poprawiony, dzięki czemu funkcja działa stabilniej dla użytkowników.`,
+    cs: `${area} bylo opraveno, takže funkce pracuje pro uživatele spolehlivěji.`,
+  };
+  const improvement: Record<PortalLanguage, string> = {
+    da: `${area} er blevet forbedret, så hverdagsarbejdet i portalen bliver mere overskueligt.`,
+    en: `${area} has been improved to make everyday portal work clearer.`,
+    de: `${area} wurde verbessert, damit die tägliche Arbeit im Portal übersichtlicher wird.`,
+    it: `${area} è stato migliorato per rendere più chiaro il lavoro quotidiano nel portale.`,
+    hu: `${area} továbbfejlesztve, hogy a mindennapi portálmunka áttekinthetőbb legyen.`,
+    sv: `${area} har förbättrats så det dagliga arbetet i portalen blir tydligare.`,
+    fr: `${area} a été amélioré pour rendre le travail quotidien dans le portail plus clair.`,
+    pl: `${area} został ulepszony, aby codzienna praca w portalu była bardziej przejrzysta.`,
+    cs: `${area} bylo vylepšeno, aby každodenní práce v portálu byla přehlednější.`,
+  };
+  const title: Record<PortalLanguage, string> = {
+    da: `${area} er opdateret`,
+    en: `${area} has been updated`,
+    de: `${area} wurde aktualisiert`,
+    it: `${area} è stato aggiornato`,
+    hu: `${area} frissítve`,
+    sv: `${area} har uppdaterats`,
+    fr: `${area} a été mis à jour`,
+    pl: `${area} został zaktualizowany`,
+    cs: `${area} bylo aktualizováno`,
+  };
+  const note: Record<PortalLanguage, string> = {
+    da: `${area} opdateret`,
+    en: `${area} updated`,
+    de: `${area} aktualisiert`,
+    it: `${area} aggiornato`,
+    hu: `${area} frissítve`,
+    sv: `${area} uppdaterat`,
+    fr: `${area} mis à jour`,
+    pl: `${area} zaktualizowany`,
+    cs: `${area} aktualizováno`,
+  };
+  return {
+    title: title[language],
+    description: changeType === "bugfix" ? bugfix[language] : improvement[language],
+    note: note[language],
+  };
+}
+
+function buildPublishedSuggestion(module: string, changeType: string): Record<string, Record<string, string>> {
+  return PORTAL_LANGUAGES.reduce((acc, language) => {
+    const template = MODULE_PUBLIC_TEXT[module]?.[language] || fallbackPublicText(module, changeType, language);
+    const area = moduleLabel(module, language);
+    acc[language] = {
+      title: template.title,
+      description: `${template.description}\n\n${AREA_PREFIX[language]}: ${area}`,
+      note: template.note,
+      module_label: area,
+      change_type_label: changeType,
+    };
+    return acc;
+  }, {} as Record<string, Record<string, string>>);
+}
+
 function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInsert | null {
   const sha = cleanText(commit.id || commit.sha);
   if (!/^[a-f0-9]{7,40}$/i.test(sha)) return null;
   const message = cleanText(commit.message || commit.commit?.message);
-  const title = firstLine(message || `GitHub ændring ${sha.slice(0, 7)}`);
+  const title = cleanPublicTitle(firstLine(message || `GitHub ændring ${sha.slice(0, 7)}`));
   const files = changedFiles(commit);
   const module = inferModule(files, message);
   const changeType = inferChangeType(files, message);
   const impact = impactFor(changeType, module);
+  const localizedContent = buildPublishedSuggestion(module, changeType);
   const fileText = files.length ? files.map((file) => `- ${file}`).join("\n") : "- Ingen fil-liste modtaget.";
   const url = cleanText(commit.url || commit.html_url);
 
@@ -146,7 +305,7 @@ function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInser
     source_ref: `github:${sha}`,
     implemented_at: cleanText(commit.timestamp || commit.commit?.author?.date) || new Date().toISOString(),
     title_internal: title,
-    description_internal: `Automatisk importeret fra GitHub commit ${sha.slice(0, 7)}.`,
+    description_internal: `Automatisk importeret fra GitHub. Publiceringsteksten er foreslået ud fra område og ændringstype.`,
     technical_description: [
       `Kilde: GitHub`,
       `Repository: ${repository}`,
@@ -159,17 +318,9 @@ function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInser
       "Ændrede filer:",
       fileText,
     ].filter((line) => line !== null).join("\n"),
-    title_public: null,
-    description_public: null,
-    localized_content: {
-      da: {
-        title,
-        description: "",
-        note: title,
-        module_label: module,
-        change_type_label: changeType,
-      },
-    },
+    title_public: localizedContent.da.title,
+    description_public: localizedContent.da.description,
+    localized_content: localizedContent,
     module,
     change_type: changeType,
     affected_roles: inferRoles(module),

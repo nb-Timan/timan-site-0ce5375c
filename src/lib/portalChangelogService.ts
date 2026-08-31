@@ -121,20 +121,77 @@ export interface SiteChangeGitHubSyncResult {
 function localizedText(values: SiteChangeLocalizedContent | null | undefined, key: keyof SiteChangeLocalizedText, language: PortalUiLanguage): string {
   if (!values) return '';
   const byLanguage = values as Record<string, SiteChangeLocalizedText | undefined>;
-  for (const languageKey of portalLanguageLookupOrder(language, true)) {
+  for (const languageKey of portalLanguageLookupOrder(language)) {
     const value = byLanguage[languageKey]?.[key];
     if (typeof value === 'string' && value.trim()) return value;
   }
   return '';
 }
 
-function localizeFromContent(
-  content: SiteChangeLocalizedContent | null | undefined,
+export interface SiteChangePublishedContent {
+  title: string;
+  description: string;
+  note: string;
+  moduleLabel: string;
+  changeTypeLabel: string;
+}
+
+type SiteChangeContentSource = {
+  localized_content?: SiteChangeLocalizedContent | null;
+  title?: string | null;
+  description?: string | null;
+  title_public?: string | null;
+  description_public?: string | null;
+  title_internal?: string | null;
+  module: string;
+  change_type: string;
+};
+
+function firstText(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+export function getPublishedFeatureContent(
+  feature: SiteChangeContentSource,
+  language: PortalUiLanguage,
+): SiteChangePublishedContent {
+  const content = feature.localized_content || {};
+  const moduleLabels = moduleName(feature.module);
+  const fallbackTitle = firstText(feature.title_public, feature.title, feature.title_internal);
+  const fallbackDescription = firstText(feature.description_public, feature.description);
+  const title = firstText(localizedText(content, 'title', language), fallbackTitle);
+  const description = firstText(localizedText(content, 'description', language), fallbackDescription);
+
+  return {
+    title,
+    description,
+    note: firstText(localizedText(content, 'note', language), title),
+    moduleLabel: firstText(
+      localizedText(content, 'module_label', language),
+      moduleLabels[language],
+      moduleLabels.en,
+      moduleLabels.da,
+      feature.module,
+    ),
+    changeTypeLabel: firstText(localizedText(content, 'change_type_label', language), feature.change_type),
+  };
+}
+
+function localizePublishedContent(
+  feature: SiteChangeContentSource,
   key: keyof SiteChangeLocalizedText,
-  fallback: string | null | undefined,
 ): Record<PortalUiLanguage, string> {
   return PORTAL_LANGUAGE_CODES.reduce((acc, lang) => {
-    acc[lang] = localizedText(content, key, lang) || fallback || '';
+    const published = getPublishedFeatureContent(feature, lang);
+    acc[lang] =
+      key === 'title' ? published.title :
+      key === 'description' ? published.description :
+      key === 'note' ? published.note :
+      key === 'module_label' ? published.moduleLabel :
+      published.changeTypeLabel;
     return acc;
   }, {} as Record<PortalUiLanguage, string>);
 }
@@ -243,24 +300,17 @@ function normalizeRoleVisibility(roles: string[]): ChangelogRole[] {
 }
 
 export function publicRowToEntry(row: SiteChangePublicRow): ChangeLogEntry {
-  const localizedContent = row.localized_content || {};
-  const moduleLabels = moduleName(row.module);
-  const mergedContent = PORTAL_LANGUAGE_CODES.reduce((acc, lang) => {
-    acc[lang] = {
-      module_label: moduleLabels[lang] || moduleLabels.en || moduleLabels.da || row.module,
-      ...(localizedContent[lang] || {}),
-    };
-    return acc;
-  }, {} as SiteChangeLocalizedContent);
+  const description = localizePublishedContent(row, 'description');
+  const hasDescription = Object.values(description).some(Boolean);
 
   return {
     id: row.id,
     module_key: moduleToKey(row.module),
-    module_name: localizeFromContent(mergedContent, 'module_label', row.module),
+    module_name: localizePublishedContent(row, 'module_label'),
     changed_at: row.published_at,
-    title: localizeFromContent(mergedContent, 'title', row.title),
-    description: row.description || row.localized_content ? localizeFromContent(mergedContent, 'description', row.description) : undefined,
-    note: localizeFromContent(mergedContent, 'note', row.title),
+    title: localizePublishedContent(row, 'title'),
+    description: hasDescription ? description : undefined,
+    note: localizePublishedContent(row, 'note'),
     role_visibility: normalizeRoleVisibility(row.affected_roles || ['all']),
     is_major: !!row.is_important,
   };
