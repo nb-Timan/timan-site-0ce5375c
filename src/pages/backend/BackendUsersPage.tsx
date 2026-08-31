@@ -653,6 +653,7 @@ function EditUserModal({
               <Input label="Initials" value={draft.initials} onChange={(v) => setDraft({ ...draft, initials: v.toUpperCase().slice(0, 4) })} />
               <Input label="Name" value={draft.name} onChange={(v) => setDraft({ ...draft, name: v })} />
               <Input label="Email" value={draft.email} onChange={(v) => setDraft({ ...draft, email: v })} />
+              <Input label="Telefon" value={draft.phone ?? ""} onChange={(v) => setDraft({ ...draft, phone: v || null })} />
               <Input label="Company" value={draft.company} onChange={(v) => setDraft({ ...draft, company: v })} />
               <Input label="Country" value={draft.country} onChange={(v) => setDraft({ ...draft, country: v.toUpperCase().slice(0, 2) })} />
               <Input label="Postal code" value={draft.postal_code ?? ""} onChange={(v) => setDraft({ ...draft, postal_code: v || null })} />

@@ -36,6 +36,7 @@ export interface SellerDirectoryEntry {
   full_name: string;
   portal_role: string | null;
   company: string | null;
+  phone: string | null;
 }
 
 export interface SellerDirectory {
@@ -99,13 +100,13 @@ export async function loadSellerDirectory(): Promise<SellerDirectoryEntry[]> {
       // approval/active status or dealer links).
       let { data, error } = await supabase
         .from("app_user_directory")
-        .select("id,email,initials,full_name,portal_role,company");
+        .select("id,email,initials,full_name,portal_role,company,phone");
       if (error) {
         // Older databases without the phase63 view: fall back to app_users
         // (staff-only under the new policies).
         const legacy = await supabase
           .from("app_users")
-          .select("id,email,initials,full_name,portal_role,company")
+          .select("id,email,initials,full_name,portal_role,company,phone")
           .not("initials", "is", null);
         data = legacy.data;
         error = legacy.error;
@@ -119,6 +120,7 @@ export async function loadSellerDirectory(): Promise<SellerDirectoryEntry[]> {
           full_name: String(r.full_name || ""),
           portal_role: (r.portal_role as string | null) || null,
           company: (r.company as string | null) || null,
+          phone: (r.phone as string | null) || null,
         }))
         .filter((r) => r.email && r.initials);
       memCache = { at: Date.now(), list };

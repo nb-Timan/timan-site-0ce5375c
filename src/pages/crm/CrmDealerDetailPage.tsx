@@ -424,7 +424,7 @@ function startOfIsoWeek(d: Date): Date {
 }
 
 const DETAIL_USER_COLUMNS = [
-  "id", "email", "full_name", "initials", "company", "country", "postal_code", "preferred_language",
+  "id", "email", "phone", "full_name", "initials", "company", "country", "postal_code", "preferred_language",
   "dealer_number", "company_dealer", "seller_initials", "seller_email", "portal_role", "status",
   "approved", "is_active", "last_login",
   "account_owner_user_id", "account_owner_name", "account_owner_initials", "account_owner_email",
@@ -446,6 +446,7 @@ function detailUserFromRow(row: Record<string, unknown>): BackendUser {
     initials: initials.toUpperCase().slice(0, 4) || "?",
     name,
     email: String(row.email || ""),
+    phone: (row.phone as string | null) ?? null,
     company: String(row.company || ""),
     country: String(row.country || "DK"),
     postal_code: (row.postal_code as string | null) ?? null,
@@ -769,6 +770,7 @@ export default function CrmDealerDetailPage() {
         email: entry.email,
         initials: entry.initials,
         name: entry.full_name || entry.email,
+        phone: entry.phone,
       }));
     if (directoryOptions.length > 0) return directoryOptions;
     return users
@@ -783,6 +785,7 @@ export default function CrmDealerDetailPage() {
         email: u.email,
         initials: u.initials,
         name: u.name,
+        phone: u.phone,
       }));
   }, [sellerDirectory.list, users]);
 
@@ -2683,11 +2686,7 @@ function ContactHero({
   });
   const assignedSellerName = assignedSeller?.name || dealer.assigned_seller_name || dealer.assigned_seller_initials || null;
   const assignedSellerEmail = assignedSeller?.email || dealer.assigned_seller_email || null;
-  const assignedSellerPhone =
-    (assignedSeller as unknown as { phone?: string | null; mobile?: string | null; telephone?: string | null } | undefined)?.phone ||
-    (assignedSeller as unknown as { phone?: string | null; mobile?: string | null; telephone?: string | null } | undefined)?.mobile ||
-    (assignedSeller as unknown as { phone?: string | null; mobile?: string | null; telephone?: string | null } | undefined)?.telephone ||
-    null;
+  const assignedSellerPhone = assignedSeller?.phone || null;
 
   // Only include actions whose data exists.
   const dealerDataHref = dealer.account_number

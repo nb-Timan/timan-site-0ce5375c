@@ -8,9 +8,9 @@ import {
 } from "@/lib/partnerAdminEdit";
 
 const sellers = [
-  { id: "bp-id", email: "bp@timan.dk", initials: "BP", name: "Birger Pedersen" },
-  { id: "akr-id", email: "akr@timan.dk", initials: "AKR", name: "Alexander Kirschner" },
-  { id: "em-id", email: "em@timan.dk", initials: "EM", name: "Esben Madsen" },
+  { id: "bp-id", email: "bp@timan.dk", initials: "BP", name: "Birger Pedersen", phone: "+45 12 34 56 78" },
+  { id: "akr-id", email: "akr@timan.dk", initials: "AKR", name: "Alexander Kirschner", phone: null },
+  { id: "em-id", email: "em@timan.dk", initials: "EM", name: "Esben Madsen", phone: null },
 ];
 
 describe("partner admin edit helpers", () => {
@@ -58,7 +58,7 @@ describe("partner admin edit helpers", () => {
     }, []);
 
     expect(buildPartnerAdminSellerOptions(state, [])).toEqual([
-      { id: "bp-id", email: "bp@timan.dk", initials: "BP", name: "Birger Pedersen" },
+      { id: "bp-id", email: "bp@timan.dk", initials: "BP", name: "Birger Pedersen", phone: null },
     ]);
   });
 

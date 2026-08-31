@@ -137,6 +137,7 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     initials: deriveInitials(row),
     name: (row.full_name as string) || (row.email as string),
     email: (row.email as string) || "",
+    phone: (row.phone as string | null) ?? null,
     company: (row.company as string) || ((row.email as string)?.endsWith("@timan.dk") ? "Timan" : ""),
     country: ((row.country as string) || "DK").toUpperCase().slice(0, 2),
     postal_code: (row.postal_code as string | null) ?? null,
@@ -309,6 +310,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
   const fullPatch: Record<string, unknown> = {
     full_name: draft.name,
     email: draft.email,
+    phone: draft.phone || null,
     initials: draft.initials,
     company: draft.company || null,
     country: draft.country || null,
@@ -409,6 +411,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     ["initials", row.initials, draft.initials],
     ["full_name", row.full_name, draft.name],
     ["email", (row.email as string)?.toLowerCase(), draft.email.toLowerCase()],
+    ["phone", row.phone, draft.phone],
     ["preferred_language", row.preferred_language, draft.language],
     ["portal_role", row.portal_role, portalRoleForDb],
     ["status", row.status, status],

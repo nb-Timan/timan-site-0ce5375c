@@ -68,6 +68,7 @@ export interface BackendUser {
   initials: string;
   name: string;
   email: string;
+  phone: string | null;
   company: string;
   country: string;         // ISO-2 (DK, GB, DE...)
   postal_code: string | null;
@@ -140,6 +141,7 @@ function seedUser(
   return {
     ...partial,
     company: "Timan",
+    phone: null,
     postal_code: null,
     language: "da",
     dealer_number: null,

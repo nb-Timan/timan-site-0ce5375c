@@ -7,7 +7,7 @@ import {
 } from "@/lib/partnerAccountTypes";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 
-export type PartnerAdminSellerOption = Pick<BackendUser, "id" | "email" | "initials" | "name">;
+export type PartnerAdminSellerOption = Pick<BackendUser, "id" | "email" | "initials" | "name" | "phone">;
 
 export function resolvePartnerAdminSeller<T extends Pick<BackendUser, "id" | "email" | "initials">>(
   dealer: Pick<DealerAccount, "assigned_seller_id" | "assigned_seller_email" | "assigned_seller_initials">,
@@ -56,6 +56,7 @@ export function buildPartnerAdminSellerOptions(
       initials: current.assigned_seller_initials || "—",
       name: current.assigned_seller_name || current.assigned_seller_email || current.assigned_seller_initials || "Ukendt sælger",
       email: current.assigned_seller_email || "",
+      phone: null,
     });
   }
   return Array.from(byId.values()).sort((a, b) => a.initials.localeCompare(b.initials) || a.name.localeCompare(b.name));

@@ -49,6 +49,7 @@ describe("app_users client-side write paths", () => {
   it("the seller directory reads the minimal view, not raw app_users", () => {
     const src = readFileSync(join(SRC, "lib/sellerDirectory.ts"), "utf8");
     expect(src).toContain("app_user_directory");
+    expect(src).toContain("id,email,initials,full_name,portal_role,company,phone");
   });
 });
 

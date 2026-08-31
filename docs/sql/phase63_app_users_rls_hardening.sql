@@ -206,7 +206,8 @@ create trigger app_users_guard_protected_columns_trg
 
 -- 6) Minimal seller/contact directory --------------------------------------
 -- Exposes only display fields for Timan staff rows. No permissions, no
--- approval/active status, no dealer links, no PII beyond work identity.
+-- approval/active status, no dealer links, no PII beyond work identity and
+-- work phone.
 drop view if exists public.app_user_directory;
 create view public.app_user_directory
 with (security_invoker = off) as
@@ -216,7 +217,8 @@ with (security_invoker = off) as
     upper(u.initials) as initials,
     u.full_name,
     u.portal_role::text as portal_role,
-    u.company
+    u.company,
+    u.phone
   from public.app_users u
   where u.initials is not null
     and u.portal_role in (
