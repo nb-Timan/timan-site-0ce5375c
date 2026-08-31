@@ -115,6 +115,7 @@ function ContractTerritoryGeoJsonLayer({
   primaryTerritory,
   secondaryTerritory,
   regionSelectionTarget,
+  displayVariant,
   language,
   onStatus,
   onPrimaryTerritoryChange,
@@ -123,6 +124,7 @@ function ContractTerritoryGeoJsonLayer({
   primaryTerritory: ContractTerritoryArea;
   secondaryTerritory: ContractSecondaryTerritoryArea;
   regionSelectionTarget: ContractTerritoryMapVariant;
+  displayVariant: ContractTerritoryMapVariant | 'both';
   language: PortalUiLanguage | string;
   onStatus: (status: 'loading' | 'ready' | 'error') => void;
   onPrimaryTerritoryChange?: (territory: ContractTerritoryArea) => void;
@@ -148,11 +150,16 @@ function ContractTerritoryGeoJsonLayer({
     }
 
     const normalizedPrimary = normalizeContractTerritoryArea(primaryTerritory);
+    const normalizedSecondary = normalizeContractTerritoryArea(secondaryTerritory);
     const visibleSecondary = secondaryTerritory.enabled && hasContractTerritoryMapSelection(secondaryTerritory);
-    const areaSpecs = [
-      { area: normalizedPrimary, variant: 'primary' as const, valid: hasContractTerritoryMapSelection(normalizedPrimary) },
-      ...(visibleSecondary ? [{ area: normalizeContractTerritoryArea(secondaryTerritory), variant: 'secondary' as const, valid: true }] : []),
-    ];
+    const areaSpecs = displayVariant === 'primary'
+      ? [{ area: normalizedPrimary, variant: 'primary' as const, valid: hasContractTerritoryMapSelection(normalizedPrimary) }]
+      : displayVariant === 'secondary'
+        ? [{ area: normalizedSecondary, variant: 'secondary' as const, valid: hasContractTerritoryMapSelection(normalizedSecondary) }]
+        : [
+          { area: normalizedPrimary, variant: 'primary' as const, valid: hasContractTerritoryMapSelection(normalizedPrimary) },
+          ...(visibleSecondary ? [{ area: normalizedSecondary, variant: 'secondary' as const, valid: true }] : []),
+        ];
     const configs = Array.from(new Map(areaSpecs.map((spec) => [spec.area.country, getContractTerritoryMapCountryConfig(spec.area.country)])).values());
     const selectedBounds = L.latLngBounds([]);
     const fallbackBounds = L.latLngBounds([]);
@@ -263,7 +270,7 @@ function ContractTerritoryGeoJsonLayer({
       container.classList.remove('contract-territory-hovering');
       group.removeFrom(map);
     };
-  }, [map, onStatus, language, stateKey, regionSelectionTarget, onPrimaryTerritoryChange, onSecondaryTerritoryChange, primaryTerritory, secondaryTerritory]);
+  }, [map, onStatus, language, stateKey, regionSelectionTarget, displayVariant, onPrimaryTerritoryChange, onSecondaryTerritoryChange, primaryTerritory, secondaryTerritory]);
 
   return null;
 }
@@ -285,6 +292,7 @@ export function ContractTerritoryMap({
   primaryTerritory,
   secondaryTerritory,
   regionSelectionTarget = 'primary',
+  displayVariant = 'both',
   language,
   onPrimaryTerritoryChange,
   onSecondaryTerritoryChange,
@@ -292,6 +300,7 @@ export function ContractTerritoryMap({
   primaryTerritory: ContractTerritoryArea;
   secondaryTerritory: ContractSecondaryTerritoryArea;
   regionSelectionTarget?: ContractTerritoryMapVariant;
+  displayVariant?: ContractTerritoryMapVariant | 'both';
   language: PortalUiLanguage | string;
   onPrimaryTerritoryChange?: (territory: ContractTerritoryArea) => void;
   onSecondaryTerritoryChange?: (territory: ContractSecondaryTerritoryArea) => void;
@@ -301,21 +310,33 @@ export function ContractTerritoryMap({
   const visibleSecondary = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory);
   const primaryDescription = describeContractTerritoryArea(primaryTerritory, language);
   const secondaryDescription = describeContractSecondaryTerritoryArea(secondaryTerritory, language);
-  const primaryConfig = getContractTerritoryMapCountryConfig(primaryTerritory.country);
+  const mapTerritory = displayVariant === 'secondary'
+    ? normalizeContractTerritoryArea(secondaryTerritory)
+    : normalizeContractTerritoryArea(primaryTerritory);
+  const mapConfig = getContractTerritoryMapCountryConfig(mapTerritory.country);
+  const mapTitle = displayVariant === 'primary'
+    ? getContractTerritoryMapLabel('primaryTitle', language)
+    : displayVariant === 'secondary'
+      ? getContractTerritoryMapLabel('secondaryTitle', language)
+      : getContractTerritoryMapLabel('title', language);
   const basemap = useMemo(() => getContractTerritoryBasemap(), []);
   const stateKey = useMemo(
-    () => `${getContractTerritoryMapStateKey(primaryTerritory)}|${visibleSecondary ? getContractTerritoryMapStateKey(secondaryTerritory) : 'none'}`,
-    [primaryTerritory, secondaryTerritory, visibleSecondary],
+    () => displayVariant === 'primary'
+      ? getContractTerritoryMapStateKey(primaryTerritory)
+      : displayVariant === 'secondary'
+        ? getContractTerritoryMapStateKey(secondaryTerritory)
+        : `${getContractTerritoryMapStateKey(primaryTerritory)}|${visibleSecondary ? getContractTerritoryMapStateKey(secondaryTerritory) : 'none'}`,
+    [displayVariant, primaryTerritory, secondaryTerritory, visibleSecondary],
   );
 
   return (
     <aside className="flex h-full min-h-[520px] flex-col rounded-2xl border border-gray-200 bg-slate-50 p-4">
       <div className="mb-3">
         <h3 className="text-sm font-black text-gray-950">
-          {getContractTerritoryMapLabel('title', language)}
+          {mapTitle}
         </h3>
         <p className="mt-1 text-xs text-slate-600">
-          {primaryConfig.datasetLabel[language as PortalUiLanguage] ?? primaryConfig.datasetLabel.da}
+          {mapConfig.datasetLabel[language as PortalUiLanguage] ?? mapConfig.datasetLabel.da}
         </p>
       </div>
 
@@ -339,6 +360,7 @@ export function ContractTerritoryMap({
             primaryTerritory={primaryTerritory}
             secondaryTerritory={secondaryTerritory}
             regionSelectionTarget={regionSelectionTarget}
+            displayVariant={displayVariant}
             language={language}
             onStatus={setStatus}
             onPrimaryTerritoryChange={onPrimaryTerritoryChange}
@@ -357,15 +379,24 @@ export function ContractTerritoryMap({
       </div>
 
       <div className="mt-3 space-y-2 text-xs leading-5 text-gray-700">
-        {validPrimary && primaryDescription ? (
+        {displayVariant !== 'secondary' && validPrimary && primaryDescription ? (
           <div className="flex gap-2">
             <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-[#287a48]" />
             <span><strong>{getContractTerritoryMapLabel('primary', language)}:</strong> {primaryDescription}</span>
           </div>
-        ) : (
+        ) : displayVariant !== 'secondary' ? (
           <p className="font-semibold text-amber-800">{getContractTerritoryMapLabel('noSelection', language)}</p>
+        ) : null}
+        {displayVariant === 'secondary' && visibleSecondary && secondaryDescription && (
+          <div className="flex gap-2">
+            <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-[#d6a62a]" />
+            <span><strong>{getContractTerritoryMapLabel('secondary', language)}:</strong> {secondaryDescription}</span>
+          </div>
         )}
-        {visibleSecondary && secondaryDescription && (
+        {displayVariant === 'secondary' && (!visibleSecondary || !secondaryDescription) && (
+          <p className="font-semibold text-amber-800">{getContractTerritoryMapLabel('noSecondarySelection', language)}</p>
+        )}
+        {displayVariant === 'both' && visibleSecondary && secondaryDescription && (
           <div className="flex gap-2">
             <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-[#d6a62a]" />
             <span><strong>{getContractTerritoryMapLabel('secondary', language)}:</strong> {secondaryDescription}</span>

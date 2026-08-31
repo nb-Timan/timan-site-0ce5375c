@@ -1703,13 +1703,6 @@ function TerritoryStepFields({
   const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
   const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
   const primaryValid = isValidContractTerritoryArea(primaryTerritory);
-  const [regionSelectionTarget, setRegionSelectionTarget] = useState<'primary' | 'secondary'>('primary');
-
-  useEffect(() => {
-    if (!secondaryTerritory.enabled && regionSelectionTarget === 'secondary') {
-      setRegionSelectionTarget('primary');
-    }
-  }, [regionSelectionTarget, secondaryTerritory.enabled]);
 
   const setPrimaryTerritory = (territory: ContractTerritoryArea) => {
     onChange({ primaryTerritory: normalizeContractTerritoryArea(territory) });
@@ -1720,63 +1713,68 @@ function TerritoryStepFields({
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5">
-      <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,460px)]">
-        <div className="space-y-5">
+      <div className="space-y-5">
+        <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,460px)]">
           <TerritoryAreaEditor
             title="Primært område"
             territory={primaryTerritory}
             onChange={setPrimaryTerritory}
             locked={locked}
             required
-            mapSelectionActive={regionSelectionTarget === 'primary'}
-            onActivateMapSelection={() => setRegionSelectionTarget('primary')}
           />
+          <ContractTerritoryMap
+            primaryTerritory={primaryTerritory}
+            secondaryTerritory={secondaryTerritory}
+            regionSelectionTarget="primary"
+            displayVariant="primary"
+            language={uiLanguage}
+            onPrimaryTerritoryChange={setPrimaryTerritory}
+          />
+        </div>
 
-          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <label className="flex items-center gap-3 text-sm font-bold text-gray-950">
-              <input
-                type="checkbox"
-                checked={secondaryTerritory.enabled}
-                disabled={locked}
-                onChange={(event) => setSecondaryTerritory({
-                  ...secondaryTerritory,
-                  enabled: event.target.checked,
-                  country: secondaryTerritory.country || primaryTerritory.country,
-                })}
-                className="h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600 disabled:cursor-not-allowed"
-              />
-              Tilføj sekundært område
-            </label>
+        <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+          <label className="flex items-center gap-3 text-sm font-bold text-gray-950">
+            <input
+              type="checkbox"
+              checked={secondaryTerritory.enabled}
+              disabled={locked}
+              onChange={(event) => setSecondaryTerritory({
+                ...secondaryTerritory,
+                enabled: event.target.checked,
+                country: secondaryTerritory.country || primaryTerritory.country,
+              })}
+              className="h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600 disabled:cursor-not-allowed"
+            />
+            Tilføj sekundært område
+          </label>
 
-            {secondaryTerritory.enabled && (
-              <div className="mt-4 border-t border-gray-200 pt-4">
+          {secondaryTerritory.enabled && (
+            <div className="mt-4 border-t border-gray-200 pt-4">
+              <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,460px)]">
                 <TerritoryAreaEditor
                   title="Sekundært område"
                   territory={secondaryTerritory}
                   onChange={(territory) => setSecondaryTerritory({ ...territory, enabled: true })}
                   locked={locked}
-                  mapSelectionActive={regionSelectionTarget === 'secondary'}
-                  onActivateMapSelection={() => setRegionSelectionTarget('secondary')}
+                />
+                <ContractTerritoryMap
+                  primaryTerritory={primaryTerritory}
+                  secondaryTerritory={secondaryTerritory}
+                  regionSelectionTarget="secondary"
+                  displayVariant="secondary"
+                  language={uiLanguage}
+                  onSecondaryTerritoryChange={setSecondaryTerritory}
                 />
               </div>
-            )}
-          </div>
-
-          {!primaryValid && (
-            <p className="text-sm font-semibold text-amber-800">
-              Primært område er obligatorisk. Vælg hele landet, vælg et område på kortet eller angiv mindst ét gyldigt postnummer/postnummerinterval.
-            </p>
+            </div>
           )}
         </div>
 
-        <ContractTerritoryMap
-          primaryTerritory={primaryTerritory}
-          secondaryTerritory={secondaryTerritory}
-          regionSelectionTarget={regionSelectionTarget}
-          language={uiLanguage}
-          onPrimaryTerritoryChange={setPrimaryTerritory}
-          onSecondaryTerritoryChange={setSecondaryTerritory}
-        />
+        {!primaryValid && (
+          <p className="text-sm font-semibold text-amber-800">
+            Primært område er obligatorisk. Vælg hele landet, vælg et område på kortet eller angiv mindst ét gyldigt postnummer/postnummerinterval.
+          </p>
+        )}
       </div>
     </div>
   );
@@ -1890,7 +1888,7 @@ function TerritoryAreaEditor({
                   <span className="text-sm font-bold text-gray-950">{regionUi.title}</span>
                   <p className="mt-1 text-xs text-gray-600">{regionUi.help}</p>
                 </div>
-                {!locked && (
+                {!locked && onActivateMapSelection && (
                   <button
                     type="button"
                     onClick={onActivateMapSelection}
