@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Save, Trash2, Upload } from 'lucide-react';
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Pencil, Save, Search, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -48,7 +48,7 @@ import {
   type DealerContractUploadFile,
   type DealerContractUploadVersion,
 } from '@/lib/dealerContractsService';
-import { fetchDealerAccountByNumber } from '@/lib/dealerAccountsService';
+import { fetchDealerAccountByNumber, fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
@@ -101,6 +101,22 @@ import {
   shouldResetContractPaymentConfirmation,
   type ContractPaymentTermId,
 } from '@/lib/contractPaymentTerms';
+import {
+  CONTRACT_ASSOCIATED_PARTNER_KINDS,
+  createContractAssociatedPartnerFromDealerAccount,
+  createPendingContractAssociatedPartner,
+  getContractAssociatedPartnerKindLabel,
+  getContractAssociatedPartnerStatusLabel,
+  isValidPendingContractAssociatedPartner,
+  normalizeContractAssociatedPartners,
+  summarizeContractAssociatedPartner,
+  type ContractAssociatedPartner,
+  type ContractAssociatedPartnerKind,
+} from '@/lib/contractAssociatedPartners';
+import {
+  getPartnerAccountTypeLabel,
+  resolvePartnerAccountType,
+} from '@/lib/partnerAccountTypes';
 import { t } from '@/lib/i18n/translations';
 
 const CONTRACT_DOCS = [
@@ -310,6 +326,56 @@ function drawContractTerritoryAreaPdf(
   return y + 1.5;
 }
 
+function drawContractAssociatedPartnersPdf(
+  pdf: any,
+  partnersInput: unknown,
+  left: number,
+  right: number,
+  y: number,
+) {
+  const partners = normalizeContractAssociatedPartners(partnersInput);
+  if (partners.length === 0) return y;
+
+  y = ensurePdfSpace(pdf, y, 20);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8.2);
+  pdf.setTextColor(17, 24, 39);
+  y = drawWrappedPdfText(pdf, 'Tilknyttede samarbejdspartnere', left, y, right - left, 3.8);
+  y += 1;
+
+  partners.forEach((partner) => {
+    y = ensurePdfSpace(pdf, y, 18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7.4);
+    pdf.setTextColor(31, 41, 55);
+    y = drawWrappedPdfText(
+      pdf,
+      `${getContractAssociatedPartnerKindLabel(partner.kind, 'da')} · ${partner.companyName}`,
+      left + 3,
+      y,
+      right - left - 3,
+      3.7,
+    );
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7);
+    y = drawWrappedPdfText(
+      pdf,
+      [
+        summarizeContractAssociatedPartner(partner) || 'Adresse ikke angivet',
+        partner.accountNumber ? `Kontonr. ${partner.accountNumber}` : 'Ikke oprettet som aktiv partner',
+        partner.cvr ? `CVR/VAT ${partner.cvr}` : '',
+      ].filter(Boolean).join(' · '),
+      left + 3,
+      y + 0.6,
+      right - left - 3,
+      3.5,
+    );
+    y += 1.2;
+  });
+
+  return y + 1.5;
+}
+
 function drawContractTerritorySectionPdf(
   pdf: any,
   left: number,
@@ -338,6 +404,8 @@ function drawContractTerritorySectionPdf(
       y += 1.2;
     });
   }
+
+  y = drawContractAssociatedPartnersPdf(pdf, snapshot.associatedPartners, left + 3, right, y + 1);
 
   return y + 2;
 }
@@ -570,6 +638,7 @@ export default function ContractsPage() {
     contractDate: todayIso(),
     primaryTerritory: createEmptyContractTerritoryArea(),
     secondaryTerritory: createEmptySecondaryContractTerritoryArea(),
+    associatedPartners: [],
     serviceHourlyRateDkk: DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
     paymentTerm: DEFAULT_CONTRACT_PAYMENT_TERM,
     signatureDataUrl: null,
@@ -723,6 +792,13 @@ export default function ContractsPage() {
   };
 
   const updateForm = (patch: Partial<ContractFormData>) => {
+    if (Object.prototype.hasOwnProperty.call(patch, 'associatedPartners')) {
+      setConfirmations((current) => (
+        current.territory?.confirmed
+          ? { ...current, territory: { confirmed: false } }
+          : current
+      ));
+    }
     setForm((current) => ({ ...current, ...patch }));
   };
 
@@ -1632,6 +1708,11 @@ function ReviewStep({
                 onChange={onFormPatch}
                 locked={locked}
               />
+              <ContractAssociatedPartnersSection
+                form={form}
+                onChange={onFormPatch}
+                locked={locked}
+              />
             </>
           ) : section.stepId === 'spare_parts_service' ? (
             <SparePartsServiceSection
@@ -1983,6 +2064,360 @@ function TerritoryAreaEditor({
         </div>
       )}
     </section>
+  );
+}
+
+const EMPTY_ASSOCIATED_PARTNER_DRAFT = {
+  companyName: '',
+  cvr: '',
+  country: '',
+  address: '',
+  postalCode: '',
+  city: '',
+};
+
+function ContractAssociatedPartnersSection({
+  form,
+  onChange,
+  locked,
+}: {
+  form: ContractFormData;
+  onChange: (patch: Partial<ContractFormData>) => void;
+  locked?: boolean;
+}) {
+  const { uiLanguage } = useLanguage();
+  const partners = normalizeContractAssociatedPartners(form.associatedPartners);
+  const [kind, setKind] = useState<ContractAssociatedPartnerKind>('dealer');
+  const [mode, setMode] = useState<'existing' | 'pending'>('existing');
+  const [query, setQuery] = useState('');
+  const [accounts, setAccounts] = useState<DealerAccount[]>([]);
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
+  const [draft, setDraft] = useState(EMPTY_ASSOCIATED_PARTNER_DRAFT);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState(EMPTY_ASSOCIATED_PARTNER_DRAFT);
+
+  const loadAccounts = async () => {
+    if (accountsLoaded || accountsLoading) return;
+    setAccountsLoading(true);
+    setAccountsError(null);
+    const { rows, error } = await fetchDealerAccounts();
+    setAccounts(rows);
+    setAccountsLoaded(true);
+    setAccountsLoading(false);
+    if (error) setAccountsError(error);
+  };
+
+  useEffect(() => {
+    if (mode === 'existing' && query.trim().length >= 2) void loadAccounts();
+  }, [mode, query]);
+
+  const existingResults = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.length < 2) return [];
+    const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+    return accounts
+      .filter((account) => resolvePartnerAccountType(account) === kind)
+      .filter((account) => {
+        const haystack = [
+          account.company_name,
+          account.account_number,
+          account.vat_number,
+          account.city,
+          account.country,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return terms.every((term) => haystack.includes(term));
+      })
+      .slice(0, 8);
+  }, [accounts, kind, query]);
+
+  const patchPartners = (nextPartners: ContractAssociatedPartner[]) => {
+    onChange({ associatedPartners: normalizeContractAssociatedPartners(nextPartners) });
+  };
+
+  const addExistingPartner = (account: DealerAccount) => {
+    const next = createContractAssociatedPartnerFromDealerAccount(account, kind);
+    const alreadyAdded = partners.some((partner) => (
+      partner.kind === next.kind
+      && partner.existingAccountId
+      && partner.existingAccountId === next.existingAccountId
+    ));
+    if (alreadyAdded) {
+      toast.info('Samarbejdspartneren er allerede tilføjet til kontrakten.');
+      return;
+    }
+    patchPartners([...partners, next]);
+    setQuery('');
+  };
+
+  const addPendingPartner = () => {
+    if (!isValidPendingContractAssociatedPartner(draft)) {
+      toast.error('Udfyld firmanavn, land, adresse, postnummer og by.');
+      return;
+    }
+    patchPartners([...partners, createPendingContractAssociatedPartner(kind, draft)]);
+    setDraft(EMPTY_ASSOCIATED_PARTNER_DRAFT);
+    setMode('existing');
+  };
+
+  const removePartner = (id: string) => {
+    patchPartners(partners.filter((partner) => partner.id !== id));
+  };
+
+  const startEdit = (partner: ContractAssociatedPartner) => {
+    setEditingId(partner.id);
+    setEditDraft({
+      companyName: partner.companyName,
+      cvr: partner.cvr,
+      country: partner.country,
+      address: partner.address,
+      postalCode: partner.postalCode,
+      city: partner.city,
+    });
+  };
+
+  const saveEdit = (partner: ContractAssociatedPartner) => {
+    if (!isValidPendingContractAssociatedPartner(editDraft)) {
+      toast.error('Udfyld firmanavn, land, adresse, postnummer og by.');
+      return;
+    }
+    patchPartners(partners.map((current) => (
+      current.id === partner.id
+        ? { ...current, ...editDraft, updatedAt: new Date().toISOString() }
+        : current
+    )));
+    setEditingId(null);
+    setEditDraft(EMPTY_ASSOCIATED_PARTNER_DRAFT);
+  };
+
+  return (
+    <section className="rounded-2xl border border-gray-200 bg-white p-5">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h3 className="text-base font-black text-gray-950">Tilknyttede samarbejdspartnere</h3>
+          <p className="mt-1 text-sm leading-6 text-gray-600">
+            Tilføj forhandlere, servicepartnere eller forhandlerkunder, som skal fremgå af denne kontrakt.
+          </p>
+        </div>
+        {!locked && (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <select
+              value={kind}
+              onChange={(event) => setKind(event.target.value as ContractAssociatedPartnerKind)}
+              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+            >
+              {CONTRACT_ASSOCIATED_PARTNER_KINDS.map((option) => (
+                <option key={option} value={option}>
+                  Tilføj {getContractAssociatedPartnerKindLabel(option, uiLanguage).toLowerCase()}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => setMode(mode === 'existing' ? 'pending' : 'existing')}
+              className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-bold text-emerald-800 hover:bg-emerald-50"
+            >
+              {mode === 'existing' ? '+ Opret som ny samarbejdspartner' : 'Søg eksisterende'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {!locked && (
+        <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
+          {mode === 'existing' ? (
+            <div className="space-y-3">
+              <label className="block">
+                <span className="text-sm font-semibold text-gray-700">Søg eksisterende samarbejdspartner</span>
+                <div className="mt-2 flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:ring-2 focus-within:ring-amber-500">
+                  <Search className="h-4 w-4 text-gray-400" />
+                  <input
+                    type="search"
+                    value={query}
+                    onFocus={() => void loadAccounts()}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Søg på firmanavn, kontonummer, CVR/VAT eller by"
+                    className="w-full border-0 bg-transparent text-sm outline-none"
+                  />
+                </div>
+              </label>
+              {accountsLoading && <p className="text-sm text-gray-500">Henter partnere...</p>}
+              {accountsError && <p className="text-sm font-semibold text-amber-800">{accountsError}</p>}
+              {query.trim().length >= 2 && !accountsLoading && (
+                <div className="space-y-2">
+                  {existingResults.length > 0 ? existingResults.map((account) => (
+                    <button
+                      key={account.id}
+                      type="button"
+                      onClick={() => addExistingPartner(account)}
+                      className="w-full rounded-xl border border-gray-200 bg-white p-3 text-left text-sm hover:border-emerald-200 hover:bg-emerald-50"
+                    >
+                      <span className="block font-bold text-gray-950">{account.company_name}</span>
+                      <span className="mt-1 block text-xs text-gray-500">
+                        {getPartnerAccountTypeLabel(resolvePartnerAccountType(account), uiLanguage)}
+                        {account.account_number ? ` · ${account.account_number}` : ''}
+                        {account.vat_number ? ` · ${account.vat_number}` : ''}
+                        {[account.postal_code, account.city, account.country].filter(Boolean).length > 0
+                          ? ` · ${[account.postal_code, account.city, account.country].filter(Boolean).join(' ')}`
+                          : ''}
+                      </span>
+                    </button>
+                  )) : (
+                    <p className="text-sm text-gray-500">Ingen entydige resultater. Opret som ny samarbejdspartner, hvis relationen kun skal ligge i kontraktkladde.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <AssociatedPartnerDraftFields
+              draft={draft}
+              onChange={setDraft}
+              onSave={addPendingPartner}
+              saveLabel="+ Tilføj samarbejdspartner"
+            />
+          )}
+        </div>
+      )}
+
+      <div className="mt-5">
+        {partners.length > 0 ? (
+          <div className="space-y-3">
+            {partners.map((partner) => (
+              <div key={partner.id} className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                {editingId === partner.id ? (
+                  <AssociatedPartnerDraftFields
+                    draft={editDraft}
+                    onChange={setEditDraft}
+                    onSave={() => saveEdit(partner)}
+                    saveLabel="Gem samarbejdspartner"
+                    onCancel={() => setEditingId(null)}
+                  />
+                ) : (
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-900">
+                          {getContractAssociatedPartnerKindLabel(partner.kind, uiLanguage)}
+                        </span>
+                        <span className="rounded-full border border-gray-200 bg-white px-2.5 py-1 text-xs font-normal text-gray-600">
+                          {getContractAssociatedPartnerStatusLabel(partner.status, uiLanguage)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm font-black text-gray-950">{partner.companyName}</p>
+                      <p className="mt-1 text-sm text-gray-700">{summarizeContractAssociatedPartner(partner) || 'Adresse ikke angivet'}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {partner.accountNumber ? `Kontonr. ${partner.accountNumber}` : 'Ikke oprettet som aktiv partner'}
+                        {partner.cvr ? ` · CVR/VAT ${partner.cvr}` : ''}
+                      </p>
+                    </div>
+                    {!locked && (
+                      <div className="flex shrink-0 items-center gap-2">
+                        {partner.status === 'pending' && (
+                          <button
+                            type="button"
+                            onClick={() => startEdit(partner)}
+                            className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-100"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Rediger
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removePartner(partner.id)}
+                          className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-white px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Fjern
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
+            Ingen tilknyttede samarbejdspartnere er tilføjet.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AssociatedPartnerDraftFields({
+  draft,
+  onChange,
+  onSave,
+  saveLabel,
+  onCancel,
+}: {
+  draft: typeof EMPTY_ASSOCIATED_PARTNER_DRAFT;
+  onChange: (draft: typeof EMPTY_ASSOCIATED_PARTNER_DRAFT) => void;
+  onSave: () => void;
+  saveLabel: string;
+  onCancel?: () => void;
+}) {
+  const setField = (field: keyof typeof EMPTY_ASSOCIATED_PARTNER_DRAFT, value: string) => {
+    onChange({ ...draft, [field]: value });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2">
+        <AssociatedPartnerInput label="Firmanavn" required value={draft.companyName} onChange={(value) => setField('companyName', value)} />
+        <AssociatedPartnerInput label="CVR/VAT nr." value={draft.cvr} onChange={(value) => setField('cvr', value)} />
+        <AssociatedPartnerInput label="Land" required value={draft.country} onChange={(value) => setField('country', value)} />
+        <AssociatedPartnerInput label="Adresse" required value={draft.address} onChange={(value) => setField('address', value)} />
+        <AssociatedPartnerInput label="Postnummer" required value={draft.postalCode} onChange={(value) => setField('postalCode', value)} />
+        <AssociatedPartnerInput label="By" required value={draft.city} onChange={(value) => setField('city', value)} />
+      </div>
+      <div className="flex flex-wrap justify-end gap-2">
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
+          >
+            Annuller
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onSave}
+          className="rounded-xl bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800"
+        >
+          {saveLabel}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AssociatedPartnerInput({
+  label,
+  value,
+  onChange,
+  required,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{label}{required ? ' *' : ''}</span>
+      <input
+        type="text"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+      />
+    </label>
   );
 }
 
@@ -2338,6 +2773,7 @@ function ContractTerritoryLegalSection({ section, form }: { section: GuidedContr
   const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
   const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
   const secondaryVisible = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory);
+  const associatedPartners = normalizeContractAssociatedPartners(form.associatedPartners);
   const primaryBlock = section.blocks[0];
   const secondaryBlock = section.blocks[1];
   const primaryParagraphs = (primaryBlock?.paragraphs ?? [])
@@ -2367,8 +2803,41 @@ function ContractTerritoryLegalSection({ section, form }: { section: GuidedContr
             )}
           </div>
         )}
+        {associatedPartners.length > 0 && (
+          <ContractAssociatedPartnersReadOnly partners={associatedPartners} />
+        )}
       </div>
     </div>
+  );
+}
+
+function ContractAssociatedPartnersReadOnly({ partners }: { partners: ContractAssociatedPartner[] }) {
+  const { uiLanguage } = useLanguage();
+
+  return (
+    <section className="space-y-3 text-sm text-gray-700">
+      <h4 className="font-bold text-gray-950">Tilknyttede samarbejdspartnere</h4>
+      <div className="grid gap-3 md:grid-cols-2">
+        {partners.map((partner) => (
+          <div key={partner.id} className="rounded-xl border border-gray-200 bg-white p-3">
+            <div className="flex flex-wrap gap-2">
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-normal text-emerald-900">
+                {getContractAssociatedPartnerKindLabel(partner.kind, uiLanguage)}
+              </span>
+              <span className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-xs font-normal text-gray-600">
+                {getContractAssociatedPartnerStatusLabel(partner.status, uiLanguage)}
+              </span>
+            </div>
+            <p className="mt-2 font-bold text-gray-950">{partner.companyName}</p>
+            <p className="mt-1">{summarizeContractAssociatedPartner(partner) || 'Adresse ikke angivet'}</p>
+            <p className="mt-1 text-xs text-gray-500">
+              {partner.accountNumber ? `Kontonr. ${partner.accountNumber}` : 'Ikke oprettet som aktiv partner'}
+              {partner.cvr ? ` · CVR/VAT ${partner.cvr}` : ''}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -2855,6 +3324,7 @@ function ContractSummary({ form }: { form: ContractFormData }) {
         <div className="mt-3 space-y-4">
           <ContractTerritoryChips title="Primært område" area={primaryTerritory} />
           {secondaryVisible && <ContractTerritoryChips title="Sekundært område" area={secondaryTerritory} />}
+          {associatedPartners.length > 0 && <ContractAssociatedPartnersReadOnly partners={associatedPartners} />}
         </div>
       </div>
     </div>

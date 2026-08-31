@@ -62,6 +62,10 @@ import {
   renderContractPaymentTermLegalText,
   shouldResetContractPaymentConfirmation,
 } from '@/lib/contractPaymentTerms';
+import {
+  createPendingContractAssociatedPartner,
+  normalizeContractAssociatedPartners,
+} from '@/lib/contractAssociatedPartners';
 import { t } from '@/lib/i18n/translations';
 
 const completeForm: ContractFormData = {
@@ -94,6 +98,7 @@ const completeForm: ContractFormData = {
     postalRanges: [],
     enabled: false,
   },
+  associatedPartners: [],
   serviceHourlyRateDkk: DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
   paymentTerm: DEFAULT_CONTRACT_PAYMENT_TERM,
   signatureDataUrl: null,
@@ -129,6 +134,32 @@ describe('contract flow', () => {
     expect(hasRequiredPartyData({ ...completeForm, partnerType: '' })).toBe(false);
     expect(hasRequiredPartyData({ ...completeForm, timanSellerEmail: '' })).toBe(false);
     expect(hasRequiredPartyData({ ...completeForm, dealerCity: '' })).toBe(false);
+  });
+
+  it('stores associated partners in the contract snapshot without requiring legacy drafts to have the field', () => {
+    expect(normalizeContractAssociatedPartners(undefined)).toEqual([]);
+
+    const associatedPartner = createPendingContractAssociatedPartner('service_partner', {
+      companyName: 'Nord Service ApS',
+      cvr: 'DK12345678',
+      country: 'Danmark',
+      address: 'Servicevej 1',
+      postalCode: '5000',
+      city: 'Odense',
+    });
+    const snapshot = buildContractSnapshot(
+      { ...completeForm, associatedPartners: [associatedPartner, associatedPartner] },
+      confirmed,
+    );
+
+    expect(snapshot.associatedPartners).toHaveLength(1);
+    expect(snapshot.associatedPartners[0]).toMatchObject({
+      kind: 'service_partner',
+      status: 'pending',
+      companyName: 'Nord Service ApS',
+      postalCode: '5000',
+      city: 'Odense',
+    });
   });
 
   it('blocks leaving steps that need confirmation until confirmed', () => {

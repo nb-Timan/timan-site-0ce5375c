@@ -14,6 +14,10 @@ import {
   buildContractPaymentTermsSnapshot,
   type ContractPaymentTermId,
 } from '@/lib/contractPaymentTerms';
+import {
+  normalizeContractAssociatedPartners,
+  type ContractAssociatedPartner,
+} from '@/lib/contractAssociatedPartners';
 
 export type ContractStepId =
   | 'parties'
@@ -68,6 +72,7 @@ export type ContractFormData = {
   contractDate: string;
   primaryTerritory: ContractTerritoryArea;
   secondaryTerritory: ContractSecondaryTerritoryArea;
+  associatedPartners?: ContractAssociatedPartner[];
   serviceHourlyRateDkk: number;
   paymentTerm: ContractPaymentTermId;
   signatureDataUrl: string | null;
@@ -533,6 +538,7 @@ export function buildContractSnapshot(
       contactTitle: form.contactTitle,
     },
     territory: buildContractTerritorySnapshot(form),
+    associatedPartners: normalizeContractAssociatedPartners(form.associatedPartners),
     serviceTerms: buildContractServiceTermsSnapshot(form),
     paymentTerms: buildContractPaymentTermsSnapshot(form),
     contractDate: form.contractDate,
