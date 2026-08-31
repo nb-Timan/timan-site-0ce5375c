@@ -2,12 +2,21 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import {
   normalizeContractTerritoryArea,
   type ContractTerritoryCountryCode,
+  type ContractTerritoryArea,
+  type ContractTerritoryRegion,
 } from '@/lib/contractTerritory';
 import {
   DENMARK_MUNICIPALITIES_GEOJSON_URL,
   getDenmarkMunicipalityDisplayName,
+  parseDenmarkMunicipalitiesGeoJson,
   type DenmarkMunicipalityFeature,
 } from '@/lib/denmarkMunicipalities';
+import {
+  SWEDEN_MUNICIPALITIES_GEOJSON_URL,
+  getSwedenMunicipalityDisplayName,
+  parseSwedenMunicipalitiesGeoJson,
+  type SwedenMunicipalityFeature,
+} from '@/lib/swedenMunicipalities';
 
 export type ContractTerritoryMapVariant = 'primary' | 'secondary';
 
@@ -20,12 +29,13 @@ export type ContractTerritoryMapFeatureMeta = {
 
 export type ContractTerritoryMapCountryConfig = {
   country: ContractTerritoryCountryCode;
-  datasetId: 'dk_municipalities' | 'de_plz2';
+  datasetId: 'dk_municipalities' | 'de_plz2' | 'se_municipalities';
   datasetLabel: Record<PortalUiLanguage, string>;
   geoJsonUrl: string;
   bounds: ContractTerritoryMapBounds;
   postalDigits: number;
   regionDigits: number;
+  parseGeoJson: (data: unknown) => GeoJSON.FeatureCollection;
   getFeatureMeta: (feature: GeoJSON.Feature) => ContractTerritoryMapFeatureMeta | null;
 };
 
@@ -117,6 +127,7 @@ export const CONTRACT_TERRITORY_MAP_COUNTRIES: Record<ContractTerritoryCountryCo
     bounds: [54.5, 8.0, 57.8, 15.2],
     postalDigits: 4,
     regionDigits: 4,
+    parseGeoJson: parseDenmarkMunicipalitiesGeoJson,
     getFeatureMeta: (feature) => {
       const code = String(feature?.properties?.kode ?? '').trim();
       if (!/^\d{4}$/.test(code)) return null;
@@ -141,10 +152,36 @@ export const CONTRACT_TERRITORY_MAP_COUNTRIES: Record<ContractTerritoryCountryCo
     bounds: [47.3, 5.9, 55.1, 15.0],
     postalDigits: 5,
     regionDigits: 2,
+    parseGeoJson: (data) => data as GeoJSON.FeatureCollection,
     getFeatureMeta: (feature) => {
       const plz = String(feature?.properties?.plz ?? '').padStart(2, '0');
       if (!/^\d{2}$/.test(plz)) return null;
       return { key: plz, label: `PLZ2 ${plz}` };
+    },
+  },
+  SE: {
+    country: 'SE',
+    datasetId: 'se_municipalities',
+    datasetLabel: {
+      da: 'Sverige - kommuner',
+      en: 'Sweden - municipalities',
+      de: 'Schweden - Kommunen',
+      it: 'Svezia - comuni',
+      hu: 'Svédország - önkormányzatok',
+      sv: 'Sverige - kommuner',
+      fr: 'Suède - communes',
+      pl: 'Szwecja - gminy',
+      cs: 'Švédsko - obce',
+    },
+    geoJsonUrl: SWEDEN_MUNICIPALITIES_GEOJSON_URL,
+    bounds: [55.0, 10.8, 69.2, 24.2],
+    postalDigits: 5,
+    regionDigits: 4,
+    parseGeoJson: parseSwedenMunicipalitiesGeoJson,
+    getFeatureMeta: (feature) => {
+      const code = String(feature?.properties?.kode ?? '').trim();
+      if (!/^\d{4}$/.test(code)) return null;
+      return { key: code, label: getSwedenMunicipalityDisplayName(feature as SwedenMunicipalityFeature) };
     },
   },
 };
@@ -178,4 +215,21 @@ export function getContractTerritoryMapStateKey(areaInput: unknown) {
     area.wholeCountry ? 'whole' : 'bounded',
     getContractTerritoryMapRegionKeys(area).join('|'),
   ].join(':');
+}
+
+export function toggleContractTerritoryRegionSelection(
+  area: ContractTerritoryArea,
+  region: ContractTerritoryRegion,
+): ContractTerritoryArea {
+  if (area.wholeCountry) return area;
+  const exists = area.selectedRegions.some((item) => item.id === region.id);
+  const selectedRegions = exists
+    ? area.selectedRegions.filter((item) => item.id !== region.id)
+    : [...area.selectedRegions, region].sort((a, b) => a.name.localeCompare(b.name, area.country === 'SE' ? 'sv' : 'da'));
+
+  return {
+    ...area,
+    selectedRegions,
+    municipalities: area.country === 'DK' || area.country === 'SE' ? selectedRegions : [],
+  };
 }

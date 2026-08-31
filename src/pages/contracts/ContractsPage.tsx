@@ -1698,7 +1698,7 @@ function TerritoryAreaEditor({
 }) {
   const { uiLanguage } = useLanguage();
   const postalLabel = getContractTerritoryPostalLabel(territory.country, uiLanguage);
-  const regionUi = getTerritoryRegionUiLabels(territory.country);
+  const regionUi = getTerritoryRegionUiLabels(territory.country, uiLanguage);
   const [postalFields, setPostalFields] = useState(() => getContractPostalFieldValues(territory));
 
   useEffect(() => {
@@ -1793,7 +1793,7 @@ function TerritoryAreaEditor({
                     onClick={onActivateMapSelection}
                     className={`rounded-full px-3 py-1.5 text-xs font-bold transition ${mapSelectionActive ? 'bg-emerald-700 text-white' : 'border border-emerald-200 bg-white text-emerald-800 hover:bg-emerald-50'}`}
                   >
-                    Vælg på kort
+                    {regionUi.selectOnMap}
                   </button>
                 )}
               </div>
@@ -1837,7 +1837,13 @@ function TerritoryAreaEditor({
                           value={value}
                           disabled={locked}
                           onChange={(event) => setPostalField(fieldIndex, event.target.value)}
-                          placeholder={territory.country === 'DE' ? (fieldIndex === 0 ? '10115' : '20000-29999') : (fieldIndex === 0 ? '5000' : '5000-5999')}
+                          placeholder={
+                            territory.country === 'DE'
+                              ? (fieldIndex === 0 ? '10115' : '20000-29999')
+                              : territory.country === 'SE'
+                                ? (fieldIndex === 0 ? '123 45' : '12345')
+                                : (fieldIndex === 0 ? '5000' : '5000-5999')
+                          }
                           className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
                         />
                       </label>
@@ -1877,20 +1883,118 @@ function TerritoryAreaEditor({
   );
 }
 
-function getTerritoryRegionUiLabels(country: ContractTerritoryArea['country']) {
-  if (country === 'DK') {
+const TERRITORY_REGION_UI_LABELS = {
+  selectedMunicipalities: {
+    da: 'Valgte kommuner',
+    en: 'Selected municipalities',
+    de: 'Ausgewählte Kommunen',
+    it: 'Comuni selezionati',
+    hu: 'Kiválasztott önkormányzatok',
+    sv: 'Valda kommuner',
+    fr: 'Communes sélectionnées',
+    pl: 'Wybrane gminy',
+    cs: 'Vybrané obce',
+  },
+  selectedAreas: {
+    da: 'Valgte områder',
+    en: 'Selected areas',
+    de: 'Ausgewählte Gebiete',
+    it: 'Aree selezionate',
+    hu: 'Kiválasztott területek',
+    sv: 'Valda områden',
+    fr: 'Zones sélectionnées',
+    pl: 'Wybrane obszary',
+    cs: 'Vybrané oblasti',
+  },
+  selectOnMap: {
+    da: 'Vælg på kort',
+    en: 'Select on map',
+    de: 'Auf Karte wählen',
+    it: 'Seleziona sulla mappa',
+    hu: 'Kiválasztás a térképen',
+    sv: 'Välj på karta',
+    fr: 'Sélectionner sur la carte',
+    pl: 'Wybierz na mapie',
+    cs: 'Vybrat na mapě',
+  },
+  noMunicipalities: {
+    da: 'Ingen kommuner valgt.',
+    en: 'No municipalities selected.',
+    de: 'Keine Kommunen ausgewählt.',
+    it: 'Nessun comune selezionato.',
+    hu: 'Nincs kiválasztott önkormányzat.',
+    sv: 'Inga kommuner valda.',
+    fr: 'Aucune commune sélectionnée.',
+    pl: 'Nie wybrano gmin.',
+    cs: 'Nejsou vybrané žádné obce.',
+  },
+  noAreas: {
+    da: 'Ingen områder valgt.',
+    en: 'No areas selected.',
+    de: 'Keine Gebiete ausgewählt.',
+    it: 'Nessuna area selezionata.',
+    hu: 'Nincs kiválasztott terület.',
+    sv: 'Inga områden valda.',
+    fr: 'Aucune zone sélectionnée.',
+    pl: 'Nie wybrano obszarów.',
+    cs: 'Nejsou vybrané žádné oblasti.',
+  },
+  denmarkHelp: {
+    da: 'Klik kommuner på kortet. Postnumre indtastes manuelt nedenfor.',
+    en: 'Click municipalities on the map. Postal codes are entered manually below.',
+    de: 'Klicken Sie Kommunen auf der Karte an. Postleitzahlen werden unten manuell eingegeben.',
+    it: 'Fai clic sui comuni nella mappa. I codici postali si inseriscono manualmente sotto.',
+    hu: 'Kattintson az önkormányzatokra a térképen. Az irányítószámokat lent kézzel kell megadni.',
+    sv: 'Klicka på kommuner på kartan. Postnummer anges manuellt nedan.',
+    fr: 'Cliquez sur les communes sur la carte. Les codes postaux sont saisis manuellement ci-dessous.',
+    pl: 'Kliknij gminy na mapie. Kody pocztowe wpisuje się ręcznie poniżej.',
+    cs: 'Klikněte na obce v mapě. PSČ se zadávají ručně níže.',
+  },
+  swedenHelp: {
+    da: 'Klik svenske kommuner på kortet. Postnumre indtastes manuelt nedenfor.',
+    en: 'Click Swedish municipalities on the map. Postal codes are entered manually below.',
+    de: 'Klicken Sie schwedische Kommunen auf der Karte an. Postleitzahlen werden unten manuell eingegeben.',
+    it: 'Fai clic sui comuni svedesi nella mappa. I codici postali si inseriscono manualmente sotto.',
+    hu: 'Kattintson a svéd önkormányzatokra a térképen. Az irányítószámokat lent kézzel kell megadni.',
+    sv: 'Klicka på svenska kommuner på kartan. Postnummer anges manuellt nedan.',
+    fr: 'Cliquez sur les communes suédoises sur la carte. Les codes postaux sont saisis manuellement ci-dessous.',
+    pl: 'Kliknij szwedzkie gminy na mapie. Kody pocztowe wpisuje się ręcznie poniżej.',
+    cs: 'Klikněte na švédské obce v mapě. PSČ se zadávají ručně níže.',
+  },
+  plz2Help: {
+    da: 'Klik PLZ2-områder på kortet. Postnumre indtastes manuelt nedenfor.',
+    en: 'Click PLZ2 areas on the map. Postal codes are entered manually below.',
+    de: 'Klicken Sie PLZ2-Gebiete auf der Karte an. Postleitzahlen werden unten manuell eingegeben.',
+    it: 'Fai clic sulle aree PLZ2 nella mappa. I codici postali si inseriscono manualmente sotto.',
+    hu: 'Kattintson a PLZ2 területekre a térképen. Az irányítószámokat lent kézzel kell megadni.',
+    sv: 'Klicka på PLZ2-områden på kartan. Postnummer anges manuellt nedan.',
+    fr: 'Cliquez sur les zones PLZ2 sur la carte. Les codes postaux sont saisis manuellement ci-dessous.',
+    pl: 'Kliknij obszary PLZ2 na mapie. Kody pocztowe wpisuje się ręcznie poniżej.',
+    cs: 'Klikněte na oblasti PLZ2 v mapě. PSČ se zadávají ručně níže.',
+  },
+} satisfies Record<string, Record<PortalUiLanguage, string>>;
+
+function getTerritoryRegionUiText(key: keyof typeof TERRITORY_REGION_UI_LABELS, language: PortalUiLanguage | string) {
+  const labels = TERRITORY_REGION_UI_LABELS[key];
+  return labels[language as PortalUiLanguage] ?? labels.da;
+}
+
+function getTerritoryRegionUiLabels(country: ContractTerritoryArea['country'], language: PortalUiLanguage | string) {
+  if (country === 'DK' || country === 'SE') {
     return {
-      title: 'Valgte kommuner',
-      help: 'Klik kommuner på kortet. Postnumre indtastes manuelt nedenfor.',
-      empty: 'Ingen kommuner valgt.',
+      title: getTerritoryRegionUiText('selectedMunicipalities', language),
+      help: getTerritoryRegionUiText(country === 'SE' ? 'swedenHelp' : 'denmarkHelp', language),
+      empty: getTerritoryRegionUiText('noMunicipalities', language),
+      selectOnMap: getTerritoryRegionUiText('selectOnMap', language),
     };
   }
 
   if (country === 'DE') {
     return {
-      title: 'Valgte områder',
-      help: 'Klik PLZ2-områder på kortet. Postnumre indtastes manuelt nedenfor.',
-      empty: 'Ingen områder valgt.',
+      title: getTerritoryRegionUiText('selectedAreas', language),
+      help: getTerritoryRegionUiText('plz2Help', language),
+      empty: getTerritoryRegionUiText('noAreas', language),
+      selectOnMap: getTerritoryRegionUiText('selectOnMap', language),
     };
   }
 
@@ -1911,7 +2015,7 @@ function removeTerritoryRegion(
   onChange({
     ...territory,
     selectedRegions,
-    municipalities: territory.country === 'DK' ? selectedRegions : [],
+    municipalities: territory.country === 'DK' || territory.country === 'SE' ? selectedRegions : [],
   });
 }
 

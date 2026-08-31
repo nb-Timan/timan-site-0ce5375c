@@ -167,12 +167,16 @@ describe('contract flow', () => {
     expect(serializeContractPostalInput(firstValid)).toBe('5000, 5200, 5000-5999');
   });
 
-  it('accepts Danish 4-digit and German 5-digit postal field values and intervals', () => {
+  it('accepts Danish, German and Swedish postal field values and intervals', () => {
     expect(parseContractPostalFieldValue('5000', 'DK')).toEqual({ input: '5000', postalCode: '5000' });
     expect(parseContractPostalFieldValue('5000-5999', 'DK')).toEqual({ input: '5000-5999', postalRange: { from: '5000', to: '5999' } });
     expect(parseContractPostalFieldValue('10115', 'DE')).toEqual({ input: '10115', postalCode: '10115' });
     expect(parseContractPostalFieldValue('29999-20000', 'DE')).toEqual({ input: '20000-29999', postalRange: { from: '20000', to: '29999' } });
     expect(parseContractPostalFieldValue('5000', 'DE')).toEqual({ input: '5000' });
+    expect(parseContractPostalFieldValue('12345', 'SE')).toEqual({ input: '123 45', postalCode: '123 45' });
+    expect(parseContractPostalFieldValue('123 45', 'SE')).toEqual({ input: '123 45', postalCode: '123 45' });
+    expect(parseContractPostalFieldValue('12345-12399', 'SE')).toEqual({ input: '123 45-123 99', postalRange: { from: '123 45', to: '123 99' } });
+    expect(parseContractPostalFieldValue('1234', 'SE')).toEqual({ input: '1234' });
   });
 
   it('keeps old territory drafts with postalCodes and postalRanges backward compatible', () => {
@@ -220,6 +224,38 @@ describe('contract flow', () => {
       'Postnummer: 1234',
     ]);
     expect(describeContractTerritoryArea(area, 'da')).toBe('Land: Danmark, Kommune: Herning Kommune, Kommune: Ringkøbing-Skjern Kommune, Postnummer: 6950 Ringkøbing, Postnummer: 6940 Lem St, Postnummer: 5000–5999, Postnummer: 1234');
+  });
+
+  it('renders Swedish municipalities and manual postal values from the structured territory model', () => {
+    const parsed = parseContractPostalInput('12345, 211 20, 12345-12399', 'SE');
+    const area = {
+      country: 'SE',
+      wholeCountry: false,
+      selectedRegions: [
+        { id: '1280', name: 'Malmö' },
+        { id: '1281', name: 'Lund' },
+      ],
+      municipalities: [
+        { id: '1280', name: 'Malmö' },
+        { id: '1281', name: 'Lund' },
+      ],
+      postalEntries: parsed.postalEntries,
+      postalCodes: parsed.postalCodes,
+      postalRanges: parsed.postalRanges,
+    };
+
+    expect(parsed.invalidTokens).toEqual([]);
+    expect(parsed.postalCodes).toEqual(['123 45', '211 20']);
+    expect(parsed.postalRanges).toEqual([{ from: '123 45', to: '123 99' }]);
+    expect(getContractTerritoryDisplayItems(area, 'da')).toEqual([
+      'Land: Sverige',
+      'Kommune: Lund',
+      'Kommune: Malmö',
+      'Postnummer: 123 45',
+      'Postnummer: 211 20',
+      'Postnummer: 123 45–123 99',
+    ]);
+    expect(describeContractTerritoryArea(area, 'da')).toBe('Land: Sverige, Kommune: Lund, Kommune: Malmö, Postnummer: 123 45, Postnummer: 211 20, Postnummer: 123 45–123 99');
   });
 
   it('requires a valid service hourly rate before signature readiness', () => {
@@ -388,8 +424,8 @@ describe('contract flow', () => {
     expect(contractsSource).toContain('regionSelectionTarget');
     expect(contractsSource).toContain('onPrimaryTerritoryChange={setPrimaryTerritory}');
     expect(contractsSource).toContain('onSecondaryTerritoryChange={setSecondaryTerritory}');
-    expect(mapSource).toContain("config.datasetId === 'dk_municipalities' ? parseDenmarkMunicipalitiesGeoJson(geoJson) : geoJson");
-    expect(mapSource).toContain('toggleContractTerritoryRegion');
+    expect(mapSource).toContain('config.parseGeoJson(geoJson)');
+    expect(mapSource).toContain('toggleContractTerritoryRegionSelection');
     expect(mapSource).not.toContain('postalCodes.push(region');
   });
 

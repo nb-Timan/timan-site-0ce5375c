@@ -10,7 +10,6 @@ import {
   normalizeContractTerritoryArea,
   type ContractSecondaryTerritoryArea,
   type ContractTerritoryArea,
-  type ContractTerritoryRegion,
 } from '@/lib/contractTerritory';
 import {
   getContractTerritoryMapCountryConfig,
@@ -18,10 +17,10 @@ import {
   getContractTerritoryMapRegionKeys,
   getContractTerritoryMapStateKey,
   hasContractTerritoryMapSelection,
+  toggleContractTerritoryRegionSelection,
   type ContractTerritoryMapCountryConfig,
   type ContractTerritoryMapVariant,
 } from '@/lib/contractTerritoryMap';
-import { parseDenmarkMunicipalitiesGeoJson } from '@/lib/denmarkMunicipalities';
 
 const PRIMARY_COLOR = '#287a48';
 const PRIMARY_FILL = '#2fb36d';
@@ -164,7 +163,7 @@ function ContractTerritoryGeoJsonLayer({
 
     Promise.all(configs.map((config) => loadGeoJson(config.geoJsonUrl).then((geoJson) => ({
       config,
-      geoJson: config.datasetId === 'dk_municipalities' ? parseDenmarkMunicipalitiesGeoJson(geoJson) : geoJson,
+      geoJson: config.parseGeoJson(geoJson),
     }))))
       .then((items) => {
         if (!alive) return;
@@ -225,7 +224,7 @@ function ContractTerritoryGeoJsonLayer({
                     const targetArea = regionSelectionTarget === 'secondary'
                       ? normalizeContractTerritoryArea(secondaryTerritory)
                       : normalizedPrimary;
-                    const nextArea = toggleContractTerritoryRegion(targetArea, region);
+                    const nextArea = toggleContractTerritoryRegionSelection(targetArea, region);
                     if (regionSelectionTarget === 'secondary' && secondaryTerritory.enabled && onSecondaryTerritoryChange) {
                       onSecondaryTerritoryChange({ ...nextArea, enabled: true });
                     } else if (onPrimaryTerritoryChange) {
@@ -281,22 +280,6 @@ function getFeatureVariant(
   if (secondary && (secondary.wholeCountry || secondary.keys.has(key))) return 'secondary';
 
   return null;
-}
-
-function toggleContractTerritoryRegion(
-  area: ContractTerritoryArea,
-  region: ContractTerritoryRegion,
-): ContractTerritoryArea {
-  if (area.wholeCountry) return area;
-  const exists = area.selectedRegions.some((item) => item.id === region.id);
-  const selectedRegions = exists
-    ? area.selectedRegions.filter((item) => item.id !== region.id)
-    : [...area.selectedRegions, region].sort((a, b) => a.name.localeCompare(b.name, 'da'));
-  return {
-    ...area,
-    selectedRegions,
-    municipalities: area.country === 'DK' ? selectedRegions : [],
-  };
 }
 
 export function ContractTerritoryMap({
