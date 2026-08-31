@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, Download, FileSignature, FileText, Lock, Save, Trash2, Upload } from 'lucide-react';
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Save, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -30,9 +30,11 @@ import {
 } from '@/lib/contractFlow';
 import {
   addSignedUrlsToUploadVersions,
+  activateDealerContractAccessWindow,
   completeDealerContractGuidedReview,
   createDealerContractUploadVersion,
   deleteDealerContractUploadFile,
+  fetchActiveDealerContractAccessWindow,
   fetchDealerContractDraft,
   fetchDealerContractUploadVersions,
   getCurrentStepId,
@@ -41,6 +43,7 @@ import {
   saveDealerContractDraft,
   submitDealerContractUpload,
   uploadDealerContractFile,
+  type DealerContractAccessWindow,
   type DealerContractRecord,
   type DealerContractUploadFile,
   type DealerContractUploadVersion,
@@ -118,6 +121,21 @@ function formatDateDa(value: string) {
   if (!value) return '';
   try {
     return new Date(`${value}T12:00:00`).toLocaleDateString('da-DK');
+  } catch {
+    return value;
+  }
+}
+
+function formatDateTimeDa(value: string) {
+  if (!value) return '';
+  try {
+    return new Date(value).toLocaleString('da-DK', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   } catch {
     return value;
   }
@@ -426,6 +444,9 @@ export default function ContractsPage() {
   const [finalSnapshot, setFinalSnapshot] = useState<ContractSnapshot | null>(null);
   const [uploadVersions, setUploadVersions] = useState<DealerContractUploadVersion[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [accessWindow, setAccessWindow] = useState<DealerContractAccessWindow | null>(null);
+  const [accessWindowLoaded, setAccessWindowLoaded] = useState(false);
+  const [accessWindowBusy, setAccessWindowBusy] = useState<60 | 120 | null>(null);
   const dealerAccountNumber = (searchParams.get('accountNumber') || searchParams.get('dealer') || '').trim();
 
   const draftKey = useMemo(() => (
@@ -561,8 +582,12 @@ export default function ContractsPage() {
   }, [dealerAccountNumber]);
 
   const portalRole = derivePortalRole(effectiveUser);
+  const internalContractRoles = new Set(['timan_backend', 'timan_seller', 'timan_service']);
+  const isInternalContractActor = !!portalRole && internalContractRoles.has(portalRole);
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
-  const hasAccess = portalRole === 'timan_backend' || hasModuleAccess(portalRole, 'contracts', moduleOverride);
+  const hasActiveAccessWindow = Boolean(accessWindow && new Date(accessWindow.expires_at).getTime() > Date.now());
+  const hasApprovedPartnerDocumentAccess = ['awaiting_signed_upload', 'submitted_for_approval', 'changes_requested', 'approved', 'archived'].includes(contractRecord?.contract_status ?? '');
+  const hasAccess = isInternalContractActor || hasModuleAccess(portalRole, 'contracts', moduleOverride) || hasActiveAccessWindow || hasApprovedPartnerDocumentAccess;
   const activeStep = CONTRACT_STEPS[activeStepIndex];
   const activeStepLabel = getContractStepLabel(activeStep.id, uiLanguage);
   const appendixLabel = getContractAppendixLabel(uiLanguage);
@@ -575,6 +600,9 @@ export default function ContractsPage() {
   const workflowStatusLabel = getContractWorkflowStatusLabel(workflowStatus);
   const isLockedContract = hasReachedContractStatus(workflowStatus, 'ready_for_signature');
   const isSigned = workflowStatus === 'approved' || workflowStatus === 'archived';
+  const externalGuidedAccessBlocked = !isInternalContractActor
+    && !hasActiveAccessWindow
+    && !hasApprovedPartnerDocumentAccess;
   const readyForSignature = canPrepareContractForSignature(form, confirmations);
   const currentConfirmationId = getRequiredConfirmationForStep(activeStep.id);
   const validPrimaryTerritory = hasValidContractTerritory(form);
@@ -628,6 +656,44 @@ export default function ContractsPage() {
       };
     });
     setForm((current) => ({ ...current, paymentTerm: nextTerm }));
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    setAccessWindowLoaded(false);
+    if (!dealerAccountNumber) {
+      setAccessWindow(null);
+      setAccessWindowLoaded(true);
+      return () => { cancelled = true; };
+    }
+
+    fetchActiveDealerContractAccessWindow({ dealerAccountNumber, contractId: contractRowId }).then(({ row }) => {
+      if (cancelled) return;
+      setAccessWindow(row);
+      setAccessWindowLoaded(true);
+    });
+
+    return () => { cancelled = true; };
+  }, [contractRowId, dealerAccountNumber]);
+
+  const activateGuidedAccess = async (durationMinutes: 60 | 120) => {
+    if (!dealerAccountNumber) {
+      toast.error('Vælg en partnerkonto, før adgang åbnes.');
+      return;
+    }
+    setAccessWindowBusy(durationMinutes);
+    const { row, error } = await activateDealerContractAccessWindow({
+      dealerAccountNumber,
+      contractId: contractRowId,
+      durationMinutes,
+    });
+    setAccessWindowBusy(null);
+    if (error || !row) {
+      toast.error('Kontraktadgang kunne ikke aktiveres.');
+      return;
+    }
+    setAccessWindow(row);
+    toast.success(`Guidet kontraktadgang er åbnet i ${durationMinutes === 60 ? '1 time' : '2 timer'}.`);
   };
 
   const saveDraft = () => {
@@ -1047,11 +1113,50 @@ export default function ContractsPage() {
   }
 
   if (!appUser) return <Navigate to="/portal" replace />;
+  if (dealerAccountNumber && !accessWindowLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-sm text-gray-500">Kontrollerer kontraktadgang...</div>
+      </div>
+    );
+  }
   if (!hasAccess) return <Navigate to="/portal/salg-marketing" replace />;
   if (!contractLoaded && effectiveUser?.email) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-sm text-gray-500">Henter kontraktkladde...</div>
+      </div>
+    );
+  }
+  if (externalGuidedAccessBlocked) {
+    return (
+      <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+        <PortalHeader
+          user={appUser}
+          language={lang}
+          onLanguageChange={setLanguage}
+          onLogout={async () => {
+            await logout();
+            navigate('/portal', { replace: true });
+          }}
+        />
+        <main className="mx-auto flex w-full max-w-3xl flex-grow items-center px-4 py-10">
+          <div className="w-full rounded-2xl border border-amber-200 bg-white p-6 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                <Lock className="h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-950">Kontraktadgang er ikke aktiv</h1>
+                <p className="mt-2 text-sm leading-6 text-gray-600">
+                  Timan åbner den guidede kontrakt i et tidsbegrænset vindue, når aftalen skal gennemgås.
+                  Når kontrakten er godkendt, kan den fortsat findes som juridisk dokument under Partnerdata.
+                </p>
+              </div>
+            </div>
+          </div>
+        </main>
+        <PortalFooter language={lang} />
       </div>
     );
   }
@@ -1091,14 +1196,44 @@ export default function ContractsPage() {
                   <p className="text-sm text-gray-500 mt-1">Gennemgå aftalen trin for trin, før den gøres klar til underskrift og PDF.</p>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={saveDraft}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
-              >
-                <Save className="h-4 w-4" />
-                Gem kladde
-              </button>
+              <div className="flex flex-col items-start gap-2 sm:items-end">
+                {isInternalContractActor && dealerAccountNumber && (
+                  <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Partneradgang</span>
+                    <button
+                      type="button"
+                      onClick={() => activateGuidedAccess(60)}
+                      disabled={accessWindowBusy !== null}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                      {accessWindowBusy === 60 ? 'Åbner...' : 'Åbn 1 time'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => activateGuidedAccess(120)}
+                      disabled={accessWindowBusy !== null}
+                      className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                      {accessWindowBusy === 120 ? 'Åbner...' : 'Åbn 2 timer'}
+                    </button>
+                  </div>
+                )}
+                {accessWindow && (
+                  <p className="text-xs text-emerald-700">
+                    Guidet adgang aktiv til {formatDateTimeDa(accessWindow.expires_at)}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  onClick={saveDraft}
+                  className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
+                >
+                  <Save className="h-4 w-4" />
+                  Gem kladde
+                </button>
+              </div>
             </div>
             <ProgressSteps activeStepIndex={activeStepIndex} confirmations={confirmations} language={uiLanguage} />
           </div>

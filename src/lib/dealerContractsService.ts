@@ -90,6 +90,52 @@ export type DealerContractUploadVersion = {
   files: DealerContractUploadFile[];
 };
 
+export type DealerContractAccessWindow = {
+  id: string;
+  dealer_account_id: string;
+  dealer_account_number: string;
+  contract_id: string | null;
+  activated_by_user_id: string | null;
+  activated_by_name: string | null;
+  activated_by_email: string | null;
+  activated_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  note: string | null;
+  created_at: string;
+};
+
+export type PartnerAgreementHistoryEventType =
+  | "partner_info_received"
+  | "partner_approved"
+  | "contract_access_activated"
+  | "contract_access_revoked"
+  | "contract_review_completed"
+  | "contract_received"
+  | "contract_approved"
+  | "new_agreement"
+  | "partner_relation_changed"
+  | "cooperation_ended";
+
+export type PartnerAgreementHistoryEvent = {
+  id: string;
+  dealer_account_id: string;
+  dealer_account_number: string;
+  event_type: PartnerAgreementHistoryEventType;
+  event_title: string;
+  event_description: string | null;
+  contract_id: string | null;
+  upload_version_id: string | null;
+  partner_relation_id: string | null;
+  document_bucket: string | null;
+  document_path: string | null;
+  metadata: Record<string, unknown>;
+  created_by_user_id: string | null;
+  created_by_name: string | null;
+  created_by_email: string | null;
+  created_at: string;
+};
+
 export type SaveDealerContractInput = {
   id?: string | null;
   ownerEmail: string;
@@ -214,6 +260,44 @@ function rowToUploadVersion(row: Record<string, unknown>): DealerContractUploadV
     created_at: String(row.created_at ?? ""),
     updated_at: String(row.updated_at ?? ""),
     files: files.map(rowToUploadFile).sort((a, b) => a.sort_order - b.sort_order),
+  };
+}
+
+function rowToAccessWindow(row: Record<string, unknown>): DealerContractAccessWindow {
+  return {
+    id: String(row.id),
+    dealer_account_id: String(row.dealer_account_id),
+    dealer_account_number: String(row.dealer_account_number),
+    contract_id: (row.contract_id as string | null) ?? null,
+    activated_by_user_id: (row.activated_by_user_id as string | null) ?? null,
+    activated_by_name: (row.activated_by_name as string | null) ?? null,
+    activated_by_email: (row.activated_by_email as string | null) ?? null,
+    activated_at: String(row.activated_at ?? ""),
+    expires_at: String(row.expires_at ?? ""),
+    revoked_at: (row.revoked_at as string | null) ?? null,
+    note: (row.note as string | null) ?? null,
+    created_at: String(row.created_at ?? ""),
+  };
+}
+
+function rowToAgreementHistoryEvent(row: Record<string, unknown>): PartnerAgreementHistoryEvent {
+  return {
+    id: String(row.id),
+    dealer_account_id: String(row.dealer_account_id),
+    dealer_account_number: String(row.dealer_account_number),
+    event_type: row.event_type as PartnerAgreementHistoryEventType,
+    event_title: String(row.event_title ?? ""),
+    event_description: (row.event_description as string | null) ?? null,
+    contract_id: (row.contract_id as string | null) ?? null,
+    upload_version_id: (row.upload_version_id as string | null) ?? null,
+    partner_relation_id: (row.partner_relation_id as string | null) ?? null,
+    document_bucket: (row.document_bucket as string | null) ?? null,
+    document_path: (row.document_path as string | null) ?? null,
+    metadata: ((row.metadata as Record<string, unknown> | null) ?? {}),
+    created_by_user_id: (row.created_by_user_id as string | null) ?? null,
+    created_by_name: (row.created_by_name as string | null) ?? null,
+    created_by_email: (row.created_by_email as string | null) ?? null,
+    created_at: String(row.created_at ?? ""),
   };
 }
 
@@ -485,4 +569,64 @@ export async function fetchDealerContractsForDealerAccount(
 
   if (error) return { rows: [], error: error.message };
   return { rows: (data || []).map((row) => rowToContractRecord(row as Record<string, unknown>)), error: null };
+}
+
+export async function fetchActiveDealerContractAccessWindow(input: {
+  dealerAccountNumber: string;
+  contractId?: string | null;
+}): Promise<{ row: DealerContractAccessWindow | null; error: string | null }> {
+  let query = supabase
+    .from("dealer_contract_access_windows")
+    .select("*")
+    .eq("dealer_account_number", input.dealerAccountNumber)
+    .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("expires_at", { ascending: false });
+
+  if (input.contractId) {
+    query = query.or(`contract_id.is.null,contract_id.eq.${input.contractId}`);
+  }
+
+  const { data, error } = await query.limit(1).maybeSingle();
+  if (error) return { row: null, error: error.message };
+  return { row: data ? rowToAccessWindow(data as Record<string, unknown>) : null, error: null };
+}
+
+export async function activateDealerContractAccessWindow(input: {
+  dealerAccountNumber: string;
+  contractId?: string | null;
+  durationMinutes: 60 | 120;
+  note?: string | null;
+}): Promise<{ row: DealerContractAccessWindow | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("activate_dealer_contract_access_window", {
+    p_dealer_account_number: input.dealerAccountNumber,
+    p_contract_id: input.contractId ?? null,
+    p_duration_minutes: input.durationMinutes,
+    p_note: input.note ?? null,
+  });
+  if (error) return { row: null, error: error.message };
+  return { row: data ? rowToAccessWindow(data as Record<string, unknown>) : null, error: null };
+}
+
+export async function revokeDealerContractAccessWindow(
+  windowId: string,
+): Promise<{ row: DealerContractAccessWindow | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("revoke_dealer_contract_access_window", {
+    p_window_id: windowId,
+  });
+  if (error) return { row: null, error: error.message };
+  return { row: data ? rowToAccessWindow(data as Record<string, unknown>) : null, error: null };
+}
+
+export async function fetchPartnerAgreementHistory(
+  dealerAccountNumber: string,
+): Promise<{ rows: PartnerAgreementHistoryEvent[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from("partner_agreement_history")
+    .select("*")
+    .eq("dealer_account_number", dealerAccountNumber)
+    .order("created_at", { ascending: false });
+
+  if (error) return { rows: [], error: error.message };
+  return { rows: (data || []).map((row) => rowToAgreementHistoryEvent(row as Record<string, unknown>)), error: null };
 }

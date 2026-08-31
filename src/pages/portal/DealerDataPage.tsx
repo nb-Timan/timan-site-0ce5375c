@@ -24,6 +24,7 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
 import LastChangedLine from '@/components/portal/LastChangedLine';
+import PartnerAgreementHistory from '@/components/portal/PartnerAgreementHistory';
 
 
 import type { Language } from '@/types/configurator';
@@ -239,12 +240,15 @@ export default function DealerDataPage() {
         )}
 
         {dealer && (
-          <DealerProfileEditor
-            dealer={dealer}
-            language={lang}
-            canEdit={canEditProfile}
-            onUpdated={(next) => setDealer(next)}
-          />
+          <>
+            <DealerProfileEditor
+              dealer={dealer}
+              language={lang}
+              canEdit={canEditProfile}
+              onUpdated={(next) => setDealer(next)}
+            />
+            <PartnerAgreementHistory dealerAccountNumber={dealer.account_number} language={lang} />
+          </>
         )}
       </main>
 
