@@ -42,6 +42,15 @@ export type ContractTerritorySnapshot = {
   secondaryDescription: string | null;
 };
 
+export type ContractTerritoryDisplayGroups = {
+  countryLine: string;
+  wholeCountry: boolean;
+  regionLabel: string;
+  regions: string[];
+  postalLabel: string;
+  postals: string[];
+};
+
 export const CONTRACT_TERRITORY_COUNTRIES: Array<{
   code: ContractTerritoryCountryCode;
   label: Record<PortalUiLanguage, string>;
@@ -394,6 +403,72 @@ export function getContractTerritoryPostalLabel(
 ) {
   const country = COUNTRY_BY_CODE.get(countryCode) ?? COUNTRY_BY_CODE.get('DK')!;
   return country.postalLabel[language as PortalUiLanguage] ?? country.postalLabel.da;
+}
+
+export function getContractTerritoryRegionLabel(
+  countryCode: ContractTerritoryCountryCode,
+  language: PortalUiLanguage | string | null | undefined = 'da',
+) {
+  if (countryCode === 'DK' || countryCode === 'SE') {
+    const labels: Record<PortalUiLanguage, string> = {
+      da: 'Kommuner',
+      en: 'Municipalities',
+      de: 'Kommunen',
+      it: 'Comuni',
+      hu: 'Onkormanyzatok',
+      sv: 'Kommuner',
+      fr: 'Communes',
+      pl: 'Gminy',
+      cs: 'Obce',
+    };
+    return labels[language as PortalUiLanguage] ?? labels.da;
+  }
+
+  const labels: Record<PortalUiLanguage, string> = {
+    da: 'Valgte områder',
+    en: 'Selected areas',
+    de: 'Ausgewaehlte Gebiete',
+    it: 'Aree selezionate',
+    hu: 'Kivalasztott teruletek',
+    sv: 'Valda omraden',
+    fr: 'Zones selectionnees',
+    pl: 'Wybrane obszary',
+    cs: 'Vybrane oblasti',
+  };
+  return labels[language as PortalUiLanguage] ?? labels.da;
+}
+
+export function getContractTerritoryDisplayGroups(
+  areaInput: unknown,
+  language: PortalUiLanguage | string | null | undefined = 'da',
+): ContractTerritoryDisplayGroups {
+  const area = normalizeContractTerritoryArea(areaInput);
+  const country = getContractTerritoryCountryLabel(area.country, language);
+  const wholeCountryLabel = language === 'en' ? 'Whole country' : 'Hele landet';
+
+  if (area.wholeCountry) {
+    return {
+      countryLine: `${country} - ${wholeCountryLabel}`,
+      wholeCountry: true,
+      regionLabel: getContractTerritoryRegionLabel(area.country, language),
+      regions: [],
+      postalLabel: getContractTerritoryPostalLabel(area.country, language),
+      postals: [],
+    };
+  }
+
+  const countryPrefix = language === 'en' ? 'Country' : 'Land';
+  return {
+    countryLine: `${countryPrefix}: ${country}`,
+    wholeCountry: false,
+    regionLabel: getContractTerritoryRegionLabel(area.country, language),
+    regions: area.selectedRegions.map((region) => formatContractTerritoryRegionName(area, region)),
+    postalLabel: getContractTerritoryPostalLabel(area.country, language),
+    postals: area.postalEntries
+      .filter((entry) => entry.postalCode || entry.postalRange)
+      .map((entry) => formatContractTerritoryPostalEntry(area, entry))
+      .filter(Boolean),
+  };
 }
 
 export function describeContractTerritoryArea(

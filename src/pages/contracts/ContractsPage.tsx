@@ -72,6 +72,7 @@ import {
   CONTRACT_TERRITORY_COUNTRIES,
   createEmptyContractTerritoryArea,
   createEmptySecondaryContractTerritoryArea,
+  getContractTerritoryDisplayGroups,
   getContractTerritoryDisplayItems,
   getContractTerritoryCountryLabel,
   getContractTerritoryPostalLabel,
@@ -243,6 +244,104 @@ function drawContractTextBlockPdf(pdf: any, block: ContractTextBlock, left: numb
   return y + 2;
 }
 
+function drawPdfChips(pdf: any, items: string[], left: number, right: number, y: number) {
+  const gap = 2;
+  const lineHeight = 7;
+  let x = left;
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  pdf.setTextColor(31, 41, 55);
+  pdf.setDrawColor(167, 191, 139);
+  pdf.setFillColor(250, 253, 250);
+
+  items.forEach((item) => {
+    const width = Math.min(right - left, pdf.getTextWidth(item) + 6);
+    if (x > left && x + width > right) {
+      x = left;
+      y += lineHeight;
+    }
+    y = ensurePdfSpace(pdf, y, lineHeight + 2);
+    pdf.roundedRect(x, y - 4.5, width, 6.2, 1.4, 1.4, 'FD');
+    pdf.text(item, x + 3, y);
+    x += width + gap;
+  });
+
+  return y + lineHeight;
+}
+
+function drawContractTerritoryAreaPdf(
+  pdf: any,
+  title: string,
+  areaInput: unknown,
+  left: number,
+  right: number,
+  y: number,
+) {
+  const groups = getContractTerritoryDisplayGroups(areaInput, 'da');
+  y = ensurePdfSpace(pdf, y, 20);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8.2);
+  pdf.setTextColor(17, 24, 39);
+  y = drawWrappedPdfText(pdf, title, left, y, right - left, 3.8);
+  y += 1;
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7.4);
+  pdf.setTextColor(31, 41, 55);
+  y = drawWrappedPdfText(pdf, groups.countryLine, left, y, right - left, 3.7);
+  y += 1.5;
+
+  if (!groups.wholeCountry && groups.regions.length > 0) {
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7.2);
+    pdf.text(groups.regionLabel, left, y);
+    y = drawPdfChips(pdf, groups.regions, left, right, y + 5);
+  }
+
+  if (!groups.wholeCountry && groups.postals.length > 0) {
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7.2);
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(groups.postalLabel, left, y);
+    y = drawPdfChips(pdf, groups.postals, left, right, y + 5);
+  }
+
+  return y + 1.5;
+}
+
+function drawContractTerritorySectionPdf(
+  pdf: any,
+  left: number,
+  right: number,
+  y: number,
+  snapshot: ContractSnapshot,
+  section: GuidedContractSection,
+) {
+  const primary = snapshot.territory?.primaryTerritory;
+  const secondary = snapshot.territory?.secondaryTerritory;
+  if (!primary) return y;
+  const primaryBlock = section.blocks[0] ?? {};
+  const primaryParagraphs = (primaryBlock?.paragraphs ?? []).filter((paragraph) => paragraph !== 'Primære område:');
+  const secondaryBlock = section.blocks[1];
+  const secondaryTailBullets = (secondaryBlock?.bullets ?? [])
+    .filter((bullet) => !bullet.startsWith('Land: ') && !bullet.startsWith('Kommune: ') && !bullet.startsWith('Valgt område: ') && !bullet.startsWith('Postnummer: '));
+
+  y = drawContractTextBlockPdf(pdf, { ...primaryBlock, paragraphs: primaryParagraphs, bullets: [] }, left, right, y);
+
+  y = drawContractTerritoryAreaPdf(pdf, 'Primært område', primary, left + 3, right, y);
+  if (secondary?.enabled && isValidContractTerritoryArea(secondary)) {
+    y = drawContractTerritoryAreaPdf(pdf, 'Sekundært område', secondary, left + 3, right, y + 1);
+    secondaryTailBullets.forEach((bullet) => {
+      y = ensurePdfSpace(pdf, y, 10);
+      y = drawWrappedPdfText(pdf, `- ${bullet}`, left + 3, y, right - left - 3, 3.7);
+      y += 1.2;
+    });
+  }
+
+  return y + 2;
+}
+
 function getSnapshotLegalSections(snapshot: ContractSnapshot): GuidedContractSection[] {
   if (Array.isArray(snapshot.legalSections)) return snapshot.legalSections as GuidedContractSection[];
   return renderGuidedContractSections({
@@ -255,7 +354,7 @@ function getSnapshotLegalSections(snapshot: ContractSnapshot): GuidedContractSec
   });
 }
 
-function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number, sections: GuidedContractSection[], appendix2Paragraphs: string[]) {
+function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number, sections: GuidedContractSection[], appendix2Paragraphs: string[], snapshot: ContractSnapshot) {
   let y = 18;
 
   sections.forEach((section, index) => {
@@ -266,9 +365,13 @@ function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number, se
     y = drawWrappedPdfText(pdf, `${index + 2}. ${section.title}`, left, y, right - left, 4.8);
     y += 2;
 
-    section.blocks.forEach((block) => {
-      y = drawContractTextBlockPdf(pdf, block, left, right, y);
-    });
+    if (section.stepId === 'territory') {
+      y = drawContractTerritorySectionPdf(pdf, left, right, y, snapshot, section);
+    } else {
+      section.blocks.forEach((block) => {
+        y = drawContractTextBlockPdf(pdf, block, left, right, y);
+      });
+    }
 
     if (section.stepId === 'discount_structure') {
       y = ensurePdfSpace(pdf, y, 124);
@@ -958,7 +1061,7 @@ export default function ContractsPage() {
     pdf.text(`Timan-oplysninger, aktiv Timan-sælger, ${partnerTerms.singular}oplysninger og kontaktperson er vist ovenfor.`, left, y);
 
     pdf.addPage();
-    drawGuidedContractSectionsPdf(pdf, left, right, legalSections, appendix2Paragraphs);
+    drawGuidedContractSectionsPdf(pdf, left, right, legalSections, appendix2Paragraphs, pdfSnapshot);
 
     pdf.addPage();
     y = 18;
@@ -1511,7 +1614,7 @@ function ReviewStep({
                   showEditableTerm={false}
                 />
               ) : (
-                <ContractLegalSection section={contractSection} />
+                <ContractLegalSection section={contractSection} form={form} />
               )}
               {contractSection.stepId === 'discount_structure' && <Appendix2DiscountSection partnerType={form.partnerType} language={uiLanguage} />}
             </div>
@@ -1543,7 +1646,7 @@ function ReviewStep({
               locked={locked}
             />
           ) : (
-            <ContractLegalSection section={section} />
+            <ContractLegalSection section={section} form={form} />
           )}
         </>
       )}
@@ -2214,13 +2317,93 @@ function PaymentDeliverySection({
   );
 }
 
-function ContractLegalSection({ section }: { section: GuidedContractSection }) {
+function ContractLegalSection({ section, form }: { section: GuidedContractSection; form?: ContractFormData }) {
+  if (section.stepId === 'territory' && form) {
+    return <ContractTerritoryLegalSection section={section} form={form} />;
+  }
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
       <ContractLegalSectionHeader section={section} />
       <div className="mt-5 space-y-5">
         {section.blocks.map((block, index) => (
           <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ContractTerritoryLegalSection({ section, form }: { section: GuidedContractSection; form: ContractFormData }) {
+  const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
+  const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
+  const secondaryVisible = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory);
+  const primaryBlock = section.blocks[0];
+  const secondaryBlock = section.blocks[1];
+  const primaryParagraphs = (primaryBlock?.paragraphs ?? [])
+    .filter((paragraph) => paragraph !== 'Primære område:')
+    .filter((paragraph) => !shouldHideGuidedContractUiText(paragraph, `${section.title} ${section.source}`));
+  const secondaryTailBullets = (secondaryBlock?.bullets ?? [])
+    .filter((bullet) => !bullet.startsWith('Land: ') && !bullet.startsWith('Kommune: ') && !bullet.startsWith('Valgt område: ') && !bullet.startsWith('Postnummer: '))
+    .filter((bullet) => !shouldHideGuidedContractUiText(bullet, `${section.title} ${section.source}`));
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
+      <ContractLegalSectionHeader section={section} />
+      <div className="mt-5 space-y-5">
+        <div className="space-y-2 text-sm leading-6 text-gray-700">
+          {primaryParagraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+        </div>
+        <ContractTerritoryChips title="Primært område" area={primaryTerritory} />
+        {secondaryVisible && (
+          <div className="space-y-3">
+            <ContractTerritoryChips title="Sekundært område" area={secondaryTerritory} />
+            {secondaryTailBullets.length > 0 && (
+              <ul className="space-y-1 pl-5 text-sm leading-6 text-gray-700">
+                {secondaryTailBullets.map((bullet) => <li key={bullet} className="list-disc">{bullet}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ContractTerritoryChips({ title, area }: { title: string; area: ContractTerritoryArea }) {
+  const { uiLanguage } = useLanguage();
+  const groups = getContractTerritoryDisplayGroups(area, uiLanguage);
+
+  return (
+    <section className="space-y-3 text-sm text-gray-700">
+      <div>
+        <h4 className="font-bold text-gray-950">{title}</h4>
+        <p className="mt-1 font-semibold text-gray-800">{groups.countryLine}</p>
+      </div>
+      {!groups.wholeCountry && groups.regions.length > 0 && (
+        <ChipGroup label={groups.regionLabel} items={groups.regions} />
+      )}
+      {!groups.wholeCountry && groups.postals.length > 0 && (
+        <ChipGroup label={groups.postalLabel} items={groups.postals} />
+      )}
+    </section>
+  );
+}
+
+function ChipGroup({ label, items }: { label: string; items: string[] }) {
+  return (
+    <div>
+      <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-gray-500">{label}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {items.map((item) => (
+          <span
+            key={item}
+            className="rounded-md border border-emerald-200 bg-emerald-50/60 px-2 py-1 text-xs font-normal leading-5 text-emerald-950"
+          >
+            {item}
+          </span>
         ))}
       </div>
     </div>
@@ -2647,10 +2830,7 @@ function ContractSummary({ form }: { form: ContractFormData }) {
   const partnerLabel = form.partnerType ? getContractPartnerTypeLabel(form.partnerType, 'da') : 'Samarbejdspartner';
   const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
   const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
-  const primaryItems = getContractTerritoryDisplayItems(form.primaryTerritory, 'da');
-  const secondaryItems = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory)
-    ? getContractTerritoryDisplayItems(secondaryTerritory, 'da')
-    : [];
+  const secondaryVisible = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
@@ -2672,24 +2852,10 @@ function ContractSummary({ form }: { form: ContractFormData }) {
       </div>
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 lg:col-span-2">
         <h3 className="text-sm font-bold uppercase tracking-wide text-gray-600">Område</h3>
-        <div className="mt-3 text-sm font-semibold text-gray-950">
-          <p>Primært område:</p>
-          {primaryItems.length > 0 ? (
-            <ul className="mt-1 space-y-1 pl-5">
-              {primaryItems.map((item) => <li key={item} className="list-disc">{item}</li>)}
-            </ul>
-          ) : (
-            <p className="mt-1">-</p>
-          )}
+        <div className="mt-3 space-y-4">
+          <ContractTerritoryChips title="Primært område" area={primaryTerritory} />
+          {secondaryVisible && <ContractTerritoryChips title="Sekundært område" area={secondaryTerritory} />}
         </div>
-        {secondaryItems.length > 0 && (
-          <div className="mt-3 text-sm font-semibold text-gray-950">
-            <p>Sekundært område:</p>
-            <ul className="mt-1 space-y-1 pl-5">
-              {secondaryItems.map((item) => <li key={item} className="list-disc">{item}</li>)}
-            </ul>
-          </div>
-        )}
       </div>
     </div>
   );

@@ -41,6 +41,7 @@ import {
   createEmptyContractTerritoryArea,
   describeContractSecondaryTerritoryArea,
   describeContractTerritoryArea,
+  getContractTerritoryDisplayGroups,
   getContractTerritoryDisplayItems,
   hasValidContractTerritory,
   parseContractPostalFieldValue,
@@ -226,6 +227,31 @@ describe('contract flow', () => {
     expect(describeContractTerritoryArea(area, 'da')).toBe('Land: Danmark, Kommune: Herning Kommune, Kommune: Ringkøbing-Skjern Kommune, Postnummer: 6950 Ringkøbing, Postnummer: 6940 Lem St, Postnummer: 5000–5999, Postnummer: 1234');
   });
 
+  it('groups Danish territory display into compact region and postal chip data', () => {
+    const parsed = parseContractPostalInput('6950, 6980, 6990, 7500, 7570, 7550', 'DK');
+    const groups = getContractTerritoryDisplayGroups({
+      country: 'DK',
+      wholeCountry: false,
+      selectedRegions: [
+        { id: '0661', name: 'Holstebro' },
+        { id: '0760', name: 'Ringkøbing-Skjern' },
+      ],
+      municipalities: [
+        { id: '0661', name: 'Holstebro' },
+        { id: '0760', name: 'Ringkøbing-Skjern' },
+      ],
+      postalEntries: parsed.postalEntries,
+      postalCodes: parsed.postalCodes,
+      postalRanges: parsed.postalRanges,
+    }, 'da');
+
+    expect(groups.countryLine).toBe('Land: Danmark');
+    expect(groups.regionLabel).toBe('Kommuner');
+    expect(groups.regions).toEqual(['Holstebro Kommune', 'Ringkøbing-Skjern Kommune']);
+    expect(groups.postalLabel).toBe('Postnumre');
+    expect(groups.postals).toEqual(['6950 Ringkøbing', '6980 Tim', '6990 Ulfborg', '7500 Holstebro', '7570 Vemb', '7550 Sørvad']);
+  });
+
   it('renders Swedish municipalities and manual postal values from the structured territory model', () => {
     const parsed = parseContractPostalInput('12345, 211 20, 12345-12399', 'SE');
     const area = {
@@ -256,6 +282,13 @@ describe('contract flow', () => {
       'Postnummer: 123 45–123 99',
     ]);
     expect(describeContractTerritoryArea(area, 'da')).toBe('Land: Sverige, Kommune: Lund, Kommune: Malmö, Postnummer: 123 45, Postnummer: 211 20, Postnummer: 123 45–123 99');
+    expect(getContractTerritoryDisplayGroups(area, 'da')).toMatchObject({
+      countryLine: 'Land: Sverige',
+      regionLabel: 'Kommuner',
+      regions: ['Lund', 'Malmö'],
+      postalLabel: 'Postnumre',
+      postals: ['123 45', '211 20', '123 45–123 99'],
+    });
   });
 
   it('requires a valid service hourly rate before signature readiness', () => {
@@ -805,6 +838,13 @@ describe('contract flow', () => {
 
     expect(describeContractTerritoryArea(form.primaryTerritory, 'da')).toBe('Land: Tyskland, Valgt område: PLZ2 20, Valgt område: PLZ2 34, Postnummer: 10115, Postnummer: 20000–29999');
     expect(describeContractSecondaryTerritoryArea(form.secondaryTerritory, 'da')).toBe('Land: Tyskland, Valgt område: PLZ2 70, Postnummer: 70000–79999');
+    expect(getContractTerritoryDisplayGroups(form.primaryTerritory, 'da')).toMatchObject({
+      countryLine: 'Land: Tyskland',
+      regionLabel: 'Valgte områder',
+      regions: ['PLZ2 20', 'PLZ2 34'],
+      postalLabel: 'PLZ/postnumre',
+      postals: ['10115', '20000–29999'],
+    });
     expect(text).toContain('Land: Tyskland');
     expect(text).toContain('Valgt område: PLZ2 20');
     expect(text).toContain('Valgt område: PLZ2 34');

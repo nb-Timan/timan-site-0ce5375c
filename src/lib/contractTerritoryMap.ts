@@ -39,6 +39,13 @@ export type ContractTerritoryMapCountryConfig = {
   getFeatureMeta: (feature: GeoJSON.Feature) => ContractTerritoryMapFeatureMeta | null;
 };
 
+export const CONTRACT_TERRITORY_BASEMAP = {
+  url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  subdomains: ['a', 'b', 'c', 'd'],
+  maxZoom: 19,
+};
+
 export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLanguage, string>> = {
   title: {
     da: 'Områdekort',

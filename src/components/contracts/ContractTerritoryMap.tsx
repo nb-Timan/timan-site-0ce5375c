@@ -18,6 +18,7 @@ import {
   getContractTerritoryMapStateKey,
   hasContractTerritoryMapSelection,
   toggleContractTerritoryRegionSelection,
+  CONTRACT_TERRITORY_BASEMAP,
   type ContractTerritoryMapCountryConfig,
   type ContractTerritoryMapVariant,
 } from '@/lib/contractTerritoryMap';
@@ -26,8 +27,6 @@ const PRIMARY_COLOR = '#287a48';
 const PRIMARY_FILL = '#2fb36d';
 const SECONDARY_COLOR = '#a27812';
 const SECONDARY_FILL = '#d6a62a';
-const TILE_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-
 type CachedGeoJson = GeoJSON.FeatureCollection;
 
 const geoJsonCache = new Map<string, Promise<CachedGeoJson>>();
@@ -327,9 +326,14 @@ export function ContractTerritoryMap({
           minZoom={4}
           scrollWheelZoom={false}
           zoomControl
-          attributionControl={false}
+          attributionControl
         >
-          <TileLayer url={TILE_URL} />
+          <TileLayer
+            url={CONTRACT_TERRITORY_BASEMAP.url}
+            attribution={CONTRACT_TERRITORY_BASEMAP.attribution}
+            subdomains={CONTRACT_TERRITORY_BASEMAP.subdomains}
+            maxZoom={CONTRACT_TERRITORY_BASEMAP.maxZoom}
+          />
           <ContractTerritoryGeoJsonLayer
             primaryTerritory={primaryTerritory}
             secondaryTerritory={secondaryTerritory}

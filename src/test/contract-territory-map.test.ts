@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, statSync } from 'node:fs';
 import {
+  CONTRACT_TERRITORY_BASEMAP,
   CONTRACT_TERRITORY_MAP_COUNTRIES,
   getContractTerritoryMapCountryConfig,
   getContractTerritoryMapLabel,
@@ -20,6 +21,14 @@ describe('contract territory map config', () => {
     expect(CONTRACT_TERRITORY_MAP_COUNTRIES.DE.geoJsonUrl).toBe('/data/germany-plz2.geojson');
     expect(CONTRACT_TERRITORY_MAP_COUNTRIES.SE.datasetId).toBe('se_municipalities');
     expect(CONTRACT_TERRITORY_MAP_COUNTRIES.SE.geoJsonUrl).toBe(SWEDEN_MUNICIPALITIES_GEOJSON_URL);
+  });
+
+  it('uses the shared CARTO/OpenStreetMap light basemap without a frontend API key', () => {
+    expect(CONTRACT_TERRITORY_BASEMAP.url).toBe('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
+    expect(CONTRACT_TERRITORY_BASEMAP.url.toLowerCase()).not.toContain('api');
+    expect(CONTRACT_TERRITORY_BASEMAP.url.toLowerCase()).not.toContain('key');
+    expect(CONTRACT_TERRITORY_BASEMAP.attribution).toContain('OpenStreetMap');
+    expect(CONTRACT_TERRITORY_BASEMAP.attribution).toContain('CARTO');
   });
 
   it('uses selected German PLZ2 regions and keeps postal fields separate', () => {
