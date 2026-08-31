@@ -49,4 +49,12 @@ describe("dealer profile i18n", () => {
     expect(tProfile("en", "movePersonHelp")).toBe("Name, e-mail and phone are kept. The role is reset.");
     expect(tProfile("en", "duplicatePersonHelp")).toBe("The original is kept. The role in the new department is reset.");
   });
+
+  it("contains first contact and digital channel labels", () => {
+    expect(tProfile("da", "firstContact")).toBe("Første kontakt");
+    expect(tProfile("en", "firstContact")).toBe("First contact");
+    expect(tProfile("de", "digitalChannels")).toBe("Digitale Kanäle");
+    expect(tProfile("it", "digitalChannels")).toBe("Canali digitali");
+    expect(tProfile("hu", "digitalChannels")).toBe("Digitális csatornák");
+  });
 });

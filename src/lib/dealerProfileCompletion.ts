@@ -40,9 +40,6 @@ function requiredFields(d: DealerAccount | null): Record<SectionKey, string[]> {
       d?.country ?? "",
       d?.vat_number ?? "",
       d?.director_name ?? "",
-      d?.phone ?? "",
-      d?.email ?? "",
-      d?.website ?? "",
       hasCoordinates(d) ? "koordinater" : "",
     ],
     finance: [

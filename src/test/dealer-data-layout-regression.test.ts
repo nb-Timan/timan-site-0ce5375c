@@ -31,10 +31,19 @@ describe("Partnerdata layout regression guard", () => {
   it("keeps social and marketing fields inside the Marketing section", () => {
     const companyIndex = dealerProfileSource.indexOf('skey="company"');
     const marketingIndex = dealerProfileSource.indexOf('skey="marketing"');
+    const websiteIndex = dealerProfileSource.indexOf('id="website"');
     const facebookIndex = dealerProfileSource.indexOf('id="social_facebook"');
+    const digitalChannelsIndex = dealerProfileSource.indexOf('digitalChannels');
 
     expect(companyIndex).toBeGreaterThan(-1);
     expect(marketingIndex).toBeGreaterThan(-1);
+    expect(websiteIndex).toBeGreaterThan(marketingIndex);
     expect(facebookIndex).toBeGreaterThan(marketingIndex);
+    expect(digitalChannelsIndex).toBeGreaterThan(marketingIndex);
+  });
+
+  it("uses first contact as the user-facing primary contact marker", () => {
+    expect(dealerProfileSource).toContain('t("firstContact")');
+    expect(dealerProfileSource).not.toContain('primaryLabel={t("area_primary")}');
   });
 });
