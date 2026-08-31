@@ -63,6 +63,12 @@ export interface PortalUsageComparisonPeriod {
   previous_visits: number;
   current_seconds: number;
   previous_seconds: number;
+  current_sessions?: number;
+  previous_sessions?: number;
+  current_users?: number;
+  previous_users?: number;
+  current_active_days?: number;
+  previous_active_days?: number;
 }
 
 export interface PortalUsageAnalytics {
@@ -187,18 +193,36 @@ function normalizeAnalytics(payload: any): PortalUsageAnalytics {
         previous_visits: num(comparisons.week?.previous_visits),
         current_seconds: num(comparisons.week?.current_seconds),
         previous_seconds: num(comparisons.week?.previous_seconds),
+        current_sessions: num(comparisons.week?.current_sessions),
+        previous_sessions: num(comparisons.week?.previous_sessions),
+        current_users: num(comparisons.week?.current_users),
+        previous_users: num(comparisons.week?.previous_users),
+        current_active_days: num(comparisons.week?.current_active_days),
+        previous_active_days: num(comparisons.week?.previous_active_days),
       },
       month: {
         current_visits: num(comparisons.month?.current_visits),
         previous_visits: num(comparisons.month?.previous_visits),
         current_seconds: num(comparisons.month?.current_seconds),
         previous_seconds: num(comparisons.month?.previous_seconds),
+        current_sessions: num(comparisons.month?.current_sessions),
+        previous_sessions: num(comparisons.month?.previous_sessions),
+        current_users: num(comparisons.month?.current_users),
+        previous_users: num(comparisons.month?.previous_users),
+        current_active_days: num(comparisons.month?.current_active_days),
+        previous_active_days: num(comparisons.month?.previous_active_days),
       },
       same_period_last_year: {
         current_visits: num(comparisons.same_period_last_year?.current_visits),
         previous_visits: num(comparisons.same_period_last_year?.previous_visits),
         current_seconds: num(comparisons.same_period_last_year?.current_seconds),
         previous_seconds: num(comparisons.same_period_last_year?.previous_seconds),
+        current_sessions: num(comparisons.same_period_last_year?.current_sessions),
+        previous_sessions: num(comparisons.same_period_last_year?.previous_sessions),
+        current_users: num(comparisons.same_period_last_year?.current_users),
+        previous_users: num(comparisons.same_period_last_year?.previous_users),
+        current_active_days: num(comparisons.same_period_last_year?.current_active_days),
+        previous_active_days: num(comparisons.same_period_last_year?.previous_active_days),
       },
     },
     filters: {

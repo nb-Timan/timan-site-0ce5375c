@@ -8,13 +8,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import {
-  Activity,
   BarChart3,
   CalendarDays,
   CheckSquare,
   Clock3,
+  Minus,
   MonitorUp,
   RefreshCw,
+  TrendingDown,
+  TrendingUp,
   UserRound,
   Users,
 } from "lucide-react";
@@ -44,7 +46,6 @@ import {
   fetchPortalUsageAnalytics,
   type PortalUsageAnalytics,
   type PortalUsageAnalyticsFilterOptions,
-  type PortalUsageComparisonPeriod,
   type PortalUsageModuleSummary,
 } from "@/lib/portalModuleUsageAnalyticsService";
 import {
@@ -54,6 +55,11 @@ import {
   type AnalyticsAudienceKey,
   type AnalyticsPartnerTypeFilter,
 } from "@/lib/portalAnalyticsAudienceScope";
+import {
+  formatCountTrend,
+  formatPercentTrend,
+  type PortalAnalyticsTrend,
+} from "@/lib/portalAnalyticsTrends";
 
 const ALL = "__all__";
 const PERIODS = [
@@ -149,27 +155,26 @@ function displayRole(role: string | null | undefined): string {
   return role ? labels[role] || role : "-";
 }
 
-function comparisonLabel(period: PortalUsageComparisonPeriod | undefined): string {
-  if (!period) return "Ingen data";
-  const current = period.current_visits || 0;
-  const previous = period.previous_visits || 0;
-  if (previous === 0) return current > 0 ? `${current} vs. 0 · Ny aktivitet` : "0 vs. 0";
-  const pct = Math.round(((current - previous) / previous) * 100);
-  const sign = pct > 0 ? "+" : "";
-  return `${sign}${pct}%`;
-}
-
 function KpiCard({
   icon: Icon,
   label,
   value,
   sub,
+  trend,
 }: {
   icon: typeof Users;
   label: string;
   value: string | number;
   sub?: string;
+  trend?: PortalAnalyticsTrend;
 }) {
+  const TrendIcon = trend?.direction === "up" ? TrendingUp : trend?.direction === "down" ? TrendingDown : Minus;
+  const trendClass = trend?.tone === "positive"
+    ? "text-emerald-700"
+    : trend?.tone === "negative"
+      ? "text-rose-700"
+      : "text-slate-500";
+
   return (
     <Card className="rounded-lg">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -179,6 +184,12 @@ function KpiCard({
       <CardContent>
         <div className="text-2xl font-bold text-slate-950">{value}</div>
         {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
+        {trend && (
+          <p className={`mt-2 flex items-center gap-1 text-xs font-medium ${trendClass}`}>
+            <TrendIcon className="h-3.5 w-3.5" />
+            {trend.text}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -244,6 +255,7 @@ function DataTable({ analytics }: { analytics: PortalUsageAnalytics }) {
               <th className="py-2 pr-4">Rolle</th>
               <th className="py-2 pr-4">Forhandler</th>
               <th className="py-2 pr-4">Seneste login</th>
+              <th className="py-2 pr-4">Senest aktiv</th>
               <th className="py-2 pr-4">Aktive dage 7/30/90</th>
               <th className="py-2 pr-4">Sessioner</th>
               <th className="py-2 pr-4">Besøg</th>
@@ -261,6 +273,7 @@ function DataTable({ analytics }: { analytics: PortalUsageAnalytics }) {
                 <td className="py-3 pr-4 text-slate-700">{displayRole(user.portal_role)}</td>
                 <td className="py-3 pr-4 text-slate-700">{user.dealer_number || "-"}</td>
                 <td className="py-3 pr-4 text-slate-700">{user.last_login ? formatDateTime(user.last_login) : "-"}</td>
+                <td className="py-3 pr-4 text-slate-700">{user.last_active_at ? formatDateTime(user.last_active_at) : "-"}</td>
                 <td className="py-3 pr-4 font-medium text-slate-800">
                   {user.active_days_7} / {user.active_days_30} / {user.active_days_90}
                 </td>
@@ -272,7 +285,7 @@ function DataTable({ analytics }: { analytics: PortalUsageAnalytics }) {
             ))}
             {analytics.users.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-10 text-center text-slate-400">Ingen brugeraktivitet matcher filtrene.</td>
+                <td colSpan={10} className="py-10 text-center text-slate-400">Ingen brugeraktivitet matcher filtrene.</td>
               </tr>
             )}
           </tbody>
@@ -554,16 +567,33 @@ export default function BackendPortalAnalyticsPage() {
         ) : (
           <div className="space-y-6">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              <KpiCard icon={Users} label="Aktive brugere" value={analytics.totals.user_count} sub={`Periode: ${analytics.period.days} dage`} />
-              <KpiCard icon={MonitorUp} label="Sessioner" value={analytics.totals.session_count} sub={`${analytics.totals.visit_count} modulbesøg`} />
-              <KpiCard icon={Clock3} label="Samlet aktiv tid" value={formatSeconds(analytics.totals.active_seconds)} sub={`Senest: ${analytics.totals.last_active_at ? formatDateTime(analytics.totals.last_active_at) : "-"}`} />
-              <KpiCard icon={CalendarDays} label="Aktive dage 7/30/90" value={`${analytics.totals.active_days_7}/${analytics.totals.active_days_30}/${analytics.totals.active_days_90}`} />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <KpiCard icon={Activity} label="Denne uge vs. sidste uge" value={comparisonLabel(analytics.comparisons.week)} sub={`${analytics.comparisons.week.current_visits} vs. ${analytics.comparisons.week.previous_visits} besøg`} />
-              <KpiCard icon={Activity} label="Denne måned vs. sidste måned" value={comparisonLabel(analytics.comparisons.month)} sub={`${analytics.comparisons.month.current_visits} vs. ${analytics.comparisons.month.previous_visits} besøg`} />
-              <KpiCard icon={Activity} label="Samme periode sidste år" value={comparisonLabel(analytics.comparisons.same_period_last_year)} sub={`${analytics.comparisons.same_period_last_year.current_visits} vs. ${analytics.comparisons.same_period_last_year.previous_visits} besøg`} />
+              <KpiCard
+                icon={Users}
+                label="Aktive brugere"
+                value={analytics.totals.user_count}
+                sub={`Periode: ${analytics.period.days} dage`}
+                trend={formatPercentTrend(analytics.comparisons.week.current_users || 0, analytics.comparisons.week.previous_users || 0)}
+              />
+              <KpiCard
+                icon={MonitorUp}
+                label="Sessioner"
+                value={analytics.totals.session_count}
+                sub={`${analytics.totals.visit_count} modulbesøg`}
+                trend={formatCountTrend(analytics.comparisons.week.current_sessions || 0, analytics.comparisons.week.previous_sessions || 0, "sessioner")}
+              />
+              <KpiCard
+                icon={Clock3}
+                label="Samlet aktiv tid"
+                value={formatSeconds(analytics.totals.active_seconds)}
+                sub={`Senest aktiv: ${analytics.totals.last_active_at ? formatDateTime(analytics.totals.last_active_at) : "-"}`}
+                trend={formatPercentTrend(analytics.comparisons.week.current_seconds || 0, analytics.comparisons.week.previous_seconds || 0)}
+              />
+              <KpiCard
+                icon={CalendarDays}
+                label="Aktive dage 7/30/90"
+                value={`${analytics.totals.active_days_7}/${analytics.totals.active_days_30}/${analytics.totals.active_days_90}`}
+                trend={formatCountTrend(analytics.comparisons.week.current_active_days || 0, analytics.comparisons.week.previous_active_days || 0, "dage")}
+              />
             </div>
 
             {selectedUser && selectedUserKeys.length === 1 && selectedRoles.length === 0 && (
@@ -583,14 +613,15 @@ export default function BackendPortalAnalyticsPage() {
                   <div>
                     <div className="text-xs uppercase text-slate-500">Seneste login</div>
                     <div className="font-semibold text-slate-950">{selectedUser.last_login ? formatDateTime(selectedUser.last_login) : "-"}</div>
+                    <div className="text-xs text-slate-500">Auth/app-user felt, ikke aktivitetsmåling</div>
+                  </div>
+                  <div>
+                    <div className="text-xs uppercase text-slate-500">Senest aktiv</div>
+                    <div className="font-semibold text-slate-950">{selectedUser.last_active_at ? formatDateTime(selectedUser.last_active_at) : "-"}</div>
                   </div>
                   <div>
                     <div className="text-xs uppercase text-slate-500">Sessioner / aktiv tid</div>
                     <div className="font-semibold text-slate-950">{selectedUser.session_count} · {formatSeconds(selectedUser.active_seconds)}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase text-slate-500">Mest brugte modul</div>
-                    <div className="font-semibold text-slate-950">{formatModuleKey(selectedUser.top_module)}</div>
                   </div>
                 </CardContent>
               </Card>
