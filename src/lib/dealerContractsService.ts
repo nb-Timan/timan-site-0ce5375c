@@ -798,6 +798,15 @@ export async function fetchDealerContractsForDealerAccount(
   return { rows: (data || []).map((row) => rowToContractRecord(row as Record<string, unknown>)), error: null };
 }
 
+export async function deleteDealerContract(contractId: string): Promise<{ deleted: boolean; error: string | null }> {
+  const { error } = await supabase.rpc("delete_dealer_contract", {
+    p_contract_id: contractId,
+  });
+
+  if (error) return { deleted: false, error: error.message };
+  return { deleted: true, error: null };
+}
+
 export async function fetchActiveDealerContractAccessWindow(input: {
   dealerAccountNumber: string;
   contractId?: string | null;

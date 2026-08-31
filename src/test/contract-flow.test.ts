@@ -1156,6 +1156,24 @@ describe('contract flow', () => {
     expect(getDealerContractOverviewStatusLabel('archived')).toBe('Opsagt / ophørt');
   });
 
+  it('keeps contract deletion backend-only in the overview UI and database helper', () => {
+    const overviewSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260831210500_dealer_contract_backend_delete.sql', 'utf8');
+
+    expect(overviewSource).toContain("const isBackend = portalRole === 'timan_backend';");
+    expect(overviewSource).toContain('{isBackend && (');
+    expect(overviewSource).toContain('Slet kontrakt');
+    expect(overviewSource).toContain('Er du sikker på, at du vil slette denne kontrakt?');
+    expect(serviceSource).toContain('export async function deleteDealerContract');
+    expect(serviceSource).toContain('supabase.rpc("delete_dealer_contract"');
+    expect(migration).toContain('create or replace function public.delete_dealer_contract');
+    expect(migration).toContain('if not public.is_timan_backend() then');
+    expect(migration).toContain("delete from storage.objects");
+    expect(migration).toContain("delete from public.dealer_contracts");
+    expect(migration).toContain("grant execute on function public.delete_dealer_contract(uuid) to authenticated, service_role");
+  });
+
   it('keeps appendix 2 discount text verbatim', () => {
     expect(APPENDIX_2_PARAGRAPHS).toEqual([
       'Bilag 2: Rabat.',

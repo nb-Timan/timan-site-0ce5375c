@@ -33,6 +33,7 @@ import {
   activateDealerContractAccessWindow,
   completeDealerContractGuidedReview,
   createDealerContractUploadVersion,
+  deleteDealerContract,
   deleteDealerContractUploadFile,
   fetchActiveDealerContractAccessWindow,
   fetchDealerContractById,
@@ -1600,6 +1601,7 @@ function InternalContractsOverview({
   const [partnerTypeFilter, setPartnerTypeFilter] = useState('');
   const [sellerFilter, setSellerFilter] = useState('');
   const [sellerOptions, setSellerOptions] = useState<Array<{ id: string; initials: string; name: string; email: string }>>([]);
+  const [deletingContractId, setDeletingContractId] = useState<string | null>(null);
   const isBackend = portalRole === 'timan_backend';
 
   useEffect(() => {
@@ -1625,11 +1627,10 @@ function InternalContractsOverview({
 
   const selectedSeller = sellerOptions.find((seller) => seller.id === sellerFilter) || null;
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadOverview = async (cancelled?: () => boolean) => {
     setLoadingOverview(true);
     setOverviewError(null);
-    fetchInternalDealerContractOverview({
+    const result = await fetchInternalDealerContractOverview({
       portalRole,
       query,
       status: statusFilter,
@@ -1642,15 +1643,38 @@ function InternalContractsOverview({
         email: selectedSeller.email,
         initials: selectedSeller.initials,
       } : null,
-    }).then((result) => {
-      if (cancelled) return;
-      setRows(result.rows);
-      setCounts(result.counts);
-      setOverviewError(result.error);
-      setLoadingOverview(false);
     });
+    if (cancelled?.()) return;
+    setRows(result.rows);
+    setCounts(result.counts);
+    setOverviewError(result.error);
+    setLoadingOverview(false);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    loadOverview(() => cancelled);
     return () => { cancelled = true; };
   }, [appUser, effectiveUser, partnerTypeFilter, portalRole, query, selectedSeller, statusFilter]);
+
+  const handleDeleteContract = async (row: DealerContractOverviewRow) => {
+    if (!isBackend || deletingContractId) return;
+    const confirmed = window.confirm(
+      `Er du sikker på, at du vil slette denne kontrakt?\n\n${row.partnerName} (${row.contract.contract_number || row.contract.id})\n\nHandlingen kan ikke fortrydes.`,
+    );
+    if (!confirmed) return;
+
+    setDeletingContractId(row.contract.id);
+    const result = await deleteDealerContract(row.contract.id);
+    if (result.error) {
+      toast.error('Kontrakten kunne ikke slettes.');
+      setOverviewError(result.error);
+    } else {
+      toast.success('Kontrakten er slettet.');
+      await loadOverview();
+    }
+    setDeletingContractId(null);
+  };
 
   const summaryCards: Array<{ id: DealerContractOverviewStatusFilter; label: string; count: number }> = [
     { id: 'all', label: 'Alle', count: counts.all },
@@ -1698,14 +1722,14 @@ function InternalContractsOverview({
                 key={card.id}
                 type="button"
                 onClick={() => setStatusFilter(card.id)}
-                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                className={`group rounded-2xl border px-4 py-4 text-left shadow-sm transition ${
                   statusFilter === card.id
-                    ? 'border-gray-950 bg-gray-950 text-white'
-                    : 'border-gray-200 bg-white text-gray-900 hover:border-emerald-300 hover:bg-emerald-50'
+                    ? 'border-gray-950 bg-gray-950 text-white shadow-md'
+                    : 'border-gray-200 bg-white/95 text-gray-900 hover:border-emerald-200 hover:bg-emerald-50/70 hover:shadow-md'
                 }`}
               >
-                <p className={`text-xs font-bold uppercase tracking-wide ${statusFilter === card.id ? 'text-gray-200' : 'text-gray-500'}`}>{card.label}</p>
-                <p className="mt-1 text-2xl font-bold">{card.count}</p>
+                <p className={`text-[11px] font-bold uppercase tracking-wide ${statusFilter === card.id ? 'text-gray-200' : 'text-gray-500 group-hover:text-emerald-800'}`}>{card.label}</p>
+                <p className="mt-2 text-3xl font-black leading-none tabular-nums">{card.count}</p>
               </button>
             ))}
           </div>
@@ -1828,13 +1852,27 @@ function InternalContractsOverview({
                     </td>
                     <td className="px-3 py-3 text-gray-700">{row.contract.contract_version}</td>
                     <td className="px-3 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onOpenContract(row.contract.id)}
-                        className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-800 hover:bg-gray-50"
-                      >
-                        {row.actionLabel}
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onOpenContract(row.contract.id)}
+                          className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-800 hover:bg-gray-50"
+                        >
+                          {row.actionLabel}
+                        </button>
+                        {isBackend && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteContract(row)}
+                            disabled={deletingContractId === row.contract.id}
+                            aria-label={`Slet kontrakt for ${row.partnerName}`}
+                            title="Slet kontrakt"
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 bg-white text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
