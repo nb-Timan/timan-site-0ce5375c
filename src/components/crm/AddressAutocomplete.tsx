@@ -1,7 +1,7 @@
 /**
  * Address input with optional Google Places autocomplete.
  *
- * Loads the Google Maps Places library on demand if
+ * Loads the Google Maps Places library on first focus if
  * VITE_GOOGLE_MAPS_API_KEY (or VITE_GOOGLE_PLACES_API_KEY) is configured.
  * Falls back to a plain text input when no key is available, so the form
  * keeps working without any API dependency.
@@ -12,9 +12,18 @@
  * place_id) when the user picks a suggestion.
  *
  * Country bias: by default restricted to Timan's markets
- * (DK, DE, AT, CH, IT, HU, GB). Pass `countries={[...]}` to override.
+ * (DK, DE, SE, FR, IT, HU, PL, CZ, CH, AT, GB). Pass
+ * `countries={[...]}` to override.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  DEFAULT_ADDRESS_AUTOCOMPLETE_COUNTRIES,
+  resolveAddressFromGooglePlace,
+  type GooglePlaceResult as PlaceResult,
+  type ResolvedAddress,
+} from '@/lib/addressAutocomplete';
+
+export type { ResolvedAddress } from '@/lib/addressAutocomplete';
 
 const LOVABLE_KEY = (import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined) || '';
 const GOOGLE_MAPS_KEY = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || '';
@@ -26,46 +35,8 @@ const KEY_SOURCE: string | null = LOVABLE_KEY ? 'VITE_LOVABLE_CONNECTOR_GOOGLE_M
   : GOOGLE_PLACES_KEY ? 'VITE_GOOGLE_PLACES_API_KEY'
   : null;
 
-const DEFAULT_COUNTRIES = ['dk', 'de', 'at', 'ch', 'it', 'hu', 'gb'];
-
-export interface ResolvedAddress {
-  formatted: string;
-  street: string | null;
-  house_number: string | null;
-  address_line_1: string | null; // street + house_number when both present
-  postal_code: string | null;
-  city: string | null;
-  country: string | null;          // ISO-2 uppercase
-  country_name: string | null;     // long name
-  latitude: number | null;
-  longitude: number | null;
-  google_place_id: string | null;
-}
-
-interface AddressComponent {
-  long_name: string;
-  short_name: string;
-  types: string[];
-}
-
-interface PlaceResult {
-  formatted_address?: string;
-  name?: string;
-  place_id?: string;
-  address_components?: AddressComponent[];
-  geometry?: { location?: { lat: () => number; lng: () => number } };
-}
-
-// TEMP: unconditional logging to debug deployed preview (remove after verification)
 let warnedMissingKey = false;
-function devLog(...args: unknown[]) {
-  console.log('[AddressAutocomplete]', ...args);
-}
-// Log once at module load so we can see it even before any component mounts.
-if (typeof window !== 'undefined') {
-  console.log('[AddressAutocomplete] module load — key present:', !!API_KEY, 'key source:', KEY_SOURCE, 'MODE:', import.meta.env.MODE);
-}
-
+let warnedAuthFailure = false;
 let loaderPromise: Promise<boolean> | null = null;
 function loadPlaces(): Promise<boolean> {
   if (!API_KEY) {
@@ -92,6 +63,12 @@ function loadPlaces(): Promise<boolean> {
     return loaderPromise;
   }
   loaderPromise = new Promise<boolean>((resolve) => {
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      resolve(ok);
+    };
     const s = document.createElement('script');
     s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(API_KEY)}&libraries=places&v=weekly`;
     s.async = true;
@@ -99,54 +76,24 @@ function loadPlaces(): Promise<boolean> {
     s.dataset.googleMapsLoader = '1';
     s.onload = () => {
       const ww = window as unknown as { google?: { maps?: { places?: unknown } } };
-      devLog('script loaded: true, google.maps.places present:', !!ww.google?.maps?.places);
-      resolve(true);
+      finish(!!ww.google?.maps?.places);
     };
-    s.onerror = (e) => { devLog('script loaded: false (error)', e); resolve(false); };
+    s.onerror = () => finish(false);
     document.head.appendChild(s);
+    window.setTimeout(() => {
+      const ww = window as unknown as { google?: { maps?: { places?: unknown } } };
+      finish(!!ww.google?.maps?.places);
+    }, 8000);
+    // Surface Google's auth failure callback (invalid key, referer not allowed, etc.)
+    (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
+      if (!warnedAuthFailure && typeof console !== 'undefined') {
+        warnedAuthFailure = true;
+        console.warn(`Google Places autocomplete disabled: ${KEY_SOURCE ?? 'browser key'} failed auth/referrer/billing validation`);
+      }
+      finish(false);
+    };
   });
-  // Surface Google's auth failure callback (invalid key, referer not allowed, etc.)
-  (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () => {
-    devLog('Google Places status: gm_authFailure (InvalidKey/RefererNotAllowed/BillingNotEnabled)');
-  };
   return loaderPromise;
-}
-
-function pick(components: AddressComponent[] | undefined, type: string, useShort = false): string | null {
-  if (!components) return null;
-  const c = components.find((x) => x.types.includes(type));
-  if (!c) return null;
-  return useShort ? c.short_name : c.long_name;
-}
-
-function extractResolved(place: PlaceResult): ResolvedAddress {
-  const c = place.address_components;
-  const street = pick(c, 'route');
-  const houseNumber = pick(c, 'street_number');
-  const line1 = [street, houseNumber].filter(Boolean).join(' ').trim() || null;
-  const postal = pick(c, 'postal_code');
-  const city =
-    pick(c, 'postal_town') ||
-    pick(c, 'locality') ||
-    pick(c, 'administrative_area_level_2') ||
-    pick(c, 'administrative_area_level_1');
-  const countryShort = pick(c, 'country', true);
-  const countryLong = pick(c, 'country');
-  const lat = place.geometry?.location?.lat?.();
-  const lng = place.geometry?.location?.lng?.();
-  return {
-    formatted: place.formatted_address || place.name || '',
-    street,
-    house_number: houseNumber,
-    address_line_1: line1,
-    postal_code: postal,
-    city,
-    country: countryShort ? countryShort.toUpperCase() : null,
-    country_name: countryLong,
-    latitude: typeof lat === 'number' ? lat : null,
-    longitude: typeof lng === 'number' ? lng : null,
-    google_place_id: place.place_id || null,
-  };
 }
 
 export interface AddressParts {
@@ -214,18 +161,17 @@ export default function AddressAutocomplete({
   const [status, setStatus] = useState<ValidationStatus>('idle');
   const [geocoding, setGeocoding] = useState(false);
   const lastResolvedRef = useRef<string | null>(null);
+  const autocompleteInitializedRef = useRef(false);
 
-  useEffect(() => {
-    devLog('mount, key present:', !!API_KEY, 'key source:', KEY_SOURCE);
-    if (!API_KEY || !ref.current) {
-      if (!API_KEY) loadPlaces();
+  const ensureAutocomplete = useCallback(() => {
+    if (disabled || autocompleteInitializedRef.current || !ref.current) return;
+    if (!API_KEY) {
+      void loadPlaces();
       return;
     }
-    let cancelled = false;
-    const restrict = (countries && countries.length > 0 ? countries : DEFAULT_COUNTRIES).map((c) => c.toLowerCase());
+    const restrict = (countries && countries.length > 0 ? countries : DEFAULT_ADDRESS_AUTOCOMPLETE_COUNTRIES).map((c) => c.toLowerCase());
     loadPlaces().then((ok) => {
-      devLog('loadPlaces resolved:', ok);
-      if (!ok || cancelled || !ref.current) return;
+      if (!ok || !ref.current || autocompleteInitializedRef.current) return;
       try {
         const g = (window as unknown as {
           google: {
@@ -244,9 +190,10 @@ export default function AddressAutocomplete({
           fields: ['formatted_address', 'name', 'address_components', 'geometry.location', 'place_id'],
           componentRestrictions: { country: restrict },
         });
+        autocompleteInitializedRef.current = true;
         ac.addListener('place_changed', () => {
           const p = ac.getPlace();
-          const resolved = extractResolved(p);
+          const resolved = resolveAddressFromGooglePlace(p);
           const v = resolved.formatted || resolved.address_line_1 || '';
           if (v) onChangeRef.current(v);
           lastResolvedRef.current = v || null;
@@ -254,12 +201,12 @@ export default function AddressAutocomplete({
           if (onResolveRef.current) onResolveRef.current(resolved);
         });
       } catch (err) {
-        devLog('autocomplete initialized: false (exception)', err);
+        if (typeof console !== 'undefined') {
+          console.warn('Google Places autocomplete could not initialize; manual address entry remains available.', err);
+        }
       }
     });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [countries, disabled]);
 
   const handleInputChange = (next: string) => {
     if (status === 'validated' && next !== lastResolvedRef.current) {
@@ -271,6 +218,7 @@ export default function AddressAutocomplete({
   };
 
   const handleGeocodeClick = async () => {
+    await loadPlaces();
     const parts = addressParts ?? {};
     const query = [value || parts.address_line_1, parts.postal_code, parts.city, parts.country]
       .map((s) => (s ?? '').toString().trim())
@@ -287,7 +235,7 @@ export default function AddressAutocomplete({
       setStatus('error');
       return;
     }
-    const resolved = extractResolved(result);
+    const resolved = resolveAddressFromGooglePlace(result);
     const v = resolved.formatted || value;
     if (v && v !== value) onChange(v);
     lastResolvedRef.current = v || null;
@@ -309,6 +257,7 @@ export default function AddressAutocomplete({
         value={value}
         autoComplete="off"
         disabled={disabled}
+        onFocus={ensureAutocomplete}
         onChange={(e) => handleInputChange(e.target.value)}
       />
       {showValidationState && (

@@ -737,7 +737,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
                   address_line_1: r.address_line_1 ?? r.formatted ?? d.address_line_1,
                   postal_code: r.postal_code ?? d.postal_code,
                   city: r.city ?? d.city,
-                  country: r.country_name ?? d.country,
+                  country: r.country ?? r.country_name ?? d.country,
                   latitude: r.latitude ?? d.latitude,
                   longitude: r.longitude ?? d.longitude,
                   google_place_id: r.google_place_id ?? d.google_place_id,
