@@ -34,6 +34,7 @@ export interface DealerAccount {
   primary_contact_name: string | null;
   primary_contact_email: string | null;
   primary_contact_phone: string | null;
+  assigned_seller_id: string | null;
   assigned_seller_initials: string | null;
   assigned_seller_name: string | null;
   assigned_seller_email: string | null;
@@ -138,6 +139,7 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     primary_contact_name: (row.primary_contact_name as string | null) ?? null,
     primary_contact_email: (row.primary_contact_email as string | null) ?? null,
     primary_contact_phone: (row.primary_contact_phone as string | null) ?? null,
+    assigned_seller_id: (row.assigned_seller_id as string | null) ?? null,
     assigned_seller_initials: (row.assigned_seller_initials as string | null) ?? null,
     assigned_seller_name: (row.assigned_seller_name as string | null) ?? null,
     assigned_seller_email: (row.assigned_seller_email as string | null) ?? null,
@@ -295,6 +297,7 @@ export async function fetchBackendAuthCheck(): Promise<{ check: BackendAuthCheck
 }
 
 export interface UpdateSellerPatch {
+  assigned_seller_id: string | null;
   assigned_seller_initials: string | null;
   assigned_seller_name: string | null;
   assigned_seller_email: string | null;
@@ -308,6 +311,7 @@ export async function updateDealerSeller(
     const { data, error } = await supabase
       .from("dealer_accounts")
       .update({
+        assigned_seller_id: patch.assigned_seller_id,
         assigned_seller_initials: patch.assigned_seller_initials,
         assigned_seller_name: patch.assigned_seller_name,
         assigned_seller_email: patch.assigned_seller_email,
@@ -339,6 +343,7 @@ export interface UpdateDealerAccountPatch {
   primary_contact_name?: string | null;
   primary_contact_email?: string | null;
   primary_contact_phone?: string | null;
+  assigned_seller_id?: string | null;
   assigned_seller_initials?: string | null;
   assigned_seller_name?: string | null;
   assigned_seller_email?: string | null;
@@ -406,13 +411,13 @@ export async function updateDealerAccount(
       const code = (error as { code?: string }).code;
       const msg = (error as { message?: string }).message || "";
       if (code === "42501" || /row-level security|permission/i.test(msg)) {
-        return { ok: false, error: "Kun backend kan rette forhandleroplysninger." };
+        return { ok: false, error: "Kun relevante interne Timan-brugere kan rette administrative partneroplysninger." };
       }
       throw error;
     }
     return { ok: true, row: data ? rowToDealer(data) : undefined };
   } catch (e) {
-    return { ok: false, error: describeSupabaseError("Kunne ikke gemme forhandler", e) };
+    return { ok: false, error: describeSupabaseError("Kunne ikke gemme partner", e) };
   }
 }
 
@@ -431,6 +436,7 @@ export interface DealerAccountStats {
   customer_type: string | null;
   customer_type_label: string | null;
   country: string | null;
+  assigned_seller_id: string | null;
   assigned_seller_initials: string | null;
   assigned_seller_name: string | null;
   assigned_seller_email: string | null;
@@ -458,6 +464,7 @@ function rowToStats(row: Record<string, unknown>): DealerAccountStats {
     customer_type: (row.customer_type as string | null) ?? null,
     customer_type_label: (row.customer_type_label as string | null) ?? null,
     country: (row.country as string | null) ?? null,
+    assigned_seller_id: (row.assigned_seller_id as string | null) ?? null,
     assigned_seller_initials: (row.assigned_seller_initials as string | null) ?? null,
     assigned_seller_name: (row.assigned_seller_name as string | null) ?? null,
     assigned_seller_email: (row.assigned_seller_email as string | null) ?? null,
@@ -695,6 +702,7 @@ export async function fetchDealerAccountStats(): Promise<{
       customer_type_label: dealer.customer_type_label,
       country: dealer.country,
       assigned_seller_initials: dealer.assigned_seller_initials,
+      assigned_seller_id: dealer.assigned_seller_id,
       assigned_seller_name: dealer.assigned_seller_name,
       assigned_seller_email: dealer.assigned_seller_email,
       is_blocked: dealer.is_blocked,
@@ -860,6 +868,7 @@ export async function fetchDealerAccountsForSeller(opts: {
           customer_type_label: d.customer_type_label,
           country: d.country,
           assigned_seller_initials: d.assigned_seller_initials,
+          assigned_seller_id: d.assigned_seller_id,
           assigned_seller_name: d.assigned_seller_name,
           assigned_seller_email: d.assigned_seller_email,
           is_blocked: d.is_blocked,
@@ -1325,6 +1334,7 @@ export interface CreateDealerInput {
   address?: string | null;
   email?: string | null;
   phone?: string | null;
+  assigned_seller_id: string | null;
   assigned_seller_initials: string | null;
   assigned_seller_name: string | null;
   assigned_seller_email: string | null;

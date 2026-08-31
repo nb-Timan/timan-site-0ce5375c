@@ -46,11 +46,21 @@ import {
   fetchDealerAccountFamilyByNumber, fetchDealerAccountStatsByNumbers, fetchDealerAccountsForSeller,
   updateDealerAccount, type UpdateDealerAccountPatch,
   isDealerInactive, dealerLifecycleStatus, resolveActiveDealer, isDealerCustomerAccount,
-  DEALER_TYPE_OPTIONS,
-  dealerTypeFromCustomerType,
 } from "@/lib/dealerAccountsService";
 import { buildDealerDetailRowsFromVisibleDealers } from "@/lib/dealerDetailScope";
 import type { BackendUser } from "@/lib/backend-users-store";
+import { sellerInitialsMatch } from "@/lib/sellerInitials";
+import {
+  getPartnerAccountTypeLabel,
+  PARTNER_ACCOUNT_MAP_TYPE_IDS,
+  resolvePartnerAccountType,
+  type PartnerAccountTypeId,
+} from "@/lib/partnerAccountTypes";
+import {
+  buildPartnerAdminTypePatch,
+  getInitialPartnerAdminType,
+  resolvePartnerAdminSeller,
+} from "@/lib/partnerAdminEdit";
 import { supabase } from "@/lib/supabase";
 import {
   listActivities as listCalendarActivities,
@@ -214,7 +224,7 @@ const L: Record<string, DealerDetailText> = {
   view_users:       { da: "Se brugere", en: "View users", de: "Benutzer anzeigen", it: "Vedi utenti", hu: "Felhasználók megtekintése" },
   address:          { da: "Adresse", en: "Address", de: "Adresse", it: "Indirizzo", hu: "Cím" },
   country:          { da: "Land", en: "Country", de: "Land", it: "Paese", hu: "Ország" },
-  customer_type:    { da: "Forhandlertype", en: "Dealer type", de: "Händlertyp", it: "Tipo dealer", hu: "Kereskedő típus" },
+  customer_type:    { da: "Partnertype", en: "Partner type", de: "Partnertyp", it: "Tipo partner", hu: "Partner típusa" },
   account_number:   { da: "Kontonummer", en: "Account number", de: "Kundennr.", it: "Numero conto", hu: "Számlaszám" },
   company_name_lbl: { da: "Firmanavn", en: "Company name", de: "Firmenname", it: "Ragione sociale", hu: "Cégnév" },
   assigned_seller:  { da: "Timan-sælger", en: "Timan seller", de: "Timan-Verkäufer", it: "Venditore Timan", hu: "Timan értékesítő" },
@@ -232,7 +242,7 @@ const L: Record<string, DealerDetailText> = {
   group:            { da: "Gruppe", en: "Group", de: "Gruppe", it: "Gruppo", hu: "Csoport", sv: "Grupp", fr: "Groupe", pl: "Grupa", cs: "Skupina" },
   main_account:     { da: "Hovedkonto", en: "Main account", de: "Hauptkonto", it: "Account principale", hu: "Fő fiók", sv: "Huvudkonto", fr: "Compte principal", pl: "Konto główne", cs: "Hlavní účet" },
   no_budget:        { da: "Intet budget", en: "No budget", de: "Kein Budget", it: "Nessun budget", hu: "Nincs költségvetés", sv: "Ingen budget", fr: "Aucun budget", pl: "Brak budżetu", cs: "Žádný rozpočet" },
-  edit_dealer:      { da: "Rediger forhandler", en: "Edit dealer", de: "Händler bearbeiten", it: "Modifica rivenditore", hu: "Kereskedő szerkesztése", sv: "Redigera återförsäljare", fr: "Modifier le revendeur", pl: "Edytuj dealera", cs: "Upravit prodejce" },
+  edit_dealer:      { da: "Rediger partner", en: "Edit partner", de: "Partner bearbeiten", it: "Modifica partner", hu: "Partner szerkesztése", sv: "Redigera partner", fr: "Modifier le partenaire", pl: "Edytuj partnera", cs: "Upravit partnera" },
   notes_heading:    { da: "Noter", en: "Notes", de: "Notizen", it: "Note", hu: "Jegyzetek", sv: "Anteckningar", fr: "Notes", pl: "Notatki", cs: "Poznámky" },
   internal_notes:   { da: "Interne noter", en: "Internal notes", de: "Interne Notizen", it: "Note interne", hu: "Belső jegyzetek", sv: "Interna anteckningar", fr: "Notes internes", pl: "Notatki wewnętrzne", cs: "Interní poznámky" },
   shared_notes:     { da: "Delte noter", en: "Shared notes", de: "Geteilte Notizen", it: "Note condivise", hu: "Megosztott jegyzetek", sv: "Delade anteckningar", fr: "Notes partagées", pl: "Notatki udostępnione", cs: "Sdílené poznámky" },
@@ -285,13 +295,9 @@ function dealerPresentationType(
   d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type" | "parent_account_number">,
   lang: PortalUiLanguage,
 ): string {
-  if (isDealerCustomerAccount(d)) return tl("dealer_customer", lang);
-  if (isServicePartnerAccount(d)) return tl("service_partner", lang);
-  const raw = [d.customer_type, d.customer_type_label, d.dealer_type]
-    .map((value) => (value ?? "").toLowerCase().replace(/[\s_-]+/g, ""))
-    .find(Boolean);
-  if (raw === "importer" || raw === "importør" || raw === "importeur") return tl("importer", lang);
-  if (d.parent_account_number || raw === "dealer" || raw === "forhandler") return tl("dealer", lang);
+  const type = resolvePartnerAccountType(d);
+  if (type !== "other_partner") return getPartnerAccountTypeLabel(type, lang);
+  if (d.parent_account_number) return tl("dealer", lang);
   return tl("collaboration_partner", lang);
 }
 
@@ -325,6 +331,7 @@ function fallbackDealerFromUser(user: SessionUser | null, accountNumber: string)
     primary_contact_name: null,
     primary_contact_email: null,
     primary_contact_phone: null,
+    assigned_seller_id: null,
     assigned_seller_initials: null,
     assigned_seller_name: null,
     assigned_seller_email: null,
@@ -641,7 +648,7 @@ export default function CrmDealerDetailPage() {
         const dealerIds = Array.from(new Set(dealerRows.map((d) => d.id).filter(Boolean)));
         const [sRes, detailUsers, cal] = await Promise.all([
           sellerStats ? Promise.resolve({ rows: [] as DealerAccountStats[] }) : fetchDealerAccountStatsByNumbers(dealerNumbers),
-          fetchDealerDetailUsers(dealerRows, { includeAllTimanUsers: admin }),
+          fetchDealerDetailUsers(dealerRows, { includeAllTimanUsers: admin || seller }),
           listCalendarActivities({ accountIds: dealerIds }),
         ]);
         if (cancelled) return;
@@ -737,6 +744,18 @@ export default function CrmDealerDetailPage() {
     () => dealers.find(d => d.account_number === accountNumber) ?? null,
     [dealers, accountNumber]
   );
+  const canEditPartnerAdmin = useMemo(() => {
+    if (admin) return true;
+    if (!seller || !dealer) return false;
+    const effectiveSellerId = (effectiveUser as { id?: string | null } | null)?.id ?? appUser?.id ?? null;
+    const effectiveSellerEmail = getEffectiveSellerEmail(appUser);
+    const effectiveSellerInitials = getEffectiveSellerInitials(appUser);
+    return Boolean(
+      (effectiveSellerId && dealer.assigned_seller_id === effectiveSellerId) ||
+      (effectiveSellerEmail && dealer.assigned_seller_email?.toLowerCase() === effectiveSellerEmail.toLowerCase()) ||
+      (effectiveSellerInitials && sellerInitialsMatch(dealer.assigned_seller_initials, effectiveSellerInitials))
+    );
+  }, [admin, seller, dealer, effectiveUser, appUser]);
 
   // Determine main + branches grouping
   const mainAccountNumber = dealer?.parent_account_number || dealer?.account_number || "";
@@ -1237,13 +1256,13 @@ export default function CrmDealerDetailPage() {
     if (!dealer) return { ok: false, error: "Ingen forhandler valgt." };
     const res = await updateDealerAccount(dealer.id, patch);
     if (!res.ok) {
-      toast.error(res.error || "Kunne ikke opdatere forhandleren.");
+      toast.error(res.error || "Kunne ikke opdatere partneren.");
       return res;
     }
     // Refresh only this dealer family; the detail view derives from it.
     const dRes = await fetchDealerAccountFamilyByNumber(accountNumber, { includeDeleted: false });
     setDealers(dRes.rows);
-    toast.success("Forhandleren er opdateret.");
+    toast.success("Partneren er opdateret.");
     setShowEditDealer(false);
     return { ok: true };
   }
@@ -1340,7 +1359,7 @@ export default function CrmDealerDetailPage() {
               dealer={dealer}
               contacts={dealerContacts}
               lang={lang}
-              admin={admin}
+              admin={canEditPartnerAdmin}
               isBranch={isBranch}
               mainDealer={mainDealer ?? null}
               hasGroup={hasGroup}
@@ -1572,15 +1591,16 @@ export default function CrmDealerDetailPage() {
         />
       )}
 
-      {showEditDealer && admin && (
+      {showEditDealer && canEditPartnerAdmin && (
         <EditDealerModal
           dealer={dealer}
           sellers={users.filter((u) =>
             u.is_active &&
             u.approved &&
-            (u.role === "timan_seller" || u.role === "timan_backend") &&
+            (u.role === "timan_seller" || u.role === "timan_backend" || u.role === "timan_service") &&
             Boolean(u.initials && u.email)
           )}
+          lang={lang}
           onCancel={() => setShowEditDealer(false)}
           onSave={handleSaveDealer}
           onGeocoded={async () => {
@@ -2305,21 +2325,20 @@ function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
 function EditDealerModal({
   dealer,
   sellers,
+  lang,
   onCancel,
   onSave,
   onGeocoded,
 }: {
   dealer: DealerAccount;
   sellers: BackendUser[];
+  lang: PortalUiLanguage;
   onCancel: () => void;
   onSave: (patch: UpdateDealerAccountPatch) => Promise<{ ok: boolean; error?: string }>;
   onGeocoded?: () => void | Promise<void>;
 }) {
-  const initialSeller = sellers.find((s) =>
-    (dealer.assigned_seller_email && s.email.toLowerCase() === dealer.assigned_seller_email.toLowerCase()) ||
-    (dealer.assigned_seller_initials && s.initials.toUpperCase() === dealer.assigned_seller_initials.toUpperCase())
-  );
-  const initialCustomerType = dealer.customer_type_label || dealer.customer_type || "";
+  const initialSeller = resolvePartnerAdminSeller(dealer, sellers);
+  const initialPartnerType = getInitialPartnerAdminType(dealer);
   const [form, setForm] = useState({
     company_name: dealer.company_name || "",
     account_number: dealer.account_number || "",
@@ -2330,10 +2349,11 @@ function EditDealerModal({
     email: dealer.email || "",
     phone: dealer.phone || "",
     seller_id: initialSeller?.id || "",
+    assigned_seller_id: initialSeller?.id || dealer.assigned_seller_id || "",
     assigned_seller_initials: initialSeller?.initials || dealer.assigned_seller_initials || "",
     assigned_seller_name: initialSeller?.name || dealer.assigned_seller_name || "",
     assigned_seller_email: initialSeller?.email || dealer.assigned_seller_email || "",
-    customer_type_label: initialCustomerType,
+    partner_type: initialPartnerType,
   });
   // Geo captured from Google Places when the user selects a suggestion.
   // Manual typing leaves these null; backend manual geocode panel handles backfill.
@@ -2354,6 +2374,7 @@ function EditDealerModal({
       setForm((f) => ({
         ...f,
         seller_id: "",
+        assigned_seller_id: "",
         assigned_seller_initials: "",
         assigned_seller_name: "",
         assigned_seller_email: "",
@@ -2365,6 +2386,7 @@ function EditDealerModal({
     setForm((f) => ({
       ...f,
       seller_id: selected.id,
+      assigned_seller_id: selected.id,
       assigned_seller_initials: selected.initials,
       assigned_seller_name: selected.name,
       assigned_seller_email: selected.email,
@@ -2399,9 +2421,9 @@ function EditDealerModal({
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 overflow-auto">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-5 mt-12">
-        <h2 className="text-lg font-bold text-slate-900 mb-1">Rediger forhandler</h2>
+        <h2 className="text-lg font-bold text-slate-900 mb-1">{tl("edit_dealer", lang)}</h2>
         <p className="text-xs text-slate-500 mb-4">
-          Kun backend kan rette forhandleroplysninger. Ændringer påvirker kun denne forhandlerkonto.
+          Kun interne Timan-brugere kan rette administrative partneroplysninger. Ændringer påvirker kun denne partnerkonto.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2442,7 +2464,7 @@ function EditDealerModal({
             </label>
           ))}
           <label className="block">
-            <span className="block text-xs font-bold text-slate-600 mb-1">Tildelt sælger</span>
+            <span className="block text-xs font-bold text-slate-600 mb-1">Tildelt Timan-sælger</span>
             <select
               value={form.seller_id}
               onChange={(e) => applySeller(e.target.value)}
@@ -2460,18 +2482,17 @@ function EditDealerModal({
             )}
           </label>
           <label className="block">
-            <span className="block text-xs font-bold text-slate-600 mb-1">Forhandlertype</span>
+            <span className="block text-xs font-bold text-slate-600 mb-1">{tl("customer_type", lang)}</span>
             <select
-              value={form.customer_type_label}
-              onChange={setText("customer_type_label")}
+              value={form.partner_type}
+              onChange={setText("partner_type")}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
             >
-              <option value="">Ingen kundetype</option>
-              {DEALER_TYPE_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+              {PARTNER_ACCOUNT_MAP_TYPE_IDS.map((type) => (
+                <option key={type} value={type}>{getPartnerAccountTypeLabel(type, lang)}</option>
               ))}
-              {form.customer_type_label && !DEALER_TYPE_OPTIONS.some((option) => option.value === form.customer_type_label) && (
-                <option value={form.customer_type_label}>{form.customer_type_label}</option>
+              {form.partner_type && !PARTNER_ACCOUNT_MAP_TYPE_IDS.includes(form.partner_type as PartnerAccountTypeId) && (
+                <option value={form.partner_type}>{form.partner_type}</option>
               )}
             </select>
           </label>
@@ -2506,12 +2527,11 @@ function EditDealerModal({
                   city: trim(form.city),
                   email: trim(form.email),
                   phone: trim(form.phone),
+                  assigned_seller_id: trim(form.assigned_seller_id),
                   assigned_seller_initials: trim(form.assigned_seller_initials),
                   assigned_seller_name: trim(form.assigned_seller_name),
                   assigned_seller_email: trim(form.assigned_seller_email),
-                  dealer_type: dealerTypeFromCustomerType(trim(form.customer_type_label)),
-                  customer_type: trim(form.customer_type_label),
-                  customer_type_label: trim(form.customer_type_label),
+                  ...buildPartnerAdminTypePatch(form.partner_type as PartnerAccountTypeId | ""),
                 };
                 const addressParts = {
                   address: form.address,
@@ -2628,12 +2648,12 @@ function ContactHero({
     ? dealer.website.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/g, "")
     : undefined;
   const assignedSeller = users.find((u) => {
-    const dealerSellerId = (dealer as unknown as { assigned_seller_user_id?: string | null }).assigned_seller_user_id;
+    const dealerSellerId = dealer.assigned_seller_id;
     const dealerSellerEmail = (dealer.assigned_seller_email || "").toLowerCase();
     return Boolean(
       (dealerSellerId && u.id === dealerSellerId) ||
       (dealerSellerEmail && u.email.toLowerCase() === dealerSellerEmail) ||
-      (dealer.assigned_seller_initials && u.initials === dealer.assigned_seller_initials)
+      (dealer.assigned_seller_initials && sellerInitialsMatch(u.initials, dealer.assigned_seller_initials))
     );
   });
   const assignedSellerName = assignedSeller?.name || dealer.assigned_seller_name || dealer.assigned_seller_initials || null;

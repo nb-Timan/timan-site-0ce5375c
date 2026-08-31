@@ -32,7 +32,6 @@ import {
   parseCsv,
   buildCsvPreview,
   upsertDealerAccountsBulk,
-  TIMAN_SELLERS,
   DEALER_TYPE_OPTIONS,
   dealerTypeFromCustomerType,
   type CsvParsedRow,
@@ -500,6 +499,7 @@ export default function BackendDealerAccountsPage() {
 
       {showCreate && (
         <CreateDealerModal
+          sellers={sellers}
           onClose={() => setShowCreate(false)}
           onCreated={async () => { setShowCreate(false); await reload(); }}
           onError={(msg) => setSaveError(msg)}
@@ -890,6 +890,7 @@ function EditDealerModal({
   const [initials, setInitials] = useState(dealer.assigned_seller_initials ?? "");
   const [name, setName] = useState(dealer.assigned_seller_name ?? "");
   const [email, setEmail] = useState(dealer.assigned_seller_email ?? "");
+  const [sellerId, setSellerId] = useState(dealer.assigned_seller_id ?? "");
   const [companyName, setCompanyName] = useState<string>(dealer.company_name ?? "");
   const [dealerCustomerType, setDealerCustomerType] = useState<string>(
     dealer.customer_type_label ?? dealer.customer_type ?? "",
@@ -905,12 +906,16 @@ function EditDealerModal({
   const [clearedDirect, setClearedDirect] = useState(false);
 
   function applySeller(id: string) {
-    if (!id) { setInitials(""); setName(""); setEmail(""); return; }
+    if (!id) { setSellerId(""); setInitials(""); setName(""); setEmail(""); return; }
     const s = sellers.find((u) => u.id === id);
     if (!s) return;
-    setInitials(s.initials); setName(s.name); setEmail(s.email);
+    setSellerId(s.id); setInitials(s.initials); setName(s.name); setEmail(s.email);
   }
-  const matched = sellers.find((s) => s.email.toLowerCase() === email.toLowerCase());
+  const matched = sellers.find((s) =>
+    (sellerId && s.id === sellerId) ||
+    (!sellerId && email && s.email.toLowerCase() === email.toLowerCase()) ||
+    (!sellerId && !email && initials && s.initials.toUpperCase() === initials.toUpperCase())
+  );
   const eligibleParents = allDealers.filter((d) =>
     d.account_number !== dealer.account_number &&
     d.parent_account_number !== dealer.account_number, // avoid obvious 2-cycle
@@ -932,6 +937,7 @@ function EditDealerModal({
     try {
       // 1. Seller (always written so explicit clears persist as NULLs)
       const sellerRes = await updateDealerSeller(dealer.id, {
+        assigned_seller_id: sellerId || null,
         assigned_seller_initials: initials.trim() || null,
         assigned_seller_name: name.trim() || null,
         assigned_seller_email: email.trim() || null,
@@ -1004,7 +1010,7 @@ function EditDealerModal({
       <div className="bg-white rounded-2xl shadow-xl max-w-xl w-full my-8">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Rediger forhandler</h2>
+            <h2 className="text-lg font-bold text-slate-900">Rediger partner</h2>
             <p className="text-xs text-slate-500">{dealer.company_name} · {dealer.account_number}</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
@@ -1314,8 +1320,9 @@ function EditSellerModal({
 // ---------------- Create Dealer Modal ----------------
 
 function CreateDealerModal({
-  onClose, onCreated, onError,
+  sellers, onClose, onCreated, onError,
 }: {
+  sellers: BackendUser[];
   onClose: () => void;
   onCreated: () => void | Promise<void>;
   onError: (msg: string) => void;
@@ -1332,12 +1339,12 @@ function CreateDealerModal({
     postal_code: "",
     email: "",
     phone: "",
-    seller_initials: "EM",
+    seller_id: sellers[0]?.id ?? "",
   });
   const [geo, setGeo] = useState<{ latitude: number | null; longitude: number | null; google_place_id: string | null }>({
     latitude: null, longitude: null, google_place_id: null,
   });
-  const seller = TIMAN_SELLERS.find((s) => s.initials === d.seller_initials)!;
+  const seller = sellers.find((s) => s.id === d.seller_id) ?? null;
 
   function applyResolved(r: ResolvedAddress) {
     setD((prev) => ({
@@ -1356,6 +1363,10 @@ function CreateDealerModal({
       setErr("Firmanavn og kontonummer er påkrævet.");
       return;
     }
+    if (!seller) {
+      setErr("Vælg en aktiv Timan-sælger.");
+      return;
+    }
     setBusy(true);
     const res = await createDealerAccount({
       account_number: d.account_number.trim(),
@@ -1367,6 +1378,7 @@ function CreateDealerModal({
       postal_code: d.postal_code.trim() || null,
       email: d.email.trim() || null,
       phone: d.phone.trim() || null,
+      assigned_seller_id: seller.id,
       assigned_seller_initials: seller.initials,
       assigned_seller_name: seller.name,
       assigned_seller_email: seller.email,
@@ -1406,7 +1418,7 @@ function CreateDealerModal({
           <div className="grid grid-cols-2 gap-3">
             <Field label="Firmanavn *"><input value={d.company_name} onChange={(e) => setD({ ...d, company_name: e.target.value })} className={inp} /></Field>
             <Field label="Kontonummer *"><input value={d.account_number} onChange={(e) => setD({ ...d, account_number: e.target.value })} className={inp} /></Field>
-            <Field label="Forhandlertype">
+            <Field label="Partnertype">
               <select value={d.customer_type} onChange={(e) => setD({ ...d, customer_type: e.target.value })} className={inp}>
                 {DEALER_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -1432,13 +1444,14 @@ function CreateDealerModal({
             <Field label="Email"><input value={d.email} onChange={(e) => setD({ ...d, email: e.target.value })} className={inp} /></Field>
             <Field label="Telefon"><input value={d.phone} onChange={(e) => setD({ ...d, phone: e.target.value })} className={inp} /></Field>
             <Field label="Tildelt Timan sælger">
-              <select value={d.seller_initials} onChange={(e) => setD({ ...d, seller_initials: e.target.value })} className={inp}>
-                {TIMAN_SELLERS.map((s) => <option key={s.initials} value={s.initials}>{s.initials} · {s.name}</option>)}
+              <select value={d.seller_id} onChange={(e) => setD({ ...d, seller_id: e.target.value })} className={inp}>
+                <option value="">— vælg fra aktive Timan-brugere —</option>
+                {sellers.map((s) => <option key={s.id} value={s.id}>{s.initials} · {s.name} ({s.email})</option>)}
               </select>
             </Field>
           </div>
           <p className="text-[11px] text-slate-500">
-            Sælger: <strong>{seller.initials} · {seller.name}</strong> ({seller.email})
+            Sælger: {seller ? <><strong>{seller.initials} · {seller.name}</strong> ({seller.email})</> : <strong>Ikke valgt</strong>}
           </p>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-6 py-4">
