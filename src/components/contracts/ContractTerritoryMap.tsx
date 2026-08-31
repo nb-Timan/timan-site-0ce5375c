@@ -6,6 +6,7 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import {
   describeContractSecondaryTerritoryArea,
   describeContractTerritoryArea,
+  createEmptyContractTerritoryArea,
   isValidContractTerritoryArea,
   normalizeContractTerritoryArea,
   type ContractSecondaryTerritoryArea,
@@ -17,11 +18,16 @@ import {
   getContractTerritoryMapRegionKeys,
   getContractTerritoryMapStateKey,
   getContractTerritoryBasemap,
+  getContractWholeCountryMapCountryLabel,
   hasContractTerritoryMapSelection,
+  CONTRACT_WHOLE_COUNTRY_MAP,
+  type ContractCountryMapScope,
   toggleContractTerritoryRegionSelection,
   type ContractTerritoryMapCountryConfig,
+  type ContractTerritoryMapMode,
   type ContractTerritoryMapVariant,
 } from '@/lib/contractTerritoryMap';
+import { isFeatureInContractCountryMapScope } from '@/lib/contractWorldCountries';
 
 const PRIMARY_COLOR = '#287a48';
 const PRIMARY_FILL = '#2fb36d';
@@ -49,6 +55,10 @@ function boundsFromConfig(config: ContractTerritoryMapCountryConfig) {
     [config.bounds[0], config.bounds[1]],
     [config.bounds[2], config.bounds[3]],
   );
+}
+
+function boundsFromTuple(bounds: [number, number, number, number]) {
+  return L.latLngBounds([bounds[0], bounds[1]], [bounds[2], bounds[3]]);
 }
 
 function escapeHtml(value: string) {
@@ -275,6 +285,150 @@ function ContractTerritoryGeoJsonLayer({
   return null;
 }
 
+function ContractWholeCountryGeoJsonLayer({
+  primaryTerritory,
+  secondaryTerritory,
+  regionSelectionTarget,
+  displayVariant,
+  countryMapScope,
+  language,
+  onStatus,
+  onPrimaryTerritoryChange,
+  onSecondaryTerritoryChange,
+}: {
+  primaryTerritory: ContractTerritoryArea;
+  secondaryTerritory: ContractSecondaryTerritoryArea;
+  regionSelectionTarget: ContractTerritoryMapVariant;
+  displayVariant: ContractTerritoryMapVariant | 'both';
+  countryMapScope: ContractCountryMapScope;
+  language: PortalUiLanguage | string;
+  onStatus: (status: 'loading' | 'ready' | 'error') => void;
+  onPrimaryTerritoryChange?: (territory: ContractTerritoryArea) => void;
+  onSecondaryTerritoryChange?: (territory: ContractSecondaryTerritoryArea) => void;
+}) {
+  const map = useMap();
+  const stateKey = `${countryMapScope}|${getContractTerritoryMapStateKey(primaryTerritory)}|${secondaryTerritory.enabled ? getContractTerritoryMapStateKey(secondaryTerritory) : 'secondary-off'}|${regionSelectionTarget}`;
+
+  useEffect(() => {
+    let alive = true;
+    const group = L.layerGroup().addTo(map);
+    const container = map.getContainer();
+
+    if (!map.getPane('contract-territory-pane')) {
+      map.createPane('contract-territory-pane');
+    }
+    const pane = map.getPane('contract-territory-pane');
+    if (pane) {
+      pane.style.zIndex = '360';
+      pane.style.pointerEvents = 'auto';
+    }
+
+    const normalizedPrimary = normalizeContractTerritoryArea(primaryTerritory);
+    const normalizedSecondary = normalizeContractTerritoryArea(secondaryTerritory);
+    const visibleSecondary = secondaryTerritory.enabled && normalizedSecondary.wholeCountry;
+    const areaSpecs = displayVariant === 'primary'
+      ? [{ area: normalizedPrimary, variant: 'primary' as const, valid: normalizedPrimary.wholeCountry }]
+      : displayVariant === 'secondary'
+        ? [{ area: normalizedSecondary, variant: 'secondary' as const, valid: visibleSecondary }]
+        : [
+          { area: normalizedPrimary, variant: 'primary' as const, valid: normalizedPrimary.wholeCountry },
+          ...(visibleSecondary ? [{ area: normalizedSecondary, variant: 'secondary' as const, valid: true }] : []),
+        ];
+    const selectedBounds = L.latLngBounds([]);
+    const fallbackBounds = boundsFromTuple(CONTRACT_WHOLE_COUNTRY_MAP.bounds[countryMapScope]);
+    onStatus('loading');
+
+    loadGeoJson(CONTRACT_WHOLE_COUNTRY_MAP.geoJsonUrl)
+      .then((geoJson) => CONTRACT_WHOLE_COUNTRY_MAP.parseGeoJson(geoJson))
+      .then((geoJson) => {
+        if (!alive) return;
+
+        const visibleFeatures = {
+          ...geoJson,
+          features: geoJson.features.filter((feature) => isFeatureInContractCountryMapScope(feature, countryMapScope)),
+        };
+
+        const layer = L.geoJSON(visibleFeatures, {
+          pane: 'contract-territory-pane',
+          style: (feature) => {
+            const meta = CONTRACT_WHOLE_COUNTRY_MAP.getFeatureMeta(feature as GeoJSON.Feature);
+            const variant = getCountryFeatureVariant(meta?.code ?? '', areaSpecs);
+            return styleForFeature(variant);
+          },
+          onEachFeature: (feature, featureLayer) => {
+            const meta = CONTRACT_WHOLE_COUNTRY_MAP.getFeatureMeta(feature);
+            if (!meta) return;
+
+            const path = featureLayer as L.Path;
+            const bounds = (featureLayer as L.Polygon).getBounds?.();
+            const variant = getCountryFeatureVariant(meta.code, areaSpecs);
+            const label = getContractWholeCountryMapCountryLabel(meta.code, language, meta.name);
+
+            if (variant && bounds?.isValid()) {
+              selectedBounds.extend(bounds);
+            }
+
+            featureLayer.bindTooltip(label, {
+              direction: 'top',
+              opacity: 0.95,
+              className: 'pm-plz2-hover-label',
+            });
+            featureLayer.bindPopup(
+              `<div class="pm-plz2-popup"><strong>${escapeHtml(label)}</strong><br />${escapeHtml(CONTRACT_WHOLE_COUNTRY_MAP.datasetLabel[language as PortalUiLanguage] ?? CONTRACT_WHOLE_COUNTRY_MAP.datasetLabel.da)}</div>`,
+              { closeButton: true, maxWidth: 220 },
+            );
+            featureLayer.on({
+              mouseover: () => {
+                container.classList.add('contract-territory-hovering');
+                path.setStyle(styleForFeature(variant, true));
+              },
+              mouseout: () => {
+                container.classList.remove('contract-territory-hovering');
+                path.setStyle(styleForFeature(variant));
+              },
+              click: () => {
+                const targetArea = regionSelectionTarget === 'secondary'
+                  ? normalizeContractTerritoryArea(secondaryTerritory)
+                  : normalizedPrimary;
+                const sameCountrySelected = targetArea.wholeCountry && targetArea.country === meta.code;
+                const nextArea = sameCountrySelected
+                  ? { ...createEmptyContractTerritoryArea(meta.code), wholeCountry: false }
+                  : { ...createEmptyContractTerritoryArea(meta.code), wholeCountry: true };
+
+                if (regionSelectionTarget === 'secondary' && secondaryTerritory.enabled && onSecondaryTerritoryChange) {
+                  onSecondaryTerritoryChange({ ...nextArea, enabled: true });
+                } else if (onPrimaryTerritoryChange) {
+                  onPrimaryTerritoryChange(nextArea);
+                }
+
+                if (bounds?.isValid()) {
+                  map.fitBounds(bounds, { padding: [28, 28], maxZoom: 6 });
+                }
+              },
+            });
+          },
+        });
+
+        group.addLayer(layer);
+        const targetBounds = selectedBounds.isValid() ? selectedBounds : fallbackBounds;
+        map.fitBounds(targetBounds, { padding: [28, 28], maxZoom: selectedBounds.isValid() ? 6 : 4 });
+        onStatus('ready');
+      })
+      .catch(() => {
+        if (!alive) return;
+        onStatus('error');
+      });
+
+    return () => {
+      alive = false;
+      container.classList.remove('contract-territory-hovering');
+      group.removeFrom(map);
+    };
+  }, [map, onStatus, language, stateKey, regionSelectionTarget, displayVariant, countryMapScope, onPrimaryTerritoryChange, onSecondaryTerritoryChange, primaryTerritory, secondaryTerritory]);
+
+  return null;
+}
+
 function getFeatureVariant(
   key: string,
   specs: Array<{ variant: ContractTerritoryMapVariant; wholeCountry: boolean; keys: Set<string> }>,
@@ -288,11 +442,26 @@ function getFeatureVariant(
   return null;
 }
 
+function getCountryFeatureVariant(
+  countryCode: string,
+  specs: Array<{ variant: ContractTerritoryMapVariant; area: ContractTerritoryArea; valid: boolean }>,
+) {
+  const primary = specs.find((spec) => spec.variant === 'primary');
+  if (primary?.valid && primary.area.country === countryCode) return 'primary';
+
+  const secondary = specs.find((spec) => spec.variant === 'secondary');
+  if (secondary?.valid && secondary.area.country === countryCode) return 'secondary';
+
+  return null;
+}
+
 export function ContractTerritoryMap({
   primaryTerritory,
   secondaryTerritory,
   regionSelectionTarget = 'primary',
   displayVariant = 'both',
+  mapMode = 'detailed',
+  countryMapScope = 'europe',
   language,
   onPrimaryTerritoryChange,
   onSecondaryTerritoryChange,
@@ -301,6 +470,8 @@ export function ContractTerritoryMap({
   secondaryTerritory: ContractSecondaryTerritoryArea;
   regionSelectionTarget?: ContractTerritoryMapVariant;
   displayVariant?: ContractTerritoryMapVariant | 'both';
+  mapMode?: ContractTerritoryMapMode;
+  countryMapScope?: ContractCountryMapScope;
   language: PortalUiLanguage | string;
   onPrimaryTerritoryChange?: (territory: ContractTerritoryArea) => void;
   onSecondaryTerritoryChange?: (territory: ContractSecondaryTerritoryArea) => void;
@@ -314,6 +485,7 @@ export function ContractTerritoryMap({
     ? normalizeContractTerritoryArea(secondaryTerritory)
     : normalizeContractTerritoryArea(primaryTerritory);
   const mapConfig = getContractTerritoryMapCountryConfig(mapTerritory.country);
+  const isWholeCountryMap = mapMode === 'whole_country';
   const mapTitle = displayVariant === 'primary'
     ? getContractTerritoryMapLabel('primaryTitle', language)
     : displayVariant === 'secondary'
@@ -321,12 +493,14 @@ export function ContractTerritoryMap({
       : getContractTerritoryMapLabel('title', language);
   const basemap = useMemo(() => getContractTerritoryBasemap(), []);
   const stateKey = useMemo(
-    () => displayVariant === 'primary'
+    () => `${mapMode}:${countryMapScope}:${
+      displayVariant === 'primary'
       ? getContractTerritoryMapStateKey(primaryTerritory)
       : displayVariant === 'secondary'
         ? getContractTerritoryMapStateKey(secondaryTerritory)
-        : `${getContractTerritoryMapStateKey(primaryTerritory)}|${visibleSecondary ? getContractTerritoryMapStateKey(secondaryTerritory) : 'none'}`,
-    [displayVariant, primaryTerritory, secondaryTerritory, visibleSecondary],
+        : `${getContractTerritoryMapStateKey(primaryTerritory)}|${visibleSecondary ? getContractTerritoryMapStateKey(secondaryTerritory) : 'none'}`
+    }`,
+    [displayVariant, primaryTerritory, secondaryTerritory, visibleSecondary, mapMode, countryMapScope],
   );
 
   return (
@@ -336,7 +510,9 @@ export function ContractTerritoryMap({
           {mapTitle}
         </h3>
         <p className="mt-1 text-xs text-slate-600">
-          {mapConfig.datasetLabel[language as PortalUiLanguage] ?? mapConfig.datasetLabel.da}
+          {isWholeCountryMap
+            ? `${CONTRACT_WHOLE_COUNTRY_MAP.datasetLabel[language as PortalUiLanguage] ?? CONTRACT_WHOLE_COUNTRY_MAP.datasetLabel.da} - ${CONTRACT_WHOLE_COUNTRY_MAP.scopeLabel[countryMapScope][language as PortalUiLanguage] ?? CONTRACT_WHOLE_COUNTRY_MAP.scopeLabel[countryMapScope].da}`
+            : mapConfig?.datasetLabel[language as PortalUiLanguage] ?? mapConfig?.datasetLabel.da}
         </p>
       </div>
 
@@ -356,16 +532,30 @@ export function ContractTerritoryMap({
             subdomains={basemap.subdomains}
             maxZoom={basemap.maxZoom}
           />
-          <ContractTerritoryGeoJsonLayer
-            primaryTerritory={primaryTerritory}
-            secondaryTerritory={secondaryTerritory}
-            regionSelectionTarget={regionSelectionTarget}
-            displayVariant={displayVariant}
-            language={language}
-            onStatus={setStatus}
-            onPrimaryTerritoryChange={onPrimaryTerritoryChange}
-            onSecondaryTerritoryChange={onSecondaryTerritoryChange}
-          />
+          {isWholeCountryMap ? (
+            <ContractWholeCountryGeoJsonLayer
+              primaryTerritory={primaryTerritory}
+              secondaryTerritory={secondaryTerritory}
+              regionSelectionTarget={regionSelectionTarget}
+              displayVariant={displayVariant}
+              countryMapScope={countryMapScope}
+              language={language}
+              onStatus={setStatus}
+              onPrimaryTerritoryChange={onPrimaryTerritoryChange}
+              onSecondaryTerritoryChange={onSecondaryTerritoryChange}
+            />
+          ) : mapConfig ? (
+            <ContractTerritoryGeoJsonLayer
+              primaryTerritory={primaryTerritory}
+              secondaryTerritory={secondaryTerritory}
+              regionSelectionTarget={regionSelectionTarget}
+              displayVariant={displayVariant}
+              language={language}
+              onStatus={setStatus}
+              onPrimaryTerritoryChange={onPrimaryTerritoryChange}
+              onSecondaryTerritoryChange={onSecondaryTerritoryChange}
+            />
+          ) : null}
           <MapResizer trigger={stateKey} />
         </MapContainer>
 

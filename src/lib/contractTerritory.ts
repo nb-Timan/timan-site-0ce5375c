@@ -1,7 +1,9 @@
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { resolveContractPostalAreaMetadata } from '@/lib/contractPostalMetadata';
+import { getContractWholeCountryLabel } from '@/lib/contractWorldCountries';
 
-export type ContractTerritoryCountryCode = 'DK' | 'DE' | 'SE';
+export type ContractTerritoryCountryCode = string;
+export type ContractTerritoryDetailedCountryCode = 'DK' | 'DE' | 'SE';
 
 export type ContractTerritoryRegion = {
   id: string;
@@ -52,7 +54,7 @@ export type ContractTerritoryDisplayGroups = {
 };
 
 export const CONTRACT_TERRITORY_COUNTRIES: Array<{
-  code: ContractTerritoryCountryCode;
+  code: ContractTerritoryDetailedCountryCode;
   label: Record<PortalUiLanguage, string>;
   postalLabel: Record<PortalUiLanguage, string>;
   postalDigits: number;
@@ -140,7 +142,7 @@ export const CONTRACT_TERRITORY_COUNTRIES: Array<{
 const COUNTRY_BY_CODE = new Map(CONTRACT_TERRITORY_COUNTRIES.map((country) => [country.code, country]));
 
 function isTerritoryCountryCode(value: unknown): value is ContractTerritoryCountryCode {
-  return value === 'DK' || value === 'DE' || value === 'SE';
+  return typeof value === 'string' && /^[A-Z]{2}$/.test(value.trim().toUpperCase());
 }
 
 function formatPostalCode(country: ContractTerritoryCountryCode, digitsOnly: string) {
@@ -251,7 +253,9 @@ export function normalizeContractTerritoryArea(
   fallbackCountry: ContractTerritoryCountryCode = 'DK',
 ): ContractTerritoryArea {
   const raw = value as Partial<ContractTerritoryArea> | null | undefined;
-  const country = isTerritoryCountryCode(raw?.country) ? raw.country : fallbackCountry;
+  const country = isTerritoryCountryCode(raw?.country)
+    ? raw.country.trim().toUpperCase()
+    : fallbackCountry;
   const legacyCodes = unique((Array.isArray(raw?.postalCodes) ? raw.postalCodes : [])
     .map((code) => normalizePostalCode(code, country))
     .filter(Boolean));
@@ -393,8 +397,9 @@ export function getContractTerritoryCountryLabel(
   countryCode: ContractTerritoryCountryCode,
   language: PortalUiLanguage | string | null | undefined = 'da',
 ) {
-  const country = COUNTRY_BY_CODE.get(countryCode) ?? COUNTRY_BY_CODE.get('DK')!;
-  return country.label[language as PortalUiLanguage] ?? country.label.da;
+  const code = String(countryCode).trim().toUpperCase();
+  const country = COUNTRY_BY_CODE.get(code as ContractTerritoryDetailedCountryCode);
+  return country?.label[language as PortalUiLanguage] ?? country?.label.da ?? getContractWholeCountryLabel(code, language);
 }
 
 export function getContractTerritoryPostalLabel(

@@ -1,10 +1,21 @@
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import {
   normalizeContractTerritoryArea,
+  type ContractTerritoryDetailedCountryCode,
   type ContractTerritoryCountryCode,
   type ContractTerritoryArea,
   type ContractTerritoryRegion,
 } from '@/lib/contractTerritory';
+import {
+  CONTRACT_COUNTRY_MAP_BOUNDS,
+  WORLD_COUNTRIES_GEOJSON_URL,
+  getContractWholeCountryLabel,
+  getWorldCountryFeatureMeta,
+  parseWorldCountriesGeoJson,
+  type ContractCountryMapScope,
+} from '@/lib/contractWorldCountries';
+
+export type { ContractCountryMapScope } from '@/lib/contractWorldCountries';
 import {
   DENMARK_MUNICIPALITIES_GEOJSON_URL,
   getDenmarkMunicipalityDisplayName,
@@ -19,6 +30,7 @@ import {
 } from '@/lib/swedenMunicipalities';
 
 export type ContractTerritoryMapVariant = 'primary' | 'secondary';
+export type ContractTerritoryMapMode = 'detailed' | 'whole_country';
 
 export type ContractTerritoryMapBounds = [number, number, number, number];
 
@@ -28,7 +40,7 @@ export type ContractTerritoryMapFeatureMeta = {
 };
 
 export type ContractTerritoryMapCountryConfig = {
-  country: ContractTerritoryCountryCode;
+  country: ContractTerritoryDetailedCountryCode;
   datasetId: 'dk_municipalities' | 'de_plz2' | 'se_municipalities';
   datasetLabel: Record<PortalUiLanguage, string>;
   geoJsonUrl: string;
@@ -37,6 +49,15 @@ export type ContractTerritoryMapCountryConfig = {
   regionDigits: number;
   parseGeoJson: (data: unknown) => GeoJSON.FeatureCollection;
   getFeatureMeta: (feature: GeoJSON.Feature) => ContractTerritoryMapFeatureMeta | null;
+};
+
+export type ContractWholeCountryMapConfig = {
+  geoJsonUrl: string;
+  datasetLabel: Record<PortalUiLanguage, string>;
+  scopeLabel: Record<ContractCountryMapScope, Record<PortalUiLanguage, string>>;
+  bounds: Record<ContractCountryMapScope, ContractTerritoryMapBounds>;
+  parseGeoJson: (data: unknown) => GeoJSON.FeatureCollection;
+  getFeatureMeta: typeof getWorldCountryFeatureMeta;
 };
 
 const CARTO_LIGHT_BASEMAP_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
@@ -182,9 +203,62 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     pl: 'Podaj prawidlowy obszar dodatkowy, aby zaznaczyc mape.',
     cs: 'Zadejte platne sekundarni uzemi pro zvyrazneni mapy.',
   },
+  wholeCountryHelp: {
+    da: 'Vælg et helt land på kortet. Et nyt klik på et andet land erstatter valget for dette område.',
+    en: 'Select a whole country on the map. Clicking another country replaces the selection for this territory.',
+    de: 'Wählen Sie ein ganzes Land auf der Karte. Ein Klick auf ein anderes Land ersetzt die Auswahl.',
+    it: 'Seleziona un intero paese sulla mappa. Un altro paese sostituisce la selezione.',
+    hu: 'Valasszon ki egy teljes orszagot a terkepen. Masik orszag kivalasztasa lecsereli a valasztast.',
+    sv: 'Valj ett helt land pa kartan. Ett klick pa ett annat land ersatter valet.',
+    fr: 'Selectionnez un pays entier sur la carte. Un autre pays remplace la selection.',
+    pl: 'Wybierz caly kraj na mapie. Klikniecie innego kraju zastapi wybor.',
+    cs: 'Vyberte celou zemi na mape. Kliknuti na jinou zemi vyber nahradi.',
+  },
 };
 
-export const CONTRACT_TERRITORY_MAP_COUNTRIES: Record<ContractTerritoryCountryCode, ContractTerritoryMapCountryConfig> = {
+export const CONTRACT_WHOLE_COUNTRY_MAP: ContractWholeCountryMapConfig = {
+  geoJsonUrl: WORLD_COUNTRIES_GEOJSON_URL,
+  datasetLabel: {
+    da: 'Hele lande',
+    en: 'Whole countries',
+    de: 'Ganze Länder',
+    it: 'Paesi interi',
+    hu: 'Teljes orszagok',
+    sv: 'Hela länder',
+    fr: 'Pays entiers',
+    pl: 'Cale kraje',
+    cs: 'Cele zeme',
+  },
+  scopeLabel: {
+    europe: {
+      da: 'Europa',
+      en: 'Europe',
+      de: 'Europa',
+      it: 'Europa',
+      hu: 'Europa',
+      sv: 'Europa',
+      fr: 'Europe',
+      pl: 'Europa',
+      cs: 'Evropa',
+    },
+    world: {
+      da: 'Verden',
+      en: 'World',
+      de: 'Welt',
+      it: 'Mondo',
+      hu: 'Vilag',
+      sv: 'Världen',
+      fr: 'Monde',
+      pl: 'Swiat',
+      cs: 'Svet',
+    },
+  },
+  bounds: CONTRACT_COUNTRY_MAP_BOUNDS,
+  parseGeoJson: parseWorldCountriesGeoJson,
+  getFeatureMeta: getWorldCountryFeatureMeta,
+};
+
+export const CONTRACT_TERRITORY_MAP_COUNTRIES: Record<ContractTerritoryDetailedCountryCode, ContractTerritoryMapCountryConfig> = {
   DK: {
     country: 'DK',
     datasetId: 'dk_municipalities',
@@ -263,7 +337,27 @@ export const CONTRACT_TERRITORY_MAP_COUNTRIES: Record<ContractTerritoryCountryCo
 };
 
 export function getContractTerritoryMapCountryConfig(country: ContractTerritoryCountryCode) {
-  return CONTRACT_TERRITORY_MAP_COUNTRIES[country];
+  return CONTRACT_TERRITORY_MAP_COUNTRIES[country as ContractTerritoryDetailedCountryCode];
+}
+
+export function hasDetailedContractTerritoryMap(country: ContractTerritoryCountryCode) {
+  return Boolean(getContractTerritoryMapCountryConfig(country));
+}
+
+export function getContractWholeCountryMapScopeLabel(
+  scope: ContractCountryMapScope,
+  language: PortalUiLanguage | string | null | undefined = 'da',
+) {
+  const labels = CONTRACT_WHOLE_COUNTRY_MAP.scopeLabel[scope];
+  return labels[language as PortalUiLanguage] ?? labels.da;
+}
+
+export function getContractWholeCountryMapCountryLabel(
+  countryCode: ContractTerritoryCountryCode,
+  language: PortalUiLanguage | string | null | undefined = 'da',
+  fallbackName?: string,
+) {
+  return getContractWholeCountryLabel(countryCode, language, fallbackName);
 }
 
 export function getContractTerritoryMapLabel(

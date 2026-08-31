@@ -4,7 +4,10 @@ import {
   CONTRACT_TERRITORY_BASEMAP,
   CONTRACT_TERRITORY_OSM_FALLBACK_BASEMAP,
   CONTRACT_TERRITORY_MAP_COUNTRIES,
+  CONTRACT_WHOLE_COUNTRY_MAP,
   getContractTerritoryBasemap,
+  getContractWholeCountryMapCountryLabel,
+  getContractWholeCountryMapScopeLabel,
   getContractTerritoryMapCountryConfig,
   getContractTerritoryMapLabel,
   getContractTerritoryMapRegionKeys,
@@ -12,6 +15,8 @@ import {
   hasContractTerritoryMapSelection,
   toggleContractTerritoryRegionSelection,
 } from '@/lib/contractTerritoryMap';
+import { getWorldCountryFeatureMeta, parseWorldCountriesGeoJson, WORLD_COUNTRIES_GEOJSON_URL } from '@/lib/contractWorldCountries';
+import { getContractTerritoryCountryLabel, getContractTerritoryDisplayGroups, normalizeContractTerritoryArea } from '@/lib/contractTerritory';
 import { DENMARK_MUNICIPALITIES_EXPECTED_COUNT, DENMARK_MUNICIPALITIES_GEOJSON_URL, parseDenmarkMunicipalitiesGeoJson } from '@/lib/denmarkMunicipalities';
 import { SWEDEN_MUNICIPALITIES_EXPECTED_COUNT, SWEDEN_MUNICIPALITIES_GEOJSON_URL, parseSwedenMunicipalitiesGeoJson } from '@/lib/swedenMunicipalities';
 import type { ContractTerritoryArea } from '@/lib/contractTerritory';
@@ -24,6 +29,43 @@ describe('contract territory map config', () => {
     expect(CONTRACT_TERRITORY_MAP_COUNTRIES.DE.geoJsonUrl).toBe('/data/germany-plz2.geojson');
     expect(CONTRACT_TERRITORY_MAP_COUNTRIES.SE.datasetId).toBe('se_municipalities');
     expect(CONTRACT_TERRITORY_MAP_COUNTRIES.SE.geoJsonUrl).toBe(SWEDEN_MUNICIPALITIES_GEOJSON_URL);
+  });
+
+  it('keeps detailed territory configs limited to Denmark, Germany, and Sweden', () => {
+    expect(Object.keys(CONTRACT_TERRITORY_MAP_COUNTRIES).sort()).toEqual(['DE', 'DK', 'SE']);
+    expect(getContractTerritoryMapCountryConfig('FR')).toBeUndefined();
+    expect(getContractTerritoryMapCountryConfig('US')).toBeUndefined();
+  });
+
+  it('supports whole-country territory selection with ISO-2 country codes', () => {
+    const france = normalizeContractTerritoryArea({
+      country: 'FR',
+      wholeCountry: true,
+      selectedRegions: [],
+      municipalities: [],
+      postalEntries: [],
+      postalCodes: [],
+      postalRanges: [],
+    });
+
+    expect(france.country).toBe('FR');
+    expect(hasContractTerritoryMapSelection(france)).toBe(true);
+    expect(getContractTerritoryCountryLabel('FR', 'da')).toBe('Frankrig');
+    expect(getContractTerritoryDisplayGroups(france, 'da')).toMatchObject({
+      countryLine: 'Frankrig - Hele landet',
+      wholeCountry: true,
+      regions: [],
+      postals: [],
+    });
+  });
+
+  it('has whole-country map labels for Europe and world scopes', () => {
+    expect(CONTRACT_WHOLE_COUNTRY_MAP.geoJsonUrl).toBe(WORLD_COUNTRIES_GEOJSON_URL);
+    expect(getContractWholeCountryMapScopeLabel('europe', 'da')).toBe('Europa');
+    expect(getContractWholeCountryMapScopeLabel('world', 'da')).toBe('Verden');
+    expect(getContractWholeCountryMapCountryLabel('US', 'da')).toBe('USA');
+    expect(getContractWholeCountryMapCountryLabel('CA', 'en')).toBe('Canada');
+    expect(getContractWholeCountryMapCountryLabel('JP', 'da')).toBe('Japan');
   });
 
   it('keeps the shared CARTO/OpenStreetMap light basemap as the preferred provider', () => {
@@ -201,6 +243,22 @@ describe('contract territory map config', () => {
     expect(malmo?.geometry.type).toMatch(/Polygon/);
   });
 
+  it('parses local Natural Earth country GeoJSON with stable ISO country IDs', () => {
+    const data = JSON.parse(readFileSync(`public${WORLD_COUNTRIES_GEOJSON_URL}`, 'utf8')) as GeoJSON.FeatureCollection;
+    const countries = parseWorldCountriesGeoJson(data);
+    const metas = countries.features.map((feature) => getWorldCountryFeatureMeta(feature)).filter(Boolean);
+    const codes = new Set(metas.map((meta) => meta!.code));
+
+    expect(countries.features.length).toBeGreaterThan(150);
+    expect(codes.has('FR')).toBe(true);
+    expect(codes.has('US')).toBe(true);
+    expect(codes.has('CA')).toBe(true);
+    expect(codes.has('JP')).toBe(true);
+    expect(codes.has('DK')).toBe(true);
+    expect(codes.has('DE')).toBe(true);
+    expect(codes.has('SE')).toBe(true);
+  });
+
   it('keeps the local Denmark postal map data lightweight enough for lazy loading', () => {
     const config = getContractTerritoryMapCountryConfig('DK');
     const stats = statSync(`public${config.geoJsonUrl}`);
@@ -213,6 +271,12 @@ describe('contract territory map config', () => {
     const stats = statSync(`public${config.geoJsonUrl}`);
 
     expect(stats.size).toBeLessThan(2_000_000);
+  });
+
+  it('keeps the local whole-country map data lightweight enough for lazy loading', () => {
+    const stats = statSync(`public${WORLD_COUNTRIES_GEOJSON_URL}`);
+
+    expect(stats.size).toBeLessThan(1_000_000);
   });
 
   it('has map labels for all portal languages and treats whole-country as selectable', () => {

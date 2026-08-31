@@ -122,6 +122,12 @@ import {
   type ContractAssociatedPartnerKind,
 } from '@/lib/contractAssociatedPartners';
 import {
+  getContractWholeCountryMapScopeLabel,
+  hasDetailedContractTerritoryMap,
+  type ContractCountryMapScope,
+  type ContractTerritoryMapMode,
+} from '@/lib/contractTerritoryMap';
+import {
   getPartnerAccountTypeLabel,
   resolvePartnerAccountType,
 } from '@/lib/partnerAccountTypes';
@@ -2168,6 +2174,10 @@ function TerritoryStepFields({
   const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
   const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
   const primaryValid = isValidContractTerritoryArea(primaryTerritory);
+  const [primaryMapMode, setPrimaryMapMode] = useState<ContractTerritoryMapMode>(() => primaryTerritory.wholeCountry ? 'whole_country' : 'detailed');
+  const [secondaryMapMode, setSecondaryMapMode] = useState<ContractTerritoryMapMode>(() => secondaryTerritory.wholeCountry ? 'whole_country' : 'detailed');
+  const [primaryCountryMapScope, setPrimaryCountryMapScope] = useState<ContractCountryMapScope>('europe');
+  const [secondaryCountryMapScope, setSecondaryCountryMapScope] = useState<ContractCountryMapScope>('europe');
 
   const setPrimaryTerritory = (territory: ContractTerritoryArea) => {
     onChange({ primaryTerritory: normalizeContractTerritoryArea(territory) });
@@ -2184,6 +2194,10 @@ function TerritoryStepFields({
             title="Primært område"
             territory={primaryTerritory}
             onChange={setPrimaryTerritory}
+            mapMode={primaryMapMode}
+            onMapModeChange={setPrimaryMapMode}
+            countryMapScope={primaryCountryMapScope}
+            onCountryMapScopeChange={setPrimaryCountryMapScope}
             locked={locked}
             required
           />
@@ -2192,6 +2206,8 @@ function TerritoryStepFields({
             secondaryTerritory={secondaryTerritory}
             regionSelectionTarget="primary"
             displayVariant="primary"
+            mapMode={primaryMapMode}
+            countryMapScope={primaryCountryMapScope}
             language={uiLanguage}
             onPrimaryTerritoryChange={setPrimaryTerritory}
           />
@@ -2220,6 +2236,10 @@ function TerritoryStepFields({
                   title="Sekundært område"
                   territory={secondaryTerritory}
                   onChange={(territory) => setSecondaryTerritory({ ...territory, enabled: true })}
+                  mapMode={secondaryMapMode}
+                  onMapModeChange={setSecondaryMapMode}
+                  countryMapScope={secondaryCountryMapScope}
+                  onCountryMapScopeChange={setSecondaryCountryMapScope}
                   locked={locked}
                 />
                 <ContractTerritoryMap
@@ -2227,6 +2247,8 @@ function TerritoryStepFields({
                   secondaryTerritory={secondaryTerritory}
                   regionSelectionTarget="secondary"
                   displayVariant="secondary"
+                  mapMode={secondaryMapMode}
+                  countryMapScope={secondaryCountryMapScope}
                   language={uiLanguage}
                   onSecondaryTerritoryChange={setSecondaryTerritory}
                 />
@@ -2253,6 +2275,10 @@ function TerritoryAreaEditor({
   required,
   mapSelectionActive,
   onActivateMapSelection,
+  mapMode,
+  onMapModeChange,
+  countryMapScope,
+  onCountryMapScopeChange,
 }: {
   title: string;
   territory: ContractTerritoryArea;
@@ -2261,6 +2287,10 @@ function TerritoryAreaEditor({
   required?: boolean;
   mapSelectionActive?: boolean;
   onActivateMapSelection?: () => void;
+  mapMode: ContractTerritoryMapMode;
+  onMapModeChange: (mode: ContractTerritoryMapMode) => void;
+  countryMapScope: ContractCountryMapScope;
+  onCountryMapScopeChange: (scope: ContractCountryMapScope) => void;
 }) {
   const { uiLanguage } = useLanguage();
   const postalLabel = getContractTerritoryPostalLabel(territory.country, uiLanguage);
@@ -2274,7 +2304,24 @@ function TerritoryAreaEditor({
   const setCountry = (country: ContractTerritoryArea['country']) => {
     onChange({
       ...createEmptyContractTerritoryArea(country),
-      wholeCountry: territory.wholeCountry,
+      wholeCountry: false,
+    });
+  };
+
+  const setMode = (mode: ContractTerritoryMapMode) => {
+    onMapModeChange(mode);
+    if (mode === 'whole_country') {
+      onChange({
+        ...createEmptyContractTerritoryArea(territory.country),
+        wholeCountry: true,
+      });
+      return;
+    }
+
+    const detailedCountry = hasDetailedContractTerritoryMap(territory.country) ? territory.country : 'DK';
+    onChange({
+      ...createEmptyContractTerritoryArea(detailedCountry),
+      wholeCountry: false,
     });
   };
 
@@ -2304,7 +2351,62 @@ function TerritoryAreaEditor({
         {title}{required ? ' *' : ''}
       </h3>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="space-y-4">
+        <div>
+          <span className="text-sm font-semibold text-gray-700">Geografisk niveau</span>
+          <div className="mt-2 grid grid-cols-2 overflow-hidden rounded-xl border border-gray-300 bg-white text-sm">
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => setMode('whole_country')}
+              className={`px-3 py-3 font-bold transition disabled:cursor-not-allowed ${mapMode === 'whole_country' ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+            >
+              Hele lande
+            </button>
+            <button
+              type="button"
+              disabled={locked}
+              onClick={() => setMode('detailed')}
+              className={`border-l border-gray-300 px-3 py-3 font-bold transition disabled:cursor-not-allowed ${mapMode === 'detailed' ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+            >
+              Detaljeret område
+            </button>
+          </div>
+        </div>
+
+        {mapMode === 'whole_country' ? (
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <span className="text-sm font-bold text-gray-950">Hele lande</span>
+                <p className="mt-1 text-xs text-gray-600">
+                  Vælg et helt land på kortet. Klik på samme land igen for at fravælge.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 overflow-hidden rounded-full border border-emerald-200 bg-white text-xs font-bold">
+                {(['europe', 'world'] as const).map((scope) => (
+                  <button
+                    key={scope}
+                    type="button"
+                    disabled={locked}
+                    onClick={() => onCountryMapScopeChange(scope)}
+                    className={`px-3 py-1.5 transition disabled:cursor-not-allowed ${countryMapScope === scope ? 'bg-emerald-700 text-white' : 'text-emerald-800 hover:bg-emerald-50'}`}
+                  >
+                    {getContractWholeCountryMapScopeLabel(scope, uiLanguage)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {territory.wholeCountry ? (
+              <div className="mt-3 inline-flex rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-normal text-emerald-900">
+                {getContractTerritoryCountryLabel(territory.country, uiLanguage)} - Hele landet
+              </div>
+            ) : (
+              <p className="mt-3 text-xs font-semibold text-gray-500">Intet helt land valgt endnu.</p>
+            )}
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
         <label className="block">
           <span className="text-sm font-semibold text-gray-700">Land</span>
           <select
@@ -2320,31 +2422,11 @@ function TerritoryAreaEditor({
             ))}
           </select>
         </label>
-
-        <div>
-          <span className="text-sm font-semibold text-gray-700">Område</span>
-          <div className="mt-2 grid grid-cols-2 overflow-hidden rounded-xl border border-gray-300 bg-white text-sm">
-            <button
-              type="button"
-              disabled={locked}
-              onClick={() => onChange({ ...territory, wholeCountry: true, selectedRegions: [], municipalities: [], postalEntries: [], postalCodes: [], postalRanges: [] })}
-              className={`px-3 py-3 font-bold transition disabled:cursor-not-allowed ${territory.wholeCountry ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
-            >
-              Hele landet
-            </button>
-            <button
-              type="button"
-              disabled={locked}
-              onClick={() => onChange({ ...territory, wholeCountry: false })}
-              className={`border-l border-gray-300 px-3 py-3 font-bold transition disabled:cursor-not-allowed ${!territory.wholeCountry ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
-            >
-              Afgrænset
-            </button>
           </div>
-        </div>
+        )}
       </div>
 
-      {!territory.wholeCountry && (
+      {mapMode === 'detailed' && !territory.wholeCountry && (
         <div className="space-y-4">
           {regionUi && (
             <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
