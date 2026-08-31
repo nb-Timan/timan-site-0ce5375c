@@ -7,6 +7,8 @@ import {
 } from "@/lib/partnerAccountTypes";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 
+export type PartnerAdminSellerOption = Pick<BackendUser, "id" | "email" | "initials" | "name">;
+
 export function resolvePartnerAdminSeller<T extends Pick<BackendUser, "id" | "email" | "initials">>(
   dealer: Pick<DealerAccount, "assigned_seller_id" | "assigned_seller_email" | "assigned_seller_initials">,
   sellers: T[],
@@ -27,6 +29,36 @@ export function resolvePartnerAdminSeller<T extends Pick<BackendUser, "id" | "em
   }
 
   return null;
+}
+
+export function buildPartnerAdminSellerState(
+  dealer: Pick<DealerAccount, "assigned_seller_id" | "assigned_seller_email" | "assigned_seller_initials" | "assigned_seller_name">,
+  sellers: PartnerAdminSellerOption[],
+) {
+  const initialSeller = resolvePartnerAdminSeller(dealer, sellers);
+  return {
+    seller_id: initialSeller?.id || dealer.assigned_seller_id || "",
+    assigned_seller_id: initialSeller?.id || dealer.assigned_seller_id || "",
+    assigned_seller_initials: initialSeller?.initials || dealer.assigned_seller_initials || "",
+    assigned_seller_name: initialSeller?.name || dealer.assigned_seller_name || "",
+    assigned_seller_email: initialSeller?.email || dealer.assigned_seller_email || "",
+  };
+}
+
+export function buildPartnerAdminSellerOptions(
+  current: ReturnType<typeof buildPartnerAdminSellerState>,
+  sellers: PartnerAdminSellerOption[],
+): PartnerAdminSellerOption[] {
+  const byId = new Map(sellers.map((seller) => [seller.id, seller]));
+  if (current.assigned_seller_id && !byId.has(current.assigned_seller_id)) {
+    byId.set(current.assigned_seller_id, {
+      id: current.assigned_seller_id,
+      initials: current.assigned_seller_initials || "—",
+      name: current.assigned_seller_name || current.assigned_seller_email || current.assigned_seller_initials || "Ukendt sælger",
+      email: current.assigned_seller_email || "",
+    });
+  }
+  return Array.from(byId.values()).sort((a, b) => a.initials.localeCompare(b.initials) || a.name.localeCompare(b.name));
 }
 
 export function getInitialPartnerAdminType(

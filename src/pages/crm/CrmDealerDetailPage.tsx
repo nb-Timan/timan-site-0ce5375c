@@ -57,9 +57,11 @@ import {
   type PartnerAccountTypeId,
 } from "@/lib/partnerAccountTypes";
 import {
+  buildPartnerAdminSellerOptions,
+  buildPartnerAdminSellerState,
   buildPartnerAdminTypePatch,
   getInitialPartnerAdminType,
-  resolvePartnerAdminSeller,
+  type PartnerAdminSellerOption,
 } from "@/lib/partnerAdminEdit";
 import { supabase } from "@/lib/supabase";
 import {
@@ -77,6 +79,7 @@ import {
   getEffectiveSellerInitials, getEffectiveSellerEmail,
   getActiveSellerView, getActiveMode,
 } from "@/lib/activeMode";
+import { useSellerDirectory } from "@/lib/sellerDirectory";
 import {
   listScopedOrdersWithValue,
   type CrmOrderWithValue,
@@ -581,6 +584,7 @@ export default function CrmDealerDetailPage() {
   const budgetYear = new Date().getFullYear();
 
   const portalRole = useMemo(() => derivePortalRole(effectiveUser), [effectiveUser]);
+  const sellerDirectory = useSellerDirectory();
   const admin = isCrmAdmin(portalRole);
   const seller = isScopedSeller(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
@@ -757,6 +761,31 @@ export default function CrmDealerDetailPage() {
     );
   }, [admin, seller, dealer, effectiveUser, appUser]);
 
+  const partnerAdminSellerOptions = useMemo<PartnerAdminSellerOption[]>(() => {
+    const directoryOptions = sellerDirectory.list
+      .filter((entry) => ["timan_backend", "timan_seller", "timan_service"].includes(entry.portal_role ?? ""))
+      .map((entry) => ({
+        id: entry.id,
+        email: entry.email,
+        initials: entry.initials,
+        name: entry.full_name || entry.email,
+      }));
+    if (directoryOptions.length > 0) return directoryOptions;
+    return users
+      .filter((u) =>
+        u.is_active &&
+        u.approved &&
+        (u.role === "timan_seller" || u.role === "timan_backend" || u.role === "timan_service") &&
+        Boolean(u.initials && u.email)
+      )
+      .map((u) => ({
+        id: u.id,
+        email: u.email,
+        initials: u.initials,
+        name: u.name,
+      }));
+  }, [sellerDirectory.list, users]);
+
   // Determine main + branches grouping
   const mainAccountNumber = dealer?.parent_account_number || dealer?.account_number || "";
   const branchNumbers = useMemo(() => {
@@ -808,12 +837,12 @@ export default function CrmDealerDetailPage() {
   }, [dealer?.account_number]);
 
   useEffect(() => {
-    if (!dealer || !admin || searchParams.get("edit") !== "1") return;
+    if (!dealer || !canEditPartnerAdmin || searchParams.get("edit") !== "1") return;
     setShowEditDealer(true);
     const next = new URLSearchParams(searchParams);
     next.delete("edit");
     setSearchParams(next, { replace: true });
-  }, [dealer, admin, searchParams, setSearchParams]);
+  }, [dealer, canEditPartnerAdmin, searchParams, setSearchParams]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -1369,7 +1398,7 @@ export default function CrmDealerDetailPage() {
               branchCount={branchNumbers.length}
               budgetTotals={budgetTotals}
               budgetYear={budgetYear}
-              users={users}
+              sellers={partnerAdminSellerOptions}
               onEdit={() => setShowEditDealer(true)}
             />
 
@@ -1595,12 +1624,7 @@ export default function CrmDealerDetailPage() {
       {showEditDealer && canEditPartnerAdmin && (
         <EditDealerModal
           dealer={dealer}
-          sellers={users.filter((u) =>
-            u.is_active &&
-            u.approved &&
-            (u.role === "timan_seller" || u.role === "timan_backend" || u.role === "timan_service") &&
-            Boolean(u.initials && u.email)
-          )}
+          sellers={partnerAdminSellerOptions}
           lang={lang}
           onCancel={() => setShowEditDealer(false)}
           onSave={handleSaveDealer}
@@ -2332,13 +2356,13 @@ function EditDealerModal({
   onGeocoded,
 }: {
   dealer: DealerAccount;
-  sellers: BackendUser[];
+  sellers: PartnerAdminSellerOption[];
   lang: PortalUiLanguage;
   onCancel: () => void;
   onSave: (patch: UpdateDealerAccountPatch) => Promise<{ ok: boolean; error?: string }>;
   onGeocoded?: () => void | Promise<void>;
 }) {
-  const initialSeller = resolvePartnerAdminSeller(dealer, sellers);
+  const initialSellerState = buildPartnerAdminSellerState(dealer, sellers);
   const initialPartnerType = getInitialPartnerAdminType(dealer);
   const [form, setForm] = useState({
     company_name: dealer.company_name || "",
@@ -2349,11 +2373,7 @@ function EditDealerModal({
     city: dealer.city || "",
     email: dealer.email || "",
     phone: dealer.phone || "",
-    seller_id: initialSeller?.id || "",
-    assigned_seller_id: initialSeller?.id || dealer.assigned_seller_id || "",
-    assigned_seller_initials: initialSeller?.initials || dealer.assigned_seller_initials || "",
-    assigned_seller_name: initialSeller?.name || dealer.assigned_seller_name || "",
-    assigned_seller_email: initialSeller?.email || dealer.assigned_seller_email || "",
+    ...initialSellerState,
     partner_type: initialPartnerType,
   });
   // Geo captured from Google Places when the user selects a suggestion.
@@ -2369,6 +2389,10 @@ function EditDealerModal({
     setForm((f) => ({ ...f, [k]: e.target.value }));
   const setText = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  const sellerOptions = useMemo<PartnerAdminSellerOption[]>(() => {
+    return buildPartnerAdminSellerOptions(form, sellers);
+  }, [sellers, form.assigned_seller_email, form.assigned_seller_id, form.assigned_seller_initials, form.assigned_seller_name]);
 
   function applySeller(sellerId: string) {
     if (!sellerId) {
@@ -2472,7 +2496,7 @@ function EditDealerModal({
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
             >
               <option value="">Ingen sælger</option>
-              {sellers.map((seller) => (
+              {sellerOptions.map((seller) => (
                 <option key={seller.id} value={seller.id}>
                   {seller.initials} - {seller.name}
                 </option>
@@ -2586,7 +2610,7 @@ interface HeroAction {
 function ContactHero({
   dealer,
   contacts,
-  users,
+  sellers,
   lang,
   admin,
   isBranch,
@@ -2601,7 +2625,7 @@ function ContactHero({
 }: {
   dealer: DealerAccount;
   contacts: DealerContact[];
-  users: BackendUser[];
+  sellers: PartnerAdminSellerOption[];
   lang: PortalUiLanguage;
   admin: boolean;
   isBranch: boolean;
@@ -2648,7 +2672,7 @@ function ContactHero({
   const websiteDisplay = dealer.website
     ? dealer.website.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/g, "")
     : undefined;
-  const assignedSeller = users.find((u) => {
+  const assignedSeller = sellers.find((u) => {
     const dealerSellerId = dealer.assigned_seller_id;
     const dealerSellerEmail = (dealer.assigned_seller_email || "").toLowerCase();
     return Boolean(

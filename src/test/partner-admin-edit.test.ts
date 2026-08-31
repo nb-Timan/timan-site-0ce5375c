@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildPartnerAdminSellerOptions,
+  buildPartnerAdminSellerState,
   buildPartnerAdminTypePatch,
   getInitialPartnerAdminType,
   resolvePartnerAdminSeller,
@@ -30,6 +32,34 @@ describe("partner admin edit helpers", () => {
     }, sellers);
 
     expect(seller?.id).toBe("bp-id");
+  });
+
+  it("keeps the dropdown preselected from canonical assigned_seller_id even before seller options are loaded", () => {
+    const state = buildPartnerAdminSellerState({
+      assigned_seller_id: "bp-id",
+      assigned_seller_email: "bp@timan.dk",
+      assigned_seller_initials: "BP",
+      assigned_seller_name: "Birger Pedersen",
+    }, []);
+
+    expect(state.seller_id).toBe("bp-id");
+    expect(state.assigned_seller_id).toBe("bp-id");
+    expect(state.assigned_seller_initials).toBe("BP");
+    expect(state.assigned_seller_name).toBe("Birger Pedersen");
+    expect(state.assigned_seller_email).toBe("bp@timan.dk");
+  });
+
+  it("adds the current canonical seller as a fallback option so Ingen sælger is only a real null choice", () => {
+    const state = buildPartnerAdminSellerState({
+      assigned_seller_id: "bp-id",
+      assigned_seller_email: "bp@timan.dk",
+      assigned_seller_initials: "BP",
+      assigned_seller_name: "Birger Pedersen",
+    }, []);
+
+    expect(buildPartnerAdminSellerOptions(state, [])).toEqual([
+      { id: "bp-id", email: "bp@timan.dk", initials: "BP", name: "Birger Pedersen" },
+    ]);
   });
 
   it("uses existing AK to AKR seller-initial compatibility for legacy rows", () => {
