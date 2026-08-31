@@ -239,6 +239,16 @@ function mergeLegacyContacts(
   return merged;
 }
 
+function ensureMinimumAreaContacts(dealerAccountId: string, rows: DealerContact[]): DealerContact[] {
+  const next = [...rows];
+  for (const { area } of CONTACT_AREA_CONFIG) {
+    if (!next.some((contact) => contact.contact_area === area)) {
+      next.push(createLocalContact(dealerAccountId, area));
+    }
+  }
+  return next;
+}
+
 // ---------- module-scope helpers (stable component identity) ----------
 
 interface FieldProps {
@@ -424,12 +434,20 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
       setLoadingContacts(true);
       const rows = await listDealerContacts(dealer.id);
       if (!cancelled) {
-        setContacts(mergeLegacyContacts(dealer, rows, t));
+        setContacts(ensureMinimumAreaContacts(dealer.id, mergeLegacyContacts(dealer, rows, t)));
         setLoadingContacts(false);
       }
     })();
     return () => { cancelled = true; };
   }, [dealer.id, t]);
+
+  useEffect(() => {
+    if (loadingContacts) return;
+    setContacts((prev) => {
+      const next = ensureMinimumAreaContacts(dealer.id, prev);
+      return next.length === prev.length ? prev : next;
+    });
+  }, [dealer.id, loadingContacts, contacts]);
 
   const completion = useMemo(() => computeCompletion(draft), [draft]);
 
@@ -1069,7 +1087,6 @@ function ContactList({
   return (
     <div className="space-y-3 border-t pt-3">
       {loading && <p className="text-xs text-slate-500">…</p>}
-      {!loading && contacts.length === 0 && <p className="text-xs text-slate-500">—</p>}
       {contacts.map((c, index) => (
         <ContactBlock
           key={c.id}

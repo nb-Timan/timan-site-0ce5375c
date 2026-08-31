@@ -55,4 +55,11 @@ describe("Partnerdata layout regression guard", () => {
     expect(dealerProfileSource).not.toContain('id="marketing_contact_email"');
     expect(dealerProfileSource).not.toContain('firstContactNumber={2}');
   });
+
+  it("shows one editable placeholder contact per department without saving empty rows", () => {
+    expect(dealerProfileSource).toContain("ensureMinimumAreaContacts");
+    expect(dealerProfileSource).toContain("if (!next.some((contact) => contact.contact_area === area))");
+    expect(dealerProfileSource).toContain("if (isLocalContact(c) && !contactHasContent(c)) return { ok: true };");
+    expect(dealerProfileSource).not.toContain("contacts.length === 0 &&");
+  });
 });
