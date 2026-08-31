@@ -2773,24 +2773,24 @@ function ContactHero({
           {/* Action cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2">
             {assignedSellerName && (
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 px-2.5 py-2.5 min-w-0">
-                <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-bold text-emerald-800">
+              <div className="flex min-w-0 flex-col items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/40 px-2.5 py-3 text-center">
+                <div className="flex max-w-full items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide font-bold text-emerald-800">
                   <UserCircle2 className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Timan-sælger</span>
                 </div>
-                <div className="mt-2 truncate text-xs font-bold text-slate-900">{assignedSellerName}</div>
-                <div className="mt-1 space-y-1 text-[10px] text-slate-600">
+                <div className="mt-2 max-w-full truncate text-[11px] font-semibold leading-tight text-slate-900">{assignedSellerName}</div>
+                <div className="mt-1 flex max-w-full flex-col items-center gap-1 text-[10px] leading-tight text-slate-500">
                   {assignedSellerPhone ? (
-                    <a href={`tel:${assignedSellerPhone}`} className="flex items-center gap-1 hover:underline">
-                      <Phone className="h-3 w-3 shrink-0 text-slate-400" /> <span className="truncate">{assignedSellerPhone}</span>
+                    <a href={`tel:${assignedSellerPhone}`} className="max-w-full truncate hover:underline">
+                      {assignedSellerPhone}
                     </a>
                   ) : (
-                    <div className="flex items-center gap-1 text-slate-400">
-                      <Phone className="h-3 w-3 shrink-0" /> <span className="truncate">Telefon ikke angivet</span>
+                    <div className="max-w-full truncate text-slate-400">
+                      Telefon ikke angivet
                     </div>
                   )}
                   {assignedSellerEmail && (
-                    <a href={`mailto:${assignedSellerEmail}`} className="flex items-center gap-1 hover:underline">
-                      <Mail className="h-3 w-3 shrink-0 text-slate-400" /> <span className="truncate">{assignedSellerEmail}</span>
+                    <a href={`mailto:${assignedSellerEmail}`} className="max-w-full break-words hover:underline">
+                      {assignedSellerEmail}
                     </a>
                   )}
                 </div>

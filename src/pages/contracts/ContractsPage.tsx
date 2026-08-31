@@ -2416,7 +2416,7 @@ function Appendix2DiscountSection({ partnerType, language }: { partnerType: Cont
               <p className="flex min-h-12 items-center justify-center leading-tight">{labels.machineOrder}</p>
               <div className="mx-auto mt-2 h-7 w-[96%] rounded-t-xl border-x-2 border-t-2 border-[#2f711c]" />
             </div>
-            <div>
+            <div className="hidden md:block">
               <p className="flex min-h-12 items-center justify-center leading-tight">{labels.warrantyRefund}</p>
               <div className="mx-auto mt-2 h-7 w-[96%] rounded-t-xl border-x-2 border-t-2 border-[#2f711c]" />
             </div>
@@ -2432,7 +2432,7 @@ function Appendix2DiscountSection({ partnerType, language }: { partnerType: Cont
           <div className="grid min-w-0 grid-cols-1 items-stretch gap-5 py-5 md:grid-cols-[0.82fr_1.4fr_1.13fr_1.16fr] md:items-center md:gap-2 lg:gap-2">
             <div className="min-w-0">
               <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">{labels.baseDiscount}</p>
-              <div className="relative flex min-w-0 items-center justify-start md:justify-center">
+              <div className="relative flex min-w-0 items-center justify-center">
                 <div className="flex aspect-square w-full max-w-28 flex-col items-center justify-center rounded-full border border-[#79a45e] bg-[#fbfdf9] text-center md:max-w-24 lg:max-w-28 xl:max-w-[7.5rem]">
                   <p className="text-3xl font-black leading-none text-[#36780f] md:text-2xl lg:text-[2rem]">25%</p>
                   <p className="mt-2 px-2 text-sm font-semibold leading-tight text-gray-950 md:text-xs">{labels.baseDiscountLabel}</p>
@@ -2475,6 +2475,10 @@ function Appendix2DiscountSection({ partnerType, language }: { partnerType: Cont
             </div>
 
             <div className="min-w-0">
+              <div className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">
+                <p className="flex min-h-12 items-center justify-center leading-tight">{labels.warrantyRefund}</p>
+                <div className="mx-auto mt-2 h-7 w-[96%] rounded-t-xl border-x-2 border-t-2 border-[#2f711c]" />
+              </div>
               <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">{labels.demoDiscount}</p>
               <div className="flex min-h-52 min-w-0 flex-col items-center justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-4 py-5 text-center text-gray-950 lg:min-h-56 xl:px-5">
                 <p className="max-w-full text-[13px] font-semibold leading-5 lg:text-sm">{labels.ownDemoDiscount}</p>
