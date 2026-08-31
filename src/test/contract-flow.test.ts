@@ -1059,6 +1059,7 @@ describe('contract flow', () => {
 
   it('uses stable workflow status ids with Danish labels', () => {
     expect(Object.keys(CONTRACT_STATUS_LABELS_DA)).toEqual([
+      'pending_decision',
       'draft',
       'guided_review',
       'ready_for_signature',
@@ -1161,6 +1162,7 @@ describe('contract flow', () => {
   });
 
   it('maps workflow statuses to the internal overview groups', () => {
+    expect(getDealerContractOverviewStatusGroup('pending_decision')).toBe('pending');
     expect(getDealerContractOverviewStatusGroup('draft')).toBe('draft');
     expect(getDealerContractOverviewStatusGroup('guided_review')).toBe('draft');
     expect(getDealerContractOverviewStatusGroup('ready_for_signature')).toBe('pending');
@@ -1172,6 +1174,7 @@ describe('contract flow', () => {
   });
 
   it('uses the internal contract overview status labels', () => {
+    expect(getDealerContractOverviewStatusLabel('pending_decision')).toBe('Afventer');
     expect(getDealerContractOverviewStatusLabel('draft')).toBe('Kladde');
     expect(getDealerContractOverviewStatusLabel('guided_review')).toBe('Klargjort / klar til gennemgang');
     expect(getDealerContractOverviewStatusLabel('ready_for_signature')).toBe('Gennemgang / afventer partner');

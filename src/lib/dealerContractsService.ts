@@ -407,6 +407,7 @@ function normalizeOverviewInitials(value: string | null | undefined) {
 export function getDealerContractOverviewStatusGroup(
   status: ContractWorkflowStatus,
 ): DealerContractOverviewStatusGroup {
+  if (status === "pending_decision") return "pending";
   if (status === "approved") return "approved";
   if (status === "archived") return "terminated";
   if (status === "changes_requested") return "rejected";
@@ -415,6 +416,7 @@ export function getDealerContractOverviewStatusGroup(
 }
 
 export function getDealerContractOverviewStatusLabel(status: ContractWorkflowStatus) {
+  if (status === "pending_decision") return "Afventer";
   if (status === "draft") return "Kladde";
   if (status === "guided_review") return "Klargjort / klar til gennemgang";
   if (status === "ready_for_signature" || status === "awaiting_signed_upload") return "Gennemgang / afventer partner";
@@ -425,6 +427,7 @@ export function getDealerContractOverviewStatusLabel(status: ContractWorkflowSta
 }
 
 function getDealerContractOverviewActionLabel(status: ContractWorkflowStatus) {
+  if (status === "pending_decision") return "Start";
   if (status === "draft" || status === "guided_review") return "Fortsæt";
   if (status === "approved" || status === "archived") return "Åbn";
   return "Gennemgå";

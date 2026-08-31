@@ -46,6 +46,7 @@ export type ContractConfirmationId =
 export type LegacyContractStatus = 'Draft' | 'In review' | 'Ready for signature' | 'Signed' | 'Archived';
 
 export type ContractWorkflowStatus =
+  | 'pending_decision'
   | 'draft'
   | 'guided_review'
   | 'ready_for_signature'
@@ -96,6 +97,7 @@ export type ContractConfirmations = Record<ContractConfirmationId, ContractConfi
 export const CONTRACT_VERSION = 'forhandlerkontrakt-timan-2026-08-partner-type';
 
 export const CONTRACT_STATUS_LABELS_DA: Record<ContractWorkflowStatus, string> = {
+  pending_decision: 'Afventer',
   draft: 'Kladde',
   guided_review: 'Under gennemgang',
   ready_for_signature: 'Klar til underskrift',
@@ -118,6 +120,7 @@ export const CONTRACT_PROGRESS_STEPS: Array<{
 ];
 
 const CONTRACT_STATUS_ORDER: Record<ContractWorkflowStatus, number> = {
+  pending_decision: 0,
   draft: 0,
   guided_review: 1,
   ready_for_signature: 2,
@@ -129,6 +132,7 @@ const CONTRACT_STATUS_ORDER: Record<ContractWorkflowStatus, number> = {
 };
 
 export const ALLOWED_CONTRACT_STATUS_TRANSITIONS: Record<ContractWorkflowStatus, ContractWorkflowStatus[]> = {
+  pending_decision: ['draft', 'guided_review', 'ready_for_signature', 'awaiting_signed_upload'],
   draft: ['guided_review', 'ready_for_signature'],
   guided_review: ['ready_for_signature'],
   ready_for_signature: ['awaiting_signed_upload'],
