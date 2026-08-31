@@ -1624,14 +1624,16 @@ function ReviewStep({
 
       {section && (
         <>
-          {isTerritoryStep && (
-            <TerritoryStepFields
-              form={form}
-              onChange={onFormPatch}
-              locked={locked}
-            />
-          )}
-          {section.stepId === 'spare_parts_service' ? (
+          {isTerritoryStep ? (
+            <>
+              <ContractLegalSection section={section} form={form} />
+              <TerritoryStepFields
+                form={form}
+                onChange={onFormPatch}
+                locked={locked}
+              />
+            </>
+          ) : section.stepId === 'spare_parts_service' ? (
             <SparePartsServiceSection
               section={section}
               serviceHourlyRateDkk={form.serviceHourlyRateDkk}
