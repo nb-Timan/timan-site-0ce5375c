@@ -14,9 +14,14 @@
  * this is presentation/scope-context only.
  */
 import { supabase } from "@/lib/supabase";
-import { getActiveSellerView } from "@/lib/activeMode";
+import { getActiveSellerView, getEffectiveSellerEmail } from "@/lib/activeMode";
 
 const SS_KEY_PREFIX = "timan.crm.sellerId.";
+
+export interface EffectiveCrmSellerScope {
+  ownerUserId: string | null;
+  ownerEmail: string | null;
+}
 
 /**
  * Bust the sellerId session cache. Call after editing app_users so that the
@@ -67,4 +72,17 @@ export async function resolveSellerId(email: string | null | undefined): Promise
   } catch {
     return null;
   }
+}
+
+/**
+ * Canonical CRM seller scope for pages that filter leads, demos and shared
+ * records. Backend "view as seller" and a real seller login must resolve to
+ * the same owner id + owner email pair before query/RPC filters are applied.
+ */
+export async function resolveEffectiveCrmSellerScope(
+  user: { email?: string | null } | null | undefined,
+): Promise<EffectiveCrmSellerScope> {
+  const ownerEmail = getEffectiveSellerEmail(user)?.toLowerCase() ?? null;
+  const ownerUserId = await resolveSellerId(ownerEmail);
+  return { ownerUserId, ownerEmail };
 }

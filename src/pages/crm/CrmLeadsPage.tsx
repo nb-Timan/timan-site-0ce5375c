@@ -9,8 +9,8 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { buildJournalScope } from '@/lib/machineJournalScope';
-import { getActiveSellerView } from '@/lib/activeMode';
-import { resolveSellerId } from '@/lib/resolveSellerId';
+import { getActiveSellerView, getEffectiveSellerEmail } from '@/lib/activeMode';
+import { resolveEffectiveCrmSellerScope } from '@/lib/resolveSellerId';
 import { resolveSellerDisplay, useSellerDirectory, type SellerDirectory } from '@/lib/sellerDirectory';
 import {
   listLeadsPage, updateLead, getLead, deleteLead, deleteDemoLead,
@@ -421,6 +421,7 @@ export default function CrmLeadsPage() {
   const isAdmin = isCrmAdmin(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
   const canDelete = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
+  const effectiveSellerEmail = getEffectiveSellerEmail(appUser);
   const sellerDirectory = useSellerDirectory();
 
   const TABS: { key: TabKey; label: string }[] = [
@@ -524,7 +525,8 @@ export default function CrmLeadsPage() {
     (async () => {
       if (externalScopeLoading) return;
       setLoading(true);
-      const sid = await resolveSellerId(appUser?.email);
+      const sellerScope = await resolveEffectiveCrmSellerScope({ email: appUser?.email });
+      const sid = sellerScope.ownerUserId;
       const [nextSharedLeadIds] = await Promise.all([
         listSharedLeadIdsForUser(sid),
       ]);
@@ -533,7 +535,7 @@ export default function CrmLeadsPage() {
         const result = await listLeadsPage({
           isAdmin,
           ownerUserId: sid,
-          ownerEmail: appUser?.email ?? null,
+          ownerEmail: sellerScope.ownerEmail,
           sharedLeadIds: Array.from(nextSharedLeadIds),
           externalDealerIds: externalDealerScope ? Array.from(externalDealerScope.ids) : [],
           externalDealerNames: externalDealerScope ? Array.from(externalDealerScope.names) : [],
@@ -558,7 +560,7 @@ export default function CrmLeadsPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, machineFilter, equipmentFilter, page, portalRole, q, reloadKey, sort, stage, tab, typeFilter]);
+  }, [appUser?.email, effectiveSellerEmail, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, machineFilter, equipmentFilter, page, portalRole, q, reloadKey, sort, stage, tab, typeFilter]);
 
   useEffect(() => {
     setPage(0);
