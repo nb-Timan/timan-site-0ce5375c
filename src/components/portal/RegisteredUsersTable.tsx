@@ -2,9 +2,9 @@
  * RegisteredUsersTable — unified list of portal users + dealer_contacts.
  * Used by both DealerDataPage and CrmDealerDetailPage (Brugere-fanen).
  *
- * Duplicates (same email) are collapsed to a single row, where portal-user
- * data takes precedence and contact data fills in missing fields (phone,
- * area, primary flag).
+ * Contact rows are aggregated to unique people. The current contact schema has
+ * no shared person id across departments, so normalized email is the canonical
+ * cross-record key; contacts without email stay keyed by their own contact id.
  */
 import { Badge } from "@/components/ui/badge";
 import type { DealerContact } from "@/lib/dealerContactsService";
@@ -33,26 +33,28 @@ export interface PortalUserLike {
 interface Props {
   portalUsers: PortalUserLike[];
   contacts: DealerContact[];
-  language?: Language;
+  language?: Language | string | null;
 }
 
-interface Row {
+export interface RegisteredUserRow {
   key: string;
   name: string;
   email: string;
-  role: string;
-  area: string | null;
+  roles: string[];
+  areas: string[];
   phone: string;
   statusLabel: string;
   statusTone: "ok" | "warn" | "no" | "muted";
   isPrimary: boolean;
   lastLogin: string;
   language: string;
+  conflicts: string[];
 }
 
 const LOCALE_MAP: Record<Language, string> = {
   da: "da-DK", en: "en-GB", de: "de-DE", it: "it-IT", hu: "hu-HU",
 };
+const TABLE_LANGUAGES = ["da", "en", "de", "it", "hu"] as const;
 
 const I18N = {
   area: {
@@ -84,7 +86,7 @@ function fmtDate(s: string | null | undefined, lang: Language): string {
   try { return new Date(s).toLocaleDateString(LOCALE_MAP[lang]); } catch { return "—"; }
 }
 
-function userStatus(u: PortalUserLike, lang: Language): { label: string; tone: Row["statusTone"] } {
+function userStatus(u: PortalUserLike, lang: Language): { label: string; tone: RegisteredUserRow["statusTone"] } {
   const s = (u.status || "").toLowerCase();
   if (s === "active" || (u.approved !== false && u.is_active !== false && !s))
     return { label: I18N.active[lang], tone: "ok" };
@@ -93,63 +95,129 @@ function userStatus(u: PortalUserLike, lang: Language): { label: string; tone: R
   return { label: s || "—", tone: "muted" };
 }
 
-export default function RegisteredUsersTable({ portalUsers, contacts, language = "da" }: Props) {
-  const lang: Language = language;
-  const rows: Row[] = [];
-  const emailIndex = new Map<string, number>();
+function tableLanguage(language: Language | string | null | undefined): Language {
+  return TABLE_LANGUAGES.includes(language as Language) ? language as Language : "da";
+}
+
+function normalizeEmail(email: string | null | undefined): string {
+  return (email || "").trim().toLowerCase();
+}
+
+function uniquePush(values: string[], value: string | null | undefined): void {
+  const clean = (value || "").trim();
+  if (!clean || clean === "—") return;
+  if (!values.some((existing) => existing.toLowerCase() === clean.toLowerCase())) {
+    values.push(clean);
+  }
+}
+
+function areaLabelFor(contact: DealerContact, lang: Language): string | null {
+  if (!contact.contact_area) return null;
+  return (I18N.area as Record<string, Record<Language, string>>)[contact.contact_area]?.[lang]
+    ?? contact.contact_area;
+}
+
+function contactKey(contact: DealerContact): string {
+  const email = normalizeEmail(contact.email);
+  return email ? `email:${email}` : `contact:${contact.id}`;
+}
+
+function userKey(user: PortalUserLike): string {
+  const email = normalizeEmail(user.email);
+  return email ? `email:${email}` : `user:${user.id}`;
+}
+
+function mergeDisplayValue(
+  row: RegisteredUserRow,
+  field: "name" | "email" | "phone",
+  nextValue: string | null | undefined,
+  conflictLabel: string,
+): void {
+  const next = (nextValue || "").trim();
+  if (!next) return;
+  if (row[field] === "—") {
+    row[field] = next;
+    return;
+  }
+  if (row[field].toLowerCase() !== next.toLowerCase()) {
+    uniquePush(row.conflicts, conflictLabel);
+  }
+}
+
+export function buildRegisteredUserRows(
+  portalUsers: PortalUserLike[],
+  contacts: DealerContact[],
+  language: Language | string | null | undefined = "da",
+): RegisteredUserRow[] {
+  const lang = tableLanguage(language);
+  const rows: RegisteredUserRow[] = [];
+  const rowIndex = new Map<string, number>();
+
+  const upsertRow = (key: string, rowFactory: () => RegisteredUserRow): RegisteredUserRow => {
+    const existingIndex = rowIndex.get(key);
+    if (existingIndex !== undefined) return rows[existingIndex];
+    const row = rowFactory();
+    rows.push(row);
+    rowIndex.set(key, rows.length - 1);
+    return row;
+  };
 
   for (const u of portalUsers) {
     const email = (u.email || "").trim();
-    const lower = email.toLowerCase();
     const st = userStatus(u, lang);
-    const r: Row = {
-      key: `u:${u.id}`,
+    const row = upsertRow(userKey(u), () => ({
+      key: userKey(u),
       name: u.full_name || u.name || "—",
       email: email || "—",
-      role: u.portal_role || u.role || "—",
-      area: null,
+      roles: [],
+      areas: [],
       phone: u.phone || "—",
       statusLabel: st.label,
       statusTone: st.tone,
       isPrimary: false,
       lastLogin: fmtDate(u.last_login ?? u.last_login_at ?? null, lang),
       language: (u.preferred_language || u.language || "").toUpperCase() || "—",
-    };
-    rows.push(r);
-    if (lower) emailIndex.set(lower, rows.length - 1);
+      conflicts: [],
+    }));
+
+    uniquePush(row.roles, u.portal_role || u.role);
+    mergeDisplayValue(row, "name", u.full_name || u.name, "Navn");
+    mergeDisplayValue(row, "email", email, "E-mail");
+    mergeDisplayValue(row, "phone", u.phone, "Telefon");
   }
 
   for (const c of contacts) {
     const email = (c.email || "").trim();
-    const lower = email.toLowerCase();
-    const areaLabel = c.contact_area
-      ? (I18N.area as Record<string, Record<Language, string>>)[c.contact_area]?.[lang] ?? c.contact_area
-      : null;
-    if (lower && emailIndex.has(lower)) {
-      const idx = emailIndex.get(lower)!;
-      const r = rows[idx];
-      if (r.phone === "—" && c.phone) r.phone = c.phone;
-      if (!r.area && areaLabel) r.area = areaLabel;
-      if (c.is_primary) r.isPrimary = true;
-      if (r.name === "—" && c.name) r.name = c.name;
-      continue;
-    }
-    const r: Row = {
-      key: `c:${c.id}`,
+    const areaLabel = areaLabelFor(c, lang);
+    const row = upsertRow(contactKey(c), () => ({
+      key: contactKey(c),
       name: c.name || "—",
       email: email || "—",
-      role: c.role_title || "—",
-      area: areaLabel,
+      roles: [],
+      areas: [],
       phone: c.phone || "—",
       statusLabel: c.is_primary ? I18N.primary[lang] : I18N.contact[lang],
       statusTone: c.is_primary ? "warn" : "muted",
       isPrimary: c.is_primary,
       lastLogin: "—",
       language: "—",
-    };
-    rows.push(r);
-    if (lower) emailIndex.set(lower, rows.length - 1);
+      conflicts: [],
+    }));
+
+    uniquePush(row.roles, c.role_title);
+    uniquePush(row.areas, areaLabel);
+    mergeDisplayValue(row, "name", c.name, "Navn");
+    mergeDisplayValue(row, "email", email, "E-mail");
+    mergeDisplayValue(row, "phone", c.phone, "Telefon");
+    if (c.is_primary) row.isPrimary = true;
   }
+
+  return rows;
+}
+
+export default function RegisteredUsersTable({ portalUsers, contacts, language = "da" }: Props) {
+  const lang = tableLanguage(language);
+  const rows = buildRegisteredUserRows(portalUsers, contacts, lang);
 
   if (rows.length === 0) {
     return <p className="text-sm text-slate-500">{I18N.empty[lang]}</p>;
@@ -182,8 +250,19 @@ export default function RegisteredUsersTable({ portalUsers, contacts, language =
                 {r.email !== "—" ? <a href={`mailto:${r.email}`} className="hover:underline">{r.email}</a> : "—"}
               </td>
               <td className="py-2 pr-4">
-                <div className="text-slate-700">{r.role}</div>
-                {r.area && <div className="text-xs text-slate-400">{r.area}</div>}
+                <div className="space-y-0.5 text-slate-700">
+                  {r.roles.length > 0 ? r.roles.map((role) => <div key={role}>{role}</div>) : "—"}
+                </div>
+                {r.areas.length > 0 && (
+                  <div className="mt-1 space-y-0.5 text-xs text-slate-400">
+                    {r.areas.map((area) => <div key={area}>{area}</div>)}
+                  </div>
+                )}
+                {r.conflicts.length > 0 && (
+                  <div className="mt-1 text-xs text-amber-700">
+                    Datakonflikt: {r.conflicts.join(", ")}
+                  </div>
+                )}
               </td>
               <td className="py-2 pr-4">
                 {r.phone !== "—" ? <a href={`tel:${r.phone}`} className="hover:underline">{r.phone}</a> : "—"}

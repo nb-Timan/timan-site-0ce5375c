@@ -107,7 +107,7 @@ import {
   type DealerBudgetIndex,
 } from "@/lib/crmDealerBudget";
 import DealerBudgetHistory from "@/components/crm/DealerBudgetHistory";
-import RegisteredUsersTable from "@/components/portal/RegisteredUsersTable";
+import RegisteredUsersTable, { buildRegisteredUserRows } from "@/components/portal/RegisteredUsersTable";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const T = {
@@ -838,6 +838,7 @@ export default function CrmDealerDetailPage() {
   const linkedUsers = users.filter(u =>
     scopeNumbers.includes(u.dealer_number || "")
   );
+  const registeredUserCount = buildRegisteredUserRows(linkedUsers, dealerContacts, lang).length;
 
   const activitiesForScope = calendar.filter(a =>
     scopeNumbers.includes(a.dealer_account_number || "")
@@ -1393,7 +1394,7 @@ export default function CrmDealerDetailPage() {
         <TabsList className="flex flex-wrap h-auto bg-transparent p-0 mb-4 border-b border-slate-200 rounded-none gap-1 w-full justify-start">
           {([
             ["overview", tl("tab_overview", lang)],
-            ["users", `${tl("tab_users", lang)} (${linkedUsers.length + dealerContacts.length})`],
+            ["users", `${tl("tab_users", lang)} (${registeredUserCount})`],
             ["documents", tl("tab_documents", lang)],
             ["machines", tl("tab_machines", lang)],
           ] as const).map(([val, label]) => (
@@ -2959,7 +2960,7 @@ void Smartphone;
 
 // ============================================================================
 // UsersAndContactsPanel — unified "Registrerede brugere" list
-// (portal users + dealer_contacts, deduped by email)
+// (portal users + dealer_contacts, aggregated to unique people)
 // ============================================================================
 function UsersAndContactsPanel({
   dealer, portalUsers, contacts, lang,
@@ -2973,8 +2974,7 @@ function UsersAndContactsPanel({
     ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}#users`
     : "/portal/dealer-data#users";
 
-  const total = portalUsers.length + contacts.length;
-  void lang;
+  const total = buildRegisteredUserRows(portalUsers, contacts, lang).length;
 
   return (
     <div className="space-y-4">
@@ -2991,7 +2991,7 @@ function UsersAndContactsPanel({
       </div>
 
       <div className="bg-white border border-slate-200 rounded-2xl p-5">
-        <RegisteredUsersTable portalUsers={portalUsers} contacts={contacts} />
+        <RegisteredUsersTable portalUsers={portalUsers} contacts={contacts} language={lang} />
       </div>
     </div>
   );
