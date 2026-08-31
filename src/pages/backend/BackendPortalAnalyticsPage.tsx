@@ -59,6 +59,7 @@ import {
   formatPercentTrend,
   type PortalAnalyticsTrend,
 } from "@/lib/portalAnalyticsTrends";
+import { resolvePortalAnalyticsUserSelectionView } from "@/lib/portalAnalyticsUserSelectionView";
 
 const ALL = "__all__";
 const PERIODS = [
@@ -408,9 +409,11 @@ export default function BackendPortalAnalyticsPage() {
   }, [appUser?.email, audience, days, isBackend, partnerType, refreshKey, selectedModuleKeys, selectedRoles, selectedUserKeys]);
 
   const selectedUser = useMemo(() => analytics?.users[0] || null, [analytics]);
-  const showSingleUserSummary = Boolean(selectedUser && selectedUserKeys.length === 1 && selectedRoles.length === 0);
-  const showMultiUserNotice = selectedUserKeys.length > 1 && selectedRoles.length === 0;
-  const showUsersTable = !showSingleUserSummary;
+  const selectedUserCount = selectedUserKeys.length;
+  const userSelectionView = resolvePortalAnalyticsUserSelectionView(selectedUserCount);
+  const showSingleUserSummary = userSelectionView === "single" && Boolean(selectedUser);
+  const showMultiUserNotice = userSelectionView === "multi";
+  const showUsersTable = userSelectionView !== "single";
   const hasAudienceFilter = audience !== "portal" || partnerType !== "all" || selectedUserKeys.length > 0 || selectedRoles.length > 0;
   const hasAnyFilter = hasAudienceFilter || selectedModuleKeys.length > 0;
 
