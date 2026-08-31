@@ -332,14 +332,6 @@ function SelectedUserSummary({ user }: { user: PortalUsageAnalytics["users"][num
   );
 }
 
-function SelectedUsersNotice({ count }: { count: number }) {
-  return (
-    <div className="rounded-lg border bg-white px-4 py-3 text-sm text-slate-700">
-      <span className="font-semibold text-slate-950">{count} brugere valgt.</span> Den samlede brugertabel vises nedenfor.
-    </div>
-  );
-}
-
 export default function BackendPortalAnalyticsPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
@@ -412,7 +404,6 @@ export default function BackendPortalAnalyticsPage() {
   const selectedUserCount = selectedUserKeys.length;
   const userSelectionView = resolvePortalAnalyticsUserSelectionView(selectedUserCount);
   const showSingleUserSummary = userSelectionView === "single" && Boolean(selectedUser);
-  const showMultiUserNotice = userSelectionView === "multi";
   const showUsersTable = userSelectionView !== "single";
   const hasAudienceFilter = audience !== "portal" || partnerType !== "all" || selectedUserKeys.length > 0 || selectedRoles.length > 0;
   const hasAnyFilter = hasAudienceFilter || selectedModuleKeys.length > 0;
@@ -647,7 +638,7 @@ export default function BackendPortalAnalyticsPage() {
             </div>
 
             {showSingleUserSummary && selectedUser && <SelectedUserSummary user={selectedUser} />}
-            {showMultiUserNotice && <SelectedUsersNotice count={selectedUserKeys.length} />}
+            {showUsersTable && <DataTable analytics={analytics} />}
 
             <div className="grid gap-6 xl:grid-cols-2">
               <Card className="rounded-lg">
@@ -703,8 +694,6 @@ export default function BackendPortalAnalyticsPage() {
                 </table>
               </CardContent>
             </Card>
-
-            {showUsersTable && <DataTable analytics={analytics} />}
           </div>
         )}
       </main>
