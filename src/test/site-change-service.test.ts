@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { inferModuleFromFiles, publicRowToEntry, recommendPublication } from '@/lib/portalChangelogService';
+import { inferModuleFromFiles, missingSiteChangeLanguages, publicRowToEntry, recommendPublication } from '@/lib/portalChangelogService';
 import { getPublishedFeatureContent } from '@/lib/portalChangelogService';
 
 describe('site change service', () => {
@@ -147,6 +147,92 @@ describe('site change service', () => {
       description: 'The territory map in the contract has been improved.\n\nArea: Map / Contract',
       moduleLabel: 'Map / Contract',
     });
+  });
+
+  it('replaces old GitHub import placeholders with localized user-facing public content', () => {
+    const row = {
+      id: 'change-old-github',
+      source: 'github',
+      source_ref: 'github:1234567890abcdef',
+      implemented_at: '2026-08-31T12:00:00.000Z',
+      title_internal: 'fix: ContractTerritoryMap chunk and API key runtime',
+      description_internal: 'Automatisk importeret fra GitHub.',
+      technical_description: 'Repository: nb-Timan/timan-site-0ce5375c\nCommit: 1234567890abcdef',
+      title_public: 'fix: ContractTerritoryMap chunk and API key runtime',
+      description_public: 'Automatisk importeret fra GitHub commit 1234567890abcdef.',
+      localized_content: {
+        da: {
+          title: 'fix: ContractTerritoryMap chunk and API key runtime',
+          description: 'Automatisk importeret fra GitHub commit 1234567890abcdef.',
+        },
+      },
+      module: 'map',
+      change_type: 'bugfix',
+      affected_roles: ['all'],
+      user_impact_score: 5,
+      technical_impact_score: 4,
+      publish_recommendation: 'maybe' as const,
+      is_important: false,
+      status: 'published' as const,
+      published_at: '2026-08-31T12:00:00.000Z',
+      archived_at: null,
+      reviewed_at: '2026-08-31T12:00:00.000Z',
+      created_by: null,
+      updated_by: null,
+      published_by: null,
+      created_at: '2026-08-31T12:00:00.000Z',
+      updated_at: '2026-08-31T12:00:00.000Z',
+    };
+
+    expect(getPublishedFeatureContent(row, 'da')).toMatchObject({
+      title: 'Forbedret områdekort',
+      description: expect.stringContaining('Område: Kort / Kontrakt'),
+      moduleLabel: 'Kort / Kontrakt',
+    });
+    expect(getPublishedFeatureContent(row, 'de')).toMatchObject({
+      title: 'Verbesserte Gebietskarte',
+      description: expect.stringContaining('Bereich: Karte / Vertrag'),
+      moduleLabel: 'Karte / Vertrag',
+    });
+    expect(getPublishedFeatureContent(row, 'fr')).toMatchObject({
+      title: 'Carte des zones améliorée',
+      description: expect.stringContaining('Zone: Carte / Contrat'),
+      moduleLabel: 'Carte / Contrat',
+    });
+    expect(getPublishedFeatureContent(row, 'da').description).not.toContain('GitHub commit');
+    expect(missingSiteChangeLanguages(row)).toContain('da');
+    expect(missingSiteChangeLanguages(row)).toContain('de');
+  });
+
+  it('does not expose GitHub commit-like titles from public rows when descriptions are empty', () => {
+    const entry = publicRowToEntry({
+      id: 'public-github-raw',
+      published_at: '2026-08-31T12:00:00.000Z',
+      implemented_at: '2026-08-31T12:00:00.000Z',
+      title: 'Deduplicate partner users by person',
+      description: null,
+      localized_content: {
+        da: {
+          note: 'Deduplicate partner users by person',
+          title: 'Deduplicate partner users by person',
+          description: '',
+          module_label: 'crm',
+          change_type_label: 'improvement',
+        },
+      },
+      module: 'crm',
+      change_type: 'improvement',
+      affected_roles: ['timan_backend', 'timan_seller'],
+      is_important: false,
+      source_ref: 'github:b8c61d7282312ab4222d112e0c8353b673450deb',
+      updated_at: '2026-08-31T12:00:00.000Z',
+    });
+
+    expect(entry.title.da).toBe('CRM er forbedret');
+    expect(entry.title.de).toBe('CRM wurde verbessert');
+    expect(entry.description?.da).toContain('Område: CRM');
+    expect(entry.description?.de).toContain('Bereich: CRM');
+    expect(entry.title.da).not.toContain('Deduplicate');
   });
 
   it('renders front-page changelog entries with title, description, area and date hierarchy', () => {

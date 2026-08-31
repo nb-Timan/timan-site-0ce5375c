@@ -138,11 +138,14 @@ export interface SiteChangePublishedContent {
 
 type SiteChangeContentSource = {
   localized_content?: SiteChangeLocalizedContent | null;
+  source?: string | null;
+  source_ref?: string | null;
   title?: string | null;
   description?: string | null;
   title_public?: string | null;
   description_public?: string | null;
   title_internal?: string | null;
+  description_internal?: string | null;
   module: string;
   change_type: string;
 };
@@ -154,23 +157,204 @@ function firstText(...values: Array<string | null | undefined>): string {
   return '';
 }
 
+const AREA_PREFIX: Record<PortalUiLanguage, string> = {
+  da: 'Område',
+  en: 'Area',
+  de: 'Bereich',
+  it: 'Area',
+  hu: 'Terület',
+  sv: 'Område',
+  fr: 'Zone',
+  pl: 'Obszar',
+  cs: 'Oblast',
+};
+
+const MODULE_PUBLIC_TEXT: Record<string, Record<PortalUiLanguage, { title: string; description: string; note: string }>> = {
+  crm: {
+    da: { title: 'CRM er forbedret', description: 'CRM-arbejdet er blevet gjort mere overskueligt, så leads, opfølgning og salgsarbejde er lettere at holde styr på.', note: 'CRM forbedret' },
+    en: { title: 'CRM has been improved', description: 'CRM work has been made clearer, so leads, follow-up and sales activity are easier to manage.', note: 'CRM improved' },
+    de: { title: 'CRM wurde verbessert', description: 'Die CRM-Arbeit ist übersichtlicher geworden, damit Leads, Nachverfolgung und Verkauf leichter gesteuert werden können.', note: 'CRM verbessert' },
+    it: { title: 'CRM migliorato', description: 'Il lavoro CRM è più chiaro, così lead, follow-up e attività commerciali sono più facili da gestire.', note: 'CRM migliorato' },
+    hu: { title: 'A CRM továbbfejlesztve', description: 'A CRM-munka áttekinthetőbb lett, így a leadek, utánkövetések és értékesítési feladatok könnyebben kezelhetők.', note: 'CRM fejlesztve' },
+    sv: { title: 'CRM har förbättrats', description: 'CRM-arbetet har blivit tydligare, så leads, uppföljning och försäljning blir lättare att hantera.', note: 'CRM förbättrat' },
+    fr: { title: 'Le CRM a été amélioré', description: 'Le travail CRM est plus clair, afin de mieux gérer les leads, le suivi et les activités commerciales.', note: 'CRM amélioré' },
+    pl: { title: 'CRM został ulepszony', description: 'Praca w CRM jest bardziej przejrzysta, dzięki czemu leady, działania następcze i sprzedaż są łatwiejsze do obsługi.', note: 'CRM ulepszony' },
+    cs: { title: 'CRM bylo vylepšeno', description: 'Práce v CRM je přehlednější, takže leady, následné kroky a prodejní aktivity se snáze řídí.', note: 'CRM vylepšeno' },
+  },
+  dealer_data: {
+    da: { title: 'Partnerdata er forbedret', description: 'Partneroplysninger og kontaktdata er blevet lettere at finde, vedligeholde og bruge i det daglige arbejde.', note: 'Partnerdata forbedret' },
+    en: { title: 'Partner data has been improved', description: 'Partner information and contact data are easier to find, maintain and use in daily work.', note: 'Partner data improved' },
+    de: { title: 'Partnerdaten wurden verbessert', description: 'Partnerinformationen und Kontaktdaten sind leichter zu finden, zu pflegen und im Alltag zu nutzen.', note: 'Partnerdaten verbessert' },
+    it: { title: 'Dati partner migliorati', description: 'Le informazioni partner e i dati di contatto sono più facili da trovare, mantenere e usare nel lavoro quotidiano.', note: 'Dati partner migliorati' },
+    hu: { title: 'Partneradatok továbbfejlesztve', description: 'A partnerinformációk és kapcsolattartási adatok könnyebben megtalálhatók, karbantarthatók és használhatók.', note: 'Partneradatok fejlesztve' },
+    sv: { title: 'Partnerdata har förbättrats', description: 'Partnerinformation och kontaktdata är lättare att hitta, underhålla och använda i det dagliga arbetet.', note: 'Partnerdata förbättrat' },
+    fr: { title: 'Les données partenaires ont été améliorées', description: 'Les informations partenaires et les coordonnées sont plus faciles à trouver, maintenir et utiliser au quotidien.', note: 'Données partenaires améliorées' },
+    pl: { title: 'Dane partnera zostały ulepszone', description: 'Informacje o partnerach i dane kontaktowe są łatwiejsze do znalezienia, utrzymania i użycia na co dzień.', note: 'Dane partnera ulepszone' },
+    cs: { title: 'Data partnerů byla vylepšena', description: 'Informace o partnerech a kontaktní údaje se snáze hledají, udržují a používají v každodenní práci.', note: 'Data partnerů vylepšena' },
+  },
+  map: {
+    da: { title: 'Forbedret områdekort', description: 'Kort og områdevalg er blevet mere overskuelige, så geografiske områder kan aflæses og bruges mere sikkert.', note: 'Områdekort forbedret' },
+    en: { title: 'Improved territory map', description: 'Maps and territory selection are clearer, so geographic areas can be reviewed and used more reliably.', note: 'Territory map improved' },
+    de: { title: 'Verbesserte Gebietskarte', description: 'Karten und Gebietsauswahl sind übersichtlicher, sodass geografische Bereiche zuverlässiger geprüft und genutzt werden können.', note: 'Gebietskarte verbessert' },
+    it: { title: 'Mappa aree migliorata', description: 'Mappe e selezione delle aree sono più chiare, così le aree geografiche possono essere controllate e usate meglio.', note: 'Mappa aree migliorata' },
+    hu: { title: 'Továbbfejlesztett területtérkép', description: 'A térképek és területválasztás áttekinthetőbbek, így a földrajzi területek megbízhatóbban használhatók.', note: 'Területtérkép fejlesztve' },
+    sv: { title: 'Förbättrad områdeskarta', description: 'Kartor och områdesval är tydligare, så geografiska områden kan granskas och användas mer säkert.', note: 'Områdeskarta förbättrad' },
+    fr: { title: 'Carte des zones améliorée', description: 'Les cartes et la sélection de zones sont plus claires, afin d’examiner et d’utiliser les zones géographiques plus sûrement.', note: 'Carte des zones améliorée' },
+    pl: { title: 'Ulepszona mapa obszarów', description: 'Mapy i wybór obszarów są bardziej przejrzyste, więc obszary geograficzne można sprawdzać i używać pewniej.', note: 'Mapa obszarów ulepszona' },
+    cs: { title: 'Vylepšená mapa oblastí', description: 'Mapy a výběr oblastí jsou přehlednější, takže geografické oblasti lze spolehlivěji kontrolovat a používat.', note: 'Mapa oblastí vylepšena' },
+  },
+  marketing: {
+    da: { title: 'Marketing-indhold er forbedret', description: 'Marketing kan lettere styre publiceret indhold, sprog og visning i portalen.', note: 'Marketing forbedret' },
+    en: { title: 'Marketing content has been improved', description: 'Marketing can manage published content, languages and portal display more easily.', note: 'Marketing improved' },
+    de: { title: 'Marketing-Inhalte wurden verbessert', description: 'Marketing kann veröffentlichte Inhalte, Sprachen und Portalanzeige einfacher steuern.', note: 'Marketing verbessert' },
+    it: { title: 'Contenuti marketing migliorati', description: 'Il Marketing può gestire più facilmente contenuti pubblicati, lingue e visualizzazione nel portale.', note: 'Marketing migliorato' },
+    hu: { title: 'Marketingtartalom továbbfejlesztve', description: 'A Marketing könnyebben kezelheti a közzétett tartalmat, nyelveket és portálmegjelenítést.', note: 'Marketing fejlesztve' },
+    sv: { title: 'Marketinginnehåll har förbättrats', description: 'Marketing kan enklare styra publicerat innehåll, språk och visning i portalen.', note: 'Marketing förbättrat' },
+    fr: { title: 'Le contenu marketing a été amélioré', description: 'Le marketing peut gérer plus facilement les contenus publiés, les langues et l’affichage du portail.', note: 'Marketing amélioré' },
+    pl: { title: 'Treści marketingowe zostały ulepszone', description: 'Marketing może łatwiej zarządzać opublikowanymi treściami, językami i widokiem portalu.', note: 'Marketing ulepszony' },
+    cs: { title: 'Marketingový obsah byl vylepšen', description: 'Marketing může snadněji spravovat zveřejněný obsah, jazyky a zobrazení v portálu.', note: 'Marketing vylepšen' },
+  },
+};
+
+function isGitHubImportPlaceholder(value: string | null | undefined): boolean {
+  if (!value) return false;
+  return /^(automatisk|automatically)\s+importeret?\s+fra\s+github|^automatically\s+imported\s+from\s+github/i.test(value.trim());
+}
+
+function isTechnicalPublicTitle(value: string | null | undefined, feature: SiteChangeContentSource): boolean {
+  const title = firstText(value);
+  if (!title) return false;
+  const internal = firstText(feature.title_internal);
+  const description = firstText(feature.description_public, feature.description);
+  const isGitHubRow = firstText(feature.source_ref).startsWith('github:') || feature.source === 'github';
+  return (
+    title === internal ||
+    /^(feat|fix|chore|refactor|style|test|docs|build|ci)(\([^)]+\))?:\s*/i.test(title) ||
+    /\b(commit|github|chunk|vite|supabase|rls|migration)\b/i.test(title) ||
+    (isGitHubRow && (!description || isGitHubImportPlaceholder(description)))
+  );
+}
+
+function fallbackPublicText(module: string, changeType: string, language: PortalUiLanguage): { title: string; description: string; note: string } {
+  const area = moduleName(module)[language] || moduleName(module).en || moduleName(module).da || module;
+  const descriptions: Record<'bugfix' | 'improvement', Record<PortalUiLanguage, string>> = {
+    bugfix: {
+      da: `${area} er blevet rettet, så funktionen virker mere stabilt for brugerne.`,
+      en: `${area} has been corrected so the feature works more reliably for users.`,
+      de: `${area} wurde korrigiert, damit die Funktion für Benutzer zuverlässiger arbeitet.`,
+      it: `${area} è stato corretto, così la funzione è più stabile per gli utenti.`,
+      hu: `${area} javítva lett, így a funkció megbízhatóbban működik a felhasználók számára.`,
+      sv: `${area} har rättats, så funktionen fungerar mer stabilt för användarna.`,
+      fr: `${area} a été corrigé afin que la fonction soit plus fiable pour les utilisateurs.`,
+      pl: `${area} został poprawiony, dzięki czemu funkcja działa stabilniej dla użytkowników.`,
+      cs: `${area} bylo opraveno, takže funkce pracuje pro uživatele spolehlivěji.`,
+    },
+    improvement: {
+      da: `${area} er blevet forbedret, så hverdagsarbejdet i portalen bliver mere overskueligt.`,
+      en: `${area} has been improved to make everyday portal work clearer.`,
+      de: `${area} wurde verbessert, damit die tägliche Arbeit im Portal übersichtlicher wird.`,
+      it: `${area} è stato migliorato per rendere più chiaro il lavoro quotidiano nel portale.`,
+      hu: `${area} továbbfejlesztve, hogy a mindennapi portálmunka áttekinthetőbb legyen.`,
+      sv: `${area} har förbättrats så det dagliga arbetet i portalen blir tydligare.`,
+      fr: `${area} a été amélioré pour rendre le travail quotidien dans le portail plus clair.`,
+      pl: `${area} został ulepszony, aby codzienna praca w portalu była bardziej przejrzysta.`,
+      cs: `${area} bylo vylepšeno, aby každodenní práce v portálu byla přehlednější.`,
+    },
+  };
+  const titles: Record<PortalUiLanguage, string> = {
+    da: `${area} er opdateret`,
+    en: `${area} has been updated`,
+    de: `${area} wurde aktualisiert`,
+    it: `${area} è stato aggiornato`,
+    hu: `${area} frissítve`,
+    sv: `${area} har uppdaterats`,
+    fr: `${area} a été mis à jour`,
+    pl: `${area} został zaktualizowany`,
+    cs: `${area} bylo aktualizováno`,
+  };
+  const notes: Record<PortalUiLanguage, string> = {
+    da: `${area} opdateret`,
+    en: `${area} updated`,
+    de: `${area} aktualisiert`,
+    it: `${area} aggiornato`,
+    hu: `${area} frissítve`,
+    sv: `${area} uppdaterat`,
+    fr: `${area} mis à jour`,
+    pl: `${area} zaktualizowany`,
+    cs: `${area} aktualizováno`,
+  };
+  return {
+    title: titles[language],
+    description: changeType === 'bugfix' ? descriptions.bugfix[language] : descriptions.improvement[language],
+    note: notes[language],
+  };
+}
+
+export function buildPublishedFeatureSuggestion(
+  module: string,
+  changeType: string,
+  language: PortalUiLanguage,
+): SiteChangeLocalizedText {
+  const template = MODULE_PUBLIC_TEXT[module]?.[language] || fallbackPublicText(module, changeType, language);
+  const area = moduleName(module)[language] || moduleName(module).en || moduleName(module).da || module;
+  return {
+    title: template.title,
+    description: `${template.description}\n\n${AREA_PREFIX[language]}: ${area}`,
+    note: template.note,
+    module_label: area,
+    change_type_label: changeType,
+  };
+}
+
+function userFacingLocalizedText(
+  values: SiteChangeLocalizedContent | null | undefined,
+  key: keyof SiteChangeLocalizedText,
+  language: PortalUiLanguage,
+  feature: SiteChangeContentSource,
+): string {
+  if (!values) return '';
+  const byLanguage = values as Record<string, SiteChangeLocalizedText | undefined>;
+  for (const languageKey of portalLanguageLookupOrder(language)) {
+    const value = byLanguage[languageKey]?.[key];
+    if (typeof value !== 'string' || !value.trim()) continue;
+    if (key === 'description' && isGitHubImportPlaceholder(value)) continue;
+    if (key === 'title') {
+      const siblingDescription = firstText(byLanguage[languageKey]?.description);
+      const isGitHubRow = firstText(feature.source_ref).startsWith('github:') || feature.source === 'github';
+      if (isTechnicalPublicTitle(value, feature)) continue;
+      if (isGitHubRow && (!siblingDescription || isGitHubImportPlaceholder(siblingDescription))) continue;
+    }
+    return value.trim();
+  }
+  return '';
+}
+
 export function getPublishedFeatureContent(
   feature: SiteChangeContentSource,
   language: PortalUiLanguage,
 ): SiteChangePublishedContent {
   const content = feature.localized_content || {};
   const moduleLabels = moduleName(feature.module);
-  const fallbackTitle = firstText(feature.title_public, feature.title, feature.title_internal);
-  const fallbackDescription = firstText(feature.description_public, feature.description);
-  const title = firstText(localizedText(content, 'title', language), fallbackTitle);
-  const description = firstText(localizedText(content, 'description', language), fallbackDescription);
+  const generated = buildPublishedFeatureSuggestion(feature.module, feature.change_type, language);
+  const fallbackTitle = firstText(
+    !isTechnicalPublicTitle(feature.title_public, feature) ? feature.title_public : '',
+    !isTechnicalPublicTitle(feature.title, feature) ? feature.title : '',
+    generated.title,
+  );
+  const fallbackDescription = firstText(
+    !isGitHubImportPlaceholder(feature.description_public) ? feature.description_public : '',
+    !isGitHubImportPlaceholder(feature.description) ? feature.description : '',
+    generated.description,
+  );
+  const title = firstText(userFacingLocalizedText(content, 'title', language, feature), fallbackTitle);
+  const description = firstText(userFacingLocalizedText(content, 'description', language, feature), fallbackDescription);
 
   return {
     title,
-    description,
-    note: firstText(localizedText(content, 'note', language), title),
+    description: firstText(description, generated.description),
+    note: firstText(userFacingLocalizedText(content, 'note', language, feature), generated.note, title),
     moduleLabel: firstText(
-      localizedText(content, 'module_label', language),
+      localizedText(content, 'module_label', language) !== feature.module ? localizedText(content, 'module_label', language) : '',
       moduleLabels[language],
       moduleLabels.en,
       moduleLabels.da,
@@ -204,7 +388,7 @@ const MODULE_LABELS: Record<string, Partial<Record<PortalUiLanguage, string>>> =
   service: { da: 'Service & Teknik', en: 'Service & Technical', de: 'Service & Technik', it: 'Assistenza e tecnica', hu: 'Szerviz és műszaki', sv: 'Service och teknik', fr: 'Service et technique', pl: 'Serwis i technika', cs: 'Servis a technika' },
   messe: { da: 'Messe', en: 'Exhibition', de: 'Messe', it: 'Fiera', hu: 'Kiállítás', sv: 'Mässa', fr: 'Salon', pl: 'Targi', cs: 'Veletrh' },
   marketing: { da: 'Marketing', en: 'Marketing', de: 'Marketing', it: 'Marketing', hu: 'Marketing', sv: 'Marketing', fr: 'Marketing', pl: 'Marketing', cs: 'Marketing' },
-  map: { da: 'Kort', en: 'Map', de: 'Karte', it: 'Mappa', hu: 'Térkép', sv: 'Karta', fr: 'Carte', pl: 'Mapa', cs: 'Mapa' },
+  map: { da: 'Kort / Kontrakt', en: 'Map / Contract', de: 'Karte / Vertrag', it: 'Mappa / Contratto', hu: 'Térkép / Szerződés', sv: 'Karta / Avtal', fr: 'Carte / Contrat', pl: 'Mapa / Umowa', cs: 'Mapa / Smlouva' },
   warranty: { da: 'Garantiregistrering', en: 'Warranty registration', de: 'Garantieregistrierung', it: 'Registrazione garanzia', hu: 'Garanciaregisztráció', sv: 'Garantiregistrering', fr: 'Enregistrement de garantie', pl: 'Rejestracja gwarancji', cs: 'Registrace záruky' },
   claims: { da: 'Claims', en: 'Claims', de: 'Reklamationen', it: 'Reclami', hu: 'Reklamációk', sv: 'Reklamationer', fr: 'Réclamations', pl: 'Reklamacje', cs: 'Reklamace' },
   tsb: { da: 'TSB', en: 'TSB', de: 'TSB', it: 'TSB', hu: 'TSB', sv: 'TSB', fr: 'TSB', pl: 'TSB', cs: 'TSB' },
@@ -227,29 +411,42 @@ function moduleName(module: string): Partial<Record<PortalUiLanguage, string>> {
   }, {} as Partial<Record<PortalUiLanguage, string>>);
 }
 
-export function localizedContentFromDraft(draft: Pick<ChangelogDraft, 'localized_content' | 'title_public' | 'description_public' | 'title_internal' | 'module' | 'change_type'>): SiteChangeLocalizedContent {
+export function localizedContentFromDraft(draft: Pick<ChangelogDraft, 'localized_content' | 'title_public' | 'description_public' | 'title_internal' | 'description_internal' | 'module' | 'change_type' | 'source' | 'source_ref'>): SiteChangeLocalizedContent {
   const base = draft.localized_content || {};
-  const daTitle = draft.title_public || draft.title_internal || '';
-  const daDescription = draft.description_public || '';
-  return {
-    ...base,
-    da: {
-      ...(base.da || {}),
-      title: base.da?.title || daTitle,
-      description: base.da?.description || daDescription,
-      note: base.da?.note || daTitle,
-      module_label: base.da?.module_label || moduleName(draft.module).da || draft.module,
-      change_type_label: base.da?.change_type_label || draft.change_type,
-    },
-  };
+  const feature = draft as SiteChangeContentSource;
+  return PORTAL_LANGUAGE_CODES.reduce((acc, lang) => {
+    const generated = buildPublishedFeatureSuggestion(draft.module, draft.change_type, lang);
+    const existing = base[lang] || {};
+    const title =
+      !isTechnicalPublicTitle(existing.title, feature) ? firstText(existing.title) : '';
+    const description =
+      !isGitHubImportPlaceholder(existing.description) ? firstText(existing.description) : '';
+
+    acc[lang] = {
+      ...existing,
+      title: firstText(title, lang === 'da' && !isTechnicalPublicTitle(draft.title_public, feature) ? draft.title_public : '', generated.title),
+      description: firstText(description, lang === 'da' && !isGitHubImportPlaceholder(draft.description_public) ? draft.description_public : '', generated.description),
+      note: firstText(existing.note, generated.note),
+      module_label: firstText(existing.module_label, generated.module_label),
+      change_type_label: firstText(existing.change_type_label, generated.change_type_label),
+    };
+    return acc;
+  }, { ...base } as SiteChangeLocalizedContent);
 }
 
-export function missingSiteChangeLanguages(row: Pick<SiteChangeEntryRow, 'localized_content' | 'title_public' | 'title_internal'>): PortalUiLanguage[] {
+export function missingSiteChangeLanguages(row: Pick<SiteChangeEntryRow, 'localized_content' | 'title_public' | 'description_public' | 'title_internal' | 'description_internal' | 'source' | 'source_ref' | 'module' | 'change_type'>): PortalUiLanguage[] {
   const content = row.localized_content || {};
   return PORTAL_LANGUAGE_CODES.filter((lang) => {
     const exact = content[lang];
-    if (lang === 'da') return !(exact?.title || row.title_public || row.title_internal);
-    return !(exact?.title && String(exact.title).trim());
+    const hasTitle = firstText(
+      !isTechnicalPublicTitle(exact?.title, row) ? exact?.title : '',
+      lang === 'da' && !isTechnicalPublicTitle(row.title_public, row) ? row.title_public : '',
+    );
+    const hasDescription = firstText(
+      !isGitHubImportPlaceholder(exact?.description) ? exact?.description : '',
+      lang === 'da' && !isGitHubImportPlaceholder(row.description_public) ? row.description_public : '',
+    );
+    return !(hasTitle && hasDescription);
   });
 }
 
@@ -426,6 +623,15 @@ export async function adminListChangelog(options: ChangelogListOptions = {}): Pr
 function toPayload(draft: ChangelogDraft) {
   const now = new Date().toISOString();
   const status = draft.status;
+  const localizedContent = localizedContentFromDraft(draft);
+  const feature = draft as SiteChangeContentSource;
+  const daSuggestion = getPublishedFeatureContent(
+    {
+      ...draft,
+      localized_content: localizedContent,
+    },
+    'da',
+  );
   return {
     source: draft.source || 'manual',
     source_ref: draft.source_ref || null,
@@ -433,9 +639,9 @@ function toPayload(draft: ChangelogDraft) {
     title_internal: draft.title_internal,
     description_internal: draft.description_internal || null,
     technical_description: draft.technical_description || null,
-    title_public: draft.title_public || null,
-    description_public: draft.description_public || null,
-    localized_content: localizedContentFromDraft(draft),
+    title_public: firstText(!isTechnicalPublicTitle(draft.title_public, feature) ? draft.title_public : '', daSuggestion.title) || null,
+    description_public: firstText(!isGitHubImportPlaceholder(draft.description_public) ? draft.description_public : '', daSuggestion.description) || null,
+    localized_content: localizedContent,
     module: draft.module,
     change_type: draft.change_type,
     affected_roles: draft.affected_roles?.length ? draft.affected_roles : ['all'],
