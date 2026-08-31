@@ -143,8 +143,7 @@ function contactHasContent(contact: DealerContact): boolean {
     contact.role_title?.trim() ||
     contact.name?.trim() ||
     contact.email?.trim() ||
-    contact.phone?.trim() ||
-    contact.is_primary
+    contact.phone?.trim()
   );
 }
 

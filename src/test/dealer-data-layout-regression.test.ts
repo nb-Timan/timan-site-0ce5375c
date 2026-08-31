@@ -60,6 +60,11 @@ describe("Partnerdata layout regression guard", () => {
     expect(dealerProfileSource).toContain("ensureMinimumAreaContacts");
     expect(dealerProfileSource).toContain("if (!next.some((contact) => contact.contact_area === area))");
     expect(dealerProfileSource).toContain("if (isLocalContact(c) && !contactHasContent(c)) return { ok: true };");
+    const contactHasContentBody = dealerProfileSource.slice(
+      dealerProfileSource.indexOf("function contactHasContent"),
+      dealerProfileSource.indexOf("type LegacyContactSource"),
+    );
+    expect(contactHasContentBody).not.toContain("contact.is_primary");
     expect(dealerProfileSource).not.toContain("contacts.length === 0 &&");
   });
 });
