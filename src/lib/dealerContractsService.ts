@@ -20,6 +20,7 @@ import {
 import { normalizeContractServiceHourlyRateDkk } from "@/lib/contractServiceTerms";
 import { normalizeContractPaymentTerm } from "@/lib/contractPaymentTerms";
 import { normalizeContractAssociatedPartners } from "@/lib/contractAssociatedPartners";
+import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 
 export const DEALER_CONTRACTS_BUCKET = "dealer-contracts";
 
@@ -105,6 +106,58 @@ export type DealerContractAccessWindow = {
   note: string | null;
   created_at: string;
 };
+
+export type DealerContractOverviewStatusFilter =
+  | "all"
+  | "draft"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "terminated";
+
+export type DealerContractOverviewStatusGroup =
+  | "draft"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "terminated";
+
+export type DealerContractOverviewScope = {
+  portalRole: string | null | undefined;
+  sellerId?: string | null;
+  sellerEmail?: string | null;
+  sellerInitials?: string | null;
+};
+
+export type DealerContractOverviewFilters = DealerContractOverviewScope & {
+  query?: string;
+  status?: DealerContractOverviewStatusFilter;
+  partnerType?: string;
+  sellerFilter?: {
+    id?: string | null;
+    email?: string | null;
+    initials?: string | null;
+  } | null;
+};
+
+export type DealerContractOverviewRow = {
+  contract: DealerContractRecord;
+  partnerName: string;
+  accountNumber: string;
+  partnerType: string;
+  country: string;
+  sellerId: string | null;
+  sellerInitials: string | null;
+  sellerName: string | null;
+  sellerEmail: string | null;
+  createdAt: string;
+  updatedAt: string;
+  statusGroup: DealerContractOverviewStatusGroup;
+  statusLabel: string;
+  actionLabel: string;
+};
+
+export type DealerContractOverviewCounts = Record<"all" | DealerContractOverviewStatusGroup, number>;
 
 export type PartnerAgreementHistoryEventType =
   | "partner_info_received"
@@ -322,6 +375,178 @@ export async function fetchDealerContractDraft(input: {
 
   if (error) return { row: null, error: error.message };
   return { row: data ? rowToContractRecord(data as Record<string, unknown>) : null, error: null };
+}
+
+export async function fetchDealerContractById(
+  contractId: string,
+): Promise<{ row: DealerContractRecord | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from("dealer_contracts")
+    .select("*")
+    .eq("id", contractId)
+    .maybeSingle();
+
+  if (error) return { row: null, error: error.message };
+  return { row: data ? rowToContractRecord(data as Record<string, unknown>) : null, error: null };
+}
+
+function normalizeOverviewText(value: string | null | undefined) {
+  return (value || "").trim().toLowerCase();
+}
+
+function normalizeOverviewInitials(value: string | null | undefined) {
+  return (value || "").trim().toUpperCase();
+}
+
+export function getDealerContractOverviewStatusGroup(
+  status: ContractWorkflowStatus,
+): DealerContractOverviewStatusGroup {
+  if (status === "approved") return "approved";
+  if (status === "archived") return "terminated";
+  if (status === "changes_requested") return "rejected";
+  if (status === "draft" || status === "guided_review") return "draft";
+  return "pending";
+}
+
+export function getDealerContractOverviewStatusLabel(status: ContractWorkflowStatus) {
+  if (status === "draft") return "Kladde";
+  if (status === "guided_review") return "Klargjort / klar til gennemgang";
+  if (status === "ready_for_signature" || status === "awaiting_signed_upload") return "Gennemgang / afventer partner";
+  if (status === "submitted_for_approval") return "Modtaget / afventer Timan";
+  if (status === "approved") return "Godkendt";
+  if (status === "changes_requested") return "Ikke godkendt / afvist";
+  return "Opsagt / ophørt";
+}
+
+function getDealerContractOverviewActionLabel(status: ContractWorkflowStatus) {
+  if (status === "draft" || status === "guided_review") return "Fortsæt";
+  if (status === "approved" || status === "archived") return "Åbn";
+  return "Gennemgå";
+}
+
+function sellerMatchesScope(
+  row: DealerContractOverviewRow,
+  scope: Pick<DealerContractOverviewScope, "sellerId" | "sellerEmail" | "sellerInitials">,
+) {
+  const sellerId = normalizeOverviewText(scope.sellerId);
+  const sellerEmail = normalizeOverviewText(scope.sellerEmail);
+  const sellerInitials = normalizeOverviewInitials(scope.sellerInitials);
+  const contractForm = row.contract.form_data;
+  const candidateIds = [row.sellerId].map(normalizeOverviewText);
+  const candidateEmails = [
+    row.sellerEmail,
+    contractForm.timanSellerEmail,
+    row.contract.guided_review_completed_by_email,
+    row.contract.owner_email,
+  ].map(normalizeOverviewText);
+  const candidateInitials = [row.sellerInitials].map(normalizeOverviewInitials);
+
+  return Boolean(
+    (sellerId && candidateIds.includes(sellerId))
+      || (sellerEmail && candidateEmails.includes(sellerEmail))
+      || (sellerInitials && candidateInitials.includes(sellerInitials)),
+  );
+}
+
+function buildOverviewRow(contract: DealerContractRecord, dealer: DealerAccount | null): DealerContractOverviewRow {
+  const statusGroup = getDealerContractOverviewStatusGroup(contract.contract_status);
+  const formData = contract.form_data;
+  return {
+    contract,
+    partnerName: dealer?.company_name || formData.dealerName || "Ukendt partner",
+    accountNumber: dealer?.account_number || contract.dealer_account_number || "",
+    partnerType: formData.partnerType || dealer?.customer_type_label || dealer?.customer_type || dealer?.dealer_type || "",
+    country: dealer?.country || "",
+    sellerId: dealer?.assigned_seller_id ?? null,
+    sellerInitials: dealer?.assigned_seller_initials ?? null,
+    sellerName: dealer?.assigned_seller_name || formData.timanSellerName || null,
+    sellerEmail: dealer?.assigned_seller_email || formData.timanSellerEmail || null,
+    createdAt: contract.created_at,
+    updatedAt: contract.updated_at,
+    statusGroup,
+    statusLabel: getDealerContractOverviewStatusLabel(contract.contract_status),
+    actionLabel: getDealerContractOverviewActionLabel(contract.contract_status),
+  };
+}
+
+function countOverviewRows(rows: DealerContractOverviewRow[]): DealerContractOverviewCounts {
+  return rows.reduce<DealerContractOverviewCounts>((counts, row) => {
+    counts.all += 1;
+    counts[row.statusGroup] += 1;
+    return counts;
+  }, {
+    all: 0,
+    draft: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    terminated: 0,
+  });
+}
+
+export async function fetchInternalDealerContractOverview(
+  filters: DealerContractOverviewFilters,
+): Promise<{ rows: DealerContractOverviewRow[]; counts: DealerContractOverviewCounts; error: string | null }> {
+  const portalRole = filters.portalRole;
+  if (portalRole !== "timan_backend" && portalRole !== "timan_seller") {
+    return { rows: [], counts: countOverviewRows([]), error: "Kontraktoversigten er kun til Timan Backend og Timan-sælgere." };
+  }
+
+  const { data, error } = await supabase
+    .from("dealer_contracts")
+    .select("*")
+    .order("updated_at", { ascending: false });
+  if (error) return { rows: [], counts: countOverviewRows([]), error: error.message };
+
+  const dealerResult = await fetchDealerAccounts({ includeDeleted: true });
+  const dealersById = new Map<string, DealerAccount>();
+  const dealersByAccount = new Map<string, DealerAccount>();
+  dealerResult.rows.forEach((dealer) => {
+    dealersById.set(dealer.id, dealer);
+    dealersByAccount.set(dealer.account_number, dealer);
+  });
+
+  const allRows = (data || []).map((raw) => {
+    const contract = rowToContractRecord(raw as Record<string, unknown>);
+    const dealer = (contract.dealer_account_id ? dealersById.get(contract.dealer_account_id) : null)
+      || (contract.dealer_account_number ? dealersByAccount.get(contract.dealer_account_number) : null)
+      || null;
+    return buildOverviewRow(contract, dealer);
+  });
+
+  const scopeSeller = filters.sellerFilter || {
+    id: filters.sellerId,
+    email: filters.sellerEmail,
+    initials: filters.sellerInitials,
+  };
+  const scopedRows = portalRole === "timan_seller" || filters.sellerFilter
+    ? allRows.filter((row) => sellerMatchesScope(row, scopeSeller))
+    : allRows;
+  const query = normalizeOverviewText(filters.query);
+  const partnerType = normalizeOverviewText(filters.partnerType);
+  const status = filters.status || "all";
+
+  const filteredRows = scopedRows.filter((row) => {
+    if (status !== "all" && row.statusGroup !== status) return false;
+    if (partnerType && normalizeOverviewText(row.partnerType) !== partnerType) return false;
+    if (!query) return true;
+    return [
+      row.partnerName,
+      row.accountNumber,
+      row.country,
+      row.sellerInitials,
+      row.sellerName,
+      row.sellerEmail,
+      row.statusLabel,
+      row.contract.contract_number,
+    ].some((value) => normalizeOverviewText(value).includes(query));
+  });
+
+  return {
+    rows: filteredRows,
+    counts: countOverviewRows(scopedRows),
+    error: dealerResult.error ?? null,
+  };
 }
 
 export async function saveDealerContractDraft(

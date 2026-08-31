@@ -29,7 +29,12 @@ import {
   type GuidedContractSection,
 } from '@/lib/contractSections';
 import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
-import { buildDealerContractDraftKey, getCurrentStepId } from '@/lib/dealerContractsService';
+import {
+  buildDealerContractDraftKey,
+  getCurrentStepId,
+  getDealerContractOverviewStatusGroup,
+  getDealerContractOverviewStatusLabel,
+} from '@/lib/dealerContractsService';
 import {
   CONTRACT_PARTNER_TYPE_LABELS,
   CONTRACT_PARTNER_TYPES,
@@ -1128,6 +1133,27 @@ describe('contract flow', () => {
   it('uses a stable draft key per seller and dealer account', () => {
     expect(buildDealerContractDraftKey('BP@Timan.dk', ' 11913 ')).toBe('bp@timan.dk:11913');
     expect(buildDealerContractDraftKey('em@timan.dk', '')).toBe('em@timan.dk:manual');
+  });
+
+  it('maps workflow statuses to the internal overview groups', () => {
+    expect(getDealerContractOverviewStatusGroup('draft')).toBe('draft');
+    expect(getDealerContractOverviewStatusGroup('guided_review')).toBe('draft');
+    expect(getDealerContractOverviewStatusGroup('ready_for_signature')).toBe('pending');
+    expect(getDealerContractOverviewStatusGroup('awaiting_signed_upload')).toBe('pending');
+    expect(getDealerContractOverviewStatusGroup('submitted_for_approval')).toBe('pending');
+    expect(getDealerContractOverviewStatusGroup('changes_requested')).toBe('rejected');
+    expect(getDealerContractOverviewStatusGroup('approved')).toBe('approved');
+    expect(getDealerContractOverviewStatusGroup('archived')).toBe('terminated');
+  });
+
+  it('uses the internal contract overview status labels', () => {
+    expect(getDealerContractOverviewStatusLabel('draft')).toBe('Kladde');
+    expect(getDealerContractOverviewStatusLabel('guided_review')).toBe('Klargjort / klar til gennemgang');
+    expect(getDealerContractOverviewStatusLabel('ready_for_signature')).toBe('Gennemgang / afventer partner');
+    expect(getDealerContractOverviewStatusLabel('submitted_for_approval')).toBe('Modtaget / afventer Timan');
+    expect(getDealerContractOverviewStatusLabel('approved')).toBe('Godkendt');
+    expect(getDealerContractOverviewStatusLabel('changes_requested')).toBe('Ikke godkendt / afvist');
+    expect(getDealerContractOverviewStatusLabel('archived')).toBe('Opsagt / ophørt');
   });
 
   it('keeps appendix 2 discount text verbatim', () => {

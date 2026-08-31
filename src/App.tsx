@@ -274,6 +274,7 @@ const App = () => (
               <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
               <Route path="/portal/timan-2620-afproevning" element={<Timan2620TrialPage />} />
               <Route path="/portal/contracts" element={<ContractsPage />} />
+              <Route path="/portal/contracts/:contractId" element={<ContractsPage />} />
               <Route path="/portal/timan-2620" element={<MesseTiman2620Page backTo="/portal" />} />
               {/* Salg & Marketing > Diverse > Formularer */}
               <Route path="/portal/misc" element={<MiscPage />} />

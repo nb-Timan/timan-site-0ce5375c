@@ -128,7 +128,7 @@ export default function PortalAreaPage({ areaId }: Props) {
     .filter(m => {
       const key = MODULE_ACCESS_MAP[m.id];
       if (!key) return true;
-      if (key === 'contracts' && portalRole === 'timan_backend') return true;
+      if (key === 'contracts' && (portalRole === 'timan_backend' || portalRole === 'timan_seller')) return true;
       return hasModuleAccess(portalRole, key, moduleOverride);
     });
   const showCreateNewsCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);

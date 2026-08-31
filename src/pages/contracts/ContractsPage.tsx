@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Pencil, Save, Search, Trash2, Upload } from 'lucide-react';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Pencil, Plus, Save, Search, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -35,7 +35,9 @@ import {
   createDealerContractUploadVersion,
   deleteDealerContractUploadFile,
   fetchActiveDealerContractAccessWindow,
+  fetchDealerContractById,
   fetchDealerContractDraft,
+  fetchInternalDealerContractOverview,
   fetchDealerContractUploadVersions,
   getCurrentStepId,
   markDealerContractPdfGenerated,
@@ -45,13 +47,17 @@ import {
   uploadDealerContractFile,
   type DealerContractAccessWindow,
   type DealerContractRecord,
+  type DealerContractOverviewRow,
+  type DealerContractOverviewStatusFilter,
   type DealerContractUploadFile,
   type DealerContractUploadVersion,
 } from '@/lib/dealerContractsService';
 import { fetchDealerAccountByNumber, fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
+import { fetchBackendUsers } from '@/lib/backendUsersService';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
 import { APPENDIX_2_EXAMPLE_LINES, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import {
   getGuidedContractDisplayHeading,
@@ -605,6 +611,7 @@ export default function ContractsPage() {
   const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const { contractId: routeContractId } = useParams();
   const [searchParams] = useSearchParams();
   const [activeStepIndex, setActiveStepIndex] = useState(0);
   const [signatureName, setSignatureName] = useState('');
@@ -619,6 +626,18 @@ export default function ContractsPage() {
   const [accessWindowLoaded, setAccessWindowLoaded] = useState(false);
   const [accessWindowBusy, setAccessWindowBusy] = useState<60 | 120 | null>(null);
   const dealerAccountNumber = (searchParams.get('accountNumber') || searchParams.get('dealer') || '').trim();
+  const routeContractIdValue = (routeContractId || '').trim();
+  const startNewContract = searchParams.get('new') === '1';
+  const activeDealerAccountNumber = dealerAccountNumber || contractRecord?.dealer_account_number || '';
+  const portalRole = derivePortalRole(effectiveUser);
+  const internalContractRoles = new Set(['timan_backend', 'timan_seller', 'timan_service']);
+  const overviewContractRoles = new Set(['timan_backend', 'timan_seller']);
+  const isInternalContractActor = !!portalRole && internalContractRoles.has(portalRole);
+  const canUseInternalContractOverview = !!portalRole && overviewContractRoles.has(portalRole);
+  const showInternalContractOverview = canUseInternalContractOverview
+    && !routeContractIdValue
+    && !dealerAccountNumber
+    && !startNewContract;
 
   const draftKey = useMemo(() => (
     `${effectiveUser?.email?.toLowerCase() ?? 'anonymous'}:${dealerAccountNumber || 'manual'}`
@@ -653,14 +672,20 @@ export default function ContractsPage() {
     setContractLoaded(false);
     setContractLoadError(null);
 
-    fetchDealerContractDraft({
-      ownerEmail: effectiveUser.email,
-      dealerAccountNumber,
-    }).then(({ row, error }) => {
+    const loader = routeContractIdValue
+      ? fetchDealerContractById(routeContractIdValue)
+      : showInternalContractOverview
+        ? Promise.resolve({ row: null, error: null })
+        : fetchDealerContractDraft({
+          ownerEmail: effectiveUser.email,
+          dealerAccountNumber,
+        });
+
+    loader.then(({ row, error }) => {
       if (cancelled) return;
       if (error) {
         setContractLoadError(error);
-        toast.error('Kunne ikke hente gemt kontraktkladde.');
+        toast.error(routeContractIdValue ? 'Kunne ikke hente kontrakten.' : 'Kunne ikke hente gemt kontraktkladde.');
         setContractLoaded(true);
         return;
       }
@@ -687,7 +712,7 @@ export default function ContractsPage() {
     });
 
     return () => { cancelled = true; };
-  }, [dealerAccountNumber, draftKey, effectiveUser?.email]);
+  }, [dealerAccountNumber, draftKey, effectiveUser?.email, routeContractIdValue, showInternalContractOverview]);
 
   useEffect(() => {
     if (!effectiveUser) return;
@@ -728,9 +753,9 @@ export default function ContractsPage() {
   }, [effectiveUser]);
 
   useEffect(() => {
-    if (!dealerAccountNumber) return;
+    if (!activeDealerAccountNumber) return;
     let cancelled = false;
-    fetchDealerAccountByNumber(dealerAccountNumber).then(({ row, error }) => {
+    fetchDealerAccountByNumber(activeDealerAccountNumber).then(({ row, error }) => {
       if (cancelled) return;
       if (error) {
         toast.error('Kunne ikke hente forhandlerdata til kontrakten.');
@@ -751,11 +776,8 @@ export default function ContractsPage() {
       }));
     });
     return () => { cancelled = true; };
-  }, [dealerAccountNumber]);
+  }, [activeDealerAccountNumber]);
 
-  const portalRole = derivePortalRole(effectiveUser);
-  const internalContractRoles = new Set(['timan_backend', 'timan_seller', 'timan_service']);
-  const isInternalContractActor = !!portalRole && internalContractRoles.has(portalRole);
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   const hasActiveAccessWindow = Boolean(accessWindow && new Date(accessWindow.expires_at).getTime() > Date.now());
   const hasApprovedPartnerDocumentAccess = ['awaiting_signed_upload', 'submitted_for_approval', 'changes_requested', 'approved', 'archived'].includes(contractRecord?.contract_status ?? '');
@@ -840,29 +862,29 @@ export default function ContractsPage() {
   useEffect(() => {
     let cancelled = false;
     setAccessWindowLoaded(false);
-    if (!dealerAccountNumber) {
+    if (!activeDealerAccountNumber) {
       setAccessWindow(null);
       setAccessWindowLoaded(true);
       return () => { cancelled = true; };
     }
 
-    fetchActiveDealerContractAccessWindow({ dealerAccountNumber, contractId: contractRowId }).then(({ row }) => {
+    fetchActiveDealerContractAccessWindow({ dealerAccountNumber: activeDealerAccountNumber, contractId: contractRowId }).then(({ row }) => {
       if (cancelled) return;
       setAccessWindow(row);
       setAccessWindowLoaded(true);
     });
 
     return () => { cancelled = true; };
-  }, [contractRowId, dealerAccountNumber]);
+  }, [contractRowId, activeDealerAccountNumber]);
 
   const activateGuidedAccess = async (durationMinutes: 60 | 120) => {
-    if (!dealerAccountNumber) {
+    if (!activeDealerAccountNumber) {
       toast.error('Vælg en partnerkonto, før adgang åbnes.');
       return;
     }
     setAccessWindowBusy(durationMinutes);
     const { row, error } = await activateDealerContractAccessWindow({
-      dealerAccountNumber,
+      dealerAccountNumber: activeDealerAccountNumber,
       contractId: contractRowId,
       durationMinutes,
     });
@@ -893,7 +915,7 @@ export default function ContractsPage() {
       id: contractRowId,
       ownerEmail: effectiveUser.email,
       ownerName: effectiveUser.display_name || effectiveUser.email,
-      dealerAccountNumber,
+      dealerAccountNumber: activeDealerAccountNumber,
       activeStepIndex,
       form,
       confirmations,
@@ -919,7 +941,7 @@ export default function ContractsPage() {
       void persistContract();
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [activeStepIndex, confirmations, contractLoaded, dealerAccountNumber, effectiveUser?.email, form, status, workflowStatus]);
+  }, [activeStepIndex, confirmations, contractLoaded, activeDealerAccountNumber, effectiveUser?.email, form, status, workflowStatus]);
 
   const refreshUploadVersions = async (contractId = contractRowId) => {
     if (!contractId) return;
@@ -983,7 +1005,7 @@ export default function ContractsPage() {
       const saved = await saveDealerContractDraft({
         ownerEmail: effectiveUser?.email || form.timanSellerEmail,
         ownerName: effectiveUser?.display_name || effectiveUser?.email || form.timanSellerName,
-        dealerAccountNumber,
+        dealerAccountNumber: activeDealerAccountNumber,
         activeStepIndex,
         form,
         confirmations,
@@ -1277,7 +1299,9 @@ export default function ContractsPage() {
       toast.error('Uploaden kunne ikke sendes til Timan.');
       return;
     }
-    const reloaded = await fetchDealerContractDraft({ ownerEmail: effectiveUser?.email || form.timanSellerEmail, dealerAccountNumber });
+    const reloaded = contractRowId
+      ? await fetchDealerContractById(contractRowId)
+      : await fetchDealerContractDraft({ ownerEmail: effectiveUser?.email || form.timanSellerEmail, dealerAccountNumber: activeDealerAccountNumber });
     if (reloaded.row) setContractRecord(reloaded.row);
     await refreshUploadVersions(contractRowId);
     toast.success('Kontrakten er sendt til Timan-godkendelse.');
@@ -1292,7 +1316,7 @@ export default function ContractsPage() {
   }
 
   if (!appUser) return <Navigate to="/portal" replace />;
-  if (dealerAccountNumber && !accessWindowLoaded) {
+  if (activeDealerAccountNumber && !accessWindowLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-sm text-gray-500">Kontrollerer kontraktadgang...</div>
@@ -1300,6 +1324,24 @@ export default function ContractsPage() {
     );
   }
   if (!hasAccess) return <Navigate to="/portal/salg-marketing" replace />;
+  if (showInternalContractOverview && effectiveUser) {
+    return (
+      <InternalContractsOverview
+        appUser={appUser}
+        effectiveUser={effectiveUser}
+        language={lang}
+        uiLanguage={uiLanguage}
+        portalRole={portalRole}
+        onLanguageChange={setLanguage}
+        onLogout={async () => {
+          await logout();
+          navigate('/portal', { replace: true });
+        }}
+        onOpenContract={(contractId) => navigate(`/portal/contracts/${contractId}`)}
+        onNewContract={() => navigate('/portal/contracts?new=1')}
+      />
+    );
+  }
   if (!contractLoaded && effectiveUser?.email) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -1524,6 +1566,284 @@ export default function ContractsPage() {
       </main>
 
       <PortalFooter language={lang} />
+    </div>
+  );
+}
+
+function InternalContractsOverview({
+  appUser,
+  effectiveUser,
+  language,
+  uiLanguage,
+  portalRole,
+  onLanguageChange,
+  onLogout,
+  onOpenContract,
+  onNewContract,
+}: {
+  appUser: ReturnType<typeof useAppUser>['appUser'];
+  effectiveUser: NonNullable<ReturnType<typeof useEffectivePortalUser>>;
+  language: ReturnType<typeof useLanguage>['language'];
+  uiLanguage: ReturnType<typeof useLanguage>['uiLanguage'];
+  portalRole: string | null;
+  onLanguageChange: (language: ReturnType<typeof useLanguage>['language']) => void;
+  onLogout: () => Promise<void>;
+  onOpenContract: (contractId: string) => void;
+  onNewContract: () => void;
+}) {
+  const [rows, setRows] = useState<DealerContractOverviewRow[]>([]);
+  const [counts, setCounts] = useState({ all: 0, draft: 0, pending: 0, approved: 0, rejected: 0, terminated: 0 });
+  const [loadingOverview, setLoadingOverview] = useState(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<DealerContractOverviewStatusFilter>('all');
+  const [partnerTypeFilter, setPartnerTypeFilter] = useState('');
+  const [sellerFilter, setSellerFilter] = useState('');
+  const [sellerOptions, setSellerOptions] = useState<Array<{ id: string; initials: string; name: string; email: string }>>([]);
+  const isBackend = portalRole === 'timan_backend';
+
+  useEffect(() => {
+    if (!isBackend) {
+      setSellerOptions([]);
+      return;
+    }
+    let cancelled = false;
+    fetchBackendUsers().then((result) => {
+      if (cancelled) return;
+      setSellerOptions(result.users
+        .filter((user) => user.role === 'timan_seller')
+        .map((user) => ({
+          id: user.id,
+          initials: user.initials,
+          name: user.name,
+          email: user.email,
+        }))
+        .sort((a, b) => a.initials.localeCompare(b.initials, 'da')));
+    });
+    return () => { cancelled = true; };
+  }, [isBackend]);
+
+  const selectedSeller = sellerOptions.find((seller) => seller.id === sellerFilter) || null;
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingOverview(true);
+    setOverviewError(null);
+    fetchInternalDealerContractOverview({
+      portalRole,
+      query,
+      status: statusFilter,
+      partnerType: partnerTypeFilter,
+      sellerId: (effectiveUser as unknown as { id?: string | null }).id ?? null,
+      sellerEmail: getEffectiveSellerEmail(appUser),
+      sellerInitials: getEffectiveSellerInitials(appUser),
+      sellerFilter: selectedSeller ? {
+        id: selectedSeller.id,
+        email: selectedSeller.email,
+        initials: selectedSeller.initials,
+      } : null,
+    }).then((result) => {
+      if (cancelled) return;
+      setRows(result.rows);
+      setCounts(result.counts);
+      setOverviewError(result.error);
+      setLoadingOverview(false);
+    });
+    return () => { cancelled = true; };
+  }, [appUser, effectiveUser, partnerTypeFilter, portalRole, query, selectedSeller, statusFilter]);
+
+  const summaryCards: Array<{ id: DealerContractOverviewStatusFilter; label: string; count: number }> = [
+    { id: 'all', label: 'Alle', count: counts.all },
+    { id: 'draft', label: 'Kladder', count: counts.draft },
+    { id: 'pending', label: 'Afventer', count: counts.pending },
+    { id: 'approved', label: 'Godkendte', count: counts.approved },
+    { id: 'terminated', label: 'Opsagte', count: counts.terminated },
+  ];
+
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <PortalHeader
+        user={appUser}
+        language={language}
+        onLanguageChange={onLanguageChange}
+        onLogout={onLogout}
+      />
+      <header className="border-b border-gray-200 bg-white py-6">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-5 px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+                <FileSignature className="h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-950">Kontrakter</h1>
+                <p className="mt-1 text-sm text-gray-500">
+                  Intern oversigt over kladder, gennemgang, godkendelser og historik.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onNewContract}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-800"
+            >
+              <Plus className="h-4 w-4" />
+              Ny kontrakt
+            </button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {summaryCards.map((card) => (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => setStatusFilter(card.id)}
+                className={`rounded-2xl border px-4 py-3 text-left transition ${
+                  statusFilter === card.id
+                    ? 'border-gray-950 bg-gray-950 text-white'
+                    : 'border-gray-200 bg-white text-gray-900 hover:border-emerald-300 hover:bg-emerald-50'
+                }`}
+              >
+                <p className={`text-xs font-bold uppercase tracking-wide ${statusFilter === card.id ? 'text-gray-200' : 'text-gray-500'}`}>{card.label}</p>
+                <p className="mt-1 text-2xl font-bold">{card.count}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-8 sm:px-6 lg:px-8">
+        <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="grid gap-3 lg:grid-cols-[1.3fr_220px_220px_220px]">
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Søg</span>
+              <div className="mt-1 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
+                <Search className="h-4 w-4 text-gray-400" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Partner, kontonummer, land eller sælger"
+                  className="w-full border-0 bg-transparent text-sm font-medium text-gray-900 outline-none placeholder:text-gray-400"
+                />
+              </div>
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Status</span>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as DealerContractOverviewStatusFilter)}
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
+              >
+                <option value="all">Alle</option>
+                <option value="draft">Kladde</option>
+                <option value="pending">Afventer</option>
+                <option value="approved">Godkendt</option>
+                <option value="rejected">Ikke godkendt</option>
+                <option value="terminated">Opsagt / ophørt</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Partnertype</span>
+              <select
+                value={partnerTypeFilter}
+                onChange={(event) => setPartnerTypeFilter(event.target.value)}
+                className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
+              >
+                <option value="">Alle</option>
+                {CONTRACT_PARTNER_TYPES.map((partnerType) => (
+                  <option key={partnerType} value={partnerType}>{getContractPartnerTypeLabel(partnerType, uiLanguage)}</option>
+                ))}
+              </select>
+            </label>
+            {isBackend && (
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Timan-sælger</span>
+                <select
+                  value={sellerFilter}
+                  onChange={(event) => setSellerFilter(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
+                >
+                  <option value="">Alle</option>
+                  {sellerOptions.map((seller) => (
+                    <option key={seller.id} value={seller.id}>{seller.initials} - {seller.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+
+          {overviewError && (
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{overviewError}</p>
+          )}
+
+          <div className="mt-5 overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead>
+                <tr className="text-left text-xs font-bold uppercase tracking-wide text-gray-500">
+                  <th className="px-3 py-3">Partner</th>
+                  <th className="px-3 py-3">Kontonr.</th>
+                  <th className="px-3 py-3">Partnertype</th>
+                  <th className="px-3 py-3">Land</th>
+                  <th className="px-3 py-3">Timan-sælger</th>
+                  <th className="px-3 py-3">Oprettet</th>
+                  <th className="px-3 py-3">Senest ændret</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">Kontraktversion</th>
+                  <th className="px-3 py-3 text-right">Handling</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {loadingOverview ? (
+                  <tr>
+                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-500">Henter kontrakter...</td>
+                  </tr>
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-500">Ingen kontrakter matcher filtrene.</td>
+                  </tr>
+                ) : rows.map((row) => (
+                  <tr key={row.contract.id} className="align-top hover:bg-gray-50">
+                    <td className="px-3 py-3">
+                      <button
+                        type="button"
+                        onClick={() => onOpenContract(row.contract.id)}
+                        className="text-left font-bold text-emerald-800 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      >
+                        {row.partnerName}
+                      </button>
+                    </td>
+                    <td className="px-3 py-3 font-medium text-gray-700">{row.accountNumber || '-'}</td>
+                    <td className="px-3 py-3 text-gray-700">{row.contract.form_data.partnerType ? getContractPartnerTypeLabel(row.contract.form_data.partnerType, uiLanguage) : row.partnerType || '-'}</td>
+                    <td className="px-3 py-3 text-gray-700">{row.country || '-'}</td>
+                    <td className="px-3 py-3 text-gray-700">
+                      <span className="font-bold">{row.sellerInitials || '-'}</span>
+                      {row.sellerName && <span className="block text-xs text-gray-500">{row.sellerName}</span>}
+                    </td>
+                    <td className="px-3 py-3 text-gray-700">{formatDateTimeDa(row.createdAt)}</td>
+                    <td className="px-3 py-3 text-gray-700">{formatDateTimeDa(row.updatedAt)}</td>
+                    <td className="px-3 py-3">
+                      <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                        {row.statusLabel}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-gray-700">{row.contract.contract_version}</td>
+                    <td className="px-3 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => onOpenContract(row.contract.id)}
+                        className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-800 hover:bg-gray-50"
+                      >
+                        {row.actionLabel}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+      <PortalFooter language={language} />
     </div>
   );
 }
