@@ -148,6 +148,97 @@ function contactHasContent(contact: DealerContact): boolean {
   );
 }
 
+type LegacyContactSource = {
+  area: DealerContactArea;
+  roleKey: ProfileI18nKey;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+};
+
+function normalizeContactValue(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function sameContactPerson(contact: DealerContact, source: LegacyContactSource): boolean {
+  return (
+    normalizeContactValue(contact.contact_area) === normalizeContactValue(source.area) &&
+    normalizeContactValue(contact.name) === normalizeContactValue(source.name) &&
+    normalizeContactValue(contact.email) === normalizeContactValue(source.email) &&
+    normalizeContactValue(contact.phone) === normalizeContactValue(source.phone)
+  );
+}
+
+function legacyContactSources(dealer: DealerAccount, t: (k: ProfileI18nKey) => string): LegacyContactSource[] {
+  return [
+    {
+      area: "director",
+      roleKey: "roleDirector",
+      name: dealer.director_name,
+      email: null,
+      phone: null,
+    },
+    {
+      area: "finance",
+      roleKey: "roleFinanceManager",
+      name: dealer.finance_contact_name,
+      email: dealer.finance_contact_email,
+      phone: dealer.finance_contact_phone,
+    },
+    {
+      area: "sales",
+      roleKey: "roleSalesRep",
+      name: dealer.sales_contact_name,
+      email: dealer.sales_contact_email,
+      phone: dealer.sales_contact_phone,
+    },
+    {
+      area: "workshop",
+      roleKey: "roleWorkshopManager",
+      name: dealer.workshop_contact_name,
+      email: dealer.workshop_contact_email,
+      phone: dealer.workshop_contact_phone,
+    },
+    {
+      area: "marketing",
+      roleKey: "roleMarketingManager",
+      name: dealer.marketing_contact_name,
+      email: dealer.marketing_contact_email,
+      phone: dealer.marketing_contact_phone,
+    },
+  ].filter((source) => Boolean(source.name || source.email || source.phone));
+}
+
+function isLegacyPrimaryContact(dealer: DealerAccount, source: LegacyContactSource): boolean {
+  return (
+    normalizeContactValue(dealer.primary_contact_name) === normalizeContactValue(source.name) &&
+    normalizeContactValue(dealer.primary_contact_email) === normalizeContactValue(source.email) &&
+    normalizeContactValue(dealer.primary_contact_phone) === normalizeContactValue(source.phone) &&
+    Boolean(source.name || source.email || source.phone)
+  );
+}
+
+function mergeLegacyContacts(
+  dealer: DealerAccount,
+  rows: DealerContact[],
+  t: (k: ProfileI18nKey) => string,
+): DealerContact[] {
+  const merged = [...rows];
+  for (const source of legacyContactSources(dealer, t)) {
+    if (merged.some((contact) => sameContactPerson(contact, source))) continue;
+    merged.unshift({
+      ...createLocalContact(dealer.id, source.area),
+      id: `local-legacy-${source.area}-${dealer.id}`,
+      role_title: t(source.roleKey),
+      name: source.name,
+      email: source.email,
+      phone: source.phone,
+      is_primary: isLegacyPrimaryContact(dealer, source),
+    });
+  }
+  return merged;
+}
+
 // ---------- module-scope helpers (stable component identity) ----------
 
 interface FieldProps {
@@ -333,12 +424,12 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
       setLoadingContacts(true);
       const rows = await listDealerContacts(dealer.id);
       if (!cancelled) {
-        setContacts(rows);
+        setContacts(mergeLegacyContacts(dealer, rows, t));
         setLoadingContacts(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [dealer.id]);
+  }, [dealer.id, t]);
 
   const completion = useMemo(() => computeCompletion(draft), [draft]);
 
@@ -426,25 +517,6 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
 
   // -------- contact list helpers --------
   const contactsByArea = (area: DealerContactArea) => contacts.filter((c) => c.contact_area === area);
-
-  const isLegacyFirstContact = (name: string | null, email: string | null, phone: string | null) => (
-    (draft.primary_contact_name ?? "") === (name ?? "") &&
-    (draft.primary_contact_email ?? "") === (email ?? "") &&
-    (draft.primary_contact_phone ?? "") === (phone ?? "") &&
-    Boolean(name || email || phone)
-  );
-
-  const setLegacyFirstContact = (name: string | null, email: string | null, phone: string | null, checked: boolean) => {
-    setDraft((d) => ({
-      ...d,
-      primary_contact_name: checked ? name : null,
-      primary_contact_email: checked ? email : null,
-      primary_contact_phone: checked ? phone : null,
-    }));
-    if (checked) {
-      setContacts((prev) => prev.map((c) => ({ ...c, is_primary: false })));
-    }
-  };
 
   const markLegacyMultiple = (area: DealerContactArea) => {
     if (area === "sales") set("sales_has_multiple", true);
@@ -693,23 +765,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         </ProfileSubsection>
 
         <ProfileSubsection title={t("companySectionManagementContacts")}>
-          <ProfileContactBlock
-            title={`${t("contact")} 1`}
-            roleLabel={t("roleDirector")}
-            roleFieldLabel={t("role")}
-            firstContactLabel={t("firstContact")}
-            firstContactChecked={isLegacyFirstContact(draft.director_name, null, null)}
-            canEdit={canEdit}
-            onFirstContactChange={(checked) => setLegacyFirstContact(draft.director_name, null, null, checked)}
-          >
-            <Field id="director_name" label={t("name")} value={draft.director_name} onChange={(v) => set("director_name", v)} disabled={!canEdit} required />
-            <Field id="director_email" label={t("email")} value={null} onChange={() => {}} disabled />
-            <Field id="director_phone" label={t("phone")} value={null} onChange={() => {}} disabled />
-          </ProfileContactBlock>
           <ContactList
             area="director" t={t} roleKeys={ROLE_KEYS_DIRECTOR} canEdit={canEdit}
             contacts={contactsByArea("director")} loading={loadingContacts}
-            firstContactNumber={2}
             onAdd={() => addContact("director")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
             onTransfer={openContactTransfer}
           />
@@ -722,31 +780,17 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         saving={savingSection === "finance"} canEdit={canEdit} t={t}
         onSave={() => void saveAllProfile("finance")}
       >
-        <ProfileContactBlock
-          title={`${t("contact")} 1`}
-          roleLabel={t("roleFinanceManager")}
-          roleFieldLabel={t("role")}
-          firstContactLabel={t("firstContact")}
-          firstContactChecked={isLegacyFirstContact(draft.finance_contact_name, draft.finance_contact_email, draft.finance_contact_phone)}
-          canEdit={canEdit}
-          onFirstContactChange={(checked) => setLegacyFirstContact(draft.finance_contact_name, draft.finance_contact_email, draft.finance_contact_phone, checked)}
-        >
-          <Field id="finance_contact_name" label={t("name")} value={draft.finance_contact_name} onChange={(v) => set("finance_contact_name", v)} disabled={!canEdit} required />
-          <Field id="finance_contact_email" label={t("email")} value={draft.finance_contact_email} onChange={(v) => set("finance_contact_email", v)} disabled={!canEdit} type="email" required />
-          <Field id="finance_contact_phone" label={t("phone")} value={draft.finance_contact_phone} onChange={(v) => set("finance_contact_phone", v)} disabled={!canEdit} />
-        </ProfileContactBlock>
+        <ContactList
+          area="finance" t={t} roleKeys={ROLE_KEYS_FINANCE} canEdit={canEdit}
+          contacts={contactsByArea("finance")} loading={loadingContacts}
+          onAdd={() => addContact("finance")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
+          onTransfer={openContactTransfer}
+        />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field id="invoice_email" label={t("invoiceEmail")} value={draft.invoice_email} onChange={(v) => set("invoice_email", v)} disabled={!canEdit} type="email" required />
           <Field id="payment_terms" label={t("paymentTerms")} value={draft.payment_terms} onChange={(v) => set("payment_terms", v)} disabled={!canEdit} />
           <Field id="currency_code" label={t("currencyCode")} value={draft.currency_code} onChange={(v) => set("currency_code", v)} disabled={!canEdit} />
         </div>
-        <ContactList
-          area="finance" t={t} roleKeys={ROLE_KEYS_FINANCE} canEdit={canEdit}
-          contacts={contactsByArea("finance")} loading={loadingContacts}
-          firstContactNumber={2}
-          onAdd={() => addContact("finance")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
-          onTransfer={openContactTransfer}
-        />
       </SectionShell>
 
       {/* 3) Purchasing/logistics + Sales side-by-side on lg+ */}
@@ -770,23 +814,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           saving={savingSection === "sales"} canEdit={canEdit} t={t}
           onSave={() => void saveAllProfile("sales")}
         >
-          <ProfileContactBlock
-            title={`${t("contact")} 1`}
-            roleLabel={t("roleSalesRep")}
-            roleFieldLabel={t("role")}
-            firstContactLabel={t("firstContact")}
-            firstContactChecked={isLegacyFirstContact(draft.sales_contact_name, draft.sales_contact_email, draft.sales_contact_phone)}
-            canEdit={canEdit}
-            onFirstContactChange={(checked) => setLegacyFirstContact(draft.sales_contact_name, draft.sales_contact_email, draft.sales_contact_phone, checked)}
-          >
-            <Field id="sales_contact_name" label={t("name")} value={draft.sales_contact_name} onChange={(v) => set("sales_contact_name", v)} disabled={!canEdit} required />
-            <Field id="sales_contact_email" label={t("email")} value={draft.sales_contact_email} onChange={(v) => set("sales_contact_email", v)} disabled={!canEdit} type="email" required />
-            <Field id="sales_contact_phone" label={t("phone")} value={draft.sales_contact_phone} onChange={(v) => set("sales_contact_phone", v)} disabled={!canEdit} />
-          </ProfileContactBlock>
           <ContactList
             area="sales" t={t} roleKeys={ROLE_KEYS_SALES} canEdit={canEdit}
             contacts={contactsByArea("sales")} loading={loadingContacts}
-            firstContactNumber={2}
             onAdd={() => addContact("sales")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
             onTransfer={openContactTransfer}
           />
@@ -801,23 +831,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           saving={savingSection === "workshop"} canEdit={canEdit} t={t}
           onSave={() => void saveAllProfile("workshop")}
         >
-          <ProfileContactBlock
-            title={`${t("contact")} 1`}
-            roleLabel={t("roleWorkshopManager")}
-            roleFieldLabel={t("role")}
-            firstContactLabel={t("firstContact")}
-            firstContactChecked={isLegacyFirstContact(draft.workshop_contact_name, draft.workshop_contact_email, draft.workshop_contact_phone)}
-            canEdit={canEdit}
-            onFirstContactChange={(checked) => setLegacyFirstContact(draft.workshop_contact_name, draft.workshop_contact_email, draft.workshop_contact_phone, checked)}
-          >
-            <Field id="workshop_contact_name" label={t("name")} value={draft.workshop_contact_name} onChange={(v) => set("workshop_contact_name", v)} disabled={!canEdit} required />
-            <Field id="workshop_contact_email" label={t("email")} value={draft.workshop_contact_email} onChange={(v) => set("workshop_contact_email", v)} disabled={!canEdit} type="email" required />
-            <Field id="workshop_contact_phone" label={t("phone")} value={draft.workshop_contact_phone} onChange={(v) => set("workshop_contact_phone", v)} disabled={!canEdit} />
-          </ProfileContactBlock>
           <ContactList
             area="workshop" t={t} roleKeys={ROLE_KEYS_WORKSHOP} canEdit={canEdit}
             contacts={contactsByArea("workshop")} loading={loadingContacts}
-            firstContactNumber={2}
             onAdd={() => addContact("workshop")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
             onTransfer={openContactTransfer}
           />
@@ -838,23 +854,9 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
               <Field id="social_youtube" label={t("youtube")} value={draft.social_youtube} onChange={(v) => set("social_youtube", v)} disabled={!canEdit} />
             </div>
           </ProfileSubsection>
-          <ProfileContactBlock
-            title={`${t("contact")} 1`}
-            roleLabel={t("roleMarketingManager")}
-            roleFieldLabel={t("role")}
-            firstContactLabel={t("firstContact")}
-            firstContactChecked={isLegacyFirstContact(draft.marketing_contact_name, draft.marketing_contact_email, draft.marketing_contact_phone)}
-            canEdit={canEdit}
-            onFirstContactChange={(checked) => setLegacyFirstContact(draft.marketing_contact_name, draft.marketing_contact_email, draft.marketing_contact_phone, checked)}
-          >
-            <Field id="marketing_contact_name" label={t("name")} value={draft.marketing_contact_name} onChange={(v) => set("marketing_contact_name", v)} disabled={!canEdit} required />
-            <Field id="marketing_contact_email" label={t("email")} value={draft.marketing_contact_email} onChange={(v) => set("marketing_contact_email", v)} disabled={!canEdit} type="email" required />
-            <Field id="marketing_contact_phone" label={t("phone")} value={draft.marketing_contact_phone} onChange={(v) => set("marketing_contact_phone", v)} disabled={!canEdit} />
-          </ProfileContactBlock>
           <ContactList
             area="marketing" t={t} roleKeys={ROLE_KEYS_MARKETING} canEdit={canEdit}
             contacts={contactsByArea("marketing")} loading={loadingContacts}
-            firstContactNumber={2}
             onAdd={() => addContact("marketing")} onPatch={patchContact} onSave={saveContact} onRemove={removeContact} onSetPrimary={setPrimaryContact}
             onTransfer={openContactTransfer}
           />
@@ -928,19 +930,6 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
 
 // ---------- small helpers ----------
 
-function YesNoToggle({ label, value, onChange, yes, no, disabled }: {
-  label: string; value: boolean; onChange: (v: boolean) => void;
-  yes: string; no: string; disabled?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-sm text-slate-700">{label}</span>
-      <Button size="sm" variant={value ? "default" : "outline"} disabled={disabled} onClick={() => onChange(true)}>{yes}</Button>
-      <Button size="sm" variant={!value ? "default" : "outline"} disabled={disabled} onClick={() => onChange(false)}>{no}</Button>
-    </div>
-  );
-}
-
 function ContactBlock({
   title,
   primaryControl,
@@ -965,47 +954,6 @@ function ContactBlock({
         {children}
       </div>
     </div>
-  );
-}
-
-function ProfileContactBlock({
-  title,
-  roleLabel,
-  roleFieldLabel,
-  firstContactLabel,
-  firstContactChecked,
-  canEdit,
-  onFirstContactChange,
-  children,
-}: {
-  title: string;
-  roleLabel: string;
-  roleFieldLabel: string;
-  firstContactLabel: string;
-  firstContactChecked: boolean;
-  canEdit: boolean;
-  onFirstContactChange: (checked: boolean) => void;
-  children: ReactNode;
-}) {
-  return (
-    <ContactBlock
-      title={title}
-      primaryControl={firstContactChecked ? <Badge variant="secondary">{firstContactLabel}</Badge> : undefined}
-    >
-      <div>
-        <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{roleFieldLabel}</Label>
-        <Input value={roleLabel} disabled />
-      </div>
-      {children}
-      <div className="sm:col-span-2 xl:col-span-4">
-        <FirstContactCheckbox
-          label={firstContactLabel}
-          checked={firstContactChecked}
-          disabled={!canEdit}
-          onChange={onFirstContactChange}
-        />
-      </div>
-    </ContactBlock>
   );
 }
 

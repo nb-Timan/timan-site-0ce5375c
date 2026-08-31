@@ -46,4 +46,13 @@ describe("Partnerdata layout regression guard", () => {
     expect(dealerProfileSource).toContain('t("firstContact")');
     expect(dealerProfileSource).not.toContain('primaryLabel={t("area_primary")}');
   });
+
+  it("renders legacy first contacts through the shared editable contact list", () => {
+    expect(dealerProfileSource).toContain("mergeLegacyContacts");
+    expect(dealerProfileSource).toContain("role_title: t(source.roleKey)");
+    expect(dealerProfileSource).not.toContain("function ProfileContactBlock");
+    expect(dealerProfileSource).not.toContain('id="director_email"');
+    expect(dealerProfileSource).not.toContain('id="marketing_contact_email"');
+    expect(dealerProfileSource).not.toContain('firstContactNumber={2}');
+  });
 });
