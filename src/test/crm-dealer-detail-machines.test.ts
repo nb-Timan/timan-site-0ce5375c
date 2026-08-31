@@ -21,4 +21,8 @@ describe("CRM dealer detail machine register integration", () => {
     expect(source).toContain("getDemoOverviewMachines");
     expect(source).toContain("DealerMachineRegisterRow");
   });
+
+  it("shows the canonical company name under the company and personal data quick card", () => {
+    expect(source).toContain('{ key: "dealer-data", label: tl("open_dealer_data", lang), sublabel: dealer.company_name || undefined');
+  });
 });

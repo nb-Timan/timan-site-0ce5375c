@@ -2697,7 +2697,7 @@ function ContactHero({
     mailAddr  ? { key: "mail",   label: tl("send_mail", lang), sublabel: mailSublabel || undefined, icon: <Mail className="h-5 w-5" />, href: `mailto:${mailAddr}` } : null,
     mapsHref  ? { key: "route",  label: tl("directions", lang), sublabel: addressSublabel, icon: <MapPin className="h-5 w-5" />, href: mapsHref } : null,
     websiteHref ? { key: "web",  label: tl("website", lang), sublabel: websiteDisplay, icon: <Globe className="h-5 w-5" />, href: websiteHref } : null,
-    { key: "dealer-data", label: tl("open_dealer_data", lang), icon: <Building2 className="h-5 w-5" />, href: dealerDataHref },
+    { key: "dealer-data", label: tl("open_dealer_data", lang), sublabel: dealer.company_name || undefined, icon: <Building2 className="h-5 w-5" />, href: dealerDataHref },
   ].filter(Boolean) as HeroAction[];
   const actions = actionsAll;
 
