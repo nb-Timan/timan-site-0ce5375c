@@ -39,12 +39,48 @@ export type ContractTerritoryMapCountryConfig = {
   getFeatureMeta: (feature: GeoJSON.Feature) => ContractTerritoryMapFeatureMeta | null;
 };
 
+const CARTO_LIGHT_BASEMAP_URL = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+const CARTO_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
 export const CONTRACT_TERRITORY_BASEMAP = {
-  url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  url: CARTO_LIGHT_BASEMAP_URL,
+  attribution: CARTO_ATTRIBUTION,
   subdomains: ['a', 'b', 'c', 'd'],
   maxZoom: 19,
 };
+
+export const CONTRACT_TERRITORY_OSM_FALLBACK_BASEMAP = {
+  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  subdomains: ['a', 'b', 'c'],
+  maxZoom: 19,
+};
+
+export function getContractTerritoryCartoBasemapKey() {
+  return (
+    (typeof window !== 'undefined' ? window.__TIMAN_PUBLIC_CONFIG__?.VITE_CARTO_BASEMAP_KEY : undefined) ||
+    (typeof window !== 'undefined' ? window.__TIMAN_PUBLIC_CONFIG__?.VITE_CARTO_MAPS_API_KEY : undefined) ||
+    (typeof window !== 'undefined' ? window.__TIMAN_PUBLIC_CONFIG__?.VITE_CARTO_API_KEY : undefined) ||
+    (import.meta.env.VITE_CARTO_BASEMAP_KEY as string | undefined) ||
+    (import.meta.env.VITE_CARTO_MAPS_API_KEY as string | undefined) ||
+    (import.meta.env.VITE_CARTO_API_KEY as string | undefined) ||
+    ''
+  ).trim();
+}
+
+export function withContractTerritoryCartoBasemapKey(url: string, key = getContractTerritoryCartoBasemapKey()) {
+  if (!key) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}key=${encodeURIComponent(key)}`;
+}
+
+export function getContractTerritoryBasemap() {
+  const cartoKey = getContractTerritoryCartoBasemapKey();
+  if (!cartoKey) return CONTRACT_TERRITORY_OSM_FALLBACK_BASEMAP;
+  return {
+    ...CONTRACT_TERRITORY_BASEMAP,
+    url: withContractTerritoryCartoBasemapKey(CONTRACT_TERRITORY_BASEMAP.url, cartoKey),
+  };
+}
 
 export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLanguage, string>> = {
   title: {

@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync, statSync } from 'node:fs';
 import {
   CONTRACT_TERRITORY_BASEMAP,
+  CONTRACT_TERRITORY_OSM_FALLBACK_BASEMAP,
   CONTRACT_TERRITORY_MAP_COUNTRIES,
+  getContractTerritoryBasemap,
   getContractTerritoryMapCountryConfig,
   getContractTerritoryMapLabel,
   getContractTerritoryMapRegionKeys,
+  withContractTerritoryCartoBasemapKey,
   hasContractTerritoryMapSelection,
   toggleContractTerritoryRegionSelection,
 } from '@/lib/contractTerritoryMap';
@@ -23,12 +26,22 @@ describe('contract territory map config', () => {
     expect(CONTRACT_TERRITORY_MAP_COUNTRIES.SE.geoJsonUrl).toBe(SWEDEN_MUNICIPALITIES_GEOJSON_URL);
   });
 
-  it('uses the shared CARTO/OpenStreetMap light basemap without a frontend API key', () => {
+  it('keeps the shared CARTO/OpenStreetMap light basemap as the preferred provider', () => {
     expect(CONTRACT_TERRITORY_BASEMAP.url).toBe('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
-    expect(CONTRACT_TERRITORY_BASEMAP.url.toLowerCase()).not.toContain('api');
-    expect(CONTRACT_TERRITORY_BASEMAP.url.toLowerCase()).not.toContain('key');
     expect(CONTRACT_TERRITORY_BASEMAP.attribution).toContain('OpenStreetMap');
     expect(CONTRACT_TERRITORY_BASEMAP.attribution).toContain('CARTO');
+  });
+
+  it('adds the public CARTO basemap key to avoid provider watermark tiles', () => {
+    const url = withContractTerritoryCartoBasemapKey(CONTRACT_TERRITORY_BASEMAP.url, 'public-key');
+
+    expect(url).toBe('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?key=public-key');
+  });
+
+  it('falls back to OpenStreetMap when no CARTO basemap key is available', () => {
+    expect(getContractTerritoryBasemap().url).toBe(CONTRACT_TERRITORY_OSM_FALLBACK_BASEMAP.url);
+    expect(getContractTerritoryBasemap().attribution).toContain('OpenStreetMap');
+    expect(getContractTerritoryBasemap().attribution).not.toContain('CARTO');
   });
 
   it('uses selected German PLZ2 regions and keeps postal fields separate', () => {

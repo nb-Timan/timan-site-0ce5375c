@@ -16,9 +16,9 @@ import {
   getContractTerritoryMapLabel,
   getContractTerritoryMapRegionKeys,
   getContractTerritoryMapStateKey,
+  getContractTerritoryBasemap,
   hasContractTerritoryMapSelection,
   toggleContractTerritoryRegionSelection,
-  CONTRACT_TERRITORY_BASEMAP,
   type ContractTerritoryMapCountryConfig,
   type ContractTerritoryMapVariant,
 } from '@/lib/contractTerritoryMap';
@@ -302,6 +302,7 @@ export function ContractTerritoryMap({
   const primaryDescription = describeContractTerritoryArea(primaryTerritory, language);
   const secondaryDescription = describeContractSecondaryTerritoryArea(secondaryTerritory, language);
   const primaryConfig = getContractTerritoryMapCountryConfig(primaryTerritory.country);
+  const basemap = useMemo(() => getContractTerritoryBasemap(), []);
   const stateKey = useMemo(
     () => `${getContractTerritoryMapStateKey(primaryTerritory)}|${visibleSecondary ? getContractTerritoryMapStateKey(secondaryTerritory) : 'none'}`,
     [primaryTerritory, secondaryTerritory, visibleSecondary],
@@ -329,10 +330,10 @@ export function ContractTerritoryMap({
           attributionControl
         >
           <TileLayer
-            url={CONTRACT_TERRITORY_BASEMAP.url}
-            attribution={CONTRACT_TERRITORY_BASEMAP.attribution}
-            subdomains={CONTRACT_TERRITORY_BASEMAP.subdomains}
-            maxZoom={CONTRACT_TERRITORY_BASEMAP.maxZoom}
+            url={basemap.url}
+            attribution={basemap.attribution}
+            subdomains={basemap.subdomains}
+            maxZoom={basemap.maxZoom}
           />
           <ContractTerritoryGeoJsonLayer
             primaryTerritory={primaryTerritory}
