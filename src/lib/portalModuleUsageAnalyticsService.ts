@@ -1,4 +1,8 @@
 import { supabase } from "@/lib/supabase";
+import {
+  normalizePartnerAccountType,
+  type PartnerAccountTypeId,
+} from "@/lib/partnerAccountTypes";
 
 export interface PortalUsageUserOption {
   user_id: string | null;
@@ -6,6 +10,11 @@ export interface PortalUsageUserOption {
   display_name: string | null;
   portal_role: string | null;
   dealer_number: string | null;
+  partner_type?: string | null;
+  partner_account_type?: PartnerAccountTypeId | null;
+  dealer_customer_type?: string | null;
+  dealer_customer_type_label?: string | null;
+  dealer_type?: string | null;
 }
 
 export interface PortalUsageTotals {
@@ -70,12 +79,14 @@ export interface PortalUsageAnalytics {
     month: PortalUsageComparisonPeriod;
     same_period_last_year: PortalUsageComparisonPeriod;
   };
-  filters: {
-    users: PortalUsageUserOption[];
-    roles: string[];
-    dealer_numbers: string[];
-    modules: string[];
-  };
+  filters: PortalUsageAnalyticsFilterOptions;
+}
+
+export interface PortalUsageAnalyticsFilterOptions {
+  users: PortalUsageUserOption[];
+  roles: string[];
+  dealer_numbers: string[];
+  modules: string[];
 }
 
 export interface PortalUsageAnalyticsFilters {
@@ -106,6 +117,21 @@ function normalizeModule(row: any): PortalUsageModuleSummary {
   };
 }
 
+function normalizeUserOption(row: any): PortalUsageUserOption {
+  return {
+    user_id: row?.user_id ?? null,
+    email: String(row?.email || ""),
+    display_name: row?.display_name ?? null,
+    portal_role: row?.portal_role ?? null,
+    dealer_number: row?.dealer_number ?? null,
+    partner_type: row?.partner_type ?? null,
+    partner_account_type: normalizePartnerAccountType(row?.partner_account_type),
+    dealer_customer_type: row?.dealer_customer_type ?? null,
+    dealer_customer_type_label: row?.dealer_customer_type_label ?? null,
+    dealer_type: row?.dealer_type ?? null,
+  };
+}
+
 function normalizeAnalytics(payload: any): PortalUsageAnalytics {
   const totals = payload?.totals || {};
   const comparisons = payload?.comparisons || {};
@@ -126,11 +152,7 @@ function normalizeAnalytics(payload: any): PortalUsageAnalytics {
     },
     users: Array.isArray(payload?.users)
       ? payload.users.map((row: any) => ({
-          user_id: row?.user_id ?? null,
-          email: String(row?.email || ""),
-          display_name: row?.display_name ?? null,
-          portal_role: row?.portal_role ?? null,
-          dealer_number: row?.dealer_number ?? null,
+          ...normalizeUserOption(row),
           last_login: row?.last_login ?? null,
           last_active_at: row?.last_active_at ?? null,
           session_count: num(row?.session_count),
@@ -190,11 +212,17 @@ function normalizeAnalytics(payload: any): PortalUsageAnalytics {
 
 function normalizeFilterOptions(payload: any): PortalUsageAnalytics["filters"] {
   return {
-    users: Array.isArray(payload?.users) ? payload.users : [],
+    users: Array.isArray(payload?.users) ? payload.users.map(normalizeUserOption) : [],
     roles: Array.isArray(payload?.roles) ? payload.roles.filter(Boolean) : [],
     dealer_numbers: Array.isArray(payload?.dealer_numbers) ? payload.dealer_numbers.filter(Boolean) : [],
     modules: Array.isArray(payload?.modules) ? payload.modules.filter(Boolean) : [],
   };
+}
+
+export async function fetchPortalUsageFilterOptions(): Promise<PortalUsageAnalytics["filters"]> {
+  const { data, error } = await supabase.rpc("get_backend_portal_analytics_filter_options");
+  if (error) throw error;
+  return normalizeFilterOptions(data);
 }
 
 export async function fetchPortalUsageAnalytics(filters: PortalUsageAnalyticsFilters = {}): Promise<PortalUsageAnalytics> {
@@ -203,23 +231,16 @@ export async function fetchPortalUsageAnalytics(filters: PortalUsageAnalyticsFil
     return out.length ? out : null;
   };
 
-  const [analyticsResult, filterResult] = await Promise.all([
-    supabase.rpc("get_backend_user_activity_analytics_v2", {
-      p_user_keys: clean(filters.userKeys),
-      p_roles: clean(filters.roles),
-      p_dealer_numbers: clean(filters.dealerNumbers),
-      p_module_keys: clean(filters.moduleKeys),
-      p_days: filters.days ?? 30,
-    }),
-    supabase.rpc("get_backend_portal_analytics_filter_options"),
-  ]);
+  const analyticsResult = await supabase.rpc("get_backend_user_activity_analytics_v2", {
+    p_user_keys: clean(filters.userKeys),
+    p_roles: clean(filters.roles),
+    p_dealer_numbers: clean(filters.dealerNumbers),
+    p_module_keys: clean(filters.moduleKeys),
+    p_days: filters.days ?? 30,
+  });
 
   if (analyticsResult.error) throw analyticsResult.error;
   const analytics = normalizeAnalytics(analyticsResult.data);
-  if (!filterResult.error) {
-    analytics.filters = normalizeFilterOptions(filterResult.data);
-  } else {
-    console.warn("[portalModuleUsageAnalyticsService] Could not fetch active user filter options", filterResult.error);
-  }
+  analytics.filters = await fetchPortalUsageFilterOptions();
   return analytics;
 }

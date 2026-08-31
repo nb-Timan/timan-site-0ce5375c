@@ -40,11 +40,20 @@ import { useLanguage } from "@/context/LanguageContext";
 import { formatDateTime } from "@/lib/format-date";
 import { isBackendActor } from "@/lib/portalAccess";
 import {
+  fetchPortalUsageFilterOptions,
   fetchPortalUsageAnalytics,
   type PortalUsageAnalytics,
+  type PortalUsageAnalyticsFilterOptions,
   type PortalUsageComparisonPeriod,
   type PortalUsageModuleSummary,
 } from "@/lib/portalModuleUsageAnalyticsService";
+import {
+  analyticsUserKey,
+  resolveAnalyticsAudienceScope,
+  resolveAnalyticsPartnerAccountType,
+  type AnalyticsAudienceKey,
+  type AnalyticsPartnerTypeFilter,
+} from "@/lib/portalAnalyticsAudienceScope";
 
 const ALL = "__all__";
 const PERIODS = [
@@ -54,28 +63,22 @@ const PERIODS = [
   { value: "365", label: "12 mdr." },
 ];
 
-const ROLE_GROUPS = [
-  {
-    key: "dealers",
-    label: "Forhandlere",
-    roles: ["timan_dealer", "dealer_user"],
-  },
-  {
-    key: "partners",
-    label: "Importør + forhandler + servicepartner",
-    roles: ["timan_importer", "timan_dealer", "timan_service_partner", "dealer_user"],
-  },
-  {
-    key: "sellers",
-    label: "Timan-sælgere",
-    roles: ["timan_seller"],
-  },
-  {
-    key: "timan",
-    label: "Alle Timan",
-    roles: ["timan_backend", "timan_seller", "timan_service", "exhibition_user"],
-  },
-] as const;
+const AUDIENCE_OPTIONS: { key: AnalyticsAudienceKey; label: string }[] = [
+  { key: "portal", label: "Hele portalen" },
+  { key: "partners", label: "Samarbejdspartnere" },
+  { key: "timan_sellers", label: "Timan-sælgere" },
+  { key: "timan", label: "Alle Timan" },
+  { key: "my_backend", label: "Min backend" },
+];
+
+const PARTNER_TYPE_OPTIONS: { key: AnalyticsPartnerTypeFilter; label: string }[] = [
+  { key: "all", label: "Alle samarbejdspartnere" },
+  { key: "dealer", label: "Forhandlere" },
+  { key: "importer", label: "Importører" },
+  { key: "service_partner", label: "Servicepartnere" },
+];
+
+const NO_USERS_FILTER = ["__no_portal_analytics_users__"];
 
 const MODULE_COLORS = ["#047857", "#2563eb", "#7c3aed", "#f59e0b", "#e11d48", "#0891b2", "#65a30d"];
 
@@ -128,10 +131,6 @@ function formatModuleKey(key: string | null | undefined): string {
 
 function displayUserName(user: { display_name?: string | null; email?: string | null }): string {
   return (user.display_name?.trim() || user.email || "Ukendt bruger").trim();
-}
-
-function userKey(user: { user_id?: string | null; email?: string | null }): string {
-  return String(user.user_id || user.email || "").trim().toLowerCase();
 }
 
 function displayRole(role: string | null | undefined): string {
@@ -289,14 +288,26 @@ export default function BackendPortalAnalyticsPage() {
   const navigate = useNavigate();
   const isBackend = isBackendActor(appUser);
 
+  const [audience, setAudience] = useState<AnalyticsAudienceKey>("portal");
+  const [partnerType, setPartnerType] = useState<AnalyticsPartnerTypeFilter>("all");
   const [selectedUserKeys, setSelectedUserKeys] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [selectedModuleKeys, setSelectedModuleKeys] = useState<string[]>([]);
   const [days, setDays] = useState("30");
   const [analytics, setAnalytics] = useState<PortalUsageAnalytics | null>(null);
+  const [filterOptions, setFilterOptions] = useState<PortalUsageAnalyticsFilterOptions | null>(null);
   const [busy, setBusy] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const resolvedScope = useMemo(() => resolveAnalyticsAudienceScope({
+    users: filterOptions?.users || [],
+    audience,
+    partnerType,
+    currentBackendUserKey: appUser?.email || null,
+    selectedRoles,
+    selectedUserKeys,
+  }), [appUser?.email, audience, filterOptions?.users, partnerType, selectedRoles, selectedUserKeys]);
 
   useEffect(() => {
     if (!isBackend) return;
@@ -304,14 +315,28 @@ export default function BackendPortalAnalyticsPage() {
     setBusy(true);
     setErr(null);
 
-    fetchPortalUsageAnalytics({
-      userKeys: selectedUserKeys,
-      roles: selectedRoles,
-      moduleKeys: selectedModuleKeys,
-      days: Number(days),
-    })
-      .then((data) => {
-        if (!cancelled) setAnalytics(data);
+    fetchPortalUsageFilterOptions()
+      .then(async (options) => {
+        if (cancelled) return;
+        setFilterOptions(options);
+        const scope = resolveAnalyticsAudienceScope({
+          users: options.users,
+          audience,
+          partnerType,
+          currentBackendUserKey: appUser?.email || null,
+          selectedRoles,
+          selectedUserKeys,
+        });
+        const hasScopedAudience = audience !== "portal" || selectedRoles.length > 0 || selectedUserKeys.length > 0 || partnerType !== "all";
+        const data = await fetchPortalUsageAnalytics({
+          userKeys: scope.effectiveUserKeys.length > 0 ? scope.effectiveUserKeys : (hasScopedAudience ? NO_USERS_FILTER : null),
+          moduleKeys: selectedModuleKeys,
+          days: Number(days),
+        });
+        if (!cancelled) {
+          data.filters = options;
+          setAnalytics(data);
+        }
       })
       .catch((error: any) => {
         if (!cancelled) setErr(error?.message || String(error));
@@ -323,11 +348,10 @@ export default function BackendPortalAnalyticsPage() {
     return () => {
       cancelled = true;
     };
-  }, [days, isBackend, refreshKey, selectedModuleKeys, selectedRoles, selectedUserKeys]);
+  }, [appUser?.email, audience, days, isBackend, partnerType, refreshKey, selectedModuleKeys, selectedRoles, selectedUserKeys]);
 
   const selectedUser = useMemo(() => analytics?.users[0] || null, [analytics]);
-  const filterOptions = analytics?.filters;
-  const hasAudienceFilter = selectedUserKeys.length > 0 || selectedRoles.length > 0;
+  const hasAudienceFilter = audience !== "portal" || partnerType !== "all" || selectedUserKeys.length > 0 || selectedRoles.length > 0;
   const hasAnyFilter = hasAudienceFilter || selectedModuleKeys.length > 0;
 
   const toggleValue = (current: string[], value: string, setter: (next: string[]) => void) => {
@@ -335,7 +359,6 @@ export default function BackendPortalAnalyticsPage() {
   };
 
   const toggleUser = (value: string) => {
-    setSelectedRoles([]);
     toggleValue(selectedUserKeys, value, setSelectedUserKeys);
   };
 
@@ -345,30 +368,17 @@ export default function BackendPortalAnalyticsPage() {
   };
 
   const resetScope = () => {
+    setAudience("portal");
+    setPartnerType("all");
     setSelectedUserKeys([]);
     setSelectedRoles([]);
     setSelectedModuleKeys([]);
   };
 
-  const applyRoleGroup = (roles: readonly string[]) => {
-    const groupUserKeys = (filterOptions?.users || [])
-      .filter((user) => user.portal_role && roles.includes(user.portal_role))
-      .map(userKey)
-      .filter(Boolean);
-
-    if (groupUserKeys.length > 0) {
-      setSelectedUserKeys(Array.from(new Set(groupUserKeys)));
-      setSelectedRoles([]);
-      return;
-    }
-
+  const changeAudience = (next: AnalyticsAudienceKey) => {
+    setAudience(next);
+    setPartnerType("all");
     setSelectedUserKeys([]);
-    setSelectedRoles(Array.from(new Set(roles)));
-  };
-
-  const selectCurrentBackendUser = () => {
-    const key = (appUser?.email || "").trim().toLowerCase();
-    setSelectedUserKeys(key ? [key] : []);
     setSelectedRoles([]);
   };
 
@@ -410,31 +420,41 @@ export default function BackendPortalAnalyticsPage() {
         <Card className="mb-6 rounded-lg">
           <CardContent className="space-y-4 p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" variant={!hasAnyFilter ? "default" : "outline"} onClick={resetScope}>
-                Hele portalen
-              </Button>
-              {ROLE_GROUPS.map((group) => {
-                const groupUserKeys = (filterOptions?.users || [])
-                  .filter((user) => user.portal_role && group.roles.includes(user.portal_role))
-                  .map(userKey)
-                  .filter(Boolean);
-                const active = groupUserKeys.length > 0
-                  ? groupUserKeys.every((key) => selectedUserKeys.includes(key))
-                    && selectedUserKeys.every((key) => groupUserKeys.includes(key))
-                    && selectedRoles.length === 0
-                  : group.roles.every((role) => selectedRoles.includes(role))
-                    && selectedRoles.length === group.roles.length
-                    && selectedUserKeys.length === 0;
+              {AUDIENCE_OPTIONS.map((option) => {
+                const active = audience === option.key;
                 return (
-                  <Button key={group.key} size="sm" variant={active ? "default" : "outline"} onClick={() => applyRoleGroup(group.roles)}>
-                    {group.label}
+                  <Button key={option.key} size="sm" variant={active ? "default" : "outline"} onClick={() => changeAudience(option.key)}>
+                    {option.label}
                   </Button>
                 );
               })}
-              <Button size="sm" variant={selectedUserKeys.includes((appUser?.email || "").trim().toLowerCase()) ? "default" : "outline"} onClick={selectCurrentBackendUser}>
-                Min backend
-              </Button>
+              {hasAnyFilter && (
+                <Button size="sm" variant="ghost" onClick={resetScope}>
+                  Nulstil filtre
+                </Button>
+              )}
             </div>
+
+            {audience === "partners" && (
+              <div className="max-w-sm">
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Partnertype</label>
+                <Select
+                  value={partnerType}
+                  onValueChange={(value) => {
+                    setPartnerType(value as AnalyticsPartnerTypeFilter);
+                    setSelectedUserKeys([]);
+                    setSelectedRoles([]);
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Partnertype" /></SelectTrigger>
+                  <SelectContent>
+                    {PARTNER_TYPE_OPTIONS.map((option) => (
+                      <SelectItem key={option.key} value={option.key}>{option.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr_1fr]">
               <div className="rounded-lg border bg-white p-3">
@@ -443,8 +463,11 @@ export default function BackendPortalAnalyticsPage() {
                   Vælg enkelte brugere
                 </div>
                 <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
-                  {(filterOptions?.users || []).map((user) => {
-                    const key = userKey(user);
+                  {resolvedScope.availableUsers.map((user) => {
+                    const key = analyticsUserKey(user);
+                    const partnerLabel = audience === "partners"
+                      ? resolveAnalyticsPartnerAccountType(user)
+                      : null;
                     return (
                       <label key={key} className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
                         <input
@@ -455,13 +478,16 @@ export default function BackendPortalAnalyticsPage() {
                         />
                         <span>
                           <span className="block font-medium text-slate-900">{displayUserName(user)}</span>
-                          <span className="block text-xs text-slate-500">{user.email} · {displayRole(user.portal_role)}</span>
+                          <span className="block text-xs text-slate-500">
+                            {user.email} · {displayRole(user.portal_role)}
+                            {partnerLabel ? ` · ${PARTNER_TYPE_OPTIONS.find((option) => option.key === partnerLabel)?.label || partnerLabel}` : ""}
+                          </span>
                         </span>
                       </label>
                     );
                   })}
-                  {(filterOptions?.users || []).length === 0 && (
-                    <p className="px-2 py-3 text-sm text-slate-400">Ingen brugere med aktivitet endnu.</p>
+                  {resolvedScope.availableUsers.length === 0 && (
+                    <p className="px-2 py-3 text-sm text-slate-400">Ingen brugere matcher det valgte scope.</p>
                   )}
                 </div>
               </div>
@@ -469,7 +495,7 @@ export default function BackendPortalAnalyticsPage() {
               <div className="rounded-lg border bg-white p-3">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Roller / brugergrupper</div>
                 <div className="space-y-1">
-                  {(filterOptions?.roles || []).map((value) => (
+                  {resolvedScope.availableRoles.map((value) => (
                     <label key={value} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-slate-50">
                       <input
                         type="checkbox"
@@ -480,6 +506,9 @@ export default function BackendPortalAnalyticsPage() {
                       <span>{displayRole(value)}</span>
                     </label>
                   ))}
+                  {resolvedScope.availableRoles.length === 0 && (
+                    <p className="px-2 py-3 text-sm text-slate-400">Ingen roller i dette scope.</p>
+                  )}
                 </div>
               </div>
 
@@ -507,9 +536,7 @@ export default function BackendPortalAnalyticsPage() {
                 </Select>
 
                 <div className="rounded-lg border bg-slate-50 p-3 text-xs text-slate-500">
-                  {hasAudienceFilter
-                    ? `${selectedUserKeys.length} brugere · ${selectedRoles.length} roller valgt`
-                    : "Viser hele portalen"}
+                  {resolvedScope.summary || "0 brugere"}
                 </div>
               </div>
             </div>
