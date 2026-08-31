@@ -17,7 +17,6 @@ import {
   RefreshCw,
   TrendingDown,
   TrendingUp,
-  UserRound,
   Users,
 } from "lucide-react";
 import {
@@ -295,6 +294,51 @@ function DataTable({ analytics }: { analytics: PortalUsageAnalytics }) {
   );
 }
 
+function SelectedUserSummary({ user }: { user: PortalUsageAnalytics["users"][number] }) {
+  return (
+    <div className="rounded-lg border border-emerald-100 bg-emerald-50/40 px-4 py-3">
+      <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1.15fr_.75fr_.85fr_.9fr] lg:items-center">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Valgt bruger</div>
+          <div className="font-semibold leading-tight text-slate-950">{displayUserName(user)}</div>
+          <div className="truncate text-xs text-slate-500">{user.email}</div>
+        </div>
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Rolle</div>
+          <div className="font-medium text-slate-900">{displayRole(user.portal_role)}</div>
+        </div>
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Senest aktiv</div>
+          <div className="font-medium text-slate-900">{user.last_active_at ? formatDateTime(user.last_active_at) : "-"}</div>
+        </div>
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Sessioner</div>
+          <div className="font-medium text-slate-900">{user.session_count}</div>
+        </div>
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Aktiv tid</div>
+          <div className="font-medium text-slate-900">{formatSeconds(user.active_seconds)}</div>
+        </div>
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Aktive dage</div>
+          <div className="font-medium text-slate-900">{user.active_days_7} / {user.active_days_30} / {user.active_days_90}</div>
+        </div>
+      </div>
+      <div className="mt-2 text-[11px] text-slate-500">
+        Seneste login: {user.last_login ? formatDateTime(user.last_login) : "-"} · Auth/app-user felt, ikke aktivitetsmåling
+      </div>
+    </div>
+  );
+}
+
+function SelectedUsersNotice({ count }: { count: number }) {
+  return (
+    <div className="rounded-lg border bg-white px-4 py-3 text-sm text-slate-700">
+      <span className="font-semibold text-slate-950">{count} brugere valgt.</span> Den samlede brugertabel vises nedenfor.
+    </div>
+  );
+}
+
 export default function BackendPortalAnalyticsPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
@@ -364,6 +408,9 @@ export default function BackendPortalAnalyticsPage() {
   }, [appUser?.email, audience, days, isBackend, partnerType, refreshKey, selectedModuleKeys, selectedRoles, selectedUserKeys]);
 
   const selectedUser = useMemo(() => analytics?.users[0] || null, [analytics]);
+  const showSingleUserSummary = Boolean(selectedUser && selectedUserKeys.length === 1 && selectedRoles.length === 0);
+  const showMultiUserNotice = selectedUserKeys.length > 1 && selectedRoles.length === 0;
+  const showUsersTable = !showSingleUserSummary;
   const hasAudienceFilter = audience !== "portal" || partnerType !== "all" || selectedUserKeys.length > 0 || selectedRoles.length > 0;
   const hasAnyFilter = hasAudienceFilter || selectedModuleKeys.length > 0;
 
@@ -596,36 +643,8 @@ export default function BackendPortalAnalyticsPage() {
               />
             </div>
 
-            {selectedUser && selectedUserKeys.length === 1 && selectedRoles.length === 0 && (
-              <Card className="rounded-lg border-emerald-100 bg-emerald-50/40">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <UserRound className="h-4 w-4 text-emerald-700" />
-                    Valgt bruger
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-4 text-sm md:grid-cols-4">
-                  <div>
-                    <div className="text-xs uppercase text-slate-500">Navn</div>
-                    <div className="font-semibold text-slate-950">{displayUserName(selectedUser)}</div>
-                    <div className="text-xs text-slate-500">{selectedUser.email}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase text-slate-500">Seneste login</div>
-                    <div className="font-semibold text-slate-950">{selectedUser.last_login ? formatDateTime(selectedUser.last_login) : "-"}</div>
-                    <div className="text-xs text-slate-500">Auth/app-user felt, ikke aktivitetsmåling</div>
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase text-slate-500">Senest aktiv</div>
-                    <div className="font-semibold text-slate-950">{selectedUser.last_active_at ? formatDateTime(selectedUser.last_active_at) : "-"}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase text-slate-500">Sessioner / aktiv tid</div>
-                    <div className="font-semibold text-slate-950">{selectedUser.session_count} · {formatSeconds(selectedUser.active_seconds)}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {showSingleUserSummary && selectedUser && <SelectedUserSummary user={selectedUser} />}
+            {showMultiUserNotice && <SelectedUsersNotice count={selectedUserKeys.length} />}
 
             <div className="grid gap-6 xl:grid-cols-2">
               <Card className="rounded-lg">
@@ -682,7 +701,7 @@ export default function BackendPortalAnalyticsPage() {
               </CardContent>
             </Card>
 
-            <DataTable analytics={analytics} />
+            {showUsersTable && <DataTable analytics={analytics} />}
           </div>
         )}
       </main>
