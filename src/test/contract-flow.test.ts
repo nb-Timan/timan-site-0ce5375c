@@ -31,6 +31,7 @@ import {
 import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import {
   buildDealerContractDraftKey,
+  buildNewDealerContractDraftKey,
   getCurrentStepId,
   getDealerContractOverviewStatusGroup,
   getDealerContractOverviewStatusLabel,
@@ -1133,6 +1134,30 @@ describe('contract flow', () => {
   it('uses a stable draft key per seller and dealer account', () => {
     expect(buildDealerContractDraftKey('BP@Timan.dk', ' 11913 ')).toBe('bp@timan.dk:11913');
     expect(buildDealerContractDraftKey('em@timan.dk', '')).toBe('em@timan.dk:manual');
+  });
+
+  it('uses unique draft keys for explicit new contract flows', () => {
+    const first = buildNewDealerContractDraftKey('BP@Timan.dk', ' 11913 ', 'Contract-A');
+    const second = buildNewDealerContractDraftKey('BP@Timan.dk', ' 11913 ', 'Contract-B');
+
+    expect(first).toBe('bp@timan.dk:11913:new:contract-a');
+    expect(second).toBe('bp@timan.dk:11913:new:contract-b');
+    expect(first).not.toBe(buildDealerContractDraftKey('BP@Timan.dk', ' 11913 '));
+    expect(first).not.toBe(second);
+  });
+
+  it('keeps new-contract navigation separate from continuing existing contract rows', () => {
+    const overviewSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
+
+    expect(overviewSource).toContain("onNewContract={() => navigate('/portal/contracts?new=1')}");
+    expect(overviewSource).toContain("onOpenContract={(contractId) => navigate(`/portal/contracts/${contractId}`)}");
+    expect(overviewSource).toContain('startNewContract');
+    expect(overviewSource).toContain('buildNewDealerContractDraftKey');
+    expect(overviewSource).toContain('draftKey: createdNewContract ? newContractDraftKey : null');
+    expect(overviewSource).toContain("navigate(`/portal/contracts/${row.id}`, { replace: true })");
+    expect(serviceSource).toContain('input.draftKey?.trim().toLowerCase()');
+    expect(serviceSource).toContain('upsert(payload, { onConflict: "draft_key" })');
   });
 
   it('maps workflow statuses to the internal overview groups', () => {

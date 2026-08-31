@@ -39,6 +39,7 @@ import {
   fetchDealerContractById,
   fetchDealerContractDraft,
   fetchInternalDealerContractOverview,
+  buildNewDealerContractDraftKey,
   fetchDealerContractUploadVersions,
   getCurrentStepId,
   markDealerContractPdfGenerated,
@@ -183,6 +184,13 @@ function splitPostalCity(value: string) {
     postalCode: match?.[1] ?? trimmed,
     city: match?.[2] ?? '',
   };
+}
+
+function createNewContractInstanceId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function drawWrappedPdfText(pdf: any, text: string, x: number, y: number, maxWidth: number, lineHeight = 4.2) {
@@ -640,9 +648,14 @@ export default function ContractsPage() {
     && !dealerAccountNumber
     && !startNewContract;
 
-  const draftKey = useMemo(() => (
-    `${effectiveUser?.email?.toLowerCase() ?? 'anonymous'}:${dealerAccountNumber || 'manual'}`
-  ), [dealerAccountNumber, effectiveUser?.email]);
+  const newContractInstanceId = useMemo(() => (
+    startNewContract && !routeContractIdValue ? createNewContractInstanceId() : null
+  ), [dealerAccountNumber, routeContractIdValue, startNewContract]);
+
+  const newContractDraftKey = useMemo(() => {
+    if (!startNewContract || routeContractIdValue || !effectiveUser?.email || !newContractInstanceId) return null;
+    return buildNewDealerContractDraftKey(effectiveUser.email, dealerAccountNumber, newContractInstanceId);
+  }, [dealerAccountNumber, effectiveUser?.email, newContractInstanceId, routeContractIdValue, startNewContract]);
 
   const [form, setForm] = useState<ContractFormData>(() => ({
     dealerName: '',
@@ -677,10 +690,12 @@ export default function ContractsPage() {
       ? fetchDealerContractById(routeContractIdValue)
       : showInternalContractOverview
         ? Promise.resolve({ row: null, error: null })
-        : fetchDealerContractDraft({
-          ownerEmail: effectiveUser.email,
-          dealerAccountNumber,
-        });
+        : startNewContract
+          ? Promise.resolve({ row: null, error: null })
+          : fetchDealerContractDraft({
+            ownerEmail: effectiveUser.email,
+            dealerAccountNumber,
+          });
 
     loader.then(({ row, error }) => {
       if (cancelled) return;
@@ -713,7 +728,7 @@ export default function ContractsPage() {
     });
 
     return () => { cancelled = true; };
-  }, [dealerAccountNumber, draftKey, effectiveUser?.email, routeContractIdValue, showInternalContractOverview]);
+  }, [dealerAccountNumber, effectiveUser?.email, routeContractIdValue, showInternalContractOverview, startNewContract]);
 
   useEffect(() => {
     if (!effectiveUser) return;
@@ -912,8 +927,10 @@ export default function ContractsPage() {
     if (!effectiveUser?.email || !contractLoaded) return;
     if (!['draft', 'guided_review'].includes(workflowStatus)) return;
     const snapshot = options.snapshot ?? getSnapshotForStatus(status);
+    const createdNewContract = startNewContract && !contractRowId;
     const { row, error } = await saveDealerContractDraft({
       id: contractRowId,
+      draftKey: createdNewContract ? newContractDraftKey : null,
       ownerEmail: effectiveUser.email,
       ownerName: effectiveUser.display_name || effectiveUser.email,
       dealerAccountNumber: activeDealerAccountNumber,
@@ -931,6 +948,9 @@ export default function ContractsPage() {
       setContractRowId(row.id);
       setContractRecord(row);
       setFinalSnapshot(row.final_snapshot);
+      if (createdNewContract) {
+        navigate(`/portal/contracts/${row.id}`, { replace: true });
+      }
     }
     if (options.showToast) toast.success('Kontraktkladde gemt.');
   };
@@ -1004,6 +1024,7 @@ export default function ContractsPage() {
     let id = contractRowId;
     if (!id) {
       const saved = await saveDealerContractDraft({
+        draftKey: startNewContract ? newContractDraftKey : null,
         ownerEmail: effectiveUser?.email || form.timanSellerEmail,
         ownerName: effectiveUser?.display_name || effectiveUser?.email || form.timanSellerName,
         dealerAccountNumber: activeDealerAccountNumber,
@@ -1020,6 +1041,9 @@ export default function ContractsPage() {
       id = saved.row.id;
       setContractRowId(id);
       setContractRecord(saved.row);
+      if (startNewContract) {
+        navigate(`/portal/contracts/${id}`, { replace: true });
+      }
     }
 
     const legalSections = renderGuidedContractSections({

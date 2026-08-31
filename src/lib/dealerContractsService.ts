@@ -192,6 +192,7 @@ export type PartnerAgreementHistoryEvent = {
 
 export type SaveDealerContractInput = {
   id?: string | null;
+  draftKey?: string | null;
   ownerEmail: string;
   ownerName?: string | null;
   dealerAccountNumber?: string | null;
@@ -206,6 +207,11 @@ export function buildDealerContractDraftKey(ownerEmail: string, dealerAccountNum
   const owner = ownerEmail.trim().toLowerCase();
   const dealer = (dealerAccountNumber || "manual").trim().toLowerCase();
   return `${owner}:${dealer}`;
+}
+
+export function buildNewDealerContractDraftKey(ownerEmail: string, dealerAccountNumber: string | null | undefined, instanceId: string) {
+  const instance = instanceId.trim().toLowerCase();
+  return `${buildDealerContractDraftKey(ownerEmail, dealerAccountNumber)}:new:${instance || "manual"}`;
 }
 
 export function getCurrentStepId(activeStepIndex: number) {
@@ -552,7 +558,8 @@ export async function fetchInternalDealerContractOverview(
 export async function saveDealerContractDraft(
   input: SaveDealerContractInput,
 ): Promise<{ row: DealerContractRecord | null; error: string | null }> {
-  const draftKey = buildDealerContractDraftKey(input.ownerEmail, input.dealerAccountNumber);
+  const draftKey = input.draftKey?.trim().toLowerCase()
+    || buildDealerContractDraftKey(input.ownerEmail, input.dealerAccountNumber);
   const finalSnapshot = input.finalSnapshot ?? null;
   const payload = {
     id: input.id || undefined,
