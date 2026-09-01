@@ -960,12 +960,6 @@ export default function CrmDealerDetailPage() {
   const lastDoneIso = lastDoneAct?.start_datetime || null;
   const latestActivityIso = [latestQuoteIso, lastDoneIso].filter(Boolean).sort().reverse()[0] || null;
   const fmtKr = (v: number) => `${Math.round(v).toLocaleString('da-DK')} kr.`;
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const monthActsCount = activitiesForScope.filter((a) => {
-    const d = new Date(a.start_datetime);
-    return d >= monthStart && d < monthEnd;
-  }).length;
   const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
 
   const mainDealer = dealers.find(d => d.account_number === mainAccountNumber);
@@ -1410,7 +1404,6 @@ export default function CrmDealerDetailPage() {
                 pipelineValue={livePipelineValue}
                 openLeads={openLeads.length}
                 openDemos={openDemos.length}
-                monthActs={monthActsCount}
                 fmtKr={fmtKr}
                 dealerName={dealer.branch_name || dealer.company_name || ""}
                 lang={lang}
@@ -2816,14 +2809,14 @@ function ContactHero({
 
 
 // ============================================================================
-// KpiStrip — single horizontal strip
-// Order: Orders, Quotes, Leads + Demos (combined), Activities this month, Pipeline
+// KpiStrip — compact centered KPI cards
+// Order: Orders, Quotes, Open leads, Pipeline
 // ============================================================================
 function KpiStrip({
-  orders, quotes, pipelineValue, openLeads, openDemos, monthActs, fmtKr, dealerName, lang,
+  orders, quotes, pipelineValue, openLeads, openDemos, fmtKr, dealerName, lang,
 }: {
   orders: number; quotes: number; pipelineValue: number;
-  openLeads: number; openDemos: number; monthActs: number;
+  openLeads: number; openDemos: number;
   fmtKr: (n: number) => string;
   dealerName?: string;
   lang: PortalUiLanguage;
@@ -2833,7 +2826,7 @@ function KpiStrip({
     { key: "orders",   label: tl("orders", lang), value: String(orders), icon: <FileText className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", link: { href: `/portal/crm/orders${dq}`, label: tl("see_orders", lang) } },
     { key: "quotes",   label: tl("quotes", lang), value: String(quotes), icon: <FileText className="h-4 w-4" />, tint: "bg-sky-100 text-sky-700", link: { href: `/portal/crm/quotes${dq}`, label: tl("see_quotes", lang) } },
     {
-      key: "leads", label: `${tl("open_leads", lang)} + ${tl("demo_leads", lang)}`, tint: "bg-amber-100 text-amber-700",
+      key: "leads", label: tl("open_leads", lang), tint: "bg-amber-100 text-amber-700",
       icon: <TrendingUp className="h-4 w-4" />,
       value: (
         <div className="text-sm font-bold text-slate-900 leading-tight space-y-0.5">
@@ -2843,17 +2836,16 @@ function KpiStrip({
       ),
       link: { href: `/portal/crm/leads${dq}`, label: tl("see_leads", lang) },
     },
-    { key: "acts",     label: tl("activities_month", lang), value: String(monthActs), icon: <ClipboardList className="h-4 w-4" />, tint: "bg-violet-100 text-violet-700", link: { href: `/portal/crm/activities${dq}`, label: tl("see_activities", lang) } },
     { key: "pipeline", label: tl("pipeline", lang), value: pipelineValue > 0 ? fmtKr(pipelineValue) : "—", icon: <TrendingUp className="h-4 w-4" />, tint: "bg-emerald-100 text-emerald-700", emphasis: true },
   ];
 
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-      <div className="grid grid-cols-2 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+      <div className="grid grid-cols-2 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-slate-100">
         {cols.map((c) => (
-          <div key={c.key} className="min-w-0 p-2.5">
-            <div className="mb-1.5 flex items-center gap-1.5">
+          <div key={c.key} className="flex min-w-0 flex-col items-center justify-center p-2 text-center">
+            <div className="mb-1 flex items-center justify-center gap-1.5">
               <span className={`flex h-6 w-6 items-center justify-center rounded-md ${c.tint}`}>{c.icon}</span>
               <span className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 truncate">{c.label}</span>
             </div>
@@ -2861,7 +2853,7 @@ function KpiStrip({
               ? <div className={`text-lg font-bold leading-none ${c.emphasis ? "text-emerald-700" : "text-slate-900"}`}>{c.value}</div>
               : c.value}
             {c.link && (
-              <Link to={c.link.href} className="mt-1.5 inline-block text-[11px] font-semibold text-emerald-700 hover:underline">{c.link.label}</Link>
+              <Link to={c.link.href} className="mt-1 inline-block text-[11px] font-semibold text-emerald-700 hover:underline">{c.link.label}</Link>
 
             )}
           </div>
