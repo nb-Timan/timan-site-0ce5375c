@@ -114,40 +114,6 @@ import RegisteredUsersTable, { buildRegisteredUserRows } from "@/components/port
 import PartnerAgreementHistory from "@/components/portal/PartnerAgreementHistory";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-const T = {
-  back:        { da: "Tilbage til Mine forhandlere" },
-  next_followup: { da: "Næste opfølgning" },
-  none_followup: { da: "Ingen planlagt opfølgning" },
-  contact:     { da: "Kontaktinformation" },
-  master:      { da: "Stamdata" },
-  users:       { da: "Tilknyttede brugere" },
-  no_users:    { da: "Ingen brugere tilknyttet endnu." },
-  notes:       { da: "Notehistorik (intern)" },
-  no_notes:    { da: "Ingen interne noter endnu." },
-  add_note:    { da: "Tilføj aktivitet / note" },
-  note_type:   { da: "Notetype" },
-  note_text:   { da: "Notetekst" },
-  followup:    { da: "Opfølgningsdato" },
-  also_cal:    { da: "Opret også kalenderaktivitet" },
-  cal_title:   { da: "Aktivitetstitel" },
-  cal_type:    { da: "Aktivitetstype" },
-  cal_when:    { da: "Dato/tid" },
-  save:        { da: "Gem" },
-  cancel:      { da: "Annullér" },
-  branch_only: { da: "Kun denne filial" },
-  group_total: { da: "Hele forhandlergruppen" },
-  kpi_open:    { da: "Åbne aktiviteter" },
-  kpi_week:    { da: "Aktiviteter denne uge" },
-  kpi_last:    { da: "Sidste aktivitet" },
-  kpi_next:    { da: "Næste opfølgning" },
-  kpi_leads:   { da: "Åbne leads" },
-  kpi_quotes:  { da: "Tilbud" },
-  kpi_orders:  { da: "Ordrer" },
-  kpi_pipeline:{ da: "Pipeline-værdi" },
-  kpi_won:     { da: "Vundne ordrer" },
-};
-const t = (k: keyof typeof T) => T[k].da;
-
 /** New multilang strings for redesigned dealer detail. */
 type DealerDetailText = Partial<Record<PortalUiLanguage, string>> & { da: string; en?: string };
 const L: Record<string, DealerDetailText> = {
@@ -251,7 +217,9 @@ const L: Record<string, DealerDetailText> = {
   internal_notes:   { da: "Interne noter", en: "Internal notes", de: "Interne Notizen", it: "Note interne", hu: "Belső jegyzetek", sv: "Interna anteckningar", fr: "Notes internes", pl: "Notatki wewnętrzne", cs: "Interní poznámky" },
   shared_notes:     { da: "Delte noter", en: "Shared notes", de: "Geteilte Notizen", it: "Note condivise", hu: "Megosztott jegyzetek", sv: "Delade anteckningar", fr: "Notes partagées", pl: "Notatki udostępnione", cs: "Sdílené poznámky" },
   no_shared_notes:  { da: "Ingen delte noter endnu.", en: "No shared notes yet.", de: "Noch keine geteilten Notizen.", it: "Ancora nessuna nota condivisa.", hu: "Még nincsenek megosztott jegyzetek.", sv: "Inga delade anteckningar ännu.", fr: "Aucune note partagée pour le moment.", pl: "Brak udostępnionych notatek.", cs: "Zatím žádné sdílené poznámky." },
+  no_notes:         { da: "Ingen interne noter endnu.", en: "No internal notes yet.", de: "Noch keine internen Notizen.", it: "Ancora nessuna nota interna.", hu: "Még nincsenek belső jegyzetek.", sv: "Inga interna anteckningar ännu.", fr: "Aucune note interne pour le moment.", pl: "Brak notatek wewnętrznych.", cs: "Zatím žádné interní poznámky." },
   shared:           { da: "Delt", en: "Shared", de: "Geteilt", it: "Condivisa", hu: "Megosztva", sv: "Delad", fr: "Partagée", pl: "Udostępnione", cs: "Sdíleno" },
+  add_activity_note:{ da: "Tilføj aktivitet / note", en: "Add activity / note", de: "Aktivität / Notiz hinzufügen", it: "Aggiungi attività / nota", hu: "Tevékenység / jegyzet hozzáadása", sv: "Lägg till aktivitet / anteckning", fr: "Ajouter une activité / note", pl: "Dodaj aktywność / notatkę", cs: "Přidat aktivitu / poznámku" },
   add_note_title:   { da: "Tilføj note", en: "Add note", de: "Notiz hinzufügen", it: "Aggiungi nota", hu: "Jegyzet hozzáadása", sv: "Lägg till anteckning", fr: "Ajouter une note", pl: "Dodaj notatkę", cs: "Přidat poznámku" },
   dealer_internal_default: { da: "Forhandler: {dealer} · intern som standard", en: "Dealer: {dealer} · internal by default", de: "Händler: {dealer} · standardmäßig intern", it: "Rivenditore: {dealer} · interna come standard", hu: "Kereskedő: {dealer} · alapértelmezetten belső", sv: "Återförsäljare: {dealer} · intern som standard", fr: "Revendeur : {dealer} · interne par défaut", pl: "Dealer: {dealer} · domyślnie wewnętrzna", cs: "Prodejce: {dealer} · výchozí interní" },
   note_text:        { da: "Notetekst", en: "Note text", de: "Notiztext", it: "Testo nota", hu: "Jegyzet szövege", sv: "Anteckningstext", fr: "Texte de la note", pl: "Treść notatki", cs: "Text poznámky" },
@@ -262,7 +230,37 @@ const L: Record<string, DealerDetailText> = {
   date_time:        { da: "Dato/tid", en: "Date/time", de: "Datum/Uhrzeit", it: "Data/ora", hu: "Dátum/idő", sv: "Datum/tid", fr: "Date/heure", pl: "Data/godzina", cs: "Datum/čas" },
   saving:           { da: "Gemmer…", en: "Saving…", de: "Speichern…", it: "Salvataggio…", hu: "Mentés…", sv: "Sparar…", fr: "Enregistrement…", pl: "Zapisywanie…", cs: "Ukládání…" },
   save_note:        { da: "Gem note", en: "Save note", de: "Notiz speichern", it: "Salva nota", hu: "Jegyzet mentése", sv: "Spara anteckning", fr: "Enregistrer la note", pl: "Zapisz notatkę", cs: "Uložit poznámku" },
+  edit_note:        { da: "Ret note", en: "Edit note", de: "Notiz bearbeiten", it: "Modifica nota", hu: "Jegyzet szerkesztése", sv: "Redigera anteckning", fr: "Modifier la note", pl: "Edytuj notatkę", cs: "Upravit poznámku" },
+  delete_note:      { da: "Slet note", en: "Delete note", de: "Notiz löschen", it: "Elimina nota", hu: "Jegyzet törlése", sv: "Ta bort anteckning", fr: "Supprimer la note", pl: "Usuń notatkę", cs: "Smazat poznámku" },
+  share_with_dealer:{ da: "Del med forhandler", en: "Share with dealer", de: "Mit Händler teilen", it: "Condividi con rivenditore", hu: "Megosztás kereskedővel", sv: "Dela med återförsäljare", fr: "Partager avec le revendeur", pl: "Udostępnij dealerowi", cs: "Sdílet s prodejcem" },
+  share_with_timan: { da: "Del med Timan", en: "Share with Timan", de: "Mit Timan teilen", it: "Condividi con Timan", hu: "Megosztás a Timannal", sv: "Dela med Timan", fr: "Partager avec Timan", pl: "Udostępnij Timan", cs: "Sdílet s Timan" },
+  comment_add_placeholder: { da: "Tilføj kommentar...", en: "Add comment...", de: "Kommentar hinzufügen...", it: "Aggiungi commento...", hu: "Megjegyzés hozzáadása...", sv: "Lägg till kommentar...", fr: "Ajouter un commentaire...", pl: "Dodaj komentarz...", cs: "Přidat komentář..." },
+  comment_submit:   { da: "Kommentér", en: "Comment", de: "Kommentieren", it: "Commenta", hu: "Hozzászólás", sv: "Kommentera", fr: "Commenter", pl: "Skomentuj", cs: "Komentovat" },
+  note_save_error:  { da: "Kunne ikke gemme noten.", en: "Could not save the note.", de: "Notiz konnte nicht gespeichert werden.", it: "Impossibile salvare la nota.", hu: "A jegyzet mentése sikertelen.", sv: "Kunde inte spara anteckningen.", fr: "Impossible d’enregistrer la note.", pl: "Nie można zapisać notatki.", cs: "Poznámku se nepodařilo uložit." },
+  note_update_success: { da: "Noten er opdateret.", en: "The note has been updated.", de: "Die Notiz wurde aktualisiert.", it: "La nota è stata aggiornata.", hu: "A jegyzet frissítve.", sv: "Anteckningen har uppdaterats.", fr: "La note a été mise à jour.", pl: "Notatka została zaktualizowana.", cs: "Poznámka byla aktualizována." },
+  note_delete_error: { da: "Kunne ikke slette noten.", en: "Could not delete the note.", de: "Notiz konnte nicht gelöscht werden.", it: "Impossibile eliminare la nota.", hu: "A jegyzet törlése sikertelen.", sv: "Kunde inte ta bort anteckningen.", fr: "Impossible de supprimer la note.", pl: "Nie można usunąć notatki.", cs: "Poznámku se nepodařilo smazat." },
+  note_share_error: { da: "Kunne ikke dele noten.", en: "Could not share the note.", de: "Notiz konnte nicht geteilt werden.", it: "Impossibile condividere la nota.", hu: "A jegyzet megosztása sikertelen.", sv: "Kunde inte dela anteckningen.", fr: "Impossible de partager la note.", pl: "Nie można udostępnić notatki.", cs: "Poznámku se nepodařilo sdílet." },
+  linked_calendar_activity: { da: "Se tilknyttet kalenderaktivitet →", en: "View linked calendar activity →", de: "Verknüpfte Kalenderaktivität ansehen →", it: "Vedi attività calendario collegata →", hu: "Kapcsolt naptári aktivitás megtekintése →", sv: "Visa kopplad kalenderaktivitet →", fr: "Voir l’activité calendrier liée →", pl: "Zobacz powiązaną aktywność kalendarza →", cs: "Zobrazit propojenou aktivitu kalendáře →" },
+  dealer_missing_error: { da: "Ingen forhandler valgt.", en: "No dealer selected.", de: "Kein Händler ausgewählt.", it: "Nessun rivenditore selezionato.", hu: "Nincs kiválasztott kereskedő.", sv: "Ingen återförsäljare vald.", fr: "Aucun revendeur sélectionné.", pl: "Nie wybrano dealera.", cs: "Není vybrán žádný prodejce." },
+  partner_update_error: { da: "Kunne ikke opdatere partneren.", en: "Could not update the partner.", de: "Partner konnte nicht aktualisiert werden.", it: "Impossibile aggiornare il partner.", hu: "A partner frissítése sikertelen.", sv: "Kunde inte uppdatera partnern.", fr: "Impossible de mettre à jour le partenaire.", pl: "Nie można zaktualizować partnera.", cs: "Partnera se nepodařilo aktualizovat." },
+  partner_update_success: { da: "Partneren er opdateret.", en: "The partner has been updated.", de: "Der Partner wurde aktualisiert.", it: "Il partner è stato aggiornato.", hu: "A partner frissítve.", sv: "Partnern har uppdaterats.", fr: "Le partenaire a été mis à jour.", pl: "Partner został zaktualizowany.", cs: "Partner byl aktualizován." },
+  seller_phone_missing: { da: "Telefon ikke angivet", en: "Phone not provided", de: "Telefon nicht angegeben", it: "Telefono non indicato", hu: "Nincs telefonszám megadva", sv: "Telefon saknas", fr: "Téléphone non renseigné", pl: "Nie podano telefonu", cs: "Telefon není uveden" },
   cancel:           { da: "Annullér", en: "Cancel", de: "Abbrechen", it: "Annulla", hu: "Mégse", sv: "Avbryt", fr: "Annuler", pl: "Anuluj", cs: "Zrušit" },
+  contracts:        { da: "Kontrakter", en: "Contracts", de: "Verträge", it: "Contratti", hu: "Szerződések", sv: "Avtal", fr: "Contrats", pl: "Umowy", cs: "Smlouvy" },
+  contract:         { da: "Kontrakt", en: "Contract", de: "Vertrag", it: "Contratto", hu: "Szerződés", sv: "Avtal", fr: "Contrat", pl: "Umowa", cs: "Smlouva" },
+  version:          { da: "Version", en: "Version", de: "Version", it: "Versione", hu: "Verzió", sv: "Version", fr: "Version", pl: "Wersja", cs: "Verze" },
+  date:             { da: "Dato", en: "Date", de: "Datum", it: "Data", hu: "Dátum", sv: "Datum", fr: "Date", pl: "Data", cs: "Datum" },
+  open:             { da: "Åbn", en: "Open", de: "Öffnen", it: "Apri", hu: "Megnyitás", sv: "Öppna", fr: "Ouvrir", pl: "Otwórz", cs: "Otevřít" },
+  assigned_timan_seller: { da: "Tildelt Timan-sælger", en: "Assigned Timan seller", de: "Zugewiesener Timan-Verkäufer", it: "Venditore Timan assegnato", hu: "Hozzárendelt Timan értékesítő", sv: "Tilldelad Timan-säljare", fr: "Commercial Timan assigné", pl: "Przypisany sprzedawca Timan", cs: "Přiřazený prodejce Timan" },
+  no_seller:        { da: "Ingen sælger", en: "No seller", de: "Kein Verkäufer", it: "Nessun venditore", hu: "Nincs értékesítő", sv: "Ingen säljare", fr: "Aucun commercial", pl: "Brak sprzedawcy", cs: "Žádný prodejce" },
+  save_changes:     { da: "Gem ændringer", en: "Save changes", de: "Änderungen speichern", it: "Salva modifiche", hu: "Változások mentése", sv: "Spara ändringar", fr: "Enregistrer les modifications", pl: "Zapisz zmiany", cs: "Uložit změny" },
+  dealer_inactive_closed: { da: "Denne forhandler er lukket.", en: "This dealer is closed.", de: "Dieser Händler ist geschlossen.", it: "Questo rivenditore è chiuso.", hu: "Ez a kereskedő lezárt.", sv: "Den här återförsäljaren är stängd.", fr: "Ce revendeur est fermé.", pl: "Ten dealer jest zamknięty.", cs: "Tento prodejce je uzavřen." },
+  dealer_inactive_blocked: { da: "Denne forhandler er spærret.", en: "This dealer is blocked.", de: "Dieser Händler ist gesperrt.", it: "Questo rivenditore è bloccato.", hu: "Ez a kereskedő zárolt.", sv: "Den här återförsäljaren är spärrad.", fr: "Ce revendeur est bloqué.", pl: "Ten dealer jest zablokowany.", cs: "Tento prodejce je blokován." },
+  status_closed:    { da: "Lukket", en: "Closed", de: "Geschlossen", it: "Chiuso", hu: "Lezárt", sv: "Stängd", fr: "Fermé", pl: "Zamknięty", cs: "Uzavřeno" },
+  status_blocked:   { da: "Spærret", en: "Blocked", de: "Gesperrt", it: "Bloccato", hu: "Zárolt", sv: "Spärrad", fr: "Bloqué", pl: "Zablokowany", cs: "Blokováno" },
+  successor:        { da: "Efterfølger:", en: "Successor:", de: "Nachfolger:", it: "Successore:", hu: "Utód:", sv: "Efterträdare:", fr: "Successeur :", pl: "Następca:", cs: "Nástupce:" },
+  open_successor:   { da: "Åbn efterfølger", en: "Open successor", de: "Nachfolger öffnen", it: "Apri successore", hu: "Utód megnyitása", sv: "Öppna efterträdare", fr: "Ouvrir le successeur", pl: "Otwórz następcę", cs: "Otevřít nástupce" },
+  reason:           { da: "Årsag:", en: "Reason:", de: "Grund:", it: "Motivo:", hu: "Ok:", sv: "Orsak:", fr: "Motif :", pl: "Powód:", cs: "Důvod:" },
   no_partners:      { da: "Ingen samarbejdspartnere tilknyttet endnu.", en: "No collaboration partners yet.", de: "Noch keine Kooperationspartner verknüpft.", it: "Nessun partner collegato.", hu: "Még nincs kapcsolt partner.", sv: "Inga samarbetspartner ännu.", fr: "Aucun partenaire lié pour le moment.", pl: "Brak powiązanych partnerów.", cs: "Zatím žádní propojení partneři." },
   open_page:        { da: "Åbn side", en: "Open page", de: "Seite öffnen", it: "Apri pagina", hu: "Oldal megnyitása", sv: "Öppna sida", fr: "Ouvrir la page", pl: "Otwórz stronę", cs: "Otevřít stránku" },
   quotes:           { da: "Tilbud", en: "Quotes", de: "Angebote", it: "Preventivi", hu: "Árajánlatok", sv: "Offerter", fr: "Devis", pl: "Oferty", cs: "Nabídky" },
@@ -1024,13 +1022,13 @@ export default function CrmDealerDetailPage() {
     });
     setNoteBusyId(null);
     if (!res.ok) {
-      toast.error(res.error || "Kunne ikke gemme noten.");
+      toast.error(res.error || tl("note_save_error", lang));
       return;
     }
     setNotes((prev) => prev.map((row) => row.id === note.id ? { ...row, note_text: text } : row));
     setEditingNoteId(null);
     setEditingNoteText("");
-    toast.success("Noten er opdateret.");
+    toast.success(tl("note_update_success", lang));
   }
 
   async function handleDeleteNote(note: DealerNote) {
@@ -1039,7 +1037,7 @@ export default function CrmDealerDetailPage() {
     const res = await deleteDealerNote(note.id);
     setNoteBusyId(null);
     if (!res.ok) {
-      toast.error(res.error || "Kunne ikke slette noten.");
+      toast.error(res.error || tl("note_delete_error", lang));
       return;
     }
     setNotes((prev) => prev.filter((row) => row.id !== note.id));
@@ -1077,7 +1075,7 @@ export default function CrmDealerDetailPage() {
     const res = await shareDealerNote(note.id);
     setNoteBusyId(null);
     if (!res.ok) {
-      toast.error(res.error || "Kunne ikke dele noten.");
+      toast.error(res.error || tl("note_share_error", lang));
       return;
     }
     setNotes((prev) => prev.map((row) => row.id === note.id
@@ -1198,7 +1196,7 @@ export default function CrmDealerDetailPage() {
                     disabled={noteBusyId === n.id}
                     onClick={() => void handleUpdateNote(n)}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
-                    title="Gem note"
+                    title={tl("save_note", lang)}
                   >
                     <Save className="h-3.5 w-3.5" />
                   </button>
@@ -1207,7 +1205,7 @@ export default function CrmDealerDetailPage() {
                     disabled={noteBusyId === n.id}
                     onClick={() => { setEditingNoteId(null); setEditingNoteText(""); }}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50"
-                    title="Annullér"
+                    title={tl("cancel", lang)}
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -1218,7 +1216,7 @@ export default function CrmDealerDetailPage() {
                     type="button"
                     onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.note_text); }}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
-                    title="Ret note"
+                    title={tl("edit_note", lang)}
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
@@ -1227,7 +1225,7 @@ export default function CrmDealerDetailPage() {
                     disabled={noteBusyId === n.id}
                     onClick={() => void handleDeleteNote(n)}
                     className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-white text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-                    title="Slet note"
+                    title={tl("delete_note", lang)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -1243,7 +1241,7 @@ export default function CrmDealerDetailPage() {
             onClick={() => void handleShareNote(n)}
             className="mt-2 inline-flex items-center rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
           >
-            {noteAuthorParty === "timan" ? "Del med forhandler" : "Del med Timan"}
+            {noteAuthorParty === "timan" ? tl("share_with_dealer", lang) : tl("share_with_timan", lang)}
           </button>
         )}
         {comments.length > 0 && (
@@ -1251,7 +1249,7 @@ export default function CrmDealerDetailPage() {
             {comments.map((comment) => (
               <div key={comment.id} className="rounded-lg bg-white px-3 py-2 text-xs text-slate-700">
                 <div className="mb-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                  <span>{comment.seller_initials || comment.created_by_email || "Kommentar"}</span>
+                  <span>{comment.seller_initials || comment.created_by_email || tl("comment", lang)}</span>
                   <span>·</span>
                   <span>{fmtDateTime(comment.created_at)}</span>
                 </div>
@@ -1271,7 +1269,7 @@ export default function CrmDealerDetailPage() {
                   void handleAddComment(n);
                 }
               }}
-              placeholder="Tilføj kommentar..."
+              placeholder={tl("comment_add_placeholder", lang)}
               className="h-9 min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
             />
             <button
@@ -1281,13 +1279,13 @@ export default function CrmDealerDetailPage() {
               className="inline-flex h-9 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               <Send className="h-3.5 w-3.5" />
-              Kommentér
+              {tl("comment_submit", lang)}
             </button>
           </div>
         )}
         {n.linked_activity_id && (
           <Link to="/portal/crm/calendar" className="text-[11px] text-emerald-700 underline mt-2 inline-block">
-            Se tilknyttet kalenderaktivitet →
+            {tl("linked_calendar_activity", lang)}
           </Link>
         )}
       </li>
@@ -1295,16 +1293,16 @@ export default function CrmDealerDetailPage() {
   }
 
   async function handleSaveDealer(patch: UpdateDealerAccountPatch): Promise<{ ok: boolean; error?: string }> {
-    if (!dealer) return { ok: false, error: "Ingen forhandler valgt." };
+    if (!dealer) return { ok: false, error: tl("dealer_missing_error", lang) };
     const res = await updateDealerAccount(dealer.id, patch);
     if (!res.ok) {
-      toast.error(res.error || "Kunne ikke opdatere partneren.");
+      toast.error(res.error || tl("partner_update_error", lang));
       return res;
     }
     // Refresh only this dealer family; the detail view derives from it.
     const dRes = await fetchDealerAccountFamilyByNumber(accountNumber, { includeDeleted: false });
     setDealers(dRes.rows);
-    toast.success("Partneren er opdateret.");
+    toast.success(tl("partner_update_success", lang));
     setShowEditDealer(false);
     return { ok: true };
   }
@@ -1319,11 +1317,11 @@ export default function CrmDealerDetailPage() {
               "inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-bold text-white " +
               (dealer.is_deleted ? "bg-slate-600" : "bg-rose-600")
             }>
-              {dealer.is_deleted ? "Lukket" : "Spærret"}
+              {dealer.is_deleted ? tl("status_closed", lang) : tl("status_blocked", lang)}
             </span>
             <div className="flex-1 space-y-1">
               <p className="text-sm font-semibold text-amber-900">
-                Denne forhandler er {dealerLifecycleStatus(dealer) === "closed" ? "lukket" : "spærret"}.
+                {tl(dealerLifecycleStatus(dealer) === "closed" ? "dealer_inactive_closed" : "dealer_inactive_blocked", lang)}
               </p>
               {(() => {
                 const byId = new Map(dealers.map((d) => [d.id, d]));
@@ -1335,24 +1333,24 @@ export default function CrmDealerDetailPage() {
                     {successor && (
                       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                         <span className="text-slate-700">
-                          <span className="font-medium">Efterfølger:</span>{" "}
+                          <span className="font-medium">{tl("successor", lang)}</span>{" "}
                           <span className="font-semibold text-slate-900">{successor.company_name}</span>
                         </span>
                         <span className="text-slate-700">
-                          <span className="font-medium">Kontonr.:</span>{" "}
+                          <span className="font-medium">{tl("account_number", lang)}:</span>{" "}
                           <span className="font-mono text-slate-900">{successor.account_number}</span>
                         </span>
                         <Link
                           to={`/portal/crm/my-dealers/${successor.account_number}`}
                           className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:underline"
                         >
-                          Åbn efterfølger <ArrowRight className="h-3.5 w-3.5" />
+                          {tl("open_successor", lang)} <ArrowRight className="h-3.5 w-3.5" />
                         </Link>
                       </div>
                     )}
                     {dealer.closed_reason && (
                       <p className="text-sm text-slate-700">
-                        <span className="font-medium">Årsag:</span>{" "}
+                        <span className="font-medium">{tl("reason", lang)}</span>{" "}
                         <span className="italic">{dealer.closed_reason}</span>
                       </p>
                     )}
@@ -1500,7 +1498,7 @@ export default function CrmDealerDetailPage() {
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
                     <PlusCircle className="h-4 w-4" />
                   </span>
-                  {t("add_note")}
+                  {tl("add_activity_note", lang)}
                 </button>
               </div>
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -1510,7 +1508,7 @@ export default function CrmDealerDetailPage() {
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-700">{internalNotes.length}</span>
                   </h4>
                   {internalNotes.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-3 text-sm text-slate-500">{t("no_notes")}</p>
+                    <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-3 text-sm text-slate-500">{tl("no_notes", lang)}</p>
                   ) : (
                     <ul className="space-y-2">{internalNotes.slice(0, 10).map(renderNoteCard)}</ul>
                   )}
@@ -1532,7 +1530,7 @@ export default function CrmDealerDetailPage() {
             <PartnerAgreementHistory
               dealerAccountId={dealer.id}
               dealerAccountNumber={dealer.account_number}
-              language={legacyLang}
+              language={lang}
               canManage={canEditPartnerAdmin}
               compact
             />
@@ -1559,7 +1557,7 @@ export default function CrmDealerDetailPage() {
         <TabsContent value="documents" className="mt-0">
           <div className="bg-white border border-slate-200 rounded-2xl p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">Kontrakter</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500">{tl("contracts", lang)}</h3>
               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{dealerContracts.length}</span>
             </div>
             {dealerContracts.length === 0 ? (
@@ -1572,12 +1570,12 @@ export default function CrmDealerDetailPage() {
                 <table className="min-w-full text-left text-sm">
                   <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                     <tr>
-                      <th className="py-2 pr-3">Kontrakt</th>
-                      <th className="py-2 pr-3">Version</th>
+                      <th className="py-2 pr-3">{tl("contract", lang)}</th>
+                      <th className="py-2 pr-3">{tl("version", lang)}</th>
                       <th className="py-2 pr-3">Status</th>
-                      <th className="py-2 pr-3">Dato</th>
-                      <th className="py-2 pr-3">Timan-sælger</th>
-                      <th className="py-2 pr-3">Åbn</th>
+                      <th className="py-2 pr-3">{tl("date", lang)}</th>
+                      <th className="py-2 pr-3">{tl("assigned_seller", lang)}</th>
+                      <th className="py-2 pr-3">{tl("open", lang)}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1593,7 +1591,7 @@ export default function CrmDealerDetailPage() {
                             to={`/portal/contracts?accountNumber=${encodeURIComponent(dealer.account_number)}`}
                             className="font-bold text-emerald-700 hover:underline"
                           >
-                            Åbn
+                            {tl("open", lang)}
                           </Link>
                         </td>
                       </tr>
@@ -1624,7 +1622,7 @@ export default function CrmDealerDetailPage() {
       {showNoteModal && (
         <NoteModal
           dealerLabel={dealer.branch_name || dealer.company_name}
-          shareLabel={noteAuthorParty === "timan" ? "Del med forhandler" : "Del med Timan"}
+          shareLabel={noteAuthorParty === "timan" ? tl("share_with_dealer", lang) : tl("share_with_timan", lang)}
           lang={lang}
           onCancel={() => setShowNoteModal(false)}
           onSave={handleAddNote}
@@ -2503,13 +2501,13 @@ function EditDealerModal({
             </label>
           ))}
           <label className="block">
-            <span className="block text-xs font-bold text-slate-600 mb-1">Tildelt Timan-sælger</span>
+            <span className="block text-xs font-bold text-slate-600 mb-1">{tl("assigned_timan_seller", lang)}</span>
             <select
               value={form.seller_id}
               onChange={(e) => applySeller(e.target.value)}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
             >
-              <option value="">Ingen sælger</option>
+              <option value="">{tl("no_seller", lang)}</option>
               {sellerOptions.map((seller) => (
                 <option key={seller.id} value={seller.id}>
                   {seller.initials} - {seller.name}
@@ -2543,7 +2541,7 @@ function EditDealerModal({
             disabled={saving}
             className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100"
           >
-            Annullér
+            {tl("cancel", lang)}
           </button>
           <button
             disabled={saving || !form.company_name.trim() || !form.account_number.trim()}
@@ -2599,7 +2597,7 @@ function EditDealerModal({
             }}
             className="px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
           >
-            {saving ? "Gemmer…" : "Gem ændringer"}
+            {saving ? tl("saving", lang) : tl("save_changes", lang)}
           </button>
         </div>
       </div>
@@ -2709,7 +2707,7 @@ function ContactHero({
     assignedSellerName ? {
       key: "assigned-seller",
       label: tl("assigned_seller", lang),
-      sublabel: [assignedSellerName, assignedSellerPhone || "Telefon ikke angivet", assignedSellerEmail].filter(Boolean).join("\n"),
+      sublabel: [assignedSellerName, assignedSellerPhone || tl("seller_phone_missing", lang), assignedSellerEmail].filter(Boolean).join("\n"),
       icon: <UserCircle2 className="h-4 w-4" />,
       href: assignedSellerEmail ? `mailto:${assignedSellerEmail}` : undefined,
     } : null,

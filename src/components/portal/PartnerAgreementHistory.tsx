@@ -12,29 +12,71 @@ import {
   type PartnerAgreementHistoryEventType,
 } from '@/lib/dealerContractsService';
 import { t } from '@/lib/i18n/translations';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Language } from '@/types/configurator';
 
-const EVENT_OPTIONS: Array<{ type: PartnerAgreementHistoryEventType; label: string }> = [
-  { type: 'partner_info_received', label: 'Partner-/virksomhedsoplysninger modtaget' },
-  { type: 'partner_approved', label: 'Partner godkendt' },
-  { type: 'contract_review_completed', label: 'Kontrakt gennemgået' },
-  { type: 'contract_received', label: 'Kontrakt underskrevet/modtaget' },
-  { type: 'contract_approved', label: 'Kontrakt godkendt' },
-  { type: 'new_agreement', label: 'Ny samarbejdsaftale' },
-  { type: 'collaboration_partner_added', label: 'Samarbejdspartner tilføjet' },
-  { type: 'partner_relation_changed', label: 'Partnerrelation ændret' },
-  { type: 'service_partner_added', label: 'Servicepartner tilføjet' },
-  { type: 'dealer_customer_added', label: 'Forhandlerkunde tilføjet' },
-  { type: 'cooperation_ended', label: 'Samarbejde ophørt' },
+type AgreementLanguage = Language | PortalUiLanguage;
+type AgreementText = Partial<Record<AgreementLanguage, string>> & { da: string; en: string };
+
+const H: Record<string, AgreementText> = {
+  addEvent: { da: 'Tilføj aftalehændelse', en: 'Add agreement event', de: 'Vertragsereignis hinzufügen', fr: 'Ajouter un événement d’accord' },
+  openDocument: { da: 'Åbn dokument', en: 'Open document', de: 'Dokument öffnen', fr: 'Ouvrir le document' },
+  openingDocument: { da: 'Åbner...', en: 'Opening...', de: 'Wird geöffnet...', fr: 'Ouverture...' },
+  documentOpenError: { da: 'Dokumentet kunne ikke åbnes.', en: 'The document could not be opened.', de: 'Das Dokument konnte nicht geöffnet werden.', fr: 'Le document n’a pas pu être ouvert.' },
+  eventType: { da: 'Type', en: 'Type', de: 'Typ', fr: 'Type' },
+  eventDate: { da: 'Dato', en: 'Date', de: 'Datum', fr: 'Date' },
+  eventTitle: { da: 'Kort titel', en: 'Short title', de: 'Kurzer Titel', fr: 'Titre court' },
+  eventDescription: { da: 'Beskrivelse/notat', en: 'Description/note', de: 'Beschreibung/Notiz', fr: 'Description/note' },
+  cancel: { da: 'Annullér', en: 'Cancel', de: 'Abbrechen', fr: 'Annuler' },
+  save: { da: 'Gem', en: 'Save', de: 'Speichern', fr: 'Enregistrer' },
+  saving: { da: 'Gemmer...', en: 'Saving...', de: 'Speichern...', fr: 'Enregistrement...' },
+  partnerInfoReceived: { da: 'Partner-/virksomhedsoplysninger modtaget', en: 'Partner/company information received', de: 'Partner-/Unternehmensdaten erhalten', fr: 'Informations partenaire/entreprise reçues' },
+  partnerApproved: { da: 'Partner godkendt', en: 'Partner approved', de: 'Partner genehmigt', fr: 'Partenaire approuvé' },
+  contractReviewCompleted: { da: 'Kontrakt gennemgået', en: 'Contract reviewed', de: 'Vertrag geprüft', fr: 'Contrat examiné' },
+  contractReceived: { da: 'Kontrakt underskrevet/modtaget', en: 'Contract signed/received', de: 'Vertrag unterschrieben/erhalten', fr: 'Contrat signé/reçu' },
+  contractApproved: { da: 'Kontrakt godkendt', en: 'Contract approved', de: 'Vertrag genehmigt', fr: 'Contrat approuvé' },
+  newAgreement: { da: 'Ny samarbejdsaftale', en: 'New cooperation agreement', de: 'Neue Kooperationsvereinbarung', fr: 'Nouvel accord de coopération' },
+  collaborationPartnerAdded: { da: 'Samarbejdspartner tilføjet', en: 'Collaboration partner added', de: 'Kooperationspartner hinzugefügt', fr: 'Partenaire de collaboration ajouté' },
+  partnerRelationChanged: { da: 'Partnerrelation ændret', en: 'Partner relation changed', de: 'Partnerbeziehung geändert', fr: 'Relation partenaire modifiée' },
+  servicePartnerAdded: { da: 'Servicepartner tilføjet', en: 'Service partner added', de: 'Servicepartner hinzugefügt', fr: 'Partenaire service ajouté' },
+  dealerCustomerAdded: { da: 'Forhandlerkunde tilføjet', en: 'Dealer customer added', de: 'Händlerkunde hinzugefügt', fr: 'Client revendeur ajouté' },
+  cooperationEnded: { da: 'Samarbejde ophørt', en: 'Cooperation ended', de: 'Zusammenarbeit beendet', fr: 'Coopération terminée' },
+};
+
+const EVENT_OPTIONS: Array<{ type: PartnerAgreementHistoryEventType; labelKey: keyof typeof H }> = [
+  { type: 'partner_info_received', labelKey: 'partnerInfoReceived' },
+  { type: 'partner_approved', labelKey: 'partnerApproved' },
+  { type: 'contract_review_completed', labelKey: 'contractReviewCompleted' },
+  { type: 'contract_received', labelKey: 'contractReceived' },
+  { type: 'contract_approved', labelKey: 'contractApproved' },
+  { type: 'new_agreement', labelKey: 'newAgreement' },
+  { type: 'collaboration_partner_added', labelKey: 'collaborationPartnerAdded' },
+  { type: 'partner_relation_changed', labelKey: 'partnerRelationChanged' },
+  { type: 'service_partner_added', labelKey: 'servicePartnerAdded' },
+  { type: 'dealer_customer_added', labelKey: 'dealerCustomerAdded' },
+  { type: 'cooperation_ended', labelKey: 'cooperationEnded' },
 ];
+
+function ht(key: keyof typeof H, language: AgreementLanguage) {
+  return H[key][language] ?? H[key].en ?? H[key].da;
+}
 
 function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function formatDate(value: string, language: Language) {
+function formatDate(value: string, language: AgreementLanguage) {
   if (!value) return '';
-  const locale = language === 'da' ? 'da-DK' : language === 'de' ? 'de-DE' : 'en-GB';
+  const locale =
+    language === 'da' ? 'da-DK'
+      : language === 'de' ? 'de-DE'
+        : language === 'fr' ? 'fr-FR'
+          : language === 'it' ? 'it-IT'
+            : language === 'hu' ? 'hu-HU'
+              : language === 'sv' ? 'sv-SE'
+                : language === 'pl' ? 'pl-PL'
+                  : language === 'cs' ? 'cs-CZ'
+                    : 'en-GB';
   try {
     return new Date(value).toLocaleDateString(locale, {
       day: '2-digit',
@@ -66,7 +108,7 @@ export default function PartnerAgreementHistory({
 }: {
   dealerAccountId?: string | null;
   dealerAccountNumber: string;
-  language: Language;
+  language: AgreementLanguage;
   canManage?: boolean;
   compact?: boolean;
 }) {
@@ -135,7 +177,7 @@ export default function PartnerAgreementHistory({
     const signedUrl = await fetchPartnerAgreementHistoryDocumentUrl(event);
     setOpeningDocumentId(null);
     if (!signedUrl) {
-      toast.error('Dokumentet kunne ikke åbnes.');
+      toast.error(ht('documentOpenError', language));
       return;
     }
     window.open(signedUrl, '_blank', 'noopener,noreferrer');
@@ -149,28 +191,28 @@ export default function PartnerAgreementHistory({
             <History className={compact ? "h-4 w-4" : "h-5 w-5"} />
           </div>
           <div className="min-w-0">
-            <h2 className="text-base font-bold text-slate-950">{t('partnerAgreementHistoryTitle', language)}</h2>
-            <p className="mt-1 text-sm text-slate-500">{t('partnerAgreementHistoryIntro', language)}</p>
+            <h2 className="text-base font-bold text-slate-950">{t('partnerAgreementHistoryTitle', language as PortalUiLanguage)}</h2>
+            <p className="mt-1 text-sm text-slate-500">{t('partnerAgreementHistoryIntro', language as PortalUiLanguage)}</p>
           </div>
         </div>
         {canManage && dealerAccountId && (
           <Button type="button" variant="outline" size="sm" onClick={() => setShowCreateDialog(true)} className="h-8 rounded-md">
             <Plus className="h-4 w-4" />
-            Tilføj aftalehændelse
+            {ht('addEvent', language)}
           </Button>
         )}
       </div>
 
       <div className="mt-5">
-        {loading && <p className="text-sm text-slate-500">{t('partnerAgreementHistoryLoading', language)}</p>}
+        {loading && <p className="text-sm text-slate-500">{t('partnerAgreementHistoryLoading', language as PortalUiLanguage)}</p>}
         {!loading && error && (
           <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            {t('partnerAgreementHistoryError', language)}
+            {t('partnerAgreementHistoryError', language as PortalUiLanguage)}
           </p>
         )}
         {!loading && !error && events.length === 0 && (
           <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-            {t('partnerAgreementHistoryEmpty', language)}
+            {t('partnerAgreementHistoryEmpty', language as PortalUiLanguage)}
           </p>
         )}
         {!loading && !error && events.length > 0 && (
@@ -201,7 +243,7 @@ export default function PartnerAgreementHistory({
                           className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:text-emerald-800 hover:underline disabled:text-slate-400"
                         >
                           <LinkIcon className="h-3.5 w-3.5" />
-                          {openingDocumentId === event.id ? 'Åbner...' : 'Åbn dokument'}
+                          {openingDocumentId === event.id ? ht('openingDocument', language) : ht('openDocument', language)}
                         </button>
                       )}
                     </div>
@@ -216,23 +258,23 @@ export default function PartnerAgreementHistory({
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Tilføj aftalehændelse</DialogTitle>
+            <DialogTitle>{ht('addEvent', language)}</DialogTitle>
           </DialogHeader>
           <form className="space-y-4" onSubmit={handleCreateEvent}>
             <label className="block text-sm font-semibold text-slate-700">
-              Type
+              {ht('eventType', language)}
               <select
                 value={eventType}
                 onChange={(event) => setEventType(event.target.value as PartnerAgreementHistoryEventType)}
                 className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
               >
                 {EVENT_OPTIONS.map((option) => (
-                  <option key={option.type} value={option.type}>{option.label}</option>
+                  <option key={option.type} value={option.type}>{ht(option.labelKey, language)}</option>
                 ))}
               </select>
             </label>
             <label className="block text-sm font-semibold text-slate-700">
-              Dato
+              {ht('eventDate', language)}
               <input
                 type="date"
                 value={eventDate}
@@ -241,7 +283,7 @@ export default function PartnerAgreementHistory({
               />
             </label>
             <label className="block text-sm font-semibold text-slate-700">
-              Kort titel
+              {ht('eventTitle', language)}
               <input
                 value={eventTitle}
                 onChange={(event) => setEventTitle(event.target.value)}
@@ -251,7 +293,7 @@ export default function PartnerAgreementHistory({
               />
             </label>
             <label className="block text-sm font-semibold text-slate-700">
-              Beskrivelse/notat
+              {ht('eventDescription', language)}
               <textarea
                 value={eventDescription}
                 onChange={(event) => setEventDescription(event.target.value)}
@@ -260,8 +302,8 @@ export default function PartnerAgreementHistory({
               />
             </label>
             <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>Annullér</Button>
-              <Button type="submit" disabled={saving || !eventTitle.trim()}>{saving ? 'Gemmer...' : 'Gem'}</Button>
+              <Button type="button" variant="outline" onClick={() => setShowCreateDialog(false)}>{ht('cancel', language)}</Button>
+              <Button type="submit" disabled={saving || !eventTitle.trim()}>{saving ? ht('saving', language) : ht('save', language)}</Button>
             </div>
           </form>
         </DialogContent>
