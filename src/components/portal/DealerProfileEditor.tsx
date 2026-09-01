@@ -50,6 +50,15 @@ import {
   type DealerContact,
   type DealerContactArea,
 } from "@/lib/dealerContactsService";
+import {
+  CONTACT_AREA_CONFIG,
+  ROLE_KEYS_DIRECTOR,
+  ROLE_KEYS_FINANCE,
+  ROLE_KEYS_MARKETING,
+  ROLE_KEYS_PURCHASING,
+  ROLE_KEYS_SALES,
+  ROLE_KEYS_WORKSHOP,
+} from "@/lib/dealerContactModel";
 import { computeCompletion, type SectionKey } from "@/lib/dealerProfileCompletion";
 
 interface Props {
@@ -58,39 +67,6 @@ interface Props {
   canEdit: boolean;
   onUpdated?: (next: DealerAccount) => void;
 }
-
-const ROLE_KEYS_SALES: ProfileI18nKey[] = [
-  "roleSalesDirector", "roleSalesManager", "roleSalesRep", "roleSalesCoordinator", "roleKeyAccount", "roleOther",
-];
-const ROLE_KEYS_FINANCE: ProfileI18nKey[] = [
-  "roleFinanceManager", "roleBookkeeper", "roleInvoicing", "roleAccountsPayableReceivable", "roleAdministration", "roleOther",
-];
-const ROLE_KEYS_PURCHASING: ProfileI18nKey[] = [
-  "rolePurchasingManager", "rolePurchaser", "rolePartsPurchasing", "roleLogisticsManager", "roleLogisticsCoordinator", "roleOther",
-];
-const ROLE_KEYS_WORKSHOP: ProfileI18nKey[] = [
-  "roleWorkshopManager", "roleServiceManager", "roleServiceTechnician", "roleMechanic",
-  "roleServiceCoord", "rolePartsManager", "roleOther",
-];
-const ROLE_KEYS_DIRECTOR: ProfileI18nKey[] = [
-  "roleDirector", "roleOwner", "roleManagingDirector", "roleAdministration", "roleOther",
-];
-const ROLE_KEYS_MARKETING: ProfileI18nKey[] = [
-  "roleMarketingManager", "roleMarketingCoordinator", "roleSocialMedia", "roleWebsiteManager", "roleCommunications", "roleOther",
-];
-
-const CONTACT_AREA_CONFIG: Array<{
-  area: DealerContactArea;
-  labelKey: ProfileI18nKey;
-  roleKeys: ProfileI18nKey[];
-}> = [
-  { area: "director", labelKey: "sec1", roleKeys: ROLE_KEYS_DIRECTOR },
-  { area: "finance", labelKey: "sec2", roleKeys: ROLE_KEYS_FINANCE },
-  { area: "parts", labelKey: "sec3", roleKeys: ROLE_KEYS_PURCHASING },
-  { area: "sales", labelKey: "sec4", roleKeys: ROLE_KEYS_SALES },
-  { area: "workshop", labelKey: "sec5", roleKeys: ROLE_KEYS_WORKSHOP },
-  { area: "marketing", labelKey: "sec6", roleKeys: ROLE_KEYS_MARKETING },
-];
 
 type ContactTransferMode = "move" | "duplicate";
 type ContactTransferDialogState = {
