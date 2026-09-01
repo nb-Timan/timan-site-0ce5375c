@@ -4,6 +4,7 @@
  * dealer_accounts row via current_user_dealer_number().
  */
 import { supabase } from "@/lib/supabase";
+import type { DealerAccount } from "@/lib/dealerAccountsService";
 
 export type DealerContactArea = "director" | "sales" | "workshop" | "parts" | "marketing" | "finance";
 
@@ -18,6 +19,61 @@ export interface DealerContact {
   is_primary: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface ResolvedDealerContact {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  source: "dealer_contacts" | "dealer_accounts_primary" | "dealer_accounts_sales";
+}
+
+function firstText(...values: Array<string | null | undefined>): string | null {
+  const value = values.find((v) => typeof v === "string" && v.trim().length > 0);
+  return value ? value.trim() : null;
+}
+
+function hasContactValue(contact: Pick<ResolvedDealerContact, "name" | "email" | "phone">): boolean {
+  return Boolean(firstText(contact.name, contact.email, contact.phone));
+}
+
+export function resolveCanonicalFirstContact(
+  dealer: Pick<
+    DealerAccount,
+    | "primary_contact_name"
+    | "primary_contact_email"
+    | "primary_contact_phone"
+    | "sales_contact_name"
+    | "sales_contact_email"
+    | "sales_contact_phone"
+  >,
+  contacts: DealerContact[] = [],
+): ResolvedDealerContact | null {
+  const primaryContact = contacts.find((contact) => contact.is_primary && hasContactValue(contact));
+  if (primaryContact) {
+    return {
+      name: firstText(primaryContact.name),
+      email: firstText(primaryContact.email),
+      phone: firstText(primaryContact.phone),
+      source: "dealer_contacts",
+    };
+  }
+
+  const legacyPrimary = {
+    name: firstText(dealer.primary_contact_name),
+    email: firstText(dealer.primary_contact_email),
+    phone: firstText(dealer.primary_contact_phone),
+  };
+  if (hasContactValue(legacyPrimary)) return { ...legacyPrimary, source: "dealer_accounts_primary" };
+
+  const legacySales = {
+    name: firstText(dealer.sales_contact_name),
+    email: firstText(dealer.sales_contact_email),
+    phone: firstText(dealer.sales_contact_phone),
+  };
+  if (hasContactValue(legacySales)) return { ...legacySales, source: "dealer_accounts_sales" };
+
+  return null;
 }
 
 function rowToContact(r: Record<string, unknown>): DealerContact {

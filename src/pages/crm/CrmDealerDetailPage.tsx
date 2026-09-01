@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { listDealerContacts, type DealerContact } from "@/lib/dealerContactsService";
+import { listDealerContacts, resolveCanonicalFirstContact, type DealerContact } from "@/lib/dealerContactsService";
 import { toast } from "sonner";
 import { useAppUser, type SessionUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -2652,26 +2652,23 @@ function ContactHero({
   budgetYear: number;
   onEdit: () => void;
 }) {
-  const primaryRow = contacts.find((c) => c.is_primary) || null;
-  const primaryName =
-    primaryRow?.name || dealer.primary_contact_name || dealer.sales_contact_name || null;
-  const primaryEmail =
-    primaryRow?.email || dealer.primary_contact_email || dealer.sales_contact_email || null;
-  const primaryPhone =
-    primaryRow?.phone || dealer.primary_contact_phone || dealer.sales_contact_phone || null;
+  const firstContact = resolveCanonicalFirstContact(dealer, contacts);
+  const primaryName = firstContact?.name ?? null;
+  const primaryEmail = firstContact?.email ?? null;
+  const primaryPhone = firstContact?.phone ?? null;
 
   // Fallbacks: action cards use company-level data if no primary contact.
-  const callPhone = primaryPhone || dealer.phone || null;
-  const mailAddr  = primaryEmail || dealer.email || null;
+  const callPhone = primaryPhone || (!firstContact ? dealer.phone : null);
+  const mailAddr  = primaryEmail || (!firstContact ? dealer.email : null);
   const callLabel = tl(primaryName ? "contact_call" : "call", lang);
   const callSublabel = primaryName && callPhone ? `${primaryName}\n${callPhone}` : [primaryName, callPhone].filter(Boolean).join("\n");
   const mailSublabel = primaryEmail
     ? [primaryName, primaryEmail].filter(Boolean).join("\n")
     : mailAddr;
 
-  const addressLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2, dealer.postal_code, dealer.city, dealer.country]
+  const addressLine = [dealer.address_line_1 || dealer.address, dealer.postal_code, dealer.city, dealer.country]
     .filter(Boolean).join(", ");
-  const addressPrimaryLine = [dealer.address_line_1 || dealer.address, dealer.address_line_2].filter(Boolean).join(", ");
+  const addressPrimaryLine = [dealer.address_line_1 || dealer.address].filter(Boolean).join(", ");
   const addressSecondaryLine = [dealer.postal_code, dealer.city].filter(Boolean).join(" ");
   const addressSublabel = [addressPrimaryLine, addressSecondaryLine].filter(Boolean).join("\n") || undefined;
   const hasCoords = typeof dealer.latitude === "number" && typeof dealer.longitude === "number";
@@ -2704,7 +2701,7 @@ function ContactHero({
     ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}`
     : "/portal/dealer-data";
   const actionsAll: HeroAction[] = [
-    callPhone ? { key: "call",   label: callLabel, sublabel: callSublabel, icon: <Phone className="h-4 w-4" />, href: `tel:${callPhone}` } : null,
+    (primaryName || callPhone) ? { key: "call",   label: callLabel, sublabel: callSublabel || undefined, icon: <Phone className="h-4 w-4" />, href: callPhone ? `tel:${callPhone}` : undefined } : null,
     mailAddr  ? { key: "mail",   label: tl("send_mail", lang), sublabel: mailSublabel || undefined, icon: <Mail className="h-4 w-4" />, href: `mailto:${mailAddr}` } : null,
     mapsHref  ? { key: "route",  label: tl("directions", lang), sublabel: addressSublabel, icon: <MapPin className="h-4 w-4" />, href: mapsHref } : null,
     websiteHref ? { key: "web",  label: tl("website", lang), sublabel: websiteDisplay, icon: <Globe className="h-4 w-4" />, href: websiteHref } : null,

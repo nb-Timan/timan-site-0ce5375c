@@ -25,4 +25,11 @@ describe("CRM dealer detail machine register integration", () => {
   it("shows the canonical company name under the company and personal data quick card", () => {
     expect(source).toContain('{ key: "dealer-data", label: tl("open_dealer_data", lang), sublabel: dealer.company_name || undefined');
   });
+
+  it("uses the shared Partnerdata first-contact resolver for quick cards", () => {
+    expect(source).toContain("resolveCanonicalFirstContact(dealer, contacts)");
+    expect(source).not.toContain("contacts.find((c) => c.is_primary)");
+    expect(source).toContain("(primaryName || callPhone) ? { key: \"call\"");
+    expect(source).toContain("const mailAddr  = primaryEmail || (!firstContact ? dealer.email : null);");
+  });
 });
