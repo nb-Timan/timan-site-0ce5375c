@@ -90,7 +90,7 @@ function syncCrmActivityToN8n(row: CalendarActivity): void {
         }
         const payload = {
           title: row.title || "",
-          description: row.note || "Oprettet fra Timan CRM",
+          description: row.note || "Oprettet fra CRM",
           start: row.start_datetime,
           end: row.end_datetime || row.start_datetime,
           user_email: email,

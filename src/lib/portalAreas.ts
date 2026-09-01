@@ -62,7 +62,7 @@ export const PORTAL_AREAS: PortalArea[] = [
   },
   {
     id: 'timan_crm',
-    title: { da: 'Timan CRM', en: 'Timan CRM', de: 'Timan CRM', it: 'Timan CRM', hu: 'Timan CRM' },
+    title: { da: 'CRM', en: 'CRM', de: 'CRM', it: 'CRM', hu: 'CRM' },
     description: {
       da: 'Forhandlere, kontakter, aktiviteter og pipeline.',
       en: 'Dealers, contacts, activities and pipeline.',

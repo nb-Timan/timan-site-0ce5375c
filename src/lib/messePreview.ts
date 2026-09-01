@@ -1,5 +1,5 @@
 /**
- * Timan Messe preview mode — backend "Vis som Timan Messe" handler.
+ * Messe preview mode — backend "Vis som Messe" handler.
  *
  * Backend users may temporarily preview the Messe layout from the
  * PortalHeader role/view selector. The selection is stored per-user via the

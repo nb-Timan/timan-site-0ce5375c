@@ -227,7 +227,7 @@ export default function LoginStep({ language, onResolved }: LoginStepProps) {
         can_edit_discount: appUserRow.can_edit_discount ?? false,
         can_switch_customer_mode: appUserRow.can_switch_customer_mode ?? false,
         working_for: appUserRow.working_for ?? null,
-        display_name: isKnownMesseLogin ? 'Timan Messe' : (appUserRow.display_name || appUserRow.full_name),
+        display_name: isKnownMesseLogin ? 'Messe' : (appUserRow.display_name || appUserRow.full_name),
         portal_role: appUserRow.portal_role ?? null,
         preferred_language: appUserRow.preferred_language ?? null,
         preferred_currency: appUserRow.preferred_currency ?? null,

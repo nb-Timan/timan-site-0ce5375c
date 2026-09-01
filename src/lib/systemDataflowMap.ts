@@ -133,7 +133,7 @@ const baseNodes: SystemMapNode[] = [
   },
   {
     id: "crm",
-    title: "Timan CRM",
+    title: "CRM",
     subtitle: "Leads, demoer og pipeline",
     kind: "module",
     area: "crm",
@@ -266,7 +266,7 @@ const baseNodes: SystemMapNode[] = [
   },
   {
     id: "messe",
-    title: "Timan Messe",
+    title: "Messe",
     subtitle: "QR-flow og messeleads",
     kind: "module",
     area: "messe",

@@ -116,7 +116,7 @@ export const backendSections: BackendSection[] = [
     items: [
       { title: "Systemkort", icon: Network, to: "/portal/backend/system-map", description: "Visuelt overblik over portalen, moduler, integrationer og dataflows." },
       { title: "Persistence Audit", icon: FileSearch, to: "/portal/backend/persistence-audit", description: "Tjek dataintegritet og overvåg gemte ressourcer." },
-      { title: "Timan Messe", icon: QrCode, to: "/portal/backend/messe", description: "Aktivér offentlig QR-adgang til /messe og download QR-kode til messer." },
+      { title: "Messe", icon: QrCode, to: "/portal/backend/messe", description: "Aktivér offentlig QR-adgang til /messe og download QR-kode til messer." },
       { title: "Mail Log", icon: Mail, description: "Log over udsendte mails fra portalen." },
       { title: "Job Queue", icon: ListChecks, description: "Baggrundsjobs og kørselshistorik." },
       { title: "Systemstatus", icon: Activity, description: "Edge functions, database og integrationer." },

@@ -33,8 +33,8 @@
  *   /portal/service/tickets/*         → /portal/service/tickets ("Service tickets")
  *   /portal/service/*                 → /portal/teknik-service  ("Teknik & Service")
  *   /portal/dealer-data               → /portal                 ("portal")
- *   /messe/resources/driftberegner    → /messe                  ("Timan Messe")
- *   /messe/resources/co2              → /messe                  ("Timan Messe")
+ *   /messe/resources/driftberegner    → /messe                  ("Messe")
+ *   /messe/resources/co2              → /messe                  ("Messe")
  *   /configurator                     → /portal/salg-marketing  ("Salg & Marketing")
  *   default                           → /portal                 ("portal")
  */
@@ -77,7 +77,7 @@ type BackLabelKey =
 
 const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   portal:          { da: 'Tilbage til portal',        en: 'Back to portal',         de: 'Zurück zum Portal',         it: 'Torna al portale',         hu: 'Vissza a portálra' },
-  messe:           { da: 'Tilbage til Timan Messe',   en: 'Back to Timan Exhibition', de: 'Zurück zu Timan Messe',   it: 'Torna a Timan Fiera',      hu: 'Vissza a Timan kiállításhoz' },
+  messe:           { da: 'Tilbage til Messe',         en: 'Back to Exhibition',       de: 'Zurück zu Messe',         it: 'Torna a Fiera',            hu: 'Vissza a kiállításhoz' },
   sales_marketing: { da: 'Tilbage til Salg', en: 'Back to Sales', de: 'Zurück zu Vertrieb', it: 'Torna a Vendite', hu: 'Vissza: Értékesítés' },
   service_area:    { da: 'Tilbage til Teknik & Service', en: 'Back to Technical & Service', de: 'Zurück zu Technik & Service', it: 'Torna a Tecnico & Assistenza', hu: 'Vissza: Műszaki & Szerviz' },
   backend_area:    { da: 'Tilbage til Backend',       en: 'Back to Backend',        de: 'Zurück zum Backend',        it: 'Torna al Backend',         hu: 'Vissza a Backendhez' },

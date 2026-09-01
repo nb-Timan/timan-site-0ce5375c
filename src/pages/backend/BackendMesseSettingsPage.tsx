@@ -1,5 +1,5 @@
 /**
- * Backend → Timan Messe settings.
+ * Backend → Messe settings.
  *
  * - Shows the login-protected Messe entry URL
  * - Copy link to clipboard
@@ -69,7 +69,7 @@ export default function BackendMesseSettingsPage() {
             <QrCode className="h-6 w-6 text-amber-600" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Timan Messe</h1>
+            <h1 className="text-3xl font-bold text-slate-900">Messe</h1>
             <p className="text-slate-500 mt-1 text-sm">Login-beskyttet Messe-adgang til demo-portalen for messer og events.</p>
           </div>
         </div>

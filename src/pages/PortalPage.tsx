@@ -50,11 +50,11 @@ const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'prim
 };
 
 const MESSE_TITLE: Record<Language, string> = {
-  da: 'Timan Messe',
-  en: 'Timan Exhibition',
-  de: 'Timan Messe',
-  it: 'Timan Fiera',
-  hu: 'Timan Kiállítás',
+  da: 'Messe',
+  en: 'Exhibition',
+  de: 'Messe',
+  it: 'Fiera',
+  hu: 'Kiállítás',
 };
 
 const MESSE_DESC: Record<Language, string> = {

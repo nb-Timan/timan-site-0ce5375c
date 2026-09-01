@@ -849,7 +849,7 @@ export default function MesseFollowUpPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <MesseSubpageHeader backTo="/messe" backLabel="Tilbage til Timan Messe" />
+      <MesseSubpageHeader backTo="/messe" backLabel="Tilbage til Messe" />
       <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
         <div className="mb-6 flex items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-800">

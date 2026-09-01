@@ -1,5 +1,5 @@
 /**
- * Future lead-capture for Timan Messe (exhibition mode).
+ * Future lead-capture for Messe (exhibition mode).
  *
  * Architecture-only stub. No UI, no Supabase writes yet. A later phase will
  * wire a popup such as: "Vil du have konfigurationen sendt til din e-mail?"

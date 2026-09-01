@@ -69,7 +69,7 @@ describe('portal home module order', () => {
     ]);
   });
 
-  it('uses the real Partnerdata and Timan CRM area ids in the expected order', () => {
+  it('uses the real Partnerdata and CRM area ids in the expected order', () => {
     const realCards = PORTAL_AREAS
       .filter((area) => ['salg_marketing', 'timan_crm', 'dealer_data'].includes(area.id))
       .map((area) => ({ kind: 'area' as const, id: area.id, area }));

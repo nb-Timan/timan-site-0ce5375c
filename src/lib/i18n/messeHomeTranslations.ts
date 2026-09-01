@@ -1,5 +1,5 @@
 /**
- * Timan Messe home page (tile grid) translations.
+ * Messe home page (tile grid) translations.
  *
  * Spread into the central `translations.ts` registry so they resolve with
  * `t(key, uiLanguage)` and follow the global portal language selector.
@@ -11,11 +11,11 @@ type Row = Record<PortalUiLanguage, string>;
 
 const ENTRIES: Record<string, Row> = {
   mh_welcome: {
-    da: 'Velkommen til Timan Messe', en: 'Welcome to Timan Exhibition',
-    de: 'Willkommen bei Timan Messe', it: 'Benvenuti a Timan Fiera',
-    hu: 'Üdvözöljük a Timan kiállításon', sv: 'Välkommen till Timan Mässa',
-    fr: 'Bienvenue au salon Timan', pl: 'Witamy na targach Timan',
-    cs: 'Vítejte na veletrhu Timan',
+    da: 'Velkommen til Messe', en: 'Welcome to Exhibition',
+    de: 'Willkommen bei Messe', it: 'Benvenuti a Fiera',
+    hu: 'Üdvözöljük a kiállításon', sv: 'Välkommen till Mässa',
+    fr: 'Bienvenue au salon', pl: 'Witamy na targach',
+    cs: 'Vítejte na veletrhu',
   },
   mh_intro: {
     da: 'Vælg en mulighed for at udforske Timan.', en: 'Choose an option to explore Timan.',
@@ -107,11 +107,11 @@ const ENTRIES: Record<string, Row> = {
     cs: 'Kalkulačka CO2',
   },
   mh_preview: {
-    da: 'Du forhåndsviser Timan Messe', en: 'Previewing Timan Exhibition',
-    de: 'Vorschau Timan Messe', it: 'Anteprima Timan Fiera',
-    hu: 'Timan Kiállítás előnézet', sv: 'Förhandsvisning av Timan Mässa',
-    fr: 'Aperçu du salon Timan', pl: 'Podgląd targów Timan',
-    cs: 'Náhled veletrhu Timan',
+    da: 'Du forhåndsviser Messe', en: 'Previewing Exhibition',
+    de: 'Vorschau Messe', it: 'Anteprima Fiera',
+    hu: 'Kiállítás előnézet', sv: 'Förhandsvisning av Mässa',
+    fr: 'Aperçu du salon', pl: 'Podgląd targów',
+    cs: 'Náhled veletrhu',
   },
   mh_disabled: {
     da: 'Messeadgang er ikke aktiv lige nu.', en: 'Exhibition access is currently disabled.',

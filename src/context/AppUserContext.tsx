@@ -85,7 +85,7 @@ function normalizeKnownSessionUser(user: SessionUser): SessionUser {
   if ((user.email || '').toLowerCase() !== 'ordre@timan.dk') return user;
   return {
     ...user,
-    display_name: 'Timan Messe',
+    display_name: 'Messe',
     can_view_prices: true,
     portal_variant: 'messe',
   };
@@ -232,7 +232,7 @@ function rowToSessionUser(row: Record<string, unknown>): SessionUser {
     can_edit_discount: (row.can_edit_discount as boolean) ?? false,
     can_switch_customer_mode: (row.can_switch_customer_mode as boolean) ?? false,
     working_for: (row.working_for as SessionUser['working_for']) ?? null,
-    display_name: isKnownMesseLogin ? 'Timan Messe' : ((row.display_name as string) || (row.full_name as string)),
+    display_name: isKnownMesseLogin ? 'Messe' : ((row.display_name as string) || (row.full_name as string)),
     portal_role: (row.portal_role as string | null) ?? null,
     preferred_language: (row.preferred_language as string | null) ?? null,
     preferred_currency: (row.preferred_currency as string | null) ?? null,

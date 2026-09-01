@@ -202,7 +202,7 @@ const da: Dict = {
   siteFeaturesRoleServicePartner: 'Servicepartner',
   siteFeaturesRoleDealerCustomer: 'Forhandlerkunde',
   siteFeaturesRolePrivateEndUser: 'Privat / slutbruger',
-  siteFeaturesRoleExhibition: 'Timan Messe',
+  siteFeaturesRoleExhibition: 'Messe',
   siteFeaturesRoleDealerUser: 'Forhandlerbruger',
   siteFeaturesModuleCrm: 'CRM',
   siteFeaturesModuleLeads: 'Leads',
@@ -317,7 +317,7 @@ const en: Dict = {
   siteFeaturesRoleServicePartner: 'Service partner',
   siteFeaturesRoleDealerCustomer: 'Dealer customer',
   siteFeaturesRolePrivateEndUser: 'Private / end user',
-  siteFeaturesRoleExhibition: 'Timan Exhibition',
+  siteFeaturesRoleExhibition: 'Exhibition',
   siteFeaturesRoleDealerUser: 'Dealer user',
   siteFeaturesModuleCrm: 'CRM',
   siteFeaturesModuleLeads: 'Leads',
@@ -429,7 +429,7 @@ const de: Dict = {
   siteFeaturesRoleServicePartner: 'Servicepartner',
   siteFeaturesRoleDealerCustomer: 'Händlerkunde',
   siteFeaturesRolePrivateEndUser: 'Privat / Endkunde',
-  siteFeaturesRoleExhibition: 'Timan Messe',
+  siteFeaturesRoleExhibition: 'Messe',
   siteFeaturesRoleDealerUser: 'Händlerbenutzer',
   siteFeaturesModuleCrm: 'CRM',
   siteFeaturesModuleLeads: 'Leads',
@@ -526,7 +526,7 @@ const it: Dict = {
   siteFeaturesRoleServicePartner: 'Partner di assistenza',
   siteFeaturesRoleDealerCustomer: 'Cliente rivenditore',
   siteFeaturesRolePrivateEndUser: 'Privato / utente finale',
-  siteFeaturesRoleExhibition: 'Timan Fiera',
+  siteFeaturesRoleExhibition: 'Fiera',
   siteFeaturesRoleDealerUser: 'Utente rivenditore',
 };
 
@@ -583,7 +583,7 @@ const hu: Dict = {
   siteFeaturesRoleServicePartner: 'Szervizpartner',
   siteFeaturesRoleDealerCustomer: 'Kereskedő ügyfele',
   siteFeaturesRolePrivateEndUser: 'Magán / végfelhasználó',
-  siteFeaturesRoleExhibition: 'Timan kiállítás',
+  siteFeaturesRoleExhibition: 'Kiállítás',
   siteFeaturesRoleDealerUser: 'Kereskedői felhasználó',
 };
 
@@ -639,7 +639,7 @@ const sv: Dict = {
   siteFeaturesRoleServicePartner: 'Servicepartner',
   siteFeaturesRoleDealerCustomer: 'Återförsäljarkund',
   siteFeaturesRolePrivateEndUser: 'Privat / slutanvändare',
-  siteFeaturesRoleExhibition: 'Timan mässa',
+  siteFeaturesRoleExhibition: 'Mässa',
   siteFeaturesRoleDealerUser: 'Återförsäljaranvändare',
 };
 
@@ -695,7 +695,7 @@ const fr: Dict = {
   siteFeaturesRoleServicePartner: 'Partenaire service',
   siteFeaturesRoleDealerCustomer: 'Client revendeur',
   siteFeaturesRolePrivateEndUser: 'Privé / utilisateur final',
-  siteFeaturesRoleExhibition: 'Salon Timan',
+  siteFeaturesRoleExhibition: 'Salon',
   siteFeaturesRoleDealerUser: 'Utilisateur revendeur',
 };
 
@@ -751,7 +751,7 @@ const pl: Dict = {
   siteFeaturesRoleServicePartner: 'Partner serwisowy',
   siteFeaturesRoleDealerCustomer: 'Klient dealera',
   siteFeaturesRolePrivateEndUser: 'Prywatny / użytkownik końcowy',
-  siteFeaturesRoleExhibition: 'Targi Timan',
+  siteFeaturesRoleExhibition: 'Targi',
   siteFeaturesRoleDealerUser: 'Użytkownik dealera',
 };
 
@@ -807,7 +807,7 @@ const cs: Dict = {
   siteFeaturesRoleServicePartner: 'Servisní partner',
   siteFeaturesRoleDealerCustomer: 'Zákazník prodejce',
   siteFeaturesRolePrivateEndUser: 'Soukromý / koncový uživatel',
-  siteFeaturesRoleExhibition: 'Veletrh Timan',
+  siteFeaturesRoleExhibition: 'Veletrh',
   siteFeaturesRoleDealerUser: 'Uživatel prodejce',
 };
 

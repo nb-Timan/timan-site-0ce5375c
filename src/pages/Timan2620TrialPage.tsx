@@ -238,7 +238,7 @@ export default function Timan2620TrialPage({ variant = "portal" }: Props) {
   if (variant === "messe") {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900">
-        <MesseSubpageHeader backTo="/messe" backLabel="Tilbage til Timan Messe" />
+        <MesseSubpageHeader backTo="/messe" backLabel="Tilbage til Messe" />
         {content}
       </div>
     );

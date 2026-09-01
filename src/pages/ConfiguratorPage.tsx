@@ -124,7 +124,7 @@ export default function ConfiguratorPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
-  // Timan Messe / exhibition demo session — hide save/send/account UI and
+  // Messe / exhibition demo session — hide save/send/account UI and
   // short-circuit any persistence handler that may still be invoked.
   // Treat ANY render of the configurator under /messe/* as Messe mode too,
   // so the back button + demo guards work even before context resolves.
@@ -2338,7 +2338,7 @@ export default function ConfiguratorPage() {
                 className="order-2 lg:order-3 inline-flex min-h-11 items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:text-emerald-700 hover:bg-emerald-50 border border-gray-200 bg-white transition shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span className="hidden sm:inline">Tilbage til Timan Messe</span>
+                <span className="hidden sm:inline">Tilbage til Messe</span>
                 <span className="sm:hidden">Messe</span>
               </button>
             );
@@ -3148,7 +3148,7 @@ export default function ConfiguratorPage() {
             )}
             {false && isExhibition && (
               <div className="w-full mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-bold uppercase tracking-wide text-center">
-                Demo mode — Timan Messe
+                Demo mode — Messe
               </div>
             )}
             {!isExhibition && state.step === 4 && !(state.flowType === 'order' && orderLocked) && (

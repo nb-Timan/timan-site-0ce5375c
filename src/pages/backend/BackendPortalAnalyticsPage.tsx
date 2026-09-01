@@ -150,7 +150,7 @@ function displayRole(role: string | null | undefined): string {
     dealer_customer: "Forhandlerkunde",
     dealer_user: "Forhandlerbruger",
     private_end_user: "Privat / slutbruger",
-    exhibition_user: "Timan Messe",
+    exhibition_user: "Messe",
   };
   return role ? labels[role] || role : "-";
 }

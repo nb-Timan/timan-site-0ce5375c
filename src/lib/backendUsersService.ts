@@ -232,7 +232,7 @@ export function isPaymentAndDiscountRestrictedRole(role: string | null | undefin
 }
 
 // External dealer-side portal roles. These users must NEVER have Timan
-// Backend access or backend meta modules. Timan CRM is allowed as a scoped
+// Backend access or backend meta modules. CRM is allowed as a scoped
 // external CRM view when an admin grants the area/module explicitly.
 export const DEALER_SIDE_ROLES: PortalRole[] = [
   "timan_dealer",

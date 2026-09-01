@@ -210,7 +210,7 @@ const App = () => (
           <LanguageProvider>
             <Suspense fallback={<RouteFallback />}>
             <Routes>
-              {/* Public Timan Messe / exhibition routes (no auth required) */}
+              {/* Public Messe / exhibition routes (no auth required) */}
               <Route path="/messe" element={<MesseRouteGuard><MesseHomePage /></MesseRouteGuard>} />
               <Route path="/messe/konfigurator" element={<MesseRouteGuard><MesseConfiguratorPage /></MesseRouteGuard>} />
               <Route path="/messe/partner-map" element={<MesseRouteGuard><MessePartnerMapPage /></MesseRouteGuard>} />

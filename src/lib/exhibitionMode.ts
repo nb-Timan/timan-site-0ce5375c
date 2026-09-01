@@ -1,5 +1,5 @@
 /**
- * Timan Messe — backend-controlled public-toggle + QR helper.
+ * Messe — backend-controlled public-toggle + QR helper.
  *
  * The runtime "exhibition session" model has been removed. Real /messe
  * access now comes from either:

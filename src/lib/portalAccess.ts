@@ -53,7 +53,7 @@ export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = 
   dealer_customer:       { da: 'Forhandlerkunde',       en: 'Dealer customer',       de: 'Händlerkunde',          it: 'Cliente rivenditore',   hu: 'Kereskedői ügyfél' },
   dealer_user:           { da: 'Forhandlerbruger',      en: 'Forhandlerbruger',      de: 'Forhandlerbruger',      it: 'Forhandlerbruger',      hu: 'Forhandlerbruger' },
   private_end_user:      { da: 'Privat / Slutbruger',   en: 'Privat / Slutbruger',   de: 'Privat / Slutbruger',   it: 'Privat / Slutbruger',   hu: 'Privat / Slutbruger' },
-  exhibition_user:       { da: 'Timan Messe',           en: 'Timan Exhibition',      de: 'Timan Messe',           it: 'Timan Fiera',           hu: 'Timan Kiállítás' },
+  exhibition_user:       { da: 'Messe',                 en: 'Exhibition',           de: 'Messe',                 it: 'Fiera',                 hu: 'Kiállítás' },
   pending:               { da: 'Afventer godkendelse',  en: 'Pending approval',      de: 'Wartet auf Genehmigung',it: 'In attesa di approvazione', hu: 'Jóváhagyásra vár' },
 };
 
@@ -141,13 +141,13 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   // Read-only / visual access only.
   // Dealer User is intentionally restricted to Salg & Marketing.
   // Forhandlerdata is granted only when admins set `allowed_areas` explicitly.
-  // Teknik & Service, Timan CRM and Timan Backend are NEVER granted.
+  // Teknik & Service, CRM and Timan Backend are NEVER granted.
   dealer_user: [
     'messe_portal', 'salg_marketing', 'byg_din_timan', 'resources', 'sales_tools', 'videos',
   ],
   // Private / end user — same light product experience as the Messe portal.
   private_end_user: ['messe_portal'],
-  // Timan Messe — locked to the Messe layout with product/demo access only.
+  // Messe — locked to the Messe layout with product/demo access only.
   exhibition_user: ['messe_portal', 'byg_din_timan', 'resources', 'videos'],
   // Awaiting admin approval — no module access until approved.
   pending: [],

@@ -27,7 +27,7 @@ const ROLE_DESCRIPTION: Record<PortalRole, string> = {
   timan_service_partner: "Service Partner — opretter og følger op på claims og garantisager.",
   dealer_user:           "Læseadgang for forhandleransatte uden redigerings-rettigheder.",
   private_end_user:      "Privat / slutbruger — begrænset adgang uden forhandler- eller backend-moduler.",
-  exhibition_user:       "Timan Messe — offentlig demo-adgang via QR-kode på messer. Ingen CRM, ordrer eller dealerdata.",
+  exhibition_user:       "Messe — offentlig demo-adgang via QR-kode på messer. Ingen CRM, ordrer eller dealerdata.",
   pending:               "Ny bruger — afventer godkendelse fra Timan Backend admin.",
 };
 
@@ -36,7 +36,7 @@ const AREA_LABEL: Record<AreaKey, string> = {
   marketing: "Marketing",
   teknik_service: "Teknik & Service",
   dealer_data:    "Partnerdata",
-  timan_crm:      "Timan CRM",
+  timan_crm:      "CRM",
   timan_backend:  "Timan Backend",
 };
 

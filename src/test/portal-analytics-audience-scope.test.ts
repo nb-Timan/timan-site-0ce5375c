@@ -30,7 +30,7 @@ const users: AnalyticsAudienceUser[] = [
   {
     user_id: "messe-1",
     email: "messe@timan.dk",
-    display_name: "Timan Messe",
+    display_name: "Messe",
     portal_role: "exhibition_user",
     dealer_number: null,
   },
@@ -71,14 +71,14 @@ describe("portal analytics audience scope", () => {
   it("keeps Timan-sælgere to canonical seller users only", () => {
     const scope = resolveAnalyticsAudienceScope({ users, audience: "timan_sellers" });
     expect(scope.effectiveUserKeys).toEqual(["seller-bp", "seller-em"]);
-    expect(scope.effectiveUsers.map((user) => user.display_name)).not.toContain("Timan Messe");
+    expect(scope.effectiveUsers.map((user) => user.display_name)).not.toContain("Messe");
     expect(scope.effectiveUsers.map((user) => user.display_name)).not.toContain("Dag Vilster Petersen");
   });
 
-  it("keeps Alle Timan internal and includes Timan Messe outside seller scope", () => {
+  it("keeps Alle Timan internal and includes Messe outside seller scope", () => {
     const scope = resolveAnalyticsAudienceScope({ users, audience: "timan" });
-    expect(scope.effectiveUserKeys).toEqual(["seller-bp", "seller-em", "backend-1", "messe-1"]);
-    expect(scope.effectiveUsers.map((user) => user.display_name)).toContain("Timan Messe");
+    expect(scope.effectiveUserKeys).toEqual(["seller-bp", "seller-em", "messe-1", "backend-1"]);
+    expect(scope.effectiveUsers.map((user) => user.display_name)).toContain("Messe");
     expect(scope.effectiveUsers.map((user) => user.display_name)).not.toContain("Dag Vilster Petersen");
   });
 

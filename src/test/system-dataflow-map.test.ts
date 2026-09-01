@@ -64,9 +64,9 @@ describe("Backend system dataflow map", () => {
 
     expect(findSystemMapNode("sales").title).toBe("Salg");
     expect(findSystemMapNode("dealer_data").title).toBe("Partnerdata");
-    expect(findSystemMapNode("crm").title).toBe("Timan CRM");
+    expect(findSystemMapNode("crm").title).toBe("CRM");
     expect(findSystemMapNode("service").title).toBe("Teknik & Service");
-    expect(findSystemMapNode("messe").title).toBe("Timan Messe");
+    expect(findSystemMapNode("messe").title).toBe("Messe");
     expect(findSystemMapNode("system_admin").title).toBe("Timan Backend");
   });
 

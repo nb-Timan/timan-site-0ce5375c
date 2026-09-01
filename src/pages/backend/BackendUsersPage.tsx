@@ -69,7 +69,7 @@ const AREA_LABEL: Record<AreaKey, string> = {
   marketing: "Marketing",
   teknik_service: "Teknik & Service",
   dealer_data:    "Partnerdata",
-  timan_crm:      "Timan CRM",
+  timan_crm:      "CRM",
   timan_backend:  "Timan Backend",
 };
 
@@ -78,7 +78,7 @@ const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   salg_marketing: "Salg",
   marketing: "Marketing",
   timan_backend: "Timan Backend",
-  timan_crm: "Timan CRM",
+  timan_crm: "CRM",
   dealer_data: "Partnerdata",
   claims: "Claims",
   tsb: "TSB",
@@ -779,7 +779,7 @@ function EditUserModal({
               ))}
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
-              Messe Portal: brugeren låses til /messe-layoutet efter login og kan ikke tilgå CRM, Backend, Service eller forhandlerdata. Anbefalet rolle: Timan Messe.
+              Messe Portal: brugeren låses til /messe-layoutet efter login og kan ikke tilgå CRM, Backend, Service eller forhandlerdata. Anbefalet rolle: Messe.
             </p>
           </Section>
 
