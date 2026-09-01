@@ -1217,6 +1217,47 @@ describe('contract flow', () => {
     expect(overviewHeader).not.toContain("text-3xl font-black");
   });
 
+  it('uses user-scoped time-limited partner contract access windows', () => {
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const portalAreaSource = readFileSync('src/pages/PortalAreaPage.tsx', 'utf8');
+    const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260901125302_dealer_contract_user_access_windows.sql', 'utf8');
+
+    expect(migration).toContain('alter table public.dealer_contract_access_windows');
+    expect(migration).toContain('add column if not exists user_id uuid references public.app_users');
+    expect(migration).toContain('add column if not exists opens_at timestamptz');
+    expect(migration).toContain('add column if not exists closes_at timestamptz');
+    expect(migration).toContain("check (closes_at > opens_at and closes_at <= opens_at + interval '24 hours')");
+    expect(migration).toContain('p_user_id uuid');
+    expect(migration).toContain('portal user does not belong to dealer');
+    expect(migration).toContain('portal user is not active and approved');
+    expect(migration).toContain('portal user must be external');
+    expect(migration).toContain('public.has_active_dealer_contract_window(coalesce(dc.dealer_account_id, da.id), dc.id, au.id)');
+    expect(migration).toContain("w.contract_id = p_contract_id");
+    expect(migration).toContain('dealer_contract_access_windows.user_id');
+    expect(migration).toContain("'contract_access_extended'");
+    expect(migration).not.toContain('or w.contract_id is null');
+
+    expect(serviceSource).toContain('fetchDealerContractPartnerUsers');
+    expect(serviceSource).toContain('fetchDealerContractAccessWindows');
+    expect(serviceSource).toContain('extendDealerContractAccessWindow');
+    expect(serviceSource).toContain('p_user_id: input.userId');
+    expect(serviceSource).toContain('p_opens_at: input.opensAt');
+    expect(serviceSource).toContain('p_closes_at: input.closesAt');
+    expect(serviceSource).toContain('.eq("contract_id", input.contractId)');
+
+    expect(pageSource).toContain('PartnerContractAccessPanel');
+    expect(pageSource).toContain('Ingen aktiv portalbruger på partneren endnu');
+    expect(pageSource).toContain('Åbn kontrakt for partner');
+    expect(pageSource).toContain('onExtend={extendGuidedAccess}');
+    expect(pageSource).toContain('onRevoke={revokeGuidedAccess}');
+    expect(pageSource).toContain("portalRole === 'timan_seller' && hasModuleAccess(portalRole, 'contracts', moduleOverride)");
+
+    expect(portalAreaSource).toContain('fetchActiveDealerContractAccessWindow');
+    expect(portalAreaSource).toContain('Åbn kontrakt');
+    expect(portalAreaSource).toContain('Tilgængelig indtil');
+  });
+
   it('keeps appendix 2 discount text verbatim', () => {
     expect(APPENDIX_2_PARAGRAPHS).toEqual([
       'Bilag 2: Rabat.',

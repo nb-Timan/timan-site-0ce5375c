@@ -35,19 +35,24 @@ import {
   createDealerContractUploadVersion,
   deleteDealerContract,
   deleteDealerContractUploadFile,
+  extendDealerContractAccessWindow,
   fetchActiveDealerContractAccessWindow,
+  fetchDealerContractAccessWindows,
   fetchDealerContractById,
   fetchDealerContractDraft,
+  fetchDealerContractPartnerUsers,
   fetchInternalDealerContractOverview,
   buildNewDealerContractDraftKey,
   fetchDealerContractUploadVersions,
   getCurrentStepId,
   markDealerContractPdfGenerated,
   reorderDealerContractUploadFiles,
+  revokeDealerContractAccessWindow,
   saveDealerContractDraft,
   submitDealerContractUpload,
   uploadDealerContractFile,
   type DealerContractAccessWindow,
+  type DealerContractPartnerUser,
   type DealerContractRecord,
   type DealerContractOverviewRow,
   type DealerContractOverviewStatusFilter,
@@ -170,6 +175,34 @@ function formatDateTimeDa(value: string) {
   } catch {
     return value;
   }
+}
+
+function toLocalDateTimeInputValue(date: Date) {
+  const offsetMs = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function localInputToIso(value: string) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+}
+
+function addHoursLocalInput(hours: number, fromValue?: string) {
+  const start = fromValue ? new Date(fromValue) : new Date();
+  if (Number.isNaN(start.getTime())) return toLocalDateTimeInputValue(new Date(Date.now() + hours * 60 * 60 * 1000));
+  return toLocalDateTimeInputValue(new Date(start.getTime() + hours * 60 * 60 * 1000));
+}
+
+function getAccessWindowDisplayStatus(window: DealerContractAccessWindow | null): "Ikke åbnet" | "Planlagt" | "Åben nu" | "Udløbet" | "Lukket manuelt" {
+  if (!window) return "Ikke åbnet";
+  if (window.revoked_at || window.status === "revoked") return "Lukket manuelt";
+  const now = Date.now();
+  const opens = new Date(window.opens_at).getTime();
+  const closes = new Date(window.closes_at).getTime();
+  if (opens > now) return "Planlagt";
+  if (closes <= now) return "Udløbet";
+  return "Åben nu";
 }
 
 function safeFilePart(value: string) {
@@ -638,8 +671,14 @@ export default function ContractsPage() {
   const [uploadVersions, setUploadVersions] = useState<DealerContractUploadVersion[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [accessWindow, setAccessWindow] = useState<DealerContractAccessWindow | null>(null);
+  const [contractAccessWindows, setContractAccessWindows] = useState<DealerContractAccessWindow[]>([]);
+  const [partnerUsers, setPartnerUsers] = useState<DealerContractPartnerUser[]>([]);
   const [accessWindowLoaded, setAccessWindowLoaded] = useState(false);
-  const [accessWindowBusy, setAccessWindowBusy] = useState<60 | 120 | null>(null);
+  const [accessWindowBusy, setAccessWindowBusy] = useState(false);
+  const [selectedAccessUserId, setSelectedAccessUserId] = useState('');
+  const [accessOpensAt, setAccessOpensAt] = useState(() => toLocalDateTimeInputValue(new Date()));
+  const [accessClosesAt, setAccessClosesAt] = useState(() => addHoursLocalInput(2));
+  const [accessQuickChoice, setAccessQuickChoice] = useState<'60' | '120' | '240' | '1440' | 'custom'>('120');
   const dealerAccountNumber = (searchParams.get('accountNumber') || searchParams.get('dealer') || '').trim();
   const routeContractIdValue = (routeContractId || '').trim();
   const startNewContract = searchParams.get('new') === '1';
@@ -801,7 +840,9 @@ export default function ContractsPage() {
   }, [activeDealerAccountNumber]);
 
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
-  const hasActiveAccessWindow = Boolean(accessWindow && new Date(accessWindow.expires_at).getTime() > Date.now());
+  const canManagePartnerContractAccess = portalRole === 'timan_backend'
+    || (portalRole === 'timan_seller' && hasModuleAccess(portalRole, 'contracts', moduleOverride));
+  const hasActiveAccessWindow = Boolean(accessWindow && new Date(accessWindow.opens_at).getTime() <= Date.now() && new Date(accessWindow.closes_at).getTime() > Date.now() && !accessWindow.revoked_at);
   const hasApprovedPartnerDocumentAccess = ['awaiting_signed_upload', 'submitted_for_approval', 'changes_requested', 'approved', 'archived'].includes(contractRecord?.contract_status ?? '');
   const hasAccess = isInternalContractActor || hasModuleAccess(portalRole, 'contracts', moduleOverride) || hasActiveAccessWindow || hasApprovedPartnerDocumentAccess;
   const activeStep = CONTRACT_STEPS[activeStepIndex];
@@ -886,37 +927,101 @@ export default function ContractsPage() {
     setAccessWindowLoaded(false);
     if (!activeDealerAccountNumber) {
       setAccessWindow(null);
+      setContractAccessWindows([]);
+      setPartnerUsers([]);
       setAccessWindowLoaded(true);
       return () => { cancelled = true; };
     }
 
-    fetchActiveDealerContractAccessWindow({ dealerAccountNumber: activeDealerAccountNumber, contractId: contractRowId }).then(({ row }) => {
+    (async () => {
+      const active = await fetchActiveDealerContractAccessWindow({ dealerAccountNumber: activeDealerAccountNumber, contractId: contractRowId });
       if (cancelled) return;
-      setAccessWindow(row);
+      setAccessWindow(active.row);
+
+      if (canManagePartnerContractAccess && contractRowId) {
+        const [windows, users] = await Promise.all([
+          fetchDealerContractAccessWindows(contractRowId),
+          fetchDealerContractPartnerUsers(activeDealerAccountNumber),
+        ]);
+        if (cancelled) return;
+        setContractAccessWindows(windows.rows);
+        setPartnerUsers(users.rows);
+        setSelectedAccessUserId((current) => current || users.rows[0]?.id || '');
+      } else {
+        setContractAccessWindows([]);
+        setPartnerUsers([]);
+      }
       setAccessWindowLoaded(true);
-    });
+    })();
 
     return () => { cancelled = true; };
-  }, [contractRowId, activeDealerAccountNumber]);
+  }, [contractRowId, activeDealerAccountNumber, canManagePartnerContractAccess]);
 
-  const activateGuidedAccess = async (durationMinutes: 60 | 120) => {
-    if (!activeDealerAccountNumber) {
-      toast.error('Vælg en partnerkonto, før adgang åbnes.');
+  const reloadContractAccess = async () => {
+    if (!contractRowId || !activeDealerAccountNumber) return;
+    const [active, windows] = await Promise.all([
+      fetchActiveDealerContractAccessWindow({ dealerAccountNumber: activeDealerAccountNumber, contractId: contractRowId }),
+      fetchDealerContractAccessWindows(contractRowId),
+    ]);
+    setAccessWindow(active.row);
+    setContractAccessWindows(windows.rows);
+  };
+
+  const activateGuidedAccess = async () => {
+    if (!activeDealerAccountNumber || !contractRowId) {
+      toast.error('Gem kontrakten og vælg en partnerkonto, før adgang åbnes.');
       return;
     }
-    setAccessWindowBusy(durationMinutes);
+    if (!selectedAccessUserId) {
+      toast.error('Vælg en aktiv portalbruger på partneren.');
+      return;
+    }
+    const opensAtIso = localInputToIso(accessOpensAt);
+    const closesAtIso = localInputToIso(accessClosesAt);
+    if (!opensAtIso || !closesAtIso || new Date(closesAtIso).getTime() <= new Date(opensAtIso).getTime()) {
+      toast.error('Vælg et gyldigt start- og sluttidspunkt.');
+      return;
+    }
+    setAccessWindowBusy(true);
     const { row, error } = await activateDealerContractAccessWindow({
       dealerAccountNumber: activeDealerAccountNumber,
       contractId: contractRowId,
-      durationMinutes,
+      userId: selectedAccessUserId,
+      opensAt: opensAtIso,
+      closesAt: closesAtIso,
     });
-    setAccessWindowBusy(null);
+    setAccessWindowBusy(false);
     if (error || !row) {
-      toast.error('Kontraktadgang kunne ikke aktiveres.');
+      toast.error(error || 'Kontraktadgang kunne ikke aktiveres.');
       return;
     }
-    setAccessWindow(row);
-    toast.success(`Guidet kontraktadgang er åbnet i ${durationMinutes === 60 ? '1 time' : '2 timer'}.`);
+    await reloadContractAccess();
+    toast.success('Kontraktadgang er åbnet for partnerbrugeren.');
+  };
+
+  const extendGuidedAccess = async (window: DealerContractAccessWindow, hours = 2) => {
+    setAccessWindowBusy(true);
+    const closesAt = new Date(Math.max(Date.now(), new Date(window.closes_at).getTime()) + hours * 60 * 60 * 1000).toISOString();
+    const { error } = await extendDealerContractAccessWindow({ windowId: window.id, closesAt });
+    setAccessWindowBusy(false);
+    if (error) {
+      toast.error(error || 'Kontraktadgang kunne ikke forlænges.');
+      return;
+    }
+    await reloadContractAccess();
+    toast.success('Kontraktadgang er forlænget.');
+  };
+
+  const revokeGuidedAccess = async (window: DealerContractAccessWindow) => {
+    setAccessWindowBusy(true);
+    const { error } = await revokeDealerContractAccessWindow(window.id);
+    setAccessWindowBusy(false);
+    if (error) {
+      toast.error(error || 'Kontraktadgang kunne ikke lukkes.');
+      return;
+    }
+    await reloadContractAccess();
+    toast.success('Kontraktadgang er lukket.');
   };
 
   const saveDraft = () => {
@@ -1449,32 +1554,39 @@ export default function ContractsPage() {
                 </div>
               </div>
               <div className="flex flex-col items-start gap-2 sm:items-end">
-                {isInternalContractActor && dealerAccountNumber && (
-                  <div className="flex flex-wrap items-center justify-start gap-2 sm:justify-end">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Partneradgang</span>
-                    <button
-                      type="button"
-                      onClick={() => activateGuidedAccess(60)}
-                      disabled={accessWindowBusy !== null}
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Clock className="h-3.5 w-3.5" />
-                      {accessWindowBusy === 60 ? 'Åbner...' : 'Åbn 1 time'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => activateGuidedAccess(120)}
-                      disabled={accessWindowBusy !== null}
-                      className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <Clock className="h-3.5 w-3.5" />
-                      {accessWindowBusy === 120 ? 'Åbner...' : 'Åbn 2 timer'}
-                    </button>
-                  </div>
+                {canManagePartnerContractAccess && (
+                  <PartnerContractAccessPanel
+                    users={partnerUsers}
+                    windows={contractAccessWindows}
+                    busy={accessWindowBusy}
+                    selectedUserId={selectedAccessUserId}
+                    opensAt={accessOpensAt}
+                    closesAt={accessClosesAt}
+                    quickChoice={accessQuickChoice}
+                    contractSaved={Boolean(contractRowId)}
+                    onUserChange={setSelectedAccessUserId}
+                    onOpensAtChange={(value) => {
+                      setAccessOpensAt(value);
+                      if (accessQuickChoice !== 'custom') {
+                        setAccessClosesAt(addHoursLocalInput(Number(accessQuickChoice) / 60, value));
+                      }
+                    }}
+                    onClosesAtChange={(value) => {
+                      setAccessQuickChoice('custom');
+                      setAccessClosesAt(value);
+                    }}
+                    onQuickChoiceChange={(value) => {
+                      setAccessQuickChoice(value);
+                      if (value !== 'custom') setAccessClosesAt(addHoursLocalInput(Number(value) / 60, accessOpensAt));
+                    }}
+                    onActivate={activateGuidedAccess}
+                    onExtend={extendGuidedAccess}
+                    onRevoke={revokeGuidedAccess}
+                  />
                 )}
-                {accessWindow && (
+                {!canManagePartnerContractAccess && accessWindow && (
                   <p className="text-xs text-emerald-700">
-                    Guidet adgang aktiv til {formatDateTimeDa(accessWindow.expires_at)}
+                    Kontrakt tilgængelig indtil {formatDateTimeDa(accessWindow.closes_at)}
                   </p>
                 )}
                 <button
@@ -1598,6 +1710,155 @@ export default function ContractsPage() {
 
       <PortalFooter language={lang} />
     </div>
+  );
+}
+
+function PartnerContractAccessPanel({
+  users,
+  windows,
+  busy,
+  selectedUserId,
+  opensAt,
+  closesAt,
+  quickChoice,
+  contractSaved,
+  onUserChange,
+  onOpensAtChange,
+  onClosesAtChange,
+  onQuickChoiceChange,
+  onActivate,
+  onExtend,
+  onRevoke,
+}: {
+  users: DealerContractPartnerUser[];
+  windows: DealerContractAccessWindow[];
+  busy: boolean;
+  selectedUserId: string;
+  opensAt: string;
+  closesAt: string;
+  quickChoice: '60' | '120' | '240' | '1440' | 'custom';
+  contractSaved: boolean;
+  onUserChange: (value: string) => void;
+  onOpensAtChange: (value: string) => void;
+  onClosesAtChange: (value: string) => void;
+  onQuickChoiceChange: (value: '60' | '120' | '240' | '1440' | 'custom') => void;
+  onActivate: () => void;
+  onExtend: (window: DealerContractAccessWindow) => void;
+  onRevoke: (window: DealerContractAccessWindow) => void;
+}) {
+  const latestWindow = windows[0] ?? null;
+  const activeWindow = windows.find((window) => getAccessWindowDisplayStatus(window) === 'Åben nu') ?? null;
+  const disabled = busy || !contractSaved || users.length === 0 || !selectedUserId;
+
+  return (
+    <section className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left shadow-sm sm:min-w-[520px]">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Partneradgang</p>
+          <p className="text-sm font-semibold text-slate-900">Status: {getAccessWindowDisplayStatus(latestWindow)}</p>
+        </div>
+        {activeWindow && (
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            Åben nu
+          </span>
+        )}
+      </div>
+
+      {users.length === 0 ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+          Ingen aktiv portalbruger på partneren endnu
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1.3fr_1fr_1fr]">
+          <label className="text-xs font-semibold text-slate-600">
+            Bruger
+            <select
+              value={selectedUserId}
+              onChange={(event) => onUserChange(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900"
+            >
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>{user.name} · {user.email}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs font-semibold text-slate-600">
+            Åbner
+            <input
+              type="datetime-local"
+              value={opensAt}
+              onChange={(event) => onOpensAtChange(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900"
+            />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">
+            Lukker
+            <input
+              type="datetime-local"
+              value={closesAt}
+              onChange={(event) => onClosesAtChange(event.target.value)}
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900"
+            />
+          </label>
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {[
+          ['60', '1 time'],
+          ['120', '2 timer'],
+          ['240', '4 timer'],
+          ['1440', '24 timer'],
+          ['custom', 'Brugerdefineret'],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => onQuickChoiceChange(value as '60' | '120' | '240' | '1440' | 'custom')}
+            className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${quickChoice === value ? 'border-slate-400 bg-white text-slate-950' : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-white'}`}
+          >
+            {label}
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={onActivate}
+          disabled={disabled}
+          className="inline-flex items-center gap-1.5 rounded-full bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          <Clock className="h-3.5 w-3.5" />
+          {busy ? 'Gemmer...' : 'Åbn kontrakt for partner'}
+        </button>
+      </div>
+
+      {latestWindow && (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+          <p className="font-semibold text-slate-900">
+            {users.find((user) => user.id === latestWindow.user_id)?.name || latestWindow.user_id || 'Partnerbruger'}
+          </p>
+          <p>{formatDateTimeDa(latestWindow.opens_at)} → {formatDateTimeDa(latestWindow.closes_at)}</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() => onExtend(latestWindow)}
+              disabled={busy || latestWindow.revoked_at !== null}
+              className="rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Forlæng
+            </button>
+            <button
+              type="button"
+              onClick={() => onRevoke(latestWindow)}
+              disabled={busy || latestWindow.revoked_at !== null}
+              className="rounded-full border border-red-200 px-2.5 py-1 font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Luk nu
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

@@ -1,6 +1,6 @@
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, ListChecks, Sparkles, LucideIcon } from 'lucide-react';
-import { useEffect } from 'react';
+import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, ListChecks, Sparkles, Clock, LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
 import { useLanguage } from '@/context/LanguageContext';
@@ -16,6 +16,7 @@ import { canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, ha
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
+import { fetchActiveDealerContractAccessWindow, type DealerContractAccessWindow } from '@/lib/dealerContractsService';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -80,6 +81,7 @@ export default function PortalAreaPage({ areaId }: Props) {
   // Hooks must run unconditionally on every render — keep this above all
   // early returns so the hook count is stable while `loading` flips.
   const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
+  const [activeContractAccess, setActiveContractAccess] = useState<DealerContractAccessWindow | null>(null);
   const { markAreaRead, submoduleBadge, markSubmoduleRead, moduleBadge } = useChangelog(appUser, lang);
   useEffect(() => {
     // Mark only module-level area entries read on mount. Submodule-tagged
@@ -87,6 +89,19 @@ export default function PortalAreaPage({ areaId }: Props) {
     if (appUser) markAreaRead(areaId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [areaId, appUser?.email]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const dealerNumber = (effectiveUser as { dealer_number?: string | null } | null)?.dealer_number;
+    if (areaId !== 'salg_marketing' || !dealerNumber) {
+      setActiveContractAccess(null);
+      return () => { cancelled = true; };
+    }
+    fetchActiveDealerContractAccessWindow({ dealerAccountNumber: dealerNumber }).then(({ row }) => {
+      if (!cancelled) setActiveContractAccess(row);
+    });
+    return () => { cancelled = true; };
+  }, [areaId, effectiveUser]);
 
   if (loading || resolvingEffectiveUser) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
@@ -153,6 +168,21 @@ export default function PortalAreaPage({ areaId }: Props) {
           <BackendHome />
         ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 ${areaId === 'teknik_service' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
+          {areaId === 'salg_marketing' && activeContractAccess?.contract_id && (
+            <PlaceholderCard
+              title="Åbn kontrakt"
+              language={lang}
+              to={`/portal/contracts/${activeContractAccess.contract_id}`}
+              icon={Clock}
+              description={`Tilgængelig indtil ${new Date(activeContractAccess.closes_at).toLocaleString('da-DK', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}`}
+            />
+          )}
           {areaModules.map(m => {
             const mb = moduleBadge(m.id);
             const mUpdateBadge = mb

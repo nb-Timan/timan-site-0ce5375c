@@ -16,6 +16,7 @@ describe("partner contract onboarding access", () => {
   const crmDealerDetailPage = readProjectFile("src/pages/crm/CrmDealerDetailPage.tsx");
   const historyComponent = readProjectFile("src/components/portal/PartnerAgreementHistory.tsx");
   const historyDetailMigration = readProjectFile("supabase/migrations/20260901081807_crm_partner_agreement_history_detail.sql");
+  const userAccessMigration = readProjectFile("supabase/migrations/20260901125302_dealer_contract_user_access_windows.sql");
 
   it("adds one controlled access-window model and append-only agreement history", () => {
     expect(migration).toContain("create table if not exists public.dealer_contract_access_windows");
@@ -31,8 +32,11 @@ describe("partner contract onboarding access", () => {
   it("keeps external guided-contract draft access behind the active window", () => {
     expect(migration).toContain("create or replace function public.has_active_dealer_contract_window");
     expect(migration).toContain("create or replace function public.can_read_dealer_contract");
+    expect(userAccessMigration).toContain("p_user_id uuid default null");
+    expect(userAccessMigration).toContain("w.user_id = p_user_id");
+    expect(userAccessMigration).toContain("w.contract_id = p_contract_id");
+    expect(userAccessMigration).toContain("public.has_active_dealer_contract_window(coalesce(dc.dealer_account_id, da.id), dc.id, au.id)");
     expect(migration).toContain("dc.contract_status in ('awaiting_signed_upload', 'submitted_for_approval', 'changes_requested', 'approved', 'archived')");
-    expect(migration).toContain("public.has_active_dealer_contract_window(coalesce(dc.dealer_account_id, da.id), dc.id)");
     expect(migration).toContain("create policy dealer_contracts_insert_controlled");
     expect(migration).toContain("and public.has_active_dealer_contract_window(dealer_account_id, null)");
   });
@@ -48,11 +52,17 @@ describe("partner contract onboarding access", () => {
 
   it("exposes access activation and history through existing frontend services", () => {
     expect(contractService).toContain("fetchActiveDealerContractAccessWindow");
+    expect(contractService).toContain("fetchDealerContractPartnerUsers");
+    expect(contractService).toContain("fetchDealerContractAccessWindows");
     expect(contractService).toContain("activateDealerContractAccessWindow");
+    expect(contractService).toContain("extendDealerContractAccessWindow");
     expect(contractService).toContain("revokeDealerContractAccessWindow");
     expect(contractService).toContain("fetchPartnerAgreementHistory");
-    expect(contractsPage).toContain("Åbn 1 time");
-    expect(contractsPage).toContain("Åbn 2 timer");
+    expect(contractsPage).toContain("PartnerContractAccessPanel");
+    expect(contractsPage).toContain("Ingen aktiv portalbruger på partneren endnu");
+    expect(contractsPage).toContain("Åbn kontrakt for partner");
+    expect(contractsPage).toContain("Forlæng");
+    expect(contractsPage).toContain("Luk nu");
     expect(contractsPage).toContain("Kontraktadgang er ikke aktiv");
     expect(dealerDataPage).toContain("PartnerAgreementHistory");
   });

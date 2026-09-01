@@ -97,14 +97,31 @@ export type DealerContractAccessWindow = {
   dealer_account_id: string;
   dealer_account_number: string;
   contract_id: string | null;
+  user_id: string | null;
+  opens_at: string;
+  closes_at: string;
+  status: "planned" | "open" | "revoked";
   activated_by_user_id: string | null;
   activated_by_name: string | null;
   activated_by_email: string | null;
   activated_at: string;
   expires_at: string;
   revoked_at: string | null;
+  revoked_by_user_id: string | null;
+  revoked_by_name: string | null;
+  revoked_by_email: string | null;
+  created_by_user_id: string | null;
   note: string | null;
   created_at: string;
+  updated_at: string;
+};
+
+export type DealerContractPartnerUser = {
+  id: string;
+  email: string;
+  name: string;
+  portal_role: string | null;
+  dealer_number: string | null;
 };
 
 export type DealerContractOverviewStatusFilter =
@@ -163,6 +180,7 @@ export type PartnerAgreementHistoryEventType =
   | "partner_info_received"
   | "partner_approved"
   | "contract_access_activated"
+  | "contract_access_extended"
   | "contract_access_revoked"
   | "contract_review_completed"
   | "contract_received"
@@ -348,14 +366,35 @@ function rowToAccessWindow(row: Record<string, unknown>): DealerContractAccessWi
     dealer_account_id: String(row.dealer_account_id),
     dealer_account_number: String(row.dealer_account_number),
     contract_id: (row.contract_id as string | null) ?? null,
+    user_id: (row.user_id as string | null) ?? null,
+    opens_at: String(row.opens_at ?? row.activated_at ?? ""),
+    closes_at: String(row.closes_at ?? row.expires_at ?? ""),
+    status: (row.status as DealerContractAccessWindow["status"] | null) ?? "open",
     activated_by_user_id: (row.activated_by_user_id as string | null) ?? null,
     activated_by_name: (row.activated_by_name as string | null) ?? null,
     activated_by_email: (row.activated_by_email as string | null) ?? null,
     activated_at: String(row.activated_at ?? ""),
     expires_at: String(row.expires_at ?? ""),
     revoked_at: (row.revoked_at as string | null) ?? null,
+    revoked_by_user_id: (row.revoked_by_user_id as string | null) ?? null,
+    revoked_by_name: (row.revoked_by_name as string | null) ?? null,
+    revoked_by_email: (row.revoked_by_email as string | null) ?? null,
+    created_by_user_id: (row.created_by_user_id as string | null) ?? null,
     note: (row.note as string | null) ?? null,
     created_at: String(row.created_at ?? ""),
+    updated_at: String(row.updated_at ?? row.created_at ?? ""),
+  };
+}
+
+function rowToPartnerUser(row: Record<string, unknown>): DealerContractPartnerUser {
+  const email = String(row.email ?? "");
+  const name = String(row.display_name ?? row.full_name ?? row.name ?? email);
+  return {
+    id: String(row.id),
+    email,
+    name,
+    portal_role: (row.portal_role as string | null) ?? null,
+    dealer_number: (row.dealer_number as string | null) ?? null,
   };
 }
 
@@ -840,16 +879,18 @@ export async function fetchActiveDealerContractAccessWindow(input: {
   dealerAccountNumber: string;
   contractId?: string | null;
 }): Promise<{ row: DealerContractAccessWindow | null; error: string | null }> {
+  const now = new Date().toISOString();
   let query = supabase
     .from("dealer_contract_access_windows")
     .select("*")
     .eq("dealer_account_number", input.dealerAccountNumber)
     .is("revoked_at", null)
-    .gt("expires_at", new Date().toISOString())
-    .order("expires_at", { ascending: false });
+    .lte("opens_at", now)
+    .gt("closes_at", now)
+    .order("closes_at", { ascending: false });
 
   if (input.contractId) {
-    query = query.or(`contract_id.is.null,contract_id.eq.${input.contractId}`);
+    query = query.eq("contract_id", input.contractId);
   }
 
   const { data, error } = await query.limit(1).maybeSingle();
@@ -857,17 +898,64 @@ export async function fetchActiveDealerContractAccessWindow(input: {
   return { row: data ? rowToAccessWindow(data as Record<string, unknown>) : null, error: null };
 }
 
+export async function fetchDealerContractAccessWindows(
+  contractId: string,
+): Promise<{ rows: DealerContractAccessWindow[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from("dealer_contract_access_windows")
+    .select("*")
+    .eq("contract_id", contractId)
+    .order("created_at", { ascending: false });
+  if (error) return { rows: [], error: error.message };
+  return { rows: (data || []).map((row) => rowToAccessWindow(row as Record<string, unknown>)), error: null };
+}
+
+export async function fetchDealerContractPartnerUsers(
+  dealerAccountNumber: string,
+): Promise<{ rows: DealerContractPartnerUser[]; error: string | null }> {
+  const externalRoles = ["timan_dealer", "dealer_user", "timan_importer", "timan_service_partner", "dealer_customer"];
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("id,email,full_name,display_name,portal_role,dealer_number,approved,is_active,status")
+    .eq("dealer_number", dealerAccountNumber)
+    .eq("approved", true)
+    .eq("is_active", true)
+    .in("portal_role", externalRoles)
+    .order("email", { ascending: true });
+  if (error) return { rows: [], error: error.message };
+  const rows = (data || [])
+    .filter((row) => row.status !== "blocked" && row.status !== "pending")
+    .map((row) => rowToPartnerUser(row as Record<string, unknown>));
+  return { rows, error: null };
+}
+
 export async function activateDealerContractAccessWindow(input: {
   dealerAccountNumber: string;
-  contractId?: string | null;
-  durationMinutes: 60 | 120;
+  contractId: string;
+  userId: string;
+  opensAt: string;
+  closesAt: string;
   note?: string | null;
 }): Promise<{ row: DealerContractAccessWindow | null; error: string | null }> {
   const { data, error } = await supabase.rpc("activate_dealer_contract_access_window", {
     p_dealer_account_number: input.dealerAccountNumber,
-    p_contract_id: input.contractId ?? null,
-    p_duration_minutes: input.durationMinutes,
+    p_contract_id: input.contractId,
+    p_user_id: input.userId,
+    p_opens_at: input.opensAt,
+    p_closes_at: input.closesAt,
     p_note: input.note ?? null,
+  });
+  if (error) return { row: null, error: error.message };
+  return { row: data ? rowToAccessWindow(data as Record<string, unknown>) : null, error: null };
+}
+
+export async function extendDealerContractAccessWindow(input: {
+  windowId: string;
+  closesAt: string;
+}): Promise<{ row: DealerContractAccessWindow | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("extend_dealer_contract_access_window", {
+    p_window_id: input.windowId,
+    p_closes_at: input.closesAt,
   });
   if (error) return { row: null, error: error.message };
   return { row: data ? rowToAccessWindow(data as Record<string, unknown>) : null, error: null };
