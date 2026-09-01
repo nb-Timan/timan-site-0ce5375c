@@ -71,4 +71,9 @@ describe("company contact info onboarding i18n", () => {
     expect(shell).toContain("subtitle?: string");
     expect(shell).toContain("{subtitle &&");
   });
+
+  it("imports the shared misc page shell before rendering it", () => {
+    expect(page).toContain('import MiscPageShell from "./MiscPageShell";');
+    expect(page).toContain("<MiscPageShell");
+  });
 });
