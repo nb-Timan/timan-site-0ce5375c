@@ -111,6 +111,7 @@ import {
 } from "@/lib/crmDealerBudget";
 import DealerBudgetHistory from "@/components/crm/DealerBudgetHistory";
 import RegisteredUsersTable, { buildRegisteredUserRows } from "@/components/portal/RegisteredUsersTable";
+import PartnerAgreementHistory from "@/components/portal/PartnerAgreementHistory";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const T = {
@@ -960,6 +961,13 @@ export default function CrmDealerDetailPage() {
   const lastDoneIso = lastDoneAct?.start_datetime || null;
   const latestActivityIso = [latestQuoteIso, lastDoneIso].filter(Boolean).sort().reverse()[0] || null;
   const fmtKr = (v: number) => `${Math.round(v).toLocaleString('da-DK')} kr.`;
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const monthActsCount = activitiesForScope.filter((a) => {
+    const d = new Date(a.start_datetime);
+    return d >= monthStart && d < monthEnd;
+  }).length;
+  const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
 
   const mainDealer = dealers.find(d => d.account_number === mainAccountNumber);
   const isBranch = !!dealer.parent_account_number;
@@ -1355,6 +1363,23 @@ export default function CrmDealerDetailPage() {
         </div>
       )}
 
+      <ContactHero
+        dealer={dealer}
+        contacts={dealerContacts}
+        lang={lang}
+        admin={canEditPartnerAdmin}
+        isBranch={isBranch}
+        mainDealer={mainDealer ?? null}
+        hasGroup={hasGroup}
+        scope={scope}
+        setScope={setScope}
+        branchCount={branchNumbers.length}
+        budgetTotals={budgetTotals}
+        budgetYear={budgetYear}
+        sellers={partnerAdminSellerOptions}
+        onEdit={() => setShowEditDealer(true)}
+      />
+
       {(() => {
         const dealerIdSet = new Set(scopeNumbers
           .map((n) => dealers.find((d) => d.account_number === n)?.id)
@@ -1363,7 +1388,6 @@ export default function CrmDealerDetailPage() {
           (l.linked_dealer_id && (dealerIdSet.has(l.linked_dealer_id) || scopeNumberSet.has(l.linked_dealer_id)))
         );
         const openLeads = scopeLeads.filter(isOpenLead);
-        // Demo leads: match by normalized company / branch name across scope.
         const scopeDealerNames = new Set(
           scopeNumbers
             .map((n) => dealers.find((d) => d.account_number === n))
@@ -1378,33 +1402,9 @@ export default function CrmDealerDetailPage() {
           const s = (d.result_status || "").toLowerCase();
           return s !== "won" && s !== "lost" && s !== "closed" && s !== "vundet" && s !== "tabt" && s !== "lukket";
         });
-        const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
-
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        const monthActsCount = activitiesForScope.filter((a) => {
-          const d = new Date(a.start_datetime); return d >= monthStart && d < monthEnd;
-        }).length;
 
         return (
-          <>
-            <ContactHero
-              dealer={dealer}
-              contacts={dealerContacts}
-              lang={lang}
-              admin={canEditPartnerAdmin}
-              isBranch={isBranch}
-              mainDealer={mainDealer ?? null}
-              hasGroup={hasGroup}
-              scope={scope}
-              setScope={setScope}
-              branchCount={branchNumbers.length}
-              budgetTotals={budgetTotals}
-              budgetYear={budgetYear}
-              sellers={partnerAdminSellerOptions}
-              onEdit={() => setShowEditDealer(true)}
-            />
-
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(440px,0.88fr)_minmax(520px,1.12fr)] xl:items-start">
             <KpiStrip
               orders={liveOrderCount}
               quotes={liveQuoteCount}
@@ -1416,9 +1416,52 @@ export default function CrmDealerDetailPage() {
               dealerName={dealer.branch_name || dealer.company_name || ""}
               lang={lang}
             />
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{tl("recent_quotes", lang)}</h3>
+                {dealerQuotesInScope.slice(0, 4).length === 0 ? (
+                  <p className="text-sm text-slate-500">{tl("none", lang)}</p>
+                ) : (
+                  <ul className="space-y-1.5 text-sm">
+                    {dealerQuotesInScope.slice(0, 4).map(q => (
+                      <li key={q.id} className="truncate"><span className="text-slate-500">{fmtDate(quoteMonthIso(q))}:</span> {q.title || q.quote_number || q.id}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
+              <div className="rounded-lg border border-slate-200 bg-white p-4">
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{tl("recent_activities", lang)}</h3>
+                {activitiesForScope.slice(0, 4).length === 0 ? (
+                  <p className="text-sm text-slate-500">{tl("none", lang)}</p>
+                ) : (
+                  <ul className="space-y-1.5 text-sm">
+                    {[...activitiesForScope].sort((a,b)=>b.start_datetime.localeCompare(a.start_datetime)).slice(0,4).map(a => (
+                      <li key={a.id} className="truncate"><span className="text-slate-500">{fmtDate(a.start_datetime)}:</span> {a.title || (activityTypeMeta(a.activity_type).label[legacyLang] ?? activityTypeMeta(a.activity_type).label.da)}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-          </>
+              <CollaborationPartnersPanel
+                partners={collaborationPartners}
+                stats={stats}
+                lang={lang}
+                onOpenList={() => setShowCollaborationModal(true)}
+                compact
+              />
+
+              <CrmDemoMachinesPanel
+                rows={demoOverviewMachines}
+                lang={lang}
+                onOpenMachines={() => {
+                  setMachineStatusFilter("demo_attention");
+                  setActiveTab("machines");
+                }}
+                compact
+              />
+            </div>
+          </div>
         );
       })()}
 
@@ -1443,9 +1486,8 @@ export default function CrmDealerDetailPage() {
 
         {/* OVERVIEW */}
         <TabsContent value="overview" className="mt-0">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* LEFT — Seneste noter (with inline add + full history) */}
-            <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5">
+          <div className="space-y-5">
+            <div className="bg-white border border-slate-200 rounded-lg p-5">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 flex items-center gap-2">
                   {tl("notes_heading", lang)}
@@ -1485,50 +1527,12 @@ export default function CrmDealerDetailPage() {
               </div>
             </div>
 
-            {/* RIGHT — Seneste tilbud + Seneste aktiviteter (stacked) */}
-            <div className="space-y-4">
-              <div className="bg-white border border-slate-200 rounded-2xl p-5">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_quotes", lang)}</h3>
-                {dealerQuotesInScope.slice(0, 5).length === 0 ? (
-                  <p className="text-sm text-slate-500">{tl("none", lang)}</p>
-                ) : (
-                  <ul className="text-sm space-y-1.5">
-                    {dealerQuotesInScope.slice(0, 5).map(q => (
-                      <li key={q.id} className="truncate"><span className="text-slate-500">{fmtDate(quoteMonthIso(q))}:</span> {q.title || q.quote_number || q.id}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-2xl p-5">
-                <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 mb-3">{tl("recent_activities", lang)}</h3>
-                {activitiesForScope.slice(0, 5).length === 0 ? (
-                  <p className="text-sm text-slate-500">{tl("none", lang)}</p>
-                ) : (
-                  <ul className="text-sm space-y-1.5">
-                    {[...activitiesForScope].sort((a,b)=>b.start_datetime.localeCompare(a.start_datetime)).slice(0,5).map(a => (
-                      <li key={a.id} className="truncate"><span className="text-slate-500">{fmtDate(a.start_datetime)}:</span> {a.title || (activityTypeMeta(a.activity_type).label[legacyLang] ?? activityTypeMeta(a.activity_type).label.da)}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <CollaborationPartnersPanel
-                partners={collaborationPartners}
-                stats={stats}
-                lang={lang}
-                onOpenList={() => setShowCollaborationModal(true)}
-              />
-
-              <CrmDemoMachinesPanel
-                rows={demoOverviewMachines}
-                lang={lang}
-                onOpenMachines={() => {
-                  setMachineStatusFilter("demo_attention");
-                  setActiveTab("machines");
-                }}
-              />
-            </div>
+            <PartnerAgreementHistory
+              dealerAccountId={dealer.id}
+              dealerAccountNumber={dealer.account_number}
+              language={legacyLang}
+              canManage={canEditPartnerAdmin}
+            />
           </div>
         </TabsContent>
 
@@ -1671,17 +1675,19 @@ function CollaborationPartnersPanel({
   stats,
   lang,
   onOpenList,
+  compact = false,
 }: {
   partners: DealerAccount[];
   stats: Record<string, DealerAccountStats>;
   lang: PortalUiLanguage;
   onOpenList: () => void;
+  compact?: boolean;
 }) {
-  const preview = partners.slice(0, 3);
+  const preview = partners.slice(0, compact ? 2 : 3);
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5">
-      <div className="flex items-center justify-between gap-3 mb-3">
+    <div className={`bg-white border border-slate-200 ${compact ? "rounded-lg p-4" : "rounded-2xl p-5"}`}>
+      <div className="flex items-center justify-between gap-3 mb-2">
         <button
           type="button"
           onClick={onOpenList}
@@ -1712,7 +1718,7 @@ function CollaborationPartnersPanel({
                   <button
                     type="button"
                     onClick={onOpenList}
-                    className="w-full rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-left transition-colors hover:border-emerald-200 hover:bg-emerald-50/60"
+                    className={`w-full border border-slate-100 bg-slate-50/60 px-3 text-left transition-colors hover:border-emerald-200 hover:bg-emerald-50/60 ${compact ? "rounded-lg py-2" : "rounded-xl py-2.5"}`}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -1728,7 +1734,7 @@ function CollaborationPartnersPanel({
                           )}
                         </div>
                         {location && <div className="mt-1 text-xs text-slate-500 truncate">{location}</div>}
-                        <div className="mt-2 flex gap-3 text-[10px] text-slate-500">
+                        <div className={`${compact ? "mt-1" : "mt-2"} flex gap-3 text-[10px] text-slate-500`}>
                           <span><strong className="text-slate-800">{partnerStats?.quote_count ?? 0}</strong> {tl("quotes", lang)}</span>
                           <span><strong className="text-slate-800">{partnerStats?.order_count ?? 0}</strong> {tl("orders", lang)}</span>
                           <span><strong className="text-slate-800">{partnerStats?.activity_count ?? 0}</strong> {tl("activities_short", lang)}</span>
@@ -1807,14 +1813,16 @@ function CrmDemoMachinesPanel({
   rows,
   lang,
   onOpenMachines,
+  compact = false,
 }: {
   rows: DealerMachineRegisterRow[];
   lang: PortalUiLanguage;
   onOpenMachines: () => void;
+  compact?: boolean;
 }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl p-5">
-      <div className="flex items-center justify-between gap-3 mb-3">
+    <div className={`bg-white border border-slate-200 ${compact ? "rounded-lg p-4" : "rounded-2xl p-5"}`}>
+      <div className="flex items-center justify-between gap-3 mb-2">
         <button
           type="button"
           onClick={onOpenMachines}
@@ -1835,14 +1843,14 @@ function CrmDemoMachinesPanel({
         <p className="text-sm text-slate-500">{tl("no_active_demo_machines", lang)}</p>
       ) : (
         <div className="space-y-2">
-          {rows.slice(0, 4).map((row) => {
+          {rows.slice(0, compact ? 2 : 4).map((row) => {
             const meta = crmLifecycleMeta(row, lang);
             return (
               <button
                 key={row.normalizedSerial}
                 type="button"
                 onClick={onOpenMachines}
-                className="w-full rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-left transition-colors hover:border-emerald-200 hover:bg-emerald-50/60"
+                className={`w-full border border-slate-100 bg-slate-50/60 px-3 text-left transition-colors hover:border-emerald-200 hover:bg-emerald-50/60 ${compact ? "rounded-lg py-2" : "rounded-xl py-2.5"}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -2871,8 +2879,8 @@ function KpiStrip({
       icon: <TrendingUp className="h-4 w-4" />,
       value: (
         <div className="text-sm font-bold text-slate-900 leading-tight space-y-0.5">
-          <div><span className="text-2xl">{openLeads}</span> <span className="text-xs font-semibold text-slate-500">{tl("open_leads", lang).toLowerCase()}</span></div>
-          <div><span className="text-2xl">{openDemos}</span> <span className="text-xs font-semibold text-slate-500">{tl("demo_leads", lang).toLowerCase()}</span></div>
+          <div><span className="text-xl">{openLeads}</span> <span className="text-xs font-semibold text-slate-500">{tl("open_leads", lang).toLowerCase()}</span></div>
+          <div><span className="text-xl">{openDemos}</span> <span className="text-xs font-semibold text-slate-500">{tl("demo_leads", lang).toLowerCase()}</span></div>
         </div>
       ),
       link: { href: `/portal/crm/leads${dq}`, label: tl("see_leads", lang) },
@@ -2883,16 +2891,16 @@ function KpiStrip({
 
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm mb-4 overflow-hidden">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-y sm:divide-y-0 lg:divide-x divide-slate-100">
+    <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
+      <div className="grid grid-cols-2 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
         {cols.map((c) => (
-          <div key={c.key} className="p-4 min-w-0">
+          <div key={c.key} className="p-3 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <span className={`flex items-center justify-center w-7 h-7 rounded-lg ${c.tint}`}>{c.icon}</span>
+              <span className={`flex items-center justify-center w-7 h-7 rounded-md ${c.tint}`}>{c.icon}</span>
               <span className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 truncate">{c.label}</span>
             </div>
             {typeof c.value === "string"
-              ? <div className={`text-2xl font-bold leading-none ${c.emphasis ? "text-emerald-700" : "text-slate-900"}`}>{c.value}</div>
+              ? <div className={`text-xl font-bold leading-none ${c.emphasis ? "text-emerald-700" : "text-slate-900"}`}>{c.value}</div>
               : c.value}
             {c.link && (
               <Link to={c.link.href} className="mt-2 inline-block text-[11px] font-semibold text-emerald-700 hover:underline">{c.link.label}</Link>

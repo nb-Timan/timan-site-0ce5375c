@@ -168,7 +168,10 @@ export type PartnerAgreementHistoryEventType =
   | "contract_received"
   | "contract_approved"
   | "new_agreement"
+  | "collaboration_partner_added"
   | "partner_relation_changed"
+  | "service_partner_added"
+  | "dealer_customer_added"
   | "cooperation_ended";
 
 export type PartnerAgreementHistoryEvent = {
@@ -187,7 +190,22 @@ export type PartnerAgreementHistoryEvent = {
   created_by_user_id: string | null;
   created_by_name: string | null;
   created_by_email: string | null;
+  occurred_at: string;
   created_at: string;
+};
+
+export type CreatePartnerAgreementHistoryEventInput = {
+  dealerAccountId: string;
+  eventType: PartnerAgreementHistoryEventType;
+  eventTitle: string;
+  eventDescription?: string | null;
+  occurredAt?: string | null;
+  contractId?: string | null;
+  uploadVersionId?: string | null;
+  partnerRelationId?: string | null;
+  documentBucket?: string | null;
+  documentPath?: string | null;
+  metadata?: Record<string, unknown>;
 };
 
 export type SaveDealerContractInput = {
@@ -358,6 +376,7 @@ function rowToAgreementHistoryEvent(row: Record<string, unknown>): PartnerAgreem
     created_by_user_id: (row.created_by_user_id as string | null) ?? null,
     created_by_name: (row.created_by_name as string | null) ?? null,
     created_by_email: (row.created_by_email as string | null) ?? null,
+    occurred_at: String(row.occurred_at ?? row.created_at ?? ""),
     created_at: String(row.created_at ?? ""),
   };
 }
@@ -871,8 +890,41 @@ export async function fetchPartnerAgreementHistory(
     .from("partner_agreement_history")
     .select("*")
     .eq("dealer_account_number", dealerAccountNumber)
+    .order("occurred_at", { ascending: false })
     .order("created_at", { ascending: false });
 
   if (error) return { rows: [], error: error.message };
   return { rows: (data || []).map((row) => rowToAgreementHistoryEvent(row as Record<string, unknown>)), error: null };
+}
+
+export async function createPartnerAgreementHistoryEvent(
+  input: CreatePartnerAgreementHistoryEventInput,
+): Promise<{ row: PartnerAgreementHistoryEvent | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("create_partner_agreement_history_event", {
+    p_dealer_account_id: input.dealerAccountId,
+    p_event_type: input.eventType,
+    p_event_title: input.eventTitle,
+    p_event_description: input.eventDescription ?? null,
+    p_occurred_at: input.occurredAt ?? null,
+    p_contract_id: input.contractId ?? null,
+    p_upload_version_id: input.uploadVersionId ?? null,
+    p_partner_relation_id: input.partnerRelationId ?? null,
+    p_document_bucket: input.documentBucket ?? null,
+    p_document_path: input.documentPath ?? null,
+    p_metadata: input.metadata ?? {},
+  });
+  if (error) return { row: null, error: error.message };
+  return { row: data ? rowToAgreementHistoryEvent(data as Record<string, unknown>) : null, error: null };
+}
+
+export async function fetchPartnerAgreementHistoryDocumentUrl(
+  event: Pick<PartnerAgreementHistoryEvent, "document_bucket" | "document_path">,
+  expiresInSeconds = 60 * 60,
+): Promise<string | null> {
+  if (!event.document_bucket || !event.document_path) return null;
+  const { data, error } = await supabase.storage
+    .from(event.document_bucket)
+    .createSignedUrl(event.document_path, expiresInSeconds);
+  if (error) return null;
+  return data?.signedUrl || null;
 }
