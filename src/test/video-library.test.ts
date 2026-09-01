@@ -1,7 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { listVideoProductOptions } from "@/lib/videoProductCatalog";
-import { extractYouTubeVideoId, resolveVideoThumbnail, youtubeThumbnailFromId } from "@/lib/videoLibraryService";
+import {
+  extractYouTubeVideoId,
+  resolveMarketingVideoContent,
+  resolveVideoThumbnail,
+  youtubeThumbnailFromId,
+  type MarketingVideo,
+} from "@/lib/videoLibraryService";
 import { tv, VIDEO_CONTENT_TYPES, VIDEO_SEASONS } from "@/lib/videoLibraryI18n";
 
 describe("marketing video library", () => {
@@ -30,9 +36,43 @@ describe("marketing video library", () => {
     for (const lang of ["da", "en", "de", "it", "hu", "sv", "fr", "pl", "cs"] as const) {
       expect(tv("videoLibraryTitle", lang)).not.toBe("videoLibraryTitle");
       expect(tv("videoMgmtAdd", lang)).not.toBe("videoMgmtAdd");
+      expect(tv("videoMgmtContentType", lang)).not.toBe("videoMgmtContentType");
+      expect(tv("videoMgmtStatus", lang)).not.toBe("videoMgmtStatus");
+      expect(tv("videoMgmtSeasons", lang)).not.toBe("videoMgmtSeasons");
+      expect(tv("videoMgmtRelatedProducts", lang)).not.toBe("videoMgmtRelatedProducts");
     }
+    expect(tv("videoMgmtContentType", "de")).toBe("Inhaltstyp");
+    expect(tv("videoMgmtPublished", "de")).toBe("Veröffentlicht");
+    expect(tv("videoSeasonAllYear", "de")).toBe("Ganzjährig");
+    expect(tv("videoSeasonSpring", "de")).toBe("Frühling");
     expect(VIDEO_CONTENT_TYPES).toContain("installation");
     expect(VIDEO_SEASONS).toContain("winter");
+  });
+
+  it("resolves editorial video content from the selected portal language with source fallback", () => {
+    const video = {
+      title: "How to operate Weed Brush for Timan RC-1000",
+      description: "How to operate Weed Brush for Timan RC-1000",
+      source_language: "en",
+      localized_content: {
+        en: {
+          title: "How to operate Weed Brush for Timan RC-1000",
+          description: "How to operate Weed Brush for Timan RC-1000",
+        },
+        da: {
+          title: "Sådan betjenes ukrudtsbørsten til Timan RC-1000",
+          description: "Sådan betjenes ukrudtsbørsten til Timan RC-1000",
+        },
+        de: {
+          title: "So bedienen Sie die Unkrautbürste für den Timan RC-1000",
+          description: "So bedienen Sie die Unkrautbürste für den Timan RC-1000",
+        },
+      },
+    } as Pick<MarketingVideo, "title" | "description" | "localized_content" | "source_language">;
+
+    expect(resolveMarketingVideoContent(video, "de").title).toBe("So bedienen Sie die Unkrautbürste für den Timan RC-1000");
+    expect(resolveMarketingVideoContent(video, "da").title).toBe("Sådan betjenes ukrudtsbørsten til Timan RC-1000");
+    expect(resolveMarketingVideoContent(video, "fr").title).toBe("How to operate Weed Brush for Timan RC-1000");
   });
 
   it("wires Marketing management, Sales library and Configurator primary video integration", () => {
@@ -44,18 +84,24 @@ describe("marketing video library", () => {
     const migration = [
       readFileSync("supabase/migrations/20260901183941_marketing_video_library.sql", "utf8"),
       readFileSync("supabase/migrations/20260901184240_harden_marketing_video_library_policies.sql", "utf8"),
+      readFileSync("supabase/migrations/20260901201158_marketing_video_editorial_i18n.sql", "utf8"),
     ].join("\n");
 
     expect(app).toContain("/portal/marketing/videos");
     expect(area).toContain("videoMgmtTitle");
-    expect(salesPage).toContain("listPublishedMarketingVideos");
+    expect(salesPage).toContain("listPublishedMarketingVideos(uiLanguage)");
     expect(salesPage).toContain("window.addEventListener(\"keydown\", closeOnEscape)");
     expect(salesPage).toContain("videoLibraryEmbedFallback");
     expect(salesPage).toContain("https://www.youtube.com/watch?v=");
     expect(managementPage).toContain("findPrimaryProductConflict");
+    expect(managementPage).toContain("exactMarketingVideoContent(row, uiLanguage)");
+    expect(managementPage).toContain("localizeMarketingVideo(row, uiLanguage)");
     expect(managementPage).toContain("uploadVideoThumbnail");
-    expect(configurator).toContain("listPublishedPrimaryVideos");
+    expect(configurator).toContain("listPublishedPrimaryVideos(uiLanguage)");
     expect(migration).toContain("product_key text not null unique");
+    expect(migration).toContain("localized_content jsonb not null default '{}'::jsonb");
+    expect(migration).toContain("source_language text not null default 'da'");
+    expect(migration).toContain("translation_meta jsonb not null default '{}'::jsonb");
     expect(migration).toContain("marketing_videos_authenticated_read_visible");
     expect(migration).toContain("can_manage_marketing_videos");
   });

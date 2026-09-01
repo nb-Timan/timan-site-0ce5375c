@@ -1,4 +1,9 @@
 import { supabase } from "@/lib/supabase";
+import {
+  PORTAL_LANGUAGE_CODES,
+  portalLanguageLookupOrder,
+  type PortalUiLanguage,
+} from "@/lib/portalLanguages";
 import type { VideoProductOption } from "@/lib/videoProductCatalog";
 
 export type VideoStatus = "draft" | "published" | "archived";
@@ -24,12 +29,23 @@ export interface MarketingVideoProductLink {
   is_primary?: boolean;
 }
 
+export type MarketingVideoLocalizedFields = {
+  title?: string | null;
+  description?: string | null;
+};
+
+export type MarketingVideoLocalizedContent = Partial<Record<PortalUiLanguage | string, MarketingVideoLocalizedFields>>;
+export type MarketingVideoTranslationMeta = Partial<Record<PortalUiLanguage | string, Record<string, unknown>>>;
+
 export interface MarketingVideo {
   id: string;
   youtube_url: string;
   youtube_video_id: string;
   title: string;
   description: string | null;
+  localized_content: MarketingVideoLocalizedContent | null;
+  source_language: PortalUiLanguage;
+  translation_meta: MarketingVideoTranslationMeta | null;
   content_type: VideoContentType;
   seasons: string[];
   tags: string[];
@@ -50,6 +66,10 @@ export interface MarketingVideoInput {
   youtube_url: string;
   title: string;
   description?: string | null;
+  source_language: PortalUiLanguage;
+  localized_content?: MarketingVideoLocalizedContent | null;
+  previous_localized_content?: MarketingVideoLocalizedContent | null;
+  translation_meta?: MarketingVideoTranslationMeta | null;
   content_type: VideoContentType;
   seasons: string[];
   tags: string[];
@@ -62,7 +82,7 @@ export interface MarketingVideoInput {
 }
 
 const VIDEO_BASE_SELECT = `
-  id, youtube_url, youtube_video_id, title, description, content_type, seasons, tags,
+  id, youtube_url, youtube_video_id, title, description, localized_content, source_language, translation_meta, content_type, seasons, tags,
   custom_thumbnail_url, custom_thumbnail_path, status, published_at,
   created_by, updated_by, created_at, updated_at
 `;
@@ -78,6 +98,150 @@ function normalizeArray(value: unknown): string[] {
   return value.map((item) => String(item || "").trim()).filter(Boolean);
 }
 
+function isPortalUiLanguage(value: unknown): value is PortalUiLanguage {
+  return typeof value === "string" && (PORTAL_LANGUAGE_CODES as string[]).includes(value);
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function localizedString(
+  localizedContent: MarketingVideoLocalizedContent | null | undefined,
+  language: PortalUiLanguage,
+  sourceLanguage: PortalUiLanguage,
+  key: keyof MarketingVideoLocalizedFields,
+): string {
+  if (!localizedContent) return "";
+  const byLanguage = localizedContent as Record<string, MarketingVideoLocalizedFields | undefined>;
+  const lookupOrder = Array.from(new Set([
+    ...portalLanguageLookupOrder(language),
+    ...portalLanguageLookupOrder(sourceLanguage),
+    "en",
+    "gb",
+    ...Object.keys(byLanguage),
+  ]));
+
+  for (const languageKey of lookupOrder) {
+    const value = stringValue(byLanguage[languageKey]?.[key]);
+    if (value) return value;
+  }
+  return "";
+}
+
+export function resolveMarketingVideoContent(
+  video: Pick<MarketingVideo, "title" | "description" | "localized_content" | "source_language">,
+  language: PortalUiLanguage,
+): { title: string; description: string | null } {
+  const sourceLanguage = isPortalUiLanguage(video.source_language) ? video.source_language : "da";
+  return {
+    title: localizedString(video.localized_content, language, sourceLanguage, "title") || video.title || "Untitled video",
+    description: localizedString(video.localized_content, language, sourceLanguage, "description") || video.description || null,
+  };
+}
+
+export function localizeMarketingVideo(video: MarketingVideo, language: PortalUiLanguage): MarketingVideo {
+  const localized = resolveMarketingVideoContent(video, language);
+  return { ...video, ...localized };
+}
+
+export function exactMarketingVideoContent(
+  video: Pick<MarketingVideo, "title" | "description" | "localized_content" | "source_language">,
+  language: PortalUiLanguage,
+): { title: string; description: string } {
+  const exact = video.localized_content?.[language];
+  const fallback = resolveMarketingVideoContent(
+    {
+      title: video.title,
+      description: video.description,
+      localized_content: video.localized_content,
+      source_language: video.source_language,
+    },
+    language,
+  );
+  return {
+    title: stringValue(exact?.title) || fallback.title,
+    description: stringValue(exact?.description) || fallback.description || "",
+  };
+}
+
+function withSourceVideoContent(
+  localizedContent: MarketingVideoLocalizedContent | null | undefined,
+  sourceLanguage: PortalUiLanguage,
+  title: string,
+  description: string | null | undefined,
+): MarketingVideoLocalizedContent {
+  return {
+    ...(localizedContent || {}),
+    [sourceLanguage]: {
+      ...(localizedContent?.[sourceLanguage] || {}),
+      title: title.trim(),
+      description: description?.trim() || "",
+    },
+  };
+}
+
+function cleanTranslationError(error: unknown): string {
+  if (!error) return "translation_failed";
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error && "message" in error && typeof (error as { message?: unknown }).message === "string") {
+    return (error as { message: string }).message;
+  }
+  return "translation_failed";
+}
+
+export async function translateMarketingVideoContent(input: {
+  localizedContent: MarketingVideoLocalizedContent;
+  previousLocalizedContent?: MarketingVideoLocalizedContent | null;
+  sourceLanguage: PortalUiLanguage;
+  translationMeta?: MarketingVideoTranslationMeta | null;
+}): Promise<{
+  localizedContent: MarketingVideoLocalizedContent;
+  translationMeta: MarketingVideoTranslationMeta;
+  translatedLanguages: PortalUiLanguage[];
+  error: string | null;
+}> {
+  const targetLanguages = PORTAL_LANGUAGE_CODES.filter((language) => language !== input.sourceLanguage);
+  const { data, error } = await supabase.functions.invoke("translate-news-content", {
+    body: {
+      sourceLanguage: input.sourceLanguage,
+      targetLanguages,
+      fields: [
+        { key: "title", type: "text" },
+        { key: "description", type: "textarea" },
+      ],
+      localizedContent: input.localizedContent,
+      previousLocalizedContent: input.previousLocalizedContent || null,
+      translationMeta: input.translationMeta || {},
+    },
+  });
+
+  if (error) {
+    return {
+      localizedContent: input.localizedContent,
+      translationMeta: input.translationMeta || {},
+      translatedLanguages: [],
+      error: cleanTranslationError(error),
+    };
+  }
+
+  const response = (data || {}) as {
+    localizedContent?: MarketingVideoLocalizedContent;
+    translationMeta?: MarketingVideoTranslationMeta;
+    translatedLanguages?: unknown[];
+  };
+
+  return {
+    localizedContent: response.localizedContent || input.localizedContent,
+    translationMeta: response.translationMeta || input.translationMeta || {},
+    translatedLanguages: Array.isArray(response.translatedLanguages)
+      ? response.translatedLanguages.filter(isPortalUiLanguage)
+      : [],
+    error: null,
+  };
+}
+
 function toVideo(row: Record<string, unknown>): MarketingVideo {
   const links = (row.marketing_video_product_links as MarketingVideoProductLink[] | null | undefined) ?? [];
   const primaryRows = (row.marketing_video_primary_products as MarketingVideoProductLink[] | null | undefined) ?? [];
@@ -88,6 +252,9 @@ function toVideo(row: Record<string, unknown>): MarketingVideo {
     youtube_video_id: String(row.youtube_video_id || ""),
     title: String(row.title || ""),
     description: (row.description as string | null) ?? null,
+    localized_content: (row.localized_content as MarketingVideoLocalizedContent | null) ?? null,
+    source_language: isPortalUiLanguage(row.source_language) ? row.source_language : "da",
+    translation_meta: (row.translation_meta as MarketingVideoTranslationMeta | null) ?? null,
     content_type: (row.content_type as VideoContentType) || "product",
     seasons: normalizeArray(row.seasons),
     tags: normalizeArray(row.tags),
@@ -152,7 +319,7 @@ export async function listMarketingVideos(): Promise<{ rows: MarketingVideo[]; e
   return { rows: ((data ?? []) as Record<string, unknown>[]).map(toVideo), error: null };
 }
 
-export async function listPublishedMarketingVideos(): Promise<{ rows: MarketingVideo[]; error: string | null }> {
+export async function listPublishedMarketingVideos(language?: PortalUiLanguage): Promise<{ rows: MarketingVideo[]; error: string | null }> {
   const { data, error } = await supabase
     .from("marketing_videos")
     .select(VIDEO_SELECT)
@@ -160,10 +327,11 @@ export async function listPublishedMarketingVideos(): Promise<{ rows: MarketingV
     .not("published_at", "is", null)
     .order("published_at", { ascending: false });
   if (error) return { rows: [], error: error.message };
-  return { rows: ((data ?? []) as Record<string, unknown>[]).map(toVideo), error: null };
+  const rows = ((data ?? []) as Record<string, unknown>[]).map(toVideo);
+  return { rows: language ? rows.map((row) => localizeMarketingVideo(row, language)) : rows, error: null };
 }
 
-export async function getPrimaryVideoForProduct(productKey: string): Promise<MarketingVideo | null> {
+export async function getPrimaryVideoForProduct(productKey: string, language?: PortalUiLanguage): Promise<MarketingVideo | null> {
   const { data: primary, error: primaryError } = await supabase
     .from("marketing_video_primary_products")
     .select("video_id")
@@ -179,10 +347,11 @@ export async function getPrimaryVideoForProduct(productKey: string): Promise<Mar
     .not("published_at", "is", null)
     .maybeSingle();
   if (error || !data) return null;
-  return toVideo(data as Record<string, unknown>);
+  const video = toVideo(data as Record<string, unknown>);
+  return language ? localizeMarketingVideo(video, language) : video;
 }
 
-export async function listPublishedPrimaryVideos(): Promise<Map<string, MarketingVideo>> {
+export async function listPublishedPrimaryVideos(language?: PortalUiLanguage): Promise<Map<string, MarketingVideo>> {
   const { data: primaryRows, error: primaryError } = await supabase
     .from("marketing_video_primary_products")
     .select("product_key, video_id");
@@ -206,7 +375,7 @@ export async function listPublishedPrimaryVideos(): Promise<Map<string, Marketin
   }
 
   const videosById = new Map(((videos ?? []) as Record<string, unknown>[]).map((row) => {
-    const video = toVideo(row);
+    const video = language ? localizeMarketingVideo(toVideo(row), language) : toVideo(row);
     return [video.id, video] as const;
   }));
   const result = new Map<string, MarketingVideo>();
@@ -241,11 +410,33 @@ export async function saveMarketingVideo(input: MarketingVideoInput): Promise<{ 
   const actorId = (userRow?.id as string | undefined) ?? null;
   const now = new Date().toISOString();
   const status = input.status;
+  const sourceLanguage = input.source_language;
+  const localizedContent = withSourceVideoContent(input.localized_content, sourceLanguage, input.title, input.description);
+  const translation = await translateMarketingVideoContent({
+    localizedContent,
+    previousLocalizedContent: input.previous_localized_content,
+    sourceLanguage,
+    translationMeta: input.translation_meta,
+  });
+  if (translation.error) return { row: null, error: translation.error };
+
+  const legacyContent = resolveMarketingVideoContent(
+    {
+      title: input.title,
+      description: input.description || null,
+      localized_content: translation.localizedContent,
+      source_language: sourceLanguage,
+    },
+    sourceLanguage,
+  );
   const payload = {
     youtube_url: input.youtube_url.trim(),
     youtube_video_id: videoId,
-    title: input.title.trim(),
-    description: input.description?.trim() || null,
+    title: legacyContent.title.trim(),
+    description: legacyContent.description?.trim() || null,
+    localized_content: translation.localizedContent,
+    source_language: sourceLanguage,
+    translation_meta: translation.translationMeta,
     content_type: input.content_type,
     seasons: input.seasons,
     tags: input.tags,

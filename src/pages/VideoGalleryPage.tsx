@@ -39,13 +39,13 @@ export default function VideoGalleryPage() {
 
   useEffect(() => {
     let cancelled = false;
-    listPublishedMarketingVideos().then((result) => {
+    listPublishedMarketingVideos(uiLanguage).then((result) => {
       if (cancelled) return;
       setRows(result.rows);
       setError(result.error);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [uiLanguage]);
 
   const productOptions = useMemo(() => listVideoProductOptions(uiLanguage), [uiLanguage]);
   const machineOptions = useMemo(() => {
@@ -83,10 +83,10 @@ export default function VideoGalleryPage() {
         return search.includes(q);
       })
       .sort((a, b) => {
-        if (sortKey === "title") return a.title.localeCompare(b.title, "da");
+        if (sortKey === "title") return a.title.localeCompare(b.title, uiLanguage);
         return new Date(b.published_at || b.updated_at).getTime() - new Date(a.published_at || a.updated_at).getTime();
       });
-  }, [machineFilter, query, rows, seasonFilter, sortKey, typeFilter]);
+  }, [machineFilter, query, rows, seasonFilter, sortKey, typeFilter, uiLanguage]);
 
   const resetFilters = () => {
     setQuery("");

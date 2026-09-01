@@ -13,13 +13,17 @@ import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 import { listVideoProductOptions, productSearchText, type VideoProductOption } from "@/lib/videoProductCatalog";
 import {
   extractYouTubeVideoId,
+  exactMarketingVideoContent,
   findPrimaryProductConflict,
   listMarketingVideos,
+  localizeMarketingVideo,
   resolveVideoThumbnail,
   saveMarketingVideo,
   uploadVideoThumbnail,
   youtubeThumbnailFromId,
   type MarketingVideo,
+  type MarketingVideoLocalizedContent,
+  type MarketingVideoTranslationMeta,
   type VideoContentType,
   type VideoStatus,
 } from "@/lib/videoLibraryService";
@@ -30,12 +34,17 @@ import {
   VIDEO_CONTENT_TYPES,
   VIDEO_SEASONS,
 } from "@/lib/videoLibraryI18n";
+import type { PortalUiLanguage } from "@/lib/portalLanguages";
 
 interface DraftState {
   id?: string;
   youtube_url: string;
   title: string;
   description: string;
+  localized_content: MarketingVideoLocalizedContent;
+  previous_localized_content: MarketingVideoLocalizedContent | null;
+  source_language: PortalUiLanguage;
+  translation_meta: MarketingVideoTranslationMeta;
   content_type: VideoContentType;
   seasons: string[];
   tagsText: string;
@@ -50,6 +59,10 @@ const EMPTY_DRAFT: DraftState = {
   youtube_url: "",
   title: "",
   description: "",
+  localized_content: {},
+  previous_localized_content: null,
+  source_language: "da",
+  translation_meta: {},
   content_type: "product",
   seasons: ["all_year"],
   tagsText: "",
@@ -79,6 +92,7 @@ export default function BackendVideoManagementPage() {
   const [conflict, setConflict] = useState<Record<string, unknown> | null>(null);
 
   const productOptions = useMemo(() => listVideoProductOptions(uiLanguage), [uiLanguage]);
+  const displayRows = useMemo(() => rows.map((row) => localizeMarketingVideo(row, uiLanguage)), [rows, uiLanguage]);
 
   const reload = async () => {
     setLoadingRows(true);
@@ -95,7 +109,7 @@ export default function BackendVideoManagementPage() {
 
   const filteredRows = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    return rows
+    return displayRows
       .filter((row) => statusFilter === "all" || row.status === statusFilter)
       .filter((row) => typeFilter === "all" || row.content_type === typeFilter)
       .filter((row) => {
@@ -109,7 +123,7 @@ export default function BackendVideoManagementPage() {
           ...row.products.flatMap((item) => [item.item_number, item.product_label || "", item.machine_key || ""]),
         ].join(" ").toLowerCase().includes(q);
       });
-  }, [rows, searchTerm, statusFilter, typeFilter]);
+  }, [displayRows, searchTerm, statusFilter, typeFilter]);
 
   if (loading) return <div className="min-h-screen bg-gray-50" />;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -117,18 +131,31 @@ export default function BackendVideoManagementPage() {
 
   const startCreate = () => {
     setProductSearch("");
-    setEditing({ ...EMPTY_DRAFT, products: [], seasons: ["all_year"] });
+    setEditing({
+      ...EMPTY_DRAFT,
+      products: [],
+      seasons: ["all_year"],
+      source_language: uiLanguage,
+      localized_content: {},
+      previous_localized_content: null,
+      translation_meta: {},
+    });
     setError(null);
     setMessage(null);
   };
 
   const startEdit = (row: MarketingVideo) => {
     setProductSearch("");
+    const localized = exactMarketingVideoContent(row, uiLanguage);
     setEditing({
       id: row.id,
       youtube_url: row.youtube_url,
-      title: row.title,
-      description: row.description || "",
+      title: localized.title,
+      description: localized.description,
+      localized_content: row.localized_content || {},
+      previous_localized_content: row.localized_content || {},
+      source_language: uiLanguage,
+      translation_meta: row.translation_meta || {},
       content_type: row.content_type,
       seasons: row.seasons.length ? row.seasons : ["all_year"],
       tagsText: row.tags.join(", "),
@@ -193,6 +220,10 @@ export default function BackendVideoManagementPage() {
       youtube_url: activeDraft.youtube_url,
       title: activeDraft.title,
       description: activeDraft.description,
+      source_language: activeDraft.source_language,
+      localized_content: activeDraft.localized_content,
+      previous_localized_content: activeDraft.previous_localized_content,
+      translation_meta: activeDraft.translation_meta,
       content_type: activeDraft.content_type,
       seasons: activeDraft.seasons,
       tags: activeDraft.tagsText.split(",").map((tag) => tag.trim()).filter(Boolean),

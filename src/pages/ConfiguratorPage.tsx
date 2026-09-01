@@ -129,17 +129,17 @@ export default function ConfiguratorPage() {
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
   const [primaryVideosByProduct, setPrimaryVideosByProduct] = useState<Map<string, MarketingVideo>>(() => new Map());
+  const { appUser, setAppUser: setAppUserCtx, logout: ctxLogout } = useAppUser();
+  const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
 
   useEffect(() => {
     let cancelled = false;
-    listPublishedPrimaryVideos().then((rows) => {
+    listPublishedPrimaryVideos(uiLanguage).then((rows) => {
       if (!cancelled) setPrimaryVideosByProduct(rows);
     });
     return () => { cancelled = true; };
-  }, []);
+  }, [uiLanguage]);
 
-  const { appUser, setAppUser: setAppUserCtx, logout: ctxLogout } = useAppUser();
-  const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
