@@ -18,7 +18,12 @@ import {
   deriveLegacyPipelineStage,
   NEXT_ACTIVITY_LOST,
 } from '@/lib/leadStatus';
-import { listConfigurationsForLead, type CrmLeadQuoteRow } from '@/lib/crmConfigurationsService';
+import {
+  getCrmConfigurationDeepLink,
+  getCrmLinkedConfigurationKind,
+  listConfigurationsForLead,
+  type CrmLeadQuoteRow,
+} from '@/lib/crmConfigurationsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
@@ -1700,23 +1705,35 @@ export default function CrmNewLeadPage() {
             <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
               <header className="mb-4">
                 <h3 className="text-[15px] font-semibold text-gray-900">
-                  {lang === 'da' ? 'Linkede tilbud (konfigurator)' : 'Linked configurator quotes'}
+                  {lang === 'da' ? 'Linkede konfigurationer / tilbud' : 'Linked configurations / quotes'}
                 </h3>
                 <p className="text-xs text-gray-500 mt-1">
                   {lang === 'da'
-                    ? 'Tilbud oprettet i konfiguratoren og knyttet til dette lead.'
-                    : 'Quotes created in the configurator and linked to this lead.'}
+                    ? 'Konfigurationer, tilbud og ordrer fra konfiguratoren knyttet til dette lead.'
+                    : 'Configurations, quotes and orders from the configurator linked to this lead.'}
                 </p>
               </header>
               <ul className="divide-y divide-gray-100">
                 {linkedQuotes.map(q => {
+                  const kind = getCrmLinkedConfigurationKind(q);
+                  const kindLabel = kind === 'order'
+                    ? (lang === 'da' ? 'Ordre' : 'Order')
+                    : kind === 'quote'
+                      ? (lang === 'da' ? 'Tilbud' : 'Quote')
+                      : (lang === 'da' ? 'Konfiguration' : 'Configuration');
                   const dealer = q.dealer_company_name || q.dealer_name || q.dealer_number || '—';
-                  const sentAt = q.quote_sent_at || q.submitted_at || q.created_at;
+                  const sentAt = q.order_sent_at || q.submitted_at || q.quote_sent_at || q.created_at;
                   const machines = q.machine_keys.join(', ') || '—';
+                  const documentNumber = kind === 'order'
+                    ? (q.order_number || q.quote_number || '—')
+                    : (q.quote_number || '—');
                   return (
                     <li key={q.id} className="py-2.5 flex items-center gap-3 text-sm">
                       <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700">
-                        {q.quote_number || '—'}
+                        {documentNumber}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700">
+                        {kindLabel}
                       </span>
                       <span className="flex-1 truncate text-gray-800">{q.title || dealer}</span>
                       <span className="text-xs text-gray-500 truncate">{dealer}</span>
@@ -1727,7 +1744,7 @@ export default function CrmNewLeadPage() {
                       <span className="text-xs text-gray-400">
                         {sentAt ? new Date(sentAt).toLocaleDateString('da-DK') : '—'}
                       </span>
-                      <Link to={`/portal/crm/tilbud?focus=${q.id}`} className="text-xs text-[#2d5a27] hover:underline">
+                      <Link to={getCrmConfigurationDeepLink(q)} className="text-xs text-[#2d5a27] hover:underline">
                         {lang === 'da' ? 'Åbn' : 'Open'}
                       </Link>
                     </li>

@@ -1496,6 +1496,7 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
       try {
         const { updateLead } = await import('@/lib/crmLeadsService');
         await updateLead(linkedLeadId, {
+          incomplete_from_configurator: false,
           pipeline_stage: 'Offer sent',
           next_activity: 'Offer sent to the customer',
           probability: 70,

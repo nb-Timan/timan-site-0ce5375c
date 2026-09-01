@@ -82,6 +82,32 @@ export interface CrmConfigurationFilter {
   documentType: CrmDocumentType;
 }
 
+export type CrmLinkedConfigurationKind = 'configuration' | 'quote' | 'order';
+
+function isOrderLike(row: Pick<CrmConfigurationRow, 'document_type' | 'case_type' | 'case_status' | 'status' | 'order_number' | 'order_sent_at' | 'submitted_at'>): boolean {
+  const caseStatus = (row.case_status || '').toLowerCase();
+  const status = (row.status || '').toLowerCase();
+  return row.document_type === 'order'
+    || row.case_type === 'order'
+    || caseStatus === 'ordre_afgivet'
+    || status === 'ordre_afgivet'
+    || Boolean(row.order_number)
+    || Boolean(row.order_sent_at)
+    || Boolean(row.submitted_at);
+}
+
+export function getCrmLinkedConfigurationKind(
+  row: Pick<CrmConfigurationRow, 'document_type' | 'case_type' | 'case_status' | 'status' | 'order_number' | 'order_sent_at' | 'submitted_at' | 'quote_sent_at'>,
+): CrmLinkedConfigurationKind {
+  if (isOrderLike(row)) return 'order';
+  if (row.quote_sent_at) return 'quote';
+  return 'configuration';
+}
+
+export function getCrmConfigurationDeepLink(row: Pick<CrmConfigurationRow, 'id'>): string {
+  return `/configurator?configId=${encodeURIComponent(row.id)}`;
+}
+
 function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
   const rawDocumentType = (row.document_type as string | null) ?? null;
   const rawCaseType = (row.case_type as string | null) ?? null;

@@ -472,12 +472,6 @@ export default function CrmLeadsPage() {
     if (!lead || quoteConvertBusyId) return;
     setQuoteConvertBusyId(leadId);
     try {
-      const nextActivity = 'Offer sent to the customer';
-      await updateLead(leadId, {
-        next_activity: nextActivity,
-        probability: 70,
-        pipeline_stage: deriveLegacyPipelineStage(nextActivity),
-      });
       navigate(`/configurator?fromLeadQuote=${encodeURIComponent(leadId)}`);
     } catch (e) {
       console.error(e);
