@@ -1487,7 +1487,7 @@ export default function CrmDealerDetailPage() {
 
         {/* OVERVIEW */}
         <TabsContent value="overview" className="mt-0">
-          <div className="space-y-5">
+          <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] xl:items-start">
             <div className="bg-white border border-slate-200 rounded-lg p-5">
               <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                 <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 flex items-center gap-2">
@@ -1533,6 +1533,7 @@ export default function CrmDealerDetailPage() {
               dealerAccountNumber={dealer.account_number}
               language={legacyLang}
               canManage={canEditPartnerAdmin}
+              compact
             />
           </div>
         </TabsContent>
@@ -2707,11 +2708,15 @@ function ContactHero({
     mapsHref  ? { key: "route",  label: tl("directions", lang), sublabel: addressSublabel, icon: <MapPin className="h-5 w-5" />, href: mapsHref } : null,
     websiteHref ? { key: "web",  label: tl("website", lang), sublabel: websiteDisplay, icon: <Globe className="h-5 w-5" />, href: websiteHref } : null,
     { key: "dealer-data", label: tl("open_dealer_data", lang), sublabel: dealer.company_name || undefined, icon: <Building2 className="h-5 w-5" />, href: dealerDataHref },
+    assignedSellerName ? {
+      key: "assigned-seller",
+      label: tl("assigned_seller", lang),
+      sublabel: [assignedSellerName, assignedSellerPhone || "Telefon ikke angivet", assignedSellerEmail].filter(Boolean).join("\n"),
+      icon: <UserCircle2 className="h-5 w-5" />,
+      href: assignedSellerEmail ? `mailto:${assignedSellerEmail}` : undefined,
+    } : null,
   ].filter(Boolean) as HeroAction[];
   const actions = actionsAll;
-
-  const initials = (dealer.company_name || "?")
-    .split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "?";
 
   const budgetPct = budgetTotals && !budgetTotals.noBudget ? classifyBudgetStatus(budgetTotals).pct : null;
 
@@ -2780,63 +2785,19 @@ function ContactHero({
       </div>
 
       {/* Hero card — compact action header */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(220px,0.65fr)_minmax(0,2.35fr)] gap-4 items-stretch">
-          {/* Company identity */}
-          <div className="flex items-start gap-4 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-base font-bold shrink-0">
-              {initials}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] uppercase tracking-wide font-bold text-slate-500 mb-1">{tl("contact_info", lang)}</div>
-              <div className="space-y-1">
-                <div className="truncate text-sm font-bold text-slate-900">{dealer.branch_name || dealer.company_name}</div>
-                <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                  <span className="font-mono">#{dealer.account_number}</span>
-                  <span>·</span>
-                  <span>{dealerPresentationType(dealer, lang)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-
-
+      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+        <div className="grid grid-cols-1 gap-2 items-stretch">
           {/* Action cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2">
-            {assignedSellerName && (
-              <div className="flex min-w-0 flex-col items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50/40 px-2.5 py-3 text-center">
-                <div className="flex max-w-full items-center justify-center gap-1.5 text-[10px] uppercase tracking-wide font-bold text-emerald-800">
-                  <UserCircle2 className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">Timan-sælger</span>
-                </div>
-                <div className="mt-2 max-w-full truncate text-[11px] font-semibold leading-tight text-slate-900">{assignedSellerName}</div>
-                <div className="mt-1 flex max-w-full flex-col items-center gap-1 text-[10px] leading-tight text-slate-500">
-                  {assignedSellerPhone ? (
-                    <a href={`tel:${assignedSellerPhone}`} className="max-w-full truncate hover:underline">
-                      {assignedSellerPhone}
-                    </a>
-                  ) : (
-                    <div className="max-w-full truncate text-slate-400">
-                      Telefon ikke angivet
-                    </div>
-                  )}
-                  {assignedSellerEmail && (
-                    <a href={`mailto:${assignedSellerEmail}`} className="max-w-full break-words hover:underline">
-                      {assignedSellerEmail}
-                    </a>
-                  )}
-                </div>
-              </div>
-            )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
             {actions.map((a) => {
-              const cls = `flex flex-col items-center justify-center gap-1.5 rounded-xl border bg-white px-2 py-3 text-center transition ${
+              const cls = `flex min-h-[118px] flex-col items-center justify-center gap-1.5 rounded-lg border bg-white px-2 py-2.5 text-center transition ${
                 a.disabled
                   ? "border-slate-200 text-slate-300 cursor-not-allowed"
                   : "border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-sm"
               }`;
               const inner = (
                 <>
-                  <span className={`flex items-center justify-center w-9 h-9 rounded-lg ${a.disabled ? "bg-slate-50 text-slate-300" : "bg-emerald-50 text-emerald-700"}`}>
+                  <span className={`flex items-center justify-center w-8 h-8 rounded-md ${a.disabled ? "bg-slate-50 text-slate-300" : "bg-emerald-50 text-emerald-700"}`}>
                     {a.icon}
                   </span>
                   <span className="text-[11px] font-semibold leading-tight">{a.label}</span>

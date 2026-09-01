@@ -62,11 +62,13 @@ export default function PartnerAgreementHistory({
   dealerAccountNumber,
   language,
   canManage = false,
+  compact = false,
 }: {
   dealerAccountId?: string | null;
   dealerAccountNumber: string;
   language: Language;
   canManage?: boolean;
+  compact?: boolean;
 }) {
   const [events, setEvents] = useState<PartnerAgreementHistoryEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,13 +142,13 @@ export default function PartnerAgreementHistory({
   }
 
   return (
-    <section className="border-t border-slate-200 pt-5">
+    <section className={compact ? "rounded-lg border border-slate-200 bg-white p-4" : "border-t border-slate-200 pt-5"}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-start gap-3">
+        <div className="flex min-w-0 items-start gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
-            <History className="h-5 w-5" />
+            <History className={compact ? "h-4 w-4" : "h-5 w-5"} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h2 className="text-base font-bold text-slate-950">{t('partnerAgreementHistoryTitle', language)}</h2>
             <p className="mt-1 text-sm text-slate-500">{t('partnerAgreementHistoryIntro', language)}</p>
           </div>
@@ -174,9 +176,9 @@ export default function PartnerAgreementHistory({
         {!loading && !error && events.length > 0 && (
           <ol className="divide-y divide-slate-100 border-y border-slate-100">
             {events.map((event) => (
-              <li key={event.id} className="grid grid-cols-1 gap-3 py-3 sm:grid-cols-[120px_minmax(0,1fr)]">
+              <li key={event.id} className={compact ? "py-3" : "grid grid-cols-1 gap-3 py-3 sm:grid-cols-[120px_minmax(0,1fr)]"}>
                 <time className="text-sm font-semibold text-slate-500">{formatDate(event.occurred_at || event.created_at, language)}</time>
-                <div className="min-w-0 border-l border-slate-200 pl-4">
+                <div className={compact ? "mt-2 min-w-0" : "min-w-0 border-l border-slate-200 pl-4"}>
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700">
                       {eventIcon(event)}
@@ -184,7 +186,7 @@ export default function PartnerAgreementHistory({
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-slate-950">{event.event_title}</p>
                       {event.event_description && (
-                        <p className="mt-1 text-sm leading-6 text-slate-600">{event.event_description}</p>
+                        <p className={compact ? "mt-1 text-sm leading-5 text-slate-600" : "mt-1 text-sm leading-6 text-slate-600"}>{event.event_description}</p>
                       )}
                       {(event.created_by_name || event.created_by_email) && (
                         <p className="mt-1 text-xs text-slate-400">

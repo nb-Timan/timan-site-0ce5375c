@@ -60,10 +60,32 @@ describe("partner contract onboarding access", () => {
   it("reuses agreement history on CRM dealer detail without exposing a generic activity feed", () => {
     expect(crmDealerDetailPage).toContain("PartnerAgreementHistory");
     expect(crmDealerDetailPage).toContain("xl:grid-cols-[minmax(440px,0.88fr)_minmax(520px,1.12fr)]");
+    expect(crmDealerDetailPage).toContain("xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]");
     expect(crmDealerDetailPage).toContain("compact");
     expect(historyComponent).toContain("Tilføj aftalehændelse");
     expect(historyComponent).toContain("Åbn dokument");
     expect(historyComponent).toContain("fetchPartnerAgreementHistoryDocumentUrl");
+    expect(historyComponent).toContain('compact ? "py-3"');
+  });
+
+  it("keeps CRM dealer detail topbar compact and orders quick cards consistently", () => {
+    expect(crmDealerDetailPage).not.toContain("Company identity");
+    expect(crmDealerDetailPage).not.toContain("xl:grid-cols-[minmax(220px,0.65fr)_minmax(0,2.35fr)]");
+    expect(crmDealerDetailPage).toContain("xl:grid-cols-6");
+
+    const contactIndex = crmDealerDetailPage.indexOf('key: "call"');
+    const mailIndex = crmDealerDetailPage.indexOf('key: "mail"');
+    const routeIndex = crmDealerDetailPage.indexOf('key: "route"');
+    const webIndex = crmDealerDetailPage.indexOf('key: "web"');
+    const dealerDataIndex = crmDealerDetailPage.indexOf('key: "dealer-data"');
+    const sellerIndex = crmDealerDetailPage.indexOf('key: "assigned-seller"');
+
+    expect(contactIndex).toBeGreaterThan(-1);
+    expect(mailIndex).toBeGreaterThan(contactIndex);
+    expect(routeIndex).toBeGreaterThan(mailIndex);
+    expect(webIndex).toBeGreaterThan(routeIndex);
+    expect(dealerDataIndex).toBeGreaterThan(webIndex);
+    expect(sellerIndex).toBeGreaterThan(dealerDataIndex);
   });
 
   it("keeps manual agreement history creation scoped and append-only", () => {
