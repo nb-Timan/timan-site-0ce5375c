@@ -59,7 +59,7 @@ import {
   type DealerContractUploadFile,
   type DealerContractUploadVersion,
 } from '@/lib/dealerContractsService';
-import { fetchDealerAccountByNumber, fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
+import { fetchDealerAccountByNumber, fetchDealerAccounts, fetchDealerAccountsForSeller, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
@@ -223,6 +223,48 @@ function splitPostalCity(value: string) {
     postalCode: match?.[1] ?? trimmed,
     city: match?.[2] ?? '',
   };
+}
+
+function getDealerAccountStreetAddress(account: DealerAccount) {
+  return [account.address_line_1 || account.address, account.address_line_2]
+    .filter(Boolean)
+    .join(', ');
+}
+
+function getDealerAccountPostalCity(account: DealerAccount) {
+  return [account.postal_code, account.city].filter(Boolean).join(' ') || account.zip_city_raw || '';
+}
+
+function buildContractPartnerPatchFromDealerAccount(account: DealerAccount): Partial<ContractFormData> {
+  const postalCity = getDealerAccountPostalCity(account);
+  const split = splitPostalCity(postalCity);
+  return {
+    partnerType: inferContractPartnerTypeFromDealerAccount(account) || '',
+    dealerName: account.company_name || '',
+    dealerAddress: getDealerAccountStreetAddress(account),
+    dealerPostalCode: account.postal_code || split.postalCode,
+    dealerCity: account.city || split.city,
+    dealerCountry: account.country || '',
+    dealerCvr: account.vat_number || '',
+    contactPerson: account.primary_contact_name || account.sales_contact_name || '',
+    timanSellerName: account.assigned_seller_name || '',
+    timanSellerEmail: account.assigned_seller_email || '',
+  };
+}
+
+function formatContractPartnerPickerOption(account: DealerAccount) {
+  return [
+    account.company_name,
+    account.account_number ? `#${account.account_number}` : null,
+    account.country,
+  ].filter(Boolean).join(' · ');
+}
+
+function formatContractPartnerPickerDetails(account: DealerAccount) {
+  return [
+    getDealerAccountPostalCity(account),
+    account.vat_number ? `CVR/VAT ${account.vat_number}` : null,
+  ].filter(Boolean).join(' · ');
 }
 
 function createNewContractInstanceId() {
@@ -679,10 +721,11 @@ export default function ContractsPage() {
   const [accessOpensAt, setAccessOpensAt] = useState(() => toLocalDateTimeInputValue(new Date()));
   const [accessClosesAt, setAccessClosesAt] = useState(() => addHoursLocalInput(2));
   const [accessQuickChoice, setAccessQuickChoice] = useState<'60' | '120' | '240' | '1440' | 'custom'>('120');
+  const [selectedDealerAccountNumber, setSelectedDealerAccountNumber] = useState('');
   const dealerAccountNumber = (searchParams.get('accountNumber') || searchParams.get('dealer') || '').trim();
   const routeContractIdValue = (routeContractId || '').trim();
   const startNewContract = searchParams.get('new') === '1';
-  const activeDealerAccountNumber = dealerAccountNumber || contractRecord?.dealer_account_number || '';
+  const activeDealerAccountNumber = dealerAccountNumber || selectedDealerAccountNumber || contractRecord?.dealer_account_number || '';
   const portalRole = derivePortalRole(effectiveUser);
   const internalContractRoles = new Set(['timan_backend', 'timan_seller', 'timan_service']);
   const overviewContractRoles = new Set(['timan_backend', 'timan_seller']);
@@ -707,6 +750,7 @@ export default function ContractsPage() {
     dealerAddress: '',
     dealerPostalCode: '',
     dealerCity: '',
+    dealerCountry: '',
     dealerCvr: '',
     contactPerson: '',
     contactTitle: '',
@@ -753,6 +797,7 @@ export default function ContractsPage() {
       if (row) {
         setContractRowId(row.id);
         setContractRecord(row);
+        setSelectedDealerAccountNumber(row.dealer_account_number || '');
         setForm((current) => ({
           ...current,
           ...row.form_data,
@@ -766,6 +811,7 @@ export default function ContractsPage() {
       } else {
         setContractRowId(null);
         setContractRecord(null);
+        setSelectedDealerAccountNumber(dealerAccountNumber);
         setFinalSnapshot(null);
         setSignatureName('');
       }
@@ -831,6 +877,7 @@ export default function ContractsPage() {
         dealerAddress: [row.address_line_1 || row.address, row.address_line_2].filter(Boolean).join(', ') || current.dealerAddress,
         dealerPostalCode: row.postal_code || split.postalCode || current.dealerPostalCode,
         dealerCity: row.city || split.city || current.dealerCity,
+        dealerCountry: row.country || current.dealerCountry || '',
         dealerCvr: row.vat_number || current.dealerCvr,
         contactPerson: row.primary_contact_name || row.sales_contact_name || current.contactPerson,
         partnerType: current.partnerType || inferContractPartnerTypeFromDealerAccount(row) || '',
@@ -885,6 +932,30 @@ export default function ContractsPage() {
       ));
     }
     setForm((current) => ({ ...current, ...patch }));
+  };
+
+  const selectContractPartnerAccount = (account: DealerAccount) => {
+    setSelectedDealerAccountNumber(account.account_number);
+    setForm((current) => ({
+      ...current,
+      ...buildContractPartnerPatchFromDealerAccount(account),
+    }));
+  };
+
+  const updateContractPartnerType = (partnerType: ContractPartnerType | '') => {
+    setSelectedDealerAccountNumber('');
+    setForm((current) => ({
+      ...current,
+      partnerType,
+      dealerName: '',
+      dealerAddress: '',
+      dealerPostalCode: '',
+      dealerCity: '',
+      dealerCountry: '',
+      dealerCvr: '',
+      contactPerson: '',
+      contactTitle: '',
+    }));
   };
 
   const updateServiceHourlyRate = (value: number) => {
@@ -1621,7 +1692,17 @@ export default function ContractsPage() {
             </div>
 
             {activeStep.id === 'parties' && (
-              <PartiesStep form={form} update={update} locked={isLockedContract} />
+              <PartiesStep
+                form={form}
+                selectedDealerAccountNumber={activeDealerAccountNumber}
+                portalRole={portalRole}
+                sellerEmail={getEffectiveSellerEmail(appUser)}
+                sellerInitials={getEffectiveSellerInitials(appUser)}
+                update={update}
+                onPartnerTypeChange={updateContractPartnerType}
+                onPartnerAccountSelect={selectContractPartnerAccount}
+                locked={isLockedContract}
+              />
             )}
 
             {activeStep.id !== 'parties' && activeStep.id !== 'signature' && (
@@ -2179,13 +2260,84 @@ function InternalContractsOverview({
 
 function PartiesStep({
   form,
+  selectedDealerAccountNumber,
+  portalRole,
+  sellerEmail,
+  sellerInitials,
   update,
+  onPartnerTypeChange,
+  onPartnerAccountSelect,
   locked,
 }: {
   form: ContractFormData;
+  selectedDealerAccountNumber: string;
+  portalRole: string | null;
+  sellerEmail: string | null;
+  sellerInitials: string | null;
   update: (key: keyof ContractFormData, value: string | null) => void;
+  onPartnerTypeChange: (partnerType: ContractPartnerType | '') => void;
+  onPartnerAccountSelect: (account: DealerAccount) => void;
   locked: boolean;
 }) {
+  const [partnerQuery, setPartnerQuery] = useState('');
+  const [accounts, setAccounts] = useState<DealerAccount[]>([]);
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState<string | null>(null);
+
+  const loadAccounts = async () => {
+    if (accountsLoaded || accountsLoading) return;
+    setAccountsLoading(true);
+    setAccountsError(null);
+    const result = portalRole === 'timan_seller'
+      ? await fetchDealerAccountsForSeller({ email: sellerEmail, initials: sellerInitials }).then(({ dealers, error }) => ({ rows: dealers, error }))
+      : await fetchDealerAccounts();
+    setAccounts(result.rows);
+    setAccountsLoaded(true);
+    setAccountsLoading(false);
+    if (result.error) setAccountsError(result.error);
+  };
+
+  useEffect(() => {
+    if (form.partnerType) void loadAccounts();
+  }, [form.partnerType]);
+
+  const selectedAccount = useMemo(() => (
+    accounts.find((account) => account.account_number === selectedDealerAccountNumber) ?? null
+  ), [accounts, selectedDealerAccountNumber]);
+
+  const partnerResults = useMemo(() => {
+    if (!form.partnerType) return [];
+    const normalizedQuery = partnerQuery.trim().toLowerCase();
+    const terms = normalizedQuery.split(/\s+/).filter(Boolean);
+    return accounts
+      .filter((account) => !account.is_deleted && !account.is_blocked)
+      .filter((account) => inferContractPartnerTypeFromDealerAccount(account) === form.partnerType)
+      .filter((account) => {
+        if (terms.length === 0) return true;
+        const haystack = [
+          account.company_name,
+          account.account_number,
+          account.country,
+          account.postal_code,
+          account.city,
+          account.vat_number,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return terms.every((term) => haystack.includes(term));
+      })
+      .slice(0, 10);
+  }, [accounts, form.partnerType, partnerQuery]);
+
+  const handlePartnerTypeChange = (value: ContractPartnerType | '') => {
+    setPartnerQuery('');
+    onPartnerTypeChange(value);
+  };
+
+  const handlePartnerSelect = (account: DealerAccount) => {
+    onPartnerAccountSelect(account);
+    setPartnerQuery(formatContractPartnerPickerOption(account));
+  };
+
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
@@ -2224,7 +2376,7 @@ function PartiesStep({
             <select
               value={form.partnerType}
               disabled={locked}
-              onChange={(e) => update('partnerType', e.target.value as ContractPartnerType | '')}
+              onChange={(e) => handlePartnerTypeChange(e.target.value as ContractPartnerType | '')}
               className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
             >
               <option value="">Vælg partnertype...</option>
@@ -2235,11 +2387,51 @@ function PartiesStep({
               ))}
             </select>
           </label>
-          <TextField label="Firmanavn *" value={form.dealerName} onChange={(value) => update('dealerName', value)} placeholder="Fx ABC Maschinen GmbH" disabled={locked} />
+          <label className="block md:col-span-2">
+            <span className="text-sm font-semibold text-gray-700">Firmanavn *</span>
+            <div className="relative mt-2">
+              <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-amber-500">
+                <Search className="h-4 w-4 shrink-0 text-gray-400" />
+                <input
+                  type="search"
+                  value={partnerQuery || (selectedAccount ? formatContractPartnerPickerOption(selectedAccount) : form.dealerName)}
+                  disabled={locked || !form.partnerType}
+                  onFocus={() => void loadAccounts()}
+                  onChange={(event) => setPartnerQuery(event.target.value)}
+                  placeholder={form.partnerType ? 'Søg efter samarbejdspartner...' : 'Vælg partnertype først'}
+                  className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none disabled:cursor-not-allowed disabled:text-gray-500"
+                />
+              </div>
+              {!locked && form.partnerType && (
+                <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                  {accountsLoading && <p className="px-3 py-2 text-sm text-gray-500">Henter godkendte partnere...</p>}
+                  {accountsError && <p className="px-3 py-2 text-sm font-semibold text-amber-800">{accountsError}</p>}
+                  {!accountsLoading && partnerResults.length > 0 && partnerResults.map((account) => (
+                    <button
+                      key={account.id}
+                      type="button"
+                      onClick={() => handlePartnerSelect(account)}
+                      className="block w-full border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-amber-50"
+                    >
+                      <span className="block font-bold text-gray-950">{formatContractPartnerPickerOption(account)}</span>
+                      <span className="mt-0.5 block text-xs text-gray-500">{formatContractPartnerPickerDetails(account) || 'Ingen adresseinfo'}</span>
+                    </button>
+                  ))}
+                  {!accountsLoading && accountsLoaded && partnerResults.length === 0 && (
+                    <p className="px-3 py-2 text-sm text-gray-500">Ingen godkendte aktive partnere matcher søgningen.</p>
+                  )}
+                </div>
+              )}
+            </div>
+            <span className="mt-1 block text-xs text-gray-500">
+              Vælg en eksisterende godkendt partner. Ny kontrakt opretter ikke en ny partnerkonto.
+            </span>
+          </label>
           <TextField label="CVR *" value={form.dealerCvr} onChange={(value) => update('dealerCvr', value)} disabled={locked} />
           <TextField label="Adresse *" value={form.dealerAddress} onChange={(value) => update('dealerAddress', value)} disabled={locked} />
           <TextField label="Postnr. *" value={form.dealerPostalCode} onChange={(value) => update('dealerPostalCode', value)} disabled={locked} />
           <TextField label="By *" value={form.dealerCity} onChange={(value) => update('dealerCity', value)} disabled={locked} />
+          <TextField label="Land" value={form.dealerCountry ?? ''} onChange={(value) => update('dealerCountry', value)} disabled={locked} />
           <TextField label="Kontaktperson *" value={form.contactPerson} onChange={(value) => update('contactPerson', value)} placeholder="Navn på kontaktperson" disabled={locked} />
           <TextField label="Titel" value={form.contactTitle} onChange={(value) => update('contactTitle', value)} placeholder="Fx ejer, salgschef eller direktør" disabled={locked} />
           <label className="block">

@@ -423,6 +423,22 @@ describe('contract flow', () => {
     expect(inferContractPartnerTypeFromDealerAccount({ customer_type: 'Slutkunde' })).toBeNull();
   });
 
+  it('uses a canonical dealer account picker for the primary contract partner', () => {
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
+
+    expect(pageSource).not.toContain('<TextField label="Firmanavn *"');
+    expect(pageSource).toContain("placeholder={form.partnerType ? 'Søg efter samarbejdspartner...' : 'Vælg partnertype først'}");
+    expect(pageSource).toContain("inferContractPartnerTypeFromDealerAccount(account) === form.partnerType");
+    expect(pageSource).toContain("fetchDealerAccountsForSeller({ email: sellerEmail, initials: sellerInitials })");
+    expect(pageSource).toContain(".filter((account) => !account.is_deleted && !account.is_blocked)");
+    expect(pageSource).toContain("buildContractPartnerPatchFromDealerAccount(account)");
+    expect(pageSource).toContain("setSelectedDealerAccountNumber(account.account_number)");
+    expect(pageSource).toContain("dealerCountry: account.country || ''");
+    expect(serviceSource).toContain("fetchDealerAccountByNumber(input.dealerAccountNumber)");
+    expect(serviceSource).toContain("dealer_account_id: dealerAccountId");
+  });
+
   it('marks the discount and service steps as appendices', () => {
     expect(CONTRACT_STEPS.find((step) => step.id === 'discount_structure')?.appendix).toBe(true);
     expect(CONTRACT_STEPS.find((step) => step.id === 'spare_parts_service')?.appendix).toBe(true);

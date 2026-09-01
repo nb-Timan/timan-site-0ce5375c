@@ -64,6 +64,7 @@ export type ContractFormData = {
   dealerAddress: string;
   dealerPostalCode: string;
   dealerCity: string;
+  dealerCountry?: string;
   dealerCvr: string;
   contactPerson: string;
   contactTitle: string;
@@ -538,6 +539,7 @@ export function buildContractSnapshot(
       address: form.dealerAddress,
       postalCode: form.dealerPostalCode,
       city: form.dealerCity,
+      country: form.dealerCountry ?? '',
       contactPerson: form.contactPerson,
       contactTitle: form.contactTitle,
     },

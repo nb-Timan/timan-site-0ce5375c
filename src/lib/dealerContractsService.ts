@@ -20,7 +20,7 @@ import {
 import { normalizeContractServiceHourlyRateDkk } from "@/lib/contractServiceTerms";
 import { normalizeContractPaymentTerm } from "@/lib/contractPaymentTerms";
 import { normalizeContractAssociatedPartners } from "@/lib/contractAssociatedPartners";
-import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import { fetchDealerAccountByNumber, fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 
 export const DEALER_CONTRACTS_BUCKET = "dealer-contracts";
 
@@ -284,6 +284,7 @@ function rowToContractRecord(row: Record<string, unknown>): DealerContractRecord
       dealerAddress: formData.dealerAddress ?? "",
       dealerPostalCode: formData.dealerPostalCode ?? "",
       dealerCity: formData.dealerCity ?? "",
+      dealerCountry: formData.dealerCountry ?? "",
       dealerCvr: formData.dealerCvr ?? "",
       contactPerson: formData.contactPerson ?? "",
       contactTitle: formData.contactTitle ?? "",
@@ -622,10 +623,17 @@ export async function saveDealerContractDraft(
   const draftKey = input.draftKey?.trim().toLowerCase()
     || buildDealerContractDraftKey(input.ownerEmail, input.dealerAccountNumber);
   const finalSnapshot = input.finalSnapshot ?? null;
+  let dealerAccountId: string | null = null;
+  if (input.dealerAccountNumber) {
+    const dealer = await fetchDealerAccountByNumber(input.dealerAccountNumber);
+    if (dealer.error) return { row: null, error: dealer.error };
+    dealerAccountId = dealer.row?.id ?? null;
+  }
   const payload = {
     id: input.id || undefined,
     draft_key: draftKey,
     dealer_account_number: input.dealerAccountNumber || null,
+    dealer_account_id: dealerAccountId,
     owner_email: input.ownerEmail.trim().toLowerCase(),
     owner_name: input.ownerName || null,
     current_step: getCurrentStepId(input.activeStepIndex),
