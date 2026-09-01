@@ -16,6 +16,13 @@ describe("CRM dealer detail machine register integration", () => {
     expect(source).toContain('setActiveTab("machines")');
   });
 
+  it("keeps recent quotes and activities side by side while making relation and demo panels full width", () => {
+    expect(source).toContain('<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">');
+    expect(source).toContain('<div className="sm:col-span-2">');
+    expect(source.indexOf('tl("recent_quotes", lang)')).toBeLessThan(source.indexOf("CollaborationPartnersPanel"));
+    expect(source.indexOf('tl("recent_activities", lang)')).toBeLessThan(source.indexOf("CrmDemoMachinesPanel"));
+  });
+
   it("reuses the shared dealer machine register service from DealerDataPage", () => {
     expect(source).toContain("listDealerMachineRegister");
     expect(source).toContain("getDemoOverviewMachines");

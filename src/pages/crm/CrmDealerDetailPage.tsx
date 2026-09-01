@@ -1436,23 +1436,27 @@ export default function CrmDealerDetailPage() {
                 )}
               </div>
 
-              <CollaborationPartnersPanel
-                partners={collaborationPartners}
-                stats={stats}
-                lang={lang}
-                onOpenList={() => setShowCollaborationModal(true)}
-                compact
-              />
+              <div className="sm:col-span-2">
+                <CollaborationPartnersPanel
+                  partners={collaborationPartners}
+                  stats={stats}
+                  lang={lang}
+                  onOpenList={() => setShowCollaborationModal(true)}
+                  compact
+                />
+              </div>
 
-              <CrmDemoMachinesPanel
-                rows={demoOverviewMachines}
-                lang={lang}
-                onOpenMachines={() => {
-                  setMachineStatusFilter("demo_attention");
-                  setActiveTab("machines");
-                }}
-                compact
-              />
+              <div className="sm:col-span-2">
+                <CrmDemoMachinesPanel
+                  rows={demoOverviewMachines}
+                  lang={lang}
+                  onOpenMachines={() => {
+                    setMachineStatusFilter("demo_attention");
+                    setActiveTab("machines");
+                  }}
+                  compact
+                />
+              </div>
             </div>
           </div>
         );
