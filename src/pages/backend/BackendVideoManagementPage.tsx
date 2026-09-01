@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Archive, FilePenLine, Plus, Search, Upload, X } from "lucide-react";
+import { Archive, FilePenLine, Plus, Upload, X } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
+import VideoLibraryFilterBar from "@/components/video/VideoLibraryFilterBar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAppUser } from "@/context/AppUserContext";
@@ -35,6 +36,12 @@ import {
   VIDEO_SEASONS,
 } from "@/lib/videoLibraryI18n";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
+import {
+  DEFAULT_VIDEO_FILTERS,
+  filterAndSortVideos,
+  getVideoMachineFilterOptions,
+  type VideoFilterState,
+} from "@/lib/videoLibraryFilters";
 
 interface DraftState {
   id?: string;
@@ -83,15 +90,14 @@ export default function BackendVideoManagementPage() {
   const [loadingRows, setLoadingRows] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | VideoStatus>("all");
-  const [typeFilter, setTypeFilter] = useState("all");
+  const [filters, setFilters] = useState<VideoFilterState>(DEFAULT_VIDEO_FILTERS);
   const [editing, setEditing] = useState<DraftState | null>(null);
   const [saving, setSaving] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [conflict, setConflict] = useState<Record<string, unknown> | null>(null);
 
   const productOptions = useMemo(() => listVideoProductOptions(uiLanguage), [uiLanguage]);
+  const machineOptions = useMemo(() => getVideoMachineFilterOptions(uiLanguage), [uiLanguage]);
   const displayRows = useMemo(() => rows.map((row) => localizeMarketingVideo(row, uiLanguage)), [rows, uiLanguage]);
 
   const reload = async () => {
@@ -108,22 +114,8 @@ export default function BackendVideoManagementPage() {
   }, [loading, appUser?.email, canManage]);
 
   const filteredRows = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return displayRows
-      .filter((row) => statusFilter === "all" || row.status === statusFilter)
-      .filter((row) => typeFilter === "all" || row.content_type === typeFilter)
-      .filter((row) => {
-        if (!q) return true;
-        return [
-          row.title,
-          row.description || "",
-          row.status,
-          row.content_type,
-          ...row.tags,
-          ...row.products.flatMap((item) => [item.item_number, item.product_label || "", item.machine_key || ""]),
-        ].join(" ").toLowerCase().includes(q);
-      });
-  }, [displayRows, searchTerm, statusFilter, typeFilter]);
+    return filterAndSortVideos(displayRows, filters, uiLanguage, { includeStatus: true });
+  }, [displayRows, filters, uiLanguage]);
 
   if (loading) return <div className="min-h-screen bg-gray-50" />;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -281,27 +273,13 @@ export default function BackendVideoManagementPage() {
           </Button>
         </div>
 
-        <div className="mb-4 grid grid-cols-1 gap-3 rounded-xl border border-slate-200 bg-white p-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)]">
-          <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder={tv("videoLibrarySearch", uiLanguage)}
-              className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-            />
-          </label>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as never)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm">
-            <option value="all">{tv("videoLibraryAll", uiLanguage)}</option>
-            <option value="draft">{tv("videoMgmtDraft", uiLanguage)}</option>
-            <option value="published">{tv("videoMgmtPublished", uiLanguage)}</option>
-            <option value="archived">{tv("videoMgmtArchived", uiLanguage)}</option>
-          </select>
-          <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm">
-            <option value="all">{tv("videoLibraryAll", uiLanguage)}</option>
-            {VIDEO_CONTENT_TYPES.map((type) => <option key={type} value={type}>{videoContentTypeLabel(type, uiLanguage)}</option>)}
-          </select>
-        </div>
+        <VideoLibraryFilterBar
+          filters={filters}
+          onChange={setFilters}
+          machineOptions={machineOptions}
+          language={uiLanguage}
+          showStatus
+        />
 
         {message && <p className="mb-3 text-sm font-semibold text-emerald-700">{message}</p>}
         {error && <p className="mb-3 text-sm font-semibold text-amber-700">{error}</p>}

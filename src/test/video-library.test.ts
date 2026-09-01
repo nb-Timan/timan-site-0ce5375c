@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { listVideoProductOptions } from "@/lib/videoProductCatalog";
+import { DEFAULT_VIDEO_FILTERS, filterAndSortVideos, getVideoMachineFilterOptions } from "@/lib/videoLibraryFilters";
 import {
   extractYouTubeVideoId,
   resolveMarketingVideoContent,
@@ -30,6 +31,42 @@ describe("marketing video library", () => {
     const products = listVideoProductOptions("da");
     expect(products.some((item) => item.productKey === "RC-1000S" && item.itemNumber === "411000")).toBe(true);
     expect(products.some((item) => item.itemNumber === "730600")).toBe(true);
+  });
+
+  it("uses one shared filter model for sales and marketing video lists", () => {
+    const rows = [
+      {
+        id: "1",
+        title: "RC-1000 brush guide",
+        description: "Setup for weed brush",
+        content_type: "how_to",
+        seasons: ["spring"],
+        tags: ["brush"],
+        status: "published",
+        published_at: "2026-09-01T10:00:00Z",
+        updated_at: "2026-09-01T10:00:00Z",
+        products: [{ product_key: "RC-1000S", item_number: "411000", product_label: "RC-1000S", machine_key: "RC-1000S" }],
+      },
+      {
+        id: "2",
+        title: "Archived sales clip",
+        description: "Older material",
+        content_type: "sales",
+        seasons: ["winter"],
+        tags: ["archive"],
+        status: "archived",
+        published_at: null,
+        updated_at: "2026-08-01T10:00:00Z",
+        products: [{ product_key: "TIMAN_3330", item_number: "3330", product_label: "Timan 3330", machine_key: "TIMAN_3330" }],
+      },
+    ] as MarketingVideo[];
+
+    expect(getVideoMachineFilterOptions("en").some((item) => item.value === "RC-1000S")).toBe(true);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, query: "411000" }, "en").map((row) => row.id)).toEqual(["1"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, typeFilter: "how_to" }, "en").map((row) => row.id)).toEqual(["1"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, seasonFilter: "winter" }, "en").map((row) => row.id)).toEqual(["2"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, machineFilter: "TIMAN_3330" }, "en").map((row) => row.id)).toEqual(["2"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, statusFilter: "published" }, "en", { includeStatus: true }).map((row) => row.id)).toEqual(["1"]);
   });
 
   it("has i18n labels and structured filters for all portal languages", () => {
@@ -80,6 +117,8 @@ describe("marketing video library", () => {
     const area = readFileSync("src/pages/PortalAreaPage.tsx", "utf8");
     const salesPage = readFileSync("src/pages/VideoGalleryPage.tsx", "utf8");
     const managementPage = readFileSync("src/pages/backend/BackendVideoManagementPage.tsx", "utf8");
+    const filterBar = readFileSync("src/components/video/VideoLibraryFilterBar.tsx", "utf8");
+    const filterHelper = readFileSync("src/lib/videoLibraryFilters.ts", "utf8");
     const configurator = readFileSync("src/pages/ConfiguratorPage.tsx", "utf8");
     const migration = [
       readFileSync("supabase/migrations/20260901183941_marketing_video_library.sql", "utf8"),
@@ -89,6 +128,12 @@ describe("marketing video library", () => {
 
     expect(app).toContain("/portal/marketing/videos");
     expect(area).toContain("videoMgmtTitle");
+    expect(salesPage).toContain("VideoLibraryFilterBar");
+    expect(managementPage).toContain("VideoLibraryFilterBar");
+    expect(managementPage).toContain("showStatus");
+    expect(filterBar).toContain("videoLibrarySortLatest");
+    expect(filterBar).toContain("videoLibraryMachine");
+    expect(filterHelper).toContain("filterAndSortVideos");
     expect(salesPage).toContain("listPublishedMarketingVideos(uiLanguage)");
     expect(salesPage).toContain("window.addEventListener(\"keydown\", closeOnEscape)");
     expect(salesPage).toContain("videoLibraryEmbedFallback");

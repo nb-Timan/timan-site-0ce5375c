@@ -1,14 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Play, Search, X } from "lucide-react";
+import { Play, X } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
+import VideoLibraryFilterBar from "@/components/video/VideoLibraryFilterBar";
 import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
-import { listVideoProductOptions } from "@/lib/videoProductCatalog";
+import {
+  DEFAULT_VIDEO_FILTERS,
+  filterAndSortVideos,
+  getVideoMachineFilterOptions,
+} from "@/lib/videoLibraryFilters";
 import {
   listPublishedMarketingVideos,
   resolveVideoThumbnail,
@@ -18,11 +23,7 @@ import {
   tv,
   videoContentTypeLabel,
   videoSeasonLabel,
-  VIDEO_CONTENT_TYPES,
-  VIDEO_SEASONS,
 } from "@/lib/videoLibraryI18n";
-
-type SortKey = "latest" | "title";
 
 export default function VideoGalleryPage() {
   const { appUser, loading, logout } = useAppUser();
@@ -30,11 +31,7 @@ export default function VideoGalleryPage() {
   const navigate = useNavigate();
   const [rows, setRows] = useState<MarketingVideo[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [seasonFilter, setSeasonFilter] = useState("all");
-  const [machineFilter, setMachineFilter] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("latest");
+  const [filters, setFilters] = useState(DEFAULT_VIDEO_FILTERS);
   const [active, setActive] = useState<MarketingVideo | null>(null);
 
   useEffect(() => {
@@ -47,54 +44,11 @@ export default function VideoGalleryPage() {
     return () => { cancelled = true; };
   }, [uiLanguage]);
 
-  const productOptions = useMemo(() => listVideoProductOptions(uiLanguage), [uiLanguage]);
-  const machineOptions = useMemo(() => {
-    const seen = new Set<string>();
-    return productOptions
-      .filter((item) => {
-        if (seen.has(item.machineKey)) return false;
-        seen.add(item.machineKey);
-        return true;
-      })
-      .map((item) => ({ value: item.machineKey, label: item.machineLabel }));
-  }, [productOptions]);
+  const machineOptions = useMemo(() => getVideoMachineFilterOptions(uiLanguage), [uiLanguage]);
 
   const filteredRows = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return rows
-      .filter((row) => typeFilter === "all" || row.content_type === typeFilter)
-      .filter((row) => seasonFilter === "all" || row.seasons.includes(seasonFilter))
-      .filter((row) => machineFilter === "all" || row.products.some((item) => item.machine_key === machineFilter))
-      .filter((row) => {
-        if (!q) return true;
-        const search = [
-          row.title,
-          row.description || "",
-          row.content_type,
-          ...row.seasons,
-          ...row.tags,
-          ...row.products.flatMap((item) => [
-            item.product_key,
-            item.item_number,
-            item.product_label || "",
-            item.machine_key || "",
-          ]),
-        ].join(" ").toLowerCase();
-        return search.includes(q);
-      })
-      .sort((a, b) => {
-        if (sortKey === "title") return a.title.localeCompare(b.title, uiLanguage);
-        return new Date(b.published_at || b.updated_at).getTime() - new Date(a.published_at || a.updated_at).getTime();
-      });
-  }, [machineFilter, query, rows, seasonFilter, sortKey, typeFilter, uiLanguage]);
-
-  const resetFilters = () => {
-    setQuery("");
-    setTypeFilter("all");
-    setSeasonFilter("all");
-    setMachineFilter("all");
-    setSortKey("latest");
-  };
+    return filterAndSortVideos(rows, filters, uiLanguage);
+  }, [filters, rows, uiLanguage]);
 
   if (loading) return <div className="min-h-screen bg-gray-50" />;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -117,38 +71,12 @@ export default function VideoGalleryPage() {
           <p className="max-w-3xl text-sm text-slate-600">{tv("videoLibraryIntro", uiLanguage)}</p>
         </div>
 
-        <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.6fr)_repeat(4,minmax(0,1fr))_auto]">
-            <label className="relative block">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={tv("videoLibrarySearch", uiLanguage)}
-                className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-sm outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-              />
-            </label>
-            <FilterSelect label={tv("videoLibraryType", uiLanguage)} value={typeFilter} onChange={setTypeFilter}>
-              <option value="all">{tv("videoLibraryAll", uiLanguage)}</option>
-              {VIDEO_CONTENT_TYPES.map((type) => <option key={type} value={type}>{videoContentTypeLabel(type, uiLanguage)}</option>)}
-            </FilterSelect>
-            <FilterSelect label={tv("videoLibrarySeason", uiLanguage)} value={seasonFilter} onChange={setSeasonFilter}>
-              <option value="all">{tv("videoLibraryAll", uiLanguage)}</option>
-              {VIDEO_SEASONS.map((season) => <option key={season} value={season}>{videoSeasonLabel(season, uiLanguage)}</option>)}
-            </FilterSelect>
-            <FilterSelect label={tv("videoLibraryMachine", uiLanguage)} value={machineFilter} onChange={setMachineFilter}>
-              <option value="all">{tv("videoLibraryAll", uiLanguage)}</option>
-              {machineOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-            </FilterSelect>
-            <FilterSelect label={tv("videoLibrarySort", uiLanguage)} value={sortKey} onChange={(value) => setSortKey(value as SortKey)}>
-              <option value="latest">{tv("videoLibrarySortLatest", uiLanguage)}</option>
-              <option value="title">{tv("videoLibrarySortTitle", uiLanguage)}</option>
-            </FilterSelect>
-            <Button type="button" variant="outline" onClick={resetFilters} className="h-10">
-              {tv("videoLibraryReset", uiLanguage)}
-            </Button>
-          </div>
-        </section>
+        <VideoLibraryFilterBar
+          filters={filters}
+          onChange={setFilters}
+          machineOptions={machineOptions}
+          language={uiLanguage}
+        />
 
         {error ? <p className="mb-4 text-sm font-semibold text-amber-700">{error}</p> : null}
 
@@ -168,32 +96,6 @@ export default function VideoGalleryPage() {
       {active && <VideoModal video={active} lang={uiLanguage} onClose={() => setActive(null)} />}
       <PortalFooter language={language} />
     </div>
-  );
-}
-
-function FilterSelect({
-  label,
-  value,
-  onChange,
-  children,
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  children: ReactNode;
-}) {
-  return (
-    <label className="block">
-      <span className="sr-only">{label}</span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
-        aria-label={label}
-      >
-        {children}
-      </select>
-    </label>
   );
 }
 
