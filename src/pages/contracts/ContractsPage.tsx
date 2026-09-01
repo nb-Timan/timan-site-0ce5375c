@@ -2007,20 +2007,20 @@ function InternalContractsOverview({
             </button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-5">
             {summaryCards.map((card) => (
               <button
                 key={card.id}
                 type="button"
                 onClick={() => setStatusFilter(card.id)}
-                className={`group rounded-xl border px-3.5 py-3 text-left shadow-sm transition ${
+                className={`group flex min-h-[68px] flex-col items-center justify-center rounded-xl border px-2.5 py-2 text-center shadow-sm transition sm:min-h-0 sm:items-start sm:px-3.5 sm:py-3 sm:text-left ${card.id === 'all' ? 'col-span-2 sm:col-span-1' : ''} ${
                   statusFilter === card.id
                     ? 'border-emerald-200 bg-slate-100 text-gray-950 shadow-sm'
                     : 'border-gray-200 bg-white/95 text-gray-900 hover:border-emerald-200 hover:bg-emerald-50/60 hover:shadow-sm'
                 }`}
               >
                 <p className={`text-[11px] font-semibold uppercase tracking-wide ${statusFilter === card.id ? 'text-emerald-800' : 'text-gray-500 group-hover:text-emerald-800'}`}>{card.label}</p>
-                <p className="mt-1.5 text-2xl font-bold leading-none tabular-nums">{card.count}</p>
+                <p className="mt-1 text-xl font-bold leading-none tabular-nums sm:mt-1.5 sm:text-2xl">{card.count}</p>
               </button>
             ))}
           </div>

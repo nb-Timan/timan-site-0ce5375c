@@ -1209,9 +1209,12 @@ describe('contract flow', () => {
     const overviewHeader = overviewSource.slice(start, end);
 
     expect(overviewHeader).toContain("onClick={() => setStatusFilter(card.id)}");
-    expect(overviewHeader).toContain("rounded-xl border px-3.5 py-3");
+    expect(overviewHeader).toContain("grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-2 lg:grid-cols-5");
+    expect(overviewHeader).toContain("flex min-h-[68px] flex-col items-center justify-center rounded-xl border px-2.5 py-2 text-center");
+    expect(overviewHeader).toContain("sm:min-h-0 sm:items-start sm:px-3.5 sm:py-3 sm:text-left");
+    expect(overviewHeader).toContain("card.id === 'all' ? 'col-span-2 sm:col-span-1' : ''");
     expect(overviewHeader).toContain("'border-emerald-200 bg-slate-100 text-gray-950 shadow-sm'");
-    expect(overviewHeader).toContain("mt-1.5 text-2xl font-bold");
+    expect(overviewHeader).toContain("mt-1 text-xl font-bold leading-none tabular-nums sm:mt-1.5 sm:text-2xl");
     expect(overviewHeader).toContain("text-[11px] font-semibold uppercase tracking-wide");
     expect(overviewHeader).not.toContain("bg-gray-950 text-white");
     expect(overviewHeader).not.toContain("text-3xl font-black");
