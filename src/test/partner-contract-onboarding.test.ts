@@ -17,6 +17,9 @@ describe("partner contract onboarding access", () => {
   const historyComponent = readProjectFile("src/components/portal/PartnerAgreementHistory.tsx");
   const historyDetailMigration = readProjectFile("supabase/migrations/20260901081807_crm_partner_agreement_history_detail.sql");
   const userAccessMigration = readProjectFile("supabase/migrations/20260901125302_dealer_contract_user_access_windows.sql");
+  const userWindowPolicyMigration = readProjectFile("supabase/migrations/20260901150652_enforce_user_specific_contract_window_policies.sql");
+  const policyQualificationMigration = readProjectFile("supabase/migrations/20260901151012_fix_contract_window_policy_contract_id_qualification.sql");
+  const historyDisambiguationMigration = readProjectFile("supabase/migrations/20260901153058_disambiguate_contract_access_history_events.sql");
 
   it("adds one controlled access-window model and append-only agreement history", () => {
     expect(migration).toContain("create table if not exists public.dealer_contract_access_windows");
@@ -41,6 +44,19 @@ describe("partner contract onboarding access", () => {
     expect(migration).toContain("and public.has_active_dealer_contract_window(dealer_account_id, null)");
   });
 
+  it("keeps external contract writes tied to the exact user and contract window", () => {
+    expect(userWindowPolicyMigration).toContain("create policy dealer_contracts_insert_controlled");
+    expect(userWindowPolicyMigration).toContain("create policy dealer_contracts_update_controlled");
+    expect(userWindowPolicyMigration).toContain("public.has_active_dealer_contract_window(dealer_contracts.dealer_account_id, dealer_contracts.id, au.id)");
+    expect(userWindowPolicyMigration).not.toContain("public.has_active_dealer_contract_window(dealer_account_id, null)");
+    expect(userWindowPolicyMigration).not.toContain("public.has_active_dealer_contract_window(dealer_account_id, id)");
+
+    expect(policyQualificationMigration).toContain("dealer_contracts.id");
+    expect(policyQualificationMigration).toContain("dealer_contracts.dealer_account_id");
+    expect(policyQualificationMigration).toContain("dealer_contracts.dealer_account_number = au.dealer_number");
+    expect(policyQualificationMigration).not.toContain("has_active_dealer_contract_window(dealer_contracts.dealer_account_id, au.id, au.id)");
+  });
+
   it("records important contract events in Partnerdata history", () => {
     expect(migration).toContain("'contract_access_activated'");
     expect(migration).toContain("'contract_access_revoked'");
@@ -48,6 +64,14 @@ describe("partner contract onboarding access", () => {
     expect(migration).toContain("'contract_received'");
     expect(migration).toContain("'contract_approved'");
     expect(migration).toContain("perform public.append_partner_agreement_history");
+  });
+
+  it("disambiguates contract access history writes against the occurred-at overload", () => {
+    expect(historyDisambiguationMigration.match(/append_partner_agreement_history/g)).toHaveLength(3);
+    expect(historyDisambiguationMigration).toContain("'contract_access_activated'::text");
+    expect(historyDisambiguationMigration).toContain("'contract_access_extended'::text");
+    expect(historyDisambiguationMigration).toContain("'contract_access_revoked'::text");
+    expect(historyDisambiguationMigration.match(/jsonb_build_object[\s\S]*?\n    now\(\)\n  \);/g)).toHaveLength(3);
   });
 
   it("exposes access activation and history through existing frontend services", () => {
