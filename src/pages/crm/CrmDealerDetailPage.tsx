@@ -2784,20 +2784,20 @@ function ContactHero({
       <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm">
         <div className="grid grid-cols-1 gap-2 items-stretch">
           {/* Action cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-6">
             {actions.map((a) => {
-              const cls = `flex min-h-[86px] flex-col items-center justify-center gap-1 rounded-md border bg-white px-2 py-2 text-center transition ${
+              const cls = `flex min-h-[74px] min-w-0 flex-col items-center justify-center gap-0.5 rounded-md border bg-white px-1.5 py-1.5 text-center transition ${
                 a.disabled
                   ? "border-slate-200 text-slate-300 cursor-not-allowed"
                   : "border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-sm"
               }`;
               const inner = (
                 <>
-                  <span className={`flex items-center justify-center w-7 h-7 rounded-md ${a.disabled ? "bg-slate-50 text-slate-300" : "bg-emerald-50 text-emerald-700"}`}>
+                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${a.disabled ? "bg-slate-50 text-slate-300" : "bg-emerald-50 text-emerald-700"}`}>
                     {a.icon}
                   </span>
-                  <span className="text-[11px] font-semibold leading-tight">{a.label}</span>
-                  {a.sublabel && <span className="max-w-full whitespace-pre-line break-words text-[10px] leading-tight text-slate-500">{a.sublabel}</span>}
+                  <span className="max-w-full text-[10.5px] font-semibold leading-tight break-words">{a.label}</span>
+                  {a.sublabel && <span className="line-clamp-2 max-w-full whitespace-pre-line break-words text-[9.5px] leading-tight text-slate-500">{a.sublabel}</span>}
                 </>
               );
               if (a.disabled) return <button key={a.key} disabled className={cls}>{inner}</button>;

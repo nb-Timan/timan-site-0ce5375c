@@ -71,8 +71,9 @@ describe("partner contract onboarding access", () => {
   it("keeps CRM dealer detail topbar compact and orders quick cards consistently", () => {
     expect(crmDealerDetailPage).not.toContain("Company identity");
     expect(crmDealerDetailPage).not.toContain("xl:grid-cols-[minmax(220px,0.65fr)_minmax(0,2.35fr)]");
-    expect(crmDealerDetailPage).toContain("grid-cols-2 sm:grid-cols-3 gap-2");
-    expect(crmDealerDetailPage).toContain("min-h-[86px]");
+    expect(crmDealerDetailPage).toContain("grid-cols-2 gap-1.5 sm:grid-cols-3 xl:grid-cols-6");
+    expect(crmDealerDetailPage).toContain("min-h-[74px] min-w-0");
+    expect(crmDealerDetailPage).toContain("line-clamp-2");
 
     const contactIndex = crmDealerDetailPage.indexOf('key: "call"');
     const mailIndex = crmDealerDetailPage.indexOf('key: "mail"');
