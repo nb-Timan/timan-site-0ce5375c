@@ -84,3 +84,23 @@ describe("phase63 migration", () => {
     }
   });
 });
+
+describe("app_user_directory hardening", () => {
+  const sql = readFileSync(
+    join(process.cwd(), "supabase/migrations/20260901155858_harden_app_user_directory.sql"),
+    "utf8",
+  );
+
+  it("keeps the directory view read-only and RLS-aware for authenticated users", () => {
+    expect(sql).toMatch(/alter view public\.app_user_directory\s+set \(security_invoker = true\)/i);
+    expect(sql).toMatch(/revoke all privileges on table public\.app_user_directory from authenticated/i);
+    expect(sql).toMatch(/grant select on table public\.app_user_directory to authenticated/i);
+    expect(sql).not.toMatch(/grant (insert|update|delete|all)/i);
+  });
+
+  it("fixes NB initials in the canonical app_users source without UI hardcoding", () => {
+    expect(sql).toContain("update public.app_users");
+    expect(sql).toContain("set initials = 'NB'");
+    expect(sql).toContain("lower(email) = 'nb@timan.dk'");
+  });
+});
