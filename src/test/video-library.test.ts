@@ -42,8 +42,8 @@ describe("marketing video library", () => {
     const managementPage = readFileSync("src/pages/backend/BackendVideoManagementPage.tsx", "utf8");
     const configurator = readFileSync("src/pages/ConfiguratorPage.tsx", "utf8");
     const migration = [
-      readFileSync("supabase/migrations/20260901181719_marketing_video_library.sql", "utf8"),
-      readFileSync("supabase/migrations/20260901184153_harden_marketing_video_library_policies.sql", "utf8"),
+      readFileSync("supabase/migrations/20260901183941_marketing_video_library.sql", "utf8"),
+      readFileSync("supabase/migrations/20260901184240_harden_marketing_video_library_policies.sql", "utf8"),
     ].join("\n");
 
     expect(app).toContain("/portal/marketing/videos");
