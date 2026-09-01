@@ -448,7 +448,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
     });
   }, [dealer.id, loadingContacts, contacts]);
 
-  const completion = useMemo(() => computeCompletion(draft), [draft]);
+  const completion = useMemo(() => computeCompletion(draft, contacts), [draft, contacts]);
 
   const hasUnsavedChanges = useMemo(() => (
     PROFILE_PATCH_KEYS.some((key) => profileValue(draft[key]) !== profileValue(savedDealer[key]))
@@ -863,7 +863,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         >
           <ProfileSubsection title={t("digitalChannels")}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field id="website" label={t("website")} value={draft.website} onChange={(v) => set("website", v)} disabled={!canEdit} />
+              <Field id="website" label={t("website")} value={draft.website} onChange={(v) => set("website", v)} disabled={!canEdit} required />
               <Field id="social_linkedin" label={t("linkedin")} value={draft.social_linkedin} onChange={(v) => set("social_linkedin", v)} disabled={!canEdit} />
               <Field id="social_facebook" label={t("facebook")} value={draft.social_facebook} onChange={(v) => set("social_facebook", v)} disabled={!canEdit} />
               <Field id="social_instagram" label={t("instagram")} value={draft.social_instagram} onChange={(v) => set("social_instagram", v)} disabled={!canEdit} />
@@ -1027,12 +1027,12 @@ function ContactFields({
         <RoleSelect contact={c} t={t} roleKeys={roleKeys} canEdit={canEdit} onPatch={onPatch} onSave={onSave} />
       </div>
       <div>
-        <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("name")}</Label>
+        <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("name")} *</Label>
         <Input value={c.name ?? ""} disabled={!canEdit}
           onChange={(e) => onPatch(c.id, { name: e.target.value })} onBlur={() => onSave(c)} />
       </div>
       <div>
-        <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("email")}</Label>
+        <Label className="text-xs uppercase tracking-wide text-slate-500 mb-1 block">{t("email")} *</Label>
         <Input type="email" value={c.email ?? ""} disabled={!canEdit}
           onChange={(e) => onPatch(c.id, { email: e.target.value })} onBlur={() => onSave(c)} />
       </div>

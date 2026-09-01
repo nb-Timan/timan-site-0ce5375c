@@ -76,7 +76,7 @@ import type { PortalUiLanguage } from "@/lib/portalLanguages";
 const profileTextKeyByDanishLabel: Record<string, string> = {
   "Firma information": "crmProfileSectionCompany",
   "Økonomi": "crmProfileSectionFinance",
-  "Medier": "crmProfileSectionMedia",
+  "Indkøb & logistik": "crmProfileSectionMedia",
   "Salg": "crmProfileSectionSales",
   "Værksted": "crmProfileSectionWorkshop",
   "Marketing": "crmProfileSectionMarketing",

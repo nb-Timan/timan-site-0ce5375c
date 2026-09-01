@@ -21,7 +21,7 @@ import {
   isDealerCustomerAccount,
   type DealerAccount,
 } from "@/lib/dealerAccountsService";
-import { listDealerContacts } from "@/lib/dealerContactsService";
+import { listDealerContacts, type DealerContact } from "@/lib/dealerContactsService";
 import { computeCompletion, type SectionKey } from "@/lib/dealerProfileCompletion";
 import { derivePortalRole } from "@/lib/portalAccess";
 import type { AppUser } from "@/data/appUsers";
@@ -53,18 +53,18 @@ export interface DealerProfileBadge {
 const SECTION_LABELS_BY_KEY: Record<SectionKey, string> = {
   company: "Firma information",
   finance: "Økonomi",
-  media: "Medier",
+  purchasing: "Indkøb & logistik",
   sales: "Salg",
   workshop: "Værksted",
   marketing: "Marketing",
 };
 
-const SOFT_PROFILE_SECTION_KEYS = new Set<SectionKey>(["media", "marketing"]);
+const SOFT_PROFILE_SECTION_KEYS = new Set<SectionKey>(["marketing"]);
 
 export const DEALER_PROFILE_SECTION_LABELS = [
   SECTION_LABELS_BY_KEY.company,
   SECTION_LABELS_BY_KEY.finance,
-  SECTION_LABELS_BY_KEY.media,
+  SECTION_LABELS_BY_KEY.purchasing,
   SECTION_LABELS_BY_KEY.sales,
   SECTION_LABELS_BY_KEY.workshop,
   SECTION_LABELS_BY_KEY.marketing,
@@ -74,19 +74,21 @@ export const DEALER_PROFILE_SECTION_LABELS = [
 export function computeDealerProfileSections(
   dealer: DealerAccount | null,
   _peopleCount: number,
+  contacts: DealerContact[] = [],
 ): boolean[] {
   if (!dealer) return [false, false, false, false, false, false];
-  return computeCompletion(dealer).sections.map((s) => s.complete);
+  return computeCompletion(dealer, contacts).sections.map((s) => s.complete);
 }
 
 export function computeDealerProfileBadge(
   dealer: DealerAccount | null,
   peopleCount: number,
+  contacts: DealerContact[] = [],
 ): DealerProfileBadge {
   if (!dealer) {
     return { total: 6, missing: 6, critical: 0, tone: "neutral", label: "Ikke udfyldt", labelKind: "not_filled" };
   }
-  const completion = computeCompletion(dealer);
+  const completion = computeCompletion(dealer, contacts);
   const missingSections = completion.sections.filter((s) => !s.complete);
   const total = completion.sections.length;
   const missing = missingSections.length;
@@ -205,11 +207,10 @@ export function useDealerProfileBadge(
         const dealerRes = await fetchDealerAccountByNumber(dealerNumber);
         const dealer = dealerRes.row;
 
-        let contactsCount = 0;
+        let contacts: DealerContact[] = [];
         if (dealer?.id) {
           try {
-            const contacts = await listDealerContacts(dealer.id);
-            contactsCount = contacts.length;
+            contacts = await listDealerContacts(dealer.id);
           } catch { /* ignore */ }
         }
 
@@ -223,7 +224,7 @@ export function useDealerProfileBadge(
         } catch { /* ignore */ }
 
         if (cancelled) return;
-        setBadge(computeDealerProfileBadge(dealer, contactsCount + usersCount));
+        setBadge(computeDealerProfileBadge(dealer, usersCount, contacts));
       } catch {
         if (!cancelled) setBadge(computeDealerProfileBadge(null, 0));
       }
