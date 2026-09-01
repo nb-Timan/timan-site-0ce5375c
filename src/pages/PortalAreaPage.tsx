@@ -1,5 +1,5 @@
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, ListChecks, Sparkles, Clock, LucideIcon } from 'lucide-react';
+import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, ListChecks, Sparkles, Clock, Film, LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
@@ -16,6 +16,7 @@ import { canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, ha
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
+import { tv } from '@/lib/videoLibraryI18n';
 import { fetchActiveDealerContractAccessWindow, type DealerContractAccessWindow } from '@/lib/dealerContractsService';
 
 const AREA_TITLE_KEY: Record<string, string> = {
@@ -214,6 +215,15 @@ export default function PortalAreaPage({ areaId }: Props) {
               to="/portal/marketing/news/overview"
               icon={ListChecks}
               description={t('newsCmsDashboardHelp', uiLanguage)}
+            />
+          )}
+          {areaId === 'marketing' && canManageNewsContent(effectiveUser) && (
+            <PlaceholderCard
+              title={tv('videoMgmtTitle', uiLanguage)}
+              language={lang}
+              to="/portal/marketing/videos"
+              icon={Film}
+              description={tv('videoMgmtIntro', uiLanguage)}
             />
           )}
           {areaId === 'marketing' && canManageNewsContent(effectiveUser) && (

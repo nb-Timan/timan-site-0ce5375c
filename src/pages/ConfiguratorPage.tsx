@@ -18,6 +18,7 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES, mapUiLanguageToLegacy, resolveContentUiLanguage, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import { listPublishedPrimaryVideos, type MarketingVideo } from '@/lib/videoLibraryService';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -107,6 +108,15 @@ function getVideoUrl(item: { videoUrl?: string; videos?: { url: string | null }[
   return item.videoUrl || item.videos?.[0]?.url || null;
 }
 
+function getPrimaryVideoUrlForItem(
+  item: { id?: string; videoUrl?: string; videos?: { url: string | null }[] },
+  primaryVideos: Map<string, MarketingVideo>,
+): string | null {
+  const primary = item.id ? primaryVideos.get(item.id) : null;
+  if (primary?.youtube_video_id) return `https://www.youtube.com/watch?v=${primary.youtube_video_id}`;
+  return getVideoUrl(item);
+}
+
 function hasSubOptions(acc: Accessory, allAccs: Accessory[]): boolean {
   if (acc.subItems && acc.subItems.length > 0) return true;
   return allAccs.some(a => a.requires === acc.id);
@@ -118,6 +128,15 @@ export default function ConfiguratorPage() {
     setDate, setDeliveryMethod, setCustomerField, toggleAcc, calcResult,
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
+  const [primaryVideosByProduct, setPrimaryVideosByProduct] = useState<Map<string, MarketingVideo>>(() => new Map());
+
+  useEffect(() => {
+    let cancelled = false;
+    listPublishedPrimaryVideos().then((rows) => {
+      if (!cancelled) setPrimaryVideosByProduct(rows);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const { appUser, setAppUser: setAppUserCtx, logout: ctxLogout } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
@@ -1174,10 +1193,10 @@ export default function ConfiguratorPage() {
   };
 
   const renderActionLinks = (item: { videoUrl?: string; imageUrl?: string; images?: { url: string | null }[]; videos?: { url: string | null }[]; specs?: any[]; id?: string }, machineType: string) => {
-    const videoUrl = getVideoUrl(item);
+    const videoUrl = getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
     const imageUrl = getImageUrlForItem(item);
     const hasSpecs = !!(item.specs && item.specs.length > 0);
-    const showVideoIcon = !!(item.videoUrl || (item.videos && item.videos.length > 0));
+    const showVideoIcon = !!videoUrl;
     const showImageIcon = !!(item.imageUrl || (item.images && item.images.length > 0) || item.videoUrl || (item.videos && item.videos.length > 0));
     if (!showVideoIcon && !showImageIcon && !hasSpecs) return null;
     return (
@@ -2489,8 +2508,8 @@ export default function ConfiguratorPage() {
                         )}
 
                         <div className="mt-1 mb-1 flex flex-wrap justify-center gap-3 items-center">
-                          {getVideoUrl(p) ? (
-                            <a href={getVideoUrl(p)!} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">🎥 {T('videoLink')}</a>
+                          {getPrimaryVideoUrlForItem(p, primaryVideosByProduct) ? (
+                            <a href={getPrimaryVideoUrlForItem(p, primaryVideosByProduct)!} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">🎥 {T('videoLink')}</a>
                           ) : (key === 'Timan 2620' && (
                             <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">🎥 {T('videoLink')}</button>
                           ))}

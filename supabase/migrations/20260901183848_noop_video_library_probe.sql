@@ -1,0 +1,2 @@
+-- No schema changes.
+-- Recorded during live connector verification before applying the video library migration.

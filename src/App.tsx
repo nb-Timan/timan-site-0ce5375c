@@ -168,6 +168,7 @@ const BackendChangelogPage = lazy(() => import("./pages/backend/BackendChangelog
 const BackendPartnerRelationsPage = lazy(() => import("./pages/backend/BackendPartnerRelationsPage"));
 const BackendMesseSettingsPage = lazy(() => import("./pages/backend/BackendMesseSettingsPage"));
 const BackendNewsPage = lazy(() => import("./pages/backend/BackendNewsPage"));
+const BackendVideoManagementPage = lazy(() => import("./pages/backend/BackendVideoManagementPage"));
 const Backend2620TrialsPage = lazy(() => import("./pages/backend/Backend2620TrialsPage"));
 const BackendSystemMapPage = lazy(() => import("./pages/backend/BackendSystemMapPage"));
 const BackendSectionPage = lazy(() => import("./pages/backend/BackendSectionPage"));
@@ -237,6 +238,7 @@ const App = () => (
               <Route path="/portal/marketing" element={<PortalAreaPage areaId="marketing" />} />
               <Route path="/portal/marketing/news" element={<MesseNewsPage mode="marketing" />} />
               <Route path="/portal/marketing/news/overview" element={<BackendNewsPage />} />
+              <Route path="/portal/marketing/videos" element={<BackendVideoManagementPage />} />
               <Route path="/portal/marketing/site-features" element={<BackendChangelogPage />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
               <Route path="/portal/backend/brugerstyring" element={<BackendSectionPage sectionId="user-management" />} />
