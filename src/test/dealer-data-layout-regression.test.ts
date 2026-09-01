@@ -44,6 +44,7 @@ describe("Partnerdata layout regression guard", () => {
 
   it("uses first contact as the user-facing primary contact marker", () => {
     expect(dealerProfileSource).toContain('t("firstContact")');
+    expect(dealerProfileSource).toContain("border-emerald-200 bg-emerald-50 text-emerald-700 font-medium");
     expect(dealerProfileSource).not.toContain('primaryLabel={t("area_primary")}');
   });
 

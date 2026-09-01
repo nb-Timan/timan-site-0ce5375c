@@ -1090,7 +1090,13 @@ function ContactList({
         <ContactBlock
           key={c.id}
           title={`${t("contact")} ${index + firstContactNumber}`}
-          primaryControl={c.is_primary ? <Badge variant="secondary">{t("firstContact")}</Badge> : undefined}
+          primaryControl={
+            c.is_primary ? (
+              <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700 font-medium hover:bg-emerald-50" variant="outline">
+                {t("firstContact")}
+              </Badge>
+            ) : undefined
+          }
           removeControl={
             canEdit ? (
               <div className="flex items-center gap-1">
