@@ -297,7 +297,7 @@ export function useBudgetDashboardData(p: Params) {
           listBudgetLines({ year: p.year }),
           listForecasts(p.year),
           listSalesActuals(p.year),
-          listLeads({ limit: 500 }),
+          listLeads({ limit: 500, payload: "summary" }),
           listScopedConfigurations({ ...filter, documentType: "quote" }),
           listScopedConfigurations({ ...filter, documentType: "order" }),
           listBudgetDealerLines(p.year),

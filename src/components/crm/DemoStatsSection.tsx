@@ -42,7 +42,7 @@ export default function DemoStatsSection() {
     (async () => {
       setLoading(true);
       const sellerId = await resolveSellerId(appUser?.email);
-      const all = await listDemoLeads({});
+      const all = await listDemoLeads({ payload: "summary" });
       const resolved = await resolveSeedOwners(all);
       const visible = isAdmin ? resolved : resolved.filter(r => r.owner_user_id && r.owner_user_id === sellerId);
       if (!cancelled) { setRows(visible); setLoading(false); }

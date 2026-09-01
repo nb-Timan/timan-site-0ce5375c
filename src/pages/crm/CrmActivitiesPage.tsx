@@ -58,7 +58,7 @@ export default function CrmActivitiesPage() {
       const sellerId = await resolveSellerId(appUser?.email);
       const [activityList, demoAll] = await Promise.all([
         listActivities({ ownerUserId: canViewAllActivities ? null : sellerId, limit: 500 }),
-        listDemoLeads({}),
+        listDemoLeads({ payload: "summary" }),
       ]);
       const demoResolved = await resolveSeedOwners(demoAll);
       const demoActs = demoLeadsToActivities(demoResolved);

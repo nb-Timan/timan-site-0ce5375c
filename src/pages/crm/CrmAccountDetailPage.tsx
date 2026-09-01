@@ -208,8 +208,8 @@ export default function CrmAccountDetailPage() {
       setAccessDenied(false);
 
       const [allLeads, allDemos, allActs, lines, fcs, acs] = await Promise.all([
-        listLeads({ limit: 500 }),
-        listDemoLeads({ limit: 500 }),
+        listLeads({ limit: 500, payload: "summary" }),
+        listDemoLeads({ limit: 500, payload: "summary" }),
         listActivities({ limit: 500 }),
         listBudgetLines({ year }),
         listForecasts(year),

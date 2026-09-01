@@ -107,7 +107,7 @@ export default function CellDetailDialog({
     setLoading(true);
     Promise.all([
       listBudgetReferences({ year, limit: 1000 }).catch(() => []),
-      listDemoLeads({ limit: 500 }).catch(() => []),
+      listDemoLeads({ limit: 500, payload: "summary" }).catch(() => []),
     ]).then(([r, d]) => {
       if (cancelled) return;
       setRefs(r); setDemos(d);

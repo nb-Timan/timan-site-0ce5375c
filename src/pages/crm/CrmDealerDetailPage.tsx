@@ -692,10 +692,11 @@ export default function CrmDealerDetailPage() {
         const [qRes, oRes, leadsRes, demosRes] = await Promise.all([
           listScopedOpenQuotes(filterBase),
           listScopedOrdersWithValue(filterBase),
-          listLeads({ limit: 500, linkedDealerIds: dealerIds }),
+          listLeads({ limit: 500, linkedDealerIds: dealerIds, payload: "summary" }),
           listDemoLeads({
             limit: 500,
             dealerCompanies: Array.from(new Set(dealerRows.flatMap((d) => [d.company_name, d.branch_name].filter(Boolean) as string[]))),
+            payload: "summary",
           }),
         ]);
         if (!cancelled) {

@@ -145,8 +145,8 @@ export default function BudgetReferenceModal({
 
     Promise.all([
       fetchDealerAccounts({ includeDeleted: false }).then(r => r.rows).catch(() => [] as DealerAccount[]),
-      listLeads({ limit: 500 }).catch(() => [] as CrmLead[]),
-      listDemoLeads({ limit: 500 }).catch(() => [] as CrmDemoLead[]),
+      listLeads({ limit: 500, payload: "summary" }).catch(() => [] as CrmLead[]),
+      listDemoLeads({ limit: 500, payload: "summary" }).catch(() => [] as CrmDemoLead[]),
       existingP,
     ]).then(([d, l, dm, existing]) => {
       if (cancelled) return;

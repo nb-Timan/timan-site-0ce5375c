@@ -113,6 +113,62 @@ export type CrmLeadAttachmentPreview = CrmLeadAttachment & {
 
 export const CRM_LEAD_ATTACHMENTS_BUCKET = "crm-lead-attachments";
 
+export const CRM_LEAD_SUMMARY_SELECT = [
+  "id",
+  "lead_no",
+  "title",
+  "owner_user_id",
+  "owner_name",
+  "owner_email",
+  "linked_dealer_id",
+  "first_contact_date",
+  "expected_close_date",
+  "next_followup_date",
+  "machine_types",
+  "next_activity",
+  "demo_has_run",
+  "contact_type",
+  "customer_type",
+  "contact_information",
+  "country",
+  "estimated_value",
+  "pipeline_value_snapshot",
+  "pipeline_value_snapshot_reason",
+  "pipeline_value_snapshot_updated_at",
+  "probability",
+  "pipeline_stage",
+  "lost_competitor",
+  "lost_reason",
+  "status",
+  "move_to_working_qty",
+  "converted_demo_lead_id",
+  "incomplete_from_configurator",
+  "created_at",
+  "updated_at",
+].join(",");
+
+export const CRM_DEMO_LEAD_SUMMARY_SELECT = [
+  "id",
+  "demo_no",
+  "legacy_id",
+  "title",
+  "owner_user_id",
+  "owner_name",
+  "owner_email",
+  "dealer_company",
+  "dealer_country",
+  "customer_name",
+  "machine_category",
+  "demo_machine",
+  "demo_equipment",
+  "demo_date",
+  "estimated_value",
+  "probability",
+  "result_status",
+  "source_lead_id",
+  "created_at",
+].join(",");
+
 function sanitizeAttachmentFilename(name: string): string {
   const fallback = "attachment";
   const safe = (name || fallback)
@@ -656,6 +712,7 @@ export interface ListLeadsOpts {
   limit?: number;
   linkedDealerIds?: string[] | null;
   dealerCompanies?: string[] | null;
+  payload?: "full" | "summary";
 }
 
 export interface CrmLeadsPageRow {
@@ -822,10 +879,11 @@ function dedupOpenLeads(rows: (CrmLead & { legacy_id?: string | null })[]): CrmL
 
 export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   const limit = opts.limit ?? 5000;
+  const selectColumns = opts.payload === "summary" ? CRM_LEAD_SUMMARY_SELECT : "*";
   let supRows: CrmLead[] = [];
   let remoteReadOk = false;
   try {
-    let q = supabase.from("crm_leads").select("*").order("created_at", { ascending: false }).limit(limit);
+    let q = supabase.from("crm_leads").select(selectColumns).order("created_at", { ascending: false }).limit(limit);
     if (opts.ownerUserId) q = q.eq("owner_user_id", opts.ownerUserId);
     if (opts.linkedDealerIds && opts.linkedDealerIds.length > 0) q = q.in("linked_dealer_id", opts.linkedDealerIds);
     const { data, error } = await q;
@@ -1030,10 +1088,11 @@ function dedupDemoRows(rows: CrmDemoLead[]): CrmDemoLead[] {
 
 export async function listDemoLeads(opts: ListLeadsOpts = {}): Promise<CrmDemoLead[]> {
   const limit = opts.limit ?? 500;
+  const selectColumns = opts.payload === "summary" ? CRM_DEMO_LEAD_SUMMARY_SELECT : "*";
   let supRows: CrmDemoLead[] = [];
   let remoteReadOk = false;
   try {
-    let q = supabase.from("crm_demo_leads").select("*").order("created_at", { ascending: false }).limit(limit);
+    let q = supabase.from("crm_demo_leads").select(selectColumns).order("created_at", { ascending: false }).limit(limit);
     if (opts.ownerUserId) q = q.eq("owner_user_id", opts.ownerUserId);
     if (opts.dealerCompanies && opts.dealerCompanies.length > 0) q = q.in("dealer_company", opts.dealerCompanies);
     const { data, error } = await q;

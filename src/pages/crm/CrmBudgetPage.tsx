@@ -470,7 +470,7 @@ export default function CrmBudgetPage() {
       })().finally(() => setBusy(false));
       return;
     }
-    Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year), listLeads({ limit: 1000 }), listBudgetDealerLines(year)])
+    Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year), listLeads({ limit: 1000, payload: "summary" }), listBudgetDealerLines(year)])
       .then(([l, f, a, leads, dl]) => {
         setLines(l); setForecasts(f); setActuals(a);
         setLeadContribs(buildLeadWorkingContributions(leads).filter(c => c.year === year));

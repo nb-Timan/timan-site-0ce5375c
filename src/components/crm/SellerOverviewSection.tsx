@@ -141,8 +141,8 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
     (async () => {
       setLoading(true);
       const [l, d, a, bl, fc, ac] = await Promise.all([
-        listLeads({ limit: 500 }),
-        listDemoLeads({ limit: 500 }),
+        listLeads({ limit: 500, payload: "summary" }),
+        listDemoLeads({ limit: 500, payload: "summary" }),
         listActivities({ ownerUserId: null, limit: 1000 }),
         listBudgetLines({ year }),
         listForecasts(year),

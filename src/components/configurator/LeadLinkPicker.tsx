@@ -56,7 +56,7 @@ export default function LeadLinkPicker({ appUser, value, onChange, dealerNumber,
     setLoading(true);
     (async () => {
       const sid = await resolveSellerId(appUser?.email);
-      const all = await listLeads({});
+      const all = await listLeads({ payload: "summary" });
       if (cancelled) return;
       setSellerId(sid);
       setLeads(all);

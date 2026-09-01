@@ -278,7 +278,7 @@ export default function CrmDashboardPage() {
       const act = externalCrm
         ? rawAct.filter((a) => (a.account_id && accountIds.has(a.account_id)) || (a.account_name && accountNames.has(a.account_name.trim().toLowerCase())))
         : rawAct;
-      const demoResolved = await resolveSeedOwners(await listDemoLeads({}));
+      const demoResolved = await resolveSeedOwners(await listDemoLeads({ payload: "summary" }));
       const demoActs = demoLeadsToActivities(demoResolved);
       const scopedDemoActs = effectiveAdmin
         ? demoActs
@@ -320,7 +320,7 @@ export default function CrmDashboardPage() {
       let lds: CrmLead[] = [];
       let cal: CalendarActivity[] = [];
       if (!rpcKpis || externalCrm) {
-        const rawLeads = await listLeads({ ownerUserId: effectiveAdmin ? null : (externalCrm ? null : sid), limit: 500 });
+        const rawLeads = await listLeads({ ownerUserId: effectiveAdmin ? null : (externalCrm ? null : sid), limit: 500, payload: "summary" });
         lds = externalCrm
           ? rawLeads.filter((l) => {
               const linked = (l.linked_dealer_id || '').trim().toLowerCase();

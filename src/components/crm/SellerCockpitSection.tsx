@@ -282,8 +282,8 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
       try {
         const [rawLeads, rawDemoLeads, acts, lines, fc, ac] = await Promise.all([
           // Match CRM → Leads: fetch a broad list, then scope locally.
-          listLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 5000 }),
-          listDemoLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 5000 }),
+          listLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 5000, payload: "summary" }),
+          listDemoLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 5000, payload: "summary" }),
           listActivities({ ownerUserId: isAdmin ? null : sellerId, limit: 500 }),
           listBudgetLines({ year: new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear() }),
           listForecasts(new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear()),
