@@ -56,6 +56,7 @@ interface DraftState {
   localized_content: MarketingVideoLocalizedContent;
   previous_localized_content: MarketingVideoLocalizedContent | null;
   source_language: PortalUiLanguage;
+  content_language: PortalUiLanguage;
   translation_meta: MarketingVideoTranslationMeta;
   content_type: VideoContentType;
   seasons: string[];
@@ -75,6 +76,7 @@ const EMPTY_DRAFT: DraftState = {
   localized_content: {},
   previous_localized_content: null,
   source_language: "da",
+  content_language: "da",
   translation_meta: {},
   content_type: "product",
   seasons: ["all_year"],
@@ -133,6 +135,7 @@ export default function BackendVideoManagementPage() {
       products: [],
       seasons: ["all_year"],
       source_language: uiLanguage,
+      content_language: uiLanguage,
       localized_content: {},
       previous_localized_content: null,
       translation_meta: {},
@@ -150,7 +153,8 @@ export default function BackendVideoManagementPage() {
       description: localized.description,
       localized_content: row.localized_content || {},
       previous_localized_content: row.localized_content || {},
-      source_language: uiLanguage,
+      source_language: row.source_language,
+      content_language: uiLanguage,
       translation_meta: row.translation_meta || {},
       content_type: row.content_type,
       seasons: row.seasons.length ? row.seasons : ["all_year"],
@@ -220,6 +224,7 @@ export default function BackendVideoManagementPage() {
       title: activeDraft.title,
       description: activeDraft.description,
       source_language: activeDraft.source_language,
+      content_language: activeDraft.content_language,
       localized_content: activeDraft.localized_content,
       previous_localized_content: activeDraft.previous_localized_content,
       translation_meta: activeDraft.translation_meta,

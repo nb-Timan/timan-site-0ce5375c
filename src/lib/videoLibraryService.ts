@@ -69,6 +69,7 @@ export interface MarketingVideoInput {
   title: string;
   description?: string | null;
   source_language: PortalUiLanguage;
+  content_language?: PortalUiLanguage;
   localized_content?: MarketingVideoLocalizedContent | null;
   previous_localized_content?: MarketingVideoLocalizedContent | null;
   translation_meta?: MarketingVideoTranslationMeta | null;
@@ -463,11 +464,12 @@ export async function saveMarketingVideo(input: MarketingVideoInput): Promise<{ 
   const now = new Date().toISOString();
   const status = input.status;
   const sourceLanguage = input.source_language;
-  const localizedContent = withSourceVideoContent(input.localized_content, sourceLanguage, input.title, input.description);
+  const contentLanguage = input.content_language || sourceLanguage;
+  const localizedContent = withSourceVideoContent(input.localized_content, contentLanguage, input.title, input.description);
   const translation = await translateMarketingVideoContent({
     localizedContent,
     previousLocalizedContent: input.previous_localized_content,
-    sourceLanguage,
+    sourceLanguage: contentLanguage,
     translationMeta: input.translation_meta,
   });
   if (translation.error) return { row: null, error: translation.error };
