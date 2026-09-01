@@ -19,6 +19,7 @@ const PRICE_VISIBLE_PORTAL_ROLES = new Set([
   "timan_dealer",
   "timan_importer",
   "timan_service_partner",
+  "dealer_customer",
 ]);
 
 const ORDER_ALLOWED_PORTAL_ROLES = new Set([

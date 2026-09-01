@@ -22,6 +22,7 @@
  */
 import { useEffect, useState } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import {
   fetchDealerAccountByNumber,
   DealerAccount,
@@ -32,6 +33,7 @@ const EXTERNAL_DEALER_ROLES: ReadonlySet<string> = new Set([
   'timan_dealer',
   'timan_importer',
   'timan_service_partner',
+  'dealer_customer',
   'dealer_user',
 ]);
 
@@ -87,13 +89,14 @@ const DEFAULT_SCOPE: DealerScope = {
  */
 export function useDealerScope(opts: { requireDealer?: boolean } = {}): DealerScope {
   const { appUser } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser ?? null);
   const [account, setAccount] = useState<DealerAccount | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const role = (appUser?.portal_role as PortalRole | null) ?? null;
+  const role = (effectiveUser?.portal_role as PortalRole | null) ?? null;
   const isExternal = !!role && EXTERNAL_DEALER_ROLES.has(role);
   const isInternal = !!role && INTERNAL_TIMAN_ROLES.has(role);
-  const dealerNumber = (appUser?.dealer_number ?? '').trim() || null;
+  const dealerNumber = (effectiveUser?.dealer_number ?? '').trim() || null;
 
   // Hent dealer_accounts-rækken for ekstern bruger så vi har officielt firmanavn,
   // adresse osv. Falder tilbage til app_users.company_dealer hvis ikke fundet.
@@ -116,11 +119,11 @@ export function useDealerScope(opts: { requireDealer?: boolean } = {}): DealerSc
     };
   }, [isExternal, dealerNumber]);
 
-  if (!appUser || !role) return DEFAULT_SCOPE;
+  if (!effectiveUser || !role) return DEFAULT_SCOPE;
 
   const missingDealerLink = isExternal && !dealerNumber;
   const lockedDealerName =
-    account?.company_name ?? appUser?.company_dealer ?? null;
+    account?.company_name ?? effectiveUser?.company_dealer ?? null;
   const errorMessage =
     opts.requireDealer && missingDealerLink
       ? 'Din bruger er ikke koblet til en forhandler. Kontakt Timan.'

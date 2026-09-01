@@ -1,6 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { derivePortalRole, deriveStoredPortalRole, hasAreaAccess, hasModuleAccess, isBackendActor } from '@/lib/portalAccess';
+import {
+  DEFAULT_MODULE_ACCESS,
+  derivePortalRole,
+  deriveStoredPortalRole,
+  hasAreaAccess,
+  hasInternalMesseAccess,
+  hasMessePortalAccess,
+  hasModuleAccess,
+  isBackendActor,
+} from '@/lib/portalAccess';
 import { setActiveMode } from '@/lib/activeMode';
+import { isExternalMesseRole } from '@/components/messe/MesseGuards';
 
 const seller = {
   email: 'akr@timan.dk',
@@ -41,6 +51,87 @@ describe('portal access precedence', () => {
   it('keeps Timan Backend role access as the minimum access', () => {
     expect(hasAreaAccess({ ...backend, allowed_areas: ['salg_marketing'] }, 'marketing')).toBe(true);
     expect(hasModuleAccess('timan_backend', 'marketing', [])).toBe(true);
+  });
+
+  it('grants Timan Forhandler the canonical five front-page areas without backend-only areas', () => {
+    const dealer = {
+      email: 'dvp@example.com',
+      role: 'partner',
+      partner_type: 'forhandler',
+      portal_role: 'timan_dealer',
+      module_access: null,
+      allowed_modules: null,
+      allowed_areas: null,
+    };
+
+    expect(hasAreaAccess(dealer, 'salg_marketing')).toBe(true);
+    expect(hasAreaAccess(dealer, 'dealer_data')).toBe(true);
+    expect(hasAreaAccess(dealer, 'timan_crm')).toBe(true);
+    expect(hasAreaAccess(dealer, 'teknik_service')).toBe(true);
+    expect(hasModuleAccess('timan_dealer', 'messe_portal')).toBe(true);
+
+    expect(hasAreaAccess(dealer, 'timan_backend')).toBe(false);
+    expect(hasAreaAccess(dealer, 'marketing')).toBe(false);
+    expect(hasAreaAccess(dealer, 'projects')).toBe(false);
+  });
+
+  it('keeps Timan Forhandler defaults aligned for real role and role preview', () => {
+    const canonicalDealerModules = DEFAULT_MODULE_ACCESS.timan_dealer;
+    const expectedMainAccess = ['salg_marketing', 'dealer_data', 'timan_crm', 'teknik_service'] as const;
+
+    expect(canonicalDealerModules).toContain('messe_portal');
+    for (const area of expectedMainAccess) {
+      expect(hasAreaAccess({
+        role: 'partner',
+        partner_type: 'forhandler',
+        portal_role: 'timan_dealer',
+        allowed_areas: null,
+        allowed_modules: null,
+        module_access: null,
+      }, area)).toBe(true);
+    }
+
+    expect(hasAreaAccess({
+      role: 'partner',
+      partner_type: 'forhandler',
+      portal_role: 'timan_dealer',
+      allowed_areas: null,
+      allowed_modules: null,
+      module_access: null,
+    }, 'marketing')).toBe(false);
+    expect(hasModuleAccess('timan_dealer', 'projects')).toBe(false);
+  });
+
+  it('allows standard Messe portal for Timan Forhandler but not internal Messe flows', () => {
+    const dealer = {
+      email: 'dvp@example.com',
+      role: 'partner',
+      partner_type: 'forhandler',
+      portal_role: 'timan_dealer',
+      module_access: null,
+      allowed_modules: null,
+      allowed_areas: null,
+    };
+
+    expect(hasMessePortalAccess(dealer)).toBe(true);
+    expect(hasInternalMesseAccess(dealer)).toBe(false);
+    expect(isExternalMesseRole('timan_dealer')).toBe(true);
+    expect(isExternalMesseRole('timan_backend')).toBe(false);
+  });
+
+  it('does not treat external Messe portal access as internal Messe access', () => {
+    const dealerWithExplicitMessePortal = {
+      email: 'dvp@example.com',
+      role: 'partner',
+      partner_type: 'forhandler',
+      portal_role: 'timan_dealer',
+      module_access: ['messe_portal'],
+      allowed_modules: null,
+      allowed_areas: null,
+    };
+
+    expect(hasMessePortalAccess(dealerWithExplicitMessePortal)).toBe(true);
+    expect(hasInternalMesseAccess(dealerWithExplicitMessePortal)).toBe(false);
   });
 
   it('keeps backend route access tied to the real stored role, not view-as mode', () => {

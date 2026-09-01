@@ -5,6 +5,20 @@ import { derivePortalRole, hasInternalMesseAccess, hasMessePortalAccess, isMesse
 import { isMessePreviewActive, useMessePreviewVersion } from '@/lib/messePreview';
 import { canSwitchMode, getActiveUserView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import type { PortalRole } from '@/lib/portalAccess';
+
+const EXTERNAL_MESSE_ROLES: ReadonlySet<PortalRole> = new Set([
+  'timan_importer',
+  'timan_dealer',
+  'timan_service_partner',
+  'dealer_customer',
+  'dealer_user',
+  'exhibition_user',
+]);
+
+export function isExternalMesseRole(role: PortalRole | null): boolean {
+  return !!role && EXTERNAL_MESSE_ROLES.has(role);
+}
 
 /**
  * Single guard for /messe/* routes.
@@ -26,10 +40,9 @@ export function MesseRouteGuard({ children, blockDealerUser = false }: { childre
   if (!appUser) return <Navigate to="/portal?redirect=/messe" replace />;
   const concreteViewAs = canSwitchMode(appUser) ? getActiveUserView(appUser.email) : null;
   if (concreteViewAs && effectiveUser === appUser) return null;
+  if (blockDealerUser && isExternalMesseRole(portalRole)) return <Navigate to="/messe" replace />;
   if (isMesseVariantUser(effectiveUser) || portalRole === 'exhibition_user') return <>{children}</>;
-  if (portalRole === 'dealer_user') {
-    return !blockDealerUser && hasMessePortalAccess(effectiveUser) ? <>{children}</> : <Navigate to="/messe" replace />;
-  }
+  if (portalRole === 'dealer_user') return hasMessePortalAccess(effectiveUser) ? <>{children}</> : <Navigate to="/messe" replace />;
   if (hasInternalMesseAccess(effectiveUser)) return <>{children}</>;
   if (hasMessePortalAccess(effectiveUser)) return <>{children}</>;
   if (canSwitchMode(appUser) && isMessePreviewActive(appUser.email)) {

@@ -79,7 +79,7 @@ function defaultLevel(role: PortalRole, key: MatrixModuleKey): PermissionLevel {
   }
 
   // Dealer-side
-  if (role === "timan_importer" || role === "timan_dealer" || role === "timan_service_partner") {
+  if (role === "timan_importer" || role === "timan_dealer" || role === "timan_service_partner" || role === "dealer_customer") {
     if (key === "claims") return "create";
     if (key === "warranty") return "create";
     if (key === "tilbud" || key === "ordre" || key === "byg_din_timan") return "create";

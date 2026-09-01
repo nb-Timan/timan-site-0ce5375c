@@ -33,7 +33,7 @@ export interface CrmAccount {
   notes: string | null;
 }
 
-const ACCOUNT_PORTAL_ROLES = new Set(["timan_dealer", "timan_importer", "timan_service_partner", "dealer_user"]);
+const ACCOUNT_PORTAL_ROLES = new Set(["timan_dealer", "timan_importer", "timan_service_partner", "dealer_customer", "dealer_user"]);
 
 export interface ListAccountsOpts {
   role: PortalRole | null;

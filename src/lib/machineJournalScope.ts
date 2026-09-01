@@ -11,7 +11,8 @@
  *                                     those importer accounts (via
  *                                     dealer_accounts.parent_account_number).
  *
- *  - timan_dealer / dealer_user     → own dealer + every dealer with
+ *  - timan_dealer / dealer_user /
+ *    dealer_customer                → own dealer + every dealer with
  *                                     parent_account_number = own
  *                                     account_number.
  *
@@ -39,12 +40,13 @@ import type { SessionUser } from "@/context/AppUserContext";
 import { PortalRole } from "@/lib/portalAccess";
 import { resolveSellerId } from "@/lib/resolveSellerId";
 import { listCrmAccounts } from "@/lib/crmAccountsService";
+import { isProtectedInternalCrmDealerAccount } from "@/lib/crmScope";
 import { supabase } from "@/lib/supabase";
 import type { JournalScope } from "@/lib/machineJournalService";
 
 const INTERNAL: ReadonlySet<string> = new Set(["timan_backend", "timan_service"]);
 const SELLER: ReadonlySet<string> = new Set(["timan_seller"]);
-const DEALER_ONLY: ReadonlySet<string> = new Set(["timan_dealer", "dealer_user"]);
+const DEALER_ONLY: ReadonlySet<string> = new Set(["timan_dealer", "dealer_user", "dealer_customer"]);
 const IMPORTER: ReadonlySet<string> = new Set(["timan_importer"]);
 const SERVICE_PARTNER: ReadonlySet<string> = new Set(["timan_service_partner"]);
 
@@ -182,6 +184,14 @@ export async function buildJournalScope(
 
   // Dealer-side users always include their own dealer first.
   const scope = emptyScope(role, dealerLabel);
+  if (isProtectedInternalCrmDealerAccount({
+    account_number: appUser.dealer_number,
+    company_name: appUser.company_dealer || appUser.display_name,
+  })) {
+    return scope;
+  }
+  const ownAccount = appUser.dealer_number ? await fetchOwnDealerAccount(appUser.dealer_number) : null;
+  if (isProtectedInternalCrmDealerAccount(ownAccount)) return scope;
   const ownNumber = norm(appUser.dealer_number);
   if (ownNumber) scope.dealerNumbers.add(ownNumber);
   const ownName = norm(appUser.company_dealer || appUser.display_name);

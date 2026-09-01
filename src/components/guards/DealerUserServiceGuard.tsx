@@ -1,8 +1,22 @@
 import { ReactNode } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
-import { derivePortalRole } from '@/lib/portalAccess';
-import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { derivePortalRole, hasAreaAccess, type PortalAreaAccessKey } from '@/lib/portalAccess';
+import { useEffectivePortalUser, useEffectivePortalUserState } from '@/lib/viewAsUser';
+
+export function PortalAreaAccessGuard({
+  area,
+  children,
+}: {
+  area: PortalAreaAccessKey;
+  children?: ReactNode;
+}) {
+  const { appUser, loading } = useAppUser();
+  const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
+  if (loading || resolving) return null;
+  if (!appUser || !hasAreaAccess(effectiveUser, area)) return <Navigate to="/portal" replace />;
+  return <>{children ?? <Outlet />}</>;
+}
 
 /**
  * Blocks Dealer User from any Teknik & Service URL.

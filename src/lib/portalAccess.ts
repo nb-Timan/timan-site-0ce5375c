@@ -65,6 +65,7 @@ export type ModuleAccessKey =
   | 'timan_backend'
   | 'timan_crm'
   | 'dealer_data'
+  | 'projects'
   | 'claims'
   | 'tsb'
   | 'warranty'
@@ -87,7 +88,8 @@ export type PortalAreaAccessKey =
   | 'marketing'
   | 'timan_crm'
   | 'timan_backend'
-  | 'dealer_data';
+  | 'dealer_data'
+  | 'projects';
 
 export type PortalAccessUser = (
   Pick<AppUser, 'role' | 'partner_type'> & {
@@ -106,11 +108,13 @@ export type PortalAccessUser = (
 export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   timan_backend: [
     'teknik_service', 'salg_marketing', 'marketing', 'timan_backend', 'timan_crm', 'dealer_data',
+    'projects',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'messe_portal', 'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'contracts', 'resources', 'videos',
   ],
   timan_seller: [
     'teknik_service', 'salg_marketing', 'timan_crm', 'dealer_data',
+    'projects',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'messe_portal', 'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
   ],
@@ -125,9 +129,10 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
   ],
   timan_dealer: [
-    'teknik_service', 'salg_marketing', 'dealer_data',
+    'teknik_service', 'salg_marketing', 'timan_crm', 'dealer_data',
     'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
+    'messe_portal',
   ],
   timan_service_partner: [
     'teknik_service', 'salg_marketing', 'dealer_data',
@@ -249,13 +254,12 @@ export function hasInternalMesseAccess(
 ): boolean {
   if (!user || isMesseVariantUser(user)) return false;
   const role = derivePortalRole(user);
-  const moduleOverride = getUserModuleAccessOverride(user);
-  if (Array.isArray(moduleOverride)) {
-    return hasModuleAccess(role, 'messe_portal', moduleOverride);
-  }
-  if (role === 'timan_backend' || role === 'timan_seller' || role === 'timan_service') return true;
   const externalRoles: PortalRole[] = ['timan_importer', 'timan_dealer', 'timan_service_partner', 'dealer_customer', 'dealer_user', 'exhibition_user'];
   if (role && externalRoles.includes(role)) return false;
+  const moduleOverride = getUserModuleAccessOverride(user);
+  if (role === 'timan_backend' || role === 'timan_seller' || role === 'timan_service') {
+    return Array.isArray(moduleOverride) ? hasModuleAccess(role, 'messe_portal', moduleOverride) : true;
+  }
   return user.role !== 'partner' && Array.isArray(user.allowed_areas) && user.allowed_areas.includes('salg_marketing');
 }
 
@@ -411,6 +415,11 @@ export function hasAreaAccess(
   if (area === 'calendar') {
     const moduleOverride = getUserModuleAccessOverride(user);
     return hasModuleAccess(role, 'timan_crm', moduleOverride);
+  }
+
+  if (area === 'projects') {
+    const moduleOverride = getUserModuleAccessOverride(user);
+    return hasModuleAccess(role, 'projects', moduleOverride);
   }
 
   const moduleOverride = getUserModuleAccessOverride(user);

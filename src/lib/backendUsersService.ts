@@ -221,6 +221,7 @@ export const PAYMENT_AND_DISCOUNT_RESTRICTED_ROLES: PortalRole[] = [
   "timan_dealer",
   "timan_importer",
   "timan_service_partner",
+  "dealer_customer",
   "dealer_user",
   "private_end_user",
   "exhibition_user",
@@ -238,6 +239,7 @@ export const DEALER_SIDE_ROLES: PortalRole[] = [
   "timan_dealer",
   "timan_importer",
   "timan_service_partner",
+  "dealer_customer",
   "dealer_user",
 ];
 

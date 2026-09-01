@@ -51,4 +51,38 @@ describe("mergeEffectivePortalUser", () => {
     expect(hasAreaAccess(effective, "marketing")).toBe(false);
     expect(hasAreaAccess(effective, "timan_crm")).toBe(true);
   });
+
+  it("makes a real Timan Forhandler view resolve like the canonical role defaults", () => {
+    const target: SessionUser = {
+      ...baseUser,
+      email: "dvp@example.com",
+      role: "partner",
+      partner_type: "forhandler",
+      display_name: "DVP",
+      portal_role: "timan_dealer",
+      module_access: null,
+      allowed_areas: null,
+      allowed_modules: null,
+      permissions: null,
+      dealer_number: "X",
+      company_dealer: "Dealer X",
+    };
+
+    const effective = mergeEffectivePortalUser(baseUser, target, {
+      key: "DVP",
+      initials: "DVP",
+      email: "dvp@example.com",
+      portalRole: "timan_dealer",
+      viewRole: "dealer",
+      label: "DVP Forhandler",
+    });
+
+    expect(derivePortalRole(effective)).toBe("timan_dealer");
+    expect(hasAreaAccess(effective, "salg_marketing")).toBe(true);
+    expect(hasAreaAccess(effective, "dealer_data")).toBe(true);
+    expect(hasAreaAccess(effective, "timan_crm")).toBe(true);
+    expect(hasAreaAccess(effective, "teknik_service")).toBe(true);
+    expect(hasAreaAccess(effective, "timan_backend")).toBe(false);
+    expect(canManageNewsContent(effective)).toBe(false);
+  });
 });

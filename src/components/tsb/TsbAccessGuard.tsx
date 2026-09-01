@@ -20,6 +20,7 @@ import {
   hasModuleAccess,
   PortalRole,
 } from "@/lib/portalAccess";
+import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 import type { ModuleAccessKey } from "@/lib/portalAccess";
 import type { AppUser } from "@/data/appUsers";
 
@@ -86,12 +87,13 @@ export default function TsbAccessGuard({
   requireCreate?: boolean;
 }) {
   const { appUser, loading } = useAppUser();
-  if (loading) return null;
-  const role = derivePortalRole(appUser ?? null);
-  if (!canAccessTsb(role, appUser ?? null)) {
+  const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
+  if (loading || resolving) return null;
+  const role = derivePortalRole(effectiveUser ?? null);
+  if (!canAccessTsb(role, effectiveUser ?? null)) {
     return <Navigate to="/portal" replace />;
   }
-  if (requireCreate && !canCreateTsb(role, appUser ?? null)) {
+  if (requireCreate && !canCreateTsb(role, effectiveUser ?? null)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="max-w-md w-full bg-white border border-slate-200 rounded-xl p-8 text-center shadow-sm">

@@ -6,7 +6,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
-import { isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
+import { canUseImplicitExternalCrmDealerScope, isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { buildJournalScope } from '@/lib/machineJournalScope';
 import { getActiveSellerView, getEffectiveSellerEmail } from '@/lib/activeMode';
@@ -502,7 +502,10 @@ export default function CrmLeadsPage() {
         if (externalCrm) {
           const scope = await buildJournalScope(effectiveUser, portalRole);
           const nums = new Set(Array.from(scope.dealerNumbers));
-          const visible = res.rows.filter((d) => nums.has((d.account_number || '').trim().toLowerCase()));
+          const visible = res.rows.filter((d) => (
+            nums.has((d.account_number || '').trim().toLowerCase())
+            && canUseImplicitExternalCrmDealerScope(d)
+          ));
           setExternalDealerScope({
             ids: new Set(visible.map((d) => d.id)),
             names: new Set(visible.flatMap((d) => [d.company_name, d.branch_name, d.account_number]).filter(Boolean).map((v) => String(v).trim().toLowerCase())),

@@ -15,6 +15,12 @@ export interface AccountLike {
   account_owner_user_id?: string | null;
 }
 
+export interface DealerAccountScopeLike {
+  account_number?: string | null;
+  company_name?: string | null;
+  branch_name?: string | null;
+}
+
 export interface OfferOrderLike {
   id: string;
   assigned_seller_id?: string | null;
@@ -41,6 +47,7 @@ export function isExternalCrmRole(role: PortalRole | null): boolean {
     role === "timan_importer" ||
     role === "timan_dealer" ||
     role === "timan_service_partner" ||
+    role === "dealer_customer" ||
     role === "dealer_user"
   );
 }
@@ -65,6 +72,22 @@ export function canSellerSeeAccount(scope: SellerScope, account: AccountLike): b
 
 export function normalizeDealerNumber(value: string | null | undefined): string {
   return (value ?? "").trim().toLowerCase();
+}
+
+function normalizeCrmScopeText(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
+}
+
+export function isProtectedInternalCrmDealerAccount(account: DealerAccountScopeLike | null | undefined): boolean {
+  if (!account) return false;
+  const accountNumber = normalizeDealerNumber(account.account_number);
+  const companyName = normalizeCrmScopeText(account.company_name);
+  const branchName = normalizeCrmScopeText(account.branch_name);
+  return accountNumber === "100" && (companyName === "timan" || branchName === "timan");
+}
+
+export function canUseImplicitExternalCrmDealerScope(account: DealerAccountScopeLike | null | undefined): boolean {
+  return !!account && !isProtectedInternalCrmDealerAccount(account);
 }
 
 export function isDealerNumberAllowed(value: string | null | undefined, dealerNumbers?: string[] | null): boolean {

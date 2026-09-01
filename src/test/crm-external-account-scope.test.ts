@@ -1,0 +1,98 @@
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import type { SessionUser } from "@/context/AppUserContext";
+import {
+  canSellerSeeAccount,
+  canUseImplicitExternalCrmDealerScope,
+  filterAccountsForSeller,
+  isProtectedInternalCrmDealerAccount,
+} from "@/lib/crmScope";
+import { buildJournalScope } from "@/lib/machineJournalScope";
+import { dealerScopeAllows } from "@/lib/machineJournalService";
+
+function sessionUser(overrides: Partial<SessionUser>): SessionUser {
+  return {
+    email: "sales@timan.dk",
+    display_name: "Timan Sales",
+    role: "slutkunde",
+    partner_type: "forhandler",
+    approved: true,
+    is_active: true,
+    can_view_prices: true,
+    can_submit_order: true,
+    ...overrides,
+  } as SessionUser;
+}
+
+describe("external CRM account scope", () => {
+  it("blocks account 100 / Timan as implicit external CRM scope", () => {
+    const account100 = {
+      account_number: "100",
+      company_name: "Timan",
+      branch_name: null,
+    };
+
+    expect(isProtectedInternalCrmDealerAccount(account100)).toBe(true);
+    expect(canUseImplicitExternalCrmDealerScope(account100)).toBe(false);
+  });
+
+  it("still allows ordinary external dealer accounts as implicit scope", () => {
+    expect(canUseImplicitExternalCrmDealerScope({
+      account_number: "11913",
+      company_name: "Avistech s.r.o.",
+      branch_name: null,
+    })).toBe(true);
+  });
+
+  it("does not let Forhandler A match Forhandler B by dealer number", () => {
+    expect(filterAccountsForSeller({
+      role: "timan_seller",
+      sellerId: "seller-a",
+    }, [
+      { id: "dealer-a", account_owner_user_id: "seller-a" },
+      { id: "dealer-b", account_owner_user_id: "seller-b" },
+    ])).toEqual([{ id: "dealer-a", account_owner_user_id: "seller-a" }]);
+
+    expect(canSellerSeeAccount({
+      role: "timan_seller",
+      sellerId: "seller-a",
+    }, { id: "dealer-b", account_owner_user_id: "seller-b" })).toBe(false);
+  });
+
+  it("keeps backend unrestricted and seller scope assigned-only", () => {
+    expect(canSellerSeeAccount({ role: "timan_backend", sellerId: null }, {
+      id: "dealer-b",
+      account_owner_user_id: "seller-b",
+    })).toBe(true);
+
+    expect(canSellerSeeAccount({ role: "timan_seller", sellerId: "seller-a" }, {
+      id: "dealer-a",
+      account_owner_user_id: "seller-a",
+    })).toBe(true);
+  });
+
+  it("prevents account 100 from becoming a Teknik & Service name wildcard", async () => {
+    const scope = await buildJournalScope(sessionUser({
+      portal_role: "timan_dealer",
+      dealer_number: "100",
+      company_dealer: "Timan",
+    }), "timan_dealer");
+
+    expect(scope.unrestricted).toBe(false);
+    expect(scope.dealerNumbers.size).toBe(0);
+    expect(scope.dealerNames.size).toBe(0);
+    expect(dealerScopeAllows(scope, { dealer_number: "100", dealer_name: "Timan" })).toBe(false);
+  });
+
+  it("keeps the lead list RPC from trusting client-provided external scope", () => {
+    const migration = readFileSync("supabase/migrations/20260901065220_secure_external_crm_lead_scope.sql", "utf8");
+
+    expect(migration).toContain("p_external_dealer_ids");
+    expect(migration).toContain("external_dealer_rows as");
+    expect(migration).toContain("not public.is_protected_internal_crm_account(own.account_number");
+    expect(migration).toContain("from public.crm_lead_shares cls");
+    expect(migration).toContain("drop policy if exists crm_leads_all");
+    expect(migration).toContain("drop policy if exists crm_demo_leads_all");
+    expect(migration).not.toContain("r.linked_dealer_id = any(a.external_dealer_ids)");
+  });
+});
