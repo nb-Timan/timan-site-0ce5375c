@@ -1202,6 +1202,21 @@ describe('contract flow', () => {
     expect(migration).toContain("grant execute on function public.delete_dealer_contract(uuid) to authenticated, service_role");
   });
 
+  it('keeps contract overview KPI cards compact with a light active state', () => {
+    const overviewSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const start = overviewSource.indexOf('const summaryCards');
+    const end = overviewSource.indexOf('<main className="mx-auto w-full max-w-7xl flex-grow');
+    const overviewHeader = overviewSource.slice(start, end);
+
+    expect(overviewHeader).toContain("onClick={() => setStatusFilter(card.id)}");
+    expect(overviewHeader).toContain("rounded-xl border px-3.5 py-3");
+    expect(overviewHeader).toContain("'border-emerald-200 bg-slate-100 text-gray-950 shadow-sm'");
+    expect(overviewHeader).toContain("mt-1.5 text-2xl font-bold");
+    expect(overviewHeader).toContain("text-[11px] font-semibold uppercase tracking-wide");
+    expect(overviewHeader).not.toContain("bg-gray-950 text-white");
+    expect(overviewHeader).not.toContain("text-3xl font-black");
+  });
+
   it('keeps appendix 2 discount text verbatim', () => {
     expect(APPENDIX_2_PARAGRAPHS).toEqual([
       'Bilag 2: Rabat.',

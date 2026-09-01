@@ -1752,14 +1752,14 @@ function InternalContractsOverview({
                 key={card.id}
                 type="button"
                 onClick={() => setStatusFilter(card.id)}
-                className={`group rounded-2xl border px-4 py-4 text-left shadow-sm transition ${
+                className={`group rounded-xl border px-3.5 py-3 text-left shadow-sm transition ${
                   statusFilter === card.id
-                    ? 'border-gray-950 bg-gray-950 text-white shadow-md'
-                    : 'border-gray-200 bg-white/95 text-gray-900 hover:border-emerald-200 hover:bg-emerald-50/70 hover:shadow-md'
+                    ? 'border-emerald-200 bg-slate-100 text-gray-950 shadow-sm'
+                    : 'border-gray-200 bg-white/95 text-gray-900 hover:border-emerald-200 hover:bg-emerald-50/60 hover:shadow-sm'
                 }`}
               >
-                <p className={`text-[11px] font-bold uppercase tracking-wide ${statusFilter === card.id ? 'text-gray-200' : 'text-gray-500 group-hover:text-emerald-800'}`}>{card.label}</p>
-                <p className="mt-2 text-3xl font-black leading-none tabular-nums">{card.count}</p>
+                <p className={`text-[11px] font-semibold uppercase tracking-wide ${statusFilter === card.id ? 'text-emerald-800' : 'text-gray-500 group-hover:text-emerald-800'}`}>{card.label}</p>
+                <p className="mt-1.5 text-2xl font-bold leading-none tabular-nums">{card.count}</p>
               </button>
             ))}
           </div>
