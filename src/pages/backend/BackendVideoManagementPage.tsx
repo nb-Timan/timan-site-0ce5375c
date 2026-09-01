@@ -423,14 +423,6 @@ function VideoEditorDialog(props: {
                 </select>
               </label>
               <label>
-                <FieldLabel text={tv("videoMgmtStatus", lang)} />
-                <select value={draft.status} onChange={(event) => patch({ status: event.target.value as VideoStatus })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
-                  <option value="draft">{tv("videoMgmtDraft", lang)}</option>
-                  <option value="published">{tv("videoMgmtPublished", lang)}</option>
-                  <option value="archived">{tv("videoMgmtArchived", lang)}</option>
-                </select>
-              </label>
-              <label>
                 <FieldLabel text={tv("videoMgmtModelStatus", lang)} />
                 <select value={draft.model_generation_status} onChange={(event) => patch({ model_generation_status: event.target.value as VideoModelGenerationStatus })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
                   <option value="current">{videoModelGenerationStatusLabel("current", lang)}</option>

@@ -185,6 +185,10 @@ describe("marketing video library", () => {
     expect(managementPage).toContain("localizeMarketingVideo(row, uiLanguage)");
     expect(managementPage).toContain("source_language: row.source_language");
     expect(managementPage).toContain("content_language: uiLanguage");
+    expect(managementPage).not.toContain("<FieldLabel text={tv(\"videoMgmtStatus\", lang)} />");
+    expect(managementPage).toContain("onSave(\"draft\")");
+    expect(managementPage).toContain("onSave(\"archived\")");
+    expect(managementPage).toContain("onSave(\"published\")");
     expect(managementPage).toContain("uploadVideoThumbnail");
     expect(configurator).toContain("listPublishedPrimaryVideos(uiLanguage)");
     expect(migration).toContain("product_key text not null unique");
