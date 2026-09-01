@@ -300,7 +300,6 @@ export function derivePortalModuleKey(path: string): string | null {
   if (seg[1] === "dealer-data") return "dealer_data";
   if (seg[1] === "videos") return "videos";
   if (seg[1] === "contracts") return "contracts";
-  if (seg[1] === "timan-2620-afproevning") return "timan_2620_trial";
   if (seg[1] === "timan-2620") return "timan_2620";
   return seg[1].replace(/-/g, "_");
 }

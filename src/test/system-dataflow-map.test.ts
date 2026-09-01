@@ -219,8 +219,8 @@ describe("Backend system dataflow map", () => {
   });
 
   it("keeps semantic zoom layout deterministic without changing node or edge counts", () => {
-    expect(systemDnaNodes.length).toBe(80);
-    expect(systemDnaEdges.length).toBe(130);
+    expect(systemDnaNodes.length).toBe(79);
+    expect(systemDnaEdges.length).toBe(129);
 
     const first = getSystemDnaNodePosition(findSystemMapNode("crm_leads"), SYSTEM_DNA_ZOOM_LEVELS[2].zoom);
     const second = getSystemDnaNodePosition(findSystemMapNode("crm_leads"), SYSTEM_DNA_ZOOM_LEVELS[2].zoom);

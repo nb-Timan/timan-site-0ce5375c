@@ -2,7 +2,6 @@ import {
   Activity,
   BarChart3,
   Building2,
-  ClipboardList,
   Database,
   FileSearch,
   KeyRound,
@@ -92,7 +91,6 @@ export const backendSections: BackendSection[] = [
       { title: "Dealer Import", icon: Upload, to: "/portal/backend/dealer-import", description: "Importér og opdatér forhandlerdata fra SharePoint/CSV-kilder." },
       { title: "Budget Import", icon: Upload, to: "/portal/backend/budget-import", description: "Importér sælgerbudgetter fra Excel-oversigt til CRM Budget." },
       { title: "Prislister", icon: Tag, to: "/portal/backend/price-lists", description: "Importér, ret og publicér prislistedata." },
-      { title: "Afprøvning af 2620", icon: ClipboardList, to: "/portal/backend/timan-2620-afproevning", description: "Se indsendelser fra det selvstændige 2620-afprøvningsflow." },
     ],
   },
   {

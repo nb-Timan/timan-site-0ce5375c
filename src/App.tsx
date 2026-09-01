@@ -127,7 +127,6 @@ const VideoCategoryPage = lazy(() => import("./pages/VideoCategoryPage"));
 const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
 const DriftberegnerPage = lazy(() => import("./pages/DriftberegnerPage"));
 const Co2CalculatorPage = lazy(() => import("./pages/Co2CalculatorPage"));
-const Timan2620TrialPage = lazy(() => import("./pages/Timan2620TrialPage"));
 const ContractsPage = lazy(() => import("./pages/contracts/ContractsPage"));
 
 const ClaimsPage = lazy(() => import("./pages/ClaimsPage"));
@@ -169,7 +168,6 @@ const BackendPartnerRelationsPage = lazy(() => import("./pages/backend/BackendPa
 const BackendMesseSettingsPage = lazy(() => import("./pages/backend/BackendMesseSettingsPage"));
 const BackendNewsPage = lazy(() => import("./pages/backend/BackendNewsPage"));
 const BackendVideoManagementPage = lazy(() => import("./pages/backend/BackendVideoManagementPage"));
-const Backend2620TrialsPage = lazy(() => import("./pages/backend/Backend2620TrialsPage"));
 const BackendSystemMapPage = lazy(() => import("./pages/backend/BackendSystemMapPage"));
 const BackendSectionPage = lazy(() => import("./pages/backend/BackendSectionPage"));
 
@@ -225,7 +223,6 @@ const App = () => (
               <Route path="/messe/timan-3330" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="timan-3330" title="Timan 3330" pdfSrc="/brochures/timan-3330-da.pdf" pageBase="/brochures/pages/timan-3330" pageCount={17} /></MesseRouteGuard>} />
               <Route path="/messe/resources/driftberegner" element={<MesseRouteGuard><DriftberegnerPage /></MesseRouteGuard>} />
               <Route path="/messe/resources/co2" element={<MesseRouteGuard><Co2CalculatorPage /></MesseRouteGuard>} />
-              <Route path="/messe/timan-2620-afproevning" element={<MesseRouteGuard blockDealerUser><Timan2620TrialPage variant="messe" /></MesseRouteGuard>} />
 
 
               {/* Portal is the new landing page after login */}
@@ -274,7 +271,6 @@ const App = () => (
               <Route path="/portal/resources" element={<ResourcesPage />} />
               <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
               <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
-              <Route path="/portal/timan-2620-afproevning" element={<Timan2620TrialPage />} />
               <Route path="/portal/contracts" element={<ContractsPage />} />
               <Route path="/portal/contracts/:contractId" element={<ContractsPage />} />
               <Route path="/portal/timan-2620" element={<MesseTiman2620Page backTo="/portal" />} />
@@ -331,7 +327,6 @@ const App = () => (
               <Route path="/portal/backend/news" element={<BackendNewsPage />} />
               <Route path="/portal/backend/partner-relations" element={<BackendPartnerRelationsPage />} />
               <Route path="/portal/backend/messe" element={<BackendMesseSettingsPage />} />
-              <Route path="/portal/backend/timan-2620-afproevning" element={<Backend2620TrialsPage />} />
               <Route path="/portal/backend/system-map" element={<BackendSystemMapPage />} />
 
               {/* Existing configurator is preserved at /configurator */}

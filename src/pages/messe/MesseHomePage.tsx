@@ -49,7 +49,6 @@ const TILES: Tile[] = [
 const QUICK_ACTIONS = [
   { to: '/messe/resources/driftberegner', icon: Gauge, label: 'mh_drift' },
   { to: '/messe/resources/co2', icon: Leaf, label: 'mh_co2' },
-  { to: '/messe/timan-2620-afproevning', icon: ClipboardList, label: 'Afprøv Timan 2620', literalLabel: true },
   { to: '/messe/follow-up', icon: ClipboardList, label: 'Messeformular', literalLabel: true },
 ];
 

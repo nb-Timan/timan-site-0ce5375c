@@ -507,7 +507,6 @@ const featureNodes: SystemMapNode[] = [
   node("messe_partner_map", "Partnerkort", "Kort og forhandlere", "feature", "messe", "messe", 1220, 1660, 0.95, Map, ["dealer_accounts"], ["PartnerMapPage"], ["/messe/partner-map", "/portal/misc/partner-map"], "Partnerkort viser forhandlere, servicepartnere og importører på kort."),
   node("messe_brochures", "Brochurer", "PDF og produktsider", "feature", "messe", "messe", 1310, 1810, 1.05, BookOpen, ["storage"], ["MesseMachineBrochurePage"], ["/messe/rc-751", "/messe/rc-1000s"], "Brochurer og maskinsider åbnes først ved behov."),
   node("messe_video", "Videoer", "Video galleri", "feature", "messe", "messe", 900, 1860, 1.1, Video, ["videoCategories"], ["MesseVideoPage", "VideoGalleryPage"], ["/messe/video", "/portal/videos"], "Videoer bruges i messe og portalens videogalleri."),
-  node("messe_trials", "Afprøvninger", "Timan 2620 trial", "feature", "messe", "messe", 1180, 1960, 1.15, ClipboardList, ["trial submissions"], ["Timan2620TrialPage"], ["/messe/timan-2620-afproevning"], "Afprøvningsflowet indsamler test og feedback."),
 
   node("news", "Nyheder", "CMS og publicering", "feature", "marketing", "marketing", 1840, 700, 0.9, Newspaper, ["news_posts"], ["newsService", "newsCmsTranslations"], ["/portal/marketing/news/overview"], "Nyheder oprettes og publiceres fra Marketing."),
   node("site_features", "Nye features på sitet", "Intern changelog", "feature", "marketing", "marketing", 2050, 700, 0.9, Sparkles, ["site_change_entries", "site_change_public_entries"], ["portalChangelogService"], ["/portal/marketing/site-features"], "Marketing vælger hvilke ændringer der publiceres til 'Hvad er nyt?'."),
@@ -628,7 +627,6 @@ const expandedDnaPositions: Partial<Record<SystemMapNodeId, { feature?: SystemDn
   messe_partner_map: { feature: { x: 1260, y: 1640 } },
   messe_brochures: { feature: { x: 1330, y: 1880 } },
   messe_video: { feature: { x: 850, y: 1920 } },
-  messe_trials: { feature: { x: 1160, y: 2020 } },
 
   news: { feature: { x: 1760, y: 720 } },
   site_features: { feature: { x: 2070, y: 720 } },
