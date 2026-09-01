@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { inferModuleFromFiles, missingSiteChangeLanguages, publicRowToEntry, recommendPublication } from '@/lib/portalChangelogService';
+import { buildGroupedFeatureSuggestion, inferModuleFromFiles, missingSiteChangeLanguages, publicRowToEntry, recommendPublication } from '@/lib/portalChangelogService';
 import { getPublishedFeatureContent } from '@/lib/portalChangelogService';
 
 describe('site change service', () => {
@@ -274,5 +274,76 @@ describe('site change service', () => {
     expect(importerEntry.role_visibility).toContain('timan_importer');
     expect(importerEntry.role_visibility).toContain('exhibition_user');
     expect(importerEntry.role_visibility).toContain('timan_messe');
+  });
+
+  it('supports grouped public feature suggestions while preserving source commits', () => {
+    const migration = readFileSync('supabase/migrations/20260901132435_site_change_grouped_publications.sql', 'utf8');
+    const service = readFileSync('src/lib/portalChangelogService.ts', 'utf8');
+    const page = readFileSync('src/pages/backend/BackendChangelogPage.tsx', 'utf8');
+    const edgeFunction = readFileSync('supabase/functions/import-site-changes-from-github/index.ts', 'utf8');
+
+    expect(migration).toContain('add column if not exists is_group boolean');
+    expect(migration).toContain('add column if not exists group_parent_id uuid references public.site_change_entries');
+    expect(migration).toContain('delete from public.site_change_public_entries where id = new.id');
+    expect(migration).toContain('create index if not exists site_change_entries_group_parent_idx');
+
+    expect(service).toContain('adminCreateChangelogGroup');
+    expect(service).toContain('adminRemoveChangeFromGroup');
+    expect(service).toContain('adminSplitChangelogGroup');
+    expect(service).toContain('Denne publicering består af');
+
+    expect(page).toContain('selectedIds');
+    expect(page).toContain('siteFeaturesGroupSelected');
+    expect(page).toContain('siteFeaturesShowTechnicalHistory');
+    expect(page).toContain('siteFeaturesRemoveFromGroup');
+
+    expect(edgeFunction).toContain('suggestGroups(newEntries)');
+    expect(edgeFunction).toContain('isGroupable');
+    expect(edgeFunction).toContain('!["security", "feature", "backend"].includes(entry.change_type)');
+    expect(edgeFunction).toContain('groupsSuggested');
+    expect(edgeFunction).toContain('type SiteChangeGroupSuggestion');
+    expect(edgeFunction).toContain('.eq("source_ref", suggestion.group.source_ref)');
+    expect(edgeFunction).toContain('.insert(suggestion.group)');
+  });
+
+  it('generates one user-facing CRM overview text for grouped partner-detail commits', () => {
+    const rows = Array.from({ length: 5 }, (_, index) => ({
+      id: `change-${index}`,
+      source: 'github',
+      source_ref: `github:abc${index}`,
+      implemented_at: '2026-09-01T10:00:00.000Z',
+      title_internal: `CRM partner detail layout ${index}`,
+      description_internal: 'Kompakt partner overview',
+      technical_description: 'src/pages/crm/CrmDealerDetailPage.tsx',
+      title_public: 'CRM er forbedret',
+      description_public: 'CRM er forbedret.',
+      localized_content: null,
+      module: 'crm',
+      change_type: 'ui_ux',
+      affected_roles: ['timan_backend', 'timan_seller'],
+      user_impact_score: 4,
+      technical_impact_score: 4,
+      publish_recommendation: 'maybe' as const,
+      is_important: false,
+      status: 'new' as const,
+      published_at: null,
+      archived_at: null,
+      reviewed_at: null,
+      created_by: null,
+      updated_by: null,
+      published_by: null,
+      is_group: false,
+      group_parent_id: null,
+      group_suggestion_status: 'none' as const,
+      grouped_at: null,
+      created_at: '2026-09-01T10:00:00.000Z',
+      updated_at: '2026-09-01T10:00:00.000Z',
+    }));
+
+    const suggestion = buildGroupedFeatureSuggestion(rows);
+    expect(suggestion.da?.title).toBe('CRM-overblikket er forbedret');
+    expect(suggestion.da?.description).toContain('Partneroversigten er blevet gjort mere kompakt');
+    expect(suggestion.en?.title).toBe('The CRM overview has been improved');
+    expect(suggestion.de?.title).toBe('Die CRM-Übersicht wurde verbessert');
   });
 });

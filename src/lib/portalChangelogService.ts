@@ -54,6 +54,10 @@ export interface SiteChangeEntryRow {
   created_by: string | null;
   updated_by: string | null;
   published_by: string | null;
+  is_group: boolean;
+  group_parent_id: string | null;
+  group_suggestion_status: 'none' | 'suggested' | 'approved' | 'split';
+  grouped_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -95,6 +99,10 @@ export interface ChangelogDraft {
   published_at?: string | null;
   archived_at?: string | null;
   reviewed_at?: string | null;
+  is_group?: boolean;
+  group_parent_id?: string | null;
+  group_suggestion_status?: 'none' | 'suggested' | 'approved' | 'split';
+  grouped_at?: string | null;
 }
 
 export interface ChangelogListOptions {
@@ -113,6 +121,7 @@ export interface SiteChangeGitHubSyncResult {
   ok?: boolean;
   imported?: number;
   skipped?: number;
+  groupsSuggested?: number;
   commits?: string[];
   message?: string;
   error?: string;
@@ -304,6 +313,90 @@ export function buildPublishedFeatureSuggestion(
     module_label: area,
     change_type_label: changeType,
   };
+}
+
+const CRM_OVERVIEW_GROUP_TEXT: Record<PortalUiLanguage, { title: string; description: string; note: string }> = {
+  da: {
+    title: 'CRM-overblikket er forbedret',
+    description: 'Partneroversigten er blevet gjort mere kompakt og overskuelig. Kontaktoplysninger, KPI-kort, noter og øvrige partnerdata er blevet organiseret bedre, så de vigtigste oplysninger er lettere at finde og arbejde med.',
+    note: 'CRM-overblik forbedret',
+  },
+  en: {
+    title: 'The CRM overview has been improved',
+    description: 'The partner overview has been made more compact and easier to scan. Contact details, KPI cards, notes and other partner data are organized more clearly, so the most important information is easier to find and work with.',
+    note: 'CRM overview improved',
+  },
+  de: {
+    title: 'Die CRM-Übersicht wurde verbessert',
+    description: 'Die Partnerübersicht wurde kompakter und übersichtlicher gestaltet. Kontaktdaten, KPI-Karten, Notizen und weitere Partnerdaten sind klarer organisiert, damit wichtige Informationen leichter zu finden und zu bearbeiten sind.',
+    note: 'CRM-Übersicht verbessert',
+  },
+  it: {
+    title: 'La panoramica CRM è stata migliorata',
+    description: 'La panoramica partner è stata resa più compatta e chiara. Contatti, KPI, note e altri dati partner sono organizzati meglio, così le informazioni principali sono più facili da trovare e usare.',
+    note: 'Panoramica CRM migliorata',
+  },
+  hu: {
+    title: 'A CRM-áttekintés továbbfejlesztve',
+    description: 'A partneráttekintés kompaktabb és áttekinthetőbb lett. A kapcsolattartási adatok, KPI-kártyák, jegyzetek és egyéb partneradatok rendezettebben jelennek meg, így a fontos információk könnyebben megtalálhatók és használhatók.',
+    note: 'CRM-áttekintés fejlesztve',
+  },
+  sv: {
+    title: 'CRM-översikten har förbättrats',
+    description: 'Partneröversikten har blivit mer kompakt och lättare att överblicka. Kontaktuppgifter, KPI-kort, anteckningar och annan partnerdata är tydligare organiserade, så viktig information blir lättare att hitta och arbeta med.',
+    note: 'CRM-översikt förbättrad',
+  },
+  fr: {
+    title: 'La vue d’ensemble CRM a été améliorée',
+    description: 'La vue partenaire est plus compacte et plus claire. Les coordonnées, cartes KPI, notes et autres données partenaire sont mieux organisées, afin de retrouver et traiter plus facilement les informations importantes.',
+    note: 'Vue CRM améliorée',
+  },
+  pl: {
+    title: 'Widok CRM został ulepszony',
+    description: 'Widok partnera jest bardziej kompaktowy i czytelny. Dane kontaktowe, karty KPI, notatki i pozostałe dane partnera są lepiej uporządkowane, dzięki czemu najważniejsze informacje łatwiej znaleźć i wykorzystać.',
+    note: 'Widok CRM ulepszony',
+  },
+  cs: {
+    title: 'Přehled CRM byl vylepšen',
+    description: 'Přehled partnera je kompaktnější a přehlednější. Kontaktní údaje, KPI karty, poznámky a další partnerská data jsou lépe uspořádána, takže důležité informace lze snáze najít a používat.',
+    note: 'Přehled CRM vylepšen',
+  },
+};
+
+function rowTextForGrouping(row: Pick<SiteChangeEntryRow, 'title_internal' | 'description_internal' | 'technical_description'>): string {
+  return `${row.title_internal}\n${row.description_internal || ''}\n${row.technical_description || ''}`.toLowerCase();
+}
+
+function isCrmOverviewGroup(rows: Array<Pick<SiteChangeEntryRow, 'title_internal' | 'description_internal' | 'technical_description' | 'module'>>): boolean {
+  return rows.some((row) => row.module === 'crm' && /\b(partner|dealer|detail|overview|overblik|kpi|note|quick-card|quick card)\b/.test(rowTextForGrouping(row)));
+}
+
+export function buildGroupedFeatureSuggestion(rows: SiteChangeEntryRow[]): SiteChangeLocalizedContent {
+  const module = rows[0]?.module || 'backend';
+  const changeType = rows[0]?.change_type || 'improvement';
+  const useCrmOverview = module === 'crm' && isCrmOverviewGroup(rows);
+
+  return PORTAL_LANGUAGE_CODES.reduce((acc, lang) => {
+    const area = moduleName(module)[lang] || moduleName(module).en || moduleName(module).da || module;
+    if (useCrmOverview) {
+      const text = CRM_OVERVIEW_GROUP_TEXT[lang];
+      acc[lang] = {
+        title: text.title,
+        description: `${text.description}\n\n${AREA_PREFIX[lang]}: ${area}`,
+        note: text.note,
+        module_label: area,
+        change_type_label: changeType,
+      };
+      return acc;
+    }
+    const generated = buildPublishedFeatureSuggestion(module, changeType, lang);
+    acc[lang] = {
+      ...generated,
+      title: generated.title,
+      description: generated.description || '',
+    };
+    return acc;
+  }, {} as SiteChangeLocalizedContent);
 }
 
 function userFacingLocalizedText(
@@ -653,6 +746,10 @@ function toPayload(draft: ChangelogDraft) {
     published_at: status === 'published' ? (draft.published_at || now) : null,
     archived_at: status === 'archived' ? (draft.archived_at || now) : null,
     reviewed_at: status !== 'new' ? (draft.reviewed_at || now) : null,
+    is_group: draft.is_group ?? false,
+    group_parent_id: draft.group_parent_id ?? null,
+    group_suggestion_status: draft.group_suggestion_status ?? 'none',
+    grouped_at: draft.grouped_at ?? null,
   };
 }
 
@@ -668,9 +765,13 @@ export async function adminCreateChangelog(draft: ChangelogDraft): Promise<{ row
 }
 
 export async function adminUpdateChangelog(id: string, draft: ChangelogDraft): Promise<{ error: string | null }> {
+  const groupStatusPatch =
+    draft.is_group && draft.status === 'published'
+      ? { group_suggestion_status: 'approved' as const }
+      : {};
   const { error } = await supabase
     .from('site_change_entries')
-    .update(toPayload(draft))
+    .update({ ...toPayload(draft), ...groupStatusPatch })
     .eq('id', id);
   if (error) return { error: error.message };
   await refreshChangelog();
@@ -692,8 +793,128 @@ export async function adminUpdateChangelogStatus(id: string, status: SiteChangeS
     published_at: status === 'published' ? now : null,
     archived_at: status === 'archived' ? now : null,
   };
+  if (status === 'published') {
+    (patch as Record<string, string | null>).group_suggestion_status = 'approved';
+  }
   const { error } = await supabase.from('site_change_entries').update(patch).eq('id', id);
   if (error) return { error: error.message };
+  await refreshChangelog();
+  return { error: null };
+}
+
+function groupSourceRef(ids: string[]): string {
+  return `group:${ids.slice().sort().join(':').slice(0, 180)}`;
+}
+
+function titleForGroupRows(rows: SiteChangeEntryRow[]): string {
+  const localized = buildGroupedFeatureSuggestion(rows);
+  return firstText(localized.da?.title, localized.en?.title, rows[0]?.title_internal, 'Samlet feature');
+}
+
+function descriptionForGroupRows(rows: SiteChangeEntryRow[]): string {
+  const localized = buildGroupedFeatureSuggestion(rows);
+  return firstText(localized.da?.description, localized.en?.description, 'Flere relaterede ændringer er samlet i én brugerrettet publicering.');
+}
+
+export async function adminCreateChangelogGroup(ids: string[]): Promise<{ row: SiteChangeEntryRow | null; error: string | null }> {
+  const uniqueIds = Array.from(new Set(ids)).filter(Boolean);
+  if (uniqueIds.length < 2) return { row: null, error: 'Vælg mindst to ændringer, der skal samles.' };
+
+  const { data: rowsData, error: rowsError } = await supabase
+    .from('site_change_entries')
+    .select('*')
+    .in('id', uniqueIds);
+  if (rowsError) return { row: null, error: rowsError.message };
+
+  const rows = ((rowsData || []) as SiteChangeEntryRow[])
+    .filter((row) => !row.is_important && !row.is_group && !row.group_parent_id && ['improvement', 'ui_ux', 'bugfix', 'performance'].includes(row.change_type));
+  if (rows.length < 2) return { row: null, error: 'Gruppen kan kun oprettes af mindst to små, ikke-vigtige kandidater uden eksisterende gruppe.' };
+
+  const localized = buildGroupedFeatureSuggestion(rows);
+  const implementedAt = rows.map((row) => row.implemented_at).sort().at(-1) || new Date().toISOString();
+  const module = rows[0].module;
+  const changeType = rows.every((row) => row.change_type === rows[0].change_type) ? rows[0].change_type : 'improvement';
+  const roles = Array.from(new Set(rows.flatMap((row) => row.affected_roles?.length ? row.affected_roles : ['all'])));
+  const sourceRefs = rows.map((row) => row.source_ref).filter(Boolean).join(', ');
+  const technical = rows.map((row, index) => [
+    `${index + 1}. ${row.title_internal}`,
+    row.source_ref ? `Source: ${row.source_ref}` : null,
+    row.implemented_at ? `Dato: ${row.implemented_at}` : null,
+    row.technical_description || row.description_internal || null,
+  ].filter(Boolean).join('\n')).join('\n\n');
+
+  const groupDraft: ChangelogDraft = {
+    source: 'group',
+    source_ref: groupSourceRef(rows.map((row) => row.id)),
+    implemented_at: implementedAt,
+    title_internal: `${rows.length} ændringer samlet: ${titleForGroupRows(rows)}`,
+    description_internal: `Redaktionel gruppe foreslået ud fra ${rows.length} relaterede source commits.`,
+    technical_description: `Denne publicering består af ${rows.length} commits.\n${sourceRefs ? `Commits: ${sourceRefs}\n\n` : ''}${technical}`,
+    title_public: titleForGroupRows(rows),
+    description_public: descriptionForGroupRows(rows),
+    localized_content: localized,
+    module,
+    change_type: changeType,
+    affected_roles: roles.length ? roles : ['all'],
+    user_impact_score: Math.max(...rows.map((row) => row.user_impact_score), 3),
+    technical_impact_score: Math.max(...rows.map((row) => row.technical_impact_score), 3),
+    publish_recommendation: 'maybe',
+    is_important: false,
+    status: 'new',
+    published_at: null,
+    archived_at: null,
+    reviewed_at: null,
+    is_group: true,
+    group_parent_id: null,
+    group_suggestion_status: 'suggested',
+    grouped_at: new Date().toISOString(),
+  };
+
+  const { data: groupData, error: groupError } = await supabase
+    .from('site_change_entries')
+    .insert(toPayload(groupDraft))
+    .select('*')
+    .maybeSingle();
+  if (groupError || !groupData) return { row: null, error: groupError?.message || 'Gruppen kunne ikke oprettes.' };
+
+  const group = groupData as SiteChangeEntryRow;
+  const { error: childError } = await supabase
+    .from('site_change_entries')
+    .update({
+      group_parent_id: group.id,
+      group_suggestion_status: 'suggested',
+      grouped_at: new Date().toISOString(),
+    })
+    .in('id', rows.map((row) => row.id));
+  if (childError) return { row: group, error: childError.message };
+
+  await refreshChangelog();
+  return { row: group, error: null };
+}
+
+export async function adminRemoveChangeFromGroup(id: string): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('site_change_entries')
+    .update({ group_parent_id: null, group_suggestion_status: 'none', grouped_at: null })
+    .eq('id', id);
+  if (error) return { error: error.message };
+  await refreshChangelog();
+  return { error: null };
+}
+
+export async function adminSplitChangelogGroup(groupId: string): Promise<{ error: string | null }> {
+  const { error: childError } = await supabase
+    .from('site_change_entries')
+    .update({ group_parent_id: null, group_suggestion_status: 'split', grouped_at: null })
+    .eq('group_parent_id', groupId);
+  if (childError) return { error: childError.message };
+
+  const { error: groupError } = await supabase
+    .from('site_change_entries')
+    .update({ status: 'archived', archived_at: new Date().toISOString(), group_suggestion_status: 'split' })
+    .eq('id', groupId);
+  if (groupError) return { error: groupError.message };
+
   await refreshChangelog();
   return { error: null };
 }

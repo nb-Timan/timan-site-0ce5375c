@@ -24,12 +24,21 @@ describe('site feature i18n', () => {
     expect(siteFeatureT('siteFeaturesTitle', 'de')).toBe('Neue Funktionen auf der Website');
     expect(siteFeatureT('siteFeaturesSyncGitHub', 'de')).toBe('GitHub synchronisieren');
     expect(siteFeatureT('siteFeaturesStatusNew', 'de')).toBe('Neu / nicht geprüft');
+    expect(siteFeatureT('siteFeaturesGroupSelected', 'de')).toBe('Zu einer Funktion bündeln');
     expect(siteFeatureT('siteFeaturesRoleDealerCustomer', 'de')).toBe('Händlerkunde');
     expect(siteFeatureT('siteFeaturesModuleMarketing', 'de')).toBe('Marketing');
     expect(siteFeatureT('siteFeaturesTypeBugfix', 'de')).toBe('Fehlerbehebung');
 
     expect(siteFeatureT('siteFeaturesTitle', 'en')).toBe('New site features');
     expect(siteFeatureT('siteFeaturesStatusNew', 'en')).toBe('New / not reviewed');
+  });
+
+  it('keeps grouped publication labels and GitHub sync counts available in every portal language', () => {
+    for (const lang of PORTAL_LANGUAGE_CODES) {
+      expect(siteFeatureT('siteFeaturesGroupSelected', lang), `${lang}.siteFeaturesGroupSelected`).toBeTruthy();
+      expect(siteFeatureT('siteFeaturesGroupedCount', lang), `${lang}.siteFeaturesGroupedCount`).toContain('{count}');
+      expect(siteFeatureT('siteFeaturesGitHubSynced', lang), `${lang}.siteFeaturesGitHubSynced`).toContain('{groups}');
+    }
   });
 
   it('is available through the central portal translation resolver', () => {

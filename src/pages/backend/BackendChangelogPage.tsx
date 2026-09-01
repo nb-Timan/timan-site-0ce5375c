@@ -3,9 +3,9 @@
  *
  * Internal product changelog editor. This is separate from News CMS.
  */
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Archive, CheckCircle2, FilePenLine, RotateCcw, Send, Sparkles, Undo2 } from "lucide-react";
+import { Archive, CheckCircle2, FilePenLine, Layers, RotateCcw, Send, Sparkles, Undo2 } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import PortalHeader from "@/components/portal/PortalHeader";
@@ -16,6 +16,9 @@ import { t } from "@/lib/i18n/translations";
 import { type SiteFeatureI18nKey } from "@/lib/i18n/siteFeatureTranslations";
 import {
   adminListChangelog,
+  adminCreateChangelogGroup,
+  adminRemoveChangeFromGroup,
+  adminSplitChangelogGroup,
   adminUpdateChangelog,
   adminUpdateChangelogStatus,
   getPublishedFeatureContent,
@@ -214,6 +217,10 @@ function emptyDraft(): ChangelogDraft {
     published_at: null,
     archived_at: null,
     reviewed_at: null,
+    is_group: false,
+    group_parent_id: null,
+    group_suggestion_status: "none",
+    grouped_at: null,
   };
 }
 
@@ -239,6 +246,10 @@ function rowToDraft(row: SiteChangeEntryRow): ChangelogDraft {
     published_at: row.published_at,
     archived_at: row.archived_at,
     reviewed_at: row.reviewed_at,
+    is_group: row.is_group,
+    group_parent_id: row.group_parent_id,
+    group_suggestion_status: row.group_suggestion_status,
+    grouped_at: row.grouped_at,
   };
 }
 
@@ -299,6 +310,8 @@ export default function BackendChangelogPage() {
   const [editing, setEditing] = useState<SiteChangeEntryRow | null>(null);
   const [draft, setDraft] = useState<ChangelogDraft>(emptyDraft());
   const [contentLanguage, setContentLanguage] = useState<PortalUiLanguage>(uiLanguage);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
 
   const reload = async (nextPage = page) => {
     setLoadingRows(true);
@@ -339,6 +352,14 @@ export default function BackendChangelogPage() {
   const cancelEdit = () => {
     setEditing(null);
     setDraft(emptyDraft());
+  };
+
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  };
+
+  const toggleExpandedGroup = (id: string) => {
+    setExpandedGroupIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
   };
 
   const toggleRole = (role: string) => {
@@ -413,8 +434,49 @@ export default function BackendChangelogPage() {
     setMessage(interpolateLabel(st("siteFeaturesGitHubSynced"), {
       imported: result.imported ?? 0,
       skipped: result.skipped ?? 0,
+      groups: result.groupsSuggested ?? 0,
     }));
     await reload(0);
+  };
+
+  const createGroup = async () => {
+    setSaving(true);
+    setError(null);
+    setMessage(null);
+    const result = await adminCreateChangelogGroup(selectedIds);
+    setSaving(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setSelectedIds([]);
+    setMessage(st("siteFeaturesGroupedMessage"));
+    await reload(0);
+  };
+
+  const removeFromGroup = async (id: string) => {
+    setSaving(true);
+    const result = await adminRemoveChangeFromGroup(id);
+    setSaving(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setMessage(st("siteFeaturesRemovedFromGroup"));
+    await reload();
+  };
+
+  const splitGroup = async (id: string) => {
+    setSaving(true);
+    const result = await adminSplitChangelogGroup(id);
+    setSaving(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setExpandedGroupIds((current) => current.filter((item) => item !== id));
+    setMessage(st("siteFeaturesSplitGroupMessage"));
+    await reload();
   };
 
   if (loading || resolvingEffectiveUser) return <div className="min-h-screen bg-slate-50" />;
@@ -422,6 +484,11 @@ export default function BackendChangelogPage() {
   if (!canManage) return <Navigate to="/portal/marketing" replace />;
 
   const pageCount = Math.max(1, Math.ceil(count / 50));
+  const groupChildren = rows.reduce((acc, row) => {
+    if (!row.group_parent_id) return acc;
+    acc[row.group_parent_id] = [...(acc[row.group_parent_id] || []), row];
+    return acc;
+  }, {} as Record<string, SiteChangeEntryRow[]>);
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -463,6 +530,14 @@ export default function BackendChangelogPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               <RotateCcw className="h-3.5 w-3.5" /> {st("siteFeaturesReload")}
+            </button>
+            <button
+              type="button"
+              onClick={() => void createGroup()}
+              disabled={saving || selectedIds.length < 2}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Layers className="h-3.5 w-3.5" /> {st("siteFeaturesGroupSelected")}
             </button>
           </div>
         </div>
@@ -516,6 +591,7 @@ export default function BackendChangelogPage() {
               <table className="min-w-full text-sm">
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
+                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesGroup")}</th>
                     <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesDate")}</th>
                     <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesFeature")}</th>
                     <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesArea")}</th>
@@ -530,11 +606,34 @@ export default function BackendChangelogPage() {
                 <tbody>
                   {rows.map((row) => {
                     const published = getPublishedFeatureContent(row, uiLanguage);
+                    const children = groupChildren[row.id] || [];
+                    const isExpanded = expandedGroupIds.includes(row.id);
                     return (
+                    <Fragment key={row.id}>
                     <tr key={row.id} className={`border-t border-slate-100 align-top hover:bg-slate-50/70 ${editing?.id === row.id ? "bg-emerald-50/40" : ""}`}>
+                      <td className="px-4 py-4">
+                        {!row.is_group && !row.group_parent_id && (
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(row.id)}
+                            onChange={() => toggleSelected(row.id)}
+                            aria-label={st("siteFeaturesGroupSelect")}
+                          />
+                        )}
+                        {row.group_parent_id && (
+                          <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">
+                            {st("siteFeaturesGroupedChild")}
+                          </span>
+                        )}
+                      </td>
                       <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">{formatDate(row.implemented_at, uiLanguage)}</td>
                       <td className="min-w-[260px] px-4 py-4">
                         <div className="font-semibold text-slate-900">{published.title}</div>
+                        {row.is_group && (
+                          <button type="button" onClick={() => toggleExpandedGroup(row.id)} className="mt-2 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200">
+                            {interpolateLabel(st("siteFeaturesGroupedCount"), { count: children.length })} · {st("siteFeaturesShowTechnicalHistory")}
+                          </button>
+                        )}
                         {published.description && <div className="mt-1 line-clamp-3 text-xs leading-snug text-slate-600">{published.description}</div>}
                         <div className="mt-2 text-[11px] text-slate-400">
                           {st("siteFeaturesInternalTitle")}: {row.title_internal}
@@ -568,6 +667,16 @@ export default function BackendChangelogPage() {
                           <button type="button" onClick={() => startEdit(row)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                             <FilePenLine className="h-3.5 w-3.5" /> {st("siteFeaturesEdit")}
                           </button>
+                          {row.is_group && (
+                            <button type="button" disabled={saving} onClick={() => void splitGroup(row.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesSplitGroup")}
+                            </button>
+                          )}
+                          {row.group_parent_id && (
+                            <button type="button" disabled={saving} onClick={() => void removeFromGroup(row.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesRemoveFromGroup")}
+                            </button>
+                          )}
                           {row.status !== "published" && row.status !== "archived" && (
                             <button type="button" disabled={saving} onClick={() => void quickStatus(row, "published")} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
                               <Send className="h-3.5 w-3.5" /> {st("siteFeaturesPublish")}
@@ -590,13 +699,32 @@ export default function BackendChangelogPage() {
                         </div>
                       </td>
                     </tr>
+                    {row.is_group && isExpanded && children.length > 0 && (
+                      <tr className="border-t border-emerald-100 bg-emerald-50/30">
+                        <td colSpan={10} className="px-4 py-3">
+                          <div className="rounded-xl border border-emerald-100 bg-white p-3">
+                            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">{st("siteFeaturesTechnicalHistory")}</div>
+                            <div className="space-y-2">
+                              {children.map((child) => (
+                                <div key={child.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                                  <div className="font-semibold text-slate-900">{child.title_internal}</div>
+                                  <div className="mt-1 font-mono text-[11px] text-slate-400">{child.source_ref || child.id}</div>
+                                  <div className="mt-1">{formatDate(child.implemented_at, uiLanguage)}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                     );
                   })}
                   {!loadingRows && rows.length === 0 && (
-                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesNoFilterMatches")}</td></tr>
+                    <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesNoFilterMatches")}</td></tr>
                   )}
                   {loadingRows && (
-                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesLoadingChanges")}</td></tr>
+                    <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesLoadingChanges")}</td></tr>
                   )}
                 </tbody>
               </table>

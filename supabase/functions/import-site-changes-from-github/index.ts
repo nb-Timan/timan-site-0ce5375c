@@ -57,6 +57,15 @@ type SiteChangeInsert = {
   publish_recommendation: "publish" | "maybe" | "internal";
   is_important: boolean;
   status: "new";
+  is_group?: boolean;
+  group_parent_id?: string | null;
+  group_suggestion_status?: "none" | "suggested";
+  grouped_at?: string | null;
+};
+
+type SiteChangeGroupSuggestion = {
+  group: SiteChangeInsert;
+  sourceRefs: string[];
 };
 
 const MODULE_LABELS: Record<string, Partial<Record<PortalLanguage, string>>> = {
@@ -287,6 +296,88 @@ function buildPublishedSuggestion(module: string, changeType: string): Record<st
   }, {} as Record<string, Record<string, string>>);
 }
 
+function isGroupable(entry: SiteChangeInsert): boolean {
+  return !entry.is_important &&
+    ["improvement", "ui_ux", "bugfix", "performance"].includes(entry.change_type) &&
+    entry.user_impact_score <= 6 &&
+    !["security", "feature", "backend"].includes(entry.change_type);
+}
+
+function semanticKey(entry: SiteChangeInsert): string {
+  const text = `${entry.title_internal}\n${entry.technical_description || ""}`.toLowerCase();
+  if (entry.module === "crm" && /\b(partner|dealer|detail|overview|overblik|kpi|note|quick-card|quick card)\b/.test(text)) return "crm-partner-overview";
+  if (/\b(layout|ui|ux|design|kompakt|compact)\b/.test(text)) return `${entry.module}-ui`;
+  if (/\b(i18n|language|translation|sprog|oversætt)\b/.test(text)) return `${entry.module}-i18n`;
+  return `${entry.module}-general`;
+}
+
+function dayKey(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
+}
+
+function buildGroupSuggestion(entries: SiteChangeInsert[]): SiteChangeGroupSuggestion | null {
+  if (entries.length < 2) return null;
+  const module = entries[0].module;
+  const changeType = entries.every((entry) => entry.change_type === entries[0].change_type) ? entries[0].change_type : "improvement";
+  const localizedContent = buildPublishedSuggestion(module, changeType);
+  const crmPartnerOverview = module === "crm" && entries.some((entry) => semanticKey(entry) === "crm-partner-overview");
+  if (crmPartnerOverview) {
+    localizedContent.da.title = "CRM-overblikket er forbedret";
+    localizedContent.en.title = "The CRM overview has been improved";
+    localizedContent.de.title = "Die CRM-Übersicht wurde verbessert";
+    localizedContent.da.description = "Partneroversigten er blevet gjort mere kompakt og overskuelig. Kontaktoplysninger, KPI-kort, noter og øvrige partnerdata er blevet organiseret bedre, så de vigtigste oplysninger er lettere at finde og arbejde med.\n\nOmråde: CRM";
+    localizedContent.en.description = "The partner overview has been made more compact and easier to scan. Contact details, KPI cards, notes and other partner data are organized more clearly, so the most important information is easier to find and work with.\n\nArea: CRM";
+    localizedContent.de.description = "Die Partnerübersicht wurde kompakter und übersichtlicher gestaltet. Kontaktdaten, KPI-Karten, Notizen und weitere Partnerdaten sind klarer organisiert, damit wichtige Informationen leichter zu finden und zu bearbeiten sind.\n\nBereich: CRM";
+  }
+  const sourceRefs = entries.map((entry) => entry.source_ref).filter(Boolean);
+  const implementedAt = entries.map((entry) => entry.implemented_at).sort().at(-1) || new Date().toISOString();
+  const roles = Array.from(new Set(entries.flatMap((entry) => entry.affected_roles)));
+  const group = {
+    source: "github_group_suggestion",
+    source_ref: `github-group:${module}:${changeType}:${dayKey(implementedAt)}:${semanticKey(entries[0])}`,
+    implemented_at: implementedAt,
+    title_internal: `${entries.length} ændringer samlet: ${localizedContent.da.title}`,
+    description_internal: `Automatisk gruppeforslag fra GitHub-sync. Publiceringsteksten er foreslået ud fra ${entries.length} relaterede commits.`,
+    technical_description: [
+      `Denne publicering består af ${entries.length} commits.`,
+      `Commits: ${sourceRefs.join(", ")}`,
+      "",
+      ...entries.map((entry, index) => `${index + 1}. ${entry.title_internal}\n${entry.source_ref || ""}\n${entry.technical_description || ""}`),
+    ].join("\n"),
+    title_public: localizedContent.da.title,
+    description_public: localizedContent.da.description,
+    localized_content: localizedContent,
+    module,
+    change_type: changeType,
+    affected_roles: roles.length ? roles : ["all"],
+    user_impact_score: Math.max(...entries.map((entry) => entry.user_impact_score), 3),
+    technical_impact_score: Math.max(...entries.map((entry) => entry.technical_impact_score), 3),
+    publish_recommendation: "maybe",
+    is_important: false,
+    status: "new",
+    is_group: true,
+    group_parent_id: null,
+    group_suggestion_status: "suggested",
+    grouped_at: new Date().toISOString(),
+  };
+  return {
+    group,
+    sourceRefs: sourceRefs.filter((ref): ref is string => Boolean(ref)),
+  };
+}
+
+function suggestGroups(entries: SiteChangeInsert[]): SiteChangeGroupSuggestion[] {
+  const buckets = new Map<string, SiteChangeInsert[]>();
+  for (const entry of entries.filter(isGroupable)) {
+    const key = `${entry.module}:${entry.change_type}:${dayKey(entry.implemented_at)}:${semanticKey(entry)}`;
+    buckets.set(key, [...(buckets.get(key) || []), entry]);
+  }
+  return Array.from(buckets.values())
+    .map(buildGroupSuggestion)
+    .filter((entry): entry is SiteChangeGroupSuggestion => Boolean(entry));
+}
+
 function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInsert | null {
   const sha = cleanText(commit.id || commit.sha);
   if (!/^[a-f0-9]{7,40}$/i.test(sha)) return null;
@@ -329,6 +420,10 @@ function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInser
     publish_recommendation: impact.recommendation,
     is_important: false,
     status: "new",
+    is_group: false,
+    group_parent_id: null,
+    group_suggestion_status: "none",
+    grouped_at: null,
   };
 }
 
@@ -457,13 +552,48 @@ Deno.serve(async (req) => {
     return json({ ok: true, imported: 0, skipped: entries.length, message: "Alle commits findes allerede." });
   }
 
-  const { error: insertError } = await admin.from("site_change_entries").insert(newEntries);
+  const { data: insertedRows, error: insertError } = await admin.from("site_change_entries").insert(newEntries).select("id,source_ref,module,change_type,user_impact_score,is_important,implemented_at,title_internal,technical_description");
   if (insertError) return json({ error: `Import fejlede: ${insertError.message}` }, 500);
+
+  let groupsSuggested = 0;
+  const groupSuggestions = suggestGroups(newEntries);
+  for (const suggestion of groupSuggestions) {
+    const groupedSourceRefs = new Set(suggestion.sourceRefs);
+    const childIds = (insertedRows || [])
+      .filter((row: { id: string; source_ref: string | null }) => row.source_ref && groupedSourceRefs.has(row.source_ref))
+      .map((row: { id: string }) => row.id);
+    if (childIds.length < 2) continue;
+
+    const { data: existingGroup, error: existingGroupError } = await admin
+      .from("site_change_entries")
+      .select("id")
+      .eq("source_ref", suggestion.group.source_ref)
+      .maybeSingle();
+    if (existingGroupError) continue;
+
+    let groupId = existingGroup?.id as string | undefined;
+    if (!groupId) {
+      const { data: groupRow, error: groupError } = await admin
+        .from("site_change_entries")
+        .insert(suggestion.group)
+        .select("id")
+        .maybeSingle();
+      if (groupError || !groupRow?.id) continue;
+      groupId = groupRow.id;
+    }
+
+    const { error: childError } = await admin
+      .from("site_change_entries")
+      .update({ group_parent_id: groupId, group_suggestion_status: "suggested", grouped_at: new Date().toISOString() })
+      .in("id", childIds);
+    if (!childError) groupsSuggested += 1;
+  }
 
   return json({
     ok: true,
     imported: newEntries.length,
     skipped: entries.length - newEntries.length,
+    groupsSuggested,
     commits: newEntries.map((entry) => entry.source_ref.replace("github:", "").slice(0, 7)),
   });
 });
