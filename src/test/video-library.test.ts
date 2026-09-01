@@ -83,12 +83,19 @@ describe("marketing video library", () => {
     expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, typeFilter: "how_to" }, "en").map((row) => row.id)).toEqual(["1"]);
     expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, modelGenerationFilter: "all", seasonFilter: "winter" }, "en").map((row) => row.id)).toEqual(["2"]);
     expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, modelGenerationFilter: "all", machineFilter: "TIMAN_3330" }, "en").map((row) => row.id)).toEqual(["2"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, favoritesOnly: true }, "en", { favoriteIds: new Set(["1"]) }).map((row) => row.id)).toEqual(["1"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, modelGenerationFilter: "all", favoritesOnly: true }, "en", { favoriteIds: new Set(["2"]) }).map((row) => row.id)).toEqual(["2"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, favoritesOnly: true }, "en", { favoriteIds: new Set() }).map((row) => row.id)).toEqual([]);
     expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, statusFilter: "published" }, "en", { includeStatus: true }).map((row) => row.id)).toEqual(["1"]);
   });
 
   it("has i18n labels and structured filters for all portal languages", () => {
     for (const lang of ["da", "en", "de", "it", "hu", "sv", "fr", "pl", "cs"] as const) {
       expect(tv("videoLibraryTitle", lang)).not.toBe("videoLibraryTitle");
+      expect(tv("videoLibraryFavorites", lang)).not.toBe("videoLibraryFavorites");
+      expect(tv("videoLibraryAddFavorite", lang)).not.toBe("videoLibraryAddFavorite");
+      expect(tv("videoLibraryRemoveFavorite", lang)).not.toBe("videoLibraryRemoveFavorite");
+      expect(tv("videoLibraryNoFavorites", lang)).not.toBe("videoLibraryNoFavorites");
       expect(tv("videoMgmtAdd", lang)).not.toBe("videoMgmtAdd");
       expect(tv("videoMgmtContentType", lang)).not.toBe("videoMgmtContentType");
       expect(tv("videoMgmtStatus", lang)).not.toBe("videoMgmtStatus");
@@ -147,15 +154,21 @@ describe("marketing video library", () => {
       readFileSync("supabase/migrations/20260901183941_marketing_video_library.sql", "utf8"),
       readFileSync("supabase/migrations/20260901184240_harden_marketing_video_library_policies.sql", "utf8"),
       readFileSync("supabase/migrations/20260901201158_marketing_video_editorial_i18n.sql", "utf8"),
+      readFileSync("supabase/migrations/20260901210152_marketing_video_user_favorites.sql", "utf8"),
     ].join("\n");
 
     expect(app).toContain("/portal/marketing/videos");
     expect(area).toContain("videoMgmtTitle");
     expect(salesPage).toContain("VideoLibraryFilterBar");
+    expect(salesPage).toContain("listMarketingVideoFavoriteIds");
+    expect(salesPage).toContain("setMarketingVideoFavorite");
+    expect(salesPage).toContain("event.stopPropagation()");
+    expect(salesPage).toContain("showFavorites");
     expect(managementPage).toContain("VideoLibraryFilterBar");
     expect(managementPage).toContain("showStatus");
     expect(managementPage).toContain("model_generation_status");
     expect(filterBar).toContain("videoLibrarySortLatest");
+    expect(filterBar).toContain("videoLibraryFavorites");
     expect(filterBar).toContain("videoModelGenerationFilterLabel");
     expect(filterBar).toContain("videoLibraryMachine");
     expect(filterHelper).toContain("filterAndSortVideos");
@@ -178,6 +191,10 @@ describe("marketing video library", () => {
     expect(migration).toContain("translation_meta jsonb not null default '{}'::jsonb");
     expect(migration).toContain("marketing_videos_authenticated_read_visible");
     expect(migration).toContain("can_manage_marketing_videos");
+    expect(migration).toContain("marketing_video_user_favorites");
+    expect(migration).toContain("primary key (user_id, video_id)");
+    expect(migration).toContain("marketing_video_user_favorites_select_own");
+    expect(migration).toContain("grant select, insert, delete");
     expect(readFileSync("supabase/migrations/20260901205252_add_marketing_video_model_generation_status.sql", "utf8")).toContain("model_generation_status");
   });
 });

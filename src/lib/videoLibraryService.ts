@@ -194,6 +194,20 @@ function cleanTranslationError(error: unknown): string {
   return "translation_failed";
 }
 
+async function getCurrentAppUserId(): Promise<string | null> {
+  const { data: authData } = await supabase.auth.getUser();
+  if (!authData.user?.id) return null;
+
+  const { data, error } = await supabase
+    .from("app_users")
+    .select("id")
+    .eq("auth_user_id", authData.user.id)
+    .maybeSingle();
+
+  if (error || !data?.id) return null;
+  return String(data.id);
+}
+
 export async function translateMarketingVideoContent(input: {
   localizedContent: MarketingVideoLocalizedContent;
   previousLocalizedContent?: MarketingVideoLocalizedContent | null;
@@ -335,6 +349,44 @@ export async function listPublishedMarketingVideos(language?: PortalUiLanguage):
   return { rows: language ? rows.map((row) => localizeMarketingVideo(row, language)) : rows, error: null };
 }
 
+export async function listMarketingVideoFavoriteIds(): Promise<{ videoIds: Set<string>; error: string | null }> {
+  const userId = await getCurrentAppUserId();
+  if (!userId) return { videoIds: new Set(), error: null };
+
+  const { data, error } = await supabase
+    .from("marketing_video_user_favorites")
+    .select("video_id")
+    .eq("user_id", userId);
+
+  if (error) return { videoIds: new Set(), error: error.message };
+  return {
+    videoIds: new Set(((data ?? []) as { video_id: string }[]).map((row) => String(row.video_id)).filter(Boolean)),
+    error: null,
+  };
+}
+
+export async function setMarketingVideoFavorite(videoId: string, isFavorite: boolean): Promise<{ error: string | null }> {
+  const userId = await getCurrentAppUserId();
+  if (!userId) return { error: "missing_user" };
+
+  if (isFavorite) {
+    const { error } = await supabase
+      .from("marketing_video_user_favorites")
+      .insert({ user_id: userId, video_id: videoId });
+
+    if (error && error.code !== "23505") return { error: error.message };
+    return { error: null };
+  }
+
+  const { error } = await supabase
+    .from("marketing_video_user_favorites")
+    .delete()
+    .eq("user_id", userId)
+    .eq("video_id", videoId);
+
+  return { error: error?.message ?? null };
+}
+
 export async function getPrimaryVideoForProduct(productKey: string, language?: PortalUiLanguage): Promise<MarketingVideo | null> {
   const { data: primary, error: primaryError } = await supabase
     .from("marketing_video_primary_products")
@@ -407,11 +459,7 @@ export async function saveMarketingVideo(input: MarketingVideoInput): Promise<{ 
   const videoId = extractYouTubeVideoId(input.youtube_url);
   if (!videoId) return { row: null, error: "invalid_youtube" };
 
-  const { data: authData } = await supabase.auth.getUser();
-  const { data: userRow } = authData.user?.id
-    ? await supabase.from("app_users").select("id").eq("auth_user_id", authData.user.id).maybeSingle()
-    : { data: null };
-  const actorId = (userRow?.id as string | undefined) ?? null;
+  const actorId = await getCurrentAppUserId();
   const now = new Date().toISOString();
   const status = input.status;
   const sourceLanguage = input.source_language;

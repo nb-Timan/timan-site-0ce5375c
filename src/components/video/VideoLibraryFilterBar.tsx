@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Search } from "lucide-react";
+import { Search, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
 import { DEFAULT_VIDEO_FILTERS, type VideoFilterState, type VideoModelGenerationFilter, type VideoSortKey } from "@/lib/videoLibraryFilters";
@@ -18,6 +18,7 @@ interface VideoLibraryFilterBarProps {
   onChange: (filters: VideoFilterState) => void;
   machineOptions: { value: string; label: string }[];
   language: PortalUiLanguage;
+  showFavorites?: boolean;
   showStatus?: boolean;
 }
 
@@ -26,6 +27,7 @@ export default function VideoLibraryFilterBar({
   onChange,
   machineOptions,
   language,
+  showFavorites = false,
   showStatus = false,
 }: VideoLibraryFilterBarProps) {
   const patch = (part: Partial<VideoFilterState>) => onChange({ ...filters, ...part });
@@ -35,21 +37,39 @@ export default function VideoLibraryFilterBar({
 
   return (
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
-      <div className="mb-3 flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
-        {(["current", "all", "legacy"] as VideoModelGenerationFilter[]).map((value) => (
-          <button
-            key={value}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
+          {(["current", "all", "legacy"] as VideoModelGenerationFilter[]).map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => patch({ modelGenerationFilter: value })}
+              className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                filters.modelGenerationFilter === value
+                  ? "bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200"
+                  : "text-slate-600 hover:bg-white/70 hover:text-slate-900"
+              }`}
+            >
+              {videoModelGenerationFilterLabel(value, language)}
+            </button>
+          ))}
+        </div>
+        {showFavorites && (
+          <Button
             type="button"
-            onClick={() => patch({ modelGenerationFilter: value })}
-            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
-              filters.modelGenerationFilter === value
-                ? "bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200"
-                : "text-slate-600 hover:bg-white/70 hover:text-slate-900"
+            variant="outline"
+            aria-pressed={filters.favoritesOnly}
+            onClick={() => patch({ favoritesOnly: !filters.favoritesOnly })}
+            className={`h-8 gap-1.5 px-3 text-xs font-semibold ${
+              filters.favoritesOnly
+                ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                : "text-slate-600 hover:text-slate-900"
             }`}
           >
-            {videoModelGenerationFilterLabel(value, language)}
-          </button>
-        ))}
+            <Star className="h-3.5 w-3.5" fill={filters.favoritesOnly ? "currentColor" : "none"} />
+            {tv("videoLibraryFavorites", language)}
+          </Button>
+        )}
       </div>
       <div className={`grid grid-cols-1 gap-3 ${gridClass}`}>
         <label className="relative block">

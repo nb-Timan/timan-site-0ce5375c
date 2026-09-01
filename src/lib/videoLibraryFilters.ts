@@ -7,6 +7,7 @@ export type VideoModelGenerationFilter = VideoModelGenerationStatus | "all";
 
 export interface VideoFilterState {
   query: string;
+  favoritesOnly: boolean;
   statusFilter: "all" | VideoStatus;
   modelGenerationFilter: VideoModelGenerationFilter;
   typeFilter: "all" | VideoContentType;
@@ -17,6 +18,7 @@ export interface VideoFilterState {
 
 export const DEFAULT_VIDEO_FILTERS: VideoFilterState = {
   query: "",
+  favoritesOnly: false,
   statusFilter: "all",
   modelGenerationFilter: "current",
   typeFilter: "all",
@@ -40,10 +42,11 @@ export function filterAndSortVideos(
   rows: MarketingVideo[],
   filters: VideoFilterState,
   language: PortalUiLanguage,
-  options: { includeStatus?: boolean } = {},
+  options: { favoriteIds?: Set<string>; includeStatus?: boolean } = {},
 ) {
   const q = filters.query.trim().toLowerCase();
   return rows
+    .filter((row) => !filters.favoritesOnly || Boolean(options.favoriteIds?.has(row.id)))
     .filter((row) => !options.includeStatus || filters.statusFilter === "all" || row.status === filters.statusFilter)
     .filter((row) => filters.modelGenerationFilter === "all" || (row.model_generation_status || "current") === filters.modelGenerationFilter)
     .filter((row) => filters.typeFilter === "all" || row.content_type === filters.typeFilter)
