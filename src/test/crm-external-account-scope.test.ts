@@ -95,4 +95,30 @@ describe("external CRM account scope", () => {
     expect(migration).toContain("drop policy if exists crm_demo_leads_all");
     expect(migration).not.toContain("r.linked_dealer_id = any(a.external_dealer_ids)");
   });
+
+  it("repairs the canonical CRM lead sharing tables forward-only", () => {
+    const migration = readFileSync("supabase/migrations/20260901143150_repair_crm_lead_sharing_dependencies.sql", "utf8");
+
+    expect(migration).toContain("create table if not exists public.crm_lead_shares");
+    expect(migration).toContain("create table if not exists public.crm_lead_share_audit_log");
+    expect(migration).toContain("references public.crm_leads(id) on delete cascade");
+    expect(migration).toContain("references public.app_users(id) on delete cascade");
+    expect(migration).toContain("crm_lead_shares_active_user_unique");
+    expect(migration).toContain("alter table public.crm_lead_shares enable row level security");
+    expect(migration).toContain("grant select, insert, update on public.crm_lead_shares to authenticated");
+    expect(migration).not.toContain("service_partner_dealer_links");
+  });
+
+  it("uses partner account relations for the live scoped CRM RLS follow-up", () => {
+    const migration = readFileSync("supabase/migrations/20260901143152_secure_external_crm_scope_partner_relations.sql", "utf8");
+
+    expect(migration).toContain("drop policy if exists crm_leads_all");
+    expect(migration).toContain("drop policy if exists crm_demo_leads_all");
+    expect(migration).toContain("from public.crm_lead_shares cls");
+    expect(migration).toContain("from public.partner_account_relations par");
+    expect(migration).toContain("par.relation_type = 'service_partner_has_dealer'");
+    expect(migration).toContain("not public.is_protected_internal_crm_account(own.account_number");
+    expect(migration).toContain("not public.is_protected_internal_crm_account(da.account_number");
+    expect(migration).not.toContain("service_partner_dealer_links");
+  });
 });
