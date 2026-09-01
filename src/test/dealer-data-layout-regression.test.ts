@@ -12,6 +12,11 @@ const dealerProfileSource = fs.readFileSync(
   "utf8",
 );
 
+const dealerProfileImportSource = fs.readFileSync(
+  path.resolve(process.cwd(), "src/lib/dealerProfileImportService.ts"),
+  "utf8",
+);
+
 describe("Partnerdata layout regression guard", () => {
   it("keeps CRM-style tabs and demo machines out of Partnerdata", () => {
     expect(dealerDataSource).not.toContain("TabsList");
@@ -40,6 +45,19 @@ describe("Partnerdata layout regression guard", () => {
     expect(websiteIndex).toBeGreaterThan(marketingIndex);
     expect(facebookIndex).toBeGreaterThan(marketingIndex);
     expect(digitalChannelsIndex).toBeGreaterThan(marketingIndex);
+  });
+
+  it("hides address line 2 from Partnerdata editing while preserving imported data", () => {
+    const profilePatchKeys = dealerProfileSource.slice(
+      dealerProfileSource.indexOf("const PROFILE_PATCH_KEYS"),
+      dealerProfileSource.indexOf("type ProfilePatchKey"),
+    );
+
+    expect(dealerProfileSource).not.toContain('id="address_line_2"');
+    expect(dealerProfileSource).not.toContain('t("addressLine2")');
+    expect(profilePatchKeys).not.toContain("address_line_2");
+    expect(dealerProfileImportSource).toContain('key: "address_line_2"');
+    expect(dealerProfileImportSource).toContain("Adresse 2 (master)");
   });
 
   it("uses first contact as the user-facing primary contact marker", () => {

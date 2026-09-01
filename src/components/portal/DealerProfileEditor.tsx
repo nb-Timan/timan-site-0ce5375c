@@ -100,7 +100,7 @@ type ContactTransferDialogState = {
 };
 
 const PROFILE_PATCH_KEYS = [
-  "address_line_1", "address_line_2", "postal_code", "city", "country",
+  "address_line_1", "postal_code", "city", "country",
   "vat_number", "director_name", "phone", "email",
   "primary_contact_name", "primary_contact_email", "primary_contact_phone",
   "latitude", "longitude", "google_place_id", "geocoded_at",
@@ -774,11 +774,6 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
             <Field id="city" label={t("city")} value={draft.city} onChange={(v) => setAddressPart("city", v)} disabled={!canEdit} required />
             <Field id="country" label={t("country")} value={draft.country} onChange={(v) => setAddressPart("country", v)} disabled={!canEdit} required />
           </div>
-          {(canEdit || draft.address_line_2) && (
-            <div className="mt-3 max-w-xl">
-              <Field id="address_line_2" label={t("addressLine2")} value={draft.address_line_2} onChange={(v) => set("address_line_2", v)} disabled={!canEdit} />
-            </div>
-          )}
         </ProfileSubsection>
 
         <ProfileSubsection title={t("companySectionManagementContacts")}>
