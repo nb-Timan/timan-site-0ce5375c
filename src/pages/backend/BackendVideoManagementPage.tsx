@@ -11,7 +11,7 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { canManageNewsContent } from "@/lib/portalAccess";
 import { useEffectivePortalUserState } from "@/lib/viewAsUser";
-import { listVideoProductOptions, productSearchText, type VideoProductOption } from "@/lib/videoProductCatalog";
+import { listVideoProductOptions, productSearchText, videoProductOptionKey, type VideoProductOption } from "@/lib/videoProductCatalog";
 import {
   extractYouTubeVideoId,
   exactMarketingVideoContent,
@@ -155,6 +155,7 @@ export default function BackendVideoManagementPage() {
       custom_thumbnail_url: row.custom_thumbnail_url,
       custom_thumbnail_path: row.custom_thumbnail_path,
       products: row.products.map((product) => ({
+        optionKey: `${product.machine_key || "unknown"}::${product.product_key}`,
         productKey: product.product_key,
         itemNumber: product.item_number,
         label: product.product_label || product.item_number,
@@ -164,6 +165,7 @@ export default function BackendVideoManagementPage() {
       })),
       primaryProduct: row.primary_product
         ? {
+            optionKey: `${row.primary_product.machine_key || "unknown"}::${row.primary_product.product_key}`,
             productKey: row.primary_product.product_key,
             itemNumber: row.primary_product.item_number,
             label: row.primary_product.product_label || row.primary_product.item_number,
@@ -204,8 +206,8 @@ export default function BackendVideoManagementPage() {
       }
     }
 
-    const productMap = new Map(activeDraft.products.map((product) => [product.productKey, product]));
-    if (activeDraft.primaryProduct) productMap.set(activeDraft.primaryProduct.productKey, activeDraft.primaryProduct);
+    const productMap = new Map(activeDraft.products.map((product) => [videoProductOptionKey(product), product]));
+    if (activeDraft.primaryProduct) productMap.set(videoProductOptionKey(activeDraft.primaryProduct), activeDraft.primaryProduct);
 
     const result = await saveMarketingVideo({
       id: activeDraft.id,
@@ -375,11 +377,13 @@ function VideoEditorDialog(props: {
   const { draft, setDraft, productOptions, productSearch, setProductSearch, onSave, onCancel, saving, lang } = props;
   const videoId = extractYouTubeVideoId(draft.youtube_url);
   const thumbnail = draft.custom_thumbnail_url || youtubeThumbnailFromId(videoId, "hqdefault") || "/placeholder.svg";
-  const selectedKeys = new Set(draft.products.map((item) => item.productKey));
+  const selectedKeys = new Set(draft.products.map(videoProductOptionKey));
   const productMatches = productOptions
-    .filter((item) => !selectedKeys.has(item.productKey))
+    .filter((item) => !selectedKeys.has(videoProductOptionKey(item)))
     .filter((item) => !productSearch.trim() || productSearchText(item).includes(productSearch.trim().toLowerCase()))
     .slice(0, 8);
+  const primaryProductKey = draft.primaryProduct ? videoProductOptionKey(draft.primaryProduct) : "";
+  const hasPrimaryProductOption = Boolean(primaryProductKey && productOptions.some((item) => videoProductOptionKey(item) === primaryProductKey));
 
   const patch = (part: Partial<DraftState>) => setDraft({ ...draft, ...part });
 
@@ -441,26 +445,35 @@ function VideoEditorDialog(props: {
               <FieldLabel text={tv("videoMgmtRelatedProducts", lang)} />
               <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder={tv("videoMgmtProductSearch", lang)} className="mb-2 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
               <div className="mb-3 flex flex-wrap gap-2">
-                {draft.products.map((product) => (
-                  <button key={product.productKey} type="button" onClick={() => patch({ products: draft.products.filter((item) => item.productKey !== product.productKey), primaryProduct: draft.primaryProduct?.productKey === product.productKey ? null : draft.primaryProduct })} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700">
-                    {product.itemNumber} · {product.label} <X className="ml-1 inline h-3 w-3" />
-                  </button>
-                ))}
+                {draft.products.map((product) => {
+                  const key = videoProductOptionKey(product);
+                  return (
+                    <button key={key} type="button" onClick={() => patch({ products: draft.products.filter((item) => videoProductOptionKey(item) !== key), primaryProduct: draft.primaryProduct && videoProductOptionKey(draft.primaryProduct) === key ? null : draft.primaryProduct })} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700">
+                      {product.itemNumber} · {product.label} · {product.machineLabel} <X className="ml-1 inline h-3 w-3" />
+                    </button>
+                  );
+                })}
               </div>
               <div className="max-h-44 overflow-y-auto rounded-lg border border-slate-200">
                 {productMatches.map((product) => (
-                  <button key={product.productKey} type="button" onClick={() => patch({ products: [...draft.products, product] })} className="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-emerald-50">
-                    <span className="font-semibold text-slate-900">{product.itemNumber}</span>
-                    <span className="text-slate-500"> · {product.label} · {product.machineLabel}</span>
+                  <button key={videoProductOptionKey(product)} type="button" onClick={() => patch({ products: [...draft.products, product] })} className="flex w-full min-w-0 flex-col gap-1 border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-emerald-50 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+                    <span className="min-w-0 text-slate-700">
+                      <span className="font-semibold text-slate-900">{product.itemNumber}</span>
+                      <span> · {product.label}</span>
+                    </span>
+                    <span className="shrink-0 text-xs font-semibold text-slate-500 sm:min-w-24 sm:text-right">{product.machineLabel}</span>
                   </button>
                 ))}
               </div>
             </div>
             <label>
               <FieldLabel text={tv("videoMgmtPrimaryProduct", lang)} />
-              <select value={draft.primaryProduct?.productKey || ""} onChange={(event) => patch({ primaryProduct: productOptions.find((item) => item.productKey === event.target.value) || null })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
+              <select value={primaryProductKey} onChange={(event) => patch({ primaryProduct: productOptions.find((item) => videoProductOptionKey(item) === event.target.value) || null })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
                 <option value="">{tv("videoMgmtNoPrimary", lang)}</option>
-                {productOptions.map((product) => <option key={product.productKey} value={product.productKey}>{product.itemNumber} · {product.label}</option>)}
+                {draft.primaryProduct && !hasPrimaryProductOption && (
+                  <option value={primaryProductKey}>{draft.primaryProduct.itemNumber} · {draft.primaryProduct.label} · {draft.primaryProduct.machineLabel}</option>
+                )}
+                {productOptions.map((product) => <option key={videoProductOptionKey(product)} value={videoProductOptionKey(product)}>{product.itemNumber} · {product.label} · {product.machineLabel}</option>)}
               </select>
             </label>
           </div>

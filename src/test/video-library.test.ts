@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { listVideoProductOptions } from "@/lib/videoProductCatalog";
+import { listVideoProductOptions, productSearchText, videoProductOptionKey } from "@/lib/videoProductCatalog";
 import { DEFAULT_VIDEO_FILTERS, filterAndSortVideos, getVideoMachineFilterOptions } from "@/lib/videoLibraryFilters";
 import {
   extractYouTubeVideoId,
@@ -31,6 +31,18 @@ describe("marketing video library", () => {
     const products = listVideoProductOptions("da");
     expect(products.some((item) => item.productKey === "RC-1000S" && item.itemNumber === "411000")).toBe(true);
     expect(products.some((item) => item.itemNumber === "730600")).toBe(true);
+    expect(products.some((item) => item.itemNumber === "HEADER")).toBe(false);
+    expect(products.some((item) => item.label === "Kost med blad")).toBe(false);
+    expect(products.some((item) => item.label === "Redskaber til RC-1000s")).toBe(false);
+    expect(products.some((item) => productSearchText(item).includes("rc-1000s"))).toBe(true);
+
+    const optionsByNumber = products.reduce<Record<string, typeof products>>((acc, option) => {
+      (acc[option.itemNumber] ||= []).push(option);
+      return acc;
+    }, {});
+    const duplicateAcrossMachines = Object.values(optionsByNumber).find((items) => new Set(items.map((item) => item.machineKey)).size > 1);
+    expect(duplicateAcrossMachines).toBeTruthy();
+    expect(new Set(duplicateAcrossMachines?.map(videoProductOptionKey)).size).toBe(duplicateAcrossMachines?.length);
   });
 
   it("uses one shared filter model for sales and marketing video lists", () => {
@@ -139,6 +151,8 @@ describe("marketing video library", () => {
     expect(salesPage).toContain("videoLibraryEmbedFallback");
     expect(salesPage).toContain("https://www.youtube.com/watch?v=");
     expect(managementPage).toContain("findPrimaryProductConflict");
+    expect(managementPage).toContain("videoProductOptionKey");
+    expect(managementPage).toContain("sm:text-right");
     expect(managementPage).toContain("exactMarketingVideoContent(row, uiLanguage)");
     expect(managementPage).toContain("localizeMarketingVideo(row, uiLanguage)");
     expect(managementPage).toContain("uploadVideoThumbnail");
