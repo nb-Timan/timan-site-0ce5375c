@@ -1364,23 +1364,6 @@ export default function CrmDealerDetailPage() {
         </div>
       )}
 
-      <ContactHero
-        dealer={dealer}
-        contacts={dealerContacts}
-        lang={lang}
-        admin={canEditPartnerAdmin}
-        isBranch={isBranch}
-        mainDealer={mainDealer ?? null}
-        hasGroup={hasGroup}
-        scope={scope}
-        setScope={setScope}
-        branchCount={branchNumbers.length}
-        budgetTotals={budgetTotals}
-        budgetYear={budgetYear}
-        sellers={partnerAdminSellerOptions}
-        onEdit={() => setShowEditDealer(true)}
-      />
-
       {(() => {
         const dealerIdSet = new Set(scopeNumbers
           .map((n) => dealers.find((d) => d.account_number === n)?.id)
@@ -1405,19 +1388,37 @@ export default function CrmDealerDetailPage() {
         });
 
         return (
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(440px,0.88fr)_minmax(520px,1.12fr)] xl:items-start">
-            <KpiStrip
-              orders={liveOrderCount}
-              quotes={liveQuoteCount}
-              pipelineValue={livePipelineValue}
-              openLeads={openLeads.length}
-              openDemos={openDemos.length}
-              monthActs={monthActsCount}
-              fmtKr={fmtKr}
-              dealerName={dealer.branch_name || dealer.company_name || ""}
-              lang={lang}
-            />
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <div className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,1fr)] xl:items-start">
+            <div className="min-w-0 space-y-4">
+              <ContactHero
+                dealer={dealer}
+                contacts={dealerContacts}
+                lang={lang}
+                admin={canEditPartnerAdmin}
+                isBranch={isBranch}
+                mainDealer={mainDealer ?? null}
+                hasGroup={hasGroup}
+                scope={scope}
+                setScope={setScope}
+                branchCount={branchNumbers.length}
+                budgetTotals={budgetTotals}
+                budgetYear={budgetYear}
+                sellers={partnerAdminSellerOptions}
+                onEdit={() => setShowEditDealer(true)}
+              />
+              <KpiStrip
+                orders={liveOrderCount}
+                quotes={liveQuoteCount}
+                pipelineValue={livePipelineValue}
+                openLeads={openLeads.length}
+                openDemos={openDemos.length}
+                monthActs={monthActsCount}
+                fmtKr={fmtKr}
+                dealerName={dealer.branch_name || dealer.company_name || ""}
+                lang={lang}
+              />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="rounded-lg border border-slate-200 bg-white p-4">
                 <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">{tl("recent_quotes", lang)}</h3>
                 {dealerQuotesInScope.slice(0, 4).length === 0 ? (
@@ -2703,16 +2704,16 @@ function ContactHero({
     ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}`
     : "/portal/dealer-data";
   const actionsAll: HeroAction[] = [
-    callPhone ? { key: "call",   label: callLabel, sublabel: callSublabel, icon: <Phone className="h-5 w-5" />, href: `tel:${callPhone}` } : null,
-    mailAddr  ? { key: "mail",   label: tl("send_mail", lang), sublabel: mailSublabel || undefined, icon: <Mail className="h-5 w-5" />, href: `mailto:${mailAddr}` } : null,
-    mapsHref  ? { key: "route",  label: tl("directions", lang), sublabel: addressSublabel, icon: <MapPin className="h-5 w-5" />, href: mapsHref } : null,
-    websiteHref ? { key: "web",  label: tl("website", lang), sublabel: websiteDisplay, icon: <Globe className="h-5 w-5" />, href: websiteHref } : null,
-    { key: "dealer-data", label: tl("open_dealer_data", lang), sublabel: dealer.company_name || undefined, icon: <Building2 className="h-5 w-5" />, href: dealerDataHref },
+    callPhone ? { key: "call",   label: callLabel, sublabel: callSublabel, icon: <Phone className="h-4 w-4" />, href: `tel:${callPhone}` } : null,
+    mailAddr  ? { key: "mail",   label: tl("send_mail", lang), sublabel: mailSublabel || undefined, icon: <Mail className="h-4 w-4" />, href: `mailto:${mailAddr}` } : null,
+    mapsHref  ? { key: "route",  label: tl("directions", lang), sublabel: addressSublabel, icon: <MapPin className="h-4 w-4" />, href: mapsHref } : null,
+    websiteHref ? { key: "web",  label: tl("website", lang), sublabel: websiteDisplay, icon: <Globe className="h-4 w-4" />, href: websiteHref } : null,
+    { key: "dealer-data", label: tl("open_dealer_data", lang), sublabel: dealer.company_name || undefined, icon: <Building2 className="h-4 w-4" />, href: dealerDataHref },
     assignedSellerName ? {
       key: "assigned-seller",
       label: tl("assigned_seller", lang),
       sublabel: [assignedSellerName, assignedSellerPhone || "Telefon ikke angivet", assignedSellerEmail].filter(Boolean).join("\n"),
-      icon: <UserCircle2 className="h-5 w-5" />,
+      icon: <UserCircle2 className="h-4 w-4" />,
       href: assignedSellerEmail ? `mailto:${assignedSellerEmail}` : undefined,
     } : null,
   ].filter(Boolean) as HeroAction[];
@@ -2721,11 +2722,11 @@ function ContactHero({
   const budgetPct = budgetTotals && !budgetTotals.noBudget ? classifyBudgetStatus(budgetTotals).pct : null;
 
   return (
-    <div className="mb-4">
+    <div>
       {/* Title row */}
-      <div className="flex items-start justify-between gap-4 flex-wrap mb-3">
+      <div className="flex items-start justify-between gap-3 flex-wrap mb-3">
         <div className="min-w-0">
-          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 truncate">
+          <h2 className="text-2xl font-bold text-slate-900 truncate">
             {dealer.branch_name || dealer.company_name}
           </h2>
           <div className="text-sm text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
@@ -2785,19 +2786,19 @@ function ContactHero({
       </div>
 
       {/* Hero card — compact action header */}
-      <div className="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-sm">
         <div className="grid grid-cols-1 gap-2 items-stretch">
           {/* Action cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {actions.map((a) => {
-              const cls = `flex min-h-[118px] flex-col items-center justify-center gap-1.5 rounded-lg border bg-white px-2 py-2.5 text-center transition ${
+              const cls = `flex min-h-[86px] flex-col items-center justify-center gap-1 rounded-md border bg-white px-2 py-2 text-center transition ${
                 a.disabled
                   ? "border-slate-200 text-slate-300 cursor-not-allowed"
                   : "border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-sm"
               }`;
               const inner = (
                 <>
-                  <span className={`flex items-center justify-center w-8 h-8 rounded-md ${a.disabled ? "bg-slate-50 text-slate-300" : "bg-emerald-50 text-emerald-700"}`}>
+                  <span className={`flex items-center justify-center w-7 h-7 rounded-md ${a.disabled ? "bg-slate-50 text-slate-300" : "bg-emerald-50 text-emerald-700"}`}>
                     {a.icon}
                   </span>
                   <span className="text-[11px] font-semibold leading-tight">{a.label}</span>
@@ -2854,18 +2855,18 @@ function KpiStrip({
 
   return (
     <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-      <div className="grid grid-cols-2 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100">
+      <div className="grid grid-cols-2 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-slate-100">
         {cols.map((c) => (
-          <div key={c.key} className="p-3 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <span className={`flex items-center justify-center w-7 h-7 rounded-md ${c.tint}`}>{c.icon}</span>
+          <div key={c.key} className="min-w-0 p-2.5">
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <span className={`flex h-6 w-6 items-center justify-center rounded-md ${c.tint}`}>{c.icon}</span>
               <span className="text-[11px] uppercase tracking-wide font-semibold text-slate-500 truncate">{c.label}</span>
             </div>
             {typeof c.value === "string"
-              ? <div className={`text-xl font-bold leading-none ${c.emphasis ? "text-emerald-700" : "text-slate-900"}`}>{c.value}</div>
+              ? <div className={`text-lg font-bold leading-none ${c.emphasis ? "text-emerald-700" : "text-slate-900"}`}>{c.value}</div>
               : c.value}
             {c.link && (
-              <Link to={c.link.href} className="mt-2 inline-block text-[11px] font-semibold text-emerald-700 hover:underline">{c.link.label}</Link>
+              <Link to={c.link.href} className="mt-1.5 inline-block text-[11px] font-semibold text-emerald-700 hover:underline">{c.link.label}</Link>
 
             )}
           </div>

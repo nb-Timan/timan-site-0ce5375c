@@ -59,7 +59,7 @@ describe("partner contract onboarding access", () => {
 
   it("reuses agreement history on CRM dealer detail without exposing a generic activity feed", () => {
     expect(crmDealerDetailPage).toContain("PartnerAgreementHistory");
-    expect(crmDealerDetailPage).toContain("xl:grid-cols-[minmax(440px,0.88fr)_minmax(520px,1.12fr)]");
+    expect(crmDealerDetailPage).toContain("xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,1fr)]");
     expect(crmDealerDetailPage).toContain("xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]");
     expect(crmDealerDetailPage).toContain("compact");
     expect(historyComponent).toContain("Tilføj aftalehændelse");
@@ -71,7 +71,8 @@ describe("partner contract onboarding access", () => {
   it("keeps CRM dealer detail topbar compact and orders quick cards consistently", () => {
     expect(crmDealerDetailPage).not.toContain("Company identity");
     expect(crmDealerDetailPage).not.toContain("xl:grid-cols-[minmax(220px,0.65fr)_minmax(0,2.35fr)]");
-    expect(crmDealerDetailPage).toContain("xl:grid-cols-6");
+    expect(crmDealerDetailPage).toContain("grid-cols-2 sm:grid-cols-3 gap-2");
+    expect(crmDealerDetailPage).toContain("min-h-[86px]");
 
     const contactIndex = crmDealerDetailPage.indexOf('key: "call"');
     const mailIndex = crmDealerDetailPage.indexOf('key: "mail"');
