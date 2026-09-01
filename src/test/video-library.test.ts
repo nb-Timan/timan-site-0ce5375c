@@ -89,6 +89,8 @@ describe("marketing video library", () => {
       expect(tv("videoMgmtStatus", lang)).not.toBe("videoMgmtStatus");
       expect(tv("videoMgmtSeasons", lang)).not.toBe("videoMgmtSeasons");
       expect(tv("videoMgmtRelatedProducts", lang)).not.toBe("videoMgmtRelatedProducts");
+      expect(tv("videoMgmtRelatedProductPlaceholder", lang)).not.toBe("videoMgmtRelatedProductPlaceholder");
+      expect(tv("videoMgmtProductNoResults", lang)).not.toBe("videoMgmtProductNoResults");
     }
     expect(tv("videoMgmtContentType", "de")).toBe("Inhaltstyp");
     expect(tv("videoMgmtPublished", "de")).toBe("Veröffentlicht");
@@ -152,6 +154,8 @@ describe("marketing video library", () => {
     expect(salesPage).toContain("https://www.youtube.com/watch?v=");
     expect(managementPage).toContain("findPrimaryProductConflict");
     expect(managementPage).toContain("videoProductOptionKey");
+    expect(managementPage).toContain("function ProductCombobox");
+    expect(managementPage).toContain("CommandInput");
     expect(managementPage).toContain("sm:text-right");
     expect(managementPage).toContain("exactMarketingVideoContent(row, uiLanguage)");
     expect(managementPage).toContain("localizeMarketingVideo(row, uiLanguage)");

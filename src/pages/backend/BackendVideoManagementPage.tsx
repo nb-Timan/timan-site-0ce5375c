@@ -1,15 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Archive, FilePenLine, Plus, Upload, X } from "lucide-react";
+import { Archive, Check, ChevronsUpDown, FilePenLine, Plus, Upload, X } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import VideoLibraryFilterBar from "@/components/video/VideoLibraryFilterBar";
 import { Button } from "@/components/ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { canManageNewsContent } from "@/lib/portalAccess";
+import { cn } from "@/lib/utils";
 import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 import { listVideoProductOptions, productSearchText, videoProductOptionKey, type VideoProductOption } from "@/lib/videoProductCatalog";
 import {
@@ -93,7 +96,6 @@ export default function BackendVideoManagementPage() {
   const [filters, setFilters] = useState<VideoFilterState>(DEFAULT_VIDEO_FILTERS);
   const [editing, setEditing] = useState<DraftState | null>(null);
   const [saving, setSaving] = useState(false);
-  const [productSearch, setProductSearch] = useState("");
   const [conflict, setConflict] = useState<Record<string, unknown> | null>(null);
 
   const productOptions = useMemo(() => listVideoProductOptions(uiLanguage), [uiLanguage]);
@@ -122,7 +124,6 @@ export default function BackendVideoManagementPage() {
   if (!canManage) return <Navigate to="/portal/marketing" replace />;
 
   const startCreate = () => {
-    setProductSearch("");
     setEditing({
       ...EMPTY_DRAFT,
       products: [],
@@ -137,7 +138,6 @@ export default function BackendVideoManagementPage() {
   };
 
   const startEdit = (row: MarketingVideo) => {
-    setProductSearch("");
     const localized = exactMarketingVideoContent(row, uiLanguage);
     setEditing({
       id: row.id,
@@ -327,8 +327,6 @@ export default function BackendVideoManagementPage() {
           draft={editing}
           setDraft={setEditing}
           productOptions={productOptions}
-          productSearch={productSearch}
-          setProductSearch={setProductSearch}
           onSave={(status) => {
             const next = { ...editing, status };
             setEditing(next);
@@ -366,26 +364,24 @@ function VideoEditorDialog(props: {
   draft: DraftState;
   setDraft: (draft: DraftState) => void;
   productOptions: VideoProductOption[];
-  productSearch: string;
-  setProductSearch: (value: string) => void;
   onSave: (status: VideoStatus) => void;
   onCancel: () => void;
   saving: boolean;
   lang: Parameters<typeof tv>[1];
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const { draft, setDraft, productOptions, productSearch, setProductSearch, onSave, onCancel, saving, lang } = props;
+  const { draft, setDraft, productOptions, onSave, onCancel, saving, lang } = props;
   const videoId = extractYouTubeVideoId(draft.youtube_url);
   const thumbnail = draft.custom_thumbnail_url || youtubeThumbnailFromId(videoId, "hqdefault") || "/placeholder.svg";
-  const selectedKeys = new Set(draft.products.map(videoProductOptionKey));
-  const productMatches = productOptions
-    .filter((item) => !selectedKeys.has(videoProductOptionKey(item)))
-    .filter((item) => !productSearch.trim() || productSearchText(item).includes(productSearch.trim().toLowerCase()))
-    .slice(0, 8);
-  const primaryProductKey = draft.primaryProduct ? videoProductOptionKey(draft.primaryProduct) : "";
-  const hasPrimaryProductOption = Boolean(primaryProductKey && productOptions.some((item) => videoProductOptionKey(item) === primaryProductKey));
 
   const patch = (part: Partial<DraftState>) => setDraft({ ...draft, ...part });
+  const patchProducts = (products: VideoProductOption[]) => {
+    const primaryKey = draft.primaryProduct ? videoProductOptionKey(draft.primaryProduct) : "";
+    const previousKeys = new Set(draft.products.map(videoProductOptionKey));
+    const nextKeys = new Set(products.map(videoProductOptionKey));
+    const primaryProduct = primaryKey && previousKeys.has(primaryKey) && !nextKeys.has(primaryKey) ? null : draft.primaryProduct;
+    patch({ products, primaryProduct });
+  };
 
   const uploadThumbnail = async (file: File | null | undefined) => {
     if (!file) return;
@@ -441,41 +437,27 @@ function VideoEditorDialog(props: {
               </div>
             </div>
             <TextField label={tv("videoLibraryTags", lang)} value={draft.tagsText} onChange={(value) => patch({ tagsText: value })} help={tv("videoMgmtTagsHelp", lang)} />
-            <div>
-              <FieldLabel text={tv("videoMgmtRelatedProducts", lang)} />
-              <input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder={tv("videoMgmtProductSearch", lang)} className="mb-2 h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
-              <div className="mb-3 flex flex-wrap gap-2">
-                {draft.products.map((product) => {
-                  const key = videoProductOptionKey(product);
-                  return (
-                    <button key={key} type="button" onClick={() => patch({ products: draft.products.filter((item) => videoProductOptionKey(item) !== key), primaryProduct: draft.primaryProduct && videoProductOptionKey(draft.primaryProduct) === key ? null : draft.primaryProduct })} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700">
-                      {product.itemNumber} · {product.label} · {product.machineLabel} <X className="ml-1 inline h-3 w-3" />
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="max-h-44 overflow-y-auto rounded-lg border border-slate-200">
-                {productMatches.map((product) => (
-                  <button key={videoProductOptionKey(product)} type="button" onClick={() => patch({ products: [...draft.products, product] })} className="flex w-full min-w-0 flex-col gap-1 border-b border-slate-100 px-3 py-2 text-left text-sm hover:bg-emerald-50 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-                    <span className="min-w-0 text-slate-700">
-                      <span className="font-semibold text-slate-900">{product.itemNumber}</span>
-                      <span> · {product.label}</span>
-                    </span>
-                    <span className="shrink-0 text-xs font-semibold text-slate-500 sm:min-w-24 sm:text-right">{product.machineLabel}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <label>
-              <FieldLabel text={tv("videoMgmtPrimaryProduct", lang)} />
-              <select value={primaryProductKey} onChange={(event) => patch({ primaryProduct: productOptions.find((item) => videoProductOptionKey(item) === event.target.value) || null })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
-                <option value="">{tv("videoMgmtNoPrimary", lang)}</option>
-                {draft.primaryProduct && !hasPrimaryProductOption && (
-                  <option value={primaryProductKey}>{draft.primaryProduct.itemNumber} · {draft.primaryProduct.label} · {draft.primaryProduct.machineLabel}</option>
-                )}
-                {productOptions.map((product) => <option key={videoProductOptionKey(product)} value={videoProductOptionKey(product)}>{product.itemNumber} · {product.label} · {product.machineLabel}</option>)}
-              </select>
-            </label>
+            <ProductCombobox
+              label={tv("videoMgmtRelatedProducts", lang)}
+              mode="multi"
+              options={productOptions}
+              selected={draft.products}
+              onMultiChange={patchProducts}
+              placeholder={tv("videoMgmtRelatedProductPlaceholder", lang)}
+              searchPlaceholder={tv("videoMgmtProductSearch", lang)}
+              emptyText={tv("videoMgmtProductNoResults", lang)}
+            />
+            <ProductCombobox
+              label={tv("videoMgmtPrimaryProduct", lang)}
+              mode="single"
+              options={productOptions}
+              selected={draft.primaryProduct}
+              onSingleChange={(primaryProduct) => patch({ primaryProduct })}
+              placeholder={tv("videoMgmtNoPrimary", lang)}
+              searchPlaceholder={tv("videoMgmtProductSearch", lang)}
+              emptyText={tv("videoMgmtProductNoResults", lang)}
+              clearLabel={tv("videoMgmtNoPrimary", lang)}
+            />
           </div>
 
           <aside className="space-y-3">
@@ -507,6 +489,116 @@ function VideoEditorDialog(props: {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ProductCombobox(props: {
+  label: string;
+  mode: "multi" | "single";
+  options: VideoProductOption[];
+  selected: VideoProductOption[] | VideoProductOption | null;
+  onMultiChange?: (value: VideoProductOption[]) => void;
+  onSingleChange?: (value: VideoProductOption | null) => void;
+  placeholder: string;
+  searchPlaceholder: string;
+  emptyText: string;
+  clearLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selectedList = Array.isArray(props.selected) ? props.selected : props.selected ? [props.selected] : [];
+  const selectedKeys = new Set(selectedList.map(videoProductOptionKey));
+  const normalizedQuery = query.trim().toLowerCase();
+  const matches = props.options
+    .filter((option) => props.mode === "single" || !selectedKeys.has(videoProductOptionKey(option)))
+    .filter((option) => !normalizedQuery || productSearchText(option).includes(normalizedQuery))
+    .slice(0, 12);
+
+  const addOption = (option: VideoProductOption) => {
+    if (props.mode === "multi") {
+      props.onMultiChange?.([...selectedList, option]);
+      setQuery("");
+      return;
+    }
+    props.onSingleChange?.(option);
+    setOpen(false);
+    setQuery("");
+  };
+
+  const removeOption = (key: string) => {
+    if (props.mode === "multi") {
+      props.onMultiChange?.(selectedList.filter((option) => videoProductOptionKey(option) !== key));
+      return;
+    }
+    props.onSingleChange?.(null);
+  };
+
+  const triggerLabel = props.mode === "single" && selectedList[0]
+    ? `${selectedList[0].itemNumber} · ${selectedList[0].label} · ${selectedList[0].machineLabel}`
+    : props.placeholder;
+
+  return (
+    <div>
+      <FieldLabel text={props.label} />
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button type="button" className="flex min-h-10 w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm outline-none hover:border-emerald-300 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100">
+            <span className={cn("min-w-0 truncate", selectedList.length ? "text-slate-900" : "text-slate-400")}>{triggerLabel}</span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 text-slate-400" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[min(22rem,calc(100vw-2rem))] overflow-hidden p-0" align="start">
+          <Command shouldFilter={false}>
+            <CommandInput value={query} onValueChange={setQuery} placeholder={props.searchPlaceholder} />
+            <CommandList className="max-h-56">
+              <CommandEmpty>{props.emptyText}</CommandEmpty>
+              <CommandGroup>
+                {props.mode === "single" && (
+                  <CommandItem value="__none__" onSelect={() => { props.onSingleChange?.(null); setOpen(false); setQuery(""); }} className="gap-2">
+                    <Check className={cn("h-4 w-4", selectedList.length ? "opacity-0" : "opacity-100")} />
+                    <span>{props.clearLabel || props.placeholder}</span>
+                  </CommandItem>
+                )}
+                {matches.map((option) => {
+                  const key = videoProductOptionKey(option);
+                  const selected = selectedKeys.has(key);
+                  return (
+                    <CommandItem key={key} value={productSearchText(option)} onSelect={() => addOption(option)} className="items-start gap-2">
+                      <Check className={cn("mt-0.5 h-4 w-4 shrink-0", selected ? "opacity-100" : "opacity-0")} />
+                      <ProductOptionRow option={option} />
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {props.mode === "multi" && selectedList.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {selectedList.map((option) => {
+            const key = videoProductOptionKey(option);
+            return (
+              <button key={key} type="button" onClick={() => removeOption(key)} className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-700">
+                {option.itemNumber} · {option.label} <span className="text-slate-400">· {option.machineLabel}</span> <X className="ml-1 inline h-3 w-3" />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductOptionRow({ option }: { option: VideoProductOption }) {
+  return (
+    <span className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+      <span className="min-w-0 text-slate-700">
+        <span className="font-semibold text-slate-900">{option.itemNumber}</span>
+        <span> · {option.label}</span>
+      </span>
+      <span className="shrink-0 text-xs font-semibold text-slate-500 sm:min-w-24 sm:text-right">{option.machineLabel}</span>
+    </span>
   );
 }
 
