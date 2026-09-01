@@ -49,6 +49,9 @@ describe("marketing video library", () => {
     expect(app).toContain("/portal/marketing/videos");
     expect(area).toContain("videoMgmtTitle");
     expect(salesPage).toContain("listPublishedMarketingVideos");
+    expect(salesPage).toContain("window.addEventListener(\"keydown\", closeOnEscape)");
+    expect(salesPage).toContain("videoLibraryEmbedFallback");
+    expect(salesPage).toContain("https://www.youtube.com/watch?v=");
     expect(managementPage).toContain("findPrimaryProductConflict");
     expect(managementPage).toContain("uploadVideoThumbnail");
     expect(configurator).toContain("listPublishedPrimaryVideos");

@@ -165,7 +165,7 @@ export default function VideoGalleryPage() {
         )}
       </main>
 
-      {active && <VideoModal video={active} onClose={() => setActive(null)} />}
+      {active && <VideoModal video={active} lang={uiLanguage} onClose={() => setActive(null)} />}
       <PortalFooter language={language} />
     </div>
   );
@@ -227,20 +227,57 @@ function VideoCard({ video, lang, onPlay }: { video: MarketingVideo; lang: Porta
   );
 }
 
-function VideoModal({ video, onClose }: { video: MarketingVideo; onClose: () => void }) {
+function VideoModal({ video, lang, onClose }: { video: MarketingVideo; lang: PortalUiLanguage; onClose: () => void }) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtube_video_id}`;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4" onClick={onClose}>
-      <button type="button" onClick={onClose} className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 sm:p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={video.title}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label={tv("videoLibraryClosePlayer", lang)}
+        className="absolute right-3 top-3 z-10 rounded-full bg-white/15 p-2 text-white shadow-sm transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-4 sm:top-4"
+      >
         <X className="h-6 w-6" />
       </button>
-      <div className="aspect-video w-full max-w-5xl overflow-hidden rounded-xl bg-black shadow-2xl" onClick={(event) => event.stopPropagation()}>
-        <iframe
-          className="h-full w-full"
-          src={`https://www.youtube.com/embed/${video.youtube_video_id}?autoplay=1`}
-          title={video.title}
-          allow="autoplay; encrypted-media; picture-in-picture"
-          allowFullScreen
-        />
+      <div
+        className="w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="aspect-video w-full bg-black">
+          <iframe
+            className="h-full w-full"
+            src={`https://www.youtube.com/embed/${video.youtube_video_id}?autoplay=1&rel=0`}
+            title={video.title}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+        <div className="flex flex-col gap-2 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <p>{tv("videoLibraryEmbedFallback", lang)}</p>
+          <a
+            href={youtubeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-emerald-700 hover:text-emerald-900"
+          >
+            {tv("videoLibraryOpenOnYoutube", lang)}
+          </a>
+        </div>
       </div>
     </div>
   );
