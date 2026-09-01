@@ -121,4 +121,14 @@ describe("external CRM account scope", () => {
     expect(migration).toContain("not public.is_protected_internal_crm_account(da.account_number");
     expect(migration).not.toContain("service_partner_dealer_links");
   });
+
+  it("removes anonymous write grants from CRM lead tables", () => {
+    const migration = readFileSync("supabase/migrations/20260901164010_tighten_anon_crm_write_grants.sql", "utf8");
+
+    expect(migration).toContain("revoke insert, update, delete, truncate, references, trigger");
+    expect(migration).toContain("on table public.crm_leads");
+    expect(migration).toContain("on table public.crm_demo_leads");
+    expect(migration).toContain("from anon, public");
+    expect(migration).not.toMatch(/grant\s+.*\b(insert|update|delete|truncate)\b/i);
+  });
 });
