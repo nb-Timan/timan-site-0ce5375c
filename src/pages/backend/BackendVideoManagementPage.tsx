@@ -29,11 +29,13 @@ import {
   type MarketingVideoLocalizedContent,
   type MarketingVideoTranslationMeta,
   type VideoContentType,
+  type VideoModelGenerationStatus,
   type VideoStatus,
 } from "@/lib/videoLibraryService";
 import {
   tv,
   videoContentTypeLabel,
+  videoModelGenerationStatusLabel,
   videoSeasonLabel,
   VIDEO_CONTENT_TYPES,
   VIDEO_SEASONS,
@@ -59,6 +61,7 @@ interface DraftState {
   seasons: string[];
   tagsText: string;
   status: VideoStatus;
+  model_generation_status: VideoModelGenerationStatus;
   custom_thumbnail_url: string | null;
   custom_thumbnail_path: string | null;
   products: VideoProductOption[];
@@ -77,6 +80,7 @@ const EMPTY_DRAFT: DraftState = {
   seasons: ["all_year"],
   tagsText: "",
   status: "draft",
+  model_generation_status: "current",
   custom_thumbnail_url: null,
   custom_thumbnail_path: null,
   products: [],
@@ -152,6 +156,7 @@ export default function BackendVideoManagementPage() {
       seasons: row.seasons.length ? row.seasons : ["all_year"],
       tagsText: row.tags.join(", "),
       status: row.status,
+      model_generation_status: row.model_generation_status || "current",
       custom_thumbnail_url: row.custom_thumbnail_url,
       custom_thumbnail_path: row.custom_thumbnail_path,
       products: row.products.map((product) => ({
@@ -222,6 +227,7 @@ export default function BackendVideoManagementPage() {
       seasons: activeDraft.seasons,
       tags: activeDraft.tagsText.split(",").map((tag) => tag.trim()).filter(Boolean),
       status: activeDraft.status,
+      model_generation_status: activeDraft.model_generation_status,
       custom_thumbnail_url: activeDraft.custom_thumbnail_url,
       custom_thumbnail_path: activeDraft.custom_thumbnail_path,
       products: Array.from(productMap.values()),
@@ -417,6 +423,13 @@ function VideoEditorDialog(props: {
                   <option value="draft">{tv("videoMgmtDraft", lang)}</option>
                   <option value="published">{tv("videoMgmtPublished", lang)}</option>
                   <option value="archived">{tv("videoMgmtArchived", lang)}</option>
+                </select>
+              </label>
+              <label>
+                <FieldLabel text={tv("videoMgmtModelStatus", lang)} />
+                <select value={draft.model_generation_status} onChange={(event) => patch({ model_generation_status: event.target.value as VideoModelGenerationStatus })} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
+                  <option value="current">{videoModelGenerationStatusLabel("current", lang)}</option>
+                  <option value="legacy">{videoModelGenerationStatusLabel("legacy", lang)}</option>
                 </select>
               </label>
             </div>

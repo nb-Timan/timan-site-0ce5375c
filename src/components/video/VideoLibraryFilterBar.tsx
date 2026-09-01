@@ -2,10 +2,11 @@ import type { ReactNode } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
-import { DEFAULT_VIDEO_FILTERS, type VideoFilterState, type VideoSortKey } from "@/lib/videoLibraryFilters";
+import { DEFAULT_VIDEO_FILTERS, type VideoFilterState, type VideoModelGenerationFilter, type VideoSortKey } from "@/lib/videoLibraryFilters";
 import type { VideoContentType, VideoStatus } from "@/lib/videoLibraryService";
 import {
   tv,
+  videoModelGenerationFilterLabel,
   videoContentTypeLabel,
   videoSeasonLabel,
   VIDEO_CONTENT_TYPES,
@@ -34,6 +35,22 @@ export default function VideoLibraryFilterBar({
 
   return (
     <section className="mb-6 rounded-xl border border-slate-200 bg-white p-4">
+      <div className="mb-3 flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1">
+        {(["current", "all", "legacy"] as VideoModelGenerationFilter[]).map((value) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => patch({ modelGenerationFilter: value })}
+            className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+              filters.modelGenerationFilter === value
+                ? "bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200"
+                : "text-slate-600 hover:bg-white/70 hover:text-slate-900"
+            }`}
+          >
+            {videoModelGenerationFilterLabel(value, language)}
+          </button>
+        ))}
+      </div>
       <div className={`grid grid-cols-1 gap-3 ${gridClass}`}>
         <label className="relative block">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

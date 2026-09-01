@@ -52,6 +52,7 @@ describe("marketing video library", () => {
         title: "RC-1000 brush guide",
         description: "Setup for weed brush",
         content_type: "how_to",
+        model_generation_status: "current",
         seasons: ["spring"],
         tags: ["brush"],
         status: "published",
@@ -64,6 +65,7 @@ describe("marketing video library", () => {
         title: "Archived sales clip",
         description: "Older material",
         content_type: "sales",
+        model_generation_status: "legacy",
         seasons: ["winter"],
         tags: ["archive"],
         status: "archived",
@@ -75,9 +77,12 @@ describe("marketing video library", () => {
 
     expect(getVideoMachineFilterOptions("en").some((item) => item.value === "RC-1000S")).toBe(true);
     expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, query: "411000" }, "en").map((row) => row.id)).toEqual(["1"]);
+    expect(filterAndSortVideos(rows, DEFAULT_VIDEO_FILTERS, "en").map((row) => row.id)).toEqual(["1"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, modelGenerationFilter: "all" }, "en").map((row) => row.id)).toEqual(["1", "2"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, modelGenerationFilter: "legacy" }, "en").map((row) => row.id)).toEqual(["2"]);
     expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, typeFilter: "how_to" }, "en").map((row) => row.id)).toEqual(["1"]);
-    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, seasonFilter: "winter" }, "en").map((row) => row.id)).toEqual(["2"]);
-    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, machineFilter: "TIMAN_3330" }, "en").map((row) => row.id)).toEqual(["2"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, modelGenerationFilter: "all", seasonFilter: "winter" }, "en").map((row) => row.id)).toEqual(["2"]);
+    expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, modelGenerationFilter: "all", machineFilter: "TIMAN_3330" }, "en").map((row) => row.id)).toEqual(["2"]);
     expect(filterAndSortVideos(rows, { ...DEFAULT_VIDEO_FILTERS, statusFilter: "published" }, "en", { includeStatus: true }).map((row) => row.id)).toEqual(["1"]);
   });
 
@@ -87,6 +92,10 @@ describe("marketing video library", () => {
       expect(tv("videoMgmtAdd", lang)).not.toBe("videoMgmtAdd");
       expect(tv("videoMgmtContentType", lang)).not.toBe("videoMgmtContentType");
       expect(tv("videoMgmtStatus", lang)).not.toBe("videoMgmtStatus");
+      expect(tv("videoMgmtModelStatus", lang)).not.toBe("videoMgmtModelStatus");
+      expect(tv("videoModelCurrent", lang)).not.toBe("videoModelCurrent");
+      expect(tv("videoModelAll", lang)).not.toBe("videoModelAll");
+      expect(tv("videoModelLegacy", lang)).not.toBe("videoModelLegacy");
       expect(tv("videoMgmtSeasons", lang)).not.toBe("videoMgmtSeasons");
       expect(tv("videoMgmtRelatedProducts", lang)).not.toBe("videoMgmtRelatedProducts");
       expect(tv("videoMgmtRelatedProductPlaceholder", lang)).not.toBe("videoMgmtRelatedProductPlaceholder");
@@ -145,7 +154,9 @@ describe("marketing video library", () => {
     expect(salesPage).toContain("VideoLibraryFilterBar");
     expect(managementPage).toContain("VideoLibraryFilterBar");
     expect(managementPage).toContain("showStatus");
+    expect(managementPage).toContain("model_generation_status");
     expect(filterBar).toContain("videoLibrarySortLatest");
+    expect(filterBar).toContain("videoModelGenerationFilterLabel");
     expect(filterBar).toContain("videoLibraryMachine");
     expect(filterHelper).toContain("filterAndSortVideos");
     expect(salesPage).toContain("listPublishedMarketingVideos(uiLanguage)");
@@ -167,5 +178,6 @@ describe("marketing video library", () => {
     expect(migration).toContain("translation_meta jsonb not null default '{}'::jsonb");
     expect(migration).toContain("marketing_videos_authenticated_read_visible");
     expect(migration).toContain("can_manage_marketing_videos");
+    expect(readFileSync("supabase/migrations/20260901205252_add_marketing_video_model_generation_status.sql", "utf8")).toContain("model_generation_status");
   });
 });

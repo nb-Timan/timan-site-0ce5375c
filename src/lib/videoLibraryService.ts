@@ -7,6 +7,7 @@ import {
 import type { VideoProductOption } from "@/lib/videoProductCatalog";
 
 export type VideoStatus = "draft" | "published" | "archived";
+export type VideoModelGenerationStatus = "current" | "legacy";
 export type VideoContentType =
   | "product"
   | "how_to"
@@ -52,6 +53,7 @@ export interface MarketingVideo {
   custom_thumbnail_url: string | null;
   custom_thumbnail_path: string | null;
   status: VideoStatus;
+  model_generation_status: VideoModelGenerationStatus;
   published_at: string | null;
   created_by: string | null;
   updated_by: string | null;
@@ -74,6 +76,7 @@ export interface MarketingVideoInput {
   seasons: string[];
   tags: string[];
   status: VideoStatus;
+  model_generation_status?: VideoModelGenerationStatus;
   custom_thumbnail_url?: string | null;
   custom_thumbnail_path?: string | null;
   products: VideoProductOption[];
@@ -83,7 +86,7 @@ export interface MarketingVideoInput {
 
 const VIDEO_BASE_SELECT = `
   id, youtube_url, youtube_video_id, title, description, localized_content, source_language, translation_meta, content_type, seasons, tags,
-  custom_thumbnail_url, custom_thumbnail_path, status, published_at,
+  custom_thumbnail_url, custom_thumbnail_path, status, model_generation_status, published_at,
   created_by, updated_by, created_at, updated_at
 `;
 
@@ -261,6 +264,7 @@ function toVideo(row: Record<string, unknown>): MarketingVideo {
     custom_thumbnail_url: (row.custom_thumbnail_url as string | null) ?? null,
     custom_thumbnail_path: (row.custom_thumbnail_path as string | null) ?? null,
     status: (row.status as VideoStatus) || "draft",
+    model_generation_status: (row.model_generation_status as VideoModelGenerationStatus) || "current",
     published_at: (row.published_at as string | null) ?? null,
     created_by: (row.created_by as string | null) ?? null,
     updated_by: (row.updated_by as string | null) ?? null,
@@ -440,6 +444,7 @@ export async function saveMarketingVideo(input: MarketingVideoInput): Promise<{ 
     content_type: input.content_type,
     seasons: input.seasons,
     tags: input.tags,
+    model_generation_status: input.model_generation_status || "current",
     custom_thumbnail_url: input.custom_thumbnail_url || null,
     custom_thumbnail_path: input.custom_thumbnail_path || null,
     status,

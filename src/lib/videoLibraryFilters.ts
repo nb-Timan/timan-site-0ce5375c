@@ -1,12 +1,14 @@
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
 import { listVideoProductOptions } from "@/lib/videoProductCatalog";
-import type { MarketingVideo, VideoContentType, VideoStatus } from "@/lib/videoLibraryService";
+import type { MarketingVideo, VideoContentType, VideoModelGenerationStatus, VideoStatus } from "@/lib/videoLibraryService";
 
 export type VideoSortKey = "latest" | "title";
+export type VideoModelGenerationFilter = VideoModelGenerationStatus | "all";
 
 export interface VideoFilterState {
   query: string;
   statusFilter: "all" | VideoStatus;
+  modelGenerationFilter: VideoModelGenerationFilter;
   typeFilter: "all" | VideoContentType;
   seasonFilter: string;
   machineFilter: string;
@@ -16,6 +18,7 @@ export interface VideoFilterState {
 export const DEFAULT_VIDEO_FILTERS: VideoFilterState = {
   query: "",
   statusFilter: "all",
+  modelGenerationFilter: "current",
   typeFilter: "all",
   seasonFilter: "all",
   machineFilter: "all",
@@ -42,6 +45,7 @@ export function filterAndSortVideos(
   const q = filters.query.trim().toLowerCase();
   return rows
     .filter((row) => !options.includeStatus || filters.statusFilter === "all" || row.status === filters.statusFilter)
+    .filter((row) => filters.modelGenerationFilter === "all" || (row.model_generation_status || "current") === filters.modelGenerationFilter)
     .filter((row) => filters.typeFilter === "all" || row.content_type === filters.typeFilter)
     .filter((row) => filters.seasonFilter === "all" || row.seasons.includes(filters.seasonFilter))
     .filter((row) => filters.machineFilter === "all" || row.products.some((item) => item.machine_key === filters.machineFilter))
@@ -51,6 +55,7 @@ export function filterAndSortVideos(
         row.title,
         row.description || "",
         row.content_type,
+        row.model_generation_status,
         ...row.seasons,
         ...row.tags,
         ...row.products.flatMap((item) => [
