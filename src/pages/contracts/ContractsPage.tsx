@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Pencil, Plus, Save, Search, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -936,6 +936,7 @@ export default function ContractsPage() {
 
   const selectContractPartnerAccount = (account: DealerAccount) => {
     setSelectedDealerAccountNumber(account.account_number);
+    setSelectedAccessUserId('');
     setForm((current) => ({
       ...current,
       ...buildContractPartnerPatchFromDealerAccount(account),
@@ -944,6 +945,10 @@ export default function ContractsPage() {
 
   const updateContractPartnerType = (partnerType: ContractPartnerType | '') => {
     setSelectedDealerAccountNumber('');
+    setSelectedAccessUserId('');
+    setPartnerUsers([]);
+    setContractAccessWindows([]);
+    setAccessWindow(null);
     setForm((current) => ({
       ...current,
       partnerType,
@@ -1000,6 +1005,7 @@ export default function ContractsPage() {
       setAccessWindow(null);
       setContractAccessWindows([]);
       setPartnerUsers([]);
+      setSelectedAccessUserId('');
       setAccessWindowLoaded(true);
       return () => { cancelled = true; };
     }
@@ -1009,18 +1015,19 @@ export default function ContractsPage() {
       if (cancelled) return;
       setAccessWindow(active.row);
 
-      if (canManagePartnerContractAccess && contractRowId) {
+      if (canManagePartnerContractAccess) {
         const [windows, users] = await Promise.all([
-          fetchDealerContractAccessWindows(contractRowId),
+          contractRowId ? fetchDealerContractAccessWindows(contractRowId) : Promise.resolve({ rows: [], error: null }),
           fetchDealerContractPartnerUsers(activeDealerAccountNumber),
         ]);
         if (cancelled) return;
         setContractAccessWindows(windows.rows);
         setPartnerUsers(users.rows);
-        setSelectedAccessUserId((current) => current || users.rows[0]?.id || '');
+        setSelectedAccessUserId(users.rows[0]?.id || '');
       } else {
         setContractAccessWindows([]);
         setPartnerUsers([]);
+        setSelectedAccessUserId('');
       }
       setAccessWindowLoaded(true);
     })();
@@ -1625,36 +1632,6 @@ export default function ContractsPage() {
                 </div>
               </div>
               <div className="flex flex-col items-start gap-2 sm:items-end">
-                {canManagePartnerContractAccess && (
-                  <PartnerContractAccessPanel
-                    users={partnerUsers}
-                    windows={contractAccessWindows}
-                    busy={accessWindowBusy}
-                    selectedUserId={selectedAccessUserId}
-                    opensAt={accessOpensAt}
-                    closesAt={accessClosesAt}
-                    quickChoice={accessQuickChoice}
-                    contractSaved={Boolean(contractRowId)}
-                    onUserChange={setSelectedAccessUserId}
-                    onOpensAtChange={(value) => {
-                      setAccessOpensAt(value);
-                      if (accessQuickChoice !== 'custom') {
-                        setAccessClosesAt(addHoursLocalInput(Number(accessQuickChoice) / 60, value));
-                      }
-                    }}
-                    onClosesAtChange={(value) => {
-                      setAccessQuickChoice('custom');
-                      setAccessClosesAt(value);
-                    }}
-                    onQuickChoiceChange={(value) => {
-                      setAccessQuickChoice(value);
-                      if (value !== 'custom') setAccessClosesAt(addHoursLocalInput(Number(value) / 60, accessOpensAt));
-                    }}
-                    onActivate={activateGuidedAccess}
-                    onExtend={extendGuidedAccess}
-                    onRevoke={revokeGuidedAccess}
-                  />
-                )}
                 {!canManagePartnerContractAccess && accessWindow && (
                   <p className="text-xs text-emerald-700">
                     Kontrakt tilgængelig indtil {formatDateTimeDa(accessWindow.closes_at)}
@@ -1701,6 +1678,37 @@ export default function ContractsPage() {
                 update={update}
                 onPartnerTypeChange={updateContractPartnerType}
                 onPartnerAccountSelect={selectContractPartnerAccount}
+                partnerAccessPanel={canManagePartnerContractAccess ? (
+                  <PartnerContractAccessPanel
+                    partnerSelected={Boolean(activeDealerAccountNumber)}
+                    users={partnerUsers}
+                    windows={contractAccessWindows}
+                    busy={accessWindowBusy}
+                    selectedUserId={selectedAccessUserId}
+                    opensAt={accessOpensAt}
+                    closesAt={accessClosesAt}
+                    quickChoice={accessQuickChoice}
+                    contractSaved={Boolean(contractRowId)}
+                    onUserChange={setSelectedAccessUserId}
+                    onOpensAtChange={(value) => {
+                      setAccessOpensAt(value);
+                      if (accessQuickChoice !== 'custom') {
+                        setAccessClosesAt(addHoursLocalInput(Number(accessQuickChoice) / 60, value));
+                      }
+                    }}
+                    onClosesAtChange={(value) => {
+                      setAccessQuickChoice('custom');
+                      setAccessClosesAt(value);
+                    }}
+                    onQuickChoiceChange={(value) => {
+                      setAccessQuickChoice(value);
+                      if (value !== 'custom') setAccessClosesAt(addHoursLocalInput(Number(value) / 60, accessOpensAt));
+                    }}
+                    onActivate={activateGuidedAccess}
+                    onExtend={extendGuidedAccess}
+                    onRevoke={revokeGuidedAccess}
+                  />
+                ) : null}
                 locked={isLockedContract}
               />
             )}
@@ -1795,6 +1803,7 @@ export default function ContractsPage() {
 }
 
 function PartnerContractAccessPanel({
+  partnerSelected,
   users,
   windows,
   busy,
@@ -1811,6 +1820,7 @@ function PartnerContractAccessPanel({
   onExtend,
   onRevoke,
 }: {
+  partnerSelected: boolean;
   users: DealerContractPartnerUser[];
   windows: DealerContractAccessWindow[];
   busy: boolean;
@@ -1829,10 +1839,11 @@ function PartnerContractAccessPanel({
 }) {
   const latestWindow = windows[0] ?? null;
   const activeWindow = windows.find((window) => getAccessWindowDisplayStatus(window) === 'Åben nu') ?? null;
-  const disabled = busy || !contractSaved || users.length === 0 || !selectedUserId;
+  const controlsDisabled = busy || !partnerSelected;
+  const disabled = controlsDisabled || !contractSaved || users.length === 0 || !selectedUserId;
 
   return (
-    <section className="w-full max-w-2xl rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left shadow-sm sm:min-w-[520px]">
+    <section className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Partneradgang</p>
@@ -1846,7 +1857,11 @@ function PartnerContractAccessPanel({
         )}
       </div>
 
-      {users.length === 0 ? (
+      {!partnerSelected ? (
+        <p className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+          Vælg samarbejdspartner først
+        </p>
+      ) : users.length === 0 ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
           Ingen aktiv portalbruger på partneren endnu
         </p>
@@ -1856,8 +1871,9 @@ function PartnerContractAccessPanel({
             Bruger
             <select
               value={selectedUserId}
+              disabled={controlsDisabled}
               onChange={(event) => onUserChange(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
             >
               {users.map((user) => (
                 <option key={user.id} value={user.id}>{user.name} · {user.email}</option>
@@ -1869,8 +1885,9 @@ function PartnerContractAccessPanel({
             <input
               type="datetime-local"
               value={opensAt}
+              disabled={controlsDisabled}
               onChange={(event) => onOpensAtChange(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
             />
           </label>
           <label className="text-xs font-semibold text-slate-600">
@@ -1878,8 +1895,9 @@ function PartnerContractAccessPanel({
             <input
               type="datetime-local"
               value={closesAt}
+              disabled={controlsDisabled}
               onChange={(event) => onClosesAtChange(event.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900"
+              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
             />
           </label>
         </div>
@@ -1896,8 +1914,9 @@ function PartnerContractAccessPanel({
           <button
             key={value}
             type="button"
+            disabled={controlsDisabled}
             onClick={() => onQuickChoiceChange(value as '60' | '120' | '240' | '1440' | 'custom')}
-            className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${quickChoice === value ? 'border-slate-400 bg-white text-slate-950' : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-white'}`}
+            className={`rounded-full border px-2.5 py-1 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${quickChoice === value ? 'border-slate-400 bg-white text-slate-950' : 'border-slate-200 bg-slate-100 text-slate-600 hover:bg-white'}`}
           >
             {label}
           </button>
@@ -2267,6 +2286,7 @@ function PartiesStep({
   update,
   onPartnerTypeChange,
   onPartnerAccountSelect,
+  partnerAccessPanel,
   locked,
 }: {
   form: ContractFormData;
@@ -2277,6 +2297,7 @@ function PartiesStep({
   update: (key: keyof ContractFormData, value: string | null) => void;
   onPartnerTypeChange: (partnerType: ContractPartnerType | '') => void;
   onPartnerAccountSelect: (account: DealerAccount) => void;
+  partnerAccessPanel?: ReactNode;
   locked: boolean;
 }) {
   const [partnerQuery, setPartnerQuery] = useState('');
@@ -2370,8 +2391,8 @@ function PartiesStep({
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
         <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900 mb-3">Samarbejdspartner</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label className="block">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <label className="order-1 block">
             <span className="text-sm font-semibold text-gray-700">Partnertype *</span>
             <select
               value={form.partnerType}
@@ -2387,7 +2408,12 @@ function PartiesStep({
               ))}
             </select>
           </label>
-          <label className="block md:col-span-2">
+          {partnerAccessPanel && (
+            <div className="order-3 lg:order-2 lg:col-span-2">
+              {partnerAccessPanel}
+            </div>
+          )}
+          <label className="order-2 block lg:order-3 lg:col-span-3">
             <span className="text-sm font-semibold text-gray-700">Firmanavn *</span>
             <div className="relative mt-2">
               <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-amber-500">
@@ -2427,6 +2453,8 @@ function PartiesStep({
               Vælg en eksisterende godkendt partner. Ny kontrakt opretter ikke en ny partnerkonto.
             </span>
           </label>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <TextField label="CVR *" value={form.dealerCvr} onChange={(value) => update('dealerCvr', value)} disabled={locked} />
           <TextField label="Adresse *" value={form.dealerAddress} onChange={(value) => update('dealerAddress', value)} disabled={locked} />
           <TextField label="Postnr. *" value={form.dealerPostalCode} onChange={(value) => update('dealerPostalCode', value)} disabled={locked} />

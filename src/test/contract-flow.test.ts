@@ -435,6 +435,14 @@ describe('contract flow', () => {
     expect(pageSource).toContain("buildContractPartnerPatchFromDealerAccount(account)");
     expect(pageSource).toContain("setSelectedDealerAccountNumber(account.account_number)");
     expect(pageSource).toContain("dealerCountry: account.country || ''");
+    expect(pageSource).toContain('partnerAccessPanel={canManagePartnerContractAccess ? (');
+    expect(pageSource).toContain('partnerSelected={Boolean(activeDealerAccountNumber)}');
+    expect(pageSource).toContain('className="order-1 block"');
+    expect(pageSource).toContain('className="order-3 lg:order-2 lg:col-span-2"');
+    expect(pageSource).toContain('className="order-2 block lg:order-3 lg:col-span-3"');
+    expect(pageSource).toContain('Vælg samarbejdspartner først');
+    expect(pageSource).toContain("setSelectedAccessUserId('');");
+    expect(pageSource).toContain("setSelectedAccessUserId(users.rows[0]?.id || '')");
     expect(serviceSource).toContain("fetchDealerAccountByNumber(input.dealerAccountNumber)");
     expect(serviceSource).toContain("dealer_account_id: dealerAccountId");
   });
@@ -1266,7 +1274,10 @@ describe('contract flow', () => {
     expect(serviceSource).toContain('.eq("contract_id", input.contractId)');
 
     expect(pageSource).toContain('PartnerContractAccessPanel');
+    expect(pageSource).toContain('partnerAccessPanel={canManagePartnerContractAccess ? (');
+    expect(pageSource).toContain('partnerSelected={Boolean(activeDealerAccountNumber)}');
     expect(pageSource).toContain('Ingen aktiv portalbruger på partneren endnu');
+    expect(pageSource).toContain('Vælg samarbejdspartner først');
     expect(pageSource).toContain('Åbn kontrakt for partner');
     expect(pageSource).toContain('onExtend={extendGuidedAccess}');
     expect(pageSource).toContain('onRevoke={revokeGuidedAccess}');
