@@ -3,23 +3,17 @@ import { CheckCircle2, Loader2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { useDealerScope } from '@/lib/dealerScope';
+import { getCompanyContactInfoCopy } from '@/lib/i18n/companyContactInfoTranslations';
 import MiscPageShell from './MiscPageShell';
 import { submitPortalForm, PortalFormSubmission } from '@/lib/portalFormsService';
 import AddressAutocomplete, { type ResolvedAddress } from '@/components/crm/AddressAutocomplete';
 
 // ──────────────────────────────────────────────────────────────────────────────
-// Phase 49 — "Firma Information" (company_contact_info)
+// Phase 49 — company_contact_info
 // Multi-step internal portal form. Stores everything in payload jsonb.
 // ──────────────────────────────────────────────────────────────────────────────
-
-const TITLE = 'Firma Information';
-const INTRO =
-  'Nedenstående formular udfyldes med jeres firma- og kontaktoplysninger, som vi kan bruge i vores system for hurtigere og nemmere at komme i kontakt med den rette vedkommende.\n\n' +
-  'Formularen kan udfyldes på to måder:\n' +
-  '1. Ny kunde: Skal udfyldes, hvis det er første gang, du og din virksomhed på din adresse skal tilknyttes Timan.\n' +
-  '2. Eksisterende forhandler: Skal udfyldes, hvis du allerede er i vores system, men at vi har brug for at opdatere, tilføje eller ændre kontaktoplysninger.\n\n' +
-  '* Påkrævet';
 
 type DealerKind = 'new' | 'existing' | '';
 
@@ -32,16 +26,6 @@ interface ExtraPerson {
 
 const blankPerson = (): ExtraPerson => ({ name: '', phone: '', email: '', comment: '' });
 
-const SECTIONS = [
-  '1. Firma information',
-  '2. Økonomi afdeling',
-  '3. Medier',
-  '4. Salgsafdeling',
-  '5. Værksted og reservedele',
-  '6. Marketing',
-  '7. Til sidst',
-];
-
 const inputCls =
   'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]';
 const textareaCls = inputCls + ' min-h-[120px]';
@@ -52,8 +36,11 @@ const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
 
 export default function CompanyContactInfoFormPage() {
   const { appUser } = useAppUser();
+  const { uiLanguage } = useLanguage();
   const scope = useDealerScope();
   const navigate = useNavigate();
+  const copy = getCompanyContactInfoCopy(uiLanguage);
+  const sections = copy.sections;
 
   // ── Section 1: Firma
   const [companyName, setCompanyName] = useState(scope.lockedDealerName ?? appUser?.company_dealer ?? '');
@@ -175,14 +162,14 @@ export default function CompanyContactInfoFormPage() {
     mktEmail,
   ]);
 
-  const isLast = step === SECTIONS.length - 1;
+  const isLast = step === sections.length - 1;
 
   function next() {
     if (stepErrors) {
       toast.error(stepErrors);
       return;
     }
-    setStep((s) => Math.min(SECTIONS.length - 1, s + 1));
+    setStep((s) => Math.min(sections.length - 1, s + 1));
   }
   function prev() {
     setStep((s) => Math.max(0, s - 1));
@@ -276,7 +263,7 @@ export default function CompanyContactInfoFormPage() {
   // ─── Receipt
   if (receipt) {
     return (
-      <MiscPageShell title={TITLE} backTo="/portal/misc/forms">
+      <MiscPageShell title={copy.title} subtitle={copy.subtitle} backTo="/portal/misc/forms">
         <div className="max-w-3xl bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
           <div className="flex items-start gap-4 mb-6">
             <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center shrink-0">
@@ -314,11 +301,11 @@ export default function CompanyContactInfoFormPage() {
   }
 
   return (
-    <MiscPageShell title={TITLE} intro={INTRO} backTo="/portal/misc/forms">
+    <MiscPageShell title={copy.title} subtitle={copy.subtitle} intro={copy.intro} backTo="/portal/misc/forms">
       <div className="max-w-3xl">
         {/* Stepper */}
         <ol className="flex flex-wrap gap-2 mb-6 text-xs">
-          {SECTIONS.map((s, i) => (
+          {sections.map((s, i) => (
             <li
               key={s}
               className={
@@ -339,7 +326,7 @@ export default function CompanyContactInfoFormPage() {
           onSubmit={(e) => { if (isLast) handleSubmit(e); else { e.preventDefault(); next(); } }}
           className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm space-y-6"
         >
-          <h2 className="text-lg font-bold text-gray-900">{SECTIONS[step]}</h2>
+          <h2 className="text-lg font-bold text-gray-900">{sections[step]}</h2>
 
           {step === 0 && (
             <>
@@ -595,7 +582,7 @@ export default function CompanyContactInfoFormPage() {
             >
               Tilbage
             </button>
-            <span className="text-xs text-gray-400">Trin {step + 1} af {SECTIONS.length}</span>
+            <span className="text-xs text-gray-400">Trin {step + 1} af {sections.length}</span>
             <button
               type="submit"
               disabled={submitting}

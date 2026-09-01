@@ -13,6 +13,7 @@ import type { ModuleKey } from '@/lib/portalChangelog';
 
 interface Props {
   title: string;
+  subtitle?: string;
   intro?: string;
   hideHeader?: boolean;
   /** Kept for compatibility; global portal header now owns back navigation. */
@@ -22,7 +23,7 @@ interface Props {
   children: ReactNode;
 }
 
-export default function MiscPageShell({ title, intro, hideHeader = false, backTo, changelogModule, children }: Props) {
+export default function MiscPageShell({ title, subtitle, intro, hideHeader = false, backTo, changelogModule, children }: Props) {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
@@ -47,6 +48,7 @@ export default function MiscPageShell({ title, intro, hideHeader = false, backTo
           <header className="bg-white border-b border-slate-200 py-6">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{title}</h1>
+              {subtitle && <p className="mt-1 text-base font-semibold text-slate-700">{subtitle}</p>}
               {intro && <p className="text-slate-500 mt-2 max-w-3xl whitespace-pre-line">{intro}</p>}
             </div>
           </header>
@@ -88,6 +90,7 @@ export default function MiscPageShell({ title, intro, hideHeader = false, backTo
         <header className="bg-white border-b border-gray-200 py-10">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+            {subtitle && <p className="mt-1 text-lg font-semibold text-gray-700">{subtitle}</p>}
             {intro && <p className="text-gray-500 mt-2 max-w-3xl whitespace-pre-line">{intro}</p>}
             {changelogModule && <LastChangedLine moduleKey={changelogModule} className="mt-3" />}
           </div>
