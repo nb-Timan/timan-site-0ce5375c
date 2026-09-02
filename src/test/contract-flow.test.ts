@@ -403,6 +403,17 @@ describe('contract flow', () => {
     }
   });
 
+  it('uses the global portal language for guided-flow controls and workflow statuses', () => {
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(pageSource).toContain("contractUi('guidedTitle', uiLanguage)");
+    expect(pageSource).toContain("contractUi('partnerAccess', uiLanguage)");
+    expect(pageSource).toContain("contractUi('openContractForPartner', uiLanguage)");
+    expect(pageSource).toContain("getContractWorkflowStatusLabel(workflowStatus, uiLanguage)");
+    expect(getContractWorkflowStatusLabel('submitted_for_approval', 'en')).toBe('Sent for Timan approval');
+    expect(getContractWorkflowStatusLabel('submitted_for_approval', 'de')).toBe('Zur Timan-Genehmigung gesendet');
+  });
+
   it('defines the allowed contract partner labels for every portal language without dealer customers', () => {
     const languages = ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'] as const;
     expect(CONTRACT_PARTNER_TYPES).toEqual(['dealer', 'importer', 'service_partner']);
@@ -428,7 +439,7 @@ describe('contract flow', () => {
     const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
 
     expect(pageSource).not.toContain('<TextField label="Firmanavn *"');
-    expect(pageSource).toContain("placeholder={form.partnerType ? 'Søg efter samarbejdspartner...' : 'Vælg partnertype først'}");
+    expect(pageSource).toContain("placeholder={form.partnerType ? contractUi('searchPartner', uiLanguage) : contractUi('selectPartnerFirst', uiLanguage)}");
     expect(pageSource).toContain("inferContractPartnerTypeFromDealerAccount(account) === form.partnerType");
     expect(pageSource).toContain("fetchDealerAccountsForSeller({ email: sellerEmail, initials: sellerInitials })");
     expect(pageSource).toContain(".filter((account) => !account.is_deleted && !account.is_blocked)");
@@ -440,7 +451,7 @@ describe('contract flow', () => {
     expect(pageSource).toContain('className="order-1 block"');
     expect(pageSource).toContain('className="order-3 lg:order-2 lg:col-span-2"');
     expect(pageSource).toContain('className="order-2 block lg:order-3 lg:col-span-3"');
-    expect(pageSource).toContain('Vælg samarbejdspartner først');
+    expect(pageSource).toContain("contractUi('selectPartnerFirst', uiLanguage)");
     expect(pageSource).toContain("setSelectedAccessUserId('');");
     expect(pageSource).toContain("setSelectedAccessUserId(users.rows[0]?.id || '')");
     expect(serviceSource).toContain("fetchDealerAccountByNumber(input.dealerAccountNumber)");
@@ -615,7 +626,7 @@ describe('contract flow', () => {
     expect(progressSteps).toContain('lg:overflow-x-visible');
     expect(progressSteps).toContain('auto-cols-[5.9rem]');
     expect(progressSteps).toContain('<div className="relative flex min-w-0 items-center justify-center gap-1">');
-    expect(progressSteps).toContain('<span className="text-[9px] font-bold uppercase leading-none tracking-wide">Trin {index + 1}</span>');
+    expect(progressSteps).toContain("contractUi('step', language, { current: index + 1 })");
     expect(progressSteps).toContain('<p className="mt-0.5 break-words text-center text-[10px] font-medium leading-tight">{label.shortTitle}</p>');
     expect(progressSteps).toContain("active ? 'border-gray-950 bg-gray-950 text-white'");
     expect(progressSteps).toContain("complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950'");

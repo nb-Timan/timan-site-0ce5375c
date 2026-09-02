@@ -109,6 +109,20 @@ export const CONTRACT_STATUS_LABELS_DA: Record<ContractWorkflowStatus, string> =
   archived: 'Arkiveret',
 };
 
+const CONTRACT_STATUS_LABELS: Partial<Record<PortalUiLanguage, Record<ContractWorkflowStatus, string>>> = {
+  da: CONTRACT_STATUS_LABELS_DA,
+  en: {
+    pending_decision: 'Pending', draft: 'Draft', guided_review: 'Under review', ready_for_signature: 'Ready for signature',
+    awaiting_signed_upload: 'Awaiting signed contract', submitted_for_approval: 'Sent for Timan approval',
+    changes_requested: 'New upload required', approved: 'Approved', archived: 'Archived',
+  },
+  de: {
+    pending_decision: 'Ausstehend', draft: 'Entwurf', guided_review: 'In Prüfung', ready_for_signature: 'Bereit zur Unterschrift',
+    awaiting_signed_upload: 'Unterzeichneter Vertrag ausstehend', submitted_for_approval: 'Zur Timan-Genehmigung gesendet',
+    changes_requested: 'Neuer Upload erforderlich', approved: 'Genehmigt', archived: 'Archiviert',
+  },
+};
+
 export const CONTRACT_PROGRESS_STEPS: Array<{
   id: ContractWorkflowStatus;
   label: string;
@@ -370,8 +384,12 @@ export function getContractAppendixLabel(language: PortalUiLanguage | string | n
   return CONTRACT_APPENDIX_LABELS[language as PortalUiLanguage] ?? CONTRACT_APPENDIX_LABELS.da;
 }
 
-export function getContractWorkflowStatusLabel(status: ContractWorkflowStatus | string | null | undefined) {
-  return CONTRACT_STATUS_LABELS_DA[(status || 'draft') as ContractWorkflowStatus] ?? CONTRACT_STATUS_LABELS_DA.draft;
+export function getContractWorkflowStatusLabel(
+  status: ContractWorkflowStatus | string | null | undefined,
+  language: PortalUiLanguage | string | null | undefined = 'da',
+) {
+  const labels = CONTRACT_STATUS_LABELS[language as PortalUiLanguage] ?? CONTRACT_STATUS_LABELS.en ?? CONTRACT_STATUS_LABELS_DA;
+  return labels[(status || 'draft') as ContractWorkflowStatus] ?? labels.draft;
 }
 
 export function getLegacyContractStatus(status: ContractWorkflowStatus): LegacyContractStatus {

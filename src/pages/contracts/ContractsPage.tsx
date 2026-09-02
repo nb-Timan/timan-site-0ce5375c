@@ -138,7 +138,90 @@ import {
   getPartnerAccountTypeLabel,
   resolvePartnerAccountType,
 } from '@/lib/partnerAccountTypes';
-import { t } from '@/lib/i18n/translations';
+import { pickT, t } from '@/lib/i18n/translations';
+
+// UI copy belongs to the guided-flow surface. Legal contract content remains the
+// existing source-of-truth text and is deliberately not translated here.
+const CONTRACT_UI_COPY = {
+  guidedTitle: { da: 'Guidet forhandlerkontrakt', en: 'Guided dealer contract', de: 'Geführter Händlervertrag' },
+  guidedIntro: { da: 'Gennemgå aftalen trin for trin, før den gøres klar til underskrift og PDF.', en: 'Review the agreement step by step before it is prepared for signature and PDF.', de: 'Prüfen Sie den Vertrag Schritt für Schritt, bevor er für Unterschrift und PDF vorbereitet wird.' },
+  saveDraft: { da: 'Gem kladde', en: 'Save draft', de: 'Entwurf speichern' },
+  stepOf: { da: 'Trin {current} af {total}', en: 'Step {current} of {total}', de: 'Schritt {current} von {total}' },
+  step: { da: 'Trin {current}', en: 'Step {current}', de: 'Schritt {current}' },
+  previous: { da: 'Forrige', en: 'Previous', de: 'Zurück' },
+  nextStep: { da: 'Næste trin', en: 'Next step', de: 'Nächster Schritt' },
+  finalStep: { da: 'Sidste trin', en: 'Final step', de: 'Letzter Schritt' },
+  timanDetails: { da: 'Timan-oplysninger', en: 'Timan details', de: 'Timan-Angaben' },
+  timanSeller: { da: 'Timan sælger', en: 'Timan seller', de: 'Timan-Verkäufer' },
+  partner: { da: 'Samarbejdspartner', en: 'Partner', de: 'Partner' },
+  partnerType: { da: 'Partnertype', en: 'Partner type', de: 'Partnertyp' },
+  selectPartnerType: { da: 'Vælg partnertype...', en: 'Select partner type...', de: 'Partnertyp auswählen...' },
+  companyName: { da: 'Firmanavn', en: 'Company name', de: 'Firmenname' },
+  searchPartner: { da: 'Søg efter samarbejdspartner...', en: 'Search for partner...', de: 'Partner suchen...' },
+  selectPartnerFirst: { da: 'Vælg samarbejdspartner først', en: 'Select a partner first', de: 'Wählen Sie zuerst einen Partner aus' },
+  loadingPartners: { da: 'Henter godkendte partnere...', en: 'Loading approved partners...', de: 'Genehmigte Partner werden geladen...' },
+  noMatchingPartners: { da: 'Ingen godkendte aktive partnere matcher søgningen.', en: 'No approved active partners match the search.', de: 'Keine genehmigten aktiven Partner entsprechen der Suche.' },
+  noAddress: { da: 'Ingen adresseinfo', en: 'No address information', de: 'Keine Adressdaten' },
+  partnerPickerHelp: { da: 'Vælg en eksisterende godkendt partner. Ny kontrakt opretter ikke en ny partnerkonto.', en: 'Select an existing approved partner. A new contract does not create a new partner account.', de: 'Wählen Sie einen bestehenden genehmigten Partner. Ein neuer Vertrag erstellt kein neues Partnerkonto.' },
+  company: { da: 'Firma', en: 'Company', de: 'Unternehmen' },
+  address: { da: 'Adresse', en: 'Address', de: 'Adresse' },
+  postalCity: { da: 'Postnr. og by', en: 'Postal code and city', de: 'Postleitzahl und Ort' },
+  name: { da: 'Navn', en: 'Name', de: 'Name' },
+  phone: { da: 'Telefon', en: 'Phone', de: 'Telefon' },
+  postalCode: { da: 'Postnr.', en: 'Postal code', de: 'Postleitzahl' },
+  city: { da: 'By', en: 'City', de: 'Ort' },
+  country: { da: 'Land', en: 'Country', de: 'Land' },
+  contactPerson: { da: 'Kontaktperson', en: 'Contact person', de: 'Ansprechperson' },
+  title: { da: 'Titel', en: 'Title', de: 'Titel' },
+  date: { da: 'Dato', en: 'Date', de: 'Datum' },
+  contactPersonPlaceholder: { da: 'Navn på kontaktperson', en: 'Name of contact person', de: 'Name der Ansprechperson' },
+  titlePlaceholder: { da: 'Fx ejer, salgschef eller direktør', en: 'For example owner, sales manager or director', de: 'Zum Beispiel Inhaber, Vertriebsleiter oder Geschäftsführer' },
+  lockedContract: { da: 'Kontrakten er underskrevet. Opret en ny kladde, hvis oplysningerne skal ændres.', en: 'The contract is signed. Create a new draft to change the details.', de: 'Der Vertrag ist unterzeichnet. Erstellen Sie einen neuen Entwurf, um Angaben zu ändern.' },
+  partnerAccess: { da: 'Partneradgang', en: 'Partner access', de: 'Partnerzugang' },
+  status: { da: 'Status', en: 'Status', de: 'Status' },
+  accessNotOpened: { da: 'Ikke åbnet', en: 'Not opened', de: 'Nicht geöffnet' },
+  accessPlanned: { da: 'Planlagt', en: 'Scheduled', de: 'Geplant' },
+  accessOpenNow: { da: 'Åben nu', en: 'Open now', de: 'Jetzt geöffnet' },
+  accessExpired: { da: 'Udløbet', en: 'Expired', de: 'Abgelaufen' },
+  accessManuallyClosed: { da: 'Lukket manuelt', en: 'Closed manually', de: 'Manuell geschlossen' },
+  noActivePortalUser: { da: 'Ingen aktiv portalbruger på partneren endnu', en: 'There is no active portal user for this partner yet', de: 'Für diesen Partner gibt es noch keinen aktiven Portalbenutzer' },
+  user: { da: 'Bruger', en: 'User', de: 'Benutzer' },
+  opens: { da: 'Åbner', en: 'Opens', de: 'Öffnet' },
+  closes: { da: 'Lukker', en: 'Closes', de: 'Schließt' },
+  oneHour: { da: '1 time', en: '1 hour', de: '1 Stunde' },
+  twoHours: { da: '2 timer', en: '2 hours', de: '2 Stunden' },
+  fourHours: { da: '4 timer', en: '4 hours', de: '4 Stunden' },
+  twentyFourHours: { da: '24 timer', en: '24 hours', de: '24 Stunden' },
+  custom: { da: 'Brugerdefineret', en: 'Custom', de: 'Benutzerdefiniert' },
+  saving: { da: 'Gemmer...', en: 'Saving...', de: 'Wird gespeichert...' },
+  openContractForPartner: { da: 'Åbn kontrakt for partner', en: 'Open contract for partner', de: 'Vertrag für Partner öffnen' },
+  extend: { da: 'Forlæng', en: 'Extend', de: 'Verlängern' },
+  closeNow: { da: 'Luk nu', en: 'Close now', de: 'Jetzt schließen' },
+  contractAccessInactive: { da: 'Kontraktadgang er ikke aktiv', en: 'Contract access is not active', de: 'Der Vertragszugang ist nicht aktiv' },
+  contractAccessInactiveHelp: { da: 'Timan åbner den guidede kontrakt i et tidsbegrænset vindue, når aftalen skal gennemgås. Når kontrakten er godkendt, kan den fortsat findes som juridisk dokument under Partnerdata.', en: 'Timan opens the guided contract in a limited time window when the agreement is to be reviewed. Once approved, it remains available as a legal document under Partner data.', de: 'Timan öffnet den geführten Vertrag in einem zeitlich begrenzten Fenster zur Prüfung. Nach Genehmigung bleibt er als Rechtsdokument unter Partnerdaten verfügbar.' },
+  reviewConfirmed: { da: 'Vi har gennemgået og forstået dette afsnit.', en: 'We have reviewed and understood this section.', de: 'Wir haben diesen Abschnitt geprüft und verstanden.' },
+  confirmBeforeNext: { da: 'Bekræft dette afsnit, før du går videre.', en: 'Confirm this section before continuing.', de: 'Bestätigen Sie diesen Abschnitt, bevor Sie fortfahren.' },
+} as const;
+
+function contractUi(key: keyof typeof CONTRACT_UI_COPY, language: string, values: Record<string, string | number> = {}) {
+  let copy = pickT(CONTRACT_UI_COPY[key], language);
+  for (const [name, value] of Object.entries(values)) copy = copy.replace(`{${name}}`, String(value));
+  return copy;
+}
+
+function getLocalizedAccessWindowStatus(window: DealerContractAccessWindow | null, language: string) {
+  const status = getAccessWindowDisplayStatus(window);
+  const key = status === 'Planlagt'
+    ? 'accessPlanned'
+    : status === 'Åben nu'
+      ? 'accessOpenNow'
+      : status === 'Udløbet'
+        ? 'accessExpired'
+        : status === 'Lukket manuelt'
+          ? 'accessManuallyClosed'
+          : 'accessNotOpened';
+  return contractUi(key, language);
+}
 
 const CONTRACT_DOCS = [
   { title: 'Forhandlerkontrakt Timan', href: '/contracts/forhandlerkontrakt-timan.pdf', section: 'Hovedaftale' },
@@ -155,19 +238,19 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function formatDateDa(value: string) {
+function formatDateDa(value: string, language = 'da') {
   if (!value) return '';
   try {
-    return new Date(`${value}T12:00:00`).toLocaleDateString('da-DK');
+    return new Date(`${value}T12:00:00`).toLocaleDateString(contractDateLocale(language));
   } catch {
     return value;
   }
 }
 
-function formatDateTimeDa(value: string) {
+function formatDateTimeDa(value: string, language = 'da') {
   if (!value) return '';
   try {
-    return new Date(value).toLocaleString('da-DK', {
+    return new Date(value).toLocaleString(contractDateLocale(language), {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -177,6 +260,10 @@ function formatDateTimeDa(value: string) {
   } catch {
     return value;
   }
+}
+
+function contractDateLocale(language: string) {
+  return ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU', sv: 'sv-SE', fr: 'fr-FR', pl: 'pl-PL', cs: 'cs-CZ' } as Record<string, string>)[language] ?? 'en-GB';
 }
 
 function toLocalDateTimeInputValue(date: Date) {
@@ -903,7 +990,7 @@ export default function ContractsPage() {
     && activeStep.id !== 'spare_parts_service';
   const status = getContractStatus(form, confirmations);
   const workflowStatus: ContractWorkflowStatus = contractRecord?.contract_status ?? (status === 'Draft' ? 'draft' : status === 'In review' ? 'guided_review' : 'ready_for_signature');
-  const workflowStatusLabel = getContractWorkflowStatusLabel(workflowStatus);
+  const workflowStatusLabel = getContractWorkflowStatusLabel(workflowStatus, uiLanguage);
   const isLockedContract = hasReachedContractStatus(workflowStatus, 'ready_for_signature');
   const isSigned = workflowStatus === 'approved' || workflowStatus === 'archived';
   const externalGuidedAccessBlocked = !isInternalContractActor
@@ -1584,10 +1671,9 @@ export default function ContractsPage() {
                 <Lock className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-950">Kontraktadgang er ikke aktiv</h1>
+                <h1 className="text-xl font-bold text-gray-950">{contractUi('contractAccessInactive', uiLanguage)}</h1>
                 <p className="mt-2 text-sm leading-6 text-gray-600">
-                  Timan åbner den guidede kontrakt i et tidsbegrænset vindue, når aftalen skal gennemgås.
-                  Når kontrakten er godkendt, kan den fortsat findes som juridisk dokument under Partnerdata.
+                  {contractUi('contractAccessInactiveHelp', uiLanguage)}
                 </p>
               </div>
             </div>
@@ -1629,8 +1715,8 @@ export default function ContractsPage() {
                   <FileSignature className="h-5 w-5" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Guidet forhandlerkontrakt</h1>
-                  <p className="text-sm text-gray-500 mt-1">Gennemgå aftalen trin for trin, før den gøres klar til underskrift og PDF.</p>
+                  <h1 className="text-2xl font-bold text-gray-900">{contractUi('guidedTitle', uiLanguage)}</h1>
+                  <p className="text-sm text-gray-500 mt-1">{contractUi('guidedIntro', uiLanguage)}</p>
                 </div>
               </div>
               <div className="flex flex-col items-start gap-2 sm:items-end">
@@ -1645,7 +1731,7 @@ export default function ContractsPage() {
                   className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
                 >
                   <Save className="h-4 w-4" />
-                  Gem kladde
+                  {contractUi('saveDraft', uiLanguage)}
                 </button>
               </div>
             </div>
@@ -1658,7 +1744,7 @@ export default function ContractsPage() {
         <div className="grid grid-cols-1 gap-6">
           <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
             <div className="mb-6">
-              <p className="text-sm font-bold uppercase tracking-wide text-amber-700">Trin {activeStepIndex + 1} af {CONTRACT_STEPS.length}</p>
+              <p className="text-sm font-bold uppercase tracking-wide text-amber-700">{contractUi('stepOf', uiLanguage, { current: activeStepIndex + 1, total: CONTRACT_STEPS.length })}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <h2 className="text-2xl font-bold text-gray-950">{activeStepLabel.title}</h2>
                 {showActiveStepAppendixBadge && (
@@ -1779,7 +1865,7 @@ export default function ContractsPage() {
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <ChevronLeft className="h-4 w-4" />
-                Forrige
+                {contractUi('previous', uiLanguage)}
               </button>
               {activeStepIndex < CONTRACT_STEPS.length - 1 ? (
                 <button
@@ -1788,11 +1874,11 @@ export default function ContractsPage() {
                   disabled={!currentStepConfirmed}
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-gray-950 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
                 >
-                  Næste trin
+                  {contractUi('nextStep', uiLanguage)}
                   <ChevronRight className="h-4 w-4" />
                 </button>
               ) : (
-                <span className="text-sm font-semibold text-gray-500">Sidste trin</span>
+                <span className="text-sm font-semibold text-gray-500">{contractUi('finalStep', uiLanguage)}</span>
               )}
             </div>
           </section>
@@ -1839,6 +1925,7 @@ function PartnerContractAccessPanel({
   onExtend: (window: DealerContractAccessWindow) => void;
   onRevoke: (window: DealerContractAccessWindow) => void;
 }) {
+  const { uiLanguage } = useLanguage();
   const latestWindow = windows[0] ?? null;
   const activeWindow = windows.find((window) => getAccessWindowDisplayStatus(window) === 'Åben nu') ?? null;
   const controlsDisabled = busy || !partnerSelected;
@@ -1848,29 +1935,29 @@ function PartnerContractAccessPanel({
     <section className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left shadow-sm">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Partneradgang</p>
-          <p className="text-sm font-semibold text-slate-900">Status: {getAccessWindowDisplayStatus(latestWindow)}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{contractUi('partnerAccess', uiLanguage)}</p>
+          <p className="text-sm font-semibold text-slate-900">{contractUi('status', uiLanguage)}: {getLocalizedAccessWindowStatus(latestWindow, uiLanguage)}</p>
         </div>
         {activeWindow && (
           <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            Åben nu
+            {contractUi('accessOpenNow', uiLanguage)}
           </span>
         )}
       </div>
 
       {!partnerSelected ? (
         <p className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
-          Vælg samarbejdspartner først
+          {contractUi('selectPartnerFirst', uiLanguage)}
         </p>
       ) : users.length === 0 ? (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
-          Ingen aktiv portalbruger på partneren endnu
+          {contractUi('noActivePortalUser', uiLanguage)}
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1.3fr_1fr_1fr]">
           <label className="text-xs font-semibold text-slate-600">
-            Bruger
+            {contractUi('user', uiLanguage)}
             <select
               value={selectedUserId}
               disabled={controlsDisabled}
@@ -1883,7 +1970,7 @@ function PartnerContractAccessPanel({
             </select>
           </label>
           <label className="text-xs font-semibold text-slate-600">
-            Åbner
+            {contractUi('opens', uiLanguage)}
             <input
               type="datetime-local"
               value={opensAt}
@@ -1893,7 +1980,7 @@ function PartnerContractAccessPanel({
             />
           </label>
           <label className="text-xs font-semibold text-slate-600">
-            Lukker
+            {contractUi('closes', uiLanguage)}
             <input
               type="datetime-local"
               value={closesAt}
@@ -1907,11 +1994,11 @@ function PartnerContractAccessPanel({
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {[
-          ['60', '1 time'],
-          ['120', '2 timer'],
-          ['240', '4 timer'],
-          ['1440', '24 timer'],
-          ['custom', 'Brugerdefineret'],
+          ['60', contractUi('oneHour', uiLanguage)],
+          ['120', contractUi('twoHours', uiLanguage)],
+          ['240', contractUi('fourHours', uiLanguage)],
+          ['1440', contractUi('twentyFourHours', uiLanguage)],
+          ['custom', contractUi('custom', uiLanguage)],
         ].map(([value, label]) => (
           <button
             key={value}
@@ -1930,7 +2017,7 @@ function PartnerContractAccessPanel({
           className="inline-flex items-center gap-1.5 rounded-full bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           <Clock className="h-3.5 w-3.5" />
-          {busy ? 'Gemmer...' : 'Åbn kontrakt for partner'}
+          {busy ? contractUi('saving', uiLanguage) : contractUi('openContractForPartner', uiLanguage)}
         </button>
       </div>
 
@@ -1939,7 +2026,7 @@ function PartnerContractAccessPanel({
           <p className="font-semibold text-slate-900">
             {users.find((user) => user.id === latestWindow.user_id)?.name || latestWindow.user_id || 'Partnerbruger'}
           </p>
-          <p>{formatDateTimeDa(latestWindow.opens_at)} → {formatDateTimeDa(latestWindow.closes_at)}</p>
+          <p>{formatDateTimeDa(latestWindow.opens_at, uiLanguage)} → {formatDateTimeDa(latestWindow.closes_at, uiLanguage)}</p>
           <div className="mt-2 flex gap-2">
             <button
               type="button"
@@ -1947,7 +2034,7 @@ function PartnerContractAccessPanel({
               disabled={busy || latestWindow.revoked_at !== null}
               className="rounded-full border border-slate-200 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Forlæng
+              {contractUi('extend', uiLanguage)}
             </button>
             <button
               type="button"
@@ -1955,7 +2042,7 @@ function PartnerContractAccessPanel({
               disabled={busy || latestWindow.revoked_at !== null}
               className="rounded-full border border-red-200 px-2.5 py-1 font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Luk nu
+              {contractUi('closeNow', uiLanguage)}
             </button>
           </div>
         </div>
@@ -2304,6 +2391,7 @@ function PartiesStep({
   partnerAccessPanel?: ReactNode;
   locked: boolean;
 }) {
+  const { uiLanguage } = useLanguage();
   const [partnerQuery, setPartnerQuery] = useState('');
   const [accounts, setAccounts] = useState<DealerAccount[]>([]);
   const [accountsLoaded, setAccountsLoaded] = useState(false);
@@ -2366,24 +2454,24 @@ function PartiesStep({
   return (
     <div className="space-y-6">
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-emerald-900 mb-4">Timan-oplysninger</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wide text-emerald-900 mb-4">{contractUi('timanDetails', uiLanguage)}</h3>
         <div className="space-y-5">
           <div>
             <p className="text-lg font-bold text-emerald-950">{TIMAN_COMPANY_INFO.company}</p>
             <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <InfoField label="Firma" value={TIMAN_COMPANY_INFO.company} />
+              <InfoField label={contractUi('company', uiLanguage)} value={TIMAN_COMPANY_INFO.company} />
               <InfoField label="CVR" value={TIMAN_COMPANY_INFO.cvr} />
-              <InfoField label="Adresse" value={TIMAN_COMPANY_INFO.address} />
-              <InfoField label="Postnr. og by" value={TIMAN_COMPANY_INFO.postalCity} />
+              <InfoField label={contractUi('address', uiLanguage)} value={TIMAN_COMPANY_INFO.address} />
+              <InfoField label={contractUi('postalCity', uiLanguage)} value={TIMAN_COMPANY_INFO.postalCity} />
             </div>
           </div>
           <div className="border-t border-emerald-200 pt-4">
-            <p className="text-sm font-bold uppercase tracking-wide text-emerald-900">Timan sælger</p>
+            <p className="text-sm font-bold uppercase tracking-wide text-emerald-900">{contractUi('timanSeller', uiLanguage)}</p>
             <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <InfoField label="Navn" value={form.timanSellerName || '-'} />
+              <InfoField label={contractUi('name', uiLanguage)} value={form.timanSellerName || '-'} />
               <InfoField label="E-mail" value={form.timanSellerEmail || '-'} />
               {form.timanSellerPhone.trim() && (
-                <InfoField label="Telefon" value={form.timanSellerPhone} />
+                <InfoField label={contractUi('phone', uiLanguage)} value={form.timanSellerPhone} />
               )}
             </div>
             {!form.timanSellerPhone.trim() && (
@@ -2394,20 +2482,20 @@ function PartiesStep({
       </div>
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900 mb-3">Samarbejdspartner</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900 mb-3">{contractUi('partner', uiLanguage)}</h3>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <label className="order-1 block">
-            <span className="text-sm font-semibold text-gray-700">Partnertype *</span>
+            <span className="text-sm font-semibold text-gray-700">{contractUi('partnerType', uiLanguage)} *</span>
             <select
               value={form.partnerType}
               disabled={locked}
               onChange={(e) => handlePartnerTypeChange(e.target.value as ContractPartnerType | '')}
               className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
             >
-              <option value="">Vælg partnertype...</option>
+              <option value="">{contractUi('selectPartnerType', uiLanguage)}</option>
               {CONTRACT_PARTNER_TYPES.map((partnerType) => (
                 <option key={partnerType} value={partnerType}>
-                  {getContractPartnerTypeLabel(partnerType, 'da')}
+                  {getContractPartnerTypeLabel(partnerType, uiLanguage)}
                 </option>
               ))}
             </select>
@@ -2418,7 +2506,7 @@ function PartiesStep({
             </div>
           )}
           <label className="order-2 block lg:order-3 lg:col-span-3">
-            <span className="text-sm font-semibold text-gray-700">Firmanavn *</span>
+            <span className="text-sm font-semibold text-gray-700">{contractUi('companyName', uiLanguage)} *</span>
             <div className="relative mt-2">
               <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-amber-500">
                 <Search className="h-4 w-4 shrink-0 text-gray-400" />
@@ -2428,13 +2516,13 @@ function PartiesStep({
                   disabled={locked || !form.partnerType}
                   onFocus={() => void loadAccounts()}
                   onChange={(event) => setPartnerQuery(event.target.value)}
-                  placeholder={form.partnerType ? 'Søg efter samarbejdspartner...' : 'Vælg partnertype først'}
+                  placeholder={form.partnerType ? contractUi('searchPartner', uiLanguage) : contractUi('selectPartnerFirst', uiLanguage)}
                   className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none disabled:cursor-not-allowed disabled:text-gray-500"
                 />
               </div>
               {!locked && form.partnerType && (
                 <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-                  {accountsLoading && <p className="px-3 py-2 text-sm text-gray-500">Henter godkendte partnere...</p>}
+                  {accountsLoading && <p className="px-3 py-2 text-sm text-gray-500">{contractUi('loadingPartners', uiLanguage)}</p>}
                   {accountsError && <p className="px-3 py-2 text-sm font-semibold text-amber-800">{accountsError}</p>}
                   {!accountsLoading && partnerResults.length > 0 && partnerResults.map((account) => (
                     <button
@@ -2444,30 +2532,30 @@ function PartiesStep({
                       className="block w-full border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-amber-50"
                     >
                       <span className="block font-bold text-gray-950">{formatContractPartnerPickerOption(account)}</span>
-                      <span className="mt-0.5 block text-xs text-gray-500">{formatContractPartnerPickerDetails(account) || 'Ingen adresseinfo'}</span>
+                      <span className="mt-0.5 block text-xs text-gray-500">{formatContractPartnerPickerDetails(account) || contractUi('noAddress', uiLanguage)}</span>
                     </button>
                   ))}
                   {!accountsLoading && accountsLoaded && partnerResults.length === 0 && (
-                    <p className="px-3 py-2 text-sm text-gray-500">Ingen godkendte aktive partnere matcher søgningen.</p>
+                    <p className="px-3 py-2 text-sm text-gray-500">{contractUi('noMatchingPartners', uiLanguage)}</p>
                   )}
                 </div>
               )}
             </div>
             <span className="mt-1 block text-xs text-gray-500">
-              Vælg en eksisterende godkendt partner. Ny kontrakt opretter ikke en ny partnerkonto.
+              {contractUi('partnerPickerHelp', uiLanguage)}
             </span>
           </label>
         </div>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <TextField label="CVR *" value={form.dealerCvr} onChange={(value) => update('dealerCvr', value)} disabled={locked} />
-          <TextField label="Adresse *" value={form.dealerAddress} onChange={(value) => update('dealerAddress', value)} disabled={locked} />
-          <TextField label="Postnr. *" value={form.dealerPostalCode} onChange={(value) => update('dealerPostalCode', value)} disabled={locked} />
-          <TextField label="By *" value={form.dealerCity} onChange={(value) => update('dealerCity', value)} disabled={locked} />
-          <TextField label="Land" value={form.dealerCountry ?? ''} onChange={(value) => update('dealerCountry', value)} disabled={locked} />
-          <TextField label="Kontaktperson *" value={form.contactPerson} onChange={(value) => update('contactPerson', value)} placeholder="Navn på kontaktperson" disabled={locked} />
-          <TextField label="Titel" value={form.contactTitle} onChange={(value) => update('contactTitle', value)} placeholder="Fx ejer, salgschef eller direktør" disabled={locked} />
+          <TextField label={`${contractUi('address', uiLanguage)} *`} value={form.dealerAddress} onChange={(value) => update('dealerAddress', value)} disabled={locked} />
+          <TextField label={`${contractUi('postalCode', uiLanguage)} *`} value={form.dealerPostalCode} onChange={(value) => update('dealerPostalCode', value)} disabled={locked} />
+          <TextField label={`${contractUi('city', uiLanguage)} *`} value={form.dealerCity} onChange={(value) => update('dealerCity', value)} disabled={locked} />
+          <TextField label={contractUi('country', uiLanguage)} value={form.dealerCountry ?? ''} onChange={(value) => update('dealerCountry', value)} disabled={locked} />
+          <TextField label={`${contractUi('contactPerson', uiLanguage)} *`} value={form.contactPerson} onChange={(value) => update('contactPerson', value)} placeholder={contractUi('contactPersonPlaceholder', uiLanguage)} disabled={locked} />
+          <TextField label={contractUi('title', uiLanguage)} value={form.contactTitle} onChange={(value) => update('contactTitle', value)} placeholder={contractUi('titlePlaceholder', uiLanguage)} disabled={locked} />
           <label className="block">
-            <span className="text-sm font-semibold text-gray-700">Dato *</span>
+            <span className="text-sm font-semibold text-gray-700">{contractUi('date', uiLanguage)} *</span>
             <input
               type="date"
               value={form.contractDate}
@@ -2479,7 +2567,7 @@ function PartiesStep({
         </div>
         {locked && (
           <p className="mt-3 text-xs font-semibold text-amber-900">
-            Kontrakten er underskrevet. Opret en ny kladde, hvis oplysningerne skal ændres.
+            {contractUi('lockedContract', uiLanguage)}
           </p>
         )}
       </div>
@@ -2615,12 +2703,12 @@ function ReviewStep({
         <div className={`rounded-2xl border p-5 ${confirmation?.confirmed ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
           {isTerritoryStep && !territoryValid && (
             <p className="mb-3 text-sm font-semibold text-amber-900">
-              Vælg et gyldigt primært område, før dette trin kan bekræftes.
+              {uiLanguage === 'de' ? 'Wählen Sie ein gültiges primäres Gebiet, bevor dieser Schritt bestätigt werden kann.' : uiLanguage === 'en' ? 'Select a valid primary territory before this step can be confirmed.' : 'Vælg et gyldigt primært område, før dette trin kan bekræftes.'}
             </p>
           )}
           {isServiceStep && !serviceHourlyRateValid && (
             <p className="mb-3 text-sm font-semibold text-amber-900">
-              Angiv en gyldig timetakst for reklamationsarbejde, før dette trin kan bekræftes.
+              {uiLanguage === 'de' ? 'Geben Sie einen gültigen Stundensatz für Reklamationsarbeiten an, bevor dieser Schritt bestätigt werden kann.' : uiLanguage === 'en' ? 'Enter a valid hourly rate for warranty work before this step can be confirmed.' : 'Angiv en gyldig timetakst for reklamationsarbejde, før dette trin kan bekræftes.'}
             </p>
           )}
           <label className={`flex items-start gap-3 ${stepValid && !locked ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
@@ -2632,7 +2720,7 @@ function ReviewStep({
               className="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600 disabled:cursor-not-allowed"
             />
             <span>
-              <span className="block text-sm font-bold text-gray-950">Vi har gennemgået og forstået dette afsnit.</span>
+              <span className="block text-sm font-bold text-gray-950">{contractUi('reviewConfirmed', uiLanguage)}</span>
               {confirmation?.confirmedAt && (
                 <span className="mt-1 block text-xs text-gray-600">
                   Bekræftet {new Date(confirmation.confirmedAt).toLocaleString('da-DK')} af {confirmation.confirmedBy}
@@ -3907,6 +3995,7 @@ function SignatureStep({
   onMoveSignedFile: (file: DealerContractUploadFile, direction: -1 | 1) => void;
   onSubmitUpload: () => void;
 }) {
+  const { uiLanguage } = useLanguage();
   const expectedPages = contract?.expected_signed_pages ?? 0;
   const draftUpload = uploadVersions.find((version) => version.status === 'draft') ?? null;
   const uploadedFiles = draftUpload?.files ?? activeUploadVersion?.files ?? [];
@@ -3957,7 +4046,7 @@ function SignatureStep({
             <InfoMini label="Kontraktnummer" value={contract.contract_number || contract.id.slice(0, 8)} />
             <InfoMini label="Version" value={contract.contract_version} />
             <InfoMini label="Dato" value={formatDateDa(contract.final_snapshot?.contractDate || form.contractDate)} />
-            <InfoMini label="Status" value={getContractWorkflowStatusLabel(workflowStatus)} />
+            <InfoMini label={contractUi('status', uiLanguage)} value={getContractWorkflowStatusLabel(workflowStatus, uiLanguage)} />
           </div>
         </div>
       )}
@@ -4234,7 +4323,7 @@ function ProgressSteps({
               className={`min-w-0 rounded-lg border px-1.5 py-1.5 ${active ? 'border-gray-950 bg-gray-950 text-white' : complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-gray-200 bg-white text-gray-600'}`}
             >
               <div className="relative flex min-w-0 items-center justify-center gap-1">
-                <span className="text-[9px] font-bold uppercase leading-none tracking-wide">Trin {index + 1}</span>
+                <span className="text-[9px] font-bold uppercase leading-none tracking-wide">{contractUi('step', language, { current: index + 1 })}</span>
               </div>
               <p className="mt-0.5 break-words text-center text-[10px] font-medium leading-tight">{label.shortTitle}</p>
             </div>
