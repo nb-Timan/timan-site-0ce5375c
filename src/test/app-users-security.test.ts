@@ -51,6 +51,17 @@ describe("app_users client-side write paths", () => {
     expect(src).toContain("app_user_directory");
     expect(src).toContain("id,email,initials,full_name,portal_role,company,phone");
   });
+
+  it("admin-user-actions prevents active external partner users without a canonical dealer account", () => {
+    const src = readFileSync(
+      join(process.cwd(), "supabase/functions/admin-user-actions/index.ts"),
+      "utf8",
+    );
+    expect(src).toContain("EXTERNAL_PARTNER_ROLES");
+    expect(src).toContain("dealer_accounts");
+    expect(src).toContain("Forhandlerkonto");
+    expect(src).toContain("findes ikke som en aktiv canonical konto");
+  });
 });
 
 describe("phase63 migration", () => {

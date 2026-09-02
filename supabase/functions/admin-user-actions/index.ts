@@ -129,6 +129,26 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+const EXTERNAL_PARTNER_ROLES = new Set([
+  "timan_dealer",
+  "timan_importer",
+  "timan_service_partner",
+  "dealer_user",
+  "dealer_customer",
+]);
+
+function isTruthyActive(value: unknown): boolean {
+  return value === true || value === "true" || value === "active";
+}
+
+function effectiveString(
+  patch: Record<string, unknown>,
+  before: Record<string, unknown>,
+  key: string,
+): string {
+  return String((key in patch ? patch[key] : before[key]) ?? "").trim();
+}
+
 function normalizeForAudit(value: unknown): unknown {
   if (value === undefined) return null;
   return value;
@@ -388,6 +408,47 @@ Deno.serve(async (req) => {
         return json(
           { error: "Du kan ikke fjerne din egen adgang til brugeradministration." },
           403,
+        );
+      }
+    }
+
+    const beforeRow = before as Record<string, unknown>;
+    const effectivePortalRole = effectiveString(patch, beforeRow, "portal_role");
+    const effectiveDealerNumber = effectiveString(patch, beforeRow, "dealer_number");
+    const effectiveStatus = effectiveString(patch, beforeRow, "status");
+    const effectiveApproved = "approved" in patch ? patch.approved : beforeRow.approved;
+    const effectiveIsActive = "is_active" in patch ? patch.is_active : beforeRow.is_active;
+    const isActiveApprovedPartner =
+      EXTERNAL_PARTNER_ROLES.has(effectivePortalRole) &&
+      effectiveApproved === true &&
+      isTruthyActive(effectiveIsActive) &&
+      (effectiveStatus === "" || effectiveStatus === "active");
+
+    if (isActiveApprovedPartner) {
+      if (!effectiveDealerNumber) {
+        return json(
+          { error: "Aktive/godkendte eksterne partnerbrugere skal være koblet til et kontonummer i dealer_accounts." },
+          409,
+        );
+      }
+      const { data: dealer, error: dealerErr } = await admin
+        .from("dealer_accounts")
+        .select("id, account_number, status, is_active, is_blocked, is_deleted")
+        .eq("account_number", effectiveDealerNumber)
+        .maybeSingle();
+      if (dealerErr) {
+        return json({ error: `Kunne ikke verificere dealer_accounts for ${effectiveDealerNumber}: ${dealerErr.message}` }, 500);
+      }
+      if (
+        !dealer ||
+        dealer.is_active !== true ||
+        dealer.is_blocked === true ||
+        dealer.is_deleted === true ||
+        (dealer.status && dealer.status !== "active")
+      ) {
+        return json(
+          { error: `Forhandlerkonto ${effectiveDealerNumber} findes ikke som en aktiv canonical konto i dealer_accounts.` },
+          409,
         );
       }
     }
