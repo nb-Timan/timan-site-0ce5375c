@@ -7,6 +7,19 @@ import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
 import { generateLocalCrmDocumentNumber, getNextCrmDocumentNumber } from '@/lib/crmNumberSequencesService';
 
+async function recordConfiguratorUsage(activeSeconds = 0): Promise<void> {
+  try {
+    const { recordPortalModuleUsageByKey } = await import('@/lib/visitorTracking');
+    await recordPortalModuleUsageByKey({
+      moduleKey: 'configurator',
+      activeSeconds,
+      visitIncrement: 0,
+    });
+  } catch (e) {
+    console.warn('[configurationsService] configurator analytics failed (ignored):', e);
+  }
+}
+
 
 /**
  * Account-panel ("Min konto") scope.
@@ -1001,6 +1014,7 @@ export async function saveConfiguration(
   }
 
   const itemsError = await saveConfigurationItems(data.id, state);
+  void recordConfiguratorUsage();
 
   const savedQuoteNumber = (row.quote_number as string) ?? data.quote_number ?? null;
   const savedOrderNumber = (row.order_number as string) ?? data.order_number ?? null;
@@ -1151,6 +1165,7 @@ export async function updateConfiguration(
     console.warn('[updateConfiguration] delete items failed (continuing):', delErr);
   }
   const itemsError = await saveConfigurationItems(id, state);
+  void recordConfiguratorUsage();
   return { error: null, itemsError };
 }
 
@@ -1390,6 +1405,7 @@ export async function markAsOrderSubmitted(id: string, options?: { pricingMode?:
   });
 
   if (error) console.error('Failed to mark as order submitted:', error);
+  else void recordConfiguratorUsage(1);
 
   // CRM: log order_sent activity. Strict mode = no misleading "Gemt lokalt"
   // toast on this send flow; failures are surfaced to the console for
@@ -1467,6 +1483,7 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
     console.error('Failed to mark PDF downloaded:', error);
     throw new Error(formatSupabaseError(error));
   }
+  void recordConfiguratorUsage(1);
 
   // CRM: log quote_sent on the first quote PDF download.
   if (isFirstQuoteSend) {

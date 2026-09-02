@@ -331,7 +331,20 @@ export async function recordPortalModuleUsage(input: {
   if (!input.user?.email) return;
   const moduleKey = derivePortalModuleKey(input.path);
   if (!moduleKey) return;
+  await recordPortalModuleUsageByKey({
+    moduleKey,
+    activeSeconds: input.activeSeconds,
+    visitIncrement: input.visitIncrement,
+  });
+}
 
+export async function recordPortalModuleUsageByKey(input: {
+  moduleKey: string;
+  activeSeconds?: number;
+  visitIncrement?: number;
+}): Promise<void> {
+  const moduleKey = input.moduleKey.trim().toLowerCase();
+  if (!moduleKey) return;
   try {
     const activeSeconds = Math.max(0, Math.min(input.activeSeconds ?? 0, MODULE_ACTIVE_SECONDS_CAP));
     const visitIncrement = input.visitIncrement ? 1 : 0;
