@@ -37,6 +37,25 @@ describe("getLeadPipelineValue", () => {
     expect(getLeadPipelineValue(row)).toBe(previousDashboardRule(row));
   });
 
+  it("calculates a partial estimate from securely matched item numbers and ignores unmatched items", () => {
+    const estimate = calculateMachineInterestEstimate([
+      "RC-1000S",
+      "Equipment: RC-1000S - Standardöl - Texaco HDZ46 (13101003)",
+      "Equipment: RC-1000S - Schlegelmäher inkl. Y-Schlegel-Set (410910)",
+      "Equipment: RC-1000S - Ständer zum Abstellen des Schlegelmähers (411701)",
+      "Equipment: RC-1000S - Fingerbalkenmäher 1700 mm (411800)",
+      "Equipment: RC-1000S - Hakenplatte für Ausrüstung (411891)",
+      "Equipment: RC-1000S - Heckgewicht (411906)",
+      "Equipment: RC-1000S - Ukendt specialredskab (999999)",
+    ], "da");
+
+    expect(estimate.total).toBe(346_220);
+    expect(estimate.pricedItems).toHaveLength(7);
+    expect(estimate.unmappedItems).toEqual([
+      "Equipment: RC-1000S - Ukendt specialredskab (999999)",
+    ]);
+  });
+
   it("returns 0 for unknown or missing machine types", () => {
     expect(getLeadPipelineValue(lead({ machine_types: ["Unknown machine"] }))).toBe(0);
     expect(getLeadPipelineValue(lead({ machine_types: [] }))).toBe(0);

@@ -335,8 +335,12 @@ export default function CrmNewDemoLeadPage() {
     return {
       value: estimate.total > 0 ? String(estimate.total) : '',
       unmappedItems: estimate.unmappedItems,
+      pricedItems: estimate.pricedItems,
     };
   }, [machineInterest]);
+  const machineEstimateNote = machineEstimate.unmappedItems.length > 0
+    ? `Prisestimat baseret på ${machineEstimate.pricedItems.length} af ${machineInterest.length} valgte produkter. ${machineEstimate.unmappedItems.length} valgte produkter har ingen kendt pris og er ikke medregnet.`
+    : '';
 
   useEffect(() => {
     setEstValue(machineEstimate.value);
@@ -539,8 +543,8 @@ export default function CrmNewDemoLeadPage() {
               {showErrors && errDemoMachine && <p className="mt-1.5 text-xs text-rose-600">{errDemoMachine}</p>}
               {showErrors && errDemoEquipment && <p className="mt-1.5 text-xs text-rose-600">{errDemoEquipment}</p>}
               {machineEstimate.unmappedItems.length > 0 && (
-                <p className="mt-2 text-xs text-amber-700">
-                  Kunne ikke matche pris for: {machineEstimate.unmappedItems.join(', ')}
+                <p className="mt-2 text-xs text-slate-500">
+                  {machineEstimateNote}
                 </p>
               )}
             </div>

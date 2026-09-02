@@ -57,6 +57,21 @@ function findAccessory(machineKey: string, label: string): Accessory | null {
     || null;
 }
 
+function extractItemNumber(value: string): string | null {
+  const parenthesized = value.match(/\(([A-Z0-9][A-Z0-9._-]{2,})\)\s*$/i)?.[1];
+  const direct = value.match(/\b([A-Z0-9][A-Z0-9._-]{2,})\b/i)?.[1];
+  return (parenthesized || direct || '').trim() || null;
+}
+
+function findAccessoryByItemNumber(machineKey: string, itemNumber: string | null): Accessory | null {
+  if (!itemNumber) return null;
+  const wanted = itemNumber.trim().toLowerCase();
+  return getAccessoriesFlat(machineKey)
+    .filter((acc) => !acc.isHeader && !acc.hidden)
+    .find((acc) => acc.varenr.trim().toLowerCase() === wanted || acc.id.trim().toLowerCase() === wanted)
+    || null;
+}
+
 function addAccessoryWithParents(machineKey: string, ids: Set<string>, acc: Accessory) {
   ids.add(acc.id);
   const flat = getAccessoriesFlat(machineKey);
@@ -111,13 +126,14 @@ export function calculateMachineInterestEstimate(
 
     if (isEquipment) {
       const parsed = parseEquipmentEntry(item);
+      const itemNumber = extractItemNumber(parsed.label);
       const keysToTry = parsed.machineKey
         ? [parsed.machineKey]
         : ['RC-1000S', 'Timan 2620', 'Timan 3330', LOOSE_TOOL_KEY];
       let matched = false;
 
       for (const key of keysToTry) {
-        const acc = findAccessory(key, parsed.label);
+        const acc = findAccessoryByItemNumber(key, itemNumber) || findAccessory(key, parsed.label);
         if (!acc) continue;
         const price = getPrice(acc, language);
         total += price;

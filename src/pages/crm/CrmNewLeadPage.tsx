@@ -1050,6 +1050,9 @@ export default function CrmNewLeadPage() {
       pricedItems: estimate.pricedItems,
     };
   }, [machineTypes]);
+  const machineEstimateNote = machineEstimate.unmappedItems.length > 0
+    ? `Prisestimat baseret på ${machineEstimate.pricedItems.length} af ${machineTypes.length} valgte produkter. ${machineEstimate.unmappedItems.length} valgte produkter har ingen kendt pris og er ikke medregnet.`
+    : '';
   const structuredContactInfo = useMemo<StructuredContactInfo>(() => {
     const postalCode = contactPostalCode.trim();
     const city = contactCity.trim();
@@ -1562,8 +1565,8 @@ export default function CrmNewLeadPage() {
                 <p className="mt-2 text-[11px] font-medium text-rose-600">{fieldError('machineTypes')}</p>
               )}
               {machineEstimate.unmappedItems.length > 0 && (
-                <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  Kunne ikke matche pris for: {machineEstimate.unmappedItems.join(', ')}
+                <p className="mt-2 text-xs text-slate-500">
+                  {machineEstimateNote}
                 </p>
               )}
             </div>
