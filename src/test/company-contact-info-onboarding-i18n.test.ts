@@ -58,6 +58,26 @@ describe("company contact info onboarding i18n", () => {
     expect(page).not.toContain("media:");
   });
 
+  it("opens as a blank fresh onboarding flow instead of preloading existing partner data", () => {
+    expect(page).toContain('dealer_kind: "new"');
+    expect(page).toContain('dealer_account_number: null');
+    expect(page).toContain('dealer_name: clean(companyName) || null');
+    expect(page).toContain('const [companyName, setCompanyName] = useState("")');
+    expect(page).toContain("setContacts(blankContactState())");
+    expect(page).not.toContain("PartnerKind");
+    expect(page).not.toContain("partnerKind");
+    expect(page).not.toContain("copy.existingPartner");
+    expect(page).not.toContain("fetchDealerAccountByNumber");
+    expect(page).not.toContain("listDealerContacts");
+    expect(page).not.toContain("setCompanyName(scope.lockedDealerName");
+  });
+
+  it("starts each contact area with one empty UI row and only submits rows with content", () => {
+    expect(page).toContain("function blankContactState()");
+    expect(page).toContain("[area]: [blankContact(area)]");
+    expect(page).toContain(".filter(hasContactContent)");
+  });
+
   it("reuses the shared Partnerdata contact role model", () => {
     expect(page).toContain("@/lib/dealerContactModel");
     expect(profileEditor).toContain("@/lib/dealerContactModel");

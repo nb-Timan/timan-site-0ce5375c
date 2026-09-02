@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { useDealerScope } from "@/lib/dealerScope";
@@ -21,21 +21,11 @@ import {
   ROLE_KEYS_WORKSHOP,
   roleKeysForContactArea,
 } from "@/lib/dealerContactModel";
-import {
-  fetchDealerAccountByNumber,
-  type DealerAccount,
-  type UpdateDealerAccountPatch,
-} from "@/lib/dealerAccountsService";
-import {
-  listDealerContacts,
-  type DealerContact,
-  type DealerContactArea,
-} from "@/lib/dealerContactsService";
+import { type UpdateDealerAccountPatch } from "@/lib/dealerAccountsService";
+import { type DealerContactArea } from "@/lib/dealerContactsService";
 import { submitPortalForm, type PortalFormSubmission } from "@/lib/portalFormsService";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 import MiscPageShell from "./MiscPageShell";
-
-type PartnerKind = "new" | "existing" | "";
 
 type OnboardingContact = {
   id: string;
@@ -108,86 +98,16 @@ function firstUsableContact(contacts: OnboardingContact[]): OnboardingContact | 
   return contacts.find((contact) => clean(contact.name) || clean(contact.email) || clean(contact.phone)) ?? null;
 }
 
-function contactMatchesLegacyPrimary(dealer: DealerAccount, contact: OnboardingContact): boolean {
-  return Boolean(
-    clean(dealer.primary_contact_name) &&
-    clean(dealer.primary_contact_name).toLowerCase() === clean(contact.name).toLowerCase() &&
-    clean(dealer.primary_contact_email).toLowerCase() === clean(contact.email).toLowerCase() &&
-    clean(dealer.primary_contact_phone).toLowerCase() === clean(contact.phone).toLowerCase(),
-  );
-}
-
-function toOnboardingContact(row: DealerContact): OnboardingContact {
-  return {
-    id: row.id,
-    contact_area: row.contact_area,
-    role_title: clean(row.role_title),
-    name: clean(row.name),
-    email: clean(row.email),
-    phone: clean(row.phone),
-    is_primary: row.is_primary,
-  };
-}
-
-function legacyContact(
-  dealer: DealerAccount,
-  area: DealerContactArea,
-  roleTitle: string,
-  name?: string | null,
-  email?: string | null,
-  phone?: string | null,
-): OnboardingContact | null {
-  const contact = { ...blankContact(area), id: `legacy-${area}-${dealer.id}`, role_title: roleTitle, name: clean(name), email: clean(email), phone: clean(phone) };
-  if (!hasContactContent(contact)) return null;
-  return { ...contact, is_primary: contactMatchesLegacyPrimary(dealer, contact) };
-}
-
-function buildContactsFromDealer(
-  dealer: DealerAccount,
-  extraContacts: DealerContact[],
-  roleLabel: (area: DealerContactArea) => string,
-): ContactState {
-  const grouped = blankContactState();
-  for (const area of AREAS) grouped[area] = [];
-
-  for (const contact of extraContacts) {
-    if (AREAS.includes(contact.contact_area)) grouped[contact.contact_area].push(toOnboardingContact(contact));
-  }
-
-  const legacy: Array<OnboardingContact | null> = [
-    legacyContact(dealer, "director", roleLabel("director"), dealer.director_name, null, null),
-    legacyContact(dealer, "finance", roleLabel("finance"), dealer.finance_contact_name, dealer.finance_contact_email, dealer.finance_contact_phone),
-    legacyContact(dealer, "sales", roleLabel("sales"), dealer.sales_contact_name, dealer.sales_contact_email, dealer.sales_contact_phone),
-    legacyContact(dealer, "workshop", roleLabel("workshop"), dealer.workshop_contact_name, dealer.workshop_contact_email, dealer.workshop_contact_phone),
-    legacyContact(dealer, "marketing", roleLabel("marketing"), dealer.marketing_contact_name, dealer.marketing_contact_email, dealer.marketing_contact_phone),
-  ];
-  for (const contact of legacy.filter((item): item is OnboardingContact => !!item)) {
-    if (!grouped[contact.contact_area].some((existing) =>
-      clean(existing.name).toLowerCase() === clean(contact.name).toLowerCase() &&
-      clean(existing.email).toLowerCase() === clean(contact.email).toLowerCase())) {
-      grouped[contact.contact_area].push(contact);
-    }
-  }
-
-  for (const area of AREAS) {
-    if (grouped[area].length === 0) grouped[area] = [blankContact(area)];
-  }
-  return grouped;
-}
-
 export default function CompanyContactInfoFormPage() {
-  const { appUser } = useAppUser();
+  const { loading } = useAppUser();
   const { uiLanguage } = useLanguage();
   const scope = useDealerScope();
   const navigate = useNavigate();
   const copy = getCompanyContactInfoCopy(uiLanguage);
   const sections = copy.sections;
 
-  const [partnerKind, setPartnerKind] = useState<PartnerKind>(
-    scope.isExternalDealerUser ? "existing" : (appUser?.dealer_number ? "existing" : ""),
-  );
   const [loadedDealerId, setLoadedDealerId] = useState<string | null>(null);
-  const [companyName, setCompanyName] = useState(scope.lockedDealerName ?? appUser?.company_dealer ?? "");
+  const [companyName, setCompanyName] = useState("");
   const [vatNumber, setVatNumber] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
   const [postalCode, setPostalCode] = useState("");
@@ -206,67 +126,29 @@ export default function CompanyContactInfoFormPage() {
   const [finalComment, setFinalComment] = useState("");
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [preloading, setPreloading] = useState(false);
   const [receipt, setReceipt] = useState<PortalFormSubmission | null>(null);
 
-  const dealerNumber = scope.isExternalDealerUser
-    ? scope.lockedDealerNumber
-    : partnerKind === "existing"
-      ? (appUser?.dealer_number ?? null)
-      : null;
-
-  const roleLabelForArea = (area: DealerContactArea) => {
-    const key = roleKeysForContactArea(area)[0];
-    return getCompanyContactInfoRoleLabel(copy, key);
-  };
-
-  useEffect(() => {
-    if (scope.isExternalDealerUser) {
-      setPartnerKind("existing");
-      if (scope.lockedDealerName) setCompanyName(scope.lockedDealerName);
-    }
-  }, [scope.isExternalDealerUser, scope.lockedDealerName]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (partnerKind !== "existing" || !dealerNumber) return;
-
-    (async () => {
-      setPreloading(true);
-      const result = await fetchDealerAccountByNumber(dealerNumber);
-      if (cancelled) return;
-      const dealer = result.row;
-      if (!dealer) {
-        setPreloading(false);
-        return;
-      }
-
-      setLoadedDealerId(dealer.id);
-      setCompanyName(clean(dealer.company_name));
-      setVatNumber(clean(dealer.vat_number));
-      setAddressLine1(clean(dealer.address_line_1 || dealer.address));
-      setPostalCode(clean(dealer.postal_code));
-      setCity(clean(dealer.city));
-      setCountry(clean(dealer.country));
-      setInvoiceEmail(clean(dealer.invoice_email));
-      setPaymentTerms(clean(dealer.payment_terms));
-      setCurrencyCode(clean(dealer.currency_code) || "DKK");
-      setWebsite(clean(dealer.website));
-      setSocialLinkedin(clean(dealer.social_linkedin));
-      setSocialFacebook(clean(dealer.social_facebook));
-      setSocialInstagram(clean(dealer.social_instagram));
-      setSocialTiktok(clean(dealer.social_tiktok));
-      setSocialYoutube(clean(dealer.social_youtube));
-
-      const dealerContacts = await listDealerContacts(dealer.id);
-      if (!cancelled) {
-        setContacts(buildContactsFromDealer(dealer, dealerContacts, roleLabelForArea));
-        setPreloading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [dealerNumber, partnerKind]);
+  function resetForm() {
+    setLoadedDealerId(null);
+    setCompanyName("");
+    setVatNumber("");
+    setAddressLine1("");
+    setPostalCode("");
+    setCity("");
+    setCountry("");
+    setInvoiceEmail("");
+    setPaymentTerms("");
+    setCurrencyCode("DKK");
+    setWebsite("");
+    setSocialLinkedin("");
+    setSocialFacebook("");
+    setSocialInstagram("");
+    setSocialTiktok("");
+    setSocialYoutube("");
+    setContacts(blankContactState());
+    setFinalComment("");
+    setStep(0);
+  }
 
   function contactsForArea(area: DealerContactArea): OnboardingContact[] {
     return contacts[area]?.length ? contacts[area] : [blankContact(area)];
@@ -318,7 +200,6 @@ export default function CompanyContactInfoFormPage() {
   const stepError = useMemo<string | null>(() => {
     switch (step) {
       case 0:
-        if (!partnerKind) return copy.errors.dealerKind;
         if (!clean(companyName)) return copy.errors.companyName;
         if (!clean(addressLine1)) return copy.errors.address;
         if (!clean(postalCode)) return copy.errors.postalCode;
@@ -345,7 +226,7 @@ export default function CompanyContactInfoFormPage() {
       default:
         return null;
     }
-  }, [step, partnerKind, companyName, addressLine1, postalCode, city, country, vatNumber, invoiceEmail, website, contacts, copy]);
+  }, [step, companyName, addressLine1, postalCode, city, country, vatNumber, invoiceEmail, website, contacts, copy]);
 
   const isLast = step === sections.length - 1;
 
@@ -406,9 +287,9 @@ export default function CompanyContactInfoFormPage() {
     const payload = {
       schema_version: 2,
       source_model: "partnerdata",
-      dealer_kind: partnerKind,
+      dealer_kind: "new",
       dealer_account_id: loadedDealerId,
-      dealer_account_number: dealerNumber,
+      dealer_account_number: null,
       dealer_account_patch: dealerAccountPatch(),
       dealer_contacts: canonicalContacts(),
       final_comment: clean(finalComment) || null,
@@ -418,8 +299,8 @@ export default function CompanyContactInfoFormPage() {
     try {
       const row = await submitPortalForm({
         form_type: "company_contact_info",
-        dealer_account_number: dealerNumber,
-        dealer_name: clean(companyName) || appUser?.company_dealer || null,
+        dealer_account_number: null,
+        dealer_name: clean(companyName) || null,
         payload,
       });
       setReceipt(row);
@@ -428,6 +309,10 @@ export default function CompanyContactInfoFormPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (!loading && scope.isExternalDealerUser) {
+    return <Navigate to="/portal" replace />;
   }
 
   if (receipt) {
@@ -447,7 +332,7 @@ export default function CompanyContactInfoFormPage() {
             </div>
           </div>
           <div className="flex gap-3">
-            <button type="button" onClick={() => { setReceipt(null); setStep(0); }} className="rounded-lg bg-[#2d5a27] px-4 py-2 text-sm font-semibold text-white hover:bg-[#244a20]">
+            <button type="button" onClick={() => { setReceipt(null); resetForm(); }} className="rounded-lg bg-[#2d5a27] px-4 py-2 text-sm font-semibold text-white hover:bg-[#244a20]">
               {copy.newSubmission}
             </button>
             <button type="button" onClick={() => navigate("/portal/misc/forms")} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
@@ -473,21 +358,12 @@ export default function CompanyContactInfoFormPage() {
         <form onSubmit={(event) => { if (isLast) void handleSubmit(event); else { event.preventDefault(); next(); } }} className="space-y-6 rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
           <div className="flex items-start justify-between gap-4">
             <h2 className="text-lg font-bold text-gray-900">{sections[step]}</h2>
-            {preloading && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
           </div>
 
           {step === 0 && (
             <section className="space-y-6">
-              <div className="rounded-xl border border-gray-200 bg-gray-50/60 p-4">
-                <span className={labelCls}>{copy.partnerTypeHelp}{reqMark}</span>
-                <div className="flex flex-col gap-2 sm:flex-row sm:gap-5">
-                  <Radio label={copy.newPartner} checked={partnerKind === "new"} disabled={scope.isExternalDealerUser} onChange={() => setPartnerKind("new")} />
-                  <Radio label={copy.existingPartner} checked={partnerKind === "existing"} disabled={scope.isExternalDealerUser} onChange={() => setPartnerKind("existing")} />
-                </div>
-                {scope.isExternalDealerUser && <p className="mt-2 text-xs text-gray-500">{copy.lockedPartnerHelp}</p>}
-              </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <TextField label={copy.companyName} value={companyName} onChange={setCompanyName} required disabled={scope.isExternalDealerUser} />
+                <TextField label={copy.companyName} value={companyName} onChange={setCompanyName} required />
                 <TextField label={copy.vatNumber} value={vatNumber} onChange={setVatNumber} required />
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[2fr_0.8fr_1fr_1fr]">
@@ -558,15 +434,6 @@ export default function CompanyContactInfoFormPage() {
         </form>
       </div>
     </MiscPageShell>
-  );
-}
-
-function Radio({ label, checked, disabled, onChange }: { label: string; checked: boolean; disabled?: boolean; onChange: () => void }) {
-  return (
-    <label className="inline-flex items-center gap-2 text-sm text-gray-800">
-      <input type="radio" checked={checked} disabled={disabled} onChange={onChange} />
-      {label}
-    </label>
   );
 }
 
