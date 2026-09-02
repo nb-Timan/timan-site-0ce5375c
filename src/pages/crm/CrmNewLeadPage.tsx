@@ -24,6 +24,7 @@ import {
   listConfigurationsForLead,
   type CrmLeadQuoteRow,
 } from '@/lib/crmConfigurationsService';
+import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
@@ -795,6 +796,7 @@ export default function CrmNewLeadPage() {
   const [submitting, setSubmitting] = useState(false);
   // Phase 33 — configurator quotes linked to this lead (edit mode only).
   const [linkedQuotes, setLinkedQuotes] = useState<CrmLeadQuoteRow[]>([]);
+  const [syncingConfigurationId, setSyncingConfigurationId] = useState<string | null>(null);
   const [currentShareUser, setCurrentShareUser] = useState<LeadShareTarget | null>(null);
   const [leadShares, setLeadShares] = useState<CrmLeadShare[]>([]);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -964,6 +966,41 @@ export default function CrmNewLeadPage() {
     })();
     return () => { cancelled = true; };
   }, [isEdit, editId]);
+
+  async function handleSyncConfigurationToLead(configurationId: string) {
+    if (!editId || syncingConfigurationId) return;
+    setSyncingConfigurationId(configurationId);
+    try {
+      const result = await syncLeadFromConfiguration(configurationId, editId);
+      const lead = result.lead;
+      setTitle(lead.title || '');
+      setLinkedDealer(lead.linked_dealer_id || '');
+      setMachineTypes(lead.machine_types || []);
+      const parsedContact = parseStructuredContactInformation(lead.contact_information || '', lead.country || '');
+      setContactCompany(parsedContact.company);
+      setContactPersonName(parsedContact.person);
+      setContactPhone(parsedContact.phone);
+      setContactEmail(parsedContact.email);
+      setContactAddress(parsedContact.address);
+      setContactPostalCode(parsedContact.postalCode);
+      setContactCity(parsedContact.city);
+      setCountry(parsedContact.country || lead.country || country);
+      setNotes(lead.notes || '');
+      setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
+      setMachineTypesChanged(false);
+      const refreshed = await listConfigurationsForLead(editId);
+      setLinkedQuotes(refreshed.rows);
+      toast.success(lang === 'da' ? 'Lead synkroniseret' : 'Lead synchronized', {
+        description: result.configurationNumber || configurationId,
+      });
+    } catch (err) {
+      toast.error(lang === 'da' ? 'Kunne ikke synkronisere lead' : 'Could not synchronize lead', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setSyncingConfigurationId(null);
+    }
+  }
 
   const sellerDir = useSellerDirectory();
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
@@ -1744,6 +1781,16 @@ export default function CrmNewLeadPage() {
                       <span className="text-xs text-gray-400">
                         {sentAt ? new Date(sentAt).toLocaleDateString('da-DK') : '—'}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => void handleSyncConfigurationToLead(q.id)}
+                        disabled={syncingConfigurationId === q.id}
+                        className="text-xs font-semibold text-[#2d5a27] hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {syncingConfigurationId === q.id
+                          ? (lang === 'da' ? 'Synker...' : 'Syncing...')
+                          : (lang === 'da' ? `Synkronisér fra ${documentNumber}` : `Sync from ${documentNumber}`)}
+                      </button>
                       <Link to={getCrmConfigurationDeepLink(q)} className="text-xs text-[#2d5a27] hover:underline">
                         {lang === 'da' ? 'Åbn' : 'Open'}
                       </Link>

@@ -1085,7 +1085,7 @@ export async function saveConfiguration(
 export async function updateConfiguration(
   id: string,
   state: ConfiguratorState,
-  options?: { ownership?: SaveOwnership; pricingMode?: ConfigurationPricingMode },
+  options?: { ownership?: SaveOwnership; leadId?: string | null; pricingMode?: ConfigurationPricingMode },
 ): Promise<{ error: string | null; itemsError: string | null }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -1139,6 +1139,7 @@ export async function updateConfiguration(
     subtotal,
     total_price: totalPrice,
     last_saved_at: now,
+    ...(options && Object.prototype.hasOwnProperty.call(options, 'leadId') ? { lead_id: options.leadId ?? null } : {}),
     ...(options?.ownership ? {
       seller_initials: options.ownership.seller_initials ?? null,
       seller_email: options.ownership.seller_email ?? null,

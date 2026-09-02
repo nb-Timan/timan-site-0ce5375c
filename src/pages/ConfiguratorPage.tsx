@@ -47,6 +47,7 @@ import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermis
 import { resolveBaseDiscountPct, isImporterAppUser, IMPORTER_BASE_DISCOUNT_PCT, DEFAULT_BASE_DISCOUNT_PCT } from '@/lib/importerDiscount';
 import { getLead } from '@/lib/crmLeadsService';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
+import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
@@ -441,6 +442,7 @@ export default function ConfiguratorPage() {
   // and is selected automatically.
   const [leadPickerKey, setLeadPickerKey] = useState(0);
   const [savingAsLead, setSavingAsLead] = useState(false);
+  const [syncingLead, setSyncingLead] = useState(false);
   const [savingLeadAndOrder, setSavingLeadAndOrder] = useState(false);
   // When the user picks "Opret nyt lead" in LeadLinkPicker, we defer the
   // actual CRM lead creation until the configuration is saved or the
@@ -578,6 +580,32 @@ export default function ConfiguratorPage() {
     return newId;
   }, [linkedLeadId, pendingNewLead, createLeadFromCurrentState, lang]);
 
+  const handleSyncLinkedLead = useCallback(async (options?: { quiet?: boolean }) => {
+    if (!savedConfigurationId || !linkedLeadId || syncingLead) return false;
+    setSyncingLead(true);
+    try {
+      const result = await syncLeadFromConfiguration(savedConfigurationId, linkedLeadId);
+      if (!options?.quiet) {
+        toast.success(
+          { da: 'Lead opdateret', en: 'Lead updated', de: 'Lead aktualisiert', it: 'Lead aggiornato', hu: 'Lead frissítve' }[lang],
+          { description: result.configurationNumber || savedConfigurationId },
+        );
+      }
+      return true;
+    } catch (err) {
+      console.error('[handleSyncLinkedLead] failed:', err);
+      if (!options?.quiet) {
+        toast.error(
+          { da: 'Kunne ikke opdatere lead', en: 'Could not update lead', de: 'Lead konnte nicht aktualisiert werden', it: 'Impossibile aggiornare il lead', hu: 'A lead nem frissíthető' }[lang],
+          { description: err instanceof Error ? err.message : String(err) },
+        );
+      }
+      return false;
+    } finally {
+      setSyncingLead(false);
+    }
+  }, [savedConfigurationId, linkedLeadId, syncingLead, lang]);
+
 
   const handleSaveChanges = useCallback(async () => {
     if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return; }
@@ -602,7 +630,11 @@ export default function ConfiguratorPage() {
           toast.error(T('orderAlreadySubmittedToast'));
           return;
         }
-        const res = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload, pricingMode: isExhibition ? 'messe' : undefined });
+        const res = await updateConfiguration(savedConfigurationId, state, {
+          ownership: ownershipPayload,
+          leadId: effectiveLeadId,
+          pricingMode: isExhibition ? 'messe' : undefined,
+        });
         if (res.error) {
           toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
             description: res.error,
@@ -618,6 +650,7 @@ export default function ConfiguratorPage() {
         toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
           description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
         });
+        if (effectiveLeadId) void handleSyncLinkedLead({ quiet: true });
         // Readback verification — confirm the row is visible in current Min konto scope.
         try {
           const items = await loadConfigurations(appUser!.email.toLowerCase());
@@ -676,7 +709,7 @@ export default function ConfiguratorPage() {
     } finally {
       setSavingChanges(false);
     }
-  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state, appUser, linkedLeadId, ensurePendingLeadCreated]);
+  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state, appUser, linkedLeadId, ensurePendingLeadCreated, handleSyncLinkedLead]);
 
   // Phase 40 — "Gem som lead" / "Save as lead": create a CRM lead from the
   // current configurator state without sending the quote. Only available on
@@ -3194,6 +3227,32 @@ export default function ConfiguratorPage() {
                   </span>
                 )}
               </button>
+            )}
+            {savedConfigurationId && linkedLeadId && (
+              <div className="mb-3 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-900">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold">
+                    {lang === 'da' ? 'Linked lead' : 'Linked lead'}: {linkedLeadId}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/portal/crm/leads/${linkedLeadId}`)}
+                    className="font-semibold text-emerald-700 hover:underline"
+                  >
+                    {lang === 'da' ? 'Åbn' : 'Open'}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleSyncLinkedLead()}
+                  disabled={syncingLead}
+                  className="mt-2 inline-flex w-full items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {syncingLead
+                    ? (lang === 'da' ? 'Synkroniserer...' : 'Syncing...')
+                    : (lang === 'da' ? 'Opdater lead' : 'Sync lead')}
+                </button>
+              </div>
             )}
             {state.step === 4 && state.flowType === 'quote' && ((isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
               const hasRequired = !!((isExhibition || ownership.dealerNumber) && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim() && (!isExhibition || ownership.sellerEmail));
