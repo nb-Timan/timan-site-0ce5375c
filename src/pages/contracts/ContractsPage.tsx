@@ -67,6 +67,7 @@ import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
 import { APPENDIX_2_EXAMPLE_LINES, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
+import { toCountryCode } from '@/lib/formatCountry';
 import {
   getGuidedContractDisplayHeading,
   getRenderedGuidedContractSection,
@@ -2208,18 +2209,17 @@ function InternalContractsOverview({
                   <th className="px-3 py-3">Oprettet</th>
                   <th className="px-3 py-3">Senest ændret</th>
                   <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3">Kontraktversion</th>
                   <th className="px-3 py-3 text-right">Handling</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loadingOverview ? (
                   <tr>
-                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-500">Henter kontrakter...</td>
+                    <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">Henter kontrakter...</td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-3 py-8 text-center text-sm text-gray-500">Ingen kontrakter matcher filtrene.</td>
+                    <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">Ingen kontrakter matcher filtrene.</td>
                   </tr>
                 ) : rows.map((row) => (
                   <tr key={row.contract.id} className="align-top hover:bg-gray-50">
@@ -2234,7 +2234,7 @@ function InternalContractsOverview({
                     </td>
                     <td className="px-3 py-3 font-medium text-gray-700">{row.accountNumber || '-'}</td>
                     <td className="px-3 py-3 text-gray-700">{row.contract.form_data.partnerType ? getContractPartnerTypeLabel(row.contract.form_data.partnerType, uiLanguage) : row.partnerType || '-'}</td>
-                    <td className="px-3 py-3 text-gray-700">{row.country || '-'}</td>
+                    <td className="px-3 py-3 font-semibold text-gray-700">{toCountryCode(row.country) || row.country || '-'}</td>
                     <td className="px-3 py-3 text-gray-700">
                       <span className="font-bold">{row.sellerInitials || '-'}</span>
                       {row.sellerName && <span className="block text-xs text-gray-500">{row.sellerName}</span>}
@@ -2246,7 +2246,6 @@ function InternalContractsOverview({
                         {row.statusLabel}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-gray-700">{row.contract.contract_version}</td>
                     <td className="px-3 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
@@ -4251,6 +4250,7 @@ function ContractSummary({ form }: { form: ContractFormData }) {
   const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
   const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
   const secondaryVisible = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory);
+  const associatedPartners = normalizeContractAssociatedPartners(form.associatedPartners);
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
