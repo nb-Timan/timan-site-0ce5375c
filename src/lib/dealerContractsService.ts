@@ -485,6 +485,10 @@ export function getDealerContractOverviewStatusLabel(status: ContractWorkflowSta
   return "Opsagt / ophørt";
 }
 
+export function canHardDeleteDealerContract(status: ContractWorkflowStatus | null | undefined): boolean {
+  return status !== "approved" && status !== "archived";
+}
+
 function getDealerContractOverviewActionLabel(status: ContractWorkflowStatus) {
   if (status === "pending_decision") return "Start";
   if (status === "draft" || status === "guided_review") return "Fortsæt";
@@ -875,11 +879,27 @@ export async function fetchDealerContractsForDealerAccount(
 }
 
 export async function deleteDealerContract(contractId: string): Promise<{ deleted: boolean; error: string | null }> {
-  const { error } = await supabase.rpc("delete_dealer_contract", {
-    p_contract_id: contractId,
+  const { data, error } = await supabase.functions.invoke("admin-contract-actions", {
+    body: {
+      action: "delete_contract",
+      contract_id: contractId,
+    },
   });
 
-  if (error) return { deleted: false, error: error.message };
+  if (error) {
+    let serverMsg: string | null = null;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === "function") {
+        const body = await ctx.json();
+        serverMsg = body?.error ?? null;
+      }
+    } catch {
+      /* ignore */
+    }
+    return { deleted: false, error: serverMsg ?? error.message };
+  }
+  if (!data?.ok) return { deleted: false, error: data?.error ?? "Kontrakten kunne ikke slettes." };
   return { deleted: true, error: null };
 }
 

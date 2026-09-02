@@ -1211,19 +1211,27 @@ describe('contract flow', () => {
   it('keeps contract deletion backend-only in the overview UI and database helper', () => {
     const overviewSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
     const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
-    const migration = readFileSync('supabase/migrations/20260831210500_dealer_contract_backend_delete.sql', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260902113707_fix_dealer_contract_delete_storage_api.sql', 'utf8');
+    const edgeFunction = readFileSync('supabase/functions/admin-contract-actions/index.ts', 'utf8');
 
     expect(overviewSource).toContain("const isBackend = portalRole === 'timan_backend';");
     expect(overviewSource).toContain('{isBackend && (');
     expect(overviewSource).toContain('Slet kontrakt');
     expect(overviewSource).toContain('Er du sikker på, at du vil slette denne kontrakt?');
+    expect(overviewSource).toContain('Godkendte kontrakter kan ikke slettes. Brug Opsig kontrakt.');
     expect(serviceSource).toContain('export async function deleteDealerContract');
-    expect(serviceSource).toContain('supabase.rpc("delete_dealer_contract"');
+    expect(serviceSource).toContain('supabase.functions.invoke("admin-contract-actions"');
+    expect(serviceSource).not.toContain('delete from storage.objects');
     expect(migration).toContain('create or replace function public.delete_dealer_contract');
     expect(migration).toContain('if not public.is_timan_backend() then');
-    expect(migration).toContain("delete from storage.objects");
+    expect(migration).not.toContain("delete from storage.objects");
+    expect(migration).toContain("target.contract_status in ('approved', 'archived')");
+    expect(migration).toContain('target.signed_at is not null');
     expect(migration).toContain("delete from public.dealer_contracts");
-    expect(migration).toContain("grant execute on function public.delete_dealer_contract(uuid) to authenticated, service_role");
+    expect(migration).toContain("revoke all on function public.delete_dealer_contract(uuid) from public, anon, authenticated");
+    expect(edgeFunction).toContain('admin.storage.from(bucket).remove(chunk)');
+    expect(edgeFunction).toContain('caller.portal_role !== "timan_backend"');
+    expect(edgeFunction).toContain('Godkendte kontrakter kan ikke slettes. Brug Opsig kontrakt.');
   });
 
   it('keeps contract overview KPI cards compact with a light active state', () => {

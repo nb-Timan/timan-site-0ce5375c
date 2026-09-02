@@ -33,6 +33,7 @@ import {
   activateDealerContractAccessWindow,
   completeDealerContractGuidedReview,
   createDealerContractUploadVersion,
+  canHardDeleteDealerContract,
   deleteDealerContract,
   deleteDealerContractUploadFile,
   extendDealerContractAccessWindow,
@@ -2050,6 +2051,10 @@ function InternalContractsOverview({
 
   const handleDeleteContract = async (row: DealerContractOverviewRow) => {
     if (!isBackend || deletingContractId) return;
+    if (!canHardDeleteDealerContract(row.contract.contract_status) || row.contract.approved_at || row.contract.signed_at) {
+      toast.error('Godkendte kontrakter kan ikke slettes. Brug Opsig kontrakt.');
+      return;
+    }
     const confirmed = window.confirm(
       `Er du sikker på, at du vil slette denne kontrakt?\n\n${row.partnerName} (${row.contract.contract_number || row.contract.id})\n\nHandlingen kan ikke fortrydes.`,
     );
