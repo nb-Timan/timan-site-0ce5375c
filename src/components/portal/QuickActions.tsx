@@ -3,8 +3,9 @@ import { Building2, FileCheck2, FlaskConical, MapPinned, Plus, ShieldCheck, File
 import { useAppUser } from '@/context/AppUserContext';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
-import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey, PortalRole } from '@/lib/portalAccess';
-import { QUICK_ACTION_KEYS, QuickActionKey, DEFAULT_QUICK_ACTIONS } from '@/lib/backend-users-store';
+import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { QuickActionKey } from '@/lib/backend-users-store';
+import { resolveEffectiveQuickActions } from '@/lib/quickActionsAccess';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 
@@ -75,17 +76,9 @@ export default function QuickActions({ language }: Props) {
     return null;
   }
 
-  actions = actions.filter((a) => !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
-
-  const qaSetting = (effectiveUser.quick_actions ?? null) as QuickActionKey[] | null;
-  const roleForQa: PortalRole | null = portalRole;
-  const rawQaSetting = (effectiveUser.quick_actions ?? null) as string[] | null;
-  const hasLegacyQuickActions = Array.isArray(rawQaSetting)
-    && rawQaSetting.some((key) => key === 'calendar' || key === 'my_dealers');
-  const qaAllowed: QuickActionKey[] = Array.isArray(qaSetting) && !hasLegacyQuickActions
-    ? qaSetting.filter((key): key is QuickActionKey => (QUICK_ACTION_KEYS as readonly string[]).includes(key))
-    : (roleForQa ? (DEFAULT_QUICK_ACTIONS[roleForQa] ?? []) : []);
+  const qaAllowed = resolveEffectiveQuickActions(effectiveUser);
   actions = actions.filter((action) => !action.key || qaAllowed.includes(action.key));
+  actions = actions.filter((a) => a.key || !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
 
   if (actions.length === 0) return null;
 
