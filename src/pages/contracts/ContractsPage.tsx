@@ -3531,6 +3531,7 @@ function SparePartsServiceSection({
   locked?: boolean;
   showEditableRate?: boolean;
 }) {
+  const { uiLanguage } = useLanguage();
   const sparePartsBlocks = section.blocks.slice(0, 1);
   const serviceBlocks = section.blocks.slice(1);
   const validRate = isValidContractServiceHourlyRateDkk(serviceHourlyRateDkk);
