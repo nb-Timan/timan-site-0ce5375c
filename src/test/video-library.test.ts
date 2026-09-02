@@ -147,6 +147,8 @@ describe("marketing video library", () => {
     const area = readFileSync("src/pages/PortalAreaPage.tsx", "utf8");
     const salesPage = readFileSync("src/pages/VideoGalleryPage.tsx", "utf8");
     const managementPage = readFileSync("src/pages/backend/BackendVideoManagementPage.tsx", "utf8");
+    const portalAccess = readFileSync("src/lib/portalAccess.ts", "utf8");
+    const usersPage = readFileSync("src/pages/backend/BackendUsersPage.tsx", "utf8");
     const filterBar = readFileSync("src/components/video/VideoLibraryFilterBar.tsx", "utf8");
     const filterHelper = readFileSync("src/lib/videoLibraryFilters.ts", "utf8");
     const configurator = readFileSync("src/pages/ConfiguratorPage.tsx", "utf8");
@@ -165,6 +167,10 @@ describe("marketing video library", () => {
     expect(salesPage).toContain("event.stopPropagation()");
     expect(salesPage).toContain("showFavorites");
     expect(managementPage).toContain("VideoLibraryFilterBar");
+    expect(managementPage).toContain("canManageMarketingVideos");
+    expect(area).toContain("canManageMarketingVideos");
+    expect(portalAccess).toContain("marketing_videos_manage");
+    expect(usersPage).toContain("Videoer / Administrér videoer");
     expect(managementPage).toContain("showStatus");
     expect(managementPage).toContain("model_generation_status");
     expect(filterBar).toContain("videoLibrarySortLatest");

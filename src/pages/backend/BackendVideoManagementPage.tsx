@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { canManageNewsContent } from "@/lib/portalAccess";
+import { canManageMarketingVideos } from "@/lib/portalAccess";
 import { cn } from "@/lib/utils";
 import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 import { listVideoProductOptions, productSearchText, videoProductOptionKey, type VideoProductOption } from "@/lib/videoProductCatalog";
@@ -94,7 +94,7 @@ export default function BackendVideoManagementPage() {
   const { language, uiLanguage, setLanguage } = useLanguage();
   const { effectiveUser } = useEffectivePortalUserState(appUser);
   const navigate = useNavigate();
-  const canManage = useMemo(() => canManageNewsContent(effectiveUser), [effectiveUser]);
+  const canManage = useMemo(() => canManageMarketingVideos(effectiveUser), [effectiveUser]);
   const [rows, setRows] = useState<MarketingVideo[]>([]);
   const [loadingRows, setLoadingRows] = useState(true);
   const [error, setError] = useState<string | null>(null);

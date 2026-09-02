@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_MODULE_ACCESS,
+  canManageMarketingVideos,
   derivePortalRole,
   deriveStoredPortalRole,
   hasAreaAccess,
@@ -38,6 +39,13 @@ describe('portal access precedence', () => {
 
   it('lets a manual area override grant extra access', () => {
     expect(hasAreaAccess({ ...seller, allowed_areas: ['marketing'] }, 'marketing')).toBe(true);
+  });
+
+  it('keeps Marketing area access separate from Marketing video management', () => {
+    expect(canManageMarketingVideos({ ...seller, allowed_areas: ['marketing'], permissions: {} })).toBe(false);
+    expect(canManageMarketingVideos({ ...seller, allowed_areas: ['marketing'], permissions: { marketing_videos_manage: true } })).toBe(true);
+    expect(canManageMarketingVideos({ ...seller, permissions: { news_manage: true } })).toBe(true);
+    expect(canManageMarketingVideos({ ...seller, permissions: { news_manage: true, marketing_videos_manage: false } })).toBe(false);
   });
 
   it('respects an explicitly empty manual area override', () => {

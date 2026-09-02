@@ -12,7 +12,7 @@ import BackendHome from '@/components/portal/BackendHome';
 import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
-import { canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { canManageMarketingVideos, canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
@@ -217,7 +217,7 @@ export default function PortalAreaPage({ areaId }: Props) {
               description={t('newsCmsDashboardHelp', uiLanguage)}
             />
           )}
-          {areaId === 'marketing' && canManageNewsContent(effectiveUser) && (
+          {areaId === 'marketing' && canManageMarketingVideos(effectiveUser) && (
             <PlaceholderCard
               title={tv('videoMgmtTitle', uiLanguage)}
               language={lang}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mergeEffectivePortalUser } from "@/lib/viewAsUser";
-import { canManageNewsContent, derivePortalRole, hasAreaAccess } from "@/lib/portalAccess";
+import { canManageMarketingVideos, canManageNewsContent, derivePortalRole, hasAreaAccess } from "@/lib/portalAccess";
 import type { SessionUser } from "@/context/AppUserContext";
 import type { UserView } from "@/lib/activeMode";
 
@@ -48,6 +48,7 @@ describe("mergeEffectivePortalUser", () => {
     expect(derivePortalRole(effective)).toBe("timan_seller");
     expect(effective.permissions).toBeNull();
     expect(canManageNewsContent(effective)).toBe(false);
+    expect(canManageMarketingVideos(effective)).toBe(false);
     expect(hasAreaAccess(effective, "marketing")).toBe(false);
     expect(hasAreaAccess(effective, "timan_crm")).toBe(true);
   });
@@ -84,5 +85,6 @@ describe("mergeEffectivePortalUser", () => {
     expect(hasAreaAccess(effective, "teknik_service")).toBe(true);
     expect(hasAreaAccess(effective, "timan_backend")).toBe(false);
     expect(canManageNewsContent(effective)).toBe(false);
+    expect(canManageMarketingVideos(effective)).toBe(false);
   });
 });

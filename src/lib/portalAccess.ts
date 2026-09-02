@@ -224,6 +224,19 @@ export function canManageNewsContent(
   return user.permissions?.news_manage === true;
 }
 
+export function canManageMarketingVideos(
+  user: ({ permissions?: Record<string, boolean> | null; portal_role?: string | null } & Pick<AppUser, 'role' | 'partner_type'>) | null | undefined,
+): boolean {
+  if (!user) return false;
+  const role = derivePortalRole(user);
+  if (role === 'timan_backend') return true;
+  if (role !== 'timan_seller' && role !== 'timan_service') return false;
+  const explicitVideoManage = user.permissions?.marketing_videos_manage;
+  if (explicitVideoManage === true) return true;
+  if (explicitVideoManage === false) return false;
+  return user.permissions?.news_manage === true;
+}
+
 /** True when the active portal session is the public Messe demo. */
 export function isExhibitionRole(role: PortalRole | null | undefined): boolean {
   return role === 'exhibition_user';
