@@ -96,6 +96,7 @@ describe("marketing video library", () => {
       expect(tv("videoLibraryAddFavorite", lang)).not.toBe("videoLibraryAddFavorite");
       expect(tv("videoLibraryRemoveFavorite", lang)).not.toBe("videoLibraryRemoveFavorite");
       expect(tv("videoLibraryNoFavorites", lang)).not.toBe("videoLibraryNoFavorites");
+      expect(tv("videoLibraryNoMesseVideos", lang)).not.toBe("videoLibraryNoMesseVideos");
       expect(tv("videoMgmtAdd", lang)).not.toBe("videoMgmtAdd");
       expect(tv("videoMgmtContentType", lang)).not.toBe("videoMgmtContentType");
       expect(tv("videoMgmtStatus", lang)).not.toBe("videoMgmtStatus");
@@ -107,6 +108,8 @@ describe("marketing video library", () => {
       expect(tv("videoMgmtRelatedProducts", lang)).not.toBe("videoMgmtRelatedProducts");
       expect(tv("videoMgmtRelatedProductPlaceholder", lang)).not.toBe("videoMgmtRelatedProductPlaceholder");
       expect(tv("videoMgmtProductNoResults", lang)).not.toBe("videoMgmtProductNoResults");
+      expect(tv("videoMgmtMessePortal", lang)).not.toBe("videoMgmtMessePortal");
+      expect(tv("videoMgmtShowOnMessePortal", lang)).not.toBe("videoMgmtShowOnMessePortal");
     }
     expect(tv("videoMgmtContentType", "de")).toBe("Inhaltstyp");
     expect(tv("videoMgmtPublished", "de")).toBe("Veröffentlicht");
@@ -146,7 +149,9 @@ describe("marketing video library", () => {
     const app = readFileSync("src/App.tsx", "utf8");
     const area = readFileSync("src/pages/PortalAreaPage.tsx", "utf8");
     const salesPage = readFileSync("src/pages/VideoGalleryPage.tsx", "utf8");
+    const messePage = readFileSync("src/pages/messe/MesseVideoPage.tsx", "utf8");
     const managementPage = readFileSync("src/pages/backend/BackendVideoManagementPage.tsx", "utf8");
+    const service = readFileSync("src/lib/videoLibraryService.ts", "utf8");
     const portalAccess = readFileSync("src/lib/portalAccess.ts", "utf8");
     const usersPage = readFileSync("src/pages/backend/BackendUsersPage.tsx", "utf8");
     const filterBar = readFileSync("src/components/video/VideoLibraryFilterBar.tsx", "utf8");
@@ -157,11 +162,15 @@ describe("marketing video library", () => {
       readFileSync("supabase/migrations/20260901184240_harden_marketing_video_library_policies.sql", "utf8"),
       readFileSync("supabase/migrations/20260901201158_marketing_video_editorial_i18n.sql", "utf8"),
       readFileSync("supabase/migrations/20260901210152_marketing_video_user_favorites.sql", "utf8"),
+      readFileSync("supabase/migrations/20260902100428_show_marketing_videos_on_messe_portal.sql", "utf8"),
     ].join("\n");
 
     expect(app).toContain("/portal/marketing/videos");
     expect(area).toContain("videoMgmtTitle");
     expect(salesPage).toContain("VideoLibraryFilterBar");
+    expect(messePage).toContain("VideoLibraryFilterBar");
+    expect(messePage).toContain("listMesseMarketingVideos(uiLanguage)");
+    expect(messePage).not.toContain("MESSE_VIDEOS");
     expect(salesPage).toContain("listMarketingVideoFavoriteIds");
     expect(salesPage).toContain("setMarketingVideoFavorite");
     expect(salesPage).toContain("event.stopPropagation()");
@@ -173,6 +182,9 @@ describe("marketing video library", () => {
     expect(usersPage).toContain("Videoer / Administrér videoer");
     expect(managementPage).toContain("showStatus");
     expect(managementPage).toContain("model_generation_status");
+    expect(managementPage).toContain("setMarketingVideoMessePortalVisibility");
+    expect(managementPage).toContain("videoMgmtMessePortal");
+    expect(managementPage).toContain("Switch");
     expect(filterBar).toContain("videoLibrarySortLatest");
     expect(filterBar).toContain("videoLibraryFavorites");
     expect(filterBar).toContain("videoModelGenerationFilterLabel");
@@ -197,6 +209,9 @@ describe("marketing video library", () => {
     expect(managementPage).toContain("onSave(\"published\")");
     expect(managementPage).toContain("uploadVideoThumbnail");
     expect(configurator).toContain("listPublishedPrimaryVideos(uiLanguage)");
+    expect(service).toContain("show_on_messe_portal");
+    expect(service).toContain("listMesseMarketingVideos");
+    expect(service).toContain(".eq(\"show_on_messe_portal\", true)");
     expect(migration).toContain("product_key text not null unique");
     expect(migration).toContain("localized_content jsonb not null default '{}'::jsonb");
     expect(migration).toContain("source_language text not null default 'da'");
@@ -207,6 +222,9 @@ describe("marketing video library", () => {
     expect(migration).toContain("primary key (user_id, video_id)");
     expect(migration).toContain("marketing_video_user_favorites_select_own");
     expect(migration).toContain("grant select, insert, delete");
+    expect(migration).toContain("show_on_messe_portal boolean not null default false");
+    expect(migration).toContain("can_read_marketing_video");
+    expect(migration).toContain("marketing_videos_messe_public_idx");
     expect(readFileSync("supabase/migrations/20260901205252_add_marketing_video_model_generation_status.sql", "utf8")).toContain("model_generation_status");
   });
 });

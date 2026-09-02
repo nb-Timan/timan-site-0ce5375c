@@ -1,152 +1,180 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Play, X } from 'lucide-react';
-import { useLanguage } from '@/context/LanguageContext';
-import { useAppUser } from '@/context/AppUserContext';
-import { portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
-import { t } from '@/lib/i18n/translations';
+import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
+import { Play, X } from "lucide-react";
+import MesseSubpageHeader from "@/components/messe/MesseSubpageHeader";
+import VideoLibraryFilterBar from "@/components/video/VideoLibraryFilterBar";
+import { useAppUser } from "@/context/AppUserContext";
+import { useLanguage } from "@/context/LanguageContext";
+import { t } from "@/lib/i18n/translations";
+import type { PortalUiLanguage } from "@/lib/portalLanguages";
 import {
-  MESSE_VIDEOS,
-  extractYouTubeId,
-  youtubeThumbnail,
-  type MesseVideo,
-  type MesseVideoCategory,
-} from '@/data/messeVideos';
-import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
-
-const CATEGORY_ORDER: MesseVideoCategory[] = ['maskiner', 'redskaber'];
-
-const CATEGORY_LABEL_KEYS: Record<MesseVideoCategory, string> = {
-  maskiner: 'messeVideoCategoryMachines',
-  redskaber: 'messeVideoCategoryAttachments',
-  service: 'messeVideoCategoryService',
-  salg: 'messeVideoCategorySales',
-};
+  DEFAULT_VIDEO_FILTERS,
+  filterAndSortVideos,
+  getVideoMachineFilterOptions,
+} from "@/lib/videoLibraryFilters";
+import {
+  listMesseMarketingVideos,
+  resolveVideoThumbnail,
+  type MarketingVideo,
+} from "@/lib/videoLibraryService";
+import {
+  tv,
+  videoContentTypeLabel,
+  videoSeasonLabel,
+} from "@/lib/videoLibraryI18n";
 
 export default function MesseVideoPage() {
   const { uiLanguage } = useLanguage();
-  const [active, setActive] = useState<MesseVideo | null>(null);
   const { appUser } = useAppUser();
+  const [rows, setRows] = useState<MarketingVideo[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState(DEFAULT_VIDEO_FILTERS);
+  const [active, setActive] = useState<MarketingVideo | null>(null);
 
   useEffect(() => {
-    if (!active) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setActive(null); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [active]);
+    let cancelled = false;
+    listMesseMarketingVideos(uiLanguage).then((result) => {
+      if (cancelled) return;
+      setRows(result.rows);
+      setError(result.error);
+    });
+    return () => { cancelled = true; };
+  }, [uiLanguage]);
 
-  const latest = useMemo(
-    () => [...MESSE_VIDEOS].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, 6),
-    [],
-  );
-  const byCategory = useMemo(() => {
-    const m: Record<MesseVideoCategory, MesseVideo[]> = { maskiner: [], redskaber: [], service: [], salg: [] };
-    for (const v of MESSE_VIDEOS) m[v.category].push(v);
-    return m;
-  }, []);
+  const machineOptions = useMemo(() => getVideoMachineFilterOptions(uiLanguage), [uiLanguage]);
+  const filteredRows = useMemo(() => filterAndSortVideos(rows, filters, uiLanguage), [filters, rows, uiLanguage]);
 
   if (!appUser) return null;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
-      <MesseSubpageHeader backLabel={t('back', uiLanguage)} />
+      <MesseSubpageHeader backLabel={t("back", uiLanguage)} />
 
-      <main className="flex-grow max-w-6xl w-full mx-auto px-4 sm:px-6 py-8 space-y-10">
-        <h1 className="text-3xl font-bold text-slate-900">{t('messeHomeVideo', uiLanguage)}</h1>
+      <main className="flex-grow w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        <div className="mb-6 flex flex-col gap-2">
+          <h1 className="text-3xl font-bold text-slate-900">{t("messeHomeVideo", uiLanguage)}</h1>
+          <p className="max-w-3xl text-sm text-slate-600">{tv("videoLibraryIntro", uiLanguage)}</p>
+        </div>
 
-        <Section title={t('messeVideoLatest', uiLanguage)} videos={latest} lang={uiLanguage} onPlay={setActive} />
-        {CATEGORY_ORDER.map(cat => (
-          <Section
-            key={cat}
-            title={t(CATEGORY_LABEL_KEYS[cat], uiLanguage)}
-            videos={byCategory[cat]}
-            lang={uiLanguage}
-            onPlay={setActive}
-          />
-        ))}
+        <VideoLibraryFilterBar
+          filters={filters}
+          onChange={setFilters}
+          machineOptions={machineOptions}
+          language={uiLanguage}
+        />
+
+        {error ? <p className="mb-4 text-sm font-semibold text-amber-700">{error}</p> : null}
+
+        {rows.length === 0 ? (
+          <EmptyState text={tv("videoLibraryNoMesseVideos", uiLanguage)} />
+        ) : filteredRows.length === 0 ? (
+          <EmptyState text={tv("videoLibraryNoResults", uiLanguage)} />
+        ) : (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredRows.map((video) => (
+              <VideoCard key={video.id} video={video} lang={uiLanguage} onPlay={setActive} />
+            ))}
+          </div>
+        )}
       </main>
 
-      {active && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4" onClick={() => setActive(null)}>
-          <button
-            type="button"
-            onClick={() => setActive(null)}
-            className="absolute top-4 right-4 rounded-full bg-white/10 hover:bg-white/20 text-white p-2"
-            aria-label={t('close', uiLanguage)}
-          >
-            <X className="h-6 w-6" />
-          </button>
-          <div className="w-full max-w-4xl aspect-video bg-black rounded-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            {(() => {
-              const id = extractYouTubeId(active.youtubeUrl);
-              return id ? (
-                <iframe
-                  className="w-full h-full"
-                  src={`https://www.youtube.com/embed/${id}?autoplay=1`}
-                  title={localizedVideoText(active.title, uiLanguage, active.id)}
-                  allow="autoplay; encrypted-media; picture-in-picture"
-                  allowFullScreen
-                />
-              ) : null;
-            })()}
-          </div>
-        </div>
-      )}
+      {active && <VideoModal video={active} lang={uiLanguage} onClose={() => setActive(null)} />}
     </div>
   );
 }
 
-function Section({
-  title,
-  videos,
+function VideoCard({
+  video,
   lang,
   onPlay,
 }: {
-  title: string;
-  videos: MesseVideo[];
+  video: MarketingVideo;
   lang: PortalUiLanguage;
-  onPlay: (v: MesseVideo) => void;
+  onPlay: (video: MarketingVideo) => void;
 }) {
   return (
-    <section>
-      <h2 className="text-xl font-bold text-slate-900 mb-3">{title}</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {videos.map(v => {
-          const thumb = v.thumbnail || youtubeThumbnail(v.youtubeUrl);
-          return (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => onPlay(v)}
-              className="text-left bg-white rounded-2xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition group"
-            >
-              <div className="relative aspect-video bg-slate-200">
-                {thumb ? <img src={thumb} alt={localizedVideoText(v.title, lang, v.id)} className="w-full h-full object-cover" /> : null}
-                <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition">
-                  <div className="h-14 w-14 rounded-full bg-white flex items-center justify-center">
-                    <Play className="h-6 w-6 text-emerald-700 ml-0.5" fill="currentColor" />
-                  </div>
-                </div>
-              </div>
-              <div className="p-4">
-                <div className="font-bold text-slate-900">{localizedVideoText(v.title, lang, v.id)}</div>
-                <div className="text-sm text-slate-500 mt-1">{localizedVideoText(v.description, lang, '')}</div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </section>
+    <article className="group flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
+      <button type="button" onClick={() => onPlay(video)} className="flex h-full min-w-0 flex-col text-left">
+        <div className="relative aspect-video bg-slate-100">
+          <img src={resolveVideoThumbnail(video)} alt="" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-950/20 opacity-0 transition group-hover:opacity-100">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-emerald-700 shadow">
+              <Play className="ml-0.5 h-5 w-5" fill="currentColor" />
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col gap-3 p-4">
+          <div>
+            <h2 className="line-clamp-2 text-base font-bold text-slate-950">{video.title}</h2>
+            {video.description && <p className="mt-1 line-clamp-2 text-sm text-slate-600">{video.description}</p>}
+          </div>
+          <div className="mt-auto flex flex-wrap gap-1.5">
+            <Chip>{videoContentTypeLabel(video.content_type, lang)}</Chip>
+            {video.seasons.slice(0, 2).map((season) => <Chip key={season}>{videoSeasonLabel(season, lang)}</Chip>)}
+            {video.tags.slice(0, 2).map((tag) => <Chip key={tag}>{tag}</Chip>)}
+          </div>
+        </div>
+      </button>
+    </article>
   );
 }
 
-function localizedVideoText(
-  value: Partial<Record<PortalUiLanguage, string>>,
-  language: PortalUiLanguage,
-  fallback: string,
-) {
-  for (const code of portalLanguageLookupOrder(language, true)) {
-    const text = value[code as PortalUiLanguage];
-    if (text?.trim()) return text;
-  }
-  return fallback;
+function VideoModal({ video, lang, onClose }: { video: MarketingVideo; lang: PortalUiLanguage; onClose: () => void }) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtube_video_id}`;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 sm:p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={video.title}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label={tv("videoLibraryClosePlayer", lang)}
+        className="absolute right-3 top-3 z-10 rounded-full bg-white/15 p-2 text-white shadow-sm transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-4 sm:top-4"
+      >
+        <X className="h-6 w-6" />
+      </button>
+      <div className="w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
+        <div className="aspect-video w-full bg-black">
+          <iframe
+            className="h-full w-full"
+            src={`https://www.youtube.com/embed/${video.youtube_video_id}?autoplay=1&rel=0`}
+            title={video.title}
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+        <div className="flex flex-col gap-2 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+          <p>{tv("videoLibraryEmbedFallback", lang)}</p>
+          <a href={youtubeUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-emerald-700 hover:text-emerald-900">
+            {tv("videoLibraryOpenOnYoutube", lang)}
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Chip({ children }: { children: ReactNode }) {
+  return <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">{children}</span>;
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-12 text-center text-sm font-semibold text-slate-500">
+      {text}
+    </div>
+  );
 }

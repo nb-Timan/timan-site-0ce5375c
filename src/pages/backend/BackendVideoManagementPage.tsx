@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Switch } from "@/components/ui/switch";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { canManageMarketingVideos } from "@/lib/portalAccess";
@@ -23,6 +24,7 @@ import {
   localizeMarketingVideo,
   resolveVideoThumbnail,
   saveMarketingVideo,
+  setMarketingVideoMessePortalVisibility,
   uploadVideoThumbnail,
   youtubeThumbnailFromId,
   type MarketingVideo,
@@ -63,6 +65,7 @@ interface DraftState {
   tagsText: string;
   status: VideoStatus;
   model_generation_status: VideoModelGenerationStatus;
+  show_on_messe_portal: boolean;
   custom_thumbnail_url: string | null;
   custom_thumbnail_path: string | null;
   products: VideoProductOption[];
@@ -83,6 +86,7 @@ const EMPTY_DRAFT: DraftState = {
   tagsText: "",
   status: "draft",
   model_generation_status: "current",
+  show_on_messe_portal: false,
   custom_thumbnail_url: null,
   custom_thumbnail_path: null,
   products: [],
@@ -102,6 +106,7 @@ export default function BackendVideoManagementPage() {
   const [filters, setFilters] = useState<VideoFilterState>(DEFAULT_VIDEO_FILTERS);
   const [editing, setEditing] = useState<DraftState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingMessePortalIds, setSavingMessePortalIds] = useState<Set<string>>(new Set());
   const [conflict, setConflict] = useState<Record<string, unknown> | null>(null);
 
   const productOptions = useMemo(() => listVideoProductOptions(uiLanguage), [uiLanguage]);
@@ -161,6 +166,7 @@ export default function BackendVideoManagementPage() {
       tagsText: row.tags.join(", "),
       status: row.status,
       model_generation_status: row.model_generation_status || "current",
+      show_on_messe_portal: row.show_on_messe_portal,
       custom_thumbnail_url: row.custom_thumbnail_url,
       custom_thumbnail_path: row.custom_thumbnail_path,
       products: row.products.map((product) => ({
@@ -233,6 +239,7 @@ export default function BackendVideoManagementPage() {
       tags: activeDraft.tagsText.split(",").map((tag) => tag.trim()).filter(Boolean),
       status: activeDraft.status,
       model_generation_status: activeDraft.model_generation_status,
+      show_on_messe_portal: activeDraft.show_on_messe_portal,
       custom_thumbnail_url: activeDraft.custom_thumbnail_url,
       custom_thumbnail_path: activeDraft.custom_thumbnail_path,
       products: Array.from(productMap.values()),
@@ -262,6 +269,27 @@ export default function BackendVideoManagementPage() {
     void persist(false, next);
   };
 
+  const toggleMessePortal = async (row: MarketingVideo, checked: boolean) => {
+    setSavingMessePortalIds((current) => new Set(current).add(row.id));
+    setError(null);
+    setMessage(null);
+
+    const result = await setMarketingVideoMessePortalVisibility(row.id, checked);
+    setSavingMessePortalIds((current) => {
+      const next = new Set(current);
+      next.delete(row.id);
+      return next;
+    });
+
+    if (result.error || !result.row) {
+      setError(result.error || "update_failed");
+      return;
+    }
+
+    setRows((current) => current.map((item) => item.id === row.id ? result.row as MarketingVideo : item));
+    setMessage(tv(checked ? "videoMgmtMessePortalEnabled" : "videoMgmtMessePortalDisabled", uiLanguage));
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
@@ -274,7 +302,7 @@ export default function BackendVideoManagementPage() {
         }}
       />
 
-      <main className="mx-auto flex-grow w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto flex-grow w-full max-w-[1600px] px-4 py-8 sm:px-6 lg:px-10">
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900">{tv("videoMgmtTitle", uiLanguage)}</h1>
@@ -320,7 +348,16 @@ export default function BackendVideoManagementPage() {
                       {row.primary_product && <Chip>{tv("videoLibraryPrimary", uiLanguage)}: {row.primary_product.item_number}</Chip>}
                     </div>
                   </div>
-                  <div className="flex gap-2 lg:justify-end">
+                  <div className="flex flex-wrap items-center gap-3 lg:justify-end">
+                    <label className="flex items-center gap-2 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-semibold text-slate-600" title={tv("videoMgmtShowOnMessePortal", uiLanguage)}>
+                      <Switch
+                        checked={row.show_on_messe_portal}
+                        disabled={savingMessePortalIds.has(row.id)}
+                        onCheckedChange={(checked) => void toggleMessePortal(row, checked)}
+                        aria-label={tv("videoMgmtShowOnMessePortal", uiLanguage)}
+                      />
+                      <span>{tv("videoMgmtMessePortal", uiLanguage)}</span>
+                    </label>
                     <Button type="button" variant="outline" onClick={() => startEdit(row)} className="gap-2">
                       <FilePenLine className="h-4 w-4" />
                       {tv("edit", uiLanguage)}

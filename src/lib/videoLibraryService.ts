@@ -54,6 +54,7 @@ export interface MarketingVideo {
   custom_thumbnail_path: string | null;
   status: VideoStatus;
   model_generation_status: VideoModelGenerationStatus;
+  show_on_messe_portal: boolean;
   published_at: string | null;
   created_by: string | null;
   updated_by: string | null;
@@ -78,6 +79,7 @@ export interface MarketingVideoInput {
   tags: string[];
   status: VideoStatus;
   model_generation_status?: VideoModelGenerationStatus;
+  show_on_messe_portal?: boolean;
   custom_thumbnail_url?: string | null;
   custom_thumbnail_path?: string | null;
   products: VideoProductOption[];
@@ -87,7 +89,7 @@ export interface MarketingVideoInput {
 
 const VIDEO_BASE_SELECT = `
   id, youtube_url, youtube_video_id, title, description, localized_content, source_language, translation_meta, content_type, seasons, tags,
-  custom_thumbnail_url, custom_thumbnail_path, status, model_generation_status, published_at,
+  custom_thumbnail_url, custom_thumbnail_path, status, model_generation_status, show_on_messe_portal, published_at,
   created_by, updated_by, created_at, updated_at
 `;
 
@@ -280,6 +282,7 @@ function toVideo(row: Record<string, unknown>): MarketingVideo {
     custom_thumbnail_path: (row.custom_thumbnail_path as string | null) ?? null,
     status: (row.status as VideoStatus) || "draft",
     model_generation_status: (row.model_generation_status as VideoModelGenerationStatus) || "current",
+    show_on_messe_portal: Boolean(row.show_on_messe_portal),
     published_at: (row.published_at as string | null) ?? null,
     created_by: (row.created_by as string | null) ?? null,
     updated_by: (row.updated_by as string | null) ?? null,
@@ -344,6 +347,21 @@ export async function listPublishedMarketingVideos(language?: PortalUiLanguage):
     .select(VIDEO_SELECT)
     .eq("status", "published")
     .not("published_at", "is", null)
+    .lte("published_at", new Date().toISOString())
+    .order("published_at", { ascending: false });
+  if (error) return { rows: [], error: error.message };
+  const rows = ((data ?? []) as Record<string, unknown>[]).map(toVideo);
+  return { rows: language ? rows.map((row) => localizeMarketingVideo(row, language)) : rows, error: null };
+}
+
+export async function listMesseMarketingVideos(language?: PortalUiLanguage): Promise<{ rows: MarketingVideo[]; error: string | null }> {
+  const { data, error } = await supabase
+    .from("marketing_videos")
+    .select(VIDEO_SELECT)
+    .eq("status", "published")
+    .eq("show_on_messe_portal", true)
+    .not("published_at", "is", null)
+    .lte("published_at", new Date().toISOString())
     .order("published_at", { ascending: false });
   if (error) return { rows: [], error: error.message };
   const rows = ((data ?? []) as Record<string, unknown>[]).map(toVideo);
@@ -495,6 +513,7 @@ export async function saveMarketingVideo(input: MarketingVideoInput): Promise<{ 
     seasons: input.seasons,
     tags: input.tags,
     model_generation_status: input.model_generation_status || "current",
+    show_on_messe_portal: input.show_on_messe_portal ?? false,
     custom_thumbnail_url: input.custom_thumbnail_url || null,
     custom_thumbnail_path: input.custom_thumbnail_path || null,
     status,
@@ -561,6 +580,25 @@ export async function saveMarketingVideo(input: MarketingVideoInput): Promise<{ 
     .single();
   if (refreshError || !refreshed) return { row: null, error: refreshError?.message ?? "refresh_failed" };
   return { row: toVideo(refreshed as Record<string, unknown>), error: null };
+}
+
+export async function setMarketingVideoMessePortalVisibility(
+  videoId: string,
+  showOnMessePortal: boolean,
+): Promise<{ row: MarketingVideo | null; error: string | null }> {
+  const actorId = await getCurrentAppUserId();
+  const { data, error } = await supabase
+    .from("marketing_videos")
+    .update({
+      show_on_messe_portal: showOnMessePortal,
+      updated_by: actorId,
+    })
+    .eq("id", videoId)
+    .select(VIDEO_SELECT)
+    .single();
+
+  if (error || !data) return { row: null, error: error?.message ?? "update_failed" };
+  return { row: toVideo(data as Record<string, unknown>), error: null };
 }
 
 export async function uploadVideoThumbnail(file: File): Promise<{ url: string | null; path: string | null; error: string | null }> {
