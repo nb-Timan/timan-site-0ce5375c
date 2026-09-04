@@ -153,6 +153,8 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     is_active: row.is_active !== false,
     allowed_areas,
     allowed_modules,
+    has_manual_area_override: hasAreasCol,
+    has_manual_module_override: hasModulesCol,
     backend_modules,
     perms: {
       can_view_prices: defaultCanViewPrices(row.can_view_prices, row.portal_role, row.role, row.partner_type),
@@ -303,10 +305,10 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     : null;
   const allowedAreasForDb = dealerUserDefaults
     ? dealerUserDefaults.filter((m): m is AreaKey => (ALL_AREAS as string[]).includes(m))
-    : draft.allowed_areas;
+    : (draft.has_manual_area_override === false ? null : draft.allowed_areas);
   const allowedModulesForDb = dealerUserDefaults
     ? dealerUserDefaults.filter((m) => !(ALL_AREAS as string[]).includes(m))
-    : draft.allowed_modules;
+    : (draft.has_manual_module_override === false ? null : draft.allowed_modules);
 
   const safePerms = sanitizePermsForRole(roleForAccess, draft.perms);
 
@@ -420,8 +422,8 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     ["status", row.status, status],
     ["approved", row.approved, approved],
     ["is_active", row.is_active, is_active],
-    ["allowed_areas", [...(asArray<string>(row.allowed_areas))].sort(), [...allowedAreasForDb].sort()],
-    ["allowed_modules", [...(asArray<string>(row.allowed_modules))].sort(), [...allowedModulesForDb].sort()],
+    ["allowed_areas", allowedAreasForDb == null ? null : [...(asArray<string>(row.allowed_areas))].sort(), allowedAreasForDb == null ? null : [...allowedAreasForDb].sort()],
+    ["allowed_modules", allowedModulesForDb == null ? null : [...(asArray<string>(row.allowed_modules))].sort(), allowedModulesForDb == null ? null : [...allowedModulesForDb].sort()],
     ["backend_modules", [...(asArray<string>(row.backend_modules))].sort(), [...draft.backend_modules].sort()],
     ["can_view_prices", row.can_view_prices, safePerms.can_view_prices],
     ["can_submit_order", row.can_submit_order, safePerms.can_submit_order],

@@ -601,18 +601,23 @@ function EditUserModal({
     ? Array.from(new Set([...roleDefaultBackendModules, ...draft.backend_modules]))
     : draft.backend_modules;
 
-  function accessLabel(label: string, inherited: boolean, manual: boolean) {
+  function accessLabel(label: string, inherited: boolean, enabled: boolean, manualOverride: boolean) {
     return (
       <>
         <span>{label}</span>
-        {inherited && (
+        {!manualOverride && inherited && (
           <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-emerald-700">
             Fra rolle
           </span>
         )}
-        {!inherited && manual && (
+        {manualOverride && enabled && !inherited && (
           <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-blue-700">
-            Manuelt
+            Manuelt til
+          </span>
+        )}
+        {manualOverride && !enabled && inherited && (
+          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-slate-700">
+            Manuelt fra
           </span>
         )}
       </>
@@ -870,16 +875,25 @@ function EditUserModal({
                   <CheckboxGroup
                     items={ALL_AREAS.map((a) => ({
                       value: a,
-                      label: accessLabel(AREA_LABEL[a], roleDefaultAreas.includes(a), draft.allowed_areas.includes(a)),
+                      label: accessLabel(AREA_LABEL[a], roleDefaultAreas.includes(a), draft.allowed_areas.includes(a), draft.has_manual_area_override === true),
                       disabled: (draft.role === "timan_backend" && roleDefaultAreas.includes(a)) || (dealerSide && FORBIDDEN_AREAS.includes(a)),
                     }))}
                     checked={effectiveAllowedAreas}
                     onChange={(v) => {
                       const area = v as AreaKey;
                       if ((draft.role === "timan_backend" && roleDefaultAreas.includes(area)) || (dealerSide && FORBIDDEN_AREAS.includes(area))) return;
-                      setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, area) });
+                      setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, area), has_manual_area_override: true });
                     }}
                   />
+                  {draft.has_manual_area_override && (
+                    <button
+                      type="button"
+                      onClick={() => setDraft({ ...draft, allowed_areas: roleDefaultAreas, has_manual_area_override: false })}
+                      className="mt-2 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
+                    >
+                      Nulstil til rolle
+                    </button>
+                  )}
                   {dealerSide && (
                     <p className="mt-2 text-[11px] text-slate-500">
                       Eksterne dealer-side roller kan få begrænset CRM-adgang, men har ikke adgang til Timan Backend.
@@ -903,14 +917,14 @@ function EditUserModal({
                   <CheckboxGroup
                     items={modules.map((m) => ({
                       value: m,
-                      label: accessLabel(MODULE_LABEL[m] || m, roleDefaultModules.includes(m), draft.allowed_modules.includes(m)),
+                      label: accessLabel(MODULE_LABEL[m] || m, roleDefaultModules.includes(m), draft.allowed_modules.includes(m), draft.has_manual_module_override === true),
                       disabled: (draft.role === "timan_backend" && roleDefaultModules.includes(m)) || (dealerSide && FORBIDDEN_MODULES.includes(m)),
                     }))}
                     checked={effectiveAllowedModules}
                     onChange={(v) => {
                       const mod = v as ModuleAccessKey;
                       if ((draft.role === "timan_backend" && roleDefaultModules.includes(mod)) || (dealerSide && FORBIDDEN_MODULES.includes(mod))) return;
-                      setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, mod) });
+                      setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, mod), has_manual_module_override: true });
                     }}
                   />
                 </div>
@@ -919,12 +933,21 @@ function EditUserModal({
                 <>
                   {MODULE_GROUPS.map((g) => renderGroup(g.label, g.modules))}
                   {otherModules.length > 0 && renderGroup("Øvrige", otherModules)}
+                  {draft.has_manual_module_override && (
+                    <button
+                      type="button"
+                      onClick={() => setDraft({ ...draft, allowed_modules: roleDefaultModules, has_manual_module_override: false })}
+                      className="mb-3 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
+                    >
+                      Nulstil til rolle
+                    </button>
+                  )}
                   <div className="mb-1">
                     <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">Timan Backend</p>
                     <CheckboxGroup
                       items={BACKEND_META_MODULES.map((m) => ({
                         value: m,
-                        label: accessLabel(BACKEND_MODULE_LABEL[m], roleDefaultBackendModules.includes(m), draft.backend_modules.includes(m)),
+                        label: accessLabel(BACKEND_MODULE_LABEL[m], roleDefaultBackendModules.includes(m), draft.backend_modules.includes(m), false),
                         disabled: (draft.role === "timan_backend" && roleDefaultBackendModules.includes(m)) || dealerSide,
                       }))}
                       checked={dealerSide ? [] : effectiveBackendModules}

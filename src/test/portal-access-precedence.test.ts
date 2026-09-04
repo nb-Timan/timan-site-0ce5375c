@@ -56,6 +56,12 @@ describe('portal access precedence', () => {
     expect(hasModuleAccess('timan_seller', 'timan_crm', [])).toBe(false);
   });
 
+  it('lets a manual module deny override a seller role default', () => {
+    const sellerWithContractDefault = [...DEFAULT_MODULE_ACCESS.timan_seller, 'contracts'];
+    const manualModules = sellerWithContractDefault.filter((key) => key !== 'contracts');
+    expect(hasModuleAccess('timan_seller', 'contracts', manualModules)).toBe(false);
+  });
+
   it('keeps Timan Backend role access as the minimum access', () => {
     expect(hasAreaAccess({ ...backend, allowed_areas: ['salg_marketing'] }, 'marketing')).toBe(true);
     expect(hasModuleAccess('timan_backend', 'marketing', [])).toBe(true);

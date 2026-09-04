@@ -819,7 +819,11 @@ export default function ContractsPage() {
   const internalContractRoles = new Set(['timan_backend', 'timan_seller', 'timan_service']);
   const overviewContractRoles = new Set(['timan_backend', 'timan_seller']);
   const isInternalContractActor = !!portalRole && internalContractRoles.has(portalRole);
-  const canUseInternalContractOverview = !!portalRole && overviewContractRoles.has(portalRole);
+  const hasInternalContractModuleAccess = portalRole === 'timan_backend'
+    || hasModuleAccess(portalRole, 'contracts', getUserModuleAccessOverride(effectiveUser));
+  const canUseInternalContractOverview = !!portalRole
+    && overviewContractRoles.has(portalRole)
+    && hasInternalContractModuleAccess;
   const showInternalContractOverview = canUseInternalContractOverview
     && !routeContractIdValue
     && !dealerAccountNumber
@@ -980,7 +984,7 @@ export default function ContractsPage() {
     || (portalRole === 'timan_seller' && hasModuleAccess(portalRole, 'contracts', moduleOverride));
   const hasActiveAccessWindow = Boolean(accessWindow && new Date(accessWindow.opens_at).getTime() <= Date.now() && new Date(accessWindow.closes_at).getTime() > Date.now() && !accessWindow.revoked_at);
   const hasApprovedPartnerDocumentAccess = ['awaiting_signed_upload', 'submitted_for_approval', 'changes_requested', 'approved', 'archived'].includes(contractRecord?.contract_status ?? '');
-  const hasAccess = isInternalContractActor || hasModuleAccess(portalRole, 'contracts', moduleOverride) || hasActiveAccessWindow || hasApprovedPartnerDocumentAccess;
+  const hasAccess = hasInternalContractModuleAccess || hasActiveAccessWindow || hasApprovedPartnerDocumentAccess;
   const activeStep = CONTRACT_STEPS[activeStepIndex];
   const activeStepLabel = getContractStepLabel(activeStep.id, uiLanguage);
   const appendixLabel = getContractAppendixLabel(uiLanguage);

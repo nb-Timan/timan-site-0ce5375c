@@ -87,6 +87,9 @@ export interface BackendUser {
   is_active: boolean;
   allowed_areas: AreaKey[];
   allowed_modules: ModuleAccessKey[];
+  /** UI-only source markers. NULL in app_users means inherit the role defaults. */
+  has_manual_area_override?: boolean;
+  has_manual_module_override?: boolean;
   backend_modules: BackendMetaModule[];
   perms: {
     can_create_claims: boolean;
