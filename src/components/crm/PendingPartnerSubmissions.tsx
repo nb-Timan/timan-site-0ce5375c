@@ -48,6 +48,14 @@ function details(row: PortalFormSubmission) {
     contacts: Array.isArray(payload.dealer_contacts) ? payload.dealer_contacts.length : 0,
   };
 }
+function submittedContacts(row: PortalFormSubmission): Array<{ name: string; email: string; phone: string; area: string }> {
+  const payload = row.payload as Payload;
+  if (!Array.isArray(payload.dealer_contacts)) return [];
+  return payload.dealer_contacts.map((contact) => {
+    const value = contact && typeof contact === "object" ? contact as Record<string, unknown> : {};
+    return { name: text(value.name), email: text(value.email), phone: text(value.phone), area: text(value.contact_area) };
+  }).filter((contact) => contact.name || contact.email || contact.phone);
+}
 
 export default function PendingPartnerSubmissions({ rows, canReview, language, onReviewed }: {
   rows: PortalFormSubmission[];
@@ -92,6 +100,10 @@ export default function PendingPartnerSubmissions({ rows, canReview, language, o
         <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
           <h4 className="text-lg font-bold text-slate-900">{copy.review}: {details(selected).company}</h4>
           <p className="mt-1 text-sm text-slate-600">{details(selected).vat} · {details(selected).address}</p>
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+            <p className="mb-1 font-semibold text-slate-900">Kontaktpersoner</p>
+            {submittedContacts(selected).map((contact, index) => <p key={`${contact.email}-${index}`}>{contact.area}: {contact.name || "-"} · {contact.email || "-"} · {contact.phone || "-"}</p>)}
+          </div>
           <label className="mt-4 block text-sm font-semibold text-slate-800">{copy.accountNumber}<input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
           <p className="mt-1 text-xs text-slate-500">{copy.accountHelp}</p>
           <label className="mt-4 block text-sm font-semibold text-slate-800">{copy.note}<textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
