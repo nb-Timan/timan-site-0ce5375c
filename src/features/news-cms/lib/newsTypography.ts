@@ -42,7 +42,7 @@ export function setNewsTypographySetting(
   const normalized: NewsTypographySetting | null = setting
     ? {
         style: setting.style && setting.style !== 'default' ? setting.style : undefined,
-        size: setting.size && setting.size !== 0 ? setting.size : undefined,
+        size: setting.size ? setting.size : undefined,
       }
     : null;
 
@@ -85,7 +85,7 @@ export function newsTypographyStyle(
     style.fontStyle = 'italic';
   }
 
-  if (setting.size && setting.size !== 0 && scale[setting.size]) {
+  if (setting.size && scale[setting.size]) {
     style.fontSize = scale[setting.size];
   }
 

@@ -28,7 +28,7 @@ export const APPENDIX_2_EXAMPLE_LINES = [
 
 export function renderAppendix2Paragraphs(partnerType: ContractPartnerType | '' | null | undefined): string[] {
   const terms = getContractPartnerTerms(partnerType);
-  return APPENDIX_2_PARAGRAPHS.map((paragraph) => (
+  return APPENDIX_2_PARAGRAPHS.map((paragraph: string) => (
     paragraph
       .replaceAll('{{partnerDefinite}}', terms?.definite ?? '')
       .replaceAll('{{partnerPlural}}', terms?.plural ?? '')
