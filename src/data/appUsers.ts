@@ -4,6 +4,8 @@
 import { UserRole, TimanWorkingFor, PartnerType } from '@/types/configurator';
 
 export interface AppUser {
+  id?: string | null;
+  name?: string | null;
   email: string;
   role: UserRole;
   partner_type?: PartnerType | null;
