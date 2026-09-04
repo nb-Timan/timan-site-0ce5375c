@@ -14,7 +14,7 @@ import { resolveEffectiveCrmSellerScope } from '@/lib/resolveSellerId';
 import { resolveSellerDisplay, useSellerDirectory, type SellerDirectory } from '@/lib/sellerDirectory';
 import {
   listLeadsPage, updateLead, getLead, deleteLead, deleteDemoLead,
-  CrmLead, type CrmLeadAttachment, type CrmLeadAttachmentPreview, type CrmLeadsPageQueryResult,
+  CrmLead, type CrmDemoLead, type CrmLeadAttachment, type CrmLeadAttachmentPreview, type CrmLeadsPageQueryResult,
   formatLeadNo, formatDemoNo,
   LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   getLeadAttachmentSignedUrls, getLeadImageAttachments,
@@ -1057,7 +1057,7 @@ export default function CrmLeadsPage() {
 
       <WonLostDialog
         lead={closeTarget}
-        lang={lang}
+        lang={lang as Language}
         onOpenChange={(open) => { if (!open) setCloseTarget(null); }}
         onSaved={async () => { setCloseTarget(null); await refreshLeads(); }}
       />

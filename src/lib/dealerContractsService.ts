@@ -586,11 +586,11 @@ export async function fetchInternalDealerContractOverview(
     return buildOverviewRow(contract, dealer);
   });
 
-  const scopeSeller = filters.sellerFilter || {
+  const scopeSeller = (filters.sellerFilter || {
     sellerId: filters.sellerId,
     sellerEmail: filters.sellerEmail,
     sellerInitials: filters.sellerInitials,
-  };
+  }) as Pick<DealerContractOverviewScope, "sellerEmail" | "sellerId" | "sellerInitials">;
   const scopedRows = portalRole === "timan_seller" || filters.sellerFilter
     ? allRows.filter((row) => sellerMatchesScope(row, scopeSeller))
     : allRows;

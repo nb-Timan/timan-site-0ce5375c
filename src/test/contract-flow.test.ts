@@ -93,6 +93,7 @@ const completeForm: ContractFormData = {
     selectedRegions: [],
     municipalities: [],
     postalCodes: [],
+    postalEntries: [],
     postalRanges: [{ from: '5000', to: '5999' }],
   },
   secondaryTerritory: {
@@ -101,6 +102,7 @@ const completeForm: ContractFormData = {
     selectedRegions: [],
     municipalities: [],
     postalCodes: [],
+    postalEntries: [],
     postalRanges: [],
     enabled: false,
   },

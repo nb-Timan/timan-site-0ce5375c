@@ -39,6 +39,7 @@ import {
   type DataTraceLookupType,
   type DataTraceRestorePreview,
   type DataTraceRestoreResult,
+  type DataTraceTableCount,
 } from "@/lib/dataTraceArchiveService";
 
 type TabKey = "forhandlere" | "garanti" | "prislister" | "budget" | "brugere" | "historik" | "data-trace" | "crm-reset";
@@ -348,8 +349,8 @@ function TracePreviewList({ title, rows }: { title: string; rows: Array<{ table?
       ) : (
         <ul className="mt-2 divide-y divide-slate-200 text-sm">
           {rows.map((row) => (
-            <li key={displayTraceTableName(row)} className="flex items-center justify-between py-2">
-              <span className="font-semibold text-slate-700">{displayTraceTableName(row)}</span>
+            <li key={displayTraceTableName(row as DataTraceTableCount)} className="flex items-center justify-between py-2">
+              <span className="font-semibold text-slate-700">{displayTraceTableName(row as DataTraceTableCount)}</span>
               <span className="font-black tabular-nums text-slate-950">{row.count}</span>
             </li>
           ))}

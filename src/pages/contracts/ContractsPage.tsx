@@ -1,3 +1,4 @@
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Pencil, Plus, Save, Search, Trash2, Upload } from 'lucide-react';
@@ -947,7 +948,7 @@ export default function ContractsPage() {
         const phone = row.phone || row.phone_number || row.mobile || row.telephone;
         applySeller(typeof phone === 'string' ? phone.trim() : '');
       })
-      .catch(() => applySeller(''));
+      .then(undefined, () => applySeller(''));
 
     return () => { cancelled = true; };
   }, [effectiveUser]);

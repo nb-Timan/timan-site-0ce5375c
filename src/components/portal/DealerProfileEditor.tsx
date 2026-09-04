@@ -181,7 +181,7 @@ function legacyContactSources(dealer: DealerAccount, t: (k: ProfileI18nKey) => s
       email: dealer.marketing_contact_email,
       phone: dealer.marketing_contact_phone,
     },
-  ].filter((source) => Boolean(source.name || source.email || source.phone));
+  ].filter((source) => Boolean(source.name || source.email || source.phone)) as LegacyContactSource[];
 }
 
 function isLegacyPrimaryContact(dealer: DealerAccount, source: LegacyContactSource): boolean {

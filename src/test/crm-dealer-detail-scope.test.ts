@@ -65,7 +65,7 @@ function dealer(
     workshop_contact_email: null,
     workshop_has_multiple: false,
     ...overrides,
-  };
+  } as DealerAccount;
 }
 
 describe("CRM dealer detail scope", () => {

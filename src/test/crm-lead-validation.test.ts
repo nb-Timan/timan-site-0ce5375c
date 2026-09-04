@@ -23,7 +23,7 @@ describe('ordinary CRM lead required fields', () => {
     ['contactCity', { contactCity: '' }],
     ['country', { country: '' }],
   ] as const)('rejects missing %s', (field, patch) => {
-    expect(getMissingOrdinaryCrmLeadFields({ ...validLead, ...patch })).toContain(field);
+    expect(getMissingOrdinaryCrmLeadFields({ ...validLead, ...patch } as OrdinaryCrmLeadRequiredInput)).toContain(field);
   });
 
   it('accepts a complete ordinary CRM lead input', () => {
