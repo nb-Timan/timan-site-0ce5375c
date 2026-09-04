@@ -24,6 +24,11 @@ import {
 import { type UpdateDealerAccountPatch } from "@/lib/dealerAccountsService";
 import { type DealerContactArea } from "@/lib/dealerContactsService";
 import { submitPortalForm, type PortalFormSubmission } from "@/lib/portalFormsService";
+import {
+  DEFAULT_PAYMENT_TERMS,
+  getPaymentTermsOptionLabel,
+  PAYMENT_TERMS_OPTIONS,
+} from "@/lib/paymentTerms";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 import MiscPageShell from "./MiscPageShell";
 
@@ -114,7 +119,7 @@ export default function CompanyContactInfoFormPage() {
   const [city, setCity] = useState("");
   const [country, setCountry] = useState("");
   const [invoiceEmail, setInvoiceEmail] = useState("");
-  const [paymentTerms, setPaymentTerms] = useState("");
+  const [paymentTerms, setPaymentTerms] = useState(DEFAULT_PAYMENT_TERMS);
   const [currencyCode, setCurrencyCode] = useState("DKK");
   const [website, setWebsite] = useState("");
   const [socialLinkedin, setSocialLinkedin] = useState("");
@@ -137,7 +142,7 @@ export default function CompanyContactInfoFormPage() {
     setCity("");
     setCountry("");
     setInvoiceEmail("");
-    setPaymentTerms("");
+    setPaymentTerms(DEFAULT_PAYMENT_TERMS);
     setCurrencyCode("DKK");
     setWebsite("");
     setSocialLinkedin("");
@@ -386,7 +391,17 @@ export default function CompanyContactInfoFormPage() {
               <ContactEditor area="finance" copy={copy} contacts={contactsForArea("finance")} roleKeys={ROLE_KEYS_FINANCE} onPatch={patchContact} onAdd={addContact} onRemove={removeContact} onSetPrimary={setPrimaryContact} />
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <TextField label={copy.invoiceEmail} type="email" value={invoiceEmail} onChange={setInvoiceEmail} required />
-                <TextField label={copy.paymentTerms} value={paymentTerms} onChange={setPaymentTerms} />
+                <div>
+                  <label className={labelCls}>{copy.paymentTerms}</label>
+                  <select className={inputCls} value={paymentTerms} onChange={(event) => setPaymentTerms(event.target.value)}>
+                    {!PAYMENT_TERMS_OPTIONS.includes(paymentTerms) && paymentTerms && (
+                      <option value={paymentTerms}>{paymentTerms}</option>
+                    )}
+                    {PAYMENT_TERMS_OPTIONS.map((option) => (
+                      <option key={option} value={option}>{getPaymentTermsOptionLabel(option, uiLanguage)}</option>
+                    ))}
+                  </select>
+                </div>
                 <TextField label={copy.currencyCode} value={currencyCode} onChange={setCurrencyCode} />
               </div>
             </section>

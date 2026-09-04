@@ -58,6 +58,13 @@ describe("company contact info onboarding i18n", () => {
     expect(page).not.toContain("media:");
   });
 
+  it("uses the shared payment-terms model with NET21 as the fresh onboarding default", () => {
+    expect(page).toContain('"@/lib/paymentTerms"');
+    expect(page).toContain('useState(DEFAULT_PAYMENT_TERMS)');
+    expect(page).toContain('PAYMENT_TERMS_OPTIONS.map');
+    expect(page).toContain('getPaymentTermsOptionLabel(option, uiLanguage)');
+  });
+
   it("opens as a blank fresh onboarding flow instead of preloading existing partner data", () => {
     expect(page).toContain('dealer_kind: "new"');
     expect(page).toContain('dealer_account_number: null');
