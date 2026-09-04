@@ -357,7 +357,7 @@ describe('news service localization', () => {
     const fields = [
       { key: 'headline', type: 'text', labelKey: 'newsCmsFieldHeadline', required: true },
       { key: 'subtitle', type: 'text', labelKey: 'newsCmsFieldSubtitle', required: false },
-    ] as const;
+    ] as Parameters<typeof translateMissingNewsContent>[1];
     const previous = {
       da: {
         headline: 'Skivehøster til Timan RC-1000s',

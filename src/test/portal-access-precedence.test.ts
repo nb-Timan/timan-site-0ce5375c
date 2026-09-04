@@ -13,14 +13,14 @@ import {
 import { setActiveMode } from '@/lib/activeMode';
 import { isExternalMesseRole } from '@/components/messe/MesseGuards';
 
-const seller = {
+const seller: any = {
   email: 'akr@timan.dk',
   role: 'timan_saelger',
   partner_type: null,
   portal_role: 'timan_seller',
 };
 
-const backend = {
+const backend: any = {
   email: 'nb@timan.dk',
   role: 'timan_saelger',
   partner_type: null,

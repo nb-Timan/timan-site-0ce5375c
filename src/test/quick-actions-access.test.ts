@@ -4,7 +4,7 @@ import { mergeEffectivePortalUser } from "@/lib/viewAsUser";
 import type { SessionUser } from "@/context/AppUserContext";
 import type { UserView } from "@/lib/activeMode";
 
-const seller = {
+const seller: any = {
   email: "jtn@timan.dk",
   role: "timan_saelger",
   partner_type: null,
