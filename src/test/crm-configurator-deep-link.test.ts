@@ -50,6 +50,28 @@ describe("CRM lead linked configurator records", () => {
     expect(getCrmLinkedConfigurationKind(baseRow)).toBe("configuration");
   });
 
+  it("does not treat a legacy O-number as a submitted order by itself", () => {
+    expect(getCrmLinkedConfigurationKind({
+      ...baseRow,
+      order_number: "O-7001",
+      quote_sent_at: "2026-09-01T07:29:29.748Z",
+      submitted_at: null,
+      order_sent_at: null,
+    })).toBe("quote");
+  });
+
+  it("does not treat an active order-flow draft as a submitted order", () => {
+    expect(getCrmLinkedConfigurationKind({
+      ...baseRow,
+      document_type: "order",
+      case_type: "order",
+      order_number: "O-7001",
+      quote_sent_at: "2026-09-01T07:29:29.748Z",
+      submitted_at: null,
+      order_sent_at: null,
+    })).toBe("quote");
+  });
+
   it("classifies quote and order states from canonical sent/submitted fields", () => {
     expect(getCrmLinkedConfigurationKind({
       ...baseRow,

@@ -85,14 +85,11 @@ export interface CrmConfigurationFilter {
 
 export type CrmLinkedConfigurationKind = 'configuration' | 'quote' | 'order';
 
-function isOrderLike(row: Pick<CrmConfigurationRow, 'document_type' | 'case_type' | 'case_status' | 'status' | 'order_number' | 'order_sent_at' | 'submitted_at'>): boolean {
+function isOrderLike(row: Pick<CrmConfigurationRow, 'case_status' | 'status' | 'order_sent_at' | 'submitted_at'>): boolean {
   const caseStatus = (row.case_status || '').toLowerCase();
   const status = (row.status || '').toLowerCase();
-  return row.document_type === 'order'
-    || row.case_type === 'order'
-    || caseStatus === 'ordre_afgivet'
+  return caseStatus === 'ordre_afgivet'
     || status === 'ordre_afgivet'
-    || Boolean(row.order_number)
     || Boolean(row.order_sent_at)
     || Boolean(row.submitted_at);
 }

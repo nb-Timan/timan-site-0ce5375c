@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { isOrderRowSubmitted, isSavedConfigurationOrderLocked } from '@/lib/configurationsService';
+import {
+  buildSubmittedOrderLeadWonPatch,
+  isOrderRowSubmitted,
+  isSavedConfigurationOrderLocked,
+} from '@/lib/configurationsService';
 
 describe('submitted configurator order lock', () => {
   it('keeps an active order draft with an O-number editable', () => {
@@ -55,5 +59,15 @@ describe('submitted configurator order lock', () => {
       order_sent_at: null,
       order_number: null,
     })).toBe(false);
+  });
+
+  it('uses the canonical won patch when a linked lead is closed by order submission', () => {
+    expect(buildSubmittedOrderLeadWonPatch()).toEqual({
+      incomplete_from_configurator: false,
+      pipeline_stage: 'Won',
+      next_activity: 'Closed with order',
+      probability: 100,
+      status: 'closed',
+    });
   });
 });

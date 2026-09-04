@@ -6,6 +6,7 @@ import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHi
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
 import { generateLocalCrmDocumentNumber, getNextCrmDocumentNumber } from '@/lib/crmNumberSequencesService';
+import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
 
 async function recordConfiguratorUsage(activeSeconds = 0): Promise<void> {
   try {
@@ -18,6 +19,16 @@ async function recordConfiguratorUsage(activeSeconds = 0): Promise<void> {
   } catch (e) {
     console.warn('[configurationsService] configurator analytics failed (ignored):', e);
   }
+}
+
+export function buildSubmittedOrderLeadWonPatch() {
+  return {
+    incomplete_from_configurator: false,
+    pipeline_stage: deriveLegacyPipelineStage(NEXT_ACTIVITY_WON),
+    next_activity: NEXT_ACTIVITY_WON,
+    probability: 100,
+    status: 'closed',
+  } as const;
 }
 
 
@@ -1408,6 +1419,16 @@ export async function markAsOrderSubmitted(id: string, options?: { pricingMode?:
 
   if (error) console.error('Failed to mark as order submitted:', error);
   else void recordConfiguratorUsage(1);
+
+  const linkedLeadId = (rowSnapshot?.lead_id as string | null) ?? null;
+  if (!error && linkedLeadId) {
+    try {
+      const { updateLead } = await import('@/lib/crmLeadsService');
+      await updateLead(linkedLeadId, buildSubmittedOrderLeadWonPatch() as any);
+    } catch (e) {
+      console.warn('[markAsOrderSubmitted] linked lead close failed (ignored):', e);
+    }
+  }
 
   // CRM: log order_sent activity. Strict mode = no misleading "Gemt lokalt"
   // toast on this send flow; failures are surfaced to the console for
