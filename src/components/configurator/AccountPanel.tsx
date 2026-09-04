@@ -23,6 +23,7 @@ import {
   updateConfigurationNote,
   SavedStatus,
   getSentPdfSignedUrl,
+  isSavedConfigurationOrderLocked,
 } from '@/lib/configurationsService';
 import { hideConfigurationForScope } from '@/lib/userHiddenConfigurationsService';
 import { resolveHideScopeForCurrentUser } from '@/lib/configurationsService';
@@ -107,6 +108,10 @@ function statusColor(status: SavedStatus): string {
   if (status === 'aktiv') return 'bg-emerald-100 text-emerald-700';
   if (status === 'pause') return 'bg-amber-100 text-amber-700';
   return 'bg-blue-100 text-blue-700';
+}
+
+function effectiveCaseStatus(item: SavedConfiguration): SavedStatus {
+  return isSavedConfigurationOrderLocked(item) ? 'ordre_afgivet' : item.case_status;
 }
 
 export default function AccountPanel({ appUser, language, currentState, onLogout, onRestoreState, onSavedConfiguration, ownershipOverride }: Props) {
@@ -219,7 +224,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
   const handleToggleStatus = async (id: string) => {
     const item = savedItems.find(i => i.id === id);
-    if (!item || item.case_status === 'ordre_afgivet') return;
+    if (!item || isSavedConfigurationOrderLocked(item)) return;
     const newStatus: SavedStatus = item.case_status === 'aktiv' ? 'pause' : 'aktiv';
     await updateConfigurationStatus(id, newStatus);
     setSavedItems(prev => prev.map(i => i.id === id ? { ...i, case_status: newStatus } : i));
@@ -308,7 +313,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       return;
     }
     // Sent order without a stored PDF (legacy row from before storage): can't view.
-    if (item.case_status === 'ordre_afgivet') {
+    if (isSavedConfigurationOrderLocked(item)) {
       toast.error(tx('pdfNotStored'));
       return;
     }
@@ -325,13 +330,14 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     savedItems.forEach(item => {
       if (!item.state_json) return;
       const { finalPrice } = calcConfigurationTotals(item.state_json);
-      if (item.case_status === 'aktiv') {
+      const status = effectiveCaseStatus(item);
+      if (status === 'aktiv') {
         totals.active.count += 1;
         totals.active.value += finalPrice;
-      } else if (item.case_status === 'ordre_afgivet') {
+      } else if (status === 'ordre_afgivet') {
         totals.closed.count += 1;
         totals.closed.value += finalPrice;
-      } else if (item.case_status === 'pause') {
+      } else if (status === 'pause') {
         totals.paused.count += 1;
         totals.paused.value += finalPrice;
       }
@@ -607,6 +613,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                 <div className="divide-y divide-gray-100">
                   {filteredItems.map(item => {
                     const summary = buildAccountCaseSummary(item, language);
+                    const effectiveStatus = effectiveCaseStatus(item);
                     const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU', sv: 'sv-SE', fr: 'fr-FR', pl: 'pl-PL', cs: 'cs-CZ' } as Record<string, string>)[language as string] || 'en-GB';
                     const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(dateLocale) : '-';
                     return (
@@ -625,8 +632,8 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                         </div>
                         <div className="text-gray-700">{summary.machineLabel}</div>
                         <div>
-                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${statusColor(item.case_status)}`}>
-                            {statusLabel(item.case_status, language)}
+                          <span className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${statusColor(effectiveStatus)}`}>
+                            {statusLabel(effectiveStatus, language)}
                           </span>
                           <div className="text-xs text-gray-500 mt-1">{fmt(summary.latestChange)}</div>
                         </div>
@@ -649,7 +656,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           >
                             {tx('reorder')}
                           </button>
-                          {item.case_status !== 'ordre_afgivet' && (
+                          {effectiveStatus !== 'ordre_afgivet' && (
                             <button
                               type="button"
                               onClick={() => void handleOpen(item)}
@@ -658,7 +665,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                               {tx('open')}
                             </button>
                           )}
-                          {(item.sent_pdf_path || item.case_status === 'ordre_afgivet') && (
+                          {(item.sent_pdf_path || effectiveStatus === 'ordre_afgivet') && (
                             <button
                               type="button"
                               onClick={() => void handleOpenPdf(item)}
@@ -714,7 +721,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                 </div>
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
                   <div className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-2">{tx('order')}</div>
-                  <div className="font-bold text-gray-900">{statusLabel(detailItem!.case_status, language)}</div>
+                  <div className="font-bold text-gray-900">{statusLabel(effectiveCaseStatus(detailItem!), language)}</div>
                   <div className="text-sm text-gray-600">{tx('deliveryDate')}: {detailSummary.deliveryDate || '-'}</div>
                   <div className="text-sm text-gray-600">{tx('deliveryMethod')}: {detailSummary.deliveryMethod || '-'}</div>
                   <div className="text-sm text-gray-600">{tx('latestChange')}: {detailSummary.latestChange ? new Date(detailSummary.latestChange).toLocaleString() : '-'}</div>

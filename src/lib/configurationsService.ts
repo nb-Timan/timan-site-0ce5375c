@@ -1659,6 +1659,8 @@ export function isOrderRowSubmitted(row: Record<string, unknown> | null | undefi
   const orderSentAt = (row.order_sent_at as string | null) ?? null;
   const orderNumber = (row.order_number as string | null) ?? null;
 
+  if (orderSentAt || submittedAt) return true;
+
   const isOrder = documentType === 'order' || caseType === 'order' || Boolean(orderNumber);
   return isOrder && Boolean(orderSentAt || submittedAt);
 }

@@ -69,13 +69,37 @@ describe('configurator account summaries', () => {
   it('filters by status and search without fetching detail rows', () => {
     const items = [
       configuration(),
-      configuration({ id: 'config-paused', case_status: 'pause', order_number: 'O-200', state_json: { ...baseState, firmanavn: 'Anden kunde' } }),
+      configuration({
+        id: 'config-paused',
+        case_status: 'pause',
+        order_number: null,
+        submitted_at: null,
+        order_sent_at: null,
+        state_json: { ...baseState, firmanavn: 'Anden kunde' },
+      }),
     ];
 
     expect(filterAccountCases(items, 'sent', '')).toHaveLength(1);
     expect(filterAccountCases(items, 'paused', '')).toHaveLength(1);
     expect(filterAccountCases(items, 'all', 'anden')).toHaveLength(1);
     expect(filterAccountCases(items, 'all', 'O-100')).toHaveLength(1);
+  });
+
+  it('treats submitted legacy quote rows as sent orders in account views', () => {
+    const legacySubmittedQuote = configuration({
+      case_type: 'quote',
+      case_status: 'aktiv',
+      order_number: 'O-7001',
+      order_sent_at: null,
+      submitted_at: '2026-09-04T08:00:00.000Z',
+    });
+
+    const summary = buildAccountCaseSummary(legacySubmittedQuote, 'da');
+    expect(summary.status).toBe('ordre_afgivet');
+    expect(summary.statusGroup).toBe('sent');
+    expect(summary.typeLabel).toBe('order');
+    expect(filterAccountCases([legacySubmittedQuote], 'sent', '')).toHaveLength(1);
+    expect(filterAccountCases([legacySubmittedQuote], 'active', '')).toHaveLength(0);
   });
 
   it('creates a reorder draft as a new editable order flow', () => {

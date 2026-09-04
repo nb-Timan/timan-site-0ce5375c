@@ -80,10 +80,14 @@ function getSelectedAccessoryIds(state: ConfiguratorState, machineId: string): s
   return Array.from(ids);
 }
 
-export function getAccountCaseStatusGroup(item: Pick<AccountCaseLike, 'case_status'>): AccountCaseStatusFilter {
+function isAccountCaseSent(item: Pick<AccountCaseLike, 'case_status' | 'submitted_at' | 'order_sent_at'>): boolean {
+  return Boolean(item.order_sent_at || item.submitted_at || item.case_status === 'ordre_afgivet');
+}
+
+export function getAccountCaseStatusGroup(item: Pick<AccountCaseLike, 'case_status' | 'submitted_at' | 'order_sent_at'>): AccountCaseStatusFilter {
+  if (isAccountCaseSent(item)) return 'sent';
   if (item.case_status === 'aktiv') return 'active';
   if (item.case_status === 'pause') return 'paused';
-  if (item.case_status === 'ordre_afgivet') return 'sent';
   return 'all';
 }
 
@@ -109,9 +113,9 @@ export function buildAccountCaseSummary(item: AccountCaseLike, language: string)
     dealerNumber: item.dealer_number,
     sellerName: item.seller_name || '-',
     sellerEmail: item.seller_email || '-',
-    status: item.case_status,
+    status: isAccountCaseSent(item) ? 'ordre_afgivet' : item.case_status,
     statusGroup: getAccountCaseStatusGroup(item),
-    typeLabel: item.case_type,
+    typeLabel: isAccountCaseSent(item) ? 'order' : item.case_type,
     totalPrice: totals.finalPrice,
     deliveryDate: item.state_json.date || null,
     deliveryMethod: item.state_json.deliveryMethod || null,

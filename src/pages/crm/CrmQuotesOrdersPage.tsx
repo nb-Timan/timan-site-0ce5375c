@@ -92,12 +92,13 @@ function fmtDate(iso: string | null): string {
   try { return new Date(iso).toLocaleDateString('da-DK'); } catch { return '—'; }
 }
 
-function statusBadge(status: string | null): { label: string; cls: string } {
-  const s = (status || 'aktiv').toLowerCase();
+function statusBadge(row: Pick<CrmConfigurationRow, 'case_status' | 'status' | 'submitted_at' | 'order_sent_at'>): { label: string; cls: string } {
+  const s = (row.case_status || row.status || 'aktiv').toLowerCase();
+  if (row.order_sent_at || row.submitted_at) return { label: 'Ordre afgivet', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
   if (s === 'ordre_afgivet') return { label: 'Ordre afgivet', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
   if (s === 'pause')         return { label: 'Pause',         cls: 'bg-amber-50 text-amber-700 border-amber-200' };
   if (s === 'aktiv')         return { label: 'Aktiv',         cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-  return { label: status || '—', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+  return { label: row.case_status || row.status || '—', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
 }
 
 export default function CrmQuotesOrdersPage({ mode }: Props) {
@@ -105,6 +106,13 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
   const portalRole = derivePortalRole(effectiveUser);
+  const effectiveUserEmail = effectiveUser?.email ?? null;
+  const effectiveUserDisplayName = effectiveUser?.display_name ?? null;
+  const effectiveUserPortalRole = effectiveUser?.portal_role ?? null;
+  const effectiveUserRole = effectiveUser?.role ?? null;
+  const effectiveUserPartnerType = effectiveUser?.partner_type ?? null;
+  const effectiveDealerNumber = effectiveUser?.dealer_number ?? null;
+  const effectiveCompanyDealer = effectiveUser?.company_dealer ?? null;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const dealerParam = searchParams.get('dealer') || '';
@@ -137,7 +145,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       const sellerInitials = sellerView?.initials
         ?? (isSeller && appUser?.display_name ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null : null);
       const sellerEmail = sellerView?.email ?? (isSeller ? appUser?.email?.toLowerCase() ?? null : null);
-      const dealerNumber = effectiveUser?.dealer_number ?? null;
+      const dealerNumber = effectiveDealerNumber;
       const dealerNumbers = isExternalCrmRole(portalRole)
         ? Array.from((await buildJournalScope(effectiveUser, portalRole)).dealerNumbers)
         : null;
@@ -157,7 +165,21 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, appUser?.display_name, effectiveUser, portalRole, mode, isSeller, reloadKey]);
+  }, [
+    appUser?.email,
+    appUser?.display_name,
+    effectiveUserEmail,
+    effectiveUserDisplayName,
+    effectiveUserPortalRole,
+    effectiveUserRole,
+    effectiveUserPartnerType,
+    effectiveDealerNumber,
+    effectiveCompanyDealer,
+    portalRole,
+    mode,
+    isSeller,
+    reloadKey,
+  ]);
 
   const handleRowClick = useCallback((r: CrmConfigurationRow) => {
     if (canEditOwnership) setEditingRow(r);
@@ -316,8 +338,8 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                   const number = mode === 'order'
                     ? (r.order_number || r.quote_number || r.id.slice(0, 8))
                     : (r.quote_number || r.id.slice(0, 8));
-                  const sentAt = mode === 'order' ? r.order_sent_at : r.quote_sent_at;
-                  const badge = statusBadge(r.case_status);
+                  const sentAt = mode === 'order' ? (r.order_sent_at || r.submitted_at) : r.quote_sent_at;
+                  const badge = statusBadge(r);
                   const dealerLabel = r.dealer_company_name
                     ?? r.dealer_name
                     ?? (r.dealer_number ? `#${r.dealer_number}` : '—');

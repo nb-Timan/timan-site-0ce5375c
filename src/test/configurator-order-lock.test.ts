@@ -49,7 +49,7 @@ describe('submitted configurator order lock', () => {
     })).toBe(true);
   });
 
-  it('keeps quotes editable even when they have a sent timestamp', () => {
+  it('locks legacy quote rows when canonical order submission timestamps exist', () => {
     expect(isSavedConfigurationOrderLocked({
       document_type: 'quote',
       case_type: 'quote',
@@ -58,7 +58,7 @@ describe('submitted configurator order lock', () => {
       quote_sent_at: '2026-09-04T08:00:00.000Z',
       order_sent_at: null,
       order_number: null,
-    } as Parameters<typeof isSavedConfigurationOrderLocked>[0])).toBe(false);
+    } as Parameters<typeof isSavedConfigurationOrderLocked>[0])).toBe(true);
   });
 
   it('uses the canonical won patch when a linked lead is closed by order submission', () => {
