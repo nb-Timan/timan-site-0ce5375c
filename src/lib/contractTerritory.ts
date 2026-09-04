@@ -406,7 +406,7 @@ export function getContractTerritoryPostalLabel(
   countryCode: ContractTerritoryCountryCode,
   language: PortalUiLanguage | string | null | undefined = 'da',
 ) {
-  const country = COUNTRY_BY_CODE.get(countryCode) ?? COUNTRY_BY_CODE.get('DK')!;
+  const country = COUNTRY_BY_CODE.get(countryCode as ContractTerritoryDetailedCountryCode) ?? COUNTRY_BY_CODE.get('DK')!;
   return country.postalLabel[language as PortalUiLanguage] ?? country.postalLabel.da;
 }
 

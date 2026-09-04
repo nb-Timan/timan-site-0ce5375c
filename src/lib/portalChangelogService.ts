@@ -670,7 +670,7 @@ export async function refreshChangelog(): Promise<void> {
   await loadChangelogFromSupabase(true);
 }
 
-export function getEntriesForLanguage(_language: Language): ChangeLogEntry[] {
+export function getEntriesForLanguage(_language: PortalUiLanguage): ChangeLogEntry[] {
   if (cache.status === 'idle') void loadChangelogFromSupabase();
   if (cache.status === 'ready') {
     return cache.rows.map(publicRowToEntry).sort((a, b) => (a.changed_at < b.changed_at ? 1 : -1));
