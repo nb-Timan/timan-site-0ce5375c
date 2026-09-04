@@ -96,7 +96,7 @@ const EMPTY_DRAFT: DraftState = {
 export default function BackendVideoManagementPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language, uiLanguage, setLanguage } = useLanguage();
-  const { effectiveUser } = useEffectivePortalUserState(appUser);
+  const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
   const navigate = useNavigate();
   const canManage = useMemo(() => canManageMarketingVideos(effectiveUser), [effectiveUser]);
   const [rows, setRows] = useState<MarketingVideo[]>([]);
@@ -130,7 +130,7 @@ export default function BackendVideoManagementPage() {
     return filterAndSortVideos(displayRows, filters, uiLanguage, { includeStatus: true });
   }, [displayRows, filters, uiLanguage]);
 
-  if (loading) return <div className="min-h-screen bg-gray-50" />;
+  if (loading || resolving) return <div className="min-h-screen bg-gray-50" />;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!canManage) return <Navigate to="/portal/marketing" replace />;
 

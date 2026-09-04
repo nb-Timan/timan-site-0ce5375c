@@ -177,6 +177,8 @@ describe("marketing video library", () => {
     expect(salesPage).toContain("showFavorites");
     expect(managementPage).toContain("VideoLibraryFilterBar");
     expect(managementPage).toContain("canManageMarketingVideos");
+    expect(managementPage).toContain("const { effectiveUser, resolving } = useEffectivePortalUserState(appUser)");
+    expect(managementPage).toContain("if (loading || resolving)");
     expect(area).toContain("canManageMarketingVideos");
     expect(portalAccess).toContain("marketing_videos_manage");
     expect(usersPage).toContain("Videoer / Administrér videoer");
