@@ -76,6 +76,21 @@ const LANGUAGES: { code: PortalUiLanguage; flag: string }[] = PORTAL_LANGUAGES.m
   code: l.code, flag: l.emoji,
 }));
 
+const INTERNAL_TIMAN_COPY_EMAIL = 'sales@timan.dk';
+
+function appendInternalBcc<T extends Record<string, unknown>>(payload: T, bccRecipients: string[]): T & {
+  bcc: string[];
+  bcc_recipients: string[];
+  bccRecipients: string[];
+} {
+  return {
+    ...payload,
+    bcc: bccRecipients,
+    bcc_recipients: bccRecipients,
+    bccRecipients,
+  };
+}
+
 const MACHINE_KEYS = ['RC-751', 'RC-1000S', 'Timan 2620', 'Timan 3330', 'Loader Line', 'LOOSE_TOOL'];
 
 const REQUIRED_GROUPS_3330 = ['aircon', 'doors', 'seats', 'roof'];
@@ -1096,9 +1111,6 @@ export default function ConfiguratorPage() {
       } else if (!isExhibition && appUser?.email && !state.email) {
         setCustomerField('email', appUser.email);
       }
-      if (state.flowType === 'order' && !state.emailRecipient) {
-        setCustomerField('emailRecipient', 'NB@Timan.dk');
-      }
     }
   }, [state.step, isExhibition, ownership.sellerEmail, state.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1726,10 +1738,10 @@ export default function ConfiguratorPage() {
           const contentSummary = buildQuoteContentSummary(state);
 
           // Order recipients:
-          //  - Always include nb@timan.dk (orders go TO Timan).
           //  - Always include "E-mail på udfylder".
           //  - Also include "E-mail modtager" if filled (may contain multiple
           //    addresses separated by , or ;).
+          //  - Send Timan's internal copy as BCC.
           //  - Deduplicate if both fields contain the same address.
           const emailUdfylder = (state.email || '').trim().toLowerCase();
           const emailModtagerRaw = (state.emailRecipient || '').trim().toLowerCase();
@@ -1744,10 +1756,8 @@ export default function ConfiguratorPage() {
             });
             return false;
           }
-          const recipients = Array.from(new Set([
-            'nb@timan.dk',
-            ...allEmails,
-          ]));
+          const recipients = Array.from(new Set(allEmails));
+          const bccRecipients = [INTERNAL_TIMAN_COPY_EMAIL];
           const emailModtager = modtagerList.join(', ');
 
           // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
@@ -1755,13 +1765,14 @@ export default function ConfiguratorPage() {
             flowType: 'order',
             enteredRecipient: state.emailRecipient || null,
             resolvedRecipients: recipients,
+            bccRecipients,
             fillerEmail: emailUdfylder || null,
-            orderDefaultRecipients: ['nb@timan.dk'],
+            internalCopyRecipient: INTERNAL_TIMAN_COPY_EMAIL,
             quoteDefaultRecipients: [],
           });
 
 
-          const webhookPayload = {
+          const webhookPayload = appendInternalBcc({
             case_id: activeCaseId || '',
             document_type: 'Ordre',
             order_number: activeOrderNumber || '',
@@ -1789,7 +1800,7 @@ export default function ConfiguratorPage() {
             totals: contentSummary.totals,
             state_summary: contentSummary,
             main_categories: buildMainCategories(state),
-          };
+          }, bccRecipients);
 
           const orderWebhookUrl = getOrderWebhookUrl();
           console.log('[Order webhook] POST', orderWebhookUrl, {
@@ -1838,7 +1849,7 @@ export default function ConfiguratorPage() {
               orderNumber: activeOrderNumber || null,
               toRecipients: recipients,
               ccRecipients: [],
-              bccRecipients: [],
+              bccRecipients,
               sendStatus: delivered ? 'success' : 'failed',
               httpStatus: webhookHttpStatus,
               errorMessage: delivered ? null : failureReason || null,
@@ -1927,6 +1938,7 @@ export default function ConfiguratorPage() {
         //  - Always include "E-mail på udfylder".
         //  - Also include "E-mail modtager" if filled (may contain multiple
         //    addresses separated by , or ;).
+        //  - Send Timan's internal copy as BCC.
         //  - Deduplicate if both fields contain the same address.
         const emailUdfylder = (state.email || '').trim().toLowerCase();
         const emailModtagerRaw = (state.emailRecipient || '').trim().toLowerCase();
@@ -1946,6 +1958,7 @@ export default function ConfiguratorPage() {
           return false;
         }
         const recipients = Array.from(new Set(allEmails));
+        const bccRecipients = [INTERNAL_TIMAN_COPY_EMAIL];
         const emailModtager = modtagerList.join(', ');
 
         // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
@@ -1953,8 +1966,9 @@ export default function ConfiguratorPage() {
           flowType: 'quote',
           enteredRecipient: state.emailRecipient || null,
           resolvedRecipients: recipients,
+          bccRecipients,
           fillerEmail: emailUdfylder || null,
-          orderDefaultRecipients: ['nb@timan.dk'],
+          internalCopyRecipient: INTERNAL_TIMAN_COPY_EMAIL,
           quoteDefaultRecipients: [],
         });
 
@@ -1979,7 +1993,7 @@ export default function ConfiguratorPage() {
           // attachment is missing or fails to parse downstream.
           const contentSummary = buildQuoteContentSummary(state);
 
-          const webhookPayload = {
+          const webhookPayload = appendInternalBcc({
             case_id: activeCaseId || '',
             document_type: 'Tilbud',
             quote_number: activeQuoteNumber || '',
@@ -2008,7 +2022,7 @@ export default function ConfiguratorPage() {
             totals: contentSummary.totals,
             state_summary: contentSummary,
             main_categories: buildMainCategories(state),
-          };
+          }, bccRecipients);
 
           const quoteWebhookUrl = getQuoteWebhookUrl();
           console.log('[Quote webhook] POST', quoteWebhookUrl, {
@@ -2059,7 +2073,7 @@ export default function ConfiguratorPage() {
               orderNumber: activeOrderNumber || null,
               toRecipients: recipients,
               ccRecipients: [],
-              bccRecipients: [],
+              bccRecipients,
               sendStatus: delivered ? 'success' : 'failed',
               httpStatus: webhookHttpStatus,
               errorMessage: delivered ? null : failureReason || null,
