@@ -947,7 +947,7 @@ export default function ContractsPage() {
         const phone = row.phone || row.phone_number || row.mobile || row.telephone;
         applySeller(typeof phone === 'string' ? phone.trim() : '');
       })
-      .catch(() => applySeller(''));
+      .then(undefined, () => applySeller(''));
 
     return () => { cancelled = true; };
   }, [effectiveUser]);

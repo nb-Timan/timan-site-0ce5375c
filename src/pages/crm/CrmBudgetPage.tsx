@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import {
   Lock, Unlock, Plus, X, ShieldAlert, Calendar,
   Wallet, Sparkles, Minus, ChevronDown, ChevronRight, Wrench, Pencil,
-  Clock, XCircle, Download, Link2,
+  Clock, XCircle, Download, Link2, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import CrmLayout from "@/components/crm/CrmLayout";
@@ -905,9 +905,9 @@ export default function CrmBudgetPage() {
       <CrmLayout pageTitle={T.page_title[lang]}>
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <Kpi label={T.kpi_budget[lang]} value={`${budgetQty.toLocaleString("da-DK")} ${T.pcs[lang]}`} Icon={Wallet} tone="primary" />
-            <Kpi label={T.legend_pipe[lang]} value={fmtDKK(pipelineValue)} Icon={FileText} tone="ok" />
-            <Kpi label={T.col_total[lang]} value={`${activeDealerLines.length.toLocaleString("da-DK")} linjer`} Icon={Calendar} tone="warn" />
+            <KpiCard label={T.kpi_budget[lang]} value={`${budgetQty.toLocaleString("da-DK")} ${T.pcs[lang]}`} icon={Wallet} tone="primary" />
+            <KpiCard label={T.legend_pipe[lang]} value={fmtDKK(pipelineValue)} icon={FileText} tone="ok" />
+            <KpiCard label={T.col_total[lang]} value={`${activeDealerLines.length.toLocaleString("da-DK")} linjer`} icon={Calendar} tone="warn" />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-slate-100">
