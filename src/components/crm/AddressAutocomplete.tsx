@@ -49,7 +49,7 @@ function loadPlaces(): Promise<boolean> {
   if (typeof window === 'undefined') return Promise.resolve(false);
   const w = window as unknown as { google?: { maps?: { places?: unknown } } };
   if (w.google?.maps?.places) {
-    console.warn('Google Maps script already loaded, reusing');
+    devLog('script already loaded, reusing');
     return Promise.resolve(true);
   }
   if (loaderPromise) return loaderPromise;

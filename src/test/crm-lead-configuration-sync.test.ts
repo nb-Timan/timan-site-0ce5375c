@@ -133,6 +133,26 @@ describe('CRM lead configurator sync', () => {
     expect(patch).not.toHaveProperty('status');
   });
 
+  it('closes the lead as won when the linked configurator row is canonically submitted', () => {
+    const patch = buildLeadPatchFromConfigurationState(
+      baseLead(),
+      {
+        ...linkedQuoteRow,
+        order_number: 'O-7001',
+        submitted_at: '2026-09-04T09:00:00.000Z',
+        order_sent_at: '2026-09-04T09:00:00.000Z',
+      },
+      state,
+      '2026-09-04T09:05:00.000Z',
+      linkedQuoteRow.assigned_seller_id,
+    );
+
+    expect(patch.next_activity).toBe('Closed with order');
+    expect(patch.probability).toBe(100);
+    expect(patch.pipeline_stage).toBe('Won');
+    expect(patch.status).toBe('closed');
+  });
+
   it('keeps existing contact fields when configurator values are empty and sync is repeated', () => {
     const emptyContactState: ConfiguratorState = {
       ...state,

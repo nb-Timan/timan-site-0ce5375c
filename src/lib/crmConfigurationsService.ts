@@ -110,16 +110,22 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
   const rawDocumentType = (row.document_type as string | null) ?? null;
   const rawCaseType = (row.case_type as string | null) ?? null;
   const caseStatus = (row.case_status as string | null) ?? null;
+  const status = (row.status as string | null) ?? null;
+  const orderSentAt = (row.order_sent_at as string | null) ?? null;
+  const submittedAt = (row.submitted_at as string | null) ?? null;
   const isOrderLike = rawDocumentType === 'order'
     || rawCaseType === 'order'
-    || caseStatus === 'ordre_afgivet';
+    || caseStatus === 'ordre_afgivet'
+    || status === 'ordre_afgivet'
+    || Boolean(orderSentAt)
+    || Boolean(submittedAt);
   return {
     id: String(row.id),
     document_type: isOrderLike ? 'order' : 'quote',
     case_type: rawCaseType,
     case_status: caseStatus,
     lead_id: (row.lead_id as string | null) ?? null,
-    status: (row.status as string | null) ?? null,
+    status,
     created_at: (row.created_at as string) || new Date().toISOString(),
     last_saved_at: (row.last_saved_at as string | null) ?? null,
     title: (row.title as string | null) ?? null,
@@ -143,8 +149,8 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
     active_mode: (row.active_mode as string | null) ?? null,
     owner_status: (row.owner_status as string | null) ?? null,
     quote_sent_at: (row.quote_sent_at as string | null) ?? null,
-    order_sent_at: (row.order_sent_at as string | null) ?? null,
-    submitted_at: (row.submitted_at as string | null) ?? null,
+    order_sent_at: orderSentAt,
+    submitted_at: submittedAt,
   };
 }
 
@@ -234,10 +240,12 @@ export async function listCrmConfigurations(
       // into document_type via coalesce). Only reference columns the view
       // actually has, otherwise PostgREST errors and we lose all rows.
       if (docType === 'order') {
-        q = q.or('document_type.eq.order,case_status.eq.ordre_afgivet');
+        q = q.or('document_type.eq.order,case_status.eq.ordre_afgivet,status.eq.ordre_afgivet,order_sent_at.not.is.null,submitted_at.not.is.null');
       } else {
         q = q.eq('document_type', 'quote')
-          .neq('case_status', 'ordre_afgivet');
+          .neq('case_status', 'ordre_afgivet')
+          .is('order_sent_at', null)
+          .is('submitted_at', null);
       }
       if (dealerNumbers.length > 0) q = q.or(dealerNumberOrFilter(dealerNumbers, includeAccountNumber));
       return q.order('created_at', { ascending: false }).limit(500);
@@ -257,10 +265,12 @@ export async function listCrmConfigurations(
           .select('*')
           .neq('case_status', 'deleted');
         if (docType === 'order') {
-          q = q.or('document_type.eq.order,case_type.eq.order,case_status.eq.ordre_afgivet');
+          q = q.or('document_type.eq.order,case_type.eq.order,case_status.eq.ordre_afgivet,status.eq.ordre_afgivet,order_sent_at.not.is.null,submitted_at.not.is.null');
         } else {
           q = q.or('document_type.eq.quote,case_type.eq.quote')
             .neq('case_status', 'ordre_afgivet')
+            .is('order_sent_at', null)
+            .is('submitted_at', null)
             .or('case_type.is.null,case_type.neq.order');
         }
         if (dealerNumbers.length > 0) q = q.or(dealerNumberOrFilter(dealerNumbers, includeAccountNumber));
@@ -318,6 +328,8 @@ export function isSentForCrm(row: CrmConfigurationRow, docType: CrmDocumentType)
   }
   // quote — must have a quote_number AND not be converted to an order.
   if (!row.quote_number) return false;
+  if (row.order_sent_at) return false;
+  if (row.submitted_at) return false;
   if ((row.case_status || '').toLowerCase() === 'ordre_afgivet') return false;
   if ((row.status || '').toLowerCase() === 'ordre_afgivet') return false;
   return true;

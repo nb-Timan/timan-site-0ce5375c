@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getCrmConfigurationDeepLink,
   getCrmLinkedConfigurationKind,
+  isSentForCrm,
   type CrmConfigurationRow,
 } from "@/lib/crmConfigurationsService";
 
@@ -83,5 +84,20 @@ describe("CRM lead linked configurator records", () => {
       order_sent_at: "2026-09-01T08:00:00.000Z",
       document_type: "order",
     })).toBe("order");
+  });
+
+  it("moves timestamp-submitted rows from active quotes to CRM orders", () => {
+    const submittedLegacyQuote = {
+      ...baseRow,
+      quote_number: "T-4001",
+      order_number: "O-7001",
+      quote_sent_at: "2026-09-01T07:29:29.748Z",
+      submitted_at: "2026-09-04T09:00:00.000Z",
+      order_sent_at: null,
+      document_type: "order" as const,
+    };
+
+    expect(isSentForCrm(submittedLegacyQuote, "quote")).toBe(false);
+    expect(isSentForCrm(submittedLegacyQuote, "order")).toBe(true);
   });
 });

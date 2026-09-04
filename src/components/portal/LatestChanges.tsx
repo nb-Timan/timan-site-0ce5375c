@@ -22,7 +22,6 @@ const AREA_ROUTE: Record<PortalAreaId, string> = {
   timan_crm: '/portal/crm',
   timan_backend: '/portal/backend',
   dealer_data: '/portal/dealer-data',
-  calendar: '/portal/kalender',
 };
 
 interface Props {

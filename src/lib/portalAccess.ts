@@ -441,7 +441,8 @@ export function hasAreaAccess(
     if (!role) return false;
     if (hasModuleAccess(role, 'dealer_data', moduleOverride)) return true;
     return (
-            role === 'timan_seller' ||
+      role === 'timan_backend' ||
+      role === 'timan_seller' ||
       role === 'timan_service' ||
       role === 'timan_importer' ||
       role === 'timan_dealer' ||

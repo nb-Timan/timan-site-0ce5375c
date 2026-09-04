@@ -587,9 +587,9 @@ export async function fetchInternalDealerContractOverview(
   });
 
   const scopeSeller = filters.sellerFilter || {
-    sellerId: filters.sellerId,
-    sellerEmail: filters.sellerEmail,
-    sellerInitials: filters.sellerInitials,
+    id: filters.sellerId,
+    email: filters.sellerEmail,
+    initials: filters.sellerInitials,
   };
   const scopedRows = portalRole === "timan_seller" || filters.sellerFilter
     ? allRows.filter((row) => sellerMatchesScope(row, scopeSeller))
