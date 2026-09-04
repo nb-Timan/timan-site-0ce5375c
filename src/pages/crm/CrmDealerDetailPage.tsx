@@ -480,6 +480,10 @@ function detailUserFromRow(row: Record<string, unknown>): BackendUser {
     account_owner_initials: (row.account_owner_initials as string | null) ?? null,
     account_owner_email: (row.account_owner_email as string | null) ?? null,
     last_login_at: (row.last_login as string | null) ?? null,
+    quick_actions: [],
+    portal_variant: (row.portal_variant as BackendUser["portal_variant"]) ?? null,
+    created_at: (row.created_at as string | null) ?? null,
+    updated_at: (row.updated_at as string | null) ?? null,
   };
 }
 
