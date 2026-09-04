@@ -1624,29 +1624,21 @@ export async function getSentPdfSignedUrl(
 
 /**
  * Returns true when the given configuration row represents an order that
- * has already been submitted. A row counts as locked if ANY of:
- *   - document_type = 'order' AND order_sent_at is not null
- *   - case_type = 'order' AND order_sent_at is not null
- *   - case_status = 'ordre_afgivet'
- *   - status = 'ordre_afgivet'
- *   - status = 'order_submitted'
- *   - order_number exists AND order_sent_at exists
+ * has actually been submitted. An order number or workflow status alone is
+ * not submission evidence: active order drafts keep their O- reference while
+ * their cart remains editable. A submitted order has an order submission or
+ * send timestamp.
  */
 export function isOrderRowSubmitted(row: Record<string, unknown> | null | undefined): boolean {
   if (!row) return false;
   const documentType = (row.document_type as string | null) ?? null;
   const caseType = (row.case_type as string | null) ?? null;
-  const caseStatus = (row.case_status as string | null) ?? null;
-  const status = (row.status as string | null) ?? null;
+  const submittedAt = (row.submitted_at as string | null) ?? null;
   const orderSentAt = (row.order_sent_at as string | null) ?? null;
   const orderNumber = (row.order_number as string | null) ?? null;
 
-  if (caseStatus === 'ordre_afgivet') return true;
-  if (status === 'ordre_afgivet') return true;
-  if (status === 'order_submitted') return true;
-  if (orderSentAt && (documentType === 'order' || caseType === 'order')) return true;
-  if (orderSentAt && orderNumber) return true;
-  return false;
+  const isOrder = documentType === 'order' || caseType === 'order' || Boolean(orderNumber);
+  return isOrder && Boolean(orderSentAt || submittedAt);
 }
 
 /** Same logic but for the SavedConfiguration shape. */
@@ -1659,6 +1651,7 @@ export function isSavedConfigurationOrderLocked(
     case_type: saved.case_type ?? null,
     case_status: saved.case_status ?? null,
     status: (saved as Record<string, unknown>).status ?? null,
+    submitted_at: saved.submitted_at ?? null,
     order_sent_at: saved.order_sent_at ?? null,
     order_number: saved.order_number ?? null,
   });
@@ -1678,7 +1671,7 @@ export async function fetchIsOrderSubmitted(id: string): Promise<{
   try {
     const { data, error } = await supabase
       .from('configurations')
-      .select('document_type, case_type, case_status, status, order_sent_at, order_number')
+      .select('document_type, case_type, case_status, status, submitted_at, order_sent_at, order_number')
       .eq('id', id)
       .maybeSingle();
     if (error) throw error;
