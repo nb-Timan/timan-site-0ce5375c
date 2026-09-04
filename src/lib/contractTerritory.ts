@@ -155,7 +155,7 @@ function postalComparable(value: string) {
 }
 
 function normalizePostalCode(value: unknown, country: ContractTerritoryCountryCode) {
-  const digits = COUNTRY_BY_CODE.get(country)?.postalDigits ?? 4;
+  const digits = COUNTRY_BY_CODE.get(country as ContractTerritoryDetailedCountryCode)?.postalDigits ?? 4;
   const raw = String(value ?? '').trim();
   const code = country === 'SE' ? raw.replace(/\s+/g, '') : raw;
   if (!new RegExp(`^\\d{${digits}}$`).test(code)) return '';
@@ -171,7 +171,7 @@ function normalizePostalRange(value: unknown, country: ContractTerritoryCountryC
 }
 
 function normalizePostalEntryInput(input: unknown, country: ContractTerritoryCountryCode): ContractPostalEntry {
-  const digits = COUNTRY_BY_CODE.get(country)?.postalDigits ?? 4;
+  const digits = COUNTRY_BY_CODE.get(country as ContractTerritoryDetailedCountryCode)?.postalDigits ?? 4;
   const value = String(input ?? '').trim();
   const codePattern = country === 'SE' ? '(\\d{3}\\s?\\d{2})' : `(\\d{${digits}})`;
   const range = value.match(new RegExp(`^${codePattern}\\s*-\\s*${codePattern}$`));
@@ -545,7 +545,7 @@ export function getContractTerritoryMapBands(
   variant: ContractTerritoryMapBand['variant'],
 ): ContractTerritoryMapBand[] {
   const area = normalizeContractTerritoryArea(areaInput);
-  const digits = COUNTRY_BY_CODE.get(area.country)?.postalDigits ?? 4;
+  const digits = COUNTRY_BY_CODE.get(area.country as ContractTerritoryDetailedCountryCode)?.postalDigits ?? 4;
   const max = 10 ** digits - 1;
 
   if (area.wholeCountry) {
