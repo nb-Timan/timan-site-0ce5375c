@@ -23,6 +23,7 @@ import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import type { ConfiguratorState } from '@/types/configurator';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { currencyFromLanguage, toDkk, type Currency } from '@/lib/currency';
+import { isExternalCrmRole } from '@/lib/crmScope';
 
 export type CrmDocumentType = 'quote' | 'order';
 
@@ -181,7 +182,10 @@ export function rowVisibleToScope(
   return false;
 }
 
-function configDealerNumbers(filter: CrmConfigurationFilter): string[] {
+export function configurationDealerNumbersForFilter(filter: CrmConfigurationFilter): string[] {
+  // A staff member can have a dealer_number for other portal features. It is
+  // never a CRM document filter for Backend or seller scope.
+  if (!isExternalCrmRole(filter.role)) return [];
   const seen = new Set<string>();
   for (const raw of [filter.dealerNumber, ...(filter.dealerNumbers ?? [])]) {
     const value = (raw ?? '').trim();
@@ -214,7 +218,7 @@ export async function listCrmConfigurations(
   filter: CrmConfigurationFilter,
 ): Promise<{ rows: CrmConfigurationRow[]; error?: string }> {
   const docType = filter.documentType;
-  const dealerNumbers = configDealerNumbers(filter);
+  const dealerNumbers = configurationDealerNumbersForFilter(filter);
 
   // Prefer the view (joins dealer_accounts for company name + country).
   let rows: CrmConfigurationRow[] = [];

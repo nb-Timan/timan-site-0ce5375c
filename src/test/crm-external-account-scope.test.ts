@@ -9,6 +9,7 @@ import {
 } from "@/lib/crmScope";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import { dealerScopeAllows } from "@/lib/machineJournalService";
+import { configurationDealerNumbersForFilter } from "@/lib/crmConfigurationsService";
 
 function sessionUser(overrides: Partial<SessionUser>): SessionUser {
   return {
@@ -25,6 +26,20 @@ function sessionUser(overrides: Partial<SessionUser>): SessionUser {
 }
 
 describe("external CRM account scope", () => {
+  it("does not use a Backend user's dealer context to filter CRM documents", () => {
+    expect(configurationDealerNumbersForFilter({
+      role: "timan_backend",
+      sellerId: null,
+      dealerNumber: "100",
+      documentType: "quote",
+    })).toEqual([]);
+    expect(configurationDealerNumbersForFilter({
+      role: "timan_dealer",
+      sellerId: null,
+      dealerNumber: "11913",
+      documentType: "quote",
+    })).toEqual(["11913"]);
+  });
   it("blocks account 100 / Timan as implicit external CRM scope", () => {
     const account100 = {
       account_number: "100",

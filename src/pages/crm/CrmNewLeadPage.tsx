@@ -978,7 +978,7 @@ export default function CrmNewLeadPage() {
       setMachineTypes(lead.machine_types || []);
       const parsedContact = parseStructuredContactInformation(lead.contact_information || '', lead.country || '');
       setContactCompany(parsedContact.company);
-      setContactPersonName(parsedContact.person);
+      setContactPersonName(parsedContact.contactPerson);
       setContactPhone(parsedContact.phone);
       setContactEmail(parsedContact.email);
       setContactAddress(parsedContact.address);
