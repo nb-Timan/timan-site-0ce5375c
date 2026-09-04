@@ -48,6 +48,7 @@ import { resolveBaseDiscountPct, isImporterAppUser, IMPORTER_BASE_DISCOUNT_PCT, 
 import { getLead } from '@/lib/crmLeadsService';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
+import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection } from '@/lib/submittedOrderCorrectionService';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
@@ -425,6 +426,10 @@ export default function ConfiguratorPage() {
   // Set on resume / AccountPanel restore, and verified server-side just
   // before the order webhook fires.
   const [orderLocked, setOrderLocked] = useState(false);
+  const [backendCorrectionSessionId, setBackendCorrectionSessionId] = useState<string | null>(null);
+  const [backendCorrectionDialogOpen, setBackendCorrectionDialogOpen] = useState(false);
+  const [backendCorrectionReason, setBackendCorrectionReason] = useState('');
+  const [startingBackendCorrection, setStartingBackendCorrection] = useState(false);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
   const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
@@ -460,6 +465,26 @@ export default function ConfiguratorPage() {
     if (flag === false) return false;
     return activePortalRole === 'timan_backend' || activePortalRole === 'timan_seller';
   })();
+  const canCorrectSubmittedOrder = activePortalRole === 'timan_backend';
+  const submittedOrderEditorLocked = state.flowType === 'order' && orderLocked && !backendCorrectionSessionId;
+
+  const handleStartBackendCorrection = useCallback(async () => {
+    if (!savedConfigurationId || !backendCorrectionReason.trim() || startingBackendCorrection) return;
+    setStartingBackendCorrection(true);
+    try {
+      const { sessionId, error } = await beginSubmittedOrderCorrection(savedConfigurationId, backendCorrectionReason);
+      if (error || !sessionId) {
+        toast.error(error || 'Kunne ikke starte Backend-rettelse');
+        return;
+      }
+      setBackendCorrectionSessionId(sessionId);
+      setBackendCorrectionDialogOpen(false);
+      setBackendCorrectionReason('');
+      toast.success('Backend-rettelse er åbnet. Gem ændringer for at låse ordren igen.');
+    } finally {
+      setStartingBackendCorrection(false);
+    }
+  }, [savedConfigurationId, backendCorrectionReason, startingBackendCorrection]);
 
   // "Gem ændringer / Save changes" — writes the current edits back to the
   // SAME saved case (no new row, no new quote/order number). Only enabled
@@ -611,7 +636,7 @@ export default function ConfiguratorPage() {
     if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return; }
     if (savingChanges) return;
     // Block saving on already-submitted orders (local + server re-check).
-    if (orderLocked) {
+    if (orderLocked && !backendCorrectionSessionId) {
       toast.error(T('orderAlreadySubmittedToast'));
       return;
     }
@@ -625,7 +650,7 @@ export default function ConfiguratorPage() {
 
       if (savedConfigurationId) {
         const serverCheck = await fetchIsOrderSubmitted(savedConfigurationId);
-        if (serverCheck.locked) {
+        if (serverCheck.locked && !backendCorrectionSessionId) {
           setOrderLocked(true);
           toast.error(T('orderAlreadySubmittedToast'));
           return;
@@ -646,6 +671,14 @@ export default function ConfiguratorPage() {
             description: res.itemsError,
           });
           return;
+        }
+        if (backendCorrectionSessionId) {
+          const completion = await completeSubmittedOrderCorrection(backendCorrectionSessionId);
+          if (completion.error) {
+            toast.error('Ændringerne blev gemt, men rettelsesvinduet kunne ikke afsluttes.', { description: completion.error });
+            return;
+          }
+          setBackendCorrectionSessionId(null);
         }
         toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
           description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
@@ -709,7 +742,7 @@ export default function ConfiguratorPage() {
     } finally {
       setSavingChanges(false);
     }
-  }, [savedConfigurationId, savingChanges, orderLocked, getRequiredOwnershipPayload, state, appUser, linkedLeadId, ensurePendingLeadCreated, handleSyncLinkedLead]);
+  }, [savedConfigurationId, savingChanges, orderLocked, backendCorrectionSessionId, getRequiredOwnershipPayload, state, appUser, linkedLeadId, ensurePendingLeadCreated, handleSyncLinkedLead]);
 
   // Phase 40 — "Gem som lead" / "Save as lead": create a CRM lead from the
   // current configurator state without sending the quote. Only available on
@@ -2493,11 +2526,11 @@ export default function ConfiguratorPage() {
         <main className="lg:col-span-3">
           {state.flowType === 'order' && orderLocked && (
             <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-center justify-between">
-              <span><strong>{T('orderLockedBannerStrong')}</strong> — {T('orderLockedBannerText')}</span>
-              <span className="text-xs font-mono text-amber-800">{savedOrderNumber || ''}</span>
+              <span><strong>{T('orderLockedBannerStrong')}</strong> — {backendCorrectionSessionId ? 'Backend-rettelse er aktiv. Gem ændringer for at låse igen.' : T('orderLockedBannerText')}</span>
+              <span className="flex items-center gap-3"><span className="text-xs font-mono text-amber-800">{savedOrderNumber || ''}</span>{canCorrectSubmittedOrder && !backendCorrectionSessionId && <button type="button" onClick={() => setBackendCorrectionDialogOpen(true)} className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100">Ret afgivet ordre</button>}</span>
             </div>
           )}
-          <fieldset disabled={state.flowType === 'order' && orderLocked} className={(state.flowType === 'order' && orderLocked) ? 'space-y-6 opacity-90 [&_*]:!cursor-not-allowed' : 'space-y-6'} style={(state.flowType === 'order' && orderLocked) ? { pointerEvents: 'none' } : undefined}>
+          <fieldset disabled={submittedOrderEditorLocked} className={submittedOrderEditorLocked ? 'space-y-6 opacity-90 [&_*]:!cursor-not-allowed' : 'space-y-6'} style={submittedOrderEditorLocked ? { pointerEvents: 'none' } : undefined}>
             {/* Step 1 */}
             {state.step === 1 && (
               <div className="bg-white rounded-2xl shadow p-6">
@@ -3203,7 +3236,7 @@ export default function ConfiguratorPage() {
                 Demo mode — Messe
               </div>
             )}
-            {!isExhibition && state.step === 4 && !(state.flowType === 'order' && orderLocked) && (
+            {!isExhibition && state.step === 4 && !submittedOrderEditorLocked && (
               <button
                 type="button"
                 onClick={() => void handleSaveChanges()}
@@ -3291,7 +3324,7 @@ export default function ConfiguratorPage() {
                 </button>
               );
             })()}
-            <fieldset disabled={state.flowType === 'order' && orderLocked} className="contents">
+            <fieldset disabled={submittedOrderEditorLocked} className="contents">
               <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="compact" hideDealer={isExhibition} />
             </fieldset>
             <AccountPanel
@@ -3525,6 +3558,33 @@ export default function ConfiguratorPage() {
           </div>
         </aside>
       </div>
+
+      <Dialog open={backendCorrectionDialogOpen} onOpenChange={setBackendCorrectionDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ret afgivet ordre</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-gray-600">
+            Rettelsen gælder kun denne ordre og bliver logget med begrundelse. Ordren forbliver afgivet og låses igen, når ændringerne gemmes.
+          </p>
+          <div className="space-y-2">
+            <label htmlFor="submitted-order-correction-reason" className="text-sm font-medium text-gray-800">Begrundelse</label>
+            <textarea
+              id="submitted-order-correction-reason"
+              value={backendCorrectionReason}
+              onChange={(event) => setBackendCorrectionReason(event.target.value)}
+              className="min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              placeholder="Beskriv rettelsen..."
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setBackendCorrectionDialogOpen(false)} disabled={startingBackendCorrection}>Annuller</Button>
+            <Button type="button" onClick={() => void handleStartBackendCorrection()} disabled={!backendCorrectionReason.trim() || startingBackendCorrection}>
+              {startingBackendCorrection ? 'Åbner...' : 'Start rettelse'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* New configuration confirmation modal */}
       <Dialog open={newConfigModalOpen} onOpenChange={setNewConfigModalOpen}>
