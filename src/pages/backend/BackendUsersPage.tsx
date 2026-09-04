@@ -71,7 +71,6 @@ const AREA_LABEL: Record<AreaKey, string> = {
   dealer_data:    "Partnerdata",
   timan_crm:      "CRM",
   timan_backend:  "Timan Backend",
-  projects:       "Projekter",
 };
 
 const MODULE_LABEL: Record<ModuleAccessKey, string> = {
