@@ -234,7 +234,11 @@ export function generateReferenceNumber(prefix: 'Q' | 'T' | 'O'): string {
   return generateLocalCrmDocumentNumber(prefix === 'O' ? 'order' : 'quote');
 }
 
-/** Ensure a saved configuration has its reference numbers, updating in Supabase if needed */
+/**
+ * Ensure a saved quote has its reference number. Order numbers are deliberately
+ * excluded: an O-number is the canonical evidence of an actually submitted
+ * order and is assigned atomically by markAsOrderSubmitted().
+ */
 export async function ensureReferenceNumbers(
   configId: string,
   isOrder: boolean,
@@ -251,9 +255,8 @@ export async function ensureReferenceNumbers(
   if (!row) return { quote_number: null, order_number: null };
 
   const needsQuote = !isOrder && !row.quote_number;
-  const needsOrder = isOrder && !row.order_number;
 
-  if (!needsQuote && !needsOrder) {
+  if (!needsQuote) {
     return { quote_number: row.quote_number, order_number: row.order_number };
   }
 
@@ -265,12 +268,6 @@ export async function ensureReferenceNumbers(
     patch.quote_number = qn;
     result.quote_number = qn;
   }
-  if (needsOrder) {
-    const on = await getNextCrmDocumentNumber('order');
-    patch.order_number = on;
-    result.order_number = on;
-  }
-
   await updateConfigurationRow(configId, patch);
   return result;
 }
@@ -978,8 +975,10 @@ export async function saveConfiguration(
     created_case_at: now,
     quote_sent_at: null,
     order_sent_at: null,
-      quote_number: isOrder ? null : await getNextCrmDocumentNumber('quote'),
-      order_number: isOrder ? await getNextCrmDocumentNumber('order') : null,
+    quote_number: isOrder ? null : await getNextCrmDocumentNumber('quote'),
+    // O-numbers are assigned only by markAsOrderSubmitted after the order
+    // has been successfully sent. An editable order draft has no O-number.
+    order_number: null,
     source_quote_id: sourceQuoteId ?? null,
     source_quote_number: sourceQuoteNumber ?? null,
     // Ownership snapshot (Phase 23). Unknown columns are stripped by
@@ -1171,7 +1170,8 @@ export async function updateConfiguration(
 }
 
 /** Update the flow/document type (quote ↔ order) on a saved configuration.
- * Persists case_type, document_type, state_json.flowType, and ensures a reference number exists.
+ * Persists case_type, document_type and state_json.flowType. Switching to an
+ * order never allocates an O-number; submission owns that atomic transition.
  */
 export async function updateConfigurationFlowType(
   id: string,
@@ -1218,7 +1218,8 @@ export async function updateConfigurationFlowType(
   let orderNumber: string | null = row.order_number ?? null;
 
   if (!isOrder && !quoteNumber) quoteNumber = await getNextCrmDocumentNumber('quote');
-  if (isOrder && !orderNumber) orderNumber = await getNextCrmDocumentNumber('order');
+  // Do not allocate an O-number for a draft or merely switching the flow.
+  // markAsOrderSubmitted() assigns it with submitted_at/order_sent_at.
 
   const patch: Record<string, unknown> = {
     case_type: flowType,

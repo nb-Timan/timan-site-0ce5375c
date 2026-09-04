@@ -14,6 +14,18 @@ describe('submitted configurator order lock', () => {
     })).toBe(false);
   });
 
+  it('does not treat an order flow draft without an O-number as submitted', () => {
+    expect(isOrderRowSubmitted({
+      document_type: 'order',
+      case_type: 'order',
+      case_status: 'aktiv',
+      status: 'aktiv',
+      order_number: null,
+      submitted_at: null,
+      order_sent_at: null,
+    })).toBe(false);
+  });
+
   it('does not lock an order from a workflow status without submission evidence', () => {
     expect(isOrderRowSubmitted({
       document_type: 'order',
