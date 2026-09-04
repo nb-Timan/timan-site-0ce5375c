@@ -37,8 +37,16 @@ const COPY: Record<PortalUiLanguage, Copy> = {
 };
 
 type Payload = { dealer_account_patch?: Record<string, unknown>; dealer_contacts?: unknown[] };
+export type PendingPartnerSubmissionDetails = {
+  company: string;
+  vat: string;
+  address: string;
+  contacts: number;
+  country: string;
+};
+
 function text(value: unknown): string { return typeof value === "string" ? value.trim() : ""; }
-function details(row: PortalFormSubmission) {
+export function getPendingPartnerSubmissionDetails(row: PortalFormSubmission): PendingPartnerSubmissionDetails {
   const payload = row.payload as Payload;
   const patch = payload.dealer_account_patch ?? {};
   return {
@@ -46,6 +54,7 @@ function details(row: PortalFormSubmission) {
     vat: text(patch.vat_number),
     address: [text(patch.address_line_1), text(patch.postal_code), text(patch.city), text(patch.country)].filter(Boolean).join(", "),
     contacts: Array.isArray(payload.dealer_contacts) ? payload.dealer_contacts.length : 0,
+    country: text(patch.country),
   };
 }
 function submittedContacts(row: PortalFormSubmission): Array<{ name: string; email: string; phone: string; area: string }> {
@@ -57,15 +66,23 @@ function submittedContacts(row: PortalFormSubmission): Array<{ name: string; ema
   }).filter((contact) => contact.name || contact.email || contact.phone);
 }
 
-export default function PendingPartnerSubmissions({ rows, canReview, language, onReviewed }: {
+export default function PendingPartnerSubmissions({ rows, canReview, language, onReviewed, renderList = true, selectedRow, onSelectedRowChange }: {
   rows: PortalFormSubmission[];
   canReview: boolean;
   language: PortalUiLanguage;
   onReviewed: () => void;
+  renderList?: boolean;
+  selectedRow?: PortalFormSubmission | null;
+  onSelectedRowChange?: (row: PortalFormSubmission | null) => void;
 }) {
   const copy = COPY[language];
   const pending = useMemo(() => rows.filter((row) => row.review_status === "pending"), [rows]);
-  const [selected, setSelected] = useState<PortalFormSubmission | null>(null);
+  const [internalSelected, setInternalSelected] = useState<PortalFormSubmission | null>(null);
+  const selected = selectedRow === undefined ? internalSelected : selectedRow;
+  const setSelected = (row: PortalFormSubmission | null) => {
+    if (selectedRow === undefined) setInternalSelected(row);
+    onSelectedRowChange?.(row);
+  };
   const [accountNumber, setAccountNumber] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -82,13 +99,29 @@ export default function PendingPartnerSubmissions({ rows, canReview, language, o
     } finally { setSaving(false); }
   }
 
-  if (!pending.length) return null;
+  const dialog = selected && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
+    <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+      <h4 className="text-lg font-bold text-slate-900">{copy.review}: {getPendingPartnerSubmissionDetails(selected).company}</h4>
+      <p className="mt-1 text-sm text-slate-600">{getPendingPartnerSubmissionDetails(selected).vat} · {getPendingPartnerSubmissionDetails(selected).address}</p>
+      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+        <p className="mb-1 font-semibold text-slate-900">Kontaktpersoner</p>
+        {submittedContacts(selected).map((contact, index) => <p key={`${contact.email}-${index}`}>{contact.area}: {contact.name || "-"} · {contact.email || "-"} · {contact.phone || "-"}</p>)}
+      </div>
+      <label className="mt-4 block text-sm font-semibold text-slate-800">{copy.accountNumber}<input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+      <p className="mt-1 text-xs text-slate-500">{copy.accountHelp}</p>
+      <label className="mt-4 block text-sm font-semibold text-slate-800">{copy.note}<textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
+      <div className="mt-5 flex flex-wrap justify-end gap-2"><button type="button" onClick={() => setSelected(null)} className="rounded-lg border px-3 py-2 text-sm">{copy.cancel}</button><button disabled={saving} type="button" onClick={() => void review("returned")} className="inline-flex items-center gap-1 rounded-lg border border-amber-300 px-3 py-2 text-sm font-semibold text-amber-900"><RotateCcw className="h-4 w-4" />{copy.returnForChanges}</button><button disabled={saving} type="button" onClick={() => void review("rejected")} className="inline-flex items-center gap-1 rounded-lg border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-800"><XCircle className="h-4 w-4" />{copy.reject}</button><button disabled={saving} type="button" onClick={() => void review("approved")} className="inline-flex items-center gap-1 rounded-lg bg-[#2d5a27] px-3 py-2 text-sm font-semibold text-white"><CheckCircle2 className="h-4 w-4" />{saving ? copy.working : copy.approve}</button></div>
+    </div>
+  </div>;
+
+  if (!pending.length && !dialog) return null;
+  if (!renderList) return <>{dialog}</>;
   return (
     <section className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/40 p-4">
       <div className="mb-3 flex items-center gap-2"><Clock3 className="h-5 w-5 text-amber-700" /><h3 className="font-bold text-slate-900">{copy.title}</h3></div>
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {pending.map((row) => {
-          const item = details(row);
+          const item = getPendingPartnerSubmissionDetails(row);
           return <article key={row.id} className="rounded-xl border border-amber-200 bg-white p-3 text-sm">
             <div className="mb-2 flex items-start justify-between gap-2"><strong className="text-slate-900">{item.company}</strong><span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">{copy.pending}</span></div>
             <div className="space-y-1 text-xs text-slate-600"><p>{item.vat || "VAT -"}</p><p>{item.address || "-"}</p><p>{item.contacts} kontakt(er)</p><p>{copy.submitted}: {new Date(row.created_at).toLocaleDateString(language)}</p></div>
@@ -96,20 +129,7 @@ export default function PendingPartnerSubmissions({ rows, canReview, language, o
           </article>;
         })}
       </div>
-      {selected && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4">
-        <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
-          <h4 className="text-lg font-bold text-slate-900">{copy.review}: {details(selected).company}</h4>
-          <p className="mt-1 text-sm text-slate-600">{details(selected).vat} · {details(selected).address}</p>
-          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-            <p className="mb-1 font-semibold text-slate-900">Kontaktpersoner</p>
-            {submittedContacts(selected).map((contact, index) => <p key={`${contact.email}-${index}`}>{contact.area}: {contact.name || "-"} · {contact.email || "-"} · {contact.phone || "-"}</p>)}
-          </div>
-          <label className="mt-4 block text-sm font-semibold text-slate-800">{copy.accountNumber}<input value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-          <p className="mt-1 text-xs text-slate-500">{copy.accountHelp}</p>
-          <label className="mt-4 block text-sm font-semibold text-slate-800">{copy.note}<textarea value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2" /></label>
-          <div className="mt-5 flex flex-wrap justify-end gap-2"><button type="button" onClick={() => setSelected(null)} className="rounded-lg border px-3 py-2 text-sm">{copy.cancel}</button><button disabled={saving} type="button" onClick={() => void review("returned")} className="inline-flex items-center gap-1 rounded-lg border border-amber-300 px-3 py-2 text-sm font-semibold text-amber-900"><RotateCcw className="h-4 w-4" />{copy.returnForChanges}</button><button disabled={saving} type="button" onClick={() => void review("rejected")} className="inline-flex items-center gap-1 rounded-lg border border-rose-300 px-3 py-2 text-sm font-semibold text-rose-800"><XCircle className="h-4 w-4" />{copy.reject}</button><button disabled={saving} type="button" onClick={() => void review("approved")} className="inline-flex items-center gap-1 rounded-lg bg-[#2d5a27] px-3 py-2 text-sm font-semibold text-white"><CheckCircle2 className="h-4 w-4" />{saving ? copy.working : copy.approve}</button></div>
-        </div>
-      </div>}
+      {dialog}
     </section>
   );
 }

@@ -74,7 +74,7 @@ import {
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
 import { listPortalFormSubmissions, type PortalFormSubmission } from "@/lib/portalFormsService";
-import PendingPartnerSubmissions from "@/components/crm/PendingPartnerSubmissions";
+import PendingPartnerSubmissions, { getPendingPartnerSubmissionDetails } from "@/components/crm/PendingPartnerSubmissions";
 const profileTextKeyByDanishLabel: Record<string, string> = {
   "Firma information": "crmProfileSectionCompany",
   "Økonomi": "crmProfileSectionFinance",
@@ -217,6 +217,8 @@ export default function CrmMyDealersPage() {
   const [usersExpanded, setUsersExpanded] = useState<Set<string>>(new Set());
   const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
   const [pendingPartnerSubmissions, setPendingPartnerSubmissions] = useState<PortalFormSubmission[]>([]);
+  const [selectedPendingPartnerSubmission, setSelectedPendingPartnerSubmission] = useState<PortalFormSubmission | null>(null);
+  const [dealerReloadKey, setDealerReloadKey] = useState(0);
   const budgetYear = new Date().getFullYear();
 
   const portalRole = useMemo(() => derivePortalRole(effectiveUser), [effectiveUser]);
@@ -354,7 +356,7 @@ export default function CrmMyDealersPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, effectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage]);
+  }, [appUser, effectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
 
   // Successor index — must be computed unconditionally before any early return
   // so the number of hooks remains stable across renders.
@@ -400,6 +402,18 @@ export default function CrmMyDealersPage() {
 
     return true;
   });
+  const pendingRows = (pendingPartnerSubmissions ?? [])
+    .filter((row) => row.form_type === "company_contact_info" && row.review_status === "pending")
+    .filter((row) => {
+      const item = getPendingPartnerSubmissionDetails(row);
+      if (q) {
+        const needle = q.toLowerCase();
+        if (!`${item.company} ${item.vat} ${item.address} ${row.submitted_by_email ?? ""}`.toLowerCase().includes(needle)) return false;
+      }
+      if (countryFilter !== "all" && item.country !== countryFilter) return false;
+      if (typeFilter !== "all" || profileFilter !== "all" || statusFilter !== "all") return false;
+      return true;
+    });
 
   // When searching, ensure parent anchors of matched branches stay visible.
   const dealersByAcct = new Map<string, DealerAccount>();
@@ -554,15 +568,6 @@ export default function CrmMyDealersPage() {
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</div>
       )}
 
-      {!externalCrm && (
-        <PendingPartnerSubmissions
-          rows={pendingPartnerSubmissions}
-          canReview={admin}
-          language={uiLanguage}
-          onReviewed={() => void reloadPendingPartnerSubmissions()}
-        />
-      )}
-
       <div className="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
         <table className="min-w-full text-sm">
           <thead className="bg-slate-50 text-slate-600 text-xs uppercase tracking-wide">
@@ -585,9 +590,16 @@ export default function CrmMyDealersPage() {
             {loadingRows && (
               <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{i18n("crmMyDealersLoading", uiLanguage)}</td></tr>
             )}
-            {!loadingRows && groups.length === 0 && (
+            {!loadingRows && groups.length === 0 && pendingRows.length === 0 && (
               <tr><td colSpan={12} className="px-3 py-10 text-center text-sm text-slate-500">{emptyLabel}</td></tr>
             )}
+            {!loadingRows && pendingRows.map((row) => (
+              <PendingPartnerTableRow
+                key={row.id}
+                row={row}
+                onOpen={admin ? setSelectedPendingPartnerSubmission : undefined}
+              />
+            ))}
             {groups.map((g) => {
               const predecessors = predecessorsByActiveId.get(g.main.id) ?? [];
               const dealerCustomers = dealerCustomersByParent.get(g.main.account_number) ?? [];
@@ -686,9 +698,71 @@ export default function CrmMyDealersPage() {
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        {visibleMainCount} / {totalDealersCount} · <Link to="/portal/crm/dashboard" className="underline">CRM dashboard</Link>
+        {visibleMainCount + pendingRows.length} / {totalDealersCount + pendingRows.length} · <Link to="/portal/crm/dashboard" className="underline">CRM dashboard</Link>
       </p>
+      {!externalCrm && (
+        <PendingPartnerSubmissions
+          rows={pendingPartnerSubmissions}
+          canReview={admin}
+          language={uiLanguage}
+          renderList={false}
+          selectedRow={selectedPendingPartnerSubmission}
+          onSelectedRowChange={setSelectedPendingPartnerSubmission}
+          onReviewed={() => {
+            void reloadPendingPartnerSubmissions();
+            setDealerReloadKey((key) => key + 1);
+          }}
+        />
+      )}
     </CrmLayout>
+  );
+}
+
+function PendingPartnerTableRow({
+  row,
+  onOpen,
+}: {
+  row: PortalFormSubmission;
+  onOpen?: (row: PortalFormSubmission) => void;
+}) {
+  const item = getPendingPartnerSubmissionDetails(row);
+  return (
+    <tr
+      className={`border-t border-amber-100 bg-amber-50/55 ${onOpen ? "cursor-pointer hover:bg-amber-50" : ""}`}
+      onClick={() => onOpen?.(row)}
+    >
+      <Td><span className="inline-block w-6" /></Td>
+      <Td className="font-semibold text-slate-900">
+        <div className="flex flex-wrap items-center gap-2">
+          <span>{item.company}</span>
+          <span className="rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+            Afventer godkendelse
+          </span>
+          <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold text-slate-700">
+            Ny samarbejdspartner
+          </span>
+          <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[10px] font-bold text-slate-600">
+            Kontrakt ikke påbegyndt
+          </span>
+        </div>
+      </Td>
+      <Td>—</Td>
+      <Td>Ny samarbejdspartner</Td>
+      <Td>{item.country || "—"}</Td>
+      <Td>
+        <span className="inline-flex rounded-full border border-amber-200 bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900">
+          Afventer godkendelse
+        </span>
+      </Td>
+      <Td>{item.contacts}</Td>
+      <Td className="text-slate-400">0</Td>
+      <Td className="text-slate-400">0</Td>
+      <Td className="text-slate-400 text-xs">—</Td>
+      <Td>
+        <span className="text-xs font-semibold text-slate-500">Kontrakt ikke påbegyndt</span>
+      </Td>
+      <Td className="text-slate-500 text-xs whitespace-nowrap">{fmtDate(row.created_at)}</Td>
+    </tr>
   );
 }
 

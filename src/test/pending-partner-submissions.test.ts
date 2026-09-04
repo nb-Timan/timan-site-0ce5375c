@@ -26,11 +26,21 @@ describe("pending partner submissions", () => {
     expect(migration).toContain("Et kontonummer er påkrævet");
   });
 
-  it("shows pending submissions separately in the canonical dealer overview", () => {
+  it("loads pending submissions from the canonical dealer overview", () => {
     expect(service).toContain("reviewCompanyContactInfoSubmission");
     expect(overview).toContain("PendingPartnerSubmissions");
     expect(overview).toContain('formType: "company_contact_info"');
     expect(panel).toContain("Afventer godkendelse");
     expect(overview).toContain("canReview={admin}");
+  });
+
+  it("merges pending partner submissions into the normal Partnerdata table", () => {
+    expect(overview).toContain("PendingPartnerTableRow");
+    expect(overview).toContain('row.review_status === "pending"');
+    expect(overview).toContain("getPendingPartnerSubmissionDetails(row)");
+    expect(overview).toContain("setSelectedPendingPartnerSubmission");
+    expect(overview).toContain("Kontrakt ikke påbegyndt");
+    expect(overview).toContain("renderList={false}");
+    expect(overview).not.toContain("navigate(`/portal/crm/my-dealers/${row.id}`)");
   });
 });
