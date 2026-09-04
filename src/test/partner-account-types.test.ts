@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  PARTNER_ACCOUNT_MAP_TYPE_IDS,
   getPartnerAccountTypeColor,
   getPartnerAccountTypeLabel,
   normalizePartnerAccountType,
@@ -42,5 +43,24 @@ describe("partner account types", () => {
   it("gives supplier its own neutral map style", () => {
     expect(getPartnerAccountTypeLabel("supplier", "da")).toBe("Leverandør");
     expect(getPartnerAccountTypeColor("supplier")).not.toBe(getPartnerAccountTypeColor("dealer"));
+  });
+
+  it("only exposes relevant partner categories in the partner map top filter", () => {
+    expect(PARTNER_ACCOUNT_MAP_TYPE_IDS).toEqual([
+      "dealer",
+      "service_partner",
+      "importer",
+      "supplier",
+      "dealer_customer",
+      "demo_location",
+    ]);
+    expect(PARTNER_ACCOUNT_MAP_TYPE_IDS).not.toEqual(expect.arrayContaining([
+      "spare_parts",
+      "misc",
+      "end_customer",
+      "closed_customer",
+      "employee_single",
+      "other_partner",
+    ]));
   });
 });

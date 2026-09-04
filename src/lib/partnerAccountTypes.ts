@@ -221,14 +221,8 @@ export const PARTNER_ACCOUNT_MAP_TYPE_IDS: PartnerAccountTypeId[] = [
   "service_partner",
   "importer",
   "supplier",
-  "spare_parts",
   "dealer_customer",
   "demo_location",
-  "misc",
-  "end_customer",
-  "closed_customer",
-  "employee_single",
-  "other_partner",
 ];
 
 export function normalizePartnerAccountType(value: string | null | undefined): PartnerAccountTypeId | null {
