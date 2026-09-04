@@ -11,6 +11,43 @@ import type { ConfiguratorState } from '@/types/configurator';
 const SYNC_START = '--- CONFIGURATOR SYNC START ---';
 const SYNC_END = '--- CONFIGURATOR SYNC END ---';
 
+const CONFIGURATOR_MACHINE_TO_CRM_INTEREST: Record<string, string> = {
+  'RC-751': 'RC-751',
+  'RC-1000S': 'RC-1000s',
+  'Timan 2620': 'Timan 2620',
+  'Timan 3330': 'Timan 3330',
+  'LOOSE_TOOL': 'Loader line / Tractor Equipment',
+};
+
+const CONFIGURATOR_ITEM_NUMBER_TO_CRM_INTEREST: Record<string, string> = {
+  '410910': 'Equipment: RC-1000s - Slagleklipper inkl. Y-slagle sæt',
+  '411666': 'Equipment: RC-1000s - Rotorklipper 1350 mm',
+  '411800': 'Equipment: RC-1000s - Fingerklipper 1700 mm',
+  '412040': 'Equipment: RC-1000s - Skivehøster 1150mm',
+  'HFS-1012': 'Equipment: RC-1000s - Stubfræser m/hydraulisk sving',
+  '411742': 'Equipment: RC-1000s - V-plov m/gummiskær',
+  '411845': 'Equipment: RC-1000s - Centerdrevet fejemaskine',
+  '418000': 'Equipment: RC-1000s - Sneslynge 1100 mm',
+  '730600': 'Equipment: RC-1000s - WB-170 ukrudtsbørste basis enhed',
+  '720125': 'Equipment: Timan 3330 - Feje/Sug Redskaber - T2 Opsamlingstank uden højtryksslange',
+  '720130': 'Equipment: Timan 3330 - Feje/Sug Redskaber - T2 Opsamlingstank inkl. højtryksrenser',
+  '720132': 'Equipment: Timan 3330 - Feje/Sug Redskaber - T3 Opsamlingstank med tørsug',
+  '720133': 'Equipment: Timan 3330 - Feje/Sug Redskaber - T3 Opsamlingstank med tørsug og højtryksrenser',
+  '730030': 'Equipment: Timan 3330 - Feje/Sug Redskaber - Forkostesæt med 2 koste til fejesug forberedt til venstre og højre sidekost',
+  '730017': 'Equipment: Timan 3330 - Græs opgaver - Rotorklipper med 3 gatorknive og tilt-up, 135 cm klippebredde',
+  'HGM-2007': 'Equipment: Timan 3330 - Græs opgaver - Rotorklipper 150 cm med hydraulisk højdejustering og tilt-up',
+  '730130': 'Equipment: Timan 3330 - Græs opgaver - Rotorklipper 120 cm for opsamling til fejesugtank',
+  '730020': 'Equipment: Timan 3330 - Vinter redskaber - Centerdrevet fejemaskine med reversering, 120 cm, Ø550 mm børster',
+  '730114': 'Equipment: Timan 3330 - Vinter redskaber - V-plov 130-150 cm med gummiskær',
+  '730105': 'Equipment: Timan 3330 - Vinter redskaber - Dozerblad 130 cm med gummiskær',
+  '730106': 'Equipment: Timan 3330 - Vinter redskaber - Sneslynge, 110 cm arbejdsbredde',
+  '725131': 'Equipment: Timan 3330 - Vinter redskaber - CS-200 Valsespreder, for lad, manuel reg. Husk lad og vogn',
+  '725132': 'Equipment: Timan 3330 - Vinter redskaber - CS-200 Combi, for lad, manuel reg. Husk lad og vogn',
+  '725138': 'Equipment: Timan 3330 - Vinter redskaber - CS-200 Combi, for lad, el reg. Husk lad og vogn',
+  'HGM-20083': 'Equipment: Timan 3330 - Øvrige Redskaber - Fingerklipper for Termit-arm',
+  'HGM-20082': 'Equipment: Timan 3330 - Øvrige Redskaber - Multitrimmer for Termit-arm',
+};
+
 export type CrmLeadConfigurationSyncRow = {
   id: string;
   title: string | null;
@@ -69,18 +106,185 @@ function mergeUnique(values: Array<string | null | undefined>): string[] {
   return out;
 }
 
-function buildMachineTypesFromState(state: ConfiguratorState): string[] {
+function nonEmpty(value: string | null | undefined): string | null {
+  const trimmed = String(value ?? '').trim();
+  return trimmed || null;
+}
+
+function preferNonEmpty(next: string | null | undefined, current: string | null | undefined): string | null {
+  return nonEmpty(next) ?? nonEmpty(current);
+}
+
+function normalizedKey(value: string | null | undefined): string {
+  return String(value ?? '').trim().toUpperCase();
+}
+
+function crmMachineInterestFor(machineType: string): string {
+  return CONFIGURATOR_MACHINE_TO_CRM_INTEREST[machineType] ?? machineType;
+}
+
+function extractTrailingItemNumber(value: string): string | null {
+  return value.match(/\(([A-Z0-9][A-Z0-9._-]{2,})\)\s*$/i)?.[1]?.trim() || null;
+}
+
+function canonicalizeExistingMachineInterest(value: string | null | undefined): string | null {
+  const trimmed = nonEmpty(value);
+  if (!trimmed) return null;
+
+  const exactMachine = CONFIGURATOR_MACHINE_TO_CRM_INTEREST[trimmed];
+  if (exactMachine) return exactMachine;
+
+  const itemNumberMatch = CONFIGURATOR_ITEM_NUMBER_TO_CRM_INTEREST[normalizedKey(extractTrailingItemNumber(trimmed))];
+  if (itemNumberMatch) return itemNumberMatch;
+
+  return trimmed.replace(/^Equipment:\s*RC-1000S\s+-\s+/i, 'Equipment: RC-1000s - ');
+}
+
+function fallbackEquipmentInterest(machineType: string, name: string, itemNumber: string | null | undefined): string {
+  const crmMachine = crmMachineInterestFor(machineType);
+  return `Equipment: ${crmMachine} - ${name}${itemNumber ? ` (${itemNumber})` : ''}`;
+}
+
+export function crmMachineInterestForConfiguratorItem(input: {
+  machineType: string;
+  itemId?: string | null;
+  itemNumber?: string | null;
+  itemName: string;
+}): string {
+  const itemNumberMatch = CONFIGURATOR_ITEM_NUMBER_TO_CRM_INTEREST[normalizedKey(input.itemNumber)];
+  if (itemNumberMatch) return itemNumberMatch;
+
+  const itemIdMatch = CONFIGURATOR_ITEM_NUMBER_TO_CRM_INTEREST[normalizedKey(input.itemId)];
+  if (itemIdMatch) return itemIdMatch;
+
+  return fallbackEquipmentInterest(input.machineType, input.itemName, input.itemNumber);
+}
+
+function buildMachineTypesFromState(state: ConfiguratorState, existingMachineTypes: string[] = []): string[] {
   const summary = buildQuoteContentSummary(state);
-  const values: string[] = [];
+  const values: string[] = existingMachineTypes
+    .map(canonicalizeExistingMachineInterest)
+    .filter((value): value is string => !!value);
   for (const machine of summary.machines) {
-    values.push(machine.model_type);
+    values.push(crmMachineInterestFor(machine.model_type));
     for (const unit of machine.units) {
       for (const accessory of unit.accessories) {
-        values.push(`Equipment: ${machine.model_type} - ${accessory.name}${accessory.varenr ? ` (${accessory.varenr})` : ''}`);
+        values.push(crmMachineInterestForConfiguratorItem({
+          machineType: machine.model_type,
+          itemId: accessory.id,
+          itemNumber: accessory.varenr,
+          itemName: accessory.name,
+        }));
       }
     }
   }
   return mergeUnique(values);
+}
+
+type StructuredContactInfo = {
+  company: string;
+  contactPerson: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  zipCity: string;
+  phone: string;
+  email: string;
+  country: string;
+};
+
+function splitPostalCodeAndCity(value: string): { postalCode: string; city: string } {
+  const trimmed = value.trim();
+  const match = trimmed.match(/^([A-Z]{0,3}[-\s]?\d{3,6})\s+(.+)$/i);
+  if (!match) return { postalCode: '', city: '' };
+  return { postalCode: match[1].trim(), city: match[2].trim() };
+}
+
+function parseStructuredContactInformation(value: string | null | undefined, fallbackCountry: string | null | undefined): StructuredContactInfo {
+  const info: StructuredContactInfo = {
+    company: '',
+    contactPerson: '',
+    address: '',
+    postalCode: '',
+    city: '',
+    zipCity: '',
+    phone: '',
+    email: '',
+    country: '',
+  };
+
+  String(value ?? '').split(/\r?\n/).forEach((line) => {
+    const separatorIndex = line.indexOf(':');
+    if (separatorIndex < 0) return;
+    const key = line.slice(0, separatorIndex).trim().toLowerCase();
+    const fieldValue = line.slice(separatorIndex + 1).trim();
+    if (!fieldValue) return;
+
+    if (key.startsWith('firma')) info.company = fieldValue;
+    else if (key.startsWith('kontaktperson')) info.contactPerson = fieldValue;
+    else if (key.startsWith('adresse')) info.address = fieldValue;
+    else if (key.startsWith('postnr') || key.includes('zip') || key.includes('plz')) {
+      info.zipCity = fieldValue;
+      const split = splitPostalCodeAndCity(fieldValue);
+      info.postalCode = split.postalCode;
+      info.city = split.city;
+    }
+    else if (key === 'by' || key === 'city' || key === 'ort') info.city = fieldValue;
+    else if (key.startsWith('telefon') || key.startsWith('phone')) info.phone = fieldValue;
+    else if (key.startsWith('e-mail') || key === 'email') info.email = fieldValue;
+    else if (key.startsWith('land') || key === 'country') info.country = fieldValue;
+  });
+
+  if (!info.country && String(value ?? '').trim() && fallbackCountry) {
+    info.country = fallbackCountry;
+  }
+
+  return info;
+}
+
+function buildStructuredContactInformation(info: StructuredContactInfo): string {
+  const postalCode = info.postalCode.trim();
+  const city = info.city.trim();
+  const zipCity = info.zipCity.trim() || [postalCode, city].filter(Boolean).join(' ').trim();
+  return [
+    info.company.trim() ? `Firma/CVR: ${info.company.trim()}` : null,
+    info.contactPerson.trim() ? `Kontaktperson: ${info.contactPerson.trim()}` : null,
+    info.address.trim() ? `Adresse: ${info.address.trim()}` : null,
+    zipCity ? `Postnr. og by: ${zipCity}` : null,
+    info.phone.trim() ? `Telefon: ${info.phone.trim()}` : null,
+    info.email.trim() ? `E-mail: ${info.email.trim()}` : null,
+    info.country.trim() ? `Land: ${info.country.trim()}` : null,
+  ].filter(Boolean).join('\n');
+}
+
+function readStateField(state: ConfiguratorState, keys: string[]): string | null {
+  const record = state as unknown as Record<string, unknown>;
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function contactInformationFromState(lead: CrmLead, state: ConfiguratorState): string | null {
+  const current = parseStructuredContactInformation(lead.contact_information, lead.country);
+  const next: StructuredContactInfo = {
+    company: preferNonEmpty(state.firmanavn, current.company) ?? '',
+    contactPerson: preferNonEmpty(state.kontaktperson, current.contactPerson) ?? '',
+    address: preferNonEmpty(readStateField(state, ['adresse', 'address', 'customerAddress']), current.address) ?? '',
+    postalCode: preferNonEmpty(readStateField(state, ['postnr', 'postalCode', 'zip', 'zipCode']), current.postalCode) ?? '',
+    city: preferNonEmpty(readStateField(state, ['by', 'city']), current.city) ?? '',
+    zipCity: current.zipCity,
+    phone: preferNonEmpty(state.telefon, current.phone) ?? '',
+    email: preferNonEmpty(state.email || state.emailRecipient, current.email) ?? '',
+    country: preferNonEmpty(readStateField(state, ['land', 'country']), current.country || lead.country) ?? '',
+  };
+
+  if (next.postalCode !== current.postalCode || next.city !== current.city) {
+    next.zipCity = [next.postalCode, next.city].filter(Boolean).join(' ');
+  }
+
+  return buildStructuredContactInformation(next) || lead.contact_information || null;
 }
 
 function buildSyncNote(state: ConfiguratorState, row: CrmLeadConfigurationSyncRow, syncedAt: string): string {
@@ -107,10 +311,6 @@ function replaceSyncBlock(notes: string | null | undefined, syncBlock: string): 
   const pattern = new RegExp(`\\n?${SYNC_START}[\\s\\S]*?${SYNC_END}\\n?`, 'm');
   const withoutOldBlock = current.replace(pattern, '').trim();
   return [withoutOldBlock, syncBlock].filter(Boolean).join('\n\n');
-}
-
-function contactInformationFromState(state: ConfiguratorState): string | null {
-  return mergeUnique([state.kontaktperson, state.email || state.emailRecipient, state.telefon]).join(' · ') || null;
 }
 
 function getConfigurationNumber(row: CrmLeadConfigurationSyncRow): string | null {
@@ -140,19 +340,22 @@ export function buildLeadPatchFromConfigurationState(
   syncedAt: string,
   sellerId?: string | null,
 ): CrmLeadPatch {
-  const machineTypes = buildMachineTypesFromState(state);
+  const machineTypes = buildMachineTypesFromState(state, lead.machine_types);
   const estimatedValue = Math.round(row.total_price ?? (calcConfigurationTotals(state).finalPrice || 0));
-  const linkedDealerId = row.dealer_account_id || row.dealer_number || lead.linked_dealer_id || null;
+  const linkedDealerId = preferNonEmpty(row.dealer_account_id, null)
+    ?? preferNonEmpty(row.dealer_number, null)
+    ?? lead.linked_dealer_id
+    ?? null;
 
   return {
-    title: state.firmanavn || row.title || lead.title,
+    title: preferNonEmpty(state.firmanavn, null) ?? preferNonEmpty(row.title, null) ?? lead.title,
     machine_types: machineTypes.length > 0 ? machineTypes : lead.machine_types,
-    contact_information: contactInformationFromState(state) ?? lead.contact_information,
+    contact_information: contactInformationFromState(lead, state),
     estimated_value: estimatedValue || lead.estimated_value,
     linked_dealer_id: linkedDealerId,
-    owner_user_id: sellerId || row.assigned_seller_id || lead.owner_user_id,
-    owner_name: row.seller_name || row.seller_initials || lead.owner_name,
-    owner_email: row.seller_email || lead.owner_email || null,
+    owner_user_id: preferNonEmpty(sellerId, null) ?? preferNonEmpty(row.assigned_seller_id, null) ?? lead.owner_user_id,
+    owner_name: preferNonEmpty(row.seller_name, null) ?? preferNonEmpty(row.seller_initials, null) ?? lead.owner_name,
+    owner_email: preferNonEmpty(row.seller_email, lead.owner_email),
     notes: replaceSyncBlock(lead.notes, buildSyncNote(state, row, syncedAt)),
     incomplete_from_configurator: shouldClearIncompleteFlag(row) ? false : lead.incomplete_from_configurator ?? false,
   };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildLeadPatchFromConfigurationState,
+  crmMachineInterestForConfiguratorItem,
   type CrmLeadConfigurationSyncRow,
 } from '@/lib/crmLeadConfigurationSync';
 import type { CrmLead } from '@/lib/crmLeadsService';
@@ -23,9 +24,17 @@ function baseLead(): CrmLead {
     demo_has_run: null,
     contact_type: null,
     customer_type: null,
-    contact_information: 'Old contact',
+    contact_information: [
+      'Firma/CVR: Existing Company ApS / 12345678',
+      'Kontaktperson: Existing Person',
+      'Adresse: Existing Street 1',
+      'Postnr. og by: 1234 Existing City',
+      'Telefon: +45 12 34 56 78',
+      'E-mail: existing@example.com',
+      'Land: Danmark',
+    ].join('\n'),
     trade_fair: null,
-    country: null,
+    country: 'Danmark',
     notes: 'Manual CRM note\n\n--- CONFIGURATOR SYNC START ---\nOld sync\n--- CONFIGURATOR SYNC END ---',
     estimated_value: 1000,
     probability: 25,
@@ -111,8 +120,8 @@ describe('CRM lead configurator sync', () => {
     expect(patch.linked_dealer_id).toBe('42c89ab9-72cb-4def-bb94-78e910bc74f5');
     expect(patch.owner_user_id).toBe('9d6c31ba-5ec6-43aa-95ae-dbf241d6414a');
     expect(patch.estimated_value).toBe(32584);
-    expect(patch.machine_types).toContain('RC-1000S');
-    expect(patch.machine_types?.some((value) => value.startsWith('Equipment: RC-1000S - '))).toBe(true);
+    expect(patch.machine_types).toContain('RC-1000s');
+    expect(patch.machine_types).toContain('Equipment: RC-1000s - Slagleklipper inkl. Y-slagle sæt');
     expect(patch.contact_information).toContain('Roman Guichen');
     expect(patch.notes).toContain('Manual CRM note');
     expect(patch.notes).toContain('Konfiguration: T-4001');
@@ -123,5 +132,73 @@ describe('CRM lead configurator sync', () => {
     expect(patch).not.toHaveProperty('next_activity');
     expect(patch).not.toHaveProperty('status');
   });
-});
 
+  it('keeps existing contact fields when configurator values are empty and sync is repeated', () => {
+    const emptyContactState: ConfiguratorState = {
+      ...state,
+      firmanavn: '   ',
+      kontaktperson: '',
+      telefon: '',
+      email: '',
+      emailRecipient: ' ',
+      individualUnitConfigs: { m0_1: { acc: ['410910', '411701', '411800', '999999'] } },
+    };
+
+    const firstPatch = buildLeadPatchFromConfigurationState(
+      baseLead(),
+      { ...linkedQuoteRow, title: ' ' },
+      emptyContactState,
+      '2026-09-02T12:00:00.000Z',
+      null,
+    );
+
+    expect(firstPatch.title).toBe('ÖGA2026 Lead');
+    expect(firstPatch.contact_information).toContain('Firma/CVR: Existing Company ApS / 12345678');
+    expect(firstPatch.contact_information).toContain('Kontaktperson: Existing Person');
+    expect(firstPatch.contact_information).toContain('Adresse: Existing Street 1');
+    expect(firstPatch.contact_information).toContain('Postnr. og by: 1234 Existing City');
+    expect(firstPatch.contact_information).toContain('Telefon: +45 12 34 56 78');
+    expect(firstPatch.contact_information).toContain('E-mail: existing@example.com');
+    expect(firstPatch.contact_information).toContain('Land: Danmark');
+    expect(firstPatch.machine_types).toEqual(expect.arrayContaining([
+      'RC-1000s',
+      'Equipment: RC-1000s - Slagleklipper inkl. Y-slagle sæt',
+      'Equipment: RC-1000s - Fingerklipper 1700 mm',
+      'Equipment: RC-1000s - Stativ til afsætning af slagleklipper (411701)',
+    ]));
+
+    const secondPatch = buildLeadPatchFromConfigurationState(
+      { ...baseLead(), ...firstPatch } as CrmLead,
+      { ...linkedQuoteRow, title: ' ' },
+      emptyContactState,
+      '2026-09-02T12:05:00.000Z',
+      null,
+    );
+
+    expect(secondPatch.contact_information).toBe(firstPatch.contact_information);
+    expect(secondPatch.machine_types).toEqual(firstPatch.machine_types);
+  });
+
+  it('matches configurator items by canonical item number before preserving unknown items', () => {
+    expect(crmMachineInterestForConfiguratorItem({
+      machineType: 'RC-1000S',
+      itemId: 'old-label',
+      itemNumber: '410910',
+      itemName: 'Schlegelmäher inkl. Y-Schlegel-Set',
+    })).toBe('Equipment: RC-1000s - Slagleklipper inkl. Y-slagle sæt');
+
+    expect(crmMachineInterestForConfiguratorItem({
+      machineType: 'RC-1000S',
+      itemId: 'legacy-finger',
+      itemNumber: '411800',
+      itemName: 'Fingerbalkenmäher 1700 mm',
+    })).toBe('Equipment: RC-1000s - Fingerklipper 1700 mm');
+
+    expect(crmMachineInterestForConfiguratorItem({
+      machineType: 'RC-1000S',
+      itemId: '411701',
+      itemNumber: '411701',
+      itemName: 'Stativ til afsætning af slagleklipper',
+    })).toBe('Equipment: RC-1000s - Stativ til afsætning af slagleklipper (411701)');
+  });
+});
