@@ -3,6 +3,7 @@ import { logActivity } from '@/lib/crmActivitiesService';
 import { getCrmLinkedConfigurationKind } from '@/lib/crmConfigurationsService';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import { getLead, updateLead, type CrmLead, type CrmLeadPatch } from '@/lib/crmLeadsService';
+import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { supabase } from '@/lib/supabase';
@@ -321,6 +322,10 @@ function shouldClearIncompleteFlag(row: CrmLeadConfigurationSyncRow): boolean {
   return getCrmLinkedConfigurationKind(row) === 'quote' || getCrmLinkedConfigurationKind(row) === 'order';
 }
 
+function isCanonicalSubmittedOrder(row: CrmLeadConfigurationSyncRow): boolean {
+  return getCrmLinkedConfigurationKind(row) === 'order';
+}
+
 async function loadLinkedConfiguration(configurationId: string): Promise<CrmLeadConfigurationSyncRow> {
   const { data, error } = await supabase
     .from('crm_configurations_view')
@@ -347,7 +352,7 @@ export function buildLeadPatchFromConfigurationState(
     ?? lead.linked_dealer_id
     ?? null;
 
-  return {
+  const patch: CrmLeadPatch = {
     title: preferNonEmpty(state.firmanavn, null) ?? preferNonEmpty(row.title, null) ?? lead.title,
     machine_types: machineTypes.length > 0 ? machineTypes : lead.machine_types,
     contact_information: contactInformationFromState(lead, state),
@@ -359,6 +364,15 @@ export function buildLeadPatchFromConfigurationState(
     notes: replaceSyncBlock(lead.notes, buildSyncNote(state, row, syncedAt)),
     incomplete_from_configurator: shouldClearIncompleteFlag(row) ? false : lead.incomplete_from_configurator ?? false,
   };
+
+  if (isCanonicalSubmittedOrder(row)) {
+    patch.next_activity = NEXT_ACTIVITY_WON;
+    patch.probability = 100;
+    patch.pipeline_stage = deriveLegacyPipelineStage(NEXT_ACTIVITY_WON);
+    patch.status = 'closed';
+  }
+
+  return patch;
 }
 
 export async function syncLeadFromConfiguration(
@@ -404,8 +418,18 @@ export async function syncLeadFromConfiguration(
       configuration_id: row.id,
       configuration_number: getConfigurationNumber(row),
       synced_at: syncedAt,
-      synced_fields: ['title', 'machine_types', 'contact_information', 'estimated_value', 'linked_dealer_id', 'owner'],
-      preserved_fields: ['status', 'pipeline_stage', 'next_followup_date', 'next_activity', 'manual_notes_outside_sync_block', 'activities'],
+      synced_fields: [
+        'title',
+        'machine_types',
+        'contact_information',
+        'estimated_value',
+        'linked_dealer_id',
+        'owner',
+        ...(isCanonicalSubmittedOrder(row) ? ['lifecycle'] : []),
+      ],
+      preserved_fields: isCanonicalSubmittedOrder(row)
+        ? ['next_followup_date', 'manual_notes_outside_sync_block', 'activities']
+        : ['status', 'pipeline_stage', 'next_followup_date', 'next_activity', 'manual_notes_outside_sync_block', 'activities'],
     },
   });
 
@@ -413,7 +437,17 @@ export async function syncLeadFromConfiguration(
     lead: updatedLead,
     configurationId: row.id,
     configurationNumber: getConfigurationNumber(row),
-    syncedFields: ['title', 'machine_types', 'contact_information', 'estimated_value', 'linked_dealer_id', 'owner'],
-    preservedFields: ['status', 'pipeline_stage', 'next_followup_date', 'next_activity', 'manual_notes_outside_sync_block', 'activities'],
+    syncedFields: [
+      'title',
+      'machine_types',
+      'contact_information',
+      'estimated_value',
+      'linked_dealer_id',
+      'owner',
+      ...(isCanonicalSubmittedOrder(row) ? ['lifecycle'] : []),
+    ],
+    preservedFields: isCanonicalSubmittedOrder(row)
+      ? ['next_followup_date', 'manual_notes_outside_sync_block', 'activities']
+      : ['status', 'pipeline_stage', 'next_followup_date', 'next_activity', 'manual_notes_outside_sync_block', 'activities'],
   };
 }
