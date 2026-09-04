@@ -58,7 +58,7 @@ describe('submitted configurator order lock', () => {
       quote_sent_at: '2026-09-04T08:00:00.000Z',
       order_sent_at: null,
       order_number: null,
-    })).toBe(false);
+    } as Parameters<typeof isSavedConfigurationOrderLocked>[0])).toBe(false);
   });
 
   it('uses the canonical won patch when a linked lead is closed by order submission', () => {
