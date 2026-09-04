@@ -479,7 +479,7 @@ function buildFallbackState(row: Record<string, any>): ConfiguratorState {
 
 function buildFallbackStatePartial(row: Record<string, any>): Partial<ConfiguratorState> {
   const language = ['da', 'en', 'de', 'it', 'hu'].includes(row.language) ? row.language : 'da';
-  const flowType = row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote';
+  const flowType = deriveEditableFlowType(row);
   const deliveryMethod = ['pickup', 'send', 'deliver'].includes(row.delivery_method) ? row.delivery_method : '';
 
   return {
@@ -495,6 +495,12 @@ function buildFallbackStatePartial(row: Record<string, any>): Partial<Configurat
   };
 }
 
+function deriveEditableFlowType(row: Record<string, any>): 'quote' | 'order' {
+  if (row.order_sent_at || row.submitted_at) return 'order';
+  if (row.quote_number && row.quote_sent_at && !row.order_number) return 'quote';
+  return row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote';
+}
+
 function buildRestoredState(
   row: Record<string, any>,
   items: SavedConfigurationItem[],
@@ -504,7 +510,7 @@ function buildRestoredState(
   const payloadState = storedPayload?.state ?? null;
   const baseState = parsedState ?? payloadState ?? buildFallbackState(row);
   const rebuiltFromItems = items.length > 0 ? rebuildMachineConfigsFromItems(items) : null;
-  const flowType = row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote';
+  const flowType = deriveEditableFlowType(row);
   const language = ['da', 'en', 'de', 'it', 'hu'].includes(row.language) ? row.language : baseState.language;
   const deliveryMethod = ['pickup', 'send', 'deliver'].includes(row.delivery_method) ? row.delivery_method : baseState.deliveryMethod;
 
@@ -542,7 +548,7 @@ function buildRestoredState(
 function mapConfigurationRow(row: Record<string, any>, ownerEmail: string): SavedConfiguration {
   const storedPayload = parseStoredConfigurationPayload(row.note);
   const { state, hasFullState } = buildRestoredState(row, [], storedPayload);
-  const caseType = row.case_type === 'order' || row.document_type === 'order' || row.case_status === 'ordre_afgivet' ? 'order' : 'quote';
+  const caseType = deriveEditableFlowType(row);
 
   return {
     id: row.id,
@@ -744,7 +750,7 @@ function mapConfigurationRowWithItems(
 ): SavedConfiguration {
   const storedPayload = parseStoredConfigurationPayload(row.note);
   const { state, hasFullState } = buildRestoredState(row, items, storedPayload);
-  const caseType = row.case_type === 'order' || row.document_type === 'order' ? 'order' : 'quote';
+  const caseType = deriveEditableFlowType(row);
 
   return {
     id: row.id,
@@ -1138,6 +1144,8 @@ export async function updateConfiguration(
   const storedNote = serializeStoredConfigurationPayload(state, internalNote, pdfDownloaded, pdfDownloadedAt);
 
   const patch: Record<string, unknown> = {
+    document_type: state.flowType,
+    case_type: state.flowType,
     state_json: state,
     note: storedNote,
     internal_note: internalNote,
