@@ -24,6 +24,11 @@ export interface PortalFormSubmission {
   submitted_by_user_id: string | null;
   submitted_by_email: string | null;
   payload: Record<string, unknown>;
+  review_status: 'pending' | 'approved' | 'returned' | 'rejected';
+  reviewed_at: string | null;
+  reviewed_by_user_id: string | null;
+  review_note: string | null;
+  approved_dealer_account_id: string | null;
 }
 
 /**
@@ -89,4 +94,20 @@ export async function listPortalFormSubmissions(opts?: {
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as PortalFormSubmission[];
+}
+
+export async function reviewCompanyContactInfoSubmission(input: {
+  submissionId: string;
+  decision: 'approved' | 'returned' | 'rejected';
+  accountNumber?: string | null;
+  note?: string | null;
+}): Promise<{ dealerAccountId: string | null }> {
+  const { data, error } = await supabase.rpc('review_company_contact_info_submission', {
+    p_submission_id: input.submissionId,
+    p_decision: input.decision,
+    p_account_number: input.accountNumber?.trim() || null,
+    p_note: input.note?.trim() || null,
+  });
+  if (error) throw error;
+  return { dealerAccountId: (data as string | null) ?? null };
 }

@@ -73,6 +73,8 @@ import {
 } from "@/lib/dealerProfileBadge";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
+import { listPortalFormSubmissions, type PortalFormSubmission } from "@/lib/portalFormsService";
+import PendingPartnerSubmissions from "@/components/crm/PendingPartnerSubmissions";
 const profileTextKeyByDanishLabel: Record<string, string> = {
   "Firma information": "crmProfileSectionCompany",
   "Økonomi": "crmProfileSectionFinance",
@@ -214,12 +216,37 @@ export default function CrmMyDealersPage() {
   const [dealerCustomersExpanded, setDealerCustomersExpanded] = useState<Set<string>>(new Set());
   const [usersExpanded, setUsersExpanded] = useState<Set<string>>(new Set());
   const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
+  const [pendingPartnerSubmissions, setPendingPartnerSubmissions] = useState<PortalFormSubmission[]>([]);
   const budgetYear = new Date().getFullYear();
 
   const portalRole = useMemo(() => derivePortalRole(effectiveUser), [effectiveUser]);
   const admin = isCrmAdmin(portalRole);
   const seller = isScopedSeller(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
+
+  const reloadPendingPartnerSubmissions = async () => {
+    if (!admin && !seller) {
+      setPendingPartnerSubmissions([]);
+      return;
+    }
+    try {
+      const rows = await listPortalFormSubmissions({ formType: "company_contact_info" });
+      // A Backend session can read every submission through RLS. When it is
+      // previewing a seller, retain the same seller-specific view as login.
+      setPendingPartnerSubmissions(
+        seller && !admin && effectiveUser?.id
+          ? rows.filter((row) => row.submitted_by_user_id === effectiveUser.id)
+          : rows,
+      );
+    } catch (submissionError) {
+      console.warn("[CrmMyDealersPage] pending partner submissions failed", submissionError);
+      setPendingPartnerSubmissions([]);
+    }
+  };
+
+  useEffect(() => {
+    void reloadPendingPartnerSubmissions();
+  }, [admin, seller, appUser?.id, effectiveUser?.id]);
 
   // Re-render when the backend user switches active seller view.
   const [activeMode, setActiveMode] = useState<string>(() => getActiveMode(appUser?.email));
@@ -525,6 +552,15 @@ export default function CrmMyDealersPage() {
 
       {error && (
         <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{error}</div>
+      )}
+
+      {!externalCrm && (
+        <PendingPartnerSubmissions
+          rows={pendingPartnerSubmissions}
+          canReview={admin}
+          language={uiLanguage}
+          onReviewed={() => void reloadPendingPartnerSubmissions()}
+        />
       )}
 
       <div className="overflow-x-auto bg-white border border-slate-200 rounded-2xl shadow-sm">
