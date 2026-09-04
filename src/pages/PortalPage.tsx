@@ -309,7 +309,7 @@ export default function PortalPage() {
               || portalRole === 'timan_importer'
               || portalRole === 'timan_service_partner'
               || portalRole === 'dealer_customer'
-              || portalRole === 'dealer_user';
+              || (portalRole as string) === 'dealer_user';
             const ownDealerPath = effectiveUser?.dealer_number
               ? `/portal/crm/my-dealers/${encodeURIComponent(effectiveUser.dealer_number)}`
               : meta.to;

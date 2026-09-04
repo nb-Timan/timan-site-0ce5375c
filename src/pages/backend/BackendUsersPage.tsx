@@ -71,6 +71,7 @@ const AREA_LABEL: Record<AreaKey, string> = {
   dealer_data:    "Partnerdata",
   timan_crm:      "CRM",
   timan_backend:  "Timan Backend",
+  projects:       "Projekter",
 };
 
 const MODULE_LABEL: Record<ModuleAccessKey, string> = {
@@ -78,6 +79,7 @@ const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   salg_marketing: "Salg",
   marketing: "Marketing",
   timan_backend: "Timan Backend",
+  projects: "Projekter",
   timan_crm: "CRM",
   dealer_data: "Partnerdata",
   claims: "Claims",
