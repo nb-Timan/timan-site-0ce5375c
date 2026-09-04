@@ -39,6 +39,7 @@ import {
   type DataTraceLookupType,
   type DataTraceRestorePreview,
   type DataTraceRestoreResult,
+  type DataTraceTableCount,
 } from "@/lib/dataTraceArchiveService";
 
 type TabKey = "forhandlere" | "garanti" | "prislister" | "budget" | "brugere" | "historik" | "data-trace" | "crm-reset";
