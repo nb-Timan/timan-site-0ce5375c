@@ -1617,7 +1617,7 @@ export default function ConfiguratorPage() {
         sourceQuoteNumber: savedSourceQuoteNumber,
         showPrices: permissions.canSeePrices,
         uiLanguage: lang,
-        contentLanguage: contentUiLang,
+        contentLanguage: contentUiLang as Language,
         T,
         TC,
         includeSalesArgs,
