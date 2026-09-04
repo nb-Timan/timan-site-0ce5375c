@@ -85,6 +85,14 @@ describe("company contact info onboarding i18n", () => {
     expect(page).toContain(".filter(hasContactContent)");
   });
 
+  it("returns to the portal after a successful submission while preserving failures on the form", () => {
+    expect(page).toContain("toast.success(copy.receiptTitle)");
+    expect(page).toContain('navigate("/portal", { replace: true })');
+    expect(page).toContain("} catch (error) {");
+    expect(page).toContain("toast.error(error instanceof Error ? error.message : copy.errors.dealerKind)");
+    expect(page).not.toContain("const [receipt, setReceipt]");
+  });
+
   it("reuses the shared Partnerdata contact role model", () => {
     expect(page).toContain("@/lib/dealerContactModel");
     expect(profileEditor).toContain("@/lib/dealerContactModel");

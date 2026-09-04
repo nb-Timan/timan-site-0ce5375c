@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { CheckCircle2, Loader2, Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAppUser } from "@/context/AppUserContext";
@@ -23,7 +23,7 @@ import {
 } from "@/lib/dealerContactModel";
 import { type UpdateDealerAccountPatch } from "@/lib/dealerAccountsService";
 import { type DealerContactArea } from "@/lib/dealerContactsService";
-import { submitPortalForm, type PortalFormSubmission } from "@/lib/portalFormsService";
+import { submitPortalForm } from "@/lib/portalFormsService";
 import {
   DEFAULT_PAYMENT_TERMS,
   getPaymentTermsOptionLabel,
@@ -131,7 +131,6 @@ export default function CompanyContactInfoFormPage() {
   const [finalComment, setFinalComment] = useState("");
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [receipt, setReceipt] = useState<PortalFormSubmission | null>(null);
 
   function resetForm() {
     setLoadedDealerId(null);
@@ -302,13 +301,15 @@ export default function CompanyContactInfoFormPage() {
 
     setSubmitting(true);
     try {
-      const row = await submitPortalForm({
+      await submitPortalForm({
         form_type: "company_contact_info",
         dealer_account_number: null,
         dealer_name: clean(companyName) || null,
         payload,
       });
-      setReceipt(row);
+      toast.success(copy.receiptTitle);
+      resetForm();
+      navigate("/portal", { replace: true });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : copy.errors.dealerKind);
     } finally {
@@ -318,35 +319,6 @@ export default function CompanyContactInfoFormPage() {
 
   if (!loading && scope.isExternalDealerUser) {
     return <Navigate to="/portal" replace />;
-  }
-
-  if (receipt) {
-    return (
-      <MiscPageShell title={copy.title} subtitle={copy.subtitle} backTo="/portal/misc/forms">
-        <div className="max-w-3xl rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
-          <div className="mb-6 flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle2 className="h-7 w-7 text-[#2d5a27]" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">{copy.receiptTitle}</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                {copy.receiptReference}: <span className="font-mono">{receipt.id.slice(0, 8)}</span>
-              </p>
-              <p className="mt-1 text-sm text-gray-500">{new Date(receipt.created_at).toLocaleString(uiLanguage)}</p>
-            </div>
-          </div>
-          <div className="flex gap-3">
-            <button type="button" onClick={() => { setReceipt(null); resetForm(); }} className="rounded-lg bg-[#2d5a27] px-4 py-2 text-sm font-semibold text-white hover:bg-[#244a20]">
-              {copy.newSubmission}
-            </button>
-            <button type="button" onClick={() => navigate("/portal/misc/forms")} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">
-              {copy.backToForms}
-            </button>
-          </div>
-        </div>
-      </MiscPageShell>
-    );
   }
 
   return (
