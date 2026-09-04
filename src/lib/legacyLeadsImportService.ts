@@ -104,7 +104,7 @@ async function executeLegacyLeadImportViaClient(leads: LegacyPreviewLead[]): Pro
       .map((lead) => {
         const owner = lead.owner_email ? userByEmail.get(norm(lead.owner_email)) : null;
         const dealer = lead.dealer_name ? dealerByName.get(norm(lead.dealer_name)) : null;
-        const contact = lead.contact_fields ?? {};
+        const contact = (lead.contact_fields ?? {}) as Record<string, string | undefined>;
         const contactInformation = compactLines([
           contact.company ? `Firma/CVR: ${contact.company}` : null,
           contact.contact ? `Kontaktperson: ${contact.contact}` : null,
