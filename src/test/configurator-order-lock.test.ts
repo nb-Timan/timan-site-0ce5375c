@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   buildSubmittedOrderLeadWonPatch,
@@ -69,5 +70,19 @@ describe('submitted configurator order lock', () => {
       probability: 100,
       status: 'closed',
     });
+  });
+
+  it('keeps the submitted-order correction trigger callable without exposing the correction checker', () => {
+    const migration = readFileSync(
+      'supabase/migrations/20260904141735_fix_active_quote_line_save_correction_guard.sql',
+      'utf8',
+    );
+
+    expect(migration).toContain('create or replace function public.prevent_submitted_configurator_order_changes()');
+    expect(migration).toContain('security definer');
+    expect(migration).toContain('if found and public.is_submitted_configurator_order(target) then');
+    expect(migration).toContain('not public.has_active_submitted_configurator_order_correction(target.id)');
+    expect(migration).toContain('revoke all on function public.prevent_submitted_configurator_order_changes() from public, anon, authenticated');
+    expect(migration).not.toContain('grant execute on function public.has_active_submitted_configurator_order_correction');
   });
 });
