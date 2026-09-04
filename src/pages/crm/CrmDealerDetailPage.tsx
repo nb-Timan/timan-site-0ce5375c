@@ -471,6 +471,7 @@ function detailUserFromRow(row: Record<string, unknown>): BackendUser {
       can_apply_extra_dealer_discount: false,
       can_save_configurator_as_lead: false,
       news_manage: false,
+      marketing_videos_manage: false,
       can_view_prices: false,
       can_submit_order: false,
     },
