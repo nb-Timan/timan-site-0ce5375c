@@ -3,6 +3,7 @@ import {
   getCrmConfigurationDeepLink,
   getCrmLinkedConfigurationKind,
   isSentForCrm,
+  resolveCrmDocumentType,
   type CrmConfigurationRow,
 } from "@/lib/crmConfigurationsService";
 
@@ -99,5 +100,35 @@ describe("CRM lead linked configurator records", () => {
 
     expect(isSentForCrm(submittedLegacyQuote, "quote")).toBe(false);
     expect(isSentForCrm(submittedLegacyQuote, "order")).toBe(true);
+  });
+
+  it("keeps an unsent legacy order-flow row in CRM quotes", () => {
+    const legacyQuote = {
+      ...baseRow,
+      document_type: "order" as const,
+      case_type: "order",
+      quote_number: "T-4002",
+      quote_sent_at: "2026-09-04T11:35:14.021Z",
+      submitted_at: null,
+      order_sent_at: null,
+    };
+
+    expect(resolveCrmDocumentType(legacyQuote)).toBe("quote");
+    expect(isSentForCrm(legacyQuote, "quote")).toBe(true);
+    expect(isSentForCrm(legacyQuote, "order")).toBe(false);
+  });
+
+  it("does not promote a stale submitted-looking status without timestamps", () => {
+    const staleStatus = {
+      ...baseRow,
+      quote_number: "T-4002",
+      quote_sent_at: "2026-09-04T11:35:14.021Z",
+      case_status: "ordre_afgivet",
+      status: "ordre_afgivet",
+    };
+
+    expect(resolveCrmDocumentType(staleStatus)).toBe("quote");
+    expect(isSentForCrm(staleStatus, "quote")).toBe(true);
+    expect(isSentForCrm(staleStatus, "order")).toBe(false);
   });
 });

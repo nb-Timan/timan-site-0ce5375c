@@ -75,6 +75,8 @@ const T: Record<string, Record<Language, string>> = {
     hu: 'Nincs megjeleníthető rendelés.',
   },
   col_number: { da: 'Nummer', en: 'Number', de: 'Nummer', it: 'Numero', hu: 'Szám' },
+  col_order_number: { da: 'Ordrenr.', en: 'Order no.', de: 'Auftragsnr.', it: 'N. ordine', hu: 'Rendelésszám' },
+  col_quote_number: { da: 'Tilbudsnr.', en: 'Quote no.', de: 'Angebotsnr.', it: 'N. preventivo', hu: 'Ajánlatszám' },
   col_title: { da: 'Titel', en: 'Title', de: 'Titel', it: 'Titolo', hu: 'Cím' },
   col_seller: { da: 'Sælger', en: 'Seller', de: 'Verkäufer', it: 'Venditore', hu: 'Értékesítő' },
   col_dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
@@ -322,7 +324,12 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
-                  <th className="text-left px-3 py-2 font-semibold">{T.col_number[lang]}</th>
+                  <th className="text-left px-3 py-2 font-semibold">
+                    {mode === 'order' ? T.col_order_number[lang] : T.col_number[lang]}
+                  </th>
+                  {mode === 'order' && (
+                    <th className="text-left px-3 py-2 font-semibold">{T.col_quote_number[lang]}</th>
+                  )}
                   <th className="text-left px-3 py-2 font-semibold">{T.col_title[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_seller[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_dealer[lang]}</th>
@@ -360,6 +367,11 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                           <ExternalLink className="h-3 w-3 opacity-60" />
                         </button>
                       </td>
+                      {mode === 'order' && (
+                        <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
+                          {r.quote_number || '—'}
+                        </td>
+                      )}
                       <td className="px-3 py-2.5 text-slate-800 max-w-[280px]">
                         <button
                           type="button"

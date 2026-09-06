@@ -85,13 +85,8 @@ export interface CrmConfigurationFilter {
 
 export type CrmLinkedConfigurationKind = 'configuration' | 'quote' | 'order';
 
-function isOrderLike(row: Pick<CrmConfigurationRow, 'case_status' | 'status' | 'order_sent_at' | 'submitted_at'>): boolean {
-  const caseStatus = (row.case_status || '').toLowerCase();
-  const status = (row.status || '').toLowerCase();
-  return caseStatus === 'ordre_afgivet'
-    || status === 'ordre_afgivet'
-    || Boolean(row.order_sent_at)
-    || Boolean(row.submitted_at);
+function isOrderLike(row: Pick<CrmConfigurationRow, 'order_sent_at' | 'submitted_at'>): boolean {
+  return Boolean(row.order_sent_at) || Boolean(row.submitted_at);
 }
 
 export function getCrmLinkedConfigurationKind(
@@ -106,22 +101,27 @@ export function getCrmConfigurationDeepLink(row: Pick<CrmConfigurationRow, 'id'>
   return `/configurator?configId=${encodeURIComponent(row.id)}`;
 }
 
+export function resolveCrmDocumentType(
+  row: Pick<CrmConfigurationRow, 'order_sent_at' | 'submitted_at'>,
+): CrmDocumentType {
+  return isOrderLike(row) ? 'order' : 'quote';
+}
+
 function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
-  const rawDocumentType = (row.document_type as string | null) ?? null;
   const rawCaseType = (row.case_type as string | null) ?? null;
   const caseStatus = (row.case_status as string | null) ?? null;
   const status = (row.status as string | null) ?? null;
   const orderSentAt = (row.order_sent_at as string | null) ?? null;
   const submittedAt = (row.submitted_at as string | null) ?? null;
-  const isOrderLike = rawDocumentType === 'order'
-    || rawCaseType === 'order'
-    || caseStatus === 'ordre_afgivet'
-    || status === 'ordre_afgivet'
-    || Boolean(orderSentAt)
-    || Boolean(submittedAt);
   return {
     id: String(row.id),
-    document_type: isOrderLike ? 'order' : 'quote',
+    // Legacy flow-switches could leave document_type/case_type='order' on a
+    // non-submitted quote. CRM lists are lifecycle read-models, so only the
+    // canonical sent/submitted state decides which list owns the row.
+    document_type: resolveCrmDocumentType({
+      order_sent_at: orderSentAt,
+      submitted_at: submittedAt,
+    }),
     case_type: rawCaseType,
     case_status: caseStatus,
     lead_id: (row.lead_id as string | null) ?? null,
@@ -233,17 +233,12 @@ export async function listCrmConfigurations(
         .from('crm_configurations_view')
         .select('*')
         .neq('case_status', 'deleted');
-      // Converted legacy quotes may have document_type='quote' while
-      // case_type/status were correctly saved as an order. Treat those rows as
-      // orders on read; hide order-like rows from active Tilbud.
-      // NOTE: crm_configurations_view does NOT expose case_type (it is folded
-      // into document_type via coalesce). Only reference columns the view
-      // actually has, otherwise PostgREST errors and we lose all rows.
+      // The CRM lists are lifecycle read-models. A stale legacy document_type
+      // must not hide an unsent quote or promote it to an order.
       if (docType === 'order') {
-        q = q.or('document_type.eq.order,case_status.eq.ordre_afgivet,status.eq.ordre_afgivet,order_sent_at.not.is.null,submitted_at.not.is.null');
+        q = q.or('order_sent_at.not.is.null,submitted_at.not.is.null');
       } else {
-        q = q.eq('document_type', 'quote')
-          .neq('case_status', 'ordre_afgivet')
+        q = q
           .is('order_sent_at', null)
           .is('submitted_at', null);
       }
@@ -265,13 +260,11 @@ export async function listCrmConfigurations(
           .select('*')
           .neq('case_status', 'deleted');
         if (docType === 'order') {
-          q = q.or('document_type.eq.order,case_type.eq.order,case_status.eq.ordre_afgivet,status.eq.ordre_afgivet,order_sent_at.not.is.null,submitted_at.not.is.null');
+          q = q.or('order_sent_at.not.is.null,submitted_at.not.is.null');
         } else {
-          q = q.or('document_type.eq.quote,case_type.eq.quote')
-            .neq('case_status', 'ordre_afgivet')
+          q = q
             .is('order_sent_at', null)
-            .is('submitted_at', null)
-            .or('case_type.is.null,case_type.neq.order');
+            .is('submitted_at', null);
         }
         if (dealerNumbers.length > 0) q = q.or(dealerNumberOrFilter(dealerNumbers, includeAccountNumber));
         return q.order('created_at', { ascending: false }).limit(500);
@@ -303,17 +296,16 @@ export async function listCrmConfigurations(
  *
  * Quotes (CRM → Tilbud):
  *   Show every row whose document_type='quote' AND a quote_number is
- *   assigned, UNLESS it has been converted to an order
- *   (case_status/status = 'ordre_afgivet'). The base list query already
- *   excludes case_status='deleted'. We deliberately do NOT require
+ *   assigned, UNLESS it has been converted to an order by a canonical
+ *   submission timestamp. The base list query already excludes
+ *   case_status='deleted'. We deliberately do NOT require
  *   quote_sent_at — historically that hid quotes whose send-stamp never
  *   persisted (e.g. column stripped by legacy DB retry, or the send-flow
  *   wrote the CRM activity but the row update was rejected). Drafts
  *   without a quote_number are still filtered out.
  *
  * Orders (CRM → Ordrer):
- *   Visible when order_sent_at / submitted_at is set, OR
- *   case_status/status = 'ordre_afgivet'.
+ *   Visible only when order_sent_at / submitted_at is set.
  *
  * Saved drafts (no quote/order number assigned yet) remain in "Min konto"
  * via configurationsService and are NOT touched by this gate.
@@ -322,16 +314,12 @@ export function isSentForCrm(row: CrmConfigurationRow, docType: CrmDocumentType)
   if (docType === 'order') {
     if (row.order_sent_at) return true;
     if (row.submitted_at) return true;
-    if ((row.case_status || '').toLowerCase() === 'ordre_afgivet') return true;
-    if ((row.status || '').toLowerCase() === 'ordre_afgivet') return true;
     return false;
   }
   // quote — must have a quote_number AND not be converted to an order.
   if (!row.quote_number) return false;
   if (row.order_sent_at) return false;
   if (row.submitted_at) return false;
-  if ((row.case_status || '').toLowerCase() === 'ordre_afgivet') return false;
-  if ((row.status || '').toLowerCase() === 'ordre_afgivet') return false;
   return true;
 }
 
