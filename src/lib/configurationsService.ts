@@ -495,6 +495,19 @@ function buildFallbackStatePartial(row: Record<string, any>): Partial<Configurat
   };
 }
 
+export function buildQuoteSentLeadPatch(row: Pick<ConfigurationRow, 'title' | 'quote_number'>) {
+  return {
+    incomplete_from_configurator: false,
+    pipeline_stage: 'Offer sent',
+    next_activity: 'Offer sent to the customer',
+    probability: 70,
+    notes: [
+      row.title || '',
+      `Tilbud afgivet via konfiguratoren${row.quote_number ? ` — ${row.quote_number}` : ''}`,
+    ].filter(Boolean).join('\n').trim() || null,
+  } as const;
+}
+
 function deriveEditableFlowType(row: Record<string, any>): 'quote' | 'order' {
   if (row.order_sent_at || row.submitted_at) return 'order';
   if (row.quote_number && row.quote_sent_at && !row.order_number) return 'quote';
@@ -1551,25 +1564,28 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
       console.warn('[markPdfDownloaded] crm activity log failed (Supabase write rejected; not persisted to server):', e);
     }
 
-    // Phase 33 — if this quote is linked to a CRM lead, advance the lead to
-    // "Offer sent" and log a Danish activity line. Best-effort, never throws.
+  }
+
+  // A successful re-send must also repair an older linked lead that was not
+  // advanced when quote_sent_at was first written. This transition is
+  // idempotent and intentionally never closes the lead.
+  if (effectiveFlow === 'quote') {
     const linkedLeadId = (row.lead_id as string | null) ?? null;
     if (linkedLeadId) {
       try {
         const { updateLead } = await import('@/lib/crmLeadsService');
-        await updateLead(linkedLeadId, {
-          incomplete_from_configurator: false,
-          pipeline_stage: 'Offer sent',
-          next_activity: 'Offer sent to the customer',
-          probability: 70,
-          notes: [
-            (row.title as string | null) || '',
-            `Tilbud afgivet via konfiguratoren${row.quote_number ? ` — ${row.quote_number}` : ''}`,
-          ].filter(Boolean).join('\n').trim() || null,
-        } as any);
+        await updateLead(linkedLeadId, buildQuoteSentLeadPatch({
+          title: (row.title as string | null) ?? null,
+          quote_number: (row.quote_number as string | null) ?? null,
+        }) as any);
       } catch (e) {
         console.warn('[markPdfDownloaded] lead update failed (ignored):', e);
       }
+    }
+
+    // Keep the audit event to one entry per first send; re-sends only repair
+    // the linked lead's current lifecycle state above.
+    if (isFirstQuoteSend && linkedLeadId) {
       try {
         const { logActivity } = await import('@/lib/crmActivitiesService');
         await logActivity({

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   buildSubmittedOrderLeadWonPatch,
+  buildQuoteSentLeadPatch,
   isOrderRowSubmitted,
   isSavedConfigurationOrderLocked,
 } from '@/lib/configurationsService';
@@ -69,6 +70,16 @@ describe('submitted configurator order lock', () => {
       next_activity: 'Closed with order',
       probability: 100,
       status: 'closed',
+    });
+  });
+
+  it('uses an idempotent open-lead patch when a linked quote is sent or re-sent', () => {
+    expect(buildQuoteSentLeadPatch({ title: 'Hummelmühle 3330', quote_number: 'T-4002' })).toEqual({
+      incomplete_from_configurator: false,
+      pipeline_stage: 'Offer sent',
+      next_activity: 'Offer sent to the customer',
+      probability: 70,
+      notes: 'Hummelmühle 3330\nTilbud afgivet via konfiguratoren — T-4002',
     });
   });
 
