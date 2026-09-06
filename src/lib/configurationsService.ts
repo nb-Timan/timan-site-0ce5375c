@@ -509,7 +509,12 @@ function buildRestoredState(
   const parsedState = parseStateJson(row.state_json);
   const payloadState = storedPayload?.state ?? null;
   const baseState = parsedState ?? payloadState ?? buildFallbackState(row);
-  const rebuiltFromItems = items.length > 0 ? rebuildMachineConfigsFromItems(items) : null;
+  const storedStateHasMachineSelections = Boolean(
+    (parsedState ?? payloadState)?.machineConfigs?.length,
+  );
+  const rebuiltFromItems = !storedStateHasMachineSelections && items.length > 0
+    ? rebuildMachineConfigsFromItems(items)
+    : null;
   const flowType = deriveEditableFlowType(row);
   const language = ['da', 'en', 'de', 'it', 'hu'].includes(row.language) ? row.language : baseState.language;
   const deliveryMethod = ['pickup', 'send', 'deliver'].includes(row.delivery_method) ? row.delivery_method : baseState.deliveryMethod;
@@ -1181,7 +1186,8 @@ export async function updateConfiguration(
     .delete()
     .eq('configuration_id', id);
   if (delErr) {
-    console.warn('[updateConfiguration] delete items failed (continuing):', delErr);
+    console.warn('[updateConfiguration] delete items failed:', delErr);
+    return { error: null, itemsError: formatSupabaseError(delErr) };
   }
   const itemsError = await saveConfigurationItems(id, state);
   void recordConfiguratorUsage();

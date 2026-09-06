@@ -18,4 +18,17 @@ describe('configurator saved edit state', () => {
     expect(code).toContain('case_type: state.flowType');
     expect(code).toContain('state_json: state');
   });
+
+  it('uses full state_json as the canonical selected-item source before stale item rows', () => {
+    const code = source();
+    expect(code).toContain('const storedStateHasMachineSelections = Boolean');
+    expect(code).toContain('(parsedState ?? payloadState)?.machineConfigs?.length');
+    expect(code).toContain('const rebuiltFromItems = !storedStateHasMachineSelections && items.length > 0');
+  });
+
+  it('does not insert replacement item rows when old rows could not be deleted', () => {
+    const code = source();
+    expect(code).toContain("console.warn('[updateConfiguration] delete items failed:', delErr)");
+    expect(code).toContain('return { error: null, itemsError: formatSupabaseError(delErr) }');
+  });
 });
