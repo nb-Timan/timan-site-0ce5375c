@@ -42,6 +42,7 @@ import {
   ConfiguratorOwnership,
 } from '@/lib/configuratorOwnership';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { getEffectiveSellerEmail } from '@/lib/activeMode';
 import { useAppUser } from '@/context/AppUserContext';
 import { toast } from 'sonner';
 
@@ -134,11 +135,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     && currentState.email.trim() !== '';
 
   const userEmail = appUser.email.toLowerCase();
+  const accountScopeEmail = (getEffectiveSellerEmail(sessionUser) ?? userEmail).toLowerCase();
 
   const refreshItems = useCallback(async () => {
-    const items = await loadConfigurations(userEmail);
+    const items = await loadConfigurations(accountScopeEmail);
     setSavedItems(items);
-  }, [userEmail]);
+  }, [accountScopeEmail]);
 
   useEffect(() => {
     if (open) refreshItems();
@@ -208,7 +210,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     if (!confirmHideId || hiding) return;
     setHiding(true);
     try {
-      const scope = await resolveHideScopeForCurrentUser(userEmail);
+      const scope = await resolveHideScopeForCurrentUser(accountScopeEmail);
       const { error } = await hideConfigurationForScope(confirmHideId, scope);
       if (error) {
         toast.error(tx('hideFailed'), { description: error });
@@ -231,7 +233,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   };
 
   const handleOpen = async (item: SavedConfiguration) => {
-    const saved = await loadConfigurationById(item.id, userEmail);
+    const saved = await loadConfigurationById(item.id, accountScopeEmail);
 
     if (!saved) {
       toast.error(tx('openFailed'));
@@ -258,7 +260,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const handleShowDetails = async (item: SavedConfiguration) => {
     setDetailLoading(true);
     try {
-      const saved = await loadConfigurationById(item.id, userEmail);
+      const saved = await loadConfigurationById(item.id, accountScopeEmail);
       if (!saved) {
         toast.error(tx('openFailed'));
         return;
@@ -270,7 +272,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   };
 
   const handleReorder = async (item: SavedConfiguration) => {
-    const saved = await loadConfigurationById(item.id, userEmail);
+    const saved = await loadConfigurationById(item.id, accountScopeEmail);
 
     if (!saved) {
       toast.error(tx('openFailed'));
