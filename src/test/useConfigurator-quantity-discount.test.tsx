@@ -31,6 +31,35 @@ function stateWith(machineConfigs: MachineConfig[]): ConfiguratorState {
 }
 
 describe('live basket stk. rabat eligibility', () => {
+  it('removes an already-selected accessory from an individual unit', () => {
+    const { result } = renderHook(() => useConfigurator());
+
+    act(() => result.current.setState(() => stateWith([
+      { id: 'm0', type: 'RC-1000S', qty: 1, configMode: 'individual', acc: [] },
+    ])));
+    act(() => result.current.setState((state) => ({
+      ...state,
+      individualUnitConfigs: { m0_1: { acc: ['410910', '411701', '411800'] } },
+      currentMachineIndex: 0,
+    })));
+
+    act(() => result.current.toggleAcc('411701'));
+
+    expect(result.current.state.individualUnitConfigs.m0_1.acc).toEqual(['410910', '411800']);
+  });
+
+  it('removes an already-selected accessory from a shared unit', () => {
+    const { result } = renderHook(() => useConfigurator());
+
+    act(() => result.current.setState(() => stateWith([
+      { id: 'm0', type: 'RC-1000S', qty: 1, configMode: 'shared', acc: ['410910', '411701', '411800'] },
+    ])));
+
+    act(() => result.current.toggleAcc('411701'));
+
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['410910', '411800']);
+  });
+
   it('does not show or apply stk. rabat for Loader-Line only', () => {
     const { result } = renderHook(() => useConfigurator());
 

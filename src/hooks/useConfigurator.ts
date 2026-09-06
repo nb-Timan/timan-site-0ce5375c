@@ -189,6 +189,8 @@ export function useConfigurator() {
         if (!wasSelected) {
           accList.push(accId);
         } else {
+          const idx = accList.indexOf(accId);
+          if (idx !== -1) accList.splice(idx, 1);
           removeDependents(accId);
         }
 
@@ -249,6 +251,8 @@ export function useConfigurator() {
 
         if (!wasSelected) accList.push(accId);
         else {
+          const idx = accList.indexOf(accId);
+          if (idx !== -1) accList.splice(idx, 1);
           removeDependents(accId);
         }
 
