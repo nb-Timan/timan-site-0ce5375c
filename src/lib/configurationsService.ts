@@ -1122,14 +1122,17 @@ export async function updateConfiguration(
     totalPrice = Math.round(totals.finalPrice || 0);
   } catch { /* ignore */ }
 
-  // Preserve existing internal_note / pdf flags by reading the row first.
+  // Preserve existing internal_note / pdf flags and an already established
+  // CRM lead relation. Editing a saved quote/order must never create or
+  // replace a linked lead through ordinary configuration save.
   let internalNote = state.internalNote ?? '';
   let pdfDownloaded = false;
   let pdfDownloadedAt: string | null = null;
+  let persistedLeadId: string | null = null;
   try {
     const { data: row } = await supabase
       .from('configurations')
-      .select('internal_note, note, pdf_downloaded, pdf_downloaded_at')
+      .select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id')
       .eq('id', id)
       .maybeSingle();
     if (row) {
@@ -1142,6 +1145,7 @@ export async function updateConfiguration(
       pdfDownloadedAt = ((row as Record<string, unknown>).pdf_downloaded_at as string | null)
         ?? storedPayload?.pdf_downloaded_at
         ?? null;
+      persistedLeadId = ((row as Record<string, unknown>).lead_id as string | null) ?? null;
     }
   } catch { /* ignore */ }
 
@@ -1162,7 +1166,11 @@ export async function updateConfiguration(
     subtotal,
     total_price: totalPrice,
     last_saved_at: now,
-    ...(options && Object.prototype.hasOwnProperty.call(options, 'leadId') ? { lead_id: options.leadId ?? null } : {}),
+    ...(persistedLeadId
+      ? { lead_id: persistedLeadId }
+      : options && Object.prototype.hasOwnProperty.call(options, 'leadId')
+        ? { lead_id: options.leadId ?? null }
+        : {}),
     ...(options?.ownership ? {
       seller_initials: options.ownership.seller_initials ?? null,
       seller_email: options.ownership.seller_email ?? null,

@@ -11,7 +11,7 @@
  * passes the chosen leadId to saveConfiguration().
  */
 import { useEffect, useMemo, useState } from 'react';
-import { listLeads, type CrmLead, formatLeadNo } from '@/lib/crmLeadsService';
+import { getLead, listLeads, type CrmLead, formatLeadNo } from '@/lib/crmLeadsService';
 import { isLeadClosed } from '@/lib/leadStatus';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -26,6 +26,8 @@ interface Props {
   /** Optional — currently selected dealer account_number to prefer. */
   dealerNumber?: string | null;
   language?: 'da' | 'en' | 'de' | 'it' | 'hu';
+  /** Saved configurations keep their current relation; the picker becomes read-only. */
+  readOnly?: boolean;
 }
 
 const L = {
@@ -40,15 +42,30 @@ const L = {
               de: 'Mit "Neuen Lead erstellen" wird beim Speichern/Senden automatisch ein CRM-Lead angelegt. Bestehende Leads wechseln beim Senden zu "Offer sent".',
               it: 'Scegli "Crea nuovo lead" per creare automaticamente un lead CRM al salvataggio o invio. I lead esistenti passano a "Offer sent".',
               hu: 'Válaszd az "Új lead létrehozása" lehetőséget az automatikus CRM lead létrehozásához mentéskor/küldéskor.' },
+  linked:   { da: 'Knyttet til', en: 'Linked to', de: 'Verknüpft mit', it: 'Collegato a', hu: 'Kapcsolva ehhez' },
+  noLinked: { da: 'Ingen lead-knytning', en: 'No linked lead', de: 'Keine Lead-Verknüpfung', it: 'Nessun lead collegato', hu: 'Nincs kapcsolt lead' },
 };
 
-export default function LeadLinkPicker({ appUser, value, onChange, dealerNumber, language = 'da' }: Props) {
+export default function LeadLinkPicker({ appUser, value, onChange, dealerNumber, language = 'da', readOnly = false }: Props) {
   const role = derivePortalRole(appUser);
   const isInternal = isCrmAdmin(role) || isScopedSeller(role);
 
   const [leads, setLeads] = useState<CrmLead[]>([]);
   const [loading, setLoading] = useState(false);
   const [sellerId, setSellerId] = useState<string | null>(null);
+  const [linkedLead, setLinkedLead] = useState<CrmLead | null>(null);
+
+  useEffect(() => {
+    if (!readOnly || !value) {
+      setLinkedLead(null);
+      return;
+    }
+    let cancelled = false;
+    void getLead(value).then((lead) => {
+      if (!cancelled) setLinkedLead(lead);
+    });
+    return () => { cancelled = true; };
+  }, [readOnly, value]);
 
   useEffect(() => {
     if (!isInternal) return;
@@ -85,6 +102,22 @@ export default function LeadLinkPicker({ appUser, value, onChange, dealerNumber,
   }, [leads, role, sellerId, appUser?.email, dealerNumber]);
 
   if (!isInternal) return null;
+
+  if (readOnly) {
+    const leadLabel = value
+      ? linkedLead
+        ? `${formatLeadNo(linkedLead.lead_no)} · ${linkedLead.title}`
+        : loading ? L.loading[language] : value
+      : L.noLinked[language];
+    return (
+      <div>
+        <span className="block text-sm font-medium text-gray-700 mb-1">{L.label[language]}</span>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-950">
+          {value ? `${L.linked[language]} ${leadLabel}` : leadLabel}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

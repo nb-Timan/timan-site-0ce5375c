@@ -499,6 +499,8 @@ export default function ConfiguratorPage() {
   })();
   const canCorrectSubmittedOrder = activePortalRole === 'timan_backend';
   const submittedOrderEditorLocked = state.flowType === 'order' && orderLocked && !backendCorrectionSessionId;
+  const existingConfigurationLeadLocked = Boolean(savedConfigurationId && linkedLeadId);
+  const canCreateLeadForCurrentConfiguration = !savedConfigurationId && !linkedLeadId;
 
   const handleStartBackendCorrection = useCallback(async () => {
     if (!savedConfigurationId || !backendCorrectionReason.trim() || startingBackendCorrection) return;
@@ -624,6 +626,8 @@ export default function ConfiguratorPage() {
    */
   const ensurePendingLeadCreated = useCallback(async (): Promise<string | null> => {
     if (linkedLeadId) return linkedLeadId;
+    // Existing saved cases never create a new lead during edit/save.
+    if (savedConfigurationId) return null;
     if (!pendingNewLead) return null;
     const newId = await createLeadFromCurrentState();
     if (!newId) {
@@ -635,7 +639,7 @@ export default function ConfiguratorPage() {
     setLeadPickerKey(k => k + 1);
     toast.success({ da: 'Nyt lead oprettet i CRM', en: 'New lead created in CRM', de: 'Neuer Lead im CRM erstellt', it: 'Nuovo lead creato nel CRM', hu: 'Új lead létrehozva a CRM-ben' }[lang]);
     return newId;
-  }, [linkedLeadId, pendingNewLead, createLeadFromCurrentState, lang]);
+  }, [linkedLeadId, savedConfigurationId, pendingNewLead, createLeadFromCurrentState, lang]);
 
   const handleSyncLinkedLead = useCallback(async (options?: { quiet?: boolean }) => {
     if (!savedConfigurationId || !linkedLeadId || syncingLead) return false;
@@ -781,8 +785,9 @@ export default function ConfiguratorPage() {
   // the Tilbud flow for users with can_save_configurator_as_lead.
   const handleSaveAsLead = useCallback(async (options?: { quiet?: boolean }): Promise<string | null> => {
     if (savingAsLead) return null;
-    // Duplicate protection: configuration already linked to a lead.
-    if (linkedLeadId) {
+    // Saved configurations retain their relation. New lead creation is only
+    // available before the first configuration save.
+    if (savedConfigurationId || linkedLeadId) {
       if (!options?.quiet) {
         toast.info(
           { da: 'Denne konfiguration er allerede knyttet til et lead.',
@@ -928,7 +933,7 @@ export default function ConfiguratorPage() {
     } finally {
       setSavingAsLead(false);
     }
-  }, [savingAsLead, linkedLeadId, state, ownership, appUser, lang, savedConfigurationId, getRequiredOwnershipPayload, isExhibition, displayCalc]);
+  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isExhibition, displayCalc]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
@@ -991,7 +996,8 @@ export default function ConfiguratorPage() {
         setSavedSourceQuoteNumber(saved.source_quote_number ?? null);
         setIsSavedCurrent(true);
 
-        if (saved.lead_id) setLinkedLeadId(saved.lead_id);
+        setLinkedLeadId(saved.lead_id ?? null);
+        setPendingNewLead(false);
         // Restore dealer/seller picker from the saved row so "Forhandler" does
         // not reset to "Ingen valgt". Prefer the CRM-view row (joined with
         // dealer_accounts → company name + account number) over the raw save.
@@ -3146,7 +3152,9 @@ export default function ConfiguratorPage() {
                       key={leadPickerKey}
                       appUser={appUser}
                       value={linkedLeadId ? linkedLeadId : (pendingNewLead ? '__new__' : null)}
+                      readOnly={Boolean(savedConfigurationId)}
                       onChange={(val) => {
+                        if (existingConfigurationLeadLocked) return;
                         if (val === '__new__') {
                           setPendingNewLead(true);
                           setLinkedLeadId(null);
@@ -3318,7 +3326,7 @@ export default function ConfiguratorPage() {
                 </button>
               </div>
             )}
-            {state.step === 4 && state.flowType === 'quote' && ((isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
+            {state.step === 4 && state.flowType === 'quote' && canCreateLeadForCurrentConfiguration && ((isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
               const hasRequired = !!((isExhibition || ownership.dealerNumber) && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim() && (!isExhibition || ownership.sellerEmail));
               const label = isTimanMesseUser
                 ? ({ da: 'Gem som lead og send ordre', en: 'Save lead and send order', de: 'Lead speichern und Bestellung senden', it: 'Salva lead e invia ordine', hu: 'Lead mentése és rendelés küldése' }[lang])
