@@ -29,4 +29,11 @@ describe('configurator existing lead protection', () => {
     expect(code).toContain('...(persistedLeadId');
     expect(code).toContain('? { lead_id: persistedLeadId }');
   });
+
+  it('restores the persisted lead relation when a saved configuration is opened from Min konto', () => {
+    const accountPanel = readFileSync('src/components/configurator/AccountPanel.tsx', 'utf8');
+    const configuratorCode = configurator();
+    expect(accountPanel).toContain('{ linkedLeadId: saved.lead_id ?? null }');
+    expect(configuratorCode).toContain('setLinkedLeadId(options?.linkedLeadId ?? null)');
+  });
 });

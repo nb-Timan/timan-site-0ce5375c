@@ -64,7 +64,7 @@ interface Props {
     dealer_number: string | null;
     dealer_name: string | null;
     dealer_account_id: string | null;
-  }, options?: { asNewDraft?: boolean }) => void;
+  }, options?: { asNewDraft?: boolean; linkedLeadId?: string | null }) => void;
   onSavedConfiguration: (configId: string, quoteNumber?: string | null, orderNumber?: string | null) => void;
   /** Optional pre-built ownership payload (from the in-configurator picker). */
   ownershipOverride?: () => Promise<ConfiguratorOwnership>;
@@ -253,7 +253,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       dealer_number: saved.dealer_number,
       dealer_name: saved.dealer_name,
       dealer_account_id: saved.dealer_account_id,
-    });
+    }, { linkedLeadId: saved.lead_id ?? null });
     setOpen(false);
   };
 

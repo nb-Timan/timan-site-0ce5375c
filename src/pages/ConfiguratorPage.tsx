@@ -3413,6 +3413,9 @@ export default function ConfiguratorPage() {
                 } else {
                   setSavedConfigurationId(configId);
                   setIsSavedCurrent(true);
+                  // Min konto restores the complete existing relation as well as
+                  // the configuration state, so edits cannot create a new lead.
+                  setLinkedLeadId(options?.linkedLeadId ?? null);
                 }
                 // Restore dealer/seller picker from the saved snapshot so the
                 // "Forhandler" dropdown does not reset to "Ingen valgt".
