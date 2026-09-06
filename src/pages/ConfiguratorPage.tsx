@@ -45,6 +45,7 @@ import { buildMainCategories } from '@/lib/mainCategories';
 import { logConfigurationEmailSend } from '@/lib/configurationEmailLogService';
 import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermissionDefaults';
 import { resolveBaseDiscountPct, isImporterAppUser, IMPORTER_BASE_DISCOUNT_PCT, DEFAULT_BASE_DISCOUNT_PCT } from '@/lib/importerDiscount';
+import { resolveConfiguratorContractTerms } from '@/lib/contractCommercialTerms';
 import { getLead } from '@/lib/crmLeadsService';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
@@ -64,6 +65,7 @@ import {
   DEFAULT_PAYMENT_TERMS,
   resolvePaymentTerms,
   getPaymentTermsLabel,
+  getPaymentTermsOptionLabel,
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
 
@@ -310,18 +312,20 @@ export default function ConfiguratorPage() {
   // Skriver resultatet ind i state.baseDiscountPct, så calc, PDF, payload,
   // gemte cases og CRM-synkronisering alle bruger samme værdi.
   const [selectedDealerCustomerType, setSelectedDealerCustomerType] = useState<string | null>(null);
+  const [selectedDealerContractBaseDiscountPct, setSelectedDealerContractBaseDiscountPct] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
     const dealerId = ownership.dealerAccountId;
     if (!dealerId) {
       setSelectedDealerCustomerType(null);
+      setSelectedDealerContractBaseDiscountPct(null);
       return;
     }
     (async () => {
       try {
         const { data } = await supabase
           .from('dealer_accounts')
-          .select('customer_type, customer_type_label, dealer_type')
+          .select('customer_type, customer_type_label, dealer_type, standard_machine_discount_pct, importer_discount_pct, payment_terms')
           .eq('id', dealerId)
           .maybeSingle();
         if (cancelled) return;
@@ -330,15 +334,28 @@ export default function ConfiguratorPage() {
           (data?.customer_type_label as string | null) ??
           (data?.dealer_type as string | null) ??
           null;
+        const terms = resolveConfiguratorContractTerms(data ?? {});
         setSelectedDealerCustomerType(ct);
+        setSelectedDealerContractBaseDiscountPct(terms.baseDiscountPct);
+        if (terms.baseDiscountPct !== null || terms.paymentTerms !== null) {
+          setState((current) => ({
+            ...current,
+            ...(terms.baseDiscountPct !== null ? { baseDiscountPct: terms.baseDiscountPct } : {}),
+            ...(terms.paymentTerms !== null ? { paymentTerms: terms.paymentTerms } : {}),
+          }));
+        }
       } catch {
-        if (!cancelled) setSelectedDealerCustomerType(null);
+        if (!cancelled) {
+          setSelectedDealerCustomerType(null);
+          setSelectedDealerContractBaseDiscountPct(null);
+        }
       }
     })();
     return () => { cancelled = true; };
   }, [ownership.dealerAccountId]);
 
   useEffect(() => {
+    if (selectedDealerContractBaseDiscountPct !== null) return;
     const userIsImporter = isImporterAppUser(effectiveUser);
     const dealerCt = selectedDealerCustomerType;
     const pct = resolveBaseDiscountPct({
@@ -350,7 +367,7 @@ export default function ConfiguratorPage() {
     if (Math.abs(target - current) > 1e-6) {
       setState((s) => ({ ...s, baseDiscountPct: target }));
     }
-  }, [effectiveUser?.portal_role, effectiveUser?.partner_type, selectedDealerCustomerType, state.baseDiscountPct, setState]);
+  }, [effectiveUser?.portal_role, effectiveUser?.partner_type, selectedDealerCustomerType, selectedDealerContractBaseDiscountPct, state.baseDiscountPct, setState]);
 
   // Build the ownership payload sent to saveConfiguration / order webhook.
   // Picker selections override active "view as" mode when the internal
@@ -3555,7 +3572,7 @@ export default function ConfiguratorPage() {
                           className="w-full p-1.5 border rounded-lg text-sm bg-white"
                         >
                           {PAYMENT_TERMS_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
+                            <option key={opt} value={opt}>{getPaymentTermsOptionLabel(opt, uiLanguage)}</option>
                           ))}
                         </select>
                       </div>

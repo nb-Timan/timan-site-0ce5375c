@@ -37,6 +37,9 @@ import {
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 import type { Language } from "@/types/configurator";
+import { getPaymentTermsOptionLabel } from "@/lib/paymentTerms";
+import { resolvePartnerAccountType } from "@/lib/partnerAccountTypes";
+import type { PortalUiLanguage } from "@/lib/portalLanguages";
 import { tProfile, type ProfileI18nKey } from "@/lib/dealerProfileI18n";
 import {
   updateDealerAccount,
@@ -778,6 +781,19 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
           <Field id="invoice_email" label={t("invoiceEmail")} value={draft.invoice_email} onChange={(v) => set("invoice_email", v)} disabled={!canEdit} type="email" required />
           <Field id="payment_terms" label={t("paymentTerms")} value={draft.payment_terms} onChange={(v) => set("payment_terms", v)} disabled={!canEdit} />
           <Field id="currency_code" label={t("currencyCode")} value={draft.currency_code} onChange={(v) => set("currency_code", v)} disabled={!canEdit} />
+        </div>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+          <h3 className="text-sm font-bold text-gray-950">{t("agreementTerms")}</h3>
+          <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+            {resolvePartnerAccountType(dealer) !== "importer" && (
+              <div><dt className="text-gray-600">{t("standardMachineDiscount")}</dt><dd className="font-semibold text-gray-950">{dealer.standard_machine_discount_pct ?? "-"}{dealer.standard_machine_discount_pct !== null ? " %" : ""}</dd></div>
+            )}
+            {resolvePartnerAccountType(dealer) === "importer" && (
+              <div><dt className="text-gray-600">{t("importerDiscount")}</dt><dd className="font-semibold text-gray-950">{dealer.importer_discount_pct ?? "-"}{dealer.importer_discount_pct !== null ? " %" : ""}</dd></div>
+            )}
+            <div><dt className="text-gray-600">{t("sparePartsDiscount")}</dt><dd className="font-semibold text-gray-950">{dealer.spare_parts_discount_pct ?? "-"}{dealer.spare_parts_discount_pct !== null ? " %" : ""}</dd></div>
+            <div><dt className="text-gray-600">{t("paymentTerms")}</dt><dd className="font-semibold text-gray-950">{dealer.payment_terms ? getPaymentTermsOptionLabel(dealer.payment_terms, language as PortalUiLanguage) : "-"}</dd></div>
+          </dl>
         </div>
       </SectionShell>
 

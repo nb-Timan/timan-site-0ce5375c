@@ -13,7 +13,7 @@ export type ProfileI18nKey =
   | "companySectionCompany" | "companySectionAddress" | "companySectionAddressContact" | "companySectionManagementContacts"
   | "companyName" | "address" | "addressLine1" | "addressLine2" | "postalCode" | "city" | "country"
   | "vatNumber" | "directorName" | "directorMultiple" | "phone" | "email"
-  | "financeContactName" | "financePhone" | "financeEmail" | "invoiceEmail" | "paymentTerms" | "currencyCode"
+  | "financeContactName" | "financePhone" | "financeEmail" | "invoiceEmail" | "paymentTerms" | "currencyCode" | "agreementTerms" | "standardMachineDiscount" | "importerDiscount" | "sparePartsDiscount"
   | "firstContact" | "digitalChannels"
   | "website" | "facebook" | "linkedin" | "tiktok" | "youtube" | "instagram"
   | "salesContactName" | "salesPhone" | "salesEmail" | "salesMultiple"
@@ -53,7 +53,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     companyName: "Firmanavn", address: "Firma adresse", addressLine1: "Adresse 1", addressLine2: "Adresse 2", postalCode: "Postnummer", city: "By", country: "Land",
     vatNumber: "CVR/VAT nr.", directorName: "Direktør navn", directorMultiple: "Flere direktører?", phone: "Telefon", email: "E-mail",
     financeContactName: "Økonomi kontaktperson", financePhone: "Telefon", financeEmail: "E-mail", invoiceEmail: "E-mail til faktura",
-    paymentTerms: "Betalingsbetingelser", currencyCode: "Valuta",
+    paymentTerms: "Betalingsbetingelser", currencyCode: "Valuta", agreementTerms: "Aftalevilkår", standardMachineDiscount: "Standard maskinrabat", importerDiscount: "Importørrabat", sparePartsDiscount: "Reservedelsrabat",
     firstContact: "Første kontakt",
     digitalChannels: "Digitale kanaler",
     website: "Hjemmeside", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram",
@@ -94,7 +94,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     companyName: "Company name", address: "Address", addressLine1: "Address line 1", addressLine2: "Address line 2", postalCode: "Postal code", city: "City", country: "Country",
     vatNumber: "VAT no.", directorName: "Director name", directorMultiple: "More directors?", phone: "Phone", email: "E-mail",
     financeContactName: "Finance contact", financePhone: "Phone", financeEmail: "E-mail", invoiceEmail: "Invoice e-mail",
-    paymentTerms: "Payment terms", currencyCode: "Currency",
+    paymentTerms: "Payment terms", currencyCode: "Currency", agreementTerms: "Agreement terms", standardMachineDiscount: "Standard machine discount", importerDiscount: "Importer discount", sparePartsDiscount: "Spare parts discount",
     firstContact: "First contact",
     digitalChannels: "Digital channels",
     website: "Website", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram",
@@ -132,7 +132,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     companyName: "Firmenname", address: "Adresse", addressLine1: "Adresse 1", addressLine2: "Adresse 2", postalCode: "PLZ", city: "Stadt", country: "Land",
     vatNumber: "USt-IdNr.", directorName: "Geschäftsführer", directorMultiple: "Weitere Geschäftsführer?", phone: "Telefon", email: "E-Mail",
     financeContactName: "Buchhaltungskontakt", financePhone: "Telefon", financeEmail: "E-Mail", invoiceEmail: "Rechnungs-E-Mail",
-    paymentTerms: "Zahlungsbedingungen", currencyCode: "Währung",
+    paymentTerms: "Zahlungsbedingungen", currencyCode: "Währung", agreementTerms: "Vereinbarte Konditionen", standardMachineDiscount: "Standard-Maschinenrabatt", importerDiscount: "Importeursrabatt", sparePartsDiscount: "Ersatzteilrabatt",
     firstContact: "Erster Kontakt",
     digitalChannels: "Digitale Kanäle",
     website: "Website", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram",
@@ -170,7 +170,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     companyName: "Ragione sociale", address: "Indirizzo", addressLine1: "Indirizzo 1", addressLine2: "Indirizzo 2", postalCode: "CAP", city: "Città", country: "Paese",
     vatNumber: "Partita IVA", directorName: "Amministratore", directorMultiple: "Più amministratori?", phone: "Telefono", email: "E-mail",
     financeContactName: "Contatto amministrazione", financePhone: "Telefono", financeEmail: "E-mail", invoiceEmail: "E-mail fatture",
-    paymentTerms: "Termini di pagamento", currencyCode: "Valuta",
+    paymentTerms: "Termini di pagamento", currencyCode: "Valuta", agreementTerms: "Condizioni contrattuali", standardMachineDiscount: "Sconto standard macchine", importerDiscount: "Sconto importatore", sparePartsDiscount: "Sconto ricambi",
     firstContact: "Primo contatto",
     digitalChannels: "Canali digitali",
     website: "Sito web", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram",
@@ -208,7 +208,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     companyName: "Cégnév", address: "Cím", addressLine1: "Cím 1", addressLine2: "Cím 2", postalCode: "Irányítószám", city: "Város", country: "Ország",
     vatNumber: "Adószám", directorName: "Ügyvezető", directorMultiple: "Több ügyvezető?", phone: "Telefon", email: "E-mail",
     financeContactName: "Pénzügyi kapcsolattartó", financePhone: "Telefon", financeEmail: "E-mail", invoiceEmail: "Számla e-mail",
-    paymentTerms: "Fizetési feltételek", currencyCode: "Pénznem",
+    paymentTerms: "Fizetési feltételek", currencyCode: "Pénznem", agreementTerms: "Szerződéses feltételek", standardMachineDiscount: "Standard gépkedvezmény", importerDiscount: "Importőri kedvezmény", sparePartsDiscount: "Alkatrész-kedvezmény",
     firstContact: "Első kapcsolat",
     digitalChannels: "Digitális csatornák",
     website: "Weboldal", facebook: "Facebook", linkedin: "LinkedIn", tiktok: "TikTok", youtube: "YouTube", instagram: "Instagram",

@@ -18,6 +18,7 @@ import {
   normalizeContractAssociatedPartners,
   type ContractAssociatedPartner,
 } from '@/lib/contractAssociatedPartners';
+import { resolveContractCommercialTerms } from '@/lib/contractCommercialTerms';
 
 export type ContractStepId =
   | 'parties'
@@ -77,6 +78,9 @@ export type ContractFormData = {
   associatedPartners?: ContractAssociatedPartner[];
   serviceHourlyRateDkk: number;
   paymentTerm: ContractPaymentTermId;
+  standardMachineDiscountPct?: number;
+  importerDiscountPct?: number;
+  sparePartsDiscountPct?: number;
   signatureDataUrl: string | null;
 };
 
@@ -565,6 +569,7 @@ export function buildContractSnapshot(
     associatedPartners: normalizeContractAssociatedPartners(form.associatedPartners),
     serviceTerms: buildContractServiceTermsSnapshot(form),
     paymentTerms: buildContractPaymentTermsSnapshot(form),
+    commercialTerms: resolveContractCommercialTerms(form),
     contractDate: form.contractDate,
     legalSections: options.legalSections ?? null,
     appendices: options.appendices ?? null,

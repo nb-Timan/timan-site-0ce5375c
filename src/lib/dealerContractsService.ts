@@ -19,6 +19,7 @@ import {
 } from "@/lib/contractTerritory";
 import { normalizeContractServiceHourlyRateDkk } from "@/lib/contractServiceTerms";
 import { normalizeContractPaymentTerm } from "@/lib/contractPaymentTerms";
+import { resolveContractCommercialTerms } from "@/lib/contractCommercialTerms";
 import { normalizeContractAssociatedPartners } from "@/lib/contractAssociatedPartners";
 import { fetchDealerAccountByNumber, fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 
@@ -264,6 +265,7 @@ function removeSignatureFromFormData(form: ContractFormData) {
 function rowToContractRecord(row: Record<string, unknown>): DealerContractRecord {
   const formData = (row.form_data || {}) as Partial<ContractFormData>;
   const signatureDataUrl = (row.signature_data_url as string | null) ?? null;
+  const commercialTerms = resolveContractCommercialTerms(formData);
   const contractStatus = (row.contract_status as ContractWorkflowStatus | null)
     ?? getWorkflowStatusFromLegacy(row.status as string | null);
   return {
@@ -297,6 +299,7 @@ function rowToContractRecord(row: Record<string, unknown>): DealerContractRecord
       associatedPartners: normalizeContractAssociatedPartners(formData.associatedPartners),
       serviceHourlyRateDkk: normalizeContractServiceHourlyRateDkk(formData.serviceHourlyRateDkk),
       paymentTerm: normalizeContractPaymentTerm(formData.paymentTerm),
+      ...commercialTerms,
       signatureDataUrl,
     },
     contract_version: String(row.contract_version ?? CONTRACT_VERSION),

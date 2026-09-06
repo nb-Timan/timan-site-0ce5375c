@@ -68,6 +68,12 @@ import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
 import { APPENDIX_2_EXAMPLE_LINES, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
+import {
+  DEFAULT_IMPORTER_DISCOUNT_PCT,
+  DEFAULT_SPARE_PARTS_DISCOUNT_PCT,
+  DEFAULT_STANDARD_MACHINE_DISCOUNT_PCT,
+  resolveContractCommercialTerms,
+} from '@/lib/contractCommercialTerms';
 import { toCountryCode } from '@/lib/formatCountry';
 import {
   getGuidedContractDisplayHeading,
@@ -857,6 +863,9 @@ export default function ContractsPage() {
     associatedPartners: [],
     serviceHourlyRateDkk: DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
     paymentTerm: DEFAULT_CONTRACT_PAYMENT_TERM,
+    standardMachineDiscountPct: DEFAULT_STANDARD_MACHINE_DISCOUNT_PCT,
+    importerDiscountPct: DEFAULT_IMPORTER_DISCOUNT_PCT,
+    sparePartsDiscountPct: DEFAULT_SPARE_PARTS_DISCOUNT_PCT,
     signatureDataUrl: null,
     partnerType: '',
   }));
@@ -2701,7 +2710,10 @@ function ReviewStep({
       )}
 
       {stepId === 'discount_structure' && !fullContract && (
-        <Appendix2DiscountSection partnerType={form.partnerType} language={uiLanguage} />
+        <>
+          <ContractCommercialTermsFields form={form} onChange={onFormPatch} locked={locked} />
+          <Appendix2DiscountSection partnerType={form.partnerType} language={uiLanguage} />
+        </>
       )}
 
       {confirmationId && (
@@ -4169,6 +4181,60 @@ function InfoMini({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-[11px] font-bold uppercase tracking-wide text-gray-500">{label}</p>
       <p className="mt-1 break-words text-sm font-semibold text-gray-950">{value || '-'}</p>
+    </div>
+  );
+}
+
+function ContractCommercialTermsFields({
+  form,
+  onChange,
+  locked,
+}: {
+  form: ContractFormData;
+  onChange: (patch: Partial<ContractFormData>) => void;
+  locked?: boolean;
+}) {
+  const { uiLanguage } = useLanguage();
+  const terms = resolveContractCommercialTerms(form);
+  const partnerType = form.partnerType;
+  const copy = uiLanguage === 'de'
+    ? { title: 'Vereinbarte Konditionen', machine: 'Standard-Maschinenrabatt', importer: 'Importeursrabatt', parts: 'Ersatzteilrabatt' }
+    : uiLanguage === 'en'
+      ? { title: 'Agreement terms', machine: 'Standard machine discount', importer: 'Importer discount', parts: 'Spare parts discount' }
+      : uiLanguage === 'it'
+        ? { title: 'Condizioni contrattuali', machine: 'Sconto standard macchine', importer: 'Sconto importatore', parts: 'Sconto ricambi' }
+        : uiLanguage === 'hu'
+          ? { title: 'Szerződéses feltételek', machine: 'Standard gépkedvezmény', importer: 'Importőri kedvezmény', parts: 'Alkatrész-kedvezmény' }
+          : { title: 'Aftalevilkår', machine: 'Standard maskinrabat', importer: 'Importørrabat', parts: 'Reservedelsrabat' };
+  const fields = partnerType === 'importer'
+    ? [{ key: 'importerDiscountPct' as const, label: copy.importer, value: terms.importerDiscountPct }]
+    : partnerType === 'service_partner'
+      ? [{ key: 'sparePartsDiscountPct' as const, label: copy.parts, value: terms.sparePartsDiscountPct }]
+      : [
+          { key: 'standardMachineDiscountPct' as const, label: copy.machine, value: terms.standardMachineDiscountPct },
+          { key: 'sparePartsDiscountPct' as const, label: copy.parts, value: terms.sparePartsDiscountPct },
+        ];
+
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+      <h3 className="text-base font-bold text-gray-950">{copy.title}</h3>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        {fields.map((field) => (
+          <label key={field.key} className="block">
+            <span className="text-sm font-semibold text-gray-700">{field.label} (%)</span>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              step="0.1"
+              value={field.value}
+              disabled={locked}
+              onChange={(event) => onChange({ [field.key]: Number(event.target.value) } as Partial<ContractFormData>)}
+              className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-950 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-100"
+            />
+          </label>
+        ))}
+      </div>
     </div>
   );
 }
