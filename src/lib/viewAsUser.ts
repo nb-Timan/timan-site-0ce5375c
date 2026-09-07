@@ -31,12 +31,10 @@ import {
   type UserView,
 } from '@/lib/activeMode';
 import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
-
-const cache = new Map<string, SessionUser>();
+import { canonicalDisplayName, canonicalInitials } from '@/lib/canonicalUserIdentity';
 
 async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
   const norm = email.toLowerCase();
-  if (cache.has(norm)) return cache.get(norm)!;
   const { data: row } = await supabase
     .from('app_users')
     .select('*')
@@ -56,7 +54,8 @@ async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
     can_edit_discount: (row.can_edit_discount as boolean) ?? false,
     can_switch_customer_mode: (row.can_switch_customer_mode as boolean) ?? false,
     working_for: (row.working_for as SessionUser['working_for']) ?? null,
-    display_name: (row.display_name as string) || (row.full_name as string),
+    display_name: canonicalDisplayName(row),
+    initials: canonicalInitials(row),
     portal_role: (row.portal_role as string | null) ?? null,
     preferred_language: (row.preferred_language as string | null) ?? null,
     preferred_currency: (row.preferred_currency as string | null) ?? null,
@@ -70,13 +69,13 @@ async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
     permissions: (row.permissions as Record<string, boolean> | null) ?? null,
     quick_actions: (row.quick_actions as string[] | null) ?? null,
   };
-  cache.set(norm, u);
   return u;
 }
 
 export function clearViewAsCache(email?: string | null) {
-  if (email) cache.delete(email.toLowerCase());
-  else cache.clear();
+  // View-as data is re-resolved from app_users for every view switch.
+  // Keep this no-op API for existing callers that invalidate related caches.
+  void email;
 }
 
 /**
@@ -191,6 +190,8 @@ export function mergeEffectivePortalUser(
     permissions: isSameBackendUserInSellerMode ? null : (target.permissions ?? null),
     quick_actions: isSameBackendUserInSellerMode ? null : (target.quick_actions ?? null),
     portal_variant: target.portal_variant ?? appUser.portal_variant,
+    display_name: target.display_name || appUser.display_name,
+    initials: target.initials || appUser.initials,
     dealer_number: target.dealer_number ?? null,
     company_dealer: target.company_dealer ?? null,
   };

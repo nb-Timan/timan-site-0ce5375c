@@ -5,9 +5,11 @@ import { linkAuthUserIdIfNeeded } from '@/lib/linkAuthUser';
 import { syncSelfAppUser } from '@/lib/adminUserActions';
 import { fetchDealerStatusForUser } from '@/lib/dealerAccountsService';
 import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
+import { canonicalDisplayName, canonicalInitials } from '@/lib/canonicalUserIdentity';
 
 export type SessionUser = AppUser & {
   email: string;
+  initials?: string | null;
   portal_role?: string | null;
   preferred_language?: string | null;
   preferred_currency?: string | null;
@@ -50,13 +52,15 @@ interface AppUserContextValue {
 const AppUserContext = createContext<AppUserContextValue | undefined>(undefined);
 
 const STORAGE_KEY = 'timan.appUser';
-const SESSION_CACHE_VERSION = 3;
+const SESSION_CACHE_VERSION = 4;
 
 function readCachedSessionUser(): SessionUser | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return normalizeKnownSessionUser(JSON.parse(raw) as SessionUser);
+    const cached = JSON.parse(raw) as SessionUser & { __identity_cache_version?: number };
+    if (cached.__identity_cache_version !== SESSION_CACHE_VERSION) return null;
+    return normalizeKnownSessionUser(cached);
   } catch { return null; }
 }
 
@@ -64,11 +68,13 @@ function loadFromStorage(): SessionUser | null {
   return readCachedSessionUser();
 }
 
-function createLimitedDealerUser(email: string): SessionUser {
+function createLimitedDealerUser(email: string, authMetadata?: Record<string, unknown>): SessionUser {
   return {
     ...SLUTKUNDE_DEFAULTS,
     email,
-    display_name: undefined,
+    // Auth metadata is only a fallback when no canonical app_users row exists.
+    display_name: authMetadata ? canonicalDisplayName({ email, ...authMetadata }) : undefined,
+    initials: authMetadata ? canonicalInitials({ email, ...authMetadata }) : null,
     portal_role: 'dealer_user',
     module_access: ['byg_din_timan', 'resources', 'sales_tools', 'videos'],
     allowed_areas: ['salg_marketing'],
@@ -101,7 +107,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
     const normalizedUser = user ? normalizeKnownSessionUser(user) : null;
     setAppUserState(normalizedUser);
     if (normalizedUser) {
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...normalizedUser, __permission_defaults_version: SESSION_CACHE_VERSION }));
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...normalizedUser, __identity_cache_version: SESSION_CACHE_VERSION }));
     } else {
       sessionStorage.removeItem(STORAGE_KEY);
       setDealerStatus(null);
@@ -161,7 +167,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
           // see the signup/login request as a pending app_users row.
           const syncResult = await syncSelfAppUser();
           if (!syncResult.ok) console.error('[app_users sync] pending profile failed:', syncResult.error);
-          setAppUser(createLimitedDealerUser(email));
+          setAppUser(createLimitedDealerUser(email, session.user.user_metadata));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -232,7 +238,8 @@ function rowToSessionUser(row: Record<string, unknown>): SessionUser {
     can_edit_discount: (row.can_edit_discount as boolean) ?? false,
     can_switch_customer_mode: (row.can_switch_customer_mode as boolean) ?? false,
     working_for: (row.working_for as SessionUser['working_for']) ?? null,
-    display_name: isKnownMesseLogin ? 'Messe' : ((row.display_name as string) || (row.full_name as string)),
+    display_name: isKnownMesseLogin ? 'Messe' : canonicalDisplayName(row),
+    initials: isKnownMesseLogin ? 'M' : canonicalInitials(row),
     portal_role: (row.portal_role as string | null) ?? null,
     preferred_language: (row.preferred_language as string | null) ?? null,
     preferred_currency: (row.preferred_currency as string | null) ?? null,

@@ -43,7 +43,7 @@ function getInitials(name: string): string {
 export default function PortalHeader({ user, language, onLanguageChange, onLogout, hideMesseHomeShortcut = false }: Props) {
   const { uiLanguage } = useLanguage();
   const displayName = user.display_name || user.email || '';
-  const initials = getInitials(displayName);
+  const initials = user.initials || getInitials(displayName);
   const [pendingCount, setPendingCount] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);

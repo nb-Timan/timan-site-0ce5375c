@@ -32,6 +32,7 @@ import {
   updateBackendUser as updateFallbackUser,
 } from "@/lib/backend-users-store";
 import { defaultCanSubmitOrder, defaultCanViewPrices } from "@/lib/sessionPermissionDefaults";
+import { canonicalDisplayName, canonicalInitials } from "@/lib/canonicalUserIdentity";
 
 export type BackendUsersSource = "supabase" | "fallback";
 
@@ -71,16 +72,7 @@ function deriveStatus(row: Record<string, unknown>): UserStatus {
 }
 
 function deriveInitials(row: Record<string, unknown>): string {
-  const explicit = (row.initials as string | null | undefined)?.trim();
-  if (explicit) return explicit.toUpperCase().slice(0, 4);
-  const name = (row.full_name as string | null | undefined) || (row.email as string)?.split("@")[0] || "";
-  return name
-    .split(/\s+/)
-    .map((p) => p[0])
-    .filter(Boolean)
-    .slice(0, 3)
-    .join("")
-    .toUpperCase() || (name.slice(0, 2).toUpperCase());
+  return canonicalInitials(row);
 }
 
 function asArray<T extends string>(v: unknown): T[] {
@@ -135,7 +127,7 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
   return {
     id: String(row.id),
     initials: deriveInitials(row),
-    name: (row.full_name as string) || (row.email as string),
+    name: canonicalDisplayName(row),
     email: (row.email as string) || "",
     phone: (row.phone as string | null) ?? null,
     company: (row.company as string) || ((row.email as string)?.endsWith("@timan.dk") ? "Timan" : ""),
@@ -313,6 +305,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
   const safePerms = sanitizePermsForRole(roleForAccess, draft.perms);
 
   const fullPatch: Record<string, unknown> = {
+    display_name: draft.name,
     full_name: draft.name,
     email: draft.email,
     phone: draft.phone || null,
