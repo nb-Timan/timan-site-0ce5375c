@@ -495,7 +495,7 @@ function buildFallbackStatePartial(row: Record<string, any>): Partial<Configurat
   };
 }
 
-export function buildQuoteSentLeadPatch(row: Pick<ConfigurationRow, 'title' | 'quote_number'>) {
+export function buildQuoteSentLeadPatch(row: { title?: string | null; quote_number?: string | null }) {
   return {
     incomplete_from_configurator: false,
     pipeline_stage: 'Offer sent',
