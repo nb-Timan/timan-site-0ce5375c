@@ -40,6 +40,7 @@
  *    UI already renders any extra entries that appear in that array.
  */
 import { supabase } from "@/lib/supabase";
+import { resolveMachineHealth, SERVICE_DUE_SOON_DAYS, SERVICE_OVERDUE_DAYS } from "@/lib/machineHealth";
 import { fetchWarrantyRegistrations, DbWarrantyRegistration } from "@/lib/warrantyRegistrationsService";
 import { listServiceRegistrations, ServiceRegistration } from "@/lib/serviceMaintenanceService";
 import {
@@ -1111,8 +1112,6 @@ export async function loadMachineJournal(
   //   green  = OK / no open issues
   //   yellow = attention required (open tickets, missing relationship data, service due soon)
   //   red    = action required (open claim, pending TSB, overdue service, hours regression)
-  const SERVICE_OVERDUE_DAYS = 365; // > 12 months since last service
-  const SERVICE_DUE_SOON_DAYS = 300; // 10–12 months
   const latestServiceDate = latestService?.service_date ?? null;
   let serviceDays: number | null = null;
   if (latestServiceDate) {
@@ -1198,17 +1197,15 @@ export async function loadMachineJournal(
     },
   ];
 
-  const reasons: string[] = [];
-  let level: HealthLevel = "healthy";
-  if (openClaims > 0) { level = "critical"; reasons.push(`${openClaims} åben(e) claim(s)`); }
-  if (tsbPending > 0) { level = "critical"; reasons.push(`${tsbPending} åben TSB`); }
-  if (serviceDays != null && serviceDays > SERVICE_OVERDUE_DAYS) { level = "critical"; reasons.push("Service forfalden"); }
-  if (hoursRegression) { level = "critical"; reasons.push("Konflikt i driftstimer"); }
-  if (level !== "critical") {
-    if (openTickets > 0) { level = "needs_attention"; reasons.push(`${openTickets} åben(e) ticket(s)`); }
-    if (serviceDays != null && serviceDays > SERVICE_DUE_SOON_DAYS) { level = "needs_attention"; reasons.push("Service nærmer sig"); }
-    if (!importerName || !servicePartnerName) { level = level === "healthy" ? "needs_attention" : level; reasons.push("Manglende relationsdata"); }
-  }
+  const { level, reasons } = resolveMachineHealth({
+    openClaims,
+    pendingTsb: tsbPending,
+    openTickets,
+    serviceDays,
+    hasHoursRegression: !!hoursRegression,
+    hasImporter: !!importerName,
+    hasServicePartner: !!servicePartnerName,
+  });
 
   journal.summary = {
     serial: machine?.serial_number || firstWarranty?.machineSerial || serviceRegs[0]?.serial_number || display,

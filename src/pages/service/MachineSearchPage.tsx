@@ -10,14 +10,16 @@ import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { useEffectivePortalUser } from "@/lib/viewAsUser";
+import { useEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
-import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug, listAccessibleMachines, type MachineOverviewRow } from "@/lib/machineJournalService";
+import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug, type MachineOverviewRow } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
+import { getActiveSellerView } from "@/lib/activeMode";
 import { readMachineSearchState, saveMachineSearchState, clearMachineSearchState } from "@/lib/machineSearchState";
 import { LegacyMachineImportPanel } from "@/components/service/LegacyMachineImportPanel";
-import { filterMachineOverview, sortMachineOverview, type MachineSortDirection, type MachineSortKey, type WarrantyTypeFilter } from "@/lib/machineOverviewFilters";
+import { type MachineSortDirection, type MachineSortKey, type WarrantyTypeFilter } from "@/lib/machineOverviewFilters";
+import { fetchMachineRegistryPage } from "@/lib/machineRegistryPageService";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -266,6 +268,12 @@ export default function MachineSearchPage() {
 
   // ---- Machine Registry Overview (Phase 1) ----
   const [overview, setOverview] = useState<MachineOverviewRow[]>([]);
+  const [overviewTotal, setOverviewTotal] = useState(0);
+  const [overviewNormal, setOverviewNormal] = useState(0);
+  const [overviewHistorical, setOverviewHistorical] = useState(0);
+  const [overviewHealthy, setOverviewHealthy] = useState(0);
+  const [overviewNeedsAttention, setOverviewNeedsAttention] = useState(0);
+  const [overviewCritical, setOverviewCritical] = useState(0);
   const [overviewLoading, setOverviewLoading] = useState(true);
   const [overviewError, setOverviewError] = useState<string | null>(null);
 
@@ -307,9 +315,39 @@ export default function MachineSearchPage() {
       setOverviewLoading(true);
       setOverviewError(null);
       try {
-        const scope = await buildJournalScope(appUser, portalRole);
-        const rows = await listAccessibleMachines(scope);
-        if (!cancelled) setOverview(rows);
+        const sellerView = getActiveSellerView(appUser.email);
+        const scopeRole = sellerView ? "timan_seller" : portalRole;
+        const scopeUser = withSellerScopeIdentity(effectiveUser, sellerView?.email);
+        const scope = await buildJournalScope(scopeUser, scopeRole);
+        // The backend session remains authenticated as backend during View-as.
+        // This list is therefore only a narrowing filter; the RPC still runs
+        // under RLS and never accepts it as an authorization grant.
+        const allowedDealers = scope.unrestricted
+          ? (sellerView ? Array.from(scope.dealerNumbers) : null)
+          : Array.from(scope.dealerNumbers);
+        const result = await fetchMachineRegistryPage({
+          allowedDealers,
+          query,
+          dealer: dealerQuery,
+          model: modelFilter,
+          warrantyType: warrantyTypeFilter,
+          health: statusFilter,
+          dateFrom,
+          dateTo,
+          sort: sortKey,
+          direction: sortDirection,
+          page: overviewPage,
+          pageSize: pageSize === "all" ? 2000 : pageSize,
+        });
+        if (!cancelled) {
+          setOverview(result.rows);
+          setOverviewTotal(result.total);
+          setOverviewNormal(result.normal);
+          setOverviewHistorical(result.historical);
+          setOverviewHealthy(result.healthy);
+          setOverviewNeedsAttention(result.needsAttention);
+          setOverviewCritical(result.critical);
+        }
       } catch (e) {
         console.error("[MachineSearch] overview load failed", e);
         if (!cancelled) setOverviewError("Kunne ikke hente maskineoversigt.");
@@ -318,7 +356,7 @@ export default function MachineSearchPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, portalRole]);
+  }, [appUser, effectiveUser, portalRole, query, dealerQuery, modelFilter, warrantyTypeFilter, statusFilter, dateFrom, dateTo, sortKey, sortDirection, overviewPage, pageSize]);
 
   // After the overview has rendered the first time, restore scroll position.
   useEffect(() => {
@@ -650,6 +688,7 @@ export default function MachineSearchPage() {
                         const val = e.target.value;
                         setDateFrom(val);
                         setDateError(null);
+                        setOverviewPage(1);
                         if (val && dateTo && val > dateTo) {
                           setDateError("Fra dato skal være før Til dato.");
                         }
@@ -668,6 +707,7 @@ export default function MachineSearchPage() {
                         const val = e.target.value;
                         setDateTo(val);
                         setDateError(null);
+                        setOverviewPage(1);
                         if (dateFrom && val && dateFrom > val) {
                           setDateError("Fra dato skal være før Til dato.");
                         }
@@ -741,27 +781,19 @@ export default function MachineSearchPage() {
 
         {/* ---- Machine Registry Overview (compact table) ---- */}
         {(() => {
-          const totalMachines = overview.length;
-          const healthyCount = overview.filter(r => r.health === "healthy").length;
-          const attentionCount = overview.filter(r => r.health === "needs_attention").length;
-          const criticalCount = overview.filter(r => r.health === "critical").length;
+          const totalMachines = overviewTotal;
+          const healthyCount = overviewHealthy;
+          const attentionCount = overviewNeedsAttention;
+          const criticalCount = overviewCritical;
 
-          const q = query.trim().toLowerCase();
-          const dq = dealerQuery.trim().toLowerCase();
-          const mq = modelFilter && modelFilter !== 'all' ? modelFilter.trim().toLowerCase() : '';
-          const fromIso = dateFrom || '';
-          const toIso = dateTo || '';
-          const filteredOverview = sortMachineOverview(filterMachineOverview(overview, {
-            query: q, dealerQuery: dq, model: mq, dateFrom: fromIso, dateTo: toIso,
-            health: statusFilter, warrantyType: warrantyTypeFilter,
-          }), sortKey, sortDirection);
-          const displayedTotal = filteredOverview.length;
-          const effectivePageSize = pageSize === "all" ? Math.max(1, displayedTotal) : pageSize;
+          const filteredOverview = overview;
+          const displayedTotal = overviewTotal;
+          const effectivePageSize = pageSize === "all" ? 2000 : pageSize;
           const totalPages = Math.max(1, Math.ceil(displayedTotal / effectivePageSize));
           const page = Math.min(overviewPage, totalPages);
           const sliceStart = (page - 1) * effectivePageSize;
-          const sliceEnd = Math.min(displayedTotal, sliceStart + effectivePageSize);
-          const pageRows = filteredOverview.slice(sliceStart, sliceEnd);
+          const sliceEnd = Math.min(displayedTotal, sliceStart + filteredOverview.length);
+          const pageRows = filteredOverview;
 
           const sourceLabels: Record<string, string> = {
             warranty: "Warranty", service: "Service", ticket: "Ticket",
