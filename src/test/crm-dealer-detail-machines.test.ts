@@ -42,9 +42,23 @@ describe("CRM dealer detail machine register integration", () => {
     expect(source).toContain("row.machineOrderNumber || \"—\"");
     expect(source).toContain("row.erpOrderNumber || \"—\"");
     expect(source).toContain("row.portalOrderNumber || \"—\"");
-    expect(source).toContain(">Kostpris</th>");
+    expect(source).toContain('label="Fakturanr." sortKey="invoice"');
+    expect(source).toContain('label="Omsætning" sortKey="revenue"');
+    expect(source).toContain('label="Kostpris" sortKey="cost"');
+    expect(source).toContain('label="Dækningsbidrag" sortKey="margin"');
+    expect(source).toContain('label="Dækningsgrad" sortKey="marginPercent"');
     expect(source).toContain("formatDkk(row.costAmount)");
     expect(source).toContain("formatPercent(row.revenue, row.contributionMarginAmount)");
+  });
+
+  it("sends every visible sortable column to the canonical paged registry", () => {
+    expect(source).toContain("dealer, scope, query, demoOnly, sort, direction, page, pageSize,");
+    expect(source).toContain('label="Fakturanr." sortKey="invoice"');
+    expect(source).toContain('label="Omsætning" sortKey="revenue"');
+    expect(source).toContain('label="Kostpris" sortKey="cost"');
+    expect(source).toContain('label="Dækningsbidrag" sortKey="margin"');
+    expect(source).toContain('label="Dækningsgrad" sortKey="marginPercent"');
+    expect(source).toContain('setSort("delivery"); setDirection("desc"); setPage(1);');
   });
 
   it("shows the canonical company name under the company and personal data quick card", () => {

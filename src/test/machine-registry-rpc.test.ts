@@ -55,4 +55,15 @@ describe("machine registry RPC read-chain", () => {
     expect(migration).toContain("warranty_match_status=p_warranty_match");
     expect(migration.indexOf("), counts as (")).toBeLessThan(migration.indexOf("), filtered as ("));
   });
+
+  it("sorts dealer-visible commercial fields in the database before the page slice", () => {
+    const migration = read("supabase/migrations/20260907212720_fix_dealer_machine_server_sorting.sql");
+    expect(migration).toContain("case when p_sort='invoice'");
+    expect(migration).toContain("case when p_sort='revenue'");
+    expect(migration).toContain("case when p_sort='cost'");
+    expect(migration).toContain("case when p_sort='margin'");
+    expect(migration).toContain("case when p_sort='marginPercent'");
+    expect(migration.indexOf("), ordered as (")).toBeLessThan(migration.indexOf("), page as ("));
+    expect(migration).toContain("nulls last");
+  });
 });

@@ -1,7 +1,7 @@
 import type { MachineOverviewRow } from "@/lib/machineJournalService";
 
 export type WarrantyTypeFilter = "all" | "normal" | "historical";
-export type MachineSortKey = "warrantyId" | "machineOrder" | "erpOrder" | "portalOrder" | "serial" | "model" | "dealer" | "delivery" | "hours" | "activity" | "order" | "customer" | "status" | "lifecycle";
+export type MachineSortKey = "warrantyId" | "machineOrder" | "erpOrder" | "invoice" | "portalOrder" | "serial" | "model" | "dealer" | "delivery" | "hours" | "activity" | "order" | "customer" | "status" | "lifecycle" | "revenue" | "cost" | "margin" | "marginPercent";
 export type MachineSortDirection = "asc" | "desc";
 
 export type MachineOverviewFilters = {

@@ -2077,11 +2077,11 @@ function CrmMachineRegisterPanel({
                 <SortHeader label={tl("delivery_date", lang)} sortKey="delivery" initial="desc" />
                 <SortHeader label={tl("status", lang)} sortKey="status" />
                 <SortHeader label={tl("customer", lang)} sortKey="customer" />
-                <th className="py-2 pr-3 whitespace-nowrap">Fakturanr.</th>
-                <th className="py-2 pr-3 whitespace-nowrap">Omsætning</th>
-                <th className="py-2 pr-3 whitespace-nowrap">Kostpris</th>
-                <th className="py-2 pr-3 whitespace-nowrap">Dækningsbidrag</th>
-                <th className="py-2 pr-3 whitespace-nowrap">Dækningsgrad</th>
+                <SortHeader label="Fakturanr." sortKey="invoice" />
+                <SortHeader label="Omsætning" sortKey="revenue" initial="desc" />
+                <SortHeader label="Kostpris" sortKey="cost" initial="desc" />
+                <SortHeader label="Dækningsbidrag" sortKey="margin" initial="desc" />
+                <SortHeader label="Dækningsgrad" sortKey="marginPercent" initial="desc" />
                 <SortHeader label={tl("lifecycle_status", lang)} sortKey="lifecycle" />
               </tr>
             </thead>
