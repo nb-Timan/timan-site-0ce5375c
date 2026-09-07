@@ -327,6 +327,7 @@ export interface MachineOverviewRow {
   warrantyId: string | null;
   /** Numeric portion used for sorting (e.g. 222 from "SP-222"); null if no warranty. */
   warrantyIdNumeric: number | null;
+  warrantyType: "normal" | "historical" | null;
 }
 
 function fmtDateDk(iso: string | null | undefined): string | null {
@@ -360,6 +361,7 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
       operatingHours?: number | null;
       activityDate?: string | null;
       activityLabel?: string | null;
+      warrantyType?: "normal" | "historical" | null;
     },
   ): MachineOverviewRow | null => {
     const display = (serial ?? "").toString().trim();
@@ -383,6 +385,7 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
         sources: [], openTickets: 0, openClaims: 0, openTsb: 0,
         health: "healthy",
         warrantyId: null, warrantyIdNumeric: null,
+        warrantyType: extra.warrantyType ?? null,
       };
       map.set(norm, row);
     }
@@ -391,6 +394,7 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
     row.dealerName ??= extra.dealerName ?? null;
     row.dealerNumber ??= extra.dealerNumber ?? null;
     row.deliveryDate ??= extra.deliveryDate ?? null;
+    row.warrantyType ??= extra.warrantyType ?? null;
     if (row.operatingHours == null && extra.operatingHours != null) row.operatingHours = extra.operatingHours;
     if (!row.sources.includes(source)) row.sources.push(source);
     const newDate = extra.activityDate ?? null;
@@ -435,7 +439,8 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
   }
 
   for (const w of warranties) {
-    const d = w.registrationDate || w.deliveryDate || w.createdAt;
+    const historical = w.sourceType === "legacy_machine_import";
+    const d = historical ? w.legacyLastActivityAt : (w.registrationDate || w.deliveryDate || w.createdAt);
     const row = touch(w.machineSerial, "warranty", {
       machineModel: w.machineType ?? null,
       machineType: w.machineType ?? null,
@@ -445,6 +450,7 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
       operatingHours: w.legacyOperatingHours ?? null,
       activityDate: w.legacyLastActivityAt || d,
       activityLabel: (w.legacyLastActivityAt || d) ? `${fmtDateDk(w.legacyLastActivityAt || d)} · ${w.legacyLastActivityAt ? "Historisk maskinimport" : "Garantiregistrering"}` : null,
+      warrantyType: historical ? "historical" : "normal",
     });
     if (row) {
       // Forhandler must come from the linked dealer account (account number),
@@ -551,11 +557,8 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
     else row.health = "healthy";
   }
   out.sort((a, b) => {
-    // 1. Highest warranty registration ID first (e.g. SP-222 above SP-221)
-    const wa = a.warrantyIdNumeric ?? -Infinity;
-    const wb = b.warrantyIdNumeric ?? -Infinity;
-    if (wa !== wb) return wb - wa;
-    // 2. Then latest activity date descending
+    // Imported historical rows use their original activity date only; an
+    // import timestamp must never make old machines appear newly active.
     const da = a.latestActivityDate ? new Date(a.latestActivityDate).getTime() : 0;
     const db = b.latestActivityDate ? new Date(b.latestActivityDate).getTime() : 0;
     if (db !== da) return db - da;

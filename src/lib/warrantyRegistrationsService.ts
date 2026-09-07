@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 import type { WarrantyRegistration } from "@/lib/warranty-store";
 
 export interface DbWarrantyRegistration extends WarrantyRegistration {
+  sourceType?: string | null;
   dealerMatchStatus: "matched" | "needs_review" | "unmatched";
   dealerAccountId: string | null;
   dealerAccountNumber: string | null;
@@ -36,6 +37,7 @@ export interface DbWarrantyRegistration extends WarrantyRegistration {
 }
 
 interface Row {
+  source: string | null;
   id: string;
   sharepoint_item_id: string | null;
   sharepoint_form_id: number | null;
@@ -97,6 +99,7 @@ function mapRow(row: Row, dealersById: Map<string, string>): DbWarrantyRegistrat
     id: row.id,
     certificateNumber: buildCertificateNumber(row),
     source: "import",
+    sourceType: row.source,
     createdAt: row.created_at,
     submittedAt: submitted,
     language: row.language,
@@ -139,7 +142,7 @@ export async function fetchWarrantyRegistrations(): Promise<DbWarrantyRegistrati
     supabase
       .from("warranty_registrations")
       .select(
-        "id, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, sharepoint_created_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at, legacy_warranty_reference, legacy_operating_hours, legacy_last_activity_at",
+        "id, source, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, sharepoint_created_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at, legacy_warranty_reference, legacy_operating_hours, legacy_last_activity_at",
       )
       .eq("is_active_in_source", true)
       .order("registration_date", { ascending: false, nullsFirst: false })

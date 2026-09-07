@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Loader2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, Loader2 } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
@@ -17,6 +17,7 @@ import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDe
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import { readMachineSearchState, saveMachineSearchState, clearMachineSearchState } from "@/lib/machineSearchState";
 import { LegacyMachineImportPanel } from "@/components/service/LegacyMachineImportPanel";
+import { filterMachineOverview, sortMachineOverview, type MachineSortDirection, type MachineSortKey, type WarrantyTypeFilter } from "@/lib/machineOverviewFilters";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -285,6 +286,9 @@ export default function MachineSearchPage() {
   const [dateFrom, setDateFrom] = useState<string>(initialSaved?.dateFrom ?? "");
   const [dateTo, setDateTo] = useState<string>(initialSaved?.dateTo ?? "");
   const [modelFilter, setModelFilter] = useState<string>(initialSaved?.modelFilter ?? "all");
+  const [warrantyTypeFilter, setWarrantyTypeFilter] = useState<WarrantyTypeFilter>("all");
+  const [sortKey, setSortKey] = useState<MachineSortKey | null>("activity");
+  const [sortDirection, setSortDirection] = useState<MachineSortDirection>("desc");
   const [dateError, setDateError] = useState<string | null>(null);
   const pendingScrollRestore = React.useRef<number | null>(initialSaved?.scrollY ?? null);
 
@@ -590,13 +594,14 @@ export default function MachineSearchPage() {
                   .filter(m => m.length > 0)
               )
             ).sort((a, b) => a.localeCompare(b, 'da'));
-            const hasActive = !!(query.trim() || dealerQuery.trim() || dateFrom || dateTo || (modelFilter && modelFilter !== 'all'));
+            const hasActive = !!(query.trim() || dealerQuery.trim() || dateFrom || dateTo || (modelFilter && modelFilter !== 'all') || warrantyTypeFilter !== 'all');
             const resetFilters = () => {
               setQuery("");
               setDealerQuery("");
               setDateFrom("");
               setDateTo("");
               setModelFilter("all");
+              setWarrantyTypeFilter("all");
               setDateError(null);
               setOverviewPage(1);
             };
@@ -607,7 +612,7 @@ export default function MachineSearchPage() {
             return (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
-                  <div className="lg:col-span-3">
+                  <div className="lg:col-span-2">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Serienr. / Maskinnr.</label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -623,7 +628,7 @@ export default function MachineSearchPage() {
                       />
                     </div>
                   </div>
-                  <div className="lg:col-span-3">
+                  <div className="lg:col-span-2">
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Forhandler / Konto nr.</label>
                     <input
                       type="text"
@@ -687,6 +692,14 @@ export default function MachineSearchPage() {
                       ))}
                     </select>
                   </div>
+                  <div className="lg:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Garanti type</label>
+                    <select value={warrantyTypeFilter} onChange={(e) => { setWarrantyTypeFilter(e.target.value as WarrantyTypeFilter); setOverviewPage(1); }} className="w-full h-10 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/30 focus:border-[#2d5a27]">
+                      <option value="all">Alle</option>
+                      <option value="normal">Normal garanti</option>
+                      <option value="historical">Historisk maskine</option>
+                    </select>
+                  </div>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2 min-h-[20px]">
                   <div className="text-xs text-red-600">{dateError || ""}</div>
@@ -738,29 +751,10 @@ export default function MachineSearchPage() {
           const mq = modelFilter && modelFilter !== 'all' ? modelFilter.trim().toLowerCase() : '';
           const fromIso = dateFrom || '';
           const toIso = dateTo || '';
-          const filteredOverview = overview.filter(row => {
-            if (!(statusFilter === 'all' || row.health === statusFilter)) return false;
-            if (q) {
-              const s = row.serial.toLowerCase();
-              const w = (row.warrantyId || '').toLowerCase();
-              if (!(s.includes(q) || w.includes(q))) return false;
-            }
-            if (dq) {
-              const dn = (row.dealerName || '').toLowerCase();
-              const da = (row.dealerNumber || '').toLowerCase();
-              if (!(dn.includes(dq) || da.includes(dq))) return false;
-            }
-            if (mq) {
-              if ((row.machineModel || '').trim().toLowerCase() !== mq) return false;
-            }
-            if (fromIso || toIso) {
-              const d = row.deliveryDate ? row.deliveryDate.slice(0, 10) : '';
-              if (!d) return false;
-              if (fromIso && d < fromIso) return false;
-              if (toIso && d > toIso) return false;
-            }
-            return true;
-          });
+          const filteredOverview = sortMachineOverview(filterMachineOverview(overview, {
+            query: q, dealerQuery: dq, model: mq, dateFrom: fromIso, dateTo: toIso,
+            health: statusFilter, warrantyType: warrantyTypeFilter,
+          }), sortKey, sortDirection);
           const displayedTotal = filteredOverview.length;
           const effectivePageSize = pageSize === "all" ? Math.max(1, displayedTotal) : pageSize;
           const totalPages = Math.max(1, Math.ceil(displayedTotal / effectivePageSize));
@@ -779,6 +773,14 @@ export default function MachineSearchPage() {
             if (h === "needs_attention") return { chip: "bg-amber-100 text-amber-700", border: "border-l-amber-500", label: T.needs_attention[lang], dot: "bg-amber-500", text: "text-amber-600" };
             return { chip: "bg-emerald-100 text-emerald-700", border: "border-l-emerald-500", label: T.healthy[lang], dot: "bg-emerald-500", text: "text-emerald-600" };
           };
+          const toggleSort = (key: MachineSortKey, defaultDirection: MachineSortDirection = "asc") => {
+            if (sortKey !== key) { setSortKey(key); setSortDirection(defaultDirection); setOverviewPage(1); return; }
+            if (sortDirection === defaultDirection) { setSortDirection(defaultDirection === "asc" ? "desc" : "asc"); setOverviewPage(1); return; }
+            setSortKey(null); setOverviewPage(1);
+          };
+          const SortHeader = ({ label, sort, defaultDirection = "asc", className = "text-left" }: { label: string; sort: MachineSortKey; defaultDirection?: MachineSortDirection; className?: string }) => (
+            <th className={`${className} font-semibold px-3 py-2 whitespace-nowrap`}><button onClick={() => toggleSort(sort, defaultDirection)} className="inline-flex items-center gap-1 hover:text-slate-800"><span>{label}</span>{sortKey !== sort ? <ArrowUpDown className="h-3 w-3" /> : sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}</button></th>
+          );
 
           return (
             <section className="mt-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -909,13 +911,13 @@ export default function MachineSearchPage() {
                     <table className="w-full text-xs">
                       <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
                         <tr>
-                          <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Garanti ID</th>
-                          <th className="text-left font-semibold px-3 py-2">Serienummer</th>
-                          <th className="text-left font-semibold px-3 py-2">Model</th>
-                          <th className="text-left font-semibold px-3 py-2">Forhandler</th>
-                          <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Levering</th>
-                          <th className="text-right font-semibold px-3 py-2 whitespace-nowrap">Timer</th>
-                          <th className="text-left font-semibold px-3 py-2">Seneste aktivitet</th>
+                          <SortHeader label="Garanti ID" sort="warrantyId" />
+                          <SortHeader label="Serienummer" sort="serial" />
+                          <SortHeader label="Model" sort="model" />
+                          <SortHeader label="Forhandler" sort="dealer" />
+                          <SortHeader label="Levering" sort="delivery" defaultDirection="desc" />
+                          <SortHeader label="Timer" sort="hours" defaultDirection="desc" className="text-right" />
+                          <SortHeader label="Seneste aktivitet" sort="activity" defaultDirection="desc" />
                           <th className="text-left font-semibold px-3 py-2">Historik</th>
                         </tr>
                       </thead>
