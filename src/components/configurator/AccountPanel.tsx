@@ -368,6 +368,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     () => detailItem ? calcConfigurationTotals(detailItem.state_json) : null,
     [detailItem],
   );
+  const detailCurrencyLanguage = detailItem?.state_json.language || mapUiLanguageToLegacy(language);
 
   const tx = useMemo(() => {
     const strings: Record<string, Record<string, string>> = {
@@ -642,7 +643,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           <div className="text-xs text-gray-500 mt-1">{fmt(summary.latestChange)}</div>
                         </div>
                         <div className="lg:text-right font-bold text-gray-900 tabular-nums">
-                          {formatMoney(summary.totalPrice, mapUiLanguageToLegacy(language))}
+                          {formatMoney(summary.totalPrice, summary.currencyLanguage)}
                         </div>
                         <div className="flex lg:justify-end gap-2 flex-wrap">
                           <button
@@ -747,24 +748,24 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                       <div className="font-mono text-xs text-gray-600">{line.itemNo}</div>
                       <div className="font-medium text-gray-900">{line.description}</div>
                       <div className="text-gray-500">{line.note || '-'}</div>
-                      <div className="text-right tabular-nums">{formatMoney(line.unitPrice, mapUiLanguageToLegacy(language))}</div>
+                      <div className="text-right tabular-nums">{formatMoney(line.unitPrice, detailCurrencyLanguage)}</div>
                       <div className="text-right tabular-nums">{line.quantity}</div>
-                      <div className="text-right font-semibold tabular-nums">{formatMoney(line.total, mapUiLanguageToLegacy(language))}</div>
+                      <div className="text-right font-semibold tabular-nums">{formatMoney(line.total, detailCurrencyLanguage)}</div>
                     </div>
                   ))}
                 </div>
                 <div className="border-t border-gray-200 bg-white px-4 py-3 space-y-1">
                   <div className="flex justify-end gap-6 text-sm">
                     <span className="text-gray-500">{tx('subtotal')}</span>
-                    <span className="w-32 text-right font-semibold tabular-nums">{formatMoney(detailTotals.subtotal, mapUiLanguageToLegacy(language))}</span>
+                    <span className="w-32 text-right font-semibold tabular-nums">{formatMoney(detailTotals.subtotal, detailCurrencyLanguage)}</span>
                   </div>
                   <div className="flex justify-end gap-6 text-sm">
                     <span className="text-gray-500">{tx('discount')}</span>
-                    <span className="w-32 text-right font-semibold tabular-nums">{formatMoney(detailTotals.totalDiscount, mapUiLanguageToLegacy(language))}</span>
+                    <span className="w-32 text-right font-semibold tabular-nums">{formatMoney(detailTotals.totalDiscount, detailCurrencyLanguage)}</span>
                   </div>
                   <div className="flex justify-end gap-6 text-base">
                     <span className="font-bold text-gray-900">{tx('totalPrice')}</span>
-                    <span className="w-32 text-right font-bold tabular-nums">{formatMoney(detailTotals.finalPrice, mapUiLanguageToLegacy(language))}</span>
+                    <span className="w-32 text-right font-bold tabular-nums">{formatMoney(detailTotals.finalPrice, detailCurrencyLanguage)}</span>
                   </div>
                 </div>
               </div>

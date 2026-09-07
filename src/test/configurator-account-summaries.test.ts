@@ -64,6 +64,15 @@ describe('configurator account summaries', () => {
     expect(summary.sellerEmail).toBe('bp@timan.dk');
     expect(summary.deliveryDate).toBe('2026-09-10');
     expect(summary.totalPrice).toBeGreaterThan(0);
+    expect(summary.currencyLanguage).toBe('da');
+  });
+
+  it('keeps a saved EUR configuration in EUR when the portal is viewed in Danish', () => {
+    const summary = buildAccountCaseSummary(configuration({
+      state_json: { ...baseState, language: 'de' },
+    }), 'da');
+
+    expect(summary.currencyLanguage).toBe('de');
   });
 
   it('filters by status and search without fetching detail rows', () => {

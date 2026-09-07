@@ -41,6 +41,7 @@ export interface AccountCaseSummary {
   statusGroup: AccountCaseStatusFilter;
   typeLabel: 'quote' | 'order';
   totalPrice: number;
+  currencyLanguage: Language;
   deliveryDate: string | null;
   deliveryMethod: string | null;
   machineLabel: string;
@@ -117,6 +118,8 @@ export function buildAccountCaseSummary(item: AccountCaseLike, language: string)
     statusGroup: getAccountCaseStatusGroup(item),
     typeLabel: isAccountCaseSent(item) ? 'order' : item.case_type,
     totalPrice: totals.finalPrice,
+    // Saved configurations retain their own commercial currency when the portal UI changes language.
+    currencyLanguage: item.state_json.language || legacyLang,
     deliveryDate: item.state_json.date || null,
     deliveryMethod: item.state_json.deliveryMethod || null,
     machineLabel,
