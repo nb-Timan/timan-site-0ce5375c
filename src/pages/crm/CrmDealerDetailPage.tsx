@@ -2676,6 +2676,7 @@ function ContactHero({
   onEdit: () => void;
 }) {
   const firstContact = resolveCanonicalFirstContact(dealer, contacts);
+  const inlineAgreementTerms = getInlineAgreementTerms(dealer, lang);
   const primaryName = firstContact?.name ?? null;
   const primaryEmail = firstContact?.email ?? null;
   const primaryPhone = firstContact?.phone ?? null;
