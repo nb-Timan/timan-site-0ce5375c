@@ -2,6 +2,7 @@ import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { logActivity } from '@/lib/crmActivitiesService';
 import { getCrmLinkedConfigurationKind } from '@/lib/crmConfigurationsService';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
+import { currencyFromLanguage, toDkk } from '@/lib/currency';
 import { getLead, updateLead, type CrmLead, type CrmLeadPatch } from '@/lib/crmLeadsService';
 import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
@@ -288,6 +289,15 @@ function contactInformationFromState(lead: CrmLead, state: ConfiguratorState): s
   return buildStructuredContactInformation(next) || lead.contact_information || null;
 }
 
+function getConfigurationSourceValue(state: ConfiguratorState, row: CrmLeadConfigurationSyncRow): number {
+  const value = Number(row.total_price ?? calcConfigurationTotals(state).finalPrice ?? 0);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function getConfigurationValueDkk(state: ConfiguratorState, row: CrmLeadConfigurationSyncRow): number {
+  return Math.round(toDkk(getConfigurationSourceValue(state, row), currencyFromLanguage(state.language)));
+}
+
 function buildSyncNote(state: ConfiguratorState, row: CrmLeadConfigurationSyncRow, syncedAt: string): string {
   const summary = buildQuoteContentSummary(state);
   const lines: string[] = [
@@ -302,7 +312,10 @@ function buildSyncNote(state: ConfiguratorState, row: CrmLeadConfigurationSyncRo
     ));
     if (accessoryNames.length > 0) lines.push(`  Udstyr: ${accessoryNames.join(', ')}`);
   }
-  lines.push(`Værdi: ${Math.round(row.total_price ?? (calcConfigurationTotals(state).finalPrice || 0))} DKK`);
+  const sourceValue = Math.round(getConfigurationSourceValue(state, row));
+  const sourceCurrency = currencyFromLanguage(state.language);
+  const crmValueDkk = getConfigurationValueDkk(state, row);
+  lines.push(`Værdi: ${sourceValue} ${sourceCurrency} (${crmValueDkk} DKK i CRM)`);
   lines.push(SYNC_END);
   return lines.join('\n');
 }
@@ -346,7 +359,7 @@ export function buildLeadPatchFromConfigurationState(
   sellerId?: string | null,
 ): CrmLeadPatch {
   const machineTypes = buildMachineTypesFromState(state, lead.machine_types);
-  const estimatedValue = Math.round(row.total_price ?? (calcConfigurationTotals(state).finalPrice || 0));
+  const estimatedValue = getConfigurationValueDkk(state, row);
   const linkedDealerId = preferNonEmpty(row.dealer_account_id, null)
     ?? preferNonEmpty(row.dealer_number, null)
     ?? lead.linked_dealer_id
@@ -391,7 +404,7 @@ export async function syncLeadFromConfiguration(
 
   const state = parseState(row.state_json);
   const syncedAt = new Date().toISOString();
-  const estimatedValue = Math.round(row.total_price ?? (calcConfigurationTotals(state).finalPrice || 0));
+  const estimatedValue = getConfigurationValueDkk(state, row);
   const linkedDealerId = row.dealer_account_id || row.dealer_number || lead.linked_dealer_id || null;
   const sellerId = row.assigned_seller_id || (row.seller_email ? await resolveSellerId(row.seller_email) : null);
   const patch = buildLeadPatchFromConfigurationState(lead, row, state, syncedAt, sellerId);

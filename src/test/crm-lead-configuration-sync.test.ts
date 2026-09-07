@@ -153,6 +153,20 @@ describe('CRM lead configurator sync', () => {
     expect(patch.status).toBe('closed');
   });
 
+  it('converts EUR configurator totals before storing the DKK CRM budget', () => {
+    const eurState: ConfiguratorState = { ...state, language: 'de' };
+    const patch = buildLeadPatchFromConfigurationState(
+      baseLead(),
+      { ...linkedQuoteRow, total_price: 70880 },
+      eurState,
+      '2026-09-07T07:00:00.000Z',
+      linkedQuoteRow.assigned_seller_id,
+    );
+
+    expect(patch.estimated_value).toBe(528765);
+    expect(patch.notes).toContain('70880 EUR (528765 DKK i CRM)');
+  });
+
   it('keeps existing contact fields when configurator values are empty and sync is repeated', () => {
     const emptyContactState: ConfiguratorState = {
       ...state,
