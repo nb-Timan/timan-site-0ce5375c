@@ -58,7 +58,7 @@ describe('portal access precedence', () => {
 
   it('lets a manual module deny override a seller role default', () => {
     const sellerWithContractDefault = [...DEFAULT_MODULE_ACCESS.timan_seller, 'contracts'];
-    const manualModules = sellerWithContractDefault.filter((key) => key !== 'contracts') as import('@/lib/portalAccess').ModuleAccessKey[];
+    const manualModules = sellerWithContractDefault.filter((key) => key !== 'contracts');
     expect(hasModuleAccess('timan_seller', 'contracts', manualModules)).toBe(false);
   });
 
@@ -68,7 +68,7 @@ describe('portal access precedence', () => {
   });
 
   it('grants Timan Forhandler the canonical five front-page areas without backend-only areas', () => {
-    const dealer: any = {
+    const dealer = {
       email: 'dvp@example.com',
       role: 'partner',
       partner_type: 'forhandler',
@@ -117,7 +117,7 @@ describe('portal access precedence', () => {
   });
 
   it('allows standard Messe portal for Timan Forhandler but not internal Messe flows', () => {
-    const dealer: any = {
+    const dealer = {
       email: 'dvp@example.com',
       role: 'partner',
       partner_type: 'forhandler',
@@ -134,7 +134,7 @@ describe('portal access precedence', () => {
   });
 
   it('does not treat external Messe portal access as internal Messe access', () => {
-    const dealerWithExplicitMessePortal: any = {
+    const dealerWithExplicitMessePortal = {
       email: 'dvp@example.com',
       role: 'partner',
       partner_type: 'forhandler',
