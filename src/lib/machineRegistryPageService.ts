@@ -4,19 +4,24 @@ import type { MachineSortDirection, MachineSortKey, WarrantyTypeFilter } from "@
 import type { WarrantyMatchStatus } from "@/lib/warrantyMatchStatus";
 
 type HealthFilter = "all" | "healthy" | "needs_attention" | "critical";
-type RegistryRow = Omit<MachineOverviewRow, "sources" | "warrantyIdNumeric" | "latestActivityLabel">;
+export type RegistryMachineRow = Omit<MachineOverviewRow, "sources" | "warrantyIdNumeric" | "latestActivityLabel"> & {
+  customerName?: string | null;
+  orderNumber?: string | null;
+  isDemo?: boolean;
+};
 type RegistryResponse = {
   total: number; scopeTotal: number; normal: number; historical: number;
-  healthy: number; needsAttention: number; critical: number; rows: RegistryRow[];
+  healthy: number; needsAttention: number; critical: number; rows: RegistryMachineRow[];
   approved: number; needsClarification: number; missingWarrantyAndDealer: number;
 };
 
-export type MachineRegistryPage = Omit<RegistryResponse, "rows"> & { rows: MachineOverviewRow[] };
+export type MachineRegistryPage = Omit<RegistryResponse, "rows"> & { rows: RegistryMachineRow[] };
 
 export async function fetchMachineRegistryPage(input: {
   allowedDealers: string[] | null;
   query: string; dealer: string; model: string; warrantyType: WarrantyTypeFilter; health: HealthFilter;
   warrantyMatch: WarrantyMatchStatus | "all";
+  demoOnly?: boolean;
   dateFrom: string; dateTo: string; sort: MachineSortKey | null; direction: MachineSortDirection;
   page: number; pageSize: number;
 }): Promise<MachineRegistryPage> {
@@ -24,6 +29,7 @@ export async function fetchMachineRegistryPage(input: {
     p_allowed_dealers: input.allowedDealers, p_query: input.query || null, p_dealer: input.dealer || null,
     p_model: input.model === "all" ? null : input.model, p_warranty_type: input.warrantyType,
     p_health: input.health, p_warranty_match: input.warrantyMatch,
+    p_demo_only: input.demoOnly ?? false,
     p_date_from: input.dateFrom || null, p_date_to: input.dateTo || null,
     p_sort: input.sort ?? "activity", p_direction: input.direction, p_limit: input.pageSize,
     p_offset: Math.max(0, input.page - 1) * input.pageSize,

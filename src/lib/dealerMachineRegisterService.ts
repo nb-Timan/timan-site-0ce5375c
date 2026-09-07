@@ -1,7 +1,8 @@
 import type { DealerAccount } from "@/lib/dealerAccountsService";
 import type { DbWarrantyRegistration } from "@/lib/warrantyRegistrationsService";
 import { normalizeSerial, serialKey, type JournalScope } from "@/lib/machineJournalService";
-import { fetchMachineRegistryPage } from "@/lib/machineRegistryPageService";
+import { fetchMachineRegistryPage, type MachineRegistryPage } from "@/lib/machineRegistryPageService";
+import type { MachineSortDirection, MachineSortKey } from "@/lib/machineOverviewFilters";
 
 export type DealerMachineLifecycleKind =
   | "normal"
@@ -225,13 +226,27 @@ function scopeAllowsDealer(scope: JournalScope, dealer: DealerAccount): boolean 
   return (!!account && scope.dealerNumbers.has(account)) || (!!name && scope.dealerNames.has(name));
 }
 
-export async function listDealerMachineRegister(dealer: DealerAccount, scope: JournalScope): Promise<DealerMachineRegisterRow[]> {
-  if (!scopeAllowsDealer(scope, dealer)) return [];
+export type DealerMachineRegisterPage = Omit<MachineRegistryPage, "rows"> & { rows: DealerMachineRegisterRow[] };
+
+export async function fetchDealerMachineRegisterPage(input: {
+  dealer: DealerAccount;
+  scope: JournalScope;
+  query: string;
+  demoOnly: boolean;
+  sort: MachineSortKey;
+  direction: MachineSortDirection;
+  page: number;
+  pageSize: number;
+}): Promise<DealerMachineRegisterPage> {
+  const { dealer, scope } = input;
+  if (!scopeAllowsDealer(scope, dealer)) {
+    return { total: 0, scopeTotal: 0, normal: 0, historical: 0, healthy: 0, needsAttention: 0, critical: 0, approved: 0, needsClarification: 0, missingWarrantyAndDealer: 0, rows: [] };
+  }
   // The CRM tab deliberately reads the same canonical registry as Søg på
   // maskine. The allow-list can only narrow the active RLS scope.
   const page = await fetchMachineRegistryPage({
     allowedDealers: scope.unrestricted ? null : Array.from(scope.dealerNumbers),
-    query: "",
+    query: input.query,
     dealer: dealer.account_number,
     model: "all",
     warrantyType: "all",
@@ -239,24 +254,27 @@ export async function listDealerMachineRegister(dealer: DealerAccount, scope: Jo
     warrantyMatch: "all",
     dateFrom: "",
     dateTo: "",
-    sort: "activity",
-    direction: "desc",
-    page: 1,
-    pageSize: 2000,
+    sort: input.sort,
+    direction: input.direction,
+    page: input.page,
+    pageSize: input.pageSize,
+    demoOnly: input.demoOnly,
   });
 
-  return page.rows.map((row) => ({
+  return {
+    ...page,
+    rows: page.rows.map((row) => ({
     serial: row.serial,
     normalizedSerial: row.normalizedSerial,
     machineModel: row.machineModel,
     machineType: row.machineModel,
-    orderNumber: null,
+    orderNumber: row.orderNumber ?? null,
     orderDate: null,
     deliveryDate: row.deliveryDate,
     dealerName: row.dealerName,
     dealerNumber: row.dealerNumber,
-    customerName: null,
-    machineKind: "normal",
+    customerName: row.customerName ?? null,
+    machineKind: row.isDemo ? "demo" : "normal",
     warrantyCertificate: row.warrantyId,
     warrantyRegistrationDate: row.warrantyType === "normal" ? row.latestActivityDate : null,
     lifecycle: "normal",
@@ -264,5 +282,14 @@ export async function listDealerMachineRegister(dealer: DealerAccount, scope: Jo
     daysRemaining: null,
     daysSoldEarly: null,
     sources: ["warranty_registrations"],
-  }));
+    }))
+  };
+}
+
+/** Compatibility adapter for legacy callers. New dealer-list UI uses the paged API above. */
+export async function listDealerMachineRegister(dealer: DealerAccount, scope: JournalScope): Promise<DealerMachineRegisterRow[]> {
+  const page = await fetchDealerMachineRegisterPage({
+    dealer, scope, query: "", demoOnly: false, sort: "delivery", direction: "desc", page: 1, pageSize: 2000,
+  });
+  return page.rows;
 }

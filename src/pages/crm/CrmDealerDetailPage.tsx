@@ -15,7 +15,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-  ArrowRight, Building2, Mail, MapPin, Phone, GitBranch, Star,
+  ArrowRight, ArrowDown, ArrowUp, ArrowUpDown, Building2, Mail, MapPin, Phone, GitBranch, Star,
   FileText, ClipboardList, TrendingUp,
   CheckCircle2, AlertCircle, Pencil,
   Globe, CalendarPlus, PlusCircle, Smartphone, UserCircle2,
@@ -101,8 +101,7 @@ import {
 import { fetchDealerContractsForDealerAccount, type DealerContractRecord } from "@/lib/dealerContractsService";
 import { getContractWorkflowStatusLabel } from "@/lib/contractFlow";
 import {
-  getDemoOverviewMachines,
-  listDealerMachineRegister,
+  fetchDealerMachineRegisterPage,
   type DealerMachineRegisterRow,
 } from "@/lib/dealerMachineRegisterService";
 import { isOpenLead } from "@/lib/leadStatus";
@@ -116,6 +115,8 @@ import DealerBudgetHistory from "@/components/crm/DealerBudgetHistory";
 import RegisteredUsersTable, { buildRegisteredUserRows } from "@/components/portal/RegisteredUsersTable";
 import PartnerAgreementHistory from "@/components/portal/PartnerAgreementHistory";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import type { JournalScope } from "@/lib/machineJournalService";
+import type { MachineSortDirection, MachineSortKey } from "@/lib/machineOverviewFilters";
 
 /** New multilang strings for redesigned dealer detail. */
 type DealerDetailText = Partial<Record<PortalUiLanguage, string>> & { da: string; en?: string };
@@ -596,8 +597,7 @@ export default function CrmDealerDetailPage() {
   const [showEditDealer, setShowEditDealer] = useState(false);
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("overview");
-  const [dealerMachines, setDealerMachines] = useState<DealerMachineRegisterRow[]>([]);
-  const [machineStatusFilter, setMachineStatusFilter] = useState<"all" | "demo_attention">("all");
+  const [machineContext, setMachineContext] = useState<{ dealer: DealerAccount; scope: JournalScope } | null>(null);
   const [busy, setBusy] = useState(true);
   // Live CRM configurations (same source as CRM → Tilbud / Ordrer).
   // Used for accurate Tilbud / Ordrer / Vundne ordrer / Pipeline-værdi KPIs
@@ -639,7 +639,7 @@ export default function CrmDealerDetailPage() {
       setBusy(true);
       // A view-as switch changes the dealer scope. Do not retain a previous
       // role's machine rows while the selected seller scope is resolving.
-      setDealerMachines([]);
+      setMachineContext(null);
       try {
         let dealerRows: DealerAccount[] = [];
         let scopedDealerNumbers: string[] | null = null;
@@ -673,7 +673,7 @@ export default function CrmDealerDetailPage() {
           setCalendar([]);
           setDealerQuotes([]);
           setDealerOrders([]);
-          setDealerMachines([]);
+          setMachineContext(null);
           setAllLeads([]);
           setAllDemos([]);
           setBudgetIndex(null);
@@ -740,11 +740,10 @@ export default function CrmDealerDetailPage() {
           // for UI identity. The journal scope must use the selected seller.
           const machineScopeUser = withSellerScopeIdentity(effectiveUser, sellerView?.email);
           const machineScope = await buildJournalScope(machineScopeUser, sellerView ? "timan_seller" : portalRole);
-          const machineRows = rootDealer ? await listDealerMachineRegister(rootDealer, machineScope) : [];
-          if (!cancelled) setDealerMachines(machineRows);
+          if (!cancelled) setMachineContext(rootDealer ? { dealer: rootDealer, scope: machineScope } : null);
         } catch (e) {
           console.warn("[CrmDealerDetailPage] dealer machines failed:", e);
-          if (!cancelled) setDealerMachines([]);
+          if (!cancelled) setMachineContext(null);
         }
         // Dealer budget index (year-scoped) using same data as Budget Dashboard.
         try {
@@ -767,7 +766,7 @@ export default function CrmDealerDetailPage() {
           setCalendar([]);
           setDealerQuotes([]);
           setDealerOrders([]);
-          setDealerMachines([]);
+          setMachineContext(null);
           setAllLeads([]);
           setAllDemos([]);
           setBudgetIndex(null);
@@ -965,8 +964,6 @@ export default function CrmDealerDetailPage() {
   const matchesDealer = (key: string | null) => !!key && dealerKeySet.has(key);
 
   const dealerQuotesInScope = dealerQuotes.filter((r) => matchesDealer(r.dealer_key ?? dealerKeyOf(r)));
-  const demoOverviewMachines = getDemoOverviewMachines(dealerMachines);
-  const displayedDealerMachines = machineStatusFilter === "demo_attention" ? demoOverviewMachines : dealerMachines;
   // Orders: match using the SAME canonical dealer-key resolution as quotes
   // (dealer_account_id → dealer_number/account_number → normalized name).
   // Previously this only checked dealer_number, which missed orders where
@@ -1639,10 +1636,8 @@ export default function CrmDealerDetailPage() {
         {/* MACHINES — serial-based machine register + demo lifecycle */}
         <TabsContent value="machines" className="mt-0">
           <CrmMachineRegisterPanel
-            rows={displayedDealerMachines}
-            allCount={dealerMachines.length}
-            filter={machineStatusFilter}
-            onFilterChange={setMachineStatusFilter}
+            dealer={machineContext?.dealer ?? null}
+            scope={machineContext?.scope ?? null}
             lang={lang}
           />
         </TabsContent>
@@ -1916,44 +1911,96 @@ function CrmDemoMachinesPanel({
 }
 
 function CrmMachineRegisterPanel({
-  rows,
-  allCount,
-  filter,
-  onFilterChange,
+  dealer,
+  scope,
   lang,
 }: {
-  rows: DealerMachineRegisterRow[];
-  allCount: number;
-  filter: "all" | "demo_attention";
-  onFilterChange: (next: "all" | "demo_attention") => void;
+  dealer: DealerAccount | null;
+  scope: JournalScope | null;
   lang: PortalUiLanguage;
 }) {
+  const [rows, setRows] = useState<DealerMachineRegisterRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [query, setQuery] = useState("");
+  const [demoOnly, setDemoOnly] = useState(false);
+  const [sort, setSort] = useState<MachineSortKey>("delivery");
+  const [direction, setDirection] = useState<MachineSortDirection>("desc");
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const pageSize = 50;
+
+  // A dealer change is a new list. Never reuse a prior dealer's search or sort.
+  useEffect(() => {
+    setRows([]); setTotal(0); setQuery(""); setDemoOnly(false);
+    setSort("delivery"); setDirection("desc"); setPage(1);
+  }, [dealer?.account_number]);
+
+  useEffect(() => {
+    if (!dealer || !scope) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setLoading(true);
+      try {
+        const result = await fetchDealerMachineRegisterPage({
+          dealer, scope, query, demoOnly, sort, direction, page, pageSize,
+        });
+        if (!cancelled) { setRows(result.rows); setTotal(result.total); }
+      } catch (error) {
+        console.warn("[CrmMachineRegisterPanel] machine list failed:", error);
+        if (!cancelled) { setRows([]); setTotal(0); }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 180);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [dealer, scope, query, demoOnly, sort, direction, page]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const toggleSort = (key: MachineSortKey, initial: MachineSortDirection = "asc") => {
+    if (sort !== key) { setSort(key); setDirection(initial); setPage(1); return; }
+    if (direction === initial) { setDirection(initial === "asc" ? "desc" : "asc"); setPage(1); return; }
+    setSort("delivery"); setDirection("desc"); setPage(1);
+  };
+  const SortHeader = ({ label, sortKey, initial = "asc" }: { label: string; sortKey: MachineSortKey; initial?: MachineSortDirection }) => (
+    <th className="py-2 pr-3 whitespace-nowrap">
+      <button type="button" onClick={() => toggleSort(sortKey, initial)} className="inline-flex items-center gap-1 hover:text-slate-800">
+        {label}{sort !== sortKey ? <ArrowUpDown className="h-3 w-3" /> : direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+      </button>
+    </th>
+  );
+
   return (
     <div className="bg-white border border-slate-200 rounded-2xl p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h3 className="text-sm font-bold uppercase tracking-wide text-slate-500 flex items-center gap-2">
           <Wrench className="h-4 w-4" />
           {tl("tab_machines", lang)}
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{allCount}</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700">{total}</span>
         </h3>
         <div className="flex rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm">
           <button
             type="button"
-            onClick={() => onFilterChange("all")}
-            className={`rounded-md px-3 py-1.5 font-semibold ${filter === "all" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`}
+            onClick={() => { setDemoOnly(false); setPage(1); }}
+            className={`rounded-md px-3 py-1.5 font-semibold ${!demoOnly ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`}
           >
             {tl("all_machines", lang)}
           </button>
           <button
             type="button"
-            onClick={() => onFilterChange("demo_attention")}
-            className={`rounded-md px-3 py-1.5 font-semibold ${filter === "demo_attention" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`}
+            onClick={() => { setDemoOnly(true); setPage(1); }}
+            className={`rounded-md px-3 py-1.5 font-semibold ${demoOnly ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`}
           >
             {tl("demo_machines", lang)}
           </button>
         </div>
       </div>
-      {rows.length === 0 ? (
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Søg serienr., garanti/SP, model eller ordrenr." className="h-9 w-full max-w-md rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500" />
+        <div className="text-xs text-slate-500">{total === 0 ? "0 maskiner" : `Viser ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} af ${total}`}</div>
+      </div>
+      {loading && rows.length === 0 ? (
+        <div className="py-8 text-center text-sm text-slate-500">Henter maskiner…</div>
+      ) : rows.length === 0 ? (
         <div className="py-8 text-center">
           <Wrench className="h-8 w-8 text-slate-300 mx-auto mb-2" />
           <p className="text-sm text-slate-500">{tl("no_machines", lang)}</p>
@@ -1963,14 +2010,14 @@ function CrmMachineRegisterPanel({
           <table className="min-w-full text-left text-sm">
             <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="py-2 pr-3">{tl("serial_number", lang)}</th>
-                <th className="py-2 pr-3">{tl("machine_model", lang)}</th>
-                <th className="py-2 pr-3">{tl("order_no", lang)}</th>
-                <th className="py-2 pr-3">{tl("delivery_date", lang)}</th>
-                <th className="py-2 pr-3">{tl("status", lang)}</th>
-                <th className="py-2 pr-3">{tl("customer", lang)}</th>
-                <th className="py-2 pr-3">{tl("warranty_sp", lang)}</th>
-                <th className="py-2 pr-3">{tl("lifecycle_status", lang)}</th>
+                <SortHeader label={tl("serial_number", lang)} sortKey="serial" />
+                <SortHeader label={tl("machine_model", lang)} sortKey="model" />
+                <SortHeader label={tl("order_no", lang)} sortKey="order" />
+                <SortHeader label={tl("delivery_date", lang)} sortKey="delivery" initial="desc" />
+                <SortHeader label={tl("status", lang)} sortKey="status" />
+                <SortHeader label={tl("customer", lang)} sortKey="customer" />
+                <SortHeader label={tl("warranty_sp", lang)} sortKey="warrantyId" />
+                <SortHeader label={tl("lifecycle_status", lang)} sortKey="lifecycle" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -1999,6 +2046,13 @@ function CrmMachineRegisterPanel({
               })}
             </tbody>
           </table>
+        </div>
+      )}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-end gap-2 text-sm text-slate-600">
+          <button type="button" disabled={page === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">‹</button>
+          <span>Side {page} / {totalPages}</span>
+          <button type="button" disabled={page === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded border border-slate-200 px-2 py-1 disabled:opacity-40">›</button>
         </div>
       )}
     </div>
