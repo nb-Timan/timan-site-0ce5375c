@@ -40,7 +40,7 @@ export type DealerDashboardLiveData = {
     order_count: number;
     machine_count: number;
     average_discount_pct: number;
-    extra_discount_value: number;
+    extra_discount_value: number | null;
     payment_delivery_discount_value: number | null;
     top_country: string;
     top_dealer: string;
@@ -82,7 +82,7 @@ export async function fetchDealerSalesDashboard(
     p_to: filters.to || (filters.toYear ? `${filters.toYear}-12-31` : null),
     p_countries: selected(filters.countries),
     p_sellers: selected(filters.sellers),
-    p_dealer_numbers: null,
+    p_dealer_numbers: selected(filters.dealers),
     p_customers: selected(filters.customers),
     p_machines: selected(filters.machines),
     p_partner_types: filters.partnerType === "all" ? null : [filters.partnerType],

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -155,13 +155,21 @@ export default function DealerSalesDashboardPrototype({ initialScope, scope: con
   const [liveData, setLiveData] = useState<DealerDashboardLiveData | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [liveLoading, setLiveLoading] = useState(live);
+  const dealerOptionsRef = useRef<DealerDashboardLiveData["filters"]["dealers"]>([]);
   const scope = controlledScope ?? localScope;
   useEffect(() => {
     if (!live) return;
     let cancelled = false;
     setLiveLoading(true);
-    void fetchDealerSalesDashboard(filters, viewAsEmail).then(({ data, error }) => {
+    const rpcFilters = dealerOptionsRef.current.length
+      ? {
+          ...filters,
+          dealers: filters.dealers.map((dealer) => dealerOptionsRef.current.find((option) => option.name === dealer)?.number ?? dealer),
+        }
+      : filters;
+    void fetchDealerSalesDashboard(rpcFilters, viewAsEmail).then(({ data, error }) => {
       if (cancelled) return;
+      dealerOptionsRef.current = data?.filters.dealers ?? [];
       setLiveData(data);
       setLiveError(error);
       setLiveLoading(false);
@@ -209,8 +217,8 @@ export default function DealerSalesDashboardPrototype({ initialScope, scope: con
   const totalList = rows.reduce((sum, row) => sum + value(row, row.listPrice), 0);
   const discountTotal = totalList - revenue;
   const averageDiscount = liveData ? Number(liveData.summary.average_discount_pct) : rows.length ? rows.reduce((sum, row) => sum + totalDiscountPct(row), 0) / rows.length : 0;
-  const extraDiscount = liveData ? Number(liveData.summary.extra_discount_value) : rows.reduce((sum, row) => sum + value(row, row.listPrice * row.extraDiscountPct / 100), 0);
-  const paymentDiscount = liveData?.summary.payment_delivery_discount_value ?? rows.reduce((sum, row) => sum + value(row, row.listPrice * row.paymentDeliveryDiscountPct / 100), 0);
+  const extraDiscount = liveData ? liveData.summary.extra_discount_value : rows.reduce((sum, row) => sum + value(row, row.listPrice * row.extraDiscountPct / 100), 0);
+  const paymentDiscount = liveData ? liveData.summary.payment_delivery_discount_value : rows.reduce((sum, row) => sum + value(row, row.listPrice * row.paymentDeliveryDiscountPct / 100), 0);
   const machineCount = liveData ? Number(liveData.summary.machine_count) : rows.reduce((sum, row) => sum + row.quantity, 0);
   const dashboardCurrencyNote = filters.currency === "both" ? "DKK-normaliseret for samlet visning" : `Vises i ${filters.currency}`;
 
@@ -369,8 +377,8 @@ export default function DealerSalesDashboardPrototype({ initialScope, scope: con
         <KpiCard icon={ShoppingCart} label="Antal ordrer" value={String(liveData?.summary.order_count ?? rows.length)} note="Afgivne ordrer" tone="blue" />
         <KpiCard icon={Package} label="Solgte maskiner" value={String(machineCount)} note="Maskiner i alt" />
         <KpiCard icon={Percent} label="Gns. rabat" value={`${averageDiscount.toFixed(1)} %`} note="Samlet rabat" tone="amber" />
-        <KpiCard icon={Tag} label="Ekstra rabat i alt" value={formatValue(extraDiscount, filters.currency)} note={dashboardCurrencyNote} />
-        <KpiCard icon={Truck} label="Betalings-/leveringsrabat" value={formatValue(paymentDiscount, filters.currency)} note={dashboardCurrencyNote} tone="amber" />
+        <KpiCard icon={Tag} label="Ekstra rabat i alt" value={extraDiscount === null ? "Ikke tilgængeligt" : formatValue(extraDiscount, filters.currency)} note={extraDiscount === null ? "Mangler canonical værdifelt" : dashboardCurrencyNote} />
+        <KpiCard icon={Truck} label="Betalings-/leveringsrabat" value={paymentDiscount === null ? "Ikke tilgængeligt" : formatValue(paymentDiscount, filters.currency)} note={paymentDiscount === null ? "Mangler canonical værdifelt" : dashboardCurrencyNote} tone="amber" />
         <KpiCard icon={Globe2} label="Top land" value={topCountry} note={byCountry[0] ? formatValue(byCountry[0].value, filters.currency) : "Ingen data"} tone="blue" />
         <KpiCard icon={Trophy} label="Top forhandler" value={topDealer} note={byDealer[0] ? formatValue(byDealer[0].value, filters.currency) : "Ingen data"} />
       </div>
