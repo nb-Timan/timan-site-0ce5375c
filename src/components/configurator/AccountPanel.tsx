@@ -505,7 +505,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
 
       {/* Account Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-none md:!max-w-[1200px] max-h-[90vh] overflow-y-auto overflow-x-hidden break-words">
+        <DialogContent className="w-[95vw] sm:max-w-none md:!max-w-[1200px] xl:!max-w-[1360px] max-h-[90vh] overflow-y-auto overflow-x-hidden break-words">
           <DialogHeader>
             <DialogTitle className="text-xl">{tx('myAccount')}</DialogTitle>
           </DialogHeader>
@@ -618,7 +618,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               <p className="text-sm text-gray-400 italic">{tx('noCases')}</p>
             ) : (
               <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-gray-200">
-                <div className="hidden lg:grid grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_minmax(7rem,0.8fr)_17.5rem] gap-3 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                <div className="hidden lg:grid grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_minmax(7rem,0.8fr)_17.5rem] gap-2 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500">
                   <div>{tx('orderNumber')}</div>
                   <div>{tx('customer')}</div>
                   <div>{tx('dealer')}</div>
@@ -635,7 +635,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                     const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU', sv: 'sv-SE', fr: 'fr-FR', pl: 'pl-PL', cs: 'cs-CZ' } as Record<string, string>)[language as string] || 'en-GB';
                     const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(dateLocale) : '-';
                     return (
-                      <div key={item.id} className="grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_minmax(7rem,0.8fr)_17.5rem] gap-3 px-4 py-4 text-sm">
+                      <div key={item.id} className="grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_minmax(7rem,0.8fr)_17.5rem] gap-2 px-4 py-4 text-sm">
                         <div>
                           <div className="font-bold text-gray-900">{summary.reference}</div>
                           <div className="text-xs text-gray-500">{fmt(summary.orderDate)}</div>
@@ -658,19 +658,19 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                         <div className="lg:text-right font-bold text-gray-900 tabular-nums">
                           {formatDisplayMoney(summary.totalPrice, summary.currencyLanguage)}
                         </div>
-                        <div className="flex lg:justify-end gap-2 flex-wrap">
+                        <div className="flex lg:justify-end gap-1.5 flex-wrap">
                           <button
                             type="button"
                             onClick={() => void handleShowDetails(item)}
                             disabled={detailLoading}
-                            className="text-xs px-3 py-1.5 bg-white text-gray-800 border border-gray-200 rounded-lg hover:bg-gray-50 font-semibold disabled:opacity-60"
+                            className="whitespace-nowrap text-xs px-2 py-1.5 bg-white text-gray-800 border border-gray-200 rounded-lg hover:bg-gray-50 font-semibold disabled:opacity-60"
                           >
                             {tx('details')}
                           </button>
                           <button
                             type="button"
                             onClick={() => void handleReorder(item)}
-                            className="text-xs px-3 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold"
+                            className="whitespace-nowrap text-xs px-2 py-1.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-semibold"
                           >
                             {tx('reorder')}
                           </button>
@@ -678,7 +678,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                             <button
                               type="button"
                               onClick={() => void handleOpen(item)}
-                              className="w-14 text-xs py-1.5 bg-gray-950 text-white rounded-lg hover:bg-gray-800 font-semibold"
+                              className="w-14 whitespace-nowrap text-xs py-1.5 bg-gray-950 text-white rounded-lg hover:bg-gray-800 font-semibold"
                             >
                               {tx('open')}
                             </button>
@@ -688,7 +688,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                               type="button"
                               onClick={() => void handleOpenPdf(item)}
                               title={item.sent_pdf_path ? tx('openSentPdf') : tx('pdfNotStored')}
-                              className="w-14 text-xs py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 font-semibold"
+                              className="w-14 whitespace-nowrap text-xs py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 font-semibold"
                             >
                               PDF
                             </button>
