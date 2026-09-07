@@ -924,7 +924,11 @@ export default function MachineSearchPage() {
                     <table className="w-full text-xs">
                       <thead className="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
                         <tr>
-                          <SortHeader label="Garanti ID" sort="warrantyId" />
+                          <SortHeader label="Garanti nr." sort="warrantyId" />
+                          <SortHeader label="MO nr." sort="machineOrder" />
+                          <SortHeader label="ERP nr." sort="erpOrder" />
+                          <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Fakturanr.</th>
+                          <SortHeader label="Portal-ordrenr." sort="portalOrder" />
                           <SortHeader label="Serienummer" sort="serial" />
                           <SortHeader label="Model" sort="model" />
                           <SortHeader label="Forhandler" sort="dealer" />
@@ -952,6 +956,10 @@ export default function MachineSearchPage() {
                                   {warrantyMeta.label}
                                 </div>
                               </td>
+                              <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{row.machineOrderNumber || "—"}</td>
+                              <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{row.erpOrderNumber || "—"}</td>
+                              <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{row.invoiceNumber || "—"}</td>
+                              <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{row.portalOrderNumber || "—"}</td>
                               <td className="px-3 py-2 font-mono font-semibold whitespace-nowrap text-slate-700">
                                 <div className="flex items-center gap-1.5">
                                   <span className={`inline-block h-2 w-2 rounded-full ${warrantyMeta.dot}`} title={`Garanti-/matchstatus: ${warrantyMeta.label}`} />
@@ -1000,9 +1008,7 @@ export default function MachineSearchPage() {
                           onClick={() => openMachine(row.serial)}
                           className={`px-4 py-3 cursor-pointer hover:bg-slate-50 border-l-4 ${warrantyMeta.border}`}>
                           <div className="flex items-center gap-2 min-w-0">
-                            {row.warrantyId && (
-                              <span className={`font-mono text-[10px] rounded bg-slate-100 px-1.5 py-0.5 ${warrantyMeta.text}`} title={`Garanti-/matchstatus: ${warrantyMeta.label}`}>{row.warrantyId} · {warrantyMeta.label}</span>
-                            )}
+                            <span className={`font-mono text-[10px] rounded bg-slate-100 px-1.5 py-0.5 ${warrantyMeta.text}`} title={`Garanti-/matchstatus: ${warrantyMeta.label}`}>Garanti {row.warrantyId || "—"} · MO {row.machineOrderNumber || "—"}</span>
                             <span className="font-mono text-sm font-semibold truncate flex items-center gap-1 text-slate-700">
                               <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${warrantyMeta.dot}`} title={`Garanti-/matchstatus: ${warrantyMeta.label}`} />
                               {row.serial}
@@ -1012,7 +1018,7 @@ export default function MachineSearchPage() {
                             {row.machineModel || "—"}{row.dealerName ? ` · ${row.dealerName}` : ""}
                           </div>
                           <div className="mt-1 text-[11px] text-slate-500 truncate">
-                            {row.latestActivityLabel || "—"}
+                            {`ERP ${row.erpOrderNumber || "—"} · Faktura ${row.invoiceNumber || "—"} · Portal ${row.portalOrderNumber || "—"} · ${row.latestActivityLabel || "—"}`}
                           </div>
                           {(row.warrantyMatchDetail || openItems.length > 0) && (
                             <div className="mt-1 flex flex-wrap gap-1">

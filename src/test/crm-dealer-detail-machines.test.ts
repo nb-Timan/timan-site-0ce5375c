@@ -34,6 +34,19 @@ describe("CRM dealer detail machine register integration", () => {
     expect(source).toContain('sellerView ? "timan_seller" : portalRole');
   });
 
+  it("shows the separate commercial identifiers only in their own columns", () => {
+    expect(source).toContain('label="Garanti nr." sortKey="warrantyId"');
+    expect(source).toContain('label="MO nr." sortKey="machineOrder"');
+    expect(source).toContain('label="ERP nr." sortKey="erpOrder"');
+    expect(source).toContain('label="Portal-ordrenr." sortKey="portalOrder"');
+    expect(source).toContain("row.machineOrderNumber || \"—\"");
+    expect(source).toContain("row.erpOrderNumber || \"—\"");
+    expect(source).toContain("row.portalOrderNumber || \"—\"");
+    expect(source).toContain(">Kostpris</th>");
+    expect(source).toContain("formatDkk(row.costAmount)");
+    expect(source).toContain("formatPercent(row.revenue, row.contributionMarginAmount)");
+  });
+
   it("shows the canonical company name under the company and personal data quick card", () => {
     expect(source).toContain('{ key: "dealer-data", label: tl("open_dealer_data", lang), sublabel: dealer.company_name || undefined');
   });

@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { classifyLegacyMachineRows, type LegacyMachineImportRow } from "@/lib/legacyMachineImportService";
+import { classifyLegacyMachineRows, hasLegacySalesData, parseLegacySalesNumber, toCommercialAmount, type LegacyMachineImportRow } from "@/lib/legacyMachineImportService";
 
 const row = (overrides: Partial<LegacyMachineImportRow>): LegacyMachineImportRow => ({
   warrantyNumber: null,
+  erpOrderNumber: null,
+  invoiceNumber: null,
+  revenue: null,
+  sourceRevenueAmount: null,
+  costAmount: null,
+  contributionMarginAmount: null,
   serial: "UH9712X02TM2T1228",
   model: "Timan 3330",
   dealerNumber: "10131",
@@ -37,5 +43,23 @@ describe("legacy machine import preview", () => {
       existingSerials: [], activeDealerNumbers: [], mappedDealerNumbers: ["90001"],
     });
     expect(result).toMatchObject({ status: "mapped", statusLabel: "Matchet via historisk mapping" });
+  });
+
+  it("recognises ERP and financial columns as sales enrichment, not a warranty", () => {
+    expect(hasLegacySalesData([row({
+      warrantyNumber: "MO-091",
+      erpOrderNumber: "135244",
+      invoiceNumber: "133831",
+      revenue: "177590.00",
+      sourceRevenueAmount: "-177590.00",
+      costAmount: "-129631.34",
+      contributionMarginAmount: "47958.66",
+    })])).toBe(true);
+  });
+
+  it("normalises ERP source signs to positive revenue and cost amounts", () => {
+    expect(toCommercialAmount("-177590.00")).toBe(177590);
+    expect(toCommercialAmount("-129631.34")).toBe(129631.34);
+    expect(parseLegacySalesNumber("47958.66")).toBe(47958.66);
   });
 });

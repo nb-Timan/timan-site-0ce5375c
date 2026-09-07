@@ -1974,6 +1974,13 @@ function CrmMachineRegisterPanel({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const pageSize = 50;
+  const formatDkk = (value: number | null) => value == null
+    ? "—"
+    : new Intl.NumberFormat("da-DK", { style: "currency", currency: "DKK" }).format(value);
+  const formatPercent = (revenue: number | null, margin: number | null) => {
+    if (revenue == null || margin == null || revenue === 0) return "—";
+    return new Intl.NumberFormat("da-DK", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(margin / revenue);
+  };
 
   // A dealer change is a new list. Never reuse a prior dealer's search or sort.
   useEffect(() => {
@@ -2046,7 +2053,7 @@ function CrmMachineRegisterPanel({
         </div>
       </div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Søg serienr., garanti/SP, model eller ordrenr." className="h-9 w-full max-w-md rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500" />
+        <input value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="Søg serienr., garanti, MO, ERP eller portalordre." className="h-9 w-full max-w-md rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-emerald-500" />
         <div className="text-xs text-slate-500">{total === 0 ? "0 maskiner" : `Viser ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} af ${total}`}</div>
       </div>
       {loading && rows.length === 0 ? (
@@ -2063,11 +2070,18 @@ function CrmMachineRegisterPanel({
               <tr>
                 <SortHeader label={tl("serial_number", lang)} sortKey="serial" />
                 <SortHeader label={tl("machine_model", lang)} sortKey="model" />
-                <SortHeader label={tl("order_no", lang)} sortKey="order" />
+                <SortHeader label="Garanti nr." sortKey="warrantyId" />
+                <SortHeader label="MO nr." sortKey="machineOrder" />
+                <SortHeader label="ERP nr." sortKey="erpOrder" />
+                <SortHeader label="Portal-ordrenr." sortKey="portalOrder" />
                 <SortHeader label={tl("delivery_date", lang)} sortKey="delivery" initial="desc" />
                 <SortHeader label={tl("status", lang)} sortKey="status" />
                 <SortHeader label={tl("customer", lang)} sortKey="customer" />
-                <SortHeader label={tl("warranty_sp", lang)} sortKey="warrantyId" />
+                <th className="py-2 pr-3 whitespace-nowrap">Fakturanr.</th>
+                <th className="py-2 pr-3 whitespace-nowrap">Omsætning</th>
+                <th className="py-2 pr-3 whitespace-nowrap">Kostpris</th>
+                <th className="py-2 pr-3 whitespace-nowrap">Dækningsbidrag</th>
+                <th className="py-2 pr-3 whitespace-nowrap">Dækningsgrad</th>
                 <SortHeader label={tl("lifecycle_status", lang)} sortKey="lifecycle" />
               </tr>
             </thead>
@@ -2078,14 +2092,18 @@ function CrmMachineRegisterPanel({
                   <tr key={row.normalizedSerial}>
                     <td className="py-3 pr-3 font-mono font-semibold text-slate-900 whitespace-nowrap">{row.serial}</td>
                     <td className="py-3 pr-3 text-slate-700">{row.machineModel || row.machineType || "—"}</td>
-                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{row.orderNumber || "—"}</td>
+                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{row.warrantyCertificate || "—"}</td>
+                    <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.machineOrderNumber || "—"}</td>
+                    <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.erpOrderNumber || "—"}</td>
+                    <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.portalOrderNumber || "—"}</td>
                     <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{fmtDate(row.deliveryDate)}</td>
                     <td className="py-3 pr-3 text-slate-700">{row.machineKind === "demo" ? "Demo" : tl("normal_machine", lang)}</td>
                     <td className="py-3 pr-3 text-slate-700">{row.customerName || "—"}</td>
-                    <td className="py-3 pr-3 text-slate-700">
-                      <div>{row.warrantyCertificate || "—"}</div>
-                      {row.warrantyRegistrationDate && <div className="text-xs text-slate-500">{fmtDate(row.warrantyRegistrationDate)}</div>}
-                    </td>
+                    <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.invoiceNumber || "—"}</td>
+                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.revenue)}</td>
+                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.costAmount)}</td>
+                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.contributionMarginAmount)}</td>
+                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatPercent(row.revenue, row.contributionMarginAmount)}</td>
                     <td className="py-3 pr-3">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${meta.badge}`}>
                         {meta.icon}{meta.label}

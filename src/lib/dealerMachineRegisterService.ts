@@ -17,7 +17,13 @@ export interface DealerMachineRegisterRow {
   normalizedSerial: string;
   machineModel: string | null;
   machineType: string | null;
-  orderNumber: string | null;
+  machineOrderNumber: string | null;
+  erpOrderNumber: string | null;
+  portalOrderNumber: string | null;
+  invoiceNumber: string | null;
+  revenue: number | null;
+  costAmount: number | null;
+  contributionMarginAmount: number | null;
   orderDate: string | null;
   deliveryDate: string | null;
   dealerName: string | null;
@@ -151,7 +157,13 @@ export function reconcileDealerMachineRows(input: {
         normalizedSerial: normalizeSerial(display),
         machineModel: null,
         machineType: null,
-        orderNumber: null,
+        machineOrderNumber: null,
+        erpOrderNumber: null,
+        portalOrderNumber: null,
+        invoiceNumber: null,
+        revenue: null,
+        costAmount: null,
+        contributionMarginAmount: null,
         orderDate: null,
         deliveryDate: null,
         dealerName: input.dealer.company_name ?? null,
@@ -268,7 +280,13 @@ export async function fetchDealerMachineRegisterPage(input: {
     normalizedSerial: row.normalizedSerial,
     machineModel: row.machineModel,
     machineType: row.machineModel,
-    orderNumber: row.orderNumber ?? null,
+    machineOrderNumber: row.machineOrderNumber ?? null,
+    erpOrderNumber: row.erpOrderNumber ?? null,
+    portalOrderNumber: row.portalOrderNumber ?? null,
+    invoiceNumber: row.invoiceNumber ?? null,
+    revenue: row.revenue ?? null,
+    costAmount: row.costAmount ?? null,
+    contributionMarginAmount: row.contributionMarginAmount ?? null,
     orderDate: null,
     deliveryDate: row.deliveryDate,
     dealerName: row.dealerName,

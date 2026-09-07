@@ -4,6 +4,12 @@ import { serialKey } from "@/lib/machineJournalService";
 
 export type LegacyMachineImportRow = {
   warrantyNumber: string | null;
+  erpOrderNumber: string | null;
+  invoiceNumber: string | null;
+  revenue: string | null;
+  sourceRevenueAmount: string | null;
+  costAmount: string | null;
+  contributionMarginAmount: string | null;
   serial: string | null;
   model: string | null;
   dealerNumber: string | null;
@@ -28,9 +34,12 @@ export type LegacyMachinePreviewContext = {
 };
 
 const HEADER_MAP: Record<string, keyof LegacyMachineImportRow> = {
-  "garanti nr.": "warrantyNumber", "serienr.": "serial", model: "model",
+  "garanti nr.": "warrantyNumber", "maskinordre (mo)": "warrantyNumber", "serienr.": "serial", model: "model",
   "forhandler nr.": "dealerNumber", forhandler: "dealerName",
   leveringsdato: "deliveryDate", timer: "hours", "seneste aktivitet": "latestActivityAt", historik: "history",
+  "ordrenr. (number_)": "erpOrderNumber", "fakturanr. (invoicenumber)": "invoiceNumber",
+  omsætning: "revenue", "amountmst netto (kilde)": "sourceRevenueAmount",
+  "costamount netto (kilde)": "costAmount", dækningsbidrag: "contributionMarginAmount",
 };
 
 function clean(value: unknown): string | null {
@@ -58,7 +67,7 @@ export async function parseLegacyMachineWorkbook(file: File): Promise<LegacyMach
     throw new Error("Filen skal mindst indeholde Serienr. og Forhandler nr.");
   }
   return values.slice(1).filter((row) => row.some((value) => clean(value))).map((row) => {
-    const record: LegacyMachineImportRow = { warrantyNumber: null, serial: null, model: null, dealerNumber: null, dealerName: null, deliveryDate: null, hours: null, latestActivityAt: null, history: null };
+    const record: LegacyMachineImportRow = { warrantyNumber: null, erpOrderNumber: null, invoiceNumber: null, revenue: null, sourceRevenueAmount: null, costAmount: null, contributionMarginAmount: null, serial: null, model: null, dealerNumber: null, dealerName: null, deliveryDate: null, hours: null, latestActivityAt: null, history: null };
     columns.forEach((key, index) => {
       const value = row[index];
       record[key] = key === "deliveryDate" || key === "latestActivityAt" ? excelDateToIso(value) : clean(value);
@@ -105,4 +114,42 @@ export async function importLegacyMachines(fileName: string, rows: LegacyMachine
   const { data, error } = await supabase.rpc("import_legacy_machines", { p_file_name: fileName, p_rows: rows });
   if (error) throw error;
   return data as { batchId: string; total: number; created: number; matched: number; unresolved: number; duplicates: number; errors: number };
+}
+
+export function parseLegacySalesNumber(value: string | null): number | null {
+  if (!value) return null;
+  const compact = value.replace(/\s/g, "");
+  const lastComma = compact.lastIndexOf(",");
+  const lastDot = compact.lastIndexOf(".");
+  const normalized = lastComma > lastDot
+    ? compact.replace(/\./g, "").replace(",", ".")
+    : compact.replace(/,/g, "");
+  const number = Number(normalized);
+  return Number.isFinite(number) ? number : null;
+}
+
+export function toCommercialAmount(value: string | null): number | null {
+  const number = parseLegacySalesNumber(value);
+  return number == null ? null : Math.abs(number);
+}
+
+export function hasLegacySalesData(rows: LegacyMachineImportRow[]): boolean {
+  return rows.some((row) => Boolean(row.erpOrderNumber || row.invoiceNumber || row.revenue || row.sourceRevenueAmount || row.costAmount || row.contributionMarginAmount));
+}
+
+export async function enrichLegacyMachineSales(rows: LegacyMachineImportRow[]) {
+  const p_rows = rows
+    .filter((row) => row.serial)
+    .map((row) => ({
+      serial: row.serial,
+      machineOrderNumber: row.warrantyNumber,
+      erpOrderNumber: row.erpOrderNumber,
+      invoiceNumber: row.invoiceNumber,
+      revenue: toCommercialAmount(row.sourceRevenueAmount ?? row.revenue),
+      costAmount: toCommercialAmount(row.costAmount),
+      contributionMarginAmount: parseLegacySalesNumber(row.contributionMarginAmount),
+    }));
+  const { data, error } = await supabase.rpc("enrich_legacy_machine_sales", { p_rows });
+  if (error) throw error;
+  return data as { updated: number; unmatched: number };
 }

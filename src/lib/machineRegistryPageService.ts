@@ -6,7 +6,16 @@ import type { WarrantyMatchStatus } from "@/lib/warrantyMatchStatus";
 type HealthFilter = "all" | "healthy" | "needs_attention" | "critical";
 export type RegistryMachineRow = Omit<MachineOverviewRow, "sources" | "warrantyIdNumeric" | "latestActivityLabel"> & {
   customerName?: string | null;
-  orderNumber?: string | null;
+  machineOrderNumber?: string | null;
+  erpOrderNumber?: string | null;
+  portalOrderNumber?: string | null;
+  invoiceNumber?: string | null;
+  revenue?: number | null;
+  costAmount?: number | null;
+  contributionMarginAmount?: number | null;
+  grossSalesPrice?: number | null;
+  discountAmount?: number | null;
+  discountPercent?: number | null;
   isDemo?: boolean;
 };
 type RegistryResponse = {

@@ -3,7 +3,7 @@ import { FileUp, Loader2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { supabase } from "@/lib/supabase";
-import { importLegacyMachines, parseLegacyMachineWorkbook, previewLegacyMachineImport, type LegacyMachinePreviewRow } from "@/lib/legacyMachineImportService";
+import { enrichLegacyMachineSales, hasLegacySalesData, importLegacyMachines, parseLegacyMachineWorkbook, previewLegacyMachineImport, type LegacyMachinePreviewRow } from "@/lib/legacyMachineImportService";
 
 type Dealer = { id: string; account_number: string; company_name: string };
 type UnresolvedGroup = { dealerNumber: string; dealerName: string; count: number };
@@ -51,8 +51,13 @@ export function LegacyMachineImportPanel({ onCompleted }: { onCompleted: () => v
   const importRows = async () => {
     setLoading(true); setMessage(null);
     try {
-      const result = await importLegacyMachines(fileName, preview.filter((row) => row.status !== "duplicate" && row.status !== "error"));
-      setMessage(`${result.created} maskiner importeret. ${result.matched} matchet, ${result.unresolved} skal afklares, ${result.duplicates} findes allerede.`);
+      const importableRows = preview.filter((row) => row.status !== "duplicate" && row.status !== "error");
+      const salesData = hasLegacySalesData(preview);
+      const result = importableRows.length > 0
+        ? await importLegacyMachines(fileName, importableRows)
+        : { created: 0, matched: 0, unresolved: 0, duplicates: preview.length, errors: 0 };
+      const sales = salesData ? await enrichLegacyMachineSales(preview) : null;
+      setMessage(`${result.created} maskiner importeret. ${result.matched} matchet, ${result.unresolved} skal afklares, ${result.duplicates} findes allerede.${sales ? ` ${sales.updated} maskiner fik ERP- og salgsdata.` : ""}`);
       await loadResolutionData(); onCompleted();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Importen kunne ikke gennemføres."); }
     finally { setLoading(false); }
@@ -90,7 +95,7 @@ export function LegacyMachineImportPanel({ onCompleted }: { onCompleted: () => v
           <Summary label="Eksisterer/fejl" value={(counts.duplicate ?? 0) + (counts.error ?? 0)} tone="slate" />
         </div>
         <div className="max-h-72 overflow-auto rounded-md border"><table className="w-full text-xs"><thead className="sticky top-0 bg-slate-50 text-left"><tr><th className="p-2">Serienr.</th><th className="p-2">Model</th><th className="p-2">Forhandler</th><th className="p-2">Status</th></tr></thead><tbody>{preview.map((row) => <tr key={row.rowNumber} className="border-t"><td className="p-2 font-mono">{row.serial || "—"}</td><td className="p-2">{row.model || "—"}</td><td className="p-2">{row.dealerNumber || "—"} · {row.dealerName || "—"}</td><td className="p-2"><Status row={row} /></td></tr>)}</tbody></table></div>
-        <Button onClick={() => void importRows()} disabled={loading || preview.every((row) => row.status === "duplicate" || row.status === "error")}>Importér validerede maskiner</Button>
+        <Button onClick={() => void importRows()} disabled={loading || (!hasLegacySalesData(preview) && preview.every((row) => row.status === "duplicate" || row.status === "error"))}>{hasLegacySalesData(preview) ? "Importér og berig salgsdata" : "Importér validerede maskiner"}</Button>
       </>}
       {groups.length > 0 && <div className="border-t pt-4"><div className="flex items-center gap-2 font-semibold"><ShieldCheck className="h-4 w-4 text-amber-600" />Forhandler skal afklares</div><p className="mt-1 text-sm text-slate-600">Vælg én aktiv forhandler per gammelt nummer. Alle maskiner i gruppen flyttes samlet.</p><div className="mt-3 space-y-3">{groups.map((group) => <div key={group.dealerNumber} className="rounded-md border p-3"><div className="font-medium">{group.dealerNumber} · {group.dealerName} <span className="text-slate-500">({group.count} maskiner)</span></div><div className="mt-2 flex flex-wrap items-center gap-2"><select value={selection[group.dealerNumber] ?? ""} onChange={(event) => setSelection((state) => ({ ...state, [group.dealerNumber]: event.target.value }))} className="min-w-64 rounded-md border px-2 py-1.5 text-sm"><option value="">Vælg aktiv forhandler</option>{dealers.map((dealer) => <option key={dealer.id} value={dealer.id}>{dealer.account_number} · {dealer.company_name}</option>)}</select><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={createHistorical[group.dealerNumber] ?? false} onChange={(event) => setCreateHistorical((state) => ({ ...state, [group.dealerNumber]: event.target.checked }))} />Opret historisk forhandler</label><Button size="sm" variant="outline" disabled={loading || !selection[group.dealerNumber]} onClick={() => void resolveGroup(group)}>Kobl alle {group.count}</Button></div></div>)}</div></div>}
     </DialogContent>

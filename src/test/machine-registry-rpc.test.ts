@@ -12,6 +12,19 @@ describe("machine registry RPC read-chain", () => {
     expect(page).not.toContain("listAccessibleMachines(");
   });
 
+  it("keeps commercial economics in CRM while exposing only identifiers in service search", () => {
+    const page = read("src/pages/service/MachineSearchPage.tsx");
+    expect(page).toContain('label="Garanti nr."');
+    expect(page).toContain('label="MO nr."');
+    expect(page).toContain('label="ERP nr."');
+    expect(page).toContain('label="Portal-ordrenr."');
+    expect(page).toContain(">Fakturanr.</th>");
+    expect(page).not.toContain("costAmount");
+    expect(page).not.toContain("contributionMarginAmount");
+    expect(page).not.toContain("Omsætning");
+    expect(page).not.toContain("Kostpris");
+  });
+
   it("keeps View-as as an RLS-preserving reduction and returns server-side counts", () => {
     const migration = read("supabase/migrations/20260907171500_machine_registry_view_as_scope.sql");
     expect(migration).toContain("security invoker");
