@@ -16,6 +16,7 @@ import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, 
 import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug, listAccessibleMachines, type MachineOverviewRow } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import { readMachineSearchState, saveMachineSearchState, clearMachineSearchState } from "@/lib/machineSearchState";
+import { LegacyMachineImportPanel } from "@/components/service/LegacyMachineImportPanel";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -564,7 +565,8 @@ export default function MachineSearchPage() {
       />
 
       <main className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-6 py-10 flex-1 w-full">
-        <div className="mb-8 flex items-center gap-4">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#2d5a27]/10 text-[#2d5a27]">
             <Search className="h-6 w-6" />
           </div>
@@ -572,6 +574,10 @@ export default function MachineSearchPage() {
             <h1 className="text-3xl font-black tracking-tight">{tt('mod_machine_search', uiLanguage)}</h1>
             <p className="mt-1 text-sm text-slate-500">{T.lead[lang]}</p>
           </div>
+          </div>
+          {(portalRole === "timan_backend" || portalRole === "timan_service") && (
+            <LegacyMachineImportPanel onCompleted={() => window.location.reload()} />
+          )}
         </div>
 
         {/* Filter bar */}

@@ -442,8 +442,9 @@ export async function listAccessibleMachines(scope: JournalScope): Promise<Machi
       dealerName: w.dealerOfficialName || w.dealerName || w.dealerNameSnapshot,
       dealerNumber: w.dealerAccountNumber,
       deliveryDate: w.deliveryDate || null,
-      activityDate: d,
-      activityLabel: d ? `${fmtDateDk(d)} · Garantiregistrering` : null,
+      operatingHours: w.legacyOperatingHours ?? null,
+      activityDate: w.legacyLastActivityAt || d,
+      activityLabel: (w.legacyLastActivityAt || d) ? `${fmtDateDk(w.legacyLastActivityAt || d)} · ${w.legacyLastActivityAt ? "Historisk maskinimport" : "Garantiregistrering"}` : null,
     });
     if (row) {
       // Forhandler must come from the linked dealer account (account number),

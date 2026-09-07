@@ -30,6 +30,9 @@ export interface DbWarrantyRegistration extends WarrantyRegistration {
   sharepointCreatedAt: string | null;
   registrationDate: string | null;
   isActiveInSource: boolean;
+  legacyWarrantyReference: string | null;
+  legacyOperatingHours: number | null;
+  legacyLastActivityAt: string | null;
 }
 
 interface Row {
@@ -61,6 +64,9 @@ interface Row {
   is_active_in_source: boolean;
   created_at: string;
   updated_at: string;
+  legacy_warranty_reference: string | null;
+  legacy_operating_hours: number | null;
+  legacy_last_activity_at: string | null;
 }
 
 function fmtPostalCity(pc?: string | null, city?: string | null): string {
@@ -68,6 +74,7 @@ function fmtPostalCity(pc?: string | null, city?: string | null): string {
 }
 
 function buildCertificateNumber(row: Row): string {
+  if (row.legacy_warranty_reference) return row.legacy_warranty_reference;
   if (row.sharepoint_form_id !== null && row.sharepoint_form_id !== undefined) {
     return `SP-${row.sharepoint_form_id}`;
   }
@@ -121,6 +128,9 @@ function mapRow(row: Row, dealersById: Map<string, string>): DbWarrantyRegistrat
     sharepointCreatedAt: row.sharepoint_created_at,
     registrationDate: row.registration_date,
     isActiveInSource: row.is_active_in_source,
+    legacyWarrantyReference: row.legacy_warranty_reference,
+    legacyOperatingHours: row.legacy_operating_hours,
+    legacyLastActivityAt: row.legacy_last_activity_at,
   };
 }
 
@@ -129,7 +139,7 @@ export async function fetchWarrantyRegistrations(): Promise<DbWarrantyRegistrati
     supabase
       .from("warranty_registrations")
       .select(
-        "id, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, sharepoint_created_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at",
+        "id, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, sharepoint_created_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at, legacy_warranty_reference, legacy_operating_hours, legacy_last_activity_at",
       )
       .eq("is_active_in_source", true)
       .order("registration_date", { ascending: false, nullsFirst: false })
