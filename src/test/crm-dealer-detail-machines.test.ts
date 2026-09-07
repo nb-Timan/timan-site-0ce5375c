@@ -39,4 +39,9 @@ describe("CRM dealer detail machine register integration", () => {
     expect(source).toContain("(primaryName || callPhone) ? { key: \"call\"");
     expect(source).toContain("const mailAddr  = primaryEmail || (!firstContact ? dealer.email : null);");
   });
+
+  it("does not truncate the assigned seller phone number", () => {
+    expect(source).toContain('showFullSublabel: true');
+    expect(source).toContain('a.showFullSublabel');
+  });
 });

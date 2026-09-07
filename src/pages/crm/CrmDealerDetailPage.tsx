@@ -2639,6 +2639,7 @@ interface HeroAction {
   key: string;
   label: string;
   sublabel?: string;
+  showFullSublabel?: boolean;
   icon: React.ReactNode;
   href?: string;
   onClick?: () => void;
@@ -2736,6 +2737,7 @@ function ContactHero({
       key: "assigned-seller",
       label: tl("assigned_seller", lang),
       sublabel: [assignedSellerName, assignedSellerPhone || tl("seller_phone_missing", lang), assignedSellerEmail].filter(Boolean).join("\n"),
+      showFullSublabel: true,
       icon: <UserCircle2 className="h-4 w-4" />,
       href: assignedSellerEmail ? `mailto:${assignedSellerEmail}` : undefined,
     } : null,
@@ -2829,7 +2831,9 @@ function ContactHero({
                     {a.icon}
                   </span>
                   <span className="max-w-full text-[10.5px] font-semibold leading-tight break-words">{a.label}</span>
-                  {a.sublabel && <span className="line-clamp-2 max-w-full whitespace-pre-line break-words text-[9.5px] leading-tight text-slate-500">{a.sublabel}</span>}
+                  {a.sublabel && <span className={a.showFullSublabel
+                    ? "max-w-full whitespace-pre-line break-words text-[9.5px] leading-tight text-slate-500"
+                    : "line-clamp-2 max-w-full whitespace-pre-line break-words text-[9.5px] leading-tight text-slate-500"}>{a.sublabel}</span>}
                   {isCompanyDataCard && (
                     <span className="mt-1 h-1 w-full overflow-hidden rounded-full bg-emerald-50" aria-label={`${profileCompletion.percentage}%`}>
                       <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${profileCompletion.percentage}%` }} />
