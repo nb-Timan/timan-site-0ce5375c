@@ -40,7 +40,7 @@ import {
 } from "@/lib/dealerGeocodingService";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
-import { useEffectivePortalUser } from "@/lib/viewAsUser";
+import { useEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import {
   DealerAccount, DealerAccountStats,
@@ -637,6 +637,9 @@ export default function CrmDealerDetailPage() {
     let cancelled = false;
     (async () => {
       setBusy(true);
+      // A view-as switch changes the dealer scope. Do not retain a previous
+      // role's machine rows while the selected seller scope is resolving.
+      setDealerMachines([]);
       try {
         let dealerRows: DealerAccount[] = [];
         let scopedDealerNumbers: string[] | null = null;
@@ -733,7 +736,10 @@ export default function CrmDealerDetailPage() {
         }
         try {
           const rootDealer = dealerRows.find((d) => d.account_number === accountNumber) ?? dealerRows[0] ?? null;
-          const machineScope = await buildJournalScope(effectiveUser, portalRole);
+          // `effectiveUser` deliberately retains the signed-in backend email
+          // for UI identity. The journal scope must use the selected seller.
+          const machineScopeUser = withSellerScopeIdentity(effectiveUser, sellerView?.email);
+          const machineScope = await buildJournalScope(machineScopeUser, portalRole);
           const machineRows = rootDealer ? await listDealerMachineRegister(rootDealer, machineScope) : [];
           if (!cancelled) setDealerMachines(machineRows);
         } catch (e) {

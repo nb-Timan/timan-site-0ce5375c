@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeEffectivePortalUser } from "@/lib/viewAsUser";
+import { mergeEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { canManageMarketingVideos, canManageNewsContent, derivePortalRole, hasAreaAccess } from "@/lib/portalAccess";
 import type { SessionUser } from "@/context/AppUserContext";
 import type { UserView } from "@/lib/activeMode";
@@ -86,5 +86,19 @@ describe("mergeEffectivePortalUser", () => {
     expect(hasAreaAccess(effective, "timan_backend")).toBe(false);
     expect(canManageNewsContent(effective)).toBe(false);
     expect(canManageMarketingVideos(effective)).toBe(false);
+  });
+});
+
+describe("withSellerScopeIdentity", () => {
+  it("uses the selected seller email for seller-scoped reads without changing the UI identity", () => {
+    const scoped = withSellerScopeIdentity(baseUser, "EM@timan.dk");
+
+    expect(scoped?.email).toBe("em@timan.dk");
+    expect(scoped?.display_name).toBe("Birger Pedersen");
+    expect(scoped?.portal_role).toBe("timan_backend");
+  });
+
+  it("leaves direct logins and non-seller views unchanged", () => {
+    expect(withSellerScopeIdentity(baseUser, null)).toBe(baseUser);
   });
 });

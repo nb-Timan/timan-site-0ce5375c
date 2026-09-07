@@ -196,3 +196,18 @@ export function mergeEffectivePortalUser(
     company_dealer: target.company_dealer ?? null,
   };
 }
+
+/**
+ * The effective view keeps the signed-in backend email for header and session
+ * identity. Scope builders must instead use the selected seller identity.
+ */
+export function withSellerScopeIdentity(
+  effectiveUser: SessionUser | null,
+  sellerEmail: string | null | undefined,
+): SessionUser | null {
+  if (!effectiveUser || !sellerEmail) return effectiveUser;
+  return {
+    ...effectiveUser,
+    email: sellerEmail.trim().toLowerCase(),
+  };
+}

@@ -27,6 +27,7 @@ describe("CRM dealer detail machine register integration", () => {
     expect(source).toContain("listDealerMachineRegister");
     expect(source).toContain("getDemoOverviewMachines");
     expect(source).toContain("DealerMachineRegisterRow");
+    expect(source).toContain("withSellerScopeIdentity(effectiveUser, sellerView?.email)");
   });
 
   it("shows the canonical company name under the company and personal data quick card", () => {
