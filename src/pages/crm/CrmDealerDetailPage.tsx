@@ -24,6 +24,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { listDealerContacts, resolveCanonicalFirstContact, type DealerContact } from "@/lib/dealerContactsService";
+import { computeCompletion } from "@/lib/dealerProfileCompletion";
 import { toast } from "sonner";
 import { useAppUser, type SessionUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -2677,6 +2678,7 @@ function ContactHero({
 }) {
   const firstContact = resolveCanonicalFirstContact(dealer, contacts);
   const inlineAgreementTerms = getInlineAgreementTerms(dealer, lang);
+  const profileCompletion = computeCompletion(dealer, contacts);
   const primaryName = firstContact?.name ?? null;
   const primaryEmail = firstContact?.email ?? null;
   const primaryPhone = firstContact?.phone ?? null;
@@ -2820,6 +2822,7 @@ function ContactHero({
                   ? "border-slate-200 text-slate-300 cursor-not-allowed"
                   : "border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40 hover:shadow-sm"
               }`;
+              const isCompanyDataCard = a.key === "dealer-data";
               const inner = (
                 <>
                   <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md ${a.disabled ? "bg-slate-50 text-slate-300" : "bg-emerald-50 text-emerald-700"}`}>
@@ -2827,6 +2830,11 @@ function ContactHero({
                   </span>
                   <span className="max-w-full text-[10.5px] font-semibold leading-tight break-words">{a.label}</span>
                   {a.sublabel && <span className="line-clamp-2 max-w-full whitespace-pre-line break-words text-[9.5px] leading-tight text-slate-500">{a.sublabel}</span>}
+                  {isCompanyDataCard && (
+                    <span className="mt-1 h-1 w-full overflow-hidden rounded-full bg-emerald-50" aria-label={`${profileCompletion.percentage}%`}>
+                      <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${profileCompletion.percentage}%` }} />
+                    </span>
+                  )}
                 </>
               );
               if (a.disabled) return <button key={a.key} disabled className={cls}>{inner}</button>;

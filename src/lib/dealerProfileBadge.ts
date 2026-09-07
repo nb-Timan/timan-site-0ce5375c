@@ -118,9 +118,10 @@ export function formatDealerProfileBadgeLabel(
 export function getDealerProfileMissingLabels(
   dealer: DealerAccount | null,
   _peopleCount: number,
+  contacts: DealerContact[] = [],
 ): string[] {
   if (!dealer) return [...DEALER_PROFILE_SECTION_LABELS];
-  return computeCompletion(dealer).sections
+  return computeCompletion(dealer, contacts).sections
     .filter((s) => !s.complete)
     .map((s) => SECTION_LABELS_BY_KEY[s.key]);
 }
@@ -165,10 +166,11 @@ function missingCriticalFields(dealer: DealerAccount): string[] {
 export function computeDealerProfileSeverity(
   dealer: DealerAccount | null,
   peopleCount: number,
+  contacts: DealerContact[] = [],
 ): DealerProfileSeverity {
   if (!dealer) return "neutral";
   if (missingCriticalFields(dealer).length > 0) return "critical";
-  const sections = computeDealerProfileSections(dealer, peopleCount);
+  const sections = computeDealerProfileSections(dealer, peopleCount, contacts);
   if (sections.every(Boolean)) return "complete";
   return "partial";
 }
@@ -183,9 +185,10 @@ export function getDealerProfileCriticalMissing(
 
 export function hasOnlySoftDealerProfileMissing(
   dealer: DealerAccount | null,
+  contacts: DealerContact[] = [],
 ): boolean {
   if (!dealer || missingCriticalFields(dealer).length > 0) return false;
-  const missingSections = computeCompletion(dealer).sections.filter((s) => !s.complete);
+  const missingSections = computeCompletion(dealer, contacts).sections.filter((s) => !s.complete);
   return missingSections.length > 0 && missingSections.every((s) => SOFT_PROFILE_SECTION_KEYS.has(s.key));
 }
 

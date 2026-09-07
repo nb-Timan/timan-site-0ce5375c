@@ -47,6 +47,7 @@ import {
   isDealerCustomerAccount,
 } from "@/lib/dealerAccountsService";
 import { fetchBackendUsers } from "@/lib/backendUsersService";
+import { listDealerContactsForAccounts, type DealerContact } from "@/lib/dealerContactsService";
 import { BackendUser } from "@/lib/backend-users-store";
 import {
   canSwitchMode,
@@ -209,6 +210,7 @@ export default function CrmMyDealersPage() {
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [statsMap, setStatsMap] = useState<Record<string, DealerAccountStats>>({});
   const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
+  const [contactsByDealerId, setContactsByDealerId] = useState<Record<string, DealerContact[]>>({});
   const [loadingRows, setLoadingRows] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -353,6 +355,10 @@ export default function CrmMyDealersPage() {
           setError(missingOwnAccountError ?? dRes.error ?? sRes.error ?? null);
         }
 
+        const contacts = await listDealerContactsForAccounts(loadedDealers.map((dealer) => dealer.id));
+        if (cancelled) return;
+        setContactsByDealerId(contacts);
+
         // Build dealer-budget index (YTD budget + realised) — uses the same
         // crm_budget_dealer_lines + scoped orders source as Budget Dashboard.
         try {
@@ -416,7 +422,7 @@ export default function CrmMyDealersPage() {
     if (countryFilter !== "all" && (r.country ?? "").trim() !== countryFilter) return false;
     if (typeFilter !== "all" && (r.customer_type_label || r.customer_type || "").trim() !== typeFilter) return false;
     if (profileFilter !== "all") {
-      const sev = computeDealerProfileSeverity(r, dealerPeopleCount(r));
+      const sev = computeDealerProfileSeverity(r, dealerPeopleCount(r), contactsByDealerId[r.id]);
       if (profileFilter === "complete" && sev !== "complete") return false;
       if (profileFilter === "partial" && sev !== "partial") return false;
       if (profileFilter === "critical" && sev !== "critical") return false;
@@ -677,6 +683,7 @@ export default function CrmMyDealersPage() {
                     usersExpanded,
                     setUsersExpanded,
                     budgetIndex,
+                    contactsByDealerId,
                     lang: uiLanguage,
                     budgetAccountNumbers: hasBranches
                       ? [g.main.account_number, ...g.branches.map((b) => b.account_number)]
@@ -692,6 +699,7 @@ export default function CrmMyDealersPage() {
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
+                        contactsByDealerId,
                         lang: uiLanguage,
                         budgetAccountNumbers: [b.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
@@ -707,6 +715,7 @@ export default function CrmMyDealersPage() {
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
+                        contactsByDealerId,
                         lang: uiLanguage,
                         budgetAccountNumbers: [c.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
@@ -722,6 +731,7 @@ export default function CrmMyDealersPage() {
                         statsMap, allUsers, dealersByAcct,
                         usersExpanded, setUsersExpanded,
                         budgetIndex,
+                        contactsByDealerId,
                         lang: uiLanguage,
                         budgetAccountNumbers: [p.account_number],
                         onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
@@ -826,6 +836,7 @@ interface RowProps {
   usersExpanded: Set<string>;
   setUsersExpanded: React.Dispatch<React.SetStateAction<Set<string>>>;
   budgetIndex: DealerBudgetIndex | null;
+  contactsByDealerId: Record<string, DealerContact[]>;
   lang: PortalUiLanguage;
   budgetAccountNumbers: string[];
   onOpenDetail?: (d: DealerAccount) => void;
@@ -946,7 +957,7 @@ function renderRow(p: RowProps) {
         <Td>{dealerTypeText(normaliseAccountType(p.r), p.lang)}</Td>
         <Td>{p.formatCountry(p.r.country) || "—"}</Td>
         <Td>
-          <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} lang={p.lang} />
+          <ProfileStatusBadge dealer={p.r} peopleCount={Math.max(own.user, linkedUsers.length)} contacts={p.contactsByDealerId[p.r.id]} lang={p.lang} />
         </Td>
         <Td>
           <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${(own.user > 0 || linkedUsers.length > 0) ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-500"}`}>
@@ -1097,11 +1108,11 @@ function normalizeCompanyBase(value: string | null | undefined): string {
     .trim();
 }
 
-function ProfileStatusBadge({ dealer, peopleCount, lang }: { dealer: DealerAccount; peopleCount: number; lang: PortalUiLanguage }) {
-  const severity = computeDealerProfileSeverity(dealer, peopleCount);
-  const missingSections = getDealerProfileMissingLabels(dealer, peopleCount);
+function ProfileStatusBadge({ dealer, peopleCount, contacts = [], lang }: { dealer: DealerAccount; peopleCount: number; contacts?: DealerContact[]; lang: PortalUiLanguage }) {
+  const severity = computeDealerProfileSeverity(dealer, peopleCount, contacts);
+  const missingSections = getDealerProfileMissingLabels(dealer, peopleCount, contacts);
   const missingCritical = getDealerProfileCriticalMissing(dealer);
-  const onlySoftMissing = hasOnlySoftDealerProfileMissing(dealer);
+  const onlySoftMissing = hasOnlySoftDealerProfileMissing(dealer, contacts);
   const tone =
     severity === "complete" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
     : severity === "partial" && onlySoftMissing ? "bg-emerald-100 text-emerald-800 border-emerald-200"

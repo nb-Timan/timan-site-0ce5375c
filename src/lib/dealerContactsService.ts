@@ -114,6 +114,28 @@ export async function listDealerContacts(dealerAccountId: string): Promise<Deale
   return (data ?? []).map(rowToContact);
 }
 
+/** Loads contacts for a visible dealer list in one request. */
+export async function listDealerContactsForAccounts(
+  dealerAccountIds: string[],
+): Promise<Record<string, DealerContact[]>> {
+  const ids = Array.from(new Set(dealerAccountIds.filter(Boolean)));
+  if (ids.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from("dealer_contacts")
+    .select("*")
+    .in("dealer_account_id", ids)
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.warn("[dealerContactsService] list batch error", error);
+    return {};
+  }
+  return (data ?? []).map(rowToContact).reduce<Record<string, DealerContact[]>>((byDealer, contact) => {
+    (byDealer[contact.dealer_account_id] ??= []).push(contact);
+    return byDealer;
+  }, {});
+}
+
 export interface UpsertDealerContactInput {
   id?: string;
   dealer_account_id: string;
