@@ -119,6 +119,20 @@ describe("dealer machine register", () => {
     expect(rows[0].machineKind).toBe("demo");
   });
 
+  it("keeps a legacy MO reference user-facing when it shares the dealer machine list", () => {
+    const rows = reconcileDealerMachineRows({
+      dealer,
+      warranties: [warranty({
+        machineSerial: "310100-00-1038",
+        certificateNumber: "MO-657",
+        sourceType: "legacy_machine_import",
+      })],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].warrantyCertificate).toBe("MO-657");
+    expect(rows[0].warrantyCertificate).not.toContain("legacy-import:");
+  });
+
   it("keeps early demo sales in the overview and hides correctly sold demos from the widget", () => {
     const rows = reconcileDealerMachineRows({
       dealer,
