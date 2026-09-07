@@ -43,4 +43,12 @@ describe("pending partner submissions", () => {
     expect(overview).toContain("renderList={false}");
     expect(overview).not.toContain("navigate(`/portal/crm/my-dealers/${row.id}`)");
   });
+
+  it("clears the visible table loading state before background enrichment", () => {
+    const tableReady = overview.indexOf("if (!cancelled) setLoadingRows(false);");
+    const enrichment = overview.lastIndexOf("listDealerContactsForAccounts");
+
+    expect(tableReady).toBeGreaterThan(-1);
+    expect(enrichment).toBeGreaterThan(tableReady);
+  });
 });

@@ -355,6 +355,10 @@ export default function CrmMyDealersPage() {
           setError(missingOwnAccountError ?? dRes.error ?? sRes.error ?? null);
         }
 
+        // Render the scoped list as soon as it is ready. Completion and budget
+        // enrichment continue below without blocking the usable table.
+        if (!cancelled) setLoadingRows(false);
+
         const contacts = await listDealerContactsForAccounts(loadedDealers.map((dealer) => dealer.id));
         if (cancelled) return;
         setContactsByDealerId(contacts);
