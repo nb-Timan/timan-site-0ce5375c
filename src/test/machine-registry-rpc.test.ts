@@ -28,4 +28,11 @@ describe("machine registry RPC read-chain", () => {
     expect(migration).toContain("'missing_warranty_and_dealer'");
     expect(migration).toContain("'warrantyMatchStatus', warranty_match_status");
   });
+
+  it("returns warranty/match counts from the complete filtered server result", () => {
+    const migration = read("supabase/migrations/20260907185421_machine_registry_warranty_match_counts.sql");
+    expect(migration).toContain("count(*) filter(where warranty_match_status='approved')");
+    expect(migration).toContain("'needsClarification'");
+    expect(migration).toContain("'warrantyMatchDetail',warranty_match_detail");
+  });
 });

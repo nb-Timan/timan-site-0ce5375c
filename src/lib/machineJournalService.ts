@@ -331,6 +331,7 @@ export interface MachineOverviewRow {
   warrantyType: "normal" | "historical" | null;
   /** Independent warranty/dealer match status; never machine health. */
   warrantyMatchStatus?: "approved" | "needs_clarification" | "missing_warranty_and_dealer";
+  warrantyMatchDetail?: "approved" | "missing_active_dealer" | "missing_warranty_registration" | "missing_warranty_and_active_dealer";
 }
 
 function fmtDateDk(iso: string | null | undefined): string | null {

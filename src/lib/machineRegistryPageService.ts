@@ -7,6 +7,7 @@ type RegistryRow = Omit<MachineOverviewRow, "sources" | "warrantyIdNumeric" | "l
 type RegistryResponse = {
   total: number; scopeTotal: number; normal: number; historical: number;
   healthy: number; needsAttention: number; critical: number; rows: RegistryRow[];
+  approved: number; needsClarification: number; missingWarrantyAndDealer: number;
 };
 
 export type MachineRegistryPage = Omit<RegistryResponse, "rows"> & { rows: MachineOverviewRow[] };
@@ -30,6 +31,8 @@ export async function fetchMachineRegistryPage(input: {
     total: Number(result.total ?? 0), scopeTotal: Number(result.scopeTotal ?? 0),
     normal: Number(result.normal ?? 0), historical: Number(result.historical ?? 0),
     healthy: Number(result.healthy ?? 0), needsAttention: Number(result.needsAttention ?? 0), critical: Number(result.critical ?? 0),
+    approved: Number(result.approved ?? 0), needsClarification: Number(result.needsClarification ?? 0),
+    missingWarrantyAndDealer: Number(result.missingWarrantyAndDealer ?? 0),
     rows: (result.rows ?? []).map((row) => ({
       ...row, sources: ["warranty"] as MachineOverviewRow["sources"], warrantyIdNumeric: null,
       latestActivityLabel: row.latestActivityDate ? `${row.latestActivityDate.slice(0, 10)} · Garantiregistrering` : null,
