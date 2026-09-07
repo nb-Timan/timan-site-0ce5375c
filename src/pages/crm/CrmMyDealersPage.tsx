@@ -22,7 +22,7 @@
  */
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Navigate, Link, useNavigate } from "react-router-dom";
+import { Navigate, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Building2, ChevronDown, ChevronRight, GitBranch, Search, Star } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -75,6 +75,9 @@ import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
 import { listPortalFormSubmissions, submissionBelongsToSeller, type PortalFormSubmission } from "@/lib/portalFormsService";
 import PendingPartnerSubmissions, { getPendingPartnerSubmissionDetails } from "@/components/crm/PendingPartnerSubmissions";
+import DealerSalesDashboardPrototype from "@/components/crm/DealerSalesDashboardPrototype";
+import { prototypeScopeForSeller, type PrototypeScopeMode } from "@/lib/crmDealerDashboardPrototype";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const profileTextKeyByDanishLabel: Record<string, string> = {
   "Firma information": "crmProfileSectionCompany",
   "Økonomi": "crmProfileSectionFinance",
@@ -201,6 +204,8 @@ export default function CrmMyDealersPage() {
   const { uiLanguage } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const partnerListRequested = searchParams.get("view") === "partner-list";
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [statsMap, setStatsMap] = useState<Record<string, DealerAccountStats>>({});
   const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
@@ -219,7 +224,15 @@ export default function CrmMyDealersPage() {
   const [pendingPartnerSubmissions, setPendingPartnerSubmissions] = useState<PortalFormSubmission[]>([]);
   const [selectedPendingPartnerSubmission, setSelectedPendingPartnerSubmission] = useState<PortalFormSubmission | null>(null);
   const [dealerReloadKey, setDealerReloadKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<"dashboard" | "partner-list">(
+    partnerListRequested ? "partner-list" : "dashboard",
+  );
+  const [prototypeScope, setPrototypeScope] = useState<PrototypeScopeMode>("backend");
   const budgetYear = new Date().getFullYear();
+
+  useEffect(() => {
+    setActiveTab(partnerListRequested ? "partner-list" : "dashboard");
+  }, [partnerListRequested]);
 
   const portalRole = useMemo(() => derivePortalRole(effectiveUser), [effectiveUser]);
   const admin = isCrmAdmin(portalRole);
@@ -268,6 +281,13 @@ export default function CrmMyDealersPage() {
 
   const activeSellerView = appUser ? getActiveSellerView(appUser.email) : null;
   const showBackendSellerOverview = canSwitchMode(appUser) && activeMode === "backend";
+  const defaultPrototypeScope = admin && !activeSellerView
+    ? "backend"
+    : prototypeScopeForSeller(getEffectiveSellerInitials(appUser));
+
+  useEffect(() => {
+    setPrototypeScope(defaultPrototypeScope);
+  }, [defaultPrototypeScope]);
 
   useEffect(() => {
     if (!appUser) return;
@@ -452,7 +472,7 @@ export default function CrmMyDealersPage() {
   }
   const totalDealersCount = (dealers ?? []).filter((d) => !absorbedIds.has(d.id) && !isDealerCustomerAccount(d)).length;
   const visibleMainCount = filteredDealers.filter((d) => !isDealerCustomerAccount(d)).length;
-  const backendSellerOverview = showBackendSellerOverview
+  const backendSellerOverview = showBackendSellerOverview && prototypeScope === "backend"
     ? buildBackendSellerOverview(dealers ?? [], dealersByAcct, absorbedIds)
     : [];
   const openSellerView = (sellerKey: SellerViewKey) => {
@@ -507,6 +527,21 @@ export default function CrmMyDealersPage() {
         </div>
       </div>
 
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "dashboard" | "partner-list")} className="w-full">
+        <TabsList className="mb-4 h-auto rounded-lg bg-slate-100 p-1">
+          <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-white"><Building2 className="h-4 w-4" />Dashboard</TabsTrigger>
+          <TabsTrigger value="partner-list" className="gap-2 data-[state=active]:bg-white"><Search className="h-4 w-4" />Partnerliste</TabsTrigger>
+        </TabsList>
+        <TabsContent value="dashboard" className="mt-0">
+          <DealerSalesDashboardPrototype
+            initialScope={defaultPrototypeScope}
+            scope={prototypeScope}
+            onScopeChange={setPrototypeScope}
+            live
+            viewAsEmail={activeSellerView?.email}
+          />
+        </TabsContent>
+        <TabsContent value="partner-list" className="mt-0">
       <div className="mb-4 bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center gap-3">
         <div className="relative max-w-md flex-1 min-w-[220px]">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -718,6 +753,8 @@ export default function CrmMyDealersPage() {
           }}
         />
       )}
+        </TabsContent>
+      </Tabs>
     </CrmLayout>
   );
 }

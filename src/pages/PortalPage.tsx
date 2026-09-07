@@ -313,8 +313,10 @@ export default function PortalPage() {
             const ownDealerPath = effectiveUser?.dealer_number
               ? `/portal/crm/my-dealers/${encodeURIComponent(effectiveUser.dealer_number)}`
               : meta.to;
+            // The front-page Partnerdata card intentionally opens the old
+            // partner list. CRM itself continues to default to Dashboard.
             const cardTo = area.id === 'dealer_data' && internalDealerData
-              ? '/portal/crm/my-dealers'
+              ? '/portal/crm/my-dealers?view=partner-list'
               : area.id === 'dealer_data' && externalDealerData
                 ? ownDealerPath
                 : meta.to;
