@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 describe('configurator saved edit state', () => {
   const source = () => readFileSync('src/lib/configurationsService.ts', 'utf8');
   const accountPanelSource = () => readFileSync('src/components/configurator/AccountPanel.tsx', 'utf8');
+  const configuratorSource = () => readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
 
   it('restores active sent quotes as editable quotes even if legacy type says order', () => {
     const code = source();
@@ -33,12 +34,13 @@ describe('configurator saved edit state', () => {
     expect(code).toContain('return { error: null, itemsError: formatSupabaseError(delErr) }');
   });
 
-  it('loads Min konto rows from the effective seller scope when Backend views as a seller', () => {
+  it('loads Min konto rows from the displayed seller scope during a role preview', () => {
     const code = accountPanelSource();
     expect(code).toContain("import { getEffectiveSellerEmail } from '@/lib/activeMode'");
-    expect(code).toContain('const accountScopeEmail = (getEffectiveSellerEmail(sessionUser) ?? userEmail).toLowerCase()');
+    expect(code).toContain('const accountScopeEmail = (getEffectiveSellerEmail(appUser) ?? userEmail).toLowerCase()');
     expect(code).toContain('loadConfigurations(accountScopeEmail)');
     expect(code).toContain('loadConfigurationById(item.id, accountScopeEmail)');
     expect(code).toContain('resolveHideScopeForCurrentUser(accountScopeEmail)');
+    expect(configuratorSource()).toContain('appUser={effectiveUser ?? appUser}');
   });
 });

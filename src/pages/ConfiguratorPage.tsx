@@ -3367,7 +3367,7 @@ export default function ConfiguratorPage() {
               <OwnershipPicker value={ownership} onChange={setOwnership} language={uiLanguage} variant="compact" hideDealer={isExhibition} />
             </fieldset>
             <AccountPanel
-              appUser={appUser}
+              appUser={effectiveUser ?? appUser}
               language={uiLanguage}
               currentState={state}
               ownershipOverride={buildOwnershipPayload}

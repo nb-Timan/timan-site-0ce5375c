@@ -135,7 +135,9 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     && currentState.email.trim() !== '';
 
   const userEmail = appUser.email.toLowerCase();
-  const accountScopeEmail = (getEffectiveSellerEmail(sessionUser) ?? userEmail).toLowerCase();
+  // The panel's prop is the active portal identity (including role previews).
+  // Scope saved cases from that identity, not the underlying backend session.
+  const accountScopeEmail = (getEffectiveSellerEmail(appUser) ?? userEmail).toLowerCase();
 
   const refreshItems = useCallback(async () => {
     const items = await loadConfigurations(accountScopeEmail);
