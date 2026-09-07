@@ -12,6 +12,9 @@ describe("CRM dealer detail machine register integration", () => {
 
   it("shows the demo machine panel in the overview right column even for empty data", () => {
     expect(source).toContain("CrmDemoMachinesPanel");
+    expect(source).toContain("CrmDemoMachinesPreview");
+    expect(source).not.toContain("demoOverviewMachines");
+    expect(source).not.toContain("machineStatusFilter");
     expect(source).toContain('tl("no_active_demo_machines", lang)');
     expect(source).toContain('setActiveTab("machines")');
   });

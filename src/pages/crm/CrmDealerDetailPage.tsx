@@ -597,6 +597,7 @@ export default function CrmDealerDetailPage() {
   const [showEditDealer, setShowEditDealer] = useState(false);
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("overview");
+  const [machineListDemoOnly, setMachineListDemoOnly] = useState(false);
   const [machineContext, setMachineContext] = useState<{ dealer: DealerAccount; scope: JournalScope } | null>(null);
   const [busy, setBusy] = useState(true);
   // Live CRM configurations (same source as CRM → Tilbud / Ordrer).
@@ -1479,11 +1480,12 @@ export default function CrmDealerDetailPage() {
               </div>
 
               <div className="sm:col-span-2">
-                <CrmDemoMachinesPanel
-                  rows={demoOverviewMachines}
+                <CrmDemoMachinesPreview
+                  dealer={machineContext?.dealer ?? null}
+                  scope={machineContext?.scope ?? null}
                   lang={lang}
                   onOpenMachines={() => {
-                    setMachineStatusFilter("demo_attention");
+                    setMachineListDemoOnly(true);
                     setActiveTab("machines");
                   }}
                   compact
@@ -1639,6 +1641,7 @@ export default function CrmDealerDetailPage() {
             dealer={machineContext?.dealer ?? null}
             scope={machineContext?.scope ?? null}
             lang={lang}
+            initialDemoOnly={machineListDemoOnly}
           />
         </TabsContent>
 
@@ -1839,11 +1842,17 @@ function crmLifecycleMeta(row: DealerMachineRegisterRow, lang: PortalUiLanguage)
 
 function CrmDemoMachinesPanel({
   rows,
+  total = rows.length,
+  loading = false,
+  error = false,
   lang,
   onOpenMachines,
   compact = false,
 }: {
   rows: DealerMachineRegisterRow[];
+  total?: number;
+  loading?: boolean;
+  error?: boolean;
   lang: PortalUiLanguage;
   onOpenMachines: () => void;
   compact?: boolean;
@@ -1862,12 +1871,16 @@ function CrmDemoMachinesPanel({
           type="button"
           onClick={onOpenMachines}
           className="inline-flex items-center rounded-full bg-slate-100 text-slate-700 px-2 py-0.5 text-[10px] font-bold hover:bg-emerald-50 hover:text-emerald-700"
-          aria-label={`${tl("view_machines", lang)} ${rows.length}`}
+          aria-label={`${tl("view_machines", lang)} ${total}`}
         >
-          {rows.length}
+          {total}
         </button>
       </div>
-      {rows.length === 0 ? (
+      {loading ? (
+        <p className="text-sm text-slate-500">Henter demo-maskiner…</p>
+      ) : error ? (
+        <p className="text-sm text-red-600">Demo-maskiner kunne ikke hentes.</p>
+      ) : rows.length === 0 ? (
         <p className="text-sm text-slate-500">{tl("no_active_demo_machines", lang)}</p>
       ) : (
         <div className="space-y-2">
@@ -1895,13 +1908,13 @@ function CrmDemoMachinesPanel({
               </button>
             );
           })}
-          {rows.length > 4 && (
+          {total > rows.length && (
             <button
               type="button"
               onClick={onOpenMachines}
               className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-800"
             >
-              {tl("show_all", lang)} {rows.length} <ArrowRight className="h-3.5 w-3.5" />
+              {tl("show_all", lang)} {total} <ArrowRight className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
@@ -1910,14 +1923,47 @@ function CrmDemoMachinesPanel({
   );
 }
 
-function CrmMachineRegisterPanel({
-  dealer,
-  scope,
-  lang,
+function CrmDemoMachinesPreview({
+  dealer, scope, lang, onOpenMachines,
 }: {
   dealer: DealerAccount | null;
   scope: JournalScope | null;
   lang: PortalUiLanguage;
+  onOpenMachines: () => void;
+}) {
+  const [rows, setRows] = useState<DealerMachineRegisterRow[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (!dealer || !scope) { setRows([]); setTotal(0); return; }
+    let cancelled = false;
+    setLoading(true); setError(false);
+    fetchDealerMachineRegisterPage({
+      dealer, scope, query: "", demoOnly: true, sort: "delivery", direction: "desc", page: 1, pageSize: 4,
+    }).then((result) => {
+      if (!cancelled) { setRows(result.rows); setTotal(result.total); }
+    }).catch((requestError) => {
+      console.warn("[CrmDemoMachinesPreview] demo list failed:", requestError);
+      if (!cancelled) { setRows([]); setTotal(0); setError(true); }
+    }).finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [dealer, scope]);
+
+  return <CrmDemoMachinesPanel rows={rows} total={total} loading={loading} error={error} lang={lang} onOpenMachines={onOpenMachines} compact />;
+}
+
+function CrmMachineRegisterPanel({
+  dealer,
+  scope,
+  lang,
+  initialDemoOnly,
+}: {
+  dealer: DealerAccount | null;
+  scope: JournalScope | null;
+  lang: PortalUiLanguage;
+  initialDemoOnly: boolean;
 }) {
   const [rows, setRows] = useState<DealerMachineRegisterRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -1934,6 +1980,11 @@ function CrmMachineRegisterPanel({
     setRows([]); setTotal(0); setQuery(""); setDemoOnly(false);
     setSort("delivery"); setDirection("desc"); setPage(1);
   }, [dealer?.account_number]);
+
+  useEffect(() => {
+    setDemoOnly(initialDemoOnly);
+    setPage(1);
+  }, [initialDemoOnly]);
 
   useEffect(() => {
     if (!dealer || !scope) return;
