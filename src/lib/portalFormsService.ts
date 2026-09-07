@@ -32,6 +32,19 @@ export interface PortalFormSubmission {
 }
 
 /**
+ * Uses the submission's canonical creator identity. Email is only a legacy
+ * fallback for rows created before the internal app_users id was stored.
+ */
+export function submissionBelongsToSeller(
+  submission: PortalFormSubmission,
+  seller: { ownerUserId: string | null; ownerEmail: string | null },
+): boolean {
+  if (seller.ownerUserId && submission.submitted_by_user_id === seller.ownerUserId) return true;
+  const ownerEmail = seller.ownerEmail?.trim().toLowerCase();
+  return !!ownerEmail && submission.submitted_by_email?.trim().toLowerCase() === ownerEmail;
+}
+
+/**
  * Resolve the caller's internal app_users.id (PK referenced by
  * portal_form_submissions.submitted_by_user_id) from the current
  * auth session. Returns null if not signed in or no row matches.

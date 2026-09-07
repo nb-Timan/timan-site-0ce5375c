@@ -58,7 +58,7 @@ import {
   setActiveMode as setStoredActiveMode,
   type SellerViewKey,
 } from "@/lib/activeMode";
-import { resolveSellerId } from "@/lib/resolveSellerId";
+import { resolveEffectiveCrmSellerScope, resolveSellerId } from "@/lib/resolveSellerId";
 import {
   buildDealerBudgetIndex,
   aggregateDealerBudget,
@@ -73,7 +73,7 @@ import {
 } from "@/lib/dealerProfileBadge";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
-import { listPortalFormSubmissions, type PortalFormSubmission } from "@/lib/portalFormsService";
+import { listPortalFormSubmissions, submissionBelongsToSeller, type PortalFormSubmission } from "@/lib/portalFormsService";
 import PendingPartnerSubmissions, { getPendingPartnerSubmissionDetails } from "@/components/crm/PendingPartnerSubmissions";
 const profileTextKeyByDanishLabel: Record<string, string> = {
   "Firma information": "crmProfileSectionCompany",
@@ -234,10 +234,14 @@ export default function CrmMyDealersPage() {
     try {
       const rows = await listPortalFormSubmissions({ formType: "company_contact_info" });
       // A Backend session can read every submission through RLS. When it is
-      // previewing a seller, retain the same seller-specific view as login.
+      // previewing a seller, resolve the selected seller's canonical
+      // app_users id instead of the display-only effective portal user.
+      const sellerScope = seller
+        ? await resolveEffectiveCrmSellerScope(appUser)
+        : null;
       setPendingPartnerSubmissions(
-        seller && !admin && effectiveUser?.id
-          ? rows.filter((row) => row.submitted_by_user_id === effectiveUser.id)
+        seller && !admin && sellerScope
+          ? rows.filter((row) => submissionBelongsToSeller(row, sellerScope))
           : rows,
       );
     } catch (submissionError) {
@@ -248,7 +252,7 @@ export default function CrmMyDealersPage() {
 
   useEffect(() => {
     void reloadPendingPartnerSubmissions();
-  }, [admin, seller, appUser?.id, effectiveUser?.id]);
+  }, [admin, seller, appUser]);
 
   // Re-render when the backend user switches active seller view.
   const [activeMode, setActiveMode] = useState<string>(() => getActiveMode(appUser?.email));
