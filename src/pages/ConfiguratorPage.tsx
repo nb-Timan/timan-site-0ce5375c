@@ -1893,7 +1893,11 @@ export default function ConfiguratorPage() {
             // must NOT clear the quote sent date.
             if (activeCaseId) {
               try {
-                await markAsOrderSubmitted(activeCaseId, { pricingMode: isExhibition ? 'messe' : undefined });
+                const submittedOrderNumber = await markAsOrderSubmitted(activeCaseId, { pricingMode: isExhibition ? 'messe' : undefined });
+                if (submittedOrderNumber) {
+                  activeOrderNumber = submittedOrderNumber;
+                  setSavedOrderNumber(submittedOrderNumber);
+                }
               } catch (markErr) {
                 console.error('Failed to mark order as submitted:', markErr);
               }

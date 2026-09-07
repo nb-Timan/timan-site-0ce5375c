@@ -1389,7 +1389,7 @@ export async function deleteConfiguration(id: string) {
 }
 
 /** Mark configuration as order submitted */
-export async function markAsOrderSubmitted(id: string, options?: { pricingMode?: ConfigurationPricingMode }) {
+export async function markAsOrderSubmitted(id: string, options?: { pricingMode?: ConfigurationPricingMode }): Promise<string | null> {
   const nowIso = new Date().toISOString();
   // Unscoped row read so backend/CRM users can convert a quote they did
   // NOT originally create (e.g. backend reopens Birger's quote). RLS still
@@ -1452,8 +1452,11 @@ export async function markAsOrderSubmitted(id: string, options?: { pricingMode?:
     last_saved_at: nowIso,
   });
 
-  if (error) console.error('Failed to mark as order submitted:', error);
-  else void recordConfiguratorUsage(1);
+  if (error) {
+    console.error('Failed to mark as order submitted:', error);
+    return null;
+  }
+  void recordConfiguratorUsage(1);
 
   const linkedLeadId = (rowSnapshot?.lead_id as string | null) ?? null;
   if (!error && linkedLeadId) {
@@ -1486,6 +1489,8 @@ export async function markAsOrderSubmitted(id: string, options?: { pricingMode?:
   } catch (e) {
     console.warn('[markAsOrderSubmitted] crm activity log failed (Supabase write rejected; not persisted to server):', e);
   }
+
+  return orderNumber;
 }
 
 /** Mark PDF as downloaded. If flowType === 'quote', also stamps quote_sent_at (only first time). */
