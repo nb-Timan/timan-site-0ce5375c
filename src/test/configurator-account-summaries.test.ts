@@ -7,6 +7,7 @@ import {
   type AccountCaseLike,
 } from '@/lib/configuratorAccountSummaries';
 import type { ConfiguratorState } from '@/types/configurator';
+import { convertCurrency, currencyFromLanguage } from '@/lib/currency';
 
 const baseState: ConfiguratorState = {
   step: 4,
@@ -67,12 +68,14 @@ describe('configurator account summaries', () => {
     expect(summary.currencyLanguage).toBe('da');
   });
 
-  it('keeps a saved EUR configuration in EUR when the portal is viewed in Danish', () => {
+  it('retains source currency metadata so the UI can convert it to the portal display currency', () => {
     const summary = buildAccountCaseSummary(configuration({
       state_json: { ...baseState, language: 'de' },
     }), 'da');
 
     expect(summary.currencyLanguage).toBe('de');
+    expect(convertCurrency(100, currencyFromLanguage(summary.currencyLanguage), 'DKK')).toBe(746);
+    expect(convertCurrency(746, 'DKK', 'EUR')).toBe(100);
   });
 
   it('filters by status and search without fetching detail rows', () => {

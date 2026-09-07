@@ -27,7 +27,12 @@ import {
 } from '@/lib/configurationsService';
 import { hideConfigurationForScope } from '@/lib/userHiddenConfigurationsService';
 import { resolveHideScopeForCurrentUser } from '@/lib/configurationsService';
-import { calcConfigurationTotals, formatMoney } from '@/lib/calcConfiguration';
+import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import {
+  convertCurrency,
+  currencyFromLanguage,
+  formatMoney,
+} from '@/lib/currency';
 import {
   AccountCaseStatusFilter,
   buildAccountCaseLines,
@@ -138,6 +143,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   // The panel's prop is the active portal identity (including role previews).
   // Scope saved cases from that identity, not the underlying backend session.
   const accountScopeEmail = (getEffectiveSellerEmail(appUser) ?? userEmail).toLowerCase();
+  // Scope is selected by "Vis som"; the portal language alone controls display currency.
+  const displayCurrency = currencyFromLanguage(mapUiLanguageToLegacy(language));
+  const formatDisplayMoney = (value: number, sourceLanguage: Language): string => {
+    const sourceCurrency = currencyFromLanguage(sourceLanguage);
+    return formatMoney(convertCurrency(value, sourceCurrency, displayCurrency), displayCurrency);
+  };
 
   const refreshItems = useCallback(async () => {
     const items = await loadConfigurations(accountScopeEmail);
@@ -334,20 +345,22 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
     savedItems.forEach(item => {
       if (!item.state_json) return;
       const { finalPrice } = calcConfigurationTotals(item.state_json);
+      const sourceCurrency = currencyFromLanguage(item.state_json.language);
+      const displayValue = convertCurrency(finalPrice, sourceCurrency, displayCurrency);
       const status = effectiveCaseStatus(item);
       if (status === 'aktiv') {
         totals.active.count += 1;
-        totals.active.value += finalPrice;
+        totals.active.value += displayValue;
       } else if (status === 'ordre_afgivet') {
         totals.closed.count += 1;
-        totals.closed.value += finalPrice;
+        totals.closed.value += displayValue;
       } else if (status === 'pause') {
         totals.paused.count += 1;
-        totals.paused.value += finalPrice;
+        totals.paused.value += displayValue;
       }
     });
     return totals;
-  }, [savedItems]);
+  }, [displayCurrency, savedItems]);
 
   const filteredItems = useMemo(
     () => filterAccountCases(savedItems, statusFilter, search),
@@ -360,7 +373,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   );
 
   const detailLines = useMemo(
-    () => detailItem ? buildAccountCaseLines(detailItem.state_json, language) : [],
+    () => detailItem ? buildAccountCaseLines(detailItem.state_json, language, detailItem.state_json.language) : [],
     [detailItem, language],
   );
 
@@ -532,7 +545,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   </div>
                 </div>
                 <div className="text-sm font-bold text-emerald-900 tabular-nums whitespace-nowrap ml-2">
-                  {formatMoney(stats.active.value, mapUiLanguageToLegacy(language))}
+                  {formatMoney(stats.active.value, displayCurrency)}
                 </div>
               </div>
 
@@ -544,7 +557,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   </div>
                 </div>
                 <div className="text-sm font-bold text-blue-900 tabular-nums whitespace-nowrap ml-2">
-                  {formatMoney(stats.closed.value, mapUiLanguageToLegacy(language))}
+                  {formatMoney(stats.closed.value, displayCurrency)}
                 </div>
               </div>
 
@@ -556,7 +569,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                   </div>
                 </div>
                 <div className="text-sm font-bold text-amber-900 tabular-nums whitespace-nowrap ml-2">
-                  {formatMoney(stats.paused.value, mapUiLanguageToLegacy(language))}
+                  {formatMoney(stats.paused.value, displayCurrency)}
                 </div>
               </div>
             </div>
@@ -643,7 +656,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                           <div className="text-xs text-gray-500 mt-1">{fmt(summary.latestChange)}</div>
                         </div>
                         <div className="lg:text-right font-bold text-gray-900 tabular-nums">
-                          {formatMoney(summary.totalPrice, summary.currencyLanguage)}
+                          {formatDisplayMoney(summary.totalPrice, summary.currencyLanguage)}
                         </div>
                         <div className="flex lg:justify-end gap-2 flex-wrap">
                           <button
@@ -748,24 +761,24 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                       <div className="font-mono text-xs text-gray-600">{line.itemNo}</div>
                       <div className="font-medium text-gray-900">{line.description}</div>
                       <div className="text-gray-500">{line.note || '-'}</div>
-                      <div className="text-right tabular-nums">{formatMoney(line.unitPrice, detailCurrencyLanguage)}</div>
+                      <div className="text-right tabular-nums">{formatDisplayMoney(line.unitPrice, detailCurrencyLanguage)}</div>
                       <div className="text-right tabular-nums">{line.quantity}</div>
-                      <div className="text-right font-semibold tabular-nums">{formatMoney(line.total, detailCurrencyLanguage)}</div>
+                      <div className="text-right font-semibold tabular-nums">{formatDisplayMoney(line.total, detailCurrencyLanguage)}</div>
                     </div>
                   ))}
                 </div>
                 <div className="border-t border-gray-200 bg-white px-4 py-3 space-y-1">
                   <div className="flex justify-end gap-6 text-sm">
                     <span className="text-gray-500">{tx('subtotal')}</span>
-                    <span className="w-32 text-right font-semibold tabular-nums">{formatMoney(detailTotals.subtotal, detailCurrencyLanguage)}</span>
+                    <span className="w-32 text-right font-semibold tabular-nums">{formatDisplayMoney(detailTotals.subtotal, detailCurrencyLanguage)}</span>
                   </div>
                   <div className="flex justify-end gap-6 text-sm">
                     <span className="text-gray-500">{tx('discount')}</span>
-                    <span className="w-32 text-right font-semibold tabular-nums">{formatMoney(detailTotals.totalDiscount, detailCurrencyLanguage)}</span>
+                    <span className="w-32 text-right font-semibold tabular-nums">{formatDisplayMoney(detailTotals.totalDiscount, detailCurrencyLanguage)}</span>
                   </div>
                   <div className="flex justify-end gap-6 text-base">
                     <span className="font-bold text-gray-900">{tx('totalPrice')}</span>
-                    <span className="w-32 text-right font-bold tabular-nums">{formatMoney(detailTotals.finalPrice, detailCurrencyLanguage)}</span>
+                    <span className="w-32 text-right font-bold tabular-nums">{formatDisplayMoney(detailTotals.finalPrice, detailCurrencyLanguage)}</span>
                   </div>
                 </div>
               </div>

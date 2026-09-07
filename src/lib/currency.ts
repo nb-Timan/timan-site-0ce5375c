@@ -25,6 +25,12 @@ export function toDkk(value: number, currency: Currency): number {
   return value;
 }
 
+/** Convert between the two commercial currencies without changing stored data. */
+export function convertCurrency(value: number, source: Currency, target: Currency): number {
+  if (!Number.isFinite(value) || source === target) return Number.isFinite(value) ? value : 0;
+  return target === 'DKK' ? toDkk(value, source) : value / EUR_TO_DKK;
+}
+
 export function formatDkk(value: number): string {
   return `${Math.round(value).toLocaleString('da-DK')} kr.`;
 }

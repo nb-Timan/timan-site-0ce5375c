@@ -147,14 +147,18 @@ export function filterAccountCases<T extends AccountCaseLike>(
   });
 }
 
-export function buildAccountCaseLines(state: ConfiguratorState, language: string): AccountCaseLine[] {
+export function buildAccountCaseLines(
+  state: ConfiguratorState,
+  language: string,
+  sourceLanguage: Language = state.language,
+): AccountCaseLine[] {
   const legacyLang = normalizeLang(language);
   const lines: AccountCaseLine[] = [];
 
   state.machineConfigs.forEach((machine) => {
     const product = PRODUCTS[machine.type];
     const quantity = Math.max(1, machine.qty || 1);
-    const unitPrice = product ? getPrice(product, legacyLang) : 0;
+    const unitPrice = product ? getPrice(product, sourceLanguage) : 0;
 
     lines.push({
       itemNo: product?.varenr || machine.type,
@@ -172,7 +176,7 @@ export function buildAccountCaseLines(state: ConfiguratorState, language: string
     accessories.forEach((accessory) => {
       const qtyKey = `${machine.id}_${accessory.id}`;
       const qty = Math.max(1, state.accQty?.[qtyKey] || 1);
-      const accessoryPrice = getPrice(accessory, legacyLang);
+      const accessoryPrice = getPrice(accessory, sourceLanguage);
       lines.push({
         itemNo: String(accessory.varenr || accessory.id),
         description: getLocalizedName(accessory.name, legacyLang),
