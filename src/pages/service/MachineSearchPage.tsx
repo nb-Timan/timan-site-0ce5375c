@@ -270,6 +270,7 @@ export default function MachineSearchPage() {
   // ---- Machine Registry Overview (Phase 1) ----
   const [overview, setOverview] = useState<MachineOverviewRow[]>([]);
   const [overviewTotal, setOverviewTotal] = useState(0);
+  const [overviewScopeTotal, setOverviewScopeTotal] = useState(0);
   const [overviewNormal, setOverviewNormal] = useState(0);
   const [overviewHistorical, setOverviewHistorical] = useState(0);
   const [overviewApproved, setOverviewApproved] = useState(0);
@@ -293,6 +294,7 @@ export default function MachineSearchPage() {
   const [dateTo, setDateTo] = useState<string>(initialSaved?.dateTo ?? "");
   const [modelFilter, setModelFilter] = useState<string>(initialSaved?.modelFilter ?? "all");
   const [warrantyTypeFilter, setWarrantyTypeFilter] = useState<WarrantyTypeFilter>("all");
+  const [warrantyMatchFilter, setWarrantyMatchFilter] = useState<WarrantyMatchStatus | "all">("all");
   const [sortKey, setSortKey] = useState<MachineSortKey | null>("activity");
   const [sortDirection, setSortDirection] = useState<MachineSortDirection>("desc");
   const [dateError, setDateError] = useState<string | null>(null);
@@ -330,6 +332,7 @@ export default function MachineSearchPage() {
           model: modelFilter,
           warrantyType: warrantyTypeFilter,
           health: 'all',
+          warrantyMatch: warrantyMatchFilter,
           dateFrom,
           dateTo,
           sort: sortKey,
@@ -340,6 +343,7 @@ export default function MachineSearchPage() {
         if (!cancelled) {
           setOverview(result.rows);
           setOverviewTotal(result.total);
+          setOverviewScopeTotal(result.scopeTotal);
           setOverviewNormal(result.normal);
           setOverviewHistorical(result.historical);
           setOverviewApproved(result.approved);
@@ -354,7 +358,7 @@ export default function MachineSearchPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, effectiveUser, portalRole, query, dealerQuery, modelFilter, warrantyTypeFilter, dateFrom, dateTo, sortKey, sortDirection, overviewPage, pageSize]);
+  }, [appUser, effectiveUser, portalRole, query, dealerQuery, modelFilter, warrantyTypeFilter, warrantyMatchFilter, dateFrom, dateTo, sortKey, sortDirection, overviewPage, pageSize]);
 
   // After the overview has rendered the first time, restore scroll position.
   useEffect(() => {
@@ -779,7 +783,9 @@ export default function MachineSearchPage() {
 
         {/* ---- Machine Registry Overview (compact table) ---- */}
         {(() => {
-          const totalMachines = overviewTotal;
+          // Cards explain the complete current filter scope. The selected card
+          // only drills the list down, so it must not erase that distribution.
+          const totalMachines = overviewScopeTotal;
           const approvedCount = overviewApproved;
           const needsClarificationCount = overviewNeedsClarification;
           const missingWarrantyAndDealerCount = overviewMissingWarrantyAndDealer;
@@ -812,22 +818,38 @@ export default function MachineSearchPage() {
               {/* KPI bar */}
               {!overviewLoading && totalMachines > 0 && (
                 <div className="px-4 py-3 border-b border-slate-200 bg-white grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <div className="text-left rounded-lg border border-slate-300 bg-slate-50 px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => { setWarrantyMatchFilter("all"); setOverviewPage(1); }}
+                    className={`text-left rounded-lg border px-3 py-2 transition-shadow hover:shadow-sm ${warrantyMatchFilter === "all" ? "border-slate-400 bg-slate-50 ring-1 ring-slate-400" : "border-slate-300 bg-slate-50"}`}
+                  >
                     <div className="text-[11px] uppercase tracking-wider text-slate-500">Maskiner totalt</div>
                     <div className="text-lg font-bold text-slate-900 leading-tight">{totalMachines}</div>
-                  </div>
-                  <div className="text-left rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setWarrantyMatchFilter(current => current === "approved" ? "all" : "approved"); setOverviewPage(1); }}
+                    className={`text-left rounded-lg border px-3 py-2 transition-shadow hover:shadow-sm ${warrantyMatchFilter === "approved" ? "border-emerald-500 bg-emerald-100 ring-1 ring-emerald-500" : "border-emerald-200 bg-emerald-50"}`}
+                  >
                     <div className="text-[11px] uppercase tracking-wider text-emerald-700">Godkendt</div>
                     <div className="text-lg font-bold text-emerald-800 leading-tight">{approvedCount}</div>
-                  </div>
-                  <div className="text-left rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setWarrantyMatchFilter(current => current === "needs_clarification" ? "all" : "needs_clarification"); setOverviewPage(1); }}
+                    className={`text-left rounded-lg border px-3 py-2 transition-shadow hover:shadow-sm ${warrantyMatchFilter === "needs_clarification" ? "border-amber-500 bg-amber-100 ring-1 ring-amber-500" : "border-amber-200 bg-amber-50"}`}
+                  >
                     <div className="text-[11px] uppercase tracking-wider text-amber-700">Kræver afklaring</div>
                     <div className="text-lg font-bold text-amber-800 leading-tight">{needsClarificationCount}</div>
-                  </div>
-                  <div className="text-left rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setWarrantyMatchFilter(current => current === "missing_warranty_and_dealer" ? "all" : "missing_warranty_and_dealer"); setOverviewPage(1); }}
+                    className={`text-left rounded-lg border px-3 py-2 transition-shadow hover:shadow-sm ${warrantyMatchFilter === "missing_warranty_and_dealer" ? "border-red-500 bg-red-100 ring-1 ring-red-500" : "border-red-200 bg-red-50"}`}
+                  >
                     <div className="text-[11px] uppercase tracking-wider text-red-700">Mangler garanti + forhandler</div>
                     <div className="text-lg font-bold text-red-800 leading-tight">{missingWarrantyAndDealerCount}</div>
-                  </div>
+                  </button>
                 </div>
               )}
 

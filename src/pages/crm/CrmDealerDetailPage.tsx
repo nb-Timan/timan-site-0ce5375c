@@ -739,7 +739,7 @@ export default function CrmDealerDetailPage() {
           // `effectiveUser` deliberately retains the signed-in backend email
           // for UI identity. The journal scope must use the selected seller.
           const machineScopeUser = withSellerScopeIdentity(effectiveUser, sellerView?.email);
-          const machineScope = await buildJournalScope(machineScopeUser, portalRole);
+          const machineScope = await buildJournalScope(machineScopeUser, sellerView ? "timan_seller" : portalRole);
           const machineRows = rootDealer ? await listDealerMachineRegister(rootDealer, machineScope) : [];
           if (!cancelled) setDealerMachines(machineRows);
         } catch (e) {

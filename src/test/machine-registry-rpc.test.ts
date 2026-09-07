@@ -35,4 +35,11 @@ describe("machine registry RPC read-chain", () => {
     expect(migration).toContain("'needsClarification'");
     expect(migration).toContain("'warrantyMatchDetail',warranty_match_detail");
   });
+
+  it("applies the clickable warranty status drill-down after calculating card counts", () => {
+    const migration = read("supabase/migrations/20260907191915_add_machine_registry_status_filter.sql");
+    expect(migration).toContain("p_warranty_match text default 'all'");
+    expect(migration).toContain("warranty_match_status=p_warranty_match");
+    expect(migration.indexOf("), counts as (")).toBeLessThan(migration.indexOf("), filtered as ("));
+  });
 });

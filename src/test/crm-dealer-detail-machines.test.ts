@@ -23,11 +23,12 @@ describe("CRM dealer detail machine register integration", () => {
     expect(source.indexOf('tl("recent_activities", lang)')).toBeLessThan(source.indexOf("CrmDemoMachinesPanel"));
   });
 
-  it("reuses the shared dealer machine register service from DealerDataPage", () => {
+  it("uses the canonical machine registry through the shared dealer machine register service", () => {
     expect(source).toContain("listDealerMachineRegister");
     expect(source).toContain("getDemoOverviewMachines");
     expect(source).toContain("DealerMachineRegisterRow");
     expect(source).toContain("withSellerScopeIdentity(effectiveUser, sellerView?.email)");
+    expect(source).toContain('sellerView ? "timan_seller" : portalRole');
   });
 
   it("shows the canonical company name under the company and personal data quick card", () => {

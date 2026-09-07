@@ -1,7 +1,7 @@
 import type { DealerAccount } from "@/lib/dealerAccountsService";
-import { supabase } from "@/lib/supabase";
-import { fetchWarrantyRegistrations, type DbWarrantyRegistration } from "@/lib/warrantyRegistrationsService";
+import type { DbWarrantyRegistration } from "@/lib/warrantyRegistrationsService";
 import { normalizeSerial, serialKey, type JournalScope } from "@/lib/machineJournalService";
+import { fetchMachineRegistryPage } from "@/lib/machineRegistryPageService";
 
 export type DealerMachineLifecycleKind =
   | "normal"
@@ -227,15 +227,42 @@ function scopeAllowsDealer(scope: JournalScope, dealer: DealerAccount): boolean 
 
 export async function listDealerMachineRegister(dealer: DealerAccount, scope: JournalScope): Promise<DealerMachineRegisterRow[]> {
   if (!scopeAllowsDealer(scope, dealer)) return [];
+  // The CRM tab deliberately reads the same canonical registry as Søg på
+  // maskine. The allow-list can only narrow the active RLS scope.
+  const page = await fetchMachineRegistryPage({
+    allowedDealers: scope.unrestricted ? null : Array.from(scope.dealerNumbers),
+    query: "",
+    dealer: dealer.account_number,
+    model: "all",
+    warrantyType: "all",
+    health: "all",
+    warrantyMatch: "all",
+    dateFrom: "",
+    dateTo: "",
+    sort: "activity",
+    direction: "desc",
+    page: 1,
+    pageSize: 2000,
+  });
 
-  const [machineRes, warranties] = await Promise.all([
-    supabase
-      .from("machines")
-      .select("serial_number, machine_number, machine_type, model, dealer_account_id, dealer_number, dealer_name, customer_name, warranty_start_date, updated_at")
-      .limit(2000),
-    fetchWarrantyRegistrations(),
-  ]);
-
-  const machines = (machineRes.data ?? []) as MachineRow[];
-  return reconcileDealerMachineRows({ dealer, machines, warranties });
+  return page.rows.map((row) => ({
+    serial: row.serial,
+    normalizedSerial: row.normalizedSerial,
+    machineModel: row.machineModel,
+    machineType: row.machineModel,
+    orderNumber: null,
+    orderDate: null,
+    deliveryDate: row.deliveryDate,
+    dealerName: row.dealerName,
+    dealerNumber: row.dealerNumber,
+    customerName: null,
+    machineKind: "normal",
+    warrantyCertificate: row.warrantyId,
+    warrantyRegistrationDate: row.warrantyType === "normal" ? row.latestActivityDate : null,
+    lifecycle: "normal",
+    demoSaleEligibleAt: null,
+    daysRemaining: null,
+    daysSoldEarly: null,
+    sources: ["warranty_registrations"],
+  }));
 }
