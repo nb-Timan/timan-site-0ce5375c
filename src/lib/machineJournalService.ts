@@ -329,6 +329,8 @@ export interface MachineOverviewRow {
   /** Numeric portion used for sorting (e.g. 222 from "SP-222"); null if no warranty. */
   warrantyIdNumeric: number | null;
   warrantyType: "normal" | "historical" | null;
+  /** Independent warranty/dealer match status; never machine health. */
+  warrantyMatchStatus?: "approved" | "needs_clarification" | "missing_warranty_and_dealer";
 }
 
 function fmtDateDk(iso: string | null | undefined): string | null {

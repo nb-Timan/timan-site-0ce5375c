@@ -20,6 +20,7 @@ import { readMachineSearchState, saveMachineSearchState, clearMachineSearchState
 import { LegacyMachineImportPanel } from "@/components/service/LegacyMachineImportPanel";
 import { type MachineSortDirection, type MachineSortKey, type WarrantyTypeFilter } from "@/lib/machineOverviewFilters";
 import { fetchMachineRegistryPage } from "@/lib/machineRegistryPageService";
+import { warrantyMatchStatusCopy, type WarrantyMatchStatus } from "@/lib/warrantyMatchStatus";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -805,6 +806,11 @@ export default function MachineSearchPage() {
             if (h === "needs_attention") return { chip: "bg-amber-100 text-amber-700", border: "border-l-amber-500", label: T.needs_attention[lang], dot: "bg-amber-500", text: "text-amber-600" };
             return { chip: "bg-emerald-100 text-emerald-700", border: "border-l-emerald-500", label: T.healthy[lang], dot: "bg-emerald-500", text: "text-emerald-600" };
           };
+          const warrantyMatchMeta = (status?: WarrantyMatchStatus) => {
+            if (status === "approved") return { dot: "bg-emerald-500", text: "text-emerald-700", label: warrantyMatchStatusCopy.approved.label };
+            if (status === "missing_warranty_and_dealer") return { dot: "bg-red-500", text: "text-red-700", label: warrantyMatchStatusCopy.missing_warranty_and_dealer.label };
+            return { dot: "bg-amber-500", text: "text-amber-700", label: warrantyMatchStatusCopy.needs_clarification.label };
+          };
           const toggleSort = (key: MachineSortKey, defaultDirection: MachineSortDirection = "asc") => {
             if (sortKey !== key) { setSortKey(key); setSortDirection(defaultDirection); setOverviewPage(1); return; }
             if (sortDirection === defaultDirection) { setSortDirection(defaultDirection === "asc" ? "desc" : "asc"); setOverviewPage(1); return; }
@@ -956,6 +962,7 @@ export default function MachineSearchPage() {
                       <tbody className="divide-y divide-slate-100">
                         {pageRows.map(row => {
                           const meta = healthMeta(row.health);
+                          const warrantyMeta = warrantyMatchMeta(row.warrantyMatchStatus);
                           const openItems: string[] = [];
                           if (row.openTickets > 0) openItems.push(`Ticket ${row.openTickets}`);
                           if (row.openClaims > 0) openItems.push(`Claim ${row.openClaims}`);
@@ -964,10 +971,16 @@ export default function MachineSearchPage() {
                             <tr key={row.normalizedSerial}
                               onClick={() => openMachine(row.serial)}
                               className={`cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
-                              <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">{row.warrantyId || "—"}</td>
+                              <td className="px-3 py-2 font-mono text-slate-700 whitespace-nowrap">
+                                <div>{row.warrantyId || "—"}</div>
+                                <div className={`mt-0.5 inline-flex items-center gap-1 font-sans text-[10px] font-medium ${warrantyMeta.text}`} title={`Garanti-/matchstatus: ${warrantyMeta.label}`}>
+                                  <span className={`inline-block h-1.5 w-1.5 rounded-full ${warrantyMeta.dot}`} />
+                                  {warrantyMeta.label}
+                                </div>
+                              </td>
                               <td className={`px-3 py-2 font-mono font-semibold whitespace-nowrap ${meta.text}`}>
                                 <div className="flex items-center gap-1.5">
-                                  <span className={`inline-block h-2 w-2 rounded-full ${meta.dot}`} />
+                                  <span className={`inline-block h-2 w-2 rounded-full ${warrantyMeta.dot}`} title={`Garanti-/matchstatus: ${warrantyMeta.label}`} />
                                   {row.serial}
                                 </div>
                               </td>
@@ -983,6 +996,9 @@ export default function MachineSearchPage() {
                               <td className="px-3 py-2 text-slate-700 truncate max-w-[320px]">{row.latestActivityLabel || "—"}</td>
                               <td className="px-3 py-2">
                                 <div className="flex flex-wrap gap-1">
+                                  <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${warrantyMeta.text} bg-slate-50`}>
+                                    {warrantyMatchStatusCopy[row.warrantyMatchStatus ?? "needs_clarification"].history}
+                                  </span>
                                   {row.sources.map(s => (
                                     <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-600">
                                       {sourceLabels[s] ?? s}
@@ -1006,6 +1022,7 @@ export default function MachineSearchPage() {
                   <ul className="lg:hidden divide-y divide-slate-100">
                     {pageRows.map(row => {
                       const meta = healthMeta(row.health);
+                      const warrantyMeta = warrantyMatchMeta(row.warrantyMatchStatus);
                       const openItems: string[] = [];
                       if (row.openTickets > 0) openItems.push(`Ticket ${row.openTickets}`);
                       if (row.openClaims > 0) openItems.push(`Claim ${row.openClaims}`);
@@ -1016,10 +1033,10 @@ export default function MachineSearchPage() {
                           className={`px-4 py-3 cursor-pointer hover:bg-slate-50 border-l-4 ${meta.border}`}>
                           <div className="flex items-center gap-2 min-w-0">
                             {row.warrantyId && (
-                              <span className="font-mono text-[10px] rounded bg-slate-100 px-1.5 py-0.5 text-slate-600">{row.warrantyId}</span>
+                              <span className={`font-mono text-[10px] rounded bg-slate-100 px-1.5 py-0.5 ${warrantyMeta.text}`} title={`Garanti-/matchstatus: ${warrantyMeta.label}`}>{row.warrantyId} · {warrantyMeta.label}</span>
                             )}
                             <span className={`font-mono text-sm font-semibold truncate flex items-center gap-1 ${meta.text}`}>
-                              <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${meta.dot}`} />
+                              <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${warrantyMeta.dot}`} title={`Garanti-/matchstatus: ${warrantyMeta.label}`} />
                               {row.serial}
                             </span>
                           </div>
@@ -1031,6 +1048,7 @@ export default function MachineSearchPage() {
                           </div>
                           {(row.sources.length > 0 || openItems.length > 0) && (
                             <div className="mt-1 flex flex-wrap gap-1">
+                              <span className={`inline-flex items-center rounded-full bg-slate-50 px-1.5 py-0.5 text-[9px] font-semibold ${warrantyMeta.text}`}>{warrantyMatchStatusCopy[row.warrantyMatchStatus ?? "needs_clarification"].history}</span>
                               {row.sources.map(s => (
                                 <span key={s} className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-slate-600">{sourceLabels[s] ?? s}</span>
                               ))}

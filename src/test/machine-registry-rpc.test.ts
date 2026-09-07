@@ -19,4 +19,13 @@ describe("machine registry RPC read-chain", () => {
     expect(migration).toContain("count(*) filter (where health = 'needs_attention')");
     expect(migration).toContain("(wr.source <> 'legacy_machine_import') desc");
   });
+
+  it("calculates warranty/match status from canonical SP and active dealer facts", () => {
+    const migration = read("supabase/migrations/20260907184020_machine_registry_warranty_match_status.sql");
+    expect(migration).toContain("wr.dealer_match_status = 'matched'");
+    expect(migration).toContain("not coalesce(dealer.is_deleted, false)");
+    expect(migration).toContain("not coalesce(dealer.is_blocked, false)");
+    expect(migration).toContain("'missing_warranty_and_dealer'");
+    expect(migration).toContain("'warrantyMatchStatus', warranty_match_status");
+  });
 });
