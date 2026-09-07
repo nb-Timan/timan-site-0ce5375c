@@ -56,6 +56,8 @@ import {
   resolvePartnerAccountType,
   type PartnerAccountTypeId,
 } from "@/lib/partnerAccountTypes";
+import { resolveConfiguratorContractTerms } from "@/lib/contractCommercialTerms";
+import { getPaymentTermsOptionLabel } from "@/lib/paymentTerms";
 import {
   buildPartnerAdminSellerOptions,
   buildPartnerAdminSellerState,
@@ -124,6 +126,9 @@ const L: Record<string, DealerDetailText> = {
   directions:       { da: "Rutevejledning", en: "Directions", de: "Route", it: "Indicazioni", hu: "Útvonal" },
   website:          { da: "Hjemmeside", en: "Website", de: "Webseite", it: "Sito web", hu: "Weboldal" },
   new_activity:     { da: "Opret aktivitet", en: "New activity", de: "Aktivität anlegen", it: "Nuova attività", hu: "Új tevékenység" },
+  machine_discount: { da: "Maskinrabat", en: "Machine discount", de: "Maschinenrabatt", it: "Sconto macchine", hu: "Gépkedvezmény" },
+  importer_discount: { da: "Importørrabat", en: "Importer discount", de: "Importeursrabatt", it: "Sconto importatore", hu: "Importőri kedvezmény" },
+  spare_parts_discount: { da: "Reservedelsrabat", en: "Spare-parts discount", de: "Ersatzteilrabatt", it: "Sconto ricambi", hu: "Alkatrész-kedvezmény" },
   open_dealer_data: { da: "Virksomheds- og persondata", en: "Company and personal data", de: "Unternehmens- und Personendaten", it: "Dati aziendali e personali", hu: "Cég- és személyes adatok", sv: "Företags- och personuppgifter", fr: "Données d’entreprise et personnelles", pl: "Dane firmy i osób", cs: "Firemní a osobní údaje" },
   schedule_meeting: { da: "Planlæg møde", en: "Schedule meeting", de: "Termin planen", it: "Pianifica riunione", hu: "Találkozó ütemezése" },
   tab_overview:     { da: "Overblik", en: "Overview", de: "Übersicht", it: "Panoramica", hu: "Áttekintés" },
@@ -308,6 +313,20 @@ function collaborationPartnerLabel(
   lang: PortalUiLanguage,
 ): string {
   return dealerPresentationType(d, lang);
+}
+
+function formatAgreementPercent(value: number | null): string {
+  return typeof value === "number" && Number.isFinite(value) ? `${value.toLocaleString("da-DK", { maximumFractionDigits: 2 })} %` : "—";
+}
+
+function getInlineAgreementTerms(dealer: DealerAccount, lang: PortalUiLanguage) {
+  const terms = resolveConfiguratorContractTerms(dealer);
+  const isImporter = terms.partnerType === "importer";
+  return [
+    `${isImporter ? tl("importer_discount", lang) : tl("machine_discount", lang)} ${formatAgreementPercent(terms.baseDiscountPct)}`,
+    `${tl("spare_parts_discount", lang)} ${formatAgreementPercent(dealer.spare_parts_discount_pct)}`,
+    terms.paymentTerms ? getPaymentTermsOptionLabel(terms.paymentTerms, lang) : "—",
+  ];
 }
 
 function fallbackDealerFromUser(user: SessionUser | null, accountNumber: string): DealerAccount | null {
@@ -969,6 +988,7 @@ export default function CrmDealerDetailPage() {
   const latestActivityIso = [latestQuoteIso, lastDoneIso].filter(Boolean).sort().reverse()[0] || null;
   const fmtKr = (v: number) => `${Math.round(v).toLocaleString('da-DK')} kr.`;
   const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
+  const inlineAgreementTerms = getInlineAgreementTerms(dealer, lang);
 
   const mainDealer = dealers.find(d => d.account_number === mainAccountNumber);
   const isBranch = !!dealer.parent_account_number;
@@ -2737,6 +2757,9 @@ function ContactHero({
             <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 text-[10px] font-bold">
               {tl("status_active", lang)}
             </span>
+            {inlineAgreementTerms.map((term) => (
+              <span key={term} className="text-[11px] font-medium text-emerald-900/75">· {term}</span>
+            ))}
             {isBranch && mainDealer && (
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
                 <GitBranch className="h-3 w-3" /> {tl("branch", lang)} · {mainDealer.company_name}

@@ -34,6 +34,13 @@ describe("CRM dealer detail i18n", () => {
     expect(crmDealerDetailPage).not.toContain("language={legacyLang}");
   });
 
+  it("shows canonical agreement terms beside the partner status without changing the edit flow", () => {
+    expect(crmDealerDetailPage).toContain("resolveConfiguratorContractTerms(dealer)");
+    expect(crmDealerDetailPage).toContain("dealer.spare_parts_discount_pct");
+    expect(crmDealerDetailPage).toContain("getPaymentTermsOptionLabel(terms.paymentTerms, lang)");
+    expect(crmDealerDetailPage).toContain("inlineAgreementTerms.map");
+  });
+
   it("localizes agreement history controls without changing history data", () => {
     expect(agreementHistory).toContain("type AgreementLanguage = Language | PortalUiLanguage");
     expect(agreementHistory).toContain("addEvent: { da: 'Tilføj aftalehændelse', en: 'Add agreement event', de: 'Vertragsereignis hinzufügen'");
