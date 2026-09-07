@@ -618,7 +618,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               <p className="text-sm text-gray-400 italic">{tx('noCases')}</p>
             ) : (
               <div className="max-h-[50vh] overflow-y-auto rounded-xl border border-gray-200">
-                <div className="hidden lg:grid grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_1fr_auto] gap-3 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                <div className="hidden lg:grid grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_minmax(7rem,0.8fr)_17.5rem] gap-3 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500">
                   <div>{tx('orderNumber')}</div>
                   <div>{tx('customer')}</div>
                   <div>{tx('dealer')}</div>
@@ -635,7 +635,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                     const dateLocale = ({ da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU', sv: 'sv-SE', fr: 'fr-FR', pl: 'pl-PL', cs: 'cs-CZ' } as Record<string, string>)[language as string] || 'en-GB';
                     const fmt = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString(dateLocale) : '-';
                     return (
-                      <div key={item.id} className="grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_1fr_auto] gap-3 px-4 py-4 text-sm">
+                      <div key={item.id} className="grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr_1.1fr_1fr_1fr_minmax(7rem,0.8fr)_17.5rem] gap-3 px-4 py-4 text-sm">
                         <div>
                           <div className="font-bold text-gray-900">{summary.reference}</div>
                           <div className="text-xs text-gray-500">{fmt(summary.orderDate)}</div>
@@ -678,7 +678,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                             <button
                               type="button"
                               onClick={() => void handleOpen(item)}
-                              className="text-xs px-3 py-1.5 bg-gray-950 text-white rounded-lg hover:bg-gray-800 font-semibold"
+                              className="w-14 text-xs py-1.5 bg-gray-950 text-white rounded-lg hover:bg-gray-800 font-semibold"
                             >
                               {tx('open')}
                             </button>
@@ -688,7 +688,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                               type="button"
                               onClick={() => void handleOpenPdf(item)}
                               title={item.sent_pdf_path ? tx('openSentPdf') : tx('pdfNotStored')}
-                              className="text-xs px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 font-semibold"
+                              className="w-14 text-xs py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 font-semibold"
                             >
                               PDF
                             </button>
