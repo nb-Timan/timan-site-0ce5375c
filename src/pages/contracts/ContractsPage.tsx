@@ -1,5 +1,5 @@
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Pencil, Plus, Save, Search, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -852,6 +852,7 @@ export default function ContractsPage() {
   const { contractId: routeContractId } = useParams();
   const [searchParams] = useSearchParams();
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const contractStepTopRef = useRef<HTMLDivElement>(null);
   const [signatureName, setSignatureName] = useState('');
   const [contractRowId, setContractRowId] = useState<string | null>(null);
   const [contractRecord, setContractRecord] = useState<DealerContractRecord | null>(null);
@@ -1093,6 +1094,14 @@ export default function ContractsPage() {
     && activeStep.id !== 'discount_structure'
     && activeStep.id !== 'spare_parts_service';
   const status = getContractStatus(form, confirmations);
+
+  useEffect(() => {
+    if (!contractLoaded || showInternalContractOverview) return;
+    const frame = window.requestAnimationFrame(() => {
+      contractStepTopRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeStepIndex, contractLoaded, showInternalContractOverview]);
   const workflowStatus: ContractWorkflowStatus = contractRecord?.contract_status ?? (status === 'Draft' ? 'draft' : status === 'In review' ? 'guided_review' : 'ready_for_signature');
   const workflowStatusLabel = getContractWorkflowStatusLabel(workflowStatus, uiLanguage);
   const isLockedContract = hasReachedContractStatus(workflowStatus, 'ready_for_signature');
@@ -1853,7 +1862,7 @@ export default function ContractsPage() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
         <div className="grid grid-cols-1 gap-6">
           <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-            <div className="mb-6">
+            <div ref={contractStepTopRef} className="mb-6 scroll-mt-4">
               <p className="text-sm font-bold uppercase tracking-wide text-amber-700">{contractUi('stepOf', uiLanguage, { current: activeStepIndex + 1, total: CONTRACT_STEPS.length })}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <h2 className="text-2xl font-bold text-gray-950">{activeStepLabel.title}</h2>

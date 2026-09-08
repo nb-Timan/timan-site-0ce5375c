@@ -722,6 +722,16 @@ describe('contract flow', () => {
     expect(progressSteps).not.toContain('auto-cols-[8rem]');
   });
 
+  it('scrolls to the rendered step header whenever the active contract step changes', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain('const contractStepTopRef = useRef<HTMLDivElement>(null);');
+    expect(source).toContain('window.requestAnimationFrame');
+    expect(source).toContain("scrollIntoView({ behavior: 'auto', block: 'start' })");
+    expect(source).toContain('ref={contractStepTopRef}');
+    expect(source).toContain('[activeStepIndex, contractLoaded, showInternalContractOverview]');
+  });
+
   it('maps old draft confirmations into the new section ids', () => {
     const legacy = normalizeContractConfirmations({
       collaboration: { confirmed: true, confirmedAt: '2026-08-29T10:00:00.000Z', confirmedBy: 'Birger Pedersen' },
