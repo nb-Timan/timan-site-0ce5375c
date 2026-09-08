@@ -3877,7 +3877,7 @@ function SparePartsServiceSection({
           </div>
         </section>
 
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="space-y-5">
           {serviceBlocks.map((block, index) => (
             <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />
           ))}
