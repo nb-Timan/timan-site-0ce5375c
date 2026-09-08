@@ -39,6 +39,7 @@ export interface DbWarrantyRegistration extends WarrantyRegistration {
 interface Row {
   source: string | null;
   id: string;
+  certificate_number: string | null;
   sharepoint_item_id: string | null;
   sharepoint_form_id: number | null;
   sharepoint_modified_at: string | null;
@@ -76,12 +77,7 @@ function fmtPostalCity(pc?: string | null, city?: string | null): string {
 }
 
 function buildCertificateNumber(row: Row): string {
-  if (row.legacy_warranty_reference) return row.legacy_warranty_reference;
-  if (row.sharepoint_form_id !== null && row.sharepoint_form_id !== undefined) {
-    return `SP-${row.sharepoint_form_id}`;
-  }
-  if (row.sharepoint_item_id) return `SP-${row.sharepoint_item_id}`;
-  return row.id.slice(0, 8).toUpperCase();
+  return row.certificate_number ?? "";
 }
 
 function mapRow(row: Row, dealersById: Map<string, string>): DbWarrantyRegistration {
@@ -142,9 +138,11 @@ export async function fetchWarrantyRegistrations(): Promise<DbWarrantyRegistrati
     supabase
       .from("warranty_registrations")
       .select(
-        "id, source, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, sharepoint_created_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at, legacy_warranty_reference, legacy_operating_hours, legacy_last_activity_at",
+        "id, source, certificate_number, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, sharepoint_created_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at, legacy_warranty_reference, legacy_operating_hours, legacy_last_activity_at",
       )
       .eq("is_active_in_source", true)
+      .in("source", ["sharepoint", "portal_manual"])
+      .like("certificate_number", "SP-%")
       .order("registration_date", { ascending: false, nullsFirst: false })
       .limit(2000),
     supabase
