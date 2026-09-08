@@ -79,17 +79,18 @@ const PDF_LABELS: Record<ContractDocumentLanguage, PdfLabels> = {
   },
 };
 
-export function getContractPdfLanguageReadiness(_language: ContractDocumentLanguage) {
-  return { productionReady: true, reason: null };
+export function getContractPdfLanguageReadiness(language: ContractDocumentLanguage) {
+  if (language === 'da') return { productionReady: true, reason: null };
+  return {
+    productionReady: false,
+    reason: language === 'en'
+      ? 'Den engelske juridiske kontrakttekst er ikke godkendt endnu.'
+      : 'Den tyske juridiske kontrakttekst er ikke godkendt endnu.',
+  };
 }
 
-export function getSnapshotLegalSections(
-  snapshot: ContractSnapshot,
-  language: ContractDocumentLanguage = 'da',
-): GuidedContractSection[] {
-  // Danish snapshots remain the immutable source for existing documents. A new
-  // localized document is rendered from the same frozen contract data.
-  if (language === 'da' && Array.isArray(snapshot.legalSections)) return snapshot.legalSections as GuidedContractSection[];
+export function getSnapshotLegalSections(snapshot: ContractSnapshot): GuidedContractSection[] {
+  if (Array.isArray(snapshot.legalSections)) return snapshot.legalSections as GuidedContractSection[];
   return renderGuidedContractSections({
     companyName: snapshot.dealer.name,
     partnerType: snapshot.dealer.partnerType,
@@ -101,7 +102,7 @@ export function getSnapshotLegalSections(
     equipmentDiscountPct: snapshot.commercialTerms?.equipmentDiscountPct,
     sparePartsDiscountPct: snapshot.commercialTerms?.sparePartsDiscountPct,
     preserveDiscountSnapshot: true,
-  }, language);
+  });
 }
 
 export function buildContractPdfFileName(partnerName: string, contractNumber: string) {
@@ -149,8 +150,8 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const labels = PDF_LABELS[input.language];
-  const legalSections = getSnapshotLegalSections(input.snapshot, input.language);
-  const partnerTerms = getContractPartnerTerms(input.snapshot.dealer.partnerType, input.language) ?? getContractPartnerTerms('dealer', input.language)!;
+  const legalSections = input.language === 'da' ? getSnapshotLegalSections(input.snapshot) : [];
+  const partnerTerms = getContractPartnerTerms(input.snapshot.dealer.partnerType) ?? getContractPartnerTerms('dealer')!;
   const left = 18;
   const right = 192;
   const width = right - left;
@@ -278,7 +279,15 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
     input.snapshot.dealer.contactTitle ? `${labels.title}: ${input.snapshot.dealer.contactTitle}` : '',
   ].filter(Boolean));
 
-  legalSections.forEach((section, index) => {
+  if (input.language !== 'da') {
+    sectionPages.push({ title: labels.translationPending, page: pdf.getNumberOfPages(), appendix: false });
+    mainHeading(labels.translationPending);
+    block(undefined, [
+      labels.translationPending,
+      'This document is a non-production draft only. Final generation is blocked until all legal sections for the selected language have been approved.',
+    ]);
+  } else {
+    legalSections.forEach((section, index) => {
       const appendix = appendixTitle(section);
       if (appendix) addPage();
       sectionPages.push({ title: appendix ?? sectionTitle(section, index), page: pdf.getNumberOfPages(), appendix: Boolean(appendix) });
@@ -296,7 +305,8 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
           );
         appendixParagraphs.forEach((paragraph) => block(undefined, [paragraph]));
       }
-  });
+    });
+  }
 
   addPage();
   sectionPages.push({ title: labels.signature, page: pdf.getNumberOfPages(), appendix: false });
