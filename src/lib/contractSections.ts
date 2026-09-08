@@ -368,6 +368,10 @@ function renderContractBulletText(value: string, context: ContractTextRenderCont
 
 function getDiscountStructureBlocks(context: ContractTextRenderContext): ContractTextBlock[] {
   const discounts = getContractDiscountStructure(context.partnerType, context);
+  const historicalBlock = GUIDED_CONTRACT_SECTIONS
+    .find((section) => section.stepId === 'discount_structure')?.blocks[0];
+  const historicalParagraphs = historicalBlock?.paragraphs ?? [];
+  const historicalBullets = historicalBlock?.bullets ?? [];
 
   if (context.partnerType === 'importer') {
     return [{
@@ -375,9 +379,9 @@ function getDiscountStructureBlocks(context: ContractTextRenderContext): Contrac
       paragraphs: [
         `Maskinrabat: ${discounts.machineDiscountPct}%.`,
         `Redskabsrabat: ${discounts.equipmentDiscountPct}%.`,
-        'De aftalte rabatter fremgår af bilag 2.',
+        ...historicalParagraphs,
       ],
-      bullets: ['Se bilag 2.'],
+      bullets: historicalBullets,
     }];
   }
 
@@ -387,7 +391,9 @@ function getDiscountStructureBlocks(context: ContractTextRenderContext): Contrac
       paragraphs: [
         `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
         'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.',
+        ...historicalParagraphs,
       ],
+      bullets: historicalBullets,
     }];
   }
 
@@ -395,10 +401,10 @@ function getDiscountStructureBlocks(context: ContractTextRenderContext): Contrac
     heading: '4. Rabatstruktur',
     paragraphs: [
       `Maskinrabat: ${discounts.machineDiscountPct}%.`,
-      `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
-      'De aftalte rabatter fremgår af bilag 2.',
+      `Redskabsrabat: ${discounts.equipmentDiscountPct}%.`,
+      ...historicalParagraphs,
     ],
-    bullets: ['Se bilag 2.'],
+    bullets: historicalBullets,
   }];
 }
 

@@ -75,8 +75,8 @@ export function getContractDiscountStructure(
       input.machineDiscountPct ?? input.standardMachineDiscountPct,
       DEFAULT_DEALER_MACHINE_DISCOUNT_PCT,
     ),
-    sparePartsDiscountPct: normalizePercentage(
-      input.sparePartsDiscountPct,
+    equipmentDiscountPct: normalizePercentage(
+      input.equipmentDiscountPct ?? input.sparePartsDiscountPct,
       DEFAULT_DEALER_SPARE_PARTS_DISCOUNT_PCT,
     ),
   };

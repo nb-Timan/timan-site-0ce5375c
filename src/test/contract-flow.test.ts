@@ -32,6 +32,7 @@ import {
   type GuidedContractSection,
 } from '@/lib/contractSections';
 import { APPENDIX_2_EXAMPLE_LINES, APPENDIX_2_PARAGRAPHS, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
+import { getContractDiscountStructure } from '@/lib/contractCommercialTerms';
 import {
   buildDealerContractDraftKey,
   buildNewDealerContractDraftKey,
@@ -1407,5 +1408,47 @@ describe('contract flow', () => {
     expect(APPENDIX_2_EXAMPLE_LINES[1]).toBe('Når garantiregistreringen er gennemført, vil beløbet på 3.100 kr. blive udstedt som en kreditnota, der kan anvendes ved fremtidige køb hos Timan.');
     expect(renderAppendix2Paragraphs('importer')[2]).toContain('alle importører');
     expect(renderAppendix2Paragraphs('importer')[13]).toBe('Opnår importøren et salg uden Timan har været involveret i en demonstration, til skønnes dette.');
+  });
+
+  it('keeps the full historic discount structure alongside partner-specific base discounts', () => {
+    const dealerDiscounts = getContractDiscountStructure('dealer', {});
+    const importerDiscounts = getContractDiscountStructure('importer', {});
+    const dealerAppendix = renderAppendix2Paragraphs('dealer', dealerDiscounts);
+    const importerAppendix = renderAppendix2Paragraphs('importer', importerDiscounts);
+    const renderedDealerSection = renderGuidedContractSections({
+      partnerType: 'dealer',
+      companyName: 'Testforhandler',
+      machineDiscountPct: dealerDiscounts.machineDiscountPct,
+      equipmentDiscountPct: dealerDiscounts.equipmentDiscountPct,
+    }).find((section) => section.stepId === 'discount_structure');
+
+    expect(dealerDiscounts).toMatchObject({ machineDiscountPct: 25, equipmentDiscountPct: 25 });
+    expect(importerDiscounts).toMatchObject({ machineDiscountPct: 30, equipmentDiscountPct: 30 });
+    expect(dealerAppendix).toEqual(expect.arrayContaining([
+      'Maskinrabat: 25%.',
+      'Redskabsrabat: 25%.',
+      '3. Rabat 1. køb flere få flere procenter.',
+      '4. Rabat 2. Leveringstid flere procenter.',
+      '5. Rabat 3. Egen demonstration - egen salg.',
+      '6. Udregning af rabat.',
+    ]));
+    expect(importerAppendix).toEqual(expect.arrayContaining([
+      'Maskinrabat: 30%.',
+      'Redskabsrabat: 30%.',
+      '4. Rabat 2. Leveringstid flere procenter.',
+    ]));
+    expect(renderedDealerSection?.blocks[0]).toMatchObject({
+      paragraphs: expect.arrayContaining(['Maskinrabat: 25%.', 'Redskabsrabat: 25%.']),
+      bullets: expect.arrayContaining([
+        'Flere maskiner: Køb af flere maskiner giver yderligere rabat.',
+        'Længere leveringstid: Ved leveringstid over 3 mdr. tilbydes øget rabat.',
+      ]),
+    });
+
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    expect(pageSource).toContain('function drawAppendix2Pdf');
+    expect(pageSource).toContain("pdf.text(`${discounts?.machineDiscountPct ?? 25}%`");
+    expect(pageSource).toContain('y += 16 + rows.length * 8;');
+    expect(pageSource).not.toContain('return y + 16 + rows.length * 8;');
   });
 });

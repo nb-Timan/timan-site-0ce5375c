@@ -696,7 +696,7 @@ function drawAppendix2Pdf(
       pdf.setTextColor(46, 125, 23);
       pdf.text(`${value}%`, right - 6, y + 8 + index * 8, { align: 'right' });
     });
-    return y + 16 + rows.length * 8;
+    y += 16 + rows.length * 8;
   }
 
   pdf.setDrawColor(46, 125, 23);
@@ -734,7 +734,7 @@ function drawAppendix2Pdf(
   pdf.circle(left + 20, contentY + 12, 13, 'S');
   pdf.setTextColor(46, 125, 23);
   pdf.setFontSize(19);
-  pdf.text('25%', left + 20, contentY + 14, { align: 'center' });
+  pdf.text(`${discounts?.machineDiscountPct ?? 25}%`, left + 20, contentY + 14, { align: 'center' });
   pdf.setTextColor(17, 24, 39);
   pdf.setFontSize(6.7);
   pdf.text('Grund rabat', left + 20, contentY + 22, { align: 'center' });
@@ -4314,7 +4314,7 @@ function ContractCommercialTermsFields({
       ? [{ key: 'sparePartsDiscountPct' as const, label: copy.parts, value: terms.sparePartsDiscountPct ?? 25 }]
       : [
           { key: 'machineDiscountPct' as const, label: copy.machine, value: terms.machineDiscountPct ?? 25 },
-          { key: 'sparePartsDiscountPct' as const, label: copy.parts, value: terms.sparePartsDiscountPct ?? 25 },
+          { key: 'equipmentDiscountPct' as const, label: copy.equipment, value: terms.equipmentDiscountPct ?? 25 },
         ];
 
   return (
@@ -4354,28 +4354,9 @@ function Appendix2DiscountSection({ form, language }: { form: ContractFormData; 
     discounts.equipmentDiscountPct === undefined ? null : ['Redskabsrabat', discounts.equipmentDiscountPct],
     discounts.sparePartsDiscountPct === undefined ? null : ['Reservedelsrabat', discounts.sparePartsDiscountPct],
   ].filter((row): row is [string, number] => row !== null);
+  const machineBaseDiscount = discounts.machineDiscountPct ?? 25;
+  const combinedExampleDiscount = (1 - (1 - machineBaseDiscount / 100) * 0.96 * 0.98) * 100;
 
-  if (form.partnerType) return (
-    <div className="space-y-5 rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
-      <div className="space-y-4 text-sm leading-6 text-gray-700">
-        {paragraphs.map((paragraph, index) => (
-          <p key={paragraph} className={index === 0 || /^\d+\./.test(paragraph) ? 'font-bold text-gray-950' : ''}>
-            {paragraph}
-          </p>
-        ))}
-      </div>
-      <dl className="grid gap-3 sm:grid-cols-2">
-        {discountRows.map(([label, value]) => (
-          <div key={label} className="border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3">
-            <dt className="text-sm font-semibold text-gray-700">{label}</dt>
-            <dd className="mt-1 text-xl font-black text-emerald-800">{value}%</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
-  );
-
-  const partnerType = form.partnerType;
   const labels = {
     machineOrder: t('contractDiscountMachineOrderGroup', language),
     warrantyRefund: t('contractDiscountWarrantyRefundGroup', language),
@@ -4408,6 +4389,17 @@ function Appendix2DiscountSection({ form, language }: { form: ContractFormData; 
         })}
       </div>
 
+      {form.partnerType && (
+        <dl className="grid gap-3 sm:grid-cols-2">
+          {discountRows.map(([label, value]) => (
+            <div key={label} className="border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3">
+              <dt className="text-sm font-semibold text-gray-700">{label}</dt>
+              <dd className="mt-1 text-xl font-black text-emerald-800">{value}%</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
       <div className="w-full max-w-full min-w-0 overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-inner sm:p-5">
         <div className="w-full max-w-full min-w-0">
           <div className="grid min-w-0 grid-cols-1 gap-3 text-center text-base font-bold text-gray-950 md:grid-cols-[3.39fr_1.16fr] lg:text-lg">
@@ -4433,7 +4425,7 @@ function Appendix2DiscountSection({ form, language }: { form: ContractFormData; 
               <p className="mb-3 text-center text-base font-bold text-gray-950 md:hidden">{labels.baseDiscount}</p>
               <div className="relative flex min-w-0 items-center justify-center">
                 <div className="flex aspect-square w-full max-w-28 flex-col items-center justify-center rounded-full border border-[#79a45e] bg-[#fbfdf9] text-center md:max-w-24 lg:max-w-28 xl:max-w-[7.5rem]">
-                  <p className="text-3xl font-black leading-none text-[#36780f] md:text-2xl lg:text-[2rem]">25%</p>
+                  <p className="text-3xl font-black leading-none text-[#36780f] md:text-2xl lg:text-[2rem]">{machineBaseDiscount}%</p>
                   <p className="mt-2 px-2 text-sm font-semibold leading-tight text-gray-950 md:text-xs">{labels.baseDiscountLabel}</p>
                 </div>
                 <div className="hidden absolute right-[-0.15rem] top-1/2 -translate-y-1/2 text-xl font-light text-[#36780f] md:block lg:text-2xl">→</div>
@@ -4494,7 +4486,9 @@ function Appendix2DiscountSection({ form, language }: { form: ContractFormData; 
             <div className="grid min-w-0 flex-1 gap-1.5 text-sm leading-6 lg:grid-cols-[auto_minmax(0,1fr)] lg:items-baseline lg:gap-x-5 lg:text-base">
               <p className="font-black text-[#36780f] lg:text-lg">{labels.example}</p>
               <p>{labels.exampleText}</p>
-              <p className="font-black text-[#36780f] lg:col-start-2 lg:text-xl">25% + 4% + 2% = 29,44 %</p>
+              <p className="font-black text-[#36780f] lg:col-start-2 lg:text-xl">
+                {machineBaseDiscount}% + 4% + 2% = {combinedExampleDiscount.toLocaleString('da-DK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %
+              </p>
             </div>
           </div>
         </div>

@@ -31,35 +31,30 @@ export function renderAppendix2Paragraphs(
   partnerType: ContractPartnerType | '' | null | undefined,
   discounts?: ContractDiscountStructure,
 ): string[] {
-  if (discounts) {
-    if (partnerType === 'importer') {
-      return [
-        'Bilag 2: Rabat.',
-        'Aftalte rabatter.',
-        `Maskinrabat: ${discounts.machineDiscountPct}%.`,
-        `Redskabsrabat: ${discounts.equipmentDiscountPct}%.`,
-      ];
-    }
-    if (partnerType === 'service_partner') {
-      return [
-        'Bilag 2: Rabat.',
-        'Aftalte rabatter.',
-        `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
-        'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.',
-      ];
-    }
-    return [
-      'Bilag 2: Rabat.',
-      'Aftalte rabatter.',
-      `Maskinrabat: ${discounts.machineDiscountPct}%.`,
-      `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
-    ];
-  }
-
   const terms = getContractPartnerTerms(partnerType);
-  return APPENDIX_2_PARAGRAPHS.map((paragraph: string) => (
+  const historicalParagraphs = APPENDIX_2_PARAGRAPHS.map((paragraph: string) => (
     paragraph
       .replaceAll('{{partnerDefinite}}', terms?.definite ?? '')
       .replaceAll('{{partnerPlural}}', terms?.plural ?? '')
   ));
+  if (!discounts) return historicalParagraphs;
+
+  const agreedDiscounts = partnerType === 'service_partner'
+    ? [
+        `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
+        'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.',
+      ]
+    : [
+        `Maskinrabat: ${discounts.machineDiscountPct}%.`,
+        `Redskabsrabat: ${discounts.equipmentDiscountPct}%.`,
+      ];
+
+  // Keep the historic Appendix 2 text and its discount rules intact. The
+  // agreed, partner-specific base discounts are inserted before that source.
+  return [
+    historicalParagraphs[0],
+    'Aftalte rabatter.',
+    ...agreedDiscounts,
+    ...historicalParagraphs.slice(1),
+  ];
 }
