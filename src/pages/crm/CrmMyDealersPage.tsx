@@ -240,6 +240,10 @@ export default function CrmMyDealersPage() {
   const admin = isCrmAdmin(portalRole);
   const seller = isScopedSeller(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
+  // View-as resolves an equivalent user object on each render. Depend on a
+  // stable identity instead, otherwise the list effect cancels its contact
+  // request before canonical completion can be calculated.
+  const effectiveUserKey = effectiveUser?.email?.trim().toLowerCase() ?? null;
 
   const reloadPendingPartnerSubmissions = async () => {
     if (!admin && !seller) {
@@ -390,7 +394,10 @@ export default function CrmMyDealersPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, effectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
+    // `effectiveUser` is intentionally represented by its stable identity;
+    // see `effectiveUserKey` above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appUser, effectiveUserKey, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
 
   // Successor index — must be computed unconditionally before any early return
   // so the number of hooks remains stable across renders.

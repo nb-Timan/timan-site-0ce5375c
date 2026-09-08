@@ -51,4 +51,10 @@ describe("pending partner submissions", () => {
     expect(tableReady).toBeGreaterThan(-1);
     expect(enrichment).toBeGreaterThan(tableReady);
   });
+
+  it("keeps the completion request alive while View-as resolves its effective user", () => {
+    expect(overview).toContain("const effectiveUserKey = effectiveUser?.email?.trim().toLowerCase() ?? null;");
+    expect(overview).toContain("[appUser, effectiveUserKey, admin, seller, externalCrm");
+    expect(overview).not.toContain("[appUser, effectiveUser, admin, seller, externalCrm");
+  });
 });
