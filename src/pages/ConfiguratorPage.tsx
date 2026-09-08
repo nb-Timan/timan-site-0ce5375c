@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { da, de, enGB, hu, it } from 'date-fns/locale';
 import { CalendarIcon } from 'lucide-react';
@@ -50,6 +50,7 @@ import { getLead } from '@/lib/crmLeadsService';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection } from '@/lib/submittedOrderCorrectionService';
+import { academySandbox } from '@/lib/academySandbox';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
@@ -258,6 +259,58 @@ export default function ConfiguratorPage() {
         };
       })()
     : calcResult;
+
+  const isAcademyMode = academySandbox.isActive();
+  const [academyCase, setAcademyCase] = useState(() => academySandbox.getCase1());
+  const academyMachineConfigs = useMemo(() => state.machineConfigs.map((machine) => {
+    const accessoryIds = machine.configMode === 'shared'
+      ? machine.acc
+      : Array.from({ length: machine.qty }, (_, index) => state.individualUnitConfigs[`${machine.id}_${index + 1}`]?.acc ?? []).flat();
+    return { type: machine.type, acc: accessoryIds, qty: machine.qty };
+  }), [state.machineConfigs, state.individualUnitConfigs]);
+  const refreshAcademyCase = useCallback((quoteGenerated?: boolean) => {
+    if (!isAcademyMode) return academySandbox.getCase1();
+    const next = academySandbox.evaluate({
+      machineConfigs: academyMachineConfigs,
+      deliveryDiscount: Boolean(displayCalc?.discountDetails.some((discount) => /levering|delivery/i.test(discount.txt))),
+      quantityDiscount: state.machineConfigs.reduce((sum, machine) => sum + (PRODUCTS[machine.type]?.isDiscountEligible ? machine.qty : 0), 0) >= 2,
+      quoteGenerated,
+    });
+    setAcademyCase(next);
+    return next;
+  }, [academyMachineConfigs, displayCalc, isAcademyMode, state.machineConfigs]);
+
+  useEffect(() => {
+    if (isAcademyMode) refreshAcademyCase();
+  }, [isAcademyMode, refreshAcademyCase]);
+
+  useEffect(() => {
+    if (isAcademyMode && !academySandbox.getCase1().started) {
+      navigate('/academy', { replace: true });
+    }
+  }, [isAcademyMode, navigate]);
+
+  useEffect(() => {
+    if (!isAcademyMode || appUser || !import.meta.env.DEV) return;
+    setAppUser({
+      id: 'academy-local-sales-user',
+      email: 'academy.sales@localhost',
+      display_name: 'Academy Sales',
+      role: 'timan_saelger',
+      approved: true,
+      is_active: true,
+      start_step: 1,
+      max_step: 4,
+      can_view_prices: true,
+      can_submit_order: false,
+      can_edit_discount: false,
+      can_switch_customer_mode: false,
+      portal_role: 'timan_seller',
+      allowed_modules: ['academy'],
+      module_access: ['academy'],
+      permissions: { can_save_configurator_as_lead: true },
+    } as AppUser & { portal_role: string; allowed_modules: string[]; module_access: string[]; permissions: Record<string, boolean> });
+  }, [appUser, isAcademyMode, setAppUser]);
 
   // Phase 38 — security: when the user is not allowed to apply an extra
   // dealer discount, force the stored value to 0 so calcConfiguration, the
@@ -669,6 +722,10 @@ export default function ConfiguratorPage() {
 
 
   const handleSaveChanges = useCallback(async () => {
+    if (academySandbox.isActive()) {
+      toast.info('Academy-træning gemmes kun lokalt.');
+      return;
+    }
     if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return; }
     if (savingChanges) return;
     // Block saving on already-submitted orders (local + server re-check).
@@ -784,6 +841,14 @@ export default function ConfiguratorPage() {
   // current configurator state without sending the quote. Only available on
   // the Tilbud flow for users with can_save_configurator_as_lead.
   const handleSaveAsLead = useCallback(async (options?: { quiet?: boolean }): Promise<string | null> => {
+    if (academySandbox.isActive()) {
+      refreshAcademyCase();
+      const lead = academySandbox.saveLead();
+      refreshAcademyCase();
+      setLinkedLeadId(lead.leadId);
+      if (!options?.quiet) toast.success('Academy-lead gemt lokalt');
+      return lead.leadId;
+    }
     if (savingAsLead) return null;
     // Saved configurations retain their relation. New lead creation is only
     // available before the first configuration save.
@@ -933,7 +998,7 @@ export default function ConfiguratorPage() {
     } finally {
       setSavingAsLead(false);
     }
-  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isExhibition, displayCalc]);
+  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isExhibition, displayCalc, refreshAcademyCase]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
@@ -1193,9 +1258,9 @@ export default function ConfiguratorPage() {
         const idx = newAccIds.indexOf(accId);
         if (idx === -1) newAccIds.push(accId);
         else newAccIds.splice(idx, 1);
-        const hasLight = newAccIds.includes(ACC_ID_FLASH_LIGHT) || newAccIds.includes(ACC_ID_WORK_LIGHT);
+        const hasWorkLight = newAccIds.includes(ACC_ID_WORK_LIGHT);
         const hasAttach = newAccIds.includes(ACC_ID_VPLOW) || newAccIds.includes(ACC_ID_WEEDBRUSH) || newAccIds.includes('418000');
-        if (hasLight && hasAttach && !hadWireHarness) {
+        if (hasWorkLight && hasAttach && !hadWireHarness) {
           const flatAccs = getAccessoriesFlat(currentUnit.modelType);
           const wireItem = flatAccs.find(a => a.id === ACC_ID_WIRE_HARNESS);
           if (wireItem) showAutoAddModal(wireItem as Accessory);
@@ -1558,6 +1623,11 @@ export default function ConfiguratorPage() {
   // PDF download + submit (single async flow). Guarded by `submitting` so the
   // button cannot trigger a second PDF/save/webhook.
   const downloadPdf = async (flowOverride?: ConfiguratorSubmitFlowType): Promise<boolean> => {
+    if (academySandbox.isActive()) {
+      setAcademyCase(academySandbox.generateQuote());
+      toast.success('Academy-tilbud genereret lokalt');
+      return true;
+    }
     if (submitting) return false;
     setSubmitting(true);
     try {
@@ -2218,6 +2288,7 @@ export default function ConfiguratorPage() {
 
   // Not logged in → send to portal which hosts the unified login screen.
   if (!appUser) {
+    if (isAcademyMode) return null;
     if (typeof window !== 'undefined') {
       navigate('/portal', { replace: true });
     }
@@ -2502,6 +2573,47 @@ export default function ConfiguratorPage() {
         })()}
 
       </header>
+
+      {isAcademyMode && (
+        <section className="mx-auto mb-5 max-w-6xl rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950" aria-label="Academy træningsstatus">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold">Academy træning – du arbejder med træningsdata.</p>
+              <p className="mt-1 text-xs">Intet tilbud, lead, mail eller ordre sendes til produktion.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAcademyCase(academySandbox.generateQuote())}
+              disabled={academyCase.quoteGenerated}
+              className="rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-amber-950 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {academyCase.quoteGenerated ? 'Træningstilbud genereret' : 'Generér træningstilbud'}
+            </button>
+          </div>
+          <ul className="mt-3 grid gap-x-5 gap-y-1 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              [academyCase.machine, 'RC-1000 valgt'],
+              [academyCase.quantityDiscount, 'Mængderabat opnået'],
+              [academyCase.flail, 'Slagleklipper 410910 valgt'],
+              [academyCase.weedBrush, 'Ukrudtsbørste 730600 valgt'],
+              [academyCase.requiredComponents, 'Beslag 412603 valgt'],
+              [academyCase.workLight, 'Arbejdslys 412594 valgt'],
+              [academyCase.wireHarness, 'Ledningsnet 412614 tilføjet'],
+              [academyCase.deliveryDiscount, 'Leveringsrabat opnået'],
+              [academyCase.quoteGenerated, 'Tilbud genereret'],
+              [Boolean(academyCase.leadId), 'Gemt som Academy-lead'],
+            ].map(([complete, label]) => (
+              <li key={String(label)} className={complete ? 'text-emerald-800' : 'text-amber-900'}>
+                {complete ? '✓' : '○'} {label}
+              </li>
+            ))}
+          </ul>
+          {!academyCase.completed && academyCase.machine && academyCase.quantityDiscount && academyCase.flail && academyCase.weedBrush && academyCase.requiredComponents && academyCase.workLight && academyCase.wireHarness && academyCase.deliveryDiscount && academyCase.quoteGenerated && !academyCase.leadId && (
+            <p className="mt-3 font-semibold text-amber-950">Sidste trin: Gem sagen som Academy-lead.</p>
+          )}
+          {academyCase.completed && <p className="mt-3 font-semibold text-emerald-800">Case 1 er gennemført.</p>}
+        </section>
+      )}
 
       <AlertDialog open={showLeavePortalConfirm} onOpenChange={setShowLeavePortalConfirm}>
         <AlertDialogContent>
@@ -3330,12 +3442,14 @@ export default function ConfiguratorPage() {
                 </button>
               </div>
             )}
-            {state.step === 4 && state.flowType === 'quote' && canCreateLeadForCurrentConfiguration && ((isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
-              const hasRequired = !!((isExhibition || ownership.dealerNumber) && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim() && (!isExhibition || ownership.sellerEmail));
+            {state.step === 4 && state.flowType === 'quote' && canCreateLeadForCurrentConfiguration && (isAcademyMode || (isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
+              const hasRequired = isAcademyMode || !!((isExhibition || ownership.dealerNumber) && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim() && (!isExhibition || ownership.sellerEmail));
               const label = isTimanMesseUser
                 ? ({ da: 'Gem som lead og send ordre', en: 'Save lead and send order', de: 'Lead speichern und Bestellung senden', it: 'Salva lead e invia ordine', hu: 'Lead mentése és rendelés küldése' }[lang])
-                : ({ da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang]);
-              const isActionBlockedByExistingLead = !isTimanMesseUser && !!linkedLeadId;
+                : isAcademyMode
+                  ? 'Gem som Academy-lead'
+                  : ({ da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang]);
+              const isActionBlockedByExistingLead = !isAcademyMode && !isTimanMesseUser && !!linkedLeadId;
               const disabledTitle = !hasRequired
                 ? { da: 'Udfyld forhandler, firmanavn, kontaktperson og e-mail.',
                     en: 'Fill in dealer, company, contact and email.',
