@@ -3826,7 +3826,7 @@ function SparePartsServiceSection({
             ))}
           </div>
 
-          <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
+          <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_190px]">
             <ul className="space-y-2.5 text-sm leading-6 text-gray-700">
               {importantServiceTerms.map(([title, body]) => (
                 <li key={title} className="flex gap-3">

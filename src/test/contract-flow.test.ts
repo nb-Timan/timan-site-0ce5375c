@@ -885,6 +885,8 @@ describe('contract flow', () => {
     expect(sparePartsServiceSection).toContain('heading: undefined');
     expect(sparePartsServiceSection).toContain("key={`${section.title}-intro-${index}`}");
     expect(sparePartsServiceSection).toContain('<ul className="space-y-2.5 text-sm leading-6 text-gray-700">');
+    expect(sparePartsServiceSection).toContain('lg:grid-cols-[minmax(0,1fr)_190px]');
+    expect(sparePartsServiceSection).not.toContain('lg:grid-cols-[minmax(0,1fr)_240px]');
     expect(sparePartsServiceSection).not.toContain('<ContractLegalSectionHeader section={section} />');
     expect(sparePartsServiceSection).not.toContain("['Fragt', 'Timan betaler fragt tur/retur");
     expect(sparePartsServiceSection).not.toContain('className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"');
