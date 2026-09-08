@@ -69,9 +69,9 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
 import { APPENDIX_2_EXAMPLE_LINES, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import {
-  DEFAULT_IMPORTER_DISCOUNT_PCT,
-  DEFAULT_SPARE_PARTS_DISCOUNT_PCT,
-  DEFAULT_STANDARD_MACHINE_DISCOUNT_PCT,
+  getContractDiscountStructure,
+  getNewContractDiscountDefaults,
+  getPartnerTypeDiscountFormPatch,
   resolveContractCommercialTerms,
 } from '@/lib/contractCommercialTerms';
 import { toCountryCode } from '@/lib/formatCountry';
@@ -611,6 +611,9 @@ function getSnapshotLegalSections(snapshot: ContractSnapshot): GuidedContractSec
     secondaryTerritory: snapshot.territory?.secondaryTerritory,
     serviceHourlyRateDkk: snapshot.serviceTerms?.hourlyRateDkk,
     paymentTerm: snapshot.paymentTerms?.paymentTerm,
+    machineDiscountPct: snapshot.commercialTerms?.machineDiscountPct,
+    equipmentDiscountPct: snapshot.commercialTerms?.equipmentDiscountPct,
+    sparePartsDiscountPct: snapshot.commercialTerms?.sparePartsDiscountPct,
   });
 }
 
@@ -638,7 +641,15 @@ function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number, se
       if (y > 30) {
         pdf.addPage();
       }
-      drawAppendix2Pdf(pdf, left, right, appendix2Paragraphs);
+      drawAppendix2Pdf(
+        pdf,
+        left,
+        right,
+        appendix2Paragraphs,
+        'machineDiscountPct' in snapshot.commercialTerms || 'equipmentDiscountPct' in snapshot.commercialTerms
+          ? getContractDiscountStructure(snapshot.dealer.partnerType, snapshot.commercialTerms)
+          : undefined,
+      );
       y = 132;
     }
   });
@@ -646,7 +657,13 @@ function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number, se
   return y;
 }
 
-function drawAppendix2Pdf(pdf: any, left: number, right: number, paragraphs: string[]) {
+function drawAppendix2Pdf(
+  pdf: any,
+  left: number,
+  right: number,
+  paragraphs: string[],
+  discounts?: ReturnType<typeof getContractDiscountStructure>,
+) {
   let y = 16;
   const width = right - left;
 
@@ -660,6 +677,27 @@ function drawAppendix2Pdf(pdf: any, left: number, right: number, paragraphs: str
   });
 
   y += 2;
+  if (discounts) {
+    const rows = [
+      discounts.machineDiscountPct === undefined ? null : ['Maskinrabat', discounts.machineDiscountPct],
+      discounts.equipmentDiscountPct === undefined ? null : ['Redskabsrabat', discounts.equipmentDiscountPct],
+      discounts.sparePartsDiscountPct === undefined ? null : ['Reservedelsrabat', discounts.sparePartsDiscountPct],
+    ].filter((row): row is [string, number] => row !== null);
+
+    pdf.setDrawColor(46, 125, 23);
+    pdf.setFillColor(250, 253, 250);
+    pdf.roundedRect(left, y, width, 12 + rows.length * 8, 3, 3, 'FD');
+    rows.forEach(([label, value], index) => {
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(9);
+      pdf.setTextColor(17, 24, 39);
+      pdf.text(label, left + 6, y + 8 + index * 8);
+      pdf.setTextColor(46, 125, 23);
+      pdf.text(`${value}%`, right - 6, y + 8 + index * 8, { align: 'right' });
+    });
+    return y + 16 + rows.length * 8;
+  }
+
   pdf.setDrawColor(46, 125, 23);
   pdf.setFillColor(255, 255, 255);
   pdf.roundedRect(left, y, width, 107, 3, 3, 'FD');
@@ -863,9 +901,7 @@ export default function ContractsPage() {
     associatedPartners: [],
     serviceHourlyRateDkk: DEFAULT_CONTRACT_SERVICE_HOURLY_RATE_DKK,
     paymentTerm: DEFAULT_CONTRACT_PAYMENT_TERM,
-    standardMachineDiscountPct: DEFAULT_STANDARD_MACHINE_DISCOUNT_PCT,
-    importerDiscountPct: DEFAULT_IMPORTER_DISCOUNT_PCT,
-    sparePartsDiscountPct: DEFAULT_SPARE_PARTS_DISCOUNT_PCT,
+    ...getNewContractDiscountDefaults('dealer'),
     signatureDataUrl: null,
     partnerType: '',
   }));
@@ -1063,6 +1099,7 @@ export default function ContractsPage() {
       dealerCvr: '',
       contactPerson: '',
       contactTitle: '',
+      ...getPartnerTypeDiscountFormPatch(partnerType),
     }));
   };
 
@@ -1345,8 +1382,14 @@ export default function ContractsPage() {
       secondaryTerritory: form.secondaryTerritory,
       serviceHourlyRateDkk: form.serviceHourlyRateDkk,
       paymentTerm: form.paymentTerm,
+      machineDiscountPct: form.machineDiscountPct,
+      equipmentDiscountPct: form.equipmentDiscountPct,
+      sparePartsDiscountPct: form.sparePartsDiscountPct,
     });
-    const appendix2Paragraphs = renderAppendix2Paragraphs(form.partnerType);
+    const appendix2Paragraphs = renderAppendix2Paragraphs(
+      form.partnerType,
+      getContractDiscountStructure(form.partnerType, form),
+    );
     const completedAt = new Date().toISOString();
     const snapshot = buildContractSnapshot(form, confirmations, {
       contractId: id,
@@ -1415,7 +1458,12 @@ export default function ContractsPage() {
     const legalSections = getSnapshotLegalSections(pdfSnapshot);
     const appendix2Paragraphs = Array.isArray((pdfSnapshot.appendices as { appendix2Paragraphs?: unknown } | null)?.appendix2Paragraphs)
       ? (pdfSnapshot.appendices as { appendix2Paragraphs: string[] }).appendix2Paragraphs
-      : renderAppendix2Paragraphs(pdfSnapshot.dealer.partnerType);
+      : renderAppendix2Paragraphs(
+        pdfSnapshot.dealer.partnerType,
+        'machineDiscountPct' in pdfSnapshot.commercialTerms || 'equipmentDiscountPct' in pdfSnapshot.commercialTerms
+          ? getContractDiscountStructure(pdfSnapshot.dealer.partnerType, pdfSnapshot.commercialTerms)
+          : undefined,
+      );
     const timan = pdfSnapshot.timan;
     const dealer = pdfSnapshot.dealer;
     const left = 16;
@@ -2628,6 +2676,9 @@ function ReviewStep({
     secondaryTerritory: form.secondaryTerritory,
     serviceHourlyRateDkk: form.serviceHourlyRateDkk,
     paymentTerm: form.paymentTerm,
+    machineDiscountPct: form.machineDiscountPct,
+    equipmentDiscountPct: form.equipmentDiscountPct,
+    sparePartsDiscountPct: form.sparePartsDiscountPct,
   };
   const section = getRenderedGuidedContractSection(stepId, contractTextContext);
   const contractSections = renderGuidedContractSections(contractTextContext);
@@ -2667,7 +2718,7 @@ function ReviewStep({
               ) : (
                 <ContractLegalSection section={contractSection} form={form} />
               )}
-              {contractSection.stepId === 'discount_structure' && <Appendix2DiscountSection partnerType={form.partnerType} language={uiLanguage} />}
+              {contractSection.stepId === 'discount_structure' && <Appendix2DiscountSection form={form} language={uiLanguage} />}
             </div>
           ))}
         </div>
@@ -2712,7 +2763,7 @@ function ReviewStep({
       {stepId === 'discount_structure' && !fullContract && (
         <>
           <ContractCommercialTermsFields form={form} onChange={onFormPatch} locked={locked} />
-          <Appendix2DiscountSection partnerType={form.partnerType} language={uiLanguage} />
+          <Appendix2DiscountSection form={form} language={uiLanguage} />
         </>
       )}
 
@@ -4195,24 +4246,27 @@ function ContractCommercialTermsFields({
   locked?: boolean;
 }) {
   const { uiLanguage } = useLanguage();
-  const terms = resolveContractCommercialTerms(form);
+  const terms = getContractDiscountStructure(form.partnerType, form);
   const partnerType = form.partnerType;
   const copy = uiLanguage === 'de'
-    ? { title: 'Vereinbarte Konditionen', machine: 'Standard-Maschinenrabatt', importer: 'Importeursrabatt', parts: 'Ersatzteilrabatt' }
+    ? { title: 'Vereinbarte Konditionen', machine: 'Maschinenrabatt', equipment: 'Geräterabatt', parts: 'Ersatzteilrabatt', serviceNote: 'Maschinen werden über den autorisierten Timan-Händler bezogen, mit dem der Servicepartner zusammenarbeitet.' }
     : uiLanguage === 'en'
-      ? { title: 'Agreement terms', machine: 'Standard machine discount', importer: 'Importer discount', parts: 'Spare parts discount' }
+      ? { title: 'Agreement terms', machine: 'Machine discount', equipment: 'Equipment discount', parts: 'Spare parts discount', serviceNote: 'Machines are purchased through the authorised Timan dealer that the service partner works with.' }
       : uiLanguage === 'it'
-        ? { title: 'Condizioni contrattuali', machine: 'Sconto standard macchine', importer: 'Sconto importatore', parts: 'Sconto ricambi' }
+        ? { title: 'Condizioni contrattuali', machine: 'Sconto macchine', equipment: 'Sconto attrezzature', parts: 'Sconto ricambi', serviceNote: 'Le macchine vengono acquistate tramite il rivenditore Timan autorizzato con cui collabora il partner di assistenza.' }
         : uiLanguage === 'hu'
-          ? { title: 'Szerződéses feltételek', machine: 'Standard gépkedvezmény', importer: 'Importőri kedvezmény', parts: 'Alkatrész-kedvezmény' }
-          : { title: 'Aftalevilkår', machine: 'Standard maskinrabat', importer: 'Importørrabat', parts: 'Reservedelsrabat' };
+          ? { title: 'Szerződéses feltételek', machine: 'Gépkedvezmény', equipment: 'Eszközkedvezmény', parts: 'Alkatrész-kedvezmény', serviceNote: 'A gépeket azon hivatalos Timan kereskedőn keresztül vásárolják, akivel a szervizpartner együttműködik.' }
+          : { title: 'Aftalevilkår', machine: 'Maskinrabat', equipment: 'Redskabsrabat', parts: 'Reservedelsrabat', serviceNote: 'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.' };
   const fields = partnerType === 'importer'
-    ? [{ key: 'importerDiscountPct' as const, label: copy.importer, value: terms.importerDiscountPct }]
+    ? [
+        { key: 'machineDiscountPct' as const, label: copy.machine, value: terms.machineDiscountPct ?? 30 },
+        { key: 'equipmentDiscountPct' as const, label: copy.equipment, value: terms.equipmentDiscountPct ?? 30 },
+      ]
     : partnerType === 'service_partner'
-      ? [{ key: 'sparePartsDiscountPct' as const, label: copy.parts, value: terms.sparePartsDiscountPct }]
+      ? [{ key: 'sparePartsDiscountPct' as const, label: copy.parts, value: terms.sparePartsDiscountPct ?? 25 }]
       : [
-          { key: 'standardMachineDiscountPct' as const, label: copy.machine, value: terms.standardMachineDiscountPct },
-          { key: 'sparePartsDiscountPct' as const, label: copy.parts, value: terms.sparePartsDiscountPct },
+          { key: 'machineDiscountPct' as const, label: copy.machine, value: terms.machineDiscountPct ?? 25 },
+          { key: 'sparePartsDiscountPct' as const, label: copy.parts, value: terms.sparePartsDiscountPct ?? 25 },
         ];
 
   return (
@@ -4235,14 +4289,45 @@ function ContractCommercialTermsFields({
           </label>
         ))}
       </div>
+      {partnerType === 'service_partner' && (
+        <p className="mt-4 text-sm leading-6 text-gray-700">{copy.serviceNote}</p>
+      )}
     </div>
   );
 }
 
-function Appendix2DiscountSection({ partnerType, language }: { partnerType: ContractFormData['partnerType']; language: string }) {
-  const paragraphs = renderAppendix2Paragraphs(partnerType).filter(
+function Appendix2DiscountSection({ form, language }: { form: ContractFormData; language: string }) {
+  const discounts = getContractDiscountStructure(form.partnerType, form);
+  const paragraphs = renderAppendix2Paragraphs(form.partnerType, form.partnerType ? discounts : undefined).filter(
     (paragraph) => !shouldHideGuidedContractUiText(paragraph, 'Rabatstruktur og Bilag 2'),
   );
+  const discountRows = [
+    discounts.machineDiscountPct === undefined ? null : ['Maskinrabat', discounts.machineDiscountPct],
+    discounts.equipmentDiscountPct === undefined ? null : ['Redskabsrabat', discounts.equipmentDiscountPct],
+    discounts.sparePartsDiscountPct === undefined ? null : ['Reservedelsrabat', discounts.sparePartsDiscountPct],
+  ].filter((row): row is [string, number] => row !== null);
+
+  if (form.partnerType) return (
+    <div className="space-y-5 rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+      <div className="space-y-4 text-sm leading-6 text-gray-700">
+        {paragraphs.map((paragraph, index) => (
+          <p key={paragraph} className={index === 0 || /^\d+\./.test(paragraph) ? 'font-bold text-gray-950' : ''}>
+            {paragraph}
+          </p>
+        ))}
+      </div>
+      <dl className="grid gap-3 sm:grid-cols-2">
+        {discountRows.map(([label, value]) => (
+          <div key={label} className="border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3">
+            <dt className="text-sm font-semibold text-gray-700">{label}</dt>
+            <dd className="mt-1 text-xl font-black text-emerald-800">{value}%</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+
+  const partnerType = form.partnerType;
   const labels = {
     machineOrder: t('contractDiscountMachineOrderGroup', language),
     warrantyRefund: t('contractDiscountWarrantyRefundGroup', language),

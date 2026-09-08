@@ -1,9 +1,15 @@
 import type { ContractPaymentTermId } from '@/lib/contractPaymentTerms';
 import { normalizePartnerAccountType, type PartnerAccountTypeId } from '@/lib/partnerAccountTypes';
+import type { ContractPartnerType } from '@/lib/contractPartnerTerms';
 
 export const DEFAULT_STANDARD_MACHINE_DISCOUNT_PCT = 25;
 export const DEFAULT_IMPORTER_DISCOUNT_PCT = 30;
 export const DEFAULT_SPARE_PARTS_DISCOUNT_PCT = 30;
+export const DEFAULT_DEALER_MACHINE_DISCOUNT_PCT = 25;
+export const DEFAULT_DEALER_SPARE_PARTS_DISCOUNT_PCT = 25;
+export const DEFAULT_IMPORTER_MACHINE_DISCOUNT_PCT = 30;
+export const DEFAULT_IMPORTER_EQUIPMENT_DISCOUNT_PCT = 30;
+export const DEFAULT_SERVICE_PARTNER_SPARE_PARTS_DISCOUNT_PCT = 25;
 
 export type ContractCommercialTerms = {
   standardMachineDiscountPct: number;
@@ -12,6 +18,12 @@ export type ContractCommercialTerms = {
 };
 
 export type ContractCommercialTermsInput = Partial<ContractCommercialTerms>;
+
+export type ContractDiscountStructure = {
+  machineDiscountPct?: number;
+  equipmentDiscountPct?: number;
+  sparePartsDiscountPct?: number;
+};
 
 function normalizePercentage(value: unknown, fallback: number): number {
   const numeric = typeof value === 'number' ? value : Number(value);
@@ -24,6 +36,67 @@ export function resolveContractCommercialTerms(input: ContractCommercialTermsInp
     standardMachineDiscountPct: normalizePercentage(input.standardMachineDiscountPct, DEFAULT_STANDARD_MACHINE_DISCOUNT_PCT),
     importerDiscountPct: normalizePercentage(input.importerDiscountPct, DEFAULT_IMPORTER_DISCOUNT_PCT),
     sparePartsDiscountPct: normalizePercentage(input.sparePartsDiscountPct, DEFAULT_SPARE_PARTS_DISCOUNT_PCT),
+  };
+}
+
+/**
+ * New contract drafts use semantic discount fields. Legacy fields remain a
+ * read-only fallback so historical contracts keep their original values.
+ */
+export function getContractDiscountStructure(
+  partnerType: ContractPartnerType | '' | null | undefined,
+  input: ContractCommercialTermsInput & {
+    machineDiscountPct?: number | null;
+    equipmentDiscountPct?: number | null;
+  },
+): ContractDiscountStructure {
+  if (partnerType === 'importer') {
+    return {
+      machineDiscountPct: normalizePercentage(
+        input.machineDiscountPct ?? input.importerDiscountPct,
+        DEFAULT_IMPORTER_MACHINE_DISCOUNT_PCT,
+      ),
+      equipmentDiscountPct: normalizePercentage(
+        input.equipmentDiscountPct ?? input.importerDiscountPct,
+        DEFAULT_IMPORTER_EQUIPMENT_DISCOUNT_PCT,
+      ),
+    };
+  }
+  if (partnerType === 'service_partner') {
+    return {
+      sparePartsDiscountPct: normalizePercentage(
+        input.sparePartsDiscountPct,
+        DEFAULT_SERVICE_PARTNER_SPARE_PARTS_DISCOUNT_PCT,
+      ),
+    };
+  }
+  return {
+    machineDiscountPct: normalizePercentage(
+      input.machineDiscountPct ?? input.standardMachineDiscountPct,
+      DEFAULT_DEALER_MACHINE_DISCOUNT_PCT,
+    ),
+    sparePartsDiscountPct: normalizePercentage(
+      input.sparePartsDiscountPct,
+      DEFAULT_DEALER_SPARE_PARTS_DISCOUNT_PCT,
+    ),
+  };
+}
+
+export function getNewContractDiscountDefaults(
+  partnerType: ContractPartnerType | '',
+): ContractDiscountStructure {
+  return getContractDiscountStructure(partnerType, {});
+}
+
+/** Clears fields that do not belong to the newly selected partner type. */
+export function getPartnerTypeDiscountFormPatch(partnerType: ContractPartnerType | '') {
+  return {
+    standardMachineDiscountPct: undefined,
+    importerDiscountPct: undefined,
+    machineDiscountPct: undefined,
+    equipmentDiscountPct: undefined,
+    sparePartsDiscountPct: undefined,
+    ...getNewContractDiscountDefaults(partnerType),
   };
 }
 

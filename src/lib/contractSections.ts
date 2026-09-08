@@ -9,6 +9,7 @@ import {
 } from '@/lib/contractTerritory';
 import { formatContractServiceHourlyRateDkk } from '@/lib/contractServiceTerms';
 import { renderContractPaymentTermLegalText } from '@/lib/contractPaymentTerms';
+import { getContractDiscountStructure } from '@/lib/contractCommercialTerms';
 
 export type ContractTextBlock = {
   heading?: string;
@@ -32,6 +33,9 @@ export type ContractTextRenderContext = {
   secondaryTerritory?: ContractSecondaryTerritoryArea;
   serviceHourlyRateDkk?: number;
   paymentTerm?: string;
+  machineDiscountPct?: number;
+  equipmentDiscountPct?: number;
+  sparePartsDiscountPct?: number;
 };
 
 export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
@@ -358,10 +362,51 @@ function renderContractBulletText(value: string, context: ContractTextRenderCont
   return [renderContractText(value, context)];
 }
 
+function getDiscountStructureBlocks(context: ContractTextRenderContext): ContractTextBlock[] {
+  const discounts = getContractDiscountStructure(context.partnerType, context);
+
+  if (context.partnerType === 'importer') {
+    return [{
+      heading: '4. Rabatstruktur',
+      paragraphs: [
+        `Maskinrabat: ${discounts.machineDiscountPct}%.`,
+        `Redskabsrabat: ${discounts.equipmentDiscountPct}%.`,
+        'De aftalte rabatter fremgår af bilag 2.',
+      ],
+      bullets: ['Se bilag 2.'],
+    }];
+  }
+
+  if (context.partnerType === 'service_partner') {
+    return [{
+      heading: '4. Rabatstruktur',
+      paragraphs: [
+        `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
+        'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.',
+      ],
+    }];
+  }
+
+  return [{
+    heading: '4. Rabatstruktur',
+    paragraphs: [
+      `Maskinrabat: ${discounts.machineDiscountPct}%.`,
+      `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
+      'De aftalte rabatter fremgår af bilag 2.',
+    ],
+    bullets: ['Se bilag 2.'],
+  }];
+}
+
 export function renderGuidedContractSections(context: ContractTextRenderContext): GuidedContractSection[] {
-  return GUIDED_CONTRACT_SECTIONS.map((section) => ({
+  return GUIDED_CONTRACT_SECTIONS.map((section) => {
+    const sourceBlocks = section.stepId === 'discount_structure'
+      ? getDiscountStructureBlocks(context)
+      : section.blocks;
+
+    return ({
     ...section,
-    blocks: section.blocks
+    blocks: sourceBlocks
       .map((block) => ({
         heading: block.heading ? renderContractText(block.heading, context) : undefined,
         paragraphs: block.paragraphs?.map((paragraph) => renderContractText(paragraph, context)).filter(Boolean),
@@ -372,7 +417,8 @@ export function renderGuidedContractSections(context: ContractTextRenderContext)
         || block.heading !== 'Sekundær område'
         || describeContractSecondaryTerritoryArea(context.secondaryTerritory, 'da')
       )),
-  }));
+    });
+  });
 }
 
 export function getGuidedContractSection(stepId: ContractStepId) {

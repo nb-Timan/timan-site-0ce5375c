@@ -300,6 +300,8 @@ function rowToContractRecord(row: Record<string, unknown>): DealerContractRecord
       serviceHourlyRateDkk: normalizeContractServiceHourlyRateDkk(formData.serviceHourlyRateDkk),
       paymentTerm: normalizeContractPaymentTerm(formData.paymentTerm),
       ...commercialTerms,
+      machineDiscountPct: formData.machineDiscountPct,
+      equipmentDiscountPct: formData.equipmentDiscountPct,
       signatureDataUrl,
     },
     contract_version: String(row.contract_version ?? CONTRACT_VERSION),

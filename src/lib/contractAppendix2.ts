@@ -1,4 +1,5 @@
 import { getContractPartnerTerms, type ContractPartnerType } from '@/lib/contractPartnerTerms';
+import type { ContractDiscountStructure } from '@/lib/contractCommercialTerms';
 
 export const APPENDIX_2_PARAGRAPHS = [
   'Bilag 2: Rabat.',
@@ -26,7 +27,35 @@ export const APPENDIX_2_EXAMPLE_LINES = [
   'Når garantiregistreringen er gennemført, vil beløbet på 3.100 kr. blive udstedt som en kreditnota, der kan anvendes ved fremtidige køb hos Timan.',
 ] as const;
 
-export function renderAppendix2Paragraphs(partnerType: ContractPartnerType | '' | null | undefined): string[] {
+export function renderAppendix2Paragraphs(
+  partnerType: ContractPartnerType | '' | null | undefined,
+  discounts?: ContractDiscountStructure,
+): string[] {
+  if (discounts) {
+    if (partnerType === 'importer') {
+      return [
+        'Bilag 2: Rabat.',
+        'Aftalte rabatter.',
+        `Maskinrabat: ${discounts.machineDiscountPct}%.`,
+        `Redskabsrabat: ${discounts.equipmentDiscountPct}%.`,
+      ];
+    }
+    if (partnerType === 'service_partner') {
+      return [
+        'Bilag 2: Rabat.',
+        'Aftalte rabatter.',
+        `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
+        'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.',
+      ];
+    }
+    return [
+      'Bilag 2: Rabat.',
+      'Aftalte rabatter.',
+      `Maskinrabat: ${discounts.machineDiscountPct}%.`,
+      `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
+    ];
+  }
+
   const terms = getContractPartnerTerms(partnerType);
   return APPENDIX_2_PARAGRAPHS.map((paragraph: string) => (
     paragraph
