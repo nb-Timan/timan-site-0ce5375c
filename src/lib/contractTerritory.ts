@@ -425,6 +425,21 @@ export function getContractTerritoryPostalLabel(
   return country.postalLabel[language as PortalUiLanguage] ?? country.postalLabel.da;
 }
 
+function getContractTerritoryPostalEntryLabel(language: PortalUiLanguage | string | null | undefined) {
+  const labels: Record<PortalUiLanguage, string> = {
+    da: 'Postnummer',
+    en: 'Postal code',
+    de: 'Postleitzahl',
+    it: 'Codice postale',
+    hu: 'Irányítószám',
+    sv: 'Postnummer',
+    fr: 'Code postal',
+    pl: 'Kod pocztowy',
+    cs: 'PSČ',
+  };
+  return labels[language as PortalUiLanguage] ?? labels.da;
+}
+
 export function getContractTerritoryRegionLabel(
   countryCode: ContractTerritoryCountryCode,
   language: PortalUiLanguage | string | null | undefined = 'da',
@@ -464,11 +479,22 @@ export function getContractTerritoryDisplayGroups(
 ): ContractTerritoryDisplayGroups {
   const area = normalizeContractTerritoryArea(areaInput);
   const country = getContractTerritoryCountryLabel(area.country, language);
-  const wholeCountryLabel = language === 'en' ? 'Whole country' : 'Hele landet';
+  const displayLabels: Record<PortalUiLanguage, { wholeCountry: string; country: string; municipality: string; selectedArea: string }> = {
+    da: { wholeCountry: 'Hele landet', country: 'Land', municipality: 'Kommune', selectedArea: 'Valgt område' },
+    en: { wholeCountry: 'Whole country', country: 'Country', municipality: 'Municipality', selectedArea: 'Selected area' },
+    de: { wholeCountry: 'Ganzes Land', country: 'Land', municipality: 'Gemeinde', selectedArea: 'Ausgewähltes Gebiet' },
+    it: { wholeCountry: 'Intero Paese', country: 'Paese', municipality: 'Comune', selectedArea: 'Area selezionata' },
+    hu: { wholeCountry: 'Teljes ország', country: 'Ország', municipality: 'Önkormányzat', selectedArea: 'Kiválasztott terület' },
+    sv: { wholeCountry: 'Hela landet', country: 'Land', municipality: 'Kommun', selectedArea: 'Valt område' },
+    fr: { wholeCountry: 'Tout le pays', country: 'Pays', municipality: 'Commune', selectedArea: 'Zone sélectionnée' },
+    pl: { wholeCountry: 'Cały kraj', country: 'Kraj', municipality: 'Gmina', selectedArea: 'Wybrany obszar' },
+    cs: { wholeCountry: 'Celá země', country: 'Země', municipality: 'Obec', selectedArea: 'Vybraná oblast' },
+  };
+  const labels = displayLabels[language as PortalUiLanguage] ?? displayLabels.da;
 
   if (area.wholeCountry) {
     return {
-      countryLine: `${country} - ${wholeCountryLabel}`,
+      countryLine: `${country} - ${labels.wholeCountry}`,
       wholeCountry: true,
       regionLabel: getContractTerritoryRegionLabel(area.country, language),
       regions: [],
@@ -477,9 +503,8 @@ export function getContractTerritoryDisplayGroups(
     };
   }
 
-  const countryPrefix = language === 'en' ? 'Country' : 'Land';
   return {
-    countryLine: `${countryPrefix}: ${country}`,
+    countryLine: `${labels.country}: ${country}`,
     wholeCountry: false,
     regionLabel: getContractTerritoryRegionLabel(area.country, language),
     regions: area.selectedRegions.map((region) => formatContractTerritoryRegionName(area, region)),
@@ -504,21 +529,33 @@ export function getContractTerritoryDisplayItems(
 ) {
   const area = normalizeContractTerritoryArea(areaInput);
   const country = getContractTerritoryCountryLabel(area.country, language);
+  const displayLabels: Record<PortalUiLanguage, { wholeCountry: string; country: string; municipality: string; selectedArea: string }> = {
+    da: { wholeCountry: 'Hele landet', country: 'Land', municipality: 'Kommune', selectedArea: 'Valgt område' },
+    en: { wholeCountry: 'Whole country', country: 'Country', municipality: 'Municipality', selectedArea: 'Selected area' },
+    de: { wholeCountry: 'Ganzes Land', country: 'Land', municipality: 'Gemeinde', selectedArea: 'Ausgewähltes Gebiet' },
+    it: { wholeCountry: 'Intero Paese', country: 'Paese', municipality: 'Comune', selectedArea: 'Area selezionata' },
+    hu: { wholeCountry: 'Teljes ország', country: 'Ország', municipality: 'Önkormányzat', selectedArea: 'Kiválasztott terület' },
+    sv: { wholeCountry: 'Hela landet', country: 'Land', municipality: 'Kommun', selectedArea: 'Valt område' },
+    fr: { wholeCountry: 'Tout le pays', country: 'Pays', municipality: 'Commune', selectedArea: 'Zone sélectionnée' },
+    pl: { wholeCountry: 'Cały kraj', country: 'Kraj', municipality: 'Gmina', selectedArea: 'Wybrany obszar' },
+    cs: { wholeCountry: 'Celá země', country: 'Země', municipality: 'Obec', selectedArea: 'Vybraná oblast' },
+  };
+  const labels = displayLabels[language as PortalUiLanguage] ?? displayLabels.da;
   if (area.wholeCountry) {
-    return [language === 'en' ? `${country} - Whole country` : `${country} - Hele landet`];
+    return [`${country} - ${labels.wholeCountry}`];
   }
   const regionLabel = area.country === 'DK' || area.country === 'SE'
-    ? (language === 'en' ? 'Municipality' : 'Kommune')
-    : (language === 'en' ? 'Selected area' : 'Valgt område');
+    ? labels.municipality
+    : labels.selectedArea;
   const regionItems = area.selectedRegions.map((region) => `${regionLabel}: ${formatContractTerritoryRegionName(area, region)}`);
   const postalItems = area.postalEntries
     .filter((entry) => entry.postalCode || entry.postalRange)
     .map((entry) => formatContractTerritoryPostalEntry(area, entry))
     .filter(Boolean);
   return [
-    `${language === 'en' ? 'Country' : 'Land'}: ${country}`,
+    `${labels.country}: ${country}`,
     ...regionItems,
-    ...postalItems.map((item) => `${language === 'en' ? 'Postal code' : 'Postnummer'}: ${item}`),
+    ...postalItems.map((item) => `${getContractTerritoryPostalEntryLabel(language)}: ${item}`),
   ];
 }
 

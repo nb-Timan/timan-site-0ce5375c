@@ -20,6 +20,7 @@ describe("partner contract onboarding access", () => {
   const userWindowPolicyMigration = readProjectFile("supabase/migrations/20260901150652_enforce_user_specific_contract_window_policies.sql");
   const policyQualificationMigration = readProjectFile("supabase/migrations/20260901151012_fix_contract_window_policy_contract_id_qualification.sql");
   const historyDisambiguationMigration = readProjectFile("supabase/migrations/20260901153058_disambiguate_contract_access_history_events.sql");
+  const sellerScopeMigration = readProjectFile("supabase/migrations/20260908210000_enforce_seller_contract_scope.sql");
 
   it("adds one controlled access-window model and append-only agreement history", () => {
     expect(migration).toContain("create table if not exists public.dealer_contract_access_windows");
@@ -55,6 +56,14 @@ describe("partner contract onboarding access", () => {
     expect(policyQualificationMigration).toContain("dealer_contracts.dealer_account_id");
     expect(policyQualificationMigration).toContain("dealer_contracts.dealer_account_number = au.dealer_number");
     expect(policyQualificationMigration).not.toContain("has_active_dealer_contract_window(dealer_contracts.dealer_account_id, au.id, au.id)");
+  });
+
+  it("keeps sellers scoped while preserving backend and service contract access", () => {
+    expect(sellerScopeMigration).toContain("create or replace function public.is_global_internal_contract_actor()");
+    expect(sellerScopeMigration).toContain("au.portal_role in ('timan_backend', 'timan_service')");
+    expect(sellerScopeMigration).toContain("public.can_manage_dealer_contract_access(coalesce(dc.dealer_account_id, da.id))");
+    expect(sellerScopeMigration).toContain("public.can_manage_dealer_contract_access(dealer_account_id)");
+    expect(sellerScopeMigration).not.toContain("public.is_internal_contract_actor()");
   });
 
   it("records important contract events in Partnerdata history", () => {

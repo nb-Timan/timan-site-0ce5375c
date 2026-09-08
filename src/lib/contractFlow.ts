@@ -131,6 +131,36 @@ const CONTRACT_STATUS_LABELS: Partial<Record<PortalUiLanguage, Record<ContractWo
     awaiting_signed_upload: 'Unterzeichneter Vertrag ausstehend', submitted_for_approval: 'Zur Timan-Genehmigung gesendet',
     changes_requested: 'Neuer Upload erforderlich', approved: 'Genehmigt', archived: 'Archiviert',
   },
+  it: {
+    pending_decision: 'In attesa', draft: 'Bozza', guided_review: 'In revisione', ready_for_signature: 'Pronto per la firma',
+    awaiting_signed_upload: 'In attesa del contratto firmato', submitted_for_approval: 'Inviato per l’approvazione Timan',
+    changes_requested: 'Nuovo caricamento richiesto', approved: 'Approvato', archived: 'Archiviato',
+  },
+  hu: {
+    pending_decision: 'Függőben', draft: 'Piszkozat', guided_review: 'Felülvizsgálat alatt', ready_for_signature: 'Aláírásra kész',
+    awaiting_signed_upload: 'Aláírt szerződésre vár', submitted_for_approval: 'Timan jóváhagyásra elküldve',
+    changes_requested: 'Új feltöltés szükséges', approved: 'Jóváhagyva', archived: 'Archiválva',
+  },
+  sv: {
+    pending_decision: 'Väntar', draft: 'Utkast', guided_review: 'Under granskning', ready_for_signature: 'Klar för signering',
+    awaiting_signed_upload: 'Väntar på undertecknat avtal', submitted_for_approval: 'Skickat för Timan-godkännande',
+    changes_requested: 'Ny uppladdning krävs', approved: 'Godkänd', archived: 'Arkiverad',
+  },
+  fr: {
+    pending_decision: 'En attente', draft: 'Brouillon', guided_review: 'En révision', ready_for_signature: 'Prêt à signer',
+    awaiting_signed_upload: 'En attente du contrat signé', submitted_for_approval: 'Envoyé pour approbation Timan',
+    changes_requested: 'Nouveau téléversement requis', approved: 'Approuvé', archived: 'Archivé',
+  },
+  pl: {
+    pending_decision: 'Oczekuje', draft: 'Szkic', guided_review: 'W trakcie przeglądu', ready_for_signature: 'Gotowy do podpisu',
+    awaiting_signed_upload: 'Oczekuje na podpisaną umowę', submitted_for_approval: 'Wysłano do zatwierdzenia przez Timan',
+    changes_requested: 'Wymagane nowe przesłanie', approved: 'Zatwierdzono', archived: 'Zarchiwizowano',
+  },
+  cs: {
+    pending_decision: 'Čeká', draft: 'Koncept', guided_review: 'V revizi', ready_for_signature: 'Připraveno k podpisu',
+    awaiting_signed_upload: 'Čeká na podepsanou smlouvu', submitted_for_approval: 'Odesláno ke schválení Timan',
+    changes_requested: 'Vyžadováno nové nahrání', approved: 'Schváleno', archived: 'Archivováno',
+  },
 };
 
 export const CONTRACT_PROGRESS_STEPS: Array<{
@@ -372,6 +402,83 @@ const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, Cont
   ),
 };
 
+// These labels are review-only. They deliberately do not participate in the
+// legal signature/PDF language selection, which remains DA/EN/DE.
+const REVIEW_STEP_TRANSLATIONS: Partial<Record<Exclude<PortalUiLanguage, 'da' | 'en' | 'de'>, Record<Exclude<ContractStepId, 'signature'>, ContractStepLabel>>> = {
+  it: {
+    parties: { title: 'Dettagli', shortTitle: 'Dettagli', intro: 'Scegli il tipo di partner e verifica i dati di Timan e dell’azienda.' },
+    purpose_prices_orders_portal: { title: 'Collaborazione, prezzi, ordini e portale', shortTitle: 'Collaborazione', intro: 'Esamina collaborazione, prezzi, ordini, portale partner e incontro annuale.' },
+    territory: { title: 'Territorio', shortTitle: 'Territorio', intro: 'Esamina le disposizioni territoriali del contratto e l’area di vendita.' },
+    discount_structure: { title: 'Struttura degli sconti', shortTitle: 'Sconti', intro: 'Esamina la struttura degli sconti, le regole di calcolo e la visualizzazione.' },
+    demo_machines: { title: 'Macchine demo', shortTitle: 'Demo', intro: 'Esamina le disposizioni relative a macchine demo, sconto demo e rivendita.' },
+    spare_parts_service: { title: 'Ricambi e assistenza', shortTitle: 'Ricambi', intro: 'Esamina le disposizioni del contratto su ricambi, assistenza e giornate di vendita.' },
+    marketing: { title: 'Marketing', shortTitle: 'Marketing', intro: 'Esamina gli obblighi di marketing del partner e di Timan.' },
+    payment_delivery: { title: 'Pagamento e consegna', shortTitle: 'Pagamento', intro: 'Esamina pagamento, consegna e le condizioni di vendita e consegna.' },
+    termination: { title: 'Risoluzione e condizioni finali', shortTitle: 'Risoluzione', intro: 'Esamina durata, risoluzione e condizioni finali prima della revisione completa.' },
+    full_contract: { title: 'Revisione', shortTitle: 'Revisione', intro: 'Leggi l’intero pacchetto contrattuale prima di prepararlo per la firma.' },
+  },
+  hu: {
+    parties: { title: 'Adatok', shortTitle: 'Adatok', intro: 'Válassza ki a partner típusát, és ellenőrizze a Timan és a vállalat adatait.' },
+    purpose_prices_orders_portal: { title: 'Együttműködés, árak, rendelések és portál', shortTitle: 'Együttműködés', intro: 'Tekintse át az együttműködést, árakat, rendeléseket, a partnerportált és az éves találkozót.' },
+    territory: { title: 'Terület', shortTitle: 'Terület', intro: 'Tekintse át a szerződés területi rendelkezéseit és az értékesítési területet.' },
+    discount_structure: { title: 'Kedvezménystruktúra', shortTitle: 'Kedvezmény', intro: 'Tekintse át a kedvezménystruktúrát, a számítási szabályokat és az ábrát.' },
+    demo_machines: { title: 'Bemutatógépek', shortTitle: 'Bemutató', intro: 'Tekintse át a bemutatógépekre, kedvezményre és továbbértékesítésre vonatkozó szabályokat.' },
+    spare_parts_service: { title: 'Alkatrészek és szerviz', shortTitle: 'Alkatrészek', intro: 'Tekintse át az alkatrészekre, szervizre és értékesítési napokra vonatkozó rendelkezéseket.' },
+    marketing: { title: 'Marketing', shortTitle: 'Marketing', intro: 'Tekintse át a partner és a Timan marketingkötelezettségeit.' },
+    payment_delivery: { title: 'Fizetés és szállítás', shortTitle: 'Fizetés', intro: 'Tekintse át a fizetést, szállítást és az értékesítési feltételeket.' },
+    termination: { title: 'Felmondás és záró feltételek', shortTitle: 'Felmondás', intro: 'Tekintse át az időtartamot, felmondást és záró feltételeket.' },
+    full_contract: { title: 'Áttekintés', shortTitle: 'Áttekintés', intro: 'A teljes szerződéscsomagot az aláírás előkészítése előtt olvassa el.' },
+  },
+  sv: {
+    parties: { title: 'Uppgifter', shortTitle: 'Uppgifter', intro: 'Välj partnertyp och kontrollera Timans och företagets uppgifter.' },
+    purpose_prices_orders_portal: { title: 'Samarbete, priser, order och portal', shortTitle: 'Samarbete', intro: 'Granska samarbete, priser, order, partnerportalen och det årliga mötet.' },
+    territory: { title: 'Område', shortTitle: 'Område', intro: 'Granska avtalets områdesbestämmelser och försäljningsområdet.' },
+    discount_structure: { title: 'Rabattstruktur', shortTitle: 'Rabatt', intro: 'Granska rabattstrukturen, beräkningsreglerna och visualiseringen.' },
+    demo_machines: { title: 'Demomaskiner', shortTitle: 'Demo', intro: 'Granska bestämmelser om demomaskiner, demorabatt och återförsäljning.' },
+    spare_parts_service: { title: 'Reservdelar och service', shortTitle: 'Reservdelar', intro: 'Granska avtalsbestämmelser om reservdelar, service och försäljningsdagar.' },
+    marketing: { title: 'Marknadsföring', shortTitle: 'Marknadsföring', intro: 'Granska partnerns och Timans marknadsföringsskyldigheter.' },
+    payment_delivery: { title: 'Betalning och leverans', shortTitle: 'Betalning', intro: 'Granska betalning, leverans och försäljningsvillkor.' },
+    termination: { title: 'Uppsägning och slutvillkor', shortTitle: 'Uppsägning', intro: 'Granska löptid, uppsägning och slutvillkor före den samlade genomgången.' },
+    full_contract: { title: 'Genomläsning', shortTitle: 'Genomläsning', intro: 'Läs hela avtalspaketet innan det förbereds för signering.' },
+  },
+  fr: {
+    parties: { title: 'Informations', shortTitle: 'Informations', intro: 'Choisissez le type de partenaire et vérifiez les informations Timan et entreprise.' },
+    purpose_prices_orders_portal: { title: 'Coopération, prix, commandes et portail', shortTitle: 'Coopération', intro: 'Examinez la coopération, les prix, les commandes, le portail partenaire et la réunion annuelle.' },
+    territory: { title: 'Territoire', shortTitle: 'Territoire', intro: 'Examinez les dispositions territoriales du contrat et la zone de vente.' },
+    discount_structure: { title: 'Structure de remise', shortTitle: 'Remise', intro: 'Examinez la structure des remises, les règles de calcul et la visualisation.' },
+    demo_machines: { title: 'Machines de démonstration', shortTitle: 'Démo', intro: 'Examinez les dispositions relatives aux machines de démonstration et à leur revente.' },
+    spare_parts_service: { title: 'Pièces détachées et service', shortTitle: 'Pièces', intro: 'Examinez les dispositions relatives aux pièces, au service et aux journées de vente.' },
+    marketing: { title: 'Marketing', shortTitle: 'Marketing', intro: 'Examinez les obligations marketing du partenaire et de Timan.' },
+    payment_delivery: { title: 'Paiement et livraison', shortTitle: 'Paiement', intro: 'Examinez le paiement, la livraison et les conditions de vente.' },
+    termination: { title: 'Résiliation et conditions finales', shortTitle: 'Résiliation', intro: 'Examinez la durée, la résiliation et les conditions finales.' },
+    full_contract: { title: 'Relecture', shortTitle: 'Relecture', intro: 'Lisez l’ensemble du contrat avant de le préparer pour signature.' },
+  },
+  pl: {
+    parties: { title: 'Dane', shortTitle: 'Dane', intro: 'Wybierz typ partnera i sprawdź dane Timan oraz firmy.' },
+    purpose_prices_orders_portal: { title: 'Współpraca, ceny, zamówienia i portal', shortTitle: 'Współpraca', intro: 'Sprawdź współpracę, ceny, zamówienia, portal partnera i coroczne spotkanie.' },
+    territory: { title: 'Terytorium', shortTitle: 'Terytorium', intro: 'Sprawdź postanowienia dotyczące terytorium i obszaru sprzedaży.' },
+    discount_structure: { title: 'Struktura rabatów', shortTitle: 'Rabaty', intro: 'Sprawdź strukturę rabatów, zasady obliczeń i wizualizację.' },
+    demo_machines: { title: 'Maszyny demonstracyjne', shortTitle: 'Demo', intro: 'Sprawdź zasady dotyczące maszyn demonstracyjnych, rabatu i odsprzedaży.' },
+    spare_parts_service: { title: 'Części zamienne i serwis', shortTitle: 'Części', intro: 'Sprawdź postanowienia dotyczące części, serwisu i dni sprzedażowych.' },
+    marketing: { title: 'Marketing', shortTitle: 'Marketing', intro: 'Sprawdź obowiązki marketingowe partnera i Timan.' },
+    payment_delivery: { title: 'Płatność i dostawa', shortTitle: 'Płatność', intro: 'Sprawdź płatność, dostawę i warunki sprzedaży.' },
+    termination: { title: 'Wypowiedzenie i warunki końcowe', shortTitle: 'Wypowiedzenie', intro: 'Sprawdź okres obowiązywania, wypowiedzenie i warunki końcowe.' },
+    full_contract: { title: 'Przegląd', shortTitle: 'Przegląd', intro: 'Przeczytaj cały pakiet umowy przed przygotowaniem do podpisu.' },
+  },
+  cs: {
+    parties: { title: 'Údaje', shortTitle: 'Údaje', intro: 'Vyberte typ partnera a zkontrolujte údaje Timan a společnosti.' },
+    purpose_prices_orders_portal: { title: 'Spolupráce, ceny, objednávky a portál', shortTitle: 'Spolupráce', intro: 'Zkontrolujte spolupráci, ceny, objednávky, partnerský portál a výroční setkání.' },
+    territory: { title: 'Území', shortTitle: 'Území', intro: 'Zkontrolujte ustanovení o území a prodejní oblasti.' },
+    discount_structure: { title: 'Struktura slev', shortTitle: 'Slevy', intro: 'Zkontrolujte strukturu slev, pravidla výpočtu a vizualizaci.' },
+    demo_machines: { title: 'Předváděcí stroje', shortTitle: 'Demo', intro: 'Zkontrolujte ustanovení o předváděcích strojích, slevě a dalším prodeji.' },
+    spare_parts_service: { title: 'Náhradní díly a servis', shortTitle: 'Díly', intro: 'Zkontrolujte ustanovení o náhradních dílech, servisu a prodejních dnech.' },
+    marketing: { title: 'Marketing', shortTitle: 'Marketing', intro: 'Zkontrolujte marketingové povinnosti partnera a Timan.' },
+    payment_delivery: { title: 'Platba a dodání', shortTitle: 'Platba', intro: 'Zkontrolujte platbu, dodání a obchodní podmínky.' },
+    termination: { title: 'Ukončení a závěrečné podmínky', shortTitle: 'Ukončení', intro: 'Zkontrolujte dobu trvání, ukončení a závěrečné podmínky.' },
+    full_contract: { title: 'Kontrola', shortTitle: 'Kontrola', intro: 'Přečtěte si celý balíček smlouvy před přípravou k podpisu.' },
+  },
+};
+
 export const CONTRACT_APPENDIX_LABELS: Record<PortalUiLanguage, string> = {
   da: 'Bilag',
   en: 'Appendix',
@@ -393,6 +500,8 @@ export function getContractStepLabel(
   const signatureLanguage = stepId === 'signature' && !(['da', 'en', 'de'] as const).includes(language as 'da' | 'en' | 'de')
     ? 'en'
     : language;
+  const reviewTranslation = stepId === 'signature' ? null : REVIEW_STEP_TRANSLATIONS[language as Exclude<PortalUiLanguage, 'da' | 'en' | 'de'>]?.[stepId as Exclude<ContractStepId, 'signature'>];
+  if (reviewTranslation) return reviewTranslation;
   const lang = (signatureLanguage && CONTRACT_STEP_LABELS[stepId]?.[signatureLanguage as PortalUiLanguage])
     ? signatureLanguage as PortalUiLanguage
     : 'da';

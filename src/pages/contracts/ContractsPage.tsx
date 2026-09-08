@@ -73,7 +73,7 @@ import { fetchBackendUsers } from '@/lib/backendUsersService';
 import { inviteContractPartnerUser } from '@/lib/adminUserActions';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
-import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
 import { getContractAccessDurationMinutes, type ContractAccessDurationUnit } from '@/lib/contractAccessDuration';
 import { APPENDIX_2_EXAMPLE_LINES, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
@@ -846,7 +846,7 @@ function drawAppendix2Pdf(
 
 export default function ContractsPage() {
   const { appUser, loading, logout } = useAppUser();
-  const effectiveUser = useEffectivePortalUser(appUser);
+  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const { contractId: routeContractId } = useParams();
@@ -1745,7 +1745,7 @@ export default function ContractsPage() {
     toast.success('Kontrakten er sendt til Timan-godkendelse.');
   };
 
-  if (loading) {
+  if (loading || resolvingEffectiveUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-sm text-gray-500">...</div>
@@ -2284,7 +2284,7 @@ function InternalContractsOverview({
   onNewContract,
 }: {
   appUser: ReturnType<typeof useAppUser>['appUser'];
-  effectiveUser: NonNullable<ReturnType<typeof useEffectivePortalUser>>;
+  effectiveUser: NonNullable<ReturnType<typeof useEffectivePortalUserState>['effectiveUser']>;
   language: ReturnType<typeof useLanguage>['language'];
   uiLanguage: ReturnType<typeof useLanguage>['uiLanguage'];
   portalRole: string | null;

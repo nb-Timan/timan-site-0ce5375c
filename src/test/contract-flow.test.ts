@@ -1458,6 +1458,8 @@ describe('contract flow', () => {
     expect(pageSource).toContain('onExtend={extendGuidedAccess}');
     expect(pageSource).toContain('onRevoke={revokeGuidedAccess}');
     expect(pageSource).toContain("portalRole === 'timan_seller' && hasModuleAccess(portalRole, 'contracts', moduleOverride)");
+    expect(pageSource).toContain('useEffectivePortalUserState(appUser)');
+    expect(pageSource).toContain('loading || resolvingEffectiveUser');
 
     expect(portalAreaSource).toContain('fetchActiveDealerContractAccessWindow');
     expect(portalAreaSource).toContain('Åbn kontrakt');
