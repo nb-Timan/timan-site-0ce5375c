@@ -77,4 +77,25 @@ describe("machine registry RPC read-chain", () => {
     expect(migration).toContain("normalized_serial asc) ordinal from filtered");
     expect(migration.indexOf("), ordered as (")).toBeLessThan(migration.indexOf("), page as ("));
   });
+
+  it("keeps MO as the physical-machine reference when a serial also has SP", () => {
+    const migration = read("supabase/migrations/20260908063000_backfill_canonical_machine_orders.sql");
+    expect(migration).toContain("machine_order_source = 'portal_assigned'");
+    expect(migration).toContain("machine_order_backfill");
+    expect(migration).toContain("warranty_registrations_active_machine_order_unique");
+    expect(migration).toContain("coalesce(nullif(btrim(wr.legacy_warranty_reference), ''), lc.machine_order_number) machine_order_number");
+    expect(migration).toContain("wr.source <> 'legacy_machine_import'");
+  });
+
+  it("uses a deterministic source tie-breaker for canonical serials", () => {
+    const migration = read("supabase/migrations/20260908065500_make_canonical_machine_order_deterministic.sql");
+    expect(migration).toContain("wr.sharepoint_form_id desc nulls last,wr.id");
+  });
+
+  it("moves an MO reference to the deterministic canonical row for duplicate source serials", () => {
+    const migration = read("supabase/migrations/20260908071500_align_canonical_machine_order_rows.sql");
+    expect(migration).toContain("'TMP-' || r.target_id::text");
+    expect(migration).toContain("machine_order_canonical_alignment");
+    expect(migration).toContain("'{}'::jsonb");
+  });
 });
