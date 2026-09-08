@@ -147,6 +147,16 @@ function sameContactPerson(contact: DealerContact, source: LegacyContactSource):
   );
 }
 
+function isInvoiceEmailOnlyFinanceFallback(dealer: DealerAccount, source: LegacyContactSource): boolean {
+  return (
+    source.area === "finance" &&
+    !normalizeContactValue(source.name) &&
+    !normalizeContactValue(source.phone) &&
+    Boolean(normalizeContactValue(source.email)) &&
+    normalizeContactValue(source.email) === normalizeContactValue(dealer.invoice_email)
+  );
+}
+
 function legacyContactSources(dealer: DealerAccount, t: (k: ProfileI18nKey) => string): LegacyContactSource[] {
   return [
     {
@@ -184,7 +194,10 @@ function legacyContactSources(dealer: DealerAccount, t: (k: ProfileI18nKey) => s
       email: dealer.marketing_contact_email,
       phone: dealer.marketing_contact_phone,
     },
-  ].filter((source) => Boolean(source.name || source.email || source.phone)) as LegacyContactSource[];
+  ].filter((source) => (
+    Boolean(source.name || source.email || source.phone) &&
+    !isInvoiceEmailOnlyFinanceFallback(dealer, source)
+  )) as LegacyContactSource[];
 }
 
 function isLegacyPrimaryContact(dealer: DealerAccount, source: LegacyContactSource): boolean {

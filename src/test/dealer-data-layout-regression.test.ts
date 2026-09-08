@@ -66,6 +66,13 @@ describe("Partnerdata layout regression guard", () => {
     expect(dealerProfileSource).not.toContain('primaryLabel={t("area_primary")}');
   });
 
+  it("does not hydrate an invoice email as a blank finance contact", () => {
+    expect(dealerProfileSource).toContain("function isInvoiceEmailOnlyFinanceFallback");
+    expect(dealerProfileSource).toContain('source.area === "finance"');
+    expect(dealerProfileSource).toContain("normalizeContactValue(source.email) === normalizeContactValue(dealer.invoice_email)");
+    expect(dealerProfileSource).toContain("!isInvoiceEmailOnlyFinanceFallback(dealer, source)");
+  });
+
   it("renders legacy first contacts through the shared editable contact list", () => {
     expect(dealerProfileSource).toContain("mergeLegacyContacts");
     expect(dealerProfileSource).toContain("role_title: t(source.roleKey)");
