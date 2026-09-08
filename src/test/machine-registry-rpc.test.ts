@@ -18,7 +18,7 @@ describe("machine registry RPC read-chain", () => {
     expect(page).toContain('label="MO nr."');
     expect(page).toContain('label="ERP nr."');
     expect(page).toContain('label="Portal-ordrenr."');
-    expect(page).toContain(">Fakturanr.</th>");
+    expect(page).toContain('label="Fakturanr." sort="invoice"');
     expect(page).not.toContain("costAmount");
     expect(page).not.toContain("contributionMarginAmount");
     expect(page).not.toContain("Omsætning");
@@ -65,5 +65,16 @@ describe("machine registry RPC read-chain", () => {
     expect(migration).toContain("case when p_sort='marginPercent'");
     expect(migration.indexOf("), ordered as (")).toBeLessThan(migration.indexOf("), page as ("));
     expect(migration).toContain("nulls last");
+  });
+
+  it("uses semantic numeric and date ordering before pagination", () => {
+    const migration = read("supabase/migrations/20260907214212_fix_machine_registry_semantic_sorting.sql");
+    expect(migration).toContain("regexp_replace(warranty_id, '[^0-9]', '', 'g')");
+    expect(migration).toContain("regexp_replace(machine_order_number, '[^0-9]', '', 'g')");
+    expect(migration).toContain("erp_order_number::bigint");
+    expect(migration).toContain("invoice_number::bigint");
+    expect(migration).toContain("then delivery_date end asc nulls last");
+    expect(migration).toContain("normalized_serial asc) ordinal from filtered");
+    expect(migration.indexOf("), ordered as (")).toBeLessThan(migration.indexOf("), page as ("));
   });
 });

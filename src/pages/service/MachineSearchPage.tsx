@@ -807,7 +807,7 @@ export default function MachineSearchPage() {
           const toggleSort = (key: MachineSortKey, defaultDirection: MachineSortDirection = "asc") => {
             if (sortKey !== key) { setSortKey(key); setSortDirection(defaultDirection); setOverviewPage(1); return; }
             if (sortDirection === defaultDirection) { setSortDirection(defaultDirection === "asc" ? "desc" : "asc"); setOverviewPage(1); return; }
-            setSortKey(null); setOverviewPage(1);
+            setSortKey("activity"); setSortDirection("desc"); setOverviewPage(1);
           };
           const SortHeader = ({ label, sort, defaultDirection = "asc", className = "text-left" }: { label: string; sort: MachineSortKey; defaultDirection?: MachineSortDirection; className?: string }) => (
             <th className={`${className} font-semibold px-3 py-2 whitespace-nowrap`}><button onClick={() => toggleSort(sort, defaultDirection)} className="inline-flex items-center gap-1 hover:text-slate-800"><span>{label}</span>{sortKey !== sort ? <ArrowUpDown className="h-3 w-3" /> : sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}</button></th>
@@ -927,7 +927,7 @@ export default function MachineSearchPage() {
                           <SortHeader label="Garanti nr." sort="warrantyId" />
                           <SortHeader label="MO nr." sort="machineOrder" />
                           <SortHeader label="ERP nr." sort="erpOrder" />
-                          <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">Fakturanr.</th>
+                          <SortHeader label="Fakturanr." sort="invoice" />
                           <SortHeader label="Portal-ordrenr." sort="portalOrder" />
                           <SortHeader label="Serienummer" sort="serial" />
                           <SortHeader label="Model" sort="model" />
