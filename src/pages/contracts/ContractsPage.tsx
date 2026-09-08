@@ -1854,7 +1854,7 @@ export default function ContractsPage() {
                 </button>
               </div>
             </div>
-            <ProgressSteps activeStepIndex={activeStepIndex} confirmations={confirmations} language={uiLanguage} />
+            <ProgressSteps activeStepIndex={activeStepIndex} confirmations={confirmations} language={uiLanguage} onStepSelect={setActiveStepIndex} />
           </div>
         </div>
       </header>
@@ -4648,10 +4648,12 @@ function ProgressSteps({
   activeStepIndex,
   confirmations,
   language,
+  onStepSelect,
 }: {
   activeStepIndex: number;
   confirmations: ContractConfirmations;
   language: string;
+  onStepSelect: (index: number) => void;
 }) {
   return (
     <div className="overflow-x-auto pb-0.5 lg:overflow-x-visible">
@@ -4663,15 +4665,18 @@ function ProgressSteps({
           const active = index === activeStepIndex;
           const complete = index < activeStepIndex && confirmed;
           return (
-            <div
+            <button
+              type="button"
               key={step.id}
+              disabled={index > activeStepIndex}
+              onClick={() => onStepSelect(index)}
               className={`min-w-0 rounded-lg border px-1.5 py-1.5 ${active ? 'border-gray-950 bg-gray-950 text-white' : complete ? 'border-emerald-200 bg-emerald-50 text-emerald-950' : 'border-gray-200 bg-white text-gray-600'}`}
             >
               <div className="relative flex min-w-0 items-center justify-center gap-1">
                 <span className="text-[9px] font-bold uppercase leading-none tracking-wide">{contractUi('step', language, { current: index + 1 })}</span>
               </div>
               <p className="mt-0.5 break-words text-center text-[10px] font-medium leading-tight">{label.shortTitle}</p>
-            </div>
+            </button>
           );
         })}
       </div>

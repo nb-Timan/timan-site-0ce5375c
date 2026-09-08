@@ -710,6 +710,8 @@ describe('contract flow', () => {
     expect(progressSteps).toContain('lg:grid-cols-11');
     expect(progressSteps).toContain('lg:overflow-x-visible');
     expect(progressSteps).toContain('auto-cols-[5.9rem]');
+    expect(progressSteps).toContain('onClick={() => onStepSelect(index)}');
+    expect(progressSteps).toContain('disabled={index > activeStepIndex}');
     expect(progressSteps).toContain('<div className="relative flex min-w-0 items-center justify-center gap-1">');
     expect(progressSteps).toContain("contractUi('step', language, { current: index + 1 })");
     expect(progressSteps).toContain('<p className="mt-0.5 break-words text-center text-[10px] font-medium leading-tight">{label.shortTitle}</p>');
