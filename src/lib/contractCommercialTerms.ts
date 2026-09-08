@@ -25,6 +25,11 @@ export type ContractDiscountStructure = {
   sparePartsDiscountPct?: number;
 };
 
+type ContractDiscountStructureOptions = {
+  /** Existing signed snapshots keep the terms that were accepted at signing. */
+  preserveStoredDiscounts?: boolean;
+};
+
 function normalizePercentage(value: unknown, fallback: number): number {
   const numeric = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(numeric)) return fallback;
@@ -49,17 +54,16 @@ export function getContractDiscountStructure(
     machineDiscountPct?: number | null;
     equipmentDiscountPct?: number | null;
   },
+  options: ContractDiscountStructureOptions = {},
 ): ContractDiscountStructure {
   if (partnerType === 'importer') {
     return {
-      machineDiscountPct: normalizePercentage(
-        input.machineDiscountPct ?? input.importerDiscountPct,
-        DEFAULT_IMPORTER_MACHINE_DISCOUNT_PCT,
-      ),
-      equipmentDiscountPct: normalizePercentage(
-        input.equipmentDiscountPct ?? input.importerDiscountPct,
-        DEFAULT_IMPORTER_EQUIPMENT_DISCOUNT_PCT,
-      ),
+      machineDiscountPct: options.preserveStoredDiscounts
+        ? normalizePercentage(input.machineDiscountPct ?? input.importerDiscountPct, DEFAULT_IMPORTER_MACHINE_DISCOUNT_PCT)
+        : DEFAULT_IMPORTER_MACHINE_DISCOUNT_PCT,
+      equipmentDiscountPct: options.preserveStoredDiscounts
+        ? normalizePercentage(input.equipmentDiscountPct ?? input.importerDiscountPct, DEFAULT_IMPORTER_EQUIPMENT_DISCOUNT_PCT)
+        : DEFAULT_IMPORTER_EQUIPMENT_DISCOUNT_PCT,
     };
   }
   if (partnerType === 'service_partner') {
@@ -71,14 +75,12 @@ export function getContractDiscountStructure(
     };
   }
   return {
-    machineDiscountPct: normalizePercentage(
-      input.machineDiscountPct ?? input.standardMachineDiscountPct,
-      DEFAULT_DEALER_MACHINE_DISCOUNT_PCT,
-    ),
-    equipmentDiscountPct: normalizePercentage(
-      input.equipmentDiscountPct ?? input.sparePartsDiscountPct,
-      DEFAULT_DEALER_SPARE_PARTS_DISCOUNT_PCT,
-    ),
+    machineDiscountPct: options.preserveStoredDiscounts
+      ? normalizePercentage(input.machineDiscountPct ?? input.standardMachineDiscountPct, DEFAULT_DEALER_MACHINE_DISCOUNT_PCT)
+      : DEFAULT_DEALER_MACHINE_DISCOUNT_PCT,
+    equipmentDiscountPct: options.preserveStoredDiscounts
+      ? normalizePercentage(input.equipmentDiscountPct ?? input.sparePartsDiscountPct, DEFAULT_DEALER_SPARE_PARTS_DISCOUNT_PCT)
+      : DEFAULT_DEALER_SPARE_PARTS_DISCOUNT_PCT,
   };
 }
 

@@ -32,29 +32,15 @@ export function renderAppendix2Paragraphs(
   discounts?: ContractDiscountStructure,
 ): string[] {
   const terms = getContractPartnerTerms(partnerType);
-  const historicalParagraphs = APPENDIX_2_PARAGRAPHS.map((paragraph: string) => (
-    paragraph
+  const historicalParagraphs = APPENDIX_2_PARAGRAPHS.map((paragraph: string) => {
+    const rendered = paragraph
       .replaceAll('{{partnerDefinite}}', terms?.definite ?? '')
-      .replaceAll('{{partnerPlural}}', terms?.plural ?? '')
-  ));
+      .replaceAll('{{partnerPlural}}', terms?.plural ?? '');
+    return rendered === 'Grund rabat: 25%.' && discounts?.machineDiscountPct !== undefined
+      ? `Grund rabat: ${discounts.machineDiscountPct}%.`
+      : rendered;
+  });
   if (!discounts) return historicalParagraphs;
 
-  const agreedDiscounts = partnerType === 'service_partner'
-    ? [
-        `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
-        'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.',
-      ]
-    : [
-        `Maskinrabat: ${discounts.machineDiscountPct}%.`,
-        `Redskabsrabat: ${discounts.equipmentDiscountPct}%.`,
-      ];
-
-  // Keep the historic Appendix 2 text and its discount rules intact. The
-  // agreed, partner-specific base discounts are inserted before that source.
-  return [
-    historicalParagraphs[0],
-    'Aftalte rabatter.',
-    ...agreedDiscounts,
-    ...historicalParagraphs.slice(1),
-  ];
+  return historicalParagraphs;
 }

@@ -1435,20 +1435,18 @@ describe('contract flow', () => {
     expect(dealerDiscounts).toMatchObject({ machineDiscountPct: 25, equipmentDiscountPct: 25 });
     expect(importerDiscounts).toMatchObject({ machineDiscountPct: 30, equipmentDiscountPct: 30 });
     expect(dealerAppendix).toEqual(expect.arrayContaining([
-      'Maskinrabat: 25%.',
-      'Redskabsrabat: 25%.',
+      'Grund rabat: 25%.',
       '3. Rabat 1. køb flere få flere procenter.',
       '4. Rabat 2. Leveringstid flere procenter.',
       '5. Rabat 3. Egen demonstration - egen salg.',
       '6. Udregning af rabat.',
     ]));
     expect(importerAppendix).toEqual(expect.arrayContaining([
-      'Maskinrabat: 30%.',
-      'Redskabsrabat: 30%.',
+      'Grund rabat: 30%.',
       '4. Rabat 2. Leveringstid flere procenter.',
     ]));
     expect(renderedDealerSection?.blocks[0]).toMatchObject({
-      paragraphs: expect.arrayContaining(['Maskinrabat: 25%.', 'Redskabsrabat: 25%.']),
+      paragraphs: expect.arrayContaining(['Rabat opnås baseret som følgende:']),
       bullets: expect.arrayContaining([
         'Flere maskiner: Køb af flere maskiner giver yderligere rabat.',
         'Længere leveringstid: Ved leveringstid over 3 mdr. tilbydes øget rabat.',
@@ -1456,9 +1454,13 @@ describe('contract flow', () => {
     });
 
     const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const fixedDiscountTermsStart = pageSource.indexOf('function ContractCommercialTermsFields');
+    const appendixStart = pageSource.indexOf('function Appendix2DiscountSection');
+    const fixedDiscountTerms = pageSource.slice(fixedDiscountTermsStart, appendixStart);
+    const appendix = pageSource.slice(appendixStart, pageSource.indexOf('function ProgressSteps'));
     expect(pageSource).toContain('function drawAppendix2Pdf');
     expect(pageSource).toContain("pdf.text(`${discounts?.machineDiscountPct ?? 25}%`");
-    expect(pageSource).toContain('y += 16 + rows.length * 8;');
-    expect(pageSource).not.toContain('return y + 16 + rows.length * 8;');
+    expect(fixedDiscountTerms).not.toContain('type="number"');
+    expect(appendix).not.toContain('discountRows.map');
   });
 });

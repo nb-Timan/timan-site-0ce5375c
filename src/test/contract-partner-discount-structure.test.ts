@@ -12,7 +12,7 @@ describe('contract partner discount structure', () => {
   it('uses the agreed defaults for new contracts by partner type', () => {
     expect(getNewContractDiscountDefaults('dealer')).toEqual({
       machineDiscountPct: 25,
-      sparePartsDiscountPct: 25,
+      equipmentDiscountPct: 25,
     });
     expect(getNewContractDiscountDefaults('importer')).toEqual({
       machineDiscountPct: 30,
@@ -23,17 +23,21 @@ describe('contract partner discount structure', () => {
     });
   });
 
-  it('does not reuse one generic discount field across partner types', () => {
+  it('uses fixed dealer and importer terms even when a draft contains stale values', () => {
     expect(getContractDiscountStructure('dealer', {
       machineDiscountPct: 27,
       sparePartsDiscountPct: 24,
       importerDiscountPct: 99,
-    })).toEqual({ machineDiscountPct: 27, sparePartsDiscountPct: 24 });
+    })).toEqual({ machineDiscountPct: 25, equipmentDiscountPct: 25 });
     expect(getContractDiscountStructure('importer', {
       machineDiscountPct: 31,
       equipmentDiscountPct: 29,
       sparePartsDiscountPct: 99,
-    })).toEqual({ machineDiscountPct: 31, equipmentDiscountPct: 29 });
+    })).toEqual({ machineDiscountPct: 30, equipmentDiscountPct: 30 });
+    expect(getContractDiscountStructure('importer', {
+      machineDiscountPct: 31,
+      equipmentDiscountPct: 29,
+    }, { preserveStoredDiscounts: true })).toEqual({ machineDiscountPct: 31, equipmentDiscountPct: 29 });
     expect(getContractDiscountStructure('service_partner', {
       machineDiscountPct: 99,
       equipmentDiscountPct: 99,
@@ -71,7 +75,20 @@ describe('contract partner discount structure', () => {
     expect(renderAppendix2Paragraphs('importer', {
       machineDiscountPct: 30,
       equipmentDiscountPct: 30,
-    })).toEqual(expect.arrayContaining(['Maskinrabat: 30%.', 'Redskabsrabat: 30%.']));
+    })).toEqual(expect.arrayContaining(['Grund rabat: 30%.']));
+  });
+
+  it('renders fixed discounts once and keeps the full historical appendix without a summary block', () => {
+    const appendix = renderAppendix2Paragraphs('importer', getContractDiscountStructure('importer', {}));
+    expect(appendix).toContain('Grund rabat: 30%.');
+    expect(appendix).not.toContain('Aftalte rabatter.');
+    expect(appendix).not.toContain('Maskinrabat: 30%.');
+    expect(appendix).toEqual(expect.arrayContaining([
+      '3. Rabat 1. køb flere få flere procenter.',
+      '4. Rabat 2. Leveringstid flere procenter.',
+      '5. Rabat 3. Egen demonstration - egen salg.',
+      '6. Udregning af rabat.',
+    ]));
   });
 
   it('stores semantic terms in new snapshots while retaining legacy fields', () => {

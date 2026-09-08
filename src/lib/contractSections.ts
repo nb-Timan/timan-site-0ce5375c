@@ -40,6 +40,7 @@ export type ContractTextRenderContext = {
   machineDiscountPct?: number;
   equipmentDiscountPct?: number;
   sparePartsDiscountPct?: number;
+  preserveDiscountSnapshot?: boolean;
 };
 
 export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
@@ -367,7 +368,9 @@ function renderContractBulletText(value: string, context: ContractTextRenderCont
 }
 
 function getDiscountStructureBlocks(context: ContractTextRenderContext): ContractTextBlock[] {
-  const discounts = getContractDiscountStructure(context.partnerType, context);
+  const discounts = getContractDiscountStructure(context.partnerType, context, {
+    preserveStoredDiscounts: context.preserveDiscountSnapshot,
+  });
   const historicalBlock = GUIDED_CONTRACT_SECTIONS
     .find((section) => section.stepId === 'discount_structure')?.blocks[0];
   const historicalParagraphs = historicalBlock?.paragraphs ?? [];
@@ -376,11 +379,7 @@ function getDiscountStructureBlocks(context: ContractTextRenderContext): Contrac
   if (context.partnerType === 'importer') {
     return [{
       heading: '4. Rabatstruktur',
-      paragraphs: [
-        `Maskinrabat: ${discounts.machineDiscountPct}%.`,
-        `Redskabsrabat: ${discounts.equipmentDiscountPct}%.`,
-        ...historicalParagraphs,
-      ],
+      paragraphs: historicalParagraphs,
       bullets: historicalBullets,
     }];
   }
@@ -399,11 +398,7 @@ function getDiscountStructureBlocks(context: ContractTextRenderContext): Contrac
 
   return [{
     heading: '4. Rabatstruktur',
-    paragraphs: [
-      `Maskinrabat: ${discounts.machineDiscountPct}%.`,
-      `Redskabsrabat: ${discounts.equipmentDiscountPct}%.`,
-      ...historicalParagraphs,
-    ],
+    paragraphs: historicalParagraphs,
     bullets: historicalBullets,
   }];
 }

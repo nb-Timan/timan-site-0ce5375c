@@ -632,6 +632,7 @@ function getSnapshotLegalSections(snapshot: ContractSnapshot): GuidedContractSec
     machineDiscountPct: snapshot.commercialTerms?.machineDiscountPct,
     equipmentDiscountPct: snapshot.commercialTerms?.equipmentDiscountPct,
     sparePartsDiscountPct: snapshot.commercialTerms?.sparePartsDiscountPct,
+    preserveDiscountSnapshot: true,
   });
 }
 
@@ -665,7 +666,7 @@ function drawGuidedContractSectionsPdf(pdf: any, left: number, right: number, se
         right,
         appendix2Paragraphs,
         'machineDiscountPct' in snapshot.commercialTerms || 'equipmentDiscountPct' in snapshot.commercialTerms
-          ? getContractDiscountStructure(snapshot.dealer.partnerType, snapshot.commercialTerms)
+          ? getContractDiscountStructure(snapshot.dealer.partnerType, snapshot.commercialTerms, { preserveStoredDiscounts: true })
           : undefined,
       );
       y = 132;
@@ -695,26 +696,6 @@ function drawAppendix2Pdf(
   });
 
   y += 2;
-  if (discounts) {
-    const rows = [
-      discounts.machineDiscountPct === undefined ? null : ['Maskinrabat', discounts.machineDiscountPct],
-      discounts.equipmentDiscountPct === undefined ? null : ['Redskabsrabat', discounts.equipmentDiscountPct],
-      discounts.sparePartsDiscountPct === undefined ? null : ['Reservedelsrabat', discounts.sparePartsDiscountPct],
-    ].filter((row): row is [string, number] => row !== null);
-
-    pdf.setDrawColor(46, 125, 23);
-    pdf.setFillColor(250, 253, 250);
-    pdf.roundedRect(left, y, width, 12 + rows.length * 8, 3, 3, 'FD');
-    rows.forEach(([label, value], index) => {
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(9);
-      pdf.setTextColor(17, 24, 39);
-      pdf.text(label, left + 6, y + 8 + index * 8);
-      pdf.setTextColor(46, 125, 23);
-      pdf.text(`${value}%`, right - 6, y + 8 + index * 8, { align: 'right' });
-    });
-    y += 16 + rows.length * 8;
-  }
 
   pdf.setDrawColor(46, 125, 23);
   pdf.setFillColor(255, 255, 255);
@@ -1525,7 +1506,7 @@ export default function ContractsPage() {
       : renderAppendix2Paragraphs(
         pdfSnapshot.dealer.partnerType,
         'machineDiscountPct' in pdfSnapshot.commercialTerms || 'equipmentDiscountPct' in pdfSnapshot.commercialTerms
-          ? getContractDiscountStructure(pdfSnapshot.dealer.partnerType, pdfSnapshot.commercialTerms)
+          ? getContractDiscountStructure(pdfSnapshot.dealer.partnerType, pdfSnapshot.commercialTerms, { preserveStoredDiscounts: true })
           : undefined,
       );
     const timan = pdfSnapshot.timan;
@@ -2767,6 +2748,7 @@ function ReviewStep({
     machineDiscountPct: form.machineDiscountPct,
     equipmentDiscountPct: form.equipmentDiscountPct,
     sparePartsDiscountPct: form.sparePartsDiscountPct,
+    preserveDiscountSnapshot: locked,
   };
   const section = getRenderedGuidedContractSection(stepId, contractTextContext);
   const contractSections = renderGuidedContractSections(contractTextContext);
@@ -2806,7 +2788,8 @@ function ReviewStep({
               ) : (
                 <ContractLegalSection section={contractSection} form={form} />
               )}
-              {contractSection.stepId === 'discount_structure' && <Appendix2DiscountSection form={form} language={uiLanguage} />}
+              {contractSection.stepId === 'discount_structure' && <ContractCommercialTermsFields form={form} preserveStoredDiscounts={locked} />}
+              {contractSection.stepId === 'discount_structure' && <Appendix2DiscountSection form={form} language={uiLanguage} preserveStoredDiscounts={locked} />}
             </div>
           ))}
         </div>
@@ -2854,8 +2837,8 @@ function ReviewStep({
 
       {stepId === 'discount_structure' && !fullContract && (
         <>
-          <ContractCommercialTermsFields form={form} onChange={onFormPatch} locked={locked} />
-          <Appendix2DiscountSection form={form} language={uiLanguage} />
+          <ContractCommercialTermsFields form={form} preserveStoredDiscounts={locked} />
+          <Appendix2DiscountSection form={form} language={uiLanguage} preserveStoredDiscounts={locked} />
         </>
       )}
 
@@ -4354,15 +4337,13 @@ function InfoMini({ label, value }: { label: string; value: string }) {
 
 function ContractCommercialTermsFields({
   form,
-  onChange,
-  locked,
+  preserveStoredDiscounts = false,
 }: {
   form: ContractFormData;
-  onChange: (patch: Partial<ContractFormData>) => void;
-  locked?: boolean;
+  preserveStoredDiscounts?: boolean;
 }) {
   const { uiLanguage } = useLanguage();
-  const terms = getContractDiscountStructure(form.partnerType, form);
+  const terms = getContractDiscountStructure(form.partnerType, form, { preserveStoredDiscounts });
   const partnerType = form.partnerType;
   const copy = uiLanguage === 'de'
     ? { title: 'Vereinbarte Konditionen', machine: 'Maschinenrabatt', equipment: 'Geräterabatt', parts: 'Ersatzteilrabatt', serviceNote: 'Maschinen werden über den autorisierten Timan-Händler bezogen, mit dem der Servicepartner zusammenarbeitet.' }
@@ -4375,36 +4356,27 @@ function ContractCommercialTermsFields({
           : { title: 'Aftalevilkår', machine: 'Maskinrabat', equipment: 'Redskabsrabat', parts: 'Reservedelsrabat', serviceNote: 'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.' };
   const fields = partnerType === 'importer'
     ? [
-        { key: 'machineDiscountPct' as const, label: copy.machine, value: terms.machineDiscountPct ?? 30 },
-        { key: 'equipmentDiscountPct' as const, label: copy.equipment, value: terms.equipmentDiscountPct ?? 30 },
+        { key: 'machineDiscountPct' as const, label: copy.machine, value: terms.machineDiscountPct ?? 0 },
+        { key: 'equipmentDiscountPct' as const, label: copy.equipment, value: terms.equipmentDiscountPct ?? 0 },
       ]
     : partnerType === 'service_partner'
-      ? [{ key: 'sparePartsDiscountPct' as const, label: copy.parts, value: terms.sparePartsDiscountPct ?? 25 }]
+      ? [{ key: 'sparePartsDiscountPct' as const, label: copy.parts, value: terms.sparePartsDiscountPct ?? 0 }]
       : [
-          { key: 'machineDiscountPct' as const, label: copy.machine, value: terms.machineDiscountPct ?? 25 },
-          { key: 'equipmentDiscountPct' as const, label: copy.equipment, value: terms.equipmentDiscountPct ?? 25 },
+          { key: 'machineDiscountPct' as const, label: copy.machine, value: terms.machineDiscountPct ?? 0 },
+          { key: 'equipmentDiscountPct' as const, label: copy.equipment, value: terms.equipmentDiscountPct ?? 0 },
         ];
 
   return (
-    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-      <h3 className="text-base font-bold text-gray-950">{copy.title}</h3>
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+    <div className="rounded-xl border border-gray-200 bg-white px-5 py-4">
+      <h3 className="text-sm font-bold uppercase tracking-wide text-gray-700">{copy.title}</h3>
+      <dl className="mt-3 grid gap-3 sm:grid-cols-2">
         {fields.map((field) => (
-          <label key={field.key} className="block">
-            <span className="text-sm font-semibold text-gray-700">{field.label} (%)</span>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              value={field.value}
-              disabled={locked}
-              onChange={(event) => onChange({ [field.key]: Number(event.target.value) } as Partial<ContractFormData>)}
-              className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-950 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-100"
-            />
-          </label>
+          <div key={field.key} className="border-l-2 border-amber-400 pl-3">
+            <dt className="text-sm font-semibold text-gray-700">{field.label}</dt>
+            <dd className="mt-1 text-lg font-black text-gray-950">{field.value}%</dd>
+          </div>
         ))}
-      </div>
+      </dl>
       {partnerType === 'service_partner' && (
         <p className="mt-4 text-sm leading-6 text-gray-700">{copy.serviceNote}</p>
       )}
@@ -4412,16 +4384,19 @@ function ContractCommercialTermsFields({
   );
 }
 
-function Appendix2DiscountSection({ form, language }: { form: ContractFormData; language: string }) {
-  const discounts = getContractDiscountStructure(form.partnerType, form);
+function Appendix2DiscountSection({
+  form,
+  language,
+  preserveStoredDiscounts = false,
+}: {
+  form: ContractFormData;
+  language: string;
+  preserveStoredDiscounts?: boolean;
+}) {
+  const discounts = getContractDiscountStructure(form.partnerType, form, { preserveStoredDiscounts });
   const paragraphs = renderAppendix2Paragraphs(form.partnerType, form.partnerType ? discounts : undefined).filter(
     (paragraph) => !shouldHideGuidedContractUiText(paragraph, 'Rabatstruktur og Bilag 2'),
   );
-  const discountRows = [
-    discounts.machineDiscountPct === undefined ? null : ['Maskinrabat', discounts.machineDiscountPct],
-    discounts.equipmentDiscountPct === undefined ? null : ['Redskabsrabat', discounts.equipmentDiscountPct],
-    discounts.sparePartsDiscountPct === undefined ? null : ['Reservedelsrabat', discounts.sparePartsDiscountPct],
-  ].filter((row): row is [string, number] => row !== null);
   const machineBaseDiscount = discounts.machineDiscountPct ?? 25;
   const combinedExampleDiscount = (1 - (1 - machineBaseDiscount / 100) * 0.96 * 0.98) * 100;
 
@@ -4456,17 +4431,6 @@ function Appendix2DiscountSection({ form, language }: { form: ContractFormData; 
           );
         })}
       </div>
-
-      {form.partnerType && (
-        <dl className="grid gap-3 sm:grid-cols-2">
-          {discountRows.map(([label, value]) => (
-            <div key={label} className="border-l-4 border-emerald-500 bg-emerald-50 px-4 py-3">
-              <dt className="text-sm font-semibold text-gray-700">{label}</dt>
-              <dd className="mt-1 text-xl font-black text-emerald-800">{value}%</dd>
-            </div>
-          ))}
-        </dl>
-      )}
 
       <div className="w-full max-w-full min-w-0 overflow-hidden rounded-2xl border border-emerald-200 bg-white p-4 shadow-inner sm:p-5">
         <div className="w-full max-w-full min-w-0">
