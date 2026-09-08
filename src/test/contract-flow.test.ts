@@ -839,8 +839,10 @@ describe('contract flow', () => {
 
     expect(renderContractPaymentTermLegalText('net_21')).toBe('Betalingsbetingelser: Betaling forfalder netto 21 dage fra fakturadato.');
     expect(renderContractPaymentTermLegalText('net_30')).toBe('Betalingsbetingelser: Betaling forfalder netto 30 dage fra fakturadato.');
-    expect(text).toContain('Betalingsbetingelser: Betaling forfalder netto 30 dage fra fakturadato. Ved manglende betaling');
+    expect(text).toContain('Betalingsbetingelser: Betaling forfalder netto 30 dage fra fakturadato.');
+    expect(text).toContain('Ved manglende betaling vil der blive pålagt lovbestemte renter.');
     expect(text).not.toContain('netto 21 dage fra fakturadato. Ved manglende betaling');
+    expect(text).not.toContain('blive pålagt","lovbestemte renter');
     expect(snapshot.paymentTerms).toEqual({
       paymentTerm: 'net_30',
       label: 'Netto 30 dage',

@@ -256,8 +256,8 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           'Tim (Carriage Paid To) – Incoterms® 2020.',
           'Se mere om leveringsbetingelser: bilag 4.',
           'Opstart af maskine pålægges et gebyr i henhold til gældende prisliste.',
-          '{{paymentTermsLegalText}} Ved manglende betaling vil der blive pålagt',
-          'lovbestemte renter.',
+          '{{paymentTermsLegalText}}',
+          'Ved manglende betaling vil der blive pålagt lovbestemte renter.',
         ],
       },
       {
