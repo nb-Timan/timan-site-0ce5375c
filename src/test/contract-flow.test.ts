@@ -912,6 +912,20 @@ describe('contract flow', () => {
     expect(source).toContain('if (Array.isArray(snapshot.legalSections)) return snapshot.legalSections as GuidedContractSection[];');
   });
 
+  it('adds third-party equipment parts terms before contact in new service contracts', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const legalSections = renderGuidedContractSections({ companyName: completeForm.dealerName, partnerType: completeForm.partnerType });
+    const serviceSection = legalSections.find((section) => section.stepId === 'spare_parts_service');
+    const headings = serviceSection?.blocks.map((block) => block.heading) ?? [];
+    const bodyText = JSON.stringify(serviceSection);
+
+    expect(source).toContain("['Reservedele til tredjepartsprodukter', 'Reservedele til tredjepartsprodukter bestilles direkte hos producenten.']");
+    expect(headings.indexOf('Redskaber fra tredjepartsproducenter')).toBeGreaterThan(headings.indexOf('4. Timeløn og Transport'));
+    expect(headings.indexOf('Redskaber fra tredjepartsproducenter')).toBeLessThan(headings.indexOf('8. Kontakt'));
+    expect(bodyText).toContain('Timan tilbyder udvalgte redskaber og tilbehør, som produceres af eksterne tredjepartsproducenter og indkøbes af Timan til videresalg.');
+    expect(bodyText).toContain('Bestilling og køb af reservedele til disse tredjepartsprodukter skal ske direkte hos producenten eller via den kanal, producenten har anvist.');
+  });
+
   it('shows the payment terms dropdown in the payment delivery step', () => {
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
 

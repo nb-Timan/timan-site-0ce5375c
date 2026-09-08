@@ -216,6 +216,15 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         ],
       },
       {
+        heading: 'Redskaber fra tredjepartsproducenter',
+        paragraphs: [
+          'Timan tilbyder udvalgte redskaber og tilbehør, som produceres af eksterne tredjepartsproducenter og indkøbes af Timan til videresalg.',
+          'For disse produkter gælder, at reservedele som udgangspunkt skal bestilles og købes direkte hos den pågældende producent eller dennes anviste reservedelskanal.',
+          'Timan kan for udvalgte tredjepartsprodukter stille reservedelskataloger, reservedelsnumre, teknisk dokumentation eller anden relevant information til rådighed via Timans reservedelsportal. Denne information stilles til rådighed som hjælp til identifikation af korrekte reservedele og som vejledning i forbindelse med service og vedligeholdelse.',
+          'At reservedelsinformation er tilgængelig via Timans reservedelsportal betyder ikke, at de pågældende reservedele lagerføres eller sælges af Timan. Bestilling og køb af reservedele til disse tredjepartsprodukter skal ske direkte hos producenten eller via den kanal, producenten har anvist.',
+        ],
+      },
+      {
         heading: '8. Kontakt',
         paragraphs: ['Serviceafdelingen kontaktes pr telefon eller på mail Service@timan.dk'],
       },

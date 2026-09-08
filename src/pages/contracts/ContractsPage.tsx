@@ -3805,6 +3805,7 @@ function SparePartsServiceSection({
     ['Garantiregistrering', 'Garantiregistreringen skal ske med korrekt fakturadato til slutkunden i henhold til eksisterende kontraktvilkår.'],
     ['Demomaskiner', 'Demomaskiner har særlige garantiregler, og maksimal garanti er 24 måneder i henhold til servicebetingelser.'],
     ['Reklamationsdele', 'Reklamationsdelen skal opbevares i minimum 6 måneder eller fremsendes efter anmodning fra Timans serviceafdeling.'],
+    ['Reservedele til tredjepartsprodukter', 'Reservedele til tredjepartsprodukter bestilles direkte hos producenten.'],
     ['Fragt og levering', 'Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.'],
   ] as const;
 
