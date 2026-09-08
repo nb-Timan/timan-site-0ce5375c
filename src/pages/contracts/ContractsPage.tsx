@@ -3922,14 +3922,14 @@ function PaymentDeliverySection({
       <ContractLegalSectionHeader section={section} />
       <div className="mt-5 space-y-5">
         <section className="rounded-2xl border border-amber-200 bg-white p-5">
-          <label className="block">
-            <span className="text-sm font-bold text-gray-950">{t('contractPaymentTermsLabel', uiLanguage)}</span>
+          <label className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-7">
+            <span className="shrink-0 text-sm font-bold text-gray-950">{t('contractPaymentTermsLabel', uiLanguage)}</span>
             {showEditableTerm && onPaymentTermChange ? (
               <select
                 value={paymentTerm}
                 disabled={locked}
                 onChange={(event) => onPaymentTermChange(event.target.value as ContractPaymentTermId)}
-                className="mt-2 w-full max-w-sm rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+                className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-amber-500 sm:w-[268px] disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
               >
                 {CONTRACT_PAYMENT_TERM_OPTIONS.map((option) => (
                   <option key={option} value={option}>
@@ -3938,7 +3938,7 @@ function PaymentDeliverySection({
                 ))}
               </select>
             ) : (
-              <p className="mt-2 text-sm font-black text-gray-950">
+              <p className="text-sm font-black text-gray-950">
                 {getContractPaymentTermLabel(paymentTerm, uiLanguage)}
               </p>
             )}

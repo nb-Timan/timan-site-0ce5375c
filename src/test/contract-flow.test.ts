@@ -917,6 +917,9 @@ describe('contract flow', () => {
     expect(source).toContain('contractPaymentTermsLabel');
     expect(source).toContain('CONTRACT_PAYMENT_TERM_OPTIONS.map');
     expect(source).toContain('shouldResetContractPaymentConfirmation');
+    expect(source).toContain('sm:flex-row sm:items-center sm:gap-7');
+    expect(source).toContain('sm:w-[268px]');
+    expect(source).not.toContain('w-full max-w-sm rounded-xl border border-gray-300');
     expect(t('contractPaymentTermsLabel', 'da')).toBe('Betalingsbetingelser');
     expect(t('contractPaymentTermsLabel', 'en')).toBe('Payment terms');
   });
