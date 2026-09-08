@@ -288,6 +288,7 @@ function rowToContractRecord(row: Record<string, unknown>): DealerContractRecord
       dealerCity: formData.dealerCity ?? "",
       dealerCountry: formData.dealerCountry ?? "",
       dealerCvr: formData.dealerCvr ?? "",
+      dealerContactId: formData.dealerContactId ?? "",
       contactPerson: formData.contactPerson ?? "",
       contactTitle: formData.contactTitle ?? "",
       timanSellerName: formData.timanSellerName ?? "",

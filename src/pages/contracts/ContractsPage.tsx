@@ -62,6 +62,7 @@ import {
   type DealerContractUploadVersion,
 } from '@/lib/dealerContractsService';
 import { fetchDealerAccountByNumber, fetchDealerAccounts, fetchDealerAccountsForSeller, type DealerAccount } from '@/lib/dealerAccountsService';
+import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
@@ -323,9 +324,7 @@ function splitPostalCity(value: string) {
 }
 
 function getDealerAccountStreetAddress(account: DealerAccount) {
-  return [account.address_line_1 || account.address, account.address_line_2]
-    .filter(Boolean)
-    .join(', ');
+  return account.address_line_1 || account.address || '';
 }
 
 function getDealerAccountPostalCity(account: DealerAccount) {
@@ -343,10 +342,28 @@ function buildContractPartnerPatchFromDealerAccount(account: DealerAccount): Par
     dealerCity: account.city || split.city,
     dealerCountry: account.country || '',
     dealerCvr: account.vat_number || '',
-    contactPerson: account.primary_contact_name || account.sales_contact_name || '',
+    dealerContactId: '',
+    contactPerson: '',
+    contactTitle: '',
     timanSellerName: account.assigned_seller_name || '',
     timanSellerEmail: account.assigned_seller_email || '',
   };
+}
+
+function sortContractPartnerContacts(contacts: DealerContact[]) {
+  return contacts
+    .filter((contact) => Boolean(contact.name?.trim()))
+    .slice()
+    .sort((left, right) => Number(right.is_primary) - Number(left.is_primary)
+      || left.created_at.localeCompare(right.created_at));
+}
+
+function resolveContractPartnerContact(contacts: DealerContact[], form: Pick<ContractFormData, 'dealerContactId' | 'contactPerson' | 'contactTitle'>) {
+  const sorted = sortContractPartnerContacts(contacts);
+  return sorted.find((contact) => contact.id === form.dealerContactId)
+    ?? sorted.find((contact) => contact.name === form.contactPerson && (contact.role_title || '') === (form.contactTitle || ''))
+    ?? sorted[0]
+    ?? null;
 }
 
 function formatContractPartnerPickerOption(account: DealerAccount) {
@@ -891,6 +908,7 @@ export default function ContractsPage() {
     dealerCity: '',
     dealerCountry: '',
     dealerCvr: '',
+    dealerContactId: '',
     contactPerson: '',
     contactTitle: '',
     timanSellerName: '',
@@ -908,6 +926,7 @@ export default function ContractsPage() {
   }));
 
   const [confirmations, setConfirmations] = useState<ContractConfirmations>(EMPTY_CONTRACT_CONFIRMATIONS);
+  const [contractPartnerContacts, setContractPartnerContacts] = useState<DealerContact[]>([]);
 
   useEffect(() => {
     if (!effectiveUser?.email) return;
@@ -1000,15 +1019,25 @@ export default function ContractsPage() {
   }, [effectiveUser]);
 
   useEffect(() => {
-    if (!contractLoaded || !activeDealerAccountNumber) return;
+    if (!contractLoaded || !activeDealerAccountNumber) {
+      setContractPartnerContacts([]);
+      return;
+    }
+    if (contractRecord && (contractRecord.final_snapshot || hasReachedContractStatus(contractRecord.contract_status, 'ready_for_signature'))) {
+      return;
+    }
     let cancelled = false;
-    fetchDealerAccountByNumber(activeDealerAccountNumber).then(({ row, error }) => {
+    fetchDealerAccountByNumber(activeDealerAccountNumber).then(async ({ row, error }) => {
       if (cancelled) return;
       if (error) {
         toast.error('Kunne ikke hente forhandlerdata til kontrakten.');
         return;
       }
       if (!row) return;
+      const contacts = await listDealerContacts(row.id);
+      if (cancelled) return;
+      const canonicalContacts = sortContractPartnerContacts(contacts);
+      setContractPartnerContacts(canonicalContacts);
       const postalCity = [row.postal_code, row.city].filter(Boolean).join(' ') || row.zip_city_raw || '';
       const split = splitPostalCity(postalCity);
       setForm((current) => {
@@ -1025,15 +1054,18 @@ export default function ContractsPage() {
           && secondaryTerritory.postalRanges.length === 0;
         const canApplyPartnerTerritoryDefault = !contractRecord && primaryUnsettled;
 
+        const selectedContact = resolveContractPartnerContact(canonicalContacts, current);
         return {
           ...current,
-          dealerName: row.company_name || current.dealerName,
-          dealerAddress: [row.address_line_1 || row.address, row.address_line_2].filter(Boolean).join(', ') || current.dealerAddress,
-          dealerPostalCode: row.postal_code || split.postalCode || current.dealerPostalCode,
-          dealerCity: row.city || split.city || current.dealerCity,
-          dealerCountry: row.country || current.dealerCountry || '',
-          dealerCvr: row.vat_number || current.dealerCvr,
-          contactPerson: row.primary_contact_name || row.sales_contact_name || current.contactPerson,
+          dealerName: row.company_name || '',
+          dealerAddress: row.address_line_1 || row.address || '',
+          dealerPostalCode: row.postal_code || split.postalCode || '',
+          dealerCity: row.city || split.city || '',
+          dealerCountry: row.country || '',
+          dealerCvr: row.vat_number || '',
+          dealerContactId: selectedContact?.id || '',
+          contactPerson: selectedContact?.name || '',
+          contactTitle: selectedContact?.role_title || '',
           partnerType: current.partnerType || inferContractPartnerTypeFromDealerAccount(row) || '',
           ...(canApplyPartnerTerritoryDefault ? {
             primaryTerritory: createEmptyContractTerritoryArea(partnerCountry),
@@ -1096,6 +1128,7 @@ export default function ContractsPage() {
   const selectContractPartnerAccount = (account: DealerAccount) => {
     setSelectedDealerAccountNumber(account.account_number);
     setSelectedAccessUserId('');
+    setContractPartnerContacts([]);
     setForm((current) => ({
       ...current,
       ...buildContractPartnerPatchFromDealerAccount(account),
@@ -1117,9 +1150,20 @@ export default function ContractsPage() {
       dealerCity: '',
       dealerCountry: '',
       dealerCvr: '',
+      dealerContactId: '',
       contactPerson: '',
       contactTitle: '',
       ...getPartnerTypeDiscountFormPatch(partnerType),
+    }));
+  };
+
+  const selectContractPartnerContact = (contactId: string) => {
+    const contact = contractPartnerContacts.find((candidate) => candidate.id === contactId) ?? null;
+    setForm((current) => ({
+      ...current,
+      dealerContactId: contact?.id || '',
+      contactPerson: contact?.name || '',
+      contactTitle: contact?.role_title || '',
     }));
   };
 
@@ -1845,9 +1889,11 @@ export default function ContractsPage() {
                 portalRole={portalRole}
                 sellerEmail={getEffectiveSellerEmail(appUser)}
                 sellerInitials={getEffectiveSellerInitials(appUser)}
+                partnerContacts={contractPartnerContacts}
                 update={update}
                 onPartnerTypeChange={updateContractPartnerType}
                 onPartnerAccountSelect={selectContractPartnerAccount}
+                onPartnerContactSelect={selectContractPartnerContact}
                 partnerAccessPanel={canManagePartnerContractAccess ? (
                   <PartnerContractAccessPanel
                     partnerSelected={Boolean(activeDealerAccountNumber)}
@@ -2456,9 +2502,11 @@ function PartiesStep({
   portalRole,
   sellerEmail,
   sellerInitials,
+  partnerContacts,
   update,
   onPartnerTypeChange,
   onPartnerAccountSelect,
+  onPartnerContactSelect,
   partnerAccessPanel,
   locked,
 }: {
@@ -2467,9 +2515,11 @@ function PartiesStep({
   portalRole: string | null;
   sellerEmail: string | null;
   sellerInitials: string | null;
+  partnerContacts: DealerContact[];
   update: (key: keyof ContractFormData, value: string | null) => void;
   onPartnerTypeChange: (partnerType: ContractPartnerType | '') => void;
   onPartnerAccountSelect: (account: DealerAccount) => void;
+  onPartnerContactSelect: (contactId: string) => void;
   partnerAccessPanel?: ReactNode;
   locked: boolean;
 }) {
@@ -2634,8 +2684,26 @@ function PartiesStep({
           <TextField label={`${contractUi('postalCode', uiLanguage)} *`} value={form.dealerPostalCode} onChange={(value) => update('dealerPostalCode', value)} disabled={locked} />
           <TextField label={`${contractUi('city', uiLanguage)} *`} value={form.dealerCity} onChange={(value) => update('dealerCity', value)} disabled={locked} />
           <TextField label={contractUi('country', uiLanguage)} value={form.dealerCountry ?? ''} onChange={(value) => update('dealerCountry', value)} disabled={locked} />
-          <TextField label={`${contractUi('contactPerson', uiLanguage)} *`} value={form.contactPerson} onChange={(value) => update('contactPerson', value)} placeholder={contractUi('contactPersonPlaceholder', uiLanguage)} disabled={locked} />
-          <TextField label={contractUi('title', uiLanguage)} value={form.contactTitle} onChange={(value) => update('contactTitle', value)} placeholder={contractUi('titlePlaceholder', uiLanguage)} disabled={locked} />
+          <label className="block">
+            <span className="text-sm font-semibold text-gray-700">{contractUi('contactPerson', uiLanguage)} *</span>
+            <select
+              value={form.dealerContactId || ''}
+              disabled={locked || !selectedDealerAccountNumber || partnerContacts.length === 0}
+              onChange={(event) => onPartnerContactSelect(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+            >
+              <option value="">{partnerContacts.length > 0 ? 'Vælg kontaktperson' : 'Ingen kontaktpersoner registreret'}</option>
+              {partnerContacts.map((contact) => (
+                <option key={contact.id} value={contact.id}>
+                  {[contact.name, contact.role_title].filter(Boolean).join(' · ')}
+                </option>
+              ))}
+            </select>
+            {selectedDealerAccountNumber && partnerContacts.length === 0 && (
+              <span className="mt-1 block text-xs text-amber-800">Partneren har ingen registrerede kontakter endnu.</span>
+            )}
+          </label>
+          <TextField label={contractUi('title', uiLanguage)} value={form.contactTitle} onChange={() => undefined} placeholder={contractUi('titlePlaceholder', uiLanguage)} disabled />
           <label className="block">
             <span className="text-sm font-semibold text-gray-700">{contractUi('date', uiLanguage)} *</span>
             <input

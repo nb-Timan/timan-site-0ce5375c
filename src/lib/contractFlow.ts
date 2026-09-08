@@ -67,6 +67,8 @@ export type ContractFormData = {
   dealerCity: string;
   dealerCountry?: string;
   dealerCvr: string;
+  /** Canonical dealer_contacts id while the contract is still editable. */
+  dealerContactId?: string;
   contactPerson: string;
   contactTitle: string;
   timanSellerName: string;

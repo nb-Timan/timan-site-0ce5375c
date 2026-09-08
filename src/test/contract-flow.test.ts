@@ -510,7 +510,17 @@ describe('contract flow', () => {
     expect(pageSource).toContain("contractUi('selectPartnerFirst', uiLanguage)");
     expect(pageSource).toContain("setSelectedAccessUserId('');");
     expect(pageSource).toContain("setSelectedAccessUserId(users.rows[0]?.id || '')");
+    expect(pageSource).toContain("import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';");
+    expect(pageSource).toContain('const [contractPartnerContacts, setContractPartnerContacts] = useState<DealerContact[]>([]);');
+    expect(pageSource).toContain('const selectedContact = resolveContractPartnerContact(canonicalContacts, current);');
+    expect(pageSource).toContain("contactPerson: selectedContact?.name || '',");
+    expect(pageSource).toContain("contactTitle: selectedContact?.role_title || '',");
+    expect(pageSource).toContain('onPartnerContactSelect={selectContractPartnerContact}');
+    expect(pageSource).toContain("value={form.dealerContactId || ''}");
+    expect(pageSource).toContain('Partneren har ingen registrerede kontakter endnu.');
+    expect(pageSource).toContain("hasReachedContractStatus(contractRecord.contract_status, 'ready_for_signature')");
     expect(serviceSource).toContain("fetchDealerAccountByNumber(input.dealerAccountNumber)");
+    expect(serviceSource).toContain('dealerContactId: formData.dealerContactId ?? "",');
     expect(serviceSource).toContain("dealer_account_id: dealerAccountId");
   });
 
