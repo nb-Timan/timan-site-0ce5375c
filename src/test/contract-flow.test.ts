@@ -894,6 +894,22 @@ describe('contract flow', () => {
     expect(sparePartsServiceSection).not.toContain('className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"');
   });
 
+  it('keeps the freight rule once in new service contract and PDF snapshots', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const serviceSection = GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'spare_parts_service');
+    const renderedSections = renderGuidedContractSections({ companyName: completeForm.dealerName, partnerType: completeForm.partnerType });
+    const renderedServiceSection = renderedSections.find((section) => section.stepId === 'spare_parts_service');
+
+    expect(serviceSection).toBeDefined();
+    expect(JSON.stringify(serviceSection)).toContain('Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.');
+    expect(JSON.stringify(serviceSection)).not.toContain('Fragt af dele');
+    expect(JSON.stringify(serviceSection)).not.toContain('Timan betaler fragten tur / retur');
+    expect(JSON.stringify(serviceSection)).toContain('Timeløn og Transport');
+    expect(JSON.stringify(serviceSection)).toContain('Kontakt');
+    expect(JSON.stringify(renderedServiceSection)).not.toContain('Fragt af dele');
+    expect(source).toContain('if (Array.isArray(snapshot.legalSections)) return snapshot.legalSections as GuidedContractSection[];');
+  });
+
   it('shows the payment terms dropdown in the payment delivery step', () => {
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
 

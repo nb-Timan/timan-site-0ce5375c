@@ -161,7 +161,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         bullets: [
           'Reservedele bestilles via Timan A/S\' webshop.',
           'Rabat på reservedele følger grundrabatten, der er gældende for maskiner.',
-          'Levering af reservedele er – Frit leveret med transportøren der vælges af Timan.',
+          'Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.',
         ],
       },
       {
@@ -214,10 +214,6 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           'Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan. {{serviceHourlyRateDkk}} pr. køretime.',
           'Timan dækker ikke transportomkostninger for maskinen eller andre følgeomkostninger i forbindelse med reklamationer.',
         ],
-      },
-      {
-        heading: '7. Fragt af dele',
-        paragraphs: ['Timan betaler fragten tur / retur for reklamationsdele i forbindelse med behandlingen af en godkendt reklamation.'],
       },
       {
         heading: '8. Kontakt',

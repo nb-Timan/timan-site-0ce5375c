@@ -3798,7 +3798,7 @@ function SparePartsServiceSection({
   const compactSparePartsBlocks = sparePartsBlocks.map((block) => ({
     ...block,
     heading: undefined,
-    bullets: block.bullets?.filter((bullet) => bullet !== 'Levering af reservedele er – Frit leveret med transportøren der vælges af Timan.'),
+    bullets: block.bullets?.filter((bullet) => bullet !== 'Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.'),
   }));
   const importantServiceTerms = [
     ['Reklamation', 'Reklamationsarbejde må først påbegyndes, når Timan har udstedt et reklamationsnummer.'],
