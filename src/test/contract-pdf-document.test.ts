@@ -51,9 +51,15 @@ describe('contract PDF document model', () => {
       .toBe('Timan-Partneraftale-WJ-Maskinservice-A-S-DC-0809-2026.pdf');
   });
 
-  it('allows final legal generation only for a reviewed language template', () => {
+  it('renders the selected approved document language from the frozen contract data', () => {
     expect(getContractPdfLanguageReadiness('da').productionReady).toBe(true);
-    expect(getContractPdfLanguageReadiness('en').productionReady).toBe(false);
-    expect(getContractPdfLanguageReadiness('de').productionReady).toBe(false);
+    expect(getContractPdfLanguageReadiness('en').productionReady).toBe(true);
+    expect(getContractPdfLanguageReadiness('de').productionReady).toBe(true);
+
+    const snapshot = buildContractSnapshot(form, EMPTY_CONTRACT_CONFIRMATIONS);
+    expect(getSnapshotLegalSections(snapshot, 'en').find((section) => section.stepId === 'discount_structure')?.title)
+      .toBe('Discount structure and Appendix 2');
+    expect(getSnapshotLegalSections(snapshot, 'de').find((section) => section.stepId === 'discount_structure')?.title)
+      .toBe('Rabattstruktur und Anhang 2');
   });
 });

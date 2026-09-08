@@ -14,6 +14,7 @@ import {
 import { formatContractServiceHourlyRateDkk } from '@/lib/contractServiceTerms';
 import { renderContractPaymentTermLegalText } from '@/lib/contractPaymentTerms';
 import { getContractDiscountStructure } from '@/lib/contractCommercialTerms';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
 export type ContractTextBlock = {
   heading?: string;
@@ -42,6 +43,163 @@ export type ContractTextRenderContext = {
   sparePartsDiscountPct?: number;
   preserveDiscountSnapshot?: boolean;
 };
+
+type ContractTextLanguage = PortalUiLanguage;
+
+const SECTION_TITLES: Record<Exclude<GuidedContractSection['stepId'], never>, Record<ContractTextLanguage, string>> = {
+  purpose_prices_orders_portal: {
+    da: 'Samarbejde, handel og forhandlermøde', en: 'Cooperation, trade and dealer meeting', de: 'Zusammenarbeit, Handel und Händlertreffen', it: 'Collaborazione, commercio e riunione dei rivenditori', hu: 'Együttműködés, kereskedelem és kereskedői találkozó', sv: 'Samarbete, handel och återförsäljarmöte', fr: 'Coopération, commerce et réunion des revendeurs', pl: 'Współpraca, handel i spotkanie dealerów', cs: 'Spolupráce, obchod a setkání prodejců',
+  },
+  territory: {
+    da: 'Område og Bilag 3', en: 'Territory and Appendix 3', de: 'Gebiet und Anhang 3', it: 'Territorio e allegato 3', hu: 'Terület és 3. melléklet', sv: 'Område och bilaga 3', fr: 'Territoire et annexe 3', pl: 'Terytorium i załącznik 3', cs: 'Území a příloha 3',
+  },
+  discount_structure: {
+    da: 'Rabatstruktur og Bilag 2', en: 'Discount structure and Appendix 2', de: 'Rabattstruktur und Anhang 2', it: 'Struttura degli sconti e allegato 2', hu: 'Kedvezménystruktúra és 2. melléklet', sv: 'Rabattsstruktur och bilaga 2', fr: 'Structure des remises et annexe 2', pl: 'Struktura rabatów i załącznik 2', cs: 'Struktura slev a příloha 2',
+  },
+  demo_machines: {
+    da: 'Demo-maskiner', en: 'Demonstration machines', de: 'Demomaschinen', it: 'Macchine dimostrative', hu: 'Bemutatógépek', sv: 'Demomaskiner', fr: 'Machines de démonstration', pl: 'Maszyny demonstracyjne', cs: 'Předváděcí stroje',
+  },
+  spare_parts_service: {
+    da: 'Reservedele og service', en: 'Spare parts and service', de: 'Ersatzteile und Service', it: 'Ricambi e assistenza', hu: 'Alkatrészek és szerviz', sv: 'Reservdelar och service', fr: 'Pièces détachées et service', pl: 'Części zamienne i serwis', cs: 'Náhradní díly a servis',
+  },
+  marketing: {
+    da: 'Marketing', en: 'Marketing', de: 'Marketing', it: 'Marketing', hu: 'Marketing', sv: 'Marknadsföring', fr: 'Marketing', pl: 'Marketing', cs: 'Marketing',
+  },
+  payment_delivery: {
+    da: 'Betaling og levering', en: 'Payment and delivery', de: 'Zahlung und Lieferung', it: 'Pagamento e consegna', hu: 'Fizetés és szállítás', sv: 'Betalning och leverans', fr: 'Paiement et livraison', pl: 'Płatność i dostawa', cs: 'Platba a dodání',
+  },
+  termination: {
+    da: 'Opsigelse og afsluttende vilkår', en: 'Termination and final terms', de: 'Kündigung und Schlussbestimmungen', it: 'Recesso e condizioni finali', hu: 'Felmondás és záró feltételek', sv: 'Uppsägning och slutvillkor', fr: 'Résiliation et conditions finales', pl: 'Wypowiedzenie i warunki końcowe', cs: 'Ukončení a závěrečná ustanovení',
+  },
+};
+
+// Contract prose is rendered from one canonical template. Keep placeholders intact
+// so localized sentences still receive the same contract-specific values.
+const ENGLISH_CONTRACT_TEXT: Record<string, string> = {
+  '1. Formål': '1. Purpose',
+  'Formålet med denne kontrakt er at fastlægge vilkårene for samarbejdet mellem Timan A/S og {{companyName}}, herefter nævnt som {{partnerSingular}}, vedrørende salg af Timan-maskiner og tilhørende produkter.': 'The purpose of this agreement is to set out the terms of cooperation between Timan A/S and {{companyName}}, hereinafter referred to as {{partnerSingular}}, concerning the sale of Timan machines and related products.',
+  '2. Priser, ordre og {{partnerSingular}}portal': '2. Prices, orders and the {{partnerSingular}} portal',
+  'Der arbejdes altid efter til enhver tid gældende prisliste.': 'The price list in force at the relevant time shall always apply.',
+  'Ved prisreguleringer reguleres priserne på afgivende ordre, til levering med 3 måneders horisont eller derover.': 'In the event of price adjustments, prices for orders with a delivery horizon of three months or more shall be adjusted.',
+  'Ved ordre udfyldes prislisteformularen og sendes til Timan’s sælger som bekræftet ordre.': 'When placing an order, the price-list form shall be completed and sent to Timan’s sales representative as a confirmed order.',
+  'Prislisten findes på {{partnerPortal}}, som kun {{partnerPlural}} har adgang til.': 'The price list is available on the {{partnerPortal}}, which only {{partnerPlural}} can access.',
+  'På {{partnerPortal}} findes også salgsmateriale og service oplysninger': 'The {{partnerPortal}} also contains sales material and service information.',
+  '10. Årligt {{partnerAnnualMeeting}}': '10. Annual {{partnerAnnualMeeting}}',
+  'Et årligt {{partnerAnnualMeeting}} afholdes i perioden oktober - februar enten fysisk eller via Teams.': 'An annual {{partnerAnnualMeeting}} is held between October and February, either in person or through Teams.',
+  '{{partnerDefiniteCapitalized}} forpligter sig til at levere firma- og kontaktoplysninger via QR-kode nederst på siden.': '{{partnerDefiniteCapitalized}} undertakes to provide company and contact information through the QR code at the bottom of the page.',
+  'Vi forventer, at de involverede personer tilmelder sig vores nyhedsbrev, hvor der kommer relevante {{partnerSingular}}informationer.': 'We expect the relevant persons to subscribe to our newsletter, where relevant {{partnerSingular}} information is published.',
+  '(Vi deler ikke personoplysninger med tredje part, QR-kode også nederst på siden)': '(We do not share personal data with third parties; the QR code is also shown at the bottom of the page.)',
+  'Gennemgang af årets resultater.': 'Review of the year’s results.',
+  'Budgetgennemgang': 'Budget review.',
+  'Gennemgang af planlagte aktiviteter.': 'Review of planned activities.',
+  '{{partnerDefiniteCapitalized}} forpligter sig til at udfylde et kort spørgeskema vedrørende samarbejdet, aktivitetsplan for det kommende år.': '{{partnerDefiniteCapitalized}} undertakes to complete a short questionnaire about the cooperation and activity plan for the coming year.',
+  'Bilag 3: Området': 'Appendix 3: Territory',
+  '1. Aftalen (salg og reservedele)': '1. The agreement (sales and spare parts)',
+  'Inden for det primære område vil Timan ikke indgå aftaler med nye {{partnerPlural}}.': 'Within the primary territory, Timan will not enter into agreements with new {{partnerPlural}}.',
+  'Slutkunden bestemmer selv, hvilken Timan-samarbejdspartner de ønsker at handle med.': 'The end customer decides which Timan partner they wish to trade with.',
+  'Hvis Timan kontaktes gives dette lead til nærmeste {{partnerSingular}} ud fra kundens oplysninger.': 'If Timan is contacted, this lead is assigned to the nearest {{partnerSingular}} based on the customer’s information.',
+  'Hvis en slutkunde inden for dette område ønsker at bestille reservedele via Timan’s webshop, skal dette aftales på forhånd med {{partnerDefinite}}, og {{partnerDefinite}} retter efterfølgende henvendelse til Timan - faktureringen vil ske gennem {{partnerDefinite}}.': 'If an end customer in this territory wishes to order spare parts through Timan’s webshop, this must be agreed in advance with {{partnerDefinite}}, who will then contact Timan. Invoicing will take place through {{partnerDefinite}}.',
+  'Brutto prisen vil være synlig for alle, prisen til slutkunden aftales mellem {{partnerSingular}} og slutkunde.': 'The gross price will be visible to everyone; the price to the end customer is agreed between {{partnerSingular}} and the end customer.',
+  '2. Området omfatter som kortet også viser:': '2. The territory includes, as the map also shows:',
+  'Primære område:': 'Primary territory:',
+  'Sekundær område': 'Secondary territory',
+  'I dette område må {{partnerDefinite}} udføre opsøgende salg.': 'In this territory, {{partnerDefinite}} may carry out proactive sales.',
+  '4. Rabatstruktur': '4. Discount structure',
+  'Rabat opnås baseret som følgende:': 'Discounts are granted on the following basis:',
+  'Flere maskiner: Køb af flere maskiner giver yderligere rabat.': 'Multiple machines: Purchasing multiple machines gives an additional discount.',
+  'Længere leveringstid: Ved leveringstid over 3 mdr. tilbydes øget rabat.': 'Longer delivery time: A greater discount is offered for delivery times exceeding three months.',
+  'Salg uden demonstration: Hvis {{partnerDefinite}} opnår et salg uden, at Timan har været involveret i en demonstration, til skønnes dette med rabat.': 'Sales without demonstration: If {{partnerDefinite}} completes a sale without Timan having participated in a demonstration, this is rewarded with a discount.',
+  'Se bilag 2.': 'See Appendix 2.',
+  '5. Demo-maskiner': '5. Demonstration machines',
+  'Det forventes at {{partnerDefinite}} investere i demo-maskiner.': '{{partnerDefiniteCapitalized}} is expected to invest in demonstration machines.',
+  '{{partnerDefiniteCapitalized}} kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.': '{{partnerDefiniteCapitalized}} may acquire one unit of each machine per year for demonstration use.',
+  'Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.': 'Demonstration machines may not be resold until nine months after delivery from Timan A/S.',
+  'Overholdes dette ikke vil Timan opkræve differencen til den almindelige maskinrabat.': 'If this is not observed, Timan will charge the difference up to the ordinary machine discount.',
+  'Demonstrationsmaskinerabat: 25 %–10 %.': 'Demonstration machine discount: 25%–10%.',
+  '6. Reservedele og Service': '6. Spare parts and service',
+  '{{partnerDefiniteCapitalized}} forpligter sig til at varetage alt support omkring service og reservedele f.eks. :': '{{partnerDefiniteCapitalized}} undertakes to provide all support relating to service and spare parts, for example:',
+  'Reservedele bestilles via Timan A/S\' webshop.': 'Spare parts are ordered through Timan A/S’ webshop.',
+  'Rabat på reservedele følger grundrabatten, der er gældende for maskiner.': 'The discount on spare parts follows the base discount applicable to machines.',
+  'Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.': 'Spare parts are delivered free of charge by the carrier selected by Timan. Timan pays return freight for claim parts in connection with an approved claim.',
+  '8. Salgs- og servicedage': '8. Sales and service days',
+  '{{partnerDefiniteCapitalized}} forpligter sig til at have mindst én sælger/demonstratør samt servicetekniker til at være:': '{{partnerDefiniteCapitalized}} undertakes to ensure that at least one salesperson/demonstrator and one service technician are:',
+  'Opdateret på Timan’s produkter + To salgsdage ved Timan A/S i Tim det første år.': 'Up to date with Timan’s products, plus two sales days at Timan A/S in Tim in the first year.',
+  'Opdateret med teknisk viden på Timan’s produkter + En service dag ved Timan A/S i Tim det første år.': 'Up to date with technical knowledge of Timan’s products, plus one service day at Timan A/S in Tim in the first year.',
+  'Efterfølgende forpligtes der hermed til at deltage i salgs- og servicedage, hvis Timan A/S indkalder til dette.': 'Thereafter, participation in sales and service days is required when Timan A/S convenes them.',
+  'Bilag 1: Service og garanti betingelser': 'Appendix 1: Service and warranty terms',
+  '1. Reklamation': '1. Claims',
+  'Før start af reklamation kontaktes Timan, og forløbet aftales mellem parterne.': 'Before claim work begins, Timan must be contacted and the process agreed between the parties.',
+  '2. Garanti registreringer': '2. Warranty registrations',
+  '3. Godtgørelse': '3. Compensation',
+  '4. Timeløn og Transport': '4. Hourly pay and transport',
+  'Redskaber fra tredjepartsproducenter': 'Equipment from third-party manufacturers',
+  '8. Kontakt': '8. Contact',
+  '7. Marketingforpligtelser {{partnerLabel}}': '7. Marketing obligations of {{partnerLabel}}',
+  '7.1 Marketingforpligtelser Timan': '7.1 Marketing obligations of Timan',
+  '9. Betaling og Levering': '9. Payment and delivery',
+  'Bilag 4: Salgs- og leveringsbetingelser': 'Appendix 4: Terms of sale and delivery',
+  '11. Varighed og opsigelse': '11. Duration and termination',
+};
+
+const GERMAN_CONTRACT_TEXT: Record<string, string> = {
+  '1. Formål': '1. Zweck',
+  'Formålet med denne kontrakt er at fastlægge vilkårene for samarbejdet mellem Timan A/S og {{companyName}}, herefter nævnt som {{partnerSingular}}, vedrørende salg af Timan-maskiner og tilhørende produkter.': 'Zweck dieses Vertrags ist es, die Bedingungen der Zusammenarbeit zwischen Timan A/S und {{companyName}}, nachfolgend {{partnerSingular}} genannt, über den Verkauf von Timan-Maschinen und zugehörigen Produkten festzulegen.',
+  '2. Priser, ordre og {{partnerSingular}}portal': '2. Preise, Bestellungen und {{partnerSingular}}portal',
+  'Der arbejdes altid efter til enhver tid gældende prisliste.': 'Es gilt stets die jeweils gültige Preisliste.',
+  'Ved prisreguleringer reguleres priserne på afgivende ordre, til levering med 3 måneders horisont eller derover.': 'Bei Preisänderungen werden die Preise für Bestellungen mit einem Lieferhorizont von drei Monaten oder mehr angepasst.',
+  'Ved ordre udfyldes prislisteformularen og sendes til Timan’s sælger som bekræftet ordre.': 'Bei einer Bestellung wird das Preislistenformular ausgefüllt und als bestätigte Bestellung an den Timan-Verkäufer gesendet.',
+  'Prislisten findes på {{partnerPortal}}, som kun {{partnerPlural}} har adgang til.': 'Die Preisliste befindet sich im {{partnerPortal}}, zu dem nur {{partnerPlural}} Zugang haben.',
+  'På {{partnerPortal}} findes også salgsmateriale og service oplysninger': 'Im {{partnerPortal}} finden sich auch Verkaufsunterlagen und Serviceinformationen.',
+  '10. Årligt {{partnerAnnualMeeting}}': '10. Jährliches {{partnerAnnualMeeting}}',
+  'Et årligt {{partnerAnnualMeeting}} afholdes i perioden oktober - februar enten fysisk eller via Teams.': 'Ein jährliches {{partnerAnnualMeeting}} findet im Zeitraum Oktober bis Februar entweder vor Ort oder über Teams statt.',
+  'Gennemgang af årets resultater.': 'Überprüfung der Jahresergebnisse.',
+  'Budgetgennemgang': 'Budgetüberprüfung.',
+  'Gennemgang af planlagte aktiviteter.': 'Überprüfung der geplanten Aktivitäten.',
+  'Bilag 3: Området': 'Anhang 3: Das Gebiet',
+  '1. Aftalen (salg og reservedele)': '1. Die Vereinbarung (Verkauf und Ersatzteile)',
+  'Inden for det primære område vil Timan ikke indgå aftaler med nye {{partnerPlural}}.': 'Innerhalb des primären Gebiets wird Timan keine Vereinbarungen mit neuen {{partnerPlural}} schließen.',
+  'Slutkunden bestemmer selv, hvilken Timan-samarbejdspartner de ønsker at handle med.': 'Der Endkunde entscheidet selbst, mit welchem Timan-Partner er handeln möchte.',
+  'Hvis Timan kontaktes gives dette lead til nærmeste {{partnerSingular}} ud fra kundens oplysninger.': 'Wird Timan kontaktiert, wird dieser Lead anhand der Kundendaten dem nächstgelegenen {{partnerSingular}} zugeteilt.',
+  '2. Området omfatter som kortet også viser:': '2. Das Gebiet umfasst, wie die Karte ebenfalls zeigt:',
+  'Primære område:': 'Primäres Gebiet:',
+  'Sekundær område': 'Sekundäres Gebiet',
+  'I dette område må {{partnerDefinite}} udføre opsøgende salg.': 'In diesem Gebiet darf {{partnerDefinite}} aktive Verkaufsarbeit leisten.',
+  '4. Rabatstruktur': '4. Rabattstruktur',
+  'Rabat opnås baseret som følgende:': 'Rabatte werden auf folgender Grundlage gewährt:',
+  'Flere maskiner: Køb af flere maskiner giver yderligere rabat.': 'Mehrere Maschinen: Der Kauf mehrerer Maschinen gewährt einen zusätzlichen Rabatt.',
+  'Længere leveringstid: Ved leveringstid over 3 mdr. tilbydes øget rabat.': 'Längere Lieferzeit: Bei einer Lieferzeit von mehr als drei Monaten wird ein höherer Rabatt angeboten.',
+  'Salg uden demonstration: Hvis {{partnerDefinite}} opnår et salg uden, at Timan har været involveret i en demonstration, til skønnes dette med rabat.': 'Verkauf ohne Demonstration: Erzielt {{partnerDefinite}} einen Verkauf, ohne dass Timan an einer Demonstration beteiligt war, wird dies mit einem Rabatt honoriert.',
+  'Se bilag 2.': 'Siehe Anhang 2.',
+  '5. Demo-maskiner': '5. Demomaschinen',
+  'Det forventes at {{partnerDefinite}} investere i demo-maskiner.': 'Von {{partnerDefinite}} wird erwartet, in Demomaschinen zu investieren.',
+  '{{partnerDefiniteCapitalized}} kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.': '{{partnerDefiniteCapitalized}} kann jährlich ein Stück jeder Maschine für Demonstrationszwecke erwerben.',
+  'Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.': 'Demomaschinen dürfen erst neun Monate nach Lieferung durch Timan A/S weiterverkauft werden.',
+  'Overholdes dette ikke vil Timan opkræve differencen til den almindelige maskinrabat.': 'Bei Nichteinhaltung wird Timan die Differenz zum regulären Maschinenrabatt berechnen.',
+  'Demonstrationsmaskinerabat: 25 %–10 %.': 'Demomaschinenrabatt: 25 %–10 %.',
+  '6. Reservedele og Service': '6. Ersatzteile und Service',
+  'Reservedele bestilles via Timan A/S\' webshop.': 'Ersatzteile werden über den Webshop von Timan A/S bestellt.',
+  'Rabat på reservedele følger grundrabatten, der er gældende for maskiner.': 'Der Rabatt auf Ersatzteile folgt dem für Maschinen geltenden Grundrabatt.',
+  '8. Salgs- og servicedage': '8. Verkaufs- und Servicetage',
+  'Bilag 1: Service og garanti betingelser': 'Anhang 1: Service- und Garantiebedingungen',
+  '1. Reklamation': '1. Reklamationen',
+  'Før start af reklamation kontaktes Timan, og forløbet aftales mellem parterne.': 'Vor Beginn der Reklamationsarbeiten wird Timan kontaktiert und der Ablauf zwischen den Parteien vereinbart.',
+  '2. Garanti registreringer': '2. Garantieregistrierungen',
+  '3. Godtgørelse': '3. Vergütung',
+  '4. Timeløn og Transport': '4. Stundenlohn und Transport',
+  'Redskaber fra tredjepartsproducenter': 'Geräte von Drittanbietern',
+  '8. Kontakt': '8. Kontakt',
+  '7. Marketingforpligtelser {{partnerLabel}}': '7. Marketingpflichten von {{partnerLabel}}',
+  '7.1 Marketingforpligtelser Timan': '7.1 Marketingpflichten von Timan',
+  '9. Betaling og Levering': '9. Zahlung und Lieferung',
+  'Bilag 4: Salgs- og leveringsbetingelser': 'Anhang 4: Verkaufs- und Lieferbedingungen',
+  '11. Varighed og opsigelse': '11. Laufzeit und Kündigung',
+};
+
+function localizeContractTemplate(value: string, language: ContractTextLanguage): string {
+  if (language === 'da') return value;
+  const translations = language === 'de' ? GERMAN_CONTRACT_TEXT : ENGLISH_CONTRACT_TEXT;
+  return translations[value] ?? value;
+}
 
 export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
@@ -342,11 +500,12 @@ function capitalize(value: string) {
   return value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}` : value;
 }
 
-function renderContractText(value: string, context: ContractTextRenderContext): string {
-  const terms = getContractPartnerTerms(context.partnerType);
+function renderContractText(value: string, context: ContractTextRenderContext, language: ContractTextLanguage): string {
+  const terms = getContractPartnerTerms(context.partnerType, language);
   const companyName = context.companyName.trim();
+  const localizedValue = localizeContractTemplate(value, language);
 
-  return value
+  return localizedValue
     .replaceAll('{{companyName}}', companyName)
     .replaceAll('{{partnerLabel}}', terms?.label ?? '')
     .replaceAll('{{partnerSingular}}', terms?.singular ?? '')
@@ -357,20 +516,20 @@ function renderContractText(value: string, context: ContractTextRenderContext): 
     .replaceAll('{{partnerPossessiveCapitalized}}', terms ? capitalize(terms.possessive) : '')
     .replaceAll('{{partnerPortal}}', terms?.portal ?? '')
     .replaceAll('{{partnerAnnualMeeting}}', terms?.annualMeeting ?? '')
-    .replaceAll('{{primaryTerritoryDescription}}', describeContractTerritoryArea(context.primaryTerritory, 'da'))
-    .replaceAll('{{secondaryTerritoryDescription}}', describeContractSecondaryTerritoryArea(context.secondaryTerritory, 'da'))
+    .replaceAll('{{primaryTerritoryDescription}}', describeContractTerritoryArea(context.primaryTerritory, language))
+    .replaceAll('{{secondaryTerritoryDescription}}', describeContractSecondaryTerritoryArea(context.secondaryTerritory, language))
     .replaceAll('{{serviceHourlyRateDkk}}', formatContractServiceHourlyRateDkk(context.serviceHourlyRateDkk))
-    .replaceAll('{{paymentTermsLegalText}}', renderContractPaymentTermLegalText(context.paymentTerm));
+    .replaceAll('{{paymentTermsLegalText}}', renderContractPaymentTermLegalText(context.paymentTerm, language));
 }
 
-function renderContractBulletText(value: string, context: ContractTextRenderContext) {
+function renderContractBulletText(value: string, context: ContractTextRenderContext, language: ContractTextLanguage) {
   if (value === '{{primaryTerritoryDescription}}') {
-    return getContractTerritoryDisplayItems(context.primaryTerritory, 'da');
+    return getContractTerritoryDisplayItems(context.primaryTerritory, language);
   }
   if (value === '{{secondaryTerritoryDescription}}') {
-    return getContractTerritoryDisplayItems(context.secondaryTerritory, 'da');
+    return getContractTerritoryDisplayItems(context.secondaryTerritory, language);
   }
-  return [renderContractText(value, context)];
+  return [renderContractText(value, context, language)];
 }
 
 function getDiscountStructureBlocks(context: ContractTextRenderContext): ContractTextBlock[] {
@@ -409,7 +568,10 @@ function getDiscountStructureBlocks(context: ContractTextRenderContext): Contrac
   }];
 }
 
-export function renderGuidedContractSections(context: ContractTextRenderContext): GuidedContractSection[] {
+export function renderGuidedContractSections(
+  context: ContractTextRenderContext,
+  language: ContractTextLanguage = 'da',
+): GuidedContractSection[] {
   return GUIDED_CONTRACT_SECTIONS.map((section) => {
     const sourceBlocks = section.stepId === 'discount_structure'
       ? getDiscountStructureBlocks(context)
@@ -417,16 +579,17 @@ export function renderGuidedContractSections(context: ContractTextRenderContext)
 
     return ({
     ...section,
+    title: SECTION_TITLES[section.stepId][language] ?? SECTION_TITLES[section.stepId].en,
     blocks: sourceBlocks
       .map((block) => ({
-        heading: block.heading ? renderContractText(block.heading, context) : undefined,
-        paragraphs: block.paragraphs?.map((paragraph) => renderContractText(paragraph, context)).filter(Boolean),
-        bullets: block.bullets?.flatMap((bullet) => renderContractBulletText(bullet, context)).filter(Boolean),
+        heading: block.heading ? renderContractText(block.heading, context, language) : undefined,
+        paragraphs: block.paragraphs?.map((paragraph) => renderContractText(paragraph, context, language)).filter(Boolean),
+        bullets: block.bullets?.flatMap((bullet) => renderContractBulletText(bullet, context, language)).filter(Boolean),
       }))
       .filter((block) => (
         section.stepId !== 'territory'
         || block.heading !== 'Sekundær område'
-        || describeContractSecondaryTerritoryArea(context.secondaryTerritory, 'da')
+        || describeContractSecondaryTerritoryArea(context.secondaryTerritory, language)
       )),
     });
   });
@@ -436,8 +599,12 @@ export function getGuidedContractSection(stepId: ContractStepId) {
   return GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === stepId) ?? null;
 }
 
-export function getRenderedGuidedContractSection(stepId: ContractStepId, context: ContractTextRenderContext) {
-  return renderGuidedContractSections(context).find((section) => section.stepId === stepId) ?? null;
+export function getRenderedGuidedContractSection(
+  stepId: ContractStepId,
+  context: ContractTextRenderContext,
+  language: ContractTextLanguage = 'da',
+) {
+  return renderGuidedContractSections(context, language).find((section) => section.stepId === stepId) ?? null;
 }
 
 export function getGuidedContractDisplayHeading(heading: string) {

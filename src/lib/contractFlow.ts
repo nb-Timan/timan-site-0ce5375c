@@ -388,8 +388,13 @@ export function getContractStepLabel(
   stepId: ContractStepId,
   language: PortalUiLanguage | string | null | undefined = 'da',
 ): ContractStepLabel {
-  const lang = (language && CONTRACT_STEP_LABELS[stepId]?.[language as PortalUiLanguage])
-    ? language as PortalUiLanguage
+  // Signature is intentionally limited to the contract's three approved
+  // signature languages. Other portal languages use the English signature UI.
+  const signatureLanguage = stepId === 'signature' && !(['da', 'en', 'de'] as const).includes(language as 'da' | 'en' | 'de')
+    ? 'en'
+    : language;
+  const lang = (signatureLanguage && CONTRACT_STEP_LABELS[stepId]?.[signatureLanguage as PortalUiLanguage])
+    ? signatureLanguage as PortalUiLanguage
     : 'da';
   return CONTRACT_STEP_LABELS[stepId][lang];
 }

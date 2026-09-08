@@ -459,6 +459,16 @@ describe('contract flow', () => {
     }
   });
 
+  it('uses the selected language for legal section rendering and limits signature to Danish, English, and German', () => {
+    const english = renderGuidedContractSections({ companyName: completeForm.dealerName, partnerType: completeForm.partnerType }, 'en');
+    const german = renderGuidedContractSections({ companyName: completeForm.dealerName, partnerType: completeForm.partnerType }, 'de');
+
+    expect(english.find((section) => section.stepId === 'purpose_prices_orders_portal')?.blocks[0]?.heading).toBe('1. Purpose');
+    expect(german.find((section) => section.stepId === 'purpose_prices_orders_portal')?.blocks[0]?.heading).toBe('1. Zweck');
+    expect(getContractStepLabel('signature', 'it').title).toBe('Signature');
+    expect(getContractStepLabel('signature', 'de').title).toBe('Unterschrift');
+  });
+
   it('uses the global portal language for guided-flow controls and workflow statuses', () => {
     const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
 
@@ -536,7 +546,7 @@ describe('contract flow', () => {
     const discountStep = CONTRACT_STEPS.find((step) => step.id === 'discount_structure');
     const territorySection = GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'territory');
     const discountSection = GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === 'discount_structure');
-    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8').replace(/\r\n/g, '\n');
 
     expect(getContractStepLabel('territory', 'da').title).toBe('Område');
     expect(getContractStepLabel('discount_structure', 'da').title).toBe('Rabatstruktur');
@@ -735,7 +745,7 @@ describe('contract flow', () => {
   });
 
   it('requires a persisted guided-review completion before step 10 can advance', () => {
-    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8').replace(/\r\n/g, '\n');
 
     expect(source).toContain("const guidedReviewCompleted = Boolean(contractRecord?.guided_review_completed_at)");
     expect(source).toContain("activeStep.id === 'full_contract'\n    ? guidedReviewCompleted");

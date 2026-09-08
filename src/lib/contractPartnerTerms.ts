@@ -51,7 +51,8 @@ export const CONTRACT_PARTNER_TYPE_LABELS: Record<ContractPartnerType, Record<Po
   },
 };
 
-const DA_TERMS: Record<ContractPartnerType, ContractPartnerTerms> = {
+const PARTNER_TERMS: Record<PortalUiLanguage, Record<ContractPartnerType, ContractPartnerTerms>> = {
+  da: {
   dealer: {
     label: 'Forhandler',
     singular: 'forhandler',
@@ -82,7 +83,28 @@ const DA_TERMS: Record<ContractPartnerType, ContractPartnerTerms> = {
     annualMeeting: 'servicepartnermøde',
     signatureLabel: 'Servicepartner underskrift',
   },
+  },
+  en: {
+    dealer: { label: 'Dealer', singular: 'dealer', definite: 'the dealer', plural: 'dealers', possessive: "dealer's", portal: 'dealer portal', annualMeeting: 'dealer meeting', signatureLabel: 'Dealer signature' },
+    importer: { label: 'Importer', singular: 'importer', definite: 'the importer', plural: 'importers', possessive: "importer's", portal: 'importer portal', annualMeeting: 'importer meeting', signatureLabel: 'Importer signature' },
+    service_partner: { label: 'Service partner', singular: 'service partner', definite: 'the service partner', plural: 'service partners', possessive: "service partner's", portal: 'service partner portal', annualMeeting: 'service partner meeting', signatureLabel: 'Service partner signature' },
+  },
+  de: {
+    dealer: { label: 'Händler', singular: 'Händler', definite: 'der Händler', plural: 'Händler', possessive: 'Händlers', portal: 'Händlerportal', annualMeeting: 'Händlertreffen', signatureLabel: 'Unterschrift des Händlers' },
+    importer: { label: 'Importeur', singular: 'Importeur', definite: 'der Importeur', plural: 'Importeure', possessive: 'Importeurs', portal: 'Importeurportal', annualMeeting: 'Importeurtreffen', signatureLabel: 'Unterschrift des Importeurs' },
+    service_partner: { label: 'Servicepartner', singular: 'Servicepartner', definite: 'der Servicepartner', plural: 'Servicepartner', possessive: 'Servicepartners', portal: 'Servicepartnerportal', annualMeeting: 'Servicepartnertreffen', signatureLabel: 'Unterschrift des Servicepartners' },
+  },
+  it: {
+    dealer: { label: 'Rivenditore', singular: 'rivenditore', definite: 'il rivenditore', plural: 'rivenditori', possessive: 'del rivenditore', portal: 'portale rivenditori', annualMeeting: 'riunione annuale dei rivenditori', signatureLabel: 'Firma del rivenditore' },
+    importer: { label: 'Importatore', singular: 'importatore', definite: "l'importatore", plural: 'importatori', possessive: "dell'importatore", portal: 'portale importatori', annualMeeting: 'riunione annuale degli importatori', signatureLabel: "Firma dell'importatore" },
+    service_partner: { label: 'Partner di assistenza', singular: 'partner di assistenza', definite: 'il partner di assistenza', plural: 'partner di assistenza', possessive: 'del partner di assistenza', portal: 'portale partner di assistenza', annualMeeting: 'riunione annuale dei partner di assistenza', signatureLabel: 'Firma del partner di assistenza' },
+  },
+  hu: {}, sv: {}, fr: {}, pl: {}, cs: {},
 };
+
+for (const language of ['hu', 'sv', 'fr', 'pl', 'cs'] as const) {
+  PARTNER_TERMS[language] = PARTNER_TERMS.en;
+}
 
 export function getContractPartnerTypeLabel(
   partnerType: ContractPartnerType,
@@ -95,9 +117,11 @@ export function getContractPartnerTypeLabel(
 
 export function getContractPartnerTerms(
   partnerType: ContractPartnerType | '' | null | undefined,
+  language: PortalUiLanguage | string | null | undefined = 'da',
 ): ContractPartnerTerms | null {
   if (!partnerType || !CONTRACT_PARTNER_TYPES.includes(partnerType)) return null;
-  return DA_TERMS[partnerType];
+  const localizedTerms = PARTNER_TERMS[language as PortalUiLanguage] ?? PARTNER_TERMS.en;
+  return localizedTerms[partnerType] ?? PARTNER_TERMS.en[partnerType];
 }
 
 export function normalizeContractPartnerType(value: string | null | undefined): ContractPartnerType | null {

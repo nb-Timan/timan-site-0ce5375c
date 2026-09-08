@@ -68,11 +68,26 @@ export function getContractPaymentTermLabel(
   return CONTRACT_PAYMENT_TERM_LABELS[term][lang] ?? CONTRACT_PAYMENT_TERM_LABELS[term].en;
 }
 
-export function renderContractPaymentTermLegalText(value: unknown): string {
+export function renderContractPaymentTermLegalText(
+  value: unknown,
+  language: PortalUiLanguage | string | null | undefined = 'da',
+): string {
   const term = normalizeContractPaymentTerm(value);
-  if (term === 'net_30') return 'Betalingsbetingelser: Betaling forfalder netto 30 dage fra fakturadato.';
-  if (term === 'cbs') return 'Betalingsbetingelser: CBS.';
-  return 'Betalingsbetingelser: Betaling forfalder netto 21 dage fra fakturadato.';
+  const lang = language as PortalUiLanguage;
+  const copy: Record<PortalUiLanguage, { label: string; net: (days: number) => string }> = {
+    da: { label: 'Betalingsbetingelser', net: (days) => `Betaling forfalder netto ${days} dage fra fakturadato.` },
+    en: { label: 'Payment terms', net: (days) => `Payment is due net ${days} days from the invoice date.` },
+    de: { label: 'Zahlungsbedingungen', net: (days) => `Die Zahlung ist ${days} Tage netto ab Rechnungsdatum fällig.` },
+    it: { label: 'Termini di pagamento', net: (days) => `Il pagamento è dovuto a ${days} giorni netti dalla data della fattura.` },
+    hu: { label: 'Fizetési feltételek', net: (days) => `A fizetés a számla dátumától számított ${days} napon belül esedékes.` },
+    sv: { label: 'Betalningsvillkor', net: (days) => `Betalning förfaller ${days} dagar netto från fakturadatum.` },
+    fr: { label: 'Conditions de paiement', net: (days) => `Le paiement est dû à ${days} jours nets à compter de la date de facture.` },
+    pl: { label: 'Warunki płatności', net: (days) => `Płatność jest wymagalna w terminie ${days} dni netto od daty faktury.` },
+    cs: { label: 'Platební podmínky', net: (days) => `Platba je splatná do ${days} dnů od data faktury.` },
+  };
+  const localized = copy[lang] ?? copy.en;
+  if (term === 'cbs') return `${localized.label}: CBS.`;
+  return `${localized.label}: ${localized.net(term === 'net_30' ? 30 : 21)}`;
 }
 
 export function contractPaymentTermHasMissingLegalText(value: unknown): boolean {

@@ -1520,7 +1520,7 @@ export default function ContractsPage() {
       machineDiscountPct: form.machineDiscountPct,
       equipmentDiscountPct: form.equipmentDiscountPct,
       sparePartsDiscountPct: form.sparePartsDiscountPct,
-    });
+    }, uiLanguage);
     const appendix2Paragraphs = renderAppendix2Paragraphs(
       form.partnerType,
       getContractDiscountStructure(form.partnerType, form),
@@ -2877,8 +2877,8 @@ function ReviewStep({
     sparePartsDiscountPct: form.sparePartsDiscountPct,
     preserveDiscountSnapshot: locked,
   };
-  const section = getRenderedGuidedContractSection(stepId, contractTextContext);
-  const contractSections = renderGuidedContractSections(contractTextContext);
+  const section = getRenderedGuidedContractSection(stepId, contractTextContext, uiLanguage);
+  const contractSections = renderGuidedContractSections(contractTextContext, uiLanguage);
 
   return (
     <div className="space-y-5">
