@@ -1462,5 +1462,7 @@ describe('contract flow', () => {
     expect(pageSource).toContain("pdf.text(`${discounts?.machineDiscountPct ?? 25}%`");
     expect(fixedDiscountTerms).not.toContain('type="number"');
     expect(appendix).not.toContain('discountRows.map');
+    expect(pageSource).toContain("const isDiscountStep = stepId === 'discount_structure';");
+    expect(pageSource).toContain(') : isDiscountStep ? null : (');
   });
 });

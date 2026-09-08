@@ -2733,6 +2733,7 @@ function ReviewStep({
 }) {
   const { uiLanguage } = useLanguage();
   const fullContract = stepId === 'full_contract';
+  const isDiscountStep = stepId === 'discount_structure';
   const isTerritoryStep = stepId === 'territory';
   const isServiceStep = stepId === 'spare_parts_service';
   const territoryValid = !isTerritoryStep || hasValidContractTerritory(form);
@@ -2825,7 +2826,7 @@ function ReviewStep({
               onPaymentTermChange={onPaymentTermChange}
               locked={locked}
             />
-          ) : (
+          ) : isDiscountStep ? null : (
             <ContractLegalSection
               section={section}
               form={form}
@@ -2835,7 +2836,7 @@ function ReviewStep({
         </>
       )}
 
-      {stepId === 'discount_structure' && !fullContract && (
+      {isDiscountStep && !fullContract && (
         <>
           <ContractCommercialTermsFields form={form} preserveStoredDiscounts={locked} />
           <Appendix2DiscountSection form={form} language={uiLanguage} preserveStoredDiscounts={locked} />
