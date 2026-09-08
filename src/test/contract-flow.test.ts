@@ -734,6 +734,17 @@ describe('contract flow', () => {
     expect(source).toContain('[activeStepIndex, contractLoaded, showInternalContractOverview]');
   });
 
+  it('requires a persisted guided-review completion before step 10 can advance', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain("const guidedReviewCompleted = Boolean(contractRecord?.guided_review_completed_at)");
+    expect(source).toContain("activeStep.id === 'full_contract'\n    ? guidedReviewCompleted");
+    expect(source).toContain("activeStep.id === 'full_contract' && !guidedReviewCompleted");
+    expect(source).toContain('disabled={!canAdvanceCurrentStep}');
+    expect(source).toContain('setReviewCompletionError(message);');
+    expect(source).not.toContain('setActiveStepIndex(CONTRACT_STEPS.length - 1);\n    toast.success(\'Kontraktgennemgangen er afsluttet');
+  });
+
   it('maps old draft confirmations into the new section ids', () => {
     const legacy = normalizeContractConfirmations({
       collaboration: { confirmed: true, confirmedAt: '2026-08-29T10:00:00.000Z', confirmedBy: 'Birger Pedersen' },

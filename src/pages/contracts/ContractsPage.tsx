@@ -862,6 +862,8 @@ export default function ContractsPage() {
   const [uploadVersions, setUploadVersions] = useState<DealerContractUploadVersion[]>([]);
   const [documentVersions, setDocumentVersions] = useState<DealerContractDocumentVersion[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [reviewCompletionBusy, setReviewCompletionBusy] = useState(false);
+  const [reviewCompletionError, setReviewCompletionError] = useState<string | null>(null);
   const [accessWindow, setAccessWindow] = useState<DealerContractAccessWindow | null>(null);
   const [contractAccessWindows, setContractAccessWindows] = useState<DealerContractAccessWindow[]>([]);
   const [partnerUsers, setPartnerUsers] = useState<DealerContractPartnerUser[]>([]);
@@ -1110,6 +1112,8 @@ export default function ContractsPage() {
     && !hasActiveAccessWindow
     && !hasApprovedPartnerDocumentAccess;
   const readyForSignature = canPrepareContractForSignature(form, confirmations);
+  const guidedReviewCompleted = Boolean(contractRecord?.guided_review_completed_at)
+    && hasReachedContractStatus(workflowStatus, 'ready_for_signature');
   const currentConfirmationId = getRequiredConfirmationForStep(activeStep.id);
   const validPrimaryTerritory = hasValidContractTerritory(form);
   const validServiceHourlyRate = isValidContractServiceHourlyRateDkk(form.serviceHourlyRateDkk);
@@ -1120,6 +1124,9 @@ export default function ContractsPage() {
       : true;
   const currentStepConfirmed = currentStepValid
     && (!currentConfirmationId || Boolean(confirmations[currentConfirmationId]?.confirmed));
+  const canAdvanceCurrentStep = activeStep.id === 'full_contract'
+    ? guidedReviewCompleted
+    : currentStepConfirmed;
 
   const update = (key: keyof ContractFormData, value: string | null) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -1447,6 +1454,10 @@ export default function ContractsPage() {
   };
 
   const goNext = () => {
+    if (activeStep.id === 'full_contract' && !guidedReviewCompleted) {
+      toast.error('Afslut og gem kontraktgennemgangen, før du går til underskrift.');
+      return;
+    }
     if (!canLeaveContractStep(activeStep.id, confirmations)) {
       toast.error('Bekræft dette afsnit, før du går videre.');
       return;
@@ -1469,6 +1480,7 @@ export default function ContractsPage() {
   const goPrevious = () => setActiveStepIndex((current) => Math.max(current - 1, 0));
 
   const completeGuidedReview = async () => {
+    if (guidedReviewCompleted || reviewCompletionBusy) return;
     if (!readyForSignature) {
       toast.error('Udfyld parterne og bekræft alle kontraktafsnit først.');
       return;
@@ -1525,19 +1537,23 @@ export default function ContractsPage() {
       completedGuidedReviewByEmail: effectiveUser?.email || form.timanSellerEmail,
       expectedSignedPages: 1,
     });
+    setReviewCompletionBusy(true);
+    setReviewCompletionError(null);
     const { row, error } = await completeDealerContractGuidedReview({
       contractId: id,
       snapshot,
       expectedSignedPages: 1,
     });
+    setReviewCompletionBusy(false);
     if (error || !row) {
-      toast.error('Kontraktgennemgangen kunne ikke afsluttes.');
+      const message = error || 'Kontraktgennemgangen kunne ikke afsluttes.';
+      setReviewCompletionError(message);
+      toast.error(message);
       return;
     }
     setContractRecord(row);
     setContractRowId(row.id);
     setFinalSnapshot(row.final_snapshot);
-    setActiveStepIndex(CONTRACT_STEPS.length - 1);
     toast.success('Kontraktgennemgangen er afsluttet og låst.');
   };
 
@@ -1966,12 +1982,13 @@ export default function ContractsPage() {
                     <button
                       type="button"
                       onClick={completeGuidedReview}
-                      disabled={!readyForSignature || isLockedContract}
+                      disabled={!readyForSignature || guidedReviewCompleted || reviewCompletionBusy}
                       className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-300"
                     >
                       <Lock className="h-4 w-4" />
-                      {isLockedContract ? 'Kontraktgennemgang afsluttet' : 'Afslut kontraktgennemgang'}
+                      {guidedReviewCompleted ? 'Kontraktgennemgang afsluttet' : reviewCompletionBusy ? 'Gemmer gennemgang...' : 'Afslut kontraktgennemgang'}
                     </button>
+                    {reviewCompletionError && <p className="mt-3 text-sm font-semibold text-red-700">{reviewCompletionError}</p>}
                   </div>
                 )}
               </>
@@ -2015,7 +2032,7 @@ export default function ContractsPage() {
                 <button
                   type="button"
                   onClick={goNext}
-                  disabled={!currentStepConfirmed}
+                  disabled={!canAdvanceCurrentStep}
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-gray-950 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
                 >
                   {contractUi('nextStep', uiLanguage)}
