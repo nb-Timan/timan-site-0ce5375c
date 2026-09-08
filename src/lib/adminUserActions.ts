@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase";
 
 export type AdminUserAction =
   | "invite"
+  | "invite_contract_partner"
   | "reset"
   | "signup"
   | "admin_update_user"
@@ -37,6 +38,9 @@ interface InvokeOptions {
   appUserId?: string | null;
   patch?: Record<string, unknown>;
   requireSession?: boolean;
+  contractId?: string;
+  dealerAccountNumber?: string;
+  partnerName?: string;
 }
 
 async function invokeAdminAction(
@@ -58,6 +62,9 @@ async function invokeAdminAction(
         action,
         email: opts.email ?? sess.session.user.email ?? "",
         app_user_id: opts.appUserId ?? null,
+        contract_id: opts.contractId ?? null,
+        dealer_account_number: opts.dealerAccountNumber ?? null,
+        partner_name: opts.partnerName ?? null,
         patch: opts.patch,
         redirect_to: `${window.location.origin}/reset-password`,
       },
@@ -98,6 +105,20 @@ export async function callAdminUserAction(
   appUserId?: string | null,
 ): Promise<AdminUserActionResult> {
   return invokeAdminAction(action, { email, appUserId });
+}
+
+export async function inviteContractPartnerUser(input: {
+  email: string;
+  name: string;
+  contractId: string;
+  dealerAccountNumber: string;
+}): Promise<AdminUserActionResult> {
+  return invokeAdminAction("invite_contract_partner", {
+    email: input.email,
+    partnerName: input.name,
+    contractId: input.contractId,
+    dealerAccountNumber: input.dealerAccountNumber,
+  });
 }
 
 /** Privileged update of an app_users row (server-validated + audited). */

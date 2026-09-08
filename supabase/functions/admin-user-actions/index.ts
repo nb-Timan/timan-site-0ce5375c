@@ -44,6 +44,7 @@ const PORTAL_SITE_URL =
 
 type Action =
   | "invite"
+  | "invite_contract_partner"
   | "reset"
   | "signup"
   | "admin_update_user"
@@ -53,7 +54,7 @@ type Action =
 
 const ADMIN_ACTIONS: Action[] = ["invite", "reset", "admin_update_user", "admin_delete_user"];
 const SELF_ACTIONS: Action[] = ["link_self", "sync_self"];
-const ALL_ACTIONS: Action[] = ["signup", ...ADMIN_ACTIONS, ...SELF_ACTIONS];
+const ALL_ACTIONS: Action[] = ["signup", "invite_contract_partner", ...ADMIN_ACTIONS, ...SELF_ACTIONS];
 
 /**
  * Columns an authorized Timan Backend administrator may write through this
@@ -101,6 +102,9 @@ interface RequestBody {
   action: Action;
   email: string;
   app_user_id?: string | null;
+  contract_id?: string | null;
+  dealer_account_number?: string | null;
+  partner_name?: string | null;
   // Optional override for password-reset/invite redirect target. When the
   // frontend sends this we honor it (so the link points back at the same
   // origin the admin is using), otherwise we fall back to PORTAL_SITE_URL.
@@ -271,7 +275,7 @@ Deno.serve(async (req) => {
     // the verified JWT, never from the request body.
     if (isSelfAction) {
       targetEmail = callerEmail;
-    } else {
+    } else if (action !== "invite_contract_partner") {
       const perms = (callerRow?.permissions ?? {}) as Record<string, unknown>;
       if (
         !callerRow ||
@@ -351,6 +355,127 @@ Deno.serve(async (req) => {
       return json({ error: `Profil kunne ikke oprettes: ${error.message}` }, 500);
     }
     return json({ ok: true, action, message: "Profil oprettet og afventer godkendelse." });
+  }
+
+  // ---- Contract-scoped partner invitation ---------------------------------
+  // This is deliberately not a general user-creation endpoint. The caller's
+  // normal contract-management scope is checked with their own JWT before the
+  // service role creates an external, contract-only profile and sends the
+  // Supabase invitation email.
+  if (action === "invite_contract_partner") {
+    const contractId = String(body.contract_id ?? "").trim();
+    const dealerNumber = String(body.dealer_account_number ?? "").trim();
+    const partnerName = String(body.partner_name ?? "").trim() || targetEmail;
+    if (!contractId || !dealerNumber) {
+      return json({ error: "Kontrakt og partnerkonto mangler." }, 400);
+    }
+
+    const { data: dealer, error: dealerErr } = await admin
+      .from("dealer_accounts")
+      .select("id, account_number, is_active, is_blocked, is_deleted")
+      .eq("account_number", dealerNumber)
+      .maybeSingle();
+    if (dealerErr || !dealer || dealer.is_active !== true || dealer.is_blocked === true || dealer.is_deleted === true) {
+      return json({ error: "Partnerkontoen findes ikke som en aktiv canonical konto." }, 409);
+    }
+
+    const userClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: canManage, error: scopeErr } = await userClient.rpc(
+      "can_manage_dealer_contract_access",
+      { p_dealer_account_id: dealer.id },
+    );
+    if (scopeErr || canManage !== true) {
+      return json({ error: "Adgang nægtet. Du må ikke åbne kontraktadgang for denne partner." }, 403);
+    }
+
+    const { data: contract, error: contractErr } = await admin
+      .from("dealer_contracts")
+      .select("id, dealer_account_id, dealer_account_number")
+      .eq("id", contractId)
+      .maybeSingle();
+    if (contractErr || !contract || contract.dealer_account_id !== dealer.id || contract.dealer_account_number !== dealer.account_number) {
+      return json({ error: "Kontrakten tilhører ikke den valgte partnerkonto." }, 409);
+    }
+
+    const { data: existingProfile, error: profileErr } = await admin
+      .from("app_users")
+      .select("id, email, portal_role, role, dealer_number")
+      .eq("email", targetEmail)
+      .maybeSingle();
+    if (profileErr) return json({ error: `Kunne ikke kontrollere partnerbruger: ${profileErr.message}` }, 500);
+    if (existingProfile && String(existingProfile.dealer_number ?? "").trim() !== dealer.account_number) {
+      return json({ error: "Emailen er allerede knyttet til en anden partnerkonto." }, 409);
+    }
+    if (existingProfile && !EXTERNAL_PARTNER_ROLES.has(String(existingProfile.portal_role ?? existingProfile.role ?? ""))) {
+      return json({ error: "Emailen tilhører allerede en intern eller inkompatibel portalbruger." }, 409);
+    }
+
+    let appUserId = existingProfile?.id as string | undefined;
+    if (!appUserId) {
+      const { data: createdProfile, error: createProfileErr } = await admin
+        .from("app_users")
+        .insert({
+          email: targetEmail,
+          full_name: partnerName,
+          display_name: partnerName,
+          role: "partner",
+          portal_role: "dealer_user",
+          dealer_number: dealer.account_number,
+          approved: true,
+          is_active: true,
+          status: "active",
+          allowed_modules: ["contracts"],
+          module_access: ["contracts"],
+          allowed_areas: [],
+          backend_modules: [],
+          can_view_prices: false,
+          can_submit_order: false,
+          can_edit_discount: false,
+          can_switch_customer_mode: false,
+          updated_at: new Date().toISOString(),
+        })
+        .select("id")
+        .single();
+      if (createProfileErr || !createdProfile) {
+        return json({ error: `Partnerbruger kunne ikke oprettes: ${createProfileErr?.message ?? "ukendt fejl"}` }, 500);
+      }
+      appUserId = createdProfile.id;
+    }
+
+    let existingAuth;
+    try {
+      existingAuth = await findAuthUserByEmail(admin, targetEmail);
+    } catch (e) {
+      return json({ error: `Auth lookup fejlede: ${(e as Error).message}` }, 500);
+    }
+    const redirectTo = `${PORTAL_SITE_URL}/portal/contracts/${contractId}`;
+    const inviteResult = existingAuth
+      ? await admin.auth.resetPasswordForEmail(targetEmail, { redirectTo })
+      : await admin.auth.admin.inviteUserByEmail(targetEmail, { redirectTo });
+    if (inviteResult.error) return json({ error: `Invitation kunne ikke sendes: ${inviteResult.error.message}` }, 500);
+
+    await touchAppUser(admin, appUserId, targetEmail, existingAuth
+      ? { auth_status: "auth_exists", last_password_reset_at: new Date().toISOString() }
+      : { auth_status: "invited", last_invited_at: new Date().toISOString() });
+    await writeAudit(admin, {
+      actor_user_id: (callerRow?.id as string) ?? null,
+      actor_email: callerEmail,
+      actor_name: (callerRow?.full_name as string) ?? null,
+      actor_role: (callerRow?.portal_role as string) ?? null,
+      action: "invite",
+      module: "contracts",
+      record_type: "dealer_contract_access",
+      record_id: contractId,
+      record_label: `${dealer.account_number} · ${targetEmail}`,
+      changed: ["contract_partner_invitation"],
+      old_value: null,
+      new_value: { dealer_account_number: dealer.account_number, app_user_id: appUserId },
+      status: "success",
+    });
+    return json({ ok: true, action, user: { id: appUserId, email: targetEmail }, message: existingAuth ? "Password reset-email sendt til partnerbrugeren." : "Invitationsemail sendt til partnerbrugeren." });
   }
 
   // ---- Admin: update an app_users row (privileged fields) ------------------

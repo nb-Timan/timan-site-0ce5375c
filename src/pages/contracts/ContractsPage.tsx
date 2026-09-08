@@ -70,10 +70,12 @@ import {
 import { fetchDealerAccountByNumber, fetchDealerAccounts, fetchDealerAccountsForSeller, type DealerAccount } from '@/lib/dealerAccountsService';
 import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
+import { inviteContractPartnerUser } from '@/lib/adminUserActions';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
+import { getContractAccessDurationMinutes, type ContractAccessDurationUnit } from '@/lib/contractAccessDuration';
 import { APPENDIX_2_EXAMPLE_LINES, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import {
   CONTRACT_PDF_TEMPLATE_VERSION,
@@ -868,6 +870,10 @@ export default function ContractsPage() {
   const [accessOpensAt, setAccessOpensAt] = useState(() => toLocalDateTimeInputValue(new Date()));
   const [accessClosesAt, setAccessClosesAt] = useState(() => addHoursLocalInput(2));
   const [accessQuickChoice, setAccessQuickChoice] = useState<'60' | '120' | '240' | '1440' | 'custom'>('120');
+  const [accessCustomValue, setAccessCustomValue] = useState(6);
+  const [accessCustomUnit, setAccessCustomUnit] = useState<ContractAccessDurationUnit>('hours');
+  const [invitePartnerName, setInvitePartnerName] = useState('');
+  const [invitePartnerEmail, setInvitePartnerEmail] = useState('');
   const [selectedDealerAccountNumber, setSelectedDealerAccountNumber] = useState('');
   const dealerAccountNumber = (searchParams.get('accountNumber') || searchParams.get('dealer') || '').trim();
   const routeContractIdValue = (routeContractId || '').trim();
@@ -1275,6 +1281,35 @@ export default function ContractsPage() {
     }
     await reloadContractAccess();
     toast.success('Kontraktadgang er åbnet for partnerbrugeren.');
+  };
+
+  const invitePartnerUserForContract = async () => {
+    if (!activeDealerAccountNumber || !contractRowId) {
+      toast.error('Gem kontrakten og vælg en partnerkonto, før du inviterer en partnerbruger.');
+      return;
+    }
+    if (!invitePartnerEmail.trim()) {
+      toast.error('Angiv partnerbrugerens email.');
+      return;
+    }
+    setAccessWindowBusy(true);
+    const result = await inviteContractPartnerUser({
+      email: invitePartnerEmail.trim(),
+      name: invitePartnerName.trim() || invitePartnerEmail.trim(),
+      contractId: contractRowId,
+      dealerAccountNumber: activeDealerAccountNumber,
+    });
+    setAccessWindowBusy(false);
+    if (!result.ok || !result.user?.id) {
+      toast.error(result.error || 'Partnerbrugeren kunne ikke inviteres.');
+      return;
+    }
+    const users = await fetchDealerContractPartnerUsers(activeDealerAccountNumber);
+    setPartnerUsers(users.rows);
+    setSelectedAccessUserId(String(result.user.id));
+    setInvitePartnerName('');
+    setInvitePartnerEmail('');
+    toast.success(result.message || 'Partnerbrugeren er inviteret.');
   };
 
   const extendGuidedAccess = async (window: DealerContractAccessWindow, hours = 2) => {
@@ -1853,13 +1888,20 @@ export default function ContractsPage() {
                     opensAt={accessOpensAt}
                     closesAt={accessClosesAt}
                     quickChoice={accessQuickChoice}
+                    customValue={accessCustomValue}
+                    customUnit={accessCustomUnit}
                     contractSaved={Boolean(contractRowId)}
+                    invitePartnerName={invitePartnerName}
+                    invitePartnerEmail={invitePartnerEmail}
                     onUserChange={setSelectedAccessUserId}
                     onOpensAtChange={(value) => {
                       setAccessOpensAt(value);
                       if (accessQuickChoice !== 'custom') {
                         setAccessClosesAt(addHoursLocalInput(Number(accessQuickChoice) / 60, value));
+                        return;
                       }
+                      const minutes = getContractAccessDurationMinutes(accessCustomValue, accessCustomUnit);
+                      if (minutes) setAccessClosesAt(addHoursLocalInput(minutes / 60, value));
                     }}
                     onClosesAtChange={(value) => {
                       setAccessQuickChoice('custom');
@@ -1867,8 +1909,23 @@ export default function ContractsPage() {
                     }}
                     onQuickChoiceChange={(value) => {
                       setAccessQuickChoice(value);
-                      if (value !== 'custom') setAccessClosesAt(addHoursLocalInput(Number(value) / 60, accessOpensAt));
+                      if (value !== 'custom') {
+                        setAccessClosesAt(addHoursLocalInput(Number(value) / 60, accessOpensAt));
+                        return;
+                      }
+                      const minutes = getContractAccessDurationMinutes(accessCustomValue, accessCustomUnit);
+                      if (minutes) setAccessClosesAt(addHoursLocalInput(minutes / 60, accessOpensAt));
                     }}
+                    onCustomDurationChange={(value, unit) => {
+                      setAccessQuickChoice('custom');
+                      setAccessCustomValue(value);
+                      setAccessCustomUnit(unit);
+                      const minutes = getContractAccessDurationMinutes(value, unit);
+                      if (minutes) setAccessClosesAt(addHoursLocalInput(minutes / 60, accessOpensAt));
+                    }}
+                    onInvitePartnerNameChange={setInvitePartnerName}
+                    onInvitePartnerEmailChange={setInvitePartnerEmail}
+                    onInvitePartnerUser={invitePartnerUserForContract}
                     onActivate={activateGuidedAccess}
                     onExtend={extendGuidedAccess}
                     onRevoke={revokeGuidedAccess}
@@ -1977,11 +2034,19 @@ function PartnerContractAccessPanel({
   opensAt,
   closesAt,
   quickChoice,
+  customValue,
+  customUnit,
   contractSaved,
+  invitePartnerName,
+  invitePartnerEmail,
   onUserChange,
   onOpensAtChange,
   onClosesAtChange,
   onQuickChoiceChange,
+  onCustomDurationChange,
+  onInvitePartnerNameChange,
+  onInvitePartnerEmailChange,
+  onInvitePartnerUser,
   onActivate,
   onExtend,
   onRevoke,
@@ -1994,11 +2059,19 @@ function PartnerContractAccessPanel({
   opensAt: string;
   closesAt: string;
   quickChoice: '60' | '120' | '240' | '1440' | 'custom';
+  customValue: number;
+  customUnit: ContractAccessDurationUnit;
   contractSaved: boolean;
+  invitePartnerName: string;
+  invitePartnerEmail: string;
   onUserChange: (value: string) => void;
   onOpensAtChange: (value: string) => void;
   onClosesAtChange: (value: string) => void;
   onQuickChoiceChange: (value: '60' | '120' | '240' | '1440' | 'custom') => void;
+  onCustomDurationChange: (value: number, unit: ContractAccessDurationUnit) => void;
+  onInvitePartnerNameChange: (value: string) => void;
+  onInvitePartnerEmailChange: (value: string) => void;
+  onInvitePartnerUser: () => void;
   onActivate: () => void;
   onExtend: (window: DealerContractAccessWindow) => void;
   onRevoke: (window: DealerContractAccessWindow) => void;
@@ -2008,6 +2081,15 @@ function PartnerContractAccessPanel({
   const activeWindow = windows.find((window) => getAccessWindowDisplayStatus(window) === 'Åben nu') ?? null;
   const controlsDisabled = busy || !partnerSelected;
   const disabled = controlsDisabled || !contractSaved || users.length === 0 || !selectedUserId;
+  const disabledReason = !partnerSelected
+    ? contractUi('selectPartnerFirst', uiLanguage)
+    : !contractSaved
+      ? 'Gem kontrakten, før partneradgang kan åbnes.'
+      : users.length === 0
+        ? 'Opret eller invitér først en partnerbruger.'
+        : !selectedUserId
+          ? 'Vælg en partnerbruger.'
+          : null;
 
   return (
     <section className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left shadow-sm">
@@ -2029,9 +2111,15 @@ function PartnerContractAccessPanel({
           {contractUi('selectPartnerFirst', uiLanguage)}
         </p>
       ) : users.length === 0 ? (
-        <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
-          {contractUi('noActivePortalUser', uiLanguage)}
-        </p>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+          <p className="text-xs font-semibold text-amber-900">{contractUi('noActivePortalUser', uiLanguage)}</p>
+          <p className="mt-1 text-xs text-amber-900">Opret en begrænset partnerbruger til denne konto og kontrakt.</p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <input value={invitePartnerName} disabled={controlsDisabled || !contractSaved} onChange={(event) => onInvitePartnerNameChange(event.target.value)} placeholder="Navn" className="rounded-lg border border-amber-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" />
+            <input type="email" value={invitePartnerEmail} disabled={controlsDisabled || !contractSaved} onChange={(event) => onInvitePartnerEmailChange(event.target.value)} placeholder="Email" className="rounded-lg border border-amber-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" />
+            <button type="button" onClick={onInvitePartnerUser} disabled={controlsDisabled || !contractSaved || !invitePartnerEmail.trim()} className="rounded-full bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-slate-300">Invitér partnerbruger</button>
+          </div>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-2 lg:grid-cols-[1.3fr_1fr_1fr]">
           <label className="text-xs font-semibold text-slate-600">
@@ -2088,6 +2176,29 @@ function PartnerContractAccessPanel({
             {label}
           </button>
         ))}
+        {quickChoice === 'custom' && (
+          <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-2 py-1.5">
+            <input
+              type="number"
+              min={1}
+              max={customUnit === 'hours' ? 168 : 30}
+              value={customValue}
+              disabled={controlsDisabled}
+              onChange={(event) => onCustomDurationChange(Number(event.target.value), customUnit)}
+              className="w-16 rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-bold text-slate-950"
+              aria-label="Brugerdefineret varighed"
+            />
+            <select
+              value={customUnit}
+              disabled={controlsDisabled}
+              onChange={(event) => onCustomDurationChange(customValue, event.target.value as ContractAccessDurationUnit)}
+              className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-slate-900"
+            >
+              <option value="hours">Timer</option>
+              <option value="days">Dage</option>
+            </select>
+          </div>
+        )}
         <button
           type="button"
           onClick={onActivate}
@@ -2098,6 +2209,12 @@ function PartnerContractAccessPanel({
           {busy ? contractUi('saving', uiLanguage) : contractUi('openContractForPartner', uiLanguage)}
         </button>
       </div>
+      {quickChoice === 'custom' && (
+        <p className="mt-2 text-xs font-semibold text-slate-700">
+          Adgang i {customValue} {customUnit === 'hours' ? 'timer' : 'dage'}: til {formatDateTimeDa(localInputToIso(closesAt) || closesAt, uiLanguage)}.
+        </p>
+      )}
+      {disabledReason && <p className="mt-2 text-xs font-semibold text-amber-900">{disabledReason}</p>}
 
       {latestWindow && (
         <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
