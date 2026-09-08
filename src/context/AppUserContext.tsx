@@ -6,6 +6,7 @@ import { syncSelfAppUser } from '@/lib/adminUserActions';
 import { fetchDealerStatusForUser } from '@/lib/dealerAccountsService';
 import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 import { canonicalDisplayName, canonicalInitials } from '@/lib/canonicalUserIdentity';
+import { clearLocalAcademyEnrollment, getLocalAcademyUser, hasLocalAcademyEnrollment } from '@/lib/academyCurriculum';
 
 export type SessionUser = AppUser & {
   email: string;
@@ -65,6 +66,7 @@ function readCachedSessionUser(): SessionUser | null {
 }
 
 function loadFromStorage(): SessionUser | null {
+  if (hasLocalAcademyEnrollment()) return getLocalAcademyUser();
   return readCachedSessionUser();
 }
 
@@ -139,6 +141,10 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
+        if (hasLocalAcademyEnrollment()) {
+          setAppUser(getLocalAcademyUser());
+          return;
+        }
         const { data } = await supabase.auth.getSession();
         const session = data.session;
         if (!session?.user?.email) {
@@ -185,6 +191,11 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
   }, [setAppUser]);
 
   const logout = useCallback(async () => {
+    if (hasLocalAcademyEnrollment()) {
+      clearLocalAcademyEnrollment();
+      setAppUser(null);
+      return;
+    }
     await supabase.auth.signOut();
     setAppUser(null);
   }, [setAppUser]);

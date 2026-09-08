@@ -31,9 +31,10 @@ interface Props {
   badge?: { text: string; tone: 'default' | 'warning' | 'danger' } | null;
   /** Optional changelog update badge ("NY" / "VIGTIG"). */
   updateBadge?: { kind: 'new' | 'major'; label: string; tooltip?: string } | null;
+  academyLocked?: boolean;
 }
 
-export default function ModuleCard({ module, language, badge, updateBadge }: Props) {
+export default function ModuleCard({ module, language, badge, updateBadge, academyLocked = false }: Props) {
   const navigate = useNavigate();
   const styles = ACCENT[module.accent];
   const Icon = module.icon;
@@ -41,6 +42,10 @@ export default function ModuleCard({ module, language, badge, updateBadge }: Pro
 
   const handleClick = () => {
     if (disabled) return;
+    if (academyLocked) {
+      navigate('/academy?locked=configurator');
+      return;
+    }
     if (module.href.startsWith('http')) {
       window.open(module.href, '_blank', 'noopener,noreferrer');
     } else {
@@ -92,11 +97,16 @@ export default function ModuleCard({ module, language, badge, updateBadge }: Pro
       </p>
 
       {/* Badges */}
-      {(disabled || badge) && (
+      {(disabled || badge || academyLocked) && (
         <div className="mb-4 flex items-center gap-2">
           {disabled && (
             <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500">
               {pickT(SOON, language) || 'Coming soon'}
+            </span>
+          )}
+          {academyLocked && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">
+              Kræver Academy
             </span>
           )}
           {badge && (
@@ -109,7 +119,7 @@ export default function ModuleCard({ module, language, badge, updateBadge }: Pro
 
       {/* CTA */}
       <div className={cn('flex items-center font-semibold text-sm', styles.ctaColor)}>
-        {pickT(module.cta, language)}
+        {academyLocked ? 'Gennemfør Academy for at åbne denne funktion' : pickT(module.cta, language)}
         <ArrowRight className="h-4 w-4 ml-2" />
       </div>
     </button>

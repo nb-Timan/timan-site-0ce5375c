@@ -18,6 +18,8 @@ import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
 import { tv } from '@/lib/videoLibraryI18n';
 import { fetchActiveDealerContractAccessWindow, type DealerContractAccessWindow } from '@/lib/dealerContractsService';
+import { academySandbox } from '@/lib/academySandbox';
+import { isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -196,7 +198,13 @@ export default function PortalAreaPage({ areaId }: Props) {
                   ].filter(Boolean).join('\n'),
                 }
               : null;
-            return <ModuleCard key={m.id} module={m} language={uiLanguage} updateBadge={mUpdateBadge} />;
+            return <ModuleCard
+              key={m.id}
+              module={m}
+              language={uiLanguage}
+              updateBadge={mUpdateBadge}
+              academyLocked={m.id === 'configurator' && !isAcademyCapabilityUnlocked(effectiveUser, 'configurator', academySandbox.getCompletedCaseIds())}
+            />;
           })}
           {showCreateNewsCard && (
             <PlaceholderCard

@@ -8,6 +8,8 @@ import { QuickActionKey } from '@/lib/backend-users-store';
 import { resolveEffectiveQuickActions } from '@/lib/quickActionsAccess';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
+import { academySandbox } from '@/lib/academySandbox';
+import { type AcademyCapability, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 
 interface Action {
   key?: QuickActionKey;
@@ -15,6 +17,12 @@ interface Action {
   to: string;
   icon: typeof Plus;
   requires?: ModuleAccessKey;
+}
+
+function academyCapabilityForAction(key?: QuickActionKey): AcademyCapability | null {
+  if (key === 'create_lead') return 'crm';
+  if (key === 'create_demo') return 'demo';
+  return null;
 }
 
 const INTERNAL_ACTIONS: Action[] = [
@@ -89,18 +97,22 @@ export default function QuickActions({ language }: Props) {
         <span className="text-xs text-slate-500">{contextLabel}</span>
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {actions.map(({ labelKey, to, icon: Icon }) => {
+        {actions.map(({ key, labelKey, to, icon: Icon }) => {
+          const capability = academyCapabilityForAction(key);
+          const academyLocked = capability && !isAcademyCapabilityUnlocked(effectiveUser, capability, academySandbox.getCompletedCaseIds());
+          const target = academyLocked ? `/academy?locked=${capability}` : to;
           return (
           <Link
             key={to}
-            to={to}
+            to={target}
             className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm hover:shadow-md hover:border-[#2d5a27] transition"
           >
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-[#2d5a27]/10 text-[#2d5a27] group-hover:bg-[#2d5a27] group-hover:text-white transition">
               <Icon className="h-4 w-4" />
             </span>
             <span className="min-w-0">
-              <span className="block text-sm font-semibold text-slate-800">{t(labelKey, language)}</span>
+              <span className="block text-sm font-semibold text-slate-800">{academyLocked ? 'Kræver Academy' : t(labelKey, language)}</span>
+              {academyLocked && <span className="block text-xs font-medium text-amber-700">Gennemfør Academy for at åbne denne funktion</span>}
               {labelKey === 'quickActionCompanyContactInfo' && (
                 <span className="block text-xs font-medium text-slate-500">{t('quickActionCompanyContactInfoDesc', language)}</span>
               )}

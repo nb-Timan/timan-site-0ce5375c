@@ -37,6 +37,7 @@ function save(state: AcademyCase1State) { localStorage.setItem(KEY, JSON.stringi
 export const academySandbox = {
   isActive: isLocalAcademyMode,
   getCase1: load,
+  getCompletedCaseIds() { return load().completed ? [ACADEMY_CASE_1] : []; },
   startCase1() { return save({ ...load(), started: true }); },
   evaluate(input: AcademyCase1Input) {
     if (!isLocalAcademyMode()) throw new Error('Academy sandbox is only available on localhost.');

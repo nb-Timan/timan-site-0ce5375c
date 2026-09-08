@@ -16,8 +16,10 @@ import { sortPortalHomeCards } from '@/lib/portalHomeOrder';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
+import { academySandbox } from '@/lib/academySandbox';
+import { getAcademyCapabilityProgress, getAcademyProgress, isAcademyCapabilityGated, isAcademyCapabilityUnlocked, isAcademyRelevant, isAcademySandboxEnvironment } from '@/lib/academyCurriculum';
 import { Language } from '@/types/configurator';
-import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper } from 'lucide-react';
+import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
 import { t } from '@/lib/i18n/translations';
 
 const AREA_TITLE_KEY: Record<string, string> = {
@@ -213,6 +215,12 @@ export default function PortalPage() {
   }
 
   const portalRole = derivePortalRole(effectiveUser);
+  const academyEnabled = isAcademySandboxEnvironment() && isAcademyRelevant(effectiveUser);
+  const academyCompletedCaseIds = academySandbox.getCompletedCaseIds();
+  const academyProgress = getAcademyProgress(effectiveUser, academyCompletedCaseIds);
+  const academyCapabilityGated = isAcademyCapabilityGated(effectiveUser);
+  const configuratorUnlocked = isAcademyCapabilityUnlocked(effectiveUser, 'configurator', academyCompletedCaseIds);
+  const configuratorProgress = getAcademyCapabilityProgress('configurator', academyCompletedCaseIds);
   const realPortalRole = derivePortalRole(appUser);
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   const showMesseCard = (
@@ -264,6 +272,17 @@ export default function PortalPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {academyEnabled && (
+            <AreaCard
+              title="Academy"
+              description={`Lær Timan-portalen trin for trin. ${academyProgress.completedCount} / ${academyProgress.total} gennemført.`}
+              cta={academyProgress.completedCount ? 'Fortsæt Academy' : 'Start Academy'}
+              to="/academy"
+              icon={GraduationCap}
+              accent="violet"
+              badge={{ tone: academyProgress.percentage === 100 ? 'green' : 'yellow', label: `${academyProgress.completedCount} / ${academyProgress.total}` }}
+            />
+          )}
           {visibleHomeCards.map(card => {
             if (card.kind === 'messe') {
               return (
@@ -320,13 +339,15 @@ export default function PortalPage() {
               : area.id === 'dealer_data' && externalDealerData
                 ? ownDealerPath
                 : meta.to;
+            const academyLockedCrm = academyCapabilityGated && (area.id === 'timan_crm' || area.id === 'calendar')
+              && !isAcademyCapabilityUnlocked(effectiveUser, 'crm', academyCompletedCaseIds);
             return (
               <AreaCard
                 key={area.id}
                 title={titleKey ? t(titleKey, uiLanguage) : (area.title[lang] || area.title.en)}
-                description={descKey ? t(descKey, uiLanguage) : (area.description[lang] || area.description.en)}
-                cta={t('openArea', uiLanguage)}
-                to={cardTo}
+                description={academyLockedCrm ? 'Kræver Academy. Gennemfør Academy-forløbet for at åbne CRM.' : (descKey ? t(descKey, uiLanguage) : (area.description[lang] || area.description.en))}
+                cta={academyLockedCrm ? 'Kræver Academy' : t('openArea', uiLanguage)}
+                to={academyLockedCrm ? '/academy?locked=crm' : cardTo}
                 icon={meta.icon}
                 accent={meta.accent}
                 badge={area.id === 'dealer_data' && dealerBadge
@@ -337,6 +358,15 @@ export default function PortalPage() {
             );
           })}
         </div>
+
+        {academyEnabled && academyCapabilityGated && !configuratorUnlocked && (
+          <section className="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+            <p className="font-semibold">Næste oplåsning: Konfigurator</p>
+            <p className="mt-1">Gennemfør Sales Case 1 og Case 2 for at få adgang til den rigtige konfigurator.</p>
+            <div className="mt-3 h-2 overflow-hidden rounded bg-amber-100"><div className="h-full bg-amber-500" style={{ width: `${(configuratorProgress.completedCount / configuratorProgress.total) * 100}%` }} /></div>
+            <p className="mt-2 text-xs font-semibold">{configuratorProgress.completedCount} / {configuratorProgress.total} gennemført</p>
+          </section>
+        )}
 
         <QuickActions language={uiLanguage} />
 
