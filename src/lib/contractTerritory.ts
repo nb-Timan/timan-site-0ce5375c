@@ -1,6 +1,10 @@
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { resolveContractPostalAreaMetadata } from '@/lib/contractPostalMetadata';
-import { getContractWholeCountryLabel } from '@/lib/contractWorldCountries';
+import {
+  CONTRACT_WORLD_COUNTRY_CODES,
+  CONTRACT_WORLD_COUNTRY_LABELS,
+  getContractWholeCountryLabel,
+} from '@/lib/contractWorldCountries';
 
 export type ContractTerritoryCountryCode = string;
 export type ContractTerritoryDetailedCountryCode = 'DK' | 'DE' | 'SE';
@@ -53,25 +57,13 @@ export type ContractTerritoryDisplayGroups = {
   postals: string[];
 };
 
-export const CONTRACT_TERRITORY_COUNTRIES: Array<{
+const CONTRACT_TERRITORY_POSTAL_COUNTRIES: Array<{
   code: ContractTerritoryDetailedCountryCode;
-  label: Record<PortalUiLanguage, string>;
   postalLabel: Record<PortalUiLanguage, string>;
   postalDigits: number;
 }> = [
   {
     code: 'DK',
-    label: {
-      da: 'Danmark',
-      en: 'Denmark',
-      de: 'Dänemark',
-      it: 'Danimarca',
-      hu: 'Dánia',
-      sv: 'Danmark',
-      fr: 'Danemark',
-      pl: 'Dania',
-      cs: 'Dánsko',
-    },
     postalLabel: {
       da: 'Postnumre',
       en: 'Postal codes',
@@ -87,17 +79,6 @@ export const CONTRACT_TERRITORY_COUNTRIES: Array<{
   },
   {
     code: 'DE',
-    label: {
-      da: 'Tyskland',
-      en: 'Germany',
-      de: 'Deutschland',
-      it: 'Germania',
-      hu: 'Németország',
-      sv: 'Tyskland',
-      fr: 'Allemagne',
-      pl: 'Niemcy',
-      cs: 'Německo',
-    },
     postalLabel: {
       da: 'PLZ/postnumre',
       en: 'PLZ/postal codes',
@@ -113,17 +94,6 @@ export const CONTRACT_TERRITORY_COUNTRIES: Array<{
   },
   {
     code: 'SE',
-    label: {
-      da: 'Sverige',
-      en: 'Sweden',
-      de: 'Schweden',
-      it: 'Svezia',
-      hu: 'Svédország',
-      sv: 'Sverige',
-      fr: 'Suède',
-      pl: 'Szwecja',
-      cs: 'Švédsko',
-    },
     postalLabel: {
       da: 'Postnumre',
       en: 'Postal codes',
@@ -139,7 +109,36 @@ export const CONTRACT_TERRITORY_COUNTRIES: Array<{
   },
 ];
 
-const COUNTRY_BY_CODE = new Map(CONTRACT_TERRITORY_COUNTRIES.map((country) => [country.code, country]));
+export const CONTRACT_TERRITORY_COUNTRIES = CONTRACT_WORLD_COUNTRY_CODES.map((code) => ({ code }));
+
+const COUNTRY_BY_CODE = new Map(CONTRACT_TERRITORY_POSTAL_COUNTRIES.map((country) => [country.code, country]));
+
+const COUNTRY_ALIASES: Record<string, ContractTerritoryCountryCode> = {
+  'czech republic': 'CZ',
+  czechia: 'CZ',
+  tjekkiet: 'CZ',
+  england: 'GB',
+  'united kingdom': 'GB',
+  storbritannien: 'GB',
+  holland: 'NL',
+};
+
+export function resolveContractTerritoryCountryCode(
+  value: unknown,
+  fallback: ContractTerritoryCountryCode = 'DK',
+) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return fallback;
+  const code = raw.toUpperCase();
+  if (CONTRACT_WORLD_COUNTRY_LABELS[code]) return code;
+
+  const normalized = raw.toLocaleLowerCase('da').replace(/\s+/g, ' ');
+  if (COUNTRY_ALIASES[normalized]) return COUNTRY_ALIASES[normalized];
+  for (const [countryCode, labels] of Object.entries(CONTRACT_WORLD_COUNTRY_LABELS)) {
+    if (Object.values(labels).some((label) => label.toLocaleLowerCase('da') === normalized)) return countryCode;
+  }
+  return fallback;
+}
 
 function isTerritoryCountryCode(value: unknown): value is ContractTerritoryCountryCode {
   return typeof value === 'string' && /^[A-Z]{2}$/.test(value.trim().toUpperCase());
@@ -154,9 +153,18 @@ function postalComparable(value: string) {
   return Number(value.replace(/\s+/g, ''));
 }
 
+function comparePostalCodes(left: string, right: string) {
+  const leftNumeric = postalComparable(left);
+  const rightNumeric = postalComparable(right);
+  if (Number.isFinite(leftNumeric) && Number.isFinite(rightNumeric)) return leftNumeric - rightNumeric;
+  return left.localeCompare(right, 'da', { numeric: true });
+}
+
 function normalizePostalCode(value: unknown, country: ContractTerritoryCountryCode) {
-  const digits = COUNTRY_BY_CODE.get(country as ContractTerritoryDetailedCountryCode)?.postalDigits ?? 4;
   const raw = String(value ?? '').trim();
+  const config = COUNTRY_BY_CODE.get(country as ContractTerritoryDetailedCountryCode);
+  if (!config) return /^[\p{L}\d][\p{L}\d -]{1,11}$/u.test(raw) ? raw.toLocaleUpperCase('da') : '';
+  const digits = config.postalDigits;
   const code = country === 'SE' ? raw.replace(/\s+/g, '') : raw;
   if (!new RegExp(`^\\d{${digits}}$`).test(code)) return '';
   return formatPostalCode(country, code);
@@ -167,14 +175,19 @@ function normalizePostalRange(value: unknown, country: ContractTerritoryCountryC
   const from = normalizePostalCode(item?.from, country);
   const to = normalizePostalCode(item?.to, country);
   if (!from || !to) return null;
-  return postalComparable(from) <= postalComparable(to) ? { from, to } : { from: to, to: from };
+  return comparePostalCodes(from, to) <= 0
+    ? { from, to }
+    : { from: to, to: from };
 }
 
 function normalizePostalEntryInput(input: unknown, country: ContractTerritoryCountryCode): ContractPostalEntry {
-  const digits = COUNTRY_BY_CODE.get(country as ContractTerritoryDetailedCountryCode)?.postalDigits ?? 4;
   const value = String(input ?? '').trim();
+  const config = COUNTRY_BY_CODE.get(country as ContractTerritoryDetailedCountryCode);
+  const digits = config?.postalDigits ?? 4;
   const codePattern = country === 'SE' ? '(\\d{3}\\s?\\d{2})' : `(\\d{${digits}})`;
-  const range = value.match(new RegExp(`^${codePattern}\\s*-\\s*${codePattern}$`));
+  const range = config
+    ? value.match(new RegExp(`^${codePattern}\\s*-\\s*${codePattern}$`))
+    : value.match(/^(.+?)\s+-\s+(.+)$/);
   if (range) {
     const normalizedRange = normalizePostalRange({ from: range[1], to: range[2] }, country);
     return normalizedRange
@@ -306,7 +319,9 @@ export function parseContractPostalInput(input: string, countryCode: ContractTer
   const postalEntries: ContractPostalEntry[] = [];
   const invalidTokens: string[] = [];
 
-  const tokens = countryCode === 'SE'
+  const tokens = !COUNTRY_BY_CODE.has(countryCode as ContractTerritoryDetailedCountryCode)
+    ? input.split(/[,;\n]+/)
+    : countryCode === 'SE'
     ? input.split(/[,;\n]+/)
     : input.split(/[\s,;]+/);
 
@@ -398,15 +413,15 @@ export function getContractTerritoryCountryLabel(
   language: PortalUiLanguage | string | null | undefined = 'da',
 ) {
   const code = String(countryCode).trim().toUpperCase();
-  const country = COUNTRY_BY_CODE.get(code as ContractTerritoryDetailedCountryCode);
-  return country?.label[language as PortalUiLanguage] ?? country?.label.da ?? getContractWholeCountryLabel(code, language);
+  return getContractWholeCountryLabel(code, language);
 }
 
 export function getContractTerritoryPostalLabel(
   countryCode: ContractTerritoryCountryCode,
   language: PortalUiLanguage | string | null | undefined = 'da',
 ) {
-  const country = COUNTRY_BY_CODE.get(countryCode as ContractTerritoryDetailedCountryCode) ?? COUNTRY_BY_CODE.get('DK')!;
+  const country = COUNTRY_BY_CODE.get(countryCode as ContractTerritoryDetailedCountryCode);
+  if (!country) return language === 'en' ? 'Postal codes' : 'Postnumre';
   return country.postalLabel[language as PortalUiLanguage] ?? country.postalLabel.da;
 }
 

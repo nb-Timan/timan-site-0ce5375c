@@ -47,6 +47,7 @@ import {
 import {
   buildContractTerritorySnapshot,
   buildContractTerritoryAreaFromPostalFields,
+  CONTRACT_TERRITORY_COUNTRIES,
   createEmptyContractTerritoryArea,
   describeContractSecondaryTerritoryArea,
   describeContractTerritoryArea,
@@ -55,6 +56,7 @@ import {
   hasValidContractTerritory,
   parseContractPostalFieldValue,
   parseContractPostalInput,
+  resolveContractTerritoryCountryCode,
   serializeContractPostalInput,
 } from '@/lib/contractTerritory';
 import {
@@ -220,6 +222,24 @@ describe('contract flow', () => {
     expect(parseContractPostalFieldValue('123 45', 'SE')).toEqual({ input: '123 45', postalCode: '123 45' });
     expect(parseContractPostalFieldValue('12345-12399', 'SE')).toEqual({ input: '123 45-123 99', postalRange: { from: '123 45', to: '123 99' } });
     expect(parseContractPostalFieldValue('1234', 'SE')).toEqual({ input: '1234' });
+  });
+
+  it('uses the canonical country list and resolves partner country labels to ISO codes', () => {
+    expect(CONTRACT_TERRITORY_COUNTRIES.map((country) => country.code)).toEqual(expect.arrayContaining([
+      'DK', 'DE', 'SE', 'NO', 'FI', 'CZ', 'PL', 'FR', 'IT', 'ES', 'CH', 'NL', 'BE', 'AT', 'HU', 'GB',
+    ]));
+    expect(resolveContractTerritoryCountryCode('Tjekkiet')).toBe('CZ');
+    expect(resolveContractTerritoryCountryCode('Czech Republic')).toBe('CZ');
+    expect(resolveContractTerritoryCountryCode('Germany')).toBe('DE');
+    expect(resolveContractTerritoryCountryCode('Storbritannien')).toBe('GB');
+  });
+
+  it('supports manual postcode entries for countries without a detailed region map', () => {
+    expect(parseContractPostalFieldValue('110 00', 'CZ')).toEqual({ input: '110 00', postalCode: '110 00' });
+    expect(parseContractPostalFieldValue('00-001 - 00-999', 'PL')).toEqual({
+      input: '00-001-00-999',
+      postalRange: { from: '00-001', to: '00-999' },
+    });
   });
 
   it('keeps old territory drafts with postalCodes and postalRanges backward compatible', () => {
@@ -545,6 +565,25 @@ describe('contract flow', () => {
     expect(territoryEditor).toContain('buildContractTerritoryAreaFromPostalFields');
     expect(source).toContain('<ContractTerritoryMap');
     expect(territoryEditor).not.toContain('<textarea');
+  });
+
+  it('inherits an unset new territory from the partner country without overwriting saved territory data', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    expect(source).toContain("resolveContractTerritoryCountryCode(row.country, 'DK')");
+    expect(source).toContain('canApplyPartnerTerritoryDefault = !contractRecord && primaryUnsettled');
+    expect(source).toContain('primaryTerritory: createEmptyContractTerritoryArea(partnerCountry)');
+    expect(source).toContain('secondaryTerritory: createEmptySecondaryContractTerritoryArea(partnerCountry)');
+  });
+
+  it('keeps a separate country choice for each territory and clears stale area data on country change', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const start = source.indexOf('function TerritoryAreaEditor');
+    const end = source.indexOf('const EMPTY_ASSOCIATED_PARTNER_DRAFT', start);
+    const territoryEditor = source.slice(start, end);
+    expect(territoryEditor).toContain('...createEmptyContractTerritoryArea(country)');
+    expect(territoryEditor).toContain('...createEmptyContractTerritoryArea(territory.country)');
+    expect(territoryEditor).not.toContain("? territory.country : 'DK'");
+    expect(source).toContain('country: event.target.checked && !secondaryTerritory.enabled');
   });
 
   it('keeps map region selection separate from manual postal fields', () => {

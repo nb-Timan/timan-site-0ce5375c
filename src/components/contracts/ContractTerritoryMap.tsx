@@ -291,6 +291,7 @@ function ContractWholeCountryGeoJsonLayer({
   regionSelectionTarget,
   displayVariant,
   countryMapScope,
+  allowWholeCountrySelection,
   language,
   onStatus,
   onPrimaryTerritoryChange,
@@ -301,6 +302,7 @@ function ContractWholeCountryGeoJsonLayer({
   regionSelectionTarget: ContractTerritoryMapVariant;
   displayVariant: ContractTerritoryMapVariant | 'both';
   countryMapScope: ContractCountryMapScope;
+  allowWholeCountrySelection: boolean;
   language: PortalUiLanguage | string;
   onStatus: (status: 'loading' | 'ready' | 'error') => void;
   onPrimaryTerritoryChange?: (territory: ContractTerritoryArea) => void;
@@ -325,13 +327,15 @@ function ContractWholeCountryGeoJsonLayer({
 
     const normalizedPrimary = normalizeContractTerritoryArea(primaryTerritory);
     const normalizedSecondary = normalizeContractTerritoryArea(secondaryTerritory);
-    const visibleSecondary = secondaryTerritory.enabled && normalizedSecondary.wholeCountry;
+    const primaryUsesCountryFallback = !getContractTerritoryMapCountryConfig(normalizedPrimary.country);
+    const secondaryUsesCountryFallback = !getContractTerritoryMapCountryConfig(normalizedSecondary.country);
+    const visibleSecondary = secondaryTerritory.enabled && (normalizedSecondary.wholeCountry || secondaryUsesCountryFallback);
     const areaSpecs = displayVariant === 'primary'
-      ? [{ area: normalizedPrimary, variant: 'primary' as const, valid: normalizedPrimary.wholeCountry }]
+      ? [{ area: normalizedPrimary, variant: 'primary' as const, valid: normalizedPrimary.wholeCountry || primaryUsesCountryFallback }]
       : displayVariant === 'secondary'
         ? [{ area: normalizedSecondary, variant: 'secondary' as const, valid: visibleSecondary }]
         : [
-          { area: normalizedPrimary, variant: 'primary' as const, valid: normalizedPrimary.wholeCountry },
+          { area: normalizedPrimary, variant: 'primary' as const, valid: normalizedPrimary.wholeCountry || primaryUsesCountryFallback },
           ...(visibleSecondary ? [{ area: normalizedSecondary, variant: 'secondary' as const, valid: true }] : []),
         ];
     const selectedBounds = L.latLngBounds([]);
@@ -387,6 +391,7 @@ function ContractWholeCountryGeoJsonLayer({
                 path.setStyle(styleForFeature(variant));
               },
               click: () => {
+                if (!allowWholeCountrySelection) return;
                 const targetArea = regionSelectionTarget === 'secondary'
                   ? normalizeContractTerritoryArea(secondaryTerritory)
                   : normalizedPrimary;
@@ -424,7 +429,7 @@ function ContractWholeCountryGeoJsonLayer({
       container.classList.remove('contract-territory-hovering');
       group.removeFrom(map);
     };
-  }, [map, onStatus, language, stateKey, regionSelectionTarget, displayVariant, countryMapScope, onPrimaryTerritoryChange, onSecondaryTerritoryChange, primaryTerritory, secondaryTerritory]);
+  }, [map, onStatus, language, stateKey, regionSelectionTarget, displayVariant, countryMapScope, allowWholeCountrySelection, onPrimaryTerritoryChange, onSecondaryTerritoryChange, primaryTerritory, secondaryTerritory]);
 
   return null;
 }
@@ -485,7 +490,7 @@ export function ContractTerritoryMap({
     ? normalizeContractTerritoryArea(secondaryTerritory)
     : normalizeContractTerritoryArea(primaryTerritory);
   const mapConfig = getContractTerritoryMapCountryConfig(mapTerritory.country);
-  const isWholeCountryMap = mapMode === 'whole_country';
+  const isWholeCountryMap = mapMode === 'whole_country' || !mapConfig;
   const mapTitle = displayVariant === 'primary'
     ? getContractTerritoryMapLabel('primaryTitle', language)
     : displayVariant === 'secondary'
@@ -539,6 +544,7 @@ export function ContractTerritoryMap({
               regionSelectionTarget={regionSelectionTarget}
               displayVariant={displayVariant}
               countryMapScope={countryMapScope}
+              allowWholeCountrySelection={mapMode === 'whole_country'}
               language={language}
               onStatus={setStatus}
               onPrimaryTerritoryChange={onPrimaryTerritoryChange}

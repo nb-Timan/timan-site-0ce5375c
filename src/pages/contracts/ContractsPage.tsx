@@ -103,6 +103,7 @@ import {
   buildContractTerritoryAreaFromPostalFields,
   normalizeContractSecondaryTerritoryArea,
   normalizeContractTerritoryArea,
+  resolveContractTerritoryCountryCode,
   serializeContractPostalInput,
   type ContractSecondaryTerritoryArea,
   type ContractTerritoryArea,
@@ -999,7 +1000,7 @@ export default function ContractsPage() {
   }, [effectiveUser]);
 
   useEffect(() => {
-    if (!activeDealerAccountNumber) return;
+    if (!contractLoaded || !activeDealerAccountNumber) return;
     let cancelled = false;
     fetchDealerAccountByNumber(activeDealerAccountNumber).then(({ row, error }) => {
       if (cancelled) return;
@@ -1010,20 +1011,39 @@ export default function ContractsPage() {
       if (!row) return;
       const postalCity = [row.postal_code, row.city].filter(Boolean).join(' ') || row.zip_city_raw || '';
       const split = splitPostalCity(postalCity);
-      setForm((current) => ({
-        ...current,
-        dealerName: row.company_name || current.dealerName,
-        dealerAddress: [row.address_line_1 || row.address, row.address_line_2].filter(Boolean).join(', ') || current.dealerAddress,
-        dealerPostalCode: row.postal_code || split.postalCode || current.dealerPostalCode,
-        dealerCity: row.city || split.city || current.dealerCity,
-        dealerCountry: row.country || current.dealerCountry || '',
-        dealerCvr: row.vat_number || current.dealerCvr,
-        contactPerson: row.primary_contact_name || row.sales_contact_name || current.contactPerson,
-        partnerType: current.partnerType || inferContractPartnerTypeFromDealerAccount(row) || '',
-      }));
+      setForm((current) => {
+        const partnerCountry = resolveContractTerritoryCountryCode(row.country, 'DK');
+        const primaryTerritory = normalizeContractTerritoryArea(current.primaryTerritory);
+        const secondaryTerritory = normalizeContractSecondaryTerritoryArea(current.secondaryTerritory, primaryTerritory.country);
+        const primaryUnsettled = !primaryTerritory.wholeCountry
+          && primaryTerritory.selectedRegions.length === 0
+          && primaryTerritory.postalCodes.length === 0
+          && primaryTerritory.postalRanges.length === 0;
+        const secondaryUnsettled = !secondaryTerritory.enabled
+          && secondaryTerritory.selectedRegions.length === 0
+          && secondaryTerritory.postalCodes.length === 0
+          && secondaryTerritory.postalRanges.length === 0;
+        const canApplyPartnerTerritoryDefault = !contractRecord && primaryUnsettled;
+
+        return {
+          ...current,
+          dealerName: row.company_name || current.dealerName,
+          dealerAddress: [row.address_line_1 || row.address, row.address_line_2].filter(Boolean).join(', ') || current.dealerAddress,
+          dealerPostalCode: row.postal_code || split.postalCode || current.dealerPostalCode,
+          dealerCity: row.city || split.city || current.dealerCity,
+          dealerCountry: row.country || current.dealerCountry || '',
+          dealerCvr: row.vat_number || current.dealerCvr,
+          contactPerson: row.primary_contact_name || row.sales_contact_name || current.contactPerson,
+          partnerType: current.partnerType || inferContractPartnerTypeFromDealerAccount(row) || '',
+          ...(canApplyPartnerTerritoryDefault ? {
+            primaryTerritory: createEmptyContractTerritoryArea(partnerCountry),
+            ...(secondaryUnsettled ? { secondaryTerritory: createEmptySecondaryContractTerritoryArea(partnerCountry) } : {}),
+          } : {}),
+        };
+      });
     });
     return () => { cancelled = true; };
-  }, [activeDealerAccountNumber]);
+  }, [activeDealerAccountNumber, contractLoaded, contractRecord]);
 
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   const canManagePartnerContractAccess = portalRole === 'timan_backend'
@@ -2867,7 +2887,12 @@ function TerritoryStepFields({
               onChange={(event) => setSecondaryTerritory({
                 ...secondaryTerritory,
                 enabled: event.target.checked,
-                country: secondaryTerritory.country || primaryTerritory.country,
+                country: event.target.checked && !secondaryTerritory.enabled
+                  && secondaryTerritory.selectedRegions.length === 0
+                  && secondaryTerritory.postalCodes.length === 0
+                  && secondaryTerritory.postalRanges.length === 0
+                  ? primaryTerritory.country
+                  : secondaryTerritory.country || primaryTerritory.country,
               })}
               className="h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600 disabled:cursor-not-allowed"
             />
@@ -2949,7 +2974,7 @@ function TerritoryAreaEditor({
   const setCountry = (country: ContractTerritoryArea['country']) => {
     onChange({
       ...createEmptyContractTerritoryArea(country),
-      wholeCountry: false,
+      wholeCountry: mapMode === 'whole_country',
     });
   };
 
@@ -2963,9 +2988,8 @@ function TerritoryAreaEditor({
       return;
     }
 
-    const detailedCountry = hasDetailedContractTerritoryMap(territory.country) ? territory.country : 'DK';
     onChange({
-      ...createEmptyContractTerritoryArea(detailedCountry),
+      ...createEmptyContractTerritoryArea(territory.country),
       wholeCountry: false,
     });
   };
@@ -3019,6 +3043,22 @@ function TerritoryAreaEditor({
           </div>
         </div>
 
+        <label className="block">
+          <span className="text-sm font-semibold text-gray-700">Land</span>
+          <select
+            value={territory.country}
+            disabled={locked}
+            onChange={(event) => setCountry(event.target.value as ContractTerritoryArea['country'])}
+            className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+          >
+            {CONTRACT_TERRITORY_COUNTRIES.map((country) => (
+              <option key={country.code} value={country.code}>
+                {getContractTerritoryCountryLabel(country.code, uiLanguage)}
+              </option>
+            ))}
+          </select>
+        </label>
+
         {mapMode === 'whole_country' ? (
           <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -3050,25 +3090,7 @@ function TerritoryAreaEditor({
               <p className="mt-3 text-xs font-semibold text-gray-500">Intet helt land valgt endnu.</p>
             )}
           </div>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-        <label className="block">
-          <span className="text-sm font-semibold text-gray-700">Land</span>
-          <select
-            value={territory.country}
-            disabled={locked}
-            onChange={(event) => setCountry(event.target.value as ContractTerritoryArea['country'])}
-            className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
-          >
-            {CONTRACT_TERRITORY_COUNTRIES.map((country) => (
-              <option key={country.code} value={country.code}>
-                {getContractTerritoryCountryLabel(country.code, uiLanguage)}
-              </option>
-            ))}
-          </select>
-        </label>
-          </div>
-        )}
+        ) : null}
       </div>
 
       {mapMode === 'detailed' && !territory.wholeCountry && (
@@ -3126,7 +3148,7 @@ function TerritoryAreaEditor({
                         </span>
                         <input
                           type="text"
-                          inputMode="numeric"
+                          inputMode={hasDetailedContractTerritoryMap(territory.country) ? 'numeric' : 'text'}
                           value={value}
                           disabled={locked}
                           onChange={(event) => setPostalField(fieldIndex, event.target.value)}
@@ -3135,7 +3157,9 @@ function TerritoryAreaEditor({
                               ? (fieldIndex === 0 ? '10115' : '20000-29999')
                               : territory.country === 'SE'
                                 ? (fieldIndex === 0 ? '123 45' : '12345')
-                                : (fieldIndex === 0 ? '5000' : '5000-5999')
+                              : hasDetailedContractTerritoryMap(territory.country)
+                                ? (fieldIndex === 0 ? '5000' : '5000-5999')
+                                : (fieldIndex === 0 ? '123 45' : '123 45-123 99')
                           }
                           className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
                         />

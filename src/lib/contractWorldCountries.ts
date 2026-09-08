@@ -16,7 +16,7 @@ export const CONTRACT_COUNTRY_MAP_BOUNDS: Record<ContractCountryMapScope, [numbe
   world: [-55, -170, 75, 180],
 };
 
-const COUNTRY_LABELS: Record<string, Record<PortalUiLanguage, string>> = {
+export const CONTRACT_WORLD_COUNTRY_LABELS: Record<string, Record<PortalUiLanguage, string>> = {
   AT: { da: 'Østrig', en: 'Austria', de: 'Österreich', it: 'Austria', hu: 'Ausztria', sv: 'Österrike', fr: 'Autriche', pl: 'Austria', cs: 'Rakousko' },
   BE: { da: 'Belgien', en: 'Belgium', de: 'Belgien', it: 'Belgio', hu: 'Belgium', sv: 'Belgien', fr: 'Belgique', pl: 'Belgia', cs: 'Belgie' },
   CA: { da: 'Canada', en: 'Canada', de: 'Kanada', it: 'Canada', hu: 'Kanada', sv: 'Kanada', fr: 'Canada', pl: 'Kanada', cs: 'Kanada' },
@@ -40,12 +40,14 @@ const COUNTRY_LABELS: Record<string, Record<PortalUiLanguage, string>> = {
   US: { da: 'USA', en: 'United States', de: 'USA', it: 'Stati Uniti', hu: 'Egyesült Államok', sv: 'USA', fr: 'États-Unis', pl: 'USA', cs: 'USA' },
 };
 
+export const CONTRACT_WORLD_COUNTRY_CODES = Object.keys(CONTRACT_WORLD_COUNTRY_LABELS).sort();
+
 export function getContractWholeCountryLabel(
   countryCode: ContractTerritoryCountryCode,
   language: PortalUiLanguage | string | null | undefined = 'da',
   fallbackName?: string,
 ) {
-  const labels = COUNTRY_LABELS[String(countryCode).toUpperCase()];
+  const labels = CONTRACT_WORLD_COUNTRY_LABELS[String(countryCode).toUpperCase()];
   return labels?.[language as PortalUiLanguage] ?? labels?.da ?? fallbackName ?? String(countryCode).toUpperCase();
 }
 
