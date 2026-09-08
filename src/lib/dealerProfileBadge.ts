@@ -41,6 +41,7 @@ export type BadgeTone = "green" | "yellow" | "red" | "neutral";
 export interface DealerProfileBadge {
   total: number;
   missing: number;
+  missingPercent: number;
   critical?: number;
   tone: BadgeTone;
   /** Pre-localised Danish label, e.g. "Mangler info" or "100% klar". */
@@ -58,8 +59,6 @@ const SECTION_LABELS_BY_KEY: Record<SectionKey, string> = {
   workshop: "Værksted",
   marketing: "Marketing",
 };
-
-const SOFT_PROFILE_SECTION_KEYS = new Set<SectionKey>(["marketing"]);
 
 export const DEALER_PROFILE_SECTION_LABELS = [
   SECTION_LABELS_BY_KEY.company,
@@ -86,17 +85,17 @@ export function computeDealerProfileBadge(
   contacts: DealerContact[] = [],
 ): DealerProfileBadge {
   if (!dealer) {
-    return { total: 6, missing: 6, critical: 0, tone: "neutral", label: "Ikke udfyldt", labelKind: "not_filled" };
+    return { total: 6, missing: 6, missingPercent: 100, critical: 0, tone: "neutral", label: "Ikke udfyldt", labelKind: "not_filled" };
   }
   const completion = computeCompletion(dealer, contacts);
   const missingSections = completion.sections.filter((s) => !s.complete);
   const total = completion.sections.length;
   const missing = missingSections.length;
   const hasCriticalMissing = missingCriticalFields(dealer).length > 0;
-  const onlySoftMissing = missing > 0 && missingSections.every((s) => SOFT_PROFILE_SECTION_KEYS.has(s.key));
-  const tone: BadgeTone = hasCriticalMissing ? "red" : missing === 0 || onlySoftMissing ? "green" : "yellow";
-  const label = missing === 0 ? "100% klar" : hasCriticalMissing ? "Kritisk" : "Mangler info";
-  return { total, missing, critical: hasCriticalMissing ? 1 : 0, tone, label, labelKind: hasCriticalMissing ? "critical_missing" : missing === 0 ? "complete" : "missing_info" };
+  const missingPercent = Math.round((missing / total) * 100);
+  const tone: BadgeTone = hasCriticalMissing ? "red" : missing === 0 ? "green" : "yellow";
+  const label = missing === 0 ? "100% klar" : hasCriticalMissing ? "Kritisk" : `Mangler ${missingPercent} %`;
+  return { total, missing, missingPercent, critical: hasCriticalMissing ? 1 : 0, tone, label, labelKind: hasCriticalMissing ? "critical_missing" : missing === 0 ? "complete" : "missing_info" };
 }
 
 export function formatDealerProfileBadgeLabel(
@@ -112,7 +111,7 @@ export function formatDealerProfileBadgeLabel(
     const critical = t("dealerProfileBadgeCriticalPlural", language);
     return `${badge.critical ?? 0} ${critical} · ${badge.missing} ${missingInfo}`;
   }
-  return `${badge.missing} ${missingInfo}`;
+  return `${badge.missingPercent} % ${missingInfo}`;
 }
 
 export function getDealerProfileMissingLabels(

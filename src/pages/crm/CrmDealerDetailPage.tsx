@@ -3009,8 +3009,8 @@ function ContactHero({
                     ? "max-w-full whitespace-pre-line break-words text-[9.5px] leading-tight text-slate-500"
                     : "line-clamp-2 max-w-full whitespace-pre-line break-words text-[9.5px] leading-tight text-slate-500"}>{a.sublabel}</span>}
                   {isCompanyDataCard && (
-                    <span className="mt-1 h-1 w-full overflow-hidden rounded-full bg-emerald-50" aria-label={`${profileCompletion.percentage}%`}>
-                      <span className="block h-full rounded-full bg-emerald-500" style={{ width: `${profileCompletion.percentage}%` }} />
+                    <span className={`mt-1 h-1 w-full overflow-hidden rounded-full ${profileCompletion.percentage === 100 ? "bg-emerald-50" : "bg-amber-50"}`} aria-label={`${profileCompletion.percentage}%`}>
+                      <span className={`block h-full rounded-full ${profileCompletion.percentage === 100 ? "bg-emerald-500" : "bg-amber-400"}`} style={{ width: `${profileCompletion.percentage}%` }} />
                     </span>
                   )}
                 </>
