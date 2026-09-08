@@ -416,6 +416,17 @@ describe('contract flow', () => {
     expect(pageSource).toContain('`${index + 2}. ${section.title}`');
   });
 
+  it('connects a selected associated-partner type to its existing-partner search without changing the flow', () => {
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(pageSource).toContain("const [hasSelectedRelationKind, setHasSelectedRelationKind] = useState(false);");
+    expect(pageSource).toContain("const relationSearchActive = mode === 'existing' && hasSelectedRelationKind;");
+    expect(pageSource).toContain('setHasSelectedRelationKind(true);');
+    expect(pageSource).toContain('Søg efter en eksisterende samarbejdspartner af den valgte type.');
+    expect(pageSource).toContain("mode === 'existing' ? '+ Opret som ny samarbejdspartner' : 'Søg eksisterende'");
+    expect(pageSource).toContain('return accounts');
+  });
+
   it('defines guided contract step labels for every portal language', () => {
     const languages = ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'] as const;
     for (const language of languages) {

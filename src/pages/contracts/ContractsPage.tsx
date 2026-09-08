@@ -3197,6 +3197,7 @@ function ContractAssociatedPartnersSection({
   const { uiLanguage } = useLanguage();
   const partners = normalizeContractAssociatedPartners(form.associatedPartners);
   const [kind, setKind] = useState<ContractAssociatedPartnerKind>('dealer');
+  const [hasSelectedRelationKind, setHasSelectedRelationKind] = useState(false);
   const [mode, setMode] = useState<'existing' | 'pending'>('existing');
   const [query, setQuery] = useState('');
   const [accounts, setAccounts] = useState<DealerAccount[]>([]);
@@ -3206,6 +3207,7 @@ function ContractAssociatedPartnersSection({
   const [draft, setDraft] = useState(EMPTY_ASSOCIATED_PARTNER_DRAFT);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState(EMPTY_ASSOCIATED_PARTNER_DRAFT);
+  const relationSearchActive = mode === 'existing' && hasSelectedRelationKind;
 
   const loadAccounts = async () => {
     if (accountsLoaded || accountsLoading) return;
@@ -3313,8 +3315,15 @@ function ContractAssociatedPartnersSection({
           <div className="flex flex-col gap-2 sm:flex-row">
             <select
               value={kind}
-              onChange={(event) => setKind(event.target.value as ContractAssociatedPartnerKind)}
-              className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              onChange={(event) => {
+                setKind(event.target.value as ContractAssociatedPartnerKind);
+                setHasSelectedRelationKind(true);
+              }}
+              className={`rounded-xl border bg-white px-3 py-2 text-sm font-semibold text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                relationSearchActive
+                  ? 'border-amber-400 ring-2 ring-amber-100'
+                  : 'border-gray-300'
+              }`}
             >
               {CONTRACT_ASSOCIATED_PARTNER_KINDS.map((option) => (
                 <option key={option} value={option}>
@@ -3334,13 +3343,24 @@ function ContractAssociatedPartnersSection({
       </div>
 
       {!locked && (
-        <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
+        <div className={`mt-5 rounded-xl border p-4 ${
+          relationSearchActive
+            ? 'border-amber-300 bg-amber-50/40'
+            : 'border-gray-200 bg-gray-50'
+        }`}>
           {mode === 'existing' ? (
             <div className="space-y-3">
               <label className="block">
                 <span className="text-sm font-semibold text-gray-700">Søg eksisterende samarbejdspartner</span>
-                <div className="mt-2 flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-3 py-2 focus-within:ring-2 focus-within:ring-amber-500">
-                  <Search className="h-4 w-4 text-gray-400" />
+                {relationSearchActive && (
+                  <p className="mt-1 text-xs font-medium text-amber-800">Søg efter en eksisterende samarbejdspartner af den valgte type.</p>
+                )}
+                <div className={`mt-2 flex items-center gap-2 rounded-xl border bg-white px-3 py-2 focus-within:ring-2 focus-within:ring-amber-500 ${
+                  relationSearchActive
+                    ? 'border-amber-400 ring-2 ring-amber-100'
+                    : 'border-gray-300'
+                }`}>
+                  <Search className={`h-4 w-4 ${relationSearchActive ? 'text-amber-600' : 'text-gray-400'}`} />
                   <input
                     type="search"
                     value={query}
