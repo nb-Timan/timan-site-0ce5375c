@@ -2755,7 +2755,11 @@ function ReviewStep({
               locked={locked}
             />
           ) : (
-            <ContractLegalSection section={section} form={form} />
+            <ContractLegalSection
+              section={section}
+              form={form}
+              showTitle={section.stepId !== 'purpose_prices_orders_portal'}
+            />
           )}
         </>
       )}
@@ -3787,14 +3791,14 @@ function SparePartsServiceSection({
   );
 }
 
-function ContractLegalSectionHeader({ section }: { section: GuidedContractSection }) {
+function ContractLegalSectionHeader({ section, showTitle = true }: { section: GuidedContractSection; showTitle?: boolean }) {
   return (
     <div className="flex items-start gap-3">
       <FileText className="mt-1 h-5 w-5 text-gray-500" />
       <div>
-        <h3 className="text-lg font-bold text-gray-950">{section.guidedTitle ?? section.title}</h3>
+        {showTitle && <h3 className="text-lg font-bold text-gray-950">{section.guidedTitle ?? section.title}</h3>}
         {!section.hideGuidedSource && (
-          <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{section.source}</p>
+          <p className={`${showTitle ? 'mt-1' : 'mt-0.5'} text-xs font-semibold uppercase tracking-wide text-gray-500`}>{section.source}</p>
         )}
       </div>
     </div>
@@ -3858,14 +3862,14 @@ function PaymentDeliverySection({
   );
 }
 
-function ContractLegalSection({ section, form }: { section: GuidedContractSection; form?: ContractFormData }) {
+function ContractLegalSection({ section, form, showTitle = true }: { section: GuidedContractSection; form?: ContractFormData; showTitle?: boolean }) {
   if (section.stepId === 'territory' && form) {
     return <ContractTerritoryLegalSection section={section} form={form} />;
   }
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5">
-      <ContractLegalSectionHeader section={section} />
+      <ContractLegalSectionHeader section={section} showTitle={showTitle} />
       <div className="mt-5 space-y-5">
         {section.blocks.map((block, index) => (
           <ContractTextBlockView key={`${block.heading ?? section.title}-${index}`} block={block} sectionTitle={`${section.title} ${section.source}`} />

@@ -17,6 +17,9 @@ import {
   hasRequiredPartyData,
   normalizeContractConfirmations,
   normalizeContractStepId,
+  PURPOSE_PRICES_ORDERS_PORTAL_SECTION_INTRO,
+  PURPOSE_PRICES_ORDERS_PORTAL_SECTION_SOURCE,
+  PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE,
   TIMAN_COMPANY_INFO,
   type ContractConfirmations,
   type ContractFormData,
@@ -380,7 +383,7 @@ describe('contract flow', () => {
     ]);
     expect(CONTRACT_STEPS.map((step) => getContractStepLabel(step.id, 'da').title)).toEqual([
       'Oplysninger',
-      'Formål, priser, ordre og forhandlerportal',
+      'Samarbejde, handel og forhandlermøde',
       'Område',
       'Rabatstruktur',
       'Demo-maskiner',
@@ -391,7 +394,26 @@ describe('contract flow', () => {
       'Gennemlæs',
       'Underskrift',
     ]);
-    expect(getContractStepLabel('purpose_prices_orders_portal', 'da').shortTitle).toBe('Formål');
+    expect(getContractStepLabel('purpose_prices_orders_portal', 'da').shortTitle).toBe('Samarbejde');
+  });
+
+  it('uses the Step 2 title as the shared contract, preview, and PDF section source', () => {
+    const section = renderGuidedContractSections({
+      companyName: completeForm.dealerName,
+      partnerType: completeForm.partnerType,
+    }).find((candidate) => candidate.stepId === 'purpose_prices_orders_portal');
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(getContractStepLabel('purpose_prices_orders_portal', 'da')).toMatchObject({
+      title: PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE,
+      intro: PURPOSE_PRICES_ORDERS_PORTAL_SECTION_INTRO,
+    });
+    expect(section).toMatchObject({
+      title: PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE,
+      source: PURPOSE_PRICES_ORDERS_PORTAL_SECTION_SOURCE,
+    });
+    expect(pageSource).toContain('showTitle={section.stepId !== \'purpose_prices_orders_portal\'}');
+    expect(pageSource).toContain('`${index + 2}. ${section.title}`');
   });
 
   it('defines guided contract step labels for every portal language', () => {

@@ -171,6 +171,10 @@ export const TIMAN_COMPANY_INFO: TimanCompanyInfo = {
   postalCity: '6980 Tim',
 };
 
+export const PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE = 'Samarbejde, handel og forhandlermøde';
+export const PURPOSE_PRICES_ORDERS_PORTAL_SECTION_INTRO = 'Gennemgå vilkårene for samarbejde, handel, forhandlerportal og det årlige forhandlermøde.';
+export const PURPOSE_PRICES_ORDERS_PORTAL_SECTION_SOURCE = 'Kontrakt, punkt 1, 2 og 10';
+
 export const CONTRACT_STEPS: Array<{
   id: ContractStepId;
   title: string;
@@ -187,9 +191,9 @@ export const CONTRACT_STEPS: Array<{
   },
   {
     id: 'purpose_prices_orders_portal',
-    title: 'Formål, priser, ordre og forhandlerportal',
-    shortTitle: 'Formål',
-    intro: 'Gennemgå formål, priser, ordre, forhandlerportal og årligt forhandlermøde.',
+    title: PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE,
+    shortTitle: 'Samarbejde',
+    intro: PURPOSE_PRICES_ORDERS_PORTAL_SECTION_INTRO,
     confirmationId: 'purpose_prices_orders_portal',
   },
   {
@@ -300,9 +304,9 @@ const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, Cont
   ),
   purpose_prices_orders_portal: allLanguageLabels(
     {
-      title: 'Formål, priser, ordre og forhandlerportal',
-      shortTitle: 'Formål',
-      intro: 'Gennemgå formål, priser, ordre, forhandlerportal og årligt forhandlermøde.',
+      title: PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE,
+      shortTitle: 'Samarbejde',
+      intro: PURPOSE_PRICES_ORDERS_PORTAL_SECTION_INTRO,
     },
     {
       title: 'Purpose, prices, orders and dealer portal',

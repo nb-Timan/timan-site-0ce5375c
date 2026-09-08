@@ -1,4 +1,8 @@
-import type { ContractStepId } from '@/lib/contractFlow';
+import {
+  PURPOSE_PRICES_ORDERS_PORTAL_SECTION_SOURCE,
+  PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE,
+  type ContractStepId,
+} from '@/lib/contractFlow';
 import { getContractPartnerTerms, type ContractPartnerType } from '@/lib/contractPartnerTerms';
 import {
   describeContractSecondaryTerritoryArea,
@@ -41,8 +45,8 @@ export type ContractTextRenderContext = {
 export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   {
     stepId: 'purpose_prices_orders_portal',
-    title: 'Formål, priser, ordre og forhandlerportal',
-    source: 'Kontrakt, punkt 1, 2 og 10',
+    title: PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE,
+    source: PURPOSE_PRICES_ORDERS_PORTAL_SECTION_SOURCE,
     blocks: [
       {
         heading: '1. Formål',
