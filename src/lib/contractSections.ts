@@ -145,6 +145,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           '{{partnerDefiniteCapitalized}} kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.',
           'Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.',
           'Overholdes dette ikke vil Timan opkræve differencen til den almindelige maskinrabat.',
+          'Demonstrationsmaskinerabat: 25 %–10 %.',
         ],
       },
     ],

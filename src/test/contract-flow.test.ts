@@ -995,6 +995,7 @@ describe('contract flow', () => {
 
       expect(bodyText).not.toContain('Demo-rabat: Rabat på demo-maskiner. Bilag 2.');
       expect(bodyText).toContain('Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.');
+      expect(bodyText).toContain('Demonstrationsmaskinerabat: 25 %–10 %.');
     }
   });
 
