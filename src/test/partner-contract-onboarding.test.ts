@@ -71,7 +71,7 @@ describe("partner contract onboarding access", () => {
     expect(historyDisambiguationMigration).toContain("'contract_access_activated'::text");
     expect(historyDisambiguationMigration).toContain("'contract_access_extended'::text");
     expect(historyDisambiguationMigration).toContain("'contract_access_revoked'::text");
-    expect(historyDisambiguationMigration.match(/jsonb_build_object[\s\S]*?\n    now\(\)\n  \);/g)).toHaveLength(3);
+    expect(historyDisambiguationMigration.match(/jsonb_build_object\('window_id'[\s\S]*?\n\s*now\(\)\r?\n\s*\);/g)).toHaveLength(3);
   });
 
   it("exposes access activation and history through existing frontend services", () => {

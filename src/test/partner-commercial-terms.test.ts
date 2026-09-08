@@ -54,6 +54,8 @@ describe('partner commercial terms', () => {
       standardMachineDiscountPct: 25,
       importerDiscountPct: 30,
       sparePartsDiscountPct: 30,
+      machineDiscountPct: 25,
+      equipmentDiscountPct: 25,
     });
   });
 });
