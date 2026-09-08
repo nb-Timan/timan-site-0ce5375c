@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const source = readFileSync("src/pages/crm/CrmDealerDetailPage.tsx", "utf8");
+const financialRedactionMigration = readFileSync(
+  "supabase/migrations/20260908090000_redact_external_machine_financials.sql",
+  "utf8",
+);
 
 describe("CRM dealer detail machine register integration", () => {
   it("renders the canonical dealer detail route with a machines tab", () => {
@@ -32,6 +36,27 @@ describe("CRM dealer detail machine register integration", () => {
     expect(source).toContain("DealerMachineRegisterRow");
     expect(source).toContain("withSellerScopeIdentity(effectiveUser, sellerView?.email)");
     expect(source).toContain('sellerView ? "timan_seller" : portalRole');
+  });
+
+  it("keeps the View-as machine scope request stable after it updates page state", () => {
+    expect(source).toContain("const effectiveUserKey = [");
+    expect(source).toContain("effectiveUser?.email?.trim().toLowerCase() ?? \"\"");
+    expect(source).toContain("[appUser, effectiveUserKey, accountNumber, portalRole");
+    expect(source).not.toContain("[appUser, effectiveUser, accountNumber, portalRole");
+  });
+
+  it("uses the dealer preview only to hide commercial fields, without changing the machine source", () => {
+    expect(source).toContain('showFinancials={!externalCrm && machinePresentation === "timan"}');
+    expect(source).toContain('machinePresentation={machinePresentation}');
+    expect(source).toContain('onMachinePresentationChange={setMachinePresentation}');
+    expect(source).toContain('{showFinancials && <>');
+  });
+
+  it("redacts commercial values in the RPC for external roles", () => {
+    expect(financialRedactionMigration).toContain("'timan_backend', 'timan_service', 'timan_seller'");
+    expect(financialRedactionMigration).toContain("au.auth_user_id = auth.uid()");
+    expect(financialRedactionMigration).toContain("then revenue else null end");
+    expect(financialRedactionMigration).toContain("then cost_amount else null end");
   });
 
   it("shows the separate commercial identifiers only in their own columns", () => {

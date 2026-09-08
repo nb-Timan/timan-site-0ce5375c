@@ -598,6 +598,7 @@ export default function CrmDealerDetailPage() {
   const [showCollaborationModal, setShowCollaborationModal] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [machineListDemoOnly, setMachineListDemoOnly] = useState(false);
+  const [machinePresentation, setMachinePresentation] = useState<"timan" | "dealer">("timan");
   const [machineContext, setMachineContext] = useState<{ dealer: DealerAccount; scope: JournalScope } | null>(null);
   const [busy, setBusy] = useState(true);
   // Live CRM configurations (same source as CRM → Tilbud / Ordrer).
@@ -612,15 +613,6 @@ export default function CrmDealerDetailPage() {
   const [budgetIndex, setBudgetIndex] = useState<DealerBudgetIndex | null>(null);
   const budgetYear = new Date().getFullYear();
 
-  const portalRole = useMemo(() => derivePortalRole(effectiveUser), [effectiveUser]);
-  const sellerDirectory = useSellerDirectory();
-  const admin = isCrmAdmin(portalRole);
-  const seller = isScopedSeller(portalRole);
-  const externalCrm = isExternalCrmRole(portalRole);
-  const canAccess = admin || seller || externalCrm;
-  const canUseNotes = admin || seller || externalCrm;
-  const noteAuthorParty: DealerNoteAuthorParty = externalCrm ? "dealer" : "timan";
-
   const [activeMode, setActiveMode] = useState<string>(() => getActiveMode(appUser?.email));
   useEffect(() => {
     const h = () => setActiveMode(getActiveMode(appUser?.email));
@@ -631,7 +623,22 @@ export default function CrmDealerDetailPage() {
       window.removeEventListener("storage", h);
     };
   }, [appUser?.email]);
-  void activeMode;
+
+  const portalRole = useMemo(() => derivePortalRole(effectiveUser), [effectiveUser]);
+  const sellerDirectory = useSellerDirectory();
+  const admin = isCrmAdmin(portalRole);
+  const seller = isScopedSeller(portalRole);
+  const externalCrm = isExternalCrmRole(portalRole);
+  const canPreviewDealerMachines = admin || seller;
+  const effectiveUserKey = [
+    effectiveUser?.email?.trim().toLowerCase() ?? "",
+    effectiveUser?.portal_role ?? "",
+    effectiveUser?.dealer_number?.trim().toLowerCase() ?? "",
+    activeMode,
+  ].join("|");
+  const canAccess = admin || seller || externalCrm;
+  const canUseNotes = admin || seller || externalCrm;
+  const noteAuthorParty: DealerNoteAuthorParty = externalCrm ? "dealer" : "timan";
 
   useEffect(() => {
     if (!appUser || !accountNumber) return;
@@ -777,7 +784,11 @@ export default function CrmDealerDetailPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, effectiveUser, accountNumber, portalRole, budgetYear, admin, seller, externalCrm, activeMode]);
+  // View-as creates a derived user object for presentation. Depending on that
+  // object directly restarts this request after every state update and cancels
+  // the seller machine scope before it can complete.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appUser, effectiveUserKey, accountNumber, portalRole, budgetYear, admin, seller, externalCrm, activeMode]);
 
   const dealer = useMemo(
     () => dealers.find(d => d.account_number === accountNumber) ?? null,
@@ -1430,6 +1441,9 @@ export default function CrmDealerDetailPage() {
                 budgetYear={budgetYear}
                 sellers={partnerAdminSellerOptions}
                 onEdit={() => setShowEditDealer(true)}
+                machinePresentation={machinePresentation}
+                canPreviewDealerMachines={canPreviewDealerMachines}
+                onMachinePresentationChange={setMachinePresentation}
               />
               <KpiStrip
                 orders={liveOrderCount}
@@ -1642,6 +1656,7 @@ export default function CrmDealerDetailPage() {
             scope={machineContext?.scope ?? null}
             lang={lang}
             initialDemoOnly={machineListDemoOnly}
+            showFinancials={!externalCrm && machinePresentation === "timan"}
           />
         </TabsContent>
 
@@ -1959,11 +1974,13 @@ function CrmMachineRegisterPanel({
   scope,
   lang,
   initialDemoOnly,
+  showFinancials,
 }: {
   dealer: DealerAccount | null;
   scope: JournalScope | null;
   lang: PortalUiLanguage;
   initialDemoOnly: boolean;
+  showFinancials: boolean;
 }) {
   const [rows, setRows] = useState<DealerMachineRegisterRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -2078,10 +2095,12 @@ function CrmMachineRegisterPanel({
                 <SortHeader label={tl("status", lang)} sortKey="status" />
                 <SortHeader label={tl("customer", lang)} sortKey="customer" />
                 <SortHeader label="Fakturanr." sortKey="invoice" />
-                <SortHeader label="Omsætning" sortKey="revenue" initial="desc" />
-                <SortHeader label="Kostpris" sortKey="cost" initial="desc" />
-                <SortHeader label="Dækningsbidrag" sortKey="margin" initial="desc" />
-                <SortHeader label="Dækningsgrad" sortKey="marginPercent" initial="desc" />
+                {showFinancials && <>
+                  <SortHeader label="Omsætning" sortKey="revenue" initial="desc" />
+                  <SortHeader label="Kostpris" sortKey="cost" initial="desc" />
+                  <SortHeader label="Dækningsbidrag" sortKey="margin" initial="desc" />
+                  <SortHeader label="Dækningsgrad" sortKey="marginPercent" initial="desc" />
+                </>}
                 <SortHeader label={tl("lifecycle_status", lang)} sortKey="lifecycle" />
               </tr>
             </thead>
@@ -2100,10 +2119,12 @@ function CrmMachineRegisterPanel({
                     <td className="py-3 pr-3 text-slate-700">{row.machineKind === "demo" ? "Demo" : tl("normal_machine", lang)}</td>
                     <td className="py-3 pr-3 text-slate-700">{row.customerName || "—"}</td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.invoiceNumber || "—"}</td>
-                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.revenue)}</td>
-                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.costAmount)}</td>
-                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.contributionMarginAmount)}</td>
-                    <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatPercent(row.revenue, row.contributionMarginAmount)}</td>
+                    {showFinancials && <>
+                      <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.revenue)}</td>
+                      <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.costAmount)}</td>
+                      <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.contributionMarginAmount)}</td>
+                      <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatPercent(row.revenue, row.contributionMarginAmount)}</td>
+                    </>}
                     <td className="py-3 pr-3">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${meta.badge}`}>
                         {meta.icon}{meta.label}
@@ -2790,6 +2811,9 @@ function ContactHero({
   budgetTotals,
   budgetYear,
   onEdit,
+  machinePresentation,
+  canPreviewDealerMachines,
+  onMachinePresentationChange,
 }: {
   dealer: DealerAccount;
   contacts: DealerContact[];
@@ -2805,6 +2829,9 @@ function ContactHero({
   budgetTotals: ReturnType<typeof aggregateDealerBudget> | null;
   budgetYear: number;
   onEdit: () => void;
+  machinePresentation: "timan" | "dealer";
+  canPreviewDealerMachines: boolean;
+  onMachinePresentationChange: (presentation: "timan" | "dealer") => void;
 }) {
   const firstContact = resolveCanonicalFirstContact(dealer, contacts);
   const inlineAgreementTerms = getInlineAgreementTerms(dealer, lang);
@@ -2925,6 +2952,24 @@ function ContactHero({
               className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 px-3 py-1.5 text-xs font-bold">
               <Pencil className="h-3.5 w-3.5" /> {tl("edit_dealer", lang)}
             </button>
+          )}
+          {canPreviewDealerMachines && (
+            <div className="flex items-center rounded-lg border border-slate-200 bg-slate-50 p-1 text-xs font-semibold" aria-label="Maskinvisning">
+              <button
+                type="button"
+                onClick={() => onMachinePresentationChange("timan")}
+                className={`rounded-md px-2.5 py-1.5 ${machinePresentation === "timan" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`}
+              >
+                Timan-visning
+              </button>
+              <button
+                type="button"
+                onClick={() => onMachinePresentationChange("dealer")}
+                className={`rounded-md px-2.5 py-1.5 ${machinePresentation === "dealer" ? "bg-white text-slate-950 shadow-sm" : "text-slate-600 hover:text-slate-950"}`}
+              >
+                Forhandler-visning
+              </button>
+            </div>
           )}
           {budgetTotals && (
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 min-w-[180px]">
