@@ -33,6 +33,12 @@ describe("Partnerdata layout regression guard", () => {
     expect(dealerDataSource).not.toContain("value=\"overview\"");
   });
 
+  it("keeps agreement terms on the partner front page, not in the edit form", () => {
+    expect(dealerProfileSource).not.toContain('t("agreementTerms")');
+    expect(dealerProfileSource).not.toContain('t("standardMachineDiscount")');
+    expect(dealerProfileSource).not.toContain('t("sparePartsDiscount")');
+  });
+
   it("keeps social and marketing fields inside the Marketing section", () => {
     const companyIndex = dealerProfileSource.indexOf('skey="company"');
     const marketingIndex = dealerProfileSource.indexOf('skey="marketing"');
