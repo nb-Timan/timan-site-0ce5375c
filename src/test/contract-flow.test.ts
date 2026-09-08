@@ -697,7 +697,7 @@ describe('contract flow', () => {
     expect(topArea).toContain('xl:grid-cols-[minmax(0,1fr)_340px]');
     expect(topArea).toContain('<ContractSummary form={form} />');
     expect(topArea).toContain('<ContractStatusCard status={workflowStatusLabel} readyForSignature={readyForSignature} />');
-    expect(topArea).toContain('<DocumentList />');
+    expect(topArea).toContain('<DocumentList contract={contract ?? null} form={form} documentVersions={availableDocuments} />');
     expect(t('contractFullTextHeading', 'da')).toBe('Kontrakten');
   });
 
@@ -889,7 +889,7 @@ describe('contract flow', () => {
     expect(sparePartsServiceSection).toContain('<ul className="space-y-2.5 text-sm leading-6 text-gray-700">');
     expect(sparePartsServiceSection).toContain('lg:grid-cols-[minmax(0,1fr)_190px]');
     expect(sparePartsServiceSection).not.toContain('lg:grid-cols-[minmax(0,1fr)_240px]');
-    expect(sparePartsServiceSection).toContain('<div className="space-y-5">\n          {serviceBlocks.map');
+    expect(sparePartsServiceSection).toContain('{serviceBlocks.map');
     expect(sparePartsServiceSection).not.toContain('xl:grid-cols-2');
     expect(sparePartsServiceSection).not.toContain('<ContractLegalSectionHeader section={section} />');
     expect(sparePartsServiceSection).not.toContain("['Fragt', 'Timan betaler fragt tur/retur");
@@ -970,8 +970,7 @@ describe('contract flow', () => {
 
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
     expect(source).toContain("'Forhandlerkontrakt Timan'");
-    expect(source).toContain('FORHANDLERKONTRAKT - GENNEMGANG OG UNDERSKRIFT');
-    expect(source).toContain('Timan_Forhandlerkontrakt_');
+    expect(source).toContain('CONTRACT_PDF_TEMPLATE_VERSION');
   });
 
   it('removes the redundant demo discount helper from complete rendered contracts', () => {

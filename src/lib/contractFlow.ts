@@ -60,6 +60,8 @@ export type ContractWorkflowStatus =
 export type ContractStatus = LegacyContractStatus;
 
 export type ContractFormData = {
+  /** Legal document language selected for this contract draft and snapshot. */
+  contractLanguage?: 'da' | 'en' | 'de';
   partnerType: ContractPartnerType | '';
   dealerName: string;
   dealerAddress: string;
@@ -549,6 +551,7 @@ export function buildContractSnapshot(
     contractId: options.contractId ?? null,
     contractNumber: options.contractNumber ?? null,
     version: CONTRACT_VERSION,
+    contractLanguage: form.contractLanguage ?? 'da',
     createdAt: new Date().toISOString(),
     status: getLegacyContractStatus(options.workflowStatus ?? getWorkflowStatusFromLegacy(getContractStatus(form, confirmations))),
     workflowStatus: options.workflowStatus ?? getWorkflowStatusFromLegacy(getContractStatus(form, confirmations)),

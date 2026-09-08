@@ -31,6 +31,7 @@ import {
 } from '@/lib/contractFlow';
 import {
   addSignedUrlsToUploadVersions,
+  addSignedUrlsToDocumentVersions,
   activateDealerContractAccessWindow,
   completeDealerContractGuidedReview,
   createDealerContractUploadVersion,
@@ -40,6 +41,7 @@ import {
   extendDealerContractAccessWindow,
   fetchActiveDealerContractAccessWindow,
   fetchDealerContractAccessWindows,
+  fetchDealerContractDocumentVersions,
   fetchDealerContractById,
   fetchDealerContractDraft,
   fetchDealerContractPartnerUsers,
@@ -48,12 +50,16 @@ import {
   fetchDealerContractUploadVersions,
   getCurrentStepId,
   markDealerContractPdfGenerated,
+  finalizeDealerContractDocument,
+  prepareDealerContractDocument,
   reorderDealerContractUploadFiles,
   revokeDealerContractAccessWindow,
   saveDealerContractDraft,
   submitDealerContractUpload,
+  uploadPreparedDealerContractDocument,
   uploadDealerContractFile,
   type DealerContractAccessWindow,
+  type DealerContractDocumentVersion,
   type DealerContractPartnerUser,
   type DealerContractRecord,
   type DealerContractOverviewRow,
@@ -69,6 +75,13 @@ import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
 import { APPENDIX_2_EXAMPLE_LINES, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
+import {
+  CONTRACT_PDF_TEMPLATE_VERSION,
+  generateContractPdf,
+  getContractPdfLanguageReadiness,
+  sha256Hex,
+  type ContractDocumentLanguage,
+} from '@/lib/contractPdfDocument';
 import {
   getContractDiscountStructure,
   getNewContractDiscountDefaults,
@@ -844,6 +857,7 @@ export default function ContractsPage() {
   const [contractLoadError, setContractLoadError] = useState<string | null>(null);
   const [finalSnapshot, setFinalSnapshot] = useState<ContractSnapshot | null>(null);
   const [uploadVersions, setUploadVersions] = useState<DealerContractUploadVersion[]>([]);
+  const [documentVersions, setDocumentVersions] = useState<DealerContractDocumentVersion[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [accessWindow, setAccessWindow] = useState<DealerContractAccessWindow | null>(null);
   const [contractAccessWindows, setContractAccessWindows] = useState<DealerContractAccessWindow[]>([]);
@@ -884,6 +898,7 @@ export default function ContractsPage() {
 
   const [form, setForm] = useState<ContractFormData>(() => ({
     dealerName: '',
+    contractLanguage: 'da',
     dealerAddress: '',
     dealerPostalCode: '',
     dealerCity: '',
@@ -1348,6 +1363,17 @@ export default function ContractsPage() {
     setUploadVersions(await addSignedUrlsToUploadVersions(rows));
   };
 
+  const refreshDocumentVersions = async (contractId = contractRowId) => {
+    if (!contractId) return;
+    const { rows, error } = await fetchDealerContractDocumentVersions(contractId);
+    if (error) {
+      // The table is introduced with the PDF migration. Keep drafts usable until it is live.
+      setDocumentVersions([]);
+      return;
+    }
+    setDocumentVersions(await addSignedUrlsToDocumentVersions(rows));
+  };
+
   useEffect(() => {
     if (!contractRowId || !hasReachedContractStatus(workflowStatus, 'awaiting_signed_upload')) {
       setUploadVersions([]);
@@ -1355,6 +1381,14 @@ export default function ContractsPage() {
     }
     void refreshUploadVersions(contractRowId);
   }, [contractRowId, workflowStatus]);
+
+  useEffect(() => {
+    if (!contractRowId) {
+      setDocumentVersions([]);
+      return;
+    }
+    void refreshDocumentVersions(contractRowId);
+  }, [contractRowId]);
 
   const confirmSection = () => {
     if (!currentConfirmationId || !effectiveUser) return;
@@ -1496,119 +1530,49 @@ export default function ContractsPage() {
       ? finalSnapshot
       : buildContractSnapshot(form, confirmations, { contractId: contractRowId, workflowStatus: 'ready_for_signature' });
 
-    const { jsPDF } = await import('jspdf');
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
-    const pdfSnapshot = snapshot;
-    const partnerTerms = getContractPartnerTerms(pdfSnapshot.dealer.partnerType) ?? getContractPartnerTerms('dealer')!;
-    const legalSections = getSnapshotLegalSections(pdfSnapshot);
-    const appendix2Paragraphs = Array.isArray((pdfSnapshot.appendices as { appendix2Paragraphs?: unknown } | null)?.appendix2Paragraphs)
-      ? (pdfSnapshot.appendices as { appendix2Paragraphs: string[] }).appendix2Paragraphs
-      : renderAppendix2Paragraphs(
-        pdfSnapshot.dealer.partnerType,
-        'machineDiscountPct' in pdfSnapshot.commercialTerms || 'equipmentDiscountPct' in pdfSnapshot.commercialTerms
-          ? getContractDiscountStructure(pdfSnapshot.dealer.partnerType, pdfSnapshot.commercialTerms, { preserveStoredDiscounts: true })
-          : undefined,
-      );
-    const timan = pdfSnapshot.timan;
-    const dealer = pdfSnapshot.dealer;
-    const left = 16;
-    const right = 194;
-    let y = 18;
-
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(14);
-    pdf.setTextColor(43, 85, 140);
-    pdf.text('FORHANDLERKONTRAKT - GENNEMGANG OG UNDERSKRIFT', left, y);
-    y += 7;
-
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    pdf.setTextColor(107, 114, 128);
-    pdf.text(`Kontraktversion: ${pdfSnapshot.version}`, left, y);
-    y += 5;
-    pdf.text(`Snapshot oprettet: ${new Date(pdfSnapshot.createdAt).toLocaleString('da-DK')}`, left, y);
-    y += 9;
-
-    pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(17, 24, 39);
-    pdf.text('Timan', left, y);
-    pdf.text(partnerTerms.label, 112, y);
-    y += 6;
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(timan.company, left, y);
-    pdf.text(dealer.name.trim(), 112, y);
-    y += 5;
-    pdf.text(`CVR: ${timan.cvr}`, left, y);
-    pdf.text(`CVR: ${dealer.cvr.trim()}`, 112, y);
-    y += 5;
-    pdf.text(timan.address, left, y);
-    pdf.text(dealer.address.trim(), 112, y);
-    y += 5;
-    pdf.text(timan.postalCity, left, y);
-    pdf.text(`${dealer.postalCode.trim()} ${dealer.city.trim()}`.trim(), 112, y);
-    y += 8;
-    pdf.text(`Timan sælger: ${timan.sellerName.trim()}`, left, y);
-    pdf.text(`Kontakt: ${dealer.contactPerson.trim()}`, 112, y);
-    y += 5;
-    pdf.text(`E-mail: ${timan.sellerEmail.trim()}`, left, y);
-    pdf.text(`Titel: ${dealer.contactTitle.trim() || '-'}`, 112, y);
-    if (timan.sellerPhone.trim()) {
-      y += 5;
-      pdf.text(`Telefon: ${timan.sellerPhone.trim()}`, left, y);
+    const language = (snapshot.contractLanguage ?? form.contractLanguage ?? 'da') as ContractDocumentLanguage;
+    const readiness = getContractPdfLanguageReadiness(language);
+    if (!readiness.productionReady) {
+      toast.error(`${readiness.reason} Der kan kun genereres et tydeligt udkast.`);
     }
-
-    y += 10;
-    pdf.setDrawColor(81, 127, 202);
-    pdf.line(left, y, right, y);
-    y += 8;
-
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('1. Oplysninger', left, y);
-    y += 8;
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`Timan-oplysninger, aktiv Timan-sælger, ${partnerTerms.singular}oplysninger og kontaktperson er vist ovenfor.`, left, y);
-
-    pdf.addPage();
-    drawGuidedContractSectionsPdf(pdf, left, right, legalSections, appendix2Paragraphs, pdfSnapshot);
-
-    pdf.addPage();
-    y = 18;
-
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(11);
-    pdf.setTextColor(17, 24, 39);
-    pdf.text('Bekræftelser', left, y);
-    y += 6;
-    pdf.setFont('helvetica', 'normal');
-    CONTRACT_STEPS
-      .filter((step) => step.confirmationId)
-      .forEach((step) => {
-        const confirmation = pdfSnapshot.confirmations[step.confirmationId!];
-        const confirmedAt = confirmation.confirmedAt ? new Date(confirmation.confirmedAt).toLocaleString('da-DK') : '-';
-        pdf.text(`${getContractStepLabel(step.id, 'da').title}: ${confirmation.confirmed ? 'Bekræftet' : 'Ikke bekræftet'} · ${confirmedAt} · ${confirmation.confirmedBy || '-'}`, left, y);
-        y += 6;
-      });
-
-    y = 222;
-    pdf.setDrawColor(81, 127, 202);
-    pdf.line(left, y, right, y);
-    y += 9;
-
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Underskrifter', left, y);
-    y += 8;
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`${timan.company} · ${timan.sellerName.trim()}`, left, y);
-    pdf.text(`${dealer.name.trim()} · ${dealer.contactPerson.trim()}`, 112, y);
-    y += 8;
-    pdf.text(`Dato: ${formatDateDa(pdfSnapshot.contractDate)}`, left, y);
-    pdf.text(`Dato: ${formatDateDa(pdfSnapshot.contractDate)}`, 112, y);
-    pdf.text('Timan underskrift______________________', left, y + 24);
-    pdf.text(`${partnerTerms.signatureLabel}_________________`, 112, y + 24);
-
-    addPhysicalSignatureFieldsToPdf(pdf, pdfSnapshot);
-    const pageCount = pdf.getNumberOfPages();
-    const marked = await markDealerContractPdfGenerated(contractRowId, pageCount);
+    const generated = await generateContractPdf({
+      snapshot,
+      contractNumber: contractRecord?.contract_number || `DC-${contractRowId.slice(0, 8)}`,
+      dealerAccountNumber: contractRecord?.dealer_account_number,
+      language,
+      mode: readiness.productionReady ? 'final' : 'draft',
+      documentVersion: 1,
+    });
+    const documentHash = await sha256Hex(generated.blob);
+    const prepared = await prepareDealerContractDocument({
+      contractId: contractRowId,
+      documentKind: generated.mode,
+      templateVersion: generated.templateVersion,
+      language: generated.language,
+      snapshot,
+      fileName: generated.fileName,
+    });
+    if (prepared.error || !prepared.row) {
+      toast.error('PDF-versionen kunne ikke klargøres i den private dokumentarkivering.');
+      return;
+    }
+    const uploadError = await uploadPreparedDealerContractDocument(prepared.row, generated.blob);
+    if (uploadError) {
+      toast.error('PDF’en kunne ikke gemmes i den private dokumentarkivering.');
+      return;
+    }
+    const finalized = await finalizeDealerContractDocument({
+      documentId: prepared.row.id,
+      sha256: documentHash,
+      fileSize: generated.blob.size,
+      pageCount: generated.pageCount,
+    });
+    if (finalized.error || !finalized.row) {
+      toast.error('PDF-versionens hash og sidetal kunne ikke registreres.');
+      return;
+    }
+    await refreshDocumentVersions(contractRowId);
+    const marked = await markDealerContractPdfGenerated(contractRowId, generated.pageCount);
     if (marked.error || !marked.row) {
       toast.error('PDF’en blev ikke markeret som genereret i databasen.');
       return;
@@ -1616,9 +1580,13 @@ export default function ContractsPage() {
     setContractRecord(marked.row);
     setFinalSnapshot(marked.row.final_snapshot ?? pdfSnapshot);
 
-    const fileName = `Timan_Forhandlerkontrakt_${safeFilePart(dealer.name)}_${pdfSnapshot.contractDate}.pdf`;
-    pdf.save(fileName);
-    toast.success('PDF genereret. Kontrakten afventer nu underskrevet upload.');
+    const url = URL.createObjectURL(generated.blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = generated.fileName;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast.success(`PDF genereret (${generated.pageCount} sider, SHA-256 ${documentHash.slice(0, 12)}…). Kontrakten afventer nu underskrevet upload.`);
   };
 
   const activeUploadVersion = uploadVersions.find((version) => version.status === 'draft')
@@ -1954,6 +1922,7 @@ export default function ContractsPage() {
                 locked={isLockedContract}
                 workflowStatus={workflowStatus}
                 contract={contractRecord}
+                documentVersions={documentVersions}
                 uploadVersions={uploadVersions}
                 activeUploadVersion={activeUploadVersion}
                 latestSubmittedUploadVersion={latestSubmittedUploadVersion}
@@ -2694,6 +2663,20 @@ function PartiesStep({
               onChange={(e) => update('contractDate', e.target.value)}
               className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
             />
+          </label>
+          <label className="block">
+            <span className="text-sm font-semibold text-gray-700">Kontraktsprog *</span>
+            <select
+              value={form.contractLanguage ?? 'da'}
+              disabled={locked}
+              onChange={(event) => update('contractLanguage', event.target.value)}
+              className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
+            >
+              <option value="da">Dansk</option>
+              <option value="en">English (draft only)</option>
+              <option value="de">Deutsch (nur Entwurf)</option>
+            </select>
+            <span className="mt-1 block text-xs text-gray-500">Engelsk og tysk kan først blive endelige, når de juridiske oversættelser er godkendt.</span>
           </label>
         </div>
         {locked && (
@@ -4135,6 +4118,7 @@ function SignatureStep({
   locked,
   workflowStatus,
   contract,
+  documentVersions,
   uploadVersions,
   activeUploadVersion,
   latestSubmittedUploadVersion,
@@ -4154,6 +4138,7 @@ function SignatureStep({
   locked: boolean;
   workflowStatus: ContractWorkflowStatus;
   contract: DealerContractRecord | null;
+  documentVersions: DealerContractDocumentVersion[];
   uploadVersions: DealerContractUploadVersion[];
   activeUploadVersion: DealerContractUploadVersion | null;
   latestSubmittedUploadVersion: DealerContractUploadVersion | null;
@@ -4179,6 +4164,8 @@ function SignatureStep({
         form={form}
         workflowStatusLabel={workflowStatusLabel}
         readyForSignature={readyForSignature}
+        contract={contract}
+        documentVersions={documentVersions}
       />
 
       {!readyForSignature && (
@@ -4607,17 +4594,22 @@ function ContractReviewTopArea({
   form,
   workflowStatusLabel,
   readyForSignature,
+  contract,
+  documentVersions,
 }: {
   form: ContractFormData;
   workflowStatusLabel: string;
   readyForSignature: boolean;
+  contract?: DealerContractRecord | null;
+  documentVersions?: DealerContractDocumentVersion[];
 }) {
+  const availableDocuments = documentVersions ?? [];
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
       <ContractSummary form={form} />
       <aside className="space-y-4">
         <ContractStatusCard status={workflowStatusLabel} readyForSignature={readyForSignature} />
-        <DocumentList />
+        <DocumentList contract={contract ?? null} form={form} documentVersions={availableDocuments} />
       </aside>
     </div>
   );
@@ -4642,29 +4634,36 @@ function ContractStatusCard({ status, readyForSignature }: { status: string; rea
   );
 }
 
-function DocumentList() {
+function DocumentList({ contract, form, documentVersions }: { contract: DealerContractRecord | null; form: ContractFormData; documentVersions: DealerContractDocumentVersion[] }) {
+  const language = (contract?.final_snapshot?.contractLanguage ?? form.contractLanguage ?? 'da') as ContractDocumentLanguage;
+  const readiness = getContractPdfLanguageReadiness(language);
   return (
     <aside className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
       <div className="flex items-center gap-2 mb-4">
         <FileText className="h-5 w-5 text-amber-700" />
-        <h2 className="text-lg font-bold text-gray-900">Juridiske dokumenter</h2>
+        <h2 className="text-lg font-bold text-gray-900">Samlet kontrakt</h2>
       </div>
-      <p className="text-sm text-gray-500 mb-5">
-        Disse eksisterende PDF’er er kontraktens juridiske source of truth.
-      </p>
-      <div className="space-y-2">
-        {CONTRACT_DOCS.map((doc) => (
-          <a
-            key={doc.href}
-            href={doc.href}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-800 hover:border-amber-300 hover:bg-amber-50"
-          >
-            <span>{doc.title}</span>
-            <Download className="h-4 w-4 shrink-0 text-amber-700" />
-          </a>
-        ))}
+      <p className="text-sm text-gray-500">PDF’en bygges fra den låste kontraktversion og samler hovedaftale, relevante bilag og signaturside.</p>
+      <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-950">
+        <p className="font-bold">Timan Partneraftale</p>
+        <p className="mt-1">{contract?.contract_number || 'Gem kladden for at få kontraktnummer'}</p>
+        <p className="mt-1 text-xs text-emerald-800">Skabelon {contract?.final_snapshot?.version ?? CONTRACT_PDF_TEMPLATE_VERSION} · {language.toUpperCase()}</p>
+      </div>
+      {!readiness.productionReady && <p className="mt-3 text-xs leading-5 text-amber-800">{readiness.reason} Final PDF er blokeret, indtil den juridiske oversættelse er godkendt.</p>}
+      {contract?.pdf_generated_at && <p className="mt-3 text-xs text-gray-500">Seneste PDF blev genereret {formatDateTimeDa(contract.pdf_generated_at)}.</p>}
+      {documentVersions.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {documentVersions.map((document) => (
+            <div key={document.id} className="rounded-xl border border-gray-200 px-3 py-2 text-xs text-gray-700">
+              <p className="font-bold">Version {document.document_version} · {document.document_kind === 'final' ? 'Endelig' : 'Udkast'} · {document.page_count ?? '-'} sider</p>
+              <p className="mt-1 truncate text-gray-500">SHA-256: {document.sha256 ?? '-'}</p>
+              {document.signed_url && <a href={document.signed_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex font-bold text-emerald-800 hover:underline">Åbn PDF</a>}
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="mt-4 rounded-xl border border-dashed border-gray-200 px-4 py-3 text-xs leading-5 text-gray-500">
+        Generér kontrakten her på Trin 11. Den endelige, private dokumentarkivering aktiveres sammen med database-migrationen.
       </div>
     </aside>
   );

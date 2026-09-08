@@ -76,6 +76,27 @@ export type DealerContractUploadFile = {
   signed_url?: string | null;
 };
 
+export type DealerContractDocumentVersion = {
+  id: string;
+  contract_id: string;
+  document_version: number;
+  template_version: string;
+  language: 'da' | 'en' | 'de';
+  document_kind: 'draft' | 'final';
+  status: 'generating' | 'draft' | 'final' | 'failed' | 'superseded';
+  snapshot: ContractSnapshot;
+  storage_bucket: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string;
+  file_size: number | null;
+  sha256: string | null;
+  page_count: number | null;
+  generated_at: string;
+  finalized_at: string | null;
+  signed_url?: string | null;
+};
+
 export type DealerContractUploadVersion = {
   id: string;
   contract_id: string;
@@ -692,6 +713,91 @@ export async function markDealerContractPdfGenerated(
   });
   if (error) return { row: null, error: error.message };
   return { row: data ? rowToContractRecord(data as Record<string, unknown>) : null, error: null };
+}
+
+function rowToDocumentVersion(row: Record<string, unknown>): DealerContractDocumentVersion {
+  return {
+    id: String(row.id),
+    contract_id: String(row.contract_id),
+    document_version: Number(row.document_version),
+    template_version: String(row.template_version),
+    language: row.language as DealerContractDocumentVersion['language'],
+    document_kind: row.document_kind as DealerContractDocumentVersion['document_kind'],
+    status: row.status as DealerContractDocumentVersion['status'],
+    snapshot: (row.snapshot ?? {}) as ContractSnapshot,
+    storage_bucket: String(row.storage_bucket || DEALER_CONTRACTS_BUCKET),
+    storage_path: String(row.storage_path),
+    file_name: String(row.file_name),
+    mime_type: String(row.mime_type || 'application/pdf'),
+    file_size: row.file_size == null ? null : Number(row.file_size),
+    sha256: row.sha256 == null ? null : String(row.sha256),
+    page_count: row.page_count == null ? null : Number(row.page_count),
+    generated_at: String(row.generated_at),
+    finalized_at: row.finalized_at == null ? null : String(row.finalized_at),
+  };
+}
+
+export async function fetchDealerContractDocumentVersions(contractId: string) {
+  const { data, error } = await supabase
+    .from('dealer_contract_document_versions')
+    .select('*')
+    .eq('contract_id', contractId)
+    .in('status', ['draft', 'final', 'superseded'])
+    .order('document_version', { ascending: false });
+  return {
+    rows: (data ?? []).map((row) => rowToDocumentVersion(row as Record<string, unknown>)),
+    error: error?.message ?? null,
+  };
+}
+
+export async function addSignedUrlsToDocumentVersions(rows: DealerContractDocumentVersion[]) {
+  return Promise.all(rows.map(async (document) => {
+    const { data, error } = await supabase.storage
+      .from(document.storage_bucket)
+      .createSignedUrl(document.storage_path, 60 * 10);
+    return { ...document, signed_url: error ? null : data?.signedUrl ?? null };
+  }));
+}
+
+export async function prepareDealerContractDocument(input: {
+  contractId: string;
+  documentKind: 'draft' | 'final';
+  templateVersion: string;
+  language: 'da' | 'en' | 'de';
+  snapshot: ContractSnapshot;
+  fileName: string;
+}) {
+  const { data, error } = await supabase.rpc('prepare_dealer_contract_document', {
+    p_contract_id: input.contractId,
+    p_document_kind: input.documentKind,
+    p_template_version: input.templateVersion,
+    p_language: input.language,
+    p_snapshot: input.snapshot,
+    p_file_name: input.fileName,
+  });
+  return { row: data ? rowToDocumentVersion(data as Record<string, unknown>) : null, error: error?.message ?? null };
+}
+
+export async function finalizeDealerContractDocument(input: {
+  documentId: string;
+  sha256: string;
+  fileSize: number;
+  pageCount: number;
+}) {
+  const { data, error } = await supabase.rpc('finalize_dealer_contract_document', {
+    p_document_id: input.documentId,
+    p_sha256: input.sha256,
+    p_file_size: input.fileSize,
+    p_page_count: input.pageCount,
+  });
+  return { row: data ? rowToDocumentVersion(data as Record<string, unknown>) : null, error: error?.message ?? null };
+}
+
+export async function uploadPreparedDealerContractDocument(document: DealerContractDocumentVersion, blob: Blob) {
+  const { error } = await supabase.storage
+    .from(document.storage_bucket)
+    .upload(document.storage_path, blob, { contentType: 'application/pdf', upsert: false });
+  return error?.message ?? null;
 }
 
 export async function createDealerContractUploadVersion(
