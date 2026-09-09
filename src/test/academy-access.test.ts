@@ -33,6 +33,20 @@ describe('Academy module access', () => {
     expect(isAcademyCapabilityUnlocked(academyOn, 'configurator', [])).toBe(false);
   });
 
+  it('does not grant Academy implicitly to Backend users', () => {
+    const backendOff = {
+      role: 'timan_backend' as const,
+      partner_type: null,
+      portal_role: 'timan_backend',
+      allowed_modules: ['timan_backend', 'timan_crm'],
+      module_access: ['timan_backend', 'timan_crm'],
+    };
+
+    expect(canAccessAcademy(backendOff)).toBe(false);
+    expect(isAcademyCapabilityGated(backendOff)).toBe(false);
+    expect(isAcademyCapabilityUnlocked(backendOff, 'configurator', [])).toBe(true);
+  });
+
   it('uses the existing backend editor and route guards instead of a new data field', () => {
     const editor = readFileSync('src/pages/backend/BackendUsersPage.tsx', 'utf8');
     const routes = readFileSync('src/App.tsx', 'utf8');

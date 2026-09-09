@@ -42,9 +42,9 @@ export function hasAcademyModuleAccess(user: AcademyUser | null | undefined) {
   return getUserModuleAccessOverride(user)?.includes('academy') ?? false;
 }
 
-/** Backend may administer and inspect Academy without changing the viewed user's access. */
+/** Academy is visible and reachable only when the selected user has the explicit module. */
 export function canAccessAcademy(user: AcademyUser | null | undefined) {
-  return hasAcademyModuleAccess(user) || isBackendActor(user);
+  return hasAcademyModuleAccess(user);
 }
 export function isAcademyCapabilityGated(user: AcademyUser | null | undefined) {
   return hasAcademyModuleAccess(user);
