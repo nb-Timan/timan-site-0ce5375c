@@ -319,26 +319,6 @@ export default function PortalPage() {
             }
             const titleKey = AREA_TITLE_KEY[area.id];
             const descKey = AREA_DESC_KEY[area.id];
-            const internalDealerData =
-              portalRole === 'timan_backend'
-              || portalRole === 'timan_seller'
-              || portalRole === 'timan_service';
-            const externalDealerData =
-              portalRole === 'timan_dealer'
-              || portalRole === 'timan_importer'
-              || portalRole === 'timan_service_partner'
-              || portalRole === 'dealer_customer'
-              || (portalRole as string) === 'dealer_user';
-            const ownDealerPath = effectiveUser?.dealer_number
-              ? `/portal/crm/my-dealers/${encodeURIComponent(effectiveUser.dealer_number)}`
-              : meta.to;
-            // The front-page Partnerdata card intentionally opens the old
-            // partner list. CRM itself continues to default to Dashboard.
-            const cardTo = area.id === 'dealer_data' && internalDealerData
-              ? '/portal/crm/my-dealers?view=partner-list'
-              : area.id === 'dealer_data' && externalDealerData
-                ? ownDealerPath
-                : meta.to;
             const academyLockedCrm = academyCapabilityGated && (area.id === 'timan_crm' || area.id === 'calendar')
               && !isAcademyCapabilityUnlocked(effectiveUser, 'crm', academyCompletedCaseIds);
             return (
@@ -347,7 +327,7 @@ export default function PortalPage() {
                 title={titleKey ? t(titleKey, uiLanguage) : (area.title[lang] || area.title.en)}
                 description={academyLockedCrm ? 'Kræver Academy. Gennemfør Academy-forløbet for at åbne CRM.' : (descKey ? t(descKey, uiLanguage) : (area.description[lang] || area.description.en))}
                 cta={academyLockedCrm ? 'Kræver Academy' : t('openArea', uiLanguage)}
-                to={academyLockedCrm ? '/academy?locked=crm' : cardTo}
+                to={academyLockedCrm ? '/academy?locked=crm' : meta.to}
                 icon={meta.icon}
                 accent={meta.accent}
                 badge={area.id === 'dealer_data' && dealerBadge
