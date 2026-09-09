@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MODULE_ACCESS } from '@/lib/portalAccess';
+import { DEFAULT_MODULE_ACCESS, hasModuleAccess } from '@/lib/portalAccess';
 import { canAccessAcademy, hasAcademyModuleAccess, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 
 const seller = (allowed_modules: string[] | null) => ({
@@ -45,6 +45,19 @@ describe('Academy module access', () => {
     expect(canAccessAcademy(backendOff)).toBe(false);
     expect(isAcademyCapabilityGated(backendOff)).toBe(false);
     expect(isAcademyCapabilityUnlocked(backendOff, 'configurator', [])).toBe(true);
+    expect(hasModuleAccess('timan_backend', 'academy', backendOff.allowed_modules)).toBe(false);
+    expect(hasModuleAccess('timan_backend', 'timan_crm', backendOff.allowed_modules)).toBe(true);
+  });
+
+  it('lets the canonical allowed_modules value win over stale module_access', () => {
+    const academyOffWithStaleCache = {
+      ...seller(['salg_marketing', 'byg_din_timan']),
+      module_access: ['academy'],
+    };
+
+    expect(hasAcademyModuleAccess(academyOffWithStaleCache)).toBe(false);
+    expect(canAccessAcademy(academyOffWithStaleCache)).toBe(false);
+    expect(isAcademyCapabilityUnlocked(academyOffWithStaleCache, 'configurator', [])).toBe(true);
   });
 
   it('uses the existing backend editor and route guards instead of a new data field', () => {

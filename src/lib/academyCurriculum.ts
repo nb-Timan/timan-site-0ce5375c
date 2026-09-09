@@ -1,6 +1,6 @@
 import type { AppUser } from '@/data/appUsers';
 import type { SessionUser } from '@/context/AppUserContext';
-import { getUserModuleAccessOverride, isBackendActor } from '@/lib/portalAccess';
+import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, isBackendActor } from '@/lib/portalAccess';
 
 export const ACADEMY_CASE_1_ID = 'sales.case_1_rc1000';
 const LOCAL_ACADEMY_ENROLLMENT_KEY = 'timan.academy.local-enrollment.v1';
@@ -39,7 +39,7 @@ export function getLocalAcademyUser(): SessionUser {
 
 /** Academy is an explicit per-user module, never an implicit role benefit. */
 export function hasAcademyModuleAccess(user: AcademyUser | null | undefined) {
-  return getUserModuleAccessOverride(user)?.includes('academy') ?? false;
+  return hasModuleAccess(derivePortalRole(user), 'academy', getUserModuleAccessOverride(user));
 }
 
 /** Academy is visible and reachable only when the selected user has the explicit module. */

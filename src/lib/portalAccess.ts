@@ -389,6 +389,9 @@ export function hasModuleAccess(
   override?: ModuleAccessKey[] | null,
 ): boolean {
   if (!role) return false;
+  // Academy is a deliberate per-user opt-in. It must not inherit Backend's
+  // broad module fallback, because Academy OFF also disables Academy gates.
+  if (key === 'academy') return Array.isArray(override) && override.includes('academy');
   if (role === 'timan_backend') return true;
   const list = Array.isArray(override) ? override : DEFAULT_MODULE_ACCESS[role];
   return list.includes(key);
