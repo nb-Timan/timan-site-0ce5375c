@@ -16,7 +16,16 @@ describe("Partnerdata list-first flow", () => {
 
   it("routes no-account links to the list and only opens detail after a selection", () => {
     const route = readFileSync("src/pages/portal/PartnerDataRoute.tsx", "utf8");
-    expect(route).toContain('searchParams.get("accountNumber") ? <DealerDataPage /> : <PartnerDataListPage />');
+    expect(route).toContain('<CrmMyDealersPage presentation="partnerdata" />');
+  });
+
+  it("reuses the established table while keeping CRM analytics out of Partnerdata", () => {
+    const overview = readFileSync("src/pages/crm/CrmMyDealersPage.tsx", "utf8");
+    expect(overview).toContain('presentation?: "crm" | "partnerdata"');
+    expect(overview).toContain('!partnerDataPresentation && (');
+    expect(overview).toContain('`/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}`');
+    expect(overview).toContain("computeDealerProfileBadge");
+    expect(overview).toContain("const completionPercent = 100 - badge.missingPercent");
   });
 
   it("allows an external partner to edit only its own account", () => {

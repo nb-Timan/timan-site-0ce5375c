@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeCompletion } from "@/lib/dealerProfileCompletion";
-import { computeDealerProfileSeverity, hasOnlySoftDealerProfileMissing } from "@/lib/dealerProfileBadge";
+import { computeDealerProfileBadge, computeDealerProfileSeverity, hasOnlySoftDealerProfileMissing } from "@/lib/dealerProfileBadge";
 import type { DealerAccount } from "@/lib/dealerAccountsService";
 import type { DealerContact, DealerContactArea } from "@/lib/dealerContactsService";
 
@@ -101,14 +101,16 @@ function contact(area: DealerContactArea, overrides: Partial<DealerContact> = {}
 
 describe("dealer profile completion", () => {
   it("keeps missing section count separate from field-based profile percentage", () => {
-    const completion = computeCompletion(dealer({ website: "https://timan.dk" }), [
+    const profile = dealer({ website: "https://timan.dk" });
+    const contacts = [
       contact("director"),
       contact("finance"),
       contact("parts", { email: null }),
       contact("sales", { is_primary: false }),
       contact("workshop", { email: null }),
       contact("marketing", { name: null, email: null }),
-    ]);
+    ];
+    const completion = computeCompletion(profile, contacts);
 
     expect(completion.totalSteps).toBe(6);
     expect(completion.completedSteps).toBe(1);
@@ -117,6 +119,7 @@ describe("dealer profile completion", () => {
     expect(completion.filledRequired).toBe(15);
     expect(completion.missingRequired).toBe(6);
     expect(completion.percentage).toBe(71);
+    expect(computeDealerProfileBadge(profile, 0, contacts).missingPercent).toBe(29);
   });
 
   it("matches visible required state: phone and address 2 are optional, website is marketing", () => {

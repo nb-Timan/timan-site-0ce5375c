@@ -96,7 +96,9 @@ export function computeDealerProfileBadge(
   const total = completion.sections.length;
   const missing = missingSections.length;
   const hasCriticalMissing = missingCriticalFields(dealer).length > 0;
-  const missingPercent = Math.round((missing / total) * 100);
+  // Detail, quick-cards and list badges all use the required field coverage
+  // from computeCompletion. Section counts remain available as supporting UI.
+  const missingPercent = 100 - completion.percentage;
   const tone: BadgeTone = hasCriticalMissing ? "red" : missing === 0 ? "green" : "yellow";
   const label = missing === 0 ? "100% klar" : hasCriticalMissing ? "Kritisk" : `Mangler ${missingPercent} %`;
   return { total, missing, missingPercent, critical: hasCriticalMissing ? 1 : 0, tone, label, labelKind: hasCriticalMissing ? "critical_missing" : missing === 0 ? "complete" : "missing_info" };

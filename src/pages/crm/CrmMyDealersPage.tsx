@@ -67,10 +67,10 @@ import {
   type DealerBudgetIndex,
 } from "@/lib/crmDealerBudget";
 import {
+  computeDealerProfileBadge,
   computeDealerProfileSeverity,
   getDealerProfileMissingLabels,
   getDealerProfileCriticalMissing,
-  hasOnlySoftDealerProfileMissing,
 } from "@/lib/dealerProfileBadge";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
@@ -199,14 +199,20 @@ function buildBackendSellerOverview(
   return rows.filter((row) => row.importers + row.dealers + row.servicePartners + row.dealerCustomers > 0);
 }
 
-export default function CrmMyDealersPage() {
+type CrmMyDealersPageProps = {
+  /** Partnerdata reuses the established table, without exposing CRM analytics. */
+  presentation?: "crm" | "partnerdata";
+};
+
+export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersPageProps) {
   const { appUser, loading } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { uiLanguage } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const partnerListRequested = searchParams.get("view") === "partner-list";
+  const partnerDataPresentation = presentation === "partnerdata";
+  const partnerListRequested = partnerDataPresentation || searchParams.get("view") === "partner-list";
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [statsMap, setStatsMap] = useState<Record<string, DealerAccountStats>>({});
   const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
@@ -498,6 +504,9 @@ export default function CrmMyDealersPage() {
   };
   const pageTitle = externalCrm ? i18n("crmMyPartners", uiLanguage) : i18n("crmMyDealers", uiLanguage);
   const pageSubtitle = externalCrm ? i18n("crmMyDealersPartnerSubtitle", uiLanguage) : i18n("crmMyDealersSubtitle", uiLanguage);
+  const detailPath = (dealer: DealerAccount) => partnerDataPresentation
+    ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}`
+    : `/portal/crm/my-dealers/${dealer.account_number}`;
   const emptyLabel = externalCrm ? i18n("crmMyDealersPartnerEmpty", uiLanguage) : i18n("crmMyDealersEmpty", uiLanguage);
   const scopeNote = externalCrm ? i18n("crmMyDealersPartnerScopeNote", uiLanguage) : i18n("crmMyDealersScopeNote", uiLanguage);
 
@@ -545,19 +554,23 @@ export default function CrmMyDealersPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "dashboard" | "partner-list")} className="w-full">
-        <TabsList className="mb-4 h-auto rounded-lg bg-slate-100 p-1">
-          <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-white"><Building2 className="h-4 w-4" />Dashboard</TabsTrigger>
-          <TabsTrigger value="partner-list" className="gap-2 data-[state=active]:bg-white"><Search className="h-4 w-4" />Partnerliste</TabsTrigger>
-        </TabsList>
-        <TabsContent value="dashboard" className="mt-0">
-          <DealerSalesDashboardPrototype
-            initialScope={defaultPrototypeScope}
-            scope={prototypeScope}
-            onScopeChange={setPrototypeScope}
-            live
-            viewAsEmail={activeSellerView?.email}
-          />
-        </TabsContent>
+        {!partnerDataPresentation && (
+          <TabsList className="mb-4 h-auto rounded-lg bg-slate-100 p-1">
+            <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-white"><Building2 className="h-4 w-4" />Dashboard</TabsTrigger>
+            <TabsTrigger value="partner-list" className="gap-2 data-[state=active]:bg-white"><Search className="h-4 w-4" />Partnerliste</TabsTrigger>
+          </TabsList>
+        )}
+        {!partnerDataPresentation && (
+          <TabsContent value="dashboard" className="mt-0">
+            <DealerSalesDashboardPrototype
+              initialScope={defaultPrototypeScope}
+              scope={prototypeScope}
+              onScopeChange={setPrototypeScope}
+              live
+              viewAsEmail={activeSellerView?.email}
+            />
+          </TabsContent>
+        )}
         <TabsContent value="partner-list" className="mt-0">
       <div className="mb-4 bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center gap-3">
         <div className="relative max-w-md flex-1 min-w-[220px]">
@@ -699,7 +712,7 @@ export default function CrmMyDealersPage() {
                     budgetAccountNumbers: hasBranches
                       ? [g.main.account_number, ...g.branches.map((b) => b.account_number)]
                       : [g.main.account_number],
-                    onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                    onOpenDetail: (d) => navigate(detailPath(d)),
                     formatCountry,
                   })}
                   {hasBranches && g.branches.map((b) => (
@@ -713,7 +726,7 @@ export default function CrmMyDealersPage() {
                         contactsByDealerId,
                         lang: uiLanguage,
                         budgetAccountNumbers: [b.account_number],
-                        onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                        onOpenDetail: (d) => navigate(detailPath(d)),
                         formatCountry,
                       })}
                     </React.Fragment>
@@ -729,7 +742,7 @@ export default function CrmMyDealersPage() {
                         contactsByDealerId,
                         lang: uiLanguage,
                         budgetAccountNumbers: [c.account_number],
-                        onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                        onOpenDetail: (d) => navigate(detailPath(d)),
                         formatCountry,
                       })}
                     </React.Fragment>
@@ -745,7 +758,7 @@ export default function CrmMyDealersPage() {
                         contactsByDealerId,
                         lang: uiLanguage,
                         budgetAccountNumbers: [p.account_number],
-                        onOpenDetail: (d) => navigate(`/portal/crm/my-dealers/${d.account_number}`),
+                        onOpenDetail: (d) => navigate(detailPath(d)),
                         formatCountry,
                       })}
                     </React.Fragment>
@@ -758,7 +771,8 @@ export default function CrmMyDealersPage() {
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        {visibleMainCount + pendingRows.length} / {totalDealersCount + pendingRows.length} · <Link to="/portal/crm/dashboard" className="underline">CRM dashboard</Link>
+        {visibleMainCount + pendingRows.length} / {totalDealersCount + pendingRows.length}
+        {!partnerDataPresentation && <> · <Link to="/portal/crm/dashboard" className="underline">CRM dashboard</Link></>}
       </p>
       {!externalCrm && (
         <PendingPartnerSubmissions
@@ -1120,35 +1134,27 @@ function normalizeCompanyBase(value: string | null | undefined): string {
 }
 
 function ProfileStatusBadge({ dealer, peopleCount, contacts = [], lang }: { dealer: DealerAccount; peopleCount: number; contacts?: DealerContact[]; lang: PortalUiLanguage }) {
+  const badge = computeDealerProfileBadge(dealer, peopleCount, contacts);
+  const completionPercent = 100 - badge.missingPercent;
   const severity = computeDealerProfileSeverity(dealer, peopleCount, contacts);
   const missingSections = getDealerProfileMissingLabels(dealer, peopleCount, contacts);
   const missingCritical = getDealerProfileCriticalMissing(dealer);
-  const onlySoftMissing = hasOnlySoftDealerProfileMissing(dealer, contacts);
   const tone =
-    severity === "complete" ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-    : severity === "partial" && onlySoftMissing ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-    : severity === "partial" ? "bg-amber-100 text-amber-800 border-amber-200"
-    : severity === "critical" ? "bg-rose-100 text-rose-800 border-rose-200"
-    : "bg-slate-100 text-slate-700 border-slate-200";
+    completionPercent === 100 ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+    : completionPercent >= 75 ? "bg-lime-100 text-lime-800 border-lime-200"
+    : completionPercent >= 40 ? "bg-amber-100 text-amber-800 border-amber-200"
+    : "bg-rose-100 text-rose-800 border-rose-200";
   const dot =
-    severity === "complete" ? "bg-emerald-500"
-    : severity === "partial" && onlySoftMissing ? "bg-emerald-500"
-    : severity === "partial" ? "bg-amber-500"
-    : severity === "critical" ? "bg-rose-500"
-    : "bg-slate-400";
+    completionPercent === 100 ? "bg-emerald-500"
+    : completionPercent >= 75 ? "bg-lime-500"
+    : completionPercent >= 40 ? "bg-amber-500"
+    : "bg-rose-500";
   const text =
-    severity === "complete" ? i18n("crmProfileReady", lang)
-    : severity === "partial" ? i18n("crmProfileMissingInfo", lang)
-    : severity === "critical" ? i18n("crmProfileCritical", lang)
-    : "—";
+    completionPercent === 100 ? i18n("crmProfileReady", lang) : `${completionPercent} %`;
   const baseTitle =
-    severity === "complete"
+    completionPercent === 100
       ? i18n("crmProfileReadyTitle", lang)
-      : severity === "critical"
-        ? i18n("crmProfileCriticalTitle", lang)
-        : onlySoftMissing
-          ? i18n("crmProfileMinorMissingTitle", lang)
-          : i18n("crmProfileOtherMissingTitle", lang);
+      : `${i18n("crmProfileOtherMissingTitle", lang)} ${badge.missingPercent} %`;
   const parts: string[] = [baseTitle];
   if (severity === "critical" && missingCritical.length > 0) {
     parts.push(`${i18n("crmProfileCriticalFieldsMissing", lang)}:\n- ${missingCritical.map((label) => profileLabel(label, lang)).join("\n- ")}`);
