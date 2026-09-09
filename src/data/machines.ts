@@ -863,23 +863,23 @@ export function formatMoney(amount: number, lang: Language = 'da', negative = fa
 const LOOSE_TERMIT_ITEMS: Accessory[] = [
   { id:'LOES-HGM-20083', varenr:'HGM-20083',
     name:{ da:'Løs - Fingerklipper for Termit-arm', en:'Loose - Finger mower for Termit arm', de:'Lose - Fingerbalkenmäher für Termit-Arm', it:'Sciolto - Barra falciante a dita per braccio Termit', hu:'Különálló - Ujjas kasza Termit karhoz' },
-    priceDKK:19400, priceEUR:2615,
+    priceDKK:19400, priceEUR:2615, looseToolMachine: 'Timan 3330',
     videoUrl:'https://www.youtube.com/watch?v=o3XLURc8qiU',
     imageUrl:'https://img.youtube.com/vi/o3XLURc8qiU/maxresdefault.jpg'
   },
   { id:'LOES-HGM-20082', varenr:'HGM-20082',
     name:{ da:'Løs - Multitrimmer for Termit-arm', en:'Loose - Multi trimmer for Termit arm', de:'Lose - Multitrimmer für Termit-Arm', it:'Sciolto - Multitrimmer per braccio Termit', hu:'Különálló - Multitrimmer Termit karhoz' },
-    priceDKK:56835, priceEUR:7650,
+    priceDKK:56835, priceEUR:7650, looseToolMachine: 'Timan 3330',
     videoUrl:'https://www.youtube.com/watch?v=9Fvwy_rJ_oQ',
     imageUrl:'https://img.youtube.com/vi/9Fvwy_rJ_oQ/maxresdefault.jpg'
   },
   { id:'LOES-730033', varenr:'730033',
     name:{ da:'Løs - Termit-arm for 3330 inkl. hydraulisk sving', en:'Loose - Termit arm for 3330 incl. hydraulic swing', de:'Lose - Termit-Arm für 3330 inkl. hydraulischem Schwenk', it:'Sciolto - Braccio Termit per 3330 incl. brandeggio idraulico', hu:'Különálló - Termit kar 3330-hoz hidraulikus forgással' },
-    priceDKK:72800, priceEUR:9800
+    priceDKK:72800, priceEUR:9800, looseToolMachine: 'Timan 3330'
   },
   { id:'LOES-730034', varenr:'730034',
     name:{ da:'Løs - Termit-arm for 3330 ekskl. hydraulisk sving', en:'Loose - Termit arm for 3330 excl. hydraulic swing', de:'Lose - Termit-Arm für 3330 exkl. hydraulischem Schwenk', it:'Sciolto - Braccio Termit per 3330 escl. brandeggio idraulico', hu:'Különálló - Termit kar 3330-hoz hidraulikus forgás nélkül' },
-    priceDKK:59000, priceEUR:7945
+    priceDKK:59000, priceEUR:7945, looseToolMachine: 'Timan 3330'
   }
 ];
 
@@ -1002,6 +1002,7 @@ export function getLooseToolAccessories(): Accessory[] {
     name: { da: 'Centerslange til T2 Timan 3330 (eftermontering)', en: 'Center hose for T2 Timan 3330 (retrofit)', de: 'Zentralschlauch für T2 Timan 3330 (Nachrüstung)', it: 'Tubo centrale per T2 Timan 3330 (retrofit)', hu: 'Központi tömlő T2 Timan 3330 (utólagos)' },
     priceDKK: 2550,
     priceEUR: 345,
+    looseToolMachine: 'Timan 3330',
   };
 
   const merged = [

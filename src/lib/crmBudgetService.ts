@@ -10,7 +10,7 @@
  * configurator pricing — we only read product names / item numbers.
  */
 import { supabase } from "@/lib/supabase";
-import { PRODUCTS, ACCESSORIES, getAccessoriesFlat } from "@/data/machines";
+import { PRODUCTS, ACCESSORIES, LOOSE_TOOL_KEY, getAccessoriesFlat } from "@/data/machines";
 import { appendAuditEntry } from "@/lib/audit-log-store";
 import type { Accessory, Language, LocalizedString, ConfiguratorState } from "@/types/configurator";
 import { normalizeConfiguratorState } from "@/lib/configuratorState";
@@ -270,14 +270,49 @@ function catalogEquipment(machine: BudgetCatalogMachine): EquipmentCategory[] {
   return equipment;
 }
 
+function budgetMachineForLooseTool(item: Accessory): string | null {
+  if (item.looseToolMachine) {
+    return BUDGET_CATALOG_MACHINES.find((machine) => machine.catalogKey === item.looseToolMachine)?.budgetMachineKey || null;
+  }
+
+  const matchingMachines = BUDGET_CATALOG_MACHINES.filter((machine) =>
+    getAccessoriesFlat(machine.catalogKey).some((candidate) => candidate.id === item.id),
+  );
+  return matchingMachines.length === 1 ? matchingMachines[0].budgetMachineKey : null;
+}
+
+function buildEquipmentCatalog(): Record<string, EquipmentCategory[]> {
+  const byMachine: Record<string, EquipmentCategory[]> = Object.fromEntries(
+    BUDGET_CATALOG_MACHINES.map((machine) => [machine.budgetMachineKey, catalogEquipment(machine)]),
+  );
+  const knownItemNumbers = new Set(Object.values(byMachine).flat().map((item) => item.varenr));
+
+  // Loose-tool-only catalog entries still need a canonical budget row. Existing
+  // items retain their compatible machine row; only missing item numbers are
+  // added under their canonical loose-tool compatibility.
+  for (const item of getAccessoriesFlat(LOOSE_TOOL_KEY)) {
+    if (!isBudgetEquipment(item) || knownItemNumbers.has(item.varenr)) continue;
+    const machineKey = budgetMachineForLooseTool(item);
+    if (!machineKey) continue;
+    knownItemNumbers.add(item.varenr);
+    byMachine[machineKey].push({
+      key: equipmentKey(BUDGET_CATALOG_MACHINES.find((machine) => machine.budgetMachineKey === machineKey)!.keyPrefix, item.varenr),
+      parent_machine_key: machineKey,
+      name: nameOf(item.name, item.varenr),
+      varenr: item.varenr,
+      status: "available",
+    });
+  }
+
+  return byMachine;
+}
+
 /**
  * The CRM Budget catalog is derived from the same machine compatibility data
  * as Configurator. A product with a canonical item number therefore maps to
  * the exact same budget row for quotes and submitted orders.
  */
-export const EQUIPMENT_BY_MACHINE: Record<string, EquipmentCategory[]> = Object.fromEntries(
-  BUDGET_CATALOG_MACHINES.map((machine) => [machine.budgetMachineKey, catalogEquipment(machine)]),
-);
+export const EQUIPMENT_BY_MACHINE: Record<string, EquipmentCategory[]> = buildEquipmentCatalog();
 
 /** Localized name resolver — used by the page to render equipment rows. */
 export function localizedName(name: LocalizedString, lang: Language): string {
@@ -504,15 +539,51 @@ function buildProductLookup(): Map<string, string> {
   return productByNormKey;
 }
 
-function buildEquipmentLookup(): Map<string, string> {
+interface EquipmentLookup {
+  byMachineAndItem: Map<string, string>;
+  byItemNumber: Map<string, Set<string>>;
+  byAccessoryId: Map<string, Set<string>>;
+}
+
+function addLookupValue(index: Map<string, Set<string>>, source: string | null | undefined, key: string) {
+  const normalized = normKey(source);
+  if (!normalized) return;
+  const values = index.get(normalized) || new Set<string>();
+  values.add(key);
+  index.set(normalized, values);
+}
+
+function uniqueLookupValue(index: Map<string, Set<string>>, source: string | null | undefined): string | null {
+  const values = index.get(normKey(source));
+  return values?.size === 1 ? Array.from(values)[0] : null;
+}
+
+function buildEquipmentLookup(): EquipmentLookup {
   const byMachineAndItem = new Map<string, string>();
+  const byItemNumber = new Map<string, Set<string>>();
+  const byAccessoryId = new Map<string, Set<string>>();
   for (const [machineKey, equipment] of Object.entries(EQUIPMENT_BY_MACHINE)) {
     for (const item of equipment) {
       if (item.isHeader || !item.varenr) continue;
       byMachineAndItem.set(`${normKey(machineKey)}|${normKey(item.varenr)}`, item.key);
+      addLookupValue(byItemNumber, item.varenr, item.key);
+
+      const catalogMachine = BUDGET_CATALOG_MACHINES.find((machine) => machine.budgetMachineKey === machineKey);
+      if (!catalogMachine) continue;
+      for (const accessory of getAccessoriesFlat(catalogMachine.catalogKey)) {
+        if (normKey(accessory.varenr) === normKey(item.varenr)) {
+          addLookupValue(byAccessoryId, accessory.id, item.key);
+        }
+      }
     }
   }
-  return byMachineAndItem;
+  for (const accessory of getAccessoriesFlat(LOOSE_TOOL_KEY)) {
+    const machineKey = budgetMachineForLooseTool(accessory);
+    if (!machineKey) continue;
+    const itemKey = byMachineAndItem.get(`${normKey(machineKey)}|${normKey(accessory.varenr)}`);
+    if (itemKey) addLookupValue(byAccessoryId, accessory.id, itemKey);
+  }
+  return { byMachineAndItem, byItemNumber, byAccessoryId };
 }
 
 function resolveMachineKey(value: string | null | undefined, productByNormKey: Map<string, string>): string | null {
@@ -596,7 +667,7 @@ function isSubmittedBudgetOrder(row: BudgetOrderRow): boolean {
 function equipmentQtyFromOrder(
   row: BudgetOrderRow,
   productByNormKey: Map<string, string>,
-  equipmentByMachineAndItem: Map<string, string>,
+  equipmentLookup: EquipmentLookup,
 ): Record<string, number> {
   const state = parseOrderState(row);
   if (!state) return {};
@@ -606,7 +677,11 @@ function equipmentQtyFromOrder(
     const accessory = getAccessoriesFlat(machineType).find((item) => item.id === accessoryId && !item.isHeader);
     if (!accessory) return;
     const machineKey = resolveMachineKey(machineType, productByNormKey) || machineType;
-    const key = equipmentByMachineAndItem.get(`${normKey(machineKey)}|${normKey(String(accessory.varenr || accessory.id))}`);
+    const compatibleMachine = machineType === LOOSE_TOOL_KEY ? budgetMachineForLooseTool(accessory) : null;
+    const key = equipmentLookup.byMachineAndItem.get(`${normKey(machineKey)}|${normKey(accessory.varenr)}`)
+      || (compatibleMachine ? equipmentLookup.byMachineAndItem.get(`${normKey(compatibleMachine)}|${normKey(accessory.varenr)}`) : null)
+      || uniqueLookupValue(equipmentLookup.byAccessoryId, accessory.id)
+      || uniqueLookupValue(equipmentLookup.byItemNumber, accessory.varenr);
     if (!key) return;
     const quantity = Number(state.accQty?.[`${configKey}_${accessory.id}`] || 1);
     if (!Number.isFinite(quantity) || quantity <= 0) return;
@@ -903,7 +978,7 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
   try {
     const sellers = await loadSellerIdentityIndex();
     const productByNormKey = buildProductLookup();
-    const equipmentByMachineAndItem = buildEquipmentLookup();
+    const equipmentLookup = buildEquipmentLookup();
 
     const data = await fetchBudgetOrderRows(year);
     const totals = new Map<string, SalesActual>();
@@ -975,7 +1050,7 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       for (const [machineKey, qty] of Object.entries(qtyByKey)) {
         addActual(machineKey, qty, finalPrice * (qty / totalQty));
       }
-      for (const [equipmentKey, qty] of Object.entries(equipmentQtyFromOrder(row, productByNormKey, equipmentByMachineAndItem))) {
+      for (const [equipmentKey, qty] of Object.entries(equipmentQtyFromOrder(row, productByNormKey, equipmentLookup))) {
         addActual(equipmentKey, qty, 0);
       }
     }

@@ -66,6 +66,7 @@ vi.mock("@/lib/supabase", () => {
 });
 
 import * as supabaseModule from "@/lib/supabase";
+import { LOOSE_TOOL_KEY, getAccessoriesFlat } from "@/data/machines";
 import {
   listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct,
   BUDGET_SELLERS, BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, BUDGET_EXCLUDED_EQUIPMENT_VARENR,
@@ -231,6 +232,62 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     ]) {
       expect(qty(productKey)).toBe(1);
     }
+  });
+
+  it("counts a submitted loose-tools order by canonical item number", async () => {
+    const view = {
+      id: "o-7004", order_number: "O-7004", seller_email: AKR.email, seller_initials: AKR.initials,
+      case_status: "ordre_afgivet", document_type: "order", dealer_name: "Loose Tools Dealer",
+      order_sent_at: `${YEAR}-09-09T10:00:00Z`, submitted_at: `${YEAR}-09-09T10:00:00Z`,
+    };
+    const details = {
+      id: "o-7004", total_price: 1,
+      state_json: {
+        language: "da", flowType: "order",
+        machineConfigs: [{ id: "loose", type: "LOOSE_TOOL", qty: 1, configMode: "shared", acc: ["720130", "720130", "721059"] }],
+        accQty: {},
+      },
+    };
+    setOrders([view], [details]);
+
+    const actuals = await listSalesActuals(YEAR);
+    const byKey = buildOrderActualsByKey(actuals);
+    const qty = (productKey: string) => byKey[orderActualKey(AKR.email, YEAR, SEPTEMBER_IDX, productKey)] || 0;
+
+    expect(qty("T3330_720130")).toBe(1);
+    expect(qty("T3330_721059")).toBe(1);
+  });
+
+  it("maps every budget-relevant loose-tool catalog item through its canonical item number", async () => {
+    const selected = getAccessoriesFlat(LOOSE_TOOL_KEY)
+      .filter((item) => !item.isHeader && !item.hidden && !BUDGET_EXCLUDED_EQUIPMENT_VARENR.has(item.varenr))
+      .filter((item) => item.priceDKK > 0 || item.priceEUR > 0);
+    const view = {
+      id: "full-loose-catalog", order_number: "O-7998", seller_email: AKR.email, seller_initials: AKR.initials,
+      case_status: "ordre_afgivet", document_type: "order", dealer_name: "Catalog Dealer",
+      order_sent_at: `${YEAR}-09-09T10:00:00Z`, submitted_at: `${YEAR}-09-09T10:00:00Z`,
+    };
+    const details = {
+      id: "full-loose-catalog", total_price: 1,
+      state_json: {
+        language: "da", flowType: "order",
+        machineConfigs: [{ id: "loose", type: LOOSE_TOOL_KEY, qty: 1, configMode: "shared", acc: selected.map((item) => item.id) }],
+        accQty: {},
+      },
+    };
+    setOrders([view], [details]);
+
+    const canonicalRowsByItemNumber = new Map<string, string[]>();
+    for (const item of Object.values(EQUIPMENT_BY_MACHINE).flat()) {
+      if (!item.varenr) continue;
+      canonicalRowsByItemNumber.set(item.varenr, [...(canonicalRowsByItemNumber.get(item.varenr) || []), item.key]);
+    }
+    const actualProductKeys = new Set((await listSalesActuals(YEAR)).map((actual) => actual.product_key));
+    const unmatched = selected
+      .filter((item) => !(canonicalRowsByItemNumber.get(item.varenr) || []).some((key) => actualProductKeys.has(key)))
+      .map((item) => item.varenr);
+
+    expect(unmatched).toEqual([]);
   });
 
   it("accepts a canonical O-number with a submitted timestamp even if a legacy status is stale", async () => {
