@@ -410,14 +410,26 @@ function Template02({ content, lang, templateData }: NewsRendererProps) {
 
 
 function Template03({ content, lang, templateData }: NewsRendererProps) {
+  const heroImage = text(content, 'heroImage', '');
+  const body = text(content, 'body', '');
   return (
     <TemplateShell lang={lang}>
       <div className="relative h-full overflow-hidden rounded-xl">
-        <ImageBox label={t('newsCmsWireHeroImage', lang)} className="absolute inset-0 h-full border-none bg-slate-200" />
+        <TemplateImage
+          url={heroImage}
+          label={t('newsCmsWireHeroImage', lang)}
+          className="absolute inset-0 h-full w-full rounded-none border-none bg-slate-200"
+          transform={imageTransform(content, 'heroImageTransform')}
+        />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-transparent" />
         <div className="relative flex h-full max-w-lg flex-col justify-center text-white">
           <h3 className="text-4xl font-black leading-tight" style={newsTypographyStyle(templateData, 'headline', TEXT_SCALE_HERO)}>{text(content, 'headline', t('newsCmsWireHeroHeadline', lang))}</h3>
           <p className="mt-4 text-lg" style={newsTypographyStyle(templateData, 'subtitle', TEXT_SCALE_LG)}>{text(content, 'subtitle', t('newsCmsWireIntro', lang))}</p>
+          {body ? (
+            <p className="mt-4 max-w-md whitespace-pre-line text-base leading-7 text-white/95" style={newsTypographyStyle(templateData, 'body', TEXT_SCALE_MD)}>
+              {body}
+            </p>
+          ) : null}
           <div className="mt-7 flex gap-3">
             {[1, 2, 3].map((item) => <span key={item} className="h-12 w-28 rounded-lg bg-white/20" />)}
           </div>
