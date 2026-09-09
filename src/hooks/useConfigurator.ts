@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult, LineItem, DiscountDetail } from '@/types/configurator';
 import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, getLooseToolAccessories } from '@/data/machines';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
+import { shouldEnforceAccessoryParentDependency, shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { t } from '@/data/translations';
 import { toast } from 'sonner';
 
@@ -167,6 +168,7 @@ export function useConfigurator() {
         const clickedItem = flatAccs.find(a => a.id === accId);
         // Recursively remove all dependents (requires + parentId)
         const removeDependents = (parentId: string) => {
+          if (!shouldEnforceAccessoryParentDependency(unit.modelType)) return;
           flatAccs.filter(a => a.requires === parentId || (a as any).parentId === parentId).forEach(dep => {
             const di = accList.indexOf(dep.id);
             if (di !== -1) {
@@ -231,6 +233,7 @@ export function useConfigurator() {
         const clickedItem = flatAccs.find(a => a.id === accId);
         // Recursively remove all dependents (requires + parentId)
         const removeDependents = (parentId: string) => {
+          if (!shouldEnforceAccessoryParentDependency(unit.modelType)) return;
           flatAccs.filter(a => a.requires === parentId || (a as any).parentId === parentId).forEach(dep => {
             const di = accList.indexOf(dep.id);
             if (di !== -1) {
@@ -315,14 +318,11 @@ export function useConfigurator() {
       const flatAccs = getAccessoriesFlat(unit.modelType);
       const selectedAccs = flatAccs.filter(a => accIds.includes(a.id) && !a.isHeader);
 
-      // Include qty-input items that have qty > 0 even if not toggled (e.g. sidekost børster).
-      // Their parent (`requires`) must still be selected for them to count.
+      // Loose tools may include quantity children without their parent. Normal machine
+      // configurations retain the existing parent dependency requirement.
       const qtyOnlyAccs = flatAccs.filter(a => {
-        if (!a.isQtyInput || a.isHeader) return false;
-        if (accIds.includes(a.id)) return false; // already counted via selectedAccs
-        if (a.requires && !accIds.includes(a.requires)) return false; // parent not selected
         const q = state.accQty[`${unit.configKey}_${a.id}`] || 0;
-        return q > 0;
+        return shouldIncludeQuantityAccessory(unit.modelType, a, accIds, q);
       });
 
       [...selectedAccs, ...qtyOnlyAccs].forEach(a => {

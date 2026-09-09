@@ -52,6 +52,7 @@ import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection } from '@/lib/submittedOrderCorrectionService';
 import { academySandbox } from '@/lib/academySandbox';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
+import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
@@ -1397,7 +1398,7 @@ export default function ConfiguratorPage() {
             <div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatMoney(getPrice(sub, lang), lang) : ''}</div>
           </div>
         </div>
-        {isSelected && hasNestedSubs && (
+        {(isSelected || isLooseToolMode(machineType)) && hasNestedSubs && (
           <div className="ml-8 mt-2 space-y-2">
             {sub.subItems!.map(sub2 => renderSubItem(sub2 as SubItem, selectedIds, machineType, level + 1))}
           </div>
@@ -3012,7 +3013,7 @@ export default function ConfiguratorPage() {
                 };
 
                 accs.forEach((a, idx) => {
-                  if (a.hidden || (a.requires && !selectedIds.includes(a.requires))) return;
+                  if (!shouldRenderAccessory(machineType, a, selectedIds)) return;
                   // RAL color (961050) only for Løs redskab
                   if ((String(a.id) === ACC_ID_RAL_COLOR || String(a.varenr) === ACC_ID_RAL_COLOR) && machineType !== LOOSE_TOOL_KEY) return;
                   // Danish-only / EUR-only filtering
@@ -3139,7 +3140,7 @@ export default function ConfiguratorPage() {
                           {ralInput}
                         </div>
                       </div>
-                      {isSelected && a.subItems && a.subItems.length > 0 && (
+                      {(isSelected || isLooseToolMode(machineType)) && a.subItems && a.subItems.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-emerald-200 space-y-2">
                           <div className="text-xs font-semibold text-gray-600">{T('tilvalg')}</div>
                           {a.subItems.map(sub => renderSubItem(sub, selectedIds, machineType))}
