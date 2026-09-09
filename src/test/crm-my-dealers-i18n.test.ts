@@ -16,6 +16,7 @@ const keys = [
   "crmMyDealersMain",
   "crmMyDealersFilterMissingInfo",
   "crmMyDealersFilterCritical",
+  "crmProfileReady",
   "crmProfileMissingInfo",
   "crmProfileCritical",
   "crmProfileSectionCompany",
@@ -37,5 +38,9 @@ describe("CRM My dealers dynamic labels", () => {
     expect(t("crmMyDealersFilterCritical", "de")).toBe("Kritisch");
     expect(t("crmMyDealersMain", "de")).toBe("Haupt");
     expect(t("crmMyDealersMain", "de")).not.toBe("Hoved");
+  });
+
+  it("labels a fully complete partner profile as complete in the Danish list", () => {
+    expect(t("crmProfileReady", "da")).toBe("Komplet");
   });
 });
