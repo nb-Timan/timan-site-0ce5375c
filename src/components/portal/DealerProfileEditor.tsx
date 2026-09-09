@@ -114,6 +114,11 @@ function isLocalContact(contact: DealerContact): boolean {
   return contact.id.startsWith("local-");
 }
 
+/** A legacy profile field is display-only until the user explicitly edits it. */
+export function isLegacyViewContact(contact: DealerContact): boolean {
+  return contact.id.startsWith("legacy-view-");
+}
+
 function contactHasContent(contact: DealerContact): boolean {
   return Boolean(
     contact.role_title?.trim() ||
@@ -136,8 +141,13 @@ function normalizeContactValue(value: string | null | undefined): string {
 }
 
 function sameContactPerson(contact: DealerContact, source: LegacyContactSource): boolean {
+  const sameArea = normalizeContactValue(contact.contact_area) === normalizeContactValue(source.area);
+  const contactEmail = normalizeContactValue(contact.email);
+  const sourceEmail = normalizeContactValue(source.email);
+  if (sameArea && contactEmail && sourceEmail && contactEmail === sourceEmail) return true;
+
   return (
-    normalizeContactValue(contact.contact_area) === normalizeContactValue(source.area) &&
+    sameArea &&
     normalizeContactValue(contact.name) === normalizeContactValue(source.name) &&
     normalizeContactValue(contact.email) === normalizeContactValue(source.email) &&
     normalizeContactValue(contact.phone) === normalizeContactValue(source.phone)
@@ -206,17 +216,21 @@ function isLegacyPrimaryContact(dealer: DealerAccount, source: LegacyContactSour
   );
 }
 
-function mergeLegacyContacts(
+export function mergeLegacyContacts(
   dealer: DealerAccount,
   rows: DealerContact[],
   t: (k: ProfileI18nKey) => string,
 ): DealerContact[] {
   const merged = [...rows];
   for (const source of legacyContactSources(dealer, t)) {
+    // Canonical dealer_contacts owns a populated section. Legacy profile fields are fallback-only.
+    if (rows.some((contact) => (
+      contact.contact_area === source.area && !isLocalContact(contact) && !isLegacyViewContact(contact)
+    ))) continue;
     if (merged.some((contact) => sameContactPerson(contact, source))) continue;
     merged.unshift({
       ...createLocalContact(dealer.id, source.area),
-      id: `local-legacy-${source.area}-${dealer.id}`,
+      id: `legacy-view-${source.area}-${dealer.id}`,
       role_title: t(source.roleKey),
       name: source.name,
       email: source.email,
@@ -227,7 +241,7 @@ function mergeLegacyContacts(
   return merged;
 }
 
-function ensureMinimumAreaContacts(dealerAccountId: string, rows: DealerContact[]): DealerContact[] {
+export function ensureMinimumAreaContacts(dealerAccountId: string, rows: DealerContact[]): DealerContact[] {
   const next = [...rows];
   for (const { area } of CONTACT_AREA_CONFIG) {
     if (!next.some((contact) => contact.contact_area === area)) {
@@ -235,6 +249,11 @@ function ensureMinimumAreaContacts(dealerAccountId: string, rows: DealerContact[
     }
   }
   return next;
+}
+
+export function shouldPersistContact(contact: DealerContact): boolean {
+  if (isLegacyViewContact(contact)) return false;
+  return !isLocalContact(contact) || contactHasContent(contact);
 }
 
 // ---------- module-scope helpers (stable component identity) ----------
@@ -533,10 +552,38 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
     markLegacyMultiple(area);
     setContacts((prev) => [...prev, createLocalContact(dealer.id, area)]);
   };
-  const patchContact = (id: string, patch: Partial<DealerContact>) =>
-    setContacts((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  const promoteLegacyContact = (contact: DealerContact): DealerContact => {
+    const local = createLocalContact(dealer.id, contact.contact_area);
+    return { ...contact, id: local.id, created_at: local.created_at, updated_at: local.updated_at };
+  };
+  const clearLegacyContactSource = (area: DealerContactArea) => {
+    setDraft((current) => {
+      switch (area) {
+        case "director":
+          return { ...current, director_name: null };
+        case "finance":
+          return { ...current, finance_contact_name: null, finance_contact_email: null, finance_contact_phone: null };
+        case "sales":
+          return { ...current, sales_contact_name: null, sales_contact_email: null, sales_contact_phone: null };
+        case "workshop":
+          return { ...current, workshop_contact_name: null, workshop_contact_email: null, workshop_contact_phone: null };
+        case "marketing":
+          return { ...current, marketing_contact_name: null, marketing_contact_email: null, marketing_contact_phone: null };
+        default:
+          return current;
+      }
+    });
+  };
+  const patchContact = (id: string, patch: Partial<DealerContact>) => {
+    const contact = contacts.find((row) => row.id === id);
+    if (contact && isLegacyViewContact(contact)) clearLegacyContactSource(contact.contact_area);
+    setContacts((prev) => prev.map((c) => {
+      if (c.id !== id) return c;
+      return { ...(isLegacyViewContact(c) ? promoteLegacyContact(c) : c), ...patch };
+    }));
+  };
   const persistContact = async (c: DealerContact) => {
-    if (isLocalContact(c) && !contactHasContent(c)) return { ok: true };
+    if (!shouldPersistContact(c)) return { ok: true };
     const res = await upsertDealerContact({
       id: isLocalContact(c) ? undefined : c.id, dealer_account_id: c.dealer_account_id, contact_area: c.contact_area,
       role_title: c.role_title, name: c.name, email: c.email, phone: c.phone, is_primary: c.is_primary,
@@ -550,7 +597,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   };
   const removeContact = async (id: string) => {
     const local = contacts.find((c) => c.id === id);
-    if (local && isLocalContact(local)) {
+    if (local && (isLocalContact(local) || isLegacyViewContact(local))) {
+      if (isLegacyViewContact(local)) clearLegacyContactSource(local.contact_area);
       setContacts((prev) => prev.filter((c) => c.id !== id));
       return;
     }
@@ -559,14 +607,18 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
     else toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
   };
   const setPrimaryContact = async (id: string, checked: boolean) => {
-    const next = contacts.map((c) => (
-      { ...c, is_primary: checked && c.id === id }
-    ));
+    const target = contacts.find((contact) => contact.id === id);
+    if (target && isLegacyViewContact(target)) clearLegacyContactSource(target.contact_area);
+    const next = contacts.map((c) => {
+      const isTarget = c.id === id;
+      const base = isTarget && isLegacyViewContact(c) ? promoteLegacyContact(c) : c;
+      return { ...base, is_primary: checked && isTarget };
+    });
     setContacts(next);
     if (checked) {
       setDraft((d) => ({ ...d, primary_contact_name: null, primary_contact_email: null, primary_contact_phone: null }));
     }
-    const changedContacts = next.filter((c) => !isLocalContact(c) || contactHasContent(c));
+    const changedContacts = next.filter(shouldPersistContact);
     const results = await Promise.all(changedContacts.map((c) => persistContact(c)));
     const error = results.find((r) => !r.ok)?.error;
     if (error) toast({ title: t("saveError"), description: error, variant: "destructive" });
@@ -591,14 +643,15 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
     if (!contactTransfer) return;
     const { mode, contact, targetArea } = contactTransfer;
     const nextContact: DealerContact = {
-      ...contact,
+      ...(isLegacyViewContact(contact) ? promoteLegacyContact(contact) : contact),
       contact_area: targetArea,
       role_title: null,
       is_primary: false,
     };
 
     if (mode === "move") {
-      if (isLocalContact(contact)) {
+      if (isLocalContact(contact) || isLegacyViewContact(contact)) {
+        if (isLegacyViewContact(contact)) clearLegacyContactSource(contact.contact_area);
         markLegacyMultiple(targetArea);
         setContacts((prev) => prev.map((row) => row.id === contact.id ? nextContact : row));
         closeContactTransfer();
@@ -628,7 +681,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
     duplicate.name = contact.name;
     duplicate.email = contact.email;
     duplicate.phone = contact.phone;
-    if (isLocalContact(contact)) {
+    if (isLocalContact(contact) || isLegacyViewContact(contact)) {
       markLegacyMultiple(targetArea);
       setContacts((prev) => [...prev, duplicate]);
       closeContactTransfer();
