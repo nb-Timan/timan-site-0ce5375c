@@ -1638,7 +1638,7 @@ export default function ContractsPage() {
       return;
     }
     setContractRecord(marked.row);
-    setFinalSnapshot(marked.row.final_snapshot ?? pdfSnapshot);
+    setFinalSnapshot(marked.row.final_snapshot ?? snapshot);
 
     const url = URL.createObjectURL(generated.blob);
     const link = document.createElement('a');

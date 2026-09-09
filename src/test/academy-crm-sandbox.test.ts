@@ -60,7 +60,7 @@ describe('Academy CRM lead sandbox', () => {
     const repository = getCrmLeadRepository();
     expect(repository.academy).toBe(true);
 
-    const result = await repository.listLeadsPage({ limit: 50, offset: 0 });
+    const result = await repository.listLeadsPage({ limit: 50, offset: 0, isAdmin: false });
     expect(result.rows.map((lead) => lead.id)).toEqual([
       'academy-overdue-lead',
       'academy-configurator-lead',

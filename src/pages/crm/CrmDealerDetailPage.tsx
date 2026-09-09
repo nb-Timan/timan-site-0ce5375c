@@ -1945,6 +1945,7 @@ function CrmDemoMachinesPreview({
   scope: JournalScope | null;
   lang: PortalUiLanguage;
   onOpenMachines: () => void;
+  compact?: boolean;
 }) {
   const [rows, setRows] = useState<DealerMachineRegisterRow[]>([]);
   const [total, setTotal] = useState(0);

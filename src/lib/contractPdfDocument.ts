@@ -292,7 +292,7 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
       if (appendix) addPage();
       sectionPages.push({ title: appendix ?? sectionTitle(section, index), page: pdf.getNumberOfPages(), appendix: Boolean(appendix) });
       mainHeading(appendix ?? sectionTitle(section, index));
-      section.blocks.forEach((item) => block(item.heading, item.paragraphs, item.bullets));
+      section.blocks.forEach((item) => block(item.heading, item.paragraphs ? [...item.paragraphs] : undefined, item.bullets ? [...item.bullets] : undefined));
       if (section.stepId === 'discount_structure') {
         addPage();
         sectionPages.push({ title: 'Bilag 2 - Rabatstruktur', page: pdf.getNumberOfPages(), appendix: true });

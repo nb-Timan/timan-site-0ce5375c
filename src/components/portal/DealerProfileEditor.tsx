@@ -193,7 +193,7 @@ function legacyContactSources(dealer: DealerAccount, t: (k: ProfileI18nKey) => s
     },
   ].filter((source) => (
     Boolean(source.name || source.email || source.phone) &&
-    !isInvoiceEmailOnlyFinanceFallback(dealer, source)
+    !isInvoiceEmailOnlyFinanceFallback(dealer, source as LegacyContactSource)
   )) as LegacyContactSource[];
 }
 

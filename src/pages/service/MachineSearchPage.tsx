@@ -13,6 +13,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
+import type { RegistryMachineRow } from "@/lib/machineRegistryPageService";
 import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug, type MachineOverviewRow } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import { getActiveSellerView } from "@/lib/activeMode";
@@ -268,7 +269,7 @@ export default function MachineSearchPage() {
   const [historyPartsLoading, setHistoryPartsLoading] = useState<Record<string, boolean>>({});
 
   // ---- Machine Registry Overview (Phase 1) ----
-  const [overview, setOverview] = useState<MachineOverviewRow[]>([]);
+  const [overview, setOverview] = useState<RegistryMachineRow[]>([]);
   const [overviewTotal, setOverviewTotal] = useState(0);
   const [overviewScopeTotal, setOverviewScopeTotal] = useState(0);
   const [overviewNormal, setOverviewNormal] = useState(0);
@@ -975,7 +976,7 @@ export default function MachineSearchPage() {
                               <td className="px-3 py-2 text-slate-700 truncate max-w-[280px]">{row.dealerNumber && row.dealerName ? `${row.dealerNumber} - ${row.dealerName}` : (row.dealerName || "—")}</td>
                               <td className="px-3 py-2 text-slate-700 whitespace-nowrap">{row.deliveryDate ? fmtDateShort(row.deliveryDate) : "—"}</td>
                               <td className="px-3 py-2 text-right text-slate-700 whitespace-nowrap">{row.operatingHours != null ? row.operatingHours : "—"}</td>
-                              <td className="px-3 py-2 text-slate-700 truncate max-w-[320px]">{row.latestActivityLabel || "—"}</td>
+                              <td className="px-3 py-2 text-slate-700 truncate max-w-[320px]">{(row as { latestActivityLabel?: string | null }).latestActivityLabel || "—"}</td>
                               <td className="px-3 py-2">
                                 <div className="flex flex-wrap gap-1">
                                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${warrantyMeta.text} bg-slate-50`}>
@@ -1018,7 +1019,7 @@ export default function MachineSearchPage() {
                             {row.machineModel || "—"}{row.dealerName ? ` · ${row.dealerName}` : ""}
                           </div>
                           <div className="mt-1 text-[11px] text-slate-500 truncate">
-                            {`ERP ${row.erpOrderNumber || "—"} · Faktura ${row.invoiceNumber || "—"} · Portal ${row.portalOrderNumber || "—"} · ${row.latestActivityLabel || "—"}`}
+                            {`ERP ${row.erpOrderNumber || "—"} · Faktura ${row.invoiceNumber || "—"} · Portal ${row.portalOrderNumber || "—"} · ${(row as { latestActivityLabel?: string | null }).latestActivityLabel || "—"}`}
                           </div>
                           {(row.warrantyMatchDetail || openItems.length > 0) && (
                             <div className="mt-1 flex flex-wrap gap-1">

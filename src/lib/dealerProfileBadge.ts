@@ -310,7 +310,7 @@ export function useDealerPortfolioProfileBadge(
 
         if (cancelled) return;
         if (total === 0) {
-          setBadge({ total: 0, missing: 0, critical: 0, tone: "neutral", label: "Ingen forhandlere", labelKind: "empty" });
+          setBadge({ total: 0, missing: 0, missingPercent: 0, critical: 0, tone: "neutral", label: "Ingen forhandlere", labelKind: "empty" });
           return;
         }
         const tone: BadgeTone = critical > 0 ? "red" : needsAttention > 0 ? "yellow" : "green";
@@ -322,6 +322,7 @@ export function useDealerPortfolioProfileBadge(
         setBadge({
           total,
           missing: incomplete,
+          missingPercent: total > 0 ? Math.round((incomplete / total) * 100) : 0,
           critical,
           tone,
           label,

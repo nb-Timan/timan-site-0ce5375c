@@ -51,7 +51,7 @@ function warranty(overrides: Partial<DbWarrantyRegistration>): DbWarrantyRegistr
     registrationDate: null,
     isActiveInSource: true,
     ...overrides,
-  };
+  } as DbWarrantyRegistration;
 }
 
 describe("dealer machine register", () => {

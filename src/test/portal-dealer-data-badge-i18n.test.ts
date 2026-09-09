@@ -31,6 +31,7 @@ const requiredKeys = [
 const criticalBadge: DealerProfileBadge = {
   total: 113,
   missing: 98,
+  missingPercent: 87,
   critical: 15,
   tone: "red",
   label: "15 kritiske · 98 mangler info",

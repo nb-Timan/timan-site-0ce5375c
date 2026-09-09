@@ -6,7 +6,7 @@ import {
 } from '@/lib/contractCommercialTerms';
 import { renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import { renderGuidedContractSections } from '@/lib/contractSections';
-import { buildContractSnapshot, type ContractFormData } from '@/lib/contractFlow';
+import { buildContractSnapshot, type ContractConfirmations, type ContractFormData } from '@/lib/contractFlow';
 
 describe('contract partner discount structure', () => {
   it('uses the agreed defaults for new contracts by partner type', () => {
@@ -92,8 +92,8 @@ describe('contract partner discount structure', () => {
   });
 
   it('stores semantic terms in new snapshots while retaining legacy fields', () => {
-    const form: ContractFormData = {
-      partnerType: 'dealer',
+    const form = {
+      partnerType: 'dealer' as const,
       dealerName: 'Forhandler A/S',
       dealerAddress: 'Timanvej 1',
       dealerPostalCode: '9000',
@@ -106,7 +106,7 @@ describe('contract partner discount structure', () => {
       machineDiscountPct: 25,
       sparePartsDiscountPct: 25,
     };
-    const snapshot = buildContractSnapshot(form, {});
+    const snapshot = buildContractSnapshot(form as ContractFormData, {} as ContractConfirmations);
 
     expect(snapshot.commercialTerms).toMatchObject({
       machineDiscountPct: 25,
