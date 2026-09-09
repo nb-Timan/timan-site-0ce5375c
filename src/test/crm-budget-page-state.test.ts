@@ -68,7 +68,7 @@ vi.mock("@/lib/supabase", () => {
 import * as supabaseModule from "@/lib/supabase";
 import {
   listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct,
-  BUDGET_SELLERS, BUDGET_PRODUCTS,
+  BUDGET_SELLERS, BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, BUDGET_EXCLUDED_EQUIPMENT_VARENR,
   type BudgetLine, type SalesActual,
 } from "@/lib/crmBudgetService";
 
@@ -163,7 +163,7 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
       state_json: {
         language: "da", flowType: "order",
         machineConfigs: [{ id: "m0", type: "RC-1000S", qty: 1, configMode: "individual", acc: [] }],
-        individualUnitConfigs: { m0_1: { acc: ["13101003", "410910", "411800", "411891", "411906"] } },
+        individualUnitConfigs: { m0_1: { acc: ["13101003", "410910", "411800", "412051", "412050", "411891", "411906"] } },
         accQty: {},
       },
     };
@@ -175,13 +175,62 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     const qty = (productKey: string) => byKey[orderActualKey(AKR.email, YEAR, SEPTEMBER_IDX, productKey)] || 0;
 
     expect(qty("RC-1000s")).toBe(1);
-    expect(qty("RC1000_13101003")).toBe(1);
     expect(qty("RC1000_410910")).toBe(1);
     expect(qty("RC1000_411800")).toBe(1);
-    expect(qty("RC1000_411891")).toBe(1);
-    expect(qty("RC1000_411906")).toBe(1);
+    expect(qty("RC1000_412051")).toBe(1);
+    expect(qty("RC1000_412050")).toBe(1);
+    expect(qty("RC1000_13101003")).toBe(0);
+    expect(qty("RC1000_411891")).toBe(0);
+    expect(qty("RC1000_411906")).toBe(0);
     expect(monthlyOrderQtyForProduct(actuals, YEAR, "RC-1000s", null)[SEPTEMBER_IDX]).toBe(1);
     expect(monthlyOrderQtyForProduct(actuals, YEAR, "RC-1000s", new Set([JTN.email]))[SEPTEMBER_IDX]).toBe(0);
+  });
+
+  it("derives current canonical equipment rows for all three budget machines", () => {
+    const itemNumbers = (machine: string) => new Set(EQUIPMENT_BY_MACHINE[machine].map((item) => item.varenr));
+
+    for (const itemNumber of ["412051", "412050"]) expect(itemNumbers("RC-1000s").has(itemNumber)).toBe(true);
+    for (const itemNumber of ["730035", "730036"]) expect(itemNumbers("Timan 3330").has(itemNumber)).toBe(true);
+    for (const itemNumber of ["744000", "774005", "770002", "770003", "770007"]) {
+      expect(itemNumbers("Timan 2620").has(itemNumber)).toBe(true);
+    }
+
+    const allItemNumbers = new Set(Object.values(EQUIPMENT_BY_MACHINE).flat().map((item) => item.varenr));
+    for (const itemNumber of BUDGET_EXCLUDED_EQUIPMENT_VARENR) {
+      expect(allItemNumbers.has(itemNumber)).toBe(false);
+    }
+  });
+
+  it("maps canonical item numbers from submitted orders to the derived budget rows", async () => {
+    const view = {
+      id: "catalog-order", order_number: "O-7005", seller_email: AKR.email, seller_initials: AKR.initials,
+      case_status: "ordre_afgivet", document_type: "order", dealer_name: "Catalog Dealer",
+      order_sent_at: `${YEAR}-09-06T17:26:34.993Z`, submitted_at: `${YEAR}-09-06T17:26:34.993Z`,
+    };
+    const details = {
+      id: "catalog-order", total_price: 1,
+      state_json: {
+        language: "da", flowType: "order",
+        machineConfigs: [
+          { id: "rc", type: "RC-1000S", qty: 1, configMode: "shared", acc: ["412051", "412050"] },
+          { id: "t3330", type: "Timan 3330", qty: 1, configMode: "shared", acc: ["730036", "730035"] },
+          { id: "t2620", type: "Timan 2620", qty: 1, configMode: "shared", acc: ["3000-01", "3000-01__774005", "3000-05", "3000-06", "4000-01"] },
+        ],
+        accQty: {},
+      },
+    };
+    setOrders([view], [details]);
+
+    const actuals = await listSalesActuals(YEAR);
+    const byKey = buildOrderActualsByKey(actuals);
+    const qty = (productKey: string) => byKey[orderActualKey(AKR.email, YEAR, SEPTEMBER_IDX, productKey)] || 0;
+
+    for (const productKey of [
+      "RC1000_412051", "RC1000_412050", "T3330_730036", "T3330_730035",
+      "T2620_744000", "T2620_774005", "T2620_770003", "T2620_770002", "T2620_770007",
+    ]) {
+      expect(qty(productKey)).toBe(1);
+    }
   });
 
   it("accepts a canonical O-number with a submitted timestamp even if a legacy status is stale", async () => {

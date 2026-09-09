@@ -12,7 +12,7 @@
 import { supabase } from "@/lib/supabase";
 import { PRODUCTS, ACCESSORIES, getAccessoriesFlat } from "@/data/machines";
 import { appendAuditEntry } from "@/lib/audit-log-store";
-import type { Language, LocalizedString, ConfiguratorState } from "@/types/configurator";
+import type { Accessory, Language, LocalizedString, ConfiguratorState } from "@/types/configurator";
 import { normalizeConfiguratorState } from "@/lib/configuratorState";
 import { calcConfigurationTotals } from "@/lib/calcConfiguration";
 
@@ -208,106 +208,76 @@ export interface EquipmentCategory {
   isHeader?: boolean;
 }
 
-// RC-1000s: pulled from existing configurator items (no manual prices).
-function findAcc(key: string, varenr: string) {
-  const list = ACCESSORIES[key] || [];
-  return list.find(a => String(a.varenr) === varenr && !a.isHeader) || null;
-}
 function nameOf(loc: LocalizedString | string | undefined, fallback: string): LocalizedString {
   if (!loc) return { da: fallback, en: fallback };
   if (typeof loc === "string") return { da: loc, en: loc };
   return loc;
 }
 
-function rc1000Item(varenr: string, fallback: string, key: string): EquipmentCategory {
-  const a = findAcc("RC-1000S", varenr);
-  return {
-    key,
-    parent_machine_key: "RC-1000s",
-    name: nameOf(a?.name as LocalizedString | undefined, fallback),
-    varenr: a?.varenr ?? varenr,
-    status: "available",
-  };
-}
+/**
+ * Explicit business exclusions. These catalog entries can still be used by
+ * Configurator, but must never become planning or actual rows in CRM Budget.
+ */
+export const BUDGET_EXCLUDED_EQUIPMENT_VARENR = new Set(["13101003", "411891", "411906"]);
 
-const RC1000_EQUIPMENT: EquipmentCategory[] = [
-  rc1000Item("13101003", "Standard olie - Texaco HDZ46",         "RC1000_13101003"),
-  rc1000Item("410910",   "Slagleklipper inkl Y-slagle sæt",     "RC1000_410910"),
-  rc1000Item("411666",   "Rotorklipper 1350 mm",                "RC1000_411666"),
-  rc1000Item("411800",   "Fingerklipper 1700 mm",               "RC1000_411800"),
-  rc1000Item("412040",   "Skivehøster 1150 mm",                 "RC1000_412040"),
-  rc1000Item("HFS-1012", "Stubfræser m/hydraulisk sving",       "RC1000_HFS1012"),
-  rc1000Item("411742",   "V-plov m/gummiskær",                  "RC1000_411742"),
-  rc1000Item("411845",   "Centerdrevet fejemaskine",            "RC1000_411845"),
-  rc1000Item("418000",   "Sneslynge 1100 mm",                   "RC1000_418000"),
-  rc1000Item("730600",   "WB-170 Ukrudtsbørste basisenhed",     "RC1000_730600"),
-  rc1000Item("411891",   "Krogplade til udstyr",                "RC1000_411891"),
-  rc1000Item("411906",   "Bagvægt",                             "RC1000_411906"),
-];
-
-// Timan 3330: re-use the configurator section headers (already localized).
-function headerName(machineKey: string, headerId: string, fallback: string): LocalizedString {
-  const list = ACCESSORIES[machineKey] || [];
-  const h = list.find(a => a.id === headerId && a.isHeader);
-  return nameOf(h?.name as LocalizedString | undefined, fallback);
-}
-// Each header is a visual sub-folder (no budget row); items below it are full budget rows.
-function t3330Item(varenr: string, daName: string, key: string): EquipmentCategory {
-  return {
-    key,
-    parent_machine_key: "Timan 3330",
-    name: { da: daName, en: daName, de: daName, it: daName, hu: daName },
-    varenr,
-    status: "available",
-  };
-}
-const T3330_EQUIPMENT: EquipmentCategory[] = [
-  // — Feje/Sug Redskaber —
-  { key: "T3330_SWEEP",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "SWEEP_HEADER",  "Feje/Sug Redskaber"), varenr: null, status: "available", isHeader: true },
-  t3330Item("720125", "T2 Opsamlingstank uden højtryksslange",                                              "T3330_720125"),
-  t3330Item("720130", "T2 Opsamlingstank inkl. højtryksrenser",                                             "T3330_720130"),
-  t3330Item("720132", "T3 Opsamlingstank med tørsug",                                                       "T3330_720132"),
-  t3330Item("720133", "T3 Opsamlingstank med tørsug og højtryksrenser",                                     "T3330_720133"),
-  t3330Item("730030", "Forkostesæt med 2 koste til fejesug forberedt til venstre og højre sidekost",        "T3330_730030"),
-
-  // — Ukrudtsbørste —
-  { key: "T3330_WB",      parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "WB_HEADER",     "Ukrudtsbørste"),      varenr: null, status: "available", isHeader: true },
-  t3330Item("730600", "WB-170 Ukrudtsbørste basisenhed", "T3330_730600"),
-
-  // — Græs opgaver —
-  { key: "T3330_GRASS",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "GRASS_HEADER",  "Græs opgaver"),       varenr: null, status: "available", isHeader: true },
-  t3330Item("730017",   "Rotorklipper med 3 gatorknive og tilt-up, 135 cm klippebredde",               "T3330_730017"),
-  t3330Item("HGM-2007", "Rotorklipper 150 cm med hydraulisk højdejustering og tilt-up",                "T3330_HGM2007"),
-  t3330Item("730130",   "Rotorklipper 120 cm for opsamling til fejesugtank (husk centersug)",          "T3330_730130"),
-
-  // — Vinter redskaber —
-  { key: "T3330_WINTER",  parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "WINTER_HEADER", "Vinter redskaber"),   varenr: null, status: "available", isHeader: true },
-  t3330Item("730020", "Centerdrevet fejemaskine med reversering, 120 cm, Ø550 mm børster", "T3330_730020"),
-  t3330Item("730114", "V-plov 130-150 cm med gummiskær",                                   "T3330_730114"),
-  t3330Item("730105", "Dozerblad 130 cm med gummiskær",                                    "T3330_730105"),
-  t3330Item("730106", "Sneslynge, 110 cm arbejdsbredde",                                   "T3330_730106"),
-  t3330Item("725131", "CS-200 Valsespreder, manuel reg. (husk lad og vogn)",               "T3330_725131"),
-  t3330Item("725132", "CS-200 Combi, manuel reg. (husk lad og vogn)",                      "T3330_725132"),
-  t3330Item("725138", "CS-200 Combi, el reg. (husk lad og vogn)",                          "T3330_725138"),
-
-  // — Øvrige Redskaber —
-  { key: "T3330_OTHER",   parent_machine_key: "Timan 3330", name: headerName("Timan 3330", "OTHER_HEADER",  "Øvrige Redskaber"),   varenr: null, status: "available", isHeader: true },
-  t3330Item("HGM-20083", "Fingerklipper for Termit-arm", "T3330_HGM20083"),
-  t3330Item("HGM-20082", "Multitrimmer for Termit-arm",  "T3330_HGM20082"),
-];
-
-// Timan 2620: planning-only budget rows (NOT in configurator catalog, no prices).
-// These are CRM Budget planning placeholders only.
-const T2620_EQUIPMENT: EquipmentCategory[] = [
-  { key: "T2620_FEJESUG",     parent_machine_key: "Timan 2620", name: { da: "Feje sug 2620",        en: "Sweep/Vac 2620",      de: "Kehr-/Saug 2620",       it: "Spazzatrice/Asp. 2620",   hu: "Seprő-szívó 2620" },     varenr: "123456", status: "preview" },
-  { key: "T2620_GRAESKLIPPER", parent_machine_key: "Timan 2620", name: { da: "Græsklipper for 2620", en: "Mower for 2620",     de: "Rasenmäher für 2620",   it: "Tosaerba per 2620",       hu: "Fűnyíró 2620-hoz" },     varenr: "987654", status: "preview" },
-];
-
-export const EQUIPMENT_BY_MACHINE: Record<string, EquipmentCategory[]> = {
-  "RC-1000s":   RC1000_EQUIPMENT,
-  "Timan 3330": T3330_EQUIPMENT,
-  "Timan 2620": T2620_EQUIPMENT,
+type BudgetCatalogMachine = {
+  catalogKey: string;
+  budgetMachineKey: string;
+  keyPrefix: string;
+  firstEquipmentHeaderId: string;
 };
+
+const BUDGET_CATALOG_MACHINES: BudgetCatalogMachine[] = [
+  { catalogKey: "RC-1000S", budgetMachineKey: "RC-1000s", keyPrefix: "RC1000", firstEquipmentHeaderId: "REDSKABER_HEADER" },
+  { catalogKey: "Timan 3330", budgetMachineKey: "Timan 3330", keyPrefix: "T3330", firstEquipmentHeaderId: "SWEEP_HEADER" },
+  { catalogKey: "Timan 2620", budgetMachineKey: "Timan 2620", keyPrefix: "T2620", firstEquipmentHeaderId: "2620_SWEEP_HEADER" },
+];
+
+function equipmentKey(prefix: string, varenr: string): string {
+  return `${prefix}_${varenr.toUpperCase().replace(/[^A-Z0-9]/g, "")}`;
+}
+
+function isBudgetEquipment(item: Accessory): boolean {
+  if (item.isHeader || item.hidden || !item.varenr || item.varenr === "HEADER") return false;
+  if (BUDGET_EXCLUDED_EQUIPMENT_VARENR.has(item.varenr)) return false;
+  return Number(item.priceDKK) > 0 || Number(item.priceEUR) > 0;
+}
+
+function catalogEquipment(machine: BudgetCatalogMachine): EquipmentCategory[] {
+  const catalog = ACCESSORIES[machine.catalogKey] || [];
+  const firstEquipmentIndex = catalog.findIndex((item) => item.id === machine.firstEquipmentHeaderId);
+  if (firstEquipmentIndex < 0) return [];
+
+  const seenItemNumbers = new Set<string>();
+  const equipment: EquipmentCategory[] = [];
+
+  const add = (item: Accessory) => {
+    if (isBudgetEquipment(item) && !seenItemNumbers.has(item.varenr)) {
+      seenItemNumbers.add(item.varenr);
+      equipment.push({
+        key: equipmentKey(machine.keyPrefix, item.varenr),
+        parent_machine_key: machine.budgetMachineKey,
+        name: nameOf(item.name, item.varenr),
+        varenr: item.varenr,
+        status: "available",
+      });
+    }
+
+    for (const subItem of item.subItems || []) add(subItem as Accessory);
+  };
+
+  for (const item of catalog.slice(firstEquipmentIndex)) add(item);
+  return equipment;
+}
+
+/**
+ * The CRM Budget catalog is derived from the same machine compatibility data
+ * as Configurator. A product with a canonical item number therefore maps to
+ * the exact same budget row for quotes and submitted orders.
+ */
+export const EQUIPMENT_BY_MACHINE: Record<string, EquipmentCategory[]> = Object.fromEntries(
+  BUDGET_CATALOG_MACHINES.map((machine) => [machine.budgetMachineKey, catalogEquipment(machine)]),
+);
 
 /** Localized name resolver — used by the page to render equipment rows. */
 export function localizedName(name: LocalizedString, lang: Language): string {
