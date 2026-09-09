@@ -274,6 +274,42 @@ export async function fetchDealerAccounts(opts: { includeDeleted?: boolean } = {
 }
 
 /**
+ * Read a known, already-authorized set of dealer accounts.
+ *
+ * Unlike fetchDealerAccounts this deliberately has no Backend RPC fallback:
+ * callers use it for an external partner's explicit account scope, so RLS must
+ * remain the final authority for every returned row.
+ */
+export async function fetchDealerAccountsByNumbers(
+  accountNumbers: string[],
+): Promise<DealerAccountsResult> {
+  const numbers = Array.from(new Set(accountNumbers.map((number) => number.trim()).filter(Boolean)));
+  if (numbers.length === 0) return { source: "supabase", rows: [] };
+
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData.session) {
+    return { source: "fallback", rows: [], error: "Supabase Auth session påkrævet." };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("dealer_accounts")
+      .select("*")
+      .in("account_number", numbers)
+      .or("is_deleted.is.null,is_deleted.eq.false")
+      .order("company_name", { ascending: true });
+    if (error) throw error;
+    return { source: "supabase", rows: (data ?? []).map(rowToDealer) };
+  } catch (error) {
+    return {
+      source: "fallback",
+      rows: [],
+      error: describeSupabaseError("Kunne ikke hente scoped partnerkonti", error),
+    };
+  }
+}
+
+/**
  * Diagnostic helper — calls the SECURITY DEFINER RPC public.backend_auth_check()
  * which returns what the database thinks of the current session: jwt email,
  * uid, matched app_user, role, is_backend. Used by the Forhandlere page to

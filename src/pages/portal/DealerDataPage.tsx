@@ -1,25 +1,19 @@
-// Phase 50 — "Partnerdata" external module.
-// Reuses dealer_accounts, app_users, configurations and portal_form_submissions.
-// External roles see ONLY their own dealer record (RLS enforced server-side).
-// V1: own-account only — importer/service-partner → sub-dealer relations deferred.
+// Partnerdata detail page. The matching list-first entry route is handled by
+// PartnerDataRoute; this page renders only a selected, scoped partner account.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
-import { AlertCircle, Building2, Hash, User } from 'lucide-react';
+import { AlertCircle, Building2 } from 'lucide-react';
 
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { formatCountry } from '@/lib/formatCountry';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
 
-import {
-  fetchDealerAccountByNumber,
-  type DealerAccount,
-} from '@/lib/dealerAccountsService';
+import { type DealerAccount } from '@/lib/dealerAccountsService';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { canEditPartnerDataAccount, listPartnerDataDealers } from '@/lib/partnerDataScope';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
@@ -81,14 +75,9 @@ export default function DealerDataPage() {
 
   const portalRole = useMemo(() => derivePortalRole(effectiveUser), [effectiveUser]);
 
-  // Internal Timan roles may view ANY dealer via ?accountNumber=… from CRM.
-  // External dealer roles (forhandler/importer/servicepartner/dealer_user) are
-  // ALWAYS locked to their own dealer_number — query parameter is ignored.
-  const internalRoles = new Set(['timan_backend', 'timan_seller', 'timan_service']);
-  const isInternal = !!portalRole && internalRoles.has(portalRole);
-  const overrideAccountNumber = isInternal ? (searchParams.get('accountNumber') || '').trim() || null : null;
-  const dealerNumber = overrideAccountNumber ?? effectiveUser?.dealer_number ?? null;
-  const cameFromCrm = !!overrideAccountNumber;
+  // The entry route is list-first. A detail may only use an account from the
+  // exact same scoped list, including external users' linked partner accounts.
+  const dealerNumber = (searchParams.get('accountNumber') || '').trim() || null;
 
   const [dealer, setDealer] = useState<DealerAccount | null>(null);
 
@@ -98,7 +87,7 @@ export default function DealerDataPage() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!dealerNumber) {
+    if (!dealerNumber || !effectiveUser || !portalRole) {
       setDealer(null);
       setLoadingData(false);
       return;
@@ -108,11 +97,14 @@ export default function DealerDataPage() {
       setLoadingData(true);
       setError(null);
       try {
-        const dealerRes = await fetchDealerAccountByNumber(dealerNumber);
+        const dealerRes = await listPartnerDataDealers(effectiveUser, portalRole);
         if (cancelled) return;
-
         if (dealerRes.error) setError(toErrorText(dealerRes.error));
-        setDealer(dealerRes.row);
+        const selected = dealerRes.rows.find((row) => row.account_number === dealerNumber) ?? null;
+        if (!selected && !dealerRes.error) {
+          setError('Denne partnerkonto er ikke tilgængelig i dit aktuelle scope.');
+        }
+        setDealer(selected);
       } catch (e) {
         if (!cancelled) setError(toErrorText(e));
       } finally {
@@ -121,27 +113,20 @@ export default function DealerDataPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [dealerNumber]);
+  }, [dealerNumber, effectiveUser, portalRole]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;
+  if (!dealerNumber) return <Navigate to="/portal/dealer-data" replace />;
   // Only true end-customers (no portal role) get bounced to the configurator.
   // Dealer-side users may still have legacy role='slutkunde' but a real portal_role.
   if (appUser.role === 'slutkunde' && !portalRole) return <Navigate to="/configurator" replace />;
 
-  // Internal Timan staff (backend/seller/service) may always edit the dealer
-  // profile they are viewing — including dealers reached via ?accountNumber=…
-  // from CRM. External dealer-side roles edit only their own account (RLS).
-  const canEditProfile = portalRole === 'timan_backend'
-    || portalRole === 'timan_seller'
-    || portalRole === 'timan_service'
-    || portalRole === 'timan_dealer'
-    || portalRole === 'timan_importer'
-    || portalRole === 'timan_service_partner'
-    || portalRole === 'dealer_customer'
-    || portalRole === 'dealer_user';
+  // Internal staff can edit their scoped partner accounts. An external partner
+  // may view linked accounts, but can edit only its own canonical account.
+  const canEditProfile = canEditPartnerDataAccount(effectiveUser, portalRole, dealerNumber);
 
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
@@ -182,43 +167,6 @@ export default function DealerDataPage() {
           </div>
         )}
 
-        {!dealerNumber && (
-          <>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Hash className="h-5 w-5 text-slate-500" /> {T.stamdata[lang]}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <Field label={T.companyName[lang]} value={effectiveUser?.company_dealer || (effectiveUser as { company?: string | null } | null)?.company || effectiveUser?.display_name || '—'} />
-                <Field label={T.accountNo[lang]} value="—" />
-                <Field label={T.dealerType[lang]} value={portalRole === 'timan_dealer' ? 'Forhandler' : portalRole || '—'} />
-                <Field label={T.country[lang]} value={formatCountry((effectiveUser as { country?: string | null } | null)?.country, lang) || '—'} />
-                <Field label={T.contactPerson[lang]} value={effectiveUser?.display_name || '—'} />
-                <Field label={T.email[lang]} value={effectiveUser?.email || '—'} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="py-5 text-sm text-slate-600">
-                <div className="font-semibold text-slate-900">{T.noDealerTitle[lang]}</div>
-                <div className="mt-1">{T.noDealer[lang]}</div>
-              </CardContent>
-            </Card>
-            <Card id="users" className="scroll-mt-24">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <User className="h-5 w-5 text-slate-500" /> {T.users[lang]}
-                  <Badge variant="secondary" className="ml-1">0</Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-500">{T.noDealerUsers[lang]}</p>
-              </CardContent>
-            </Card>
-          </>
-        )}
-
         {dealerNumber && loadingData && (
           <Card><CardContent className="py-8 text-center text-sm text-slate-500">{T.loading[lang]}</CardContent></Card>
         )}
@@ -253,17 +201,6 @@ export default function DealerDataPage() {
       </main>
 
       <PortalFooter language={lang} />
-    </div>
-  );
-}
-
-// ---------- helpers ----------
-
-function Field({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
-      <div className="text-sm text-slate-900 font-medium">{value}</div>
     </div>
   );
 }

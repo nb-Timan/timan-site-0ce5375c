@@ -127,7 +127,7 @@ function lazyWithDynamicImportRecovery<T extends ComponentType<any>>(
 const PortalPage = lazy(() => import("./pages/PortalPage"));
 const PortalAreaPage = lazy(() => import("./pages/PortalAreaPage"));
 const PortalCrmPage = lazy(() => import("./pages/PortalCrmPage"));
-const DealerDataPage = lazy(() => import("./pages/portal/DealerDataPage"));
+const PartnerDataRoute = lazy(() => import("./pages/portal/PartnerDataRoute"));
 const UpdatePasswordPage = lazy(() => import("./pages/UpdatePasswordPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
@@ -277,7 +277,7 @@ const App = () => (
               <Route path="/portal/backend/data-integrationer" element={<BackendSectionPage sectionId="data-integrations" />} />
               <Route path="/portal/backend/analyse" element={<BackendSectionPage sectionId="analytics" />} />
               <Route path="/portal/backend/system" element={<BackendSectionPage sectionId="system" />} />
-              <Route path="/portal/dealer-data" element={<DealerDataPage />} />
+              <Route path="/portal/dealer-data" element={<PartnerDataRoute />} />
               <Route path="/portal/crm" element={<AcademyCapabilityGuard capability="crm"><PortalCrmPage /></AcademyCapabilityGuard>} />
               <Route path="/portal/crm/dashboard"  element={<AcademyCapabilityGuard capability="crm"><CrmDashboardPage /></AcademyCapabilityGuard>} />
               <Route path="/portal/crm/accounts"   element={<AcademyCapabilityGuard capability="crm"><Navigate to="/portal/crm/my-dealers" replace /></AcademyCapabilityGuard>} />
