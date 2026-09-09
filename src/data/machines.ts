@@ -452,6 +452,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     },
     { id: '730276', varenr: '730276', name: { da: 'Stålskær til v-plov, 2 stk.', en: 'Steel Blade for V-plow, 2 pcs.', de: 'Stahlklinge für V-Pflug, 2 Stk.', it: 'Lama in acciaio per vomeri a V, 2 pz.', hu: 'Acél él V-ekéhez, 2 db' }, priceDKK: 1940, priceEUR: 265, requires: ACC_ID_VPLOW },
     { id: '712901', varenr: '712901', name: { da: 'Rustbeskyttelse V-Plov', en: 'Rust Protection V-Plow', de: 'Rostschutz V-Pflug', it: 'Protezione antiruggine Vomeri a V', hu: 'V-eke rozsdavédelem' }, priceDKK: 750, priceEUR: 105, requires: ACC_ID_VPLOW },
+    { id: '412051', varenr: '412051', name: { da: 'Skrabeblad RC-1000s', en: 'Scraper blade RC-1000s' }, priceDKK: 13500, priceEUR: 1825 },
     // Fejemaskine og afhængige tilvalg
     { id: '411845', varenr: '411845', name: { da: 'Centerdrevet fejemaskine', en: 'Center Driven Sweeper', de: 'Mittelgetriebene Kehrmaschine', it: 'Spazzatrice a trazione centrale', hu: 'Központi hajtású seprőgép' }, priceDKK: 38500, priceEUR: 5175,
       videoUrl: 'https://www.youtube.com/watch?v=NbmL0w17bRA',
