@@ -41,6 +41,12 @@ describe("CRM dealer detail i18n", () => {
     expect(crmDealerDetailPage).toContain("inlineAgreementTerms.map");
   });
 
+  it("omits an inapplicable machine discount for service partners", () => {
+    expect(crmDealerDetailPage).toContain('terms.partnerType === "service_partner"');
+    expect(crmDealerDetailPage).toContain('machineDiscountTerm');
+    expect(crmDealerDetailPage).toContain('.filter((term): term is string => Boolean(term))');
+  });
+
   it("localizes agreement history controls without changing history data", () => {
     expect(agreementHistory).toContain("type AgreementLanguage = Language | PortalUiLanguage");
     expect(agreementHistory).toContain("addEvent: { da: 'Tilføj aftalehændelse', en: 'Add agreement event', de: 'Vertragsereignis hinzufügen'");

@@ -324,11 +324,14 @@ function formatAgreementPercent(value: number | null): string {
 function getInlineAgreementTerms(dealer: DealerAccount, lang: PortalUiLanguage) {
   const terms = resolveConfiguratorContractTerms(dealer);
   const isImporter = terms.partnerType === "importer";
+  const machineDiscountTerm = terms.partnerType === "service_partner"
+    ? null
+    : `${isImporter ? tl("importer_discount", lang) : tl("machine_discount", lang)} ${formatAgreementPercent(terms.baseDiscountPct)}`;
   return [
-    `${isImporter ? tl("importer_discount", lang) : tl("machine_discount", lang)} ${formatAgreementPercent(terms.baseDiscountPct)}`,
+    machineDiscountTerm,
     `${tl("spare_parts_discount", lang)} ${formatAgreementPercent(dealer.spare_parts_discount_pct)}`,
     terms.paymentTerms ? getPaymentTermsOptionLabel(terms.paymentTerms, lang) : "—",
-  ];
+  ].filter((term): term is string => Boolean(term));
 }
 
 function fallbackDealerFromUser(user: SessionUser | null, accountNumber: string): DealerAccount | null {
