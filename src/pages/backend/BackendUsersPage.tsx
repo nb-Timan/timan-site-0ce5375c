@@ -629,7 +629,7 @@ function EditUserModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full my-8 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-[960px] w-full my-8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4 sticky top-0 bg-white z-10">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Rediger bruger: {user.name}</h2>
