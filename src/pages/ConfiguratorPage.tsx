@@ -34,7 +34,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted, loadConfigurations } from '@/lib/configurationsService';
+import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, ensureOrderReferenceNumber, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted, loadConfigurations } from '@/lib/configurationsService';
 import { supabase } from '@/lib/supabase';
 import { fetchCrmConfigurationVisible } from '@/lib/crmConfigurationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
@@ -1642,6 +1642,7 @@ export default function ConfiguratorPage() {
     let activeCaseId: string | null = savedConfigurationId || savedConfigurationIdRef.current;
     let activeQuoteNumber: string | null = savedQuoteNumber;
     let activeOrderNumber: string | null = savedOrderNumber;
+    let activeSourceQuoteNumber: string | null = savedSourceQuoteNumber;
     const ownershipPayload = await getRequiredOwnershipPayload();
     if (!ownershipPayload) return false;
     // Resolve "Opret nyt lead" picker selection into a real lead now so
@@ -1664,6 +1665,7 @@ export default function ConfiguratorPage() {
           setSavedQuoteNumber(result.quote_number);
           setSavedOrderNumber(result.order_number);
           setSavedSourceQuoteNumber(result.source_quote_number);
+          activeSourceQuoteNumber = result.source_quote_number;
           setIsSavedCurrent(true);
         }
       } catch (saveErr) {
@@ -1694,6 +1696,29 @@ export default function ConfiguratorPage() {
       }
     }
 
+    if (effectiveFlowType === 'order') {
+      if (!activeCaseId) {
+        toast.error(T('saveFailed'));
+        return false;
+      }
+
+      const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
+      if (lockCheck.locked) {
+        setOrderLocked(true);
+        toast.error(T('orderCannotResendTitle'));
+        setConfirmModalOpen(false);
+        return false;
+      }
+
+      const reservedOrderNumber = await ensureOrderReferenceNumber(activeCaseId);
+      if (!reservedOrderNumber) {
+        toast.error(T('saveFailed'));
+        return false;
+      }
+      activeOrderNumber = reservedOrderNumber;
+      setSavedOrderNumber(reservedOrderNumber);
+    }
+
     try {
       const jsPDFModule = await import('jspdf');
       const { jsPDF } = jsPDFModule;
@@ -1710,7 +1735,7 @@ export default function ConfiguratorPage() {
         flowType: effectiveFlowType,
         quoteNumber: activeQuoteNumber,
         orderNumber: activeOrderNumber,
-        sourceQuoteNumber: savedSourceQuoteNumber,
+        sourceQuoteNumber: activeSourceQuoteNumber,
         showPrices: permissions.canSeePrices,
         uiLanguage: lang,
         contentLanguage: contentUiLang as Language,
@@ -1755,54 +1780,6 @@ export default function ConfiguratorPage() {
 
       // Send webhook for Ordre flow
       if (effectiveFlowType === 'order') {
-        // ── Duplicate-send protection (server-side) ──
-        // Re-read the current row from Supabase by id. If the order is
-        // already submitted, abort BEFORE generating PDF / sending email /
-        // calling n8n / updating order_sent_at. Do not trust local state.
-        if (activeCaseId) {
-          const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
-          if (lockCheck.locked) {
-            setOrderLocked(true);
-            toast.error(T('orderCannotResendTitle'));
-            setConfirmModalOpen(false);
-            return false;
-          }
-        }
-        // Idempotent save: only create a new row if no case exists yet.
-        // Reuse activeCaseId from the save block above to avoid duplicates.
-        if (!activeCaseId && appUser) {
-          try {
-            const label = state.firmanavn
-              ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
-              : state.machineConfigs.map(m => m.type).join(', ') || 'Ordre';
-            const result = await saveConfiguration(state, label, appUser.email.toLowerCase(), { ownership: ownershipPayload, leadId: effectiveLeadId, pricingMode: isExhibition ? 'messe' : undefined });
-            if (result.error) throw new Error(result.error);
-            if (result.id) {
-              activeCaseId = result.id;
-              activeQuoteNumber = result.quote_number;
-              activeOrderNumber = result.order_number;
-              setSavedConfigurationId(result.id);
-              setSavedQuoteNumber(result.quote_number);
-              setSavedOrderNumber(result.order_number);
-              setSavedSourceQuoteNumber(result.source_quote_number);
-              setIsSavedCurrent(true);
-            }
-          } catch (saveErr) {
-            console.error('Failed to save before webhook:', saveErr);
-            toast.error(T('saveFailed'), { description: saveErr instanceof Error ? saveErr.message : String(saveErr) });
-            return false;
-          }
-        } else if (activeCaseId && !activeOrderNumber) {
-          // Existing case but no order number yet — ensure one exists
-          try {
-            const refs = await ensureReferenceNumbers(activeCaseId, true);
-            if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
-            if (refs.order_number) { activeOrderNumber = refs.order_number; setSavedOrderNumber(refs.order_number); }
-          } catch (err) {
-            console.error('Failed to ensure order number before webhook:', err);
-          }
-        }
-
         // Upload sent PDF to storage BEFORE webhook so we can include the
         // stored path/filename in the email payload (single source of truth).
         let orderSentPdfPath: string | null = null;
@@ -1861,7 +1838,7 @@ export default function ConfiguratorPage() {
             document_type: 'Ordre',
             order_number: activeOrderNumber || '',
             quote_number: activeQuoteNumber || '',
-            source_quote_number: savedSourceQuoteNumber || '',
+            source_quote_number: activeSourceQuoteNumber || '',
             firma: state.firmanavn,
             kontaktperson: state.kontaktperson,
             telefon: state.telefon,

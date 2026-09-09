@@ -245,11 +245,7 @@ export function generateReferenceNumber(prefix: 'Q' | 'T' | 'O'): string {
   return generateLocalCrmDocumentNumber(prefix === 'O' ? 'order' : 'quote');
 }
 
-/**
- * Ensure a saved quote has its reference number. Order numbers are deliberately
- * excluded: an O-number is the canonical evidence of an actually submitted
- * order and is assigned atomically by markAsOrderSubmitted().
- */
+/** Ensure a saved quote has its reference number. */
 export async function ensureReferenceNumbers(
   configId: string,
   isOrder: boolean,
@@ -281,6 +277,37 @@ export async function ensureReferenceNumbers(
   }
   await updateConfigurationRow(configId, patch);
   return result;
+}
+
+/**
+ * Reserve the canonical order reference at the beginning of an explicit order
+ * submission. The actual submitted status is still written only after delivery.
+ */
+export async function ensureOrderReferenceNumber(configId: string): Promise<string | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: row, error: loadError } = await supabase
+    .from('configurations')
+    .select('order_number')
+    .eq('id', configId)
+    .maybeSingle();
+
+  if (loadError || !row) return null;
+  if (row.order_number) return row.order_number as string;
+
+  const orderNumber = await getNextCrmDocumentNumber('order');
+  const { error } = await updateConfigurationRow(configId, {
+    order_number: orderNumber,
+    last_saved_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    console.error('Failed to reserve order reference number:', error);
+    return null;
+  }
+
+  return orderNumber;
 }
 
 

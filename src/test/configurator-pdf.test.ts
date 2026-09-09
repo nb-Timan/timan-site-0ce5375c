@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { jsPDF } from "jspdf";
 import { t } from "@/data/translations";
-import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from "@/lib/configuratorPdf";
+import { buildConfiguratorPdf, buildConfiguratorPdfFilename, getSubtotalColumns } from "@/lib/configuratorPdf";
 import type { CalcResult, ConfiguratorState, LineItem } from "@/types/configurator";
 
 class NoRasterJsPDF extends jsPDF {
@@ -118,6 +118,89 @@ describe("configurator PDF generator", () => {
     const pdf = buildTestPdf("quote", makeCalcResult(3, 24));
 
     expect(pdf.getNumberOfPages()).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps subtotal labels in a fixed column before the right-aligned amount", () => {
+    const columns = getSubtotalColumns();
+
+    expect(columns.labelRightX).toBeLessThan(columns.amountRightX);
+    expect(columns.amountRightX - columns.labelRightX).toBeGreaterThanOrEqual(46);
+    expect(columns.labelMaxWidth).toBeGreaterThan(80);
+  });
+
+  it("builds subtotal rows for German, Danish, and English without changing prices", () => {
+    const subtotalLabels = {
+      de: "Zwischensumme Maschine 1:",
+      da: "Subtotal maskine 1:",
+      en: "Machine 1 subtotal:",
+    } as const;
+
+    for (const [language, subtotalLabel] of Object.entries(subtotalLabels) as Array<["de" | "da" | "en", string]>) {
+      const calcResult = makeCalcResult(1, 2);
+      const expectedPrice = calcResult.currentPrice;
+      const subtotal = calcResult.lineItems.find((item) => item.subtotal);
+      if (subtotal) subtotal.txt = subtotalLabel;
+
+      const pdf = buildConfiguratorPdf({
+        jsPDF: NoRasterJsPDF,
+        state: { ...baseState, flowType: "order" },
+        calcResult,
+        flowType: "order",
+        quoteNumber: null,
+        orderNumber: "O-7004",
+        sourceQuoteNumber: null,
+        showPrices: true,
+        uiLanguage: language,
+        contentLanguage: language,
+        T: (key) => t(key, language),
+        TC: (key) => t(key, language),
+      });
+
+      expect(pdf.output("datauristring")).toContain("application/pdf");
+      expect(calcResult.currentPrice).toBe(expectedPrice);
+    }
+  });
+
+  it("renders canonical order and source quote references on an order PDF", () => {
+    const pdf = buildConfiguratorPdf({
+      jsPDF: NoRasterJsPDF,
+      state: { ...baseState, flowType: "order" },
+      calcResult: makeCalcResult(1, 2),
+      flowType: "order",
+      quoteNumber: null,
+      orderNumber: "O-7004",
+      sourceQuoteNumber: "T-4003",
+      showPrices: true,
+      uiLanguage: "de",
+      contentLanguage: "de",
+      T: (key) => t(key, "de"),
+      TC: (key) => t(key, "de"),
+    });
+    const output = pdf.output();
+
+    expect(output).toContain("O-7004");
+    expect(output).toContain("T-4003");
+  });
+
+  it("does not render a false quote reference when an order has no source quote", () => {
+    const pdf = buildConfiguratorPdf({
+      jsPDF: NoRasterJsPDF,
+      state: { ...baseState, flowType: "order" },
+      calcResult: makeCalcResult(1, 2),
+      flowType: "order",
+      quoteNumber: null,
+      orderNumber: "O-7004",
+      sourceQuoteNumber: null,
+      showPrices: true,
+      uiLanguage: "en",
+      contentLanguage: "en",
+      T: (key) => t(key, "en"),
+      TC: (key) => t(key, "en"),
+    });
+    const output = pdf.output();
+
+    expect(output).toContain("O-7004");
+    expect(output).not.toContain("T-4003");
   });
 
   it("builds stable quote and order filenames with reference numbers", () => {

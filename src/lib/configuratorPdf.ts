@@ -42,6 +42,17 @@ const PAGE = {
   height: 297,
 };
 
+export function getSubtotalColumns() {
+  const amountRightX = PAGE.width - PAGE.marginX;
+  const amountColumnWidth = 42;
+
+  return {
+    amountRightX,
+    labelRightX: amountRightX - amountColumnWidth - 4,
+    labelMaxWidth: 84,
+  };
+}
+
 const COLORS = {
   text: [17, 24, 39],
   muted: [107, 114, 128],
@@ -278,13 +289,16 @@ function drawMachineSection(
   });
 
   if (section.subtotal) {
-    y = ensureSpace(pdf, y, 10);
+    const subtotalColumns = getSubtotalColumns();
+    const subtotalLabelLines = pdf.splitTextToSize(section.subtotal.txt, subtotalColumns.labelMaxWidth);
+    const subtotalHeight = Math.max(10, subtotalLabelLines.length * 4 + 4);
+    y = ensureSpace(pdf, y, subtotalHeight);
     setColor(pdf, "text", COLORS.text);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8);
-    pdf.text(section.subtotal.txt, PAGE.width - PAGE.marginX - 42, y + 5);
-    pdf.text(money(section.subtotal.price, input.uiLanguage, input.showPrices), PAGE.width - PAGE.marginX, y + 5, { align: "right" });
-    y += 12;
+    pdf.text(subtotalLabelLines, subtotalColumns.labelRightX, y + 5, { align: "right" });
+    pdf.text(money(section.subtotal.price, input.uiLanguage, input.showPrices), subtotalColumns.amountRightX, y + 5, { align: "right" });
+    y += subtotalHeight + 2;
   }
 
   return y + 2;
@@ -357,7 +371,7 @@ function drawTextSection(pdf: any, title: string, body: string, y: number): numb
 export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
   const pdf = new input.jsPDF("p", "mm", "a4");
   const title = input.flowType === "quote" ? input.TC("quoteRequestTitle") : input.TC("orderRequestTitle");
-  const ref = input.orderNumber || input.quoteNumber || "";
+  const ref = input.flowType === "order" ? input.orderNumber || "" : input.quoteNumber || "";
   addHeader(pdf, title, ref);
 
   let y = 36;
@@ -371,11 +385,11 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
         [input.TC("confirmDelivery").replace(":", ""), formatDate(input.state.date, input.contentLanguage)],
       ]
     : [
-        [input.TC("pdfOrderNo"), input.orderNumber || "-"],
+        input.orderNumber ? [input.TC("pdfOrderNo"), input.orderNumber] : ["", ""],
         [input.TC("confirmDate").replace(":", ""), today(input.contentLanguage)],
         [input.TC("confirmDelivery").replace(":", ""), formatDate(input.state.date, input.contentLanguage)],
         [input.TC("deliveryMethod"), deliveryMethodText],
-        input.sourceQuoteNumber ? [input.TC("pdfCreatedFromQuote"), input.sourceQuoteNumber] : ["", ""],
+        input.sourceQuoteNumber ? [input.TC("pdfQuoteNo"), input.sourceQuoteNumber] : ["", ""],
       ];
 
   y = drawLabelValueGrid(pdf, input.TC("pdfDocument"), metadata, y);
