@@ -90,6 +90,7 @@ function PreferredLanguageBootstrap() {
 import { MesseRouteGuard, PortalLockGuard } from "./components/messe/MesseGuards";
 import { DealerUserServiceGuard } from "./components/guards/DealerUserServiceGuard";
 import AcademyCapabilityGuard from "./components/academy/AcademyCapabilityGuard";
+import AcademyAccessGuard from "./components/academy/AcademyAccessGuard";
 
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
@@ -259,10 +260,10 @@ const App = () => (
               <Route path="/update-password" element={<UpdatePasswordPage />} />
               <Route path="/reset-password" element={<UpdatePasswordPage />} />
               <Route path="/portal" element={<PortalLockGuard><PortalPage /></PortalLockGuard>} />
-              <Route path="/academy" element={<AcademyPage />} />
-              <Route path="/academy/crm/leads" element={<AcademyCrmLeadsPage />} />
-              <Route path="/academy/crm/leads/:id" element={<AcademyCrmRoute><CrmNewLeadPage /></AcademyCrmRoute>} />
-              <Route path="/academy/crm/demo-leads/new" element={<AcademyCrmRoute><CrmNewDemoLeadPage /></AcademyCrmRoute>} />
+              <Route path="/academy" element={<AcademyAccessGuard><AcademyPage /></AcademyAccessGuard>} />
+              <Route path="/academy/crm/leads" element={<AcademyAccessGuard><AcademyCrmLeadsPage /></AcademyAccessGuard>} />
+              <Route path="/academy/crm/leads/:id" element={<AcademyAccessGuard><AcademyCrmRoute><CrmNewLeadPage /></AcademyCrmRoute></AcademyAccessGuard>} />
+              <Route path="/academy/crm/demo-leads/new" element={<AcademyAccessGuard><AcademyCrmRoute><CrmNewDemoLeadPage /></AcademyCrmRoute></AcademyAccessGuard>} />
               <Route path="/portal/teknik-service" element={<DealerUserServiceGuard><PortalAreaPage areaId="teknik_service" /></DealerUserServiceGuard>} />
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
               <Route path="/portal/marketing" element={<PortalAreaPage areaId="marketing" />} />

@@ -17,7 +17,7 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { academySandbox } from '@/lib/academySandbox';
-import { getAcademyCapabilityProgress, getAcademyProgress, isAcademyCapabilityGated, isAcademyCapabilityUnlocked, isAcademyRelevant, isAcademySandboxEnvironment } from '@/lib/academyCurriculum';
+import { canAccessAcademy, getAcademyCapabilityProgress, getAcademyProgress, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { Language } from '@/types/configurator';
 import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
 import { t } from '@/lib/i18n/translations';
@@ -215,7 +215,7 @@ export default function PortalPage() {
   }
 
   const portalRole = derivePortalRole(effectiveUser);
-  const academyEnabled = isAcademySandboxEnvironment() && isAcademyRelevant(effectiveUser);
+  const academyEnabled = canAccessAcademy(effectiveUser);
   const academyCompletedCaseIds = academySandbox.getCompletedCaseIds();
   const academyProgress = getAcademyProgress(effectiveUser, academyCompletedCaseIds);
   const academyCapabilityGated = isAcademyCapabilityGated(effectiveUser);

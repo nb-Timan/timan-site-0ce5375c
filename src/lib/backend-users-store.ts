@@ -21,6 +21,8 @@ export type AreaKey = "teknik_service" | "salg_marketing" | "marketing" | "timan
 export const ALL_AREAS: AreaKey[] = ["salg_marketing", "marketing", "teknik_service", "dealer_data", "timan_crm", "timan_backend"];
 
 export const ALL_MODULES: ModuleAccessKey[] = [
+  // Training
+  "academy",
   // Salg
   "byg_din_timan",
   "resources",

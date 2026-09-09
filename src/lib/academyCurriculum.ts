@@ -1,6 +1,6 @@
 import type { AppUser } from '@/data/appUsers';
 import type { SessionUser } from '@/context/AppUserContext';
-import { derivePortalRole, isBackendActor } from '@/lib/portalAccess';
+import { getUserModuleAccessOverride, isBackendActor } from '@/lib/portalAccess';
 
 export const ACADEMY_CASE_1_ID = 'sales.case_1_rc1000';
 const LOCAL_ACADEMY_ENROLLMENT_KEY = 'timan.academy.local-enrollment.v1';
@@ -9,6 +9,8 @@ export type AcademyCapability = 'configurator' | 'crm' | 'demo' | 'quote' | 'ord
 
 type AcademyUser = Pick<AppUser, 'role' | 'partner_type'> & {
   portal_role?: string | null;
+  allowed_modules?: string[] | null;
+  module_access?: string[] | null;
   permissions?: Record<string, boolean> | null;
 };
 
@@ -35,13 +37,17 @@ export function getLocalAcademyUser(): SessionUser {
   };
 }
 
-export function isAcademySandboxEnvironment() { return import.meta.env.DEV; }
-export function isAcademyRelevant(user: AcademyUser | null | undefined) {
-  const role = user ? derivePortalRole(user) : null;
-  return role === 'timan_seller' || role === 'timan_backend' || role === 'timan_service';
+/** Academy is an explicit per-user module, never an implicit role benefit. */
+export function hasAcademyModuleAccess(user: AcademyUser | null | undefined) {
+  return getUserModuleAccessOverride(user)?.includes('academy') ?? false;
+}
+
+/** Backend may administer and inspect Academy without changing the viewed user's access. */
+export function canAccessAcademy(user: AcademyUser | null | undefined) {
+  return hasAcademyModuleAccess(user) || isBackendActor(user);
 }
 export function isAcademyCapabilityGated(user: AcademyUser | null | undefined) {
-  return Boolean(user?.permissions?.academy_required) || hasLocalAcademyEnrollment();
+  return hasAcademyModuleAccess(user);
 }
 export function getAcademyProgress(_user: AcademyUser | null | undefined, completedCaseIds: Iterable<string>) {
   const completed = new Set(completedCaseIds).has(ACADEMY_CASE_1_ID) ? 1 : 0;

@@ -95,6 +95,7 @@ const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   tilbud: "Tilbud",
   ordre: "Ordrer",
   videos: "Video Galleri",
+  academy: "Timan Academy",
 };
 
 
@@ -109,6 +110,7 @@ const BACKEND_MODULE_LABEL: Record<BackendMetaModule, string> = {
 // rendered in an "Øvrige" bucket so nothing silently disappears if new keys
 // are added later.
 const MODULE_GROUPS: { label: string; modules: ModuleAccessKey[] }[] = [
+  { label: "Academy", modules: ["academy"] },
   { label: "Salg", modules: ["messe_portal", "byg_din_timan", "resources", "videos", "sales_tools", "contracts", "tilbud", "ordre"] },
   { label: "Teknik & Service", modules: ["claims", "warranty", "tsb", "service_information"] },
 ];

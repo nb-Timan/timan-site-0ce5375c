@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACADEMY_CASE_1_ID, getAcademyCapabilityProgress, getAcademyProgress, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 
-const academySeller = { role: 'timan_saelger' as const, partner_type: null, portal_role: 'timan_seller', permissions: { academy_required: true } };
+const academySeller = { role: 'timan_saelger' as const, partner_type: null, portal_role: 'timan_seller', allowed_modules: ['academy'], permissions: {} };
 const normalSeller = { role: 'timan_saelger' as const, partner_type: null, portal_role: 'timan_seller', permissions: {} };
 
 describe('Academy Case 1 checkpoint curriculum', () => {

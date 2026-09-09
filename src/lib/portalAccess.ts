@@ -79,7 +79,8 @@ export type ModuleAccessKey =
   | 'sales_tools'
   | 'contracts'
   | 'resources'
-  | 'videos';
+  | 'videos'
+  | 'academy';
 
 export type PortalAreaAccessKey =
   | 'teknik_service'

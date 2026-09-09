@@ -6,6 +6,7 @@ import { academySandbox } from '@/lib/academySandbox';
 import { activateLocalAcademyEnrollment, getAcademyCapabilityProgress, getAcademyProgress, getLocalAcademyUser, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { cn } from '@/lib/utils';
 
 type State = 'new' | 'active' | 'ready' | 'done' | 'locked';
@@ -17,10 +18,10 @@ function AcademyRow({ image, title, description, state, action, onClick }: { ima
 function Journey({ icon: Icon, label, active = false }: { icon: typeof ShoppingCart; label: string; active?: boolean }) { return <div className="flex min-w-0 flex-1 flex-col items-center text-center"><div className={cn('flex h-9 w-9 items-center justify-center rounded-full border', active ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-200 bg-slate-50 text-slate-400')}><Icon className="h-4 w-4" /></div><span className={cn('mt-2 max-w-16 text-[10px] font-semibold leading-3', active ? 'text-[#126a45]' : 'text-slate-500')}>{label}</span></div>; }
 
 export default function AcademyPage() {
-  const navigate = useNavigate(); const [params] = useSearchParams(); const { appUser, logout } = useAppUser(); const { language, setLanguage } = useLanguage(); const task = academySandbox.getCase1();
+  const navigate = useNavigate(); const [params] = useSearchParams(); const { appUser, logout } = useAppUser(); const { effectiveUser, resolving } = useEffectivePortalUserState(appUser); const { language, setLanguage } = useLanguage(); const task = academySandbox.getCase1();
   // Enrollment is training state only; the portal's authenticated user remains untouched.
   useEffect(() => { activateLocalAcademyEnrollment(); }, []);
-  const user = appUser || getLocalAcademyUser(); const completed = academySandbox.getCompletedCaseIds(); const progress = getAcademyProgress(user, completed); const configurator = getAcademyCapabilityProgress('configurator', completed); const unlocked = isAcademyCapabilityUnlocked(user, 'configurator', completed);
+  const user = effectiveUser || appUser || getLocalAcademyUser(); const completed = academySandbox.getCompletedCaseIds(); const progress = getAcademyProgress(user, completed); const configurator = getAcademyCapabilityProgress('configurator', completed); const unlocked = !resolving && isAcademyCapabilityUnlocked(user, 'configurator', completed);
   const requirements = [task.machine, task.flail, task.weedBrush, task.requiredComponents, task.workLight, task.wireHarness, task.deliveryDiscount, task.quantityDiscount, task.quoteGenerated, Boolean(task.leadId)].filter(Boolean).length;
   const caseState: State = task.completed ? 'done' : task.started ? 'active' : 'new'; const startCase = () => { academySandbox.startCase1(); navigate('/configurator?academy_mode=true'); };
   const nav = [['Forside', '/portal', Factory], ['Min Academy', '/academy', GraduationCap], ['Salg', '/portal/sales', ShoppingCart], ['Partnerdata', '/portal/dealer-data', Users], ['CRM', '/portal/crm/leads', Users], ['Demo', '/portal/crm/demo-leads', CirclePlay], ['Tilbud & ordre', '/portal/crm/quotes', ClipboardList], ['Video', '/portal/videos', Play], ['Kalender', '/portal/crm/calendar', CalendarDays]] as const;
