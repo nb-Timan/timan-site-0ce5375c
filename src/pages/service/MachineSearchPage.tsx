@@ -976,7 +976,7 @@ export default function MachineSearchPage() {
                               <td className="px-3 py-2 text-slate-700 truncate max-w-[280px]">{row.dealerNumber && row.dealerName ? `${row.dealerNumber} - ${row.dealerName}` : (row.dealerName || "—")}</td>
                               <td className="px-3 py-2 text-slate-700 whitespace-nowrap">{row.deliveryDate ? fmtDateShort(row.deliveryDate) : "—"}</td>
                               <td className="px-3 py-2 text-right text-slate-700 whitespace-nowrap">{row.operatingHours != null ? row.operatingHours : "—"}</td>
-                              <td className="px-3 py-2 text-slate-700 truncate max-w-[320px]">{row.latestActivityLabel || "—"}</td>
+                              <td className="px-3 py-2 text-slate-700 truncate max-w-[320px]">{(row as { latestActivityLabel?: string | null }).latestActivityLabel || "—"}</td>
                               <td className="px-3 py-2">
                                 <div className="flex flex-wrap gap-1">
                                   <span className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${warrantyMeta.text} bg-slate-50`}>
@@ -1019,7 +1019,7 @@ export default function MachineSearchPage() {
                             {row.machineModel || "—"}{row.dealerName ? ` · ${row.dealerName}` : ""}
                           </div>
                           <div className="mt-1 text-[11px] text-slate-500 truncate">
-                            {`ERP ${row.erpOrderNumber || "—"} · Faktura ${row.invoiceNumber || "—"} · Portal ${row.portalOrderNumber || "—"} · ${row.latestActivityLabel || "—"}`}
+                            {`ERP ${row.erpOrderNumber || "—"} · Faktura ${row.invoiceNumber || "—"} · Portal ${row.portalOrderNumber || "—"} · ${(row as { latestActivityLabel?: string | null }).latestActivityLabel || "—"}`}
                           </div>
                           {(row.warrantyMatchDetail || openItems.length > 0) && (
                             <div className="mt-1 flex flex-wrap gap-1">
