@@ -13,6 +13,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { useEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
+import type { RegistryMachineRow } from "@/lib/machineRegistryPageService";
 import { searchMachinesByIdentifier, type MachineSearchHit, type MachineSearchDebug, type MachineOverviewRow } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import { getActiveSellerView } from "@/lib/activeMode";
@@ -268,7 +269,7 @@ export default function MachineSearchPage() {
   const [historyPartsLoading, setHistoryPartsLoading] = useState<Record<string, boolean>>({});
 
   // ---- Machine Registry Overview (Phase 1) ----
-  const [overview, setOverview] = useState<MachineOverviewRow[]>([]);
+  const [overview, setOverview] = useState<RegistryMachineRow[]>([]);
   const [overviewTotal, setOverviewTotal] = useState(0);
   const [overviewScopeTotal, setOverviewScopeTotal] = useState(0);
   const [overviewNormal, setOverviewNormal] = useState(0);

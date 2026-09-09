@@ -99,7 +99,7 @@ const PARTNER_TERMS: Record<PortalUiLanguage, Record<ContractPartnerType, Contra
     importer: { label: 'Importatore', singular: 'importatore', definite: "l'importatore", plural: 'importatori', possessive: "dell'importatore", portal: 'portale importatori', annualMeeting: 'riunione annuale degli importatori', signatureLabel: "Firma dell'importatore" },
     service_partner: { label: 'Partner di assistenza', singular: 'partner di assistenza', definite: 'il partner di assistenza', plural: 'partner di assistenza', possessive: 'del partner di assistenza', portal: 'portale partner di assistenza', annualMeeting: 'riunione annuale dei partner di assistenza', signatureLabel: 'Firma del partner di assistenza' },
   },
-  hu: {}, sv: {}, fr: {}, pl: {}, cs: {},
+  hu: {} as Record<ContractPartnerType, ContractPartnerTerms>, sv: {} as Record<ContractPartnerType, ContractPartnerTerms>, fr: {} as Record<ContractPartnerType, ContractPartnerTerms>, pl: {} as Record<ContractPartnerType, ContractPartnerTerms>, cs: {} as Record<ContractPartnerType, ContractPartnerTerms>,
 };
 
 for (const language of ['hu', 'sv', 'fr', 'pl', 'cs'] as const) {
