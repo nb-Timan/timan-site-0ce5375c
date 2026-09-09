@@ -8,7 +8,7 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  createDemoLead, getLead, formatLeadNo,
+  formatLeadNo,
   DEMO_MACHINE_CATEGORY, DEMO_RESULT_STATUS, type CrmLeadAttachment,
 } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
@@ -25,6 +25,7 @@ import { useSellerDirectory, resolveDealerSellerInitials } from '@/lib/sellerDir
 import AddressAutocomplete from '@/components/crm/AddressAutocomplete';
 import MachineInterestPicker from '@/components/crm/MachineInterestPicker';
 import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
+import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 
 // ---------- i18n. English is the fallback. ----------
 type TKey =
@@ -191,6 +192,8 @@ export default function CrmNewDemoLeadPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromLeadId = searchParams.get('fromLead') || '';
+  const repository = getCrmLeadRepository();
+  const academyPart = searchParams.get('academy_part') === '2' ? 2 : 1;
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole) || isExternalCrmRole(portalRole);
 
@@ -236,6 +239,10 @@ export default function CrmNewDemoLeadPage() {
   const [sellers, setSellers] = useState<BackendUser[]>([]);
 
   useEffect(() => {
+    if (repository.academy) {
+      setDealersLoading(false);
+      return;
+    }
     let cancelled = false;
     setDealersLoading(true);
     fetchDealerAccounts({ includeDeleted: false })
@@ -252,10 +259,15 @@ export default function CrmNewDemoLeadPage() {
       })
       .catch(() => { /* keep empty */ });
     return () => { cancelled = true; };
-  }, []);
+  }, [repository]);
 
   // Default responsible seller = active seller context (logged-in user, or "view as" seller).
   useEffect(() => {
+    if (repository.academy && !responsibleSellerId) {
+      setResponsibleSellerId('academy-local-sales-user');
+      setResponsibleName('Academy Sales');
+      return;
+    }
     if (responsibleSellerId) return;
     if (!sellers.length || !appUser?.email) return;
     // resolveSellerId honours backend "view as <seller>" override.
@@ -272,14 +284,14 @@ export default function CrmNewDemoLeadPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [sellers, appUser?.email, responsibleSellerId]);
+  }, [sellers, appUser?.email, responsibleSellerId, repository]);
 
   // Phase 38 — prefill from originating lead.
   useEffect(() => {
     if (!fromLeadId) return;
     let cancelled = false;
     (async () => {
-      const lead = await getLead(fromLeadId);
+      const lead = await repository.getLead(fromLeadId);
       if (cancelled || !lead) return;
       setSourceLeadId(lead.id);
       setSourceLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
@@ -306,7 +318,7 @@ export default function CrmNewDemoLeadPage() {
       if (lead.probability != null) setProbability(String(lead.probability));
     })();
     return () => { cancelled = true; };
-  }, [fromLeadId]);
+  }, [fromLeadId, repository]);
 
 
   const sellerDir = useSellerDirectory();
@@ -365,9 +377,11 @@ export default function CrmNewDemoLeadPage() {
     setSubmitting(true);
     try {
       const chosen = sellers.find(s => s.id === responsibleSellerId);
-      const sellerId = chosen?.id || (await resolveSellerId(appUser?.email));
+      const sellerId = repository.academy
+        ? 'academy-local-sales-user'
+        : chosen?.id || (await resolveSellerId(appUser?.email));
       const dealerLabel = selectedDealer?.label || dealerCompanyLabel || dealerCompany;
-      await createDemoLead({
+      await repository.createDemoLead({
         title: title.trim(),
         owner_user_id: sellerId,
         owner_name: chosen?.name || responsibleName || null,
@@ -393,7 +407,9 @@ export default function CrmNewDemoLeadPage() {
         source_lead_id: sourceLeadId,
       });
       toast.success(tt('created_ok', lang));
-      navigate('/portal/crm/demo-leads');
+      navigate(repository.academy
+        ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
+        : '/portal/crm/demo-leads');
     } catch (err) {
       console.error(err);
       toast.error(tt('created_err', lang));
@@ -405,6 +421,11 @@ export default function CrmNewDemoLeadPage() {
   return (
     <CrmLayout pageTitle={tt('page_title', lang)}>
       <div className="max-w-5xl mx-auto">
+        {repository.academy && (
+          <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+            <strong>Academy træning</strong> - demoen gemmes kun i din lokale træningssandbox.
+          </div>
+        )}
         <div className="mb-5">
           <div>
             <h2 className="text-xl font-semibold text-gray-900">{tt('page_title', lang)}</h2>
@@ -418,7 +439,7 @@ export default function CrmNewDemoLeadPage() {
               {tt('from_lead_banner', lang)}{' '}
               <span className="font-mono">{formatLeadNo(sourceLeadNo)}</span>
             </span>
-            <Link to={`/portal/crm/leads/${sourceLeadId}`} className="text-xs text-violet-800 hover:underline">
+            <Link to={repository.academy ? `/academy/crm/leads/${sourceLeadId}?academy_mode=true&academy_part=${academyPart}` : `/portal/crm/leads/${sourceLeadId}`} className="text-xs text-violet-800 hover:underline">
               {tt('from_lead_link', lang)} →
             </Link>
           </div>

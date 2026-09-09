@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
+import { CrmLeadFollowupFields } from '@/components/crm/CrmLeadFollowupFields';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
@@ -8,7 +9,7 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  createLead, updateLead, getLead, NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
+  NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
   CUSTOMER_TYPE_OPTIONS, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   PipelineStage, formatLeadNo,
   getLeadAttachmentSignedUrl, getLeadAttachmentSignedUrls, getLeadImageAttachments, uploadLeadAttachments, type CrmLeadAttachment,
@@ -41,15 +42,11 @@ import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { useSellerDirectory, resolveDealerSellerInitials } from '@/lib/sellerDirectory';
 import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
 import {
-  getResponsibleTimanSellerTarget,
   leadShareMailto,
-  listActiveDealerLeadShareTargets,
-  listLeadShares,
-  resolveAppUserByEmail,
-  shareLead,
   type CrmLeadShare,
   type LeadShareTarget,
 } from '@/lib/crmLeadSharingService';
+import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 import {
   getMissingOrdinaryCrmLeadFields,
   type OrdinaryCrmLeadRequiredField,
@@ -737,6 +734,8 @@ export default function CrmNewLeadPage() {
   const navigate = useNavigate();
   const { id: editId } = useParams<{ id: string }>();
   const isEdit = !!editId;
+  const repository = getCrmLeadRepository();
+  const academyPart = new URLSearchParams(window.location.search).get('academy_part') === '2' ? 2 : 1;
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole) || isExternalCrmRole(portalRole);
 
@@ -822,14 +821,18 @@ export default function CrmNewLeadPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const user = await resolveAppUserByEmail(appUser?.email);
+      const user = await repository.resolveAppUserByEmail(appUser?.email);
       if (!cancelled) setCurrentShareUser(user);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email]);
+  }, [appUser?.email, repository]);
 
   // Load dealer_accounts (same as Calendar) + sellers list.
   useEffect(() => {
+    if (repository.academy) {
+      setDealersLoading(false);
+      return;
+    }
     let cancelled = false;
     setDealersLoading(true);
     fetchDealerAccounts({ includeDeleted: false })
@@ -846,7 +849,7 @@ export default function CrmNewLeadPage() {
       })
       .catch(() => { /* keep empty */ });
     return () => { cancelled = true; };
-  }, []);
+  }, [repository]);
 
   // Auto-select the logged-in user as responsible seller once sellers load.
   useEffect(() => {
@@ -884,7 +887,7 @@ export default function CrmNewLeadPage() {
     if (!isEdit || !editId) return;
     let cancelled = false;
     (async () => {
-      const lead = await getLead(editId);
+      const lead = await repository.getLead(editId);
       if (cancelled || !lead) { setLoadingLead(false); return; }
       setEditLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
       setTitle(lead.title || '');
@@ -944,31 +947,31 @@ export default function CrmNewLeadPage() {
       setLoadingLead(false);
     })();
     return () => { cancelled = true; };
-  }, [isEdit, editId]);
+  }, [isEdit, editId, repository]);
 
   useEffect(() => {
     if (!isEdit || !editId) return;
     let cancelled = false;
     (async () => {
-      const rows = await listLeadShares(editId);
+      const rows = await repository.listLeadShares(editId);
       if (!cancelled) setLeadShares(rows);
     })();
     return () => { cancelled = true; };
-  }, [isEdit, editId]);
+  }, [isEdit, editId, repository]);
 
   // Phase 33 — load configurator quotes linked to this lead.
   useEffect(() => {
-    if (!isEdit || !editId) return;
+    if (repository.academy || !isEdit || !editId) return;
     let cancelled = false;
     (async () => {
       const { rows } = await listConfigurationsForLead(editId);
       if (!cancelled) setLinkedQuotes(rows);
     })();
     return () => { cancelled = true; };
-  }, [isEdit, editId]);
+  }, [isEdit, editId, repository]);
 
   async function handleSyncConfigurationToLead(configurationId: string) {
-    if (!editId || syncingConfigurationId) return;
+    if (repository.academy || !editId || syncingConfigurationId) return;
     setSyncingConfigurationId(configurationId);
     try {
       const result = await syncLeadFromConfiguration(configurationId, editId);
@@ -1099,6 +1102,10 @@ export default function CrmNewLeadPage() {
   };
 
   useEffect(() => {
+    if (repository.academy) {
+      setAttachmentPreviewUrls({});
+      return;
+    }
     const hasMeaningfulSavedEstimate = isEdit
       && !machineTypesChanged
       && loadedEstimatedValue != null
@@ -1143,7 +1150,7 @@ export default function CrmNewLeadPage() {
       setAttachmentPreviewUrls(Object.fromEntries(previews.map((attachment) => [attachment.storage_path, attachment.signed_url])));
     })();
     return () => { cancelled = true; };
-  }, [files]);
+  }, [files, repository]);
 
   function handleTradeFairChoiceChange(value: string) {
     setTradeFairChoice(value);
@@ -1183,8 +1190,8 @@ export default function CrmNewLeadPage() {
     setShareTargetId('');
     (async () => {
       const targets = isInternal
-        ? await listActiveDealerLeadShareTargets(linkedDealer)
-        : await getResponsibleTimanSellerTarget(linkedDealer).then((target) => target ? [target] : []);
+        ? await repository.listActiveDealerLeadShareTargets(linkedDealer)
+        : await repository.getResponsibleTimanSellerTarget(linkedDealer).then((target) => target ? [target] : []);
       if (cancelled) return;
       setShareTargets(targets);
       setShareTargetId(targets[0]?.id || '');
@@ -1200,26 +1207,27 @@ export default function CrmNewLeadPage() {
       setShareLoading(false);
     });
     return () => { cancelled = true; };
-  }, [shareDialogOpen, linkedDealer, isInternal]);
+  }, [shareDialogOpen, linkedDealer, isInternal, repository]);
 
   async function handleShareLead() {
     if (!editId || !selectedShareTarget) return;
     setShareLoading(true);
     setShareError(null);
     try {
-      const saved = await shareLead({
+      const includeEmail = repository.academy ? false : shareIncludeEmail;
+      const saved = await repository.shareLead({
         leadId: editId,
         sharedBy: currentShareUser,
         target: selectedShareTarget,
         dealerAccountId: linkedDealer || null,
         direction: shareDirection,
-        includeEmail: shareIncludeEmail,
+        includeEmail,
       });
-      const rows = await listLeadShares(editId);
+      const rows = await repository.listLeadShares(editId);
       setLeadShares(rows.some((row) => row.id === saved.id) ? rows : [saved, ...rows]);
       setShareDialogOpen(false);
-      toast.success(shareIncludeEmail ? 'Lead delt. Mail åbnes nu.' : 'Lead delt i portalen.');
-      if (shareIncludeEmail && selectedShareTarget.email) {
+      toast.success(includeEmail ? 'Lead delt. Mail åbnes nu.' : 'Lead delt i portalen.');
+      if (includeEmail && selectedShareTarget.email) {
         const leadTitle = title || (editLeadNo != null ? formatLeadNo(editLeadNo) : 'Lead');
         window.location.href = leadShareMailto({
           targetEmail: selectedShareTarget.email,
@@ -1274,7 +1282,9 @@ export default function CrmNewLeadPage() {
       // Use the explicitly chosen responsible seller (allows handover),
       // fall back to the logged-in user if for some reason it's missing.
       const chosen = sellers.find(s => s.id === responsibleSellerId);
-      const sellerId = chosen?.id || (await resolveSellerId(appUser?.email));
+      const sellerId = repository.academy
+        ? 'academy-local-sales-user'
+        : chosen?.id || (await resolveSellerId(appUser?.email));
       const contactInformation = buildStructuredContactInformation(structuredContactInfo);
       const payload = {
         title: title.trim(),
@@ -1308,24 +1318,29 @@ export default function CrmNewLeadPage() {
       };
       let savedLeadId = editId || '';
       if (isEdit && editId) {
-        await updateLead(editId, payload);
+        await repository.updateLead(editId, payload);
         savedLeadId = editId;
         toast.success(tt('updated_ok', lang));
       } else {
-        const created = await createLead(payload, { requireRemote: pendingFiles.length > 0 });
+        const created = await repository.createLead(payload, { requireRemote: pendingFiles.length > 0 });
         savedLeadId = created.id;
         toast.success(tt('created_ok', lang));
+      }
+      if (repository.academy && pendingFiles.length > 0) {
+        throw new Error('Academy CRM gemmer ikke filer i produktion.');
       }
       if (pendingFiles.length > 0) {
         const uploadedAttachments = await uploadLeadAttachments(savedLeadId, pendingFiles);
         if (uploadedAttachments.length > 0) {
           const nextAttachments = [...files, ...uploadedAttachments];
-          await updateLead(savedLeadId, { attachments: nextAttachments });
+          await repository.updateLead(savedLeadId, { attachments: nextAttachments });
           setFiles(nextAttachments);
           setPendingFiles([]);
         }
       }
-      navigate('/portal/crm');
+      navigate(repository.academy
+        ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
+        : '/portal/crm');
     } catch (err) {
       console.error(err);
       toast.error(tt(isEdit ? 'updated_err' : 'created_err', lang));
@@ -1337,6 +1352,11 @@ export default function CrmNewLeadPage() {
   return (
     <CrmLayout pageTitle={isEdit ? tt('edit_title', lang) : tt('page_title', lang)}>
       <div className="max-w-5xl mx-auto">
+        {repository.academy && (
+          <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+            <strong>Academy træning</strong> - du arbejder med lokale træningsdata. Ingen rigtige leads, mails eller demoer oprettes.
+          </div>
+        )}
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 inline-flex items-center gap-2.5">
@@ -1462,14 +1482,30 @@ export default function CrmNewLeadPage() {
               onChange={handleExpectedCloseChange}
               options={relativeDateQuickOptions}
             />
-            <SmartDateField
-              label={tt('lbl_next_followup', lang)}
-              required
-              full
-              value={nextFollowup}
-              onChange={handleNextFollowupChange}
-              options={relativeDateQuickOptions}
-            />
+            <div className="md:col-span-2">
+              <CrmLeadFollowupFields
+                nextFollowup={nextFollowup}
+                activity={nextActivity}
+                onNextFollowupChange={handleNextFollowupChange}
+                onActivityChange={handleNextActivityChange}
+                activityOptions={[...new Set([
+                  ...NEXT_ACTIVITY_OPTIONS
+                    .filter((option) => option !== 'Closed with order' && option !== 'Closed without order')
+                    .slice()
+                    .sort((a, b) => nextActivityToProbability(a) - nextActivityToProbability(b)),
+                  nextActivity,
+                ].filter(Boolean))]}
+                required
+                renderFollowup={() => <SmartDateField
+                  label={tt('lbl_next_followup', lang)}
+                  required
+                  full
+                  value={nextFollowup}
+                  onChange={handleNextFollowupChange}
+                  options={relativeDateQuickOptions}
+                />}
+              />
+            </div>
           </Section>
 
           <Section title={tt('sec_contact_info_structured', lang)} subtitle={tt('sec_contact_info_structured_sub', lang)}>
@@ -1572,22 +1608,6 @@ export default function CrmNewLeadPage() {
             </div>
           </Section>
 
-          <Section title={tt('sec_next_act', lang)}>
-            <Field label={tt('lbl_next_activity', lang)} required full>
-              <select className={inputCls} value={nextActivity} onChange={e=>handleNextActivityChange(e.target.value)}>
-                <option value="">{tt('pick', lang)}</option>
-                {NEXT_ACTIVITY_OPTIONS
-                  .filter(o => o !== 'Closed with order' && o !== 'Closed without order')
-                  .slice()
-                  .sort((a, b) => nextActivityToProbability(a) - nextActivityToProbability(b))
-                  .map(o => <option key={o} value={o}>{o} — {nextActivityToProbability(o)}%</option>)}
-                {/* Preserve current value if it's a closed status (legacy/edited lead) so it still displays */}
-                {(nextActivity === 'Closed with order' || nextActivity === 'Closed without order') && (
-                  <option value={nextActivity}>{nextActivity}</option>
-                )}
-              </select>
-            </Field>
-          </Section>
 
           <Section title={tt('sec_demo', lang)}>
             <Field label={tt('lbl_demo_held', lang)}>
@@ -1603,7 +1623,12 @@ export default function CrmNewLeadPage() {
             </Field>
             {demoHasRun === 'yes' && (
               <Field label={tt('lbl_convert', lang)}>
-                <Link to="/portal/crm/demo-leads/new" className="inline-flex items-center gap-1.5 text-sm text-[#2d5a27] hover:underline self-start mt-1">
+                <Link
+                  to={repository.academy && editId
+                    ? `/academy/crm/demo-leads/new?academy_mode=true&academy_part=2&fromLead=${encodeURIComponent(editId)}`
+                    : '/portal/crm/demo-leads/new'}
+                  className="inline-flex items-center gap-1.5 text-sm text-[#2d5a27] hover:underline self-start mt-1"
+                >
                   {tt('cta_convert', lang)}
                 </Link>
               </Field>
@@ -1838,7 +1863,7 @@ export default function CrmNewLeadPage() {
             </section>
           )}
 
-          <Section title={tt('sec_files', lang)} subtitle={tt('sec_files_sub', lang)}>
+          {!repository.academy && <Section title={tt('sec_files', lang)} subtitle={tt('sec_files_sub', lang)}>
             <div className="md:col-span-2">
               <label className="flex items-center gap-2 cursor-pointer text-sm border border-dashed border-gray-300 rounded-xl px-4 py-6 justify-center hover:bg-gray-50 transition">
                 <Upload className="h-4 w-4 text-gray-500" />
@@ -1905,10 +1930,10 @@ export default function CrmNewLeadPage() {
                 </ul>
               )}
             </div>
-          </Section>
+          </Section>}
 
           <div className="sticky bottom-4 flex items-center justify-end gap-3 bg-white/90 backdrop-blur rounded-2xl border border-gray-100 shadow-sm p-3 mt-6">
-            <Link to="/portal/crm/leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
+            <Link to={repository.academy ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}` : '/portal/crm/leads'} className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
             <button type="submit" disabled={submitting || !isLeadFormReady}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />

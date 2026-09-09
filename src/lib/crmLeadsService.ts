@@ -450,6 +450,9 @@ function isUuid(value: string | null | undefined): boolean {
 }
 
 export async function createLead(input: NewCrmLead, opts: { requireRemote?: boolean } = {}): Promise<CrmLead> {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
+    throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
+  }
   const now = new Date().toISOString();
   const row: CrmLead = { ...input, id: uuid(), created_at: now, updated_at: now };
   const pipelineSnapshot = getLeadPipelineValueSnapshot(row);
@@ -624,6 +627,9 @@ export type CrmLeadPatch = Partial<Omit<CrmLead, "id" | "created_at">>;
  * affects 0 rows there, but the local override still wins on next listLeads().
  */
 export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLead> {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
+    throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
+  }
   const now = new Date().toISOString();
   // Merge into LS (acts as override for seed rows too).
   const local = readLS<CrmLead>(LS_LEADS);
@@ -929,6 +935,9 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
 export type NewCrmDemoLead = Omit<CrmDemoLead, "id" | "created_at">;
 
 export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead> {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
+    throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
+  }
   const now = new Date().toISOString();
   const row: CrmDemoLead = { ...input, id: uuid(), created_at: now };
 

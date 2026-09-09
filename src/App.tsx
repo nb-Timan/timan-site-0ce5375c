@@ -124,6 +124,8 @@ const CrmCalendarPage = lazy(() => import("./pages/crm/CrmCalendarPage"));
 
 const ConfiguratorPage = lazy(() => import("./pages/ConfiguratorPage"));
 const AcademyPage = lazy(() => import("./pages/AcademyPage"));
+const AcademyCrmLeadsPage = lazy(() => import("./pages/crm/AcademyCrmLeadsPage"));
+const AcademyCrmRoute = lazy(() => import("./pages/crm/AcademyCrmLeadsPage").then((module) => ({ default: module.AcademyCrmRoute })));
 const VideoGalleryPage = lazy(() => import("./pages/VideoGalleryPage"));
 const VideoCategoryPage = lazy(() => import("./pages/VideoCategoryPage"));
 const ResourcesPage = lazy(() => import("./pages/ResourcesPage"));
@@ -233,6 +235,9 @@ const App = () => (
               <Route path="/reset-password" element={<UpdatePasswordPage />} />
               <Route path="/portal" element={<PortalLockGuard><PortalPage /></PortalLockGuard>} />
               <Route path="/academy" element={<AcademyPage />} />
+              <Route path="/academy/crm/leads" element={<AcademyCrmLeadsPage />} />
+              <Route path="/academy/crm/leads/:id" element={<AcademyCrmRoute><CrmNewLeadPage /></AcademyCrmRoute>} />
+              <Route path="/academy/crm/demo-leads/new" element={<AcademyCrmRoute><CrmNewDemoLeadPage /></AcademyCrmRoute>} />
               <Route path="/portal/teknik-service" element={<DealerUserServiceGuard><PortalAreaPage areaId="teknik_service" /></DealerUserServiceGuard>} />
               <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
               <Route path="/portal/marketing" element={<PortalAreaPage areaId="marketing" />} />

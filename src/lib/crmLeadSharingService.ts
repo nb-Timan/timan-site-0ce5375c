@@ -136,6 +136,9 @@ export async function shareLead(input: {
   includeEmail: boolean;
   note?: string | null;
 }): Promise<CrmLeadShare> {
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
+    throw new Error('Blocked: Academy CRM sharing must use the local Academy sandbox.');
+  }
   const channel: CrmLeadShare["channel"] = input.includeEmail ? "portal_email" : "portal";
 
   try {

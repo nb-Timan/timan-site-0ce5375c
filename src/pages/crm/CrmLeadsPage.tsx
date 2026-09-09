@@ -46,6 +46,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
+import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 
 // ---- i18n. English fallback. ----
 type TKey =
@@ -410,7 +412,7 @@ function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
   return (b.date || '').localeCompare(a.date || '');
 }
 
-export default function CrmLeadsPage() {
+export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = {}) {
   const { appUser } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { uiLanguage: lang } = useLanguage();
@@ -423,6 +425,7 @@ export default function CrmLeadsPage() {
   const canDelete = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
   const effectiveSellerEmail = getEffectiveSellerEmail(appUser);
   const sellerDirectory = useSellerDirectory();
+  const repository = getCrmLeadRepository();
 
   const TABS: { key: TabKey; label: string }[] = [
     { key: 'open',      label: tt('tab_open', lang) },
@@ -468,7 +471,7 @@ export default function CrmLeadsPage() {
   };
 
   async function handleConvertToQuote(leadId: string) {
-    const lead = await getLead(leadId);
+    const lead = await repository.getLead(leadId);
     if (!lead || quoteConvertBusyId) return;
     setQuoteConvertBusyId(leadId);
     try {
@@ -522,14 +525,12 @@ export default function CrmLeadsPage() {
     (async () => {
       if (externalScopeLoading) return;
       setLoading(true);
-      const sellerScope = await resolveEffectiveCrmSellerScope({ email: appUser?.email });
+      const sellerScope = repository.academy ? { ownerUserId: 'academy-local-sales-user', ownerEmail: 'academy.sales@localhost' } : await resolveEffectiveCrmSellerScope({ email: appUser?.email });
       const sid = sellerScope.ownerUserId;
-      const [nextSharedLeadIds] = await Promise.all([
-        listSharedLeadIdsForUser(sid),
-      ]);
+      const nextSharedLeadIds = repository.academy ? new Set<string>() : await listSharedLeadIdsForUser(sid);
       if (cancelled) return;
       try {
-        const result = await listLeadsPage({
+        const result = await repository.listLeadsPage({
           isAdmin,
           ownerUserId: sid,
           ownerEmail: sellerScope.ownerEmail,
@@ -557,7 +558,7 @@ export default function CrmLeadsPage() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, effectiveSellerEmail, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, machineFilter, equipmentFilter, page, portalRole, q, reloadKey, sort, stage, tab, typeFilter]);
+  }, [appUser?.email, effectiveSellerEmail, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, machineFilter, equipmentFilter, page, portalRole, q, reloadKey, repository, sort, stage, tab, typeFilter]);
 
   useEffect(() => {
     setPage(0);
@@ -630,6 +631,7 @@ export default function CrmLeadsPage() {
 
   return (
     <CrmLayout pageTitle={tt('page_title', lang)}>
+      {repository.academy && <section className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><b>Academy træning - CRM Leads, Part {academyPart || 1}</b><p className="mt-1">Du arbejder med lokale træningsleads. Ingen lead, deling, demo eller mail sendes til produktion.</p><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold">{(academyPart === 2 ? [[academyCrmSandbox.getProgress().activityUpdated, 'Aktivitet/opfølgning'], [academyCrmSandbox.getProgress().shared, 'Lead delt med Academy-forhandler'], [academyCrmSandbox.getProgress().demoConverted, 'Academy-demo']] : [[academyCrmSandbox.getProgress().overdueUpdated, 'Forfaldent lead opdateret'], [academyCrmSandbox.getProgress().configuratorCompleted, 'Configurator-lead færdigoprettet']]).map(([done, label]) => <span key={String(label)}>{done ? '✓' : '○'} {String(label)}</span>)}</div></section>}
       {/* Header */}
       <div className="mb-5">
         <div>
@@ -749,14 +751,16 @@ export default function CrmLeadsPage() {
               </button>
             );
           })}
-          <Link to="/portal/crm/demo-leads/new"
-            className={cn(topActionButtonClass, 'bg-white text-[#2d5a27] border border-[#2d5a27]/30 hover:border-[#2d5a27] hover:bg-gray-50')}>
-            <Plus className="h-4 w-4" /> {tt('new_demo', lang)}
-          </Link>
-          <Link to="/portal/crm/leads/new"
-            className={cn(topActionButtonClass, 'bg-[#2d5a27] text-white hover:bg-[#234820]')}>
-            <Plus className="h-4 w-4" /> {tt('new_lead', lang)}
-          </Link>
+          {!repository.academy && <>
+            <Link to="/portal/crm/demo-leads/new"
+              className={cn(topActionButtonClass, 'bg-white text-[#2d5a27] border border-[#2d5a27]/30 hover:border-[#2d5a27] hover:bg-gray-50')}>
+              <Plus className="h-4 w-4" /> {tt('new_demo', lang)}
+            </Link>
+            <Link to="/portal/crm/leads/new"
+              className={cn(topActionButtonClass, 'bg-[#2d5a27] text-white hover:bg-[#234820]')}>
+              <Plus className="h-4 w-4" /> {tt('new_lead', lang)}
+            </Link>
+          </>}
         </div>
       </div>
 
@@ -928,7 +932,9 @@ export default function CrmLeadsPage() {
                             <>
                               {!r.has_demo && (
                                 <Link
-                                  to={`/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(r.id)}`}
+                                  to={repository.academy
+                                    ? `/academy/crm/demo-leads/new?academy_mode=true&academy_part=${academyPart || 2}&fromLead=${encodeURIComponent(r.id)}`
+                                    : `/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(r.id)}`}
                                   onClick={(e) => e.stopPropagation()}
                                   aria-label={tt('convert_to_demo', lang)}
                                   className="inline-flex h-8 min-w-[58px] items-center justify-center text-center text-violet-700 hover:underline"
@@ -936,7 +942,7 @@ export default function CrmLeadsPage() {
                                   <CompactConvertLabel primary={tt('convert_label', lang)} secondary={tt('to_demo_label', lang)} />
                                 </Link>
                               )}
-                              {r.quote_id ? (
+                              {!repository.academy && (r.quote_id ? (
                                 <Link
                                   to={`/configurator?configId=${encodeURIComponent(r.quote_id)}`}
                                   onClick={(e) => e.stopPropagation()}
@@ -957,8 +963,8 @@ export default function CrmLeadsPage() {
                                 >
                                   <CompactConvertLabel primary={tt('convert_label', lang)} secondary={tt('to_quote_label', lang)} />
                                 </button>
-                              )}
-                              <button
+                              ))}
+                              {!repository.academy && <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   getLead(r.id).then((lead) => {
@@ -968,10 +974,10 @@ export default function CrmLeadsPage() {
                                 className="inline-flex items-center gap-1 text-[12px] text-rose-700 hover:underline"
                               >
                                 <XCircle className="h-3.5 w-3.5" /> {tt('close_btn', lang)}
-                              </button>
+                              </button>}
                             </>
                           )}
-                          {canDelete && (
+                          {canDelete && !repository.academy && (
                             <button
                               type="button"
                               onClick={(e) => {
