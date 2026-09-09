@@ -4,6 +4,7 @@ import {
   getNewContractDiscountDefaults,
   getPartnerTypeDiscountFormPatch,
 } from '@/lib/contractCommercialTerms';
+import type { ContractConfirmations, ContractFormData } from '@/lib/contractTypes';
 import { renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import { renderGuidedContractSections } from '@/lib/contractSections';
 import { buildContractSnapshot, type ContractFormData } from '@/lib/contractFlow';
