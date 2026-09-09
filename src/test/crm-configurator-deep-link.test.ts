@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getCrmConfigurationDeepLink,
+  getCrmConfigurationLeadDeepLink,
   getCrmLinkedConfigurationKind,
   isSentForCrm,
   resolveCrmDocumentType,
@@ -46,6 +47,13 @@ describe("CRM lead linked configurator records", () => {
     expect(getCrmConfigurationDeepLink(baseRow)).toBe(
       "/configurator?configId=925ae37c-2d1c-4435-8f6a-74b98011d68a",
     );
+  });
+
+  it("deep-links to the canonical linked lead only when lead_id exists", () => {
+    expect(getCrmConfigurationLeadDeepLink(baseRow)).toBe(
+      "/portal/crm/leads/72f270f4-cc62-422f-b67f-ad02c584c7fc",
+    );
+    expect(getCrmConfigurationLeadDeepLink({ ...baseRow, lead_id: null })).toBeNull();
   });
 
   it("does not treat a saved configurator case as a sent quote from the T-number alone", () => {

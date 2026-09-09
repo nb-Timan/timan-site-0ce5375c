@@ -34,6 +34,8 @@ import { getActiveSellerView } from '@/lib/activeMode';
 import {
   listCrmConfigurations,
   softDeleteConfiguration,
+  getCrmConfigurationDeepLink,
+  getCrmConfigurationLeadDeepLink,
   CrmConfigurationRow,
   CrmDocumentType,
 } from '@/lib/crmConfigurationsService';
@@ -83,6 +85,10 @@ const T: Record<string, Record<Language, string>> = {
   col_status: { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Státusz' },
   col_created: { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
   col_sent: { da: 'Sendt', en: 'Sent', de: 'Gesendet', it: 'Inviato', hu: 'Elküldve' },
+  col_actions: { da: 'Handling', en: 'Actions', de: 'Aktionen', it: 'Azioni', hu: 'Műveletek' },
+  open_configurator: { da: 'Åbn i Configurator', en: 'Open in Configurator', de: 'Im Konfigurator öffnen', it: 'Apri nel Configuratore', hu: 'Megnyitás a konfigurátorban' },
+  open_lead: { da: 'Åbn Lead', en: 'Open Lead', de: 'Lead öffnen', it: 'Apri lead', hu: 'Lead megnyitása' },
+  no_linked_lead: { da: 'Intet tilknyttet lead', en: 'No linked lead', de: 'Kein verknüpfter Lead', it: 'Nessun lead collegato', hu: 'Nincs kapcsolt lead' },
   count_label: { da: 'rækker', en: 'rows', de: 'Zeilen', it: 'righe', hu: 'sor' },
   scope_backend: { da: 'Viser alle (Backend)', en: 'Showing all (Backend)', de: 'Alle (Backend)', it: 'Tutti (Backend)', hu: 'Mind (Backend)' },
   scope_seller: { da: 'Viser kun egne', en: 'Showing only own', de: 'Nur eigene', it: 'Solo i propri', hu: 'Csak sajátok' },
@@ -336,6 +342,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                   <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
+                  {mode === 'quote' && <th className="text-left px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
                   {canEditOwnership && <th className="px-3 py-2 font-semibold w-10"></th>}
                   {canDelete && <th className="px-3 py-2 font-semibold w-10"></th>}
                 </tr>
@@ -350,6 +357,8 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                   const dealerLabel = r.dealer_company_name
                     ?? r.dealer_name
                     ?? (r.dealer_number ? `#${r.dealer_number}` : '—');
+                  const configuratorHref = getCrmConfigurationDeepLink(r);
+                  const leadHref = getCrmConfigurationLeadDeepLink(r);
                   return (
                     <tr
                       key={r.id}
@@ -357,15 +366,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       className={`border-b border-slate-100 hover:bg-slate-50/60 ${canEditOwnership ? 'cursor-pointer' : ''}`}
                     >
                       <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/configurator?configId=${r.id}`); }}
-                          className="inline-flex items-center gap-1 text-[#2d5a27] hover:underline"
-                          title={lang === 'da' ? 'Åbn i konfigurator' : 'Open in configurator'}
-                        >
-                          {number}
-                          <ExternalLink className="h-3 w-3 opacity-60" />
-                        </button>
+                        {number}
                       </td>
                       {mode === 'order' && (
                         <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
@@ -373,14 +374,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                         </td>
                       )}
                       <td className="px-3 py-2.5 text-slate-800 max-w-[280px]">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/configurator?configId=${r.id}`); }}
-                          className="text-left truncate w-full text-slate-800 hover:text-[#2d5a27] hover:underline"
-                          title={lang === 'da' ? 'Åbn i konfigurator' : 'Open in configurator'}
-                        >
-                          {r.title || '—'}
-                        </button>
+                        <span className="block truncate" title={r.title || undefined}>{r.title || '—'}</span>
                       </td>
                       <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
                         {r.seller_initials || r.seller_name || r.seller_email || '—'}
@@ -396,6 +390,30 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       </td>
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.created_at)}</td>
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(sentAt)}</td>
+                      {mode === 'quote' && (
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); navigate(configuratorHref); }}
+                              className="inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-1 text-[12px] font-medium text-[#2d5a27] hover:bg-emerald-50"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              {T.open_configurator[lang]}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={!leadHref}
+                              onClick={(e) => { e.stopPropagation(); if (leadHref) navigate(leadHref); }}
+                              title={!leadHref ? T.no_linked_lead[lang] : undefined}
+                              className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[12px] font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-400"
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              {T.open_lead[lang]}
+                            </button>
+                          </div>
+                        </td>
+                      )}
                       {canEditOwnership && (
                         <td className="px-3 py-2.5 text-right">
                           <button

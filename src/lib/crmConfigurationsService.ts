@@ -101,6 +101,13 @@ export function getCrmConfigurationDeepLink(row: Pick<CrmConfigurationRow, 'id'>
   return `/configurator?configId=${encodeURIComponent(row.id)}`;
 }
 
+/** Returns the canonical CRM lead route for a configuration, when linked. */
+export function getCrmConfigurationLeadDeepLink(
+  row: Pick<CrmConfigurationRow, 'lead_id'>,
+): string | null {
+  return row.lead_id ? `/portal/crm/leads/${encodeURIComponent(row.lead_id)}` : null;
+}
+
 export function resolveCrmDocumentType(
   row: Pick<CrmConfigurationRow, 'order_sent_at' | 'submitted_at'>,
 ): CrmDocumentType {
