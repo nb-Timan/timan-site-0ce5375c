@@ -1420,6 +1420,30 @@ describe('contract flow', () => {
     expect(overviewHeader).not.toContain("text-3xl font-black");
   });
 
+  it('loads the contract overview through one scoped server-side read', () => {
+    const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
+    const overviewStart = serviceSource.indexOf('export async function fetchInternalDealerContractOverview');
+    const overviewEnd = serviceSource.indexOf('export async function saveDealerContractDraft', overviewStart);
+    const overviewSource = serviceSource.slice(overviewStart, overviewEnd);
+
+    expect(overviewSource).toContain('supabase.rpc("list_internal_dealer_contract_overview"');
+    expect(overviewSource).toContain('p_seller_id: portalRole === "timan_backend"');
+    expect(overviewSource).not.toContain('fetchDealerAccounts');
+    expect(overviewSource).not.toContain('.filter((row) => sellerMatchesScope');
+  });
+
+  it('keeps the overview RPC security-invoker and scoped by the existing RLS policy', () => {
+    const migration = readFileSync('supabase/migrations/20260909181219_contract_overview_scoped_read.sql', 'utf8');
+    const sellerScopeMigration = readFileSync('supabase/migrations/20260908210000_enforce_seller_contract_scope.sql', 'utf8');
+
+    expect(migration).toContain('security invoker');
+    expect(migration).toContain('public.list_internal_dealer_contract_overview');
+    expect(migration).toContain("actor.portal_role in ('timan_backend', 'timan_seller')");
+    expect(migration).toContain('actor.portal_role = \'timan_backend\'');
+    expect(sellerScopeMigration).toContain('create or replace function public.is_global_internal_contract_actor()');
+    expect(sellerScopeMigration).toContain("au.portal_role in ('timan_backend', 'timan_service')");
+  });
+
   it('uses user-scoped time-limited partner contract access windows', () => {
     const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
     const portalAreaSource = readFileSync('src/pages/PortalAreaPage.tsx', 'utf8');
