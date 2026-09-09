@@ -3051,7 +3051,7 @@ export default function ConfiguratorPage() {
                         : 'font-bold text-gray-800 mt-10 mb-2 border-b pb-1 text-lg sticky top-0 bg-white z-10';
                     elements.push(
                       <h3 key={`header-${idx}`} className={headerCls}>
-                        {getLocalizedName(a.name, lang)}
+                        {a.translationKey ? T(a.translationKey) : getLocalizedName(a.name, lang)}
                       </h3>
                     );
                     return;
@@ -3162,10 +3162,10 @@ export default function ConfiguratorPage() {
                   <h2 className="text-xl font-bold mb-4 text-center">{T('step3Title')}</h2>
                   {machineType === LOOSE_TOOL_KEY && (
                     <div className="mb-5 text-left">
-                      <p className="text-sm font-semibold text-gray-800 mb-2">Hvilken maskine søger du redskab til?</p>
+                      <p className="text-sm font-semibold text-gray-800 mb-2">{T('looseToolsMachineFilterPrompt')}</p>
                       <div className="flex flex-wrap gap-2">
                         {[
-                          { value: 'all', label: 'Alle' },
+                          { value: 'all', label: T('allMachines') },
                           { value: 'RC-1000S', label: 'RC-1000s' },
                           { value: 'Timan 3330', label: 'Timan 3330' },
                           { value: 'Timan 2620', label: 'Timan 2620' },

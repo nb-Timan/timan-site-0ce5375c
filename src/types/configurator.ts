@@ -96,6 +96,7 @@ export interface Accessory {
   hidden?: boolean;
   auto?: boolean; // auto-added items
   isHeader?: boolean;
+  translationKey?: string;
   isRAL?: boolean;
   isQtyInput?: boolean;
   sectionStart?: string;

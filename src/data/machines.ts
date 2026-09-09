@@ -382,7 +382,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
       specs: [{ label: 'Beskrivelse', value: { da: `Vedr. Udvidet komponentgaranti Timan RC-1000s\n\nVores RC-1000s leveres med 12 måneders udvidet komponentgaranti, som dækker maskinens vigtigste funktionsdele.\nGarantien er skabt for at give dig ekstra tryghed og sikre stabil drift.\n\nGarantien tegnes fra købsdatoen og kan maximalt tegnes for 5 år, hvorefter den automatisk ophører.\n\nGarantien dækker følgende komponenter samt omkostningerne ved udskiftningen heraf:\n\n• Motorens hovedkomponenter\n• Hydraulikpumper og hydraulikmotorer\n• Elektroniske styre- og kontrolmoduler (ikke forbrugsdele)\n• Transmission og drivlinje\n• Hydraulikventiler\n• Chassisrelaterede funktionskomponenter ved fabrikationsfejl\n\nAlle priser er ekskl. moms.\n\nGarantien tegnes direkte ved Timan A/S.`, en: `Extended Component Warranty Timan RC-1000s\n\nOur RC-1000s is delivered with a 12-month extended component warranty covering the machine's most important functional parts.\n\nThe warranty covers:\n• Main engine components\n• Hydraulic pumps and hydraulic motors\n• Electronic control modules (excluding wear parts)\n• Transmission and drivetrain\n• Hydraulic valves\n• Chassis related functional components in case of manufacturing defects\n\nAll prices exclude VAT.\nThe warranty is issued directly with Timan A/S.`, de: `Erweiterte Komponentengarantie Timan RC-1000s\n\nDie Garantie deckt folgende Komponenten:\n• Hauptkomponenten des Motors\n• Hydraulikpumpen und Hydraulikmotoren\n• Elektronische Steuer- und Kontrollmodule\n• Getriebe und Antriebsstrang\n• Hydraulikventile`, it: `Garanzia estesa sui componenti Timan RC-1000s`, hu: `Kiterjesztett alkatrészgarancia Timan RC-1000s` } }]
     },
     // --- REDSKABER START ---
-    { id: 'REDSKABER_HEADER', varenr: 'HEADER', name: { da: 'Redskaber til RC-1000s', en: 'Tools for RC-1000s', de: 'Werkzeuge für RC-1000s', it: 'Attrezzi per RC-1000s', hu: 'RC-1000s eszközök' }, priceDKK: 0, priceEUR: 0, isHeader: true },
+    { id: 'REDSKABER_HEADER', varenr: 'HEADER', name: { da: 'Redskaber til RC-1000s', en: 'Tools for RC-1000s', de: 'Werkzeuge für RC-1000s', it: 'Attrezzi per RC-1000s', hu: 'RC-1000s eszközök' }, priceDKK: 0, priceEUR: 0, isHeader: true, translationKey: 'looseToolsGroupRc1000s' },
     { id: '410910', varenr: '410910', name: { da: 'Slagleklipper inkl Y-slagle sæt', en: 'Flail Mower incl. Y-flail set', de: 'Schlegelmäher inkl. Y-Schlegel-Set', it: 'Trinciatrice incl. set di flagelli a Y', hu: 'Szárzúzó Y-alakú késekkel' }, priceDKK: 43900, priceEUR: 5905,
       videos: [{ url: 'https://www.youtube.com/watch?v=D-hXvg_oW9s', label: '🎥 Klik på linket for at se video' }],
       images: [{ url: 'https://img.youtube.com/vi/brq-kHp9gPI/hqdefault.jpg', label: '📸 Klik for billede' }],
@@ -925,6 +925,7 @@ export function getLooseToolAccessories(): Accessory[] {
     priceDKK: 0,
     priceEUR: 0,
     isHeader: true,
+    translationKey: 'looseToolsGroupTiman3330',
     looseToolMachine: 'Timan 3330',
   };
 
@@ -935,6 +936,7 @@ export function getLooseToolAccessories(): Accessory[] {
     priceDKK: 0,
     priceEUR: 0,
     isHeader: true,
+    translationKey: 'looseToolsGroupTiman2620',
     looseToolMachine: 'Timan 2620',
   };
 
