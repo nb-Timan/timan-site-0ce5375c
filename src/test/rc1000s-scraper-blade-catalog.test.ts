@@ -19,9 +19,10 @@ describe('RC-1000s scraper blade catalog entry', () => {
 
     expect(scraperBlade).toMatchObject({
       varenr: '412051',
-      name: { da: 'Skrabeblad RC-1000s' },
+      name: { da: 'Skrabeblad RC-1000' },
       priceDKK: 13500,
       priceEUR: 1825,
     });
+    expect(scraperBlade?.varenr).not.toContain('-00');
   });
 });

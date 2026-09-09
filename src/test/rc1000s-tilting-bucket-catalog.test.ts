@@ -18,9 +18,10 @@ describe('RC-1000s tilting bucket catalog entry', () => {
 
     expect(bucket).toMatchObject({
       varenr: '412050',
-      name: { da: 'Vipbar skovl til RC-1000s' },
+      name: { da: 'Skovl RC-1000' },
       priceDKK: 11800,
       priceEUR: 1610,
     });
+    expect(bucket?.varenr).not.toContain('-00');
   });
 });
