@@ -91,6 +91,7 @@ import { MesseRouteGuard, PortalLockGuard } from "./components/messe/MesseGuards
 import { DealerUserServiceGuard } from "./components/guards/DealerUserServiceGuard";
 import AcademyCapabilityGuard from "./components/academy/AcademyCapabilityGuard";
 import AcademyAccessGuard from "./components/academy/AcademyAccessGuard";
+import PartnerDataRoute from "./pages/portal/PartnerDataRoute";
 
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
@@ -127,7 +128,6 @@ function lazyWithDynamicImportRecovery<T extends ComponentType<any>>(
 const PortalPage = lazy(() => import("./pages/PortalPage"));
 const PortalAreaPage = lazy(() => import("./pages/PortalAreaPage"));
 const PortalCrmPage = lazy(() => import("./pages/PortalCrmPage"));
-const PartnerDataRoute = lazy(() => import("./pages/portal/PartnerDataRoute"));
 const UpdatePasswordPage = lazy(() => import("./pages/UpdatePasswordPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
