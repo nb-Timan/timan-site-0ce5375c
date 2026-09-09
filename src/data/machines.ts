@@ -452,7 +452,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     },
     { id: '730276', varenr: '730276', name: { da: 'Stålskær til v-plov, 2 stk.', en: 'Steel Blade for V-plow, 2 pcs.', de: 'Stahlklinge für V-Pflug, 2 Stk.', it: 'Lama in acciaio per vomeri a V, 2 pz.', hu: 'Acél él V-ekéhez, 2 db' }, priceDKK: 1940, priceEUR: 265, requires: ACC_ID_VPLOW },
     { id: '712901', varenr: '712901', name: { da: 'Rustbeskyttelse V-Plov', en: 'Rust Protection V-Plow', de: 'Rostschutz V-Pflug', it: 'Protezione antiruggine Vomeri a V', hu: 'V-eke rozsdavédelem' }, priceDKK: 750, priceEUR: 105, requires: ACC_ID_VPLOW },
-    { id: '412051', varenr: '412051', name: { da: 'Skrabeblad RC-1000s', en: 'Scraper blade RC-1000s' }, priceDKK: 13500, priceEUR: 1825 },
+    { id: '412051', varenr: '412051', name: { da: 'Skrabeblad RC-1000s', en: 'Scraper blade RC-1000s' }, priceDKK: 13500, priceEUR: 1825, isNew: true },
     // Fejemaskine og afhængige tilvalg
     { id: '411845', varenr: '411845', name: { da: 'Centerdrevet fejemaskine', en: 'Center Driven Sweeper', de: 'Mittelgetriebene Kehrmaschine', it: 'Spazzatrice a trazione centrale', hu: 'Központi hajtású seprőgép' }, priceDKK: 38500, priceEUR: 5175,
       videoUrl: 'https://www.youtube.com/watch?v=NbmL0w17bRA',
@@ -495,7 +495,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: '50101018', varenr: '50101018', name: { da: 'Børste Ø390/Ø600, 1 række søm i slange, 2 rækker fladstål', en: 'Brush Ø390/Ø600, 1 row of nails in hose, 2 rows of flat steel' }, priceDKK: 6150, priceEUR: 830, videoUrl: 'https://www.youtube.com/watch?v=m4q_NlhLW74', imageUrl: 'https://img.youtube.com/vi/m4q_NlhLW74/maxresdefault.jpg', requires: ACC_ID_WEEDBRUSH, isQtyInput: true },
     { id: '50101019', varenr: '50101019', name: { da: 'Børste Ø390/Ø600, 1 række stålwire, 2 rækker fladstål', en: 'Brush Ø390/Ø600, 1 row of steel wire, 2 rows of flat steel' }, priceDKK: 4600, priceEUR: 620, videoUrl: 'https://www.youtube.com/watch?v=m4q_NlhLW74', imageUrl: 'https://img.youtube.com/vi/m4q_NlhLW74/maxresdefault.jpg', requires: ACC_ID_WEEDBRUSH, isQtyInput: true },
     { id: '50101020', varenr: '50101020', name: { da: 'Børste Ø390/Ø600, 2 rækker stålwire', en: 'Brush Ø390/Ø600, 2 rows of steel wire' }, priceDKK: 5300, priceEUR: 715, videoUrl: 'https://www.youtube.com/watch?v=m4q_NlhLW74', imageUrl: 'https://img.youtube.com/vi/m4q_NlhLW74/maxresdefault.jpg', requires: ACC_ID_WEEDBRUSH, isQtyInput: true },
-    { id: '412050', varenr: '412050', name: { da: 'Vipbar skovl til RC-1000s', en: 'Tilting bucket for RC-1000s' }, priceDKK: 11800, priceEUR: 1610 },
+    { id: '412050', varenr: '412050', name: { da: 'Vipbar skovl til RC-1000s', en: 'Tilting bucket for RC-1000s' }, priceDKK: 11800, priceEUR: 1610, isNew: true },
     // --- ØVRIGT UDSTYR ---
     { id: ACC_ID_WIRE_HARNESS, varenr: '412614', name: { da: 'Ledningsnet til blitz/arbejdslys', en: 'Wiring Harness for Flashing/Work Lights' }, priceDKK: 890, priceEUR: 120, hidden: true, sectionStart: 'Udstyr til RC-1000s' },
     { id: '411891', varenr: '411891', name: { da: 'Krogplade til udstyr', en: 'Hook Plate for Equipment', de: 'Hakenplatte für Ausrüstung', it: 'Piastra di aggancio per attrezzatura', hu: 'Kampós lemez felszereléshez' }, priceDKK: 700, priceEUR: 95, sectionStart: 'Øvrigt Udstyr',
@@ -602,7 +602,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: 'LT_712901', varenr: '712901', name: { da: 'Rustbeskyttelse V-plov', en: 'Rust Protection V-plow' }, priceDKK: 750, priceEUR: 105, requires: '730114' },
     { id: 'LT_730276', varenr: '730276', name: { da: 'Stålskær til V-plov, 2 stk.', en: 'Steel scraper edge for V-plow (2 pcs.)' }, priceDKK: 1810, priceEUR: 245, requires: '730114' },
     { id: '730105', varenr: '730105', name: { da: 'Dozerblad 130 cm med gummiskær', en: 'Dozer blade 130 cm with rubber edge' }, priceDKK: 19000, priceEUR: 2560 },
-    { id: '730036', varenr: '730036', name: { da: 'Skrabeblad 3330', en: 'Scraper blade 3330' }, priceDKK: 18500, priceEUR: 2550 },
+    { id: '730036', varenr: '730036', name: { da: 'Skrabeblad 3330', en: 'Scraper blade 3330' }, priceDKK: 18500, priceEUR: 2550, isNew: true },
     { id: '730106', varenr: '730106', name: { da: 'Sneslynge, 110 cm arbejdsbredde', en: 'Snow blower, 110 cm working width' }, priceDKK: 49500, priceEUR: 6665 },
     // Spreader
     { id: '725131', varenr: '725131', name: { da: 'CS-200 Valsespreder, for lad, manuel reg. Husk lad og vogn', en: 'CS-200 roller spreader for load bed, manual (Requires bed & trailer)' }, priceDKK: 38500, priceEUR: 5050,
@@ -675,7 +675,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
       ]
     },
     { id: '730107', varenr: '730107', name: { da: 'Skovl med hydraulisk tip', en: 'Bucket with hydraulic tipping' }, priceDKK: 19500, priceEUR: 2625 },
-    { id: '730035', varenr: '730035', name: { da: 'Skovl Timan 3330', en: 'Bucket Timan 3330' }, priceDKK: 12500, priceEUR: 1695 },
+    { id: '730035', varenr: '730035', name: { da: 'Skovl Timan 3330', en: 'Bucket Timan 3330' }, priceDKK: 12500, priceEUR: 1695, isNew: true },
     { id: 'V35-502', varenr: 'V35-502', name: { da: 'Ramme for montering af udstyr bag – andre end Timan produkter', en: 'Rear mounting frame – non-Timan equipment' }, priceDKK: 2850, priceEUR: 385 },
     { id: 'V35-300', varenr: 'V35-300', name: { da: 'Hurtigkobling for frontudstyr – andre end Timan produkter', en: 'Quick coupling for front equipment – non-Timan' }, priceDKK: 2760, priceEUR: 375 },
     { id: '721122_standalone', varenr: '721122', name: { da: 'Fabriksmontering af centerslange for fejesug T2 og T3', en: 'Factory installation of center hose for sweep/vac T2 and T3', de: 'Werksmontage Zentralschlauch für Kehr/Saug T2 und T3', it: 'Installazione in fabbrica del tubo centrale per spazzatura/aspirazione T2 e T3', hu: 'Központi tömlő gyári beszerelése T2/T3 seprés/szíváshoz' }, priceDKK: 3100, priceEUR: 420 },

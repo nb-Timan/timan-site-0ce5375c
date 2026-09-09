@@ -82,6 +82,7 @@ export interface SubItem {
   imageUrl?: string;
   specs?: TechSpec[];
   subItems?: SubItem[];
+  isNew?: boolean;
 }
 
 export interface Accessory {
@@ -105,6 +106,7 @@ export interface Accessory {
   specs?: TechSpec[];
   subItems?: SubItem[];
   looseToolMachine?: 'RC-1000S' | 'Timan 3330' | 'Timan 2620';
+  isNew?: boolean;
 }
 
 export interface Machine {

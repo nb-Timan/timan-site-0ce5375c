@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { da, de, enGB, hu, it } from 'date-fns/locale';
-import { CalendarIcon } from 'lucide-react';
+import { CalendarIcon, Sparkles } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { t, translateSpecLabel, itemNoLabel } from '@/data/translations';
@@ -153,6 +153,11 @@ export default function ConfiguratorPage() {
   const [looseToolMachineFilter, setLooseToolMachineFilter] = useState<'all' | 'RC-1000S' | 'Timan 3330' | 'Timan 2620'>('all');
   const { appUser, logout: ctxLogout, refreshAppUser, setAppUser: setAppUserCtx } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
+  const renderNewBadge = (isNew?: boolean) => isNew ? (
+    <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 whitespace-nowrap">
+      <Sparkles aria-hidden="true" className="h-3 w-3" />{tPortal('portalNewTag', uiLanguage)}
+    </span>
+  ) : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -3078,6 +3083,7 @@ export default function ConfiguratorPage() {
                               setState(s => ({ ...s, accQty: { ...s.accQty, [`${currentUnit.configKey}_${a.id}`]: val } }));
                             }}
                             onClick={e => e.stopPropagation()} className="w-16 p-1.5 border rounded-md text-center" />
+                          {renderNewBadge(a.isNew)}
                           <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatMoney(getPrice(a, lang), lang) : ''}</div>
                         </div>
                       </div>
@@ -3125,7 +3131,8 @@ export default function ConfiguratorPage() {
                               <div className="text-gray-500 text-xs">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                               {renderActionLinks(a, machineType)}
                             </div>
-                            <div className="flex-shrink-0 text-right">
+                            <div className="flex shrink-0 items-center justify-end gap-2 text-right">
+                              {renderNewBadge(a.isNew)}
                               <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatMoney(getPrice(a, lang), lang) : ''}</span>
                             </div>
                           </div>
