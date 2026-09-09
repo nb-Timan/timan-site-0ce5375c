@@ -602,6 +602,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
     { id: 'LT_712901', varenr: '712901', name: { da: 'Rustbeskyttelse V-plov', en: 'Rust Protection V-plow' }, priceDKK: 750, priceEUR: 105, requires: '730114' },
     { id: 'LT_730276', varenr: '730276', name: { da: 'Stålskær til V-plov, 2 stk.', en: 'Steel scraper edge for V-plow (2 pcs.)' }, priceDKK: 1810, priceEUR: 245, requires: '730114' },
     { id: '730105', varenr: '730105', name: { da: 'Dozerblad 130 cm med gummiskær', en: 'Dozer blade 130 cm with rubber edge' }, priceDKK: 19000, priceEUR: 2560 },
+    { id: '730036', varenr: '730036', name: { da: 'Skrabeblad 3330', en: 'Scraper blade 3330' }, priceDKK: 18500, priceEUR: 2550 },
     { id: '730106', varenr: '730106', name: { da: 'Sneslynge, 110 cm arbejdsbredde', en: 'Snow blower, 110 cm working width' }, priceDKK: 49500, priceEUR: 6665 },
     // Spreader
     { id: '725131', varenr: '725131', name: { da: 'CS-200 Valsespreder, for lad, manuel reg. Husk lad og vogn', en: 'CS-200 roller spreader for load bed, manual (Requires bed & trailer)' }, priceDKK: 38500, priceEUR: 5050,
@@ -674,6 +675,7 @@ export const ACCESSORIES: Record<string, Accessory[]> = {
       ]
     },
     { id: '730107', varenr: '730107', name: { da: 'Skovl med hydraulisk tip', en: 'Bucket with hydraulic tipping' }, priceDKK: 19500, priceEUR: 2625 },
+    { id: '730035', varenr: '730035', name: { da: 'Skovl Timan 3330', en: 'Bucket Timan 3330' }, priceDKK: 12500, priceEUR: 1695 },
     { id: 'V35-502', varenr: 'V35-502', name: { da: 'Ramme for montering af udstyr bag – andre end Timan produkter', en: 'Rear mounting frame – non-Timan equipment' }, priceDKK: 2850, priceEUR: 385 },
     { id: 'V35-300', varenr: 'V35-300', name: { da: 'Hurtigkobling for frontudstyr – andre end Timan produkter', en: 'Quick coupling for front equipment – non-Timan' }, priceDKK: 2760, priceEUR: 375 },
     { id: '721122_standalone', varenr: '721122', name: { da: 'Fabriksmontering af centerslange for fejesug T2 og T3', en: 'Factory installation of center hose for sweep/vac T2 and T3', de: 'Werksmontage Zentralschlauch für Kehr/Saug T2 und T3', it: 'Installazione in fabbrica del tubo centrale per spazzatura/aspirazione T2 e T3', hu: 'Központi tömlő gyári beszerelése T2/T3 seprés/szíváshoz' }, priceDKK: 3100, priceEUR: 420 },
