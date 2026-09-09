@@ -1141,12 +1141,10 @@ function ProfileStatusBadge({ dealer, peopleCount, contacts = [], lang }: { deal
   const missingCritical = getDealerProfileCriticalMissing(dealer);
   const tone =
     completionPercent === 100 ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-    : completionPercent >= 75 ? "bg-lime-100 text-lime-800 border-lime-200"
     : completionPercent >= 40 ? "bg-amber-100 text-amber-800 border-amber-200"
     : "bg-rose-100 text-rose-800 border-rose-200";
   const dot =
     completionPercent === 100 ? "bg-emerald-500"
-    : completionPercent >= 75 ? "bg-lime-500"
     : completionPercent >= 40 ? "bg-amber-500"
     : "bg-rose-500";
   const text =
