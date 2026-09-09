@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState, type ComponentType } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -98,6 +98,31 @@ ensureAkrSeed();
 
 const queryClient = new QueryClient();
 
+const CRM_MY_DEALERS_CHUNK_RELOAD_KEY = "timan.crm-my-dealers.chunk-reload";
+
+function lazyWithDynamicImportRecovery<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+) {
+  return lazy(async () => {
+    try {
+      const module = await factory();
+      sessionStorage.removeItem(CRM_MY_DEALERS_CHUNK_RELOAD_KEY);
+      return module;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const isStaleChunk = /failed to fetch dynamically imported module|importing a module script failed|loading chunk/i.test(message);
+
+      if (isStaleChunk && !sessionStorage.getItem(CRM_MY_DEALERS_CHUNK_RELOAD_KEY)) {
+        sessionStorage.setItem(CRM_MY_DEALERS_CHUNK_RELOAD_KEY, "1");
+        window.location.reload();
+        return new Promise<{ default: T }>(() => undefined);
+      }
+
+      throw error;
+    }
+  });
+}
+
 const PortalPage = lazy(() => import("./pages/PortalPage"));
 const PortalAreaPage = lazy(() => import("./pages/PortalAreaPage"));
 const PortalCrmPage = lazy(() => import("./pages/PortalCrmPage"));
@@ -106,7 +131,7 @@ const UpdatePasswordPage = lazy(() => import("./pages/UpdatePasswordPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const CrmDashboardPage = lazy(() => import("./pages/crm/CrmDashboardPage"));
-const CrmMyDealersPage = lazy(() => import("./pages/crm/CrmMyDealersPage"));
+const CrmMyDealersPage = lazyWithDynamicImportRecovery(() => import("./pages/crm/CrmMyDealersPage"));
 const CrmDealerDetailPage = lazy(() => import("./pages/crm/CrmDealerDetailPage"));
 const CrmAccountDetailPage = lazy(() => import("./pages/crm/CrmAccountDetailPage"));
 const CrmActivitiesPage = lazy(() => import("./pages/crm/CrmActivitiesPage"));
