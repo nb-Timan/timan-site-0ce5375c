@@ -100,6 +100,20 @@ describe("partner contract onboarding access", () => {
     expect(dealerDataPage).toContain("PartnerAgreementHistory");
   });
 
+  it("keeps Step 1 partner control internal and the partner picker closed until opened", () => {
+    expect(contractsPage).toContain("canManageInternalPartnerFields={isInternalContractActor}");
+    expect(contractsPage).toContain("partnerManagement: { da: 'Partnerstyring'");
+    expect(contractsPage).toContain("if (!isInternalContractActor) return;");
+    expect(contractsPage).toContain("disabled={locked || !canManageInternalPartnerFields}");
+    expect(contractsPage).toContain("const canChoosePartnerAccount = canManageInternalPartnerFields && !locked");
+    expect(contractsPage).toContain("partnerPickerOpen && canChoosePartnerAccount");
+    expect(contractsPage).toContain("setPartnerPickerOpen(false);");
+    expect(contractsPage).toContain("window.addEventListener('pointerdown', closeOnOutsidePress)");
+    expect(contractsPage).toContain("inferContractPartnerTypeFromDealerAccount(account) === form.partnerType");
+    expect(contractsPage).toContain("update('dealerName', value)");
+    expect(contractsPage).toContain("update('contactTitle', value)");
+  });
+
   it("reuses agreement history on CRM dealer detail without exposing a generic activity feed", () => {
     expect(crmDealerDetailPage).toContain("PartnerAgreementHistory");
     expect(crmDealerDetailPage).toContain("xl:grid-cols-[minmax(0,1.65fr)_minmax(360px,1fr)]");

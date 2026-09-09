@@ -178,9 +178,12 @@ const CONTRACT_UI_COPY = {
   timanDetails: { da: 'Timan-oplysninger', en: 'Timan details', de: 'Timan-Angaben' },
   timanSeller: { da: 'Timan sælger', en: 'Timan seller', de: 'Timan-Verkäufer' },
   partner: { da: 'Samarbejdspartner', en: 'Partner', de: 'Partner' },
+  partnerManagement: { da: 'Partnerstyring', en: 'Partner management', de: 'Partnerverwaltung' },
+  partnerManagementIntro: { da: 'Partnertype, partnerkonto og partneradgang administreres af Timan.', en: 'Partner type, partner account and partner access are managed by Timan.', de: 'Partnertyp, Partnerkonto und Partnerzugang werden von Timan verwaltet.' },
   partnerType: { da: 'Partnertype', en: 'Partner type', de: 'Partnertyp' },
   selectPartnerType: { da: 'Vælg partnertype...', en: 'Select partner type...', de: 'Partnertyp auswählen...' },
   companyName: { da: 'Firmanavn', en: 'Company name', de: 'Firmenname' },
+  contractCompanyName: { da: 'Firmanavn i kontrakten', en: 'Company name in the contract', de: 'Firmenname im Vertrag' },
   searchPartner: { da: 'Søg efter samarbejdspartner...', en: 'Search for partner...', de: 'Partner suchen...' },
   selectPartnerFirst: { da: 'Vælg samarbejdspartner først', en: 'Select a partner first', de: 'Wählen Sie zuerst einen Partner aus' },
   loadingPartners: { da: 'Henter godkendte partnere...', en: 'Loading approved partners...', de: 'Genehmigte Partner werden geladen...' },
@@ -1144,6 +1147,7 @@ export default function ContractsPage() {
   };
 
   const selectContractPartnerAccount = (account: DealerAccount) => {
+    if (!isInternalContractActor) return;
     setSelectedDealerAccountNumber(account.account_number);
     setSelectedAccessUserId('');
     setContractPartnerContacts([]);
@@ -1154,6 +1158,7 @@ export default function ContractsPage() {
   };
 
   const updateContractPartnerType = (partnerType: ContractPartnerType | '') => {
+    if (!isInternalContractActor) return;
     setSelectedDealerAccountNumber('');
     setSelectedAccessUserId('');
     setPartnerUsers([]);
@@ -1903,6 +1908,7 @@ export default function ContractsPage() {
                 onPartnerTypeChange={updateContractPartnerType}
                 onPartnerAccountSelect={selectContractPartnerAccount}
                 onPartnerContactSelect={selectContractPartnerContact}
+                canManageInternalPartnerFields={isInternalContractActor}
                 partnerAccessPanel={canManagePartnerContractAccess ? (
                   <PartnerContractAccessPanel
                     partnerSelected={Boolean(activeDealerAccountNumber)}
@@ -2600,6 +2606,7 @@ function PartiesStep({
   onPartnerTypeChange,
   onPartnerAccountSelect,
   onPartnerContactSelect,
+  canManageInternalPartnerFields,
   partnerAccessPanel,
   locked,
 }: {
@@ -2613,6 +2620,7 @@ function PartiesStep({
   onPartnerTypeChange: (partnerType: ContractPartnerType | '') => void;
   onPartnerAccountSelect: (account: DealerAccount) => void;
   onPartnerContactSelect: (contactId: string) => void;
+  canManageInternalPartnerFields: boolean;
   partnerAccessPanel?: ReactNode;
   locked: boolean;
 }) {
@@ -2622,6 +2630,8 @@ function PartiesStep({
   const [accountsLoaded, setAccountsLoaded] = useState(false);
   const [accountsLoading, setAccountsLoading] = useState(false);
   const [accountsError, setAccountsError] = useState<string | null>(null);
+  const [partnerPickerOpen, setPartnerPickerOpen] = useState(false);
+  const partnerPickerRef = useRef<HTMLDivElement | null>(null);
 
   const loadAccounts = async () => {
     if (accountsLoaded || accountsLoading) return;
@@ -2637,8 +2647,17 @@ function PartiesStep({
   };
 
   useEffect(() => {
-    if (form.partnerType) void loadAccounts();
-  }, [form.partnerType]);
+    if (!partnerPickerOpen) return;
+
+    const closeOnOutsidePress = (event: PointerEvent) => {
+      if (!partnerPickerRef.current?.contains(event.target as Node)) {
+        setPartnerPickerOpen(false);
+      }
+    };
+
+    window.addEventListener('pointerdown', closeOnOutsidePress);
+    return () => window.removeEventListener('pointerdown', closeOnOutsidePress);
+  }, [partnerPickerOpen]);
 
   const selectedAccount = useMemo(() => (
     accounts.find((account) => account.account_number === selectedDealerAccountNumber) ?? null
@@ -2668,12 +2687,26 @@ function PartiesStep({
 
   const handlePartnerTypeChange = (value: ContractPartnerType | '') => {
     setPartnerQuery('');
+    setPartnerPickerOpen(false);
     onPartnerTypeChange(value);
   };
 
   const handlePartnerSelect = (account: DealerAccount) => {
     onPartnerAccountSelect(account);
-    setPartnerQuery(formatContractPartnerPickerOption(account));
+    setPartnerQuery('');
+    setPartnerPickerOpen(false);
+  };
+
+  const canChoosePartnerAccount = canManageInternalPartnerFields && !locked && Boolean(form.partnerType);
+  const selectedPartnerLabel = selectedAccount
+    ? formatContractPartnerPickerOption(selectedAccount)
+    : form.dealerName;
+
+  const openPartnerPicker = () => {
+    if (!canChoosePartnerAccount) return;
+    setPartnerQuery('');
+    setPartnerPickerOpen(true);
+    void loadAccounts();
   };
 
   return (
@@ -2703,75 +2736,82 @@ function PartiesStep({
               <p className="mt-2 text-xs text-emerald-800/70">Telefon vises automatisk, hvis den er registreret på brugerprofilen.</p>
             )}
           </div>
+          <div className="border-t border-emerald-200 pt-4">
+            <p className="text-sm font-bold uppercase tracking-wide text-emerald-900">{contractUi('partnerManagement', uiLanguage)}</p>
+            <p className="mt-1 text-xs leading-5 text-emerald-800/80">{contractUi('partnerManagementIntro', uiLanguage)}</p>
+            <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <label className="block">
+                <span className="text-sm font-semibold text-gray-700">{contractUi('partnerType', uiLanguage)} *</span>
+                <select
+                  value={form.partnerType}
+                  disabled={locked || !canManageInternalPartnerFields}
+                  onChange={(event) => handlePartnerTypeChange(event.target.value as ContractPartnerType | '')}
+                  className="mt-2 w-full rounded-xl border border-emerald-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:cursor-not-allowed disabled:bg-emerald-100/60 disabled:text-gray-500"
+                >
+                  <option value="">{contractUi('selectPartnerType', uiLanguage)}</option>
+                  {CONTRACT_PARTNER_TYPES.map((partnerType) => (
+                    <option key={partnerType} value={partnerType}>
+                      {getContractPartnerTypeLabel(partnerType, uiLanguage)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div ref={partnerPickerRef} className="relative lg:col-span-2">
+                <span className="text-sm font-semibold text-gray-700">{contractUi('companyName', uiLanguage)} *</span>
+                <div className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-300 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-emerald-500">
+                  <Search className="h-4 w-4 shrink-0 text-gray-400" />
+                  <input
+                    type="search"
+                    value={partnerPickerOpen ? partnerQuery : selectedPartnerLabel}
+                    disabled={!canChoosePartnerAccount}
+                    onFocus={openPartnerPicker}
+                    onClick={openPartnerPicker}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') setPartnerPickerOpen(false);
+                    }}
+                    onChange={(event) => {
+                      if (!canChoosePartnerAccount) return;
+                      setPartnerQuery(event.target.value);
+                      setPartnerPickerOpen(true);
+                      void loadAccounts();
+                    }}
+                    placeholder={form.partnerType ? contractUi('searchPartner', uiLanguage) : contractUi('selectPartnerFirst', uiLanguage)}
+                    className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none disabled:cursor-not-allowed disabled:text-gray-500"
+                  />
+                </div>
+                {partnerPickerOpen && canChoosePartnerAccount && (
+                  <div className="absolute left-0 right-0 z-20 mt-2 max-h-72 overflow-y-auto rounded-xl border border-emerald-200 bg-white shadow-lg">
+                    {accountsLoading && <p className="px-3 py-2 text-sm text-gray-500">{contractUi('loadingPartners', uiLanguage)}</p>}
+                    {accountsError && <p className="px-3 py-2 text-sm font-semibold text-amber-800">{accountsError}</p>}
+                    {!accountsLoading && partnerResults.length > 0 && partnerResults.map((account) => (
+                      <button
+                        key={account.id}
+                        type="button"
+                        onClick={() => handlePartnerSelect(account)}
+                        className="block w-full border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-emerald-50"
+                      >
+                        <span className="block font-bold text-gray-950">{formatContractPartnerPickerOption(account)}</span>
+                        <span className="mt-0.5 block text-xs text-gray-500">{formatContractPartnerPickerDetails(account) || contractUi('noAddress', uiLanguage)}</span>
+                      </button>
+                    ))}
+                    {!accountsLoading && accountsLoaded && partnerResults.length === 0 && (
+                      <p className="px-3 py-2 text-sm text-gray-500">{contractUi('noMatchingPartners', uiLanguage)}</p>
+                    )}
+                  </div>
+                )}
+                <span className="mt-1 block text-xs text-emerald-800/80">{contractUi('partnerPickerHelp', uiLanguage)}</span>
+              </div>
+            </div>
+            {partnerAccessPanel && <div className="mt-4">{partnerAccessPanel}</div>}
+          </div>
         </div>
       </div>
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5">
         <h3 className="text-sm font-bold uppercase tracking-wide text-amber-900 mb-3">{contractUi('partner', uiLanguage)}</h3>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <label className="order-1 block">
-            <span className="text-sm font-semibold text-gray-700">{contractUi('partnerType', uiLanguage)} *</span>
-            <select
-              value={form.partnerType}
-              disabled={locked}
-              onChange={(e) => handlePartnerTypeChange(e.target.value as ContractPartnerType | '')}
-              className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
-            >
-              <option value="">{contractUi('selectPartnerType', uiLanguage)}</option>
-              {CONTRACT_PARTNER_TYPES.map((partnerType) => (
-                <option key={partnerType} value={partnerType}>
-                  {getContractPartnerTypeLabel(partnerType, uiLanguage)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {partnerAccessPanel && (
-            <div className="order-3 lg:order-2 lg:col-span-2">
-              {partnerAccessPanel}
-            </div>
-          )}
-          <label className="order-2 block lg:order-3 lg:col-span-3">
-            <span className="text-sm font-semibold text-gray-700">{contractUi('companyName', uiLanguage)} *</span>
-            <div className="relative mt-2">
-              <div className="flex items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-3 focus-within:ring-2 focus-within:ring-amber-500">
-                <Search className="h-4 w-4 shrink-0 text-gray-400" />
-                <input
-                  type="search"
-                  value={partnerQuery || (selectedAccount ? formatContractPartnerPickerOption(selectedAccount) : form.dealerName)}
-                  disabled={locked || !form.partnerType}
-                  onFocus={() => void loadAccounts()}
-                  onChange={(event) => setPartnerQuery(event.target.value)}
-                  placeholder={form.partnerType ? contractUi('searchPartner', uiLanguage) : contractUi('selectPartnerFirst', uiLanguage)}
-                  className="min-w-0 flex-1 border-0 bg-transparent text-sm outline-none disabled:cursor-not-allowed disabled:text-gray-500"
-                />
-              </div>
-              {!locked && form.partnerType && (
-                <div className="mt-2 max-h-72 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-sm">
-                  {accountsLoading && <p className="px-3 py-2 text-sm text-gray-500">{contractUi('loadingPartners', uiLanguage)}</p>}
-                  {accountsError && <p className="px-3 py-2 text-sm font-semibold text-amber-800">{accountsError}</p>}
-                  {!accountsLoading && partnerResults.length > 0 && partnerResults.map((account) => (
-                    <button
-                      key={account.id}
-                      type="button"
-                      onClick={() => handlePartnerSelect(account)}
-                      className="block w-full border-b border-gray-100 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-amber-50"
-                    >
-                      <span className="block font-bold text-gray-950">{formatContractPartnerPickerOption(account)}</span>
-                      <span className="mt-0.5 block text-xs text-gray-500">{formatContractPartnerPickerDetails(account) || contractUi('noAddress', uiLanguage)}</span>
-                    </button>
-                  ))}
-                  {!accountsLoading && accountsLoaded && partnerResults.length === 0 && (
-                    <p className="px-3 py-2 text-sm text-gray-500">{contractUi('noMatchingPartners', uiLanguage)}</p>
-                  )}
-                </div>
-              )}
-            </div>
-            <span className="mt-1 block text-xs text-gray-500">
-              {contractUi('partnerPickerHelp', uiLanguage)}
-            </span>
-          </label>
-        </div>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <TextField label={`${contractUi('contractCompanyName', uiLanguage)} *`} value={form.dealerName} onChange={(value) => update('dealerName', value)} disabled={locked} />
           <TextField label="CVR *" value={form.dealerCvr} onChange={(value) => update('dealerCvr', value)} disabled={locked} />
           <TextField label={`${contractUi('address', uiLanguage)} *`} value={form.dealerAddress} onChange={(value) => update('dealerAddress', value)} disabled={locked} />
           <TextField label={`${contractUi('postalCode', uiLanguage)} *`} value={form.dealerPostalCode} onChange={(value) => update('dealerPostalCode', value)} disabled={locked} />
@@ -2796,7 +2836,7 @@ function PartiesStep({
               <span className="mt-1 block text-xs text-amber-800">Partneren har ingen registrerede kontakter endnu.</span>
             )}
           </label>
-          <TextField label={contractUi('title', uiLanguage)} value={form.contactTitle} onChange={() => undefined} placeholder={contractUi('titlePlaceholder', uiLanguage)} disabled />
+          <TextField label={contractUi('title', uiLanguage)} value={form.contactTitle} onChange={(value) => update('contactTitle', value)} placeholder={contractUi('titlePlaceholder', uiLanguage)} disabled={locked} />
           <label className="block">
             <span className="text-sm font-semibold text-gray-700">{contractUi('date', uiLanguage)} *</span>
             <input

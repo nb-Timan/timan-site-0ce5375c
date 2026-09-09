@@ -504,7 +504,7 @@ describe('contract flow', () => {
     const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
     const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
 
-    expect(pageSource).not.toContain('<TextField label="Firmanavn *"');
+    expect(pageSource).toContain("<TextField label={`${contractUi('contractCompanyName', uiLanguage)} *`}");
     expect(pageSource).toContain("placeholder={form.partnerType ? contractUi('searchPartner', uiLanguage) : contractUi('selectPartnerFirst', uiLanguage)}");
     expect(pageSource).toContain("inferContractPartnerTypeFromDealerAccount(account) === form.partnerType");
     expect(pageSource).toContain("fetchDealerAccountsForSeller({ email: sellerEmail, initials: sellerInitials })");
@@ -514,9 +514,9 @@ describe('contract flow', () => {
     expect(pageSource).toContain("dealerCountry: account.country || ''");
     expect(pageSource).toContain('partnerAccessPanel={canManagePartnerContractAccess ? (');
     expect(pageSource).toContain('partnerSelected={Boolean(activeDealerAccountNumber)}');
-    expect(pageSource).toContain('className="order-1 block"');
-    expect(pageSource).toContain('className="order-3 lg:order-2 lg:col-span-2"');
-    expect(pageSource).toContain('className="order-2 block lg:order-3 lg:col-span-3"');
+    expect(pageSource).toContain("contractUi('partnerManagement', uiLanguage)");
+    expect(pageSource).toContain('canManageInternalPartnerFields={isInternalContractActor}');
+    expect(pageSource).toContain('partnerPickerOpen && canChoosePartnerAccount');
     expect(pageSource).toContain("contractUi('selectPartnerFirst', uiLanguage)");
     expect(pageSource).toContain("setSelectedAccessUserId('');");
     expect(pageSource).toContain("setSelectedAccessUserId(users.rows[0]?.id || '')");
