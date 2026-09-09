@@ -26,17 +26,14 @@ export interface PartnerDataScopeResult {
   error?: string;
 }
 
-async function listCanonicalRelatedAccountNumbers(ownAccountNumber: string): Promise<string[]> {
-  const own = await fetchDealerAccountsByNumbers([ownAccountNumber]);
-  const ownAccount = own.rows[0];
-  if (!ownAccount) return [];
-
+async function listCanonicalRelatedAccountNumbers(sourceAccountIds: string[]): Promise<string[]> {
+  if (sourceAccountIds.length === 0) return [];
   // RLS controls both the relationship read and the nested target account.
   // This is additive to the established parent/child and service-link scope.
   const { data, error } = await supabase
     .from("partner_account_relations")
     .select("target_account:dealer_accounts!partner_account_relations_target_account_id_fkey(account_number)")
-    .eq("source_account_id", ownAccount.id)
+    .in("source_account_id", sourceAccountIds)
     .eq("active", true);
   if (error) return [];
 
@@ -67,7 +64,15 @@ export async function listPartnerDataDealers(
       initials: user.initials,
       email: user.email,
     });
-    return { rows: result.dealers, source: "seller", error: result.error };
+    const related = await listCanonicalRelatedAccountNumbers(result.dealers.map((dealer) => dealer.id));
+    const relatedRows = await fetchDealerAccountsByNumbers(related);
+    const rowsById = new Map(result.dealers.map((dealer) => [dealer.id, dealer]));
+    for (const dealer of relatedRows.rows) rowsById.set(dealer.id, dealer);
+    return {
+      rows: Array.from(rowsById.values()).sort((a, b) => a.company_name.localeCompare(b.company_name, "da")),
+      source: "seller",
+      error: result.error ?? relatedRows.error,
+    };
   }
 
   if (EXTERNAL_ROLES.has(role)) {
@@ -75,9 +80,10 @@ export async function listPartnerDataDealers(
     // expansion, then add explicit partner-account relations. The final targeted
     // read remains subject to dealer_accounts RLS.
     const scope = await buildJournalScope(user, role);
-    const related = user.dealer_number
-      ? await listCanonicalRelatedAccountNumbers(user.dealer_number)
-      : [];
+    const own = user.dealer_number
+      ? await fetchDealerAccountsByNumbers([user.dealer_number])
+      : { rows: [] };
+    const related = await listCanonicalRelatedAccountNumbers(own.rows.map((dealer) => dealer.id));
     const result = await fetchDealerAccountsByNumbers([
       ...scope.dealerNumbers,
       ...related,

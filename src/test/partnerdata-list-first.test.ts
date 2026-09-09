@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   canEditPartnerDataAccount,
-  listPartnerDataDealers,
 } from "@/lib/partnerDataScope";
 
 describe("Partnerdata list-first flow", () => {
@@ -27,10 +26,11 @@ describe("Partnerdata list-first flow", () => {
   });
 
   it("keeps the scope resolver explicit for global, seller, and partner users", () => {
-    const source = listPartnerDataDealers.toString();
+    const source = readFileSync("src/lib/partnerDataScope.ts", "utf8");
     expect(source).toContain('fetchDealerAccounts()');
     expect(source).toContain('fetchDealerAccountsForSeller');
     expect(source).toContain('buildJournalScope');
     expect(source).toContain('listCanonicalRelatedAccountNumbers');
+    expect(source).toContain('result.dealers.map((dealer) => dealer.id)');
   });
 });
