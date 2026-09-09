@@ -1440,6 +1440,7 @@ describe('contract flow', () => {
     expect(migration).toContain('public.list_internal_dealer_contract_overview');
     expect(migration).toContain("actor.portal_role in ('timan_backend', 'timan_seller')");
     expect(migration).toContain('actor.portal_role = \'timan_backend\'');
+    expect(migration).toContain('public.can_manage_dealer_contract_access(coalesce(dc.dealer_account_id, da.id))');
     expect(sellerScopeMigration).toContain('create or replace function public.is_global_internal_contract_actor()');
     expect(sellerScopeMigration).toContain("au.portal_role in ('timan_backend', 'timan_service')");
   });

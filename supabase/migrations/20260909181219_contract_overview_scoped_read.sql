@@ -31,8 +31,15 @@ as $$
     limit 1
   ), rows as (
     select
-      dc,
-      da,
+      to_jsonb(dc) as contract,
+      dc.contract_status,
+      dc.contract_number,
+      dc.form_data,
+      dc.dealer_account_number,
+      dc.updated_at,
+      coalesce(nullif(da.company_name, ''), nullif(dc.form_data ->> 'dealerName', ''), 'Ukendt partner') as partner_name,
+      coalesce(da.account_number, dc.dealer_account_number, '') as account_number,
+      coalesce(da.country, '') as country,
       coalesce(dc.form_data ->> 'partnerType', da.customer_type_label, da.customer_type, da.dealer_type, '') as resolved_partner_type,
       coalesce(da.assigned_seller_id, null) as resolved_seller_id,
       coalesce(da.assigned_seller_initials, '') as resolved_seller_initials,
@@ -51,6 +58,10 @@ as $$
     left join selected_seller on true
     where actor.portal_role in ('timan_backend', 'timan_seller')
       and (
+        actor.portal_role = 'timan_backend'
+        or public.can_manage_dealer_contract_access(coalesce(dc.dealer_account_id, da.id))
+      )
+      and (
         p_seller_id is null
         or (
           actor.portal_role = 'timan_backend'
@@ -67,11 +78,11 @@ as $$
       )
   )
   select
-    to_jsonb(dc),
-    coalesce(nullif(da.company_name, ''), nullif(dc.form_data ->> 'dealerName', ''), 'Ukendt partner'),
-    coalesce(da.account_number, dc.dealer_account_number, ''),
+    contract,
+    partner_name,
+    account_number,
     resolved_partner_type,
-    coalesce(da.country, ''),
+    country,
     resolved_seller_id,
     nullif(resolved_seller_initials, ''),
     resolved_seller_name,
@@ -79,11 +90,11 @@ as $$
   from rows
   where (
     p_status = 'all'
-    or (p_status = 'draft' and dc.contract_status in ('draft', 'guided_review'))
-    or (p_status = 'pending' and dc.contract_status not in ('draft', 'guided_review', 'approved', 'changes_requested', 'archived'))
-    or (p_status = 'approved' and dc.contract_status = 'approved')
-    or (p_status = 'rejected' and dc.contract_status = 'changes_requested')
-    or (p_status = 'terminated' and dc.contract_status = 'archived')
+    or (p_status = 'draft' and contract_status in ('draft', 'guided_review'))
+    or (p_status = 'pending' and contract_status not in ('draft', 'guided_review', 'approved', 'changes_requested', 'archived'))
+    or (p_status = 'approved' and contract_status = 'approved')
+    or (p_status = 'rejected' and contract_status = 'changes_requested')
+    or (p_status = 'terminated' and contract_status = 'archived')
   )
   and (
     nullif(trim(coalesce(p_partner_type, '')), '') is null
@@ -92,18 +103,17 @@ as $$
   and (
     nullif(trim(coalesce(p_query, '')), '') is null
     or concat_ws(' ',
-      coalesce(da.company_name, ''),
-      coalesce(dc.form_data ->> 'dealerName', ''),
-      coalesce(da.account_number, dc.dealer_account_number, ''),
-      coalesce(da.country, ''),
+      partner_name,
+      account_number,
+      country,
       coalesce(resolved_seller_initials, ''),
       coalesce(resolved_seller_name, ''),
       coalesce(resolved_seller_email, ''),
-      coalesce(dc.contract_number, ''),
-      coalesce(dc.contract_status, '')
+      coalesce(contract_number, ''),
+      coalesce(contract_status, '')
     ) ilike '%' || trim(p_query) || '%'
   )
-  order by dc.updated_at desc;
+  order by updated_at desc;
 $$;
 
 revoke all on function public.list_internal_dealer_contract_overview(text, text, text, uuid) from public, anon;
