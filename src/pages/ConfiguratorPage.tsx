@@ -51,6 +51,7 @@ import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection } from '@/lib/submittedOrderCorrectionService';
 import { academySandbox } from '@/lib/academySandbox';
+import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
@@ -149,7 +150,7 @@ export default function ConfiguratorPage() {
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
   const [primaryVideosByProduct, setPrimaryVideosByProduct] = useState<Map<string, MarketingVideo>>(() => new Map());
-  const { appUser, setAppUser: setAppUserCtx, logout: ctxLogout } = useAppUser();
+  const { appUser, logout: ctxLogout, refreshAppUser, setAppUser: setAppUserCtx } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
 
   useEffect(() => {
@@ -162,7 +163,6 @@ export default function ConfiguratorPage() {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const setAppUser = (user: (AppUser & { email: string }) | null) => setAppUserCtx(user);
   // Messe / exhibition demo session — hide save/send/account UI and
   // short-circuit any persistence handler that may still be invoked.
   // Treat ANY render of the configurator under /messe/* as Messe mode too,
@@ -261,6 +261,12 @@ export default function ConfiguratorPage() {
     : calcResult;
 
   const isAcademyMode = academySandbox.isActive();
+  const leaveAcademy = useCallback(async () => {
+    clearLocalAcademyEnrollment();
+    const restoredUser = await refreshAppUser();
+    if (!restoredUser) setAppUserCtx(null);
+    navigate('/portal', { replace: true });
+  }, [navigate, refreshAppUser, setAppUserCtx]);
   const [academyCase, setAcademyCase] = useState(() => academySandbox.getCase1());
   const academyMachineConfigs = useMemo(() => state.machineConfigs.map((machine) => {
     const accessoryIds = machine.configMode === 'shared'
@@ -289,28 +295,6 @@ export default function ConfiguratorPage() {
       navigate('/academy', { replace: true });
     }
   }, [isAcademyMode, navigate]);
-
-  useEffect(() => {
-    if (!isAcademyMode || appUser || !import.meta.env.DEV) return;
-    setAppUser({
-      id: 'academy-local-sales-user',
-      email: 'academy.sales@localhost',
-      display_name: 'Academy Sales',
-      role: 'timan_saelger',
-      approved: true,
-      is_active: true,
-      start_step: 1,
-      max_step: 4,
-      can_view_prices: true,
-      can_submit_order: false,
-      can_edit_discount: false,
-      can_switch_customer_mode: false,
-      portal_role: 'timan_seller',
-      allowed_modules: ['academy'],
-      module_access: ['academy'],
-      permissions: { can_save_configurator_as_lead: true },
-    } as AppUser & { portal_role: string; allowed_modules: string[]; module_access: string[]; permissions: Record<string, boolean> });
-  }, [appUser, isAcademyMode, setAppUser]);
 
   // Phase 38 — security: when the user is not allowed to apply an extra
   // dealer discount, force the stored value to 0 so calcConfiguration, the
@@ -2528,6 +2512,18 @@ export default function ConfiguratorPage() {
         </div>
         {(() => {
           const portalRole = (appUser as { portal_role?: string | null } | null)?.portal_role ?? null;
+          if (isAcademyMode) {
+            return (
+              <button
+                type="button"
+                onClick={() => { void leaveAcademy(); }}
+                className="order-2 lg:order-3 inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950 transition hover:bg-amber-100 shrink-0"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Forlad Academy</span>
+              </button>
+            );
+          }
           if (isExhibition) {
             return (
               <button

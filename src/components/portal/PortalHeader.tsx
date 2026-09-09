@@ -21,6 +21,8 @@ import { useLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
 import { getPortalBackInfo } from '@/lib/portalBackNav';
 import BackendSideNav from '@/components/portal/BackendSideNav';
+import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
+import { useAppUser } from '@/context/AppUserContext';
 
 const LANGS = PORTAL_LANGUAGES;
 
@@ -41,6 +43,7 @@ function getInitials(name: string): string {
 }
 
 export default function PortalHeader({ user, language, onLanguageChange, onLogout, hideMesseHomeShortcut = false }: Props) {
+  const { refreshAppUser, setAppUser } = useAppUser();
   const { uiLanguage } = useLanguage();
   const displayName = user.display_name || user.email || '';
   const initials = user.initials || getInitials(displayName);
@@ -97,6 +100,14 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const portalBackTarget = isDealerUser && location.pathname.startsWith('/portal/') ? '/portal' : backInfo.to;
   const portalBackLabel = t('previous', uiLanguage);
   const activeLanguage = LANGS.find((l) => l.code === uiLanguage) || LANGS[0];
+  const academyActive = location.pathname.startsWith('/academy') || new URLSearchParams(location.search).get('academy_mode') === 'true';
+
+  async function leaveAcademy() {
+    clearLocalAcademyEnrollment();
+    const restoredUser = await refreshAppUser();
+    if (!restoredUser) setAppUser(null);
+    navigate('/portal', { replace: true });
+  }
 
   function homeTarget(): string {
     if (isMesseVariantUser(user)) return '/messe';
@@ -415,6 +426,17 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                 </div>
               )}
             </div>
+
+            {academyActive && (
+              <button
+                type="button"
+                onClick={() => { void leaveAcademy(); }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-950 transition hover:bg-amber-100"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Forlad Academy</span>
+              </button>
+            )}
 
             <button
               onClick={onLogout}

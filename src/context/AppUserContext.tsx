@@ -6,7 +6,7 @@ import { syncSelfAppUser } from '@/lib/adminUserActions';
 import { fetchDealerStatusForUser } from '@/lib/dealerAccountsService';
 import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 import { canonicalDisplayName, canonicalInitials } from '@/lib/canonicalUserIdentity';
-import { clearLocalAcademyEnrollment, getLocalAcademyUser, hasLocalAcademyEnrollment } from '@/lib/academyCurriculum';
+import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
 
 export type SessionUser = AppUser & {
   email: string;
@@ -61,12 +61,13 @@ function readCachedSessionUser(): SessionUser | null {
     if (!raw) return null;
     const cached = JSON.parse(raw) as SessionUser & { __identity_cache_version?: number };
     if (cached.__identity_cache_version !== SESSION_CACHE_VERSION) return null;
+    // Academy personas are training-only. Never restore one as the portal user.
+    if (cached.id === 'academy-local-sales-user') return null;
     return normalizeKnownSessionUser(cached);
   } catch { return null; }
 }
 
 function loadFromStorage(): SessionUser | null {
-  if (hasLocalAcademyEnrollment()) return getLocalAcademyUser();
   return readCachedSessionUser();
 }
 
@@ -141,10 +142,6 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        if (hasLocalAcademyEnrollment()) {
-          setAppUser(getLocalAcademyUser());
-          return;
-        }
         const { data } = await supabase.auth.getSession();
         const session = data.session;
         if (!session?.user?.email) {
@@ -191,11 +188,7 @@ export function AppUserProvider({ children }: { children: ReactNode }) {
   }, [setAppUser]);
 
   const logout = useCallback(async () => {
-    if (hasLocalAcademyEnrollment()) {
-      clearLocalAcademyEnrollment();
-      setAppUser(null);
-      return;
-    }
+    clearLocalAcademyEnrollment();
     await supabase.auth.signOut();
     setAppUser(null);
   }, [setAppUser]);

@@ -1,22 +1,14 @@
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import CrmLeadsPage from '@/pages/crm/CrmLeadsPage';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
-import { activateLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
-import { useAppUser } from '@/context/AppUserContext';
 
 /** Academy route/context only. The shared production CRM list renders below. */
 export function AcademyCrmRoute({ children }: { children: ReactNode }) {
   const [params] = useSearchParams();
   const part = params.get('academy_part') === '2' ? 2 : 1;
-  const { appUser, setAppUser } = useAppUser();
-  useEffect(() => {
-    activateLocalAcademyEnrollment();
-    if (appUser?.id !== 'academy-local-sales-user') setAppUser(getLocalAcademyUser());
-  }, [appUser, setAppUser]);
   if (!academyCrmSandbox.isActive()) return <Navigate to="/portal/crm/leads" replace />;
   if (part === 2 && !academyCrmSandbox.getProgress().part1Completed) return <Navigate to="/academy/crm/leads?academy_mode=true&academy_part=1" replace />;
-  if (appUser?.id !== 'academy-local-sales-user') return <main className="p-6 text-sm">Henter Academy-træningsmiljø...</main>;
   return <>{children}</>;
 }
 
