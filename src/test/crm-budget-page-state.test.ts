@@ -67,14 +67,16 @@ vi.mock("@/lib/supabase", () => {
 
 import * as supabaseModule from "@/lib/supabase";
 import {
-  listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey,
+  listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct,
   BUDGET_SELLERS, BUDGET_PRODUCTS,
   type BudgetLine, type SalesActual,
 } from "@/lib/crmBudgetService";
 
 const YEAR = 2025;
 const MAY_IDX = 4;
+const SEPTEMBER_IDX = 8;
 const JTN = BUDGET_SELLERS.find(s => s.initials === "JTN")!;
+const AKR = BUDGET_SELLERS.find(s => s.initials === "AKR")!;
 const setOrders = (v: Array<Record<string, unknown>>, d: Array<Record<string, unknown>>) =>
   (supabaseModule as unknown as { __setOrders: (a: typeof v, b: typeof d) => void }).__setOrders(v, d);
 const resetBudget = () =>
@@ -146,5 +148,49 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     expect(rowOrderInMay(seedLineFor("RC-751"), actuals)).toBe(1);
     expect(rowOrderInMay(persisted, actuals)).toBe(3);
     expect(actuals.some(a => a.budget_line_id === persisted.id)).toBe(false);
+  });
+
+  it("counts O-7002 once in September for RC-1000s and its selected equipment", async () => {
+    const view = {
+      id: "o-7002", title: "ÖGA2026 Lead — RC-1000S", order_number: "O-7002", quote_number: "T-4001",
+      seller_email: AKR.email, seller_initials: AKR.initials,
+      case_status: "ordre_afgivet", document_type: "order",
+      order_sent_at: `${YEAR}-09-06T17:26:34.993Z`, submitted_at: `${YEAR}-09-06T17:26:34.993Z`,
+      created_at: `${YEAR}-09-01T07:29:25.363Z`, dealer_name: "Ad. Bachmann AG",
+    };
+    const details = {
+      id: "o-7002", total_price: 224311,
+      state_json: {
+        language: "da", flowType: "order",
+        machineConfigs: [{ id: "m0", type: "RC-1000S", qty: 1, configMode: "individual", acc: [] }],
+        individualUnitConfigs: { m0_1: { acc: ["13101003", "410910", "411800", "411891", "411906"] } },
+        accQty: {},
+      },
+    };
+    // The view can contain duplicate joins. One submitted order must still count once.
+    setOrders([view, view], [details]);
+
+    const actuals = await listSalesActuals(YEAR);
+    const byKey = buildOrderActualsByKey(actuals);
+    const qty = (productKey: string) => byKey[orderActualKey(AKR.email, YEAR, SEPTEMBER_IDX, productKey)] || 0;
+
+    expect(qty("RC-1000s")).toBe(1);
+    expect(qty("RC1000_13101003")).toBe(1);
+    expect(qty("RC1000_410910")).toBe(1);
+    expect(qty("RC1000_411800")).toBe(1);
+    expect(qty("RC1000_411891")).toBe(1);
+    expect(qty("RC1000_411906")).toBe(1);
+    expect(monthlyOrderQtyForProduct(actuals, YEAR, "RC-1000s", null)[SEPTEMBER_IDX]).toBe(1);
+    expect(monthlyOrderQtyForProduct(actuals, YEAR, "RC-1000s", new Set([JTN.email]))[SEPTEMBER_IDX]).toBe(0);
+  });
+
+  it("accepts a canonical O-number with a submitted timestamp even if a legacy status is stale", async () => {
+    const order = makeOrder("submitted-o-number", "RC-1000S", 1);
+    order.view.order_number = "O-7999";
+    order.view.case_status = "aktiv";
+    setOrders([order.view], [order.details]);
+
+    const actuals = await listSalesActuals(YEAR);
+    expect(rowOrderInMay(seedLineFor("RC-1000s"), actuals)).toBe(1);
   });
 });

@@ -25,7 +25,7 @@ import {
   BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fmtDKK,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
-  buildOrderActualsByKey, orderActualKey,
+  buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct,
   EQUIPMENT_BY_MACHINE, localizedName,
   getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
   appendBudgetAuditEntry, budgetCellKey,
@@ -823,7 +823,9 @@ export default function CrmBudgetPage() {
       return arr;
     };
     const budgetMonthlyManual = agg("budgetMonthly");
-    const ordersMonthly = agg("ordersMonthly");
+    const ordersMonthly = isAdmin && backendFilter === "all"
+      ? monthlyOrderQtyForProduct(actuals, year, primaryLine.product_key || fallbackProductKey || "", null)
+      : agg("ordersMonthly");
     const baseWorking = agg("workingMonthly");
     const blockProductKey = primaryLine.product_key || fallbackProductKey || "";
     const scopeEmails: Set<string> | null = (() => {

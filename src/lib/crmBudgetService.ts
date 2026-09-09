@@ -10,7 +10,7 @@
  * configurator pricing — we only read product names / item numbers.
  */
 import { supabase } from "@/lib/supabase";
-import { PRODUCTS, ACCESSORIES } from "@/data/machines";
+import { PRODUCTS, ACCESSORIES, getAccessoriesFlat } from "@/data/machines";
 import { appendAuditEntry } from "@/lib/audit-log-store";
 import type { Language, LocalizedString, ConfiguratorState } from "@/types/configurator";
 import { normalizeConfiguratorState } from "@/lib/configuratorState";
@@ -149,6 +149,27 @@ export function buildOrderActualsByKey(actuals: SalesActual[]): OrderActualsByKe
   return out;
 }
 
+/** Aggregates canonical submitted-order quantities for one product and scope. */
+export function monthlyOrderQtyForProduct(
+  actuals: SalesActual[],
+  year: number,
+  productKey: string,
+  sellerEmails: Set<string> | null,
+): number[] {
+  const product = orderActualProductKey(productKey);
+  const scope = sellerEmails && new Set(Array.from(sellerEmails, (email) => norm(email)));
+  const totals = Array.from({ length: 12 }, () => 0);
+  for (const actual of actuals) {
+    if (actual.year !== year || orderActualProductKey(actual.product_key) !== product) continue;
+    if (scope && !scope.has(norm(actual.seller_email || actual.seller_key || actual.seller_initials))) continue;
+    const monthly = actual.monthly_qty && actual.monthly_qty.length === 12
+      ? actual.monthly_qty
+      : splitAnnualEvenly(actual.qty_sold || 0);
+    monthly.forEach((quantity, monthIdx) => { totals[monthIdx] += quantity || 0; });
+  }
+  return totals;
+}
+
 // ---------- Product catalog ----------
 // Read from existing configurator data where possible. NEVER mutate.
 function stripBaseSuffix(name: string): string {
@@ -210,6 +231,7 @@ function rc1000Item(varenr: string, fallback: string, key: string): EquipmentCat
 }
 
 const RC1000_EQUIPMENT: EquipmentCategory[] = [
+  rc1000Item("13101003", "Standard olie - Texaco HDZ46",         "RC1000_13101003"),
   rc1000Item("410910",   "Slagleklipper inkl Y-slagle sæt",     "RC1000_410910"),
   rc1000Item("411666",   "Rotorklipper 1350 mm",                "RC1000_411666"),
   rc1000Item("411800",   "Fingerklipper 1700 mm",               "RC1000_411800"),
@@ -219,6 +241,8 @@ const RC1000_EQUIPMENT: EquipmentCategory[] = [
   rc1000Item("411845",   "Centerdrevet fejemaskine",            "RC1000_411845"),
   rc1000Item("418000",   "Sneslynge 1100 mm",                   "RC1000_418000"),
   rc1000Item("730600",   "WB-170 Ukrudtsbørste basisenhed",     "RC1000_730600"),
+  rc1000Item("411891",   "Krogplade til udstyr",                "RC1000_411891"),
+  rc1000Item("411906",   "Bagvægt",                             "RC1000_411906"),
 ];
 
 // Timan 3330: re-use the configurator section headers (already localized).
@@ -510,6 +534,17 @@ function buildProductLookup(): Map<string, string> {
   return productByNormKey;
 }
 
+function buildEquipmentLookup(): Map<string, string> {
+  const byMachineAndItem = new Map<string, string>();
+  for (const [machineKey, equipment] of Object.entries(EQUIPMENT_BY_MACHINE)) {
+    for (const item of equipment) {
+      if (item.isHeader || !item.varenr) continue;
+      byMachineAndItem.set(`${normKey(machineKey)}|${normKey(item.varenr)}`, item.key);
+    }
+  }
+  return byMachineAndItem;
+}
+
 function resolveMachineKey(value: string | null | undefined, productByNormKey: Map<string, string>): string | null {
   const n = normKey(value);
   if (!n) return null;
@@ -580,6 +615,55 @@ function machineQtyFromOrder(row: BudgetOrderRow, productByNormKey: Map<string, 
   return { qtyByKey, totalQty };
 }
 
+function isSubmittedBudgetOrder(row: BudgetOrderRow): boolean {
+  if ((row.case_status as string | null) === "ordre_afgivet") return true;
+  return Boolean(
+    row.order_number
+    && ((row.order_sent_at as string | null) || (row.submitted_at as string | null)),
+  );
+}
+
+function equipmentQtyFromOrder(
+  row: BudgetOrderRow,
+  productByNormKey: Map<string, string>,
+  equipmentByMachineAndItem: Map<string, string>,
+): Record<string, number> {
+  const state = parseOrderState(row);
+  if (!state) return {};
+
+  const qtyByKey: Record<string, number> = {};
+  const add = (machineType: string, configKey: string, accessoryId: string) => {
+    const accessory = getAccessoriesFlat(machineType).find((item) => item.id === accessoryId && !item.isHeader);
+    if (!accessory) return;
+    const machineKey = resolveMachineKey(machineType, productByNormKey) || machineType;
+    const key = equipmentByMachineAndItem.get(`${normKey(machineKey)}|${normKey(String(accessory.varenr || accessory.id))}`);
+    if (!key) return;
+    const quantity = Number(state.accQty?.[`${configKey}_${accessory.id}`] || 1);
+    if (!Number.isFinite(quantity) || quantity <= 0) return;
+    qtyByKey[key] = (qtyByKey[key] || 0) + quantity;
+  };
+
+  for (const machine of state.machineConfigs ?? []) {
+    const units = Math.max(0, Number(machine.qty || 0));
+    for (let unitNumber = 1; unitNumber <= units; unitNumber++) {
+      const configKey = `${machine.id}_${unitNumber}`;
+      const selected = machine.configMode === "shared"
+        ? machine.acc || []
+        : state.individualUnitConfigs?.[configKey]?.acc || [];
+      const selectedSet = new Set(selected);
+      for (const accessoryId of selectedSet) add(machine.type, configKey, accessoryId);
+
+      for (const accessory of getAccessoriesFlat(machine.type)) {
+        if (!accessory.isQtyInput || accessory.isHeader || selectedSet.has(accessory.id)) continue;
+        if (accessory.requires && !selectedSet.has(accessory.requires)) continue;
+        const quantity = Number(state.accQty?.[`${configKey}_${accessory.id}`] || 0);
+        if (quantity > 0) add(machine.type, configKey, accessory.id);
+      }
+    }
+  }
+  return qtyByKey;
+}
+
 async function loadSellerIdentityIndex(): Promise<SellerIdentityIndex> {
   const byId = new Map<string, BudgetSellerRef>();
   const byEmail = new Map<string, BudgetSellerRef>();
@@ -623,40 +707,54 @@ function orderSeller(row: BudgetOrderRow, sellers: SellerIdentityIndex): { selle
 }
 
 async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
-  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,dealer_name,dealer_company_name,dealer_number,dealer_account_number";
+  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id,state_json,note,total_price";
   try {
     const { data, error } = await supabase
       .from("crm_configurations_view")
       .select(columns)
-      .or("document_type.eq.order,case_status.eq.ordre_afgivet")
-      .eq("case_status", "ordre_afgivet")
+      .or("case_status.eq.ordre_afgivet,order_sent_at.not.is.null,submitted_at.not.is.null")
       .neq("case_status", "deleted")
       .limit(5000);
     if (error) throw error;
     const rows = ((data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
-    if (rows.length === 0) return [];
+    // The current view includes state_json. Older view definitions can still
+    // return the order header without it, so hydrate only those rows once.
+    const missingStateIds = rows
+      .filter((row) => !parseOrderState(row))
+      .map((row) => String(row.id || ""))
+      .filter(Boolean);
+    if (missingStateIds.length === 0) return rows;
 
-    const ids = rows.map((r) => String(r.id));
-    let details: BudgetOrderRow[] = [];
-    const trySel = async (cols: string) => supabase.from("configurations").select(cols).in("id", ids);
-    let detailRes = await trySel("id,state_json,note,total_price,case_type,document_type");
-    if (detailRes.error && /state_json/.test(detailRes.error.message || "")) {
-      detailRes = await trySel("id,note,total_price,case_type,document_type");
-    }
-    if (!detailRes.error) details = (detailRes.data ?? []) as unknown as BudgetOrderRow[];
-    const detailById = new Map(details.map((r) => [String(r.id), r]));
-    return rows.map((r) => ({ ...(detailById.get(String(r.id)) || {}), ...r }));
+    const { data: details, error: detailsError } = await supabase
+      .from("configurations")
+      .select("id,state_json,note,total_price")
+      .in("id", missingStateIds);
+    if (detailsError || !details) return rows;
+
+    const detailById = new Map(
+      (details as Array<Pick<BudgetOrderRow, "id" | "state_json" | "note" | "total_price">>)
+        .map((detail) => [String(detail.id), detail]),
+    );
+    return rows.map((row) => {
+      const detail = detailById.get(String(row.id));
+      if (!detail) return row;
+      return {
+        ...row,
+        state_json: row.state_json ?? detail.state_json,
+        note: row.note ?? detail.note,
+        total_price: row.total_price ?? detail.total_price,
+      };
+    });
   } catch {
     const trySel = async (cols: string) => supabase
       .from("configurations")
       .select(cols)
-      .or("document_type.eq.order,case_type.eq.order")
-      .eq("case_status", "ordre_afgivet")
+      .or("case_status.eq.ordre_afgivet,order_sent_at.not.is.null,submitted_at.not.is.null")
       .neq("case_status", "deleted")
       .limit(5000);
-    let res = await trySel("id,title,order_number,state_json,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_number");
+    let res = await trySel("id,title,order_number,state_json,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
     if (res.error && /state_json/.test(res.error.message || "")) {
-      res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_number");
+      res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
     }
     if (res.error) throw res.error;
     return ((res.data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
@@ -835,13 +933,17 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
   try {
     const sellers = await loadSellerIdentityIndex();
     const productByNormKey = buildProductLookup();
+    const equipmentByMachineAndItem = buildEquipmentLookup();
 
     const data = await fetchBudgetOrderRows(year);
     const totals = new Map<string, SalesActual>();
+    const seenOrderIds = new Set<string>();
     const ZERO12 = () => Array.from({ length: 12 }, () => 0);
     for (const row of data) {
-      const status = (row.case_status as string | null) || "";
-      if (status === "deleted" || status !== "ordre_afgivet") continue;
+      const orderId = String(row.id || "");
+      if (!orderId || seenOrderIds.has(orderId)) continue;
+      seenOrderIds.add(orderId);
+      if ((row.case_status as string | null) === "deleted" || !isSubmittedBudgetOrder(row)) continue;
 
       // Month bucketing: order_sent_at → submitted_at → created_at. Delivery
       // date is deliberately not required for Budget actuals.
@@ -868,9 +970,8 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       const { qtyByKey, totalQty } = machineQtyFromOrder(row, productByNormKey);
       if (totalQty === 0) continue;
 
-      for (const [machineKey, qty] of Object.entries(qtyByKey)) {
-        const value = finalPrice * (qty / totalQty);
-        const actualId = `actual_${year}_${machineKey}_${seller.email.replace(/[^a-z0-9]/gi, "")}`;
+      const addActual = (productKey: string, qty: number, value: number) => {
+        const actualId = `actual_${year}_${productKey}_${seller.email.replace(/[^a-z0-9]/gi, "")}`;
         const prev = totals.get(actualId) || {
           budget_line_id: actualId,
           qty_sold: 0,
@@ -879,7 +980,7 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           seller_email: seller.email,
           seller_initials: seller.initials,
           year,
-          product_key: machineKey,
+          product_key: productKey,
           monthly_qty: ZERO12(),
           monthly_value: ZERO12(),
           monthly_dealers: Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>),
@@ -899,6 +1000,13 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           "—";
         prev.monthly_dealers[monthIdx].push({ name: String(dealerName).trim() || "—", qty });
         totals.set(actualId, prev);
+      };
+
+      for (const [machineKey, qty] of Object.entries(qtyByKey)) {
+        addActual(machineKey, qty, finalPrice * (qty / totalQty));
+      }
+      for (const [equipmentKey, qty] of Object.entries(equipmentQtyFromOrder(row, productByNormKey, equipmentByMachineAndItem))) {
+        addActual(equipmentKey, qty, 0);
       }
     }
     return Array.from(totals.values());
