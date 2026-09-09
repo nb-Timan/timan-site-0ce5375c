@@ -150,6 +150,7 @@ export default function ConfiguratorPage() {
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
   const [primaryVideosByProduct, setPrimaryVideosByProduct] = useState<Map<string, MarketingVideo>>(() => new Map());
+  const [looseToolMachineFilter, setLooseToolMachineFilter] = useState<'all' | 'RC-1000S' | 'Timan 3330' | 'Timan 2620'>('all');
   const { appUser, logout: ctxLogout, refreshAppUser, setAppUser: setAppUserCtx } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
 
@@ -2960,7 +2961,10 @@ export default function ConfiguratorPage() {
               const currentUnit = allUnits[state.currentMachineIndex];
               if (!currentUnit) return <div>No machine selected</div>;
               const machineType = currentUnit.modelType;
-              const accs = machineType === LOOSE_TOOL_KEY ? getLooseToolAccessories() : (ACCESSORIES[machineType] || []);
+              const looseToolAccessories = machineType === LOOSE_TOOL_KEY ? getLooseToolAccessories() : [];
+              const accs = machineType === LOOSE_TOOL_KEY
+                ? looseToolAccessories.filter(item => looseToolMachineFilter === 'all' || item.looseToolMachine === looseToolMachineFilter)
+                : (ACCESSORIES[machineType] || []);
               const displayUnits = getDisplayMachineUnits();
 
               let selectedIds: string[] = [];
@@ -3148,6 +3152,27 @@ export default function ConfiguratorPage() {
               return (
                 <div className="bg-white rounded-2xl shadow p-6">
                   <h2 className="text-xl font-bold mb-4 text-center">{T('step3Title')}</h2>
+                  {machineType === LOOSE_TOOL_KEY && (
+                    <div className="mb-5 text-left">
+                      <p className="text-sm font-semibold text-gray-800 mb-2">Hvilken maskine søger du redskab til?</p>
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          { value: 'all', label: 'Alle' },
+                          { value: 'RC-1000S', label: 'RC-1000s' },
+                          { value: 'Timan 3330', label: 'Timan 3330' },
+                          { value: 'Timan 2620', label: 'Timan 2620' },
+                        ].map(option => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setLooseToolMachineFilter(option.value as typeof looseToolMachineFilter)}
+                            className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${looseToolMachineFilter === option.value ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-300 bg-white text-gray-700 hover:border-emerald-500'}`}>
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {displayUnits.length > 1 && (
                     <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto mb-4">
                       {displayUnits.map(du => (

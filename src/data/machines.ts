@@ -889,6 +889,7 @@ const LOOSE_3330_WEEDBRUSH_VARENR = new Set(['730600', '730601', '50101017', '50
 export function getLooseToolAccessories(): Accessory[] {
   const rcAll = ACCESSORIES['RC-1000S'] || [];
   const timanAll = ACCESSORIES['Timan 3330'] || [];
+  const timan2620All = ACCESSORIES['Timan 2620'] || [];
 
   function findRedskabHeaderIndex(list: Accessory[]) {
     return list.findIndex(a => {
@@ -901,7 +902,9 @@ export function getLooseToolAccessories(): Accessory[] {
   const rcStartIdx = findRedskabHeaderIndex(rcAll);
   const rcRedskaberRaw = rcStartIdx === -1 ? [] : rcAll.slice(rcStartIdx);
   // Exclude RAL color (961050) from Loose attachment flow
-  const rcRedskaber = rcRedskaberRaw.filter(item => String(item?.varenr || '') !== ACC_ID_RAL_COLOR);
+  const rcRedskaber = rcRedskaberRaw
+    .filter(item => String(item?.varenr || '') !== ACC_ID_RAL_COLOR)
+    .map(item => ({ ...item, looseToolMachine: 'RC-1000S' as const }));
 
   const timanStartIdx = findRedskabHeaderIndex(timanAll);
   const timanRedskaberRaw = timanStartIdx === -1 ? [] : timanAll.slice(timanStartIdx);
@@ -922,7 +925,22 @@ export function getLooseToolAccessories(): Accessory[] {
     priceDKK: 0,
     priceEUR: 0,
     isHeader: true,
+    looseToolMachine: 'Timan 3330',
   };
+
+  const timan2620Header: Accessory = {
+    id: 'LOOSE_TIMAN2620_HEADER',
+    varenr: '',
+    name: { da: 'Redskaber til Timan 2620', en: 'Attachments for Timan 2620' },
+    priceDKK: 0,
+    priceEUR: 0,
+    isHeader: true,
+    looseToolMachine: 'Timan 2620',
+  };
+
+  const timan2620StartIndex = timan2620All.findIndex(item => item.id === '2620_WINTER_HEADER');
+  const timan2620Redskaber = (timan2620StartIndex === -1 ? [] : timan2620All.slice(timan2620StartIndex))
+    .map(item => ({ ...item, looseToolMachine: 'Timan 2620' as const }));
 
   // Remap 3330 weed brush items for loose tool context
   const timanRedskaberForLoose = timanRedskaber.map(item => {
@@ -952,10 +970,10 @@ export function getLooseToolAccessories(): Accessory[] {
       });
       next = { ...item, subItems: remappedSubs };
     }
-    if (!LOOSE_3330_WEEDBRUSH_VARENR.has(varenr)) return next;
+    if (!LOOSE_3330_WEEDBRUSH_VARENR.has(varenr)) return { ...next, looseToolMachine: 'Timan 3330' as const };
     const cloned = { ...next, id: `LT3330_${next.id || varenr}` };
     if (varenr !== '730600') cloned.requires = 'LT3330_730600';
-    return cloned;
+    return { ...cloned, looseToolMachine: 'Timan 3330' as const };
   });
 
   // Insert termit items before 730107
@@ -984,7 +1002,15 @@ export function getLooseToolAccessories(): Accessory[] {
     priceEUR: 345,
   };
 
-  const merged = [...rcRedskaber, timan3330Header, ...timanWithTermit, looseOnly721059, ...extras];
+  const merged = [
+    ...rcRedskaber,
+    timan3330Header,
+    ...timanWithTermit,
+    looseOnly721059,
+    timan2620Header,
+    ...timan2620Redskaber,
+    ...extras,
+  ];
 
   // Add packaging cost item (hidden)
   merged.push({

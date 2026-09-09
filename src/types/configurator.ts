@@ -104,6 +104,7 @@ export interface Accessory {
   images?: MediaLink[];
   specs?: TechSpec[];
   subItems?: SubItem[];
+  looseToolMachine?: 'RC-1000S' | 'Timan 3330' | 'Timan 2620';
 }
 
 export interface Machine {
