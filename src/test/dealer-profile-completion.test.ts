@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeCompletion } from "@/lib/dealerProfileCompletion";
-import { computeDealerProfileSeverity } from "@/lib/dealerProfileBadge";
+import { computeDealerProfileSeverity, hasOnlySoftDealerProfileMissing } from "@/lib/dealerProfileBadge";
 import type { DealerAccount } from "@/lib/dealerAccountsService";
 import type { DealerContact, DealerContactArea } from "@/lib/dealerContactsService";
 
@@ -172,5 +172,21 @@ describe("dealer profile completion", () => {
 
     expect(computeDealerProfileSeverity(completeDealer, 0)).toBe("partial");
     expect(computeDealerProfileSeverity(completeDealer, 0, contacts)).toBe("complete");
+  });
+
+  it("treats a missing marketing section as the only soft CRM profile gap", () => {
+    const profile = dealer({
+      email: "info@timan.dk",
+      invoice_email: "invoice@timan.dk",
+      latitude: 56.7,
+      longitude: 9.5,
+    });
+    const contacts = [
+      contact("director"), contact("finance"), contact("parts"),
+      contact("sales", { is_primary: true }), contact("workshop"),
+      contact("marketing", { name: null, email: null }),
+    ];
+
+    expect(hasOnlySoftDealerProfileMissing(profile, contacts)).toBe(true);
   });
 });

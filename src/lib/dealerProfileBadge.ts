@@ -60,6 +60,10 @@ const SECTION_LABELS_BY_KEY: Record<SectionKey, string> = {
   marketing: "Marketing",
 };
 
+// Marketing-data is informative, but does not require CRM follow-up when
+// every required commercial profile section is otherwise complete.
+const SOFT_PROFILE_SECTION_KEYS = new Set<SectionKey>(["marketing"]);
+
 export const DEALER_PROFILE_SECTION_LABELS = [
   SECTION_LABELS_BY_KEY.company,
   SECTION_LABELS_BY_KEY.finance,
