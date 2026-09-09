@@ -138,6 +138,8 @@ const SERIAL_PREFIX_MAP: Array<{ prefix: string; type: string }> = [
   { prefix: "411000", type: "RC-1000s" },
   { prefix: "410040", type: "RC-751" },
   { prefix: "712000", type: "Timan 3330" },
+  { prefix: "761000", type: "Timan 2620" },
+  // Existing service tickets may still carry the former catalog number.
   { prefix: "999-888", type: "Timan 2620" },
 ];
 const EQUIPMENT_OPTIONS = [

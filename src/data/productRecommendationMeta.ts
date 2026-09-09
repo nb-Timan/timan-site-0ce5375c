@@ -315,7 +315,7 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
 
   "Timan 2620": {
     productId: "Timan 2620",
-    varenr: "999-888",
+    varenr: PRODUCTS["Timan 2620"].varenr,
     name: "Timan 2620",
     category: "machine_carrier",
     platform: "Timan 2620",
@@ -329,7 +329,7 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
     serviceWarrantyNotes: [],
     recommendationPriority: 3,
     shortPitch: { da: "Timan 2620 – kompakt redskabsbærer (data kommer).", en: "Timan 2620 — compact tool carrier (data pending)." },
-    todo: "Awaiting product data: specs, accessories, sales arguments. Verify varenr 999-888 with Timan.",
+    todo: "Awaiting expanded product data: specs, accessories and sales arguments.",
   },
 
   // ── Lights & safety accessories ──────────────────────────────────────────
