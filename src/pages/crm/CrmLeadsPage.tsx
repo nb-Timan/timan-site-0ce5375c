@@ -48,6 +48,10 @@ import {
 import { toast } from 'sonner';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
+import {
+  buildCrmLeadOwnerFilterOptions,
+  type CrmLeadOwnerFilter,
+} from '@/lib/crmLeadOwnerFilter';
 
 // ---- i18n. English fallback. ----
 type TKey =
@@ -57,7 +61,8 @@ type TKey =
   | 'tab_won' | 'tab_lost'
   | 'search_ph' | 'all_status' | 'loading' | 'empty_title' | 'empty_sub'
   | 'all_types' | 'all_machines' | 'all_equipment'
-  | 'filter_type' | 'filter_machine' | 'filter_equipment'
+  | 'filter_type' | 'filter_machine' | 'filter_equipment' | 'filter_owner'
+  | 'all_owners' | 'other_timan_sellers' | 'partner_created' | 'partner_created_chip' | 'unassigned_timan_seller'
   | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
   | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
   | 'open_lbl' | 'demo_lbl' | 'unassigned_chip'
@@ -98,6 +103,12 @@ const T: Record<TKey, UiText> = {
   filter_type:    { da: 'Type', en: 'Type', de: 'Typ', it: 'Tipo', hu: 'Típus', fr: 'Type', pl: 'Typ', cs: 'Typ' },
   filter_machine: { da: 'Maskine', en: 'Machine', de: 'Maschine', it: 'Macchina', hu: 'Gép', fr: 'Machine', pl: 'Maszyna', cs: 'Stroj' },
   filter_equipment:{ da: 'Redskab', en: 'Equipment', de: 'Gerät', it: 'Attrezzatura', hu: 'Eszköz', fr: 'Équipement', pl: 'Osprzęt', cs: 'Vybavení' },
+  filter_owner: { da: 'Ejer', en: 'Owner', de: 'Eigentümer', it: 'Proprietario', hu: 'Tulajdonos', fr: 'Responsable', pl: 'Właściciel', cs: 'Vlastník' },
+  all_owners: { da: 'Alle ejere', en: 'All owners', de: 'Alle Eigentümer', it: 'Tutti i proprietari', hu: 'Minden tulajdonos', fr: 'Tous les responsables', pl: 'Wszyscy właściciele', cs: 'Všichni vlastníci' },
+  other_timan_sellers: { da: 'Øvrige Timan-sælgere', en: 'Other Timan sellers', de: 'Weitere Timan-Verkäufer', it: 'Altri venditori Timan', hu: 'Egyéb Timan értékesítők', fr: 'Autres vendeurs Timan', pl: 'Pozostali sprzedawcy Timan', cs: 'Ostatní prodejci Timan' },
+  partner_created: { da: 'Partner-/forhandleroprettede leads', en: 'Partner/dealer-created leads', de: 'Von Partnern/Händlern erstellte Leads', it: 'Lead creati da partner/rivenditori', hu: 'Partner/kereskedő által létrehozott leadek', fr: 'Leads créés par un partenaire/revendeur', pl: 'Leady utworzone przez partnera/dealera', cs: 'Leady vytvořené partnerem/prodejcem' },
+  partner_created_chip: { da: 'Partneroprettet', en: 'Partner-created', de: 'Vom Partner erstellt', it: 'Creato dal partner', hu: 'Partner által létrehozott', fr: 'Créé par le partenaire', pl: 'Utworzone przez partnera', cs: 'Vytvořeno partnerem' },
+  unassigned_timan_seller: { da: 'Ikke tildelt Timan-sælger', en: 'No Timan seller assigned', de: 'Kein Timan-Verkäufer zugeordnet', it: 'Nessun venditore Timan assegnato', hu: 'Nincs Timan értékesítő kijelölve', fr: 'Aucun vendeur Timan assigné', pl: 'Nie przypisano sprzedawcy Timan', cs: 'Není přiřazen prodejce Timan' },
   loading:       { da: 'Indlæser…', en: 'Loading…', de: 'Lädt…', it: 'Caricamento…', hu: 'Betöltés…', fr: 'Chargement…', pl: 'Ładowanie…', cs: 'Načítání…' },
   empty_title:   { da: 'Ingen leads i dette filter', en: 'No leads in this filter', de: 'Keine Leads in diesem Filter', it: 'Nessun lead in questo filtro', hu: 'Nincs lead ebben a szűrőben', fr: 'Aucun lead dans ce filtre', pl: 'Brak leadów w tym filtrze', cs: 'V tomto filtru nejsou žádné leady' },
   empty_sub:     { da: 'Skift fane eller opret et nyt lead.', en: 'Switch tab or create a new lead.', de: 'Tab wechseln oder neuen Lead erstellen.', it: 'Cambia scheda o crea un nuovo lead.', hu: 'Váltson fület vagy hozzon létre új leadet.', fr: 'Changez d’onglet ou créez un nouveau lead.', pl: 'Zmień zakładkę albo utwórz nowy lead.', cs: 'Změňte záložku nebo vytvořte nový lead.' },
@@ -174,6 +185,10 @@ interface UnifiedLead {
   owner_user_id: string | null;
   owner_name: string | null;
   owner_email: string | null;
+  created_by_user_id?: string | null;
+  created_by_email?: string | null;
+  created_by_partner?: boolean;
+  owner_is_timan_seller?: boolean;
   responsible_name: string | null;
   machine: string | null;
   equipment: string | null;
@@ -280,6 +295,10 @@ function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
     owner_user_id: l.owner_user_id,
     owner_name: l.owner_name,
     owner_email: l.owner_email || null,
+    created_by_user_id: null,
+    created_by_email: null,
+    created_by_partner: false,
+    owner_is_timan_seller: false,
     responsible_name: l.owner_name,
     machine: (l.machine_types || []).join(', ') || null,
     equipment: null,
@@ -306,6 +325,10 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
     owner_user_id: d.owner_user_id,
     owner_name: d.owner_name,
     owner_email: d.owner_email || null,
+    created_by_user_id: null,
+    created_by_email: null,
+    created_by_partner: false,
+    owner_is_timan_seller: false,
     responsible_name: d.owner_name,
     machine: d.demo_machine,
     equipment: (d.demo_equipment || []).join(', ') || null,
@@ -425,6 +448,14 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const canDelete = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
   const effectiveSellerEmail = getEffectiveSellerEmail(appUser);
   const sellerDirectory = useSellerDirectory();
+  const ownerOptions = useMemo(
+    () => buildCrmLeadOwnerFilterOptions(
+      sellerDirectory.list
+        .filter((user) => user.portal_role === 'timan_seller')
+        .map((user) => ({ id: user.id, initials: user.initials })),
+    ),
+    [sellerDirectory.list],
+  );
   const repository = getCrmLeadRepository();
 
   const TABS: { key: TabKey; label: string }[] = [
@@ -447,6 +478,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const [typeFilter, setTypeFilter] = useState<UserLeadType | ''>('');
   const [machineFilter, setMachineFilter] = useState('');
   const [equipmentFilter, setEquipmentFilter] = useState('');
+  const [ownerFilter, setOwnerFilter] = useState<CrmLeadOwnerFilter>('');
   const [stage, setStage] = useState<string>('');
   const [sort, setSort] = useState<SortKey>('default');
   const [page, setPage] = useState(0);
@@ -543,6 +575,10 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
           machineFilter,
           equipmentFilter,
           statusFilter: stage,
+          ownerFilter: isAdmin ? ownerFilter : null,
+          ownerExcludedSellerIds: isAdmin && ownerFilter === 'other_timan_sellers'
+            ? ownerOptions.primarySellerIds
+            : [],
           search: q,
           sort,
           limit: PAGE_SIZE,
@@ -558,11 +594,11 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, effectiveSellerEmail, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, machineFilter, equipmentFilter, page, portalRole, q, reloadKey, repository, sort, stage, tab, typeFilter]);
+  }, [appUser?.email, effectiveSellerEmail, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, machineFilter, equipmentFilter, ownerFilter, ownerOptions.primarySellerIds, page, portalRole, q, reloadKey, repository, sort, stage, tab, typeFilter]);
 
   useEffect(() => {
     setPage(0);
-  }, [tab, followupFilter, q, typeFilter, machineFilter, equipmentFilter, stage, sort]);
+  }, [tab, followupFilter, q, typeFilter, machineFilter, equipmentFilter, ownerFilter, stage, sort]);
 
   const visible = useMemo<UnifiedLead[]>(
     () => (pageResult?.rows ?? []).map((row) => ({ ...row, detail_href: row.detail_href || null })),
@@ -765,7 +801,12 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       </div>
 
       {/* Filter strip */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[minmax(220px,1.05fr)_minmax(130px,0.5fr)_minmax(190px,0.95fr)_minmax(160px,0.75fr)_minmax(160px,0.75fr)_minmax(185px,0.8fr)] gap-3">
+      <div className={cn(
+        'bg-white rounded-2xl border border-gray-100 shadow-sm p-3 mb-5 grid grid-cols-1 md:grid-cols-2 gap-3',
+        isAdmin
+          ? 'xl:grid-cols-7'
+          : 'xl:grid-cols-[minmax(220px,1.05fr)_minmax(130px,0.5fr)_minmax(190px,0.95fr)_minmax(160px,0.75fr)_minmax(160px,0.75fr)_minmax(185px,0.8fr)]',
+      )}>
         <div className="relative min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input value={q} onChange={e=>setQ(e.target.value)} placeholder={tt('search_ph', lang)}
@@ -797,6 +838,21 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
           <option value="">{tt('all_status', lang)}</option>
           {statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
+        {isAdmin && (
+          <select value={ownerFilter} onChange={e=>setOwnerFilter(e.target.value as CrmLeadOwnerFilter)}
+            aria-label={tt('filter_owner', lang)}
+            className="min-w-0 w-full rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
+            <option value="">{tt('all_owners', lang)}</option>
+            {ownerOptions.primary.map((owner) => (
+              <option key={owner.id} value={`seller:${owner.id}`}>{owner.initials}</option>
+            ))}
+            {ownerOptions.hasOtherSellers && (
+              <option value="other_timan_sellers">{tt('other_timan_sellers', lang)}</option>
+            )}
+            <option value="partner_created">{tt('partner_created', lang)}</option>
+            <option value="unassigned_timan_seller">{tt('unassigned_timan_seller', lang)}</option>
+          </select>
+        )}
         <div className="relative min-w-0">
           <ArrowDownAZ className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <select value={sort} onChange={e=>setSort(e.target.value as SortKey)}
@@ -898,11 +954,30 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                       </td>
                       <td className="px-4 py-3.5 text-gray-600 max-w-[220px] truncate">{r.dealer || '—'}</td>
                       <td className="px-4 py-3.5">
-                        {r.owner_name ? (
-                          <span className="font-medium text-gray-700">{ownerInitials(r, sellerDirectory)}</span>
+                        {r.owner_is_timan_seller && r.owner_name ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-medium text-gray-700">{ownerInitials(r, sellerDirectory)}</span>
+                            {r.created_by_partner && (
+                              <span
+                                className="inline-flex text-[10px] px-1.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200"
+                                title={r.created_by_email || tt('partner_created', lang)}
+                              >
+                                {tt('partner_created_chip', lang)}
+                              </span>
+                            )}
+                          </div>
+                        ) : r.created_by_partner ? (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex text-[11px] px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200" title={r.created_by_email || undefined}>
+                              {tt('partner_created_chip', lang)}
+                            </span>
+                            <span className="inline-flex text-[11px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                              {tt('unassigned_timan_seller', lang)}
+                            </span>
+                          </div>
                         ) : (
                           <span className="inline-flex text-[11px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                            {tt('unassigned_chip', lang)}
+                            {tt('unassigned_timan_seller', lang)}
                           </span>
                         )}
                       </td>

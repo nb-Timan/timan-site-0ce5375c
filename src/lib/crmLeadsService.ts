@@ -731,6 +731,10 @@ export interface CrmLeadsPageRow {
   owner_user_id: string | null;
   owner_name: string | null;
   owner_email: string | null;
+  created_by_user_id?: string | null;
+  created_by_email?: string | null;
+  created_by_partner?: boolean;
+  owner_is_timan_seller?: boolean;
   responsible_name: string | null;
   machine: string | null;
   equipment: string | null;
@@ -788,6 +792,8 @@ export interface ListLeadsPageOpts {
   machineFilter?: string | null;
   equipmentFilter?: string | null;
   statusFilter?: string | null;
+  ownerFilter?: string | null;
+  ownerExcludedSellerIds?: string[];
   search?: string | null;
   sort?: string;
   limit?: number;
@@ -812,6 +818,10 @@ function normalizePageResult(payload: unknown): CrmLeadsPageQueryResult {
     rows: arrayOrEmpty<CrmLeadsPageRow>(obj.rows).map((row) => ({
       ...row,
       attachments: arrayOrEmpty<CrmLeadAttachment>(row.attachments),
+      created_by_user_id: typeof row.created_by_user_id === 'string' ? row.created_by_user_id : null,
+      created_by_email: typeof row.created_by_email === 'string' ? row.created_by_email : null,
+      created_by_partner: row.created_by_partner === true,
+      owner_is_timan_seller: row.owner_is_timan_seller === true,
       probability: row.probability == null ? null : numberOrZero(row.probability),
       value: row.value == null ? null : numberOrZero(row.value),
     })),
@@ -855,6 +865,8 @@ export async function listLeadsPage(opts: ListLeadsPageOpts): Promise<CrmLeadsPa
     p_machine_filter: opts.machineFilter ?? null,
     p_equipment_filter: opts.equipmentFilter ?? null,
     p_status_filter: opts.statusFilter ?? null,
+    p_owner_filter: opts.ownerFilter ?? null,
+    p_owner_excluded_seller_ids: opts.ownerExcludedSellerIds ?? [],
     p_search: opts.search ?? null,
     p_sort: opts.sort ?? "default",
     p_limit: opts.limit ?? 50,
