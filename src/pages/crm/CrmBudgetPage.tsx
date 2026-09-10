@@ -34,6 +34,7 @@ import {
   listBudgetDealerLines,
   aggregateDealerBudgetMonthly, hasDealerBudgetByMonth, mergeMonthlyPreferDealer,
   aggregateDealerBudgetSellerBreakdown,
+  resolveBudgetScopeEmails,
   collapseDealerLinesForCell,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
   type BudgetOrderDetail,
@@ -557,6 +558,13 @@ export default function CrmBudgetPage() {
     ? (BUDGET_SELLERS.some(s => s.email.toLowerCase() === backendFilter.toLowerCase()) ? backendFilter.toLowerCase() : null)
     : (sellerCtxEmail || null);
 
+  // Keep the budget scope stable for every rendered block and tooltip. The
+  // backend all-sellers view is the only case that intentionally returns null.
+  const scopeEmails = useMemo(
+    () => resolveBudgetScopeEmails({ isAdmin, backendFilter, myEmail, sellerContextEmail: sellerCtxEmail }),
+    [isAdmin, backendFilter, myEmail, sellerCtxEmail],
+  );
+
   // Compact audit context (used as seller_context for sellers; backend = null).
   const auditSellerContext = isAdmin ? null : (sellerCtxEmail || sellerCtxInitials || null);
 
@@ -836,15 +844,6 @@ export default function CrmBudgetPage() {
       : agg("ordersMonthly");
     const baseWorking = agg("workingMonthly");
     const blockProductKey = primaryLine.product_key || fallbackProductKey || "";
-    const scopeEmails: Set<string> | null = (() => {
-      if (isAdmin) {
-        if (backendFilter === "all") return null;
-        if (backendFilter === "mine") return new Set([myEmail].filter(Boolean));
-        return new Set([backendFilter.toLowerCase()]);
-      }
-      const e = (sellerCtxEmail || myEmail || "").toLowerCase();
-      return new Set(e ? [e] : []);
-    })();
     const dealerMonthly = aggregateDealerBudgetMonthly(dealerLines, blockProductKey, scopeEmails);
     const hasDealerMonth = hasDealerBudgetByMonth(dealerLines, blockProductKey, scopeEmails);
     const budgetMonthly = mergeMonthlyPreferDealer(budgetMonthlyManual, dealerMonthly, hasDealerMonth);

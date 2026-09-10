@@ -9,6 +9,7 @@ import {
   hasDealerBudgetByMonth,
   mergeMonthlyPreferDealer,
   pickLargestDealerRowForCell,
+  resolveBudgetScopeEmails,
   type BudgetDealerLine,
 } from "@/lib/crmBudgetService";
 
@@ -41,6 +42,18 @@ function row(over: Partial<BudgetDealerLine>): BudgetDealerLine {
 const manualMonthly = (qty: number) => Array.from({ length: 12 }, () => qty / 12);
 
 describe("Phase 35 / Step 5 — dealer budget aggregation", () => {
+  it("uses one explicit scope for backend and seller budget views", () => {
+    expect(resolveBudgetScopeEmails({
+      isAdmin: true, backendFilter: "all", myEmail: "nb@timan.dk",
+    })).toBeNull();
+    expect(resolveBudgetScopeEmails({
+      isAdmin: true, backendFilter: "AKR@TIMAN.DK", myEmail: "nb@timan.dk",
+    })).toEqual(new Set(["akr@timan.dk"]));
+    expect(resolveBudgetScopeEmails({
+      isAdmin: false, backendFilter: "all", myEmail: "nb@timan.dk", sellerContextEmail: "JTN@TIMAN.DK",
+    })).toEqual(new Set(["jtn@timan.dk"]));
+  });
+
   it("sums dealer rows into 12-month buckets, scoped by seller", () => {
     const rows = [
       row({ month_idx: 2, qty: 1 }),

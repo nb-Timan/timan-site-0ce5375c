@@ -585,6 +585,34 @@ export const BUDGET_SELLERS: BudgetSellerRef[] = [
   { initials: "AKR", full_name: "AKR", email: "akr@timan.dk", country: "DE" },
   { initials: "NB",  full_name: "NB",  email: "nb@timan.dk",  country: "DK" },
 ];
+
+/**
+ * Resolves the one seller scope used by every CRM Budget read-model.
+ * `null` is deliberately reserved for Backend's "all sellers" view.
+ */
+export function resolveBudgetScopeEmails({
+  isAdmin,
+  backendFilter,
+  myEmail,
+  sellerContextEmail,
+}: {
+  isAdmin: boolean;
+  backendFilter: string;
+  myEmail?: string | null;
+  sellerContextEmail?: string | null;
+}): Set<string> | null {
+  const normalized = (value: string | null | undefined) => (value || "").trim().toLowerCase();
+  const filter = normalized(backendFilter);
+
+  if (isAdmin) {
+    if (filter === "all") return null;
+    if (filter === "mine") return new Set([normalized(myEmail)].filter(Boolean));
+    return new Set(filter ? [filter] : []);
+  }
+
+  const sellerEmail = normalized(sellerContextEmail) || normalized(myEmail);
+  return new Set(sellerEmail ? [sellerEmail] : []);
+}
 // Backend (Timan Backend) users who can see the full seller overview.
 // BP appears here AND in BUDGET_SELLERS — backend for access, seller for performance.
 export const BUDGET_BACKEND_USERS: BudgetSellerRef[] = [
