@@ -33,6 +33,7 @@ import {
   customMachineProducts, customEquipmentByMachine, createCustomProduct,
   listBudgetDealerLines,
   aggregateDealerBudgetMonthly, hasDealerBudgetByMonth, mergeMonthlyPreferDealer,
+  aggregateDealerBudgetSellerBreakdown,
   collapseDealerLinesForCell,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
   type EquipmentCategory, type BudgetType, type BudgetDealerLine,
@@ -860,7 +861,7 @@ export default function CrmBudgetPage() {
       if (c.month_idx >= 0 && c.month_idx < 12) leadWorkingByMonth[c.month_idx].push(c);
     }
     const workingMonthly = baseWorking.map((v, i) => v + leadWorkingByMonth[i].reduce((s, c) => s + c.qty, 0));
-    return { primaryLine, linesForAgg, budgetMonthlyManual, ordersMonthly, baseWorking, blockProductKey, budgetMonthly, leadWorkingByMonth, workingMonthly };
+    return { primaryLine, linesForAgg, budgetMonthlyManual, ordersMonthly, baseWorking, blockProductKey, scopeEmails, budgetMonthly, leadWorkingByMonth, workingMonthly };
   }
 
   // KPI totals — MUST mirror the rendered table row totals exactly. We sum the
@@ -1061,6 +1062,41 @@ export default function CrmBudgetPage() {
     }
     for (const [ini, v] of map.entries()) if (!seen.has(ini)) out.push({ initials: ini, value: v });
     return out;
+  }
+
+  /** Mirrors mergeMonthlyPreferDealer for the Budget tooltip. Imported dealer
+   *  rows replace manual rows only in the months where they exist, so the
+   *  seller rows always add up to the Budget number rendered in the table. */
+  function budgetSellerBreakdownFor(
+    linesIn: BudgetLine[],
+    productKey: string,
+    scopeEmails: Set<string> | null,
+    monthIdx: number | null,
+  ): { initials: string; value: number }[] {
+    const hasDealerMonth = hasDealerBudgetByMonth(dealerLines, productKey, scopeEmails);
+    if (monthIdx !== null) {
+      return hasDealerMonth[monthIdx]
+        ? aggregateDealerBudgetSellerBreakdown(dealerLines, productKey, scopeEmails, monthIdx)
+        : sellerBreakdownFor(linesIn, monthIdx, "budget");
+    }
+
+    const totals = new Map<string, number>();
+    for (let i = 0; i < 12; i += 1) {
+      const rows = hasDealerMonth[i]
+        ? aggregateDealerBudgetSellerBreakdown(dealerLines, productKey, scopeEmails, i)
+        : sellerBreakdownFor(linesIn, i, "budget");
+      for (const row of rows) totals.set(row.initials, (totals.get(row.initials) || 0) + row.value);
+    }
+    const canonicalOrder = BUDGET_SELLERS.map(s => s.initials.toUpperCase());
+    return Array.from(totals.entries())
+      .map(([initials, value]) => ({ initials, value }))
+      .sort((a, b) => {
+        const aIndex = canonicalOrder.indexOf(a.initials);
+        const bIndex = canonicalOrder.indexOf(b.initials);
+        const aOrder = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
+        const bOrder = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
+        return aOrder - bOrder || a.initials.localeCompare(b.initials);
+      });
   }
 
   /** Dealer names contributing to the orders count for a set of lines and
@@ -1961,6 +1997,7 @@ export default function CrmBudgetPage() {
                       linesForAgg,
                       ordersMonthly,
                       blockProductKey,
+                      scopeEmails,
                       budgetMonthly,
                       leadWorkingByMonth,
                       workingMonthly,
@@ -2029,7 +2066,7 @@ export default function CrmBudgetPage() {
                             const ck = cellKeyFor(i, "budget");
                             const latest = latestAuditByCell[ck];
                             const monthLabel = MONTHS_BY_LANG[lang][i] || `M${i + 1}`;
-                            const budgetRows = sellerBreakdownFor(linesForAgg, i, "budget");
+                            const budgetRows = budgetSellerBreakdownFor(linesForAgg, blockProductKey, scopeEmails, i);
                             const ordersRows = sellerBreakdownFor(linesForAgg, i, "orders");
                             const tipTitle = `${monthLabel} · ${productName}`;
                             // Reference distribution context. `delta_total`
@@ -2112,7 +2149,7 @@ export default function CrmBudgetPage() {
                             <BudgetCellInsight
                               title={`Budget total · ${productName}`}
                               total={totalBudget}
-                              rows={sellerBreakdownFor(linesForAgg, null, "budget")}
+                              rows={budgetSellerBreakdownFor(linesForAgg, blockProductKey, scopeEmails, null)}
                             >
                               <span className="text-slate-600">{totalBudget}</span>
                             </BudgetCellInsight>
@@ -2309,7 +2346,7 @@ export default function CrmBudgetPage() {
                             let label: string = "•";
                             if (diff > 0) { cls = "text-emerald-600 font-semibold"; label = `+${diff}`; }
                             else if (diff < 0) { cls = "text-rose-600 font-semibold"; label = `${diff}`; }
-                            const bRows = sellerBreakdownFor(linesForAgg, i, "budget");
+                            const bRows = budgetSellerBreakdownFor(linesForAgg, blockProductKey, scopeEmails, i);
                             const oRows = sellerBreakdownFor(linesForAgg, i, "orders");
                             const bMap = new Map(bRows.map(r => [r.initials, r.value]));
                             const oMap = new Map(oRows.map(r => [r.initials, r.value]));
@@ -2334,7 +2371,7 @@ export default function CrmBudgetPage() {
                           <td className={cn("px-2 py-2 text-center tabular-nums text-xs font-bold",
                             totalPerf > 0 ? "text-emerald-700" : totalPerf < 0 ? "text-rose-700" : "text-slate-500")}>
                             {(() => {
-                              const bRowsT = sellerBreakdownFor(linesForAgg, null, "budget");
+                              const bRowsT = budgetSellerBreakdownFor(linesForAgg, blockProductKey, scopeEmails, null);
                               const oRowsT = sellerBreakdownFor(linesForAgg, null, "orders");
                               const bMapT = new Map(bRowsT.map(r => [r.initials, r.value]));
                               const oMapT = new Map(oRowsT.map(r => [r.initials, r.value]));

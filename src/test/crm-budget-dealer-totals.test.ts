@@ -5,6 +5,7 @@
 import { describe, it, expect } from "vitest";
 import {
   aggregateDealerBudgetMonthly,
+  aggregateDealerBudgetSellerBreakdown,
   hasDealerBudgetByMonth,
   mergeMonthlyPreferDealer,
   pickLargestDealerRowForCell,
@@ -108,6 +109,29 @@ describe("Phase 35 / Step 5 — dealer budget aggregation", () => {
     ];
     const out = aggregateDealerBudgetMonthly(rows, "RC-1000s", null);
     expect(out[0]).toBe(7);
+  });
+
+  it("returns a backend seller breakdown that sums to the imported cell total", () => {
+    const rows = [
+      row({ seller_email: "akr@timan.dk", seller_initials: "AKR", month_idx: 5, qty: 3 }),
+      row({ seller_email: "bp@timan.dk", seller_initials: "BP", month_idx: 5, qty: 4 }),
+      row({ seller_email: "em@timan.dk", seller_initials: "EM", month_idx: 5, qty: 1 }),
+      row({ seller_email: "jtn@timan.dk", seller_initials: "JTN", month_idx: 5, qty: 3 }),
+      row({ seller_email: "jtn@timan.dk", seller_initials: "JTN", month_idx: 4, qty: 8 }),
+      row({ seller_email: "em@timan.dk", seller_initials: "EM", month_idx: 5, qty: 99, excluded_from_total: true }),
+    ];
+    const split = aggregateDealerBudgetSellerBreakdown(rows, "RC-1000s", null, 5);
+    expect(split).toEqual([
+      { initials: "AKR", value: 3 },
+      { initials: "BP", value: 4 },
+      { initials: "EM", value: 1 },
+      { initials: "JTN", value: 3 },
+    ]);
+    expect(split.reduce((sum, seller) => sum + seller.value, 0)).toBe(
+      aggregateDealerBudgetMonthly(rows, "RC-1000s", null)[5],
+    );
+    expect(aggregateDealerBudgetSellerBreakdown(rows, "RC-1000s", new Set(["akr@timan.dk"]), 5))
+      .toEqual([{ initials: "AKR", value: 3 }]);
   });
 
   it("selected seller scope returns only that seller's totals", () => {

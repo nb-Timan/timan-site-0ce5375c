@@ -1772,6 +1772,36 @@ export function hasDealerBudgetByMonth(
   return out;
 }
 
+/** Returns the dealer-line budget split by seller for one product and one
+ *  month. Pass `null` as monthIdx to aggregate the full fiscal year. This
+ *  applies the exact same inclusion rules as aggregateDealerBudgetMonthly,
+ *  so a backend tooltip always explains the total it displays. */
+export function aggregateDealerBudgetSellerBreakdown(
+  rows: BudgetDealerLine[],
+  productKey: string,
+  sellerEmails: Set<string> | null,
+  monthIdx: number | null,
+): { initials: string; value: number }[] {
+  const totalsBySeller = new Map<string, { initials: string; value: number }>();
+  for (const r of rows) {
+    if (r.excluded_from_total) continue;
+    if (!r.qty || r.qty <= 0) continue;
+    if (!productKeysEqual(r.product_key, productKey)) continue;
+    const sellerEmail = (r.seller_email || "").toLowerCase();
+    if (sellerEmails && !sellerEmails.has(sellerEmail)) continue;
+    if (r.month_idx < 0 || r.month_idx > 11) continue;
+    if (monthIdx !== null && r.month_idx !== monthIdx) continue;
+
+    const initials = (r.seller_initials || "—").trim().toUpperCase() || "—";
+    const key = sellerEmail || initials;
+    const current = totalsBySeller.get(key) || { initials, value: 0 };
+    current.value += r.qty;
+    totalsBySeller.set(key, current);
+  }
+  return Array.from(totalsBySeller.values())
+    .sort((a, b) => a.initials.localeCompare(b.initials));
+}
+
 /** Pick the largest non-excluded dealer row for a given (year, month, product,
  *  seller-scope) cell. Used by CRM Budget plus/minus to know which dealer row
  *  to mutate. Tie-breaker: dealer_name asc, then id asc — deterministic. */
