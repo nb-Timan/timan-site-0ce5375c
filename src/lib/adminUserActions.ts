@@ -13,6 +13,9 @@
 
 import { supabase } from "@/lib/supabase";
 
+const SESSION_REFRESH_SKEW_MS = 30_000;
+const SESSION_EXPIRED_MESSAGE = "Din session er udløbet. Log ind igen for at fortsætte.";
+
 export type AdminUserAction =
   | "invite"
   | "invite_contract_partner"
@@ -43,45 +46,97 @@ interface InvokeOptions {
   partnerName?: string;
 }
 
+type AuthSession = {
+  access_token: string;
+  expires_at?: number | null;
+  user: { email?: string | null };
+};
+
+type FunctionError = {
+  message?: string;
+  context?: Response;
+};
+
+function sessionNeedsRefresh(session: AuthSession): boolean {
+  return !!session.expires_at && session.expires_at * 1000 <= Date.now() + SESSION_REFRESH_SKEW_MS;
+}
+
+async function currentSession(forceRefresh = false): Promise<AuthSession | null> {
+  const result = forceRefresh
+    ? await supabase.auth.refreshSession()
+    : await supabase.auth.getSession();
+  const session = result.data.session as AuthSession | null;
+  if (result.error || !session) return null;
+
+  if (!forceRefresh && sessionNeedsRefresh(session)) {
+    const refreshed = await supabase.auth.refreshSession();
+    return refreshed.error ? null : (refreshed.data.session as AuthSession | null);
+  }
+
+  return session;
+}
+
+async function functionErrorDetails(error: FunctionError): Promise<{ message: string; unauthorized: boolean }> {
+  const response = error.context;
+  let message = error.message ?? "Handlingen fejlede.";
+  try {
+    const body = response && typeof response.json === "function" ? await response.json() : null;
+    if (typeof body?.error === "string") message = body.error;
+  } catch {
+    // A malformed error response must not hide the original error message.
+  }
+  return { message, unauthorized: response?.status === 401 };
+}
+
 async function invokeAdminAction(
   action: AdminUserAction,
   opts: InvokeOptions = {},
 ): Promise<AdminUserActionResult> {
-  const { data: sess } = await supabase.auth.getSession();
-  if (!sess.session) {
+  let session = await currentSession();
+  if (!session) {
     return {
       ok: false,
-      error:
-        "Du er ikke logget ind med Supabase Auth. Log ind igen som godkendt Timan Backend bruger.",
+      error: SESSION_EXPIRED_MESSAGE,
     };
   }
 
+  const body = {
+    action,
+    email: opts.email ?? session.user.email ?? "",
+    app_user_id: opts.appUserId ?? null,
+    contract_id: opts.contractId ?? null,
+    dealer_account_number: opts.dealerAccountNumber ?? null,
+    partner_name: opts.partnerName ?? null,
+    patch: opts.patch,
+    redirect_to: `${window.location.origin}/reset-password`,
+  };
+
   try {
-    const { data, error } = await supabase.functions.invoke("admin-user-actions", {
-      body: {
-        action,
-        email: opts.email ?? sess.session.user.email ?? "",
-        app_user_id: opts.appUserId ?? null,
-        contract_id: opts.contractId ?? null,
-        dealer_account_number: opts.dealerAccountNumber ?? null,
-        partner_name: opts.partnerName ?? null,
-        patch: opts.patch,
-        redirect_to: `${window.location.origin}/reset-password`,
-      },
+    const invoke = (activeSession: AuthSession) => supabase.functions.invoke("admin-user-actions", {
+      body,
+      // Always use the underlying authenticated user's current JWT. View-as
+      // only changes presentation and must never influence this header.
+      headers: { Authorization: `Bearer ${activeSession.access_token}` },
     });
+
+    let { data, error } = await invoke(session);
     if (error) {
-      // FunctionsHttpError exposes the response body in `context`.
-      let serverMsg: string | null = null;
-      try {
-        const ctx = (error as { context?: Response }).context;
-        if (ctx && typeof ctx.json === "function") {
-          const body = await ctx.json();
-          serverMsg = body?.error ?? null;
-        }
-      } catch {
-        /* ignore */
+      const details = await functionErrorDetails(error as FunctionError);
+      if (!details.unauthorized) return { ok: false, error: details.message };
+
+      // A stale JWT can survive a preview reload. Refresh once and retry with
+      // the new token; never retry indefinitely or substitute a view-as user.
+      session = await currentSession(true);
+      if (!session) return { ok: false, error: SESSION_EXPIRED_MESSAGE };
+
+      ({ data, error } = await invoke(session));
+      if (error) {
+        const retryDetails = await functionErrorDetails(error as FunctionError);
+        return {
+          ok: false,
+          error: retryDetails.unauthorized ? SESSION_EXPIRED_MESSAGE : retryDetails.message,
+        };
       }
-      return { ok: false, error: serverMsg ?? error.message };
     }
     if (!data?.ok) {
       return { ok: false, error: data?.error ?? "Handlingen fejlede." };
