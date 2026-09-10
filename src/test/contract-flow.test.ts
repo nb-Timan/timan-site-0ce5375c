@@ -1482,7 +1482,7 @@ describe('contract flow', () => {
     expect(pageSource).toContain('Åbn kontrakt for partner');
     expect(pageSource).toContain('onExtend={extendGuidedAccess}');
     expect(pageSource).toContain('onRevoke={revokeGuidedAccess}');
-    expect(pageSource).toContain("portalRole === 'timan_seller' && hasModuleAccess(portalRole, 'contracts', moduleOverride)");
+    expect(pageSource).toContain("portalRole === 'timan_seller' && canAccessContractsModule(effectiveUser)");
     expect(pageSource).toContain('useEffectivePortalUserState(appUser)');
     expect(pageSource).toContain('loading || resolvingEffectiveUser');
 
