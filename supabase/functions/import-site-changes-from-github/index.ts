@@ -68,6 +68,16 @@ type SiteChangeGroupSuggestion = {
   sourceRefs: string[];
 };
 
+type DailyGroupKey = {
+  module: string;
+  date: string;
+};
+
+type StoredGitHubEntry = SiteChangeInsert & {
+  id: string;
+  group_parent_id: string | null;
+};
+
 const MODULE_LABELS: Record<string, Partial<Record<PortalLanguage, string>>> = {
   crm: { da: "CRM", en: "CRM", de: "CRM", it: "CRM", hu: "CRM", sv: "CRM", fr: "CRM", pl: "CRM", cs: "CRM" },
   dealer_data: { da: "Partnerdata", en: "Partner data", de: "Partnerdaten", it: "Dati partner", hu: "Partneradatok", sv: "Partnerdata", fr: "Données partenaire", pl: "Dane partnera", cs: "Data partnera" },
@@ -296,24 +306,37 @@ function buildPublishedSuggestion(module: string, changeType: string): Record<st
   }, {} as Record<string, Record<string, string>>);
 }
 
-function isGroupable(entry: SiteChangeInsert): boolean {
-  return !entry.is_important &&
-    ["improvement", "ui_ux", "bugfix", "performance"].includes(entry.change_type) &&
-    entry.user_impact_score <= 6 &&
-    !["security", "feature", "backend"].includes(entry.change_type);
-}
-
-function semanticKey(entry: SiteChangeInsert): string {
-  const text = `${entry.title_internal}\n${entry.technical_description || ""}`.toLowerCase();
-  if (entry.module === "crm" && /\b(partner|dealer|detail|overview|overblik|kpi|note|quick-card|quick card)\b/.test(text)) return "crm-partner-overview";
-  if (/\b(layout|ui|ux|design|kompakt|compact)\b/.test(text)) return `${entry.module}-ui`;
-  if (/\b(i18n|language|translation|sprog|oversætt)\b/.test(text)) return `${entry.module}-i18n`;
-  return `${entry.module}-general`;
-}
-
 function dayKey(value: string): string {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
+}
+
+function dailyGroupSourceRef(module: string, date: string): string {
+  return `github-day:${module}:${date}`;
+}
+
+const DAILY_DANISH_SUMMARIES: Array<{ pattern: RegExp; text: string }> = [
+  { pattern: /\b(lead|kontaktperson|kontakt|kunde|customer)\b/, text: "Lead- og kontaktflowet er forbedret." },
+  { pattern: /\b(tilbud|quote)\b/, text: "Tilbud kan håndteres mere direkte fra CRM." },
+  { pattern: /\b(budget|pipeline|sandsynlighed|probability)\b/, text: "Budget- og pipelineoplysninger følger de gemte CRM-data mere konsekvent." },
+  { pattern: /\b(ordre|order)\b/, text: "Ordreoplysninger er koblet mere pålideligt til CRM." },
+  { pattern: /\b(ejer|owner|ansvarlig|seller|sælger)\b/, text: "Ansvar og filtrering er blevet tydeligere." },
+  { pattern: /\b(partner|dealer|forhandler|detail|profil)\b/, text: "Partneroverblikket er blevet mere overskueligt." },
+  { pattern: /\b(configurator|konfigurator|produkt|product|redskab|værktøj|tool)\b/, text: "Produktvalg og visning i konfiguratoren er forbedret." },
+  { pattern: /\b(video|image|billede|specifikation|asset|badge)\b/, text: "Produktindhold og materialer er blevet lettere at vedligeholde." },
+  { pattern: /\b(backend|bruger|user|adgang|permission)\b/, text: "Administration og adgangsstyring er blevet tydeligere." },
+];
+
+function dailyDanishSummary(entries: SiteChangeInsert[]): string {
+  const text = entries.map((entry) => `${entry.title_internal}\n${entry.technical_description || ""}`).join("\n").toLowerCase();
+  const summaries = DAILY_DANISH_SUMMARIES
+    .filter(({ pattern }) => pattern.test(text))
+    .map(({ text: summary }) => summary)
+    .slice(0, 3);
+  if (summaries.length > 0) return summaries.join(" ");
+
+  const label = moduleLabel(entries[0]?.module || "backend", "da");
+  return `${label} er blevet opdateret med dagens vigtigste forbedringer.`;
 }
 
 function buildGroupSuggestion(entries: SiteChangeInsert[]): SiteChangeGroupSuggestion | null {
@@ -321,21 +344,13 @@ function buildGroupSuggestion(entries: SiteChangeInsert[]): SiteChangeGroupSugge
   const module = entries[0].module;
   const changeType = entries.every((entry) => entry.change_type === entries[0].change_type) ? entries[0].change_type : "improvement";
   const localizedContent = buildPublishedSuggestion(module, changeType);
-  const crmPartnerOverview = module === "crm" && entries.some((entry) => semanticKey(entry) === "crm-partner-overview");
-  if (crmPartnerOverview) {
-    localizedContent.da.title = "CRM-overblikket er forbedret";
-    localizedContent.en.title = "The CRM overview has been improved";
-    localizedContent.de.title = "Die CRM-Übersicht wurde verbessert";
-    localizedContent.da.description = "Partneroversigten er blevet gjort mere kompakt og overskuelig. Kontaktoplysninger, KPI-kort, noter og øvrige partnerdata er blevet organiseret bedre, så de vigtigste oplysninger er lettere at finde og arbejde med.\n\nOmråde: CRM";
-    localizedContent.en.description = "The partner overview has been made more compact and easier to scan. Contact details, KPI cards, notes and other partner data are organized more clearly, so the most important information is easier to find and work with.\n\nArea: CRM";
-    localizedContent.de.description = "Die Partnerübersicht wurde kompakter und übersichtlicher gestaltet. Kontaktdaten, KPI-Karten, Notizen und weitere Partnerdaten sind klarer organisiert, damit wichtige Informationen leichter zu finden und zu bearbeiten sind.\n\nBereich: CRM";
-  }
+  localizedContent.da.description = `${dailyDanishSummary(entries)}\n\nOmråde: ${moduleLabel(module, "da")}`;
   const sourceRefs = entries.map((entry) => entry.source_ref).filter(Boolean);
   const implementedAt = entries.map((entry) => entry.implemented_at).sort().at(-1) || new Date().toISOString();
   const roles = Array.from(new Set(entries.flatMap((entry) => entry.affected_roles)));
   const group = {
-    source: "github_group_suggestion",
-    source_ref: `github-group:${module}:${changeType}:${dayKey(implementedAt)}:${semanticKey(entries[0])}`,
+    source: "github_daily_group",
+    source_ref: dailyGroupSourceRef(module, dayKey(implementedAt)),
     implemented_at: implementedAt,
     title_internal: `${entries.length} ændringer samlet: ${localizedContent.da.title}`,
     description_internal: `Automatisk gruppeforslag fra GitHub-sync. Publiceringsteksten er foreslået ud fra ${entries.length} relaterede commits.`,
@@ -367,15 +382,19 @@ function buildGroupSuggestion(entries: SiteChangeInsert[]): SiteChangeGroupSugge
   };
 }
 
-function suggestGroups(entries: SiteChangeInsert[]): SiteChangeGroupSuggestion[] {
-  const buckets = new Map<string, SiteChangeInsert[]>();
-  for (const entry of entries.filter(isGroupable)) {
-    const key = `${entry.module}:${entry.change_type}:${dayKey(entry.implemented_at)}:${semanticKey(entry)}`;
-    buckets.set(key, [...(buckets.get(key) || []), entry]);
+function dailyGroupKeys(entries: SiteChangeInsert[]): DailyGroupKey[] {
+  const keys = new Map<string, DailyGroupKey>();
+  for (const entry of entries) {
+    const date = dayKey(entry.implemented_at);
+    keys.set(`${entry.module}:${date}`, { module: entry.module, date });
   }
-  return Array.from(buckets.values())
-    .map(buildGroupSuggestion)
-    .filter((entry): entry is SiteChangeGroupSuggestion => Boolean(entry));
+  return Array.from(keys.values());
+}
+
+function nextUtcDay(date: string): string {
+  const value = new Date(`${date}T00:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + 1);
+  return value.toISOString().slice(0, 10);
 }
 
 function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInsert | null {
@@ -548,21 +567,26 @@ Deno.serve(async (req) => {
 
   const existing = new Set((existingRows || []).map((row: { source_ref: string | null }) => row.source_ref).filter(Boolean));
   const newEntries = entries.filter((entry) => !existing.has(entry.source_ref));
-  if (newEntries.length === 0) {
-    return json({ ok: true, imported: 0, skipped: entries.length, message: "Alle commits findes allerede." });
+  if (newEntries.length > 0) {
+    const { error: insertError } = await admin.from("site_change_entries").insert(newEntries);
+    if (insertError) return json({ error: `Import fejlede: ${insertError.message}` }, 500);
   }
 
-  const { data: insertedRows, error: insertError } = await admin.from("site_change_entries").insert(newEntries).select("id,source_ref,module,change_type,user_impact_score,is_important,implemented_at,title_internal,technical_description");
-  if (insertError) return json({ error: `Import fejlede: ${insertError.message}` }, 500);
-
   let groupsSuggested = 0;
-  const groupSuggestions = suggestGroups(newEntries);
-  for (const suggestion of groupSuggestions) {
-    const groupedSourceRefs = new Set(suggestion.sourceRefs);
-    const childIds = (insertedRows || [])
-      .filter((row: { id: string; source_ref: string | null }) => row.source_ref && groupedSourceRefs.has(row.source_ref))
-      .map((row: { id: string }) => row.id);
-    if (childIds.length < 2) continue;
+  for (const key of dailyGroupKeys(entries)) {
+    const { data: dailyRows, error: dailyRowsError } = await admin
+      .from("site_change_entries")
+      .select("id,source,source_ref,implemented_at,title_internal,description_internal,technical_description,title_public,description_public,localized_content,module,change_type,affected_roles,user_impact_score,technical_impact_score,publish_recommendation,is_important,status,group_parent_id,group_suggestion_status,grouped_at")
+      .eq("source", "github")
+      .eq("module", key.module)
+      .gte("implemented_at", `${key.date}T00:00:00.000Z`)
+      .lt("implemented_at", `${nextUtcDay(key.date)}T00:00:00.000Z`);
+    if (dailyRowsError) continue;
+
+    const sourceRows = (dailyRows || []) as StoredGitHubEntry[];
+    const suggestion = buildGroupSuggestion(sourceRows);
+    if (!suggestion) continue;
+    const childIds = sourceRows.map((row) => row.id);
 
     const { data: existingGroup, error: existingGroupError } = await admin
       .from("site_change_entries")
@@ -580,13 +604,40 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (groupError || !groupRow?.id) continue;
       groupId = groupRow.id;
+    } else {
+      const { error: groupUpdateError } = await admin
+        .from("site_change_entries")
+        .update({
+          implemented_at: suggestion.group.implemented_at,
+          title_internal: suggestion.group.title_internal,
+          description_internal: suggestion.group.description_internal,
+          technical_description: suggestion.group.technical_description,
+          affected_roles: suggestion.group.affected_roles,
+          user_impact_score: suggestion.group.user_impact_score,
+          technical_impact_score: suggestion.group.technical_impact_score,
+          grouped_at: new Date().toISOString(),
+        })
+        .eq("id", groupId);
+      if (groupUpdateError) continue;
     }
 
+    const priorAutomaticGroupIds = sourceRows
+      .map((row) => row.group_parent_id)
+      .filter((id): id is string => Boolean(id && id !== groupId));
     const { error: childError } = await admin
       .from("site_change_entries")
       .update({ group_parent_id: groupId, group_suggestion_status: "suggested", grouped_at: new Date().toISOString() })
       .in("id", childIds);
-    if (!childError) groupsSuggested += 1;
+    if (childError) continue;
+
+    if (priorAutomaticGroupIds.length > 0) {
+      await admin
+        .from("site_change_entries")
+        .update({ status: "archived", archived_at: new Date().toISOString(), group_suggestion_status: "split" })
+        .in("id", Array.from(new Set(priorAutomaticGroupIds)))
+        .eq("source", "github_group_suggestion");
+    }
+    groupsSuggested += 1;
   }
 
   return json({

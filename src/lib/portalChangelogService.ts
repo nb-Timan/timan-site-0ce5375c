@@ -368,7 +368,32 @@ function rowTextForGrouping(row: Pick<SiteChangeEntryRow, 'title_internal' | 'de
 }
 
 function isCrmOverviewGroup(rows: Array<Pick<SiteChangeEntryRow, 'title_internal' | 'description_internal' | 'technical_description' | 'module'>>): boolean {
-  return rows.some((row) => row.module === 'crm' && /\b(partner|dealer|detail|overview|overblik|kpi|note|quick-card|quick card)\b/.test(rowTextForGrouping(row)));
+  return rows.length > 0 && rows.every((row) => row.module === 'crm' && /\b(partner|dealer|detail|overview|overblik|kpi|note|quick-card|quick card)\b/.test(rowTextForGrouping(row)));
+}
+
+const DAILY_DANISH_SUMMARIES: Array<{ pattern: RegExp; text: string }> = [
+  { pattern: /\b(lead|kontaktperson|kontakt|kunde|customer)\b/, text: 'Lead- og kontaktflowet er forbedret.' },
+  { pattern: /\b(tilbud|quote)\b/, text: 'Tilbud kan håndteres mere direkte fra CRM.' },
+  { pattern: /\b(budget|pipeline|sandsynlighed|probability)\b/, text: 'Budget- og pipelineoplysninger følger de gemte CRM-data mere konsekvent.' },
+  { pattern: /\b(ordre|order)\b/, text: 'Ordreoplysninger er koblet mere pålideligt til CRM.' },
+  { pattern: /\b(ejer|owner|ansvarlig|seller|sælger)\b/, text: 'Ansvar og filtrering er blevet tydeligere.' },
+  { pattern: /\b(partner|dealer|forhandler|detail|profil)\b/, text: 'Partneroverblikket er blevet mere overskueligt.' },
+  { pattern: /\b(configurator|konfigurator|produkt|product|redskab|værktøj|tool)\b/, text: 'Produktvalg og visning i konfiguratoren er forbedret.' },
+  { pattern: /\b(video|image|billede|specifikation|asset|badge)\b/, text: 'Produktindhold og materialer er blevet lettere at vedligeholde.' },
+  { pattern: /\b(backend|bruger|user|adgang|permission)\b/, text: 'Administration og adgangsstyring er blevet tydeligere.' },
+];
+
+function dailyDanishSummary(rows: Array<Pick<SiteChangeEntryRow, 'title_internal' | 'description_internal' | 'technical_description' | 'module'>>): string {
+  const text = rows.map(rowTextForGrouping).join('\n');
+  const summaries = DAILY_DANISH_SUMMARIES
+    .filter(({ pattern }) => pattern.test(text))
+    .map(({ text: summary }) => summary)
+    .slice(0, 3);
+  if (summaries.length > 0) return summaries.join(' ');
+
+  const module = rows[0]?.module || 'portalen';
+  const label = moduleName(module).da || module;
+  return `${label} er blevet opdateret med dagens vigtigste forbedringer.`;
 }
 
 export function buildGroupedFeatureSuggestion(rows: SiteChangeEntryRow[]): SiteChangeLocalizedContent {
@@ -393,7 +418,9 @@ export function buildGroupedFeatureSuggestion(rows: SiteChangeEntryRow[]): SiteC
     acc[lang] = {
       ...generated,
       title: generated.title,
-      description: generated.description || '',
+      description: lang === 'da'
+        ? `${dailyDanishSummary(rows)}\n\n${AREA_PREFIX[lang]}: ${area}`
+        : generated.description || '',
     };
     return acc;
   }, {} as SiteChangeLocalizedContent);
@@ -806,6 +833,11 @@ function groupSourceRef(ids: string[]): string {
   return `group:${ids.slice().sort().join(':').slice(0, 180)}`;
 }
 
+function groupDayKey(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+}
+
 function titleForGroupRows(rows: SiteChangeEntryRow[]): string {
   const localized = buildGroupedFeatureSuggestion(rows);
   return firstText(localized.da?.title, localized.en?.title, rows[0]?.title_internal, 'Samlet feature');
@@ -830,9 +862,14 @@ export async function adminCreateChangelogGroup(ids: string[]): Promise<{ row: S
     .filter((row) => !row.is_important && !row.is_group && !row.group_parent_id && ['improvement', 'ui_ux', 'bugfix', 'performance'].includes(row.change_type));
   if (rows.length < 2) return { row: null, error: 'Gruppen kan kun oprettes af mindst to små, ikke-vigtige kandidater uden eksisterende gruppe.' };
 
+  const module = rows[0].module;
+  const day = groupDayKey(rows[0].implemented_at);
+  if (!day || rows.some((row) => row.module !== module || groupDayKey(row.implemented_at) !== day)) {
+    return { row: null, error: 'Vælg kun ændringer fra samme modul og samme dato.' };
+  }
+
   const localized = buildGroupedFeatureSuggestion(rows);
   const implementedAt = rows.map((row) => row.implemented_at).sort().at(-1) || new Date().toISOString();
-  const module = rows[0].module;
   const changeType = rows.every((row) => row.change_type === rows[0].change_type) ? rows[0].change_type : 'improvement';
   const roles = Array.from(new Set(rows.flatMap((row) => row.affected_roles?.length ? row.affected_roles : ['all'])));
   const sourceRefs = rows.map((row) => row.source_ref).filter(Boolean).join(', ');

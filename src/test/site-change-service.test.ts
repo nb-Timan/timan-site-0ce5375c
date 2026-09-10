@@ -290,6 +290,7 @@ describe('site change service', () => {
     expect(service).toContain('adminCreateChangelogGroup');
     expect(service).toContain('adminRemoveChangeFromGroup');
     expect(service).toContain('adminSplitChangelogGroup');
+    expect(service).toContain('Vælg kun ændringer fra samme modul og samme dato.');
     expect(service).toContain('Denne publicering består af');
 
     expect(page).toContain('selectedIds');
@@ -297,13 +298,37 @@ describe('site change service', () => {
     expect(page).toContain('siteFeaturesShowTechnicalHistory');
     expect(page).toContain('siteFeaturesRemoveFromGroup');
 
-    expect(edgeFunction).toContain('suggestGroups(newEntries)');
-    expect(edgeFunction).toContain('isGroupable');
-    expect(edgeFunction).toContain('!["security", "feature", "backend"].includes(entry.change_type)');
+    expect(edgeFunction).toContain('dailyGroupKeys(entries)');
+    expect(edgeFunction).toContain('.eq("source", "github")');
+    expect(edgeFunction).toContain('priorAutomaticGroupIds');
+    expect(edgeFunction).toContain('dailyGroupSourceRef');
+    expect(edgeFunction).toContain('github-day:${module}:${date}');
+    expect(edgeFunction).toContain('const date = dayKey(entry.implemented_at)');
+    expect(edgeFunction).toContain('keys.set(`${entry.module}:${date}`, { module: entry.module, date });');
     expect(edgeFunction).toContain('groupsSuggested');
     expect(edgeFunction).toContain('type SiteChangeGroupSuggestion');
     expect(edgeFunction).toContain('.eq("source_ref", suggestion.group.source_ref)');
     expect(edgeFunction).toContain('.insert(suggestion.group)');
+  });
+
+  it('builds one concise Danish publication summary for a daily CRM group', () => {
+    const rows = [
+      {
+        id: 'lead-contact', source: 'github', source_ref: 'github:lead-contact', implemented_at: '2026-09-10T09:00:00.000Z',
+        title_internal: 'Preserve manual lead customers with linked dealers', description_internal: null, technical_description: 'src/pages/crm/CrmNewLeadPage.tsx',
+        title_public: null, description_public: null, localized_content: null, module: 'crm', change_type: 'improvement', affected_roles: ['timan_seller'], user_impact_score: 5, technical_impact_score: 4, publish_recommendation: 'maybe' as const, is_important: false, status: 'new' as const, published_at: null, archived_at: null, reviewed_at: null, created_by: null, updated_by: null, published_by: null, is_group: false, group_parent_id: null, group_suggestion_status: 'none' as const, grouped_at: null, created_at: '2026-09-10T09:00:00.000Z', updated_at: '2026-09-10T09:00:00.000Z',
+      },
+      {
+        id: 'budget', source: 'github', source_ref: 'github:budget', implemented_at: '2026-09-10T10:00:00.000Z',
+        title_internal: 'Fix CRM budget pipeline probability', description_internal: null, technical_description: 'src/pages/crm/CrmBudgetPage.tsx',
+        title_public: null, description_public: null, localized_content: null, module: 'crm', change_type: 'bugfix', affected_roles: ['timan_backend'], user_impact_score: 5, technical_impact_score: 4, publish_recommendation: 'maybe' as const, is_important: false, status: 'new' as const, published_at: null, archived_at: null, reviewed_at: null, created_by: null, updated_by: null, published_by: null, is_group: false, group_parent_id: null, group_suggestion_status: 'none' as const, grouped_at: null, created_at: '2026-09-10T10:00:00.000Z', updated_at: '2026-09-10T10:00:00.000Z',
+      },
+    ];
+
+    const suggestion = buildGroupedFeatureSuggestion(rows);
+    expect(suggestion.da?.title).toBe('CRM er forbedret');
+    expect(suggestion.da?.description).toBe('Lead- og kontaktflowet er forbedret. Budget- og pipelineoplysninger følger de gemte CRM-data mere konsekvent.\n\nOmråde: CRM');
+    expect((suggestion.da?.description.match(/\n/g) || [])).toHaveLength(2);
   });
 
   it('generates one user-facing CRM overview text for grouped partner-detail commits', () => {
