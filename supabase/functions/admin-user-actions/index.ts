@@ -847,8 +847,13 @@ Deno.serve(async (req) => {
   }
 });
 
+type AdminClient = Pick<
+  ReturnType<typeof createClient>,
+  "auth" | "from"
+>;
+
 async function findAuthUserByEmail(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   email: string,
 ) {
   const perPage = 200;
@@ -863,7 +868,7 @@ async function findAuthUserByEmail(
 }
 
 async function touchAppUser(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   appUserId: string | null,
   email: string,
   patch: Record<string, unknown>,
@@ -908,7 +913,7 @@ async function touchAppUser(
  * never secrets or full payloads.
  */
 async function writeAudit(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   entry: {
     actor_user_id?: string | null;
     actor_email: string;
