@@ -218,7 +218,15 @@ function nameOf(loc: LocalizedString | string | undefined, fallback: string): Lo
  * Explicit business exclusions. These catalog entries can still be used by
  * Configurator, but must never become planning or actual rows in CRM Budget.
  */
-export const BUDGET_EXCLUDED_EQUIPMENT_VARENR = new Set(["13101003", "411891", "411906"]);
+export const BUDGET_EXCLUDED_EQUIPMENT_VARENR = new Set([
+  "13101003",
+  "411891",
+  "411906",
+  "V35-502",
+  "V35-300",
+  "795002",
+  "721059",
+]);
 
 type BudgetCatalogMachine = {
   catalogKey: string;

@@ -198,6 +198,9 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     }
 
     const allItemNumbers = new Set(Object.values(EQUIPMENT_BY_MACHINE).flat().map((item) => item.varenr));
+    expect(BUDGET_EXCLUDED_EQUIPMENT_VARENR).toEqual(new Set([
+      "13101003", "411891", "411906", "V35-502", "V35-300", "795002", "721059",
+    ]));
     for (const itemNumber of BUDGET_EXCLUDED_EQUIPMENT_VARENR) {
       expect(allItemNumbers.has(itemNumber)).toBe(false);
     }
@@ -256,7 +259,34 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     const qty = (productKey: string) => byKey[orderActualKey(AKR.email, YEAR, SEPTEMBER_IDX, productKey)] || 0;
 
     expect(qty("T3330_720130")).toBe(1);
-    expect(qty("T3330_721059")).toBe(1);
+    expect(qty("T3330_721059")).toBe(0);
+  });
+
+  it("excludes canonical item numbers from submitted order aggregation", async () => {
+    const view = {
+      id: "excluded-equipment-order", order_number: "O-7997", seller_email: AKR.email, seller_initials: AKR.initials,
+      case_status: "ordre_afgivet", document_type: "order", dealer_name: "Excluded Equipment Dealer",
+      order_sent_at: `${YEAR}-09-09T10:00:00Z`, submitted_at: `${YEAR}-09-09T10:00:00Z`,
+    };
+    const details = {
+      id: "excluded-equipment-order", total_price: 1,
+      state_json: {
+        language: "da", flowType: "order",
+        machineConfigs: [
+          { id: "t3330", type: "Timan 3330", qty: 1, configMode: "shared", acc: ["V35-502", "V35-300", "795002"] },
+          { id: "loose", type: LOOSE_TOOL_KEY, qty: 1, configMode: "shared", acc: ["721059"] },
+        ],
+        accQty: {},
+      },
+    };
+    setOrders([view], [details]);
+
+    const byKey = buildOrderActualsByKey(await listSalesActuals(YEAR));
+    const qty = (productKey: string) => byKey[orderActualKey(AKR.email, YEAR, SEPTEMBER_IDX, productKey)] || 0;
+
+    for (const productKey of ["T3330_V35502", "T3330_V35300", "T3330_795002", "T3330_721059"]) {
+      expect(qty(productKey)).toBe(0);
+    }
   });
 
   it("maps every budget-relevant loose-tool catalog item through its canonical item number", async () => {
