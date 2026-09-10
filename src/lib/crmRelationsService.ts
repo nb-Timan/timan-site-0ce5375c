@@ -15,6 +15,7 @@
  *   • total_value  → calcConfigurationTotals(state_json).finalPrice (fallback row.total_price)
  */
 import { supabase } from '@/lib/supabase';
+import { fiscalYearForCalendarMonth } from '@/lib/crmBudgetService';
 import {
   listCrmConfigurations,
   type CrmConfigurationFilter,
@@ -254,7 +255,7 @@ export function quotePipelineByMachineMonth(
   };
   for (const r of rows) {
     const d = r.month_iso ? new Date(r.month_iso) : null;
-    if (!d || isNaN(d.getTime()) || d.getFullYear() !== year) continue;
+    if (!d || isNaN(d.getTime()) || fiscalYearForCalendarMonth(d.getFullYear(), d.getMonth()) !== year) continue;
     const mIdx = d.getMonth();
     const total = r.total_value || 0;
     const totalQty = Object.values(r.machine_qty_by_key).reduce((s, q) => s + q, 0) || 1;

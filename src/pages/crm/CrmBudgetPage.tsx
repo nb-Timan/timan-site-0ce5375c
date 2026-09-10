@@ -22,7 +22,8 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fmtDKK,
+  BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fiscalYearForDate, fiscalYearLabel,
+  FISCAL_MONTH_ORDER, fmtDKK, reorderCalendarMonthsForFiscalYear,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct,
@@ -664,7 +665,7 @@ export default function CrmBudgetPage() {
     };
     for (const r of filtered) {
       const d = r.month_iso ? new Date(r.month_iso) : null;
-      if (!d || isNaN(d.getTime()) || d.getFullYear() !== year) continue;
+      if (!d || isNaN(d.getTime()) || fiscalYearForDate(d) !== year) continue;
       const mIdx = d.getMonth();
       const totalQty = Object.values(r.machine_qty_by_key).reduce((s, q) => s + q, 0) || 1;
       const total = r.total_value || 0;
@@ -1500,12 +1501,14 @@ export default function CrmBudgetPage() {
   void upsertBudgetLine;
 
   // ---- Render ----
-  const monthCols = MONTHS_BY_LANG[lang];
+  const monthCols = reorderCalendarMonthsForFiscalYear(MONTHS_BY_LANG[lang]);
+  const monthIndexForColumn = (columnIndex: number) => FISCAL_MONTH_ORDER[columnIndex];
+  const fiscalMonths = <T,>(values: readonly T[]) => reorderCalendarMonthsForFiscalYear(values);
 
-  // Highlight current month column when viewing the current calendar year.
+  // Highlight the current calendar month when it belongs to the selected fiscal year.
   // Column 1 is the sticky model name, so nth-child for month M (0-based) is M+2.
   const now = new Date();
-  const currentMonthIdx = now.getFullYear() === year ? now.getMonth() : -1;
+  const currentMonthIdx = fiscalYearForDate(now) === year ? FISCAL_MONTH_ORDER.indexOf(now.getMonth()) : -1;
   const currentMonthCol = currentMonthIdx >= 0 ? currentMonthIdx + 2 : -1;
 
   // Resolve countdown context: the seller email whose window matters most.
@@ -1531,7 +1534,7 @@ export default function CrmBudgetPage() {
   // ─── CSV export (semicolon-separated, UTF-8 BOM) ───
   function handleExportCsv() {
     const rows: string[][] = [];
-    rows.push(["Year", "Seller", "Model", "Category", "Month", "Budget", "Pipeline", "Orders", "Performance"]);
+    rows.push(["Fiscal year", "Seller", "Model", "Category", "Month", "Budget", "Pipeline", "Orders", "Performance"]);
 
     // Group visibleLines by (sellerEmail, productKey) so categories aggregate
     // budget/orders/pipeline in the same way the table renders them.
@@ -1552,7 +1555,7 @@ export default function CrmBudgetPage() {
       else groups.set(key, { sellerLabel, model, category: cat, lines: [l] });
     });
 
-    const monthLabels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const monthLabels = reorderCalendarMonthsForFiscalYear(["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]);
 
     groups.forEach(g => {
       const budgetMonthly = Array.from({ length: 12 }, () => 0);
@@ -1565,17 +1568,18 @@ export default function CrmBudgetPage() {
         const p = pipelineByLine[l.id] || [];
         p.forEach((arr, i) => { pipelineMonthly[i] += arr.length; });
       });
-      for (let i = 0; i < 12; i++) {
+      for (let columnIndex = 0; columnIndex < 12; columnIndex++) {
+        const monthIdx = monthIndexForColumn(columnIndex);
         rows.push([
-          String(year),
+          fiscalYearLabel(year),
           g.sellerLabel,
           g.model,
           g.category,
-          monthLabels[i],
-          String(budgetMonthly[i]),
-          String(pipelineMonthly[i]),
-          String(ordersMonthly[i]),
-          String(ordersMonthly[i] - budgetMonthly[i]),
+          monthLabels[columnIndex],
+          String(budgetMonthly[monthIdx]),
+          String(pipelineMonthly[monthIdx]),
+          String(ordersMonthly[monthIdx]),
+          String(ordersMonthly[monthIdx] - budgetMonthly[monthIdx]),
         ]);
       }
     });
@@ -1597,7 +1601,7 @@ export default function CrmBudgetPage() {
       const me = BUDGET_SELLERS.find(s => s.email.toLowerCase() === myEmail);
       suffix = (me?.initials || (myEmail ? myEmail.split("@")[0] : "me")).toUpperCase();
     }
-    const filename = `timan-budget-${year}-${suffix}.csv`;
+    const filename = `timan-budget-${fiscalYearLabel(year).replace("/", "-")}-${suffix}.csv`;
 
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1616,7 +1620,7 @@ export default function CrmBudgetPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-emerald-600" /> {T.annual_budget[lang]} {year}
+            <Sparkles className="h-5 w-5 text-emerald-600" /> {T.annual_budget[lang]} {fiscalYearLabel(year)}
           </h2>
           {(() => {
             // Scope label: "Samlet budget – alle sælgere" vs "Budget for XX"
@@ -1686,7 +1690,7 @@ export default function CrmBudgetPage() {
               onChange={(e) => setYear(Number(e.target.value))}
               className="text-sm bg-transparent outline-none"
             >
-              {availableYears().map(y => <option key={y} value={y}>{y}</option>)}
+              {availableYears().map(y => <option key={y} value={y}>{fiscalYearLabel(y)}</option>)}
             </select>
           </div>
           {isAdmin && (
@@ -1766,7 +1770,7 @@ export default function CrmBudgetPage() {
                 onClick={() => { setUnlockDefaultEmail(null); setUnlockOpen(true); }}
                 className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg border border-emerald-200 text-emerald-700 hover:bg-emerald-50"
               >
-                <Unlock className="h-3 w-3" /> Åbn budget {year}…
+                <Unlock className="h-3 w-3" /> Åbn budget {fiscalYearLabel(year)}…
               </button>
             </div>
           )}
@@ -1847,7 +1851,7 @@ export default function CrmBudgetPage() {
       {isAdmin && openWindows.length > 0 && (
         <div className="mb-4 rounded-xl border border-slate-200 bg-white px-4 py-3">
           <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">
-            Aktive åbningsvinduer {year}
+            Aktive åbningsvinduer {fiscalYearLabel(year)}
           </div>
           <ul className="space-y-1.5">
             {openWindows.map((w) => {
@@ -2015,7 +2019,8 @@ export default function CrmBudgetPage() {
                         {/* BUDGET / ORDERS — gray Budget cell becomes editable for backend when unlocked */}
                         <tr key={`bo-${keyPrefix}`} className="bg-slate-50/60">
                           <td className={cn("sticky left-0 z-10 bg-slate-50/60 py-2 text-xs font-semibold uppercase tracking-wide text-slate-600", stickyPad)}>{T.row_budget_orders[lang]}</td>
-                          {budgetMonthly.map((b, i) => {
+                          {fiscalMonths(budgetMonthly).map((b, columnIndex) => {
+                            const i = monthIndexForColumn(columnIndex);
                             const o = ordersMonthly[i];
                             const ck = cellKeyFor(i, "budget");
                             const latest = latestAuditByCell[ck];
@@ -2123,7 +2128,8 @@ export default function CrmBudgetPage() {
                         {/* PIPELINE — open configurator quotes (CRM → Tilbud source) */}
                         <tr key={`pipe-${keyPrefix}`} className="bg-amber-50/40">
                           <td className={cn("sticky left-0 z-10 bg-amber-50/40 py-2 text-xs font-semibold uppercase tracking-wide text-amber-800", stickyPad)}>{T.row_pipeline[lang]}</td>
-                          {quoteCellsByMonth.map((cell, i) => {
+                          {fiscalMonths(quoteCellsByMonth).map((cell, columnIndex) => {
+                            const i = monthIndexForColumn(columnIndex);
                             const monthLabel = MONTHS_BY_LANG[lang][i] || `M${i + 1}`;
                             if (cell.qty === 0) {
                               return <td key={i} className="px-2 py-2 text-center text-amber-700/40 text-xs">−</td>;
@@ -2172,7 +2178,8 @@ export default function CrmBudgetPage() {
                         {/* WORKING — editable when this seller/year is unlocked */}
                         <tr key={`work-${keyPrefix}`} className="bg-slate-900 text-slate-100">
                           <td className={cn("sticky left-0 z-10 bg-slate-900 py-2 text-xs font-semibold uppercase tracking-wide text-slate-200", stickyPad)}>{T.row_working[lang]}</td>
-                          {workingMonthly.map((w, i) => {
+                          {fiscalMonths(workingMonthly).map((w, columnIndex) => {
+                            const i = monthIndexForColumn(columnIndex);
                             const ck = cellKeyFor(i, "arbejdsbudget");
                             const latest = latestAuditByCell[ck];
                             const monthLabel = MONTHS_BY_LANG[lang][i] || `M${i + 1}`;
@@ -2288,7 +2295,8 @@ export default function CrmBudgetPage() {
                             secondary Orders+Pipeline vs Budget context. */}
                         <tr key={`perf-${keyPrefix}`} className="border-b-2 border-slate-200">
                           <td className={cn("sticky left-0 z-10 bg-white py-2 text-xs font-semibold uppercase tracking-wide text-slate-500", stickyPad)}>{T.row_perf[lang]}</td>
-                          {ordersMonthly.map((o, i) => {
+                          {fiscalMonths(ordersMonthly).map((o, columnIndex) => {
+                            const i = monthIndexForColumn(columnIndex);
                             const b = budgetMonthly[i];
                             const diff = o - b;
                             const pipeCount = quoteCellsByMonth[i]?.qty ?? 0;
@@ -2583,7 +2591,7 @@ export default function CrmBudgetPage() {
         <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center z-50 p-4" onClick={() => setShowAdd(false)}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-900">{T.new_item_title[lang]} · {year}</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{T.new_item_title[lang]} · {fiscalYearLabel(year)}</h3>
               <button onClick={() => setShowAdd(false)} className="p-1 hover:bg-slate-100 rounded"><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-3">
@@ -2678,7 +2686,7 @@ export default function CrmBudgetPage() {
           onCreated={async () => {
             const fresh = await listBudgetAccessWindows(year);
             setAccessWindows(fresh);
-            toast.success(`Budget ${year} åbnet`);
+            toast.success(`Budget ${fiscalYearLabel(year)} åbnet`);
           }}
         />
       )}

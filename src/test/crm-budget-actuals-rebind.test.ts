@@ -88,6 +88,7 @@ import {
 } from "@/lib/crmBudgetService";
 
 const YEAR = 2025;
+const FISCAL_YEAR = YEAR - 1;
 const MAY_IDX = 4;
 const JTN = BUDGET_SELLERS.find((s) => s.initials === "JTN")!;
 
@@ -123,7 +124,7 @@ function makeOrder(id: string, machineType: string, qty: number) {
 
 async function mkLine(key: string, vnr: string): Promise<BudgetLine> {
   return createBudgetLine({
-    year: YEAR,
+    year: FISCAL_YEAR,
     product_key: key,
     product_name: key,
     item_number: vnr,
@@ -140,7 +141,7 @@ async function mkLine(key: string, vnr: string): Promise<BudgetLine> {
 }
 
 function qtyByStableKey(actuals: Awaited<ReturnType<typeof listSalesActuals>>, productKey: string) {
-  return buildOrderActualsByKey(actuals)[orderActualKey(JTN.email, YEAR, MAY_IDX, productKey)] || 0;
+  return buildOrderActualsByKey(actuals)[orderActualKey(JTN.email, FISCAL_YEAR, MAY_IDX, productKey)] || 0;
 }
 
 describe("CRM Budget — order actuals are independent from budget_line_id", () => {
@@ -153,18 +154,18 @@ describe("CRM Budget — order actuals are independent from budget_line_id", () 
   });
 
   it("derives real orders onto stable seller/year/month/product keys", async () => {
-    const actuals = await listSalesActuals(YEAR);
+    const actuals = await listSalesActuals(FISCAL_YEAR);
     expect(qtyByStableKey(actuals, "RC-1000s")).toBe(3);
     expect(qtyByStableKey(actuals, "RC-751")).toBe(1);
     expect(actuals.every((a) => !a.budget_line_id.startsWith("seed_"))).toBe(true);
-    expect(actuals.every((a) => a.product_key && a.seller_email === JTN.email && a.year === YEAR)).toBe(true);
+    expect(actuals.every((a) => a.product_key && a.seller_email === JTN.email && a.year === FISCAL_YEAR)).toBe(true);
   });
 
   it("creating budget lines does not move or rebind order actuals", async () => {
-    const before = await listSalesActuals(YEAR);
+    const before = await listSalesActuals(FISCAL_YEAR);
     const persistedRC1000 = await mkLine("RC-1000s", "411000");
     const persistedRC751 = await mkLine("RC-751", "410040");
-    const after = await listSalesActuals(YEAR);
+    const after = await listSalesActuals(FISCAL_YEAR);
 
     expect(persistedRC1000.id.startsWith("seed_")).toBe(false);
     expect(persistedRC751.id.startsWith("seed_")).toBe(false);
@@ -192,7 +193,7 @@ describe("CRM Budget — order actuals are independent from budget_line_id", () 
     expect(payload).toHaveProperty("qty_forecast", 5);
     expect(payload).toHaveProperty("budget_line_id", line.id);
 
-    const actuals = await listSalesActuals(YEAR);
+    const actuals = await listSalesActuals(FISCAL_YEAR);
     const rollup = aggregateBudget([line], [], actuals, JTN.email).byMachine.find((r) => r.product_key === "RC-1000s");
     expect(rollup?.ordersQty).toBe(3);
     expect(qtyByStableKey(actuals, "RC-751")).toBe(1);

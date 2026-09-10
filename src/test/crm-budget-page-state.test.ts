@@ -74,6 +74,7 @@ import {
 } from "@/lib/crmBudgetService";
 
 const YEAR = 2025;
+const MAY_FISCAL_YEAR = YEAR - 1;
 const MAY_IDX = 4;
 const SEPTEMBER_IDX = 8;
 const JTN = BUDGET_SELLERS.find(s => s.initials === "JTN")!;
@@ -99,7 +100,7 @@ function makeOrder(id: string, machineType: string, qty: number) {
 function seedLineFor(productKey: string): BudgetLine {
   const p = BUDGET_PRODUCTS.find(x => x.key === productKey)!;
   return {
-    id: `seed_${YEAR}_${productKey}_anything`, year: YEAR, product_key: productKey, product_name: p.name,
+    id: `seed_${MAY_FISCAL_YEAR}_${productKey}_anything`, year: MAY_FISCAL_YEAR, product_key: productKey, product_name: p.name,
     item_number: p.varenr, category: p.category, seller_id: null, seller_name: JTN.full_name, seller_email: JTN.email,
     seller_initials: JTN.initials, country: JTN.country, qty_budget: 0, value_budget: 0,
     monthly_split: Array.from({ length: 12 }, () => 1 / 12), locked: false, created_at: new Date().toISOString(),
@@ -108,13 +109,13 @@ function seedLineFor(productKey: string): BudgetLine {
 
 function rowOrderInMay(line: BudgetLine, actuals: SalesActual[]): number {
   const map = buildOrderActualsByKey(actuals);
-  return map[orderActualKey(line.seller_email || line.seller_initials, YEAR, MAY_IDX, line.product_key)] || 0;
+  return map[orderActualKey(line.seller_email || line.seller_initials, MAY_FISCAL_YEAR, MAY_IDX, line.product_key)] || 0;
 }
 
 async function persistBudgetLine(productKey: string): Promise<BudgetLine> {
   const product = BUDGET_PRODUCTS.find(p => p.key === productKey)!;
   return createBudgetLine({
-    year: YEAR, product_key: product.key, product_name: product.name, item_number: product.varenr, category: product.category,
+    year: MAY_FISCAL_YEAR, product_key: product.key, product_name: product.name, item_number: product.varenr, category: product.category,
     seller_id: null, seller_name: JTN.full_name, seller_email: JTN.email, seller_initials: JTN.initials, country: JTN.country,
     qty_budget: 0, value_budget: 0, monthly_split: Array.from({ length: 12 }, () => 1 / 12),
   });
@@ -130,13 +131,13 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
   });
 
   it("initial render uses seller/year/month/productKey, not seed budget ids", async () => {
-    const actuals = await listSalesActuals(YEAR);
+    const actuals = await listSalesActuals(MAY_FISCAL_YEAR);
     expect(rowOrderInMay(seedLineFor("RC-751"), actuals)).toBe(1);
     expect(rowOrderInMay(seedLineFor("RC-1000s"), actuals)).toBe(3);
   });
 
   it("after Budget + persists a new b_ id, order counts stay visible without rebinding", async () => {
-    const actuals = await listSalesActuals(YEAR);
+    const actuals = await listSalesActuals(MAY_FISCAL_YEAR);
     const persisted = await persistBudgetLine("RC-751");
     expect(persisted.id.startsWith("seed_")).toBe(false);
     expect(rowOrderInMay(persisted, actuals)).toBe(1);
@@ -145,7 +146,7 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
   });
 
   it("after Arbejdsbudget persist/edit, order counts stay visible without touching actuals", async () => {
-    const actuals = await listSalesActuals(YEAR);
+    const actuals = await listSalesActuals(MAY_FISCAL_YEAR);
     const persisted = await persistBudgetLine("RC-1000s");
     expect(rowOrderInMay(seedLineFor("RC-751"), actuals)).toBe(1);
     expect(rowOrderInMay(persisted, actuals)).toBe(3);
@@ -340,7 +341,7 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     order.view.case_status = "aktiv";
     setOrders([order.view], [order.details]);
 
-    const actuals = await listSalesActuals(YEAR);
+    const actuals = await listSalesActuals(MAY_FISCAL_YEAR);
     expect(rowOrderInMay(seedLineFor("RC-1000s"), actuals)).toBe(1);
   });
 });

@@ -32,7 +32,11 @@ export interface BudgetProduct {
   parent_machine_key?: string | null;
 }
 
-export type MonthlySplit = number[]; // length 12, Jan..Dec (qty or share)
+/**
+ * Persisted month arrays retain calendar indexes (Jan = 0 … Dec = 11).
+ * The Budget UI maps those arrays into Timan's Jul → Jun fiscal year.
+ */
+export type MonthlySplit = number[];
 
 export interface BudgetLine {
   id: string;
@@ -67,7 +71,7 @@ export interface BudgetForecast {
   budget_line_id: string;
   qty_forecast: number;
   value_forecast: number;
-  /** Exact per-month working forecast (length 12, Jan..Dec). When set, the UI
+  /** Exact per-calendar-month working forecast (length 12, Jan..Dec). When set, the UI
    *  must use these values verbatim and MUST NOT redistribute qty_forecast
    *  across the line's monthly_split. */
   monthly_qty?: number[] | null;
@@ -91,7 +95,7 @@ export interface SalesActual {
   seller_initials?: string | null;
   year?: number | null;
   product_key?: string | null;
-  /** Per-month qty (Jan..Dec, length 12) when derived from real orders.
+  /** Per-calendar-month qty (Jan..Dec, length 12) when derived from real orders.
    *  Empty/undefined when the source is the legacy crm_budget_sales_actuals
    *  table (which only knows annual totals). */
   monthly_qty?: number[];
@@ -628,10 +632,10 @@ function orderDateRaw(row: BudgetOrderRow): string | null {
     || null;
 }
 
-function orderIsInYear(row: BudgetOrderRow, year: number): boolean {
+function orderIsInFiscalYear(row: BudgetOrderRow, year: number): boolean {
   const raw = orderDateRaw(row);
   const d = raw ? new Date(raw) : null;
-  return !!d && !isNaN(d.getTime()) && d.getFullYear() === year;
+  return !!d && !isNaN(d.getTime()) && fiscalYearForDate(d) === year;
 }
 
 function parseOrderState(row: BudgetOrderRow): ConfiguratorState | null {
@@ -784,7 +788,7 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
       .neq("case_status", "deleted")
       .limit(5000);
     if (error) throw error;
-    const rows = ((data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
+    const rows = ((data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInFiscalYear(r, year));
     // The current view includes state_json. Older view definitions can still
     // return the order header without it, so hydrate only those rows once.
     const missingStateIds = rows
@@ -825,7 +829,7 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
       res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
     }
     if (res.error) throw res.error;
-    return ((res.data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInYear(r, year));
+    return ((res.data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInFiscalYear(r, year));
   }
 }
 
@@ -1018,7 +1022,7 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       const dateRaw = orderDateRaw(row);
       const d = dateRaw ? new Date(dateRaw) : null;
       if (!d || isNaN(d.getTime())) continue;
-      if (d.getFullYear() !== year) continue;
+      if (fiscalYearForDate(d) !== year) continue;
       const monthIdx = d.getMonth();
 
       const { seller } = orderSeller(row, sellers);
@@ -1211,12 +1215,33 @@ export async function upsertForecast(forecast: BudgetForecast): Promise<BudgetFo
 }
 
 // ---------- Helpers ----------
-export const MONTHS_DA = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"];
+export const MONTHS_DA = ["Jan","Feb","Mar","Apr","Maj","Jun","Jul","Aug","Sep","Okt","Nov","Dec"] as const;
+
+/** Calendar month indexes in the display order for Timan's July–June fiscal year. */
+export const FISCAL_MONTH_ORDER = [6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5] as const;
+
+export function fiscalYearForCalendarMonth(calendarYear: number, calendarMonthIdx: number): number {
+  return calendarMonthIdx >= 6 ? calendarYear : calendarYear - 1;
+}
+
+export function fiscalYearForDate(value: Date | string): number | null {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return fiscalYearForCalendarMonth(date.getFullYear(), date.getMonth());
+}
+
+export function fiscalYearLabel(fiscalYear: number): string {
+  return `${fiscalYear}/${String((fiscalYear + 1) % 100).padStart(2, "0")}`;
+}
+
+export function reorderCalendarMonthsForFiscalYear<T>(values: readonly T[]): T[] {
+  return FISCAL_MONTH_ORDER.map((calendarMonthIdx) => values[calendarMonthIdx]);
+}
 
 export function availableYears(): number[] {
-  const current = new Date().getFullYear();
+  const current = fiscalYearForDate(new Date()) ?? new Date().getFullYear();
   const base = Math.max(current, 2026);
-  return [base, base + 1, base + 2];
+  return [base - 1, base, base + 1];
 }
 
 export function fmtDKK(value: number): string {

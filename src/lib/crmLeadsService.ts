@@ -9,7 +9,7 @@
 import { supabase } from "@/lib/supabase";
 import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
-import { BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, localizedName } from "@/lib/crmBudgetService";
+import { BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, fiscalYearForCalendarMonth, localizedName } from "@/lib/crmBudgetService";
 import { getLeadPipelineValueSnapshot } from "@/lib/crmPipelineValue";
 import machineDemoSeed from "@/data/machineDemoSeed.json";
 import openLeadsSeed from "@/data/openLeadsSeed.json";
@@ -1304,7 +1304,7 @@ export function buildLeadWorkingContributions(leads: CrmLead[]): LeadWorkingCont
     if (!iso) continue;
     const d = new Date(iso);
     if (isNaN(d.getTime())) continue;
-    const year = d.getUTCFullYear();
+    const year = fiscalYearForCalendarMonth(d.getUTCFullYear(), d.getUTCMonth());
     const month_idx = d.getUTCMonth();
     const types = (l.machine_types || []).filter(Boolean);
     if (types.length === 0) continue;

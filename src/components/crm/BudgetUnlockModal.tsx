@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShieldAlert, Unlock } from "lucide-react";
-import { BUDGET_SELLERS, BUDGET_BACKEND_USERS } from "@/lib/crmBudgetService";
+import { BUDGET_SELLERS, BUDGET_BACKEND_USERS, fiscalYearLabel } from "@/lib/crmBudgetService";
 import {
   createBudgetAccessWindow,
   type BudgetWindowScope,
@@ -124,7 +124,7 @@ export default function BudgetUnlockModal(props: Props) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Unlock className="h-4 w-4 text-emerald-600" />
-            Åbn budget {year}
+            Åbn budget {fiscalYearLabel(year)}
           </DialogTitle>
         </DialogHeader>
 
