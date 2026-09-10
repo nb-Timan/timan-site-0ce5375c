@@ -238,6 +238,22 @@ export function canManageMarketingVideos(
   return user.permissions?.news_manage === true;
 }
 
+/**
+ * Marketing's product editor is deliberately more restrictive than simply
+ * seeing the Marketing area. Sellers are deliberately excluded: this is an
+ * internal marketing publishing tool, never a sales-user capability.
+ */
+export function canManageMarketingConfiguratorContent(
+  user: ({ permissions?: Record<string, boolean> | null; portal_role?: string | null; allowed_areas?: string[] | null } & Pick<AppUser, 'role' | 'partner_type'>) | null | undefined,
+): boolean {
+  if (!user) return false;
+  const role = derivePortalRole(user);
+  if (role === 'timan_backend') return true;
+  if (role !== 'timan_service') return false;
+  return user.allowed_areas?.includes('marketing') === true
+    && user.permissions?.marketing_configurator_manage === true;
+}
+
 /** True when the active portal session is the public Messe demo. */
 export function isExhibitionRole(role: PortalRole | null | undefined): boolean {
   return role === 'exhibition_user';

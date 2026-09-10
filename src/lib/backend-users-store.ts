@@ -102,6 +102,7 @@ export interface BackendUser {
     can_apply_extra_dealer_discount: boolean;
     can_save_configurator_as_lead: boolean;
     marketing_videos_manage: boolean;
+    marketing_configurator_manage: boolean;
     news_manage: boolean;
     can_view_prices: boolean;
     can_submit_order: boolean;
@@ -170,6 +171,7 @@ function seedUser(
       can_apply_extra_dealer_discount: isBackend,
       can_save_configurator_as_lead: isBackend || role === "timan_seller",
       marketing_videos_manage: isBackend,
+      marketing_configurator_manage: isBackend,
       news_manage: isBackend,
       can_view_prices: true,
       can_submit_order: role !== "timan_service" && role !== "dealer_user",

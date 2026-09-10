@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { da, de, enGB, hu, it } from 'date-fns/locale';
-import { CalendarIcon, Sparkles } from 'lucide-react';
+import { CalendarIcon, Pencil, Sparkles } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { t, translateSpecLabel, itemNoLabel } from '@/data/translations';
@@ -19,6 +19,9 @@ import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES, mapUiLanguageToLegacy, resolveContentUiLanguage, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { listPublishedPrimaryVideos, type MarketingVideo } from '@/lib/videoLibraryService';
+import { listMarketingConfiguratorCatalog, listMarketingConfiguratorContent, listPublishedMarketingConfiguratorContent, productContentKey, type MarketingConfiguratorCatalogItem, type MarketingConfiguratorContentRecord } from '@/lib/marketingConfiguratorContentService';
+import MarketingConfiguratorContentEditor from '@/components/configurator/MarketingConfiguratorContentEditor';
+import MarketingConfiguratorBulkTools from '@/components/configurator/MarketingConfiguratorBulkTools';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -144,13 +147,16 @@ function hasSubOptions(acc: Accessory, allAccs: Accessory[]): boolean {
   return allAccs.some(a => a.requires === acc.id);
 }
 
-export default function ConfiguratorPage() {
+export default function ConfiguratorPage({ marketingEditMode = false }: { marketingEditMode?: boolean }) {
   const {
     state, setStep, setLanguage: setConfigLanguage, setFlowType, setMachineQty, setConfigMode,
     setDate, setDeliveryMethod, setCustomerField, toggleAcc, calcResult,
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
   const [primaryVideosByProduct, setPrimaryVideosByProduct] = useState<Map<string, MarketingVideo>>(() => new Map());
+  const [publishedMarketingContent, setPublishedMarketingContent] = useState<Map<string, MarketingConfiguratorContentRecord>>(() => new Map());
+  const [marketingEditorRecords, setMarketingEditorRecords] = useState<MarketingConfiguratorContentRecord[]>([]);
+  const [marketingEditorItem, setMarketingEditorItem] = useState<MarketingConfiguratorCatalogItem | null>(null);
   const [looseToolMachineFilter, setLooseToolMachineFilter] = useState<'all' | 'RC-1000S' | 'Timan 3330' | 'Timan 2620'>('all');
   const { appUser, logout: ctxLogout, refreshAppUser, setAppUser: setAppUserCtx } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
@@ -167,6 +173,23 @@ export default function ConfiguratorPage() {
     });
     return () => { cancelled = true; };
   }, [uiLanguage]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listPublishedMarketingConfiguratorContent().then((rows) => {
+      if (!cancelled) setPublishedMarketingContent(rows);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!marketingEditMode) return;
+    let cancelled = false;
+    listMarketingConfiguratorContent().then(({ rows }) => {
+      if (!cancelled) setMarketingEditorRecords(rows);
+    });
+    return () => { cancelled = true; };
+  }, [marketingEditMode]);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -471,6 +494,52 @@ export default function ConfiguratorPage() {
   // inside modals matches the product/accessory data (which is only available
   // in da/en/de/it/hu). Prevents mixed-language modals.
   const contentUiLang = resolveContentUiLanguage(uiLanguage);
+  const marketingCatalogByKey = useMemo(
+    () => new Map(listMarketingConfiguratorCatalog(uiLanguage).map((item) => [item.productKey, item])),
+    [uiLanguage],
+  );
+  // Marketing may only affect the visual product content. Every configuration
+  // and price calculation below continues to use the original canonical item.
+  const marketingContentFor = (machineType: string, itemId: string | undefined) => {
+    if (!itemId) return null;
+    const key = productContentKey(machineType, itemId);
+    if (marketingEditMode) {
+      return marketingEditorRecords.find((record) => record.product_key === key && record.status === 'draft')?.content
+        || marketingEditorRecords.find((record) => record.product_key === key && record.status === 'published')?.content
+        || publishedMarketingContent.get(key)?.content
+        || null;
+    }
+    return publishedMarketingContent.get(key)?.content || null;
+  };
+  const openMarketingEditor = (machineType: string, itemId: string | undefined) => {
+    if (!marketingEditMode || !itemId) return;
+    const item = marketingCatalogByKey.get(productContentKey(machineType, itemId));
+    if (item) setMarketingEditorItem(item);
+  };
+  const marketingContentState = (machineType: string, itemId: string | undefined) => {
+    if (!marketingEditMode || !itemId) return null;
+    const key = productContentKey(machineType, itemId);
+    if (marketingEditorRecords.some((record) => record.product_key === key && record.status === 'draft')) return 'draft';
+    if (marketingEditorRecords.some((record) => record.product_key === key && record.status === 'published')) return 'published';
+    return 'missing';
+  };
+  const marketingEditButton = (machineType: string, itemId: string | undefined) => marketingEditMode ? (
+    <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); openMarketingEditor(machineType, itemId); }} className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-emerald-200 bg-white text-emerald-700 shadow-sm transition hover:bg-emerald-50" title="Redigér præsentationsindhold" aria-label="Redigér præsentationsindhold"><Pencil className="h-3.5 w-3.5" /></button>
+  ) : null;
+  const renderMarketingContentState = (machineType: string, itemId: string | undefined) => {
+    const state = marketingContentState(machineType, itemId);
+    if (!state) return null;
+    const styles = state === 'draft'
+      ? 'border-amber-300 bg-amber-50 text-amber-800'
+      : state === 'published'
+        ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+        : 'border-slate-300 bg-slate-50 text-slate-600';
+    const label = state === 'draft' ? 'Kladde' : state === 'published' ? 'Publiceret' : 'Mangler';
+    return <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${styles}`}>{label}</span>;
+  };
+  const renderMarketingBadge = (badge?: string | null) => badge ? (
+    <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800 whitespace-nowrap">{badge}</span>
+  ) : null;
   const TC = (key: string) => t(key, contentUiLang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
@@ -1307,9 +1376,11 @@ export default function ConfiguratorPage() {
   const showSpecs = (accId: string, machineType: string) => {
     const flatAccs = getAccessoriesFlat(machineType);
     const acc = flatAccs.find(a => String(a.id) === String(accId));
-    if (!acc?.specs) return;
-    const descEntry = acc.specs.find(s => s.label === 'Beskrivelse');
-    const techSpecs = acc.specs.filter(s => s.label !== 'Beskrivelse');
+    const marketingContent = marketingContentFor(machineType, accId);
+    const specs = marketingContent?.specs.length ? marketingContent.specs : acc?.specs;
+    if (!specs?.length) return;
+    const descEntry = specs.find(s => s.label === 'Beskrivelse');
+    const techSpecs = specs.filter(s => s.label !== 'Beskrivelse');
     let html = '';
     if (techSpecs.length > 0) {
       html += '<div class="p-3 bg-gray-50 rounded-lg grid grid-cols-2 gap-x-4 gap-y-2 text-sm">';
@@ -1319,11 +1390,12 @@ export default function ConfiguratorPage() {
       });
       html += '</div>';
     }
-    if (descEntry) {
-      const val = typeof descEntry.value === 'string' ? descEntry.value : ((descEntry.value as any)?.[lang] || (descEntry.value as any)?.da || '');
+    const marketingDescription = marketingContent?.description || '';
+    if (descEntry || marketingDescription) {
+      const val = marketingDescription || (typeof descEntry?.value === 'string' ? descEntry.value : ((descEntry?.value as any)?.[lang] || (descEntry?.value as any)?.da || ''));
       html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('specsDetails')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${val}</p></div>`;
     }
-    setInfoModal({ title: getLocalizedName(acc.name, lang), content: html });
+    setInfoModal({ title: marketingContent?.title || getLocalizedName(acc?.name || '', lang), content: html });
   };
 
   const setReqNumber = (unitNumber: number, value: string) => {
@@ -1350,9 +1422,11 @@ export default function ConfiguratorPage() {
   };
 
   const renderActionLinks = (item: { videoUrl?: string; imageUrl?: string; images?: { url: string | null }[]; videos?: { url: string | null }[]; specs?: any[]; id?: string }, machineType: string) => {
-    const videoUrl = getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
-    const imageUrl = getImageUrlForItem(item);
-    const hasSpecs = !!(item.specs && item.specs.length > 0);
+    const marketingContent = marketingContentFor(machineType, item.id);
+    const videoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
+    const imageUrl = marketingContent?.image_url || getImageUrlForItem(item);
+    const specificationUrl = marketingContent?.specification_url || '';
+    const hasSpecs = !!specificationUrl || !!(marketingContent?.specs.length || item.specs?.length);
     const showVideoIcon = !!videoUrl;
     const showImageIcon = !!(item.imageUrl || (item.images && item.images.length > 0) || item.videoUrl || (item.videos && item.videos.length > 0));
     if (!showVideoIcon && !showImageIcon && !hasSpecs) return null;
@@ -1368,9 +1442,11 @@ export default function ConfiguratorPage() {
         ) : (
           <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">📸 {T('imageLink')}</span>
         ))}
-        {hasSpecs && (
+        {hasSpecs && (specificationUrl ? (
+          <a href={specificationUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs font-medium flex items-center gap-0.5 hover:text-blue-800 transition" onClick={e => e.stopPropagation()}>📄 {T('specsLink')}</a>
+        ) : (
           <button onClick={e => { e.stopPropagation(); showSpecs(item.id!, machineType); }} className="text-blue-600 text-xs font-medium p-0 bg-transparent flex items-center gap-0.5 hover:text-blue-800 transition">📄 {T('specsLink')}</button>
-        )}
+        ))}
       </div>
     );
   };
@@ -1378,6 +1454,7 @@ export default function ConfiguratorPage() {
   const renderSubItem = (sub: SubItem, selectedIds: string[], machineType: string, level: number = 1) => {
     const isSelected = selectedIds.includes(sub.id);
     const hasNestedSubs = sub.subItems && sub.subItems.length > 0;
+    const marketingContent = marketingContentFor(machineType, sub.id);
     return (
       <div key={sub.id}>
         <div onClick={e => { e.stopPropagation(); handleToggleAcc(sub.id); }}
@@ -1391,11 +1468,12 @@ export default function ConfiguratorPage() {
           </div>
           <div className="flex justify-between items-start gap-3 w-full min-w-0">
             <div className="min-w-0">
-              <div className="text-sm text-gray-800">{getLocalizedName(sub.name, lang)}</div>
+              <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(sub.name, lang)}</div>
               <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {sub.varenr}</div>
+              {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
               {renderActionLinks(sub as any, machineType)}
             </div>
-            <div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatMoney(getPrice(sub, lang), lang) : ''}</div>
+            <div className="flex items-center gap-2">{renderMarketingContentState(machineType, sub.id)}<div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatMoney(getPrice(sub, lang), lang) : ''}</div>{marketingEditButton(machineType, sub.id)}</div>
           </div>
         </div>
         {(isSelected || isLooseToolMode(machineType)) && hasNestedSubs && (
@@ -2637,6 +2715,14 @@ export default function ConfiguratorPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {marketingEditMode && (
+        <MarketingConfiguratorBulkTools
+          catalog={[...marketingCatalogByKey.values()]}
+          records={marketingEditorRecords}
+          onSaved={(record) => setMarketingEditorRecords((current) => [...current.filter((entry) => entry.id !== record.id), record])}
+        />
+      )}
+
       {/* Step Tabs */}
       <div className="max-w-6xl mx-auto mb-4">
         <div className="flex space-x-1 border-b border-gray-200">
@@ -2688,16 +2774,21 @@ export default function ConfiguratorPage() {
                     const config = state.machineConfigs.find(c => c.type === key);
                     const currentQty = config?.qty || 0;
                     const isSelected = currentQty > 0;
+                    const marketingContent = marketingContentFor(key, p.id);
+                    const cardSpecs = marketingContent?.specs.length ? marketingContent.specs : p.techSpecs;
+                    const cardVideoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(p, primaryVideosByProduct);
+                    const cardImageUrl = marketingContent?.image_url || getImageUrlForItem(p);
 
                     return (
                       <div key={key} className={`border-2 rounded-xl p-5 flex flex-col gap-4 transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-100 bg-white shadow-sm hover:border-gray-300'}`}>
-                        <h3 className="font-bold text-lg text-gray-900">{getLocalizedName(p.name, lang)}</h3>
+                        <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-2"><h3 className="font-bold text-lg text-gray-900">{marketingContent?.title || getLocalizedName(p.name, lang)}</h3>{renderMarketingBadge(marketingContent?.badge)}{renderMarketingContentState(key, p.id)}</div>{marketingEditButton(key, p.id)}</div>
                         {permissions.canSeePrices && <div className="text-3xl font-extrabold text-emerald-600">{formatMoney(getPrice(p, lang), lang)}</div>}
                         <p className="text-sm text-gray-500">{itemNoLabel(uiLanguage)}: {p.varenr}</p>
+                        {marketingContent?.description && <p className="line-clamp-2 text-sm text-gray-600">{marketingContent.description}</p>}
 
-                        {p.techSpecs.length > 0 && (
+                        {cardSpecs.length > 0 && (
                           <div className="space-y-1 py-3 border-t border-b border-gray-200">
-                            {p.techSpecs.map((spec, i) => (
+                            {cardSpecs.map((spec, i) => (
                               <div key={i} className="flex justify-between text-sm">
                                 <span className="text-gray-600">{translateSpecLabel(spec.label, uiLanguage)}:</span>
                                 <span className="font-semibold text-gray-900">{typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || '')}</span>
@@ -2707,17 +2798,19 @@ export default function ConfiguratorPage() {
                         )}
 
                         <div className="mt-1 mb-1 flex flex-wrap justify-center gap-3 items-center">
-                          {getPrimaryVideoUrlForItem(p, primaryVideosByProduct) ? (
-                            <a href={getPrimaryVideoUrlForItem(p, primaryVideosByProduct)!} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">🎥 {T('videoLink')}</a>
+                          {cardVideoUrl ? (
+                            <a href={cardVideoUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">🎥 {T('videoLink')}</a>
                           ) : (key === 'Timan 2620' && (
                             <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">🎥 {T('videoLink')}</button>
                           ))}
-                          {getImageUrlForItem(p) ? (
-                            <a href={getImageUrlForItem(p)!} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">📸 {T('imageLink')}</a>
+                          {cardImageUrl ? (
+                            <a href={cardImageUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">📸 {T('imageLink')}</a>
                           ) : (key === 'Timan 2620' && (
                             <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📸 {T('imageLink')}</button>
                           ))}
-                          {p.machineDetails && (
+                          {marketingContent?.specification_url ? (
+                            <a href={marketingContent.specification_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium">📄 {T('infoSpecs')}</a>
+                          ) : p.machineDetails && (
                             <button onClick={(e) => { e.stopPropagation(); showMachineDetails(key); }} className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📄 {T('infoSpecs')}</button>
                           )}
                         </div>
@@ -3042,6 +3135,7 @@ export default function ConfiguratorPage() {
                   const isSelected = selectedIds.includes(a.id);
                   const indentClass = a.requires ? 'ml-4 bg-gray-50' : '';
                   const hasSubs = hasSubOptions(a, accs);
+                  const marketingContent = marketingContentFor(machineType, a.id);
 
                   // Qty input items
                   if (a.isQtyInput) {
@@ -3050,7 +3144,7 @@ export default function ConfiguratorPage() {
                     const card = (
                       <div key={a.id} className={`p-2 border rounded-lg bg-white flex items-center justify-between gap-3 ${indentClass} ${currentQtyVal > 0 ? 'btn-active border-emerald-500' : ''}`}>
                         <div className="min-w-0">
-                          <div className="text-sm text-gray-800">{getLocalizedName(a.name, lang)}</div>
+                          <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, lang)}</div>
                           <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                           {renderActionLinks(a, machineType)}
                         </div>
@@ -3061,8 +3155,9 @@ export default function ConfiguratorPage() {
                               setState(s => ({ ...s, accQty: { ...s.accQty, [`${currentUnit.configKey}_${a.id}`]: val } }));
                             }}
                             onClick={e => e.stopPropagation()} className="w-16 p-1.5 border rounded-md text-center" />
-                          {renderNewBadge(a.isNew)}
-                          <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatMoney(getPrice(a, lang), lang) : ''}</div>
+                          {renderMarketingBadge(marketingContent?.badge) || renderNewBadge(a.isNew)}
+                          {renderMarketingContentState(machineType, a.id)}
+                            <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatMoney(getPrice(a, lang), lang) : ''}</div>{marketingEditButton(machineType, a.id)}
                         </div>
                       </div>
                     );
@@ -3105,13 +3200,15 @@ export default function ConfiguratorPage() {
                         <div className="flex-grow min-w-0">
                           <div className="flex justify-between items-start">
                             <div className="flex-grow min-w-0">
-                              <span className="font-medium text-sm text-gray-800">{getLocalizedName(a.name, lang)}</span>
+                              <span className="font-medium text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, lang)}</span>
                               <div className="text-gray-500 text-xs">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
+                              {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
                               {renderActionLinks(a, machineType)}
                             </div>
                             <div className="flex shrink-0 items-center justify-end gap-2 text-right">
-                              {renderNewBadge(a.isNew)}
-                              <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatMoney(getPrice(a, lang), lang) : ''}</span>
+                              {renderMarketingBadge(marketingContent?.badge) || renderNewBadge(a.isNew)}
+                              {renderMarketingContentState(machineType, a.id)}
+                              <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatMoney(getPrice(a, lang), lang) : ''}</span>{marketingEditButton(machineType, a.id)}
                             </div>
                           </div>
                           {ralInput}
@@ -4165,6 +4262,15 @@ export default function ConfiguratorPage() {
           </div>
         </DialogContent>
       </Dialog>
+      <MarketingConfiguratorContentEditor
+        item={marketingEditorItem}
+        records={marketingEditorRecords}
+        onClose={() => setMarketingEditorItem(null)}
+        onSaved={(record) => {
+          setMarketingEditorRecords((current) => [...current.filter((entry) => entry.id !== record.id), record]);
+          if (record.status === 'published') setPublishedMarketingContent((current) => new Map(current).set(record.product_key, record));
+        }}
+      />
     </div>
   );
 }

@@ -159,6 +159,7 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
       can_apply_extra_dealer_discount: perms.can_apply_extra_dealer_discount ?? isBackend,
       can_save_configurator_as_lead: perms.can_save_configurator_as_lead ?? (isBackend || role === "timan_seller"),
       marketing_videos_manage: perms.marketing_videos_manage ?? perms.news_manage ?? isBackend,
+      marketing_configurator_manage: perms.marketing_configurator_manage ?? isBackend,
       news_manage: perms.news_manage ?? isBackend,
     },
 
@@ -248,7 +249,7 @@ function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): Backen
     next = { ...next, can_manage_payment_terms: false, can_apply_extra_dealer_discount: false };
   }
   if (isDealerSideRole(role)) {
-    next = { ...next, can_manage_users: false, marketing_videos_manage: false };
+    next = { ...next, can_manage_users: false, marketing_videos_manage: false, marketing_configurator_manage: false };
   }
   return next;
 }

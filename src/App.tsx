@@ -92,6 +92,7 @@ import { DealerUserServiceGuard } from "./components/guards/DealerUserServiceGua
 import AcademyCapabilityGuard from "./components/academy/AcademyCapabilityGuard";
 import AcademyAccessGuard from "./components/academy/AcademyAccessGuard";
 import PartnerDataRoute from "./pages/portal/PartnerDataRoute";
+import MarketingConfiguratorPage from "./pages/MarketingConfiguratorPage";
 
 import { ensureAkrSeed } from "./lib/akrTestSeed";
 
@@ -270,6 +271,7 @@ const App = () => (
               <Route path="/portal/marketing/news" element={<MesseNewsPage mode="marketing" />} />
               <Route path="/portal/marketing/news/overview" element={<BackendNewsPage />} />
               <Route path="/portal/marketing/videos" element={<BackendVideoManagementPage />} />
+              <Route path="/portal/marketing/configurator" element={<MarketingConfiguratorPage />} />
               <Route path="/portal/marketing/site-features" element={<BackendChangelogPage />} />
               <Route path="/portal/backend" element={<PortalAreaPage areaId="timan_backend" />} />
               <Route path="/portal/backend/brugerstyring" element={<BackendSectionPage sectionId="user-management" />} />

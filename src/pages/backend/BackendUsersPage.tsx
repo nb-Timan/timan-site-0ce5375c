@@ -996,6 +996,7 @@ function EditUserModal({
                       { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount", disabled: restricted },
                       { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
                       { value: "marketing_videos_manage", label: "Videoer / Administrér videoer", disabled: dealerSide },
+                      { value: "marketing_configurator_manage", label: "Marketing / Redigér Byg din Timan", disabled: dealerSide },
                       { value: "news_manage", label: "Administrér nyheder / Manage news" },
                     ]}
                     checked={(Object.entries(effectivePerms) as [keyof BackendUser["perms"], boolean][])
@@ -1004,7 +1005,7 @@ function EditUserModal({
                     onChange={(key) => {
                       if (editingOwnUser && key === "can_manage_users") return;
                       if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;
-                      if (dealerSide && key === "can_manage_users") return;
+                      if (dealerSide && (key === "can_manage_users" || key === "marketing_videos_manage" || key === "marketing_configurator_manage")) return;
                       setDraft({
                         ...draft,
                         perms: { ...draft.perms, [key]: !draft.perms[key as keyof BackendUser["perms"]] },

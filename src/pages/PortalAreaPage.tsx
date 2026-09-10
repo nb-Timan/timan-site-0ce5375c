@@ -12,7 +12,7 @@ import BackendHome from '@/components/portal/BackendHome';
 import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
-import { canAccessContractsModule, canManageMarketingVideos, canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { canAccessContractsModule, canManageMarketingConfiguratorContent, canManageMarketingVideos, canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
@@ -232,6 +232,15 @@ export default function PortalAreaPage({ areaId }: Props) {
               to="/portal/marketing/videos"
               icon={Film}
               description={tv('videoMgmtIntro', uiLanguage)}
+            />
+          )}
+          {areaId === 'marketing' && canManageMarketingConfiguratorContent(effectiveUser) && (
+            <PlaceholderCard
+              title="Byg din Timan"
+              language={lang}
+              to="/portal/marketing/configurator"
+              icon={Wrench}
+              description="Redigér produktindhold, billeder, video og specifikationer til Configurator."
             />
           )}
           {areaId === 'marketing' && canManageNewsContent(effectiveUser) && (
