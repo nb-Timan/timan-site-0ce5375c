@@ -31,6 +31,11 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { createBudgetReference, deleteBudgetReferencesForCell, listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import { listDealerContacts, type DealerContact } from "@/lib/dealerContactsService";
+import {
+  formatBudgetReferenceDealerContact,
+  sortBudgetReferenceDealerContacts,
+} from "@/lib/budgetReferenceDealerContacts";
 import { listLeads, listDemoLeads, formatLeadNo, formatDemoNo, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
 import type { BudgetType } from "@/lib/crmBudgetService";
 
@@ -83,6 +88,8 @@ interface RefRow {
   uid: string;
   dealerId: string;
   contact: string;
+  /** UI-only canonical identity. budget_references currently stores a contact snapshot, not a contact id. */
+  contactId: string;
   qty: number;
   leadId: string;
   demoId: string;
@@ -94,7 +101,7 @@ function newRow(): RefRow {
     uid: typeof crypto !== "undefined" && "randomUUID" in crypto
       ? crypto.randomUUID()
       : `r-${Math.random().toString(36).slice(2)}`,
-    dealerId: "", contact: "", qty: 1, leadId: "", demoId: "", note: "",
+    dealerId: "", contact: "", contactId: "", qty: 1, leadId: "", demoId: "", note: "",
   };
 }
 
@@ -168,6 +175,7 @@ export default function BudgetReferenceModal({
               : `r-${Math.random().toString(36).slice(2)}`,
             dealerId: match?.id || "",
             contact: ex.contact_name || "",
+            contactId: "",
             qty: ex.delta_qty ?? 1,
             leadId: ex.lead_id || "",
             demoId: ex.demo_id || "",
@@ -516,7 +524,7 @@ function ReferenceRowEditor({
                 <CommandEmpty>{dealersLoading ? "Henter forhandlere…" : "Ingen match"}</CommandEmpty>
                 <CommandGroup>
                   <CommandItem value="" onSelect={() => {
-                    onChange({ dealerId: "", leadId: "", demoId: "" });
+                    onChange({ dealerId: "", contact: "", contactId: "", leadId: "", demoId: "" });
                     setPickerOpen(false);
                   }}>
                     <Check className={cn("mr-2 h-4 w-4", !row.dealerId ? "opacity-100" : "opacity-0")} />
@@ -527,9 +535,9 @@ function ReferenceRowEditor({
                       key={o.value}
                       value={o.value}
                       onSelect={() => {
-                        // Reset lead/demo when dealer changes so we never carry
-                        // an ID belonging to a different dealer.
-                        onChange({ dealerId: o.value, leadId: "", demoId: "" });
+                        // A contact, lead and demo belong to one dealer only.
+                        // Clear all three when the parent dealer changes.
+                        onChange({ dealerId: o.value, contact: "", contactId: "", leadId: "", demoId: "" });
                         setPickerOpen(false);
                       }}
                     >
@@ -545,7 +553,14 @@ function ReferenceRowEditor({
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Kontaktperson" v={row.contact} set={(v) => onChange({ contact: v })} placeholder="fx. Lars Hansen" />
+        <BudgetReferenceContactPicker
+          dealerId={row.dealerId}
+          contact={row.contact}
+          contactId={row.contactId}
+          disabled={busy}
+          onSelect={(contact) => onChange({ contact: contact.name?.trim() || "", contactId: contact.id })}
+          onManualChange={(contact) => onChange({ contact, contactId: "" })}
+        />
         <div className="space-y-1">
           <Label className="text-xs">Antal stk. (denne reference)</Label>
           <div className="inline-flex items-center gap-1 w-full">
@@ -627,14 +642,115 @@ function ReferenceRowEditor({
   );
 }
 
-function Field({ label, v, set, placeholder }: { label: string; v: string; set: (s: string) => void; placeholder?: string }) {
+function BudgetReferenceContactPicker({
+  dealerId,
+  contact,
+  contactId,
+  disabled,
+  onSelect,
+  onManualChange,
+}: {
+  dealerId: string;
+  contact: string;
+  contactId: string;
+  disabled: boolean;
+  onSelect: (contact: DealerContact) => void;
+  onManualChange: (contact: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [contacts, setContacts] = useState<DealerContact[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!dealerId) {
+      setContacts([]);
+      setLoading(false);
+      setOpen(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    listDealerContacts(dealerId)
+      .then((rows) => {
+        if (!cancelled) setContacts(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setContacts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [dealerId]);
+
+  const sortedContacts = useMemo(
+    () => sortBudgetReferenceDealerContacts(contacts),
+    [contacts],
+  );
+  const selectedContact = sortedContacts.find((candidate) => candidate.id === contactId) || null;
+  const triggerLabel = !dealerId
+    ? "Vælg forhandler først"
+    : loading
+      ? "Henter kontakter…"
+      : selectedContact
+        ? formatBudgetReferenceDealerContact(selectedContact)
+        : "Vælg fra Partnerdata";
+
   return (
     <div className="space-y-1">
-      <Label className="text-xs">{label}</Label>
-      <Input value={v} onChange={(e) => set(e.target.value)} placeholder={placeholder} />
+      <Label className="text-xs">Kontaktperson</Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn("w-full justify-between font-normal", !selectedContact && "text-slate-500")}
+            disabled={disabled || !dealerId || loading}
+          >
+            <span className="truncate">{triggerLabel}</span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command>
+            <CommandInput placeholder="Søg navn, rolle eller e-mail…" />
+            <CommandList>
+              <CommandEmpty>Ingen kontakter fundet</CommandEmpty>
+              <CommandGroup>
+                {sortedContacts.map((candidate) => (
+                  <CommandItem
+                    key={candidate.id}
+                    value={formatBudgetReferenceDealerContact(candidate)}
+                    onSelect={() => {
+                      onSelect(candidate);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", contactId === candidate.id ? "opacity-100" : "opacity-0")} />
+                    <span className="truncate">{formatBudgetReferenceDealerContact(candidate)}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      <Input
+        value={contact}
+        onChange={(event) => onManualChange(event.target.value)}
+        placeholder={dealerId ? "Eller indtast en manuel kontakt" : "fx. Lars Hansen"}
+        disabled={disabled}
+      />
+      {dealerId && !loading && sortedContacts.length === 0 && (
+        <span className="text-[11px] text-slate-500">Ingen Partnerdata-kontakter på den valgte forhandler.</span>
+      )}
     </div>
   );
 }
+
 function CtxRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-3">
