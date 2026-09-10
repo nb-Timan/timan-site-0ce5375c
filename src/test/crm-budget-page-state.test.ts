@@ -66,7 +66,7 @@ vi.mock("@/lib/supabase", () => {
 });
 
 import * as supabaseModule from "@/lib/supabase";
-import { LOOSE_TOOL_KEY, getAccessoriesFlat } from "@/data/machines";
+import { ACCESSORIES, LOOSE_TOOL_KEY, getAccessoriesFlat } from "@/data/machines";
 import {
   listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct,
   BUDGET_SELLERS, BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, BUDGET_EXCLUDED_EQUIPMENT_VARENR,
@@ -200,6 +200,8 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     const allItemNumbers = new Set(Object.values(EQUIPMENT_BY_MACHINE).flat().map((item) => item.varenr));
     expect(BUDGET_EXCLUDED_EQUIPMENT_VARENR).toEqual(new Set([
       "13101003", "411891", "411906", "V35-502", "V35-300", "795002", "721059",
+      "712903", "725126", "712902", "725120", "725121", "712901",
+      "50101017", "50101018", "50101019", "50101020",
     ]));
     for (const itemNumber of BUDGET_EXCLUDED_EQUIPMENT_VARENR) {
       expect(allItemNumbers.has(itemNumber)).toBe(false);
@@ -263,6 +265,14 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
   });
 
   it("excludes canonical item numbers from submitted order aggregation", async () => {
+    const excludedSelections = [...Object.keys(ACCESSORIES), LOOSE_TOOL_KEY].flatMap((machineType) =>
+      getAccessoriesFlat(machineType)
+        .filter((item) => BUDGET_EXCLUDED_EQUIPMENT_VARENR.has(item.varenr))
+        .map((item) => ({ machineType, itemNumber: item.varenr, itemId: item.id })),
+    );
+    expect(new Set(excludedSelections.map((selection) => selection.itemNumber)))
+      .toEqual(BUDGET_EXCLUDED_EQUIPMENT_VARENR);
+
     const view = {
       id: "excluded-equipment-order", order_number: "O-7997", seller_email: AKR.email, seller_initials: AKR.initials,
       case_status: "ordre_afgivet", document_type: "order", dealer_name: "Excluded Equipment Dealer",
@@ -272,20 +282,22 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
       id: "excluded-equipment-order", total_price: 1,
       state_json: {
         language: "da", flowType: "order",
-        machineConfigs: [
-          { id: "t3330", type: "Timan 3330", qty: 1, configMode: "shared", acc: ["V35-502", "V35-300", "795002"] },
-          { id: "loose", type: LOOSE_TOOL_KEY, qty: 1, configMode: "shared", acc: ["721059"] },
-        ],
+        machineConfigs: excludedSelections.map((selection, index) => ({
+          id: `excluded-${index}`,
+          type: selection.machineType,
+          qty: 1,
+          configMode: "shared",
+          acc: [selection.itemId],
+        })),
         accQty: {},
       },
     };
     setOrders([view], [details]);
 
     const byKey = buildOrderActualsByKey(await listSalesActuals(YEAR));
-    const qty = (productKey: string) => byKey[orderActualKey(AKR.email, YEAR, SEPTEMBER_IDX, productKey)] || 0;
-
-    for (const productKey of ["T3330_V35502", "T3330_V35300", "T3330_795002", "T3330_721059"]) {
-      expect(qty(productKey)).toBe(0);
+    for (const itemNumber of BUDGET_EXCLUDED_EQUIPMENT_VARENR) {
+      const normalizedItemNumber = itemNumber.toUpperCase().replace(/[^A-Z0-9]/g, "");
+      expect(Object.keys(byKey).some((key) => key.endsWith(`_${normalizedItemNumber}`))).toBe(false);
     }
   });
 
