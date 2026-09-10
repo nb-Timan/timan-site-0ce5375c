@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   FISCAL_MONTH_ORDER,
+  calendarMonthsForFiscalQuarter,
   currentFiscalYearForBudget,
+  fiscalQuarterForCalendarMonth,
   fiscalYearForCalendarMonth,
   fiscalYearForDate,
   fiscalYearLabel,
@@ -22,6 +24,17 @@ describe("CRM Budget fiscal year", () => {
     expect(fiscalYearForDate("2026-09-06T12:00:00Z")).toBe(2026);
     expect(fiscalYearForDate("2027-01-15T12:00:00Z")).toBe(2026);
     expect(fiscalYearLabel(2026)).toBe("2026/27");
+  });
+
+  it("maps every calendar month into Timan's fiscal quarters", () => {
+    expect(calendarMonthsForFiscalQuarter(1)).toEqual([6, 7, 8]);
+    expect(calendarMonthsForFiscalQuarter(2)).toEqual([9, 10, 11]);
+    expect(calendarMonthsForFiscalQuarter(3)).toEqual([0, 1, 2]);
+    expect(calendarMonthsForFiscalQuarter(4)).toEqual([3, 4, 5]);
+    expect([6, 7, 8].map(fiscalQuarterForCalendarMonth)).toEqual([1, 1, 1]);
+    expect([9, 10, 11].map(fiscalQuarterForCalendarMonth)).toEqual([2, 2, 2]);
+    expect([0, 1, 2].map(fiscalQuarterForCalendarMonth)).toEqual([3, 3, 3]);
+    expect([3, 4, 5].map(fiscalQuarterForCalendarMonth)).toEqual([4, 4, 4]);
   });
 
   it("defaults Budget to the fiscal year containing the current date", () => {

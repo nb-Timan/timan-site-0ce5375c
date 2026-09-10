@@ -17,6 +17,8 @@ import {
   listForecasts,
   listSalesActuals,
   listBudgetDealerLines,
+  fiscalQuarterForCalendarMonth,
+  fiscalYearForDate,
   type BudgetSellerRef,
   type BudgetDealerLine,
 } from "@/lib/crmBudgetService";
@@ -143,7 +145,7 @@ const norm = (s: string | null | undefined) => (s || "").trim().toLowerCase();
 const upper = (s: string | null | undefined) => (s || "").trim().toUpperCase();
 
 function quarterOfMonth(m: number): Quarter {
-  return (Math.floor(m / 3) + 1) as Quarter;
+  return fiscalQuarterForCalendarMonth(m);
 }
 
 function emptyCell(): CellAgg {
@@ -460,7 +462,7 @@ export function useBudgetDashboardData(p: Params) {
             const machine = machineFromKeys(r.machine_keys);
             if (!machine) continue;
             const d = r.month_iso ? new Date(r.month_iso) : null;
-            if (!d || isNaN(d.getTime()) || d.getFullYear() !== p.year) continue;
+            if (!d || isNaN(d.getTime()) || fiscalYearForDate(d) !== p.year) continue;
             const section = out[sellerEmail];
             const lookup = lookups.get(sellerEmail)!;
             const candidates: Array<string | null> = [

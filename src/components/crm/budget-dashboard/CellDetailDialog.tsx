@@ -25,6 +25,7 @@ import {
   listBudgetReferences, type BudgetReference,
 } from "@/lib/budgetReferencesService";
 import { listDemoLeads, formatDemoNo, type CrmDemoLead } from "@/lib/crmLeadsService";
+import { calendarMonthsForFiscalQuarter } from "@/lib/crmBudgetService";
 
 interface Props {
   open: boolean;
@@ -70,8 +71,7 @@ function norm(s: string | null | undefined): string {
   return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 function quarterMonths(q: Quarter): number[] {
-  const start = (q - 1) * 3;
-  return [start, start + 1, start + 2];
+  return calendarMonthsForFiscalQuarter(q);
 }
 function refMatchesMachine(r: BudgetReference, machine: MachineKey): boolean {
   // Streng model-match (samme regel som DealerBudgetHistory):

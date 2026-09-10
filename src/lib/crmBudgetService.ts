@@ -1242,6 +1242,30 @@ export function fiscalYearForCalendarMonth(calendarYear: number, calendarMonthId
   return calendarMonthIdx >= 6 ? calendarYear : calendarYear - 1;
 }
 
+/** Fiscal quarter for a persisted calendar month index (Jan = 0 … Dec = 11).
+ *  Timan's fiscal year starts in July: Q1 Jul–Sep, Q2 Oct–Dec,
+ *  Q3 Jan–Mar, Q4 Apr–Jun. */
+export function fiscalQuarterForCalendarMonth(calendarMonthIdx: number): 1 | 2 | 3 | 4 {
+  if (calendarMonthIdx < 0 || calendarMonthIdx > 11) {
+    throw new Error(`Calendar month index must be 0..11, received ${calendarMonthIdx}`);
+  }
+  return (calendarMonthIdx >= 6
+    ? Math.floor((calendarMonthIdx - 6) / 3) + 1
+    : Math.floor(calendarMonthIdx / 3) + 3) as 1 | 2 | 3 | 4;
+}
+
+/** Calendar month indexes for a fiscal quarter, retained in chronological
+ *  fiscal order so data reads can use the same source as the dashboard. */
+export function calendarMonthsForFiscalQuarter(quarter: 1 | 2 | 3 | 4): number[] {
+  const months: Record<1 | 2 | 3 | 4, number[]> = {
+    1: [6, 7, 8],
+    2: [9, 10, 11],
+    3: [0, 1, 2],
+    4: [3, 4, 5],
+  };
+  return months[quarter];
+}
+
 export function fiscalYearForDate(value: Date | string): number | null {
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return null;
