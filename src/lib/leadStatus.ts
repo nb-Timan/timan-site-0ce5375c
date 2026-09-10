@@ -6,9 +6,11 @@
  * directly off `pipeline_stage` (which is now legacy/fallback only).
  *
  * Rule:
- *   1. If `next_activity` is set, derive status / probability from it.
- *   2. Otherwise fall back to the legacy `pipeline_stage` value by first
- *      mapping it to an equivalent next_activity, then deriving from that.
+ *   1. `probability`, when explicitly stored, is the probability source of
+ *      truth. It may differ from the suggested value for a next activity.
+ *   2. Otherwise derive the fallback from `next_activity`.
+ *   3. For legacy rows without `next_activity`, first map `pipeline_stage`
+ *      to its equivalent next activity, then use that fallback.
  *
  * No bulk writes are performed — old rows keep their pipeline_stage in
  * Supabase, they are just *interpreted* through this helper at read time.
@@ -150,10 +152,12 @@ export function effectiveLeadStatus(
 export function effectiveLeadProbability(
   lead: Pick<CrmLead, "next_activity" | "pipeline_stage" | "probability">,
 ): number {
+  if (typeof lead.probability === "number" && Number.isFinite(lead.probability)) {
+    return Math.min(100, Math.max(0, lead.probability));
+  }
   const na = effectiveNextActivity(lead);
   if (na) return nextActivityToProbability(na);
-  // No next_activity AND no legacy stage → keep stored value if present.
-  return typeof lead.probability === "number" ? lead.probability : 10;
+  return 10;
 }
 
 // ---------- Bucket predicates (used to replace old OPEN_STAGES sets) ----------

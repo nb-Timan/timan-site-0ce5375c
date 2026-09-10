@@ -116,10 +116,16 @@ describe('active lead exclusion after closed', () => {
 });
 
 describe('effectiveLeadProbability', () => {
-  it('derives from next_activity when set', () => {
-    expect(effectiveLeadProbability(lead({ next_activity: 'Offer sent to the customer', probability: 5 }))).toBe(70);
+  it('preserves an explicitly stored probability over the next-activity fallback', () => {
+    expect(effectiveLeadProbability(lead({ next_activity: 'Follow-up on leads', probability: 75 }))).toBe(75);
+    expect(effectiveLeadProbability(lead({ next_activity: 'Offer sent to the customer', probability: 60 }))).toBe(60);
   });
-  it('falls back to stored probability when nothing to derive', () => {
-    expect(effectiveLeadProbability(lead({ next_activity: null, pipeline_stage: null as any, probability: 42 }))).toBe(42);
+  it('uses the activity/stage fallback only when probability is missing', () => {
+    expect(effectiveLeadProbability(lead({ next_activity: 'Follow-up on leads', probability: null }))).toBe(25);
+    expect(effectiveLeadProbability(lead({ next_activity: null, pipeline_stage: 'Offer sent', probability: null }))).toBe(70);
+  });
+  it('clamps an explicit probability to the valid range', () => {
+    expect(effectiveLeadProbability(lead({ probability: 130 }))).toBe(100);
+    expect(effectiveLeadProbability(lead({ probability: -10 }))).toBe(0);
   });
 });
