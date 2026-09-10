@@ -604,7 +604,7 @@ function ReferenceRowEditor({
       </div>
 
       <div className="space-y-1">
-        <Label className="text-xs">Tilknyt lead</Label>
+        <Label className="text-xs">Tilknyt lead / demo</Label>
         <select
           className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
           value={crmReferenceValue}
