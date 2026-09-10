@@ -14,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { type DealerAccount } from '@/lib/dealerAccountsService';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { canEditPartnerDataAccount, listPartnerDataDealers } from '@/lib/partnerDataScope';
+import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
@@ -131,6 +132,7 @@ export default function DealerDataPage() {
     dealer && effectiveUser && (
       (dealer.assigned_seller_id && effectiveUser.id && dealer.assigned_seller_id === effectiveUser.id)
       || (dealer.assigned_seller_email && dealer.assigned_seller_email.trim().toLowerCase() === effectiveUser.email.trim().toLowerCase())
+      || sellerInitialsMatch(dealer.assigned_seller_initials, effectiveUser.initials)
     ),
   );
   const canManageFinancialTerms = portalRole === 'timan_backend'
