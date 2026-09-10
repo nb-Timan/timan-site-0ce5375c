@@ -36,7 +36,8 @@ import {
   formatBudgetReferenceDealerContact,
   sortBudgetReferenceDealerContacts,
 } from "@/lib/budgetReferenceDealerContacts";
-import { listLeads, listDemoLeads, formatLeadNo, formatDemoNo, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
+import { buildBudgetReferenceCrmOptions } from "@/lib/budgetReferenceCrmOptions";
+import { listLeads, listDemoLeads, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
 import type { BudgetType } from "@/lib/crmBudgetService";
 
 export interface BudgetReferenceContext {
@@ -438,7 +439,8 @@ function ReferenceRowEditor({
       ? "Henter forhandlere…"
       : isAdmin ? "Vælg forhandler" : "Vælg blandt mine forhandlere";
 
-  // Filtered leads/demos for the currently selected dealer.
+  // Normal leads and demo leads have separate canonical sources, but they
+  // are presented as one reference chooser for the selected dealer.
   const dealerAccountNo = (selected?.account_number || "").trim();
   const dealerCompany = (selected?.company_name || "").trim().toLowerCase();
   const filteredLeads = useMemo<CrmLead[]>(() => {
@@ -457,19 +459,21 @@ function ReferenceRowEditor({
     });
   }, [demos, selected, dealerCompany]);
 
-  const leadPlaceholder = !selected
+  const crmReferenceOptions = useMemo(
+    () => buildBudgetReferenceCrmOptions(filteredLeads, filteredDemos),
+    [filteredLeads, filteredDemos],
+  );
+  const crmReferenceValue = row.leadId
+    ? `lead:${row.leadId}`
+    : row.demoId
+      ? `demo:${row.demoId}`
+      : "";
+  const crmReferencePlaceholder = !selected
     ? "Vælg forhandler først"
     : leadsLoading
       ? "Henter leads…"
-      : filteredLeads.length === 0
+      : crmReferenceOptions.length === 0
         ? "Ingen leads fundet"
-        : "Ingen — spring over";
-  const demoPlaceholder = !selected
-    ? "Vælg forhandler først"
-    : leadsLoading
-      ? "Henter demoer…"
-      : filteredDemos.length === 0
-        ? "Ingen demoer fundet"
         : "Ingen — spring over";
 
   function setQty(v: number) {
@@ -599,39 +603,28 @@ function ReferenceRowEditor({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div className="space-y-1">
-          <Label className="text-xs">Lead ID (kun for valgt forhandler)</Label>
-          <select
-            className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
-            value={row.leadId}
-            onChange={(e) => onChange({ leadId: e.target.value })}
-            disabled={busy || !selected || leadsLoading || filteredLeads.length === 0}
-          >
-            <option value="">{leadPlaceholder}</option>
-            {filteredLeads.map(l => (
-              <option key={l.id} value={formatLeadNo(l.lead_no) || l.id}>
-                {formatLeadNo(l.lead_no) || l.id.slice(0, 8)} — {l.title}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-xs">Demo ID (kun for valgt forhandler)</Label>
-          <select
-            className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
-            value={row.demoId}
-            onChange={(e) => onChange({ demoId: e.target.value })}
-            disabled={busy || !selected || leadsLoading || filteredDemos.length === 0}
-          >
-            <option value="">{demoPlaceholder}</option>
-            {filteredDemos.map(d => (
-              <option key={d.id} value={formatDemoNo(d.demo_no) || d.id}>
-                {formatDemoNo(d.demo_no) || d.id.slice(0, 8)} — {d.title}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Tilknyt lead</Label>
+        <select
+          className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm disabled:opacity-50"
+          value={crmReferenceValue}
+          onChange={(event) => {
+            const selectedReference = crmReferenceOptions.find((option) => option.value === event.target.value);
+            onChange(selectedReference?.kind === "lead"
+              ? { leadId: selectedReference.reference, demoId: "" }
+              : selectedReference?.kind === "demo"
+                ? { leadId: "", demoId: selectedReference.reference }
+                : { leadId: "", demoId: "" });
+          }}
+          disabled={busy || !selected || leadsLoading || crmReferenceOptions.length === 0}
+        >
+          <option value="">{crmReferencePlaceholder}</option>
+          {crmReferenceOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="space-y-1">
