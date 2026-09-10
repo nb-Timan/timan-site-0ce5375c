@@ -553,6 +553,13 @@ const normKey = (s: string | null | undefined) =>
 const norm = (s: string | null | undefined) => (s || "").trim().toLowerCase();
 const upper = (s: string | null | undefined) => (s || "").trim().toUpperCase();
 
+/** Equipment rows may carry a UI parent prefix; aggregation always uses the canonical item key. */
+export function canonicalBudgetProductKey(productKey: string | null | undefined): string {
+  const value = String(productKey || "");
+  const separator = value.lastIndexOf("::");
+  return separator >= 0 ? value.slice(separator + 2) : value;
+}
+
 function buildProductLookup(): Map<string, string> {
   const productByNormKey = new Map<string, string>();
   for (const [key, p] of Object.entries(PRODUCTS)) {

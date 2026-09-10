@@ -26,7 +26,7 @@ import {
   FISCAL_MONTH_ORDER, fmtDKK, reorderCalendarMonthsForFiscalYear,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
-  buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct,
+  buildOrderActualsByKey, canonicalBudgetProductKey, orderActualKey, monthlyOrderQtyForProduct,
   EQUIPMENT_BY_MACHINE, localizedName,
   getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
   appendBudgetAuditEntry, budgetCellKey,
@@ -758,9 +758,10 @@ export default function CrmBudgetPage() {
 
   function ordersMonthlyForLine(line: BudgetLine): number[] {
     const sellerKeys = orderSellerKeysForLine(line);
+    const productKey = canonicalBudgetProductKey(line.product_key);
     return Array.from({ length: 12 }, (_, monthIdx) => {
       for (const sellerKey of sellerKeys) {
-        const v = orderActualsByKey[orderActualKey(sellerKey, year, monthIdx, line.product_key)];
+        const v = orderActualsByKey[orderActualKey(sellerKey, year, monthIdx, productKey)];
         if (v != null) return v;
       }
       return 0;
@@ -769,9 +770,10 @@ export default function CrmBudgetPage() {
 
   function actualsForLine(line: BudgetLine): SalesActual[] {
     const sellerKeys = new Set(orderSellerKeysForLine(line));
+    const productKey = canonicalBudgetProductKey(line.product_key).toLowerCase().replace(/[^a-z0-9]/g, "");
     return actuals.filter(a => {
       if ((a.year ?? year) !== year) return false;
-      if ((a.product_key || "").toLowerCase().replace(/[^a-z0-9]/g, "") !== (line.product_key || "").toLowerCase().replace(/[^a-z0-9]/g, "")) return false;
+      if ((a.product_key || "").toLowerCase().replace(/[^a-z0-9]/g, "") !== productKey) return false;
       return [a.seller_key, a.seller_email, a.seller_initials]
         .map(v => (v || "").trim().toLowerCase())
         .some(k => sellerKeys.has(k));
@@ -2367,11 +2369,11 @@ export default function CrmBudgetPage() {
                   function syntheticEquipLine(machineKey: string, equipKey: string, equipName: string, varenr: string | null): BudgetLine {
                     const id = `eq_${year}_${machineKey}_${equipKey}`;
                     const existing = lines.find(l => l.id === id);
-                    if (existing) return existing;
+                    if (existing) return { ...existing, product_key: canonicalBudgetProductKey(existing.product_key), parent_machine_key: machineKey };
                     return {
                       id,
                       year,
-                      product_key: `${machineKey}::${equipKey}`,
+                      product_key: equipKey,
                       product_name: equipName,
                       item_number: varenr,
                       category: "attachment",

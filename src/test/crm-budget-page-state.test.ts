@@ -69,7 +69,7 @@ import * as supabaseModule from "@/lib/supabase";
 import { ACCESSORIES, LOOSE_TOOL_KEY, getAccessoriesFlat } from "@/data/machines";
 import {
   listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct,
-  BUDGET_SELLERS, BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, BUDGET_EXCLUDED_EQUIPMENT_VARENR,
+  BUDGET_SELLERS, BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, BUDGET_EXCLUDED_EQUIPMENT_VARENR, canonicalBudgetProductKey,
   type BudgetLine, type SalesActual,
 } from "@/lib/crmBudgetService";
 
@@ -264,6 +264,31 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
 
     expect(qty("T3330_720130")).toBe(1);
     expect(qty("T3330_721059")).toBe(0);
+  });
+
+  it("counts individual loose-tool selections by canonical item number", async () => {
+    const view = {
+      id: "o-7004-individual", order_number: "O-7004", seller_email: JTN.email, seller_initials: JTN.initials,
+      case_status: "ordre_afgivet", document_type: "order", dealer_name: "Loose Tools Dealer",
+      order_sent_at: `${YEAR}-09-09T10:00:00Z`, submitted_at: `${YEAR}-09-09T10:00:00Z`,
+    };
+    const details = {
+      id: "o-7004-individual", total_price: 1,
+      state_json: {
+        language: "de", flowType: "order",
+        machineConfigs: [{ id: "m0", type: "LOOSE_TOOL", qty: 1, configMode: "individual", acc: [] }],
+        individualUnitConfigs: { m0_1: { acc: ["V34-029_standalone", "720130", "V34-029_720130", "725789"] } },
+        accQty: { m0_1_720599: 2 },
+      },
+    };
+    setOrders([view], [details]);
+
+    const byKey = buildOrderActualsByKey(await listSalesActuals(YEAR));
+    const qty = (productKey: string) => byKey[orderActualKey(JTN.email, YEAR, SEPTEMBER_IDX, productKey)] || 0;
+
+    expect(qty("T3330_720130")).toBe(1);
+    expect(qty("T3330_V34-029")).toBe(2);
+    expect(canonicalBudgetProductKey("Timan 3330::T3330_720130")).toBe("T3330_720130");
   });
 
   it("excludes canonical item numbers from submitted order aggregation", async () => {
