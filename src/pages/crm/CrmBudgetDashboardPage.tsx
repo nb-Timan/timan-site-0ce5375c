@@ -5,7 +5,11 @@ import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin } from "@/lib/crmScope";
 import { resolveSellerId } from "@/lib/resolveSellerId";
 import { getEffectiveSellerEmail, getActiveSellerView } from "@/lib/activeMode";
-import { availableYears } from "@/lib/crmBudgetService";
+import {
+  availableYears,
+  currentFiscalYearForBudget,
+  fiscalYearLabel,
+} from "@/lib/crmBudgetService";
 import SellerBlock from "@/components/crm/budget-dashboard/SellerBlock";
 import CellDetailDialog from "@/components/crm/budget-dashboard/CellDetailDialog";
 import {
@@ -36,7 +40,7 @@ export default function CrmBudgetDashboardPage() {
 
   const years = useMemo(() => availableYears(), []);
   const [year, setYear] = useState<number>(() => {
-    const cur = new Date().getFullYear();
+    const cur = currentFiscalYearForBudget();
     return years.includes(cur) ? cur : years[0];
   });
 
@@ -71,14 +75,14 @@ export default function CrmBudgetDashboardPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <label htmlFor="bd-year" className="text-sm text-slate-600">År</label>
+          <label htmlFor="bd-year" className="text-sm text-slate-600">Regnskabsår</label>
           <select
             id="bd-year"
             value={year}
             onChange={(e) => setYear(Number(e.target.value))}
             className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2d5a27]/40"
           >
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+            {years.map((y) => <option key={y} value={y}>{fiscalYearLabel(y)}</option>)}
           </select>
         </div>
       </div>
