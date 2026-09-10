@@ -24,7 +24,7 @@ import {
 import {
   BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, currentFiscalYearForBudget, fiscalYearForDate, fiscalYearLabel,
   FISCAL_MONTH_ORDER, fmtDKK, reorderCalendarMonthsForFiscalYear,
-  listBudgetLines, listForecasts, listSalesActuals,
+  listBudgetLines, listForecasts, listSalesActuals, orderDetailsForBudgetCell,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   buildOrderActualsByKey, canonicalBudgetProductKey, orderActualKey, monthlyOrderQtyForProduct,
   EQUIPMENT_BY_MACHINE, localizedName,
@@ -36,6 +36,7 @@ import {
   aggregateDealerBudgetSellerBreakdown,
   collapseDealerLinesForCell,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
+  type BudgetOrderDetail,
   type EquipmentCategory, type BudgetType, type BudgetDealerLine,
   findProduct,
 } from "@/lib/crmBudgetService";
@@ -60,7 +61,7 @@ import BudgetCellInsight from "@/components/crm/BudgetCellInsight";
 import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/crm/BudgetReferenceModal";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
-import type { CellReference } from "@/components/crm/BudgetCellInsight";
+import type { CellReference, OrderTooltipDetail } from "@/components/crm/BudgetCellInsight";
 
 
 // ────────────────────────────────────────────────────────────
@@ -1123,6 +1124,15 @@ export default function CrmBudgetPage() {
     return out;
   }
 
+  function orderDetailsFor(
+    productKey: string,
+    productLabel: string,
+    monthIdx: number | null,
+  ): OrderTooltipDetail[] {
+    return orderDetailsForBudgetCell(actuals, year, productKey, monthIdx, scopeEmails)
+      .map((detail: BudgetOrderDetail) => ({ ...detail, product_label: productLabel }));
+  }
+
 
   // Ensure a real budget line exists for the current seller / product. Used by
   // the working-forecast steppers so that RC-751 (or any machine without a
@@ -2068,6 +2078,7 @@ export default function CrmBudgetPage() {
                             const monthLabel = MONTHS_BY_LANG[lang][i] || `M${i + 1}`;
                             const budgetRows = budgetSellerBreakdownFor(linesForAgg, blockProductKey, scopeEmails, i);
                             const ordersRows = sellerBreakdownFor(linesForAgg, i, "orders");
+                            const orderDetails = orderDetailsFor(blockProductKey, productName, i);
                             const tipTitle = `${monthLabel} · ${productName}`;
                             // Reference distribution context. `delta_total`
                             // is the CELL's current total (b), so modalens
@@ -2106,6 +2117,7 @@ export default function CrmBudgetPage() {
                                        total={b}
                                        rows={budgetRows}
                                        references={refsByCell[ck]}
+                                       totalAtBottom
                                      >
                                        <span className="min-w-[14px] text-center font-semibold text-slate-700 inline-block tabular-nums">{b}</span>
                                      </BudgetCellInsight>
@@ -2116,10 +2128,12 @@ export default function CrmBudgetPage() {
                                       ><Plus className="h-2.5 w-2.5" /></button>
                                       <span className="text-slate-400 px-0.5">/</span>
                                       <BudgetCellInsight
-                                        title={`Ordrer · ${tipTitle}`}
+                                        title={`${orderDetails.length || o} ordre${(orderDetails.length || o) === 1 ? "" : "r"} · ${tipTitle}`}
                                         total={o}
                                         rows={ordersRows}
                                         dealers={ordersDealersFor(linesForAgg, i)}
+                                        orderDetails={orderDetails}
+                                        totalAtBottom
                                       >
                                         <span className={cn("min-w-[12px] text-center font-semibold inline-block tabular-nums", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
                                       </BudgetCellInsight>
@@ -2133,11 +2147,18 @@ export default function CrmBudgetPage() {
                                    </div>
                                 ) : (
                                   <>
-                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows} references={refsByCell[ck]}>
+                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows} references={refsByCell[ck]} totalAtBottom>
                                       <span className="text-slate-500">{b}</span>
                                     </BudgetCellInsight>
                                     <span className="text-slate-400 mx-0.5">/</span>
-                                    <BudgetCellInsight title={`Ordrer · ${tipTitle}`} total={o} rows={ordersRows} dealers={ordersDealersFor(linesForAgg, i)}>
+                                    <BudgetCellInsight
+                                      title={`${orderDetails.length || o} ordre${(orderDetails.length || o) === 1 ? "" : "r"} · ${tipTitle}`}
+                                      total={o}
+                                      rows={ordersRows}
+                                      dealers={ordersDealersFor(linesForAgg, i)}
+                                      orderDetails={orderDetails}
+                                      totalAtBottom
+                                    >
                                       <span className={cn("font-semibold", o > 0 ? "text-emerald-600" : "text-emerald-600/40")}>{o}</span>
                                     </BudgetCellInsight>
                                   </>
@@ -2150,6 +2171,7 @@ export default function CrmBudgetPage() {
                               title={`Budget total · ${productName}`}
                               total={totalBudget}
                               rows={budgetSellerBreakdownFor(linesForAgg, blockProductKey, scopeEmails, null)}
+                              totalAtBottom
                             >
                               <span className="text-slate-600">{totalBudget}</span>
                             </BudgetCellInsight>
@@ -2159,6 +2181,8 @@ export default function CrmBudgetPage() {
                               total={totalOrders}
                               rows={sellerBreakdownFor(linesForAgg, null, "orders")}
                               dealers={ordersDealersFor(linesForAgg, null)}
+                              orderDetails={orderDetailsFor(blockProductKey, productName, null)}
+                              totalAtBottom
                             >
                               <span className="text-emerald-700">{totalOrders}</span>
                             </BudgetCellInsight>

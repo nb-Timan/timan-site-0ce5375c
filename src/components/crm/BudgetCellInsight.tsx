@@ -16,6 +16,17 @@ import {
 
 export type SellerNum = { initials: string; value: number };
 
+export interface OrderTooltipDetail {
+  order_id: string;
+  order_number: string | null;
+  title: string | null;
+  dealer_name: string;
+  seller_initials: string;
+  product_label: string;
+  quantity: number;
+  order_total: number;
+}
+
 export interface CellReference {
   dealer_label: string | null;   // already-formatted "Company · 12345 · BP" or fritekst from before
   has_lead: boolean;
@@ -39,6 +50,10 @@ interface Props {
   /** Optional list of dealer names contributing orders to this cell.
    *  Duplicates are grouped and counted in parentheses when >1. */
   dealers?: string[];
+  /** Concrete submitted-order rows from the same actuals as the cell total. */
+  orderDetails?: OrderTooltipDetail[];
+  /** Keep the total after the explanatory rows for budget/order cells. */
+  totalAtBottom?: boolean;
 }
 
 function refKindLabel(r: CellReference): string {
@@ -50,9 +65,17 @@ function refKindLabel(r: CellReference): string {
 
 export default function BudgetCellInsight({
   children, title, total, rows, variant = "budget", missingBudget, extra, side = "top", references, dealers,
+  orderDetails, totalAtBottom = false,
 }: Props) {
   const display = variant === "budget" ? rows.filter(r => r.value !== 0) : rows;
   const refs = references ?? [];
+  const concreteOrders = orderDetails ?? [];
+  const totalRow = (
+    <div className="flex justify-between border-t border-slate-200/60 pt-1">
+      <span className="font-semibold text-slate-700">Total</span>
+      <span className="font-semibold tabular-nums">{variant === "performance" && total > 0 ? `+${total}` : total}</span>
+    </div>
+  );
   // Group dealer names; preserve first-seen order.
   const dealerGroups: Array<{ name: string; count: number }> = (() => {
     if (!dealers || dealers.length === 0) return [];
@@ -71,11 +94,29 @@ export default function BudgetCellInsight({
       <TooltipContent side={side} className="max-w-[300px]">
         <div className="text-xs space-y-1">
           <div className="font-semibold border-b border-slate-200/60 pb-1">{title}</div>
-          <div className="flex justify-between">
-            <span className="text-slate-700">Total</span>
-            <span className="font-semibold tabular-nums">{variant === "performance" && total > 0 ? `+${total}` : total}</span>
-          </div>
-          {display.length > 0 ? (
+          {!totalAtBottom && totalRow}
+          {concreteOrders.length > 0 ? (
+            <div className="space-y-1.5">
+              {concreteOrders.map((order) => (
+                <div key={`${order.order_id}-${order.product_label}`} className="space-y-0.5 border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
+                  <div className="font-medium">
+                    <a href="/portal/crm/orders" className="text-sky-700 hover:underline">
+                      {order.order_number || order.order_id.slice(0, 8)}
+                    </a>
+                    {order.title ? <span className="ml-1 text-slate-600">· {order.title}</span> : null}
+                  </div>
+                  <div className="text-slate-600">{order.dealer_name}</div>
+                  <div className="text-slate-600">Produkt: {order.product_label} · {order.quantity} stk.</div>
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-500">Sælger: {order.seller_initials || "—"}</span>
+                    <span className="font-semibold tabular-nums">
+                      Beløb: {new Intl.NumberFormat("da-DK", { style: "currency", currency: "DKK", maximumFractionDigits: 0 }).format(order.order_total)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : display.length > 0 ? (
             <ul className="space-y-0.5">
               {display.map((r) => {
                 let cls = "tabular-nums";
@@ -110,7 +151,7 @@ export default function BudgetCellInsight({
               </ul>
             </div>
           )}
-          {dealerGroups.length > 0 && (
+          {concreteOrders.length === 0 && dealerGroups.length > 0 && (
             <div className="pt-1 border-t border-slate-200/60 space-y-0.5">
               <div className="text-slate-700">Forhandler:</div>
               <ul className="space-y-0.5">
@@ -128,6 +169,7 @@ export default function BudgetCellInsight({
             </div>
           )}
           {extra && <div className="pt-1 border-t border-slate-200/60">{extra}</div>}
+          {totalAtBottom && totalRow}
         </div>
       </TooltipContent>
     </Tooltip>

@@ -104,6 +104,23 @@ export interface SalesActual {
    *  Length 12 (Jan..Dec). Each entry is `{ name, qty }` per occurrence
    *  (duplicates intentional — UI groups them). Display only. */
   monthly_dealers?: Array<Array<{ name: string; qty: number }>>;
+  /** Concrete submitted-order contributions behind each month. This is display
+   * metadata for the Budget order tooltip; quantities remain the same source
+   * used by the aggregation above. */
+  monthly_order_details?: Array<BudgetOrderDetail[]>;
+}
+
+export interface BudgetOrderDetail {
+  order_id: string;
+  order_number: string | null;
+  title: string | null;
+  dealer_name: string;
+  seller_initials: string;
+  seller_email: string;
+  product_key: string;
+  quantity: number;
+  /** Canonical submitted-order total, not a new product-price calculation. */
+  order_total: number;
 }
 
 export type OrderActualsByKey = Record<string, number>;
@@ -172,6 +189,42 @@ export function monthlyOrderQtyForProduct(
     monthly.forEach((quantity, monthIdx) => { totals[monthIdx] += quantity || 0; });
   }
   return totals;
+}
+
+/**
+ * Returns the concrete submitted orders contributing to one rendered Budget
+ * order cell. It reads the same per-month actual records as the cell itself;
+ * legacy actuals without an order identity deliberately do not manufacture a
+ * fake order row.
+ */
+export function orderDetailsForBudgetCell(
+  actuals: SalesActual[],
+  year: number,
+  productKey: string,
+  monthIdx: number | null,
+  sellerEmails: Set<string> | null,
+): BudgetOrderDetail[] {
+  const product = orderActualProductKey(productKey);
+  const scope = sellerEmails && new Set(Array.from(sellerEmails, (email) => norm(email)));
+  const merged = new Map<string, BudgetOrderDetail>();
+
+  for (const actual of actuals) {
+    if (actual.year !== year || orderActualProductKey(actual.product_key) !== product) continue;
+    if (scope && !scope.has(norm(actual.seller_email || actual.seller_key || actual.seller_initials))) continue;
+    const months = monthIdx == null ? Array.from({ length: 12 }, (_, index) => index) : [monthIdx];
+    for (const month of months) {
+      for (const detail of actual.monthly_order_details?.[month] ?? []) {
+        const key = `${detail.order_id}|${detail.product_key}`;
+        const existing = merged.get(key);
+        if (existing) existing.quantity += detail.quantity;
+        else merged.set(key, { ...detail });
+      }
+    }
+  }
+
+  return Array.from(merged.values()).sort((a, b) =>
+    (a.order_number || a.order_id).localeCompare(b.order_number || b.order_id, "da"),
+  );
 }
 
 // ---------- Product catalog ----------
@@ -1004,6 +1057,8 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
       value_sold: prev.value_sold + row.value_sold,
       monthly_qty: m_qty,
       monthly_value: m_val,
+      monthly_dealers: row.monthly_dealers ?? prev.monthly_dealers,
+      monthly_order_details: row.monthly_order_details ?? prev.monthly_order_details,
     });
   }
   return Array.from(merged.values());
@@ -1074,12 +1129,14 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           monthly_qty: ZERO12(),
           monthly_value: ZERO12(),
           monthly_dealers: Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>),
+          monthly_order_details: Array.from({ length: 12 }, () => [] as BudgetOrderDetail[]),
         };
         prev.qty_sold += qty;
         prev.value_sold += value;
         if (!prev.monthly_qty) prev.monthly_qty = ZERO12();
         if (!prev.monthly_value) prev.monthly_value = ZERO12();
         if (!prev.monthly_dealers) prev.monthly_dealers = Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>);
+        if (!prev.monthly_order_details) prev.monthly_order_details = Array.from({ length: 12 }, () => [] as BudgetOrderDetail[]);
         prev.monthly_qty[monthIdx] += qty;
         prev.monthly_value[monthIdx] += value;
         const dealerName =
@@ -1089,6 +1146,17 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           (row.dealer_account_number as string | null) ||
           "—";
         prev.monthly_dealers[monthIdx].push({ name: String(dealerName).trim() || "—", qty });
+        prev.monthly_order_details[monthIdx].push({
+          order_id: orderId,
+          order_number: (row.order_number as string | null) || null,
+          title: (row.title as string | null) || null,
+          dealer_name: String(dealerName).trim() || "—",
+          seller_initials: seller.initials,
+          seller_email: seller.email,
+          product_key: productKey,
+          quantity: qty,
+          order_total: finalPrice,
+        });
         totals.set(actualId, prev);
       };
 
