@@ -15,7 +15,7 @@
  *   • total_value  → calcConfigurationTotals(state_json).finalPrice (fallback row.total_price)
  */
 import { supabase } from '@/lib/supabase';
-import { fiscalYearForCalendarMonth } from '@/lib/crmBudgetService';
+import { budgetEquipmentQtyFromConfiguratorState, fiscalYearForCalendarMonth } from '@/lib/crmBudgetService';
 import {
   listCrmConfigurations,
   type CrmConfigurationFilter,
@@ -132,6 +132,27 @@ export function quoteMonthIso(row: Pick<CrmConfigurationRow,
     || row.created_at;
 }
 
+/**
+ * A loose-tools quote has no budget row for its generic machine type. Its
+ * selected accessories are the budget products and must retain their item keys.
+ */
+export function pipelineProductQtyFromState(state: ConfiguratorState): Record<string, number> {
+  const qtyByKey: Record<string, number> = {};
+  for (const machine of state.machineConfigs ?? []) {
+    if (machine.type === 'LOOSE_TOOL') continue;
+    const quantity = Number(machine.qty || 0);
+    if (!Number.isFinite(quantity) || quantity <= 0) continue;
+    qtyByKey[machine.type] = (qtyByKey[machine.type] || 0) + quantity;
+  }
+  const looseMachines = (state.machineConfigs ?? []).filter((machine) => machine.type === 'LOOSE_TOOL');
+  if (looseMachines.length === 0) return qtyByKey;
+  const looseState = { ...state, machineConfigs: looseMachines };
+  for (const [productKey, quantity] of Object.entries(budgetEquipmentQtyFromConfiguratorState(looseState))) {
+    qtyByKey[productKey] = (qtyByKey[productKey] || 0) + quantity;
+  }
+  return qtyByKey;
+}
+
 // ---------- core loader ----------
 
 /**
@@ -192,12 +213,9 @@ export async function listScopedConfigurations(
     const currency = currencyFromLanguage(state?.language ?? null);
     if (state) {
       try { total = calcConfigurationTotals(state).finalPrice || 0; } catch { /* ignore */ }
-      for (const mc of state.machineConfigs ?? []) {
-        const machineKey = resolveMachineKey(mc?.type, lookup) || mc?.type;
-        if (!machineKey) continue;
-        const qty = Number(mc.qty || 0);
-        if (!Number.isFinite(qty) || qty <= 0) continue;
-        qtyByKey[machineKey] = (qtyByKey[machineKey] || 0) + qty;
+      for (const [productKey, quantity] of Object.entries(pipelineProductQtyFromState(state))) {
+        const machineKey = resolveMachineKey(productKey, lookup) || productKey;
+        qtyByKey[machineKey] = (qtyByKey[machineKey] || 0) + quantity;
       }
     }
     if (Object.keys(qtyByKey).length === 0) {

@@ -7,7 +7,8 @@ import {
   reorderCalendarMonthsForFiscalYear,
 } from "@/lib/crmBudgetService";
 import { buildLeadWorkingContributions, type CrmLead } from "@/lib/crmLeadsService";
-import { quotePipelineByMachineMonth, type ScopedConfiguration } from "@/lib/crmRelationsService";
+import { pipelineProductQtyFromState, quotePipelineByMachineMonth, type ScopedConfiguration } from "@/lib/crmRelationsService";
+import type { ConfiguratorState } from "@/types/configurator";
 
 describe("CRM Budget fiscal year", () => {
   it("uses July through June and labels the fiscal year by its July start", () => {
@@ -53,5 +54,15 @@ describe("CRM Budget fiscal year", () => {
     expect(fy2026[8]?.qty).toBe(1);
     expect(fy2026[0]?.qty).toBe(1);
     expect(fy2026[6]?.qty).toBe(0);
+  });
+
+  it("maps loose-tool quote selections to their canonical budget products", () => {
+    const products = pipelineProductQtyFromState({
+      machineConfigs: [{ id: "m0", type: "LOOSE_TOOL", qty: 1, configMode: "individual", acc: [] }],
+      individualUnitConfigs: { m0_1: { acc: ["LT3330_730600_3330", "LT3330_730601_3330"] } },
+      accQty: {},
+    } as unknown as ConfiguratorState);
+
+    expect(products).toEqual({ T3330_730600: 1, T3330_730601: 1 });
   });
 });

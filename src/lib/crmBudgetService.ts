@@ -698,14 +698,11 @@ function isSubmittedBudgetOrder(row: BudgetOrderRow): boolean {
   );
 }
 
-function equipmentQtyFromOrder(
-  row: BudgetOrderRow,
+function equipmentQtyFromConfiguratorState(
+  state: ConfiguratorState,
   productByNormKey: Map<string, string>,
   equipmentLookup: EquipmentLookup,
 ): Record<string, number> {
-  const state = parseOrderState(row);
-  if (!state) return {};
-
   const qtyByKey: Record<string, number> = {};
   const add = (machineType: string, configKey: string, accessoryId: string) => {
     const accessory = getAccessoriesFlat(machineType).find((item) => item.id === accessoryId && !item.isHeader);
@@ -741,6 +738,20 @@ function equipmentQtyFromOrder(
     }
   }
   return qtyByKey;
+}
+
+/** Maps selected configurator equipment to canonical budget product keys. */
+export function budgetEquipmentQtyFromConfiguratorState(state: ConfiguratorState): Record<string, number> {
+  return equipmentQtyFromConfiguratorState(state, buildProductLookup(), buildEquipmentLookup());
+}
+
+function equipmentQtyFromOrder(
+  row: BudgetOrderRow,
+  productByNormKey: Map<string, string>,
+  equipmentLookup: EquipmentLookup,
+): Record<string, number> {
+  const state = parseOrderState(row);
+  return state ? equipmentQtyFromConfiguratorState(state, productByNormKey, equipmentLookup) : {};
 }
 
 async function loadSellerIdentityIndex(): Promise<SellerIdentityIndex> {
