@@ -293,6 +293,20 @@ export function mergeSharedNewsFields(
       }
     }
   }
+
+  // Image placement is editorial metadata, shared with the selected image
+  // across every portal language just like the image URL itself.
+  for (const field of fields.filter((item) => item.type === 'image')) {
+    const transformKey = `${field.key}Transform`;
+    if (active[transformKey] !== undefined && active[transformKey] !== null) continue;
+    for (const code of NEWS_CONTENT_LANGUAGES) {
+      const candidate = content?.[code]?.[transformKey];
+      if (candidate !== undefined && candidate !== null) {
+        active[transformKey] = candidate;
+        break;
+      }
+    }
+  }
   return active;
 }
 

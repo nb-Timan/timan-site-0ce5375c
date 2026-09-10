@@ -5,6 +5,7 @@ import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { NewsFieldDefinition, NewsImageTransform } from '@/features/news-cms/templates/types';
 import { supabase } from '@/lib/supabase';
+import { DEFAULT_NEWS_IMAGE_TRANSFORM, normalizeNewsImageTransform } from '@/features/news-cms/lib/newsImageTransform';
 
 interface Props {
   lang: PortalUiLanguage;
@@ -17,20 +18,6 @@ interface Props {
 
 const inputClass =
   'w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100';
-
-const DEFAULT_TRANSFORM: NewsImageTransform = { x: 0, y: 0, scale: 1 };
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-function normalizeTransform(value?: Partial<NewsImageTransform>): NewsImageTransform {
-  return {
-    x: clamp(typeof value?.x === 'number' ? value.x : DEFAULT_TRANSFORM.x, -45, 45),
-    y: clamp(typeof value?.y === 'number' ? value.y : DEFAULT_TRANSFORM.y, -45, 45),
-    scale: clamp(typeof value?.scale === 'number' ? value.scale : DEFAULT_TRANSFORM.scale, 1, 2.5),
-  };
-}
 
 function extensionFromFile(file: File) {
   const fromName = file.name.split('.').pop()?.toLowerCase();
@@ -56,14 +43,14 @@ export default function NewsImageUploadField({ lang, field, value, onChange, tra
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const activeTransform = normalizeTransform(transform);
+  const activeTransform = normalizeNewsImageTransform(transform);
 
   const updateTransform = (next: Partial<NewsImageTransform>) => {
-    onTransformChange?.(normalizeTransform({ ...activeTransform, ...next }));
+    onTransformChange?.(normalizeNewsImageTransform({ ...activeTransform, ...next }));
   };
 
   const resetTransform = () => {
-    onTransformChange?.(DEFAULT_TRANSFORM);
+    onTransformChange?.(DEFAULT_NEWS_IMAGE_TRANSFORM);
   };
 
   const uploadFile = async (file: File) => {
@@ -164,7 +151,7 @@ export default function NewsImageUploadField({ lang, field, value, onChange, tra
               const nextX = pan.originX + ((event.clientX - pan.startX) / pan.width) * 100;
               const nextY = pan.originY + ((event.clientY - pan.startY) / pan.height) * 100;
               if (Math.abs(nextX - pan.originX) > 0.4 || Math.abs(nextY - pan.originY) > 0.4) movedRef.current = true;
-              onTransformChange(normalizeTransform({ ...activeTransform, x: nextX, y: nextY }));
+              onTransformChange(normalizeNewsImageTransform({ ...activeTransform, x: nextX, y: nextY }));
             }}
             onPointerUp={(event: PointerEvent<HTMLSpanElement>) => {
               if (panRef.current?.pointerId === event.pointerId) panRef.current = null;

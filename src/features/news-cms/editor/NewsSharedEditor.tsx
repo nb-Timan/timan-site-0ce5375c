@@ -25,6 +25,7 @@ import NewsTemplatePicker from './NewsTemplatePicker';
 import NewsFieldEditor from './NewsFieldEditor';
 import NewsPreviewPane from './NewsPreviewPane';
 import NewsRenderSurface from './NewsRenderSurface';
+import NewsHomepageFocusFrame, { NewsHomepageFocusOverlay } from './NewsHomepageFocusFrame';
 import {
   getAttachmentOptionsForMachine,
   getNewsAttachmentLabel,
@@ -464,7 +465,32 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               <div><span className="block text-xs font-bold uppercase text-slate-400">{t('newsCmsColumnStatus', uiLanguage)}</span>{t('newsCmsStatusDraft', uiLanguage)}</div>
             </div>
           </aside>
-          <NewsPreviewPane lang={editLanguage} template={template} content={activeContent} templateData={templateData} />
+          <div className="space-y-5">
+            <NewsPreviewPane
+              lang={editLanguage}
+              template={template}
+              content={activeContent}
+              templateData={templateData}
+              overlay={template.id === 'template-03-hero-news' && typeof activeContent.heroImage === 'string' ? (
+                <NewsHomepageFocusOverlay
+                  transform={activeContent.heroImageTransform}
+                  onTransformChange={(next) =>
+                    setLocalizedContent((current) => updateSharedNewsField(current, 'heroImageTransform', next))
+                  }
+                />
+              ) : null}
+            />
+            {template.id === 'template-03-hero-news' && (
+              <NewsHomepageFocusFrame
+                imageUrl={typeof activeContent.heroImage === 'string' ? activeContent.heroImage : ''}
+                headline={typeof activeContent.headline === 'string' ? activeContent.headline : ''}
+                transform={activeContent.heroImageTransform}
+                onTransformChange={(next) =>
+                  setLocalizedContent((current) => updateSharedNewsField(current, 'heroImageTransform', next))
+                }
+              />
+            )}
+          </div>
         </div>
       )}
 

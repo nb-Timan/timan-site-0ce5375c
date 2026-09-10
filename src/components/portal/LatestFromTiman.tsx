@@ -3,6 +3,9 @@ import { fetchLatestNews, resolvePublicNewsFields, NewsPost } from '@/lib/newsSe
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
+import { resolveNewsRenderContent } from '@/features/news-cms/lib/newsContent';
+import { readNewsImageTransform } from '@/features/news-cms/lib/newsImageTransform';
+import { getNewsTemplate } from '@/features/news-cms/templates/registry';
 
 interface Props {
   language: PortalUiLanguage;
@@ -96,17 +99,34 @@ export default function LatestFromTiman({ language }: Props) {
           const styles = categoryStyle(item.category);
           const opensInModal = !item.link_url && item.source !== 'placeholder';
           const localizedItem = resolvePublicNewsFields(item, language);
+          const template = item.template_id ? getNewsTemplate(item.template_id) : null;
+          const renderContent = template
+            ? resolveNewsRenderContent(item.localized_content, language, template.fields, {
+                headline: localizedItem.title,
+                subtitle: localizedItem.excerpt,
+                mainImage: localizedItem.image_url,
+              })
+            : {};
+          const heroTransform = template?.id === 'template-03-hero-news'
+            ? readNewsImageTransform(renderContent.heroImageTransform)
+            : undefined;
 
           const inner = (
             <div className="flex h-full flex-col text-left">
-              <img
-                src={localizedItem.image_url || FALLBACK_IMAGE}
-                alt=""
-                onError={(event) => {
-                  event.currentTarget.src = FALLBACK_IMAGE;
-                }}
-                className="aspect-square w-full object-cover rounded-lg mb-4 bg-gray-100"
-              />
+              <div className="mb-4 aspect-square w-full overflow-hidden rounded-lg bg-gray-100">
+                <img
+                  src={localizedItem.image_url || FALLBACK_IMAGE}
+                  alt=""
+                  onError={(event) => {
+                    event.currentTarget.src = FALLBACK_IMAGE;
+                  }}
+                  className={`h-full w-full ${heroTransform ? 'object-contain' : 'object-cover'}`}
+                  style={heroTransform ? {
+                    transform: `translate(${heroTransform.x}%, ${heroTransform.y}%) scale(${heroTransform.scale})`,
+                    transformOrigin: 'center',
+                  } : undefined}
+                />
+              </div>
 
               <div className={`${styles.bg} ${styles.text} text-xs font-bold px-2 py-1 rounded self-start mb-3`}>
                 {categoryLabel(item.category, language)}

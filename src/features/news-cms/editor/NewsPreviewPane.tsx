@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { NewsTemplateDefinition } from '@/features/news-cms/templates/types';
@@ -8,9 +9,10 @@ interface Props {
   template: NewsTemplateDefinition;
   content: Record<string, unknown>;
   templateData?: Record<string, unknown> | null;
+  overlay?: ReactNode;
 }
 
-export default function NewsPreviewPane({ lang, template, content, templateData }: Props) {
+export default function NewsPreviewPane({ lang, template, content, templateData, overlay }: Props) {
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-4">
@@ -20,7 +22,10 @@ export default function NewsPreviewPane({ lang, template, content, templateData 
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{t('newsCmsFormatA4Landscape', lang)}</span>
       </div>
-      <NewsRenderSurface lang={lang} template={template} content={content} templateData={templateData} mode="preview" />
+      <div className="relative">
+        <NewsRenderSurface lang={lang} template={template} content={content} templateData={templateData} mode="preview" />
+        {overlay}
+      </div>
     </section>
   );
 }

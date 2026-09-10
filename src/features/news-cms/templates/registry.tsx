@@ -15,7 +15,8 @@ import {
   flyerTextLimits,
   normalizeFlyerHighlights,
 } from '@/features/news-cms/lib/flyerPages';
-import type { NewsFlyerPage, NewsImageTransform, NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
+import type { NewsFlyerPage, NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
+import { readNewsImageTransform } from '@/features/news-cms/lib/newsImageTransform';
 
 
 function placeholderValidate(content: Record<string, unknown>) {
@@ -99,18 +100,8 @@ function text(content: Record<string, unknown>, key: string, fallback: string) {
   return typeof value === 'string' && value.trim() ? value : fallback;
 }
 
-function imageTransform(content: Record<string, unknown>, key: string): NewsImageTransform | undefined {
-  const value = content[key];
-  if (!value || typeof value !== 'object') return undefined;
-  const candidate = value as Partial<NewsImageTransform>;
-  const x = typeof candidate.x === 'number' ? candidate.x : 0;
-  const y = typeof candidate.y === 'number' ? candidate.y : 0;
-  const scale = typeof candidate.scale === 'number' ? candidate.scale : 1;
-  return {
-    x: Math.min(45, Math.max(-45, x)),
-    y: Math.min(45, Math.max(-45, y)),
-    scale: Math.min(2.5, Math.max(1, scale)),
-  };
+function imageTransform(content: Record<string, unknown>, key: string) {
+  return readNewsImageTransform(content[key]);
 }
 
 /** Intrinsic A4 landscape design size (px) used by scale-to-fit templates. */
