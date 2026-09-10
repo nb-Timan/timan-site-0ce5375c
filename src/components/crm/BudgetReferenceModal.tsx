@@ -16,6 +16,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
+import { clampBudgetReferenceQuantity, getBudgetReferenceQuantityLimits } from "@/lib/budgetReferenceQuantity";
 import { Link2, ChevronsUpDown, Check, Plus, Trash2, Minus } from "lucide-react";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -201,19 +202,23 @@ export default function BudgetReferenceModal({
   // (typisk = |new − old| af seneste budgetændring). Aldrig negativ.
   const totalAllowed = Math.max(0, Math.trunc(ctx?.delta_total ?? 0));
   const allocated = rows.reduce((s, r) => s + Math.max(0, Math.trunc(r.qty || 0)), 0);
-  const overAllocated = allocated > totalAllowed;
-  const underAllocated = allocated < totalAllowed;
+  const hasAllocationLimit = totalAllowed > 0;
+  const overAllocated = hasAllocationLimit && allocated > totalAllowed;
+  const underAllocated = hasAllocationLimit && allocated < totalAllowed;
   const remaining = totalAllowed - allocated;
 
   function patchRow(uid: string, patch: Partial<RefRow>) {
     setRows((rs) => rs.map((r) => {
       if (r.uid !== uid) return r;
       const next = { ...r, ...patch };
-      // Cap qty so the running total never exceeds the allowed total.
-      if (patch.qty != null && totalAllowed > 0) {
+      if (patch.qty != null) {
         const otherSum = rs.reduce((s, x) => s + (x.uid === uid ? 0 : Math.max(0, x.qty || 0)), 0);
-        const room = Math.max(0, totalAllowed - otherSum);
-        next.qty = Math.min(Math.max(0, Math.trunc(next.qty || 0)), room);
+        const limits = getBudgetReferenceQuantityLimits({
+          totalAllowed,
+          allocated: otherSum + Math.max(0, next.qty || 0),
+          rowQuantity: next.qty || 0,
+        });
+        next.qty = clampBudgetReferenceQuantity(next.qty || 0, limits.maximum);
       }
       return next;
     }));
@@ -366,7 +371,11 @@ export default function BudgetReferenceModal({
               leads={leads}
               demos={demos}
               leadsLoading={leadsLoading}
-              qtyRoomForRow={Math.max(0, totalAllowed - (allocated - Math.max(0, r.qty || 0)))}
+              quantityLimits={getBudgetReferenceQuantityLimits({
+                totalAllowed,
+                allocated,
+                rowQuantity: r.qty,
+              })}
               onChange={(patch) => patchRow(r.uid, patch)}
               onRemove={() => removeRow(r.uid)}
             />
@@ -396,7 +405,7 @@ export default function BudgetReferenceModal({
 }
 
 function ReferenceRowEditor({
-  index, row, options, dealersLoading, isAdmin, busy, canRemove, leads, demos, leadsLoading, qtyRoomForRow, onChange, onRemove,
+  index, row, options, dealersLoading, isAdmin, busy, canRemove, leads, demos, leadsLoading, quantityLimits, onChange, onRemove,
 }: {
   index: number;
   row: RefRow;
@@ -408,8 +417,7 @@ function ReferenceRowEditor({
   leads: CrmLead[];
   demos: CrmDemoLead[];
   leadsLoading: boolean;
-  /** Largest qty this row may hold without exceeding the modal-wide total. */
-  qtyRoomForRow: number;
+  quantityLimits: ReturnType<typeof getBudgetReferenceQuantityLimits>;
   onChange: (patch: Partial<RefRow>) => void;
   onRemove: () => void;
 }) {
@@ -457,7 +465,7 @@ function ReferenceRowEditor({
         : "Ingen — spring over";
 
   function setQty(v: number) {
-    const safe = Number.isFinite(v) ? Math.max(0, Math.trunc(v)) : 0;
+    const safe = clampBudgetReferenceQuantity(v, quantityLimits.maximum);
     onChange({ qty: safe });
   }
 
@@ -541,21 +549,35 @@ function ReferenceRowEditor({
         <div className="space-y-1">
           <Label className="text-xs">Antal stk. (denne reference)</Label>
           <div className="inline-flex items-center gap-1 w-full">
-            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0" disabled={busy} onClick={() => setQty(row.qty - 1)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 p-0"
+              disabled={busy || !quantityLimits.canDecrement}
+              onClick={() => setQty(row.qty - 1)}
+              aria-label="Reducer antal"
+            >
               <Minus className="h-3.5 w-3.5" />
             </Button>
             <Input
               type="number"
               min={0}
               step={1}
-              className="text-center tabular-nums"
+              className="text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               value={row.qty}
               onChange={(e) => setQty(parseInt(e.target.value, 10))}
               disabled={busy}
             />
-            <Button type="button" variant="outline" size="sm" className="h-9 w-9 p-0"
-              disabled={busy || row.qty >= qtyRoomForRow}
-              onClick={() => setQty(row.qty + 1)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 p-0"
+              disabled={busy || !quantityLimits.canIncrement}
+              onClick={() => setQty(row.qty + 1)}
+              aria-label="Forøg antal"
+            >
               <Plus className="h-3.5 w-3.5" />
             </Button>
           </div>
