@@ -298,7 +298,12 @@ describe('site change service', () => {
     expect(page).toContain('siteFeaturesShowTechnicalHistory');
     expect(page).toContain('siteFeaturesRemoveFromGroup');
 
-    expect(edgeFunction).toContain('dailyGroupKeys(entries)');
+    expect(edgeFunction).toContain('dailyGroupKeys(groupingCandidates)');
+    expect(edgeFunction).toContain('const groupingCandidates: Array<Pick<SiteChangeInsert, "module" | "implemented_at">> = [...entries];');
+    expect(edgeFunction).toContain('if (body.mode === "manual")');
+    expect(edgeFunction).toContain('.is("group_parent_id", null)');
+    expect(edgeFunction).toContain('const publishedSource = entries.find((entry) => entry.status === "published");');
+    expect(edgeFunction).toContain('status: publishedSource ? "published" : "new"');
     expect(edgeFunction).toContain('.eq("source", "github")');
     expect(edgeFunction).toContain('priorAutomaticGroupIds');
     expect(edgeFunction).toContain('dailyGroupSourceRef');

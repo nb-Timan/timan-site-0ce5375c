@@ -56,7 +56,8 @@ type SiteChangeInsert = {
   technical_impact_score: number;
   publish_recommendation: "publish" | "maybe" | "internal";
   is_important: boolean;
-  status: "new";
+  status: "new" | "published";
+  published_at?: string | null;
   is_group?: boolean;
   group_parent_id?: string | null;
   group_suggestion_status?: "none" | "suggested";
@@ -339,7 +340,7 @@ function dailyDanishSummary(entries: SiteChangeInsert[]): string {
   return `${label} er blevet opdateret med dagens vigtigste forbedringer.`;
 }
 
-function buildGroupSuggestion(entries: SiteChangeInsert[]): SiteChangeGroupSuggestion | null {
+function buildGroupSuggestion(entries: StoredGitHubEntry[]): SiteChangeGroupSuggestion | null {
   if (entries.length < 2) return null;
   const module = entries[0].module;
   const changeType = entries.every((entry) => entry.change_type === entries[0].change_type) ? entries[0].change_type : "improvement";
@@ -348,6 +349,8 @@ function buildGroupSuggestion(entries: SiteChangeInsert[]): SiteChangeGroupSugge
   const sourceRefs = entries.map((entry) => entry.source_ref).filter(Boolean);
   const implementedAt = entries.map((entry) => entry.implemented_at).sort().at(-1) || new Date().toISOString();
   const roles = Array.from(new Set(entries.flatMap((entry) => entry.affected_roles)));
+  const publishedSource = entries.find((entry) => entry.status === "published");
+  const publicContent = publishedSource?.localized_content || localizedContent;
   const group = {
     source: "github_daily_group",
     source_ref: dailyGroupSourceRef(module, dayKey(implementedAt)),
@@ -360,9 +363,9 @@ function buildGroupSuggestion(entries: SiteChangeInsert[]): SiteChangeGroupSugge
       "",
       ...entries.map((entry, index) => `${index + 1}. ${entry.title_internal}\n${entry.source_ref || ""}\n${entry.technical_description || ""}`),
     ].join("\n"),
-    title_public: localizedContent.da.title,
-    description_public: localizedContent.da.description,
-    localized_content: localizedContent,
+    title_public: publishedSource?.title_public || localizedContent.da.title,
+    description_public: publishedSource?.description_public || localizedContent.da.description,
+    localized_content: publicContent,
     module,
     change_type: changeType,
     affected_roles: roles.length ? roles : ["all"],
@@ -370,7 +373,8 @@ function buildGroupSuggestion(entries: SiteChangeInsert[]): SiteChangeGroupSugge
     technical_impact_score: Math.max(...entries.map((entry) => entry.technical_impact_score), 3),
     publish_recommendation: "maybe",
     is_important: false,
-    status: "new",
+    status: publishedSource ? "published" : "new",
+    published_at: publishedSource?.published_at || null,
     is_group: true,
     group_parent_id: null,
     group_suggestion_status: "suggested",
@@ -382,7 +386,7 @@ function buildGroupSuggestion(entries: SiteChangeInsert[]): SiteChangeGroupSugge
   };
 }
 
-function dailyGroupKeys(entries: SiteChangeInsert[]): DailyGroupKey[] {
+function dailyGroupKeys(entries: Array<Pick<SiteChangeInsert, "module" | "implemented_at">>): DailyGroupKey[] {
   const keys = new Map<string, DailyGroupKey>();
   for (const entry of entries) {
     const date = dayKey(entry.implemented_at);
@@ -572,11 +576,22 @@ Deno.serve(async (req) => {
     if (insertError) return json({ error: `Import fejlede: ${insertError.message}` }, 500);
   }
 
+  const groupingCandidates: Array<Pick<SiteChangeInsert, "module" | "implemented_at">> = [...entries];
+  if (body.mode === "manual") {
+    const { data: ungroupedRows, error: ungroupedRowsError } = await admin
+      .from("site_change_entries")
+      .select("module,implemented_at")
+      .eq("source", "github")
+      .is("group_parent_id", null);
+    if (ungroupedRowsError) return json({ error: `Kunne ikke finde tidligere GitHub-ændringer: ${ungroupedRowsError.message}` }, 500);
+    groupingCandidates.push(...(ungroupedRows || []));
+  }
+
   let groupsSuggested = 0;
-  for (const key of dailyGroupKeys(entries)) {
+  for (const key of dailyGroupKeys(groupingCandidates)) {
     const { data: dailyRows, error: dailyRowsError } = await admin
       .from("site_change_entries")
-      .select("id,source,source_ref,implemented_at,title_internal,description_internal,technical_description,title_public,description_public,localized_content,module,change_type,affected_roles,user_impact_score,technical_impact_score,publish_recommendation,is_important,status,group_parent_id,group_suggestion_status,grouped_at")
+      .select("id,source,source_ref,implemented_at,title_internal,description_internal,technical_description,title_public,description_public,localized_content,module,change_type,affected_roles,user_impact_score,technical_impact_score,publish_recommendation,is_important,status,published_at,group_parent_id,group_suggestion_status,grouped_at")
       .eq("source", "github")
       .eq("module", key.module)
       .gte("implemented_at", `${key.date}T00:00:00.000Z`)
@@ -616,6 +631,15 @@ Deno.serve(async (req) => {
           user_impact_score: suggestion.group.user_impact_score,
           technical_impact_score: suggestion.group.technical_impact_score,
           grouped_at: new Date().toISOString(),
+          ...(suggestion.group.status === "published"
+            ? {
+              title_public: suggestion.group.title_public,
+              description_public: suggestion.group.description_public,
+              localized_content: suggestion.group.localized_content,
+              status: "published",
+              published_at: suggestion.group.published_at,
+            }
+            : {}),
         })
         .eq("id", groupId);
       if (groupUpdateError) continue;
