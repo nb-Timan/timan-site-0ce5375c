@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCrmLeadDealerContactSnapshot,
+  enterManualCrmLeadCustomerMode,
   formatCrmLeadDealerContact,
   sortCrmLeadDealerContacts,
 } from '@/lib/crmLeadDealerContact';
@@ -69,6 +70,18 @@ describe('CRM lead dealer contact autofill', () => {
       contactPerson: 'Sales contact',
       phone: '',
       email: '',
+    });
+  });
+
+  it('keeps the linked dealer when switching to a manual end customer', () => {
+    expect(enterManualCrmLeadCustomerMode({
+      linkedDealerId: dealer.id,
+      selectedDealerContactId: 'contact-1',
+      mode: 'dealer',
+    })).toEqual({
+      linkedDealerId: dealer.id,
+      selectedDealerContactId: '',
+      mode: 'manual',
     });
   });
 });

@@ -12,6 +12,29 @@ export type CrmLeadDealerContactSnapshot = {
   country: string;
 };
 
+export type CrmLeadContactMode = 'dealer' | 'manual';
+
+type CrmLeadContactSourceState = {
+  linkedDealerId: string;
+  selectedDealerContactId: string;
+  mode: CrmLeadContactMode;
+};
+
+/**
+ * A lead's responsible dealer is independent from its customer/contact.
+ * Switching to a manual customer must therefore only drop the dealer-contact
+ * selection, never the linked dealer itself.
+ */
+export function enterManualCrmLeadCustomerMode(
+  state: CrmLeadContactSourceState,
+): CrmLeadContactSourceState {
+  return {
+    ...state,
+    mode: 'manual',
+    selectedDealerContactId: '',
+  };
+}
+
 const CONTACT_AREA_PRIORITY: Record<DealerContact['contact_area'], number> = {
   director: 0,
   sales: 1,

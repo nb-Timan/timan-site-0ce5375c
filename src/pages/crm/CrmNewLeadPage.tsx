@@ -30,8 +30,10 @@ import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsSer
 import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import {
   buildCrmLeadDealerContactSnapshot,
+  enterManualCrmLeadCustomerMode,
   formatCrmLeadDealerContact,
   sortCrmLeadDealerContacts,
+  type CrmLeadContactMode,
 } from '@/lib/crmLeadDealerContact';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
@@ -830,6 +832,9 @@ export default function CrmNewLeadPage() {
   const [dealerContactsLoading, setDealerContactsLoading] = useState(false);
   const [selectedDealerContactId, setSelectedDealerContactId] = useState('');
   const [dealerContactEmailMissing, setDealerContactEmailMissing] = useState(false);
+  // This is UI state only. The saved lead keeps a snapshot of the chosen
+  // customer/contact, while linked_dealer_id remains the responsible partner.
+  const [contactMode, setContactMode] = useState<CrmLeadContactMode>('manual');
 
   // Sellers (Timan Sælger / Timan Backend) for the responsible-seller dropdown.
   const [sellers, setSellers] = useState<BackendUser[]>([]);
@@ -932,6 +937,7 @@ export default function CrmNewLeadPage() {
       setContactAddress(parsedContact.address);
       setContactPostalCode(parsedContact.postalCode);
       setContactCity(parsedContact.city || (!parsedContact.postalCode ? parsedContact.zipCity : ''));
+      setContactMode('manual');
       const parsedTradeFair = splitTradeFairYear(lead.trade_fair || '');
       if ((KNOWN_TRADE_FAIRS as readonly string[]).includes(parsedTradeFair.name)) {
         setTradeFairChoice(parsedTradeFair.name);
@@ -1007,6 +1013,7 @@ export default function CrmNewLeadPage() {
       setContactAddress(parsedContact.address);
       setContactPostalCode(parsedContact.postalCode);
       setContactCity(parsedContact.city);
+      setContactMode('manual');
       setCountry(parsedContact.country || lead.country || country);
       setNotes(lead.notes || '');
       setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
@@ -1167,12 +1174,14 @@ export default function CrmNewLeadPage() {
 
   function handleUseDealerDetails() {
     const contact = sortedDealerContacts[0] || null;
+    setContactMode('dealer');
     setSelectedDealerContactId(contact?.id || '');
     setDealerContactEmailMissing(Boolean(contact && !contact.email?.trim()));
     applyDealerContactSnapshot(contact);
   }
 
   function handleDealerContactChange(contactId: string) {
+    setContactMode(contactId ? 'dealer' : 'manual');
     setSelectedDealerContactId(contactId);
     const contact = sortedDealerContacts.find((candidate) => candidate.id === contactId) || null;
     setDealerContactEmailMissing(Boolean(contact && !contact.email?.trim()));
@@ -1180,7 +1189,13 @@ export default function CrmNewLeadPage() {
   }
 
   function handleManualCustomer() {
-    setSelectedDealerContactId('');
+    const next = enterManualCrmLeadCustomerMode({
+      linkedDealerId: linkedDealer,
+      selectedDealerContactId,
+      mode: contactMode,
+    });
+    setContactMode(next.mode);
+    setSelectedDealerContactId(next.selectedDealerContactId);
     setDealerContactEmailMissing(false);
   }
 
@@ -1605,8 +1620,10 @@ export default function CrmNewLeadPage() {
                 <Button
                   type="button"
                   size="sm"
+                  variant={contactMode === 'dealer' ? 'default' : 'outline'}
                   onClick={handleUseDealerDetails}
                   disabled={!selectedDealerAccount || dealerContactsLoading}
+                  aria-pressed={contactMode === 'dealer'}
                   data-testid="lead-use-dealer-details"
                 >
                   {tt('use_dealer_details', lang)}
@@ -1614,15 +1631,16 @@ export default function CrmNewLeadPage() {
                 <Button
                   type="button"
                   size="sm"
-                  variant="outline"
+                  variant={contactMode === 'manual' ? 'default' : 'outline'}
                   onClick={handleManualCustomer}
+                  aria-pressed={contactMode === 'manual'}
                   data-testid="lead-enter-manual-customer"
                 >
                   {tt('enter_manual_customer', lang)}
                 </Button>
               </div>
             </div>
-            {selectedDealerAccount && (
+            {selectedDealerAccount && contactMode === 'dealer' && (
               <Field label={tt('lbl_dealer_contact', lang)} full>
                 <select
                   className={inputCls}
@@ -1651,6 +1669,7 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactCompany')}
                 value={contactCompany}
                 onChange={e=>{
+                  handleManualCustomer();
                   setContactCompany(e.target.value);
                   if (e.target.value.trim()) clearFieldError('contactCompany');
                 }}
@@ -1661,6 +1680,7 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactPersonName')}
                 value={contactPersonName}
                 onChange={e=>{
+                  handleManualCustomer();
                   setContactPersonName(e.target.value);
                   if (e.target.value.trim()) clearFieldError('contactPersonName');
                 }}
@@ -1672,6 +1692,7 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactPhone')}
                 value={contactPhone}
                 onChange={e=>{
+                  handleManualCustomer();
                   setContactPhone(e.target.value);
                   if (e.target.value.trim()) clearFieldError('contactPhone');
                 }}
@@ -1683,19 +1704,24 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactEmail')}
                 value={contactEmail}
                 onChange={e=>{
+                  handleManualCustomer();
                   setContactEmail(e.target.value);
                   if (e.target.value.trim()) clearFieldError('contactEmail');
                 }}
               />
             </Field>
             <Field label={tt('lbl_contact_address', lang)} full>
-              <input className={inputCls} value={contactAddress} onChange={e=>setContactAddress(e.target.value)} />
+              <input className={inputCls} value={contactAddress} onChange={e=>{
+                handleManualCustomer();
+                setContactAddress(e.target.value);
+              }} />
             </Field>
             <Field label={tt('lbl_contact_postal_code', lang)} required error={fieldError('contactPostalCode')}>
               <input
                 className={requiredInputClass('contactPostalCode')}
                 value={contactPostalCode}
                 onChange={e=>{
+                  handleManualCustomer();
                   setContactPostalCode(e.target.value);
                   if (e.target.value.trim()) clearFieldError('contactPostalCode');
                 }}
@@ -1706,6 +1732,7 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactCity')}
                 value={contactCity}
                 onChange={e=>{
+                  handleManualCustomer();
                   setContactCity(e.target.value);
                   if (e.target.value.trim()) clearFieldError('contactCity');
                 }}
@@ -1716,6 +1743,7 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('country')}
                 value={country}
                 onChange={e=>{
+                  handleManualCustomer();
                   const nextCountry = e.target.value;
                   setCountry(nextCountry);
                   if (nextCountry.trim()) clearFieldError('country');
