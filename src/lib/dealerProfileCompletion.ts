@@ -44,11 +44,19 @@ function contactValues(
   ];
 }
 
-function hasPrimaryContact(contacts: DealerContact[], d: DealerAccount | null): boolean {
-  if (contacts.some((contact) => contact.is_primary && (nonEmpty(contact.name) || nonEmpty(contact.email) || nonEmpty(contact.phone)))) {
-    return true;
+function salesContactValues(contacts: DealerContact[], d: DealerAccount | null): unknown[] {
+  const salesContacts = contacts.filter((contact) => contact.contact_area === "sales");
+  const score = (contact: DealerContact) => [contact.role_title, contact.name, contact.email, contact.phone]
+    .filter(nonEmpty).length;
+  const contact = salesContacts.find((candidate) => score(candidate) === 4)
+    ?? salesContacts.sort((left, right) => score(right) - score(left))[0];
+
+  if (contact) {
+    return [contact.role_title ?? "", contact.name ?? "", contact.email ?? "", contact.phone ?? ""];
   }
-  return nonEmpty(d?.primary_contact_name) || nonEmpty(d?.primary_contact_email) || nonEmpty(d?.primary_contact_phone);
+
+  // Legacy account fields can show historical data, but not satisfy the canonical role requirement.
+  return ["", d?.sales_contact_name ?? "", d?.sales_contact_email ?? "", d?.sales_contact_phone ?? ""];
 }
 
 /** Required field map per section. Optional fields are excluded from required-count. */
@@ -70,10 +78,7 @@ function requiredFields(d: DealerAccount | null, contacts: DealerContact[]): Rec
     purchasing: [
       ...contactValues(contacts, "parts", { name: null, email: null }),
     ],
-    sales: [
-      ...contactValues(contacts, "sales", { name: d?.sales_contact_name, email: d?.sales_contact_email }),
-      hasPrimaryContact(contacts, d) ? "first-contact" : "",
-    ],
+    sales: salesContactValues(contacts, d),
     workshop: [
       ...contactValues(contacts, "workshop", { name: d?.workshop_contact_name, email: d?.workshop_contact_email }),
     ],

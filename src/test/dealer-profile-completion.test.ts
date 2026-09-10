@@ -106,23 +106,23 @@ describe("dealer profile completion", () => {
       contact("director"),
       contact("finance"),
       contact("parts", { email: null }),
-      contact("sales", { is_primary: false }),
+      contact("sales", { role_title: "Salg", phone: "12345678" }),
       contact("workshop", { email: null }),
       contact("marketing", { name: null, email: null }),
     ];
     const completion = computeCompletion(profile, contacts);
 
     expect(completion.totalSteps).toBe(6);
-    expect(completion.completedSteps).toBe(1);
-    expect(completion.missingSteps).toBe(5);
-    expect(completion.totalRequired).toBe(21);
-    expect(completion.filledRequired).toBe(15);
-    expect(completion.missingRequired).toBe(6);
-    expect(completion.percentage).toBe(71);
-    expect(computeDealerProfileBadge(profile, 0, contacts).missingPercent).toBe(29);
+    expect(completion.completedSteps).toBe(2);
+    expect(completion.missingSteps).toBe(4);
+    expect(completion.totalRequired).toBe(22);
+    expect(completion.filledRequired).toBe(17);
+    expect(completion.missingRequired).toBe(5);
+    expect(completion.percentage).toBe(77);
+    expect(computeDealerProfileBadge(profile, 0, contacts).missingPercent).toBe(23);
   });
 
-  it("matches visible required state: phone and address 2 are optional, website is marketing", () => {
+  it("matches visible required state: phone is optional outside sales, address 2 is optional, website is marketing", () => {
     const completion = computeCompletion(dealer({
       address_line_2: "",
       invoice_email: "invoice@timan.dk",
@@ -131,13 +131,13 @@ describe("dealer profile completion", () => {
       contact("director", { phone: null }),
       contact("finance", { phone: null }),
       contact("parts", { phone: null }),
-      contact("sales", { is_primary: true, phone: null }),
+      contact("sales", { role_title: "Salg", phone: "12345678" }),
       contact("workshop", { phone: null }),
       contact("marketing", { phone: null }),
     ]);
 
-    expect(completion.totalRequired).toBe(21);
-    expect(completion.filledRequired).toBe(21);
+    expect(completion.totalRequired).toBe(22);
+    expect(completion.filledRequired).toBe(22);
     expect(completion.percentage).toBe(100);
     expect(completion.sections.find((section) => section.key === "marketing")?.required).toBe(3);
   });
@@ -151,7 +151,7 @@ describe("dealer profile completion", () => {
       contact("finance", { id: "finance-partial", email: null }),
       contact("finance", { id: "finance-complete", name: "Finance Lead", email: "finance@timan.dk" }),
       contact("parts"),
-      contact("sales", { is_primary: true }),
+      contact("sales", { role_title: "Salg", phone: "12345678" }),
       contact("workshop"),
       contact("marketing"),
     ]);
@@ -170,7 +170,7 @@ describe("dealer profile completion", () => {
     });
     const contacts = [
       contact("director"), contact("finance"), contact("parts"),
-      contact("sales", { is_primary: true }), contact("workshop"), contact("marketing"),
+      contact("sales", { role_title: "Salg", phone: "12345678" }), contact("workshop"), contact("marketing"),
     ];
 
     expect(computeDealerProfileSeverity(completeDealer, 0)).toBe("partial");
@@ -186,10 +186,34 @@ describe("dealer profile completion", () => {
     });
     const contacts = [
       contact("director"), contact("finance"), contact("parts"),
-      contact("sales", { is_primary: true }), contact("workshop"),
+      contact("sales", { role_title: "Salg", phone: "12345678" }), contact("workshop"),
       contact("marketing", { name: null, email: null }),
     ];
 
     expect(hasOnlySoftDealerProfileMissing(profile, contacts)).toBe(true);
+  });
+
+  it("marks sales complete from one canonical contact with role, name, email, and phone", () => {
+    const completion = computeCompletion(dealer(), [
+      contact("sales", { role_title: "Salg", phone: "12345678", is_primary: false }),
+    ]);
+
+    expect(completion.sections.find((section) => section.key === "sales")).toMatchObject({
+      required: 4,
+      filled: 4,
+      complete: true,
+    });
+  });
+
+  it("keeps sales incomplete when the canonical contact is missing email", () => {
+    const completion = computeCompletion(dealer(), [
+      contact("sales", { role_title: "Salg", phone: "12345678", email: null }),
+    ]);
+
+    expect(completion.sections.find((section) => section.key === "sales")).toMatchObject({
+      required: 4,
+      filled: 3,
+      complete: false,
+    });
   });
 });
