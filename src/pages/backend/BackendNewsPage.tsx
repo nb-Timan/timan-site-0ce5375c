@@ -381,8 +381,14 @@ export default function BackendNewsPage() {
                 setError(result.error);
                 throw new Error(result.error);
               }
+              if (!result.row) {
+                const error = 'Kladden blev ikke gemt. Prøv igen.';
+                setError(error);
+                throw new Error(error);
+              }
               setMessage(t('newsCmsDraftSaved', uiLanguage));
               await reload();
+              return { id: result.row.id };
             }}
             onPublish={async (payload) => {
               setSaving(true);

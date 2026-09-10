@@ -41,7 +41,7 @@ interface Props {
   uiLanguage: PortalUiLanguage;
   initialPost?: NewsCmsPost | null;
   onCancel?: () => void;
-  onSaveDraft: (payload: { id?: string; templateId: NewsTemplateId; localizedContent: LocalizedNewsContent; templateData: Record<string, unknown>; sourceLanguage: PortalUiLanguage }) => Promise<void>;
+  onSaveDraft: (payload: { id?: string; templateId: NewsTemplateId; localizedContent: LocalizedNewsContent; templateData: Record<string, unknown>; sourceLanguage: PortalUiLanguage }) => Promise<{ id: string }>;
   onPublish: (payload: { id?: string; templateId: NewsTemplateId; localizedContent: LocalizedNewsContent; templateData: Record<string, unknown>; sourceLanguage: PortalUiLanguage }) => Promise<void>;
   saving?: boolean;
 }
@@ -85,6 +85,7 @@ function Stepper({ step, lang }: { step: StepId; lang: PortalUiLanguage }) {
 export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, onSaveDraft, onPublish, saving = false }: Props) {
   const [step, setStep] = useState<StepId>(1);
   const [savedOnce, setSavedOnce] = useState(false);
+  const [persistedPostId, setPersistedPostId] = useState<string | undefined>(initialPost?.id);
   const [templateId, setTemplateId] = useState<NewsTemplateId>(
     isNewsTemplateId(initialPost?.template_id) ? initialPost.template_id : NEWS_TEMPLATE_REGISTRY[0].id,
   );
@@ -98,6 +99,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   useEffect(() => {
     setStep(1);
     setSavedOnce(false);
+    setPersistedPostId(initialPost?.id);
     setTemplateId(isNewsTemplateId(initialPost?.template_id) ? initialPost.template_id : NEWS_TEMPLATE_REGISTRY[0].id);
     setLocalizedContent(initialPost?.localized_content || emptyLocalizedContent());
     setTemplateData(initialPost?.template_data || {});
@@ -172,7 +174,8 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     if (translationResult.error) {
       setTranslateStatus(null);
       try {
-        await onSaveDraft({ id: initialPost?.id, templateId, localizedContent, templateData, sourceLanguage: editLanguage });
+        const savedPost = await onSaveDraft({ id: persistedPostId, templateId, localizedContent, templateData, sourceLanguage: editLanguage });
+        setPersistedPostId(savedPost.id);
         setSavedOnce(true);
         setPublishWarning(`Oversættelse mislykkedes: ${translationResult.error}. Kildeteksten er gemt som kladde uden automatisk oversættelse.`);
       } catch (error) {
@@ -194,7 +197,8 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
       setTranslateStatus(null);
     }
     try {
-      await onSaveDraft({ id: initialPost?.id, templateId, localizedContent: contentToSave, templateData: templateDataToSave, sourceLanguage: editLanguage });
+      const savedPost = await onSaveDraft({ id: persistedPostId, templateId, localizedContent: contentToSave, templateData: templateDataToSave, sourceLanguage: editLanguage });
+      setPersistedPostId(savedPost.id);
       setSavedOnce(true);
     } catch (error) {
       setPublishWarning(error instanceof Error ? error.message : 'Kladden kunne ikke gemmes.');
@@ -251,7 +255,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
 
     setPublishWarning(null);
     try {
-      await onPublish({ id: initialPost?.id, templateId, localizedContent: contentToPublish, templateData: templateDataToPublish, sourceLanguage: editLanguage });
+      await onPublish({ id: persistedPostId, templateId, localizedContent: contentToPublish, templateData: templateDataToPublish, sourceLanguage: editLanguage });
     } catch (error) {
       setPublishWarning(error instanceof Error ? error.message : 'Nyheden kunne ikke publiceres.');
     }
