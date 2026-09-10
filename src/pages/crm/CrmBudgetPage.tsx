@@ -22,7 +22,7 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, fiscalYearForDate, fiscalYearLabel,
+  BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, currentFiscalYearForBudget, fiscalYearForDate, fiscalYearLabel,
   FISCAL_MONTH_ORDER, fmtDKK, reorderCalendarMonthsForFiscalYear,
   listBudgetLines, listForecasts, listSalesActuals,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
@@ -340,7 +340,9 @@ export default function CrmBudgetPage() {
   const externalCrm = isExternalCrmRole(portalRole);
   const allowed = isAdmin || isSeller || externalCrm;
 
-  const [year, setYear] = useState<number>(availableYears()[0]);
+  // A manual selection stays in this page session; only the initial view
+  // defaults to the fiscal year that contains today.
+  const [year, setYear] = useState<number>(() => currentFiscalYearForBudget());
   const [lines, setLines] = useState<BudgetLine[]>([]);
   const [forecasts, setForecasts] = useState<BudgetForecast[]>([]);
   const [actuals, setActuals] = useState<SalesActual[]>([]);

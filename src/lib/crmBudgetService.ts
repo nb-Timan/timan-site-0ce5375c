@@ -1248,6 +1248,11 @@ export function fiscalYearForDate(value: Date | string): number | null {
   return fiscalYearForCalendarMonth(date.getFullYear(), date.getMonth());
 }
 
+/** Fiscal year selected when Budget is opened without a user preference. */
+export function currentFiscalYearForBudget(now: Date = new Date()): number {
+  return fiscalYearForDate(now) ?? now.getFullYear();
+}
+
 export function fiscalYearLabel(fiscalYear: number): string {
   return `${fiscalYear}/${String((fiscalYear + 1) % 100).padStart(2, "0")}`;
 }
@@ -1257,7 +1262,7 @@ export function reorderCalendarMonthsForFiscalYear<T>(values: readonly T[]): T[]
 }
 
 export function availableYears(): number[] {
-  const current = fiscalYearForDate(new Date()) ?? new Date().getFullYear();
+  const current = currentFiscalYearForBudget();
   const base = Math.max(current, 2026);
   return [base - 1, base, base + 1];
 }

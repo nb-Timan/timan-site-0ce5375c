@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FISCAL_MONTH_ORDER,
+  currentFiscalYearForBudget,
   fiscalYearForCalendarMonth,
   fiscalYearForDate,
   fiscalYearLabel,
@@ -21,6 +22,13 @@ describe("CRM Budget fiscal year", () => {
     expect(fiscalYearForDate("2026-09-06T12:00:00Z")).toBe(2026);
     expect(fiscalYearForDate("2027-01-15T12:00:00Z")).toBe(2026);
     expect(fiscalYearLabel(2026)).toBe("2026/27");
+  });
+
+  it("defaults Budget to the fiscal year containing the current date", () => {
+    expect(currentFiscalYearForBudget(new Date("2026-09-10T12:00:00Z"))).toBe(2026);
+    expect(currentFiscalYearForBudget(new Date("2027-01-15T12:00:00Z"))).toBe(2026);
+    expect(currentFiscalYearForBudget(new Date("2027-06-30T12:00:00Z"))).toBe(2026);
+    expect(currentFiscalYearForBudget(new Date("2027-07-01T12:00:00Z"))).toBe(2027);
   });
 
   it("places working-budget leads into the same fiscal year without changing their calendar month", () => {
