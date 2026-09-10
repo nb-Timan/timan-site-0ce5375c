@@ -27,6 +27,12 @@ import {
 } from '@/lib/crmConfigurationsService';
 import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
+import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
+import {
+  buildCrmLeadDealerContactSnapshot,
+  formatCrmLeadDealerContact,
+  sortCrmLeadDealerContacts,
+} from '@/lib/crmLeadDealerContact';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { Navigate } from 'react-router-dom';
@@ -67,6 +73,8 @@ type TKey =
   | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_notes'
   | 'lbl_contact_company' | 'lbl_contact_person' | 'lbl_contact_phone' | 'lbl_contact_email'
   | 'lbl_contact_address' | 'lbl_contact_zip_city' | 'lbl_contact_postal_code' | 'lbl_contact_city'
+  | 'use_dealer_details' | 'enter_manual_customer' | 'lbl_dealer_contact' | 'ph_dealer_contact'
+  | 'loading_dealer_contacts' | 'no_dealer_contacts' | 'dealer_email_missing' | 'dealer_details_hint'
   | 'lbl_budget' | 'lbl_probability' | 'lbl_pipeline' | 'lbl_move_work' | 'hlp_move_work'
   | 'lbl_lost_to' | 'lbl_lost_other' | 'lbl_lost_reason' | 'lbl_lost_comment'
   | 'pick_files' | 'mine_dealers' | 'other_dealers'
@@ -123,6 +131,14 @@ const T: Record<TKey, Record<Language, string>> = {
   lbl_contact_zip_city: { da: 'Postnr. og by', en: 'ZIP code and city', de: 'PLZ und Ort', it: 'CAP e città', hu: 'Irányítószám és város' },
   lbl_contact_postal_code: { da: 'Postnr.', en: 'ZIP code', de: 'PLZ', it: 'CAP', hu: 'Irányítószám' },
   lbl_contact_city: { da: 'By', en: 'City', de: 'Ort', it: 'Città', hu: 'Város' },
+  use_dealer_details: { da: 'Brug forhandlerens oplysninger', en: 'Use dealer details', de: 'Händlerdaten verwenden', it: 'Usa dati del rivenditore', hu: 'Kereskedői adatok használata' },
+  enter_manual_customer: { da: 'Indtast anden kunde manuelt', en: 'Enter another customer manually', de: 'Anderen Kunden manuell eingeben', it: 'Inserisci un altro cliente manualmente', hu: 'Másik ügyfél kézi megadása' },
+  lbl_dealer_contact: { da: 'Kontaktperson fra forhandler', en: 'Dealer contact', de: 'Kontaktperson des Händlers', it: 'Contatto del rivenditore', hu: 'Kereskedő kapcsolattartója' },
+  ph_dealer_contact: { da: 'Vælg kontaktperson…', en: 'Select contact…', de: 'Kontaktperson wählen…', it: 'Seleziona contatto…', hu: 'Kapcsolattartó kiválasztása…' },
+  loading_dealer_contacts: { da: 'Henter kontaktpersoner…', en: 'Loading contacts…', de: 'Kontaktpersonen laden…', it: 'Caricamento contatti…', hu: 'Kapcsolattartók betöltése…' },
+  no_dealer_contacts: { da: 'Ingen kontaktpersoner er registreret på forhandleren.', en: 'No contacts are registered for this dealer.', de: 'Für diesen Händler sind keine Kontakte registriert.', it: 'Non sono registrati contatti per questo rivenditore.', hu: 'Nincsenek kapcsolattartók regisztrálva ehhez a kereskedőhöz.' },
+  dealer_email_missing: { da: 'Den valgte forhandlerkontakt mangler e-mail.', en: 'The selected dealer contact has no email address.', de: 'Für die gewählte Händlerkontaktperson fehlt eine E-Mail-Adresse.', it: 'Il contatto del rivenditore selezionato non ha un indirizzo e-mail.', hu: 'A kiválasztott kereskedői kapcsolattartónak nincs e-mail címe.' },
+  dealer_details_hint: { da: 'Kopierer kun den valgte forhandlers aktuelle kontaktoplysninger til dette lead.', en: 'Copies only the selected dealer’s current contact details to this lead.', de: 'Kopiert nur die aktuellen Kontaktdaten des ausgewählten Händlers in diesen Lead.', it: 'Copia solo i dati di contatto correnti del rivenditore selezionato in questo lead.', hu: 'Csak a kiválasztott kereskedő aktuális kapcsolattartási adatait másolja ebbe a leadbe.' },
   lbl_tradefair: { da: 'Messe', en: 'Trade fair', de: 'Messe', it: 'Fiera', hu: 'Vásár' },
   lbl_country:   { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
   lbl_notes:     { da: 'Noter', en: 'Notes', de: 'Notizen', it: 'Note', hu: 'Megjegyzések' },
@@ -810,6 +826,10 @@ export default function CrmNewLeadPage() {
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [dealersLoading, setDealersLoading] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [dealerContacts, setDealerContacts] = useState<DealerContact[]>([]);
+  const [dealerContactsLoading, setDealerContactsLoading] = useState(false);
+  const [selectedDealerContactId, setSelectedDealerContactId] = useState('');
+  const [dealerContactEmailMissing, setDealerContactEmailMissing] = useState(false);
 
   // Sellers (Timan Sælger / Timan Backend) for the responsible-seller dropdown.
   const [sellers, setSellers] = useState<BackendUser[]>([]);
@@ -1023,9 +1043,35 @@ export default function CrmNewLeadPage() {
   }, [dealers, appUser, sellers, responsibleSellerId, sellerDir]);
 
   const selectedDealer = allOptions.find(o => o.value === linkedDealer) || null;
+  const selectedDealerAccount = dealers.find((dealer) => dealer.id === linkedDealer) || null;
+  const sortedDealerContacts = useMemo(() => sortCrmLeadDealerContacts(dealerContacts), [dealerContacts]);
   const dealerTriggerLabel = selectedDealer
     ? selectedDealer.label
     : (linkedDealer ? linkedDealer : tt('ph_dealer', lang));
+
+  useEffect(() => {
+    setSelectedDealerContactId('');
+    setDealerContactEmailMissing(false);
+    if (repository.academy || !selectedDealerAccount) {
+      setDealerContacts([]);
+      setDealerContactsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setDealerContactsLoading(true);
+    listDealerContacts(selectedDealerAccount.id)
+      .then((contacts) => {
+        if (!cancelled) setDealerContacts(contacts);
+      })
+      .catch(() => {
+        if (!cancelled) setDealerContacts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDealerContactsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [repository.academy, selectedDealerAccount?.id]);
 
   const firstContactQuickOptions: DateQuickOption[] = [
     { label: '-1 dag', value: addDaysToIsoDate(today, -1) },
@@ -1100,6 +1146,43 @@ export default function CrmNewLeadPage() {
       return next;
     });
   };
+
+  function applyDealerContactSnapshot(contact: DealerContact | null) {
+    if (!selectedDealerAccount) return;
+    const snapshot = buildCrmLeadDealerContactSnapshot(selectedDealerAccount, contact);
+    setContactCompany(snapshot.company);
+    setContactPersonName(snapshot.contactPerson);
+    setContactPhone(snapshot.phone);
+    setContactEmail(snapshot.email);
+    setContactAddress(snapshot.address);
+    setContactPostalCode(snapshot.postalCode);
+    setContactCity(snapshot.city);
+    if (snapshot.country) {
+      setCountry(snapshot.country);
+      setCountryChoice(snapshot.country === 'Danmark' || snapshot.country === 'Tyskland' ? snapshot.country : 'Other');
+    }
+    (['contactCompany', 'contactPersonName', 'contactPhone', 'contactEmail', 'contactPostalCode', 'contactCity', 'country'] as const)
+      .forEach(clearFieldError);
+  }
+
+  function handleUseDealerDetails() {
+    const contact = sortedDealerContacts[0] || null;
+    setSelectedDealerContactId(contact?.id || '');
+    setDealerContactEmailMissing(Boolean(contact && !contact.email?.trim()));
+    applyDealerContactSnapshot(contact);
+  }
+
+  function handleDealerContactChange(contactId: string) {
+    setSelectedDealerContactId(contactId);
+    const contact = sortedDealerContacts.find((candidate) => candidate.id === contactId) || null;
+    setDealerContactEmailMissing(Boolean(contact && !contact.email?.trim()));
+    if (contact) applyDealerContactSnapshot(contact);
+  }
+
+  function handleManualCustomer() {
+    setSelectedDealerContactId('');
+    setDealerContactEmailMissing(false);
+  }
 
   useEffect(() => {
     if (repository.academy) {
@@ -1509,6 +1592,60 @@ export default function CrmNewLeadPage() {
           </Section>
 
           <Section title={tt('sec_contact_info_structured', lang)} subtitle={tt('sec_contact_info_structured_sub', lang)}>
+            <div className="md:col-span-2 flex flex-col gap-3 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-emerald-950">{selectedDealerAccount?.company_name || tt('ph_dealer', lang)}</p>
+                <p className="mt-1 text-xs text-emerald-800">
+                  {selectedDealerAccount
+                    ? tt('dealer_details_hint', lang)
+                    : tt('val_dealer', lang)}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleUseDealerDetails}
+                  disabled={!selectedDealerAccount || dealerContactsLoading}
+                  data-testid="lead-use-dealer-details"
+                >
+                  {tt('use_dealer_details', lang)}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleManualCustomer}
+                  data-testid="lead-enter-manual-customer"
+                >
+                  {tt('enter_manual_customer', lang)}
+                </Button>
+              </div>
+            </div>
+            {selectedDealerAccount && (
+              <Field label={tt('lbl_dealer_contact', lang)} full>
+                <select
+                  className={inputCls}
+                  value={selectedDealerContactId}
+                  onChange={(event) => handleDealerContactChange(event.target.value)}
+                  disabled={dealerContactsLoading}
+                  data-testid="lead-dealer-contact"
+                >
+                  <option value="">
+                    {dealerContactsLoading ? tt('loading_dealer_contacts', lang) : tt('ph_dealer_contact', lang)}
+                  </option>
+                  {sortedDealerContacts.map((contact) => (
+                    <option key={contact.id} value={contact.id}>{formatCrmLeadDealerContact(contact)}</option>
+                  ))}
+                </select>
+                {!dealerContactsLoading && sortedDealerContacts.length === 0 && (
+                  <span className="text-[11px] text-slate-500">{tt('no_dealer_contacts', lang)}</span>
+                )}
+              </Field>
+            )}
+            {dealerContactEmailMissing && (
+              <p className="md:col-span-2 -mt-2 text-[11px] font-medium text-amber-700">{tt('dealer_email_missing', lang)}</p>
+            )}
             <Field label={tt('lbl_contact_company', lang)} required error={fieldError('contactCompany')}>
               <input
                 className={requiredInputClass('contactCompany')}
