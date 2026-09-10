@@ -406,6 +406,11 @@ export function getUserModuleAccessOverride(
   return null;
 }
 
+export function canAccessContractsModule(user: PortalAccessUser | null | undefined): boolean {
+  if (!user) return false;
+  return hasModuleAccess(derivePortalRole(user), 'contracts', getUserModuleAccessOverride(user));
+}
+
 export function hasAreaAccess(
   user: PortalAccessUser | null | undefined,
   area: PortalAreaAccessKey,

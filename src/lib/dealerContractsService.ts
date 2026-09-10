@@ -21,7 +21,7 @@ import { normalizeContractServiceHourlyRateDkk } from "@/lib/contractServiceTerm
 import { normalizeContractPaymentTerm } from "@/lib/contractPaymentTerms";
 import { resolveContractCommercialTerms } from "@/lib/contractCommercialTerms";
 import { normalizeContractAssociatedPartners } from "@/lib/contractAssociatedPartners";
-import { fetchDealerAccountByNumber } from "@/lib/dealerAccountsService";
+import { fetchDealerAccountByNumber, type DealerAccount } from "@/lib/dealerAccountsService";
 
 export const DEALER_CONTRACTS_BUCKET = "dealer-contracts";
 
@@ -480,6 +480,54 @@ export async function fetchDealerContractById(
 
   if (error) return { row: null, error: error.message };
   return { row: data ? rowToContractRecord(data as Record<string, unknown>) : null, error: null };
+}
+
+export type DealerContractSellerScope = {
+  sellerId?: string | null;
+  sellerEmail?: string | null;
+  sellerInitials?: string | null;
+};
+
+function normalizeSellerScopeText(value: string | null | undefined) {
+  return (value || '').trim().toLowerCase();
+}
+
+function normalizeSellerScopeInitials(value: string | null | undefined) {
+  return (value || '').trim().toUpperCase();
+}
+
+export function dealerMatchesContractSellerScope(
+  dealer: Pick<DealerAccount, 'assigned_seller_id' | 'assigned_seller_email' | 'assigned_seller_initials'> | null,
+  scope: DealerContractSellerScope,
+): boolean {
+  if (!dealer) return false;
+  const sellerId = normalizeSellerScopeText(scope.sellerId);
+  const sellerEmail = normalizeSellerScopeText(scope.sellerEmail);
+  const sellerInitials = normalizeSellerScopeInitials(scope.sellerInitials);
+  return Boolean(
+    (sellerId && normalizeSellerScopeText(dealer.assigned_seller_id) === sellerId)
+      || (sellerEmail && normalizeSellerScopeText(dealer.assigned_seller_email) === sellerEmail)
+      || (sellerInitials && normalizeSellerScopeInitials(dealer.assigned_seller_initials) === sellerInitials),
+  );
+}
+
+/**
+ * View-as preserves the Backend JWT. Narrow a viewed seller to that seller's
+ * assigned dealer before exposing a contract by direct URL.
+ */
+export async function fetchDealerContractByIdForSellerScope(
+  contractId: string,
+  scope: DealerContractSellerScope,
+): Promise<{ row: DealerContractRecord | null; error: string | null }> {
+  const contractResult = await fetchDealerContractById(contractId);
+  if (contractResult.error || !contractResult.row) return contractResult;
+
+  const dealerResult = await fetchDealerAccountByNumber(contractResult.row.dealer_account_number || '');
+  if (dealerResult.error) return { row: null, error: dealerResult.error };
+  if (!dealerMatchesContractSellerScope(dealerResult.row, scope)) {
+    return { row: null, error: 'Du har ikke adgang til denne kontrakt.' };
+  }
+  return contractResult;
 }
 
 export function getDealerContractOverviewStatusGroup(

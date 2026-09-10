@@ -43,6 +43,7 @@ import {
   fetchDealerContractAccessWindows,
   fetchDealerContractDocumentVersions,
   fetchDealerContractById,
+  fetchDealerContractByIdForSellerScope,
   fetchDealerContractDraft,
   fetchDealerContractPartnerUsers,
   fetchInternalDealerContractOverview,
@@ -71,7 +72,7 @@ import { fetchDealerAccountByNumber, fetchDealerAccounts, fetchDealerAccountsFor
 import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import { inviteContractPartnerUser } from '@/lib/adminUserActions';
-import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess } from '@/lib/portalAccess';
+import { canAccessContractsModule, derivePortalRole } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
@@ -889,8 +890,7 @@ export default function ContractsPage() {
   const internalContractRoles = new Set(['timan_backend', 'timan_seller', 'timan_service']);
   const overviewContractRoles = new Set(['timan_backend', 'timan_seller']);
   const isInternalContractActor = !!portalRole && internalContractRoles.has(portalRole);
-  const hasInternalContractModuleAccess = portalRole === 'timan_backend'
-    || hasModuleAccess(portalRole, 'contracts', getUserModuleAccessOverride(effectiveUser));
+  const hasInternalContractModuleAccess = canAccessContractsModule(effectiveUser);
   const canUseInternalContractOverview = !!portalRole
     && overviewContractRoles.has(portalRole)
     && hasInternalContractModuleAccess;
@@ -943,7 +943,12 @@ export default function ContractsPage() {
     setContractLoadError(null);
 
     const loader = routeContractIdValue
-      ? fetchDealerContractById(routeContractIdValue)
+      ? portalRole === 'timan_seller'
+        ? fetchDealerContractByIdForSellerScope(routeContractIdValue, {
+          sellerEmail: getEffectiveSellerEmail(appUser) || effectiveUser.email,
+          sellerInitials: getEffectiveSellerInitials(appUser) || effectiveUser.initials,
+        })
+        : fetchDealerContractById(routeContractIdValue)
       : showInternalContractOverview
         ? Promise.resolve({ row: null, error: null })
         : startNewContract
@@ -986,7 +991,7 @@ export default function ContractsPage() {
     });
 
     return () => { cancelled = true; };
-  }, [dealerAccountNumber, effectiveUser?.email, routeContractIdValue, showInternalContractOverview, startNewContract]);
+  }, [appUser, dealerAccountNumber, effectiveUser?.email, effectiveUser?.initials, portalRole, routeContractIdValue, showInternalContractOverview, startNewContract]);
 
   useEffect(() => {
     if (!effectiveUser) return;
@@ -1085,9 +1090,8 @@ export default function ContractsPage() {
     return () => { cancelled = true; };
   }, [activeDealerAccountNumber, contractLoaded, contractRecord]);
 
-  const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   const canManagePartnerContractAccess = portalRole === 'timan_backend'
-    || (portalRole === 'timan_seller' && hasModuleAccess(portalRole, 'contracts', moduleOverride));
+    || (portalRole === 'timan_seller' && canAccessContractsModule(effectiveUser));
   const hasActiveAccessWindow = Boolean(accessWindow && new Date(accessWindow.opens_at).getTime() <= Date.now() && new Date(accessWindow.closes_at).getTime() > Date.now() && !accessWindow.revoked_at);
   const hasApprovedPartnerDocumentAccess = ['awaiting_signed_upload', 'submitted_for_approval', 'changes_requested', 'approved', 'archived'].includes(contractRecord?.contract_status ?? '');
   const hasAccess = hasInternalContractModuleAccess || hasActiveAccessWindow || hasApprovedPartnerDocumentAccess;

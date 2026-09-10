@@ -12,7 +12,7 @@ import BackendHome from '@/components/portal/BackendHome';
 import { PORTAL_AREAS, isAreaVisible, PortalAreaId } from '@/lib/portalAreas';
 import { PORTAL_MODULES, isModuleVisible } from '@/lib/portalModules';
 import { canAccessTsb } from '@/components/tsb/TsbAccessGuard';
-import { canManageMarketingVideos, canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { canAccessContractsModule, canManageMarketingVideos, canManageNewsContent, derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { Language } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
@@ -146,6 +146,7 @@ export default function PortalAreaPage({ areaId }: Props) {
     .filter(m => {
       const key = MODULE_ACCESS_MAP[m.id];
       if (!key) return true;
+      if (key === 'contracts') return canAccessContractsModule(effectiveUser);
       return hasModuleAccess(portalRole, key, moduleOverride);
     });
   const showCreateNewsCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
