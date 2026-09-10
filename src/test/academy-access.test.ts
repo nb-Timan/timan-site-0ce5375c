@@ -35,10 +35,10 @@ describe('Academy module access', () => {
 
   it('does not grant Academy implicitly to Backend users', () => {
     const backendOff = {
-      role: 'timan_backend' as const,
+      role: 'timan_saelger' as const,
       partner_type: null,
       portal_role: 'timan_backend',
-      allowed_modules: ['timan_backend', 'timan_crm'],
+      allowed_modules: ['timan_backend', 'timan_crm'] as ModuleAccessKey[],
       module_access: ['timan_backend', 'timan_crm'],
     };
 
