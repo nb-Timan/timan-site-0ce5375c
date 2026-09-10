@@ -112,7 +112,9 @@ function isPortalLanguage(value: unknown): value is PortalLanguage {
 
 function shouldShareKey(key: string): boolean {
   const normalized = key.trim();
-  return SHARED_KEYS.some((shared) => normalized === shared || normalized.toLowerCase().endsWith(shared.toLowerCase()));
+  return SHARED_KEYS.some((shared) =>
+    normalized === shared || (shared.length > 1 && normalized.toLowerCase().endsWith(shared.toLowerCase())),
+  );
 }
 
 function isProbablyNonTextValue(value: string): boolean {
@@ -225,6 +227,13 @@ async function translateBatch(
   targetLanguage: PortalLanguage,
   values: Record<string, string>,
 ): Promise<Record<string, string>> {
+  const keys = Object.keys(values);
+  const outputSchema = {
+    type: 'object',
+    properties: Object.fromEntries(keys.map((key) => [key, { type: 'string' }])),
+    required: keys,
+    additionalProperties: false,
+  };
   const response = await fetch(OPENAI_RESPONSES_URL, {
     method: "POST",
     headers: {
@@ -234,6 +243,14 @@ async function translateBatch(
     body: JSON.stringify({
       model,
       temperature: 0.2,
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'news_translations',
+          strict: true,
+          schema: outputSchema,
+        },
+      },
       input: [
         {
           role: "system",
@@ -383,13 +400,33 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    const translated = await translateBatch(
+    let translated = await translateBatch(
       OPENAI_API_KEY,
       OPENAI_TRANSLATION_MODEL,
       body.sourceLanguage,
       targetLanguage,
       valuesToTranslate,
     );
+
+    // The translation model can occasionally omit a key from a batch. Retry only
+    // those values so publishing never silently proceeds with incomplete locales.
+    const missingPaths = Object.keys(valuesToTranslate).filter((pathKey) => !translated[pathKey]?.trim());
+    if (missingPaths.length > 0) {
+      const retryValues = Object.fromEntries(missingPaths.map((pathKey) => [pathKey, valuesToTranslate[pathKey]]));
+      const retried = await translateBatch(
+        OPENAI_API_KEY,
+        OPENAI_TRANSLATION_MODEL,
+        body.sourceLanguage,
+        targetLanguage,
+        retryValues,
+      );
+      translated = { ...translated, ...retried };
+    }
+
+    const unresolvedPaths = Object.keys(valuesToTranslate).filter((pathKey) => !translated[pathKey]?.trim());
+    if (unresolvedPaths.length > 0) {
+      throw new Error(`OpenAI response omitted translations for: ${unresolvedPaths.join(", ")}`);
+    }
 
     for (const [pathKey, translatedValue] of Object.entries(translated)) {
       const path = pathKey.split(".");
