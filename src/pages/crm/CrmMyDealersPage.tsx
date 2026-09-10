@@ -505,7 +505,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const pageTitle = externalCrm ? i18n("crmMyPartners", uiLanguage) : i18n("crmMyDealers", uiLanguage);
   const pageSubtitle = externalCrm ? i18n("crmMyDealersPartnerSubtitle", uiLanguage) : i18n("crmMyDealersSubtitle", uiLanguage);
   const detailPath = (dealer: DealerAccount) => partnerDataPresentation
-    ? `/portal/dealer-data?accountNumber=${encodeURIComponent(dealer.account_number)}`
+    ? `/portal/dealer-data/${encodeURIComponent(dealer.account_number)}`
     : `/portal/crm/my-dealers/${dealer.account_number}`;
   const emptyLabel = externalCrm ? i18n("crmMyDealersPartnerEmpty", uiLanguage) : i18n("crmMyDealersEmpty", uiLanguage);
   const scopeNote = externalCrm ? i18n("crmMyDealersPartnerScopeNote", uiLanguage) : i18n("crmMyDealersScopeNote", uiLanguage);

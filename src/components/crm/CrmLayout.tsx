@@ -30,9 +30,9 @@ const EXTERNAL_NAV_BLOCKLIST = new Set([
   '/portal/crm/budget-dashboard',
 ]);
 
-interface Props { children: ReactNode; pageTitle?: string }
+interface Props { children: ReactNode; pageTitle?: string; partnerDataPresentation?: boolean }
 
-export default function CrmLayout({ children, pageTitle }: Props) {
+export default function CrmLayout({ children, pageTitle, partnerDataPresentation = false }: Props) {
   const { appUser, loading, setAppUser, logout } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
@@ -47,12 +47,12 @@ export default function CrmLayout({ children, pageTitle }: Props) {
   // later upgraded to Timan Seller/Backend/etc. Trust portal_role first.
   if (appUser.role === 'slutkunde' && !portalRole) return <Navigate to="/configurator" replace />;
   const externalCrm = isExternalCrmRole(portalRole);
-  const ownDealerDetailMatch = location.pathname.match(/^\/portal\/crm\/my-dealers\/([^/]+)$/);
+  const dealerDetailMatch = location.pathname.match(/^\/portal\/(?:crm\/my-dealers|dealer-data)\/([^/]+)$/);
   const hasDealerDataAreaAccess = hasAreaAccess(effectiveUser, 'dealer_data');
   const hasCrmAreaAccess = hasAreaAccess(effectiveUser, 'timan_crm');
   const externalDealerDetailAllowed = Boolean(
     externalCrm &&
-    ownDealerDetailMatch &&
+    dealerDetailMatch &&
     hasDealerDataAreaAccess,
   );
   const crmAreaAllowed = externalDealerDetailAllowed || hasCrmAreaAccess;
@@ -65,9 +65,14 @@ export default function CrmLayout({ children, pageTitle }: Props) {
   if (externalCrm && EXTERNAL_NAV_BLOCKLIST.has(location.pathname)) {
     return <Navigate to="/portal/crm/dashboard" replace />;
   }
-  const navItems = externalCrm
-    ? (hasCrmAreaAccess ? NAV.filter((item) => !EXTERNAL_NAV_BLOCKLIST.has(item.to)) : [])
+  const baseNavItems = partnerDataPresentation
+    ? NAV.map((item) => item.to === '/portal/crm/my-dealers'
+      ? { ...item, tKey: 'area_dealer_data_title', to: '/portal/dealer-data' }
+      : item)
     : NAV;
+  const navItems = externalCrm
+    ? (hasCrmAreaAccess ? baseNavItems.filter((item) => !EXTERNAL_NAV_BLOCKLIST.has(item.to)) : [])
+    : baseNavItems;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>

@@ -1,6 +1,6 @@
 /**
  * Dealer detail dashboard for CRM → Mine forhandlere.
- * Route: /portal/crm/my-dealers/:accountNumber
+ * Routes: /portal/crm/my-dealers/:accountNumber and /portal/dealer-data/:accountNumber
  *
  * Shows:
  *  • Dealer master data + main/branch relation
@@ -573,7 +573,7 @@ async function fetchDealerDetailUsers(
   return Array.from(byId.values()).sort((a, b) => a.email.localeCompare(b.email));
 }
 
-export default function CrmDealerDetailPage() {
+export default function CrmDealerDetailPage({ presentation = "crm" }: { presentation?: "crm" | "partnerdata" }) {
   const { accountNumber = "" } = useParams<{ accountNumber: string }>();
   const { appUser, loading } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
@@ -633,6 +633,10 @@ export default function CrmDealerDetailPage() {
   const seller = isScopedSeller(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
   const canPreviewDealerMachines = admin || seller;
+  const partnerDataPresentation = presentation === "partnerdata";
+  const dealerOverviewHref = (dealerNumber: string) => partnerDataPresentation
+    ? `/portal/dealer-data/${encodeURIComponent(dealerNumber)}`
+    : `/portal/crm/my-dealers/${encodeURIComponent(dealerNumber)}`;
   const effectiveUserKey = [
     effectiveUser?.email?.trim().toLowerCase() ?? "",
     effectiveUser?.portal_role ?? "",
@@ -898,10 +902,6 @@ export default function CrmDealerDetailPage() {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!canAccess) return <Navigate to="/portal" replace />;
-
-  if (externalCrm && effectiveUser?.dealer_number && accountNumber !== effectiveUser.dealer_number) {
-    return <Navigate to={`/portal/crm/my-dealers/${encodeURIComponent(effectiveUser.dealer_number)}`} replace />;
-  }
 
   if (!busy && !dealer) {
     return (
@@ -1349,7 +1349,7 @@ export default function CrmDealerDetailPage() {
   }
 
   return (
-    <CrmLayout pageTitle={dealer.branch_name || dealer.company_name}>
+    <CrmLayout pageTitle={dealer.branch_name || dealer.company_name} partnerDataPresentation={partnerDataPresentation}>
 
       {isDealerInactive(dealer) && (
         <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
@@ -1382,7 +1382,7 @@ export default function CrmDealerDetailPage() {
                           <span className="font-mono text-slate-900">{successor.account_number}</span>
                         </span>
                         <Link
-                          to={`/portal/crm/my-dealers/${successor.account_number}`}
+                          to={dealerOverviewHref(successor.account_number)}
                           className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700 hover:text-emerald-800 hover:underline"
                         >
                           {tl("open_successor", lang)} <ArrowRight className="h-3.5 w-3.5" />
@@ -1700,7 +1700,7 @@ export default function CrmDealerDetailPage() {
         onClose={() => setShowCollaborationModal(false)}
         onOpenDealer={(d) => {
           setShowCollaborationModal(false);
-          navigate(`/portal/crm/my-dealers/${d.account_number}`);
+          navigate(dealerOverviewHref(d.account_number));
         }}
       />
     </CrmLayout>

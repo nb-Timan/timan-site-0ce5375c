@@ -32,6 +32,7 @@
  *   /portal/service/warranty/*        → /portal/service/warranty("Warranty")
  *   /portal/service/tickets/*         → /portal/service/tickets ("Service tickets")
  *   /portal/service/*                 → /portal/teknik-service  ("Teknik & Service")
+ *   /portal/dealer-data/:id           → /portal/dealer-data     ("Partnerdata")
  *   /portal/dealer-data               → /portal                 ("portal")
  *   /messe/resources/driftberegner    → /messe                  ("Messe")
  *   /messe/resources/co2              → /messe                  ("Messe")
@@ -73,7 +74,8 @@ type BackLabelKey =
   | 'service_tickets'
   | 'machine_journal'
   | 'machine_search'
-  | 'service_maintenance';
+  | 'service_maintenance'
+  | 'partner_data';
 
 const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   portal:          { da: 'Tilbage til portal',        en: 'Back to portal',         de: 'Zurück zum Portal',         it: 'Torna al portale',         hu: 'Vissza a portálra' },
@@ -98,6 +100,7 @@ const LABELS: Record<BackLabelKey, Record<Language, string>> = {
   machine_journal: { da: 'Tilbage til Min Maskine',   en: 'Back to My Machine',     de: 'Zurück zu Meine Maschine',  it: 'Torna a La mia macchina',  hu: 'Vissza: Saját gép' },
   machine_search:  { da: 'Tilbage til Søg på maskine',en: 'Back to Machine Search', de: 'Zurück zur Maschinensuche', it: 'Torna a Cerca macchina',   hu: 'Vissza a gépkereséshez' },
   service_maintenance: { da: 'Tilbage til Serviceregistreringer', en: 'Back to Service registrations', de: 'Zurück zu Serviceerfassungen', it: 'Torna alle registrazioni di servizio', hu: 'Vissza a szervizregisztrációkhoz' },
+  partner_data: { da: 'Tilbage til Partnerdata', en: 'Back to Partner data', de: 'Zurück zu Partnerdaten', it: 'Torna ai dati partner', hu: 'Vissza a partneradatokhoz' },
 };
 
 const eq = (path: string, p: string) => path === p;
@@ -133,6 +136,7 @@ const RULES: ParentRule[] = [
   { match: p => eq(p, '/portal/salg-marketing'),          to: '/portal', labelKey: 'portal' },
   { match: p => eq(p, '/portal/teknik-service'),          to: '/portal', labelKey: 'portal' },
   { match: p => eq(p, '/portal/backend'),                 to: '/portal', labelKey: 'portal' },
+  { match: p => /^\/portal\/dealer-data\/[^/]+/.test(p), to: '/portal/dealer-data', labelKey: 'partner_data' },
   { match: p => eq(p, '/portal/dealer-data'),             to: '/portal', labelKey: 'portal' },
 
   // Backend child pages
