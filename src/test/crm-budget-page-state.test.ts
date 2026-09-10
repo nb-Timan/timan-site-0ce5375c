@@ -202,6 +202,7 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
       "13101003", "411891", "411906", "V35-502", "V35-300", "795002", "721059",
       "712903", "725126", "712902", "725120", "725121", "712901",
       "50101017", "50101018", "50101019", "50101020",
+      "411701", "412585", "411594", "412603", "712900",
     ]));
     for (const itemNumber of BUDGET_EXCLUDED_EQUIPMENT_VARENR) {
       expect(allItemNumbers.has(itemNumber)).toBe(false);

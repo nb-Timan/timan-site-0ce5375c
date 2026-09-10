@@ -236,6 +236,11 @@ export const BUDGET_EXCLUDED_EQUIPMENT_VARENR = new Set([
   "50101018",
   "50101019",
   "50101020",
+  "411701",
+  "412585",
+  "411594",
+  "412603",
+  "712900",
 ]);
 
 type BudgetCatalogMachine = {
