@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MODULE_ACCESS, hasModuleAccess } from '@/lib/portalAccess';
+import { DEFAULT_MODULE_ACCESS, hasModuleAccess, type ModuleAccessKey } from '@/lib/portalAccess';
 import { canAccessAcademy, hasAcademyModuleAccess, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 
 const seller = (allowed_modules: string[] | null) => ({

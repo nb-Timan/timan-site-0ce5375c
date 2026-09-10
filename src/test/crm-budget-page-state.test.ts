@@ -88,6 +88,7 @@ function makeOrder(id: string, machineType: string, qty: number) {
     id, title: machineType,
     seller_email: JTN.email, seller_initials: JTN.initials,
     case_status: "ordre_afgivet", document_type: "order",
+    order_number: null as string | null,
     order_sent_at: `${YEAR}-05-15T10:00:00Z`, submitted_at: `${YEAR}-05-15T10:00:00Z`, created_at: `${YEAR}-05-15T10:00:00Z`,
     dealer_name: "Test Dealer",
   };
