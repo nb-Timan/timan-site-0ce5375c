@@ -6,6 +6,8 @@ import {
 } from '@/lib/contractCommercialTerms';
 import { buildContractSnapshot, EMPTY_CONTRACT_CONFIRMATIONS, type ContractFormData } from '@/lib/contractFlow';
 import { createEmptyContractTerritoryArea, createEmptySecondaryContractTerritoryArea } from '@/lib/contractTerritory';
+import { paymentTermsFromContractTerm, resolveDealerPaymentTerms } from '@/lib/paymentTerms';
+import { PARTNER_CURRENCY_CODES } from '@/lib/currency';
 
 describe('partner commercial terms', () => {
   it('normalizes approved contract discounts to safe percentages', () => {
@@ -57,5 +59,17 @@ describe('partner commercial terms', () => {
       machineDiscountPct: 25,
       equipmentDiscountPct: 25,
     });
+  });
+
+  it('uses a Partnerdata payment override before the active contract default', () => {
+    expect(resolveDealerPaymentTerms({ override: 'Net 14 days', contract: 'Net 30 days' })).toEqual({ value: 'Net 14 days', source: 'override' });
+    expect(resolveDealerPaymentTerms({ override: null, contract: 'Net 30 days' })).toEqual({ value: 'Net 30 days', source: 'contract' });
+    expect(resolveDealerPaymentTerms({ override: null, contract: null })).toEqual({ value: null, source: 'unset' });
+    expect(paymentTermsFromContractTerm('net_21')).toBe('Standard NET21');
+    expect(paymentTermsFromContractTerm('NET14')).toBe('Net 14 days');
+  });
+
+  it('limits Partnerdata currencies to DKK, EUR, and SEK', () => {
+    expect(PARTNER_CURRENCY_CODES).toEqual(['DKK', 'EUR', 'SEK']);
   });
 });

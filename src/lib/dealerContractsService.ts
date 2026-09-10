@@ -930,6 +930,25 @@ export async function fetchDealerContractsForDealerAccount(
   return { rows: (data || []).map((row) => rowToContractRecord(row as Record<string, unknown>)), error: null };
 }
 
+/** Returns the payment term from the newest approved contract for a partner. */
+export async function fetchActiveDealerContractPaymentTerm(
+  dealerAccountNumber: string,
+): Promise<{ paymentTerm: string | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('dealer_contracts')
+    .select('form_data, approved_at, updated_at')
+    .eq('dealer_account_number', dealerAccountNumber)
+    .eq('contract_status', 'approved')
+    .order('approved_at', { ascending: false, nullsFirst: false })
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return { paymentTerm: null, error: error.message };
+  const form = (data?.form_data ?? {}) as { paymentTerm?: unknown };
+  return { paymentTerm: typeof form.paymentTerm === 'string' ? form.paymentTerm : null, error: null };
+}
+
 export async function deleteDealerContract(contractId: string): Promise<{ deleted: boolean; error: string | null }> {
   const { data, error } = await supabase.functions.invoke("admin-contract-actions", {
     body: {

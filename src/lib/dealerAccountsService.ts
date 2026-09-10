@@ -52,6 +52,7 @@ export interface DealerAccount {
   director_name: string | null;
   invoice_email: string | null;
   payment_terms: string | null;
+  payment_terms_override: string | null;
   standard_machine_discount_pct: number | null;
   importer_discount_pct: number | null;
   spare_parts_discount_pct: number | null;
@@ -160,6 +161,7 @@ function rowToDealer(row: Record<string, unknown>): DealerAccount {
     director_name: (row.director_name as string | null) ?? null,
     invoice_email: (row.invoice_email as string | null) ?? null,
     payment_terms: (row.payment_terms as string | null) ?? null,
+    payment_terms_override: (row.payment_terms_override as string | null) ?? null,
     standard_machine_discount_pct: (row.standard_machine_discount_pct as number | null) ?? null,
     importer_discount_pct: (row.importer_discount_pct as number | null) ?? null,
     spare_parts_discount_pct: (row.spare_parts_discount_pct as number | null) ?? null,
@@ -396,6 +398,7 @@ export interface UpdateDealerAccountPatch {
   director_name?: string | null;
   invoice_email?: string | null;
   payment_terms?: string | null;
+  payment_terms_override?: string | null;
   currency_code?: string | null;
   finance_contact_name?: string | null;
   finance_contact_phone?: string | null;

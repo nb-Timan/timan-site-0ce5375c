@@ -87,3 +87,35 @@ export function resolvePaymentTerms(value: unknown): string {
 }
 
 export const PAYMENT_TERMS_PERMISSION_KEY = 'can_manage_payment_terms' as const;
+
+export type DealerPaymentTermsSource = 'override' | 'contract' | 'unset';
+
+export type DealerPaymentTermsResolution = {
+  value: string | null;
+  source: DealerPaymentTermsSource;
+};
+
+/** Maps a compact contract term to the existing shared payment-term value. */
+export function paymentTermsFromContractTerm(value: unknown): string {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (PAYMENT_TERMS_OPTIONS.includes(value as string)) return value as string;
+  if (normalized === 'net_30' || normalized === 'net30') return 'Net 30 days';
+  if (normalized === 'net_14' || normalized === 'net14') return 'Net 14 days';
+  if (normalized === 'net_7' || normalized === 'net7') return 'Net 7 days';
+  if (normalized === 'cbs') return 'CBS - Cash before shipment';
+  return DEFAULT_PAYMENT_TERMS;
+}
+
+/** A Partnerdata override wins; otherwise an active contract is the default. */
+export function resolveDealerPaymentTerms(input: {
+  override?: string | null;
+  contract?: string | null;
+}): DealerPaymentTermsResolution {
+  const override = input.override?.trim() || null;
+  if (override) return { value: override, source: 'override' };
+
+  const contract = input.contract?.trim() || null;
+  if (contract) return { value: contract, source: 'contract' };
+
+  return { value: null, source: 'unset' };
+}

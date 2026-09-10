@@ -127,6 +127,14 @@ export default function DealerDataPage() {
   // Internal staff can edit their scoped partner accounts. An external partner
   // may view linked accounts, but can edit only its own canonical account.
   const canEditProfile = canEditPartnerDataAccount(effectiveUser, portalRole, dealerNumber);
+  const isAssignedSeller = Boolean(
+    dealer && effectiveUser && (
+      (dealer.assigned_seller_id && effectiveUser.id && dealer.assigned_seller_id === effectiveUser.id)
+      || (dealer.assigned_seller_email && dealer.assigned_seller_email.trim().toLowerCase() === effectiveUser.email.trim().toLowerCase())
+    ),
+  );
+  const canManageFinancialTerms = portalRole === 'timan_backend'
+    || (portalRole === 'timan_seller' && isAssignedSeller);
 
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
@@ -193,6 +201,7 @@ export default function DealerDataPage() {
               dealer={dealer}
               language={lang}
               canEdit={canEditProfile}
+              canManageFinancialTerms={canManageFinancialTerms}
               onUpdated={(next) => setDealer(next)}
             />
             <PartnerAgreementHistory dealerAccountNumber={dealer.account_number} language={lang} />

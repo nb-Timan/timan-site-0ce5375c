@@ -10,6 +10,10 @@ import type { Language } from '@/types/configurator';
 
 export type Currency = 'DKK' | 'EUR';
 
+/** Partner default currencies. This never converts historical commercial data. */
+export const PARTNER_CURRENCY_CODES = ['DKK', 'EUR', 'SEK'] as const;
+export type PartnerCurrencyCode = (typeof PARTNER_CURRENCY_CODES)[number];
+
 /** Default exchange rate. Adjust here if you ever need a different rate. */
 export const EUR_TO_DKK = 7.46;
 

@@ -37,6 +37,12 @@ import {
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 import type { Language } from "@/types/configurator";
+import {
+  PAYMENT_TERMS_OPTIONS,
+  getPaymentTermsOptionLabel,
+  paymentTermsFromContractTerm,
+  resolveDealerPaymentTerms,
+} from "@/lib/paymentTerms";
 import { tProfile, type ProfileI18nKey } from "@/lib/dealerProfileI18n";
 import {
   updateDealerAccount,
@@ -60,11 +66,14 @@ import {
   ROLE_KEYS_WORKSHOP,
 } from "@/lib/dealerContactModel";
 import { computeCompletion, type SectionKey } from "@/lib/dealerProfileCompletion";
+import { fetchActiveDealerContractPaymentTerm } from "@/lib/dealerContractsService";
+import { PARTNER_CURRENCY_CODES } from "@/lib/currency";
 
 interface Props {
   dealer: DealerAccount;
   language: Language;
   canEdit: boolean;
+  canManageFinancialTerms: boolean;
   onUpdated?: (next: DealerAccount) => void;
 }
 
@@ -82,7 +91,7 @@ const PROFILE_PATCH_KEYS = [
   "latitude", "longitude", "google_place_id", "geocoded_at",
   "geocoding_status", "geocoding_error",
   "finance_contact_name", "finance_contact_phone", "finance_contact_email",
-  "invoice_email", "payment_terms", "currency_code",
+  "invoice_email", "payment_terms_override", "currency_code",
   "website", "social_facebook", "social_linkedin", "social_tiktok",
   "social_youtube", "social_instagram",
   "sales_contact_name", "sales_contact_phone", "sales_contact_email",
@@ -310,6 +319,31 @@ interface AddressFieldProps {
   addressParts?: { address_line_1?: string | null; postal_code?: string | null; city?: string | null; country?: string | null };
 }
 
+interface SelectFieldProps {
+  id: string;
+  label: string;
+  value: string | null;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  options: Array<{ value: string; label: string }>;
+  placeholder: string;
+  helper?: ReactNode;
+}
+
+function SelectField({ id, label, value, onChange, disabled, options, placeholder, helper }: SelectFieldProps) {
+  return (
+    <div>
+      <Label htmlFor={id} className="mb-1 block text-xs uppercase tracking-wide text-slate-500">{label}</Label>
+      <select id={id} value={value ?? ""} disabled={disabled} onChange={(event) => onChange(event.target.value)}
+        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+        <option value="">{placeholder}</option>
+        {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+      </select>
+      {helper && <div className="mt-1 text-xs text-slate-500">{helper}</div>}
+    </div>
+  );
+}
+
 function AddressField({ id, label, value, onChange, onResolve, disabled, required, addressParts }: AddressFieldProps) {
   const isEmpty = !value || (typeof value === "string" && value.trim().length === 0);
   const missing = !!required && isEmpty;
@@ -411,7 +445,7 @@ function profileValue(value: DealerAccount[ProfilePatchKey]) {
 
 // ---------- main component ----------
 
-export default function DealerProfileEditor({ dealer, language, canEdit, onUpdated }: Props) {
+export default function DealerProfileEditor({ dealer, language, canEdit, canManageFinancialTerms, onUpdated }: Props) {
   const t = useMemo(() => (k: ProfileI18nKey) => tProfile(language, k), [language]);
 
   if (import.meta.env.DEV) {
@@ -427,6 +461,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   const [loadingContacts, setLoadingContacts] = useState(true);
   const [contactTransfer, setContactTransfer] = useState<ContactTransferDialogState | null>(null);
   const [pendingLeaveHref, setPendingLeaveHref] = useState<string | null>(null);
+  const [contractPaymentTerms, setContractPaymentTerms] = useState<string | null>(null);
 
   // Only re-sync draft when the dealer id changes — not on every prop ref change.
   useEffect(() => {
@@ -434,6 +469,17 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
     setSavedDealer(dealer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dealer.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchActiveDealerContractPaymentTerm(dealer.account_number).then((result) => {
+      if (!cancelled) {
+        const canonicalTerm = result.paymentTerm ?? dealer.payment_terms;
+        setContractPaymentTerms(canonicalTerm ? paymentTermsFromContractTerm(canonicalTerm) : null);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [dealer.account_number, dealer.payment_terms]);
 
   useEffect(() => {
     let cancelled = false;
@@ -457,6 +503,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
   }, [dealer.id, loadingContacts, contacts]);
 
   const completion = useMemo(() => computeCompletion(draft, contacts), [draft, contacts]);
+  const paymentTerms = resolveDealerPaymentTerms({ override: draft.payment_terms_override, contract: contractPaymentTerms });
+  const paymentTermsDifferFromContract = Boolean(contractPaymentTerms && paymentTerms.value && paymentTerms.value !== contractPaymentTerms);
 
   const hasUnsavedChanges = useMemo(() => (
     PROFILE_PATCH_KEYS.some((key) => profileValue(draft[key]) !== profileValue(savedDealer[key]))
@@ -842,8 +890,18 @@ export default function DealerProfileEditor({ dealer, language, canEdit, onUpdat
         />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Field id="invoice_email" label={t("invoiceEmail")} value={draft.invoice_email} onChange={(v) => set("invoice_email", v)} disabled={!canEdit} type="email" required />
-          <Field id="payment_terms" label={t("paymentTerms")} value={draft.payment_terms} onChange={(v) => set("payment_terms", v)} disabled={!canEdit} />
-          <Field id="currency_code" label={t("currencyCode")} value={draft.currency_code} onChange={(v) => set("currency_code", v)} disabled={!canEdit} />
+          <SelectField
+            id="payment_terms" label={t("paymentTerms")} value={paymentTerms.value} disabled={!canManageFinancialTerms}
+            placeholder={t("notSpecified")}
+            options={PAYMENT_TERMS_OPTIONS.map((option) => ({ value: option, label: getPaymentTermsOptionLabel(option, language as PortalUiLanguage) }))}
+            onChange={(value) => set("payment_terms_override", value === contractPaymentTerms ? null : value || null)}
+            helper={<><span>{t("paymentTermsHelp")}</span>{contractPaymentTerms && <span className="block">{t("contractPaymentTerms")}: {getPaymentTermsOptionLabel(contractPaymentTerms, language as PortalUiLanguage)}</span>}{paymentTermsDifferFromContract && <span className="block font-medium text-amber-700">{t("paymentTermsOverride")}</span>}</>}
+          />
+          <SelectField
+            id="currency_code" label={t("currencyCode")} value={draft.currency_code} disabled={!canManageFinancialTerms}
+            placeholder={t("notSpecified")} options={PARTNER_CURRENCY_CODES.map((currency) => ({ value: currency, label: currency }))}
+            onChange={(value) => set("currency_code", value || null)}
+          />
         </div>
       </SectionShell>
 
