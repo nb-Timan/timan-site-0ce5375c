@@ -22,6 +22,7 @@ import { listPublishedPrimaryVideos, type MarketingVideo } from '@/lib/videoLibr
 import { listMarketingConfiguratorCatalog, listMarketingConfiguratorContent, listPublishedMarketingConfiguratorContent, productContentKey, type MarketingConfiguratorCatalogItem, type MarketingConfiguratorContentRecord } from '@/lib/marketingConfiguratorContentService';
 import MarketingConfiguratorContentEditor from '@/components/configurator/MarketingConfiguratorContentEditor';
 import MarketingConfiguratorBulkTools from '@/components/configurator/MarketingConfiguratorBulkTools';
+import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -528,18 +529,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   ) : null;
   const renderMarketingContentState = (machineType: string, itemId: string | undefined) => {
     const state = marketingContentState(machineType, itemId);
-    if (!state) return null;
+    if (!state || state === 'missing') return null;
     const styles = state === 'draft'
       ? 'border-amber-300 bg-amber-50 text-amber-800'
       : state === 'published'
         ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
         : 'border-slate-300 bg-slate-50 text-slate-600';
-    const label = state === 'draft' ? 'Kladde' : state === 'published' ? 'Publiceret' : 'Mangler';
+    const label = state === 'draft' ? 'Kladde' : 'Publiceret';
     return <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${styles}`}>{label}</span>;
   };
-  const renderMarketingBadge = (badge?: string | null) => badge ? (
-    <span className="inline-flex items-center gap-0.5 rounded-full border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800 whitespace-nowrap">{badge}</span>
-  ) : null;
+  const renderMarketingBadge = (badge?: string | null) => <MarketingConfiguratorBadge badge={badge} />;
   const TC = (key: string) => t(key, contentUiLang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
@@ -550,6 +549,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   // Modal states
   const [infoModal, setInfoModal] = useState<{ title: string; content: string } | null>(null);
+  const [marketingInformation, setMarketingInformation] = useState<{ title: string; description: string; keyFeatures: string[]; specs: { label: string; value: string }[] } | null>(null);
   const [deliveryInfoOpen, setDeliveryInfoOpen] = useState(false);
   const [oilModalOpen, setOilModalOpen] = useState(false);
   const [oilChoice, setOilChoice] = useState<'normal' | 'bio' | null>(null);
@@ -1373,10 +1373,32 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     setInfoModal({ title: `${TC('machineInfo')}: ${getLocalizedName(p.name, lang)}`, content: html });
   };
 
+  const showMarketingInformation = (title: string, content: { description: string; key_features: string[]; specs: { label: string; value: unknown }[] }) => {
+    const specs = content.specs.map((spec) => ({
+      label: translateSpecLabel(spec.label, contentUiLang),
+      value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || ''),
+    })).filter((spec) => spec.label && spec.value);
+    setMarketingInformation({ title, description: content.description, keyFeatures: content.key_features.filter(Boolean), specs });
+  };
+
+  const showMachineInformation = (key: string) => {
+    const machine = PRODUCTS[key];
+    const content = machine ? marketingContentFor(key, machine.id) : null;
+    if (!machine || !content) {
+      showMachineDetails(key);
+      return;
+    }
+    showMarketingInformation(content.title || getLocalizedName(machine.name, lang), content);
+  };
+
   const showSpecs = (accId: string, machineType: string) => {
     const flatAccs = getAccessoriesFlat(machineType);
     const acc = flatAccs.find(a => String(a.id) === String(accId));
     const marketingContent = marketingContentFor(machineType, accId);
+    if (marketingContent) {
+      showMarketingInformation(marketingContent.title || getLocalizedName(acc?.name || '', lang), marketingContent);
+      return;
+    }
     const specs = marketingContent?.specs.length ? marketingContent.specs : acc?.specs;
     if (!specs?.length) return;
     const descEntry = specs.find(s => s.label === 'Beskrivelse');
@@ -1425,8 +1447,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const marketingContent = marketingContentFor(machineType, item.id);
     const videoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
     const imageUrl = marketingContent?.image_url || getImageUrlForItem(item);
-    const specificationUrl = marketingContent?.specification_url || '';
-    const hasSpecs = !!specificationUrl || !!(marketingContent?.specs.length || item.specs?.length);
+    const hasSpecs = Boolean(marketingContent?.description || marketingContent?.key_features.length || marketingContent?.specs.length || item.specs?.length);
     const showVideoIcon = !!videoUrl;
     const showImageIcon = !!(item.imageUrl || (item.images && item.images.length > 0) || item.videoUrl || (item.videos && item.videos.length > 0));
     if (!showVideoIcon && !showImageIcon && !hasSpecs) return null;
@@ -1442,11 +1463,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         ) : (
           <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">📸 {T('imageLink')}</span>
         ))}
-        {hasSpecs && (specificationUrl ? (
-          <a href={specificationUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs font-medium flex items-center gap-0.5 hover:text-blue-800 transition" onClick={e => e.stopPropagation()}>📄 {T('specsLink')}</a>
-        ) : (
-          <button onClick={e => { e.stopPropagation(); showSpecs(item.id!, machineType); }} className="text-blue-600 text-xs font-medium p-0 bg-transparent flex items-center gap-0.5 hover:text-blue-800 transition">📄 {T('specsLink')}</button>
-        ))}
+        {hasSpecs && <button onClick={e => { e.stopPropagation(); showSpecs(item.id!, machineType); }} className="text-blue-600 text-xs font-medium p-0 bg-transparent flex items-center gap-0.5 hover:text-blue-800 transition">📄 {T('specsLink')}</button>}
       </div>
     );
   };
@@ -2360,6 +2377,20 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         </div>
       )}
 
+      {marketingInformation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setMarketingInformation(null)}>
+          <div className="max-h-[90vh] w-[95%] max-w-[620px] overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <h3 className="mb-4 border-b pb-2 text-xl font-bold text-gray-900">{marketingInformation.title}</h3>
+            <div className="space-y-5">
+              {marketingInformation.description && <section className="rounded-lg bg-gray-50 p-3"><h4 className="mb-2 font-bold text-gray-800">{TC('mainInfo')}</h4><p className="whitespace-pre-line text-sm text-gray-700">{marketingInformation.description}</p></section>}
+              {marketingInformation.keyFeatures.length > 0 && <section className="border-t border-gray-200 pt-4"><h4 className="mb-2 font-bold text-gray-800">{TC('keyFeatures')}</h4><ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">{marketingInformation.keyFeatures.map((feature, index) => <li key={`${feature}-${index}`}>{feature}</li>)}</ul></section>}
+              {marketingInformation.specs.length > 0 && <section className="border-t border-gray-200 pt-4"><h4 className="mb-2 font-bold text-gray-800">{TC('dimSpecs')}</h4><div className="grid grid-cols-1 gap-x-4 gap-y-2 rounded-lg bg-gray-50 p-3 text-sm sm:grid-cols-2">{marketingInformation.specs.map((spec, index) => <div key={`${spec.label}-${index}`} className="contents"><span className="font-medium text-gray-700">{spec.label}</span><span className="font-semibold text-gray-900">{spec.value}</span></div>)}</div></section>}
+            </div>
+            <div className="mt-6 text-center"><button onClick={() => setMarketingInformation(null)} className="rounded-lg border border-gray-300 bg-gray-200 px-6 py-3 font-medium text-gray-700 hover:bg-gray-300">{TC('close')}</button></div>
+          </div>
+        </div>
+      )}
+
       {/* Oil Modal */}
       {oilModalOpen && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setOilModalOpen(false)}>
@@ -2808,11 +2839,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           ) : (key === 'Timan 2620' && (
                             <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📸 {T('imageLink')}</button>
                           ))}
-                          {marketingContent?.specification_url ? (
-                            <a href={marketingContent.specification_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium">📄 {T('infoSpecs')}</a>
-                          ) : p.machineDetails && (
-                            <button onClick={(e) => { e.stopPropagation(); showMachineDetails(key); }} className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📄 {T('infoSpecs')}</button>
-                          )}
+                          {(marketingContent || p.machineDetails) && <button onClick={(e) => { e.stopPropagation(); showMachineInformation(key); }} className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📄 {T('infoSpecs')}</button>}
                         </div>
 
                         <div className={`mt-auto pt-4 flex justify-between items-center w-full py-2 px-3 rounded-lg border-t ${isSelected ? 'border-emerald-200 bg-white' : 'border-gray-200 bg-gray-100'}`}>

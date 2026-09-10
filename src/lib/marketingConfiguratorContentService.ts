@@ -8,6 +8,7 @@ export type MarketingConfiguratorContentStatus = 'draft' | 'published';
 export interface MarketingConfiguratorContentFields {
   title: string;
   description: string;
+  key_features: string[];
   image_url: string;
   video_url: string;
   specification_url: string;
@@ -38,6 +39,7 @@ export interface MarketingConfiguratorCatalogItem {
 const EMPTY_CONTENT: MarketingConfiguratorContentFields = {
   title: '',
   description: '',
+  key_features: [],
   image_url: '',
   video_url: '',
   specification_url: '',
@@ -73,6 +75,7 @@ function defaultContent(item: Machine | Accessory, language: PortalUiLanguage): 
   return {
     title: getLocalizedName(item.name, catalogLanguage(language)),
     description,
+    key_features: [],
     image_url: firstUrl(item, 'image'),
     video_url: firstUrl(item, 'video'),
     specification_url: '',
@@ -86,6 +89,9 @@ function normalizeContent(value: unknown): MarketingConfiguratorContentFields {
   return {
     title: typeof content.title === 'string' ? content.title : '',
     description: typeof content.description === 'string' ? content.description : '',
+    key_features: Array.isArray(content.key_features)
+      ? content.key_features.filter((feature): feature is string => typeof feature === 'string').map((feature) => feature.trim()).filter(Boolean)
+      : [],
     image_url: typeof content.image_url === 'string' ? content.image_url : '',
     video_url: typeof content.video_url === 'string' ? content.video_url : '',
     specification_url: typeof content.specification_url === 'string' ? content.specification_url : '',
@@ -145,6 +151,7 @@ export function mergeMarketingConfiguratorContent(
   return {
     title: override.title || defaults.title,
     description: override.description || defaults.description,
+    key_features: override.key_features.length ? override.key_features : defaults.key_features,
     image_url: override.image_url || defaults.image_url,
     video_url: override.video_url || defaults.video_url,
     specification_url: override.specification_url || defaults.specification_url,

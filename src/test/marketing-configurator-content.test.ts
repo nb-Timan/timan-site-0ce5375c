@@ -27,13 +27,14 @@ describe('Marketing configurator content', () => {
 
   it('uses a published override only for presentation fields and preserves canonical defaults as fallback', () => {
     const defaults = {
-      title: 'RC-1000s Basismaskine', description: 'Canonical description', image_url: 'image', video_url: 'video', specification_url: '', specs: [], badge: '',
+      title: 'RC-1000s Basismaskine', description: 'Canonical description', key_features: ['Canonical feature'], image_url: 'image', video_url: 'video', specification_url: '', specs: [], badge: '',
     };
     const merged = mergeMarketingConfiguratorContent(defaults, {
-      title: 'RC-1000s', description: '', image_url: '', video_url: 'new-video', specification_url: '', specs: [], badge: 'Ny',
+      title: 'RC-1000s', description: '', key_features: ['Marketing feature'], image_url: '', video_url: 'new-video', specification_url: '', specs: [], badge: 'Ny',
     });
     expect(merged.title).toBe('RC-1000s');
     expect(merged.description).toBe('Canonical description');
+    expect(merged.key_features).toEqual(['Marketing feature']);
     expect(merged.video_url).toBe('new-video');
   });
 
@@ -70,6 +71,11 @@ describe('Marketing configurator content', () => {
     expect(editor).toContain("save('published')");
     expect(editor).toMatch(/onSaved\(result\.row\);\s+onClose\(\);/);
     expect(editor).toContain('MARKETING_BADGE_OPTIONS');
+    expect(editor).not.toContain('Specifikationslink');
+    expect(editor).toContain('Nøglefunktioner');
+    expect(editor).toContain('Dimensioner & tekniske specifikationer');
+    expect(configurator).toContain('showMarketingInformation');
+    expect(configurator).toContain("state === 'missing'");
     expect(bulkTools).toContain('Vis kun mangler');
     expect(bulkTools).toContain('Vis kun kladder');
     expect(bulkTools).toContain('Upload billeder');
