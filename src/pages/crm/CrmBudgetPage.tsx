@@ -45,6 +45,7 @@ import {
   listScopedOpenQuotes, sellerKeyOf,
   type ScopedConfiguration,
 } from "@/lib/crmRelationsService";
+import { matchesWorkingBudgetScope } from "@/lib/crmBudgetWorkingScope";
 import {
   listBudgetAccessWindows, closeBudgetAccessWindow, findActiveWindow, formatRemaining,
   type BudgetAccessWindow,
@@ -842,12 +843,12 @@ export default function CrmBudgetPage() {
     const budgetMonthly = mergeMonthlyPreferDealer(budgetMonthlyManual, dealerMonthly, hasDealerMonth);
     const scopedLeadContribs = leadContribs.filter(c => {
       if (c.product_key !== blockProductKey) return false;
-      if (!isAdmin && sellerCtxEmail) return (c.owner_email || "").toLowerCase() === sellerCtxEmail;
-      if (isAdmin && backendFilter && backendFilter !== "ALL") {
-        const e = backendFilter.toLowerCase();
-        return (c.owner_email || "").toLowerCase() === e;
-      }
-      return true;
+      return matchesWorkingBudgetScope({
+        ownerEmail: c.owner_email,
+        isAdmin,
+        backendFilter,
+        sellerContextEmail: sellerCtxEmail,
+      });
     });
     const leadWorkingByMonth: LeadWorkingContribution[][] = Array.from({ length: 12 }, () => []);
     for (const c of scopedLeadContribs) {
