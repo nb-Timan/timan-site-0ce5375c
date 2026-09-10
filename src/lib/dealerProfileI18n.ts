@@ -27,7 +27,7 @@ export type ProfileI18nKey =
   | "roleFinanceManager" | "roleBookkeeper" | "roleInvoicing" | "roleAccountsPayableReceivable"
   | "rolePurchasingManager" | "rolePurchaser" | "rolePartsPurchasing" | "roleLogisticsManager" | "roleLogisticsCoordinator"
   | "roleSalesDirector" | "roleSalesManager" | "roleSalesRep" | "roleSalesCoordinator" | "roleKeyAccount"
-  | "roleWorkshopManager" | "roleServiceManager" | "roleServiceTechnician" | "roleMechanic" | "rolePartsManager" | "roleStockManager" | "roleServiceCoord"
+  | "roleWorkshop" | "roleWorkshopResponsible" | "roleWorkshopManager" | "roleServiceManager" | "roleServiceTechnician" | "roleMechanic" | "rolePartsManager" | "rolePartsOrderer" | "roleStockManager" | "roleServiceCoord"
   | "roleMarketingManager" | "roleMarketingCoordinator" | "roleSocialMedia" | "roleWebsiteManager" | "roleCommunications"
   | "roleOther" | "area_primary";
 
@@ -70,7 +70,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleFinanceManager: "Økonomiansvarlig", roleBookkeeper: "Bogholder", roleInvoicing: "Fakturering", roleAccountsPayableReceivable: "Debitor/kreditor",
     rolePurchasingManager: "Indkøbsansvarlig", rolePurchaser: "Indkøber", rolePartsPurchasing: "Indkøb / reservedele", roleLogisticsManager: "Logistikansvarlig", roleLogisticsCoordinator: "Logistikkoordinator",
     roleSalesDirector: "Salgsdirektør", roleSalesManager: "Salgschef", roleSalesRep: "Sælger", roleSalesCoordinator: "Salgskoordinator", roleKeyAccount: "Key Account",
-    roleWorkshopManager: "Værkstedschef", roleServiceManager: "Servicechef", roleServiceTechnician: "Servicetekniker", roleMechanic: "Mekaniker", rolePartsManager: "Reservedelsansvarlig",
+    roleWorkshop: "Værksted", roleWorkshopResponsible: "Værkstedsansvarlig", roleWorkshopManager: "Værkstedschef", roleServiceManager: "Servicechef", roleServiceTechnician: "Servicetekniker", roleMechanic: "Mekaniker", rolePartsManager: "Reservedelsansvarlig", rolePartsOrderer: "Reservedelsbestiller",
     roleStockManager: "Lageransvarlig", roleServiceCoord: "Servicekoordinator",
     roleMarketingManager: "Marketingansvarlig", roleMarketingCoordinator: "Marketingkoordinator", roleSocialMedia: "SoMe", roleWebsiteManager: "Website/webansvarlig", roleCommunications: "Kommunikation",
     roleOther: "Andet", area_primary: "Primær",
@@ -111,7 +111,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleFinanceManager: "Finance manager", roleBookkeeper: "Bookkeeper", roleInvoicing: "Invoicing", roleAccountsPayableReceivable: "Accounts payable/receivable",
     rolePurchasingManager: "Purchasing manager", rolePurchaser: "Purchaser", rolePartsPurchasing: "Purchasing / spare parts", roleLogisticsManager: "Logistics manager", roleLogisticsCoordinator: "Logistics coordinator",
     roleSalesDirector: "Sales Director", roleSalesManager: "Sales Manager", roleSalesRep: "Sales Rep", roleSalesCoordinator: "Sales Coordinator", roleKeyAccount: "Key Account",
-    roleWorkshopManager: "Workshop Manager", roleServiceManager: "Service Manager", roleServiceTechnician: "Service Technician", roleMechanic: "Mechanic", rolePartsManager: "Parts Manager",
+    roleWorkshop: "Workshop", roleWorkshopResponsible: "Workshop Responsible", roleWorkshopManager: "Workshop Manager", roleServiceManager: "Service Manager", roleServiceTechnician: "Service Technician", roleMechanic: "Mechanic", rolePartsManager: "Parts Manager", rolePartsOrderer: "Parts Orderer",
     roleStockManager: "Stock Manager", roleServiceCoord: "Service Coordinator",
     roleMarketingManager: "Marketing Manager", roleMarketingCoordinator: "Marketing Coordinator", roleSocialMedia: "Social media", roleWebsiteManager: "Website manager", roleCommunications: "Communications",
     roleOther: "Other", area_primary: "Primary",
@@ -149,7 +149,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleFinanceManager: "Finanzverantwortlicher", roleBookkeeper: "Buchhalter", roleInvoicing: "Fakturierung", roleAccountsPayableReceivable: "Debitoren/Kreditoren",
     rolePurchasingManager: "Einkaufsleiter", rolePurchaser: "Einkäufer", rolePartsPurchasing: "Einkauf / Ersatzteile", roleLogisticsManager: "Logistikleiter", roleLogisticsCoordinator: "Logistikkoordinator",
     roleSalesDirector: "Vertriebsleiter", roleSalesManager: "Verkaufsleiter", roleSalesRep: "Verkäufer", roleSalesCoordinator: "Vertriebskoordinator", roleKeyAccount: "Key Account",
-    roleWorkshopManager: "Werkstattleiter", roleServiceManager: "Serviceleiter", roleServiceTechnician: "Servicetechniker", roleMechanic: "Mechaniker", rolePartsManager: "Ersatzteilverantwortlicher",
+    roleWorkshop: "Werkstatt", roleWorkshopResponsible: "Werkstattverantwortlicher", roleWorkshopManager: "Werkstattleiter", roleServiceManager: "Serviceleiter", roleServiceTechnician: "Servicetechniker", roleMechanic: "Mechaniker", rolePartsManager: "Ersatzteilverantwortlicher", rolePartsOrderer: "Ersatzteilbesteller",
     roleStockManager: "Lagerverantwortlicher", roleServiceCoord: "Servicekoordinator",
     roleMarketingManager: "Marketingverantwortlicher", roleMarketingCoordinator: "Marketingkoordinator", roleSocialMedia: "Social Media", roleWebsiteManager: "Website-Verantwortlicher", roleCommunications: "Kommunikation",
     roleOther: "Sonstiges", area_primary: "Primär",
@@ -187,7 +187,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleFinanceManager: "Responsabile finanza", roleBookkeeper: "Contabile", roleInvoicing: "Fatturazione", roleAccountsPayableReceivable: "Debitori/creditori",
     rolePurchasingManager: "Responsabile acquisti", rolePurchaser: "Acquirente", rolePartsPurchasing: "Acquisti / ricambi", roleLogisticsManager: "Responsabile logistica", roleLogisticsCoordinator: "Coordinatore logistica",
     roleSalesDirector: "Direttore vendite", roleSalesManager: "Responsabile vendite", roleSalesRep: "Venditore", roleSalesCoordinator: "Coordinatore vendite", roleKeyAccount: "Key Account",
-    roleWorkshopManager: "Capo officina", roleServiceManager: "Responsabile service", roleServiceTechnician: "Tecnico service", roleMechanic: "Meccanico", rolePartsManager: "Resp. ricambi",
+    roleWorkshop: "Officina", roleWorkshopResponsible: "Responsabile officina", roleWorkshopManager: "Capo officina", roleServiceManager: "Responsabile service", roleServiceTechnician: "Tecnico service", roleMechanic: "Meccanico", rolePartsManager: "Resp. ricambi", rolePartsOrderer: "Addetto agli ordini ricambi",
     roleStockManager: "Resp. magazzino", roleServiceCoord: "Coordinatore service",
     roleMarketingManager: "Responsabile marketing", roleMarketingCoordinator: "Coordinatore marketing", roleSocialMedia: "Social media", roleWebsiteManager: "Responsabile sito web", roleCommunications: "Comunicazione",
     roleOther: "Altro", area_primary: "Primario",
@@ -225,7 +225,7 @@ const dict: Record<Language, Record<ProfileI18nKey, string>> = {
     roleFinanceManager: "Pénzügyi felelős", roleBookkeeper: "Könyvelő", roleInvoicing: "Számlázás", roleAccountsPayableReceivable: "Követelések/tartozások",
     rolePurchasingManager: "Beszerzési vezető", rolePurchaser: "Beszerző", rolePartsPurchasing: "Beszerzés / alkatrészek", roleLogisticsManager: "Logisztikai vezető", roleLogisticsCoordinator: "Logisztikai koordinátor",
     roleSalesDirector: "Értékesítési igazgató", roleSalesManager: "Értékesítési vezető", roleSalesRep: "Értékesítő", roleSalesCoordinator: "Értékesítési koordinátor", roleKeyAccount: "Key Account",
-    roleWorkshopManager: "Szervizvezető", roleServiceManager: "Szervizvezető", roleServiceTechnician: "Szerviztechnikus", roleMechanic: "Szerelő", rolePartsManager: "Alkatrész felelős",
+    roleWorkshop: "Műhely", roleWorkshopResponsible: "Műhelyfelelős", roleWorkshopManager: "Szervizvezető", roleServiceManager: "Szervizvezető", roleServiceTechnician: "Szerviztechnikus", roleMechanic: "Szerelő", rolePartsManager: "Alkatrész felelős", rolePartsOrderer: "Alkatrészrendelő",
     roleStockManager: "Raktárfelelős", roleServiceCoord: "Szervizkoordinátor",
     roleMarketingManager: "Marketingfelelős", roleMarketingCoordinator: "Marketingkoordinátor", roleSocialMedia: "Közösségi média", roleWebsiteManager: "Weboldal felelős", roleCommunications: "Kommunikáció",
     roleOther: "Egyéb", area_primary: "Elsődleges",

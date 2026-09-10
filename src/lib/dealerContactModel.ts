@@ -14,8 +14,9 @@ export const ROLE_KEYS_PURCHASING: ProfileI18nKey[] = [
 ];
 
 export const ROLE_KEYS_WORKSHOP: ProfileI18nKey[] = [
-  "roleWorkshopManager", "roleServiceManager", "roleServiceTechnician", "roleMechanic",
-  "roleServiceCoord", "rolePartsManager", "roleOther",
+  "roleWorkshop", "roleWorkshopResponsible", "roleWorkshopManager", "roleServiceManager",
+  "roleServiceTechnician", "roleMechanic", "roleServiceCoord", "rolePartsManager",
+  "rolePartsOrderer", "roleOther",
 ];
 
 export const ROLE_KEYS_DIRECTOR: ProfileI18nKey[] = [
