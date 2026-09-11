@@ -852,7 +852,7 @@ export default function MesseMachineBrochurePage({
 }: MesseMachineBrochurePageProps) {
   const { appUser } = useAppUser();
   const { uiLanguage: lang } = useLanguage();
-  const readerAsset = productId ? getMesseBrochureReaderAsset(productId, lang) : undefined;
+  const readerAsset = getMesseBrochureReaderAsset(productId ?? machineKey, lang);
   const brochurePdfSrc = readerAsset?.pdfUrl ?? getProductBrochureUrl(productId ?? machineKey, lang) ?? pdfSrc;
   const brochurePageBase = readerAsset?.pageBase ?? pageBase;
   const brochurePageCount = readerAsset?.pageCount ?? pageCount ?? 0;

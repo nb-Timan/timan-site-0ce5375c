@@ -40,6 +40,12 @@ const READER_PAGE_SETS: Record<string, Partial<Record<BrochureLanguage, ReaderPa
   },
 };
 
+const READER_PRODUCT_IDS: Record<string, string> = {
+  'rc-751': 'RC-751',
+  'rc-1000s': 'RC-1000S',
+  'timan-3330': 'Timan 3330',
+};
+
 /**
  * Keeps the PDF language resolver and the image reader on the same document
  * variant. The PDF remains available as a secondary action inside the reader.
@@ -48,10 +54,11 @@ export function getMesseBrochureReaderAsset(
   productId: string,
   portalLanguage?: string | null,
 ): MesseBrochureReaderAsset | undefined {
-  const brochure = getProductBrochureAsset(productId, portalLanguage);
+  const canonicalProductId = READER_PRODUCT_IDS[productId.trim().toLowerCase()] ?? productId;
+  const brochure = getProductBrochureAsset(canonicalProductId, portalLanguage);
   if (!brochure) return undefined;
 
-  const pageSet = READER_PAGE_SETS[productId]?.[brochure.language];
+  const pageSet = READER_PAGE_SETS[canonicalProductId]?.[brochure.language];
   if (!pageSet) return undefined;
 
   return { pdfUrl: brochure.url, language: brochure.language, ...pageSet };

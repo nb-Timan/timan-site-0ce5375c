@@ -37,6 +37,12 @@ describe('Messe brochure reader', () => {
     }
   });
 
+  it('accepts the stable Messe route ids as well as canonical product ids', () => {
+    expect(getMesseBrochureReaderAsset('rc-751', 'DK')?.pageCount).toBe(7);
+    expect(getMesseBrochureReaderAsset('rc-1000s', 'DK')?.pageCount).toBe(7);
+    expect(getMesseBrochureReaderAsset('timan-3330', 'DK')?.pageCount).toBe(9);
+  });
+
   it('opens the primary brochure action in the internal modal, not a direct PDF link', () => {
     expect(componentSource).toContain('setBrochureOpen(true)');
     expect(componentSource).not.toContain(') : brochurePdfSrc ? (');
