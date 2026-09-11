@@ -35,3 +35,25 @@ export function getMissingOrdinaryCrmLeadFields(input: OrdinaryCrmLeadRequiredIn
 
   return missing;
 }
+
+export function normalizeWorkingBudgetQuantity(value: unknown): number {
+  const numeric = typeof value === 'number' ? value : Number(value ?? 0);
+  return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
+}
+
+/**
+ * Legacy leads can lack fields that became mandatory after their creation.
+ * They may still update the isolated working-budget flag, but no other
+ * incomplete lead edit may bypass normal validation.
+ */
+export function isLegacyWorkingBudgetOnlySave(input: {
+  isEditingExistingLead: boolean;
+  isLeadFormReady: boolean;
+  initialWorkingBudgetQuantity: unknown;
+  currentWorkingBudgetQuantity: unknown;
+}): boolean {
+  return input.isEditingExistingLead
+    && !input.isLeadFormReady
+    && normalizeWorkingBudgetQuantity(input.initialWorkingBudgetQuantity)
+      !== normalizeWorkingBudgetQuantity(input.currentWorkingBudgetQuantity);
+}

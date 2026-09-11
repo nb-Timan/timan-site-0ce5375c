@@ -618,6 +618,19 @@ export async function deleteLead(id: string, audit: DeleteLeadAudit = {}): Promi
 
 export type CrmLeadPatch = Partial<Omit<CrmLead, "id" | "created_at">>;
 
+export interface UpdateLeadOptions {
+  /**
+   * Require the Supabase update to affect a row before reporting success.
+   * This prevents the local cache from masking an RLS or network failure.
+   */
+  requireRemote?: boolean;
+  /**
+   * Use only for the isolated legacy-lead working-budget action. It avoids
+   * resubmitting incomplete historical contact fields with the update.
+   */
+  remoteOnly?: "move_to_working_qty";
+}
+
 /**
  * Update an existing lead by id.
  *
@@ -626,7 +639,11 @@ export type CrmLeadPatch = Partial<Omit<CrmLead, "id" | "created_at">>;
  * if the id doesn't exist in Supabase yet (e.g. seed row) the update simply
  * affects 0 rows there, but the local override still wins on next listLeads().
  */
-export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLead> {
+export async function updateLead(
+  id: string,
+  patch: CrmLeadPatch,
+  options: UpdateLeadOptions = {},
+): Promise<CrmLead> {
   if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
     throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
   }
@@ -634,6 +651,7 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
   // Merge into LS (acts as override for seed rows too).
   const local = readLS<CrmLead>(LS_LEADS);
   const existingIdx = local.findIndex(r => r.id === id);
+  const previousLocal = existingIdx >= 0 ? local[existingIdx] : null;
   let merged: CrmLead;
   if (existingIdx >= 0) {
     merged = { ...local[existingIdx], ...patch, id, updated_at: now } as CrmLead;
@@ -662,7 +680,9 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
   writeLS<CrmLead>(LS_LEADS, local);
 
   try {
-    const { error } = await supabase.from("crm_leads").update({
+    const remotePatch = options.remoteOnly === "move_to_working_qty"
+      ? { move_to_working_qty: merged.move_to_working_qty ?? 0 }
+      : {
       title: merged.title,
       owner_user_id: merged.owner_user_id,
       owner_name: merged.owner_name,
@@ -692,10 +712,31 @@ export async function updateLead(id: string, patch: CrmLeadPatch): Promise<CrmLe
       status: merged.status,
       move_to_working_qty: merged.move_to_working_qty ?? 0,
       incomplete_from_configurator: merged.incomplete_from_configurator ?? false,
-    }).eq("id", id);
-    if (error) notifyLocalFallback({ table: "crm_leads", action: "update", error });
+    };
+    if (options.requireRemote) {
+      const { data, error } = await supabase
+        .from("crm_leads")
+        .update(remotePatch)
+        .eq("id", id)
+        .select("id, move_to_working_qty")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Lead update did not affect a remote row");
+    } else {
+      const { error } = await supabase.from("crm_leads").update(remotePatch).eq("id", id);
+      if (error) throw error;
+    }
   } catch (err) {
     notifyLocalFallback({ table: "crm_leads", action: "update", error: err });
+    if (options.requireRemote) {
+      if (existingIdx >= 0 && previousLocal) {
+        local[existingIdx] = previousLocal;
+        writeLS<CrmLead>(LS_LEADS, local);
+      } else {
+        removeLeadFromLocalCache(id);
+      }
+      throw err;
+    }
   }
 
   return merged;

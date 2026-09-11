@@ -1,7 +1,7 @@
 import {
   createDemoLead, createLead, getLead, listLeadsPage, type CrmDemoLead,
   type CrmLead, type CrmLeadPatch, type CrmLeadsPageQueryResult, type ListLeadsPageOpts,
-  type NewCrmDemoLead, type NewCrmLead, updateLead,
+  type NewCrmDemoLead, type NewCrmLead, type UpdateLeadOptions, updateLead,
 } from '@/lib/crmLeadsService';
 import {
   getResponsibleTimanSellerTarget, listActiveDealerLeadShareTargets, listLeadShares,
@@ -14,7 +14,7 @@ export interface CrmLeadRepository {
   listLeadsPage: (options: ListLeadsPageOpts) => Promise<CrmLeadsPageQueryResult>;
   getLead: (id: string) => Promise<CrmLead | null>;
   createLead: (input: NewCrmLead, options?: { requireRemote?: boolean }) => Promise<CrmLead>;
-  updateLead: (id: string, patch: CrmLeadPatch) => Promise<CrmLead>;
+  updateLead: (id: string, patch: CrmLeadPatch, options?: UpdateLeadOptions) => Promise<CrmLead>;
   createDemoLead: (input: NewCrmDemoLead) => Promise<CrmDemoLead>;
   resolveAppUserByEmail: (email: string | null | undefined) => Promise<LeadShareTarget | null>;
   listLeadShares: (leadId: string) => Promise<CrmLeadShare[]>;

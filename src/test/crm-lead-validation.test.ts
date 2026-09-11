@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getMissingOrdinaryCrmLeadFields, type OrdinaryCrmLeadRequiredInput } from '@/lib/crmLeadValidation';
+import {
+  getMissingOrdinaryCrmLeadFields,
+  isLegacyWorkingBudgetOnlySave,
+  type OrdinaryCrmLeadRequiredInput,
+} from '@/lib/crmLeadValidation';
 
 const validLead: OrdinaryCrmLeadRequiredInput = {
   machineTypes: ['RC-1000s'],
@@ -35,5 +39,40 @@ describe('ordinary CRM lead required fields', () => {
       ...validLead,
       machineTypes: ['Loader line / traktor-redskaber'],
     })).toEqual([]);
+  });
+});
+
+describe('legacy lead working-budget-only save', () => {
+  it('permits only a changed working-budget quantity on an incomplete existing lead', () => {
+    expect(isLegacyWorkingBudgetOnlySave({
+      isEditingExistingLead: true,
+      isLeadFormReady: false,
+      initialWorkingBudgetQuantity: 0,
+      currentWorkingBudgetQuantity: '1',
+    })).toBe(true);
+  });
+
+  it('does not bypass required validation for a new lead or an unchanged legacy lead', () => {
+    expect(isLegacyWorkingBudgetOnlySave({
+      isEditingExistingLead: false,
+      isLeadFormReady: false,
+      initialWorkingBudgetQuantity: 0,
+      currentWorkingBudgetQuantity: '1',
+    })).toBe(false);
+    expect(isLegacyWorkingBudgetOnlySave({
+      isEditingExistingLead: true,
+      isLeadFormReady: false,
+      initialWorkingBudgetQuantity: 1,
+      currentWorkingBudgetQuantity: '1',
+    })).toBe(false);
+  });
+
+  it('uses the regular full-save path once all required lead fields are present', () => {
+    expect(isLegacyWorkingBudgetOnlySave({
+      isEditingExistingLead: true,
+      isLeadFormReady: true,
+      initialWorkingBudgetQuantity: 0,
+      currentWorkingBudgetQuantity: '1',
+    })).toBe(false);
   });
 });

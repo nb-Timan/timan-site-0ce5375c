@@ -57,6 +57,8 @@ import {
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 import {
   getMissingOrdinaryCrmLeadFields,
+  isLegacyWorkingBudgetOnlySave,
+  normalizeWorkingBudgetQuantity,
   type OrdinaryCrmLeadRequiredField,
 } from '@/lib/crmLeadValidation';
 
@@ -800,6 +802,7 @@ export default function CrmNewLeadPage() {
   const [machineTypesChanged, setMachineTypesChanged] = useState(false);
   const [probability, setProbability] = useState<string>('25');
   const [moveToWorking, setMoveToWorking] = useState<string>('');
+  const [initialWorkingBudgetQuantity, setInitialWorkingBudgetQuantity] = useState(0);
   const [stage, setStage] = useState<PipelineStage>('Lead');
 
   const [lostCompetitor, setLostCompetitor] = useState<string>('');
@@ -963,8 +966,9 @@ export default function CrmNewLeadPage() {
       setMachineTypesChanged(false);
       setEstimatedValue(savedEstimatedValue);
       setProbability(lead.probability != null ? String(lead.probability) : '');
-      setMoveToWorking(typeof lead.move_to_working_qty === 'number' && lead.move_to_working_qty > 0
-        ? String(lead.move_to_working_qty) : '');
+      const loadedWorkingBudgetQuantity = normalizeWorkingBudgetQuantity(lead.move_to_working_qty);
+      setMoveToWorking(loadedWorkingBudgetQuantity > 0 ? String(loadedWorkingBudgetQuantity) : '');
+      setInitialWorkingBudgetQuantity(loadedWorkingBudgetQuantity);
       setStage((lead.pipeline_stage as PipelineStage) || 'Lead');
       setLostCompetitor(lead.lost_competitor || '');
       setLostReason(lead.lost_reason || '');
@@ -1143,6 +1147,13 @@ export default function CrmNewLeadPage() {
     && contactCity.trim()
     && country.trim()
   );
+  const legacyWorkingBudgetOnlySave = isLegacyWorkingBudgetOnlySave({
+    isEditingExistingLead: isEdit,
+    isLeadFormReady,
+    initialWorkingBudgetQuantity,
+    currentWorkingBudgetQuantity: moveToWorking,
+  });
+  const canSave = !submitting && (isLeadFormReady || legacyWorkingBudgetOnlySave);
   const fieldError = (field: OrdinaryCrmLeadRequiredField) => fieldErrors[field];
   const requiredInputClass = (field: OrdinaryCrmLeadRequiredField) => cn(inputCls, fieldError(field) && inputErrorCls);
   const clearFieldError = (field: OrdinaryCrmLeadRequiredField) => {
@@ -1347,36 +1358,52 @@ export default function CrmNewLeadPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim())       { toast.error(tt('val_title', lang)); return; }
-    if (!responsibleSellerId){ toast.error(tt('val_seller', lang)); return; }
-    if (!linkedDealer)       { toast.error(tt('val_dealer', lang)); return; }
-    if (!firstContact)       { toast.error(tt('val_first', lang)); return; }
-    if (!expectedClose)      { toast.error(tt('val_close', lang)); return; }
-    if (!nextFollowup)       { toast.error(tt('val_followup', lang)); return; }
-    if (!contactType)        { toast.error(tt('val_contact', lang)); return; }
-    if (!customerType)       { toast.error(tt('val_customer', lang)); return; }
-    if (!nextActivity)       { toast.error(tt('val_next_act', lang)); return; }
-    const missingFields = getMissingOrdinaryCrmLeadFields({
-      machineTypes,
-      contactCompany,
-      contactPersonName,
-      contactPhone,
-      contactEmail,
-      contactPostalCode,
-      contactCity,
-      country,
-    });
-    if (missingFields.length > 0) {
-      setFieldErrors(
-        Object.fromEntries(missingFields.map((field) => [field, tt('val_required', lang)])) as Partial<Record<OrdinaryCrmLeadRequiredField, string>>
-      );
-      toast.error(tt('val_required', lang));
-      return;
+    if (!legacyWorkingBudgetOnlySave) {
+      if (!title.trim())       { toast.error(tt('val_title', lang)); return; }
+      if (!responsibleSellerId){ toast.error(tt('val_seller', lang)); return; }
+      if (!linkedDealer)       { toast.error(tt('val_dealer', lang)); return; }
+      if (!firstContact)       { toast.error(tt('val_first', lang)); return; }
+      if (!expectedClose)      { toast.error(tt('val_close', lang)); return; }
+      if (!nextFollowup)       { toast.error(tt('val_followup', lang)); return; }
+      if (!contactType)        { toast.error(tt('val_contact', lang)); return; }
+      if (!customerType)       { toast.error(tt('val_customer', lang)); return; }
+      if (!nextActivity)       { toast.error(tt('val_next_act', lang)); return; }
+      const missingFields = getMissingOrdinaryCrmLeadFields({
+        machineTypes,
+        contactCompany,
+        contactPersonName,
+        contactPhone,
+        contactEmail,
+        contactPostalCode,
+        contactCity,
+        country,
+      });
+      if (missingFields.length > 0) {
+        setFieldErrors(
+          Object.fromEntries(missingFields.map((field) => [field, tt('val_required', lang)])) as Partial<Record<OrdinaryCrmLeadRequiredField, string>>
+        );
+        toast.error(tt('val_required', lang));
+        return;
+      }
     }
     setFieldErrors({});
 
     setSubmitting(true);
     try {
+      if (legacyWorkingBudgetOnlySave && isEdit && editId) {
+        const quantity = normalizeWorkingBudgetQuantity(moveToWorking);
+        await repository.updateLead(
+          editId,
+          { move_to_working_qty: quantity },
+          { requireRemote: !repository.academy, remoteOnly: 'move_to_working_qty' },
+        );
+        setInitialWorkingBudgetQuantity(quantity);
+        toast.success(tt('updated_ok', lang));
+        navigate(repository.academy
+          ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
+          : '/portal/crm');
+        return;
+      }
       // Use the explicitly chosen responsible seller (allows handover),
       // fall back to the logged-in user if for some reason it's missing.
       const chosen = sellers.find(s => s.id === responsibleSellerId);
@@ -1403,7 +1430,7 @@ export default function CrmNewLeadPage() {
         notes: notes || null,
         estimated_value: estimatedValue ? Number(estimatedValue) : null,
         probability: probability ? Number(probability) : null,
-        move_to_working_qty: moveToWorking ? Math.max(0, Math.floor(Number(moveToWorking) || 0)) : 0,
+        move_to_working_qty: normalizeWorkingBudgetQuantity(moveToWorking),
         pipeline_stage: stage,
         lost_competitor: isLost ? (lostCompetitor === 'Andre' ? (lostCompetitorCustom || 'Andre') : lostCompetitor) || null : null,
         lost_reason: isLost ? (lostReason || null) : null,
@@ -2099,7 +2126,7 @@ export default function CrmNewLeadPage() {
 
           <div className="sticky bottom-4 flex items-center justify-end gap-3 bg-white/90 backdrop-blur rounded-2xl border border-gray-100 shadow-sm p-3 mt-6">
             <Link to={repository.academy ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}` : '/portal/crm/leads'} className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
-            <button type="submit" disabled={submitting || !isLeadFormReady}
+            <button type="submit" disabled={!canSave}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />
               {submitting ? tt('saving', lang) : (isEdit ? tt('save_changes', lang) : tt('save', lang))}
