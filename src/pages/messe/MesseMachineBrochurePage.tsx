@@ -1,7 +1,5 @@
-import { forwardRef, useEffect, useRef, useState } from 'react';
-import type { ComponentType, CSSProperties, ReactNode, Ref } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import HTMLFlipBook from 'react-pageflip';
 import {
   BookOpen,
   ChevronLeft,
@@ -21,6 +19,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { getProductBrochurePreviewUrl, getProductBrochureUrl } from '@/data/productRecommendationMeta';
 import { PORTAL_LANGUAGE_CODES, portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { getMesseBrochureReaderAsset, buildMesseBrochureSpreads } from '@/lib/messeBrochureReader';
 import { t as translate } from '@/lib/i18n/translations';
 import { MESSE_MACHINE_EXTRA_TRANSLATIONS } from '@/lib/i18n/messeMachineTranslations';
 import iconSlope from '@/assets/rc1000s-icon-14.png.asset.json';
@@ -796,101 +795,14 @@ const tr = (value: Localized, lang: PortalUiLanguage) => {
   return value.en || value.da;
 };
 
-function usePrefersReducedMotion() {
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReducedMotion(mediaQuery.matches);
-    update();
-    mediaQuery.addEventListener('change', update);
-    return () => mediaQuery.removeEventListener('change', update);
-  }, []);
-
-  return reducedMotion;
-}
-
 interface BrochureSpreadViewerProps {
   title: string;
   lang: PortalUiLanguage;
   pageSrc: (page: number) => string;
   currentSpread: number[];
   rightPage?: number;
-  brochurePageCount: number;
   isSinglePageSpread: boolean;
-  onPageChange: (page: number) => void;
 }
-
-type FlipBookPageApi = {
-  getCurrentPageIndex: () => number;
-  turnToPage: (pageNum: number) => void;
-};
-
-type FlipBookRef = {
-  pageFlip: () => FlipBookPageApi;
-};
-
-type FlipBookEvent = {
-  data: number;
-};
-
-const PageFlipBook = HTMLFlipBook as ComponentType<{
-  width: number;
-  height: number;
-  size: 'fixed' | 'stretch';
-  minWidth: number;
-  maxWidth: number;
-  minHeight: number;
-  maxHeight: number;
-  drawShadow: boolean;
-  flippingTime: number;
-  usePortrait: boolean;
-  startZIndex: number;
-  autoSize: boolean;
-  maxShadowOpacity: number;
-  showCover: boolean;
-  mobileScrollSupport: boolean;
-  swipeDistance: number;
-  clickEventForward: boolean;
-  useMouseEvents: boolean;
-  renderOnlyPageLengthChange: boolean;
-  startPage: number;
-  className: string;
-  style: CSSProperties;
-  onFlip: (event: FlipBookEvent) => void;
-  children: ReactNode;
-  ref?: Ref<FlipBookRef>;
-}>;
-
-interface BrochureFlipPageProps {
-  title: string;
-  lang: PortalUiLanguage;
-  page: number;
-  pageSrc: (page: number) => string;
-}
-
-const BrochureFlipPage = forwardRef<HTMLDivElement, BrochureFlipPageProps>(function BrochureFlipPage(
-  { title, lang, page, pageSrc },
-  ref,
-) {
-  return (
-    <div
-      ref={ref}
-      className="relative h-full w-full overflow-hidden bg-white shadow-[inset_-18px_0_24px_-26px_rgba(15,23,42,0.75)]"
-    >
-      <img
-        src={pageSrc(page)}
-        alt={`${title} ${tr(T.page, lang)} ${page}`}
-        className="h-full w-full select-none object-contain"
-        draggable={false}
-      />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-slate-950/10 to-transparent"
-      />
-    </div>
-  );
-});
 
 function BrochureSpreadViewer({
   title,
@@ -898,68 +810,8 @@ function BrochureSpreadViewer({
   pageSrc,
   currentSpread,
   rightPage,
-  brochurePageCount,
   isSinglePageSpread,
-  onPageChange,
 }: BrochureSpreadViewerProps) {
-  const reducedMotion = usePrefersReducedMotion();
-  const bookRef = useRef<FlipBookRef | null>(null);
-  const activePage = currentSpread[0] ?? 1;
-  const pages = Array.from({ length: brochurePageCount }, (_, index) => index + 1);
-
-  useEffect(() => {
-    const api = bookRef.current?.pageFlip?.();
-    if (!api) return;
-    const targetIndex = Math.max(0, Math.min(brochurePageCount - 1, activePage - 1));
-    if (api.getCurrentPageIndex() !== targetIndex) {
-      api.turnToPage(targetIndex);
-    }
-  }, [activePage, brochurePageCount]);
-
-  const handleFlip = (event: FlipBookEvent) => {
-    const nextPage = Math.max(1, Math.min(brochurePageCount, Number(event.data) + 1));
-    onPageChange(nextPage);
-  };
-
-  if (!reducedMotion) {
-    return (
-      <div className="relative overflow-hidden rounded-lg bg-slate-100/70 px-2 py-3 shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200 sm:px-4">
-        <div className="mx-auto flex h-[76vh] min-h-[620px] w-full items-center justify-center overflow-hidden">
-          <PageFlipBook
-            ref={bookRef}
-            width={620}
-            height={820}
-            size="stretch"
-            minWidth={280}
-            maxWidth={1400}
-            minHeight={360}
-            maxHeight={980}
-            drawShadow
-            flippingTime={950}
-            usePortrait
-            startZIndex={5}
-            autoSize
-            maxShadowOpacity={0.55}
-            showCover
-            mobileScrollSupport={false}
-            swipeDistance={22}
-            clickEventForward
-            useMouseEvents
-            renderOnlyPageLengthChange={false}
-            startPage={Math.max(0, activePage - 1)}
-            className="brochure-pageflip"
-            style={{}}
-            onFlip={handleFlip}
-          >
-            {pages.map((page) => (
-              <BrochureFlipPage key={page} title={title} lang={lang} page={page} pageSrc={pageSrc} />
-            ))}
-          </PageFlipBook>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="relative touch-pan-y select-none overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200">
       <div className={`relative grid h-[76vh] min-h-[620px] grid-cols-1 ${isSinglePageSpread ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
@@ -973,7 +825,7 @@ function BrochureSpreadViewer({
         </div>
         {!isSinglePageSpread && (
           <div className="hidden min-h-0 items-center justify-center bg-white p-2 md:flex">
-            {rightPage && rightPage <= brochurePageCount ? (
+            {rightPage ? (
               <img
                 src={pageSrc(rightPage)}
                 alt={`${title} ${tr(T.page, lang)} ${rightPage}`}
@@ -1000,68 +852,27 @@ export default function MesseMachineBrochurePage({
 }: MesseMachineBrochurePageProps) {
   const { appUser } = useAppUser();
   const { uiLanguage: lang } = useLanguage();
-  const brochurePdfSrc = getProductBrochureUrl(productId ?? machineKey, lang) ?? pdfSrc;
+  const readerAsset = productId ? getMesseBrochureReaderAsset(productId, lang) : undefined;
+  const brochurePdfSrc = readerAsset?.pdfUrl ?? getProductBrochureUrl(productId ?? machineKey, lang) ?? pdfSrc;
+  const brochurePageBase = readerAsset?.pageBase ?? pageBase;
+  const brochurePageCount = readerAsset?.pageCount ?? pageCount ?? 0;
   const brochurePreviewSrc = getProductBrochurePreviewUrl(productId ?? machineKey, lang)
-    ?? (pageBase ? `${pageBase}/page-1.jpg` : undefined);
+    ?? (brochurePageBase ? `${brochurePageBase}/page-1.jpg` : undefined);
   const [brochureOpen, setBrochureOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [leftPage, setLeftPage] = useState(1);
-  const brochurePageCount = pageCount ?? 0;
-  // Page-image previews only exist for the legacy source PDFs. Localized
-  // brochures still open directly and always follow the active portal language.
-  const hasBrochure = Boolean(brochurePdfSrc === pdfSrc && pageBase && brochurePageCount > 0);
-  const [covers, setCovers] = useState<{ frontCover: number; backCover: number }>({
-    frontCover: 1,
-    backCover: brochurePageCount || 1,
-  });
+  const hasBrochure = Boolean(brochurePdfSrc && brochurePageBase && brochurePageCount > 0);
   const content = MACHINE_CONTENT[machineKey];
   const isTiman2620 = machineKey === 'timan-2620';
   const compactAttachmentChips = machineKey === 'rc-1000s' || isTiman2620;
   const descriptions = MACHINE_DESCRIPTIONS[machineKey];
   const technicalSections = MACHINE_TECHNICAL_SECTIONS[machineKey];
 
-  useEffect(() => {
-    let active = true;
-    if (!hasBrochure || !pageBase) {
-      setCovers({ frontCover: 1, backCover: 1 });
-      return () => {
-        active = false;
-      };
-    }
-
-    setCovers({ frontCover: 1, backCover: brochurePageCount });
-    fetch(`${pageBase}/covers.json`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!active || !data) return;
-        const front = Number(data.frontCover);
-        const back = Number(data.backCover);
-        setCovers({
-          frontCover: Number.isFinite(front) && front >= 1 ? front : 1,
-          backCover: Number.isFinite(back) && back >= 1 ? back : brochurePageCount,
-        });
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, [brochurePageCount, hasBrochure, pageBase]);
-
   if (!appUser) return null;
 
 
-  const pageSrc = (page: number) => (pageBase ? `${pageBase}/page-${page}.jpg` : '');
-  const brochureSpreads = (() => {
-    if (brochurePageCount <= 0) return [];
-    if (brochurePageCount === 1) return [[1]];
-
-    const spreads: number[][] = [[1]];
-    for (let page = 2; page < brochurePageCount; page += 2) {
-      spreads.push(page + 1 < brochurePageCount ? [page, page + 1] : [page]);
-    }
-    spreads.push([brochurePageCount]);
-    return spreads;
-  })();
+  const pageSrc = (page: number) => (brochurePageBase ? `${brochurePageBase}/page-${page}.jpg` : '');
+  const brochureSpreads = buildMesseBrochureSpreads(brochurePageCount);
   const currentSpreadIndex = Math.max(0, brochureSpreads.findIndex((spread) => spread[0] === leftPage));
   const currentSpread = brochureSpreads[currentSpreadIndex] ?? [leftPage];
   const rightPage = currentSpread[1];
@@ -1076,10 +887,6 @@ export default function MesseMachineBrochurePage({
     const index = Math.max(0, brochureSpreads.findIndex((spread) => spread[0] === page));
     return brochureSpreads[Math.min(brochureSpreads.length - 1, index + 1)]?.[0] ?? page;
   });
-  const goToBrochurePage = (page: number) => {
-    const matchingSpread = brochureSpreads.find((spread) => spread.includes(page));
-    setLeftPage(matchingSpread?.[0] ?? 1);
-  };
   const spreadLabel = isSinglePageSpread
     ? `${currentSpread[0]}`
     : `${currentSpread[0]}-${rightPage}`;
@@ -1259,16 +1066,10 @@ export default function MesseMachineBrochurePage({
                 className={documentButtonClass}
               >
                 <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
-                  <div className="relative h-full w-full rounded-xl bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.75)] ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
-                    <div className="grid h-full grid-cols-2 items-stretch overflow-hidden rounded-xl">
-                      <div className="flex min-w-0 items-center justify-end p-1.5">
-                        <img src={pageSrc(covers.frontCover)} alt="" className="h-full w-auto max-w-full object-contain" />
-                      </div>
-                      <div className="flex min-w-0 items-center justify-start p-1.5">
-                        <img src={pageSrc(covers.backCover)} alt="" className="h-full w-auto max-w-full object-contain" />
-                      </div>
-                    </div>
-                    <div className="pointer-events-none absolute inset-y-3 left-1/2 w-8 -translate-x-1/2 bg-gradient-to-r from-transparent via-slate-900/15 to-transparent" />
+                  <div className="relative h-full w-full overflow-hidden rounded-xl bg-white shadow-[0_18px_45px_-24px_rgba(15,23,42,0.75)] ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
+                    {brochurePreviewSrc && (
+                      <img src={brochurePreviewSrc} alt="" className="h-full w-full object-contain" />
+                    )}
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center pb-1.5">
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1 text-xs font-bold text-slate-900 shadow-sm ring-1 ring-slate-200 backdrop-blur">
                         <BookOpen className="h-3.5 w-3.5 text-slate-700" />
@@ -1281,32 +1082,6 @@ export default function MesseMachineBrochurePage({
                 <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
                 <div className="mt-1 text-lg font-bold text-slate-950">{title}</div>
               </button>
-            ) : brochurePdfSrc ? (
-              <a href={brochurePdfSrc} target="_blank" rel="noreferrer" className={documentButtonClass}>
-                <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
-                  <div className="relative h-full overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
-                    {brochurePreviewSrc ? (
-                      <img
-                        src={brochurePreviewSrc}
-                        alt={`${title} ${tr(T.brochure, lang)}`}
-                        className="h-full w-full object-contain"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <BookOpen className="h-9 w-9 text-emerald-700" />
-                      </div>
-                    )}
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-slate-950/35 to-transparent pb-3 pt-8">
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-slate-900 shadow-sm ring-1 ring-slate-200">
-                        <ExternalLink className="h-3.5 w-3.5 text-slate-700" />
-                        {tr(T.openBrochure, lang)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
-                <div className="mt-1 text-lg font-bold text-slate-950">{title}</div>
-              </a>
             ) : (
               <div className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm">
                 <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
@@ -1413,9 +1188,7 @@ export default function MesseMachineBrochurePage({
               pageSrc={pageSrc}
               currentSpread={currentSpread}
               rightPage={rightPage}
-              brochurePageCount={brochurePageCount}
               isSinglePageSpread={isSinglePageSpread}
-              onPageChange={goToBrochurePage}
             />
 
             <div className="mt-4 flex items-center justify-center gap-3">
