@@ -86,11 +86,13 @@ import {
   type ContractDocumentLanguage,
 } from '@/lib/contractPdfDocument';
 import {
+  formatContractDemoCompensation,
   getContractDiscountStructure,
   getNewContractDiscountDefaults,
   getPartnerTypeDiscountFormPatch,
   resolveContractCommercialTerms,
 } from '@/lib/contractCommercialTerms';
+import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { toCountryCode } from '@/lib/formatCountry';
 import {
   getGuidedContractDisplayHeading,
@@ -909,7 +911,7 @@ function drawAppendix2Pdf(
   pdf.text('demonstrationsrabat', demoX + 14, contentY + 10);
   pdf.setTextColor(46, 125, 23);
   pdf.setFontSize(11);
-  pdf.text('3100 kr.', demoX + 14, contentY + 19);
+  pdf.text(formatContractDemoCompensation('DKK'), demoX + 14, contentY + 19);
   pdf.setDrawColor(167, 191, 139);
   pdf.line(demoX + 3, contentY + 26, demoX + 22, contentY + 26);
   pdf.setTextColor(17, 24, 39);
@@ -4772,6 +4774,7 @@ function Appendix2DiscountSection({
   language: string;
   preserveStoredDiscounts?: boolean;
 }) {
+  const displayCurrency = usePortalCurrency();
   const discounts = getContractDiscountStructure(form.partnerType, form, { preserveStoredDiscounts });
   const paragraphs = renderAppendix2Paragraphs(form.partnerType, form.partnerType ? discounts : undefined, language).filter(
     (paragraph) => !shouldHideGuidedContractUiText(paragraph, 'Rabatstruktur og Bilag 2'),
@@ -4885,7 +4888,9 @@ function Appendix2DiscountSection({
               <div className="flex min-h-52 min-w-0 flex-col items-center justify-center rounded-2xl border border-[#79a45e] bg-[#fbfdf9] px-4 py-5 text-center text-gray-950 lg:min-h-56 xl:px-5">
                 <p className="max-w-full text-[13px] font-semibold leading-5 lg:text-sm">{labels.ownDemoDiscount}</p>
                 <div className="my-3 h-px w-full bg-[#a9c794]" />
-                <p className="whitespace-nowrap text-2xl font-black leading-tight text-[#36780f] lg:text-[1.75rem]">3100 kr.</p>
+                <p className="whitespace-nowrap text-2xl font-black leading-tight text-[#36780f] lg:text-[1.75rem]">
+                  {formatContractDemoCompensation(displayCurrency)}
+                </p>
                 <div className="my-3 h-px w-full bg-[#a9c794]" />
                 <p className="text-[11px] font-medium leading-4 text-gray-950 lg:text-xs">{labels.demoRefundExplanation}</p>
               </div>

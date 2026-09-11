@@ -1,4 +1,5 @@
 import type { ContractPaymentTermId } from '@/lib/contractPaymentTerms';
+import { convertCurrency, formatMoney, type Currency } from '@/lib/currency';
 import { normalizePartnerAccountType, type PartnerAccountTypeId } from '@/lib/partnerAccountTypes';
 import type { ContractPartnerType } from '@/lib/contractPartnerTerms';
 
@@ -10,6 +11,23 @@ export const DEFAULT_DEALER_SPARE_PARTS_DISCOUNT_PCT = 25;
 export const DEFAULT_IMPORTER_MACHINE_DISCOUNT_PCT = 30;
 export const DEFAULT_IMPORTER_EQUIPMENT_DISCOUNT_PCT = 30;
 export const DEFAULT_SERVICE_PARTNER_SPARE_PARTS_DISCOUNT_PCT = 25;
+export const CONTRACT_DEMO_COMPENSATION_DKK = 3100;
+export const CONTRACT_DEMO_COMPENSATION_EUR = 425;
+
+/**
+ * Contract compensation is a commercial amount, not a relabelled source value.
+ * EUR has its own agreed value; SEK follows the portal's canonical rate model
+ * until a separate SEK commercial amount is configured.
+ */
+export function getContractDemoCompensationAmount(currency: Currency): number {
+  if (currency === 'EUR') return CONTRACT_DEMO_COMPENSATION_EUR;
+  if (currency === 'SEK') return convertCurrency(CONTRACT_DEMO_COMPENSATION_DKK, 'DKK', 'SEK');
+  return CONTRACT_DEMO_COMPENSATION_DKK;
+}
+
+export function formatContractDemoCompensation(currency: Currency): string {
+  return formatMoney(getContractDemoCompensationAmount(currency), currency);
+}
 
 export type ContractCommercialTerms = {
   standardMachineDiscountPct: number;
