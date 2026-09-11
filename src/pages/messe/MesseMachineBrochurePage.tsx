@@ -19,7 +19,12 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { getProductBrochurePreviewUrl, getProductBrochureUrl } from '@/data/productRecommendationMeta';
 import { PORTAL_LANGUAGE_CODES, portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
-import { getMesseBrochureReaderAsset, buildMesseBrochureSpreads } from '@/lib/messeBrochureReader';
+import {
+  buildMesseBrochureSpreads,
+  buildMesseBrochureVirtualPages,
+  getMesseBrochureReaderAsset,
+  type MesseBrochureVirtualPage,
+} from '@/lib/messeBrochureReader';
 import { t as translate } from '@/lib/i18n/translations';
 import { MESSE_MACHINE_EXTRA_TRANSLATIONS } from '@/lib/i18n/messeMachineTranslations';
 import iconSlope from '@/assets/rc1000s-icon-14.png.asset.json';
@@ -799,9 +804,40 @@ interface BrochureSpreadViewerProps {
   title: string;
   lang: PortalUiLanguage;
   pageSrc: (page: number) => string;
-  currentSpread: number[];
-  rightPage?: number;
+  currentSpread: MesseBrochureVirtualPage[];
+  rightPage?: MesseBrochureVirtualPage;
   isSinglePageSpread: boolean;
+}
+
+function BrochureVirtualPageImage({
+  page,
+  pageSrc,
+  title,
+  lang,
+}: {
+  page: MesseBrochureVirtualPage;
+  pageSrc: (page: number) => string;
+  title: string;
+  lang: PortalUiLanguage;
+}) {
+  const source = pageSrc(page.sourcePage);
+  const alt = `${title} ${tr(T.page, lang)} ${page.number}`;
+
+  if (page.half === 'full') {
+    return <img src={source} alt={alt} className="h-full w-full object-contain" draggable={false} />;
+  }
+
+  return (
+    <div className="aspect-[1/1.4142] h-full overflow-hidden" role="img" aria-label={alt}>
+      <img
+        src={source}
+        alt=""
+        className="h-full w-auto max-w-none"
+        draggable={false}
+        style={{ transform: page.half === 'left' ? 'translateX(0)' : 'translateX(-50%)' }}
+      />
+    </div>
+  );
 }
 
 function BrochureSpreadViewer({
@@ -816,22 +852,12 @@ function BrochureSpreadViewer({
     <div className="relative touch-pan-y select-none overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200">
       <div className={`relative grid h-[76vh] min-h-[620px] grid-cols-1 ${isSinglePageSpread ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
         <div className={`relative z-10 flex min-h-0 items-center justify-center bg-white p-2 ${isSinglePageSpread ? '' : 'md:border-r md:border-slate-100'}`}>
-          <img
-            src={pageSrc(currentSpread[0])}
-            alt={`${title} ${tr(T.page, lang)} ${currentSpread[0]}`}
-            className="h-full w-full object-contain"
-            draggable={false}
-          />
+          <BrochureVirtualPageImage page={currentSpread[0]} pageSrc={pageSrc} title={title} lang={lang} />
         </div>
         {!isSinglePageSpread && (
           <div className="hidden min-h-0 items-center justify-center bg-white p-2 md:flex">
             {rightPage ? (
-              <img
-                src={pageSrc(rightPage)}
-                alt={`${title} ${tr(T.page, lang)} ${rightPage}`}
-                className="h-full w-full object-contain"
-                draggable={false}
-              />
+              <BrochureVirtualPageImage page={rightPage} pageSrc={pageSrc} title={title} lang={lang} />
             ) : (
               <div className="h-full w-full rounded-sm bg-slate-50" />
             )}
@@ -855,7 +881,15 @@ export default function MesseMachineBrochurePage({
   const readerAsset = getMesseBrochureReaderAsset(productId ?? machineKey, lang);
   const brochurePdfSrc = readerAsset?.pdfUrl ?? getProductBrochureUrl(productId ?? machineKey, lang) ?? pdfSrc;
   const brochurePageBase = readerAsset?.pageBase ?? pageBase;
-  const brochurePageCount = readerAsset?.pageCount ?? pageCount ?? 0;
+  const brochureRawPageCount = readerAsset?.rawPageCount ?? pageCount ?? 0;
+  const brochureVirtualPages = readerAsset
+    ? buildMesseBrochureVirtualPages(brochureRawPageCount)
+    : Array.from({ length: brochureRawPageCount }, (_, index) => ({
+        number: index + 1,
+        sourcePage: index + 1,
+        half: 'full' as const,
+      }));
+  const brochurePageCount = brochureVirtualPages.length;
   const brochurePreviewSrc = getProductBrochurePreviewUrl(productId ?? machineKey, lang)
     ?? (brochurePageBase ? `${brochurePageBase}/page-1.jpg` : undefined);
   const [brochureOpen, setBrochureOpen] = useState(false);
@@ -875,7 +909,8 @@ export default function MesseMachineBrochurePage({
   const brochureSpreads = buildMesseBrochureSpreads(brochurePageCount);
   const currentSpreadIndex = Math.max(0, brochureSpreads.findIndex((spread) => spread[0] === leftPage));
   const currentSpread = brochureSpreads[currentSpreadIndex] ?? [leftPage];
-  const rightPage = currentSpread[1];
+  const currentVirtualPages = currentSpread.map((page) => brochureVirtualPages[page - 1]).filter(Boolean);
+  const rightPage = currentVirtualPages[1];
   const isSinglePageSpread = currentSpread.length === 1;
   const canGoBack = currentSpreadIndex > 0;
   const canGoNext = currentSpreadIndex < brochureSpreads.length - 1;
@@ -889,7 +924,7 @@ export default function MesseMachineBrochurePage({
   });
   const spreadLabel = isSinglePageSpread
     ? `${currentSpread[0]}`
-    : `${currentSpread[0]}-${rightPage}`;
+    : `${currentSpread[0]}-${currentSpread[1]}`;
 
 
   const documentButtonClass =
@@ -1186,7 +1221,7 @@ export default function MesseMachineBrochurePage({
               title={title}
               lang={lang}
               pageSrc={pageSrc}
-              currentSpread={currentSpread}
+              currentSpread={currentVirtualPages}
               rightPage={rightPage}
               isSinglePageSpread={isSinglePageSpread}
             />
