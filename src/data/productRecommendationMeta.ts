@@ -102,7 +102,7 @@ export type Season =
   | "all_year";
 
 export type RecommendationPriority = 1 | 2 | 3 | 4 | 5; // 1 = highest
-export type BrochureLanguage = "da" | "de" | "fr" | "cs" | "tr" | "en";
+export type BrochureLanguage = "de" | "fr" | "tr" | "en";
 
 /**
  * Coarse functional grouping used for de-duplication in the recommendation
@@ -189,7 +189,7 @@ export interface ProductRecommendationMeta {
   sourceUrl?: string;
   /** PDF brochure / datasheet URL. */
   brochureUrl?: string;
-  /** Localized brochure assets. German is selected only for the DE portal. */
+  /** Localized brochure assets. DE, FR and TR use local assets; all other portal languages use English. */
   brochureAssets?: Partial<Record<BrochureLanguage, string>>;
   /** Primary product image URL (hero shot). */
   imageUrl?: string;
@@ -260,7 +260,6 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
     },
     sourceLink: "https://www.youtube.com/watch?v=D-hXvg_oW9s",
     brochureAssets: {
-      da: "/brochures/rc-1000s-da.pdf",
       en: "/brochures/rc-1000s-en.pdf",
       de: "/brochures/rc-1000s-de.pdf",
     },
@@ -293,11 +292,9 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
       en: "The compact RC-751 handles slopes up to 50°, where conventional machines cannot work safely.",
     },
     brochureAssets: {
-      da: "/brochures/rc-751-da.pdf",
       en: "/brochures/rc-751-en.pdf",
       de: "/brochures/rc-751-de.pdf",
       fr: "/brochures/rc-751-fr.pdf",
-      cs: "/brochures/rc-751-cs.pdf",
     },
   },
 
@@ -328,11 +325,9 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
       en: "Versatile tool carrier with a comfortable cab and quick tool changes — one machine for year-round operation.",
     },
     brochureAssets: {
-      da: "/brochures/timan-3330-da.pdf",
       en: "/brochures/timan-3330-en.pdf",
       de: "/brochures/timan-3330-de.pdf",
       fr: "/brochures/timan-3330-fr.pdf",
-      cs: "/brochures/timan-3330-cs.pdf",
     },
   },
 
@@ -962,7 +957,7 @@ export function resolveBrochureAsset(
   language?: string | null,
 ): string | undefined {
   const normalized = normalizePortalLanguageCode(language);
-  const assetLanguage = normalized === "da" || normalized === "de" || normalized === "fr" || normalized === "cs" || normalized === "tr"
+  const assetLanguage = normalized === "de" || normalized === "fr" || normalized === "tr"
     ? normalized
     : "en";
   return assets[assetLanguage] ?? assets.en;
