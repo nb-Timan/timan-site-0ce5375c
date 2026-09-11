@@ -515,8 +515,8 @@ describe('contract flow', () => {
     expect(pageSource).not.toContain("inferContractPartnerTypeFromDealerAccount(account) === form.partnerType");
     expect(pageSource).toContain("buildContractPartnerPatchFromDealerAccount(account)");
     expect(pageSource).toContain("setSelectedDealerAccountNumber(account.account_number)");
-    expect(pageSource).toContain("timanSellerName: account.assigned_seller_name || current.timanSellerName,");
-    expect(pageSource).toContain("timanSellerEmail: account.assigned_seller_email || current.timanSellerEmail,");
+    expect(pageSource).toContain("timanSellerName: account.assigned_seller_name || effectiveUser?.display_name || effectiveUser?.email || current.timanSellerName,");
+    expect(pageSource).toContain("timanSellerEmail: account.assigned_seller_email || effectiveUser?.email || current.timanSellerEmail,");
     expect(pageSource).not.toContain("partnerType: inferContractPartnerTypeFromDealerAccount(account) || ''");
     expect(pageSource).toContain('const [draftChangeVersion, setDraftChangeVersion] = useState(0);');
     expect(pageSource).toContain("if (!effectiveUser?.email || !contractLoaded || draftChangeVersion === 0 || !activeDealerAccountNumber) return;");

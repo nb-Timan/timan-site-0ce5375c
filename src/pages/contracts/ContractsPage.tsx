@@ -1182,10 +1182,10 @@ export default function ContractsPage() {
     setForm((current) => ({
       ...current,
       ...buildContractPartnerPatchFromDealerAccount(account),
-      // The selected account may not carry seller metadata. Keep the already
-      // hydrated internal actor in that case so Step 1 validation stays valid.
-      timanSellerName: account.assigned_seller_name || current.timanSellerName,
-      timanSellerEmail: account.assigned_seller_email || current.timanSellerEmail,
+      // An account without seller metadata belongs to the current internal
+      // actor, never to the seller of a previously selected account.
+      timanSellerName: account.assigned_seller_name || effectiveUser?.display_name || effectiveUser?.email || current.timanSellerName,
+      timanSellerEmail: account.assigned_seller_email || effectiveUser?.email || current.timanSellerEmail,
     }));
     markDraftChanged();
   };
