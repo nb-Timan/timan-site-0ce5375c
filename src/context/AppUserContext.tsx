@@ -7,6 +7,7 @@ import { fetchDealerStatusForUser } from '@/lib/dealerAccountsService';
 import { defaultCanViewPrices, defaultCanSubmitOrder } from '@/lib/sessionPermissionDefaults';
 import { canonicalDisplayName, canonicalInitials } from '@/lib/canonicalUserIdentity';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
+import { normalizeOrganizationAccessRole, type OrganizationAccessRole } from '@/lib/organizationAccess';
 
 export type SessionUser = AppUser & {
   email: string;
@@ -22,6 +23,7 @@ export type SessionUser = AppUser & {
   dealer_number?: string | null;
   permissions?: Record<string, boolean> | null;
   quick_actions?: string[] | null;
+  organization_access_role?: OrganizationAccessRole | null;
   /** Phase 59 — 'standard' (default) or 'messe' (locked to /messe layout). */
   portal_variant?: string | null;
 };
@@ -86,6 +88,7 @@ function createLimitedDealerUser(email: string, authMetadata?: Record<string, un
     dealer_number: null,
     permissions: null,
     quick_actions: null,
+    organization_access_role: null,
     portal_variant: 'standard',
   };
 }
@@ -255,6 +258,7 @@ function rowToSessionUser(row: Record<string, unknown>): SessionUser {
     dealer_number: (row.dealer_number as string | null) ?? null,
     permissions: (row.permissions as Record<string, boolean> | null) ?? null,
     quick_actions: (row.quick_actions as string[] | null) ?? null,
+    organization_access_role: normalizeOrganizationAccessRole(row.organization_access_role as string | null),
     portal_variant: isKnownMesseLogin ? 'messe' : ((row.portal_variant as string | null) ?? 'standard'),
   };
 }

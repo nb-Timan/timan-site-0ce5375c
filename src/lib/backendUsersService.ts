@@ -33,6 +33,7 @@ import {
 } from "@/lib/backend-users-store";
 import { defaultCanSubmitOrder, defaultCanViewPrices } from "@/lib/sessionPermissionDefaults";
 import { canonicalDisplayName, canonicalInitials } from "@/lib/canonicalUserIdentity";
+import { normalizeOrganizationAccessRole } from "@/lib/organizationAccess";
 
 export type BackendUsersSource = "supabase" | "fallback";
 
@@ -148,6 +149,7 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     has_manual_area_override: hasAreasCol,
     has_manual_module_override: hasModulesCol,
     backend_modules,
+    organization_access_role: normalizeOrganizationAccessRole(row.organization_access_role as string | null),
     perms: {
       can_view_prices: defaultCanViewPrices(row.can_view_prices, row.portal_role, row.role, row.partner_type),
       can_submit_order: defaultCanSubmitOrder(row.can_submit_order, row.portal_role, row.role, row.partner_type),
@@ -265,7 +267,7 @@ function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): Backen
  * via the Role dropdown in the editor.
  */
 export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
-  if (!isDealerSideRole(draft.role)) return draft;
+  if (!isDealerSideRole(draft.role)) return { ...draft, organization_access_role: null };
   const allowed_areas = draft.allowed_areas.filter(
     (a) => a !== "timan_backend",
   );
@@ -304,6 +306,9 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     : (draft.has_manual_module_override === false ? null : draft.allowed_modules);
 
   const safePerms = sanitizePermsForRole(roleForAccess, draft.perms);
+  const organizationAccessRole = isDealerSideRole(roleForAccess)
+    ? draft.organization_access_role
+    : null;
 
   const fullPatch: Record<string, unknown> = {
     display_name: draft.name,
@@ -327,6 +332,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     allowed_areas: allowedAreasForDb,
     allowed_modules: allowedModulesForDb,
     backend_modules: draft.backend_modules,
+    organization_access_role: organizationAccessRole,
     can_view_prices: safePerms.can_view_prices,
     can_submit_order: safePerms.can_submit_order,
     permissions: safePerms,
@@ -419,6 +425,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     ["allowed_areas", allowedAreasForDb == null ? null : [...(asArray<string>(row.allowed_areas))].sort(), allowedAreasForDb == null ? null : [...allowedAreasForDb].sort()],
     ["allowed_modules", allowedModulesForDb == null ? null : [...(asArray<string>(row.allowed_modules))].sort(), allowedModulesForDb == null ? null : [...allowedModulesForDb].sort()],
     ["backend_modules", [...(asArray<string>(row.backend_modules))].sort(), [...draft.backend_modules].sort()],
+    ["organization_access_role", row.organization_access_role ?? null, organizationAccessRole],
     ["can_view_prices", row.can_view_prices, safePerms.can_view_prices],
     ["can_submit_order", row.can_submit_order, safePerms.can_submit_order],
     ["quick_actions",

@@ -43,6 +43,7 @@ import { listCrmAccounts } from "@/lib/crmAccountsService";
 import { isProtectedInternalCrmDealerAccount } from "@/lib/crmScope";
 import { supabase } from "@/lib/supabase";
 import type { JournalScope } from "@/lib/machineJournalService";
+import { hasCollaborationManagerAccess } from "@/lib/organizationAccess";
 
 const INTERNAL: ReadonlySet<string> = new Set(["timan_backend", "timan_service"]);
 const SELLER: ReadonlySet<string> = new Set(["timan_seller"]);
@@ -115,6 +116,15 @@ async function fetchServicePartnerLinkedDealers(servicePartnerAccountId: string)
     if (da?.account_number) out.push(da);
   }
   return out;
+}
+
+async function resolveCollaborationManagerAccounts(): Promise<Array<{ account_number: string; company_name: string | null }>> {
+  const { data, error } = await supabase.rpc("resolve_collaboration_manager_accounts");
+  if (error || !Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    const account_number = typeof row.account_number === "string" ? row.account_number.trim() : "";
+    return account_number ? [{ account_number, company_name: typeof row.company_name === "string" ? row.company_name : null }] : [];
+  });
 }
 
 export async function buildJournalScope(
@@ -196,6 +206,16 @@ export async function buildJournalScope(
   if (ownNumber) scope.dealerNumbers.add(ownNumber);
   const ownName = norm(appUser.company_dealer || appUser.display_name);
   if (ownName) scope.dealerNames.add(ownName);
+
+  if (ownAccount && hasCollaborationManagerAccess(appUser, role)) {
+    try {
+      const accounts = await resolveCollaborationManagerAccounts();
+      for (const account of accounts) addAccountToScope(scope, account);
+    } catch (e) {
+      console.warn("[machineJournalScope] collaboration manager scope expansion failed (tolerated)", e);
+    }
+    return scope;
+  }
 
   // Dealer / dealer_user -> own dealer + downline partner accounts when this
   // dealer is the parent/main account.

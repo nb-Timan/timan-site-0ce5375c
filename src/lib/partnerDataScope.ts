@@ -76,18 +76,11 @@ export async function listPartnerDataDealers(
   }
 
   if (EXTERNAL_ROLES.has(role)) {
-    // Reuse the portal's canonical own-account, child-account and service-link
-    // expansion, then add explicit partner-account relations. The final targeted
-    // read remains subject to dealer_accounts RLS.
+    // The scope builder calls the collaboration-manager resolver when relevant.
+    // Keep the account read targeted; this page must never fetch every partner
+    // and trim the result in the browser.
     const scope = await buildJournalScope(user, role);
-    const own = user.dealer_number
-      ? await fetchDealerAccountsByNumbers([user.dealer_number])
-      : { rows: [] };
-    const related = await listCanonicalRelatedAccountNumbers(own.rows.map((dealer) => dealer.id));
-    const result = await fetchDealerAccountsByNumbers([
-      ...scope.dealerNumbers,
-      ...related,
-    ]);
+    const result = await fetchDealerAccountsByNumbers(Array.from(scope.dealerNumbers));
     return { rows: result.rows, source: "partner", error: result.error };
   }
 

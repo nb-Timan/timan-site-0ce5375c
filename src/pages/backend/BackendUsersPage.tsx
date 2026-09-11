@@ -742,6 +742,7 @@ function EditUserModal({
                 const intermediate: BackendUser = {
                   ...draft,
                   role: newRole,
+                  organization_access_role: dealerSide ? draft.organization_access_role : null,
                   // When switching TO a dealer-side role, seed Forhandlerdata
                   // as a default area (admin can still uncheck it afterwards
                   // and the de-selection will persist on save).
@@ -763,6 +764,32 @@ function EditUserModal({
               }}
               options={PORTAL_ROLES.map((r) => ({ value: r, label: PORTAL_ROLE_LABELS[r].da }))}
             />
+          </Section>
+
+          <Section title="Organisation">
+            {isDealerSideRole(draft.role) ? (
+              <>
+                <Select
+                  label="Organisationsadgang"
+                  value={draft.organization_access_role ?? ""}
+                  onChange={(v) => setDraft({
+                    ...draft,
+                    organization_access_role: v === "collaboration_manager" ? "collaboration_manager" : null,
+                  })}
+                  options={[
+                    { value: "", label: "Ingen ekstra organisationsadgang" },
+                    { value: "collaboration_manager", label: "Samarbejdsansvarlig" },
+                  ]}
+                />
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Giver kun læse-scope til egen organisation. Moduler styres stadig under Allowed Areas og Allowed Modules.
+                </p>
+              </>
+            ) : (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                Organisationsadgang kan kun sættes på eksterne partnerbrugere.
+              </p>
+            )}
           </Section>
 
           {/* Portal variant — locks user to /messe layout when 'messe'. */}

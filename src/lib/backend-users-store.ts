@@ -14,6 +14,7 @@ import {
   ModuleAccessKey,
   DEFAULT_MODULE_ACCESS,
 } from "@/lib/portalAccess";
+import type { OrganizationAccessRole } from "@/lib/organizationAccess";
 
 export type UserStatus = "active" | "pending" | "blocked";
 export type AreaKey = "teknik_service" | "salg_marketing" | "marketing" | "timan_crm" | "timan_backend" | "dealer_data";
@@ -93,6 +94,7 @@ export interface BackendUser {
   has_manual_area_override?: boolean;
   has_manual_module_override?: boolean;
   backend_modules: BackendMetaModule[];
+  organization_access_role: OrganizationAccessRole | null;
   perms: {
     can_create_claims: boolean;
     can_approve_claims: boolean;
@@ -162,6 +164,7 @@ function seedUser(
     allowed_areas: allowedAreas,
     allowed_modules: allowedModules,
     backend_modules: isBackend ? [...BACKEND_META_MODULES] : [],
+    organization_access_role: null,
     perms: {
       can_create_claims: !isBackend, // backend reviews; sellers/service/dealers create
       can_approve_claims: isInternal,

@@ -53,7 +53,8 @@ type AccountScope =
       /** auth.uid of the seller (matches configurations.created_by_user_id). */
       sellerAuthUserId: string | null;
     }
-  | { kind: 'self'; userId: string };
+  | { kind: 'self'; userId: string }
+  | { kind: 'organization'; dealerNumbers: string[] };
 
 
 /** Aliases so AK and AKR collapse to the same seller match list. */
@@ -84,6 +85,20 @@ async function lookupSellerIds(email: string): Promise<{ appUserId: string | nul
     };
   } catch {
     return { appUserId: null, authUserId: null };
+  }
+}
+
+async function resolveCollaborationManagerDealerNumbers(): Promise<string[]> {
+  try {
+    const { data, error } = await supabase.rpc('resolve_collaboration_manager_accounts');
+    if (error || !Array.isArray(data)) return [];
+    return Array.from(new Set(
+      data
+        .map((row: { account_number?: string | null }) => (row.account_number ?? '').trim())
+        .filter(Boolean),
+    ));
+  } catch {
+    return [];
   }
 }
 
@@ -141,6 +156,10 @@ async function resolveAccountScope(
       };
     }
   } catch { /* fall through */ }
+  const organizationDealerNumbers = await resolveCollaborationManagerDealerNumbers();
+  if (organizationDealerNumbers.length > 0) {
+    return { kind: 'organization', dealerNumbers: organizationDealerNumbers } as AccountScope;
+  }
   // 4) Backend in backend mode, external roles, or unknown → personal scope.
   return { kind: 'self', userId: authUserId };
 }
@@ -151,6 +170,10 @@ function applyAccountScope<T extends { eq: (...a: any[]) => any; or: (...a: any[
 ): T {
   if (scope.kind === 'self') {
     return query.eq('created_by_user_id', scope.userId) as T;
+  }
+  if (scope.kind === 'organization') {
+    const nums = scope.dealerNumbers.map((n) => `"${n.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(',');
+    return query.or(`dealer_number.in.(${nums}),dealer_account_number.in.(${nums})`) as T;
   }
   // Seller scope: match the seller-ownership columns. Mirrors the visibility
   // rules used by CRM → Ordrer / Budget (crmConfigurationsService.rowVisibleToScope)
