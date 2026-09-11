@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getDefaultQuickActionRoles, resolveEffectiveQuickActions } from "@/lib/quickActionsAccess";
 import { mergeEffectivePortalUser } from "@/lib/viewAsUser";
@@ -52,6 +54,15 @@ const jtnView: UserView = {
 };
 
 describe("quick action access", () => {
+  it("places the backend role overview on the portal homepage only", () => {
+    const portalPage = readFileSync(join(process.cwd(), "src/pages/PortalPage.tsx"), "utf8");
+    const backendHome = readFileSync(join(process.cwd(), "src/components/portal/BackendHome.tsx"), "utf8");
+
+    expect(portalPage).toContain("showAllActions={realPortalRole === 'timan_backend'}");
+    expect(portalPage).toContain("showRoleOverview={realPortalRole === 'timan_backend'}");
+    expect(backendHome).not.toContain("QuickActions");
+  });
+
   it("gives a Timan Sælger without overrides the four canonical defaults", () => {
     expect(resolveEffectiveQuickActions({ ...seller, quick_actions: null })).toEqual([
       "create_lead",

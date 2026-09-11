@@ -348,7 +348,11 @@ export default function PortalPage() {
           </section>
         )}
 
-        <QuickActions language={uiLanguage} />
+        <QuickActions
+          language={uiLanguage}
+          showAllActions={realPortalRole === 'timan_backend'}
+          showRoleOverview={realPortalRole === 'timan_backend'}
+        />
 
         <LatestChanges language={uiLanguage} />
 
