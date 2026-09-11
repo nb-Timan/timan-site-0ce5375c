@@ -855,11 +855,11 @@ function BrochureSpreadViewer({
   return (
     <div className="relative touch-pan-y select-none overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200">
       <div className={`relative grid grid-cols-1 ${isSinglePageSpread ? '' : 'md:h-[76vh] md:min-h-[620px] md:grid-cols-2'}`}>
-        <div className={`relative z-10 flex ${pageHeight} items-center justify-center bg-white p-2 ${isSinglePageSpread ? '' : 'md:border-r md:border-slate-100'}`}>
+        <div className={`relative z-10 flex ${pageHeight} items-center justify-center bg-white p-1 ${isSinglePageSpread ? '' : 'md:border-r md:border-slate-100'}`}>
           <BrochureVirtualPageImage page={currentSpread[0]} pageSrc={pageSrc} title={title} lang={lang} />
         </div>
         {!isSinglePageSpread && (
-          <div className={`flex ${pageHeight} items-center justify-center bg-white p-2`}>
+          <div className={`flex ${pageHeight} items-center justify-center bg-white p-1`}>
             {rightPage ? (
               <BrochureVirtualPageImage page={rightPage} pageSrc={pageSrc} title={title} lang={lang} />
             ) : (
