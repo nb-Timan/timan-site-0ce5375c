@@ -76,6 +76,14 @@ const SECTION_TITLES: Record<Exclude<GuidedContractSection['stepId'], never>, Re
 // Contract prose is rendered from one canonical template. Keep placeholders intact
 // so localized sentences still receive the same contract-specific values.
 const ENGLISH_CONTRACT_TEXT: Record<string, string> = {
+  'Kontrakt, punkt 1, 2 og 10': 'Contract, sections 1, 2 and 10',
+  'Kontrakt, punkt 3 + Bilag 3': 'Contract, section 3 + Appendix 3',
+  'Kontrakt, punkt 4 + Bilag 2': 'Contract, section 4 + Appendix 2',
+  'Kontrakt, punkt 5': 'Contract, section 5',
+  'Kontrakt, punkt 6 og 8 + Bilag 1': 'Contract, sections 6 and 8 + Appendix 1',
+  'Kontrakt, punkt 7 og 7.1': 'Contract, sections 7 and 7.1',
+  'Kontrakt, punkt 9 + Bilag 4': 'Contract, section 9 + Appendix 4',
+  'Kontrakt, punkt 11': 'Contract, section 11',
   '1. Formål': '1. Purpose',
   'Formålet med denne kontrakt er at fastlægge vilkårene for samarbejdet mellem Timan A/S og {{companyName}}, herefter nævnt som {{partnerSingular}}, vedrørende salg af Timan-maskiner og tilhørende produkter.': 'The purpose of this agreement is to set out the terms of cooperation between Timan A/S and {{companyName}}, hereinafter referred to as {{partnerSingular}}, concerning the sale of Timan machines and related products.',
   '2. Priser, ordre og {{partnerSingular}}portal': '2. Prices, orders and the {{partnerSingular}} portal',
@@ -142,6 +150,14 @@ const ENGLISH_CONTRACT_TEXT: Record<string, string> = {
 };
 
 const GERMAN_CONTRACT_TEXT: Record<string, string> = {
+  'Kontrakt, punkt 1, 2 og 10': 'Vertrag, Punkte 1, 2 und 10',
+  'Kontrakt, punkt 3 + Bilag 3': 'Vertrag, Punkt 3 + Anhang 3',
+  'Kontrakt, punkt 4 + Bilag 2': 'Vertrag, Punkt 4 + Anhang 2',
+  'Kontrakt, punkt 5': 'Vertrag, Punkt 5',
+  'Kontrakt, punkt 6 og 8 + Bilag 1': 'Vertrag, Punkte 6 und 8 + Anhang 1',
+  'Kontrakt, punkt 7 og 7.1': 'Vertrag, Punkte 7 und 7.1',
+  'Kontrakt, punkt 9 + Bilag 4': 'Vertrag, Punkt 9 + Anhang 4',
+  'Kontrakt, punkt 11': 'Vertrag, Punkt 11',
   '1. Formål': '1. Zweck',
   'Formålet med denne kontrakt er at fastlægge vilkårene for samarbejdet mellem Timan A/S og {{companyName}}, herefter nævnt som {{partnerSingular}}, vedrørende salg af Timan-maskiner og tilhørende produkter.': 'Zweck dieses Vertrags ist es, die Bedingungen der Zusammenarbeit zwischen Timan A/S und {{companyName}}, nachfolgend {{partnerSingular}} genannt, über den Verkauf von Timan-Maschinen und zugehörigen Produkten festzulegen.',
   '2. Priser, ordre og {{partnerSingular}}portal': '2. Preise, Bestellungen und {{partnerSingular}}portal',
@@ -580,6 +596,7 @@ export function renderGuidedContractSections(
     return ({
     ...section,
     title: SECTION_TITLES[section.stepId][language] ?? SECTION_TITLES[section.stepId].en,
+    source: localizeContractTemplate(section.source, language),
     blocks: sourceBlocks
       .map((block) => ({
         heading: block.heading ? renderContractText(block.heading, context, language) : undefined,
