@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildBudgetReferenceCrmOptions } from "@/lib/budgetReferenceCrmOptions";
+import {
+  buildBudgetReferenceCrmOptions,
+  filterBudgetReferenceLeadsForDealer,
+} from "@/lib/budgetReferenceCrmOptions";
 import type { CrmDemoLead, CrmLead } from "@/lib/crmLeadsService";
 
 const lead: CrmLead = {
@@ -33,5 +36,18 @@ describe("budget reference lead/demo options", () => {
     const options = buildBudgetReferenceCrmOptions([lead], [demo]);
     expect(options.find((option) => option.value === "lead:L-1023")?.reference).toBe("L-1023");
     expect(options.find((option) => option.value === "demo:D-1044")?.reference).toBe("D-1044");
+  });
+
+  it("matches leads using either the canonical dealer UUID or legacy account number", () => {
+    const uuidLinked = { ...lead, id: "uuid-linked", lead_no: 5002, linked_dealer_id: "dealer-uuid" };
+    const accountNumberLinked = { ...lead, id: "account-linked", linked_dealer_id: "10368" };
+    const otherDealer = { ...lead, id: "other-dealer", linked_dealer_id: "another-dealer" };
+
+    expect(filterBudgetReferenceLeadsForDealer(
+      [uuidLinked, accountNumberLinked, otherDealer],
+      "dealer-uuid",
+      "10368",
+    ).map((item) => item.id)).toEqual(["uuid-linked", "account-linked"]);
+    expect(buildBudgetReferenceCrmOptions([uuidLinked], [])[0]?.label).toContain("G-5002");
   });
 });

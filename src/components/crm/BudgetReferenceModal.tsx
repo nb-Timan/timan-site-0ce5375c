@@ -36,7 +36,10 @@ import {
   formatBudgetReferenceDealerContact,
   sortBudgetReferenceDealerContacts,
 } from "@/lib/budgetReferenceDealerContacts";
-import { buildBudgetReferenceCrmOptions } from "@/lib/budgetReferenceCrmOptions";
+import {
+  buildBudgetReferenceCrmOptions,
+  filterBudgetReferenceLeadsForDealer,
+} from "@/lib/budgetReferenceCrmOptions";
 import { listLeads, listDemoLeads, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
 import type { BudgetType } from "@/lib/crmBudgetService";
 
@@ -445,11 +448,7 @@ function ReferenceRowEditor({
   const dealerCompany = (selected?.company_name || "").trim().toLowerCase();
   const filteredLeads = useMemo<CrmLead[]>(() => {
     if (!selected) return [];
-    return leads.filter(l => {
-      const linked = (l.linked_dealer_id || "").trim();
-      if (dealerAccountNo && linked && linked === dealerAccountNo) return true;
-      return false;
-    });
+    return filterBudgetReferenceLeadsForDealer(leads, selected.value, dealerAccountNo);
   }, [leads, selected, dealerAccountNo]);
   const filteredDemos = useMemo<CrmDemoLead[]>(() => {
     if (!selected) return [];

@@ -1,4 +1,4 @@
-import type { CrmDemoLead, CrmLead } from "@/lib/crmLeadsService";
+import { formatLeadNo, type CrmDemoLead, type CrmLead } from "@/lib/crmLeadsService";
 
 export type BudgetReferenceCrmOption = {
   value: string;
@@ -8,7 +8,7 @@ export type BudgetReferenceCrmOption = {
 };
 
 function leadReference(lead: CrmLead): string {
-  return typeof lead.lead_no === "number" ? `L-${lead.lead_no}` : lead.id;
+  return typeof lead.lead_no === "number" ? formatLeadNo(lead.lead_no) : lead.id;
 }
 
 function demoReference(demo: CrmDemoLead): string {
@@ -45,4 +45,22 @@ export function buildBudgetReferenceCrmOptions(
   });
 
   return [...leadOptions, ...demoOptions].sort((left, right) => left.label.localeCompare(right.label, "da"));
+}
+
+/**
+ * A CRM lead can carry either the current dealer UUID or the legacy account
+ * number. Both are canonical identifiers, so the reference picker accepts
+ * either without falling back to name matching.
+ */
+export function filterBudgetReferenceLeadsForDealer(
+  leads: CrmLead[],
+  dealerId: string | null | undefined,
+  dealerAccountNumber: string | null | undefined,
+): CrmLead[] {
+  const dealerKeys = new Set([dealerId, dealerAccountNumber]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value)));
+
+  if (dealerKeys.size === 0) return [];
+  return leads.filter((lead) => dealerKeys.has((lead.linked_dealer_id || "").trim()));
 }
