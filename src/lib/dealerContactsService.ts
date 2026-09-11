@@ -100,7 +100,7 @@ function describeError(error: unknown): string {
   return String(error);
 }
 
-export async function listDealerContacts(dealerAccountId: string): Promise<DealerContact[]> {
+export async function fetchDealerContacts(dealerAccountId: string): Promise<{ contacts: DealerContact[]; error?: string }> {
   const { data, error } = await supabase
     .from("dealer_contacts")
     .select("*")
@@ -109,9 +109,13 @@ export async function listDealerContacts(dealerAccountId: string): Promise<Deale
   if (error) {
     // eslint-disable-next-line no-console
     console.warn("[dealerContactsService] list error", error);
-    return [];
+    return { contacts: [], error: describeError(error) };
   }
-  return (data ?? []).map(rowToContact);
+  return { contacts: (data ?? []).map(rowToContact) };
+}
+
+export async function listDealerContacts(dealerAccountId: string): Promise<DealerContact[]> {
+  return (await fetchDealerContacts(dealerAccountId)).contacts;
 }
 
 /** Loads contacts for a visible dealer list in one request. */

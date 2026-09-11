@@ -515,6 +515,8 @@ describe('contract flow', () => {
     expect(pageSource).not.toContain("inferContractPartnerTypeFromDealerAccount(account) === form.partnerType");
     expect(pageSource).toContain("buildContractPartnerPatchFromDealerAccount(account)");
     expect(pageSource).toContain("setSelectedDealerAccountNumber(account.account_number)");
+    expect(pageSource).toContain("timanSellerName: account.assigned_seller_name || current.timanSellerName,");
+    expect(pageSource).toContain("timanSellerEmail: account.assigned_seller_email || current.timanSellerEmail,");
     expect(pageSource).not.toContain("partnerType: inferContractPartnerTypeFromDealerAccount(account) || ''");
     expect(pageSource).toContain('const [draftChangeVersion, setDraftChangeVersion] = useState(0);');
     expect(pageSource).toContain("if (!effectiveUser?.email || !contractLoaded || draftChangeVersion === 0 || !activeDealerAccountNumber) return;");
@@ -533,13 +535,16 @@ describe('contract flow', () => {
     expect(pageSource).toContain("contractUi('selectPartnerFirst', uiLanguage)");
     expect(pageSource).toContain("setSelectedAccessUserId('');");
     expect(pageSource).toContain("setSelectedAccessUserId(users.rows[0]?.id || '')");
-    expect(pageSource).toContain("import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';");
+    expect(pageSource).toContain("import { fetchDealerContacts, type DealerContact } from '@/lib/dealerContactsService';");
     expect(pageSource).toContain('const [contractPartnerContacts, setContractPartnerContacts] = useState<DealerContact[]>([]);');
+    expect(pageSource).toContain('const [contractPartnerContactsLoading, setContractPartnerContactsLoading] = useState(false);');
+    expect(pageSource).toContain('const { contacts, error: contactsError } = await fetchDealerContacts(row.id);');
     expect(pageSource).toContain('const selectedContact = resolveContractPartnerContact(canonicalContacts, current);');
     expect(pageSource).toContain("contactPerson: selectedContact?.name || '',");
     expect(pageSource).toContain("contactTitle: selectedContact?.role_title || '',");
     expect(pageSource).toContain('onPartnerContactSelect={selectContractPartnerContact}');
     expect(pageSource).toContain("value={form.dealerContactId || ''}");
+    expect(pageSource).toContain("? 'Henter kontaktpersoner...'");
     expect(pageSource).toContain('Partneren har ingen registrerede kontakter endnu.');
     expect(pageSource).toContain("hasReachedContractStatus(contractRecord.contract_status, 'ready_for_signature')");
     expect(serviceSource).toContain("fetchDealerAccountByNumber(input.dealerAccountNumber)");

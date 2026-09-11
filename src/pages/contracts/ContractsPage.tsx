@@ -69,7 +69,7 @@ import {
   type DealerContractUploadVersion,
 } from '@/lib/dealerContractsService';
 import { fetchDealerAccountByNumber, fetchDealerAccounts, fetchDealerAccountsForSeller, type DealerAccount } from '@/lib/dealerAccountsService';
-import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
+import { fetchDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import { inviteContractPartnerUser } from '@/lib/adminUserActions';
 import { canAccessContractsModule, derivePortalRole } from '@/lib/portalAccess';
@@ -936,6 +936,8 @@ export default function ContractsPage() {
 
   const [confirmations, setConfirmations] = useState<ContractConfirmations>(EMPTY_CONTRACT_CONFIRMATIONS);
   const [contractPartnerContacts, setContractPartnerContacts] = useState<DealerContact[]>([]);
+  const [contractPartnerContactsLoading, setContractPartnerContactsLoading] = useState(false);
+  const [contractPartnerContactsError, setContractPartnerContactsError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!effectiveUser?.email) return;
@@ -1037,21 +1039,34 @@ export default function ContractsPage() {
   useEffect(() => {
     if (!contractLoaded || !activeDealerAccountNumber) {
       setContractPartnerContacts([]);
+      setContractPartnerContactsLoading(false);
+      setContractPartnerContactsError(null);
       return;
     }
     if (contractRecord && (contractRecord.final_snapshot || hasReachedContractStatus(contractRecord.contract_status, 'ready_for_signature'))) {
       return;
     }
     let cancelled = false;
+    setContractPartnerContactsLoading(true);
+    setContractPartnerContactsError(null);
     fetchDealerAccountByNumber(activeDealerAccountNumber).then(async ({ row, error }) => {
       if (cancelled) return;
       if (error) {
+        setContractPartnerContactsLoading(false);
+        setContractPartnerContactsError(error);
         toast.error('Kunne ikke hente forhandlerdata til kontrakten.');
         return;
       }
-      if (!row) return;
-      const contacts = await listDealerContacts(row.id);
+      if (!row) {
+        setContractPartnerContactsLoading(false);
+        setContractPartnerContactsError('Partnerkontoen kunne ikke findes.');
+        return;
+      }
+      const { contacts, error: contactsError } = await fetchDealerContacts(row.id);
       if (cancelled) return;
+      setContractPartnerContactsLoading(false);
+      setContractPartnerContactsError(contactsError ?? null);
+      if (contactsError) return;
       const canonicalContacts = sortContractPartnerContacts(contacts);
       setContractPartnerContacts(canonicalContacts);
       const postalCity = [row.postal_code, row.city].filter(Boolean).join(' ') || row.zip_city_raw || '';
@@ -1162,9 +1177,15 @@ export default function ContractsPage() {
     setSelectedDealerAccountNumber(account.account_number);
     setSelectedAccessUserId('');
     setContractPartnerContacts([]);
+    setContractPartnerContactsLoading(true);
+    setContractPartnerContactsError(null);
     setForm((current) => ({
       ...current,
       ...buildContractPartnerPatchFromDealerAccount(account),
+      // The selected account may not carry seller metadata. Keep the already
+      // hydrated internal actor in that case so Step 1 validation stays valid.
+      timanSellerName: account.assigned_seller_name || current.timanSellerName,
+      timanSellerEmail: account.assigned_seller_email || current.timanSellerEmail,
     }));
     markDraftChanged();
   };
@@ -1929,6 +1950,8 @@ export default function ContractsPage() {
                 sellerEmail={getEffectiveSellerEmail(appUser)}
                 sellerInitials={getEffectiveSellerInitials(appUser)}
                 partnerContacts={contractPartnerContacts}
+                partnerContactsLoading={contractPartnerContactsLoading}
+                partnerContactsError={contractPartnerContactsError}
                 update={update}
                 onPartnerTypeChange={updateContractPartnerType}
                 onPartnerAccountSelect={selectContractPartnerAccount}
@@ -2627,6 +2650,8 @@ function PartiesStep({
   sellerEmail,
   sellerInitials,
   partnerContacts,
+  partnerContactsLoading,
+  partnerContactsError,
   update,
   onPartnerTypeChange,
   onPartnerAccountSelect,
@@ -2641,6 +2666,8 @@ function PartiesStep({
   sellerEmail: string | null;
   sellerInitials: string | null;
   partnerContacts: DealerContact[];
+  partnerContactsLoading: boolean;
+  partnerContactsError: string | null;
   update: (key: keyof ContractFormData, value: string | null) => void;
   onPartnerTypeChange: (partnerType: ContractPartnerType | '') => void;
   onPartnerAccountSelect: (account: DealerAccount) => void;
@@ -2845,18 +2872,27 @@ function PartiesStep({
             <span className="text-sm font-semibold text-gray-700">{contractUi('contactPerson', uiLanguage)} *</span>
             <select
               value={form.dealerContactId || ''}
-              disabled={locked || !selectedDealerAccountNumber || partnerContacts.length === 0}
+              disabled={locked || !selectedDealerAccountNumber || partnerContactsLoading || partnerContacts.length === 0}
               onChange={(event) => onPartnerContactSelect(event.target.value)}
               className="mt-2 w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
             >
-              <option value="">{partnerContacts.length > 0 ? 'Vælg kontaktperson' : 'Ingen kontaktpersoner registreret'}</option>
+              <option value="">
+                {partnerContactsLoading
+                  ? 'Henter kontaktpersoner...'
+                  : partnerContacts.length > 0
+                    ? 'Vælg kontaktperson'
+                    : 'Ingen kontaktpersoner registreret'}
+              </option>
               {partnerContacts.map((contact) => (
                 <option key={contact.id} value={contact.id}>
                   {[contact.name, contact.role_title].filter(Boolean).join(' · ')}
                 </option>
               ))}
             </select>
-            {selectedDealerAccountNumber && partnerContacts.length === 0 && (
+            {selectedDealerAccountNumber && partnerContactsError && (
+              <span className="mt-1 block text-xs text-red-700">Kontaktpersoner kunne ikke hentes: {partnerContactsError}</span>
+            )}
+            {selectedDealerAccountNumber && !partnerContactsLoading && !partnerContactsError && partnerContacts.length === 0 && (
               <span className="mt-1 block text-xs text-amber-800">Partneren har ingen registrerede kontakter endnu.</span>
             )}
           </label>
