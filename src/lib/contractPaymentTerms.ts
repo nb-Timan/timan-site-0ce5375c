@@ -28,6 +28,7 @@ const CONTRACT_PAYMENT_TERM_LABELS: Record<ContractPaymentTermId, Record<PortalU
     fr: 'Net 21 jours',
     pl: 'Netto 21 dni',
     cs: 'Netto 21 dní',
+    tr: 'Netto 21 dní',
   },
   net_30: {
     da: 'Netto 30 dage',
@@ -39,6 +40,7 @@ const CONTRACT_PAYMENT_TERM_LABELS: Record<ContractPaymentTermId, Record<PortalU
     fr: 'Net 30 jours',
     pl: 'Netto 30 dni',
     cs: 'Netto 30 dní',
+    tr: 'Netto 30 dní',
   },
   cbs: {
     da: 'CBS',
@@ -50,6 +52,7 @@ const CONTRACT_PAYMENT_TERM_LABELS: Record<ContractPaymentTermId, Record<PortalU
     fr: 'CBS',
     pl: 'CBS',
     cs: 'CBS',
+    tr: 'CBS',
   },
 };
 
@@ -84,6 +87,7 @@ export function renderContractPaymentTermLegalText(
     fr: { label: 'Conditions de paiement', net: (days) => `Le paiement est dû à ${days} jours nets à compter de la date de facture.` },
     pl: { label: 'Warunki płatności', net: (days) => `Płatność jest wymagalna w terminie ${days} dni netto od daty faktury.` },
     cs: { label: 'Platební podmínky', net: (days) => `Platba je splatná do ${days} dnů od data faktury.` },
+    tr: { label: 'Platební podmínky', net: (days) => `Platba je splatná do ${days} dnů od data faktury.` },
   };
   const localized = copy[lang] ?? copy.en;
   if (term === 'cbs') return `${localized.label}: CBS.`;

@@ -6,6 +6,7 @@
  * identity across renders and inputs don't remount on every keystroke.
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import type { PortalUiLanguage } from "@/lib/portalLanguages";
 import { CheckCircle2, AlertCircle, Save, Plus, Trash2, Loader2, ArrowRightLeft, CopyPlus } from "lucide-react";
 import { useBeforeUnload } from "react-router-dom";
 

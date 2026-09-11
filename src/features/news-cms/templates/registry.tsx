@@ -15,7 +15,7 @@ import {
   flyerTextLimits,
   normalizeFlyerHighlights,
 } from '@/features/news-cms/lib/flyerPages';
-import type { NewsFlyerPage, NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
+import type { NewsFlyerPage, NewsImageTransform, NewsRendererProps, NewsTemplateDefinition, NewsTemplateId } from './types';
 import { readNewsImageTransform } from '@/features/news-cms/lib/newsImageTransform';
 
 

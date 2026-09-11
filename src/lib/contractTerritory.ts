@@ -74,6 +74,7 @@ const CONTRACT_TERRITORY_POSTAL_COUNTRIES: Array<{
       fr: 'Codes postaux',
       pl: 'Kody pocztowe',
       cs: 'PSČ',
+      tr: 'PSČ',
     },
     postalDigits: 4,
   },
@@ -89,6 +90,7 @@ const CONTRACT_TERRITORY_POSTAL_COUNTRIES: Array<{
       fr: 'PLZ/codes postaux',
       pl: 'PLZ/kody pocztowe',
       cs: 'PLZ/PSČ',
+      tr: 'PLZ/PSČ',
     },
     postalDigits: 5,
   },
@@ -104,6 +106,7 @@ const CONTRACT_TERRITORY_POSTAL_COUNTRIES: Array<{
       fr: 'Codes postaux',
       pl: 'Kody pocztowe',
       cs: 'PSČ',
+      tr: 'PSČ',
     },
     postalDigits: 5,
   },
@@ -436,6 +439,7 @@ function getContractTerritoryPostalEntryLabel(language: PortalUiLanguage | strin
     fr: 'Code postal',
     pl: 'Kod pocztowy',
     cs: 'PSČ',
+    tr: 'PSČ',
   };
   return labels[language as PortalUiLanguage] ?? labels.da;
 }
@@ -455,6 +459,7 @@ export function getContractTerritoryRegionLabel(
       fr: 'Communes',
       pl: 'Gminy',
       cs: 'Obce',
+      tr: 'Obce',
     };
     return labels[language as PortalUiLanguage] ?? labels.da;
   }
@@ -469,6 +474,7 @@ export function getContractTerritoryRegionLabel(
     fr: 'Zones selectionnees',
     pl: 'Wybrane obszary',
     cs: 'Vybrane oblasti',
+    tr: 'Vybrane oblasti',
   };
   return labels[language as PortalUiLanguage] ?? labels.da;
 }
@@ -489,6 +495,7 @@ export function getContractTerritoryDisplayGroups(
     fr: { wholeCountry: 'Tout le pays', country: 'Pays', municipality: 'Commune', selectedArea: 'Zone sélectionnée' },
     pl: { wholeCountry: 'Cały kraj', country: 'Kraj', municipality: 'Gmina', selectedArea: 'Wybrany obszar' },
     cs: { wholeCountry: 'Celá země', country: 'Země', municipality: 'Obec', selectedArea: 'Vybraná oblast' },
+    tr: { wholeCountry: 'Celá země', country: 'Země', municipality: 'Obec', selectedArea: 'Vybraná oblast' },
   };
   const labels = displayLabels[language as PortalUiLanguage] ?? displayLabels.da;
 
@@ -539,6 +546,7 @@ export function getContractTerritoryDisplayItems(
     fr: { wholeCountry: 'Tout le pays', country: 'Pays', municipality: 'Commune', selectedArea: 'Zone sélectionnée' },
     pl: { wholeCountry: 'Cały kraj', country: 'Kraj', municipality: 'Gmina', selectedArea: 'Wybrany obszar' },
     cs: { wholeCountry: 'Celá země', country: 'Země', municipality: 'Obec', selectedArea: 'Vybraná oblast' },
+    tr: { wholeCountry: 'Celá země', country: 'Země', municipality: 'Obec', selectedArea: 'Vybraná oblast' },
   };
   const labels = displayLabels[language as PortalUiLanguage] ?? displayLabels.da;
   if (area.wholeCountry) {

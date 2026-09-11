@@ -3987,6 +3987,7 @@ const TERRITORY_REGION_UI_LABELS = {
     fr: 'Communes sélectionnées',
     pl: 'Wybrane gminy',
     cs: 'Vybrané obce',
+    tr: 'Vybrané obce',
   },
   selectedAreas: {
     da: 'Valgte områder',
@@ -3998,6 +3999,7 @@ const TERRITORY_REGION_UI_LABELS = {
     fr: 'Zones sélectionnées',
     pl: 'Wybrane obszary',
     cs: 'Vybrané oblasti',
+    tr: 'Vybrané oblasti',
   },
   selectOnMap: {
     da: 'Vælg på kort',
@@ -4009,6 +4011,7 @@ const TERRITORY_REGION_UI_LABELS = {
     fr: 'Sélectionner sur la carte',
     pl: 'Wybierz na mapie',
     cs: 'Vybrat na mapě',
+    tr: 'Vybrat na mapě',
   },
   noMunicipalities: {
     da: 'Ingen kommuner valgt.',
@@ -4020,6 +4023,7 @@ const TERRITORY_REGION_UI_LABELS = {
     fr: 'Aucune commune sélectionnée.',
     pl: 'Nie wybrano gmin.',
     cs: 'Nejsou vybrané žádné obce.',
+    tr: 'Nejsou vybrané žádné obce.',
   },
   noAreas: {
     da: 'Ingen områder valgt.',
@@ -4031,6 +4035,7 @@ const TERRITORY_REGION_UI_LABELS = {
     fr: 'Aucune zone sélectionnée.',
     pl: 'Nie wybrano obszarów.',
     cs: 'Nejsou vybrané žádné oblasti.',
+    tr: 'Nejsou vybrané žádné oblasti.',
   },
   denmarkHelp: {
     da: 'Klik kommuner på kortet. Postnumre indtastes manuelt nedenfor.',
@@ -4042,6 +4047,7 @@ const TERRITORY_REGION_UI_LABELS = {
     fr: 'Cliquez sur les communes sur la carte. Les codes postaux sont saisis manuellement ci-dessous.',
     pl: 'Kliknij gminy na mapie. Kody pocztowe wpisuje się ręcznie poniżej.',
     cs: 'Klikněte na obce v mapě. PSČ se zadávají ručně níže.',
+    tr: 'Klikněte na obce v mapě. PSČ se zadávají ručně níže.',
   },
   swedenHelp: {
     da: 'Klik svenske kommuner på kortet. Postnumre indtastes manuelt nedenfor.',
@@ -4053,6 +4059,7 @@ const TERRITORY_REGION_UI_LABELS = {
     fr: 'Cliquez sur les communes suédoises sur la carte. Les codes postaux sont saisis manuellement ci-dessous.',
     pl: 'Kliknij szwedzkie gminy na mapie. Kody pocztowe wpisuje się ręcznie poniżej.',
     cs: 'Klikněte na švédské obce v mapě. PSČ se zadávají ručně níže.',
+    tr: 'Klikněte na švédské obce v mapě. PSČ se zadávají ručně níže.',
   },
   plz2Help: {
     da: 'Klik PLZ2-områder på kortet. Postnumre indtastes manuelt nedenfor.',
@@ -4064,6 +4071,7 @@ const TERRITORY_REGION_UI_LABELS = {
     fr: 'Cliquez sur les zones PLZ2 sur la carte. Les codes postaux sont saisis manuellement ci-dessous.',
     pl: 'Kliknij obszary PLZ2 na mapie. Kody pocztowe wpisuje się ręcznie poniżej.',
     cs: 'Klikněte na oblasti PLZ2 v mapě. PSČ se zadávají ručně níže.',
+    tr: 'Klikněte na oblasti PLZ2 v mapě. PSČ se zadávají ručně níže.',
   },
 } satisfies Record<string, Record<PortalUiLanguage, string>>;
 

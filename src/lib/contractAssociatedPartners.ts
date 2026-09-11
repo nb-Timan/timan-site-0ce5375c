@@ -37,6 +37,7 @@ const KIND_LABELS: Record<ContractAssociatedPartnerKind, Record<PortalUiLanguage
     fr: "Revendeur",
     pl: "Dealer",
     cs: "Prodejce",
+    tr: "Prodejce",
   },
   service_partner: {
     da: "Servicepartner",
@@ -48,6 +49,7 @@ const KIND_LABELS: Record<ContractAssociatedPartnerKind, Record<PortalUiLanguage
     fr: "Partenaire de service",
     pl: "Partner serwisowy",
     cs: "Servisní partner",
+    tr: "Servisní partner",
   },
   dealer_customer: {
     da: "Forhandlerkunde",
@@ -59,6 +61,7 @@ const KIND_LABELS: Record<ContractAssociatedPartnerKind, Record<PortalUiLanguage
     fr: "Client revendeur",
     pl: "Klient dealera",
     cs: "Zákazník prodejce",
+    tr: "Zákazník prodejce",
   },
 };
 
@@ -73,6 +76,7 @@ const STATUS_LABELS: Record<ContractAssociatedPartnerStatus, Record<PortalUiLang
     fr: "Partenaire existant",
     pl: "Istniejący partner",
     cs: "Stávající partner",
+    tr: "Stávající partner",
   },
   pending: {
     da: "Ny samarbejdspartner i kontraktkladde",
@@ -84,6 +88,7 @@ const STATUS_LABELS: Record<ContractAssociatedPartnerStatus, Record<PortalUiLang
     fr: "Nouveau partenaire dans le brouillon du contrat",
     pl: "Nowy partner w wersji roboczej umowy",
     cs: "Nový spolupracující partner v návrhu smlouvy",
+    tr: "Nový spolupracující partner v návrhu smlouvy",
   },
 };
 

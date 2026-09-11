@@ -131,6 +131,7 @@ const DATE_LOCALE: Record<PortalUiLanguage, string> = {
   fr: "fr-FR",
   pl: "pl-PL",
   cs: "cs-CZ",
+  tr: "cs-CZ",
 };
 
 function dateInput(value: string | null | undefined): string {

@@ -79,4 +79,5 @@ export const NEWS_CMS_TPL04_TRANSLATIONS: Record<PortalUiLanguage, Dict> = {
   fr,
   pl,
   cs,
+  tr: en,
 };
