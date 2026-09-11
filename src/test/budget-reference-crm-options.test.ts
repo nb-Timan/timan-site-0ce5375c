@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildBudgetReferenceLeadQuery,
   buildBudgetReferenceCrmOptions,
   filterBudgetReferenceLeadsForDealer,
 } from "@/lib/budgetReferenceCrmOptions";
@@ -25,6 +26,15 @@ const demo: CrmDemoLead = {
 };
 
 describe("budget reference lead/demo options", () => {
+  it("queries normal leads by the selected canonical dealer before applying the row limit", () => {
+    expect(buildBudgetReferenceLeadQuery("053bf4f3-9b83-4e8f-aa81-1625dd90a872")).toEqual({
+      limit: 500,
+      linkedDealerIds: ["053bf4f3-9b83-4e8f-aa81-1625dd90a872"],
+      payload: "summary",
+    });
+    expect(buildBudgetReferenceLeadQuery(" ")).toBeNull();
+  });
+
   it("combines canonical lead and demo references in one dropdown model", () => {
     expect(buildBudgetReferenceCrmOptions([lead], [demo])).toEqual(expect.arrayContaining([
       expect.objectContaining({ value: "lead:L-1023", kind: "lead", label: "L-1023 · Weed brush · Åben" }),

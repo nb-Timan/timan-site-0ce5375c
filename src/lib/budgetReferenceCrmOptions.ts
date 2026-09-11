@@ -7,6 +7,22 @@ export type BudgetReferenceCrmOption = {
   label: string;
 };
 
+/**
+ * Limits the normal-lead query at the canonical dealer UUID before the row
+ * limit is applied. This keeps old dealer leads available in the reference
+ * picker without loading an unscoped CRM lead list into the browser.
+ */
+export function buildBudgetReferenceLeadQuery(dealerId: string | null | undefined) {
+  const normalizedDealerId = dealerId?.trim();
+  if (!normalizedDealerId) return null;
+
+  return {
+    limit: 500,
+    linkedDealerIds: [normalizedDealerId],
+    payload: "summary" as const,
+  };
+}
+
 function leadReference(lead: CrmLead): string {
   return typeof lead.lead_no === "number" ? formatLeadNo(lead.lead_no) : lead.id;
 }

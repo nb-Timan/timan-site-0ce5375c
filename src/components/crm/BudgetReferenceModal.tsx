@@ -38,7 +38,7 @@ import {
 } from "@/lib/budgetReferenceDealerContacts";
 import {
   buildBudgetReferenceCrmOptions,
-  filterBudgetReferenceLeadsForDealer,
+  buildBudgetReferenceLeadQuery,
 } from "@/lib/budgetReferenceCrmOptions";
 import { listLeads, listDemoLeads, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
 import type { BudgetType } from "@/lib/crmBudgetService";
@@ -132,18 +132,14 @@ export default function BudgetReferenceModal({
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
   const [dealersLoading, setDealersLoading] = useState(false);
 
-  const [leads, setLeads] = useState<CrmLead[]>([]);
-  const [demos, setDemos] = useState<CrmDemoLead[]>([]);
-  const [leadsLoading, setLeadsLoading] = useState(false);
-
-  // Load dealer/lead/demo lists AND ALL existing references for this cell so
+  // Load the dealer list and ALL existing references for this cell so
   // the user re-enters the same distribution she already saved — including
-  // legacy rows that may pre-date reference_group_id.
+  // legacy rows that may pre-date reference_group_id. Leads are fetched only
+  // after selecting a dealer, using the canonical dealer relation server-side.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
     setDealersLoading(true);
-    setLeadsLoading(true);
 
     const cellKey = ctx?.cell_key || null;
     const existingP: Promise<BudgetReference[]> = cellKey
@@ -157,14 +153,10 @@ export default function BudgetReferenceModal({
 
     Promise.all([
       fetchDealerAccounts({ includeDeleted: false }).then(r => r.rows).catch(() => [] as DealerAccount[]),
-      listLeads({ limit: 500, payload: "summary" }).catch(() => [] as CrmLead[]),
-      listDemoLeads({ limit: 500, payload: "summary" }).catch(() => [] as CrmDemoLead[]),
       existingP,
-    ]).then(([d, l, dm, existing]) => {
+    ]).then(([d, existing]) => {
       if (cancelled) return;
       setDealers(d);
-      setLeads(l);
-      setDemos(dm);
 
       if (existing.length > 0) {
         const seed: RefRow[] = existing.map((ex): RefRow => {
@@ -193,7 +185,6 @@ export default function BudgetReferenceModal({
     }).finally(() => {
       if (cancelled) return;
       setDealersLoading(false);
-      setLeadsLoading(false);
     });
     return () => { cancelled = true; };
   }, [open, ctx?.cell_key, ctx?.budget_year, ctx?.budget_type]);
@@ -380,9 +371,6 @@ export default function BudgetReferenceModal({
               isAdmin={isAdmin}
               busy={busy}
               canRemove={rows.length > 1}
-              leads={leads}
-              demos={demos}
-              leadsLoading={leadsLoading}
               quantityLimits={getBudgetReferenceQuantityLimits({
                 totalAllowed,
                 allocated,
@@ -417,7 +405,7 @@ export default function BudgetReferenceModal({
 }
 
 function ReferenceRowEditor({
-  index, row, options, dealersLoading, isAdmin, busy, canRemove, leads, demos, leadsLoading, quantityLimits, onChange, onRemove,
+  index, row, options, dealersLoading, isAdmin, busy, canRemove, quantityLimits, onChange, onRemove,
 }: {
   index: number;
   row: RefRow;
@@ -426,15 +414,15 @@ function ReferenceRowEditor({
   isAdmin: boolean;
   busy: boolean;
   canRemove: boolean;
-  leads: CrmLead[];
-  demos: CrmDemoLead[];
-  leadsLoading: boolean;
   quantityLimits: ReturnType<typeof getBudgetReferenceQuantityLimits>;
   onChange: (patch: Partial<RefRow>) => void;
   onRemove: () => void;
 }) {
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [dealerLeads, setDealerLeads] = useState<CrmLead[]>([]);
+  const [dealerDemos, setDealerDemos] = useState<CrmDemoLead[]>([]);
+  const [crmLoading, setCrmLoading] = useState(false);
   const selected = options.find((o) => o.value === row.dealerId) || null;
   const triggerLabel = selected
     ? selected.label
@@ -443,24 +431,40 @@ function ReferenceRowEditor({
       : isAdmin ? "Vælg forhandler" : "Vælg blandt mine forhandlere";
 
   // Normal leads and demo leads have separate canonical sources, but they
-  // are presented as one reference chooser for the selected dealer.
-  const dealerAccountNo = (selected?.account_number || "").trim();
-  const dealerCompany = (selected?.company_name || "").trim().toLowerCase();
-  const filteredLeads = useMemo<CrmLead[]>(() => {
-    if (!selected) return [];
-    return filterBudgetReferenceLeadsForDealer(leads, selected.value, dealerAccountNo);
-  }, [leads, selected, dealerAccountNo]);
-  const filteredDemos = useMemo<CrmDemoLead[]>(() => {
-    if (!selected) return [];
-    return demos.filter(d => {
-      const company = (d.dealer_company || "").trim().toLowerCase();
-      return !!company && !!dealerCompany && company === dealerCompany;
+  // are presented as one chooser. Normal leads are scoped by dealer UUID at
+  // the source, so older leads cannot fall outside a global newest-500 fetch.
+  useEffect(() => {
+    const leadQuery = buildBudgetReferenceLeadQuery(selected?.value);
+    if (!leadQuery || !selected) {
+      setDealerLeads([]);
+      setDealerDemos([]);
+      setCrmLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setCrmLoading(true);
+    Promise.all([
+      listLeads(leadQuery).catch(() => [] as CrmLead[]),
+      listDemoLeads({
+        limit: 500,
+        dealerCompanies: [selected.company_name],
+        payload: "summary",
+      }).catch(() => [] as CrmDemoLead[]),
+    ]).then(([nextLeads, nextDemos]) => {
+      if (cancelled) return;
+      setDealerLeads(nextLeads);
+      setDealerDemos(nextDemos);
+    }).finally(() => {
+      if (!cancelled) setCrmLoading(false);
     });
-  }, [demos, selected, dealerCompany]);
+
+    return () => { cancelled = true; };
+  }, [selected?.value, selected?.company_name]);
 
   const crmReferenceOptions = useMemo(
-    () => buildBudgetReferenceCrmOptions(filteredLeads, filteredDemos),
-    [filteredLeads, filteredDemos],
+    () => buildBudgetReferenceCrmOptions(dealerLeads, dealerDemos),
+    [dealerLeads, dealerDemos],
   );
   const crmReferenceValue = row.leadId
     ? `lead:${row.leadId}`
@@ -469,7 +473,7 @@ function ReferenceRowEditor({
       : "";
   const crmReferencePlaceholder = !selected
     ? "Vælg forhandler først"
-    : leadsLoading
+    : crmLoading
       ? "Henter leads…"
       : crmReferenceOptions.length === 0
         ? "Ingen leads fundet"
@@ -615,7 +619,7 @@ function ReferenceRowEditor({
                 ? { leadId: "", demoId: selectedReference.reference }
                 : { leadId: "", demoId: "" });
           }}
-          disabled={busy || !selected || leadsLoading || crmReferenceOptions.length === 0}
+          disabled={busy || !selected || crmLoading || crmReferenceOptions.length === 0}
         >
           <option value="">{crmReferencePlaceholder}</option>
           {crmReferenceOptions.map((option) => (
