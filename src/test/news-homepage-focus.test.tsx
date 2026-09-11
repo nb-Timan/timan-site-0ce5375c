@@ -17,13 +17,41 @@ import { getNewsTemplate } from '@/features/news-cms/templates/registry';
 describe('Template 03 homepage focus', () => {
   it('stores the hero focus as shared image metadata for every portal language', () => {
     const focus = { x: 63, y: 42 };
-    const content = updateSharedNewsField(emptyLocalizedContent(), 'heroHomepageFocus', focus);
+    const transform = { x: 12, y: -8, scale: 1.3 };
+    const content = updateSharedNewsField(
+      updateSharedNewsField(emptyLocalizedContent(), 'heroImageTransform', transform),
+      'heroHomepageFocus',
+      focus,
+    );
     const template = getNewsTemplate('template-03-hero-news');
 
+    expect(content.da?.heroImageTransform).toEqual(transform);
     expect(content.da?.heroHomepageFocus).toEqual(focus);
+    expect(content.de?.heroImageTransform).toEqual(transform);
     expect(content.de?.heroHomepageFocus).toEqual(focus);
+    expect(content.cs?.heroImageTransform).toEqual(transform);
     expect(content.cs?.heroHomepageFocus).toEqual(focus);
+    expect(resolveNewsRenderContent(content, 'de', template.fields).heroImageTransform).toEqual(transform);
     expect(resolveNewsRenderContent(content, 'de', template.fields).heroHomepageFocus).toEqual(focus);
+  });
+
+  it('applies the Step 2 transform to the Template 03 hero without changing homepage focus', () => {
+    const template = getNewsTemplate('template-03-hero-news');
+    const html = renderToStaticMarkup(
+      createElement(template.Renderer, {
+        lang: 'de',
+        content: {
+          headline: 'Hero',
+          heroImage: 'https://cdn.example.test/template-03-hero.jpg',
+          heroImageTransform: { x: 12, y: -8, scale: 1.3 },
+          heroHomepageFocus: { x: 63, y: 42 },
+        },
+        mode: 'preview',
+      }),
+    );
+
+    expect(html).toContain('translate(12%, -8%) scale(1.3)');
+    expect(html).not.toContain('63% 42%');
   });
 
   it('keeps the fixed square frame within the image bounds', () => {
