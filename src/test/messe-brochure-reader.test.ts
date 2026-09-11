@@ -11,6 +11,7 @@ const componentSource = readFileSync(
   path.resolve(process.cwd(), 'src/pages/messe/MesseMachineBrochurePage.tsx'),
   'utf8',
 );
+const appSource = readFileSync(path.resolve(process.cwd(), 'src/App.tsx'), 'utf8');
 
 const readerCases = {
   'RC-751': { DK: 'da', DE: 'de', FR: 'fr', CZ: 'cs', SE: 'sv', GB: 'en', IT: 'en', HU: 'en', PL: 'en' },
@@ -58,11 +59,22 @@ describe('Messe brochure reader', () => {
   });
 
   it('opens the primary brochure action in the internal modal, not a direct PDF link', () => {
+    expect(componentSource).toContain('const openBrochureReader = useCallback');
     expect(componentSource).toContain('setBrochureOpen(true)');
-    expect(componentSource).not.toContain(') : brochurePdfSrc ? (');
+    expect(componentSource).toContain('onClick={openBrochureReader}');
+    expect(componentSource).not.toContain('window.open(');
+    expect(componentSource).not.toContain('onClick={() => window.location');
     expect(componentSource).toContain('className="absolute bottom-8 right-8');
     expect(componentSource).toContain('aspect-[1/1.4142]');
     expect(componentSource).toContain("page.half === 'left' ? 'translateX(0)' : 'translateX(-50%)'");
     expect(componentSource).not.toContain('hidden min-h-0 items-center justify-center');
+  });
+
+  it('routes every Messe machine with a brochure through the same internal reader page', () => {
+    for (const route of ['/messe/rc-751', '/messe/rc-1000s', '/messe/timan-2620', '/messe/timan-3330']) {
+      const routeMatch = appSource.match(new RegExp(`<Route path="${route}"[^\\n]+`));
+      expect(routeMatch?.[0]).toContain('<MesseMachineBrochurePage');
+      expect(routeMatch?.[0]).not.toContain('href=');
+    }
   });
 });

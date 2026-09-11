@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   BookOpen,
@@ -900,6 +900,10 @@ export default function MesseMachineBrochurePage({
   const [dataOpen, setDataOpen] = useState(false);
   const [leftPage, setLeftPage] = useState(1);
   const hasBrochure = Boolean(brochurePdfSrc && brochurePageBase && brochurePageCount > 0);
+  const openBrochureReader = useCallback(() => {
+    setLeftPage(1);
+    setBrochureOpen(true);
+  }, []);
   const content = MACHINE_CONTENT[machineKey];
   const isTiman2620 = machineKey === 'timan-2620';
   const compactAttachmentChips = machineKey === 'rc-1000s' || isTiman2620;
@@ -1098,10 +1102,7 @@ export default function MesseMachineBrochurePage({
             {hasBrochure ? (
               <button
                 type="button"
-                onClick={() => {
-                  setLeftPage(1);
-                  setBrochureOpen(true);
-                }}
+                onClick={openBrochureReader}
                 className={documentButtonClass}
               >
                 <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
