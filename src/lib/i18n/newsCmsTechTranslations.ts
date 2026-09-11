@@ -147,4 +147,4 @@ const cs: Dict = {
   newsCmsTechHighlightsTitle: 'TECHNICKÉ PŘEDNOSTI',
 };
 
-export const NEWS_CMS_TECH_TRANSLATIONS: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs };
+export const NEWS_CMS_TECH_TRANSLATIONS: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs, tr: en };
