@@ -4184,15 +4184,15 @@ function SparePartsServiceSection({
   const compactSparePartsBlocks = sparePartsBlocks.map((block) => ({
     ...block,
     heading: undefined,
-    bullets: block.bullets?.filter((bullet) => bullet !== 'Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.'),
+    bullets: block.bullets?.slice(0, -1),
   }));
   const importantServiceTerms = [
-    ['Reklamation', 'Reklamationsarbejde må først påbegyndes, når Timan har udstedt et reklamationsnummer.'],
-    ['Garantiregistrering', 'Garantiregistreringen skal ske med korrekt fakturadato til slutkunden i henhold til eksisterende kontraktvilkår.'],
-    ['Demomaskiner', 'Demomaskiner har særlige garantiregler, og maksimal garanti er 24 måneder i henhold til servicebetingelser.'],
-    ['Reklamationsdele', 'Reklamationsdelen skal opbevares i minimum 6 måneder eller fremsendes efter anmodning fra Timans serviceafdeling.'],
-    ['Reservedele til tredjepartsprodukter', 'Reservedele til tredjepartsprodukter bestilles direkte hos producenten.'],
-    ['Fragt og levering', 'Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.'],
+    ['contractServiceSummaryClaimTitle', 'contractServiceSummaryClaimBody'],
+    ['contractServiceSummaryWarrantyTitle', 'contractServiceSummaryWarrantyBody'],
+    ['contractServiceSummaryDemoTitle', 'contractServiceSummaryDemoBody'],
+    ['contractServiceSummaryClaimPartsTitle', 'contractServiceSummaryClaimPartsBody'],
+    ['contractServiceSummaryThirdPartyTitle', 'contractServiceSummaryThirdPartyBody'],
+    ['contractServiceSummaryFreightTitle', 'contractServiceSummaryFreightBody'],
   ] as const;
 
   return (
@@ -4215,24 +4215,24 @@ function SparePartsServiceSection({
 
           <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_190px]">
             <ul className="space-y-2.5 text-sm leading-6 text-gray-700">
-              {importantServiceTerms.map(([title, body]) => (
-                <li key={title} className="flex gap-3">
+              {importantServiceTerms.map(([titleKey, bodyKey]) => (
+                <li key={titleKey} className="flex gap-3">
                   <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-emerald-700" />
                   <span>
-                    <strong className="text-gray-950">{title}</strong>
+                    <strong className="text-gray-950">{t(titleKey, uiLanguage)}</strong>
                     <br />
-                    {body}
+                    {t(bodyKey, uiLanguage)}
                   </span>
                 </li>
               ))}
             </ul>
 
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <p className="text-sm font-bold text-emerald-950">Godtgørelse</p>
-              <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">Aftalt timetakst</p>
+              <p className="text-sm font-bold text-emerald-950">{t('contractServiceCompensationHeading', uiLanguage)}</p>
+              <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-emerald-800">{t('contractServiceAgreedHourlyRate', uiLanguage)}</p>
               {showEditableRate && onServiceHourlyRateChange ? (
                 <label className="mt-2 block">
-                  <span className="text-xs font-semibold text-emerald-950">Aftalt timetakst for reklamationsarbejde</span>
+                  <span className="text-xs font-semibold text-emerald-950">{t('contractServiceHourlyRateInput', uiLanguage)}</span>
                   <div className="flex items-center overflow-hidden rounded-xl border border-emerald-300 bg-white">
                     <input
                       type="number"
@@ -4246,19 +4246,19 @@ function SparePartsServiceSection({
                       }}
                       className="min-w-0 flex-1 border-0 px-3 py-2 text-lg font-black text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-500"
                     />
-                    <span className="border-l border-emerald-200 px-3 text-xs font-bold text-emerald-900">DKK/time</span>
+                    <span className="border-l border-emerald-200 px-3 text-xs font-bold text-emerald-900">{t('contractServiceHourlyRateUnit', uiLanguage)}</span>
                   </div>
                 </label>
               ) : (
                 <p className="mt-2 text-2xl font-black text-emerald-900">
-                  {formatContractServiceHourlyRatePerHourDkk(serviceHourlyRateDkk)}
+                  {formatContractServiceHourlyRatePerHourDkk(serviceHourlyRateDkk, uiLanguage)}
                 </p>
               )}
               {!validRate && (
-                <p className="mt-2 text-xs font-semibold text-amber-900">Angiv et beløb over 0 kr.</p>
+                <p className="mt-2 text-xs font-semibold text-amber-900">{t('contractServiceRateValidation', uiLanguage)}</p>
               )}
               <p className="mt-3 text-sm leading-6 text-emerald-950">
-                Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan med samme timetakst.
+                {t('contractServiceTravelAllowance', uiLanguage)}
               </p>
             </div>
           </div>

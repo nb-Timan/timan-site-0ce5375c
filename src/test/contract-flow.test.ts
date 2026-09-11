@@ -936,11 +936,11 @@ describe('contract flow', () => {
 
     expect(source).toContain('contractImportantSparePartsServiceTermsHeading');
     expect(source).toContain('contractImportantServiceTermsIntro');
-    expect(source).toContain('Aftalt timetakst for reklamationsarbejde');
-    expect(source).toContain('Reklamationsarbejde må først påbegyndes');
-    expect(source).toContain('Fragt og levering');
-    expect(source).toContain('Levering af reservedele er frit leveret med den transportør, der vælges af Timan. Timan betaler fragt tur/retur for reklamationsdele i forbindelse med godkendt reklamation.');
-    expect(source).toContain('Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan med samme timetakst.');
+    expect(source).toContain("t('contractServiceHourlyRateInput', uiLanguage)");
+    expect(source).toContain('contractServiceSummaryClaimBody');
+    expect(source).toContain('contractServiceSummaryFreightTitle');
+    expect(source).toContain('contractServiceSummaryFreightBody');
+    expect(source).toContain("t('contractServiceTravelAllowance', uiLanguage)");
     expect(source).toContain('shouldResetContractServiceConfirmation');
     expect(source).toContain("activeStep.id !== 'spare_parts_service'");
     expect(sparePartsServiceSection).toContain('heading: undefined');
@@ -978,7 +978,7 @@ describe('contract flow', () => {
     const headings = serviceSection?.blocks.map((block) => block.heading) ?? [];
     const bodyText = JSON.stringify(serviceSection);
 
-    expect(source).toContain("['Reservedele til tredjepartsprodukter', 'Reservedele til tredjepartsprodukter bestilles direkte hos producenten.']");
+    expect(source).toContain("['contractServiceSummaryThirdPartyTitle', 'contractServiceSummaryThirdPartyBody']");
     expect(headings.indexOf('Redskaber fra tredjepartsproducenter')).toBeGreaterThan(headings.indexOf('4. Timeløn og Transport'));
     expect(headings.indexOf('Redskaber fra tredjepartsproducenter')).toBeLessThan(headings.indexOf('8. Kontakt'));
     expect(bodyText).toContain('Timan tilbyder udvalgte redskaber og tilbehør, som produceres af eksterne tredjepartsproducenter og indkøbes af Timan til videresalg.');

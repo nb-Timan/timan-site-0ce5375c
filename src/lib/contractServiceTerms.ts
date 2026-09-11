@@ -34,8 +34,9 @@ export function formatContractServiceHourlyRateDkk(value: unknown): string {
   return `${new Intl.NumberFormat('da-DK', { maximumFractionDigits: 2 }).format(rate)} kr.`;
 }
 
-export function formatContractServiceHourlyRatePerHourDkk(value: unknown): string {
-  return `${formatContractServiceHourlyRateDkk(value)}/time`;
+export function formatContractServiceHourlyRatePerHourDkk(value: unknown, language = 'da'): string {
+  const unit = language === 'de' ? 'Stunde' : language === 'en' ? 'hour' : language === 'da' ? 'time' : 'hour';
+  return `${formatContractServiceHourlyRateDkk(value)}/${unit}`;
 }
 
 export function buildContractServiceTermsSnapshot(form: { serviceHourlyRateDkk?: unknown }): ContractServiceTermsSnapshot {

@@ -7,6 +7,8 @@ import {
 } from '@/lib/contractAppendix2';
 import { renderGuidedContractSections } from '@/lib/contractSections';
 import { getContractAppendixLabel, getContractStepLabel } from '@/lib/contractFlow';
+import { formatContractServiceHourlyRatePerHourDkk } from '@/lib/contractServiceTerms';
+import { t } from '@/lib/i18n/translations';
 
 const DANISH_APPENDIX_MARKERS = [
   'Målet med rabattstrukturen',
@@ -105,5 +107,46 @@ describe('contract i18n', () => {
         expect(rendered).not.toContain(marker);
       }
     }
+  });
+
+  it('renders the complete Step 6 service and warranty appendix without Danish fallback text', () => {
+    const context = { companyName: 'Example Dealer', partnerType: 'importer' as const, serviceHourlyRateDkk: 360 };
+    const danishMarkers = [
+      'Reservedele og service',
+      'forpligter sig til at varetage alt support',
+      'Salgs- og servicedage',
+      'Reklamationsarbejde må først',
+      'Garanti registreringer',
+      'Garantibetingelser for demomaskiner',
+      'Godtgørelse dækkes via kreditnota',
+      'Timeløn og Transport',
+      'Timesatsen er baseret på dækning',
+      'Redskaber fra tredjepartsproducenter',
+      'Serviceafdelingen kontaktes pr telefon',
+    ];
+
+    for (const language of ['en', 'de'] as const) {
+      const stepSix = renderGuidedContractSections(context, language)
+        .find((section) => section.stepId === 'spare_parts_service');
+      const rendered = JSON.stringify(stepSix);
+
+      for (const marker of danishMarkers) {
+        expect(rendered).not.toContain(marker);
+      }
+    }
+  });
+
+  it('localizes the Step 6 summary and reimbursement box while preserving the DKK amount', () => {
+    expect(t('contractImportantSparePartsServiceTermsHeading', 'de')).toBe('Wichtige Ersatzteil- und Servicebedingungen');
+    expect(t('contractImportantServiceTermsIntro', 'de')).toBe('Kurzer Gesprächsüberblick. Die vollständigen Servicebedingungen stehen unten.');
+    expect(t('contractServiceSummaryClaimTitle', 'de')).toBe('Reklamation');
+    expect(t('contractServiceSummaryFreightTitle', 'de')).toBe('Fracht und Lieferung');
+    expect(t('contractServiceCompensationHeading', 'de')).toBe('Vergütung');
+    expect(t('contractServiceHourlyRateUnit', 'de')).toBe('DKK/Stunde');
+    expect(t('contractServiceAgreedHourlyRate', 'en')).toBe('Agreed hourly rate');
+    expect(t('contractServiceAgreedHourlyRate', 'da')).toBe('Aftalt timetakst');
+    expect(formatContractServiceHourlyRatePerHourDkk(360, 'de')).toBe('360 kr./Stunde');
+    expect(formatContractServiceHourlyRatePerHourDkk(360, 'en')).toBe('360 kr./hour');
+    expect(formatContractServiceHourlyRatePerHourDkk(360, 'da')).toBe('360 kr./time');
   });
 });
