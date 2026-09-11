@@ -102,7 +102,7 @@ export type Season =
   | "all_year";
 
 export type RecommendationPriority = 1 | 2 | 3 | 4 | 5; // 1 = highest
-export type BrochureLanguage = "de" | "fr" | "tr" | "en";
+export type BrochureLanguage = "da" | "de" | "fr" | "cs" | "sv" | "en";
 
 /**
  * Coarse functional grouping used for de-duplication in the recommendation
@@ -189,8 +189,10 @@ export interface ProductRecommendationMeta {
   sourceUrl?: string;
   /** PDF brochure / datasheet URL. */
   brochureUrl?: string;
-  /** Localized brochure assets. DE, FR and TR use local assets; all other portal languages use English. */
+  /** Canonical brochure PDFs keyed by their document language. */
   brochureAssets?: Partial<Record<BrochureLanguage, string>>;
+  /** Local first-page previews keyed by the same resolved document language. */
+  brochurePreviewAssets?: Partial<Record<BrochureLanguage, string>>;
   /** Primary product image URL (hero shot). */
   imageUrl?: string;
   /** Primary product video URL (YouTube / Vimeo / mp4). */
@@ -260,8 +262,16 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
     },
     sourceLink: "https://www.youtube.com/watch?v=D-hXvg_oW9s",
     brochureAssets: {
+      da: "/brochures/rc-1000s-da.pdf",
       en: "/brochures/rc-1000s-en.pdf",
       de: "/brochures/rc-1000s-de.pdf",
+      sv: "/brochures/rc-1000s-sv.pdf",
+    },
+    brochurePreviewAssets: {
+      da: "/brochures/previews/rc-1000s/da.jpg",
+      en: "/brochures/previews/rc-1000s/en.jpg",
+      de: "/brochures/previews/rc-1000s/de.jpg",
+      sv: "/brochures/previews/rc-1000s/sv.jpg",
     },
   },
 
@@ -292,9 +302,20 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
       en: "The compact RC-751 handles slopes up to 50°, where conventional machines cannot work safely.",
     },
     brochureAssets: {
+      da: "/brochures/rc-751-da.pdf",
       en: "/brochures/rc-751-en.pdf",
       de: "/brochures/rc-751-de.pdf",
       fr: "/brochures/rc-751-fr.pdf",
+      cs: "/brochures/rc-751-cs.pdf",
+      sv: "/brochures/rc-751-sv.pdf",
+    },
+    brochurePreviewAssets: {
+      da: "/brochures/previews/rc-751/da.jpg",
+      en: "/brochures/previews/rc-751/en.jpg",
+      de: "/brochures/previews/rc-751/de.jpg",
+      fr: "/brochures/previews/rc-751/fr.jpg",
+      cs: "/brochures/previews/rc-751/cs.jpg",
+      sv: "/brochures/previews/rc-751/sv.jpg",
     },
   },
 
@@ -325,9 +346,20 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
       en: "Versatile tool carrier with a comfortable cab and quick tool changes — one machine for year-round operation.",
     },
     brochureAssets: {
+      da: "/brochures/timan-3330-da.pdf",
       en: "/brochures/timan-3330-en.pdf",
       de: "/brochures/timan-3330-de.pdf",
       fr: "/brochures/timan-3330-fr.pdf",
+      cs: "/brochures/timan-3330-cs.pdf",
+      sv: "/brochures/timan-3330-sv.pdf",
+    },
+    brochurePreviewAssets: {
+      da: "/brochures/previews/timan-3330/da.jpg",
+      en: "/brochures/previews/timan-3330/en.jpg",
+      de: "/brochures/previews/timan-3330/de.jpg",
+      fr: "/brochures/previews/timan-3330/fr.jpg",
+      cs: "/brochures/previews/timan-3330/cs.jpg",
+      sv: "/brochures/previews/timan-3330/sv.jpg",
     },
   },
 
@@ -947,27 +979,66 @@ export interface ProductSourceLinks {
   hasAny: boolean;
 }
 
+const LOCAL_BROCHURE_LANGUAGES = new Set<BrochureLanguage>(['da', 'de', 'fr', 'cs', 'sv']);
+
+export interface ResolvedBrochureAsset {
+  url: string;
+  language: BrochureLanguage;
+}
+
 /**
- * Resolve a product brochure for the selected portal language.
- * DK, DE, FR and CZ use their local assets. Every other portal language uses
- * English. Missing local assets deliberately fall back to English.
+ * Resolve the matching document language from the active portal language.
+ * Danish, German, French, Czech and Swedish use their local PDF when present;
+ * every other portal language, and every missing local document, uses English.
  */
+export function resolveBrochureAssetWithLanguage(
+  assets: Partial<Record<BrochureLanguage, string>>,
+  language?: string | null,
+): ResolvedBrochureAsset | undefined {
+  const normalized = normalizePortalLanguageCode(language);
+  const requestedLanguage = normalized && LOCAL_BROCHURE_LANGUAGES.has(normalized as BrochureLanguage)
+    ? normalized as BrochureLanguage
+    : 'en';
+  const assetLanguage = assets[requestedLanguage] ? requestedLanguage : 'en';
+  const url = assets[assetLanguage];
+  return url ? { url, language: assetLanguage } : undefined;
+}
+
 export function resolveBrochureAsset(
   assets: Partial<Record<BrochureLanguage, string>>,
   language?: string | null,
 ): string | undefined {
-  const normalized = normalizePortalLanguageCode(language);
-  const assetLanguage = normalized === "de" || normalized === "fr" || normalized === "tr"
-    ? normalized
-    : "en";
-  return assets[assetLanguage] ?? assets.en;
+  return resolveBrochureAssetWithLanguage(assets, language)?.url;
+}
+
+const ADDITIONAL_PRODUCT_BROCHURES: Record<string, Partial<Record<BrochureLanguage, string>>> = {
+  'CS-200': {
+    da: '/brochures/cs-200-tractor-da.pdf',
+    en: '/brochures/cs-200-tractor-en.pdf',
+  },
+};
+
+function getAdditionalBrochureAssets(idOrVarenr: string): Partial<Record<BrochureLanguage, string>> | undefined {
+  const normalized = idOrVarenr.trim().toUpperCase().replace(/\s+/g, '-');
+  return ADDITIONAL_PRODUCT_BROCHURES[normalized] ?? undefined;
+}
+
+export function getProductBrochureAsset(idOrVarenr: string, language?: string | null): ResolvedBrochureAsset | undefined {
+  const meta = getRecommendationMeta(idOrVarenr);
+  const assets = meta?.brochureAssets ?? getAdditionalBrochureAssets(idOrVarenr);
+  return assets ? resolveBrochureAssetWithLanguage(assets, language) : undefined;
+}
+
+export function getProductBrochurePreviewUrl(idOrVarenr: string, language?: string | null): string | undefined {
+  const meta = getRecommendationMeta(idOrVarenr);
+  if (!meta?.brochurePreviewAssets) return undefined;
+  const resolved = getProductBrochureAsset(idOrVarenr, language);
+  return resolved ? meta.brochurePreviewAssets[resolved.language] ?? meta.brochurePreviewAssets.en : undefined;
 }
 
 export function getProductBrochureUrl(idOrVarenr: string, language?: string | null): string | undefined {
   const meta = getRecommendationMeta(idOrVarenr);
-  return meta?.brochureAssets
-    ? resolveBrochureAsset(meta.brochureAssets, language)
-    : meta?.brochureUrl;
+  return getProductBrochureAsset(idOrVarenr, language)?.url ?? meta?.brochureUrl;
 }
 
 /**

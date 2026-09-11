@@ -19,7 +19,7 @@ import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 import MesseModal from '@/components/messe/MesseModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { getProductBrochureUrl } from '@/data/productRecommendationMeta';
+import { getProductBrochurePreviewUrl, getProductBrochureUrl } from '@/data/productRecommendationMeta';
 import { PORTAL_LANGUAGE_CODES, portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { t as translate } from '@/lib/i18n/translations';
 import { MESSE_MACHINE_EXTRA_TRANSLATIONS } from '@/lib/i18n/messeMachineTranslations';
@@ -1001,6 +1001,8 @@ export default function MesseMachineBrochurePage({
   const { appUser } = useAppUser();
   const { uiLanguage: lang } = useLanguage();
   const brochurePdfSrc = getProductBrochureUrl(productId ?? machineKey, lang) ?? pdfSrc;
+  const brochurePreviewSrc = getProductBrochurePreviewUrl(productId ?? machineKey, lang)
+    ?? (pageBase ? `${pageBase}/page-1.jpg` : undefined);
   const [brochureOpen, setBrochureOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [leftPage, setLeftPage] = useState(1);
@@ -1282,12 +1284,24 @@ export default function MesseMachineBrochurePage({
             ) : brochurePdfSrc ? (
               <a href={brochurePdfSrc} target="_blank" rel="noreferrer" className={documentButtonClass}>
                 <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
-                  <div className="flex h-full flex-col items-center justify-center rounded-xl bg-white px-6 text-center ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
-                    <BookOpen className="mb-3 h-9 w-9 text-emerald-700" />
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-900 shadow-sm ring-1 ring-slate-200">
-                      <ExternalLink className="h-3.5 w-3.5 text-slate-700" />
-                      {tr(T.openBrochure, lang)}
-                    </span>
+                  <div className="relative h-full overflow-hidden rounded-xl bg-white ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
+                    {brochurePreviewSrc ? (
+                      <img
+                        src={brochurePreviewSrc}
+                        alt={`${title} ${tr(T.brochure, lang)}`}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <BookOpen className="h-9 w-9 text-emerald-700" />
+                      </div>
+                    )}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-slate-950/35 to-transparent pb-3 pt-8">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-slate-900 shadow-sm ring-1 ring-slate-200">
+                        <ExternalLink className="h-3.5 w-3.5 text-slate-700" />
+                        {tr(T.openBrochure, lang)}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
@@ -1428,9 +1442,9 @@ export default function MesseMachineBrochurePage({
               </button>
             </div>
 
-            {pdfSrc && (
+            {brochurePdfSrc && (
               <a
-                href={pdfSrc}
+                href={brochurePdfSrc}
                 target="_blank"
                 rel="noreferrer"
                 className="absolute bottom-8 right-8 hidden items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-300 hover:text-emerald-800 sm:inline-flex"
