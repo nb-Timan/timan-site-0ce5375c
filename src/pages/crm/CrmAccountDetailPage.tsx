@@ -370,7 +370,7 @@ export default function CrmAccountDetailPage() {
         activity_type: "comment",
         account_id: account.id,
         account_name: accountDisplayName(account),
-        created_by_user_id: null,
+        created_by_user_id: appUser?.id ?? null,
         created_by_name: appUser?.display_name || appUser?.email || null,
         assigned_owner_user_id: account.account_owner_user_id,
         assigned_owner_name: account.account_owner_name,
