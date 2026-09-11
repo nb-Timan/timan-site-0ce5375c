@@ -461,6 +461,12 @@ export async function fetchDealerContractDraft(input: {
   dealerAccountNumber?: string | null;
 }): Promise<{ row: DealerContractRecord | null; error: string | null }> {
   const draftKey = buildDealerContractDraftKey(input.ownerEmail, input.dealerAccountNumber);
+  return fetchDealerContractDraftByKey(draftKey);
+}
+
+async function fetchDealerContractDraftByKey(
+  draftKey: string,
+): Promise<{ row: DealerContractRecord | null; error: string | null }> {
   const { data, error } = await supabase
     .from("dealer_contracts")
     .select("*")
@@ -650,10 +656,12 @@ export async function saveDealerContractDraft(
   if (input.dealerAccountNumber) {
     const dealer = await fetchDealerAccountByNumber(input.dealerAccountNumber);
     if (dealer.error) return { row: null, error: dealer.error };
-    dealerAccountId = dealer.row?.id ?? null;
+    if (!dealer.row?.id) {
+      return { row: null, error: "Den valgte partnerkonto er ikke tilgængelig i dit kontraktscope." };
+    }
+    dealerAccountId = dealer.row.id;
   }
   const payload = {
-    id: input.id || undefined,
     draft_key: draftKey,
     dealer_account_number: input.dealerAccountNumber || null,
     dealer_account_id: dealerAccountId,
@@ -671,14 +679,38 @@ export async function saveDealerContractDraft(
     signed_at: input.status === "Signed" ? new Date().toISOString() : null,
   };
 
-  const { data, error } = await supabase
-    .from("dealer_contracts")
-    .upsert(payload, { onConflict: "draft_key" })
-    .select("*")
-    .single();
+  const existing = await fetchDealerContractDraftByKey(draftKey);
+  if (existing.error) return existing;
 
-  if (error) return { row: null, error: error.message };
-  return { row: data ? rowToContractRecord(data as Record<string, unknown>) : null, error: null };
+  if (existing.row) {
+    const { error } = await supabase
+      .from("dealer_contracts")
+      .update(payload)
+      .eq("id", existing.row.id);
+    if (error) return { row: null, error: error.message };
+    return fetchDealerContractDraftByKey(draftKey);
+  }
+
+  const { error } = await supabase
+    .from("dealer_contracts")
+    .insert(payload);
+
+  if (!error) return fetchDealerContractDraftByKey(draftKey);
+
+  // A second debounced save can arrive after the first insert. Re-read its
+  // scoped row and issue a normal UPDATE instead of retrying an RLS-sensitive upsert.
+  if (error.code === "23505") {
+    const raced = await fetchDealerContractDraftByKey(draftKey);
+    if (raced.error || !raced.row) return raced;
+    const { error: updateError } = await supabase
+      .from("dealer_contracts")
+      .update(payload)
+      .eq("id", raced.row.id);
+    if (updateError) return { row: null, error: updateError.message };
+    return fetchDealerContractDraftByKey(draftKey);
+  }
+
+  return { row: null, error: error.message };
 }
 
 export async function completeDealerContractGuidedReview(input: {

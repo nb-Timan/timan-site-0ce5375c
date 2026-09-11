@@ -109,7 +109,7 @@ describe("partner contract onboarding access", () => {
     expect(contractsPage).toContain("partnerPickerOpen && canChoosePartnerAccount");
     expect(contractsPage).toContain("setPartnerPickerOpen(false);");
     expect(contractsPage).toContain("window.addEventListener('pointerdown', closeOnOutsidePress)");
-    expect(contractsPage).toContain("inferContractPartnerTypeFromDealerAccount(account) === form.partnerType");
+    expect(contractsPage).not.toContain("inferContractPartnerTypeFromDealerAccount(account) === form.partnerType");
     expect(contractsPage).toContain("update('dealerName', value)");
     expect(contractsPage).toContain("update('contactTitle', value)");
   });

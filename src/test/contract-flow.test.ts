@@ -15,6 +15,7 @@ import {
   getContractStatus,
   hasReachedContractStatus,
   hasRequiredPartyData,
+  canAutosaveContractDraft,
   normalizeContractConfirmations,
   normalizeContractStepId,
   PURPOSE_PRICES_ORDERS_PORTAL_SECTION_INTRO,
@@ -148,6 +149,12 @@ describe('contract flow', () => {
     expect(hasRequiredPartyData({ ...completeForm, partnerType: '' })).toBe(false);
     expect(hasRequiredPartyData({ ...completeForm, timanSellerEmail: '' })).toBe(false);
     expect(hasRequiredPartyData({ ...completeForm, dealerCity: '' })).toBe(false);
+  });
+
+  it('only starts autosave after the canonical account and required party fields are ready', () => {
+    expect(canAutosaveContractDraft(completeForm, '50539')).toBe(true);
+    expect(canAutosaveContractDraft(completeForm, null)).toBe(false);
+    expect(canAutosaveContractDraft({ ...completeForm, contactPerson: '' }, '50539')).toBe(false);
   });
 
   it('stores associated partners in the contract snapshot without requiring legacy drafts to have the field', () => {
@@ -520,7 +527,7 @@ describe('contract flow', () => {
     expect(pageSource).toContain("timanSellerEmail: account.assigned_seller_email || effectiveUser?.email || current.timanSellerEmail,");
     expect(pageSource).not.toContain("partnerType: inferContractPartnerTypeFromDealerAccount(account) || ''");
     expect(pageSource).toContain('const [draftChangeVersion, setDraftChangeVersion] = useState(0);');
-    expect(pageSource).toContain("if (!effectiveUser?.email || !contractLoaded || draftChangeVersion === 0 || !activeDealerAccountNumber) return;");
+    expect(pageSource).toContain('canAutosaveContractDraft(form, activeDealerAccountNumber)');
     expect(pageSource).toContain("const message = 'Vælg en partnerkonto, før kontraktkladden gemmes.';");
     expect(pageSource).toContain('Kontraktkladde kunne ikke gemmes: ${error}');
     expect(partnerTypeHandler).toContain('partnerType,');
@@ -1369,7 +1376,10 @@ describe('contract flow', () => {
     expect(overviewSource).toContain('draftKey: createdNewContract ? newContractDraftKey : null');
     expect(overviewSource).toContain("navigate(`/portal/contracts/${row.id}`, { replace: true })");
     expect(serviceSource).toContain('input.draftKey?.trim().toLowerCase()');
-    expect(serviceSource).toContain('upsert(payload, { onConflict: "draft_key" })');
+    expect(serviceSource).not.toContain('.upsert(payload');
+    expect(serviceSource).toContain('.insert(payload)');
+    expect(serviceSource).toContain('.update(payload)');
+    expect(serviceSource).toContain('fetchDealerContractDraftByKey(draftKey)');
   });
 
   it('maps workflow statuses to the internal overview groups', () => {

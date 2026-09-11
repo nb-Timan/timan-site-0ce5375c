@@ -619,6 +619,14 @@ export function hasRequiredPartyData(form: ContractFormData) {
   );
 }
 
+/** A draft may only autosave after the selected canonical account is hydrated. */
+export function canAutosaveContractDraft(
+  form: ContractFormData,
+  dealerAccountNumber: string | null | undefined,
+) {
+  return Boolean(dealerAccountNumber?.trim()) && hasRequiredPartyData(form);
+}
+
 export function canPrepareContractForSignature(form: ContractFormData, confirmations: ContractConfirmations) {
   return hasRequiredPartyData(form)
     && hasValidContractTerritory(form)

@@ -27,6 +27,7 @@ import {
   getContractStatus,
   getRequiredConfirmationForStep,
   hasRequiredPartyData,
+  canAutosaveContractDraft,
   normalizeContractStepId,
 } from '@/lib/contractFlow';
 import {
@@ -1528,7 +1529,12 @@ export default function ContractsPage() {
   };
 
   useEffect(() => {
-    if (!effectiveUser?.email || !contractLoaded || draftChangeVersion === 0 || !activeDealerAccountNumber) return;
+    if (
+      !effectiveUser?.email
+      || !contractLoaded
+      || draftChangeVersion === 0
+      || !canAutosaveContractDraft(form, activeDealerAccountNumber)
+    ) return;
     if (status === 'Signed' && finalSnapshot?.status === 'Signed') return;
     const timer = window.setTimeout(() => {
       void persistContract();
