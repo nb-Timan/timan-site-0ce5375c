@@ -177,6 +177,8 @@ export type DealerContractOverviewFilters = DealerContractOverviewScope & {
     email?: string | null;
     initials?: string | null;
   } | null;
+  /** Backend view-as keeps the Backend JWT, so the server needs the selected seller id. */
+  viewAsSellerId?: string | null;
 };
 
 export type DealerContractOverviewRow = {
@@ -623,7 +625,9 @@ export async function fetchInternalDealerContractOverview(
     p_query: filters.query?.trim() || null,
     p_status: filters.status || "all",
     p_partner_type: filters.partnerType?.trim() || null,
-    p_seller_id: portalRole === "timan_backend" ? filters.sellerFilter?.id || null : null,
+    p_seller_id: portalRole === "timan_backend"
+      ? filters.sellerFilter?.id || null
+      : filters.viewAsSellerId || null,
   });
   if (error) return { rows: [], counts: countOverviewRows([]), error: error.message };
 

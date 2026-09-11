@@ -56,6 +56,7 @@ describe("mergeEffectivePortalUser", () => {
   it("makes a real Timan Forhandler view resolve like the canonical role defaults", () => {
     const target: SessionUser = {
       ...baseUser,
+      id: "dvp-user-id",
       email: "dvp@example.com",
       role: "partner",
       partner_type: "forhandler",
@@ -79,6 +80,7 @@ describe("mergeEffectivePortalUser", () => {
     });
 
     expect(derivePortalRole(effective)).toBe("timan_dealer");
+    expect(effective.id).toBe("dvp-user-id");
     expect(hasAreaAccess(effective, "salg_marketing")).toBe(true);
     expect(hasAreaAccess(effective, "dealer_data")).toBe(true);
     expect(hasAreaAccess(effective, "timan_crm")).toBe(true);

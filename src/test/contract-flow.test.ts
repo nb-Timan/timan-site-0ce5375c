@@ -1446,8 +1446,14 @@ describe('contract flow', () => {
 
     expect(overviewSource).toContain('supabase.rpc("list_internal_dealer_contract_overview"');
     expect(overviewSource).toContain('p_seller_id: portalRole === "timan_backend"');
+    expect(overviewSource).toContain('filters.viewAsSellerId || null');
     expect(overviewSource).not.toContain('fetchDealerAccounts');
     expect(overviewSource).not.toContain('.filter((row) => sellerMatchesScope');
+
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    expect(pageSource).toContain("const viewAsSellerId = portalRole === 'timan_seller' && isBackendActor(appUser)");
+    expect(pageSource).toContain('viewAsSellerId,');
+    expect(pageSource).toContain('effectiveUserId');
   });
 
   it('keeps the overview RPC security-invoker and scoped by the existing RLS policy', () => {

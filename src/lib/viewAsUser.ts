@@ -42,6 +42,7 @@ async function fetchUserByEmail(email: string): Promise<SessionUser | null> {
     .maybeSingle();
   if (!row) return null;
   const u: SessionUser = {
+    id: (row.id as string | null) ?? null,
     email: row.email as string,
     role: row.role as SessionUser['role'],
     partner_type: (row.partner_type as SessionUser['partner_type']) ?? null,
@@ -179,6 +180,7 @@ export function mergeEffectivePortalUser(
 
   return {
     ...appUser,
+    id: target.id ?? appUser.id,
     role: target.role,
     partner_type: target.partner_type,
     can_view_prices: target.can_view_prices,

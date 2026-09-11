@@ -72,7 +72,7 @@ import { fetchDealerAccountByNumber, fetchDealerAccounts, fetchDealerAccountsFor
 import { fetchDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import { inviteContractPartnerUser } from '@/lib/adminUserActions';
-import { canAccessContractsModule, derivePortalRole } from '@/lib/portalAccess';
+import { canAccessContractsModule, derivePortalRole, isBackendActor } from '@/lib/portalAccess';
 import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
@@ -899,6 +899,9 @@ export default function ContractsPage() {
     && !routeContractIdValue
     && !dealerAccountNumber
     && !startNewContract;
+  const viewAsSellerId = portalRole === 'timan_seller' && isBackendActor(appUser)
+    ? effectiveUser?.id ?? null
+    : null;
 
   const newContractInstanceId = useMemo(() => (
     startNewContract && !routeContractIdValue ? createNewContractInstanceId() : null
@@ -1812,6 +1815,7 @@ export default function ContractsPage() {
         language={lang}
         uiLanguage={uiLanguage}
         portalRole={portalRole}
+        viewAsSellerId={viewAsSellerId}
         onLanguageChange={setLanguage}
         onLogout={async () => {
           await logout();
@@ -2332,6 +2336,7 @@ function InternalContractsOverview({
   language,
   uiLanguage,
   portalRole,
+  viewAsSellerId,
   onLanguageChange,
   onLogout,
   onOpenContract,
@@ -2342,6 +2347,7 @@ function InternalContractsOverview({
   language: ReturnType<typeof useLanguage>['language'];
   uiLanguage: ReturnType<typeof useLanguage>['uiLanguage'];
   portalRole: string | null;
+  viewAsSellerId: string | null;
   onLanguageChange: (language: ReturnType<typeof useLanguage>['language']) => void;
   onLogout: () => Promise<void>;
   onOpenContract: (contractId: string) => void;
@@ -2381,6 +2387,12 @@ function InternalContractsOverview({
   }, [isBackend]);
 
   const selectedSeller = sellerOptions.find((seller) => seller.id === sellerFilter) || null;
+  const selectedSellerId = selectedSeller?.id ?? null;
+  const selectedSellerEmail = selectedSeller?.email ?? null;
+  const selectedSellerInitials = selectedSeller?.initials ?? null;
+  const effectiveSellerEmail = getEffectiveSellerEmail(appUser);
+  const effectiveSellerInitials = getEffectiveSellerInitials(appUser);
+  const effectiveUserId = effectiveUser.id ?? null;
 
   const loadOverview = async (cancelled?: () => boolean) => {
     setLoadingOverview(true);
@@ -2390,14 +2402,15 @@ function InternalContractsOverview({
       query,
       status: statusFilter,
       partnerType: partnerTypeFilter,
-      sellerId: (effectiveUser as unknown as { id?: string | null }).id ?? null,
-      sellerEmail: getEffectiveSellerEmail(appUser),
-      sellerInitials: getEffectiveSellerInitials(appUser),
-      sellerFilter: selectedSeller ? {
-        id: selectedSeller.id,
-        email: selectedSeller.email,
-        initials: selectedSeller.initials,
+      sellerId: effectiveUserId,
+      sellerEmail: effectiveSellerEmail,
+      sellerInitials: effectiveSellerInitials,
+      sellerFilter: selectedSellerId ? {
+        id: selectedSellerId,
+        email: selectedSellerEmail,
+        initials: selectedSellerInitials,
       } : null,
+      viewAsSellerId,
     });
     if (cancelled?.()) return;
     setRows(result.rows);
@@ -2410,7 +2423,7 @@ function InternalContractsOverview({
     let cancelled = false;
     loadOverview(() => cancelled);
     return () => { cancelled = true; };
-  }, [appUser, effectiveUser, partnerTypeFilter, portalRole, query, selectedSeller, statusFilter]);
+  }, [effectiveSellerEmail, effectiveSellerInitials, effectiveUserId, partnerTypeFilter, portalRole, query, selectedSellerEmail, selectedSellerId, selectedSellerInitials, statusFilter, viewAsSellerId]);
 
   const handleDeleteContract = async (row: DealerContractOverviewRow) => {
     if (!isBackend || deletingContractId) return;
