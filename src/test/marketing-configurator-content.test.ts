@@ -6,6 +6,8 @@ import {
   productContentKey,
 } from '@/lib/marketingConfiguratorContentService';
 import { canManageMarketingConfiguratorContent } from '@/lib/portalAccess';
+import { resolveMarketingBadge } from '@/components/configurator/MarketingConfiguratorBadge';
+import { t } from '@/lib/i18n/translations';
 
 const seller: any = {
   email: 'seller@timan.dk',
@@ -36,6 +38,16 @@ describe('Marketing configurator content', () => {
     expect(merged.description).toBe('Canonical description');
     expect(merged.key_features).toEqual(['Marketing feature']);
     expect(merged.video_url).toBe('new-video');
+  });
+
+  it('maps legacy badge values to the premium badge types and translates labels for every portal language', () => {
+    expect(resolveMarketingBadge('Ny')?.kind).toBe('new');
+    expect(resolveMarketingBadge('Godt køb')?.kind).toBe('offer');
+    expect(resolveMarketingBadge('Kampagne')?.kind).toBe('campaign');
+    expect(t('marketingBadgeOffer', 'da')).toBe('Tilbud');
+    expect(t('marketingBadgeOffer', 'en')).toBe('Offer');
+    expect(t('marketingBadgeOffer', 'de')).toBe('Angebot');
+    expect(t('marketingBadgeNew', 'cs')).toBe('Novinka');
   });
 
   it('keeps the editor out of Timan Seller sessions, even with a Marketing permission', () => {

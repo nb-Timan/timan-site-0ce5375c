@@ -545,7 +545,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const label = state === 'draft' ? 'Kladde' : 'Publiceret';
     return <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${styles}`}>{label}</span>;
   };
-  const renderMarketingBadge = (badge?: string | null) => <MarketingConfiguratorBadge badge={badge} />;
+  const renderMarketingBadge = (badge?: string | null) => <MarketingConfiguratorBadge badge={badge} language={uiLanguage} />;
   const TC = (key: string) => t(key, contentUiLang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
@@ -2819,7 +2819,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
                     return (
                       <div key={key} className={`border-2 rounded-xl p-5 flex flex-col gap-4 transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-100 bg-white shadow-sm hover:border-gray-300'}`}>
-                        <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-2"><h3 className="font-bold text-lg text-gray-900">{marketingContent?.title || getLocalizedName(p.name, lang)}</h3>{renderMarketingBadge(marketingContent?.badge)}{renderMarketingContentState(key, p.id)}</div>{marketingEditButton(key, p.id)}</div>
+                        <div className="flex flex-col items-start gap-2">{renderMarketingBadge(marketingContent?.badge)}<div className="flex w-full items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-2"><h3 className="font-bold text-lg text-gray-900">{marketingContent?.title || getLocalizedName(p.name, lang)}</h3>{renderMarketingContentState(key, p.id)}</div>{marketingEditButton(key, p.id)}</div></div>
                         {permissions.canSeePrices && <div className="text-3xl font-extrabold text-emerald-600">{formatDisplayMoney(getPrice(p, lang))}</div>}
                         <p className="text-sm text-gray-500">{itemNoLabel(uiLanguage)}: {p.varenr}</p>
                         {marketingContent?.description && <p className="line-clamp-2 text-sm text-gray-600">{marketingContent.description}</p>}

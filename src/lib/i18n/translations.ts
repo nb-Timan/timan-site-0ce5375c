@@ -24,6 +24,11 @@ type Dict = Record<string, string>;
 // ---------------------------------------------------------------------------
 const da: Dict = {
   newsCmsBadgeNews: 'NYHED',
+  marketingBadgeNew: 'Nyhed',
+  marketingBadgeOffer: 'Tilbud',
+  marketingBadgeCampaign: 'Kampagne',
+  marketingBadgeImportant: 'Vigtigt',
+  marketingBadgeNone: 'Ingen',
   latestFromTimanHeading: 'Seneste fra Timan',
   latestFromTimanServiceTag: 'SERVICE',
   latestFromTimanPlaceholder1Title: 'Ny redskabsserie til Timan 3400 er nu tilgængelig',
@@ -668,6 +673,11 @@ const da: Dict = {
 // English
 // ---------------------------------------------------------------------------
 const en: Dict = {
+  marketingBadgeNew: 'New',
+  marketingBadgeOffer: 'Offer',
+  marketingBadgeCampaign: 'Campaign',
+  marketingBadgeImportant: 'Important',
+  marketingBadgeNone: 'None',
   newsCmsBadgeNews: 'NEWS',
   latestFromTimanHeading: 'Latest from Timan',
   latestFromTimanServiceTag: 'SERVICE',
@@ -1298,6 +1308,11 @@ const en: Dict = {
 // ---------------------------------------------------------------------------
 const de: Dict = {
   ...en,
+  marketingBadgeNew: 'Neu',
+  marketingBadgeOffer: 'Angebot',
+  marketingBadgeCampaign: 'Kampagne',
+  marketingBadgeImportant: 'Wichtig',
+  marketingBadgeNone: 'Keine',
   contractImportantSparePartsServiceTermsHeading: 'Wichtige Ersatzteil- und Servicebedingungen',
   contractImportantServiceTermsIntro: 'Kurzer Gesprächsüberblick. Die vollständigen Servicebedingungen stehen unten.',
   contractServiceSummaryClaimTitle: 'Reklamation',
@@ -1725,6 +1740,11 @@ const de: Dict = {
 // ---------------------------------------------------------------------------
 const it: Dict = {
   ...en,
+  marketingBadgeNew: 'Nuovo',
+  marketingBadgeOffer: 'Offerta',
+  marketingBadgeCampaign: 'Campagna',
+  marketingBadgeImportant: 'Importante',
+  marketingBadgeNone: 'Nessuno',
   contractDiscountMachineOrderGroup: 'Intero ordine macchina incl. accessori.',
   contractDiscountWarrantyRefundGroup: 'Rimborso alla registrazione della garanzia.',
   contractDiscountBaseDiscount: 'Sconto base',
@@ -2130,6 +2150,11 @@ const it: Dict = {
 // ---------------------------------------------------------------------------
 const hu: Dict = {
   ...en,
+  marketingBadgeNew: 'Új',
+  marketingBadgeOffer: 'Ajánlat',
+  marketingBadgeCampaign: 'Kampány',
+  marketingBadgeImportant: 'Fontos',
+  marketingBadgeNone: 'Nincs',
   contractDiscountMachineOrderGroup: 'Teljes géprendelés tartozékokkal együtt.',
   contractDiscountWarrantyRefundGroup: 'Visszatérítés garanciaregisztrációkor.',
   contractDiscountBaseDiscount: 'Alapkedvezmény',
@@ -2535,6 +2560,11 @@ const hu: Dict = {
 // ---------------------------------------------------------------------------
 const sv: Dict = {
   ...en,
+  marketingBadgeNew: 'Nyhet',
+  marketingBadgeOffer: 'Erbjudande',
+  marketingBadgeCampaign: 'Kampanj',
+  marketingBadgeImportant: 'Viktigt',
+  marketingBadgeNone: 'Ingen',
   contractDiscountMachineOrderGroup: 'Hela maskinordern inkl. redskap.',
   contractDiscountWarrantyRefundGroup: 'Återbetalning vid garantiregistrering.',
   contractDiscountBaseDiscount: 'Grundrabatt',
@@ -2941,6 +2971,11 @@ const sv: Dict = {
 // ---------------------------------------------------------------------------
 const fr: Dict = {
   ...en,
+  marketingBadgeNew: 'Nouveau',
+  marketingBadgeOffer: 'Offre',
+  marketingBadgeCampaign: 'Campagne',
+  marketingBadgeImportant: 'Important',
+  marketingBadgeNone: 'Aucun',
   contractDiscountMachineOrderGroup: 'Commande complète de machine, accessoires inclus.',
   contractDiscountWarrantyRefundGroup: 'Remboursement lors de l’enregistrement de garantie.',
   contractDiscountBaseDiscount: 'Remise de base',
@@ -3347,6 +3382,11 @@ const fr: Dict = {
 // ---------------------------------------------------------------------------
 const pl: Dict = {
   ...en,
+  marketingBadgeNew: 'Nowość',
+  marketingBadgeOffer: 'Oferta',
+  marketingBadgeCampaign: 'Kampania',
+  marketingBadgeImportant: 'Ważne',
+  marketingBadgeNone: 'Brak',
   contractDiscountMachineOrderGroup: 'Całe zamówienie maszyny wraz z osprzętem.',
   contractDiscountWarrantyRefundGroup: 'Zwrot przy rejestracji gwarancji.',
   contractDiscountBaseDiscount: 'Rabat podstawowy',
@@ -3753,6 +3793,11 @@ const pl: Dict = {
 // ---------------------------------------------------------------------------
 const cs: Dict = {
   ...en,
+  marketingBadgeNew: 'Novinka',
+  marketingBadgeOffer: 'Nabídka',
+  marketingBadgeCampaign: 'Kampaň',
+  marketingBadgeImportant: 'Důležité',
+  marketingBadgeNone: 'Žádné',
   contractDiscountMachineOrderGroup: 'Celá objednávka stroje včetně příslušenství.',
   contractDiscountWarrantyRefundGroup: 'Refundace při registraci záruky.',
   contractDiscountBaseDiscount: 'Základní sleva',
