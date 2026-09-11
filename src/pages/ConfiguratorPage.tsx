@@ -3,7 +3,8 @@ import { format } from 'date-fns';
 import { da, de, enGB, hu, it } from 'date-fns/locale';
 import { CalendarIcon, Pencil, Sparkles } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
-import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, formatMoney, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
+import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
+import { convertCurrency, currencyFromLanguage, formatMoney } from '@/lib/currency';
 import { t, translateSpecLabel, itemNoLabel } from '@/data/translations';
 import { t as tPortal } from '@/lib/i18n/translations';
 import { Language, Accessory, SubItem } from '@/types/configurator';
@@ -486,6 +487,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [savingChanges, setSavingChanges] = useState(false);
 
   const lang = state.language;
+  const displayCurrency = currencyFromLanguage(uiLanguage);
+  const formatDisplayMoney = (value: number) => formatMoney(
+    convertCurrency(value, currencyFromLanguage(lang), displayCurrency),
+    displayCurrency,
+  );
   // Use uiLanguage (9-locale) for translation lookups so PL/SE/FR/CZ resolve
   // to their own strings. `lang` (5-locale state.language) still drives
   // legacy inline `{ da, en, de, it, hu }[lang]` lookups and product-data
@@ -1268,7 +1274,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const showAutoAddModal = useCallback((item: Accessory) => {
     const itemName = getLocalizedName(item.name, lang);
     const itemVarenr = `${itemNoLabel(contentUiLang)}: ${item.varenr}`;
-    const price = formatMoney(getPrice(item, lang), lang);
+    const price = formatDisplayMoney(getPrice(item, lang));
     const msg = `${TC('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${TC('priceLabel') !== 'priceLabel' ? TC('priceLabel') : (lang === 'da' ? 'Pris' : 'Price')}: ${price}`;
     setInfoModal({ title: TC('autoAddedTitle'), content: msg });
   }, [lang, isEURCurrency, contentUiLang]);
@@ -1490,7 +1496,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
               {renderActionLinks(sub as any, machineType)}
             </div>
-            <div className="flex items-center gap-2">{renderMarketingContentState(machineType, sub.id)}<div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatMoney(getPrice(sub, lang), lang) : ''}</div>{marketingEditButton(machineType, sub.id)}</div>
+            <div className="flex items-center gap-2">{renderMarketingContentState(machineType, sub.id)}<div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatDisplayMoney(getPrice(sub, lang)) : ''}</div>{marketingEditButton(machineType, sub.id)}</div>
           </div>
         </div>
         {(isSelected || isLooseToolMode(machineType)) && hasNestedSubs && (
@@ -1567,7 +1573,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     calcResult.lineItems.forEach(i => {
       if (i.subtotal) {
         html += `<div class="flex justify-between items-end text-sm font-semibold text-gray-800 pt-4 border-t border-dashed border-gray-300 mt-4 mb-6">
-          <span>${i.txt}</span><span class="price-col">${formatMoney(i.price, lang)}</span></div>`;
+          <span>${i.txt}</span><span class="price-col">${formatDisplayMoney(i.price)}</span></div>`;
         return;
       }
       if (i.isSectionHeader) {
@@ -1586,7 +1592,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           // line items match the subtotal. Display-only; totals are unchanged.
           const machName = i.txt.replace(/^.*\(([^)]+)\)\s*$/, '$1') || i.txt;
           const priceCol = permissions.canSeePrices
-            ? `<div class="w-28 shrink-0 text-right price-col">${formatMoney(i.price, lang)}</div>`
+            ? `<div class="w-28 shrink-0 text-right price-col">${formatDisplayMoney(i.price)}</div>`
             : '';
           html += `<div class="flex items-start text-sm py-1 text-gray-800 font-semibold">
             <div class="w-16 shrink-0 opacity-80">${varenr}</div>
@@ -1603,7 +1609,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         html += `<div class="flex items-start text-sm py-1 text-gray-600">
           <div class="w-16 shrink-0 opacity-80">${varenr}</div>
           <div class="flex-grow px-2 ${paddingClass} leading-snug break-words">${i.txt}${autoTag}</div>
-          <div class="w-28 shrink-0 text-right price-col">${formatMoney(i.price, lang)}</div>
+          <div class="w-28 shrink-0 text-right price-col">${formatDisplayMoney(i.price)}</div>
         </div>`;
       }
     });
@@ -1612,22 +1618,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     html += `<div data-pdf-keep="1" class="mt-8 border-t-2 pt-4 flex flex-col items-end">
       <div class="flex justify-between w-full text-xs">
         <span>${TC('confirmSubtotal')}</span>
-        <span class="price-col">${formatMoney(displayCalc!.subtotal, lang)}</span>
+        <span class="price-col">${formatDisplayMoney(displayCalc!.subtotal)}</span>
       </div>`;
     displayCalc!.discountDetails.filter(d => d.amount > 0).forEach(d => {
       const discLabel = (state.flowType === 'order' && d.varenr) ? `${d.txt} (${d.varenr})` : d.txt;
       html += `<div class="flex justify-between w-full text-xs text-red-600">
-        <span>${discLabel}</span><span class="price-col">-${formatMoney(d.amount, lang)}</span></div>`;
+        <span>${discLabel}</span><span class="price-col">-${formatDisplayMoney(d.amount)}</span></div>`;
     });
     if (displayCalc!.totalDiscount > 0) {
       html += `<div class="flex justify-between w-full text-sm font-bold text-red-600 mt-1">
         <span>${TC('confirmTotalDiscount')} (${displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
-        <span class="price-col">-${formatMoney(displayCalc!.totalDiscount, lang)}</span>
+        <span class="price-col">-${formatDisplayMoney(displayCalc!.totalDiscount)}</span>
       </div>`;
     }
     html += `<div class="flex justify-between w-full text-base font-bold mt-2">
         <span>${TC('confirmTotal')}</span>
-        <span class="price-col">${formatMoney(displayCalc!.currentPrice, lang)}</span>
+        <span class="price-col">${formatDisplayMoney(displayCalc!.currentPrice)}</span>
       </div>
       <div class="flex justify-between w-full text-xs text-gray-700 mt-2">
         <span>${getPaymentTermsLabel(lang)}</span>
@@ -2360,7 +2366,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
 
   // Helper: conditionally hide price text
-  const showPrice = (price: number) => permissions.canSeePrices ? formatMoney(price, lang) : '—';
+  const showPrice = (price: number) => permissions.canSeePrices ? formatDisplayMoney(price) : '—';
 
   return (
     <div className="p-4 md:p-8" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f4f7f9' }}>
@@ -2409,7 +2415,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   {(() => {
                     const flatAccs = getAccessoriesFlat('RC-1000S');
                     const oil = flatAccs.find(a => a.id === ACC_ID_OIL_NORMAL);
-                    return oil ? formatMoney(getPrice(oil, lang), lang) : '';
+                    return oil ? formatDisplayMoney(getPrice(oil, lang)) : '';
                   })()}
                 </div>
               </label>
@@ -2425,7 +2431,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   {(() => {
                     const flatAccs = getAccessoriesFlat('RC-1000S');
                     const oil = flatAccs.find(a => a.id === ACC_ID_OIL_BIO);
-                    return oil ? formatMoney(getPrice(oil, lang), lang) : '';
+                    return oil ? formatDisplayMoney(getPrice(oil, lang)) : '';
                   })()}
                 </div>
               </label>
@@ -2813,7 +2819,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     return (
                       <div key={key} className={`border-2 rounded-xl p-5 flex flex-col gap-4 transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-100 bg-white shadow-sm hover:border-gray-300'}`}>
                         <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-2"><h3 className="font-bold text-lg text-gray-900">{marketingContent?.title || getLocalizedName(p.name, lang)}</h3>{renderMarketingBadge(marketingContent?.badge)}{renderMarketingContentState(key, p.id)}</div>{marketingEditButton(key, p.id)}</div>
-                        {permissions.canSeePrices && <div className="text-3xl font-extrabold text-emerald-600">{formatMoney(getPrice(p, lang), lang)}</div>}
+                        {permissions.canSeePrices && <div className="text-3xl font-extrabold text-emerald-600">{formatDisplayMoney(getPrice(p, lang))}</div>}
                         <p className="text-sm text-gray-500">{itemNoLabel(uiLanguage)}: {p.varenr}</p>
                         {marketingContent?.description && <p className="line-clamp-2 text-sm text-gray-600">{marketingContent.description}</p>}
 
@@ -3184,7 +3190,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                             onClick={e => e.stopPropagation()} className="w-16 p-1.5 border rounded-md text-center" />
                           {renderMarketingBadge(marketingContent?.badge) || renderNewBadge(a.isNew)}
                           {renderMarketingContentState(machineType, a.id)}
-                            <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatMoney(getPrice(a, lang), lang) : ''}</div>{marketingEditButton(machineType, a.id)}
+                            <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</div>{marketingEditButton(machineType, a.id)}
                         </div>
                       </div>
                     );
@@ -3235,7 +3241,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                             <div className="flex shrink-0 items-center justify-end gap-2 text-right">
                               {renderMarketingBadge(marketingContent?.badge) || renderNewBadge(a.isNew)}
                               {renderMarketingContentState(machineType, a.id)}
-                              <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatMoney(getPrice(a, lang), lang) : ''}</span>{marketingEditButton(machineType, a.id)}
+                              <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</span>{marketingEditButton(machineType, a.id)}
                             </div>
                           </div>
                           {ralInput}
@@ -3719,7 +3725,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         <div key={idx} className="mt-2 mb-4 pb-3 border-b border-dashed border-emerald-400">
                           <div className="flex justify-between items-end text-sm font-semibold text-gray-800">
                             <span>{item.txt}</span>
-                            {permissions.canSeePrices && <span className="price-col">{formatMoney(item.price, lang)}</span>}
+                            {permissions.canSeePrices && <span className="price-col">{formatDisplayMoney(item.price)}</span>}
                           </div>
                         </div>
                       );
@@ -3757,7 +3763,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                             </div>
                             {item.subText && <div className="mt-1">{item.subText}</div>}
                           </div>
-                          {permissions.canSeePrices && <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatMoney(item.price, lang)}</span>}
+                          {permissions.canSeePrices && <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatDisplayMoney(item.price)}</span>}
                         </div>
                         {item.isMachine && (
                           <div className="text-[11px] text-gray-500 pl-4 mt-0.5">
@@ -3770,7 +3776,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               <input type="checkbox"
                                 checked={isDemoSelected(item.varenr, item.index)}
                                 onChange={() => toggleDemoMachine(item.varenr, item.index!, item.txt)} />
-                              <span>{T('demoMachineLabel')} <span className="text-gray-500">(+{formatMoney(getDemoFee(), lang)})</span></span>
+                              <span>{T('demoMachineLabel')} <span className="text-gray-500">(+{formatDisplayMoney(getDemoFee())})</span></span>
                             </label>
                           </div>
                         )}
@@ -3784,19 +3790,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   <div className="pt-4 border-t border-emerald-200 space-y-2">
                     <div className="flex justify-between text-gray-600">
                       <span>{T('subtotal')}</span>
-                      <span className="font-medium price-col">{formatMoney(displayCalc!.subtotal, lang)}</span>
+                      <span className="font-medium price-col">{formatDisplayMoney(displayCalc!.subtotal)}</span>
                     </div>
                     {displayCalc!.totalDiscount > 0 && (
                       <div className="text-red-600 text-sm space-y-1">
                         {displayCalc!.discountDetails.filter(d => d.amount > 0).map((d, i) => (
                           <div key={i} className="flex justify-between">
                             <span className="text-red-500">{state.flowType === 'order' && d.varenr ? `${d.txt} (${d.varenr})` : d.txt}</span>
-                            <span className="text-red-500 price-col">-{formatMoney(d.amount, lang)}</span>
+                            <span className="text-red-500 price-col">-{formatDisplayMoney(d.amount)}</span>
                           </div>
                         ))}
                         <div className="flex justify-between font-bold">
                           <span>{T('totalDiscount')} ({displayCalc!.totalPct.toFixed(2).replace('.', ',')}%)</span>
-                          <span className="price-col">-{formatMoney(displayCalc!.totalDiscount, lang)}</span>
+                          <span className="price-col">-{formatDisplayMoney(displayCalc!.totalDiscount)}</span>
                         </div>
                       </div>
                     )}
@@ -3838,7 +3844,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     )}
                     <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">
                       <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
-                      <span className="text-xl text-emerald-700 price-col ml-2">{formatMoney(displayCalc!.currentPrice, lang)}</span>
+                      <span className="text-xl text-emerald-700 price-col ml-2">{formatDisplayMoney(displayCalc!.currentPrice)}</span>
                     </div>
                   </div>
                 )}

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppUser } from '@/data/appUsers';
 import { Language, ConfiguratorState, PartnerType } from '@/types/configurator';
 import { pickT } from '@/lib/i18n/translations';
-import { mapUiLanguageToLegacy, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { type PortalUiLanguage } from '@/lib/portalLanguages';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -143,8 +143,8 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   // The panel's prop is the active portal identity (including role previews).
   // Scope saved cases from that identity, not the underlying backend session.
   const accountScopeEmail = (getEffectiveSellerEmail(appUser) ?? userEmail).toLowerCase();
-  // Scope is selected by "Vis som"; the portal language alone controls display currency.
-  const displayCurrency = currencyFromLanguage(mapUiLanguageToLegacy(language));
+  // Scope is selected by "Vis som"; the real portal language controls display currency.
+  const displayCurrency = currencyFromLanguage(language);
   const formatDisplayMoney = (value: number, sourceLanguage: Language): string => {
     const sourceCurrency = currencyFromLanguage(sourceLanguage);
     return formatMoney(convertCurrency(value, sourceCurrency, displayCurrency), displayCurrency);

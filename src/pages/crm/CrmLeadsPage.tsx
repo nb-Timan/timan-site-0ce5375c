@@ -52,6 +52,8 @@ import {
   buildCrmLeadOwnerFilterOptions,
   type CrmLeadOwnerFilter,
 } from '@/lib/crmLeadOwnerFilter';
+import { formatConvertedMoney, type Currency } from '@/lib/currency';
+import { usePortalCurrency } from '@/lib/usePortalCurrency';
 
 // ---- i18n. English fallback. ----
 type TKey =
@@ -221,9 +223,9 @@ function localizeStatus(s: string | null | undefined, lang: PortalUiLanguage): s
   return k ? tt(k, lang) : s;
 }
 
-function formatKr(n: number | null | undefined): string {
+function formatKr(n: number | null | undefined, displayCurrency: Currency): string {
   if (n == null) return '—';
-  return new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(n);
+  return formatConvertedMoney(n, 'DKK', displayCurrency);
 }
 
 function fmtDate(s: string | null | undefined, lang: PortalUiLanguage): string {
@@ -439,6 +441,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const { appUser } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { uiLanguage: lang } = useLanguage();
+  const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const dealerParam = searchParams.get('dealer') || '';
@@ -676,7 +679,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
           </h2>
           <p className="text-sm text-gray-500 mt-0.5">
             {isAdmin ? tt('sub_admin', lang) : tt('sub_seller', lang)}
-            {' · '}{totalCount} {tt('pcs', lang)}{totalValue > 0 ? ` · ${formatKr(totalValue)}` : ''}
+            {' · '}{totalCount} {tt('pcs', lang)}{totalValue > 0 ? ` · ${formatKr(totalValue, displayCurrency)}` : ''}
             {isAdmin && unassignedCount > 0 && (
               <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-md text-[11px] bg-amber-50 text-amber-800 border border-amber-200">
                 {unassignedCount} {tt('unassigned', lang)}

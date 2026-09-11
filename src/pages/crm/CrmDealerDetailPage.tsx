@@ -28,6 +28,8 @@ import { computeCompletion } from "@/lib/dealerProfileCompletion";
 import { toast } from "sonner";
 import { useAppUser, type SessionUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { formatConvertedMoney } from "@/lib/currency";
+import { usePortalCurrency } from "@/lib/usePortalCurrency";
 import { useCountryFormatter, formatCountry as formatCountryFn } from "@/lib/formatCountry";
 import { mapUiLanguageToLegacy, type PortalUiLanguage } from "@/lib/portalLanguages";
 import CrmLayout from "@/components/crm/CrmLayout";
@@ -578,6 +580,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   const { appUser, loading } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { uiLanguage: lang } = useLanguage();
+  const displayCurrency = usePortalCurrency();
   const legacyLang = mapUiLanguageToLegacy(lang);
   const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
@@ -1005,7 +1008,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
     .reverse()[0] || null;
   const lastDoneIso = lastDoneAct?.start_datetime || null;
   const latestActivityIso = [latestQuoteIso, lastDoneIso].filter(Boolean).sort().reverse()[0] || null;
-  const fmtKr = (v: number) => `${Math.round(v).toLocaleString('da-DK')} kr.`;
+  const fmtKr = (v: number) => formatConvertedMoney(v, "DKK", displayCurrency);
   const budgetTotals = budgetIndex ? aggregateDealerBudget(budgetIndex, scopeNumbers) : null;
   const inlineAgreementTerms = getInlineAgreementTerms(dealer, lang);
 
@@ -1995,9 +1998,10 @@ function CrmMachineRegisterPanel({
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const pageSize = 50;
+  const displayCurrency = usePortalCurrency();
   const formatDkk = (value: number | null) => value == null
     ? "—"
-    : new Intl.NumberFormat("da-DK", { style: "currency", currency: "DKK" }).format(value);
+    : formatConvertedMoney(value, "DKK", displayCurrency);
   const formatPercent = (revenue: number | null, margin: number | null) => {
     if (revenue == null || margin == null || revenue === 0) return "—";
     return new Intl.NumberFormat("da-DK", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(margin / revenue);

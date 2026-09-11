@@ -33,7 +33,9 @@ import { listCrmAccounts, accountDisplayName, type CrmAccount } from "@/lib/crmA
 import { listLeads, listDemoLeads, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
 import { isOpenLead, isWonLead, isOfferLead, effectiveLeadStatus } from "@/lib/leadStatus";
 import { listActivities, logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
-import { listBudgetLines, listForecasts, listSalesActuals, fmtDKK, type BudgetLine, type BudgetForecast, type SalesActual } from "@/lib/crmBudgetService";
+import { listBudgetLines, listForecasts, listSalesActuals, type BudgetLine, type BudgetForecast, type SalesActual } from "@/lib/crmBudgetService";
+import { formatConvertedMoney } from "@/lib/currency";
+import { usePortalCurrency } from "@/lib/usePortalCurrency";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -159,6 +161,8 @@ export default function CrmAccountDetailPage() {
   const navigate = useNavigate();
   const { appUser } = useAppUser();
   const { language: lang } = useLanguage();
+  const displayCurrency = usePortalCurrency();
+  const formatDkk = (value: number) => formatConvertedMoney(value, "DKK", displayCurrency);
   const portalRole = derivePortalRole(appUser);
   const isAdmin = isCrmAdmin(portalRole);
 
@@ -418,9 +422,9 @@ export default function CrmAccountDetailPage() {
 
       {/* KPI Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <KpiCard label={T.kpi_budget[lang]}   value={fmtDKK(kpis.budget)}   tone="default" />
-        <KpiCard label={T.kpi_pipeline[lang]} value={fmtDKK(kpis.pipeline)} tone="sky" />
-        <KpiCard label={T.kpi_orders[lang]}   value={fmtDKK(kpis.orders)}   tone="green" />
+        <KpiCard label={T.kpi_budget[lang]}   value={formatDkk(kpis.budget)}   tone="default" />
+        <KpiCard label={T.kpi_pipeline[lang]} value={formatDkk(kpis.pipeline)} tone="sky" />
+        <KpiCard label={T.kpi_orders[lang]}   value={formatDkk(kpis.orders)}   tone="green" />
         <KpiCard
           label={T.kpi_score[lang]}
           value={kpis.score === null ? "—" : `${Math.round(kpis.score)} %`}
@@ -453,11 +457,11 @@ export default function CrmAccountDetailPage() {
                 return (
                   <tr key={m} className="border-b border-gray-50 hover:bg-gray-50/50">
                     <td className="py-2 pr-4 font-medium text-gray-900">{m}</td>
-                    <td className="py-2 px-2 text-right tabular-nums">{fmtDKK(b.budget)}</td>
-                    <td className="py-2 px-2 text-right tabular-nums text-emerald-700">{fmtDKK(d.orders)}</td>
-                    <td className="py-2 px-2 text-right tabular-nums text-sky-700">{fmtDKK(d.pipeline)}</td>
-                    <td className="py-2 px-2 text-right tabular-nums">{fmtDKK(b.forecast)}</td>
-                    <td className="py-2 px-2 text-right tabular-nums text-gray-600">{fmtDKK(remaining)}</td>
+                    <td className="py-2 px-2 text-right tabular-nums">{formatDkk(b.budget)}</td>
+                    <td className="py-2 px-2 text-right tabular-nums text-emerald-700">{formatDkk(d.orders)}</td>
+                    <td className="py-2 px-2 text-right tabular-nums text-sky-700">{formatDkk(d.pipeline)}</td>
+                    <td className="py-2 px-2 text-right tabular-nums">{formatDkk(b.forecast)}</td>
+                    <td className="py-2 px-2 text-right tabular-nums text-gray-600">{formatDkk(remaining)}</td>
                     <td className="py-2 pl-2">
                       {b.budget > 0 ? (
                         <div className="flex items-center gap-2">
@@ -510,7 +514,7 @@ export default function CrmAccountDetailPage() {
                         <td className="py-2 px-2 text-gray-700">{effectiveLeadStatus(l)}</td>
                         <td className="py-2 px-2 text-gray-700">{fmtDate(l.next_followup_date, lang)}</td>
                         <td className="py-2 px-2 text-gray-700">{l.owner_name || "—"}</td>
-                        <td className="py-2 pl-2 text-right tabular-nums">{fmtDKK(l.estimated_value || 0)}</td>
+                        <td className="py-2 pl-2 text-right tabular-nums">{formatDkk(l.estimated_value || 0)}</td>
                       </tr>
                     );
                   })}
@@ -528,7 +532,7 @@ export default function CrmAccountDetailPage() {
           <CardContent>
             <div className="flex items-baseline gap-6 mb-3">
               <Stat label={T.offers_count[lang]} value={String(offers.count)} />
-              <Stat label={T.offers_value[lang]} value={fmtDKK(kpis.pipeline)} />
+              <Stat label={T.offers_value[lang]} value={formatDkk(kpis.pipeline)} />
             </div>
             {offers.leadOffers.length === 0 && offers.actOffers.length === 0 ? (
               <p className="text-sm text-gray-500">{T.no_data[lang]}</p>
@@ -540,7 +544,7 @@ export default function CrmAccountDetailPage() {
                       <div className="font-medium text-gray-900 truncate">{l.title}</div>
                       <div className="text-xs text-gray-500">{effectiveLeadStatus(l)} · {fmtDate(l.expected_close_date || l.next_followup_date, lang)}</div>
                     </div>
-                    <div className="tabular-nums text-gray-700">{fmtDKK(l.estimated_value || 0)}</div>
+                    <div className="tabular-nums text-gray-700">{formatDkk(l.estimated_value || 0)}</div>
                   </li>
                 ))}
                 {offers.actOffers.slice(0, 4).map((a) => (
@@ -549,7 +553,7 @@ export default function CrmAccountDetailPage() {
                       <div className="font-medium text-gray-900 truncate">{a.title || a.activity_type}</div>
                       <div className="text-xs text-gray-500">{a.status || "—"} · {fmtDate(a.activity_date, lang)}</div>
                     </div>
-                    <div className="tabular-nums text-gray-700">{fmtDKK(a.value || 0)}</div>
+                    <div className="tabular-nums text-gray-700">{formatDkk(a.value || 0)}</div>
                   </li>
                 ))}
               </ul>
@@ -563,7 +567,7 @@ export default function CrmAccountDetailPage() {
           <CardContent>
             <div className="flex items-baseline gap-6 mb-3">
               <Stat label={T.orders_count[lang]} value={String(orderRows.length)} />
-              <Stat label={T.orders_value[lang]} value={fmtDKK(kpis.orders)} />
+              <Stat label={T.orders_value[lang]} value={formatDkk(kpis.orders)} />
             </div>
             {orderRows.length === 0 ? (
               <p className="text-sm text-gray-500">{T.no_data[lang]}</p>
@@ -575,7 +579,7 @@ export default function CrmAccountDetailPage() {
                       <div className="font-medium text-gray-900 truncate">#{o.ref} · {o.machine || "—"}</div>
                       <div className="text-xs text-gray-500">{o.status || "—"} · {fmtDate(o.date, lang)}</div>
                     </div>
-                    <div className="tabular-nums text-emerald-700">{fmtDKK(o.value)}</div>
+                    <div className="tabular-nums text-emerald-700">{formatDkk(o.value)}</div>
                   </li>
                 ))}
               </ul>

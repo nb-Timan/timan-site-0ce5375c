@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, currentFiscalYearForBudget, fiscalYearForDate, fiscalYearLabel,
-  FISCAL_MONTH_ORDER, fmtDKK, reorderCalendarMonthsForFiscalYear,
+  FISCAL_MONTH_ORDER, reorderCalendarMonthsForFiscalYear,
   listBudgetLines, listForecasts, listSalesActuals, orderDetailsForBudgetCell,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   buildOrderActualsByKey, canonicalBudgetProductKey, orderActualKey, monthlyOrderQtyForProduct,
@@ -63,6 +63,8 @@ import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
 import type { CellReference, OrderTooltipDetail } from "@/components/crm/BudgetCellInsight";
+import { formatConvertedMoney } from "@/lib/currency";
+import { usePortalCurrency } from "@/lib/usePortalCurrency";
 
 
 // ────────────────────────────────────────────────────────────
@@ -337,6 +339,8 @@ export default function CrmBudgetPage() {
   const { appUser, loading } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
+  const displayCurrency = usePortalCurrency();
+  const formatDkk = (value: number) => formatConvertedMoney(value, "DKK", displayCurrency);
   const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
   const isSeller = isScopedSeller(portalRole);
@@ -915,7 +919,7 @@ export default function CrmBudgetPage() {
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <KpiCard label={T.kpi_budget[lang]} value={`${budgetQty.toLocaleString("da-DK")} ${T.pcs[lang]}`} icon={Wallet} tone="primary" />
-            <KpiCard label={T.legend_pipe[lang]} value={fmtDKK(pipelineValue)} icon={FileText} tone="ok" />
+            <KpiCard label={T.legend_pipe[lang]} value={formatDkk(pipelineValue)} icon={FileText} tone="ok" />
             <KpiCard label={T.col_total[lang]} value={`${activeDealerLines.length.toLocaleString("da-DK")} linjer`} icon={Calendar} tone="warn" />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -1927,9 +1931,9 @@ export default function CrmBudgetPage() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-        <KpiCard label={T.kpi_budget[lang]} value={`${totals.annualQty}`} sub={fmtDKK(totals.annualBudget)} icon={Wallet} tone="primary" />
-        <KpiCard label={T.kpi_orders[lang]} value={`${totals.sold.qty}`} sub={fmtDKK(totals.sold.value)} icon={Wallet} tone="ok" />
-        <KpiCard label={T.kpi_working[lang]} value={`${totals.fc.qty}`} sub={fmtDKK(totals.fc.value)} icon={Wallet} tone="warn" />
+        <KpiCard label={T.kpi_budget[lang]} value={`${totals.annualQty}`} sub={formatDkk(totals.annualBudget)} icon={Wallet} tone="primary" />
+        <KpiCard label={T.kpi_orders[lang]} value={`${totals.sold.qty}`} sub={formatDkk(totals.sold.value)} icon={Wallet} tone="ok" />
+        <KpiCard label={T.kpi_working[lang]} value={`${totals.fc.qty}`} sub={formatDkk(totals.fc.value)} icon={Wallet} tone="warn" />
         <KpiCard label={T.kpi_score[lang]} value={`${totals.score}%`} sub={`${totals.sold.qty} / ${totals.annualQty} ${T.pcs[lang]}`} icon={Wallet} />
       </div>
 
@@ -2210,7 +2214,7 @@ export default function CrmBudgetPage() {
                                     <div className="text-xs space-y-2">
                                       <div className="font-semibold border-b border-slate-200 pb-1">
                                         {cell.quotes.length} {T.tip_quotes[lang]} · {monthLabel} · {productName}
-                                        <span className="ml-2 tabular-nums">{fmtDKK(cell.value)}</span>
+                                        <span className="ml-2 tabular-nums">{formatDkk(cell.value)}</span>
                                       </div>
                                       {cell.quotes.map((q) => (
                                         <div key={q.id} className="space-y-0.5 pb-1.5 border-b border-slate-100 last:border-0">
@@ -2224,7 +2228,7 @@ export default function CrmBudgetPage() {
                                           <div className="text-slate-600">{T.tip_machine[lang]}: {productName} · {q.machine_qty_by_key[blockProductKey] || 1} stk.</div>
                                           <div className="flex justify-between">
                                             <span className="text-slate-500">{q.seller_initials || q.seller_email || "—"}</span>
-                                            <span className="font-semibold tabular-nums">{fmtDKK(q.total_value)}</span>
+                                            <span className="font-semibold tabular-nums">{formatDkk(q.total_value)}</span>
                                           </div>
                                         </div>
                                       ))}
@@ -2234,7 +2238,7 @@ export default function CrmBudgetPage() {
                               </td>
                             );
                           })}
-                          <td className="px-2 py-2 text-center text-xs font-semibold text-amber-800 tabular-nums" title={fmtDKK(totalPipelineValue)}>{totalPipeline}</td>
+                          <td className="px-2 py-2 text-center text-xs font-semibold text-amber-800 tabular-nums" title={formatDkk(totalPipelineValue)}>{totalPipeline}</td>
                           <td className="px-2 py-2"></td>
                         </tr>
 

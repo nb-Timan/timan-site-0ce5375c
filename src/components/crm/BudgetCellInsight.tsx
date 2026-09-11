@@ -13,6 +13,8 @@ import { ReactNode } from "react";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { formatConvertedMoney } from "@/lib/currency";
+import { usePortalCurrency } from "@/lib/usePortalCurrency";
 
 export type SellerNum = { initials: string; value: number };
 
@@ -67,6 +69,7 @@ export default function BudgetCellInsight({
   children, title, total, rows, variant = "budget", missingBudget, extra, side = "top", references, dealers,
   orderDetails, totalAtBottom = false,
 }: Props) {
+  const displayCurrency = usePortalCurrency();
   const display = variant === "budget" ? rows.filter(r => r.value !== 0) : rows;
   const refs = references ?? [];
   const concreteOrders = orderDetails ?? [];
@@ -110,7 +113,7 @@ export default function BudgetCellInsight({
                   <div className="flex justify-between gap-3">
                     <span className="text-slate-500">Sælger: {order.seller_initials || "—"}</span>
                     <span className="font-semibold tabular-nums">
-                      Beløb: {new Intl.NumberFormat("da-DK", { style: "currency", currency: "DKK", maximumFractionDigits: 0 }).format(order.order_total)}
+                      Beløb: {formatConvertedMoney(order.order_total, "DKK", displayCurrency)}
                     </span>
                   </div>
                 </div>

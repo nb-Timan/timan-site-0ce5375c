@@ -15,6 +15,8 @@ import { useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowRight, ArrowUpRight, Crown, Trophy, Users } from 'lucide-react';
 import { CrmActivity } from '@/lib/crmActivitiesService';
 import { Language } from '@/types/configurator';
+import { formatConvertedMoney, type Currency } from '@/lib/currency';
+import { usePortalCurrency } from '@/lib/usePortalCurrency';
 
 const COL_WINRATE: Record<Language, string> = {
   da: 'Win rate', en: 'Win rate', de: 'Win-Rate', it: 'Win rate', hu: 'Win rate',
@@ -76,8 +78,8 @@ interface SellerRow {
   winRate: number;
 }
 
-function fmtKr(n: number): string {
-  return `${Math.round(n).toLocaleString('da-DK')} kr.`;
+function fmtKr(n: number, displayCurrency: Currency): string {
+  return formatConvertedMoney(n, 'DKK', displayCurrency);
 }
 
 function startOfMonth(d: Date): Date { return new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -205,6 +207,7 @@ function TrendArrow({ pct }: { pct: number }) {
 }
 
 export default function SellerPerformanceSection({ activities, language }: Props) {
+  const displayCurrency = usePortalCurrency();
   const [filter, setFilter] = useState<Filter>('ytd');
   const rows = useMemo(() => buildRows(activities, filter), [activities, filter]);
   const isForecastView = filter === 'forecast';
@@ -294,13 +297,13 @@ export default function SellerPerformanceSection({ activities, language }: Props
 
                     {/* Closed (green) */}
                     <td className="py-3.5 pr-4">
-                      <div className="text-emerald-700 font-semibold tabular-nums">{fmtKr(r.closedValue)}</div>
+                      <div className="text-emerald-700 font-semibold tabular-nums">{fmtKr(r.closedValue, displayCurrency)}</div>
                       <div className="text-xs text-gray-500">{r.closedCount} {T.stk[language]}</div>
                     </td>
 
                     {/* Active offers (sky) */}
                     <td className="py-3.5 pr-4">
-                      <div className="text-sky-700 font-semibold tabular-nums">{fmtKr(r.activeValue)}</div>
+                      <div className="text-sky-700 font-semibold tabular-nums">{fmtKr(r.activeValue, displayCurrency)}</div>
                       <div className="text-xs text-gray-500">{r.activeCount} {T.stk[language]}</div>
                     </td>
 
@@ -308,7 +311,7 @@ export default function SellerPerformanceSection({ activities, language }: Props
                     <td className="py-3.5 pr-4">
                       <div className="text-gray-700 font-medium inline-flex items-center gap-1 tabular-nums">
                         <TrendArrow pct={r.prevPctChange} />
-                        {fmtKr(r.prevValue)}
+                        {fmtKr(r.prevValue, displayCurrency)}
                       </div>
                       <div className={`text-xs ${r.prevPctChange > 2 ? 'text-emerald-600' : r.prevPctChange < -2 ? 'text-rose-600' : 'text-gray-400'}`}>
                         {r.prevPctChange > 0 ? '+' : ''}{r.prevPctChange}%
@@ -317,7 +320,7 @@ export default function SellerPerformanceSection({ activities, language }: Props
 
                     {/* Forecast (violet) */}
                     <td className="py-3.5 pr-4">
-                      <div className="text-violet-700 font-semibold tabular-nums">{fmtKr(r.forecastValue)}</div>
+                      <div className="text-violet-700 font-semibold tabular-nums">{fmtKr(r.forecastValue, displayCurrency)}</div>
                       <div className="text-xs text-gray-500">{r.forecastCount} {T.stk[language]}</div>
                     </td>
 

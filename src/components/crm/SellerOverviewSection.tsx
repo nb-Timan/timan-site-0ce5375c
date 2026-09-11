@@ -25,6 +25,8 @@ import {
   BUDGET_SELLERS, availableYears,
   type BudgetLine, type BudgetForecast, type SalesActual,
 } from "@/lib/crmBudgetService";
+import { formatCompactConvertedMoney, formatConvertedMoney, type Currency } from "@/lib/currency";
+import { usePortalCurrency } from "@/lib/usePortalCurrency";
 
 interface Props {
   selectedInitials: string | null;
@@ -58,14 +60,11 @@ interface PeriodCell {
   scorePct: number; // (orders+pipeline) vs budget
 }
 
-function fmtKr(n: number): string {
-  if (!Number.isFinite(n)) return "0 kr.";
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(n) >= 1_000) return `${Math.round(n / 1_000)}k`;
-  return `${Math.round(n)}`;
+function fmtKr(n: number, displayCurrency: Currency): string {
+  return formatCompactConvertedMoney(n, "DKK", displayCurrency);
 }
-function fmtFull(n: number): string {
-  return `${Math.round(n).toLocaleString("da-DK")} kr.`;
+function fmtFull(n: number, displayCurrency: Currency): string {
+  return formatConvertedMoney(n, "DKK", displayCurrency);
 }
 
 function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -127,6 +126,7 @@ function avatarGradient(initials: string): string {
 }
 
 export default function SellerOverviewSection({ selectedInitials, onSelectSeller }: Props) {
+  const displayCurrency = usePortalCurrency();
   const [year] = useState<number>(availableYears()[0]);
   const [leads, setLeads] = useState<CrmLead[]>([]);
   const [demoLeads, setDemoLeads] = useState<CrmDemoLead[]>([]);
@@ -395,14 +395,14 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
                     </td>
 
                     <td className="py-3.5 px-2 text-center text-amber-700 font-semibold tabular-nums">{r.offersSent}</td>
-                    <td className="py-3.5 px-2 text-right text-amber-700 font-medium tabular-nums" title={fmtFull(r.offersValue)}>{fmtKr(r.offersValue)}</td>
+                    <td className="py-3.5 px-2 text-right text-amber-700 font-medium tabular-nums" title={fmtFull(r.offersValue, displayCurrency)}>{fmtKr(r.offersValue, displayCurrency)}</td>
 
                     <td className="py-3.5 px-2 text-center text-emerald-700 font-semibold tabular-nums">{r.orders}</td>
-                    <td className="py-3.5 px-2 text-right text-emerald-700 font-medium tabular-nums" title={fmtFull(r.ordersValue)}>{fmtKr(r.ordersValue)}</td>
+                    <td className="py-3.5 px-2 text-right text-emerald-700 font-medium tabular-nums" title={fmtFull(r.ordersValue, displayCurrency)}>{fmtKr(r.ordersValue, displayCurrency)}</td>
 
-                    <PeriodTd cell={r.lastMonth} />
-                    <PeriodTd cell={r.thisMonth} highlight />
-                    <PeriodTd cell={r.nextMonth} forecast />
+                    <PeriodTd cell={r.lastMonth} displayCurrency={displayCurrency} />
+                    <PeriodTd cell={r.thisMonth} displayCurrency={displayCurrency} highlight />
+                    <PeriodTd cell={r.nextMonth} displayCurrency={displayCurrency} forecast />
 
                     <td className="py-3.5 pl-2 pr-1 text-center">
                       <div className={`inline-flex flex-col items-center justify-center px-2.5 py-1 rounded-lg ring-1 ${totalC.bg} ${totalC.ring}`}>
@@ -428,7 +428,12 @@ export default function SellerOverviewSection({ selectedInitials, onSelectSeller
   );
 }
 
-function PeriodTd({ cell, highlight, forecast }: { cell: PeriodCell; highlight?: boolean; forecast?: boolean }) {
+function PeriodTd({ cell, displayCurrency, highlight, forecast }: {
+  cell: PeriodCell;
+  displayCurrency: Currency;
+  highlight?: boolean;
+  forecast?: boolean;
+}) {
   const c = pctClasses(cell.scorePct);
   return (
     <td className="py-3.5 px-2 text-center">
@@ -436,11 +441,11 @@ function PeriodTd({ cell, highlight, forecast }: { cell: PeriodCell; highlight?:
         "inline-flex flex-col items-center px-2 py-1 rounded-md " +
         (highlight ? "bg-emerald-50/60 ring-1 ring-emerald-100 " : "")
       }
-      title={`Budget: ${fmtFull(cell.budget)}\nOrdre: ${fmtFull(cell.orders)}\nPipeline: ${fmtFull(cell.pipeline)}\nForecast: ${fmtFull(cell.forecast)}`}
+      title={`Budget: ${fmtFull(cell.budget, displayCurrency)}\nOrdre: ${fmtFull(cell.orders, displayCurrency)}\nPipeline: ${fmtFull(cell.pipeline, displayCurrency)}\nForecast: ${fmtFull(cell.forecast, displayCurrency)}`}
       >
         <span className={`text-xs font-semibold tabular-nums ${c.text}`}>{cell.scorePct}%</span>
         <span className="text-[10px] text-gray-500 tabular-nums">
-          {forecast ? `fc ${fmtKr(cell.forecast)}` : `${fmtKr(cell.orders)} / ${fmtKr(cell.budget)}`}
+          {forecast ? `fc ${fmtKr(cell.forecast, displayCurrency)}` : `${fmtKr(cell.orders, displayCurrency)} / ${fmtKr(cell.budget, displayCurrency)}`}
         </span>
       </div>
     </td>

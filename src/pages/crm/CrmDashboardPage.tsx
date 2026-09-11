@@ -15,6 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ExternalLink } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { formatCompactConvertedMoney, formatConvertedMoney, type Currency } from '@/lib/currency';
+import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { listCrmAccounts, CrmAccount, accountDisplayName } from '@/lib/crmAccountsService';
@@ -122,11 +124,11 @@ const CLOSED_BARS: number[] = [38, 52, 44, 65, 48, 72, 60, 80, 70, 92];
 // ────────────────────────────────────────────────────────────
 // Utilities
 // ────────────────────────────────────────────────────────────
-function fmtKr(n: number): string { return `${Math.round(n).toLocaleString('da-DK')} kr.`; }
-function fmtKrShort(n: number): string {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} mio.`;
-  if (Math.abs(n) >= 1_000) return `${Math.round(n / 1_000)}k`;
-  return String(Math.round(n));
+function fmtKr(n: number, displayCurrency: Currency): string {
+  return formatConvertedMoney(n, 'DKK', displayCurrency);
+}
+function fmtKrShort(n: number, displayCurrency: Currency): string {
+  return formatCompactConvertedMoney(n, 'DKK', displayCurrency);
 }
 function pctChange(curr: number, prev: number): number {
   if (prev === 0) return curr > 0 ? 100 : 0;
@@ -205,6 +207,7 @@ export default function CrmDashboardPage() {
   const { appUser } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
+  const displayCurrency = usePortalCurrency();
   const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
@@ -377,9 +380,6 @@ export default function CrmDashboardPage() {
     });
     const openKeys: Array<StageMeta['key']> = ['lead','demo','quote'];
     const pipelineValue = byStage.filter(s => openKeys.includes(s.key)).reduce((s, x) => s + x.value, 0);
-    const pipelineValueEur = serverQuoteOrderKpis?.quoteValueEur ?? openQuotes
-      .filter(q => q.currency === 'EUR')
-      .reduce((s, q) => s + (q.total_value || 0), 0);
     const activeLeadRows = [
       ...(pipelineRows.lead || []),
       ...(pipelineRows.demo || []),
@@ -400,7 +400,6 @@ export default function CrmDashboardPage() {
       activeLeads: activeLeadRows.length,
       leadsPctChange: pctChange(leadsThis, leadsPrev),
       pipelineValue,
-      pipelineValueEur,
       winRate: serverSalesOutcomeKpis?.winRate ?? base.winRate,
       avgSalesDays: serverSalesOutcomeKpis?.avgSalesDays ?? base.avgSalesDays,
       pipelineByStage: byStage,
@@ -487,13 +486,8 @@ export default function CrmDashboardPage() {
                     </p>
                   </div>
                   <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums mt-1">
-                    {fmtKr(metrics.pipelineValue)}
+                    {fmtKr(metrics.pipelineValue, displayCurrency)}
                   </p>
-                  {metrics.pipelineValueEur > 0 && (
-                    <p className="text-[11px] text-emerald-100/85 tabular-nums mt-1">
-                      {Math.round(metrics.pipelineValueEur).toLocaleString('da-DK')} EUR
-                    </p>
-                  )}
                 </div>
                 <div className="h-12 w-px bg-white/15" aria-hidden />
                 <div className="relative flex min-w-0 items-center justify-center">
@@ -545,13 +539,8 @@ export default function CrmDashboardPage() {
                     </p>
                   </div>
                   <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums mt-1">
-                    {fmtKr(metrics.closedValueThisMonth)}
+                    {fmtKr(metrics.closedValueThisMonth, displayCurrency)}
                   </p>
-                  {metrics.closedValueThisMonthEur > 0 && (
-                    <p className="text-[11px] text-sky-100/85 tabular-nums mt-1">
-                      {Math.round(metrics.closedValueThisMonthEur).toLocaleString('da-DK')} EUR
-                    </p>
-                  )}
                 </div>
                 <div className="h-12 w-px bg-white/15" aria-hidden />
                 <div className="relative flex min-w-0 items-center justify-center">
@@ -694,7 +683,7 @@ export default function CrmDashboardPage() {
                             {T[`stage_${s.key}`][lang]}
                           </span>
                           <span className="text-xs text-gray-500 tabular-nums">
-                            <span className="font-semibold text-gray-700">{fmtKr(s.value)}</span>
+                            <span className="font-semibold text-gray-700">{fmtKr(s.value, displayCurrency)}</span>
                             <span className="mx-1.5 text-gray-300">·</span>{sharePct}%
                           </span>
                         </div>
@@ -718,7 +707,7 @@ export default function CrmDashboardPage() {
                       {T.pipeline_total[lang]}
                     </span>
                     <span className="text-lg font-bold text-slate-900 tabular-nums">
-                      {fmtKrShort(metrics.pipelineValue)}
+                      {fmtKrShort(metrics.pipelineValue, displayCurrency)}
                     </span>
                   </div>
                   {(() => {
@@ -736,7 +725,7 @@ export default function CrmDashboardPage() {
                                 key={s.key}
                                 type="button"
                                 onClick={() => setOpenStage(s.key)}
-                                title={`${T[`stage_${s.key}`][lang]} · ${fmtKr(s.value)}`}
+                                title={`${T[`stage_${s.key}`][lang]} · ${fmtKr(s.value, displayCurrency)}`}
                                 className={`${s.bar} h-full ${i === 0 ? '' : 'border-l border-white/60'}`}
                                 style={{ width: `${pct}%` }}
                               />
@@ -758,7 +747,7 @@ export default function CrmDashboardPage() {
                                 <span className="ml-auto text-slate-500 tabular-nums shrink-0">
                                   <span className="font-semibold text-slate-700">{s.count}</span>
                                   <span className="mx-1 text-slate-300">·</span>
-                                  <span>{fmtKrShort(s.value)}</span>
+                                  <span>{fmtKrShort(s.value, displayCurrency)}</span>
                                   <span className="mx-1 text-slate-300">·</span>
                                   <span>{pct}%</span>
                                 </span>
@@ -813,7 +802,7 @@ export default function CrmDashboardPage() {
                           <p className="text-sm font-medium text-gray-900 truncate">{a.title || prettyType(a.activity_type)}</p>
                           <p className="text-xs text-gray-500 truncate">
                             {isAdmin && <><span className="font-medium text-gray-700">{owner}</span> · </>}
-                            {a.account_name || '—'}{a.value ? <> · <span className="text-gray-700 font-medium">{fmtKr(a.value)}</span></> : null}
+                            {a.account_name || '—'}{a.value ? <> · <span className="text-gray-700 font-medium">{fmtKr(a.value, displayCurrency)}</span></> : null}
                           </p>
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0">
@@ -899,10 +888,10 @@ export default function CrmDashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false}
-                         tickFormatter={(v: number) => fmtKrShort(v)} width={50} />
+                         tickFormatter={(v: number) => fmtKrShort(v, displayCurrency)} width={70} />
                   <RTooltip
                     contentStyle={{ borderRadius: 12, border: '1px solid #e5e7eb', fontSize: 12 }}
-                    formatter={(v: number) => fmtKr(v)}
+                    formatter={(v: number) => fmtKr(v, displayCurrency)}
                   />
                   <Area type="monotone" dataKey="value" stroke="#2d5a27" strokeWidth={2} fill="url(#pipeGrad)" isAnimationActive />
                 </AreaChart>
@@ -971,7 +960,7 @@ export default function CrmDashboardPage() {
                         i === 2 ? 'bg-orange-100 text-orange-700' : 'bg-gray-50 text-gray-500'
                       }`}>{i + 1}</span>
                       <span className="text-sm text-gray-800 truncate flex-1">{accountDisplayName(b.account)}</span>
-                      <span className="text-xs font-semibold text-[#2d5a27] whitespace-nowrap tabular-nums">{fmtKr(b.value)}</span>
+                      <span className="text-xs font-semibold text-[#2d5a27] whitespace-nowrap tabular-nums">{fmtKr(b.value, displayCurrency)}</span>
                     </li>
                   ))}
                 </ul>
@@ -1222,7 +1211,6 @@ interface DerivedMetrics {
   winRate: number;
   avgSalesDays: number;
   closedValueThisMonth: number;
-  closedValueThisMonthEur: number;
   closedCountThisMonth: number;
   closedPctChange: number;
   pipelineByStage: Array<{ key: StageMeta['key']; bar: string; hex: string; ring: string; value: number; count: number }>;
@@ -1301,9 +1289,6 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
   const avgSalesDays = cycles.length === 0 ? 0 : Math.round(cycles.reduce((s, n) => s + n, 0) / cycles.length);
 
   const closedValueThisMonth = ordersThis.reduce((sum, o) => sum + (o.total_value_dkk || 0), 0);
-  const closedValueThisMonthEur = ordersThis
-    .filter(o => o.currency === 'EUR')
-    .reduce((sum, o) => sum + (o.total_value || 0), 0);
   const closedCountThisMonth = ordersThis.length;
   const closedValuePrev = ordersPrev.reduce((sum, o) => sum + (o.total_value_dkk || 0), 0);
   const closedPctChange = pctChange(closedValueThisMonth, closedValuePrev);
@@ -1355,7 +1340,7 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
     activeLeads, leadsPctChange,
     wonOrdersCount, wonPctChange,
     winRate, avgSalesDays,
-    closedValueThisMonth, closedValueThisMonthEur, closedCountThisMonth, closedPctChange,
+    closedValueThisMonth, closedCountThisMonth, closedPctChange,
     pipelineByStage: byStage,
     lostReasons,
     latestSoldUnits,
