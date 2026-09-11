@@ -176,6 +176,7 @@ const AREA_PREFIX: Record<PortalUiLanguage, string> = {
   fr: 'Zone',
   pl: 'Obszar',
   cs: 'Oblast',
+  tr: 'Oblast',
 };
 
 const MODULE_PUBLIC_TEXT: Record<string, Record<PortalUiLanguage, { title: string; description: string; note: string }>> = {
@@ -189,6 +190,7 @@ const MODULE_PUBLIC_TEXT: Record<string, Record<PortalUiLanguage, { title: strin
     fr: { title: 'Le CRM a été amélioré', description: 'Le travail CRM est plus clair, afin de mieux gérer les leads, le suivi et les activités commerciales.', note: 'CRM amélioré' },
     pl: { title: 'CRM został ulepszony', description: 'Praca w CRM jest bardziej przejrzysta, dzięki czemu leady, działania następcze i sprzedaż są łatwiejsze do obsługi.', note: 'CRM ulepszony' },
     cs: { title: 'CRM bylo vylepšeno', description: 'Práce v CRM je přehlednější, takže leady, následné kroky a prodejní aktivity se snáze řídí.', note: 'CRM vylepšeno' },
+    tr: { title: 'CRM bylo vylepšeno', description: 'Práce v CRM je přehlednější, takže leady, následné kroky a prodejní aktivity se snáze řídí.', note: 'CRM vylepšeno' },
   },
   dealer_data: {
     da: { title: 'Partnerdata er forbedret', description: 'Partneroplysninger og kontaktdata er blevet lettere at finde, vedligeholde og bruge i det daglige arbejde.', note: 'Partnerdata forbedret' },
@@ -200,6 +202,7 @@ const MODULE_PUBLIC_TEXT: Record<string, Record<PortalUiLanguage, { title: strin
     fr: { title: 'Les données partenaires ont été améliorées', description: 'Les informations partenaires et les coordonnées sont plus faciles à trouver, maintenir et utiliser au quotidien.', note: 'Données partenaires améliorées' },
     pl: { title: 'Dane partnera zostały ulepszone', description: 'Informacje o partnerach i dane kontaktowe są łatwiejsze do znalezienia, utrzymania i użycia na co dzień.', note: 'Dane partnera ulepszone' },
     cs: { title: 'Data partnerů byla vylepšena', description: 'Informace o partnerech a kontaktní údaje se snáze hledají, udržují a používají v každodenní práci.', note: 'Data partnerů vylepšena' },
+    tr: { title: 'Data partnerů byla vylepšena', description: 'Informace o partnerech a kontaktní údaje se snáze hledají, udržují a používají v každodenní práci.', note: 'Data partnerů vylepšena' },
   },
   map: {
     da: { title: 'Forbedret områdekort', description: 'Kort og områdevalg er blevet mere overskuelige, så geografiske områder kan aflæses og bruges mere sikkert.', note: 'Områdekort forbedret' },
@@ -211,6 +214,7 @@ const MODULE_PUBLIC_TEXT: Record<string, Record<PortalUiLanguage, { title: strin
     fr: { title: 'Carte des zones améliorée', description: 'Les cartes et la sélection de zones sont plus claires, afin d’examiner et d’utiliser les zones géographiques plus sûrement.', note: 'Carte des zones améliorée' },
     pl: { title: 'Ulepszona mapa obszarów', description: 'Mapy i wybór obszarów są bardziej przejrzyste, więc obszary geograficzne można sprawdzać i używać pewniej.', note: 'Mapa obszarów ulepszona' },
     cs: { title: 'Vylepšená mapa oblastí', description: 'Mapy a výběr oblastí jsou přehlednější, takže geografické oblasti lze spolehlivěji kontrolovat a používat.', note: 'Mapa oblastí vylepšena' },
+    tr: { title: 'Vylepšená mapa oblastí', description: 'Mapy a výběr oblastí jsou přehlednější, takže geografické oblasti lze spolehlivěji kontrolovat a používat.', note: 'Mapa oblastí vylepšena' },
   },
   marketing: {
     da: { title: 'Marketing-indhold er forbedret', description: 'Marketing kan lettere styre publiceret indhold, sprog og visning i portalen.', note: 'Marketing forbedret' },
@@ -222,6 +226,7 @@ const MODULE_PUBLIC_TEXT: Record<string, Record<PortalUiLanguage, { title: strin
     fr: { title: 'Le contenu marketing a été amélioré', description: 'Le marketing peut gérer plus facilement les contenus publiés, les langues et l’affichage du portail.', note: 'Marketing amélioré' },
     pl: { title: 'Treści marketingowe zostały ulepszone', description: 'Marketing może łatwiej zarządzać opublikowanymi treściami, językami i widokiem portalu.', note: 'Marketing ulepszony' },
     cs: { title: 'Marketingový obsah byl vylepšen', description: 'Marketing může snadněji spravovat zveřejněný obsah, jazyky a zobrazení v portálu.', note: 'Marketing vylepšen' },
+    tr: { title: 'Marketingový obsah byl vylepšen', description: 'Marketing může snadněji spravovat zveřejněný obsah, jazyky a zobrazení v portálu.', note: 'Marketing vylepšen' },
   },
 };
 
@@ -257,6 +262,7 @@ function fallbackPublicText(module: string, changeType: string, language: Portal
       fr: `${area} a été corrigé afin que la fonction soit plus fiable pour les utilisateurs.`,
       pl: `${area} został poprawiony, dzięki czemu funkcja działa stabilniej dla użytkowników.`,
       cs: `${area} bylo opraveno, takže funkce pracuje pro uživatele spolehlivěji.`,
+      tr: `${area} bylo opraveno, takže funkce pracuje pro uživatele spolehlivěji.`,
     },
     improvement: {
       da: `${area} er blevet forbedret, så hverdagsarbejdet i portalen bliver mere overskueligt.`,
@@ -268,6 +274,7 @@ function fallbackPublicText(module: string, changeType: string, language: Portal
       fr: `${area} a été amélioré pour rendre le travail quotidien dans le portail plus clair.`,
       pl: `${area} został ulepszony, aby codzienna praca w portalu była bardziej przejrzysta.`,
       cs: `${area} bylo vylepšeno, aby každodenní práce v portálu byla přehlednější.`,
+      tr: `${area} bylo vylepšeno, aby každodenní práce v portálu byla přehlednější.`,
     },
   };
   const titles: Record<PortalUiLanguage, string> = {
@@ -280,6 +287,7 @@ function fallbackPublicText(module: string, changeType: string, language: Portal
     fr: `${area} a été mis à jour`,
     pl: `${area} został zaktualizowany`,
     cs: `${area} bylo aktualizováno`,
+    tr: `${area} bylo aktualizováno`,
   };
   const notes: Record<PortalUiLanguage, string> = {
     da: `${area} opdateret`,
@@ -291,6 +299,7 @@ function fallbackPublicText(module: string, changeType: string, language: Portal
     fr: `${area} mis à jour`,
     pl: `${area} zaktualizowany`,
     cs: `${area} aktualizováno`,
+    tr: `${area} aktualizováno`,
   };
   return {
     title: titles[language],
@@ -357,6 +366,11 @@ const CRM_OVERVIEW_GROUP_TEXT: Record<PortalUiLanguage, { title: string; descrip
     note: 'Widok CRM ulepszony',
   },
   cs: {
+    title: 'Přehled CRM byl vylepšen',
+    description: 'Přehled partnera je kompaktnější a přehlednější. Kontaktní údaje, KPI karty, poznámky a další partnerská data jsou lépe uspořádána, takže důležité informace lze snáze najít a používat.',
+    note: 'Přehled CRM vylepšen',
+  },
+  tr: {
     title: 'Přehled CRM byl vylepšen',
     description: 'Přehled partnera je kompaktnější a přehlednější. Kontaktní údaje, KPI karty, poznámky a další partnerská data jsou lépe uspořádána, takže důležité informace lze snáze najít a používat.',
     note: 'Přehled CRM vylepšen',

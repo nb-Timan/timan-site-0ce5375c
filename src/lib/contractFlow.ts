@@ -314,6 +314,7 @@ const allLanguageLabels = (
   fr: overrides.fr ?? en,
   pl: overrides.pl ?? en,
   cs: overrides.cs ?? en,
+  tr: overrides.cs ?? en,
 });
 
 const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, ContractStepLabel>> = {
@@ -489,6 +490,7 @@ export const CONTRACT_APPENDIX_LABELS: Record<PortalUiLanguage, string> = {
   fr: 'Annexe',
   pl: 'Załącznik',
   cs: 'Příloha',
+  tr: 'Příloha',
 };
 
 export function getContractStepLabel(

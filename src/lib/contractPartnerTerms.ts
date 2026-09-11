@@ -26,6 +26,7 @@ export const CONTRACT_PARTNER_TYPE_LABELS: Record<ContractPartnerType, Record<Po
     fr: 'Revendeur',
     pl: 'Dealer',
     cs: 'Prodejce',
+    tr: 'Prodejce',
   },
   importer: {
     da: 'Importør',
@@ -37,6 +38,7 @@ export const CONTRACT_PARTNER_TYPE_LABELS: Record<ContractPartnerType, Record<Po
     fr: 'Importateur',
     pl: 'Importer',
     cs: 'Importér',
+    tr: 'Importér',
   },
   service_partner: {
     da: 'Servicepartner',
@@ -48,6 +50,7 @@ export const CONTRACT_PARTNER_TYPE_LABELS: Record<ContractPartnerType, Record<Po
     fr: 'Partenaire service',
     pl: 'Partner serwisowy',
     cs: 'Servisní partner',
+    tr: 'Servisní partner',
   },
 };
 

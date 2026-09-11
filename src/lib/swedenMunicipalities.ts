@@ -27,6 +27,7 @@ export const SWEDEN_MUNICIPALITIES_LABELS: Record<
       fr: 'Suède - communes',
       pl: 'Szwecja - gminy',
       cs: 'Švédsko - obce',
+      tr: 'Švédsko - obce',
   },
   municipality: {
       da: 'Kommune',
@@ -38,6 +39,7 @@ export const SWEDEN_MUNICIPALITIES_LABELS: Record<
       fr: 'Commune',
       pl: 'Gmina',
     cs: 'Obec',
+    tr: 'Obec',
   },
   selectMunicipality: {
       da: 'Vælg kommune',
@@ -49,6 +51,7 @@ export const SWEDEN_MUNICIPALITIES_LABELS: Record<
       fr: 'Choisir une commune',
       pl: 'Wybierz gminę',
       cs: 'Vybrat obec',
+      tr: 'Vybrat obec',
   },
 };
 
