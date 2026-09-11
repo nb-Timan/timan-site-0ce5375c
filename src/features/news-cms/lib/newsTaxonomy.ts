@@ -24,6 +24,7 @@ const label = (da: string, en = da, de = en, it = en, hu = en, sv = en, fr = en,
   fr,
   pl,
   cs,
+  tr: en,
 });
 
 export const NEWS_TOPIC_UI_TEXT = {
