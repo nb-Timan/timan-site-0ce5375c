@@ -77,7 +77,7 @@ import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
 import { getContractAccessDurationMinutes, type ContractAccessDurationUnit } from '@/lib/contractAccessDuration';
-import { APPENDIX_2_EXAMPLE_LINES, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
+import { renderAppendix2ExampleLines, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import {
   CONTRACT_PDF_TEMPLATE_VERSION,
   generateContractPdf,
@@ -229,6 +229,57 @@ const CONTRACT_UI_COPY = {
   contractAccessInactiveHelp: { da: 'Timan åbner den guidede kontrakt i et tidsbegrænset vindue, når aftalen skal gennemgås. Når kontrakten er godkendt, kan den fortsat findes som juridisk dokument under Partnerdata.', en: 'Timan opens the guided contract in a limited time window when the agreement is to be reviewed. Once approved, it remains available as a legal document under Partner data.', de: 'Timan öffnet den geführten Vertrag in einem zeitlich begrenzten Fenster zur Prüfung. Nach Genehmigung bleibt er als Rechtsdokument unter Partnerdaten verfügbar.' },
   reviewConfirmed: { da: 'Vi har gennemgået og forstået dette afsnit.', en: 'We have reviewed and understood this section.', de: 'Wir haben diesen Abschnitt geprüft und verstanden.' },
   confirmBeforeNext: { da: 'Bekræft dette afsnit, før du går videre.', en: 'Confirm this section before continuing.', de: 'Bestätigen Sie diesen Abschnitt, bevor Sie fortfahren.' },
+  confirmedAtBy: { da: 'Bekræftet {date} af {name}', en: 'Confirmed on {date} by {name}', de: 'Bestätigt am {date} von {name}' },
+  primaryTerritory: { da: 'Primært område', en: 'Primary territory', de: 'Primäres Gebiet' },
+  secondaryTerritory: { da: 'Sekundært område', en: 'Secondary territory', de: 'Sekundäres Gebiet' },
+  addSecondaryTerritory: { da: 'Tilføj sekundært område', en: 'Add secondary territory', de: 'Sekundäres Gebiet hinzufügen' },
+  primaryTerritoryRequired: { da: 'Primært område er obligatorisk. Vælg hele landet, vælg et område på kortet eller angiv mindst ét gyldigt postnummer/postnummerinterval.', en: 'A primary territory is required. Select a whole country, select an area on the map, or enter at least one valid postal code or postal-code range.', de: 'Ein primäres Gebiet ist erforderlich. Wählen Sie ein ganzes Land, ein Gebiet auf der Karte oder geben Sie mindestens eine gültige Postleitzahl bzw. einen Postleitzahlbereich an.' },
+  geographicLevel: { da: 'Geografisk niveau', en: 'Geographic level', de: 'Geografische Ebene' },
+  wholeCountries: { da: 'Hele lande', en: 'Whole countries', de: 'Ganze Länder' },
+  detailedTerritory: { da: 'Detaljeret område', en: 'Detailed territory', de: 'Detailliertes Gebiet' },
+  wholeCountryHelp: { da: 'Vælg et helt land på kortet. Klik på samme land igen for at fravælge.', en: 'Select a whole country on the map. Click the same country again to deselect it.', de: 'Wählen Sie auf der Karte ein ganzes Land. Klicken Sie erneut auf dasselbe Land, um die Auswahl aufzuheben.' },
+  wholeCountrySelected: { da: '{country} - Hele landet', en: '{country} - Whole country', de: '{country} - Ganzes Land' },
+  noWholeCountry: { da: 'Intet helt land valgt endnu.', en: 'No whole country selected yet.', de: 'Noch kein ganzes Land ausgewählt.' },
+  postalNumber: { da: 'Postnr. {number}', en: 'Postal code {number}', de: 'Postleitzahl {number}' },
+  removeRow: { da: 'Fjern række', en: 'Remove row', de: 'Zeile entfernen' },
+  postalHelp: { da: 'Angiv mindst ét postnummer. Du kan tilføje flere felter efter behov.', en: 'Enter at least one postal code. You can add more fields as needed.', de: 'Geben Sie mindestens eine Postleitzahl an. Bei Bedarf können Sie weitere Felder hinzufügen.' },
+  addPostalFields: { da: 'Tilføj flere postnumre', en: 'Add more postal codes', de: 'Weitere Postleitzahlen hinzufügen' },
+  noAssociatedPartners: { da: 'Ingen tilknyttede samarbejdspartnere er tilføjet.', en: 'No associated partners have been added.', de: 'Es wurden keine zugehörigen Partner hinzugefügt.' },
+  associatedPartners: { da: 'Tilknyttede samarbejdspartnere', en: 'Associated partners', de: 'Zugehörige Partner' },
+  addressNotSpecified: { da: 'Adresse ikke angivet', en: 'Address not specified', de: 'Adresse nicht angegeben' },
+  accountNumber: { da: 'Kontonr. {number}', en: 'Account no. {number}', de: 'Kontonr. {number}' },
+  notActivePartner: { da: 'Ikke oprettet som aktiv partner', en: 'Not created as an active partner', de: 'Nicht als aktiver Partner angelegt' },
+  titleNotSpecified: { da: 'Titel ikke angivet', en: 'Title not specified', de: 'Titel nicht angegeben' },
+  territory: { da: 'Område', en: 'Territory', de: 'Gebiet' },
+  reviewCompletionRequired: { da: 'Afslut og gem kontraktgennemgangen, før du går til underskrift.', en: 'Complete and save the contract review before proceeding to signature.', de: 'Schließen und speichern Sie die Vertragsprüfung, bevor Sie zur Unterschrift weitergehen.' },
+  primaryTerritoryInvalid: { da: 'Vælg et gyldigt primært område, før du går videre.', en: 'Select a valid primary territory before continuing.', de: 'Wählen Sie ein gültiges primäres Gebiet, bevor Sie fortfahren.' },
+  serviceHourlyRateInvalid: { da: 'Angiv en gyldig timetakst for reklamationsarbejde, før du går videre.', en: 'Enter a valid hourly rate for warranty work before continuing.', de: 'Geben Sie einen gültigen Stundensatz für Reklamationsarbeiten an, bevor Sie fortfahren.' },
+  partyDataRequired: { da: 'Vælg partnertype og udfyld Timan-sælger samt virksomhedsoplysninger, før du går videre.', en: 'Select a partner type and complete the Timan seller and company details before continuing.', de: 'Wählen Sie einen Partnertyp und vervollständigen Sie die Angaben zum Timan-Verkäufer und Unternehmen, bevor Sie fortfahren.' },
+  confirmationTerritoryInvalid: { da: 'Vælg et gyldigt primært område, før dette trin kan bekræftes.', en: 'Select a valid primary territory before this step can be confirmed.', de: 'Wählen Sie ein gültiges primäres Gebiet, bevor dieser Schritt bestätigt werden kann.' },
+  confirmationServiceHourlyRateInvalid: { da: 'Angiv en gyldig timetakst for reklamationsarbejde, før dette trin kan bekræftes.', en: 'Enter a valid hourly rate for warranty work before this step can be confirmed.', de: 'Geben Sie einen gültigen Stundensatz für Reklamationsarbeiten an, bevor dieser Schritt bestätigt werden kann.' },
+  loadingContacts: { da: 'Henter kontaktpersoner...', en: 'Loading contacts...', de: 'Ansprechpersonen werden geladen...' },
+  selectContact: { da: 'Vælg kontaktperson', en: 'Select contact person', de: 'Ansprechperson auswählen' },
+  noContacts: { da: 'Ingen kontaktpersoner registreret', en: 'No contact persons registered', de: 'Keine Ansprechpersonen registriert' },
+  contactsLoadError: { da: 'Kontaktpersoner kunne ikke hentes: {error}', en: 'Contact persons could not be loaded: {error}', de: 'Ansprechpersonen konnten nicht geladen werden: {error}' },
+  partnerHasNoContacts: { da: 'Partneren har ingen registrerede kontakter endnu.', en: 'This partner has no registered contacts yet.', de: 'Dieser Partner hat noch keine registrierten Kontakte.' },
+  contractLanguage: { da: 'Kontraktsprog', en: 'Contract language', de: 'Vertragssprache' },
+  contractLanguageHelp: { da: 'Engelsk og tysk kan først blive endelige, når de juridiske oversættelser er godkendt.', en: 'English and German can only be finalized once the legal translations have been approved.', de: 'Englisch und Deutsch können erst finalisiert werden, wenn die rechtlichen Übersetzungen genehmigt sind.' },
+  associatedPartnersIntro: { da: 'Tilføj forhandlere, servicepartnere eller forhandlerkunder, som skal fremgå af denne kontrakt.', en: 'Add dealers, service partners, or dealer customers that must appear in this contract.', de: 'Fügen Sie Händler, Servicepartner oder Händlerkunden hinzu, die in diesem Vertrag erscheinen sollen.' },
+  addAssociatedPartner: { da: 'Tilføj {kind}', en: 'Add {kind}', de: '{kind} hinzufügen' },
+  addNewAssociatedPartner: { da: 'Tilføj samarbejdspartner', en: 'Add associated partner', de: 'Zugehörigen Partner hinzufügen' },
+  createNewAssociatedPartner: { da: 'Opret som ny samarbejdspartner', en: 'Create as new associated partner', de: 'Als neuen zugehörigen Partner anlegen' },
+  searchExisting: { da: 'Søg eksisterende', en: 'Search existing', de: 'Bestehenden suchen' },
+  searchExistingPartner: { da: 'Søg eksisterende samarbejdspartner', en: 'Search existing associated partner', de: 'Bestehenden zugehörigen Partner suchen' },
+  searchRelationKindHelp: { da: 'Søg efter en eksisterende samarbejdspartner af den valgte type.', en: 'Search for an existing associated partner of the selected type.', de: 'Suchen Sie nach einem bestehenden zugehörigen Partner des gewählten Typs.' },
+  searchPartnerPlaceholder: { da: 'Søg på firmanavn, kontonummer, CVR/VAT eller by', en: 'Search by company name, account number, VAT, or city', de: 'Nach Firmenname, Kontonummer, USt-IdNr. oder Ort suchen' },
+  loadingAssociatedPartners: { da: 'Henter partnere...', en: 'Loading partners...', de: 'Partner werden geladen...' },
+  noAssociatedPartnerSearchResults: { da: 'Ingen entydige resultater. Opret som ny samarbejdspartner, hvis relationen kun skal ligge i kontraktkladde.', en: 'No unambiguous results. Create a new associated partner if the relation should exist only in the contract draft.', de: 'Keine eindeutigen Ergebnisse. Legen Sie einen neuen zugehörigen Partner an, wenn die Beziehung nur im Vertragsentwurf bestehen soll.' },
+  saveAssociatedPartner: { da: 'Gem samarbejdspartner', en: 'Save associated partner', de: 'Zugehörigen Partner speichern' },
+  edit: { da: 'Rediger', en: 'Edit', de: 'Bearbeiten' },
+  remove: { da: 'Fjern', en: 'Remove', de: 'Entfernen' },
+  cancel: { da: 'Annuller', en: 'Cancel', de: 'Abbrechen' },
+  vatNumber: { da: 'CVR/VAT nr.', en: 'VAT no.', de: 'USt-IdNr.' },
+  postalCodeFull: { da: 'Postnummer', en: 'Postal code', de: 'Postleitzahl' },
 } as const;
 
 function contractUi(key: keyof typeof CONTRACT_UI_COPY, language: string, values: Record<string, string | number> = {}) {
@@ -1496,23 +1547,23 @@ export default function ContractsPage() {
 
   const goNext = () => {
     if (activeStep.id === 'full_contract' && !guidedReviewCompleted) {
-      toast.error('Afslut og gem kontraktgennemgangen, før du går til underskrift.');
+      toast.error(contractUi('reviewCompletionRequired', uiLanguage));
       return;
     }
     if (!canLeaveContractStep(activeStep.id, confirmations)) {
-      toast.error('Bekræft dette afsnit, før du går videre.');
+      toast.error(contractUi('confirmBeforeNext', uiLanguage));
       return;
     }
     if (activeStep.id === 'territory' && !validPrimaryTerritory) {
-      toast.error('Vælg et gyldigt primært område, før du går videre.');
+      toast.error(contractUi('primaryTerritoryInvalid', uiLanguage));
       return;
     }
     if (activeStep.id === 'spare_parts_service' && !validServiceHourlyRate) {
-      toast.error('Angiv en gyldig timetakst for reklamationsarbejde, før du går videre.');
+      toast.error(contractUi('serviceHourlyRateInvalid', uiLanguage));
       return;
     }
     if (activeStep.id === 'parties' && !hasRequiredPartyData(form)) {
-      toast.error('Vælg partnertype og udfyld Timan-sælger samt virksomhedsoplysninger, før du går videre.');
+      toast.error(contractUi('partyDataRequired', uiLanguage));
       return;
     }
     setActiveStepIndex((current) => Math.min(current + 1, CONTRACT_STEPS.length - 1));
@@ -1569,6 +1620,7 @@ export default function ContractsPage() {
     const appendix2Paragraphs = renderAppendix2Paragraphs(
       form.partnerType,
       getContractDiscountStructure(form.partnerType, form),
+      uiLanguage,
     );
     const completedAt = new Date().toISOString();
     const snapshot = buildContractSnapshot(form, confirmations, {
@@ -1576,7 +1628,7 @@ export default function ContractsPage() {
       contractNumber: contractRecord?.contract_number,
       workflowStatus: 'ready_for_signature',
       legalSections,
-      appendices: { appendix2Paragraphs, appendix2ExampleLines: APPENDIX_2_EXAMPLE_LINES },
+      appendices: { appendix2Paragraphs, appendix2ExampleLines: renderAppendix2ExampleLines(uiLanguage) },
       completedGuidedReviewAt: completedAt,
       completedGuidedReviewBy: effectiveUser?.display_name || effectiveUser?.email || form.timanSellerName,
       completedGuidedReviewByEmail: effectiveUser?.email || form.timanSellerEmail,
@@ -2899,10 +2951,10 @@ function PartiesStep({
             >
               <option value="">
                 {partnerContactsLoading
-                  ? 'Henter kontaktpersoner...'
+                  ? contractUi('loadingContacts', uiLanguage)
                   : partnerContacts.length > 0
-                    ? 'Vælg kontaktperson'
-                    : 'Ingen kontaktpersoner registreret'}
+                    ? contractUi('selectContact', uiLanguage)
+                    : contractUi('noContacts', uiLanguage)}
               </option>
               {partnerContacts.map((contact) => (
                 <option key={contact.id} value={contact.id}>
@@ -2911,10 +2963,10 @@ function PartiesStep({
               ))}
             </select>
             {selectedDealerAccountNumber && partnerContactsError && (
-              <span className="mt-1 block text-xs text-red-700">Kontaktpersoner kunne ikke hentes: {partnerContactsError}</span>
+              <span className="mt-1 block text-xs text-red-700">{contractUi('contactsLoadError', uiLanguage, { error: partnerContactsError })}</span>
             )}
             {selectedDealerAccountNumber && !partnerContactsLoading && !partnerContactsError && partnerContacts.length === 0 && (
-              <span className="mt-1 block text-xs text-amber-800">Partneren har ingen registrerede kontakter endnu.</span>
+              <span className="mt-1 block text-xs text-amber-800">{contractUi('partnerHasNoContacts', uiLanguage)}</span>
             )}
           </label>
           <TextField label={contractUi('title', uiLanguage)} value={form.contactTitle} onChange={(value) => update('contactTitle', value)} placeholder={contractUi('titlePlaceholder', uiLanguage)} disabled={locked} />
@@ -2929,7 +2981,7 @@ function PartiesStep({
             />
           </label>
           <label className="block">
-            <span className="text-sm font-semibold text-gray-700">Kontraktsprog *</span>
+            <span className="text-sm font-semibold text-gray-700">{contractUi('contractLanguage', uiLanguage)} *</span>
             <select
               value={form.contractLanguage ?? 'da'}
               disabled={locked}
@@ -2940,7 +2992,7 @@ function PartiesStep({
               <option value="en">English (draft only)</option>
               <option value="de">Deutsch (nur Entwurf)</option>
             </select>
-            <span className="mt-1 block text-xs text-gray-500">Engelsk og tysk kan først blive endelige, når de juridiske oversættelser er godkendt.</span>
+            <span className="mt-1 block text-xs text-gray-500">{contractUi('contractLanguageHelp', uiLanguage)}</span>
           </label>
         </div>
         {locked && (
@@ -3094,12 +3146,12 @@ function ReviewStep({
         <div className={`rounded-2xl border p-5 ${confirmation?.confirmed ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
           {isTerritoryStep && !territoryValid && (
             <p className="mb-3 text-sm font-semibold text-amber-900">
-              {uiLanguage === 'de' ? 'Wählen Sie ein gültiges primäres Gebiet, bevor dieser Schritt bestätigt werden kann.' : uiLanguage === 'en' ? 'Select a valid primary territory before this step can be confirmed.' : 'Vælg et gyldigt primært område, før dette trin kan bekræftes.'}
+              {contractUi('confirmationTerritoryInvalid', uiLanguage)}
             </p>
           )}
           {isServiceStep && !serviceHourlyRateValid && (
             <p className="mb-3 text-sm font-semibold text-amber-900">
-              {uiLanguage === 'de' ? 'Geben Sie einen gültigen Stundensatz für Reklamationsarbeiten an, bevor dieser Schritt bestätigt werden kann.' : uiLanguage === 'en' ? 'Enter a valid hourly rate for warranty work before this step can be confirmed.' : 'Angiv en gyldig timetakst for reklamationsarbejde, før dette trin kan bekræftes.'}
+              {contractUi('confirmationServiceHourlyRateInvalid', uiLanguage)}
             </p>
           )}
           <label className={`flex items-start gap-3 ${stepValid && !locked ? 'cursor-pointer' : 'cursor-not-allowed'}`}>
@@ -3114,7 +3166,10 @@ function ReviewStep({
               <span className="block text-sm font-bold text-gray-950">{contractUi('reviewConfirmed', uiLanguage)}</span>
               {confirmation?.confirmedAt && (
                 <span className="mt-1 block text-xs text-gray-600">
-                  Bekræftet {new Date(confirmation.confirmedAt).toLocaleString('da-DK')} af {confirmation.confirmedBy}
+                  {contractUi('confirmedAtBy', uiLanguage, {
+                    date: formatDateTimeDa(confirmation.confirmedAt, uiLanguage),
+                    name: confirmation.confirmedBy || '-',
+                  })}
                 </span>
               )}
             </span>
@@ -3155,7 +3210,7 @@ function TerritoryStepFields({
       <div className="space-y-5">
         <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,460px)]">
           <TerritoryAreaEditor
-            title="Primært område"
+            title={contractUi('primaryTerritory', uiLanguage)}
             territory={primaryTerritory}
             onChange={setPrimaryTerritory}
             mapMode={primaryMapMode}
@@ -3195,14 +3250,14 @@ function TerritoryStepFields({
               })}
               className="h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600 disabled:cursor-not-allowed"
             />
-            Tilføj sekundært område
+            {contractUi('addSecondaryTerritory', uiLanguage)}
           </label>
 
           {secondaryTerritory.enabled && (
             <div className="mt-4 border-t border-gray-200 pt-4">
               <div className="grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,460px)]">
                 <TerritoryAreaEditor
-                  title="Sekundært område"
+                  title={contractUi('secondaryTerritory', uiLanguage)}
                   territory={secondaryTerritory}
                   onChange={(territory) => setSecondaryTerritory({ ...territory, enabled: true })}
                   mapMode={secondaryMapMode}
@@ -3228,7 +3283,7 @@ function TerritoryStepFields({
 
         {!primaryValid && (
           <p className="text-sm font-semibold text-amber-800">
-            Primært område er obligatorisk. Vælg hele landet, vælg et område på kortet eller angiv mindst ét gyldigt postnummer/postnummerinterval.
+            {contractUi('primaryTerritoryRequired', uiLanguage)}
           </p>
         )}
       </div>
@@ -3321,7 +3376,7 @@ function TerritoryAreaEditor({
 
       <div className="space-y-4">
         <div>
-          <span className="text-sm font-semibold text-gray-700">Geografisk niveau</span>
+          <span className="text-sm font-semibold text-gray-700">{contractUi('geographicLevel', uiLanguage)}</span>
           <div className="mt-2 grid grid-cols-2 overflow-hidden rounded-xl border border-gray-300 bg-white text-sm">
             <button
               type="button"
@@ -3329,7 +3384,7 @@ function TerritoryAreaEditor({
               onClick={() => setMode('whole_country')}
               className={`px-3 py-3 font-bold transition disabled:cursor-not-allowed ${mapMode === 'whole_country' ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
             >
-              Hele lande
+              {contractUi('wholeCountries', uiLanguage)}
             </button>
             <button
               type="button"
@@ -3337,13 +3392,13 @@ function TerritoryAreaEditor({
               onClick={() => setMode('detailed')}
               className={`border-l border-gray-300 px-3 py-3 font-bold transition disabled:cursor-not-allowed ${mapMode === 'detailed' ? 'bg-emerald-700 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
             >
-              Detaljeret område
+              {contractUi('detailedTerritory', uiLanguage)}
             </button>
           </div>
         </div>
 
         <label className="block">
-          <span className="text-sm font-semibold text-gray-700">Land</span>
+          <span className="text-sm font-semibold text-gray-700">{contractUi('country', uiLanguage)}</span>
           <select
             value={territory.country}
             disabled={locked}
@@ -3362,9 +3417,9 @@ function TerritoryAreaEditor({
           <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <span className="text-sm font-bold text-gray-950">Hele lande</span>
+                <span className="text-sm font-bold text-gray-950">{contractUi('wholeCountries', uiLanguage)}</span>
                 <p className="mt-1 text-xs text-gray-600">
-                  Vælg et helt land på kortet. Klik på samme land igen for at fravælge.
+                  {contractUi('wholeCountryHelp', uiLanguage)}
                 </p>
               </div>
               <div className="grid grid-cols-2 overflow-hidden rounded-full border border-emerald-200 bg-white text-xs font-bold">
@@ -3383,10 +3438,12 @@ function TerritoryAreaEditor({
             </div>
             {territory.wholeCountry ? (
               <div className="mt-3 inline-flex rounded-full border border-emerald-200 bg-white px-3 py-1.5 text-xs font-normal text-emerald-900">
-                {getContractTerritoryCountryLabel(territory.country, uiLanguage)} - Hele landet
+                {contractUi('wholeCountrySelected', uiLanguage, {
+                  country: getContractTerritoryCountryLabel(territory.country, uiLanguage),
+                })}
               </div>
             ) : (
-              <p className="mt-3 text-xs font-semibold text-gray-500">Intet helt land valgt endnu.</p>
+              <p className="mt-3 text-xs font-semibold text-gray-500">{contractUi('noWholeCountry', uiLanguage)}</p>
             )}
           </div>
         ) : null}
@@ -3443,7 +3500,7 @@ function TerritoryAreaEditor({
                     return (
                       <label key={fieldIndex} className="block">
                         <span className="text-xs font-semibold text-gray-600">
-                          Postnr. {fieldIndex + 1}{fieldIndex === 0 && required ? ' *' : ''}
+                          {contractUi('postalNumber', uiLanguage, { number: fieldIndex + 1 })}{fieldIndex === 0 && required ? ' *' : ''}
                         </span>
                         <input
                           type="text"
@@ -3473,7 +3530,7 @@ function TerritoryAreaEditor({
                       onClick={() => removePostalFieldRow(rowIndex)}
                       className="text-xs font-bold text-gray-500 hover:text-red-700"
                     >
-                      Fjern række
+                      {contractUi('removeRow', uiLanguage)}
                     </button>
                   </div>
                 )}
@@ -3481,7 +3538,7 @@ function TerritoryAreaEditor({
             ))}
           </div>
           <span className="mt-1 block text-xs text-gray-500">
-            Angiv mindst ét postnummer. Du kan tilføje flere felter efter behov.
+            {contractUi('postalHelp', uiLanguage)}
           </span>
           {!locked && (
             <button
@@ -3489,7 +3546,7 @@ function TerritoryAreaEditor({
               onClick={addPostalFieldRow}
               className="mt-3 inline-flex items-center rounded-full border border-emerald-200 bg-white px-4 py-2 text-sm font-bold text-emerald-800 hover:bg-emerald-50"
             >
-              + Tilføj flere postnumre
+              + {contractUi('addPostalFields', uiLanguage)}
             </button>
           )}
           </div>
@@ -3629,9 +3686,9 @@ function ContractAssociatedPartnersSection({
     <section className="rounded-2xl border border-gray-200 bg-white p-5">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <h3 className="text-base font-black text-gray-950">Tilknyttede samarbejdspartnere</h3>
+          <h3 className="text-base font-black text-gray-950">{contractUi('associatedPartners', uiLanguage)}</h3>
           <p className="mt-1 text-sm leading-6 text-gray-600">
-            Tilføj forhandlere, servicepartnere eller forhandlerkunder, som skal fremgå af denne kontrakt.
+            {contractUi('associatedPartnersIntro', uiLanguage)}
           </p>
         </div>
         {!locked && (
@@ -3650,7 +3707,7 @@ function ContractAssociatedPartnersSection({
             >
               {CONTRACT_ASSOCIATED_PARTNER_KINDS.map((option) => (
                 <option key={option} value={option}>
-                  Tilføj {getContractAssociatedPartnerKindLabel(option, uiLanguage).toLowerCase()}
+                  {contractUi('addAssociatedPartner', uiLanguage, { kind: getContractAssociatedPartnerKindLabel(option, uiLanguage).toLowerCase() })}
                 </option>
               ))}
             </select>
@@ -3659,7 +3716,9 @@ function ContractAssociatedPartnersSection({
               onClick={() => setMode(mode === 'existing' ? 'pending' : 'existing')}
               className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-bold text-emerald-800 hover:bg-emerald-50"
             >
-              {mode === 'existing' ? '+ Opret som ny samarbejdspartner' : 'Søg eksisterende'}
+              {mode === 'existing'
+                ? `+ ${contractUi('createNewAssociatedPartner', uiLanguage)}`
+                : contractUi('searchExisting', uiLanguage)}
             </button>
           </div>
         )}
@@ -3674,9 +3733,9 @@ function ContractAssociatedPartnersSection({
           {mode === 'existing' ? (
             <div className="space-y-3">
               <label className="block">
-                <span className="text-sm font-semibold text-gray-700">Søg eksisterende samarbejdspartner</span>
+                <span className="text-sm font-semibold text-gray-700">{contractUi('searchExistingPartner', uiLanguage)}</span>
                 {relationSearchActive && (
-                  <p className="mt-1 text-xs font-medium text-amber-800">Søg efter en eksisterende samarbejdspartner af den valgte type.</p>
+                  <p className="mt-1 text-xs font-medium text-amber-800">{contractUi('searchRelationKindHelp', uiLanguage)}</p>
                 )}
                 <div className={`mt-2 flex items-center gap-2 rounded-xl border bg-white px-3 py-2 focus-within:ring-2 focus-within:ring-amber-500 ${
                   relationSearchActive
@@ -3689,12 +3748,12 @@ function ContractAssociatedPartnersSection({
                     value={query}
                     onFocus={() => void loadAccounts()}
                     onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Søg på firmanavn, kontonummer, CVR/VAT eller by"
+                    placeholder={contractUi('searchPartnerPlaceholder', uiLanguage)}
                     className="w-full border-0 bg-transparent text-sm outline-none"
                   />
                 </div>
               </label>
-              {accountsLoading && <p className="text-sm text-gray-500">Henter partnere...</p>}
+              {accountsLoading && <p className="text-sm text-gray-500">{contractUi('loadingAssociatedPartners', uiLanguage)}</p>}
               {accountsError && <p className="text-sm font-semibold text-amber-800">{accountsError}</p>}
               {query.trim().length >= 2 && !accountsLoading && (
                 <div className="space-y-2">
@@ -3716,7 +3775,7 @@ function ContractAssociatedPartnersSection({
                       </span>
                     </button>
                   )) : (
-                    <p className="text-sm text-gray-500">Ingen entydige resultater. Opret som ny samarbejdspartner, hvis relationen kun skal ligge i kontraktkladde.</p>
+                    <p className="text-sm text-gray-500">{contractUi('noAssociatedPartnerSearchResults', uiLanguage)}</p>
                   )}
                 </div>
               )}
@@ -3726,7 +3785,7 @@ function ContractAssociatedPartnersSection({
               draft={draft}
               onChange={setDraft}
               onSave={addPendingPartner}
-              saveLabel="+ Tilføj samarbejdspartner"
+                saveLabel={`+ ${contractUi('addNewAssociatedPartner', uiLanguage)}`}
             />
           )}
         </div>
@@ -3742,7 +3801,7 @@ function ContractAssociatedPartnersSection({
                     draft={editDraft}
                     onChange={setEditDraft}
                     onSave={() => saveEdit(partner)}
-                    saveLabel="Gem samarbejdspartner"
+                    saveLabel={contractUi('saveAssociatedPartner', uiLanguage)}
                     onCancel={() => setEditingId(null)}
                   />
                 ) : (
@@ -3757,9 +3816,11 @@ function ContractAssociatedPartnersSection({
                         </span>
                       </div>
                       <p className="mt-2 text-sm font-black text-gray-950">{partner.companyName}</p>
-                      <p className="mt-1 text-sm text-gray-700">{summarizeContractAssociatedPartner(partner) || 'Adresse ikke angivet'}</p>
+                       <p className="mt-1 text-sm text-gray-700">{summarizeContractAssociatedPartner(partner) || contractUi('addressNotSpecified', uiLanguage)}</p>
                       <p className="mt-1 text-xs text-gray-500">
-                        {partner.accountNumber ? `Kontonr. ${partner.accountNumber}` : 'Ikke oprettet som aktiv partner'}
+                         {partner.accountNumber
+                           ? contractUi('accountNumber', uiLanguage, { number: partner.accountNumber })
+                           : contractUi('notActivePartner', uiLanguage)}
                         {partner.cvr ? ` · CVR/VAT ${partner.cvr}` : ''}
                       </p>
                     </div>
@@ -3772,7 +3833,7 @@ function ContractAssociatedPartnersSection({
                             className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-700 hover:bg-gray-100"
                           >
                             <Pencil className="h-3.5 w-3.5" />
-                            Rediger
+                             {contractUi('edit', uiLanguage)}
                           </button>
                         )}
                         <button
@@ -3781,7 +3842,7 @@ function ContractAssociatedPartnersSection({
                           className="inline-flex items-center gap-1 rounded-full border border-red-100 bg-white px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-50"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                          Fjern
+                           {contractUi('remove', uiLanguage)}
                         </button>
                       </div>
                     )}
@@ -3792,7 +3853,7 @@ function ContractAssociatedPartnersSection({
           </div>
         ) : (
           <p className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-500">
-            Ingen tilknyttede samarbejdspartnere er tilføjet.
+            {contractUi('noAssociatedPartners', uiLanguage)}
           </p>
         )}
       </div>
@@ -3813,6 +3874,7 @@ function AssociatedPartnerDraftFields({
   saveLabel: string;
   onCancel?: () => void;
 }) {
+  const { uiLanguage } = useLanguage();
   const setField = (field: keyof typeof EMPTY_ASSOCIATED_PARTNER_DRAFT, value: string) => {
     onChange({ ...draft, [field]: value });
   };
@@ -3820,12 +3882,12 @@ function AssociatedPartnerDraftFields({
   return (
     <div className="space-y-3">
       <div className="grid gap-3 md:grid-cols-2">
-        <AssociatedPartnerInput label="Firmanavn" required value={draft.companyName} onChange={(value) => setField('companyName', value)} />
-        <AssociatedPartnerInput label="CVR/VAT nr." value={draft.cvr} onChange={(value) => setField('cvr', value)} />
-        <AssociatedPartnerInput label="Land" required value={draft.country} onChange={(value) => setField('country', value)} />
-        <AssociatedPartnerInput label="Adresse" required value={draft.address} onChange={(value) => setField('address', value)} />
-        <AssociatedPartnerInput label="Postnummer" required value={draft.postalCode} onChange={(value) => setField('postalCode', value)} />
-        <AssociatedPartnerInput label="By" required value={draft.city} onChange={(value) => setField('city', value)} />
+         <AssociatedPartnerInput label={contractUi('companyName', uiLanguage)} required value={draft.companyName} onChange={(value) => setField('companyName', value)} />
+         <AssociatedPartnerInput label={contractUi('vatNumber', uiLanguage)} value={draft.cvr} onChange={(value) => setField('cvr', value)} />
+         <AssociatedPartnerInput label={contractUi('country', uiLanguage)} required value={draft.country} onChange={(value) => setField('country', value)} />
+         <AssociatedPartnerInput label={contractUi('address', uiLanguage)} required value={draft.address} onChange={(value) => setField('address', value)} />
+         <AssociatedPartnerInput label={contractUi('postalCodeFull', uiLanguage)} required value={draft.postalCode} onChange={(value) => setField('postalCode', value)} />
+         <AssociatedPartnerInput label={contractUi('city', uiLanguage)} required value={draft.city} onChange={(value) => setField('city', value)} />
       </div>
       <div className="flex flex-wrap justify-end gap-2">
         {onCancel && (
@@ -3834,7 +3896,7 @@ function AssociatedPartnerDraftFields({
             onClick={onCancel}
             className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-100"
           >
-            Annuller
+            {contractUi('cancel', uiLanguage)}
           </button>
         )}
         <button
@@ -3966,7 +4028,7 @@ const TERRITORY_REGION_UI_LABELS = {
 
 function getTerritoryRegionUiText(key: keyof typeof TERRITORY_REGION_UI_LABELS, language: PortalUiLanguage | string) {
   const labels = TERRITORY_REGION_UI_LABELS[key];
-  return labels[language as PortalUiLanguage] ?? labels.da;
+  return labels[language as PortalUiLanguage] ?? labels.en;
 }
 
 function getTerritoryRegionUiLabels(country: ContractTerritoryArea['country'], language: PortalUiLanguage | string) {
@@ -4224,6 +4286,7 @@ function ContractLegalSection({ section, form, showTitle = true }: { section: Gu
 }
 
 function ContractTerritoryLegalSection({ section, form }: { section: GuidedContractSection; form: ContractFormData }) {
+  const { uiLanguage } = useLanguage();
   const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
   const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
   const secondaryVisible = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory);
@@ -4246,10 +4309,10 @@ function ContractTerritoryLegalSection({ section, form }: { section: GuidedContr
             <p key={paragraph}>{paragraph}</p>
           ))}
         </div>
-        <ContractTerritoryChips title="Primært område" area={primaryTerritory} />
+        <ContractTerritoryChips title={contractUi('primaryTerritory', uiLanguage)} area={primaryTerritory} />
         {secondaryVisible && (
           <div className="space-y-3">
-            <ContractTerritoryChips title="Sekundært område" area={secondaryTerritory} />
+            <ContractTerritoryChips title={contractUi('secondaryTerritory', uiLanguage)} area={secondaryTerritory} />
             {secondaryTailBullets.length > 0 && (
               <ul className="space-y-1 pl-5 text-sm leading-6 text-gray-700">
                 {secondaryTailBullets.map((bullet) => <li key={bullet} className="list-disc">{bullet}</li>)}
@@ -4270,7 +4333,7 @@ function ContractAssociatedPartnersReadOnly({ partners }: { partners: ContractAs
 
   return (
     <section className="space-y-3 text-sm text-gray-700">
-      <h4 className="font-bold text-gray-950">Tilknyttede samarbejdspartnere</h4>
+      <h4 className="font-bold text-gray-950">{contractUi('associatedPartners', uiLanguage)}</h4>
       <div className="grid gap-3 md:grid-cols-2">
         {partners.map((partner) => (
           <div key={partner.id} className="rounded-xl border border-gray-200 bg-white p-3">
@@ -4283,9 +4346,11 @@ function ContractAssociatedPartnersReadOnly({ partners }: { partners: ContractAs
               </span>
             </div>
             <p className="mt-2 font-bold text-gray-950">{partner.companyName}</p>
-            <p className="mt-1">{summarizeContractAssociatedPartner(partner) || 'Adresse ikke angivet'}</p>
+            <p className="mt-1">{summarizeContractAssociatedPartner(partner) || contractUi('addressNotSpecified', uiLanguage)}</p>
             <p className="mt-1 text-xs text-gray-500">
-              {partner.accountNumber ? `Kontonr. ${partner.accountNumber}` : 'Ikke oprettet som aktiv partner'}
+              {partner.accountNumber
+                ? contractUi('accountNumber', uiLanguage, { number: partner.accountNumber })
+                : contractUi('notActivePartner', uiLanguage)}
               {partner.cvr ? ` · CVR/VAT ${partner.cvr}` : ''}
             </p>
           </div>
@@ -4606,7 +4671,7 @@ function ContractCommercialTermsFields({
         ? { title: 'Condizioni contrattuali', machine: 'Sconto macchine', equipment: 'Sconto attrezzature', parts: 'Sconto ricambi', serviceNote: 'Le macchine vengono acquistate tramite il rivenditore Timan autorizzato con cui collabora il partner di assistenza.' }
         : uiLanguage === 'hu'
           ? { title: 'Szerződéses feltételek', machine: 'Gépkedvezmény', equipment: 'Eszközkedvezmény', parts: 'Alkatrész-kedvezmény', serviceNote: 'A gépeket azon hivatalos Timan kereskedőn keresztül vásárolják, akivel a szervizpartner együttműködik.' }
-          : { title: 'Aftalevilkår', machine: 'Maskinrabat', equipment: 'Redskabsrabat', parts: 'Reservedelsrabat', serviceNote: 'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.' };
+          : { title: 'Agreement terms', machine: 'Machine discount', equipment: 'Equipment discount', parts: 'Spare parts discount', serviceNote: 'Machines are purchased through the authorised Timan dealer that the service partner works with.' };
   const fields = partnerType === 'importer'
     ? [
         { key: 'machineDiscountPct' as const, label: copy.machine, value: terms.machineDiscountPct ?? 0 },
@@ -4647,7 +4712,7 @@ function Appendix2DiscountSection({
   preserveStoredDiscounts?: boolean;
 }) {
   const discounts = getContractDiscountStructure(form.partnerType, form, { preserveStoredDiscounts });
-  const paragraphs = renderAppendix2Paragraphs(form.partnerType, form.partnerType ? discounts : undefined).filter(
+  const paragraphs = renderAppendix2Paragraphs(form.partnerType, form.partnerType ? discounts : undefined, language).filter(
     (paragraph) => !shouldHideGuidedContractUiText(paragraph, 'Rabatstruktur og Bilag 2'),
   );
   const machineBaseDiscount = discounts.machineDiscountPct ?? 25;
@@ -4823,7 +4888,8 @@ function ProgressSteps({
 }
 
 function ContractSummary({ form }: { form: ContractFormData }) {
-  const partnerLabel = form.partnerType ? getContractPartnerTypeLabel(form.partnerType, 'da') : 'Samarbejdspartner';
+  const { uiLanguage } = useLanguage();
+  const partnerLabel = form.partnerType ? getContractPartnerTypeLabel(form.partnerType, uiLanguage) : contractUi('partner', uiLanguage);
   const primaryTerritory = normalizeContractTerritoryArea(form.primaryTerritory);
   const secondaryTerritory = normalizeContractSecondaryTerritoryArea(form.secondaryTerritory, primaryTerritory.country);
   const secondaryVisible = secondaryTerritory.enabled && isValidContractTerritoryArea(secondaryTerritory);
@@ -4844,14 +4910,14 @@ function ContractSummary({ form }: { form: ContractFormData }) {
         <p className="text-sm text-amber-900">{form.dealerAddress || '-'}</p>
         <p className="text-sm text-amber-900">{`${form.dealerPostalCode} ${form.dealerCity}`.trim() || '-'}</p>
         <p className="mt-3 text-sm font-bold text-amber-950">{form.contactPerson || '-'}</p>
-        <p className="text-sm text-amber-900">{form.contactTitle || 'Titel ikke angivet'}</p>
-        <p className="mt-2 text-sm text-amber-900">Dato: {formatDateDa(form.contractDate)}</p>
+        <p className="text-sm text-amber-900">{form.contactTitle || contractUi('titleNotSpecified', uiLanguage)}</p>
+        <p className="mt-2 text-sm text-amber-900">{contractUi('date', uiLanguage)}: {formatDateDa(form.contractDate, uiLanguage)}</p>
       </div>
       <div className="rounded-2xl border border-gray-200 bg-gray-50 p-5 lg:col-span-2">
-        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-600">Område</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wide text-gray-600">{contractUi('territory', uiLanguage)}</h3>
         <div className="mt-3 space-y-4">
-          <ContractTerritoryChips title="Primært område" area={primaryTerritory} />
-          {secondaryVisible && <ContractTerritoryChips title="Sekundært område" area={secondaryTerritory} />}
+          <ContractTerritoryChips title={contractUi('primaryTerritory', uiLanguage)} area={primaryTerritory} />
+          {secondaryVisible && <ContractTerritoryChips title={contractUi('secondaryTerritory', uiLanguage)} area={secondaryTerritory} />}
           {associatedPartners.length > 0 && <ContractAssociatedPartnersReadOnly partners={associatedPartners} />}
         </div>
       </div>

@@ -443,8 +443,9 @@ describe('contract flow', () => {
     expect(pageSource).toContain("const [hasSelectedRelationKind, setHasSelectedRelationKind] = useState(false);");
     expect(pageSource).toContain("const relationSearchActive = mode === 'existing' && hasSelectedRelationKind;");
     expect(pageSource).toContain('setHasSelectedRelationKind(true);');
-    expect(pageSource).toContain('Søg efter en eksisterende samarbejdspartner af den valgte type.');
-    expect(pageSource).toContain("mode === 'existing' ? '+ Opret som ny samarbejdspartner' : 'Søg eksisterende'");
+    expect(pageSource).toContain("contractUi('searchRelationKindHelp', uiLanguage)");
+    expect(pageSource).toContain("contractUi('createNewAssociatedPartner', uiLanguage)");
+    expect(pageSource).toContain("contractUi('searchExisting', uiLanguage)");
     expect(pageSource).toContain('return accounts');
   });
 
@@ -544,8 +545,8 @@ describe('contract flow', () => {
     expect(pageSource).toContain("contactTitle: selectedContact?.role_title || '',");
     expect(pageSource).toContain('onPartnerContactSelect={selectContractPartnerContact}');
     expect(pageSource).toContain("value={form.dealerContactId || ''}");
-    expect(pageSource).toContain("? 'Henter kontaktpersoner...'");
-    expect(pageSource).toContain('Partneren har ingen registrerede kontakter endnu.');
+    expect(pageSource).toContain("? contractUi('loadingContacts', uiLanguage)");
+    expect(pageSource).toContain("contractUi('partnerHasNoContacts', uiLanguage)");
     expect(pageSource).toContain("hasReachedContractStatus(contractRecord.contract_status, 'ready_for_signature')");
     expect(serviceSource).toContain("fetchDealerAccountByNumber(input.dealerAccountNumber)");
     expect(serviceSource).toContain('dealerContactId: formData.dealerContactId ?? "",');
@@ -598,9 +599,9 @@ describe('contract flow', () => {
 
     expect(territoryEditor).toContain('getContractPostalFieldValues');
     expect(territoryEditor).toContain('chunkPostalFields');
-    expect(territoryEditor).toContain('Postnr. {fieldIndex + 1}');
-    expect(territoryEditor).toContain('+ Tilføj flere postnumre');
-    expect(territoryEditor).toContain('Fjern række');
+    expect(territoryEditor).toContain("contractUi('postalNumber', uiLanguage");
+    expect(territoryEditor).toContain("contractUi('addPostalFields', uiLanguage)");
+    expect(territoryEditor).toContain("contractUi('removeRow', uiLanguage)");
     expect(territoryEditor).toContain('buildContractTerritoryAreaFromPostalFields');
     expect(source).toContain('<ContractTerritoryMap');
     expect(territoryEditor).not.toContain('<textarea');

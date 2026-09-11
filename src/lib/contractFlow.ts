@@ -504,12 +504,12 @@ export function getContractStepLabel(
   if (reviewTranslation) return reviewTranslation;
   const lang = (signatureLanguage && CONTRACT_STEP_LABELS[stepId]?.[signatureLanguage as PortalUiLanguage])
     ? signatureLanguage as PortalUiLanguage
-    : 'da';
+    : 'en';
   return CONTRACT_STEP_LABELS[stepId][lang];
 }
 
 export function getContractAppendixLabel(language: PortalUiLanguage | string | null | undefined = 'da') {
-  return CONTRACT_APPENDIX_LABELS[language as PortalUiLanguage] ?? CONTRACT_APPENDIX_LABELS.da;
+  return CONTRACT_APPENDIX_LABELS[language as PortalUiLanguage] ?? CONTRACT_APPENDIX_LABELS.en;
 }
 
 export function getContractWorkflowStatusLabel(
