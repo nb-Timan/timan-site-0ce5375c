@@ -18,7 +18,7 @@
 
 import type { CrmLead, CrmLinkedSalesEvent, PipelineStage } from "@/lib/crmLeadsService";
 
-type LeadStatusSource = Pick<CrmLead, "next_activity" | "pipeline_stage" | "probability"> & {
+type LeadStatusSource = Pick<CrmLead, "next_activity" | "pipeline_stage"> & Partial<Pick<CrmLead, "probability">> & {
   linked_sales_event?: CrmLinkedSalesEvent | null;
 };
 

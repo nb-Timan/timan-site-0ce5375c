@@ -48,7 +48,7 @@ const EMPTY_CONTENT: MarketingConfiguratorContentFields = {
 };
 
 function catalogLanguage(language: PortalUiLanguage) {
-  return language === 'sv' || language === 'fr' || language === 'pl' || language === 'cs' ? 'en' : language;
+  return language === 'sv' || language === 'fr' || language === 'pl' || language === 'cs' || language === 'tr' ? 'en' : language;
 }
 
 function textOf(value: unknown, language: PortalUiLanguage): string {
