@@ -473,9 +473,9 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               templateData={templateData}
               overlay={template.id === 'template-03-hero-news' && typeof activeContent.heroImage === 'string' ? (
                 <NewsHomepageFocusOverlay
-                  transform={activeContent.heroImageTransform}
-                  onTransformChange={(next) =>
-                    setLocalizedContent((current) => updateSharedNewsField(current, 'heroImageTransform', next))
+                  focus={activeContent.heroHomepageFocus}
+                  onFocusChange={(next) =>
+                    setLocalizedContent((current) => updateSharedNewsField(current, 'heroHomepageFocus', next))
                   }
                 />
               ) : null}
@@ -484,9 +484,9 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               <NewsHomepageFocusFrame
                 imageUrl={typeof activeContent.heroImage === 'string' ? activeContent.heroImage : ''}
                 headline={typeof activeContent.headline === 'string' ? activeContent.headline : ''}
-                transform={activeContent.heroImageTransform}
-                onTransformChange={(next) =>
-                  setLocalizedContent((current) => updateSharedNewsField(current, 'heroImageTransform', next))
+                focus={activeContent.heroHomepageFocus}
+                onFocusChange={(next) =>
+                  setLocalizedContent((current) => updateSharedNewsField(current, 'heroHomepageFocus', next))
                 }
               />
             )}

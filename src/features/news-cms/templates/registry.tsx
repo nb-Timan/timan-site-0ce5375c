@@ -410,7 +410,6 @@ function Template03({ content, lang, templateData }: NewsRendererProps) {
           url={heroImage}
           label={t('newsCmsWireHeroImage', lang)}
           className="absolute inset-0 h-full w-full rounded-none border-none bg-slate-200"
-          transform={imageTransform(content, 'heroImageTransform')}
         />
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/80 via-slate-950/30 to-transparent" />
         <div className="relative flex h-full max-w-lg flex-col justify-center text-white">

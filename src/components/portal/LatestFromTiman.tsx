@@ -4,7 +4,7 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
 import { resolveNewsRenderContent } from '@/features/news-cms/lib/newsContent';
-import { readNewsImageTransform } from '@/features/news-cms/lib/newsImageTransform';
+import { readNewsHomepageFocus } from '@/features/news-cms/lib/newsHomepageFocus';
 import { getNewsTemplate } from '@/features/news-cms/templates/registry';
 
 interface Props {
@@ -108,8 +108,8 @@ export default function LatestFromTiman({ language }: Props) {
                 mainImage: localizedItem.image_url,
               })
             : {};
-          const heroTransform = template?.id === 'template-03-hero-news'
-            ? readNewsImageTransform(renderContent.heroImageTransform)
+          const heroFocus = template?.id === 'template-03-hero-news'
+            ? readNewsHomepageFocus(renderContent.heroHomepageFocus)
             : undefined;
 
           const inner = (
@@ -121,11 +121,8 @@ export default function LatestFromTiman({ language }: Props) {
                   onError={(event) => {
                     event.currentTarget.src = FALLBACK_IMAGE;
                   }}
-                  className={`h-full w-full ${heroTransform ? 'object-contain' : 'object-cover'}`}
-                  style={heroTransform ? {
-                    transform: `translate(${heroTransform.x}%, ${heroTransform.y}%) scale(${heroTransform.scale})`,
-                    transformOrigin: 'center',
-                  } : undefined}
+                  className="h-full w-full object-cover"
+                  style={heroFocus ? { objectPosition: `${heroFocus.x}% ${heroFocus.y}%` } : undefined}
                 />
               </div>
 
