@@ -109,6 +109,38 @@ describe('contract i18n', () => {
     }
   });
 
+  it('renders the complete Step 7 marketing content without Danish fallback text', () => {
+    const context = { companyName: 'Example Dealer', partnerType: 'importer' as const };
+    const danishMarkers = [
+      'Kontrakt, punkt 7 og 7.1',
+      'Marketingforpligtelser',
+      'skal promovere Timan A/S',
+      'De nyeste billeder af Timan-maskiner',
+      'Brugen af Timan-logo',
+      'oplysninger (navn og adresse)',
+      'Adgang til Timans digitale platforme',
+      'andet digitalt salgsmateriale',
+    ];
+
+    for (const language of ['en', 'de'] as const) {
+      const stepSeven = renderGuidedContractSections(context, language)
+        .find((section) => section.stepId === 'marketing');
+      const rendered = JSON.stringify(stepSeven);
+
+      for (const marker of danishMarkers) {
+        expect(rendered).not.toContain(marker);
+      }
+    }
+
+    const english = JSON.stringify(renderGuidedContractSections(context, 'en').find((section) => section.stepId === 'marketing'));
+    const german = JSON.stringify(renderGuidedContractSections(context, 'de').find((section) => section.stepId === 'marketing'));
+
+    expect(english).toContain('Marketing obligations of Importer');
+    expect(english).toContain('Timan provides brochures and other digital sales material.');
+    expect(german).toContain('Marketingpflichten von Importeur');
+    expect(german).toContain('Timan stellt Broschüren und weiteres digitales Verkaufsmaterial zur Verfügung.');
+  });
+
   it('renders the complete Step 6 service and warranty appendix without Danish fallback text', () => {
     const context = { companyName: 'Example Dealer', partnerType: 'importer' as const, serviceHourlyRateDkk: 360 };
     const danishMarkers = [
