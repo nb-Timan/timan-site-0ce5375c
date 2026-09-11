@@ -5,6 +5,7 @@ import { CalendarIcon, Pencil, Sparkles } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
 import { convertCurrency, currencyFromLanguage, formatMoney } from '@/lib/currency';
+import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { t, translateSpecLabel, itemNoLabel } from '@/data/translations';
 import { t as tPortal } from '@/lib/i18n/translations';
 import { Language, Accessory, SubItem } from '@/types/configurator';
@@ -487,7 +488,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [savingChanges, setSavingChanges] = useState(false);
 
   const lang = state.language;
-  const displayCurrency = currencyFromLanguage(uiLanguage);
+  const displayCurrency = usePortalCurrency();
   const formatDisplayMoney = (value: number) => formatMoney(
     convertCurrency(value, currencyFromLanguage(lang), displayCurrency),
     displayCurrency,
@@ -1440,7 +1441,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     setState(s => ({ ...s, demoMachines: { ...s.demoMachines, [key]: next } }));
     if (next) {
       const fee = getDemoFee();
-      const feeText = isEURCurrency() ? `${fee.toFixed(2)} €` : `${fee.toFixed(2)} kr.`;
+      const feeText = formatDisplayMoney(fee);
       const title = lang === 'da' ? 'Demo maskine valgt' : 'Demo machine selected';
       const msg = lang === 'da'
         ? `Du har afkrydset <strong>Demo maskine</strong> for <strong>${machineLabel}</strong>.<br><br>Der er tilføjet en ekstra omkostning på <strong>${feeText}</strong>.<br><br><strong>Vilkår:</strong><br>- Forhandleren kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.<br>- Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.<br>- Overholdes dette ikke vil Timan opkræve differencen til den almindelige maskinrabat.`

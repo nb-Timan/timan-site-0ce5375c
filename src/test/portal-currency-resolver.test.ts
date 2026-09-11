@@ -11,11 +11,15 @@ describe('portal display currency resolver', () => {
     expect(currencyFromLanguage('DK')).toBe('DKK');
     expect(currencyFromLanguage('DE')).toBe('EUR');
     expect(currencyFromLanguage('SE')).toBe('SEK');
-    expect(currencyFromLanguage('fr')).toBe('EUR');
+    for (const language of ['GB', 'DE', 'IT', 'HU', 'FR', 'PL', 'CZ']) {
+      expect(currencyFromLanguage(language)).toBe('EUR');
+    }
   });
 
   it('uses the active portal language before the saved preference and keeps DKK as fallback', () => {
     expect(resolveDisplayCurrency({ activeLanguage: 'da', preferredLanguage: 'de' })).toBe('DKK');
+    expect(resolveDisplayCurrency({ activeLanguage: 'de', preferredLanguage: 'da' })).toBe('EUR');
+    expect(resolveDisplayCurrency({ activeLanguage: 'sv', preferredLanguage: 'de' })).toBe('SEK');
     expect(resolveDisplayCurrency({ preferredLanguage: 'sv' })).toBe('SEK');
     expect(resolveDisplayCurrency()).toBe('DKK');
   });

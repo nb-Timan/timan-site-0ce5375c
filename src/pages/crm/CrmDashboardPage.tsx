@@ -768,6 +768,7 @@ export default function CrmDashboardPage() {
             onClose={() => setOpenStage(null)}
             rowsByStage={pipelineRows}
             lang={lang}
+            displayCurrency={displayCurrency}
           />
         </Card>
 
@@ -1517,12 +1518,13 @@ function buildPipelineRows(args: {
 }
 
 function PipelineStageModal({
-  stage, onClose, rowsByStage, lang,
+  stage, onClose, rowsByStage, lang, displayCurrency,
 }: {
   stage: StageMeta['key'] | null;
   onClose: () => void;
   rowsByStage: Record<StageMeta['key'], PipelineRow[]>;
   lang: Language;
+  displayCurrency: Currency;
 }) {
   const open = stage !== null;
   const rows = stage ? (rowsByStage[stage] || []) : [];
@@ -1560,7 +1562,7 @@ function PipelineStageModal({
                     <td className="py-2 pr-3 max-w-[18rem] truncate" title={r.title}>{r.title}</td>
                     <td className="py-2 pr-3 max-w-[14rem] truncate" title={r.dealer}>{r.dealer}</td>
                     <td className="py-2 pr-3">{r.seller}</td>
-                    <td className="py-2 pr-3 text-right tabular-nums">{r.value > 0 ? `${Math.round(r.value).toLocaleString('da-DK')} kr.` : '—'}</td>
+                    <td className="py-2 pr-3 text-right tabular-nums">{r.value > 0 ? formatConvertedMoney(r.value, 'DKK', displayCurrency) : '—'}</td>
                     <td className="py-2 pr-3">{r.status}</td>
                     <td className="py-2 pr-3 tabular-nums">{formatDate(r.date)}</td>
                     <td className="py-2 pr-3 text-right">
@@ -1577,7 +1579,7 @@ function PipelineStageModal({
                 <tr className="border-t">
                   <td colSpan={5} className="py-2 pr-3 text-right text-xs text-slate-500">{T.total[lang]}</td>
                   <td className="py-2 pr-3 text-right font-semibold tabular-nums">
-                    {Math.round(total).toLocaleString('da-DK')} kr.
+                    {formatConvertedMoney(total, 'DKK', displayCurrency)}
                   </td>
                   <td colSpan={3}></td>
                 </tr>
