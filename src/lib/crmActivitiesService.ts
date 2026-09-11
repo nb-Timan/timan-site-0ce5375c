@@ -313,7 +313,7 @@ export async function listActivities(opts: ListActivitiesOpts = {}): Promise<Crm
   const limit = opts.limit ?? 200;
   try {
     let q = supabase.from("crm_activities").select("*").order("created_at", { ascending: false }).limit(limit);
-    if (opts.ownerUserId) q = q.eq("seller_user_id", opts.ownerUserId);
+    if (opts.ownerUserId) q = q.eq("assigned_owner_user_id", opts.ownerUserId);
     if (opts.accountId) q = q.eq("account_id", opts.accountId);
     const { data, error } = await q;
     if (error) throw error;

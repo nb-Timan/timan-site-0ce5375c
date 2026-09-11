@@ -208,15 +208,9 @@ function quotePostgrestValue(value: string): string {
   return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 }
 
-function dealerNumberOrFilter(numbers: string[], includeAccountNumber: boolean): string {
+function dealerNumberOrFilter(numbers: string[]): string {
   const list = numbers.map(quotePostgrestValue).join(',');
-  const parts = [`dealer_number.in.(${list})`];
-  if (includeAccountNumber) parts.push(`dealer_account_number.in.(${list})`);
-  return parts.join(',');
-}
-
-function isMissingDealerAccountNumber(error: { message?: string } | null | undefined): boolean {
-  return /dealer_account_number/i.test(error?.message ?? '');
+  return `dealer_number.in.(${list})`;
 }
 
 /**
@@ -235,7 +229,7 @@ export async function listCrmConfigurations(
   let viewError: string | null = null;
 
   try {
-    const runViewQuery = (includeAccountNumber: boolean) => {
+    const runViewQuery = () => {
       let q = supabase
         .from('crm_configurations_view')
         .select('*')
@@ -249,11 +243,10 @@ export async function listCrmConfigurations(
           .is('order_sent_at', null)
           .is('submitted_at', null);
       }
-      if (dealerNumbers.length > 0) q = q.or(dealerNumberOrFilter(dealerNumbers, includeAccountNumber));
+      if (dealerNumbers.length > 0) q = q.or(dealerNumberOrFilter(dealerNumbers));
       return q.order('created_at', { ascending: false }).limit(500);
     };
-    let result = await runViewQuery(true);
-    if (result.error && isMissingDealerAccountNumber(result.error)) result = await runViewQuery(false);
+    const result = await runViewQuery();
     const { data, error } = result;
     if (error) throw error;
     rows = (data ?? []).map((r) => rowToConfig(r as Record<string, unknown>));
@@ -261,7 +254,7 @@ export async function listCrmConfigurations(
     viewError = e instanceof Error ? e.message : String(e);
     // Fallback: direct select from configurations.
     try {
-      const runTableQuery = (includeAccountNumber: boolean) => {
+      const runTableQuery = () => {
         let q = supabase
           .from('configurations')
           .select('*')
@@ -273,11 +266,10 @@ export async function listCrmConfigurations(
             .is('order_sent_at', null)
             .is('submitted_at', null);
         }
-        if (dealerNumbers.length > 0) q = q.or(dealerNumberOrFilter(dealerNumbers, includeAccountNumber));
+        if (dealerNumbers.length > 0) q = q.or(dealerNumberOrFilter(dealerNumbers));
         return q.order('created_at', { ascending: false }).limit(500);
       };
-      let result = await runTableQuery(true);
-      if (result.error && isMissingDealerAccountNumber(result.error)) result = await runTableQuery(false);
+      const result = await runTableQuery();
       const { data, error } = result;
       if (error) throw error;
       rows = (data ?? []).map((r) => rowToConfig(r as Record<string, unknown>));

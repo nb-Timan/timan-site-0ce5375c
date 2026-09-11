@@ -173,7 +173,7 @@ function applyAccountScope<T extends { eq: (...a: any[]) => any; or: (...a: any[
   }
   if (scope.kind === 'organization') {
     const nums = scope.dealerNumbers.map((n) => `"${n.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(',');
-    return query.or(`dealer_number.in.(${nums}),dealer_account_number.in.(${nums})`) as T;
+    return query.or(`dealer_number.in.(${nums})`) as T;
   }
   // Seller scope: match the seller-ownership columns. Mirrors the visibility
   // rules used by CRM → Ordrer / Budget (crmConfigurationsService.rowVisibleToScope)
