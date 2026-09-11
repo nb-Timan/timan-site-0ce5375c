@@ -503,14 +503,27 @@ describe('contract flow', () => {
   it('uses a canonical dealer account picker for the primary contract partner', () => {
     const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
     const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
+    const partnerTypeHandler = pageSource.slice(
+      pageSource.indexOf('const updateContractPartnerType'),
+      pageSource.indexOf('const selectContractPartnerContact'),
+    );
 
     expect(pageSource).toContain("<TextField label={`${contractUi('contractCompanyName', uiLanguage)} *`}");
     expect(pageSource).toContain("placeholder={form.partnerType ? contractUi('searchPartner', uiLanguage) : contractUi('selectPartnerFirst', uiLanguage)}");
-    expect(pageSource).toContain("inferContractPartnerTypeFromDealerAccount(account) === form.partnerType");
     expect(pageSource).toContain("fetchDealerAccountsForSeller({ email: sellerEmail, initials: sellerInitials })");
     expect(pageSource).toContain(".filter((account) => !account.is_deleted && !account.is_blocked)");
+    expect(pageSource).not.toContain("inferContractPartnerTypeFromDealerAccount(account) === form.partnerType");
     expect(pageSource).toContain("buildContractPartnerPatchFromDealerAccount(account)");
     expect(pageSource).toContain("setSelectedDealerAccountNumber(account.account_number)");
+    expect(pageSource).not.toContain("partnerType: inferContractPartnerTypeFromDealerAccount(account) || ''");
+    expect(pageSource).toContain('const [draftChangeVersion, setDraftChangeVersion] = useState(0);');
+    expect(pageSource).toContain("if (!effectiveUser?.email || !contractLoaded || draftChangeVersion === 0 || !activeDealerAccountNumber) return;");
+    expect(pageSource).toContain("const message = 'Vælg en partnerkonto, før kontraktkladden gemmes.';");
+    expect(pageSource).toContain('Kontraktkladde kunne ikke gemmes: ${error}');
+    expect(partnerTypeHandler).toContain('partnerType,');
+    expect(partnerTypeHandler).not.toContain("setSelectedDealerAccountNumber('');");
+    expect(partnerTypeHandler).not.toContain("dealerName: '',");
+    expect(partnerTypeHandler).not.toContain("dealerContactId: '',");
     expect(pageSource).toContain("dealerCountry: account.country || ''");
     expect(pageSource).toContain('partnerAccessPanel={canManagePartnerContractAccess ? (');
     expect(pageSource).toContain('partnerSelected={Boolean(activeDealerAccountNumber)}');

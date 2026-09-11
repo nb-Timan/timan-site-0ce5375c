@@ -354,7 +354,6 @@ function buildContractPartnerPatchFromDealerAccount(account: DealerAccount): Par
   const postalCity = getDealerAccountPostalCity(account);
   const split = splitPostalCity(postalCity);
   return {
-    partnerType: inferContractPartnerTypeFromDealerAccount(account) || '',
     dealerName: account.company_name || '',
     dealerAddress: getDealerAccountStreetAddress(account),
     dealerPostalCode: account.postal_code || split.postalCode,
@@ -862,6 +861,8 @@ export default function ContractsPage() {
   const [contractRecord, setContractRecord] = useState<DealerContractRecord | null>(null);
   const [contractLoaded, setContractLoaded] = useState(false);
   const [contractLoadError, setContractLoadError] = useState<string | null>(null);
+  const [draftChangeVersion, setDraftChangeVersion] = useState(0);
+  const [draftSaveError, setDraftSaveError] = useState<string | null>(null);
   const [finalSnapshot, setFinalSnapshot] = useState<ContractSnapshot | null>(null);
   const [uploadVersions, setUploadVersions] = useState<DealerContractUploadVersion[]>([]);
   const [documentVersions, setDocumentVersions] = useState<DealerContractDocumentVersion[]>([]);
@@ -941,6 +942,8 @@ export default function ContractsPage() {
     let cancelled = false;
     setContractLoaded(false);
     setContractLoadError(null);
+    setDraftChangeVersion(0);
+    setDraftSaveError(null);
 
     const loader = routeContractIdValue
       ? portalRole === 'timan_seller'
@@ -1135,8 +1138,11 @@ export default function ContractsPage() {
     ? guidedReviewCompleted
     : currentStepConfirmed;
 
+  const markDraftChanged = () => setDraftChangeVersion((current) => current + 1);
+
   const update = (key: keyof ContractFormData, value: string | null) => {
     setForm((current) => ({ ...current, [key]: value }));
+    markDraftChanged();
   };
 
   const updateForm = (patch: Partial<ContractFormData>) => {
@@ -1148,6 +1154,7 @@ export default function ContractsPage() {
       ));
     }
     setForm((current) => ({ ...current, ...patch }));
+    markDraftChanged();
   };
 
   const selectContractPartnerAccount = (account: DealerAccount) => {
@@ -1159,29 +1166,17 @@ export default function ContractsPage() {
       ...current,
       ...buildContractPartnerPatchFromDealerAccount(account),
     }));
+    markDraftChanged();
   };
 
   const updateContractPartnerType = (partnerType: ContractPartnerType | '') => {
     if (!isInternalContractActor) return;
-    setSelectedDealerAccountNumber('');
-    setSelectedAccessUserId('');
-    setPartnerUsers([]);
-    setContractAccessWindows([]);
-    setAccessWindow(null);
     setForm((current) => ({
       ...current,
       partnerType,
-      dealerName: '',
-      dealerAddress: '',
-      dealerPostalCode: '',
-      dealerCity: '',
-      dealerCountry: '',
-      dealerCvr: '',
-      dealerContactId: '',
-      contactPerson: '',
-      contactTitle: '',
       ...getPartnerTypeDiscountFormPatch(partnerType),
     }));
+    markDraftChanged();
   };
 
   const selectContractPartnerContact = (contactId: string) => {
@@ -1192,6 +1187,7 @@ export default function ContractsPage() {
       contactPerson: contact?.name || '',
       contactTitle: contact?.role_title || '',
     }));
+    markDraftChanged();
   };
 
   const updateServiceHourlyRate = (value: number) => {
@@ -1209,6 +1205,7 @@ export default function ContractsPage() {
       };
     });
     setForm((current) => ({ ...current, serviceHourlyRateDkk: value }));
+    markDraftChanged();
   };
 
   const updatePaymentTerm = (value: ContractPaymentTermId) => {
@@ -1227,6 +1224,7 @@ export default function ContractsPage() {
       };
     });
     setForm((current) => ({ ...current, paymentTerm: nextTerm }));
+    markDraftChanged();
   };
 
   useEffect(() => {
@@ -1375,6 +1373,12 @@ export default function ContractsPage() {
   const persistContract = async (options: { showToast?: boolean; snapshot?: ContractSnapshot | null } = {}) => {
     if (!effectiveUser?.email || !contractLoaded) return;
     if (!['draft', 'guided_review'].includes(workflowStatus)) return;
+    if (!activeDealerAccountNumber) {
+      const message = 'Vælg en partnerkonto, før kontraktkladden gemmes.';
+      setDraftSaveError(message);
+      if (options.showToast) toast.error(message);
+      return;
+    }
     const snapshot = options.snapshot ?? getSnapshotForStatus(status);
     const createdNewContract = startNewContract && !contractRowId;
     const { row, error } = await saveDealerContractDraft({
@@ -1390,9 +1394,12 @@ export default function ContractsPage() {
       finalSnapshot: snapshot,
     });
     if (error) {
-      toast.error('Kontraktkladde kunne ikke gemmes.');
+      const message = `Kontraktkladde kunne ikke gemmes: ${error}`;
+      setDraftSaveError(message);
+      if (options.showToast) toast.error(message);
       return;
     }
+    setDraftSaveError(null);
     if (row) {
       setContractRowId(row.id);
       setContractRecord(row);
@@ -1405,13 +1412,13 @@ export default function ContractsPage() {
   };
 
   useEffect(() => {
-    if (!effectiveUser?.email || !contractLoaded) return;
+    if (!effectiveUser?.email || !contractLoaded || draftChangeVersion === 0 || !activeDealerAccountNumber) return;
     if (status === 'Signed' && finalSnapshot?.status === 'Signed') return;
     const timer = window.setTimeout(() => {
       void persistContract();
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [activeStepIndex, confirmations, contractLoaded, activeDealerAccountNumber, effectiveUser?.email, form, status, workflowStatus]);
+  }, [activeStepIndex, confirmations, contractLoaded, activeDealerAccountNumber, draftChangeVersion, effectiveUser?.email, form, status, workflowStatus]);
 
   const refreshUploadVersions = async (contractId = contractRowId) => {
     if (!contractId) return;
@@ -1460,6 +1467,7 @@ export default function ContractsPage() {
         confirmedBy: effectiveUser.display_name || effectiveUser.email,
       },
     }));
+    markDraftChanged();
   };
 
   const goNext = () => {
@@ -1484,9 +1492,13 @@ export default function ContractsPage() {
       return;
     }
     setActiveStepIndex((current) => Math.min(current + 1, CONTRACT_STEPS.length - 1));
+    markDraftChanged();
   };
 
-  const goPrevious = () => setActiveStepIndex((current) => Math.max(current - 1, 0));
+  const goPrevious = () => {
+    setActiveStepIndex((current) => Math.max(current - 1, 0));
+    markDraftChanged();
+  };
 
   const completeGuidedReview = async () => {
     if (guidedReviewCompleted || reviewCompletionBusy) return;
@@ -1877,9 +1889,18 @@ export default function ContractsPage() {
                   <Save className="h-4 w-4" />
                   {contractUi('saveDraft', uiLanguage)}
                 </button>
+                {draftSaveError && <p role="alert" className="max-w-sm text-xs font-semibold text-red-700">{draftSaveError}</p>}
               </div>
             </div>
-            <ProgressSteps activeStepIndex={activeStepIndex} confirmations={confirmations} language={uiLanguage} onStepSelect={setActiveStepIndex} />
+            <ProgressSteps
+              activeStepIndex={activeStepIndex}
+              confirmations={confirmations}
+              language={uiLanguage}
+              onStepSelect={(stepIndex) => {
+                setActiveStepIndex(stepIndex);
+                markDraftChanged();
+              }}
+            />
           </div>
         </div>
       </header>
@@ -2673,7 +2694,6 @@ function PartiesStep({
     const terms = normalizedQuery.split(/\s+/).filter(Boolean);
     return accounts
       .filter((account) => !account.is_deleted && !account.is_blocked)
-      .filter((account) => inferContractPartnerTypeFromDealerAccount(account) === form.partnerType)
       .filter((account) => {
         if (terms.length === 0) return true;
         const haystack = [
