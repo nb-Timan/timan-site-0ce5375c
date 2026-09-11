@@ -2397,26 +2397,34 @@ function InternalContractsOverview({
   const loadOverview = async (cancelled?: () => boolean) => {
     setLoadingOverview(true);
     setOverviewError(null);
-    const result = await fetchInternalDealerContractOverview({
-      portalRole,
-      query,
-      status: statusFilter,
-      partnerType: partnerTypeFilter,
-      sellerId: effectiveUserId,
-      sellerEmail: effectiveSellerEmail,
-      sellerInitials: effectiveSellerInitials,
-      sellerFilter: selectedSellerId ? {
-        id: selectedSellerId,
-        email: selectedSellerEmail,
-        initials: selectedSellerInitials,
-      } : null,
-      viewAsSellerId,
-    });
-    if (cancelled?.()) return;
-    setRows(result.rows);
-    setCounts(result.counts);
-    setOverviewError(result.error);
-    setLoadingOverview(false);
+    try {
+      const result = await fetchInternalDealerContractOverview({
+        portalRole,
+        query,
+        status: statusFilter,
+        partnerType: partnerTypeFilter,
+        sellerId: effectiveUserId,
+        sellerEmail: effectiveSellerEmail,
+        sellerInitials: effectiveSellerInitials,
+        sellerFilter: selectedSellerId ? {
+          id: selectedSellerId,
+          email: selectedSellerEmail,
+          initials: selectedSellerInitials,
+        } : null,
+        viewAsSellerId,
+      });
+      if (cancelled?.()) return;
+      setRows(result.rows);
+      setCounts(result.counts);
+      setOverviewError(result.error);
+    } catch (error) {
+      if (cancelled?.()) return;
+      setRows([]);
+      setCounts({ all: 0, draft: 0, pending: 0, approved: 0, rejected: 0, terminated: 0 });
+      setOverviewError(error instanceof Error ? error.message : 'Kontraktoversigten kunne ikke hentes.');
+    } finally {
+      if (!cancelled?.()) setLoadingOverview(false);
+    }
   };
 
   useEffect(() => {
