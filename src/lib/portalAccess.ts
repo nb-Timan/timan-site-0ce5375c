@@ -202,9 +202,9 @@ export function getPortalPermissions(role: PortalRole): PortalPermissions {
     case 'timan_seller':          return { ...FULL, canCreateClaim: false };
     case 'timan_service':         return { ...FULL, canCreateClaim: false, canSubmitOrder: false };
     // Dealer-side roles: can create claims
-    case 'timan_importer':        return FULL;
+    case 'timan_importer':        return { ...FULL, canCreateWarranty: false };
     case 'timan_dealer':          return FULL;
-    case 'timan_service_partner': return FULL;
+    case 'timan_service_partner': return { ...FULL, canCreateWarranty: false };
     case 'dealer_customer':       return READ_ONLY;
     // Read-only
     case 'dealer_user':           return READ_ONLY;

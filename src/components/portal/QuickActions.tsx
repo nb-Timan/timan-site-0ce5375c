@@ -109,7 +109,10 @@ export default function QuickActions({ language, showAllActions = false, showRol
         {actions.map(({ key, labelKey, to, icon: Icon }) => {
           const capability = academyCapabilityForAction(key);
           const academyLocked = capability && !isAcademyCapabilityUnlocked(effectiveUser, capability, academySandbox.getCompletedCaseIds());
-          const target = academyLocked ? `/academy?locked=${capability}` : to;
+          const dealerDemoRegistration = key === 'create_demo' && effectiveRoleKey === 'timan_dealer';
+          const target = academyLocked
+            ? `/academy?locked=${capability}`
+            : dealerDemoRegistration ? '/portal/service/warranty/new' : to;
           const activeRoles: PortalRole[] = key
             ? getDefaultQuickActionRoles(key)
             : effectiveRoleKey === 'timan_service' || showAllActions

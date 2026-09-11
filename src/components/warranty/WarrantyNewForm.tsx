@@ -1,6 +1,6 @@
 /**
- * Shared "New warranty registration" form — migrated 1:1 from the old Timan
- * TSB Hub. Used only by dealer-side roles at /portal/service/warranty/new.
+ * Dealer-side demo/warranty registration form at /portal/service/warranty/new.
+ * The server derives the dealer account from the authenticated user.
  * The "Redskabs identifikationsnummer" field is dynamic — starts with one row,
  * dealers can add/remove additional tools.
  */
@@ -8,18 +8,17 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, AlertTriangle, Plus, X } from "lucide-react";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
-import {
-  MACHINE_TYPES,
-  REPLACEMENT_BRANDS,
-  addRegistration,
-  type NewRegistrationInput,
-} from "@/lib/warranty-store";
 import { validateWarrantySerial } from "@/lib/warrantySerialValidation";
-import { isInternalRole } from "@/lib/machineJournalService";
 import type { PortalRole } from "@/lib/portalAccess";
+import { useLanguage } from "@/context/LanguageContext";
+import { createPortalWarrantyRegistration } from "@/lib/portalWarrantyRegistrationService";
+import {
+  PORTAL_WARRANTY_MACHINE_TYPES,
+  replacementBrandsForMachine,
+  splitPostalCity,
+} from "@/lib/portalWarrantyRegistrationForm";
 
 interface FormState {
-  dealerName: string;
   isDemo: "" | "Ja" | "Nej";
   machineSerial: string;
   machineType: string;
@@ -35,7 +34,6 @@ interface FormState {
 }
 
 const EMPTY: FormState = {
-  dealerName: "",
   isDemo: "",
   machineSerial: "",
   machineType: "",
@@ -71,7 +69,8 @@ export function WarrantyNewForm({
   role?: PortalRole | null;
 }) {
   const navigate = useNavigate();
-  const [state, setState] = useState<FormState>({ ...EMPTY, dealerName: defaultDealerName });
+  const { uiLanguage } = useLanguage();
+  const [state, setState] = useState<FormState>(EMPTY);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [success, setSuccess] = useState<{
@@ -79,10 +78,12 @@ export function WarrantyNewForm({
     customer: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const internal = isInternalRole(role);
+  const replacementBrands = replacementBrandsForMachine(state.machineType);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setState((s) => ({ ...s, [key]: value }));
+    setState((s) => key === "machineType"
+      ? { ...s, machineType: value as string, replacementBrand: "Nej" }
+      : { ...s, [key]: value });
     if (key === "machineSerial") setWarning(null);
   }
 
@@ -92,7 +93,6 @@ export function WarrantyNewForm({
     setWarning(null);
 
     const required: [keyof FormState, string][] = [
-      ["dealerName", "Forhandlernavn"],
       ["isDemo", "Demo maskine"],
       ["machineSerial", "Maskinens serienummer"],
       ["machineType", "Maskintype"],
@@ -127,27 +127,26 @@ export function WarrantyNewForm({
         setWarning(v.message);
       }
 
-      const input: NewRegistrationInput = {
-        dealerName: state.dealerName.trim(),
-        isDemo: state.isDemo as "Ja" | "Nej",
-        machineSerial: state.machineSerial.trim(),
-        machineType: state.machineType,
-        replacementBrand:
-          state.replacementBrand && state.replacementBrand !== "Nej"
-            ? state.replacementBrand
-            : "Nej",
-        toolSerials: state.toolSerials.map((t) => t.trim()).filter(Boolean),
+      const postal = splitPostalCity(state.postalCity);
+      const record = await createPortalWarrantyRegistration({
+        isDemo: state.isDemo === "Ja",
+        machineSerial: state.machineSerial,
+        machineModel: state.machineType,
+        replacementBrand: replacementBrands.length > 0 ? state.replacementBrand : null,
+        toolSerials: state.toolSerials,
         deliveryDate: state.deliveryDate,
-        customer: state.customer.trim(),
-        customerAddress: state.customerAddress.trim(),
-        postalCity: state.postalCity.trim(),
-        phone: state.phone.trim(),
-        confirmationEmail: state.confirmationEmail.trim(),
-        comment: state.comment.trim() || null,
-      };
-      const record = addRegistration(input);
-      setSuccess({ certificate: record.certificateNumber, customer: record.customer });
-      setState({ ...EMPTY, dealerName: defaultDealerName });
+        customerName: state.customer,
+        customerAddress: state.customerAddress,
+        customerPostalCode: postal.postalCode,
+        customerCity: postal.city,
+        customerCountry: "",
+        customerPhone: state.phone,
+        customerEmail: state.confirmationEmail,
+        comment: state.comment || null,
+        language: uiLanguage,
+      });
+      setSuccess({ certificate: record.certificateNumber, customer: state.customer.trim() });
+      setState(EMPTY);
     } catch (err) {
       setError(
         err instanceof Error
@@ -158,9 +157,6 @@ export function WarrantyNewForm({
       setSubmitting(false);
     }
   }
-  // Suppress unused-warning for `internal` (reserved for future inline UI hint).
-  void internal;
-
   if (success) {
     return (
       <div className="rounded-2xl border border-emerald-200 bg-white p-8 shadow-sm">
@@ -216,11 +212,12 @@ export function WarrantyNewForm({
       )}
 
       <Section title="Forhandler & maskine">
-        <Field label="Forhandlernavn" required>
+        <Field label="Forhandlernavn">
           <input
-            value={state.dealerName}
-            onChange={(e) => set("dealerName", e.target.value)}
-            className={inputCls}
+            value={defaultDealerName}
+            readOnly
+            aria-label="Forhandlernavn fra din konto"
+            className={`${inputCls} bg-slate-50 text-slate-600`}
           />
         </Field>
         <Field label="Er den solgte maskine en demo maskine?" required>
@@ -245,7 +242,7 @@ export function WarrantyNewForm({
           <input
             value={state.machineSerial}
             onChange={(e) => set("machineSerial", e.target.value)}
-            placeholder="fx 712000-00-1111"
+            placeholder="fx 2026-712000-00-1111"
             className={inputCls}
           />
         </Field>
@@ -256,26 +253,26 @@ export function WarrantyNewForm({
             className={inputCls}
           >
             <option value="">Vælg maskine</option>
-            {MACHINE_TYPES.map((m) => (
+            {PORTAL_WARRANTY_MACHINE_TYPES.map((m) => (
               <option key={m} value={m}>
                 {m}
               </option>
             ))}
           </select>
         </Field>
-        <Field label="Erstatter den en anden maskine?">
+        {replacementBrands.length > 0 && <Field label="Erstatter den en anden maskine?">
           <select
             value={state.replacementBrand}
             onChange={(e) => set("replacementBrand", e.target.value)}
             className={inputCls}
           >
-            {REPLACEMENT_BRANDS.map((b) => (
+            {replacementBrands.map((b) => (
               <option key={b} value={b}>
                 {b}
               </option>
             ))}
           </select>
-        </Field>
+        </Field>}
       </Section>
 
       <Section title="Redskabs identifikationsnumre">
@@ -393,7 +390,7 @@ export function WarrantyNewForm({
       <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-5">
         <button
           type="button"
-          onClick={() => setState({ ...EMPTY, dealerName: defaultDealerName })}
+          onClick={() => setState(EMPTY)}
           className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
         >
           Nulstil
