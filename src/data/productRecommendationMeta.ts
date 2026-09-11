@@ -102,7 +102,7 @@ export type Season =
   | "all_year";
 
 export type RecommendationPriority = 1 | 2 | 3 | 4 | 5; // 1 = highest
-export type BrochureLanguage = "en" | "de";
+export type BrochureLanguage = "da" | "de" | "fr" | "cs" | "en";
 
 /**
  * Coarse functional grouping used for de-duplication in the recommendation
@@ -260,6 +260,7 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
     },
     sourceLink: "https://www.youtube.com/watch?v=D-hXvg_oW9s",
     brochureAssets: {
+      da: "/brochures/rc-1000s-da.pdf",
       en: "/brochures/rc-1000s-en.pdf",
       de: "/brochures/rc-1000s-de.pdf",
     },
@@ -292,8 +293,11 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
       en: "The compact RC-751 handles slopes up to 50°, where conventional machines cannot work safely.",
     },
     brochureAssets: {
+      da: "/brochures/rc-751-da.pdf",
       en: "/brochures/rc-751-en.pdf",
       de: "/brochures/rc-751-de.pdf",
+      fr: "/brochures/rc-751-fr.pdf",
+      cs: "/brochures/rc-751-cs.pdf",
     },
   },
 
@@ -324,8 +328,11 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
       en: "Versatile tool carrier with a comfortable cab and quick tool changes — one machine for year-round operation.",
     },
     brochureAssets: {
+      da: "/brochures/timan-3330-da.pdf",
       en: "/brochures/timan-3330-en.pdf",
       de: "/brochures/timan-3330-de.pdf",
+      fr: "/brochures/timan-3330-fr.pdf",
+      cs: "/brochures/timan-3330-cs.pdf",
     },
   },
 
@@ -947,16 +954,18 @@ export interface ProductSourceLinks {
 
 /**
  * Resolve a product brochure for the selected portal language.
- * DE uses German; every other portal language uses English. A missing German
- * asset deliberately falls back to the English asset.
+ * DK, DE, FR and CZ use their local assets. Every other portal language uses
+ * English. Missing local assets deliberately fall back to English.
  */
 export function resolveBrochureAsset(
   assets: Partial<Record<BrochureLanguage, string>>,
   language?: string | null,
 ): string | undefined {
-  return normalizePortalLanguageCode(language) === "de"
-    ? assets.de ?? assets.en
-    : assets.en;
+  const normalized = normalizePortalLanguageCode(language);
+  const assetLanguage = normalized === "da" || normalized === "de" || normalized === "fr" || normalized === "cs"
+    ? normalized
+    : "en";
+  return assets[assetLanguage] ?? assets.en;
 }
 
 export function getProductBrochureUrl(idOrVarenr: string, language?: string | null): string | undefined {
