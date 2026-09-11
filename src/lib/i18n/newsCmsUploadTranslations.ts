@@ -120,5 +120,4 @@ export const NEWS_CMS_UPLOAD_TRANSLATIONS: Record<PortalUiLanguage, Dict> = {
   fr,
   pl,
   cs,
-  tr: en,
 };

@@ -48,28 +48,28 @@ type ContractTextLanguage = PortalUiLanguage;
 
 const SECTION_TITLES: Record<Exclude<GuidedContractSection['stepId'], never>, Record<ContractTextLanguage, string>> = {
   purpose_prices_orders_portal: {
-    da: 'Samarbejde, handel og forhandlermøde', en: 'Cooperation, trade and dealer meeting', de: 'Zusammenarbeit, Handel und Händlertreffen', it: 'Collaborazione, commercio e riunione dei rivenditori', hu: 'Együttműködés, kereskedelem és kereskedői találkozó', sv: 'Samarbete, handel och återförsäljarmöte', fr: 'Coopération, commerce et réunion des revendeurs', pl: 'Współpraca, handel i spotkanie dealerów', cs: 'Spolupráce, obchod a setkání prodejců', tr: 'Spolupráce, obchod a setkání prodejců',
+    da: 'Samarbejde, handel og forhandlermøde', en: 'Cooperation, trade and dealer meeting', de: 'Zusammenarbeit, Handel und Händlertreffen', it: 'Collaborazione, commercio e riunione dei rivenditori', hu: 'Együttműködés, kereskedelem és kereskedői találkozó', sv: 'Samarbete, handel och återförsäljarmöte', fr: 'Coopération, commerce et réunion des revendeurs', pl: 'Współpraca, handel i spotkanie dealerów', cs: 'Spolupráce, obchod a setkání prodejců',
   },
   territory: {
-    da: 'Område og Bilag 3', en: 'Territory and Appendix 3', de: 'Gebiet und Anhang 3', it: 'Territorio e allegato 3', hu: 'Terület és 3. melléklet', sv: 'Område och bilaga 3', fr: 'Territoire et annexe 3', pl: 'Terytorium i załącznik 3', cs: 'Území a příloha 3', tr: 'Území a příloha 3',
+    da: 'Område og Bilag 3', en: 'Territory and Appendix 3', de: 'Gebiet und Anhang 3', it: 'Territorio e allegato 3', hu: 'Terület és 3. melléklet', sv: 'Område och bilaga 3', fr: 'Territoire et annexe 3', pl: 'Terytorium i załącznik 3', cs: 'Území a příloha 3',
   },
   discount_structure: {
-    da: 'Rabatstruktur og Bilag 2', en: 'Discount structure and Appendix 2', de: 'Rabattstruktur und Anhang 2', it: 'Struttura degli sconti e allegato 2', hu: 'Kedvezménystruktúra és 2. melléklet', sv: 'Rabattsstruktur och bilaga 2', fr: 'Structure des remises et annexe 2', pl: 'Struktura rabatów i załącznik 2', cs: 'Struktura slev a příloha 2', tr: 'Struktura slev a příloha 2',
+    da: 'Rabatstruktur og Bilag 2', en: 'Discount structure and Appendix 2', de: 'Rabattstruktur und Anhang 2', it: 'Struttura degli sconti e allegato 2', hu: 'Kedvezménystruktúra és 2. melléklet', sv: 'Rabattsstruktur och bilaga 2', fr: 'Structure des remises et annexe 2', pl: 'Struktura rabatów i załącznik 2', cs: 'Struktura slev a příloha 2',
   },
   demo_machines: {
-    da: 'Demo-maskiner', en: 'Demonstration machines', de: 'Demomaschinen', it: 'Macchine dimostrative', hu: 'Bemutatógépek', sv: 'Demomaskiner', fr: 'Machines de démonstration', pl: 'Maszyny demonstracyjne', cs: 'Předváděcí stroje', tr: 'Předváděcí stroje',
+    da: 'Demo-maskiner', en: 'Demonstration machines', de: 'Demomaschinen', it: 'Macchine dimostrative', hu: 'Bemutatógépek', sv: 'Demomaskiner', fr: 'Machines de démonstration', pl: 'Maszyny demonstracyjne', cs: 'Předváděcí stroje',
   },
   spare_parts_service: {
-    da: 'Reservedele og service', en: 'Spare parts and service', de: 'Ersatzteile und Service', it: 'Ricambi e assistenza', hu: 'Alkatrészek és szerviz', sv: 'Reservdelar och service', fr: 'Pièces détachées et service', pl: 'Części zamienne i serwis', cs: 'Náhradní díly a servis', tr: 'Náhradní díly a servis',
+    da: 'Reservedele og service', en: 'Spare parts and service', de: 'Ersatzteile und Service', it: 'Ricambi e assistenza', hu: 'Alkatrészek és szerviz', sv: 'Reservdelar och service', fr: 'Pièces détachées et service', pl: 'Części zamienne i serwis', cs: 'Náhradní díly a servis',
   },
   marketing: {
-    da: 'Marketing', en: 'Marketing', de: 'Marketing', it: 'Marketing', hu: 'Marketing', sv: 'Marknadsföring', fr: 'Marketing', pl: 'Marketing', cs: 'Marketing', tr: 'Marketing',
+    da: 'Marketing', en: 'Marketing', de: 'Marketing', it: 'Marketing', hu: 'Marketing', sv: 'Marknadsföring', fr: 'Marketing', pl: 'Marketing', cs: 'Marketing',
   },
   payment_delivery: {
-    da: 'Betaling og levering', en: 'Payment and delivery', de: 'Zahlung und Lieferung', it: 'Pagamento e consegna', hu: 'Fizetés és szállítás', sv: 'Betalning och leverans', fr: 'Paiement et livraison', pl: 'Płatność i dostawa', cs: 'Platba a dodání', tr: 'Platba a dodání',
+    da: 'Betaling og levering', en: 'Payment and delivery', de: 'Zahlung und Lieferung', it: 'Pagamento e consegna', hu: 'Fizetés és szállítás', sv: 'Betalning och leverans', fr: 'Paiement et livraison', pl: 'Płatność i dostawa', cs: 'Platba a dodání',
   },
   termination: {
-    da: 'Opsigelse og afsluttende vilkår', en: 'Termination and final terms', de: 'Kündigung und Schlussbestimmungen', it: 'Recesso e condizioni finali', hu: 'Felmondás és záró feltételek', sv: 'Uppsägning och slutvillkor', fr: 'Résiliation et conditions finales', pl: 'Wypowiedzenie i warunki końcowe', cs: 'Ukončení a závěrečná ustanovení', tr: 'Ukončení a závěrečná ustanovení',
+    da: 'Opsigelse og afsluttende vilkår', en: 'Termination and final terms', de: 'Kündigung und Schlussbestimmungen', it: 'Recesso e condizioni finali', hu: 'Felmondás és záró feltételek', sv: 'Uppsägning och slutvillkor', fr: 'Résiliation et conditions finales', pl: 'Wypowiedzenie i warunki końcowe', cs: 'Ukončení a závěrečná ustanovení',
   },
 };
 

@@ -1490,7 +1490,7 @@ const cs: Dict = {
   newsCmsFormatA4Landscape: 'A4 na šířku',
 };
 
-const BASE: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs, tr: en };
+const BASE: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs };
 
 export const NEWS_CMS_TRANSLATIONS: Record<PortalUiLanguage, Dict> = (
   Object.keys(BASE) as PortalUiLanguage[]

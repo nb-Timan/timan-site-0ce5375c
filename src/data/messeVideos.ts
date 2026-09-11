@@ -25,7 +25,6 @@ export const MESSE_VIDEO_CATEGORY_LABEL: Record<MesseVideoCategory, Record<Porta
     fr: 'Machines',
     pl: 'Maszyny',
     cs: 'Stroje',
-    tr: 'Stroje',
   },
   redskaber: {
     da: 'Redskaber',
@@ -37,7 +36,6 @@ export const MESSE_VIDEO_CATEGORY_LABEL: Record<MesseVideoCategory, Record<Porta
     fr: 'Accessoires',
     pl: 'Osprzet',
     cs: 'Prislusenstvi',
-    tr: 'Prislusenstvi',
   },
   service: {
     da: 'Service',
@@ -49,7 +47,6 @@ export const MESSE_VIDEO_CATEGORY_LABEL: Record<MesseVideoCategory, Record<Porta
     fr: 'Service',
     pl: 'Serwis',
     cs: 'Servis',
-    tr: 'Servis',
   },
   salg: {
     da: 'Salg',
@@ -61,7 +58,6 @@ export const MESSE_VIDEO_CATEGORY_LABEL: Record<MesseVideoCategory, Record<Porta
     fr: 'Ventes',
     pl: 'Sprzedaz',
     cs: 'Prodej',
-    tr: 'Prodej',
   },
 };
 

@@ -242,7 +242,6 @@ function fmtDate(s: string | null | undefined, lang: PortalUiLanguage): string {
     fr: 'fr-FR',
     pl: 'pl-PL',
     cs: 'cs-CZ',
-    tr: 'cs-CZ',
   };
   return d.toLocaleDateString(localeMap[lang] || 'en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 }

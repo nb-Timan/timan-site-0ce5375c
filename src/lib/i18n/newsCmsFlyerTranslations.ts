@@ -111,4 +111,4 @@ const cs: Dict = {
   newsCmsPreviewNextPage: 'Další stránka',
 };
 
-export const NEWS_CMS_FLYER_TRANSLATIONS: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs, tr: en };
+export const NEWS_CMS_FLYER_TRANSLATIONS: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs };

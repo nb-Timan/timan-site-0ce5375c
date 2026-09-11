@@ -13,7 +13,7 @@ export interface VideoProductOption {
 }
 
 function languageForCatalog(lang: PortalUiLanguage) {
-  if (lang === "sv" || lang === "fr" || lang === "pl" || lang === "cs" || lang === "tr") return "en";
+  if (lang === "sv" || lang === "fr" || lang === "pl" || lang === "cs") return "en";
   return lang;
 }
 

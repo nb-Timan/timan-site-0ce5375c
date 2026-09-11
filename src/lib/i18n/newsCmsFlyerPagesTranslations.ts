@@ -187,4 +187,4 @@ const cs: Dict = {
   newsCmsFlyerCtaHelp: 'Text odkazu se ukládá pro každý jazyk. URL jsou sdílené.',
 };
 
-export const NEWS_CMS_FLYER_PAGES_TRANSLATIONS: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs, tr: en };
+export const NEWS_CMS_FLYER_PAGES_TRANSLATIONS: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs };

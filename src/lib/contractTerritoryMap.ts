@@ -114,7 +114,6 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     fr: 'Carte du territoire',
     pl: 'Mapa obszaru',
     cs: 'Mapa uzemi',
-    tr: 'Mapa uzemi',
   },
   primaryTitle: {
     da: 'Områdekort - primært område',
@@ -126,7 +125,6 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     fr: 'Carte du territoire - territoire principal',
     pl: 'Mapa obszaru - obszar glowny',
     cs: 'Mapa uzemi - primarni uzemi',
-    tr: 'Mapa uzemi - primarni uzemi',
   },
   secondaryTitle: {
     da: 'Områdekort - sekundært område',
@@ -138,7 +136,6 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     fr: 'Carte du territoire - territoire secondaire',
     pl: 'Mapa obszaru - obszar dodatkowy',
     cs: 'Mapa uzemi - sekundarni uzemi',
-    tr: 'Mapa uzemi - sekundarni uzemi',
   },
   primary: {
     da: 'Primært område',
@@ -150,7 +147,6 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     fr: 'Territoire principal',
     pl: 'Obszar glowny',
     cs: 'Primarni uzemi',
-    tr: 'Primarni uzemi',
   },
   secondary: {
     da: 'Sekundært område',
@@ -162,7 +158,6 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     fr: 'Territoire secondaire',
     pl: 'Obszar dodatkowy',
     cs: 'Sekundarni uzemi',
-    tr: 'Sekundarni uzemi',
   },
   loading: {
     da: 'Indlaeser områdekort...',
@@ -174,7 +169,6 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     fr: 'Chargement de la carte...',
     pl: 'Ladowanie mapy obszaru...',
     cs: 'Nacita se mapa uzemi...',
-    tr: 'Nacita se mapa uzemi...',
   },
   unavailable: {
     da: 'Områdekortet kunne ikke indlæses. Områdevalget er stadig gemt.',
@@ -186,7 +180,6 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     fr: 'La carte du territoire n a pas pu etre chargee. La selection reste enregistree.',
     pl: 'Nie mozna zaladowac mapy obszaru. Wybor obszaru nadal jest zapisany.',
     cs: 'Mapu uzemi se nepodarilo nacist. Vyber uzemi zustava ulozen.',
-    tr: 'Mapu uzemi se nepodarilo nacist. Vyber uzemi zustava ulozen.',
   },
   noSelection: {
     da: 'Angiv et gyldigt primært område for at markere kortet.',
@@ -198,7 +191,6 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     fr: 'Indiquez un territoire principal valide pour mettre la carte en evidence.',
     pl: 'Podaj prawidlowy obszar glowny, aby zaznaczyc mape.',
     cs: 'Zadejte platne primarni uzemi pro zvyrazneni mapy.',
-    tr: 'Zadejte platne primarni uzemi pro zvyrazneni mapy.',
   },
   noSecondarySelection: {
     da: 'Angiv et gyldigt sekundært område for at markere kortet.',
@@ -210,7 +202,6 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     fr: 'Indiquez un territoire secondaire valide pour mettre la carte en evidence.',
     pl: 'Podaj prawidlowy obszar dodatkowy, aby zaznaczyc mape.',
     cs: 'Zadejte platne sekundarni uzemi pro zvyrazneni mapy.',
-    tr: 'Zadejte platne sekundarni uzemi pro zvyrazneni mapy.',
   },
   wholeCountryHelp: {
     da: 'Vælg et helt land på kortet. Et nyt klik på et andet land erstatter valget for dette område.',
@@ -222,7 +213,6 @@ export const CONTRACT_TERRITORY_MAP_LABELS: Record<string, Record<PortalUiLangua
     fr: 'Selectionnez un pays entier sur la carte. Un autre pays remplace la selection.',
     pl: 'Wybierz caly kraj na mapie. Klikniecie innego kraju zastapi wybor.',
     cs: 'Vyberte celou zemi na mape. Kliknuti na jinou zemi vyber nahradi.',
-    tr: 'Vyberte celou zemi na mape. Kliknuti na jinou zemi vyber nahradi.',
   },
 };
 
@@ -238,7 +228,6 @@ export const CONTRACT_WHOLE_COUNTRY_MAP: ContractWholeCountryMapConfig = {
     fr: 'Pays entiers',
     pl: 'Cale kraje',
     cs: 'Cele zeme',
-    tr: 'Cele zeme',
   },
   scopeLabel: {
     europe: {
@@ -251,7 +240,6 @@ export const CONTRACT_WHOLE_COUNTRY_MAP: ContractWholeCountryMapConfig = {
       fr: 'Europe',
       pl: 'Europa',
       cs: 'Evropa',
-      tr: 'Evropa',
     },
     world: {
       da: 'Verden',
@@ -263,7 +251,6 @@ export const CONTRACT_WHOLE_COUNTRY_MAP: ContractWholeCountryMapConfig = {
       fr: 'Monde',
       pl: 'Swiat',
       cs: 'Svet',
-      tr: 'Svet',
     },
   },
   bounds: CONTRACT_COUNTRY_MAP_BOUNDS,
@@ -285,7 +272,6 @@ export const CONTRACT_TERRITORY_MAP_COUNTRIES: Record<ContractTerritoryDetailedC
       fr: 'Danemark - communes',
       pl: 'Dania - gminy',
       cs: 'Dansko - obce',
-      tr: 'Dansko - obce',
     },
     geoJsonUrl: DENMARK_MUNICIPALITIES_GEOJSON_URL,
     bounds: [54.5, 8.0, 57.8, 15.2],
@@ -311,7 +297,6 @@ export const CONTRACT_TERRITORY_MAP_COUNTRIES: Record<ContractTerritoryDetailedC
       fr: 'Allemagne - regions de codes postaux (PLZ2)',
       pl: 'Niemcy - regiony kodow pocztowych (PLZ2)',
       cs: 'Nemecko - oblasti PSC (PLZ2)',
-      tr: 'Nemecko - oblasti PSC (PLZ2)',
     },
     geoJsonUrl: '/data/germany-plz2.geojson',
     bounds: [47.3, 5.9, 55.1, 15.0],
@@ -337,7 +322,6 @@ export const CONTRACT_TERRITORY_MAP_COUNTRIES: Record<ContractTerritoryDetailedC
       fr: 'Suède - communes',
       pl: 'Szwecja - gminy',
       cs: 'Švédsko - obce',
-      tr: 'Švédsko - obce',
     },
     geoJsonUrl: SWEDEN_MUNICIPALITIES_GEOJSON_URL,
     bounds: [55.0, 10.8, 69.2, 24.2],

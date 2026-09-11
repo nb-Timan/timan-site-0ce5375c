@@ -36,7 +36,7 @@ describe('contract i18n', () => {
   });
 
   it('uses English instead of Danish for portal languages without dedicated Appendix 2 copy', () => {
-    for (const language of ['it', 'hu', 'sv', 'fr', 'pl', 'cs', 'tr']) {
+    for (const language of ['it', 'hu', 'sv', 'fr', 'pl', 'cs']) {
       const copy = renderAppendix2Paragraphs('dealer', undefined, language).join('\n');
       expect(copy).toContain('Purpose of the discount structure.');
       expect(copy).not.toContain('Målet med rabattstrukturen');

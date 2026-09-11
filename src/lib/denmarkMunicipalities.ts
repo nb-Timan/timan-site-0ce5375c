@@ -27,7 +27,6 @@ export const DENMARK_MUNICIPALITIES_LABELS: Record<
     fr: 'Danemark - communes',
     pl: 'Dania - gminy',
     cs: 'Dánsko - obce',
-    tr: 'Dánsko - obce',
   },
   municipality: {
     da: 'Kommune',
@@ -39,7 +38,6 @@ export const DENMARK_MUNICIPALITIES_LABELS: Record<
     fr: 'Commune',
     pl: 'Gmina',
     cs: 'Obec',
-    tr: 'Obec',
   },
   selectMunicipality: {
     da: 'Vælg kommune',
@@ -51,7 +49,6 @@ export const DENMARK_MUNICIPALITIES_LABELS: Record<
     fr: 'Choisir une commune',
     pl: 'Wybierz gminę',
     cs: 'Vybrat obec',
-    tr: 'Vybrat obec',
   },
 };
 

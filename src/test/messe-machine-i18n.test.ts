@@ -65,7 +65,7 @@ describe('Messe machine detail pages i18n', () => {
     expect(missing).toEqual([]);
   });
 
-  it('supports all ten portal languages', () => {
-    expect(PORTAL_LANGUAGE_CODES).toEqual(['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs', 'tr']);
+  it('supports the nine canonical portal languages', () => {
+    expect(PORTAL_LANGUAGE_CODES).toEqual(['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs']);
   });
 });

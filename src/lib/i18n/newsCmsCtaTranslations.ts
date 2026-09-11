@@ -164,4 +164,4 @@ const cs: Dict = {
   newsCmsValidationInvalidCta: 'Aktivní odkaz nemá platnou URL nebo text tlačítka',
 };
 
-export const NEWS_CMS_CTA_TRANSLATIONS: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs, tr: en };
+export const NEWS_CMS_CTA_TRANSLATIONS: Record<PortalUiLanguage, Dict> = { da, en, de, it, hu, sv, fr, pl, cs };

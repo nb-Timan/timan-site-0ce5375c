@@ -31,7 +31,6 @@ const DATE_LOCALE: Record<PortalUiLanguage, string> = {
   fr: 'fr-FR',
   pl: 'pl-PL',
   cs: 'cs-CZ',
-  tr: 'cs-CZ',
 };
 
 function categoryStyle(category: string) {

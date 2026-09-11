@@ -947,7 +947,6 @@ export const SITE_FEATURE_TRANSLATIONS: Record<PortalUiLanguage, Dict> = {
   fr,
   pl,
   cs,
-  tr: en,
 };
 
 export function siteFeatureT(key: SiteFeatureI18nKey, lang: PortalUiLanguage | string | null | undefined): string {

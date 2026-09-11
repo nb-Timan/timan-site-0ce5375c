@@ -31,7 +31,7 @@ import type { Language } from '@/types/configurator';
  * fall back to English. All language storage (localStorage, preferred_language)
  * uses these codes.
  */
-export type PortalUiLanguage = Language | 'sv' | 'fr' | 'pl' | 'cs' | 'tr';
+export type PortalUiLanguage = Language | 'sv' | 'fr' | 'pl' | 'cs';
 
 export interface PortalLanguageOption {
   /** Internal code persisted everywhere. */
@@ -54,7 +54,6 @@ export const PORTAL_LANGUAGES: PortalLanguageOption[] = [
   { code: 'fr', flag: 'FR', emoji: '🇫🇷', label: 'Français' },
   { code: 'pl', flag: 'PL', emoji: '🇵🇱', label: 'Polski' },
   { code: 'cs', flag: 'CZ', emoji: '🇨🇿', label: 'Čeština' },
-  { code: 'tr', flag: 'TR', emoji: '🇹🇷', label: 'Türkçe' },
 ];
 
 export const PORTAL_LANGUAGE_CODES: PortalUiLanguage[] = PORTAL_LANGUAGES.map((l) => l.code);
@@ -70,7 +69,6 @@ export const PORTAL_LANGUAGE_ALIASES: Record<PortalUiLanguage, string[]> = {
   fr: ['fr'],
   pl: ['pl'],
   cs: ['cs', 'cz'],
-  tr: ['tr'],
 };
 
 /** Legacy `Language` codes that have full inline translation coverage. */
@@ -119,7 +117,7 @@ export function mapUiLanguageToLegacy(ui: PortalUiLanguage | string | null | und
   const normalized = normalizePortalLanguageCode(ui);
   if (!normalized) return FALLBACK_LANGUAGE;
   if ((LEGACY_LANGUAGE_CODES as string[]).includes(normalized)) return normalized as Language;
-  // sv / fr / pl / cs / tr — and any unknown value — fall back to English.
+  // sv / fr / pl / cs — and any unknown value — fall back to English.
   return 'en';
 }
 

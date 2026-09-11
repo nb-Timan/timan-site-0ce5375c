@@ -16,7 +16,6 @@ const ENTRIES: Record<string, Row> = {
     hu: 'Üdvözöljük a kiállításon', sv: 'Välkommen till Mässa',
     fr: 'Bienvenue au salon', pl: 'Witamy na targach',
     cs: 'Vítejte na veletrhu',
-    tr: 'Vítejte na veletrhu',
   },
   mh_intro: {
     da: 'Vælg en mulighed for at udforske Timan.', en: 'Choose an option to explore Timan.',
@@ -24,13 +23,11 @@ const ENTRIES: Record<string, Row> = {
     hu: 'Válasszon egy lehetőséget a Timan felfedezéséhez.', sv: 'Välj ett alternativ för att utforska Timan.',
     fr: 'Choisissez une option pour découvrir Timan.', pl: 'Wybierz opcję, aby poznać Timan.',
     cs: 'Vyberte možnost a prozkoumejte Timan.',
-    tr: 'Vyberte možnost a prozkoumejte Timan.',
   },
   mh_configurator: {
     da: 'Konfigurator', en: 'Configurator', de: 'Konfigurator', it: 'Configuratore',
     hu: 'Konfigurátor', sv: 'Konfigurator', fr: 'Configurateur', pl: 'Konfigurator',
     cs: 'Konfigurátor',
-    tr: 'Konfigurátor',
   },
   mh_configurator_desc: {
     da: 'Byg din egen Timan-maskine', en: 'Build your own Timan machine',
@@ -38,19 +35,18 @@ const ENTRIES: Record<string, Row> = {
     hu: 'Építse meg saját Timan gépét', sv: 'Bygg din egen Timan-maskin',
     fr: 'Composez votre machine Timan', pl: 'Zbuduj własną maszynę Timan',
     cs: 'Sestavte si vlastní stroj Timan',
-    tr: 'Sestavte si vlastní stroj Timan',
   },
   mh_partner_map: {
     da: 'Find forhandler', en: 'Find dealer', de: 'Händler finden', it: 'Trova rivenditore',
     hu: 'Kereskedő keresése', sv: 'Hitta återförsäljare', fr: 'Trouver un revendeur',
-    pl: 'Znajdź dealera', cs: 'Najít prodejce', tr: 'Najít prodejce',
+    pl: 'Znajdź dealera', cs: 'Najít prodejce',
   },
   mh_partner_map_desc: {
     da: 'Forhandlere, importører og servicepartnere', en: 'Dealers, importers and service partners',
     de: 'Händler, Importeure und Servicepartner', it: 'Rivenditori, importatori e service partner',
     hu: 'Kereskedők, importőrök és szervizpartnerek', sv: 'Återförsäljare, importörer och servicepartner',
     fr: 'Revendeurs, importateurs et partenaires de service',
-    pl: 'Dealerzy, importerzy i partnerzy serwisowi', cs: 'Prodejci, dovozci a servisní partneři', tr: 'Prodejci, dovozci a servisní partneři',
+    pl: 'Dealerzy, importerzy i partnerzy serwisowi', cs: 'Prodejci, dovozci a servisní partneři',
   },
   mh_machine_brochure_desc: {
     da: 'Brochure og maskininformation', en: 'Brochure and machine information',
@@ -58,7 +54,6 @@ const ENTRIES: Record<string, Row> = {
     hu: 'Brosúra és gépinformációk', sv: 'Broschyr och maskininformation',
     fr: 'Brochure et informations machine', pl: 'Broszura i informacje o maszynie',
     cs: 'Brožura a informace o stroji',
-    tr: 'Brožura a informace o stroji',
   },
   mh_2620_desc: {
     da: 'Udforsk maskinen i 360° med udstyrsvalg',
@@ -70,13 +65,11 @@ const ENTRIES: Record<string, Row> = {
     fr: 'Explorez la machine à 360° avec les options d’équipement',
     pl: 'Poznaj maszynę w 360° z opcjami wyposażenia',
     cs: 'Prozkoumejte stroj v 360° s možnostmi vybavení',
-    tr: 'Prozkoumejte stroj v 360° s možnostmi vybavení',
   },
   mh_video: {
     da: 'Video Akademi', en: 'Video Academy', de: 'Video-Akademie', it: 'Video Academy',
     hu: 'Videó Akadémia', sv: 'Videoakademi', fr: 'Académie vidéo', pl: 'Akademia wideo',
     cs: 'Video akademie',
-    tr: 'Video akademie',
   },
   mh_video_desc: {
     da: 'Maskinvideoer og guides', en: 'Machine videos and guides',
@@ -84,13 +77,11 @@ const ENTRIES: Record<string, Row> = {
     hu: 'Gépvideók és útmutatók', sv: 'Maskinvideor och guider',
     fr: 'Vidéos et guides machines', pl: 'Filmy i poradniki o maszynach',
     cs: 'Videa strojů a návody',
-    tr: 'Videa strojů a návody',
   },
   mh_news: {
     da: 'Seneste nyt', en: 'Latest news', de: 'Neuigkeiten', it: 'Ultime notizie',
     hu: 'Legfrissebb hírek', sv: 'Senaste nytt', fr: 'Actualités', pl: 'Najnowsze wiadomości',
     cs: 'Nejnovější zprávy',
-    tr: 'Nejnovější zprávy',
   },
   mh_news_desc: {
     da: 'Nyt fra Timan-verdenen', en: 'News from the Timan world',
@@ -98,25 +89,22 @@ const ENTRIES: Record<string, Row> = {
     hu: 'Hírek a Timan világából', sv: 'Nytt från Timans värld',
     fr: 'Actualités de l’univers Timan', pl: 'Nowości ze świata Timan',
     cs: 'Novinky ze světa Timan',
-    tr: 'Novinky ze světa Timan',
   },
   mh_quick_actions: {
     da: 'Hurtige handlinger', en: 'Quick actions', de: 'Schnellzugriffe', it: 'Azioni rapide',
     hu: 'Gyors műveletek', sv: 'Snabbåtgärder', fr: 'Actions rapides', pl: 'Szybkie akcje',
     cs: 'Rychlé akce',
-    tr: 'Rychlé akce',
   },
   mh_drift: {
     da: 'Driftberegner', en: 'Operating cost calculator', de: 'Betriebskostenrechner',
     it: 'Calcolatore dei costi di esercizio', hu: 'Üzemköltség-kalkulátor',
     sv: 'Driftskostnadskalkylator', fr: 'Calculateur de coûts d’exploitation',
-    pl: 'Kalkulator kosztów eksploatacji', cs: 'Kalkulačka provozních nákladů', tr: 'Kalkulačka provozních nákladů',
+    pl: 'Kalkulator kosztów eksploatacji', cs: 'Kalkulačka provozních nákladů',
   },
   mh_co2: {
     da: 'CO2 Kalkulator', en: 'CO2 Calculator', de: 'CO2-Rechner', it: 'Calcolatore CO2',
     hu: 'CO2 kalkulátor', sv: 'CO2-kalkylator', fr: 'Calculateur CO2', pl: 'Kalkulator CO2',
     cs: 'Kalkulačka CO2',
-    tr: 'Kalkulačka CO2',
   },
   mh_preview: {
     da: 'Du forhåndsviser Messe', en: 'Previewing Exhibition',
@@ -124,7 +112,6 @@ const ENTRIES: Record<string, Row> = {
     hu: 'Kiállítás előnézet', sv: 'Förhandsvisning av Mässa',
     fr: 'Aperçu du salon', pl: 'Podgląd targów',
     cs: 'Náhled veletrhu',
-    tr: 'Náhled veletrhu',
   },
   mh_disabled: {
     da: 'Messeadgang er ikke aktiv lige nu.', en: 'Exhibition access is currently disabled.',
@@ -132,7 +119,6 @@ const ENTRIES: Record<string, Row> = {
     hu: 'A kiállítási hozzáférés jelenleg nem aktív.', sv: 'Mässåtkomsten är för närvarande inaktiv.',
     fr: 'L’accès au salon est actuellement désactivé.', pl: 'Dostęp do targów jest obecnie wyłączony.',
     cs: 'Přístup na veletrh je momentálně vypnutý.',
-    tr: 'Přístup na veletrh je momentálně vypnutý.',
   },
 };
 
