@@ -177,6 +177,27 @@ describe("dealer profile completion", () => {
     expect(computeDealerProfileSeverity(completeDealer, 0, contacts)).toBe("complete");
   });
 
+  it("uses a complete legacy sales contact identically in list and detail completion", () => {
+    const profile = dealer({
+      email: "info@timan.dk",
+      invoice_email: "invoice@timan.dk",
+      website: "https://timan.dk",
+      latitude: 56.7,
+      longitude: 9.5,
+      sales_contact_name: "Legacy sales",
+      sales_contact_email: "sales@timan.dk",
+      sales_contact_phone: "12345678",
+    });
+    const contacts = [
+      contact("director"), contact("finance"), contact("parts"),
+      contact("workshop"), contact("marketing"),
+    ];
+
+    expect(computeCompletion(profile, contacts).percentage).toBe(100);
+    expect(computeDealerProfileBadge(profile, 0, contacts).missingPercent).toBe(0);
+    expect(computeDealerProfileSeverity(profile, 0, contacts)).toBe("complete");
+  });
+
   it("treats a missing marketing section as the only soft CRM profile gap", () => {
     const profile = dealer({
       email: "info@timan.dk",

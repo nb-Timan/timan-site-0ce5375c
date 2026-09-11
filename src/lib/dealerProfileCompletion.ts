@@ -55,8 +55,15 @@ function salesContactValues(contacts: DealerContact[], d: DealerAccount | null):
     return [contact.role_title ?? "", contact.name ?? "", contact.email ?? "", contact.phone ?? ""];
   }
 
-  // Legacy account fields can show historical data, but not satisfy the canonical role requirement.
-  return ["", d?.sales_contact_name ?? "", d?.sales_contact_email ?? "", d?.sales_contact_phone ?? ""];
+  // A legacy sales-contact record has an implicit sales role. The profile
+  // editor exposes the same record as a temporary contact, so account lists
+  // and detail views must apply the identical completion rule.
+  const legacyValues = [
+    d?.sales_contact_name ?? "",
+    d?.sales_contact_email ?? "",
+    d?.sales_contact_phone ?? "",
+  ];
+  return [legacyValues.some(nonEmpty) ? "sales" : "", ...legacyValues];
 }
 
 /** Required field map per section. Optional fields are excluded from required-count. */
