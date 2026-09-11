@@ -250,10 +250,19 @@ export default function BudgetReferenceModal({
     if (filled.length === 0) {
       // Empty save = wipe every reference row for this cell so the user
       // can clean up over-allocations.
-      try { await deleteBudgetReferencesForCell(cellTarget); } catch { /* */ }
-      toast.message("Reference-fordeling ryddet");
-      onSaved?.();
-      onClose(); return;
+      setBusy(true);
+      try {
+        await deleteBudgetReferencesForCell(cellTarget);
+        toast.message("Reference-fordeling ryddet");
+        onSaved?.();
+        onClose();
+      } catch (err) {
+        console.error(err);
+        toast.error("Kunne ikke gemme reference");
+      } finally {
+        setBusy(false);
+      }
+      return;
     }
     const sum = filled.reduce((s, r) => s + Math.max(0, Math.trunc(r.qty || 0)), 0);
     if (totalAllowed > 0 && sum > totalAllowed) {

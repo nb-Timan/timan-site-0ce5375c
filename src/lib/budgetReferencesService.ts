@@ -2,8 +2,8 @@
  * Budget references — optional context (dealer / contact / lead id / demo id /
  * note) the user can attach when changing a Budget or Arbejdsbudget value.
  *
- * Storage: public.budget_references (Phase 22 SQL). Falls back to localStorage
- * so the UI works in preview without the table.
+ * Storage: public.budget_references. Supabase is canonical; localStorage is
+ * retained only as a read fallback when the remote table is unavailable.
  *
  * Note: References are explanatory metadata only. They never participate in
  * budget / pipeline / order calculations.
@@ -73,9 +73,9 @@ export async function createBudgetReference(input: NewBudgetReference): Promise<
     created_at: new Date().toISOString(),
     ...input,
   };
-  // Local cache first (immediate UI)
-  writeLocal([row, ...readLocal()]);
-  // Supabase insert (best-effort)
+  // A reference is only considered saved after Supabase has confirmed it.
+  // Retain a local copy on failure for preview/offline recovery, but surface
+  // the failure to the caller so it never reports a successful server save.
   try {
     const fullPayload = {
       id: row.id,
@@ -103,26 +103,22 @@ export async function createBudgetReference(input: NewBudgetReference): Promise<
       delta_qty: row.delta_qty,
       reference_group_id: row.reference_group_id,
     };
-    const { error } = await supabase.from("budget_references").insert(fullPayload);
-    if (error) {
-      // If a newer column hasn't been added yet (Phase 46 / Phase 47), retry
-      // without those fields so the insert still succeeds in older envs.
-      const msg = (error.message || "").toLowerCase();
-      const stripped: Record<string, unknown> = { ...fullPayload };
-      if (msg.includes("delta_qty")) delete stripped.delta_qty;
-      if (msg.includes("reference_group_id")) delete stripped.reference_group_id;
-      if (msg.includes("dealer_account_number")) delete stripped.dealer_account_number;
-      if (Object.keys(stripped).length !== Object.keys(fullPayload).length) {
-        const { error: retryErr } = await supabase.from("budget_references").insert(stripped);
-        if (retryErr) notifyLocalFallback({ table: "budget_references", action: "insert", error: retryErr });
-      } else {
-        notifyLocalFallback({ table: "budget_references", action: "insert", error });
-      }
+    const { data, error } = await supabase
+      .from("budget_references")
+      .insert(fullPayload)
+      .select("*")
+      .single();
+    if (!error) {
+      const persisted = { ...row, ...(data as Partial<BudgetReference>) };
+      writeLocal([persisted, ...readLocal().filter((item) => item.id !== persisted.id)]);
+      return persisted;
     }
+    throw error;
   } catch (err) {
+    writeLocal([row, ...readLocal().filter((item) => item.id !== row.id)]);
     notifyLocalFallback({ table: "budget_references", action: "insert", error: err });
+    throw err;
   }
-  return row;
 }
 
 /** Delete every reference row that belongs to the given change group.
@@ -135,9 +131,10 @@ export async function deleteBudgetReferenceGroup(groupId: string): Promise<void>
       .from("budget_references")
       .delete()
       .eq("reference_group_id", groupId);
-    if (error) notifyLocalFallback({ table: "budget_references", action: "delete-group", error });
+    if (error) throw error;
   } catch (err) {
     notifyLocalFallback({ table: "budget_references", action: "delete-group", error: err });
+    throw err;
   }
   try {
     const remaining = readLocal().filter(r => r.reference_group_id !== groupId);
@@ -160,9 +157,10 @@ export async function deleteBudgetReferencesForCell(opts: {
     if (opts.budget_year != null) q = q.eq("budget_year", opts.budget_year);
     if (opts.budget_type) q = q.eq("budget_type", opts.budget_type);
     const { error } = await q;
-    if (error) notifyLocalFallback({ table: "budget_references", action: "delete-cell", error });
+    if (error) throw error;
   } catch (err) {
     notifyLocalFallback({ table: "budget_references", action: "delete-cell", error: err });
+    throw err;
   }
   try {
     const remaining = readLocal().filter(r => {
@@ -180,9 +178,10 @@ export async function deleteBudgetReference(id: string): Promise<void> {
   if (!id) return;
   try {
     const { error } = await supabase.from("budget_references").delete().eq("id", id);
-    if (error) notifyLocalFallback({ table: "budget_references", action: "delete", error });
+    if (error) throw error;
   } catch (err) {
     notifyLocalFallback({ table: "budget_references", action: "delete", error: err });
+    throw err;
   }
   try { writeLocal(readLocal().filter(r => r.id !== id)); } catch { /* */ }
 }
@@ -209,7 +208,7 @@ export async function listBudgetReferences(opts: {
     if (opts.reference_group_id) q = q.eq("reference_group_id", opts.reference_group_id);
     const { data, error } = await q;
     if (error) throw error;
-    if (data && data.length > 0) return data as BudgetReference[];
+    return (data ?? []) as BudgetReference[];
   } catch (err) {
     console.warn("[budget_references.list] supabase failed → local fallback:", err);
   }
