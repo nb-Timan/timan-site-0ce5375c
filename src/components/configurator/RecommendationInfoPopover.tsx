@@ -59,7 +59,7 @@ export function RecommendationInfoPopover({ productId, lang, className }: Props)
   // wider 9-language `L` table directly.
   const legacyLang = mapUiLanguageToLegacy(lang);
   const meta = getRecommendationMeta(productId);
-  const links = getProductSourceLinks(productId);
+  const links = getProductSourceLinks(productId, lang);
   const quote = getQuoteText(productId, legacyLang);
   const pitch = meta ? pickLocalized(meta.shortPitch, legacyLang) : '';
 

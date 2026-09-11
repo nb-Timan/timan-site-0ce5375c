@@ -19,6 +19,7 @@ import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 import MesseModal from '@/components/messe/MesseModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { getProductBrochureUrl } from '@/data/productRecommendationMeta';
 import { PORTAL_LANGUAGE_CODES, portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { t as translate } from '@/lib/i18n/translations';
 import { MESSE_MACHINE_EXTRA_TRANSLATIONS } from '@/lib/i18n/messeMachineTranslations';
@@ -769,6 +770,7 @@ const MACHINE_TECHNICAL_SECTIONS: Record<MachineKey, TechnicalSection[]> = {
 interface MesseMachineBrochurePageProps {
   machineKey: MachineKey;
   title: string;
+  productId?: string;
   pdfSrc?: string;
   pageBase?: string;
   pageCount?: number;
@@ -991,17 +993,21 @@ function BrochureSpreadViewer({
 export default function MesseMachineBrochurePage({
   machineKey,
   title,
+  productId,
   pdfSrc,
   pageBase,
   pageCount,
 }: MesseMachineBrochurePageProps) {
   const { appUser } = useAppUser();
   const { uiLanguage: lang } = useLanguage();
+  const brochurePdfSrc = getProductBrochureUrl(productId ?? machineKey, lang) ?? pdfSrc;
   const [brochureOpen, setBrochureOpen] = useState(false);
   const [dataOpen, setDataOpen] = useState(false);
   const [leftPage, setLeftPage] = useState(1);
   const brochurePageCount = pageCount ?? 0;
-  const hasBrochure = Boolean(pdfSrc && pageBase && brochurePageCount > 0);
+  // Page-image previews only exist for the legacy source PDFs. Localized
+  // brochures still open directly and always follow the active portal language.
+  const hasBrochure = Boolean(brochurePdfSrc === pdfSrc && pageBase && brochurePageCount > 0);
   const [covers, setCovers] = useState<{ frontCover: number; backCover: number }>({
     frontCover: 1,
     backCover: brochurePageCount || 1,
@@ -1273,8 +1279,8 @@ export default function MesseMachineBrochurePage({
                 <div className="text-[10px] uppercase tracking-wide font-bold text-emerald-700">{tr(T.brochure, lang)}</div>
                 <div className="mt-1 text-lg font-bold text-slate-950">{title}</div>
               </button>
-            ) : pdfSrc ? (
-              <a href={pdfSrc} target="_blank" rel="noreferrer" className={documentButtonClass}>
+            ) : brochurePdfSrc ? (
+              <a href={brochurePdfSrc} target="_blank" rel="noreferrer" className={documentButtonClass}>
                 <div className="mb-4 aspect-[4/3] overflow-hidden rounded-xl bg-slate-100 p-4">
                   <div className="flex h-full flex-col items-center justify-center rounded-xl bg-white px-6 text-center ring-1 ring-slate-200 transition-transform duration-300 group-hover:scale-[1.03]">
                     <BookOpen className="mb-3 h-9 w-9 text-emerald-700" />

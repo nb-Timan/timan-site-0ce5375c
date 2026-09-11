@@ -35,6 +35,7 @@
 
 import type { Language } from "@/types/configurator";
 import { PRODUCTS, ACCESSORIES, getMachineById } from "@/data/machines";
+import { normalizePortalLanguageCode } from "@/lib/portalLanguages";
 
 // ─── Enums / vocabularies ───────────────────────────────────────────────────
 // Kept as string-literal unions so we can grep for usages and keep authoring
@@ -101,6 +102,7 @@ export type Season =
   | "all_year";
 
 export type RecommendationPriority = 1 | 2 | 3 | 4 | 5; // 1 = highest
+export type BrochureLanguage = "en" | "de";
 
 /**
  * Coarse functional grouping used for de-duplication in the recommendation
@@ -187,6 +189,8 @@ export interface ProductRecommendationMeta {
   sourceUrl?: string;
   /** PDF brochure / datasheet URL. */
   brochureUrl?: string;
+  /** Localized brochure assets. German is selected only for the DE portal. */
+  brochureAssets?: Partial<Record<BrochureLanguage, string>>;
   /** Primary product image URL (hero shot). */
   imageUrl?: string;
   /** Primary product video URL (YouTube / Vimeo / mp4). */
@@ -255,6 +259,10 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
       en: "Remote-controlled tool carrier for slopes and demanding terrain — one platform for mowing, sweeping and snow clearing.",
     },
     sourceLink: "https://www.youtube.com/watch?v=D-hXvg_oW9s",
+    brochureAssets: {
+      en: "/brochures/rc-1000s-en.pdf",
+      de: "/brochures/rc-1000s-de.pdf",
+    },
   },
 
   "RC-751": {
@@ -283,6 +291,10 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
       da: "Den kompakte RC-751 håndterer skråninger op til 50°, hvor traditionelle maskiner ikke kan arbejde sikkert.",
       en: "The compact RC-751 handles slopes up to 50°, where conventional machines cannot work safely.",
     },
+    brochureAssets: {
+      en: "/brochures/rc-751-en.pdf",
+      de: "/brochures/rc-751-de.pdf",
+    },
   },
 
   "Timan 3330": {
@@ -310,6 +322,10 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
     shortPitch: {
       da: "Alsidig redskabsbærer med komfortabel kabine og hurtige redskabsskift – én maskine til helårsdrift.",
       en: "Versatile tool carrier with a comfortable cab and quick tool changes — one machine for year-round operation.",
+    },
+    brochureAssets: {
+      en: "/brochures/timan-3330-en.pdf",
+      de: "/brochures/timan-3330-de.pdf",
     },
   },
 
@@ -930,15 +946,36 @@ export interface ProductSourceLinks {
 }
 
 /**
+ * Resolve a product brochure for the selected portal language.
+ * DE uses German; every other portal language uses English. A missing German
+ * asset deliberately falls back to the English asset.
+ */
+export function resolveBrochureAsset(
+  assets: Partial<Record<BrochureLanguage, string>>,
+  language?: string | null,
+): string | undefined {
+  return normalizePortalLanguageCode(language) === "de"
+    ? assets.de ?? assets.en
+    : assets.en;
+}
+
+export function getProductBrochureUrl(idOrVarenr: string, language?: string | null): string | undefined {
+  const meta = getRecommendationMeta(idOrVarenr);
+  return meta?.brochureAssets
+    ? resolveBrochureAsset(meta.brochureAssets, language)
+    : meta?.brochureUrl;
+}
+
+/**
  * Get all source/media links for a product. Pulls from metadata first, then
  * falls back to imageUrl/videoUrl already defined in machines.ts. Never throws.
  */
-export function getProductSourceLinks(idOrVarenr: string): ProductSourceLinks {
+export function getProductSourceLinks(idOrVarenr: string, language?: string | null): ProductSourceLinks {
   const meta = getRecommendationMeta(idOrVarenr);
   const raw = resolveMachineLike(idOrVarenr);
 
   const sourceUrl = meta?.sourceUrl ?? meta?.sourceLink ?? undefined;
-  const brochureUrl = meta?.brochureUrl ?? undefined;
+  const brochureUrl = getProductBrochureUrl(idOrVarenr, language);
   const imageUrl = meta?.imageUrl ?? raw?.imageUrl ?? undefined;
   const videoUrl = meta?.videoUrl ?? raw?.videoUrl ?? undefined;
   const documentationUrls = meta?.documentationUrls ?? [];

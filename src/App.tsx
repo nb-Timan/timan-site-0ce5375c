@@ -247,11 +247,11 @@ const App = () => (
               <Route path="/messe/video" element={<MesseRouteGuard><MesseVideoPage /></MesseRouteGuard>} />
               <Route path="/messe/nyt" element={<MesseRouteGuard><MesseNewsPage /></MesseRouteGuard>} />
               <Route path="/messe/follow-up" element={<MesseRouteGuard blockDealerUser><MesseFollowUpPage /></MesseRouteGuard>} />
-              <Route path="/messe/rc-751" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="rc-751" title="Timan RC-751" pdfSrc="/brochures/rc-751-da.pdf" pageBase="/brochures/pages/rc-751" pageCount={13} /></MesseRouteGuard>} />
-              <Route path="/messe/rc-1000s" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="rc-1000s" title="Timan RC-1000s" pdfSrc="/brochures/rc-1000s-da.pdf" pageBase="/brochures/pages/rc-1000s" pageCount={13} /></MesseRouteGuard>} />
+              <Route path="/messe/rc-751" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="rc-751" productId="RC-751" title="Timan RC-751" pdfSrc="/brochures/rc-751-da.pdf" pageBase="/brochures/pages/rc-751" pageCount={13} /></MesseRouteGuard>} />
+              <Route path="/messe/rc-1000s" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="rc-1000s" productId="RC-1000S" title="Timan RC-1000s" pdfSrc="/brochures/rc-1000s-da.pdf" pageBase="/brochures/pages/rc-1000s" pageCount={13} /></MesseRouteGuard>} />
               <Route path="/messe/timan-2620" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="timan-2620" title="Timan 2620" pdfSrc="/brochures/timan-2620-da.pdf" pageBase="/brochures/pages/timan-2620" pageCount={4} /></MesseRouteGuard>} />
               <Route path="/messe/timan-2620/360" element={<MesseRouteGuard><MesseTiman2620Page backTo="/messe/timan-2620" /></MesseRouteGuard>} />
-              <Route path="/messe/timan-3330" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="timan-3330" title="Timan 3330" pdfSrc="/brochures/timan-3330-da.pdf" pageBase="/brochures/pages/timan-3330" pageCount={17} /></MesseRouteGuard>} />
+              <Route path="/messe/timan-3330" element={<MesseRouteGuard><MesseMachineBrochurePage machineKey="timan-3330" productId="Timan 3330" title="Timan 3330" pdfSrc="/brochures/timan-3330-da.pdf" pageBase="/brochures/pages/timan-3330" pageCount={17} /></MesseRouteGuard>} />
               <Route path="/messe/resources/driftberegner" element={<MesseRouteGuard><DriftberegnerPage /></MesseRouteGuard>} />
               <Route path="/messe/resources/co2" element={<MesseRouteGuard><Co2CalculatorPage /></MesseRouteGuard>} />
 
