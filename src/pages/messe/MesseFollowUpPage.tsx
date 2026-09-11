@@ -15,6 +15,7 @@ import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { buildMesseLeadMailRecipients } from '@/lib/messeLeadMail';
+import { messeFormSectionStatusClass } from '@/lib/messeFormStatus';
 import type { CrmLead, CrmLeadAttachment } from '@/lib/crmLeadsService';
 
 type LeadType = 'dealer' | 'customer' | '';
@@ -262,20 +263,18 @@ function RequiredHeading({ children }: { children: React.ReactNode }) {
 function FormSection({
   children,
   error,
+  complete = false,
   forwardedRef,
 }: {
   children: React.ReactNode;
   error?: string;
+  complete?: boolean;
   forwardedRef?: React.RefObject<HTMLElement>;
 }) {
   return (
     <section
       ref={forwardedRef}
-      className={`space-y-3 rounded-xl border p-4 transition sm:p-5 ${
-        error
-          ? 'border-rose-200 bg-rose-50/70'
-          : 'border-slate-200 bg-slate-50/70'
-      }`}
+      className={`space-y-3 rounded-xl border p-4 transition sm:p-5 ${messeFormSectionStatusClass(complete, Boolean(error))}`}
     >
       {children}
     </section>
@@ -879,7 +878,7 @@ export default function MesseFollowUpPage() {
           </section>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <FormSection forwardedRef={countrySectionRef} error={formErrors.country}>
+            <FormSection forwardedRef={countrySectionRef} error={formErrors.country} complete={Boolean(selectedLeadCountry)}>
               <RequiredHeading>{f('country')}</RequiredHeading>
               <SectionError message={formErrors.country} />
               <div className="flex flex-wrap gap-2">
@@ -919,7 +918,7 @@ export default function MesseFollowUpPage() {
               )}
             </FormSection>
 
-            <FormSection forwardedRef={dealerCustomerSectionRef} error={formErrors.dealerCustomer}>
+            <FormSection forwardedRef={dealerCustomerSectionRef} error={formErrors.dealerCustomer} complete={Boolean(leadType)}>
               <RequiredHeading>{f('dealerCustomer')}</RequiredHeading>
               <SectionError message={formErrors.dealerCustomer} />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -944,7 +943,7 @@ export default function MesseFollowUpPage() {
               </div>
             </FormSection>
 
-            <FormSection forwardedRef={customerInfoSectionRef} error={formErrors.customerInfo}>
+            <FormSection forwardedRef={customerInfoSectionRef} error={formErrors.customerInfo} complete={hasCustomerInfo || hasBusinessCard}>
               <RequiredHeading>{f('customerInfo')}</RequiredHeading>
               <SectionError message={formErrors.customerInfo} />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -958,7 +957,7 @@ export default function MesseFollowUpPage() {
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={f('commentPlaceholder')} rows={4} className={`w-full ${fieldClass(false)}`} />
             </FormSection>
 
-            <FormSection forwardedRef={businessCardSectionRef} error={formErrors.businessCard}>
+            <FormSection forwardedRef={businessCardSectionRef} error={formErrors.businessCard} complete={hasBusinessCard || hasCustomerInfo}>
               <label className="text-sm font-bold">
                 {f('businessCard')}
                 <RequiredMark />
@@ -1000,7 +999,7 @@ export default function MesseFollowUpPage() {
               )}
             </FormSection>
 
-            <FormSection forwardedRef={productSectionRef} error={formErrors.product}>
+            <FormSection forwardedRef={productSectionRef} error={formErrors.product} complete={products.length > 0 && hasRequiredEquipment}>
               <RequiredHeading>{f('product')}</RequiredHeading>
               <SectionError message={formErrors.product} />
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -1107,7 +1106,7 @@ export default function MesseFollowUpPage() {
               )}
             </FormSection>
 
-            <FormSection forwardedRef={demoSectionRef} error={formErrors.demo}>
+            <FormSection forwardedRef={demoSectionRef} error={formErrors.demo} complete={Boolean(wantsDemo)}>
               <RequiredHeading>{f('demo')}</RequiredHeading>
               <SectionError message={formErrors.demo} />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1128,7 +1127,7 @@ export default function MesseFollowUpPage() {
                 ))}
               </div>
             </FormSection>
-            <FormSection forwardedRef={responsibleSectionRef} error={formErrors.responsible}>
+            <FormSection forwardedRef={responsibleSectionRef} error={formErrors.responsible} complete={Boolean(responsibleSeller)}>
               <div className="flex items-center justify-between gap-3">
                 <RequiredHeading>{f('responsible')}</RequiredHeading>
                 {loadingData && <Loader2 className="h-4 w-4 animate-spin text-slate-500" />}
