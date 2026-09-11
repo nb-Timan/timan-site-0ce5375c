@@ -98,6 +98,11 @@ const TIMAN_GREEN = '#2d5a27';
 const TIMAN_GOLD = '#c9a227';
 const TIMAN_HQ_COORDS: [number, number] = [56.1986, 8.3032];
 const TIMAN_HQ_ADDRESS = 'Osvald Pedersens Vej 2A-D, 6980 Tim';
+// Esri's reference layer provides zoom-aware country and city labels for its
+// imagery basemap. It stays below Leaflet's marker pane, so partner pins are
+// always rendered above the labels.
+export const SATELLITE_REFERENCE_LABELS_URL =
+  'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
 const CARTO_BASEMAP_KEY = (
   (typeof window !== 'undefined' ? window.__TIMAN_PUBLIC_CONFIG__?.VITE_CARTO_BASEMAP_KEY : undefined) ||
   (import.meta.env.VITE_CARTO_BASEMAP_KEY as string | undefined) ||
@@ -1398,7 +1403,7 @@ export default function PartnerMapPage() {
 
   // Map base layer style — persisted per user in localStorage.
   type MapStyleId = 'standard' | 'satellite' | 'terrain' | 'dark';
-  const MAP_STYLES: Record<MapStyleId, { label: string; url: string; attribution: string; subdomains?: string[]; maxZoom?: number }> = {
+  const MAP_STYLES: Record<MapStyleId, { label: string; url: string; attribution: string; subdomains?: string[]; maxZoom?: number; labelsUrl?: string }> = {
     standard: {
       label: 'Standard',
       url: withCartoBasemapKey('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'),
@@ -1412,6 +1417,7 @@ export default function PartnerMapPage() {
       attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Earthstar Geographics',
       subdomains: ['a','b','c'],
       maxZoom: 19,
+      labelsUrl: SATELLITE_REFERENCE_LABELS_URL,
     },
     terrain: {
       label: 'Terræn',
@@ -2172,6 +2178,15 @@ export default function PartnerMapPage() {
                         url={selectedMapStyle.url}
                         subdomains={selectedMapStyle.subdomains ?? ['a','b','c']}
                         maxZoom={selectedMapStyle.maxZoom}
+                      />
+                    )}
+                    {selectedMapStyle.labelsUrl && (
+                      <TileLayer
+                        key={`${mapStyle}-labels`}
+                        attribution="&copy; Esri"
+                        url={selectedMapStyle.labelsUrl}
+                        maxZoom={selectedMapStyle.maxZoom}
+                        opacity={0.9}
                       />
                     )}
                     <CtrlWheelZoom />
