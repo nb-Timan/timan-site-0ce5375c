@@ -848,14 +848,18 @@ function BrochureSpreadViewer({
   rightPage,
   isSinglePageSpread,
 }: BrochureSpreadViewerProps) {
+  const pageHeight = isSinglePageSpread
+    ? 'h-[76vh] min-h-[620px]'
+    : 'h-[76vh] min-h-[620px] md:h-full md:min-h-0';
+
   return (
     <div className="relative touch-pan-y select-none overflow-hidden rounded-lg bg-white shadow-[0_18px_45px_-20px_rgba(15,23,42,0.65)] ring-1 ring-slate-200">
-      <div className={`relative grid h-[76vh] min-h-[620px] grid-cols-1 ${isSinglePageSpread ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
-        <div className={`relative z-10 flex min-h-0 items-center justify-center bg-white p-2 ${isSinglePageSpread ? '' : 'md:border-r md:border-slate-100'}`}>
+      <div className={`relative grid grid-cols-1 ${isSinglePageSpread ? '' : 'md:h-[76vh] md:min-h-[620px] md:grid-cols-2'}`}>
+        <div className={`relative z-10 flex ${pageHeight} items-center justify-center bg-white p-2 ${isSinglePageSpread ? '' : 'md:border-r md:border-slate-100'}`}>
           <BrochureVirtualPageImage page={currentSpread[0]} pageSrc={pageSrc} title={title} lang={lang} />
         </div>
         {!isSinglePageSpread && (
-          <div className="hidden min-h-0 items-center justify-center bg-white p-2 md:flex">
+          <div className={`flex ${pageHeight} items-center justify-center bg-white p-2`}>
             {rightPage ? (
               <BrochureVirtualPageImage page={rightPage} pageSrc={pageSrc} title={title} lang={lang} />
             ) : (

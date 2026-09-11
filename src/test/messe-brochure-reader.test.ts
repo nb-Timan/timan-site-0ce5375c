@@ -63,5 +63,6 @@ describe('Messe brochure reader', () => {
     expect(componentSource).toContain('className="absolute bottom-8 right-8');
     expect(componentSource).toContain('aspect-[1/1.4142]');
     expect(componentSource).toContain("page.half === 'left' ? 'translateX(0)' : 'translateX(-50%)'");
+    expect(componentSource).not.toContain('hidden min-h-0 items-center justify-center');
   });
 });
