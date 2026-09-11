@@ -280,6 +280,44 @@ const CONTRACT_UI_COPY = {
   cancel: { da: 'Annuller', en: 'Cancel', de: 'Abbrechen' },
   vatNumber: { da: 'CVR/VAT nr.', en: 'VAT no.', de: 'USt-IdNr.' },
   postalCodeFull: { da: 'Postnummer', en: 'Postal code', de: 'Postleitzahl' },
+  notReadyForSignature: { da: 'Ikke klar til underskrift endnu', en: 'Not ready for signature yet', de: 'Noch nicht bereit zur Unterschrift' },
+  completePartiesAndConfirmations: { da: 'Udfyld parterne og bekræft de obligatoriske kontraktafsnit først.', en: 'Complete the parties and confirm the required contract sections first.', de: 'Vervollständigen Sie zuerst die Parteien und bestätigen Sie die erforderlichen Vertragsabschnitte.' },
+  digitalSignature: { da: '{partner} digitale signatur', en: '{partner} digital signature', de: 'Digitales Signaturbild von {partner}' },
+  uploadSignatureImage: { da: 'Upload {partner} signaturbillede', en: 'Upload {partner} signature image', de: 'Signaturbild von {partner} hochladen' },
+  signatureOptional: { da: 'Valgfrit - PNG eller JPG', en: 'Optional - PNG or JPG', de: 'Optional - PNG oder JPG' },
+  contractNumber: { da: 'Kontraktnummer', en: 'Contract number', de: 'Vertragsnummer' },
+  version: { da: 'Version', en: 'Version', de: 'Version' },
+  generateContractForSignature: { da: 'Generér kontrakt til underskrift', en: 'Generate contract for signature', de: 'Vertrag zur Unterschrift erstellen' },
+  pdfGeneratedFromLockedVersion: { da: 'Status: {status}. PDF’en bygges fra den låste kontraktversion, når gennemgangen er afsluttet.', en: 'Status: {status}. The PDF is generated from the locked contract version once the review is complete.', de: 'Status: {status}. Das PDF wird nach Abschluss der Prüfung aus der gesperrten Vertragsversion erstellt.' },
+  uploadSignedContract: { da: 'Upload underskrevet kontrakt', en: 'Upload signed contract', de: 'Unterzeichneten Vertrag hochladen' },
+  combinedPdfUploaded: { da: 'Samlet PDF uploadet.', en: 'Combined PDF uploaded.', de: 'Zusammengeführtes PDF hochgeladen.' },
+  uploadedPages: { da: '{current} af {total} sider uploadet', en: '{current} of {total} pages uploaded', de: '{current} von {total} Seiten hochgeladen' },
+  uploadedFiles: { da: '{current} fil(er) uploadet', en: '{current} file(s) uploaded', de: '{current} Datei(en) hochgeladen' },
+  selectFiles: { da: 'Vælg filer', en: 'Select files', de: 'Dateien auswählen' },
+  timanRequestsNewUpload: { da: 'Timan beder om ny upload', en: 'Timan requests a new upload', de: 'Timan bittet um einen neuen Upload' },
+  page: { da: 'Side {number}', en: 'Page {number}', de: 'Seite {number}' },
+  removeFile: { da: 'Fjern fil', en: 'Remove file', de: 'Datei entfernen' },
+  openPdf: { da: 'Åbn PDF', en: 'Open PDF', de: 'PDF öffnen' },
+  moveUp: { da: 'Op', en: 'Up', de: 'Nach oben' },
+  moveDown: { da: 'Ned', en: 'Down', de: 'Nach unten' },
+  submitForTimanApproval: { da: 'Send til Timan-godkendelse', en: 'Send for Timan approval', de: 'Zur Timan-Genehmigung senden' },
+  sentForTimanApproval: { da: 'Kontrakten er sendt til Timan-godkendelse.', en: 'The contract has been sent for Timan approval.', de: 'Der Vertrag wurde zur Timan-Genehmigung gesendet.' },
+  uploadLockedDuringReview: { da: 'Uploadversionen er låst, mens Timan gennemgår dokumentet.', en: 'The upload version is locked while Timan reviews the document.', de: 'Die Uploadversion ist gesperrt, während Timan das Dokument prüft.' },
+  approvedAndArchived: { da: 'Kontrakten er godkendt og arkiveret.', en: 'The contract has been approved and archived.', de: 'Der Vertrag wurde genehmigt und archiviert.' },
+  approvedUploadCannotOverwrite: { da: 'Den godkendte uploadversion kan ikke overskrives.', en: 'The approved upload version cannot be overwritten.', de: 'Die genehmigte Uploadversion kann nicht überschrieben werden.' },
+  contractStatus: { da: 'Kontraktstatus', en: 'Contract status', de: 'Vertragsstatus' },
+  readyForSignatureHelp: { da: 'Klar til underskrift aktiveres først, når parter og alle obligatoriske bekræftelser er på plads.', en: 'Ready for signature is enabled only when the parties and all required confirmations are complete.', de: 'Bereit zur Unterschrift wird erst aktiviert, wenn die Parteien und alle erforderlichen Bestätigungen vollständig sind.' },
+  completeContract: { da: 'Samlet kontrakt', en: 'Complete contract', de: 'Vollständiger Vertrag' },
+  pdfFromLockedVersion: { da: 'PDF’en bygges fra den låste kontraktversion og samler hovedaftale, relevante bilag og signaturside.', en: 'The PDF is generated from the locked contract version and combines the main agreement, relevant appendices, and signature page.', de: 'Das PDF wird aus der gesperrten Vertragsversion erstellt und fasst Hauptvertrag, relevante Anhänge und Signaturseite zusammen.' },
+  partnerAgreement: { da: 'Timan Partneraftale', en: 'Timan Partner Agreement', de: 'Timan-Partnervereinbarung' },
+  saveDraftForContractNumber: { da: 'Gem kladden for at få kontraktnummer', en: 'Save the draft to receive a contract number', de: 'Speichern Sie den Entwurf, um eine Vertragsnummer zu erhalten' },
+  template: { da: 'Skabelon {version}', en: 'Template {version}', de: 'Vorlage {version}' },
+  finalPdfBlocked: { da: 'The final PDF is blocked until the legal translation has been approved.', en: 'The final PDF is blocked until the legal translation has been approved.', de: 'Das endgültige PDF ist blockiert, bis die rechtliche Übersetzung genehmigt wurde.' },
+  latestPdfGenerated: { da: 'Seneste PDF blev genereret {date}.', en: 'Latest PDF was generated {date}.', de: 'Das letzte PDF wurde am {date} erstellt.' },
+  finalDocument: { da: 'Endelig', en: 'Final', de: 'Endgültig' },
+  draftDocument: { da: 'Udkast', en: 'Draft', de: 'Entwurf' },
+  documentPages: { da: '{count} sider', en: '{count} pages', de: '{count} Seiten' },
+  stepElevenArchiveHelp: { da: 'Generér kontrakten her på Trin 11. Den endelige, private dokumentarkivering aktiveres sammen med database-migrationen.', en: 'Generate the contract here in Step 11. Final private document archiving is enabled together with the database migration.', de: 'Erstellen Sie den Vertrag hier in Schritt 11. Die endgültige private Dokumentarchivierung wird zusammen mit der Datenbankmigration aktiviert.' },
 } as const;
 
 function contractUi(key: keyof typeof CONTRACT_UI_COPY, language: string, values: Record<string, string | number> = {}) {
@@ -3167,7 +3205,7 @@ function ReviewStep({
               {confirmation?.confirmedAt && (
                 <span className="mt-1 block text-xs text-gray-600">
                   {contractUi('confirmedAtBy', uiLanguage, {
-                    date: formatDateTimeDa(confirmation.confirmedAt, uiLanguage),
+                    date: formatContractConfirmationDateTime(confirmation.confirmedAt, uiLanguage),
                     name: confirmation.confirmedBy || '-',
                   })}
                 </span>
@@ -4031,6 +4069,28 @@ function getTerritoryRegionUiText(key: keyof typeof TERRITORY_REGION_UI_LABELS, 
   return labels[language as PortalUiLanguage] ?? labels.en;
 }
 
+function formatContractConfirmationDateTime(value: string, language = 'da') {
+  if (!value) return '';
+  try {
+    const date = new Date(value);
+    const locale = contractDateLocale(language);
+    const datePart = new Intl.DateTimeFormat(locale, language === 'en'
+      ? { day: '2-digit', month: 'short', year: 'numeric' }
+      : { day: '2-digit', month: '2-digit', year: 'numeric' },
+    ).format(date);
+    const timePart = new Intl.DateTimeFormat(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(date);
+    const connector = language === 'de' ? ' um ' : language === 'en' ? ' at ' : ' kl. ';
+    return `${datePart}${connector}${timePart}`;
+  } catch {
+    return value;
+  }
+}
+
 function getTerritoryRegionUiLabels(country: ContractTerritoryArea['country'], language: PortalUiLanguage | string) {
   if (country === 'DK' || country === 'SE') {
     return {
@@ -4485,7 +4545,7 @@ function SignatureStep({
   const hasPdf = uploadedFiles.some((file) => file.mime_type === 'application/pdf');
   const uploadComplete = hasPdf || expectedPages <= 1 || uploadedFiles.length >= expectedPages;
   const canUpload = workflowStatus === 'awaiting_signed_upload' || workflowStatus === 'changes_requested';
-  const partnerTerms = getContractPartnerTerms(form.partnerType) ?? getContractPartnerTerms('dealer')!;
+  const partnerTerms = getContractPartnerTerms(form.partnerType, uiLanguage) ?? getContractPartnerTerms('dealer', uiLanguage)!;
 
   return (
     <div className="space-y-6">
@@ -4501,19 +4561,19 @@ function SignatureStep({
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
           <Lock className="mt-0.5 h-5 w-5" />
           <div>
-            <p className="font-bold">Ikke klar til underskrift endnu</p>
-            <p className="mt-1">Udfyld parterne og bekræft de obligatoriske kontraktafsnit først.</p>
+            <p className="font-bold">{contractUi('notReadyForSignature', uiLanguage)}</p>
+            <p className="mt-1">{contractUi('completePartiesAndConfirmations', uiLanguage)}</p>
           </div>
         </div>
       )}
 
       {!locked && (
         <div>
-          <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">{partnerTerms.possessive} digitale signatur</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-3">{contractUi('digitalSignature', uiLanguage, { partner: partnerTerms.possessive })}</h3>
           <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-center hover:border-amber-300 hover:bg-amber-50">
             <Upload className="h-5 w-5 text-amber-700" />
-            <span className="mt-2 text-sm font-semibold text-gray-800">Upload {partnerTerms.possessive} signaturbillede</span>
-            <span className="mt-1 text-xs text-gray-500">{signatureName || 'Valgfrit - PNG eller JPG'}</span>
+            <span className="mt-2 text-sm font-semibold text-gray-800">{contractUi('uploadSignatureImage', uiLanguage, { partner: partnerTerms.possessive })}</span>
+            <span className="mt-1 text-xs text-gray-500">{signatureName || contractUi('signatureOptional', uiLanguage)}</span>
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp"
@@ -4528,9 +4588,9 @@ function SignatureStep({
       {contract && (
         <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-            <InfoMini label="Kontraktnummer" value={contract.contract_number || contract.id.slice(0, 8)} />
-            <InfoMini label="Version" value={contract.contract_version} />
-            <InfoMini label="Dato" value={formatDateDa(contract.final_snapshot?.contractDate || form.contractDate)} />
+            <InfoMini label={contractUi('contractNumber', uiLanguage)} value={contract.contract_number || contract.id.slice(0, 8)} />
+            <InfoMini label={contractUi('version', uiLanguage)} value={contract.contract_version} />
+            <InfoMini label={contractUi('date', uiLanguage)} value={formatDateDa(contract.final_snapshot?.contractDate || form.contractDate, uiLanguage)} />
             <InfoMini label={contractUi('status', uiLanguage)} value={getContractWorkflowStatusLabel(workflowStatus, uiLanguage)} />
           </div>
         </div>
@@ -4543,22 +4603,22 @@ function SignatureStep({
         className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-gray-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
       >
         <Download className="h-4 w-4" />
-        Generér kontrakt til underskrift
+        {contractUi('generateContractForSignature', uiLanguage)}
       </button>
-      <p className="text-xs text-gray-500">Status: {status}. PDF’en bygges fra den låste kontraktversion, når gennemgangen er afsluttet.</p>
+      <p className="text-xs text-gray-500">{contractUi('pdfGeneratedFromLockedVersion', uiLanguage, { status })}</p>
 
       {canUpload && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-base font-bold text-amber-950">Upload underskrevet kontrakt</h3>
+              <h3 className="text-base font-bold text-amber-950">{contractUi('uploadSignedContract', uiLanguage)}</h3>
               <p className="mt-1 text-sm text-amber-900">
-                {hasPdf ? 'Samlet PDF uploadet.' : expectedPages > 1 ? `${uploadedFiles.length} af ${expectedPages} sider uploadet` : `${uploadedFiles.length} fil(er) uploadet`}
+                {hasPdf ? contractUi('combinedPdfUploaded', uiLanguage) : expectedPages > 1 ? contractUi('uploadedPages', uiLanguage, { current: uploadedFiles.length, total: expectedPages }) : contractUi('uploadedFiles', uiLanguage, { current: uploadedFiles.length })}
               </p>
             </div>
             <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-amber-900 shadow-sm ring-1 ring-amber-200 hover:bg-amber-100">
               <Upload className="h-4 w-4" />
-              Vælg filer
+              {contractUi('selectFiles', uiLanguage)}
               <input
                 type="file"
                 multiple
@@ -4572,7 +4632,7 @@ function SignatureStep({
 
           {workflowStatus === 'changes_requested' && latestSubmittedUploadVersion?.review_comment && (
             <div className="mt-4 rounded-xl border border-red-200 bg-white px-4 py-3 text-sm text-red-900">
-              <p className="font-bold">Timan beder om ny upload</p>
+              <p className="font-bold">{contractUi('timanRequestsNewUpload', uiLanguage)}</p>
               <p className="mt-1">{latestSubmittedUploadVersion.review_comment}</p>
             </div>
           )}
@@ -4584,14 +4644,14 @@ function SignatureStep({
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-bold text-gray-950">{file.file_name}</p>
-                      <p className="mt-1 text-xs text-gray-500">{file.mime_type === 'application/pdf' ? 'PDF' : `Side ${index + 1}`}</p>
+                      <p className="mt-1 text-xs text-gray-500">{file.mime_type === 'application/pdf' ? 'PDF' : contractUi('page', uiLanguage, { number: index + 1 })}</p>
                     </div>
                     <button
                       type="button"
                       onClick={() => onRemoveSignedFile(file)}
                       disabled={uploadBusy}
                       className="rounded-full p-2 text-gray-500 hover:bg-red-50 hover:text-red-700 disabled:opacity-40"
-                      title="Fjern fil"
+                      title={contractUi('removeFile', uiLanguage)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -4601,13 +4661,13 @@ function SignatureStep({
                   )}
                   {file.signed_url && file.mime_type === 'application/pdf' && (
                     <a href={file.signed_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-bold text-amber-800 hover:underline">
-                      Åbn PDF
+                      {contractUi('openPdf', uiLanguage)}
                     </a>
                   )}
                   {!hasPdf && (
                     <div className="mt-3 flex gap-2">
-                      <button type="button" onClick={() => onMoveSignedFile(file, -1)} disabled={index === 0 || uploadBusy} className="rounded-full border border-gray-200 px-3 py-1 text-xs font-bold disabled:opacity-40">Op</button>
-                      <button type="button" onClick={() => onMoveSignedFile(file, 1)} disabled={index === uploadedFiles.length - 1 || uploadBusy} className="rounded-full border border-gray-200 px-3 py-1 text-xs font-bold disabled:opacity-40">Ned</button>
+                      <button type="button" onClick={() => onMoveSignedFile(file, -1)} disabled={index === 0 || uploadBusy} className="rounded-full border border-gray-200 px-3 py-1 text-xs font-bold disabled:opacity-40">{contractUi('moveUp', uiLanguage)}</button>
+                      <button type="button" onClick={() => onMoveSignedFile(file, 1)} disabled={index === uploadedFiles.length - 1 || uploadBusy} className="rounded-full border border-gray-200 px-3 py-1 text-xs font-bold disabled:opacity-40">{contractUi('moveDown', uiLanguage)}</button>
                     </div>
                   )}
                 </div>
@@ -4622,22 +4682,22 @@ function SignatureStep({
             className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gray-950 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300"
           >
             <CheckCircle2 className="h-4 w-4" />
-            Send til Timan-godkendelse
+            {contractUi('submitForTimanApproval', uiLanguage)}
           </button>
         </div>
       )}
 
       {workflowStatus === 'submitted_for_approval' && (
         <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-sm text-blue-950">
-          <p className="font-bold">Kontrakten er sendt til Timan-godkendelse.</p>
-          <p className="mt-1">Uploadversionen er låst, mens Timan gennemgår dokumentet.</p>
+          <p className="font-bold">{contractUi('sentForTimanApproval', uiLanguage)}</p>
+          <p className="mt-1">{contractUi('uploadLockedDuringReview', uiLanguage)}</p>
         </div>
       )}
 
       {(workflowStatus === 'approved' || workflowStatus === 'archived') && latestSubmittedUploadVersion && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-950">
-          <p className="font-bold">Kontrakten er godkendt og arkiveret.</p>
-          <p className="mt-1">Den godkendte uploadversion kan ikke overskrives.</p>
+          <p className="font-bold">{contractUi('approvedAndArchived', uiLanguage)}</p>
+          <p className="mt-1">{contractUi('approvedUploadCannotOverwrite', uiLanguage)}</p>
         </div>
       )}
     </div>
@@ -4951,6 +5011,7 @@ function ContractReviewTopArea({
 }
 
 function ContractStatusCard({ status, readyForSignature }: { status: string; readyForSignature: boolean }) {
+  const { uiLanguage } = useLanguage();
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <div className="flex items-start gap-3">
@@ -4958,10 +5019,10 @@ function ContractStatusCard({ status, readyForSignature }: { status: string; rea
           {readyForSignature ? <Check className="h-5 w-5" /> : <Lock className="h-5 w-5" />}
         </div>
         <div>
-          <h3 className="font-bold text-gray-950">Kontraktstatus</h3>
+          <h3 className="font-bold text-gray-950">{contractUi('contractStatus', uiLanguage)}</h3>
           <p className="mt-1 text-sm font-semibold text-gray-700">{status}</p>
           <p className="mt-2 text-xs leading-5 text-gray-500">
-            Klar til underskrift aktiveres først, når parter og alle obligatoriske bekræftelser er på plads.
+            {contractUi('readyForSignatureHelp', uiLanguage)}
           </p>
         </div>
       </div>
@@ -4970,35 +5031,36 @@ function ContractStatusCard({ status, readyForSignature }: { status: string; rea
 }
 
 function DocumentList({ contract, form, documentVersions }: { contract: DealerContractRecord | null; form: ContractFormData; documentVersions: DealerContractDocumentVersion[] }) {
+  const { uiLanguage } = useLanguage();
   const language = (contract?.final_snapshot?.contractLanguage ?? form.contractLanguage ?? 'da') as ContractDocumentLanguage;
   const readiness = getContractPdfLanguageReadiness(language);
   return (
     <aside className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
       <div className="flex items-center gap-2 mb-4">
         <FileText className="h-5 w-5 text-amber-700" />
-        <h2 className="text-lg font-bold text-gray-900">Samlet kontrakt</h2>
+        <h2 className="text-lg font-bold text-gray-900">{contractUi('completeContract', uiLanguage)}</h2>
       </div>
-      <p className="text-sm text-gray-500">PDF’en bygges fra den låste kontraktversion og samler hovedaftale, relevante bilag og signaturside.</p>
+      <p className="text-sm text-gray-500">{contractUi('pdfFromLockedVersion', uiLanguage)}</p>
       <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 text-sm text-emerald-950">
-        <p className="font-bold">Timan Partneraftale</p>
-        <p className="mt-1">{contract?.contract_number || 'Gem kladden for at få kontraktnummer'}</p>
-        <p className="mt-1 text-xs text-emerald-800">Skabelon {contract?.final_snapshot?.version ?? CONTRACT_PDF_TEMPLATE_VERSION} · {language.toUpperCase()}</p>
+        <p className="font-bold">{contractUi('partnerAgreement', uiLanguage)}</p>
+        <p className="mt-1">{contract?.contract_number || contractUi('saveDraftForContractNumber', uiLanguage)}</p>
+        <p className="mt-1 text-xs text-emerald-800">{contractUi('template', uiLanguage, { version: contract?.final_snapshot?.version ?? CONTRACT_PDF_TEMPLATE_VERSION })} · {language.toUpperCase()}</p>
       </div>
-      {!readiness.productionReady && <p className="mt-3 text-xs leading-5 text-amber-800">{readiness.reason} Final PDF er blokeret, indtil den juridiske oversættelse er godkendt.</p>}
-      {contract?.pdf_generated_at && <p className="mt-3 text-xs text-gray-500">Seneste PDF blev genereret {formatDateTimeDa(contract.pdf_generated_at)}.</p>}
+      {!readiness.productionReady && <p className="mt-3 text-xs leading-5 text-amber-800">{readiness.reason} {contractUi('finalPdfBlocked', uiLanguage)}</p>}
+      {contract?.pdf_generated_at && <p className="mt-3 text-xs text-gray-500">{contractUi('latestPdfGenerated', uiLanguage, { date: formatDateTimeDa(contract.pdf_generated_at, uiLanguage) })}</p>}
       {documentVersions.length > 0 && (
         <div className="mt-4 space-y-2">
           {documentVersions.map((document) => (
             <div key={document.id} className="rounded-xl border border-gray-200 px-3 py-2 text-xs text-gray-700">
-              <p className="font-bold">Version {document.document_version} · {document.document_kind === 'final' ? 'Endelig' : 'Udkast'} · {document.page_count ?? '-'} sider</p>
+              <p className="font-bold">{contractUi('version', uiLanguage)} {document.document_version} · {document.document_kind === 'final' ? contractUi('finalDocument', uiLanguage) : contractUi('draftDocument', uiLanguage)} · {contractUi('documentPages', uiLanguage, { count: document.page_count ?? '-' })}</p>
               <p className="mt-1 truncate text-gray-500">SHA-256: {document.sha256 ?? '-'}</p>
-              {document.signed_url && <a href={document.signed_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex font-bold text-emerald-800 hover:underline">Åbn PDF</a>}
+              {document.signed_url && <a href={document.signed_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex font-bold text-emerald-800 hover:underline">{contractUi('openPdf', uiLanguage)}</a>}
             </div>
           ))}
         </div>
       )}
       <div className="mt-4 rounded-xl border border-dashed border-gray-200 px-4 py-3 text-xs leading-5 text-gray-500">
-        Generér kontrakten her på Trin 11. Den endelige, private dokumentarkivering aktiveres sammen med database-migrationen.
+        {contractUi('stepElevenArchiveHelp', uiLanguage)}
       </div>
     </aside>
   );
