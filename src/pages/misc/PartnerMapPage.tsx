@@ -48,6 +48,23 @@ import timanLogo from '@/assets/timan-logo-transparent-trimmed.png';
 
 type PartnerType = PartnerAccountTypeId;
 
+function isTimanMapUser(portalRole: string | null | undefined): boolean {
+  return portalRole === 'timan_backend' || portalRole === 'timan_seller' || portalRole === 'timan_service';
+}
+
+export function getDefaultPartnerMapTypes(portalRole: string | null | undefined): Set<PartnerType> {
+  const types = new Set<PartnerType>(PARTNER_ACCOUNT_MAP_TYPE_IDS);
+  if (isTimanMapUser(portalRole)) types.delete('supplier');
+  return types;
+}
+
+export function showsWarrantyLayerByDefault(
+  portalRole: string | null | undefined,
+  isPublicMesseMapView: boolean,
+): boolean {
+  return isTimanMapUser(portalRole) && !isPublicMesseMapView;
+}
+
 interface Partner {
   id: string;
   name: string;
@@ -1335,10 +1352,7 @@ export default function PartnerMapPage() {
     isMesseVariantUser(appUser) ||
     isMesseVariantUser(effectiveUser) ||
     (!appUser && onMesseRoute);
-  const isInternalMapRole =
-    portalRole === 'timan_backend' ||
-    portalRole === 'timan_seller' ||
-    portalRole === 'timan_service';
+  const isInternalMapRole = isTimanMapUser(portalRole);
   const canSeeInternalMapFeatures = !isPublicMesseMapView && isInternalMapRole;
   const canOpenCrm = !isPublicMesseMapView && (portalRole === 'timan_backend' || portalRole === 'timan_seller');
   const canSeeAssignedSeller = canOpenCrm;
@@ -1367,7 +1381,7 @@ export default function PartnerMapPage() {
     return (d.initials || '').toUpperCase() || null;
   }, [sellerDir, effectiveUser?.email, appUser]);
   const [search, setSearch] = useState('');
-  const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(new Set(['dealer','service_partner','importer','supplier']));
+  const [activeTypes, setActiveTypes] = useState<Set<PartnerType>>(() => getDefaultPartnerMapTypes(portalRole));
   const [sellerFilter, setSellerFilter] = useState<string>('all');
   // Phase 60 — successor filter. Default: kun aktive forhandlere på kortet.
   const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active');
@@ -1432,12 +1446,21 @@ export default function PartnerMapPage() {
   const [machineMissingAll, setMachineMissingAll] = useState<WarrantyMachineMissing[]>([]);
   // Layer visibility — partners always on; machine layer opt-in (and role-gated).
   const [showPartnerLayer, setShowPartnerLayer] = useState(true);
-  const [showMachineLayer, setShowMachineLayer] = useState(false);
+  const [showMachineLayer, setShowMachineLayer] = useState(() => showsWarrantyLayerByDefault(portalRole, isPublicMesseMapView));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const searchRef = useRef<HTMLInputElement>(null);
+  const appliedMapRoleRef = useRef<string | null>(null);
   const [fitTo, setFitTo] = useState<[number, number][] | null>(null);
+
+  useEffect(() => {
+    const mapRoleKey = `${portalRole ?? 'unknown'}:${isPublicMesseMapView}`;
+    if (appliedMapRoleRef.current === mapRoleKey) return;
+    appliedMapRoleRef.current = mapRoleKey;
+    setActiveTypes(getDefaultPartnerMapTypes(portalRole));
+    setShowMachineLayer(showsWarrantyLayerByDefault(portalRole, isPublicMesseMapView));
+  }, [portalRole, isPublicMesseMapView]);
 
   useEffect(() => {
     let alive = true;
