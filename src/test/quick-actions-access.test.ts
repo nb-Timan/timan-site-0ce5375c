@@ -58,6 +58,7 @@ describe("quick action access", () => {
     const portalPage = readFileSync(join(process.cwd(), "src/pages/PortalPage.tsx"), "utf8");
     const backendHome = readFileSync(join(process.cwd(), "src/components/portal/BackendHome.tsx"), "utf8");
 
+    expect(portalPage).toContain("const realPortalRole = deriveStoredPortalRole(appUser);");
     expect(portalPage).toContain("showAllActions={realPortalRole === 'timan_backend'}");
     expect(portalPage).toContain("showRoleOverview={realPortalRole === 'timan_backend'}");
     expect(backendHome).not.toContain("QuickActions");

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
-import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
+import { derivePortalRole, deriveStoredPortalRole, getUserModuleAccessOverride, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -221,7 +221,7 @@ export default function PortalPage() {
   const academyCapabilityGated = isAcademyCapabilityGated(effectiveUser);
   const configuratorUnlocked = isAcademyCapabilityUnlocked(effectiveUser, 'configurator', academyCompletedCaseIds);
   const configuratorProgress = getAcademyCapabilityProgress('configurator', academyCompletedCaseIds);
-  const realPortalRole = derivePortalRole(appUser);
+  const realPortalRole = deriveStoredPortalRole(appUser);
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   const showMesseCard = (
     realPortalRole === 'timan_backend' ||
