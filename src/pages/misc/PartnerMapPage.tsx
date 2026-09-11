@@ -65,6 +65,10 @@ export function showsWarrantyLayerByDefault(
   return isTimanMapUser(portalRole) && !isPublicMesseMapView;
 }
 
+export function showsPartnerResultList(isMesseMapView: boolean): boolean {
+  return !isMesseMapView;
+}
+
 interface Partner {
   id: string;
   name: string;
@@ -1352,6 +1356,7 @@ export default function PartnerMapPage() {
     isMesseVariantUser(appUser) ||
     isMesseVariantUser(effectiveUser) ||
     (!appUser && onMesseRoute);
+  const isMesseMapView = onMesseRoute || isPublicMesseMapView;
   const isInternalMapRole = isTimanMapUser(portalRole);
   const canSeeInternalMapFeatures = !isPublicMesseMapView && isInternalMapRole;
   const canOpenCrm = !isPublicMesseMapView && (portalRole === 'timan_backend' || portalRole === 'timan_seller');
@@ -2113,37 +2118,41 @@ export default function PartnerMapPage() {
                       )}
 
 
-                      {grouped.length === 0 && (
-                        <div className="p-4 text-xs text-gray-500">{T.noMatches[lang]}</div>
+                      {showsPartnerResultList(isMesseMapView) && (
+                        <>
+                          {grouped.length === 0 && (
+                            <div className="p-4 text-xs text-gray-500">{T.noMatches[lang]}</div>
+                          )}
+                          {grouped.map(({ country, list }) => (
+                            <div key={country} className="border-b border-gray-100">
+                              <div className="sticky top-0 z-10 bg-gray-100/95 backdrop-blur px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 flex items-center justify-between">
+                                <span>{formatCountry(country)}</span>
+                                <span className="text-gray-400">({list.length})</span>
+                              </div>
+                              {list.map((p) => {
+                                const isSel = p.id === selectedId;
+                                return (
+                                  <button
+                                    key={p.id}
+                                    onClick={() => focusPartner(p)}
+                                    className={`w-full text-left px-3 py-2 border-b border-gray-50 hover:bg-white transition-colors flex items-start gap-2 ${isSel ? 'bg-white' : ''}`}
+                                  >
+                                    <span className="mt-1 w-2.5 h-2.5 rounded-full shrink-0" style={{ background: partnerTypeColor(p.type) }} />
+                                    <div className="min-w-0 flex-1">
+                                      <div className={`text-xs font-semibold truncate ${isSel ? 'text-[#2d5a27]' : 'text-gray-900'}`}>{p.name}</div>
+                                      <div className="text-[10px] text-gray-500 truncate">
+                                        {[p.postal, p.city].filter(Boolean).join(' ') || '—'}
+                                        {p.seller ? <span className="ml-1 text-gray-400">· {p.seller}</span> : null}
+                                        {!p.coords ? <span className="ml-1 text-amber-600">{T.noCoords[lang]}</span> : null}
+                                      </div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ))}
+                        </>
                       )}
-                      {grouped.map(({ country, list }) => (
-                        <div key={country} className="border-b border-gray-100">
-                          <div className="sticky top-0 z-10 bg-gray-100/95 backdrop-blur px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 flex items-center justify-between">
-                            <span>{formatCountry(country)}</span>
-                            <span className="text-gray-400">({list.length})</span>
-                          </div>
-                          {list.map((p) => {
-                            const isSel = p.id === selectedId;
-                            return (
-                              <button
-                                key={p.id}
-                                onClick={() => focusPartner(p)}
-                                className={`w-full text-left px-3 py-2 border-b border-gray-50 hover:bg-white transition-colors flex items-start gap-2 ${isSel ? 'bg-white' : ''}`}
-                              >
-                                <span className="mt-1 w-2.5 h-2.5 rounded-full shrink-0" style={{ background: partnerTypeColor(p.type) }} />
-                                <div className="min-w-0 flex-1">
-                                  <div className={`text-xs font-semibold truncate ${isSel ? 'text-[#2d5a27]' : 'text-gray-900'}`}>{p.name}</div>
-                                  <div className="text-[10px] text-gray-500 truncate">
-                                    {[p.postal, p.city].filter(Boolean).join(' ') || '—'}
-                                    {p.seller ? <span className="ml-1 text-gray-400">· {p.seller}</span> : null}
-                                    {!p.coords ? <span className="ml-1 text-amber-600">{T.noCoords[lang]}</span> : null}
-                                  </div>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ))}
                     </div>
                   </div>
                 )}
