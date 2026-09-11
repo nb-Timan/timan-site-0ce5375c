@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveEffectiveQuickActions } from "@/lib/quickActionsAccess";
+import { getDefaultQuickActionRoles, resolveEffectiveQuickActions } from "@/lib/quickActionsAccess";
 import { mergeEffectivePortalUser } from "@/lib/viewAsUser";
 import type { SessionUser } from "@/context/AppUserContext";
 import type { UserView } from "@/lib/activeMode";
@@ -95,5 +95,18 @@ describe("quick action access", () => {
     const effective = mergeEffectivePortalUser(baseBackendUser, target, jtnView);
 
     expect(resolveEffectiveQuickActions(effective)).toEqual(resolveEffectiveQuickActions(target));
+  });
+
+  it("derives Backend's action-role overview from the existing access resolver", () => {
+    expect(getDefaultQuickActionRoles("create_lead")).toEqual([
+      "timan_backend",
+      "timan_seller",
+      "timan_dealer",
+    ]);
+    expect(getDefaultQuickActionRoles("dealer_invoice_accept")).toEqual([
+      "timan_importer",
+      "timan_dealer",
+      "timan_service_partner",
+    ]);
   });
 });

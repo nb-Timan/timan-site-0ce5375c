@@ -6,6 +6,7 @@ import {
   hasModuleAccess,
   type PortalAccessUser,
   type PortalRole,
+  PORTAL_ROLES,
 } from "@/lib/portalAccess";
 
 type QuickActionAccessUser = PortalAccessUser & {
@@ -48,4 +49,22 @@ export function resolveEffectiveQuickActions(user: QuickActionAccessUser | null 
   if (!user) return [];
   const role = derivePortalRole(user);
   return configuredQuickActions(user, role).filter((key) => canOpenQuickAction(user, key));
+}
+
+/** Backend overview only. It derives default roles through the same resolver
+ * that filters every role's visible quick actions. */
+export function getDefaultQuickActionRoles(key: QuickActionKey): PortalRole[] {
+  return PORTAL_ROLES.filter((portalRole) => {
+    const defaultUser: QuickActionAccessUser = {
+      role: "partner",
+      partner_type: null,
+      portal_role: portalRole,
+      module_access: null,
+      allowed_areas: null,
+      allowed_modules: null,
+      quick_actions: DEFAULT_QUICK_ACTIONS[portalRole],
+    };
+
+    return resolveEffectiveQuickActions(defaultUser).includes(key);
+  });
 }

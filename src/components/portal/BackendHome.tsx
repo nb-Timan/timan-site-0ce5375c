@@ -8,8 +8,12 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { backendSections } from "@/lib/backendNavigation";
+import QuickActions from "@/components/portal/QuickActions";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function BackendHome() {
+  const { uiLanguage } = useLanguage();
+
   return (
     <div className="space-y-8">
       <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
@@ -20,6 +24,8 @@ export default function BackendHome() {
           partnerdata, integrationer, analyse og systemværktøjer nemmere at finde.
         </p>
       </section>
+
+      <QuickActions language={uiLanguage} showAllActions showRoleOverview />
 
       <section>
         <div className="mb-5">

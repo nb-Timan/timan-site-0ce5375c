@@ -3,9 +3,9 @@ import { Building2, FileCheck2, FlaskConical, MapPinned, Plus, ShieldCheck, File
 import { useAppUser } from '@/context/AppUserContext';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
-import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey } from '@/lib/portalAccess';
+import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey, PORTAL_ROLE_LABELS, type PortalRole } from '@/lib/portalAccess';
 import { QuickActionKey } from '@/lib/backend-users-store';
-import { resolveEffectiveQuickActions } from '@/lib/quickActionsAccess';
+import { getDefaultQuickActionRoles, resolveEffectiveQuickActions } from '@/lib/quickActionsAccess';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 import { academySandbox } from '@/lib/academySandbox';
@@ -44,11 +44,16 @@ const SERVICE_ACTIONS: Action[] = [
   { labelKey: 'quickActionClaims', to: '/portal/service/claims', icon: FileWarning, requires: 'claims' },
 ];
 
+const ALL_ACTIONS = [...INTERNAL_ACTIONS, ...PARTNER_ACTIONS, ...SERVICE_ACTIONS]
+  .filter((action, index, actions) => actions.findIndex((candidate) => candidate.to === action.to) === index);
+
 interface Props {
   language: PortalUiLanguage;
+  showAllActions?: boolean;
+  showRoleOverview?: boolean;
 }
 
-export default function QuickActions({ language }: Props) {
+export default function QuickActions({ language, showAllActions = false, showRoleOverview = false }: Props) {
   const { appUser } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
   if (!appUser || !effectiveUser) return null;
@@ -59,10 +64,12 @@ export default function QuickActions({ language }: Props) {
   const effectiveRoleKey = portalRole || (effectiveUser.portal_role || '').toLowerCase();
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
 
-  let actions: Action[] = [];
+  let actions: Action[] = showAllActions ? ALL_ACTIONS : [];
   let contextLabel = '';
 
-  if (effectiveRoleKey === 'timan_service') {
+  if (showAllActions) {
+    contextLabel = 'Alle portalroller';
+  } else if (effectiveRoleKey === 'timan_service') {
     actions = SERVICE_ACTIONS;
     contextLabel = t('quickActionsContextService', language);
   } else if (
@@ -84,9 +91,11 @@ export default function QuickActions({ language }: Props) {
     return null;
   }
 
-  const qaAllowed = resolveEffectiveQuickActions(effectiveUser);
-  actions = actions.filter((action) => !action.key || qaAllowed.includes(action.key));
-  actions = actions.filter((a) => a.key || !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
+  if (!showAllActions) {
+    const qaAllowed = resolveEffectiveQuickActions(effectiveUser);
+    actions = actions.filter((action) => !action.key || qaAllowed.includes(action.key));
+    actions = actions.filter((a) => a.key || !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
+  }
 
   if (actions.length === 0) return null;
 
@@ -101,6 +110,11 @@ export default function QuickActions({ language }: Props) {
           const capability = academyCapabilityForAction(key);
           const academyLocked = capability && !isAcademyCapabilityUnlocked(effectiveUser, capability, academySandbox.getCompletedCaseIds());
           const target = academyLocked ? `/academy?locked=${capability}` : to;
+          const activeRoles: PortalRole[] = key
+            ? getDefaultQuickActionRoles(key)
+            : effectiveRoleKey === 'timan_service' || showAllActions
+              ? ['timan_service']
+              : [];
           return (
           <Link
             key={to}
@@ -115,6 +129,11 @@ export default function QuickActions({ language }: Props) {
               {academyLocked && <span className="block text-xs font-medium text-amber-700">Gennemfør Academy for at åbne denne funktion</span>}
               {labelKey === 'quickActionCompanyContactInfo' && (
                 <span className="block text-xs font-medium text-slate-500">{t('quickActionCompanyContactInfoDesc', language)}</span>
+              )}
+              {showRoleOverview && activeRoles.length > 0 && (
+                <span className="mt-1 block text-xs text-slate-500">
+                  Aktiv for: {activeRoles.map((role) => PORTAL_ROLE_LABELS[role].da).join(' · ')}
+                </span>
               )}
             </span>
           </Link>
