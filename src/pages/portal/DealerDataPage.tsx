@@ -15,7 +15,7 @@ import { type DealerAccount } from '@/lib/dealerAccountsService';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { canEditPartnerDataAccount, listPartnerDataDealers } from '@/lib/partnerDataScope';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
-import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
 import LastChangedLine from '@/components/portal/LastChangedLine';
@@ -68,8 +68,8 @@ function toErrorText(error: unknown): string {
 // Phase 52 — full profile editing has moved to DealerProfileEditor.
 
 export default function DealerDataPage() {
-  const { appUser, loading, setAppUser, logout } = useAppUser();
-  const effectiveUser = useEffectivePortalUser(appUser);
+  const { appUser, loading, logout } = useAppUser();
+  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -88,6 +88,11 @@ export default function DealerDataPage() {
 
   useEffect(() => {
     let cancelled = false;
+    if (resolvingEffectiveUser) {
+      setDealer(null);
+      setLoadingData(true);
+      return;
+    }
     if (!dealerNumber || !effectiveUser || !portalRole) {
       setDealer(null);
       setLoadingData(false);
@@ -114,9 +119,9 @@ export default function DealerDataPage() {
     })();
 
     return () => { cancelled = true; };
-  }, [dealerNumber, effectiveUser, portalRole]);
+  }, [dealerNumber, effectiveUser, portalRole, resolvingEffectiveUser]);
 
-  if (loading) {
+  if (loading || resolvingEffectiveUser) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   }
   if (!appUser) return <Navigate to="/portal" replace />;

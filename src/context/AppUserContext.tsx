@@ -53,7 +53,7 @@ interface AppUserContextValue {
 const AppUserContext = createContext<AppUserContextValue | undefined>(undefined);
 
 const STORAGE_KEY = 'timan.appUser';
-const SESSION_CACHE_VERSION = 4;
+const SESSION_CACHE_VERSION = 5;
 
 function readCachedSessionUser(): SessionUser | null {
   try {

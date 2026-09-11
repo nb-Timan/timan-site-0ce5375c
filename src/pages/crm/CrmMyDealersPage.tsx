@@ -31,13 +31,14 @@ import { t as i18n } from "@/lib/i18n/translations";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
-import { useEffectivePortalUser } from "@/lib/viewAsUser";
+import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 import { buildJournalScope } from "@/lib/machineJournalScope";
 import {
   DealerAccount,
   DealerAccountStats,
   fetchDealerAccountStats,
   fetchDealerAccounts,
+  fetchDealerAccountsByNumbers,
   fetchDealerAccountsForSeller,
   groupDealersByParent,
   aggregateGroupStats,
@@ -206,7 +207,7 @@ type CrmMyDealersPageProps = {
 
 export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersPageProps) {
   const { appUser, loading } = useAppUser();
-  const effectiveUser = useEffectivePortalUser(appUser);
+  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const { uiLanguage } = useLanguage();
   const { formatCountry } = useCountryFormatter();
   const navigate = useNavigate();
@@ -305,6 +306,10 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
     if (!appUser) return;
     let cancelled = false;
     (async () => {
+      if (resolvingEffectiveUser) {
+        setLoadingRows(true);
+        return;
+      }
       setLoadingRows(true);
       try {
         const initials = getEffectiveSellerInitials(appUser);
@@ -339,15 +344,15 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
           setAllUsers(uRes.users);
           setError(scopeRes.error ?? null);
         } else if (externalCrm) {
-          const [scopeRes, dRes, sRes, uRes] = await Promise.all([
-            buildJournalScope(effectiveUser, portalRole),
-            fetchDealerAccounts({ includeDeleted: false }),
+          const scopeRes = await buildJournalScope(effectiveUser, portalRole);
+          const scopedDealerNumbers = Array.from(scopeRes.dealerNumbers);
+          const [dRes, sRes, uRes] = await Promise.all([
+            fetchDealerAccountsByNumbers(scopedDealerNumbers),
             fetchDealerAccountStats(),
             fetchBackendUsers(),
           ]);
           if (cancelled) return;
-          const scopedDealerNumbers = Array.from(scopeRes.dealerNumbers);
-          loadedDealers = dRes.rows.filter((d) => isDealerNumberAllowed(d.account_number, scopedDealerNumbers));
+          loadedDealers = dRes.rows;
           setDealers(loadedDealers);
           const map: Record<string, DealerAccountStats> = {};
           for (const s of sRes.rows) map[s.id] = s;
@@ -403,7 +408,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
     // `effectiveUser` is intentionally represented by its stable identity;
     // see `effectiveUserKey` above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appUser, effectiveUserKey, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
+  }, [appUser, effectiveUserKey, resolvingEffectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
 
   // Successor index — must be computed unconditionally before any early return
   // so the number of hooks remains stable across renders.
@@ -412,7 +417,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
     [dealers],
   );
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
+  if (loading || resolvingEffectiveUser) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!admin && !seller && !externalCrm) return <Navigate to="/portal" replace />;
 
