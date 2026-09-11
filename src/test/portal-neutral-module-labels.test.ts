@@ -16,6 +16,7 @@ const MESSE_TITLES: Record<PortalUiLanguage, string> = {
   fr: "Salon",
   pl: "Targi",
   cs: "Veletrh",
+  tr: "Exhibition",
 };
 
 describe("neutral portal module display labels", () => {

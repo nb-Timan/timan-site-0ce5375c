@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { t } from "@/lib/i18n/translations";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
 
-const languages: PortalUiLanguage[] = ["da", "en", "de", "it", "hu", "sv", "fr", "pl", "cs"];
+const languages: PortalUiLanguage[] = ["da", "en", "de", "it", "hu", "sv", "fr", "pl", "cs", "tr"];
 
 const keys = [
   "crmMyDealers",

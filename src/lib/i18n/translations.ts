@@ -4102,6 +4102,9 @@ const cs: Dict = {
 
 export const translations: Record<PortalUiLanguage, Dict> = {
   da, en, de, it, hu, sv, fr, pl, cs,
+  // Turkish uses the portal's canonical English UI fallback until translated
+  // copy is supplied. Product brochures resolve their own TR variant first.
+  tr: en,
 };
 
 /**

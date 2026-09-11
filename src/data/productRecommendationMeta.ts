@@ -102,7 +102,7 @@ export type Season =
   | "all_year";
 
 export type RecommendationPriority = 1 | 2 | 3 | 4 | 5; // 1 = highest
-export type BrochureLanguage = "da" | "de" | "fr" | "cs" | "en";
+export type BrochureLanguage = "da" | "de" | "fr" | "cs" | "tr" | "en";
 
 /**
  * Coarse functional grouping used for de-duplication in the recommendation
@@ -962,7 +962,7 @@ export function resolveBrochureAsset(
   language?: string | null,
 ): string | undefined {
   const normalized = normalizePortalLanguageCode(language);
-  const assetLanguage = normalized === "da" || normalized === "de" || normalized === "fr" || normalized === "cs"
+  const assetLanguage = normalized === "da" || normalized === "de" || normalized === "fr" || normalized === "cs" || normalized === "tr"
     ? normalized
     : "en";
   return assets[assetLanguage] ?? assets.en;
