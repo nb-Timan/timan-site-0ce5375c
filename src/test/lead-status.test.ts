@@ -116,6 +116,20 @@ describe('active lead exclusion after closed', () => {
 });
 
 describe('effectiveLeadProbability', () => {
+  it('lets a canonical sent quote override an incomplete lead fallback', () => {
+    const incompleteLead = lead({
+      next_activity: 'Konfigurator-lead', pipeline_stage: 'Lead', probability: 10,
+      incomplete_from_configurator: true, linked_sales_event: 'quote_sent',
+    });
+    expect(effectiveLeadStatus(incompleteLead)).toBe('Tilbud sendt');
+    expect(effectiveLeadProbability(incompleteLead)).toBe(70);
+    expect(incompleteLead.incomplete_from_configurator).toBe(true);
+  });
+  it('lets a canonical submitted order outrank a sent quote', () => {
+    const orderedLead = lead({ linked_sales_event: 'order_submitted', probability: 10 });
+    expect(effectiveLeadStatus(orderedLead)).toBe('Vundet');
+    expect(effectiveLeadProbability(orderedLead)).toBe(100);
+  });
   it('preserves an explicitly stored probability over the next-activity fallback', () => {
     expect(effectiveLeadProbability(lead({ next_activity: 'Follow-up on leads', probability: 75 }))).toBe(75);
     expect(effectiveLeadProbability(lead({ next_activity: 'Offer sent to the customer', probability: 60 }))).toBe(60);

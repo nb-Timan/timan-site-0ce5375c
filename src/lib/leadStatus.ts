@@ -16,7 +16,11 @@
  * Supabase, they are just *interpreted* through this helper at read time.
  */
 
-import type { CrmLead, PipelineStage } from "@/lib/crmLeadsService";
+import type { CrmLead, CrmLinkedSalesEvent, PipelineStage } from "@/lib/crmLeadsService";
+
+type LeadStatusSource = Pick<CrmLead, "next_activity" | "pipeline_stage" | "probability"> & {
+  linked_sales_event?: CrmLinkedSalesEvent | null;
+};
 
 // ---------- Display buckets (Danish UI labels) ----------
 
@@ -144,14 +148,22 @@ export function isLeadClosed(
 
 /** Single-call helper used by every CRM view. */
 export function effectiveLeadStatus(
-  lead: Pick<CrmLead, "next_activity" | "pipeline_stage">,
+  lead: LeadStatusSource,
 ): LeadDisplayStatus {
-  return nextActivityToLeadStatus(effectiveNextActivity(lead));
+  const ownStatus = nextActivityToLeadStatus(effectiveNextActivity(lead));
+  if (lead.linked_sales_event === "order_submitted") return "Vundet";
+  if (lead.linked_sales_event === "quote_sent") return "Tilbud sendt";
+  return ownStatus;
 }
 
 export function effectiveLeadProbability(
-  lead: Pick<CrmLead, "next_activity" | "pipeline_stage" | "probability">,
+  lead: LeadStatusSource,
 ): number {
+  if (lead.linked_sales_event === "order_submitted") return 100;
+  if (lead.linked_sales_event === "quote_sent") return 70;
+  const ownStatus = nextActivityToLeadStatus(effectiveNextActivity(lead));
+  if (ownStatus === "Vundet") return 100;
+  if (ownStatus === "Tabt") return 0;
   if (typeof lead.probability === "number" && Number.isFinite(lead.probability)) {
     return Math.min(100, Math.max(0, lead.probability));
   }

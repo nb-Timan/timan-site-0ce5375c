@@ -12,9 +12,11 @@ import {
   NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
   CUSTOMER_TYPE_OPTIONS, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   PipelineStage, formatLeadNo,
-  getLeadAttachmentSignedUrl, getLeadAttachmentSignedUrls, getLeadImageAttachments, uploadLeadAttachments, type CrmLeadAttachment,
+  getLeadAttachmentSignedUrl, getLeadAttachmentSignedUrls, getLeadImageAttachments, uploadLeadAttachments, type CrmLeadAttachment, type CrmLinkedSalesEvent,
 } from '@/lib/crmLeadsService';
 import {
+  effectiveLeadProbability,
+  effectiveLeadStatus,
   nextActivityToProbability,
   deriveLegacyPipelineStage,
   NEXT_ACTIVITY_LOST,
@@ -801,6 +803,7 @@ export default function CrmNewLeadPage() {
   const [loadedEstimatedValue, setLoadedEstimatedValue] = useState<string | null>(null);
   const [machineTypesChanged, setMachineTypesChanged] = useState(false);
   const [probability, setProbability] = useState<string>('25');
+  const [linkedSalesEvent, setLinkedSalesEvent] = useState<CrmLinkedSalesEvent | null>(null);
   const [moveToWorking, setMoveToWorking] = useState<string>('');
   const [initialWorkingBudgetQuantity, setInitialWorkingBudgetQuantity] = useState(0);
   const [stage, setStage] = useState<PipelineStage>('Lead');
@@ -929,6 +932,7 @@ export default function CrmNewLeadPage() {
       setNextFollowupChanged(true);
       setMachineTypes(lead.machine_types || []);
       setNextActivity(lead.next_activity || '');
+      setLinkedSalesEvent(lead.linked_sales_event ?? null);
       setDemoHasRun(lead.demo_has_run || 'no');
       setContactType(lead.contact_type || '');
       setCustomerType(lead.customer_type || '');
@@ -1630,6 +1634,21 @@ export default function CrmNewLeadPage() {
                   options={relativeDateQuickOptions}
                 />}
               />
+              {linkedSalesEvent && (
+                <p className="mt-2 text-xs font-medium text-emerald-800">
+                  {lang === 'da' ? 'Aktuel salgsstatus' : 'Current sales status'}: {effectiveLeadStatus({
+                    next_activity: nextActivity,
+                    pipeline_stage: stage,
+                    probability: Number(probability) || null,
+                    linked_sales_event: linkedSalesEvent,
+                  })} · {effectiveLeadProbability({
+                    next_activity: nextActivity,
+                    pipeline_stage: stage,
+                    probability: Number(probability) || null,
+                    linked_sales_event: linkedSalesEvent,
+                  })}%
+                </p>
+              )}
             </div>
           </Section>
 

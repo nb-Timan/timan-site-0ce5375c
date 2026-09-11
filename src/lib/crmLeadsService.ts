@@ -294,9 +294,13 @@ export interface CrmLead {
    *  required CRM fields. Cleared automatically when the lead is saved
    *  through the normal CRM edit form. */
   incomplete_from_configurator?: boolean | null;
+  /** Read-only lifecycle signal derived from scoped configurations. */
+  linked_sales_event?: CrmLinkedSalesEvent | null;
   created_at: string;
   updated_at: string;
 }
+
+export type CrmLinkedSalesEvent = "quote_sent" | "order_submitted";
 
 export interface CrmDemoLead {
   id: string;
@@ -745,13 +749,13 @@ export async function updateLead(
 /** Fetch a single lead by id from local override → supabase → seed. */
 export async function getLead(id: string): Promise<CrmLead | null> {
   const local = readLS<CrmLead>(LS_LEADS).find(r => r.id === id);
-  if (local) return ensureLeadNumbers([local])[0];
+  if (local) return (await attachLinkedSalesEvents(ensureLeadNumbers([local])))[0] || null;
   try {
     const { data } = await supabase.from("crm_leads").select("*").eq("id", id).maybeSingle();
-    if (data) return ensureLeadNumbers([data as unknown as CrmLead])[0];
+    if (data) return (await attachLinkedSalesEvents(ensureLeadNumbers([data as unknown as CrmLead])))[0] || null;
   } catch { /* */ }
   const seeded = seedOpenLeads().find(r => r.id === id);
-  return seeded ? ensureLeadNumbers([seeded])[0] : null;
+  return seeded ? (await attachLinkedSalesEvents(ensureLeadNumbers([seeded])))[0] || null : null;
 }
 
 export interface ListLeadsOpts {
@@ -848,6 +852,50 @@ function numberOrZero(value: unknown): number {
 
 function arrayOrEmpty<T>(value: unknown): T[] {
   return Array.isArray(value) ? value as T[] : [];
+}
+
+/**
+ * Adds the highest lifecycle event from configurations already visible to the
+ * caller. The lead query is scoped before this lookup; this is not a global
+ * client fetch followed by filtering.
+ */
+async function attachLinkedSalesEvents<T extends CrmLead>(rows: T[]): Promise<T[]> {
+  const leadIds = Array.from(new Set(rows.map((row) => row.id).filter(Boolean)));
+  if (leadIds.length === 0) return rows;
+
+  type SalesEventRow = {
+    lead_id: string | null;
+    quote_sent_at: string | null;
+    order_sent_at: string | null;
+    submitted_at: string | null;
+    case_status: string | null;
+  };
+  const selectEvents = (table: "crm_configurations_view" | "configurations") => supabase
+    .from(table)
+    .select("lead_id,quote_sent_at,order_sent_at,submitted_at,case_status")
+    .in("lead_id", leadIds)
+    .or("quote_sent_at.not.is.null,order_sent_at.not.is.null,submitted_at.not.is.null");
+
+  try {
+    let result = await selectEvents("crm_configurations_view");
+    if (result.error) result = await selectEvents("configurations");
+    if (result.error) throw result.error;
+
+    const eventByLeadId = new Map<string, CrmLinkedSalesEvent>();
+    for (const row of (result.data ?? []) as SalesEventRow[]) {
+      if (!row.lead_id || row.case_status?.toLowerCase() === "deleted") continue;
+      const event: CrmLinkedSalesEvent | null = row.order_sent_at || row.submitted_at
+        ? "order_submitted"
+        : row.quote_sent_at ? "quote_sent" : null;
+      if (event && (event === "order_submitted" || !eventByLeadId.has(row.lead_id))) {
+        eventByLeadId.set(row.lead_id, event);
+      }
+    }
+    return rows.map((row) => ({ ...row, linked_sales_event: eventByLeadId.get(row.id) ?? null }));
+  } catch (error) {
+    console.warn("[crm.lead-sales-event] scoped configuration lookup failed", error);
+    return rows;
+  }
 }
 
 function normalizePageResult(payload: unknown): CrmLeadsPageQueryResult {
@@ -955,7 +1003,7 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   const deletedIds = readDeletedIds(LS_DELETED_LEADS);
   supRows = supRows.filter((r) => !deletedIds.has(r.id));
   if (remoteReadOk) {
-    const remoteOnly = ensureLeadNumbers([...supRows]);
+    const remoteOnly = await attachLinkedSalesEvents(ensureLeadNumbers([...supRows]));
     remoteOnly.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
     return remoteOnly.slice(0, limit);
   }
