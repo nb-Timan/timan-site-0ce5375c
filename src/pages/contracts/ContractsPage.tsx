@@ -264,6 +264,7 @@ const CONTRACT_UI_COPY = {
   partnerHasNoContacts: { da: 'Partneren har ingen registrerede kontakter endnu.', en: 'This partner has no registered contacts yet.', de: 'Dieser Partner hat noch keine registrierten Kontakte.' },
   contractLanguage: { da: 'Kontraktsprog', en: 'Contract language', de: 'Vertragssprache' },
   contractLanguageHelp: { da: 'Engelsk og tysk kan først blive endelige, når de juridiske oversættelser er godkendt.', en: 'English and German can only be finalized once the legal translations have been approved.', de: 'Englisch und Deutsch können erst finalisiert werden, wenn die rechtlichen Übersetzungen genehmigt sind.' },
+  sellerPhoneAuto: { da: 'Telefon vises automatisk, hvis den er registreret på brugerprofilen.', en: 'The phone number is shown automatically when it is registered on the user profile.', de: 'Die Telefonnummer wird automatisch angezeigt, wenn sie im Benutzerprofil hinterlegt ist.' },
   associatedPartnersIntro: { da: 'Tilføj forhandlere, servicepartnere eller forhandlerkunder, som skal fremgå af denne kontrakt.', en: 'Add dealers, service partners, or dealer customers that must appear in this contract.', de: 'Fügen Sie Händler, Servicepartner oder Händlerkunden hinzu, die in diesem Vertrag erscheinen sollen.' },
   addAssociatedPartner: { da: 'Tilføj {kind}', en: 'Add {kind}', de: '{kind} hinzufügen' },
   addNewAssociatedPartner: { da: 'Tilføj samarbejdspartner', en: 'Add associated partner', de: 'Zugehörigen Partner hinzufügen' },
@@ -2895,7 +2896,7 @@ function PartiesStep({
               )}
             </div>
             {!form.timanSellerPhone.trim() && (
-              <p className="mt-2 text-xs text-emerald-800/70">Telefon vises automatisk, hvis den er registreret på brugerprofilen.</p>
+              <p className="mt-2 text-xs text-emerald-800/70">{contractUi('sellerPhoneAuto', uiLanguage)}</p>
             )}
           </div>
           <div className="border-t border-emerald-200 pt-4">

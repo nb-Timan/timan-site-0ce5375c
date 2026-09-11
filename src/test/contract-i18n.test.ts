@@ -52,6 +52,9 @@ describe('contract i18n', () => {
     expect(pageSource).toContain("contractUi('postalHelp', uiLanguage)");
     expect(pageSource).toContain("contractUi('addSecondaryTerritory', uiLanguage)");
     expect(pageSource).toContain("contractUi('noAssociatedPartners', uiLanguage)");
+    expect(pageSource).toContain("sellerPhoneAuto: { da: 'Telefon vises automatisk");
+    expect(pageSource).toContain("contractUi('sellerPhoneAuto', uiLanguage)");
+    expect(pageSource).toContain('function formatContractConfirmationDateTime');
     expect(pageSource).not.toContain("Bekræftet {new Date(confirmation.confirmedAt).toLocaleString('da-DK')}");
     expect(pageSource).toContain("postalHelp: { da: 'Angiv mindst ét postnummer");
   });
