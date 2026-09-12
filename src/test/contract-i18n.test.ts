@@ -216,4 +216,36 @@ describe('contract i18n', () => {
       }
     }
   });
+
+  it('renders the complete Step 9 termination content in every supported portal language', () => {
+    const context = { companyName: 'Example Dealer', partnerType: 'dealer' as const };
+    const expected = {
+      da: ['Kontrakt, punkt 11', '11. Varighed og opsigelse'],
+      en: ['Contract, section 11', '11. Duration and termination'],
+      de: ['Vertrag, Punkt 11', '11. Laufzeit und Kündigung'],
+      it: ['Contratto, sezione 11', '11. Durata e risoluzione'],
+      hu: ['Szerződés, 11. pont', '11. Időtartam és felmondás'],
+      sv: ['Avtal, punkt 11', '11. Löptid och uppsägning'],
+      fr: ['Contrat, section 11', '11. Durée et résiliation'],
+      pl: ['Umowa, punkt 11', '11. Okres obowiązywania i wypowiedzenie'],
+      cs: ['Smlouva, bod 11', '11. Doba trvání a ukončení'],
+    } as const;
+    const danishMarkers = [
+      'Denne kontrakt træder i kraft',
+      'Fornyelse af kontrakten sker automatisk',
+      'Ved retslige tvister afgøres dette ved Sø og Handelsretten i Danmark.',
+    ];
+
+    for (const [language, expectedText] of Object.entries(expected)) {
+      const section = renderGuidedContractSections(context, language)
+        .find((entry) => entry.stepId === 'termination');
+      const rendered = JSON.stringify(section);
+
+      expect(section).toBeDefined();
+      for (const text of expectedText) expect(rendered).toContain(text);
+      if (language !== 'da') {
+        for (const marker of danishMarkers) expect(rendered).not.toContain(marker);
+      }
+    }
+  });
 });
