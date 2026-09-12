@@ -766,7 +766,7 @@ function EditUserModal({
             />
           </Section>
 
-          <Section title="Organisation">
+          <Section title="Organisationsadgang">
             {isDealerSideRole(draft.role) ? (
               <>
                 <Select
@@ -777,12 +777,12 @@ function EditUserModal({
                     organization_access_role: v === "collaboration_manager" ? "collaboration_manager" : null,
                   })}
                   options={[
-                    { value: "", label: "Ingen ekstra organisationsadgang" },
+                    { value: "", label: "Standard adgang" },
                     { value: "collaboration_manager", label: "Samarbejdsansvarlig" },
                   ]}
                 />
                 <p className="mt-2 text-[11px] text-slate-500">
-                  Giver kun læse-scope til egen organisation. Moduler styres stadig under Allowed Areas og Allowed Modules.
+                  Kan se det tilladte organisationsscope under egen forhandler. Rollen giver ikke adgang til andre forhandlere eller ekstra portalmoduler.
                 </p>
               </>
             ) : (
