@@ -1561,7 +1561,7 @@ export default function CrmBudgetPage() {
   // Highlight the current calendar month when it belongs to the selected fiscal year.
   // Column 1 is the sticky model name, so nth-child for month M (0-based) is M+2.
   const now = new Date();
-  const currentMonthIdx = fiscalYearForDate(now) === year ? FISCAL_MONTH_ORDER.indexOf(now.getMonth()) : -1;
+  const currentMonthIdx = fiscalYearForDate(now) === year ? FISCAL_MONTH_ORDER.indexOf(now.getMonth() as (typeof FISCAL_MONTH_ORDER)[number]) : -1;
   const currentMonthCol = currentMonthIdx >= 0 ? currentMonthIdx + 2 : -1;
 
   // Resolve countdown context: the seller email whose window matters most.

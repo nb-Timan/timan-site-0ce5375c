@@ -11,7 +11,7 @@ const lead: CrmLead = {
   linked_dealer_id: "10368", first_contact_date: null, expected_close_date: null, next_followup_date: null,
   machine_types: [], next_activity: null, demo_has_run: null, contact_type: null, customer_type: null,
   contact_information: null, trade_fair: null, country: null, notes: null, estimated_value: null,
-  probability: null, pipeline_stage: "followup", lost_competitor: null, lost_reason: null,
+  probability: null, pipeline_stage: "Qualified", lost_competitor: null, lost_reason: null,
   lost_comment: null, attachments: [], status: "Åben", created_at: "2026-09-10T10:00:00.000Z",
   updated_at: "2026-09-10T10:00:00.000Z",
 };

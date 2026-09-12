@@ -346,6 +346,7 @@ function fallbackDealerFromUser(user: SessionUser | null, accountNumber: string)
     customer_type: user.portal_role === "timan_importer" ? "Importer" : user.portal_role === "timan_service_partner" ? "Service Partner" : "Forhandler",
     customer_type_label: user.portal_role === "timan_importer" ? "Importør" : user.portal_role === "timan_service_partner" ? "Servicepartner" : "Forhandler",
     dealer_type: null,
+    payment_terms_override: null,
     country: null,
     postal_code: null,
     city: null,
@@ -471,6 +472,7 @@ function detailUserFromRow(row: Record<string, unknown>): BackendUser {
   const language = String(row.preferred_language || "da").toLowerCase();
   return {
     id: String(row.id),
+    organization_access_role: null,
     initials: initials.toUpperCase().slice(0, 4) || "?",
     name,
     email: String(row.email || ""),
@@ -501,6 +503,7 @@ function detailUserFromRow(row: Record<string, unknown>): BackendUser {
       can_save_configurator_as_lead: false,
       news_manage: false,
       marketing_videos_manage: false,
+      marketing_configurator_manage: false,
       can_view_prices: false,
       can_submit_order: false,
     },

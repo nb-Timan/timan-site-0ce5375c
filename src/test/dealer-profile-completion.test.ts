@@ -12,6 +12,7 @@ function dealer(overrides: Partial<DealerAccount> = {}): DealerAccount {
     customer_type: null,
     customer_type_label: null,
     dealer_type: null,
+    payment_terms_override: null,
     country: "DK",
     postal_code: "9600",
     city: "Aars",
