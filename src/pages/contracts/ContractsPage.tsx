@@ -176,6 +176,12 @@ const CONTRACT_UI_COPY = {
   guidedTitle: { da: 'Guidet forhandlerkontrakt', en: 'Guided dealer contract', de: 'Geführter Händlervertrag' },
   guidedIntro: { da: 'Gennemgå aftalen trin for trin, før den gøres klar til underskrift og PDF.', en: 'Review the agreement step by step before it is prepared for signature and PDF.', de: 'Prüfen Sie den Vertrag Schritt für Schritt, bevor er für Unterschrift und PDF vorbereitet wird.' },
   saveDraft: { da: 'Gem kladde', en: 'Save draft', de: 'Entwurf speichern' },
+  createNewDraft: { da: 'Opret ny kladde', en: 'Create new draft', de: 'Neuen Entwurf erstellen' },
+  createNewDraftHelp: { da: 'Den låste kontrakt bevares uændret. Den nye kladde skal gennemgås og godkendes på ny.', en: 'The locked contract remains unchanged. The new draft must be reviewed and approved again.', de: 'Der gesperrte Vertrag bleibt unverändert. Der neue Entwurf muss erneut geprüft und bestätigt werden.' },
+  historicalContractReadOnly: { da: 'Dette er en låst, historisk kontraktversion. Alle trin kan læses, men ikke redigeres.', en: 'This is a locked historical contract version. All steps can be read but not edited.', de: 'Dies ist eine gesperrte historische Vertragsversion. Alle Schritte können gelesen, aber nicht bearbeitet werden.' },
+  historicalContractMissingPartyData: { da: 'Historiske oplysninger mangler i denne version. Opret en ny kladde for at rette dem.', en: 'Historical details are missing from this version. Create a new draft to correct them.', de: 'In dieser historischen Version fehlen Angaben. Erstellen Sie einen neuen Entwurf, um sie zu korrigieren.' },
+  newDraftCreated: { da: 'Ny kontraktkladde oprettet.', en: 'New contract draft created.', de: 'Neuer Vertragsentwurf erstellt.' },
+  newDraftCouldNotBeCreated: { da: 'Ny kontraktkladde kunne ikke oprettes.', en: 'The new contract draft could not be created.', de: 'Der neue Vertragsentwurf konnte nicht erstellt werden.' },
   stepOf: { da: 'Trin {current} af {total}', en: 'Step {current} of {total}', de: 'Schritt {current} von {total}' },
   step: { da: 'Trin {current}', en: 'Step {current}', de: 'Schritt {current}', it: 'Passaggio {current}', hu: '{current}. lépés', sv: 'Steg {current}', fr: 'Étape {current}', pl: 'Krok {current}', cs: 'Krok {current}' },
   previous: { da: 'Forrige', en: 'Previous', de: 'Zurück', it: 'Indietro', hu: 'Vissza', sv: 'Föregående', fr: 'Précédent', pl: 'Wstecz', cs: 'Předchozí' },
@@ -426,6 +432,12 @@ const CONTRACT_UI_COPY_SUPPLEMENTS = {
   guidedTitle: contractUi6('Contratto rivenditore guidato', 'Vezetett kereskedői szerződés', 'Guidad återförsäljaravtal', 'Contrat revendeur guidé', 'Prowadzona umowa dealerska', 'Průvodce dealerskou smlouvou'),
   guidedIntro: contractUi6('Rivedi l’accordo passo dopo passo prima di prepararlo per firma e PDF.', 'Lépésről lépésre tekintse át a megállapodást, mielőtt aláírásra és PDF-re előkészül.', 'Granska avtalet steg för steg innan det förbereds för signering och PDF.', 'Relisez l’accord étape par étape avant la signature et le PDF.', 'Przejrzyj umowę krok po kroku przed przygotowaniem do podpisu i PDF.', 'Projděte smlouvu krok za krokem před přípravou k podpisu a PDF.'),
   saveDraft: contractUi6('Salva bozza', 'Piszkozat mentése', 'Spara utkast', 'Enregistrer le brouillon', 'Zapisz szkic', 'Uložit koncept'),
+  createNewDraft: contractUi6('Crea nuova bozza', 'Új piszkozat létrehozása', 'Skapa nytt utkast', 'Créer un nouveau brouillon', 'Utwórz nowy szkic', 'Vytvořit nový koncept'),
+  createNewDraftHelp: contractUi6('Il contratto bloccato rimane invariato. La nuova bozza deve essere nuovamente rivista e approvata.', 'A zárolt szerződés változatlan marad. Az új piszkozatot újra át kell tekinteni és jóvá kell hagyni.', 'Det låsta avtalet förblir oförändrat. Det nya utkastet måste granskas och godkännas på nytt.', 'Le contrat verrouillé reste inchangé. Le nouveau brouillon doit être à nouveau examiné et approuvé.', 'Zablokowana umowa pozostaje bez zmian. Nowy szkic musi zostać ponownie sprawdzony i zatwierdzony.', 'Uzamčená smlouva zůstane beze změny. Nový koncept musí být znovu zkontrolován a schválen.'),
+  historicalContractReadOnly: contractUi6('Questa è una versione storica del contratto bloccata. Tutti i passaggi possono essere letti ma non modificati.', 'Ez a szerződés zárolt történeti verziója. Minden lépés olvasható, de nem szerkeszthető.', 'Detta är en låst historisk avtalsversion. Alla steg kan läsas men inte redigeras.', 'Il s’agit d’une version historique verrouillée du contrat. Toutes les étapes peuvent être lues mais pas modifiées.', 'To jest zablokowana historyczna wersja umowy. Wszystkie kroki można odczytać, ale nie można ich edytować.', 'Toto je uzamčená historická verze smlouvy. Všechny kroky lze číst, ale nelze je upravovat.'),
+  historicalContractMissingPartyData: contractUi6('In questa versione mancano dati storici. Crea una nuova bozza per correggerli.', 'Ebben a verzióban hiányoznak történeti adatok. Javításukhoz hozzon létre új piszkozatot.', 'Historiska uppgifter saknas i den här versionen. Skapa ett nytt utkast för att rätta dem.', 'Des informations historiques manquent dans cette version. Créez un nouveau brouillon pour les corriger.', 'W tej wersji brakuje danych historycznych. Utwórz nowy szkic, aby je poprawić.', 'V této verzi chybí historické údaje. Pro jejich opravu vytvořte nový koncept.'),
+  newDraftCreated: contractUi6('Nuova bozza di contratto creata.', 'Új szerződéspiszkozat létrehozva.', 'Nytt avtalsutkast skapat.', 'Nouveau brouillon de contrat créé.', 'Utworzono nowy szkic umowy.', 'Nový koncept smlouvy byl vytvořen.'),
+  newDraftCouldNotBeCreated: contractUi6('Impossibile creare una nuova bozza di contratto.', 'Az új szerződéspiszkozat nem hozható létre.', 'Det nya avtalsutkastet kunde inte skapas.', 'Le nouveau brouillon de contrat n’a pas pu être créé.', 'Nie można utworzyć nowego szkicu umowy.', 'Nový koncept smlouvy se nepodařilo vytvořit.'),
   stepOf: contractUi6('Passaggio {current} di {total}', '{current}. lépés / {total}', 'Steg {current} av {total}', 'Étape {current} sur {total}', 'Krok {current} z {total}', 'Krok {current} z {total}'),
   timanDetails: contractUi6('Dati Timan', 'Timan adatok', 'Timan-uppgifter', 'Informations Timan', 'Dane Timan', 'Údaje Timan'),
   timanSeller: contractUi6('Venditore Timan', 'Timan értékesítő', 'Timan-säljare', 'Vendeur Timan', 'Sprzedawca Timan', 'Prodejce Timan'),
@@ -1185,6 +1197,7 @@ export default function ContractsPage() {
   const [uploadVersions, setUploadVersions] = useState<DealerContractUploadVersion[]>([]);
   const [documentVersions, setDocumentVersions] = useState<DealerContractDocumentVersion[]>([]);
   const [uploadBusy, setUploadBusy] = useState(false);
+  const [newDraftBusy, setNewDraftBusy] = useState(false);
   const [reviewCompletionBusy, setReviewCompletionBusy] = useState(false);
   const [reviewCompletionError, setReviewCompletionError] = useState<string | null>(null);
   const [accessWindow, setAccessWindow] = useState<DealerContractAccessWindow | null>(null);
@@ -1453,6 +1466,7 @@ export default function ContractsPage() {
   const workflowStatus: ContractWorkflowStatus = contractRecord?.contract_status ?? (status === 'Draft' ? 'draft' : status === 'In review' ? 'guided_review' : 'ready_for_signature');
   const workflowStatusLabel = getContractWorkflowStatusLabel(workflowStatus, uiLanguage);
   const isLockedContract = hasReachedContractStatus(workflowStatus, 'ready_for_signature');
+  const isHistoricalReadOnly = isLockedContract;
   const isSigned = workflowStatus === 'approved' || workflowStatus === 'archived';
   const externalGuidedAccessBlocked = !isInternalContractActor
     && !hasActiveAccessWindow
@@ -1470,11 +1484,17 @@ export default function ContractsPage() {
       : true;
   const currentStepConfirmed = currentStepValid
     && (!currentConfirmationId || Boolean(confirmations[currentConfirmationId]?.confirmed));
-  const canAdvanceCurrentStep = activeStep.id === 'full_contract'
+  const canAdvanceCurrentStep = isHistoricalReadOnly || (activeStep.id === 'full_contract'
     ? guidedReviewCompleted
-    : currentStepConfirmed;
+    : currentStepConfirmed);
+  const canCreateNewDraft = isLockedContract
+    && Boolean(contractRecord?.id && activeDealerAccountNumber)
+    && (portalRole === 'timan_backend' || portalRole === 'timan_seller')
+    && hasInternalContractModuleAccess;
 
-  const markDraftChanged = () => setDraftChangeVersion((current) => current + 1);
+  const markDraftChanged = () => {
+    if (!isHistoricalReadOnly) setDraftChangeVersion((current) => current + 1);
+  };
 
   const update = (key: keyof ContractFormData, value: string | null) => {
     setForm((current) => ({ ...current, [key]: value }));
@@ -1725,7 +1745,7 @@ export default function ContractsPage() {
     const createdNewContract = startNewContract && !contractRowId;
     const { row, error } = await saveDealerContractDraft({
       id: contractRowId,
-      draftKey: createdNewContract ? newContractDraftKey : null,
+      draftKey: createdNewContract ? newContractDraftKey : contractRecord?.draft_key ?? null,
       ownerEmail: effectiveUser.email,
       ownerName: effectiveUser.display_name || effectiveUser.email,
       dealerAccountNumber: activeDealerAccountNumber,
@@ -1751,6 +1771,45 @@ export default function ContractsPage() {
       }
     }
     if (options.showToast) toast.success(contractUi('contractDraftSaved', uiLanguage));
+  };
+
+  const createNewDraftFromLockedContract = async () => {
+    if (!canCreateNewDraft || !contractRecord || !effectiveUser?.email || newDraftBusy) return;
+
+    setNewDraftBusy(true);
+    const revisionDraftKey = buildNewDealerContractDraftKey(
+      effectiveUser.email,
+      activeDealerAccountNumber,
+      `revision-${contractRecord.id}-${createNewContractInstanceId()}`,
+    );
+    try {
+      const { row, error } = await saveDealerContractDraft({
+        draftKey: revisionDraftKey,
+        ownerEmail: effectiveUser.email,
+        ownerName: effectiveUser.display_name || effectiveUser.email,
+        dealerAccountNumber: activeDealerAccountNumber,
+        activeStepIndex: 0,
+        form: {
+          ...form,
+          signatureDataUrl: null,
+        },
+        confirmations: EMPTY_CONTRACT_CONFIRMATIONS,
+        status: 'Draft',
+        finalSnapshot: null,
+      });
+
+      if (error || !row) {
+        toast.error(error || contractUi('newDraftCouldNotBeCreated', uiLanguage));
+        return;
+      }
+
+      toast.success(contractUi('newDraftCreated', uiLanguage));
+      navigate(`/portal/contracts/${row.id}`);
+    } catch {
+      toast.error(contractUi('newDraftCouldNotBeCreated', uiLanguage));
+    } finally {
+      setNewDraftBusy(false);
+    }
   };
 
   useEffect(() => {
@@ -1818,6 +1877,10 @@ export default function ContractsPage() {
   };
 
   const goNext = () => {
+    if (isHistoricalReadOnly) {
+      setActiveStepIndex((current) => Math.min(current + 1, CONTRACT_STEPS.length - 1));
+      return;
+    }
     if (activeStep.id === 'full_contract' && !guidedReviewCompleted) {
       toast.error(contractUi('reviewCompletionRequired', uiLanguage));
       return;
@@ -2247,14 +2310,31 @@ export default function ContractsPage() {
                     {contractUi('contractAvailableUntil', uiLanguage, { time: formatDateTimeDa(accessWindow.closes_at, uiLanguage) })}
                   </p>
                 )}
-                <button
-                  type="button"
-                  onClick={saveDraft}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
-                >
-                  <Save className="h-4 w-4" />
-                  {contractUi('saveDraft', uiLanguage)}
-                </button>
+                {isLockedContract ? (
+                  canCreateNewDraft && (
+                    <div className="max-w-sm text-left">
+                      <button
+                        type="button"
+                        onClick={createNewDraftFromLockedContract}
+                        disabled={newDraftBusy}
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+                      >
+                        <Plus className="h-4 w-4" />
+                        {newDraftBusy ? contractUi('saving', uiLanguage) : contractUi('createNewDraft', uiLanguage)}
+                      </button>
+                      <p className="mt-1.5 text-xs leading-5 text-gray-500">{contractUi('createNewDraftHelp', uiLanguage)}</p>
+                    </div>
+                  )
+                ) : (
+                  <button
+                    type="button"
+                    onClick={saveDraft}
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-50"
+                  >
+                    <Save className="h-4 w-4" />
+                    {contractUi('saveDraft', uiLanguage)}
+                  </button>
+                )}
                 {draftSaveError && <p role="alert" className="max-w-sm text-xs font-semibold text-red-700">{draftSaveError}</p>}
               </div>
             </div>
@@ -2274,6 +2354,14 @@ export default function ContractsPage() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
         <div className="grid grid-cols-1 gap-6">
           <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
+            {isHistoricalReadOnly && (
+              <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                <p className="font-bold">{contractUi('historicalContractReadOnly', uiLanguage)}</p>
+                {!hasRequiredPartyData(form) && (
+                  <p className="mt-1">{contractUi('historicalContractMissingPartyData', uiLanguage)}</p>
+                )}
+              </div>
+            )}
             <div ref={contractStepTopRef} className="mb-6 scroll-mt-4">
               <p className="text-sm font-bold uppercase tracking-wide text-amber-700">{contractUi('stepOf', uiLanguage, { current: activeStepIndex + 1, total: CONTRACT_STEPS.length })}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -2374,7 +2462,7 @@ export default function ContractsPage() {
                   readyForSignature={readyForSignature}
                   locked={isLockedContract}
                 />
-                {activeStep.id === 'full_contract' && (
+                {activeStep.id === 'full_contract' && !isHistoricalReadOnly && (
                   <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
                     <p className="text-sm font-bold text-emerald-950">{contractUi('reviewLockReady', uiLanguage)}</p>
                     <p className="mt-1 text-sm text-emerald-900">{contractUi('reviewLockSnapshotHelp', uiLanguage)}</p>

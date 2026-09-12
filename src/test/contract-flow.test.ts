@@ -1389,13 +1389,35 @@ describe('contract flow', () => {
     expect(overviewSource).toContain("onOpenContract={(contractId) => navigate(`/portal/contracts/${contractId}`)}");
     expect(overviewSource).toContain('startNewContract');
     expect(overviewSource).toContain('buildNewDealerContractDraftKey');
-    expect(overviewSource).toContain('draftKey: createdNewContract ? newContractDraftKey : null');
+    expect(overviewSource).toContain('draftKey: createdNewContract ? newContractDraftKey : contractRecord?.draft_key ?? null');
     expect(overviewSource).toContain("navigate(`/portal/contracts/${row.id}`, { replace: true })");
     expect(serviceSource).toContain('input.draftKey?.trim().toLowerCase()');
     expect(serviceSource).not.toContain('.upsert(payload');
     expect(serviceSource).toContain('.insert(payload)');
     expect(serviceSource).toContain('.update(payload)');
     expect(serviceSource).toContain('fetchDealerContractDraftByKey(draftKey)');
+  });
+
+  it('creates an independent revision draft without mutating the locked contract snapshot', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain('const createNewDraftFromLockedContract = async () =>');
+    expect(source).toContain('`revision-${contractRecord.id}-${createNewContractInstanceId()}`');
+    expect(source).toContain('confirmations: EMPTY_CONTRACT_CONFIRMATIONS');
+    expect(source).toContain("status: 'Draft'");
+    expect(source).toContain('finalSnapshot: null');
+    expect(source).toContain('signatureDataUrl: null');
+    expect(source).toContain('draftKey: createdNewContract ? newContractDraftKey : contractRecord?.draft_key ?? null');
+  });
+
+  it('keeps historical locked contracts navigable without edit validation', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain('const isHistoricalReadOnly = isLockedContract;');
+    expect(source).toContain('const canAdvanceCurrentStep = isHistoricalReadOnly ||');
+    expect(source).toContain('if (isHistoricalReadOnly) {');
+    expect(source).toContain("contractUi('historicalContractMissingPartyData', uiLanguage)");
+    expect(source).toContain("activeStep.id === 'full_contract' && !isHistoricalReadOnly");
   });
 
   it('maps workflow statuses to the internal overview groups', () => {
