@@ -74,6 +74,7 @@ import { fetchDealerContacts, type DealerContact } from '@/lib/dealerContactsSer
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import { inviteContractPartnerUser } from '@/lib/adminUserActions';
 import { canAccessContractsModule, derivePortalRole, isBackendActor } from '@/lib/portalAccess';
+import { buildJournalScope } from '@/lib/machineJournalScope';
 import { supabase } from '@/lib/supabase';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getEffectiveSellerEmail, getEffectiveSellerInitials } from '@/lib/activeMode';
@@ -1287,7 +1288,21 @@ export default function ContractsPage() {
           sellerEmail: getEffectiveSellerEmail(appUser) || effectiveUser.email,
           sellerInitials: getEffectiveSellerInitials(appUser) || effectiveUser.initials,
         })
-        : fetchDealerContractById(routeContractIdValue)
+        : isInternalContractActor
+          ? fetchDealerContractById(routeContractIdValue)
+          : (async () => {
+            // View-as retains the Backend JWT, so non-internal sessions must be
+            // narrowed with the same canonical organisation resolver as CRM.
+            const result = await fetchDealerContractById(routeContractIdValue);
+            if (result.error || !result.row) return result;
+
+            const scope = await buildJournalScope(effectiveUser, portalRole);
+            const accountNumber = result.row.dealer_account_number.trim().toLowerCase();
+            if (!scope.unrestricted && !scope.dealerNumbers.has(accountNumber)) {
+              return { row: null, error: 'Du har ikke adgang til denne kontrakt.' };
+            }
+            return result;
+          })()
       : showInternalContractOverview
         ? Promise.resolve({ row: null, error: null })
         : startNewContract
@@ -1330,7 +1345,7 @@ export default function ContractsPage() {
     });
 
     return () => { cancelled = true; };
-  }, [appUser, dealerAccountNumber, effectiveUser?.email, effectiveUser?.initials, portalRole, routeContractIdValue, showInternalContractOverview, startNewContract]);
+  }, [appUser, dealerAccountNumber, effectiveUser, effectiveUser?.email, effectiveUser?.initials, isInternalContractActor, portalRole, routeContractIdValue, showInternalContractOverview, startNewContract]);
 
   useEffect(() => {
     if (!effectiveUser) return;

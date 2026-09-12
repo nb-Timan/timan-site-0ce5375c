@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
 import { canAccessContractsModule } from '@/lib/portalAccess';
 import { dealerMatchesContractSellerScope } from '@/lib/dealerContractsService';
 
@@ -26,5 +27,14 @@ describe('contract seller permissions', () => {
     };
     expect(dealerMatchesContractSellerScope(assignedDealer, { sellerEmail: 'akr@timan.dk' })).toBe(true);
     expect(dealerMatchesContractSellerScope(assignedDealer, { sellerEmail: 'em@timan.dk' })).toBe(false);
+  });
+
+  it('narrows non-internal view-as contract reads with the canonical organisation scope', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain("import { buildJournalScope } from '@/lib/machineJournalScope';");
+    expect(source).toContain('const scope = await buildJournalScope(effectiveUser, portalRole);');
+    expect(source).toContain('!scope.dealerNumbers.has(accountNumber)');
+    expect(source).toContain("error: 'Du har ikke adgang til denne kontrakt.'");
   });
 });
