@@ -5,6 +5,8 @@ import { CrmLeadFollowupFields } from '@/components/crm/CrmLeadFollowupFields';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
+import { convertCurrency, formatMoney, type Currency } from '@/lib/currency';
+import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
@@ -148,7 +150,7 @@ const T: Record<TKey, Record<Language, string>> = {
   lbl_tradefair: { da: 'Messe', en: 'Trade fair', de: 'Messe', it: 'Fiera', hu: 'Vásár' },
   lbl_country:   { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
   lbl_notes:     { da: 'Noter', en: 'Notes', de: 'Notizen', it: 'Note', hu: 'Megjegyzések' },
-  lbl_budget:    { da: 'Budget-estimat (DKK)', en: 'Budget estimate (DKK)', de: 'Budget-Schätzung (DKK)', it: 'Stima budget (DKK)', hu: 'Költségvetés-becslés (DKK)' },
+  lbl_budget:    { da: 'Budget-estimat', en: 'Budget estimate', de: 'Budget-Schätzung', it: 'Stima budget', hu: 'Költségvetés-becslés' },
   lbl_move_work: { da: 'Flyt til arbejdsbudget (stk.)', en: 'Move to working forecast (qty)', de: 'In Arbeitsprognose verschieben (Stk.)', it: 'Sposta in previsione (pz.)', hu: 'Munka-előrejelzésbe (db)' },
   hlp_move_work: { da: 'Hvis > 0 tæller dette lead i Arbejdsbudget på maskine + forventet lukkedato. Påvirker IKKE pipeline.',
                    en: 'If > 0 this lead counts in Working forecast for machine + expected close date. Does NOT affect pipeline.',
@@ -484,15 +486,17 @@ function buildTradeFairValue(name: string, year: string): string | null {
   return `${cleanName} (${year || CURRENT_YEAR})`;
 }
 
-function formatDkkEstimate(value: string): string {
+/** Lead estimates are stored canonically in DKK; only their display follows the portal language. */
+function formatLeadBudgetEstimate(value: string, displayCurrency: Currency): string {
   const amount = Number(value);
   if (!Number.isFinite(amount) || amount <= 0) return '';
-  return `${Math.round(amount).toLocaleString('da-DK')},-`;
+  return formatMoney(convertCurrency(amount, 'DKK', displayCurrency), displayCurrency);
 }
 
-function parseDkkEstimate(value: string): string {
+function parseLeadBudgetEstimate(value: string, displayCurrency: Currency): string {
   const digits = value.replace(/\D/g, '');
-  return digits ? String(Number(digits)) : '';
+  if (!digits) return '';
+  return String(Math.round(convertCurrency(Number(digits), displayCurrency, 'DKK')));
 }
 
 function MultiChip({ options, value, onChange }: { options: readonly string[]; value: string[]; onChange: (v: string[]) => void }) {
@@ -753,6 +757,7 @@ function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): 
 export default function CrmNewLeadPage() {
   const { appUser, loading: authLoading } = useAppUser();
   const { language: lang } = useLanguage();
+  const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
   const { id: editId } = useParams<{ id: string }>();
   const isEdit = !!editId;
@@ -1907,14 +1912,14 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_notes', lang)} full>
               <textarea className={taCls} value={notes} onChange={e=>setNotes(e.target.value)} />
             </Field>
-            <Field label={tt('lbl_budget', lang)}>
+            <Field label={`${tt('lbl_budget', lang)} (${displayCurrency})`}>
               <input
                 type="text"
                 inputMode="numeric"
                 className={inputCls}
-                value={formatDkkEstimate(estimatedValue)}
-                onChange={e=>setEstimatedValue(parseDkkEstimate(e.target.value))}
-                placeholder="0,-"
+                value={formatLeadBudgetEstimate(estimatedValue, displayCurrency)}
+                onChange={e=>setEstimatedValue(parseLeadBudgetEstimate(e.target.value, displayCurrency))}
+                placeholder={formatMoney(0, displayCurrency)}
               />
             </Field>
             <Field label={tt('lbl_move_work', lang).replace(/\s*\([^)]*\)$/, '?')}>
