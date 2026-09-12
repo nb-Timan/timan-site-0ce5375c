@@ -4303,6 +4303,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       <MarketingConfiguratorContentEditor
         item={marketingEditorItem}
         records={marketingEditorRecords}
+        uiLanguage={uiLanguage}
+        priceSourceLanguage={lang}
         onClose={() => setMarketingEditorItem(null)}
         onSaved={(record) => {
           setMarketingEditorRecords((current) => [...current.filter((entry) => entry.id !== record.id), record]);

@@ -6,6 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { MARKETING_BADGE_PRESETS, MarketingConfiguratorBadge, MarketingConfiguratorBadgeOption } from '@/components/configurator/MarketingConfiguratorBadge';
+import { getPrice } from '@/data/machines';
+import { itemNoLabel } from '@/data/translations';
+import { convertCurrency, currencyFromLanguage, formatMoney } from '@/lib/currency';
 import {
   mergeMarketingConfiguratorContent,
   saveMarketingConfiguratorContent,
@@ -14,13 +17,17 @@ import {
   type MarketingConfiguratorContentFields,
   type MarketingConfiguratorContentRecord,
 } from '@/lib/marketingConfiguratorContentService';
-import type { TechSpec } from '@/types/configurator';
+import { usePortalCurrency } from '@/lib/usePortalCurrency';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import type { Language, TechSpec } from '@/types/configurator';
 
 export const MARKETING_BADGE_OPTIONS = ['', ...MARKETING_BADGE_PRESETS.map((option) => option.value), 'Egen tekst'] as const;
 
 type Props = {
   item: MarketingConfiguratorCatalogItem | null;
   records: MarketingConfiguratorContentRecord[];
+  uiLanguage: PortalUiLanguage;
+  priceSourceLanguage: Language;
   onClose: () => void;
   onSaved: (record: MarketingConfiguratorContentRecord) => void;
 };
@@ -41,12 +48,23 @@ function AssetState({ label, published, draft }: { label: string; published: boo
   return <span className={`inline-flex items-center gap-1 text-xs font-medium ${state}`}><Icon className="h-3.5 w-3.5" />{label}</span>;
 }
 
-export default function MarketingConfiguratorContentEditor({ item, records, onClose, onSaved }: Props) {
+export default function MarketingConfiguratorContentEditor({ item, records, uiLanguage, priceSourceLanguage, onClose, onSaved }: Props) {
   const [draft, setDraft] = useState<MarketingConfiguratorContentFields | null>(null);
   const [customBadge, setCustomBadge] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const uploadInput = useRef<HTMLInputElement | null>(null);
+  const displayCurrency = usePortalCurrency();
+  const previewPrice = item
+    ? formatMoney(
+      convertCurrency(
+        getPrice(item.item, priceSourceLanguage),
+        currencyFromLanguage(priceSourceLanguage),
+        displayCurrency,
+      ),
+      displayCurrency,
+    )
+    : '';
 
   useEffect(() => {
     setError(null);
@@ -117,7 +135,25 @@ export default function MarketingConfiguratorContentEditor({ item, records, onCl
               {customBadge && <Field label="Egen badge-tekst"><Input value={draft.badge} onChange={(event) => setDraft({ ...draft, badge: event.target.value })} /></Field>}
               <section className="space-y-2"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-slate-700">Dimensioner & tekniske specifikationer</p><Button type="button" variant="outline" size="sm" onClick={() => setDraft({ ...draft, specs: [...draft.specs, { label: '', value: '' }] })}>Tilføj felt</Button></div>{draft.specs.map((spec, index) => <div key={`${index}-${spec.label}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input value={spec.label} onChange={(event) => updateSpec(index, 'label', event.target.value)} placeholder="Label" /><Input value={typeof spec.value === 'string' ? spec.value : ''} onChange={(event) => updateSpec(index, 'value', event.target.value)} placeholder="Værdi" /><Button type="button" variant="ghost" size="icon" onClick={() => setDraft({ ...draft, specs: draft.specs.filter((_, specIndex) => specIndex !== index) })} aria-label="Fjern felt"><X className="h-4 w-4" /></Button></div>)}</section>
             </div>
-            <aside className="space-y-3 lg:sticky lg:top-0"><p className="text-sm font-semibold text-slate-700">Live preview</p><div className="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">{draft.image_url ? <img src={draft.image_url} alt="Produktpreview" className="aspect-video w-full object-cover" /> : <div className="flex aspect-video items-center justify-center bg-slate-100 text-sm text-slate-500">Intet billede valgt</div>}<div className="space-y-3 p-4"><div className="flex items-start justify-between gap-2"><h3 className="font-semibold text-slate-900">{draft.title || item.defaults.title}</h3><MarketingConfiguratorBadge badge={draft.badge} /></div>{draft.description && <p className="text-sm text-slate-600 whitespace-pre-line">{draft.description}</p>}{draft.key_features.filter(Boolean).length > 0 && <ul className="list-disc space-y-1 pl-4 text-sm text-slate-700">{draft.key_features.filter(Boolean).map((feature, index) => <li key={`${feature}-${index}`}>{feature}</li>)}</ul>}{draft.specs.filter((spec) => spec.label && spec.value).length > 0 && <div className="border-t border-slate-200 pt-3 text-sm">{draft.specs.filter((spec) => spec.label && spec.value).slice(0, 4).map((spec, index) => <div key={`${spec.label}-${index}`} className="flex justify-between gap-3 py-1"><span className="text-slate-500">{spec.label}</span><span className="text-right font-medium text-slate-800">{typeof spec.value === 'string' ? spec.value : ''}</span></div>)}</div>}</div></div></aside>
+            <aside className="space-y-3 lg:sticky lg:top-0">
+              <p className="text-sm font-semibold text-slate-700">Live preview</p>
+              <div className="relative overflow-visible rounded-xl border-2 border-slate-200 bg-white p-5 shadow-sm">
+                {draft.badge && <div className="pointer-events-none absolute -right-2 -top-2 z-10 sm:-right-3 sm:-top-3"><MarketingConfiguratorBadge badge={draft.badge} /></div>}
+                {draft.image_url ? <img src={draft.image_url} alt="Produktpreview" className="mb-4 aspect-video w-full rounded-md object-cover" /> : <div className="mb-4 flex aspect-video items-center justify-center rounded-md bg-slate-100 text-sm text-slate-500">Intet billede valgt</div>}
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-lg text-slate-900">{draft.title || item.defaults.title}</h3>
+                      <p className="mt-1 text-sm text-slate-500">{itemNoLabel(uiLanguage)}: {item.itemNumber}</p>
+                    </div>
+                    <p className="shrink-0 text-right text-2xl font-extrabold text-emerald-600 tabular-nums">{previewPrice}</p>
+                  </div>
+                  {draft.description && <p className="whitespace-pre-line text-sm text-slate-600">{draft.description}</p>}
+                  {draft.key_features.filter(Boolean).length > 0 && <ul className="list-disc space-y-1 pl-4 text-sm text-slate-700">{draft.key_features.filter(Boolean).map((feature, index) => <li key={`${feature}-${index}`}>{feature}</li>)}</ul>}
+                  {draft.specs.filter((spec) => spec.label && spec.value).length > 0 && <div className="border-t border-slate-200 pt-3 text-sm">{draft.specs.filter((spec) => spec.label && spec.value).slice(0, 4).map((spec, index) => <div key={`${spec.label}-${index}`} className="flex justify-between gap-3 py-1"><span className="text-slate-500">{spec.label}</span><span className="text-right font-medium text-slate-800">{typeof spec.value === 'string' ? spec.value : ''}</span></div>)}</div>}
+                </div>
+              </div>
+            </aside>
           </div>
         </div>}
         <DialogFooter className="gap-2 sm:justify-between"><Button type="button" variant="outline" onClick={onClose}><X className="mr-1.5 h-4 w-4" />Annuller</Button><div className="flex gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => void save('draft')}><Save className="mr-1.5 h-4 w-4" />Gem kladde</Button><Button type="button" disabled={saving} onClick={() => void save('published')}><Send className="mr-1.5 h-4 w-4" />Publicér</Button></div></DialogFooter>

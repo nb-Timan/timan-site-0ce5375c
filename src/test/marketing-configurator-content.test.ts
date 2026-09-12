@@ -86,6 +86,11 @@ describe('Marketing configurator content', () => {
     expect(editor).not.toContain('Specifikationslink');
     expect(editor).toContain('Nøglefunktioner');
     expect(editor).toContain('Dimensioner & tekniske specifikationer');
+    expect(editor).toContain('itemNoLabel(uiLanguage)');
+    expect(editor).toContain('getPrice(item.item, priceSourceLanguage)');
+    expect(editor).toContain('text-right text-2xl font-extrabold text-emerald-600');
+    expect(editor).toContain('pointer-events-none absolute -right-2 -top-2 z-10');
+    expect(editor).not.toContain('renderMarketingContentState');
     expect(configurator).toContain('showMarketingInformation');
     expect(configurator).toContain("state === 'missing'");
     expect(configurator).toContain('relative overflow-visible border-2 rounded-xl');
