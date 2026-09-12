@@ -1310,6 +1310,8 @@ const en: Dict = {
 // ---------------------------------------------------------------------------
 const de: Dict = {
   ...en,
+  contractFullTextHeading: 'Der Vertrag',
+  contractFullTextIntro: 'Die vollständige Vereinbarung in der Reihenfolge des endgültigen Vertrags.',
   contractPaymentTermsLabel: 'Zahlungsbedingungen',
   contractPaymentTermsCbsMissing: 'CBS ist ausgewählt, aber im Vertrags-Source-of-Truth liegt noch keine vollständige rechtliche CBS-Formulierung vor.',
   marketingBadgeNew: 'Neu',
@@ -1744,6 +1746,8 @@ const de: Dict = {
 // ---------------------------------------------------------------------------
 const it: Dict = {
   ...en,
+  contractFullTextHeading: 'Il contratto',
+  contractFullTextIntro: 'L’accordo completo nell’ordine utilizzato nel contratto finale.',
   contractPaymentTermsLabel: 'Termini di pagamento',
   contractPaymentTermsCbsMissing: 'È selezionato CBS, ma nel source of truth del contratto non è ancora disponibile una formulazione giuridica CBS completa.',
   marketingBadgeNew: 'Nuovo',
@@ -2156,6 +2160,8 @@ const it: Dict = {
 // ---------------------------------------------------------------------------
 const hu: Dict = {
   ...en,
+  contractFullTextHeading: 'A szerződés',
+  contractFullTextIntro: 'A teljes megállapodás a végleges szerződésben szereplő sorrendben.',
   contractPaymentTermsLabel: 'Fizetési feltételek',
   contractPaymentTermsCbsMissing: 'A CBS ki van választva, de a szerződés hiteles forrásában még nem áll rendelkezésre teljes jogi CBS-szöveg.',
   marketingBadgeNew: 'Új',
@@ -2568,6 +2574,8 @@ const hu: Dict = {
 // ---------------------------------------------------------------------------
 const sv: Dict = {
   ...en,
+  contractFullTextHeading: 'Avtalet',
+  contractFullTextIntro: 'Hela avtalet i den ordning som används i det slutliga avtalet.',
   contractPaymentTermsLabel: 'Betalningsvillkor',
   contractPaymentTermsCbsMissing: 'CBS är valt, men en fullständig juridisk CBS-formulering saknas fortfarande i avtalets källunderlag.',
   marketingBadgeNew: 'Nyhet',
@@ -2981,6 +2989,8 @@ const sv: Dict = {
 // ---------------------------------------------------------------------------
 const fr: Dict = {
   ...en,
+  contractFullTextHeading: 'Le contrat',
+  contractFullTextIntro: 'L’accord complet dans l’ordre utilisé dans le contrat final.',
   contractPaymentTermsLabel: 'Conditions de paiement',
   contractPaymentTermsCbsMissing: 'CBS est sélectionné, mais une formulation juridique CBS complète n’est pas encore disponible dans la source de référence du contrat.',
   marketingBadgeNew: 'Nouveau',
@@ -3394,6 +3404,8 @@ const fr: Dict = {
 // ---------------------------------------------------------------------------
 const pl: Dict = {
   ...en,
+  contractFullTextHeading: 'Umowa',
+  contractFullTextIntro: 'Pełna umowa w kolejności użytej w umowie końcowej.',
   contractPaymentTermsLabel: 'Warunki płatności',
   contractPaymentTermsCbsMissing: 'Wybrano CBS, ale w źródle referencyjnym umowy nie ma jeszcze pełnego prawnego brzmienia CBS.',
   marketingBadgeNew: 'Nowość',
@@ -3807,6 +3819,8 @@ const pl: Dict = {
 // ---------------------------------------------------------------------------
 const cs: Dict = {
   ...en,
+  contractFullTextHeading: 'Smlouva',
+  contractFullTextIntro: 'Úplná smlouva v pořadí použitém v konečné smlouvě.',
   contractPaymentTermsLabel: 'Platební podmínky',
   contractPaymentTermsCbsMissing: 'Je vybráno CBS, ale ve zdroji pravdy smlouvy zatím není k dispozici úplné právní znění CBS.',
   marketingBadgeNew: 'Novinka',

@@ -175,13 +175,13 @@ const CONTRACT_UI_COPY = {
   guidedIntro: { da: 'Gennemgå aftalen trin for trin, før den gøres klar til underskrift og PDF.', en: 'Review the agreement step by step before it is prepared for signature and PDF.', de: 'Prüfen Sie den Vertrag Schritt für Schritt, bevor er für Unterschrift und PDF vorbereitet wird.' },
   saveDraft: { da: 'Gem kladde', en: 'Save draft', de: 'Entwurf speichern' },
   stepOf: { da: 'Trin {current} af {total}', en: 'Step {current} of {total}', de: 'Schritt {current} von {total}' },
-  step: { da: 'Trin {current}', en: 'Step {current}', de: 'Schritt {current}' },
-  previous: { da: 'Forrige', en: 'Previous', de: 'Zurück' },
-  nextStep: { da: 'Næste trin', en: 'Next step', de: 'Nächster Schritt' },
-  finalStep: { da: 'Sidste trin', en: 'Final step', de: 'Letzter Schritt' },
+  step: { da: 'Trin {current}', en: 'Step {current}', de: 'Schritt {current}', it: 'Passaggio {current}', hu: '{current}. lépés', sv: 'Steg {current}', fr: 'Étape {current}', pl: 'Krok {current}', cs: 'Krok {current}' },
+  previous: { da: 'Forrige', en: 'Previous', de: 'Zurück', it: 'Indietro', hu: 'Vissza', sv: 'Föregående', fr: 'Précédent', pl: 'Wstecz', cs: 'Předchozí' },
+  nextStep: { da: 'Næste trin', en: 'Next step', de: 'Nächster Schritt', it: 'Passaggio successivo', hu: 'Következő lépés', sv: 'Nästa steg', fr: 'Étape suivante', pl: 'Następny krok', cs: 'Další krok' },
+  finalStep: { da: 'Sidste trin', en: 'Final step', de: 'Letzter Schritt', it: 'Passaggio finale', hu: 'Utolsó lépés', sv: 'Sista steget', fr: 'Dernière étape', pl: 'Ostatni krok', cs: 'Poslední krok' },
   timanDetails: { da: 'Timan-oplysninger', en: 'Timan details', de: 'Timan-Angaben' },
   timanSeller: { da: 'Timan sælger', en: 'Timan seller', de: 'Timan-Verkäufer' },
-  partner: { da: 'Samarbejdspartner', en: 'Partner', de: 'Partner' },
+  partner: { da: 'Samarbejdspartner', en: 'Partner', de: 'Partner', it: 'Partner', hu: 'Partner', sv: 'Partner', fr: 'Partenaire', pl: 'Partner', cs: 'Partner' },
   partnerManagement: { da: 'Partnerstyring', en: 'Partner management', de: 'Partnerverwaltung' },
   partnerManagementIntro: { da: 'Partnertype, partnerkonto og partneradgang administreres af Timan.', en: 'Partner type, partner account and partner access are managed by Timan.', de: 'Partnertyp, Partnerkonto und Partnerzugang werden von Timan verwaltet.' },
   partnerType: { da: 'Partnertype', en: 'Partner type', de: 'Partnertyp' },
@@ -204,7 +204,7 @@ const CONTRACT_UI_COPY = {
   country: { da: 'Land', en: 'Country', de: 'Land' },
   contactPerson: { da: 'Kontaktperson', en: 'Contact person', de: 'Ansprechperson' },
   title: { da: 'Titel', en: 'Title', de: 'Titel' },
-  date: { da: 'Dato', en: 'Date', de: 'Datum' },
+  date: { da: 'Dato', en: 'Date', de: 'Datum', it: 'Data', hu: 'Dátum', sv: 'Datum', fr: 'Date', pl: 'Data', cs: 'Datum' },
   contactPersonPlaceholder: { da: 'Navn på kontaktperson', en: 'Name of contact person', de: 'Name der Ansprechperson' },
   titlePlaceholder: { da: 'Fx ejer, salgschef eller direktør', en: 'For example owner, sales manager or director', de: 'Zum Beispiel Inhaber, Vertriebsleiter oder Geschäftsführer' },
   lockedContract: { da: 'Kontrakten er underskrevet. Opret en ny kladde, hvis oplysningerne skal ændres.', en: 'The contract is signed. Create a new draft to change the details.', de: 'Der Vertrag ist unterzeichnet. Erstellen Sie einen neuen Entwurf, um Angaben zu ändern.' },
@@ -233,8 +233,8 @@ const CONTRACT_UI_COPY = {
   reviewConfirmed: { da: 'Vi har gennemgået og forstået dette afsnit.', en: 'We have reviewed and understood this section.', de: 'Wir haben diesen Abschnitt geprüft und verstanden.' },
   confirmBeforeNext: { da: 'Bekræft dette afsnit, før du går videre.', en: 'Confirm this section before continuing.', de: 'Bestätigen Sie diesen Abschnitt, bevor Sie fortfahren.', it: 'Conferma questa sezione prima di continuare.', hu: 'A folytatás előtt erősítse meg ezt a szakaszt.', sv: 'Bekräfta detta avsnitt innan du fortsätter.', fr: 'Confirmez cette section avant de continuer.', pl: 'Potwierdź tę sekcję przed kontynuowaniem.', cs: 'Před pokračováním potvrďte tuto část.' },
   confirmedAtBy: { da: 'Bekræftet {date} af {name}', en: 'Confirmed on {date} by {name}', de: 'Bestätigt am {date} von {name}', it: 'Confermato il {date} da {name}', hu: '{name} megerősítette: {date}', sv: 'Bekräftat {date} av {name}', fr: 'Confirmé le {date} par {name}', pl: 'Potwierdzone {date} przez {name}', cs: 'Potvrdil(a) {name}: {date}' },
-  primaryTerritory: { da: 'Primært område', en: 'Primary territory', de: 'Primäres Gebiet' },
-  secondaryTerritory: { da: 'Sekundært område', en: 'Secondary territory', de: 'Sekundäres Gebiet' },
+  primaryTerritory: { da: 'Primært område', en: 'Primary territory', de: 'Primäres Gebiet', it: 'Territorio principale', hu: 'Elsődleges terület', sv: 'Primärt område', fr: 'Territoire principal', pl: 'Obszar podstawowy', cs: 'Primární území' },
+  secondaryTerritory: { da: 'Sekundært område', en: 'Secondary territory', de: 'Sekundäres Gebiet', it: 'Territorio secondario', hu: 'Másodlagos terület', sv: 'Sekundärt område', fr: 'Territoire secondaire', pl: 'Obszar dodatkowy', cs: 'Sekundární území' },
   addSecondaryTerritory: { da: 'Tilføj sekundært område', en: 'Add secondary territory', de: 'Sekundäres Gebiet hinzufügen' },
   primaryTerritoryRequired: { da: 'Primært område er obligatorisk. Vælg hele landet, vælg et område på kortet eller angiv mindst ét gyldigt postnummer/postnummerinterval.', en: 'A primary territory is required. Select a whole country, select an area on the map, or enter at least one valid postal code or postal-code range.', de: 'Ein primäres Gebiet ist erforderlich. Wählen Sie ein ganzes Land, ein Gebiet auf der Karte oder geben Sie mindestens eine gültige Postleitzahl bzw. einen Postleitzahlbereich an.' },
   geographicLevel: { da: 'Geografisk niveau', en: 'Geographic level', de: 'Geografische Ebene' },
@@ -248,13 +248,24 @@ const CONTRACT_UI_COPY = {
   postalHelp: { da: 'Angiv mindst ét postnummer. Du kan tilføje flere felter efter behov.', en: 'Enter at least one postal code. You can add more fields as needed.', de: 'Geben Sie mindestens eine Postleitzahl an. Bei Bedarf können Sie weitere Felder hinzufügen.' },
   addPostalFields: { da: 'Tilføj flere postnumre', en: 'Add more postal codes', de: 'Weitere Postleitzahlen hinzufügen' },
   noAssociatedPartners: { da: 'Ingen tilknyttede samarbejdspartnere er tilføjet.', en: 'No associated partners have been added.', de: 'Es wurden keine zugehörigen Partner hinzugefügt.' },
-  associatedPartners: { da: 'Tilknyttede samarbejdspartnere', en: 'Associated partners', de: 'Zugehörige Partner' },
-  addressNotSpecified: { da: 'Adresse ikke angivet', en: 'Address not specified', de: 'Adresse nicht angegeben' },
-  accountNumber: { da: 'Kontonr. {number}', en: 'Account no. {number}', de: 'Kontonr. {number}' },
-  notActivePartner: { da: 'Ikke oprettet som aktiv partner', en: 'Not created as an active partner', de: 'Nicht als aktiver Partner angelegt' },
-  titleNotSpecified: { da: 'Titel ikke angivet', en: 'Title not specified', de: 'Titel nicht angegeben' },
-  territory: { da: 'Område', en: 'Territory', de: 'Gebiet' },
-  reviewCompletionRequired: { da: 'Afslut og gem kontraktgennemgangen, før du går til underskrift.', en: 'Complete and save the contract review before proceeding to signature.', de: 'Schließen und speichern Sie die Vertragsprüfung, bevor Sie zur Unterschrift weitergehen.' },
+  associatedPartners: { da: 'Tilknyttede samarbejdspartnere', en: 'Associated partners', de: 'Zugehörige Partner', it: 'Partner associati', hu: 'Kapcsolódó partnerek', sv: 'Anslutna partner', fr: 'Partenaires associés', pl: 'Powiązani partnerzy', cs: 'Přidružení partneři' },
+  addressNotSpecified: { da: 'Adresse ikke angivet', en: 'Address not specified', de: 'Adresse nicht angegeben', it: 'Indirizzo non specificato', hu: 'Cím nincs megadva', sv: 'Adress ej angiven', fr: 'Adresse non indiquée', pl: 'Adres nie podano', cs: 'Adresa neuvedena' },
+  accountNumber: { da: 'Kontonr. {number}', en: 'Account no. {number}', de: 'Kontonr. {number}', it: 'N. conto {number}', hu: 'Számlaszám: {number}', sv: 'Kontonr. {number}', fr: 'N° de compte {number}', pl: 'Nr konta {number}', cs: 'Číslo účtu {number}' },
+  notActivePartner: { da: 'Ikke oprettet som aktiv partner', en: 'Not created as an active partner', de: 'Nicht als aktiver Partner angelegt', it: 'Non creato come partner attivo', hu: 'Nincs aktív partnerként létrehozva', sv: 'Inte skapad som aktiv partner', fr: 'Non créé comme partenaire actif', pl: 'Nie utworzono jako aktywnego partnera', cs: 'Není vytvořen jako aktivní partner' },
+  titleNotSpecified: { da: 'Titel ikke angivet', en: 'Title not specified', de: 'Titel nicht angegeben', it: 'Titolo non specificato', hu: 'Nincs megadva a beosztás', sv: 'Titel ej angiven', fr: 'Titre non indiqué', pl: 'Stanowisko nie podano', cs: 'Funkce neuvedena' },
+  territory: { da: 'Område', en: 'Territory', de: 'Gebiet', it: 'Territorio', hu: 'Terület', sv: 'Område', fr: 'Territoire', pl: 'Obszar', cs: 'Území' },
+  reviewCompletionRequired: { da: 'Afslut og gem kontraktgennemgangen, før du går til underskrift.', en: 'Complete and save the contract review before proceeding to signature.', de: 'Schließen und speichern Sie die Vertragsprüfung, bevor Sie zur Unterschrift weitergehen.', it: 'Completa e salva la revisione del contratto prima di procedere alla firma.', hu: 'A szerződés felülvizsgálatát fejezze be és mentse el, mielőtt továbblép az aláíráshoz.', sv: 'Slutför och spara avtalsgranskningen innan du går vidare till signering.', fr: 'Terminez et enregistrez la révision du contrat avant de passer à la signature.', pl: 'Zakończ i zapisz przegląd umowy przed przejściem do podpisu.', cs: 'Dokončete a uložte kontrolu smlouvy před pokračováním k podpisu.' },
+  reviewLockReady: { da: 'Når alt er gennemlæst, kan kontraktversionen låses.', en: 'Once everything has been reviewed, the contract version can be locked.', de: 'Nachdem alles durchgesehen wurde, kann die Vertragsversion gesperrt werden.', it: 'Dopo aver esaminato tutto, la versione del contratto può essere bloccata.', hu: 'Miután mindent átnéztek, a szerződésverzió zárolható.', sv: 'När allt har granskats kan avtalsversionen låsas.', fr: 'Une fois que tout a été relu, la version du contrat peut être verrouillée.', pl: 'Po zapoznaniu się ze wszystkimi treściami można zablokować wersję umowy.', cs: 'Po přečtení všech částí lze verzi smlouvy uzamknout.' },
+  reviewLockSnapshotHelp: { da: 'Herefter bygger PDF og upload på dette faste snapshot.', en: 'The PDF and upload will then use this fixed snapshot.', de: 'PDF und Upload verwenden anschließend diesen festen Snapshot.', it: 'Il PDF e il caricamento useranno quindi questa istantanea fissa.', hu: 'A PDF és a feltöltés ezt a rögzített pillanatképet használja majd.', sv: 'PDF:en och uppladdningen använder sedan denna fasta ögonblicksbild.', fr: 'Le PDF et le téléversement utiliseront ensuite cet instantané figé.', pl: 'PDF i przesyłanie będą następnie korzystać z tej stałej migawki.', cs: 'PDF a nahrávání pak použijí tento pevný snímek.' },
+  reviewComplete: { da: 'Kontraktgennemgang afsluttet', en: 'Contract review complete', de: 'Vertragsprüfung abgeschlossen', it: 'Revisione del contratto completata', hu: 'A szerződés felülvizsgálata befejeződött', sv: 'Avtalsgranskning slutförd', fr: 'Révision du contrat terminée', pl: 'Przegląd umowy zakończony', cs: 'Kontrola smlouvy dokončena' },
+  reviewSaving: { da: 'Gemmer gennemgang...', en: 'Saving review...', de: 'Prüfung wird gespeichert...', it: 'Salvataggio della revisione...', hu: 'Felülvizsgálat mentése...', sv: 'Sparar granskning...', fr: 'Enregistrement de la révision...', pl: 'Zapisywanie przeglądu...', cs: 'Ukládání kontroly...' },
+  completeContractReview: { da: 'Afslut kontraktgennemgang', en: 'Complete contract review', de: 'Vertragsprüfung abschließen', it: 'Completa la revisione del contratto', hu: 'Szerződés-felülvizsgálat befejezése', sv: 'Slutför avtalsgranskning', fr: 'Terminer la révision du contrat', pl: 'Zakończ przegląd umowy', cs: 'Dokončit kontrolu smlouvy' },
+  reviewPrerequisitesRequired: { da: 'Udfyld parterne og bekræft alle kontraktafsnit først.', en: 'Complete the parties and confirm all contract sections first.', de: 'Vervollständigen Sie zuerst die Parteien und bestätigen Sie alle Vertragsabschnitte.', it: 'Completa prima le parti e conferma tutte le sezioni del contratto.', hu: 'Először töltse ki a feleket, és erősítse meg az összes szerződési szakaszt.', sv: 'Fyll först i parterna och bekräfta alla avtalsavsnitt.', fr: 'Complétez d’abord les parties et confirmez toutes les sections du contrat.', pl: 'Najpierw uzupełnij strony i potwierdź wszystkie części umowy.', cs: 'Nejprve vyplňte smluvní strany a potvrďte všechny části smlouvy.' },
+  reviewSaveBeforeLockFailed: { da: 'Kontrakten kunne ikke gemmes før låsning.', en: 'The contract could not be saved before locking.', de: 'Der Vertrag konnte vor dem Sperren nicht gespeichert werden.', it: 'Non è stato possibile salvare il contratto prima del blocco.', hu: 'A szerződést a zárolás előtt nem sikerült menteni.', sv: 'Avtalet kunde inte sparas före låsning.', fr: 'Le contrat n’a pas pu être enregistré avant le verrouillage.', pl: 'Nie udało się zapisać umowy przed zablokowaniem.', cs: 'Smlouvu se před uzamčením nepodařilo uložit.' },
+  reviewCompleteFailed: { da: 'Kontraktgennemgangen kunne ikke afsluttes.', en: 'The contract review could not be completed.', de: 'Die Vertragsprüfung konnte nicht abgeschlossen werden.', it: 'Non è stato possibile completare la revisione del contratto.', hu: 'A szerződés felülvizsgálatát nem sikerült befejezni.', sv: 'Avtalsgranskningen kunde inte slutföras.', fr: 'La révision du contrat n’a pas pu être terminée.', pl: 'Nie udało się zakończyć przeglądu umowy.', cs: 'Kontrolu smlouvy se nepodařilo dokončit.' },
+  reviewCompletedAndLocked: { da: 'Kontraktgennemgangen er afsluttet og låst.', en: 'The contract review is complete and locked.', de: 'Die Vertragsprüfung ist abgeschlossen und gesperrt.', it: 'La revisione del contratto è completata e bloccata.', hu: 'A szerződés felülvizsgálata befejeződött és zárolva van.', sv: 'Avtalsgranskningen är slutförd och låst.', fr: 'La révision du contrat est terminée et verrouillée.', pl: 'Przegląd umowy został zakończony i zablokowany.', cs: 'Kontrola smlouvy je dokončena a uzamčena.' },
+  reviewRequiredBeforePdf: { da: 'Gennemgå og bekræft alle obligatoriske afsnit først.', en: 'Review and confirm all required sections first.', de: 'Prüfen und bestätigen Sie zuerst alle erforderlichen Abschnitte.', it: 'Esamina e conferma prima tutte le sezioni obbligatorie.', hu: 'Először ellenőrizze és erősítse meg az összes kötelező szakaszt.', sv: 'Granska och bekräfta först alla obligatoriska avsnitt.', fr: 'Relisez et confirmez d’abord toutes les sections obligatoires.', pl: 'Najpierw przejrzyj i potwierdź wszystkie wymagane części.', cs: 'Nejprve zkontrolujte a potvrďte všechny povinné části.' },
+  reviewRequiredBeforePdfGeneration: { da: 'Afslut kontraktgennemgangen, før PDF’en genereres.', en: 'Complete the contract review before the PDF is generated.', de: 'Schließen Sie die Vertragsprüfung ab, bevor die PDF erstellt wird.', it: 'Completa la revisione del contratto prima di generare il PDF.', hu: 'A PDF létrehozása előtt fejezze be a szerződés felülvizsgálatát.', sv: 'Slutför avtalsgranskningen innan PDF:en skapas.', fr: 'Terminez la révision du contrat avant de générer le PDF.', pl: 'Zakończ przegląd umowy przed wygenerowaniem pliku PDF.', cs: 'Před vytvořením PDF dokončete kontrolu smlouvy.' },
   primaryTerritoryInvalid: { da: 'Vælg et gyldigt primært område, før du går videre.', en: 'Select a valid primary territory before continuing.', de: 'Wählen Sie ein gültiges primäres Gebiet, bevor Sie fortfahren.' },
   serviceHourlyRateInvalid: { da: 'Angiv en gyldig timetakst for reklamationsarbejde, før du går videre.', en: 'Enter a valid hourly rate for warranty work before continuing.', de: 'Geben Sie einen gültigen Stundensatz für Reklamationsarbeiten an, bevor Sie fortfahren.' },
   partyDataRequired: { da: 'Vælg partnertype og udfyld Timan-sælger samt virksomhedsoplysninger, før du går videre.', en: 'Select a partner type and complete the Timan seller and company details before continuing.', de: 'Wählen Sie einen Partnertyp und vervollständigen Sie die Angaben zum Timan-Verkäufer und Unternehmen, bevor Sie fortfahren.' },
@@ -301,7 +312,7 @@ const CONTRACT_UI_COPY = {
   timanRequestsNewUpload: { da: 'Timan beder om ny upload', en: 'Timan requests a new upload', de: 'Timan bittet um einen neuen Upload' },
   page: { da: 'Side {number}', en: 'Page {number}', de: 'Seite {number}' },
   removeFile: { da: 'Fjern fil', en: 'Remove file', de: 'Datei entfernen' },
-  openPdf: { da: 'Åbn PDF', en: 'Open PDF', de: 'PDF öffnen' },
+  openPdf: { da: 'Åbn PDF', en: 'Open PDF', de: 'PDF öffnen', it: 'Apri PDF', hu: 'PDF megnyitása', sv: 'Öppna PDF', fr: 'Ouvrir le PDF', pl: 'Otwórz PDF', cs: 'Otevřít PDF' },
   moveUp: { da: 'Op', en: 'Up', de: 'Nach oben' },
   moveDown: { da: 'Ned', en: 'Down', de: 'Nach unten' },
   submitForTimanApproval: { da: 'Send til Timan-godkendelse', en: 'Send for Timan approval', de: 'Zur Timan-Genehmigung senden' },
@@ -309,19 +320,19 @@ const CONTRACT_UI_COPY = {
   uploadLockedDuringReview: { da: 'Uploadversionen er låst, mens Timan gennemgår dokumentet.', en: 'The upload version is locked while Timan reviews the document.', de: 'Die Uploadversion ist gesperrt, während Timan das Dokument prüft.' },
   approvedAndArchived: { da: 'Kontrakten er godkendt og arkiveret.', en: 'The contract has been approved and archived.', de: 'Der Vertrag wurde genehmigt und archiviert.' },
   approvedUploadCannotOverwrite: { da: 'Den godkendte uploadversion kan ikke overskrives.', en: 'The approved upload version cannot be overwritten.', de: 'Die genehmigte Uploadversion kann nicht überschrieben werden.' },
-  contractStatus: { da: 'Kontraktstatus', en: 'Contract status', de: 'Vertragsstatus' },
-  readyForSignatureHelp: { da: 'Klar til underskrift aktiveres først, når parter og alle obligatoriske bekræftelser er på plads.', en: 'Ready for signature is enabled only when the parties and all required confirmations are complete.', de: 'Bereit zur Unterschrift wird erst aktiviert, wenn die Parteien und alle erforderlichen Bestätigungen vollständig sind.' },
-  completeContract: { da: 'Samlet kontrakt', en: 'Complete contract', de: 'Vollständiger Vertrag' },
-  pdfFromLockedVersion: { da: 'PDF’en bygges fra den låste kontraktversion og samler hovedaftale, relevante bilag og signaturside.', en: 'The PDF is generated from the locked contract version and combines the main agreement, relevant appendices, and signature page.', de: 'Das PDF wird aus der gesperrten Vertragsversion erstellt und fasst Hauptvertrag, relevante Anhänge und Signaturseite zusammen.' },
-  partnerAgreement: { da: 'Timan Partneraftale', en: 'Timan Partner Agreement', de: 'Timan-Partnervereinbarung' },
-  saveDraftForContractNumber: { da: 'Gem kladden for at få kontraktnummer', en: 'Save the draft to receive a contract number', de: 'Speichern Sie den Entwurf, um eine Vertragsnummer zu erhalten' },
-  template: { da: 'Skabelon {version}', en: 'Template {version}', de: 'Vorlage {version}' },
-  finalPdfBlocked: { da: 'The final PDF is blocked until the legal translation has been approved.', en: 'The final PDF is blocked until the legal translation has been approved.', de: 'Das endgültige PDF ist blockiert, bis die rechtliche Übersetzung genehmigt wurde.' },
-  latestPdfGenerated: { da: 'Seneste PDF blev genereret {date}.', en: 'Latest PDF was generated {date}.', de: 'Das letzte PDF wurde am {date} erstellt.' },
-  finalDocument: { da: 'Endelig', en: 'Final', de: 'Endgültig' },
-  draftDocument: { da: 'Udkast', en: 'Draft', de: 'Entwurf' },
-  documentPages: { da: '{count} sider', en: '{count} pages', de: '{count} Seiten' },
-  stepElevenArchiveHelp: { da: 'Generér kontrakten her på Trin 11. Den endelige, private dokumentarkivering aktiveres sammen med database-migrationen.', en: 'Generate the contract here in Step 11. Final private document archiving is enabled together with the database migration.', de: 'Erstellen Sie den Vertrag hier in Schritt 11. Die endgültige private Dokumentarchivierung wird zusammen mit der Datenbankmigration aktiviert.' },
+  contractStatus: { da: 'Kontraktstatus', en: 'Contract status', de: 'Vertragsstatus', it: 'Stato del contratto', hu: 'Szerződés állapota', sv: 'Avtalsstatus', fr: 'Statut du contrat', pl: 'Status umowy', cs: 'Stav smlouvy' },
+  readyForSignatureHelp: { da: 'Klar til underskrift aktiveres først, når parter og alle obligatoriske bekræftelser er på plads.', en: 'Ready for signature is enabled only when the parties and all required confirmations are complete.', de: 'Bereit zur Unterschrift wird erst aktiviert, wenn die Parteien und alle erforderlichen Bestätigungen vollständig sind.', it: 'Pronto per la firma si attiva solo quando le parti e tutte le conferme obbligatorie sono complete.', hu: 'Az aláírásra kész állapot csak akkor aktiválódik, ha a felek és minden kötelező megerősítés teljes.', sv: 'Klar för signering aktiveras först när parterna och alla obligatoriska bekräftelser är klara.', fr: 'Prêt à signer est activé uniquement lorsque les parties et toutes les confirmations obligatoires sont complètes.', pl: 'Gotowość do podpisu jest aktywowana dopiero po uzupełnieniu stron i wszystkich wymaganych potwierdzeń.', cs: 'Připraveno k podpisu se aktivuje až po doplnění stran a všech povinných potvrzení.' },
+  completeContract: { da: 'Samlet kontrakt', en: 'Complete contract', de: 'Vollständiger Vertrag', it: 'Contratto completo', hu: 'Teljes szerződés', sv: 'Komplett avtal', fr: 'Contrat complet', pl: 'Pełna umowa', cs: 'Úplná smlouva' },
+  pdfFromLockedVersion: { da: 'PDF’en bygges fra den låste kontraktversion og samler hovedaftale, relevante bilag og signaturside.', en: 'The PDF is generated from the locked contract version and combines the main agreement, relevant appendices, and signature page.', de: 'Das PDF wird aus der gesperrten Vertragsversion erstellt und fasst Hauptvertrag, relevante Anhänge und Signaturseite zusammen.', it: 'Il PDF viene generato dalla versione bloccata del contratto e riunisce l’accordo principale, gli allegati pertinenti e la pagina della firma.', hu: 'A PDF a zárolt szerződésverzióból készül, és tartalmazza a főszerződést, a releváns mellékleteket és az aláírási oldalt.', sv: 'PDF:en skapas från den låsta avtalsversionen och samlar huvudavtalet, relevanta bilagor och signatursidan.', fr: 'Le PDF est généré à partir de la version verrouillée du contrat et réunit l’accord principal, les annexes pertinentes et la page de signature.', pl: 'Plik PDF jest tworzony z zablokowanej wersji umowy i zawiera umowę główną, odpowiednie załączniki oraz stronę podpisu.', cs: 'PDF se vytváří z uzamčené verze smlouvy a obsahuje hlavní smlouvu, příslušné přílohy a stránku s podpisem.' },
+  partnerAgreement: { da: 'Timan Partneraftale', en: 'Timan Partner Agreement', de: 'Timan-Partnervereinbarung', it: 'Accordo partner Timan', hu: 'Timan partneri megállapodás', sv: 'Timan partneravtal', fr: 'Accord partenaire Timan', pl: 'Umowa partnerska Timan', cs: 'Partnerská smlouva Timan' },
+  saveDraftForContractNumber: { da: 'Gem kladden for at få kontraktnummer', en: 'Save the draft to receive a contract number', de: 'Speichern Sie den Entwurf, um eine Vertragsnummer zu erhalten', it: 'Salva la bozza per ottenere un numero di contratto', hu: 'Mentse a piszkozatot a szerződésszám megkapásához', sv: 'Spara utkastet för att få ett avtalsnummer', fr: 'Enregistrez le brouillon pour obtenir un numéro de contrat', pl: 'Zapisz wersję roboczą, aby otrzymać numer umowy', cs: 'Uložte koncept, abyste získali číslo smlouvy' },
+  template: { da: 'Skabelon {version}', en: 'Template {version}', de: 'Vorlage {version}', it: 'Modello {version}', hu: 'Sablon {version}', sv: 'Mall {version}', fr: 'Modèle {version}', pl: 'Szablon {version}', cs: 'Šablona {version}' },
+  finalPdfBlocked: { da: 'Den endelige PDF er blokeret, indtil den juridiske oversættelse er godkendt.', en: 'The final PDF is blocked until the legal translation has been approved.', de: 'Das endgültige PDF ist blockiert, bis die rechtliche Übersetzung genehmigt wurde.', it: 'Il PDF finale è bloccato finché la traduzione legale non sarà approvata.', hu: 'A végleges PDF zárolva van, amíg a jogi fordítást jóvá nem hagyják.', sv: 'Den slutliga PDF-filen är spärrad tills den juridiska översättningen har godkänts.', fr: 'Le PDF final est bloqué jusqu’à l’approbation de la traduction juridique.', pl: 'Końcowy plik PDF jest zablokowany do czasu zatwierdzenia tłumaczenia prawnego.', cs: 'Konečné PDF je zablokováno, dokud nebude právní překlad schválen.' },
+  latestPdfGenerated: { da: 'Seneste PDF blev genereret {date}.', en: 'Latest PDF was generated {date}.', de: 'Das letzte PDF wurde am {date} erstellt.', it: 'L’ultimo PDF è stato generato il {date}.', hu: 'A legutóbbi PDF ekkor készült: {date}.', sv: 'Senaste PDF skapades {date}.', fr: 'Le dernier PDF a été généré le {date}.', pl: 'Najnowszy plik PDF został wygenerowany {date}.', cs: 'Poslední PDF bylo vytvořeno {date}.' },
+  finalDocument: { da: 'Endelig', en: 'Final', de: 'Endgültig', it: 'Finale', hu: 'Végleges', sv: 'Slutlig', fr: 'Final', pl: 'Końcowy', cs: 'Konečný' },
+  draftDocument: { da: 'Udkast', en: 'Draft', de: 'Entwurf', it: 'Bozza', hu: 'Piszkozat', sv: 'Utkast', fr: 'Brouillon', pl: 'Szkic', cs: 'Koncept' },
+  documentPages: { da: '{count} sider', en: '{count} pages', de: '{count} Seiten', it: '{count} pagine', hu: '{count} oldal', sv: '{count} sidor', fr: '{count} pages', pl: '{count} stron', cs: '{count} stran' },
+  stepElevenArchiveHelp: { da: 'Generér kontrakten her på Trin 11. Den endelige, private dokumentarkivering aktiveres sammen med database-migrationen.', en: 'Generate the contract here in Step 11. Final private document archiving is enabled together with the database migration.', de: 'Erstellen Sie den Vertrag hier in Schritt 11. Die endgültige private Dokumentarchivierung wird zusammen mit der Datenbankmigration aktiviert.', it: 'Genera il contratto qui al Passaggio 11. L’archiviazione privata finale del documento viene attivata insieme alla migrazione del database.', hu: 'A szerződést itt, a 11. lépésben hozza létre. A végleges privát dokumentumarchiválás az adatbázis-migrációval együtt aktiválódik.', sv: 'Generera avtalet här i steg 11. Slutlig privat dokumentarkivering aktiveras tillsammans med databasmigreringen.', fr: 'Générez le contrat ici à l’étape 11. L’archivage privé final du document est activé avec la migration de base de données.', pl: 'Wygeneruj umowę tutaj, w kroku 11. Końcowa prywatna archiwizacja dokumentu jest aktywowana wraz z migracją bazy danych.', cs: 'Smlouvu vytvořte zde v kroku 11. Konečná soukromá archivace dokumentu se aktivuje spolu s migrací databáze.' },
 } as const;
 
 function contractUi(key: keyof typeof CONTRACT_UI_COPY, language: string, values: Record<string, string | number> = {}) {
@@ -1625,7 +1636,7 @@ export default function ContractsPage() {
   const completeGuidedReview = async () => {
     if (guidedReviewCompleted || reviewCompletionBusy) return;
     if (!readyForSignature) {
-      toast.error('Udfyld parterne og bekræft alle kontraktafsnit først.');
+      toast.error(contractUi('reviewPrerequisitesRequired', uiLanguage));
       return;
     }
     let id = contractRowId;
@@ -1642,7 +1653,7 @@ export default function ContractsPage() {
         finalSnapshot: null,
       });
       if (saved.error || !saved.row) {
-        toast.error('Kontrakten kunne ikke gemmes før låsning.');
+        toast.error(contractUi('reviewSaveBeforeLockFailed', uiLanguage));
         return;
       }
       id = saved.row.id;
@@ -1690,7 +1701,7 @@ export default function ContractsPage() {
     });
     setReviewCompletionBusy(false);
     if (error || !row) {
-      const message = error || 'Kontraktgennemgangen kunne ikke afsluttes.';
+      const message = error || contractUi('reviewCompleteFailed', uiLanguage);
       setReviewCompletionError(message);
       toast.error(message);
       return;
@@ -1698,7 +1709,7 @@ export default function ContractsPage() {
     setContractRecord(row);
     setContractRowId(row.id);
     setFinalSnapshot(row.final_snapshot);
-    toast.success('Kontraktgennemgangen er afsluttet og låst.');
+    toast.success(contractUi('reviewCompletedAndLocked', uiLanguage));
   };
 
   const handleSignatureUpload = (file: File | undefined) => {
@@ -1721,12 +1732,12 @@ export default function ContractsPage() {
 
   const generatePdf = async () => {
     if (!readyForSignature) {
-      toast.error('Gennemgå og bekræft alle obligatoriske afsnit først.');
+      toast.error(contractUi('reviewRequiredBeforePdf', uiLanguage));
       return;
     }
 
     if (!contractRowId || !hasReachedContractStatus(workflowStatus, 'ready_for_signature')) {
-      toast.error('Afslut kontraktgennemgangen, før PDF’en genereres.');
+      toast.error(contractUi('reviewRequiredBeforePdfGeneration', uiLanguage));
       return;
     }
 
@@ -2134,8 +2145,8 @@ export default function ContractsPage() {
                 />
                 {activeStep.id === 'full_contract' && (
                   <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
-                    <p className="text-sm font-bold text-emerald-950">Når alt er gennemlæst, kan kontraktversionen låses.</p>
-                    <p className="mt-1 text-sm text-emerald-900">Herefter bygger PDF og upload på dette faste snapshot.</p>
+                    <p className="text-sm font-bold text-emerald-950">{contractUi('reviewLockReady', uiLanguage)}</p>
+                    <p className="mt-1 text-sm text-emerald-900">{contractUi('reviewLockSnapshotHelp', uiLanguage)}</p>
                     <button
                       type="button"
                       onClick={completeGuidedReview}
@@ -2143,7 +2154,11 @@ export default function ContractsPage() {
                       className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-300"
                     >
                       <Lock className="h-4 w-4" />
-                      {guidedReviewCompleted ? 'Kontraktgennemgang afsluttet' : reviewCompletionBusy ? 'Gemmer gennemgang...' : 'Afslut kontraktgennemgang'}
+                      {guidedReviewCompleted
+                        ? contractUi('reviewComplete', uiLanguage)
+                        : reviewCompletionBusy
+                          ? contractUi('reviewSaving', uiLanguage)
+                          : contractUi('completeContractReview', uiLanguage)}
                     </button>
                     {reviewCompletionError && <p className="mt-3 text-sm font-semibold text-red-700">{reviewCompletionError}</p>}
                   </div>

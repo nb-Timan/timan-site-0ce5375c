@@ -248,4 +248,55 @@ describe('contract i18n', () => {
       }
     }
   });
+
+  it('localizes the complete Step 10 review and lock surface in every supported portal language', () => {
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const expected = {
+      da: ['Når alt er gennemlæst, kan kontraktversionen låses.', 'Afslut kontraktgennemgang'],
+      en: ['Once everything has been reviewed, the contract version can be locked.', 'Complete contract review'],
+      de: ['Nachdem alles durchgesehen wurde, kann die Vertragsversion gesperrt werden.', 'Vertragsprüfung abschließen'],
+      it: ['Dopo aver esaminato tutto, la versione del contratto può essere bloccata.', 'Completa la revisione del contratto'],
+      hu: ['Miután mindent átnéztek, a szerződésverzió zárolható.', 'Szerződés-felülvizsgálat befejezése'],
+      sv: ['När allt har granskats kan avtalsversionen låsas.', 'Slutför avtalsgranskning'],
+      fr: ['Une fois que tout a été relu, la version du contrat peut être verrouillée.', 'Terminer la révision du contrat'],
+      pl: ['Po zapoznaniu się ze wszystkimi treściami można zablokować wersję umowy.', 'Zakończ przegląd umowy'],
+      cs: ['Po přečtení všech částí lze verzi smlouvy uzamknout.', 'Dokončit kontrolu smlouvy'],
+    } as const;
+
+    for (const [language, text] of Object.entries(expected)) {
+      for (const value of text) expect(pageSource).toContain(`${language}: '${value}'`);
+      if (language !== 'en') {
+        expect(t('contractFullTextHeading', language)).not.toBe('The contract');
+        expect(t('contractFullTextIntro', language)).not.toBe('The full agreement in the order used in the final contract.');
+      }
+    }
+
+    expect(pageSource).toContain("contractUi('reviewLockReady', uiLanguage)");
+    expect(pageSource).toContain("contractUi('reviewLockSnapshotHelp', uiLanguage)");
+    expect(pageSource).toContain("contractUi('completeContractReview', uiLanguage)");
+    expect(pageSource).not.toContain('>Når alt er gennemlæst, kan kontraktversionen låses.</p>');
+
+    for (const key of [
+      'reviewCompletionRequired',
+      'reviewLockReady',
+      'reviewLockSnapshotHelp',
+      'reviewComplete',
+      'reviewSaving',
+      'completeContractReview',
+      'reviewPrerequisitesRequired',
+      'reviewSaveBeforeLockFailed',
+      'reviewCompleteFailed',
+      'reviewCompletedAndLocked',
+      'reviewRequiredBeforePdf',
+      'reviewRequiredBeforePdfGeneration',
+      'contractStatus',
+      'readyForSignatureHelp',
+      'completeContract',
+      'pdfFromLockedVersion',
+      'openPdf',
+    ]) {
+      const entry = pageSource.match(new RegExp(`${key}: \\{([^\\n]+)\\}`))?.[1] ?? '';
+      for (const language of Object.keys(expected)) expect(entry).toContain(`${language}:`);
+    }
+  });
 });
