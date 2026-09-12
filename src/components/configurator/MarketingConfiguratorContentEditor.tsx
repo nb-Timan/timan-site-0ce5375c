@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { CalendarClock, FileText, Film, Image, Minus, Plus, Save, Send, Upload, X } from 'lucide-react';
+import { CalendarClock, FileText, Film, Image, Minus, Plus, Save, Send, Trash2, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,7 @@ import { itemNoLabel } from '@/data/translations';
 import { convertCurrency, currencyFromLanguage, formatMoney } from '@/lib/currency';
 import {
   mergeMarketingConfiguratorContent,
+  deleteMarketingConfiguratorDraftContent,
   saveMarketingConfiguratorContent,
   uploadMarketingConfiguratorImage,
   type MarketingConfiguratorCatalogItem,
@@ -34,6 +35,7 @@ type Props = {
   priceSourceLanguage: Language;
   onClose: () => void;
   onSaved: (record: MarketingConfiguratorContentRecord) => void;
+  onDraftDeleted: (productKey: string) => void;
 };
 
 function asLocalDateTime(value: string | null | undefined) {
@@ -65,7 +67,7 @@ function AssetState({ label, published, draft }: { label: string; published: boo
   return <span className={`inline-flex items-center gap-1 text-xs font-medium ${state}`}><Icon className="h-3.5 w-3.5" />{label}</span>;
 }
 
-export default function MarketingConfiguratorContentEditor({ item, records, uiLanguage, priceSourceLanguage, onClose, onSaved }: Props) {
+export default function MarketingConfiguratorContentEditor({ item, records, uiLanguage, priceSourceLanguage, onClose, onSaved, onDraftDeleted }: Props) {
   const [draft, setDraft] = useState<MarketingConfiguratorContentFields | null>(null);
   const [customBadge, setCustomBadge] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -109,6 +111,23 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
     onSaved(result.row);
     onClose();
   };
+
+  const deleteDraft = async () => {
+    if (!item) return;
+    if (!window.confirm('Slet kun denne upublicerede kladde? Den publicerede produktvisning ændres ikke.')) return;
+    setSaving(true);
+    setError(null);
+    const result = await deleteMarketingConfiguratorDraftContent(item);
+    setSaving(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    onDraftDeleted(item.productKey);
+    onClose();
+  };
+
+  const hasPersistedDraft = Boolean(item && records.some((record) => record.product_key === item.productKey && record.status === 'draft'));
 
   const uploadImage = async (file: File | null | undefined) => {
     if (!file || !draft) return;
@@ -200,7 +219,7 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
             </aside>
           </div>
         </div>}
-        <DialogFooter className="gap-2 sm:justify-between"><Button type="button" variant="outline" onClick={onClose}><X className="mr-1.5 h-4 w-4" />Annuller</Button><div className="flex gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => void save('draft')}><Save className="mr-1.5 h-4 w-4" />Gem kladde</Button><Button type="button" disabled={saving} onClick={() => void save('published')}><Send className="mr-1.5 h-4 w-4" />Publicér</Button></div></DialogFooter>
+        <DialogFooter className="gap-2 sm:justify-between"><div className="flex gap-2"><Button type="button" variant="outline" onClick={onClose}><X className="mr-1.5 h-4 w-4" />Annuller</Button>{hasPersistedDraft && <Button type="button" variant="ghost" className="text-rose-700 hover:bg-rose-50 hover:text-rose-800" disabled={saving} onClick={() => void deleteDraft()}><Trash2 className="mr-1.5 h-4 w-4" />Slet kladde</Button>}</div><div className="flex gap-2"><Button type="button" variant="outline" disabled={saving} onClick={() => void save('draft')}><Save className="mr-1.5 h-4 w-4" />Gem kladde</Button><Button type="button" disabled={saving} onClick={() => void save('published')}><Send className="mr-1.5 h-4 w-4" />Publicér</Button></div></DialogFooter>
       </DialogContent>
     </Dialog>
   );

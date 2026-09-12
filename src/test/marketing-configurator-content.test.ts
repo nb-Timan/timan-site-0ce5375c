@@ -108,6 +108,9 @@ describe('Marketing configurator content', () => {
     expect(configurator).toContain('marketingContent?.description');
     expect(editor).toContain("save('draft')");
     expect(editor).toContain("save('published')");
+    expect(editor).toContain('deleteMarketingConfiguratorDraftContent');
+    expect(editor).toContain('Slet kladde');
+    expect(editor).toContain('Den publicerede produktvisning ændres ikke.');
     expect(editor).toMatch(/onSaved\(result\.row\);\s+onClose\(\);/);
     expect(editor).toContain('MARKETING_BADGE_OPTIONS');
     expect(editor).toContain('MarketingConfiguratorProductCard');
@@ -142,6 +145,10 @@ describe('Marketing configurator content', () => {
     expect(editor).toContain('badge_ends_at');
     expect(card).toContain('badgeSchedule');
     expect(badge).toContain('isMarketingBadgeActive');
+    const service = readFileSync('src/lib/marketingConfiguratorContentService.ts', 'utf8');
+    const deleteDraft = service.slice(service.indexOf('export async function deleteMarketingConfiguratorDraftContent'), service.indexOf('export async function uploadMarketingConfiguratorImage'));
+    expect(deleteDraft).toContain(".eq('product_key', item.productKey)");
+    expect(deleteDraft).toContain(".eq('status', 'draft')");
     expect(bulkTools).toContain('Vis kun mangler');
     expect(bulkTools).toContain('Vis kun kladder');
     expect(bulkTools).toContain('Upload billeder');

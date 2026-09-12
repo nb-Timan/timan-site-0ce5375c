@@ -218,6 +218,18 @@ export async function saveMarketingConfiguratorContent(
   return { row: data ? toRecord(data as Record<string, unknown>) : null, error: error?.message || null };
 }
 
+/** Removes only the unpublished editorial version for a canonical catalog item. */
+export async function deleteMarketingConfiguratorDraftContent(
+  item: Pick<MarketingConfiguratorCatalogItem, 'productKey'>,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('marketing_configurator_product_content')
+    .delete()
+    .eq('product_key', item.productKey)
+    .eq('status', 'draft');
+  return { error: error?.message || null };
+}
+
 export async function uploadMarketingConfiguratorImage(file: File): Promise<{ url: string | null; error: string | null }> {
   if (!file.type.startsWith('image/')) return { url: null, error: 'invalid_file' };
   const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';

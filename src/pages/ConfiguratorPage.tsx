@@ -4309,6 +4309,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             setPublishedMarketingContent(publishedRows);
           });
         }}
+        onDraftDeleted={(productKey) => {
+          setMarketingEditorRecords((current) => current.filter((record) => !(record.product_key === productKey && record.status === 'draft')));
+          void listMarketingConfiguratorContent().then(({ rows }) => setMarketingEditorRecords(rows));
+        }}
       />
     </div>
   );
