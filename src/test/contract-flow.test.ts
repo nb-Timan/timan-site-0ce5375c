@@ -1353,7 +1353,7 @@ describe('contract flow', () => {
 
   it('allows pending decision contracts through the guided review completion RPC without mass-updating live rows', () => {
     const migration = readFileSync(
-      'supabase/migrations/20260912195947_allow_pending_decision_contract_review_completion.sql',
+      'supabase/migrations/20260912201033_disambiguate_contract_review_history_event_timestamp.sql',
       'utf8',
     );
     const normalized = migration.replace(/\s+/g, ' ');
@@ -1361,6 +1361,7 @@ describe('contract flow', () => {
     expect(migration).toContain('complete_dealer_contract_guided_review');
     expect(normalized).toContain("contract_status in ('pending_decision', 'draft', 'guided_review', 'ready_for_signature')");
     expect(normalized).toContain("set contract_status = 'ready_for_signature'");
+    expect(normalized).toContain('null::timestamptz');
     expect(normalized).not.toMatch(/update public\.dealer_contracts set contract_status = 'ready_for_signature' where contract_status = 'pending_decision'/i);
     expect(normalized).not.toMatch(/where contract_status = 'pending_decision'/i);
   });
