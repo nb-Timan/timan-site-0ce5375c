@@ -81,7 +81,9 @@ import { getContractAccessDurationMinutes, type ContractAccessDurationUnit } fro
 import { renderAppendix2ExampleLines, renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import {
   CONTRACT_PDF_TEMPLATE_VERSION,
+  formatContractPdfPreflightIssues,
   generateContractPdf,
+  getContractPdfPreflightIssues,
   getContractPdfLanguageReadiness,
   sha256Hex,
   type ContractDocumentLanguage,
@@ -1955,16 +1957,30 @@ export default function ContractsPage() {
 
     const snapshot = finalSnapshot?.workflowStatus === 'ready_for_signature' || finalSnapshot?.workflowStatus === 'awaiting_signed_upload' || finalSnapshot?.workflowStatus === 'approved'
       ? finalSnapshot
-      : buildContractSnapshot(form, confirmations, { contractId: contractRowId, workflowStatus: 'ready_for_signature' });
+      : null;
+    if (!snapshot) {
+      toast.error(contractUi('reviewRequiredBeforePdfGeneration', uiLanguage));
+      return;
+    }
 
     const language = (snapshot.contractLanguage ?? form.contractLanguage ?? 'da') as ContractDocumentLanguage;
     const readiness = getContractPdfLanguageReadiness(language);
+    const contractNumber = contractRecord?.contract_number || `DC-${contractRowId.slice(0, 8)}`;
+    const preflightIssues = getContractPdfPreflightIssues({
+      snapshot,
+      contractNumber,
+      dealerAccountNumber: contractRecord?.dealer_account_number,
+    });
+    if (preflightIssues.length > 0) {
+      toast.error(formatContractPdfPreflightIssues(preflightIssues, language));
+      return;
+    }
     if (!readiness.productionReady) {
       toast.error(`${readiness.reason} Der kan kun genereres et tydeligt udkast.`);
     }
     const generated = await generateContractPdf({
       snapshot,
-      contractNumber: contractRecord?.contract_number || `DC-${contractRowId.slice(0, 8)}`,
+      contractNumber,
       dealerAccountNumber: contractRecord?.dealer_account_number,
       language,
       mode: readiness.productionReady ? 'final' : 'draft',

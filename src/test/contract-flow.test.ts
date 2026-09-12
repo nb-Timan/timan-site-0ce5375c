@@ -1557,7 +1557,7 @@ describe('contract flow', () => {
       'Er leveringstiden over 3mdr. fra ordren bliver afgivet, vil man kunne opnå ekstra rabat.',
       'Der ydes ikke bestillingsrabat på demomaskiner.',
       '5. Rabat 3. Egen demonstration - egen salg.',
-      'Opnår {{partnerDefinite}} et salg uden Timan har været involveret i en demonstration, til skønnes dette.',
+      'Opnår {{partnerDefinite}} et salg uden Timan har været involveret i en demonstration, tilskønnes dette.',
       'Demorabatten ydes på grundmaskinen eksklusivt udstyr.',
       'Demonstrationsrabatten gives som en kreditnota, der modregnes ved fremtidige køb hos Timan.',
       '6. Udregning af rabat.',
@@ -1567,7 +1567,7 @@ describe('contract flow', () => {
     expect(APPENDIX_2_EXAMPLE_LINES[0]).not.toContain('31');
     expect(APPENDIX_2_EXAMPLE_LINES[1]).toBe('Når garantiregistreringen er gennemført, vil beløbet på 3.100 kr. blive udstedt som en kreditnota, der kan anvendes ved fremtidige køb hos Timan.');
     expect(renderAppendix2Paragraphs('importer')[2]).toContain('alle importører');
-    expect(renderAppendix2Paragraphs('importer')[13]).toBe('Opnår importøren et salg uden Timan har været involveret i en demonstration, til skønnes dette.');
+    expect(renderAppendix2Paragraphs('importer')[13]).toBe('Opnår importøren et salg uden Timan har været involveret i en demonstration, tilskønnes dette.');
   });
 
   it('keeps the full historic discount structure alongside partner-specific base discounts', () => {

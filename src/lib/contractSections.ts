@@ -129,7 +129,7 @@ const ENGLISH_CONTRACT_TEXT: Record<string, string> = {
   'Rabat opnås baseret som følgende:': 'Discounts are granted on the following basis:',
   'Flere maskiner: Køb af flere maskiner giver yderligere rabat.': 'Multiple machines: Purchasing multiple machines gives an additional discount.',
   'Længere leveringstid: Ved leveringstid over 3 mdr. tilbydes øget rabat.': 'Longer delivery time: A greater discount is offered for delivery times exceeding three months.',
-  'Salg uden demonstration: Hvis {{partnerDefinite}} opnår et salg uden, at Timan har været involveret i en demonstration, til skønnes dette med rabat.': 'Sales without demonstration: If {{partnerDefinite}} completes a sale without Timan having participated in a demonstration, this is rewarded with a discount.',
+  'Salg uden demonstration: Hvis {{partnerDefinite}} opnår et salg uden, at Timan har været involveret i en demonstration, tilskønnes dette med rabat.': 'Sales without demonstration: If {{partnerDefinite}} completes a sale without Timan having participated in a demonstration, this is rewarded with a discount.',
   'Se bilag 2.': 'See Appendix 2.',
   '5. Demo-maskiner': '5. Demonstration machines',
   'Det forventes at {{partnerDefinite}} investere i demo-maskiner.': '{{partnerDefiniteCapitalized}} is expected to invest in demonstration machines.',
@@ -226,7 +226,7 @@ const GERMAN_CONTRACT_TEXT: Record<string, string> = {
   'Rabat opnås baseret som følgende:': 'Rabatte werden auf folgender Grundlage gewährt:',
   'Flere maskiner: Køb af flere maskiner giver yderligere rabat.': 'Mehrere Maschinen: Der Kauf mehrerer Maschinen gewährt einen zusätzlichen Rabatt.',
   'Længere leveringstid: Ved leveringstid over 3 mdr. tilbydes øget rabat.': 'Längere Lieferzeit: Bei einer Lieferzeit von mehr als drei Monaten wird ein höherer Rabatt angeboten.',
-  'Salg uden demonstration: Hvis {{partnerDefinite}} opnår et salg uden, at Timan har været involveret i en demonstration, til skønnes dette med rabat.': 'Verkauf ohne Demonstration: Erzielt {{partnerDefinite}} einen Verkauf, ohne dass Timan an einer Demonstration beteiligt war, wird dies mit einem Rabatt honoriert.',
+  'Salg uden demonstration: Hvis {{partnerDefinite}} opnår et salg uden, at Timan har været involveret i en demonstration, tilskønnes dette med rabat.': 'Verkauf ohne Demonstration: Erzielt {{partnerDefinite}} einen Verkauf, ohne dass Timan an einer Demonstration beteiligt war, wird dies mit einem Rabatt honoriert.',
   'Se bilag 2.': 'Siehe Anhang 2.',
   '5. Demo-maskiner': '5. Demomaschinen',
   'Det forventes at {{partnerDefinite}} investere i demo-maskiner.': 'Von {{partnerDefinite}} wird erwartet, in Demomaschinen zu investieren.',
@@ -714,7 +714,7 @@ const TERMINATION_CONTRACT_TEXT: Partial<Record<ContractTextLanguage, Record<str
   en: {
     'Kontrakt, punkt 11': 'Contract, section 11',
     '11. Varighed og opsigelse': '11. Duration and termination',
-    'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med  et opsigelsesvarsel første ganag på 24 måneder herefter 6 måneder.': 'This agreement enters into force upon signature and continues until terminated by either party. The initial notice period is 24 months and thereafter 6 months.',
+  'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med et opsigelsesvarsel første gang på 24 måneder herefter 6 måneder.': 'This agreement enters into force upon signature and continues until terminated by either party. The initial notice period is 24 months and thereafter 6 months.',
     'Fornyelse af kontrakten sker automatisk med ét år ad gangen senest 1. september, med mindre en af parterne skriftligt ønsker genforhandling senest 1. august samme år.': 'The agreement is automatically renewed for one year at a time on 1 September unless either party requests renegotiation in writing no later than 1 August of the same year.',
     'Hvis betalinger ikke finder sted senest 8 dage efter, det på fakturaen anvist betalingsdato. Samt modtagelse af rykker fra Timan kan aftalen opsiges med 1 månedes varsel.': 'If payment is not made within 8 days after the payment date stated on the invoice and a reminder from Timan has been received, the agreement may be terminated with one month’s notice.',
     'Ved opsigelse af kontrakten er det {{partnerPossessive}} pligt at fjerne Timan -navnet og produktsider fra {{partnerPossessive}} markedsføringsmateriale og bygning.': 'Upon termination of the agreement, {{partnerPossessive}} must remove the Timan name and product pages from {{partnerPossessive}} marketing material and premises.',
@@ -723,7 +723,7 @@ const TERMINATION_CONTRACT_TEXT: Partial<Record<ContractTextLanguage, Record<str
   de: {
     'Kontrakt, punkt 11': 'Vertrag, Punkt 11',
     '11. Varighed og opsigelse': '11. Laufzeit und Kündigung',
-    'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med  et opsigelsesvarsel første ganag på 24 måneder herefter 6 måneder.': 'Dieser Vertrag tritt mit Unterzeichnung in Kraft und läuft bis zur Kündigung durch eine der Parteien. Die anfängliche Kündigungsfrist beträgt 24 Monate, danach 6 Monate.',
+  'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med et opsigelsesvarsel første gang på 24 måneder herefter 6 måneder.': 'Dieser Vertrag tritt mit Unterzeichnung in Kraft und läuft bis zur Kündigung durch eine der Parteien. Die anfängliche Kündigungsfrist beträgt 24 Monate, danach 6 Monate.',
     'Fornyelse af kontrakten sker automatisk med ét år ad gangen senest 1. september, med mindre en af parterne skriftligt ønsker genforhandling senest 1. august samme år.': 'Der Vertrag verlängert sich jeweils am 1. September automatisch um ein Jahr, sofern nicht eine Partei spätestens am 1. August desselben Jahres schriftlich eine Neuverhandlung verlangt.',
     'Hvis betalinger ikke finder sted senest 8 dage efter, det på fakturaen anvist betalingsdato. Samt modtagelse af rykker fra Timan kan aftalen opsiges med 1 månedes varsel.': 'Er eine Zahlung nicht spätestens 8 Tage nach dem auf der Rechnung angegebenen Zahlungstermin und nach Zugang einer Mahnung von Timan erfolgt, kann der Vertrag mit einer Frist von einem Monat gekündigt werden.',
     'Ved opsigelse af kontrakten er det {{partnerPossessive}} pligt at fjerne Timan -navnet og produktsider fra {{partnerPossessive}} markedsføringsmateriale og bygning.': 'Bei Beendigung des Vertrags ist {{partnerPossessive}} verpflichtet, den Namen Timan und die Produktseiten aus {{partnerPossessive}} Marketingmaterial und Geschäftsräumen zu entfernen.',
@@ -732,7 +732,7 @@ const TERMINATION_CONTRACT_TEXT: Partial<Record<ContractTextLanguage, Record<str
   it: {
     'Kontrakt, punkt 11': 'Contratto, sezione 11',
     '11. Varighed og opsigelse': '11. Durata e risoluzione',
-    'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med  et opsigelsesvarsel første ganag på 24 måneder herefter 6 måneder.': 'Il presente contratto entra in vigore alla firma e rimane valido fino alla risoluzione da parte di una delle parti. Il primo periodo di preavviso è di 24 mesi, successivamente di 6 mesi.',
+  'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med et opsigelsesvarsel første gang på 24 måneder herefter 6 måneder.': 'Il presente contratto entra in vigore alla firma e rimane valido fino alla risoluzione da parte di una delle parti. Il primo periodo di preavviso è di 24 mesi, successivamente di 6 mesi.',
     'Fornyelse af kontrakten sker automatisk med ét år ad gangen senest 1. september, med mindre en af parterne skriftligt ønsker genforhandling senest 1. august samme år.': 'Il contratto si rinnova automaticamente di anno in anno il 1° settembre, salvo che una delle parti richieda per iscritto una rinegoziazione entro il 1° agosto dello stesso anno.',
     'Hvis betalinger ikke finder sted senest 8 dage efter, det på fakturaen anvist betalingsdato. Samt modtagelse af rykker fra Timan kan aftalen opsiges med 1 månedes varsel.': 'Se il pagamento non avviene entro 8 giorni dalla data indicata in fattura e dal ricevimento di un sollecito da Timan, il contratto può essere risolto con un preavviso di un mese.',
     'Ved opsigelse af kontrakten er det {{partnerPossessive}} pligt at fjerne Timan -navnet og produktsider fra {{partnerPossessive}} markedsføringsmateriale og bygning.': 'Alla cessazione del contratto, {{partnerPossessive}} deve rimuovere il nome Timan e le pagine dei prodotti dal materiale di marketing e dalle sedi di {{partnerPossessive}}.',
@@ -741,7 +741,7 @@ const TERMINATION_CONTRACT_TEXT: Partial<Record<ContractTextLanguage, Record<str
   hu: {
     'Kontrakt, punkt 11': 'Szerződés, 11. pont',
     '11. Varighed og opsigelse': '11. Időtartam és felmondás',
-    'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med  et opsigelsesvarsel første ganag på 24 måneder herefter 6 måneder.': 'A jelen szerződés az aláírással lép hatályba, és valamelyik fél felmondásáig marad hatályban. A kezdeti felmondási idő 24 hónap, ezt követően 6 hónap.',
+  'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med et opsigelsesvarsel første gang på 24 måneder herefter 6 måneder.': 'A jelen szerződés az aláírással lép hatályba, és valamelyik fél felmondásáig marad hatályban. A kezdeti felmondási idő 24 hónap, ezt követően 6 hónap.',
     'Fornyelse af kontrakten sker automatisk med ét år ad gangen senest 1. september, med mindre en af parterne skriftligt ønsker genforhandling senest 1. august samme år.': 'A szerződés minden év szeptember 1-jén automatikusan egy évvel meghosszabbodik, kivéve, ha valamelyik fél ugyanazon év augusztus 1-jéig írásban újratárgyalást kér.',
     'Hvis betalinger ikke finder sted senest 8 dage efter, det på fakturaen anvist betalingsdato. Samt modtagelse af rykker fra Timan kan aftalen opsiges med 1 månedes varsel.': 'Ha a fizetés nem történik meg a számlán feltüntetett fizetési határidőt követő 8 napon belül és a Timan fizetési felszólításának kézhezvételét követően, a szerződés egy hónapos felmondási idővel megszüntethető.',
     'Ved opsigelse af kontrakten er det {{partnerPossessive}} pligt at fjerne Timan -navnet og produktsider fra {{partnerPossessive}} markedsføringsmateriale og bygning.': 'A szerződés megszűnésekor {{partnerPossessive}} köteles eltávolítani a Timan nevet és a termékoldalakat {{partnerPossessive}} marketinganyagaiból és telephelyeiről.',
@@ -750,7 +750,7 @@ const TERMINATION_CONTRACT_TEXT: Partial<Record<ContractTextLanguage, Record<str
   sv: {
     'Kontrakt, punkt 11': 'Avtal, punkt 11',
     '11. Varighed og opsigelse': '11. Löptid och uppsägning',
-    'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med  et opsigelsesvarsel første ganag på 24 måneder herefter 6 måneder.': 'Detta avtal träder i kraft vid undertecknandet och gäller tills det sägs upp av någon av parterna. Den första uppsägningstiden är 24 månader och därefter 6 månader.',
+  'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med et opsigelsesvarsel første gang på 24 måneder herefter 6 måneder.': 'Detta avtal träder i kraft vid undertecknandet och gäller tills det sägs upp av någon av parterna. Den första uppsägningstiden är 24 månader och därefter 6 månader.',
     'Fornyelse af kontrakten sker automatisk med ét år ad gangen senest 1. september, med mindre en af parterne skriftligt ønsker genforhandling senest 1. august samme år.': 'Avtalet förnyas automatiskt med ett år i taget den 1 september, om inte någon av parterna skriftligen begär omförhandling senast den 1 augusti samma år.',
     'Hvis betalinger ikke finder sted senest 8 dage efter, det på fakturaen anvist betalingsdato. Samt modtagelse af rykker fra Timan kan aftalen opsiges med 1 månedes varsel.': 'Om betalning inte sker inom 8 dagar efter det betalningsdatum som anges på fakturan och efter mottagande av en påminnelse från Timan, får avtalet sägas upp med en månads varsel.',
     'Ved opsigelse af kontrakten er det {{partnerPossessive}} pligt at fjerne Timan -navnet og produktsider fra {{partnerPossessive}} markedsføringsmateriale og bygning.': 'Vid uppsägning av avtalet ska {{partnerPossessive}} ta bort namnet Timan och produktsidorna från {{partnerPossessive}} marknadsföringsmaterial och lokaler.',
@@ -759,7 +759,7 @@ const TERMINATION_CONTRACT_TEXT: Partial<Record<ContractTextLanguage, Record<str
   fr: {
     'Kontrakt, punkt 11': 'Contrat, section 11',
     '11. Varighed og opsigelse': '11. Durée et résiliation',
-    'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med  et opsigelsesvarsel første ganag på 24 måneder herefter 6 måneder.': 'Le présent contrat entre en vigueur à sa signature et reste valable jusqu’à sa résiliation par l’une des parties. Le premier délai de préavis est de 24 mois, puis de 6 mois.',
+  'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med et opsigelsesvarsel første gang på 24 måneder herefter 6 måneder.': 'Le présent contrat entre en vigueur à sa signature et reste valable jusqu’à sa résiliation par l’une des parties. Le premier délai de préavis est de 24 mois, puis de 6 mois.',
     'Fornyelse af kontrakten sker automatisk med ét år ad gangen senest 1. september, med mindre en af parterne skriftligt ønsker genforhandling senest 1. august samme år.': 'Le contrat est renouvelé automatiquement d’un an à la fois le 1er septembre, sauf si l’une des parties demande par écrit une renégociation au plus tard le 1er août de la même année.',
     'Hvis betalinger ikke finder sted senest 8 dage efter, det på fakturaen anvist betalingsdato. Samt modtagelse af rykker fra Timan kan aftalen opsiges med 1 månedes varsel.': 'Si le paiement n’est pas effectué dans les 8 jours suivant la date indiquée sur la facture et après réception d’un rappel de Timan, le contrat peut être résilié avec un préavis d’un mois.',
     'Ved opsigelse af kontrakten er det {{partnerPossessive}} pligt at fjerne Timan -navnet og produktsider fra {{partnerPossessive}} markedsføringsmateriale og bygning.': 'À la résiliation du contrat, {{partnerPossessive}} doit retirer le nom Timan et les pages produits des supports marketing et des locaux de {{partnerPossessive}}.',
@@ -768,7 +768,7 @@ const TERMINATION_CONTRACT_TEXT: Partial<Record<ContractTextLanguage, Record<str
   pl: {
     'Kontrakt, punkt 11': 'Umowa, punkt 11',
     '11. Varighed og opsigelse': '11. Okres obowiązywania i wypowiedzenie',
-    'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med  et opsigelsesvarsel første ganag på 24 måneder herefter 6 måneder.': 'Niniejsza umowa wchodzi w życie z chwilą podpisania i obowiązuje do czasu jej wypowiedzenia przez jedną ze stron. Pierwszy okres wypowiedzenia wynosi 24 miesiące, a następnie 6 miesięcy.',
+  'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med et opsigelsesvarsel første gang på 24 måneder herefter 6 måneder.': 'Niniejsza umowa wchodzi w życie z chwilą podpisania i obowiązuje do czasu jej wypowiedzenia przez jedną ze stron. Pierwszy okres wypowiedzenia wynosi 24 miesiące, a następnie 6 miesięcy.',
     'Fornyelse af kontrakten sker automatisk med ét år ad gangen senest 1. september, med mindre en af parterne skriftligt ønsker genforhandling senest 1. august samme år.': 'Umowa jest automatycznie odnawiana o jeden rok w dniu 1 września, chyba że jedna ze stron zażąda pisemnie renegocjacji najpóźniej do 1 sierpnia tego samego roku.',
     'Hvis betalinger ikke finder sted senest 8 dage efter, det på fakturaen anvist betalingsdato. Samt modtagelse af rykker fra Timan kan aftalen opsiges med 1 månedes varsel.': 'Jeżeli płatność nie nastąpi w ciągu 8 dni od terminu wskazanego na fakturze oraz po otrzymaniu wezwania od Timan, umowa może zostać wypowiedziana z miesięcznym okresem wypowiedzenia.',
     'Ved opsigelse af kontrakten er det {{partnerPossessive}} pligt at fjerne Timan -navnet og produktsider fra {{partnerPossessive}} markedsføringsmateriale og bygning.': 'Po wypowiedzeniu umowy {{partnerPossessive}} ma obowiązek usunąć nazwę Timan i strony produktów z materiałów marketingowych oraz siedzib {{partnerPossessive}}.',
@@ -777,7 +777,7 @@ const TERMINATION_CONTRACT_TEXT: Partial<Record<ContractTextLanguage, Record<str
   cs: {
     'Kontrakt, punkt 11': 'Smlouva, bod 11',
     '11. Varighed og opsigelse': '11. Doba trvání a ukončení',
-    'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med  et opsigelsesvarsel første ganag på 24 måneder herefter 6 måneder.': 'Tato smlouva nabývá účinnosti podpisem a trvá do jejího ukončení některou ze stran. Počáteční výpovědní doba je 24 měsíců a poté 6 měsíců.',
+  'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med et opsigelsesvarsel første gang på 24 måneder herefter 6 måneder.': 'Tato smlouva nabývá účinnosti podpisem a trvá do jejího ukončení některou ze stran. Počáteční výpovědní doba je 24 měsíců a poté 6 měsíců.',
     'Fornyelse af kontrakten sker automatisk med ét år ad gangen senest 1. september, med mindre en af parterne skriftligt ønsker genforhandling senest 1. august samme år.': 'Smlouva se automaticky prodlužuje vždy o jeden rok k 1. září, pokud některá ze stran nejpozději do 1. srpna téhož roku písemně nepožádá o nové projednání.',
     'Hvis betalinger ikke finder sted senest 8 dage efter, det på fakturaen anvist betalingsdato. Samt modtagelse af rykker fra Timan kan aftalen opsiges med 1 månedes varsel.': 'Není-li platba provedena do 8 dnů po datu splatnosti uvedeném na faktuře a po doručení upomínky od Timan, může být smlouva ukončena s jednoměsíční výpovědní lhůtou.',
     'Ved opsigelse af kontrakten er det {{partnerPossessive}} pligt at fjerne Timan -navnet og produktsider fra {{partnerPossessive}} markedsføringsmateriale og bygning.': 'Při ukončení smlouvy je {{partnerPossessive}} povinen odstranit název Timan a produktové stránky z marketingových materiálů a prostor {{partnerPossessive}}.',
@@ -880,7 +880,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         bullets: [
           'Flere maskiner: Køb af flere maskiner giver yderligere rabat.',
           'Længere leveringstid: Ved leveringstid over 3 mdr. tilbydes øget rabat.',
-          'Salg uden demonstration: Hvis {{partnerDefinite}} opnår et salg uden, at Timan har været involveret i en demonstration, til skønnes dette med rabat.',
+          'Salg uden demonstration: Hvis {{partnerDefinite}} opnår et salg uden, at Timan har været involveret i en demonstration, tilskønnes dette med rabat.',
           'Se bilag 2.',
         ],
       },
@@ -1080,7 +1080,7 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
       {
         heading: '11. Varighed og opsigelse',
         paragraphs: [
-          'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med  et opsigelsesvarsel første ganag på 24 måneder herefter 6 måneder.',
+          'Denne kontrakt træder i kraft ved underskrift og løber indtil opsigelse af en af parterne med et opsigelsesvarsel første gang på 24 måneder herefter 6 måneder.',
           'Fornyelse af kontrakten sker automatisk med ét år ad gangen senest 1. september, med mindre en af parterne skriftligt ønsker genforhandling senest 1. august samme år.',
           'Hvis betalinger ikke finder sted senest 8 dage efter, det på fakturaen anvist betalingsdato. Samt modtagelse af rykker fra Timan kan aftalen opsiges med 1 månedes varsel.',
           'Ved opsigelse af kontrakten er det {{partnerPossessive}} pligt at fjerne Timan -navnet og produktsider fra {{partnerPossessive}} markedsføringsmateriale og bygning.',
