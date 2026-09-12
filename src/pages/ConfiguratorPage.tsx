@@ -1383,7 +1383,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     setInfoModal({ title: `${TC('machineInfo')}: ${getLocalizedName(p.name, lang)}`, content: html });
   };
 
-  const showMarketingInformation = (title: string, content: { description: string; key_features: string[]; specs: { label: string; value: unknown }[] }) => {
+  const showMarketingInformation = (title: string, content: { description: string; key_features: string[]; specs: { label: string; value?: unknown }[] }) => {
     const specs = content.specs.map((spec) => ({
       label: translateSpecLabel(spec.label, contentUiLang),
       value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || ''),

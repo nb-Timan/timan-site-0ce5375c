@@ -64,7 +64,7 @@ describe("CRM Budget fiscal year", () => {
       machine_keys: ["RC-1000s"],
       machine_qty_by_key: { "RC-1000s": 1 },
       total_value: 100,
-    } as ScopedConfiguration);
+    } as unknown as ScopedConfiguration);
 
     const fy2026 = quotePipelineByMachineMonth([
       quote("sept", "2026-09-06T12:00:00Z"),
