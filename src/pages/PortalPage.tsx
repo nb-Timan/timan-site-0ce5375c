@@ -222,6 +222,7 @@ export default function PortalPage() {
   const configuratorUnlocked = isAcademyCapabilityUnlocked(effectiveUser, 'configurator', academyCompletedCaseIds);
   const configuratorProgress = getAcademyCapabilityProgress('configurator', academyCompletedCaseIds);
   const realPortalRole = deriveStoredPortalRole(appUser);
+  const isEffectiveBackend = portalRole === 'timan_backend';
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
   const showMesseCard = (
     realPortalRole === 'timan_backend' ||
@@ -350,8 +351,8 @@ export default function PortalPage() {
 
         <QuickActions
           language={uiLanguage}
-          showAllActions={realPortalRole === 'timan_backend'}
-          showRoleOverview={realPortalRole === 'timan_backend'}
+          showAllActions={isEffectiveBackend}
+          showRoleOverview={isEffectiveBackend}
         />
 
         <LatestChanges language={uiLanguage} />

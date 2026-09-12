@@ -58,16 +58,17 @@ export default function QuickActions({ language, showAllActions = false, showRol
   const effectiveUser = useEffectivePortalUser(appUser);
   if (!appUser || !effectiveUser) return null;
 
-  const realRole = (appUser.portal_role || '').toLowerCase();
-  const isBackend = realRole === 'timan_backend';
   const portalRole = derivePortalRole(effectiveUser);
   const effectiveRoleKey = portalRole || (effectiveUser.portal_role || '').toLowerCase();
+  const isEffectiveBackend = effectiveRoleKey === 'timan_backend';
+  const canShowAllActions = showAllActions && isEffectiveBackend;
+  const canShowRoleOverview = showRoleOverview && isEffectiveBackend;
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
 
-  let actions: Action[] = showAllActions ? ALL_ACTIONS : [];
+  let actions: Action[] = canShowAllActions ? ALL_ACTIONS : [];
   let contextLabel = '';
 
-  if (showAllActions) {
+  if (canShowAllActions) {
     contextLabel = 'Alle portalroller';
   } else if (effectiveRoleKey === 'timan_service') {
     actions = SERVICE_ACTIONS;
@@ -83,15 +84,15 @@ export default function QuickActions({ language, showAllActions = false, showRol
     contextLabel = t('quickActionsContextDealer', language);
   } else if (effectiveRoleKey === 'timan_backend' || effectiveRoleKey === 'timan_seller') {
     actions = INTERNAL_ACTIONS;
-    const activeSeller = isBackend ? getActiveSellerView(appUser.email) : null;
+    const activeSeller = isEffectiveBackend ? getActiveSellerView(appUser.email) : null;
     contextLabel = activeSeller
       ? t('quickActionsContextAs', language).replace('{name}', activeSeller.label)
-      : isBackend ? t('quickActionsContextBackend', language) : t('quickActionsContextSeller', language);
+      : isEffectiveBackend ? t('quickActionsContextBackend', language) : t('quickActionsContextSeller', language);
   } else {
     return null;
   }
 
-  if (!showAllActions) {
+  if (!canShowAllActions) {
     const qaAllowed = resolveEffectiveQuickActions(effectiveUser);
     actions = actions.filter((action) => !action.key || qaAllowed.includes(action.key));
     actions = actions.filter((a) => a.key || !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
@@ -115,7 +116,7 @@ export default function QuickActions({ language, showAllActions = false, showRol
             : dealerDemoRegistration ? '/portal/service/warranty/new' : to;
           const activeRoles: PortalRole[] = key
             ? getDefaultQuickActionRoles(key)
-            : effectiveRoleKey === 'timan_service' || showAllActions
+            : effectiveRoleKey === 'timan_service' || canShowAllActions
               ? ['timan_service']
               : [];
           return (
@@ -133,7 +134,7 @@ export default function QuickActions({ language, showAllActions = false, showRol
               {labelKey === 'quickActionCompanyContactInfo' && (
                 <span className="block text-xs font-medium text-slate-500">{t('quickActionCompanyContactInfoDesc', language)}</span>
               )}
-              {showRoleOverview && activeRoles.length > 0 && (
+              {canShowRoleOverview && activeRoles.length > 0 && (
                 <span className="mt-1 block text-xs text-slate-500">
                   Aktiv for: {activeRoles.map((role) => PORTAL_ROLE_LABELS[role].da).join(' · ')}
                 </span>

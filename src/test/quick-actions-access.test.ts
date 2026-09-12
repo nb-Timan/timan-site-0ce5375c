@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { getDefaultQuickActionRoles, resolveEffectiveQuickActions } from "@/lib/quickActionsAccess";
 import { mergeEffectivePortalUser } from "@/lib/viewAsUser";
+import { derivePortalRole } from "@/lib/portalAccess";
 import type { SessionUser } from "@/context/AppUserContext";
 import type { UserView } from "@/lib/activeMode";
 
@@ -58,9 +59,9 @@ describe("quick action access", () => {
     const portalPage = readFileSync(join(process.cwd(), "src/pages/PortalPage.tsx"), "utf8");
     const backendHome = readFileSync(join(process.cwd(), "src/components/portal/BackendHome.tsx"), "utf8");
 
-    expect(portalPage).toContain("const realPortalRole = deriveStoredPortalRole(appUser);");
-    expect(portalPage).toContain("showAllActions={realPortalRole === 'timan_backend'}");
-    expect(portalPage).toContain("showRoleOverview={realPortalRole === 'timan_backend'}");
+    expect(portalPage).toContain("const isEffectiveBackend = portalRole === 'timan_backend';");
+    expect(portalPage).toContain("showAllActions={isEffectiveBackend}");
+    expect(portalPage).toContain("showRoleOverview={isEffectiveBackend}");
     expect(backendHome).not.toContain("QuickActions");
   });
 
@@ -106,6 +107,7 @@ describe("quick action access", () => {
     } as SessionUser;
     const effective = mergeEffectivePortalUser(baseBackendUser, target, jtnView);
 
+    expect(derivePortalRole(effective)).toBe("timan_seller");
     expect(resolveEffectiveQuickActions(effective)).toEqual(resolveEffectiveQuickActions(target));
   });
 
