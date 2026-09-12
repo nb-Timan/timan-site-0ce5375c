@@ -25,6 +25,24 @@ export function videoProductOptionKey(option: Pick<VideoProductOption, "optionKe
   return option.optionKey || `${option.machineKey || "unknown"}::${option.productKey}`;
 }
 
+export function canonicalVideoProductKey(option: Pick<VideoProductOption, "productKey">) {
+  return option.productKey.trim().toLowerCase();
+}
+
+/**
+ * The selector can show a product in several configurator contexts, but video
+ * relations are canonical per product_key rather than per context.
+ */
+export function dedupeVideoProductOptions(options: VideoProductOption[]) {
+  const seen = new Set<string>();
+  return options.filter((option) => {
+    const productKey = canonicalVideoProductKey(option);
+    if (!productKey || seen.has(productKey)) return false;
+    seen.add(productKey);
+    return true;
+  });
+}
+
 export function listVideoProductOptions(lang: PortalUiLanguage = "da"): VideoProductOption[] {
   const rows: VideoProductOption[] = [];
   const seen = new Set<string>();

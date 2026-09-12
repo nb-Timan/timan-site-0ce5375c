@@ -15,7 +15,13 @@ import { useLanguage } from "@/context/LanguageContext";
 import { canManageMarketingVideos } from "@/lib/portalAccess";
 import { cn } from "@/lib/utils";
 import { useEffectivePortalUserState } from "@/lib/viewAsUser";
-import { listVideoProductOptions, productSearchText, videoProductOptionKey, type VideoProductOption } from "@/lib/videoProductCatalog";
+import {
+  dedupeVideoProductOptions,
+  listVideoProductOptions,
+  productSearchText,
+  videoProductOptionKey,
+  type VideoProductOption,
+} from "@/lib/videoProductCatalog";
 import {
   extractYouTubeVideoId,
   exactMarketingVideoContent,
@@ -221,8 +227,10 @@ export default function BackendVideoManagementPage() {
       }
     }
 
-    const productMap = new Map(activeDraft.products.map((product) => [videoProductOptionKey(product), product]));
-    if (activeDraft.primaryProduct) productMap.set(videoProductOptionKey(activeDraft.primaryProduct), activeDraft.primaryProduct);
+    const products = dedupeVideoProductOptions([
+      ...(activeDraft.primaryProduct ? [activeDraft.primaryProduct] : []),
+      ...activeDraft.products,
+    ]);
 
     const result = await saveMarketingVideo({
       id: activeDraft.id,
@@ -242,14 +250,14 @@ export default function BackendVideoManagementPage() {
       show_on_messe_portal: activeDraft.show_on_messe_portal,
       custom_thumbnail_url: activeDraft.custom_thumbnail_url,
       custom_thumbnail_path: activeDraft.custom_thumbnail_path,
-      products: Array.from(productMap.values()),
+      products,
       primaryProduct: activeDraft.primaryProduct,
       replaceExistingPrimary,
     });
 
     setSaving(false);
     if (result.error) {
-      setError(result.error === "invalid_youtube" ? tv("videoMgmtInvalidYoutube", uiLanguage) : result.error);
+      setError(result.error === "invalid_youtube" ? tv("videoMgmtInvalidYoutube", uiLanguage) : tv("videoMgmtSaveFailed", uiLanguage));
       return;
     }
     setEditing(null);
@@ -424,11 +432,12 @@ function VideoEditorDialog(props: {
 
   const patch = (part: Partial<DraftState>) => setDraft({ ...draft, ...part });
   const patchProducts = (products: VideoProductOption[]) => {
+    const canonicalProducts = dedupeVideoProductOptions(products);
     const primaryKey = draft.primaryProduct ? videoProductOptionKey(draft.primaryProduct) : "";
     const previousKeys = new Set(draft.products.map(videoProductOptionKey));
-    const nextKeys = new Set(products.map(videoProductOptionKey));
+    const nextKeys = new Set(canonicalProducts.map(videoProductOptionKey));
     const primaryProduct = primaryKey && previousKeys.has(primaryKey) && !nextKeys.has(primaryKey) ? null : draft.primaryProduct;
-    patch({ products, primaryProduct });
+    patch({ products: canonicalProducts, primaryProduct });
   };
 
   const uploadThumbnail = async (file: File | null | undefined) => {

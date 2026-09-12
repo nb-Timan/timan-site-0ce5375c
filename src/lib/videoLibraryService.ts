@@ -4,7 +4,7 @@ import {
   portalLanguageLookupOrder,
   type PortalUiLanguage,
 } from "@/lib/portalLanguages";
-import type { VideoProductOption } from "@/lib/videoProductCatalog";
+import { dedupeVideoProductOptions, type VideoProductOption } from "@/lib/videoProductCatalog";
 
 export type VideoStatus = "draft" | "published" | "archived";
 export type VideoModelGenerationStatus = "current" | "legacy";
@@ -533,7 +533,11 @@ export async function saveMarketingVideo(input: MarketingVideoInput): Promise<{ 
   const { error: deleteLinksError } = await supabase.from("marketing_video_product_links").delete().eq("video_id", savedId);
   if (deleteLinksError) return { row: null, error: deleteLinksError.message };
 
-  const linkPayload = input.products.map((product) => ({
+  const canonicalProducts = dedupeVideoProductOptions([
+    ...(input.primaryProduct ? [input.primaryProduct] : []),
+    ...input.products,
+  ]);
+  const linkPayload = canonicalProducts.map((product) => ({
     video_id: savedId,
     product_key: product.productKey,
     item_number: product.itemNumber,

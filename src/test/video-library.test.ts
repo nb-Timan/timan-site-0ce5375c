@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { listVideoProductOptions, productSearchText, videoProductOptionKey } from "@/lib/videoProductCatalog";
+import {
+  dedupeVideoProductOptions,
+  listVideoProductOptions,
+  productSearchText,
+  videoProductOptionKey,
+} from "@/lib/videoProductCatalog";
 import { DEFAULT_VIDEO_FILTERS, filterAndSortVideos, getVideoMachineFilterOptions } from "@/lib/videoLibraryFilters";
 import {
   extractYouTubeVideoId,
@@ -43,6 +48,17 @@ describe("marketing video library", () => {
     const duplicateAcrossMachines = Object.values(optionsByNumber).find((items) => new Set(items.map((item) => item.machineKey)).size > 1);
     expect(duplicateAcrossMachines).toBeTruthy();
     expect(new Set(duplicateAcrossMachines?.map(videoProductOptionKey)).size).toBe(duplicateAcrossMachines?.length);
+  });
+
+  it("deduplicates video product links by canonical product key, not configurator context", () => {
+    const choices = listVideoProductOptions("da").filter((option) => option.itemNumber === "412040");
+    const rc1000s = choices.find((option) => option.machineKey === "RC-1000S");
+    const looseTool = choices.find((option) => option.machineKey === "LOOSE_TOOL");
+
+    expect(rc1000s?.productKey).toBe("412040");
+    expect(looseTool?.productKey).toBe("412040");
+    expect(videoProductOptionKey(rc1000s!)).not.toBe(videoProductOptionKey(looseTool!));
+    expect(dedupeVideoProductOptions([rc1000s!, looseTool!])).toEqual([rc1000s]);
   });
 
   it("uses one shared filter model for sales and marketing video lists", () => {
@@ -197,6 +213,8 @@ describe("marketing video library", () => {
     expect(salesPage).toContain("videoLibraryEmbedFallback");
     expect(salesPage).toContain("https://www.youtube.com/watch?v=");
     expect(managementPage).toContain("findPrimaryProductConflict");
+    expect(managementPage).toContain("dedupeVideoProductOptions");
+    expect(managementPage).toContain('tv("videoMgmtSaveFailed", uiLanguage)');
     expect(managementPage).toContain("videoProductOptionKey");
     expect(managementPage).toContain("function ProductCombobox");
     expect(managementPage).toContain("CommandInput");
@@ -212,6 +230,8 @@ describe("marketing video library", () => {
     expect(managementPage).toContain("uploadVideoThumbnail");
     expect(configurator).toContain("listPublishedPrimaryVideos(uiLanguage)");
     expect(service).toContain("show_on_messe_portal");
+    expect(service).toContain("const canonicalProducts = dedupeVideoProductOptions");
+    expect(service).toContain("...(input.primaryProduct ? [input.primaryProduct] : [])");
     expect(service).toContain("listMesseMarketingVideos");
     expect(service).toContain(".eq(\"show_on_messe_portal\", true)");
     expect(migration).toContain("product_key text not null unique");
