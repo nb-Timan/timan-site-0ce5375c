@@ -13,15 +13,23 @@ export type MarketingBadgeDurationUnit = 'hours' | 'days' | 'weeks' | 'months' |
 
 const listeners = new Set<() => void>();
 let clock = Date.now();
+let clockTimer: ReturnType<typeof setInterval> | null = null;
 
-setInterval(() => {
+function updateClock() {
   clock = Date.now();
   listeners.forEach((listener) => listener());
-}, 30_000);
+}
 
 function subscribe(listener: () => void) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  if (clockTimer === null) clockTimer = setInterval(updateClock, 1_000);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0 && clockTimer !== null) {
+      clearInterval(clockTimer);
+      clockTimer = null;
+    }
+  };
 }
 
 export function useMarketingBadgeClock() {
