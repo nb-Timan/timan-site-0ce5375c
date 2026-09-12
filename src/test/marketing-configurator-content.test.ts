@@ -88,6 +88,8 @@ describe('Marketing configurator content', () => {
     expect(editor).toContain('Dimensioner & tekniske specifikationer');
     expect(configurator).toContain('showMarketingInformation');
     expect(configurator).toContain("state === 'missing'");
+    expect(configurator).toContain('relative overflow-visible border-2 rounded-xl');
+    expect(configurator).toContain('pointer-events-none absolute -right-2 -top-2 z-10');
     expect(bulkTools).toContain('Vis kun mangler');
     expect(bulkTools).toContain('Vis kun kladder');
     expect(bulkTools).toContain('Upload billeder');

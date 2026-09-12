@@ -2821,8 +2821,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const cardImageUrl = marketingContent?.image_url || getImageUrlForItem(p);
 
                     return (
-                      <div key={key} className={`border-2 rounded-xl p-5 flex flex-col gap-4 transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-100 bg-white shadow-sm hover:border-gray-300'}`}>
-                        <div className="flex flex-col items-start gap-2">{renderMarketingBadge(marketingContent?.badge)}<div className="flex w-full items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-2"><h3 className="font-bold text-lg text-gray-900">{marketingContent?.title || getLocalizedName(p.name, lang)}</h3>{renderMarketingContentState(key, p.id)}</div>{marketingEditButton(key, p.id)}</div></div>
+                      <div key={key} className={`relative overflow-visible border-2 rounded-xl p-5 flex flex-col gap-4 transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'border-gray-100 bg-white shadow-sm hover:border-gray-300'}`}>
+                        {marketingContent?.badge && <div className="pointer-events-none absolute -right-2 -top-2 z-10 sm:-right-3 sm:-top-3">{renderMarketingBadge(marketingContent.badge)}</div>}
+                        <div className="flex w-full items-start justify-between gap-3"><div className="flex min-w-0 items-center gap-2"><h3 className="font-bold text-lg text-gray-900">{marketingContent?.title || getLocalizedName(p.name, lang)}</h3>{renderMarketingContentState(key, p.id)}</div>{marketingEditButton(key, p.id)}</div>
                         {permissions.canSeePrices && <div className="text-3xl font-extrabold text-emerald-600">{formatDisplayMoney(getPrice(p, lang))}</div>}
                         <p className="text-sm text-gray-500">{itemNoLabel(uiLanguage)}: {p.varenr}</p>
                         {marketingContent?.description && <p className="line-clamp-2 text-sm text-gray-600">{marketingContent.description}</p>}
