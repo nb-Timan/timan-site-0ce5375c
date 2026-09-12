@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { CheckCircle2, CircleAlert, FileText, Film, Image, Plus, Save, Send, Upload, X } from 'lucide-react';
+import { FileText, Film, Image, Minus, Plus, Save, Send, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { MARKETING_BADGE_PRESETS, MarketingConfiguratorBadge, MarketingConfiguratorBadgeOption } from '@/components/configurator/MarketingConfiguratorBadge';
+import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
 import { getPrice } from '@/data/machines';
 import { itemNoLabel } from '@/data/translations';
 import { convertCurrency, currencyFromLanguage, formatMoney } from '@/lib/currency';
@@ -20,6 +21,7 @@ import {
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Language, TechSpec } from '@/types/configurator';
+import { t } from '@/data/translations';
 
 export const MARKETING_BADGE_OPTIONS = ['', ...MARKETING_BADGE_PRESETS.map((option) => option.value), 'Egen tekst'] as const;
 
@@ -137,22 +139,18 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
             </div>
             <aside className="space-y-3 lg:sticky lg:top-0">
               <p className="text-sm font-semibold text-slate-700">Live preview</p>
-              <div className="relative overflow-visible rounded-xl border-2 border-slate-200 bg-white p-5 shadow-sm">
-                {draft.badge && <div className="pointer-events-none absolute -right-2 -top-2 z-10 sm:-right-3 sm:-top-3"><MarketingConfiguratorBadge badge={draft.badge} language={uiLanguage} variant={item.kind === 'machine' ? 'main' : 'compact'} /></div>}
-                {draft.image_url ? <img src={draft.image_url} alt="Produktpreview" className="mb-4 aspect-video w-full rounded-md object-cover" /> : <div className="mb-4 flex aspect-video items-center justify-center rounded-md bg-slate-100 text-sm text-slate-500">Intet billede valgt</div>}
-                <div className="space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="font-bold text-lg text-slate-900">{draft.title || item.defaults.title}</h3>
-                      <p className="mt-1 text-sm text-slate-500">{itemNoLabel(uiLanguage)}: {item.itemNumber}</p>
-                    </div>
-                    <p className="shrink-0 text-right text-2xl font-extrabold text-emerald-600 tabular-nums">{previewPrice}</p>
-                  </div>
-                  {draft.description && <p className="whitespace-pre-line text-sm text-slate-600">{draft.description}</p>}
-                  {draft.key_features.filter(Boolean).length > 0 && <ul className="list-disc space-y-1 pl-4 text-sm text-slate-700">{draft.key_features.filter(Boolean).map((feature, index) => <li key={`${feature}-${index}`}>{feature}</li>)}</ul>}
-                  {draft.specs.filter((spec) => spec.label && spec.value).length > 0 && <div className="border-t border-slate-200 pt-3 text-sm">{draft.specs.filter((spec) => spec.label && spec.value).slice(0, 4).map((spec, index) => <div key={`${spec.label}-${index}`} className="flex justify-between gap-3 py-1"><span className="text-slate-500">{spec.label}</span><span className="text-right font-medium text-slate-800">{typeof spec.value === 'string' ? spec.value : ''}</span></div>)}</div>}
-                </div>
-              </div>
+              <MarketingConfiguratorProductCard
+                title={draft.title || item.defaults.title}
+                itemNumber={item.itemNumber}
+                itemNumberLabel={itemNoLabel(uiLanguage)}
+                price={previewPrice}
+                description={draft.description}
+                specs={draft.specs.filter((spec) => spec.label && spec.value).map((spec) => ({ label: spec.label, value: typeof spec.value === 'string' ? spec.value : '' }))}
+                badge={draft.badge}
+                language={uiLanguage}
+                actions={<><span className="flex items-center gap-1 text-sm font-medium text-emerald-600"><Film className="h-4 w-4" />{t('videoLink', uiLanguage)}</span><span className="flex items-center gap-1 text-sm font-medium text-emerald-600"><Image className="h-4 w-4" />{t('imageLink', uiLanguage)}</span><span className="flex items-center gap-1 text-sm font-medium text-blue-600"><FileText className="h-4 w-4" />{t('infoSpecs', uiLanguage)}</span></>}
+                footer={<div className="flex items-center justify-between rounded-lg border-t border-gray-200 bg-gray-100 px-3 py-2"><span className="font-medium text-gray-700">{t('quantity', uiLanguage)}</span><div className="flex items-center"><span className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-300 text-gray-500"><Minus className="h-4 w-4" /></span><span className="mx-1 flex h-8 w-8 items-center justify-center rounded-md border-2 border-gray-300 font-bold">0</span><span className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500 text-white"><Plus className="h-4 w-4" /></span></div></div>}
+              />
             </aside>
           </div>
         </div>}

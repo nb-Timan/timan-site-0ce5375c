@@ -14,10 +14,10 @@ export const MARKETING_BADGE_PRESETS: { value: MarketingBadgePreset; label: stri
 type BadgeKind = 'new' | 'offer' | 'campaign' | 'important' | 'custom';
 
 const BADGE_CONFIG: Record<Exclude<BadgeKind, 'custom'>, { Icon: LucideIcon; translationKey: string; className: string }> = {
-  new: { Icon: BadgeCheck, translationKey: 'marketingBadgeNew', className: 'border-teal-700 bg-teal-700 text-white' },
-  offer: { Icon: CircleDollarSign, translationKey: 'marketingBadgeGoodPrice', className: 'border-amber-500 bg-amber-50 text-amber-950' },
+  new: { Icon: BadgeCheck, translationKey: 'marketingBadgeNew', className: 'border-emerald-600 bg-emerald-600 text-white' },
+  offer: { Icon: CircleDollarSign, translationKey: 'marketingBadgeGoodPrice', className: 'border-emerald-300 bg-white text-emerald-800' },
   campaign: { Icon: Megaphone, translationKey: 'marketingBadgeCampaign', className: 'border-emerald-700 bg-emerald-700 text-white' },
-  important: { Icon: CircleAlert, translationKey: 'marketingBadgeImportant', className: 'border-rose-700 bg-rose-700 text-white' },
+  important: { Icon: CircleAlert, translationKey: 'marketingBadgeImportant', className: 'border-rose-600 bg-rose-600 text-white' },
 };
 
 export function resolveMarketingBadge(badge: string | null | undefined): { kind: BadgeKind; label: string; Icon: LucideIcon } | null {
@@ -53,13 +53,11 @@ export function MarketingConfiguratorBadge({
   const { label, Icon, className: tone } = optionFor(badge, language);
   const isCompact = variant === 'compact';
   return (
-    <span className={`inline-flex w-fit max-w-full items-center font-bold ${tone} ${isCompact
-      ? 'gap-1.5 rounded-full px-2 py-1 text-[11px] leading-none shadow-sm'
-      : 'gap-2 rounded-full border-2 px-3 py-2 text-xs tracking-wide shadow-[0_9px_20px_rgba(15,23,42,0.18)] ring-4 ring-white/75'
+    <span className={`inline-flex w-fit max-w-full items-center border font-bold ${tone} ${isCompact
+      ? 'h-6 gap-1 rounded-full px-2 text-[10px] leading-none shadow-sm'
+      : 'h-7 gap-1.5 rounded-full px-2.5 text-[11px] leading-none shadow-sm'
     } ${className}`}>
-      <span className={`inline-flex shrink-0 items-center justify-center rounded-full ${isCompact ? 'h-4 w-4' : 'h-7 w-7 bg-white/20 ring-1 ring-white/45'}`}>
-        <Icon className={isCompact ? 'h-3.5 w-3.5' : 'h-4 w-4'} aria-hidden="true" />
-      </span>
+      <Icon className={isCompact ? 'h-3 w-3 shrink-0' : 'h-3.5 w-3.5 shrink-0'} aria-hidden="true" />
       <span className="whitespace-nowrap">{label}</span>
     </span>
   );

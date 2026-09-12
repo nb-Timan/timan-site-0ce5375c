@@ -70,6 +70,8 @@ describe('Marketing configurator content', () => {
     const page = readFileSync('src/pages/MarketingConfiguratorPage.tsx', 'utf8');
     const configurator = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
     const editor = readFileSync('src/components/configurator/MarketingConfiguratorContentEditor.tsx', 'utf8');
+    const card = readFileSync('src/components/configurator/MarketingConfiguratorProductCard.tsx', 'utf8');
+    const badge = readFileSync('src/components/configurator/MarketingConfiguratorBadge.tsx', 'utf8');
     const bulkTools = readFileSync('src/components/configurator/MarketingConfiguratorBulkTools.tsx', 'utf8');
     const app = readFileSync('src/App.tsx', 'utf8');
     const marketingArea = readFileSync('src/pages/PortalAreaPage.tsx', 'utf8');
@@ -90,19 +92,30 @@ describe('Marketing configurator content', () => {
     expect(editor).toContain("save('published')");
     expect(editor).toMatch(/onSaved\(result\.row\);\s+onClose\(\);/);
     expect(editor).toContain('MARKETING_BADGE_OPTIONS');
-    expect(editor).toContain("variant={item.kind === 'machine' ? 'main' : 'compact'}");
+    expect(editor).toContain('MarketingConfiguratorProductCard');
     expect(editor).not.toContain('Specifikationslink');
     expect(editor).toContain('Nøglefunktioner');
     expect(editor).toContain('Dimensioner & tekniske specifikationer');
     expect(editor).toContain('itemNoLabel(uiLanguage)');
     expect(editor).toContain('getPrice(item.item, priceSourceLanguage)');
-    expect(editor).toContain('text-right text-2xl font-extrabold text-emerald-600');
-    expect(editor).toContain('pointer-events-none absolute -right-2 -top-2 z-10');
     expect(editor).not.toContain('renderMarketingContentState');
+    expect(card).toContain('MarketingConfiguratorBadge');
+    expect(card).toContain('itemNumberLabel');
+    expect(card).toContain('price');
+    expect(card).toContain('actions');
+    expect(card).toContain('footer');
+    expect(badge).toContain('h-6 gap-1 rounded-full');
+    expect(badge).toContain('h-7 gap-1.5 rounded-full');
+    expect(badge).not.toContain('ring-4');
     expect(configurator).toContain('showMarketingInformation');
     expect(configurator).toContain("state === 'missing'");
-    expect(configurator).toContain('relative overflow-visible border-2 rounded-xl');
-    expect(configurator).toContain('pointer-events-none absolute -right-2 -top-2 z-10');
+    expect(configurator).toContain('<MarketingConfiguratorProductCard');
+    expect(configurator).toContain('listPublishedMarketingConfiguratorContent()');
+    const contentState = configurator.slice(
+      configurator.indexOf('const marketingContentState'),
+      configurator.indexOf('const marketingEditButton'),
+    );
+    expect(contentState.indexOf("record.status === 'published'")).toBeLessThan(contentState.indexOf("record.status === 'draft'"));
     expect(configurator).toContain("renderMarketingBadge(marketingContent?.badge, 'compact')");
     expect(bulkTools).toContain('Vis kun mangler');
     expect(bulkTools).toContain('Vis kun kladder');
