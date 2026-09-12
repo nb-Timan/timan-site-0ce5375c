@@ -53,7 +53,7 @@ describe('contract PDF document model', () => {
 
   it('allows final legal generation only for a reviewed language template', () => {
     expect(getContractPdfLanguageReadiness('da').productionReady).toBe(true);
-    expect(getContractPdfLanguageReadiness('en').productionReady).toBe(false);
-    expect(getContractPdfLanguageReadiness('de').productionReady).toBe(false);
+    expect(getContractPdfLanguageReadiness('en').productionReady).toBe(true);
+    expect(getContractPdfLanguageReadiness('de').productionReady).toBe(true);
   });
 });

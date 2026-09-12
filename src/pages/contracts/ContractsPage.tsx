@@ -1,4 +1,4 @@
-import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { normalizePortalLanguageCode, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Pencil, Plus, Save, Search, Trash2, Upload } from 'lucide-react';
@@ -332,11 +332,223 @@ const CONTRACT_UI_COPY = {
   finalDocument: { da: 'Endelig', en: 'Final', de: 'Endgültig', it: 'Finale', hu: 'Végleges', sv: 'Slutlig', fr: 'Final', pl: 'Końcowy', cs: 'Konečný' },
   draftDocument: { da: 'Udkast', en: 'Draft', de: 'Entwurf', it: 'Bozza', hu: 'Piszkozat', sv: 'Utkast', fr: 'Brouillon', pl: 'Szkic', cs: 'Koncept' },
   documentPages: { da: '{count} sider', en: '{count} pages', de: '{count} Seiten', it: '{count} pagine', hu: '{count} oldal', sv: '{count} sidor', fr: '{count} pages', pl: '{count} stron', cs: '{count} stran' },
+  saveContractAndPartnerBeforeAccess: { da: 'Gem kontrakten og vælg en partnerkonto, før adgang åbnes.', en: 'Save the contract and select a partner account before opening access.', de: 'Speichern Sie den Vertrag und wählen Sie ein Partnerkonto aus, bevor der Zugang geöffnet wird.', it: 'Salva il contratto e seleziona un account partner prima di aprire l’accesso.', hu: 'Mentse a szerződést, és válasszon partnerfiókot a hozzáférés megnyitása előtt.', sv: 'Spara avtalet och välj ett partnerkonto innan åtkomsten öppnas.', fr: 'Enregistrez le contrat et sélectionnez un compte partenaire avant d’ouvrir l’accès.', pl: 'Zapisz umowę i wybierz konto partnera przed otwarciem dostępu.', cs: 'Před otevřením přístupu uložte smlouvu a vyberte partnerský účet.' },
+  selectActivePartnerUser: { da: 'Vælg en aktiv portalbruger på partneren.', en: 'Select an active portal user for the partner.', de: 'Wählen Sie einen aktiven Portalbenutzer beim Partner aus.', it: 'Seleziona un utente portale attivo per il partner.', hu: 'Válasszon aktív portálfelhasználót a partnerhez.', sv: 'Välj en aktiv portalanvändare för partnern.', fr: 'Sélectionnez un utilisateur portail actif pour le partenaire.', pl: 'Wybierz aktywnego użytkownika portalu dla partnera.', cs: 'Vyberte aktivního uživatele portálu pro partnera.' },
+  selectValidAccessWindow: { da: 'Vælg et gyldigt start- og sluttidspunkt.', en: 'Select a valid start and end time.', de: 'Wählen Sie einen gültigen Start- und Endzeitpunkt.', it: 'Seleziona un orario di inizio e fine valido.', hu: 'Válasszon érvényes kezdési és befejezési időpontot.', sv: 'Välj en giltig start- och sluttid.', fr: 'Sélectionnez une heure de début et de fin valide.', pl: 'Wybierz prawidłowy czas rozpoczęcia i zakończenia.', cs: 'Vyberte platný čas začátku a konce.' },
+  contractAccessCouldNotActivate: { da: 'Kontraktadgang kunne ikke aktiveres.', en: 'Contract access could not be activated.', de: 'Der Vertragszugang konnte nicht aktiviert werden.', it: 'Impossibile attivare l’accesso al contratto.', hu: 'A szerződéshez való hozzáférést nem sikerült aktiválni.', sv: 'Avtalsåtkomsten kunde inte aktiveras.', fr: 'L’accès au contrat n’a pas pu être activé.', pl: 'Nie można aktywować dostępu do umowy.', cs: 'Přístup ke smlouvě se nepodařilo aktivovat.' },
+  contractAccessOpenedForPartner: { da: 'Kontraktadgang er åbnet for partnerbrugeren.', en: 'Contract access has been opened for the partner user.', de: 'Der Vertragszugang wurde für den Partnerbenutzer geöffnet.', it: 'L’accesso al contratto è stato aperto per l’utente partner.', hu: 'A szerződés-hozzáférés megnyílt a partnerfelhasználó számára.', sv: 'Avtalsåtkomsten har öppnats för partneranvändaren.', fr: 'L’accès au contrat a été ouvert pour l’utilisateur partenaire.', pl: 'Dostęp do umowy został otwarty dla użytkownika partnera.', cs: 'Přístup ke smlouvě byl otevřen partnerskému uživateli.' },
+  saveContractAndPartnerBeforeInvite: { da: 'Gem kontrakten og vælg en partnerkonto, før du inviterer en partnerbruger.', en: 'Save the contract and select a partner account before inviting a partner user.', de: 'Speichern Sie den Vertrag und wählen Sie ein Partnerkonto aus, bevor Sie einen Partnerbenutzer einladen.', it: 'Salva il contratto e seleziona un account partner prima di invitare un utente partner.', hu: 'Mentse a szerződést, és válasszon partnerfiókot, mielőtt partnerfelhasználót hív meg.', sv: 'Spara avtalet och välj ett partnerkonto innan du bjuder in en partneranvändare.', fr: 'Enregistrez le contrat et sélectionnez un compte partenaire avant d’inviter un utilisateur partenaire.', pl: 'Zapisz umowę i wybierz konto partnera przed zaproszeniem użytkownika partnera.', cs: 'Před pozváním partnerského uživatele uložte smlouvu a vyberte partnerský účet.' },
+  enterPartnerUserEmail: { da: 'Angiv partnerbrugerens email.', en: 'Enter the partner user’s email.', de: 'Geben Sie die E-Mail-Adresse des Partnerbenutzers ein.', it: 'Inserisci l’email dell’utente partner.', hu: 'Adja meg a partnerfelhasználó e-mail-címét.', sv: 'Ange partneranvändarens e-postadress.', fr: 'Saisissez l’e-mail de l’utilisateur partenaire.', pl: 'Wpisz adres e-mail użytkownika partnera.', cs: 'Zadejte e-mail partnerského uživatele.' },
+  partnerUserCouldNotInvite: { da: 'Partnerbrugeren kunne ikke inviteres.', en: 'The partner user could not be invited.', de: 'Der Partnerbenutzer konnte nicht eingeladen werden.', it: 'Impossibile invitare l’utente partner.', hu: 'A partnerfelhasználót nem sikerült meghívni.', sv: 'Partneranvändaren kunde inte bjudas in.', fr: 'L’utilisateur partenaire n’a pas pu être invité.', pl: 'Nie można zaprosić użytkownika partnera.', cs: 'Partnerského uživatele se nepodařilo pozvat.' },
+  partnerUserInvited: { da: 'Partnerbrugeren er inviteret.', en: 'The partner user has been invited.', de: 'Der Partnerbenutzer wurde eingeladen.', it: 'L’utente partner è stato invitato.', hu: 'A partnerfelhasználó meghívása megtörtént.', sv: 'Partneranvändaren har bjudits in.', fr: 'L’utilisateur partenaire a été invité.', pl: 'Użytkownik partnera został zaproszony.', cs: 'Partnerský uživatel byl pozván.' },
+  contractAccessCouldNotExtend: { da: 'Kontraktadgang kunne ikke forlænges.', en: 'Contract access could not be extended.', de: 'Der Vertragszugang konnte nicht verlängert werden.', it: 'Impossibile estendere l’accesso al contratto.', hu: 'A szerződés-hozzáférést nem sikerült meghosszabbítani.', sv: 'Avtalsåtkomsten kunde inte förlängas.', fr: 'L’accès au contrat n’a pas pu être prolongé.', pl: 'Nie można przedłużyć dostępu do umowy.', cs: 'Přístup ke smlouvě se nepodařilo prodloužit.' },
+  contractAccessExtended: { da: 'Kontraktadgang er forlænget.', en: 'Contract access has been extended.', de: 'Der Vertragszugang wurde verlängert.', it: 'L’accesso al contratto è stato esteso.', hu: 'A szerződés-hozzáférés meghosszabbítva.', sv: 'Avtalsåtkomsten har förlängts.', fr: 'L’accès au contrat a été prolongé.', pl: 'Dostęp do umowy został przedłużony.', cs: 'Přístup ke smlouvě byl prodloužen.' },
+  contractAccessCouldNotClose: { da: 'Kontraktadgang kunne ikke lukkes.', en: 'Contract access could not be closed.', de: 'Der Vertragszugang konnte nicht geschlossen werden.', it: 'Impossibile chiudere l’accesso al contratto.', hu: 'A szerződés-hozzáférést nem sikerült lezárni.', sv: 'Avtalsåtkomsten kunde inte stängas.', fr: 'L’accès au contrat n’a pas pu être fermé.', pl: 'Nie można zamknąć dostępu do umowy.', cs: 'Přístup ke smlouvě se nepodařilo zavřít.' },
+  contractAccessClosed: { da: 'Kontraktadgang er lukket.', en: 'Contract access has been closed.', de: 'Der Vertragszugang wurde geschlossen.', it: 'L’accesso al contratto è stato chiuso.', hu: 'A szerződés-hozzáférés lezárva.', sv: 'Avtalsåtkomsten har stängts.', fr: 'L’accès au contrat a été fermé.', pl: 'Dostęp do umowy został zamknięty.', cs: 'Přístup ke smlouvě byl zavřen.' },
+  pdfArchivePrepareFailed: { da: 'PDF-versionen kunne ikke klargøres i den private dokumentarkivering.', en: 'The PDF version could not be prepared in the private document archive.', de: 'Die PDF-Version konnte im privaten Dokumentenarchiv nicht vorbereitet werden.', it: 'Impossibile preparare la versione PDF nell’archivio documenti privato.', hu: 'A PDF-verziót nem sikerült előkészíteni a privát dokumentumarchívumban.', sv: 'PDF-versionen kunde inte förberedas i det privata dokumentarkivet.', fr: 'La version PDF n’a pas pu être préparée dans l’archive privée de documents.', pl: 'Nie można przygotować wersji PDF w prywatnym archiwum dokumentów.', cs: 'Verzi PDF se nepodařilo připravit v soukromém archivu dokumentů.' },
+  pdfArchiveUploadFailed: { da: 'PDF’en kunne ikke gemmes i den private dokumentarkivering.', en: 'The PDF could not be saved in the private document archive.', de: 'Die PDF konnte im privaten Dokumentenarchiv nicht gespeichert werden.', it: 'Impossibile salvare il PDF nell’archivio documenti privato.', hu: 'A PDF-et nem sikerült menteni a privát dokumentumarchívumba.', sv: 'PDF:en kunde inte sparas i det privata dokumentarkivet.', fr: 'Le PDF n’a pas pu être enregistré dans l’archive privée de documents.', pl: 'Nie można zapisać pliku PDF w prywatnym archiwum dokumentów.', cs: 'PDF se nepodařilo uložit do soukromého archivu dokumentů.' },
+  pdfArchiveFinalizeFailed: { da: 'PDF-versionens hash og sidetal kunne ikke registreres.', en: 'The PDF version hash and page count could not be recorded.', de: 'Hash und Seitenzahl der PDF-Version konnten nicht registriert werden.', it: 'Impossibile registrare hash e numero di pagine della versione PDF.', hu: 'A PDF-verzió hash-értékét és oldalszámát nem sikerült rögzíteni.', sv: 'PDF-versionens hash och sidantal kunde inte registreras.', fr: 'Le hash et le nombre de pages de la version PDF n’ont pas pu être enregistrés.', pl: 'Nie można zapisać skrótu hash i liczby stron wersji PDF.', cs: 'Hash a počet stran verze PDF se nepodařilo zaznamenat.' },
+  pdfGeneratedNotMarked: { da: 'PDF’en blev ikke markeret som genereret i databasen.', en: 'The PDF was not marked as generated in the database.', de: 'Die PDF wurde in der Datenbank nicht als erstellt markiert.', it: 'Il PDF non è stato contrassegnato come generato nel database.', hu: 'A PDF nem lett generáltként megjelölve az adatbázisban.', sv: 'PDF:en markerades inte som genererad i databasen.', fr: 'Le PDF n’a pas été marqué comme généré dans la base de données.', pl: 'PDF nie został oznaczony w bazie danych jako wygenerowany.', cs: 'PDF nebylo v databázi označeno jako vygenerované.' },
+  pdfGeneratedAwaitingUpload: { da: 'PDF genereret ({pageCount} sider, SHA-256 {hash}). Kontrakten afventer nu underskrevet upload.', en: 'PDF generated ({pageCount} pages, SHA-256 {hash}). The contract now awaits signed upload.', de: 'PDF erstellt ({pageCount} Seiten, SHA-256 {hash}). Der Vertrag wartet jetzt auf den unterschriebenen Upload.', it: 'PDF generato ({pageCount} pagine, SHA-256 {hash}). Il contratto attende ora il caricamento firmato.', hu: 'PDF létrehozva ({pageCount} oldal, SHA-256 {hash}). A szerződés most az aláírt feltöltésre vár.', sv: 'PDF genererad ({pageCount} sidor, SHA-256 {hash}). Avtalet väntar nu på signerad uppladdning.', fr: 'PDF généré ({pageCount} pages, SHA-256 {hash}). Le contrat attend maintenant le téléversement signé.', pl: 'PDF wygenerowany ({pageCount} stron, SHA-256 {hash}). Umowa oczekuje teraz na przesłanie podpisanej wersji.', cs: 'PDF vytvořeno ({pageCount} stran, SHA-256 {hash}). Smlouva nyní čeká na nahrání podepsané verze.' },
+  uploadVersionCouldNotStart: { da: 'Kunne ikke starte en ny uploadversion.', en: 'Could not start a new upload version.', de: 'Eine neue Upload-Version konnte nicht gestartet werden.', it: 'Impossibile avviare una nuova versione di caricamento.', hu: 'Nem sikerült új feltöltési verziót indítani.', sv: 'Kunde inte starta en ny uppladdningsversion.', fr: 'Impossible de démarrer une nouvelle version de téléversement.', pl: 'Nie można rozpocząć nowej wersji przesyłania.', cs: 'Nepodařilo se spustit novou verzi nahrání.' },
+  uploadSaved: { da: 'Upload gemt.', en: 'Upload saved.', de: 'Upload gespeichert.', it: 'Caricamento salvato.', hu: 'Feltöltés mentve.', sv: 'Uppladdning sparad.', fr: 'Téléversement enregistré.', pl: 'Przesyłanie zapisane.', cs: 'Nahrání uloženo.' },
+  filesCouldNotUpload: { da: 'En eller flere filer kunne ikke uploades.', en: 'One or more files could not be uploaded.', de: 'Eine oder mehrere Dateien konnten nicht hochgeladen werden.', it: 'Impossibile caricare uno o più file.', hu: 'Egy vagy több fájlt nem sikerült feltölteni.', sv: 'En eller flera filer kunde inte laddas upp.', fr: 'Un ou plusieurs fichiers n’ont pas pu être téléversés.', pl: 'Nie można przesłać jednego lub więcej plików.', cs: 'Jeden nebo více souborů se nepodařilo nahrát.' },
+  fileCouldNotRemove: { da: 'Filen kunne ikke fjernes.', en: 'The file could not be removed.', de: 'Die Datei konnte nicht entfernt werden.', it: 'Impossibile rimuovere il file.', hu: 'A fájlt nem sikerült eltávolítani.', sv: 'Filen kunde inte tas bort.', fr: 'Le fichier n’a pas pu être supprimé.', pl: 'Nie można usunąć pliku.', cs: 'Soubor se nepodařilo odebrat.' },
+  fileRemoved: { da: 'Filen er fjernet.', en: 'The file has been removed.', de: 'Die Datei wurde entfernt.', it: 'Il file è stato rimosso.', hu: 'A fájl eltávolítva.', sv: 'Filen har tagits bort.', fr: 'Le fichier a été supprimé.', pl: 'Plik został usunięty.', cs: 'Soubor byl odebrán.' },
+  fileOrderCouldNotSave: { da: 'Rækkefølgen kunne ikke gemmes.', en: 'The order could not be saved.', de: 'Die Reihenfolge konnte nicht gespeichert werden.', it: 'Impossibile salvare l’ordine.', hu: 'A sorrendet nem sikerült menteni.', sv: 'Ordningen kunde inte sparas.', fr: 'L’ordre n’a pas pu être enregistré.', pl: 'Nie można zapisać kolejności.', cs: 'Pořadí se nepodařilo uložit.' },
+  missingUploadedPages: { da: 'Der mangler sider: {current} af {total} sider uploadet.', en: 'Missing pages: {current} of {total} pages uploaded.', de: 'Es fehlen Seiten: {current} von {total} Seiten hochgeladen.', it: 'Pagine mancanti: {current} di {total} pagine caricate.', hu: 'Hiányzó oldalak: {current}/{total} oldal feltöltve.', sv: 'Sidor saknas: {current} av {total} sidor uppladdade.', fr: 'Pages manquantes : {current} sur {total} pages téléversées.', pl: 'Brakuje stron: przesłano {current} z {total} stron.', cs: 'Chybějící strany: nahráno {current} z {total} stran.' },
+  uploadCouldNotSubmit: { da: 'Uploaden kunne ikke sendes til Timan.', en: 'The upload could not be sent to Timan.', de: 'Der Upload konnte nicht an Timan gesendet werden.', it: 'Impossibile inviare il caricamento a Timan.', hu: 'A feltöltést nem sikerült elküldeni a Timannak.', sv: 'Uppladdningen kunde inte skickas till Timan.', fr: 'Le téléversement n’a pas pu être envoyé à Timan.', pl: 'Nie można wysłać przesłanych plików do Timan.', cs: 'Nahrání se nepodařilo odeslat do Timanu.' },
+  contractDraftCouldNotLoad: { da: 'Kontraktkladde kunne ikke hentes', en: 'Contract draft could not be loaded', de: 'Vertragsentwurf konnte nicht geladen werden', it: 'Impossibile caricare la bozza del contratto', hu: 'A szerződéspiszkozatot nem sikerült betölteni', sv: 'Avtalsutkastet kunde inte hämtas', fr: 'Le brouillon du contrat n’a pas pu être chargé', pl: 'Nie można wczytać szkicu umowy', cs: 'Koncept smlouvy se nepodařilo načíst' },
+  reloadContractErrorHelp: { da: 'Prøv at genindlæse siden. Hvis fejlen fortsætter, mangler kontrakt-persistence muligvis at blive deployet.', en: 'Try reloading the page. If the error continues, contract persistence may still need to be deployed.', de: 'Laden Sie die Seite erneut. Wenn der Fehler weiterhin auftritt, muss die Vertragsspeicherung möglicherweise noch bereitgestellt werden.', it: 'Prova a ricaricare la pagina. Se l’errore continua, la persistenza dei contratti potrebbe dover essere ancora distribuita.', hu: 'Próbálja meg újratölteni az oldalt. Ha a hiba továbbra is fennáll, lehet, hogy a szerződésmentés még nincs telepítve.', sv: 'Försök ladda om sidan. Om felet kvarstår kan avtalslagringen behöva driftsättas.', fr: 'Essayez de recharger la page. Si l’erreur persiste, la persistance des contrats doit peut-être encore être déployée.', pl: 'Spróbuj odświeżyć stronę. Jeśli błąd nadal występuje, trwałość umów może wymagać wdrożenia.', cs: 'Zkuste stránku znovu načíst. Pokud chyba přetrvá, může být nutné ještě nasadit ukládání smluv.' },
+  contractAvailableUntil: { da: 'Kontrakt tilgængelig indtil {time}', en: 'Contract available until {time}', de: 'Vertrag verfügbar bis {time}', it: 'Contratto disponibile fino a {time}', hu: 'A szerződés elérhető eddig: {time}', sv: 'Avtal tillgängligt till {time}', fr: 'Contrat disponible jusqu’au {time}', pl: 'Umowa dostępna do {time}', cs: 'Smlouva dostupná do {time}' },
+  saveContractBeforePartnerAccess: { da: 'Gem kontrakten, før partneradgang kan åbnes.', en: 'Save the contract before partner access can be opened.', de: 'Speichern Sie den Vertrag, bevor der Partnerzugang geöffnet werden kann.', it: 'Salva il contratto prima di aprire l’accesso partner.', hu: 'Mentse a szerződést, mielőtt a partnerhozzáférés megnyitható.', sv: 'Spara avtalet innan partneråtkomst kan öppnas.', fr: 'Enregistrez le contrat avant d’ouvrir l’accès partenaire.', pl: 'Zapisz umowę przed otwarciem dostępu partnera.', cs: 'Před otevřením přístupu partnera uložte smlouvu.' },
+  createOrInvitePartnerUserFirst: { da: 'Opret eller invitér først en partnerbruger.', en: 'Create or invite a partner user first.', de: 'Erstellen oder laden Sie zuerst einen Partnerbenutzer ein.', it: 'Crea o invita prima un utente partner.', hu: 'Először hozzon létre vagy hívjon meg egy partnerfelhasználót.', sv: 'Skapa eller bjud först in en partneranvändare.', fr: 'Créez ou invitez d’abord un utilisateur partenaire.', pl: 'Najpierw utwórz lub zaproś użytkownika partnera.', cs: 'Nejprve vytvořte nebo pozvěte partnerského uživatele.' },
+  selectPartnerUser: { da: 'Vælg en partnerbruger.', en: 'Select a partner user.', de: 'Wählen Sie einen Partnerbenutzer aus.', it: 'Seleziona un utente partner.', hu: 'Válasszon partnerfelhasználót.', sv: 'Välj en partneranvändare.', fr: 'Sélectionnez un utilisateur partenaire.', pl: 'Wybierz użytkownika partnera.', cs: 'Vyberte partnerského uživatele.' },
+  createLimitedPartnerUserHelp: { da: 'Opret en begrænset partnerbruger til denne konto og kontrakt.', en: 'Create a limited partner user for this account and contract.', de: 'Erstellen Sie einen begrenzten Partnerbenutzer für dieses Konto und diesen Vertrag.', it: 'Crea un utente partner limitato per questo account e contratto.', hu: 'Hozzon létre korlátozott partnerfelhasználót ehhez a fiókhoz és szerződéshez.', sv: 'Skapa en begränsad partneranvändare för detta konto och avtal.', fr: 'Créez un utilisateur partenaire limité pour ce compte et ce contrat.', pl: 'Utwórz ograniczonego użytkownika partnera dla tego konta i tej umowy.', cs: 'Vytvořte omezeného partnerského uživatele pro tento účet a smlouvu.' },
+  invitePartnerUser: { da: 'Invitér partnerbruger', en: 'Invite partner user', de: 'Partnerbenutzer einladen', it: 'Invita utente partner', hu: 'Partnerfelhasználó meghívása', sv: 'Bjud in partneranvändare', fr: 'Inviter un utilisateur partenaire', pl: 'Zaproś użytkownika partnera', cs: 'Pozvat partnerského uživatele' },
+  customDurationLabel: { da: 'Brugerdefineret varighed', en: 'Custom duration', de: 'Benutzerdefinierte Dauer', it: 'Durata personalizzata', hu: 'Egyéni időtartam', sv: 'Anpassad varaktighet', fr: 'Durée personnalisée', pl: 'Niestandardowy czas trwania', cs: 'Vlastní doba trvání' },
+  hoursLowercase: { da: 'timer', en: 'hours', de: 'Stunden', it: 'ore', hu: 'óra', sv: 'timmar', fr: 'heures', pl: 'godz.', cs: 'hodin' },
+  daysLowercase: { da: 'dage', en: 'days', de: 'Tage', it: 'giorni', hu: 'nap', sv: 'dagar', fr: 'jours', pl: 'dni', cs: 'dny' },
+  accessUntilSummary: { da: 'Adgang i {amount} {unit}: til {time}.', en: 'Access for {amount} {unit}: until {time}.', de: 'Zugang für {amount} {unit}: bis {time}.', it: 'Accesso per {amount} {unit}: fino a {time}.', hu: 'Hozzáférés {amount} {unit} időtartamra: eddig: {time}.', sv: 'Åtkomst i {amount} {unit}: till {time}.', fr: 'Accès pendant {amount} {unit} : jusqu’à {time}.', pl: 'Dostęp przez {amount} {unit}: do {time}.', cs: 'Přístup na {amount} {unit}: do {time}.' },
+  partnerUserFallback: { da: 'Partnerbruger', en: 'Partner user', de: 'Partnerbenutzer', it: 'Utente partner', hu: 'Partnerfelhasználó', sv: 'Partneranvändare', fr: 'Utilisateur partenaire', pl: 'Użytkownik partnera', cs: 'Partnerský uživatel' },
+  partnerAccountRequiredBeforeDraftSave: { da: 'Vælg en partnerkonto, før kontraktkladden gemmes.', en: 'Select a partner account before the contract draft is saved.', de: 'Wählen Sie ein Partnerkonto aus, bevor der Vertragsentwurf gespeichert wird.', it: 'Seleziona un account partner prima di salvare la bozza del contratto.', hu: 'Válasszon partnerfiókot a szerződéspiszkozat mentése előtt.', sv: 'Välj ett partnerkonto innan avtalsutkastet sparas.', fr: 'Sélectionnez un compte partenaire avant d’enregistrer le brouillon du contrat.', pl: 'Wybierz konto partnera przed zapisaniem szkicu umowy.', cs: 'Před uložením konceptu smlouvy vyberte partnerský účet.' },
+  contractCouldNotLoad: { da: 'Kunne ikke hente kontrakten.', en: 'Could not load the contract.', de: 'Der Vertrag konnte nicht geladen werden.', it: 'Impossibile caricare il contratto.', hu: 'A szerződést nem sikerült betölteni.', sv: 'Kunde inte hämta avtalet.', fr: 'Impossible de charger le contrat.', pl: 'Nie można wczytać umowy.', cs: 'Smlouvu se nepodařilo načíst.' },
+  savedDraftCouldNotLoad: { da: 'Kunne ikke hente gemt kontraktkladde.', en: 'Could not load the saved contract draft.', de: 'Der gespeicherte Vertragsentwurf konnte nicht geladen werden.', it: 'Impossibile caricare la bozza del contratto salvata.', hu: 'A mentett szerződéspiszkozatot nem sikerült betölteni.', sv: 'Kunde inte hämta sparat avtalsutkast.', fr: 'Impossible de charger le brouillon de contrat enregistré.', pl: 'Nie można wczytać zapisanego szkicu umowy.', cs: 'Uložený koncept smlouvy se nepodařilo načíst.' },
+  dealerDataCouldNotLoad: { da: 'Kunne ikke hente forhandlerdata til kontrakten.', en: 'Could not load dealer data for the contract.', de: 'Händlerdaten für den Vertrag konnten nicht geladen werden.', it: 'Impossibile caricare i dati del rivenditore per il contratto.', hu: 'A szerződéshez tartozó kereskedői adatokat nem sikerült betölteni.', sv: 'Kunde inte hämta återförsäljardata till avtalet.', fr: 'Impossible de charger les données du revendeur pour le contrat.', pl: 'Nie można wczytać danych dealera dla umowy.', cs: 'Data prodejce pro smlouvu se nepodařilo načíst.' },
+  contractDraftSaved: { da: 'Kontraktkladde gemt.', en: 'Contract draft saved.', de: 'Vertragsentwurf gespeichert.', it: 'Bozza del contratto salvata.', hu: 'Szerződéspiszkozat mentve.', sv: 'Avtalsutkast sparat.', fr: 'Brouillon du contrat enregistré.', pl: 'Szkic umowy zapisany.', cs: 'Koncept smlouvy uložen.' },
+  uploadDocumentsCouldNotLoad: { da: 'Kunne ikke hente uploadede kontraktdokumenter.', en: 'Could not load uploaded contract documents.', de: 'Hochgeladene Vertragsdokumente konnten nicht geladen werden.', it: 'Impossibile caricare i documenti contrattuali caricati.', hu: 'A feltöltött szerződésdokumentumokat nem sikerült betölteni.', sv: 'Kunde inte hämta uppladdade avtalsdokument.', fr: 'Impossible de charger les documents contractuels téléversés.', pl: 'Nie można wczytać przesłanych dokumentów umowy.', cs: 'Nahrané smluvní dokumenty se nepodařilo načíst.' },
+  overviewCouldNotLoad: { da: 'Kontraktoversigten kunne ikke hentes.', en: 'The contract overview could not be loaded.', de: 'Die Vertragsübersicht konnte nicht geladen werden.', it: 'Impossibile caricare la panoramica dei contratti.', hu: 'A szerződésáttekintést nem sikerült betölteni.', sv: 'Kunde inte hämta avtalsöversikten.', fr: 'Impossible de charger l’aperçu des contrats.', pl: 'Nie można wczytać przeglądu umów.', cs: 'Přehled smluv se nepodařilo načíst.' },
+  approvedContractsCannotDelete: { da: 'Godkendte kontrakter kan ikke slettes. Brug Opsig kontrakt.', en: 'Approved contracts cannot be deleted. Use Terminate contract.', de: 'Genehmigte Verträge können nicht gelöscht werden. Verwenden Sie Vertrag kündigen.', it: 'I contratti approvati non possono essere eliminati. Usa Termina contratto.', hu: 'A jóváhagyott szerződések nem törölhetők. Használja a Szerződés felmondása lehetőséget.', sv: 'Godkända avtal kan inte tas bort. Använd Säg upp avtal.', fr: 'Les contrats approuvés ne peuvent pas être supprimés. Utilisez Résilier le contrat.', pl: 'Zatwierdzonych umów nie można usuwać. Użyj opcji Wypowiedz umowę.', cs: 'Schválené smlouvy nelze smazat. Použijte Ukončit smlouvu.' },
+  contractCouldNotDelete: { da: 'Kontrakten kunne ikke slettes.', en: 'The contract could not be deleted.', de: 'Der Vertrag konnte nicht gelöscht werden.', it: 'Impossibile eliminare il contratto.', hu: 'A szerződést nem sikerült törölni.', sv: 'Avtalet kunde inte tas bort.', fr: 'Le contrat n’a pas pu être supprimé.', pl: 'Nie można usunąć umowy.', cs: 'Smlouvu se nepodařilo smazat.' },
+  contractDeleted: { da: 'Kontrakten er slettet.', en: 'The contract has been deleted.', de: 'Der Vertrag wurde gelöscht.', it: 'Il contratto è stato eliminato.', hu: 'A szerződés törölve.', sv: 'Avtalet har tagits bort.', fr: 'Le contrat a été supprimé.', pl: 'Umowa została usunięta.', cs: 'Smlouva byla smazána.' },
+  deleteContractConfirm: { da: 'Er du sikker på, at du vil slette denne kontrakt?\n\n{partner} ({contract})\n\nHandlingen kan ikke fortrydes.', en: 'Are you sure you want to delete this contract?\n\n{partner} ({contract})\n\nThis action cannot be undone.', de: 'Möchten Sie diesen Vertrag wirklich löschen?\n\n{partner} ({contract})\n\nDiese Aktion kann nicht rückgängig gemacht werden.', it: 'Vuoi davvero eliminare questo contratto?\n\n{partner} ({contract})\n\nQuesta azione non può essere annullata.', hu: 'Biztosan törli ezt a szerződést?\n\n{partner} ({contract})\n\nEz a művelet nem vonható vissza.', sv: 'Är du säker på att du vill ta bort detta avtal?\n\n{partner} ({contract})\n\nÅtgärden kan inte ångras.', fr: 'Voulez-vous vraiment supprimer ce contrat ?\n\n{partner} ({contract})\n\nCette action est irréversible.', pl: 'Czy na pewno chcesz usunąć tę umowę?\n\n{partner} ({contract})\n\nTej czynności nie można cofnąć.', cs: 'Opravdu chcete tuto smlouvu smazat?\n\n{partner} ({contract})\n\nTuto akci nelze vrátit zpět.' },
+  overviewSearch: { da: 'Søg', en: 'Search', de: 'Suchen', it: 'Cerca', hu: 'Keresés', sv: 'Sök', fr: 'Rechercher', pl: 'Szukaj', cs: 'Hledat' },
+  overviewSearchPlaceholder: { da: 'Partner, kontonummer, land eller sælger', en: 'Partner, account number, country, or seller', de: 'Partner, Kontonummer, Land oder Verkäufer', it: 'Partner, numero conto, paese o venditore', hu: 'Partner, számlaszám, ország vagy értékesítő', sv: 'Partner, kontonummer, land eller säljare', fr: 'Partenaire, numéro de compte, pays ou vendeur', pl: 'Partner, numer konta, kraj lub sprzedawca', cs: 'Partner, číslo účtu, země nebo prodejce' },
+  all: { da: 'Alle', en: 'All', de: 'Alle', it: 'Tutti', hu: 'Összes', sv: 'Alla', fr: 'Tous', pl: 'Wszystkie', cs: 'Vše' },
+  statusDraft: { da: 'Kladde', en: 'Draft', de: 'Entwurf', it: 'Bozza', hu: 'Piszkozat', sv: 'Utkast', fr: 'Brouillon', pl: 'Szkic', cs: 'Koncept' },
+  statusDraftPlural: { da: 'Kladder', en: 'Drafts', de: 'Entwürfe', it: 'Bozze', hu: 'Piszkozatok', sv: 'Utkast', fr: 'Brouillons', pl: 'Szkice', cs: 'Koncepty' },
+  statusPending: { da: 'Afventer', en: 'Pending', de: 'Ausstehend', it: 'In attesa', hu: 'Függőben', sv: 'Väntar', fr: 'En attente', pl: 'Oczekujące', cs: 'Čeká' },
+  statusApproved: { da: 'Godkendt', en: 'Approved', de: 'Genehmigt', it: 'Approvato', hu: 'Jóváhagyva', sv: 'Godkänd', fr: 'Approuvé', pl: 'Zatwierdzone', cs: 'Schváleno' },
+  statusApprovedPlural: { da: 'Godkendte', en: 'Approved', de: 'Genehmigte', it: 'Approvati', hu: 'Jóváhagyottak', sv: 'Godkända', fr: 'Approuvés', pl: 'Zatwierdzone', cs: 'Schválené' },
+  statusRejected: { da: 'Ikke godkendt', en: 'Rejected', de: 'Abgelehnt', it: 'Rifiutato', hu: 'Elutasítva', sv: 'Avvisad', fr: 'Refusé', pl: 'Odrzucone', cs: 'Zamítnuto' },
+  statusTerminated: { da: 'Opsagt / ophørt', en: 'Terminated / ended', de: 'Gekündigt / beendet', it: 'Terminato / concluso', hu: 'Felmondva / lezárva', sv: 'Uppsagd / avslutad', fr: 'Résilié / terminé', pl: 'Wypowiedziane / zakończone', cs: 'Vypovězeno / ukončeno' },
+  statusTerminatedPlural: { da: 'Opsagte', en: 'Terminated', de: 'Gekündigte', it: 'Terminati', hu: 'Felmondottak', sv: 'Uppsagda', fr: 'Résiliés', pl: 'Wypowiedziane', cs: 'Ukončené' },
+  accountNoShort: { da: 'Kontonr.', en: 'Account no.', de: 'Kontonr.', it: 'N. conto', hu: 'Számlaszám', sv: 'Kontonr.', fr: 'N° compte', pl: 'Nr konta', cs: 'Č. účtu' },
+  partnerTypeHeader: { da: 'Partnertype', en: 'Partner type', de: 'Partnertyp', it: 'Tipo partner', hu: 'Partner típusa', sv: 'Partnertyp', fr: 'Type de partenaire', pl: 'Typ partnera', cs: 'Typ partnera' },
+  countryHeader: { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország', sv: 'Land', fr: 'Pays', pl: 'Kraj', cs: 'Země' },
+  createdAtHeader: { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva', sv: 'Skapad', fr: 'Créé', pl: 'Utworzono', cs: 'Vytvořeno' },
+  updatedAtHeader: { da: 'Senest ændret', en: 'Last changed', de: 'Zuletzt geändert', it: 'Ultima modifica', hu: 'Utoljára módosítva', sv: 'Senast ändrad', fr: 'Dernière modification', pl: 'Ostatnio zmieniono', cs: 'Naposledy změněno' },
+  actionHeader: { da: 'Handling', en: 'Action', de: 'Aktion', it: 'Azione', hu: 'Művelet', sv: 'Åtgärd', fr: 'Action', pl: 'Akcja', cs: 'Akce' },
+  loadingContracts: { da: 'Henter kontrakter...', en: 'Loading contracts...', de: 'Verträge werden geladen...', it: 'Caricamento contratti...', hu: 'Szerződések betöltése...', sv: 'Laddar avtal...', fr: 'Chargement des contrats...', pl: 'Ładowanie umów...', cs: 'Načítání smluv...' },
+  noContractsMatchFilters: { da: 'Ingen kontrakter matcher filtrene.', en: 'No contracts match the filters.', de: 'Keine Verträge entsprechen den Filtern.', it: 'Nessun contratto corrisponde ai filtri.', hu: 'Nincs a szűrőknek megfelelő szerződés.', sv: 'Inga avtal matchar filtren.', fr: 'Aucun contrat ne correspond aux filtres.', pl: 'Żadne umowy nie pasują do filtrów.', cs: 'Žádné smlouvy neodpovídají filtrům.' },
+  deleteContract: { da: 'Slet kontrakt', en: 'Delete contract', de: 'Vertrag löschen', it: 'Elimina contratto', hu: 'Szerződés törlése', sv: 'Ta bort avtal', fr: 'Supprimer le contrat', pl: 'Usuń umowę', cs: 'Smazat smlouvu' },
+  deleteContractForPartner: { da: 'Slet kontrakt for {partner}', en: 'Delete contract for {partner}', de: 'Vertrag für {partner} löschen', it: 'Elimina contratto per {partner}', hu: '{partner} szerződésének törlése', sv: 'Ta bort avtal för {partner}', fr: 'Supprimer le contrat pour {partner}', pl: 'Usuń umowę dla {partner}', cs: 'Smazat smlouvu pro {partner}' },
+  associatedPartnerAlreadyAdded: { da: 'Samarbejdspartneren er allerede tilføjet til kontrakten.', en: 'The associated partner has already been added to the contract.', de: 'Der zugehörige Partner wurde dem Vertrag bereits hinzugefügt.', it: 'Il partner associato è già stato aggiunto al contratto.', hu: 'A kapcsolódó partner már hozzá lett adva a szerződéshez.', sv: 'Den associerade partnern har redan lagts till i avtalet.', fr: 'Le partenaire associé a déjà été ajouté au contrat.', pl: 'Powiązany partner został już dodany do umowy.', cs: 'Přidružený partner již byl do smlouvy přidán.' },
   stepElevenArchiveHelp: { da: 'Generér kontrakten her på Trin 11. Den endelige, private dokumentarkivering aktiveres sammen med database-migrationen.', en: 'Generate the contract here in Step 11. Final private document archiving is enabled together with the database migration.', de: 'Erstellen Sie den Vertrag hier in Schritt 11. Die endgültige private Dokumentarchivierung wird zusammen mit der Datenbankmigration aktiviert.', it: 'Genera il contratto qui al Passaggio 11. L’archiviazione privata finale del documento viene attivata insieme alla migrazione del database.', hu: 'A szerződést itt, a 11. lépésben hozza létre. A végleges privát dokumentumarchiválás az adatbázis-migrációval együtt aktiválódik.', sv: 'Generera avtalet här i steg 11. Slutlig privat dokumentarkivering aktiveras tillsammans med databasmigreringen.', fr: 'Générez le contrat ici à l’étape 11. L’archivage privé final du document est activé avec la migration de base de données.', pl: 'Wygeneruj umowę tutaj, w kroku 11. Końcowa prywatna archiwizacja dokumentu jest aktywowana wraz z migracją bazy danych.', cs: 'Smlouvu vytvořte zde v kroku 11. Konečná soukromá archivace dokumentu se aktivuje spolu s migrací databáze.' },
 } as const;
 
+const CONTRACT_UI_SUPPLEMENT_LANGUAGES = ['it', 'hu', 'sv', 'fr', 'pl', 'cs'] as const;
+type ContractUiSupplementLanguage = typeof CONTRACT_UI_SUPPLEMENT_LANGUAGES[number];
+const contractUi6 = (
+  it: string,
+  hu: string,
+  sv: string,
+  fr: string,
+  pl: string,
+  cs: string,
+): Record<ContractUiSupplementLanguage, string> => ({ it, hu, sv, fr, pl, cs });
+
+// Non-legal guided contract UI chrome for newer portal languages. Legal contract
+// prose stays in the contract text registry and falls back only by approved rules.
+const CONTRACT_UI_COPY_SUPPLEMENTS = {
+  guidedTitle: contractUi6('Contratto rivenditore guidato', 'Vezetett kereskedői szerződés', 'Guidad återförsäljaravtal', 'Contrat revendeur guidé', 'Prowadzona umowa dealerska', 'Průvodce dealerskou smlouvou'),
+  guidedIntro: contractUi6('Rivedi l’accordo passo dopo passo prima di prepararlo per firma e PDF.', 'Lépésről lépésre tekintse át a megállapodást, mielőtt aláírásra és PDF-re előkészül.', 'Granska avtalet steg för steg innan det förbereds för signering och PDF.', 'Relisez l’accord étape par étape avant la signature et le PDF.', 'Przejrzyj umowę krok po kroku przed przygotowaniem do podpisu i PDF.', 'Projděte smlouvu krok za krokem před přípravou k podpisu a PDF.'),
+  saveDraft: contractUi6('Salva bozza', 'Piszkozat mentése', 'Spara utkast', 'Enregistrer le brouillon', 'Zapisz szkic', 'Uložit koncept'),
+  stepOf: contractUi6('Passaggio {current} di {total}', '{current}. lépés / {total}', 'Steg {current} av {total}', 'Étape {current} sur {total}', 'Krok {current} z {total}', 'Krok {current} z {total}'),
+  timanDetails: contractUi6('Dati Timan', 'Timan adatok', 'Timan-uppgifter', 'Informations Timan', 'Dane Timan', 'Údaje Timan'),
+  timanSeller: contractUi6('Venditore Timan', 'Timan értékesítő', 'Timan-säljare', 'Vendeur Timan', 'Sprzedawca Timan', 'Prodejce Timan'),
+  partnerManagement: contractUi6('Gestione partner', 'Partnerkezelés', 'Partnerhantering', 'Gestion du partenaire', 'Zarządzanie partnerem', 'Správa partnera'),
+  partnerManagementIntro: contractUi6('Tipo partner, account partner e accesso partner sono gestiti da Timan.', 'A partner típusát, fiókját és hozzáférését a Timan kezeli.', 'Partnertyp, partnerkonto och partneråtkomst hanteras av Timan.', 'Le type, le compte et l’accès partenaire sont gérés par Timan.', 'Typ partnera, konto i dostęp partnera są zarządzane przez Timan.', 'Typ partnera, partnerský účet a přístup spravuje Timan.'),
+  partnerType: contractUi6('Tipo partner', 'Partner típusa', 'Partnertyp', 'Type de partenaire', 'Typ partnera', 'Typ partnera'),
+  selectPartnerType: contractUi6('Seleziona tipo partner...', 'Válasszon partnertípust...', 'Välj partnertyp...', 'Sélectionner un type de partenaire...', 'Wybierz typ partnera...', 'Vyberte typ partnera...'),
+  companyName: contractUi6('Nome azienda', 'Cégnév', 'Företagsnamn', 'Nom de l’entreprise', 'Nazwa firmy', 'Název společnosti'),
+  contractCompanyName: contractUi6('Nome azienda nel contratto', 'Cégnév a szerződésben', 'Företagsnamn i avtalet', 'Nom de l’entreprise dans le contrat', 'Nazwa firmy w umowie', 'Název společnosti ve smlouvě'),
+  searchPartner: contractUi6('Cerca partner...', 'Partner keresése...', 'Sök partner...', 'Rechercher un partenaire...', 'Szukaj partnera...', 'Hledat partnera...'),
+  selectPartnerFirst: contractUi6('Seleziona prima un partner', 'Először válasszon partnert', 'Välj först en partner', 'Sélectionnez d’abord un partenaire', 'Najpierw wybierz partnera', 'Nejprve vyberte partnera'),
+  loadingPartners: contractUi6('Caricamento partner approvati...', 'Jóváhagyott partnerek betöltése...', 'Laddar godkända partner...', 'Chargement des partenaires approuvés...', 'Ładowanie zatwierdzonych partnerów...', 'Načítání schválených partnerů...'),
+  noMatchingPartners: contractUi6('Nessun partner attivo approvato corrisponde alla ricerca.', 'Nincs a keresésnek megfelelő jóváhagyott aktív partner.', 'Inga godkända aktiva partner matchar sökningen.', 'Aucun partenaire actif approuvé ne correspond à la recherche.', 'Brak zatwierdzonych aktywnych partnerów pasujących do wyszukiwania.', 'Vyhledávání neodpovídá žádný schválený aktivní partner.'),
+  noAddress: contractUi6('Nessun indirizzo', 'Nincs címadat', 'Ingen adressinformation', 'Aucune adresse', 'Brak danych adresowych', 'Žádné adresní údaje'),
+  partnerPickerHelp: contractUi6('Seleziona un partner approvato esistente. Un nuovo contratto non crea un nuovo account partner.', 'Válasszon meglévő jóváhagyott partnert. Az új szerződés nem hoz létre új partnerfiókot.', 'Välj en befintlig godkänd partner. Ett nytt avtal skapar inte ett nytt partnerkonto.', 'Sélectionnez un partenaire approuvé existant. Un nouveau contrat ne crée pas de compte partenaire.', 'Wybierz istniejącego zatwierdzonego partnera. Nowa umowa nie tworzy nowego konta partnera.', 'Vyberte existujícího schváleného partnera. Nová smlouva nevytváří nový partnerský účet.'),
+  company: contractUi6('Azienda', 'Cég', 'Företag', 'Entreprise', 'Firma', 'Společnost'),
+  address: contractUi6('Indirizzo', 'Cím', 'Adress', 'Adresse', 'Adres', 'Adresa'),
+  postalCity: contractUi6('CAP e città', 'Irányítószám és város', 'Postnummer och ort', 'Code postal et ville', 'Kod pocztowy i miasto', 'PSČ a město'),
+  name: contractUi6('Nome', 'Név', 'Namn', 'Nom', 'Imię i nazwisko', 'Jméno'),
+  phone: contractUi6('Telefono', 'Telefon', 'Telefon', 'Téléphone', 'Telefon', 'Telefon'),
+  postalCode: contractUi6('CAP', 'Irányítószám', 'Postnr.', 'Code postal', 'Kod pocztowy', 'PSČ'),
+  city: contractUi6('Città', 'Város', 'Ort', 'Ville', 'Miasto', 'Město'),
+  country: contractUi6('Paese', 'Ország', 'Land', 'Pays', 'Kraj', 'Země'),
+  contactPerson: contractUi6('Persona di contatto', 'Kapcsolattartó', 'Kontaktperson', 'Personne de contact', 'Osoba kontaktowa', 'Kontaktní osoba'),
+  title: contractUi6('Titolo', 'Beosztás', 'Titel', 'Fonction', 'Stanowisko', 'Funkce'),
+  contactPersonPlaceholder: contractUi6('Nome della persona di contatto', 'Kapcsolattartó neve', 'Kontaktpersonens namn', 'Nom de la personne de contact', 'Imię i nazwisko osoby kontaktowej', 'Jméno kontaktní osoby'),
+  titlePlaceholder: contractUi6('Ad es. proprietario, responsabile vendite o direttore', 'Pl. tulajdonos, értékesítési vezető vagy igazgató', 'T.ex. ägare, försäljningschef eller direktör', 'Par ex. propriétaire, directeur commercial ou directeur', 'Np. właściciel, kierownik sprzedaży lub dyrektor', 'Např. majitel, vedoucí prodeje nebo ředitel'),
+  lockedContract: contractUi6('Il contratto è firmato. Crea una nuova bozza per modificare i dati.', 'A szerződés alá van írva. Az adatok módosításához hozzon létre új piszkozatot.', 'Avtalet är signerat. Skapa ett nytt utkast för att ändra uppgifterna.', 'Le contrat est signé. Créez un nouveau brouillon pour modifier les données.', 'Umowa jest podpisana. Utwórz nowy szkic, aby zmienić dane.', 'Smlouva je podepsána. Pro změnu údajů vytvořte nový koncept.'),
+  partnerAccess: contractUi6('Accesso partner', 'Partner-hozzáférés', 'Partneråtkomst', 'Accès partenaire', 'Dostęp partnera', 'Přístup partnera'),
+  status: contractUi6('Stato', 'Állapot', 'Status', 'Statut', 'Status', 'Stav'),
+  accessNotOpened: contractUi6('Non aperto', 'Nincs megnyitva', 'Inte öppnad', 'Non ouvert', 'Nie otwarto', 'Neotevřeno'),
+  accessPlanned: contractUi6('Pianificato', 'Ütemezve', 'Planerad', 'Planifié', 'Zaplanowane', 'Naplánováno'),
+  accessOpenNow: contractUi6('Aperto ora', 'Most nyitva', 'Öppen nu', 'Ouvert maintenant', 'Otwarte teraz', 'Nyní otevřeno'),
+  accessExpired: contractUi6('Scaduto', 'Lejárt', 'Utgången', 'Expiré', 'Wygasło', 'Vypršelo'),
+  accessManuallyClosed: contractUi6('Chiuso manualmente', 'Manuálisan lezárva', 'Stängd manuellt', 'Fermé manuellement', 'Zamknięto ręcznie', 'Ručně zavřeno'),
+  noActivePortalUser: contractUi6('Non esiste ancora un utente portale attivo per questo partner', 'Ehhez a partnerhez még nincs aktív portálfelhasználó', 'Det finns ännu ingen aktiv portalanvändare för denna partner', 'Aucun utilisateur portail actif pour ce partenaire pour le moment', 'Nie ma jeszcze aktywnego użytkownika portalu dla tego partnera', 'Pro tohoto partnera zatím není aktivní uživatel portálu'),
+  user: contractUi6('Utente', 'Felhasználó', 'Användare', 'Utilisateur', 'Użytkownik', 'Uživatel'),
+  opens: contractUi6('Apre', 'Megnyílik', 'Öppnar', 'Ouvre', 'Otwiera się', 'Otevírá'),
+  closes: contractUi6('Chiude', 'Bezárul', 'Stänger', 'Ferme', 'Zamyka się', 'Zavírá'),
+  oneHour: contractUi6('1 ora', '1 óra', '1 timme', '1 heure', '1 godzina', '1 hodina'),
+  twoHours: contractUi6('2 ore', '2 óra', '2 timmar', '2 heures', '2 godziny', '2 hodiny'),
+  fourHours: contractUi6('4 ore', '4 óra', '4 timmar', '4 heures', '4 godziny', '4 hodiny'),
+  twentyFourHours: contractUi6('24 ore', '24 óra', '24 timmar', '24 heures', '24 godziny', '24 hodin'),
+  custom: contractUi6('Personalizzato', 'Egyedi', 'Anpassad', 'Personnalisé', 'Niestandardowe', 'Vlastní'),
+  saving: contractUi6('Salvataggio...', 'Mentés...', 'Sparar...', 'Enregistrement...', 'Zapisywanie...', 'Ukládání...'),
+  openContractForPartner: contractUi6('Apri contratto per partner', 'Szerződés megnyitása partnerhez', 'Öppna avtal för partner', 'Ouvrir le contrat pour le partenaire', 'Otwórz umowę dla partnera', 'Otevřít smlouvu pro partnera'),
+  extend: contractUi6('Estendi', 'Meghosszabbítás', 'Förläng', 'Prolonger', 'Przedłuż', 'Prodloužit'),
+  closeNow: contractUi6('Chiudi ora', 'Bezárás most', 'Stäng nu', 'Fermer maintenant', 'Zamknij teraz', 'Zavřít nyní'),
+  contractAccessInactive: contractUi6('Accesso al contratto non attivo', 'A szerződés-hozzáférés nem aktív', 'Avtalsåtkomst är inte aktiv', 'L’accès au contrat n’est pas actif', 'Dostęp do umowy nie jest aktywny', 'Přístup ke smlouvě není aktivní'),
+  contractAccessInactiveHelp: contractUi6('Timan apre il contratto guidato in una finestra temporale limitata quando l’accordo deve essere rivisto. Dopo l’approvazione resta disponibile come documento legale in Dati partner.', 'A Timan időkorlátos ablakban nyitja meg a vezetett szerződést, amikor a megállapodást át kell tekinteni. Jóváhagyás után jogi dokumentumként továbbra is elérhető a Partneradatok alatt.', 'Timan öppnar det guidade avtalet i ett tidsbegränsat fönster när avtalet ska granskas. När det är godkänt finns det kvar som juridiskt dokument under Partnerdata.', 'Timan ouvre le contrat guidé dans une fenêtre limitée lorsque l’accord doit être relu. Une fois approuvé, il reste disponible comme document juridique sous Données partenaire.', 'Timan otwiera prowadzoną umowę w ograniczonym oknie czasowym, gdy umowa ma zostać przejrzana. Po zatwierdzeniu pozostaje dostępna jako dokument prawny w danych partnera.', 'Timan otevře průvodce smlouvou v časově omezeném okně, když má být dohoda zkontrolována. Po schválení zůstává k dispozici jako právní dokument v partnerských datech.'),
+  reviewConfirmed: contractUi6('Abbiamo rivisto e compreso questa sezione.', 'Ezt a szakaszt áttekintettük és megértettük.', 'Vi har granskat och förstått detta avsnitt.', 'Nous avons relu et compris cette section.', 'Przejrzeliśmy i zrozumieliśmy tę część.', 'Tuto část jsme zkontrolovali a porozuměli jí.'),
+  addSecondaryTerritory: contractUi6('Aggiungi territorio secondario', 'Másodlagos terület hozzáadása', 'Lägg till sekundärt område', 'Ajouter un territoire secondaire', 'Dodaj obszar dodatkowy', 'Přidat sekundární území'),
+  primaryTerritoryRequired: contractUi6('È richiesto un territorio principale. Seleziona un intero paese, un’area sulla mappa o inserisci almeno un CAP valido o un intervallo di CAP.', 'Elsődleges terület megadása kötelező. Válasszon teljes országot, térképes területet vagy adjon meg legalább egy érvényes irányítószámot vagy tartományt.', 'Ett primärt område krävs. Välj ett helt land, ett område på kartan eller ange minst ett giltigt postnummer eller postnummerintervall.', 'Un territoire principal est requis. Sélectionnez un pays entier, une zone sur la carte ou indiquez au moins un code postal ou intervalle valide.', 'Wymagany jest obszar podstawowy. Wybierz cały kraj, obszar na mapie albo wpisz co najmniej jeden prawidłowy kod pocztowy lub zakres.', 'Je vyžadováno primární území. Vyberte celou zemi, oblast na mapě nebo zadejte alespoň jedno platné PSČ či rozsah PSČ.'),
+  geographicLevel: contractUi6('Livello geografico', 'Földrajzi szint', 'Geografisk nivå', 'Niveau géographique', 'Poziom geograficzny', 'Geografická úroveň'),
+  wholeCountries: contractUi6('Paesi interi', 'Teljes országok', 'Hela länder', 'Pays entiers', 'Całe kraje', 'Celé země'),
+  detailedTerritory: contractUi6('Territorio dettagliato', 'Részletes terület', 'Detaljerat område', 'Territoire détaillé', 'Szczegółowy obszar', 'Podrobné území'),
+  wholeCountryHelp: contractUi6('Seleziona un intero paese sulla mappa. Clicca di nuovo sullo stesso paese per deselezionarlo.', 'Válasszon egy teljes országot a térképen. Ugyanarra az országra kattintva megszüntetheti a kijelölést.', 'Välj ett helt land på kartan. Klicka på samma land igen för att avmarkera.', 'Sélectionnez un pays entier sur la carte. Cliquez à nouveau sur le même pays pour le désélectionner.', 'Wybierz cały kraj na mapie. Kliknij ten sam kraj ponownie, aby odznaczyć.', 'Vyberte celou zemi na mapě. Kliknutím na stejnou zemi výběr zrušíte.'),
+  wholeCountrySelected: contractUi6('{country} - Paese intero', '{country} - Teljes ország', '{country} - Hela landet', '{country} - Pays entier', '{country} - Cały kraj', '{country} - Celá země'),
+  noWholeCountry: contractUi6('Nessun paese intero selezionato.', 'Még nincs kiválasztva teljes ország.', 'Inget helt land valt ännu.', 'Aucun pays entier sélectionné pour le moment.', 'Nie wybrano jeszcze całego kraju.', 'Zatím není vybrána žádná celá země.'),
+  postalNumber: contractUi6('CAP {number}', 'Irányítószám {number}', 'Postnr. {number}', 'Code postal {number}', 'Kod pocztowy {number}', 'PSČ {number}'),
+  removeRow: contractUi6('Rimuovi riga', 'Sor eltávolítása', 'Ta bort rad', 'Supprimer la ligne', 'Usuń wiersz', 'Odebrat řádek'),
+  postalHelp: contractUi6('Inserisci almeno un CAP. Puoi aggiungere altri campi se necessario.', 'Adjon meg legalább egy irányítószámot. Szükség esetén további mezőket adhat hozzá.', 'Ange minst ett postnummer. Du kan lägga till fler fält vid behov.', 'Indiquez au moins un code postal. Vous pouvez ajouter d’autres champs si nécessaire.', 'Wpisz co najmniej jeden kod pocztowy. W razie potrzeby możesz dodać więcej pól.', 'Zadejte alespoň jedno PSČ. Podle potřeby můžete přidat další pole.'),
+  addPostalFields: contractUi6('Aggiungi altri CAP', 'További irányítószámok hozzáadása', 'Lägg till fler postnummer', 'Ajouter d’autres codes postaux', 'Dodaj więcej kodów pocztowych', 'Přidat další PSČ'),
+  noAssociatedPartners: contractUi6('Non sono stati aggiunti partner associati.', 'Nincsenek hozzáadva kapcsolódó partnerek.', 'Inga associerade partner har lagts till.', 'Aucun partenaire associé n’a été ajouté.', 'Nie dodano powiązanych partnerów.', 'Nebyli přidáni žádní přidružení partneři.'),
+  primaryTerritoryInvalid: contractUi6('Seleziona un territorio principale valido prima di continuare.', 'A folytatás előtt válasszon érvényes elsődleges területet.', 'Välj ett giltigt primärt område innan du fortsätter.', 'Sélectionnez un territoire principal valide avant de continuer.', 'Przed kontynuowaniem wybierz prawidłowy obszar podstawowy.', 'Před pokračováním vyberte platné primární území.'),
+  serviceHourlyRateInvalid: contractUi6('Inserisci una tariffa oraria valida per il lavoro in garanzia prima di continuare.', 'A folytatás előtt adjon meg érvényes óradíjat a garanciális munkához.', 'Ange en giltig timtaxa för garantiarbete innan du fortsätter.', 'Saisissez un taux horaire valide pour les travaux de garantie avant de continuer.', 'Przed kontynuowaniem wpisz prawidłową stawkę godzinową za prace gwarancyjne.', 'Před pokračováním zadejte platnou hodinovou sazbu za záruční práci.'),
+  partyDataRequired: contractUi6('Seleziona il tipo partner e completa venditore Timan e dati aziendali prima di continuare.', 'A folytatás előtt válasszon partnertípust, és töltse ki a Timan értékesítő és a cég adatait.', 'Välj partnertyp och fyll i Timan-säljare och företagsuppgifter innan du fortsätter.', 'Sélectionnez le type de partenaire et complétez le vendeur Timan et les informations entreprise avant de continuer.', 'Przed kontynuowaniem wybierz typ partnera i uzupełnij sprzedawcę Timan oraz dane firmy.', 'Před pokračováním vyberte typ partnera a doplňte prodejce Timan a údaje společnosti.'),
+  confirmationTerritoryInvalid: contractUi6('Seleziona un territorio principale valido prima di confermare questo passaggio.', 'A lépés megerősítése előtt válasszon érvényes elsődleges területet.', 'Välj ett giltigt primärt område innan detta steg kan bekräftas.', 'Sélectionnez un territoire principal valide avant de confirmer cette étape.', 'Przed potwierdzeniem tego kroku wybierz prawidłowy obszar podstawowy.', 'Před potvrzením tohoto kroku vyberte platné primární území.'),
+  confirmationServiceHourlyRateInvalid: contractUi6('Inserisci una tariffa oraria valida per il lavoro in garanzia prima di confermare questo passaggio.', 'A lépés megerősítése előtt adjon meg érvényes óradíjat a garanciális munkához.', 'Ange en giltig timtaxa för garantiarbete innan detta steg kan bekräftas.', 'Saisissez un taux horaire valide pour les travaux de garantie avant de confirmer cette étape.', 'Przed potwierdzeniem tego kroku wpisz prawidłową stawkę godzinową za prace gwarancyjne.', 'Před potvrzením tohoto kroku zadejte platnou hodinovou sazbu za záruční práci.'),
+  loadingContacts: contractUi6('Caricamento contatti...', 'Kapcsolattartók betöltése...', 'Laddar kontaktpersoner...', 'Chargement des contacts...', 'Ładowanie kontaktów...', 'Načítání kontaktních osob...'),
+  selectContact: contractUi6('Seleziona contatto', 'Kapcsolattartó kiválasztása', 'Välj kontaktperson', 'Sélectionner une personne de contact', 'Wybierz osobę kontaktową', 'Vybrat kontaktní osobu'),
+  noContacts: contractUi6('Nessun contatto registrato', 'Nincs regisztrált kapcsolattartó', 'Inga kontaktpersoner registrerade', 'Aucune personne de contact enregistrée', 'Brak zarejestrowanych osób kontaktowych', 'Žádné registrované kontaktní osoby'),
+  contactsLoadError: contractUi6('Impossibile caricare i contatti: {error}', 'A kapcsolattartók nem tölthetők be: {error}', 'Kontaktpersoner kunde inte laddas: {error}', 'Impossible de charger les contacts : {error}', 'Nie można załadować kontaktów: {error}', 'Kontaktní osoby se nepodařilo načíst: {error}'),
+  partnerHasNoContacts: contractUi6('Questo partner non ha ancora contatti registrati.', 'Ennek a partnernek még nincs regisztrált kapcsolattartója.', 'Denna partner har ännu inga registrerade kontakter.', 'Ce partenaire n’a pas encore de contacts enregistrés.', 'Ten partner nie ma jeszcze zarejestrowanych kontaktów.', 'Tento partner zatím nemá registrované kontakty.'),
+  contractLanguage: contractUi6('Lingua del contratto', 'Szerződés nyelve', 'Avtalsspråk', 'Langue du contrat', 'Język umowy', 'Jazyk smlouvy'),
+  contractLanguageHelp: contractUi6('La versione finale è attualmente approvata solo per danese, inglese e tedesco.', 'A végleges változat jelenleg csak dán, angol és német nyelven jóváhagyott.', 'Slutversionen är för närvarande endast godkänd på danska, engelska och tyska.', 'La version finale est actuellement approuvée uniquement en danois, anglais et allemand.', 'Wersja końcowa jest obecnie zatwierdzona tylko po duńsku, angielsku i niemiecku.', 'Finální verze je aktuálně schválena pouze v dánštině, angličtině a němčině.'),
+  sellerPhoneAuto: contractUi6('Il telefono viene mostrato automaticamente se registrato nel profilo utente.', 'A telefonszám automatikusan megjelenik, ha szerepel a felhasználói profilban.', 'Telefon visas automatiskt om den är registrerad i användarprofilen.', 'Le téléphone s’affiche automatiquement s’il est enregistré dans le profil utilisateur.', 'Telefon jest wyświetlany automatycznie, jeśli jest zapisany w profilu użytkownika.', 'Telefon se zobrazí automaticky, pokud je uložen v uživatelském profilu.'),
+  associatedPartnersIntro: contractUi6('Aggiungi rivenditori, partner di assistenza o clienti rivenditore che devono comparire in questo contratto.', 'Adjon hozzá kereskedőket, szervizpartnereket vagy kereskedői ügyfeleket, akiknek szerepelniük kell a szerződésben.', 'Lägg till återförsäljare, servicepartner eller återförsäljarkunder som ska visas i detta avtal.', 'Ajoutez des revendeurs, partenaires service ou clients revendeur devant figurer dans ce contrat.', 'Dodaj dealerów, partnerów serwisowych lub klientów dealera, którzy mają pojawić się w tej umowie.', 'Přidejte prodejce, servisní partnery nebo zákazníky prodejce, kteří mají být ve smlouvě uvedeni.'),
+  addAssociatedPartner: contractUi6('Aggiungi {kind}', '{kind} hozzáadása', 'Lägg till {kind}', 'Ajouter {kind}', 'Dodaj {kind}', 'Přidat {kind}'),
+  addNewAssociatedPartner: contractUi6('Aggiungi partner associato', 'Kapcsolódó partner hozzáadása', 'Lägg till associerad partner', 'Ajouter un partenaire associé', 'Dodaj powiązanego partnera', 'Přidat přidruženého partnera'),
+  createNewAssociatedPartner: contractUi6('Crea come nuovo partner associato', 'Létrehozás új kapcsolódó partnerként', 'Skapa som ny associerad partner', 'Créer comme nouveau partenaire associé', 'Utwórz jako nowego powiązanego partnera', 'Vytvořit jako nového přidruženého partnera'),
+  searchExisting: contractUi6('Cerca esistente', 'Meglévő keresése', 'Sök befintlig', 'Rechercher existant', 'Szukaj istniejącego', 'Hledat existující'),
+  searchExistingPartner: contractUi6('Cerca partner associato esistente', 'Meglévő kapcsolódó partner keresése', 'Sök befintlig associerad partner', 'Rechercher un partenaire associé existant', 'Szukaj istniejącego powiązanego partnera', 'Hledat existujícího přidruženého partnera'),
+  searchRelationKindHelp: contractUi6('Cerca un partner associato esistente del tipo selezionato.', 'Keressen meglévő kapcsolódó partnert a kiválasztott típusból.', 'Sök efter en befintlig associerad partner av vald typ.', 'Recherchez un partenaire associé existant du type sélectionné.', 'Wyszukaj istniejącego powiązanego partnera wybranego typu.', 'Vyhledejte existujícího přidruženého partnera vybraného typu.'),
+  searchPartnerPlaceholder: contractUi6('Cerca per nome azienda, numero conto, VAT o città', 'Keresés cégnév, számlaszám, adószám vagy város alapján', 'Sök på företagsnamn, kontonummer, momsnummer eller ort', 'Rechercher par nom, compte, TVA ou ville', 'Szukaj po nazwie firmy, numerze konta, VAT lub mieście', 'Hledat podle společnosti, čísla účtu, DIČ nebo města'),
+  loadingAssociatedPartners: contractUi6('Caricamento partner...', 'Partnerek betöltése...', 'Laddar partner...', 'Chargement des partenaires...', 'Ładowanie partnerów...', 'Načítání partnerů...'),
+  noAssociatedPartnerSearchResults: contractUi6('Nessun risultato univoco. Crea un nuovo partner associato se la relazione deve esistere solo nella bozza.', 'Nincs egyértelmű találat. Hozzon létre új kapcsolódó partnert, ha a kapcsolat csak a szerződéspiszkozatban legyen.', 'Inga entydiga resultat. Skapa en ny associerad partner om relationen bara ska finnas i avtalsutkastet.', 'Aucun résultat clair. Créez un nouveau partenaire associé si la relation ne doit exister que dans le brouillon.', 'Brak jednoznacznych wyników. Utwórz nowego powiązanego partnera, jeśli relacja ma istnieć tylko w szkicu umowy.', 'Žádné jednoznačné výsledky. Vytvořte nového přidruženého partnera, pokud má vztah existovat jen v konceptu smlouvy.'),
+  saveAssociatedPartner: contractUi6('Salva partner associato', 'Kapcsolódó partner mentése', 'Spara associerad partner', 'Enregistrer le partenaire associé', 'Zapisz powiązanego partnera', 'Uložit přidruženého partnera'),
+  edit: contractUi6('Modifica', 'Szerkesztés', 'Redigera', 'Modifier', 'Edytuj', 'Upravit'),
+  remove: contractUi6('Rimuovi', 'Eltávolítás', 'Ta bort', 'Supprimer', 'Usuń', 'Odebrat'),
+  cancel: contractUi6('Annulla', 'Mégse', 'Avbryt', 'Annuler', 'Anuluj', 'Zrušit'),
+  vatNumber: contractUi6('N. VAT', 'Adószám', 'Momsnr.', 'N° TVA', 'Nr VAT', 'DIČ'),
+  postalCodeFull: contractUi6('Codice postale', 'Irányítószám', 'Postnummer', 'Code postal', 'Kod pocztowy', 'PSČ'),
+  notReadyForSignature: contractUi6('Non ancora pronto per la firma', 'Még nem kész aláírásra', 'Inte redo för signering ännu', 'Pas encore prêt à signer', 'Nie gotowe jeszcze do podpisu', 'Ještě není připraveno k podpisu'),
+  completePartiesAndConfirmations: contractUi6('Completa le parti e conferma prima le sezioni obbligatorie.', 'Először töltse ki a feleket és erősítse meg a kötelező szakaszokat.', 'Fyll först i parterna och bekräfta de obligatoriska avtalsavsnitten.', 'Complétez d’abord les parties et confirmez les sections obligatoires.', 'Najpierw uzupełnij strony i potwierdź wymagane sekcje.', 'Nejprve vyplňte strany a potvrďte povinné části.'),
+  digitalSignature: contractUi6('Firma digitale {partner}', '{partner} digitális aláírása', '{partner} digitala signatur', 'Signature numérique {partner}', 'Podpis cyfrowy: {partner}', 'Digitální podpis: {partner}'),
+  uploadSignatureImage: contractUi6('Carica immagine firma {partner}', '{partner} aláírásképének feltöltése', 'Ladda upp signaturbild för {partner}', 'Téléverser l’image de signature {partner}', 'Prześlij obraz podpisu: {partner}', 'Nahrát obrázek podpisu: {partner}'),
+  signatureOptional: contractUi6('Facoltativo - PNG o JPG', 'Opcionális - PNG vagy JPG', 'Valfritt - PNG eller JPG', 'Facultatif - PNG ou JPG', 'Opcjonalnie - PNG lub JPG', 'Volitelné - PNG nebo JPG'),
+  contractNumber: contractUi6('Numero contratto', 'Szerződésszám', 'Avtalsnummer', 'Numéro de contrat', 'Numer umowy', 'Číslo smlouvy'),
+  version: contractUi6('Versione', 'Verzió', 'Version', 'Version', 'Wersja', 'Verze'),
+  generateContractForSignature: contractUi6('Genera contratto per firma', 'Szerződés generálása aláíráshoz', 'Generera avtal för signering', 'Générer le contrat pour signature', 'Wygeneruj umowę do podpisu', 'Vytvořit smlouvu k podpisu'),
+  pdfGeneratedFromLockedVersion: contractUi6('Stato: {status}. Il PDF viene generato dalla versione bloccata dopo il completamento della revisione.', 'Állapot: {status}. A PDF a zárolt szerződésverzióból készül a felülvizsgálat befejezése után.', 'Status: {status}. PDF:en skapas från den låsta avtalsversionen när granskningen är klar.', 'Statut : {status}. Le PDF est généré depuis la version verrouillée lorsque la révision est terminée.', 'Status: {status}. PDF jest tworzony z zablokowanej wersji po zakończeniu przeglądu.', 'Stav: {status}. PDF se vytvoří z uzamčené verze po dokončení kontroly.'),
+  uploadSignedContract: contractUi6('Carica contratto firmato', 'Aláírt szerződés feltöltése', 'Ladda upp signerat avtal', 'Téléverser le contrat signé', 'Prześlij podpisaną umowę', 'Nahrát podepsanou smlouvu'),
+  combinedPdfUploaded: contractUi6('PDF combinato caricato.', 'Egyesített PDF feltöltve.', 'Samlad PDF uppladdad.', 'PDF combiné téléversé.', 'Przesłano połączony PDF.', 'Sloučené PDF nahráno.'),
+  uploadedPages: contractUi6('{current} di {total} pagine caricate', '{current}/{total} oldal feltöltve', '{current} av {total} sidor uppladdade', '{current} sur {total} pages téléversées', 'Przesłano {current} z {total} stron', 'Nahráno {current} z {total} stran'),
+  uploadedFiles: contractUi6('{current} file caricati', '{current} fájl feltöltve', '{current} fil(er) uppladdade', '{current} fichier(s) téléversé(s)', 'Przesłano {current} plik(ów)', 'Nahráno {current} souborů'),
+  selectFiles: contractUi6('Seleziona file', 'Fájlok kiválasztása', 'Välj filer', 'Sélectionner des fichiers', 'Wybierz pliki', 'Vybrat soubory'),
+  timanRequestsNewUpload: contractUi6('Timan richiede un nuovo caricamento', 'A Timan új feltöltést kér', 'Timan begär en ny uppladdning', 'Timan demande un nouveau téléversement', 'Timan prosi o nowe przesłanie', 'Timan žádá o nové nahrání'),
+  page: contractUi6('Pagina {number}', '{number}. oldal', 'Sida {number}', 'Page {number}', 'Strona {number}', 'Strana {number}'),
+  removeFile: contractUi6('Rimuovi file', 'Fájl eltávolítása', 'Ta bort fil', 'Supprimer le fichier', 'Usuń plik', 'Odebrat soubor'),
+  moveUp: contractUi6('Su', 'Fel', 'Upp', 'Monter', 'W górę', 'Nahoru'),
+  moveDown: contractUi6('Giù', 'Le', 'Ned', 'Descendre', 'W dół', 'Dolů'),
+  submitForTimanApproval: contractUi6('Invia per approvazione Timan', 'Küldés Timan jóváhagyásra', 'Skicka för Timan-godkännande', 'Envoyer pour approbation Timan', 'Wyślij do zatwierdzenia przez Timan', 'Odeslat ke schválení Timan'),
+  sentForTimanApproval: contractUi6('Il contratto è stato inviato per approvazione Timan.', 'A szerződés elküldve Timan jóváhagyásra.', 'Avtalet har skickats för Timan-godkännande.', 'Le contrat a été envoyé pour approbation Timan.', 'Umowa została wysłana do zatwierdzenia przez Timan.', 'Smlouva byla odeslána ke schválení Timan.'),
+  uploadLockedDuringReview: contractUi6('La versione caricata è bloccata mentre Timan esamina il documento.', 'A feltöltött verzió zárolva van, amíg a Timan átnézi a dokumentumot.', 'Uppladdningsversionen är låst medan Timan granskar dokumentet.', 'La version téléversée est verrouillée pendant l’examen par Timan.', 'Wersja przesłana jest zablokowana podczas przeglądu przez Timan.', 'Nahraná verze je uzamčena, zatímco Timan dokument kontroluje.'),
+  approvedAndArchived: contractUi6('Il contratto è approvato e archiviato.', 'A szerződés jóváhagyva és archiválva.', 'Avtalet är godkänt och arkiverat.', 'Le contrat est approuvé et archivé.', 'Umowa została zatwierdzona i zarchiwizowana.', 'Smlouva byla schválena a archivována.'),
+  approvedUploadCannotOverwrite: contractUi6('La versione caricata approvata non può essere sovrascritta.', 'A jóváhagyott feltöltött verzió nem írható felül.', 'Den godkända uppladdade versionen kan inte skrivas över.', 'La version téléversée approuvée ne peut pas être remplacée.', 'Zatwierdzonej przesłanej wersji nie można nadpisać.', 'Schválenou nahranou verzi nelze přepsat.'),
+} satisfies Partial<Record<keyof typeof CONTRACT_UI_COPY, Record<ContractUiSupplementLanguage, string>>>;
+
 function contractUi(key: keyof typeof CONTRACT_UI_COPY, language: string, values: Record<string, string | number> = {}) {
-  let copy = pickT(CONTRACT_UI_COPY[key], language);
+  const normalizedLanguage = normalizePortalLanguageCode(language);
+  const supplementedCopy = CONTRACT_UI_COPY_SUPPLEMENTS[key];
+  let copy = supplementedCopy && normalizedLanguage && normalizedLanguage in supplementedCopy
+    ? supplementedCopy[normalizedLanguage as ContractUiSupplementLanguage]
+    : pickT(CONTRACT_UI_COPY[key], language);
   for (const [name, value] of Object.entries(values)) copy = copy.replace(`{${name}}`, String(value));
   return copy;
 }
@@ -1074,7 +1286,7 @@ export default function ContractsPage() {
       if (cancelled) return;
       if (error) {
         setContractLoadError(error);
-        toast.error(routeContractIdValue ? 'Kunne ikke hente kontrakten.' : 'Kunne ikke hente gemt kontraktkladde.');
+        toast.error(routeContractIdValue ? contractUi('contractCouldNotLoad', uiLanguage) : contractUi('savedDraftCouldNotLoad', uiLanguage));
         setContractLoaded(true);
         return;
       }
@@ -1161,7 +1373,7 @@ export default function ContractsPage() {
       if (error) {
         setContractPartnerContactsLoading(false);
         setContractPartnerContactsError(error);
-        toast.error('Kunne ikke hente forhandlerdata til kontrakten.');
+        toast.error(contractUi('dealerDataCouldNotLoad', uiLanguage));
         return;
       }
       if (!row) {
@@ -1404,17 +1616,17 @@ export default function ContractsPage() {
 
   const activateGuidedAccess = async () => {
     if (!activeDealerAccountNumber || !contractRowId) {
-      toast.error('Gem kontrakten og vælg en partnerkonto, før adgang åbnes.');
+      toast.error(contractUi('saveContractAndPartnerBeforeAccess', uiLanguage));
       return;
     }
     if (!selectedAccessUserId) {
-      toast.error('Vælg en aktiv portalbruger på partneren.');
+      toast.error(contractUi('selectActivePartnerUser', uiLanguage));
       return;
     }
     const opensAtIso = localInputToIso(accessOpensAt);
     const closesAtIso = localInputToIso(accessClosesAt);
     if (!opensAtIso || !closesAtIso || new Date(closesAtIso).getTime() <= new Date(opensAtIso).getTime()) {
-      toast.error('Vælg et gyldigt start- og sluttidspunkt.');
+      toast.error(contractUi('selectValidAccessWindow', uiLanguage));
       return;
     }
     setAccessWindowBusy(true);
@@ -1427,20 +1639,20 @@ export default function ContractsPage() {
     });
     setAccessWindowBusy(false);
     if (error || !row) {
-      toast.error(error || 'Kontraktadgang kunne ikke aktiveres.');
+      toast.error(error || contractUi('contractAccessCouldNotActivate', uiLanguage));
       return;
     }
     await reloadContractAccess();
-    toast.success('Kontraktadgang er åbnet for partnerbrugeren.');
+    toast.success(contractUi('contractAccessOpenedForPartner', uiLanguage));
   };
 
   const invitePartnerUserForContract = async () => {
     if (!activeDealerAccountNumber || !contractRowId) {
-      toast.error('Gem kontrakten og vælg en partnerkonto, før du inviterer en partnerbruger.');
+      toast.error(contractUi('saveContractAndPartnerBeforeInvite', uiLanguage));
       return;
     }
     if (!invitePartnerEmail.trim()) {
-      toast.error('Angiv partnerbrugerens email.');
+      toast.error(contractUi('enterPartnerUserEmail', uiLanguage));
       return;
     }
     setAccessWindowBusy(true);
@@ -1452,7 +1664,7 @@ export default function ContractsPage() {
     });
     setAccessWindowBusy(false);
     if (!result.ok || !result.user?.id) {
-      toast.error(result.error || 'Partnerbrugeren kunne ikke inviteres.');
+      toast.error(result.error || contractUi('partnerUserCouldNotInvite', uiLanguage));
       return;
     }
     const users = await fetchDealerContractPartnerUsers(activeDealerAccountNumber);
@@ -1460,7 +1672,7 @@ export default function ContractsPage() {
     setSelectedAccessUserId(String(result.user.id));
     setInvitePartnerName('');
     setInvitePartnerEmail('');
-    toast.success(result.message || 'Partnerbrugeren er inviteret.');
+    toast.success(result.message || contractUi('partnerUserInvited', uiLanguage));
   };
 
   const extendGuidedAccess = async (window: DealerContractAccessWindow, hours = 2) => {
@@ -1469,11 +1681,11 @@ export default function ContractsPage() {
     const { error } = await extendDealerContractAccessWindow({ windowId: window.id, closesAt });
     setAccessWindowBusy(false);
     if (error) {
-      toast.error(error || 'Kontraktadgang kunne ikke forlænges.');
+      toast.error(error || contractUi('contractAccessCouldNotExtend', uiLanguage));
       return;
     }
     await reloadContractAccess();
-    toast.success('Kontraktadgang er forlænget.');
+    toast.success(contractUi('contractAccessExtended', uiLanguage));
   };
 
   const revokeGuidedAccess = async (window: DealerContractAccessWindow) => {
@@ -1481,11 +1693,11 @@ export default function ContractsPage() {
     const { error } = await revokeDealerContractAccessWindow(window.id);
     setAccessWindowBusy(false);
     if (error) {
-      toast.error(error || 'Kontraktadgang kunne ikke lukkes.');
+      toast.error(error || contractUi('contractAccessCouldNotClose', uiLanguage));
       return;
     }
     await reloadContractAccess();
-    toast.success('Kontraktadgang er lukket.');
+    toast.success(contractUi('contractAccessClosed', uiLanguage));
   };
 
   const saveDraft = () => {
@@ -1502,7 +1714,7 @@ export default function ContractsPage() {
     if (!effectiveUser?.email || !contractLoaded) return;
     if (!['draft', 'guided_review'].includes(workflowStatus)) return;
     if (!activeDealerAccountNumber) {
-      const message = 'Vælg en partnerkonto, før kontraktkladden gemmes.';
+      const message = contractUi('partnerAccountRequiredBeforeDraftSave', uiLanguage);
       setDraftSaveError(message);
       if (options.showToast) toast.error(message);
       return;
@@ -1536,7 +1748,7 @@ export default function ContractsPage() {
         navigate(`/portal/contracts/${row.id}`, { replace: true });
       }
     }
-    if (options.showToast) toast.success('Kontraktkladde gemt.');
+    if (options.showToast) toast.success(contractUi('contractDraftSaved', uiLanguage));
   };
 
   useEffect(() => {
@@ -1557,7 +1769,7 @@ export default function ContractsPage() {
     if (!contractId) return;
     const { rows, error } = await fetchDealerContractUploadVersions(contractId);
     if (error) {
-      toast.error('Kunne ikke hente uploadede kontraktdokumenter.');
+      toast.error(contractUi('uploadDocumentsCouldNotLoad', uiLanguage));
       return;
     }
     setUploadVersions(await addSignedUrlsToUploadVersions(rows));
@@ -1768,12 +1980,12 @@ export default function ContractsPage() {
       fileName: generated.fileName,
     });
     if (prepared.error || !prepared.row) {
-      toast.error('PDF-versionen kunne ikke klargøres i den private dokumentarkivering.');
+      toast.error(contractUi('pdfArchivePrepareFailed', uiLanguage));
       return;
     }
     const uploadError = await uploadPreparedDealerContractDocument(prepared.row, generated.blob);
     if (uploadError) {
-      toast.error('PDF’en kunne ikke gemmes i den private dokumentarkivering.');
+      toast.error(contractUi('pdfArchiveUploadFailed', uiLanguage));
       return;
     }
     const finalized = await finalizeDealerContractDocument({
@@ -1783,13 +1995,13 @@ export default function ContractsPage() {
       pageCount: generated.pageCount,
     });
     if (finalized.error || !finalized.row) {
-      toast.error('PDF-versionens hash og sidetal kunne ikke registreres.');
+      toast.error(contractUi('pdfArchiveFinalizeFailed', uiLanguage));
       return;
     }
     await refreshDocumentVersions(contractRowId);
     const marked = await markDealerContractPdfGenerated(contractRowId, generated.pageCount);
     if (marked.error || !marked.row) {
-      toast.error('PDF’en blev ikke markeret som genereret i databasen.');
+      toast.error(contractUi('pdfGeneratedNotMarked', uiLanguage));
       return;
     }
     setContractRecord(marked.row);
@@ -1801,7 +2013,10 @@ export default function ContractsPage() {
     link.download = generated.fileName;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`PDF genereret (${generated.pageCount} sider, SHA-256 ${documentHash.slice(0, 12)}…). Kontrakten afventer nu underskrevet upload.`);
+    toast.success(contractUi('pdfGeneratedAwaitingUpload', uiLanguage, {
+      pageCount: generated.pageCount,
+      hash: `${documentHash.slice(0, 12)}...`,
+    }));
   };
 
   const activeUploadVersion = uploadVersions.find((version) => version.status === 'draft')
@@ -1819,7 +2034,7 @@ export default function ContractsPage() {
     if (existing) return existing;
     const { row, error } = await createDealerContractUploadVersion(contractRowId);
     if (error || !row) {
-      toast.error('Kunne ikke starte en ny uploadversion.');
+      toast.error(contractUi('uploadVersionCouldNotStart', uiLanguage));
       return null;
     }
     await refreshUploadVersions(contractRowId);
@@ -1844,9 +2059,9 @@ export default function ContractsPage() {
         if (error) throw new Error(error);
       }
       await refreshUploadVersions(contractRowId);
-      toast.success('Upload gemt.');
+      toast.success(contractUi('uploadSaved', uiLanguage));
     } catch {
-      toast.error('En eller flere filer kunne ikke uploades.');
+      toast.error(contractUi('filesCouldNotUpload', uiLanguage));
     } finally {
       setUploadBusy(false);
     }
@@ -1855,10 +2070,10 @@ export default function ContractsPage() {
   const removeSignedFile = async (file: DealerContractUploadFile) => {
     setUploadBusy(true);
     const error = await deleteDealerContractUploadFile(file);
-    if (error) toast.error('Filen kunne ikke fjernes.');
+    if (error) toast.error(contractUi('fileCouldNotRemove', uiLanguage));
     else {
       await refreshUploadVersions();
-      toast.success('Filen er fjernet.');
+      toast.success(contractUi('fileRemoved', uiLanguage));
     }
     setUploadBusy(false);
   };
@@ -1873,7 +2088,7 @@ export default function ContractsPage() {
     [files[index], files[nextIndex]] = [files[nextIndex], files[index]];
     setUploadBusy(true);
     const error = await reorderDealerContractUploadFiles(files);
-    if (error) toast.error('Rækkefølgen kunne ikke gemmes.');
+    if (error) toast.error(contractUi('fileOrderCouldNotSave', uiLanguage));
     else await refreshUploadVersions();
     setUploadBusy(false);
   };
@@ -1884,12 +2099,12 @@ export default function ContractsPage() {
     const expectedPages = contractRecord?.expected_signed_pages ?? 0;
     const hasPdf = version.files.some((file) => file.mime_type === 'application/pdf');
     if (!hasPdf && expectedPages > 1 && version.files.length < expectedPages) {
-      toast.error(`Der mangler sider: ${version.files.length} af ${expectedPages} sider uploadet.`);
+      toast.error(contractUi('missingUploadedPages', uiLanguage, { current: version.files.length, total: expectedPages }));
       return;
     }
     const { error } = await submitDealerContractUpload(version.id);
     if (error) {
-      toast.error('Uploaden kunne ikke sendes til Timan.');
+      toast.error(contractUi('uploadCouldNotSubmit', uiLanguage));
       return;
     }
     const reloaded = contractRowId
@@ -1978,8 +2193,8 @@ export default function ContractsPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-950">
-          <p className="font-bold">Kontraktkladde kunne ikke hentes</p>
-          <p className="mt-2">Prøv at genindlæse siden. Hvis fejlen fortsætter, mangler kontrakt-persistence muligvis at blive deployet.</p>
+          <p className="font-bold">{contractUi('contractDraftCouldNotLoad', uiLanguage)}</p>
+          <p className="mt-2">{contractUi('reloadContractErrorHelp', uiLanguage)}</p>
         </div>
       </div>
     );
@@ -2013,7 +2228,7 @@ export default function ContractsPage() {
               <div className="flex flex-col items-start gap-2 sm:items-end">
                 {!canManagePartnerContractAccess && accessWindow && (
                   <p className="text-xs text-emerald-700">
-                    Kontrakt tilgængelig indtil {formatDateTimeDa(accessWindow.closes_at)}
+                    {contractUi('contractAvailableUntil', uiLanguage, { time: formatDateTimeDa(accessWindow.closes_at, uiLanguage) })}
                   </p>
                 )}
                 <button
@@ -2282,11 +2497,11 @@ function PartnerContractAccessPanel({
   const disabledReason = !partnerSelected
     ? contractUi('selectPartnerFirst', uiLanguage)
     : !contractSaved
-      ? 'Gem kontrakten, før partneradgang kan åbnes.'
+      ? contractUi('saveContractBeforePartnerAccess', uiLanguage)
       : users.length === 0
-        ? 'Opret eller invitér først en partnerbruger.'
+        ? contractUi('createOrInvitePartnerUserFirst', uiLanguage)
         : !selectedUserId
-          ? 'Vælg en partnerbruger.'
+          ? contractUi('selectPartnerUser', uiLanguage)
           : null;
 
   return (
@@ -2311,11 +2526,11 @@ function PartnerContractAccessPanel({
       ) : users.length === 0 ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
           <p className="text-xs font-semibold text-amber-900">{contractUi('noActivePortalUser', uiLanguage)}</p>
-          <p className="mt-1 text-xs text-amber-900">Opret en begrænset partnerbruger til denne konto og kontrakt.</p>
+          <p className="mt-1 text-xs text-amber-900">{contractUi('createLimitedPartnerUserHelp', uiLanguage)}</p>
           <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-            <input value={invitePartnerName} disabled={controlsDisabled || !contractSaved} onChange={(event) => onInvitePartnerNameChange(event.target.value)} placeholder="Navn" className="rounded-lg border border-amber-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" />
+            <input value={invitePartnerName} disabled={controlsDisabled || !contractSaved} onChange={(event) => onInvitePartnerNameChange(event.target.value)} placeholder={contractUi('name', uiLanguage)} className="rounded-lg border border-amber-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" />
             <input type="email" value={invitePartnerEmail} disabled={controlsDisabled || !contractSaved} onChange={(event) => onInvitePartnerEmailChange(event.target.value)} placeholder="Email" className="rounded-lg border border-amber-300 bg-white px-2.5 py-2 text-xs font-semibold text-slate-900" />
-            <button type="button" onClick={onInvitePartnerUser} disabled={controlsDisabled || !contractSaved || !invitePartnerEmail.trim()} className="rounded-full bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-slate-300">Invitér partnerbruger</button>
+            <button type="button" onClick={onInvitePartnerUser} disabled={controlsDisabled || !contractSaved || !invitePartnerEmail.trim()} className="rounded-full bg-amber-700 px-3 py-2 text-xs font-bold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-slate-300">{contractUi('invitePartnerUser', uiLanguage)}</button>
           </div>
         </div>
       ) : (
@@ -2384,7 +2599,7 @@ function PartnerContractAccessPanel({
               disabled={controlsDisabled}
               onChange={(event) => onCustomDurationChange(Number(event.target.value), customUnit)}
               className="w-16 rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-bold text-slate-950"
-              aria-label="Brugerdefineret varighed"
+              aria-label={contractUi('customDurationLabel', uiLanguage)}
             />
             <select
               value={customUnit}
@@ -2392,8 +2607,8 @@ function PartnerContractAccessPanel({
               onChange={(event) => onCustomDurationChange(customValue, event.target.value as ContractAccessDurationUnit)}
               className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs font-semibold text-slate-900"
             >
-              <option value="hours">Timer</option>
-              <option value="days">Dage</option>
+              <option value="hours">{contractUi('hoursLowercase', uiLanguage)}</option>
+              <option value="days">{contractUi('daysLowercase', uiLanguage)}</option>
             </select>
           </div>
         )}
@@ -2409,7 +2624,11 @@ function PartnerContractAccessPanel({
       </div>
       {quickChoice === 'custom' && (
         <p className="mt-2 text-xs font-semibold text-slate-700">
-          Adgang i {customValue} {customUnit === 'hours' ? 'timer' : 'dage'}: til {formatDateTimeDa(localInputToIso(closesAt) || closesAt, uiLanguage)}.
+          {contractUi('accessUntilSummary', uiLanguage, {
+            amount: customValue,
+            unit: contractUi(customUnit === 'hours' ? 'hoursLowercase' : 'daysLowercase', uiLanguage),
+            time: formatDateTimeDa(localInputToIso(closesAt) || closesAt, uiLanguage),
+          })}
         </p>
       )}
       {disabledReason && <p className="mt-2 text-xs font-semibold text-amber-900">{disabledReason}</p>}
@@ -2417,7 +2636,7 @@ function PartnerContractAccessPanel({
       {latestWindow && (
         <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
           <p className="font-semibold text-slate-900">
-            {users.find((user) => user.id === latestWindow.user_id)?.name || latestWindow.user_id || 'Partnerbruger'}
+            {users.find((user) => user.id === latestWindow.user_id)?.name || latestWindow.user_id || contractUi('partnerUserFallback', uiLanguage)}
           </p>
           <p>{formatDateTimeDa(latestWindow.opens_at, uiLanguage)} → {formatDateTimeDa(latestWindow.closes_at, uiLanguage)}</p>
           <div className="mt-2 flex gap-2">
@@ -2535,7 +2754,7 @@ function InternalContractsOverview({
       if (cancelled?.()) return;
       setRows([]);
       setCounts({ all: 0, draft: 0, pending: 0, approved: 0, rejected: 0, terminated: 0 });
-      setOverviewError(error instanceof Error ? error.message : 'Kontraktoversigten kunne ikke hentes.');
+      setOverviewError(error instanceof Error ? error.message : contractUi('overviewCouldNotLoad', uiLanguage));
     } finally {
       if (!cancelled?.()) setLoadingOverview(false);
     }
@@ -2550,32 +2769,35 @@ function InternalContractsOverview({
   const handleDeleteContract = async (row: DealerContractOverviewRow) => {
     if (!isBackend || deletingContractId) return;
     if (!canHardDeleteDealerContract(row.contract.contract_status) || row.contract.approved_at || row.contract.signed_at) {
-      toast.error('Godkendte kontrakter kan ikke slettes. Brug Opsig kontrakt.');
+      toast.error(contractUi('approvedContractsCannotDelete', uiLanguage));
       return;
     }
     const confirmed = window.confirm(
-      `Er du sikker på, at du vil slette denne kontrakt?\n\n${row.partnerName} (${row.contract.contract_number || row.contract.id})\n\nHandlingen kan ikke fortrydes.`,
+      contractUi('deleteContractConfirm', uiLanguage, {
+        partner: row.partnerName,
+        contract: row.contract.contract_number || row.contract.id,
+      }),
     );
     if (!confirmed) return;
 
     setDeletingContractId(row.contract.id);
     const result = await deleteDealerContract(row.contract.id);
     if (result.error) {
-      toast.error('Kontrakten kunne ikke slettes.');
+      toast.error(contractUi('contractCouldNotDelete', uiLanguage));
       setOverviewError(result.error);
     } else {
-      toast.success('Kontrakten er slettet.');
+      toast.success(contractUi('contractDeleted', uiLanguage));
       await loadOverview();
     }
     setDeletingContractId(null);
   };
 
   const summaryCards: Array<{ id: DealerContractOverviewStatusFilter; label: string; count: number }> = [
-    { id: 'all', label: 'Alle', count: counts.all },
-    { id: 'draft', label: 'Kladder', count: counts.draft },
-    { id: 'pending', label: 'Afventer', count: counts.pending },
-    { id: 'approved', label: 'Godkendte', count: counts.approved },
-    { id: 'terminated', label: 'Opsagte', count: counts.terminated },
+    { id: 'all', label: contractUi('all', uiLanguage), count: counts.all },
+    { id: 'draft', label: contractUi('statusDraftPlural', uiLanguage), count: counts.draft },
+    { id: 'pending', label: contractUi('statusPending', uiLanguage), count: counts.pending },
+    { id: 'approved', label: contractUi('statusApprovedPlural', uiLanguage), count: counts.approved },
+    { id: 'terminated', label: contractUi('statusTerminatedPlural', uiLanguage), count: counts.terminated },
   ];
 
   return (
@@ -2634,13 +2856,13 @@ function InternalContractsOverview({
         <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
           <div className="grid gap-3 lg:grid-cols-[1.3fr_220px_220px_220px]">
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Søg</span>
+              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{contractUi('overviewSearch', uiLanguage)}</span>
               <div className="mt-1 flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2">
                 <Search className="h-4 w-4 text-gray-400" />
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Partner, kontonummer, land eller sælger"
+                  placeholder={contractUi('overviewSearchPlaceholder', uiLanguage)}
                   className="w-full border-0 bg-transparent text-sm font-medium text-gray-900 outline-none placeholder:text-gray-400"
                 />
               </div>
@@ -2652,12 +2874,12 @@ function InternalContractsOverview({
                 onChange={(event) => setStatusFilter(event.target.value as DealerContractOverviewStatusFilter)}
                 className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
               >
-                <option value="all">Alle</option>
-                <option value="draft">Kladde</option>
-                <option value="pending">Afventer</option>
-                <option value="approved">Godkendt</option>
-                <option value="rejected">Ikke godkendt</option>
-                <option value="terminated">Opsagt / ophørt</option>
+                <option value="all">{contractUi('all', uiLanguage)}</option>
+                <option value="draft">{contractUi('statusDraft', uiLanguage)}</option>
+                <option value="pending">{contractUi('statusPending', uiLanguage)}</option>
+                <option value="approved">{contractUi('statusApproved', uiLanguage)}</option>
+                <option value="rejected">{contractUi('statusRejected', uiLanguage)}</option>
+                <option value="terminated">{contractUi('statusTerminated', uiLanguage)}</option>
               </select>
             </label>
             <label className="block">
@@ -2667,7 +2889,7 @@ function InternalContractsOverview({
                 onChange={(event) => setPartnerTypeFilter(event.target.value)}
                 className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
               >
-                <option value="">Alle</option>
+                <option value="">{contractUi('all', uiLanguage)}</option>
                 {CONTRACT_PARTNER_TYPES.map((partnerType) => (
                   <option key={partnerType} value={partnerType}>{getContractPartnerTypeLabel(partnerType, uiLanguage)}</option>
                 ))}
@@ -2675,13 +2897,13 @@ function InternalContractsOverview({
             </label>
             {isBackend && (
               <label className="block">
-                <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Timan-sælger</span>
+                <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{contractUi('timanSeller', uiLanguage)}</span>
                 <select
                   value={sellerFilter}
                   onChange={(event) => setSellerFilter(event.target.value)}
                   className="mt-1 w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-900"
                 >
-                  <option value="">Alle</option>
+                  <option value="">{contractUi('all', uiLanguage)}</option>
                   {sellerOptions.map((seller) => (
                     <option key={seller.id} value={seller.id}>{seller.initials} - {seller.name}</option>
                   ))}
@@ -2699,24 +2921,24 @@ function InternalContractsOverview({
               <thead>
                 <tr className="text-left text-xs font-bold uppercase tracking-wide text-gray-500">
                   <th className="px-3 py-3">Partner</th>
-                  <th className="px-3 py-3">Kontonr.</th>
-                  <th className="px-3 py-3">Partnertype</th>
-                  <th className="px-3 py-3">Land</th>
-                  <th className="px-3 py-3">Timan-sælger</th>
-                  <th className="px-3 py-3">Oprettet</th>
-                  <th className="px-3 py-3">Senest ændret</th>
+                  <th className="px-3 py-3">{contractUi('accountNoShort', uiLanguage)}</th>
+                  <th className="px-3 py-3">{contractUi('partnerTypeHeader', uiLanguage)}</th>
+                  <th className="px-3 py-3">{contractUi('countryHeader', uiLanguage)}</th>
+                  <th className="px-3 py-3">{contractUi('timanSeller', uiLanguage)}</th>
+                  <th className="px-3 py-3">{contractUi('createdAtHeader', uiLanguage)}</th>
+                  <th className="px-3 py-3">{contractUi('updatedAtHeader', uiLanguage)}</th>
                   <th className="px-3 py-3">Status</th>
-                  <th className="px-3 py-3 text-right">Handling</th>
+                  <th className="px-3 py-3 text-right">{contractUi('actionHeader', uiLanguage)}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {loadingOverview ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">Henter kontrakter...</td>
+                    <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">{contractUi('loadingContracts', uiLanguage)}</td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">Ingen kontrakter matcher filtrene.</td>
+                    <td colSpan={9} className="px-3 py-8 text-center text-sm text-gray-500">{contractUi('noContractsMatchFilters', uiLanguage)}</td>
                   </tr>
                 ) : rows.map((row) => (
                   <tr key={row.contract.id} className="align-top hover:bg-gray-50">
@@ -2757,8 +2979,8 @@ function InternalContractsOverview({
                             type="button"
                             onClick={() => handleDeleteContract(row)}
                             disabled={deletingContractId === row.contract.id}
-                            aria-label={`Slet kontrakt for ${row.partnerName}`}
-                            title="Slet kontrakt"
+                            aria-label={contractUi('deleteContractForPartner', uiLanguage, { partner: row.partnerName })}
+                            title={contractUi('deleteContract', uiLanguage)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 bg-white text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -3697,7 +3919,7 @@ function ContractAssociatedPartnersSection({
       && partner.existingAccountId === next.existingAccountId
     ));
     if (alreadyAdded) {
-      toast.info('Samarbejdspartneren er allerede tilføjet til kontrakten.');
+      toast.info(contractUi('associatedPartnerAlreadyAdded', uiLanguage));
       return;
     }
     patchPartners([...partners, next]);

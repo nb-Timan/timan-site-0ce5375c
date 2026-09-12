@@ -45,6 +45,17 @@ export type ContractTextRenderContext = {
 };
 
 type ContractTextLanguage = PortalUiLanguage;
+type ApprovedContractLegalLanguage = 'da' | 'en' | 'de';
+
+export const APPROVED_CONTRACT_LEGAL_LANGUAGES: readonly ApprovedContractLegalLanguage[] = ['da', 'en', 'de'];
+
+export function resolveApprovedContractLegalLanguage(
+  language: ContractTextLanguage | string | null | undefined,
+): ApprovedContractLegalLanguage {
+  return APPROVED_CONTRACT_LEGAL_LANGUAGES.includes(language as ApprovedContractLegalLanguage)
+    ? language as ApprovedContractLegalLanguage
+    : 'en';
+}
 
 const SECTION_TITLES: Record<Exclude<GuidedContractSection['stepId'], never>, Record<ContractTextLanguage, string>> = {
   purpose_prices_orders_portal: {
@@ -113,6 +124,8 @@ const ENGLISH_CONTRACT_TEXT: Record<string, string> = {
   'Sekundær område': 'Secondary territory',
   'I dette område må {{partnerDefinite}} udføre opsøgende salg.': 'In this territory, {{partnerDefinite}} may carry out proactive sales.',
   '4. Rabatstruktur': '4. Discount structure',
+  'Reservedelsrabat: {{sparePartsDiscountPct}}%.': 'Spare parts discount: {{sparePartsDiscountPct}}%.',
+  'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.': 'Machines are purchased through the authorised Timan dealer with whom the service partner cooperates.',
   'Rabat opnås baseret som følgende:': 'Discounts are granted on the following basis:',
   'Flere maskiner: Køb af flere maskiner giver yderligere rabat.': 'Multiple machines: Purchasing multiple machines gives an additional discount.',
   'Længere leveringstid: Ved leveringstid over 3 mdr. tilbydes øget rabat.': 'Longer delivery time: A greater discount is offered for delivery times exceeding three months.',
@@ -208,6 +221,8 @@ const GERMAN_CONTRACT_TEXT: Record<string, string> = {
   'Sekundær område': 'Sekundäres Gebiet',
   'I dette område må {{partnerDefinite}} udføre opsøgende salg.': 'In diesem Gebiet darf {{partnerDefinite}} aktive Verkaufsarbeit leisten.',
   '4. Rabatstruktur': '4. Rabattstruktur',
+  'Reservedelsrabat: {{sparePartsDiscountPct}}%.': 'Ersatzteilrabatt: {{sparePartsDiscountPct}}%.',
+  'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.': 'Maschinen werden über den autorisierten Timan-Händler gekauft, mit dem der Servicepartner zusammenarbeitet.',
   'Rabat opnås baseret som følgende:': 'Rabatte werden auf folgender Grundlage gewährt:',
   'Flere maskiner: Køb af flere maskiner giver yderligere rabat.': 'Mehrere Maschinen: Der Kauf mehrerer Maschinen gewährt einen zusätzlichen Rabatt.',
   'Længere leveringstid: Ved leveringstid over 3 mdr. tilbydes øget rabat.': 'Längere Lieferzeit: Bei einer Lieferzeit von mehr als drei Monaten wird ein höherer Rabatt angeboten.',
@@ -771,12 +786,13 @@ const TERMINATION_CONTRACT_TEXT: Partial<Record<ContractTextLanguage, Record<str
 };
 
 function localizeContractTemplate(value: string, language: ContractTextLanguage): string {
-  if (language === 'da') return value;
-  const paymentDeliveryTranslation = ALL_PAYMENT_DELIVERY_CONTRACT_TEXT[language]?.[value];
+  const legalLanguage = resolveApprovedContractLegalLanguage(language);
+  if (legalLanguage === 'da') return value;
+  const paymentDeliveryTranslation = ALL_PAYMENT_DELIVERY_CONTRACT_TEXT[legalLanguage]?.[value];
   if (paymentDeliveryTranslation) return paymentDeliveryTranslation;
-  const terminationTranslation = TERMINATION_CONTRACT_TEXT[language]?.[value];
+  const terminationTranslation = TERMINATION_CONTRACT_TEXT[legalLanguage]?.[value];
   if (terminationTranslation) return terminationTranslation;
-  const translations = language === 'de' ? GERMAN_CONTRACT_TEXT : ENGLISH_CONTRACT_TEXT;
+  const translations = legalLanguage === 'de' ? GERMAN_CONTRACT_TEXT : ENGLISH_CONTRACT_TEXT;
   return translations[value] ?? value;
 }
 
@@ -1080,9 +1096,15 @@ function capitalize(value: string) {
 }
 
 function renderContractText(value: string, context: ContractTextRenderContext, language: ContractTextLanguage): string {
-  const terms = getContractPartnerTerms(context.partnerType, language);
+  const legalLanguage = resolveApprovedContractLegalLanguage(language);
+  const terms = getContractPartnerTerms(context.partnerType, legalLanguage);
   const companyName = context.companyName.trim();
   const localizedValue = localizeContractTemplate(value, language);
+  const resolvedDiscounts = localizedValue.includes('{{sparePartsDiscountPct}}')
+    ? getContractDiscountStructure(context.partnerType, context, {
+      preserveStoredDiscounts: context.preserveDiscountSnapshot,
+    })
+    : null;
 
   return localizedValue
     .replaceAll('{{companyName}}', companyName)
@@ -1095,18 +1117,20 @@ function renderContractText(value: string, context: ContractTextRenderContext, l
     .replaceAll('{{partnerPossessiveCapitalized}}', terms ? capitalize(terms.possessive) : '')
     .replaceAll('{{partnerPortal}}', terms?.portal ?? '')
     .replaceAll('{{partnerAnnualMeeting}}', terms?.annualMeeting ?? '')
-    .replaceAll('{{primaryTerritoryDescription}}', describeContractTerritoryArea(context.primaryTerritory, language))
-    .replaceAll('{{secondaryTerritoryDescription}}', describeContractSecondaryTerritoryArea(context.secondaryTerritory, language))
+    .replaceAll('{{primaryTerritoryDescription}}', describeContractTerritoryArea(context.primaryTerritory, legalLanguage))
+    .replaceAll('{{secondaryTerritoryDescription}}', describeContractSecondaryTerritoryArea(context.secondaryTerritory, legalLanguage))
+    .replaceAll('{{sparePartsDiscountPct}}', String(context.sparePartsDiscountPct ?? resolvedDiscounts?.sparePartsDiscountPct ?? ''))
     .replaceAll('{{serviceHourlyRateDkk}}', formatContractServiceHourlyRateDkk(context.serviceHourlyRateDkk))
-    .replaceAll('{{paymentTermsLegalText}}', renderContractPaymentTermLegalText(context.paymentTerm, language));
+    .replaceAll('{{paymentTermsLegalText}}', renderContractPaymentTermLegalText(context.paymentTerm, legalLanguage));
 }
 
 function renderContractBulletText(value: string, context: ContractTextRenderContext, language: ContractTextLanguage) {
+  const legalLanguage = resolveApprovedContractLegalLanguage(language);
   if (value === '{{primaryTerritoryDescription}}') {
-    return getContractTerritoryDisplayItems(context.primaryTerritory, language);
+    return getContractTerritoryDisplayItems(context.primaryTerritory, legalLanguage);
   }
   if (value === '{{secondaryTerritoryDescription}}') {
-    return getContractTerritoryDisplayItems(context.secondaryTerritory, language);
+    return getContractTerritoryDisplayItems(context.secondaryTerritory, legalLanguage);
   }
   return [renderContractText(value, context, language)];
 }
@@ -1132,7 +1156,7 @@ function getDiscountStructureBlocks(context: ContractTextRenderContext): Contrac
     return [{
       heading: '4. Rabatstruktur',
       paragraphs: [
-        `Reservedelsrabat: ${discounts.sparePartsDiscountPct}%.`,
+        'Reservedelsrabat: {{sparePartsDiscountPct}}%.',
         'Maskiner købes gennem den autoriserede Timan-forhandler, som servicepartneren samarbejder med.',
         ...historicalParagraphs,
       ],

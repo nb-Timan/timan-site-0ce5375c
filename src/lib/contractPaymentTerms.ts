@@ -73,7 +73,7 @@ export function renderContractPaymentTermLegalText(
   language: PortalUiLanguage | string | null | undefined = 'da',
 ): string {
   const term = normalizeContractPaymentTerm(value);
-  const lang = language as PortalUiLanguage;
+  const lang = language === 'da' || language === 'de' ? language : 'en';
   const copy: Record<PortalUiLanguage, { label: string; net: (days: number) => string }> = {
     da: { label: 'Betalingsbetingelser', net: (days) => `Betaling forfalder netto ${days} dage fra fakturadato.` },
     en: { label: 'Payment terms', net: (days) => `Payment is due net ${days} days from the invoice date.` },

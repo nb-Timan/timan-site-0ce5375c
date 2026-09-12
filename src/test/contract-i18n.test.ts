@@ -5,7 +5,7 @@ import {
   renderAppendix2ExampleLines,
   renderAppendix2Paragraphs,
 } from '@/lib/contractAppendix2';
-import { renderGuidedContractSections } from '@/lib/contractSections';
+import { renderGuidedContractSections, resolveApprovedContractLegalLanguage } from '@/lib/contractSections';
 import { getContractAppendixLabel, getContractStepLabel } from '@/lib/contractFlow';
 import { formatContractServiceHourlyRatePerHourDkk } from '@/lib/contractServiceTerms';
 import { t } from '@/lib/i18n/translations';
@@ -19,6 +19,26 @@ const DANISH_APPENDIX_MARKERS = [
 ];
 
 describe('contract i18n', () => {
+  it('has non-legal contract UI copy for every supported portal language', () => {
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const copyBlock = pageSource.match(/const CONTRACT_UI_COPY = \{([\s\S]*?)\n\} as const;/)?.[1] ?? '';
+    const supplementBlock = pageSource.match(/const CONTRACT_UI_COPY_SUPPLEMENTS = \{([\s\S]*?)\n\} satisfies/)?.[1] ?? '';
+    const supportedLanguages = ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'];
+    const supplementLanguages = ['it', 'hu', 'sv', 'fr', 'pl', 'cs'];
+    const entries = [...copyBlock.matchAll(/\n  (\w+): \{([^\n]+)\}/g)];
+    const missing: string[] = [];
+
+    for (const [, key, value] of entries) {
+      for (const language of supportedLanguages) {
+        if (new RegExp(`\\b${language}:`).test(value)) continue;
+        if (supplementLanguages.includes(language) && new RegExp(`\\b${key}: contractUi6\\(`).test(supplementBlock)) continue;
+        missing.push(`${key}:${language}`);
+      }
+    }
+
+    expect(missing).toEqual([]);
+  });
+
   it('keeps Danish Appendix 2 source text while rendering English and German wizard copy', () => {
     expect(APPENDIX_2_PARAGRAPHS).toContain('1. Målet med rabattstrukturen.');
 
@@ -41,6 +61,24 @@ describe('contract i18n', () => {
       expect(copy).toContain('Purpose of the discount structure.');
       expect(copy).not.toContain('Målet med rabattstrukturen');
     }
+  });
+
+  it('keeps service-partner discount clauses in the legal resolver instead of hardcoded Danish', () => {
+    const context = {
+      companyName: 'Example Service',
+      partnerType: 'service_partner' as const,
+      sparePartsDiscountPct: 25,
+    };
+    const english = JSON.stringify(renderGuidedContractSections(context, 'en').find((section) => section.stepId === 'discount_structure'));
+    const german = JSON.stringify(renderGuidedContractSections(context, 'de').find((section) => section.stepId === 'discount_structure'));
+    const italian = JSON.stringify(renderGuidedContractSections(context, 'it').find((section) => section.stepId === 'discount_structure'));
+
+    expect(english).toContain('Spare parts discount: 25%.');
+    expect(german).toContain('Ersatzteilrabatt: 25%.');
+    expect(italian).toContain('Spare parts discount: 25%.');
+    expect(english).not.toContain('Reservedelsrabat');
+    expect(german).not.toContain('Maskiner købes gennem');
+    expect(italian).not.toContain('Reservedelsrabat');
   });
 
   it('uses localized wizard labels and removes the known Danish Step 3 and confirmation literals', () => {
@@ -182,18 +220,18 @@ describe('contract i18n', () => {
     expect(formatContractServiceHourlyRatePerHourDkk(360, 'da')).toBe('360 kr./time');
   });
 
-  it('renders the complete Step 8 payment and delivery appendix in every supported portal language', () => {
+  it('localizes Step 8 UI while using English legal fallback for non-approved legal languages', () => {
     const context = { companyName: 'Example Dealer', partnerType: 'dealer' as const, paymentTerm: 'net_21' };
     const expected = {
       da: ['9. Betaling og Levering', 'Bilag 4: Salgs- og leveringsbetingelser', 'Betalingsbetingelser'],
       en: ['9. Payment and delivery', 'Appendix 4: Terms of sale and delivery', 'Payment terms'],
       de: ['9. Zahlung und Lieferung', 'Anhang 4: Verkaufs- und Lieferbedingungen', 'Zahlungsbedingungen'],
-      it: ['9. Pagamento e consegna', 'Allegato 4: Condizioni di vendita e consegna', 'Termini di pagamento'],
-      hu: ['9. Fizetés és szállítás', '4. melléklet: Értékesítési és szállítási feltételek', 'Fizetési feltételek'],
-      sv: ['9. Betalning och leverans', 'Bilaga 4: Försäljnings- och leveransvillkor', 'Betalningsvillkor'],
-      fr: ['9. Paiement et livraison', 'Annexe 4 : Conditions de vente et de livraison', 'Conditions de paiement'],
-      pl: ['9. Płatność i dostawa', 'Załącznik 4: Warunki sprzedaży i dostawy', 'Warunki płatności'],
-      cs: ['9. Platba a dodání', 'Příloha 4: Obchodní a dodací podmínky', 'Platební podmínky'],
+      it: ['9. Payment and delivery', 'Appendix 4: Terms of sale and delivery', 'Termini di pagamento'],
+      hu: ['9. Payment and delivery', 'Appendix 4: Terms of sale and delivery', 'Fizetési feltételek'],
+      sv: ['9. Payment and delivery', 'Appendix 4: Terms of sale and delivery', 'Betalningsvillkor'],
+      fr: ['9. Payment and delivery', 'Appendix 4: Terms of sale and delivery', 'Conditions de paiement'],
+      pl: ['9. Payment and delivery', 'Appendix 4: Terms of sale and delivery', 'Warunki płatności'],
+      cs: ['9. Payment and delivery', 'Appendix 4: Terms of sale and delivery', 'Platební podmínky'],
     } as const;
     const danishOnlyMarkers = [
       '9. Betaling og Levering',
@@ -211,24 +249,28 @@ describe('contract i18n', () => {
       expect(section).toBeDefined();
       for (const text of expectedText.slice(0, 2)) expect(rendered).toContain(text);
       expect(t('contractPaymentTermsLabel', language)).toBe(expectedText[2]);
+      if (!['da', 'en', 'de'].includes(language)) {
+        expect(resolveApprovedContractLegalLanguage(language)).toBe('en');
+        expect(rendered).toContain('Payment is due net 21 days from the invoice date.');
+      }
       if (language !== 'da') {
         for (const marker of danishOnlyMarkers) expect(rendered).not.toContain(marker);
       }
     }
   });
 
-  it('renders the complete Step 9 termination content in every supported portal language', () => {
+  it('renders Step 9 with deterministic English legal fallback for non-approved legal languages', () => {
     const context = { companyName: 'Example Dealer', partnerType: 'dealer' as const };
     const expected = {
       da: ['Kontrakt, punkt 11', '11. Varighed og opsigelse'],
       en: ['Contract, section 11', '11. Duration and termination'],
       de: ['Vertrag, Punkt 11', '11. Laufzeit und Kündigung'],
-      it: ['Contratto, sezione 11', '11. Durata e risoluzione'],
-      hu: ['Szerződés, 11. pont', '11. Időtartam és felmondás'],
-      sv: ['Avtal, punkt 11', '11. Löptid och uppsägning'],
-      fr: ['Contrat, section 11', '11. Durée et résiliation'],
-      pl: ['Umowa, punkt 11', '11. Okres obowiązywania i wypowiedzenie'],
-      cs: ['Smlouva, bod 11', '11. Doba trvání a ukončení'],
+      it: ['Contract, section 11', '11. Duration and termination'],
+      hu: ['Contract, section 11', '11. Duration and termination'],
+      sv: ['Contract, section 11', '11. Duration and termination'],
+      fr: ['Contract, section 11', '11. Duration and termination'],
+      pl: ['Contract, section 11', '11. Duration and termination'],
+      cs: ['Contract, section 11', '11. Duration and termination'],
     } as const;
     const danishMarkers = [
       'Denne kontrakt træder i kraft',
@@ -243,6 +285,10 @@ describe('contract i18n', () => {
 
       expect(section).toBeDefined();
       for (const text of expectedText) expect(rendered).toContain(text);
+      if (!['da', 'en', 'de'].includes(language)) {
+        expect(resolveApprovedContractLegalLanguage(language)).toBe('en');
+        expect(rendered).toContain('This agreement enters into force upon signature');
+      }
       if (language !== 'da') {
         for (const marker of danishMarkers) expect(rendered).not.toContain(marker);
       }

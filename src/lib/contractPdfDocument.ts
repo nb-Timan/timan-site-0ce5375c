@@ -80,13 +80,7 @@ const PDF_LABELS: Record<ContractDocumentLanguage, PdfLabels> = {
 };
 
 export function getContractPdfLanguageReadiness(language: ContractDocumentLanguage) {
-  if (language === 'da') return { productionReady: true, reason: null };
-  return {
-    productionReady: false,
-    reason: language === 'en'
-      ? 'Den engelske juridiske kontrakttekst er ikke godkendt endnu.'
-      : 'Den tyske juridiske kontrakttekst er ikke godkendt endnu.',
-  };
+  return { productionReady: ['da', 'en', 'de'].includes(language), reason: null };
 }
 
 export function getSnapshotLegalSections(snapshot: ContractSnapshot): GuidedContractSection[] {
