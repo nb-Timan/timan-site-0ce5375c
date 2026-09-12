@@ -181,4 +181,39 @@ describe('contract i18n', () => {
     expect(formatContractServiceHourlyRatePerHourDkk(360, 'en')).toBe('360 kr./hour');
     expect(formatContractServiceHourlyRatePerHourDkk(360, 'da')).toBe('360 kr./time');
   });
+
+  it('renders the complete Step 8 payment and delivery appendix in every supported portal language', () => {
+    const context = { companyName: 'Example Dealer', partnerType: 'dealer' as const, paymentTerm: 'net_21' };
+    const expected = {
+      da: ['9. Betaling og Levering', 'Bilag 4: Salgs- og leveringsbetingelser', 'Betalingsbetingelser'],
+      en: ['9. Payment and delivery', 'Appendix 4: Terms of sale and delivery', 'Payment terms'],
+      de: ['9. Zahlung und Lieferung', 'Anhang 4: Verkaufs- und Lieferbedingungen', 'Zahlungsbedingungen'],
+      it: ['9. Pagamento e consegna', 'Allegato 4: Condizioni di vendita e consegna', 'Termini di pagamento'],
+      hu: ['9. Fizetés és szállítás', '4. melléklet: Értékesítési és szállítási feltételek', 'Fizetési feltételek'],
+      sv: ['9. Betalning och leverans', 'Bilaga 4: Försäljnings- och leveransvillkor', 'Betalningsvillkor'],
+      fr: ['9. Paiement et livraison', 'Annexe 4 : Conditions de vente et de livraison', 'Conditions de paiement'],
+      pl: ['9. Płatność i dostawa', 'Załącznik 4: Warunki sprzedaży i dostawy', 'Warunki płatności'],
+      cs: ['9. Platba a dodání', 'Příloha 4: Obchodní a dodací podmínky', 'Platební podmínky'],
+    } as const;
+    const danishOnlyMarkers = [
+      '9. Betaling og Levering',
+      'Bilag 4: Salgs- og leveringsbetingelser',
+      'Se mere om leveringsbetingelser: bilag 4.',
+      'Disse almindelige Salgs- og Leveringsbetingelser',
+      '16. Lovvalg og værneting:',
+    ];
+
+    for (const [language, expectedText] of Object.entries(expected)) {
+      const section = renderGuidedContractSections(context, language)
+        .find((entry) => entry.stepId === 'payment_delivery');
+      const rendered = JSON.stringify(section);
+
+      expect(section).toBeDefined();
+      for (const text of expectedText.slice(0, 2)) expect(rendered).toContain(text);
+      expect(t('contractPaymentTermsLabel', language)).toBe(expectedText[2]);
+      if (language !== 'da') {
+        for (const marker of danishOnlyMarkers) expect(rendered).not.toContain(marker);
+      }
+    }
+  });
 });

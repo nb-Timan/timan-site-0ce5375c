@@ -99,6 +99,7 @@ const da: Dict = {
   contractServiceRateValidation: 'Angiv et beløb over 0 kr.',
   contractServiceTravelAllowance: 'Maksimalt 6 timers kørsel pr. reklamation dækkes af Timan med samme timetakst.',
   contractPaymentTermsLabel: 'Betalingsbetingelser',
+  contractPaymentTermsCbsMissing: 'CBS er valgt, men en fuld juridisk CBS-formulering mangler fortsat i kontraktens source of truth.',
   contractFullTextHeading: 'Kontrakten',
   contractFullTextIntro: 'Den samlede aftale i den rækkefølge, den indgår i den endelige kontrakt.',
   contractDiscountMachineOrderGroup: 'Hele maskinordren inkl. redskaber.',
@@ -749,6 +750,7 @@ const en: Dict = {
   contractServiceRateValidation: 'Enter an amount above DKK 0.',
   contractServiceTravelAllowance: 'Timan covers a maximum of six driving hours per claim at the same hourly rate.',
   contractPaymentTermsLabel: 'Payment terms',
+  contractPaymentTermsCbsMissing: 'CBS is selected, but a complete legal CBS wording is not yet available in the contract source of truth.',
   contractFullTextHeading: 'The contract',
   contractFullTextIntro: 'The full agreement in the order used in the final contract.',
   contractDiscountMachineOrderGroup: 'Entire machine order incl. attachments.',
@@ -1308,6 +1310,8 @@ const en: Dict = {
 // ---------------------------------------------------------------------------
 const de: Dict = {
   ...en,
+  contractPaymentTermsLabel: 'Zahlungsbedingungen',
+  contractPaymentTermsCbsMissing: 'CBS ist ausgewählt, aber im Vertrags-Source-of-Truth liegt noch keine vollständige rechtliche CBS-Formulierung vor.',
   marketingBadgeNew: 'Neu',
   marketingBadgeOffer: 'Angebot',
   marketingBadgeCampaign: 'Kampagne',
@@ -1740,6 +1744,8 @@ const de: Dict = {
 // ---------------------------------------------------------------------------
 const it: Dict = {
   ...en,
+  contractPaymentTermsLabel: 'Termini di pagamento',
+  contractPaymentTermsCbsMissing: 'È selezionato CBS, ma nel source of truth del contratto non è ancora disponibile una formulazione giuridica CBS completa.',
   marketingBadgeNew: 'Nuovo',
   marketingBadgeOffer: 'Offerta',
   marketingBadgeCampaign: 'Campagna',
@@ -2150,6 +2156,8 @@ const it: Dict = {
 // ---------------------------------------------------------------------------
 const hu: Dict = {
   ...en,
+  contractPaymentTermsLabel: 'Fizetési feltételek',
+  contractPaymentTermsCbsMissing: 'A CBS ki van választva, de a szerződés hiteles forrásában még nem áll rendelkezésre teljes jogi CBS-szöveg.',
   marketingBadgeNew: 'Új',
   marketingBadgeOffer: 'Ajánlat',
   marketingBadgeCampaign: 'Kampány',
@@ -2560,6 +2568,8 @@ const hu: Dict = {
 // ---------------------------------------------------------------------------
 const sv: Dict = {
   ...en,
+  contractPaymentTermsLabel: 'Betalningsvillkor',
+  contractPaymentTermsCbsMissing: 'CBS är valt, men en fullständig juridisk CBS-formulering saknas fortfarande i avtalets källunderlag.',
   marketingBadgeNew: 'Nyhet',
   marketingBadgeOffer: 'Erbjudande',
   marketingBadgeCampaign: 'Kampanj',
@@ -2971,6 +2981,8 @@ const sv: Dict = {
 // ---------------------------------------------------------------------------
 const fr: Dict = {
   ...en,
+  contractPaymentTermsLabel: 'Conditions de paiement',
+  contractPaymentTermsCbsMissing: 'CBS est sélectionné, mais une formulation juridique CBS complète n’est pas encore disponible dans la source de référence du contrat.',
   marketingBadgeNew: 'Nouveau',
   marketingBadgeOffer: 'Offre',
   marketingBadgeCampaign: 'Campagne',
@@ -3382,6 +3394,8 @@ const fr: Dict = {
 // ---------------------------------------------------------------------------
 const pl: Dict = {
   ...en,
+  contractPaymentTermsLabel: 'Warunki płatności',
+  contractPaymentTermsCbsMissing: 'Wybrano CBS, ale w źródle referencyjnym umowy nie ma jeszcze pełnego prawnego brzmienia CBS.',
   marketingBadgeNew: 'Nowość',
   marketingBadgeOffer: 'Oferta',
   marketingBadgeCampaign: 'Kampania',
@@ -3793,6 +3807,8 @@ const pl: Dict = {
 // ---------------------------------------------------------------------------
 const cs: Dict = {
   ...en,
+  contractPaymentTermsLabel: 'Platební podmínky',
+  contractPaymentTermsCbsMissing: 'Je vybráno CBS, ale ve zdroji pravdy smlouvy zatím není k dispozici úplné právní znění CBS.',
   marketingBadgeNew: 'Novinka',
   marketingBadgeOffer: 'Nabídka',
   marketingBadgeCampaign: 'Kampaň',

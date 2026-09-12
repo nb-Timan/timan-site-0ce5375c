@@ -4324,7 +4324,7 @@ function PaymentDeliverySection({
           </label>
           {cbsNeedsLegalText && (
             <p className="mt-3 max-w-2xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
-              CBS er valgt, men der findes endnu ikke en fuld juridisk CBS-formulering i kontraktens source of truth.
+              {t('contractPaymentTermsCbsMissing', uiLanguage)}
             </p>
           )}
         </section>
