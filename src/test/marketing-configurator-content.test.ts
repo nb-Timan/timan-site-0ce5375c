@@ -43,10 +43,17 @@ describe('Marketing configurator content', () => {
   it('maps legacy badge values to the premium badge types and translates labels for every portal language', () => {
     expect(resolveMarketingBadge('Ny')?.kind).toBe('new');
     expect(resolveMarketingBadge('Godt køb')?.kind).toBe('offer');
+    expect(resolveMarketingBadge('God pris')?.kind).toBe('offer');
     expect(resolveMarketingBadge('Kampagne')?.kind).toBe('campaign');
-    expect(t('marketingBadgeOffer', 'da')).toBe('Tilbud');
-    expect(t('marketingBadgeOffer', 'en')).toBe('Offer');
-    expect(t('marketingBadgeOffer', 'de')).toBe('Angebot');
+    expect(t('marketingBadgeGoodPrice', 'da')).toBe('God pris');
+    expect(t('marketingBadgeGoodPrice', 'en')).toBe('Good price');
+    expect(t('marketingBadgeGoodPrice', 'de')).toBe('Guter Preis');
+    expect(t('marketingBadgeGoodPrice', 'it')).toBe('Buon prezzo');
+    expect(t('marketingBadgeGoodPrice', 'hu')).toBe('Jó ár');
+    expect(t('marketingBadgeGoodPrice', 'sv')).toBe('Bra pris');
+    expect(t('marketingBadgeGoodPrice', 'fr')).toBe('Bon prix');
+    expect(t('marketingBadgeGoodPrice', 'pl')).toBe('Dobra cena');
+    expect(t('marketingBadgeGoodPrice', 'cs')).toBe('Dobrá cena');
     expect(t('marketingBadgeNew', 'cs')).toBe('Novinka');
   });
 
@@ -83,6 +90,7 @@ describe('Marketing configurator content', () => {
     expect(editor).toContain("save('published')");
     expect(editor).toMatch(/onSaved\(result\.row\);\s+onClose\(\);/);
     expect(editor).toContain('MARKETING_BADGE_OPTIONS');
+    expect(editor).toContain("variant={item.kind === 'machine' ? 'main' : 'compact'}");
     expect(editor).not.toContain('Specifikationslink');
     expect(editor).toContain('Nøglefunktioner');
     expect(editor).toContain('Dimensioner & tekniske specifikationer');
@@ -95,6 +103,7 @@ describe('Marketing configurator content', () => {
     expect(configurator).toContain("state === 'missing'");
     expect(configurator).toContain('relative overflow-visible border-2 rounded-xl');
     expect(configurator).toContain('pointer-events-none absolute -right-2 -top-2 z-10');
+    expect(configurator).toContain("renderMarketingBadge(marketingContent?.badge, 'compact')");
     expect(bulkTools).toContain('Vis kun mangler');
     expect(bulkTools).toContain('Vis kun kladder');
     expect(bulkTools).toContain('Upload billeder');

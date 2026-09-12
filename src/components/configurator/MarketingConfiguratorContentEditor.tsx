@@ -138,7 +138,7 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
             <aside className="space-y-3 lg:sticky lg:top-0">
               <p className="text-sm font-semibold text-slate-700">Live preview</p>
               <div className="relative overflow-visible rounded-xl border-2 border-slate-200 bg-white p-5 shadow-sm">
-                {draft.badge && <div className="pointer-events-none absolute -right-2 -top-2 z-10 sm:-right-3 sm:-top-3"><MarketingConfiguratorBadge badge={draft.badge} /></div>}
+                {draft.badge && <div className="pointer-events-none absolute -right-2 -top-2 z-10 sm:-right-3 sm:-top-3"><MarketingConfiguratorBadge badge={draft.badge} language={uiLanguage} variant={item.kind === 'machine' ? 'main' : 'compact'} /></div>}
                 {draft.image_url ? <img src={draft.image_url} alt="Produktpreview" className="mb-4 aspect-video w-full rounded-md object-cover" /> : <div className="mb-4 flex aspect-video items-center justify-center rounded-md bg-slate-100 text-sm text-slate-500">Intet billede valgt</div>}
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
