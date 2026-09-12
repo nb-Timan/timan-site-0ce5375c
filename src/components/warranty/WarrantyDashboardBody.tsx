@@ -76,7 +76,7 @@ export function WarrantyDashboardIntro({
           to="/portal/service/warranty/new"
           className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
         >
-          <PlusCircle className="h-4 w-4" /> Ny registrering
+          <PlusCircle className="h-4 w-4" /> Opret garantiregistrering
         </Link>
       )}
     </div>

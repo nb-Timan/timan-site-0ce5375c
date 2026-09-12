@@ -51,7 +51,7 @@ const EMPTY: FormState = {
 export function WarrantyNewFormIntro() {
   return (
     <div>
-      <h1 className="text-3xl font-black tracking-tight">Ny registrering</h1>
+      <h1 className="text-3xl font-black tracking-tight">Opret garantiregistrering</h1>
       <p className="mt-1 max-w-3xl text-sm text-slate-500">
         Registrér en ny maskine ved levering til kunden. Garantiregistrering
         skal oprettes ved overlevering — der kan ikke behandles garanti eller
@@ -74,7 +74,7 @@ export function WarrantyNewForm({
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [success, setSuccess] = useState<{
-    certificate: string;
+    submissionId: string;
     customer: string;
   } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -145,7 +145,7 @@ export function WarrantyNewForm({
         comment: state.comment || null,
         language: uiLanguage,
       });
-      setSuccess({ certificate: record.certificateNumber, customer: state.customer.trim() });
+      setSuccess({ submissionId: record.id, customer: state.customer.trim() });
       setState(EMPTY);
     } catch (err) {
       setError(
@@ -163,13 +163,16 @@ export function WarrantyNewForm({
         <div className="flex items-start gap-4">
           <CheckCircle2 className="h-8 w-8 shrink-0 text-emerald-600" />
           <div>
-            <h2 className="text-2xl font-black">Garantiregistrering oprettet</h2>
+            <h2 className="text-2xl font-black">Garantiregistrering indsendt</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Garantibevis{" "}
+              Indsendelsen for <strong>{success.customer}</strong> afventer nu gennemgang.
+              Et garantibevis med SP-nummer oprettes først efter godkendelse.
+            </p>
+            <p className="mt-2 text-xs text-slate-500">
+              Reference{" "}
               <span className="font-mono font-black text-slate-900">
-                {success.certificate}
-              </span>{" "}
-              er registreret for <strong>{success.customer}</strong>.
+                {success.submissionId.slice(0, 8).toUpperCase()}
+              </span>
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <button
@@ -184,7 +187,7 @@ export function WarrantyNewForm({
                 onClick={() => navigate("/portal/service/warranty/registrations")}
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
               >
-                Se mine registreringer
+                Se mine indsendelser
               </button>
             </div>
           </div>

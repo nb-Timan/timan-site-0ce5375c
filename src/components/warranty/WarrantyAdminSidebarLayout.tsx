@@ -44,7 +44,7 @@ const ADMIN_NAV: NavItem[] = [
 const DEALER_NAV: NavItem[] = [
   { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty", exact: true },
   { to: "/portal/service/warranty/registrations", label: "Mine registreringer", icon: ClipboardList, match: "/portal/service/warranty/registrations" },
-  { to: "/portal/service/warranty/new", label: "Ny registrering", icon: PlusCircle, match: "/portal/service/warranty/new" },
+  { to: "/portal/service/warranty/new", label: "Opret garantiregistrering", icon: PlusCircle, match: "/portal/service/warranty/new" },
 ];
 
 const DEALER_NAV_READONLY: NavItem[] = [

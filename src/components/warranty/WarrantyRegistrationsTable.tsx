@@ -17,6 +17,7 @@ import {
   PlusCircle,
   Save,
   Search,
+  ShieldCheck,
   X,
 } from "lucide-react";
 import {
@@ -33,6 +34,11 @@ import { useRegistrationHistory } from "@/lib/warrantyHistoryService";
 import { supabase } from "@/lib/supabase";
 import { useSellerDirectory } from "@/lib/sellerDirectory";
 import { useTeknikScope, applyScopeFilter } from "@/lib/useTeknikScope";
+import {
+  approveWarrantySubmission,
+  useWarrantySubmissionsDb,
+  type WarrantySubmission,
+} from "@/lib/warrantySubmissionsService";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 
@@ -67,7 +73,7 @@ export function WarrantyRegistrationsHeader({
           to="/portal/service/warranty/new"
           className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
         >
-          <PlusCircle className="h-4 w-4" /> Ny registrering
+          <PlusCircle className="h-4 w-4" /> Opret garantiregistrering
         </Link>
       )}
     </div>
@@ -110,6 +116,12 @@ export function WarrantyRegistrationsTable({
   const showMatchStatus = role === "timan_backend" || role === "timan_service";
   const canEdit = role === "timan_backend" || role === "timan_service";
   const { records: all, loading, error } = useWarrantyRegistrationsDb();
+  const {
+    submissions,
+    loading: submissionsLoading,
+    error: submissionsError,
+    reload: reloadSubmissions,
+  } = useWarrantySubmissionsDb();
   const [localRecords, setLocalRecords] = useState<DbWarrantyRegistration[] | null>(null);
   const records = localRecords ?? all;
 
@@ -273,7 +285,10 @@ export function WarrantyRegistrationsTable({
 
   async function reloadAfterEdit() {
     try {
-      const fresh = await fetchWarrantyRegistrations();
+      const [fresh] = await Promise.all([
+        fetchWarrantyRegistrations(),
+        reloadSubmissions(),
+      ]);
       setLocalRecords(fresh);
     } catch {
       /* ignore — keep current data */
@@ -299,6 +314,13 @@ export function WarrantyRegistrationsTable({
 
   return (
     <div className="space-y-5">
+      <PendingSubmissionsPanel
+        submissions={submissions}
+        loading={submissionsLoading}
+        error={submissionsError}
+        canApprove={role === "timan_backend" || role === "timan_service"}
+        onApproved={reloadAfterEdit}
+      />
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3">
         {/* Line 1 — Søg, Forhandler (admin), Maskintype, Sprog (admin) */}
         <div
@@ -514,6 +536,94 @@ export function WarrantyRegistrationsTable({
         />
       )}
     </div>
+  );
+}
+
+function PendingSubmissionsPanel({
+  submissions,
+  loading,
+  error,
+  canApprove,
+  onApproved,
+}: {
+  submissions: WarrantySubmission[];
+  loading: boolean;
+  error: string | null;
+  canApprove: boolean;
+  onApproved: () => Promise<void>;
+}) {
+  const pending = submissions.filter((submission) => submission.submissionStatus === "pending");
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  if (!loading && !error && pending.length === 0) return null;
+
+  async function approve(submission: WarrantySubmission) {
+    const confirmed = window.confirm(
+      `Godkend garantiindsendelse for ${submission.machineSerial}? Der oprettes derefter et SP-garantibevis.`,
+    );
+    if (!confirmed) return;
+    setApprovingId(submission.id);
+    setActionError(null);
+    try {
+      await approveWarrantySubmission(submission.id);
+      await onApproved();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Kunne ikke godkende garantiindsendelsen.");
+    } finally {
+      setApprovingId(null);
+    }
+  }
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/40 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-100 px-5 py-3">
+        <div>
+          <h2 className="text-base font-black text-slate-900">Afventende garantiindsendelser</h2>
+          <p className="text-sm text-slate-600">
+            Indsendelser bliver først til garantibeviser, når Timan har godkendt dem.
+          </p>
+        </div>
+        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">
+          {loading ? "Henter…" : `${pending.length} afventer`}
+        </span>
+      </div>
+      {error || actionError ? (
+        <p className="px-5 py-4 text-sm text-rose-700">{actionError ?? error}</p>
+      ) : (
+        <div className="divide-y divide-amber-100">
+          {pending.map((submission) => (
+            <div key={submission.id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+              <div className="min-w-0">
+                <div className="font-mono text-xs font-black text-slate-700">{submission.machineSerial}</div>
+                <div className="mt-1 font-bold text-slate-900">
+                  {submission.machineModel} · {submission.customerName}
+                </div>
+                <div className="mt-1 text-xs text-slate-500">
+                  {submission.dealerName} · #{submission.dealerAccountNumber}
+                  {submission.matchedMachineRegistrationId ? " · Eksisterende MO-maskine fundet" : ""}
+                </div>
+              </div>
+              {canApprove ? (
+                <button
+                  type="button"
+                  onClick={() => void approve(submission)}
+                  disabled={approvingId === submission.id}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {approvingId === submission.id ? "Godkender…" : "Godkend og opret SP"}
+                </button>
+              ) : (
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">
+                  Afventer gennemgang
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
