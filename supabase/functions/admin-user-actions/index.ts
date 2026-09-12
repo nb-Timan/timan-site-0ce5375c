@@ -70,6 +70,7 @@ const ADMIN_WRITABLE_COLUMNS = new Set([
   "portal_role", "role", "partner_type", "status", "approved", "is_active",
   "allowed_areas", "allowed_modules", "backend_modules", "module_access",
   "permissions", "quick_actions", "portal_variant",
+  "organization_access_role",
   "can_view_prices", "can_submit_order", "can_edit_discount",
   "can_switch_customer_mode", "start_step", "max_step",
   "account_owner_user_id", "account_owner_name", "account_owner_initials",
@@ -80,7 +81,7 @@ const ADMIN_WRITABLE_COLUMNS = new Set([
 const PROTECTED_COLUMNS = [
   "portal_role", "role", "partner_type", "permissions", "allowed_modules",
   "allowed_areas", "backend_modules", "module_access", "is_active", "approved",
-  "status", "auth_user_id", "user_id", "dealer_id", "email",
+  "status", "auth_user_id", "user_id", "dealer_id", "email", "organization_access_role",
 ];
 
 /** Never writable through this function, by anyone. */
@@ -543,6 +544,19 @@ Deno.serve(async (req) => {
     const effectiveStatus = effectiveString(patch, beforeRow, "status");
     const effectiveApproved = "approved" in patch ? patch.approved : beforeRow.approved;
     const effectiveIsActive = "is_active" in patch ? patch.is_active : beforeRow.is_active;
+    const requestedOrganizationAccess = patch.organization_access_role;
+
+    if ("organization_access_role" in patch) {
+      if (requestedOrganizationAccess !== null && requestedOrganizationAccess !== "collaboration_manager") {
+        return json({ error: "Ugyldig organisationsadgang." }, 400);
+      }
+      if (
+        requestedOrganizationAccess === "collaboration_manager" &&
+        !EXTERNAL_PARTNER_ROLES.has(effectivePortalRole)
+      ) {
+        return json({ error: "Samarbejdsansvarlig kan kun sættes på eksterne partnerbrugere." }, 403);
+      }
+    }
     const isActiveApprovedPartner =
       EXTERNAL_PARTNER_ROLES.has(effectivePortalRole) &&
       effectiveApproved === true &&

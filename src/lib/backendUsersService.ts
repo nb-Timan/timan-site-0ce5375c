@@ -29,7 +29,6 @@ import {
   QuickActionKey,
   DEFAULT_QUICK_ACTIONS,
   listBackendUsers as listFallbackUsers,
-  updateBackendUser as updateFallbackUser,
 } from "@/lib/backend-users-store";
 import { defaultCanSubmitOrder, defaultCanViewPrices } from "@/lib/sessionPermissionDefaults";
 import { canonicalDisplayName, canonicalInitials } from "@/lib/canonicalUserIdentity";
@@ -278,6 +277,19 @@ export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
   return { ...draft, allowed_areas, allowed_modules, backend_modules };
 }
 
+/**
+ * Organisation access is an extra scope only for external partner roles.
+ * Internal users must not send this field at all: the server remains the
+ * authority for eligibility and can reject a manipulated external assignment.
+ */
+export function organizationAccessPatchForRole(
+  role: PortalRole,
+  value: BackendUser["organization_access_role"],
+): Record<string, "collaboration_manager" | null> {
+  if (!isDealerSideRole(role)) return {};
+  return { organization_access_role: normalizeOrganizationAccessRole(value) };
+}
+
 export async function saveBackendUser(id: string, draft: BackendUser): Promise<SaveResult> {
   // Security guard: strip backend/CRM access and disallowed quick actions
   // when role is dealer-side, regardless of what the UI sent.
@@ -306,9 +318,10 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     : (draft.has_manual_module_override === false ? null : draft.allowed_modules);
 
   const safePerms = sanitizePermsForRole(roleForAccess, draft.perms);
-  const organizationAccessRole = isDealerSideRole(roleForAccess)
-    ? draft.organization_access_role
-    : null;
+  const organizationAccessPatch = organizationAccessPatchForRole(
+    roleForAccess,
+    draft.organization_access_role,
+  );
 
   const fullPatch: Record<string, unknown> = {
     display_name: draft.name,
@@ -332,7 +345,7 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     allowed_areas: allowedAreasForDb,
     allowed_modules: allowedModulesForDb,
     backend_modules: draft.backend_modules,
-    organization_access_role: organizationAccessRole,
+    ...organizationAccessPatch,
     can_view_prices: safePerms.can_view_prices,
     can_submit_order: safePerms.can_submit_order,
     permissions: safePerms,
@@ -375,12 +388,10 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
       friendly = `Din session er udløbet — log ind igen og prøv at gemme. Detaljer: ${msg}`;
     }
 
-    const local = updateFallbackUser(id, draft);
     return {
       ok: false,
-      source: "fallback",
-      user: local,
-      error: `${friendly} Ændringen blev gemt lokalt i preview indtil videre.`,
+      source: "supabase",
+      error: friendly,
     };
   }
 
@@ -392,15 +403,12 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
   // not show a misleading success.
   const verify = await supabase.from("app_users").select("*").eq("id", id).maybeSingle();
   if (verify.error || !verify.data) {
-    const local = updateFallbackUser(id, draft);
     return {
       ok: false,
-      source: "fallback",
-      user: local,
+      source: "supabase",
       error:
         `Kunne ikke verificere gemt bruger i Supabase (readback fejlede). ` +
-        `Detaljer: ${verify.error?.message ?? "row not found"}. ` +
-        `Ændringen blev gemt lokalt i preview indtil videre.`,
+        `Detaljer: ${verify.error?.message ?? "row not found"}.`,
     };
   }
 
@@ -425,7 +433,6 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     ["allowed_areas", allowedAreasForDb == null ? null : [...(asArray<string>(row.allowed_areas))].sort(), allowedAreasForDb == null ? null : [...allowedAreasForDb].sort()],
     ["allowed_modules", allowedModulesForDb == null ? null : [...(asArray<string>(row.allowed_modules))].sort(), allowedModulesForDb == null ? null : [...allowedModulesForDb].sort()],
     ["backend_modules", [...(asArray<string>(row.backend_modules))].sort(), [...draft.backend_modules].sort()],
-    ["organization_access_role", row.organization_access_role ?? null, organizationAccessRole],
     ["can_view_prices", row.can_view_prices, safePerms.can_view_prices],
     ["can_submit_order", row.can_submit_order, safePerms.can_submit_order],
     ["quick_actions",
@@ -438,6 +445,13 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
     ],
     ["portal_variant", (row.portal_variant as string | null) ?? 'standard', draft.portal_variant === 'messe' ? 'messe' : 'standard'],
   ];
+  if ("organization_access_role" in fullPatch) {
+    checks.push([
+      "organization_access_role",
+      row.organization_access_role ?? null,
+      organizationAccessPatch.organization_access_role,
+    ]);
+  }
   // Permissions: only compare keys we actually sent, since the DB row may
   // hold extra keys from older edits we don't want to overwrite logic on.
   if (!droppedColumns.includes("permissions")) {
@@ -465,16 +479,13 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
   }
 
   if (mismatches.length > 0) {
-    const local = updateFallbackUser(id, draft);
     return {
       ok: false,
       source: "supabase",
       user: rowToBackendUser(row),
       error:
         `Følgende felter blev ikke gemt i Supabase: ${mismatches.join(", ")}. ` +
-        `Sandsynlig årsag: RLS UPDATE policy på public.app_users blokerer (PATCH returnerer 0 rækker). ` +
-        `Kør docs/sql/phase36_app_users_update_policy.sql i Supabase SQL Editor. ` +
-        `Ændringen blev også gemt lokalt i preview.`,
+        `Supabase-readback matcher ikke den gemte værdi. Ingen lokal preview-kopi er oprettet.`,
     };
   }
 
