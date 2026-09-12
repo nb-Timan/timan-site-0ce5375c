@@ -472,6 +472,7 @@ function detailUserFromRow(row: Record<string, unknown>): BackendUser {
   const language = String(row.preferred_language || "da").toLowerCase();
   return {
     id: String(row.id),
+    organization_access_role: null,
     initials: initials.toUpperCase().slice(0, 4) || "?",
     name,
     email: String(row.email || ""),
