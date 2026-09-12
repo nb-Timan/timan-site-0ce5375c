@@ -23,6 +23,7 @@ const requiredKeys = [
   "quickActionCompanyContactInfo",
   "quickActionCompanyContactInfoDesc",
   "quickActionDealerInvoiceAccept",
+  "quickActionWarrantyRegistrations",
   "quickActionPartnerMap",
   "area_calendar_title",
   "area_calendar_desc",
@@ -70,12 +71,16 @@ describe("Portal front page dealer data badge i18n", () => {
     expect(DEFAULT_QUICK_ACTIONS.timan_backend).toEqual(DEFAULT_QUICK_ACTIONS.timan_seller);
     expect(DEFAULT_QUICK_ACTIONS.timan_dealer).toEqual([
       "create_lead",
+      "dealer_invoice_accept",
+      "warranty_registrations",
+    ]);
+    expect(DEFAULT_QUICK_ACTIONS.timan_importer).toEqual([
+      "create_lead",
       "create_demo",
       "dealer_invoice_accept",
       "partner_map",
     ]);
-    expect(DEFAULT_QUICK_ACTIONS.timan_importer).toEqual(DEFAULT_QUICK_ACTIONS.timan_dealer);
-    expect(DEFAULT_QUICK_ACTIONS.timan_service_partner).toEqual(DEFAULT_QUICK_ACTIONS.timan_dealer);
+    expect(DEFAULT_QUICK_ACTIONS.timan_service_partner).toEqual(DEFAULT_QUICK_ACTIONS.timan_importer);
   });
 
   it("promotes calendar to a main portal area", () => {

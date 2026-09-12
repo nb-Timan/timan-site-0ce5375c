@@ -36,7 +36,7 @@ import {
   BackendMetaModule,
   BackendUser,
   UserStatus,
-  QUICK_ACTION_KEYS,
+  configurableQuickActionsForRole,
   QuickActionKey,
   DEFAULT_QUICK_ACTIONS,
 } from "@/lib/backend-users-store";
@@ -120,6 +120,7 @@ const QUICK_ACTION_LABEL: Record<QuickActionKey, { da: string; en: string }> = {
   create_demo:           { da: "Ny demo-registrering",       en: "New demo registration" },
   company_contact_info:  { da: "Ny samarbejdspartner",       en: "New collaboration partner" },
   dealer_invoice_accept: { da: "Forhandler faktura accept",  en: "Dealer invoice acceptance" },
+  warranty_registrations:{ da: "Garantiregistreringer",      en: "Warranty registrations" },
   partner_map:           { da: "Partnerkort",                en: "Partner map" },
 };
 
@@ -1057,7 +1058,7 @@ function EditUserModal({
               Når intet er valgt manuelt, anvendes standarder for rollen.
             </p>
             <CheckboxGroup
-              items={QUICK_ACTION_KEYS.map((k) => ({
+              items={configurableQuickActionsForRole(draft.role).map((k) => ({
                 value: k,
                 label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
               }))}

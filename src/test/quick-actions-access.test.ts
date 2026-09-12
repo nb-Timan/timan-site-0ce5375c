@@ -17,6 +17,16 @@ const seller: any = {
   module_access: null,
 };
 
+const dealer: any = {
+  email: "dagvilpet@gmail.com",
+  role: "partner",
+  partner_type: "forhandler",
+  portal_role: "timan_dealer",
+  allowed_areas: ["salg_marketing", "timan_crm"],
+  allowed_modules: ["sales_tools", "warranty"],
+  module_access: null,
+};
+
 const baseBackendUser: SessionUser = {
   email: "bp@timan.dk",
   role: "timan_saelger",
@@ -52,6 +62,15 @@ const jtnView: UserView = {
   portalRole: "timan_seller",
   viewRole: "seller",
   label: "JTN Sælger",
+};
+
+const dvpView: UserView = {
+  key: "DVP",
+  initials: "DVP",
+  email: "dagvilpet@gmail.com",
+  portalRole: "timan_dealer",
+  viewRole: "dealer",
+  label: "DVP Forhandler",
 };
 
 describe("quick action access", () => {
@@ -98,6 +117,17 @@ describe("quick action access", () => {
     })).toEqual(["partner_map"]);
   });
 
+  it("gives Timan Forhandler the canonical lead, invoice, and warranty actions", () => {
+    expect(resolveEffectiveQuickActions({
+      ...dealer,
+      quick_actions: ["create_lead", "create_demo", "partner_map"],
+    })).toEqual([
+      "create_lead",
+      "dealer_invoice_accept",
+      "warranty_registrations",
+    ]);
+  });
+
   it("uses the same effective quick actions for view-as and real user resolution", () => {
     const target = {
       ...baseBackendUser,
@@ -111,6 +141,23 @@ describe("quick action access", () => {
     expect(resolveEffectiveQuickActions(effective)).toEqual(resolveEffectiveQuickActions(target));
   });
 
+  it("uses DVP's effective dealer access rather than Backend's actions in view-as", () => {
+    const target = {
+      ...baseBackendUser,
+      ...dealer,
+      display_name: "Dag Vilster Petersen",
+      quick_actions: ["create_lead", "create_demo", "partner_map"],
+    } as SessionUser;
+    const effective = mergeEffectivePortalUser(baseBackendUser, target, dvpView);
+
+    expect(derivePortalRole(effective)).toBe("timan_dealer");
+    expect(resolveEffectiveQuickActions(effective)).toEqual([
+      "create_lead",
+      "dealer_invoice_accept",
+      "warranty_registrations",
+    ]);
+  });
+
   it("derives Backend's action-role overview from the existing access resolver", () => {
     expect(getDefaultQuickActionRoles("create_lead")).toEqual([
       "timan_backend",
@@ -121,6 +168,9 @@ describe("quick action access", () => {
       "timan_importer",
       "timan_dealer",
       "timan_service_partner",
+    ]);
+    expect(getDefaultQuickActionRoles("warranty_registrations")).toEqual([
+      "timan_dealer",
     ]);
   });
 });

@@ -39,6 +39,12 @@ const PARTNER_ACTIONS: Action[] = [
   { key: 'partner_map', labelKey: 'quickActionPartnerMap', to: '/portal/misc/partner-map', icon: MapPinned, requires: 'sales_tools' },
 ];
 
+const DEALER_ACTIONS: Action[] = [
+  { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'sales_tools' },
+  { key: 'dealer_invoice_accept', labelKey: 'quickActionDealerInvoiceAccept', to: '/portal/misc/forms/dealer-invoice-accept', icon: FileCheck2, requires: 'sales_tools' },
+  { key: 'warranty_registrations', labelKey: 'quickActionWarrantyRegistrations', to: '/portal/service/warranty/new', icon: ShieldCheck, requires: 'warranty' },
+];
+
 const SERVICE_ACTIONS: Action[] = [
   { labelKey: 'quickActionWarrantyRegistrations', to: '/portal/service/warranty/registrations', icon: ShieldCheck, requires: 'warranty' },
   { labelKey: 'quickActionClaims', to: '/portal/service/claims', icon: FileWarning, requires: 'claims' },
@@ -74,7 +80,11 @@ export default function QuickActions({ language, showAllActions = false, showRol
     actions = SERVICE_ACTIONS;
     contextLabel = t('quickActionsContextService', language);
   } else if (
-    effectiveRoleKey === 'timan_dealer' ||
+    effectiveRoleKey === 'timan_dealer'
+  ) {
+    actions = DEALER_ACTIONS;
+    contextLabel = t('quickActionsContextDealer', language);
+  } else if (
     effectiveRoleKey === 'timan_service_partner' ||
     effectiveRoleKey === 'timan_importer' ||
     effectiveRoleKey === 'dealer_customer' ||
@@ -110,10 +120,9 @@ export default function QuickActions({ language, showAllActions = false, showRol
         {actions.map(({ key, labelKey, to, icon: Icon }) => {
           const capability = academyCapabilityForAction(key);
           const academyLocked = capability && !isAcademyCapabilityUnlocked(effectiveUser, capability, academySandbox.getCompletedCaseIds());
-          const dealerDemoRegistration = key === 'create_demo' && effectiveRoleKey === 'timan_dealer';
           const target = academyLocked
             ? `/academy?locked=${capability}`
-            : dealerDemoRegistration ? '/portal/service/warranty/new' : to;
+            : to;
           const activeRoles: PortalRole[] = key
             ? getDefaultQuickActionRoles(key)
             : effectiveRoleKey === 'timan_service' || canShowAllActions

@@ -17,6 +17,12 @@ function configuredQuickActions(
   user: QuickActionAccessUser,
   role: PortalRole | null,
 ): QuickActionKey[] {
+  // Dealer quick actions are a canonical role flow: lead, invoice acceptance,
+  // and warranty registration. Ignore legacy per-user demo selections here.
+  if (role === "timan_dealer") {
+    return DEFAULT_QUICK_ACTIONS.timan_dealer;
+  }
+
   const raw = user.quick_actions ?? null;
   const hasLegacyQuickActions = Array.isArray(raw)
     && raw.some((key) => key === "calendar" || key === "my_dealers");
@@ -40,6 +46,8 @@ function canOpenQuickAction(user: QuickActionAccessUser, key: QuickActionKey): b
     case "dealer_invoice_accept":
     case "partner_map":
       return hasModuleAccess(role, "sales_tools", moduleOverride);
+    case "warranty_registrations":
+      return hasModuleAccess(role, "warranty", moduleOverride);
     default:
       return false;
   }

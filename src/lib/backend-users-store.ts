@@ -48,7 +48,7 @@ export type BackendMetaModule = typeof BACKEND_META_MODULES[number];
  * Portal front-page "Hurtige handlinger" / "Quick actions" keys.
  * Stored in app_users.quick_actions (jsonb). NULL = role defaults (fallback).
  */
-export const QUICK_ACTION_KEYS = ["create_lead", "create_demo", "company_contact_info", "dealer_invoice_accept", "partner_map"] as const;
+export const QUICK_ACTION_KEYS = ["create_lead", "create_demo", "company_contact_info", "dealer_invoice_accept", "warranty_registrations", "partner_map"] as const;
 export type QuickActionKey = typeof QUICK_ACTION_KEYS[number];
 
 /** Default quick actions per portal role. Used when quick_actions is NULL. */
@@ -57,7 +57,7 @@ export const DEFAULT_QUICK_ACTIONS: Record<PortalRole, QuickActionKey[]> = {
   timan_seller:  ["create_lead", "create_demo", "company_contact_info", "partner_map"],
   timan_service: [],
   timan_importer: ["create_lead", "create_demo", "dealer_invoice_accept", "partner_map"],
-  timan_dealer: ["create_lead", "create_demo", "dealer_invoice_accept", "partner_map"],
+  timan_dealer: ["create_lead", "dealer_invoice_accept", "warranty_registrations"],
   timan_service_partner: ["create_lead", "create_demo", "dealer_invoice_accept", "partner_map"],
   dealer_customer: [],
   dealer_user: [],
@@ -65,6 +65,11 @@ export const DEFAULT_QUICK_ACTIONS: Record<PortalRole, QuickActionKey[]> = {
   exhibition_user: [],
   pending: [],
 };
+
+/** Dealer actions are a fixed canonical flow, not an individually expanded menu. */
+export function configurableQuickActionsForRole(role: PortalRole): readonly QuickActionKey[] {
+  return role === "timan_dealer" ? DEFAULT_QUICK_ACTIONS.timan_dealer : QUICK_ACTION_KEYS;
+}
 
 export interface BackendUser {
   id: string;              // uuid (mock: deterministic seed id)
