@@ -166,6 +166,7 @@ export default function AcademyPage() {
   const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
   const { language, setLanguage } = useLanguage();
   const task = academySandbox.getCase1();
+  const videoTask = academySandbox.getCase2();
 
   // Enrollment is training state only; the portal's authenticated user remains untouched.
   useEffect(() => { activateLocalAcademyEnrollment(); }, []);
@@ -188,9 +189,14 @@ export default function AcademyPage() {
     Boolean(task.leadId),
   ].filter(Boolean).length;
   const caseState: State = task.completed ? 'done' : task.started ? 'active' : 'new';
+  const videoCaseState: State = videoTask.completed ? 'done' : videoTask.started ? 'active' : 'ready';
   const startCase = () => {
     academySandbox.startCase1();
     navigate('/configurator?academy_mode=true');
+  };
+  const startVideoCase = () => {
+    academySandbox.startCase2();
+    navigate('/portal/videos?academy_mode=true&academy_case=2');
   };
 
   return (
@@ -278,9 +284,9 @@ export default function AcademyPage() {
           </div>
 
           <div className="mt-4 grid items-start gap-3 lg:grid-cols-2">
-            <Module icon={ShoppingCart} title="Salg" progress={`${task.completed ? 1 : 0} / 2 gennemført`}>
+            <Module icon={ShoppingCart} title="Salg" progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 gennemført`}>
               <AcademyRow image="/messe/machines/rc-1000s-tile.png" title="Case 1 - Byg korrekt RC-1000 ordre" description="Konfigurer RC-1000 med nødvendigt udstyr, rabatter og Academy-lead." state={caseState} action={task.started ? 'Fortsæt' : 'Start'} onClick={startCase} />
-              <AcademyRow image="/messe/machines/timan-3330-tile.png" title="Case 2 - Find en vedligeholdelsesvideo" description="Find og åbn den korrekte Weed Brush-vedligeholdelsesvideo for Timan 3330." state="ready" />
+              <AcademyRow image="/messe/machines/timan-3330-tile.png" title="Case 2 - Find en vedligeholdelsesvideo" description="Find og åbn den korrekte Weed Brush-vedligeholdelsesvideo for Timan 3330." state={videoCaseState} action={videoTask.started ? 'Fortsæt' : 'Start'} onClick={startVideoCase} />
             </Module>
             <Module icon={Users} title="Partnerdata" progress="0 / 2 gennemført">
               <AcademyRow title="Part 1 - Virksomheds- og persondata" description="Tilføj rigtige kontaktpersoner, vælg første kontakt og opdater virksomhedens YouTube-kanal." state="new" />

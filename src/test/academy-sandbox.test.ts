@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_CASE_1, ACADEMY_CASE_2_TARGET_VIDEO_ID, academySandbox } from '@/lib/academySandbox';
 
 const completeInput = {
   machineConfigs: [{ type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 2 }],
@@ -97,6 +97,47 @@ describe('Academy Case 1 sandbox', () => {
     });
 
     expect(refreshed.completed).toBe(true);
-    expect(academySandbox.getCompletedCaseIds()).toEqual(['sales-rc-1000']);
+    expect(academySandbox.getCompletedCaseIds()).toEqual([ACADEMY_CASE_1]);
+  });
+
+  it('completes Case 2 only after the Timan 3330 maintenance filter and target video are opened', () => {
+    window.history.replaceState({}, '', '/portal/videos?academy_mode=true&academy_case=2');
+    academySandbox.startCase2();
+    academySandbox.trackCase2Filters({ machineFilter: 'Timan 3330', contentType: 'maintenance', targetVisible: true });
+
+    const wrongVideo = academySandbox.openCase2Video({
+      youtubeVideoId: 'WPgII8T9sYk',
+      machineFilter: 'Timan 3330',
+      contentType: 'maintenance',
+      targetVisible: true,
+    });
+    expect(wrongVideo.completed).toBe(false);
+
+    const complete = academySandbox.openCase2Video({
+      youtubeVideoId: ACADEMY_CASE_2_TARGET_VIDEO_ID,
+      machineFilter: 'Timan 3330',
+      contentType: 'maintenance',
+      targetVisible: true,
+    });
+    expect(complete).toMatchObject({
+      machineFiltered: true,
+      maintenanceFiltered: true,
+      targetFound: true,
+      targetOpened: true,
+      completed: true,
+    });
+    expect(academySandbox.getCase2()).toEqual(complete);
+  });
+
+  it('does not complete Case 2 when the target video is opened without the required filters', () => {
+    window.history.replaceState({}, '', '/portal/videos?academy_mode=true&academy_case=2');
+    academySandbox.startCase2();
+    const state = academySandbox.openCase2Video({
+      youtubeVideoId: ACADEMY_CASE_2_TARGET_VIDEO_ID,
+      machineFilter: 'all',
+      contentType: 'all',
+      targetVisible: true,
+    });
+    expect(state.completed).toBe(false);
   });
 });

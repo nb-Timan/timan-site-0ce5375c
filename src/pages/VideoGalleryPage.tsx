@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { Play, Star, X } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
@@ -26,23 +26,29 @@ import {
   videoContentTypeLabel,
   videoSeasonLabel,
 } from "@/lib/videoLibraryI18n";
+import { academySandbox } from "@/lib/academySandbox";
 
 export default function VideoGalleryPage() {
   const { appUser, loading, logout } = useAppUser();
   const { uiLanguage, language, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<MarketingVideo[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState(DEFAULT_VIDEO_FILTERS);
   const [active, setActive] = useState<MarketingVideo | null>(null);
+  const localAcademySession = academySandbox.isActive();
+  const isAcademyCase2 = localAcademySession && searchParams.get("academy_case") === "2";
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
       listPublishedMarketingVideos(uiLanguage),
-      listMarketingVideoFavoriteIds(),
+      localAcademySession
+        ? Promise.resolve({ videoIds: new Set<string>(), error: null })
+        : listMarketingVideoFavoriteIds(),
     ]).then(([videoResult, favoriteResult]) => {
       if (cancelled) return;
       setRows(videoResult.rows);
@@ -50,7 +56,7 @@ export default function VideoGalleryPage() {
       setError(videoResult.error || favoriteResult.error);
     });
     return () => { cancelled = true; };
-  }, [uiLanguage]);
+  }, [localAcademySession, uiLanguage]);
 
   const machineOptions = useMemo(() => getVideoMachineFilterOptions(uiLanguage), [uiLanguage]);
 
@@ -58,7 +64,31 @@ export default function VideoGalleryPage() {
     return filterAndSortVideos(rows, filters, uiLanguage, { favoriteIds });
   }, [favoriteIds, filters, rows, uiLanguage]);
 
+  const targetVisible = filteredRows.some((video) => video.youtube_video_id === "sxYALA86PaI");
+
+  useEffect(() => {
+    if (!isAcademyCase2) return;
+    academySandbox.trackCase2Filters({
+      machineFilter: filters.machineFilter,
+      contentType: filters.typeFilter,
+      targetVisible,
+    });
+  }, [filters.machineFilter, filters.typeFilter, isAcademyCase2, targetVisible]);
+
+  const openVideo = (video: MarketingVideo) => {
+    if (isAcademyCase2) {
+      academySandbox.openCase2Video({
+        youtubeVideoId: video.youtube_video_id,
+        machineFilter: filters.machineFilter,
+        contentType: filters.typeFilter,
+        targetVisible,
+      });
+    }
+    setActive(video);
+  };
+
   const toggleFavorite = async (video: MarketingVideo) => {
+    if (localAcademySession) return;
     const nextIsFavorite = !favoriteIds.has(video.id);
 
     setFavoriteIds((current) => {
@@ -113,7 +143,7 @@ export default function VideoGalleryPage() {
           onChange={setFilters}
           machineOptions={machineOptions}
           language={uiLanguage}
-          showFavorites
+          showFavorites={!localAcademySession}
         />
 
         {error ? <p className="mb-4 text-sm font-semibold text-amber-700">{error}</p> : null}
@@ -131,8 +161,9 @@ export default function VideoGalleryPage() {
                 lang={uiLanguage}
                 isFavorite={favoriteIds.has(video.id)}
                 favoritePending={pendingFavoriteIds.has(video.id)}
+                allowFavorites={!localAcademySession}
                 onFavoriteToggle={toggleFavorite}
-                onPlay={setActive}
+                onPlay={openVideo}
               />
             ))}
           </div>
@@ -150,6 +181,7 @@ function VideoCard({
   lang,
   isFavorite,
   favoritePending,
+  allowFavorites,
   onFavoriteToggle,
   onPlay,
 }: {
@@ -157,27 +189,30 @@ function VideoCard({
   lang: PortalUiLanguage;
   isFavorite: boolean;
   favoritePending: boolean;
+  allowFavorites: boolean;
   onFavoriteToggle: (video: MarketingVideo) => void;
   onPlay: (video: MarketingVideo) => void;
 }) {
   return (
     <article className="group relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
-      <button
-        type="button"
-        onClick={(event) => {
-          event.stopPropagation();
-          onFavoriteToggle(video);
-        }}
-        disabled={favoritePending}
-        aria-label={tv(isFavorite ? "videoLibraryRemoveFavorite" : "videoLibraryAddFavorite", lang)}
-        className={`absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border shadow-sm transition focus:outline-none focus:ring-2 focus:ring-amber-200 ${
-          isFavorite
-            ? "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
-            : "border-white/70 bg-white/90 text-slate-500 hover:bg-white hover:text-amber-600"
-        } ${favoritePending ? "opacity-60" : ""}`}
-      >
-        <Star className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
-      </button>
+      {allowFavorites && (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onFavoriteToggle(video);
+          }}
+          disabled={favoritePending}
+          aria-label={tv(isFavorite ? "videoLibraryRemoveFavorite" : "videoLibraryAddFavorite", lang)}
+          className={`absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full border shadow-sm transition focus:outline-none focus:ring-2 focus:ring-amber-200 ${
+            isFavorite
+              ? "border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100"
+              : "border-white/70 bg-white/90 text-slate-500 hover:bg-white hover:text-amber-600"
+          } ${favoritePending ? "opacity-60" : ""}`}
+        >
+          <Star className="h-4 w-4" fill={isFavorite ? "currentColor" : "none"} />
+        </button>
+      )}
       <button
         type="button"
         onClick={() => onPlay(video)}
