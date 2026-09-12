@@ -40,6 +40,23 @@ describe('Messe brochure reader', () => {
     expect(buildMesseBrochureSpreads(16)).toEqual([[1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11], [12, 13], [14, 15], [16]]);
   });
 
+  it('keeps every Timan 3330 physical PDF page intact and navigates it individually', () => {
+    expect(buildMesseBrochureVirtualPages(9, 'physicalPdfPage')).toEqual([
+      { number: 1, sourcePage: 1, half: 'full' },
+      { number: 2, sourcePage: 2, half: 'full' },
+      { number: 3, sourcePage: 3, half: 'full' },
+      { number: 4, sourcePage: 4, half: 'full' },
+      { number: 5, sourcePage: 5, half: 'full' },
+      { number: 6, sourcePage: 6, half: 'full' },
+      { number: 7, sourcePage: 7, half: 'full' },
+      { number: 8, sourcePage: 8, half: 'full' },
+      { number: 9, sourcePage: 9, half: 'full' },
+    ]);
+    expect(buildMesseBrochureSpreads(9, 'physicalPdfPage')).toEqual([
+      [1], [2], [3], [4], [5], [6], [7], [8], [9],
+    ]);
+  });
+
   it('ships reader pages for every localized and English-fallback brochure variant', () => {
     for (const [product, languages] of Object.entries(readerCases)) {
       for (const [portalLanguage, expectedLanguage] of Object.entries(languages)) {
@@ -55,7 +72,18 @@ describe('Messe brochure reader', () => {
   it('accepts the stable Messe route ids as well as canonical product ids', () => {
     expect(getMesseBrochureReaderAsset('rc-751', 'DK')?.pageCount).toBe(12);
     expect(getMesseBrochureReaderAsset('rc-1000s', 'DK')?.pageCount).toBe(12);
-    expect(getMesseBrochureReaderAsset('timan-3330', 'DK')?.pageCount).toBe(16);
+    expect(getMesseBrochureReaderAsset('timan-3330', 'DK')).toMatchObject({
+      renderMode: 'physicalPdfPage',
+      rawPageCount: 9,
+      pageCount: 9,
+    });
+    expect(getMesseBrochureReaderAsset('timan-3330', 'FR')).toMatchObject({
+      renderMode: 'physicalPdfPage',
+      rawPageCount: 7,
+      pageCount: 7,
+    });
+    expect(getMesseBrochureReaderAsset('rc-751', 'DK')?.renderMode).toBe('virtualSplit');
+    expect(getMesseBrochureReaderAsset('rc-1000s', 'DK')?.renderMode).toBe('virtualSplit');
   });
 
   it('opens the primary brochure action in the internal modal, not a direct PDF link', () => {

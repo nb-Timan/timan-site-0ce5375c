@@ -7,6 +7,8 @@ export type MesseBrochureReaderAsset = {
   pdfUrl: string;
   language: BrochureLanguage;
   pageBase: string;
+  /** How the reader turns rasterized PDF pages into portal pages. */
+  renderMode: MesseBrochureRenderMode;
   /** Raw PDF/raster page count. Interior pages are landscape double-page spreads. */
   rawPageCount: number;
   /** Number of virtual brochure pages shown by the portal reader. */
@@ -16,7 +18,10 @@ export type MesseBrochureReaderAsset = {
 type ReaderPageSet = {
   pageBase: string;
   rawPageCount: number;
+  renderMode?: MesseBrochureRenderMode;
 };
+
+export type MesseBrochureRenderMode = 'virtualSplit' | 'physicalPdfPage';
 
 export type MesseBrochureVirtualPage = {
   number: number;
@@ -40,12 +45,12 @@ const READER_PAGE_SETS: Record<string, Partial<Record<BrochureLanguage, ReaderPa
     sv: { pageBase: '/brochures/reader/rc-1000s/sv', rawPageCount: 7 },
   },
   'Timan 3330': {
-    da: { pageBase: '/brochures/reader/timan-3330/da', rawPageCount: 9 },
-    de: { pageBase: '/brochures/reader/timan-3330/de', rawPageCount: 9 },
-    en: { pageBase: '/brochures/reader/timan-3330/en', rawPageCount: 9 },
-    fr: { pageBase: '/brochures/reader/timan-3330/fr', rawPageCount: 7 },
-    cs: { pageBase: '/brochures/reader/timan-3330/cs', rawPageCount: 9 },
-    sv: { pageBase: '/brochures/reader/timan-3330/sv', rawPageCount: 9 },
+    da: { pageBase: '/brochures/reader/timan-3330/da', rawPageCount: 9, renderMode: 'physicalPdfPage' },
+    de: { pageBase: '/brochures/reader/timan-3330/de', rawPageCount: 9, renderMode: 'physicalPdfPage' },
+    en: { pageBase: '/brochures/reader/timan-3330/en', rawPageCount: 9, renderMode: 'physicalPdfPage' },
+    fr: { pageBase: '/brochures/reader/timan-3330/fr', rawPageCount: 7, renderMode: 'physicalPdfPage' },
+    cs: { pageBase: '/brochures/reader/timan-3330/cs', rawPageCount: 9, renderMode: 'physicalPdfPage' },
+    sv: { pageBase: '/brochures/reader/timan-3330/sv', rawPageCount: 9, renderMode: 'physicalPdfPage' },
   },
 };
 
@@ -74,7 +79,11 @@ export function getMesseBrochureReaderAsset(
     pdfUrl: brochure.url,
     language: brochure.language,
     ...pageSet,
-    pageCount: buildMesseBrochureVirtualPages(pageSet.rawPageCount).length,
+    renderMode: pageSet.renderMode ?? 'virtualSplit',
+    pageCount: buildMesseBrochureVirtualPages(
+      pageSet.rawPageCount,
+      pageSet.renderMode ?? 'virtualSplit',
+    ).length,
   };
 }
 
@@ -83,8 +92,18 @@ export function getMesseBrochureReaderAsset(
  * Page one and the final page are single covers; every raw page in between is
  * a two-page landscape spread split down the actual centre line.
  */
-export function buildMesseBrochureVirtualPages(rawPageCount: number): MesseBrochureVirtualPage[] {
+export function buildMesseBrochureVirtualPages(
+  rawPageCount: number,
+  renderMode: MesseBrochureRenderMode = 'virtualSplit',
+): MesseBrochureVirtualPage[] {
   if (!Number.isInteger(rawPageCount) || rawPageCount <= 0) return [];
+  if (renderMode === 'physicalPdfPage') {
+    return Array.from({ length: rawPageCount }, (_, index) => ({
+      number: index + 1,
+      sourcePage: index + 1,
+      half: 'full' as const,
+    }));
+  }
   if (rawPageCount === 1) return [{ number: 1, sourcePage: 1, half: 'full' }];
 
   const pages: MesseBrochureVirtualPage[] = [{ number: 1, sourcePage: 1, half: 'full' }];
@@ -97,8 +116,14 @@ export function buildMesseBrochureVirtualPages(rawPageCount: number): MesseBroch
 }
 
 /** A cover followed by deterministic virtual brochure-page spreads. */
-export function buildMesseBrochureSpreads(pageCount: number): number[][] {
+export function buildMesseBrochureSpreads(
+  pageCount: number,
+  renderMode: MesseBrochureRenderMode = 'virtualSplit',
+): number[][] {
   if (!Number.isInteger(pageCount) || pageCount <= 0) return [];
+  if (renderMode === 'physicalPdfPage') {
+    return Array.from({ length: pageCount }, (_, index) => [index + 1]);
+  }
 
   const spreads: number[][] = [[1]];
   for (let page = 2; page <= pageCount; page += 2) {

@@ -886,8 +886,9 @@ export default function MesseMachineBrochurePage({
   const brochurePdfSrc = readerAsset?.pdfUrl ?? getProductBrochureUrl(productId ?? machineKey, lang) ?? pdfSrc;
   const brochurePageBase = readerAsset?.pageBase ?? pageBase;
   const brochureRawPageCount = readerAsset?.rawPageCount ?? pageCount ?? 0;
+  const brochureRenderMode = readerAsset?.renderMode ?? 'virtualSplit';
   const brochureVirtualPages = readerAsset
-    ? buildMesseBrochureVirtualPages(brochureRawPageCount)
+    ? buildMesseBrochureVirtualPages(brochureRawPageCount, brochureRenderMode)
     : Array.from({ length: brochureRawPageCount }, (_, index) => ({
         number: index + 1,
         sourcePage: index + 1,
@@ -914,7 +915,7 @@ export default function MesseMachineBrochurePage({
 
 
   const pageSrc = (page: number) => (brochurePageBase ? `${brochurePageBase}/page-${page}.jpg` : '');
-  const brochureSpreads = buildMesseBrochureSpreads(brochurePageCount);
+  const brochureSpreads = buildMesseBrochureSpreads(brochurePageCount, brochureRenderMode);
   const currentSpreadIndex = Math.max(0, brochureSpreads.findIndex((spread) => spread[0] === leftPage));
   const currentSpread = brochureSpreads[currentSpreadIndex] ?? [leftPage];
   const currentVirtualPages = currentSpread.map((page) => brochureVirtualPages[page - 1]).filter(Boolean);
