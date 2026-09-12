@@ -83,4 +83,20 @@ describe('Academy Case 1 sandbox', () => {
     expect(saved.completed).toBe(true);
     expect(academySandbox.getCase1()).toEqual(saved);
   });
+
+  it('keeps a completed case after a fresh configurator evaluation', () => {
+    academySandbox.startCase1();
+    academySandbox.evaluate(completeInput);
+    academySandbox.generateQuote();
+    academySandbox.saveLead();
+
+    const refreshed = academySandbox.evaluate({
+      machineConfigs: [],
+      deliveryDiscount: false,
+      quantityDiscount: false,
+    });
+
+    expect(refreshed.completed).toBe(true);
+    expect(academySandbox.getCompletedCaseIds()).toEqual(['sales-rc-1000']);
+  });
 });

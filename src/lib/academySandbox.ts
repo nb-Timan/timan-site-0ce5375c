@@ -45,7 +45,9 @@ export const academySandbox = {
     const accessories = rc?.acc ?? [];
     const current = load();
     const next = { ...current, started: true, machine: Boolean(rc), flail: accessories.includes('410910'), weedBrush: accessories.includes('730600'), requiredComponents: accessories.includes('412603'), workLight: accessories.includes(ACC_ID_WORK_LIGHT), wireHarness: accessories.includes(ACC_ID_WIRE_HARNESS), deliveryDiscount: input.deliveryDiscount, quantityDiscount: input.quantityDiscount, quoteGenerated: input.quoteGenerated ?? current.quoteGenerated };
-    next.completed = isComplete(next);
+    // Once the sandbox has awarded completion, a Configurator UI refresh must
+    // not revoke it just because the in-memory training configuration resets.
+    next.completed = current.completed || isComplete(next);
     return save(next);
   },
   generateQuote() {

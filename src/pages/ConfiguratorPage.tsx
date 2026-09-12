@@ -57,7 +57,7 @@ import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection } from '@/lib/submittedOrderCorrectionService';
 import { academySandbox } from '@/lib/academySandbox';
-import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
+import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
@@ -161,7 +161,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [marketingEditorRecords, setMarketingEditorRecords] = useState<MarketingConfiguratorContentRecord[]>([]);
   const [marketingEditorItem, setMarketingEditorItem] = useState<MarketingConfiguratorCatalogItem | null>(null);
   const [looseToolMachineFilter, setLooseToolMachineFilter] = useState<'all' | 'RC-1000S' | 'Timan 3330' | 'Timan 2620'>('all');
-  const { appUser, logout: ctxLogout, refreshAppUser, setAppUser: setAppUserCtx } = useAppUser();
+  const { appUser: sessionAppUser, logout: ctxLogout, refreshAppUser, setAppUser: setAppUserCtx } = useAppUser();
   const { language: globalLanguage, uiLanguage, setLanguage: setGlobalLanguage } = useLanguage();
   const renderNewBadge = (isNew?: boolean) => isNew ? (
     <span className="inline-flex items-center gap-0.5 rounded-full border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-800 whitespace-nowrap">
@@ -196,6 +196,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   const navigate = useNavigate();
   const location = useLocation();
+  const isAcademyMode = academySandbox.isActive();
+  // Academy supplies a render-only identity in local training mode. It never
+  // modifies the authenticated portal session or reaches production writes.
+  const appUser = isAcademyMode && !sessionAppUser ? getLocalAcademyUser() : sessionAppUser;
   // Messe / exhibition demo session — hide save/send/account UI and
   // short-circuit any persistence handler that may still be invoked.
   // Treat ANY render of the configurator under /messe/* as Messe mode too,
@@ -293,7 +297,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       })()
     : calcResult;
 
-  const isAcademyMode = academySandbox.isActive();
   const leaveAcademy = useCallback(async () => {
     clearLocalAcademyEnrollment();
     const restoredUser = await refreshAppUser();
