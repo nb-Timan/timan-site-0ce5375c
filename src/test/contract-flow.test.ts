@@ -528,7 +528,7 @@ describe('contract flow', () => {
     expect(pageSource).not.toContain("partnerType: inferContractPartnerTypeFromDealerAccount(account) || ''");
     expect(pageSource).toContain('const [draftChangeVersion, setDraftChangeVersion] = useState(0);');
     expect(pageSource).toContain('canAutosaveContractDraft(form, activeDealerAccountNumber)');
-    expect(pageSource).toContain("const message = 'Vælg en partnerkonto, før kontraktkladden gemmes.';");
+    expect(pageSource).toContain("contractUi('partnerAccountRequiredBeforeDraftSave', uiLanguage)");
     expect(pageSource).toContain('Kontraktkladde kunne ikke gemmes: ${error}');
     expect(partnerTypeHandler).toContain('partnerType,');
     expect(partnerTypeHandler).not.toContain("setSelectedDealerAccountNumber('');");
@@ -1292,6 +1292,7 @@ describe('contract flow', () => {
   });
 
   it('allows only the intended contract status transitions', () => {
+    expect(canTransitionContractStatus('pending_decision', 'ready_for_signature')).toBe(true);
     expect(canTransitionContractStatus('draft', 'ready_for_signature')).toBe(true);
     expect(canTransitionContractStatus('ready_for_signature', 'awaiting_signed_upload')).toBe(true);
     expect(canTransitionContractStatus('submitted_for_approval', 'changes_requested')).toBe(true);
@@ -1348,6 +1349,20 @@ describe('contract flow', () => {
     expect(migration).toContain("public.audit_dealer_contract_event");
     expect(migration).toContain("uv.status = 'draft'");
     expect(migration).toContain("contract_status = 'approved'");
+  });
+
+  it('allows pending decision contracts through the guided review completion RPC without mass-updating live rows', () => {
+    const migration = readFileSync(
+      'supabase/migrations/20260912195947_allow_pending_decision_contract_review_completion.sql',
+      'utf8',
+    );
+    const normalized = migration.replace(/\s+/g, ' ');
+
+    expect(migration).toContain('complete_dealer_contract_guided_review');
+    expect(normalized).toContain("contract_status in ('pending_decision', 'draft', 'guided_review', 'ready_for_signature')");
+    expect(normalized).toContain("set contract_status = 'ready_for_signature'");
+    expect(normalized).not.toMatch(/update public\.dealer_contracts set contract_status = 'ready_for_signature' where contract_status = 'pending_decision'/i);
+    expect(normalized).not.toMatch(/where contract_status = 'pending_decision'/i);
   });
 
   it('uses a stable draft key per seller and dealer account', () => {
