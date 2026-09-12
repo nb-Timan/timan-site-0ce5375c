@@ -1,6 +1,7 @@
 import { BadgeCheck, CircleAlert, CircleDollarSign, Megaphone, Tag, type LucideIcon } from 'lucide-react';
 import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { formatMarketingBadgeCountdown, isMarketingBadgeActive, type MarketingBadgeSchedule, useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
 
 export type MarketingBadgePreset = 'Ny' | 'God pris' | 'Vigtigt' | 'Kampagne';
 
@@ -42,15 +43,19 @@ export function MarketingConfiguratorBadge({
   badge,
   language = 'da',
   variant = 'main',
+  schedule,
   className = '',
 }: {
   badge?: string | null;
   language?: PortalUiLanguage;
   variant?: 'main' | 'compact';
+  schedule?: MarketingBadgeSchedule | null;
   className?: string;
 }) {
-  if (!badge) return null;
+  const now = useMarketingBadgeClock();
+  if (!badge || !isMarketingBadgeActive(schedule, now)) return null;
   const { label, Icon, className: tone } = optionFor(badge, language);
+  const countdown = schedule?.badge_show_countdown ? formatMarketingBadgeCountdown(schedule.badge_ends_at, language, now) : '';
   const isCompact = variant === 'compact';
   return (
     <span className={`inline-flex w-fit max-w-full items-center border font-bold ${tone} ${isCompact
@@ -58,7 +63,7 @@ export function MarketingConfiguratorBadge({
       : 'h-7 gap-1.5 rounded-full px-2.5 text-[11px] leading-none shadow-sm'
     } ${className}`}>
       <Icon className={isCompact ? 'h-3 w-3 shrink-0' : 'h-3.5 w-3.5 shrink-0'} aria-hidden="true" />
-      <span className="whitespace-nowrap">{label}</span>
+      <span className="whitespace-nowrap">{countdown ? `${label} · ${countdown}` : label}</span>
     </span>
   );
 }

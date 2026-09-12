@@ -2,10 +2,11 @@ import { ACCESSORIES, getAccessoriesFlat, getLocalizedName, PRODUCTS } from '@/d
 import { supabase } from '@/lib/supabase';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Accessory, Machine, TechSpec } from '@/types/configurator';
+import type { MarketingBadgeSchedule } from '@/lib/marketingBadgeSchedule';
 
 export type MarketingConfiguratorContentStatus = 'draft' | 'published';
 
-export interface MarketingConfiguratorContentFields {
+export interface MarketingConfiguratorContentFields extends MarketingBadgeSchedule {
   title: string;
   description: string;
   key_features: string[];
@@ -45,6 +46,9 @@ const EMPTY_CONTENT: MarketingConfiguratorContentFields = {
   specification_url: '',
   specs: [],
   badge: '',
+  badge_starts_at: null,
+  badge_ends_at: null,
+  badge_show_countdown: false,
 };
 
 function catalogLanguage(language: PortalUiLanguage) {
@@ -97,6 +101,9 @@ function normalizeContent(value: unknown): MarketingConfiguratorContentFields {
     specification_url: typeof content.specification_url === 'string' ? content.specification_url : '',
     specs: Array.isArray(content.specs) ? content.specs as TechSpec[] : [],
     badge: typeof content.badge === 'string' ? content.badge : '',
+    badge_starts_at: typeof content.badge_starts_at === 'string' ? content.badge_starts_at : null,
+    badge_ends_at: typeof content.badge_ends_at === 'string' ? content.badge_ends_at : null,
+    badge_show_countdown: content.badge_show_countdown === true,
   };
 }
 
@@ -157,6 +164,9 @@ export function mergeMarketingConfiguratorContent(
     specification_url: override.specification_url || defaults.specification_url,
     specs: override.specs.length ? override.specs : defaults.specs,
     badge: override.badge || defaults.badge,
+    badge_starts_at: override.badge_starts_at || null,
+    badge_ends_at: override.badge_ends_at || null,
+    badge_show_countdown: override.badge_show_countdown === true,
   };
 }
 

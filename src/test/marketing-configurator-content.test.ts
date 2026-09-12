@@ -8,6 +8,7 @@ import {
 import { canManageMarketingConfiguratorContent } from '@/lib/portalAccess';
 import { resolveMarketingBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { t } from '@/lib/i18n/translations';
+import { addMarketingBadgeDuration, formatMarketingBadgeCountdown, isMarketingBadgeActive, marketingBadgeScheduleState } from '@/lib/marketingBadgeSchedule';
 
 const seller: any = {
   email: 'seller@timan.dk',
@@ -55,6 +56,23 @@ describe('Marketing configurator content', () => {
     expect(t('marketingBadgeGoodPrice', 'pl')).toBe('Dobra cena');
     expect(t('marketingBadgeGoodPrice', 'cs')).toBe('Dobrá cena');
     expect(t('marketingBadgeNew', 'cs')).toBe('Novinka');
+  });
+
+  it('uses persisted timestamps as the single source for badge scheduling, expiry and countdown', () => {
+    const now = Date.parse('2026-09-12T12:00:00.000Z');
+    expect(marketingBadgeScheduleState({ badge_starts_at: '2026-09-12T13:00:00.000Z' }, now)).toBe('scheduled');
+    expect(isMarketingBadgeActive({ badge_starts_at: '2026-09-12T11:00:00.000Z', badge_ends_at: '2026-09-12T13:00:00.000Z' }, now)).toBe(true);
+    expect(marketingBadgeScheduleState({ badge_ends_at: '2026-09-12T12:00:00.000Z' }, now)).toBe('expired');
+    expect(formatMarketingBadgeCountdown('2026-09-12T14:00:00.000Z', 'de', now)).toBe('2 Std. übrig');
+  });
+
+  it('calculates calendar durations without replacing canonical timestamps with browser state', () => {
+    expect(addMarketingBadgeDuration(new Date('2026-01-31T10:00:00.000Z'), 1, 'hours').toISOString()).toBe('2026-01-31T11:00:00.000Z');
+    expect(addMarketingBadgeDuration(new Date('2026-01-31T10:00:00.000Z'), 1, 'days').toISOString()).toBe('2026-02-01T10:00:00.000Z');
+    expect(addMarketingBadgeDuration(new Date('2026-01-01T10:00:00.000Z'), 1, 'weeks').toISOString()).toBe('2026-01-08T10:00:00.000Z');
+    expect(addMarketingBadgeDuration(new Date('2026-01-01T10:00:00.000Z'), 1, 'months').toISOString()).toBe('2026-02-01T10:00:00.000Z');
+    expect(addMarketingBadgeDuration(new Date('2026-01-31T10:00:00.000Z'), 1, 'months').toISOString()).toBe('2026-02-28T10:00:00.000Z');
+    expect(addMarketingBadgeDuration(new Date('2026-01-01T10:00:00.000Z'), 1, 'years').toISOString()).toBe('2027-01-01T10:00:00.000Z');
   });
 
   it('keeps the editor out of Timan Seller sessions, even with a Marketing permission', () => {
@@ -116,7 +134,14 @@ describe('Marketing configurator content', () => {
       configurator.indexOf('const marketingEditButton'),
     );
     expect(contentState.indexOf("record.status === 'published'")).toBeLessThan(contentState.indexOf("record.status === 'draft'"));
-    expect(configurator).toContain("renderMarketingBadge(marketingContent?.badge, 'compact')");
+    expect(configurator).toContain("renderMarketingBadge(marketingContent, 'compact')");
+    expect(configurator).toContain('badgeSchedule={marketingContent}');
+    expect(editor).toContain('marketingBadgeDisplayPeriod');
+    expect(editor).toContain('badge_show_countdown');
+    expect(editor).toContain('badge_starts_at');
+    expect(editor).toContain('badge_ends_at');
+    expect(card).toContain('badgeSchedule');
+    expect(badge).toContain('isMarketingBadgeActive');
     expect(bulkTools).toContain('Vis kun mangler');
     expect(bulkTools).toContain('Vis kun kladder');
     expect(bulkTools).toContain('Upload billeder');

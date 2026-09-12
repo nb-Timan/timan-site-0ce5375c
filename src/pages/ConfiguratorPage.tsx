@@ -549,7 +549,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const label = state === 'draft' ? 'Kladde' : 'Publiceret';
     return <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${styles}`}>{label}</span>;
   };
-  const renderMarketingBadge = (badge?: string | null, variant: 'main' | 'compact' = 'main') => <MarketingConfiguratorBadge badge={badge} language={uiLanguage} variant={variant} />;
+  const renderMarketingBadge = (content?: MarketingConfiguratorContentRecord['content'] | null, variant: 'main' | 'compact' = 'main') => <MarketingConfiguratorBadge badge={content?.badge} schedule={content} language={uiLanguage} variant={variant} />;
   const TC = (key: string) => t(key, contentUiLang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
@@ -2832,6 +2832,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         description={marketingContent?.description}
                         specs={cardSpecs.map((spec) => ({ label: translateSpecLabel(spec.label, uiLanguage), value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || '') }))}
                         badge={marketingContent?.badge}
+                        badgeSchedule={marketingContent}
                         language={uiLanguage}
                         status={renderMarketingContentState(key, p.id)}
                         editControl={marketingEditButton(key, p.id)}
@@ -3187,7 +3188,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               setState(s => ({ ...s, accQty: { ...s.accQty, [`${currentUnit.configKey}_${a.id}`]: val } }));
                             }}
                             onClick={e => e.stopPropagation()} className="w-16 p-1.5 border rounded-md text-center" />
-                          {renderMarketingBadge(marketingContent?.badge, 'compact') || renderNewBadge(a.isNew)}
+                          {renderMarketingBadge(marketingContent, 'compact') || renderNewBadge(a.isNew)}
                           {renderMarketingContentState(machineType, a.id)}
                             <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</div>{marketingEditButton(machineType, a.id)}
                         </div>
@@ -3238,7 +3239,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               {renderActionLinks(a, machineType)}
                             </div>
                             <div className="flex shrink-0 items-center justify-end gap-2 text-right">
-                              {renderMarketingBadge(marketingContent?.badge, 'compact') || renderNewBadge(a.isNew)}
+                              {renderMarketingBadge(marketingContent, 'compact') || renderNewBadge(a.isNew)}
                               {renderMarketingContentState(machineType, a.id)}
                               <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</span>{marketingEditButton(machineType, a.id)}
                             </div>

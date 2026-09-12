@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { FileText, Film, Image, Minus, Plus, Save, Send, Upload, X } from 'lucide-react';
+import { CalendarClock, FileText, Film, Image, Minus, Plus, Save, Send, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,8 @@ import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Language, TechSpec } from '@/types/configurator';
 import { t } from '@/data/translations';
+import { t as portalT } from '@/lib/i18n/translations';
+import { addMarketingBadgeDuration, formatMarketingBadgeDateTime, marketingBadgeScheduleState, type MarketingBadgeDurationUnit } from '@/lib/marketingBadgeSchedule';
 
 export const MARKETING_BADGE_OPTIONS = ['', ...MARKETING_BADGE_PRESETS.map((option) => option.value), 'Egen tekst'] as const;
 
@@ -33,6 +35,19 @@ type Props = {
   onClose: () => void;
   onSaved: (record: MarketingConfiguratorContentRecord) => void;
 };
+
+function asLocalDateTime(value: string | null | undefined) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function asIso(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
 
 function fieldFor(item: MarketingConfiguratorCatalogItem, records: MarketingConfiguratorContentRecord[]) {
   const draft = records.find((record) => record.product_key === item.productKey && record.status === 'draft') || null;
@@ -55,6 +70,10 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
   const [customBadge, setCustomBadge] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [startMode, setStartMode] = useState<'now' | 'specific'>('now');
+  const [endMode, setEndMode] = useState<'duration' | 'specific'>('duration');
+  const [durationAmount, setDurationAmount] = useState(7);
+  const [durationUnit, setDurationUnit] = useState<MarketingBadgeDurationUnit>('days');
   const uploadInput = useRef<HTMLInputElement | null>(null);
   const displayCurrency = usePortalCurrency();
   const previewPrice = item
@@ -73,6 +92,8 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
     const next = item ? fieldFor(item, records).content : null;
     setDraft(next);
     setCustomBadge(Boolean(next?.badge && !MARKETING_BADGE_OPTIONS.includes(next.badge as typeof MARKETING_BADGE_OPTIONS[number])));
+    setStartMode(next?.badge_starts_at ? 'specific' : 'now');
+    setEndMode(next?.badge_ends_at ? 'specific' : 'duration');
   }, [item, records]);
 
   const save = async (status: 'draft' | 'published') => {
@@ -111,6 +132,14 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
     setDraft({ ...draft, key_features });
   };
 
+  const updateDuration = (amount: number, unit: MarketingBadgeDurationUnit) => {
+    if (!draft) return;
+    const start = new Date(draft.badge_starts_at || Date.now());
+    setDurationAmount(amount);
+    setDurationUnit(unit);
+    setDraft({ ...draft, badge_starts_at: start.toISOString(), badge_ends_at: addMarketingBadgeDuration(start, amount, unit).toISOString() });
+  };
+
   return (
     <Dialog open={!!item} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-h-[94vh] overflow-y-auto sm:max-w-5xl xl:max-w-6xl">
@@ -133,12 +162,28 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
               <section className="space-y-2"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-slate-700">Nøglefunktioner</p><Button type="button" variant="outline" size="sm" onClick={() => setDraft({ ...draft, key_features: [...draft.key_features, ''] })}><Plus className="mr-1 h-4 w-4" />Tilføj</Button></div>{draft.key_features.map((feature, index) => <div key={`${index}-${feature}`} className="grid grid-cols-[1fr_auto] gap-2"><Input value={feature} onChange={(event) => updateFeature(index, event.target.value)} placeholder="Fx kompakt og driftssikker" /><Button type="button" variant="ghost" size="icon" onClick={() => setDraft({ ...draft, key_features: draft.key_features.filter((_, featureIndex) => featureIndex !== index) })} aria-label="Fjern nøglefunktion"><X className="h-4 w-4" /></Button></div>)}</section>
               <Field label="Videolink"><Input value={draft.video_url} onChange={(event) => setDraft({ ...draft, video_url: event.target.value })} placeholder="https://..." /></Field>
               <Field label="Billede"><div className="flex gap-2"><Input value={draft.image_url} onChange={(event) => setDraft({ ...draft, image_url: event.target.value })} placeholder="https://..." /><Button type="button" variant="outline" onClick={() => uploadInput.current?.click()}><Upload className="mr-1.5 h-4 w-4" />Upload</Button><input ref={uploadInput} type="file" accept="image/*" className="hidden" onChange={(event) => void uploadImage(event.target.files?.[0])} /></div></Field>
-              <Field label="Badge"><Select value={customBadge ? 'custom' : (draft.badge || 'none')} onValueChange={(selected) => { const isCustom = selected === 'custom'; setCustomBadge(isCustom); setDraft({ ...draft, badge: isCustom || selected === 'none' ? '' : selected }); }}><SelectTrigger><MarketingConfiguratorBadgeOption badge={customBadge ? (draft.badge || 'Egen tekst') : draft.badge} /></SelectTrigger><SelectContent><SelectItem value="none">Ingen</SelectItem>{MARKETING_BADGE_PRESETS.map((option) => <SelectItem key={option.value} value={option.value}><MarketingConfiguratorBadgeOption badge={option.value} /></SelectItem>)}<SelectItem value="custom"><MarketingConfiguratorBadgeOption badge="Egen tekst" /></SelectItem></SelectContent></Select></Field>
+              <Field label="Badge"><Select value={customBadge ? 'custom' : (draft.badge || 'none')} onValueChange={(selected) => { const isCustom = selected === 'custom'; setCustomBadge(isCustom); setDraft({ ...draft, badge: isCustom || selected === 'none' ? '' : selected, ...(selected === 'none' ? { badge_starts_at: null, badge_ends_at: null, badge_show_countdown: false } : {}) }); }}><SelectTrigger><MarketingConfiguratorBadgeOption badge={customBadge ? (draft.badge || 'Egen tekst') : draft.badge} /></SelectTrigger><SelectContent><SelectItem value="none">Ingen</SelectItem>{MARKETING_BADGE_PRESETS.map((option) => <SelectItem key={option.value} value={option.value}><MarketingConfiguratorBadgeOption badge={option.value} /></SelectItem>)}<SelectItem value="custom"><MarketingConfiguratorBadgeOption badge="Egen tekst" /></SelectItem></SelectContent></Select></Field>
               {customBadge && <Field label="Egen badge-tekst"><Input value={draft.badge} onChange={(event) => setDraft({ ...draft, badge: event.target.value })} /></Field>}
+              {draft.badge && <section className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+                <div className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-emerald-700" /><p className="text-sm font-semibold text-slate-800">{portalT('marketingBadgeDisplayPeriod', uiLanguage)}</p></div>
+                <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={portalT('marketingBadgeDisplayPeriod', uiLanguage)}>
+                  <Button type="button" size="sm" variant={!draft.badge_ends_at ? 'default' : 'outline'} onClick={() => setDraft({ ...draft, badge_starts_at: null, badge_ends_at: null, badge_show_countdown: false })}>{portalT('marketingBadgePermanent', uiLanguage)}</Button>
+                  <Button type="button" size="sm" variant={draft.badge_ends_at ? 'default' : 'outline'} onClick={() => { const start = new Date(); setStartMode('now'); setEndMode('duration'); setDraft({ ...draft, badge_starts_at: start.toISOString(), badge_ends_at: addMarketingBadgeDuration(start, durationAmount, durationUnit).toISOString() }); }}>{portalT('marketingBadgeLimited', uiLanguage)}</Button>
+                </div>
+                {draft.badge_ends_at && <div className="space-y-3 border-t border-slate-200 pt-3">
+                  <div className="grid gap-2 sm:grid-cols-[9rem_1fr] sm:items-center"><span className="text-sm font-medium text-slate-700">{portalT('marketingBadgeStart', uiLanguage)}</span><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant={startMode === 'now' ? 'default' : 'outline'} onClick={() => { const start = new Date(); setStartMode('now'); setDraft({ ...draft, badge_starts_at: start.toISOString(), badge_ends_at: endMode === 'duration' ? addMarketingBadgeDuration(start, durationAmount, durationUnit).toISOString() : draft.badge_ends_at }); }}>{portalT('marketingBadgeStartNow', uiLanguage)}</Button><Button type="button" size="sm" variant={startMode === 'specific' ? 'default' : 'outline'} onClick={() => setStartMode('specific')}>{portalT('marketingBadgeStartDateTime', uiLanguage)}</Button></div></div>
+                  {startMode === 'specific' && <Input type="datetime-local" value={asLocalDateTime(draft.badge_starts_at)} onChange={(event) => { const start = asIso(event.target.value); if (!start) return; setDraft({ ...draft, badge_starts_at: start, badge_ends_at: endMode === 'duration' ? addMarketingBadgeDuration(new Date(start), durationAmount, durationUnit).toISOString() : draft.badge_ends_at }); }} />}
+                  <div className="grid gap-2 sm:grid-cols-[9rem_1fr] sm:items-center"><span className="text-sm font-medium text-slate-700">{portalT('marketingBadgeEnd', uiLanguage)}</span><div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant={endMode === 'duration' ? 'default' : 'outline'} onClick={() => { const start = new Date(draft.badge_starts_at || Date.now()); setEndMode('duration'); setDraft({ ...draft, badge_starts_at: start.toISOString(), badge_ends_at: addMarketingBadgeDuration(start, durationAmount, durationUnit).toISOString() }); }}>{portalT('marketingBadgeEndsAfter', uiLanguage)}</Button><Button type="button" size="sm" variant={endMode === 'specific' ? 'default' : 'outline'} onClick={() => setEndMode('specific')}>{portalT('marketingBadgeSpecificEnd', uiLanguage)}</Button></div></div>
+                  {endMode === 'duration' ? <div className="grid grid-cols-[7rem_1fr] gap-2"><Input type="number" min="1" value={durationAmount} onChange={(event) => updateDuration(Number(event.target.value), durationUnit)} /><Select value={durationUnit} onValueChange={(value) => updateDuration(durationAmount, value as MarketingBadgeDurationUnit)}><SelectTrigger>{portalT(`marketingBadgeDuration${durationUnit[0].toUpperCase()}${durationUnit.slice(1)}`, uiLanguage)}</SelectTrigger><SelectContent>{(['hours', 'days', 'weeks', 'months', 'years'] as MarketingBadgeDurationUnit[]).map((unit) => <SelectItem key={unit} value={unit}>{portalT(`marketingBadgeDuration${unit[0].toUpperCase()}${unit.slice(1)}`, uiLanguage)}</SelectItem>)}</SelectContent></Select></div> : <Input type="datetime-local" value={asLocalDateTime(draft.badge_ends_at)} onChange={(event) => { const end = asIso(event.target.value); if (end) setDraft({ ...draft, badge_ends_at: end }); }} />}
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700"><input type="checkbox" checked={draft.badge_show_countdown === true} onChange={(event) => setDraft({ ...draft, badge_show_countdown: event.target.checked })} className="h-4 w-4 accent-emerald-600" />{portalT('marketingBadgeShowCountdown', uiLanguage)}</label>
+                  <div className="rounded border border-emerald-100 bg-white px-3 py-2 text-xs text-slate-600"><div>{portalT('marketingBadgeVisibleFrom', uiLanguage)}: {formatMarketingBadgeDateTime(draft.badge_starts_at || new Date().toISOString(), uiLanguage)}</div><div>{portalT('marketingBadgeExpires', uiLanguage)}: {formatMarketingBadgeDateTime(draft.badge_ends_at, uiLanguage)}</div></div>
+                </div>}
+              </section>}
               <section className="space-y-2"><div className="flex items-center justify-between"><p className="text-sm font-semibold text-slate-700">Dimensioner & tekniske specifikationer</p><Button type="button" variant="outline" size="sm" onClick={() => setDraft({ ...draft, specs: [...draft.specs, { label: '', value: '' }] })}>Tilføj felt</Button></div>{draft.specs.map((spec, index) => <div key={`${index}-${spec.label}`} className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input value={spec.label} onChange={(event) => updateSpec(index, 'label', event.target.value)} placeholder="Label" /><Input value={typeof spec.value === 'string' ? spec.value : ''} onChange={(event) => updateSpec(index, 'value', event.target.value)} placeholder="Værdi" /><Button type="button" variant="ghost" size="icon" onClick={() => setDraft({ ...draft, specs: draft.specs.filter((_, specIndex) => specIndex !== index) })} aria-label="Fjern felt"><X className="h-4 w-4" /></Button></div>)}</section>
             </div>
             <aside className="space-y-3 lg:sticky lg:top-0">
               <p className="text-sm font-semibold text-slate-700">Live preview</p>
+              {draft.badge && marketingBadgeScheduleState(draft) !== 'active' && <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">{marketingBadgeScheduleState(draft) === 'scheduled' ? `${portalT('marketingBadgeScheduled', uiLanguage)} – ${portalT('marketingBadgeStart', uiLanguage)} ${formatMarketingBadgeDateTime(draft.badge_starts_at, uiLanguage)}` : portalT('marketingBadgeExpired', uiLanguage)}</p>}
               <MarketingConfiguratorProductCard
                 title={draft.title || item.defaults.title}
                 itemNumber={item.itemNumber}
@@ -147,6 +192,7 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
                 description={draft.description}
                 specs={draft.specs.filter((spec) => spec.label && spec.value).map((spec) => ({ label: spec.label, value: typeof spec.value === 'string' ? spec.value : '' }))}
                 badge={draft.badge}
+                badgeSchedule={draft}
                 language={uiLanguage}
                 actions={<><span className="flex items-center gap-1 text-sm font-medium text-emerald-600"><Film className="h-4 w-4" />{t('videoLink', uiLanguage)}</span><span className="flex items-center gap-1 text-sm font-medium text-emerald-600"><Image className="h-4 w-4" />{t('imageLink', uiLanguage)}</span><span className="flex items-center gap-1 text-sm font-medium text-blue-600"><FileText className="h-4 w-4" />{t('infoSpecs', uiLanguage)}</span></>}
                 footer={<div className="flex items-center justify-between rounded-lg border-t border-gray-200 bg-gray-100 px-3 py-2"><span className="font-medium text-gray-700">{t('quantity', uiLanguage)}</span><div className="flex items-center"><span className="flex h-8 w-8 items-center justify-center rounded-md bg-gray-300 text-gray-500"><Minus className="h-4 w-4" /></span><span className="mx-1 flex h-8 w-8 items-center justify-center rounded-md border-2 border-gray-300 font-bold">0</span><span className="flex h-8 w-8 items-center justify-center rounded-md bg-emerald-500 text-white"><Plus className="h-4 w-4" /></span></div></div>}
