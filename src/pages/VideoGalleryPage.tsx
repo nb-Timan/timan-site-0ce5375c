@@ -27,7 +27,7 @@ import {
   videoSeasonLabel,
 } from "@/lib/videoLibraryI18n";
 import { academySandbox, ACADEMY_CASE_2_TARGET_VIDEO_ID } from "@/lib/academySandbox";
-import { listAcademyVideos, readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
+import { readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
 import AcademyGuidancePanel from "@/components/academy/AcademyGuidancePanel";
 import { getLocalAcademyUser } from "@/lib/academyCurriculum";
 
@@ -63,7 +63,8 @@ export default function VideoGalleryPage() {
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      localAcademySession ? Promise.resolve(listAcademyVideos()) : listPublishedMarketingVideos(uiLanguage),
+      // Academy deliberately reuses the public library. Only its preferences stay local.
+      listPublishedMarketingVideos(uiLanguage),
       localAcademySession
         ? Promise.resolve({ videoIds: new Set(readAcademyVideoPreferences().favorites), error: null })
         : listMarketingVideoFavoriteIds(),

@@ -209,6 +209,7 @@ describe("marketing video library", () => {
     expect(filterBar).toContain("videoLibraryMachine");
     expect(filterHelper).toContain("filterAndSortVideos");
     expect(salesPage).toContain("listPublishedMarketingVideos(uiLanguage)");
+    expect(salesPage).not.toContain("listAcademyVideos");
     expect(salesPage).toContain("window.addEventListener(\"keydown\", closeOnEscape)");
     expect(salesPage).toContain("videoLibraryEmbedFallback");
     expect(salesPage).toContain("https://www.youtube.com/watch?v=");

@@ -1,8 +1,8 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { academySandbox, ACADEMY_CASE_2_TARGET_VIDEO_ID, ACADEMY_CASE_2_MACHINE_KEY } from '@/lib/academySandbox';
-import { listAcademyVideos, readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
-import { DEFAULT_VIDEO_FILTERS, filterAndSortVideos } from '@/lib/videoLibraryFilters';
+import { academySandbox } from '@/lib/academySandbox';
+import { readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
+import { DEFAULT_VIDEO_FILTERS } from '@/lib/videoLibraryFilters';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { academyProtectedFetch } from '@/lib/academyProductionWriteGuard';
@@ -31,18 +31,14 @@ describe('same module, local Academy persistence', () => {
     normal.unmount();
   });
 
-  it('uses the same video filter logic, canonical target, and persisted filters/favorites', () => {
-    const { rows } = listAcademyVideos();
-    const filters = { ...DEFAULT_VIDEO_FILTERS, machineFilter: ACADEMY_CASE_2_MACHINE_KEY, typeFilter: 'maintenance' as const };
-    const filtered = filterAndSortVideos(rows, filters, 'da');
-    expect(filtered.map((row) => row.youtube_video_id)).toEqual([ACADEMY_CASE_2_TARGET_VIDEO_ID]);
-    expect(rows.some((row) => row.youtube_video_id !== ACADEMY_CASE_2_TARGET_VIDEO_ID)).toBe(true);
-    saveAcademyVideoPreferences({ filters, favorites: [filtered[0].id] });
-    expect(readAcademyVideoPreferences()).toEqual({ filters, favorites: [filtered[0].id] });
+  it('keeps Academy video preferences local while the gallery uses the published library', () => {
+    const filters = { ...DEFAULT_VIDEO_FILTERS, machineFilter: 'TIMAN_3330', typeFilter: 'maintenance' as const };
+    saveAcademyVideoPreferences({ filters, favorites: ['published-video-id'] });
+    expect(readAcademyVideoPreferences()).toEqual({ filters, favorites: ['published-video-id'] });
     academySandbox.leaveSession();
     window.history.replaceState({}, '', '/portal/videos');
     saveAcademyVideoPreferences({ favorites: [] });
-    expect(readAcademyVideoPreferences().favorites).toEqual([filtered[0].id]);
+    expect(readAcademyVideoPreferences().favorites).toEqual(['published-video-id']);
   });
 
   it('persists full canonical lead fields and idempotent demo records, not completion flags alone', () => {
