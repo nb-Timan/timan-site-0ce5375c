@@ -10,6 +10,7 @@ export const ACADEMY_CASE_2_CONTENT_TYPE = 'maintenance';
 const KEY = 'timan.academy.sandbox.v1';
 const SESSION_KEY = 'timan.academy.session.v1';
 export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'portal.basics_5' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations';
+export type AcademyPortalHomeCardId = 'academy' | 'salg_marketing' | 'dealer_data' | 'timan_crm' | 'marketing' | 'teknik_service' | 'calendar' | 'projects' | 'messe' | 'timan_backend';
 const CASE_ROUTES: Record<AcademyActiveCase, string> = {
   'sales.case_1_rc1000': '/configurator?academy_mode=true',
   'sales.case_2_video_3330': '/portal/videos?academy_mode=true&academy_case=2',
@@ -18,6 +19,15 @@ const CASE_ROUTES: Record<AcademyActiveCase, string> = {
   'crm.part_2': '/academy/crm/leads?academy_mode=true&academy_part=2',
   'partnerdata.part_1_profile': '/portal/dealer-data?academy_mode=true&academy_part=1',
   'partnerdata.part_2_relations': '/portal/dealer-data?academy_mode=true&academy_part=2',
+};
+const CASE_PORTAL_HOME_CARDS: Record<AcademyActiveCase, readonly AcademyPortalHomeCardId[]> = {
+  'sales.case_1_rc1000': ['academy', 'salg_marketing'],
+  'sales.case_2_video_3330': ['academy', 'salg_marketing'],
+  'portal.basics_5': ['academy', 'dealer_data', 'messe'],
+  'crm.part_1': ['academy', 'timan_crm'],
+  'crm.part_2': ['academy', 'timan_crm'],
+  'partnerdata.part_1_profile': ['academy', 'dealer_data'],
+  'partnerdata.part_2_relations': ['academy', 'dealer_data'],
 };
 function readSession(): { active: boolean; caseId?: AcademyActiveCase } {
   try {
@@ -168,11 +178,19 @@ export const academySandbox = {
   },
   getActiveCase() {
     const session = readSession();
-    return session.active ? session.caseId ?? null : null;
+    if (!session.active) return null;
+    // A stale tab must not keep Case 2 reachable after local Academy progress
+    // has been reset. The dashboard will offer Case 1 again.
+    if (session.caseId === ACADEMY_CASE_2 && !load().completed) return null;
+    return session.caseId ?? null;
   },
   getContinueRoute() {
     const caseId = this.getActiveCase();
     return caseId ? CASE_ROUTES[caseId] : '/academy';
+  },
+  getAllowedPortalHomeCardIds(): readonly AcademyPortalHomeCardId[] | null {
+    const caseId = this.getActiveCase();
+    return caseId ? CASE_PORTAL_HOME_CARDS[caseId] : null;
   },
   getCrmPart(): 1 | 2 {
     const caseId = this.getActiveCase();
@@ -182,6 +200,7 @@ export const academySandbox = {
   },
   getCase1() { return case1Of(load()); },
   getCase2() { return load().case2; },
+  isCase2Unlocked() { return load().completed; },
   getPortalBasics() { return load().portalBasics; },
   getCompletedCaseIds() {
     const state = load();
@@ -193,6 +212,7 @@ export const academySandbox = {
   },
   startCase1() { this.activateCase(ACADEMY_CASE_1); return case1Of(save({ ...load(), started: true })); },
   startCase2() {
+    if (!this.isCase2Unlocked()) throw new Error('Sales Case 1 skal gennemføres før Case 2.');
     this.activateCase(ACADEMY_CASE_2);
     const current = load();
     return save({ ...current, case2: { ...current.case2, started: true } }).case2;
@@ -288,6 +308,7 @@ export const academySandbox = {
   },
   trackCase2Filters(input: { machineFilter: string; contentType: string; targetVisible: boolean }) {
     if (!isLocalAcademyMode()) throw new Error('Academy sandbox is only available on localhost.');
+    if (!this.isCase2Unlocked()) throw new Error('Sales Case 1 skal gennemføres før Case 2.');
     const current = load();
     const machineFiltered = input.machineFilter === ACADEMY_CASE_2_MACHINE_KEY;
     const maintenanceFiltered = input.contentType === ACADEMY_CASE_2_CONTENT_TYPE;
@@ -304,6 +325,7 @@ export const academySandbox = {
   },
   openCase2Video(input: { youtubeVideoId: string; machineFilter: string; contentType: string; targetVisible: boolean }) {
     if (!isLocalAcademyMode()) throw new Error('Academy sandbox is only available on localhost.');
+    if (!this.isCase2Unlocked()) throw new Error('Sales Case 1 skal gennemføres før Case 2.');
     const current = load();
     const correctFilters = input.machineFilter === ACADEMY_CASE_2_MACHINE_KEY
       && input.contentType === ACADEMY_CASE_2_CONTENT_TYPE;

@@ -195,7 +195,8 @@ export default function AcademyPage() {
     Boolean(task.leadId),
   ].filter(Boolean).length;
   const caseState: State = task.completed ? 'done' : task.started ? 'active' : 'new';
-  const videoCaseState: State = videoTask.completed ? 'done' : videoTask.started ? 'active' : 'ready';
+  const case2Unlocked = task.completed;
+  const videoCaseState: State = videoTask.completed ? 'done' : videoTask.started && case2Unlocked ? 'active' : case2Unlocked ? 'ready' : 'locked';
   const portalBasicsChecks = [
     portalBasics.frenchSelected && portalBasics.languageRestored,
     portalBasics.partnerDataOpened && portalBasics.returnedHomeFromPartnerData,
@@ -218,6 +219,7 @@ export default function AcademyPage() {
     navigate('/configurator?academy_mode=true');
   };
   const startVideoCase = () => {
+    if (!academySandbox.isCase2Unlocked()) return;
     academySandbox.startCase2();
     navigate('/portal/videos?academy_mode=true&academy_case=2');
   };
@@ -330,7 +332,7 @@ export default function AcademyPage() {
           <div className="mt-4 grid items-start gap-3 lg:grid-cols-2">
             <Module icon={ShoppingCart} title="Salg" progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 gennemført`}>
               <AcademyRow image="/messe/machines/rc-1000s-tile.png" title="Case 1 - Byg korrekt RC-1000 ordre" description="Konfigurer RC-1000 med nødvendigt udstyr, rabatter og Academy-lead." state={caseState} action={task.started ? 'Fortsæt' : 'Start'} onClick={startCase} />
-              <AcademyRow image="/messe/machines/timan-3330-tile.png" title="Case 2 - Find en vedligeholdelsesvideo" description="Find og åbn den korrekte Weed Brush-vedligeholdelsesvideo for Timan 3330." state={videoCaseState} action={videoTask.started ? 'Fortsæt' : 'Start'} onClick={startVideoCase} />
+              <AcademyRow image="/messe/machines/timan-3330-tile.png" title="Case 2 - Find en vedligeholdelsesvideo" description="Find og åbn den korrekte Weed Brush-vedligeholdelsesvideo for Timan 3330." state={videoCaseState} action={case2Unlocked ? (videoTask.started ? 'Fortsæt' : 'Start') : undefined} onClick={case2Unlocked ? startVideoCase : undefined} />
             </Module>
             <Module icon={Map} title="Portal Basics" progress={`${portalBasicsChecks} / 5 gennemført`}>
               <AcademyRow title="Portal Basics - 5 hurtige" description="Skift sprog, besøg Partnerdata, brug fuldskærm, ændr partnerkort og åbn den rigtige nyhed." state={portalBasicsState} action={portalBasics.started ? 'Fortsæt' : 'Start'} onClick={startPortalBasics} />

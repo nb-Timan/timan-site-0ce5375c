@@ -7,6 +7,13 @@ const completeInput = {
   quantityDiscount: true,
 };
 
+function completeCase1() {
+  academySandbox.startCase1();
+  academySandbox.evaluate(completeInput);
+  academySandbox.generateQuote();
+  academySandbox.saveLead();
+}
+
 describe('Academy Case 1 sandbox', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -152,6 +159,7 @@ describe('Academy Case 1 sandbox', () => {
 
   it('completes Case 2 only after the Timan 3330 maintenance filter and target video are opened', () => {
     window.history.replaceState({}, '', '/portal/videos?academy_mode=true&academy_case=2');
+    completeCase1();
     academySandbox.startCase2();
     academySandbox.trackCase2Filters({ machineFilter: 'Timan 3330', contentType: 'maintenance', targetVisible: true });
 
@@ -181,6 +189,7 @@ describe('Academy Case 1 sandbox', () => {
 
   it('does not complete Case 2 when the target video is opened without the required filters', () => {
     window.history.replaceState({}, '', '/portal/videos?academy_mode=true&academy_case=2');
+    completeCase1();
     academySandbox.startCase2();
     const state = academySandbox.openCase2Video({
       youtubeVideoId: ACADEMY_CASE_2_TARGET_VIDEO_ID,
@@ -189,6 +198,26 @@ describe('Academy Case 1 sandbox', () => {
       targetVisible: true,
     });
     expect(state.completed).toBe(false);
+  });
+
+  it('keeps Case 2 locked until Case 1 is complete and locks it again after a reset', () => {
+    expect(() => academySandbox.startCase2()).toThrow('Sales Case 1 skal gennemføres før Case 2.');
+    expect(academySandbox.getActiveCase()).toBeNull();
+
+    completeCase1();
+    academySandbox.startCase2();
+    expect(academySandbox.getActiveCase()).toBe('sales.case_2_video_3330');
+
+    localStorage.setItem('timan.academy.sandbox.v1', JSON.stringify({}));
+    expect(academySandbox.isCase2Unlocked()).toBe(false);
+    expect(academySandbox.getActiveCase()).toBeNull();
+    expect(academySandbox.getContinueRoute()).toBe('/academy');
+  });
+
+  it('limits Portal Basics to its three real portal surfaces', () => {
+    academySandbox.startPortalBasics('da');
+
+    expect(academySandbox.getAllowedPortalHomeCardIds()).toEqual(['academy', 'dealer_data', 'messe']);
   });
 
   it('completes Portal Basics only after all five local portal tasks are completed', () => {

@@ -44,7 +44,8 @@ export default function VideoGalleryPage() {
   const [, setAcademyRevision] = useState(0);
   const [active, setActive] = useState<MarketingVideo | null>(null);
   const localAcademySession = academySandbox.isActive();
-  const isAcademyCase2 = localAcademySession && (academySandbox.getActiveCase() === 'sales.case_2_video_3330' || searchParams.get("academy_case") === "2");
+  const requestedAcademyCase2 = localAcademySession && (academySandbox.getActiveCase() === 'sales.case_2_video_3330' || searchParams.get("academy_case") === "2");
+  const isAcademyCase2 = requestedAcademyCase2 && academySandbox.isCase2Unlocked();
   // Academy training is intentionally local-only. It can render the normal gallery
   // without creating an authenticated production portal session.
   const portalUser = localAcademySession ? getLocalAcademyUser() : appUser;
@@ -146,6 +147,7 @@ export default function VideoGalleryPage() {
 
   if (loading) return <div className="min-h-screen bg-gray-50" />;
   if (!portalUser) return <Navigate to="/portal" replace />;
+  if (requestedAcademyCase2 && !academySandbox.isCase2Unlocked()) return <Navigate to="/academy?locked=sales.case_2_video_3330" replace />;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>

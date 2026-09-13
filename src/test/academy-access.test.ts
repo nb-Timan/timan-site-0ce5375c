@@ -78,5 +78,15 @@ describe('Academy module access', () => {
 
     expect(guard).toContain('if (!academySandbox.isActive()) return <>{children}</>;');
     expect(guard).toContain('isAcademyCapabilityUnlocked');
+    expect(guard).toContain("academySandbox.getActiveCase() === ACADEMY_CASE_1");
+  });
+
+  it('uses the active Academy case to restrict Portal Basics without changing real portal permissions', () => {
+    const portal = readFileSync('src/pages/PortalPage.tsx', 'utf8');
+    const sandbox = readFileSync('src/lib/academySandbox.ts', 'utf8');
+
+    expect(portal).toContain('academySandbox.getAllowedPortalHomeCardIds()');
+    expect(portal).toContain('academyAllowedHomeCards.includes(card.id)');
+    expect(sandbox).toContain("'portal.basics_5': ['academy', 'dealer_data', 'messe']");
   });
 });

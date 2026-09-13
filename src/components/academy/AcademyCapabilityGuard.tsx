@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
-import { academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_CASE_1, academySandbox } from '@/lib/academySandbox';
 import { canAccessAcademy, type AcademyCapability, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 
 export default function AcademyCapabilityGuard({ capability, children }: { capability: AcademyCapability; children: ReactNode }) {
@@ -18,6 +18,11 @@ export default function AcademyCapabilityGuard({ capability, children }: { capab
   // that unlocks the production capability.
   if (!canAccessAcademy(effectiveUser) && !(import.meta.env.DEV && !effectiveUser)) {
     return <Navigate to="/portal" replace />;
+  }
+  // Case 1 is the training path that unlocks the real Configurator. It must
+  // remain reachable while the normal capability stays locked.
+  if (capability === 'configurator' && academySandbox.getActiveCase() === ACADEMY_CASE_1) {
+    return <>{children}</>;
   }
   if (!isAcademyCapabilityUnlocked(effectiveUser, capability, academySandbox.getCompletedCaseIds())) {
     return <Navigate to={`/academy?locked=${encodeURIComponent(capability)}`} replace />;

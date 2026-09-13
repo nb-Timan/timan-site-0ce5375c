@@ -12,7 +12,7 @@ afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 
 describe('production Academy context', () => {
   it.each<AcademyActiveCase>([
-    'sales.case_1_rc1000', 'sales.case_2_video_3330', 'portal.basics_5',
+    'sales.case_1_rc1000', 'portal.basics_5',
     'crm.part_1', 'crm.part_2', 'partnerdata.part_1_profile', 'partnerdata.part_2_relations',
   ])('persists %s independently of query and tab storage', (caseId) => {
     academySandbox.activateCase(caseId);
@@ -23,6 +23,23 @@ describe('production Academy context', () => {
     expect(academySandbox.getActiveCase()).toBe(caseId);
     expect(academySandbox.getContinueRoute()).toBe(route);
     expect(route).not.toBe('/academy');
+  });
+  it('persists Sales Case 2 only after its Case 1 prerequisite is complete', () => {
+    academySandbox.startCase1();
+    academySandbox.evaluate({
+      machineConfigs: [{ type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 2 }],
+      deliveryDiscount: true,
+      quantityDiscount: true,
+    });
+    academySandbox.generateQuote();
+    academySandbox.saveLead();
+    academySandbox.startCase2();
+
+    window.history.replaceState({}, '', '/portal/videos');
+    sessionStorage.clear();
+
+    expect(academySandbox.getActiveCase()).toBe('sales.case_2_video_3330');
+    expect(academySandbox.getContinueRoute()).toBe('/portal/videos?academy_mode=true&academy_case=2');
   });
   it('keeps CRM part 2 when a nested link drops its query', () => {
     academySandbox.activateCase('crm.part_2');

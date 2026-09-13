@@ -243,12 +243,13 @@ export default function PortalPage() {
     realPortalRole === 'timan_seller' ||
     hasModuleAccess(portalRole, 'messe_portal', moduleOverride)
   );
+  const academyAllowedHomeCards = academySandbox.getAllowedPortalHomeCardIds();
   const visibleHomeCards = sortPortalHomeCards([
     ...PORTAL_AREAS
       .filter(area => isAreaVisible(area, effectiveUser))
       .map((area) => ({ kind: 'area' as const, id: area.id, area })),
     ...(showMesseCard ? [{ kind: 'messe' as const, id: 'messe' as const }] : []),
-  ]);
+  ].filter((card) => !academyAllowedHomeCards || academyAllowedHomeCards.includes(card.id)));
 
   if (portalRole === 'dealer_user') {
     return (
@@ -372,7 +373,7 @@ export default function PortalPage() {
           })}
         </div>
 
-        {academyEnabled && academyCapabilityGated && !configuratorUnlocked && (
+        {academyEnabled && academyCapabilityGated && !configuratorUnlocked && !isPortalBasicsAcademy && (
           <section className="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
             <p className="font-semibold">Næste oplåsning: Konfigurator</p>
             <p className="mt-1">Gennemfør Sales Case 1 og Case 2 for at få adgang til den rigtige konfigurator.</p>
