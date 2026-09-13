@@ -24,6 +24,7 @@ import BackendSideNav from '@/components/portal/BackendSideNav';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
 import { ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
 import { useAppUser } from '@/context/AppUserContext';
+import AcademyPortalBasicsStepSuccessModal from '@/components/academy/AcademyPortalBasicsStepSuccessModal';
 
 const LANGS = PORTAL_LANGUAGES;
 
@@ -215,7 +216,8 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
 
   return (
     <>
-    {showBackendSideNav && (
+      <AcademyPortalBasicsStepSuccessModal />
+      {showBackendSideNav && (
       <style>{`
         @media (min-width: 1024px) {
           .timan-backend-nav-active main {

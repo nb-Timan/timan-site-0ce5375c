@@ -82,6 +82,15 @@ export type AcademyPortalBasicsState = {
   fullscreenUsed: boolean;
   mapAreaChanged: boolean;
   targetNewsOpened: boolean;
+  pendingStepSuccess: AcademyPortalBasicsStepSuccess | null;
+  acknowledgedStepSuccesses: string[];
+};
+
+export type AcademyPortalBasicsStepSuccess = {
+  taskId: 'language' | 'partnerdata' | 'fullscreen' | 'partner_map';
+  title: string;
+  completed: number;
+  total: 5;
 };
 
 type AcademySandboxState = AcademyCase1State & {
@@ -102,6 +111,8 @@ const initialPortalBasics = (): AcademyPortalBasicsState => ({
   fullscreenUsed: false,
   mapAreaChanged: false,
   targetNewsOpened: false,
+  pendingStepSuccess: null,
+  acknowledgedStepSuccesses: [],
 });
 const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialCase2(), portalBasics: initialPortalBasics() });
 
@@ -164,6 +175,26 @@ function isPortalBasicsComplete(state: AcademyPortalBasicsState) {
     && state.targetNewsOpened;
 }
 
+function portalBasicsCompletedCount(state: AcademyPortalBasicsState) {
+  return Number(state.frenchSelected && state.languageRestored)
+    + Number(state.partnerDataOpened && state.returnedHomeFromPartnerData)
+    + Number(state.fullscreenUsed)
+    + Number(state.mapAreaChanged)
+    + Number(state.targetNewsOpened);
+}
+
+function withPortalBasicsStepSuccess(
+  previous: AcademyPortalBasicsState,
+  next: AcademyPortalBasicsState,
+  task: AcademyPortalBasicsStepSuccess['taskId'],
+  title: string,
+) {
+  const completed = portalBasicsCompletedCount(next);
+  const wasComplete = portalBasicsCompletedCount(previous) >= completed;
+  if (wasComplete || completed === 5 || next.acknowledgedStepSuccesses.includes(task)) return next;
+  return { ...next, pendingStepSuccess: { taskId: task, title, completed, total: 5 } };
+}
+
 export const academySandbox = {
   isActive: isLocalAcademyMode,
   enterSession() {
@@ -203,6 +234,25 @@ export const academySandbox = {
   getCase2() { return load().case2; },
   isCase2Unlocked() { return load().completed; },
   getPortalBasics() { return load().portalBasics; },
+  getPortalBasicsStepSuccess() {
+    const state = load().portalBasics;
+    return state.pendingStepSuccess && !state.acknowledgedStepSuccesses.includes(state.pendingStepSuccess.taskId)
+      ? state.pendingStepSuccess
+      : null;
+  },
+  acknowledgePortalBasicsStepSuccess(taskId: AcademyPortalBasicsStepSuccess['taskId']) {
+    const current = load();
+    const portalBasics = current.portalBasics;
+    if (portalBasics.pendingStepSuccess?.taskId !== taskId || portalBasics.acknowledgedStepSuccesses.includes(taskId)) return portalBasics;
+    return save({
+      ...current,
+      portalBasics: {
+        ...portalBasics,
+        pendingStepSuccess: null,
+        acknowledgedStepSuccesses: [...portalBasics.acknowledgedStepSuccesses, taskId],
+      },
+    }).portalBasics;
+  },
   getCompletedCaseIds() {
     const state = load();
     return [
@@ -241,8 +291,9 @@ export const academySandbox = {
       && current.portalBasics.startingLanguage !== null
       && language === current.portalBasics.startingLanguage
     );
-    const portalBasics = { ...current.portalBasics, frenchSelected, languageRestored };
+    let portalBasics = { ...current.portalBasics, frenchSelected, languageRestored };
     portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
+    portalBasics = withPortalBasicsStepSuccess(current.portalBasics, portalBasics, 'language', 'Skift portalsprog til fransk og tilbage');
     return save({ ...current, portalBasics }).portalBasics;
   },
   trackPortalBasicsPartnerData() {
@@ -257,31 +308,34 @@ export const academySandbox = {
     if (!isLocalAcademyMode()) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started || fromPath !== '/portal/dealer-data') return current.portalBasics;
-    const portalBasics = { ...current.portalBasics, returnedHomeFromPartnerData: current.portalBasics.partnerDataOpened };
+    let portalBasics = { ...current.portalBasics, returnedHomeFromPartnerData: current.portalBasics.partnerDataOpened };
     portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
+    portalBasics = withPortalBasicsStepSuccess(current.portalBasics, portalBasics, 'partnerdata', 'Partnerdata og Timan-logoet');
     return save({ ...current, portalBasics }).portalBasics;
   },
   trackPortalBasicsFullscreen() {
     if (!isLocalAcademyMode()) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started) return current.portalBasics;
-    const portalBasics = { ...current.portalBasics, fullscreenUsed: true };
+    let portalBasics = { ...current.portalBasics, fullscreenUsed: true };
     portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
+    portalBasics = withPortalBasicsStepSuccess(current.portalBasics, portalBasics, 'fullscreen', 'Aktivér fullscreen');
     return save({ ...current, portalBasics }).portalBasics;
   },
   trackPortalBasicsMapArea(area: string) {
     if (!isLocalAcademyMode()) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started || area === 'none') return current.portalBasics;
-    const portalBasics = { ...current.portalBasics, mapAreaChanged: true };
+    let portalBasics = { ...current.portalBasics, mapAreaChanged: true };
     portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
+    portalBasics = withPortalBasicsStepSuccess(current.portalBasics, portalBasics, 'partner_map', 'Skift område på Partnerkortet');
     return save({ ...current, portalBasics }).portalBasics;
   },
   trackPortalBasicsNews(title: string) {
     if (!isLocalAcademyMode()) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started || title !== PORTAL_BASICS_NEWS_TITLE) return current.portalBasics;
-    const portalBasics = { ...current.portalBasics, targetNewsOpened: true };
+    const portalBasics = { ...current.portalBasics, targetNewsOpened: true, pendingStepSuccess: null };
     portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
     return save({ ...current, portalBasics }).portalBasics;
   },

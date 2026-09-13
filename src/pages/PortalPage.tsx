@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PORTAL_MODULES } from '@/lib/portalModules';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, deriveStoredPortalRole, getUserModuleAccessOverride, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
@@ -80,21 +80,40 @@ function getPortalBasicsNext(state: AcademyPortalBasicsState): string {
   return 'Alle Portal Basics-opgaver er gennemført.';
 }
 
+function getPortalBasicsActiveTask(state: AcademyPortalBasicsState): string | undefined {
+  if (!state.frenchSelected || !state.languageRestored) return 'Skift til fransk og tilbage';
+  if (!state.partnerDataOpened || !state.returnedHomeFromPartnerData) return 'Partnerdata og Timan-logoet';
+  if (!state.fullscreenUsed) return 'Aktivér fullscreen';
+  if (!state.mapAreaChanged) return 'Skift område på Partnerkortet';
+  if (!state.targetNewsOpened) return 'Åbn RC-1000s-nyheden';
+  return undefined;
+}
+
 export default function PortalPage() {
   const { appUser, loading, setAppUser, logout, dealerStatus } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const redirectParam = searchParams.get('redirect');
   // Academy runs only on localhost and only from its explicit sandbox mode.
   // The local persona is rendering context, never an authenticated portal user.
   const portalUser = appUser ?? (academySandbox.isActive() ? getLocalAcademyUser() : null);
   const [, refreshAcademy] = useState(0);
+  const academyGuidanceRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const changed = () => refreshAcademy((n) => n + 1);
     window.addEventListener('timan:academy-progress-changed', changed);
     return () => window.removeEventListener('timan:academy-progress-changed', changed);
   }, []);
+
+  useEffect(() => {
+    if (location.hash !== '#academy-guidance' || academySandbox.getActiveCase() !== 'portal.basics_5') return;
+    requestAnimationFrame(() => {
+      academyGuidanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      academyGuidanceRef.current?.focus({ preventScroll: true });
+    });
+  }, [location.hash]);
 
   // Phase 59 — Messe-variant users are locked to /messe. If we land on
   // /portal with a Messe user already in session, immediately bounce.
@@ -300,19 +319,22 @@ export default function PortalPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
         {isPortalBasicsAcademy && (
           <>
-          <AcademyGuidancePanel
-            title="Portal Basics - 5 hurtige"
-            description="Gennemfør de fem handlinger i den almindelige portal. Din fremdrift gemmes kun lokalt i Academy."
-            tasks={[
-              { label: 'Skift til fransk og tilbage', complete: portalBasics.frenchSelected && portalBasics.languageRestored },
-              { label: 'Partnerdata og Timan-logoet', complete: portalBasics.partnerDataOpened && portalBasics.returnedHomeFromPartnerData },
-              { label: 'Aktivér fullscreen', complete: portalBasics.fullscreenUsed },
-              { label: 'Skift område på Partnerkortet', complete: portalBasics.mapAreaChanged },
-              { label: 'Åbn RC-1000s-nyheden', complete: portalBasics.targetNewsOpened },
-            ]}
-            next={getPortalBasicsNext(portalBasics)}
-            completion
-          />
+          <div id="academy-guidance" ref={academyGuidanceRef} tabIndex={-1} className="scroll-mt-6 outline-none">
+            <AcademyGuidancePanel
+              title="Portal Basics - 5 hurtige"
+              description="Gennemfør de fem handlinger i den almindelige portal. Din fremdrift gemmes kun lokalt i Academy."
+              tasks={[
+                { label: 'Skift til fransk og tilbage', complete: portalBasics.frenchSelected && portalBasics.languageRestored },
+                { label: 'Partnerdata og Timan-logoet', complete: portalBasics.partnerDataOpened && portalBasics.returnedHomeFromPartnerData },
+                { label: 'Aktivér fullscreen', complete: portalBasics.fullscreenUsed },
+                { label: 'Skift område på Partnerkortet', complete: portalBasics.mapAreaChanged },
+                { label: 'Åbn RC-1000s-nyheden', complete: portalBasics.targetNewsOpened },
+              ]}
+              activeTaskLabel={getPortalBasicsActiveTask(portalBasics)}
+              next={getPortalBasicsNext(portalBasics)}
+              completion
+            />
+          </div>
           <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to={PORTAL_MODULES.find((module) => module.id === 'partner_map')!.href}>Åbn Partnerkort</Link>
           </>
         )}

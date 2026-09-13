@@ -15,6 +15,7 @@ export default function AcademyGuidancePanel({
   actions,
   completion = false,
   explanation,
+  activeTaskLabel,
 }: {
   title: string;
   description: string;
@@ -24,6 +25,7 @@ export default function AcademyGuidancePanel({
   actions?: ReactNode;
   completion?: boolean | { nextUnlock?: string };
   explanation?: ReactNode;
+  activeTaskLabel?: string;
 }) {
   const allTasks = steps?.flatMap((step) => step.tasks) ?? tasks ?? [];
   const completed = allTasks.filter((task) => task.complete).length;
@@ -79,15 +81,16 @@ export default function AcademyGuidancePanel({
           </ol>
         ) : (
           <ul className="mt-3 grid gap-x-5 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
-            {allTasks.map((task) => (
-              <li key={task.label} className={`flex items-start gap-1.5 ${task.complete ? 'text-emerald-800' : 'text-amber-900'}`}>
+            {allTasks.map((task) => {
+              const active = task.label === activeTaskLabel && !task.complete;
+              return <li key={task.label} className={`flex items-start gap-1.5 rounded-md px-2 py-1.5 ${task.complete ? 'text-emerald-800' : active ? 'border border-amber-400 bg-white font-semibold text-amber-950 shadow-sm' : 'text-amber-900'}`}>
                 {task.complete ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
                 <div>
                   <p>{task.label}</p>
                   {task.description && <p className="mt-1 text-xs font-normal leading-relaxed text-amber-950">{task.description}</p>}
                 </div>
-              </li>
-            ))}
+              </li>;
+            })}
           </ul>
         )}
         {explanation && <div className="mt-3 border-t border-amber-200 pt-3 text-xs leading-relaxed text-amber-950">{explanation}</div>}
