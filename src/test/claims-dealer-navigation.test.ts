@@ -5,6 +5,8 @@ const sidebar = readFileSync("src/components/claims/ClaimsAdminSidebarLayout.tsx
 const dashboard = readFileSync("src/pages/claims/DealerClaimsDashboardPage.tsx", "utf8");
 const mine = readFileSync("src/pages/claims/DealerClaimsMinePage.tsx", "utf8");
 const app = readFileSync("src/App.tsx", "utf8");
+const claimsPage = readFileSync("src/pages/ClaimsPage.tsx", "utf8");
+const newClaimPage = readFileSync("src/pages/NewClaimPage.tsx", "utf8");
 
 describe("dealer claims navigation", () => {
   it("puts the existing create route below Mine claims only for users with create access", () => {
@@ -20,5 +22,12 @@ describe("dealer claims navigation", () => {
     expect(mine).not.toContain('to="/portal/service/claims/new"');
     expect(dashboard).toContain("canCreateClaim={!readOnly}");
     expect(mine).toContain("canCreateClaim={!readOnly}");
+  });
+
+  it("uses the effective view-as user for dealer claims permissions", () => {
+    expect(claimsPage).toContain("useEffectivePortalUserState(appUser)");
+    expect(claimsPage).toContain("derivePortalRole(effectiveUser)");
+    expect(newClaimPage).toContain("useEffectivePortalUserState(appUser)");
+    expect(newClaimPage).toContain("derivePortalRole(effectiveUser)");
   });
 });
