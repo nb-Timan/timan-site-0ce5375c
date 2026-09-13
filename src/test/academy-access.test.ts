@@ -72,4 +72,11 @@ describe('Academy module access', () => {
     expect(portal).toContain('const academyEnabled = canAccessAcademy(effectiveUser);');
     expect(academyPage).toContain('useEffectivePortalUserState(appUser)');
   });
+
+  it('keeps Academy completion gates inside the active local sandbox', () => {
+    const guard = readFileSync('src/components/academy/AcademyCapabilityGuard.tsx', 'utf8');
+
+    expect(guard).toContain('if (!academySandbox.isActive()) return <>{children}</>;');
+    expect(guard).toContain('isAcademyCapabilityUnlocked');
+  });
 });

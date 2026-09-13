@@ -10,10 +10,13 @@ export default function AcademyCapabilityGuard({ capability, children }: { capab
   const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
 
   if (loading || resolving) return null;
+  // Academy completion gates apply only while the local training sandbox is active.
+  // Normal portal routes must retain their ordinary role/module access.
+  if (!academySandbox.isActive()) return <>{children}</>;
+
   // Training routes remain available so a locked user can complete the work
   // that unlocks the production capability.
-  if (academySandbox.isActive()) {
-    if (canAccessAcademy(effectiveUser) || (import.meta.env.DEV && !effectiveUser)) return <>{children}</>;
+  if (!canAccessAcademy(effectiveUser) && !(import.meta.env.DEV && !effectiveUser)) {
     return <Navigate to="/portal" replace />;
   }
   if (!isAcademyCapabilityUnlocked(effectiveUser, capability, academySandbox.getCompletedCaseIds())) {
