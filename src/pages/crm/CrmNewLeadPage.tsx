@@ -1424,6 +1424,8 @@ export default function CrmNewLeadPage() {
         title: title.trim(),
         owner_user_id: sellerId,
         owner_name: chosen?.name || responsibleName || null,
+        // Working-budget seller scope resolves against the canonical owner email.
+        owner_email: chosen?.email || appUser?.email || null,
         linked_dealer_id: linkedDealer,
         first_contact_date: firstContact || null,
         expected_close_date: expectedClose || null,

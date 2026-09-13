@@ -690,6 +690,7 @@ export async function updateLead(
       title: merged.title,
       owner_user_id: merged.owner_user_id,
       owner_name: merged.owner_name,
+      owner_email: merged.owner_email ?? null,
       linked_dealer_id: merged.linked_dealer_id,
       first_contact_date: merged.first_contact_date,
       expected_close_date: merged.expected_close_date,
