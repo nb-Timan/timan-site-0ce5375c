@@ -60,7 +60,7 @@ const L: Record<ServiceMaintView, Dict> = {
     cs: "Servisní záznamy / Přehled strojů",
   },
   create: {
-    da: "Opret service registrering",
+    da: "Opret serviceregistrering",
     en: "Create service registration",
     de: "Serviceerfassung erstellen",
     it: "Crea registrazione servizio",

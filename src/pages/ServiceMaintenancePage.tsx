@@ -18,6 +18,7 @@ import { Language } from '@/types/configurator';
 import { pickT } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import LastChangedLine from '@/components/portal/LastChangedLine';
 import {
   ServiceMachine,
@@ -42,7 +43,6 @@ const T: Record<string, Dict> = {
   title: { da: 'Service registrering og vedligehold', en: 'Service registration and maintenance', de: 'Serviceerfassung und Wartung', it: 'Registrazione servizio e manutenzione', hu: 'Szervizregisztráció és karbantartás', sv: 'Serviceregistrering och underhåll', fr: 'Enregistrement de service et entretien', pl: 'Rejestracja serwisu i konserwacja', cs: 'Registrace servisu a údržba' },
   subtitle: { da: 'Registrer udført service og se komplet servicehistorik pr. maskine.', en: 'Register completed service and view the full service history per machine.', de: 'Erfassen Sie durchgeführten Service und sehen Sie die vollständige Service-Historie pro Maschine.', it: 'Registra il servizio completato e visualizza la cronologia completa per macchina.', hu: 'Regisztrálja az elvégzett szervizt és tekintse meg a teljes szerviz előzményeket gépenként.', sv: 'Registrera utförd service och se fullständig servicehistorik per maskin.', fr: "Enregistrez le service effectué et consultez l'historique complet par machine.", pl: 'Zarejestruj wykonany serwis i zobacz pełną historię serwisową dla każdej maszyny.', cs: 'Zaregistrujte provedený servis a prohlédněte si kompletní historii servisu pro každý stroj.' },
   tabOverview: { da: 'Maskinoversigt', en: 'Machine overview', de: 'Maschinenübersicht', it: 'Panoramica macchine', hu: 'Gépáttekintés', sv: 'Maskinöversikt', fr: 'Aperçu des machines', pl: 'Przegląd maszyn', cs: 'Přehled strojů' },
-  tabNew: { da: 'Opret service registrering', en: 'Create service registration', de: 'Serviceerfassung anlegen', it: 'Crea registrazione servizio', hu: 'Új szervizregisztráció', sv: 'Skapa serviceregistrering', fr: 'Créer un enregistrement de service', pl: 'Utwórz rejestrację serwisową', cs: 'Vytvořit servisní záznam' },
   tabMine: { da: 'Mine service registreringer', en: 'My service registrations', de: 'Meine Serviceerfassungen', it: 'Le mie registrazioni', hu: 'Saját regisztrációim', sv: 'Mina serviceregistreringar', fr: 'Mes enregistrements de service', pl: 'Moje rejestracje serwisowe', cs: 'Moje servisní záznamy' },
   filterDealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő', sv: 'Återförsäljare', fr: 'Revendeur', pl: 'Dealer', cs: 'Prodejce' },
   filterType: { da: 'Maskintype', en: 'Machine type', de: 'Maschinentyp', it: 'Tipo macchina', hu: 'Géptípus', sv: 'Maskintyp', fr: 'Type de machine', pl: 'Typ maszyny', cs: 'Typ stroje' },
@@ -112,9 +112,7 @@ const T: Record<string, Dict> = {
   dealersSubtitle: { da: 'Forhandlere knyttet til service registreringer.', en: 'Dealers linked to service registrations.', de: 'Mit Serviceerfassungen verknüpfte Händler.', it: 'Rivenditori collegati alle registrazioni.', hu: 'A regisztrációkhoz kapcsolt kereskedők.', sv: 'Återförsäljare kopplade till serviceregistreringar.', fr: 'Revendeurs liés aux enregistrements de service.', pl: 'Dealerzy powiązani z rejestracjami serwisowymi.', cs: 'Prodejci propojení se servisními záznamy.' },
   machinesTitle: { da: 'Maskiner', en: 'Machines', de: 'Maschinen', it: 'Macchine', hu: 'Gépek', sv: 'Maskiner', fr: 'Machines', pl: 'Maszyny', cs: 'Stroje' },
   machinesSubtitle: { da: 'Alle maskiner med service historik.', en: 'All machines with service history.', de: 'Alle Maschinen mit Service-Historie.', it: 'Tutte le macchine con cronologia.', hu: 'Minden gép szervizelőzményekkel.', sv: 'Alla maskiner med servicehistorik.', fr: 'Toutes les machines avec historique de service.', pl: 'Wszystkie maszyny z historią serwisową.', cs: 'Všechny stroje se servisní historií.' },
-  createTitle: { da: 'Opret service registrering', en: 'Create service registration', de: 'Serviceerfassung anlegen', it: 'Crea registrazione servizio', hu: 'Szervizregisztráció létrehozása', sv: 'Skapa serviceregistrering', fr: 'Créer un enregistrement de service', pl: 'Utwórz rejestrację serwisową', cs: 'Vytvořit servisní záznam' },
   registrationsTitle: { da: 'Service registreringer', en: 'Service registrations', de: 'Serviceerfassungen', it: 'Registrazioni servizio', hu: 'Szervizregisztrációk', sv: 'Serviceregistreringar', fr: 'Enregistrements de service', pl: 'Rejestracje serwisowe', cs: 'Servisní záznamy' },
-  newServiceReg: { da: 'Ny service registrering', en: 'New service registration', de: 'Neue Serviceerfassung', it: 'Nuova registrazione servizio', hu: 'Új szervizregisztráció', sv: 'Ny serviceregistrering', fr: 'Nouvel enregistrement de service', pl: 'Nowa rejestracja serwisowa', cs: 'Nový servisní záznam' },
   openRegistration: { da: 'Åbn registrering', en: 'Open registration', de: 'Erfassung öffnen', it: 'Apri registrazione', hu: 'Regisztráció megnyitása', sv: 'Öppna registrering', fr: "Ouvrir l'enregistrement", pl: 'Otwórz rejestrację', cs: 'Otevřít záznam' },
   colAction: { da: 'Handling', en: 'Action', de: 'Aktion', it: 'Azione', hu: 'Művelet', sv: 'Åtgärd', fr: 'Action', pl: 'Akcja', cs: 'Akce' },
 };
@@ -126,12 +124,13 @@ function parseView(v: string | null, fallback: ServiceMaintView): ServiceMaintVi
 
 export default function ServiceMaintenancePage() {
   const { appUser, loading } = useAppUser();
+  const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
   const { language: lang, uiLanguage } = useLanguage();
   const t = (k: keyof typeof T) => pickT(T[k], uiLanguage);
   void lang;
   const navigate = useNavigate();
 
-  const portalRole = derivePortalRole(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   // Treat sellers like backend in UI (dealer selector, registration form),
   // but apply CRM-scope filter on returned rows so they only see their own
   // assigned dealers' data.
@@ -162,8 +161,8 @@ export default function ServiceMaintenancePage() {
   }, [isBackend]);
 
   // Form
-  const dealerNumber = appUser?.dealer_number ?? null;
-  const dealerName = appUser?.company_dealer ?? null;
+  const dealerNumber = effectiveUser?.dealer_number ?? null;
+  const dealerName = effectiveUser?.company_dealer ?? null;
   const [form, setForm] = useState({
     serial_number: '',
     machine_type: SERVICE_MACHINE_TYPES[0].value,
@@ -249,8 +248,8 @@ export default function ServiceMaintenancePage() {
 
   useEffect(() => { if (appUser) reload(); }, [appUser, reload]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
-  if (!appUser) return <Navigate to="/portal" replace />;
+  if (loading || resolving) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
+  if (!appUser || !effectiveUser) return <Navigate to="/portal" replace />;
 
   const lastServiceFor = (serial: string) => registrations.find(r => r.serial_number.toLowerCase() === serial.toLowerCase());
   const historyOpen = async (m: ServiceMachine) => {
@@ -410,17 +409,6 @@ export default function ServiceMaintenancePage() {
             <DashCard icon={Wrench} label={t('statTop')} value={topMachine ? `${topMachine.serial} (${topMachine.count})` : '—'} />
             <DashCard icon={Building2} label={t('statDealers')} value={activeDealerCount} />
           </div>
-          {!isBackend && (
-            <div className="flex">
-              <Button
-                onClick={() => setView('create')}
-                className="bg-[#2d5a27] hover:bg-[#234a1f] text-white"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {t('newServiceReg')}
-              </Button>
-            </div>
-          )}
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900 mb-4">{t('latest')}</h2>
             {latestRegs.length === 0 ? (
