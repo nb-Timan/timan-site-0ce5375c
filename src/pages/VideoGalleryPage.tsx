@@ -166,13 +166,13 @@ export default function VideoGalleryPage() {
           <AcademyGuidancePanel
             title="Case 2 - Find en vedligeholdelsesvideo"
             description="Brug det almindelige Video Galleri. Favoritter og øvrige video-data ændres ikke i Academy."
-            tasks={[
-              { label: 'Timan 3330 filtreret', complete: academyCase2.machineFiltered },
-              { label: 'Vedligeholdelse filtreret', complete: academyCase2.maintenanceFiltered },
-              { label: 'Den rigtige video fundet', complete: academyCase2.targetFound },
-              { label: 'Weed Brush-video åbnet', complete: academyCase2.targetOpened },
+            steps={[
+              { title: 'Filtrér på maskine', tasks: [{ label: 'Timan 3330 filtreret', complete: academyCase2.machineFiltered }] },
+              { title: 'Filtrér på indholdstype', tasks: [{ label: 'Vedligeholdelse filtreret', complete: academyCase2.maintenanceFiltered }] },
+              { title: 'Find den rigtige video', tasks: [{ label: 'Weed Brush-video fundet', complete: academyCase2.targetFound }] },
+              { title: 'Åbn videoen', tasks: [{ label: 'Weed Brush-video åbnet', complete: academyCase2.targetOpened }] },
             ]}
-            next="filtrer på Timan 3330 og Vedligeholdelse, og åbn derefter Weed Brush-videoen."
+            next={!academyCase2.machineFiltered ? 'Trin 1: Filtrér på Timan 3330.' : !academyCase2.maintenanceFiltered ? 'Trin 2: Filtrér på Vedligeholdelse.' : !academyCase2.targetFound ? 'Trin 3: Find Weed Brush-videoen.' : 'Trin 4: Åbn Weed Brush-videoen.'}
             completion
           />
         )}

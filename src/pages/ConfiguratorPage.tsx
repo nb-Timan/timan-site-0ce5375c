@@ -2682,19 +2682,25 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           <AcademyGuidancePanel
             title="Case 1 - Byg korrekt RC-1000 ordre"
             description="Intet tilbud, lead, mail eller ordre sendes til produktion."
-            tasks={[
-              { complete: academyCase.machine, label: 'RC-1000s valgt' },
-              { complete: academyCase.quantityDiscount, label: 'Mængderabat opnået' },
-              { complete: academyCase.flail, label: 'Slagleklipper 410910 valgt' },
-              { complete: academyCase.weedBrush, label: 'Ukrudtsbørste 730600 valgt' },
-              { complete: academyCase.requiredComponents, label: 'Beslag 412603 valgt' },
-              { complete: academyCase.workLight, label: 'Arbejdslys 412594 valgt' },
-              { complete: academyCase.wireHarness, label: 'Ledningsnet 412614 tilføjet', description: 'Arbejdslys kræver ledningsnet. Kontrollér, at begge er valgt.' },
-              { complete: academyCase.deliveryDiscount, label: 'Leveringsrabat opnået' },
-              { complete: academyCase.quoteGenerated, label: 'Tilbud genereret' },
-              { complete: Boolean(academyCase.leadId), label: 'Gemt som Academy-lead' },
+            steps={[
+              { title: 'Vælg maskine', tasks: [{ complete: academyCase.machine, label: 'RC-1000s valgt' }] },
+              { title: 'Tilføj redskaber', tasks: [
+                { complete: academyCase.flail, label: 'Slagleklipper 410910 valgt' },
+                { complete: academyCase.weedBrush, label: 'Ukrudtsbørste 730600 valgt' },
+                { complete: academyCase.requiredComponents, label: 'Beslag 412603 valgt' },
+              ] },
+              { title: 'Tilføj nødvendigt ekstraudstyr', description: 'Arbejdslys kræver ledningsnet. Kontrollér, at begge er valgt.', tasks: [
+                { complete: academyCase.workLight, label: 'Arbejdslys 412594 valgt' },
+                { complete: academyCase.wireHarness, label: 'Ledningsnet 412614 tilføjet' },
+              ] },
+              { title: 'Tilføj rabatter', tasks: [
+                { complete: academyCase.quantityDiscount, label: 'Mængderabat opnået' },
+                { complete: academyCase.deliveryDiscount, label: 'Leveringsrabat opnået' },
+              ] },
+              { title: 'Generér træningstilbud', tasks: [{ complete: academyCase.quoteGenerated, label: 'Tilbud genereret' }] },
+              { title: 'Gem sagen som Academy-lead', tasks: [{ complete: Boolean(academyCase.leadId), label: 'Gemt som Academy-lead' }] },
             ]}
-            next={!academyCase.machine ? 'Start med at vælge RC-1000s og konfigurér derefter de krævede redskaber.' : !academyCase.flail || !academyCase.weedBrush || !academyCase.requiredComponents || !academyCase.workLight || !academyCase.wireHarness ? 'Tilføj de manglende redskaber og komponenter i checklisten.' : !academyCase.quantityDiscount || !academyCase.deliveryDiscount ? 'Vælg antal og levering, så begge rabatter opnås.' : !academyCase.quoteGenerated ? 'Generér træningstilbuddet.' : 'Afslut med Gem som Academy-lead.'}
+            next={!academyCase.machine ? 'Trin 1: Vælg RC-1000s.' : !academyCase.flail || !academyCase.weedBrush || !academyCase.requiredComponents ? 'Trin 2: Tilføj de tre krævede redskaber.' : !academyCase.workLight || !academyCase.wireHarness ? 'Trin 3: Tilføj arbejdslys og ledningsnet.' : !academyCase.quantityDiscount || !academyCase.deliveryDiscount ? 'Trin 4: Opnå mængde- og leveringsrabat.' : !academyCase.quoteGenerated ? 'Trin 5: Generér træningstilbuddet.' : 'Trin 6: Gem sagen som Academy-lead.'}
             completion
             actions={<button type="button"
               onClick={() => setAcademyCase(academySandbox.generateQuote())}
