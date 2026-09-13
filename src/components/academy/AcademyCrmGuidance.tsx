@@ -30,5 +30,6 @@ export default function AcademyCrmGuidance({ part = academyCrmSandbox.getPart() 
       { label: 'Lokal demo oprettet', complete: progress.demoConverted },
     ]}
     next={part === 1 ? 'flyt den forfaldne opfølgning frem, og gem derefter Configurator-leadet med alle påkrævede oplysninger.' : 'gem næste aktivitet, del leadet og brug derefter Konverter til demo.'}
+    completion={part === 1 ? { nextUnlock: 'CRM Case 2 - Del lead og opret demo' } : true}
   />;
 }

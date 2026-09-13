@@ -299,6 +299,7 @@ export default function PortalPage() {
               { label: 'Åbn RC-1000s-nyheden', complete: portalBasics.targetNewsOpened },
             ]}
             next="vælg det første uafsluttede trin i listen."
+            completion
           />
           <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to={PORTAL_MODULES.find((module) => module.id === 'partner_map')!.href}>Åbn Partnerkort</Link>
           </>

@@ -26,7 +26,8 @@ export default function AcademyPartnerDataGuidance() {
   return <>
     <AcademyGuidancePanel title={part ? `Partnerdata - Part ${part}` : 'Portal Basics - Partnerdata'}
       description="Du bruger den almindelige Partnerdata-side med lokale Academy-data."
-      tasks={tasks} next={part === 1 ? 'Åbn Academy Maskiner. Gem en kontaktperson, vælg første kontakt og tilføj YouTube-kanalen.' : part === 2 ? 'Læs relationen i Aftalehistorik, og udfyld fakturaaccepten for Academy Servicepartner.' : 'Brug Timan-logoet til at vende tilbage til forsiden.'} />
+      tasks={tasks} next={part === 1 ? 'Åbn Academy Maskiner. Gem en kontaktperson, vælg første kontakt og tilføj YouTube-kanalen.' : part === 2 ? 'Læs relationen i Aftalehistorik, og udfyld fakturaaccepten for Academy Servicepartner.' : 'Brug Timan-logoet til at vende tilbage til forsiden.'}
+      completion={part === 1 ? { nextUnlock: 'Partnerdata - Part 2 - Samarbejdspartnere og fakturering' } : part === 2} />
     {part === 2 && <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to="/portal/misc/forms/dealer-invoice-accept?academy_mode=true">Åbn Forhandler Accept - Fakturering</Link>}
   </>;
 }

@@ -171,6 +171,7 @@ export default function VideoGalleryPage() {
               { label: 'Weed Brush-video åbnet', complete: academyCase2.targetOpened },
             ]}
             next="filtrer på Timan 3330 og Vedligeholdelse, og åbn derefter Weed Brush-videoen."
+            completion
           />
         )}
         <div className="mb-6 flex flex-col gap-2">

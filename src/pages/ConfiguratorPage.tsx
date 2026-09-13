@@ -2695,6 +2695,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               { complete: Boolean(academyCase.leadId), label: 'Gemt som Academy-lead' },
             ]}
             next={!academyCase.machine ? 'Start med at vælge RC-1000s og konfigurér derefter de krævede redskaber.' : !academyCase.flail || !academyCase.weedBrush || !academyCase.requiredComponents || !academyCase.workLight || !academyCase.wireHarness ? 'Tilføj de manglende redskaber og komponenter i checklisten.' : !academyCase.quantityDiscount || !academyCase.deliveryDiscount ? 'Vælg antal og levering, så begge rabatter opnås.' : !academyCase.quoteGenerated ? 'Generér træningstilbuddet.' : 'Afslut med Gem som Academy-lead.'}
+            completion
             actions={<button type="button"
               onClick={() => setAcademyCase(academySandbox.generateQuote())}
               disabled={academyCase.quoteGenerated}
