@@ -2,7 +2,7 @@ import { CheckCircle2, Circle, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
-export type AcademyGuidanceTask = { label: string; complete: boolean };
+export type AcademyGuidanceTask = { label: string; description?: string; complete: boolean };
 
 export default function AcademyGuidancePanel({
   title,
@@ -29,11 +29,14 @@ export default function AcademyGuidancePanel({
         </div>
         <span className="rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs font-bold">{completed} / {tasks.length} krav</span>
       </div>
-      <ul className="mt-3 grid gap-x-5 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="mt-3 grid gap-x-5 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
         {tasks.map((task) => (
-          <li key={task.label} className={task.complete ? 'text-emerald-800' : 'text-amber-900'}>
-            {task.complete ? <CheckCircle2 className="mr-1 inline h-3.5 w-3.5" /> : <Circle className="mr-1 inline h-3.5 w-3.5" />}
-            {task.label}
+          <li key={task.label} className={`flex items-start gap-1.5 ${task.complete ? 'text-emerald-800' : 'text-amber-900'}`}>
+            {task.complete ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+            <div>
+              <p>{task.label}</p>
+              {task.description && <p className="mt-1 text-xs font-normal leading-relaxed text-amber-950">{task.description}</p>}
+            </div>
           </li>
         ))}
       </ul>
