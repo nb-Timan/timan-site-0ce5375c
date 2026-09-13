@@ -299,6 +299,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     : calcResult;
 
   const leaveAcademy = useCallback(async () => {
+    academySandbox.leaveSession();
     clearLocalAcademyEnrollment();
     const restoredUser = await refreshAppUser();
     if (!restoredUser) setAppUserCtx(null);

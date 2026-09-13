@@ -14,6 +14,15 @@ describe('Academy Case 1 sandbox', () => {
     window.history.replaceState({}, '', '/configurator?academy_mode=true');
   });
 
+  it('removes the local Academy session when the user leaves training', () => {
+    window.history.replaceState({}, '', '/portal');
+    academySandbox.enterSession();
+
+    expect(academySandbox.isActive()).toBe(true);
+    academySandbox.leaveSession();
+    expect(academySandbox.isActive()).toBe(false);
+  });
+
   it('does not complete an incomplete RC-1000 configuration', () => {
     academySandbox.startCase1();
     academySandbox.evaluate({

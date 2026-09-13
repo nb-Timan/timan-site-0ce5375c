@@ -27,9 +27,11 @@ describe('Academy user identity isolation', () => {
     const configurator = read('src/pages/ConfiguratorPage.tsx');
 
     expect(header).toContain('Forlad Academy');
+    expect(header).toContain('academySandbox.leaveSession();');
     expect(header).toContain('const restoredUser = await refreshAppUser();');
     expect(header).toContain("navigate('/portal', { replace: true });");
     expect(configurator).toContain('Forlad Academy');
+    expect(configurator).toContain('academySandbox.leaveSession();');
     expect(configurator).toContain('const restoredUser = await refreshAppUser();');
   });
 
