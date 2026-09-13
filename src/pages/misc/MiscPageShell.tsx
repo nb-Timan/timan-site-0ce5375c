@@ -26,7 +26,9 @@ interface Props {
 
 export default function MiscPageShell({ title, subtitle, intro, hideHeader = false, backTo, changelogModule, children }: Props) {
   const { appUser: sessionUser, loading, logout } = useAppUser();
-  const appUser = academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
+  // Academy keeps production writes in its local adapters, but the shared
+  // shell must retain a signed-in learner's effective role and scope.
+  const appUser = academyPartnerDataSandbox.isActive() && !sessionUser ? ACADEMY_PARTNER_USER : sessionUser;
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();

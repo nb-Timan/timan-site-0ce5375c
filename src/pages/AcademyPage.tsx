@@ -169,6 +169,7 @@ export default function AcademyPage() {
   const task = academySandbox.getCase1();
   const videoTask = academySandbox.getCase2();
   const portalBasics = academySandbox.getPortalBasics();
+  const partnerMap = academySandbox.getPartnerMap();
   const crm = academyCrmSandbox.getProgress();
   const partnerData = academyPartnerDataSandbox.getProgress();
 
@@ -197,19 +198,14 @@ export default function AcademyPage() {
   const caseState: State = task.completed ? 'done' : task.started ? 'active' : 'new';
   const case2Unlocked = task.completed;
   const videoCaseState: State = videoTask.completed ? 'done' : videoTask.started && case2Unlocked ? 'active' : case2Unlocked ? 'ready' : 'locked';
-  const portalBasicsChecks = [
-    portalBasics.frenchSelected && portalBasics.languageRestored,
-    portalBasics.partnerDataOpened && portalBasics.returnedHomeFromPartnerData,
-    portalBasics.fullscreenUsed,
-    portalBasics.mapAreaChanged,
-    portalBasics.targetNewsOpened,
-  ].filter(Boolean).length;
-  const crmCompleted = Number(crm.part1Completed) + Number(crm.part2Completed);
-  const partnerDataCompleted = Number(partnerData.part1Completed) + Number(partnerData.part2Completed);
-  const overallCompleted = Number(task.completed) + Number(videoTask.completed) + Number(portalBasics.completed) + crmCompleted + partnerDataCompleted;
-  const overallTotal = 7;
+  const crmCompleted = Number(Boolean(crm.part1Completed)) + Number(Boolean(crm.part2Completed));
+  const partnerDataCompleted = Number(Boolean(partnerData.part1Completed)) + Number(Boolean(partnerData.part2Completed));
+  const overallCompleted = Number(Boolean(task.completed)) + Number(Boolean(videoTask.completed)) + Number(Boolean(portalBasics.completed)) + Number(Boolean(partnerMap.completed)) + crmCompleted + partnerDataCompleted;
+  const overallTotal = 8;
   const overallPercentage = overallCompleted / overallTotal * 100;
   const portalBasicsState: State = portalBasics.completed ? 'done' : portalBasics.started ? 'active' : 'new';
+  const partnerMapUnlocked = portalBasics.completed;
+  const partnerMapState: State = partnerMap.completed ? 'done' : partnerMap.started && partnerMapUnlocked ? 'active' : partnerMapUnlocked ? 'ready' : 'locked';
   const crmPart1State: State = crm.part1Completed ? 'done' : academyCrmSandbox.getState().part1Started ? 'active' : 'new';
   const crmPart2State: State = crm.part2Completed ? 'done' : academyCrmSandbox.getState().part2Started ? 'active' : crm.part1Completed ? 'ready' : 'locked';
   const partnerDataPart1State: State = partnerData.part1Completed ? 'done' : academyPartnerDataSandbox.getState().part1Started ? 'active' : 'new';
@@ -235,6 +231,11 @@ export default function AcademyPage() {
   const startCrmPart2 = () => {
     academyCrmSandbox.start(2);
     navigate('/academy/crm/leads?academy_mode=true&academy_part=2');
+  };
+  const startPartnerMap = () => {
+    academyPartnerDataSandbox.leaveCase();
+    academySandbox.startPartnerMap();
+    navigate('/portal/misc/partner-map?academy_mode=true');
   };
   const startPartnerDataPart1 = () => {
     academyPartnerDataSandbox.start(1);
@@ -334,8 +335,9 @@ export default function AcademyPage() {
               <AcademyRow image="/messe/machines/rc-1000s-tile.png" title="Case 1 - Byg korrekt RC-1000 ordre" description="Konfigurer RC-1000 med nødvendigt udstyr, rabatter og Academy-lead." state={caseState} action={task.started ? 'Fortsæt' : 'Start'} onClick={startCase} />
               <AcademyRow image="/messe/machines/timan-3330-tile.png" title="Case 2 - Find en vedligeholdelsesvideo" description="Find og åbn den korrekte Weed Brush-vedligeholdelsesvideo for Timan 3330." state={videoCaseState} action={case2Unlocked ? (videoTask.started ? 'Fortsæt' : 'Start') : undefined} onClick={case2Unlocked ? startVideoCase : undefined} />
             </Module>
-            <Module icon={Map} title="Portal Basics" progress={`${portalBasicsChecks} / 5 gennemført`}>
+            <Module icon={Map} title="Portal Basics" progress={`${Number(portalBasics.completed) + Number(partnerMap.completed)} / 2 gennemført`}>
               <AcademyRow title="Portal Basics - 5 hurtige" description="Skift sprog, besøg Partnerdata, brug fuldskærm, ændr partnerkort og åbn den rigtige nyhed." state={portalBasicsState} action={portalBasics.started ? 'Fortsæt' : 'Start'} onClick={startPortalBasics} />
+              <AcademyRow title="Partnerkort" description="Find din egen forhandler, brug kortets værktøjer og åbn en garantiregistrering." state={partnerMapState} action={partnerMapUnlocked ? (partnerMap.started ? 'Fortsæt' : 'Start') : undefined} onClick={partnerMapUnlocked ? startPartnerMap : undefined} />
             </Module>
             <Module icon={Users} title="Partnerdata" progress={`${partnerDataCompleted} / 2 gennemført`}>
               <AcademyRow title="Part 1 - Virksomheds- og persondata" description="Tilføj en lokal kontaktperson, vælg første kontakt og opdater Academy YouTube-kanalen." state={partnerDataPart1State} action={partnerDataPart1State === 'done' ? 'Åbn' : academyPartnerDataSandbox.getState().part1Started ? 'Fortsæt' : 'Start'} onClick={startPartnerDataPart1} />

@@ -22,7 +22,7 @@ import { t } from '@/lib/i18n/translations';
 import { getPortalBackInfo } from '@/lib/portalBackNav';
 import BackendSideNav from '@/components/portal/BackendSideNav';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
-import { ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_PARTNER_MAP, ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
 import { useAppUser } from '@/context/AppUserContext';
 import AcademyPortalBasicsStepSuccessModal from '@/components/academy/AcademyPortalBasicsStepSuccessModal';
 
@@ -210,7 +210,8 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
       void (document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.());
       return;
     }
-    if (academySandbox.isActive()) academySandbox.trackPortalBasicsFullscreen();
+    if (academySandbox.getActiveCase() === ACADEMY_PORTAL_BASICS) academySandbox.trackPortalBasicsFullscreen();
+    if (academySandbox.getActiveCase() === ACADEMY_PARTNER_MAP) academySandbox.trackPartnerMapFullscreen();
     void (root.requestFullscreen?.() ?? root.webkitRequestFullscreen?.());
   };
 

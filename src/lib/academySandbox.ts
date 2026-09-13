@@ -4,18 +4,20 @@ import { ACADEMY_CASE_1_ID } from '@/lib/academyCurriculum';
 export const ACADEMY_CASE_1 = ACADEMY_CASE_1_ID;
 export const ACADEMY_CASE_2 = 'sales.case_2_video_3330';
 export const ACADEMY_PORTAL_BASICS = 'portal.basics_5';
+export const ACADEMY_PARTNER_MAP = 'portal.partner_map';
 export const ACADEMY_CASE_2_TARGET_VIDEO_ID = 'sxYALA86PaI';
 export const ACADEMY_CASE_2_MACHINE_KEY = 'Timan 3330';
 export const ACADEMY_CASE_2_CONTENT_TYPE = 'maintenance';
 export const ACADEMY_PROGRESS_CHANGED = 'timan:academy-progress-changed';
 const KEY = 'timan.academy.sandbox.v1';
 const SESSION_KEY = 'timan.academy.session.v1';
-export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'portal.basics_5' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations';
+export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'portal.basics_5' | 'portal.partner_map' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations';
 export type AcademyPortalHomeCardId = 'academy' | 'salg_marketing' | 'dealer_data' | 'timan_crm' | 'marketing' | 'teknik_service' | 'calendar' | 'projects' | 'messe' | 'timan_backend';
 const CASE_ROUTES: Record<AcademyActiveCase, string> = {
   'sales.case_1_rc1000': '/configurator?academy_mode=true',
   'sales.case_2_video_3330': '/portal/videos?academy_mode=true&academy_case=2',
   'portal.basics_5': '/portal?academy_mode=true',
+  'portal.partner_map': '/portal/misc/partner-map?academy_mode=true',
   'crm.part_1': '/academy/crm/leads?academy_mode=true&academy_part=1',
   'crm.part_2': '/academy/crm/leads?academy_mode=true&academy_part=2',
   'partnerdata.part_1_profile': '/portal/dealer-data?academy_mode=true&academy_part=1',
@@ -25,6 +27,7 @@ const CASE_PORTAL_HOME_CARDS: Record<AcademyActiveCase, readonly AcademyPortalHo
   'sales.case_1_rc1000': ['academy', 'salg_marketing'],
   'sales.case_2_video_3330': ['academy', 'salg_marketing'],
   'portal.basics_5': ['academy', 'dealer_data', 'messe'],
+  'portal.partner_map': ['academy', 'salg_marketing'],
   'crm.part_1': ['academy', 'timan_crm'],
   'crm.part_2': ['academy', 'timan_crm'],
   'partnerdata.part_1_profile': ['academy', 'dealer_data'],
@@ -93,9 +96,21 @@ export type AcademyPortalBasicsStepSuccess = {
   total: 5;
 };
 
+export type AcademyPartnerMapState = {
+  started: boolean;
+  completed: boolean;
+  ownDealerShown: boolean;
+  fullscreenUsed: boolean;
+  warrantyLayerShown: boolean;
+  warrantyOpened: boolean;
+  serviceDetailOpened: boolean;
+  requiresServiceDetail: boolean;
+};
+
 type AcademySandboxState = AcademyCase1State & {
   case2: AcademyCase2State;
   portalBasics: AcademyPortalBasicsState;
+  partnerMap: AcademyPartnerMapState;
 };
 
 const initialCase1 = (): AcademyCase1State => ({ started: false, completed: false, quoteGenerated: false, leadId: null, machine: false, flail: false, weedBrush: false, requiredComponents: false, workLight: false, wireHarness: false, deliveryDiscount: false, quantityDiscount: false });
@@ -114,7 +129,17 @@ const initialPortalBasics = (): AcademyPortalBasicsState => ({
   pendingStepSuccess: null,
   acknowledgedStepSuccesses: [],
 });
-const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialCase2(), portalBasics: initialPortalBasics() });
+const initialPartnerMap = (): AcademyPartnerMapState => ({
+  started: false,
+  completed: false,
+  ownDealerShown: false,
+  fullscreenUsed: false,
+  warrantyLayerShown: false,
+  warrantyOpened: false,
+  serviceDetailOpened: false,
+  requiresServiceDetail: false,
+});
+const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialCase2(), portalBasics: initialPortalBasics(), partnerMap: initialPartnerMap() });
 
 function isComplete(state: AcademyCase1State) {
   return state.machine && state.flail && state.weedBrush && state.requiredComponents
@@ -134,6 +159,7 @@ function load(): AcademySandboxState {
       ...saved,
       case2: { ...initialCase2(), ...saved.case2 },
       portalBasics: { ...initialPortalBasics(), ...saved.portalBasics },
+      partnerMap: { ...initialPartnerMap(), ...saved.partnerMap },
     };
     // Completion can only be awarded after every Case 1 requirement has
     // passed. Repair local progress saved by the earlier refresh bug, where
@@ -164,7 +190,7 @@ function save(state: AcademySandboxState) {
   }
   return state;
 }
-function case1Of({ case2: _case2, portalBasics: _portalBasics, ...case1 }: AcademySandboxState): AcademyCase1State { return case1; }
+function case1Of({ case2: _case2, portalBasics: _portalBasics, partnerMap: _partnerMap, ...case1 }: AcademySandboxState): AcademyCase1State { return case1; }
 function isPortalBasicsComplete(state: AcademyPortalBasicsState) {
   return state.frenchSelected
     && state.languageRestored
@@ -181,6 +207,14 @@ function portalBasicsCompletedCount(state: AcademyPortalBasicsState) {
     + Number(state.fullscreenUsed)
     + Number(state.mapAreaChanged)
     + Number(state.targetNewsOpened);
+}
+
+function isPartnerMapComplete(state: AcademyPartnerMapState) {
+  return state.ownDealerShown
+    && state.fullscreenUsed
+    && state.warrantyLayerShown
+    && state.warrantyOpened
+    && (!state.requiresServiceDetail || state.serviceDetailOpened);
 }
 
 function withPortalBasicsStepSuccess(
@@ -234,6 +268,7 @@ export const academySandbox = {
   getCase2() { return load().case2; },
   isCase2Unlocked() { return load().completed; },
   getPortalBasics() { return load().portalBasics; },
+  getPartnerMap() { return load().partnerMap; },
   getPortalBasicsStepSuccess() {
     const state = load().portalBasics;
     return state.pendingStepSuccess && !state.acknowledgedStepSuccesses.includes(state.pendingStepSuccess.taskId)
@@ -259,6 +294,7 @@ export const academySandbox = {
       state.completed && ACADEMY_CASE_1,
       state.case2.completed && ACADEMY_CASE_2,
       state.portalBasics.completed && ACADEMY_PORTAL_BASICS,
+      state.partnerMap.completed && ACADEMY_PARTNER_MAP,
     ].filter(Boolean) as string[];
   },
   startCase1() { this.activateCase(ACADEMY_CASE_1); return case1Of(save({ ...load(), started: true })); },
@@ -281,8 +317,58 @@ export const academySandbox = {
       },
     }).portalBasics;
   },
+  startPartnerMap() {
+    this.activateCase(ACADEMY_PARTNER_MAP);
+    const current = load();
+    return save({
+      ...current,
+      partnerMap: { ...initialPartnerMap(), ...current.partnerMap, started: true },
+    }).partnerMap;
+  },
+  configurePartnerMapServiceDetail(required: boolean) {
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
+    const current = load();
+    const partnerMap = { ...current.partnerMap, requiresServiceDetail: required };
+    partnerMap.completed = isPartnerMapComplete(partnerMap);
+    return save({ ...current, partnerMap }).partnerMap;
+  },
+  trackPartnerMapOwnDealer() {
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
+    const current = load();
+    const partnerMap = { ...current.partnerMap, ownDealerShown: true };
+    partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
+    return save({ ...current, partnerMap }).partnerMap;
+  },
+  trackPartnerMapFullscreen() {
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
+    const current = load();
+    const partnerMap = { ...current.partnerMap, fullscreenUsed: true };
+    partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
+    return save({ ...current, partnerMap }).partnerMap;
+  },
+  trackPartnerMapWarrantyLayer() {
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
+    const current = load();
+    const partnerMap = { ...current.partnerMap, warrantyLayerShown: true };
+    partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
+    return save({ ...current, partnerMap }).partnerMap;
+  },
+  trackPartnerMapWarrantyOpened() {
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
+    const current = load();
+    const partnerMap = { ...current.partnerMap, warrantyOpened: true };
+    partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
+    return save({ ...current, partnerMap }).partnerMap;
+  },
+  trackPartnerMapServiceDetail() {
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
+    const current = load();
+    const partnerMap = { ...current.partnerMap, serviceDetailOpened: true };
+    partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
+    return save({ ...current, partnerMap }).partnerMap;
+  },
   trackPortalBasicsLanguage(language: string) {
-    if (!isLocalAcademyMode()) return load().portalBasics;
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started) return current.portalBasics;
     const frenchSelected = current.portalBasics.frenchSelected || language === 'fr';
@@ -297,7 +383,7 @@ export const academySandbox = {
     return save({ ...current, portalBasics }).portalBasics;
   },
   trackPortalBasicsPartnerData() {
-    if (!isLocalAcademyMode()) return load().portalBasics;
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started) return current.portalBasics;
     const portalBasics = { ...current.portalBasics, partnerDataOpened: true };
@@ -305,7 +391,7 @@ export const academySandbox = {
     return save({ ...current, portalBasics }).portalBasics;
   },
   trackPortalBasicsLogoHome(fromPath: string) {
-    if (!isLocalAcademyMode()) return load().portalBasics;
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started || fromPath !== '/portal/dealer-data') return current.portalBasics;
     let portalBasics = { ...current.portalBasics, returnedHomeFromPartnerData: current.portalBasics.partnerDataOpened };
@@ -314,7 +400,7 @@ export const academySandbox = {
     return save({ ...current, portalBasics }).portalBasics;
   },
   trackPortalBasicsFullscreen() {
-    if (!isLocalAcademyMode()) return load().portalBasics;
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started) return current.portalBasics;
     let portalBasics = { ...current.portalBasics, fullscreenUsed: true };
@@ -323,7 +409,7 @@ export const academySandbox = {
     return save({ ...current, portalBasics }).portalBasics;
   },
   trackPortalBasicsMapArea(area: string) {
-    if (!isLocalAcademyMode()) return load().portalBasics;
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started || area === 'none') return current.portalBasics;
     let portalBasics = { ...current.portalBasics, mapAreaChanged: true };
@@ -332,7 +418,7 @@ export const academySandbox = {
     return save({ ...current, portalBasics }).portalBasics;
   },
   trackPortalBasicsNews(title: string) {
-    if (!isLocalAcademyMode()) return load().portalBasics;
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started || title !== PORTAL_BASICS_NEWS_TITLE) return current.portalBasics;
     const portalBasics = { ...current.portalBasics, targetNewsOpened: true, pendingStepSuccess: null };
