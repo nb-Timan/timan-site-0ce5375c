@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { academyPartnerDataSandbox as sandbox, ACADEMY_PARTNER_ACCOUNT } from '@/lib/academyPartnerDataSandbox';
 import { getPartnerDataRepository } from '@/lib/partnerDataRepository';
 import { academyProtectedFetch } from '@/lib/academyProductionWriteGuard';
+import { academySandbox } from '@/lib/academySandbox';
 
 const invoice = { form_type: 'dealer_invoice_accept' as const, dealer_account_number: ACADEMY_PARTNER_ACCOUNT,
   payload: { decision: 'accept', your_company_name: 'Academy Maskiner', your_name: 'Test',
@@ -64,6 +65,7 @@ describe('canonical Partnerdata with a local data adapter', () => {
     await expect(sandbox.updateDealerAccount('real-dealer', { city: 'Wrong' })).rejects.toThrow('outside');
     await expect(sandbox.upsertDealerContact({ id: 'real-contact', dealer_account_id: sandbox.listDealers()[0].id, contact_area: 'sales' })).rejects.toThrow('outside');
     await expect(sandbox.submitInvoice({ ...invoice, dealer_account_number: '10458' })).rejects.toThrow();
+    academySandbox.leaveSession();
     window.history.replaceState({}, '', '/portal');
     await expect(sandbox.deleteDealerContact('anything')).rejects.toThrow('active local session');
   });
@@ -83,6 +85,7 @@ describe('canonical Partnerdata with a local data adapter', () => {
   it('leaves non-Academy requests unchanged and permits read-only GET', async () => {
     const network = vi.fn().mockResolvedValue(new Response('{}')); vi.stubGlobal('fetch', network);
     await academyProtectedFetch('https://example.supabase.co/rest/v1/dealer_accounts');
+    academySandbox.leaveSession();
     window.history.replaceState({}, '', '/portal');
     await academyProtectedFetch('https://example.supabase.co/rest/v1/dealer_accounts', { method: 'PATCH' });
     expect(network).toHaveBeenCalledTimes(2);

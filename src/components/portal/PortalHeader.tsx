@@ -97,8 +97,8 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const showMesseHomeShortcut = !hideMesseHomeShortcut && location.pathname.startsWith('/messe/') && location.pathname !== '/messe';
   const backInfo = getPortalBackInfo(location.pathname, language, location.search);
   const isDealerUser = derivePortalRole(user) === 'dealer_user';
-  const showPortalBackButton = location.pathname.startsWith('/portal/') || location.pathname === '/configurator';
-  const portalBackTarget = isDealerUser && location.pathname.startsWith('/portal/') ? '/portal' : backInfo.to;
+  const showPortalBackButton = location.pathname.startsWith('/portal/') || location.pathname === '/configurator' || (academySandbox.isActive() && location.pathname !== '/academy');
+  const portalBackTarget = academySandbox.isActive() ? '/academy' : isDealerUser && location.pathname.startsWith('/portal/') ? '/portal' : backInfo.to;
   const portalBackLabel = t('previous', uiLanguage);
   const activeLanguage = LANGS.find((l) => l.code === uiLanguage) || LANGS[0];
   const academyActive = location.pathname.startsWith('/academy') || academySandbox.isActive();
@@ -112,6 +112,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   }
 
   function homeTarget(): string {
+    if (academyActive) return '/academy';
     if (isMesseVariantUser(user)) return '/messe';
     if (activeMode === 'role:exhibition_user') return '/messe';
     return '/portal';
@@ -460,6 +461,14 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
           </div>
         </div>
       </div>
+      {academyActive && location.pathname !== '/academy' && (
+        <div className="border-t border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950">
+          <div className="mx-auto flex max-w-7xl flex-wrap justify-between gap-2">
+            <span>Academy træningsmiljø · Alt træningsarbejde gemmes lokalt</span>
+            <Link to="/academy" className="font-semibold underline">Tilbage til Min Academy</Link>
+          </div>
+        </div>
+      )}
       {showModeSwitch && activeUserView && (
         <div className="bg-amber-50 border-t border-amber-200 text-amber-800 text-xs">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-1.5 flex items-center justify-center gap-2">

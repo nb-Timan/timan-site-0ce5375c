@@ -44,7 +44,7 @@ export default function VideoGalleryPage() {
   const [, setAcademyRevision] = useState(0);
   const [active, setActive] = useState<MarketingVideo | null>(null);
   const localAcademySession = academySandbox.isActive();
-  const isAcademyCase2 = localAcademySession && searchParams.get("academy_case") === "2";
+  const isAcademyCase2 = localAcademySession && (academySandbox.getActiveCase() === 'sales.case_2_video_3330' || searchParams.get("academy_case") === "2");
   // Academy training is intentionally local-only. It can render the normal gallery
   // without creating an authenticated production portal session.
   const portalUser = localAcademySession ? getLocalAcademyUser() : appUser;

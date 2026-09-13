@@ -68,6 +68,7 @@ export const academyPartnerDataSandbox = {
     assertActive();
     const state = read();
     if (part === 2 && !progress(state).part1Completed) throw new Error('Complete Partnerdata Part 1 first.');
+    academySandbox.activateCase(part === 2 ? ACADEMY_PARTNERDATA_PART_2 : ACADEMY_PARTNERDATA_PART_1);
     return write({ ...state, activePart: part, part1Started: true, part2Started: part === 2 || state.part2Started });
   },
   listDealers() { assertActive(); return read().dealers; },

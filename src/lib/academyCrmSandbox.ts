@@ -22,8 +22,9 @@ const write = (state: State) => { localStorage.setItem(KEY, JSON.stringify(state
 const isFuture = (value: string) => new Date(`${value}T00:00:00`).getTime() > new Date(new Date().toDateString()).getTime();
 export const academyCrmSandbox = {
   isActive: () => academySandbox.isActive(),
+  getPart: () => academySandbox.getCrmPart(),
   getState: read,
-  start(part: 1 | 2) { const current = read(); if (part === 2 && !this.getProgress().part1Completed) throw new Error('Lead Part 1 skal gennemføres først.'); return write({ ...current, part1Started: part === 1 || current.part1Started, part2Started: part === 2 || current.part2Started }); },
+  start(part: 1 | 2) { const current = read(); if (part === 2 && !this.getProgress().part1Completed) throw new Error('Lead Part 1 skal gennemføres først.'); academySandbox.activateCase(part === 2 ? 'crm.part_2' : 'crm.part_1'); return write({ ...current, part1Started: part === 1 || current.part1Started, part2Started: part === 2 || current.part2Started }); },
   saveLead(id: AcademyLeadId, patch: Partial<Pick<AcademyLead, 'nextFollowup' | 'activity' | 'incomplete'>>) {
     if (!this.isActive()) throw new Error('Academy CRM writes must never use production persistence.');
     const current = read(); const leads = current.leads.map((lead) => lead.id === id ? { ...lead, ...patch, saved: true } : lead);
@@ -42,7 +43,7 @@ export const academyCrmSandbox = {
     return { id: lead.id, lead_no: lead.id === 'academy-overdue-lead' ? 9101 : lead.id === 'academy-configurator-lead' ? 9102 : 9103, title: lead.title, owner_user_id: 'academy-local-sales-user', owner_name: 'Academy Sales', owner_email: 'academy.sales@localhost', linked_dealer_id: ACADEMY_CRM_PARTNER.id, first_contact_date: '2026-09-01', expected_close_date: '2026-11-01', next_followup_date: lead.nextFollowup, machine_types: ['RC-1000'], next_activity: lead.activity, demo_has_run: 'no', contact_type: 'Phone', customer_type: 'Municipality', contact_information: 'Firma/CVR: Academy Kunde\nKontaktperson: Academy Kontakt\nAdresse: Academyvej 1\nPostnr. og by: 9000 Aalborg\nTelefon: +45 70 00 00 00\nE-mail: academy@example.test\nLand: Danmark', trade_fair: null, country: 'Danmark', notes: 'Lokal Academy-træningsdata.', estimated_value: 100000, probability: 25, pipeline_stage: 'Lead', lost_competitor: null, lost_reason: null, lost_comment: null, attachments: [], status: 'open', move_to_working_qty: 0, incomplete_from_configurator: lead.incomplete, created_at: now, updated_at: now, ...lead.record };
   },
   listLeadsPage(options: ListLeadsPageOpts): CrmLeadsPageQueryResult {
-    const part = new URLSearchParams(window.location.search).get('academy_part') === '2' ? 2 : 1;
+    const part = this.getPart();
     const all = read().leads.filter((lead) => part === 2 ? lead.id === 'academy-demo-lead' : lead.id !== 'academy-demo-lead');
     const q = (options.search || '').trim().toLowerCase();
     const leads = q ? all.filter((lead) => lead.title.toLowerCase().includes(q)) : all;

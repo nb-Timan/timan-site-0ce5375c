@@ -231,7 +231,7 @@ export default function PortalPage() {
   const academyProgress = getAcademyProgress(effectiveUser, academyCompletedCaseIds);
   const portalBasics = academySandbox.getPortalBasics();
   const isPortalBasicsAcademy = academySandbox.isActive()
-    && portalBasics.started;
+    && academySandbox.getActiveCase() === 'portal.basics_5';
   const academyCapabilityGated = isAcademyCapabilityGated(effectiveUser);
   const configuratorUnlocked = isAcademyCapabilityUnlocked(effectiveUser, 'configurator', academyCompletedCaseIds);
   const configuratorProgress = getAcademyCapabilityProgress('configurator', academyCompletedCaseIds);

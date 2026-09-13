@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { academyCrmSandbox, ACADEMY_CRM_PARTNER } from '@/lib/academyCrmSandbox';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
+import { academySandbox } from '@/lib/academySandbox';
 
 describe('Academy CRM lead sandbox', () => {
   beforeEach(() => {
@@ -44,6 +45,7 @@ describe('Academy CRM lead sandbox', () => {
     expect(academyCrmSandbox.getState().leads.find((lead) => lead.id === 'academy-overdue-lead')?.saved).toBe(true);
 
     window.history.replaceState({}, '', '/portal/crm/leads');
+    academySandbox.leaveSession();
     expect(() => academyCrmSandbox.saveLead('academy-overdue-lead', { activity: 'Production must not run' })).toThrow('Academy CRM writes must never use production persistence.');
   });
 

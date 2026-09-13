@@ -7,6 +7,7 @@
  * crmActivitiesService.ts.
  */
 import { supabase } from "@/lib/supabase";
+import { academySandbox } from '@/lib/academySandbox';
 import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
 import { BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, fiscalYearForCalendarMonth, localizedName } from "@/lib/crmBudgetService";
@@ -454,7 +455,7 @@ function isUuid(value: string | null | undefined): boolean {
 }
 
 export async function createLead(input: NewCrmLead, opts: { requireRemote?: boolean } = {}): Promise<CrmLead> {
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
+  if (academySandbox.isActive()) {
     throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
   }
   const now = new Date().toISOString();
@@ -648,7 +649,7 @@ export async function updateLead(
   patch: CrmLeadPatch,
   options: UpdateLeadOptions = {},
 ): Promise<CrmLead> {
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
+  if (academySandbox.isActive()) {
     throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
   }
   const now = new Date().toISOString();
@@ -1037,7 +1038,7 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
 export type NewCrmDemoLead = Omit<CrmDemoLead, "id" | "created_at">;
 
 export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead> {
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('academy_mode') === 'true') {
+  if (academySandbox.isActive()) {
     throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
   }
   const now = new Date().toISOString();

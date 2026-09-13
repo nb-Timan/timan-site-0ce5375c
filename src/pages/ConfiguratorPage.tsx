@@ -2683,18 +2683,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             title="Case 1 - Byg korrekt RC-1000 ordre"
             description="Intet tilbud, lead, mail eller ordre sendes til produktion."
             tasks={[
-              { complete: academyCase.machine, label: 'RC-1000 valgt' },
+              { complete: academyCase.machine, label: 'RC-1000s valgt' },
               { complete: academyCase.quantityDiscount, label: 'Mængderabat opnået' },
               { complete: academyCase.flail, label: 'Slagleklipper 410910 valgt' },
               { complete: academyCase.weedBrush, label: 'Ukrudtsbørste 730600 valgt' },
               { complete: academyCase.requiredComponents, label: 'Beslag 412603 valgt' },
               { complete: academyCase.workLight, label: 'Arbejdslys 412594 valgt' },
-              { complete: academyCase.wireHarness, label: 'Ledningsnet 412614 tilføjet' },
+              { complete: academyCase.wireHarness, label: 'Ledningsnet 412614 tilføjet', description: 'Arbejdslys kræver ledningsnet. Kontrollér, at begge er valgt.' },
               { complete: academyCase.deliveryDiscount, label: 'Leveringsrabat opnået' },
               { complete: academyCase.quoteGenerated, label: 'Tilbud genereret' },
               { complete: Boolean(academyCase.leadId), label: 'Gemt som Academy-lead' },
             ]}
-            next="vælg maskiner, udstyr og rabatter. Generér træningstilbuddet og afslut med Gem som Academy-lead."
+            next={!academyCase.machine ? 'Start med at vælge RC-1000s og konfigurér derefter de krævede redskaber.' : !academyCase.flail || !academyCase.weedBrush || !academyCase.requiredComponents || !academyCase.workLight || !academyCase.wireHarness ? 'Tilføj de manglende redskaber og komponenter i checklisten.' : !academyCase.quantityDiscount || !academyCase.deliveryDiscount ? 'Vælg antal og levering, så begge rabatter opnås.' : !academyCase.quoteGenerated ? 'Generér træningstilbuddet.' : 'Afslut med Gem som Academy-lead.'}
             actions={<button type="button"
               onClick={() => setAcademyCase(academySandbox.generateQuote())}
               disabled={academyCase.quoteGenerated}

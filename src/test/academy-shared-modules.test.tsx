@@ -23,6 +23,7 @@ describe('same module, local Academy persistence', () => {
     const reopened = renderHook(() => useConfigurator());
     expect(reopened.result.current.state).toEqual(saved);
     reopened.unmount();
+    academySandbox.leaveSession();
     window.history.replaceState({}, '', '/configurator');
     const normal = renderHook(() => useConfigurator());
     expect(normal.result.current.state.machineConfigs).toEqual([]);
@@ -38,6 +39,7 @@ describe('same module, local Academy persistence', () => {
     expect(rows.some((row) => row.youtube_video_id !== ACADEMY_CASE_2_TARGET_VIDEO_ID)).toBe(true);
     saveAcademyVideoPreferences({ filters, favorites: [filtered[0].id] });
     expect(readAcademyVideoPreferences()).toEqual({ filters, favorites: [filtered[0].id] });
+    academySandbox.leaveSession();
     window.history.replaceState({}, '', '/portal/videos');
     saveAcademyVideoPreferences({ favorites: [] });
     expect(readAcademyVideoPreferences().favorites).toEqual([filtered[0].id]);

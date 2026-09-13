@@ -306,10 +306,10 @@ export default function AcademyPage() {
             <section className="relative min-h-[174px] overflow-hidden rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
               <div className="relative z-10">
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><CirclePlay className="h-4 w-4 text-[#126a45]" />Fortsæt hvor jeg slap</div>
-                <p className="mt-3 text-sm font-bold text-slate-900">Case 1 - Byg korrekt RC-1000 ordre</p>
-                <p className="mt-1 text-xs text-slate-500">{requirements} af 10 krav opfyldt</p>
-                <button type="button" onClick={startCase} className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#126a45] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0f5a3b]">
-                  {task.started ? 'Fortsæt' : 'Start'}
+                <p className="mt-3 text-sm font-bold text-slate-900">{academySandbox.getActiveCase() ? 'Din aktive Academy-opgave' : 'Case 1 - Byg korrekt RC-1000 ordre'}</p>
+                <p className="mt-1 text-xs text-slate-500">{academySandbox.getActiveCase() ? 'Genoptag opgaven med din gemte fremgang.' : `${requirements} af 10 krav opfyldt`}</p>
+                <button type="button" onClick={() => academySandbox.getActiveCase() ? navigate(academySandbox.getContinueRoute()) : startCase()} className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#126a45] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0f5a3b]">
+                  {academySandbox.getActiveCase() || task.started ? 'Fortsæt' : 'Start'}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </button>
               </div>

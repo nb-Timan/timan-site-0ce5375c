@@ -95,7 +95,7 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
         <nav className="relative flex flex-wrap items-center gap-1 mb-6 border-b border-slate-200/80">
           {navItems.map(item => {
             const academyLeads = academyCrmSandbox.isActive() && item.to === '/portal/crm/leads';
-            const part = new URLSearchParams(location.search).get('academy_part') === '2' ? 2 : 1;
+            const part = academyCrmSandbox.getPart();
             const to = academyLeads ? `/academy/crm/leads?academy_mode=true&academy_part=${part}` : item.to;
             const active = location.pathname === item.to || (academyLeads && location.pathname.startsWith('/academy/crm/leads'));
             const Icon = item.icon;

@@ -43,7 +43,7 @@ export default function AcademyGuidancePanel({
       {actions && <div className="mt-3">{actions}</div>}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
         <span className={isComplete ? 'text-emerald-800' : 'text-amber-950'}>{isComplete ? 'Case gennemført.' : `Næste trin: ${next}`}</span>
-        <Link to="/academy" className="text-[#126a45] hover:underline">Tilbage til Academy</Link>
+        <Link to="/academy" className="text-[#126a45] hover:underline">Tilbage til Min Academy</Link>
       </div>
     </section>
   );

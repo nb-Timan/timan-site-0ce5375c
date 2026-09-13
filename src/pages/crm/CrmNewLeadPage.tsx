@@ -766,7 +766,7 @@ export default function CrmNewLeadPage() {
   const { id: editId } = useParams<{ id: string }>();
   const isEdit = !!editId;
   const repository = getCrmLeadRepository();
-  const academyPart = new URLSearchParams(window.location.search).get('academy_part') === '2' ? 2 : 1;
+  const academyPart = academyCrmSandbox.getPart();
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole) || isExternalCrmRole(portalRole);
 

@@ -1,0 +1,53 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { academySandbox, type AcademyActiveCase } from '@/lib/academySandbox';
+import { academyProtectedFetch } from '@/lib/academyProductionWriteGuard';
+
+beforeEach(() => {
+  localStorage.clear();
+  sessionStorage.clear();
+  window.history.replaceState({}, '', '/portal');
+  vi.stubEnv('DEV', false);
+});
+afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+
+describe('production Academy context', () => {
+  it.each<AcademyActiveCase>([
+    'sales.case_1_rc1000', 'sales.case_2_video_3330', 'portal.basics_5',
+    'crm.part_1', 'crm.part_2', 'partnerdata.part_1_profile', 'partnerdata.part_2_relations',
+  ])('persists %s independently of query and tab storage', (caseId) => {
+    academySandbox.activateCase(caseId);
+    const route = academySandbox.getContinueRoute();
+    window.history.replaceState({}, '', '/portal/videos');
+    sessionStorage.clear();
+    expect(academySandbox.isActive()).toBe(true);
+    expect(academySandbox.getActiveCase()).toBe(caseId);
+    expect(academySandbox.getContinueRoute()).toBe(route);
+    expect(route).not.toBe('/academy');
+  });
+  it('keeps CRM part 2 when a nested link drops its query', () => {
+    academySandbox.activateCase('crm.part_2');
+    expect(academySandbox.getCrmPart()).toBe(2);
+  });
+  it('explicit exit wins over browser history without deleting progress', () => {
+    academySandbox.startCase1();
+    const progress = academySandbox.getCase1();
+    academySandbox.leaveSession();
+    window.history.replaceState({}, '', '/configurator?academy_mode=true');
+    expect(academySandbox.isActive()).toBe(false);
+    expect(academySandbox.getActiveCase()).toBeNull();
+    expect(academySandbox.getCase1()).toEqual(progress);
+    academySandbox.startCase1();
+    expect(academySandbox.isActive()).toBe(true);
+  });
+  it('normal portal and malformed session do not activate Academy', () => {
+    expect(academySandbox.isActive()).toBe(false);
+    localStorage.setItem('timan.academy.session.v1', 'null');
+    expect(academySandbox.isActive()).toBe(false);
+  });
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE'])('blocks production %s without DEV or query flags', async (method) => {
+    academySandbox.activateCase('crm.part_1');
+    const network = vi.spyOn(globalThis, 'fetch');
+    await expect(academyProtectedFetch('https://example.supabase.co/rest/v1/crm_leads', { method })).rejects.toThrow('production writes');
+    expect(network).not.toHaveBeenCalled();
+  });
+});

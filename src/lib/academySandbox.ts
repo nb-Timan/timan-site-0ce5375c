@@ -9,6 +9,32 @@ export const ACADEMY_CASE_2_MACHINE_KEY = 'Timan 3330';
 export const ACADEMY_CASE_2_CONTENT_TYPE = 'maintenance';
 const KEY = 'timan.academy.sandbox.v1';
 const SESSION_KEY = 'timan.academy.session.v1';
+export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'portal.basics_5' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations';
+const CASE_ROUTES: Record<AcademyActiveCase, string> = {
+  'sales.case_1_rc1000': '/configurator?academy_mode=true',
+  'sales.case_2_video_3330': '/portal/videos?academy_mode=true&academy_case=2',
+  'portal.basics_5': '/portal?academy_mode=true',
+  'crm.part_1': '/academy/crm/leads?academy_mode=true&academy_part=1',
+  'crm.part_2': '/academy/crm/leads?academy_mode=true&academy_part=2',
+  'partnerdata.part_1_profile': '/portal/dealer-data?academy_mode=true&academy_part=1',
+  'partnerdata.part_2_relations': '/portal/dealer-data?academy_mode=true&academy_part=2',
+};
+function readSession(): { active: boolean; caseId?: AcademyActiveCase } {
+  try {
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed.active === 'boolean') {
+        return { active: parsed.active, caseId: Object.prototype.hasOwnProperty.call(CASE_ROUTES, parsed.caseId) ? parsed.caseId : undefined };
+      }
+    }
+  } catch { /* Restore the legacy tab session below. */ }
+  const active = sessionStorage.getItem(SESSION_KEY) === 'active'
+    || new URLSearchParams(window.location.search).get('academy_mode') === 'true';
+  const session = { active };
+  if (active) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  return session;
+}
 const PORTAL_BASICS_NEWS_TITLE = 'Skivehøster til Timan RC-1000s';
 
 export type AcademyCase1State = {
@@ -75,10 +101,7 @@ function isComplete(state: AcademyCase1State) {
 }
 
 function isLocalAcademyMode() {
-  return import.meta.env.DEV && (
-    new URLSearchParams(window.location.search).get('academy_mode') === 'true'
-    || sessionStorage.getItem(SESSION_KEY) === 'active'
-  );
+  return readSession().active === true;
 }
 
 function load(): AcademySandboxState {
@@ -133,10 +156,29 @@ function isPortalBasicsComplete(state: AcademyPortalBasicsState) {
 export const academySandbox = {
   isActive: isLocalAcademyMode,
   enterSession() {
-    if (import.meta.env.DEV) sessionStorage.setItem(SESSION_KEY, 'active');
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ ...readSession(), active: true }));
   },
   leaveSession() {
-    if (import.meta.env.DEV) sessionStorage.removeItem(SESSION_KEY);
+    // An explicit exit wins over stale Academy query parameters in browser history.
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ active: false }));
+    sessionStorage.removeItem(SESSION_KEY);
+  },
+  activateCase(caseId: AcademyActiveCase) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ active: true, caseId }));
+  },
+  getActiveCase() {
+    const session = readSession();
+    return session.active ? session.caseId ?? null : null;
+  },
+  getContinueRoute() {
+    const caseId = this.getActiveCase();
+    return caseId ? CASE_ROUTES[caseId] : '/academy';
+  },
+  getCrmPart(): 1 | 2 {
+    const caseId = this.getActiveCase();
+    if (caseId === 'crm.part_2') return 2;
+    if (caseId === 'crm.part_1') return 1;
+    return new URLSearchParams(window.location.search).get('academy_part') === '2' ? 2 : 1;
   },
   getCase1() { return case1Of(load()); },
   getCase2() { return load().case2; },
@@ -149,14 +191,14 @@ export const academySandbox = {
       state.portalBasics.completed && ACADEMY_PORTAL_BASICS,
     ].filter(Boolean) as string[];
   },
-  startCase1() { return case1Of(save({ ...load(), started: true })); },
+  startCase1() { this.activateCase(ACADEMY_CASE_1); return case1Of(save({ ...load(), started: true })); },
   startCase2() {
+    this.activateCase(ACADEMY_CASE_2);
     const current = load();
     return save({ ...current, case2: { ...current.case2, started: true } }).case2;
   },
   startPortalBasics(startingLanguage: string) {
-    if (!import.meta.env.DEV) throw new Error('Academy sandbox is only available on localhost.');
-    this.enterSession();
+    this.activateCase(ACADEMY_PORTAL_BASICS);
     const current = load();
     return save({
       ...current,

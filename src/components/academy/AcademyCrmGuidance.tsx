@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import AcademyGuidancePanel from '@/components/academy/AcademyGuidancePanel';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 
-export default function AcademyCrmGuidance({ part = 1 }: { part?: 1 | 2 }) {
+export default function AcademyCrmGuidance({ part = academyCrmSandbox.getPart() }: { part?: 1 | 2 }) {
   const [, refresh] = useState(0);
   useEffect(() => {
     const update = () => refresh((revision) => revision + 1);

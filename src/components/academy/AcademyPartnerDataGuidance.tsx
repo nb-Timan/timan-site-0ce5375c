@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AcademyGuidancePanel from './AcademyGuidancePanel';
 import { academyPartnerDataSandbox as sandbox, ACADEMY_PARTNER_CHANGED } from '@/lib/academyPartnerDataSandbox';
+import { academySandbox } from '@/lib/academySandbox';
 
 export default function AcademyPartnerDataGuidance() {
   const [, refresh] = useState(0);
@@ -13,7 +14,7 @@ export default function AcademyPartnerDataGuidance() {
   if (!sandbox.isActive()) return null;
   const state = sandbox.getState();
   const progress = sandbox.getProgress();
-  const part = state.activePart;
+  const part = academySandbox.getActiveCase() === 'portal.basics_5' ? null : state.activePart;
   const tasks = part === 1 ? [
     { label: 'Kontaktperson gemt', complete: state.contacts.some((row) => !!row.name?.trim()) },
     { label: 'Første kontakt valgt', complete: state.contacts.some((row) => row.is_primary && !!row.name?.trim()) },
