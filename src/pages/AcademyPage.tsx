@@ -21,10 +21,10 @@ import {
 } from 'lucide-react';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { academySandbox } from '@/lib/academySandbox';
+import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import {
   activateLocalAcademyEnrollment,
   getAcademyCapabilityProgress,
-  getAcademyProgress,
   getLocalAcademyUser,
   isAcademyCapabilityUnlocked,
 } from '@/lib/academyCurriculum';
@@ -137,7 +137,7 @@ function AcademyRow({ image, title, description, state, action, onClick }: {
       <div className="flex items-center gap-3">
         <Status state={state} />
         {action && (
-          <button type="button" onClick={onClick} className="hidden items-center gap-1 rounded-md bg-[#126a45] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#0f5a3b] sm:inline-flex">
+          <button type="button" onClick={onClick} className="inline-flex items-center gap-1 rounded-md bg-[#126a45] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#0f5a3b]">
             {action}
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
@@ -167,13 +167,17 @@ export default function AcademyPage() {
   const { language, setLanguage } = useLanguage();
   const task = academySandbox.getCase1();
   const videoTask = academySandbox.getCase2();
+  const portalBasics = academySandbox.getPortalBasics();
+  const crm = academyCrmSandbox.getProgress();
 
   // Enrollment is training state only; the portal's authenticated user remains untouched.
-  useEffect(() => { activateLocalAcademyEnrollment(); }, []);
+  useEffect(() => {
+    activateLocalAcademyEnrollment();
+    academySandbox.enterSession();
+  }, []);
 
   const user = effectiveUser || appUser || getLocalAcademyUser();
   const completed = academySandbox.getCompletedCaseIds();
-  const progress = getAcademyProgress(user, completed);
   const configurator = getAcademyCapabilityProgress('configurator', completed);
   const unlocked = !resolving && isAcademyCapabilityUnlocked(user, 'configurator', completed);
   const requirements = [
@@ -190,6 +194,20 @@ export default function AcademyPage() {
   ].filter(Boolean).length;
   const caseState: State = task.completed ? 'done' : task.started ? 'active' : 'new';
   const videoCaseState: State = videoTask.completed ? 'done' : videoTask.started ? 'active' : 'ready';
+  const portalBasicsChecks = [
+    portalBasics.frenchSelected && portalBasics.languageRestored,
+    portalBasics.partnerDataOpened && portalBasics.returnedHomeFromPartnerData,
+    portalBasics.fullscreenUsed,
+    portalBasics.mapAreaChanged,
+    portalBasics.targetNewsOpened,
+  ].filter(Boolean).length;
+  const crmCompleted = Number(crm.part1Completed) + Number(crm.part2Completed);
+  const overallCompleted = Number(task.completed) + Number(videoTask.completed) + Number(portalBasics.completed) + crmCompleted;
+  const overallTotal = 5;
+  const overallPercentage = overallCompleted / overallTotal * 100;
+  const portalBasicsState: State = portalBasics.completed ? 'done' : portalBasics.started ? 'active' : 'new';
+  const crmPart1State: State = crm.part1Completed ? 'done' : academyCrmSandbox.getState().part1Started ? 'active' : 'new';
+  const crmPart2State: State = crm.part2Completed ? 'done' : academyCrmSandbox.getState().part2Started ? 'active' : crm.part1Completed ? 'ready' : 'locked';
   const startCase = () => {
     academySandbox.startCase1();
     navigate('/configurator?academy_mode=true');
@@ -197,6 +215,18 @@ export default function AcademyPage() {
   const startVideoCase = () => {
     academySandbox.startCase2();
     navigate('/portal/videos?academy_mode=true&academy_case=2');
+  };
+  const startPortalBasics = () => {
+    academySandbox.startPortalBasics(language);
+    navigate('/portal?academy_mode=true');
+  };
+  const startCrmPart1 = () => {
+    academyCrmSandbox.start(1);
+    navigate('/academy/crm/leads?academy_mode=true&academy_part=1');
+  };
+  const startCrmPart2 = () => {
+    academyCrmSandbox.start(2);
+    navigate('/academy/crm/leads?academy_mode=true&academy_part=2');
   };
 
   return (
@@ -230,9 +260,9 @@ export default function AcademyPage() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <section className="min-h-[154px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><BarChart3 className="h-4 w-4 text-[#126a45]" />Din progression</div>
-              <div className="mt-4 text-2xl font-bold text-slate-900">{progress.completedCount} / {progress.total}</div>
-              <ProgressBar value={progress.percentage} />
-              <p className="mt-2 text-xs font-medium text-slate-500">{progress.percentage}% gennemført</p>
+              <div className="mt-4 text-2xl font-bold text-slate-900">{overallCompleted} / {overallTotal}</div>
+              <ProgressBar value={overallPercentage} />
+              <p className="mt-2 text-xs font-medium text-slate-500">{Math.round(overallPercentage)}% gennemført</p>
             </section>
             <section className="min-h-[154px] rounded-xl border border-amber-300 bg-amber-50/70 p-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Lock className="h-4 w-4 text-amber-700" />Næste oplåsning</div>
@@ -245,8 +275,8 @@ export default function AcademyPage() {
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Trophy className="h-4 w-4 text-amber-600" />Næste milepæl</div>
               <p className="mt-3 text-lg font-bold text-slate-900">Bronze</p>
               <p className="mt-1 text-xs leading-4 text-slate-600">Gennemfør grundlæggende Sales-opgaver.</p>
-              <ProgressBar value={progress.percentage} />
-              <p className="mt-2 text-xs font-bold text-slate-600">{progress.completedCount} / {progress.total}</p>
+              <ProgressBar value={overallPercentage} />
+              <p className="mt-2 text-xs font-bold text-slate-600">{overallCompleted} / {overallTotal}</p>
             </section>
             <section className="min-h-[154px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Medal className="h-4 w-4 text-[#126a45]" />Badges</div>
@@ -276,8 +306,8 @@ export default function AcademyPage() {
               <div className="relative mt-6 flex items-start justify-between">
                 <div className="absolute left-[12%] right-[12%] top-[18px] h-px bg-slate-200" />
                 <Journey icon={ShoppingCart} label="Konfigurator" active={unlocked} />
-                <Journey icon={Users} label="CRM" />
-                <Journey icon={CirclePlay} label="Demo" />
+                <Journey icon={Users} label="CRM" active={crm.part1Completed} />
+                <Journey icon={CirclePlay} label="Demo" active={crm.part2Completed} />
                 <Journey icon={Gem} label="Tilbud & ordre" />
               </div>
             </section>
@@ -288,11 +318,17 @@ export default function AcademyPage() {
               <AcademyRow image="/messe/machines/rc-1000s-tile.png" title="Case 1 - Byg korrekt RC-1000 ordre" description="Konfigurer RC-1000 med nødvendigt udstyr, rabatter og Academy-lead." state={caseState} action={task.started ? 'Fortsæt' : 'Start'} onClick={startCase} />
               <AcademyRow image="/messe/machines/timan-3330-tile.png" title="Case 2 - Find en vedligeholdelsesvideo" description="Find og åbn den korrekte Weed Brush-vedligeholdelsesvideo for Timan 3330." state={videoCaseState} action={videoTask.started ? 'Fortsæt' : 'Start'} onClick={startVideoCase} />
             </Module>
+            <Module icon={Map} title="Portal Basics" progress={`${portalBasicsChecks} / 5 gennemført`}>
+              <AcademyRow title="Portal Basics - 5 hurtige" description="Skift sprog, besøg Partnerdata, brug fuldskærm, ændr partnerkort og åbn den rigtige nyhed." state={portalBasicsState} action={portalBasics.started ? 'Fortsæt' : 'Start'} onClick={startPortalBasics} />
+            </Module>
             <Module icon={Users} title="Partnerdata" progress="0 / 2 gennemført">
               <AcademyRow title="Part 1 - Virksomheds- og persondata" description="Tilføj rigtige kontaktpersoner, vælg første kontakt og opdater virksomhedens YouTube-kanal." state="new" />
               <AcademyRow title="Part 2 - Samarbejdspartnere og fakturering" description="Lær partnerrelationer og fakturaaccept for reservedelsbestilling at kende." state="locked" />
             </Module>
-            <LockedModule icon={Users} title="CRM" progress="0 / 2 gennemført" description="Låses op senere i Academy-rejsen." />
+            <Module icon={Users} title="CRM" progress={`${crmCompleted} / 2 gennemført`}>
+              <AcademyRow title="Case 1 - Prioritér og færdiggør leads" description="Flyt det forfaldne follow-up og færdiggør det lokale Configurator-lead." state={crmPart1State} action={crmPart1State === 'locked' ? undefined : crm.part1Completed ? 'Åbn' : academyCrmSandbox.getState().part1Started ? 'Fortsæt' : 'Start'} onClick={startCrmPart1} />
+              <AcademyRow title="Case 2 - Del lead og opret demo" description="Planlæg aktivitet, del med Academy-forhandleren og konvertér til en lokal demo." state={crmPart2State} action={crm.part1Completed ? (crm.part2Completed ? 'Åbn' : academyCrmSandbox.getState().part2Started ? 'Fortsæt' : 'Start') : undefined} onClick={crm.part1Completed ? startCrmPart2 : undefined} />
+            </Module>
             <LockedModule icon={CalendarDays} title="Kalender" progress="0 / 1 gennemført" description="Låses op senere i Academy-rejsen." />
           </div>
 

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ACADEMY_CASE_1, ACADEMY_CASE_2_TARGET_VIDEO_ID, academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_CASE_1, ACADEMY_CASE_2_TARGET_VIDEO_ID, ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
 
 const completeInput = {
   machineConfigs: [{ type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 2 }],
@@ -10,6 +10,7 @@ const completeInput = {
 describe('Academy Case 1 sandbox', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     window.history.replaceState({}, '', '/configurator?academy_mode=true');
   });
 
@@ -139,5 +140,49 @@ describe('Academy Case 1 sandbox', () => {
       targetVisible: true,
     });
     expect(state.completed).toBe(false);
+  });
+
+  it('completes Portal Basics only after all five local portal tasks are completed', () => {
+    window.history.replaceState({}, '', '/portal?academy_mode=true');
+    academySandbox.startPortalBasics('da');
+
+    academySandbox.trackPortalBasicsLanguage('fr');
+    academySandbox.trackPortalBasicsLanguage('da');
+    academySandbox.trackPortalBasicsPartnerData();
+    academySandbox.trackPortalBasicsHomeReturn('/portal/dealer-data');
+    academySandbox.trackPortalBasicsFullscreen();
+    academySandbox.trackPortalBasicsMapArea('de_plz2');
+    academySandbox.trackPortalBasicsNews('Forkert nyhed');
+
+    expect(academySandbox.getPortalBasics()).toMatchObject({
+      frenchSelected: true,
+      languageRestored: true,
+      partnerDataOpened: true,
+      returnedHomeFromPartnerData: true,
+      fullscreenUsed: true,
+      mapAreaChanged: true,
+      targetNewsOpened: false,
+      completed: false,
+    });
+
+    academySandbox.trackPortalBasicsNews('Skivehøster til Timan RC-1000s');
+    expect(academySandbox.getPortalBasics().completed).toBe(true);
+    expect(academySandbox.getCompletedCaseIds()).toContain(ACADEMY_PORTAL_BASICS);
+  });
+
+  it('keeps Portal Basics local across a refresh-equivalent read', () => {
+    window.history.replaceState({}, '', '/portal?academy_mode=true');
+    academySandbox.startPortalBasics('da');
+    academySandbox.trackPortalBasicsLanguage('fr');
+    academySandbox.trackPortalBasicsLanguage('da');
+    academySandbox.trackPortalBasicsPartnerData();
+
+    expect(academySandbox.getPortalBasics()).toMatchObject({
+      started: true,
+      frenchSelected: true,
+      languageRestored: true,
+      partnerDataOpened: true,
+      completed: false,
+    });
   });
 });

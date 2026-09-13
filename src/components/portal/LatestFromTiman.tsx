@@ -6,6 +6,7 @@ import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
 import { resolveNewsRenderContent } from '@/features/news-cms/lib/newsContent';
 import { readNewsHomepageFocus } from '@/features/news-cms/lib/newsHomepageFocus';
 import { getNewsTemplate } from '@/features/news-cms/templates/registry';
+import { academySandbox } from '@/lib/academySandbox';
 
 interface Props {
   language: PortalUiLanguage;
@@ -159,7 +160,10 @@ export default function LatestFromTiman({ language }: Props) {
               key={item.id}
               type="button"
               onClick={() => {
-                if (opensInModal) setOpenPost(item);
+                if (opensInModal) {
+                  if (academySandbox.isActive()) academySandbox.trackPortalBasicsNews(localizedItem.title);
+                  setOpenPost(item);
+                }
               }}
               className="block bg-white border border-gray-100 rounded-xl p-4 transition-all hover:border-gray-200 hover:shadow-md disabled:hover:shadow-none"
               disabled={!opensInModal}

@@ -22,6 +22,7 @@ import { t } from '@/lib/i18n/translations';
 import { getPortalBackInfo } from '@/lib/portalBackNav';
 import BackendSideNav from '@/components/portal/BackendSideNav';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
+import { academySandbox } from '@/lib/academySandbox';
 import { useAppUser } from '@/context/AppUserContext';
 
 const LANGS = PORTAL_LANGUAGES;
@@ -100,9 +101,10 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const portalBackTarget = isDealerUser && location.pathname.startsWith('/portal/') ? '/portal' : backInfo.to;
   const portalBackLabel = t('previous', uiLanguage);
   const activeLanguage = LANGS.find((l) => l.code === uiLanguage) || LANGS[0];
-  const academyActive = location.pathname.startsWith('/academy') || new URLSearchParams(location.search).get('academy_mode') === 'true';
+  const academyActive = location.pathname.startsWith('/academy') || academySandbox.isActive();
 
   async function leaveAcademy() {
+    academySandbox.leaveSession();
     clearLocalAcademyEnrollment();
     const restoredUser = await refreshAppUser();
     if (!restoredUser) setAppUser(null);
@@ -205,6 +207,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
       void (document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.());
       return;
     }
+    if (academySandbox.isActive()) academySandbox.trackPortalBasicsFullscreen();
     void (root.requestFullscreen?.() ?? root.webkitRequestFullscreen?.());
   };
 
@@ -227,7 +230,10 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
           <div className="flex flex-col items-start justify-center gap-1.5">
             <button
               type="button"
-              onClick={() => navigate(homeTarget())}
+              onClick={() => {
+                if (academySandbox.isActive()) academySandbox.trackPortalBasicsHomeReturn(location.pathname);
+                navigate(homeTarget());
+              }}
               className="inline-flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5a27] focus-visible:ring-offset-2"
               aria-label={t('portalHeaderHome', uiLanguage)}
               title={t('portalHeaderHome', uiLanguage)}
@@ -292,6 +298,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                       role="menuitemradio"
                       aria-checked={uiLanguage === l.code}
                       onClick={() => {
+                        if (academySandbox.isActive()) academySandbox.trackPortalBasicsLanguage(l.code);
                         onLanguageChange(l.code);
                         setLanguageMenuOpen(false);
                       }}

@@ -18,6 +18,7 @@ import { derivePortalRole, isMesseVariantUser } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { getEffectiveSellerInitials } from '@/lib/activeMode';
 import { isMessePreviewActive, useMessePreviewVersion } from '@/lib/messePreview';
+import { academySandbox } from '@/lib/academySandbox';
 import { fetchPartnerMachineStats, type PartnerMachineStats } from '@/lib/partnerMachineStatsService';
 import { fetchWarrantyMachinePins, fetchWarrantyMachineMissingCoords, type WarrantyMachinePin, type WarrantyMachineMissing } from '@/lib/warrantyMachinePinsService';
 import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory';
@@ -2002,6 +2003,7 @@ export default function PartnerMapPage() {
                     onChange={(e) => {
                       const nextOverlay = e.target.value as AdministrativeOverlayId;
                       setAdministrativeOverlay(nextOverlay);
+                      if (academySandbox.isActive()) academySandbox.trackPortalBasicsMapArea(nextOverlay);
                       if (nextOverlay === 'de_plz2' || nextOverlay === 'dk_municipalities' || nextOverlay === 'se_municipalities') setMapStyle('standard');
                     }}
                     title={T.area[lang]}
