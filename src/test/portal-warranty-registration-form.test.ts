@@ -1,14 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { replacementBrandsForMachine, splitPostalCity } from "@/lib/portalWarrantyRegistrationForm";
+import {
+  PORTAL_WARRANTY_MACHINE_TYPES,
+  PORTAL_WARRANTY_REPLACEMENT_BRANDS,
+  replacementBrandsForMachine,
+  splitPostalCity,
+} from "@/lib/portalWarrantyRegistrationForm";
 import { getPortalPermissions } from "@/lib/portalAccess";
 
 describe("portal warranty registration form", () => {
-  it("uses mutually exclusive replacement lists for the two supported machines", () => {
-    expect(replacementBrandsForMachine("Timan 3330")).toContain("Kärcher");
-    expect(replacementBrandsForMachine("Timan 3330")).not.toContain("AS Motor");
-    expect(replacementBrandsForMachine("RC-1000s")).toContain("AS Motor");
-    expect(replacementBrandsForMachine("RC-1000s")).not.toContain("Kärcher");
-    expect(replacementBrandsForMachine("Tool-Trac")).toEqual([]);
+  it("uses the canonical five-machine list, including Timan 2620", () => {
+    expect(PORTAL_WARRANTY_MACHINE_TYPES).toEqual([
+      "Timan 3330", "RC-1000s", "Tool-Trac", "RC-751", "Timan 2620",
+    ]);
+    expect(new Set(PORTAL_WARRANTY_MACHINE_TYPES).size).toBe(PORTAL_WARRANTY_MACHINE_TYPES.length);
+  });
+
+  it("uses the same approved replacement-brand choices for every warranty machine", () => {
+    const expected = ["Nej", "Timan", "Kärcher", "Vitra", "Egholm", "Hako", "Fort", "Andet"];
+
+    expect(PORTAL_WARRANTY_REPLACEMENT_BRANDS).toEqual(expected);
+    expect(new Set(PORTAL_WARRANTY_REPLACEMENT_BRANDS).size).toBe(expected.length);
+    for (const machine of PORTAL_WARRANTY_MACHINE_TYPES) {
+      expect(replacementBrandsForMachine(machine)).toEqual(expected);
+    }
+    expect(replacementBrandsForMachine("Unknown machine")).toEqual([]);
   });
 
   it("splits the existing combined postal/city field for the server register", () => {

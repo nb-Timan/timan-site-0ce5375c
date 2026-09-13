@@ -3,19 +3,17 @@ export const PORTAL_WARRANTY_MACHINE_TYPES = [
   "RC-1000s",
   "Tool-Trac",
   "RC-751",
+  "Timan 2620",
 ] as const;
 
-const TIMAN_3330_REPLACEMENT_BRANDS = [
+export const PORTAL_WARRANTY_REPLACEMENT_BRANDS = [
   "Nej", "Timan", "Kärcher", "Vitra", "Egholm", "Hako", "Fort", "Andet",
 ] as const;
 
-const RC_1000S_REPLACEMENT_BRANDS = [
-  "Nej", "Timan", "AS Motor", "Energreen", "X-Rot", "Husqvarna", "Fort Monolith", "Andet",
-] as const;
-
 export function replacementBrandsForMachine(machineModel: string): readonly string[] {
-  if (machineModel === "Timan 3330") return TIMAN_3330_REPLACEMENT_BRANDS;
-  if (machineModel === "RC-1000s") return RC_1000S_REPLACEMENT_BRANDS;
+  if (PORTAL_WARRANTY_MACHINE_TYPES.includes(machineModel as typeof PORTAL_WARRANTY_MACHINE_TYPES[number])) {
+    return PORTAL_WARRANTY_REPLACEMENT_BRANDS;
+  }
   return [];
 }
 
