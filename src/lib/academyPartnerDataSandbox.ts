@@ -21,6 +21,7 @@ const STAMP = '2026-01-01T12:00:00.000Z';
 type State = {
   part1Started: boolean; part2Started: boolean; activePart: 1 | 2 | null;
   dealers: DealerAccount[]; contacts: DealerContact[];
+  academyMachineOpened: boolean; companyDataOpened: boolean;
   relationReviewed: boolean; submissions: PortalFormSubmission[]; historyEvents?: PartnerAgreementHistoryEvent[];
 };
 function initial(): State {
@@ -35,7 +36,7 @@ function initial(): State {
   const child = rowToDealer({ ...parent, id: 'academy-dealer-101', account_number: 'ACADEMY-101',
     company_name: 'Academy Servicepartner', customer_type: 'service_partner', customer_type_label: 'Servicepartner',
     parent_account_number: ACADEMY_PARTNER_ACCOUNT, is_main_account: false, latitude: 56.36, longitude: 9.32 });
-  return { part1Started: false, part2Started: false, activePart: null, dealers: [parent, child], contacts: [], relationReviewed: false, submissions: [] };
+  return { part1Started: false, part2Started: false, activePart: null, dealers: [parent, child], contacts: [], academyMachineOpened: false, companyDataOpened: false, relationReviewed: false, submissions: [] };
 }
 function read(): State {
   try { return JSON.parse(localStorage.getItem(KEY) ?? 'null') ?? initial(); } catch { return initial(); }
@@ -55,11 +56,31 @@ function requireDealer(state: State, id: string) {
   return dealer;
 }
 function progress(state = read()) {
-  const contact = state.contacts.find((row) => row.dealer_account_id === DEALER_ID && row.is_primary && row.name?.trim());
-  const channel = state.dealers.find((row) => row.id === DEALER_ID)?.social_youtube ?? '';
-  const part1Completed = state.part1Started && !!contact && /^https?:\/\/(www\.)?youtube\.com\//i.test(channel);
+  const salesContact = state.contacts.find((row) => row.dealer_account_id === DEALER_ID && row.contact_area === 'sales' && row.name?.trim());
+  const primarySalesContact = state.contacts.find((row) => row.dealer_account_id === DEALER_ID && row.contact_area === 'sales' && row.is_primary && row.name?.trim());
+  const dealer = state.dealers.find((row) => row.id === DEALER_ID);
+  const websiteAdded = Boolean(dealer?.website?.trim());
+  const channel = dealer?.social_youtube ?? '';
+  const youtubeAdded = /^https?:\/\/(www\.)?youtube\.com\//i.test(channel);
+  const part1Completed = state.part1Started
+    && state.academyMachineOpened
+    && state.companyDataOpened
+    && !!salesContact
+    && !!primarySalesContact
+    && websiteAdded
+    && youtubeAdded;
   const invoiceFlowReviewed = state.submissions.some((row) => row.form_type === 'dealer_invoice_accept');
-  return { part1Completed, part2Completed: part1Completed && state.part2Started && state.relationReviewed && invoiceFlowReviewed, invoiceFlowReviewed };
+  return {
+    academyMachineOpened: state.academyMachineOpened,
+    companyDataOpened: state.companyDataOpened,
+    salesContactSaved: !!salesContact,
+    primarySalesContactSelected: !!primarySalesContact,
+    websiteAdded,
+    youtubeAdded,
+    part1Completed,
+    part2Completed: part1Completed && state.part2Started && state.relationReviewed && invoiceFlowReviewed,
+    invoiceFlowReviewed,
+  };
 }
 export const academyPartnerDataSandbox = {
   isActive: () => academySandbox.isActive(), getState: read, getProgress: () => progress(),
@@ -73,6 +94,18 @@ export const academyPartnerDataSandbox = {
   },
   listDealers() { assertActive(); return read().dealers; },
   listContacts(id: string) { assertActive(); return read().contacts.filter((row) => row.dealer_account_id === id); },
+  trackAcademyMachineOpened(accountNumber: string) {
+    const state = read();
+    if (state.part1Started && state.activePart === 1 && accountNumber === ACADEMY_PARTNER_ACCOUNT) {
+      write({ ...state, academyMachineOpened: true });
+    }
+  },
+  trackCompanyDataOpened(accountNumber: string) {
+    const state = read();
+    if (state.part1Started && state.activePart === 1 && accountNumber === ACADEMY_PARTNER_ACCOUNT) {
+      write({ ...state, companyDataOpened: true });
+    }
+  },
   async updateDealerAccount(id: string, patch: UpdateDealerAccountPatch) {
     assertActive();
     const state = read(); const dealer = requireDealer(state, id);

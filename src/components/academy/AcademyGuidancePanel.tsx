@@ -12,6 +12,8 @@ export default function AcademyGuidancePanel({
   next,
   actions,
   completion = false,
+  route,
+  explanation,
 }: {
   title: string;
   description: string;
@@ -19,6 +21,8 @@ export default function AcademyGuidancePanel({
   next: string;
   actions?: ReactNode;
   completion?: boolean | { nextUnlock?: string };
+  route?: string[];
+  explanation?: ReactNode;
 }) {
   const completed = tasks.filter((task) => task.complete).length;
   const isComplete = completed === tasks.length;
@@ -43,6 +47,11 @@ export default function AcademyGuidancePanel({
           <div>
             <p className="flex items-center gap-2 font-semibold"><GraduationCap className="h-4 w-4" />Academy - {title}</p>
             <p className="mt-1 text-xs">{description}</p>
+            {route && route.length > 0 && (
+              <p className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-semibold text-amber-950">
+                {route.map((step, index) => <span key={step} className="inline-flex items-center gap-1.5">{index > 0 && <span aria-hidden>→</span>}{step}</span>)}
+              </p>
+            )}
           </div>
           <span className="rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs font-bold">{completed} / {tasks.length} krav</span>
         </div>
@@ -57,6 +66,7 @@ export default function AcademyGuidancePanel({
             </li>
           ))}
         </ul>
+        {explanation && <div className="mt-3 border-t border-amber-200 pt-3 text-xs leading-relaxed text-amber-950">{explanation}</div>}
         {actions && <div className="mt-3">{actions}</div>}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
           <span className={isComplete ? 'text-emerald-800' : 'text-amber-950'}>{isComplete ? 'Case gennemført.' : `Næste trin: ${next}`}</span>

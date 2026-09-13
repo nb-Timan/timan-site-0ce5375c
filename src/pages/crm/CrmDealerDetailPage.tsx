@@ -660,6 +660,12 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   const noteAuthorParty: DealerNoteAuthorParty = externalCrm ? "dealer" : "timan";
 
   useEffect(() => {
+    if (academyMode && partnerDataPresentation) {
+      academyPartnerDataSandbox.trackAcademyMachineOpened(accountNumber);
+    }
+  }, [academyMode, accountNumber, partnerDataPresentation]);
+
+  useEffect(() => {
     if (!appUser || !accountNumber) return;
     let cancelled = false;
     (async () => {

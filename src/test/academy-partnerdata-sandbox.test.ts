@@ -12,6 +12,9 @@ const invoice = { form_type: 'dealer_invoice_accept' as const, dealer_account_nu
 async function completeProfile() {
   sandbox.start(1);
   const dealer = sandbox.listDealers()[0];
+  sandbox.trackAcademyMachineOpened(ACADEMY_PARTNER_ACCOUNT);
+  sandbox.trackCompanyDataOpened(ACADEMY_PARTNER_ACCOUNT);
+  await getPartnerDataRepository().updateDealerAccount(dealer.id, { website: 'https://academy.example' });
   await getPartnerDataRepository().updateDealerAccount(dealer.id, { social_youtube: 'https://youtube.com/@academy' });
   return sandbox.upsertDealerContact({ dealer_account_id: dealer.id, contact_area: 'sales', name: 'Academy Kontakt', is_primary: true });
 }
@@ -23,15 +26,26 @@ describe('canonical Partnerdata with a local data adapter', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('requires real saved contact, primary selection and YouTube, not just starting', async () => {
+  it('requires the canonical Academy route, sales contact, website and YouTube checks', async () => {
     sandbox.start(1);
     expect(sandbox.getProgress().part1Completed).toBe(false);
     const dealer = sandbox.listDealers()[0];
     const saved = await sandbox.upsertDealerContact({ dealer_account_id: dealer.id, contact_area: 'sales', name: 'Academy Kontakt' });
+    sandbox.trackAcademyMachineOpened(ACADEMY_PARTNER_ACCOUNT);
+    sandbox.trackCompanyDataOpened(ACADEMY_PARTNER_ACCOUNT);
+    await sandbox.updateDealerAccount(dealer.id, { website: 'https://academy.example' });
     await sandbox.updateDealerAccount(dealer.id, { social_youtube: 'https://youtube.com/@academy' });
     expect(sandbox.getProgress().part1Completed).toBe(false);
     await sandbox.upsertDealerContact({ ...saved.row, is_primary: true });
     expect(sandbox.getProgress().part1Completed).toBe(true);
+    expect(sandbox.getProgress()).toMatchObject({
+      academyMachineOpened: true,
+      companyDataOpened: true,
+      salesContactSaved: true,
+      primarySalesContactSelected: true,
+      websiteAdded: true,
+      youtubeAdded: true,
+    });
     const repo = getPartnerDataRepository();
     expect((await repo.listDealerContacts(dealer.id))[0].is_primary).toBe(true);
     expect((await repo.listDealerContacts(dealer.id))[0].name).toBe('Academy Kontakt');

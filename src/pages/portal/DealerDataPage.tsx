@@ -90,6 +90,12 @@ export default function DealerDataPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (academyPartnerDataSandbox.isActive() && dealerNumber) {
+      academyPartnerDataSandbox.trackCompanyDataOpened(dealerNumber);
+    }
+  }, [dealerNumber]);
+
 
   useEffect(() => {
     let cancelled = false;
