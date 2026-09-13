@@ -83,22 +83,22 @@ export default function VideoLibraryFilterBar({
         </label>
         {showStatus && (
           <FilterSelect label={tv("videoMgmtStatus", language)} value={filters.statusFilter} onChange={(value) => patch({ statusFilter: value as "all" | VideoStatus })}>
-            <option value="all">{tv("videoLibraryAll", language)}</option>
+            <option value="all">{tv("videoLibraryAllStatuses", language)}</option>
             <option value="draft">{tv("videoMgmtDraft", language)}</option>
             <option value="published">{tv("videoMgmtPublished", language)}</option>
             <option value="archived">{tv("videoMgmtArchived", language)}</option>
           </FilterSelect>
         )}
-        <FilterSelect label={tv("videoLibraryType", language)} value={filters.typeFilter} onChange={(value) => patch({ typeFilter: value as "all" | VideoContentType })}>
-          <option value="all">{tv("videoLibraryAll", language)}</option>
+        <FilterSelect label={tv("videoLibraryCategory", language)} value={filters.typeFilter} onChange={(value) => patch({ typeFilter: value as "all" | VideoContentType })}>
+          <option value="all">{tv("videoLibraryAllCategories", language)}</option>
           {VIDEO_CONTENT_TYPES.map((type) => <option key={type} value={type}>{videoContentTypeLabel(type, language)}</option>)}
         </FilterSelect>
         <FilterSelect label={tv("videoLibrarySeason", language)} value={filters.seasonFilter} onChange={(value) => patch({ seasonFilter: value })}>
-          <option value="all">{tv("videoLibraryAll", language)}</option>
+          <option value="all">{tv("videoLibraryAllSeasons", language)}</option>
           {VIDEO_SEASONS.map((season) => <option key={season} value={season}>{videoSeasonLabel(season, language)}</option>)}
         </FilterSelect>
         <FilterSelect label={tv("videoLibraryMachine", language)} value={filters.machineFilter} onChange={(value) => patch({ machineFilter: value })}>
-          <option value="all">{tv("videoLibraryAll", language)}</option>
+          <option value="all">{tv("videoLibraryAllMachines", language)}</option>
           {machineOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
         </FilterSelect>
         <FilterSelect label={tv("videoLibrarySort", language)} value={filters.sortKey} onChange={(value) => patch({ sortKey: value as VideoSortKey })}>
@@ -126,7 +126,7 @@ function FilterSelect({
 }) {
   return (
     <label className="block">
-      <span className="sr-only">{label}</span>
+      <span className="mb-1 block text-xs font-semibold text-slate-600">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}

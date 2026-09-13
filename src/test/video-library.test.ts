@@ -109,6 +109,10 @@ describe("marketing video library", () => {
     for (const lang of ["da", "en", "de", "it", "hu", "sv", "fr", "pl", "cs"] as const) {
       expect(tv("videoLibraryTitle", lang)).not.toBe("videoLibraryTitle");
       expect(tv("videoLibraryFavorites", lang)).not.toBe("videoLibraryFavorites");
+      expect(tv("videoLibraryCategory", lang)).not.toBe("videoLibraryCategory");
+      expect(tv("videoLibraryAllCategories", lang)).not.toBe("videoLibraryAllCategories");
+      expect(tv("videoLibraryAllSeasons", lang)).not.toBe("videoLibraryAllSeasons");
+      expect(tv("videoLibraryAllMachines", lang)).not.toBe("videoLibraryAllMachines");
       expect(tv("videoLibraryAddFavorite", lang)).not.toBe("videoLibraryAddFavorite");
       expect(tv("videoLibraryRemoveFavorite", lang)).not.toBe("videoLibraryRemoveFavorite");
       expect(tv("videoLibraryNoFavorites", lang)).not.toBe("videoLibraryNoFavorites");
@@ -127,6 +131,9 @@ describe("marketing video library", () => {
       expect(tv("videoMgmtMessePortal", lang)).not.toBe("videoMgmtMessePortal");
       expect(tv("videoMgmtShowOnMessePortal", lang)).not.toBe("videoMgmtShowOnMessePortal");
     }
+    expect(tv("videoLibraryCategory", "da")).toBe("Kategori");
+    expect(tv("videoLibraryAllMachines", "de")).toBe("Alle Maschinen");
+    expect(tv("videoLibrarySortLatest", "en")).toBe("Latest first");
     expect(tv("videoMgmtContentType", "de")).toBe("Inhaltstyp");
     expect(tv("videoMgmtPublished", "de")).toBe("Veröffentlicht");
     expect(tv("videoSeasonAllYear", "de")).toBe("Ganzjährig");
