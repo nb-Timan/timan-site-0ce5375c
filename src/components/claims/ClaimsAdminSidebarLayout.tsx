@@ -8,7 +8,7 @@
 
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ClipboardList, LayoutDashboard, type LucideIcon } from "lucide-react";
+import { ClipboardList, LayoutDashboard, PlusCircle, type LucideIcon } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
@@ -34,6 +34,13 @@ const DEALER_NAV: NavItem[] = [
   { to: "/portal/service/claims",            label: "Dashboard",  icon: LayoutDashboard, match: "dashboard" },
   { to: "/portal/service/claims?tab=mine",   label: "Mine claims", icon: ClipboardList,   match: "mine" },
 ];
+
+const DEALER_CREATE_NAV: NavItem = {
+  to: "/portal/service/claims/new",
+  label: "Ny claim",
+  icon: PlusCircle,
+  match: "new",
+};
 
 interface ClaimsErrorBoundaryState {
   error: Error | null;
@@ -80,12 +87,15 @@ class ClaimsErrorBoundaryInner extends Component<
 interface ClaimsAdminSidebarLayoutProps {
   /** Defaults to "dealer" so the existing dealer routes keep working. */
   scope?: ClaimsLayoutScope;
+  /** Uses the existing dealer-side write permission; read-only users see no create link. */
+  canCreateClaim?: boolean;
   intro?: ReactNode;
   children: ReactNode;
 }
 
 /** Returns which nav item the current ?tab= matches. */
 function activeMatch(search: string, pathname: string): string {
+  if (pathname === "/portal/service/claims/new") return "new";
   if (pathname.includes("/portal/service/claims/")) return ""; // detail page
   const params = new URLSearchParams(search);
   const tab = params.get("tab");
@@ -96,6 +106,7 @@ function activeMatch(search: string, pathname: string): string {
 
 export function ClaimsAdminSidebarLayout({
   scope = "dealer",
+  canCreateClaim = false,
   intro,
   children,
 }: ClaimsAdminSidebarLayoutProps) {
@@ -103,7 +114,9 @@ export function ClaimsAdminSidebarLayout({
   const navigate = useNavigate();
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
-  const nav = scope === "admin" ? ADMIN_NAV : DEALER_NAV;
+  const nav = scope === "admin"
+    ? ADMIN_NAV
+    : canCreateClaim ? [...DEALER_NAV, DEALER_CREATE_NAV] : DEALER_NAV;
   const current = activeMatch(location.search, location.pathname);
 
   if (!appUser) return null;
