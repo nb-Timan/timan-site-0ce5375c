@@ -76,7 +76,7 @@ describe("Partnerdata layout regression guard", () => {
     expect(dealerProfileSource).toContain("function isInvoiceEmailOnlyFinanceFallback");
     expect(dealerProfileSource).toContain('source.area === "finance"');
     expect(dealerProfileSource).toContain("normalizeContactValue(source.email) === normalizeContactValue(dealer.invoice_email)");
-    expect(dealerProfileSource).toContain("!isInvoiceEmailOnlyFinanceFallback(dealer, source)");
+    expect(dealerProfileSource).toContain("!isInvoiceEmailOnlyFinanceFallback(dealer, source as LegacyContactSource)");
   });
 
   it("renders legacy first contacts through the shared editable contact list", () => {
@@ -91,7 +91,7 @@ describe("Partnerdata layout regression guard", () => {
   it("shows one editable placeholder contact per department without saving empty rows", () => {
     expect(dealerProfileSource).toContain("ensureMinimumAreaContacts");
     expect(dealerProfileSource).toContain("if (!next.some((contact) => contact.contact_area === area))");
-    expect(dealerProfileSource).toContain("if (isLocalContact(c) && !contactHasContent(c)) return { ok: true };");
+    expect(dealerProfileSource).toContain("return !isLocalContact(contact) || contactHasContent(contact);");
     const contactHasContentBody = dealerProfileSource.slice(
       dealerProfileSource.indexOf("function contactHasContent"),
       dealerProfileSource.indexOf("type LegacyContactSource"),

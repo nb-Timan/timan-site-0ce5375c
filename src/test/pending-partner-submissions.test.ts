@@ -54,7 +54,7 @@ describe("pending partner submissions", () => {
 
   it("keeps the completion request alive while View-as resolves its effective user", () => {
     expect(overview).toContain("const effectiveUserKey = effectiveUser?.email?.trim().toLowerCase() ?? null;");
-    expect(overview).toContain("[appUser, effectiveUserKey, admin, seller, externalCrm");
+    expect(overview).toContain("[appUser, effectiveUserKey, resolvingEffectiveUser, admin, seller, externalCrm");
     expect(overview).not.toContain("[appUser, effectiveUser, admin, seller, externalCrm");
   });
 });
