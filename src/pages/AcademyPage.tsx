@@ -222,6 +222,7 @@ export default function AcademyPage() {
     navigate('/portal/videos?academy_mode=true&academy_case=2');
   };
   const startPortalBasics = () => {
+    academyPartnerDataSandbox.leaveCase();
     academySandbox.startPortalBasics(language);
     navigate('/portal?academy_mode=true');
   };
@@ -339,7 +340,7 @@ export default function AcademyPage() {
               <AcademyRow title="Part 2 - Samarbejdspartnere og fakturering" description="Gennemgå lokale partnerrelationer og fakturaaccept for reservedelsbestilling." state={partnerDataPart2State} action={partnerData.part1Completed ? (partnerDataPart2State === 'done' ? 'Åbn' : academyPartnerDataSandbox.getState().part2Started ? 'Fortsæt' : 'Start') : undefined} onClick={partnerData.part1Completed ? startPartnerDataPart2 : undefined} />
             </Module>
             <Module icon={Users} title="CRM" progress={`${crmCompleted} / 2 gennemført`}>
-              <AcademyRow title="Case 1 - Prioritér og færdiggør leads" description="Flyt det forfaldne follow-up og færdiggør det lokale Configurator-lead." state={crmPart1State} action={crmPart1State === 'locked' ? undefined : crm.part1Completed ? 'Åbn' : academyCrmSandbox.getState().part1Started ? 'Fortsæt' : 'Start'} onClick={startCrmPart1} />
+              <AcademyRow title="Case 1 - Prioritér og færdiggør leads" description="Flyt det forfaldne follow-up og færdiggør det lokale Configurator-lead." state={crmPart1State} action={crm.part1Completed ? 'Åbn' : academyCrmSandbox.getState().part1Started ? 'Fortsæt' : 'Start'} onClick={startCrmPart1} />
               <AcademyRow title="Case 2 - Del lead og opret demo" description="Planlæg aktivitet, del med Academy-forhandleren og konvertér til en lokal demo." state={crmPart2State} action={crm.part1Completed ? (crm.part2Completed ? 'Åbn' : academyCrmSandbox.getState().part2Started ? 'Fortsæt' : 'Start') : undefined} onClick={crm.part1Completed ? startCrmPart2 : undefined} />
             </Module>
             <LockedModule icon={CalendarDays} title="Kalender" progress="0 / 1 gennemført" description="Låses op senere i Academy-rejsen." />

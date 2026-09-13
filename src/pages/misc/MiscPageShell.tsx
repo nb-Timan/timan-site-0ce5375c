@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
 import { Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -24,7 +25,8 @@ interface Props {
 }
 
 export default function MiscPageShell({ title, subtitle, intro, hideHeader = false, backTo, changelogModule, children }: Props) {
-  const { appUser, loading, logout } = useAppUser();
+  const { appUser: sessionUser, loading, logout } = useAppUser();
+  const appUser = academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();

@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { academySandbox } from '@/lib/academySandbox';
 import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult, LineItem, DiscountDetail } from '@/types/configurator';
 import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, getLooseToolAccessories } from '@/data/machines';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
@@ -44,9 +45,21 @@ type ConfiguratorStateUpdate =
   | ((prev: ConfiguratorState) => ConfiguratorState | Partial<ConfiguratorState> | undefined);
 
 export function useConfigurator() {
-  const [rawState, setRawState] = useState<ConfiguratorState>(createEmptyConfiguratorState());
+  const [rawState, setRawState] = useState<ConfiguratorState>(() => {
+    if (academySandbox.isActive()) {
+      try {
+        const saved = localStorage.getItem('timan.academy.configurator.v1');
+        if (saved) return normalizeConfiguratorState(JSON.parse(saved));
+      } catch { /* Invalid local drafts start with the canonical empty state. */ }
+    }
+    return createEmptyConfiguratorState();
+  });
 
   const state = useMemo(() => normalizeConfiguratorState(rawState), [rawState]);
+
+  useEffect(() => {
+    if (academySandbox.isActive()) localStorage.setItem('timan.academy.configurator.v1', JSON.stringify(state));
+  }, [state]);
 
   const setState = useCallback((next: ConfiguratorStateUpdate) => {
     setRawState(prev => {

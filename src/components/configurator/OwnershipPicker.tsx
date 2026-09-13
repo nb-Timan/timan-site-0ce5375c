@@ -29,6 +29,8 @@ import { useDealerScope } from '@/lib/dealerScope';
 import { fetchDealerAccounts, DealerAccount } from '@/lib/dealerAccountsService';
 import { Language } from '@/types/configurator';
 import { pickT } from '@/lib/i18n/translations';
+import { academySandbox } from '@/lib/academySandbox';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
 
 export interface OwnershipSelection {
   /** BP/JTN/EM/AKR/NB or null. */
@@ -113,6 +115,7 @@ function tx(key: keyof typeof T, lang: Language | string): string {
 export function deriveInitialOwnership(
   appUser: ReturnType<typeof useAppUser>['appUser'],
 ): OwnershipSelection {
+  if (academySandbox.isActive()) return { ...EMPTY_OWNERSHIP, sellerInitials: 'AS', sellerEmail: 'academy.sales@localhost', sellerName: 'Academy Sales' };
   if (!appUser) return EMPTY_OWNERSHIP;
   const portalRole = derivePortalRole(appUser);
   const isExternal = isExternalDealerRole(portalRole);
@@ -144,12 +147,15 @@ export function deriveInitialOwnership(
 }
 
 export default function OwnershipPicker({ value, onChange, language, variant = 'full', hideDealer = false }: Props) {
-  const { appUser } = useAppUser();
+  const { appUser: sessionUser } = useAppUser();
+  const academy = academySandbox.isActive();
+  const appUser = academy ? ACADEMY_PARTNER_USER : sessionUser;
+  const sellerViews = academy ? [{ initials: 'AS', email: 'academy.sales@localhost', label: 'Academy Sales' }] : SELLER_VIEWS;
   const portalRole = derivePortalRole(appUser);
   // Phase 51 — fælles dealer-scope helper.
   // Eksterne forhandler-roller låses til egen dealer; interne kan vælge.
   const dealerScope = useDealerScope();
-  const isExternal = dealerScope.isExternalDealerUser || isExternalDealerRole(portalRole);
+  const isExternal = !academy && (dealerScope.isExternalDealerUser || isExternalDealerRole(portalRole));
   const isCompact = variant === 'compact';
 
   // Lazy-load dealer list (only for internal users; external users don't pick).
@@ -161,6 +167,11 @@ export default function OwnershipPicker({ value, onChange, language, variant = '
 
   useEffect(() => {
     if (isExternal || dealers !== null) return;
+    if (academy) {
+      setDealers(academyPartnerDataSandbox.listDealers());
+      setDealerError(null);
+      return;
+    }
     let cancelled = false;
     (async () => {
       const res = await fetchDealerAccounts({ includeDeleted: false });
@@ -228,7 +239,7 @@ export default function OwnershipPicker({ value, onChange, language, variant = '
       onChange({ ...value, sellerInitials: null, sellerEmail: null, sellerName: null });
       return;
     }
-    const view = SELLER_VIEWS.find((v) => v.initials === initials);
+    const view = sellerViews.find((v) => v.initials === initials);
     if (!view) return;
     onChange({
       ...value,
@@ -311,7 +322,7 @@ export default function OwnershipPicker({ value, onChange, language, variant = '
             onChange={(e) => pickSeller(e.target.value || null)}
           >
             <option value="">{tx('none', language)}</option>
-            {SELLER_VIEWS.map((v) => (
+            {sellerViews.map((v) => (
               <option key={v.key} value={v.initials}>{v.label}</option>
             ))}
           </select>

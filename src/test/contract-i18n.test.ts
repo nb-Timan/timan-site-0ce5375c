@@ -241,7 +241,8 @@ describe('contract i18n', () => {
       '16. Lovvalg og værneting:',
     ];
 
-    for (const [language, expectedText] of Object.entries(expected)) {
+    for (const language of Object.keys(expected) as Array<keyof typeof expected>) {
+      const expectedText = expected[language];
       const section = renderGuidedContractSections(context, language)
         .find((entry) => entry.stepId === 'payment_delivery');
       const rendered = JSON.stringify(section);
@@ -278,7 +279,8 @@ describe('contract i18n', () => {
       'Ved retslige tvister afgøres dette ved Sø og Handelsretten i Danmark.',
     ];
 
-    for (const [language, expectedText] of Object.entries(expected)) {
+    for (const language of Object.keys(expected) as Array<keyof typeof expected>) {
+      const expectedText = expected[language];
       const section = renderGuidedContractSections(context, language)
         .find((entry) => entry.stepId === 'termination');
       const rendered = JSON.stringify(section);

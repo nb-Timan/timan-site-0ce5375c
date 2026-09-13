@@ -1,13 +1,12 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState, useRef } from 'react';
+import { getPartnerDataRepository } from '@/lib/partnerDataRepository';
+import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { Clock, FileCheck2, FileSignature, History, Link as LinkIcon, LockKeyhole, Plus, UnlockKeyhole, Users } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  createPartnerAgreementHistoryEvent,
-  fetchPartnerAgreementHistory,
-  fetchPartnerAgreementHistoryDocumentUrl,
   type PartnerAgreementHistoryEvent,
   type PartnerAgreementHistoryEventType,
 } from '@/lib/dealerContractsService';
@@ -112,7 +111,20 @@ export default function PartnerAgreementHistory({
   canManage?: boolean;
   compact?: boolean;
 }) {
+  const { fetchPartnerAgreementHistory, createPartnerAgreementHistoryEvent, fetchPartnerAgreementHistoryDocumentUrl } = getPartnerDataRepository();
   const [events, setEvents] = useState<PartnerAgreementHistoryEvent[]>([]);
+  const relationElement = useRef<HTMLLIElement>(null);
+  useEffect(() => {
+    if (!academyPartnerDataSandbox.isActive() || !relationElement.current) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        academyPartnerDataSandbox.reviewPartnerRelation(dealerAccountNumber);
+        observer.disconnect();
+      }
+    }, { threshold: 0.8 });
+    observer.observe(relationElement.current);
+    return () => observer.disconnect();
+  }, [events, dealerAccountNumber]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
@@ -218,7 +230,7 @@ export default function PartnerAgreementHistory({
         {!loading && !error && events.length > 0 && (
           <ol className="divide-y divide-slate-100 border-y border-slate-100">
             {events.map((event) => (
-              <li key={event.id} className={compact ? "py-3" : "grid grid-cols-1 gap-3 py-3 sm:grid-cols-[120px_minmax(0,1fr)]"}>
+              <li key={event.id} ref={event.partner_relation_id ? relationElement : undefined} className={compact ? "py-3" : "grid grid-cols-1 gap-3 py-3 sm:grid-cols-[120px_minmax(0,1fr)]"}>
                 <time className="text-sm font-semibold text-slate-500">{formatDate(event.occurred_at || event.created_at, language)}</time>
                 <div className={compact ? "mt-2 min-w-0" : "min-w-0 border-l border-slate-200 pl-4"}>
                   <div className="flex items-start gap-3">

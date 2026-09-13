@@ -94,11 +94,13 @@ describe('contract PDF document model', () => {
       dealerName: '',
       contactPerson: '',
       timanSellerEmail: '',
+      // @ts-expect-error Deliberately invalid input exercises runtime preflight validation.
       paymentTerm: '',
     }, EMPTY_CONTRACT_CONFIRMATIONS);
     const issues = getContractPdfPreflightIssues({
       snapshot: {
         ...snapshot,
+        // @ts-expect-error Simulate an incomplete persisted snapshot.
         paymentTerms: { ...snapshot.paymentTerms, paymentTerm: '' },
       },
       contractNumber: '',

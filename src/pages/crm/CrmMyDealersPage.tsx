@@ -25,6 +25,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Navigate, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Building2, ChevronDown, ChevronRight, GitBranch, Search, Star } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
+import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
 import { useLanguage } from "@/context/LanguageContext";
 import { useCountryFormatter } from "@/lib/formatCountry";
 import { t as i18n } from "@/lib/i18n/translations";
@@ -206,7 +208,9 @@ type CrmMyDealersPageProps = {
 };
 
 export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersPageProps) {
-  const { appUser, loading } = useAppUser();
+  const { appUser: sessionUser, loading } = useAppUser();
+  const academyMode = academyPartnerDataSandbox.isActive();
+  const appUser = academyMode ? ACADEMY_PARTNER_USER : sessionUser;
   const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const { uiLanguage } = useLanguage();
   const { formatCountry } = useCountryFormatter();
@@ -253,6 +257,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const effectiveUserKey = effectiveUser?.email?.trim().toLowerCase() ?? null;
 
   const reloadPendingPartnerSubmissions = async () => {
+    if (academyMode) { setPendingPartnerSubmissions([]); return; }
     if (!admin && !seller) {
       setPendingPartnerSubmissions([]);
       return;
@@ -306,6 +311,13 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
     if (!appUser) return;
     let cancelled = false;
     (async () => {
+      if (academyMode) {
+        const rows = academyPartnerDataSandbox.listDealers();
+        setDealers(rows);
+        setContactsByDealerId(Object.fromEntries(rows.map((row) => [row.id, academyPartnerDataSandbox.listContacts(row.id)])));
+        setAllUsers([]); setStatsMap({}); setBudgetIndex(null); setError(null); setLoadingRows(false);
+        return;
+      }
       if (resolvingEffectiveUser) {
         setLoadingRows(true);
         return;
@@ -517,6 +529,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
 
   return (
     <CrmLayout pageTitle={pageTitle}>
+      <AcademyPartnerDataGuidance />
       <div className="mb-4 flex items-end justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 bg-[#2d5a27]/10 rounded-xl flex items-center justify-center">

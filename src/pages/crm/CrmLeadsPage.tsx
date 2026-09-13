@@ -1,3 +1,4 @@
+import AcademyCrmGuidance from '@/components/academy/AcademyCrmGuidance';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
@@ -440,7 +441,7 @@ function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
 
 export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = {}) {
   const { appUser: sessionUser } = useAppUser();
-  const appUser = sessionUser ?? (academyCrmSandbox.isActive() ? getLocalAcademyUser() : null);
+  const appUser = academyCrmSandbox.isActive() ? getLocalAcademyUser() : sessionUser;
   const effectiveUser = useEffectivePortalUser(appUser);
   const { uiLanguage: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
@@ -677,7 +678,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
 
   return (
     <CrmLayout pageTitle={tt('page_title', lang)}>
-      {repository.academy && <section className="mb-5 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"><b>Academy træning - CRM Leads, Part {academyPart || 1}</b><p className="mt-1">Du arbejder med lokale træningsleads. Ingen lead, deling, demo eller mail sendes til produktion.</p><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold">{(academyPart === 2 ? [[academyCrmSandbox.getProgress().activityUpdated, 'Aktivitet/opfølgning'], [academyCrmSandbox.getProgress().shared, 'Lead delt med Academy-forhandler'], [academyCrmSandbox.getProgress().demoConverted, 'Academy-demo']] : [[academyCrmSandbox.getProgress().overdueUpdated, 'Forfaldent lead opdateret'], [academyCrmSandbox.getProgress().configuratorCompleted, 'Configurator-lead færdigoprettet']]).map(([done, label]) => <span key={String(label)}>{done ? '✓' : '○'} {String(label)}</span>)}</div></section>}
+      {repository.academy && <AcademyCrmGuidance part={academyPart} />}
       {/* Header */}
       <div className="mb-5">
         <div>

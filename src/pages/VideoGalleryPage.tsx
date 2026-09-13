@@ -26,7 +26,8 @@ import {
   videoContentTypeLabel,
   videoSeasonLabel,
 } from "@/lib/videoLibraryI18n";
-import { academySandbox } from "@/lib/academySandbox";
+import { academySandbox, ACADEMY_CASE_2_TARGET_VIDEO_ID } from "@/lib/academySandbox";
+import { listAcademyVideos, readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
 import AcademyGuidancePanel from "@/components/academy/AcademyGuidancePanel";
 import { getLocalAcademyUser } from "@/lib/academyCurriculum";
 
@@ -39,20 +40,32 @@ export default function VideoGalleryPage() {
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState(DEFAULT_VIDEO_FILTERS);
+  const [filters, setFilters] = useState(() => academySandbox.isActive() ? readAcademyVideoPreferences().filters : DEFAULT_VIDEO_FILTERS);
+  const [, setAcademyRevision] = useState(0);
   const [active, setActive] = useState<MarketingVideo | null>(null);
   const localAcademySession = academySandbox.isActive();
   const isAcademyCase2 = localAcademySession && searchParams.get("academy_case") === "2";
   // Academy training is intentionally local-only. It can render the normal gallery
   // without creating an authenticated production portal session.
-  const portalUser = appUser ?? (localAcademySession ? getLocalAcademyUser() : null);
+  const portalUser = localAcademySession ? getLocalAcademyUser() : appUser;
+
+  useEffect(() => {
+    if (!localAcademySession) return;
+    const update = () => setAcademyRevision((revision) => revision + 1);
+    window.addEventListener('timan:academy-progress-changed', update);
+    return () => window.removeEventListener('timan:academy-progress-changed', update);
+  }, [localAcademySession]);
+
+  useEffect(() => {
+    if (localAcademySession) saveAcademyVideoPreferences({ filters });
+  }, [filters, localAcademySession]);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      listPublishedMarketingVideos(uiLanguage),
+      localAcademySession ? Promise.resolve(listAcademyVideos()) : listPublishedMarketingVideos(uiLanguage),
       localAcademySession
-        ? Promise.resolve({ videoIds: new Set<string>(), error: null })
+        ? Promise.resolve({ videoIds: new Set(readAcademyVideoPreferences().favorites), error: null })
         : listMarketingVideoFavoriteIds(),
     ]).then(([videoResult, favoriteResult]) => {
       if (cancelled) return;
@@ -69,7 +82,7 @@ export default function VideoGalleryPage() {
     return filterAndSortVideos(rows, filters, uiLanguage, { favoriteIds });
   }, [favoriteIds, filters, rows, uiLanguage]);
 
-  const targetVisible = filteredRows.some((video) => video.youtube_video_id === "sxYALA86PaI");
+  const targetVisible = filteredRows.some((video) => video.youtube_video_id === ACADEMY_CASE_2_TARGET_VIDEO_ID);
   const academyCase2 = academySandbox.getCase2();
 
   useEffect(() => {
@@ -94,8 +107,15 @@ export default function VideoGalleryPage() {
   };
 
   const toggleFavorite = async (video: MarketingVideo) => {
-    if (localAcademySession) return;
     const nextIsFavorite = !favoriteIds.has(video.id);
+    if (localAcademySession) {
+      const next = new Set(favoriteIds);
+      if (nextIsFavorite) next.add(video.id);
+      else next.delete(video.id);
+      saveAcademyVideoPreferences({ favorites: [...next] });
+      setFavoriteIds(next);
+      return;
+    }
 
     setFavoriteIds((current) => {
       const next = new Set(current);
@@ -162,7 +182,7 @@ export default function VideoGalleryPage() {
           onChange={setFilters}
           machineOptions={machineOptions}
           language={uiLanguage}
-          showFavorites={!localAcademySession}
+          showFavorites
         />
 
         {error ? <p className="mb-4 text-sm font-semibold text-amber-700">{error}</p> : null}
@@ -180,7 +200,7 @@ export default function VideoGalleryPage() {
                 lang={uiLanguage}
                 isFavorite={favoriteIds.has(video.id)}
                 favoritePending={pendingFavoriteIds.has(video.id)}
-                allowFavorites={!localAcademySession}
+                allowFavorites
                 onFavoriteToggle={toggleFavorite}
                 onPlay={openVideo}
               />

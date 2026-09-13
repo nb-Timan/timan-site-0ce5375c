@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
+import AcademyGuidancePanel from '@/components/academy/AcademyGuidancePanel';
 import { createPortal } from 'react-dom';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -1346,7 +1348,9 @@ function SelectedVisibilityGuard({
 export default function PartnerMapPage() {
   const { language: lang, uiLanguage } = useLanguage();
   const { formatCountry } = useCountryFormatter();
-  const { appUser } = useAppUser();
+  const { appUser: sessionUser } = useAppUser();
+  const academyMode = academyPartnerDataSandbox.isActive();
+  const appUser = academyMode ? ACADEMY_PARTNER_USER : sessionUser;
   const location = useLocation();
   const effectiveUser = useEffectivePortalUser(appUser);
   const portalRole = derivePortalRole(effectiveUser);
@@ -1435,7 +1439,7 @@ export default function PartnerMapPage() {
       maxZoom: 19,
     },
   };
-  const MAP_STYLE_STORAGE_KEY = 'timan.partnerMap.baseStyle.v2';
+  const MAP_STYLE_STORAGE_KEY = academyMode ? 'timan.academy.partnerMap.baseStyle.v1' : 'timan.partnerMap.baseStyle.v2';
   const [mapStyle, setMapStyle] = useState<MapStyleId>(() => {
     if (typeof window === 'undefined') return 'satellite';
     const saved = window.localStorage.getItem(MAP_STYLE_STORAGE_KEY);
@@ -1477,6 +1481,12 @@ export default function PartnerMapPage() {
   useEffect(() => {
     let alive = true;
     (async () => {
+      if (academyMode) {
+        setDealers(academyPartnerDataSandbox.listDealers());
+        setStats({}); setMachineStats({}); setMachinePinsAll([]); setMachineMissingAll([]);
+        setLoadError(null); setLoading(false);
+        return;
+      }
       setLoading(true);
       const [dRes, sRes] = await Promise.all([fetchDealerAccounts({}), fetchDealerAccountStats().catch(() => ({ rows: [] as DealerAccountStats[] }))]);
       if (!alive) return;
@@ -1806,6 +1816,9 @@ export default function PartnerMapPage() {
 
   return (
     <MiscPageShell title={T.title[lang]} hideHeader changelogModule="partner_map">
+      {academyMode && <AcademyGuidancePanel title="Portal Basics - Partnerkort" description="Det almindelige Partnerkort med lokale Academy-partnere."
+        tasks={[{ label: 'Område/layer ændret', complete: academySandbox.getPortalBasics().mapAreaChanged }]}
+        next="Vælg et område i kortets områdevælger." />}
       <style>{`
         .pm-pin-wrap { background:transparent !important; border:none !important; }
         .pm-pin { position:relative; width:36px; height:44px; transition:transform .15s ease; cursor:pointer; }

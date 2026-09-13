@@ -28,7 +28,7 @@ describe('Academy CRM lead sandbox', () => {
     academyCrmSandbox.shareLead('academy-demo-lead', ACADEMY_CRM_PARTNER.id);
     expect(academyCrmSandbox.getProgress().part2Completed).toBe(false);
 
-    academyCrmSandbox.convertToDemo('academy-demo-lead');
+    academyCrmSandbox.createCrmDemoLead({ source_lead_id: 'academy-demo-lead', title: 'Academy demo' } as never);
     expect(academyCrmSandbox.getProgress()).toMatchObject({
       part1Completed: true,
       part2Completed: true,

@@ -111,7 +111,14 @@ function load(): AcademySandboxState {
     return initial();
   }
 }
-function save(state: AcademySandboxState) { localStorage.setItem(KEY, JSON.stringify(state)); return state; }
+function save(state: AcademySandboxState) {
+  const next = JSON.stringify(state);
+  if (localStorage.getItem(KEY) !== next) {
+    localStorage.setItem(KEY, next);
+    window.dispatchEvent(new Event('timan:academy-progress-changed'));
+  }
+  return state;
+}
 function case1Of({ case2: _case2, portalBasics: _portalBasics, ...case1 }: AcademySandboxState): AcademyCase1State { return case1; }
 function isPortalBasicsComplete(state: AcademyPortalBasicsState) {
   return state.frenchSelected
@@ -218,9 +225,7 @@ export const academySandbox = {
   evaluate(input: AcademyCase1Input) {
     if (!isLocalAcademyMode()) throw new Error('Academy sandbox is only available on localhost.');
     const current = load();
-    // A completed Academy case is a local training achievement. The regular
-    // Configurator intentionally resets its in-memory form after a refresh,
-    // so it must not replace the persisted checklist with an empty form.
+    // A completed case remains an achievement when a user starts another configuration.
     if (current.completed) return case1Of(current);
     const rc = input.machineConfigs.find((item) => item.type === 'RC-1000S');
     const accessories = rc?.acc ?? [];

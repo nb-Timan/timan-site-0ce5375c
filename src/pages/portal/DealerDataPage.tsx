@@ -12,8 +12,11 @@ import PortalFooter from '@/components/portal/PortalFooter';
 import { Card, CardContent } from '@/components/ui/card';
 
 import { type DealerAccount } from '@/lib/dealerAccountsService';
+import { getPartnerDataRepository } from '@/lib/partnerDataRepository';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
+import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
 import { derivePortalRole } from '@/lib/portalAccess';
-import { canEditPartnerDataAccount, listPartnerDataDealers } from '@/lib/partnerDataScope';
+import { canEditPartnerDataAccount } from '@/lib/partnerDataScope';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 
@@ -68,7 +71,9 @@ function toErrorText(error: unknown): string {
 // Phase 52 — full profile editing has moved to DealerProfileEditor.
 
 export default function DealerDataPage() {
-  const { appUser, loading, logout } = useAppUser();
+  const { appUser: sessionUser, loading, logout } = useAppUser();
+  const appUser = academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
+  const { listPartnerDataDealers } = getPartnerDataRepository();
   const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
@@ -158,6 +163,7 @@ export default function DealerDataPage() {
       />
 
       <main className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-10 py-8 flex-grow space-y-6">
+        <AcademyPartnerDataGuidance />
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-xl bg-blue-50 flex items-center justify-center">
             <Building2 className="h-7 w-7 text-blue-600" />

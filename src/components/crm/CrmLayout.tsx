@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import LastChangedLine from '@/components/portal/LastChangedLine';
 import { t } from '@/lib/i18n/translations';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
-import { getLocalAcademyUser } from '@/lib/academyCurriculum';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
 
 interface NavItem { tKey: string; to: string; icon: typeof LayoutDashboard }
 const NAV: NavItem[] = [
@@ -39,7 +39,7 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
-  const appUser = sessionUser ?? (academyCrmSandbox.isActive() ? getLocalAcademyUser() : null);
+  const appUser = academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
   const effectiveUser = useEffectivePortalUser(appUser);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
@@ -94,10 +94,13 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
 
         <nav className="relative flex flex-wrap items-center gap-1 mb-6 border-b border-slate-200/80">
           {navItems.map(item => {
-            const active = location.pathname === item.to;
+            const academyLeads = academyCrmSandbox.isActive() && item.to === '/portal/crm/leads';
+            const part = new URLSearchParams(location.search).get('academy_part') === '2' ? 2 : 1;
+            const to = academyLeads ? `/academy/crm/leads?academy_mode=true&academy_part=${part}` : item.to;
+            const active = location.pathname === item.to || (academyLeads && location.pathname.startsWith('/academy/crm/leads'));
             const Icon = item.icon;
             return (
-              <Link key={item.to} to={item.to}
+              <Link key={item.to} to={to}
                 className={cn(
                   "group relative inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors -mb-px",
                   active

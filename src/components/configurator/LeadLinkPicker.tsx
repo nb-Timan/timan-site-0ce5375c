@@ -17,6 +17,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import type { AppUser } from '@/data/appUsers';
+import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 
 interface Props {
   appUser: (AppUser & { email: string }) | null;
@@ -61,7 +62,7 @@ export default function LeadLinkPicker({ appUser, value, onChange, dealerNumber,
       return;
     }
     let cancelled = false;
-    void getLead(value).then((lead) => {
+    void (academyCrmSandbox.isActive() ? Promise.resolve(academyCrmSandbox.getCrmLead(value)) : getLead(value)).then((lead) => {
       if (!cancelled) setLinkedLead(lead);
     });
     return () => { cancelled = true; };
@@ -69,6 +70,12 @@ export default function LeadLinkPicker({ appUser, value, onChange, dealerNumber,
 
   useEffect(() => {
     if (!isInternal) return;
+    if (academyCrmSandbox.isActive()) {
+      setLeads(academyCrmSandbox.getState().leads.map((row) => academyCrmSandbox.getCrmLead(row.id)!));
+      setSellerId(academyCrmSandbox.getAcademyActor().id);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     (async () => {

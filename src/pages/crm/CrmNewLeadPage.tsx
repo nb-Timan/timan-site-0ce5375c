@@ -1,3 +1,4 @@
+import AcademyCrmGuidance from '@/components/academy/AcademyCrmGuidance';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
@@ -758,7 +759,7 @@ function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): 
 
 export default function CrmNewLeadPage() {
   const { appUser: sessionUser, loading: authLoading } = useAppUser();
-  const appUser = sessionUser ?? (academyCrmSandbox.isActive() ? getLocalAcademyUser() : null);
+  const appUser = academyCrmSandbox.isActive() ? getLocalAcademyUser() : sessionUser;
   const { language: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
@@ -869,6 +870,7 @@ export default function CrmNewLeadPage() {
   // Load dealer_accounts (same as Calendar) + sellers list.
   useEffect(() => {
     if (repository.academy) {
+      setDealers(academyCrmSandbox.listDealers());
       setDealersLoading(false);
       setSellers([getLocalAcademyBackendUser()]);
       return;
@@ -1492,11 +1494,7 @@ export default function CrmNewLeadPage() {
   return (
     <CrmLayout pageTitle={isEdit ? tt('edit_title', lang) : tt('page_title', lang)}>
       <div className="max-w-5xl mx-auto">
-        {repository.academy && (
-          <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
-            <strong>Academy træning</strong> - du arbejder med lokale træningsdata. Ingen rigtige leads, mails eller demoer oprettes.
-          </div>
-        )}
+        {repository.academy && <AcademyCrmGuidance part={academyPart} />}
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 inline-flex items-center gap-2.5">

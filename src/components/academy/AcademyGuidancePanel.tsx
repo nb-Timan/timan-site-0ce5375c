@@ -1,5 +1,6 @@
 import { CheckCircle2, Circle, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import type { ReactNode } from 'react';
 
 export type AcademyGuidanceTask = { label: string; complete: boolean };
 
@@ -8,11 +9,13 @@ export default function AcademyGuidancePanel({
   description,
   tasks,
   next,
+  actions,
 }: {
   title: string;
   description: string;
   tasks: AcademyGuidanceTask[];
   next: string;
+  actions?: ReactNode;
 }) {
   const completed = tasks.filter((task) => task.complete).length;
   const isComplete = completed === tasks.length;
@@ -34,6 +37,7 @@ export default function AcademyGuidancePanel({
           </li>
         ))}
       </ul>
+      {actions && <div className="mt-3">{actions}</div>}
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
         <span className={isComplete ? 'text-emerald-800' : 'text-amber-950'}>{isComplete ? 'Case gennemført.' : `Næste trin: ${next}`}</span>
         <Link to="/academy" className="text-[#126a45] hover:underline">Tilbage til Academy</Link>

@@ -2,6 +2,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, ListChecks, Sparkles, Clock, Film, LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
 import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -78,7 +79,8 @@ const PLACEHOLDER_DESC_KEY: Record<string, string> = {
 interface Props { areaId: PortalAreaId }
 
 export default function PortalAreaPage({ areaId }: Props) {
-  const { appUser, loading, setAppUser, logout } = useAppUser();
+  const { appUser: sessionUser, loading, setAppUser, logout } = useAppUser();
+  const appUser = academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   // Hooks must run unconditionally on every render — keep this above all

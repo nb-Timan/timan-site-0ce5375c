@@ -1,3 +1,4 @@
+import AcademyGuidancePanel from '@/components/academy/AcademyGuidancePanel';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { format } from 'date-fns';
 import { da, de, enGB, hu, it } from 'date-fns/locale';
@@ -58,6 +59,7 @@ import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection } from '@/lib/submittedOrderCorrectionService';
 import { academySandbox } from '@/lib/academySandbox';
+import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
 
@@ -200,7 +202,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const isAcademyMode = academySandbox.isActive();
   // Academy supplies a render-only identity in local training mode. It never
   // modifies the authenticated portal session or reaches production writes.
-  const appUser = isAcademyMode && !sessionAppUser ? getLocalAcademyUser() : sessionAppUser;
+  const appUser = isAcademyMode ? getLocalAcademyUser() : sessionAppUser;
   // Messe / exhibition demo session — hide save/send/account UI and
   // short-circuit any persistence handler that may still be invoked.
   // Treat ANY render of the configurator under /messe/* as Messe mode too,
@@ -398,7 +400,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     }
     (async () => {
       try {
-        const { data } = await supabase
+        const { data } = isAcademyMode ? { data: academyPartnerDataSandbox.listDealers().find((dealer) => dealer.id === dealerId) } : await supabase
           .from('dealer_accounts')
           .select('customer_type, customer_type_label, dealer_type, standard_machine_discount_pct, importer_discount_pct, payment_terms')
           .eq('id', dealerId)
@@ -2676,44 +2678,31 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       </header>
 
       {isAcademyMode && (
-        <section className="mx-auto mb-5 max-w-6xl rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950" aria-label="Academy træningsstatus">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold">Academy træning – du arbejder med træningsdata.</p>
-              <p className="mt-1 text-xs">Intet tilbud, lead, mail eller ordre sendes til produktion.</p>
-            </div>
-            <button
-              type="button"
+        <div className="mx-auto w-full max-w-6xl">
+          <AcademyGuidancePanel
+            title="Case 1 - Byg korrekt RC-1000 ordre"
+            description="Intet tilbud, lead, mail eller ordre sendes til produktion."
+            tasks={[
+              { complete: academyCase.machine, label: 'RC-1000 valgt' },
+              { complete: academyCase.quantityDiscount, label: 'Mængderabat opnået' },
+              { complete: academyCase.flail, label: 'Slagleklipper 410910 valgt' },
+              { complete: academyCase.weedBrush, label: 'Ukrudtsbørste 730600 valgt' },
+              { complete: academyCase.requiredComponents, label: 'Beslag 412603 valgt' },
+              { complete: academyCase.workLight, label: 'Arbejdslys 412594 valgt' },
+              { complete: academyCase.wireHarness, label: 'Ledningsnet 412614 tilføjet' },
+              { complete: academyCase.deliveryDiscount, label: 'Leveringsrabat opnået' },
+              { complete: academyCase.quoteGenerated, label: 'Tilbud genereret' },
+              { complete: Boolean(academyCase.leadId), label: 'Gemt som Academy-lead' },
+            ]}
+            next="vælg maskiner, udstyr og rabatter. Generér træningstilbuddet og afslut med Gem som Academy-lead."
+            actions={<button type="button"
               onClick={() => setAcademyCase(academySandbox.generateQuote())}
               disabled={academyCase.quoteGenerated}
-              className="rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-semibold text-amber-950 disabled:cursor-not-allowed disabled:opacity-60"
-            >
+              className="rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-60">
               {academyCase.quoteGenerated ? 'Træningstilbud genereret' : 'Generér træningstilbud'}
-            </button>
-          </div>
-          <ul className="mt-3 grid gap-x-5 gap-y-1 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              [academyCase.machine, 'RC-1000 valgt'],
-              [academyCase.quantityDiscount, 'Mængderabat opnået'],
-              [academyCase.flail, 'Slagleklipper 410910 valgt'],
-              [academyCase.weedBrush, 'Ukrudtsbørste 730600 valgt'],
-              [academyCase.requiredComponents, 'Beslag 412603 valgt'],
-              [academyCase.workLight, 'Arbejdslys 412594 valgt'],
-              [academyCase.wireHarness, 'Ledningsnet 412614 tilføjet'],
-              [academyCase.deliveryDiscount, 'Leveringsrabat opnået'],
-              [academyCase.quoteGenerated, 'Tilbud genereret'],
-              [Boolean(academyCase.leadId), 'Gemt som Academy-lead'],
-            ].map(([complete, label]) => (
-              <li key={String(label)} className={complete ? 'text-emerald-800' : 'text-amber-900'}>
-                {complete ? '✓' : '○'} {label}
-              </li>
-            ))}
-          </ul>
-          {!academyCase.completed && academyCase.machine && academyCase.quantityDiscount && academyCase.flail && academyCase.weedBrush && academyCase.requiredComponents && academyCase.workLight && academyCase.wireHarness && academyCase.deliveryDiscount && academyCase.quoteGenerated && !academyCase.leadId && (
-            <p className="mt-3 font-semibold text-amber-950">Sidste trin: Gem sagen som Academy-lead.</p>
-          )}
-          {academyCase.completed && <p className="mt-3 font-semibold text-emerald-800">Case 1 er gennemført.</p>}
-        </section>
+            </button>}
+          />
+        </div>
       )}
 
       <AlertDialog open={showLeavePortalConfirm} onOpenChange={setShowLeavePortalConfirm}>

@@ -122,7 +122,7 @@ export interface DealerAccountsResult {
   error?: string;
 }
 
-function rowToDealer(row: Record<string, unknown>): DealerAccount {
+export function rowToDealer(row: Record<string, unknown>): DealerAccount {
   return {
     id: String(row.id),
     account_number: (row.account_number as string) || "",

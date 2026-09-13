@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
+import { PORTAL_MODULES } from '@/lib/portalModules';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, deriveStoredPortalRole, getUserModuleAccessOverride, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { useLanguage } from '@/context/LanguageContext';
@@ -77,6 +78,12 @@ export default function PortalPage() {
   // Academy runs only on localhost and only from its explicit sandbox mode.
   // The local persona is rendering context, never an authenticated portal user.
   const portalUser = appUser ?? (academySandbox.isActive() ? getLocalAcademyUser() : null);
+  const [, refreshAcademy] = useState(0);
+  useEffect(() => {
+    const changed = () => refreshAcademy((n) => n + 1);
+    window.addEventListener('timan:academy-progress-changed', changed);
+    return () => window.removeEventListener('timan:academy-progress-changed', changed);
+  }, []);
 
   // Phase 59 — Messe-variant users are locked to /messe. If we land on
   // /portal with a Messe user already in session, immediately bounce.
@@ -224,7 +231,6 @@ export default function PortalPage() {
   const academyProgress = getAcademyProgress(effectiveUser, academyCompletedCaseIds);
   const portalBasics = academySandbox.getPortalBasics();
   const isPortalBasicsAcademy = academySandbox.isActive()
-    && searchParams.get('academy_mode') === 'true'
     && portalBasics.started;
   const academyCapabilityGated = isAcademyCapabilityGated(effectiveUser);
   const configuratorUnlocked = isAcademyCapabilityUnlocked(effectiveUser, 'configurator', academyCompletedCaseIds);
@@ -281,6 +287,7 @@ export default function PortalPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full">
         {isPortalBasicsAcademy && (
+          <>
           <AcademyGuidancePanel
             title="Portal Basics - 5 hurtige"
             description="Gennemfør de fem handlinger i den almindelige portal. Din fremdrift gemmes kun lokalt i Academy."
@@ -293,6 +300,8 @@ export default function PortalPage() {
             ]}
             next="vælg det første uafsluttede trin i listen."
           />
+          <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to={PORTAL_MODULES.find((module) => module.id === 'partner_map')!.href}>Åbn Partnerkort</Link>
+          </>
         )}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {academyEnabled && (

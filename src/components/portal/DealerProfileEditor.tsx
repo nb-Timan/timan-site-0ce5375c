@@ -7,6 +7,7 @@
  */
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
+import { getPartnerDataRepository } from '@/lib/partnerDataRepository';
 import { CheckCircle2, AlertCircle, Save, Plus, Trash2, Loader2, ArrowRightLeft, CopyPlus } from "lucide-react";
 import { useBeforeUnload } from "react-router-dom";
 
@@ -46,14 +47,10 @@ import {
 } from "@/lib/paymentTerms";
 import { tProfile, type ProfileI18nKey } from "@/lib/dealerProfileI18n";
 import {
-  updateDealerAccount,
   type DealerAccount,
   type UpdateDealerAccountPatch,
 } from "@/lib/dealerAccountsService";
 import {
-  listDealerContacts,
-  upsertDealerContact,
-  deleteDealerContact,
   type DealerContact,
   type DealerContactArea,
 } from "@/lib/dealerContactsService";
@@ -67,7 +64,6 @@ import {
   ROLE_KEYS_WORKSHOP,
 } from "@/lib/dealerContactModel";
 import { computeCompletion, type SectionKey } from "@/lib/dealerProfileCompletion";
-import { fetchActiveDealerContractPaymentTerm } from "@/lib/dealerContractsService";
 import { PARTNER_CURRENCY_CODES } from "@/lib/currency";
 
 interface Props {
@@ -447,6 +443,7 @@ function profileValue(value: DealerAccount[ProfilePatchKey]) {
 // ---------- main component ----------
 
 export default function DealerProfileEditor({ dealer, language, canEdit, canManageFinancialTerms, onUpdated }: Props) {
+  const { updateDealerAccount, listDealerContacts, upsertDealerContact, deleteDealerContact, fetchActiveDealerContractPaymentTerm } = getPartnerDataRepository();
   const t = useMemo(() => (k: ProfileI18nKey) => tProfile(language, k), [language]);
 
   if (import.meta.env.DEV) {
@@ -571,6 +568,11 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
         return false;
       } else {
         const contactResults = await Promise.all(contacts.map((c) => persistContact(c)));
+        const savedContacts = new Map(contacts.flatMap((contact, index) => {
+          const saved = contactResults[index]?.row;
+          return saved ? [[contact.id, saved] as const] : [];
+        }));
+        setContacts((current) => current.map((contact) => savedContacts.get(contact.id) ?? contact));
         const contactError = contactResults.find((r) => !r.ok)?.error;
         if (contactError) {
           toast({ title: t("saveError"), description: contactError, variant: "destructive" });

@@ -13,6 +13,9 @@
  * downline partner scope. Internal notes stay hidden from external roles.
  */
 import React, { useEffect, useMemo, useState } from "react";
+import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
+import { getPartnerDataRepository } from '@/lib/partnerDataRepository';
+import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowRight, ArrowDown, ArrowUp, ArrowUpDown, Building2, Mail, MapPin, Phone, GitBranch, Star,
@@ -23,7 +26,7 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { listDealerContacts, resolveCanonicalFirstContact, type DealerContact } from "@/lib/dealerContactsService";
+import { resolveCanonicalFirstContact, type DealerContact } from "@/lib/dealerContactsService";
 import { computeCompletion } from "@/lib/dealerProfileCompletion";
 import { toast } from "sonner";
 import { useAppUser, type SessionUser } from "@/context/AppUserContext";
@@ -47,7 +50,7 @@ import { buildJournalScope } from "@/lib/machineJournalScope";
 import {
   DealerAccount, DealerAccountStats,
   fetchDealerAccountFamilyByNumber, fetchDealerAccountStatsByNumbers, fetchDealerAccountsForSeller,
-  updateDealerAccount, type UpdateDealerAccountPatch,
+  type UpdateDealerAccountPatch,
   isDealerInactive, dealerLifecycleStatus, resolveActiveDealer, isDealerCustomerAccount,
 } from "@/lib/dealerAccountsService";
 import { buildDealerDetailRowsFromVisibleDealers } from "@/lib/dealerDetailScope";
@@ -580,7 +583,10 @@ async function fetchDealerDetailUsers(
 
 export default function CrmDealerDetailPage({ presentation = "crm" }: { presentation?: "crm" | "partnerdata" }) {
   const { accountNumber = "" } = useParams<{ accountNumber: string }>();
-  const { appUser, loading } = useAppUser();
+  const { appUser: sessionUser, loading } = useAppUser();
+  const academyMode = academyPartnerDataSandbox.isActive();
+  const appUser = academyMode ? ACADEMY_PARTNER_USER : sessionUser;
+  const { listDealerContacts, updateDealerAccount } = getPartnerDataRepository();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { uiLanguage: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
@@ -662,6 +668,12 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
       // role's machine rows while the selected seller scope is resolving.
       setMachineContext(null);
       try {
+        if (academyMode) {
+          setDealers(buildDealerDetailRowsFromVisibleDealers(academyPartnerDataSandbox.listDealers(), accountNumber));
+          setStats({}); setUsers([]); setCalendar([]); setDealerQuotes([]); setDealerOrders([]);
+          setAllLeads([]); setAllDemos([]); setBudgetIndex(null);
+          return;
+        }
         let dealerRows: DealerAccount[] = [];
         let scopedDealerNumbers: string[] | null = null;
         let sellerStats: Record<string, DealerAccountStats> | null = null;
@@ -862,7 +874,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
 
   // Load notes (whenever scope changes)
   useEffect(() => {
-    if (!dealer || !canUseNotes) {
+    if (academyMode || !dealer || !canUseNotes) {
       setNotes([]);
       setNoteComments({});
       return;
@@ -889,7 +901,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   }, [dealer?.id]);
 
   useEffect(() => {
-    if (!dealer?.account_number) { setDealerContracts([]); return; }
+    if (academyMode || !dealer?.account_number) { setDealerContracts([]); return; }
     let cancelled = false;
     fetchDealerContractsForDealerAccount(dealer.account_number).then(({ rows }) => {
       if (!cancelled) setDealerContracts(rows);
@@ -1347,7 +1359,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
       return res;
     }
     // Refresh only this dealer family; the detail view derives from it.
-    const dRes = await fetchDealerAccountFamilyByNumber(accountNumber, { includeDeleted: false });
+    const dRes = academyMode ? { rows: academyPartnerDataSandbox.listDealers() } : await fetchDealerAccountFamilyByNumber(accountNumber, { includeDeleted: false });
     setDealers(dRes.rows);
     toast.success(tl("partner_update_success", lang));
     setShowEditDealer(false);
@@ -1356,6 +1368,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
 
   return (
     <CrmLayout pageTitle={dealer.branch_name || dealer.company_name} partnerDataPresentation={partnerDataPresentation}>
+      <AcademyPartnerDataGuidance />
 
       {isDealerInactive(dealer) && (
         <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
