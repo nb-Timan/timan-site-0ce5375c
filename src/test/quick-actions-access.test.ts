@@ -117,14 +117,14 @@ describe("quick action access", () => {
     })).toEqual(["partner_map"]);
   });
 
-  it("gives Timan Forhandler the canonical lead, invoice, and warranty actions", () => {
+  it("gives Timan Forhandler the canonical lead, invoice, and warranty-create actions", () => {
     expect(resolveEffectiveQuickActions({
       ...dealer,
       quick_actions: ["create_lead", "create_demo", "partner_map"],
     })).toEqual([
       "create_lead",
       "dealer_invoice_accept",
-      "warranty_registrations",
+      "create_warranty_registration",
     ]);
   });
 
@@ -154,7 +154,7 @@ describe("quick action access", () => {
     expect(resolveEffectiveQuickActions(effective)).toEqual([
       "create_lead",
       "dealer_invoice_accept",
-      "warranty_registrations",
+      "create_warranty_registration",
     ]);
   });
 
@@ -169,8 +169,17 @@ describe("quick action access", () => {
       "timan_dealer",
       "timan_service_partner",
     ]);
-    expect(getDefaultQuickActionRoles("warranty_registrations")).toEqual([
+    expect(getDefaultQuickActionRoles("create_warranty_registration")).toEqual([
       "timan_dealer",
     ]);
+  });
+
+  it("routes the dealer warranty quick action to creation and preserves the registrations overview", () => {
+    const quickActions = readFileSync(join(process.cwd(), "src/components/portal/QuickActions.tsx"), "utf8");
+
+    expect(quickActions).toContain("key: 'create_warranty_registration'");
+    expect(quickActions).toContain("labelKey: 'quickActionCreateWarrantyRegistration'");
+    expect(quickActions).toContain("to: '/portal/service/warranty/new'");
+    expect(quickActions).toContain("to: '/portal/service/warranty/registrations'");
   });
 });

@@ -23,6 +23,7 @@ const requiredKeys = [
   "quickActionCompanyContactInfo",
   "quickActionCompanyContactInfoDesc",
   "quickActionDealerInvoiceAccept",
+  "quickActionCreateWarrantyRegistration",
   "quickActionWarrantyRegistrations",
   "quickActionPartnerMap",
   "area_calendar_title",
@@ -72,7 +73,7 @@ describe("Portal front page dealer data badge i18n", () => {
     expect(DEFAULT_QUICK_ACTIONS.timan_dealer).toEqual([
       "create_lead",
       "dealer_invoice_accept",
-      "warranty_registrations",
+      "create_warranty_registration",
     ]);
     expect(DEFAULT_QUICK_ACTIONS.timan_importer).toEqual([
       "create_lead",

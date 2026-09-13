@@ -120,6 +120,7 @@ const QUICK_ACTION_LABEL: Record<QuickActionKey, { da: string; en: string }> = {
   create_demo:           { da: "Ny demo-registrering",       en: "New demo registration" },
   company_contact_info:  { da: "Ny samarbejdspartner",       en: "New collaboration partner" },
   dealer_invoice_accept: { da: "Forhandler faktura accept",  en: "Dealer invoice acceptance" },
+  create_warranty_registration: { da: "Opret garantiregistrering", en: "Create warranty registration" },
   warranty_registrations:{ da: "Garantiregistreringer",      en: "Warranty registrations" },
   partner_map:           { da: "Partnerkort",                en: "Partner map" },
 };

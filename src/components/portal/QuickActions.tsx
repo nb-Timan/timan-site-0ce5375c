@@ -42,7 +42,7 @@ const PARTNER_ACTIONS: Action[] = [
 const DEALER_ACTIONS: Action[] = [
   { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'sales_tools' },
   { key: 'dealer_invoice_accept', labelKey: 'quickActionDealerInvoiceAccept', to: '/portal/misc/forms/dealer-invoice-accept', icon: FileCheck2, requires: 'sales_tools' },
-  { key: 'warranty_registrations', labelKey: 'quickActionWarrantyRegistrations', to: '/portal/service/warranty/new', icon: ShieldCheck, requires: 'warranty' },
+  { key: 'create_warranty_registration', labelKey: 'quickActionCreateWarrantyRegistration', to: '/portal/service/warranty/new', icon: ShieldCheck, requires: 'warranty' },
 ];
 
 const SERVICE_ACTIONS: Action[] = [
