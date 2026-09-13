@@ -11,6 +11,8 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { cn } from '@/lib/utils';
 import LastChangedLine from '@/components/portal/LastChangedLine';
 import { t } from '@/lib/i18n/translations';
+import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
+import { getLocalAcademyUser } from '@/lib/academyCurriculum';
 
 interface NavItem { tKey: string; to: string; icon: typeof LayoutDashboard }
 const NAV: NavItem[] = [
@@ -33,10 +35,11 @@ const EXTERNAL_NAV_BLOCKLIST = new Set([
 interface Props { children: ReactNode; pageTitle?: string; partnerDataPresentation?: boolean }
 
 export default function CrmLayout({ children, pageTitle, partnerDataPresentation = false }: Props) {
-  const { appUser, loading, setAppUser, logout } = useAppUser();
+  const { appUser: sessionUser, loading, logout } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
+  const appUser = sessionUser ?? (academyCrmSandbox.isActive() ? getLocalAcademyUser() : null);
   const effectiveUser = useEffectivePortalUser(appUser);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;

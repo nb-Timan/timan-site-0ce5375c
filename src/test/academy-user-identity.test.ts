@@ -32,4 +32,14 @@ describe('Academy user identity isolation', () => {
     expect(configurator).toContain('Forlad Academy');
     expect(configurator).toContain('const restoredUser = await refreshAppUser();');
   });
+
+  it('uses a local CRM seller option only while Academy mode is active', () => {
+    const curriculum = read('src/lib/academyCurriculum.ts');
+    const leadForm = read('src/pages/crm/CrmNewLeadPage.tsx');
+    const demoForm = read('src/pages/crm/CrmNewDemoLeadPage.tsx');
+
+    expect(curriculum).toContain("id: 'academy-local-sales-user'");
+    expect(leadForm).toContain('setSellers([getLocalAcademyBackendUser()]);');
+    expect(demoForm).toContain('setSellers([getLocalAcademyBackendUser()]);');
+  });
 });

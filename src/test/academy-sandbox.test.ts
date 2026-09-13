@@ -98,7 +98,47 @@ describe('Academy Case 1 sandbox', () => {
     });
 
     expect(refreshed.completed).toBe(true);
+    expect(refreshed).toMatchObject({
+      machine: true,
+      flail: true,
+      weedBrush: true,
+      requiredComponents: true,
+      workLight: true,
+      wireHarness: true,
+      deliveryDiscount: true,
+      quantityDiscount: true,
+      quoteGenerated: true,
+    });
     expect(academySandbox.getCompletedCaseIds()).toEqual([ACADEMY_CASE_1]);
+  });
+
+  it('repairs completed local progress written by the old refresh behavior', () => {
+    localStorage.setItem('timan.academy.sandbox.v1', JSON.stringify({
+      started: true,
+      completed: true,
+      quoteGenerated: true,
+      leadId: 'academy-lead-existing',
+      machine: false,
+      flail: false,
+      weedBrush: false,
+      requiredComponents: false,
+      workLight: false,
+      wireHarness: false,
+      deliveryDiscount: false,
+      quantityDiscount: false,
+    }));
+
+    expect(academySandbox.getCase1()).toMatchObject({
+      completed: true,
+      machine: true,
+      flail: true,
+      weedBrush: true,
+      requiredComponents: true,
+      workLight: true,
+      wireHarness: true,
+      deliveryDiscount: true,
+      quantityDiscount: true,
+    });
   });
 
   it('completes Case 2 only after the Timan 3330 maintenance filter and target video are opened', () => {

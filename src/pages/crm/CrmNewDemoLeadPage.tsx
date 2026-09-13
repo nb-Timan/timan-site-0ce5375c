@@ -26,6 +26,8 @@ import AddressAutocomplete from '@/components/crm/AddressAutocomplete';
 import MachineInterestPicker from '@/components/crm/MachineInterestPicker';
 import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
+import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
+import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
 
 // ---------- i18n. English is the fallback. ----------
 type TKey =
@@ -187,7 +189,8 @@ function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): 
 }
 
 export default function CrmNewDemoLeadPage() {
-  const { appUser, loading: authLoading } = useAppUser();
+  const { appUser: sessionUser, loading: authLoading } = useAppUser();
+  const appUser = sessionUser ?? (academyCrmSandbox.isActive() ? getLocalAcademyUser() : null);
   const { language: lang } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -241,6 +244,7 @@ export default function CrmNewDemoLeadPage() {
   useEffect(() => {
     if (repository.academy) {
       setDealersLoading(false);
+      setSellers([getLocalAcademyBackendUser()]);
       return;
     }
     let cancelled = false;

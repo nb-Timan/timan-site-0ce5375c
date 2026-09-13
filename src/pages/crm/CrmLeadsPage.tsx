@@ -48,6 +48,7 @@ import {
 import { toast } from 'sonner';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
+import { getLocalAcademyUser } from '@/lib/academyCurriculum';
 import {
   buildCrmLeadOwnerFilterOptions,
   type CrmLeadOwnerFilter,
@@ -438,7 +439,8 @@ function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
 }
 
 export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = {}) {
-  const { appUser } = useAppUser();
+  const { appUser: sessionUser } = useAppUser();
+  const appUser = sessionUser ?? (academyCrmSandbox.isActive() ? getLocalAcademyUser() : null);
   const effectiveUser = useEffectivePortalUser(appUser);
   const { uiLanguage: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
@@ -527,6 +529,11 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      if (repository.academy) {
+        setExternalDealerScope(null);
+        setExternalScopeLoading(false);
+        return;
+      }
       setExternalScopeLoading(true);
       try {
         const res = await fetchDealerAccounts({ includeDeleted: true });

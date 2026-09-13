@@ -84,12 +84,29 @@ function isLocalAcademyMode() {
 function load(): AcademySandboxState {
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<AcademySandboxState>;
-    return {
+    const state = {
       ...initial(),
       ...saved,
       case2: { ...initialCase2(), ...saved.case2 },
       portalBasics: { ...initialPortalBasics(), ...saved.portalBasics },
     };
+    // Completion can only be awarded after every Case 1 requirement has
+    // passed. Repair local progress saved by the earlier refresh bug, where
+    // a reset Configurator form overwrote checklist detail after completion.
+    return state.completed
+      ? {
+        ...state,
+        machine: true,
+        flail: true,
+        weedBrush: true,
+        requiredComponents: true,
+        workLight: true,
+        wireHarness: true,
+        deliveryDiscount: true,
+        quantityDiscount: true,
+        quoteGenerated: true,
+      }
+      : state;
   } catch {
     return initial();
   }
@@ -200,13 +217,15 @@ export const academySandbox = {
   },
   evaluate(input: AcademyCase1Input) {
     if (!isLocalAcademyMode()) throw new Error('Academy sandbox is only available on localhost.');
+    const current = load();
+    // A completed Academy case is a local training achievement. The regular
+    // Configurator intentionally resets its in-memory form after a refresh,
+    // so it must not replace the persisted checklist with an empty form.
+    if (current.completed) return case1Of(current);
     const rc = input.machineConfigs.find((item) => item.type === 'RC-1000S');
     const accessories = rc?.acc ?? [];
-    const current = load();
     const next = { ...current, started: true, machine: Boolean(rc), flail: accessories.includes('410910'), weedBrush: accessories.includes('730600'), requiredComponents: accessories.includes('412603'), workLight: accessories.includes(ACC_ID_WORK_LIGHT), wireHarness: accessories.includes(ACC_ID_WIRE_HARNESS), deliveryDiscount: input.deliveryDiscount, quantityDiscount: input.quantityDiscount, quoteGenerated: input.quoteGenerated ?? current.quoteGenerated };
-    // Once the sandbox has awarded completion, a Configurator UI refresh must
-    // not revoke it just because the in-memory training configuration resets.
-    next.completed = current.completed || isComplete(next);
+    next.completed = isComplete(next);
     return case1Of(save(next));
   },
   generateQuote() {

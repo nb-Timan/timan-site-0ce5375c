@@ -27,6 +27,8 @@ import {
   videoSeasonLabel,
 } from "@/lib/videoLibraryI18n";
 import { academySandbox } from "@/lib/academySandbox";
+import AcademyGuidancePanel from "@/components/academy/AcademyGuidancePanel";
+import { getLocalAcademyUser } from "@/lib/academyCurriculum";
 
 export default function VideoGalleryPage() {
   const { appUser, loading, logout } = useAppUser();
@@ -41,6 +43,9 @@ export default function VideoGalleryPage() {
   const [active, setActive] = useState<MarketingVideo | null>(null);
   const localAcademySession = academySandbox.isActive();
   const isAcademyCase2 = localAcademySession && searchParams.get("academy_case") === "2";
+  // Academy training is intentionally local-only. It can render the normal gallery
+  // without creating an authenticated production portal session.
+  const portalUser = appUser ?? (localAcademySession ? getLocalAcademyUser() : null);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,6 +70,7 @@ export default function VideoGalleryPage() {
   }, [favoriteIds, filters, rows, uiLanguage]);
 
   const targetVisible = filteredRows.some((video) => video.youtube_video_id === "sxYALA86PaI");
+  const academyCase2 = academySandbox.getCase2();
 
   useEffect(() => {
     if (!isAcademyCase2) return;
@@ -118,12 +124,12 @@ export default function VideoGalleryPage() {
   };
 
   if (loading) return <div className="min-h-screen bg-gray-50" />;
-  if (!appUser) return <Navigate to="/portal" replace />;
+  if (!portalUser) return <Navigate to="/portal" replace />;
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
       <PortalHeader
-        user={appUser}
+        user={portalUser}
         language={language}
         onLanguageChange={setLanguage}
         onLogout={async () => {
@@ -133,6 +139,19 @@ export default function VideoGalleryPage() {
       />
 
       <main className="mx-auto flex-grow w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {isAcademyCase2 && (
+          <AcademyGuidancePanel
+            title="Case 2 - Find en vedligeholdelsesvideo"
+            description="Brug det almindelige Video Galleri. Favoritter og øvrige video-data ændres ikke i Academy."
+            tasks={[
+              { label: 'Timan 3330 filtreret', complete: academyCase2.machineFiltered },
+              { label: 'Vedligeholdelse filtreret', complete: academyCase2.maintenanceFiltered },
+              { label: 'Den rigtige video fundet', complete: academyCase2.targetFound },
+              { label: 'Weed Brush-video åbnet', complete: academyCase2.targetOpened },
+            ]}
+            next="filtrer på Timan 3330 og Vedligeholdelse, og åbn derefter Weed Brush-videoen."
+          />
+        )}
         <div className="mb-6 flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-slate-900">{tv("videoLibraryTitle", uiLanguage)}</h1>
           <p className="max-w-3xl text-sm text-slate-600">{tv("videoLibraryIntro", uiLanguage)}</p>

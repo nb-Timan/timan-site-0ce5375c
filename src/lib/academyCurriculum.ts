@@ -1,5 +1,6 @@
 import type { AppUser } from '@/data/appUsers';
 import type { SessionUser } from '@/context/AppUserContext';
+import type { BackendUser } from '@/lib/backend-users-store';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, isBackendActor } from '@/lib/portalAccess';
 
 export const ACADEMY_CASE_1_ID = 'sales.case_1_rc1000';
@@ -34,6 +35,30 @@ export function getLocalAcademyUser(): SessionUser {
     portal_role: 'timan_seller', allowed_modules: ['academy', 'salg_marketing', 'byg_din_timan', 'timan_crm'],
     module_access: ['academy', 'salg_marketing', 'byg_din_timan', 'timan_crm'],
     permissions: { can_save_configurator_as_lead: true, academy_required: true },
+  };
+}
+
+/**
+ * Local-only CRM form option. Academy never reads or writes the real user
+ * directory, but the ordinary CRM form still needs a selected seller.
+ */
+export function getLocalAcademyBackendUser(): BackendUser {
+  const now = '2026-01-01T00:00:00.000Z';
+  return {
+    id: 'academy-local-sales-user', initials: 'AS', name: 'Academy Sales', email: 'academy.sales@localhost',
+    phone: null, company: 'Timan Academy', country: 'DK', postal_code: null, language: 'da', dealer_number: null,
+    company_dealer: null, seller_initials: null, seller_email: null, notes: 'Local Academy training identity.',
+    role: 'timan_seller', status: 'active', approved: true, is_active: true,
+    allowed_areas: [], allowed_modules: ['academy', 'salg_marketing', 'byg_din_timan', 'timan_crm'],
+    backend_modules: [], organization_access_role: null,
+    perms: {
+      can_create_claims: false, can_approve_claims: false, can_create_tsb: false, can_manage_users: false,
+      can_manage_payment_terms: false, can_apply_extra_dealer_discount: false, can_save_configurator_as_lead: true,
+      marketing_videos_manage: false, marketing_configurator_manage: false, news_manage: false,
+      can_view_prices: true, can_submit_order: false,
+    },
+    account_owner_user_id: null, account_owner_name: null, account_owner_initials: null, account_owner_email: null,
+    last_login_at: null, quick_actions: null, portal_variant: 'standard', created_at: now, updated_at: now,
   };
 }
 

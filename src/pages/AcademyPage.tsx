@@ -22,6 +22,7 @@ import {
 import PortalHeader from '@/components/portal/PortalHeader';
 import { academySandbox } from '@/lib/academySandbox';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
+import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import {
   activateLocalAcademyEnrollment,
   getAcademyCapabilityProgress,
@@ -169,6 +170,7 @@ export default function AcademyPage() {
   const videoTask = academySandbox.getCase2();
   const portalBasics = academySandbox.getPortalBasics();
   const crm = academyCrmSandbox.getProgress();
+  const partnerData = academyPartnerDataSandbox.getProgress();
 
   // Enrollment is training state only; the portal's authenticated user remains untouched.
   useEffect(() => {
@@ -202,12 +204,15 @@ export default function AcademyPage() {
     portalBasics.targetNewsOpened,
   ].filter(Boolean).length;
   const crmCompleted = Number(crm.part1Completed) + Number(crm.part2Completed);
-  const overallCompleted = Number(task.completed) + Number(videoTask.completed) + Number(portalBasics.completed) + crmCompleted;
-  const overallTotal = 5;
+  const partnerDataCompleted = Number(partnerData.part1Completed) + Number(partnerData.part2Completed);
+  const overallCompleted = Number(task.completed) + Number(videoTask.completed) + Number(portalBasics.completed) + crmCompleted + partnerDataCompleted;
+  const overallTotal = 7;
   const overallPercentage = overallCompleted / overallTotal * 100;
   const portalBasicsState: State = portalBasics.completed ? 'done' : portalBasics.started ? 'active' : 'new';
   const crmPart1State: State = crm.part1Completed ? 'done' : academyCrmSandbox.getState().part1Started ? 'active' : 'new';
   const crmPart2State: State = crm.part2Completed ? 'done' : academyCrmSandbox.getState().part2Started ? 'active' : crm.part1Completed ? 'ready' : 'locked';
+  const partnerDataPart1State: State = partnerData.part1Completed ? 'done' : academyPartnerDataSandbox.getState().part1Started ? 'active' : 'new';
+  const partnerDataPart2State: State = partnerData.part2Completed ? 'done' : academyPartnerDataSandbox.getState().part2Started ? 'active' : partnerData.part1Completed ? 'ready' : 'locked';
   const startCase = () => {
     academySandbox.startCase1();
     navigate('/configurator?academy_mode=true');
@@ -227,6 +232,14 @@ export default function AcademyPage() {
   const startCrmPart2 = () => {
     academyCrmSandbox.start(2);
     navigate('/academy/crm/leads?academy_mode=true&academy_part=2');
+  };
+  const startPartnerDataPart1 = () => {
+    academyPartnerDataSandbox.start(1);
+    navigate('/portal/dealer-data?academy_mode=true&academy_part=1');
+  };
+  const startPartnerDataPart2 = () => {
+    academyPartnerDataSandbox.start(2);
+    navigate('/portal/dealer-data?academy_mode=true&academy_part=2');
   };
 
   return (
@@ -321,9 +334,9 @@ export default function AcademyPage() {
             <Module icon={Map} title="Portal Basics" progress={`${portalBasicsChecks} / 5 gennemført`}>
               <AcademyRow title="Portal Basics - 5 hurtige" description="Skift sprog, besøg Partnerdata, brug fuldskærm, ændr partnerkort og åbn den rigtige nyhed." state={portalBasicsState} action={portalBasics.started ? 'Fortsæt' : 'Start'} onClick={startPortalBasics} />
             </Module>
-            <Module icon={Users} title="Partnerdata" progress="0 / 2 gennemført">
-              <AcademyRow title="Part 1 - Virksomheds- og persondata" description="Tilføj rigtige kontaktpersoner, vælg første kontakt og opdater virksomhedens YouTube-kanal." state="new" />
-              <AcademyRow title="Part 2 - Samarbejdspartnere og fakturering" description="Lær partnerrelationer og fakturaaccept for reservedelsbestilling at kende." state="locked" />
+            <Module icon={Users} title="Partnerdata" progress={`${partnerDataCompleted} / 2 gennemført`}>
+              <AcademyRow title="Part 1 - Virksomheds- og persondata" description="Tilføj en lokal kontaktperson, vælg første kontakt og opdater Academy YouTube-kanalen." state={partnerDataPart1State} action={partnerDataPart1State === 'done' ? 'Åbn' : academyPartnerDataSandbox.getState().part1Started ? 'Fortsæt' : 'Start'} onClick={startPartnerDataPart1} />
+              <AcademyRow title="Part 2 - Samarbejdspartnere og fakturering" description="Gennemgå lokale partnerrelationer og fakturaaccept for reservedelsbestilling." state={partnerDataPart2State} action={partnerData.part1Completed ? (partnerDataPart2State === 'done' ? 'Åbn' : academyPartnerDataSandbox.getState().part2Started ? 'Fortsæt' : 'Start') : undefined} onClick={partnerData.part1Completed ? startPartnerDataPart2 : undefined} />
             </Module>
             <Module icon={Users} title="CRM" progress={`${crmCompleted} / 2 gennemført`}>
               <AcademyRow title="Case 1 - Prioritér og færdiggør leads" description="Flyt det forfaldne follow-up og færdiggør det lokale Configurator-lead." state={crmPart1State} action={crmPart1State === 'locked' ? undefined : crm.part1Completed ? 'Åbn' : academyCrmSandbox.getState().part1Started ? 'Fortsæt' : 'Start'} onClick={startCrmPart1} />

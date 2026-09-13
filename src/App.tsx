@@ -207,7 +207,7 @@ const MiscFormsPage = lazy(() => import("./pages/misc/MiscFormsPage"));
 const BudgetFeedbackFormPage = lazy(() => import("./pages/misc/BudgetFeedbackFormPage"));
 const DealerInvoiceAcceptFormPage = lazy(() => import("./pages/misc/DealerInvoiceAcceptFormPage"));
 const CompanyContactInfoFormPage = lazy(() => import("./pages/misc/CompanyContactInfoFormPage"));
-const PartnerMapPage = lazy(() => import("./pages/misc/PartnerMapPage"));
+const PartnerMapPage = lazy(() => import("./pages/misc/AcademyAwarePartnerMapPage"));
 
 const MesseHomePage = lazy(() => import("./pages/messe/MesseHomePage"));
 const MesseVideoPage = lazy(() => import("./pages/messe/MesseVideoPage"));

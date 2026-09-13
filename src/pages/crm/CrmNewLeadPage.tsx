@@ -59,6 +59,8 @@ import {
   type LeadShareTarget,
 } from '@/lib/crmLeadSharingService';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
+import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
+import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import {
   getMissingOrdinaryCrmLeadFields,
   isLegacyWorkingBudgetOnlySave,
@@ -755,7 +757,8 @@ function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): 
 }
 
 export default function CrmNewLeadPage() {
-  const { appUser, loading: authLoading } = useAppUser();
+  const { appUser: sessionUser, loading: authLoading } = useAppUser();
+  const appUser = sessionUser ?? (academyCrmSandbox.isActive() ? getLocalAcademyUser() : null);
   const { language: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
@@ -867,6 +870,7 @@ export default function CrmNewLeadPage() {
   useEffect(() => {
     if (repository.academy) {
       setDealersLoading(false);
+      setSellers([getLocalAcademyBackendUser()]);
       return;
     }
     let cancelled = false;
