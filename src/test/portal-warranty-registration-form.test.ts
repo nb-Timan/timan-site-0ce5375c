@@ -6,6 +6,8 @@ import {
   splitPostalCity,
 } from "@/lib/portalWarrantyRegistrationForm";
 import { getPortalPermissions } from "@/lib/portalAccess";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 describe("portal warranty registration form", () => {
   it("uses the canonical five-machine list, including Timan 2620", () => {
@@ -34,5 +36,19 @@ describe("portal warranty registration form", () => {
     expect(getPortalPermissions("timan_dealer").canCreateWarranty).toBe(true);
     expect(getPortalPermissions("timan_importer").canCreateWarranty).toBe(false);
     expect(getPortalPermissions("timan_service_partner").canCreateWarranty).toBe(false);
+  });
+
+  it("keeps one dealer warranty-create entry in the warranty navigation", () => {
+    const dashboard = readFileSync(
+      join(process.cwd(), "src/components/warranty/WarrantyDashboardBody.tsx"),
+      "utf8",
+    );
+    const navigation = readFileSync(
+      join(process.cwd(), "src/components/warranty/WarrantyAdminSidebarLayout.tsx"),
+      "utf8",
+    );
+
+    expect(dashboard).not.toContain('to="/portal/service/warranty/new"');
+    expect(navigation).toContain('to: "/portal/service/warranty/new"');
   });
 });

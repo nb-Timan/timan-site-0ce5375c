@@ -74,7 +74,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
       <WarrantyAdminSidebarLayout
         scope={variant}
         readOnly={readOnly}
-        intro={<WarrantyDashboardIntro scope={variant} showCreate={canCreate} />}
+        intro={<WarrantyDashboardIntro scope={variant} />}
       >
         <WarrantyDashboardBody scope={variant} dealerName={dealerName} />
       </WarrantyAdminSidebarLayout>
