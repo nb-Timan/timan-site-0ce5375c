@@ -22,7 +22,7 @@ import { t } from '@/lib/i18n/translations';
 import { getPortalBackInfo } from '@/lib/portalBackNav';
 import BackendSideNav from '@/components/portal/BackendSideNav';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
-import { academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
 import { useAppUser } from '@/context/AppUserContext';
 
 const LANGS = PORTAL_LANGUAGES;
@@ -112,6 +112,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   }
 
   function homeTarget(): string {
+    if (academySandbox.getActiveCase() === ACADEMY_PORTAL_BASICS) return '/portal?academy_mode=true';
     if (academyActive) return '/academy';
     if (isMesseVariantUser(user)) return '/messe';
     if (activeMode === 'role:exhibition_user') return '/messe';
@@ -232,7 +233,9 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
             <button
               type="button"
               onClick={() => {
-                if (academySandbox.isActive()) academySandbox.trackPortalBasicsHomeReturn(location.pathname);
+                if (academySandbox.getActiveCase() === ACADEMY_PORTAL_BASICS) {
+                  academySandbox.trackPortalBasicsLogoHome(location.pathname);
+                }
                 navigate(homeTarget());
               }}
               className="inline-flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5a27] focus-visible:ring-offset-2"

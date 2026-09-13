@@ -7,6 +7,7 @@ export const ACADEMY_PORTAL_BASICS = 'portal.basics_5';
 export const ACADEMY_CASE_2_TARGET_VIDEO_ID = 'sxYALA86PaI';
 export const ACADEMY_CASE_2_MACHINE_KEY = 'Timan 3330';
 export const ACADEMY_CASE_2_CONTENT_TYPE = 'maintenance';
+export const ACADEMY_PROGRESS_CHANGED = 'timan:academy-progress-changed';
 const KEY = 'timan.academy.sandbox.v1';
 const SESSION_KEY = 'timan.academy.session.v1';
 export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'portal.basics_5' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations';
@@ -148,7 +149,7 @@ function save(state: AcademySandboxState) {
   const next = JSON.stringify(state);
   if (localStorage.getItem(KEY) !== next) {
     localStorage.setItem(KEY, next);
-    window.dispatchEvent(new Event('timan:academy-progress-changed'));
+    window.dispatchEvent(new Event(ACADEMY_PROGRESS_CHANGED));
   }
   return state;
 }
@@ -252,7 +253,7 @@ export const academySandbox = {
     portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
     return save({ ...current, portalBasics }).portalBasics;
   },
-  trackPortalBasicsHomeReturn(fromPath: string) {
+  trackPortalBasicsLogoHome(fromPath: string) {
     if (!isLocalAcademyMode()) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started || fromPath !== '/portal/dealer-data') return current.portalBasics;

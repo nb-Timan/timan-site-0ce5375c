@@ -18,7 +18,7 @@ import { sortPortalHomeCards } from '@/lib/portalHomeOrder';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
-import { academySandbox } from '@/lib/academySandbox';
+import { academySandbox, type AcademyPortalBasicsState } from '@/lib/academySandbox';
 import { canAccessAcademy, getAcademyCapabilityProgress, getAcademyProgress, getLocalAcademyUser, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { Language } from '@/types/configurator';
 import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
@@ -68,6 +68,17 @@ const MESSE_DESC: Record<Language, string> = {
   it: 'Apri il portale fiera con configuratore, Timan 2620, mappa rivenditori e video academy.',
   hu: 'Nyissa meg a kiállítási portált konfigurátorral, Timan 2620-al, kereskedőtérképpel és videó akadémiával.',
 };
+
+function getPortalBasicsNext(state: AcademyPortalBasicsState): string {
+  if (!state.frenchSelected) return 'Skift portalsproget til fransk.';
+  if (!state.languageRestored) return 'Skift tilbage til dit oprindelige portalsprog.';
+  if (!state.partnerDataOpened) return 'Åbn Partnerdata og se dine forhandlere.';
+  if (!state.returnedHomeFromPartnerData) return 'Klik på Timan-logoet øverst til venstre for at gå tilbage til forsiden.';
+  if (!state.fullscreenUsed) return 'Aktivér fuldskærm via ikonet i headeren.';
+  if (!state.mapAreaChanged) return 'Åbn Partnerkort og skift område.';
+  if (!state.targetNewsOpened) return 'Åbn nyheden Skivehøster til Timan RC-1000s.';
+  return 'Alle Portal Basics-opgaver er gennemført.';
+}
 
 export default function PortalPage() {
   const { appUser, loading, setAppUser, logout, dealerStatus } = useAppUser();
@@ -299,7 +310,7 @@ export default function PortalPage() {
               { label: 'Skift område på Partnerkortet', complete: portalBasics.mapAreaChanged },
               { label: 'Åbn RC-1000s-nyheden', complete: portalBasics.targetNewsOpened },
             ]}
-            next="vælg det første uafsluttede trin i listen."
+            next={getPortalBasicsNext(portalBasics)}
             completion
           />
           <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to={PORTAL_MODULES.find((module) => module.id === 'partner_map')!.href}>Åbn Partnerkort</Link>

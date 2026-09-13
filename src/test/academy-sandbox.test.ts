@@ -227,7 +227,7 @@ describe('Academy Case 1 sandbox', () => {
     academySandbox.trackPortalBasicsLanguage('fr');
     academySandbox.trackPortalBasicsLanguage('da');
     academySandbox.trackPortalBasicsPartnerData();
-    academySandbox.trackPortalBasicsHomeReturn('/portal/dealer-data');
+    academySandbox.trackPortalBasicsLogoHome('/portal/dealer-data');
     academySandbox.trackPortalBasicsFullscreen();
     academySandbox.trackPortalBasicsMapArea('de_plz2');
     academySandbox.trackPortalBasicsNews('Forkert nyhed');
@@ -261,6 +261,37 @@ describe('Academy Case 1 sandbox', () => {
       languageRestored: true,
       partnerDataOpened: true,
       completed: false,
+    });
+  });
+
+  it('requires the real Partnerdata logo path after Partnerdata has opened', () => {
+    window.history.replaceState({}, '', '/portal?academy_mode=true');
+    academySandbox.startPortalBasics('da');
+
+    academySandbox.trackPortalBasicsLogoHome('/portal/dealer-data');
+    expect(academySandbox.getPortalBasics().returnedHomeFromPartnerData).toBe(false);
+
+    academySandbox.trackPortalBasicsPartnerData();
+    academySandbox.trackPortalBasicsLogoHome('/portal');
+    expect(academySandbox.getPortalBasics().returnedHomeFromPartnerData).toBe(false);
+
+    academySandbox.trackPortalBasicsLogoHome('/portal/dealer-data');
+    expect(academySandbox.getPortalBasics()).toMatchObject({
+      partnerDataOpened: true,
+      returnedHomeFromPartnerData: true,
+      completed: false,
+    });
+  });
+
+  it('does not track Partnerdata actions outside an Academy session', () => {
+    window.history.replaceState({}, '', '/portal/dealer-data');
+    academySandbox.trackPortalBasicsPartnerData();
+    academySandbox.trackPortalBasicsLogoHome('/portal/dealer-data');
+
+    expect(academySandbox.getPortalBasics()).toMatchObject({
+      started: false,
+      partnerDataOpened: false,
+      returnedHomeFromPartnerData: false,
     });
   });
 });
