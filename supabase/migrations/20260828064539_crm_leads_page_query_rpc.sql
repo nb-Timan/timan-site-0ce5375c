@@ -377,20 +377,16 @@ select jsonb_build_object(
 )
 from page_rows;
 $$;
-
 revoke all on function public.crm_leads_page_query(
   boolean, uuid, text, uuid[], uuid[], text[], text, text, text, text, text, text, text, text, integer, integer, timestamptz
 ) from public, anon;
 grant execute on function public.crm_leads_page_query(
   boolean, uuid, text, uuid[], uuid[], text[], text, text, text, text, text, text, text, text, integer, integer, timestamptz
 ) to authenticated;
-
 create index if not exists idx_crm_leads_owner_followup
   on public.crm_leads (owner_user_id, next_followup_date);
-
 create index if not exists idx_crm_demo_leads_owner_followup
   on public.crm_demo_leads (owner_user_id, followup_date);
-
 create index if not exists idx_configurations_lead_quote_lookup
   on public.configurations (lead_id, document_type, quote_sent_at desc, last_saved_at desc, created_at desc)
   where lead_id is not null and document_type = 'quote';

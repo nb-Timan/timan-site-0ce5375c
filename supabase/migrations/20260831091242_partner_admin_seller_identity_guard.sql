@@ -4,11 +4,9 @@
 
 alter table public.dealer_accounts
   add column if not exists assigned_seller_id uuid references public.app_users(id) on delete set null;
-
 create index if not exists dealer_accounts_assigned_seller_id_idx
   on public.dealer_accounts (assigned_seller_id)
   where assigned_seller_id is not null;
-
 with seller_candidates as (
   select
     da.id as dealer_account_id,
@@ -55,9 +53,7 @@ set
   assigned_seller_name = coalesce(nullif(da.assigned_seller_name, ''), safe.seller_name)
 from safe_matches safe
 where da.id = safe.dealer_account_id;
-
 drop policy if exists dealer_accounts_write on public.dealer_accounts;
-
 create or replace function public.can_manage_partner_admin_fields(
   p_assigned_seller_id uuid,
   p_assigned_seller_email text,
@@ -97,17 +93,14 @@ as $$
       )
   );
 $$;
-
 revoke all on function public.can_manage_partner_admin_fields(uuid, text, text) from public, anon;
 grant execute on function public.can_manage_partner_admin_fields(uuid, text, text) to authenticated, service_role;
-
 drop policy if exists dealer_accounts_insert_timan_staff on public.dealer_accounts;
 create policy dealer_accounts_insert_timan_staff
 on public.dealer_accounts
 for insert
 to authenticated
 with check (public.is_timan_backend());
-
 drop policy if exists dealer_accounts_update_timan_staff on public.dealer_accounts;
 create policy dealer_accounts_update_timan_staff
 on public.dealer_accounts
@@ -115,14 +108,12 @@ for update
 to authenticated
 using (public.can_manage_partner_admin_fields(assigned_seller_id, assigned_seller_email, assigned_seller_initials))
 with check (public.can_manage_partner_admin_fields(assigned_seller_id, assigned_seller_email, assigned_seller_initials));
-
 drop policy if exists dealer_accounts_delete_timan_backend on public.dealer_accounts;
 create policy dealer_accounts_delete_timan_backend
 on public.dealer_accounts
 for delete
 to authenticated
 using (public.is_timan_backend());
-
 create or replace function public.prevent_external_partner_admin_update()
 returns trigger
 language plpgsql
@@ -163,9 +154,7 @@ begin
   return new;
 end;
 $$;
-
 revoke all on function public.prevent_external_partner_admin_update() from public, anon, authenticated;
-
 drop trigger if exists trg_prevent_external_partner_admin_update on public.dealer_accounts;
 create trigger trg_prevent_external_partner_admin_update
 before update on public.dealer_accounts

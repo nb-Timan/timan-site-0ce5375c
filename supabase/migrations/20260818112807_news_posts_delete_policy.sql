@@ -1,5 +1,4 @@
 grant delete on table public.news_posts to authenticated;
-
 do $$
 begin
   if not exists (

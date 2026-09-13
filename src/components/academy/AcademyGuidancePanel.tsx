@@ -2,6 +2,8 @@ import { CheckCircle2, Circle, GraduationCap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import AcademyCompletionModal from './AcademyCompletionModal';
+import { useOptionalLanguage } from '@/context/LanguageContext';
+import { t } from '@/lib/i18n/translations';
 
 export type AcademyGuidanceTask = { label: string; description?: string; complete: boolean };
 export type AcademyGuidanceStep = { title: string; description?: string; tasks: AcademyGuidanceTask[] };
@@ -27,6 +29,8 @@ export default function AcademyGuidancePanel({
   explanation?: ReactNode;
   activeTaskLabel?: string;
 }) {
+  const { uiLanguage } = useOptionalLanguage();
+  const tr = (key: string) => t(key, uiLanguage);
   const allTasks = steps?.flatMap((step) => step.tasks) ?? tasks ?? [];
   const completed = allTasks.filter((task) => task.complete).length;
   const isComplete = allTasks.length > 0 && completed === allTasks.length;
@@ -47,13 +51,13 @@ export default function AcademyGuidancePanel({
 
   return (
     <>
-      <section className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950" aria-label="Academy træningsstatus">
+      <section className="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950" aria-label={tr('academyTitle')}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="flex items-center gap-2 font-semibold"><GraduationCap className="h-4 w-4" />Academy - {title}</p>
             <p className="mt-1 text-xs">{description}</p>
           </div>
-          <span className="rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs font-bold">{completed} / {allTasks.length} krav</span>
+          <span className="rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs font-bold">{completed} / {allTasks.length} {tr('academyRequirements')}</span>
         </div>
         {steps ? (
           <ol className="mt-3 space-y-2.5">
@@ -66,7 +70,7 @@ export default function AcademyGuidancePanel({
                     {stepComplete ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
                   </span>
                   <div className="min-w-0">
-                    <p className="font-semibold">Trin {index + 1}: {step.title}</p>
+                    <p className="font-semibold">{tr('academyStep')} {index + 1}: {step.title}</p>
                     {step.description && <p className="mt-1 text-xs font-normal leading-relaxed text-amber-950">{step.description}</p>}
                     <ul className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-2">
                       {step.tasks.map((task) => <li key={task.label} className={`flex items-start gap-1.5 text-xs ${task.complete ? 'text-emerald-800' : 'text-amber-900'}`}>
@@ -96,8 +100,8 @@ export default function AcademyGuidancePanel({
         {explanation && <div className="mt-3 border-t border-amber-200 pt-3 text-xs leading-relaxed text-amber-950">{explanation}</div>}
         {actions && <div className="mt-3">{actions}</div>}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
-          <span className={isComplete ? 'text-emerald-800' : 'text-amber-950'}>{isComplete ? 'Case gennemført.' : `Næste trin: ${next}`}</span>
-          <Link to="/academy" className="text-[#126a45] hover:underline">Tilbage til Min Academy</Link>
+          <span className={isComplete ? 'text-emerald-800' : 'text-amber-950'}>{isComplete ? tr('academyCaseCompleted') : `${tr('academyNextStep')} ${next}`}</span>
+          <Link to="/academy" className="text-[#126a45] hover:underline">{tr('academyBackToAcademy')}</Link>
         </div>
       </section>
       {completionEnabled && (

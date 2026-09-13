@@ -18,7 +18,6 @@ create table if not exists public.machine_import_batches (
   error_count integer not null default 0 check (error_count >= 0),
   created_at timestamptz not null default now()
 );
-
 create table if not exists public.legacy_machine_dealer_mappings (
   id uuid primary key default gen_random_uuid(),
   source_dealer_number text not null,
@@ -33,7 +32,6 @@ create table if not exists public.legacy_machine_dealer_mappings (
   constraint legacy_machine_dealer_mappings_source_not_empty check (length(trim(source_dealer_number)) > 0),
   constraint legacy_machine_dealer_mappings_source_unique unique (source_dealer_number)
 );
-
 alter table public.warranty_registrations
   add column if not exists import_batch_id uuid references public.machine_import_batches(id) on delete set null,
   add column if not exists source_dealer_number text,
@@ -42,18 +40,14 @@ alter table public.warranty_registrations
   add column if not exists legacy_operating_hours numeric,
   add column if not exists legacy_last_activity_at timestamptz,
   add column if not exists legacy_history_text text;
-
 create index if not exists warranty_registrations_import_batch_idx
   on public.warranty_registrations(import_batch_id)
   where import_batch_id is not null;
-
 create index if not exists warranty_registrations_source_dealer_idx
   on public.warranty_registrations(source_dealer_number)
   where source_dealer_number is not null;
-
 create index if not exists legacy_machine_dealer_mappings_target_idx
   on public.legacy_machine_dealer_mappings(active_dealer_account_id);
-
 create or replace function public.set_updated_at_legacy_machine_dealer_mappings()
 returns trigger
 language plpgsql
@@ -64,28 +58,22 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_legacy_machine_dealer_mappings_updated_at on public.legacy_machine_dealer_mappings;
 create trigger trg_legacy_machine_dealer_mappings_updated_at
 before update on public.legacy_machine_dealer_mappings
 for each row execute function public.set_updated_at_legacy_machine_dealer_mappings();
-
 alter table public.machine_import_batches enable row level security;
 alter table public.legacy_machine_dealer_mappings enable row level security;
-
 drop policy if exists machine_import_batches_internal_select on public.machine_import_batches;
 create policy machine_import_batches_internal_select
   on public.machine_import_batches for select to authenticated
   using (public.is_timan_global_warranty());
-
 drop policy if exists legacy_machine_dealer_mappings_internal_select on public.legacy_machine_dealer_mappings;
 create policy legacy_machine_dealer_mappings_internal_select
   on public.legacy_machine_dealer_mappings for select to authenticated
   using (public.is_timan_global_warranty());
-
 grant select on public.machine_import_batches, public.legacy_machine_dealer_mappings to authenticated;
 grant all on public.machine_import_batches, public.legacy_machine_dealer_mappings to service_role;
-
 create or replace function public.import_legacy_machines(
   p_file_name text,
   p_rows jsonb
@@ -237,7 +225,6 @@ begin
     'matched', v_matched, 'unresolved', v_unresolved, 'duplicates', v_duplicates, 'errors', v_errors);
 end;
 $$;
-
 create or replace function public.resolve_legacy_machine_dealer(
   p_source_dealer_number text,
   p_source_dealer_name text,
@@ -318,12 +305,10 @@ begin
   return jsonb_build_object('updated', v_updated, 'activeDealerNumber', v_target.account_number, 'historicalDealerId', v_historical_id);
 end;
 $$;
-
 revoke all on function public.import_legacy_machines(text, jsonb) from public;
 revoke all on function public.resolve_legacy_machine_dealer(text, text, uuid, boolean) from public;
 grant execute on function public.import_legacy_machines(text, jsonb) to authenticated;
 grant execute on function public.resolve_legacy_machine_dealer(text, text, uuid, boolean) to authenticated;
-
 create or replace view public.v_machine_latest_warranty
 with (security_invoker = true)
 as

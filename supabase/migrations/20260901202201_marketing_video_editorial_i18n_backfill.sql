@@ -12,3 +12,4 @@ set localized_content = jsonb_build_object(
 where (localized_content = '{}'::jsonb
    or not (localized_content ? coalesce(nullif(source_language, ''), 'da')))
   and nullif(btrim(title), '') is not null;
+;

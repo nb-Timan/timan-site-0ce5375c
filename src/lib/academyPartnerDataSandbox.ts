@@ -1,4 +1,5 @@
 import { academySandbox } from '@/lib/academySandbox';
+import { academyScopedStorageKey } from '@/lib/academyCycleStorage';
 import { getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { rowToDealer, type DealerAccount, type UpdateDealerAccountPatch } from '@/lib/dealerAccountsService';
 import type { DealerContact, UpsertDealerContactInput } from '@/lib/dealerContactsService';
@@ -39,14 +40,14 @@ function initial(): State {
   return { part1Started: false, part2Started: false, activePart: null, dealers: [parent, child], contacts: [], academyMachineOpened: false, companyDataOpened: false, relationReviewed: false, submissions: [] };
 }
 function read(): State {
-  try { return JSON.parse(localStorage.getItem(KEY) ?? 'null') ?? initial(); } catch { return initial(); }
+  try { return JSON.parse(localStorage.getItem(academyScopedStorageKey(KEY)) ?? 'null') ?? initial(); } catch { return initial(); }
 }
 function assertActive() {
   if (!academySandbox.isActive()) throw new Error('Academy data adapter requires an active local session.');
 }
 function write(state: State) {
   assertActive();
-  localStorage.setItem(KEY, JSON.stringify(state));
+  localStorage.setItem(academyScopedStorageKey(KEY), JSON.stringify(state));
   window.dispatchEvent(new Event(ACADEMY_PARTNER_CHANGED));
   return state;
 }

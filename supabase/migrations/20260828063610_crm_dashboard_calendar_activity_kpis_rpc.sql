@@ -24,7 +24,6 @@ create table if not exists public.crm_calendar_activities (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 alter table public.crm_calendar_activities add column if not exists end_datetime timestamptz;
 alter table public.crm_calendar_activities add column if not exists account_id uuid;
 alter table public.crm_calendar_activities add column if not exists dealer_name text;
@@ -46,7 +45,6 @@ alter table public.crm_calendar_activities add column if not exists created_by_e
 alter table public.crm_calendar_activities add column if not exists updated_by_user_id uuid;
 alter table public.crm_calendar_activities add column if not exists created_at timestamptz not null default now();
 alter table public.crm_calendar_activities add column if not exists updated_at timestamptz not null default now();
-
 create index if not exists idx_crm_cal_start
   on public.crm_calendar_activities (start_datetime);
 create index if not exists idx_crm_cal_seller_user
@@ -59,13 +57,10 @@ create index if not exists idx_crm_cal_participants
   on public.crm_calendar_activities using gin (participant_seller_initials);
 create index if not exists idx_crm_cal_status_start
   on public.crm_calendar_activities (status, start_datetime);
-
 alter table public.crm_calendar_activities enable row level security;
-
 revoke all on public.crm_calendar_activities from anon, public;
 grant select, insert, update, delete on public.crm_calendar_activities to authenticated;
 grant all on public.crm_calendar_activities to service_role;
-
 drop policy if exists crm_calendar_activities_select_access on public.crm_calendar_activities;
 create policy crm_calendar_activities_select_access
   on public.crm_calendar_activities
@@ -96,7 +91,6 @@ create policy crm_calendar_activities_select_access
       )
     )
   );
-
 drop policy if exists crm_calendar_activities_insert_own on public.crm_calendar_activities;
 create policy crm_calendar_activities_insert_own
   on public.crm_calendar_activities
@@ -120,7 +114,6 @@ create policy crm_calendar_activities_insert_own
       )
     )
   );
-
 drop policy if exists crm_calendar_activities_update_access on public.crm_calendar_activities;
 create policy crm_calendar_activities_update_access
   on public.crm_calendar_activities
@@ -160,7 +153,6 @@ create policy crm_calendar_activities_update_access
       )
     )
   );
-
 drop policy if exists crm_calendar_activities_delete_access on public.crm_calendar_activities;
 create policy crm_calendar_activities_delete_access
   on public.crm_calendar_activities
@@ -183,7 +175,6 @@ create policy crm_calendar_activities_delete_access
       )
     )
   );
-
 create or replace function public.crm_dashboard_calendar_activity_kpis(
   p_seller_initials text default null,
   p_now timestamptz default now()
@@ -324,6 +315,5 @@ from stats
 cross join no_plan
 cross join upcoming;
 $$;
-
 revoke all on function public.crm_dashboard_calendar_activity_kpis(text, timestamptz) from public, anon;
 grant execute on function public.crm_dashboard_calendar_activity_kpis(text, timestamptz) to authenticated;

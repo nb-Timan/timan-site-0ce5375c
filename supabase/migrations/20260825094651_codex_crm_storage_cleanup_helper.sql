@@ -1,6 +1,3 @@
--- Temporary locked helper created during the CRM reset run.
--- It was not granted to frontend roles and is dropped by the next migration.
-
 create or replace function public.codex_delete_crm_lead_attachments_once()
 returns integer
 language plpgsql
@@ -16,5 +13,4 @@ begin
   return v_deleted;
 end;
 $$;
-
-revoke all on function public.codex_delete_crm_lead_attachments_once() from public, anon, authenticated;
+revoke all on function public.codex_delete_crm_lead_attachments_once() from public, anon, authenticated;;

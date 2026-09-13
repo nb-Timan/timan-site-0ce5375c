@@ -148,3 +148,5 @@ $$;
 
 revoke all on function public.update_machine_master_data(uuid, text, date, text, text) from public;
 grant execute on function public.update_machine_master_data(uuid, text, date, text, text) to authenticated;
+
+;

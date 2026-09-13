@@ -30,3 +30,4 @@ set localized_content = jsonb_build_object(
   ) || localized_content
 where localized_content = '{}'::jsonb
    or not (localized_content ? coalesce(nullif(source_language, ''), 'da'));
+;

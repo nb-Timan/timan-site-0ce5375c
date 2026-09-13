@@ -92,4 +92,4 @@ using (
       and mv.published_at is not null
       and mv.published_at <= now()
   )
-);
+);;

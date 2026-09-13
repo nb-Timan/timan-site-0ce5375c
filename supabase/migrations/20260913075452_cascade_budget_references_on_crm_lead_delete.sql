@@ -8,4 +8,4 @@ alter table public.budget_references
   not valid;
 
 alter table public.budget_references
-  validate constraint budget_references_lead_id_crm_leads_fkey;
+  validate constraint budget_references_lead_id_crm_leads_fkey;;

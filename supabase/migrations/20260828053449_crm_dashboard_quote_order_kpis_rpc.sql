@@ -280,6 +280,5 @@ from quote_totals qt
 cross join order_totals ot
 cross join order_timing timing;
 $$;
-
 revoke all on function public.crm_dashboard_quote_order_kpis(uuid, text, text, timestamptz) from public;
 grant execute on function public.crm_dashboard_quote_order_kpis(uuid, text, text, timestamptz) to authenticated;

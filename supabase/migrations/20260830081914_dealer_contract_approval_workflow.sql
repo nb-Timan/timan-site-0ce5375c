@@ -16,7 +16,6 @@ on conflict (id) do update
 set public = false,
     file_size_limit = excluded.file_size_limit,
     allowed_mime_types = excluded.allowed_mime_types;
-
 alter table public.dealer_contracts
   add column if not exists contract_number text,
   add column if not exists contract_status text not null default 'draft',
@@ -34,7 +33,6 @@ alter table public.dealer_contracts
   add column if not exists approved_by_name text,
   add column if not exists approved_by_email text,
   add column if not exists archived_at timestamptz;
-
 do $$
 begin
   if not exists (
@@ -56,14 +54,12 @@ begin
       ));
   end if;
 end $$;
-
 update public.dealer_contracts dc
 set dealer_account_id = da.id
 from public.dealer_accounts da
 where dc.dealer_account_id is null
   and dc.dealer_account_number is not null
   and da.account_number = dc.dealer_account_number;
-
 update public.dealer_contracts
 set contract_status = case status
   when 'In review' then 'guided_review'
@@ -74,9 +70,7 @@ set contract_status = case status
 end
 where contract_status = 'draft'
   and status is distinct from 'Draft';
-
 create sequence if not exists public.dealer_contract_number_seq start with 1000;
-
 create or replace function public.assign_dealer_contract_number()
 returns trigger
 language plpgsql
@@ -98,16 +92,13 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists assign_dealer_contract_number_before_insert on public.dealer_contracts;
 create trigger assign_dealer_contract_number_before_insert
 before insert on public.dealer_contracts
 for each row execute function public.assign_dealer_contract_number();
-
 create unique index if not exists dealer_contracts_contract_number_key
   on public.dealer_contracts(contract_number)
   where contract_number is not null;
-
 create table if not exists public.dealer_contract_upload_versions (
   id uuid primary key default gen_random_uuid(),
   contract_id uuid not null references public.dealer_contracts(id) on delete cascade,
@@ -126,7 +117,6 @@ create table if not exists public.dealer_contract_upload_versions (
   updated_at timestamptz not null default now(),
   unique (contract_id, version_no)
 );
-
 create table if not exists public.dealer_contract_upload_files (
   id uuid primary key default gen_random_uuid(),
   contract_id uuid not null references public.dealer_contracts(id) on delete cascade,
@@ -141,16 +131,12 @@ create table if not exists public.dealer_contract_upload_files (
   created_by_user_id uuid default auth.uid(),
   created_at timestamptz not null default now()
 );
-
 create index if not exists dealer_contract_upload_versions_contract_idx
   on public.dealer_contract_upload_versions(contract_id, version_no desc);
-
 create index if not exists dealer_contract_upload_files_version_idx
   on public.dealer_contract_upload_files(upload_version_id, sort_order);
-
 alter table public.dealer_contract_upload_versions enable row level security;
 alter table public.dealer_contract_upload_files enable row level security;
-
 create or replace function public.current_app_user_json()
 returns jsonb
 language sql
@@ -176,10 +162,8 @@ as $$
     and coalesce(au.approved, true) = true
   limit 1;
 $$;
-
 revoke all on function public.current_app_user_json() from public;
 grant execute on function public.current_app_user_json() to authenticated;
-
 create or replace function public.can_read_dealer_contract(p_contract_id uuid)
 returns boolean
 language sql
@@ -212,7 +196,6 @@ as $$
       )
   );
 $$;
-
 create or replace function public.can_write_dealer_contract_upload(p_contract_id uuid)
 returns boolean
 language sql
@@ -235,7 +218,6 @@ as $$
       )
   );
 $$;
-
 create or replace function public.can_approve_dealer_contract(p_contract_id uuid)
 returns boolean
 language sql
@@ -264,26 +246,22 @@ as $$
       )
   );
 $$;
-
 revoke all on function public.can_read_dealer_contract(uuid) from public;
 revoke all on function public.can_write_dealer_contract_upload(uuid) from public;
 revoke all on function public.can_approve_dealer_contract(uuid) from public;
 grant execute on function public.can_read_dealer_contract(uuid) to authenticated;
 grant execute on function public.can_write_dealer_contract_upload(uuid) to authenticated;
 grant execute on function public.can_approve_dealer_contract(uuid) to authenticated;
-
 drop policy if exists dealer_contract_upload_versions_select on public.dealer_contract_upload_versions;
 create policy dealer_contract_upload_versions_select
 on public.dealer_contract_upload_versions
 for select to authenticated
 using (public.can_read_dealer_contract(contract_id));
-
 drop policy if exists dealer_contract_upload_versions_insert on public.dealer_contract_upload_versions;
 create policy dealer_contract_upload_versions_insert
 on public.dealer_contract_upload_versions
 for insert to authenticated
 with check (public.can_write_dealer_contract_upload(contract_id));
-
 drop policy if exists dealer_contract_upload_versions_update_upload_owner on public.dealer_contract_upload_versions;
 create policy dealer_contract_upload_versions_update_upload_owner
 on public.dealer_contract_upload_versions
@@ -296,13 +274,11 @@ with check (
   status = 'draft'
   and public.can_write_dealer_contract_upload(contract_id)
 );
-
 drop policy if exists dealer_contract_upload_files_select on public.dealer_contract_upload_files;
 create policy dealer_contract_upload_files_select
 on public.dealer_contract_upload_files
 for select to authenticated
 using (public.can_read_dealer_contract(contract_id));
-
 drop policy if exists dealer_contract_upload_files_insert on public.dealer_contract_upload_files;
 create policy dealer_contract_upload_files_insert
 on public.dealer_contract_upload_files
@@ -317,7 +293,6 @@ with check (
       and uv.status = 'draft'
   )
 );
-
 drop policy if exists dealer_contract_upload_files_update_upload_owner on public.dealer_contract_upload_files;
 create policy dealer_contract_upload_files_update_upload_owner
 on public.dealer_contract_upload_files
@@ -340,7 +315,6 @@ with check (
       and uv.status = 'draft'
   )
 );
-
 drop policy if exists dealer_contract_upload_files_delete_upload_owner on public.dealer_contract_upload_files;
 create policy dealer_contract_upload_files_delete_upload_owner
 on public.dealer_contract_upload_files
@@ -354,7 +328,6 @@ using (
       and uv.status = 'draft'
   )
 );
-
 create or replace function public.dealer_contract_storage_uuid_at(object_name text, index_1_based integer)
 returns uuid
 language plpgsql
@@ -369,7 +342,6 @@ exception when others then
   return null;
 end;
 $$;
-
 create or replace function public.can_access_dealer_contract_storage(object_name text, write_mode boolean default false)
 returns boolean
 language sql
@@ -390,32 +362,25 @@ as $$
     else public.can_read_dealer_contract(public.dealer_contract_storage_uuid_at(object_name, 2))
   end;
 $$;
-
 revoke all on function public.can_access_dealer_contract_storage(text, boolean) from public;
 grant execute on function public.can_access_dealer_contract_storage(text, boolean) to authenticated;
-
 drop policy if exists "dealer_contracts_select_authenticated" on storage.objects;
 drop policy if exists "dealer_contracts_insert_authenticated" on storage.objects;
 drop policy if exists "dealer_contracts_update_authenticated" on storage.objects;
 drop policy if exists "dealer_contracts_delete_authenticated" on storage.objects;
-
 create policy "dealer_contracts_select_authenticated"
 on storage.objects for select to authenticated
 using (bucket_id = 'dealer-contracts' and public.can_access_dealer_contract_storage(name, false));
-
 create policy "dealer_contracts_insert_authenticated"
 on storage.objects for insert to authenticated
 with check (bucket_id = 'dealer-contracts' and public.can_access_dealer_contract_storage(name, true));
-
 create policy "dealer_contracts_update_authenticated"
 on storage.objects for update to authenticated
 using (bucket_id = 'dealer-contracts' and public.can_access_dealer_contract_storage(name, true))
 with check (bucket_id = 'dealer-contracts' and public.can_access_dealer_contract_storage(name, true));
-
 create policy "dealer_contracts_delete_authenticated"
 on storage.objects for delete to authenticated
 using (bucket_id = 'dealer-contracts' and public.can_access_dealer_contract_storage(name, true));
-
 create or replace function public.audit_dealer_contract_event(
   p_contract_id uuid,
   p_action text,
@@ -453,10 +418,8 @@ exception when undefined_table or undefined_column then
   null;
 end;
 $$;
-
 revoke all on function public.audit_dealer_contract_event(uuid, text, jsonb) from public;
 grant execute on function public.audit_dealer_contract_event(uuid, text, jsonb) to authenticated;
-
 create or replace function public.complete_dealer_contract_guided_review(
   p_contract_id uuid,
   p_snapshot jsonb,
@@ -498,7 +461,6 @@ begin
   return result;
 end;
 $$;
-
 create or replace function public.mark_dealer_contract_pdf_generated(
   p_contract_id uuid,
   p_expected_signed_pages integer default null
@@ -533,7 +495,6 @@ begin
   return result;
 end;
 $$;
-
 create or replace function public.create_dealer_contract_upload_version(p_contract_id uuid)
 returns public.dealer_contract_upload_versions
 language plpgsql
@@ -578,7 +539,6 @@ begin
   return result;
 end;
 $$;
-
 create or replace function public.submit_dealer_contract_upload(p_upload_version_id uuid)
 returns public.dealer_contract_upload_versions
 language plpgsql
@@ -639,7 +599,6 @@ begin
   return result;
 end;
 $$;
-
 create or replace function public.request_dealer_contract_new_upload(
   p_upload_version_id uuid,
   p_comment text
@@ -686,7 +645,6 @@ begin
   return result;
 end;
 $$;
-
 create or replace function public.approve_dealer_contract_upload(p_upload_version_id uuid)
 returns public.dealer_contracts
 language plpgsql
@@ -743,7 +701,6 @@ begin
   return result;
 end;
 $$;
-
 revoke all on function public.complete_dealer_contract_guided_review(uuid, jsonb, integer) from public;
 revoke all on function public.mark_dealer_contract_pdf_generated(uuid, integer) from public;
 revoke all on function public.create_dealer_contract_upload_version(uuid) from public;
@@ -756,6 +713,5 @@ grant execute on function public.create_dealer_contract_upload_version(uuid) to 
 grant execute on function public.submit_dealer_contract_upload(uuid) to authenticated;
 grant execute on function public.request_dealer_contract_new_upload(uuid, text) to authenticated;
 grant execute on function public.approve_dealer_contract_upload(uuid) to authenticated;
-
 grant select, insert, update, delete on public.dealer_contract_upload_versions to authenticated;
 grant select, insert, update, delete on public.dealer_contract_upload_files to authenticated;

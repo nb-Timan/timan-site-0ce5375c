@@ -101,4 +101,4 @@ begin
   end if;
 end $$;
 
-drop function if exists public.crm_2620_trials_touch_updated_at();
+drop function if exists public.crm_2620_trials_touch_updated_at();;

@@ -31,10 +31,8 @@ as $$
       )
   );
 $$;
-
 revoke all on function public.is_timan_global_warranty() from public;
 grant execute on function public.is_timan_global_warranty() to authenticated;
-
 create or replace function public.warranty_visible_dealer_ids()
 returns setof uuid
 language sql
@@ -92,10 +90,8 @@ as $$
      and lower(trim(coalesce(da.assigned_seller_initials, ''))) = lower(trim(coalesce(me.initials, '')))
      and coalesce(da.assigned_seller_initials, '') <> '';
 $$;
-
 revoke all on function public.warranty_visible_dealer_ids() from public;
 grant execute on function public.warranty_visible_dealer_ids() to authenticated;
-
 create table if not exists public.warranty_registrations (
   id uuid primary key default gen_random_uuid(),
 
@@ -158,7 +154,6 @@ create table if not exists public.warranty_registrations (
     )
   )
 );
-
 alter table public.warranty_registrations
   add column if not exists sharepoint_form_id integer,
   add column if not exists sharepoint_created_at timestamptz,
@@ -168,34 +163,24 @@ alter table public.warranty_registrations
   add column if not exists customer_geocoded_at timestamptz,
   add column if not exists customer_geocoding_status text,
   add column if not exists customer_geocoding_error text;
-
 comment on table public.warranty_registrations is
   'Warranty registration master. Source of truth is the SharePoint Warranty registration list. Contains personal data; access is RLS-gated.';
-
 comment on column public.warranty_registrations.sharepoint_form_id is
   'SharePoint list field ID_Forms, used as visible certificate number (SP-{id}).';
-
 comment on column public.warranty_registrations.sharepoint_created_at is
   'Original SharePoint item createdDateTime, used as Oprettet.';
-
 comment on column public.warranty_registrations.certificate_number is
   'Optional display certificate number used by service/geocoding summaries.';
-
 comment on column public.warranty_registrations.machine_serial_number is
   'Normalised serial number. Trigger applies trim, uppercase and whitespace collapse.';
-
 comment on column public.warranty_registrations.dealer_name_snapshot is
   'Free-text dealer name from SharePoint, used by the matching pipeline.';
-
 comment on column public.warranty_registrations.customer_latitude is
   'Geocoded latitude for the customer address (machine pin on partner map).';
-
 comment on column public.warranty_registrations.customer_longitude is
   'Geocoded longitude for the customer address (machine pin on partner map).';
-
 comment on column public.warranty_registrations.customer_geocoding_status is
   'ok | not_found | skipped | error, set by geocode-warranty-customers.';
-
 create table if not exists public.warranty_registration_history (
   id uuid primary key default gen_random_uuid(),
   registration_id uuid not null references public.warranty_registrations(id) on delete restrict,
@@ -204,10 +189,8 @@ create table if not exists public.warranty_registration_history (
   snapshot jsonb not null,
   diff jsonb
 );
-
 comment on table public.warranty_registration_history is
   'Per-change snapshot of warranty_registrations. ON DELETE RESTRICT preserves audit history.';
-
 create table if not exists public.dealer_account_aliases (
   id uuid primary key default gen_random_uuid(),
   normalized_alias text not null unique,
@@ -223,56 +206,41 @@ create table if not exists public.dealer_account_aliases (
     length(trim(normalized_alias)) > 0
   )
 );
-
 alter table public.dealer_account_aliases
   add column if not exists raw_alias text,
   add column if not exists dealer_account_number text,
   add column if not exists source text not null default 'manual',
   add column if not exists approved_by_user_id uuid,
   add column if not exists approved_by_email text;
-
 comment on table public.dealer_account_aliases is
   'Persistent SharePoint dealer-name to dealer_account mapping approved by backend/service users.';
-
 create index if not exists warranty_registrations_serial_idx
   on public.warranty_registrations (machine_serial_number);
-
 create index if not exists warranty_registrations_form_id_idx
   on public.warranty_registrations (sharepoint_form_id desc);
-
 create index if not exists warranty_registrations_sp_created_at_idx
   on public.warranty_registrations (sharepoint_created_at desc);
-
 create index if not exists warranty_registrations_dealer_id_idx
   on public.warranty_registrations (dealer_account_id);
-
 create index if not exists warranty_registrations_dealer_number_idx
   on public.warranty_registrations (dealer_account_number);
-
 create index if not exists warranty_registrations_match_status_idx
   on public.warranty_registrations (dealer_match_status)
   where dealer_match_status <> 'matched';
-
 create index if not exists warranty_registrations_delivery_date_idx
   on public.warranty_registrations (delivery_date desc);
-
 create index if not exists warranty_registrations_active_idx
   on public.warranty_registrations (is_active_in_source)
   where is_active_in_source = true;
-
 create index if not exists warranty_registrations_customer_coords_idx
   on public.warranty_registrations (customer_latitude, customer_longitude)
   where customer_latitude is not null and customer_longitude is not null;
-
 create index if not exists warranty_registrations_customer_geocoding_status_idx
   on public.warranty_registrations (customer_geocoding_status);
-
 create index if not exists warranty_registration_history_reg_idx
   on public.warranty_registration_history (registration_id, changed_at desc);
-
 create index if not exists dealer_account_aliases_dealer_idx
   on public.dealer_account_aliases (dealer_account_id);
-
 create or replace function public.set_updated_at_warranty_registrations()
 returns trigger
 language plpgsql
@@ -282,12 +250,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_wr_set_updated_at on public.warranty_registrations;
 create trigger trg_wr_set_updated_at
   before update on public.warranty_registrations
   for each row execute function public.set_updated_at_warranty_registrations();
-
 create or replace function public.normalize_warranty_serial()
 returns trigger
 language plpgsql
@@ -316,13 +282,11 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_wr_normalize_serial on public.warranty_registrations;
 create trigger trg_wr_normalize_serial
   before insert or update of machine_serial_number, machine_serial_raw, sharepoint_form_id, sharepoint_item_id
   on public.warranty_registrations
   for each row execute function public.normalize_warranty_serial();
-
 create or replace function public.set_updated_at_dealer_account_aliases()
 returns trigger
 language plpgsql
@@ -332,23 +296,19 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_daa_set_updated_at on public.dealer_account_aliases;
 create trigger trg_daa_set_updated_at
   before update on public.dealer_account_aliases
   for each row execute function public.set_updated_at_dealer_account_aliases();
-
 alter table public.warranty_registrations enable row level security;
 alter table public.warranty_registration_history enable row level security;
 alter table public.dealer_account_aliases enable row level security;
-
 drop policy if exists wr_internal_select on public.warranty_registrations;
 create policy wr_internal_select
   on public.warranty_registrations
   for select
   to authenticated
   using (public.is_timan_global_warranty());
-
 drop policy if exists wr_scoped_select on public.warranty_registrations;
 create policy wr_scoped_select
   on public.warranty_registrations
@@ -359,14 +319,12 @@ create policy wr_scoped_select
     and dealer_match_status = 'matched'
     and dealer_account_id in (select public.warranty_visible_dealer_ids())
   );
-
 drop policy if exists wrh_internal_select on public.warranty_registration_history;
 create policy wrh_internal_select
   on public.warranty_registration_history
   for select
   to authenticated
   using (public.is_timan_global_warranty());
-
 drop policy if exists wrh_scoped_select on public.warranty_registration_history;
 create policy wrh_scoped_select
   on public.warranty_registration_history
@@ -382,23 +340,19 @@ create policy wrh_scoped_select
          and wr.dealer_account_id in (select public.warranty_visible_dealer_ids())
     )
   );
-
 drop policy if exists daa_internal_select on public.dealer_account_aliases;
 create policy daa_internal_select
   on public.dealer_account_aliases
   for select
   to authenticated
   using (public.is_timan_global_warranty());
-
 drop policy if exists dealer_account_aliases_select_backend_service on public.dealer_account_aliases;
-
 grant select on public.warranty_registrations to authenticated;
 grant all on public.warranty_registrations to service_role;
 grant select on public.warranty_registration_history to authenticated;
 grant all on public.warranty_registration_history to service_role;
 grant select on public.dealer_account_aliases to authenticated;
 grant all on public.dealer_account_aliases to service_role;
-
 create or replace view public.v_machine_latest_warranty
 with (security_invoker = true)
 as
@@ -407,9 +361,7 @@ as
     from public.warranty_registrations wr
    where wr.is_active_in_source = true
    order by wr.machine_serial_number, wr.delivery_date desc nulls last, wr.registration_date desc nulls last;
-
 grant select on public.v_machine_latest_warranty to authenticated;
-
 create or replace function public.partner_map_machine_stats(p_dealer_id uuid)
 returns table (
   dealer_account_id uuid,
@@ -459,10 +411,8 @@ begin
       );
 end;
 $$;
-
 revoke all on function public.partner_map_machine_stats(uuid) from public;
 grant execute on function public.partner_map_machine_stats(uuid) to authenticated;
-
 create or replace function public.warranty_update_registration(
   p_id uuid,
   p_changes jsonb
@@ -647,6 +597,5 @@ begin
   return v_after;
 end;
 $$;
-
 revoke all on function public.warranty_update_registration(uuid, jsonb) from public;
 grant execute on function public.warranty_update_registration(uuid, jsonb) to authenticated;

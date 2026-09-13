@@ -95,7 +95,6 @@ begin
   return new;
 end;
 $$;
-
 do $$
 begin
   if to_regclass('public.configurations') is not null then
@@ -105,5 +104,4 @@ begin
       for each row execute function public.audit_configuration_change();
   end if;
 end $$;
-
 grant execute on function public.audit_configuration_change() to authenticated;

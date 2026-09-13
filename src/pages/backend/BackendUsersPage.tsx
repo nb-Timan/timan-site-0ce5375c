@@ -51,6 +51,14 @@ import {
 import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 import { toast } from "@/hooks/use-toast";
+import {
+  getAcademyCycleHistory,
+  resetAcademyCycle,
+  setAcademyCycleCadence,
+  startAcademyCycle,
+  type AcademyCadence,
+  type AcademyCycleSnapshot,
+} from "@/lib/academyCyclesService";
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   active: "Active",
@@ -794,6 +802,8 @@ function EditUserModal({
             )}
           </Section>
 
+          <AcademyCycleManager user={user} />
+
           {/* Portal variant — locks user to /messe layout when 'messe'. */}
           <Section title="Portal variant">
             <div className="flex flex-wrap gap-2">
@@ -1105,6 +1115,93 @@ function EditUserModal({
   );
 }
 
+function AcademyCycleManager({ user }: { user: BackendUser }) {
+  const [history, setHistory] = useState<AcademyCycleSnapshot[]>([]);
+  const [cadence, setCadence] = useState<AcademyCadence>('manual');
+  const [customDate, setCustomDate] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const refresh = async () => {
+    const next = await getAcademyCycleHistory(user.id);
+    setHistory(next);
+    const latest = next[0]?.cycle;
+    if (latest) {
+      setCadence(latest.cadence);
+      setCustomDate(latest.next_activation_at?.slice(0, 10) ?? '');
+    }
+  };
+
+  useEffect(() => {
+    void refresh().catch((error) => setMessage(error instanceof Error ? error.message : 'Kunne ikke hente Academy-historik.'));
+  }, [user.id]);
+
+  const latest = history[0]?.cycle ?? null;
+  const active = history.find((row) => row.cycle?.status === 'active')?.cycle ?? null;
+  const customIso = cadence === 'custom' && customDate ? new Date(`${customDate}T12:00:00`).toISOString() : null;
+  const run = async (action: () => Promise<unknown>, success: string) => {
+    setBusy(true);
+    setMessage(null);
+    try {
+      await action();
+      await refresh();
+      setMessage(success);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Academy-handlingen kunne ikke udføres.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section title="Academy-cyklus">
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 text-xs text-slate-700">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="font-bold text-slate-900">{active ? `Aktiv cyklus ${active.cycle_number}` : latest ? `Seneste cyklus ${latest.cycle_number} er gennemført` : 'Ingen Academy-cyklus startet'}</p>
+            <p className="mt-1 text-slate-600">Senest gennemført: {latest?.completed_at ? new Date(latest.completed_at).toLocaleDateString('da-DK') : '—'}</p>
+          </div>
+          <span className="rounded-full bg-white px-2 py-1 font-semibold text-emerald-800">{history.filter((row) => row.cycle?.status === 'completed').length} gennemført</span>
+        </div>
+
+        <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <Select
+            label="Gentagelse"
+            value={cadence}
+            onChange={(value) => setCadence(value as AcademyCadence)}
+            options={[
+              { value: 'manual', label: 'Manuel' },
+              { value: 'annual', label: 'Årligt' },
+              { value: 'biennial', label: 'Hvert 2. år' },
+              { value: 'custom', label: 'Egen dato' },
+            ]}
+          />
+          {cadence === 'custom' && <Input label="Næste aktivering" type="date" value={customDate} onChange={setCustomDate} />}
+        </div>
+
+        <p className="mt-2 text-[11px] text-slate-600">Næste aktivering: {latest?.next_activation_at ? new Date(latest.next_activation_at).toLocaleDateString('da-DK') : cadence === 'annual' || cadence === 'biennial' ? 'Beregnes efter gennemført cyklus' : 'Ikke planlagt'}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" disabled={busy || !!active || (cadence === 'custom' && !customIso)} onClick={() => void run(() => startAcademyCycle(user.id, cadence, customIso), 'Ny Academy-cyklus er startet.')} className="rounded-md bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Start ny cyklus</button>
+          <button type="button" disabled={busy || !latest || (cadence === 'custom' && !customIso)} onClick={() => void run(() => setAcademyCycleCadence(user.id, cadence, customIso), 'Academy-gentagelse er planlagt.')} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">Planlæg</button>
+          <button type="button" disabled={busy || !active} onClick={() => {
+            if (window.confirm('Nulstil den aktive Academy-cyklus? Den lokale træningsprogress starter forfra.')) {
+              void run(() => resetAcademyCycle(user.id), 'Aktiv Academy-cyklus er nulstillet.');
+            }
+          }} className="rounded-md border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">Nulstil aktiv</button>
+        </div>
+
+        {history.length > 0 && <details className="mt-3 rounded-md border border-emerald-100 bg-white p-2">
+          <summary className="cursor-pointer font-semibold text-slate-800">Historik ({history.length})</summary>
+          <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
+            {history.map((entry) => entry.cycle && <li key={entry.cycle.id}>Cyklus {entry.cycle.cycle_number}: {entry.cycle.status === 'completed' ? 'Gennemført' : 'Aktiv'} · {entry.completionIds.length}/8 opgaver{entry.awards.length ? ` · badges: ${entry.awards.join(', ')}` : ''}</li>)}
+          </ul>
+        </details>}
+        {message && <p className="mt-3 rounded-md bg-white px-2 py-1.5 text-[11px] text-slate-700">{message}</p>}
+      </div>
+    </Section>
+  );
+}
+
 // ---------------- Modal helpers ----------------
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -1118,11 +1215,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Grid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>;
 }
-function Input({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+function Input({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; type?: 'text' | 'date' }) {
   return (
     <label className="block">
       <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">{label}</span>
       <input
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none"

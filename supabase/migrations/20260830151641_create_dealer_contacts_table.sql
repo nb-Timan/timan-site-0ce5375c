@@ -17,13 +17,10 @@ create table if not exists public.dealer_contacts (
   constraint dealer_contacts_contact_area_check
     check (contact_area in ('director','sales','workshop','parts','marketing','finance'))
 );
-
 create index if not exists dealer_contacts_dealer_account_id_idx
   on public.dealer_contacts(dealer_account_id);
-
 create index if not exists dealer_contacts_area_idx
   on public.dealer_contacts(dealer_account_id, contact_area);
-
 create or replace function public.touch_dealer_contacts_updated_at()
 returns trigger
 language plpgsql
@@ -34,15 +31,12 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists dealer_contacts_touch_updated_at on public.dealer_contacts;
 create trigger dealer_contacts_touch_updated_at
 before update on public.dealer_contacts
 for each row
 execute function public.touch_dealer_contacts_updated_at();
-
 alter table public.dealer_contacts enable row level security;
-
 drop policy if exists dealer_contacts_select_scope on public.dealer_contacts;
 create policy dealer_contacts_select_scope
 on public.dealer_contacts
@@ -58,7 +52,6 @@ using (
       and da.account_number = public.current_user_dealer_number()
   )
 );
-
 drop policy if exists dealer_contacts_insert_scope on public.dealer_contacts;
 create policy dealer_contacts_insert_scope
 on public.dealer_contacts
@@ -74,7 +67,6 @@ with check (
       and da.account_number = public.current_user_dealer_number()
   )
 );
-
 drop policy if exists dealer_contacts_update_scope on public.dealer_contacts;
 create policy dealer_contacts_update_scope
 on public.dealer_contacts
@@ -100,7 +92,6 @@ with check (
       and da.account_number = public.current_user_dealer_number()
   )
 );
-
 drop policy if exists dealer_contacts_delete_scope on public.dealer_contacts;
 create policy dealer_contacts_delete_scope
 on public.dealer_contacts
@@ -116,6 +107,5 @@ using (
       and da.account_number = public.current_user_dealer_number()
   )
 );
-
 grant select, insert, update, delete on public.dealer_contacts to authenticated;
 grant execute on function public.touch_dealer_contacts_updated_at() to authenticated;

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
@@ -23,6 +23,8 @@ import PortalHeader from '@/components/portal/PortalHeader';
 import { academySandbox } from '@/lib/academySandbox';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
+import { setAcademyCycleStorageScope } from '@/lib/academyCycleStorage';
+import { getMyAcademyCycle, recordAcademyCycleCompletion, type AcademyCycleSnapshot } from '@/lib/academyCyclesService';
 import {
   activateLocalAcademyEnrollment,
   getAcademyCapabilityProgress,
@@ -166,6 +168,9 @@ export default function AcademyPage() {
   const { appUser, logout } = useAppUser();
   const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
   const { language, setLanguage } = useLanguage();
+  const [cycleSnapshot, setCycleSnapshot] = useState<AcademyCycleSnapshot | null>(null);
+  const [cycleResolved, setCycleResolved] = useState(false);
+  const [, setProgressVersion] = useState(0);
   const task = academySandbox.getCase1();
   const videoTask = academySandbox.getCase2();
   const portalBasics = academySandbox.getPortalBasics();
@@ -173,10 +178,44 @@ export default function AcademyPage() {
   const crm = academyCrmSandbox.getProgress();
   const partnerData = academyPartnerDataSandbox.getProgress();
 
-  // Enrollment is training state only; the portal's authenticated user remains untouched.
+  // Only a local development preview may work without a Backend-created cycle.
   useEffect(() => {
-    activateLocalAcademyEnrollment();
-    academySandbox.enterSession();
+    const localPreview = !appUser && import.meta.env.DEV;
+    if (localPreview) {
+      activateLocalAcademyEnrollment();
+      setAcademyCycleStorageScope('local-preview');
+      academySandbox.enterSession();
+    }
+    let cancelled = false;
+    void getMyAcademyCycle()
+      .then((snapshot) => {
+        if (cancelled) return;
+        if (snapshot.cycle?.status === 'active') {
+          setAcademyCycleStorageScope(snapshot.cycle.id, snapshot.cycle.reset_version);
+          academySandbox.enterSession();
+        } else if (!localPreview) {
+          academySandbox.leaveSession();
+        }
+        setCycleSnapshot(snapshot);
+        setCycleResolved(true);
+        setProgressVersion((value) => value + 1);
+      })
+      .catch(() => {
+        if (!cancelled) setCycleResolved(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => setProgressVersion((value) => value + 1);
+    window.addEventListener('timan:academy-progress-changed', refresh);
+    window.addEventListener('timan:academy-crm-changed', refresh);
+    window.addEventListener('timan:academy-partnerdata-changed', refresh);
+    return () => {
+      window.removeEventListener('timan:academy-progress-changed', refresh);
+      window.removeEventListener('timan:academy-crm-changed', refresh);
+      window.removeEventListener('timan:academy-partnerdata-changed', refresh);
+    };
   }, []);
 
   const user = effectiveUser || appUser || getLocalAcademyUser();
@@ -203,6 +242,44 @@ export default function AcademyPage() {
   const overallCompleted = Number(Boolean(task.completed)) + Number(Boolean(videoTask.completed)) + Number(Boolean(portalBasics.completed)) + Number(Boolean(partnerMap.completed)) + crmCompleted + partnerDataCompleted;
   const overallTotal = 8;
   const overallPercentage = overallCompleted / overallTotal * 100;
+  const localCompletionIds = [
+    ...academySandbox.getCompletedCaseIds(),
+    crm.part1Completed && 'crm.part_1',
+    crm.part2Completed && 'crm.part_2',
+    partnerData.part1Completed && 'partnerdata.part_1_profile',
+    partnerData.part2Completed && 'partnerdata.part_2_relations',
+  ].filter(Boolean) as string[];
+  const cycle = cycleSnapshot?.cycle ?? null;
+  const activeCycle = cycle?.status === 'active' ? cycle : null;
+  const accessBlocked = Boolean(appUser) && cycleResolved && !activeCycle;
+  const academyAction = (label: string | undefined) => accessBlocked ? undefined : label;
+  const completedCycles = cycleSnapshot?.completedCycleCount ?? 0;
+  const awardCounts = cycleSnapshot?.awardCounts ?? { bronze: 0, silver: 0, gold: 0 };
+  const currentCycleAwards = cycleSnapshot?.awards ?? [];
+  const nextAward = !currentCycleAwards.includes('bronze') ? 'Bronze' : !currentCycleAwards.includes('silver') ? 'Sølv' : !currentCycleAwards.includes('gold') ? 'Guld' : 'Alle badges optjent';
+
+  useEffect(() => {
+    if (!activeCycle) return;
+    const missing = localCompletionIds.filter((id) => !cycleSnapshot?.completionIds.includes(id));
+    if (!missing.length) return;
+    let cancelled = false;
+    void (async () => {
+      for (const caseId of missing) {
+        try {
+          await recordAcademyCycleCompletion(cycle.id, caseId);
+          if (!cancelled) {
+            // The final completion can lock the cycle and schedule its next
+            // activation. Read the canonical server snapshot back instead of
+            // trying to reproduce lifecycle transitions in the browser.
+            setCycleSnapshot(await getMyAcademyCycle());
+          }
+        } catch {
+          // Keep the completed local exercise. Metadata sync retries next time.
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeCycle?.id, activeCycle?.status, cycleSnapshot?.completionIds.join(','), localCompletionIds.join(',')]);
   const portalBasicsState: State = portalBasics.completed ? 'done' : portalBasics.started ? 'active' : 'new';
   const partnerMapUnlocked = portalBasics.completed;
   const partnerMapState: State = partnerMap.completed ? 'done' : partnerMap.started && partnerMapUnlocked ? 'active' : partnerMapUnlocked ? 'ready' : 'locked';
@@ -211,37 +288,45 @@ export default function AcademyPage() {
   const partnerDataPart1State: State = partnerData.part1Completed ? 'done' : academyPartnerDataSandbox.getState().part1Started ? 'active' : 'new';
   const partnerDataPart2State: State = partnerData.part2Completed ? 'done' : academyPartnerDataSandbox.getState().part2Started ? 'active' : partnerData.part1Completed ? 'ready' : 'locked';
   const startCase = () => {
+    if (accessBlocked) return;
     academySandbox.startCase1();
     navigate('/configurator?academy_mode=true');
   };
   const startVideoCase = () => {
+    if (accessBlocked) return;
     if (!academySandbox.isCase2Unlocked()) return;
     academySandbox.startCase2();
     navigate('/portal/videos?academy_mode=true&academy_case=2');
   };
   const startPortalBasics = () => {
+    if (accessBlocked) return;
     academyPartnerDataSandbox.leaveCase();
     academySandbox.startPortalBasics(language);
     navigate('/portal?academy_mode=true');
   };
   const startCrmPart1 = () => {
+    if (accessBlocked) return;
     academyCrmSandbox.start(1);
     navigate('/academy/crm/leads?academy_mode=true&academy_part=1');
   };
   const startCrmPart2 = () => {
+    if (accessBlocked) return;
     academyCrmSandbox.start(2);
     navigate('/academy/crm/leads?academy_mode=true&academy_part=2');
   };
   const startPartnerMap = () => {
+    if (accessBlocked) return;
     academyPartnerDataSandbox.leaveCase();
     academySandbox.startPartnerMap();
     navigate('/portal/misc/partner-map?academy_mode=true');
   };
   const startPartnerDataPart1 = () => {
+    if (accessBlocked) return;
     academyPartnerDataSandbox.start(1);
     navigate('/portal/dealer-data?academy_mode=true&academy_part=1');
   };
   const startPartnerDataPart2 = () => {
+    if (accessBlocked) return;
     academyPartnerDataSandbox.start(2);
     navigate('/portal/dealer-data?academy_mode=true&academy_part=2');
   };
@@ -263,6 +348,7 @@ export default function AcademyPage() {
             <div className="relative z-10 max-w-2xl">
               <h1 className="text-3xl font-bold text-slate-900">Min Academy</h1>
               <p className="mt-1.5 max-w-xl text-sm leading-5 text-slate-600">Academy træningsmiljø. Du arbejder med træningsdata. Ingen rigtige kunder, mails eller salgsdata påvirkes.</p>
+              <p className="mt-2 text-xs font-semibold text-emerald-800">{cycle ? `Academy-cyklus ${cycle.cycle_number}${cycle.status === 'completed' ? ' gennemført' : ' aktiv'}` : 'Lokal Academy-preview'}</p>
             </div>
             <img src="/messe/machines/rc-1000s-tile.png" alt="" className="pointer-events-none absolute right-6 top-1/2 hidden h-[115%] w-64 -translate-y-1/2 object-contain opacity-70 xl:block" />
           </section>
@@ -274,12 +360,19 @@ export default function AcademyPage() {
             </div>
           )}
 
+          {accessBlocked && (
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <LockKeyhole className="h-4 w-4 shrink-0" />
+              Der er ikke noget aktivt Academy-forløb. Kontakt din administrator.
+            </div>
+          )}
+
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <section className="min-h-[154px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><BarChart3 className="h-4 w-4 text-[#126a45]" />Din progression</div>
               <div className="mt-4 text-2xl font-bold text-slate-900">{overallCompleted} / {overallTotal}</div>
               <ProgressBar value={overallPercentage} />
-              <p className="mt-2 text-xs font-medium text-slate-500">{Math.round(overallPercentage)}% gennemført</p>
+              <p className="mt-2 text-xs font-medium text-slate-500">{Math.round(overallPercentage)}% gennemført{cycle ? ` i cyklus ${cycle.cycle_number}` : ''}</p>
             </section>
             <section className="min-h-[154px] rounded-xl border border-amber-300 bg-amber-50/70 p-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Lock className="h-4 w-4 text-amber-700" />Næste oplåsning</div>
@@ -290,17 +383,17 @@ export default function AcademyPage() {
             </section>
             <section className="min-h-[154px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Trophy className="h-4 w-4 text-amber-600" />Næste milepæl</div>
-              <p className="mt-3 text-lg font-bold text-slate-900">Bronze</p>
-              <p className="mt-1 text-xs leading-4 text-slate-600">Gennemfør grundlæggende Sales-opgaver.</p>
+              <p className="mt-3 text-lg font-bold text-slate-900">{nextAward}</p>
+              <p className="mt-1 text-xs leading-4 text-slate-600">{currentCycleAwards.length === 3 ? 'Alle badges er optjent i denne cyklus.' : completedCycles ? `${completedCycles} tidligere gennemførte cyklus${completedCycles === 1 ? '' : 'ser'}` : 'Gennemfør grundlæggende Sales-opgaver.'}</p>
               <ProgressBar value={overallPercentage} />
               <p className="mt-2 text-xs font-bold text-slate-600">{overallCompleted} / {overallTotal}</p>
             </section>
             <section className="min-h-[154px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Medal className="h-4 w-4 text-[#126a45]" />Badges</div>
               <div className="mt-3 space-y-2 text-xs">
-                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-800"><Medal className="h-4 w-4 text-[#b77939]" />Bronze</span><span className="text-slate-500">Grundforløb</span></div>
-                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><ShieldCheck className="h-4 w-4 text-slate-400" />Sølv</span><span className="text-slate-500">Sales</span></div>
-                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><Crown className="h-4 w-4 text-amber-500" />Guld</span><span className="text-slate-500">Komplet</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-800"><Medal className="h-4 w-4 text-[#b77939]" />Bronze</span><span className="text-slate-500">× {awardCounts.bronze}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><ShieldCheck className="h-4 w-4 text-slate-400" />Sølv</span><span className="text-slate-500">× {awardCounts.silver}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><Crown className="h-4 w-4 text-amber-500" />Guld</span><span className="text-slate-500">× {awardCounts.gold}</span></div>
               </div>
             </section>
           </div>
@@ -311,10 +404,10 @@ export default function AcademyPage() {
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><CirclePlay className="h-4 w-4 text-[#126a45]" />Fortsæt hvor jeg slap</div>
                 <p className="mt-3 text-sm font-bold text-slate-900">{academySandbox.getActiveCase() ? 'Din aktive Academy-opgave' : 'Case 1 - Byg korrekt RC-1000 ordre'}</p>
                 <p className="mt-1 text-xs text-slate-500">{academySandbox.getActiveCase() ? 'Genoptag opgaven med din gemte fremgang.' : `${requirements} af 10 krav opfyldt`}</p>
-                <button type="button" onClick={() => academySandbox.getActiveCase() ? navigate(academySandbox.getContinueRoute()) : startCase()} className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#126a45] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0f5a3b]">
+                {!accessBlocked && <button type="button" onClick={() => academySandbox.getActiveCase() ? navigate(academySandbox.getContinueRoute()) : startCase()} className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#126a45] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0f5a3b]">
                   {academySandbox.getActiveCase() || task.started ? 'Fortsæt' : 'Start'}
                   <ArrowRight className="h-3.5 w-3.5" />
-                </button>
+                </button>}
               </div>
               <img src="/messe/machines/rc-1000s-tile.png" alt="" className="pointer-events-none absolute -bottom-6 right-2 h-36 w-36 object-contain opacity-80" />
             </section>
@@ -332,20 +425,20 @@ export default function AcademyPage() {
 
           <div className="mt-4 grid items-start gap-3 lg:grid-cols-2">
             <Module icon={ShoppingCart} title="Salg" progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 gennemført`}>
-              <AcademyRow image="/messe/machines/rc-1000s-tile.png" title="Case 1 - Byg korrekt RC-1000 ordre" description="Konfigurer RC-1000 med nødvendigt udstyr, rabatter og Academy-lead." state={caseState} action={task.started ? 'Fortsæt' : 'Start'} onClick={startCase} />
-              <AcademyRow image="/messe/machines/timan-3330-tile.png" title="Case 2 - Find en vedligeholdelsesvideo" description="Find og åbn den korrekte Weed Brush-vedligeholdelsesvideo for Timan 3330." state={videoCaseState} action={case2Unlocked ? (videoTask.started ? 'Fortsæt' : 'Start') : undefined} onClick={case2Unlocked ? startVideoCase : undefined} />
+              <AcademyRow image="/messe/machines/rc-1000s-tile.png" title="Case 1 - Byg korrekt RC-1000 ordre" description="Konfigurer RC-1000 med nødvendigt udstyr, rabatter og Academy-lead." state={caseState} action={academyAction(task.started ? 'Fortsæt' : 'Start')} onClick={accessBlocked ? undefined : startCase} />
+              <AcademyRow image="/messe/machines/timan-3330-tile.png" title="Case 2 - Find en vedligeholdelsesvideo" description="Find og åbn den korrekte Weed Brush-vedligeholdelsesvideo for Timan 3330." state={videoCaseState} action={academyAction(case2Unlocked ? (videoTask.started ? 'Fortsæt' : 'Start') : undefined)} onClick={accessBlocked ? undefined : case2Unlocked ? startVideoCase : undefined} />
             </Module>
             <Module icon={Map} title="Portal Basics" progress={`${Number(portalBasics.completed) + Number(partnerMap.completed)} / 2 gennemført`}>
-              <AcademyRow title="Portal Basics - 5 hurtige" description="Skift sprog, besøg Partnerdata, brug fuldskærm, ændr partnerkort og åbn den rigtige nyhed." state={portalBasicsState} action={portalBasics.started ? 'Fortsæt' : 'Start'} onClick={startPortalBasics} />
-              <AcademyRow title="Partnerkort" description="Find din egen forhandler, brug kortets værktøjer og åbn en garantiregistrering." state={partnerMapState} action={partnerMapUnlocked ? (partnerMap.started ? 'Fortsæt' : 'Start') : undefined} onClick={partnerMapUnlocked ? startPartnerMap : undefined} />
+              <AcademyRow title="Portal Basics - 5 hurtige" description="Skift sprog, besøg Partnerdata, brug fuldskærm, ændr partnerkort og åbn den rigtige nyhed." state={portalBasicsState} action={academyAction(portalBasics.started ? 'Fortsæt' : 'Start')} onClick={accessBlocked ? undefined : startPortalBasics} />
+              <AcademyRow title="Partnerkort" description="Find din egen forhandler, brug kortets værktøjer og åbn en garantiregistrering." state={partnerMapState} action={academyAction(partnerMapUnlocked ? (partnerMap.started ? 'Fortsæt' : 'Start') : undefined)} onClick={accessBlocked ? undefined : partnerMapUnlocked ? startPartnerMap : undefined} />
             </Module>
             <Module icon={Users} title="Partnerdata" progress={`${partnerDataCompleted} / 2 gennemført`}>
-              <AcademyRow title="Part 1 - Virksomheds- og persondata" description="Tilføj en lokal kontaktperson, vælg første kontakt og opdater Academy YouTube-kanalen." state={partnerDataPart1State} action={partnerDataPart1State === 'done' ? 'Åbn' : academyPartnerDataSandbox.getState().part1Started ? 'Fortsæt' : 'Start'} onClick={startPartnerDataPart1} />
-              <AcademyRow title="Part 2 - Samarbejdspartnere og fakturering" description="Gennemgå lokale partnerrelationer og fakturaaccept for reservedelsbestilling." state={partnerDataPart2State} action={partnerData.part1Completed ? (partnerDataPart2State === 'done' ? 'Åbn' : academyPartnerDataSandbox.getState().part2Started ? 'Fortsæt' : 'Start') : undefined} onClick={partnerData.part1Completed ? startPartnerDataPart2 : undefined} />
+              <AcademyRow title="Part 1 - Virksomheds- og persondata" description="Tilføj en lokal kontaktperson, vælg første kontakt og opdater Academy YouTube-kanalen." state={partnerDataPart1State} action={academyAction(partnerDataPart1State === 'done' ? 'Åbn' : academyPartnerDataSandbox.getState().part1Started ? 'Fortsæt' : 'Start')} onClick={accessBlocked ? undefined : startPartnerDataPart1} />
+              <AcademyRow title="Part 2 - Samarbejdspartnere og fakturering" description="Gennemgå lokale partnerrelationer og fakturaaccept for reservedelsbestilling." state={partnerDataPart2State} action={academyAction(partnerData.part1Completed ? (partnerDataPart2State === 'done' ? 'Åbn' : academyPartnerDataSandbox.getState().part2Started ? 'Fortsæt' : 'Start') : undefined)} onClick={accessBlocked ? undefined : partnerData.part1Completed ? startPartnerDataPart2 : undefined} />
             </Module>
             <Module icon={Users} title="CRM" progress={`${crmCompleted} / 2 gennemført`}>
-              <AcademyRow title="Case 1 - Prioritér og færdiggør leads" description="Flyt det forfaldne follow-up og færdiggør det lokale Configurator-lead." state={crmPart1State} action={crm.part1Completed ? 'Åbn' : academyCrmSandbox.getState().part1Started ? 'Fortsæt' : 'Start'} onClick={startCrmPart1} />
-              <AcademyRow title="Case 2 - Del lead og opret demo" description="Planlæg aktivitet, del med Academy-forhandleren og konvertér til en lokal demo." state={crmPart2State} action={crm.part1Completed ? (crm.part2Completed ? 'Åbn' : academyCrmSandbox.getState().part2Started ? 'Fortsæt' : 'Start') : undefined} onClick={crm.part1Completed ? startCrmPart2 : undefined} />
+              <AcademyRow title="Case 1 - Prioritér og færdiggør leads" description="Flyt det forfaldne follow-up og færdiggør det lokale Configurator-lead." state={crmPart1State} action={academyAction(crm.part1Completed ? 'Åbn' : academyCrmSandbox.getState().part1Started ? 'Fortsæt' : 'Start')} onClick={accessBlocked ? undefined : startCrmPart1} />
+              <AcademyRow title="Case 2 - Del lead og opret demo" description="Planlæg aktivitet, del med Academy-forhandleren og konvertér til en lokal demo." state={crmPart2State} action={academyAction(crm.part1Completed ? (crm.part2Completed ? 'Åbn' : academyCrmSandbox.getState().part2Started ? 'Fortsæt' : 'Start') : undefined)} onClick={accessBlocked ? undefined : crm.part1Completed ? startCrmPart2 : undefined} />
             </Module>
             <LockedModule icon={CalendarDays} title="Kalender" progress="0 / 1 gennemført" description="Låses op senere i Academy-rejsen." />
           </div>

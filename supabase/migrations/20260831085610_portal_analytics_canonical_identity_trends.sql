@@ -311,6 +311,5 @@ begin
   return v_result;
 end;
 $$;
-
 revoke all on function public.get_backend_user_activity_analytics_v2(text[], text[], text[], text[], integer) from public, anon;
 grant execute on function public.get_backend_user_activity_analytics_v2(text[], text[], text[], text[], integer) to authenticated, service_role;

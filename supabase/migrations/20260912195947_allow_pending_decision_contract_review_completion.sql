@@ -56,4 +56,4 @@ end;
 $$;
 
 revoke all on function public.complete_dealer_contract_guided_review(uuid, jsonb, integer) from public;
-grant execute on function public.complete_dealer_contract_guided_review(uuid, jsonb, integer) to authenticated;
+grant execute on function public.complete_dealer_contract_guided_review(uuid, jsonb, integer) to authenticated;;

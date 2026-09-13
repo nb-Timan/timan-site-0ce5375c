@@ -1,4 +1,5 @@
 import { academySandbox } from '@/lib/academySandbox';
+import { academyScopedStorageKey } from '@/lib/academyCycleStorage';
 import { rowToDealer } from '@/lib/dealerAccountsService';
 import type { CrmDemoLead, CrmLead, CrmLeadPatch, CrmLeadsPageQueryResult, ListLeadsPageOpts, NewCrmDemoLead, NewCrmLead } from '@/lib/crmLeadsService';
 import type { CrmLeadShare, LeadShareTarget } from '@/lib/crmLeadSharingService';
@@ -17,8 +18,8 @@ const initial = (): State => ({
     { id: 'academy-demo-lead', title: 'Academy Ejendomsservice - demonstration', nextFollowup: future(), activity: 'Kontakt kunden', incomplete: false, fromConfigurator: false, shared: false, convertedToDemo: false, saved: false },
   ],
 });
-const read = (): State => { try { const raw = localStorage.getItem(KEY); return raw ? { ...initial(), ...JSON.parse(raw) } : initial(); } catch { return initial(); } };
-const write = (state: State) => { localStorage.setItem(KEY, JSON.stringify(state)); window.dispatchEvent(new Event('timan:academy-crm-changed')); return state; };
+const read = (): State => { try { const raw = localStorage.getItem(academyScopedStorageKey(KEY)); return raw ? { ...initial(), ...JSON.parse(raw) } : initial(); } catch { return initial(); } };
+const write = (state: State) => { localStorage.setItem(academyScopedStorageKey(KEY), JSON.stringify(state)); window.dispatchEvent(new Event('timan:academy-crm-changed')); return state; };
 const isFuture = (value: string) => new Date(`${value}T00:00:00`).getTime() > new Date(new Date().toDateString()).getTime();
 export const academyCrmSandbox = {
   isActive: () => academySandbox.isActive(),

@@ -17,7 +17,6 @@ create table if not exists public.price_list_items (
   is_dirty boolean not null default false,
   last_published_at timestamptz
 );
-
 create table if not exists public.price_list_import_logs (
   id uuid primary key default gen_random_uuid(),
   imported_by uuid,
@@ -30,7 +29,6 @@ create table if not exists public.price_list_import_logs (
   error_count integer not null default 0,
   errors jsonb not null default '[]'::jsonb
 );
-
 create table if not exists public.price_list_published (
   id uuid primary key default gen_random_uuid(),
   item_number text not null unique,
@@ -42,7 +40,6 @@ create table if not exists public.price_list_published (
   published_by_email text,
   published_at timestamptz not null default now()
 );
-
 create table if not exists public.price_list_publish_logs (
   id uuid primary key default gen_random_uuid(),
   published_by uuid,
@@ -55,26 +52,22 @@ create table if not exists public.price_list_publish_logs (
   item_numbers text[],
   errors jsonb not null default '[]'::jsonb
 );
-
 alter table public.price_list_items enable row level security;
 alter table public.price_list_import_logs enable row level security;
 alter table public.price_list_published enable row level security;
 alter table public.price_list_publish_logs enable row level security;
-
 drop policy if exists "Backend can read price list items" on public.price_list_items;
 create policy "Backend can read price list items"
 on public.price_list_items
 for select
 to authenticated
 using (public.is_timan_backend());
-
 drop policy if exists "Backend can insert price list items" on public.price_list_items;
 create policy "Backend can insert price list items"
 on public.price_list_items
 for insert
 to authenticated
 with check (public.is_timan_backend());
-
 drop policy if exists "Backend can update price list items" on public.price_list_items;
 create policy "Backend can update price list items"
 on public.price_list_items
@@ -82,35 +75,30 @@ for update
 to authenticated
 using (public.is_timan_backend())
 with check (public.is_timan_backend());
-
 drop policy if exists "Backend can read price import logs" on public.price_list_import_logs;
 create policy "Backend can read price import logs"
 on public.price_list_import_logs
 for select
 to authenticated
 using (public.is_timan_backend());
-
 drop policy if exists "Backend can insert price import logs" on public.price_list_import_logs;
 create policy "Backend can insert price import logs"
 on public.price_list_import_logs
 for insert
 to authenticated
 with check (public.is_timan_backend());
-
 drop policy if exists "Backend can read published price list" on public.price_list_published;
 create policy "Backend can read published price list"
 on public.price_list_published
 for select
 to authenticated
 using (public.is_timan_backend());
-
 drop policy if exists "Backend can insert published price list" on public.price_list_published;
 create policy "Backend can insert published price list"
 on public.price_list_published
 for insert
 to authenticated
 with check (public.is_timan_backend());
-
 drop policy if exists "Backend can update published price list" on public.price_list_published;
 create policy "Backend can update published price list"
 on public.price_list_published
@@ -118,26 +106,22 @@ for update
 to authenticated
 using (public.is_timan_backend())
 with check (public.is_timan_backend());
-
 drop policy if exists "Backend can read price publish logs" on public.price_list_publish_logs;
 create policy "Backend can read price publish logs"
 on public.price_list_publish_logs
 for select
 to authenticated
 using (public.is_timan_backend());
-
 drop policy if exists "Backend can insert price publish logs" on public.price_list_publish_logs;
 create policy "Backend can insert price publish logs"
 on public.price_list_publish_logs
 for insert
 to authenticated
 with check (public.is_timan_backend());
-
 grant select, insert, update on public.price_list_items to authenticated;
 grant select, insert on public.price_list_import_logs to authenticated;
 grant select, insert, update on public.price_list_published to authenticated;
 grant select, insert on public.price_list_publish_logs to authenticated;
-
 create or replace function public.parse_price_number(value text)
 returns numeric
 language plpgsql
@@ -167,7 +151,6 @@ exception when others then
   raise exception 'Ugyldigt tal: %', value using errcode = '22023';
 end;
 $$;
-
 create or replace function public.upsert_price_list_items(payload jsonb)
 returns jsonb
 language plpgsql
@@ -287,7 +270,6 @@ begin
   );
 end;
 $$;
-
 create or replace function public.update_price_list_item(
   p_item_number text,
   p_item_text_da text,
@@ -346,7 +328,6 @@ begin
   return out_row;
 end;
 $$;
-
 create or replace function public.publish_price_list_items(payload jsonb)
 returns jsonb
 language plpgsql
@@ -460,15 +441,11 @@ begin
   );
 end;
 $$;
-
 revoke all on function public.parse_price_number(text) from public, anon;
 grant execute on function public.parse_price_number(text) to authenticated;
-
 revoke all on function public.upsert_price_list_items(jsonb) from public, anon;
 grant execute on function public.upsert_price_list_items(jsonb) to authenticated;
-
 revoke all on function public.update_price_list_item(text, text, numeric, numeric, numeric, numeric) from public, anon;
 grant execute on function public.update_price_list_item(text, text, numeric, numeric, numeric, numeric) to authenticated;
-
 revoke all on function public.publish_price_list_items(jsonb) from public, anon;
 grant execute on function public.publish_price_list_items(jsonb) to authenticated;

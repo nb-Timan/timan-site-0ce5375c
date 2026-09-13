@@ -1,5 +1,4 @@
 grant delete on public.crm_2620_trials to authenticated;
-
 drop policy if exists "crm_2620_trials_authenticated_delete" on public.crm_2620_trials;
 create policy "crm_2620_trials_authenticated_delete"
   on public.crm_2620_trials

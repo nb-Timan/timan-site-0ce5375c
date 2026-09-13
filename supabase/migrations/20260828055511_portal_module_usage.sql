@@ -25,25 +25,18 @@ create table if not exists public.portal_module_usage (
   updated_at timestamptz not null default now(),
   constraint portal_module_usage_session_module_key unique (session_id, module_key)
 );
-
 create index if not exists portal_module_usage_user_idx
   on public.portal_module_usage(user_id, last_active_at desc);
-
 create index if not exists portal_module_usage_email_idx
   on public.portal_module_usage(lower(email), last_active_at desc);
-
 create index if not exists portal_module_usage_module_idx
   on public.portal_module_usage(module_key, last_active_at desc);
-
 create index if not exists portal_module_usage_session_idx
   on public.portal_module_usage(session_id);
-
 alter table public.portal_module_usage enable row level security;
-
 revoke all on public.portal_module_usage from anon, public;
 grant select, insert, update on public.portal_module_usage to authenticated;
 grant all on public.portal_module_usage to service_role;
-
 drop policy if exists portal_module_usage_select_self on public.portal_module_usage;
 drop policy if exists portal_module_usage_select_backend on public.portal_module_usage;
 drop policy if exists portal_module_usage_select_access on public.portal_module_usage;
@@ -66,7 +59,6 @@ create policy portal_module_usage_select_access
          and coalesce(au.is_active, false) = true
     )
   );
-
 drop policy if exists portal_module_usage_insert_self on public.portal_module_usage;
 create policy portal_module_usage_insert_self
   on public.portal_module_usage
@@ -76,7 +68,6 @@ create policy portal_module_usage_insert_self
     auth_user_id = (select auth.uid())
     and lower(email) = lower(coalesce(((select auth.jwt()) ->> 'email'), ''))
   );
-
 drop policy if exists portal_module_usage_update_self on public.portal_module_usage;
 create policy portal_module_usage_update_self
   on public.portal_module_usage
@@ -90,7 +81,6 @@ create policy portal_module_usage_update_self
     auth_user_id = (select auth.uid())
     and lower(email) = lower(coalesce(((select auth.jwt()) ->> 'email'), ''))
   );
-
 create or replace function public.record_portal_module_usage(
   p_session_id uuid,
   p_module_key text,
@@ -185,10 +175,8 @@ begin
   return v_row;
 end;
 $$;
-
 revoke all on function public.record_portal_module_usage(uuid, text, integer, integer) from public, anon;
 grant execute on function public.record_portal_module_usage(uuid, text, integer, integer) to authenticated, service_role;
-
 create or replace function public.get_portal_module_usage_summary(
   p_from timestamptz default (now() - interval '30 days'),
   p_to timestamptz default now()
@@ -223,6 +211,5 @@ as $$
   group by pmu.user_id, pmu.email, pmu.portal_role, pmu.dealer_number, pmu.module_key
   order by max(pmu.last_active_at) desc;
 $$;
-
 revoke all on function public.get_portal_module_usage_summary(timestamptz, timestamptz) from public, anon;
 grant execute on function public.get_portal_module_usage_summary(timestamptz, timestamptz) to authenticated, service_role;

@@ -56,10 +56,8 @@ create table if not exists public.warranty_submissions (
     or (approved_registration_id is not null and approved_at is not null)
   )
 );
-
 comment on table public.warranty_submissions is
   'Dealer warranty input awaiting internal review. Approved entries are materialized only in warranty_registrations.';
-
 create index if not exists warranty_submissions_status_created_idx
   on public.warranty_submissions (submission_status, created_at desc);
 create index if not exists warranty_submissions_dealer_status_idx
@@ -69,7 +67,6 @@ create index if not exists warranty_submissions_normalized_serial_idx
 create unique index if not exists warranty_submissions_one_pending_serial_per_dealer
   on public.warranty_submissions (dealer_account_id, normalized_serial)
   where submission_status = 'pending';
-
 create or replace function public.set_updated_at_warranty_submissions()
 returns trigger
 language plpgsql
@@ -80,12 +77,10 @@ begin
   return new;
 end;
 $warranty_submission_touch$;
-
 drop trigger if exists trg_warranty_submissions_updated_at on public.warranty_submissions;
 create trigger trg_warranty_submissions_updated_at
   before update on public.warranty_submissions
   for each row execute function public.set_updated_at_warranty_submissions();
-
 -- The current register has no canonical SP sequence. Start after the highest
 -- existing numeric SP ID and use the same sequence for every new portal approval.
 create sequence if not exists public.warranty_sp_number_seq;
@@ -101,34 +96,27 @@ select setval(
   ),
   true
 );
-
 create unique index if not exists warranty_registrations_numeric_sp_unique
   on public.warranty_registrations (upper(certificate_number))
   where certificate_number ~ '^SP-[0-9]+$';
-
 alter table public.warranty_submissions enable row level security;
-
 drop policy if exists warranty_submissions_internal_select on public.warranty_submissions;
 create policy warranty_submissions_internal_select
   on public.warranty_submissions
   for select
   to authenticated
   using (public.is_timan_global_warranty());
-
 drop policy if exists warranty_submissions_scoped_select on public.warranty_submissions;
 create policy warranty_submissions_scoped_select
   on public.warranty_submissions
   for select
   to authenticated
   using (dealer_account_id in (select public.warranty_visible_dealer_ids()));
-
 grant select on public.warranty_submissions to authenticated;
 grant all on public.warranty_submissions to service_role;
-
 -- Drop/recreate is required because the prior RPC returned a warranty row.
 -- A submission now intentionally returns the pending submission row instead.
 drop function if exists public.create_scoped_portal_warranty_registration(jsonb);
-
 create function public.create_scoped_portal_warranty_registration(
   p_registration jsonb
 )
@@ -252,11 +240,8 @@ begin
   return v_submission;
 end;
 $dealer_warranty_submit$;
-
 revoke all on function public.create_scoped_portal_warranty_registration(jsonb) from public;
-revoke execute on function public.create_scoped_portal_warranty_registration(jsonb) from anon;
 grant execute on function public.create_scoped_portal_warranty_registration(jsonb) to authenticated;
-
 create or replace function public.approve_pending_portal_warranty_submission(
   p_submission_id uuid
 )
@@ -422,7 +407,6 @@ begin
   return v_registration;
 end;
 $dealer_warranty_approve$;
-
 revoke all on function public.approve_pending_portal_warranty_submission(uuid) from public;
 revoke execute on function public.approve_pending_portal_warranty_submission(uuid) from anon;
 grant execute on function public.approve_pending_portal_warranty_submission(uuid) to authenticated;

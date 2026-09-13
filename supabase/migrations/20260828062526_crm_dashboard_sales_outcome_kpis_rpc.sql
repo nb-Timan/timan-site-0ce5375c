@@ -150,6 +150,5 @@ select jsonb_build_object(
 )
 from totals;
 $$;
-
 revoke all on function public.crm_dashboard_sales_outcome_kpis(uuid, text, text) from public;
 grant execute on function public.crm_dashboard_sales_outcome_kpis(uuid, text, text) to authenticated;

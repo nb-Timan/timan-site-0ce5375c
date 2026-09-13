@@ -1,5 +1,6 @@
 import { ACC_ID_WIRE_HARNESS, ACC_ID_WORK_LIGHT } from '@/data/machines';
 import { ACADEMY_CASE_1_ID } from '@/lib/academyCurriculum';
+import { academyScopedStorageKey } from '@/lib/academyCycleStorage';
 
 export const ACADEMY_CASE_1 = ACADEMY_CASE_1_ID;
 export const ACADEMY_CASE_2 = 'sales.case_2_video_3330';
@@ -153,7 +154,7 @@ function isLocalAcademyMode() {
 
 function load(): AcademySandboxState {
   try {
-    const saved = JSON.parse(localStorage.getItem(KEY) ?? '{}') as Partial<AcademySandboxState>;
+    const saved = JSON.parse(localStorage.getItem(academyScopedStorageKey(KEY)) ?? '{}') as Partial<AcademySandboxState>;
     const state = {
       ...initial(),
       ...saved,
@@ -184,8 +185,9 @@ function load(): AcademySandboxState {
 }
 function save(state: AcademySandboxState) {
   const next = JSON.stringify(state);
-  if (localStorage.getItem(KEY) !== next) {
-    localStorage.setItem(KEY, next);
+  const key = academyScopedStorageKey(KEY);
+  if (localStorage.getItem(key) !== next) {
+    localStorage.setItem(key, next);
     window.dispatchEvent(new Event(ACADEMY_PROGRESS_CHANGED));
   }
   return state;

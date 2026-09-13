@@ -5,11 +5,9 @@
 alter table public.configurations enable row level security;
 alter table public.crm_activities enable row level security;
 alter table public.dealer_accounts enable row level security;
-
 drop policy if exists configurations_all on public.configurations;
 drop policy if exists crm_activities_all on public.crm_activities;
 drop policy if exists dealer_accounts_select on public.dealer_accounts;
-
 drop policy if exists configurations_scoped_access on public.configurations;
 create policy configurations_scoped_access
   on public.configurations
@@ -77,7 +75,6 @@ create policy configurations_scoped_access
         )
     )
   );
-
 drop policy if exists dealer_accounts_select_scoped on public.dealer_accounts;
 create policy dealer_accounts_select_scoped
   on public.dealer_accounts
@@ -115,7 +112,6 @@ create policy dealer_accounts_select_scoped
         )
     )
   );
-
 drop policy if exists crm_activities_scoped_access on public.crm_activities;
 create policy crm_activities_scoped_access
   on public.crm_activities
@@ -244,6 +240,17 @@ create policy crm_activities_scoped_access
                   and configuration.dealer_number = actor.dealer_number
               )
             )
+          )
+          or exists (
+            select 1
+            from public.resolve_collaboration_manager_accounts() scoped
+            where scoped.id = crm_activities.account_id
+              or exists (
+                select 1
+                from public.configurations configuration
+                where configuration.id = crm_activities.configuration_id
+                  and configuration.dealer_number = scoped.account_number
+              )
           )
         )
     )

@@ -63,5 +63,4 @@ begin
   return new;
 end;
 $$;
-
 revoke all on function public.sync_site_change_public_entry() from public, anon, authenticated;

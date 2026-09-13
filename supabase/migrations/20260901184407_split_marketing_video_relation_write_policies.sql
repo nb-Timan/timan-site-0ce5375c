@@ -40,4 +40,4 @@ create policy marketing_video_primary_products_manage_delete
 on public.marketing_video_primary_products
 for delete
 to authenticated
-using (public.can_manage_marketing_videos());
+using (public.can_manage_marketing_videos());;

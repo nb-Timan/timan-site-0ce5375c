@@ -26,23 +26,17 @@ create table if not exists public.dealer_contracts (
     status in ('Draft', 'In review', 'Ready for signature', 'Signed', 'Archived')
   )
 );
-
 create index if not exists dealer_contracts_owner_email_idx
   on public.dealer_contracts (lower(owner_email), updated_at desc);
-
 create index if not exists dealer_contracts_dealer_account_number_idx
   on public.dealer_contracts (dealer_account_number)
   where dealer_account_number is not null;
-
 create index if not exists dealer_contracts_status_idx
   on public.dealer_contracts (status, updated_at desc);
-
 alter table public.dealer_contracts enable row level security;
-
 revoke all on public.dealer_contracts from anon, public;
 grant select, insert, update on public.dealer_contracts to authenticated;
 grant all on public.dealer_contracts to service_role;
-
 drop policy if exists dealer_contracts_select_owner_or_backend on public.dealer_contracts;
 create policy dealer_contracts_select_owner_or_backend
 on public.dealer_contracts
@@ -53,7 +47,6 @@ using (
   or lower(owner_email) = lower(coalesce((select auth.email()), ''))
   or public.is_timan_backend()
 );
-
 drop policy if exists dealer_contracts_insert_owner_or_backend on public.dealer_contracts;
 create policy dealer_contracts_insert_owner_or_backend
 on public.dealer_contracts
@@ -64,7 +57,6 @@ with check (
   or lower(owner_email) = lower(coalesce((select auth.email()), ''))
   or public.is_timan_backend()
 );
-
 drop policy if exists dealer_contracts_update_owner_or_backend on public.dealer_contracts;
 create policy dealer_contracts_update_owner_or_backend
 on public.dealer_contracts
@@ -80,7 +72,6 @@ with check (
   or lower(owner_email) = lower(coalesce((select auth.email()), ''))
   or public.is_timan_backend()
 );
-
 create or replace function public.prevent_signed_dealer_contract_update()
 returns trigger
 language plpgsql
@@ -109,13 +100,11 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists prevent_signed_dealer_contract_update_trigger on public.dealer_contracts;
 create trigger prevent_signed_dealer_contract_update_trigger
 before update on public.dealer_contracts
 for each row
 execute function public.prevent_signed_dealer_contract_update();
-
 create or replace function public.audit_dealer_contract_change()
 returns trigger
 language plpgsql
@@ -204,12 +193,10 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists audit_dealer_contract_change_trigger on public.dealer_contracts;
 create trigger audit_dealer_contract_change_trigger
 after insert or update on public.dealer_contracts
 for each row
 execute function public.audit_dealer_contract_change();
-
 grant execute on function public.prevent_signed_dealer_contract_update() to authenticated;
 grant execute on function public.audit_dealer_contract_change() to authenticated;

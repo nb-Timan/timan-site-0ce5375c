@@ -20,7 +20,6 @@ create table if not exists public.dealer_notes (
   follow_up_date timestamptz,
   created_at timestamptz not null default now()
 );
-
 create index if not exists dealer_notes_dealer_idx
   on public.dealer_notes (dealer_number);
 create index if not exists dealer_notes_created_idx
@@ -29,9 +28,7 @@ create index if not exists dealer_notes_followup_idx
   on public.dealer_notes (follow_up_date);
 create index if not exists dealer_notes_seller_idx
   on public.dealer_notes (seller_initials);
-
 alter table public.dealer_notes enable row level security;
-
 create or replace function public.is_timan_internal()
 returns boolean language sql stable security definer
 set search_path = public as $$
@@ -42,20 +39,16 @@ set search_path = public as $$
       and portal_role in ('timan_backend','timan_seller','timan_service')
   );
 $$;
-
 drop policy if exists dealer_notes_select_internal on public.dealer_notes;
 drop policy if exists dealer_notes_insert_internal on public.dealer_notes;
-
 create policy dealer_notes_select_internal
   on public.dealer_notes for select
   to authenticated
   using (public.is_timan_internal());
-
 create policy dealer_notes_insert_internal
   on public.dealer_notes for insert
   to authenticated
   with check (public.is_timan_internal());
-
 create table if not exists public.dealer_note_comments (
   id uuid primary key default gen_random_uuid(),
   note_id uuid not null references public.dealer_notes(id) on delete cascade,
@@ -65,17 +58,13 @@ create table if not exists public.dealer_note_comments (
   seller_initials text,
   created_at timestamptz not null default now()
 );
-
 create index if not exists dealer_note_comments_note_idx
   on public.dealer_note_comments (note_id, created_at asc);
-
 alter table public.dealer_note_comments enable row level security;
-
 drop policy if exists dealer_notes_update_backend on public.dealer_notes;
 drop policy if exists dealer_notes_delete_backend on public.dealer_notes;
 drop policy if exists dealer_notes_update_backend_or_owner on public.dealer_notes;
 drop policy if exists dealer_notes_delete_backend_or_owner on public.dealer_notes;
-
 create policy dealer_notes_update_backend_or_owner
   on public.dealer_notes for update
   to authenticated
@@ -87,7 +76,6 @@ create policy dealer_notes_update_backend_or_owner
     public.is_timan_backend()
     or lower(coalesce(created_by_email, '')) = lower(coalesce(auth.jwt() ->> 'email', ''))
   );
-
 create policy dealer_notes_delete_backend_or_owner
   on public.dealer_notes for delete
   to authenticated
@@ -95,22 +83,18 @@ create policy dealer_notes_delete_backend_or_owner
     public.is_timan_backend()
     or lower(coalesce(created_by_email, '')) = lower(coalesce(auth.jwt() ->> 'email', ''))
   );
-
 drop policy if exists dealer_note_comments_select_internal on public.dealer_note_comments;
 drop policy if exists dealer_note_comments_insert_internal on public.dealer_note_comments;
 drop policy if exists dealer_note_comments_update_backend_or_owner on public.dealer_note_comments;
 drop policy if exists dealer_note_comments_delete_backend_or_owner on public.dealer_note_comments;
-
 create policy dealer_note_comments_select_internal
   on public.dealer_note_comments for select
   to authenticated
   using (public.is_timan_internal());
-
 create policy dealer_note_comments_insert_internal
   on public.dealer_note_comments for insert
   to authenticated
   with check (public.is_timan_internal());
-
 create policy dealer_note_comments_update_backend_or_owner
   on public.dealer_note_comments for update
   to authenticated
@@ -122,7 +106,6 @@ create policy dealer_note_comments_update_backend_or_owner
     public.is_timan_backend()
     or lower(coalesce(created_by_email, '')) = lower(coalesce(auth.jwt() ->> 'email', ''))
   );
-
 create policy dealer_note_comments_delete_backend_or_owner
   on public.dealer_note_comments for delete
   to authenticated

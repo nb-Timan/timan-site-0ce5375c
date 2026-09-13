@@ -158,6 +158,5 @@ select jsonb_build_object(
 from lead_counts lc
 cross join timing_counts tc;
 $$;
-
 revoke all on function public.crm_dashboard_lead_kpis(uuid, text, timestamptz) from public;
 grant execute on function public.crm_dashboard_lead_kpis(uuid, text, timestamptz) to authenticated;
