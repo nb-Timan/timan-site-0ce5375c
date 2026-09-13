@@ -53,6 +53,9 @@ export interface MarketingVideo {
   custom_thumbnail_url: string | null;
   custom_thumbnail_path: string | null;
   status: VideoStatus;
+  archived_at: string | null;
+  delete_after: string | null;
+  archived_previous_status: Exclude<VideoStatus, "archived"> | null;
   model_generation_status: VideoModelGenerationStatus;
   show_on_messe_portal: boolean;
   published_at: string | null;
@@ -90,6 +93,7 @@ export interface MarketingVideoInput {
 const VIDEO_BASE_SELECT = `
   id, youtube_url, youtube_video_id, title, description, localized_content, source_language, translation_meta, content_type, seasons, tags,
   custom_thumbnail_url, custom_thumbnail_path, status, model_generation_status, show_on_messe_portal, published_at,
+  archived_at, delete_after, archived_previous_status,
   created_by, updated_by, created_at, updated_at
 `;
 
@@ -281,6 +285,9 @@ function toVideo(row: Record<string, unknown>): MarketingVideo {
     custom_thumbnail_url: (row.custom_thumbnail_url as string | null) ?? null,
     custom_thumbnail_path: (row.custom_thumbnail_path as string | null) ?? null,
     status: (row.status as VideoStatus) || "draft",
+    archived_at: (row.archived_at as string | null) ?? null,
+    delete_after: (row.delete_after as string | null) ?? null,
+    archived_previous_status: (row.archived_previous_status as Exclude<VideoStatus, "archived"> | null) ?? null,
     model_generation_status: (row.model_generation_status as VideoModelGenerationStatus) || "current",
     show_on_messe_portal: Boolean(row.show_on_messe_portal),
     published_at: (row.published_at as string | null) ?? null,
@@ -603,6 +610,23 @@ export async function setMarketingVideoMessePortalVisibility(
 
   if (error || !data) return { row: null, error: error?.message ?? "update_failed" };
   return { row: toVideo(data as Record<string, unknown>), error: null };
+}
+
+export async function archiveMarketingVideo(videoId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("archive_marketing_video", { p_video_id: videoId });
+  return { error: error?.message ?? null };
+}
+
+export async function restoreMarketingVideo(videoId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc("restore_marketing_video", { p_video_id: videoId });
+  return { error: error?.message ?? null };
+}
+
+export async function permanentlyDeleteArchivedMarketingVideo(videoId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.functions.invoke("marketing-video-retention", {
+    body: { action: "delete_archived", video_id: videoId },
+  });
+  return { error: error?.message ?? null };
 }
 
 export async function uploadVideoThumbnail(file: File): Promise<{ url: string | null; path: string | null; error: string | null }> {

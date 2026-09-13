@@ -29,6 +29,11 @@ verify_jwt = false
 [functions.translate-news-content]
 verify_jwt = false
 
+# Scheduler calls carry a Vault-held secret which is verified inside the
+# function. Manual permanent deletion verifies the caller's real JWT in code.
+[functions.marketing-video-retention]
+verify_jwt = false
+
 [functions.import-legacy-leads]
 verify_jwt = false
 

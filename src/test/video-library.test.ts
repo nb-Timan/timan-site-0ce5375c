@@ -225,7 +225,10 @@ describe("marketing video library", () => {
     expect(managementPage).toContain("content_language: uiLanguage");
     expect(managementPage).not.toContain("<FieldLabel text={tv(\"videoMgmtStatus\", lang)} />");
     expect(managementPage).toContain("onSave(\"draft\")");
-    expect(managementPage).toContain("onSave(\"archived\")");
+    expect(managementPage).toContain("archiveMarketingVideo");
+    expect(managementPage).toContain("restoreMarketingVideo");
+    expect(managementPage).toContain("permanentlyDeleteArchivedMarketingVideo");
+    expect(managementPage).not.toContain("onSave(\"archived\")");
     expect(managementPage).toContain("onSave(\"published\")");
     expect(managementPage).toContain("uploadVideoThumbnail");
     expect(configurator).toContain("listPublishedPrimaryVideos(uiLanguage)");
