@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AcademyGuidancePanel from './AcademyGuidancePanel';
-import { academyPartnerDataSandbox as sandbox, ACADEMY_PARTNER_CHANGED } from '@/lib/academyPartnerDataSandbox';
+import { academyPartnerDataSandbox as sandbox, ACADEMY_PARTNER_CHANGED, ACADEMY_PARTNERDATA_PART_1, ACADEMY_PARTNERDATA_PART_2 } from '@/lib/academyPartnerDataSandbox';
 import { ACADEMY_PROGRESS_CHANGED, academySandbox } from '@/lib/academySandbox';
 import { useOptionalLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
@@ -77,7 +77,8 @@ export default function AcademyPartnerDataGuidance() {
         { title: tr('academyPartnerDataInvoice'), tasks: [{ label: tr('academyPartnerDataInvoiceSaved'), complete: progress.invoiceFlowReviewed }] },
       ] : undefined}
       next={part === 1 ? part1Next : part === 2 ? !state.relationReviewed ? tr('academyPartnerDataPart2Step1') : tr('academyPartnerDataPart2Step2') : portalBasicsNext}
-      completion={part === 1 ? { nextUnlock: tr('academyPartnerDataPart2Title') } : part === 2} />
+      completion={part === 1 ? { nextUnlock: tr('academyPartnerDataPart2Title') } : part === 2}
+      caseId={part === 1 ? ACADEMY_PARTNERDATA_PART_1 : part === 2 ? ACADEMY_PARTNERDATA_PART_2 : undefined} />
     {part === 2 && <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to="/portal/misc/forms/dealer-invoice-accept?academy_mode=true">{tr('academyPartnerDataOpenInvoice')}</Link>}
   </>;
 }

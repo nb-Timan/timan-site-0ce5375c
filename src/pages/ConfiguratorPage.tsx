@@ -58,7 +58,7 @@ import { getLead } from '@/lib/crmLeadsService';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection } from '@/lib/submittedOrderCorrectionService';
-import { academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_CASE_1, academySandbox } from '@/lib/academySandbox';
 import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
@@ -244,6 +244,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const effectiveUser = useEffectivePortalUser(appUser) ?? appUser;
   const activePortalRole = derivePortalRole(effectiveUser ?? appUser);
   const isDealerUser = activePortalRole === 'dealer_user';
+  // A real Backend session may register an order with a historical delivery
+  // date. View-as deliberately follows the displayed role, not Backend auth.
+  const canSelectPastDeliveryDate = activePortalRole === 'timan_backend';
   const canApplyExtraDealerDiscount = (() => {
     const flag = effectiveUser?.permissions?.can_apply_extra_dealer_discount;
     if (flag === true) return true;
@@ -2693,20 +2696,21 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 { complete: academyCase.rc751, label: tPortal('academyCase1Rc751Selected', uiLanguage) },
                 { complete: academyCase.quantityDiscount, label: tPortal('academyCase1QuantityDiscount', uiLanguage) },
               ] },
-              { title: tPortal('academyCase1AddTools', uiLanguage), tasks: [
+              { title: tPortal('academyCase1AddOilFlailAndWorkLight', uiLanguage), tasks: [
+                { complete: academyCase.oil, label: tPortal('academyCase1OilSelected', uiLanguage) },
                 { complete: academyCase.flail, label: tPortal('academyCase1FlailSelected', uiLanguage) },
-                { complete: academyCase.requiredComponents, label: tPortal('academyCase1BracketSelected', uiLanguage) },
-              ] },
-              { title: tPortal('academyCase1AddWorkLightAndHarness', uiLanguage), description: tPortal('academyCase1WorkLightHarnessHelp', uiLanguage), tasks: [
-                { complete: academyCase.weedBrush, label: tPortal('academyCase1WeedBrushSelected', uiLanguage) },
                 { complete: academyCase.workLight, label: tPortal('academyCase1WorkLightSelected', uiLanguage) },
+              ] },
+              { title: tPortal('academyCase1AddWeedBrushAndHarness', uiLanguage), tasks: [
+                { complete: academyCase.weedBrush, label: tPortal('academyCase1WeedBrushSelected', uiLanguage) },
                 { complete: academyCase.wireHarness, label: tPortal('academyCase1HarnessAutomaticallyAdded', uiLanguage) },
               ] },
               { title: tPortal('academyCase1SaveLead', uiLanguage), tasks: [{ complete: Boolean(academyCase.leadId), label: tPortal('academyCase1LeadSaved', uiLanguage) }] },
               { title: tPortal('academyCase1GenerateQuote', uiLanguage), tasks: [{ complete: academyCase.quoteGenerated, label: tPortal('academyCase1QuoteGenerated', uiLanguage) }] },
             ]}
-            next={!academyCase.machine ? tPortal('academyCase1NextMachine', uiLanguage) : !academyCase.rc751 || !academyCase.quantityDiscount ? tPortal('academyCase1NextRc751', uiLanguage) : !academyCase.flail || !academyCase.requiredComponents ? tPortal('academyCase1NextTools', uiLanguage) : !academyCase.weedBrush || !academyCase.workLight || !academyCase.wireHarness ? tPortal('academyCase1NextEquipment', uiLanguage) : !academyCase.leadId ? tPortal('academyCase1NextLead', uiLanguage) : !academyCase.quoteGenerated ? tPortal('academyCase1NextQuote', uiLanguage) : tPortal('academyCase1NextQuote', uiLanguage)}
+            next={!academyCase.machine ? tPortal('academyCase1NextMachine', uiLanguage) : !academyCase.rc751 || !academyCase.quantityDiscount ? tPortal('academyCase1NextRc751', uiLanguage) : !academyCase.oil || !academyCase.flail || !academyCase.workLight ? tPortal('academyCase1NextOilFlailWorkLight', uiLanguage) : !academyCase.weedBrush || !academyCase.wireHarness ? tPortal('academyCase1NextWeedBrushHarness', uiLanguage) : !academyCase.leadId ? tPortal('academyCase1NextLead', uiLanguage) : !academyCase.quoteGenerated ? tPortal('academyCase1NextQuote', uiLanguage) : tPortal('academyCase1NextQuote', uiLanguage)}
             completion
+            caseId={ACADEMY_CASE_1}
             actions={<button type="button"
               onClick={() => setAcademyCase(academySandbox.generateQuote())}
               disabled={academyCase.quoteGenerated || !academyCase.leadId}
@@ -2951,7 +2955,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           const today = new Date();
                           today.setHours(0, 0, 0, 0);
                           const day = date.getDay();
-                          return date < today || day === 0 || day === 6;
+                          return (!canSelectPastDeliveryDate && date < today) || day === 0 || day === 6;
                         }}
                         modifiers={{
                           discount: (date) => {

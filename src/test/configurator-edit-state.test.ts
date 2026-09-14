@@ -43,4 +43,10 @@ describe('configurator saved edit state', () => {
     expect(code).toContain('resolveHideScopeForCurrentUser(accountScopeEmail)');
     expect(configuratorSource()).toContain('appUser={effectiveUser ?? appUser}');
   });
+
+  it('allows only the effective Backend role to choose a historical delivery date', () => {
+    const code = configuratorSource();
+    expect(code).toContain("const canSelectPastDeliveryDate = activePortalRole === 'timan_backend';");
+    expect(code).toContain('(!canSelectPastDeliveryDate && date < today) || day === 0 || day === 6');
+  });
 });

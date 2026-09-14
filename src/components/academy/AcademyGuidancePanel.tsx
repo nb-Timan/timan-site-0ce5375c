@@ -1,9 +1,10 @@
 import { CheckCircle2, Circle, GraduationCap } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import AcademyCompletionModal from './AcademyCompletionModal';
 import { useOptionalLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
+import { academySandbox, type AcademyActiveCase } from '@/lib/academySandbox';
 
 export type AcademyGuidanceTask = { label: string; description?: string; complete: boolean };
 export type AcademyGuidanceStep = { title: string; description?: string; tasks: AcademyGuidanceTask[] };
@@ -19,6 +20,7 @@ export default function AcademyGuidancePanel({
   explanation,
   activeTaskLabel,
   stepColumns = 1,
+  caseId,
 }: {
   title: string;
   description: string;
@@ -30,7 +32,9 @@ export default function AcademyGuidancePanel({
   explanation?: ReactNode;
   activeTaskLabel?: string;
   stepColumns?: 1 | 2;
+  caseId?: AcademyActiveCase;
 }) {
+  const navigate = useNavigate();
   const { uiLanguage } = useOptionalLanguage();
   const tr = (key: string) => t(key, uiLanguage);
   const allTasks = steps?.flatMap((step) => step.tasks) ?? tasks ?? [];
@@ -114,6 +118,10 @@ export default function AcademyGuidancePanel({
           completed={completed}
           total={allTasks.length}
           nextUnlock={nextUnlock}
+          onBackToAcademy={caseId ? () => {
+            academySandbox.clearActiveCase(caseId);
+            navigate('/academy');
+          } : undefined}
         />
       )}
     </>

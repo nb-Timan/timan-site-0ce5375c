@@ -1,4 +1,9 @@
-import { ACC_ID_WORK_LIGHT } from '@/data/machines';
+import {
+  ACC_ID_OIL_BIO,
+  ACC_ID_OIL_NORMAL,
+  ACC_ID_WEEDBRUSH,
+  ACC_ID_WORK_LIGHT,
+} from '@/data/machines';
 import { ACADEMY_CASE_1_ID } from '@/lib/academyCurriculum';
 import { academyScopedStorageKey, isAcademyCycleStorageScopeActive } from '@/lib/academyCycleStorage';
 
@@ -55,7 +60,7 @@ const PORTAL_BASICS_NEWS_TITLE = 'Skivehøster til Timan RC-1000s';
 
 export type AcademyCase1State = {
   started: boolean; completed: boolean; quoteGenerated: boolean; leadId: string | null;
-  machine: boolean; flail: boolean; weedBrush: boolean; requiredComponents: boolean;
+  machine: boolean; flail: boolean; weedBrush: boolean; oil: boolean;
   workLight: boolean; wireHarness: boolean;
   rc751: boolean; quantityDiscount: boolean;
 };
@@ -122,7 +127,7 @@ type AcademySandboxState = AcademyCase1State & {
   partnerMap: AcademyPartnerMapState;
 };
 
-const initialCase1 = (): AcademyCase1State => ({ started: false, completed: false, quoteGenerated: false, leadId: null, machine: false, flail: false, weedBrush: false, requiredComponents: false, workLight: false, wireHarness: false, rc751: false, quantityDiscount: false });
+const initialCase1 = (): AcademyCase1State => ({ started: false, completed: false, quoteGenerated: false, leadId: null, machine: false, flail: false, weedBrush: false, oil: false, workLight: false, wireHarness: false, rc751: false, quantityDiscount: false });
 const initialCase2 = (): AcademyCase2State => ({ started: false, completed: false, machineFiltered: false, maintenanceFiltered: false, targetFound: false, targetOpened: false });
 const initialPortalBasics = (): AcademyPortalBasicsState => ({
   started: false,
@@ -151,7 +156,7 @@ const initialPartnerMap = (): AcademyPartnerMapState => ({
 const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialCase2(), portalBasics: initialPortalBasics(), partnerMap: initialPartnerMap() });
 
 function isComplete(state: AcademyCase1State) {
-  return state.machine && state.flail && state.weedBrush && state.requiredComponents
+  return state.machine && state.flail && state.weedBrush && state.oil
     && state.workLight && state.wireHarness && state.rc751
     && state.quantityDiscount && state.quoteGenerated && Boolean(state.leadId);
 }
@@ -179,7 +184,7 @@ function load(): AcademySandboxState {
         machine: true,
         flail: true,
         weedBrush: true,
-        requiredComponents: true,
+        oil: true,
         workLight: true,
         wireHarness: true,
         rc751: true,
@@ -271,6 +276,14 @@ export const academySandbox = {
   },
   activateCase(caseId: AcademyActiveCase) {
     localStorage.setItem(SESSION_KEY, JSON.stringify({ active: true, caseId }));
+  },
+  clearActiveCase(caseId?: AcademyActiveCase) {
+    const session = readSession();
+    if (!session.active || (caseId && session.caseId !== caseId)) return;
+    // Completing a case must not leave a stale "Continue" target behind.
+    // Academy itself remains active until the user explicitly leaves it.
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ active: true }));
+    window.dispatchEvent(new Event(ACADEMY_PROGRESS_CHANGED));
   },
   getActiveCase() {
     const session = readSession();
@@ -457,7 +470,19 @@ export const academySandbox = {
     const rc = input.machineConfigs.find((item) => item.type === 'RC-1000S');
     const accessories = rc?.acc ?? [];
     const rc751 = input.machineConfigs.find((machine) => machine.type === 'RC-751' && (machine.qty ?? 1) > 0);
-    const next = { ...current, started: true, machine: Boolean(rc), flail: accessories.includes('410910'), weedBrush: accessories.includes('730600'), requiredComponents: accessories.includes('412603'), workLight: accessories.includes(ACC_ID_WORK_LIGHT), wireHarness: input.wiringHarnessInCart, rc751: Boolean(rc751), quantityDiscount: input.quantityDiscount, quoteGenerated: input.quoteGenerated ?? current.quoteGenerated };
+    const next = {
+      ...current,
+      started: true,
+      machine: Boolean(rc),
+      flail: accessories.includes('410910'),
+      weedBrush: accessories.includes(ACC_ID_WEEDBRUSH),
+      oil: accessories.includes(ACC_ID_OIL_NORMAL) || accessories.includes(ACC_ID_OIL_BIO),
+      workLight: accessories.includes(ACC_ID_WORK_LIGHT),
+      wireHarness: input.wiringHarnessInCart && accessories.includes(ACC_ID_WEEDBRUSH) && accessories.includes(ACC_ID_WORK_LIGHT),
+      rc751: Boolean(rc751),
+      quantityDiscount: input.quantityDiscount,
+      quoteGenerated: input.quoteGenerated ?? current.quoteGenerated,
+    };
     next.completed = isComplete(next);
     return case1Of(save(next));
   },

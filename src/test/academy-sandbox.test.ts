@@ -1,9 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import {
+  ACC_ID_OIL_BIO,
+  ACC_ID_OIL_NORMAL,
+  ACC_ID_WEEDBRUSH,
+  ACC_ID_WIRE_HARNESS,
+  ACC_ID_WORK_LIGHT,
+} from '@/data/machines';
 import { ACADEMY_CASE_1, ACADEMY_CASE_2_TARGET_VIDEO_ID, ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
 
 const completeInput = {
   machineConfigs: [
-    { type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 1 },
+    { type: 'RC-1000S', acc: [ACC_ID_OIL_NORMAL, '410910', ACC_ID_WEEDBRUSH, ACC_ID_WORK_LIGHT, ACC_ID_WIRE_HARNESS], qty: 1 },
     { type: 'RC-751', acc: [], qty: 1 },
   ],
   wiringHarnessInCart: true,
@@ -46,13 +53,13 @@ describe('Academy Case 1 sandbox', () => {
     expect(state.leadId).toMatch(/^academy-lead-/);
     expect(state.completed).toBe(false);
     expect(state.weedBrush).toBe(false);
-    expect(state.requiredComponents).toBe(false);
+    expect(state.oil).toBe(false);
   });
 
   it('requires RC-751 even if a caller reports a quantity discount', () => {
     academySandbox.startCase1();
     const state = academySandbox.evaluate({
-      machineConfigs: [{ type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 2 }],
+      machineConfigs: [{ type: 'RC-1000S', acc: [ACC_ID_OIL_NORMAL, '410910', ACC_ID_WEEDBRUSH, ACC_ID_WORK_LIGHT, ACC_ID_WIRE_HARNESS], qty: 2 }],
       wiringHarnessInCart: true,
       quantityDiscount: true,
     });
@@ -82,9 +89,9 @@ describe('Academy Case 1 sandbox', () => {
     expect(state.completed).toBe(true);
     expect(state).toMatchObject({
       machine: true,
+      oil: true,
       flail: true,
       weedBrush: true,
-      requiredComponents: true,
       workLight: true,
       wireHarness: true,
       rc751: true,
@@ -97,12 +104,12 @@ describe('Academy Case 1 sandbox', () => {
 
   it('does not complete when the work light is missing', () => {
     academySandbox.startCase1();
-    academySandbox.evaluate({ ...completeInput, machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '730600', '412603', '412614'] }, completeInput.machineConfigs[1]] });
+    academySandbox.evaluate({ ...completeInput, machineConfigs: [{ ...completeInput.machineConfigs[0], acc: [ACC_ID_OIL_NORMAL, '410910', ACC_ID_WEEDBRUSH, ACC_ID_WIRE_HARNESS] }, completeInput.machineConfigs[1]] });
     academySandbox.generateQuote();
     const state = academySandbox.saveLead();
 
     expect(state.workLight).toBe(false);
-    expect(state.wireHarness).toBe(true);
+    expect(state.wireHarness).toBe(false);
     expect(state.completed).toBe(false);
   });
 
@@ -131,6 +138,19 @@ describe('Academy Case 1 sandbox', () => {
     expect(academySandbox.getCase1()).toEqual(completed);
   });
 
+  it('clears a completed case target without leaving the Academy session', () => {
+    academySandbox.startCase1();
+    academySandbox.evaluate(completeInput);
+    academySandbox.saveLead();
+    academySandbox.generateQuote();
+
+    academySandbox.clearActiveCase('sales.case_1_rc1000');
+
+    expect(academySandbox.isActive()).toBe(true);
+    expect(academySandbox.getActiveCase()).toBeNull();
+    expect(academySandbox.getCase1().completed).toBe(true);
+  });
+
   it('keeps a completed case after a fresh configurator evaluation', () => {
     academySandbox.startCase1();
     academySandbox.evaluate(completeInput);
@@ -146,9 +166,9 @@ describe('Academy Case 1 sandbox', () => {
     expect(refreshed.completed).toBe(true);
     expect(refreshed).toMatchObject({
       machine: true,
+      oil: true,
       flail: true,
       weedBrush: true,
-      requiredComponents: true,
       workLight: true,
       wireHarness: true,
       rc751: true,
@@ -167,19 +187,18 @@ describe('Academy Case 1 sandbox', () => {
       machine: false,
       flail: false,
       weedBrush: false,
-      requiredComponents: false,
+      oil: false,
       workLight: false,
       wireHarness: false,
-      deliveryDiscount: false,
       quantityDiscount: false,
     }));
 
     expect(academySandbox.getCase1()).toMatchObject({
       completed: true,
       machine: true,
+      oil: true,
       flail: true,
       weedBrush: true,
-      requiredComponents: true,
       workLight: true,
       wireHarness: true,
       rc751: true,
@@ -230,19 +249,48 @@ describe('Academy Case 1 sandbox', () => {
     expect(state.completed).toBe(false);
   });
 
+  it('passes Step 3 when either canonical oil type is selected with the flail mower and work light', () => {
+    academySandbox.startCase1();
+
+    const standardOil = academySandbox.evaluate({
+      ...completeInput,
+      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: [ACC_ID_OIL_NORMAL, '410910', ACC_ID_WORK_LIGHT] }, completeInput.machineConfigs[1]],
+      wiringHarnessInCart: false,
+    });
+    expect(standardOil).toMatchObject({ oil: true, flail: true, workLight: true });
+
+    const bioOil = academySandbox.evaluate({
+      ...completeInput,
+      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: [ACC_ID_OIL_BIO, '410910', ACC_ID_WORK_LIGHT] }, completeInput.machineConfigs[1]],
+      wiringHarnessInCart: false,
+    });
+    expect(bioOil).toMatchObject({ oil: true, flail: true, workLight: true });
+  });
+
+  it('keeps Step 3 incomplete when no canonical oil is selected', () => {
+    academySandbox.startCase1();
+    const state = academySandbox.evaluate({
+      ...completeInput,
+      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', ACC_ID_WORK_LIGHT] }, completeInput.machineConfigs[1]],
+      wiringHarnessInCart: false,
+    });
+
+    expect(state).toMatchObject({ oil: false, flail: true, workLight: true, completed: false });
+  });
+
   it('tracks the WB-170 and work-light dependency from the actual cart state', () => {
     academySandbox.startCase1();
 
     const weedOnly = academySandbox.evaluate({
       ...completeInput,
-      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '730600', '412603'] }, completeInput.machineConfigs[1]],
+      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: [ACC_ID_OIL_NORMAL, '410910', ACC_ID_WEEDBRUSH] }, completeInput.machineConfigs[1]],
       wiringHarnessInCart: false,
     });
     expect(weedOnly).toMatchObject({ weedBrush: true, workLight: false, wireHarness: false, completed: false });
 
     const lightOnly = academySandbox.evaluate({
       ...completeInput,
-      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '412603', '412594'] }, completeInput.machineConfigs[1]],
+      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: [ACC_ID_OIL_NORMAL, '410910', ACC_ID_WORK_LIGHT] }, completeInput.machineConfigs[1]],
       wiringHarnessInCart: false,
     });
     expect(lightOnly).toMatchObject({ weedBrush: false, workLight: true, wireHarness: false, completed: false });
@@ -252,7 +300,7 @@ describe('Academy Case 1 sandbox', () => {
 
     const prerequisiteRemoved = academySandbox.evaluate({
       ...completeInput,
-      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '412603', '412594'] }, completeInput.machineConfigs[1]],
+      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: [ACC_ID_OIL_NORMAL, '410910', ACC_ID_WORK_LIGHT] }, completeInput.machineConfigs[1]],
       wiringHarnessInCart: false,
     });
     expect(prerequisiteRemoved).toMatchObject({ weedBrush: false, workLight: true, wireHarness: false, completed: false });

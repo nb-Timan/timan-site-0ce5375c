@@ -35,5 +35,6 @@ export default function AcademyCrmGuidance({ part = academyCrmSandbox.getPart() 
     ]}
     next={part === 1 ? !progress.overdueUpdated ? tr('academyCrmOverdueTitle') : tr('academyCrmConfiguratorTitle') : !progress.activityUpdated ? tr('academyCrmActivity') : !progress.shared ? tr('academyCrmShare') : tr('academyCrmDemo')}
     completion={part === 1 ? { nextUnlock: tr('academyCrmCase2Title') } : true}
+    caseId={part === 1 ? 'crm.part_1' : 'crm.part_2'}
   />;
 }

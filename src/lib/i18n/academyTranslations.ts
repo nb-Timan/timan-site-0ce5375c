@@ -239,3 +239,74 @@ Object.assign(ACADEMY_TRANSLATIONS.hu, {
 Object.assign(ACADEMY_TRANSLATIONS.sv, {
   academyRequirements: 'krav', academyCaseCompleted: 'Ärendet är slutfört.', academyNextStep: 'Nästa steg:', academyYouCompleted: 'Du har slutfört', academyAllRequirements: 'Alla {completed} av {total} krav är uppfyllda.', academyStayHere: 'Stanna här', academyNextUnlocked: 'Nästa uppgift upplåst:', academyQuickTasksCompleted: '{completed} av {total} snabba uppgifter slutförda.', academyContinueNextTask: 'Fortsätt till nästa uppgift', academySandboxNotice: 'Academy utbildningsmiljö. Du arbetar bara med utbildningsdata och inga verkliga data påverkas.', academyCycleActive: 'Academy-cykel {number} aktiv', academyCycleCompleted: 'Academy-cykel {number} slutförd', academyNeedsAcademy: 'Den här funktionen kräver Academy. Slutför först relevant kurs.', academyNoActiveCycle: 'Det finns ingen aktiv Academy-kurs. Kontakta din administratör.', academyCompleted: 'slutfört', academyNextUnlock: 'Nästa upplåsning', academyConfiguratorUnlocked: 'Configurator är nu upplåst.', academyCompleteSalesCase1: 'Slutför Sales Case 1 för åtkomst.', academyNextMilestone: 'Nästa milstolpe', academyAllBadges: 'Alla märken har erhållits i den här cykeln.', academyCompleteSalesTasks: 'Slutför de grundläggande försäljningsuppgifterna.', academyBadges: 'Märken', academyContinueWhere: 'Fortsätt där jag slutade', academyActiveTask: 'Din aktiva Academy-uppgift', academyResumeTask: 'Fortsätt din sparade progression.', academySalesJourney: 'Din Sales Academy', academyPortalBasics: 'Portalgrunder', academyCycleLabel: 'cykel', academyAwardSilver: 'Silver', academyAwardGold: 'Guld', academyCompletedCycles: '{count} tidigare slutförda cykler', academySalesCase1Title: 'Case 1 - Bygg rätt RC-1000-order', academySalesCase2Title: 'Case 2 - Hitta en underhållsvideo', academyPortalBasicsCaseTitle: 'Portalgrunder - 5 snabba uppgifter', academyPartnerMapTitle: 'Partnerkarta', academyPartnerDataPart1Title: 'Del 1 - Företags- och personuppgifter', academyPartnerDataPart2Title: 'Del 2 - Partner och fakturering', academyCrmCase1Title: 'CRM Case 1 - Prioritera och slutför leads', academyCrmCase2Title: 'CRM Case 2 - Dela lead och skapa demo', academyCrmDescription: 'Arbeta i vanliga CRM. Leads, delningar och demon sparas endast lokalt i Academy.', academyCrmOverdueTitle: 'Hitta förfallet lead och uppdatera uppföljning', academyCrmOverdueTask: 'Förfallet lead uppdaterat', academyCrmConfiguratorTitle: 'Slutför Configurator-leadet', academyCrmConfiguratorTask: 'Configurator-lead slutfört', academyCrmActivity: 'Spara nästa aktivitet', academyCrmActivityTask: 'Aktivitet/uppföljning sparad', academyCrmShare: 'Dela leadet', academyCrmShareTask: 'Lead delat med Academy-återförsäljaren', academyCrmDemo: 'Konvertera lead till lokal demo', academyCrmCreateDemo: 'Skapa lokal demo', academyCrmDemoCreated: 'Lokal demo skapad', academyRequirementsProgress: '{completed} av {total} krav uppfyllda', academyQuoteOrder: 'Offert och order', academyConfiguratorDescription: 'Ingen offert, lead, e-post eller order skickas till produktion.', academyCase1ChooseMachine: 'Välj maskin', academyCase1AddTools: 'Lägg till redskap', academyCase1AddEquipment: 'Lägg till nödvändig utrustning', academyCase1AddDiscounts: 'Lägg till rabatter', academyCase1GenerateQuote: 'Skapa utbildningsoffert', academyCase1SaveLead: 'Spara ärendet som Academy-lead', academyVideoDescription: 'Använd vanliga Videogalleriet. Favoriter och videodata ändras inte i Academy.', academyVideoFilterMachine: 'Filtrera på maskin', academyVideoFilterType: 'Filtrera på innehållstyp', academyVideoFindTarget: 'Hitta rätt video', academyVideoOpenTarget: 'Öppna videon', academyPortalBasicsPartnerDataTitle: 'Portalgrunder - Partnerdata', academyPartnerDataDescription: 'Du använder vanliga Partnerdata med lokala Academy-data.', academyPartnerDataOpen: 'Öppna Partnerdata', academyPartnerDataLogo: 'Använd Timan-loggan för startsidan', academyWhyThisTask: 'Varför denna uppgift?', academyPartnerDataMachine: 'Öppna Academy Maskiner', academyPartnerDataCompany: 'Gå till företags- och personuppgifter', academyPartnerDataContact: 'Spara en kontakt under Försäljning', academyPartnerDataPrimary: 'Välj första kontakt', academyPartnerDataWebsite: 'Lägg till webbadress', academyPartnerDataRelation: 'Läs partnerrelationen', academyPartnerDataInvoice: 'Fyll i fakturaaccept', academyPartnerDataOpenInvoice: 'Öppna återförsäljarens fakturaaccept', academyMapDescription: 'Arbeta i vanliga Partnerkartan. Kartan visar endast din återförsäljare och tillåtna garantiärenden.', academyMapOwnDealer: 'Din återförsäljare visas på kartan', academyMapFullscreen: 'Använd helskärm', academyMapWarrantyLayer: 'Aktivera lagret Garantiärenden', academyMapWarrantyOpen: 'Hitta och öppna ett eget garantiärende', academyMapServiceOpen: 'Öppna maskinen i Service', academyPortalBasicsMapTitle: 'Portalgrunder - Partnerkarta', academyPortalBasicsMapDescription: 'Vanliga Partnerkartan med lokala Academy-partner.', academyPortalBasicsMapTask: 'Område eller lager ändrat', academyAdminTitle: 'Academy-förlopp', academyAdminLoadError: 'Kunde inte hämta Academy-historik.', academyAdminActionError: 'Academy-åtgärden kunde inte genomföras.', academyAdminActiveCycle: 'Aktiv cykel {number}', academyAdminLatestCompleted: 'Senaste cykel {number} är slutförd', academyAdminNoCycle: 'Ingen Academy-cykel startad', academyAdminLastCompleted: 'Senast slutförd', academyAdminCompletedCount: '{count} slutförda', academyAdminCadence: 'Återkomst', academyAdminManual: 'Manuell', academyAdminAnnual: 'Varje år', academyAdminBiennial: 'Vartannat år', academyAdminCustomDate: 'Eget datum', academyAdminNextActivation: 'Nästa aktivering', academyAdminAfterCompletion: 'Beräknas efter slutförd cykel', academyAdminNotScheduled: 'Inte planerad', academyAdminStartCycle: 'Starta första/nytt förlopp', academyAdminSchedule: 'Planera nästa', academyAdminStarted: 'Ny Academy-cykel startad.', academyAdminScheduled: 'Academy-återkomst planerad.', academyAdminReset: 'Återställ aktivt förlopp', academyAdminResetConfirm: 'Återställa aktivt Academy-förlopp? Lokal progression börjar om.', academyAdminResetDone: 'Aktiv Academy-cykel återställd.', academyAdminHistory: 'Visa historik', academyAdminCycle: 'Cykel {number}', academyAdminTasks: 'uppgifter',
 });
+Object.assign(ACADEMY_TRANSLATIONS.da, {
+  academyCase1AddOilFlailAndWorkLight: 'Tilføj olie, slagleklipper og arbejdslys',
+  academyCase1OilSelected: 'Én olie valgt (13101003 eller 13101005)',
+  academyCase1AddWeedBrushAndHarness: 'Tilføj WB-170 og aktivér ledningsnet',
+  academyCase1NextOilFlailWorkLight: 'Vælg én olie, slagleklipperen og arbejdslyset.',
+  academyCase1NextWeedBrushHarness: 'Vælg WB-170, så ledningsnettet tilføjes automatisk.',
+});
+
+Object.assign(ACADEMY_TRANSLATIONS.en, {
+  academyCase1AddOilFlailAndWorkLight: 'Add oil, flail mower and work lights',
+  academyCase1OilSelected: 'One oil selected (13101003 or 13101005)',
+  academyCase1AddWeedBrushAndHarness: 'Add WB-170 and activate the wiring harness',
+  academyCase1NextOilFlailWorkLight: 'Select one oil, the flail mower and work lights.',
+  academyCase1NextWeedBrushHarness: 'Select WB-170 so the wiring harness is added automatically.',
+});
+
+Object.assign(ACADEMY_TRANSLATIONS.de, {
+  academyCase1AddOilFlailAndWorkLight: 'Öl, Schlegelmäher und Arbeitslicht hinzufügen',
+  academyCase1OilSelected: 'Ein Öl ausgewählt (13101003 oder 13101005)',
+  academyCase1AddWeedBrushAndHarness: 'WB-170 hinzufügen und Kabelbaum aktivieren',
+  academyCase1NextOilFlailWorkLight: 'Wählen Sie ein Öl, den Schlegelmäher und das Arbeitslicht.',
+  academyCase1NextWeedBrushHarness: 'Wählen Sie WB-170, damit der Kabelbaum automatisch hinzugefügt wird.',
+});
+
+Object.assign(ACADEMY_TRANSLATIONS.it, {
+  academyCase1AddOilFlailAndWorkLight: 'Aggiungi olio, trinciatrice e luci di lavoro',
+  academyCase1OilSelected: 'Un olio selezionato (13101003 o 13101005)',
+  academyCase1AddWeedBrushAndHarness: 'Aggiungi WB-170 e attiva il cablaggio',
+  academyCase1NextOilFlailWorkLight: 'Seleziona un olio, la trinciatrice e le luci di lavoro.',
+  academyCase1NextWeedBrushHarness: 'Seleziona WB-170 affinché il cablaggio venga aggiunto automaticamente.',
+});
+
+Object.assign(ACADEMY_TRANSLATIONS.hu, {
+  academyCase1AddOilFlailAndWorkLight: 'Olaj, szárzúzó és munkalámpák hozzáadása',
+  academyCase1OilSelected: 'Egy olaj kiválasztva (13101003 vagy 13101005)',
+  academyCase1AddWeedBrushAndHarness: 'WB-170 hozzáadása és a kábelköteg aktiválása',
+  academyCase1NextOilFlailWorkLight: 'Válasszon egy olajat, a szárzúzót és a munkalámpákat.',
+  academyCase1NextWeedBrushHarness: 'Válassza ki a WB-170-et, hogy a kábelköteg automatikusan hozzáadódjon.',
+});
+
+Object.assign(ACADEMY_TRANSLATIONS.sv, {
+  academyCase1AddOilFlailAndWorkLight: 'Lägg till olja, slaghack och arbetsljus',
+  academyCase1OilSelected: 'En olja vald (13101003 eller 13101005)',
+  academyCase1AddWeedBrushAndHarness: 'Lägg till WB-170 och aktivera kabelstammen',
+  academyCase1NextOilFlailWorkLight: 'Välj en olja, slaghacken och arbetsljusen.',
+  academyCase1NextWeedBrushHarness: 'Välj WB-170 så att kabelstammen läggs till automatiskt.',
+});
+
+Object.assign(ACADEMY_TRANSLATIONS.fr, {
+  academyCase1AddOilFlailAndWorkLight: 'Ajoutez l’huile, le broyeur à fléaux et l’éclairage de travail',
+  academyCase1OilSelected: 'Une huile sélectionnée (13101003 ou 13101005)',
+  academyCase1AddWeedBrushAndHarness: 'Ajoutez WB-170 et activez le faisceau de câbles',
+  academyCase1NextOilFlailWorkLight: 'Sélectionnez une huile, le broyeur à fléaux et l’éclairage de travail.',
+  academyCase1NextWeedBrushHarness: 'Sélectionnez WB-170 afin que le faisceau de câbles soit ajouté automatiquement.',
+});
+
+Object.assign(ACADEMY_TRANSLATIONS.pl, {
+  academyCase1AddOilFlailAndWorkLight: 'Dodaj olej, kosiarkę bijakową i oświetlenie robocze',
+  academyCase1OilSelected: 'Wybrano jeden olej (13101003 lub 13101005)',
+  academyCase1AddWeedBrushAndHarness: 'Dodaj WB-170 i aktywuj wiązkę przewodów',
+  academyCase1NextOilFlailWorkLight: 'Wybierz jeden olej, kosiarkę bijakową i oświetlenie robocze.',
+  academyCase1NextWeedBrushHarness: 'Wybierz WB-170, aby wiązka przewodów została dodana automatycznie.',
+});
+
+Object.assign(ACADEMY_TRANSLATIONS.cs, {
+  academyCase1AddOilFlailAndWorkLight: 'Přidejte olej, cepovou sekačku a pracovní světla',
+  academyCase1OilSelected: 'Vybrán jeden olej (13101003 nebo 13101005)',
+  academyCase1AddWeedBrushAndHarness: 'Přidejte WB-170 a aktivujte kabelový svazek',
+  academyCase1NextOilFlailWorkLight: 'Vyberte jeden olej, cepovou sekačku a pracovní světla.',
+  academyCase1NextWeedBrushHarness: 'Vyberte WB-170, aby se kabelový svazek přidal automaticky.',
+});

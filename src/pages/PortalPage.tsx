@@ -18,7 +18,7 @@ import { sortPortalHomeCards } from '@/lib/portalHomeOrder';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
-import { academySandbox, type AcademyPortalBasicsState } from '@/lib/academySandbox';
+import { ACADEMY_PORTAL_BASICS, academySandbox, type AcademyPortalBasicsState } from '@/lib/academySandbox';
 import { canAccessAcademy, getAcademyCapabilityProgress, getAcademyProgress, getLocalAcademyUser, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { Language } from '@/types/configurator';
 import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
@@ -337,6 +337,7 @@ export default function PortalPage() {
               activeTaskLabel={getPortalBasicsActiveTask(portalBasics, uiLanguage)}
               next={getPortalBasicsNext(portalBasics, uiLanguage)}
               completion
+              caseId={ACADEMY_PORTAL_BASICS}
             />
           </div>
           <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to={PORTAL_MODULES.find((module) => module.id === 'partner_map')!.href}>Åbn Partnerkort</Link>

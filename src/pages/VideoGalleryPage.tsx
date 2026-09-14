@@ -27,7 +27,7 @@ import {
   videoContentTypeLabel,
   videoSeasonLabel,
 } from "@/lib/videoLibraryI18n";
-import { academySandbox, ACADEMY_CASE_2_TARGET_VIDEO_ID } from "@/lib/academySandbox";
+import { academySandbox, ACADEMY_CASE_2, ACADEMY_CASE_2_TARGET_VIDEO_ID } from "@/lib/academySandbox";
 import { readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
 import AcademyGuidancePanel from "@/components/academy/AcademyGuidancePanel";
 import { getLocalAcademyUser } from "@/lib/academyCurriculum";
@@ -176,6 +176,7 @@ export default function VideoGalleryPage() {
             ]}
             next={!academyCase2.machineFiltered ? tr('academyVideoNext1') : !academyCase2.maintenanceFiltered ? tr('academyVideoNext2') : !academyCase2.targetFound ? tr('academyVideoNext3') : tr('academyVideoNext4')}
             completion
+            caseId={ACADEMY_CASE_2}
           />
         )}
         <div className="mb-6 flex flex-col gap-2">

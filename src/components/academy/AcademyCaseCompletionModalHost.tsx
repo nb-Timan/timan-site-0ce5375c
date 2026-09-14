@@ -5,6 +5,7 @@ import { useOptionalLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
 import {
   ACADEMY_CASE_COMPLETED,
+  academySandbox,
   type AcademyCaseCompletion,
 } from '@/lib/academySandbox';
 
@@ -37,7 +38,10 @@ export default function AcademyCaseCompletionModalHost() {
 
   const close = (returnToAcademy = false) => {
     setCompletion(null);
-    if (returnToAcademy) window.setTimeout(() => navigate('/academy'), 0);
+    if (returnToAcademy) {
+      academySandbox.clearActiveCase(completion?.caseId);
+      window.setTimeout(() => navigate('/academy'), 0);
+    }
   };
 
   return (
