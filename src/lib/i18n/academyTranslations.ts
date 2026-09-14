@@ -147,6 +147,79 @@ Object.assign(ACADEMY_TRANSLATIONS.cs, {
   academyPortalBasicsFullscreenNext: 'Klikněte na ikonu se dvěma šikmými šipkami vpravo nahoře, hned vedle „Odhlásit se“.',
 });
 
+Object.assign(ACADEMY_TRANSLATIONS.da, {
+  academyCase1AddWorkLightAndHarness: 'Tilføj arbejdslys og aktivér ledningsnet',
+  academyCase1WorkLightHarnessHelp: 'Ledningsnettet kan ikke vælges manuelt. Når både WB-170 og arbejdslys er valgt, tilføjes ledningsnet 412614 automatisk til kurven.',
+  academyCase1WeedBrushSelected: 'WB-170 ukrudtsbørste 730600 valgt',
+  academyCase1HarnessAutomaticallyAdded: 'Ledningsnet 412614 automatisk tilføjet',
+  academyCase1NextTools: 'Tilføj slagleklipperen og beslaget.',
+  academyCase1NextEquipment: 'Vælg WB-170 og arbejdslys for at aktivere ledningsnettet.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.en, {
+  academyCase1AddWorkLightAndHarness: 'Add work lights and activate the wiring harness',
+  academyCase1WorkLightHarnessHelp: 'The wiring harness cannot be selected manually. When both the WB-170 weed brush and work lights are selected, wiring harness 412614 is automatically added to the cart.',
+  academyCase1WeedBrushSelected: 'WB-170 weed brush 730600 selected',
+  academyCase1HarnessAutomaticallyAdded: 'Wiring harness 412614 automatically added',
+  academyCase1NextTools: 'Add the flail mower and bracket.',
+  academyCase1NextEquipment: 'Select the WB-170 and work lights to activate the wiring harness.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.de, {
+  academyCase1AddWorkLightAndHarness: 'Arbeitslicht hinzufügen und Kabelbaum aktivieren',
+  academyCase1WorkLightHarnessHelp: 'Der Kabelbaum kann nicht manuell ausgewählt werden. Wenn sowohl die WB-170-Unkrautbürste als auch das Arbeitslicht ausgewählt sind, wird der Kabelbaum 412614 automatisch zum Warenkorb hinzugefügt.',
+  academyCase1WeedBrushSelected: 'WB-170 Unkrautbürste 730600 ausgewählt',
+  academyCase1HarnessAutomaticallyAdded: 'Kabelbaum 412614 automatisch hinzugefügt',
+  academyCase1NextTools: 'Fügen Sie Schlegelmäher und Halterung hinzu.',
+  academyCase1NextEquipment: 'Wählen Sie WB-170 und Arbeitslicht, um den Kabelbaum zu aktivieren.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.it, {
+  academyCase1AddWorkLightAndHarness: 'Aggiungi le luci di lavoro e attiva il cablaggio',
+  academyCase1WorkLightHarnessHelp: 'Il cablaggio non può essere selezionato manualmente. Quando sono selezionati sia la spazzola per infestanti WB-170 sia le luci di lavoro, il cablaggio 412614 viene aggiunto automaticamente al carrello.',
+  academyCase1WeedBrushSelected: 'Spazzola per infestanti WB-170 730600 selezionata',
+  academyCase1HarnessAutomaticallyAdded: 'Cablaggio 412614 aggiunto automaticamente',
+  academyCase1NextTools: 'Aggiungi la trinciatrice e la staffa.',
+  academyCase1NextEquipment: 'Seleziona WB-170 e le luci di lavoro per attivare il cablaggio.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.hu, {
+  academyCase1AddWorkLightAndHarness: 'Munkalámpák hozzáadása és a kábelköteg aktiválása',
+  academyCase1WorkLightHarnessHelp: 'A kábelköteg nem választható ki manuálisan. Amikor a WB-170 gyomkefe és a munkalámpák is ki vannak választva, a 412614-es kábelköteg automatikusan bekerül a kosárba.',
+  academyCase1WeedBrushSelected: 'WB-170 gyomkefe 730600 kiválasztva',
+  academyCase1HarnessAutomaticallyAdded: '412614-es kábelköteg automatikusan hozzáadva',
+  academyCase1NextTools: 'Adja hozzá a szárzúzót és a konzolt.',
+  academyCase1NextEquipment: 'Válassza ki a WB-170-et és a munkalámpákat a kábelköteg aktiválásához.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.sv, {
+  academyCase1AddWorkLightAndHarness: 'Lägg till arbetsljus och aktivera kabelstammen',
+  academyCase1WorkLightHarnessHelp: 'Kabelstammen kan inte väljas manuellt. När både WB-170 ogräsborste och arbetsljus är valda läggs kabelstam 412614 automatiskt till i varukorgen.',
+  academyCase1WeedBrushSelected: 'WB-170 ogräsborste 730600 vald',
+  academyCase1HarnessAutomaticallyAdded: 'Kabelstam 412614 automatiskt tillagd',
+  academyCase1NextTools: 'Lägg till slaghack och fäste.',
+  academyCase1NextEquipment: 'Välj WB-170 och arbetsljus för att aktivera kabelstammen.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.fr, {
+  academyCase1AddWorkLightAndHarness: 'Ajoutez l’éclairage de travail et activez le faisceau de câbles',
+  academyCase1WorkLightHarnessHelp: 'Le faisceau de câbles ne peut pas être sélectionné manuellement. Lorsque la brosse de désherbage WB-170 et l’éclairage de travail sont tous deux sélectionnés, le faisceau 412614 est ajouté automatiquement au panier.',
+  academyCase1WeedBrushSelected: 'Brosse de désherbage WB-170 730600 sélectionnée',
+  academyCase1HarnessAutomaticallyAdded: 'Faisceau de câbles 412614 ajouté automatiquement',
+  academyCase1NextTools: 'Ajoutez le broyeur à fléaux et le support.',
+  academyCase1NextEquipment: 'Sélectionnez WB-170 et l’éclairage de travail pour activer le faisceau de câbles.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.pl, {
+  academyCase1AddWorkLightAndHarness: 'Dodaj oświetlenie robocze i aktywuj wiązkę przewodów',
+  academyCase1WorkLightHarnessHelp: 'Wiązki przewodów nie można wybrać ręcznie. Gdy wybrane są zarówno szczotka do chwastów WB-170, jak i oświetlenie robocze, wiązka 412614 jest automatycznie dodawana do koszyka.',
+  academyCase1WeedBrushSelected: 'Szczotka do chwastów WB-170 730600 wybrana',
+  academyCase1HarnessAutomaticallyAdded: 'Wiązka przewodów 412614 dodana automatycznie',
+  academyCase1NextTools: 'Dodaj kosiarkę bijakową i wspornik.',
+  academyCase1NextEquipment: 'Wybierz WB-170 i oświetlenie robocze, aby aktywować wiązkę przewodów.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.cs, {
+  academyCase1AddWorkLightAndHarness: 'Přidejte pracovní světla a aktivujte kabelový svazek',
+  academyCase1WorkLightHarnessHelp: 'Kabelový svazek nelze vybrat ručně. Když jsou vybrány kartáč na plevel WB-170 i pracovní světla, kabelový svazek 412614 se automaticky přidá do košíku.',
+  academyCase1WeedBrushSelected: 'Kartáč na plevel WB-170 730600 vybrán',
+  academyCase1HarnessAutomaticallyAdded: 'Kabelový svazek 412614 přidán automaticky',
+  academyCase1NextTools: 'Přidejte cepovou sekačku a držák.',
+  academyCase1NextEquipment: 'Vyberte WB-170 a pracovní světla pro aktivaci kabelového svazku.',
+});
+
 Object.assign(ACADEMY_TRANSLATIONS.de, {
   academyRequirementsProgress: '{completed} von {total} Anforderungen erfüllt', academyConfigurator: 'Konfigurator', academyDemo: 'Demo', academyQuoteOrder: 'Angebot und Bestellung', academyConfiguratorDescription: 'Kein Angebot, Lead, keine E-Mail und keine Bestellung wird an die Produktion gesendet.', academyCase1ChooseMachine: 'Maschine wählen', academyCase1MachineSelected: 'RC-1000s ausgewählt', academyCase1AddTools: 'Werkzeuge hinzufügen', academyCase1FlailSelected: 'Schlegelmäher 410910 ausgewählt', academyCase1BrushSelected: 'Unkrautbürste 730600 ausgewählt', academyCase1BracketSelected: 'Halterung 412603 ausgewählt', academyCase1AddEquipment: 'Erforderliche Zusatzausstattung hinzufügen', academyCase1EquipmentHelp: 'Das Arbeitslicht benötigt den Kabelbaum. Prüfen Sie, dass beide ausgewählt sind.', academyCase1WorkLightSelected: 'Arbeitslicht 412594 ausgewählt', academyCase1HarnessAdded: 'Kabelbaum 412614 hinzugefügt', academyCase1AddDiscounts: 'Rabatte hinzufügen', academyCase1QuantityDiscount: 'Mengenrabatt erreicht', academyCase1DeliveryDiscount: 'Lieferrabatt erreicht', academyCase1GenerateQuote: 'Trainingsangebot erstellen', academyCase1QuoteGenerated: 'Trainingsangebot erstellt', academyCase1SaveLead: 'Fall als Academy-Lead speichern', academyCase1LeadSaved: 'Als Academy-Lead gespeichert', academyCase1Next1: 'Wählen Sie RC-1000s.', academyCase1Next2: 'Fügen Sie die drei erforderlichen Werkzeuge hinzu.', academyCase1Next3: 'Fügen Sie Arbeitslicht und Kabelbaum hinzu.', academyCase1Next4: 'Erreichen Sie Mengen- und Lieferrabatt.', academyCase1Next5: 'Erstellen Sie das Trainingsangebot.', academyCase1Next6: 'Speichern Sie den Fall als Academy-Lead.',
   academyVideoDescription: 'Nutzen Sie die normale Videogalerie. Favoriten und andere Videodaten werden in Academy nicht geändert.', academyVideoFilterMachine: 'Nach Maschine filtern', academyVideoMachineFiltered: 'Timan 3330 gefiltert', academyVideoFilterType: 'Nach Inhaltstyp filtern', academyVideoMaintenanceFiltered: 'Wartung gefiltert', academyVideoFindTarget: 'Richtiges Video finden', academyVideoTargetFound: 'Weed-Brush-Video gefunden', academyVideoOpenTarget: 'Video öffnen', academyVideoTargetOpened: 'Weed-Brush-Video geöffnet', academyVideoNext1: 'Nach Timan 3330 filtern.', academyVideoNext2: 'Nach Wartung filtern.', academyVideoNext3: 'Das Weed-Brush-Video finden.', academyVideoNext4: 'Das Weed-Brush-Video öffnen.',

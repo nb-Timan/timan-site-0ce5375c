@@ -6,6 +6,7 @@ const completeInput = {
     { type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 1 },
     { type: 'RC-751', acc: [], qty: 1 },
   ],
+  wiringHarnessInCart: true,
   quantityDiscount: true,
 };
 
@@ -36,6 +37,7 @@ describe('Academy Case 1 sandbox', () => {
     academySandbox.startCase1();
     academySandbox.evaluate({
       machineConfigs: [{ type: 'RC-1000S', acc: ['410910'], qty: 1 }],
+      wiringHarnessInCart: false,
       quantityDiscount: false,
     });
     academySandbox.generateQuote();
@@ -51,6 +53,7 @@ describe('Academy Case 1 sandbox', () => {
     academySandbox.startCase1();
     const state = academySandbox.evaluate({
       machineConfigs: [{ type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 2 }],
+      wiringHarnessInCart: true,
       quantityDiscount: true,
     });
 
@@ -103,9 +106,9 @@ describe('Academy Case 1 sandbox', () => {
     expect(state.completed).toBe(false);
   });
 
-  it('does not complete when the wiring harness is missing', () => {
+  it('does not complete until the normal Configurator has added the wiring harness to the cart', () => {
     academySandbox.startCase1();
-    academySandbox.evaluate({ ...completeInput, machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '730600', '412603', '412594'] }, completeInput.machineConfigs[1]] });
+    academySandbox.evaluate({ ...completeInput, wiringHarnessInCart: false });
     academySandbox.generateQuote();
     const state = academySandbox.saveLead();
 
@@ -133,6 +136,7 @@ describe('Academy Case 1 sandbox', () => {
 
     const refreshed = academySandbox.evaluate({
       machineConfigs: [],
+      wiringHarnessInCart: false,
       quantityDiscount: false,
     });
 
@@ -221,6 +225,34 @@ describe('Academy Case 1 sandbox', () => {
       targetVisible: true,
     });
     expect(state.completed).toBe(false);
+  });
+
+  it('tracks the WB-170 and work-light dependency from the actual cart state', () => {
+    academySandbox.startCase1();
+
+    const weedOnly = academySandbox.evaluate({
+      ...completeInput,
+      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '730600', '412603'] }, completeInput.machineConfigs[1]],
+      wiringHarnessInCart: false,
+    });
+    expect(weedOnly).toMatchObject({ weedBrush: true, workLight: false, wireHarness: false, completed: false });
+
+    const lightOnly = academySandbox.evaluate({
+      ...completeInput,
+      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '412603', '412594'] }, completeInput.machineConfigs[1]],
+      wiringHarnessInCart: false,
+    });
+    expect(lightOnly).toMatchObject({ weedBrush: false, workLight: true, wireHarness: false, completed: false });
+
+    const dependencyApplied = academySandbox.evaluate(completeInput);
+    expect(dependencyApplied).toMatchObject({ weedBrush: true, workLight: true, wireHarness: true, completed: false });
+
+    const prerequisiteRemoved = academySandbox.evaluate({
+      ...completeInput,
+      machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '412603', '412594'] }, completeInput.machineConfigs[1]],
+      wiringHarnessInCart: false,
+    });
+    expect(prerequisiteRemoved).toMatchObject({ weedBrush: false, workLight: true, wireHarness: false, completed: false });
   });
 
   it('keeps Case 2 locked until Case 1 is complete and locks it again after a reset', () => {

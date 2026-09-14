@@ -31,6 +31,38 @@ function stateWith(machineConfigs: MachineConfig[]): ConfiguratorState {
 }
 
 describe('live basket stk. rabat eligibility', () => {
+  it('adds and removes the wiring harness through the normal WB-170 and work-light dependency', () => {
+    const { result } = renderHook(() => useConfigurator());
+
+    act(() => result.current.setState(() => stateWith([
+      { id: 'm0', type: 'RC-1000S', qty: 1, configMode: 'shared', acc: [] },
+    ])));
+
+    act(() => result.current.toggleAcc('730600'));
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['730600']);
+
+    act(() => result.current.toggleAcc('412594'));
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['730600', '412594', '412614']);
+
+    act(() => result.current.toggleAcc('730600'));
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['412594']);
+  });
+
+  it('does not add the wiring harness when only one dependency is selected', () => {
+    const { result } = renderHook(() => useConfigurator());
+
+    act(() => result.current.setState(() => stateWith([
+      { id: 'm0', type: 'RC-1000S', qty: 1, configMode: 'shared', acc: [] },
+    ])));
+
+    act(() => result.current.toggleAcc('412594'));
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['412594']);
+
+    act(() => result.current.toggleAcc('412594'));
+    act(() => result.current.toggleAcc('730600'));
+    expect(result.current.state.machineConfigs[0].acc).toEqual(['730600']);
+  });
+
   it('removes an already-selected accessory from an individual unit', () => {
     const { result } = renderHook(() => useConfigurator());
 

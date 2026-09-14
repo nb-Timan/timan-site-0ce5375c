@@ -31,6 +31,7 @@ describe('production Academy context', () => {
         { type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 1 },
         { type: 'RC-751', qty: 1 },
       ],
+      wiringHarnessInCart: true,
       quantityDiscount: true,
     });
     academySandbox.generateQuote();

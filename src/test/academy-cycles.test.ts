@@ -20,6 +20,7 @@ describe('Academy cycles and completion history', () => {
         { type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'] },
         { type: 'RC-751' },
       ],
+      wiringHarnessInCart: true,
       quantityDiscount: true,
       quoteGenerated: true,
     });

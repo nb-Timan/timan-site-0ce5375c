@@ -1,4 +1,4 @@
-import { ACC_ID_WIRE_HARNESS, ACC_ID_WORK_LIGHT } from '@/data/machines';
+import { ACC_ID_WORK_LIGHT } from '@/data/machines';
 import { ACADEMY_CASE_1_ID } from '@/lib/academyCurriculum';
 import { academyScopedStorageKey, isAcademyCycleStorageScopeActive } from '@/lib/academyCycleStorage';
 
@@ -62,6 +62,7 @@ export type AcademyCase1State = {
 
 export type AcademyCase1Input = {
   machineConfigs: Array<{ type: string; acc?: string[]; qty?: number }>;
+  wiringHarnessInCart: boolean;
   quantityDiscount: boolean;
   quoteGenerated?: boolean;
 };
@@ -456,7 +457,7 @@ export const academySandbox = {
     const rc = input.machineConfigs.find((item) => item.type === 'RC-1000S');
     const accessories = rc?.acc ?? [];
     const rc751 = input.machineConfigs.find((machine) => machine.type === 'RC-751' && (machine.qty ?? 1) > 0);
-    const next = { ...current, started: true, machine: Boolean(rc), flail: accessories.includes('410910'), weedBrush: accessories.includes('730600'), requiredComponents: accessories.includes('412603'), workLight: accessories.includes(ACC_ID_WORK_LIGHT), wireHarness: accessories.includes(ACC_ID_WIRE_HARNESS), rc751: Boolean(rc751), quantityDiscount: input.quantityDiscount, quoteGenerated: input.quoteGenerated ?? current.quoteGenerated };
+    const next = { ...current, started: true, machine: Boolean(rc), flail: accessories.includes('410910'), weedBrush: accessories.includes('730600'), requiredComponents: accessories.includes('412603'), workLight: accessories.includes(ACC_ID_WORK_LIGHT), wireHarness: input.wiringHarnessInCart, rc751: Boolean(rc751), quantityDiscount: input.quantityDiscount, quoteGenerated: input.quoteGenerated ?? current.quoteGenerated };
     next.completed = isComplete(next);
     return case1Of(save(next));
   },
