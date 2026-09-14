@@ -85,7 +85,7 @@ describe('submitted configurator order lock', () => {
 
   it('keeps the submitted-order correction trigger callable without exposing the correction checker', () => {
     const migration = readFileSync(
-      'supabase/migrations/20260904141735_fix_active_quote_line_save_correction_guard.sql',
+      'supabase/migrations/20260904141835_fix_active_quote_line_save_correction_guard.sql',
       'utf8',
     );
 

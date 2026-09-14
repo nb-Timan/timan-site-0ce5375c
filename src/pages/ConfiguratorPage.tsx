@@ -42,10 +42,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, ensureOrderReferenceNumber, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted, loadConfigurations } from '@/lib/configurationsService';
+import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted, loadConfigurations } from '@/lib/configurationsService';
 import { supabase } from '@/lib/supabase';
 import { fetchCrmConfigurationVisible } from '@/lib/crmConfigurationsService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
+import { getNextCrmDocumentNumber } from '@/lib/crmNumberSequencesService';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
@@ -1826,7 +1827,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         return false;
       }
 
-      const reservedOrderNumber = await ensureOrderReferenceNumber(activeCaseId);
+      // The live trigger only permits an O-number together with the submitted
+      // timestamp. Reserve the sequence value for the outgoing PDF/webhook,
+      // then persist that exact value atomically in markAsOrderSubmitted().
+      const reservedOrderNumber = await getNextCrmDocumentNumber('order');
       if (!reservedOrderNumber) {
         toast.error(T('saveFailed'));
         return false;
@@ -1928,7 +1932,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           const allEmails = [emailUdfylder, ...modtagerList].filter(Boolean);
           const invalid = allEmails.filter(e => !emailRe.test(e));
           if (invalid.length > 0) {
-            toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.', {
+            toast.error(T('invalidEmailRecipient'), {
               description: invalid.join(', '),
             });
             return false;
@@ -2047,7 +2051,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // must NOT clear the quote sent date.
             if (activeCaseId) {
               try {
-                const submittedOrderNumber = await markAsOrderSubmitted(activeCaseId, { pricingMode: isExhibition ? 'messe' : undefined });
+                const submittedOrderNumber = await markAsOrderSubmitted(activeCaseId, {
+                  pricingMode: isExhibition ? 'messe' : undefined,
+                  orderNumber: activeOrderNumber,
+                });
                 if (submittedOrderNumber) {
                   activeOrderNumber = submittedOrderNumber;
                   setSavedOrderNumber(submittedOrderNumber);
@@ -2129,13 +2136,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         const allEmails = [emailUdfylder, ...modtagerList].filter(Boolean);
         const invalid = allEmails.filter(e => !emailRe.test(e));
         if (invalid.length > 0) {
-          toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.', {
+          toast.error(T('invalidEmailRecipient'), {
             description: invalid.join(', '),
           });
           return false;
         }
         if (allEmails.length === 0) {
-          toast.error(lang === 'da' ? 'Ugyldig e-mail modtager.' : 'Invalid email recipient.');
+          toast.error(T('invalidEmailRecipient'));
           return false;
         }
         const recipients = Array.from(new Set(allEmails));

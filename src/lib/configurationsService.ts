@@ -302,39 +302,6 @@ export async function ensureReferenceNumbers(
   return result;
 }
 
-/**
- * Reserve the canonical order reference at the beginning of an explicit order
- * submission. The actual submitted status is still written only after delivery.
- */
-export async function ensureOrderReferenceNumber(configId: string): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: row, error: loadError } = await supabase
-    .from('configurations')
-    .select('order_number')
-    .eq('id', configId)
-    .maybeSingle();
-
-  if (loadError || !row) return null;
-  if (row.order_number) return row.order_number as string;
-
-  const orderNumber = await getNextCrmDocumentNumber('order');
-  const { error } = await updateConfigurationRow(configId, {
-    order_number: orderNumber,
-    last_saved_at: new Date().toISOString(),
-  });
-
-  if (error) {
-    console.error('Failed to reserve order reference number:', error);
-    return null;
-  }
-
-  return orderNumber;
-}
-
-
-
 type StoredConfigurationPayload = {
   __kind: 'configurator_state';
   state: ConfiguratorState;
@@ -1439,7 +1406,10 @@ export async function deleteConfiguration(id: string) {
 }
 
 /** Mark configuration as order submitted */
-export async function markAsOrderSubmitted(id: string, options?: { pricingMode?: ConfigurationPricingMode }): Promise<string | null> {
+export async function markAsOrderSubmitted(
+  id: string,
+  options?: { pricingMode?: ConfigurationPricingMode; orderNumber?: string | null },
+): Promise<string | null> {
   const nowIso = new Date().toISOString();
   // Unscoped row read so backend/CRM users can convert a quote they did
   // NOT originally create (e.g. backend reopens Birger's quote). RLS still
@@ -1482,7 +1452,7 @@ export async function markAsOrderSubmitted(id: string, options?: { pricingMode?:
   // Ensure the row has an order_number. Converted quotes may not have one
   // yet — without it CRM → Ordrer would show a blank reference.
   const existingOrderNumber = (rowSnapshot?.order_number as string | null) ?? null;
-  const orderNumber = existingOrderNumber || await getNextCrmDocumentNumber('order');
+  const orderNumber = existingOrderNumber || options?.orderNumber || await getNextCrmDocumentNumber('order');
 
   const { error } = await updateConfigurationRow(id, {
     // CRITICAL: crm_configurations_view returns
