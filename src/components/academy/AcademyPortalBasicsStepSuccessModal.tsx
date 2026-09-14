@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useOptionalLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
 import { ACADEMY_PORTAL_BASICS, ACADEMY_PROGRESS_CHANGED, academySandbox, type AcademyPortalBasicsStepSuccess } from '@/lib/academySandbox';
@@ -18,6 +18,7 @@ export default function AcademyPortalBasicsStepSuccessModal() {
   const tr = (key: string) => t(key, uiLanguage);
   const [revision, refresh] = useState(0);
   const [success, setSuccess] = useState<AcademyPortalBasicsStepSuccess | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const update = () => refresh((revision) => revision + 1);
@@ -26,15 +27,29 @@ export default function AcademyPortalBasicsStepSuccessModal() {
   }, []);
 
   useEffect(() => {
+    if (success) return;
     if (academySandbox.getActiveCase() !== ACADEMY_PORTAL_BASICS) return;
     const pending = academySandbox.getPortalBasicsStepSuccess();
     if (!pending) return;
-    academySandbox.acknowledgePortalBasicsStepSuccess(pending.taskId);
     setSuccess(pending);
-  }, [revision]);
+  }, [revision, success]);
 
-  const close = () => setSuccess(null);
-  return <Dialog open={Boolean(success)} onOpenChange={(open) => { if (!open) close(); }}>
+  const dismiss = useCallback((continueToOverview = false) => {
+    if (!success) return;
+
+    // Keep the dialog mounted through its close transition before changing
+    // routes. This lets Radix release its pointer/scroll locks cleanly.
+    academySandbox.acknowledgePortalBasicsStepSuccess(success.taskId);
+    setSuccess(null);
+
+    if (continueToOverview) {
+      window.setTimeout(() => {
+        navigate('/portal?academy_mode=true#academy-guidance');
+      }, 0);
+    }
+  }, [navigate, success]);
+
+  return <Dialog open={Boolean(success)} onOpenChange={(open) => { if (!open) dismiss(); }}>
     <DialogContent className="max-w-sm text-center">
       <DialogHeader className="items-center text-center">
         <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
@@ -48,13 +63,13 @@ export default function AcademyPortalBasicsStepSuccessModal() {
       </DialogHeader>
       <p className="text-sm font-semibold text-emerald-800">{tr('academyQuickTasksCompleted').replace('{completed}', String(success?.completed ?? 0)).replace('{total}', String(success?.total ?? 0))}</p>
       <DialogFooter className="sm:justify-center">
-        <Link
-          to="/portal?academy_mode=true#academy-guidance"
-          onClick={close}
+        <button
+          type="button"
+          onClick={() => dismiss(true)}
           className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#126a45] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#0f5a3b]"
         >
           {tr('academyContinueNextTask')}
-        </Link>
+        </button>
       </DialogFooter>
     </DialogContent>
   </Dialog>;

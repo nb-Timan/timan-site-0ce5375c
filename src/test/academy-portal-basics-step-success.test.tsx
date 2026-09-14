@@ -1,5 +1,5 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import AcademyPortalBasicsStepSuccessModal from '@/components/academy/AcademyPortalBasicsStepSuccessModal';
 import { academySandbox } from '@/lib/academySandbox';
@@ -15,6 +15,11 @@ function completeFirstFourTasks() {
   academySandbox.acknowledgePortalBasicsStepSuccess('fullscreen');
   academySandbox.trackPortalBasicsMapArea('de_plz2');
   academySandbox.acknowledgePortalBasicsStepSuccess('partner_map');
+}
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{`${location.pathname}${location.search}${location.hash}`}</output>;
 }
 
 describe('Academy Portal Basics step success', () => {
@@ -53,11 +58,30 @@ describe('Academy Portal Basics step success', () => {
 
     await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent('Skift portalsprog til fransk og tilbage'));
     expect(screen.getByRole('dialog')).toHaveTextContent('1 af 5 hurtige gennemført.');
-    expect(screen.getByRole('link', { name: 'Fortsæt til næste opgave' })).toHaveAttribute('href', '/portal?academy_mode=true#academy-guidance');
+    expect(academySandbox.getPortalBasicsStepSuccess()).toMatchObject({ taskId: 'language' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fortsæt til næste opgave' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(academySandbox.getPortalBasicsStepSuccess()).toBeNull();
 
     unmount();
     render(<MemoryRouter><AcademyPortalBasicsStepSuccessModal /></MemoryRouter>);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('keeps the active case and navigates to the Portal Basics guidance after continue', async () => {
+    render(<MemoryRouter initialEntries={['/portal/misc/partner-map?academy_mode=true']}>
+      <AcademyPortalBasicsStepSuccessModal />
+      <LocationProbe />
+    </MemoryRouter>);
+
+    act(() => academySandbox.trackPortalBasicsMapArea('de_plz2'));
+    await waitFor(() => expect(screen.getByRole('dialog')).toHaveTextContent('Skift område på Partnerkortet'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fortsæt til næste opgave' }));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/portal?academy_mode=true#academy-guidance'));
+    expect(academySandbox.getActiveCase()).toBe('portal.basics_5');
+    expect(academySandbox.getPortalBasics().mapAreaChanged).toBe(true);
   });
 
   it('leaves the fifth transition for the existing full completion modal', () => {

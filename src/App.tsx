@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppUserProvider } from "@/context/AppUserContext";
 import { LanguageProvider } from "@/context/LanguageContext";
+import AcademyPortalBasicsStepSuccessModal from "@/components/academy/AcademyPortalBasicsStepSuccessModal";
 import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import VisitorTracker from "./components/portal/VisitorTracker";
 import { useAppUser } from "@/context/AppUserContext";
@@ -238,6 +239,7 @@ const App = () => (
       <BrowserRouter>
         <AppUserProvider>
           <LanguageProvider>
+            <AcademyPortalBasicsStepSuccessModal />
             <Suspense fallback={<RouteFallback />}>
             <Routes>
               {/* Public Messe / exhibition routes (no auth required) */}
