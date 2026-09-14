@@ -69,21 +69,21 @@ const MESSE_DESC: Record<Language, string> = {
   hu: 'Nyissa meg a kiállítási portált konfigurátorral, Timan 2620-al, kereskedőtérképpel és videó akadémiával.',
 };
 
-function getPortalBasicsNext(state: AcademyPortalBasicsState): string {
+function getPortalBasicsNext(state: AcademyPortalBasicsState, uiLanguage: string): string {
   if (!state.frenchSelected) return 'Skift portalsproget til fransk.';
   if (!state.languageRestored) return 'Skift tilbage til dit oprindelige portalsprog.';
   if (!state.partnerDataOpened) return 'Åbn Partnerdata og se dine forhandlere.';
   if (!state.returnedHomeFromPartnerData) return 'Klik på Timan-logoet øverst til venstre for at gå tilbage til forsiden.';
-  if (!state.fullscreenUsed) return 'Aktivér fuldskærm via ikonet i headeren.';
+  if (!state.fullscreenUsed) return t('academyPortalBasicsFullscreenNext', uiLanguage);
   if (!state.mapAreaChanged) return 'Åbn Partnerkort og skift område.';
   if (!state.targetNewsOpened) return 'Åbn nyheden Skivehøster til Timan RC-1000s.';
   return 'Alle Portal Basics-opgaver er gennemført.';
 }
 
-function getPortalBasicsActiveTask(state: AcademyPortalBasicsState): string | undefined {
+function getPortalBasicsActiveTask(state: AcademyPortalBasicsState, uiLanguage: string): string | undefined {
   if (!state.frenchSelected || !state.languageRestored) return 'Skift til fransk og tilbage';
   if (!state.partnerDataOpened || !state.returnedHomeFromPartnerData) return 'Partnerdata og Timan-logoet';
-  if (!state.fullscreenUsed) return 'Aktivér fullscreen';
+  if (!state.fullscreenUsed) return t('academyPortalBasicsFullscreenTask', uiLanguage);
   if (!state.mapAreaChanged) return 'Skift område på Partnerkortet';
   if (!state.targetNewsOpened) return 'Åbn RC-1000s-nyheden';
   return undefined;
@@ -326,12 +326,16 @@ export default function PortalPage() {
               tasks={[
                 { label: 'Skift til fransk og tilbage', complete: portalBasics.frenchSelected && portalBasics.languageRestored },
                 { label: 'Partnerdata og Timan-logoet', complete: portalBasics.partnerDataOpened && portalBasics.returnedHomeFromPartnerData },
-                { label: 'Aktivér fullscreen', complete: portalBasics.fullscreenUsed },
+                {
+                  label: t('academyPortalBasicsFullscreenTask', uiLanguage),
+                  description: t('academyPortalBasicsFullscreenDescription', uiLanguage),
+                  complete: portalBasics.fullscreenUsed,
+                },
                 { label: 'Skift område på Partnerkortet', complete: portalBasics.mapAreaChanged },
                 { label: 'Åbn RC-1000s-nyheden', complete: portalBasics.targetNewsOpened },
               ]}
-              activeTaskLabel={getPortalBasicsActiveTask(portalBasics)}
-              next={getPortalBasicsNext(portalBasics)}
+              activeTaskLabel={getPortalBasicsActiveTask(portalBasics, uiLanguage)}
+              next={getPortalBasicsNext(portalBasics, uiLanguage)}
               completion
             />
           </div>
