@@ -57,6 +57,10 @@ function languageFlag(code: PortalUiLanguage) {
   return code.toUpperCase();
 }
 
+export function opensPublicNewsModal(post: Pick<NewsPost, 'source' | 'localized_content'>): boolean {
+  return post.source === 'news_cms' || !!post.localized_content;
+}
+
 export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
   const { language, uiLanguage, setLanguage } = useLanguage();
   const [news, setNews] = useState<NewsPost[] | null>(null);
@@ -286,7 +290,7 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
   );
 
   const renderCmsPost = (post: NewsPost) => {
-    const isCmsPost = post.source === 'news_cms' || !!post.localized_content;
+    const isCmsPost = opensPublicNewsModal(post);
     const localizedPost = resolvePublicNewsFields(post, uiLanguage);
     const body = (
       <>
@@ -310,16 +314,20 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
           </div>
           <h2 className="text-lg font-bold text-slate-900">{localizedPost.title}</h2>
           {localizedPost.excerpt && <p className="text-sm text-slate-600 mt-2 flex-grow">{localizedPost.excerpt}</p>}
-          {post.link_url && (
+          {isCmsPost ? (
+            <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 group-hover:underline">
+              {t('messe_news_read', uiLanguage)}
+            </span>
+          ) : post.link_url ? (
             <a href={post.link_url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-700 hover:underline">
               {t('messe_news_read', uiLanguage)} <ExternalLink className="h-3.5 w-3.5" />
             </a>
-          )}
+          ) : null}
         </div>
       </>
     );
 
-    return isCmsPost && !post.link_url ? (
+    return isCmsPost ? (
       <button key={post.id} type="button" onClick={() => setOpenPost(post)} className={cardClass}>
         {renderAdminActions(post)}
         {body}
