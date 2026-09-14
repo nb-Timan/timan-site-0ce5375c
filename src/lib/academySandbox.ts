@@ -1,6 +1,6 @@
 import { ACC_ID_WIRE_HARNESS, ACC_ID_WORK_LIGHT } from '@/data/machines';
 import { ACADEMY_CASE_1_ID } from '@/lib/academyCurriculum';
-import { academyScopedStorageKey } from '@/lib/academyCycleStorage';
+import { academyScopedStorageKey, isAcademyCycleStorageScopeActive } from '@/lib/academyCycleStorage';
 
 export const ACADEMY_CASE_1 = ACADEMY_CASE_1_ID;
 export const ACADEMY_CASE_2 = 'sales.case_2_video_3330';
@@ -10,6 +10,7 @@ export const ACADEMY_CASE_2_TARGET_VIDEO_ID = 'sxYALA86PaI';
 export const ACADEMY_CASE_2_MACHINE_KEY = 'Timan 3330';
 export const ACADEMY_CASE_2_CONTENT_TYPE = 'maintenance';
 export const ACADEMY_PROGRESS_CHANGED = 'timan:academy-progress-changed';
+export const ACADEMY_CASE_COMPLETED = 'timan:academy-case-completed';
 const KEY = 'timan.academy.sandbox.v1';
 const SESSION_KEY = 'timan.academy.session.v1';
 export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'portal.basics_5' | 'portal.partner_map' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations';
@@ -108,6 +109,13 @@ export type AcademyPartnerMapState = {
   requiresServiceDetail: boolean;
 };
 
+export type AcademyCaseCompletion = {
+  caseId: AcademyActiveCase;
+  titleKey: string;
+  completed: number;
+  total: number;
+};
+
 type AcademySandboxState = AcademyCase1State & {
   case2: AcademyCase2State;
   portalBasics: AcademyPortalBasicsState;
@@ -149,7 +157,7 @@ function isComplete(state: AcademyCase1State) {
 }
 
 function isLocalAcademyMode() {
-  return readSession().active === true;
+  return readSession().active === true && isAcademyCycleStorageScopeActive();
 }
 
 function load(): AcademySandboxState {
@@ -219,6 +227,26 @@ function isPartnerMapComplete(state: AcademyPartnerMapState) {
     && (!state.requiresServiceDetail || state.serviceDetailOpened);
 }
 
+function partnerMapTaskTotal(state: AcademyPartnerMapState) {
+  return state.requiresServiceDetail ? 5 : 4;
+}
+
+function savePartnerMapTransition(current: AcademySandboxState, partnerMap: AcademyPartnerMapState) {
+  partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
+  const saved = save({ ...current, partnerMap }).partnerMap;
+  if (!current.partnerMap.completed && saved.completed) {
+    window.dispatchEvent(new CustomEvent<AcademyCaseCompletion>(ACADEMY_CASE_COMPLETED, {
+      detail: {
+        caseId: ACADEMY_PARTNER_MAP,
+        titleKey: 'academyPartnerMapTitle',
+        completed: partnerMapTaskTotal(saved),
+        total: partnerMapTaskTotal(saved),
+      },
+    }));
+  }
+  return saved;
+}
+
 function withPortalBasicsStepSuccess(
   previous: AcademyPortalBasicsState,
   next: AcademyPortalBasicsState,
@@ -246,7 +274,7 @@ export const academySandbox = {
   },
   getActiveCase() {
     const session = readSession();
-    if (!session.active) return null;
+    if (!isLocalAcademyMode()) return null;
     // A stale tab must not keep Case 2 reachable after local Academy progress
     // has been reset. The dashboard will offer Case 1 again.
     if (session.caseId === ACADEMY_CASE_2 && !load().completed) return null;
@@ -331,43 +359,37 @@ export const academySandbox = {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
     const current = load();
     const partnerMap = { ...current.partnerMap, requiresServiceDetail: required };
-    partnerMap.completed = isPartnerMapComplete(partnerMap);
-    return save({ ...current, partnerMap }).partnerMap;
+    return savePartnerMapTransition(current, partnerMap);
   },
   trackPartnerMapOwnDealer() {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
     const current = load();
     const partnerMap = { ...current.partnerMap, ownDealerShown: true };
-    partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
-    return save({ ...current, partnerMap }).partnerMap;
+    return savePartnerMapTransition(current, partnerMap);
   },
   trackPartnerMapFullscreen() {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
     const current = load();
     const partnerMap = { ...current.partnerMap, fullscreenUsed: true };
-    partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
-    return save({ ...current, partnerMap }).partnerMap;
+    return savePartnerMapTransition(current, partnerMap);
   },
   trackPartnerMapWarrantyLayer() {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
     const current = load();
     const partnerMap = { ...current.partnerMap, warrantyLayerShown: true };
-    partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
-    return save({ ...current, partnerMap }).partnerMap;
+    return savePartnerMapTransition(current, partnerMap);
   },
   trackPartnerMapWarrantyOpened() {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
     const current = load();
     const partnerMap = { ...current.partnerMap, warrantyOpened: true };
-    partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
-    return save({ ...current, partnerMap }).partnerMap;
+    return savePartnerMapTransition(current, partnerMap);
   },
   trackPartnerMapServiceDetail() {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PARTNER_MAP) return load().partnerMap;
     const current = load();
     const partnerMap = { ...current.partnerMap, serviceDetailOpened: true };
-    partnerMap.completed = current.partnerMap.completed || isPartnerMapComplete(partnerMap);
-    return save({ ...current, partnerMap }).partnerMap;
+    return savePartnerMapTransition(current, partnerMap);
   },
   trackPortalBasicsLanguage(language: string) {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;

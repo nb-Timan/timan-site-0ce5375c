@@ -167,6 +167,7 @@ export default function AcademyPage() {
   const stateLabel = (state: State) => tr(`academyStatus${state[0].toUpperCase()}${state.slice(1)}`);
   const [cycleSnapshot, setCycleSnapshot] = useState<AcademyCycleSnapshot | null>(null);
   const [cycleResolved, setCycleResolved] = useState(false);
+  const [cycleLoadFailed, setCycleLoadFailed] = useState(false);
   const [, setProgressVersion] = useState(0);
   const task = academySandbox.getCase1();
   const videoTask = academySandbox.getCase2();
@@ -187,18 +188,22 @@ export default function AcademyPage() {
     void getMyAcademyCycle()
       .then((snapshot) => {
         if (cancelled) return;
-        if (snapshot.cycle?.status === 'active') {
-          setAcademyCycleStorageScope(snapshot.cycle.id, snapshot.cycle.reset_version);
-          academySandbox.enterSession();
+        if (snapshot.cycle) {
+          setAcademyCycleStorageScope(snapshot.cycle.id, snapshot.cycle.reset_version, snapshot.cycle.status);
+          if (snapshot.cycle.status === 'active') academySandbox.enterSession();
         } else if (!localPreview) {
           academySandbox.leaveSession();
         }
         setCycleSnapshot(snapshot);
+        setCycleLoadFailed(false);
         setCycleResolved(true);
         setProgressVersion((value) => value + 1);
       })
       .catch(() => {
-        if (!cancelled) setCycleResolved(true);
+        if (!cancelled) {
+          setCycleLoadFailed(true);
+          setCycleResolved(true);
+        }
       });
     return () => { cancelled = true; };
   }, []);
@@ -248,8 +253,9 @@ export default function AcademyPage() {
   ].filter(Boolean) as string[];
   const cycle = cycleSnapshot?.cycle ?? null;
   const activeCycle = cycle?.status === 'active' ? cycle : null;
-  const accessBlocked = Boolean(appUser) && cycleResolved && !activeCycle;
-  const academyAction = (label: string | undefined) => accessBlocked ? undefined : label;
+  const cycleMissing = Boolean(appUser) && cycleResolved && !cycle && !cycleLoadFailed;
+  const cycleActionBlocked = Boolean(appUser) && cycleResolved && !activeCycle;
+  const academyAction = (label: string | undefined) => cycleActionBlocked ? undefined : label;
   const completedCycles = cycleSnapshot?.completedCycleCount ?? 0;
   const awardCounts = cycleSnapshot?.awardCounts ?? { bronze: 0, silver: 0, gold: 0 };
   const currentCycleAwards = cycleSnapshot?.awards ?? [];
@@ -285,45 +291,45 @@ export default function AcademyPage() {
   const partnerDataPart1State: State = partnerData.part1Completed ? 'done' : academyPartnerDataSandbox.getState().part1Started ? 'active' : 'new';
   const partnerDataPart2State: State = partnerData.part2Completed ? 'done' : academyPartnerDataSandbox.getState().part2Started ? 'active' : partnerData.part1Completed ? 'ready' : 'locked';
   const startCase = () => {
-    if (accessBlocked) return;
+    if (cycleActionBlocked) return;
     academySandbox.startCase1();
     navigate('/configurator?academy_mode=true');
   };
   const startVideoCase = () => {
-    if (accessBlocked) return;
+    if (cycleActionBlocked) return;
     if (!academySandbox.isCase2Unlocked()) return;
     academySandbox.startCase2();
     navigate('/portal/videos?academy_mode=true&academy_case=2');
   };
   const startPortalBasics = () => {
-    if (accessBlocked) return;
+    if (cycleActionBlocked) return;
     academyPartnerDataSandbox.leaveCase();
     academySandbox.startPortalBasics(language);
     navigate('/portal?academy_mode=true');
   };
   const startCrmPart1 = () => {
-    if (accessBlocked) return;
+    if (cycleActionBlocked) return;
     academyCrmSandbox.start(1);
     navigate('/academy/crm/leads?academy_mode=true&academy_part=1');
   };
   const startCrmPart2 = () => {
-    if (accessBlocked) return;
+    if (cycleActionBlocked) return;
     academyCrmSandbox.start(2);
     navigate('/academy/crm/leads?academy_mode=true&academy_part=2');
   };
   const startPartnerMap = () => {
-    if (accessBlocked) return;
+    if (cycleActionBlocked) return;
     academyPartnerDataSandbox.leaveCase();
     academySandbox.startPartnerMap();
     navigate('/portal/misc/partner-map?academy_mode=true');
   };
   const startPartnerDataPart1 = () => {
-    if (accessBlocked) return;
+    if (cycleActionBlocked) return;
     academyPartnerDataSandbox.start(1);
     navigate('/portal/dealer-data?academy_mode=true&academy_part=1');
   };
   const startPartnerDataPart2 = () => {
-    if (accessBlocked) return;
+    if (cycleActionBlocked) return;
     academyPartnerDataSandbox.start(2);
     navigate('/portal/dealer-data?academy_mode=true&academy_part=2');
   };
@@ -357,7 +363,7 @@ export default function AcademyPage() {
             </div>
           )}
 
-          {accessBlocked && (
+          {cycleMissing && (
             <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
               <LockKeyhole className="h-4 w-4 shrink-0" />
               {tr('academyNoActiveCycle')}
@@ -401,7 +407,7 @@ export default function AcademyPage() {
                 <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><CirclePlay className="h-4 w-4 text-[#126a45]" />{tr('academyContinueWhere')}</div>
                 <p className="mt-3 text-sm font-bold text-slate-900">{academySandbox.getActiveCase() ? tr('academyActiveTask') : tr('academySalesCase1Title')}</p>
                 <p className="mt-1 text-xs text-slate-500">{academySandbox.getActiveCase() ? tr('academyResumeTask') : tr('academyRequirementsProgress').replace('{completed}', String(requirements)).replace('{total}', '10')}</p>
-                {!accessBlocked && <button type="button" onClick={() => academySandbox.getActiveCase() ? navigate(academySandbox.getContinueRoute()) : startCase()} className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#126a45] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0f5a3b]">
+                {!cycleActionBlocked && <button type="button" onClick={() => academySandbox.getActiveCase() ? navigate(academySandbox.getContinueRoute()) : startCase()} className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#126a45] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0f5a3b]">
                   {academySandbox.getActiveCase() || task.started ? tr('academyContinue') : tr('academyStart')}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </button>}
@@ -422,20 +428,20 @@ export default function AcademyPage() {
 
           <div className="mt-4 grid items-start gap-3 lg:grid-cols-2">
             <Module icon={ShoppingCart} title={tr('academySales')} progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 ${tr('academyCompleted')}`}>
-              <AcademyRow image="/messe/machines/rc-1000s-tile.png" title={tr('academySalesCase1Title')} description={tr('academySalesCase1Description')} state={caseState} statusLabel={stateLabel(caseState)} action={academyAction(task.started ? tr('academyContinue') : tr('academyStart'))} onClick={accessBlocked ? undefined : startCase} />
-              <AcademyRow image="/messe/machines/timan-3330-tile.png" title={tr('academySalesCase2Title')} description={tr('academySalesCase2Description')} state={videoCaseState} statusLabel={stateLabel(videoCaseState)} action={academyAction(case2Unlocked ? (videoTask.started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={accessBlocked ? undefined : case2Unlocked ? startVideoCase : undefined} />
+              <AcademyRow image="/messe/machines/rc-1000s-tile.png" title={tr('academySalesCase1Title')} description={tr('academySalesCase1Description')} state={caseState} statusLabel={stateLabel(caseState)} action={academyAction(task.started ? tr('academyContinue') : tr('academyStart'))} onClick={cycleActionBlocked ? undefined : startCase} />
+              <AcademyRow image="/messe/machines/timan-3330-tile.png" title={tr('academySalesCase2Title')} description={tr('academySalesCase2Description')} state={videoCaseState} statusLabel={stateLabel(videoCaseState)} action={academyAction(case2Unlocked ? (videoTask.started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={cycleActionBlocked ? undefined : case2Unlocked ? startVideoCase : undefined} />
             </Module>
             <Module icon={Map} title={tr('academyPortalBasics')} progress={`${Number(portalBasics.completed) + Number(partnerMap.completed)} / 2 ${tr('academyCompleted')}`}>
-              <AcademyRow title={tr('academyPortalBasicsCaseTitle')} description={tr('academyPortalBasicsCaseDescription')} state={portalBasicsState} statusLabel={stateLabel(portalBasicsState)} action={academyAction(portalBasics.started ? tr('academyContinue') : tr('academyStart'))} onClick={accessBlocked ? undefined : startPortalBasics} />
-              <AcademyRow title={tr('academyPartnerMapTitle')} description={tr('academyPartnerMapDescription')} state={partnerMapState} statusLabel={stateLabel(partnerMapState)} action={academyAction(partnerMapUnlocked ? (partnerMap.started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={accessBlocked ? undefined : partnerMapUnlocked ? startPartnerMap : undefined} />
+              <AcademyRow title={tr('academyPortalBasicsCaseTitle')} description={tr('academyPortalBasicsCaseDescription')} state={portalBasicsState} statusLabel={stateLabel(portalBasicsState)} action={academyAction(portalBasics.started ? tr('academyContinue') : tr('academyStart'))} onClick={cycleActionBlocked ? undefined : startPortalBasics} />
+              <AcademyRow title={tr('academyPartnerMapTitle')} description={tr('academyPartnerMapDescription')} state={partnerMapState} statusLabel={stateLabel(partnerMapState)} action={academyAction(partnerMapUnlocked ? (partnerMap.started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={cycleActionBlocked ? undefined : partnerMapUnlocked ? startPartnerMap : undefined} />
             </Module>
             <Module icon={Users} title={tr('academyPartnerData')} progress={`${partnerDataCompleted} / 2 ${tr('academyCompleted')}`}>
-              <AcademyRow title={tr('academyPartnerDataPart1Title')} description={tr('academyPartnerDataPart1Description')} state={partnerDataPart1State} statusLabel={stateLabel(partnerDataPart1State)} action={academyAction(partnerDataPart1State === 'done' ? tr('academyOpen') : academyPartnerDataSandbox.getState().part1Started ? tr('academyContinue') : tr('academyStart'))} onClick={accessBlocked ? undefined : startPartnerDataPart1} />
-              <AcademyRow title={tr('academyPartnerDataPart2Title')} description={tr('academyPartnerDataPart2Description')} state={partnerDataPart2State} statusLabel={stateLabel(partnerDataPart2State)} action={academyAction(partnerData.part1Completed ? (partnerDataPart2State === 'done' ? tr('academyOpen') : academyPartnerDataSandbox.getState().part2Started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={accessBlocked ? undefined : partnerData.part1Completed ? startPartnerDataPart2 : undefined} />
+              <AcademyRow title={tr('academyPartnerDataPart1Title')} description={tr('academyPartnerDataPart1Description')} state={partnerDataPart1State} statusLabel={stateLabel(partnerDataPart1State)} action={academyAction(partnerDataPart1State === 'done' ? tr('academyOpen') : academyPartnerDataSandbox.getState().part1Started ? tr('academyContinue') : tr('academyStart'))} onClick={cycleActionBlocked ? undefined : startPartnerDataPart1} />
+              <AcademyRow title={tr('academyPartnerDataPart2Title')} description={tr('academyPartnerDataPart2Description')} state={partnerDataPart2State} statusLabel={stateLabel(partnerDataPart2State)} action={academyAction(partnerData.part1Completed ? (partnerDataPart2State === 'done' ? tr('academyOpen') : academyPartnerDataSandbox.getState().part2Started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={cycleActionBlocked ? undefined : partnerData.part1Completed ? startPartnerDataPart2 : undefined} />
             </Module>
             <Module icon={Users} title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
-              <AcademyRow title={tr('academyCrmCase1Title')} description={tr('academyCrmDashboardCase1Description')} state={crmPart1State} statusLabel={stateLabel(crmPart1State)} action={academyAction(crm.part1Completed ? tr('academyOpen') : academyCrmSandbox.getState().part1Started ? tr('academyContinue') : tr('academyStart'))} onClick={accessBlocked ? undefined : startCrmPart1} />
-              <AcademyRow title={tr('academyCrmCase2Title')} description={tr('academyCrmDashboardCase2Description')} state={crmPart2State} statusLabel={stateLabel(crmPart2State)} action={academyAction(crm.part1Completed ? (crm.part2Completed ? tr('academyOpen') : academyCrmSandbox.getState().part2Started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={accessBlocked ? undefined : crm.part1Completed ? startCrmPart2 : undefined} />
+              <AcademyRow title={tr('academyCrmCase1Title')} description={tr('academyCrmDashboardCase1Description')} state={crmPart1State} statusLabel={stateLabel(crmPart1State)} action={academyAction(crm.part1Completed ? tr('academyOpen') : academyCrmSandbox.getState().part1Started ? tr('academyContinue') : tr('academyStart'))} onClick={cycleActionBlocked ? undefined : startCrmPart1} />
+              <AcademyRow title={tr('academyCrmCase2Title')} description={tr('academyCrmDashboardCase2Description')} state={crmPart2State} statusLabel={stateLabel(crmPart2State)} action={academyAction(crm.part1Completed ? (crm.part2Completed ? tr('academyOpen') : academyCrmSandbox.getState().part2Started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={cycleActionBlocked ? undefined : crm.part1Completed ? startCrmPart2 : undefined} />
             </Module>
             <LockedModule icon={CalendarDays} title={tr('academyCalendar')} progress={`0 / 1 ${tr('academyCompleted')}`} description={tr('academyCalendarLocked')} lockedLabel={stateLabel('locked')} />
           </div>

@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppUserProvider } from "@/context/AppUserContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import AcademyPortalBasicsStepSuccessModal from "@/components/academy/AcademyPortalBasicsStepSuccessModal";
+import AcademyCaseCompletionModalHost from "@/components/academy/AcademyCaseCompletionModalHost";
 import TsbAccessGuard from "./components/tsb/TsbAccessGuard";
 import VisitorTracker from "./components/portal/VisitorTracker";
 import { useAppUser } from "@/context/AppUserContext";
@@ -239,6 +240,7 @@ const App = () => (
       <BrowserRouter>
         <AppUserProvider>
           <LanguageProvider>
+            <AcademyCaseCompletionModalHost />
             <AcademyPortalBasicsStepSuccessModal />
             <Suspense fallback={<RouteFallback />}>
             <Routes>

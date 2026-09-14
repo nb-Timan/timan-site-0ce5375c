@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_CASE_COMPLETED, academySandbox, type AcademyCaseCompletion } from '@/lib/academySandbox';
 
 describe('Academy Partnerkort progression', () => {
   beforeEach(() => {
@@ -36,5 +36,25 @@ describe('Academy Partnerkort progression', () => {
 
     academySandbox.trackPartnerMapServiceDetail();
     expect(academySandbox.getPartnerMap().completed).toBe(true);
+  });
+
+  it('emits one shared completion event only for a new completion transition', () => {
+    const completions: AcademyCaseCompletion[] = [];
+    const handleCompletion = (event: Event) => completions.push((event as CustomEvent<AcademyCaseCompletion>).detail);
+    window.addEventListener(ACADEMY_CASE_COMPLETED, handleCompletion);
+
+    academySandbox.trackPartnerMapOwnDealer();
+    academySandbox.trackPartnerMapFullscreen();
+    academySandbox.trackPartnerMapWarrantyLayer();
+    academySandbox.trackPartnerMapWarrantyOpened();
+    academySandbox.trackPartnerMapWarrantyOpened();
+
+    window.removeEventListener(ACADEMY_CASE_COMPLETED, handleCompletion);
+    expect(completions).toEqual([{
+      caseId: 'portal.partner_map',
+      titleKey: 'academyPartnerMapTitle',
+      completed: 4,
+      total: 4,
+    }]);
   });
 });

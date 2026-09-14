@@ -18,6 +18,7 @@ export default function AcademyCompletionModal({
   completed,
   total,
   nextUnlock,
+  onBackToAcademy,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -25,6 +26,7 @@ export default function AcademyCompletionModal({
   completed: number;
   total: number;
   nextUnlock?: string;
+  onBackToAcademy?: () => void;
 }) {
   const { uiLanguage } = useOptionalLanguage();
   const tr = (key: string) => t(key, uiLanguage);
@@ -61,13 +63,23 @@ export default function AcademyCompletionModal({
           >
             {tr('academyStayHere')}
           </button>
-          <Link
-            to="/academy"
-            onClick={() => onOpenChange(false)}
-            className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#126a45] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#0f5a3b]"
-          >
-            {tr('academyBackToAcademy')}
-          </Link>
+          {onBackToAcademy ? (
+            <button
+              type="button"
+              onClick={onBackToAcademy}
+              className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#126a45] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#0f5a3b]"
+            >
+              {tr('academyBackToAcademy')}
+            </button>
+          ) : (
+            <Link
+              to="/academy"
+              onClick={() => onOpenChange(false)}
+              className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#126a45] px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-[#0f5a3b]"
+            >
+              {tr('academyBackToAcademy')}
+            </Link>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

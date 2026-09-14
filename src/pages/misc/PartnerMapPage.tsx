@@ -1918,7 +1918,7 @@ export default function PartnerMapPage() {
                 : progress.requiresServiceDetail && !progress.serviceDetailOpened ? tr('academyMapNext5')
                   : tr('academyMapComplete');
         return <div id="academy-guidance"><AcademyGuidancePanel title={tr('academyPartnerMapTitle')} description={tr('academyMapDescription')}
-          tasks={tasks} next={next} completion /></div>;
+          tasks={tasks} next={next} /></div>;
       })()}
       {academyMode && !academyPartnerMap && <AcademyGuidancePanel title={tr('academyPortalBasicsMapTitle')} description={tr('academyPortalBasicsMapDescription')}
         tasks={[{ label: tr('academyPortalBasicsMapTask'), complete: academySandbox.getPortalBasics().mapAreaChanged }]}
