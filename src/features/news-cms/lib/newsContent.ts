@@ -186,6 +186,75 @@ export function missingNewsLanguages(
   return NEWS_CONTENT_LANGUAGES.filter((lang) => missingTranslationFields(content, lang, fields).length > 0);
 }
 
+export type NewsTranslationCoverage = {
+  missingLanguages: PortalUiLanguage[];
+  staleLanguages: PortalUiLanguage[];
+  currentLanguages: PortalUiLanguage[];
+};
+
+function translatableFieldValue(value: unknown, type: string): unknown {
+  if (['text', 'textarea', 'richtext'].includes(type)) return value;
+  if (!Array.isArray(value)) return [];
+
+  if (['featureBlocks', 'techBlocks'].includes(type)) {
+    return value.map((item) => {
+      const block = item as Record<string, unknown>;
+      return { heading: block.heading, description: block.description };
+    });
+  }
+  if (type === 'specRows') {
+    return value.map((item) => {
+      const row = item as Record<string, unknown>;
+      return { label: row.label, value: row.value };
+    });
+  }
+  if (type === 'ctaLinks') {
+    return value.map((item) => ({ label: (item as Record<string, unknown>).label }));
+  }
+  if (type === 'flyerPages') {
+    return value.map((item) => {
+      const page = item as Record<string, unknown>;
+      return { headline: page.headline, subtitle: page.subtitle, body: page.body };
+    });
+  }
+  return [];
+}
+
+function sourceTranslationFingerprint(
+  content: LocalizedNewsContent | null | undefined,
+  sourceLanguage: PortalUiLanguage,
+  fields: Array<Pick<NewsFieldDefinition, 'key' | 'type'>>,
+): string {
+  const source = getExactNewsContent(content, sourceLanguage);
+  return JSON.stringify(fields.map((field) => [field.key, translatableFieldValue(source[field.key], field.type)]));
+}
+
+/**
+ * Distinguishes absent locales from otherwise complete locales whose source text
+ * has changed in the editor. The latter are updated on the next publish.
+ */
+export function getNewsTranslationCoverage(
+  content: LocalizedNewsContent | null | undefined,
+  fields: Array<Pick<NewsFieldDefinition, 'key' | 'type' | 'labelKey' | 'required'>>,
+  sourceLanguage: PortalUiLanguage,
+  persistedContent?: LocalizedNewsContent | null,
+): NewsTranslationCoverage {
+  const missingLanguages = missingNewsLanguages(content, fields);
+  const sourceChanged = Boolean(persistedContent) &&
+    sourceTranslationFingerprint(content, sourceLanguage, fields) !==
+      sourceTranslationFingerprint(persistedContent, sourceLanguage, fields);
+  const completeLanguages = NEWS_CONTENT_LANGUAGES.filter((language) => !missingLanguages.includes(language));
+  const staleLanguages = missingLanguages.length === 0 && sourceChanged
+    ? completeLanguages.filter((language) => language !== sourceLanguage)
+    : [];
+
+  return {
+    missingLanguages,
+    staleLanguages,
+    currentLanguages: completeLanguages.filter((language) => !staleLanguages.includes(language)),
+  };
+}
+
 /** Media/layout fields are shared: copy them from any language that has them. */
 export function mergeSharedNewsFields(
   content: LocalizedNewsContent,

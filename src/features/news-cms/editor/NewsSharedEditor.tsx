@@ -8,6 +8,7 @@ import { NEWS_TEMPLATE_REGISTRY, getNewsTemplate, isNewsTemplateId } from '@/fea
 import type { LocalizedNewsContent, NewsTemplateId } from '@/features/news-cms/templates/types';
 import {
   emptyLocalizedContent,
+  getNewsTranslationCoverage,
   mergeSharedNewsFields,
   missingNewsLanguages,
   missingTranslationFields,
@@ -95,6 +96,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
   // for both the CMS interface and the content language being edited.
   const editLanguage: PortalUiLanguage = uiLanguage;
   const [localizedContent, setLocalizedContent] = useState<LocalizedNewsContent>(() => initialPost?.localized_content || emptyLocalizedContent());
+  const [persistedLocalizedContent, setPersistedLocalizedContent] = useState<LocalizedNewsContent | null>(() => initialPost?.localized_content || null);
   const [templateData, setTemplateData] = useState<Record<string, unknown>>(() => initialPost?.template_data || {});
   const [translateStatus, setTranslateStatus] = useState<string | null>(null);
   const publishInFlight = useRef(false);
@@ -105,6 +107,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     setPersistedPostId(initialPost?.id);
     setTemplateId(isNewsTemplateId(initialPost?.template_id) ? initialPost.template_id : NEWS_TEMPLATE_REGISTRY[0].id);
     setLocalizedContent(initialPost?.localized_content || emptyLocalizedContent());
+    setPersistedLocalizedContent(initialPost?.localized_content || null);
     setTemplateData(initialPost?.template_data || {});
     setTranslateStatus(null);
   }, [initialPost?.id]);
@@ -118,16 +121,22 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     () => missingTranslationFields(localizedContent, editLanguage, template.fields),
     [localizedContent, editLanguage, template.fields],
   );
-  const missingLanguages = useMemo(
-    () => missingNewsLanguages(localizedContent, template.fields),
-    [localizedContent, template.fields],
+  const translationCoverage = useMemo(
+    () => getNewsTranslationCoverage(localizedContent, template.fields, editLanguage, persistedLocalizedContent),
+    [localizedContent, template.fields, editLanguage, persistedLocalizedContent],
   );
+  const missingLanguages = translationCoverage.missingLanguages;
   const [publishWarning, setPublishWarning] = useState<string | null>(null);
   const contentLanguageLabel =
     PORTAL_LANGUAGES.find((option) => option.code === editLanguage)?.label || editLanguage.toUpperCase();
   const missingLanguageLabels = missingLanguages
     .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
     .join(', ');
+  const staleLanguageLabels = translationCoverage.staleLanguages
+    .map((code) => PORTAL_LANGUAGES.find((option) => option.code === code)?.flag || code.toUpperCase())
+    .join(', ');
+  const formatStatus = (key: string, values: Record<string, string | number>) =>
+    Object.entries(values).reduce((message, [name, value]) => message.replace(`{${name}}`, String(value)), t(key, uiLanguage));
   const validation = template.validate(activeContent);
   const canPublish = validation.valid;
   const newsTopic = normalizeNewsTopicData(templateData.news_topic);
@@ -206,6 +215,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
     try {
       const savedPost = await onSaveDraft({ id: persistedPostId, templateId, localizedContent: contentToSave, templateData: templateDataToSave, sourceLanguage: editLanguage });
       setPersistedPostId(savedPost.id);
+      setPersistedLocalizedContent(contentToSave);
       setSavedOnce(true);
     } catch (error) {
       setPublishWarning(error instanceof Error ? error.message : 'Kladden kunne ikke gemmes.');
@@ -345,7 +355,7 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
               </div>
             ) : (
               <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800">
-                {t('newsCmsTranslationComplete', uiLanguage)}
+                {formatStatus('newsCmsCurrentLanguageComplete', { language: contentLanguageLabel })}
               </div>
             )}
             <p className="mb-4 text-xs text-slate-400">{t('newsCmsSharedAcrossLanguages', uiLanguage)}</p>
@@ -354,9 +364,26 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
                 {translateStatus}
               </div>
             )}
-            {missingLanguages.length > 0 && (
-              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                <span className="font-bold">{t('newsCmsPublishAutoTranslate', uiLanguage)}</span> {missingLanguageLabels}
+            {missingFields.length === 0 && missingLanguages.filter((language) => language !== editLanguage).length > 0 && (
+              <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-900">
+                <p className="font-bold">
+                  {formatStatus('newsCmsTranslationsGenerateOnPublish', { count: missingLanguages.filter((language) => language !== editLanguage).length })}
+                </p>
+                <p className="mt-1">{t('newsCmsTranslationsGenerateHelp', uiLanguage)} {missingLanguageLabels}</p>
+              </div>
+            )}
+            {missingFields.length === 0 && translationCoverage.staleLanguages.length > 0 && (
+              <div className="mb-4 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-xs text-sky-900">
+                <p className="font-bold">
+                  {formatStatus('newsCmsTranslationsUpdateOnPublish', { count: translationCoverage.staleLanguages.length })}
+                </p>
+                <p className="mt-1">{staleLanguageLabels}</p>
+              </div>
+            )}
+            {missingFields.length === 0 && missingLanguages.length === 0 && translationCoverage.staleLanguages.length === 0 && persistedLocalizedContent && (
+              <div className="mb-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-900">
+                <Check className="h-4 w-4" />
+                {formatStatus('newsCmsAllPortalLanguagesCurrent', { count: PORTAL_LANGUAGES.length })}
               </div>
             )}
 
@@ -518,10 +545,20 @@ export default function NewsSharedEditor({ uiLanguage, initialPost, onCancel, on
             </div>
             <h3 className="text-xl font-bold text-slate-900">{t('newsCmsStepPublishTitle', uiLanguage)}</h3>
             <p className="mt-2 text-sm text-slate-600">{t('newsCmsStepPublishHelp', uiLanguage)}</p>
-            {missingLanguages.length > 0 && (
-              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                <p className="font-bold">{t('newsCmsPublishAutoTranslate', uiLanguage)}</p>
-                <p className="mt-1">{missingLanguageLabels}</p>
+            {missingFields.length === 0 && missingLanguages.filter((language) => language !== editLanguage).length > 0 && (
+              <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                <p className="font-bold">
+                  {formatStatus('newsCmsTranslationsGenerateOnPublish', { count: missingLanguages.filter((language) => language !== editLanguage).length })}
+                </p>
+                <p className="mt-1">{t('newsCmsTranslationsGenerateHelp', uiLanguage)} {missingLanguageLabels}</p>
+              </div>
+            )}
+            {missingFields.length === 0 && translationCoverage.staleLanguages.length > 0 && (
+              <div className="mt-5 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+                <p className="font-bold">
+                  {formatStatus('newsCmsTranslationsUpdateOnPublish', { count: translationCoverage.staleLanguages.length })}
+                </p>
+                <p className="mt-1">{staleLanguageLabels}</p>
               </div>
             )}
             {publishWarning && (
