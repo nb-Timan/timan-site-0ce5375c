@@ -18,6 +18,7 @@ export default function AcademyGuidancePanel({
   completion = false,
   explanation,
   activeTaskLabel,
+  stepColumns = 1,
 }: {
   title: string;
   description: string;
@@ -28,6 +29,7 @@ export default function AcademyGuidancePanel({
   completion?: boolean | { nextUnlock?: string };
   explanation?: ReactNode;
   activeTaskLabel?: string;
+  stepColumns?: 1 | 2;
 }) {
   const { uiLanguage } = useOptionalLanguage();
   const tr = (key: string) => t(key, uiLanguage);
@@ -60,11 +62,11 @@ export default function AcademyGuidancePanel({
           <span className="rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs font-bold">{completed} / {allTasks.length} {tr('academyRequirements')}</span>
         </div>
         {steps ? (
-          <ol className="mt-3 space-y-2.5">
+          <ol className={stepColumns === 2 ? 'mt-3 grid gap-2.5 md:grid-cols-2' : 'mt-3 space-y-2.5'}>
             {steps.map((step, index) => {
               const stepComplete = step.tasks.every((task) => task.complete);
               const active = index === activeStepIndex;
-              return <li key={step.title} className={`rounded-md border p-3 ${stepComplete ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800' : active ? 'border-amber-400 bg-white text-amber-950 shadow-sm' : 'border-amber-200 bg-amber-50/60 text-amber-900'}`}>
+              return <li key={step.title} className={`h-full rounded-md border p-3 ${stepComplete ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800' : active ? 'border-amber-400 bg-white text-amber-950 shadow-sm' : 'border-amber-200 bg-amber-50/60 text-amber-900'}`}>
                 <div className="flex items-start gap-2">
                   <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${stepComplete ? 'bg-emerald-600 text-white' : active ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-900'}`}>
                     {stepComplete ? <CheckCircle2 className="h-4 w-4" /> : index + 1}

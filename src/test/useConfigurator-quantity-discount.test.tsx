@@ -83,4 +83,29 @@ describe('live basket stk. rabat eligibility', () => {
     expect(result.current.calcResult?.totalDiscount).toBe(43900);
     expect(result.current.calcResult?.currentPrice).toBe(131700);
   });
+
+  it('adds the canonical quantity-discount line for RC-1000S plus RC-751', () => {
+    const { result } = renderHook(() => useConfigurator());
+
+    act(() => result.current.setState(() => stateWith([
+      { id: 'm0', type: 'RC-1000S', qty: 1, configMode: 'shared', acc: [] },
+      { id: 'm1', type: 'RC-751', qty: 1, configMode: 'shared', acc: [] },
+    ])));
+
+    expect(result.current.calcResult?.discountDetails.some((discount) => discount.varenr === '795043' && discount.amount > 0)).toBe(true);
+  });
+
+  it('does not add the canonical quantity-discount line for demo machines', () => {
+    const { result } = renderHook(() => useConfigurator());
+
+    act(() => result.current.setState(() => ({
+      ...stateWith([
+        { id: 'm0', type: 'RC-1000S', qty: 1, configMode: 'shared', acc: [] },
+        { id: 'm1', type: 'RC-751', qty: 1, configMode: 'shared', acc: [] },
+      ]),
+      demoMachines: { '411000_1': true, '410040_2': true },
+    })));
+
+    expect(result.current.calcResult?.discountDetails.some((discount) => discount.varenr === '795043')).toBe(false);
+  });
 });

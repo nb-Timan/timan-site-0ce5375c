@@ -57,12 +57,11 @@ export type AcademyCase1State = {
   started: boolean; completed: boolean; quoteGenerated: boolean; leadId: string | null;
   machine: boolean; flail: boolean; weedBrush: boolean; requiredComponents: boolean;
   workLight: boolean; wireHarness: boolean;
-  deliveryDiscount: boolean; quantityDiscount: boolean;
+  rc751: boolean; quantityDiscount: boolean;
 };
 
 export type AcademyCase1Input = {
   machineConfigs: Array<{ type: string; acc?: string[]; qty?: number }>;
-  deliveryDiscount: boolean;
   quantityDiscount: boolean;
   quoteGenerated?: boolean;
 };
@@ -122,7 +121,7 @@ type AcademySandboxState = AcademyCase1State & {
   partnerMap: AcademyPartnerMapState;
 };
 
-const initialCase1 = (): AcademyCase1State => ({ started: false, completed: false, quoteGenerated: false, leadId: null, machine: false, flail: false, weedBrush: false, requiredComponents: false, workLight: false, wireHarness: false, deliveryDiscount: false, quantityDiscount: false });
+const initialCase1 = (): AcademyCase1State => ({ started: false, completed: false, quoteGenerated: false, leadId: null, machine: false, flail: false, weedBrush: false, requiredComponents: false, workLight: false, wireHarness: false, rc751: false, quantityDiscount: false });
 const initialCase2 = (): AcademyCase2State => ({ started: false, completed: false, machineFiltered: false, maintenanceFiltered: false, targetFound: false, targetOpened: false });
 const initialPortalBasics = (): AcademyPortalBasicsState => ({
   started: false,
@@ -152,7 +151,7 @@ const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialC
 
 function isComplete(state: AcademyCase1State) {
   return state.machine && state.flail && state.weedBrush && state.requiredComponents
-    && state.workLight && state.wireHarness && state.deliveryDiscount
+    && state.workLight && state.wireHarness && state.rc751
     && state.quantityDiscount && state.quoteGenerated && Boolean(state.leadId);
 }
 
@@ -182,7 +181,7 @@ function load(): AcademySandboxState {
         requiredComponents: true,
         workLight: true,
         wireHarness: true,
-        deliveryDiscount: true,
+        rc751: true,
         quantityDiscount: true,
         quoteGenerated: true,
       }
@@ -456,7 +455,8 @@ export const academySandbox = {
     if (current.completed) return case1Of(current);
     const rc = input.machineConfigs.find((item) => item.type === 'RC-1000S');
     const accessories = rc?.acc ?? [];
-    const next = { ...current, started: true, machine: Boolean(rc), flail: accessories.includes('410910'), weedBrush: accessories.includes('730600'), requiredComponents: accessories.includes('412603'), workLight: accessories.includes(ACC_ID_WORK_LIGHT), wireHarness: accessories.includes(ACC_ID_WIRE_HARNESS), deliveryDiscount: input.deliveryDiscount, quantityDiscount: input.quantityDiscount, quoteGenerated: input.quoteGenerated ?? current.quoteGenerated };
+    const rc751 = input.machineConfigs.find((machine) => machine.type === 'RC-751' && (machine.qty ?? 1) > 0);
+    const next = { ...current, started: true, machine: Boolean(rc), flail: accessories.includes('410910'), weedBrush: accessories.includes('730600'), requiredComponents: accessories.includes('412603'), workLight: accessories.includes(ACC_ID_WORK_LIGHT), wireHarness: accessories.includes(ACC_ID_WIRE_HARNESS), rc751: Boolean(rc751), quantityDiscount: input.quantityDiscount, quoteGenerated: input.quoteGenerated ?? current.quoteGenerated };
     next.completed = isComplete(next);
     return case1Of(save(next));
   },

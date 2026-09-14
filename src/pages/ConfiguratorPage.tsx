@@ -318,13 +318,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     if (!isAcademyMode) return academySandbox.getCase1();
     const next = academySandbox.evaluate({
       machineConfigs: academyMachineConfigs,
-      deliveryDiscount: Boolean(displayCalc?.discountDetails.some((discount) => /levering|delivery/i.test(discount.txt))),
-      quantityDiscount: state.machineConfigs.reduce((sum, machine) => sum + (PRODUCTS[machine.type]?.isDiscountEligible ? machine.qty : 0), 0) >= 2,
+      quantityDiscount: Boolean(calcResult?.discountDetails.some((discount) => discount.varenr === '795043' && discount.amount > 0)),
       quoteGenerated,
     });
     setAcademyCase(next);
     return next;
-  }, [academyMachineConfigs, displayCalc, isAcademyMode, state.machineConfigs]);
+  }, [academyMachineConfigs, calcResult, isAcademyMode]);
 
   useEffect(() => {
     if (isAcademyMode) refreshAcademyCase();
@@ -2682,8 +2681,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           <AcademyGuidancePanel
             title={tPortal('academySalesCase1Title', uiLanguage)}
             description={tPortal('academyConfiguratorDescription', uiLanguage)}
+            stepColumns={2}
             steps={[
               { title: tPortal('academyCase1ChooseMachine', uiLanguage), tasks: [{ complete: academyCase.machine, label: tPortal('academyCase1MachineSelected', uiLanguage) }] },
+              { title: tPortal('academyCase1ChooseRc751', uiLanguage), description: tPortal('academyCase1QuantityDiscountExplanation', uiLanguage), tasks: [
+                { complete: academyCase.rc751, label: tPortal('academyCase1Rc751Selected', uiLanguage) },
+                { complete: academyCase.quantityDiscount, label: tPortal('academyCase1QuantityDiscount', uiLanguage) },
+              ] },
               { title: tPortal('academyCase1AddTools', uiLanguage), tasks: [
                 { complete: academyCase.flail, label: tPortal('academyCase1FlailSelected', uiLanguage) },
                 { complete: academyCase.weedBrush, label: tPortal('academyCase1BrushSelected', uiLanguage) },
@@ -2693,14 +2697,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 { complete: academyCase.workLight, label: tPortal('academyCase1WorkLightSelected', uiLanguage) },
                 { complete: academyCase.wireHarness, label: tPortal('academyCase1HarnessAdded', uiLanguage) },
               ] },
-              { title: tPortal('academyCase1AddDiscounts', uiLanguage), tasks: [
-                { complete: academyCase.quantityDiscount, label: tPortal('academyCase1QuantityDiscount', uiLanguage) },
-                { complete: academyCase.deliveryDiscount, label: tPortal('academyCase1DeliveryDiscount', uiLanguage) },
-              ] },
               { title: tPortal('academyCase1GenerateQuote', uiLanguage), tasks: [{ complete: academyCase.quoteGenerated, label: tPortal('academyCase1QuoteGenerated', uiLanguage) }] },
               { title: tPortal('academyCase1SaveLead', uiLanguage), tasks: [{ complete: Boolean(academyCase.leadId), label: tPortal('academyCase1LeadSaved', uiLanguage) }] },
             ]}
-            next={!academyCase.machine ? tPortal('academyCase1Next1', uiLanguage) : !academyCase.flail || !academyCase.weedBrush || !academyCase.requiredComponents ? tPortal('academyCase1Next2', uiLanguage) : !academyCase.workLight || !academyCase.wireHarness ? tPortal('academyCase1Next3', uiLanguage) : !academyCase.quantityDiscount || !academyCase.deliveryDiscount ? tPortal('academyCase1Next4', uiLanguage) : !academyCase.quoteGenerated ? tPortal('academyCase1Next5', uiLanguage) : tPortal('academyCase1Next6', uiLanguage)}
+            next={!academyCase.machine ? tPortal('academyCase1NextMachine', uiLanguage) : !academyCase.rc751 || !academyCase.quantityDiscount ? tPortal('academyCase1NextRc751', uiLanguage) : !academyCase.flail || !academyCase.weedBrush || !academyCase.requiredComponents ? tPortal('academyCase1NextTools', uiLanguage) : !academyCase.workLight || !academyCase.wireHarness ? tPortal('academyCase1NextEquipment', uiLanguage) : !academyCase.quoteGenerated ? tPortal('academyCase1NextQuote', uiLanguage) : tPortal('academyCase1NextLead', uiLanguage)}
             completion
             actions={<button type="button"
               onClick={() => setAcademyCase(academySandbox.generateQuote())}

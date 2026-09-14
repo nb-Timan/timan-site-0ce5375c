@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ACADEMY_CASE_1, ACADEMY_CASE_2_TARGET_VIDEO_ID, ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
 
 const completeInput = {
-  machineConfigs: [{ type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 2 }],
-  deliveryDiscount: true,
+  machineConfigs: [
+    { type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 1 },
+    { type: 'RC-751', acc: [], qty: 1 },
+  ],
   quantityDiscount: true,
 };
 
@@ -34,7 +36,6 @@ describe('Academy Case 1 sandbox', () => {
     academySandbox.startCase1();
     academySandbox.evaluate({
       machineConfigs: [{ type: 'RC-1000S', acc: ['410910'], qty: 1 }],
-      deliveryDiscount: false,
       quantityDiscount: false,
     });
     academySandbox.generateQuote();
@@ -44,6 +45,29 @@ describe('Academy Case 1 sandbox', () => {
     expect(state.completed).toBe(false);
     expect(state.weedBrush).toBe(false);
     expect(state.requiredComponents).toBe(false);
+  });
+
+  it('requires RC-751 even if a caller reports a quantity discount', () => {
+    academySandbox.startCase1();
+    const state = academySandbox.evaluate({
+      machineConfigs: [{ type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 2 }],
+      quantityDiscount: true,
+    });
+
+    expect(state.rc751).toBe(false);
+    expect(state.quantityDiscount).toBe(true);
+    academySandbox.generateQuote();
+    expect(academySandbox.saveLead().completed).toBe(false);
+  });
+
+  it('requires the canonical quantity discount after RC-751 is selected', () => {
+    academySandbox.startCase1();
+    const state = academySandbox.evaluate({ ...completeInput, quantityDiscount: false });
+
+    expect(state.rc751).toBe(true);
+    expect(state.quantityDiscount).toBe(false);
+    academySandbox.generateQuote();
+    expect(academySandbox.saveLead().completed).toBe(false);
   });
 
   it('completes only after every Case 1 criterion and persists the local lead', () => {
@@ -60,7 +84,7 @@ describe('Academy Case 1 sandbox', () => {
       requiredComponents: true,
       workLight: true,
       wireHarness: true,
-      deliveryDiscount: true,
+      rc751: true,
       quantityDiscount: true,
       quoteGenerated: true,
     });
@@ -70,7 +94,7 @@ describe('Academy Case 1 sandbox', () => {
 
   it('does not complete when the work light is missing', () => {
     academySandbox.startCase1();
-    academySandbox.evaluate({ ...completeInput, machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '730600', '412603', '412614'] }] });
+    academySandbox.evaluate({ ...completeInput, machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '730600', '412603', '412614'] }, completeInput.machineConfigs[1]] });
     academySandbox.generateQuote();
     const state = academySandbox.saveLead();
 
@@ -81,7 +105,7 @@ describe('Academy Case 1 sandbox', () => {
 
   it('does not complete when the wiring harness is missing', () => {
     academySandbox.startCase1();
-    academySandbox.evaluate({ ...completeInput, machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '730600', '412603', '412594'] }] });
+    academySandbox.evaluate({ ...completeInput, machineConfigs: [{ ...completeInput.machineConfigs[0], acc: ['410910', '730600', '412603', '412594'] }, completeInput.machineConfigs[1]] });
     academySandbox.generateQuote();
     const state = academySandbox.saveLead();
 
@@ -109,7 +133,6 @@ describe('Academy Case 1 sandbox', () => {
 
     const refreshed = academySandbox.evaluate({
       machineConfigs: [],
-      deliveryDiscount: false,
       quantityDiscount: false,
     });
 
@@ -121,7 +144,7 @@ describe('Academy Case 1 sandbox', () => {
       requiredComponents: true,
       workLight: true,
       wireHarness: true,
-      deliveryDiscount: true,
+      rc751: true,
       quantityDiscount: true,
       quoteGenerated: true,
     });
@@ -152,7 +175,7 @@ describe('Academy Case 1 sandbox', () => {
       requiredComponents: true,
       workLight: true,
       wireHarness: true,
-      deliveryDiscount: true,
+      rc751: true,
       quantityDiscount: true,
     });
   });

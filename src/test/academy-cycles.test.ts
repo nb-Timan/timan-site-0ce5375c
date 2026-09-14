@@ -16,8 +16,10 @@ describe('Academy cycles and completion history', () => {
     setAcademyCycleStorageScope('cycle-one', 0);
     academySandbox.startCase1();
     academySandbox.evaluate({
-      machineConfigs: [{ type: 'RC-1000s', acc: ['410910', '730600', '412603', '412594', '412614'] }],
-      deliveryDiscount: true,
+      machineConfigs: [
+        { type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'] },
+        { type: 'RC-751' },
+      ],
       quantityDiscount: true,
       quoteGenerated: true,
     });

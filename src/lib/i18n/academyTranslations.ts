@@ -74,6 +74,61 @@ Object.assign(ACADEMY_TRANSLATIONS.sv, {
   academyPortalBasicsFullscreenNext: 'Klicka på ikonen med de två diagonala pilarna uppe till höger, precis bredvid ”Logga ut”.',
 });
 
+Object.assign(ACADEMY_TRANSLATIONS.da, {
+  academyCase1ChooseRc751: 'Vælg RC-751 og opnå mængderabat',
+  academyCase1QuantityDiscountExplanation: 'Tilføj også én RC-751, så tilbuddet indeholder 2 maskiner og mængderabatten aktiveres.',
+  academyCase1Rc751Selected: 'RC-751 valgt',
+  academyCase1NextMachine: 'Vælg RC-1000s.', academyCase1NextRc751: 'Vælg RC-751, så mængderabatten aktiveres.', academyCase1NextTools: 'Tilføj de tre krævede redskaber.', academyCase1NextEquipment: 'Tilføj arbejdslys og ledningsnet.', academyCase1NextQuote: 'Generér træningstilbuddet.', academyCase1NextLead: 'Gem sagen som Academy-lead.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.en, {
+  academyCase1ChooseRc751: 'Choose RC-751 and earn the quantity discount',
+  academyCase1QuantityDiscountExplanation: 'Also add one RC-751 so the quote contains 2 machines and the quantity discount is activated.',
+  academyCase1Rc751Selected: 'RC-751 selected',
+  academyCase1NextMachine: 'Select RC-1000s.', academyCase1NextRc751: 'Select RC-751 so the quantity discount is activated.', academyCase1NextTools: 'Add the three required tools.', academyCase1NextEquipment: 'Add the work light and wiring harness.', academyCase1NextQuote: 'Generate the training quote.', academyCase1NextLead: 'Save the case as an Academy lead.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.de, {
+  academyCase1ChooseRc751: 'RC-751 wählen und Mengenrabatt erhalten',
+  academyCase1QuantityDiscountExplanation: 'Fügen Sie zusätzlich eine RC-751 hinzu, damit das Angebot 2 Maschinen enthält und der Mengenrabatt aktiviert wird.',
+  academyCase1Rc751Selected: 'RC-751 ausgewählt',
+  academyCase1NextMachine: 'Wählen Sie RC-1000s.', academyCase1NextRc751: 'Wählen Sie RC-751, damit der Mengenrabatt aktiviert wird.', academyCase1NextTools: 'Fügen Sie die drei erforderlichen Werkzeuge hinzu.', academyCase1NextEquipment: 'Fügen Sie Arbeitslicht und Kabelbaum hinzu.', academyCase1NextQuote: 'Erstellen Sie das Trainingsangebot.', academyCase1NextLead: 'Speichern Sie den Fall als Academy-Lead.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.it, {
+  academyCase1ChooseRc751: 'Seleziona RC-751 e ottieni lo sconto quantità',
+  academyCase1QuantityDiscountExplanation: 'Aggiungi anche una RC-751 affinché l’offerta contenga 2 macchine e si attivi lo sconto quantità.',
+  academyCase1Rc751Selected: 'RC-751 selezionata',
+  academyCase1NextMachine: 'Seleziona RC-1000s.', academyCase1NextRc751: 'Seleziona RC-751 affinché si attivi lo sconto quantità.', academyCase1NextTools: 'Aggiungi i tre attrezzi richiesti.', academyCase1NextEquipment: 'Aggiungi luce di lavoro e cablaggio.', academyCase1NextQuote: 'Genera l’offerta di formazione.', academyCase1NextLead: 'Salva il caso come lead Academy.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.hu, {
+  academyCase1ChooseRc751: 'Válassza ki az RC-751-et és érje el a mennyiségi kedvezményt',
+  academyCase1QuantityDiscountExplanation: 'Adjon hozzá egy RC-751-et is, így az ajánlat 2 gépet tartalmaz és a mennyiségi kedvezmény aktiválódik.',
+  academyCase1Rc751Selected: 'RC-751 kiválasztva',
+  academyCase1NextMachine: 'Válassza ki az RC-1000s-et.', academyCase1NextRc751: 'Válassza ki az RC-751-et a mennyiségi kedvezmény aktiválásához.', academyCase1NextTools: 'Adja hozzá a három szükséges eszközt.', academyCase1NextEquipment: 'Adja hozzá a munkalámpát és a kábelköteget.', academyCase1NextQuote: 'Készítse el a képzési ajánlatot.', academyCase1NextLead: 'Mentse az esetet Academy leadként.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.sv, {
+  academyCase1ChooseRc751: 'Välj RC-751 och uppnå mängdrabatt',
+  academyCase1QuantityDiscountExplanation: 'Lägg även till en RC-751 så att offerten innehåller 2 maskiner och mängdrabatten aktiveras.',
+  academyCase1Rc751Selected: 'RC-751 vald',
+  academyCase1NextMachine: 'Välj RC-1000s.', academyCase1NextRc751: 'Välj RC-751 så att mängdrabatten aktiveras.', academyCase1NextTools: 'Lägg till de tre obligatoriska redskapen.', academyCase1NextEquipment: 'Lägg till arbetsljus och kabelstam.', academyCase1NextQuote: 'Skapa utbildningsofferten.', academyCase1NextLead: 'Spara ärendet som Academy-lead.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.fr, {
+  academyCase1ChooseRc751: 'Choisissez la RC-751 et obtenez la remise quantité',
+  academyCase1QuantityDiscountExplanation: 'Ajoutez aussi une RC-751 afin que l’offre comporte 2 machines et que la remise quantité soit activée.',
+  academyCase1Rc751Selected: 'RC-751 sélectionnée',
+  academyCase1NextMachine: 'Choisissez la RC-1000s.', academyCase1NextRc751: 'Choisissez la RC-751 pour activer la remise quantité.', academyCase1NextTools: 'Ajoutez les trois outils requis.', academyCase1NextEquipment: 'Ajoutez l’éclairage de travail et le faisceau de câbles.', academyCase1NextQuote: 'Générez l’offre de formation.', academyCase1NextLead: 'Enregistrez le dossier comme lead Academy.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.pl, {
+  academyCase1ChooseRc751: 'Wybierz RC-751 i uzyskaj rabat ilościowy',
+  academyCase1QuantityDiscountExplanation: 'Dodaj również jedną RC-751, aby oferta obejmowała 2 maszyny i aktywował się rabat ilościowy.',
+  academyCase1Rc751Selected: 'RC-751 wybrany',
+  academyCase1NextMachine: 'Wybierz RC-1000s.', academyCase1NextRc751: 'Wybierz RC-751, aby aktywować rabat ilościowy.', academyCase1NextTools: 'Dodaj trzy wymagane narzędzia.', academyCase1NextEquipment: 'Dodaj oświetlenie robocze i wiązkę przewodów.', academyCase1NextQuote: 'Wygeneruj ofertę szkoleniową.', academyCase1NextLead: 'Zapisz sprawę jako lead Academy.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.cs, {
+  academyCase1ChooseRc751: 'Vyberte RC-751 a získejte množstevní slevu',
+  academyCase1QuantityDiscountExplanation: 'Přidejte také jeden RC-751, aby nabídka obsahovala 2 stroje a aktivovala se množstevní sleva.',
+  academyCase1Rc751Selected: 'RC-751 vybrán',
+  academyCase1NextMachine: 'Vyberte RC-1000s.', academyCase1NextRc751: 'Vyberte RC-751, aby se aktivovala množstevní sleva.', academyCase1NextTools: 'Přidejte tři požadované nástroje.', academyCase1NextEquipment: 'Přidejte pracovní světlo a kabelový svazek.', academyCase1NextQuote: 'Vytvořte školicí nabídku.', academyCase1NextLead: 'Uložte případ jako Academy lead.',
+});
+
 Object.assign(ACADEMY_TRANSLATIONS.fr, {
   academyPortalBasicsFullscreenTask: 'Activer le plein écran',
   academyPortalBasicsFullscreenDescription: 'Cliquez sur l’icône avec les deux flèches diagonales en haut à droite, juste à côté de « Se déconnecter ».',

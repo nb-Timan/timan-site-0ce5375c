@@ -27,8 +27,10 @@ describe('production Academy context', () => {
   it('persists Sales Case 2 only after its Case 1 prerequisite is complete', () => {
     academySandbox.startCase1();
     academySandbox.evaluate({
-      machineConfigs: [{ type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 2 }],
-      deliveryDiscount: true,
+      machineConfigs: [
+        { type: 'RC-1000S', acc: ['410910', '730600', '412603', '412594', '412614'], qty: 1 },
+        { type: 'RC-751', qty: 1 },
+      ],
       quantityDiscount: true,
     });
     academySandbox.generateQuote();

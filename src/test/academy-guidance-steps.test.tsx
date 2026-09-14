@@ -24,4 +24,19 @@ describe('Academy numbered work steps', () => {
     expect(screen.getByText('Første redskab valgt')).toBeInTheDocument();
     expect(screen.getByText('Næste trin: Trin 2: Tilføj redskaber.')).toBeInTheDocument();
   });
+
+  it('uses two columns at desktop breakpoints when requested', () => {
+    const { container } = render(<MemoryRouter><AcademyGuidancePanel
+      title="Testforløb"
+      description="Test"
+      stepColumns={2}
+      steps={[
+        { title: 'Første trin', tasks: [{ label: 'Første krav', complete: false }] },
+        { title: 'Andet trin', tasks: [{ label: 'Andet krav', complete: false }] },
+      ]}
+      next="Første trin"
+    /></MemoryRouter>);
+
+    expect(container.querySelector('ol')).toHaveClass('md:grid-cols-2');
+  });
 });

@@ -231,7 +231,7 @@ export default function AcademyPage() {
     task.requiredComponents,
     task.workLight,
     task.wireHarness,
-    task.deliveryDiscount,
+    task.rc751,
     task.quantityDiscount,
     task.quoteGenerated,
     Boolean(task.leadId),
