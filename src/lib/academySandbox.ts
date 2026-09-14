@@ -463,7 +463,11 @@ export const academySandbox = {
   },
   generateQuote() {
     if (!isLocalAcademyMode()) throw new Error('Academy writes must never use production persistence.');
-    return case1Of(save({ ...load(), quoteGenerated: true }));
+    const current = load();
+    if (!current.leadId) return case1Of(current);
+    const next = { ...current, quoteGenerated: true };
+    next.completed = isComplete(next);
+    return case1Of(save(next));
   },
   saveLead() {
     if (!isLocalAcademyMode()) throw new Error('Academy writes must never use production persistence.');

@@ -34,8 +34,8 @@ describe('production Academy context', () => {
       wiringHarnessInCart: true,
       quantityDiscount: true,
     });
-    academySandbox.generateQuote();
     academySandbox.saveLead();
+    academySandbox.generateQuote();
     academySandbox.startCase2();
 
     window.history.replaceState({}, '', '/portal/videos');

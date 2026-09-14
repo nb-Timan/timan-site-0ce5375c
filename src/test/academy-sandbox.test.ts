@@ -13,8 +13,8 @@ const completeInput = {
 function completeCase1() {
   academySandbox.startCase1();
   academySandbox.evaluate(completeInput);
-  academySandbox.generateQuote();
   academySandbox.saveLead();
+  academySandbox.generateQuote();
 }
 
 describe('Academy Case 1 sandbox', () => {
@@ -76,8 +76,8 @@ describe('Academy Case 1 sandbox', () => {
   it('completes only after every Case 1 criterion and persists the local lead', () => {
     academySandbox.startCase1();
     academySandbox.evaluate(completeInput);
-    academySandbox.generateQuote();
-    const state = academySandbox.saveLead();
+    academySandbox.saveLead();
+    const state = academySandbox.generateQuote();
 
     expect(state.completed).toBe(true);
     expect(state).toMatchObject({
@@ -117,22 +117,25 @@ describe('Academy Case 1 sandbox', () => {
     expect(state.completed).toBe(false);
   });
 
-  it('requires an Academy lead after every other requirement is met', () => {
+  it('requires the Academy lead before generating the training quote and completing the case', () => {
     academySandbox.startCase1();
     academySandbox.evaluate(completeInput);
-    academySandbox.generateQuote();
 
-    expect(academySandbox.getCase1().completed).toBe(false);
+    const blockedQuote = academySandbox.generateQuote();
+    expect(blockedQuote).toMatchObject({ leadId: null, quoteGenerated: false, completed: false });
     const saved = academySandbox.saveLead();
-    expect(saved.completed).toBe(true);
-    expect(academySandbox.getCase1()).toEqual(saved);
+    expect(saved).toMatchObject({ quoteGenerated: false, completed: false });
+
+    const completed = academySandbox.generateQuote();
+    expect(completed).toMatchObject({ leadId: saved.leadId, quoteGenerated: true, completed: true });
+    expect(academySandbox.getCase1()).toEqual(completed);
   });
 
   it('keeps a completed case after a fresh configurator evaluation', () => {
     academySandbox.startCase1();
     academySandbox.evaluate(completeInput);
-    academySandbox.generateQuote();
     academySandbox.saveLead();
+    academySandbox.generateQuote();
 
     const refreshed = academySandbox.evaluate({
       machineConfigs: [],

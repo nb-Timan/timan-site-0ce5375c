@@ -1724,6 +1724,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // button cannot trigger a second PDF/save/webhook.
   const downloadPdf = async (flowOverride?: ConfiguratorSubmitFlowType): Promise<boolean> => {
     if (academySandbox.isActive()) {
+      if (!academySandbox.getCase1().leadId) {
+        toast.error(tPortal('academyCase1NextLead', uiLanguage));
+        return false;
+      }
       setAcademyCase(academySandbox.generateQuote());
       toast.success('Academy-tilbud genereret lokalt');
       return true;
@@ -2698,14 +2702,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 { complete: academyCase.workLight, label: tPortal('academyCase1WorkLightSelected', uiLanguage) },
                 { complete: academyCase.wireHarness, label: tPortal('academyCase1HarnessAutomaticallyAdded', uiLanguage) },
               ] },
-              { title: tPortal('academyCase1GenerateQuote', uiLanguage), tasks: [{ complete: academyCase.quoteGenerated, label: tPortal('academyCase1QuoteGenerated', uiLanguage) }] },
               { title: tPortal('academyCase1SaveLead', uiLanguage), tasks: [{ complete: Boolean(academyCase.leadId), label: tPortal('academyCase1LeadSaved', uiLanguage) }] },
+              { title: tPortal('academyCase1GenerateQuote', uiLanguage), tasks: [{ complete: academyCase.quoteGenerated, label: tPortal('academyCase1QuoteGenerated', uiLanguage) }] },
             ]}
-            next={!academyCase.machine ? tPortal('academyCase1NextMachine', uiLanguage) : !academyCase.rc751 || !academyCase.quantityDiscount ? tPortal('academyCase1NextRc751', uiLanguage) : !academyCase.flail || !academyCase.requiredComponents ? tPortal('academyCase1NextTools', uiLanguage) : !academyCase.weedBrush || !academyCase.workLight || !academyCase.wireHarness ? tPortal('academyCase1NextEquipment', uiLanguage) : !academyCase.quoteGenerated ? tPortal('academyCase1NextQuote', uiLanguage) : tPortal('academyCase1NextLead', uiLanguage)}
+            next={!academyCase.machine ? tPortal('academyCase1NextMachine', uiLanguage) : !academyCase.rc751 || !academyCase.quantityDiscount ? tPortal('academyCase1NextRc751', uiLanguage) : !academyCase.flail || !academyCase.requiredComponents ? tPortal('academyCase1NextTools', uiLanguage) : !academyCase.weedBrush || !academyCase.workLight || !academyCase.wireHarness ? tPortal('academyCase1NextEquipment', uiLanguage) : !academyCase.leadId ? tPortal('academyCase1NextLead', uiLanguage) : !academyCase.quoteGenerated ? tPortal('academyCase1NextQuote', uiLanguage) : tPortal('academyCase1NextQuote', uiLanguage)}
             completion
             actions={<button type="button"
               onClick={() => setAcademyCase(academySandbox.generateQuote())}
-              disabled={academyCase.quoteGenerated}
+              disabled={academyCase.quoteGenerated || !academyCase.leadId}
               className="rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-60">
               {academyCase.quoteGenerated ? tPortal('academyCase1QuoteGenerated', uiLanguage) : tPortal('academyCase1GenerateQuote', uiLanguage)}
             </button>}
