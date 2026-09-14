@@ -18,6 +18,7 @@ import { clearViewAsCache } from "@/lib/viewAsUser";
 import { invalidateSellerDirectory } from "@/lib/sellerDirectory";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { t } from '@/lib/i18n/translations';
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import {
@@ -1116,6 +1117,8 @@ function EditUserModal({
 }
 
 function AcademyCycleManager({ user }: { user: BackendUser }) {
+  const { uiLanguage } = useLanguage();
+  const tr = (key: string) => t(key, uiLanguage);
   const [history, setHistory] = useState<AcademyCycleSnapshot[]>([]);
   const [cadence, setCadence] = useState<AcademyCadence>('manual');
   const [customDate, setCustomDate] = useState('');
@@ -1133,7 +1136,7 @@ function AcademyCycleManager({ user }: { user: BackendUser }) {
   };
 
   useEffect(() => {
-    void refresh().catch((error) => setMessage(error instanceof Error ? error.message : 'Kunne ikke hente Academy-historik.'));
+    void refresh().catch((error) => setMessage(error instanceof Error ? error.message : tr('academyAdminLoadError')));
   }, [user.id]);
 
   const latest = history[0]?.cycle ?? null;
@@ -1147,53 +1150,53 @@ function AcademyCycleManager({ user }: { user: BackendUser }) {
       await refresh();
       setMessage(success);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Academy-handlingen kunne ikke udføres.');
+      setMessage(error instanceof Error ? error.message : tr('academyAdminActionError'));
     } finally {
       setBusy(false);
     }
   };
 
   return (
-    <Section title="Academy-cyklus">
+    <Section title={tr('academyAdminTitle')}>
       <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 text-xs text-slate-700">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="font-bold text-slate-900">{active ? `Aktiv cyklus ${active.cycle_number}` : latest ? `Seneste cyklus ${latest.cycle_number} er gennemført` : 'Ingen Academy-cyklus startet'}</p>
-            <p className="mt-1 text-slate-600">Senest gennemført: {latest?.completed_at ? new Date(latest.completed_at).toLocaleDateString('da-DK') : '—'}</p>
+            <p className="font-bold text-slate-900">{active ? tr('academyAdminActiveCycle').replace('{number}', String(active.cycle_number)) : latest ? tr('academyAdminLatestCompleted').replace('{number}', String(latest.cycle_number)) : tr('academyAdminNoCycle')}</p>
+            <p className="mt-1 text-slate-600">{tr('academyAdminLastCompleted')}: {latest?.completed_at ? new Date(latest.completed_at).toLocaleDateString(uiLanguage) : '—'}</p>
           </div>
-          <span className="rounded-full bg-white px-2 py-1 font-semibold text-emerald-800">{history.filter((row) => row.cycle?.status === 'completed').length} gennemført</span>
+          <span className="rounded-full bg-white px-2 py-1 font-semibold text-emerald-800">{tr('academyAdminCompletedCount').replace('{count}', String(history.filter((row) => row.cycle?.status === 'completed').length))}</span>
         </div>
 
         <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Select
-            label="Gentagelse"
+            label={tr('academyAdminCadence')}
             value={cadence}
             onChange={(value) => setCadence(value as AcademyCadence)}
             options={[
-              { value: 'manual', label: 'Manuel' },
-              { value: 'annual', label: 'Årligt' },
-              { value: 'biennial', label: 'Hvert 2. år' },
-              { value: 'custom', label: 'Egen dato' },
+              { value: 'manual', label: tr('academyAdminManual') },
+              { value: 'annual', label: tr('academyAdminAnnual') },
+              { value: 'biennial', label: tr('academyAdminBiennial') },
+              { value: 'custom', label: tr('academyAdminCustomDate') },
             ]}
           />
-          {cadence === 'custom' && <Input label="Næste aktivering" type="date" value={customDate} onChange={setCustomDate} />}
+          {cadence === 'custom' && <Input label={tr('academyAdminNextActivation')} type="date" value={customDate} onChange={setCustomDate} />}
         </div>
 
-        <p className="mt-2 text-[11px] text-slate-600">Næste aktivering: {latest?.next_activation_at ? new Date(latest.next_activation_at).toLocaleDateString('da-DK') : cadence === 'annual' || cadence === 'biennial' ? 'Beregnes efter gennemført cyklus' : 'Ikke planlagt'}</p>
+        <p className="mt-2 text-[11px] text-slate-600">{tr('academyAdminNextActivation')}: {latest?.next_activation_at ? new Date(latest.next_activation_at).toLocaleDateString(uiLanguage) : cadence === 'annual' || cadence === 'biennial' ? tr('academyAdminAfterCompletion') : tr('academyAdminNotScheduled')}</p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" disabled={busy || !!active || (cadence === 'custom' && !customIso)} onClick={() => void run(() => startAcademyCycle(user.id, cadence, customIso), 'Ny Academy-cyklus er startet.')} className="rounded-md bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">Start ny cyklus</button>
-          <button type="button" disabled={busy || !latest || (cadence === 'custom' && !customIso)} onClick={() => void run(() => setAcademyCycleCadence(user.id, cadence, customIso), 'Academy-gentagelse er planlagt.')} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">Planlæg</button>
+          <button type="button" disabled={busy || !!active || (cadence === 'custom' && !customIso)} onClick={() => void run(() => startAcademyCycle(user.id, cadence, customIso), tr('academyAdminStarted'))} className="rounded-md bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">{tr('academyAdminStartCycle')}</button>
+          <button type="button" disabled={busy || !latest || (cadence === 'custom' && !customIso)} onClick={() => void run(() => setAcademyCycleCadence(user.id, cadence, customIso), tr('academyAdminScheduled'))} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">{tr('academyAdminSchedule')}</button>
           <button type="button" disabled={busy || !active} onClick={() => {
-            if (window.confirm('Nulstil den aktive Academy-cyklus? Den lokale træningsprogress starter forfra.')) {
-              void run(() => resetAcademyCycle(user.id), 'Aktiv Academy-cyklus er nulstillet.');
+            if (window.confirm(tr('academyAdminResetConfirm'))) {
+              void run(() => resetAcademyCycle(user.id), tr('academyAdminResetDone'));
             }
-          }} className="rounded-md border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">Nulstil aktiv</button>
+          }} className="rounded-md border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50">{tr('academyAdminReset')}</button>
         </div>
 
         {history.length > 0 && <details className="mt-3 rounded-md border border-emerald-100 bg-white p-2">
-          <summary className="cursor-pointer font-semibold text-slate-800">Historik ({history.length})</summary>
+          <summary className="cursor-pointer font-semibold text-slate-800">{tr('academyAdminHistory')} ({history.length})</summary>
           <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
-            {history.map((entry) => entry.cycle && <li key={entry.cycle.id}>Cyklus {entry.cycle.cycle_number}: {entry.cycle.status === 'completed' ? 'Gennemført' : 'Aktiv'} · {entry.completionIds.length}/8 opgaver{entry.awards.length ? ` · badges: ${entry.awards.join(', ')}` : ''}</li>)}
+            {history.map((entry) => entry.cycle && <li key={entry.cycle.id}>{tr('academyAdminCycle').replace('{number}', String(entry.cycle.cycle_number))}: {entry.cycle.status === 'completed' ? tr('academyStatusDone') : tr('academyStatusActive')} · {entry.completionIds.length}/8 {tr('academyAdminTasks')}{entry.awards.length ? ` · ${tr('academyBadges').toLowerCase()}: ${entry.awards.join(', ')}` : ''}</li>)}
           </ul>
         </details>}
         {message && <p className="mt-3 rounded-md bg-white px-2 py-1.5 text-[11px] text-slate-700">{message}</p>}

@@ -8,6 +8,7 @@ import VideoLibraryFilterBar from "@/components/video/VideoLibraryFilterBar";
 import { Button } from "@/components/ui/button";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
 import {
   DEFAULT_VIDEO_FILTERS,
@@ -34,6 +35,7 @@ import { getLocalAcademyUser } from "@/lib/academyCurriculum";
 export default function VideoGalleryPage() {
   const { appUser, loading, logout } = useAppUser();
   const { uiLanguage, language, setLanguage } = useLanguage();
+  const tr = (key: string) => t(key, uiLanguage);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<MarketingVideo[]>([]);
@@ -164,15 +166,15 @@ export default function VideoGalleryPage() {
       <main className="mx-auto flex-grow w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {isAcademyCase2 && (
           <AcademyGuidancePanel
-            title="Case 2 - Find en vedligeholdelsesvideo"
-            description="Brug det almindelige Video Galleri. Favoritter og øvrige video-data ændres ikke i Academy."
+            title={tr('academySalesCase2Title')}
+            description={tr('academyVideoDescription')}
             steps={[
-              { title: 'Filtrér på maskine', tasks: [{ label: 'Timan 3330 filtreret', complete: academyCase2.machineFiltered }] },
-              { title: 'Filtrér på indholdstype', tasks: [{ label: 'Vedligeholdelse filtreret', complete: academyCase2.maintenanceFiltered }] },
-              { title: 'Find den rigtige video', tasks: [{ label: 'Weed Brush-video fundet', complete: academyCase2.targetFound }] },
-              { title: 'Åbn videoen', tasks: [{ label: 'Weed Brush-video åbnet', complete: academyCase2.targetOpened }] },
+              { title: tr('academyVideoFilterMachine'), tasks: [{ label: tr('academyVideoMachineFiltered'), complete: academyCase2.machineFiltered }] },
+              { title: tr('academyVideoFilterType'), tasks: [{ label: tr('academyVideoMaintenanceFiltered'), complete: academyCase2.maintenanceFiltered }] },
+              { title: tr('academyVideoFindTarget'), tasks: [{ label: tr('academyVideoTargetFound'), complete: academyCase2.targetFound }] },
+              { title: tr('academyVideoOpenTarget'), tasks: [{ label: tr('academyVideoTargetOpened'), complete: academyCase2.targetOpened }] },
             ]}
-            next={!academyCase2.machineFiltered ? 'Trin 1: Filtrér på Timan 3330.' : !academyCase2.maintenanceFiltered ? 'Trin 2: Filtrér på Vedligeholdelse.' : !academyCase2.targetFound ? 'Trin 3: Find Weed Brush-videoen.' : 'Trin 4: Åbn Weed Brush-videoen.'}
+            next={!academyCase2.machineFiltered ? tr('academyVideoNext1') : !academyCase2.maintenanceFiltered ? tr('academyVideoNext2') : !academyCase2.targetFound ? tr('academyVideoNext3') : tr('academyVideoNext4')}
             completion
           />
         )}

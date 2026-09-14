@@ -31,7 +31,7 @@ export default function AcademyCrmGuidance({ part = academyCrmSandbox.getPart() 
     ] : [
       { title: tr('academyCrmActivity'), tasks: [{ label: tr('academyCrmActivityTask'), complete: progress.activityUpdated }] },
       { title: tr('academyCrmShare'), tasks: [{ label: tr('academyCrmShareTask'), complete: progress.shared }] },
-      { title: 'Opret lokal demo', tasks: [{ label: 'Lokal demo oprettet', complete: progress.demoConverted }] },
+      { title: tr('academyCrmCreateDemo'), tasks: [{ label: tr('academyCrmDemoCreated'), complete: progress.demoConverted }] },
     ]}
     next={part === 1 ? !progress.overdueUpdated ? tr('academyCrmOverdueTitle') : tr('academyCrmConfiguratorTitle') : !progress.activityUpdated ? tr('academyCrmActivity') : !progress.shared ? tr('academyCrmShare') : tr('academyCrmDemo')}
     completion={part === 1 ? { nextUnlock: tr('academyCrmCase2Title') } : true}

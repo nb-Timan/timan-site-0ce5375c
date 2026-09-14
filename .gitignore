@@ -13,7 +13,6 @@ dist-ssr
 *.local
 
 supabase/.temp/
-.forensic-runtime/
 public/import-preview/*.json
 
 # Editor directories and files

@@ -12,6 +12,7 @@ import { Search, ExternalLink, X, MapPin, User as UserIcon, AlertTriangle, Users
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import MiscPageShell from './MiscPageShell';
 import { useLanguage } from '@/context/LanguageContext';
+import { t as translate } from '@/lib/i18n/translations';
 import { useCountryFormatter } from '@/lib/formatCountry';
 import { Language } from '@/types/configurator';
 import { fetchDealerAccounts, fetchDealerAccountStats, isDealerCustomerAccount, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
@@ -1381,6 +1382,7 @@ function SelectedVisibilityGuard({
 
 export default function PartnerMapPage() {
   const { language: lang, uiLanguage } = useLanguage();
+  const tr = (key: string) => translate(key, uiLanguage);
   const { formatCountry } = useCountryFormatter();
   const { appUser: sessionUser } = useAppUser();
   const academyMode = academyPartnerDataSandbox.isActive();
@@ -1903,24 +1905,24 @@ export default function PartnerMapPage() {
       {academyPartnerMap && (() => {
         const progress = academySandbox.getPartnerMap();
         const tasks = [
-          { label: 'Din egen forhandler vises på kortet', complete: progress.ownDealerShown },
-          { label: 'Brug fuldskærm', complete: progress.fullscreenUsed },
-          { label: 'Aktivér laget Garantiregistreringer', complete: progress.warrantyLayerShown },
-          { label: 'Find og åbn en af dine egne garantiregistreringer', complete: progress.warrantyOpened },
-          ...(progress.requiresServiceDetail ? [{ label: 'Åbn maskinen i Teknik & Service', complete: progress.serviceDetailOpened }] : []),
+          { label: tr('academyMapOwnDealer'), complete: progress.ownDealerShown },
+          { label: tr('academyMapFullscreen'), complete: progress.fullscreenUsed },
+          { label: tr('academyMapWarrantyLayer'), complete: progress.warrantyLayerShown },
+          { label: tr('academyMapWarrantyOpen'), complete: progress.warrantyOpened },
+          ...(progress.requiresServiceDetail ? [{ label: tr('academyMapServiceOpen'), complete: progress.serviceDetailOpened }] : []),
         ];
-        const next = !progress.ownDealerShown ? 'Vent et øjeblik mens kortet fokuserer på din egen forhandler.'
-          : !progress.fullscreenUsed ? 'Brug kortets fuldskærmsknap.'
-            : !progress.warrantyLayerShown ? 'Aktivér laget Garantiregistreringer.'
-              : !progress.warrantyOpened ? 'Klik på en orange garanti-markør og åbn registreringen.'
-                : progress.requiresServiceDetail && !progress.serviceDetailOpened ? 'Åbn den viste maskine i Teknik & Service.'
-                  : 'Partnerkort-opgaven er gennemført.';
-        return <div id="academy-guidance"><AcademyGuidancePanel title="Partnerkort" description="Arbejd i det almindelige Partnerkort. Kortet viser kun din egen forhandler og dine tilladte garantiregistreringer."
+        const next = !progress.ownDealerShown ? tr('academyMapNext1')
+          : !progress.fullscreenUsed ? tr('academyMapNext2')
+            : !progress.warrantyLayerShown ? tr('academyMapNext3')
+              : !progress.warrantyOpened ? tr('academyMapNext4')
+                : progress.requiresServiceDetail && !progress.serviceDetailOpened ? tr('academyMapNext5')
+                  : tr('academyMapComplete');
+        return <div id="academy-guidance"><AcademyGuidancePanel title={tr('academyPartnerMapTitle')} description={tr('academyMapDescription')}
           tasks={tasks} next={next} completion /></div>;
       })()}
-      {academyMode && !academyPartnerMap && <AcademyGuidancePanel title="Portal Basics - Partnerkort" description="Det almindelige Partnerkort med lokale Academy-partnere."
-        tasks={[{ label: 'Område/layer ændret', complete: academySandbox.getPortalBasics().mapAreaChanged }]}
-        next="Vælg et område i kortets områdevælger." />}
+      {academyMode && !academyPartnerMap && <AcademyGuidancePanel title={tr('academyPortalBasicsMapTitle')} description={tr('academyPortalBasicsMapDescription')}
+        tasks={[{ label: tr('academyPortalBasicsMapTask'), complete: academySandbox.getPortalBasics().mapAreaChanged }]}
+        next={tr('academyPortalBasicsMapNext')} />}
       <style>{`
         .pm-pin-wrap { background:transparent !important; border:none !important; }
         .pm-pin { position:relative; width:36px; height:44px; transition:transform .15s ease; cursor:pointer; }

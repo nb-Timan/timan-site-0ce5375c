@@ -3,8 +3,12 @@ import { Link } from 'react-router-dom';
 import AcademyGuidancePanel from './AcademyGuidancePanel';
 import { academyPartnerDataSandbox as sandbox, ACADEMY_PARTNER_CHANGED } from '@/lib/academyPartnerDataSandbox';
 import { ACADEMY_PROGRESS_CHANGED, academySandbox } from '@/lib/academySandbox';
+import { useOptionalLanguage } from '@/context/LanguageContext';
+import { t } from '@/lib/i18n/translations';
 
 export default function AcademyPartnerDataGuidance() {
+  const { uiLanguage } = useOptionalLanguage();
+  const tr = (key: string) => t(key, uiLanguage);
   const [, refresh] = useState(0);
   useEffect(() => {
     const update = () => refresh((n) => n + 1);
@@ -22,58 +26,58 @@ export default function AcademyPartnerDataGuidance() {
   const part = academySandbox.getActiveCase() === 'portal.basics_5' ? null : state.activePart;
   const tasks = part === 1 || part === 2 ? [] : [
     {
-      label: 'Åbn Partnerdata',
-      description: 'Gå ind under Partnerdata og se dine forhandlere.',
+      label: tr('academyPartnerDataOpen'),
+      description: tr('academyPartnerDataOpenDescription'),
       complete: portalBasics.partnerDataOpened,
     },
     {
-      label: 'Brug Timan-logoet til at gå tilbage til forsiden',
-      description: 'Klik på Timan-logoet øverst til venstre. Timan-logoet fungerer altid som genvej tilbage til portalens forside.',
+      label: tr('academyPartnerDataLogo'),
+      description: tr('academyPartnerDataLogoDescription'),
       complete: portalBasics.returnedHomeFromPartnerData,
     },
   ];
   const portalBasicsNext = !portalBasics.partnerDataOpened
-    ? 'Gå ind under Partnerdata og se dine forhandlere.'
+    ? tr('academyPartnerDataOpenDescription')
     : !portalBasics.returnedHomeFromPartnerData
-      ? 'Klik nu på Timan-logoet øverst til venstre for at gå tilbage til portalens forside.'
-      : 'Partnerdata og Timan-logoet er gennemført.';
+      ? tr('academyPartnerDataLogoNext')
+      : tr('academyPartnerDataLogoComplete');
   const part1Next = !progress.academyMachineOpened
-    ? 'Trin 1: Åbn Academy Maskiner.'
+    ? tr('academyPartnerDataStep1')
     : !progress.companyDataOpened
-      ? 'Trin 2: Gå til Virksomheds- og persondata.'
+      ? tr('academyPartnerDataStep2')
       : !progress.salesContactSaved
-        ? 'Trin 3: Gem en kontaktperson under Salg.'
+        ? tr('academyPartnerDataStep3')
         : !progress.primarySalesContactSelected
-          ? 'Trin 4: Vælg kontaktpersonen som første kontakt.'
+          ? tr('academyPartnerDataStep4')
           : !progress.websiteAdded
-            ? 'Trin 5: Tilføj virksomhedens hjemmesideadresse.'
+            ? tr('academyPartnerDataStep5')
             : !progress.youtubeAdded
-              ? 'Trin 5: Tilføj Academy YouTube-kanalen.'
-              : 'Alle oplysninger er gemt lokalt.';
+              ? tr('academyPartnerDataStep6')
+              : tr('academyPartnerDataComplete');
   return <>
-    <AcademyGuidancePanel title={part ? `Partnerdata - Part ${part}` : 'Portal Basics - Partnerdata'}
-      description="Du bruger den almindelige Partnerdata-side med lokale Academy-data."
+    <AcademyGuidancePanel title={part === 1 ? tr('academyPartnerDataPart1Title') : part === 2 ? tr('academyPartnerDataPart2Title') : tr('academyPortalBasicsPartnerDataTitle')}
+      description={tr('academyPartnerDataDescription')}
       explanation={part === 1 ? <>
-        <p className="font-semibold">Hvorfor denne opgave?</p>
-        <p className="mt-1">Én gang om året skal I gennemgå jeres virksomheds- og kontaktoplysninger og sikre, at de stadig er korrekte. Det hjælper både jer og Timan med at undgå at bruge tid på forkerte kontaktpersoner, gamle telefonnumre eller manglende oplysninger.</p>
-        <p className="mt-2">I en travl hverdag bliver den slags oplysninger ikke altid opdateret løbende. Derfor vil I én gang om året blive bedt om at kontrollere og opdatere jeres kontaktdata.</p>
+        <p className="font-semibold">{tr('academyWhyThisTask')}</p>
+        <p className="mt-1">{tr('academyPartnerDataWhyOne')}</p>
+        <p className="mt-2">{tr('academyPartnerDataWhyTwo')}</p>
       </> : undefined}
       tasks={tasks}
       steps={part === 1 ? [
-        { title: 'Åbn Academy Maskiner', tasks: [{ label: 'Academy Maskiner åbnet', complete: progress.academyMachineOpened }] },
-        { title: 'Gå til Virksomheds- og persondata', tasks: [{ label: 'Virksomheds- og persondata åbnet', complete: progress.companyDataOpened }] },
-        { title: 'Gem en kontaktperson under Salg', tasks: [{ label: 'Kontaktperson under Salg gemt', complete: progress.salesContactSaved }] },
-        { title: 'Vælg første kontakt', tasks: [{ label: 'Første kontakt valgt', complete: progress.primarySalesContactSelected }] },
-        { title: 'Tilføj hjemmesideadresse', tasks: [
-          { label: 'Hjemmesideadresse tilføjet', complete: progress.websiteAdded },
-          { label: 'YouTube-kanal gemt', complete: progress.youtubeAdded },
+        { title: tr('academyPartnerDataMachine'), tasks: [{ label: tr('academyPartnerDataMachineOpened'), complete: progress.academyMachineOpened }] },
+        { title: tr('academyPartnerDataCompany'), tasks: [{ label: tr('academyPartnerDataCompanyOpened'), complete: progress.companyDataOpened }] },
+        { title: tr('academyPartnerDataContact'), tasks: [{ label: tr('academyPartnerDataContactSaved'), complete: progress.salesContactSaved }] },
+        { title: tr('academyPartnerDataPrimary'), tasks: [{ label: tr('academyPartnerDataPrimarySelected'), complete: progress.primarySalesContactSelected }] },
+        { title: tr('academyPartnerDataWebsite'), tasks: [
+          { label: tr('academyPartnerDataWebsiteAdded'), complete: progress.websiteAdded },
+          { label: tr('academyPartnerDataYoutubeSaved'), complete: progress.youtubeAdded },
         ] },
       ] : part === 2 ? [
-        { title: 'Læs partnerrelationen', tasks: [{ label: 'Partnerrelation læst i Aftalehistorik', complete: state.relationReviewed }] },
-        { title: 'Udfyld fakturaaccept', tasks: [{ label: 'Fakturaaccept indsendt lokalt', complete: progress.invoiceFlowReviewed }] },
+        { title: tr('academyPartnerDataRelation'), tasks: [{ label: tr('academyPartnerDataRelationRead'), complete: state.relationReviewed }] },
+        { title: tr('academyPartnerDataInvoice'), tasks: [{ label: tr('academyPartnerDataInvoiceSaved'), complete: progress.invoiceFlowReviewed }] },
       ] : undefined}
-      next={part === 1 ? part1Next : part === 2 ? !state.relationReviewed ? 'Trin 1: Læs relationen i Aftalehistorik.' : 'Trin 2: Udfyld fakturaaccepten for Academy Servicepartner.' : portalBasicsNext}
-      completion={part === 1 ? { nextUnlock: 'Partnerdata - Part 2 - Samarbejdspartnere og fakturering' } : part === 2} />
-    {part === 2 && <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to="/portal/misc/forms/dealer-invoice-accept?academy_mode=true">Åbn Forhandler Accept - Fakturering</Link>}
+      next={part === 1 ? part1Next : part === 2 ? !state.relationReviewed ? tr('academyPartnerDataPart2Step1') : tr('academyPartnerDataPart2Step2') : portalBasicsNext}
+      completion={part === 1 ? { nextUnlock: tr('academyPartnerDataPart2Title') } : part === 2} />
+    {part === 2 && <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to="/portal/misc/forms/dealer-invoice-accept?academy_mode=true">{tr('academyPartnerDataOpenInvoice')}</Link>}
   </>;
 }

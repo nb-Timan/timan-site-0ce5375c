@@ -62,9 +62,9 @@ describe('Academy cycles and completion history', () => {
   it('exposes canonical cycle management in the existing Backend user editor', () => {
     const editor = readFileSync('src/pages/backend/BackendUsersPage.tsx', 'utf8');
     expect(editor).toContain('<AcademyCycleManager user={user} />');
-    expect(editor).toContain('Start ny cyklus');
-    expect(editor).toContain('Nulstil aktiv');
-    expect(editor).toContain('Historik');
+    expect(editor).toContain("academyAdminStartCycle");
+    expect(editor).toContain("academyAdminReset");
+    expect(editor).toContain("academyAdminHistory");
   });
 
   it('renders badge totals from canonical award history, not completed-cycle arithmetic', () => {

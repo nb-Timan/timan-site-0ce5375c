@@ -2680,33 +2680,33 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       {isAcademyMode && (
         <div className="mx-auto w-full max-w-6xl">
           <AcademyGuidancePanel
-            title="Case 1 - Byg korrekt RC-1000 ordre"
-            description="Intet tilbud, lead, mail eller ordre sendes til produktion."
+            title={tPortal('academySalesCase1Title', uiLanguage)}
+            description={tPortal('academyConfiguratorDescription', uiLanguage)}
             steps={[
-              { title: 'Vælg maskine', tasks: [{ complete: academyCase.machine, label: 'RC-1000s valgt' }] },
-              { title: 'Tilføj redskaber', tasks: [
-                { complete: academyCase.flail, label: 'Slagleklipper 410910 valgt' },
-                { complete: academyCase.weedBrush, label: 'Ukrudtsbørste 730600 valgt' },
-                { complete: academyCase.requiredComponents, label: 'Beslag 412603 valgt' },
+              { title: tPortal('academyCase1ChooseMachine', uiLanguage), tasks: [{ complete: academyCase.machine, label: tPortal('academyCase1MachineSelected', uiLanguage) }] },
+              { title: tPortal('academyCase1AddTools', uiLanguage), tasks: [
+                { complete: academyCase.flail, label: tPortal('academyCase1FlailSelected', uiLanguage) },
+                { complete: academyCase.weedBrush, label: tPortal('academyCase1BrushSelected', uiLanguage) },
+                { complete: academyCase.requiredComponents, label: tPortal('academyCase1BracketSelected', uiLanguage) },
               ] },
-              { title: 'Tilføj nødvendigt ekstraudstyr', description: 'Arbejdslys kræver ledningsnet. Kontrollér, at begge er valgt.', tasks: [
-                { complete: academyCase.workLight, label: 'Arbejdslys 412594 valgt' },
-                { complete: academyCase.wireHarness, label: 'Ledningsnet 412614 tilføjet' },
+              { title: tPortal('academyCase1AddEquipment', uiLanguage), description: tPortal('academyCase1EquipmentHelp', uiLanguage), tasks: [
+                { complete: academyCase.workLight, label: tPortal('academyCase1WorkLightSelected', uiLanguage) },
+                { complete: academyCase.wireHarness, label: tPortal('academyCase1HarnessAdded', uiLanguage) },
               ] },
-              { title: 'Tilføj rabatter', tasks: [
-                { complete: academyCase.quantityDiscount, label: 'Mængderabat opnået' },
-                { complete: academyCase.deliveryDiscount, label: 'Leveringsrabat opnået' },
+              { title: tPortal('academyCase1AddDiscounts', uiLanguage), tasks: [
+                { complete: academyCase.quantityDiscount, label: tPortal('academyCase1QuantityDiscount', uiLanguage) },
+                { complete: academyCase.deliveryDiscount, label: tPortal('academyCase1DeliveryDiscount', uiLanguage) },
               ] },
-              { title: 'Generér træningstilbud', tasks: [{ complete: academyCase.quoteGenerated, label: 'Tilbud genereret' }] },
-              { title: 'Gem sagen som Academy-lead', tasks: [{ complete: Boolean(academyCase.leadId), label: 'Gemt som Academy-lead' }] },
+              { title: tPortal('academyCase1GenerateQuote', uiLanguage), tasks: [{ complete: academyCase.quoteGenerated, label: tPortal('academyCase1QuoteGenerated', uiLanguage) }] },
+              { title: tPortal('academyCase1SaveLead', uiLanguage), tasks: [{ complete: Boolean(academyCase.leadId), label: tPortal('academyCase1LeadSaved', uiLanguage) }] },
             ]}
-            next={!academyCase.machine ? 'Trin 1: Vælg RC-1000s.' : !academyCase.flail || !academyCase.weedBrush || !academyCase.requiredComponents ? 'Trin 2: Tilføj de tre krævede redskaber.' : !academyCase.workLight || !academyCase.wireHarness ? 'Trin 3: Tilføj arbejdslys og ledningsnet.' : !academyCase.quantityDiscount || !academyCase.deliveryDiscount ? 'Trin 4: Opnå mængde- og leveringsrabat.' : !academyCase.quoteGenerated ? 'Trin 5: Generér træningstilbuddet.' : 'Trin 6: Gem sagen som Academy-lead.'}
+            next={!academyCase.machine ? tPortal('academyCase1Next1', uiLanguage) : !academyCase.flail || !academyCase.weedBrush || !academyCase.requiredComponents ? tPortal('academyCase1Next2', uiLanguage) : !academyCase.workLight || !academyCase.wireHarness ? tPortal('academyCase1Next3', uiLanguage) : !academyCase.quantityDiscount || !academyCase.deliveryDiscount ? tPortal('academyCase1Next4', uiLanguage) : !academyCase.quoteGenerated ? tPortal('academyCase1Next5', uiLanguage) : tPortal('academyCase1Next6', uiLanguage)}
             completion
             actions={<button type="button"
               onClick={() => setAcademyCase(academySandbox.generateQuote())}
               disabled={academyCase.quoteGenerated}
               className="rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-60">
-              {academyCase.quoteGenerated ? 'Træningstilbud genereret' : 'Generér træningstilbud'}
+              {academyCase.quoteGenerated ? tPortal('academyCase1QuoteGenerated', uiLanguage) : tPortal('academyCase1GenerateQuote', uiLanguage)}
             </button>}
           />
         </div>
@@ -3580,7 +3580,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               const label = isTimanMesseUser
                 ? ({ da: 'Gem som lead og send ordre', en: 'Save lead and send order', de: 'Lead speichern und Bestellung senden', it: 'Salva lead e invia ordine', hu: 'Lead mentése és rendelés küldése' }[lang])
                 : isAcademyMode
-                  ? 'Gem som Academy-lead'
+                  ? tPortal('academyCase1SaveLead', uiLanguage)
                   : ({ da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang]);
               const isActionBlockedByExistingLead = !isAcademyMode && !isTimanMesseUser && !!linkedLeadId;
               const disabledTitle = !hasRequired

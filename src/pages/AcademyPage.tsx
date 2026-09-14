@@ -34,17 +34,10 @@ import {
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
+import { t } from '@/lib/i18n/translations';
 import { cn } from '@/lib/utils';
 
 type State = 'new' | 'active' | 'ready' | 'done' | 'locked';
-
-const labels: Record<State, string> = {
-  new: 'Ny',
-  active: 'I gang',
-  ready: 'Klar',
-  done: 'Gennemført',
-  locked: 'Låst',
-};
 
 function ProgressBar({ value, gold = false }: { value: number; gold?: boolean }) {
   return (
@@ -57,7 +50,7 @@ function ProgressBar({ value, gold = false }: { value: number; gold?: boolean })
   );
 }
 
-function Status({ state }: { state: State }) {
+function Status({ state, label }: { state: State; label: string }) {
   return (
     <span
       className={cn(
@@ -70,7 +63,7 @@ function Status({ state }: { state: State }) {
       )}
     >
       {state === 'locked' ? <Lock className="h-3 w-3" /> : state === 'done' ? <CheckCircle2 className="h-3 w-3" /> : null}
-      {labels[state]}
+      {label}
     </span>
   );
 }
@@ -95,11 +88,12 @@ function Module({ icon: Icon, title, progress, children }: {
   );
 }
 
-function LockedModule({ icon: Icon, title, progress, description }: {
+function LockedModule({ icon: Icon, title, progress, description, lockedLabel }: {
   icon: typeof ShoppingCart;
   title: string;
   progress: string;
   description: string;
+  lockedLabel: string;
 }) {
   return (
     <section className="flex min-h-[104px] flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3.5">
@@ -114,17 +108,18 @@ function LockedModule({ icon: Icon, title, progress, description }: {
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className="text-xs font-medium text-slate-500">{progress}</span>
-        <Status state="locked" />
+        <Status state="locked" label={lockedLabel} />
       </div>
     </section>
   );
 }
 
-function AcademyRow({ image, title, description, state, action, onClick }: {
+function AcademyRow({ image, title, description, state, statusLabel, action, onClick }: {
   image?: string;
   title: string;
   description: string;
   state: State;
+  statusLabel: string;
   action?: string;
   onClick?: () => void;
 }) {
@@ -138,7 +133,7 @@ function AcademyRow({ image, title, description, state, action, onClick }: {
         <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-slate-500">{description}</p>
       </div>
       <div className="flex items-center gap-3">
-        <Status state={state} />
+        <Status state={state} label={statusLabel} />
         {action && (
           <button type="button" onClick={onClick} className="inline-flex items-center gap-1 rounded-md bg-[#126a45] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#0f5a3b]">
             {action}
@@ -167,7 +162,9 @@ export default function AcademyPage() {
   const [params] = useSearchParams();
   const { appUser, logout } = useAppUser();
   const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
-  const { language, setLanguage } = useLanguage();
+  const { language, uiLanguage, setLanguage } = useLanguage();
+  const tr = (key: string) => t(key, uiLanguage);
+  const stateLabel = (state: State) => tr(`academyStatus${state[0].toUpperCase()}${state.slice(1)}`);
   const [cycleSnapshot, setCycleSnapshot] = useState<AcademyCycleSnapshot | null>(null);
   const [cycleResolved, setCycleResolved] = useState(false);
   const [, setProgressVersion] = useState(0);
@@ -256,7 +253,7 @@ export default function AcademyPage() {
   const completedCycles = cycleSnapshot?.completedCycleCount ?? 0;
   const awardCounts = cycleSnapshot?.awardCounts ?? { bronze: 0, silver: 0, gold: 0 };
   const currentCycleAwards = cycleSnapshot?.awards ?? [];
-  const nextAward = !currentCycleAwards.includes('bronze') ? 'Bronze' : !currentCycleAwards.includes('silver') ? 'Sølv' : !currentCycleAwards.includes('gold') ? 'Guld' : 'Alle badges optjent';
+  const nextAward = !currentCycleAwards.includes('bronze') ? tr('academyAwardBronze') : !currentCycleAwards.includes('silver') ? tr('academyAwardSilver') : !currentCycleAwards.includes('gold') ? tr('academyAwardGold') : tr('academyAllBadges');
 
   useEffect(() => {
     if (!activeCycle) return;
@@ -346,9 +343,9 @@ export default function AcademyPage() {
         <div className="mx-auto w-full max-w-[1600px]">
           <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-sm sm:px-7">
             <div className="relative z-10 max-w-2xl">
-              <h1 className="text-3xl font-bold text-slate-900">Min Academy</h1>
-              <p className="mt-1.5 max-w-xl text-sm leading-5 text-slate-600">Academy træningsmiljø. Du arbejder med træningsdata. Ingen rigtige kunder, mails eller salgsdata påvirkes.</p>
-              <p className="mt-2 text-xs font-semibold text-emerald-800">{cycle ? `Academy-cyklus ${cycle.cycle_number}${cycle.status === 'completed' ? ' gennemført' : ' aktiv'}` : 'Lokal Academy-preview'}</p>
+              <h1 className="text-3xl font-bold text-slate-900">{tr('academyTitle')}</h1>
+              <p className="mt-1.5 max-w-xl text-sm leading-5 text-slate-600">{tr('academySandboxNotice')}</p>
+              <p className="mt-2 text-xs font-semibold text-emerald-800">{cycle ? (cycle.status === 'completed' ? tr('academyCycleCompleted') : tr('academyCycleActive')).replace('{number}', String(cycle.cycle_number)) : tr('academyLocalPreview')}</p>
             </div>
             <img src="/messe/machines/rc-1000s-tile.png" alt="" className="pointer-events-none absolute right-6 top-1/2 hidden h-[115%] w-64 -translate-y-1/2 object-contain opacity-70 xl:block" />
           </section>
@@ -356,44 +353,44 @@ export default function AcademyPage() {
           {params.get('locked') && (
             <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
               <LockKeyhole className="h-4 w-4" />
-              Denne funktion kræver Academy. Gennemfør det relevante forløb først.
+              {tr('academyNeedsAcademy')}
             </div>
           )}
 
           {accessBlocked && (
             <div className="mt-4 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
               <LockKeyhole className="h-4 w-4 shrink-0" />
-              Der er ikke noget aktivt Academy-forløb. Kontakt din administrator.
+              {tr('academyNoActiveCycle')}
             </div>
           )}
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <section className="min-h-[154px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><BarChart3 className="h-4 w-4 text-[#126a45]" />Din progression</div>
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><BarChart3 className="h-4 w-4 text-[#126a45]" />{tr('academyProgress')}</div>
               <div className="mt-4 text-2xl font-bold text-slate-900">{overallCompleted} / {overallTotal}</div>
               <ProgressBar value={overallPercentage} />
-              <p className="mt-2 text-xs font-medium text-slate-500">{Math.round(overallPercentage)}% gennemført{cycle ? ` i cyklus ${cycle.cycle_number}` : ''}</p>
+              <p className="mt-2 text-xs font-medium text-slate-500">{Math.round(overallPercentage)}% {tr('academyCompleted')}{cycle ? ` · ${tr('academyCycleLabel')} ${cycle.cycle_number}` : ''}</p>
             </section>
             <section className="min-h-[154px] rounded-xl border border-amber-300 bg-amber-50/70 p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Lock className="h-4 w-4 text-amber-700" />Næste oplåsning</div>
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Lock className="h-4 w-4 text-amber-700" />{tr('academyNextUnlock')}</div>
               <p className="mt-3 text-sm font-bold text-slate-900">Konfigurator</p>
-              <p className="mt-1 min-h-8 text-xs leading-4 text-slate-700">{unlocked ? 'Konfigurator er nu låst op.' : 'Gennemfør Sales Case 1 for at få adgang.'}</p>
+              <p className="mt-1 min-h-8 text-xs leading-4 text-slate-700">{unlocked ? tr('academyConfiguratorUnlocked') : tr('academyCompleteSalesCase1')}</p>
               <ProgressBar value={configurator.total ? configurator.completedCount / configurator.total * 100 : 0} gold />
-              <p className="mt-2 text-xs font-bold text-slate-700">{configurator.completedCount} / {configurator.total} gennemført</p>
+              <p className="mt-2 text-xs font-bold text-slate-700">{configurator.completedCount} / {configurator.total} {tr('academyCompleted')}</p>
             </section>
             <section className="min-h-[154px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Trophy className="h-4 w-4 text-amber-600" />Næste milepæl</div>
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Trophy className="h-4 w-4 text-amber-600" />{tr('academyNextMilestone')}</div>
               <p className="mt-3 text-lg font-bold text-slate-900">{nextAward}</p>
-              <p className="mt-1 text-xs leading-4 text-slate-600">{currentCycleAwards.length === 3 ? 'Alle badges er optjent i denne cyklus.' : completedCycles ? `${completedCycles} tidligere gennemførte cyklus${completedCycles === 1 ? '' : 'ser'}` : 'Gennemfør grundlæggende Sales-opgaver.'}</p>
+              <p className="mt-1 text-xs leading-4 text-slate-600">{currentCycleAwards.length === 3 ? tr('academyAllBadges') : completedCycles ? tr('academyCompletedCycles').replace('{count}', String(completedCycles)) : tr('academyCompleteSalesTasks')}</p>
               <ProgressBar value={overallPercentage} />
               <p className="mt-2 text-xs font-bold text-slate-600">{overallCompleted} / {overallTotal}</p>
             </section>
             <section className="min-h-[154px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Medal className="h-4 w-4 text-[#126a45]" />Badges</div>
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Medal className="h-4 w-4 text-[#126a45]" />{tr('academyBadges')}</div>
               <div className="mt-3 space-y-2 text-xs">
-                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-800"><Medal className="h-4 w-4 text-[#b77939]" />Bronze</span><span className="text-slate-500">× {awardCounts.bronze}</span></div>
-                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><ShieldCheck className="h-4 w-4 text-slate-400" />Sølv</span><span className="text-slate-500">× {awardCounts.silver}</span></div>
-                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><Crown className="h-4 w-4 text-amber-500" />Guld</span><span className="text-slate-500">× {awardCounts.gold}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-800"><Medal className="h-4 w-4 text-[#b77939]" />{tr('academyAwardBronze')}</span><span className="text-slate-500">× {awardCounts.bronze}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><ShieldCheck className="h-4 w-4 text-slate-400" />{tr('academyAwardSilver')}</span><span className="text-slate-500">× {awardCounts.silver}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><Crown className="h-4 w-4 text-amber-500" />{tr('academyAwardGold')}</span><span className="text-slate-500">× {awardCounts.gold}</span></div>
               </div>
             </section>
           </div>
@@ -401,49 +398,49 @@ export default function AcademyPage() {
           <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
             <section className="relative min-h-[174px] overflow-hidden rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
               <div className="relative z-10">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><CirclePlay className="h-4 w-4 text-[#126a45]" />Fortsæt hvor jeg slap</div>
-                <p className="mt-3 text-sm font-bold text-slate-900">{academySandbox.getActiveCase() ? 'Din aktive Academy-opgave' : 'Case 1 - Byg korrekt RC-1000 ordre'}</p>
-                <p className="mt-1 text-xs text-slate-500">{academySandbox.getActiveCase() ? 'Genoptag opgaven med din gemte fremgang.' : `${requirements} af 10 krav opfyldt`}</p>
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><CirclePlay className="h-4 w-4 text-[#126a45]" />{tr('academyContinueWhere')}</div>
+                <p className="mt-3 text-sm font-bold text-slate-900">{academySandbox.getActiveCase() ? tr('academyActiveTask') : tr('academySalesCase1Title')}</p>
+                <p className="mt-1 text-xs text-slate-500">{academySandbox.getActiveCase() ? tr('academyResumeTask') : tr('academyRequirementsProgress').replace('{completed}', String(requirements)).replace('{total}', '10')}</p>
                 {!accessBlocked && <button type="button" onClick={() => academySandbox.getActiveCase() ? navigate(academySandbox.getContinueRoute()) : startCase()} className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#126a45] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0f5a3b]">
-                  {academySandbox.getActiveCase() || task.started ? 'Fortsæt' : 'Start'}
+                  {academySandbox.getActiveCase() || task.started ? tr('academyContinue') : tr('academyStart')}
                   <ArrowRight className="h-3.5 w-3.5" />
                 </button>}
               </div>
               <img src="/messe/machines/rc-1000s-tile.png" alt="" className="pointer-events-none absolute -bottom-6 right-2 h-36 w-36 object-contain opacity-80" />
             </section>
             <section className="min-h-[174px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Map className="h-4 w-4 text-[#126a45]" />Din Sales Academy</div>
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Map className="h-4 w-4 text-[#126a45]" />{tr('academySalesJourney')}</div>
               <div className="relative mt-6 flex items-start justify-between">
                 <div className="absolute left-[12%] right-[12%] top-[18px] h-px bg-slate-200" />
-                <Journey icon={ShoppingCart} label="Konfigurator" active={unlocked} />
+                <Journey icon={ShoppingCart} label={tr('academyConfigurator')} active={unlocked} />
                 <Journey icon={Users} label="CRM" active={crm.part1Completed} />
-                <Journey icon={CirclePlay} label="Demo" active={crm.part2Completed} />
-                <Journey icon={Gem} label="Tilbud & ordre" />
+                <Journey icon={CirclePlay} label={tr('academyDemo')} active={crm.part2Completed} />
+                <Journey icon={Gem} label={tr('academyQuoteOrder')} />
               </div>
             </section>
           </div>
 
           <div className="mt-4 grid items-start gap-3 lg:grid-cols-2">
-            <Module icon={ShoppingCart} title="Salg" progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 gennemført`}>
-              <AcademyRow image="/messe/machines/rc-1000s-tile.png" title="Case 1 - Byg korrekt RC-1000 ordre" description="Konfigurer RC-1000 med nødvendigt udstyr, rabatter og Academy-lead." state={caseState} action={academyAction(task.started ? 'Fortsæt' : 'Start')} onClick={accessBlocked ? undefined : startCase} />
-              <AcademyRow image="/messe/machines/timan-3330-tile.png" title="Case 2 - Find en vedligeholdelsesvideo" description="Find og åbn den korrekte Weed Brush-vedligeholdelsesvideo for Timan 3330." state={videoCaseState} action={academyAction(case2Unlocked ? (videoTask.started ? 'Fortsæt' : 'Start') : undefined)} onClick={accessBlocked ? undefined : case2Unlocked ? startVideoCase : undefined} />
+            <Module icon={ShoppingCart} title={tr('academySales')} progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 ${tr('academyCompleted')}`}>
+              <AcademyRow image="/messe/machines/rc-1000s-tile.png" title={tr('academySalesCase1Title')} description={tr('academySalesCase1Description')} state={caseState} statusLabel={stateLabel(caseState)} action={academyAction(task.started ? tr('academyContinue') : tr('academyStart'))} onClick={accessBlocked ? undefined : startCase} />
+              <AcademyRow image="/messe/machines/timan-3330-tile.png" title={tr('academySalesCase2Title')} description={tr('academySalesCase2Description')} state={videoCaseState} statusLabel={stateLabel(videoCaseState)} action={academyAction(case2Unlocked ? (videoTask.started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={accessBlocked ? undefined : case2Unlocked ? startVideoCase : undefined} />
             </Module>
-            <Module icon={Map} title="Portal Basics" progress={`${Number(portalBasics.completed) + Number(partnerMap.completed)} / 2 gennemført`}>
-              <AcademyRow title="Portal Basics - 5 hurtige" description="Skift sprog, besøg Partnerdata, brug fuldskærm, ændr partnerkort og åbn den rigtige nyhed." state={portalBasicsState} action={academyAction(portalBasics.started ? 'Fortsæt' : 'Start')} onClick={accessBlocked ? undefined : startPortalBasics} />
-              <AcademyRow title="Partnerkort" description="Find din egen forhandler, brug kortets værktøjer og åbn en garantiregistrering." state={partnerMapState} action={academyAction(partnerMapUnlocked ? (partnerMap.started ? 'Fortsæt' : 'Start') : undefined)} onClick={accessBlocked ? undefined : partnerMapUnlocked ? startPartnerMap : undefined} />
+            <Module icon={Map} title={tr('academyPortalBasics')} progress={`${Number(portalBasics.completed) + Number(partnerMap.completed)} / 2 ${tr('academyCompleted')}`}>
+              <AcademyRow title={tr('academyPortalBasicsCaseTitle')} description={tr('academyPortalBasicsCaseDescription')} state={portalBasicsState} statusLabel={stateLabel(portalBasicsState)} action={academyAction(portalBasics.started ? tr('academyContinue') : tr('academyStart'))} onClick={accessBlocked ? undefined : startPortalBasics} />
+              <AcademyRow title={tr('academyPartnerMapTitle')} description={tr('academyPartnerMapDescription')} state={partnerMapState} statusLabel={stateLabel(partnerMapState)} action={academyAction(partnerMapUnlocked ? (partnerMap.started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={accessBlocked ? undefined : partnerMapUnlocked ? startPartnerMap : undefined} />
             </Module>
-            <Module icon={Users} title="Partnerdata" progress={`${partnerDataCompleted} / 2 gennemført`}>
-              <AcademyRow title="Part 1 - Virksomheds- og persondata" description="Tilføj en lokal kontaktperson, vælg første kontakt og opdater Academy YouTube-kanalen." state={partnerDataPart1State} action={academyAction(partnerDataPart1State === 'done' ? 'Åbn' : academyPartnerDataSandbox.getState().part1Started ? 'Fortsæt' : 'Start')} onClick={accessBlocked ? undefined : startPartnerDataPart1} />
-              <AcademyRow title="Part 2 - Samarbejdspartnere og fakturering" description="Gennemgå lokale partnerrelationer og fakturaaccept for reservedelsbestilling." state={partnerDataPart2State} action={academyAction(partnerData.part1Completed ? (partnerDataPart2State === 'done' ? 'Åbn' : academyPartnerDataSandbox.getState().part2Started ? 'Fortsæt' : 'Start') : undefined)} onClick={accessBlocked ? undefined : partnerData.part1Completed ? startPartnerDataPart2 : undefined} />
+            <Module icon={Users} title={tr('academyPartnerData')} progress={`${partnerDataCompleted} / 2 ${tr('academyCompleted')}`}>
+              <AcademyRow title={tr('academyPartnerDataPart1Title')} description={tr('academyPartnerDataPart1Description')} state={partnerDataPart1State} statusLabel={stateLabel(partnerDataPart1State)} action={academyAction(partnerDataPart1State === 'done' ? tr('academyOpen') : academyPartnerDataSandbox.getState().part1Started ? tr('academyContinue') : tr('academyStart'))} onClick={accessBlocked ? undefined : startPartnerDataPart1} />
+              <AcademyRow title={tr('academyPartnerDataPart2Title')} description={tr('academyPartnerDataPart2Description')} state={partnerDataPart2State} statusLabel={stateLabel(partnerDataPart2State)} action={academyAction(partnerData.part1Completed ? (partnerDataPart2State === 'done' ? tr('academyOpen') : academyPartnerDataSandbox.getState().part2Started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={accessBlocked ? undefined : partnerData.part1Completed ? startPartnerDataPart2 : undefined} />
             </Module>
-            <Module icon={Users} title="CRM" progress={`${crmCompleted} / 2 gennemført`}>
-              <AcademyRow title="Case 1 - Prioritér og færdiggør leads" description="Flyt det forfaldne follow-up og færdiggør det lokale Configurator-lead." state={crmPart1State} action={academyAction(crm.part1Completed ? 'Åbn' : academyCrmSandbox.getState().part1Started ? 'Fortsæt' : 'Start')} onClick={accessBlocked ? undefined : startCrmPart1} />
-              <AcademyRow title="Case 2 - Del lead og opret demo" description="Planlæg aktivitet, del med Academy-forhandleren og konvertér til en lokal demo." state={crmPart2State} action={academyAction(crm.part1Completed ? (crm.part2Completed ? 'Åbn' : academyCrmSandbox.getState().part2Started ? 'Fortsæt' : 'Start') : undefined)} onClick={accessBlocked ? undefined : crm.part1Completed ? startCrmPart2 : undefined} />
+            <Module icon={Users} title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
+              <AcademyRow title={tr('academyCrmCase1Title')} description={tr('academyCrmDashboardCase1Description')} state={crmPart1State} statusLabel={stateLabel(crmPart1State)} action={academyAction(crm.part1Completed ? tr('academyOpen') : academyCrmSandbox.getState().part1Started ? tr('academyContinue') : tr('academyStart'))} onClick={accessBlocked ? undefined : startCrmPart1} />
+              <AcademyRow title={tr('academyCrmCase2Title')} description={tr('academyCrmDashboardCase2Description')} state={crmPart2State} statusLabel={stateLabel(crmPart2State)} action={academyAction(crm.part1Completed ? (crm.part2Completed ? tr('academyOpen') : academyCrmSandbox.getState().part2Started ? tr('academyContinue') : tr('academyStart')) : undefined)} onClick={accessBlocked ? undefined : crm.part1Completed ? startCrmPart2 : undefined} />
             </Module>
-            <LockedModule icon={CalendarDays} title="Kalender" progress="0 / 1 gennemført" description="Låses op senere i Academy-rejsen." />
+            <LockedModule icon={CalendarDays} title={tr('academyCalendar')} progress={`0 / 1 ${tr('academyCompleted')}`} description={tr('academyCalendarLocked')} lockedLabel={stateLabel('locked')} />
           </div>
 
-          <Link className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#126a45] hover:underline" to="/portal">← Tilbage til portalen</Link>
+          <Link className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#126a45] hover:underline" to="/portal">← {tr('academyBackToPortal')}</Link>
         </div>
       </main>
     </div>
