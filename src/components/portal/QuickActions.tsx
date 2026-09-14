@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Building2, FileCheck2, FlaskConical, MapPinned, Plus, ShieldCheck, FileWarning } from 'lucide-react';
+import { Building2, FileCheck2, FlaskConical, MapPinned, Plus, ShieldCheck, FileWarning, Wrench } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
@@ -46,11 +46,15 @@ const DEALER_ACTIONS: Action[] = [
 ];
 
 const SERVICE_ACTIONS: Action[] = [
+  { labelKey: 'quickActionCreateWarrantyRegistration', to: '/portal/service/warranty/new', icon: ShieldCheck, requires: 'warranty' },
   { labelKey: 'quickActionWarrantyRegistrations', to: '/portal/service/warranty/registrations', icon: ShieldCheck, requires: 'warranty' },
+  { labelKey: 'quickActionCreateServiceRegistration', to: '/portal/service/maintenance?view=create', icon: Wrench, requires: 'teknik_service' },
   { labelKey: 'quickActionClaims', to: '/portal/service/claims', icon: FileWarning, requires: 'claims' },
 ];
 
-const ALL_ACTIONS = [...INTERNAL_ACTIONS, ...PARTNER_ACTIONS, ...SERVICE_ACTIONS]
+// Backend sees the union of the existing role-specific actions. Scoped roles
+// still use their own action list below, so this does not broaden their access.
+const ALL_ACTIONS = [...INTERNAL_ACTIONS, ...PARTNER_ACTIONS, ...DEALER_ACTIONS, ...SERVICE_ACTIONS]
   .filter((action, index, actions) => actions.findIndex((candidate) => candidate.to === action.to) === index);
 
 interface Props {

@@ -182,4 +182,21 @@ describe("quick action access", () => {
     expect(quickActions).toContain("to: '/portal/service/warranty/new'");
     expect(quickActions).toContain("to: '/portal/service/warranty/registrations'");
   });
+
+  it("keeps Backend's action overview as the union of the existing role action lists", () => {
+    const quickActions = readFileSync(join(process.cwd(), "src/components/portal/QuickActions.tsx"), "utf8");
+
+    expect(quickActions).toContain("...DEALER_ACTIONS");
+    expect(quickActions).toContain("to: '/portal/service/warranty/new'");
+    expect(quickActions).toContain("to: '/portal/service/maintenance?view=create'");
+  });
+
+  it("keeps the dealer's exact three actions while service uses its existing modules", () => {
+    const quickActions = readFileSync(join(process.cwd(), "src/components/portal/QuickActions.tsx"), "utf8");
+
+    expect(quickActions).toContain("effectiveRoleKey === 'timan_dealer'");
+    expect(quickActions).toContain("actions = DEALER_ACTIONS");
+    expect(quickActions).toContain("effectiveRoleKey === 'timan_service'");
+    expect(quickActions).toContain("requires: 'teknik_service'");
+  });
 });

@@ -59,8 +59,10 @@ export default function WarrantyPage({ page }: { page: Page }) {
   const readOnly = !perms?.canEditData;
   const dealerName = effectiveUser?.company_dealer ?? "";
 
-  // /new is dealer-side only and never available to read-only users
-  if (page === "new" && (variant !== "dealer" || !canCreate)) {
+  // Creation follows the established permission model. The form itself keeps
+  // dealer identity server-derived; Backend and Service already have this
+  // permission and must not be redirected away from their Quick Action.
+  if (page === "new" && !canCreate) {
     return <Navigate to="/portal/service/warranty" replace />;
   }
 
@@ -117,7 +119,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
             scope={variant}
             title={title}
             subtitle={subtitle}
-            showCreate={canCreate}
+            showCreate={false}
           />
         }
       >

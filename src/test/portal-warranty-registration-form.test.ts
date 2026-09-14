@@ -32,8 +32,10 @@ describe("portal warranty registration form", () => {
     expect(splitPostalCity("7700 Thisted")).toEqual({ postalCode: "7700", city: "Thisted" });
   });
 
-  it("only grants portal warranty creation to the dealer role", () => {
+  it("keeps warranty creation aligned with the existing role permissions", () => {
     expect(getPortalPermissions("timan_dealer").canCreateWarranty).toBe(true);
+    expect(getPortalPermissions("timan_backend").canCreateWarranty).toBe(true);
+    expect(getPortalPermissions("timan_service").canCreateWarranty).toBe(true);
     expect(getPortalPermissions("timan_importer").canCreateWarranty).toBe(false);
     expect(getPortalPermissions("timan_service_partner").canCreateWarranty).toBe(false);
   });
@@ -50,5 +52,17 @@ describe("portal warranty registration form", () => {
 
     expect(dashboard).not.toContain('to="/portal/service/warranty/new"');
     expect(navigation).toContain('to: "/portal/service/warranty/new"');
+    expect(navigation.match(/to: "\/portal\/service\/warranty\/new"/g)).toHaveLength(1);
+  });
+
+  it("does not duplicate the sidebar create entry in the registrations header", () => {
+    const page = readFileSync(join(process.cwd(), "src/pages/WarrantyPage.tsx"), "utf8");
+    expect(page).toContain("showCreate={false}");
+  });
+
+  it("allows every existing warranty-create permission through the canonical route", () => {
+    const page = readFileSync(join(process.cwd(), "src/pages/WarrantyPage.tsx"), "utf8");
+    expect(page).toContain('if (page === "new" && !canCreate)');
+    expect(page).not.toContain('variant !== "dealer" || !canCreate');
   });
 });

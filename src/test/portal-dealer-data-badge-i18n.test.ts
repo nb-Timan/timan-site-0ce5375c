@@ -24,6 +24,7 @@ const requiredKeys = [
   "quickActionCompanyContactInfoDesc",
   "quickActionDealerInvoiceAccept",
   "quickActionCreateWarrantyRegistration",
+  "quickActionCreateServiceRegistration",
   "quickActionWarrantyRegistrations",
   "quickActionPartnerMap",
   "area_calendar_title",
