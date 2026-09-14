@@ -68,7 +68,7 @@ vi.mock("@/lib/supabase", () => {
 import * as supabaseModule from "@/lib/supabase";
 import { ACCESSORIES, LOOSE_TOOL_KEY, getAccessoriesFlat } from "@/data/machines";
 import {
-  listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct,
+  listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct, orderDetailsForBudgetCell,
   BUDGET_SELLERS, BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, BUDGET_EXCLUDED_EQUIPMENT_VARENR, canonicalBudgetProductKey,
   type BudgetLine, type SalesActual,
 } from "@/lib/crmBudgetService";
@@ -187,6 +187,61 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     expect(qty("RC1000_411906")).toBe(0);
     expect(monthlyOrderQtyForProduct(actuals, YEAR, "RC-1000s", null)[SEPTEMBER_IDX]).toBe(1);
     expect(monthlyOrderQtyForProduct(actuals, YEAR, "RC-1000s", new Set([JTN.email]))[SEPTEMBER_IDX]).toBe(0);
+  });
+
+  it("places O-7006 and every selected product in its requested delivery month", async () => {
+    const deliveryYear = 2026;
+    const augustIdx = 7;
+    const septemberIdx = 8;
+    const view = {
+      id: "o-7006", title: "Teichert - RC-1000S", order_number: "O-7006",
+      seller_email: AKR.email, seller_initials: AKR.initials,
+      case_status: "ordre_afgivet", document_type: "order", dealer_name: "Teichert GmbH & Co. KG",
+      delivery_date: "2026-08-11",
+      order_sent_at: "2026-09-14T08:52:59.044Z", submitted_at: "2026-09-14T08:52:59.044Z",
+      created_at: "2026-09-14T08:52:56.477682Z",
+    };
+    const details = {
+      id: "o-7006", total_price: 235000,
+      state_json: {
+        language: "da", flowType: "order",
+        machineConfigs: [{ id: "rc", type: "RC-1000S", qty: 1, configMode: "shared", acc: ["410910"] }],
+        accQty: {},
+      },
+    };
+    setOrders([view], [details]);
+
+    const actuals = await listSalesActuals(deliveryYear);
+    const byKey = buildOrderActualsByKey(actuals);
+    const qty = (monthIdx: number, productKey: string) =>
+      byKey[orderActualKey(AKR.email, deliveryYear, monthIdx, productKey)] || 0;
+
+    expect(qty(augustIdx, "RC-1000s")).toBe(1);
+    expect(qty(augustIdx, "RC1000_410910")).toBe(1);
+    expect(qty(septemberIdx, "RC-1000s")).toBe(0);
+    expect(qty(septemberIdx, "RC1000_410910")).toBe(0);
+    expect(orderDetailsForBudgetCell(actuals, deliveryYear, "RC-1000s", augustIdx, null)
+      .map((detail) => detail.order_number)).toEqual(["O-7006"]);
+    expect(orderDetailsForBudgetCell(actuals, deliveryYear, "RC-1000s", septemberIdx, null)).toEqual([]);
+  });
+
+  it("uses the established sent/submitted/created fallback only when delivery is missing", async () => {
+    const view = {
+      id: "legacy-order", title: "RC-1000S", order_number: "O-legacy",
+      seller_email: AKR.email, seller_initials: AKR.initials,
+      case_status: "ordre_afgivet", document_type: "order", dealer_name: "Legacy Dealer",
+      delivery_date: null, order_sent_at: `${YEAR}-09-14T08:52:59.044Z`,
+      submitted_at: `${YEAR}-09-14T08:52:59.044Z`, created_at: `${YEAR}-08-11T08:52:56.477682Z`,
+    };
+    const details = {
+      id: "legacy-order", total_price: 1,
+      state_json: { language: "da", flowType: "order", machineConfigs: [{ type: "RC-1000S", qty: 1 }] },
+    };
+    setOrders([view], [details]);
+
+    const actuals = await listSalesActuals(YEAR);
+    const byKey = buildOrderActualsByKey(actuals);
+    expect(byKey[orderActualKey(AKR.email, YEAR, SEPTEMBER_IDX, "RC-1000s")]).toBe(1);
   });
 
   it("derives current canonical equipment rows for all three budget machines", () => {

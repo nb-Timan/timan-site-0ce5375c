@@ -714,6 +714,10 @@ function resolveMachineKey(value: string | null | undefined, productByNormKey: M
 }
 
 function orderDateRaw(row: BudgetOrderRow): string | null {
+  // Budget actuals belong to the agreed/requested delivery month. The order
+  // timestamps only preserve the established fallback for legacy orders.
+  const deliveryDate = row.delivery_date;
+  if (typeof deliveryDate === "string" && deliveryDate.trim()) return deliveryDate;
   return (row.order_sent_at as string | null)
     || (row.submitted_at as string | null)
     || (row.created_at as string | null)
@@ -878,7 +882,7 @@ function orderSeller(row: BudgetOrderRow, sellers: SellerIdentityIndex): { selle
 }
 
 async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
-  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id,state_json,note,total_price";
+  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id,state_json,note,total_price";
   try {
     const { data, error } = await supabase
       .from("crm_configurations_view")
@@ -923,9 +927,9 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
       .or("case_status.eq.ordre_afgivet,order_sent_at.not.is.null,submitted_at.not.is.null")
       .neq("case_status", "deleted")
       .limit(5000);
-    let res = await trySel("id,title,order_number,state_json,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
+    let res = await trySel("id,title,order_number,state_json,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
     if (res.error && /state_json/.test(res.error.message || "")) {
-      res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
+      res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
     }
     if (res.error) throw res.error;
     return ((res.data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInFiscalYear(r, year));
@@ -1118,8 +1122,8 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
       seenOrderIds.add(orderId);
       if ((row.case_status as string | null) === "deleted" || !isSubmittedBudgetOrder(row)) continue;
 
-      // Month bucketing: order_sent_at → submitted_at → created_at. Delivery
-      // date is deliberately not required for Budget actuals.
+      // Delivery date decides the budget month. Legacy orders without one use
+      // the documented order_sent_at → submitted_at → created_at fallback.
       const dateRaw = orderDateRaw(row);
       const d = dateRaw ? new Date(dateRaw) : null;
       if (!d || isNaN(d.getTime())) continue;
