@@ -2030,8 +2030,16 @@ export default function PartnerMapPage() {
 
           {/* Map area */}
           <section className="flex-1 min-w-0">
-            {/* Topbar */}
-            <div className="bg-white rounded-t-2xl border border-b-0 border-gray-100 shadow-sm px-3 py-2 flex flex-wrap items-center gap-2">
+            <div
+              ref={mapWrapperRef}
+              className={`relative bg-white border border-gray-100 shadow-sm overflow-hidden ${
+                isFullscreen ? 'flex h-screen w-screen flex-col rounded-none' : 'rounded-2xl'
+              }`}
+            >
+              {/* The same controls stay inside the browser fullscreen element. */}
+              <div className={`bg-white px-3 py-2 flex flex-wrap items-center gap-2 ${
+                isFullscreen ? 'sticky top-0 z-[700] shrink-0 border-b border-gray-200 shadow-md' : 'rounded-t-2xl border-b border-gray-100'
+              }`}>
               <button
                 onClick={() => setResultsOpen((v) => !v)}
                 className={`hidden md:flex h-9 px-2.5 items-center gap-1.5 rounded-md text-xs font-medium border ${resultsOpen ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'}`}
@@ -2144,7 +2152,9 @@ export default function PartnerMapPage() {
                 {fullscreenSupported && (
                   <button
                     onClick={toggleFullscreen}
-                    className="h-9 px-2.5 hidden md:flex items-center gap-1.5 text-gray-700 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200 bg-white"
+                    className={`h-9 px-2.5 items-center gap-1.5 text-gray-700 hover:text-[#2d5a27] rounded-md hover:bg-gray-50 text-xs font-medium border border-gray-200 bg-white ${
+                      isFullscreen ? 'flex' : 'hidden md:flex'
+                    }`}
                     title={isFullscreen ? T.exitFullscreen[lang] : T.fullscreen[lang]}
                   >
                     <span aria-hidden>⛶</span> {isFullscreen ? T.exitFullscreen[lang] : T.fullscreen[lang]}
@@ -2154,8 +2164,7 @@ export default function PartnerMapPage() {
             </div>
 
             {/* Map + results panel */}
-            <div ref={mapWrapperRef} className={`relative bg-white border border-gray-100 shadow-sm overflow-hidden ${isFullscreen ? 'rounded-none h-screen w-screen' : 'rounded-b-2xl'}`}>
-              <div className={isFullscreen ? 'flex h-screen' : 'flex h-[calc(100vh-15rem)] min-h-[520px]'}>
+              <div className={isFullscreen ? 'flex min-h-0 flex-1' : 'flex h-[calc(100vh-15rem)] min-h-[520px]'}>
                 {/* Results sidebar */}
                 {resultsOpen && (
                   <div className="hidden md:flex flex-col w-72 shrink-0 border-r border-gray-100 bg-gray-50/60">
@@ -2362,19 +2371,6 @@ export default function PartnerMapPage() {
                       <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: TIMAN_GREEN }} />
                       <span className="text-[11px] font-bold tracking-wider text-gray-800">TIMAN <span className="text-gray-400 font-medium">PARTNER MAP</span></span>
                     </div>
-                    {isFullscreen && (
-                      <button
-                        onClick={() => {
-                          (document.exitFullscreen
-                            // @ts-ignore - vendor prefix
-                            || document.webkitExitFullscreen)?.call(document);
-                        }}
-                        className="bg-white/95 backdrop-blur rounded-lg shadow-md border border-gray-100 px-3 py-1.5 text-[11px] font-bold tracking-wider text-gray-700 hover:text-[#2d5a27] hover:border-[#2d5a27] transition-colors flex items-center gap-1.5"
-                        title={T.exitFullscreen[lang]}
-                      >
-                        <span aria-hidden>↙</span> {T.exitFullscreen[lang]}
-                      </button>
-                    )}
                   </div>
 
                   {administrativeOverlay !== 'none' && administrativeOverlayError && (
