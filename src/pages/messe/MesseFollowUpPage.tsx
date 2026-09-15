@@ -21,7 +21,7 @@ import type { CrmLead, CrmLeadAttachment } from '@/lib/crmLeadsService';
 type LeadType = 'dealer' | 'customer' | '';
 type YesNo = 'yes' | 'no' | '';
 type CountryQuickChoice = 'de' | 'dk' | 'other' | '';
-type FormSectionKey = 'country' | 'dealerCustomer' | 'customerInfo' | 'businessCard' | 'product' | 'demo' | 'responsible';
+type FormSectionKey = 'country' | 'dealerCustomer' | 'customerInfo' | 'product' | 'demo' | 'responsible';
 type FormSectionErrors = Partial<Record<FormSectionKey, string>>;
 type MesseMailAttachment = CrmLeadAttachment & {
   signed_url: string | null;
@@ -169,13 +169,14 @@ const FORM_TEXT = {
   phonePlaceholder: { da: 'Telefon nr.', en: 'Phone no.', de: 'Telefonnummer', it: 'Telefono', hu: 'Telefonszám' },
   emailPlaceholder: { da: 'E-mail', en: 'E-mail', de: 'E-Mail', it: 'E-mail', hu: 'E-mail' },
   commentPlaceholder: { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
-  businessCard: { da: '3a. Visitkort / billeder (maks. 3)', en: '3a. Business card / images (max. 3)', de: '3a. Visitenkarte / Bilder (max. 3)', it: '3a. Biglietto da visita / immagini (max. 3)', hu: '3a. Névjegykártya / képek (max. 3)' },
+  businessCard: { da: '3a. Visitkort / billeder (valgfrit, maks. 3)', en: '3a. Business card / images (optional, max. 3)', de: '3a. Visitenkarte / Bilder (optional, max. 3)', it: '3a. Biglietto da visita / immagini (facoltativo, max. 3)', hu: '3a. Névjegykártya / képek (opcionális, max. 3)' },
+  addBusinessCard: { da: 'Jeg vil tilføje visitkort/billeder', en: 'I want to add a business card/images', de: 'Ich möchte eine Visitenkarte/Bilder hinzufügen', it: 'Voglio aggiungere biglietto da visita/immagini', hu: 'Névjegykártyát/képeket szeretnék hozzáadni' },
+  businessCardHint: { da: 'Valgfrit supplement til de manuelle kundeoplysninger.', en: 'Optional supplement to the manual customer information.', de: 'Optionale Ergänzung zu den manuellen Kundendaten.', it: 'Integrazione facoltativa alle informazioni cliente inserite manualmente.', hu: 'Opcionális kiegészítés a manuálisan megadott ügyféladatokhoz.' },
   submit: { da: 'Gem lead og send mail', en: 'Save lead and send mail', de: 'Lead speichern und E-Mail senden', it: 'Salva lead e invia mail', hu: 'Lead mentése és email küldése' },
   sending: { da: 'Sender...', en: 'Sending...', de: 'Sendet...', it: 'Invio...', hu: 'Küldés...' },
   errCountry: { da: 'Mangler valg af land', en: 'Choose a country', de: 'Land auswählen', it: 'Scegli un paese', hu: 'Válasszon országot' },
   errDealerCustomer: { da: 'Vælg forhandler eller kunde', en: 'Choose dealer or customer', de: 'Händler oder Kunde auswählen', it: 'Scegli rivenditore o cliente', hu: 'Válasszon kereskedőt vagy ügyfelet' },
-  errCustomerInfo: { da: 'Udfyld kundeoplysninger eller vedhæft visitkort/billede', en: 'Fill in customer information or attach a business card/image', de: 'Kundendaten ausfüllen oder Visitenkarte/Bild anhängen', it: 'Compila i dati cliente oppure allega biglietto da visita/immagine', hu: 'Töltse ki az ügyféladatokat, vagy csatoljon névjegykártyát/képet' },
-  errBusinessCard: { da: 'Vedhæft visitkort/billede eller udfyld kundeoplysninger', en: 'Attach a business card/image or fill in customer information', de: 'Visitenkarte/Bild anhängen oder Kundendaten ausfüllen', it: 'Allega biglietto da visita/immagine oppure compila i dati cliente', hu: 'Csatoljon névjegykártyát/képet, vagy töltse ki az ügyféladatokat' },
+  errCustomerInfo: { da: 'Udfyld de obligatoriske kundeoplysninger', en: 'Fill in the required customer information', de: 'Erforderliche Kundendaten ausfüllen', it: 'Compila le informazioni cliente obbligatorie', hu: 'Töltse ki a kötelező ügyféladatokat' },
   errProduct: { da: 'Vælg mindst ét produkt', en: 'Choose at least one product', de: 'Mindestens ein Produkt auswählen', it: 'Scegli almeno un prodotto', hu: 'Válasszon legalább egy terméket' },
   errEquipment: { da: 'Vælg mindst ét redskab', en: 'Choose at least one equipment item', de: 'Mindestens ein Anbaugerät auswählen', it: 'Scegli almeno un accessorio', hu: 'Válasszon legalább egy eszközt' },
   errDemo: { da: 'Vælg ja eller nej', en: 'Choose yes or no', de: 'Ja oder Nein auswählen', it: 'Scegli sì o no', hu: 'Válasszon igen vagy nem' },
@@ -395,13 +396,13 @@ export default function MesseFollowUpPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [notes, setNotes] = useState('');
+  const [wantsBusinessCardUpload, setWantsBusinessCardUpload] = useState(false);
   const [businessCardFiles, setBusinessCardFiles] = useState<File[]>([]);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
 
   const countrySectionRef = useRef<HTMLElement>(null);
   const dealerCustomerSectionRef = useRef<HTMLElement>(null);
   const customerInfoSectionRef = useRef<HTMLElement>(null);
-  const businessCardSectionRef = useRef<HTMLElement>(null);
   const productSectionRef = useRef<HTMLElement>(null);
   const demoSectionRef = useRef<HTMLElement>(null);
   const responsibleSectionRef = useRef<HTMLElement>(null);
@@ -550,6 +551,14 @@ export default function MesseFollowUpPage() {
     ));
   }
 
+  function toggleBusinessCardUpload(enabled: boolean) {
+    setWantsBusinessCardUpload(enabled);
+    if (!enabled) {
+      setBusinessCardFiles([]);
+      if (businessCardInputRef.current) businessCardInputRef.current.value = '';
+    }
+  }
+
   const hasCustomerInfo = useMemo(
     () => Boolean(clean(company) && clean(contactPerson) && clean(address) && clean(phone)),
     [address, company, contactPerson, phone],
@@ -576,9 +585,8 @@ export default function MesseFollowUpPage() {
       errors.country = f('errCountry');
     }
     if (!leadType) errors.dealerCustomer = f('errDealerCustomer');
-    if (!hasCustomerInfo && !hasBusinessCard) {
+    if (!hasCustomerInfo) {
       errors.customerInfo = f('errCustomerInfo');
-      errors.businessCard = f('errBusinessCard');
     }
     if (products.length === 0) {
       errors.product = f('errProduct');
@@ -599,7 +607,6 @@ export default function MesseFollowUpPage() {
       specificCountry,
       leadType,
       hasCustomerInfo,
-      hasBusinessCard,
       products,
       hasRequiredEquipment,
       wantsDemo,
@@ -612,13 +619,12 @@ export default function MesseFollowUpPage() {
     country: countrySectionRef,
     dealerCustomer: dealerCustomerSectionRef,
     customerInfo: customerInfoSectionRef,
-    businessCard: businessCardSectionRef,
     product: productSectionRef,
     demo: demoSectionRef,
     responsible: responsibleSectionRef,
   };
 
-  const sectionOrder: FormSectionKey[] = ['country', 'dealerCustomer', 'customerInfo', 'businessCard', 'product', 'demo', 'responsible'];
+  const sectionOrder: FormSectionKey[] = ['country', 'dealerCustomer', 'customerInfo', 'product', 'demo', 'responsible'];
 
   function focusFirstField(section: FormSectionKey) {
     if (section === 'country') {
@@ -636,10 +642,6 @@ export default function MesseFollowUpPage() {
       else if (!clean(address)) addressInputRef.current?.focus();
       else if (!clean(phone)) phoneInputRef.current?.focus();
       else companyInputRef.current?.focus();
-      return;
-    }
-    if (section === 'businessCard') {
-      businessCardInputRef.current?.focus();
       return;
     }
     if (section === 'product') {
@@ -663,7 +665,7 @@ export default function MesseFollowUpPage() {
     });
   }
 
-  const hasCustomerInfoError = Boolean(formErrors.customerInfo && !hasBusinessCard);
+  const hasCustomerInfoError = Boolean(formErrors.customerInfo);
   const fieldClass = (invalid: boolean) => `rounded-lg border px-3 py-2 text-sm outline-none transition ${
     invalid
       ? 'border-rose-300 bg-rose-50 focus:border-rose-400 focus:ring-2 focus:ring-rose-100'
@@ -760,9 +762,11 @@ export default function MesseFollowUpPage() {
       let leadAttachments: CrmLeadAttachment[] = [];
       let attachmentError: unknown = null;
       try {
-        leadAttachments = await uploadLeadAttachments(lead.id, businessCardFiles);
-        if (leadAttachments.length > 0) {
-          await updateLead(lead.id, { attachments: leadAttachments });
+        if (businessCardFiles.length > 0) {
+          leadAttachments = await uploadLeadAttachments(lead.id, businessCardFiles);
+          if (leadAttachments.length > 0) {
+            await updateLead(lead.id, { attachments: leadAttachments });
+          }
         }
       } catch (error) {
         attachmentError = error;
@@ -943,7 +947,7 @@ export default function MesseFollowUpPage() {
               </div>
             </FormSection>
 
-            <FormSection forwardedRef={customerInfoSectionRef} error={formErrors.customerInfo} complete={hasCustomerInfo || hasBusinessCard}>
+            <FormSection forwardedRef={customerInfoSectionRef} error={formErrors.customerInfo} complete={hasCustomerInfo}>
               <RequiredHeading>{f('customerInfo')}</RequiredHeading>
               <SectionError message={formErrors.customerInfo} />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -957,44 +961,52 @@ export default function MesseFollowUpPage() {
               <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={f('commentPlaceholder')} rows={4} className={`w-full ${fieldClass(false)}`} />
             </FormSection>
 
-            <FormSection forwardedRef={businessCardSectionRef} error={formErrors.businessCard} complete={hasBusinessCard || hasCustomerInfo}>
-              <label className="text-sm font-bold">
-                {f('businessCard')}
-                <RequiredMark />
-              </label>
-              <SectionError message={formErrors.businessCard} />
+            <FormSection complete={hasBusinessCard}>
+              <h2 className="text-sm font-bold">{f('businessCard')}</h2>
               <p className="text-xs text-slate-500">
-                Vedhæft et visitkort, hvis du ikke udfylder kundeoplysningerne manuelt.
+                {f('businessCardHint')}
               </p>
-              <input
-                ref={businessCardInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                multiple
-                onChange={(e) => {
-                  const selectedFiles = Array.from(e.target.files || []);
-                  const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/')).slice(0, 3);
-                  if (selectedFiles.length > 3) toast.warning('Der kan maks. vedhæftes 3 billeder');
-                  if (imageFiles.length < selectedFiles.length && selectedFiles.length <= 3) toast.warning('Kun billedfiler kan vedhæftes');
-                  setBusinessCardFiles(imageFiles);
-                }}
-                className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-800"
-              />
-              {businessCardFiles.length > 0 && (
-                <div className="space-y-1 text-xs text-slate-600">
-                  {businessCardFiles.map((file, index) => (
-                    <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
-                      <span>{index + 1}. {file.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => setBusinessCardFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
-                        className="font-semibold text-red-600 hover:text-red-700"
-                      >
-                        Fjern
-                      </button>
+              <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={wantsBusinessCardUpload}
+                  onChange={(event) => toggleBusinessCardUpload(event.target.checked)}
+                  className="h-4 w-4 accent-emerald-700"
+                />
+                {f('addBusinessCard')}
+              </label>
+              {wantsBusinessCardUpload && (
+                <div className="space-y-3">
+                  <input
+                    ref={businessCardInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => {
+                      const selectedFiles = Array.from(e.target.files || []);
+                      const imageFiles = selectedFiles.filter((file) => file.type.startsWith('image/')).slice(0, 3);
+                      if (selectedFiles.length > 3) toast.warning('Der kan maks. vedhæftes 3 billeder');
+                      if (imageFiles.length < selectedFiles.length && selectedFiles.length <= 3) toast.warning('Kun billedfiler kan vedhæftes');
+                      setBusinessCardFiles(imageFiles);
+                    }}
+                    className="block w-full text-sm text-slate-600 file:mr-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-emerald-800"
+                  />
+                  {businessCardFiles.length > 0 && (
+                    <div className="space-y-1 text-xs text-slate-600">
+                      {businessCardFiles.map((file, index) => (
+                        <div key={`${file.name}-${file.size}`} className="flex items-center justify-between gap-3 rounded-lg bg-white px-3 py-2">
+                          <span>{index + 1}. {file.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setBusinessCardFiles((current) => current.filter((_, fileIndex) => fileIndex !== index))}
+                            className="font-semibold text-red-600 hover:text-red-700"
+                          >
+                            Fjern
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </FormSection>
