@@ -276,6 +276,28 @@ export async function fetchDealerAccounts(opts: { includeDeleted?: boolean } = {
 }
 
 /**
+ * Public, deliberately narrow partner-map read. The Messe route has no
+ * authenticated portal session, so it cannot use the Backend-only account
+ * listing. The RPC exposes only active, public partner map fields.
+ */
+export async function fetchPublicPartnerMapAccounts(): Promise<DealerAccountsResult> {
+  try {
+    const { data, error } = await supabase.rpc("list_public_partner_map_accounts");
+    if (error) throw error;
+    return {
+      source: "supabase",
+      rows: ((data ?? []) as Record<string, unknown>[]).map(rowToDealer),
+    };
+  } catch (error) {
+    return {
+      source: "fallback",
+      rows: [],
+      error: describeSupabaseError("Kunne ikke hente offentlige partnerkort-data", error),
+    };
+  }
+}
+
+/**
  * Read a known, already-authorized set of dealer accounts.
  *
  * Unlike fetchDealerAccounts this deliberately has no Backend RPC fallback:

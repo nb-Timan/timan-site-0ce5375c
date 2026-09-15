@@ -15,7 +15,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { t as translate } from '@/lib/i18n/translations';
 import { useCountryFormatter } from '@/lib/formatCountry';
 import { Language } from '@/types/configurator';
-import { fetchDealerAccounts, fetchDealerAccountStats, isDealerCustomerAccount, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
+import { fetchDealerAccounts, fetchDealerAccountStats, fetchPublicPartnerMapAccounts, isDealerCustomerAccount, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, hasAreaAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
@@ -1538,7 +1538,12 @@ export default function PartnerMapPage() {
         return;
       }
       setLoading(true);
-      const [dRes, sRes] = await Promise.all([fetchDealerAccounts({}), fetchDealerAccountStats().catch(() => ({ rows: [] as DealerAccountStats[] }))]);
+      const [dRes, sRes] = await Promise.all([
+        isPublicMesseMapView ? fetchPublicPartnerMapAccounts() : fetchDealerAccounts({}),
+        isPublicMesseMapView
+          ? Promise.resolve({ rows: [] as DealerAccountStats[] })
+          : fetchDealerAccountStats().catch(() => ({ rows: [] as DealerAccountStats[] })),
+      ]);
       if (!alive) return;
       if (dRes.error) setLoadError(dRes.error);
       setDealers(dRes.rows);
@@ -1563,7 +1568,7 @@ export default function PartnerMapPage() {
       }
     })();
     return () => { alive = false; };
-  }, [academyFallback, canSeeMachineLayer, canSeeMachineStats]);
+  }, [academyFallback, canSeeMachineLayer, canSeeMachineStats, isPublicMesseMapView]);
 
   const partners: Partner[] = useMemo(() => dealers
     .filter((d) => {
