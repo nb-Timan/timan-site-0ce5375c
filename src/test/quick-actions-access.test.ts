@@ -179,7 +179,7 @@ describe("quick action access", () => {
 
     expect(quickActions).toContain("key: 'create_warranty_registration'");
     expect(quickActions).toContain("labelKey: 'quickActionCreateWarrantyRegistration'");
-    expect(quickActions).toContain("to: '/portal/service/warranty/new'");
+    expect(quickActions).toContain("to: WARRANTY_CREATE_ROUTE");
     expect(quickActions).toContain("to: '/portal/service/warranty/registrations'");
   });
 
@@ -187,7 +187,7 @@ describe("quick action access", () => {
     const quickActions = readFileSync(join(process.cwd(), "src/components/portal/QuickActions.tsx"), "utf8");
 
     expect(quickActions).toContain("...DEALER_ACTIONS");
-    expect(quickActions).toContain("to: '/portal/service/warranty/new'");
+    expect(quickActions).toContain("to: WARRANTY_CREATE_ROUTE");
     expect(quickActions).toContain("to: '/portal/service/maintenance?view=create'");
   });
 

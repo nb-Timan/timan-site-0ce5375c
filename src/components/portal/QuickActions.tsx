@@ -10,6 +10,7 @@ import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 import { academySandbox } from '@/lib/academySandbox';
 import { type AcademyCapability, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
+import { WARRANTY_CREATE_ROUTE } from '@/lib/warrantyRoutes';
 
 interface Action {
   key?: QuickActionKey;
@@ -42,11 +43,11 @@ const PARTNER_ACTIONS: Action[] = [
 const DEALER_ACTIONS: Action[] = [
   { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'sales_tools' },
   { key: 'dealer_invoice_accept', labelKey: 'quickActionDealerInvoiceAccept', to: '/portal/misc/forms/dealer-invoice-accept', icon: FileCheck2, requires: 'sales_tools' },
-  { key: 'create_warranty_registration', labelKey: 'quickActionCreateWarrantyRegistration', to: '/portal/service/warranty/new', icon: ShieldCheck, requires: 'warranty' },
+  { key: 'create_warranty_registration', labelKey: 'quickActionCreateWarrantyRegistration', to: WARRANTY_CREATE_ROUTE, icon: ShieldCheck, requires: 'warranty' },
 ];
 
 const SERVICE_ACTIONS: Action[] = [
-  { labelKey: 'quickActionCreateWarrantyRegistration', to: '/portal/service/warranty/new', icon: ShieldCheck, requires: 'warranty' },
+  { labelKey: 'quickActionCreateWarrantyRegistration', to: WARRANTY_CREATE_ROUTE, icon: ShieldCheck, requires: 'warranty' },
   { labelKey: 'quickActionWarrantyRegistrations', to: '/portal/service/warranty/registrations', icon: ShieldCheck, requires: 'warranty' },
   { labelKey: 'quickActionCreateServiceRegistration', to: '/portal/service/maintenance?view=create', icon: Wrench, requires: 'teknik_service' },
   { labelKey: 'quickActionClaims', to: '/portal/service/claims', icon: FileWarning, requires: 'claims' },

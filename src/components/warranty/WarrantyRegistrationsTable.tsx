@@ -34,6 +34,7 @@ import { useRegistrationHistory } from "@/lib/warrantyHistoryService";
 import { supabase } from "@/lib/supabase";
 import { useSellerDirectory } from "@/lib/sellerDirectory";
 import { useTeknikScope, applyScopeFilter } from "@/lib/useTeknikScope";
+import { WARRANTY_CREATE_ROUTE } from "@/lib/warrantyRoutes";
 import {
   approveWarrantySubmission,
   useWarrantySubmissionsDb,
@@ -70,7 +71,7 @@ export function WarrantyRegistrationsHeader({
       </div>
       {scope === "dealer" && showCreate && (
         <Link
-          to="/portal/service/warranty/new"
+          to={WARRANTY_CREATE_ROUTE}
           className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800"
         >
           <PlusCircle className="h-4 w-4" /> Opret garantiregistrering

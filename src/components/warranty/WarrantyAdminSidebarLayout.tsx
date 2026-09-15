@@ -24,6 +24,7 @@ import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { WARRANTY_CREATE_ROUTE } from "@/lib/warrantyRoutes";
 
 export type WarrantyLayoutScope = "admin" | "dealer";
 
@@ -44,7 +45,7 @@ const ADMIN_NAV: NavItem[] = [
 const DEALER_NAV: NavItem[] = [
   { to: "/portal/service/warranty", label: "Dashboard", icon: LayoutDashboard, match: "/portal/service/warranty", exact: true },
   { to: "/portal/service/warranty/registrations", label: "Mine registreringer", icon: ClipboardList, match: "/portal/service/warranty/registrations" },
-  { to: "/portal/service/warranty/new", label: "Opret garantiregistrering", icon: PlusCircle, match: "/portal/service/warranty/new" },
+  { to: WARRANTY_CREATE_ROUTE, label: "Opret garantiregistrering", icon: PlusCircle, match: WARRANTY_CREATE_ROUTE },
 ];
 
 const DEALER_NAV_READONLY: NavItem[] = [

@@ -14,6 +14,7 @@ import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { getActiveSellerView, type SellerView } from "@/lib/activeMode";
 import { supabase } from "@/lib/supabase";
+import { WARRANTY_CREATE_ROUTE } from "@/lib/warrantyRoutes";
 
 function PreferredLanguageBootstrap() {
   const { appUser } = useAppUser();
@@ -339,7 +340,7 @@ const App = () => (
                 {/* Garantiregistrering — admin/dealer split by role inside WarrantyPage */}
                 <Route path="/portal/service/warranty" element={<WarrantyPage page="dashboard" />} />
                 <Route path="/portal/service/warranty/registrations" element={<WarrantyPage page="registrations" />} />
-                <Route path="/portal/service/warranty/new" element={<WarrantyPage page="new" />} />
+                <Route path={WARRANTY_CREATE_ROUTE} element={<WarrantyPage page="new" />} />
                 <Route path="/portal/service/warranty/sync" element={<WarrantyPage page="sync" />} />
                 <Route path="/portal/service/maintenance" element={<ServiceMaintenancePage />} />
                 <Route path="/portal/service/maintenance/registrations/:registrationId" element={<ServiceRegistrationDetailPage />} />
