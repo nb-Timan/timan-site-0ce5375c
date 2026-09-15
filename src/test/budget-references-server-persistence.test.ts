@@ -111,7 +111,7 @@ describe("budget references server persistence", () => {
 });
 
 describe("budget references migration", () => {
-  const migration = readFileSync(resolve(process.cwd(), "supabase/migrations/20260911082228_budget_references_server_persistence.sql"), "utf8");
+  const migration = readFileSync(resolve(process.cwd(), "supabase/migrations/20260911090641_20260911082228_budget_references_server_persistence.sql"), "utf8");
 
   it("creates the server table with RLS and authenticated, seller-scoped policies", () => {
     expect(migration).toMatch(/create table public\.budget_references/i);

@@ -602,6 +602,7 @@ function PendingSubmissionsPanel({
                 <div className="mt-1 text-xs text-slate-500">
                   {submission.dealerName} · #{submission.dealerAccountNumber}
                   {submission.matchedMachineRegistrationId ? " · Eksisterende MO-maskine fundet" : ""}
+                  {submission.isDemo ? ` · Demo: Ja${submission.demoHoursAtSale != null ? ` · Driftstimer: ${submission.demoHoursAtSale}` : ""}` : ""}
                 </div>
               </div>
               {canApprove ? (
@@ -1034,6 +1035,7 @@ function CertificateDialog({
             <DRow label="Maskintype" value={record.machineType} />
             <DRow label="Serienr" value={record.machineSerial} mono />
             <DRow label="Købt som demo-maskine" value={record.isDemo} />
+            {record.isDemo === "Ja" && <DRow label="Driftstimer ved salg" value={record.demoHoursAtSale?.toString() || "—"} />}
             <DRow label="Erstatter" value={record.replacementBrand ?? "—"} />
             <DRow label="Leveringsdato" value={formatDate(record.deliveryDate)} />
             <DRow label="Adresse" value={record.customerAddress} />

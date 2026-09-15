@@ -31,7 +31,7 @@ import type { PortalRole } from "@/lib/portalAccess";
 
 export type SerialValidationResult =
   | { kind: "ok" }
-  | { kind: "duplicate"; source: "warranty_store" | "warranty_registrations" | "machines"; message: string; blocking: boolean }
+  | { kind: "duplicate"; source: "warranty_store" | "warranty_registrations"; message: string; blocking: boolean }
   | { kind: "unknown"; message: string; blocking: false };
 
 const DUPLICATE_EXTERNAL_MSG =
@@ -62,9 +62,10 @@ export async function validateWarrantySerial(
   const internal = isInternalRole(role);
 
   // 1. Local in-memory warranty store (preview/demo + same-session entries).
+  // A legacy MO row is an eligible machine, not an approved SP duplicate.
   try {
     for (const r of getWarrantyRecords()) {
-      if (serialKey(r.machineSerial) === key && key.length > 0) {
+      if (serialKey(r.machineSerial) === key && key.length > 0 && /^SP-\d+$/i.test(r.certificateNumber || "")) {
         return {
           kind: "duplicate",
           source: "warranty_store",
@@ -77,16 +78,17 @@ export async function validateWarrantySerial(
     console.warn("[warrantySerialValidation] local store check failed (tolerated)", e);
   }
 
-  // 2. Supabase warranty_registrations (RLS-scoped).
+  // 2. Supabase warranty_registrations (RLS-scoped). Only approved SP
+  // certificates block a new submission; MO records stay eligible.
   try {
     const safe = serial.replace(/[(),%]/g, "");
     const { data } = await supabase
       .from("warranty_registrations")
-      .select("id, machine_serial")
+      .select("id, machine_serial_number, certificate_number")
       .ilike("machine_serial", `%${safe}%`)
       .limit(20);
-    for (const row of (data ?? []) as Array<{ machine_serial: string | null }>) {
-      if (serialKey(row.machine_serial) === key) {
+    for (const row of (data ?? []) as Array<{ machine_serial_number: string | null; certificate_number: string | null }>) {
+      if (serialKey(row.machine_serial_number) === key && /^SP-\d+$/i.test(row.certificate_number || "")) {
         return {
           kind: "duplicate",
           source: "warranty_registrations",
@@ -97,28 +99,6 @@ export async function validateWarrantySerial(
     }
   } catch (e) {
     console.warn("[warrantySerialValidation] warranty_registrations check failed (tolerated)", e);
-  }
-
-  // 3. Supabase machines (RLS-scoped).
-  try {
-    const safe = serial.replace(/[(),%]/g, "");
-    const { data } = await supabase
-      .from("machines")
-      .select("id, serial_number")
-      .ilike("serial_number", `%${safe}%`)
-      .limit(20);
-    for (const row of (data ?? []) as Array<{ serial_number: string | null }>) {
-      if (serialKey(row.serial_number) === key) {
-        return {
-          kind: "duplicate",
-          source: "machines",
-          message: internal ? DUPLICATE_INTERNAL_MSG : DUPLICATE_EXTERNAL_MSG,
-          blocking: !internal,
-        };
-      }
-    }
-  } catch (e) {
-    console.warn("[warrantySerialValidation] machines check failed (tolerated)", e);
   }
 
   if (isUnknownSerial(norm)) {

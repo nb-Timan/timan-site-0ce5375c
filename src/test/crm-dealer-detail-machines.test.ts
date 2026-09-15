@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync("src/pages/crm/CrmDealerDetailPage.tsx", "utf8");
 const financialRedactionMigration = readFileSync(
-  "supabase/migrations/20260908090000_redact_external_machine_financials.sql",
+  "supabase/migrations/20260908080804_redact_external_machine_financials.sql",
   "utf8",
 );
 

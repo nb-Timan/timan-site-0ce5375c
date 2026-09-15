@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 
 export interface PortalWarrantyRegistrationInput {
   isDemo: boolean;
+  demoHoursAtSale: number | null;
   machineSerial: string;
   machineModel: string;
   replacementBrand: string | null;
@@ -16,6 +17,8 @@ export interface PortalWarrantyRegistrationInput {
   customerEmail: string;
   comment: string | null;
   language: string;
+  /** Used only by an internal user acting as the effective dealer. */
+  dealerAccountNumber?: string | null;
 }
 
 export interface CreatedPortalWarrantyRegistration {
@@ -30,6 +33,7 @@ export async function createPortalWarrantyRegistration(
   const { data, error } = await supabase.rpc("create_scoped_portal_warranty_registration", {
     p_registration: {
       is_demo: input.isDemo,
+      demo_hours_at_sale: input.demoHoursAtSale,
       machine_serial_number: input.machineSerial.trim(),
       machine_model: input.machineModel,
       replacement_brand: input.replacementBrand,
@@ -44,6 +48,7 @@ export async function createPortalWarrantyRegistration(
       customer_email: input.customerEmail.trim(),
       comment: input.comment?.trim() || null,
       language: input.language,
+      dealer_account_number: input.dealerAccountNumber?.trim() || null,
     },
   });
 

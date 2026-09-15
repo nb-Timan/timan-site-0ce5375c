@@ -34,6 +34,7 @@ export interface DbWarrantyRegistration extends WarrantyRegistration {
   legacyWarrantyReference: string | null;
   legacyOperatingHours: number | null;
   legacyLastActivityAt: string | null;
+  demoHoursAtSale: number | null;
 }
 
 interface Row {
@@ -70,6 +71,7 @@ interface Row {
   legacy_warranty_reference: string | null;
   legacy_operating_hours: number | null;
   legacy_last_activity_at: string | null;
+  demo_hours_at_sale: number | null;
 }
 
 function fmtPostalCity(pc?: string | null, city?: string | null): string {
@@ -130,6 +132,7 @@ function mapRow(row: Row, dealersById: Map<string, string>): DbWarrantyRegistrat
     legacyWarrantyReference: row.legacy_warranty_reference,
     legacyOperatingHours: row.legacy_operating_hours,
     legacyLastActivityAt: row.legacy_last_activity_at,
+    demoHoursAtSale: row.demo_hours_at_sale,
   };
 }
 
@@ -138,7 +141,7 @@ export async function fetchWarrantyRegistrations(): Promise<DbWarrantyRegistrati
     supabase
       .from("warranty_registrations")
       .select(
-        "id, source, certificate_number, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, sharepoint_created_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at, legacy_warranty_reference, legacy_operating_hours, legacy_last_activity_at",
+        "id, source, certificate_number, sharepoint_item_id, sharepoint_form_id, sharepoint_modified_at, sharepoint_created_at, machine_serial_number, machine_model, tool_serials, dealer_name_snapshot, dealer_account_id, dealer_account_number, dealer_match_status, customer_name, customer_address, customer_postal_code, customer_city, customer_country, customer_phone, customer_email, delivery_date, registration_date, language, is_demo, replacement_brand, comment, is_active_in_source, created_at, updated_at, legacy_warranty_reference, legacy_operating_hours, legacy_last_activity_at, demo_hours_at_sale",
       )
       .eq("is_active_in_source", true)
       .in("source", ["sharepoint", "portal_manual"])

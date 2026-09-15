@@ -99,20 +99,21 @@ describe("external CRM account scope", () => {
     expect(dealerScopeAllows(scope, { dealer_number: "100", dealer_name: "Timan" })).toBe(false);
   });
 
-  it("keeps the lead list RPC from trusting client-provided external scope", () => {
-    const migration = readFileSync("supabase/migrations/20260901065220_secure_external_crm_lead_scope.sql", "utf8");
+  it("keeps the lead list RPC in the canonical RLS scope", () => {
+    const leadListRpcMigration = readFileSync("supabase/migrations/20260828064539_crm_leads_page_query_rpc.sql", "utf8");
+    const scopedRlsMigration = readFileSync("supabase/migrations/20260901144522_secure_external_crm_scope_partner_relations.sql", "utf8");
 
-    expect(migration).toContain("p_external_dealer_ids");
-    expect(migration).toContain("external_dealer_rows as");
-    expect(migration).toContain("not public.is_protected_internal_crm_account(own.account_number");
-    expect(migration).toContain("from public.crm_lead_shares cls");
-    expect(migration).toContain("drop policy if exists crm_leads_all");
-    expect(migration).toContain("drop policy if exists crm_demo_leads_all");
-    expect(migration).not.toContain("r.linked_dealer_id = any(a.external_dealer_ids)");
+    expect(leadListRpcMigration).toContain("p_external_dealer_ids");
+    expect(leadListRpcMigration).not.toMatch(/security definer/i);
+    expect(scopedRlsMigration).toContain("not public.is_protected_internal_crm_account(own.account_number");
+    expect(scopedRlsMigration).toContain("from public.crm_lead_shares cls");
+    expect(scopedRlsMigration).toContain("drop policy if exists crm_leads_all");
+    expect(scopedRlsMigration).toContain("drop policy if exists crm_demo_leads_all");
+    expect(scopedRlsMigration).not.toContain("r.linked_dealer_id = any(a.external_dealer_ids)");
   });
 
   it("repairs the canonical CRM lead sharing tables forward-only", () => {
-    const migration = readFileSync("supabase/migrations/20260901143150_repair_crm_lead_sharing_dependencies.sql", "utf8");
+    const migration = readFileSync("supabase/migrations/20260901144345_repair_crm_lead_sharing_dependencies.sql", "utf8");
 
     expect(migration).toContain("create table if not exists public.crm_lead_shares");
     expect(migration).toContain("create table if not exists public.crm_lead_share_audit_log");
@@ -125,7 +126,7 @@ describe("external CRM account scope", () => {
   });
 
   it("uses partner account relations for the live scoped CRM RLS follow-up", () => {
-    const migration = readFileSync("supabase/migrations/20260901143152_secure_external_crm_scope_partner_relations.sql", "utf8");
+    const migration = readFileSync("supabase/migrations/20260901144522_secure_external_crm_scope_partner_relations.sql", "utf8");
 
     expect(migration).toContain("drop policy if exists crm_leads_all");
     expect(migration).toContain("drop policy if exists crm_demo_leads_all");
@@ -138,7 +139,7 @@ describe("external CRM account scope", () => {
   });
 
   it("removes anonymous write grants from CRM lead tables", () => {
-    const migration = readFileSync("supabase/migrations/20260901164010_tighten_anon_crm_write_grants.sql", "utf8");
+    const migration = readFileSync("supabase/migrations/20260901164037_tighten_anon_crm_write_grants.sql", "utf8");
 
     expect(migration).toContain("revoke insert, update, delete, truncate, references, trigger");
     expect(migration).toContain("on table public.crm_leads");

@@ -8,6 +8,8 @@ export interface WarrantySubmission {
   submissionStatus: WarrantySubmissionStatus;
   machineSerial: string;
   machineModel: string;
+  isDemo: boolean;
+  demoHoursAtSale: number | null;
   dealerName: string;
   dealerAccountNumber: string;
   customerName: string;
@@ -23,6 +25,8 @@ interface SubmissionRow {
   submission_status: WarrantySubmissionStatus;
   machine_serial_number: string;
   machine_model: string;
+  is_demo: boolean;
+  demo_hours_at_sale: number | null;
   dealer_name_snapshot: string;
   dealer_account_number: string;
   customer_name: string;
@@ -39,6 +43,8 @@ function mapSubmission(row: SubmissionRow): WarrantySubmission {
     submissionStatus: row.submission_status,
     machineSerial: row.machine_serial_number,
     machineModel: row.machine_model,
+    isDemo: row.is_demo,
+    demoHoursAtSale: row.demo_hours_at_sale,
     dealerName: row.dealer_name_snapshot,
     dealerAccountNumber: row.dealer_account_number,
     customerName: row.customer_name,
@@ -54,7 +60,7 @@ export async function fetchWarrantySubmissions(): Promise<WarrantySubmission[]> 
   const { data, error } = await supabase
     .from("warranty_submissions")
     .select(
-      "id, submission_status, machine_serial_number, machine_model, dealer_name_snapshot, dealer_account_number, customer_name, delivery_date, created_at, matched_machine_registration_id, approved_registration_id, approved_at",
+      "id, submission_status, machine_serial_number, machine_model, is_demo, demo_hours_at_sale, dealer_name_snapshot, dealer_account_number, customer_name, delivery_date, created_at, matched_machine_registration_id, approved_registration_id, approved_at",
     )
     .order("created_at", { ascending: false })
     .limit(500);

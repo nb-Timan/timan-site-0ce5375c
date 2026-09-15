@@ -7,6 +7,10 @@ const migration = readFileSync(
 );
 
 describe("dealer warranty pending submission workflow", () => {
+  const hardenedRpc = readFileSync(
+    "supabase/migrations/20260912205802_harden_warranty_submission_rpc_anon.sql",
+    "utf8",
+  );
   it("keeps dealer input outside the approved machine and warranty register", () => {
     expect(migration).toContain("create table if not exists public.warranty_submissions");
     expect(migration).toContain("submission_status text not null default 'pending'");
@@ -24,7 +28,7 @@ describe("dealer warranty pending submission workflow", () => {
     expect(migration).toContain("v_user.dealer_number");
     expect(migration).toContain("public.is_timan_global_warranty()");
     expect(migration).toContain("Not authorised to approve warranty submissions");
-    expect(migration).toContain(
+    expect(hardenedRpc).toContain(
       "revoke execute on function public.create_scoped_portal_warranty_registration(jsonb) from anon",
     );
   });
