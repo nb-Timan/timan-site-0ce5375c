@@ -2,13 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, ClipboardList, Loader2, Mail } from 'lucide-react';
 import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
-import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { toast } from 'sonner';
 import { createLead, formatLeadNo, getLeadAttachmentSignedUrl, updateLead, uploadLeadAttachments } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
-import { resolveSellerId } from '@/lib/resolveSellerId';
-import { loadSellerDirectory, type SellerDirectoryEntry } from '@/lib/sellerDirectory';
+import {
+  loadMesseAssignableTimanSellers,
+  resolveDealerAssignableTimanSeller,
+  type SellerDirectoryEntry,
+} from '@/lib/sellerDirectory';
 import { getMesseLeadWebhookUrl } from '@/lib/webhookUrls';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
@@ -21,6 +23,7 @@ import type { CrmLead, CrmLeadAttachment } from '@/lib/crmLeadsService';
 type LeadType = 'dealer' | 'customer' | '';
 type YesNo = 'yes' | 'no' | '';
 type CountryQuickChoice = 'de' | 'dk' | 'other' | '';
+type SellerSelectionMode = 'initial' | 'auto' | 'manual';
 type FormSectionKey = 'country' | 'dealerCustomer' | 'customerInfo' | 'product' | 'demo' | 'responsible';
 type FormSectionErrors = Partial<Record<FormSectionKey, string>>;
 type MesseMailAttachment = CrmLeadAttachment & {
@@ -188,10 +191,6 @@ function clean(value: string): string {
   return value.trim();
 }
 
-function same(value: string | null | undefined, target: string): boolean {
-  return (value || '').toLowerCase() === target.toLowerCase();
-}
-
 function normalizeCountry(value: string | null | undefined): string {
   return (value || '').trim().toLowerCase();
 }
@@ -317,18 +316,6 @@ function FlagIcon({ code, className }: { code: string; className?: string }) {
   );
 }
 
-function isGermanySeller(seller: SellerDirectoryEntry): boolean {
-  const haystack = [seller.full_name, seller.email, seller.initials].join(' ').toLowerCase();
-  return haystack.includes('jakob') ||
-    haystack.includes('alexander') ||
-    ['jtn', 'akr', 'ak'].includes(seller.initials.toLowerCase());
-}
-
-function isDenmarkDefaultSeller(seller: SellerDirectoryEntry): boolean {
-  const haystack = [seller.full_name, seller.email, seller.initials].join(' ').toLowerCase();
-  return seller.initials.toLowerCase() === 'em' || haystack.includes('esben');
-}
-
 async function sendLeadMail(payload: Record<string, unknown>): Promise<void> {
   const response = await fetch(getMesseLeadWebhookUrl(), {
     method: 'POST',
@@ -361,7 +348,6 @@ function addYearsIso(date: Date, years: number): string {
 }
 
 export default function MesseFollowUpPage() {
-  const { appUser } = useAppUser();
   const { uiLanguage, setAutoLanguage } = useLanguage();
   const now = new Date();
   const today = localDateIso(now);
@@ -388,6 +374,7 @@ export default function MesseFollowUpPage() {
   const [equipmentItems, setEquipmentItems] = useState<string[]>([]);
   const [wantsDemo, setWantsDemo] = useState<YesNo>('');
   const [sellerEmail, setSellerEmail] = useState('');
+  const [sellerSelectionMode, setSellerSelectionMode] = useState<SellerSelectionMode>('initial');
   const [dealerNumber, setDealerNumber] = useState('');
   const [company, setCompany] = useState('');
   const [contactPerson, setContactPerson] = useState('');
@@ -417,7 +404,7 @@ export default function MesseFollowUpPage() {
   const firstProductInputRef = useRef<HTMLInputElement>(null);
   const firstEquipmentInputRef = useRef<HTMLInputElement>(null);
   const demoFirstButtonRef = useRef<HTMLButtonElement>(null);
-  const firstSellerButtonRef = useRef<HTMLButtonElement>(null);
+  const sellerSelectRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -435,11 +422,7 @@ export default function MesseFollowUpPage() {
   function handleCountryChoice(value: Exclude<CountryQuickChoice, ''>) {
     setCountryQuickChoice(value);
     if (value === 'de') setAutoLanguage('de');
-    if (value === 'dk') {
-      setAutoLanguage('da');
-      const esben = sellers.find(isDenmarkDefaultSeller);
-      if (esben) setSellerEmail(esben.email);
-    }
+    if (value === 'dk') setAutoLanguage('da');
     if (value === 'other') setAutoLanguage('en');
   }
 
@@ -450,26 +433,17 @@ export default function MesseFollowUpPage() {
       try {
         const [dealerResult, sellerList] = await Promise.all([
           fetchDealerAccounts({ includeDeleted: false }),
-          loadSellerDirectory(),
+          loadMesseAssignableTimanSellers(),
         ]);
         if (cancelled) return;
         setDealers(dealerResult.rows);
-        const activeSellers = sellerList
-          .filter((seller) => seller.email && seller.initials)
-          .sort((a, b) => a.initials.localeCompare(b.initials));
-        setSellers(activeSellers);
-        const current = appUser?.email
-          ? activeSellers.find((seller) => same(seller.email, appUser.email))
-          : null;
-        if (current) {
-          setSellerEmail(current.email);
-        }
+        setSellers(sellerList);
       } finally {
         if (!cancelled) setLoadingData(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email]);
+  }, []);
 
   const selectedDealer = useMemo(
     () => dealers.find((dealer) => dealer.account_number === dealerNumber) || null,
@@ -488,11 +462,7 @@ export default function MesseFollowUpPage() {
     countryOptions.filter((country) => !isDenmarkOrGermany(country))
   ), [countryOptions]);
 
-  const sellerOptions = useMemo(() => (
-    countryQuickChoice === 'de'
-      ? sellers.filter(isGermanySeller)
-      : sellers
-  ), [countryQuickChoice, sellers]);
+  const sellerOptions = sellers;
 
   const responsibleSeller = useMemo(() => {
     return sellerOptions.find((seller) => seller.email === sellerEmail) || null;
@@ -504,18 +474,11 @@ export default function MesseFollowUpPage() {
   }, [dealers, selectedLeadCountry, responsibleSeller]);
 
   useEffect(() => {
-    if (countryQuickChoice !== 'de') return;
-    if (sellerOptions.length === 0) return;
-    if (!sellerOptions.some((seller) => seller.email === sellerEmail)) {
-      setSellerEmail(sellerOptions[0].email);
-    }
-  }, [countryQuickChoice, sellerEmail, sellerOptions]);
-
-  useEffect(() => {
-    if (countryQuickChoice !== 'dk' || sellerEmail) return;
-    const esben = sellers.find(isDenmarkDefaultSeller);
-    if (esben) setSellerEmail(esben.email);
-  }, [countryQuickChoice, sellerEmail, sellers]);
+    if (sellerSelectionMode === 'manual') return;
+    const dealerSeller = resolveDealerAssignableTimanSeller(selectedDealer, sellerOptions);
+    setSellerEmail(dealerSeller?.email || '');
+    setSellerSelectionMode('auto');
+  }, [selectedDealer, sellerOptions, sellerSelectionMode]);
 
   useEffect(() => {
     if (leadType === 'dealer' && dealerNumber) {
@@ -653,7 +616,7 @@ export default function MesseFollowUpPage() {
       demoFirstButtonRef.current?.focus();
       return;
     }
-    firstSellerButtonRef.current?.focus();
+    sellerSelectRef.current?.focus();
   }
 
   function scrollToFirstError(errors: FormSectionErrors) {
@@ -688,7 +651,7 @@ export default function MesseFollowUpPage() {
     if (!validate() || !responsibleSeller) return;
     setSubmitting(true);
     try {
-      const ownerId = await resolveSellerId(responsibleSeller.email);
+      const ownerId = responsibleSeller.id;
       const cleanCompany = clean(company);
       const cleanContactPerson = clean(contactPerson);
       const cleanAddress = clean(address);
@@ -1145,26 +1108,22 @@ export default function MesseFollowUpPage() {
                 {loadingData && <Loader2 className="h-4 w-4 animate-spin text-slate-500" />}
               </div>
               <SectionError message={formErrors.responsible} />
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {sellerOptions.map((seller, index) => (
-                  <button
-                    ref={index === 0 ? firstSellerButtonRef : undefined}
-                    type="button"
-                    key={seller.id}
-                    onClick={() => setSellerEmail(seller.email)}
-                    className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold transition ${
-                      sellerEmail === seller.email
-                        ? 'border-emerald-700 bg-emerald-50 text-emerald-900'
-                        : 'border-slate-200 bg-white text-slate-700 hover:border-emerald-300'
-                    }`}
-                  >
+              <select
+                ref={sellerSelectRef}
+                value={sellerEmail}
+                onChange={(event) => {
+                  setSellerEmail(event.target.value);
+                  setSellerSelectionMode('manual');
+                }}
+                className={fieldClass(Boolean(formErrors.responsible))}
+              >
+                <option value="">{f('chooseResponsible')}</option>
+                {sellerOptions.map((seller) => (
+                  <option key={seller.id} value={seller.email}>
                     {seller.initials} - {seller.full_name || seller.email}
-                    <span className="mt-1 block text-xs font-normal text-slate-500">
-                      {seller.email}
-                    </span>
-                  </button>
+                  </option>
                 ))}
-              </div>
+              </select>
               {leadType === 'customer' && (
                 <div className="space-y-2">
                   <label className="text-sm font-semibold">{f('dealerSelect')}</label>
@@ -1180,7 +1139,9 @@ export default function MesseFollowUpPage() {
                 </div>
               )}
               <p className="text-xs text-slate-500">
-                {f('mailTo')}: {responsibleSeller?.email || f('chooseResponsible')}
+                {f('mailTo')}: {responsibleSeller
+                  ? `${responsibleSeller.full_name || responsibleSeller.initials} · ${responsibleSeller.email}`
+                  : f('chooseResponsible')}
               </p>
             </FormSection>
 

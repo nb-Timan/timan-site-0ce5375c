@@ -39,6 +39,13 @@ export interface SellerDirectoryEntry {
   phone: string | null;
 }
 
+/** Internal roles allowed by CRM's responsible-seller selection. */
+export const ASSIGNABLE_TIMAN_SELLER_ROLES = ['timan_seller', 'timan_backend'] as const;
+
+export function isAssignableTimanSeller(entry: Pick<SellerDirectoryEntry, 'portal_role'>): boolean {
+  return ASSIGNABLE_TIMAN_SELLER_ROLES.includes(entry.portal_role as typeof ASSIGNABLE_TIMAN_SELLER_ROLES[number]);
+}
+
 export interface SellerDirectory {
   list: SellerDirectoryEntry[];
   byEmail: Map<string, SellerDirectoryEntry>;
@@ -136,6 +143,60 @@ export async function loadSellerDirectory(): Promise<SellerDirectoryEntry[]> {
     }
   })();
   return inflight;
+}
+
+/**
+ * Read the same active internal seller model used by CRM for an authenticated
+ * Messe session. The dedicated RPC only exposes the display fields needed by
+ * the form, because external Messe users cannot read the staff directory view.
+ */
+export async function loadMesseAssignableTimanSellers(): Promise<SellerDirectoryEntry[]> {
+  const { data, error } = await supabase.rpc('list_messe_assignable_timan_sellers');
+  if (error) throw error;
+  return ((data || []) as Record<string, unknown>[])
+    .map((row) => ({
+      id: String(row.id || ''),
+      email: String(row.email || '').toLowerCase(),
+      initials: String(row.initials || '').toUpperCase(),
+      full_name: String(row.full_name || ''),
+      portal_role: (row.portal_role as string | null) || null,
+      company: null,
+      phone: null,
+    }))
+    .filter((entry) => entry.id && entry.email && entry.initials && isAssignableTimanSeller(entry));
+}
+
+/** Resolve a dealer's canonical account owner against the live CRM seller list. */
+export function resolveDealerAssignableTimanSeller(
+  dealer: {
+    assigned_seller_id?: string | null;
+    assigned_seller_email?: string | null;
+    assigned_seller_initials?: string | null;
+    assigned_seller_name?: string | null;
+  } | null | undefined,
+  sellers: SellerDirectoryEntry[],
+): SellerDirectoryEntry | null {
+  if (!dealer) return null;
+  const assignable = sellers.filter(isAssignableTimanSeller);
+  const sellerId = dealer.assigned_seller_id?.trim();
+  if (sellerId) {
+    const match = assignable.find((seller) => seller.id === sellerId);
+    if (match) return match;
+  }
+  const sellerEmail = dealer.assigned_seller_email?.trim().toLowerCase();
+  if (sellerEmail) {
+    const match = assignable.find((seller) => seller.email === sellerEmail);
+    if (match) return match;
+  }
+  const sellerInitials = dealer.assigned_seller_initials?.trim().toUpperCase();
+  if (sellerInitials) {
+    const match = assignable.find((seller) => seller.initials === sellerInitials);
+    if (match) return match;
+  }
+  const sellerName = dealer.assigned_seller_name?.trim().toLocaleLowerCase();
+  return sellerName
+    ? assignable.find((seller) => seller.full_name.trim().toLocaleLowerCase() === sellerName) || null
+    : null;
 }
 
 export function invalidateSellerDirectory(): void {
