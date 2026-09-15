@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export type WarrantySubmissionStatus = "pending" | "approved" | "rejected" | "cancelled";
+export type WarrantySubmissionStatus =
+  | "submitted"
+  | "pending"
+  | "needs_information"
+  | "approved"
+  | "rejected"
+  | "cancelled";
 
 export interface WarrantySubmission {
   id: string;
@@ -18,6 +24,18 @@ export interface WarrantySubmission {
   matchedMachineRegistrationId: string | null;
   approvedRegistrationId: string | null;
   approvedAt: string | null;
+  updatedAt: string;
+  currentStatusComment: string | null;
+  rejectionReason: string | null;
+}
+
+export interface WarrantySubmissionStatusHistoryEntry {
+  id: string;
+  fromStatus: WarrantySubmissionStatus | null;
+  toStatus: WarrantySubmissionStatus;
+  comment: string | null;
+  actorEmail: string | null;
+  createdAt: string;
 }
 
 interface SubmissionRow {
@@ -35,6 +53,9 @@ interface SubmissionRow {
   matched_machine_registration_id: string | null;
   approved_registration_id: string | null;
   approved_at: string | null;
+  updated_at: string;
+  current_status_comment: string | null;
+  rejection_reason: string | null;
 }
 
 function mapSubmission(row: SubmissionRow): WarrantySubmission {
@@ -53,6 +74,9 @@ function mapSubmission(row: SubmissionRow): WarrantySubmission {
     matchedMachineRegistrationId: row.matched_machine_registration_id,
     approvedRegistrationId: row.approved_registration_id,
     approvedAt: row.approved_at,
+    updatedAt: row.updated_at,
+    currentStatusComment: row.current_status_comment,
+    rejectionReason: row.rejection_reason,
   };
 }
 
@@ -60,12 +84,61 @@ export async function fetchWarrantySubmissions(): Promise<WarrantySubmission[]> 
   const { data, error } = await supabase
     .from("warranty_submissions")
     .select(
-      "id, submission_status, machine_serial_number, machine_model, is_demo, demo_hours_at_sale, dealer_name_snapshot, dealer_account_number, customer_name, delivery_date, created_at, matched_machine_registration_id, approved_registration_id, approved_at",
+      "id, submission_status, machine_serial_number, machine_model, is_demo, demo_hours_at_sale, dealer_name_snapshot, dealer_account_number, customer_name, delivery_date, created_at, updated_at, current_status_comment, rejection_reason, matched_machine_registration_id, approved_registration_id, approved_at",
     )
     .order("created_at", { ascending: false })
     .limit(500);
   if (error) throw error;
   return ((data ?? []) as SubmissionRow[]).map(mapSubmission);
+}
+
+export async function fetchWarrantySubmissionStatusHistory(
+  submissionId: string,
+): Promise<WarrantySubmissionStatusHistoryEntry[]> {
+  const { data, error } = await supabase
+    .from("warranty_submission_status_history")
+    .select("id, from_status, to_status, comment, actor_email, created_at")
+    .eq("submission_id", submissionId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row) => {
+    const entry = row as {
+      id: string;
+      from_status: WarrantySubmissionStatus | null;
+      to_status: WarrantySubmissionStatus;
+      comment: string | null;
+      actor_email: string | null;
+      created_at: string;
+    };
+    return {
+      id: entry.id,
+      fromStatus: entry.from_status,
+      toStatus: entry.to_status,
+      comment: entry.comment,
+      actorEmail: entry.actor_email,
+      createdAt: entry.created_at,
+    };
+  });
+}
+
+export async function transitionWarrantySubmission(
+  id: string,
+  targetStatus: "pending" | "needs_information" | "rejected",
+  comment?: string,
+): Promise<void> {
+  const { error } = await supabase.rpc("transition_portal_warranty_submission", {
+    p_submission_id: id,
+    p_target_status: targetStatus,
+    p_comment: comment?.trim() || null,
+  });
+  if (!error) return;
+  if (error.code === "42501") {
+    throw new Error("Du har ikke adgang til at behandle garantiindsendelser.");
+  }
+  if (error.code === "22023") {
+    throw new Error(error.message);
+  }
+  throw new Error("Status kunne ikke opdateres. Prøv igen eller kontakt Timan Service.");
 }
 
 export async function approveWarrantySubmission(id: string): Promise<void> {

@@ -37,9 +37,18 @@ import { useTeknikScope, applyScopeFilter } from "@/lib/useTeknikScope";
 import { WARRANTY_CREATE_ROUTE } from "@/lib/warrantyRoutes";
 import {
   approveWarrantySubmission,
+  fetchWarrantySubmissionStatusHistory,
+  transitionWarrantySubmission,
   useWarrantySubmissionsDb,
   type WarrantySubmission,
+  type WarrantySubmissionStatus,
+  type WarrantySubmissionStatusHistoryEntry,
 } from "@/lib/warrantySubmissionsService";
+import {
+  warrantySubmissionStatusClass,
+  warrantySubmissionStatusLabel,
+} from "@/lib/warrantySubmissionStatus";
+import { useLanguage } from "@/context/LanguageContext";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 
 
@@ -553,79 +562,176 @@ function PendingSubmissionsPanel({
   canApprove: boolean;
   onApproved: () => Promise<void>;
 }) {
-  const pending = submissions.filter((submission) => submission.submissionStatus === "pending");
-  const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const { uiLanguage } = useLanguage();
+  const [statusFilter, setStatusFilter] = useState<WarrantySubmissionStatus | "all">("all");
+  const [selected, setSelected] = useState<WarrantySubmission | null>(null);
+  const visible = submissions.filter((submission) => (
+    statusFilter === "all" || submission.submissionStatus === statusFilter
+  ));
 
-  if (!loading && !error && pending.length === 0) return null;
+  if (!loading && !error && submissions.length === 0) return null;
 
-  async function approve(submission: WarrantySubmission) {
-    const confirmed = window.confirm(
-      `Godkend garantiindsendelse for ${submission.machineSerial}? Der oprettes derefter et SP-garantibevis.`,
-    );
-    if (!confirmed) return;
-    setApprovingId(submission.id);
-    setActionError(null);
+  return (
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-3">
+        <div>
+          <h2 className="text-base font-black text-slate-900">Mine garantiindsendelser</h2>
+          <p className="text-sm text-slate-600">
+            Følg behandlingen, kommentarer og SP-garantibeviset ét sted.
+          </p>
+        </div>
+        <label className="text-sm font-bold text-slate-700">
+          Status
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as WarrantySubmissionStatus | "all")}
+            className="ml-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-normal"
+          >
+            <option value="all">Alle</option>
+            {(["submitted", "pending", "needs_information", "approved", "rejected"] as WarrantySubmissionStatus[]).map((status) => (
+              <option key={status} value={status}>{warrantySubmissionStatusLabel(status, uiLanguage)}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {error ? (
+        <p className="px-5 py-4 text-sm text-rose-700">{error}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left text-xs font-black uppercase tracking-widest text-slate-500">
+              <tr>
+                <th className="px-5 py-3">Type</th>
+                <th className="px-5 py-3">Indsendelse</th>
+                <th className="px-5 py-3">Maskine</th>
+                <th className="px-5 py-3">Kunde</th>
+                <th className="px-5 py-3">Indsendt</th>
+                <th className="px-5 py-3">Senest ændret</th>
+                <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3 text-right">Handlinger</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {visible.map((submission) => (
+                <tr key={submission.id} className="hover:bg-slate-50">
+                  <td className="px-5 py-3 font-bold">Garanti</td>
+                  <td className="px-5 py-3 font-mono text-xs">{submission.approvedRegistrationId ? "SP" : submission.id.slice(0, 8)}</td>
+                  <td className="px-5 py-3"><div className="font-bold">{submission.machineModel}</div><div className="font-mono text-xs text-slate-500">{submission.machineSerial}</div></td>
+                  <td className="px-5 py-3">{submission.customerName || "—"}</td>
+                  <td className="whitespace-nowrap px-5 py-3 text-slate-600">{formatDateTime(submission.createdAt)}</td>
+                  <td className="whitespace-nowrap px-5 py-3 text-slate-600">{formatDateTime(submission.updatedAt)}</td>
+                  <td className="px-5 py-3"><SubmissionStatusBadge status={submission.submissionStatus} language={uiLanguage} /></td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="inline-flex flex-wrap justify-end gap-2">
+                      <button type="button" onClick={() => setSelected(submission)} className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-100">Åbn</button>
+                      {canApprove && <SubmissionActions submission={submission} onChanged={onApproved} />}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {!loading && visible.length === 0 && (
+                <tr><td colSpan={8} className="px-5 py-8 text-center text-sm text-slate-500">Ingen indsendelser matcher filteret.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {selected && <WarrantySubmissionDetailDialog submission={selected} onClose={() => setSelected(null)} />}
+    </section>
+  );
+}
+
+function SubmissionStatusBadge({ status, language }: { status: WarrantySubmissionStatus; language: Parameters<typeof warrantySubmissionStatusLabel>[1] }) {
+  return <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-black ${warrantySubmissionStatusClass(status)}`}>{warrantySubmissionStatusLabel(status, language)}</span>;
+}
+
+function SubmissionActions({ submission, onChanged }: { submission: WarrantySubmission; onChanged: () => Promise<void> }) {
+  const [action, setAction] = useState<"needs_information" | "rejected" | null>(null);
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function run(target: "pending" | "needs_information" | "rejected" | "approved") {
+    setBusy(true);
+    setError(null);
     try {
-      await approveWarrantySubmission(submission.id);
-      await onApproved();
+      if (target === "approved") await approveWarrantySubmission(submission.id);
+      else await transitionWarrantySubmission(submission.id, target, comment);
+      setAction(null);
+      setComment("");
+      await onChanged();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Kunne ikke godkende garantiindsendelsen.");
+      setError(err instanceof Error ? err.message : "Status kunne ikke opdateres.");
     } finally {
-      setApprovingId(null);
+      setBusy(false);
     }
   }
 
-  return (
-    <section className="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/40 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-100 px-5 py-3">
-        <div>
-          <h2 className="text-base font-black text-slate-900">Afventende garantiindsendelser</h2>
-          <p className="text-sm text-slate-600">
-            Indsendelser bliver først til garantibeviser, når Timan har godkendt dem.
-          </p>
+  if (action) {
+    return (
+      <div className="w-56 space-y-1 text-left">
+        <textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Kommentar er påkrævet" className="min-h-16 w-full rounded-lg border border-slate-300 p-2 text-xs" />
+        {error && <p className="text-xs text-rose-700">{error}</p>}
+        <div className="flex gap-1">
+          <button type="button" disabled={busy || !comment.trim()} onClick={() => void run(action)} className="rounded-lg bg-slate-900 px-2 py-1 text-xs font-bold text-white disabled:opacity-50">Gem</button>
+          <button type="button" disabled={busy} onClick={() => setAction(null)} className="rounded-lg border border-slate-300 px-2 py-1 text-xs font-bold">Annuller</button>
         </div>
-        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">
-          {loading ? "Henter…" : `${pending.length} afventer`}
-        </span>
       </div>
-      {error || actionError ? (
-        <p className="px-5 py-4 text-sm text-rose-700">{actionError ?? error}</p>
-      ) : (
-        <div className="divide-y divide-amber-100">
-          {pending.map((submission) => (
-            <div key={submission.id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
-              <div className="min-w-0">
-                <div className="font-mono text-xs font-black text-slate-700">{submission.machineSerial}</div>
-                <div className="mt-1 font-bold text-slate-900">
-                  {submission.machineModel} · {submission.customerName}
-                </div>
-                <div className="mt-1 text-xs text-slate-500">
-                  {submission.dealerName} · #{submission.dealerAccountNumber}
-                  {submission.matchedMachineRegistrationId ? " · Eksisterende MO-maskine fundet" : ""}
-                  {submission.isDemo ? ` · Demo: Ja${submission.demoHoursAtSale != null ? ` · Driftstimer: ${submission.demoHoursAtSale}` : ""}` : ""}
-                </div>
-              </div>
-              {canApprove ? (
-                <button
-                  type="button"
-                  onClick={() => void approve(submission)}
-                  disabled={approvingId === submission.id}
-                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ShieldCheck className="h-4 w-4" />
-                  {approvingId === submission.id ? "Godkender…" : "Godkend og opret SP"}
-                </button>
-              ) : (
-                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-800">
-                  Afventer gennemgang
-                </span>
-              )}
-            </div>
-          ))}
+    );
+  }
+
+  if (submission.submissionStatus === "submitted") {
+    return <button type="button" disabled={busy} onClick={() => void run("pending")} className="rounded-lg bg-sky-700 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-sky-800 disabled:opacity-50">Start behandling</button>;
+  }
+  if (submission.submissionStatus !== "pending") return null;
+  return (
+    <>
+      <button type="button" disabled={busy} onClick={() => void run("approved")} className="inline-flex items-center gap-1 rounded-lg bg-emerald-700 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-800 disabled:opacity-50"><ShieldCheck className="h-3.5 w-3.5" />Godkend</button>
+      <button type="button" disabled={busy} onClick={() => setAction("needs_information")} className="rounded-lg border border-amber-300 px-2.5 py-1.5 text-xs font-bold text-amber-900 hover:bg-amber-50">Kræv oplysninger</button>
+      <button type="button" disabled={busy} onClick={() => setAction("rejected")} className="rounded-lg border border-rose-300 px-2.5 py-1.5 text-xs font-bold text-rose-800 hover:bg-rose-50">Afvis</button>
+      {error && <p className="w-56 text-left text-xs text-rose-700">{error}</p>}
+    </>
+  );
+}
+
+function WarrantySubmissionDetailDialog({ submission, onClose }: { submission: WarrantySubmission; onClose: () => void }) {
+  const { uiLanguage } = useLanguage();
+  const [history, setHistory] = useState<WarrantySubmissionStatusHistoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchWarrantySubmissionStatusHistory(submission.id).then((entries) => {
+      if (!cancelled) setHistory(entries);
+    }).catch(() => {
+      if (!cancelled) setHistory([]);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [submission.id]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4">
+          <div><h3 className="text-lg font-black text-slate-900">Garantiindsendelse</h3><p className="font-mono text-xs text-slate-500">{submission.id}</p></div>
+          <button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-bold">Luk</button>
         </div>
-      )}
-    </section>
+        <div className="space-y-6 px-6 py-5">
+          <div className="flex flex-wrap items-center gap-3"><SubmissionStatusBadge status={submission.submissionStatus} language={uiLanguage} /><span className="text-sm text-slate-500">Indsendt {formatDateTime(submission.createdAt)} · Senest ændret {formatDateTime(submission.updatedAt)}</span></div>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm md:grid-cols-2">
+            <DRow label="Maskine" value={submission.machineModel} /><DRow label="Serienummer" value={submission.machineSerial} mono />
+            <DRow label="Kunde" value={submission.customerName || "—"} /><DRow label="Forhandler" value={`${submission.dealerName} · #${submission.dealerAccountNumber}`} />
+            <DRow label="Leveringsdato" value={formatDate(submission.deliveryDate)} /><DRow label="Demo-maskine" value={submission.isDemo ? "Ja" : "Nej"} />
+            {submission.isDemo && <DRow label="Driftstimer ved salg" value={submission.demoHoursAtSale?.toString() ?? "—"} />}
+            {submission.approvedRegistrationId && <DRow label="Godkendt garanti" value="SP-garantibevis oprettet" />}
+          </dl>
+          {submission.currentStatusComment && <div><p className="text-xs font-bold uppercase tracking-wide text-slate-500">Timan kommentar</p><p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{submission.currentStatusComment}</p></div>}
+          <div><h4 className="text-sm font-black text-slate-900">Historik</h4>{loading ? <p className="mt-2 text-sm text-slate-500">Henter historik…</p> : <ol className="mt-3 space-y-3 border-l border-slate-200 pl-4">{history.map((entry) => <li key={entry.id}><div className="text-sm font-bold">{warrantySubmissionStatusLabel(entry.toStatus, uiLanguage)}</div><div className="text-xs text-slate-500">{formatDateTime(entry.createdAt)}{entry.actorEmail ? ` · ${entry.actorEmail}` : ""}</div>{entry.comment && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{entry.comment}</p>}</li>)}{history.length === 0 && <li className="text-sm text-slate-500">Ingen historik endnu.</li>}</ol>}</div>
+        </div>
+      </div>
+    </div>
   );
 }
 

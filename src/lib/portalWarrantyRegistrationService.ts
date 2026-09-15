@@ -23,7 +23,7 @@ export interface PortalWarrantyRegistrationInput {
 
 export interface CreatedPortalWarrantyRegistration {
   id: string;
-  submissionStatus: "pending";
+  submissionStatus: "submitted";
 }
 
 /** The RPC derives dealer identity from auth; caller input contains no dealer fields. */
@@ -54,8 +54,8 @@ export async function createPortalWarrantyRegistration(
 
   if (error) throw error;
   const row = data as { id?: string; submission_status?: string | null } | null;
-  if (!row?.id || row.submission_status !== "pending") {
+  if (!row?.id || row.submission_status !== "submitted") {
     throw new Error("Serveren bekræftede ikke garantiregistreringen.");
   }
-  return { id: row.id, submissionStatus: "pending" };
+  return { id: row.id, submissionStatus: "submitted" };
 }
