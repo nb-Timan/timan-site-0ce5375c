@@ -184,7 +184,7 @@ describe("marketing video library", () => {
       readFileSync("supabase/migrations/20260901183941_marketing_video_library.sql", "utf8"),
       readFileSync("supabase/migrations/20260901184240_harden_marketing_video_library_policies.sql", "utf8"),
       readFileSync("supabase/migrations/20260901201158_marketing_video_editorial_i18n.sql", "utf8"),
-      readFileSync("supabase/migrations/20260901210152_marketing_video_user_favorites.sql", "utf8"),
+      readFileSync("supabase/migrations/20260901210720_marketing_video_user_favorites.sql", "utf8"),
       readFileSync("supabase/migrations/20260902100428_show_marketing_videos_on_messe_portal.sql", "utf8"),
     ].join("\n");
 

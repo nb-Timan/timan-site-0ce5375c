@@ -84,7 +84,7 @@ describe('Marketing configurator content', () => {
   });
 
   it('keeps draft and published content separated by RLS and uses the existing Configurator sales page', () => {
-    const migration = readFileSync('supabase/migrations/20260909140017_marketing_configurator_content.sql', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260910201157_20260909140017_marketing_configurator_content.sql', 'utf8');
     const page = readFileSync('src/pages/MarketingConfiguratorPage.tsx', 'utf8');
     const configurator = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
     const editor = readFileSync('src/components/configurator/MarketingConfiguratorContentEditor.tsx', 'utf8');

@@ -277,7 +277,7 @@ describe('site change service', () => {
   });
 
   it('supports grouped public feature suggestions while preserving source commits', () => {
-    const migration = readFileSync('supabase/migrations/20260901132435_site_change_grouped_publications.sql', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260901163615_site_change_grouped_publications.sql', 'utf8');
     const service = readFileSync('src/lib/portalChangelogService.ts', 'utf8');
     const page = readFileSync('src/pages/backend/BackendChangelogPage.tsx', 'utf8');
     const edgeFunction = readFileSync('supabase/functions/import-site-changes-from-github/index.ts', 'utf8');

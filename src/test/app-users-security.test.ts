@@ -98,7 +98,7 @@ describe("phase63 migration", () => {
 
 describe("app_user_directory hardening", () => {
   const sql = readFileSync(
-    join(process.cwd(), "supabase/migrations/20260901155858_harden_app_user_directory.sql"),
+    join(process.cwd(), "supabase/migrations/20260901155950_harden_app_user_directory.sql"),
     "utf8",
   );
 

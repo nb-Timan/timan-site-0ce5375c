@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 
 const panel = readFileSync("src/pages/crm/CrmDealerDetailPage.tsx", "utf8");
 const service = readFileSync("src/lib/dealerMachineRegisterService.ts", "utf8");
-const migration = readFileSync("supabase/migrations/20260907193556_dealer_machine_registry_search_sort.sql", "utf8");
+const migration = readFileSync("supabase/migrations/20260907195140_dealer_machine_registry_search_sort.sql", "utf8");
 
 describe("dealer machine registry search and sorting", () => {
   it("uses the canonical paged registry with delivery descending as the default", () => {

@@ -6,7 +6,7 @@ const root = process.cwd();
 const read = (path: string) => readFileSync(join(root, path), "utf8");
 
 describe("pending partner submissions", () => {
-  const migration = read("supabase/migrations/20260904095227_pending_partner_submission_approval.sql");
+  const migration = read("supabase/migrations/20260904095712_pending_partner_submission_approval.sql");
   const service = read("src/lib/portalFormsService.ts");
   const overview = read("src/pages/crm/CrmMyDealersPage.tsx");
   const panel = read("src/components/crm/PendingPartnerSubmissions.tsx");

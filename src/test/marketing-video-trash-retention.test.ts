@@ -4,7 +4,7 @@ import { tv } from "@/lib/videoLibraryI18n";
 
 const service = readFileSync("src/lib/videoLibraryService.ts", "utf8");
 const page = readFileSync("src/pages/backend/BackendVideoManagementPage.tsx", "utf8");
-const migration = readFileSync("supabase/migrations/20260913092817_marketing_video_trash_retention.sql", "utf8");
+const migration = readFileSync("supabase/migrations/20260913094101_marketing_video_trash_retention.sql", "utf8");
 const edge = readFileSync("supabase/functions/marketing-video-retention/index.ts", "utf8");
 
 describe("marketing video 24-hour trash retention", () => {

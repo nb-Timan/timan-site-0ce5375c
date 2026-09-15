@@ -16,11 +16,11 @@ describe("partner contract onboarding access", () => {
   const crmDealerDetailPage = readProjectFile("src/pages/crm/CrmDealerDetailPage.tsx");
   const historyComponent = readProjectFile("src/components/portal/PartnerAgreementHistory.tsx");
   const historyDetailMigration = readProjectFile("supabase/migrations/20260901081807_crm_partner_agreement_history_detail.sql");
-  const userAccessMigration = readProjectFile("supabase/migrations/20260901125302_dealer_contract_user_access_windows.sql");
-  const userWindowPolicyMigration = readProjectFile("supabase/migrations/20260901150652_enforce_user_specific_contract_window_policies.sql");
-  const policyQualificationMigration = readProjectFile("supabase/migrations/20260901151012_fix_contract_window_policy_contract_id_qualification.sql");
-  const historyDisambiguationMigration = readProjectFile("supabase/migrations/20260901153058_disambiguate_contract_access_history_events.sql");
-  const sellerScopeMigration = readProjectFile("supabase/migrations/20260908210000_enforce_seller_contract_scope.sql");
+  const userAccessMigration = readProjectFile("supabase/migrations/20260901150428_dealer_contract_user_access_windows.sql");
+  const userWindowPolicyMigration = readProjectFile("supabase/migrations/20260901150923_contract_window_user_policies.sql");
+  const policyQualificationMigration = readProjectFile("supabase/migrations/20260901151113_fix_contract_window_policy_contract_id_qualification.sql");
+  const historyDisambiguationMigration = readProjectFile("supabase/migrations/20260901153233_disambiguate_contract_access_history_events.sql");
+  const sellerScopeMigration = readProjectFile("supabase/migrations/20260910171452_enforce_seller_contract_scope.sql");
 
   it("adds one controlled access-window model and append-only agreement history", () => {
     expect(migration).toContain("create table if not exists public.dealer_contract_access_windows");
@@ -48,7 +48,7 @@ describe("partner contract onboarding access", () => {
   it("keeps external contract writes tied to the exact user and contract window", () => {
     expect(userWindowPolicyMigration).toContain("create policy dealer_contracts_insert_controlled");
     expect(userWindowPolicyMigration).toContain("create policy dealer_contracts_update_controlled");
-    expect(userWindowPolicyMigration).toContain("public.has_active_dealer_contract_window(dealer_contracts.dealer_account_id, dealer_contracts.id, au.id)");
+    expect(userWindowPolicyMigration).toContain("public.has_active_dealer_contract_window(dealer_account_id, id, au.id)");
     expect(userWindowPolicyMigration).not.toContain("public.has_active_dealer_contract_window(dealer_account_id, null)");
     expect(userWindowPolicyMigration).not.toContain("public.has_active_dealer_contract_window(dealer_account_id, id)");
 
