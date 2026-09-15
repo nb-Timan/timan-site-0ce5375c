@@ -836,6 +836,35 @@ describe('contract flow', () => {
     expect(GUIDED_CONTRACT_SECTIONS.map((section) => section.stepId)).not.toContain('sales_service_days');
   });
 
+  it('places demo-machine warranty terms in Point 5 exactly once', () => {
+    const sections = renderGuidedContractSections({
+      companyName: completeForm.dealerName,
+      partnerType: completeForm.partnerType,
+    });
+    const demoMachines = sections.find((section) => section.stepId === 'demo_machines');
+    const spareParts = sections.find((section) => section.stepId === 'spare_parts_service');
+    const demoText = JSON.stringify(demoMachines);
+    const sparePartsText = JSON.stringify(spareParts);
+    const demoWarrantyTerms = [
+      '5.1 Garantibetingelser for demomaskiner:',
+      'Der ydes maksimalt 24 måneders garanti på demomaskiner regnet fra fakturadato til forhandleren.',
+      'Ved salg af demomaskiner efter 9-12 måneder gives 12 måneders garanti fra Timan.',
+      'Ved salg efter 12 måneder reduceres garantiperioden tilsvarende med 1 måneder for hver efterfølgende måned, maskinen er i brug før salget.',
+      'Udlejes demomaskinen yders der 12 måneders garanti fra fakturadato til forhandleren.',
+    ];
+
+    expect(demoMachines?.source).toBe('Kontrakt, punkt 5');
+    expect(CONTRACT_STEPS.find((step) => step.id === 'demo_machines')?.confirmationId).toBe('demo_machines');
+    expect(CONTRACT_STEPS.find((step) => step.id === 'spare_parts_service')?.confirmationId).toBe('spare_parts_service');
+
+    for (const term of demoWarrantyTerms) {
+      expect(demoText).toContain(term);
+      expect(sparePartsText).not.toContain(term);
+    }
+
+    expect(demoText.match(/Der ydes maksimalt 24 måneders garanti på demomaskiner/g)).toHaveLength(1);
+  });
+
   it('renders the contract service hourly rate in key legal service terms', () => {
     const defaultSections = renderGuidedContractSections({
       companyName: completeForm.dealerName,
@@ -1506,8 +1535,8 @@ describe('contract flow', () => {
   });
 
   it('keeps the overview RPC security-invoker and scoped by the existing RLS policy', () => {
-    const migration = readFileSync('supabase/migrations/20260909181219_contract_overview_scoped_read.sql', 'utf8');
-    const sellerScopeMigration = readFileSync('supabase/migrations/20260908210000_enforce_seller_contract_scope.sql', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260909182101_contract_overview_scoped_read.sql', 'utf8');
+    const sellerScopeMigration = readFileSync('supabase/migrations/20260910171452_enforce_seller_contract_scope.sql', 'utf8');
 
     expect(migration).toContain('security invoker');
     expect(migration).toContain('public.list_internal_dealer_contract_overview');
@@ -1522,7 +1551,7 @@ describe('contract flow', () => {
     const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
     const portalAreaSource = readFileSync('src/pages/PortalAreaPage.tsx', 'utf8');
     const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
-    const migration = readFileSync('supabase/migrations/20260901125302_dealer_contract_user_access_windows.sql', 'utf8');
+    const migration = readFileSync('supabase/migrations/20260901150428_dealer_contract_user_access_windows.sql', 'utf8');
 
     expect(migration).toContain('alter table public.dealer_contract_access_windows');
     expect(migration).toContain('add column if not exists user_id uuid references public.app_users');

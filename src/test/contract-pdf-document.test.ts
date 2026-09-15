@@ -45,6 +45,10 @@ describe('contract PDF document model', () => {
 
     expect(sections.some((section) => section.stepId === 'spare_parts_service')).toBe(true);
     expect(sections.some((section) => section.blocks.some((block) => block.heading === 'Redskaber fra tredjepartsproducenter'))).toBe(true);
+    const demoMachines = sections.find((section) => section.stepId === 'demo_machines');
+    const spareParts = sections.find((section) => section.stepId === 'spare_parts_service');
+    expect(JSON.stringify(demoMachines)).toContain('5.1 Garantibetingelser for demomaskiner:');
+    expect(JSON.stringify(spareParts)).not.toContain('Garantibetingelser for demomaskiner');
     expect(snapshot.contractLanguage).toBe('da');
   });
 

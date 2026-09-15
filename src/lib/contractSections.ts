@@ -160,7 +160,7 @@ const ENGLISH_CONTRACT_TEXT: Record<string, string> = {
   'Reklamationer må kun udføres af autoriseret Timan forhandler.': 'Claims may only be carried out by an authorised Timan dealer.',
   'Reklamationssager behandles i samarbejde med {{partnerDefinite}} for at sikre en hurtig og effektiv løsning.': 'Claim cases are handled in cooperation with {{partnerDefinite}} to ensure a fast and efficient solution.',
   'Alle garantiregistreringer skal udføres af {{partnerDefinite}} med fakturadato fra {{partnerSingular}} til slutkunden.  Registreringen foretages via Forms-formularen, som kan tilgås via linket på {{partnerPortal}}, eller ved hjælp af QR -koden, der findes i alle manualer, der følger med maskinen.': 'All warranty registrations must be completed by {{partnerDefinite}} with the invoice date from {{partnerSingular}} to the end customer. Registration is completed through the Forms form, available from the link on {{partnerPortal}} or by the QR code in every manual supplied with the machine.',
-  '2.1 Garantibetingelser for demomaskiner:': '2.1 Warranty terms for demonstration machines:',
+  '5.1 Garantibetingelser for demomaskiner:': '5.1 Warranty terms for demonstration machines:',
   'Der ydes maksimalt 24 måneders garanti på demomaskiner regnet fra fakturadato til {{partnerDefinite}}.': 'A maximum 24-month warranty is provided for demonstration machines, calculated from the invoice date to {{partnerDefinite}}.',
   'Ved salg af demomaskiner efter 9-12 måneder gives 12 måneders garanti fra Timan.': 'When demonstration machines are sold after 9-12 months, Timan provides a 12-month warranty.',
   'Ved salg efter 12 måneder reduceres garantiperioden tilsvarende med 1 måneder for hver efterfølgende måned, maskinen er i brug før salget.': 'When sold after 12 months, the warranty period is reduced by one month for each additional month the machine has been in use before the sale.',
@@ -257,7 +257,7 @@ const GERMAN_CONTRACT_TEXT: Record<string, string> = {
   'Reklamationer må kun udføres af autoriseret Timan forhandler.': 'Reklamationen dürfen nur von einem autorisierten Timan-Händler durchgeführt werden.',
   'Reklamationssager behandles i samarbejde med {{partnerDefinite}} for at sikre en hurtig og effektiv løsning.': 'Reklamationsfälle werden in Zusammenarbeit mit {{partnerDefinite}} bearbeitet, um eine schnelle und effiziente Lösung sicherzustellen.',
   'Alle garantiregistreringer skal udføres af {{partnerDefinite}} med fakturadato fra {{partnerSingular}} til slutkunden.  Registreringen foretages via Forms-formularen, som kan tilgås via linket på {{partnerPortal}}, eller ved hjælp af QR -koden, der findes i alle manualer, der følger med maskinen.': 'Alle Garantieregistrierungen müssen von {{partnerDefinite}} mit dem Rechnungsdatum von {{partnerSingular}} an den Endkunden durchgeführt werden. Die Registrierung erfolgt über das Forms-Formular, das über den Link auf {{partnerPortal}} oder den QR-Code in jeder mit der Maschine gelieferten Anleitung verfügbar ist.',
-  '2.1 Garantibetingelser for demomaskiner:': '2.1 Garantiebedingungen für Demomaschinen:',
+  '5.1 Garantibetingelser for demomaskiner:': '5.1 Garantiebedingungen für Demomaschinen:',
   'Der ydes maksimalt 24 måneders garanti på demomaskiner regnet fra fakturadato til {{partnerDefinite}}.': 'Für Demomaschinen wird ab Rechnungsdatum an {{partnerDefinite}} eine Garantie von maximal 24 Monaten gewährt.',
   'Ved salg af demomaskiner efter 9-12 måneder gives 12 måneders garanti fra Timan.': 'Beim Verkauf von Demomaschinen nach 9-12 Monaten gewährt Timan eine Garantie von 12 Monaten.',
   'Ved salg efter 12 måneder reduceres garantiperioden tilsvarende med 1 måneder for hver efterfølgende måned, maskinen er i brug før salget.': 'Bei einem Verkauf nach 12 Monaten verkürzt sich die Garantiezeit für jeden weiteren Monat, in dem die Maschine vor dem Verkauf genutzt wurde, um einen Monat.',
@@ -901,6 +901,15 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
           'Demonstrationsmaskinerabat: 25 %–10 %.',
         ],
       },
+      {
+        heading: '5.1 Garantibetingelser for demomaskiner:',
+        bullets: [
+          'Der ydes maksimalt 24 måneders garanti på demomaskiner regnet fra fakturadato til {{partnerDefinite}}.',
+          'Ved salg af demomaskiner efter 9-12 måneder gives 12 måneders garanti fra Timan.',
+          'Ved salg efter 12 måneder reduceres garantiperioden tilsvarende med 1 måneder for hver efterfølgende måned, maskinen er i brug før salget.',
+          'Udlejes demomaskinen yders der 12 måneders garanti fra fakturadato til {{partnerDefinite}}.',
+        ],
+      },
     ],
   },
   {
@@ -944,13 +953,6 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
         heading: '2. Garanti registreringer',
         paragraphs: [
           'Alle garantiregistreringer skal udføres af {{partnerDefinite}} med fakturadato fra {{partnerSingular}} til slutkunden.  Registreringen foretages via Forms-formularen, som kan tilgås via linket på {{partnerPortal}}, eller ved hjælp af QR -koden, der findes i alle manualer, der følger med maskinen.',
-          '2.1 Garantibetingelser for demomaskiner:',
-        ],
-        bullets: [
-          'Der ydes maksimalt 24 måneders garanti på demomaskiner regnet fra fakturadato til {{partnerDefinite}}.',
-          'Ved salg af demomaskiner efter 9-12 måneder gives 12 måneders garanti fra Timan.',
-          'Ved salg efter 12 måneder reduceres garantiperioden tilsvarende med 1 måneder for hver efterfølgende måned, maskinen er i brug før salget.',
-          'Udlejes demomaskinen yders der 12 måneders garanti fra fakturadato til {{partnerDefinite}}.',
         ],
       },
       {

@@ -134,6 +134,7 @@ describe('contract i18n', () => {
       'Det forventes at',
       'Demo-maskiner må ikke videresælges',
       'Demonstrationsmaskinerabat',
+      'Garantibetingelser for demomaskiner',
     ];
 
     for (const language of ['en', 'de'] as const) {
@@ -144,6 +145,10 @@ describe('contract i18n', () => {
       for (const marker of danishStepFiveMarkers) {
         expect(rendered).not.toContain(marker);
       }
+
+      expect(rendered).toContain(language === 'en'
+        ? '5.1 Warranty terms for demonstration machines:'
+        : '5.1 Garantiebedingungen für Demomaschinen:');
     }
   });
 
@@ -187,7 +192,6 @@ describe('contract i18n', () => {
       'Salgs- og servicedage',
       'Reklamationsarbejde må først',
       'Garanti registreringer',
-      'Garantibetingelser for demomaskiner',
       'Godtgørelse dækkes via kreditnota',
       'Timeløn og Transport',
       'Timesatsen er baseret på dækning',
