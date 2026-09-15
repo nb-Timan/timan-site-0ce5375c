@@ -353,6 +353,7 @@ type FollowupTone = 'overdue' | 'soon' | 'later' | 'neutral';
 type FollowupFilter = Exclude<FollowupTone, 'neutral'>;
 
 const USER_LEAD_TYPES: UserLeadType[] = ['open', 'demo', 'won', 'lost'];
+const MOBILE_RESULT_TABS: TabKey[] = ['all', 'won', 'closed'];
 
 function isWonRow(row: UnifiedLead): boolean {
   return row.status === 'Vundet' || row.status === 'Won';
@@ -495,6 +496,8 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const [imagePreview, setImagePreview] = useState<{ title: string; images: CrmLeadAttachmentPreview[] } | null>(null);
   const topFilterButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm leading-none transition whitespace-nowrap';
   const topActionButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium leading-none shadow-sm transition whitespace-nowrap';
+  const mobileControlClass = 'flex min-h-11 w-full items-center justify-between gap-1 rounded-lg border px-2 py-1.5 text-left text-[11px] font-medium leading-tight transition';
+  const mobileCountClass = 'inline-flex min-w-5 shrink-0 items-center justify-center rounded-md px-1 py-0.5 text-[10px] tabular-nums';
 
   useEffect(() => {
     if (dealerParam) {
@@ -697,8 +700,89 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
+      {/* Mobile status grid. It shares the same filters and routes as the desktop toolbar below. */}
+      <div className="mb-4 grid grid-cols-3 gap-2 md:hidden" data-testid="crm-leads-mobile-status-grid">
+        <div className="min-w-0 space-y-1.5">
+          {TABS.filter((t) => t.key === 'open').map(t => {
+            const active = tab === t.key && followupFilter === null;
+            const c = counts[t.key];
+            return (
+              <button
+                key={t.key}
+                onClick={() => {
+                  setTab(t.key);
+                  setFollowupFilter(null);
+                }}
+                className={cn(
+                  mobileControlClass,
+                  active
+                    ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
+                    : 'bg-white border-gray-200 text-gray-700'
+                )}>
+                <span className="min-w-0">{t.label}</span>
+                <span className={cn(mobileCountClass, active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600')}>{c}</span>
+              </button>
+            );
+          })}
+          {[...FOLLOWUP_FILTERS].reverse().map((item) => {
+            const active = followupFilter === item.key;
+            const c = followupCounts[item.key];
+            return (
+              <button
+                key={item.key}
+                onClick={() => {
+                  setTab('open');
+                  setFollowupFilter(active ? null : item.key);
+                }}
+                className={cn(mobileControlClass, FOLLOWUP_BADGE[item.key], active && 'shadow-sm ring-2 ring-offset-1 ring-current/20')}
+              >
+                <span className="min-w-0">{tt(item.labelKey, lang)}</span>
+                <span className={cn(mobileCountClass, active ? 'bg-white/60' : 'bg-white/70')}>{c}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="min-w-0 space-y-1.5">
+          {MOBILE_RESULT_TABS.map((key) => {
+            const t = TABS.find((candidate) => candidate.key === key);
+            if (!t) return null;
+            const active = tab === t.key && followupFilter === null;
+            const c = counts[t.key];
+            return (
+              <button
+                key={t.key}
+                onClick={() => {
+                  setTab(t.key);
+                  setFollowupFilter(null);
+                }}
+                className={cn(
+                  mobileControlClass,
+                  active
+                    ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
+                    : 'bg-white border-gray-200 text-gray-700'
+                )}>
+                <span className="min-w-0">{t.label}</span>
+                <span className={cn(mobileCountClass, active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600')}>{c}</span>
+              </button>
+            );
+          })}
+        </div>
+        {!repository.academy && (
+          <div className="min-w-0 space-y-1.5">
+            <Link to="/portal/crm/leads/new"
+              className={cn(mobileControlClass, 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm')}>
+              <span className="flex min-w-0 items-center gap-1"><Plus className="h-3.5 w-3.5 shrink-0" />{tt('new_lead', lang)}</span>
+            </Link>
+            <Link to="/portal/crm/demo-leads/new"
+              className={cn(mobileControlClass, 'bg-white text-[#2d5a27] border-[#2d5a27]/30')}>
+              <span className="flex min-w-0 items-center gap-1"><Plus className="h-3.5 w-3.5 shrink-0" />{tt('new_demo', lang)}</span>
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* Desktop and tablet toolbar. */}
+      <div className="mb-4 hidden flex-col gap-2 md:flex xl:flex-row xl:items-center xl:justify-between">
         <div className="flex flex-wrap items-center gap-1.5">
           {TABS.filter((t) => t.key === 'open').map(t => {
             const active = tab === t.key && followupFilter === null;
