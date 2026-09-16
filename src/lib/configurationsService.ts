@@ -1374,6 +1374,107 @@ export interface OwnershipPatch {
   dealer_account_id: string | null;
 }
 
+export interface SubmittedOrderContactDetails {
+  firmanavn: string;
+  kontaktperson: string;
+  telefon: string;
+  email: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  comment: string;
+  alternativeDeliveryAddress: string;
+  purchaseOrderNumber: string;
+  date: string;
+}
+
+const submittedOrderContactKeys = [
+  'firmanavn',
+  'kontaktperson',
+  'telefon',
+  'email',
+  'address',
+  'postalCode',
+  'city',
+  'country',
+  'comment',
+  'alternativeDeliveryAddress',
+  'purchaseOrderNumber',
+  'date',
+] as const;
+
+export function getSubmittedOrderContactDetails(state: Partial<ConfiguratorState> | null | undefined): SubmittedOrderContactDetails {
+  const details = submittedOrderContactKeys.reduce((result, key) => {
+    result[key] = typeof state?.[key] === 'string' ? state[key] : '';
+    return result;
+  }, {} as SubmittedOrderContactDetails);
+  // Older Configurator snapshots can contain the contact address only in the
+  // existing recipient field. This mirrors the read fallback used elsewhere
+  // in Configurator without changing that recipient field on save.
+  if (!details.email && typeof state?.emailRecipient === 'string') {
+    details.email = state.emailRecipient;
+  }
+  return details;
+}
+
+export function validateSubmittedOrderContactDetails(details: SubmittedOrderContactDetails): string | null {
+  if (!details.firmanavn.trim() || !details.kontaktperson.trim() || !details.email.trim()) {
+    return 'Udfyld firmanavn, kontaktperson og e-mail.';
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email.trim())) {
+    return 'Indtast en gyldig e-mailadresse.';
+  }
+  return null;
+}
+
+/**
+ * Backend-only read model for the constrained contact editor on submitted
+ * orders. The Configurator state remains the one canonical contact snapshot.
+ */
+export async function loadSubmittedOrderContactDetails(
+  id: string,
+): Promise<{ details: SubmittedOrderContactDetails | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('configurations')
+    .select('id, state_json, delivery_date')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { details: null, error: error ? formatSupabaseError(error) : 'Ordren blev ikke fundet.' };
+  }
+
+  const state = parseStateJson((data as Record<string, unknown>).state_json);
+  const details = getSubmittedOrderContactDetails(state);
+  const deliveryDate = (data as Record<string, unknown>).delivery_date;
+  if (typeof deliveryDate === 'string') details.date = deliveryDate.slice(0, 10);
+  return { details, error: null };
+}
+
+/**
+ * The RPC only permits the administrative contact snapshot and requested
+ * delivery date. It deliberately cannot patch ownership, order lines, totals,
+ * payment terms, identifiers or sending history.
+ */
+export async function updateSubmittedOrderContactDetails(
+  id: string,
+  details: SubmittedOrderContactDetails,
+): Promise<{ ok: boolean; error: string | null }> {
+  const validationError = validateSubmittedOrderContactDetails(details);
+  if (validationError) return { ok: false, error: validationError };
+
+  const { error } = await supabase.rpc('update_submitted_order_contact_details', {
+    p_configuration_id: id,
+    p_contact: details,
+  });
+  if (error) {
+    console.error('[updateSubmittedOrderContactDetails] error:', error);
+    return { ok: false, error: formatSupabaseError(error) };
+  }
+  return { ok: true, error: null };
+}
+
 export async function updateConfigurationOwnership(
   id: string,
   patch: OwnershipPatch,

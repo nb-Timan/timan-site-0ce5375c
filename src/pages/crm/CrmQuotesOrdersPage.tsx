@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import CrmLayout from '@/components/crm/CrmLayout';
-import EditOrderOwnershipModal from '@/components/crm/EditOrderOwnershipModal';
+import EditOrderContactModal from '@/components/crm/EditOrderContactModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -138,8 +138,9 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
 
   const isBackendFull = portalRole === 'timan_backend' && !getActiveSellerView(appUser?.email);
   const isSeller = portalRole === 'timan_seller';
-  // Backend/admin can always edit ownership, even when "viewing as" a seller.
-  const canEditOwnership = portalRole === 'timan_backend' && mode === 'order';
+  // `portalRole` is derived from the effective user, so this remains hidden
+  // when Backend is viewing the portal with a seller or external scope.
+  const canEditOrderContacts = portalRole === 'timan_backend' && mode === 'order';
   // Soft-delete UI is Backend-only and hidden in seller-view mode / external roles.
   const canDelete = isBackendFull;
 
@@ -190,8 +191,8 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   ]);
 
   const handleRowClick = useCallback((r: CrmConfigurationRow) => {
-    if (canEditOwnership) setEditingRow(r);
-  }, [canEditOwnership]);
+    if (canEditOrderContacts) setEditingRow(r);
+  }, [canEditOrderContacts]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingRow) return;
@@ -343,7 +344,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                   <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
                   {mode === 'quote' && <th className="text-left px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
-                  {canEditOwnership && <th className="px-3 py-2 font-semibold w-10"></th>}
+                  {canEditOrderContacts && <th className="px-3 py-2 font-semibold w-10"></th>}
                   {canDelete && <th className="px-3 py-2 font-semibold w-10"></th>}
                 </tr>
               </thead>
@@ -363,7 +364,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                     <tr
                       key={r.id}
                       onClick={() => handleRowClick(r)}
-                      className={`border-b border-slate-100 hover:bg-slate-50/60 ${canEditOwnership ? 'cursor-pointer' : ''}`}
+                      className={`border-b border-slate-100 hover:bg-slate-50/60 ${canEditOrderContacts ? 'cursor-pointer' : ''}`}
                     >
                       <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
                         {number}
@@ -414,13 +415,14 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                           </div>
                         </td>
                       )}
-                      {canEditOwnership && (
+                      {canEditOrderContacts && (
                         <td className="px-3 py-2.5 text-right">
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); setEditingRow(r); }}
                             className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
-                            title="Ret sælger og forhandler"
+                            title="Redigér ordreoplysninger"
+                            aria-label="Redigér ordreoplysninger"
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
@@ -449,9 +451,9 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       </div>
 
       {editingRow && (
-        <EditOrderOwnershipModal
+        <EditOrderContactModal
           row={editingRow}
-          canEdit={canEditOwnership}
+          canEdit={canEditOrderContacts}
           onClose={() => setEditingRow(null)}
           onSaved={() => setReloadKey((k) => k + 1)}
         />

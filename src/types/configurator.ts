@@ -163,6 +163,14 @@ export interface ConfiguratorState {
   telefon: string;
   email: string;
   emailRecipient: string;
+  // Administrative customer details share the persisted Configurator state
+  // with both quotes and submitted orders.
+  address: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  alternativeDeliveryAddress: string;
+  purchaseOrderNumber: string;
   comment: string;
   internalNote: string;
   // Phase 27 — Information only, never affects totals.
