@@ -1,12 +1,14 @@
-// Phase 43 — Service registration and maintenance service layer.
-// Reads/writes the public.service_machines, service_registrations and
-// service_intervals tables. RLS enforces dealer scoping at DB level.
+// Canonical Service Model C client.
+// Warranty registrations remain the machine registry. Service is an immutable
+// performed-service event created through one scoped, transactional RPC.
 
 import { supabase } from '@/lib/supabase';
 
 export interface ServiceMachine {
   id: string;
+  machine_registration_id: string | null;
   serial_number: string;
+  normalized_serial: string;
   machine_type: string;
   dealer_account_id: string | null;
   dealer_number: string | null;
@@ -14,6 +16,8 @@ export interface ServiceMachine {
   customer_name: string | null;
   customer_email: string | null;
   customer_phone: string | null;
+  latest_service_date: string | null;
+  current_hours: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -21,12 +25,15 @@ export interface ServiceMachine {
 export interface ServiceRegistration {
   id: string;
   machine_id: string | null;
+  machine_registration_id: string | null;
+  normalized_serial: string;
   serial_number: string;
   dealer_account_id: string | null;
   dealer_number: string | null;
   dealer_name: string | null;
   machine_type: string;
   customer_name: string | null;
+  customer_email: string | null;
   service_date: string;
   operating_hours: number | null;
   service_interval_hours: number;
@@ -66,12 +73,22 @@ export interface ServiceRegistrationPart extends ServiceRegistrationPartInput {
   created_at: string;
 }
 
+export interface ScopedServiceDealer {
+  id: string;
+  account_number: string;
+  company_name: string;
+}
+
 export interface NewServiceRegistration {
   serial_number: string;
   machine_type: string;
   dealer_number: string | null;
   dealer_name: string | null;
   customer_name: string | null;
+  customer_email?: string | null;
+  register_user_change?: boolean;
+  new_user_name?: string | null;
+  new_user_email?: string | null;
   service_date: string;
   operating_hours: number | null;
   service_interval_hours: number;
@@ -87,12 +104,60 @@ export interface NewServiceRegistration {
   parts: ServiceRegistrationPartInput[];
 }
 
-export async function listServiceIntervals(machineType?: string): Promise<ServiceInterval[]> {
-  let q = supabase.from('service_intervals').select('*').eq('active', true).order('interval_hours');
-  if (machineType) q = q.ilike('machine_type', machineType);
-  const { data, error } = await q;
+type RawRegistration = Omit<ServiceRegistration, 'machine_id' | 'dealer_number' | 'dealer_name' | 'attachment_urls'> & {
+  machine_registration_id?: string | null;
+  dealer_account_number?: string | null;
+  dealer_name_snapshot?: string | null;
+  attachment_urls?: unknown;
+  created_by_email?: string | null;
+};
+
+function arrayOfStrings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function mapRegistration(row: RawRegistration): ServiceRegistration {
+  return {
+    ...row,
+    machine_id: row.machine_registration_id ?? null,
+    machine_registration_id: row.machine_registration_id ?? null,
+    dealer_number: row.dealer_account_number ?? null,
+    dealer_name: row.dealer_name_snapshot ?? null,
+    attachment_urls: arrayOfStrings(row.attachment_urls),
+    created_by_email: row.created_by_email ?? null,
+  };
+}
+
+function mapMachine(row: Record<string, unknown>): ServiceMachine {
+  return {
+    id: String(row.machine_registration_id ?? row.normalized_serial ?? row.serial_number),
+    machine_registration_id: typeof row.machine_registration_id === 'string' ? row.machine_registration_id : null,
+    serial_number: String(row.serial_number ?? ''),
+    normalized_serial: String(row.normalized_serial ?? ''),
+    machine_type: String(row.machine_model ?? ''),
+    dealer_account_id: typeof row.dealer_account_id === 'string' ? row.dealer_account_id : null,
+    dealer_number: typeof row.dealer_account_number === 'string' ? row.dealer_account_number : null,
+    dealer_name: typeof row.dealer_name === 'string' ? row.dealer_name : null,
+    customer_name: typeof row.customer_name === 'string' ? row.customer_name : null,
+    customer_email: typeof row.customer_email === 'string' ? row.customer_email : null,
+    customer_phone: null,
+    latest_service_date: typeof row.latest_service_date === 'string' ? row.latest_service_date : null,
+    current_hours: typeof row.current_hours === 'number' ? row.current_hours : null,
+    created_at: '',
+    updated_at: '',
+  };
+}
+
+// Intervals remain the existing local service-basis data. This retained export
+// prevents callers from probing the never-released legacy interval table.
+export async function listServiceIntervals(): Promise<ServiceInterval[]> {
+  return [];
+}
+
+export async function listScopedServiceDealers(): Promise<ScopedServiceDealer[]> {
+  const { data, error } = await supabase.rpc('list_scoped_service_dealers');
   if (error) throw error;
-  return (data ?? []) as ServiceInterval[];
+  return (data ?? []) as ScopedServiceDealer[];
 }
 
 export async function listServiceMachines(opts?: {
@@ -100,91 +165,45 @@ export async function listServiceMachines(opts?: {
   machineType?: string | null;
   search?: string | null;
 }): Promise<ServiceMachine[]> {
-  let q = supabase.from('service_machines').select('*').order('updated_at', { ascending: false });
-  if (opts?.dealerNumber) q = q.eq('dealer_number', opts.dealerNumber);
-  if (opts?.machineType) q = q.ilike('machine_type', `%${opts.machineType}%`);
-  if (opts?.search) q = q.ilike('serial_number', `%${opts.search}%`);
-  const { data, error } = await q;
+  const { data, error } = await supabase.rpc('list_scoped_service_machines', {
+    p_dealer_account_number: opts?.dealerNumber || null,
+    p_machine_type: opts?.machineType || null,
+    p_query: opts?.search || null,
+  });
   if (error) throw error;
-  return (data ?? []) as ServiceMachine[];
+  return (data ?? []).map((row) => mapMachine(row as Record<string, unknown>));
+}
+
+export async function searchServiceMachines(query: string, dealerNumber?: string | null): Promise<ServiceMachine[]> {
+  const normalized = query.trim();
+  if (!normalized) return [];
+  const { data, error } = await supabase.rpc('search_scoped_service_machines', {
+    p_query: normalized,
+    p_dealer_account_number: dealerNumber || null,
+  });
+  if (error) throw error;
+  return (data ?? []).map((row) => mapMachine(row as Record<string, unknown>));
 }
 
 export async function listServiceRegistrations(opts?: {
   serialNumber?: string;
   dealerNumber?: string | null;
 }): Promise<ServiceRegistration[]> {
-  let q = supabase.from('service_registrations').select('*').order('service_date', { ascending: false });
-  if (opts?.serialNumber) q = q.ilike('serial_number', opts.serialNumber);
-  if (opts?.dealerNumber) q = q.eq('dealer_number', opts.dealerNumber);
-  const { data, error } = await q;
+  let query = supabase.from('service_registrations').select('*').order('service_date', { ascending: false });
+  if (opts?.serialNumber) query = query.eq('normalized_serial', opts.serialNumber.toUpperCase().replace(/[^A-Z0-9]+/g, ''));
+  if (opts?.dealerNumber) query = query.eq('dealer_account_number', opts.dealerNumber);
+  const { data, error } = await query;
   if (error) throw error;
-  return (data ?? []).map((r) => ({
-    ...(r as ServiceRegistration),
-    attachment_urls: Array.isArray((r as { attachment_urls?: unknown }).attachment_urls)
-      ? ((r as { attachment_urls: unknown[] }).attachment_urls as string[])
-      : [],
-  }));
+  return (data ?? []).map((row) => mapRegistration(row as RawRegistration));
 }
 
-/**
- * Fetch a single service registration by id. RLS enforces dealer scoping at
- * the DB level — unauthorised users get null (not an error).
- */
 export async function getServiceRegistration(id: string): Promise<ServiceRegistration | null> {
-  const { data, error } = await supabase
-    .from('service_registrations')
-    .select('*')
-    .eq('id', id)
-    .maybeSingle();
+  const { data, error } = await supabase.from('service_registrations').select('*').eq('id', id).maybeSingle();
   if (error && error.code !== 'PGRST116') throw error;
-  if (!data) return null;
-  return {
-    ...(data as ServiceRegistration),
-    attachment_urls: Array.isArray((data as { attachment_urls?: unknown }).attachment_urls)
-      ? ((data as { attachment_urls: unknown[] }).attachment_urls as string[])
-      : [],
-  };
+  return data ? mapRegistration(data as RawRegistration) : null;
 }
 
-/** Find-or-create the machine row keyed by serial_number (case-insensitive). */
-async function ensureMachine(payload: NewServiceRegistration, createdByEmail: string | null): Promise<ServiceMachine> {
-  const { data: existing, error: selErr } = await supabase
-    .from('service_machines')
-    .select('*')
-    .ilike('serial_number', payload.serial_number)
-    .maybeSingle();
-  if (selErr && selErr.code !== 'PGRST116') throw selErr;
-  if (existing) return existing as ServiceMachine;
-
-  const { data: inserted, error: insErr } = await supabase
-    .from('service_machines')
-    .insert({
-      serial_number: payload.serial_number,
-      machine_type: payload.machine_type,
-      dealer_number: payload.dealer_number,
-      dealer_name: payload.dealer_name,
-      customer_name: payload.customer_name,
-      created_by_email: createdByEmail,
-    })
-    .select('*')
-    .single();
-  if (insErr) throw insErr;
-  return inserted as ServiceMachine;
-}
-
-/** Coerce to a safe finite number for numeric columns. Never sends empty strings. */
-function num(v: unknown): number {
-  if (typeof v === 'number' && Number.isFinite(v)) return v;
-  if (typeof v === 'string' && v.trim() !== '') {
-    const n = Number(v.replace(',', '.'));
-    return Number.isFinite(n) ? n : 0;
-  }
-  return 0;
-}
-
-export async function listServiceRegistrationParts(
-  serviceRegistrationId: string,
-): Promise<ServiceRegistrationPart[]> {
+export async function listServiceRegistrationParts(serviceRegistrationId: string): Promise<ServiceRegistrationPart[]> {
   const { data, error } = await supabase
     .from('service_registration_parts')
     .select('*')
@@ -195,60 +214,10 @@ export async function listServiceRegistrationParts(
   return (data ?? []) as ServiceRegistrationPart[];
 }
 
-export async function createServiceRegistration(
-  payload: NewServiceRegistration,
-  createdByEmail: string | null,
-): Promise<ServiceRegistration> {
-  const machine = await ensureMachine(payload, createdByEmail);
-  const { data, error } = await supabase
-    .from('service_registrations')
-    .insert({
-      machine_id: machine.id,
-      serial_number: payload.serial_number,
-      dealer_number: payload.dealer_number,
-      dealer_name: payload.dealer_name,
-      machine_type: payload.machine_type,
-      customer_name: payload.customer_name,
-      service_date: payload.service_date,
-      operating_hours: num(payload.operating_hours),
-      service_interval_hours: num(payload.service_interval_hours),
-      technician_name: payload.technician_name,
-      service_plan_completed: payload.service_plan_completed,
-      notes: payload.notes,
-      faults_found: payload.faults_found,
-      spare_parts_used: payload.spare_parts_used,
-      attachment_urls: payload.attachment_urls,
-      total_servicekit_price: num(payload.total_servicekit_price),
-      total_extra_parts_price: num(payload.total_extra_parts_price),
-      total_price: num(payload.total_price),
-      created_by_email: createdByEmail,
-    })
-    .select('*')
-    .single();
+export async function createServiceRegistration(payload: NewServiceRegistration): Promise<ServiceRegistration> {
+  const { data, error } = await supabase.rpc('create_scoped_service_registration', {
+    p_registration: { ...payload, dealer_account_number: payload.dealer_number },
+  });
   if (error) throw error;
-  const registration = data as ServiceRegistration;
-
-  // Persist structured parts (servicekit + extra). Non-fatal if it fails so the
-  // main registration is never lost; surfaced via console for ops.
-  const partRows = (payload.parts ?? [])
-    .filter((p) => (p.item_number?.trim() || p.description?.trim()))
-    .map((p) => ({
-      service_registration_id: registration.id,
-      source_type: p.source_type,
-      item_number: p.item_number?.trim() || null,
-      description: p.description?.trim() || null,
-      unit_price: num(p.unit_price),
-      quantity: num(p.quantity),
-      line_total: num(p.line_total),
-    }));
-  if (partRows.length) {
-    const { error: partsErr } = await supabase
-      .from('service_registration_parts')
-      .insert(partRows);
-    if (partsErr) {
-      console.error('[service-maintenance] parts insert failed', partsErr);
-    }
-  }
-
-  return registration;
+  return mapRegistration(data as RawRegistration);
 }

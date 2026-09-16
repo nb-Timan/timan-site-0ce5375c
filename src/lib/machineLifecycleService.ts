@@ -763,6 +763,58 @@ export interface ServiceRegistrationRow {
   created_at: string;
 }
 
+type CanonicalServiceRegistrationRow = {
+  id: string;
+  machine_registration_id: string | null;
+  serial_number: string;
+  dealer_account_id: string | null;
+  dealer_account_number: string | null;
+  dealer_name_snapshot: string | null;
+  machine_type: string;
+  customer_name: string | null;
+  service_date: string;
+  operating_hours: number | null;
+  service_interval_hours: number;
+  technician_name: string | null;
+  service_plan_completed: boolean;
+  notes: string | null;
+  faults_found: string | null;
+  spare_parts_used: string | null;
+  attachment_urls: string[] | null;
+  total_servicekit_price: number | null;
+  total_extra_parts_price: number | null;
+  total_price: number | null;
+  created_by_email: string | null;
+  created_at: string;
+};
+
+function toServiceRegistrationRow(row: CanonicalServiceRegistrationRow): ServiceRegistrationRow {
+  return {
+    id: row.id,
+    machine_id: row.machine_registration_id,
+    serial_number: row.serial_number,
+    dealer_account_id: row.dealer_account_id,
+    dealer_number: row.dealer_account_number,
+    dealer_name: row.dealer_name_snapshot,
+    machine_type: row.machine_type,
+    customer_name: row.customer_name,
+    service_date: row.service_date,
+    operating_hours: row.operating_hours,
+    service_interval_hours: row.service_interval_hours,
+    technician_name: row.technician_name,
+    service_plan_completed: row.service_plan_completed,
+    notes: row.notes,
+    faults_found: row.faults_found,
+    spare_parts_used: row.spare_parts_used,
+    attachment_urls: row.attachment_urls,
+    total_servicekit_price: row.total_servicekit_price,
+    total_extra_parts_price: row.total_extra_parts_price,
+    total_price: row.total_price,
+    created_by_email: row.created_by_email,
+    created_at: row.created_at,
+  };
+}
+
 export interface ServiceRegistrationPartRow {
   id: string;
   service_registration_id: string;
@@ -776,35 +828,37 @@ export interface ServiceRegistrationPartRow {
 }
 
 /**
- * Fetch service registrations for a machine — by machine_id or
- * serial_number (case-insensitive). Newest first. RLS enforces scoping
+ * Fetch canonical service registrations for a machine by its serial number.
+ * The historic machine_id argument remains for callers that have both values,
+ * but warranty registrations are now the single machine reference. RLS enforces scoping
  * (internal Timan vs. dealer/importer/service partner).
  */
 export async function fetchServiceHistoryForMachine(
   machineId: string | null,
   serialNumber: string | null,
 ): Promise<ServiceRegistrationRow[]> {
-  const safeSerial = (serialNumber || "").replace(/[(),]/g, "");
-  let query = supabase
+  let safeSerial = (serialNumber || "").replace(/[(),]/g, "");
+  if (!safeSerial && machineId) {
+    const { data, error } = await supabase
+      .from("machines")
+      .select("serial_number")
+      .eq("id", machineId)
+      .maybeSingle();
+    if (error) throw error;
+    safeSerial = data?.serial_number?.replace(/[(),]/g, "") || "";
+  }
+  if (!safeSerial) return [];
+
+  const normalizedSerial = safeSerial.toUpperCase().replace(/[^A-Z0-9]+/g, "");
+  const { data, error } = await supabase
     .from("service_registrations")
     .select("*")
+    .eq("normalized_serial", normalizedSerial)
     .order("service_date", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(500);
-
-  if (machineId && safeSerial) {
-    query = query.or(`machine_id.eq.${machineId},serial_number.ilike.${safeSerial}`);
-  } else if (machineId) {
-    query = query.eq("machine_id", machineId);
-  } else if (safeSerial) {
-    query = query.ilike("serial_number", safeSerial);
-  } else {
-    return [];
-  }
-
-  const { data, error } = await query;
   if (error) throw error;
-  return (data as unknown as ServiceRegistrationRow[]) || [];
+  return ((data as CanonicalServiceRegistrationRow[] | null) ?? []).map(toServiceRegistrationRow);
 }
 
 /** Fetch parts (servicekit + extra) for a single service registration. RLS-scoped. */

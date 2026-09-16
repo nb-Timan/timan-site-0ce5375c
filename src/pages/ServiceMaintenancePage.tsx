@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/components/ui/use-toast';
-import { Language } from '@/types/configurator';
 import { pickT } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -26,12 +25,13 @@ import {
   ServiceInterval,
   listServiceMachines,
   listServiceRegistrations,
+  listScopedServiceDealers,
+  searchServiceMachines,
   createServiceRegistration,
+  type ScopedServiceDealer,
 } from '@/lib/serviceMaintenanceService';
-import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { SERVICE_MACHINE_TYPES, getBasisIntervals, findServiceMachineType, getBasisStep } from '@/lib/serviceMachineTypes';
 import { ServiceMaintenanceSidebarLayout, type ServiceMaintView } from '@/components/service/ServiceMaintenanceSidebarLayout';
-import { useTeknikScope, applyScopeFilter } from '@/lib/useTeknikScope';
 
 const ALL_DEALERS = '__all__';
 const ALL_TYPES = '__all_types__';
@@ -63,6 +63,9 @@ const T: Record<string, Dict> = {
   fType: { da: 'Maskintype *', en: 'Machine type *', de: 'Maschinentyp *', it: 'Tipo macchina *', hu: 'Géptípus *', sv: 'Maskintyp *', fr: 'Type de machine *', pl: 'Typ maszyny *', cs: 'Typ stroje *' },
   fDealer: { da: 'Forhandler der udfører service *', en: 'Dealer performing service *', de: 'Servicedurchführender Händler *', it: 'Rivenditore che esegue il servizio *', hu: 'Szervizt végző kereskedő *', sv: 'Återförsäljare som utför service *', fr: 'Revendeur effectuant le service *', pl: 'Dealer wykonujący serwis *', cs: 'Prodejce provádějící servis *' },
   fCustomer: { da: 'Kunde / bruger', en: 'Customer / user', de: 'Kunde / Benutzer', it: 'Cliente / utente', hu: 'Ügyfél / felhasználó', sv: 'Kund / användare', fr: 'Client / utilisateur', pl: 'Klient / użytkownik', cs: 'Zákazník / uživatel' },
+  registerUserChange: { da: 'Registrér brugerskifte', en: 'Register user change', de: 'Benutzerwechsel registrieren' },
+  newUser: { da: 'Ny kunde / bruger *', en: 'New customer / user *', de: 'Neuer Kunde / Benutzer *' },
+  newUserEmail: { da: 'Ny brugers e-mail', en: 'New user email', de: 'E-Mail des neuen Benutzers' },
   fDate: { da: 'Servicedato *', en: 'Service date *', de: 'Servicedatum *', it: 'Data servizio *', hu: 'Szervizdátum *', sv: 'Servicedatum *', fr: 'Date de service *', pl: 'Data serwisu *', cs: 'Datum servisu *' },
   fHours: { da: 'Driftstimer *', en: 'Operating hours *', de: 'Betriebsstunden *', it: 'Ore di esercizio *', hu: 'Üzemóra *', sv: 'Drifttimmar *', fr: "Heures d'exploitation *", pl: 'Godziny pracy *', cs: 'Provozní hodiny *' },
   fInterval: { da: 'Service interval *', en: 'Service interval *', de: 'Serviceintervall *', it: 'Intervallo servizio *', hu: 'Szerviz intervallum *', sv: 'Serviceintervall *', fr: 'Intervalle de service *', pl: 'Interwał serwisowy *', cs: 'Servisní interval *' },
@@ -131,10 +134,8 @@ export default function ServiceMaintenancePage() {
   const navigate = useNavigate();
 
   const portalRole = derivePortalRole(effectiveUser);
-  // Treat sellers like backend in UI (dealer selector, registration form),
-  // but apply CRM-scope filter on returned rows so they only see their own
-  // assigned dealers' data.
-  const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_seller' || portalRole === 'timan_service';
+  const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_service';
+  const canChooseServiceDealer = isBackend || portalRole === 'timan_importer' || portalRole === 'timan_service_partner';
 
   const [searchParams, setSearchParams] = useSearchParams();
   const view = parseView(searchParams.get('view'), 'dashboard');
@@ -153,12 +154,12 @@ export default function ServiceMaintenancePage() {
   const [fDealer, setFDealer] = useState('');
   const [fType, setFType] = useState('');
   const [fSerial, setFSerial] = useState('');
-  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [dealers, setDealers] = useState<ScopedServiceDealer[]>([]);
 
   useEffect(() => {
-    if (!isBackend) return;
-    fetchDealerAccounts().then(r => setDealers(r.rows.filter(d => !d.is_deleted))).catch(() => setDealers([]));
-  }, [isBackend]);
+    if (!appUser) return;
+    listScopedServiceDealers().then(setDealers).catch(() => setDealers([]));
+  }, [appUser]);
 
   // Form
   const dealerNumber = effectiveUser?.dealer_number ?? null;
@@ -177,6 +178,11 @@ export default function ServiceMaintenancePage() {
     notes: '',
     faults_found: '',
   });
+  const [machineSuggestions, setMachineSuggestions] = useState<ServiceMachine[]>([]);
+  const [showMachineSuggestions, setShowMachineSuggestions] = useState(false);
+  const [registerUserChange, setRegisterUserChange] = useState(false);
+  const [newUserName, setNewUserName] = useState('');
+  const [newUserEmail, setNewUserEmail] = useState('');
   const [extraParts, setExtraParts] = useState<Array<{ id: string; name: string; price: string; qty: string }>>([]);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -219,32 +225,42 @@ export default function ServiceMaintenancePage() {
   const kitTotal = selectedStep?.stepTotal ?? 0;
   const grandTotal = kitTotal + extraTotal;
 
-  const { scope: teknikScope } = useTeknikScope();
+  useEffect(() => {
+    if (!dealerNumber || canChooseServiceDealer) return;
+    setForm((previous) => ({ ...previous, dealer_number: dealerNumber, dealer_name: dealerName ?? '' }));
+  }, [dealerNumber, dealerName, canChooseServiceDealer]);
+
+  useEffect(() => {
+    const query = form.serial_number.trim();
+    if (query.length < 2) {
+      setMachineSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      searchServiceMachines(query, form.dealer_number || null)
+        .then((rows) => { if (!cancelled) setMachineSuggestions(rows); })
+        .catch(() => { if (!cancelled) setMachineSuggestions([]); });
+    }, 200);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [form.serial_number, form.dealer_number]);
 
   const reload = useMemo(() => async () => {
     try {
       const m = await listServiceMachines({
-        dealerNumber: isBackend ? (fDealer || null) : dealerNumber,
+        dealerNumber: isBackend ? (fDealer || null) : null,
         machineType: fType || null,
         search: fSerial || null,
       });
-      const mScoped = applyScopeFilter(teknikScope, m, (row) => ({
-        dealer_number: row.dealer_number,
-        dealer_name: row.dealer_name,
-      }));
-      setMachines(mScoped);
+      setMachines(m);
       const r = await listServiceRegistrations({
-        dealerNumber: isBackend ? (fDealer || undefined) : dealerNumber ?? undefined,
+        dealerNumber: isBackend ? (fDealer || undefined) : undefined,
       });
-      const rScoped = applyScopeFilter(teknikScope, r, (row) => ({
-        dealer_number: row.dealer_number,
-        dealer_name: row.dealer_name,
-      }));
-      setRegistrations(rScoped);
+      setRegistrations(r);
     } catch (e) {
       console.error('[service-maintenance] load failed', e);
     }
-  }, [isBackend, dealerNumber, fDealer, fType, fSerial, teknikScope]);
+  }, [isBackend, fDealer, fType, fSerial]);
 
   useEffect(() => { if (appUser) reload(); }, [appUser, reload]);
 
@@ -255,10 +271,7 @@ export default function ServiceMaintenancePage() {
   const historyOpen = async (m: ServiceMachine) => {
     setHistoryFor(m);
     const rows = await listServiceRegistrations({ serialNumber: m.serial_number });
-    setHistoryRows(applyScopeFilter(teknikScope, rows, (row) => ({
-      dealer_number: row.dealer_number,
-      dealer_name: row.dealer_name,
-    })));
+    setHistoryRows(rows);
   };
 
   async function handleSubmit(e: React.FormEvent) {
@@ -271,16 +284,15 @@ export default function ServiceMaintenancePage() {
     if (!form.operating_hours.trim()) newErrors.operating_hours = true;
     if (!form.service_interval_hours.trim()) newErrors.service_interval_hours = true;
     if (!form.technician_name.trim()) newErrors.technician_name = true;
+    if (registerUserChange && !newUserName.trim()) newErrors.new_user_name = true;
     setErrors(newErrors);
     if (Object.keys(newErrors).length) return;
 
     setSubmitting(true);
     try {
-      // Dealer-scoped users: ignore any dealer values from UI/state, always
-      // force the logged-in user's own dealer account.
-      const effectiveDealerNumber = isBackend ? (form.dealer_number.trim() || null) : (dealerNumber || null);
-      const effectiveDealerName = isBackend ? (form.dealer_name.trim() || null) : (dealerName || null);
-      if (!isBackend && !effectiveDealerNumber) {
+      const effectiveDealerNumber = form.dealer_number.trim() || null;
+      const effectiveDealerName = form.dealer_name.trim() || null;
+      if (!effectiveDealerNumber) {
         toast({ title: t('saveError'), description: t('noDealerLink'), variant: 'destructive' });
         setSubmitting(false);
         return;
@@ -311,6 +323,9 @@ export default function ServiceMaintenancePage() {
         dealer_number: effectiveDealerNumber,
         dealer_name: effectiveDealerName,
         customer_name: form.customer_name.trim() || null,
+        register_user_change: registerUserChange,
+        new_user_name: registerUserChange ? newUserName.trim() || null : null,
+        new_user_email: registerUserChange ? newUserEmail.trim() || null : null,
         service_date: form.service_date,
         operating_hours: Number(form.operating_hours) || 0,
         service_interval_hours: Number(form.service_interval_hours) || 0,
@@ -324,10 +339,13 @@ export default function ServiceMaintenancePage() {
         total_extra_parts_price: extraTotal,
         total_price: grandTotal,
         parts: partsPayload,
-      }, appUser.email ?? null);
+      });
       toast({ title: t('saved'), description: t('savedDesc') });
       setForm(f => ({ ...f, operating_hours: '', service_interval_hours: '', notes: '', faults_found: '' }));
       setExtraParts([]);
+      setRegisterUserChange(false);
+      setNewUserName('');
+      setNewUserEmail('');
       await reload();
       if (isBackend) setView('registrations');
     } catch (err) {
@@ -426,7 +444,9 @@ export default function ServiceMaintenancePage() {
                   {latestRegs.map(r => {
                     const machine: ServiceMachine = machines.find(m => m.serial_number.toLowerCase() === r.serial_number.toLowerCase()) ?? {
                       id: r.machine_id ?? r.id,
+                      machine_registration_id: r.machine_registration_id,
                       serial_number: r.serial_number,
+                      normalized_serial: r.normalized_serial,
                       machine_type: r.machine_type,
                       dealer_account_id: r.dealer_account_id,
                       dealer_number: r.dealer_number,
@@ -434,6 +454,8 @@ export default function ServiceMaintenancePage() {
                       customer_name: r.customer_name,
                       customer_email: null,
                       customer_phone: null,
+                      latest_service_date: r.service_date,
+                      current_hours: r.operating_hours,
                       created_at: r.created_at,
                       updated_at: r.created_at,
                     };
@@ -509,7 +531,44 @@ export default function ServiceMaintenancePage() {
     return (
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
         <Field label={t('fSerial')} error={errors.serial_number ? t('required') : null}>
-          <Input value={form.serial_number} onChange={e => setForm({ ...form, serial_number: e.target.value })} />
+          <div className="relative">
+            <Input
+              value={form.serial_number}
+              autoComplete="off"
+              onFocus={() => setShowMachineSuggestions(true)}
+              onChange={e => {
+                setForm({ ...form, serial_number: e.target.value });
+                setShowMachineSuggestions(true);
+              }}
+            />
+            {showMachineSuggestions && machineSuggestions.length > 0 && (
+              <div className="absolute z-30 mt-1 max-h-56 w-full overflow-auto rounded-md border border-slate-200 bg-white shadow-lg">
+                {machineSuggestions.map((machine) => (
+                  <button
+                    key={machine.id}
+                    type="button"
+                    className="block w-full border-b border-slate-100 px-3 py-2 text-left text-sm last:border-0 hover:bg-slate-50"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => {
+                      setForm((previous) => ({
+                        ...previous,
+                        serial_number: machine.serial_number,
+                        machine_type: machine.machine_type || previous.machine_type,
+                        customer_name: machine.customer_name ?? previous.customer_name,
+                        dealer_number: machine.dealer_number ?? previous.dealer_number,
+                        dealer_name: machine.dealer_name ?? previous.dealer_name,
+                      }));
+                      setShowMachineSuggestions(false);
+                    }}
+                  >
+                    <span className="font-semibold">{machine.serial_number}</span>
+                    <span className="ml-2 text-slate-600">{machine.machine_type || '—'}</span>
+                    {machine.customer_name && <span className="block text-xs text-slate-500">{machine.customer_name}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </Field>
         <Field label={t('fType')} error={errors.machine_type ? t('required') : null}>
           <Select value={form.machine_type} onValueChange={(v) => setForm({ ...form, machine_type: v })}>
@@ -521,8 +580,8 @@ export default function ServiceMaintenancePage() {
             </SelectContent>
           </Select>
         </Field>
-        <Field label={isBackend ? t('fDealer') : t('ownDealer')} error={isBackend && errors.dealer_name ? t('required') : null}>
-          {isBackend ? (
+        <Field label={canChooseServiceDealer ? t('fDealer') : t('ownDealer')} error={errors.dealer_name ? t('required') : null}>
+          {canChooseServiceDealer ? (
             <Select
               value={form.dealer_number || ''}
               onValueChange={(v) => {
@@ -542,7 +601,7 @@ export default function ServiceMaintenancePage() {
           ) : (
             <div>
               <Input
-                value={dealerNumber ? `${dealerNumber}${dealerName ? ' — ' + dealerName : ''}` : ''}
+                value={form.dealer_number ? `${form.dealer_number}${form.dealer_name ? ' — ' + form.dealer_name : ''}` : ''}
                 placeholder={t('noDealerLink')}
                 disabled
                 readOnly
@@ -555,6 +614,25 @@ export default function ServiceMaintenancePage() {
         <Field label={t('fCustomer')}>
           <Input value={form.customer_name} onChange={e => setForm({ ...form, customer_name: e.target.value })} />
         </Field>
+        <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div className="flex items-center gap-2">
+            <Checkbox id="service-user-change" checked={registerUserChange} onCheckedChange={(value) => setRegisterUserChange(value === true)} />
+            <Label htmlFor="service-user-change">{t('registerUserChange')}</Label>
+          </div>
+          {registerUserChange && (
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <Label className="text-xs">{t('newUser')}</Label>
+                <Input className="mt-1" value={newUserName} onChange={(event) => setNewUserName(event.target.value)} />
+                {errors.new_user_name && <p className="mt-1 text-xs text-destructive">{t('required')}</p>}
+              </div>
+              <div>
+                <Label className="text-xs">{t('newUserEmail')}</Label>
+                <Input className="mt-1" type="email" value={newUserEmail} onChange={(event) => setNewUserEmail(event.target.value)} />
+              </div>
+            </div>
+          )}
+        </div>
         <Field label={t('fDate')} error={errors.service_date ? t('required') : null}>
           <Input type="date" value={form.service_date} onChange={e => setForm({ ...form, service_date: e.target.value })} />
         </Field>

@@ -218,7 +218,7 @@ const baseNodes: SystemMapNode[] = [
     dnaPosition: { x: 1990, y: 1040 },
     minZoom: 0.35,
     icon: Wrench,
-    tables: ["warranty_registrations", "warranty_registration_history", "service_machines", "service_registrations"],
+    tables: ["warranty_registrations", "warranty_registration_history", "service_registrations", "service_registration_parts", "machine_service_user_history"],
     services: ["warrantyRegistrationsService", "warrantyMachinePinsService", "machineJournalService", "serviceMaintenanceService"],
     routes: ["/portal/service/warranty", "/portal/service/tsb", "/portal/service/machines"],
     receivesFrom: ["SharePoint warranty-sync", "Partnerdata", "Maskinregistreringer"],
@@ -522,7 +522,7 @@ const featureNodes: SystemMapNode[] = [
 
   node("warranty", "Warranty", "Garantiregistreringer", "feature", "service", "service", 2150, 1210, 0.9, ShieldCheck, ["warranty_registrations"], ["warrantyRegistrationsService"], ["/portal/service/warranty"], "Warranty samler garantiregistreringer og matching."),
   node("tsb", "TSB", "Technical Service Bulletins", "feature", "service", "service", 2320, 1330, 0.95, ClipboardList, ["tsb records"], ["TsbAccessGuard"], ["/portal/service/tsb"], "TSB-området håndterer tekniske service bulletins."),
-  node("machine_journal", "Maskinjournal", "Maskiner og historik", "feature", "service", "service", 2050, 1390, 1.0, Wrench, ["service_machines", "service_registrations"], ["machineJournalService"], ["/portal/service/machines"], "Maskinjournal samler servicehistorik pr. serienummer."),
+  node("machine_journal", "Maskinjournal", "Maskiner og historik", "feature", "service", "service", 2050, 1390, 1.0, Wrench, ["warranty_registrations", "service_registrations"], ["machineJournalService"], ["/portal/service/machines"], "Maskinjournal samler servicehistorik pr. serienummer."),
   node("claims", "Claims", "Reklamationer", "feature", "service", "service", 2240, 1510, 1.05, ClipboardList, ["claims"], ["claimsService"], ["/portal/service/claims"], "Claims bruges til reklamationer og sagsbehandling."),
 
   node("dealer_import", "Dealer Import", "Forhandlerimport", "feature", "import", "import", 1210, 1880, 0.95, Upload, ["dealer_accounts", "sharepoint_sync_logs"], ["dealerImportService"], ["/portal/backend/dealer-import"], "Dealer Import opdaterer forhandlerdata fra eksterne kilder."),
