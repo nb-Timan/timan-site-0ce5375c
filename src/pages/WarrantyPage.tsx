@@ -56,7 +56,6 @@ export default function WarrantyPage({ page }: { page: Page }) {
 
   const perms = portalRole ? getPortalPermissions(portalRole) : null;
   const canCreate = !!perms?.canCreateWarranty;
-  const readOnly = !perms?.canEditData;
   const dealerName = effectiveUser?.company_dealer ?? "";
 
   // Creation follows the established permission model. The form itself keeps
@@ -75,7 +74,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
     return (
       <WarrantyAdminSidebarLayout
         scope={variant}
-        readOnly={readOnly}
+        canCreate={canCreate}
         intro={<WarrantyDashboardIntro scope={variant} />}
       >
         <WarrantyDashboardBody scope={variant} dealerName={dealerName} />
@@ -87,7 +86,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
     return (
       <WarrantyAdminSidebarLayout
         scope="admin"
-        readOnly={false}
+        canCreate={canCreate}
         intro={
           <div>
             <h1 className="text-3xl font-black tracking-tight">Synkronisering</h1>
@@ -113,7 +112,7 @@ export default function WarrantyPage({ page }: { page: Page }) {
     return (
       <WarrantyAdminSidebarLayout
         scope={variant}
-        readOnly={readOnly}
+        canCreate={canCreate}
         intro={
           <WarrantyRegistrationsHeader
             scope={variant}
@@ -135,8 +134,8 @@ export default function WarrantyPage({ page }: { page: Page }) {
   // page === "new"
   return (
     <WarrantyAdminSidebarLayout
-      scope="dealer"
-      readOnly={false}
+      scope={variant}
+      canCreate={canCreate}
       intro={<WarrantyNewFormIntro />}
     >
       <WarrantyNewForm
