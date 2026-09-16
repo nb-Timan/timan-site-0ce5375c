@@ -6,7 +6,7 @@ const migration = readFileSync(
   'utf8',
 );
 const createdLeadSelectMigration = readFileSync(
-  'supabase/migrations/20260916090034_messe_lead_created_select_scope.sql',
+  'supabase/migrations/20260916090259_messe_lead_created_select_scope.sql',
   'utf8',
 );
 const countrySellerMigration = readFileSync(
