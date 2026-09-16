@@ -1470,7 +1470,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const showImageIcon = !!(item.imageUrl || (item.images && item.images.length > 0) || item.videoUrl || (item.videos && item.videos.length > 0));
     if (!showVideoIcon && !showImageIcon && !hasSpecs) return null;
     return (
-      <div className="mt-1 flex flex-wrap gap-2">
+      <div className="mt-1 flex gap-2 whitespace-nowrap">
         {showVideoIcon && (videoUrl ? (
           <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs flex items-center gap-0.5 hover:text-emerald-800 transition" onClick={e => e.stopPropagation()}>🎥 {T('videoLink')}</a>
         ) : (
@@ -3237,31 +3237,30 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   const card = (
                     <div key={a.id} onClick={() => handleToggleAcc(a.id)}
                       className={`p-3 border rounded-lg cursor-pointer transition hover:bg-gray-50 accessory-card ${isSelected ? 'btn-active border-emerald-500' : ''} ${indentClass}`}>
-                      <div className="grid w-full min-w-0 grid-cols-[1.5rem_minmax(0,1fr)] items-start gap-x-3 sm:grid-cols-[1.5rem_auto_minmax(0,1fr)]">
-                        <div className="selection-indicator relative flex items-center justify-center w-6 h-6 mt-0.5 rounded border-2"
+                      <div className="flex items-start w-full min-w-0">
+                        <div className="selection-indicator relative flex-shrink-0 flex items-center justify-center w-5 h-5 mt-0.5 mr-3 rounded border-2"
                           style={{ backgroundColor: isSelected ? '#059669' : 'white', borderColor: isSelected ? '#059669' : '#9ca3af' }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" className={`h-[18px] w-[18px] ${isSelected ? 'text-white' : 'text-transparent'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-transparent'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                           </svg>
-                          {hasSubs && <span className="absolute left-1/2 -translate-x-1/2 top-[24px] text-[10px] text-gray-400 leading-none">↳</span>}
+                          {hasSubs && <span className="absolute left-1/2 -translate-x-1/2 top-[20px] text-[10px] text-gray-400 leading-none">↳</span>}
                         </div>
-                        <span className="min-w-0 font-medium text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, lang)}</span>
-                        {marketingContent?.description && <p className="col-span-2 mt-1 text-xs leading-5 text-gray-600 sm:col-span-1 sm:col-start-3 sm:mt-0 sm:self-baseline">{marketingContent.description}</p>}
-                        <div className="col-span-2 mt-2 flex min-w-0 items-center justify-between gap-2 sm:col-span-2 sm:col-start-2 sm:mt-1">
-                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                            {renderMarketingBadge(marketingContent, 'compact') || renderNewBadge(a.isNew)}
-                            {renderMarketingContentState(machineType, a.id)}
+                        <div className="flex-grow min-w-0">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-grow min-w-0">
+                              <span className="font-medium text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, lang)}</span>
+                              <div className="text-gray-500 text-xs">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
+                              {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
+                              {renderActionLinks(a, machineType)}
+                            </div>
+                            <div className="flex shrink-0 items-center justify-end gap-2 text-right">
+                              {renderMarketingBadge(marketingContent, 'compact') || renderNewBadge(a.isNew)}
+                              {renderMarketingContentState(machineType, a.id)}
+                              <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</span>{marketingEditButton(machineType, a.id)}
+                            </div>
                           </div>
-                          <div className="flex shrink-0 items-center gap-2 text-right">
-                            <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</span>
-                            {marketingEditButton(machineType, a.id)}
-                          </div>
+                          {ralInput}
                         </div>
-                        <div className="col-span-2 mt-1 flex min-w-0 flex-col items-start gap-1 sm:col-span-2 sm:col-start-2">
-                          <span className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</span>
-                          {renderActionLinks(a, machineType)}
-                        </div>
-                        {ralInput && <div className="col-span-2 sm:col-start-2">{ralInput}</div>}
                       </div>
                       {(isSelected || isLooseToolMode(machineType)) && a.subItems && a.subItems.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-emerald-200 space-y-2">
