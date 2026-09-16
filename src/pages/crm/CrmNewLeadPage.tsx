@@ -34,10 +34,15 @@ import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
 import { listDealerContacts, type DealerContact } from '@/lib/dealerContactsService';
 import {
+  activeCrmLeadCustomerDraft,
   buildCrmLeadDealerContactSnapshot,
+  EMPTY_CRM_LEAD_CUSTOMER_DRAFT,
   enterManualCrmLeadCustomerMode,
   formatCrmLeadDealerContact,
+  replaceCrmLeadDealerCustomerData,
   sortCrmLeadDealerContacts,
+  updateManualCrmLeadCustomerDraft,
+  type CrmLeadDealerContactSnapshot,
   type CrmLeadContactMode,
 } from '@/lib/crmLeadDealerContact';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
@@ -231,6 +236,19 @@ type StructuredContactInfo = {
   email: string;
   country: string;
 };
+
+function contactInfoToDraft(info: StructuredContactInfo): CrmLeadDealerContactSnapshot {
+  return {
+    company: info.company,
+    contactPerson: info.contactPerson,
+    phone: info.phone,
+    email: info.email,
+    address: info.address,
+    postalCode: info.postalCode,
+    city: info.city || (!info.postalCode ? info.zipCity : ''),
+    country: info.country,
+  };
+}
 
 function splitPostalCodeAndCity(value: string): { postalCode: string; city: string } {
   const trimmed = value.trim();
@@ -795,13 +813,6 @@ export default function CrmNewLeadPage() {
   const [contactType, setContactType] = useState<string>('');
   const [customerType, setCustomerType] = useState<string>('');
 
-  const [contactCompany, setContactCompany] = useState('');
-  const [contactPersonName, setContactPersonName] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactAddress, setContactAddress] = useState('');
-  const [contactPostalCode, setContactPostalCode] = useState('');
-  const [contactCity, setContactCity] = useState('');
   const [tradeFairChoice, setTradeFairChoice] = useState('');
   const [tradeFair, setTradeFair] = useState('');
   const [tradeFairYear, setTradeFairYear] = useState(String(CURRENT_YEAR));
@@ -850,6 +861,13 @@ export default function CrmNewLeadPage() {
   // This is UI state only. The saved lead keeps a snapshot of the chosen
   // customer/contact, while linked_dealer_id remains the responsible partner.
   const [contactMode, setContactMode] = useState<CrmLeadContactMode>('manual');
+  // These drafts deliberately live only for the current edit session. Switching
+  // the visible source must never overwrite the other source's values.
+  const [manualCustomerDraft, setManualCustomerDraft] = useState<CrmLeadDealerContactSnapshot>({
+    ...EMPTY_CRM_LEAD_CUSTOMER_DRAFT,
+    country: 'Danmark',
+  });
+  const [dealerCustomerData, setDealerCustomerData] = useState<CrmLeadDealerContactSnapshot>(EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
 
   // Sellers (Timan Sælger / Timan Backend) for the responsible-seller dropdown.
   const [sellers, setSellers] = useState<BackendUser[]>([]);
@@ -948,14 +966,6 @@ export default function CrmNewLeadPage() {
       setContactType(lead.contact_type || '');
       setCustomerType(lead.customer_type || '');
       const parsedContact = parseStructuredContactInformation(lead.contact_information || '', lead.country || '');
-      setContactCompany(parsedContact.company);
-      setContactPersonName(parsedContact.contactPerson);
-      setContactPhone(parsedContact.phone);
-      setContactEmail(parsedContact.email);
-      setContactAddress(parsedContact.address);
-      setContactPostalCode(parsedContact.postalCode);
-      setContactCity(parsedContact.city || (!parsedContact.postalCode ? parsedContact.zipCity : ''));
-      setContactMode('manual');
       const parsedTradeFair = splitTradeFairYear(lead.trade_fair || '');
       if ((KNOWN_TRADE_FAIRS as readonly string[]).includes(parsedTradeFair.name)) {
         setTradeFairChoice(parsedTradeFair.name);
@@ -969,6 +979,9 @@ export default function CrmNewLeadPage() {
       }
       setTradeFairYear(parsedTradeFair.year);
       const loadedCountry = lead.country || parsedContact.country || 'Danmark';
+      setManualCustomerDraft({ ...contactInfoToDraft(parsedContact), country: loadedCountry });
+      setDealerCustomerData(EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
+      setContactMode('manual');
       if (loadedCountry === 'Danmark' || loadedCountry === 'Tyskland') {
         setCountryChoice(loadedCountry);
       } else {
@@ -1025,15 +1038,11 @@ export default function CrmNewLeadPage() {
       setLinkedDealer(lead.linked_dealer_id || '');
       setMachineTypes(lead.machine_types || []);
       const parsedContact = parseStructuredContactInformation(lead.contact_information || '', lead.country || '');
-      setContactCompany(parsedContact.company);
-      setContactPersonName(parsedContact.contactPerson);
-      setContactPhone(parsedContact.phone);
-      setContactEmail(parsedContact.email);
-      setContactAddress(parsedContact.address);
-      setContactPostalCode(parsedContact.postalCode);
-      setContactCity(parsedContact.city);
+      const syncedCountry = parsedContact.country || lead.country || country;
+      setManualCustomerDraft({ ...contactInfoToDraft(parsedContact), country: syncedCountry });
+      setDealerCustomerData(EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
       setContactMode('manual');
-      setCountry(parsedContact.country || lead.country || country);
+      setCountry(syncedCountry);
       setNotes(lead.notes || '');
       setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
       setMachineTypesChanged(false);
@@ -1071,6 +1080,11 @@ export default function CrmNewLeadPage() {
   const selectedDealer = allOptions.find(o => o.value === linkedDealer) || null;
   const selectedDealerAccount = dealers.find((dealer) => dealer.id === linkedDealer) || null;
   const sortedDealerContacts = useMemo(() => sortCrmLeadDealerContacts(dealerContacts), [dealerContacts]);
+  const activeCustomerData = activeCrmLeadCustomerDraft({
+    mode: contactMode,
+    manualCustomerDraft,
+    dealerCustomerData,
+  });
   const dealerTriggerLabel = selectedDealer
     ? selectedDealer.label
     : (linkedDealer ? linkedDealer : tt('ph_dealer', lang));
@@ -1098,6 +1112,11 @@ export default function CrmNewLeadPage() {
       });
     return () => { cancelled = true; };
   }, [repository.academy, selectedDealerAccount?.id]);
+
+  useEffect(() => {
+    if (contactMode !== 'dealer' || !selectedDealerAccount || selectedDealerContactId) return;
+    applyDealerContactSnapshot(null);
+  }, [contactMode, selectedDealerAccount?.id, selectedDealerContactId]);
 
   const firstContactQuickOptions: DateQuickOption[] = [
     { label: '-1 dag', value: addDaysToIsoDate(today, -1) },
@@ -1129,20 +1148,20 @@ export default function CrmNewLeadPage() {
     ? `Prisestimat baseret på ${machineEstimate.pricedItems.length} af ${machineTypes.length} valgte produkter. ${machineEstimate.unmappedItems.length} valgte produkter har ingen kendt pris og er ikke medregnet.`
     : '';
   const structuredContactInfo = useMemo<StructuredContactInfo>(() => {
-    const postalCode = contactPostalCode.trim();
-    const city = contactCity.trim();
+    const postalCode = activeCustomerData.postalCode.trim();
+    const city = activeCustomerData.city.trim();
     return {
-      company: contactCompany,
-      contactPerson: contactPersonName,
-      address: contactAddress,
-      postalCode: contactPostalCode,
-      city: contactCity,
+      company: activeCustomerData.company,
+      contactPerson: activeCustomerData.contactPerson,
+      address: activeCustomerData.address,
+      postalCode: activeCustomerData.postalCode,
+      city: activeCustomerData.city,
       zipCity: [postalCode, city].filter(Boolean).join(' '),
-      phone: contactPhone,
-      email: contactEmail,
-      country,
+      phone: activeCustomerData.phone,
+      email: activeCustomerData.email,
+      country: activeCustomerData.country,
     };
-  }, [contactCompany, contactPersonName, contactAddress, contactPostalCode, contactCity, contactPhone, contactEmail, country]);
+  }, [activeCustomerData]);
   const isLeadFormReady = Boolean(
     title.trim()
     && responsibleSellerId
@@ -1154,13 +1173,13 @@ export default function CrmNewLeadPage() {
     && contactType
     && customerType
     && machineTypes.length > 0
-    && contactCompany.trim()
-    && contactPersonName.trim()
-    && contactPhone.trim()
-    && contactEmail.trim()
-    && contactPostalCode.trim()
-    && contactCity.trim()
-    && country.trim()
+    && activeCustomerData.company.trim()
+    && activeCustomerData.contactPerson.trim()
+    && activeCustomerData.phone.trim()
+    && activeCustomerData.email.trim()
+    && activeCustomerData.postalCode.trim()
+    && activeCustomerData.city.trim()
+    && activeCustomerData.country.trim()
   );
   const legacyWorkingBudgetOnlySave = isLegacyWorkingBudgetOnlySave({
     isEditingExistingLead: isEdit,
@@ -1183,13 +1202,13 @@ export default function CrmNewLeadPage() {
   function applyDealerContactSnapshot(contact: DealerContact | null) {
     if (!selectedDealerAccount) return;
     const snapshot = buildCrmLeadDealerContactSnapshot(selectedDealerAccount, contact);
-    setContactCompany(snapshot.company);
-    setContactPersonName(snapshot.contactPerson);
-    setContactPhone(snapshot.phone);
-    setContactEmail(snapshot.email);
-    setContactAddress(snapshot.address);
-    setContactPostalCode(snapshot.postalCode);
-    setContactCity(snapshot.city);
+    const next = replaceCrmLeadDealerCustomerData({
+      mode: contactMode,
+      manualCustomerDraft,
+      dealerCustomerData,
+    }, snapshot);
+    setContactMode(next.mode);
+    setDealerCustomerData(next.dealerCustomerData);
     if (snapshot.country) {
       setCountry(snapshot.country);
       setCountryChoice(snapshot.country === 'Danmark' || snapshot.country === 'Tyskland' ? snapshot.country : 'Other');
@@ -1207,6 +1226,10 @@ export default function CrmNewLeadPage() {
   }
 
   function handleDealerContactChange(contactId: string) {
+    if (!contactId) {
+      handleManualCustomer();
+      return;
+    }
     setContactMode(contactId ? 'dealer' : 'manual');
     setSelectedDealerContactId(contactId);
     const contact = sortedDealerContacts.find((candidate) => candidate.id === contactId) || null;
@@ -1223,6 +1246,39 @@ export default function CrmNewLeadPage() {
     setContactMode(next.mode);
     setSelectedDealerContactId(next.selectedDealerContactId);
     setDealerContactEmailMissing(false);
+    setCountry(manualCustomerDraft.country);
+    setCountryChoice(
+      manualCustomerDraft.country === 'Danmark' || manualCustomerDraft.country === 'Tyskland'
+        ? manualCustomerDraft.country
+        : 'Other',
+    );
+  }
+
+  function updateManualCustomerDraft(patch: Partial<CrmLeadDealerContactSnapshot>) {
+    const next = updateManualCrmLeadCustomerDraft({
+      mode: contactMode,
+      manualCustomerDraft,
+      dealerCustomerData,
+    }, patch);
+    if (contactMode !== next.mode) {
+      setContactMode('manual');
+      setSelectedDealerContactId('');
+      setDealerContactEmailMissing(false);
+    }
+    setManualCustomerDraft(next.manualCustomerDraft);
+    if (patch.country !== undefined) {
+      setCountry(patch.country);
+      setCountryChoice(patch.country === 'Danmark' || patch.country === 'Tyskland' ? patch.country : 'Other');
+    }
+  }
+
+  function updateActiveCustomerCountry(nextCountry: string) {
+    setCountry(nextCountry);
+    if (contactMode === 'dealer') {
+      setDealerCustomerData((previous) => ({ ...previous, country: nextCountry }));
+      return;
+    }
+    setManualCustomerDraft((previous) => ({ ...previous, country: nextCountry }));
   }
 
   useEffect(() => {
@@ -1286,13 +1342,13 @@ export default function CrmNewLeadPage() {
     const preset = TRADE_FAIR_OPTIONS.find(option => option.value === value);
     if (preset?.country) {
       setCountryChoice(preset.country);
-      setCountry(preset.country);
+      updateActiveCustomerCountry(preset.country);
     }
   }
 
   function handleCountryChoiceChange(value: (typeof COUNTRY_OPTIONS)[number]) {
     setCountryChoice(value);
-    setCountry(value === 'Other' ? '' : value);
+    updateActiveCustomerCountry(value === 'Other' ? '' : value);
     if (value !== 'Other') clearFieldError('country');
   }
 
@@ -1385,13 +1441,13 @@ export default function CrmNewLeadPage() {
       if (!nextActivity)       { toast.error(tt('val_next_act', lang)); return; }
       const missingFields = getMissingOrdinaryCrmLeadFields({
         machineTypes,
-        contactCompany,
-        contactPersonName,
-        contactPhone,
-        contactEmail,
-        contactPostalCode,
-        contactCity,
-        country,
+        contactCompany: activeCustomerData.company,
+        contactPersonName: activeCustomerData.contactPerson,
+        contactPhone: activeCustomerData.phone,
+        contactEmail: activeCustomerData.email,
+        contactPostalCode: activeCustomerData.postalCode,
+        contactCity: activeCustomerData.city,
+        country: activeCustomerData.country,
       });
       if (missingFields.length > 0) {
         setFieldErrors(
@@ -1443,7 +1499,7 @@ export default function CrmNewLeadPage() {
         customer_type: customerType,
         contact_information: contactInformation || null,
         trade_fair: buildTradeFairValue(tradeFair, tradeFairYear),
-        country: country || null,
+        country: activeCustomerData.country || null,
         notes: notes || null,
         estimated_value: estimatedValue ? Number(estimatedValue) : null,
         probability: probability ? Number(probability) : null,
@@ -1722,10 +1778,9 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_contact_company', lang)} required error={fieldError('contactCompany')}>
               <input
                 className={requiredInputClass('contactCompany')}
-                value={contactCompany}
+                value={activeCustomerData.company}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactCompany(e.target.value);
+                  updateManualCustomerDraft({ company: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactCompany');
                 }}
               />
@@ -1733,10 +1788,9 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_contact_person', lang)} required error={fieldError('contactPersonName')}>
               <input
                 className={requiredInputClass('contactPersonName')}
-                value={contactPersonName}
+                value={activeCustomerData.contactPerson}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactPersonName(e.target.value);
+                  updateManualCustomerDraft({ contactPerson: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactPersonName');
                 }}
               />
@@ -1745,10 +1799,9 @@ export default function CrmNewLeadPage() {
               <input
                 type="tel"
                 className={requiredInputClass('contactPhone')}
-                value={contactPhone}
+                value={activeCustomerData.phone}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactPhone(e.target.value);
+                  updateManualCustomerDraft({ phone: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactPhone');
                 }}
               />
@@ -1757,27 +1810,24 @@ export default function CrmNewLeadPage() {
               <input
                 type="email"
                 className={requiredInputClass('contactEmail')}
-                value={contactEmail}
+                value={activeCustomerData.email}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactEmail(e.target.value);
+                  updateManualCustomerDraft({ email: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactEmail');
                 }}
               />
             </Field>
             <Field label={tt('lbl_contact_address', lang)} full>
-              <input className={inputCls} value={contactAddress} onChange={e=>{
-                handleManualCustomer();
-                setContactAddress(e.target.value);
+              <input className={inputCls} value={activeCustomerData.address} onChange={e=>{
+                updateManualCustomerDraft({ address: e.target.value });
               }} />
             </Field>
             <Field label={tt('lbl_contact_postal_code', lang)} required error={fieldError('contactPostalCode')}>
               <input
                 className={requiredInputClass('contactPostalCode')}
-                value={contactPostalCode}
+                value={activeCustomerData.postalCode}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactPostalCode(e.target.value);
+                  updateManualCustomerDraft({ postalCode: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactPostalCode');
                 }}
               />
@@ -1785,10 +1835,9 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_contact_city', lang)} required error={fieldError('contactCity')}>
               <input
                 className={requiredInputClass('contactCity')}
-                value={contactCity}
+                value={activeCustomerData.city}
                 onChange={e=>{
-                  handleManualCustomer();
-                  setContactCity(e.target.value);
+                  updateManualCustomerDraft({ city: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactCity');
                 }}
               />
@@ -1796,17 +1845,11 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_country', lang)} required full error={fieldError('country')}>
               <input
                 className={requiredInputClass('country')}
-                value={country}
+                value={activeCustomerData.country}
                 onChange={e=>{
-                  handleManualCustomer();
                   const nextCountry = e.target.value;
-                  setCountry(nextCountry);
+                  updateManualCustomerDraft({ country: nextCountry });
                   if (nextCountry.trim()) clearFieldError('country');
-                  if (nextCountry === 'Danmark' || nextCountry === 'Tyskland') {
-                    setCountryChoice(nextCountry);
-                  } else {
-                    setCountryChoice('Other');
-                  }
                 }}
               />
             </Field>
@@ -1905,7 +1948,7 @@ export default function CrmNewLeadPage() {
                     className={requiredInputClass('country')}
                     value={country}
                     onChange={e=>{
-                      setCountry(e.target.value);
+                      updateActiveCustomerCountry(e.target.value);
                       if (e.target.value.trim()) clearFieldError('country');
                     }}
                     placeholder="Skriv land"

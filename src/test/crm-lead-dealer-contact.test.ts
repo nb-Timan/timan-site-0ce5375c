@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activeCrmLeadCustomerDraft,
   buildCrmLeadDealerContactSnapshot,
+  EMPTY_CRM_LEAD_CUSTOMER_DRAFT,
   enterManualCrmLeadCustomerMode,
   formatCrmLeadDealerContact,
+  replaceCrmLeadDealerCustomerData,
+  selectCrmLeadCustomerMode,
   sortCrmLeadDealerContacts,
+  updateManualCrmLeadCustomerDraft,
 } from '@/lib/crmLeadDealerContact';
 import type { DealerAccount } from '@/lib/dealerAccountsService';
 import type { DealerContact } from '@/lib/dealerContactsService';
@@ -83,5 +88,73 @@ describe('CRM lead dealer contact autofill', () => {
       selectedDealerContactId: '',
       mode: 'manual',
     });
+  });
+
+  it('restores the exact manual draft after displaying dealer data', () => {
+    const manualCustomerDraft = {
+      company: 'Test Kunde ApS',
+      contactPerson: 'Peter Jensen',
+      phone: '12345678',
+      email: 'peter@example.dk',
+      address: 'Testvej 1',
+      postalCode: '1234',
+      city: 'Testby',
+      country: 'Danmark',
+    };
+    const dealerCustomerData = buildCrmLeadDealerContactSnapshot(dealer, contact('1', 'sales', 'Dealer Contact'));
+
+    const dealerMode = replaceCrmLeadDealerCustomerData({
+      mode: 'manual',
+      manualCustomerDraft,
+      dealerCustomerData: EMPTY_CRM_LEAD_CUSTOMER_DRAFT,
+    }, dealerCustomerData);
+    expect(activeCrmLeadCustomerDraft(dealerMode)).toEqual(dealerCustomerData);
+
+    expect(activeCrmLeadCustomerDraft(selectCrmLeadCustomerMode(dealerMode, 'manual'))).toEqual(manualCustomerDraft);
+  });
+
+  it('uses the edited manual draft as the only save source', () => {
+    const manualCustomerDraft = {
+      ...EMPTY_CRM_LEAD_CUSTOMER_DRAFT,
+      company: 'Original manual customer',
+      country: 'Danmark',
+    };
+    const dealerCustomerData = buildCrmLeadDealerContactSnapshot(dealer, contact('1', 'sales', 'Dealer Contact'));
+    const edited = updateManualCrmLeadCustomerDraft({
+      mode: 'dealer',
+      manualCustomerDraft,
+      dealerCustomerData,
+    }, { company: 'New manual customer', email: 'new@example.dk' });
+
+    expect(activeCrmLeadCustomerDraft(edited)).toMatchObject({
+      company: 'New manual customer',
+      email: 'new@example.dk',
+    });
+    expect(edited.dealerCustomerData).toEqual(dealerCustomerData);
+  });
+
+  it('keeps the manual draft intact through dealer A to dealer B changes', () => {
+    const manualCustomerDraft = {
+      ...EMPTY_CRM_LEAD_CUSTOMER_DRAFT,
+      company: 'Manual customer',
+      contactPerson: 'Manual contact',
+      country: 'Danmark',
+    };
+    const dealerA = buildCrmLeadDealerContactSnapshot(dealer, contact('1', 'sales', 'Dealer A contact'));
+    const dealerB = {
+      ...dealerA,
+      company: 'Other dealer',
+      contactPerson: 'Dealer B contact',
+      country: 'Tyskland',
+    };
+
+    const afterDealerB = replaceCrmLeadDealerCustomerData({
+      mode: 'dealer',
+      manualCustomerDraft,
+      dealerCustomerData: dealerA,
+    }, dealerB);
+
+    expect(activeCrmLeadCustomerDraft(afterDealerB)).toEqual(dealerB);
+    expect(activeCrmLeadCustomerDraft(selectCrmLeadCustomerMode(afterDealerB, 'manual'))).toEqual(manualCustomerDraft);
   });
 });
