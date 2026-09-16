@@ -14,11 +14,13 @@ describe('Configurator Step 3 accessory card layout', () => {
     expect(source).toContain('col-span-2 mt-2 flex min-w-0 items-center justify-between gap-2');
   });
 
-  it('keeps the compact badge, price, item number, and media actions in the shared card', () => {
+  it('keeps item metadata and media actions together on the left below the product content', () => {
     expect(source).toContain("renderMarketingBadge(marketingContent, 'compact') || renderNewBadge(a.isNew)");
     expect(source).toContain('font-bold text-base text-emerald-700 price-col');
     expect(source).toContain('{itemNoLabel(uiLanguage)}: {a.varenr}');
     expect(source).toContain('{renderActionLinks(a, machineType)}');
+    expect(source).toContain('flex-col items-start gap-1 sm:col-span-2 sm:col-start-2');
+    expect(source).toContain('mt-1 flex flex-wrap gap-2');
   });
 
   it('does not clamp the description text', () => {

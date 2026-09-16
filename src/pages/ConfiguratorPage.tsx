@@ -1470,7 +1470,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const showImageIcon = !!(item.imageUrl || (item.images && item.images.length > 0) || item.videoUrl || (item.videos && item.videos.length > 0));
     if (!showVideoIcon && !showImageIcon && !hasSpecs) return null;
     return (
-      <div className="mt-1 flex gap-2 whitespace-nowrap">
+      <div className="mt-1 flex flex-wrap gap-2">
         {showVideoIcon && (videoUrl ? (
           <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs flex items-center gap-0.5 hover:text-emerald-800 transition" onClick={e => e.stopPropagation()}>🎥 {T('videoLink')}</a>
         ) : (
@@ -3257,7 +3257,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                             {marketingEditButton(machineType, a.id)}
                           </div>
                         </div>
-                        <div className="col-span-2 mt-1 flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 sm:col-span-2 sm:col-start-2">
+                        <div className="col-span-2 mt-1 flex min-w-0 flex-col items-start gap-1 sm:col-span-2 sm:col-start-2">
                           <span className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</span>
                           {renderActionLinks(a, machineType)}
                         </div>
