@@ -9,6 +9,8 @@ import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsSer
 import {
   loadMesseAssignableTimanSellers,
   resolveDealerAssignableTimanSeller,
+  filterMesseAssignableTimanSellersForCountry,
+  dealerIsAssignedToTimanSeller,
   type SellerDirectoryEntry,
 } from '@/lib/sellerDirectory';
 import { getMesseLeadWebhookUrl } from '@/lib/webhookUrls';
@@ -163,6 +165,7 @@ const FORM_TEXT = {
   choose: { da: 'Vælg', en: 'Choose', de: 'Wählen', it: 'Scegli', hu: 'Válasszon' },
   responsible: { da: '6. Timan sælger', en: '6. Timan seller', de: '6. Timan Verkäufer', it: '6. Venditore Timan', hu: '6. Timan értékesítő' },
   dealerSelect: { da: 'Vælg forhandler', en: 'Choose dealer', de: 'Händler wählen', it: 'Scegli rivenditore', hu: 'Kereskedő kiválasztása' },
+  chooseSellerFirst: { da: 'Vælg først Timan sælger', en: 'Choose a Timan seller first', de: 'Zuerst Timan Verkäufer wählen', it: 'Scegli prima un venditore Timan', hu: 'Először válasszon Timan értékesítőt' },
   mailTo: { da: 'Mail sendes til', en: 'Mail is sent to', de: 'E-Mail wird gesendet an', it: 'Mail inviata a', hu: 'Email címzettje' },
   chooseResponsible: { da: 'vælg Timan sælger', en: 'choose Timan seller', de: 'Timan Verkäufer wählen', it: 'scegli venditore Timan', hu: 'válasszon Timan értékesítőt' },
   customerInfo: { da: '3. Kundeinformation', en: '3. Customer information', de: '3. Kundeninformationen', it: '3. Informazioni cliente', hu: '3. Ügyféladatok' },
@@ -180,6 +183,7 @@ const FORM_TEXT = {
   sending: { da: 'Sender...', en: 'Sending...', de: 'Sendet...', it: 'Invio...', hu: 'Küldés...' },
   errCountry: { da: 'Mangler valg af land', en: 'Choose a country', de: 'Land auswählen', it: 'Scegli un paese', hu: 'Válasszon országot' },
   errDealerCustomer: { da: 'Vælg forhandler eller kunde', en: 'Choose dealer or customer', de: 'Händler oder Kunde auswählen', it: 'Scegli rivenditore o cliente', hu: 'Válasszon kereskedőt vagy ügyfelet' },
+  errDealerSeller: { da: 'Den valgte forhandler hører ikke til Timan sælgeren', en: 'The selected dealer is not assigned to the Timan seller', de: 'Der gewählte Händler ist dem Timan Verkäufer nicht zugeordnet', it: 'Il rivenditore selezionato non è assegnato al venditore Timan', hu: 'A kiválasztott kereskedő nincs a Timan értékesítőhöz rendelve' },
   errCustomerInfo: { da: 'Udfyld de obligatoriske kundeoplysninger', en: 'Fill in the required customer information', de: 'Erforderliche Kundendaten ausfüllen', it: 'Compila le informazioni cliente obbligatorie', hu: 'Töltse ki a kötelező ügyféladatokat' },
   errProduct: { da: 'Vælg mindst ét produkt', en: 'Choose at least one product', de: 'Mindestens ein Produkt auswählen', it: 'Scegli almeno un prodotto', hu: 'Válasszon legalább egy terméket' },
   errEquipment: { da: 'Vælg mindst ét redskab', en: 'Choose at least one equipment item', de: 'Mindestens ein Anbaugerät auswählen', it: 'Scegli almeno un accessorio', hu: 'Válasszon legalább egy eszközt' },
@@ -213,26 +217,14 @@ function alphaCompare(a: string | null | undefined, b: string | null | undefined
   return (a || '').localeCompare(b || '', 'da', { sensitivity: 'base' });
 }
 
-function dealerBelongsToSeller(dealer: DealerAccount, seller: SellerDirectoryEntry | null): boolean {
-  if (!seller) return false;
-  const sellerEmail = seller.email?.trim().toLowerCase();
-  const sellerInitials = seller.initials?.trim().toLowerCase();
-  const sellerName = seller.full_name?.trim().toLowerCase();
-  return Boolean(
-    (sellerEmail && dealer.assigned_seller_email?.trim().toLowerCase() === sellerEmail) ||
-    (sellerInitials && dealer.assigned_seller_initials?.trim().toLowerCase() === sellerInitials) ||
-    (sellerName && dealer.assigned_seller_name?.trim().toLowerCase() === sellerName),
-  );
-}
-
 function dealerSellerSortKey(dealer: DealerAccount): string {
   return dealer.assigned_seller_name || dealer.assigned_seller_initials || dealer.assigned_seller_email || '';
 }
 
 function sortDealersForSeller(dealers: DealerAccount[], seller: SellerDirectoryEntry | null): DealerAccount[] {
   return [...dealers].sort((a, b) => {
-    const aSelected = dealerBelongsToSeller(a, seller);
-    const bSelected = dealerBelongsToSeller(b, seller);
+    const aSelected = dealerIsAssignedToTimanSeller(a, seller);
+    const bSelected = dealerIsAssignedToTimanSeller(b, seller);
     if (aSelected !== bSelected) return aSelected ? -1 : 1;
 
     const aHasSeller = Boolean(dealerSellerSortKey(a));
@@ -477,16 +469,29 @@ export default function MesseFollowUpPage() {
     countryOptions.filter((country) => !isDenmarkOrGermany(country))
   ), [countryOptions]);
 
-  const sellerOptions = sellers;
+  const sellerOptions = useMemo(
+    () => filterMesseAssignableTimanSellersForCountry(sellers, selectedLeadCountry),
+    [sellers, selectedLeadCountry],
+  );
 
   const responsibleSeller = useMemo(() => {
     return sellerOptions.find((seller) => seller.email === sellerEmail) || null;
   }, [sellerEmail, sellerOptions]);
 
   const filteredDealers = useMemo(() => {
-    const countryFiltered = dealers.filter((dealer) => countryMatches(dealer.country, selectedLeadCountry));
-    return sortDealersForSeller(countryFiltered, responsibleSeller);
+    if (!responsibleSeller) return [];
+    const eligibleDealers = dealers.filter((dealer) => (
+      countryMatches(dealer.country, selectedLeadCountry)
+      && dealerIsAssignedToTimanSeller(dealer, responsibleSeller)
+    ));
+    return sortDealersForSeller(eligibleDealers, responsibleSeller);
   }, [dealers, selectedLeadCountry, responsibleSeller]);
+
+  useEffect(() => {
+    if (!sellerEmail || sellerOptions.some((seller) => seller.email === sellerEmail)) return;
+    setSellerEmail('');
+    setSellerSelectionMode('initial');
+  }, [sellerEmail, sellerOptions]);
 
   useEffect(() => {
     if (sellerSelectionMode === 'manual') return;
@@ -563,6 +568,9 @@ export default function MesseFollowUpPage() {
       errors.country = f('errCountry');
     }
     if (!leadType) errors.dealerCustomer = f('errDealerCustomer');
+    if (dealerNumber && !filteredDealers.some((dealer) => dealer.account_number === dealerNumber)) {
+      errors.dealerCustomer = f('errDealerSeller');
+    }
     if (!hasCustomerInfo) {
       errors.customerInfo = f('errCustomerInfo');
     }
@@ -589,6 +597,8 @@ export default function MesseFollowUpPage() {
       hasRequiredEquipment,
       wantsDemo,
       responsibleSeller,
+      dealerNumber,
+      filteredDealers,
       textLanguage,
     ],
   );
@@ -673,6 +683,10 @@ export default function MesseFollowUpPage() {
       const cleanZipCity = clean(zipCity);
       const cleanPhone = clean(phone);
       const cleanEmail = clean(email);
+      const selectedAllowedDealer = selectedDealer
+        && filteredDealers.some((dealer) => dealer.id === selectedDealer.id)
+        ? selectedDealer
+        : null;
       const contactInformation = [
         cleanCompany ? `Firma/CVR: ${cleanCompany}` : null,
         cleanContactPerson ? `Kontaktperson: ${cleanContactPerson}` : null,
@@ -682,8 +696,8 @@ export default function MesseFollowUpPage() {
         cleanEmail ? `E-mail: ${cleanEmail}` : null,
         selectedLeadCountry ? `Land: ${selectedLeadCountry}` : null,
       ].filter(Boolean).join('\n');
-      const dealerText = selectedDealer
-        ? `${selectedDealer.company_name} (${selectedDealer.account_number})`
+      const dealerText = selectedAllowedDealer
+        ? `${selectedAllowedDealer.company_name} (${selectedAllowedDealer.account_number})`
         : 'Ingen forhandler valgt';
       const selectedProductList = [
         ...products,
@@ -712,7 +726,7 @@ export default function MesseFollowUpPage() {
         owner_user_id: ownerId,
         owner_name: responsibleSeller.full_name || responsibleSeller.initials,
         owner_email: responsibleSeller.email,
-        linked_dealer_id: selectedDealer?.id || null,
+        linked_dealer_id: selectedAllowedDealer?.id || null,
         first_contact_date: today,
         expected_close_date: expectedCloseDate,
         next_followup_date: followUpDate,
@@ -723,7 +737,7 @@ export default function MesseFollowUpPage() {
         customer_type: leadType === 'dealer' ? 'Dealer/Demo machine' : 'Company',
         contact_information: contactInformation,
         trade_fair: 'Messe / Exhibition',
-        country: selectedLeadCountry || selectedDealer?.country || null,
+        country: selectedLeadCountry || selectedAllowedDealer?.country || null,
         notes: leadNotes,
         estimated_value: estimatedLeadValue > 0 ? estimatedLeadValue : null,
         probability: wantsDemo === 'yes' ? 50 : 25,
@@ -1185,8 +1199,13 @@ export default function MesseFollowUpPage() {
               {leadType === 'customer' && (
                 <div className="space-y-2">
                   <label className="text-sm font-semibold">{f('dealerSelect')}</label>
-                  <select value={dealerNumber} onChange={(e) => setDealerNumber(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm">
-                    <option value="">{f('dealerSelect')}</option>
+                  <select
+                    value={dealerNumber}
+                    onChange={(e) => setDealerNumber(e.target.value)}
+                    disabled={!responsibleSeller}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                  >
+                    <option value="">{responsibleSeller ? f('dealerSelect') : f('chooseSellerFirst')}</option>
                     {filteredDealers.slice(0, 250).map((dealer) => (
                       <option key={dealer.id} value={dealer.account_number}>
                         {dealer.company_name} - {dealer.account_number}

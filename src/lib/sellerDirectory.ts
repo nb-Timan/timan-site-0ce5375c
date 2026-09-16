@@ -42,8 +42,44 @@ export interface SellerDirectoryEntry {
 /** Internal roles allowed by CRM's responsible-seller selection. */
 export const ASSIGNABLE_TIMAN_SELLER_ROLES = ['timan_seller', 'timan_backend'] as const;
 
+type MesseSellerCountry = 'denmark' | 'germany' | 'other';
+
+// This is a Messe follow-up assignment policy, not a replacement seller
+// directory. Entries always originate in the active canonical directory.
+const MESSE_COUNTRY_SELLER_INITIALS: Record<Exclude<MesseSellerCountry, 'other'>, readonly string[]> = {
+  germany: ['AKR', 'JTN'],
+  denmark: ['EM'],
+};
+
 export function isAssignableTimanSeller(entry: Pick<SellerDirectoryEntry, 'portal_role'>): boolean {
   return ASSIGNABLE_TIMAN_SELLER_ROLES.includes(entry.portal_role as typeof ASSIGNABLE_TIMAN_SELLER_ROLES[number]);
+}
+
+export function normalizeMesseSellerCountry(country: string | null | undefined): MesseSellerCountry {
+  const normalized = country?.trim().toLowerCase() || '';
+  if (['germany', 'deutschland', 'tyskland', 'de'].includes(normalized)) return 'germany';
+  if (['denmark', 'danmark', 'dk'].includes(normalized)) return 'denmark';
+  return 'other';
+}
+
+/** Country eligibility applied to the canonical active Messe seller directory. */
+export function isMesseSellerEligibleForCountry(
+  seller: Pick<SellerDirectoryEntry, 'initials' | 'portal_role'>,
+  country: string | null | undefined,
+): boolean {
+  if (!isAssignableTimanSeller(seller)) return false;
+  const normalizedCountry = normalizeMesseSellerCountry(country);
+  const allowedInitials = normalizedCountry === 'other'
+    ? undefined
+    : MESSE_COUNTRY_SELLER_INITIALS[normalizedCountry];
+  return !allowedInitials || allowedInitials.includes(seller.initials.trim().toUpperCase());
+}
+
+export function filterMesseAssignableTimanSellersForCountry(
+  sellers: SellerDirectoryEntry[],
+  country: string | null | undefined,
+): SellerDirectoryEntry[] {
+  return sellers.filter((seller) => isMesseSellerEligibleForCountry(seller, country));
 }
 
 export interface SellerDirectory {
@@ -197,6 +233,17 @@ export function resolveDealerAssignableTimanSeller(
   return sellerName
     ? assignable.find((seller) => seller.full_name.trim().toLocaleLowerCase() === sellerName) || null
     : null;
+}
+
+/**
+ * The canonical dealer-to-seller invariant used by CRM and Partnerdata is the
+ * stable assigned_seller_id relation, not historical name or email snapshots.
+ */
+export function dealerIsAssignedToTimanSeller(
+  dealer: Pick<{ assigned_seller_id: string | null }, 'assigned_seller_id'> | null | undefined,
+  seller: Pick<SellerDirectoryEntry, 'id'> | null | undefined,
+): boolean {
+  return Boolean(dealer?.assigned_seller_id && seller?.id && dealer.assigned_seller_id === seller.id);
 }
 
 export function invalidateSellerDirectory(): void {
