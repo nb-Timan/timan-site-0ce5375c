@@ -9,6 +9,10 @@ const createdLeadSelectMigration = readFileSync(
   'supabase/migrations/20260916090259_messe_lead_created_select_scope.sql',
   'utf8',
 );
+const insertPolicyVisibilityMigration = readFileSync(
+  'supabase/migrations/20260916094202_fix_messe_lead_insert_policy_visibility.sql',
+  'utf8',
+);
 const countrySellerMigration = readFileSync(
   'supabase/migrations/20260916070801_enforce_messe_dealer_seller_assignment.sql',
   'utf8',
@@ -22,12 +26,18 @@ describe('Messe lead create scope', () => {
     expect(migration).toContain("lower(trim(coalesce(trade_fair, ''))) in ('messe / exhibition', 'messe / udstilling')");
   });
 
-  it('requires the same active internal seller and dealer assignment as the Messe picker', () => {
-    expect(migration).toContain("seller.portal_role::text in ('timan_seller', 'timan_backend')");
-    expect(migration).toContain('dealer.assigned_seller_id = crm_leads.owner_user_id');
-    expect(migration).toContain('coalesce(dealer.is_active, true) = true');
-    expect(migration).toContain('coalesce(dealer.is_deleted, false) = false');
-    expect(migration).toContain('coalesce(dealer.is_blocked, false) = false');
+  it('validates the same active internal seller and dealer assignment without exposing their rows to Messe', () => {
+    expect(insertPolicyVisibilityMigration).toContain('create schema if not exists private;');
+    expect(insertPolicyVisibilityMigration).toContain('security definer');
+    expect(insertPolicyVisibilityMigration).toContain('private.can_messe_actor_assign_crm_lead(');
+    expect(insertPolicyVisibilityMigration).toContain("seller.portal_role::text in ('timan_seller', 'timan_backend')");
+    expect(insertPolicyVisibilityMigration).toContain('dealer.assigned_seller_id = p_owner_user_id');
+    expect(insertPolicyVisibilityMigration).toContain('coalesce(dealer.is_active, true) = true');
+    expect(insertPolicyVisibilityMigration).toContain('coalesce(dealer.is_deleted, false) = false');
+    expect(insertPolicyVisibilityMigration).toContain('coalesce(dealer.is_blocked, false) = false');
+    expect(insertPolicyVisibilityMigration).toContain('revoke all on function private.can_messe_actor_assign_crm_lead(uuid, text, uuid) from public, anon;');
+    expect(insertPolicyVisibilityMigration).toContain('grant execute on function private.can_messe_actor_assign_crm_lead(uuid, text, uuid) to authenticated;');
+    expect(insertPolicyVisibilityMigration).toContain('drop policy if exists crm_leads_insert_messe_scoped on public.crm_leads;');
   });
 
   it('keeps country eligibility in the existing scoped trigger', () => {
