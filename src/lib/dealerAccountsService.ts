@@ -122,6 +122,64 @@ export interface DealerAccountsResult {
   error?: string;
 }
 
+/** Minimal, read-only dealer projection used exclusively by Messe follow-up. */
+export interface MesseDealerAccount {
+  id: string;
+  account_number: string;
+  company_name: string;
+  country: string | null;
+  assigned_seller_id: string | null;
+  assigned_seller_initials: string | null;
+  assigned_seller_name: string | null;
+  assigned_seller_email: string | null;
+  is_active: boolean;
+  is_blocked: boolean;
+  is_deleted: boolean;
+}
+
+function rowToMesseDealer(row: Record<string, unknown>): MesseDealerAccount {
+  return {
+    id: String(row.id || ''),
+    account_number: String(row.account_number || ''),
+    company_name: String(row.company_name || ''),
+    country: (row.country as string | null) ?? null,
+    assigned_seller_id: (row.assigned_seller_id as string | null) ?? null,
+    assigned_seller_initials: (row.assigned_seller_initials as string | null) ?? null,
+    assigned_seller_name: (row.assigned_seller_name as string | null) ?? null,
+    assigned_seller_email: (row.assigned_seller_email as string | null) ?? null,
+    is_active: Boolean(row.is_active),
+    is_blocked: Boolean(row.is_blocked),
+    is_deleted: Boolean(row.is_deleted),
+  };
+}
+
+/**
+ * Purpose-built RPC for Messe sessions. It cannot return contact, financial,
+ * CRM or Partnerdata fields and rejects any seller outside the active Timan
+ * seller directory in the database.
+ */
+export async function fetchMesseDealerAccountsForSeller(
+  sellerId: string | null | undefined,
+): Promise<MesseDealerAccount[]> {
+  if (!sellerId) return [];
+  const { data, error } = await supabase.rpc('list_messe_dealer_accounts_for_seller', {
+    p_seller_id: sellerId,
+  });
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[])
+    .map(rowToMesseDealer)
+    .filter((dealer) => dealer.id && dealer.account_number && dealer.company_name && dealer.is_active && !dealer.is_blocked && !dealer.is_deleted);
+}
+
+/** Distinct canonical dealer countries only; no dealer records are exposed. */
+export async function fetchMesseDealerCountries(): Promise<string[]> {
+  const { data, error } = await supabase.rpc('list_messe_dealer_countries');
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[])
+    .map((row) => String(row.country || '').trim())
+    .filter(Boolean);
+}
+
 export function rowToDealer(row: Record<string, unknown>): DealerAccount {
   return {
     id: String(row.id),

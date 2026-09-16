@@ -5,7 +5,11 @@ import MesseSubpageHeader from '@/components/messe/MesseSubpageHeader';
 import { useLanguage } from '@/context/LanguageContext';
 import { toast } from 'sonner';
 import { createLead, formatLeadNo, getLeadAttachmentSignedUrl, updateLead, uploadLeadAttachments } from '@/lib/crmLeadsService';
-import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
+import {
+  fetchMesseDealerAccountsForSeller,
+  fetchMesseDealerCountries,
+  type MesseDealerAccount,
+} from '@/lib/dealerAccountsService';
 import {
   loadMesseAssignableTimanSellers,
   resolveDealerAssignableTimanSeller,
@@ -217,11 +221,11 @@ function alphaCompare(a: string | null | undefined, b: string | null | undefined
   return (a || '').localeCompare(b || '', 'da', { sensitivity: 'base' });
 }
 
-function dealerSellerSortKey(dealer: DealerAccount): string {
+function dealerSellerSortKey(dealer: MesseDealerAccount): string {
   return dealer.assigned_seller_name || dealer.assigned_seller_initials || dealer.assigned_seller_email || '';
 }
 
-function sortDealersForSeller(dealers: DealerAccount[], seller: SellerDirectoryEntry | null): DealerAccount[] {
+function sortDealersForSeller(dealers: MesseDealerAccount[], seller: SellerDirectoryEntry | null): MesseDealerAccount[] {
   return [...dealers].sort((a, b) => {
     const aSelected = dealerIsAssignedToTimanSeller(a, seller);
     const bSelected = dealerIsAssignedToTimanSeller(b, seller);
@@ -368,7 +372,8 @@ export default function MesseFollowUpPage() {
     if (product === 'All') return f('productAll');
     return product;
   };
-  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [dealers, setDealers] = useState<MesseDealerAccount[]>([]);
+  const [dealerCountries, setDealerCountries] = useState<string[]>([]);
   const [sellers, setSellers] = useState<SellerDirectoryEntry[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -438,12 +443,12 @@ export default function MesseFollowUpPage() {
     (async () => {
       setLoadingData(true);
       try {
-        const [dealerResult, sellerList] = await Promise.all([
-          fetchDealerAccounts({ includeDeleted: false }),
+        const [countries, sellerList] = await Promise.all([
+          fetchMesseDealerCountries(),
           loadMesseAssignableTimanSellers(),
         ]);
         if (cancelled) return;
-        setDealers(dealerResult.rows);
+        setDealerCountries(countries);
         setSellers(sellerList);
       } finally {
         if (!cancelled) setLoadingData(false);
@@ -458,12 +463,8 @@ export default function MesseFollowUpPage() {
   );
 
   const countryOptions = useMemo(() => {
-    const countries = new Set<string>();
-    dealers.forEach((dealer) => {
-      if (dealer.country) countries.add(dealer.country);
-    });
-    return Array.from(countries).sort((a, b) => a.localeCompare(b));
-  }, [dealers]);
+    return Array.from(new Set(dealerCountries)).sort((a, b) => a.localeCompare(b));
+  }, [dealerCountries]);
 
   const otherCountryOptions = useMemo(() => (
     countryOptions.filter((country) => !isDenmarkOrGermany(country))
@@ -477,6 +478,25 @@ export default function MesseFollowUpPage() {
   const responsibleSeller = useMemo(() => {
     return sellerOptions.find((seller) => seller.email === sellerEmail) || null;
   }, [sellerEmail, sellerOptions]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!responsibleSeller) {
+      setDealers([]);
+      return () => { cancelled = true; };
+    }
+
+    setDealers([]);
+    fetchMesseDealerAccountsForSeller(responsibleSeller.id)
+      .then((rows) => {
+        if (!cancelled) setDealers(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setDealers([]);
+      });
+
+    return () => { cancelled = true; };
+  }, [responsibleSeller]);
 
   const filteredDealers = useMemo(() => {
     if (!responsibleSeller) return [];
