@@ -278,10 +278,9 @@ export const PRODUCTS: Record<string, Machine> = {
     techSpecs: [
       { label: 'Motor', value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11' } },
       { label: 'HK', value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW' } },
-      { label: 'Cylindre', value: { da: '3', en: '3', de: '3', it: '3', hu: '3' } },
+      { label: 'Cylindre / Træk', value: { da: '3 / 4-hjulstræk', en: '3 / 4-wheel drive', de: '3 / Allradantrieb', it: '3 / Trazione integrale', hu: '3 / 4 kerék hajtás' } },
       { label: 'Brændstof', value: { da: 'Diesel / HVO biodiesel', en: 'Diesel / HVO biodiesel', de: 'Diesel / HVO-Biodiesel', it: 'Diesel / biodiesel HVO', hu: 'Dizel / HVO biodizel' } },
       { label: 'Tophastighed', value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h' } },
-      { label: 'Træk', value: { da: '4-hjulstræk', en: '4-wheel drive', de: 'Allradantrieb', it: 'Trazione integrale', hu: '4 kerék hajtás' } },
       { label: 'Bredde', value: { da: '1.020 mm uden kabine', en: '1,020 mm without cab', de: '1.020 mm ohne Kabine', it: '1.020 mm senza cabina', hu: '1.020 mm fulke nelkul' } },
     ],
     machineDetails: {

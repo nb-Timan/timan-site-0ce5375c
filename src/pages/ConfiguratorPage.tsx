@@ -1402,7 +1402,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const showMachineInformation = (key: string) => {
     const machine = PRODUCTS[key];
     const content = machine ? marketingContentFor(key, machine.id) : null;
-    if (!machine || !content) {
+    if (!machine || !content || key === 'Timan 2620') {
       showMachineDetails(key);
       return;
     }
@@ -2830,7 +2830,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const currentQty = config?.qty || 0;
                     const isSelected = currentQty > 0;
                     const marketingContent = marketingContentFor(key, p.id);
-                    const cardSpecs = marketingContent?.specs.length ? marketingContent.specs : p.techSpecs;
+                    const cardSpecs = key === 'Timan 2620'
+                      ? p.techSpecs
+                      : marketingContent?.specs.length ? marketingContent.specs : p.techSpecs;
                     const cardVideoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(p, primaryVideosByProduct);
                     const cardImageUrl = marketingContent?.image_url || getImageUrlForItem(p);
 
@@ -2842,7 +2844,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         itemNumber={p.varenr}
                         itemNumberLabel={itemNoLabel(uiLanguage)}
                         price={permissions.canSeePrices ? formatDisplayMoney(getPrice(p, lang)) : ''}
-                        description={marketingContent?.description}
+                        description={key === 'Timan 2620' ? undefined : marketingContent?.description}
                         specs={cardSpecs.map((spec) => ({ label: translateSpecLabel(spec.label, uiLanguage), value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || '') }))}
                         badge={marketingContent?.badge}
                         badgeSchedule={marketingContent}
