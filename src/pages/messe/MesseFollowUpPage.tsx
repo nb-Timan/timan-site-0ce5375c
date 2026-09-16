@@ -17,6 +17,7 @@ import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { buildMesseLeadInternalMailRouting } from '@/lib/messeLeadMail';
+import { logMailAuditEvent } from '@/lib/mailAuditService';
 import { messeFormSectionStatusClass } from '@/lib/messeFormStatus';
 import type { CrmLead, CrmLeadAttachment } from '@/lib/crmLeadsService';
 
@@ -316,16 +317,30 @@ function FlagIcon({ code, className }: { code: string; className?: string }) {
   );
 }
 
-async function sendLeadMail(payload: Record<string, unknown>): Promise<void> {
+type MesseLeadMailWebhookResult = {
+  httpStatus: number;
+  providerMessageId: string | null;
+};
+
+async function sendLeadMail(payload: Record<string, unknown>): Promise<MesseLeadMailWebhookResult> {
   const response = await fetch(getMesseLeadWebhookUrl(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  const text = await response.text().catch(() => '');
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
     throw new Error(`HTTP ${response.status}${text ? ` - ${text}` : ''}`);
   }
+  let providerMessageId: string | null = response.headers.get('x-message-id');
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    const candidate = parsed.message_id || parsed.messageId || parsed.provider_message_id;
+    if (typeof candidate === 'string' && candidate.trim()) providerMessageId = candidate.trim();
+  } catch {
+    // n8n commonly returns an empty or text response; no provider id is still a valid send result.
+  }
+  return { httpStatus: response.status, providerMessageId };
 }
 
 function localDateIso(date: Date): string {
@@ -751,7 +766,7 @@ export default function MesseFollowUpPage() {
           }
         }
         const mailRouting = buildMesseLeadInternalMailRouting(responsibleSeller.email);
-        await sendLeadMail({
+        const webhookResult = await sendLeadMail({
           source: 'messe_follow_up_form',
           lead_id: lead.id,
           lead_no: lead.lead_no,
@@ -789,6 +804,30 @@ export default function MesseFollowUpPage() {
           attachment_links: mailAttachmentFiles,
           attachment_files: mailAttachmentFiles,
         });
+        try {
+          await logMailAuditEvent({
+            sent_at: new Date().toISOString(),
+            category: 'messe_lead',
+            source_module: 'messe',
+            source_action: 'follow_up_submit',
+            subject: `Nyt messe lead fra Timan Portal - ${leadTitle}`,
+            to_addresses: mailRouting.to,
+            cc_addresses: [],
+            bcc_addresses: mailRouting.bcc,
+            responsible_user_id: ownerId,
+            responsible_seller_id: ownerId,
+            related_entity_type: 'crm_lead',
+            related_entity_id: lead.id,
+            related_entity_label: formatLeadNo(lead.lead_no),
+            status: 'sent',
+            provider: 'n8n:timan-messe-lead',
+            provider_message_id: webhookResult.providerMessageId,
+            attachment_count: leadAttachments.length,
+            error_message: null,
+          });
+        } catch (auditError) {
+          console.error('[messe lead mail audit] failed:', auditError);
+        }
         if (attachmentError) {
           toast.warning('Lead gemt og mail sendt, men billede kunne ikke vedhæftes');
         } else {
@@ -796,6 +835,30 @@ export default function MesseFollowUpPage() {
         }
       } catch (mailError) {
         console.error('[messe lead webhook] failed:', mailError);
+        try {
+          await logMailAuditEvent({
+            sent_at: null,
+            category: 'messe_lead',
+            source_module: 'messe',
+            source_action: 'follow_up_submit',
+            subject: `Nyt messe lead fra Timan Portal - ${leadTitle}`,
+            to_addresses: mailRouting.to,
+            cc_addresses: [],
+            bcc_addresses: mailRouting.bcc,
+            responsible_user_id: ownerId,
+            responsible_seller_id: ownerId,
+            related_entity_type: 'crm_lead',
+            related_entity_id: lead.id,
+            related_entity_label: formatLeadNo(lead.lead_no),
+            status: 'failed',
+            provider: 'n8n:timan-messe-lead',
+            provider_message_id: null,
+            attachment_count: leadAttachments.length,
+            error_message: mailError instanceof Error ? mailError.message : String(mailError),
+          });
+        } catch (auditError) {
+          console.error('[messe lead mail audit] failed:', auditError);
+        }
         toast.warning(attachmentError
           ? 'Lead gemt i CRM, men billede og mail kunne ikke færdiggøres'
           : 'Lead gemt i CRM, men mail kunne ikke sendes');

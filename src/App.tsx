@@ -187,6 +187,7 @@ const BackendUsersPage = lazy(() => import("./pages/backend/BackendUsersPage"));
 const BackendRolesPage = lazy(() => import("./pages/backend/BackendRolesPage"));
 const BackendModuleAccessPage = lazy(() => import("./pages/backend/BackendModuleAccessPage"));
 const BackendAuditLogPage = lazy(() => import("./pages/backend/BackendAuditLogPage"));
+const BackendMailOverviewPage = lazy(() => import("./pages/backend/BackendMailOverviewPage"));
 const BackendPortalAnalyticsPage = lazy(() => import("./pages/backend/BackendPortalAnalyticsPage"));
 const BackendPersistenceAuditPage = lazy(() => import("./pages/backend/BackendPersistenceAuditPage"));
 const BackendDealerAccountsPage = lazy(() => import("./pages/backend/BackendDealerAccountsPage"));
@@ -355,6 +356,7 @@ const App = () => (
               <Route path="/portal/backend/roles" element={<BackendRolesPage />} />
               <Route path="/portal/backend/module-access" element={<BackendModuleAccessPage />} />
               <Route path="/portal/backend/audit-log" element={<BackendAuditLogPage />} />
+              <Route path="/portal/backend/mailoversigt" element={<BackendMailOverviewPage />} />
               <Route path="/portal/backend/portal-analytics" element={<BackendPortalAnalyticsPage />} />
               <Route path="/portal/backend/dealer-accounts" element={<BackendDealerAccountsPage />} />
               <Route path="/portal/backend/contracts" element={<BackendContractApprovalsPage />} />
