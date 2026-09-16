@@ -126,7 +126,7 @@ describe('CRM lead configurator sync', () => {
     expect(patch.notes).toContain('Manual CRM note');
     expect(patch.notes).toContain('Konfiguration: T-4001');
     expect(patch.notes).not.toContain('Old sync');
-    expect(patch.incomplete_from_configurator).toBe(false);
+    expect(patch.incomplete_from_configurator).toBe(true);
     expect(patch).not.toHaveProperty('pipeline_stage');
     expect(patch).not.toHaveProperty('next_followup_date');
     expect(patch).not.toHaveProperty('next_activity');

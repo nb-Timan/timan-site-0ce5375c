@@ -332,7 +332,7 @@ function getConfigurationNumber(row: CrmLeadConfigurationSyncRow): string | null
 }
 
 function shouldClearIncompleteFlag(row: CrmLeadConfigurationSyncRow): boolean {
-  return getCrmLinkedConfigurationKind(row) === 'quote' || getCrmLinkedConfigurationKind(row) === 'order';
+  return getCrmLinkedConfigurationKind(row) === 'order';
 }
 
 function isCanonicalSubmittedOrder(row: CrmLeadConfigurationSyncRow): boolean {
