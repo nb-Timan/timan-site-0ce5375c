@@ -82,6 +82,8 @@ export interface DealerAccount {
   geocoded_at: string | null;
   geocoding_status: string | null;
   geocoding_error: string | null;
+  geocoding_address_hash: string | null;
+  geocoding_retry_after: string | null;
   google_place_id: string | null;
   // Phase 60 — successor / efterfølger-forhandler (portalstyret, ikke SharePoint).
   successor_dealer_id: string | null;
@@ -249,6 +251,8 @@ export function rowToDealer(row: Record<string, unknown>): DealerAccount {
     geocoded_at: (row.geocoded_at as string | null) ?? null,
     geocoding_status: (row.geocoding_status as string | null) ?? null,
     geocoding_error: (row.geocoding_error as string | null) ?? null,
+    geocoding_address_hash: (row.geocoding_address_hash as string | null) ?? null,
+    geocoding_retry_after: (row.geocoding_retry_after as string | null) ?? null,
     google_place_id: (row.google_place_id as string | null) ?? null,
     successor_dealer_id: (row.successor_dealer_id as string | null) ?? null,
     successor_dealer_account_number: (row.successor_dealer_account_number as string | null) ?? null,
@@ -507,6 +511,8 @@ export interface UpdateDealerAccountPatch {
   geocoded_at?: string | null;
   geocoding_status?: string | null;
   geocoding_error?: string | null;
+  geocoding_address_hash?: string | null;
+  geocoding_retry_after?: string | null;
 }
 
 /**

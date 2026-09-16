@@ -2449,6 +2449,7 @@ export default function PartnerMapPage() {
                     <div className="mt-1 text-amber-700">
                       {selected.geocodingStatus === "pending" && "Adressen afventer geokodning."}
                       {selected.geocodingStatus === "not_found" && "Geokodning fandt ikke adressen."}
+                      {selected.geocodingStatus === "rate_limited" && "Geocoderen er midlertidigt rate limited. Prøv igen senere."}
                       {selected.geocodingStatus === "error" && "Geokodning fejlede."}
                       {selected.geocodingStatus === "skipped" && "Geokodning blev sprunget over, fordi adressen mangler."}
                       {!selected.geocodingStatus && "Geokodning er ikke kørt endnu."}

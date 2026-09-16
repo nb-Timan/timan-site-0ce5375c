@@ -19,6 +19,7 @@ type GeocodeSummary = {
   geocoded?: number;
   skipped?: number;
   failed?: number;
+  busy?: boolean;
   errors?: Array<{ reason?: string }>;
   error?: string;
 };
@@ -42,6 +43,8 @@ export function buildResolvedGeocodingPatch(geo: DealerGeoInput | null): UpdateD
     geocoded_at: new Date().toISOString(),
     geocoding_status: "ok",
     geocoding_error: null,
+    geocoding_address_hash: null,
+    geocoding_retry_after: null,
   };
 }
 
@@ -53,6 +56,8 @@ export function buildPendingGeocodingPatch(hasAddress: boolean): UpdateDealerAcc
     geocoded_at: hasAddress ? null : new Date().toISOString(),
     geocoding_status: hasAddress ? "pending" : "skipped",
     geocoding_error: hasAddress ? null : "Ingen komplet adresse til geokodning.",
+    geocoding_address_hash: null,
+    geocoding_retry_after: null,
   };
 }
 
@@ -62,6 +67,7 @@ export async function requestDealerGeocoding(dealerId: string): Promise<{ ok: bo
   });
   if (error) return { ok: false, error: error.message };
   if (data?.error) return { ok: false, error: data.error };
+  if (data?.busy) return { ok: false, error: "Geokodning kører allerede. Prøv igen om et øjeblik." };
   if ((data?.geocoded ?? 0) > 0) return { ok: true };
   const firstError = data?.errors?.find((item) => item.reason)?.reason;
   if ((data?.failed ?? 0) > 0 || (data?.skipped ?? 0) > 0) {

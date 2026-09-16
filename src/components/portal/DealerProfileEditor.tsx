@@ -556,6 +556,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
       geocoded_at: null,
       geocoding_status: "pending",
       geocoding_error: null,
+      geocoding_address_hash: null,
+      geocoding_retry_after: null,
     }));
 
   const saveAllProfile = async (section: SavingSection): Promise<boolean> => {
@@ -839,6 +841,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
                   geocoded_at: null,
                   geocoding_status: "pending",
                   geocoding_error: null,
+                  geocoding_address_hash: null,
+                  geocoding_retry_after: null,
                 }));
               }}
               onResolve={(r) => {
@@ -860,6 +864,8 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
                   geocoding_error: typeof r.latitude === "number" && typeof r.longitude === "number"
                     ? null
                     : d.geocoding_error,
+                  geocoding_address_hash: null,
+                  geocoding_retry_after: null,
                 }));
               }}
             />

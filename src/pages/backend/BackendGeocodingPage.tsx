@@ -137,6 +137,7 @@ function friendlyGeocodeError(status: string | null, error: string | null, item?
   if (status === "pending" || !status) return "Afventer geocoding";
   if (status === "skipped") return "Adresse mangler data";
   if (status === "not_found") return "Adresse ikke fundet";
+  if (status === "rate_limited") return "Geocoder er midlertidigt rate limited";
   if (status === "error") return "Tidligere geocoding fejlede";
   if (/multiple|ambiguous|flere/i.test(error ?? "")) return "Flere mulige adresser";
   return error || "Ukendt geocoding-fejl";
@@ -350,6 +351,8 @@ export default function BackendGeocodingPage() {
               geocoded_at: null,
               geocoding_status: "pending",
               geocoding_error: null,
+              geocoding_address_hash: null,
+              geocoding_retry_after: null,
               updated_at: new Date().toISOString(),
             })
             .eq("id", item.id);
