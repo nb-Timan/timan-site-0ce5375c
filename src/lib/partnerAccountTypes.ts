@@ -225,6 +225,14 @@ export const PARTNER_ACCOUNT_MAP_TYPE_IDS: PartnerAccountTypeId[] = [
   "demo_location",
 ];
 
+/** Partner account types that may be linked from the Messe follow-up form. */
+export const MESSE_SELECTABLE_PARTNER_TYPES = [
+  "dealer",
+  "service_partner",
+  "importer",
+  "supplier",
+] as const satisfies readonly PartnerAccountTypeId[];
+
 export function normalizePartnerAccountType(value: string | null | undefined): PartnerAccountTypeId | null {
   const normalized = (value ?? "")
     .trim()
@@ -258,6 +266,21 @@ export function resolvePartnerAccountType(input: {
     ?? normalizePartnerAccountType(input.customer_type)
     ?? normalizePartnerAccountType(input.dealer_type)
     ?? "other_partner";
+}
+
+/**
+ * Messe leads may only reference a real partner relationship, never a dealer
+ * customer, end customer, employee or other internal/CRM-only account.
+ */
+export function isMesseSelectablePartner(input: {
+  partner_type?: string | null;
+  customer_type_label?: string | null;
+  customer_type?: string | null;
+  dealer_type?: string | null;
+}): boolean {
+  const partnerType = normalizePartnerAccountType(input.partner_type)
+    ?? resolvePartnerAccountType(input);
+  return (MESSE_SELECTABLE_PARTNER_TYPES as readonly string[]).includes(partnerType);
 }
 
 export function getPartnerAccountTypeLabel(

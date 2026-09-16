@@ -10,6 +10,7 @@ import {
   fetchMesseDealerCountries,
   type MesseDealerAccount,
 } from '@/lib/dealerAccountsService';
+import { isMesseSelectablePartner } from '@/lib/partnerAccountTypes';
 import {
   loadMesseAssignableTimanSellers,
   resolveDealerAssignableTimanSeller,
@@ -503,6 +504,7 @@ export default function MesseFollowUpPage() {
     const eligibleDealers = dealers.filter((dealer) => (
       countryMatches(dealer.country, selectedLeadCountry)
       && dealerIsAssignedToTimanSeller(dealer, responsibleSeller)
+      && isMesseSelectablePartner(dealer)
     ));
     return sortDealersForSeller(eligibleDealers, responsibleSeller);
   }, [dealers, selectedLeadCountry, responsibleSeller]);

@@ -12,7 +12,7 @@ import { supabase } from "@/lib/supabase";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import { listScopedOrdersWithValue } from "@/lib/crmConfigurationsService";
 import { dealerKeyOf } from "@/lib/crmRelationsService";
-import { normalizePartnerAccountType, resolvePartnerAccountType } from "@/lib/partnerAccountTypes";
+import { isMesseSelectablePartner, normalizePartnerAccountType, resolvePartnerAccountType } from "@/lib/partnerAccountTypes";
 
 export interface DealerAccount {
   id: string;
@@ -130,6 +130,7 @@ export interface MesseDealerAccount {
   account_number: string;
   company_name: string;
   country: string | null;
+  partner_type: string | null;
   assigned_seller_id: string | null;
   assigned_seller_initials: string | null;
   assigned_seller_name: string | null;
@@ -145,6 +146,7 @@ function rowToMesseDealer(row: Record<string, unknown>): MesseDealerAccount {
     account_number: String(row.account_number || ''),
     company_name: String(row.company_name || ''),
     country: (row.country as string | null) ?? null,
+    partner_type: (row.partner_type as string | null) ?? null,
     assigned_seller_id: (row.assigned_seller_id as string | null) ?? null,
     assigned_seller_initials: (row.assigned_seller_initials as string | null) ?? null,
     assigned_seller_name: (row.assigned_seller_name as string | null) ?? null,
@@ -170,7 +172,15 @@ export async function fetchMesseDealerAccountsForSeller(
   if (error) throw error;
   return ((data ?? []) as Record<string, unknown>[])
     .map(rowToMesseDealer)
-    .filter((dealer) => dealer.id && dealer.account_number && dealer.company_name && dealer.is_active && !dealer.is_blocked && !dealer.is_deleted);
+    .filter((dealer) => (
+      dealer.id
+      && dealer.account_number
+      && dealer.company_name
+      && dealer.is_active
+      && !dealer.is_blocked
+      && !dealer.is_deleted
+      && isMesseSelectablePartner(dealer)
+    ));
 }
 
 /** Distinct canonical dealer countries only; no dealer records are exposed. */
