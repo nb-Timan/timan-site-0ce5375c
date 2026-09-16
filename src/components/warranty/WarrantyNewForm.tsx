@@ -4,13 +4,15 @@
  * The "Redskabs identifikationsnummer" field is dynamic — starts with one row,
  * dealers can add/remove additional tools.
  */
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, AlertTriangle, Plus, X } from "lucide-react";
 import AddressAutocomplete, { type ResolvedAddress } from "@/components/crm/AddressAutocomplete";
 import { validateWarrantySerial } from "@/lib/warrantySerialValidation";
 import {
   fetchPortalWarrantyEligibleMachines,
+  filterPortalWarrantyMachines,
+  portalWarrantyMachineMatchesType,
   resolvePortalWarrantyMachine,
   type PortalWarrantyMachineOption,
 } from "@/lib/portalWarrantyMachineSelector";
@@ -65,18 +67,19 @@ type WarrantyCopy = {
   demoHoursHint: string;
   demoHoursRequired: string;
   approvedWarrantyExists: string;
+  serialDoesNotMatchMachine: string;
 };
 
 const warrantyCopy: Record<string, WarrantyCopy> = {
-  da: { serialLabel: "Maskinens identifikationsnummer / serienummer", serialPlaceholder: "Skriv serienummer eller søg blandt dine maskiner", ownMachines: "Dine maskiner", demoMachine: "Demo-maskine", demoDetected: "Denne maskine er registreret som demo-maskine.", demoHoursAtSale: "Driftstimer ved salg", demoHoursHint: "Angiv maskinens timetal på salgstidspunktet.", demoHoursRequired: "Angiv driftstimer for demo-maskinen.", approvedWarrantyExists: "Maskinen har allerede en godkendt garantiregistrering." },
-  en: { serialLabel: "Machine identification number / serial number", serialPlaceholder: "Enter a serial number or search your machines", ownMachines: "Your machines", demoMachine: "Demo machine", demoDetected: "This machine is registered as a demo machine.", demoHoursAtSale: "Operating hours at sale", demoHoursHint: "Enter the machine hours at the time of sale.", demoHoursRequired: "Enter operating hours for the demo machine.", approvedWarrantyExists: "The machine already has an approved warranty registration." },
-  de: { serialLabel: "Maschinenidentifikationsnummer / Seriennummer", serialPlaceholder: "Seriennummer eingeben oder Ihre Maschinen durchsuchen", ownMachines: "Ihre Maschinen", demoMachine: "Demo-Maschine", demoDetected: "Diese Maschine ist als Demo-Maschine registriert.", demoHoursAtSale: "Betriebsstunden beim Verkauf", demoHoursHint: "Geben Sie den Maschinenstundenzähler zum Verkaufszeitpunkt an.", demoHoursRequired: "Geben Sie die Betriebsstunden der Demo-Maschine an.", approvedWarrantyExists: "Die Maschine hat bereits eine genehmigte Garantieregistrierung." },
-  it: { serialLabel: "Numero identificativo macchina / numero di serie", serialPlaceholder: "Inserisci un numero di serie o cerca tra le tue macchine", ownMachines: "Le tue macchine", demoMachine: "Macchina demo", demoDetected: "Questa macchina è registrata come macchina demo.", demoHoursAtSale: "Ore di esercizio alla vendita", demoHoursHint: "Inserisci le ore della macchina al momento della vendita.", demoHoursRequired: "Inserisci le ore di esercizio della macchina demo.", approvedWarrantyExists: "La macchina dispone già di una registrazione della garanzia approvata." },
-  hu: { serialLabel: "Gépazonosító / sorozatszám", serialPlaceholder: "Adjon meg sorozatszámot vagy keressen a gépei között", ownMachines: "Az Ön gépei", demoMachine: "Demógép", demoDetected: "Ez a gép demógépként van nyilvántartva.", demoHoursAtSale: "Üzemóra az értékesítéskor", demoHoursHint: "Adja meg a gép üzemóráját az értékesítés időpontjában.", demoHoursRequired: "Adja meg a demógép üzemóráját.", approvedWarrantyExists: "A géphez már tartozik jóváhagyott garanciaregisztráció." },
-  sv: { serialLabel: "Maskinens identifieringsnummer / serienummer", serialPlaceholder: "Ange serienummer eller sök bland dina maskiner", ownMachines: "Dina maskiner", demoMachine: "Demomaskin", demoDetected: "Den här maskinen är registrerad som demomaskin.", demoHoursAtSale: "Drifttimmar vid försäljning", demoHoursHint: "Ange maskinens timtal vid försäljningstillfället.", demoHoursRequired: "Ange drifttimmar för demomaskinen.", approvedWarrantyExists: "Maskinen har redan en godkänd garantiregistrering." },
-  fr: { serialLabel: "Numéro d'identification / numéro de série de la machine", serialPlaceholder: "Saisissez un numéro de série ou recherchez parmi vos machines", ownMachines: "Vos machines", demoMachine: "Machine de démonstration", demoDetected: "Cette machine est enregistrée comme machine de démonstration.", demoHoursAtSale: "Heures de fonctionnement à la vente", demoHoursHint: "Indiquez le compteur d'heures au moment de la vente.", demoHoursRequired: "Indiquez les heures de fonctionnement de la machine de démonstration.", approvedWarrantyExists: "La machine possède déjà un enregistrement de garantie approuvé." },
-  pl: { serialLabel: "Numer identyfikacyjny / numer seryjny maszyny", serialPlaceholder: "Wpisz numer seryjny lub wyszukaj wśród swoich maszyn", ownMachines: "Twoje maszyny", demoMachine: "Maszyna demonstracyjna", demoDetected: "Ta maszyna jest zarejestrowana jako maszyna demonstracyjna.", demoHoursAtSale: "Godziny pracy przy sprzedaży", demoHoursHint: "Podaj liczbę godzin maszyny w chwili sprzedaży.", demoHoursRequired: "Podaj liczbę godzin pracy maszyny demonstracyjnej.", approvedWarrantyExists: "Maszyna ma już zatwierdzoną rejestrację gwarancji." },
-  cs: { serialLabel: "Identifikační číslo / sériové číslo stroje", serialPlaceholder: "Zadejte sériové číslo nebo vyhledejte mezi svými stroji", ownMachines: "Vaše stroje", demoMachine: "Předváděcí stroj", demoDetected: "Tento stroj je evidován jako předváděcí.", demoHoursAtSale: "Provozní hodiny při prodeji", demoHoursHint: "Zadejte stav hodin stroje v okamžiku prodeje.", demoHoursRequired: "Zadejte provozní hodiny předváděcího stroje.", approvedWarrantyExists: "Stroj již má schválenou registraci záruky." },
+  da: { serialLabel: "Maskinens identifikationsnummer / serienummer", serialPlaceholder: "Skriv serienummer eller søg blandt dine maskiner", ownMachines: "Dine maskiner", demoMachine: "Demo-maskine", demoDetected: "Denne maskine er registreret som demo-maskine.", demoHoursAtSale: "Driftstimer ved salg", demoHoursHint: "Angiv maskinens timetal på salgstidspunktet.", demoHoursRequired: "Angiv driftstimer for demo-maskinen.", approvedWarrantyExists: "Maskinen har allerede en godkendt garantiregistrering.", serialDoesNotMatchMachine: "Serienummeret hører ikke til den valgte maskintype." },
+  en: { serialLabel: "Machine identification number / serial number", serialPlaceholder: "Enter a serial number or search your machines", ownMachines: "Your machines", demoMachine: "Demo machine", demoDetected: "This machine is registered as a demo machine.", demoHoursAtSale: "Operating hours at sale", demoHoursHint: "Enter the machine hours at the time of sale.", demoHoursRequired: "Enter operating hours for the demo machine.", approvedWarrantyExists: "The machine already has an approved warranty registration.", serialDoesNotMatchMachine: "The serial number does not belong to the selected machine type." },
+  de: { serialLabel: "Maschinenidentifikationsnummer / Seriennummer", serialPlaceholder: "Seriennummer eingeben oder Ihre Maschinen durchsuchen", ownMachines: "Ihre Maschinen", demoMachine: "Demo-Maschine", demoDetected: "Diese Maschine ist als Demo-Maschine registriert.", demoHoursAtSale: "Betriebsstunden beim Verkauf", demoHoursHint: "Geben Sie den Maschinenstundenzähler zum Verkaufszeitpunkt an.", demoHoursRequired: "Geben Sie die Betriebsstunden der Demo-Maschine an.", approvedWarrantyExists: "Die Maschine hat bereits eine genehmigte Garantieregistrierung.", serialDoesNotMatchMachine: "Die Seriennummer gehört nicht zum ausgewählten Maschinentyp." },
+  it: { serialLabel: "Numero identificativo macchina / numero di serie", serialPlaceholder: "Inserisci un numero di serie o cerca tra le tue macchine", ownMachines: "Le tue macchine", demoMachine: "Macchina demo", demoDetected: "Questa macchina è registrata come macchina demo.", demoHoursAtSale: "Ore di esercizio alla vendita", demoHoursHint: "Inserisci le ore della macchina al momento della vendita.", demoHoursRequired: "Inserisci le ore di esercizio della macchina demo.", approvedWarrantyExists: "La macchina dispone già di una registrazione della garanzia approvata.", serialDoesNotMatchMachine: "Il numero di serie non appartiene al tipo di macchina selezionato." },
+  hu: { serialLabel: "Gépazonosító / sorozatszám", serialPlaceholder: "Adjon meg sorozatszámot vagy keressen a gépei között", ownMachines: "Az Ön gépei", demoMachine: "Demógép", demoDetected: "Ez a gép demógépként van nyilvántartva.", demoHoursAtSale: "Üzemóra az értékesítéskor", demoHoursHint: "Adja meg a gép üzemóráját az értékesítés időpontjában.", demoHoursRequired: "Adja meg a demógép üzemóráját.", approvedWarrantyExists: "A géphez már tartozik jóváhagyott garanciaregisztráció.", serialDoesNotMatchMachine: "A sorozatszám nem a kiválasztott géptípushoz tartozik." },
+  sv: { serialLabel: "Maskinens identifieringsnummer / serienummer", serialPlaceholder: "Ange serienummer eller sök bland dina maskiner", ownMachines: "Dina maskiner", demoMachine: "Demomaskin", demoDetected: "Den här maskinen är registrerad som demomaskin.", demoHoursAtSale: "Drifttimmar vid försäljning", demoHoursHint: "Ange maskinens timtal vid försäljningstillfället.", demoHoursRequired: "Ange drifttimmar för demomaskinen.", approvedWarrantyExists: "Maskinen har redan en godkänd garantiregistrering.", serialDoesNotMatchMachine: "Serienumret tillhör inte den valda maskintypen." },
+  fr: { serialLabel: "Numéro d'identification / numéro de série de la machine", serialPlaceholder: "Saisissez un numéro de série ou recherchez parmi vos machines", ownMachines: "Vos machines", demoMachine: "Machine de démonstration", demoDetected: "Cette machine est enregistrée comme machine de démonstration.", demoHoursAtSale: "Heures de fonctionnement à la vente", demoHoursHint: "Indiquez le compteur d'heures au moment de la vente.", demoHoursRequired: "Indiquez les heures de fonctionnement de la machine de démonstration.", approvedWarrantyExists: "La machine possède déjà un enregistrement de garantie approuvé.", serialDoesNotMatchMachine: "Le numéro de série ne correspond pas au type de machine sélectionné." },
+  pl: { serialLabel: "Numer identyfikacyjny / numer seryjny maszyny", serialPlaceholder: "Wpisz numer seryjny lub wyszukaj wśród swoich maszyn", ownMachines: "Twoje maszyny", demoMachine: "Maszyna demonstracyjna", demoDetected: "Ta maszyna jest zarejestrowana jako maszyna demonstracyjna.", demoHoursAtSale: "Godziny pracy przy sprzedaży", demoHoursHint: "Podaj liczbę godzin maszyny w chwili sprzedaży.", demoHoursRequired: "Podaj liczbę godzin pracy maszyny demonstracyjnej.", approvedWarrantyExists: "Maszyna ma już zatwierdzoną rejestrację gwarancji.", serialDoesNotMatchMachine: "Numer seryjny nie należy do wybranego typu maszyny." },
+  cs: { serialLabel: "Identifikační číslo / sériové číslo stroje", serialPlaceholder: "Zadejte sériové číslo nebo vyhledejte mezi svými stroji", ownMachines: "Vaše stroje", demoMachine: "Předváděcí stroj", demoDetected: "Tento stroj je evidován jako předváděcí.", demoHoursAtSale: "Provozní hodiny při prodeji", demoHoursHint: "Zadejte stav hodin stroje v okamžiku prodeje.", demoHoursRequired: "Zadejte provozní hodiny předváděcího stroje.", approvedWarrantyExists: "Stroj již má schválenou registraci záruky.", serialDoesNotMatchMachine: "Sériové číslo nepatří k vybranému typu stroje." },
 };
 
 export function WarrantyNewFormIntro() {
@@ -113,12 +116,19 @@ export function WarrantyNewForm({
   const [submitting, setSubmitting] = useState(false);
   const [machineOptions, setMachineOptions] = useState<PortalWarrantyMachineOption[]>([]);
   const [machinesLoading, setMachinesLoading] = useState(false);
+  const [machinePickerOpen, setMachinePickerOpen] = useState(false);
+  const machinePickerRef = useRef<HTMLDivElement>(null);
   const replacementBrands = replacementBrandsForMachine(state.machineType);
   const copy = warrantyCopy[uiLanguage] ?? warrantyCopy.en;
   const selectedMachine = useMemo(
     () => resolvePortalWarrantyMachine(state.machineSerial, machineOptions),
     [machineOptions, state.machineSerial],
   );
+  const filteredMachineOptions = useMemo(
+    () => filterPortalWarrantyMachines(machineOptions, state.machineType, state.machineSerial),
+    [machineOptions, state.machineSerial, state.machineType],
+  );
+  const serialSuggestions = state.machineType ? filteredMachineOptions : [];
   const selectedMachineIsDemo = Boolean(selectedMachine?.isDemo);
   const isDemo = selectedMachineIsDemo || state.isDemo === "Ja";
 
@@ -137,6 +147,14 @@ export function WarrantyNewForm({
   }, [defaultDealerNumber]);
 
   useEffect(() => {
+    const closeWhenClickingOutside = (event: PointerEvent) => {
+      if (!machinePickerRef.current?.contains(event.target as Node)) setMachinePickerOpen(false);
+    };
+    document.addEventListener("pointerdown", closeWhenClickingOutside);
+    return () => document.removeEventListener("pointerdown", closeWhenClickingOutside);
+  }, []);
+
+  useEffect(() => {
     if (!selectedMachineIsDemo) return;
     setState((current) => current.isDemo === "Ja" ? current : {
       ...current,
@@ -146,9 +164,18 @@ export function WarrantyNewForm({
   }, [selectedMachine, selectedMachineIsDemo]);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setState((s) => key === "machineType"
-      ? { ...s, machineType: value as string, replacementBrand: "Nej" }
-      : { ...s, [key]: value });
+    setState((s) => {
+      if (key !== "machineType") return { ...s, [key]: value };
+      const machineType = value as string;
+      const resolved = resolvePortalWarrantyMachine(s.machineSerial, machineOptions);
+      return {
+        ...s,
+        machineType,
+        machineSerial: resolved && !portalWarrantyMachineMatchesType(resolved, machineType) ? "" : s.machineSerial,
+        replacementBrand: "Nej",
+      };
+    });
+    if (key === "machineType") setMachinePickerOpen(false);
     if (key === "machineSerial") setWarning(null);
   }
 
@@ -157,7 +184,9 @@ export function WarrantyNewForm({
     setState((current) => ({
       ...current,
       machineSerial,
-      machineType: match?.machineModel || current.machineType,
+      machineType: match && (!current.machineType || portalWarrantyMachineMatchesType(match, current.machineType))
+        ? match.machineModel || current.machineType
+        : current.machineType,
       isDemo: match?.isDemo ? "Ja" : current.isDemo,
     }));
     setWarning(null);
@@ -186,6 +215,10 @@ export function WarrantyNewForm({
     }
     if (isDemo && (!/^\d+$/.test(state.demoHoursAtSale) || Number(state.demoHoursAtSale) < 0)) {
       setError(copy.demoHoursRequired);
+      return;
+    }
+    if (selectedMachine && !portalWarrantyMachineMatchesType(selectedMachine, state.machineType)) {
+      setError(copy.serialDoesNotMatchMachine);
       return;
     }
 
@@ -324,23 +357,77 @@ export function WarrantyNewForm({
             ))}
           </div>
         </Field>
-        <Field label={copy.serialLabel} required>
-          <input
-            list="portal-warranty-machine-options"
-            value={state.machineSerial}
-            onChange={(e) => setMachineSerial(e.target.value)}
-            placeholder={copy.serialPlaceholder}
+        <Field label="Hvilken maskine er solgt?" required>
+          <select
+            value={state.machineType}
+            onChange={(e) => set("machineType", e.target.value)}
             className={inputCls}
-          />
-          <datalist id="portal-warranty-machine-options">
-            {machineOptions.map((machine) => (
-              <option key={machine.normalizedSerial} value={machine.serial}>
-                {[machine.machineModel, machine.machineOrderNumber, machine.isDemo ? "DEMO" : null].filter(Boolean).join(" · ")}
+          >
+            <option value="">Vælg maskine</option>
+            {state.machineType && !PORTAL_WARRANTY_MACHINE_TYPES.includes(state.machineType as typeof PORTAL_WARRANTY_MACHINE_TYPES[number]) && (
+              <option value={state.machineType}>{state.machineType}</option>
+            )}
+            {PORTAL_WARRANTY_MACHINE_TYPES.map((m) => (
+              <option key={m} value={m}>
+                {m}
               </option>
             ))}
-          </datalist>
+          </select>
+        </Field>
+        <Field label={copy.serialLabel} required>
+          <div ref={machinePickerRef} className="relative">
+            <input
+              value={state.machineSerial}
+              onFocus={() => setMachinePickerOpen(true)}
+              onChange={(e) => {
+                setMachineSerial(e.target.value);
+                setMachinePickerOpen(true);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") setMachinePickerOpen(false);
+              }}
+              aria-autocomplete="list"
+              aria-expanded={machinePickerOpen}
+              aria-controls="portal-warranty-machine-options"
+              placeholder={copy.serialPlaceholder}
+              className={inputCls}
+            />
+            {machinePickerOpen && !machinesLoading && (
+              <div
+                id="portal-warranty-machine-options"
+                role="listbox"
+                className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
+              >
+                {serialSuggestions.length > 0 ? serialSuggestions.map((machine) => (
+                  <button
+                    key={machine.normalizedSerial}
+                    type="button"
+                    role="option"
+                    aria-selected={machine.normalizedSerial === selectedMachine?.normalizedSerial}
+                    onClick={() => {
+                      setMachineSerial(machine.serial);
+                      setMachinePickerOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-slate-900">{machine.serial}</span>
+                      <span className="block truncate text-xs text-slate-500">{[machine.machineModel, machine.machineOrderNumber].filter(Boolean).join(" · ")}</span>
+                    </span>
+                    {machine.isDemo && <span title={copy.demoMachine} className="shrink-0 rounded bg-amber-100 px-2 py-0.5 text-xs font-black text-amber-900">DEMO</span>}
+                  </button>
+                )) : (
+                  <p className="px-3 py-2 text-sm text-slate-500">
+                    {state.machineType
+                      ? "Ingen maskiner matcher valget. Du kan stadig skrive serienummeret manuelt."
+                      : "Vælg maskintype først, eller skriv serienummeret manuelt."}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
           <p className="mt-1 text-xs text-slate-500">
-            {machinesLoading ? "…" : `${copy.ownMachines}: ${machineOptions.length}`}
+            {machinesLoading ? "…" : `${copy.ownMachines}: ${state.machineType ? serialSuggestions.length : machineOptions.length}`}
           </p>
           {selectedMachine && (
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
@@ -361,23 +448,6 @@ export function WarrantyNewForm({
           />
           <p className="mt-1 text-xs text-slate-500">{copy.demoHoursHint}</p>
         </Field>}
-        <Field label="Hvilken maskine er solgt?" required>
-          <select
-            value={state.machineType}
-            onChange={(e) => set("machineType", e.target.value)}
-            className={inputCls}
-          >
-            <option value="">Vælg maskine</option>
-            {state.machineType && !PORTAL_WARRANTY_MACHINE_TYPES.includes(state.machineType as typeof PORTAL_WARRANTY_MACHINE_TYPES[number]) && (
-              <option value={state.machineType}>{state.machineType}</option>
-            )}
-            {PORTAL_WARRANTY_MACHINE_TYPES.map((m) => (
-              <option key={m} value={m}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </Field>
         {replacementBrands.length > 0 && <Field label="Erstatter den en anden maskine?">
           <select
             value={state.replacementBrand}

@@ -3,7 +3,9 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { RegistryMachineRow } from "@/lib/machineRegistryPageService";
 import {
+  filterPortalWarrantyMachines,
   isPortalWarrantyEligibleMachine,
+  portalWarrantyMachineMatchesType,
   resolvePortalWarrantyMachine,
   toPortalWarrantyMachineOption,
 } from "@/lib/portalWarrantyMachineSelector";
@@ -42,6 +44,23 @@ describe("portal warranty machine selector", () => {
     expect(resolvePortalWarrantyMachine("411000 04 1577", [option])).toEqual(option);
     expect(option.isDemo).toBe(true);
     expect(option.machineModel).toBe("RC-1000s");
+  });
+
+  it("filters the scoped serial suggestions by the selected canonical machine type", () => {
+    const rc751 = toPortalWarrantyMachineOption(machine({ serial: "410040-01-0001", machineModel: "RC-751" }));
+    const rc1000 = toPortalWarrantyMachineOption(machine({ serial: "411000-04-1577", machineModel: "RC-1000" }));
+    const rc1000s = toPortalWarrantyMachineOption(machine({ serial: "411000-04-1578", machineModel: "RC-1000s" }));
+
+    expect(filterPortalWarrantyMachines([rc751, rc1000, rc1000s], "RC-751", "")).toEqual([rc751]);
+    expect(filterPortalWarrantyMachines([rc751, rc1000, rc1000s], "RC-1000s", "")).toEqual([rc1000, rc1000s]);
+    expect(filterPortalWarrantyMachines([rc751, rc1000, rc1000s], "RC-1000s", "1578")).toEqual([rc1000s]);
+    expect(portalWarrantyMachineMatchesType(rc751, "RC-1000s")).toBe(false);
+  });
+
+  it("searches serial, model, and canonical machine order number without widening dealer scope", () => {
+    const option = toPortalWarrantyMachineOption(machine({ machineOrderNumber: "MO-1979" }));
+    expect(filterPortalWarrantyMachines([option], "RC-1000s", "MO-1979")).toEqual([option]);
+    expect(filterPortalWarrantyMachines([option], "RC-751", "MO-1979")).toEqual([]);
   });
 
   it("uses the scoped registry, not a separate machine list", () => {

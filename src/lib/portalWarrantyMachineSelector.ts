@@ -9,6 +9,48 @@ export interface PortalWarrantyMachineOption {
   isDemo: boolean;
 }
 
+function normalizedMachineType(value: string | null | undefined): string {
+  return (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+/**
+ * The warranty form has one RC-1000s selection while the existing registry
+ * contains both RC-1000 and RC-1000s source labels. They are one warranty
+ * family; all other types use their canonical normalized model label.
+ */
+function machineTypeFamily(value: string | null | undefined): string {
+  const normalized = normalizedMachineType(value);
+  return normalized === "rc1000" || normalized === "rc1000s" ? "rc1000" : normalized;
+}
+
+export function portalWarrantyMachineMatchesType(
+  option: PortalWarrantyMachineOption,
+  machineType: string | null | undefined,
+): boolean {
+  const selectedFamily = machineTypeFamily(machineType);
+  if (!selectedFamily) return true;
+  return machineTypeFamily(option.machineModel) === selectedFamily;
+}
+
+/** Search only the dealer-scoped canonical options after applying the model filter. */
+export function filterPortalWarrantyMachines(
+  options: PortalWarrantyMachineOption[],
+  machineType: string | null | undefined,
+  query: string | null | undefined,
+): PortalWarrantyMachineOption[] {
+  const normalizedQuery = (query ?? "").trim().toLowerCase();
+  return options.filter((option) => {
+    if (!portalWarrantyMachineMatchesType(option, machineType)) return false;
+    if (!normalizedQuery) return true;
+    return [
+      option.serial,
+      option.normalizedSerial,
+      option.machineModel,
+      option.machineOrderNumber,
+    ].some((value) => value?.toLowerCase().includes(normalizedQuery));
+  });
+}
+
 /** A dealer can register an MO/unregistered machine, never a machine with an approved SP. */
 export function isPortalWarrantyEligibleMachine(row: RegistryMachineRow): boolean {
   return Boolean(row.serial?.trim()) && !row.warrantyId;
@@ -18,7 +60,7 @@ export function toPortalWarrantyMachineOption(row: RegistryMachineRow): PortalWa
   return {
     serial: row.serial.trim(),
     normalizedSerial: serialKey(row.serial),
-    machineModel: row.machineModel ?? null,
+    machineModel: row.machineModel ?? row.machineType ?? null,
     machineOrderNumber: row.machineOrderNumber ?? null,
     isDemo: Boolean(row.isDemo),
   };

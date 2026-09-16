@@ -79,4 +79,13 @@ describe("portal warranty registration form", () => {
     expect(registrations).toContain("to={WARRANTY_CREATE_ROUTE}");
     expect(page).toContain("<WarrantyNewForm");
   });
+
+  it("keeps manual serial entry while rendering the model-filtered picker directly below the field", () => {
+    const form = readFileSync(join(process.cwd(), "src/components/warranty/WarrantyNewForm.tsx"), "utf8");
+    expect(form).toContain('aria-controls="portal-warranty-machine-options"');
+    expect(form).toContain('role="listbox"');
+    expect(form).toContain("filterPortalWarrantyMachines(machineOptions, state.machineType, state.machineSerial)");
+    expect(form).not.toContain('list="portal-warranty-machine-options"');
+    expect(form).toContain("Du kan stadig skrive serienummeret manuelt");
+  });
 });
