@@ -43,11 +43,15 @@ describe('Messe follow-up Timan seller selection', () => {
     expect(source).toContain("setSellerSelectionMode('manual');");
   });
 
-  it('uses the selected canonical seller for both the CRM owner and mail recipient', () => {
+  it('uses the selected canonical seller for both the CRM owner and internal mail recipient', () => {
     expect(source).toContain('const ownerId = responsibleSeller.id;');
     expect(source).toContain('owner_user_id: ownerId,');
     expect(source).toContain('owner_email: responsibleSeller.email,');
-    expect(source).toContain('buildMesseLeadMailRecipients(responsibleSeller.email, email)');
+    expect(source).toContain('buildMesseLeadInternalMailRouting(responsibleSeller.email)');
+    expect(source).toContain('to: mailRouting.to,');
+    expect(source).toContain('bcc: mailRouting.bcc,');
+    expect(source).not.toContain('extra_recipient_email:');
+    expect(source).not.toContain('recipient_emails:');
     expect(source).toContain("<option value=\"\">{f('chooseResponsible')}</option>");
   });
 });
