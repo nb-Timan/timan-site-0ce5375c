@@ -5,6 +5,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
+import { DriftNumericInput } from '@/components/driftberegner/DriftNumericInput';
 import { isMesseRouteContext } from '@/lib/portalAccess';
 import {
   servicePartsData,
@@ -239,17 +240,11 @@ export default function DriftberegnerPage() {
   const formatThousands = (val: number | string) =>
     new Intl.NumberFormat('da-DK').format(num(val));
 
-  const updateCommon = (f: keyof Common, v: string) =>
-    setCommon(s => ({ ...s, [f]: num(v) }));
+  const updateCommon = (field: keyof Common, value: number) =>
+    setCommon(current => ({ ...current, [field]: value }));
 
-  const updateMachineField = (m: MachineKey, f: keyof Machine, v: string | number | boolean) =>
-    setMachineState[m]({ ...machinesState[m], [f]: v as never });
-
-  const updateMachinePrice = (m: MachineKey, v: string) =>
-    setMachineState[m]({ ...machinesState[m], purchasePrice: num(v) });
-
-  const updateMachineServiceManual = (m: MachineKey, v: string) =>
-    setMachineState[m]({ ...machinesState[m], serviceCostYear: num(v), isServiceManual: true });
+  const updateMachineField = (machine: MachineKey, field: 'purchasePrice' | 'fuelConsumption' | 'residualValuePercent', value: number) =>
+    setMachineState[machine]({ ...machinesState[machine], [field]: value });
 
   const resetCalculator = () => {
     setCommon({ ...baseCommon });
@@ -318,10 +313,9 @@ export default function DriftberegnerPage() {
                 >
                   {t.fuelPrice} ({loc.currency})
                 </label>
-                <input
-                  type="number"
+                <DriftNumericInput
                   value={common.fuelPrice}
-                  onChange={(e) => updateCommon('fuelPrice', e.target.value)}
+                  onValueChange={(value) => updateCommon('fuelPrice', value)}
                   className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                 />
               </div>
@@ -338,10 +332,9 @@ export default function DriftberegnerPage() {
                   >
                     {label}
                   </label>
-                  <input
-                    type="number"
+                  <DriftNumericInput
                     value={common[key]}
-                    onChange={(e) => updateCommon(key, e.target.value)}
+                    onValueChange={(value) => updateCommon(key, value)}
                     className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
                   />
                 </div>
@@ -380,10 +373,10 @@ export default function DriftberegnerPage() {
                     <td className="px-6 py-4 font-medium text-gray-500">{t.purchasePrice} ({loc.currency})</td>
                     {MACHINE_KEYS.map(m => (
                       <td key={m} className="px-6 py-4">
-                        <input
-                          type="text"
-                          value={formatThousands(machinesState[m].purchasePrice)}
-                          onChange={(e) => updateMachinePrice(m, e.target.value)}
+                        <DriftNumericInput
+                          value={machinesState[m].purchasePrice}
+                          onValueChange={(value) => updateMachineField(m, 'purchasePrice', value)}
+                          formatDisplay={formatThousands}
                           className="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none"
                         />
                       </td>
@@ -394,10 +387,9 @@ export default function DriftberegnerPage() {
                     <td className="px-6 py-4 font-medium text-gray-500">{t.fuelConsumption}</td>
                     {MACHINE_KEYS.map(m => (
                       <td key={m} className="px-6 py-4">
-                        <input
-                          type="number"
+                        <DriftNumericInput
                           value={machinesState[m].fuelConsumption}
-                          onChange={(e) => updateMachineField(m, 'fuelConsumption', num(e.target.value))}
+                          onValueChange={(value) => updateMachineField(m, 'fuelConsumption', value)}
                           className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none"
                         />
                       </td>
@@ -429,10 +421,9 @@ export default function DriftberegnerPage() {
                     <td className="px-6 py-4 font-medium text-gray-500">{t.residualValue} (%)</td>
                     {MACHINE_KEYS.map(m => (
                       <td key={m} className="px-6 py-4">
-                        <input
-                          type="number"
+                        <DriftNumericInput
                           value={machinesState[m].residualValuePercent}
-                          onChange={(e) => updateMachineField(m, 'residualValuePercent', num(e.target.value))}
+                          onValueChange={(value) => updateMachineField(m, 'residualValuePercent', value)}
                           className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none"
                         />
                       </td>
