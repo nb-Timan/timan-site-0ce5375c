@@ -14,6 +14,12 @@ describe('Messe public partner map data', () => {
     expect(dealerAccounts).toContain('supabase.rpc("list_public_partner_map_accounts")');
   });
 
+  it('keeps the limited public map context on /messe even for Backend and Seller identities', () => {
+    expect(partnerMap).toContain('const onMesseRoute = isMesseRouteContext(location.pathname);');
+    expect(partnerMap).toContain('onMesseRoute ||');
+    expect(partnerMap).toContain('const canSeeMachineLayer = !isPublicMesseMapView');
+  });
+
   it('exposes only active canonical public partner types', () => {
     expect(migration).toContain("public.partner_account_kind(da.id) in ('dealer', 'service_partner', 'importer')");
     expect(migration).toContain('not coalesce(da.is_blocked, false)');

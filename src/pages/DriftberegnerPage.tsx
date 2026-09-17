@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Calculator, RotateCw, Info, Printer } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { isMesseVariantUser } from '@/lib/portalAccess';
+import { isMesseRouteContext } from '@/lib/portalAccess';
 import {
   servicePartsData,
   calculateYearlyServiceCost,
@@ -163,6 +163,7 @@ export default function DriftberegnerPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: appLanguage, setLanguage: setAppLang } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Calculator only ships DA/DE/EN translations. Map other portal languages
   // (it/hu) to Danish as the requested fallback.
@@ -215,7 +216,7 @@ export default function DriftberegnerPage() {
   if (!appUser) return <Navigate to="/portal" replace />;
   {
     const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
-    const isMesseCalculatorSession = isMesseVariantUser(appUser) || portalRole === 'exhibition_user';
+    const isMesseCalculatorSession = isMesseRouteContext(location.pathname);
     const dealerSideRoles = new Set(['timan_dealer','timan_importer','timan_service_partner','dealer_user','timan_backend','timan_seller','timan_service']);
     if (appUser.role === 'slutkunde' && !isMesseCalculatorSession && !(portalRole && dealerSideRoles.has(portalRole))) {
       return <Navigate to="/configurator" replace />;

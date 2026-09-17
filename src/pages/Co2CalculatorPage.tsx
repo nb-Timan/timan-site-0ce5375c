@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import { isMesseVariantUser } from '@/lib/portalAccess';
+import { isMesseRouteContext } from '@/lib/portalAccess';
 import { Language } from '@/types/configurator';
 
 const backT: Record<Language, string> = {
@@ -87,6 +87,7 @@ export default function Co2CalculatorPage() {
   const { appUser, loading, logout } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
   const navigate = useNavigate();
+  const location = useLocation();
   const [co2, setCo2] = useState<Co2State>(INITIAL);
 
   if (loading) {
@@ -100,7 +101,7 @@ export default function Co2CalculatorPage() {
   if (!appUser) return <Navigate to="/portal" replace />;
   {
     const portalRole = (appUser as { portal_role?: string | null }).portal_role ?? null;
-    const isMesseCalculatorSession = isMesseVariantUser(appUser) || portalRole === 'exhibition_user';
+    const isMesseCalculatorSession = isMesseRouteContext(location.pathname);
     const dealerSideRoles = new Set(['timan_dealer','timan_importer','timan_service_partner','dealer_user','timan_backend','timan_seller','timan_service']);
     if (appUser.role === 'slutkunde' && !isMesseCalculatorSession && !(portalRole && dealerSideRoles.has(portalRole))) {
       return <Navigate to="/configurator" replace />;

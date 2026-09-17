@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { hasMessePortalAccess } from "@/lib/portalAccess";
+import { hasMessePortalAccess, isMesseRouteContext } from "@/lib/portalAccess";
 
 const app = readFileSync("src/App.tsx", "utf8");
 const messeHome = readFileSync("src/pages/messe/MesseHomePage.tsx", "utf8");
@@ -31,10 +31,21 @@ describe("Messe follow-up quick action", () => {
     expect(app).toContain('<Route path="/messe/resources/co2" element={<MesseRouteGuard><Co2CalculatorPage /></MesseRouteGuard>} />');
   });
 
-  it("does not redirect an allowed Messe session through the customer-only calculator fallback", () => {
+  it("renders the same canonical quick actions for every allowed Messe entry path", () => {
+    expect(messeHome).toContain('QUICK_ACTIONS.map((action) =>');
+    expect(messeHome).not.toContain('visibleQuickActions');
+    expect(messeHome).not.toContain('isDealerUser');
+  });
+
+  it("uses the Messe route context before applying the customer-only calculator fallback", () => {
+    expect(isMesseRouteContext('/messe/resources/co2')).toBe(true);
+    expect(isMesseRouteContext('/messe/resources/driftberegner')).toBe(true);
+    expect(isMesseRouteContext('/portal/resources/co2')).toBe(false);
+
     for (const calculator of [co2Calculator, driftCalculator]) {
-      expect(calculator).toContain("import { isMesseVariantUser } from '@/lib/portalAccess';");
-      expect(calculator).toContain("const isMesseCalculatorSession = isMesseVariantUser(appUser) || portalRole === 'exhibition_user';");
+      expect(calculator).toContain("import { isMesseRouteContext } from '@/lib/portalAccess';");
+      expect(calculator).toContain('const location = useLocation();');
+      expect(calculator).toContain('const isMesseCalculatorSession = isMesseRouteContext(location.pathname);');
       expect(calculator).toContain("appUser.role === 'slutkunde' && !isMesseCalculatorSession");
     }
   });

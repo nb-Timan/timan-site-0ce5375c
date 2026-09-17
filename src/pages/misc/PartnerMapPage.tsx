@@ -17,7 +17,7 @@ import { useCountryFormatter } from '@/lib/formatCountry';
 import { Language } from '@/types/configurator';
 import { fetchDealerAccounts, fetchDealerAccountStats, fetchPublicPartnerMapAccounts, isDealerCustomerAccount, type DealerAccount, type DealerAccountStats } from '@/lib/dealerAccountsService';
 import { useAppUser } from '@/context/AppUserContext';
-import { derivePortalRole, hasAreaAccess, isMesseVariantUser } from '@/lib/portalAccess';
+import { derivePortalRole, hasAreaAccess, isMesseRouteContext, isMesseVariantUser } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { getEffectiveSellerInitials } from '@/lib/activeMode';
 import { isMessePreviewActive, useMessePreviewVersion } from '@/lib/messePreview';
@@ -1401,8 +1401,9 @@ export default function PartnerMapPage() {
     () => isMessePreviewActive(appUser?.email),
     [appUser?.email, messePreviewVersion],
   );
-  const onMesseRoute = location.pathname.includes('/messe');
+  const onMesseRoute = isMesseRouteContext(location.pathname);
   const isPublicMesseMapView =
+    onMesseRoute ||
     portalRole === 'exhibition_user' ||
     isMessePreview ||
     isMesseVariantUser(appUser) ||
@@ -1424,7 +1425,7 @@ export default function PartnerMapPage() {
     portalRole === 'dealer_user' ||
     portalRole === 'timan_service_partner' ||
     portalRole === 'timan_importer';
-  const canSeeMachineLayer = canSeeMachineStats || isDealerSide || academyPartnerMap;
+  const canSeeMachineLayer = !isPublicMesseMapView && (canSeeMachineStats || isDealerSide || academyPartnerMap);
   const canSeeDemoLocations = canSeeInternalMapFeatures;
   const ownDealerNumber = (effectiveUser?.dealer_number ?? '').trim().toUpperCase();
   const canOpenAcademyServiceDetail = academyPartnerMap && hasAreaAccess(effectiveUser, 'teknik_service');

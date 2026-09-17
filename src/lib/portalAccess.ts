@@ -270,6 +270,15 @@ export function isMesseVariantUser(
   return (user?.portal_variant || '').toLowerCase() === 'messe';
 }
 
+/**
+ * Routes under /messe are the event-oriented portal experience. Route access
+ * is still decided by MesseRouteGuard; consumers use this only to select the
+ * correct presentation and avoid identity-specific fallback redirects.
+ */
+export function isMesseRouteContext(pathname: string): boolean {
+  return pathname === '/messe' || pathname.startsWith('/messe/');
+}
+
 export function hasInternalMesseAccess(
   user: (
     Pick<AppUser, 'role' | 'partner_type'> & {
