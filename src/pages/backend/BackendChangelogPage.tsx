@@ -22,6 +22,7 @@ import {
   adminUpdateChangelog,
   adminUpdateChangelogStatus,
   getPublishedFeatureContent,
+  localizedContentFromDraft,
   missingSiteChangeLanguages,
   recommendPublication,
   syncSiteChangesFromGitHub,
@@ -225,7 +226,7 @@ function emptyDraft(): ChangelogDraft {
 }
 
 function rowToDraft(row: SiteChangeEntryRow): ChangelogDraft {
-  return {
+  const draft: ChangelogDraft = {
     source: row.source,
     source_ref: row.source_ref || "",
     implemented_at: row.implemented_at,
@@ -251,6 +252,28 @@ function rowToDraft(row: SiteChangeEntryRow): ChangelogDraft {
     group_suggestion_status: row.group_suggestion_status,
     grouped_at: row.grouped_at,
   };
+  // Editing starts from the exact public copy currently shown in the preview,
+  // including generated copy for GitHub-imported changes.
+  return { ...draft, localized_content: localizedContentFromDraft(draft) };
+}
+
+function publicationPreview(description: string): { summary: string; bullets: string[] } {
+  const lines = description
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const bullets = lines
+    .filter((line) => /^(?:[•*-])\s+/.test(line))
+    .map((line) => line.replace(/^(?:[•*-])\s+/, ''))
+    .filter(Boolean)
+    .slice(0, 5);
+  const summary = lines
+    .filter((line) => !/^(?:[•*-])\s+/.test(line))
+    .filter((line) => !/^hvad er ændret\??$/i.test(line))
+    .filter((line) => !/^område\s*:/i.test(line))
+    .join(' ');
+
+  return { summary, bullets: bullets.length > 0 ? bullets : summary ? [summary] : [] };
 }
 
 function languageFlag(code: PortalUiLanguage) {
@@ -310,6 +333,7 @@ export default function BackendChangelogPage() {
   const [editing, setEditing] = useState<SiteChangeEntryRow | null>(null);
   const [draft, setDraft] = useState<ChangelogDraft>(emptyDraft());
   const [contentLanguage, setContentLanguage] = useState<PortalUiLanguage>(uiLanguage);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [expandedGroupIds, setExpandedGroupIds] = useState<string[]>([]);
 
@@ -344,6 +368,7 @@ export default function BackendChangelogPage() {
   };
 
   const startEdit = (row: SiteChangeEntryRow) => {
+    setSelectedRowId(row.id);
     setEditing(row);
     setDraft(rowToDraft(row));
     setContentLanguage(uiLanguage);
@@ -352,6 +377,11 @@ export default function BackendChangelogPage() {
   const cancelEdit = () => {
     setEditing(null);
     setDraft(emptyDraft());
+  };
+
+  const selectRow = (row: SiteChangeEntryRow) => {
+    setSelectedRowId(row.id);
+    if (editing?.id !== row.id) cancelEdit();
   };
 
   const toggleSelected = (id: string) => {
@@ -489,6 +519,11 @@ export default function BackendChangelogPage() {
     acc[row.group_parent_id] = [...(acc[row.group_parent_id] || []), row];
     return acc;
   }, {} as Record<string, SiteChangeEntryRow[]>);
+  const selectedRow = rows.find((row) => row.id === selectedRowId) ?? null;
+  const selectedPublished = selectedRow ? getPublishedFeatureContent(selectedRow, uiLanguage) : null;
+  const selectedPreview = selectedPublished ? publicationPreview(selectedPublished.description) : null;
+  const selectedChildren = selectedRow ? groupChildren[selectedRow.id] || [] : [];
+  const selectedCanPublish = Boolean(selectedPublished?.title.trim() && selectedPublished?.description.trim());
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -600,7 +635,6 @@ export default function BackendChangelogPage() {
                     <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesImpact")}</th>
                     <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesRecommendation")}</th>
                     <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesStatus")}</th>
-                    <th className="px-4 py-3 text-right font-semibold">{st("siteFeaturesAction")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -610,12 +644,25 @@ export default function BackendChangelogPage() {
                     const isExpanded = expandedGroupIds.includes(row.id);
                     return (
                     <Fragment key={row.id}>
-                    <tr key={row.id} className={`border-t border-slate-100 align-top hover:bg-slate-50/70 ${editing?.id === row.id ? "bg-emerald-50/40" : ""}`}>
+                    <tr
+                      key={row.id}
+                      onClick={() => selectRow(row)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          selectRow(row);
+                        }
+                      }}
+                      tabIndex={0}
+                      aria-selected={selectedRowId === row.id}
+                      className={`cursor-pointer border-t border-slate-100 align-top outline-none transition-colors hover:bg-slate-50/70 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${selectedRowId === row.id ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300" : ""}`}
+                    >
                       <td className="px-4 py-4">
                         {!row.is_group && !row.group_parent_id && (
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(row.id)}
+                            onClick={(event) => event.stopPropagation()}
                             onChange={() => toggleSelected(row.id)}
                             aria-label={st("siteFeaturesGroupSelect")}
                           />
@@ -630,7 +677,7 @@ export default function BackendChangelogPage() {
                       <td className="min-w-[260px] px-4 py-4">
                         <div className="font-semibold text-slate-900">{published.title}</div>
                         {row.is_group && (
-                          <button type="button" onClick={() => toggleExpandedGroup(row.id)} className="mt-2 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200">
+                          <button type="button" onClick={(event) => { event.stopPropagation(); toggleExpandedGroup(row.id); }} className="mt-2 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200">
                             {interpolateLabel(st("siteFeaturesGroupedCount"), { count: children.length })} · {st("siteFeaturesShowTechnicalHistory")}
                           </button>
                         )}
@@ -662,46 +709,10 @@ export default function BackendChangelogPage() {
                           {statusLabel(row.status, uiLanguage)}
                         </span>
                       </td>
-                      <td className="min-w-[230px] px-4 py-4">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <button type="button" onClick={() => startEdit(row)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                            <FilePenLine className="h-3.5 w-3.5" /> {st("siteFeaturesEdit")}
-                          </button>
-                          {row.is_group && (
-                            <button type="button" disabled={saving} onClick={() => void splitGroup(row.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesSplitGroup")}
-                            </button>
-                          )}
-                          {row.group_parent_id && (
-                            <button type="button" disabled={saving} onClick={() => void removeFromGroup(row.id)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesRemoveFromGroup")}
-                            </button>
-                          )}
-                          {row.status !== "published" && row.status !== "archived" && (
-                            <button type="button" disabled={saving} onClick={() => void quickStatus(row, "published")} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
-                              <Send className="h-3.5 w-3.5" /> {st("siteFeaturesPublish")}
-                            </button>
-                          )}
-                          {row.status === "published" && (
-                            <button type="button" disabled={saving} onClick={() => void quickStatus(row, "draft")} className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100">
-                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesUnpublish")}
-                            </button>
-                          )}
-                          {row.status !== "archived" ? (
-                            <button type="button" disabled={saving} onClick={() => void quickStatus(row, "archived")} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
-                              <Archive className="h-3.5 w-3.5" /> {st("siteFeaturesArchive")}
-                            </button>
-                          ) : (
-                            <button type="button" disabled={saving} onClick={() => void quickStatus(row, "draft")} className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">
-                              <Undo2 className="h-3.5 w-3.5" /> {st("siteFeaturesRestore")}
-                            </button>
-                          )}
-                        </div>
-                      </td>
                     </tr>
                     {row.is_group && isExpanded && children.length > 0 && (
                       <tr className="border-t border-emerald-100 bg-emerald-50/30">
-                        <td colSpan={10} className="px-4 py-3">
+                        <td colSpan={9} className="px-4 py-3">
                           <div className="rounded-xl border border-emerald-100 bg-white p-3">
                             <div className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">{st("siteFeaturesTechnicalHistory")}</div>
                             <div className="space-y-2">
@@ -721,10 +732,10 @@ export default function BackendChangelogPage() {
                     );
                   })}
                   {!loadingRows && rows.length === 0 && (
-                    <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesNoFilterMatches")}</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesNoFilterMatches")}</td></tr>
                   )}
                   {loadingRows && (
-                    <tr><td colSpan={10} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesLoadingChanges")}</td></tr>
+                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesLoadingChanges")}</td></tr>
                   )}
                 </tbody>
               </table>
@@ -740,9 +751,11 @@ export default function BackendChangelogPage() {
           </section>
 
           <aside className="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900">{editing ? st("siteFeaturesEditPublishing") : st("siteFeaturesSelectChange")}</h2>
+            <h2 className="text-base font-bold text-slate-900">
+              {editing ? st("siteFeaturesEditPublishing") : selectedRow ? st("siteFeaturesPublicationPreview") : st("siteFeaturesSelectChange")}
+            </h2>
             <p className="mt-1 text-xs text-slate-500">
-              {st("siteFeaturesSidePanelHelp")}
+              {editing ? st("siteFeaturesSidePanelHelp") : selectedRow ? st("siteFeaturesPreviewHelp") : st("siteFeaturesSelectChangeHelp")}
             </p>
 
             {editing ? (
@@ -835,6 +848,81 @@ export default function BackendChangelogPage() {
                   <button type="button" disabled={saving} onClick={() => void saveDraft("published")} className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">{st("siteFeaturesSaveAndPublish")}</button>
                   <button type="button" onClick={cancelEdit} className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{st("siteFeaturesCancel")}</button>
                 </div>
+              </div>
+            ) : selectedRow && selectedPublished && selectedPreview ? (
+              <div className="mt-4 space-y-5 text-sm">
+                <div>
+                  <div className="text-lg font-bold text-slate-900">{selectedPublished.title}</div>
+                  {selectedPreview.summary && <p className="mt-2 leading-relaxed text-slate-600">{selectedPreview.summary}</p>}
+                </div>
+
+                <section className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                  <h3 className="text-sm font-bold text-emerald-950">{st("siteFeaturesWhatChanged")}</h3>
+                  {selectedPreview.bullets.length > 0 ? (
+                    <ul className="mt-2 space-y-2 text-sm leading-relaxed text-emerald-950">
+                      {selectedPreview.bullets.map((bullet) => <li key={bullet} className="flex gap-2"><span aria-hidden="true">•</span><span>{bullet}</span></li>)}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-sm text-emerald-900">{st("siteFeaturesPublicCopyIncomplete")}</p>
+                  )}
+                </section>
+
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs">
+                  <div><dt className="font-semibold uppercase tracking-wide text-slate-500">{st("siteFeaturesArea")}</dt><dd className="mt-1 text-sm text-slate-800">{selectedPublished.moduleLabel || moduleLabel(selectedRow.module, uiLanguage)}</dd></div>
+                  <div><dt className="font-semibold uppercase tracking-wide text-slate-500">{st("siteFeaturesType")}</dt><dd className="mt-1 text-sm text-slate-800">{changeTypeLabel(selectedRow.change_type, uiLanguage)}</dd></div>
+                  <div><dt className="font-semibold uppercase tracking-wide text-slate-500">{st("siteFeaturesAudience")}</dt><dd className="mt-1 text-sm text-slate-800">{selectedRow.affected_roles.map((role) => roleLabel(role, uiLanguage)).join(", ")}</dd></div>
+                  <div><dt className="font-semibold uppercase tracking-wide text-slate-500">{st("siteFeaturesStatus")}</dt><dd className="mt-1"><span className={`inline-flex rounded-full px-2 py-1 text-xs font-bold ring-1 ${statusClass(selectedRow.status)}`}>{statusLabel(selectedRow.status, uiLanguage)}</span></dd></div>
+                  <div><dt className="font-semibold uppercase tracking-wide text-slate-500">{st("siteFeaturesImportant")}</dt><dd className="mt-1 text-sm text-slate-800">{selectedRow.is_important ? st("siteFeaturesImportant") : st("siteFeaturesNormal")}</dd></div>
+                </dl>
+
+                {!selectedCanPublish && <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">{st("siteFeaturesPublicCopyIncomplete")}</p>}
+
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" onClick={() => startEdit(selectedRow)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                    <FilePenLine className="h-4 w-4" /> {st("siteFeaturesEdit")}
+                  </button>
+                  {selectedRow.status !== "published" && selectedRow.status !== "archived" && (
+                    <button type="button" disabled={saving || !selectedCanPublish} onClick={() => void quickStatus(selectedRow, "published")} className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
+                      <Send className="h-4 w-4" /> {st("siteFeaturesPublish")}
+                    </button>
+                  )}
+                  {selectedRow.status === "published" && (
+                    <button type="button" disabled={saving} onClick={() => void quickStatus(selectedRow, "draft")} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700 hover:bg-amber-100 disabled:opacity-50">
+                      <Undo2 className="h-4 w-4" /> {st("siteFeaturesUnpublish")}
+                    </button>
+                  )}
+                  {selectedRow.is_group && (
+                    <button type="button" disabled={saving} onClick={() => void splitGroup(selectedRow.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                      <Undo2 className="h-4 w-4" /> {st("siteFeaturesSplitGroup")}
+                    </button>
+                  )}
+                  {selectedRow.group_parent_id && (
+                    <button type="button" disabled={saving} onClick={() => void removeFromGroup(selectedRow.id)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">
+                      <Undo2 className="h-4 w-4" /> {st("siteFeaturesRemoveFromGroup")}
+                    </button>
+                  )}
+                  {selectedRow.status !== "archived" ? (
+                    <button type="button" disabled={saving} onClick={() => void quickStatus(selectedRow, "archived")} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                      <Archive className="h-4 w-4" /> {st("siteFeaturesArchive")}
+                    </button>
+                  ) : (
+                    <button type="button" disabled={saving} onClick={() => void quickStatus(selectedRow, "draft")} className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">
+                      <Undo2 className="h-4 w-4" /> {st("siteFeaturesRestore")}
+                    </button>
+                  )}
+                </div>
+
+                {(selectedRow.is_group || selectedRow.technical_description || selectedRow.source_ref) && (
+                  <details className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+                    <summary className="cursor-pointer font-semibold text-slate-700">{st("siteFeaturesShowTechnicalHistory")}</summary>
+                    <div className="mt-3 space-y-2">
+                      <div className="font-semibold text-slate-900">{selectedRow.title_internal}</div>
+                      {selectedRow.source_ref && <div className="font-mono text-[11px] text-slate-400">{selectedRow.source_ref}</div>}
+                      {selectedRow.technical_description && <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-2 text-[11px] text-slate-600">{selectedRow.technical_description}</pre>}
+                      {selectedChildren.map((child) => <div key={child.id} className="rounded-lg border border-slate-100 bg-slate-50 p-2"><div className="font-semibold text-slate-800">{child.title_internal}</div><div className="mt-1 font-mono text-[11px] text-slate-400">{child.source_ref || child.id}</div></div>)}
+                    </div>
+                  </details>
+                )}
               </div>
             ) : (
               <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
