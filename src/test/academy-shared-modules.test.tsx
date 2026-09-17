@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { academySandbox } from '@/lib/academySandbox';
-import { readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
+import { getAcademyVideoFallback, readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
 import { DEFAULT_VIDEO_FILTERS } from '@/lib/videoLibraryFilters';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
@@ -39,6 +39,17 @@ describe('same module, local Academy persistence', () => {
     window.history.replaceState({}, '', '/portal/videos');
     saveAcademyVideoPreferences({ favorites: [] });
     expect(readAcademyVideoPreferences().favorites).toEqual(['published-video-id']);
+  });
+
+  it('provides only the local canonical Case 2 video when an unauthenticated Academy preview cannot read the public library', () => {
+    const videos = getAcademyVideoFallback();
+    expect(videos).toHaveLength(1);
+    expect(videos[0]).toMatchObject({
+      youtube_video_id: 'sxYALA86PaI',
+      content_type: 'maintenance',
+      status: 'published',
+      products: [{ machine_key: 'Timan 3330' }],
+    });
   });
 
   it('persists full canonical lead fields and idempotent demo records, not completion flags alone', () => {

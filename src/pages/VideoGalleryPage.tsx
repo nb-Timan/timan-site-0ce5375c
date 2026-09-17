@@ -28,7 +28,7 @@ import {
   videoSeasonLabel,
 } from "@/lib/videoLibraryI18n";
 import { academySandbox, ACADEMY_CASE_2, ACADEMY_CASE_2_TARGET_VIDEO_ID } from "@/lib/academySandbox";
-import { readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
+import { getAcademyVideoFallback, readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
 import AcademyGuidancePanel from "@/components/academy/AcademyGuidancePanel";
 import { getLocalAcademyUser } from "@/lib/academyCurriculum";
 
@@ -73,9 +73,10 @@ export default function VideoGalleryPage() {
         : listMarketingVideoFavoriteIds(),
     ]).then(([videoResult, favoriteResult]) => {
       if (cancelled) return;
-      setRows(videoResult.rows);
+      const useAcademyFallback = localAcademySession && Boolean(videoResult.error);
+      setRows(useAcademyFallback ? getAcademyVideoFallback() : videoResult.rows);
       setFavoriteIds(favoriteResult.videoIds);
-      setError(videoResult.error || favoriteResult.error);
+      setError(useAcademyFallback ? favoriteResult.error : videoResult.error || favoriteResult.error);
     });
     return () => { cancelled = true; };
   }, [localAcademySession, uiLanguage]);

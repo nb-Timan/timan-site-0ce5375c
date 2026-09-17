@@ -2,9 +2,17 @@ import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
+import { readFileSync } from 'node:fs';
 import { academySandbox } from '@/lib/academySandbox';
 
 describe('Academy Portal Basics Partnerdata guidance', () => {
+  it('uses a local-only target news item instead of mutating or depending on the production feed', () => {
+    const latest = readFileSync('src/components/portal/LatestFromTiman.tsx', 'utf8');
+    expect(latest).toContain("id: 'academy-news-rc1000s-disc-mower'");
+    expect(latest).toContain("title: 'Skivehøster til Timan RC-1000s'");
+    expect(latest).toContain('if (academySandbox.isActive())');
+  });
+
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();

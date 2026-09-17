@@ -41,6 +41,7 @@ vi.mock('@/lib/supabase', () => {
 vi.mock('@/lib/crmActivitiesService', () => ({ logActivity: async () => {} }));
 
 import { createDemoLead, type NewCrmDemoLead } from '@/lib/crmLeadsService';
+import { getDemoSelectionErrors } from '@/pages/crm/CrmNewDemoLeadPage';
 
 const baseDemo: NewCrmDemoLead = {
   title: 'Demo X',
@@ -65,6 +66,24 @@ beforeEach(() => {
 });
 
 describe('createDemoLead — Phase 38 lead↔demo link', () => {
+  it('requires only the interest type selected for the demo', () => {
+    expect(getDemoSelectionErrors(['Timan machine'], ['RC-751'])).toEqual({
+      demoType: false,
+      machine: false,
+      equipment: false,
+    });
+    expect(getDemoSelectionErrors(['Timan equipment'], ['Equipment: RC-1000s - Slagleklipper'])).toEqual({
+      demoType: false,
+      machine: false,
+      equipment: false,
+    });
+    expect(getDemoSelectionErrors(['Timan machine', 'Timan equipment'], ['RC-751'])).toEqual({
+      demoType: false,
+      machine: false,
+      equipment: true,
+    });
+  });
+
   it('writes source_lead_id into crm_demo_leads when provided', async () => {
     await createDemoLead({ ...baseDemo, source_lead_id: 'lead-abc' });
     const ins = insertCalls.find(c => c.table === 'crm_demo_leads');

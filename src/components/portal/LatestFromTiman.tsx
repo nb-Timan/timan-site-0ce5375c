@@ -75,11 +75,29 @@ function buildPlaceholders(language: PortalUiLanguage): NewsPost[] {
   ];
 }
 
+function buildAcademyNews(): NewsPost[] {
+  return [{
+    id: 'academy-news-rc1000s-disc-mower',
+    title: 'Skivehøster til Timan RC-1000s',
+    excerpt: 'Lokalt Academy-eksempel til Portal Basics.',
+    image_url: null,
+    link_url: null,
+    category: 'NYHED',
+    published_at: '2026-01-01T00:00:00.000Z',
+    is_active: true,
+    source: 'academy',
+  }];
+}
+
 export default function LatestFromTiman({ language }: Props) {
   const [posts, setPosts] = useState<NewsPost[] | null>(null);
   const [openPost, setOpenPost] = useState<NewsPost | null>(null);
 
   useEffect(() => {
+    if (academySandbox.isActive()) {
+      setPosts(buildAcademyNews());
+      return;
+    }
     let cancelled = false;
     fetchLatestNews(3, language).then((rows) => {
       if (cancelled) return;

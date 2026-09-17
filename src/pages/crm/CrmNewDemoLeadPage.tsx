@@ -150,6 +150,18 @@ function splitMachineInterest(values: string[]) {
   return { machines, equipment };
 }
 
+export function getDemoSelectionErrors(machineCategory: string[], machineInterest: string[]) {
+  const { machines, equipment } = splitMachineInterest(machineInterest);
+  const needsMachine = machineCategory.some(category => category === 'Timan machine' || category === "Dealer's machine");
+  const needsEquipment = machineCategory.some(category => category === 'Timan equipment' || category === "Dealer's equipment");
+
+  return {
+    demoType: machineCategory.length === 0,
+    machine: needsMachine && machines.length === 0,
+    equipment: needsEquipment && equipment.length === 0,
+  };
+}
+
 function Chips({ options, value, onChange, single }: { options: readonly string[]; value: string[]; onChange: (v: string[]) => void; single?: boolean }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -366,9 +378,10 @@ export default function CrmNewDemoLeadPage() {
 
   if (!authLoading && !canCreate) return <Navigate to="/portal/crm" replace />;
 
-  const errDemoType = machineCategory.length === 0 ? tt('val_demo_type', lang) : '';
-  const errDemoMachine = selectedMachineInterest.machines.length === 0 ? tt('val_demo_machine', lang) : '';
-  const errDemoEquipment = selectedMachineInterest.equipment.length === 0 ? tt('val_demo_equipment', lang) : '';
+  const demoSelectionErrors = getDemoSelectionErrors(machineCategory, machineInterest);
+  const errDemoType = demoSelectionErrors.demoType ? tt('val_demo_type', lang) : '';
+  const errDemoMachine = demoSelectionErrors.machine ? tt('val_demo_machine', lang) : '';
+  const errDemoEquipment = demoSelectionErrors.equipment ? tt('val_demo_equipment', lang) : '';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
