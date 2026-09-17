@@ -713,6 +713,18 @@ function resolveMachineKey(value: string | null | undefined, productByNormKey: M
   return best;
 }
 
+/**
+ * Historical Configurator snapshots occasionally use a display-cased model
+ * key (for example `RC-1000s`) while the accessory catalog uses the canonical
+ * key (`RC-1000S`). Budget machine totals already normalize this distinction;
+ * equipment lookup must use the same canonical catalog key.
+ */
+function catalogMachineType(value: string): string {
+  const normalized = normKey(value);
+  if (normalized === normKey(LOOSE_TOOL_KEY)) return LOOSE_TOOL_KEY;
+  return Object.keys(ACCESSORIES).find((key) => normKey(key) === normalized) || value;
+}
+
 function orderDateRaw(row: BudgetOrderRow): string | null {
   // Budget actuals belong to the agreed/requested delivery month. The order
   // timestamps only preserve the established fallback for legacy orders.
@@ -790,10 +802,11 @@ function equipmentQtyFromConfiguratorState(
 ): Record<string, number> {
   const qtyByKey: Record<string, number> = {};
   const add = (machineType: string, configKey: string, accessoryId: string) => {
-    const accessory = getAccessoriesFlat(machineType).find((item) => item.id === accessoryId && !item.isHeader);
+    const catalogType = catalogMachineType(machineType);
+    const accessory = getAccessoriesFlat(catalogType).find((item) => item.id === accessoryId && !item.isHeader);
     if (!accessory) return;
     const machineKey = resolveMachineKey(machineType, productByNormKey) || machineType;
-    const compatibleMachine = machineType === LOOSE_TOOL_KEY ? budgetMachineForLooseTool(accessory) : null;
+    const compatibleMachine = catalogType === LOOSE_TOOL_KEY ? budgetMachineForLooseTool(accessory) : null;
     const key = equipmentLookup.byMachineAndItem.get(`${normKey(machineKey)}|${normKey(accessory.varenr)}`)
       || (compatibleMachine ? equipmentLookup.byMachineAndItem.get(`${normKey(compatibleMachine)}|${normKey(accessory.varenr)}`) : null)
       || uniqueLookupValue(equipmentLookup.byAccessoryId, accessory.id)
@@ -806,6 +819,7 @@ function equipmentQtyFromConfiguratorState(
 
   for (const machine of state.machineConfigs ?? []) {
     const units = Math.max(0, Number(machine.qty || 0));
+    const catalogType = catalogMachineType(machine.type);
     for (let unitNumber = 1; unitNumber <= units; unitNumber++) {
       const configKey = `${machine.id}_${unitNumber}`;
       const selected = machine.configMode === "shared"
@@ -814,7 +828,7 @@ function equipmentQtyFromConfiguratorState(
       const selectedSet = new Set(selected);
       for (const accessoryId of selectedSet) add(machine.type, configKey, accessoryId);
 
-      for (const accessory of getAccessoriesFlat(machine.type)) {
+      for (const accessory of getAccessoriesFlat(catalogType)) {
         if (!accessory.isQtyInput || accessory.isHeader || selectedSet.has(accessory.id)) continue;
         if (accessory.requires && !selectedSet.has(accessory.requires)) continue;
         const quantity = Number(state.accQty?.[`${configKey}_${accessory.id}`] || 0);

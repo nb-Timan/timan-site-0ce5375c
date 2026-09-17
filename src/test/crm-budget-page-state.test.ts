@@ -205,7 +205,10 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
       id: "o-7006", total_price: 235000,
       state_json: {
         language: "da", flowType: "order",
-        machineConfigs: [{ id: "rc", type: "RC-1000S", qty: 1, configMode: "shared", acc: ["410910"] }],
+        // O-7006 persists the display-cased model identifier. The budget
+        // reader must still resolve its selected equipment from the canonical
+        // Configurator catalog.
+        machineConfigs: [{ id: "rc", type: "RC-1000s", qty: 1, configMode: "shared", acc: ["410910"] }],
         accQty: {},
       },
     };
