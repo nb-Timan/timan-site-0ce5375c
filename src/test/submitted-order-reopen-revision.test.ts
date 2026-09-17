@@ -51,4 +51,19 @@ describe('Backend submitted-order reopen and revision flow', () => {
     expect(fn).toContain('submitted_at: submittedAt');
     expect(fn).toContain('order_sent_at: orderSentAt');
   });
+
+  it('captures a price baseline for new submitted orders and requires an explicit Backend decision before a legacy order is repriced', () => {
+    const service = readFileSync('src/lib/configurationsService.ts', 'utf8');
+    const page = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+
+    expect(service).toContain('createConfiguratorPricingSnapshot');
+    expect(service).toContain('isInitialOrderSubmission && !state.pricingSnapshot');
+    expect(service).toContain('configuratorPricingSignature(state)');
+    expect(service).toContain('if (hasFrozenConfiguratorPricing(state)) return state;');
+    expect(service).toContain('submittedOrder && !stateForPersistence.pricingSnapshot');
+    expect(service).toContain('isLegacySubmittedOrder');
+    expect(page).toContain('requiresLegacyOrderReprice');
+    expect(page).toContain('legacyOrderRepriceApproved');
+    expect(page).toContain('Jeg accepterer, at den ved denne rettelse opdateres til de nuværende katalogpriser');
+  });
 });

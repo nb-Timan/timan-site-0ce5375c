@@ -135,6 +135,24 @@ export interface MachineConfig {
   acc: string[]; // selected accessory ids (for shared mode)
 }
 
+/**
+ * Immutable unit-price baseline captured when an order is submitted. Keeping it
+ * with the saved Configurator state means a later catalogue change cannot alter
+ * a submitted order simply because Backend opens it again.
+ */
+export interface ConfiguratorPricingSnapshot {
+  version: 1;
+  capturedAt: string;
+  prices: Record<string, number>;
+  /** Price-relevant state only; customer/contact edits keep this unchanged. */
+  signature?: string;
+  totals?: {
+    subtotal: number;
+    totalDiscount: number;
+    finalPrice: number;
+  };
+}
+
 export interface ConfiguratorState {
   step: number;
   flowType: FlowType;
@@ -181,6 +199,7 @@ export interface ConfiguratorState {
   internalNote: string;
   // Phase 27 — Information only, never affects totals.
   paymentTerms?: string;
+  pricingSnapshot?: ConfiguratorPricingSnapshot;
   // Phase 5 — Optional customer needs answered before recommendations.
   // Imported as a structural shape to avoid a circular type import.
   customerNeeds?: {

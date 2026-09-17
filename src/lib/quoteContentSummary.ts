@@ -19,6 +19,7 @@ import {
   getPrice,
   LOOSE_TOOL_KEY,
 } from '@/data/machines';
+import { snapshotAccessoryPrice, snapshotMachinePrice } from '@/lib/configuratorPricing';
 
 export interface SummaryAccessoryLine {
   id: string;
@@ -94,7 +95,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
 
     const isShared = mc.configMode === 'shared';
     const modelName = getLocalizedName(product.name, lang);
-    const unitPrice = getPrice(product, lang);
+    const unitPrice = snapshotMachinePrice(state, mc.type, getPrice(product, lang));
     const flatAccs = getAccessoriesFlat(mc.type);
 
     const units: SummaryMachineUnit[] = [];
@@ -122,7 +123,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
 
       const accessoryLines: SummaryAccessoryLine[] = [...selectedAccs, ...qtyOnlyAccs].map(a => {
         const qty = state.accQty?.[`${configKey}_${a.id}`] || 1;
-        const accUnitPrice = getPrice(a, lang);
+        const accUnitPrice = snapshotAccessoryPrice(state, mc.type, a, getPrice(a, lang));
         const total = accUnitPrice * qty;
         const ral = a.isRAL ? getRalCodeFor(state, configKey, a.id) : undefined;
         return {

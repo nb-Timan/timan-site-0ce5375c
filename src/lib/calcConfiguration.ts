@@ -1,5 +1,6 @@
 import { ConfiguratorState } from '@/types/configurator';
-import { PRODUCTS, getAccessoriesFlat, getPrice, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
+import { PRODUCTS, getAccessoriesFlat, getPrice } from '@/data/machines';
+import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice } from '@/lib/configuratorPricing';
 
 /**
  * Pure calculation of subtotal, total discount and final price for a saved configuration.
@@ -11,6 +12,9 @@ export function calcConfigurationTotals(state: ConfiguratorState, options?: { gr
   totalDiscount: number;
   finalPrice: number;
 } {
+  if (!options?.grossManualDiscountOnly && hasFrozenConfiguratorPricing(state) && state.pricingSnapshot?.totals) {
+    return state.pricingSnapshot.totals;
+  }
   if (!state || !Array.isArray(state.machineConfigs) || state.machineConfigs.length === 0) {
     return { subtotal: 0, totalDiscount: 0, finalPrice: 0 };
   }
@@ -41,7 +45,7 @@ export function calcConfigurationTotals(state: ConfiguratorState, options?: { gr
   units.forEach(unit => {
     const mach = PRODUCTS[unit.modelType];
     if (!mach) return;
-    const machPrice = getPrice(mach, state.language);
+    const machPrice = snapshotMachinePrice(state, unit.modelType, getPrice(mach, state.language));
     let unitTotal = machPrice;
 
     let accIds: string[] = [];
@@ -66,13 +70,13 @@ export function calcConfigurationTotals(state: ConfiguratorState, options?: { gr
 
     [...selectedAccs, ...qtyOnlyAccs].forEach(a => {
       const qty = state.accQty?.[`${unit.configKey}_${a.id}`] || 1;
-      unitTotal += getPrice(a, state.language) * qty;
+      unitTotal += snapshotAccessoryPrice(state, unit.modelType, a, getPrice(a, state.language)) * qty;
     });
 
     const demoKey = `${mach.varenr}_${unit.unitNumber}`;
     const isDemo = !!state.demoMachines?.[demoKey];
     if (isDemo) {
-      const demoFee = state.language === 'da' ? DEMO_FEE_DKK : DEMO_FEE_EUR;
+      const demoFee = snapshotDemoFee(state, state.language);
       unitTotal += demoFee;
     }
 
@@ -84,9 +88,9 @@ export function calcConfigurationTotals(state: ConfiguratorState, options?: { gr
   if (state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
     let startupPrice = 0;
     if (state.deliveryDeliverStartup === 'no_bridge') {
-      startupPrice = state.language === 'da' ? 1500 : 200;
+      startupPrice = snapshotStartupPrice(state, state.language, 'no_bridge', state.language === 'da' ? 1500 : 200);
     } else if (state.deliveryDeliverStartup === 'with_bridge') {
-      startupPrice = state.language === 'da' ? 2500 : 335;
+      startupPrice = snapshotStartupPrice(state, state.language, 'with_bridge', state.language === 'da' ? 2500 : 335);
     }
     subtotal += startupPrice;
   }

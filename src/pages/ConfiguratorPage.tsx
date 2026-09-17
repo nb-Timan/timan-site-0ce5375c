@@ -89,6 +89,7 @@ import {
   getPaymentTermsOptionLabel,
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
+import { createConfiguratorPricingSnapshot } from '@/lib/configuratorPricing';
 
 // Configurator language selector — uses the 9 portal UI languages.
 // Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
@@ -740,6 +741,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [backendCorrectionSessionId, setBackendCorrectionSessionId] = useState<string | null>(null);
   const [backendCorrectionDialogOpen, setBackendCorrectionDialogOpen] = useState(false);
   const [backendCorrectionReason, setBackendCorrectionReason] = useState('');
+  const [legacyOrderRepriceApproved, setLegacyOrderRepriceApproved] = useState(false);
   const [startingBackendCorrection, setStartingBackendCorrection] = useState(false);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
@@ -777,14 +779,24 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     return activePortalRole === 'timan_backend' || activePortalRole === 'timan_seller';
   })();
   const canCorrectSubmittedOrder = activePortalRole === 'timan_backend';
+  const requiresLegacyOrderReprice = state.flowType === 'order' && orderLocked && !state.pricingSnapshot;
   const submittedOrderEditorLocked = state.flowType === 'order' && orderLocked && !backendCorrectionSessionId;
   const existingConfigurationLeadLocked = Boolean(savedConfigurationId && linkedLeadId);
   const canCreateLeadForCurrentConfiguration = !savedConfigurationId && !linkedLeadId;
 
   const handleStartBackendCorrection = useCallback(async () => {
     if (!savedConfigurationId || !backendCorrectionReason.trim() || startingBackendCorrection) return;
+    if (requiresLegacyOrderReprice && !legacyOrderRepriceApproved) {
+      toast.error('Bekræft aktiv prisopdatering før denne ældre ordre kan ændres.', {
+        description: 'Ordren mangler et historisk pris-snapshot. Den kan kun åbnes med dagens priser efter dit eksplicitte valg.',
+      });
+      return;
+    }
     setStartingBackendCorrection(true);
     try {
+      if (requiresLegacyOrderReprice) {
+        setState(current => ({ ...current, pricingSnapshot: createConfiguratorPricingSnapshot(current) }));
+      }
       const { sessionId, error } = await beginSubmittedOrderCorrection(savedConfigurationId, backendCorrectionReason);
       if (error || !sessionId) {
         toast.error(error || 'Kunne ikke starte Backend-rettelse');
@@ -793,11 +805,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       setBackendCorrectionSessionId(sessionId);
       setBackendCorrectionDialogOpen(false);
       setBackendCorrectionReason('');
+      setLegacyOrderRepriceApproved(false);
       toast.success('Backend-rettelse er åbnet. Gem ændringer for at låse ordren igen.');
     } finally {
       setStartingBackendCorrection(false);
     }
-  }, [savedConfigurationId, backendCorrectionReason, startingBackendCorrection]);
+  }, [savedConfigurationId, backendCorrectionReason, startingBackendCorrection, requiresLegacyOrderReprice, legacyOrderRepriceApproved, setState]);
 
   // "Gem ændringer / Save changes" — writes the current edits back to the
   // SAME saved case (no new row, no new quote/order number). Only enabled
@@ -4142,6 +4155,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           <p className="text-sm text-gray-600">
             Rettelsen gælder kun denne ordre og bliver logget med begrundelse. Ordren forbliver afgivet og låses igen, når ændringerne gemmes.
           </p>
+          {requiresLegacyOrderReprice && (
+            <label className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+              <input
+                type="checkbox"
+                checked={legacyOrderRepriceApproved}
+                onChange={(event) => setLegacyOrderRepriceApproved(event.target.checked)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                Denne ældre ordre har ingen gemte linjepriser. Jeg accepterer, at den ved denne rettelse opdateres til de nuværende katalogpriser og logges som en prisrevision.
+              </span>
+            </label>
+          )}
           <div className="space-y-2">
             <label htmlFor="submitted-order-correction-reason" className="text-sm font-medium text-gray-800">Begrundelse</label>
             <textarea
@@ -4154,7 +4180,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setBackendCorrectionDialogOpen(false)} disabled={startingBackendCorrection}>Annuller</Button>
-            <Button type="button" onClick={() => void handleStartBackendCorrection()} disabled={!backendCorrectionReason.trim() || startingBackendCorrection}>
+            <Button type="button" onClick={() => void handleStartBackendCorrection()} disabled={!backendCorrectionReason.trim() || startingBackendCorrection || (requiresLegacyOrderReprice && !legacyOrderRepriceApproved)}>
               {startingBackendCorrection ? 'Åbner...' : 'Start rettelse'}
             </Button>
           </div>

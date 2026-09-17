@@ -2,10 +2,11 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { academySandbox } from '@/lib/academySandbox';
 import { academyScopedStorageKey } from '@/lib/academyCycleStorage';
 import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult, LineItem, DiscountDetail } from '@/types/configurator';
-import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, getLooseToolAccessories } from '@/data/machines';
+import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, getLooseToolAccessories } from '@/data/machines';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import { shouldEnforceAccessoryParentDependency, shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { t } from '@/data/translations';
+import { snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice } from '@/lib/configuratorPricing';
 import { toast } from 'sonner';
 
 // Items capped at max 1 selection per varenr across the whole configuration
@@ -316,7 +317,7 @@ export function useConfigurator() {
     allUnits.forEach(unit => {
       const mach = PRODUCTS[unit.modelType];
       if (!mach) return;
-      const machPrice = getPrice(mach, state.language);
+      const machPrice = snapshotMachinePrice(state, unit.modelType, getPrice(mach, state.language));
       lineItems.push({ txt: `${T('machineLabel')} ${unit.unitNumber} (${getLocalizedName(mach.name, state.language)})`, price: machPrice, varenr: mach.varenr, bold: true, isMachine: true, index: unit.unitNumber });
       let unitTotal = machPrice;
 
@@ -341,7 +342,7 @@ export function useConfigurator() {
 
       [...selectedAccs, ...qtyOnlyAccs].forEach(a => {
         const qty = state.accQty[`${unit.configKey}_${a.id}`] || 1;
-        const accPrice = getPrice(a, state.language) * qty;
+        const accPrice = snapshotAccessoryPrice(state, unit.modelType, a, getPrice(a, state.language)) * qty;
         unitTotal += accPrice;
         const label = getLocalizedName(a.name, state.language);
         lineItems.push({
@@ -357,7 +358,7 @@ export function useConfigurator() {
       const demoKey = `${mach.varenr}_${unit.unitNumber}`;
       const isDemo = !!state.demoMachines[demoKey];
       if (isDemo) {
-        const demoFee = lang === 'da' ? DEMO_FEE_DKK : DEMO_FEE_EUR;
+        const demoFee = snapshotDemoFee(state, lang);
         unitTotal += demoFee;
         lineItems.push({
           txt: `- ${T('demoMachineLabel')}`,
@@ -378,10 +379,10 @@ export function useConfigurator() {
       let startupPrice = 0;
       let startupTxt = '';
       if (state.deliveryDeliverStartup === 'no_bridge') {
-        startupPrice = lang === 'da' ? 1500 : 200;
+        startupPrice = snapshotStartupPrice(state, lang, 'no_bridge', lang === 'da' ? 1500 : 200);
         startupTxt = T('startupNoBridgeCalc');
       } else if (state.deliveryDeliverStartup === 'with_bridge') {
-        startupPrice = lang === 'da' ? 2500 : 335;
+        startupPrice = snapshotStartupPrice(state, lang, 'with_bridge', lang === 'da' ? 2500 : 335);
         startupTxt = T('startupWithBridgeCalc');
       } else {
         startupPrice = 0;

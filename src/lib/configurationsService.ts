@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
+import { configuratorPricingSignature, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
@@ -1143,11 +1144,20 @@ export async function updateConfiguration(
     return { error: authError ? formatSupabaseError(authError) : 'No authenticated user', itemsError: null };
   }
 
+  let stateForPersistence = state;
+  if (state.pricingSnapshot) {
+    try {
+      stateForPersistence = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
+    } catch (error) {
+      console.warn('[updateConfiguration] pricing snapshot finalization failed:', error);
+    }
+  }
+
   let subtotal = 0;
   let totalPrice = 0;
   try {
     const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
-    const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+    const totals = calcConfigurationTotals(stateForPersistence, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
     subtotal = Math.round(totals.subtotal || 0);
     totalPrice = Math.round(totals.finalPrice || 0);
   } catch { /* ignore */ }
@@ -1162,7 +1172,7 @@ export async function updateConfiguration(
   try {
     const { data: row } = await supabase
       .from('configurations')
-      .select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id')
+      .select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id, submitted_at, order_sent_at, subtotal, total_price')
       .eq('id', id)
       .maybeSingle();
     if (row) {
@@ -1176,23 +1186,34 @@ export async function updateConfiguration(
         ?? storedPayload?.pdf_downloaded_at
         ?? null;
       persistedLeadId = ((row as Record<string, unknown>).lead_id as string | null) ?? null;
+      const submittedOrder = Boolean((row as Record<string, unknown>).submitted_at || (row as Record<string, unknown>).order_sent_at);
+      // Legacy submitted orders predate per-item price snapshots. Do not let a
+      // contact-only correction replace their persisted commercial total with
+      // today's catalogue calculation. The Backend dialog requires explicit
+      // repricing before it supplies a new snapshot.
+      if (submittedOrder && !stateForPersistence.pricingSnapshot) {
+        const persistedSubtotal = Number((row as Record<string, unknown>).subtotal);
+        const persistedTotal = Number((row as Record<string, unknown>).total_price);
+        if (Number.isFinite(persistedSubtotal)) subtotal = persistedSubtotal;
+        if (Number.isFinite(persistedTotal)) totalPrice = persistedTotal;
+      }
     }
   } catch { /* ignore */ }
 
   const now = new Date().toISOString();
-  const storedNote = serializeStoredConfigurationPayload(state, internalNote, pdfDownloaded, pdfDownloadedAt);
+  const storedNote = serializeStoredConfigurationPayload(stateForPersistence, internalNote, pdfDownloaded, pdfDownloadedAt);
 
   const patch: Record<string, unknown> = {
-    document_type: state.flowType,
-    case_type: state.flowType,
-    state_json: state,
+    document_type: stateForPersistence.flowType,
+    case_type: stateForPersistence.flowType,
+    state_json: stateForPersistence,
     note: storedNote,
     internal_note: internalNote,
-    language: state.language,
-    delivery_date: state.date || null,
-    delivery_method: state.deliveryMethod || null,
-    delivery_startup_option: state.deliveryDeliverStartup,
-    payment_terms: state.paymentTerms ?? null,
+    language: stateForPersistence.language,
+    delivery_date: stateForPersistence.date || null,
+    delivery_method: stateForPersistence.deliveryMethod || null,
+    delivery_startup_option: stateForPersistence.deliveryDeliverStartup,
+    payment_terms: stateForPersistence.paymentTerms ?? null,
     subtotal,
     total_price: totalPrice,
     last_saved_at: now,
@@ -1374,6 +1395,30 @@ export interface OwnershipPatch {
   dealer_account_id: string | null;
 }
 
+async function finalizeConfiguratorPricingSnapshot(
+  state: ConfiguratorState,
+  pricingMode?: ConfigurationPricingMode,
+): Promise<ConfiguratorState> {
+  if (!state.pricingSnapshot) return state;
+  if (hasFrozenConfiguratorPricing(state)) return state;
+
+  const currentSnapshot = createConfiguratorPricingSnapshot(state);
+  // Existing snapshot prices always win. Newly selected items get a current
+  // price only because no historic price exists for them.
+  const snapshot = {
+    ...state.pricingSnapshot,
+    prices: { ...currentSnapshot.prices, ...state.pricingSnapshot.prices },
+    signature: configuratorPricingSignature(state),
+  };
+  const stateWithSnapshot = { ...state, pricingSnapshot: snapshot };
+  const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+  const totals = calcConfigurationTotals(
+    { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals: undefined } },
+    { grossManualDiscountOnly: pricingMode === 'messe' },
+  );
+  return { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals } };
+}
+
 export interface SubmittedOrderContactDetails {
   firmanavn: string;
   kontaktperson: string;
@@ -1537,17 +1582,34 @@ export async function markAsOrderSubmitted(
     console.warn('[markAsOrderSubmitted] row snapshot read failed (ignored):', e);
   }
 
-  // Compute totals from the persisted state so subtotal/total_price stay in
-  // sync with what the user actually saw. Falls back gracefully if the
-  // state can't be parsed.
+  // New orders capture their actual unit prices at the commercial boundary.
+  // Historical orders are never silently repriced here: a legacy order can
+  // only reach this resend path after Backend explicitly opted into current
+  // pricing in the correction dialog.
   let subtotal = 0;
   let totalPrice = 0;
+  let persistedState: ConfiguratorState | null = null;
   try {
     const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
     const storedPayload = parseStoredConfigurationPayload(rowSnapshot?.note);
     const state = parseStateJson(rowSnapshot?.state_json) ?? storedPayload?.state ?? null;
     if (state) {
-      const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+      persistedState = state;
+      const isInitialOrderSubmission = !rowSnapshot?.submitted_at && !rowSnapshot?.order_sent_at;
+      if (isInitialOrderSubmission && !state.pricingSnapshot) {
+        const snapshot = createConfiguratorPricingSnapshot(state);
+        const draft = { ...state, pricingSnapshot: snapshot };
+        const baseline = calcConfigurationTotals(draft, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+        persistedState = {
+          ...draft,
+          pricingSnapshot: {
+            ...snapshot,
+            signature: configuratorPricingSignature(state),
+            totals: baseline,
+          },
+        };
+      }
+      const totals = calcConfigurationTotals(persistedState, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
       subtotal = Math.round(totals.subtotal || 0);
       totalPrice = Math.round(totals.finalPrice || 0);
     }
@@ -1573,6 +1635,15 @@ export async function markAsOrderSubmitted(
     order_number: orderNumber,
     subtotal,
     total_price: totalPrice,
+    ...(persistedState ? {
+      state_json: persistedState,
+      note: serializeStoredConfigurationPayload(
+        persistedState,
+        parseStoredConfigurationPayload(rowSnapshot?.note)?.internalNote ?? '',
+        Boolean(rowSnapshot?.pdf_downloaded),
+        (rowSnapshot?.pdf_downloaded_at as string | null) ?? null,
+      ),
+    } : {}),
     // Re-sending a corrected order updates only the explicit sent timestamp.
     // The original submission remains the canonical lifecycle transition.
     submitted_at: submittedAt,
@@ -1650,15 +1721,19 @@ export async function markPdfDownloaded(id: string, flowType?: 'quote' | 'order'
     last_saved_at: downloadedAt,
   };
 
-  // Keep subtotal/total_price up-to-date on every PDF save (orders + quotes).
-  // Unknown columns are stripped by updateConfigurationRow's retry.
-  try {
-    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
-    const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
-    patch.subtotal = Math.round(totals.subtotal || 0);
-    patch.total_price = Math.round(totals.finalPrice || 0);
-  } catch (e) {
-    console.warn('[markPdfDownloaded] totals calc failed (ignored):', e);
+  const isLegacySubmittedOrder = Boolean(row.submitted_at || row.order_sent_at) && !state.pricingSnapshot;
+  // A PDF action must never be an implicit commercial repricing operation.
+  // Legacy submitted orders have only their persisted aggregate total, so keep
+  // it untouched until Backend explicitly chooses the current-price revision.
+  if (!isLegacySubmittedOrder) {
+    try {
+      const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+      const totals = calcConfigurationTotals(state, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+      patch.subtotal = Math.round(totals.subtotal || 0);
+      patch.total_price = Math.round(totals.finalPrice || 0);
+    } catch (e) {
+      console.warn('[markPdfDownloaded] totals calc failed (ignored):', e);
+    }
   }
 
   // Stamp quote_sent_at only for quotes, and only the first time
