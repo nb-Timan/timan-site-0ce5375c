@@ -87,5 +87,8 @@ describe("portal warranty registration form", () => {
     expect(form).toContain("filterPortalWarrantyMachines(machineOptions, state.machineType, state.machineSerial)");
     expect(form).not.toContain('list="portal-warranty-machine-options"');
     expect(form).toContain("Du kan stadig skrive serienummeret manuelt");
+    expect(form).toContain("Manuel serienummerindtastning");
+    expect(form).toContain("ArrowDown");
+    expect(form).toContain("aria-activedescendant");
   });
 });

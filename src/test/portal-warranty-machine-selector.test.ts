@@ -5,6 +5,7 @@ import type { RegistryMachineRow } from "@/lib/machineRegistryPageService";
 import {
   filterPortalWarrantyMachines,
   isPortalWarrantyEligibleMachine,
+  MAX_PORTAL_WARRANTY_SERIAL_SUGGESTIONS,
   portalWarrantyMachineMatchesType,
   resolvePortalWarrantyMachine,
   toPortalWarrantyMachineOption,
@@ -55,6 +56,31 @@ describe("portal warranty machine selector", () => {
     expect(filterPortalWarrantyMachines([rc751, rc1000, rc1000s], "RC-1000s", "")).toEqual([rc1000, rc1000s]);
     expect(filterPortalWarrantyMachines([rc751, rc1000, rc1000s], "RC-1000s", "1578")).toEqual([rc1000s]);
     expect(portalWarrantyMachineMatchesType(rc751, "RC-1000s")).toBe(false);
+  });
+
+  it("uses serial prefixes only when a scoped registry row lacks a canonical model", () => {
+    const unmappedRc751 = toPortalWarrantyMachineOption(machine({
+      serial: "410040-01-0999", machineModel: null, machineType: null,
+    }));
+    const unmappedRc1000 = toPortalWarrantyMachineOption(machine({
+      serial: "411000-04-0999", machineModel: null, machineType: null,
+    }));
+    const wrongCanonicalModel = toPortalWarrantyMachineOption(machine({
+      serial: "410040-01-1000", machineModel: "RC-1000s",
+    }));
+
+    expect(filterPortalWarrantyMachines([unmappedRc751, unmappedRc1000], "RC-751", ""))
+      .toEqual([unmappedRc751]);
+    expect(filterPortalWarrantyMachines([unmappedRc751, unmappedRc1000], "RC-1000s", ""))
+      .toEqual([unmappedRc1000]);
+    expect(portalWarrantyMachineMatchesType(wrongCanonicalModel, "RC-751")).toBe(false);
+  });
+
+  it("caps suggestions without widening the already scoped result", () => {
+    const options = Array.from({ length: MAX_PORTAL_WARRANTY_SERIAL_SUGGESTIONS + 1 }, (_, index) =>
+      toPortalWarrantyMachineOption(machine({ serial: `411000-04-${index}`, machineModel: "RC-1000s" })),
+    );
+    expect(filterPortalWarrantyMachines(options, "RC-1000s", "")).toHaveLength(MAX_PORTAL_WARRANTY_SERIAL_SUGGESTIONS);
   });
 
   it("searches serial, model, and canonical machine order number without widening dealer scope", () => {

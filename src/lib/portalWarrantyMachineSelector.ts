@@ -9,6 +9,8 @@ export interface PortalWarrantyMachineOption {
   isDemo: boolean;
 }
 
+export const MAX_PORTAL_WARRANTY_SERIAL_SUGGESTIONS = 50;
+
 function normalizedMachineType(value: string | null | undefined): string {
   return (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
@@ -23,13 +25,26 @@ function machineTypeFamily(value: string | null | undefined): string {
   return normalized === "rc1000" || normalized === "rc1000s" ? "rc1000" : normalized;
 }
 
+const SERIAL_PREFIX_FALLBACKS: Record<string, readonly string[]> = {
+  rc751: ["410040"],
+  rc1000: ["411000"],
+};
+
 export function portalWarrantyMachineMatchesType(
   option: PortalWarrantyMachineOption,
   machineType: string | null | undefined,
 ): boolean {
   const selectedFamily = machineTypeFamily(machineType);
   if (!selectedFamily) return true;
-  return machineTypeFamily(option.machineModel) === selectedFamily;
+  if (option.machineModel?.trim()) {
+    return machineTypeFamily(option.machineModel) === selectedFamily;
+  }
+
+  // The registry model is canonical. Only legacy rows without one use the
+  // narrow, product-number-based serial fallback.
+  return SERIAL_PREFIX_FALLBACKS[selectedFamily]?.some((prefix) =>
+    option.normalizedSerial.startsWith(prefix),
+  ) ?? false;
 }
 
 /** Search only the dealer-scoped canonical options after applying the model filter. */
@@ -48,7 +63,7 @@ export function filterPortalWarrantyMachines(
       option.machineModel,
       option.machineOrderNumber,
     ].some((value) => value?.toLowerCase().includes(normalizedQuery));
-  });
+  }).slice(0, MAX_PORTAL_WARRANTY_SERIAL_SUGGESTIONS);
 }
 
 /** A dealer can register an MO/unregistered machine, never a machine with an approved SP. */

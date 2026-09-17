@@ -117,6 +117,7 @@ export function WarrantyNewForm({
   const [machineOptions, setMachineOptions] = useState<PortalWarrantyMachineOption[]>([]);
   const [machinesLoading, setMachinesLoading] = useState(false);
   const [machinePickerOpen, setMachinePickerOpen] = useState(false);
+  const [activeMachineIndex, setActiveMachineIndex] = useState(0);
   const machinePickerRef = useRef<HTMLDivElement>(null);
   const replacementBrands = replacementBrandsForMachine(state.machineType);
   const copy = warrantyCopy[uiLanguage] ?? warrantyCopy.en;
@@ -131,6 +132,10 @@ export function WarrantyNewForm({
   const serialSuggestions = state.machineType ? filteredMachineOptions : [];
   const selectedMachineIsDemo = Boolean(selectedMachine?.isDemo);
   const isDemo = selectedMachineIsDemo || state.isDemo === "Ja";
+
+  useEffect(() => {
+    setActiveMachineIndex(0);
+  }, [state.machineType, state.machineSerial]);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,6 +195,11 @@ export function WarrantyNewForm({
       isDemo: match?.isDemo ? "Ja" : current.isDemo,
     }));
     setWarning(null);
+  }
+
+  function selectMachine(machine: PortalWarrantyMachineOption) {
+    setMachineSerial(machine.serial);
+    setMachinePickerOpen(false);
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -384,11 +394,30 @@ export function WarrantyNewForm({
                 setMachinePickerOpen(true);
               }}
               onKeyDown={(event) => {
-                if (event.key === "Escape") setMachinePickerOpen(false);
+                if (event.key === "Escape") {
+                  setMachinePickerOpen(false);
+                  return;
+                }
+                if (!serialSuggestions.length) return;
+                if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                  event.preventDefault();
+                  setMachinePickerOpen(true);
+                  setActiveMachineIndex((current) => {
+                    const delta = event.key === "ArrowDown" ? 1 : -1;
+                    return (current + delta + serialSuggestions.length) % serialSuggestions.length;
+                  });
+                }
+                if (event.key === "Enter" && machinePickerOpen) {
+                  event.preventDefault();
+                  selectMachine(serialSuggestions[activeMachineIndex] ?? serialSuggestions[0]);
+                }
               }}
               aria-autocomplete="list"
               aria-expanded={machinePickerOpen}
               aria-controls="portal-warranty-machine-options"
+              aria-activedescendant={machinePickerOpen && serialSuggestions[activeMachineIndex]
+                ? `portal-warranty-machine-option-${serialSuggestions[activeMachineIndex].normalizedSerial}`
+                : undefined}
               placeholder={copy.serialPlaceholder}
               className={inputCls}
             />
@@ -398,17 +427,18 @@ export function WarrantyNewForm({
                 role="listbox"
                 className="absolute z-20 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white p-1 shadow-lg"
               >
-                {serialSuggestions.length > 0 ? serialSuggestions.map((machine) => (
+                {serialSuggestions.length > 0 ? serialSuggestions.map((machine, index) => (
                   <button
                     key={machine.normalizedSerial}
+                    id={`portal-warranty-machine-option-${machine.normalizedSerial}`}
                     type="button"
                     role="option"
                     aria-selected={machine.normalizedSerial === selectedMachine?.normalizedSerial}
-                    onClick={() => {
-                      setMachineSerial(machine.serial);
-                      setMachinePickerOpen(false);
-                    }}
-                    className="flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                    onMouseEnter={() => setActiveMachineIndex(index)}
+                    onClick={() => selectMachine(machine)}
+                    className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 ${
+                      index === activeMachineIndex ? "bg-slate-50" : ""
+                    }`}
                   >
                     <span className="min-w-0">
                       <span className="block font-semibold text-slate-900">{machine.serial}</span>
@@ -434,6 +464,9 @@ export function WarrantyNewForm({
               <span>{[selectedMachine.machineModel, selectedMachine.machineOrderNumber].filter(Boolean).join(" · ")}</span>
               {selectedMachineIsDemo && <span title={copy.demoMachine} className="rounded bg-amber-100 px-2 py-0.5 font-black text-amber-900">DEMO</span>}
             </div>
+          )}
+          {!selectedMachine && state.machineSerial.trim() && (
+            <p className="mt-2 text-xs font-medium text-slate-500">Manuel serienummerindtastning</p>
           )}
         </Field>
         {selectedMachineIsDemo && <div className="md:col-span-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{copy.demoDetected}</div>}
