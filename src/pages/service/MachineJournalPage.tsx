@@ -33,6 +33,8 @@ import { buildJournalScope } from "@/lib/machineJournalScope";
 import { getActiveSellerView } from "@/lib/activeMode";
 import { teknikScopeIdentityKey } from "@/lib/useTeknikScope";
 import { getMachineDocumentSignedUrl, MachineDocumentRow } from "@/lib/machineLifecycleService";
+import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import { canEditMachineRegistry, fetchApprovedWarrantyReferences, fetchMachineRegistryCorrection, fetchMachineRegistryCorrectionHistory, saveMachineRegistryCorrection, type ApprovedWarrantyReference, type MachineRegistryCorrection, type MachineRegistryCorrectionHistory } from "@/lib/machineRegistryCorrectionsService";
 
 const T: Record<string, Record<Language, string>> = {
   pageTitle:        { da: "Min Maskine", en: "My Machine", de: "Meine Maschine", it: "La mia macchina", hu: "Saját gép" },
@@ -120,6 +122,10 @@ function fmtDate(v: string | null | undefined): string {
   } catch { return v; }
 }
 
+function Info({ label, value }: { label: string; value: string | null | undefined }) {
+  return <div><dt className="text-xs font-semibold text-slate-500">{label}</dt><dd className="mt-0.5 break-words text-sm text-slate-900">{value || "Mangler"}</dd></div>;
+}
+
 export default function MachineJournalPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
@@ -142,6 +148,15 @@ export default function MachineJournalPage() {
   const [loading, setLoading] = useState(true);
   const [oldestFirst, setOldestFirst] = useState(false);
   const [kindFilter, setKindFilter] = useState<TimelineKind | "all">("all");
+  const [correction, setCorrection] = useState<MachineRegistryCorrection | null>(null);
+  const [correctionHistory, setCorrectionHistory] = useState<MachineRegistryCorrectionHistory[]>([]);
+  const [approvedWarranties, setApprovedWarranties] = useState<ApprovedWarrantyReference[]>([]);
+  const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [editingCorrection, setEditingCorrection] = useState(false);
+  const [savingCorrection, setSavingCorrection] = useState(false);
+  const [correctionError, setCorrectionError] = useState<string | null>(null);
+  const [correctionDraft, setCorrectionDraft] = useState({ dealer_account_id: "", approved_warranty_registration_id: "", machine_model: "", delivery_date: "" });
+  const canCorrect = canEditMachineRegistry(effectiveUser);
   const breadcrumbCurrent = useMemo(() => {
     if (journal?.summary) {
       return journal.summary.machineType || journal.summary.model || journal.summary.serial || serial;
@@ -175,6 +190,64 @@ export default function MachineJournalPage() {
     // fresh View-as object returned on each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appUser, serial, resolvingEffectiveUser, scopeIdentity, navigate]);
+
+  useEffect(() => {
+    if (!canCorrect || !serial) {
+      setCorrection(null);
+      return;
+    }
+    let cancelled = false;
+    Promise.all([
+      fetchMachineRegistryCorrection(serial),
+      fetchDealerAccounts(),
+      fetchMachineRegistryCorrectionHistory(serial),
+      fetchApprovedWarrantyReferences(serial),
+    ])
+      .then(([saved, result, history, warranties]) => {
+        if (cancelled) return;
+        setCorrection(saved);
+        setCorrectionHistory(history);
+        setApprovedWarranties(warranties);
+        setDealers(result.rows.filter((dealer) => !dealer.is_deleted && !dealer.is_blocked));
+        setCorrectionDraft({
+          dealer_account_id: saved?.dealer_account_id ?? "",
+          approved_warranty_registration_id: saved?.approved_warranty_registration_id ?? "",
+          machine_model: saved?.machine_model ?? "",
+          delivery_date: saved?.delivery_date ?? "",
+        });
+      })
+      .catch(() => { if (!cancelled) setCorrection(null); });
+    return () => { cancelled = true; };
+  }, [canCorrect, serial]);
+
+  const saveCorrection = async () => {
+    if (!journal) return;
+    setSavingCorrection(true);
+    setCorrectionError(null);
+    try {
+      const saved = await saveMachineRegistryCorrection(journal.summary.serial, {
+        dealer_account_id: correctionDraft.dealer_account_id || null,
+        approved_warranty_registration_id: correctionDraft.approved_warranty_registration_id || null,
+        machine_model: correctionDraft.machine_model.trim() || null,
+        delivery_date: correctionDraft.delivery_date || null,
+      });
+      setCorrection(saved);
+      setCorrectionHistory((history) => [{
+        id: `local-${saved.updated_at}`,
+        actor_email: null,
+        old_values: {},
+        new_values: saved,
+        created_at: saved.updated_at,
+      }, ...history]);
+      setEditingCorrection(false);
+      // Reload from the canonical registry after the atomic correction RPC.
+      window.location.reload();
+    } catch (error) {
+      setCorrectionError(error instanceof Error ? error.message : "Kunne ikke gemme rettelsen.");
+    } finally {
+      setSavingCorrection(false);
+    }
+  };
 
   const handleOpenDoc = async (d: MachineDocumentRow) => {
     try {
@@ -269,6 +342,49 @@ export default function MachineJournalPage() {
                 {journal.summary.sellerLabel && <> · {T.seller[lang]}: {journal.summary.sellerLabel}</>}
               </div>
             </header>
+
+            {journal.summary.registryRecord?.warrantyMatchStatus !== "approved" && (
+              <section className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                <div className="font-semibold">Denne maskine kræver afklaring</div>
+                <div className="mt-1">{journal.summary.registryRecord.warrantyMatchDetail === "missing_warranty_and_active_dealer" ? "Mangler garantiregistrering og aktiv forhandler." : journal.summary.registryRecord.warrantyMatchDetail === "missing_warranty_registration" ? "Mangler garantiregistrering." : "Mangler aktiv forhandler."}</div>
+                {canCorrect && !editingCorrection && (
+                  <button type="button" onClick={() => setEditingCorrection(true)} className="mt-3 rounded-md bg-amber-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-900">Ret manglende oplysninger</button>
+                )}
+              </section>
+            )}
+
+            <section className="mb-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Maskinoplysninger</h2>{canCorrect && !editingCorrection && <button type="button" onClick={() => setEditingCorrection(true)} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Redigér oplysninger</button>}</div>
+              <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                <Info label="Serienummer" value={journal.summary.serial} />
+                <Info label="Model" value={journal.summary.machineType || journal.summary.model} />
+                <Info label="Garantinummer" value={journal.summary.registryRecord?.warrantyId || "Mangler"} />
+                <Info label="MO nr." value={journal.summary.registryRecord?.machineOrderNumber || "Mangler"} />
+                <Info label="ERP nr." value={journal.summary.registryRecord?.erpOrderNumber || "Mangler"} />
+                <Info label="Fakturanr." value={journal.summary.registryRecord?.invoiceNumber || "Mangler"} />
+                <Info label="Portal-ordrenr." value={journal.summary.registryRecord?.portalOrderNumber || "Mangler"} />
+                <Info label="Leveringsdato" value={journal.summary.registryRecord?.deliveryDate ? fmtDate(journal.summary.registryRecord.deliveryDate) : "Mangler"} />
+                <Info label="Aktiv forhandler" value={journal.summary.dealerName ? `${journal.summary.registryRecord?.dealerNumber ? `${journal.summary.registryRecord.dealerNumber} - ` : ""}${journal.summary.dealerName}` : "Mangler"} />
+                <Info label="Kilde" value={journal.summary.registryRecord?.warrantyType === "historical" ? "MO / historisk import" : "SP / portal"} />
+                <Info label="Status" value={journal.summary.registryRecord?.warrantyMatchStatus === "approved" ? "Godkendt" : journal.summary.registryRecord?.warrantyMatchStatus === "missing_warranty_and_dealer" ? "Mangler garanti + forhandler" : "Kræver afklaring"} />
+              </dl>
+              {editingCorrection && (
+                <div className="mt-5 border-t border-slate-200 pt-5">
+                  <h3 className="text-sm font-bold">Ret manglende oplysninger</h3>
+                  <p className="mt-1 text-xs text-slate-500">Kildedata ændres ikke. Rettelsen gemmes separat med revisionsspor.</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <label className="text-xs font-semibold text-slate-700">Aktiv forhandler<select value={correctionDraft.dealer_account_id} onChange={(event) => setCorrectionDraft((draft) => ({ ...draft, dealer_account_id: event.target.value }))} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-normal"><option value="">Mangler / ingen valgt</option>{dealers.map((dealer) => <option key={dealer.id} value={dealer.id}>{dealer.account_number} - {dealer.company_name}</option>)}</select></label>
+                    <label className="text-xs font-semibold text-slate-700">Model<input value={correctionDraft.machine_model} onChange={(event) => setCorrectionDraft((draft) => ({ ...draft, machine_model: event.target.value }))} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-2 text-sm font-normal" /></label>
+                    <label className="text-xs font-semibold text-slate-700">Leveringsdato<input type="date" value={correctionDraft.delivery_date} onChange={(event) => setCorrectionDraft((draft) => ({ ...draft, delivery_date: event.target.value }))} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-2 text-sm font-normal" /></label>
+                    <label className="text-xs font-semibold text-slate-700">Godkendt garanti-reference<select value={correctionDraft.approved_warranty_registration_id} onChange={(event) => setCorrectionDraft((draft) => ({ ...draft, approved_warranty_registration_id: event.target.value }))} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-normal"><option value="">Ingen garanti koblet</option>{approvedWarranties.map((warranty) => <option key={warranty.id} value={warranty.id}>{warranty.certificate_number || "Godkendt garanti"}{warranty.delivery_date ? ` · ${fmtDate(warranty.delivery_date)}` : ""}</option>)}</select></label>
+                  </div>
+                  {correctionError && <p className="mt-3 text-sm text-red-700">{correctionError}</p>}
+                  <div className="mt-4 flex gap-2"><button type="button" disabled={savingCorrection} onClick={saveCorrection} className="rounded-md bg-[#2d5a27] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60">{savingCorrection ? "Gemmer…" : "Gem rettelse"}</button><button type="button" disabled={savingCorrection} onClick={() => setEditingCorrection(false)} className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Annuller</button></div>
+                </div>
+              )}
+              {correction && <p className="mt-3 text-xs text-slate-500">Seneste portalrettelse: {fmtDate(correction.updated_at)}</p>}
+              {correctionHistory.length > 0 && <div className="mt-4 border-t border-slate-100 pt-3"><h3 className="text-xs font-bold uppercase tracking-wide text-slate-600">Rettelseshistorik</h3><ul className="mt-2 space-y-1 text-xs text-slate-600">{correctionHistory.map((entry) => <li key={entry.id}>{fmtDate(entry.created_at)}{entry.actor_email ? ` · ${entry.actor_email}` : ""} · Portalrettelse gemt</li>)}</ul></div>}
+            </section>
 
             {/* Maskinestatus — health dashboard */}
             <HealthDashboard summary={journal.summary} />
