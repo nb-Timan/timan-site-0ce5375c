@@ -27,6 +27,7 @@ import AddressAutocomplete from '@/components/crm/AddressAutocomplete';
 import MachineInterestPicker from '@/components/crm/MachineInterestPicker';
 import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
+import { getDemoSelectionErrors, splitDemoMachineInterest } from '@/lib/crmDemoSelection';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
 
@@ -142,24 +143,6 @@ function formatDkkEstimate(value: string): string {
 function parseDkkEstimate(value: string): string {
   const digits = value.replace(/\D/g, '');
   return digits ? String(Number(digits)) : '';
-}
-
-function splitMachineInterest(values: string[]) {
-  const equipment = values.filter(v => v.startsWith('Equipment:'));
-  const machines = values.filter(v => !v.startsWith('Equipment:') && v !== 'Equipment');
-  return { machines, equipment };
-}
-
-export function getDemoSelectionErrors(machineCategory: string[], machineInterest: string[]) {
-  const { machines, equipment } = splitMachineInterest(machineInterest);
-  const needsMachine = machineCategory.some(category => category === 'Timan machine' || category === "Dealer's machine");
-  const needsEquipment = machineCategory.some(category => category === 'Timan equipment' || category === "Dealer's equipment");
-
-  return {
-    demoType: machineCategory.length === 0,
-    machine: needsMachine && machines.length === 0,
-    equipment: needsEquipment && equipment.length === 0,
-  };
 }
 
 function Chips({ options, value, onChange, single }: { options: readonly string[]; value: string[]; onChange: (v: string[]) => void; single?: boolean }) {
@@ -359,7 +342,7 @@ export default function CrmNewDemoLeadPage() {
   const selectedDealer = allOptions.find(o => o.value === dealerCompany) || null;
   const dealerTriggerLabel = selectedDealer ? selectedDealer.label : (dealerCompanyLabel || tt('ph_dealer', lang));
 
-  const selectedMachineInterest = useMemo(() => splitMachineInterest(machineInterest), [machineInterest]);
+  const selectedMachineInterest = useMemo(() => splitDemoMachineInterest(machineInterest), [machineInterest]);
   const machineEstimate = useMemo(() => {
     const estimate = calculateMachineInterestEstimate(machineInterest, 'da');
     return {

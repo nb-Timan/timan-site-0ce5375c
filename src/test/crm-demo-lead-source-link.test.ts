@@ -2,15 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Capture supabase calls so we can assert on the insert payload and
 // the follow-up back-link update.
-const insertCalls: { table: string; payload: any }[] = [];
-const updateCalls: { table: string; patch: any; eqId: any }[] = [];
+const insertCalls: { table: string; payload: Record<string, unknown> }[] = [];
+const updateCalls: { table: string; patch: Record<string, unknown>; eqId: unknown }[] = [];
 
 vi.mock('@/lib/supabase', () => {
   return {
     supabase: {
       from(table: string) {
         return {
-          insert(payload: any) {
+          insert(payload: Record<string, unknown>) {
             insertCalls.push({ table, payload });
             return {
               select: () => ({
@@ -18,9 +18,9 @@ vi.mock('@/lib/supabase', () => {
               }),
             };
           },
-          update(patch: any) {
+          update(patch: Record<string, unknown>) {
             return {
-              eq: async (_col: string, val: any) => {
+              eq: async (_col: string, val: unknown) => {
                 updateCalls.push({ table, patch, eqId: val });
                 return { error: null };
               },
@@ -41,7 +41,7 @@ vi.mock('@/lib/supabase', () => {
 vi.mock('@/lib/crmActivitiesService', () => ({ logActivity: async () => {} }));
 
 import { createDemoLead, type NewCrmDemoLead } from '@/lib/crmLeadsService';
-import { getDemoSelectionErrors } from '@/pages/crm/CrmNewDemoLeadPage';
+import { getDemoSelectionErrors } from '@/lib/crmDemoSelection';
 
 const baseDemo: NewCrmDemoLead = {
   title: 'Demo X',

@@ -23,7 +23,7 @@ describe('configurator existing lead protection', () => {
 
   it('keeps persisted lead_id over any edit-time client value', () => {
     const code = service();
-    expect(code).toContain(".select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id')");
+    expect(code).toContain(".select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id, submitted_at, order_sent_at, subtotal, total_price')");
     expect(code).toContain('let persistedLeadId: string | null = null');
     expect(code).toContain('persistedLeadId = ((row as Record<string, unknown>).lead_id as string | null) ?? null');
     expect(code).toContain('...(persistedLeadId');
