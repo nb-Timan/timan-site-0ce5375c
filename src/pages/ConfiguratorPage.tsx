@@ -189,6 +189,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     setDate, setDeliveryMethod, setCustomerField, toggleAcc, calcResult,
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
+  const lang = state.language;
   const [primaryVideosByProduct, setPrimaryVideosByProduct] = useState<Map<string, MarketingVideo>>(() => new Map());
   const [publishedMarketingContent, setPublishedMarketingContent] = useState<Map<string, MarketingConfiguratorContentRecord>>(() => new Map());
   const [marketingEditorRecords, setMarketingEditorRecords] = useState<MarketingConfiguratorContentRecord[]>([]);
@@ -655,7 +656,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   const [savingChanges, setSavingChanges] = useState(false);
 
-  const lang = state.language;
   const displayCurrency = usePortalCurrency();
   const formatDisplayMoney = (value: number) => formatMoney(
     convertCurrency(value, currencyFromLanguage(lang), displayCurrency),

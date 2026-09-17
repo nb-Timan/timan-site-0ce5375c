@@ -262,6 +262,11 @@ class ConfiguratorRouteErrorBoundary extends Component<
     console.error("[ConfiguratorRoute] Failed to render reopened configuration", error, errorInfo);
   }
 
+  retry = () => {
+    this.setState({ hasError: false });
+    window.location.reload();
+  };
+
   render() {
     if (!this.state.hasError) return this.props.children;
 
@@ -272,13 +277,22 @@ class ConfiguratorRouteErrorBoundary extends Component<
           <p className="text-sm text-muted-foreground">
             Den gemte konfiguration kunne ikke gendannes. Intet er blevet ændret.
           </p>
-          <button
-            type="button"
-            className="text-sm font-medium underline"
-            onClick={() => window.history.back()}
-          >
-            Tilbage
-          </button>
+          <div className="flex justify-center gap-4">
+            <button
+              type="button"
+              className="text-sm font-medium underline"
+              onClick={this.retry}
+            >
+              Prøv igen
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium underline"
+              onClick={() => window.history.back()}
+            >
+              Tilbage
+            </button>
+          </div>
         </section>
       </main>
     );

@@ -45,6 +45,15 @@ describe('Configurator reopen route resilience', () => {
     expect(app).toContain('class ConfiguratorRouteErrorBoundary');
     expect(app).toContain('Konfigurationen kunne ikke åbnes');
     expect(app).toContain('Den gemte konfiguration kunne ikke gendannes. Intet er blevet ændret.');
+    expect(app).toContain('Prøv igen');
+    expect(app).toContain('onClick={this.retry}');
     expect(app).toContain('<ConfiguratorRouteErrorBoundary><PortalLockGuard>');
+  });
+
+  it('initializes the Configurator language before customer-mode copy reads it', () => {
+    const configurator = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+
+    expect(configurator.indexOf('const lang = state.language;'))
+      .toBeLessThan(configurator.indexOf('const customerModeCopy = CUSTOMER_MODE_COPY[lang];'));
   });
 });
