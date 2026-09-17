@@ -97,7 +97,7 @@ describe("partner contract onboarding access", () => {
     expect(contractsPage).toContain("Forlæng");
     expect(contractsPage).toContain("Luk nu");
     expect(contractsPage).toContain("Kontraktadgang er ikke aktiv");
-    expect(dealerDataPage).toContain("PartnerAgreementHistory");
+    expect(dealerDataPage).not.toContain("PartnerAgreementHistory");
   });
 
   it("keeps Step 1 partner control internal and the partner picker closed until opened", () => {

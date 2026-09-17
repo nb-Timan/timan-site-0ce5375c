@@ -22,7 +22,6 @@ import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
 import LastChangedLine from '@/components/portal/LastChangedLine';
-import PartnerAgreementHistory from '@/components/portal/PartnerAgreementHistory';
 
 
 import type { Language } from '@/types/configurator';
@@ -223,7 +222,6 @@ export default function DealerDataPage() {
               canManageFinancialTerms={canManageFinancialTerms}
               onUpdated={(next) => setDealer(next)}
             />
-            <PartnerAgreementHistory dealerAccountNumber={dealer.account_number} language={lang} />
           </>
         )}
       </main>
