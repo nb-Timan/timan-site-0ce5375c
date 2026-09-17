@@ -5,6 +5,7 @@ export type FlowType = 'quote' | 'order';
 export type DeliveryMethod = 'pickup' | 'send' | 'deliver';
 export type ConfigMode = 'shared' | 'individual';
 export type Language = 'da' | 'en' | 'de' | 'it' | 'hu';
+export type ConfiguratorCustomerMode = 'dealer' | 'manual';
 
 // Role system
 export type UserRole = 'slutkunde' | 'partner' | 'timan_saelger';
@@ -163,6 +164,11 @@ export interface ConfiguratorState {
   telefon: string;
   email: string;
   emailRecipient: string;
+  /** The visible contact snapshot source. Dealer assignment remains separate. */
+  customerMode: ConfiguratorCustomerMode;
+  manualCustomerDraft: Pick<ConfiguratorState, 'firmanavn' | 'kontaktperson' | 'telefon' | 'emailRecipient' | 'address' | 'postalCode' | 'city' | 'country'>;
+  dealerCustomerData: Pick<ConfiguratorState, 'firmanavn' | 'kontaktperson' | 'telefon' | 'emailRecipient' | 'address' | 'postalCode' | 'city' | 'country'>;
+  dealerContactId: string;
   // Administrative customer details share the persisted Configurator state
   // with both quotes and submitted orders.
   address: string;

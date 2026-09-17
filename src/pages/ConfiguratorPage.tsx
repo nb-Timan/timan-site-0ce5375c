@@ -16,6 +16,14 @@ import AccountPanel from '@/components/configurator/AccountPanel';
 import OwnershipPicker, { OwnershipSelection, deriveInitialOwnership } from '@/components/configurator/OwnershipPicker';
 import LeadLinkPicker from '@/components/configurator/LeadLinkPicker';
 import { buildConfiguratorOwnership } from '@/lib/configuratorOwnership';
+import { fetchDealerAccountByNumber, type DealerAccount } from '@/lib/dealerAccountsService';
+import { listDealerContacts, resolveCanonicalFirstContact, type DealerContact } from '@/lib/dealerContactsService';
+import {
+  replaceConfiguratorDealerCustomerData,
+  selectConfiguratorCustomerMode,
+  updateConfiguratorCustomerDraftField,
+  type ConfiguratorCustomerSnapshot,
+} from '@/lib/configuratorCustomerMode';
 import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useLanguage } from '@/context/LanguageContext';
@@ -92,6 +100,26 @@ const LANGUAGES: { code: PortalUiLanguage; flag: string }[] = PORTAL_LANGUAGES.m
 }));
 
 const INTERNAL_TIMAN_COPY_EMAIL = 'sales@timan.dk';
+
+const CUSTOMER_MODE_COPY: Record<Language, {
+  title: string;
+  useDealer: string;
+  enterManual: string;
+  dealer: string;
+  dealerContact: string;
+  chooseContact: string;
+  noContacts: string;
+  address: string;
+  postalCode: string;
+  city: string;
+  country: string;
+}> = {
+  da: { title: 'Kundeoplysninger', useDealer: 'Brug forhandlerens oplysninger', enterManual: 'Indtast anden kunde manuelt', dealer: 'Forhandler', dealerContact: 'Kontaktperson', chooseContact: 'Vælg kontaktperson', noContacts: 'Ingen kontaktpersoner er registreret. Udfyld kontaktoplysningerne manuelt.', address: 'Adresse', postalCode: 'Postnr.', city: 'By', country: 'Land' },
+  en: { title: 'Customer details', useDealer: 'Use dealer details', enterManual: 'Enter another customer manually', dealer: 'Dealer', dealerContact: 'Contact person', chooseContact: 'Choose contact person', noContacts: 'No contacts are registered. Enter the contact details manually.', address: 'Address', postalCode: 'Postal code', city: 'City', country: 'Country' },
+  de: { title: 'Kundendaten', useDealer: 'Händlerdaten verwenden', enterManual: 'Anderen Kunden manuell eingeben', dealer: 'Händler', dealerContact: 'Kontaktperson', chooseContact: 'Kontaktperson wählen', noContacts: 'Keine Kontaktpersonen hinterlegt. Kontaktinformationen manuell eingeben.', address: 'Adresse', postalCode: 'Postleitzahl', city: 'Stadt', country: 'Land' },
+  it: { title: 'Dati cliente', useDealer: 'Usa dati rivenditore', enterManual: 'Inserisci un altro cliente manualmente', dealer: 'Rivenditore', dealerContact: 'Contatto', chooseContact: 'Scegli contatto', noContacts: 'Nessun contatto registrato. Inserisci i dati manualmente.', address: 'Indirizzo', postalCode: 'CAP', city: 'Città', country: 'Paese' },
+  hu: { title: 'Ügyféladatok', useDealer: 'Kereskedői adatok használata', enterManual: 'Másik ügyfél kézi megadása', dealer: 'Kereskedő', dealerContact: 'Kapcsolattartó', chooseContact: 'Kapcsolattartó kiválasztása', noContacts: 'Nincs regisztrált kapcsolattartó. Adja meg kézzel az adatokat.', address: 'Cím', postalCode: 'Irányítószám', city: 'Város', country: 'Ország' },
+};
 
 function appendInternalBcc<T extends Record<string, unknown>>(payload: T, bccRecipients: string[]): T & {
   bcc: string[];
@@ -369,6 +397,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // panel picker. Re-derived whenever the logged-in user (or their active
   // "view as" mode) changes.
   const [ownership, setOwnership] = useState<OwnershipSelection>(() => deriveInitialOwnership(appUser));
+  const [selectedCustomerDealer, setSelectedCustomerDealer] = useState<DealerAccount | null>(null);
+  const [dealerContacts, setDealerContacts] = useState<DealerContact[]>([]);
+  const [dealerContactsLoading, setDealerContactsLoading] = useState(false);
+  const previousCustomerDealerKey = useRef<string | null>(null);
 
   // Step 3 reminder for Timan 3330 → varenr 721122 (centerslange).
   // Acknowledged set is keyed by unit configKey so it does not repeat for the
@@ -384,6 +416,122 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   useEffect(() => {
     setOwnership(deriveInitialOwnership(appUser));
   }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
+
+  const customerModeCopy = CUSTOMER_MODE_COPY[lang];
+  const sortedDealerContacts = useMemo(() => dealerContacts
+    .filter((contact) => Boolean(contact.name?.trim()))
+    .slice()
+    .sort((left, right) => Number(right.is_primary) - Number(left.is_primary)
+      || left.created_at.localeCompare(right.created_at)), [dealerContacts]);
+
+  const buildDealerCustomerSnapshot = useCallback((dealer: DealerAccount, contact: DealerContact | null, useCanonicalContactFallback = true): ConfiguratorCustomerSnapshot => {
+    const resolvedContact = contact ?? (useCanonicalContactFallback
+      ? resolveCanonicalFirstContact(dealer, sortedDealerContacts)
+      : null);
+    return {
+      firmanavn: dealer.company_name || '',
+      kontaktperson: resolvedContact?.name?.trim() || '',
+      telefon: resolvedContact?.phone?.trim() || dealer.phone || '',
+      emailRecipient: resolvedContact?.email?.trim() || dealer.email || '',
+      address: dealer.address_line_1 || dealer.address || '',
+      postalCode: dealer.postal_code || '',
+      city: dealer.city || '',
+      country: dealer.country || '',
+    };
+  }, [sortedDealerContacts]);
+
+  // The commercial dealer from Internal assignment is independent from the
+  // visible customer snapshot. A dealer change clears only dealer-derived
+  // contact data; the manual customer draft is intentionally retained.
+  const customerDealerKey = ownership.dealerAccountId || ownership.dealerNumber || '';
+  useEffect(() => {
+    const previousKey = previousCustomerDealerKey.current;
+    previousCustomerDealerKey.current = customerDealerKey;
+    if (!previousKey || previousKey === customerDealerKey) return;
+    setDealerContacts([]);
+    setSelectedCustomerDealer(null);
+    setState((current) => replaceConfiguratorDealerCustomerData(current, {
+      firmanavn: '', kontaktperson: '', telefon: '', emailRecipient: '', address: '', postalCode: '', city: '', country: '',
+    }, ''));
+  }, [customerDealerKey, setState]);
+
+  useEffect(() => {
+    if (!ownership.dealerNumber) {
+      setSelectedCustomerDealer(null);
+      setDealerContacts([]);
+      setDealerContactsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    if (isAcademyMode) {
+      const dealer = academyPartnerDataSandbox.listDealers().find((candidate) =>
+        candidate.id === ownership.dealerAccountId || candidate.account_number === ownership.dealerNumber,
+      ) || null;
+      if (!cancelled) setSelectedCustomerDealer(dealer);
+      return () => { cancelled = true; };
+    }
+    fetchDealerAccountByNumber(ownership.dealerNumber).then(({ row }) => {
+      if (!cancelled) setSelectedCustomerDealer(row);
+    });
+    return () => { cancelled = true; };
+  }, [isAcademyMode, ownership.dealerAccountId, ownership.dealerNumber]);
+
+  useEffect(() => {
+    if (!selectedCustomerDealer) return;
+    let cancelled = false;
+    setDealerContactsLoading(true);
+    if (isAcademyMode) {
+      setDealerContacts([]);
+      setDealerContactsLoading(false);
+      return;
+    }
+    listDealerContacts(selectedCustomerDealer.id)
+      .then((contacts) => {
+        if (!cancelled) setDealerContacts(contacts);
+      })
+      .catch(() => {
+        if (!cancelled) setDealerContacts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDealerContactsLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [isAcademyMode, selectedCustomerDealer]);
+
+  useEffect(() => {
+    if (!selectedCustomerDealer || dealerContactsLoading) return;
+    setState((current) => {
+      const persistedContact = sortedDealerContacts.find((contact) => contact.id === current.dealerContactId) || null;
+      const defaultContact = persistedContact || sortedDealerContacts.find((contact) => contact.is_primary) || (sortedDealerContacts.length === 1 ? sortedDealerContacts[0] : null);
+      return replaceConfiguratorDealerCustomerData(
+        current,
+        buildDealerCustomerSnapshot(selectedCustomerDealer, defaultContact),
+        defaultContact?.id || '',
+      );
+    });
+  }, [buildDealerCustomerSnapshot, dealerContactsLoading, selectedCustomerDealer, setState, sortedDealerContacts]);
+
+  const applyDealerCustomerMode = useCallback((contactId?: string) => {
+    if (!selectedCustomerDealer) return;
+    const requestedContactId = contactId ?? state.dealerContactId;
+    const contact = contactId === ''
+      ? null
+      : sortedDealerContacts.find((candidate) => candidate.id === requestedContactId)
+        || sortedDealerContacts.find((candidate) => candidate.is_primary)
+        || (sortedDealerContacts.length === 1 ? sortedDealerContacts[0] : null);
+    setState((current) => selectConfiguratorCustomerMode(
+      replaceConfiguratorDealerCustomerData(
+        current,
+        buildDealerCustomerSnapshot(selectedCustomerDealer, contact, contactId !== ''),
+        contact?.id || '',
+      ),
+      'dealer',
+    ));
+  }, [buildDealerCustomerSnapshot, selectedCustomerDealer, setState, sortedDealerContacts, state.dealerContactId]);
+
+  const updateActiveCustomerField = useCallback((field: keyof ConfiguratorCustomerSnapshot, value: string) => {
+    setState((current) => updateConfiguratorCustomerDraftField(current, field, value));
+  }, [setState]);
 
   // Phase 63 — Importør standard-rabat (30%).
   // Slår op på den valgte forhandler (eller den auto-låste dealer for
@@ -3435,18 +3583,81 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     />
                   </div>
                 )}
+                {!isExhibition && (
+                  <div className="max-w-lg mx-auto mb-5 rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                    <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-950">{customerModeCopy.title}</p>
+                        <p className="mt-0.5 text-xs text-emerald-800">
+                          {selectedCustomerDealer
+                            ? `${customerModeCopy.dealer}: ${selectedCustomerDealer.company_name}`
+                            : customerModeCopy.dealer}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => applyDealerCustomerMode()}
+                          disabled={!selectedCustomerDealer || dealerContactsLoading}
+                          aria-pressed={state.customerMode === 'dealer'}
+                          className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${state.customerMode === 'dealer' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-100'}`}
+                        >
+                          {customerModeCopy.useDealer}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setState((current) => selectConfiguratorCustomerMode(current, 'manual'))}
+                          aria-pressed={state.customerMode === 'manual'}
+                          className={`rounded-md border px-3 py-1.5 text-xs font-semibold transition ${state.customerMode === 'manual' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-emerald-200 bg-white text-emerald-900 hover:bg-emerald-100'}`}
+                        >
+                          {customerModeCopy.enterManual}
+                        </button>
+                      </div>
+                    </div>
+
+                    {state.customerMode === 'dealer' && selectedCustomerDealer && (
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-700">{customerModeCopy.dealerContact}</label>
+                        <select
+                          value={state.dealerContactId}
+                          onChange={(event) => {
+                            const contactId = event.target.value;
+                            const contact = sortedDealerContacts.find((candidate) => candidate.id === contactId) || null;
+                            setState((current) => replaceConfiguratorDealerCustomerData(
+                              current,
+                              buildDealerCustomerSnapshot(selectedCustomerDealer, contact, Boolean(contactId)),
+                              contactId,
+                            ));
+                          }}
+                          disabled={dealerContactsLoading}
+                          className="w-full rounded-lg border bg-white p-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <option value="">{dealerContactsLoading ? '…' : customerModeCopy.chooseContact}</option>
+                          {sortedDealerContacts.map((contact) => (
+                            <option key={contact.id} value={contact.id}>
+                              {contact.name}{contact.role_title ? ` · ${contact.role_title}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {!dealerContactsLoading && sortedDealerContacts.length === 0 && (
+                          <p className="mt-1 text-xs text-gray-500">{customerModeCopy.noContacts}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-4 max-w-lg mx-auto">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')}</label>
-                    <input type="text" value={state.firmanavn} onChange={e => setCustomerField('firmanavn', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    <input type="text" value={state.firmanavn} onChange={e => updateActiveCustomerField('firmanavn', e.target.value)} className="w-full p-2 border rounded-lg" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('contactPerson')}</label>
-                    <input type="text" value={state.kontaktperson} onChange={e => setCustomerField('kontaktperson', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    <input type="text" value={state.kontaktperson} onChange={e => updateActiveCustomerField('kontaktperson', e.target.value)} className="w-full p-2 border rounded-lg" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('phone')}</label>
-                    <input type="text" value={state.telefon} onChange={e => setCustomerField('telefon', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    <input type="text" value={state.telefon} onChange={e => updateActiveCustomerField('telefon', e.target.value)} className="w-full p-2 border rounded-lg" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('email')} {state.flowType === 'order' && <span className="text-red-500">*</span>}</label>
@@ -3461,11 +3672,29 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <input
                       type="email"
                       value={state.emailRecipient}
-                      onChange={e => setCustomerField('emailRecipient', e.target.value)}
+                      onChange={e => updateActiveCustomerField('emailRecipient', e.target.value)}
                       className={`w-full p-2 border rounded-lg ${state.flowType === 'order' ? 'bg-gray-100' : ''}`}
                       placeholder={T('emailRecipientPlaceholder')}
                       readOnly={state.flowType === 'order'}
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.address}</label>
+                    <input type="text" value={state.address} onChange={e => updateActiveCustomerField('address', e.target.value)} className="w-full p-2 border rounded-lg" />
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.postalCode}</label>
+                      <input type="text" value={state.postalCode} onChange={e => updateActiveCustomerField('postalCode', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.city}</label>
+                      <input type="text" value={state.city} onChange={e => updateActiveCustomerField('city', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.country}</label>
+                    <input type="text" value={state.country} onChange={e => updateActiveCustomerField('country', e.target.value)} className="w-full p-2 border rounded-lg" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('comment')}</label>

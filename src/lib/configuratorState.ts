@@ -1,5 +1,9 @@
 import { ConfiguratorState, FlowType, Language } from '@/types/configurator';
 import { DEFAULT_PAYMENT_TERMS, resolvePaymentTerms } from '@/lib/paymentTerms';
+import {
+  EMPTY_CONFIGURATOR_CUSTOMER_SNAPSHOT,
+  normalizeConfiguratorCustomerDraftState,
+} from '@/lib/configuratorCustomerMode';
 
 export const createEmptyConfiguratorState = (
   language: Language = 'da',
@@ -25,6 +29,10 @@ export const createEmptyConfiguratorState = (
   telefon: '',
   email: '',
   emailRecipient: '',
+  customerMode: 'manual',
+  manualCustomerDraft: { ...EMPTY_CONFIGURATOR_CUSTOMER_SNAPSHOT },
+  dealerCustomerData: { ...EMPTY_CONFIGURATOR_CUSTOMER_SNAPSHOT },
+  dealerContactId: '',
   address: '',
   postalCode: '',
   city: '',
@@ -39,6 +47,10 @@ export const createEmptyConfiguratorState = (
 
 export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | null): ConfiguratorState {
   const base = createEmptyConfiguratorState(value?.language ?? 'da', value?.flowType ?? 'quote');
+  const customerDraft = normalizeConfiguratorCustomerDraftState(value ?? base);
+  const activeCustomer = customerDraft.customerMode === 'dealer'
+    ? customerDraft.dealerCustomerData
+    : customerDraft.manualCustomerDraft;
 
   return {
     ...base,
@@ -57,15 +69,19 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     demoMachines: value?.demoMachines ?? {},
     reqNumbers: value?.reqNumbers ?? {},
     currentMachineIndex: typeof value?.currentMachineIndex === 'number' ? value.currentMachineIndex : 0,
-    firmanavn: value?.firmanavn ?? '',
-    kontaktperson: value?.kontaktperson ?? '',
-    telefon: value?.telefon ?? '',
+    firmanavn: activeCustomer.firmanavn,
+    kontaktperson: activeCustomer.kontaktperson,
+    telefon: activeCustomer.telefon,
     email: value?.email ?? '',
-    emailRecipient: value?.emailRecipient ?? '',
-    address: value?.address ?? '',
-    postalCode: value?.postalCode ?? '',
-    city: value?.city ?? '',
-    country: value?.country ?? '',
+    emailRecipient: activeCustomer.emailRecipient,
+    customerMode: customerDraft.customerMode,
+    manualCustomerDraft: customerDraft.manualCustomerDraft,
+    dealerCustomerData: customerDraft.dealerCustomerData,
+    dealerContactId: customerDraft.dealerContactId,
+    address: activeCustomer.address,
+    postalCode: activeCustomer.postalCode,
+    city: activeCustomer.city,
+    country: activeCustomer.country,
     alternativeDeliveryAddress: value?.alternativeDeliveryAddress ?? '',
     purchaseOrderNumber: value?.purchaseOrderNumber ?? '',
     comment: value?.comment ?? '',
