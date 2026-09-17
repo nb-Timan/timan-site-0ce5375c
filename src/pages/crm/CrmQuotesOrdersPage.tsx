@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink, History, CalendarDays } from 'lucide-react';
+import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink, History, CalendarDays, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -25,7 +25,8 @@ import CrmLayout from '@/components/crm/CrmLayout';
 import EditOrderContactModal from '@/components/crm/EditOrderContactModal';
 import EditOrderTimelineModal from '@/components/crm/EditOrderTimelineModal';
 import SubmittedOrderRevisionHistoryModal from '@/components/crm/SubmittedOrderRevisionHistoryModal';
-import { useAppUser } from '@/context/AppUserContext';
+import ReadOnlyOrderConfirmationModal from '@/components/crm/ReadOnlyOrderConfirmationModal';
+import { useAppUser, type SessionUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
@@ -35,13 +36,16 @@ import { isExternalCrmRole } from '@/lib/crmScope';
 import { getActiveSellerView } from '@/lib/activeMode';
 import {
   listCrmConfigurations,
+  fetchCrmConfigurationVisible,
   softDeleteConfiguration,
   getCrmConfigurationDeepLink,
   getCrmConfigurationLeadDeepLink,
   CrmConfigurationRow,
+  CrmConfigurationFilter,
   CrmDocumentType,
 } from '@/lib/crmConfigurationsService';
 import { logActivity } from '@/lib/crmActivitiesService';
+import { isSavedConfigurationOrderLocked, loadConfigurationByIdUnscoped, type SavedConfiguration } from '@/lib/configurationsService';
 import { Language } from '@/types/configurator';
 
 interface Props { mode: CrmDocumentType }
@@ -86,6 +90,7 @@ const T: Record<string, Record<Language, string>> = {
   col_dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
   col_status: { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Státusz' },
   col_expected_delivery: { da: 'Forventet levering', en: 'Expected delivery', de: 'Voraussichtliche Lieferung', it: 'Consegna prevista', hu: 'Várható szállítás' },
+  col_purchase_order: { da: 'REK./PO nr.', en: 'Requisition / PO no.', de: 'Bestellreferenz / PO-Nr.', it: 'Riferimento / n. PO', hu: 'Beszerzési / PO-szám' },
   col_created: { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
   col_sent: { da: 'Sendt', en: 'Sent', de: 'Gesendet', it: 'Inviato', hu: 'Elküldve' },
   col_actions: { da: 'Handling', en: 'Actions', de: 'Aktionen', it: 'Azioni', hu: 'Műveletek' },
@@ -124,6 +129,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const effectiveUserPartnerType = effectiveUser?.partner_type ?? null;
   const effectiveDealerNumber = effectiveUser?.dealer_number ?? null;
   const effectiveCompanyDealer = effectiveUser?.company_dealer ?? null;
+  const effectiveOrganizationAccessRole = effectiveUser?.organization_access_role ?? null;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const dealerParam = searchParams.get('dealer') || '';
@@ -136,6 +142,8 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
   const [editingTimelineRow, setEditingTimelineRow] = useState<CrmConfigurationRow | null>(null);
   const [revisionRow, setRevisionRow] = useState<CrmConfigurationRow | null>(null);
+  const [openedOrder, setOpenedOrder] = useState<SavedConfiguration | null>(null);
+  const [openingOrderId, setOpeningOrderId] = useState<string | null>(null);
   const [deletingRow, setDeletingRow] = useState<CrmConfigurationRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -147,31 +155,57 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   // when Backend is viewing the portal with a seller or external scope.
   const canEditOrderContacts = portalRole === 'timan_backend' && mode === 'order';
   const canReopenSubmittedOrder = isBackendFull && mode === 'order';
+  const canOpenSubmittedOrder = mode === 'order' && (portalRole === 'timan_backend' || portalRole === 'timan_seller');
   // Soft-delete UI is Backend-only and hidden in seller-view mode / external roles.
   const canDelete = isBackendFull;
+
+  // buildJournalScope only needs these external identity fields. Keeping this
+  // stable avoids reloading CRM lists when View-as supplies a new object ref.
+  const effectiveScopeUser = useMemo<SessionUser | null>(() => {
+    if (!effectiveUserEmail) return null;
+    return {
+      email: effectiveUserEmail,
+      display_name: effectiveUserDisplayName ?? undefined,
+      dealer_number: effectiveDealerNumber,
+      company_dealer: effectiveCompanyDealer,
+      organization_access_role: effectiveOrganizationAccessRole,
+    } as SessionUser;
+  }, [
+    effectiveCompanyDealer,
+    effectiveDealerNumber,
+    effectiveOrganizationAccessRole,
+    effectiveUserDisplayName,
+    effectiveUserEmail,
+  ]);
+
+  const buildCurrentCrmScope = useCallback(async (): Promise<Omit<CrmConfigurationFilter, 'documentType'>> => {
+    const sellerId = await resolveSellerId(appUser?.email);
+    const sellerView = getActiveSellerView(appUser?.email);
+    const sellerInitials = sellerView?.initials
+      ?? (isSeller && appUser?.display_name ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null : null);
+    const sellerEmail = sellerView?.email ?? (isSeller ? appUser?.email?.toLowerCase() ?? null : null);
+    const dealerNumbers = isExternalCrmRole(portalRole)
+      ? Array.from((await buildJournalScope(effectiveScopeUser, portalRole)).dealerNumbers)
+      : null;
+    return {
+      role: portalRole,
+      sellerId,
+      sellerInitials,
+      sellerEmail,
+      dealerNumber: effectiveDealerNumber,
+      dealerNumbers,
+    };
+  }, [appUser?.display_name, appUser?.email, effectiveDealerNumber, effectiveScopeUser, isSeller, portalRole]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
-      const sellerId = await resolveSellerId(appUser?.email);
-      const sellerView = getActiveSellerView(appUser?.email);
-      const sellerInitials = sellerView?.initials
-        ?? (isSeller && appUser?.display_name ? appUser.display_name.match(/^([A-ZÆØÅ]{2,4})/)?.[1] ?? null : null);
-      const sellerEmail = sellerView?.email ?? (isSeller ? appUser?.email?.toLowerCase() ?? null : null);
-      const dealerNumber = effectiveDealerNumber;
-      const dealerNumbers = isExternalCrmRole(portalRole)
-        ? Array.from((await buildJournalScope(effectiveUser, portalRole)).dealerNumbers)
-        : null;
+      const scope = await buildCurrentCrmScope();
 
       const { rows: fetched, error: err } = await listCrmConfigurations({
-        role: portalRole,
-        sellerId,
-        sellerInitials,
-        sellerEmail,
-        dealerNumber,
-        dealerNumbers,
+        ...scope,
         documentType: mode,
       });
       if (cancelled) return;
@@ -181,24 +215,47 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
     })();
     return () => { cancelled = true; };
   }, [
-    appUser?.email,
-    appUser?.display_name,
+    buildCurrentCrmScope,
     effectiveUserEmail,
     effectiveUserDisplayName,
     effectiveUserPortalRole,
     effectiveUserRole,
     effectiveUserPartnerType,
-    effectiveDealerNumber,
-    effectiveCompanyDealer,
-    portalRole,
     mode,
-    isSeller,
     reloadKey,
   ]);
 
   const handleRowClick = useCallback((r: CrmConfigurationRow) => {
     if (canEditOrderContacts) setEditingRow(r);
   }, [canEditOrderContacts]);
+
+  const handleOpenSubmittedOrder = useCallback(async (row: CrmConfigurationRow) => {
+    if (openingOrderId) return;
+    setOpeningOrderId(row.id);
+    try {
+      // View-as runs under the Backend JWT, so enforce the effective CRM
+      // scope before loading the full persisted snapshot.
+      const scope = await buildCurrentCrmScope();
+      const { row: visible, error: visibilityError } = await fetchCrmConfigurationVisible(row.id, scope);
+      if (visibilityError || !visible) {
+        toast.error('Du har ikke adgang til denne ordre.');
+        return;
+      }
+      const ownerEmail = effectiveUserEmail ?? appUser?.email ?? '';
+      if (!ownerEmail) {
+        toast.error('Kunne ikke identificere den aktuelle portalbruger.');
+        return;
+      }
+      const saved = await loadConfigurationByIdUnscoped(row.id, ownerEmail);
+      if (!saved || !isSavedConfigurationOrderLocked(saved)) {
+        toast.error('Kunne ikke indlæse den afsendte ordre.');
+        return;
+      }
+      setOpenedOrder(saved);
+    } finally {
+      setOpeningOrderId(null);
+    }
+  }, [appUser?.email, buildCurrentCrmScope, effectiveUserEmail, openingOrderId]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingRow) return;
@@ -264,7 +321,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       const hay = [
         r.quote_number, r.order_number, r.title,
         r.seller_initials, r.seller_email, r.seller_name,
-        r.dealer_number, r.dealer_name, r.dealer_company_name,
+        r.dealer_number, r.dealer_name, r.dealer_company_name, r.purchase_order_number,
       ].filter(Boolean).join(' ').toLowerCase();
       return hay.includes(q);
     });
@@ -348,9 +405,11 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                   <th className="text-left px-3 py-2 font-semibold">{T.col_dealer[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>
                   {mode === 'order' && <th className="text-left px-3 py-2 font-semibold">{T.col_expected_delivery[lang]}</th>}
+                  {mode === 'order' && <th className="hidden px-3 py-2 text-left font-semibold sm:table-cell">{T.col_purchase_order[lang]}</th>}
                   <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
                   {mode === 'quote' && <th className="text-left px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
+                  {canOpenSubmittedOrder && <th className="px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
                   {canEditOrderContacts && <th className="px-3 py-2 font-semibold w-24"></th>}
                   {canDelete && <th className="px-3 py-2 font-semibold w-10"></th>}
                 </tr>
@@ -375,6 +434,9 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                     >
                       <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
                         {number}
+                        {mode === 'order' && r.purchase_order_number && (
+                          <span className="mt-0.5 block font-sans text-[11px] text-slate-500 sm:hidden">REK./PO: {r.purchase_order_number}</span>
+                        )}
                       </td>
                       {mode === 'order' && (
                         <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
@@ -397,6 +459,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                         </span>
                       </td>
                       {mode === 'order' && <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.delivery_date)}</td>}
+                      {mode === 'order' && <td className="hidden px-3 py-2.5 font-mono text-[12px] text-slate-600 sm:table-cell">{r.purchase_order_number || '—'}</td>}
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.created_at)}</td>
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(sentAt)}</td>
                       {mode === 'quote' && (
@@ -421,6 +484,19 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                               {T.open_lead[lang]}
                             </button>
                           </div>
+                        </td>
+                      )}
+                      {canOpenSubmittedOrder && (
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); void handleOpenSubmittedOrder(r); }}
+                            disabled={openingOrderId === r.id}
+                            className="inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-1 text-[12px] font-medium text-[#2d5a27] hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            {openingOrderId === r.id ? '…' : 'Åbn'}
+                          </button>
                         </td>
                       )}
                       {canEditOrderContacts && (
@@ -508,6 +584,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
         />
       )}
       {revisionRow && <SubmittedOrderRevisionHistoryModal row={revisionRow} onClose={() => setRevisionRow(null)} />}
+      {openedOrder && <ReadOnlyOrderConfirmationModal order={openedOrder} onClose={() => setOpenedOrder(null)} />}
 
       <AlertDialog
         open={!!deletingRow}

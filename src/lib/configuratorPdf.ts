@@ -99,6 +99,17 @@ function today(language: Language): string {
   return new Date().toLocaleDateString(localeByLang[language] ?? "en-GB");
 }
 
+function purchaseOrderLabel(language: Language): string {
+  const labels: Partial<Record<Language, string>> = {
+    da: 'Rekvisitionsnr. / PO nr.',
+    en: 'Requisition / PO no.',
+    de: 'Bestellreferenz / PO-Nr.',
+    it: 'Riferimento ordine / n. PO',
+    hu: 'Beszerzési / PO-szám',
+  };
+  return labels[language] ?? labels.en!;
+}
+
 function cleanMachineTitle(text: string): string {
   const match = text.match(/\(([^)]+)\)\s*$/);
   return match?.[1]?.trim() || text.replace(/^[-\s]+/, "").trim();
@@ -389,6 +400,9 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
         [input.TC("confirmDate").replace(":", ""), today(input.contentLanguage)],
         [input.TC("confirmDelivery").replace(":", ""), formatDate(input.state.date, input.contentLanguage)],
         [input.TC("deliveryMethod"), deliveryMethodText],
+        input.state.purchaseOrderNumber.trim()
+          ? [purchaseOrderLabel(input.contentLanguage), input.state.purchaseOrderNumber.trim()]
+          : ["", ""],
         input.sourceQuoteNumber ? [input.TC("pdfQuoteNo"), input.sourceQuoteNumber] : ["", ""],
       ];
 

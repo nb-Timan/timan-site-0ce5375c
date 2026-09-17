@@ -6,6 +6,8 @@ describe('CRM quotes/orders fetch stability', () => {
     const source = readFileSync('src/pages/crm/CrmQuotesOrdersPage.tsx', 'utf8');
     expect(source).toContain('effectiveUserEmail');
     expect(source).toContain('effectiveDealerNumber');
+    expect(source).toContain('const effectiveScopeUser = useMemo<SessionUser | null>');
+    expect(source).toContain('buildJournalScope(effectiveScopeUser, portalRole)');
     expect(source).not.toContain('effectiveUser, portalRole, mode, isSeller, reloadKey');
   });
 });

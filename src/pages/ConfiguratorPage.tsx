@@ -1726,6 +1726,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         const label = { da: 'Oprettet fra tilbud', en: 'Created from quote', de: 'Erstellt aus Angebot', it: 'Creato dal preventivo', hu: 'Ajánlatból létrehozva' }[lang] || 'Created from quote';
         lines.push(`<span class="font-medium">${label}</span><span>${effSourceQuoteNumber}</span>`);
       }
+      if (state.purchaseOrderNumber.trim()) {
+        const label = { da: 'Rekvisitionsnr. / PO nr.', en: 'Requisition / PO no.', de: 'Bestellreferenz / PO-Nr.', it: 'Riferimento ordine / n. PO', hu: 'Beszerzési / PO-szám' }[lang] || 'Requisition / PO no.';
+        lines.push(`<span class="font-medium">${label}</span><span>${state.purchaseOrderNumber.trim()}</span>`);
+      }
       if (lines.length === 0) return '';
       return `<div class="mt-3 mb-2 p-3 bg-gray-50 border border-gray-200 rounded-lg">
         <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">${lines.join('')}</div>
@@ -2174,6 +2178,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             language: state.language,
             currency: contentSummary.currency,
             payment_terms: contentSummary.payment_terms,
+            purchase_order_number: contentSummary.purchase_order_number,
             delivery: contentSummary.delivery,
             machines: contentSummary.machines,
             totals: contentSummary.totals,
@@ -2411,6 +2416,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             language: state.language,
             currency: contentSummary.currency,
             payment_terms: contentSummary.payment_terms,
+            purchase_order_number: contentSummary.purchase_order_number,
             delivery: contentSummary.delivery,
             machines: contentSummary.machines,
             totals: contentSummary.totals,
@@ -3755,6 +3761,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.country}</label>
                     <input type="text" value={state.country} onChange={e => updateActiveCustomerField('country', e.target.value)} className="w-full p-2 border rounded-lg" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rekvisitionsnr. / PO nr.</label>
+                    <input
+                      type="text"
+                      value={state.purchaseOrderNumber}
+                      onChange={e => setCustomerField('purchaseOrderNumber', e.target.value)}
+                      className="w-full p-2 border rounded-lg"
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('comment')}</label>

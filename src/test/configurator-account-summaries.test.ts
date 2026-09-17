@@ -133,4 +133,18 @@ describe('configurator account summaries', () => {
     expect(lines[0].quantity).toBe(1);
     expect(lines[0].total).toBeGreaterThan(0);
   });
+
+  it('uses the frozen submitted-order price snapshot for detail lines', () => {
+    const lines = buildAccountCaseLines({
+      ...baseState,
+      pricingSnapshot: {
+        version: 1,
+        capturedAt: '2026-09-17T10:00:00.000Z',
+        prices: { 'machine:RC-1000S': 123456 },
+      },
+    }, 'da');
+
+    expect(lines[0].unitPrice).toBe(123456);
+    expect(lines[0].total).toBe(123456);
+  });
 });

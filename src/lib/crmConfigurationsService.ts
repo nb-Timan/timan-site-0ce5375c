@@ -40,6 +40,8 @@ export interface CrmConfigurationRow {
   title: string | null;
   quote_number: string | null;
   order_number: string | null;
+  /** Canonical customer reference stored inside the Configurator snapshot. */
+  purchase_order_number: string | null;
   total_price: number | null;
   note: unknown | null;
 
@@ -121,6 +123,18 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
   const status = (row.status as string | null) ?? null;
   const orderSentAt = (row.order_sent_at as string | null) ?? null;
   const submittedAt = (row.submitted_at as string | null) ?? null;
+  let purchaseOrderNumber: string | null = null;
+  try {
+    const rawState = typeof row.state_json === 'string'
+      ? JSON.parse(row.state_json)
+      : row.state_json;
+    const value = rawState && typeof rawState === 'object'
+      ? (rawState as Record<string, unknown>).purchaseOrderNumber
+      : null;
+    if (typeof value === 'string' && value.trim()) purchaseOrderNumber = value.trim();
+  } catch {
+    // A legacy or malformed snapshot simply has no customer reference.
+  }
   return {
     id: String(row.id),
     // Legacy flow-switches could leave document_type/case_type='order' on a
@@ -140,6 +154,7 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
     title: (row.title as string | null) ?? null,
     quote_number: (row.quote_number as string | null) ?? null,
     order_number: (row.order_number as string | null) ?? null,
+    purchase_order_number: purchaseOrderNumber,
     total_price: row.total_price == null ? null : Number(row.total_price),
     note: row.note ?? null,
     seller_initials: (row.seller_initials as string | null) ?? null,

@@ -59,6 +59,8 @@ export interface QuoteContentSummary {
   currency: 'DKK' | 'EUR';
   flow_type: 'quote' | 'order';
   payment_terms: string;
+  /** Customer reference from the persisted Configurator state. */
+  purchase_order_number: string | null;
   delivery: {
     method: string;
     date: string | null;
@@ -178,6 +180,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
     currency,
     flow_type: state.flowType === 'order' ? 'order' : 'quote',
     payment_terms: resolvePaymentTerms(state.paymentTerms),
+    purchase_order_number: state.purchaseOrderNumber.trim() || null,
     delivery: {
       method: state.deliveryMethod || '',
       date: state.date || null,

@@ -1,6 +1,7 @@
 import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS } from '@/data/machines';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
+import { snapshotAccessoryPrice, snapshotMachinePrice } from '@/lib/configuratorPricing';
 import type { ConfiguratorState, Language } from '@/types/configurator';
 
 export type AccountCaseStatusFilter = 'all' | 'active' | 'sent' | 'paused';
@@ -158,7 +159,9 @@ export function buildAccountCaseLines(
   state.machineConfigs.forEach((machine) => {
     const product = PRODUCTS[machine.type];
     const quantity = Math.max(1, machine.qty || 1);
-    const unitPrice = product ? getPrice(product, sourceLanguage) : 0;
+    const unitPrice = product
+      ? snapshotMachinePrice(state, machine.type, getPrice(product, sourceLanguage))
+      : 0;
 
     lines.push({
       itemNo: product?.varenr || machine.type,
@@ -176,7 +179,12 @@ export function buildAccountCaseLines(
     accessories.forEach((accessory) => {
       const qtyKey = `${machine.id}_${accessory.id}`;
       const qty = Math.max(1, state.accQty?.[qtyKey] || 1);
-      const accessoryPrice = getPrice(accessory, sourceLanguage);
+      const accessoryPrice = snapshotAccessoryPrice(
+        state,
+        machine.type,
+        accessory,
+        getPrice(accessory, sourceLanguage),
+      );
       lines.push({
         itemNo: String(accessory.varenr || accessory.id),
         description: getLocalizedName(accessory.name, legacyLang),
