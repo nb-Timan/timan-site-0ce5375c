@@ -79,6 +79,7 @@ const SharePointDryRunButton = forwardRef<SharePointDryRunHandle, Props>(functio
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
 
   useImperativeHandle(ref, () => ({ start: () => void runDryRun() }), []);
+  const selectedIds = useMemo(() => [...selectedAccountIds], [selectedAccountIds]);
 
   if (!appUser || appUser.portal_role !== "timan_backend") return null;
 
@@ -153,7 +154,6 @@ const SharePointDryRunButton = forwardRef<SharePointDryRunHandle, Props>(functio
     setSelectedAccountIds(new Set(candidates.map((candidate) => candidate.account_number)));
   }
 
-  const selectedIds = useMemo(() => [...selectedAccountIds], [selectedAccountIds]);
   const triggerBtnCls = compact
     ? "inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-white px-3 py-2 text-xs font-bold text-sky-700 hover:bg-sky-50 disabled:opacity-60"
     : "inline-flex items-center gap-2 rounded-lg bg-sky-600 px-3 py-2 text-xs font-bold text-white hover:bg-sky-700 disabled:opacity-60";

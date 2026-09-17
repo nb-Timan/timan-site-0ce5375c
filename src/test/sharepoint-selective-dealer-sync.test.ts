@@ -30,6 +30,12 @@ describe("selective SharePoint dealer sync", () => {
     expect(dryRun).toContain("disabled={selectedCount === 0}");
   });
 
+  it("keeps selection hooks stable for users without backend access", () => {
+    expect(dryRun.indexOf("const selectedIds = useMemo")).toBeLessThan(
+      dryRun.indexOf('if (!appUser || appUser.portal_role !== "timan_backend") return null;'),
+    );
+  });
+
   it("requires and validates an explicit server-side allowlist before real writes", () => {
     expect(edge).toContain("selected_account_ids");
     expect(edge).toContain("selected_account_ids is required for a real SharePoint sync");
