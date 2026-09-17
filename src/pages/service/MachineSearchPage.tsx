@@ -10,7 +10,7 @@ import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { useEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
+import { useEffectivePortalUserState, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { findMachineByIdentifier, MachineRecord, fetchServiceTicketsForMachine, ServiceTicket, fetchMachineActivityLog, MachineActivityLogRow, fetchMachineDocumentsForMachine, getMachineDocumentSignedUrl, MachineDocumentRow, fetchServiceHistoryForMachine, ServiceRegistrationRow, fetchServiceRegistrationParts, ServiceRegistrationPartRow } from "@/lib/machineLifecycleService";
 import type { RegistryMachineRow } from "@/lib/machineRegistryPageService";
@@ -22,6 +22,7 @@ import { LegacyMachineImportPanel } from "@/components/service/LegacyMachineImpo
 import { type MachineSortDirection, type MachineSortKey, type WarrantyTypeFilter } from "@/lib/machineOverviewFilters";
 import { fetchMachineRegistryPage } from "@/lib/machineRegistryPageService";
 import { warrantyMatchDetailCopy, warrantyMatchStatusCopy, type WarrantyMatchStatus } from "@/lib/warrantyMatchStatus";
+import { teknikScopeIdentityKey } from "@/lib/useTeknikScope";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
 import {
@@ -235,10 +236,17 @@ export default function MachineSearchPage() {
   const { appUser, logout } = useAppUser();
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
-  const effectiveUser = useEffectivePortalUser(appUser);
+  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
 
   const portalRole = derivePortalRole(effectiveUser);
   const isInternal = portalRole === "timan_backend" || portalRole === "timan_seller" || portalRole === "timan_service";
+  const sellerView = getActiveSellerView(appUser?.email);
+  const scopeRole = sellerView ? "timan_seller" : portalRole;
+  const scopeIdentity = [
+    teknikScopeIdentityKey(effectiveUser),
+    scopeRole ?? "",
+    sellerView?.email ?? "",
+  ].join("|");
 
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -310,14 +318,12 @@ export default function MachineSearchPage() {
   }, []);
 
   useEffect(() => {
-    if (!appUser) return;
+    if (!appUser || resolvingEffectiveUser || !effectiveUser) return;
     let cancelled = false;
     (async () => {
       setOverviewLoading(true);
       setOverviewError(null);
       try {
-        const sellerView = getActiveSellerView(appUser.email);
-        const scopeRole = sellerView ? "timan_seller" : portalRole;
         const scopeUser = withSellerScopeIdentity(effectiveUser, sellerView?.email);
         const scope = await buildJournalScope(scopeUser, scopeRole);
         // The backend session remains authenticated as backend during View-as.
@@ -359,7 +365,24 @@ export default function MachineSearchPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, effectiveUser, portalRole, query, dealerQuery, modelFilter, warrantyTypeFilter, warrantyMatchFilter, dateFrom, dateTo, sortKey, sortDirection, overviewPage, pageSize]);
+    // `effectiveUser` is a new object on every View-as render. scopeIdentity
+    // contains every identity field used by buildJournalScope, so it prevents
+    // the refetch loop without keeping a stale dealer scope.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appUser, resolvingEffectiveUser, scopeIdentity, query, dealerQuery, modelFilter, warrantyTypeFilter, warrantyMatchFilter, dateFrom, dateTo, sortKey, sortDirection, overviewPage, pageSize]);
+
+  // Do not leave Backend rows on screen while a concrete View-as account is
+  // resolving or after the user changes preview scope.
+  useEffect(() => {
+    setOverview([]);
+    setOverviewTotal(0);
+    setOverviewScopeTotal(0);
+    setOverviewNormal(0);
+    setOverviewHistorical(0);
+    setOverviewApproved(0);
+    setOverviewNeedsClarification(0);
+    setOverviewMissingWarrantyAndDealer(0);
+  }, [scopeIdentity]);
 
   // After the overview has rendered the first time, restore scroll position.
   useEffect(() => {
@@ -387,14 +410,9 @@ export default function MachineSearchPage() {
     navigate(`/portal/service/machines/${encodeURIComponent(serial)}`);
   }, [query, dealerQuery, dateFrom, dateTo, modelFilter, overviewPage, pageSize, navigate]);
 
-  if (!appUser) {
-    navigate("/portal", { replace: true });
-    return null;
-  }
-
   const handleSearch = async () => {
     const q = query.trim();
-    if (!q) return;
+    if (!q || resolvingEffectiveUser || !effectiveUser) return;
     setLoading(true);
     setError(null);
     setSearched(true);
@@ -404,7 +422,8 @@ export default function MachineSearchPage() {
     setTicketsError(null);
     setActiveTab("overview");
     try {
-      const scope = await buildJournalScope(appUser, portalRole);
+      const scopeUser = withSellerScopeIdentity(effectiveUser, sellerView?.email);
+      const scope = await buildJournalScope(scopeUser, scopeRole);
       const result = await findMachineByIdentifier(q);
       // Belt+suspenders: drop machine row that the dealer scope does not allow.
       const allowed = result && (scope.unrestricted
@@ -427,7 +446,6 @@ export default function MachineSearchPage() {
         const hits = await searchMachinesByIdentifier(q, scope, dbg);
         setCrossHits(hits);
         setSearchDebug(dbg);
-        // eslint-disable-next-line no-console
         console.info("[MachineSearch] debug", dbg);
       } catch (sErr) {
         console.warn("[MachineSearch] cross-source search failed", sErr);
@@ -599,6 +617,15 @@ export default function MachineSearchPage() {
     m.seller_initials || m.seller_email || dash;
   const dealerLabel = (m: MachineRecord) =>
     m.dealer_name || m.dealer_number || dash;
+
+  if (!appUser) {
+    navigate("/portal", { replace: true });
+    return null;
+  }
+
+  if (resolvingEffectiveUser || !effectiveUser) {
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="h-4 w-4 animate-spin text-slate-500" /></div>;
+  }
 
   return (
     <div className="tk-scale-up min-h-screen bg-slate-50 text-slate-950 flex flex-col">

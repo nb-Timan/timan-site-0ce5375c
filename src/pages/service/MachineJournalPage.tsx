@@ -21,7 +21,7 @@ import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { useEffectivePortalUser } from "@/lib/viewAsUser";
+import { useEffectivePortalUserState, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
 import { Language } from "@/types/configurator";
 import { t as tt } from "@/lib/i18n/translations";
@@ -30,6 +30,8 @@ import {
   type TimelineKind, type JournalScope, type StatusTone, type HealthLevel,
 } from "@/lib/machineJournalService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
+import { getActiveSellerView } from "@/lib/activeMode";
+import { teknikScopeIdentityKey } from "@/lib/useTeknikScope";
 import { getMachineDocumentSignedUrl, MachineDocumentRow } from "@/lib/machineLifecycleService";
 
 const T: Record<string, Record<Language, string>> = {
@@ -123,9 +125,16 @@ export default function MachineJournalPage() {
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const navigate = useNavigate();
   const params = useParams<{ serialNumber: string }>();
-  const effective = useEffectivePortalUser(appUser);
-  const role = derivePortalRole(effective);
+  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
+  const role = derivePortalRole(effectiveUser);
   const internal = isInternalRole(role);
+  const sellerView = getActiveSellerView(appUser?.email);
+  const scopeRole = sellerView ? "timan_seller" : role;
+  const scopeIdentity = [
+    teknikScopeIdentityKey(effectiveUser),
+    scopeRole ?? "",
+    sellerView?.email ?? "",
+  ].join("|");
 
   const serial = useMemo(() => decodeURIComponent(params.serialNumber || ""), [params.serialNumber]);
 
@@ -145,12 +154,13 @@ export default function MachineJournalPage() {
       navigate("/portal", { replace: true });
       return;
     }
-    if (!serial) return;
+    if (!serial || resolvingEffectiveUser || !effectiveUser) return;
     let cancelled = false;
     setLoading(true);
     (async () => {
       try {
-        const scope: JournalScope = await buildJournalScope(appUser, role);
+        const scopeUser = withSellerScopeIdentity(effectiveUser, sellerView?.email);
+        const scope: JournalScope = await buildJournalScope(scopeUser, scopeRole);
         const j = await loadMachineJournal(serial, scope);
         if (!cancelled) setJournal(j);
       } catch (e) {
@@ -161,9 +171,10 @@ export default function MachineJournalPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [appUser, serial, role, navigate]);
-
-  if (!appUser) return null;
+    // scopeIdentity tracks the effective account without subscribing to the
+    // fresh View-as object returned on each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appUser, serial, resolvingEffectiveUser, scopeIdentity, navigate]);
 
   const handleOpenDoc = async (d: MachineDocumentRow) => {
     try {
@@ -188,6 +199,12 @@ export default function MachineJournalPage() {
     for (const e of journal.timeline) set.add(e.kind);
     return Array.from(set);
   }, [journal]);
+
+  if (!appUser) return null;
+
+  if (resolvingEffectiveUser || !effectiveUser) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="h-4 w-4 animate-spin text-slate-500" /></div>;
+  }
 
   return (
     <div className="tk-scale-up min-h-screen bg-slate-50 text-slate-950 flex flex-col">
