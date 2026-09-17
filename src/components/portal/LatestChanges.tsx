@@ -91,7 +91,7 @@ export default function LatestChanges({ language, limit = 5 }: Props) {
                       {title}
                     </span>
                     {description && (
-                      <span className={cn('mt-0.5 line-clamp-2 block text-xs leading-snug', read ? 'text-gray-400' : 'text-gray-600')}>
+                      <span className={cn('mt-0.5 line-clamp-5 block whitespace-pre-line text-xs leading-snug', read ? 'text-gray-400' : 'text-gray-600')}>
                         {description}
                       </span>
                     )}

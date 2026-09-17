@@ -316,28 +316,41 @@ function dailyGroupSourceRef(module: string, date: string): string {
   return `github-day:${module}:${date}`;
 }
 
-const DAILY_DANISH_SUMMARIES: Array<{ pattern: RegExp; text: string }> = [
-  { pattern: /\b(lead|kontaktperson|kontakt|kunde|customer)\b/, text: "Lead- og kontaktflowet er forbedret." },
-  { pattern: /\b(tilbud|quote)\b/, text: "Tilbud kan håndteres mere direkte fra CRM." },
-  { pattern: /\b(budget|pipeline|sandsynlighed|probability)\b/, text: "Budget- og pipelineoplysninger følger de gemte CRM-data mere konsekvent." },
-  { pattern: /\b(ordre|order)\b/, text: "Ordreoplysninger er koblet mere pålideligt til CRM." },
-  { pattern: /\b(ejer|owner|ansvarlig|seller|sælger)\b/, text: "Ansvar og filtrering er blevet tydeligere." },
-  { pattern: /\b(partner|dealer|forhandler|detail|profil)\b/, text: "Partneroverblikket er blevet mere overskueligt." },
-  { pattern: /\b(configurator|konfigurator|produkt|product|redskab|værktøj|tool)\b/, text: "Produktvalg og visning i konfiguratoren er forbedret." },
-  { pattern: /\b(video|image|billede|specifikation|asset|badge)\b/, text: "Produktindhold og materialer er blevet lettere at vedligeholde." },
-  { pattern: /\b(backend|bruger|user|adgang|permission)\b/, text: "Administration og adgangsstyring er blevet tydeligere." },
+const GROUPED_DANISH_COPY: Array<{ pattern: RegExp; title: string; bullet: string }> = [
+  { pattern: /\b(manual|manuelle).*(customer|kunde)|(customer|kunde).*(manual|manuelle)\b/, title: "CRM: Manuelle kundeoplysninger bevares", bullet: "Manuelle kundeoplysninger bevares, når der skiftes mellem forhandler og manuel kunde." },
+  { pattern: /\b(budget|pipeline|sandsynlighed|probability)\b/, title: "CRM: Budget og pipeline følger CRM-data", bullet: "Budget og pipeline følger de gemte CRM-data mere konsekvent." },
+  { pattern: /\b(payment|betalingsbetingelse|net21|net14)\b/, title: "Betalingsbetingelser følger ordren", bullet: "Den valgte betalingsbetingelse bevares fra konfiguratoren til ordrebekræftelsen." },
+  { pattern: /\b(partner|dealer|forhandler|detail|overview|overblik|kpi|note|quick-card|quick card)\b/, title: "CRM: Partneroverblikket er samlet", bullet: "Partneroplysninger og de vigtigste handlinger er samlet mere overskueligt." },
+  { pattern: /\b(ordre|order)\b/, title: "Ordreoplysninger følger den gemte ordre", bullet: "Ordreoplysninger vises fra den gemte ordre uden at ændre ordrelinjer eller priser." },
+  { pattern: /\b(ejer|owner|ansvarlig|seller|sælger)\b/, title: "Ansvarlig sælger vises ens i CRM", bullet: "Ansvarlig sælger og ejer vises ens på tværs af CRM." },
+  { pattern: /\b(configurator|konfigurator|produkt|product|redskab|værktøj|tool)\b/, title: "Produktvalg i konfiguratoren er forbedret", bullet: "Produktvalg og relateret produktinformation vises mere klart i konfiguratoren." },
+  { pattern: /\b(video|image|billede|specifikation|asset|badge)\b/, title: "Produktmateriale er samlet på kortene", bullet: "Video, billeder og specifikationer er samlet med den relevante produktinformation." },
+  { pattern: /\b(backend|bruger|user|adgang|permission)\b/, title: "Adgangsstyring er præciseret", bullet: "Adgang til funktioner følger nu de relevante brugerrettigheder." },
 ];
 
-function dailyDanishSummary(entries: SiteChangeInsert[]): string {
-  const text = entries.map((entry) => `${entry.title_internal}\n${entry.technical_description || ""}`).join("\n").toLowerCase();
-  const summaries = DAILY_DANISH_SUMMARIES
-    .filter(({ pattern }) => pattern.test(text))
-    .map(({ text: summary }) => summary)
-    .slice(0, 3);
-  if (summaries.length > 0) return summaries.join(" ");
+function readableTechnicalTitle(title: string): string {
+  return title.replace(/^(feat|fix|chore|refactor|style|test|docs|build|ci)(\([^)]+\))?:\s*/i, "").replace(/\s+/g, " ").replace(/[.]+$/, "").trim();
+}
 
+function groupedDanishBullets(entries: Array<Pick<SiteChangeInsert, "title_internal" | "technical_description">>): string[] {
+  const bullets: string[] = [];
+  for (const entry of entries) {
+    const text = `${entry.title_internal}\n${entry.technical_description || ""}`.toLowerCase();
+    const copy = GROUPED_DANISH_COPY.find(({ pattern }) => pattern.test(text));
+    const bullet = copy?.bullet || readableTechnicalTitle(entry.title_internal);
+    if (bullet && !bullets.includes(bullet)) bullets.push(bullet);
+  }
+  return bullets.slice(0, 5);
+}
+
+function groupedDanishTitle(entries: Array<Pick<SiteChangeInsert, "title_internal" | "technical_description" | "module">>, bullets: string[]): string {
+  for (const entry of entries) {
+    const text = `${entry.title_internal}\n${entry.technical_description || ""}`.toLowerCase();
+    const copy = GROUPED_DANISH_COPY.find(({ pattern }) => pattern.test(text));
+    if (copy) return copy.title;
+  }
   const label = moduleLabel(entries[0]?.module || "backend", "da");
-  return `${label} er blevet opdateret med dagens vigtigste forbedringer.`;
+  return `${label}: ${bullets[0] || "Opdatering"}`;
 }
 
 function buildGroupSuggestion(entries: StoredGitHubEntry[]): SiteChangeGroupSuggestion | null {
@@ -345,7 +358,9 @@ function buildGroupSuggestion(entries: StoredGitHubEntry[]): SiteChangeGroupSugg
   const module = entries[0].module;
   const changeType = entries.every((entry) => entry.change_type === entries[0].change_type) ? entries[0].change_type : "improvement";
   const localizedContent = buildPublishedSuggestion(module, changeType);
-  localizedContent.da.description = `${dailyDanishSummary(entries)}\n\nOmråde: ${moduleLabel(module, "da")}`;
+  const danishBullets = groupedDanishBullets(entries);
+  localizedContent.da.title = groupedDanishTitle(entries, danishBullets);
+  localizedContent.da.description = `Hvad er ændret?\n${danishBullets.map((bullet) => `• ${bullet}`).join("\n")}\n\nOmråde: ${moduleLabel(module, "da")}`;
   const sourceRefs = entries.map((entry) => entry.source_ref).filter(Boolean);
   const implementedAt = entries.map((entry) => entry.implemented_at).sort().at(-1) || new Date().toISOString();
   const roles = Array.from(new Set(entries.flatMap((entry) => entry.affected_roles)));
@@ -631,15 +646,6 @@ Deno.serve(async (req) => {
           user_impact_score: suggestion.group.user_impact_score,
           technical_impact_score: suggestion.group.technical_impact_score,
           grouped_at: new Date().toISOString(),
-          ...(suggestion.group.status === "published"
-            ? {
-              title_public: suggestion.group.title_public,
-              description_public: suggestion.group.description_public,
-              localized_content: suggestion.group.localized_content,
-              status: "published",
-              published_at: suggestion.group.published_at,
-            }
-            : {}),
         })
         .eq("id", groupId);
       if (groupUpdateError) continue;

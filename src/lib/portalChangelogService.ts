@@ -315,111 +315,102 @@ export function buildPublishedFeatureSuggestion(
   };
 }
 
-const CRM_OVERVIEW_GROUP_TEXT: Record<PortalUiLanguage, { title: string; description: string; note: string }> = {
-  da: {
-    title: 'CRM-overblikket er forbedret',
-    description: 'Partneroversigten er blevet gjort mere kompakt og overskuelig. Kontaktoplysninger, KPI-kort, noter og øvrige partnerdata er blevet organiseret bedre, så de vigtigste oplysninger er lettere at finde og arbejde med.',
-    note: 'CRM-overblik forbedret',
-  },
-  en: {
-    title: 'The CRM overview has been improved',
-    description: 'The partner overview has been made more compact and easier to scan. Contact details, KPI cards, notes and other partner data are organized more clearly, so the most important information is easier to find and work with.',
-    note: 'CRM overview improved',
-  },
-  de: {
-    title: 'Die CRM-Übersicht wurde verbessert',
-    description: 'Die Partnerübersicht wurde kompakter und übersichtlicher gestaltet. Kontaktdaten, KPI-Karten, Notizen und weitere Partnerdaten sind klarer organisiert, damit wichtige Informationen leichter zu finden und zu bearbeiten sind.',
-    note: 'CRM-Übersicht verbessert',
-  },
-  it: {
-    title: 'La panoramica CRM è stata migliorata',
-    description: 'La panoramica partner è stata resa più compatta e chiara. Contatti, KPI, note e altri dati partner sono organizzati meglio, così le informazioni principali sono più facili da trovare e usare.',
-    note: 'Panoramica CRM migliorata',
-  },
-  hu: {
-    title: 'A CRM-áttekintés továbbfejlesztve',
-    description: 'A partneráttekintés kompaktabb és áttekinthetőbb lett. A kapcsolattartási adatok, KPI-kártyák, jegyzetek és egyéb partneradatok rendezettebben jelennek meg, így a fontos információk könnyebben megtalálhatók és használhatók.',
-    note: 'CRM-áttekintés fejlesztve',
-  },
-  sv: {
-    title: 'CRM-översikten har förbättrats',
-    description: 'Partneröversikten har blivit mer kompakt och lättare att överblicka. Kontaktuppgifter, KPI-kort, anteckningar och annan partnerdata är tydligare organiserade, så viktig information blir lättare att hitta och arbeta med.',
-    note: 'CRM-översikt förbättrad',
-  },
-  fr: {
-    title: 'La vue d’ensemble CRM a été améliorée',
-    description: 'La vue partenaire est plus compacte et plus claire. Les coordonnées, cartes KPI, notes et autres données partenaire sont mieux organisées, afin de retrouver et traiter plus facilement les informations importantes.',
-    note: 'Vue CRM améliorée',
-  },
-  pl: {
-    title: 'Widok CRM został ulepszony',
-    description: 'Widok partnera jest bardziej kompaktowy i czytelny. Dane kontaktowe, karty KPI, notatki i pozostałe dane partnera są lepiej uporządkowane, dzięki czemu najważniejsze informacje łatwiej znaleźć i wykorzystać.',
-    note: 'Widok CRM ulepszony',
-  },
-  cs: {
-    title: 'Přehled CRM byl vylepšen',
-    description: 'Přehled partnera je kompaktnější a přehlednější. Kontaktní údaje, KPI karty, poznámky a další partnerská data jsou lépe uspořádána, takže důležité informace lze snáze najít a používat.',
-    note: 'Přehled CRM vylepšen',
-  },
-};
-
 function rowTextForGrouping(row: Pick<SiteChangeEntryRow, 'title_internal' | 'description_internal' | 'technical_description'>): string {
   return `${row.title_internal}\n${row.description_internal || ''}\n${row.technical_description || ''}`.toLowerCase();
 }
 
-function isCrmOverviewGroup(rows: Array<Pick<SiteChangeEntryRow, 'title_internal' | 'description_internal' | 'technical_description' | 'module'>>): boolean {
-  return rows.length > 0 && rows.every((row) => row.module === 'crm' && /\b(partner|dealer|detail|overview|overblik|kpi|note|quick-card|quick card)\b/.test(rowTextForGrouping(row)));
-}
-
-const DAILY_DANISH_SUMMARIES: Array<{ pattern: RegExp; text: string }> = [
-  { pattern: /\b(lead|kontaktperson|kontakt|kunde|customer)\b/, text: 'Lead- og kontaktflowet er forbedret.' },
-  { pattern: /\b(tilbud|quote)\b/, text: 'Tilbud kan håndteres mere direkte fra CRM.' },
-  { pattern: /\b(budget|pipeline|sandsynlighed|probability)\b/, text: 'Budget- og pipelineoplysninger følger de gemte CRM-data mere konsekvent.' },
-  { pattern: /\b(ordre|order)\b/, text: 'Ordreoplysninger er koblet mere pålideligt til CRM.' },
-  { pattern: /\b(ejer|owner|ansvarlig|seller|sælger)\b/, text: 'Ansvar og filtrering er blevet tydeligere.' },
-  { pattern: /\b(partner|dealer|forhandler|detail|profil)\b/, text: 'Partneroverblikket er blevet mere overskueligt.' },
-  { pattern: /\b(configurator|konfigurator|produkt|product|redskab|værktøj|tool)\b/, text: 'Produktvalg og visning i konfiguratoren er forbedret.' },
-  { pattern: /\b(video|image|billede|specifikation|asset|badge)\b/, text: 'Produktindhold og materialer er blevet lettere at vedligeholde.' },
-  { pattern: /\b(backend|bruger|user|adgang|permission)\b/, text: 'Administration og adgangsstyring er blevet tydeligere.' },
+const GROUPED_DANISH_COPY: Array<{ pattern: RegExp; title: string; bullet: string }> = [
+  {
+    pattern: /\b(manual|manuelle).*(customer|kunde)|(customer|kunde).*(manual|manuelle)\b/,
+    title: 'CRM: Manuelle kundeoplysninger bevares',
+    bullet: 'Manuelle kundeoplysninger bevares, når der skiftes mellem forhandler og manuel kunde.',
+  },
+  {
+    pattern: /\b(budget|pipeline|sandsynlighed|probability)\b/,
+    title: 'CRM: Budget og pipeline følger CRM-data',
+    bullet: 'Budget og pipeline følger de gemte CRM-data mere konsekvent.',
+  },
+  {
+    pattern: /\b(payment|betalingsbetingelse|net21|net14)\b/,
+    title: 'Betalingsbetingelser følger ordren',
+    bullet: 'Den valgte betalingsbetingelse bevares fra konfiguratoren til ordrebekræftelsen.',
+  },
+  {
+    pattern: /\b(partner|dealer|forhandler|detail|overview|overblik|kpi|note|quick-card|quick card)\b/,
+    title: 'CRM: Partneroverblikket er samlet',
+    bullet: 'Partneroplysninger og de vigtigste handlinger er samlet mere overskueligt.',
+  },
+  {
+    pattern: /\b(ordre|order)\b/,
+    title: 'Ordreoplysninger følger den gemte ordre',
+    bullet: 'Ordreoplysninger vises fra den gemte ordre uden at ændre ordrelinjer eller priser.',
+  },
+  {
+    pattern: /\b(ejer|owner|ansvarlig|seller|sælger)\b/,
+    title: 'Ansvarlig sælger vises ens i CRM',
+    bullet: 'Ansvarlig sælger og ejer vises ens på tværs af CRM.',
+  },
+  {
+    pattern: /\b(configurator|konfigurator|produkt|product|redskab|værktøj|tool)\b/,
+    title: 'Produktvalg i konfiguratoren er forbedret',
+    bullet: 'Produktvalg og relateret produktinformation vises mere klart i konfiguratoren.',
+  },
+  {
+    pattern: /\b(video|image|billede|specifikation|asset|badge)\b/,
+    title: 'Produktmateriale er samlet på kortene',
+    bullet: 'Video, billeder og specifikationer er samlet med den relevante produktinformation.',
+  },
+  {
+    pattern: /\b(backend|bruger|user|adgang|permission)\b/,
+    title: 'Adgangsstyring er præciseret',
+    bullet: 'Adgang til funktioner følger nu de relevante brugerrettigheder.',
+  },
 ];
 
-function dailyDanishSummary(rows: Array<Pick<SiteChangeEntryRow, 'title_internal' | 'description_internal' | 'technical_description' | 'module'>>): string {
-  const text = rows.map(rowTextForGrouping).join('\n');
-  const summaries = DAILY_DANISH_SUMMARIES
-    .filter(({ pattern }) => pattern.test(text))
-    .map(({ text: summary }) => summary)
-    .slice(0, 3);
-  if (summaries.length > 0) return summaries.join(' ');
+type GroupedRow = Pick<SiteChangeEntryRow, 'title_internal' | 'description_internal' | 'technical_description' | 'module'>;
 
+function readableTechnicalTitle(title: string): string {
+  return title
+    .replace(/^(feat|fix|chore|refactor|style|test|docs|build|ci)(\([^)]+\))?:\s*/i, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[.]+$/, '')
+    .trim();
+}
+
+function groupedDanishBullets(rows: GroupedRow[]): string[] {
+  const bullets: string[] = [];
+  for (const row of rows) {
+    const copy = GROUPED_DANISH_COPY.find(({ pattern }) => pattern.test(rowTextForGrouping(row)));
+    const bullet = copy?.bullet || readableTechnicalTitle(row.title_internal);
+    if (bullet && !bullets.includes(bullet)) bullets.push(bullet);
+  }
+  return bullets.slice(0, 5);
+}
+
+function groupedDanishTitle(rows: GroupedRow[], bullets: string[]): string {
+  for (const row of rows) {
+    const copy = GROUPED_DANISH_COPY.find(({ pattern }) => pattern.test(rowTextForGrouping(row)));
+    if (copy) return copy.title;
+  }
   const module = rows[0]?.module || 'portalen';
   const label = moduleName(module).da || module;
-  return `${label} er blevet opdateret med dagens vigtigste forbedringer.`;
+  return `${label}: ${bullets[0] || 'Opdatering'}`;
 }
 
 export function buildGroupedFeatureSuggestion(rows: SiteChangeEntryRow[]): SiteChangeLocalizedContent {
   const module = rows[0]?.module || 'backend';
   const changeType = rows[0]?.change_type || 'improvement';
-  const useCrmOverview = module === 'crm' && isCrmOverviewGroup(rows);
+  const danishBullets = groupedDanishBullets(rows);
+  const danishTitle = groupedDanishTitle(rows, danishBullets);
 
   return PORTAL_LANGUAGE_CODES.reduce((acc, lang) => {
     const area = moduleName(module)[lang] || moduleName(module).en || moduleName(module).da || module;
-    if (useCrmOverview) {
-      const text = CRM_OVERVIEW_GROUP_TEXT[lang];
-      acc[lang] = {
-        title: text.title,
-        description: `${text.description}\n\n${AREA_PREFIX[lang]}: ${area}`,
-        note: text.note,
-        module_label: area,
-        change_type_label: changeType,
-      };
-      return acc;
-    }
     const generated = buildPublishedFeatureSuggestion(module, changeType, lang);
     acc[lang] = {
       ...generated,
-      title: generated.title,
+      title: lang === 'da' ? danishTitle : generated.title,
       description: lang === 'da'
-        ? `${dailyDanishSummary(rows)}\n\n${AREA_PREFIX[lang]}: ${area}`
+        ? `Hvad er ændret?\n${danishBullets.map((bullet) => `• ${bullet}`).join('\n')}\n\n${AREA_PREFIX[lang]}: ${area}`
         : generated.description || '',
     };
     return acc;

@@ -757,7 +757,9 @@ export default function BackendChangelogPage() {
                   <textarea rows={3} value={draft.description_internal || ""} onChange={(event) => setDraft({ ...draft, description_internal: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
                 </Field>
                 <Field label={st("siteFeaturesTechnicalDescription")}>
-                  <textarea rows={3} value={draft.technical_description || ""} onChange={(event) => setDraft({ ...draft, technical_description: event.target.value })} className="w-full rounded-lg border border-slate-200 px-3 py-2" />
+                  <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                    {draft.technical_description || "—"}
+                  </pre>
                 </Field>
                 <Field label={st("siteFeaturesPublishedLanguage")}>
                   <select value={contentLanguage} onChange={(event) => setContentLanguage(event.target.value as PortalUiLanguage)} className="w-full rounded-lg border border-slate-200 px-3 py-2">

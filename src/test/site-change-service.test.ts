@@ -241,7 +241,8 @@ describe('site change service', () => {
     expect(source).toContain('const description = pickLocalizedRecord(entry.description || {}, language)');
     expect(source).toContain("t('siteFeaturesArea', language)");
     expect(source).toContain('formatChangedDate(entry.changed_at)');
-    expect(source).toContain('line-clamp-2');
+    expect(source).toContain('line-clamp-5');
+    expect(source).toContain('whitespace-pre-line');
   });
 
   it('keeps GitHub-imported technical metadata separate from suggested public text', () => {
@@ -331,9 +332,9 @@ describe('site change service', () => {
     ];
 
     const suggestion = buildGroupedFeatureSuggestion(rows);
-    expect(suggestion.da?.title).toBe('CRM er forbedret');
-    expect(suggestion.da?.description).toBe('Lead- og kontaktflowet er forbedret. Budget- og pipelineoplysninger følger de gemte CRM-data mere konsekvent.\n\nOmråde: CRM');
-    expect((suggestion.da?.description.match(/\n/g) || [])).toHaveLength(2);
+    expect(suggestion.da?.title).toBe('CRM: Manuelle kundeoplysninger bevares');
+    expect(suggestion.da?.description).toBe('Hvad er ændret?\n• Manuelle kundeoplysninger bevares, når der skiftes mellem forhandler og manuel kunde.\n• Budget og pipeline følger de gemte CRM-data mere konsekvent.\n\nOmråde: CRM');
+    expect((suggestion.da?.description.match(/\n/g) || [])).toHaveLength(4);
   });
 
   it('generates one user-facing CRM overview text for grouped partner-detail commits', () => {
@@ -371,9 +372,10 @@ describe('site change service', () => {
     }));
 
     const suggestion = buildGroupedFeatureSuggestion(rows);
-    expect(suggestion.da?.title).toBe('CRM-overblikket er forbedret');
-    expect(suggestion.da?.description).toContain('Partneroversigten er blevet gjort mere kompakt');
-    expect(suggestion.en?.title).toBe('The CRM overview has been improved');
-    expect(suggestion.de?.title).toBe('Die CRM-Übersicht wurde verbessert');
+    expect(suggestion.da?.title).toBe('CRM: Partneroverblikket er samlet');
+    expect(suggestion.da?.description).toContain('Hvad er ændret?');
+    expect(suggestion.da?.description).toContain('Partneroplysninger og de vigtigste handlinger er samlet mere overskueligt.');
+    expect(suggestion.en?.title).toBe('CRM has been improved');
+    expect(suggestion.de?.title).toBe('CRM wurde verbessert');
   });
 });

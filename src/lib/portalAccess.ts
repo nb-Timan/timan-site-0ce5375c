@@ -220,9 +220,9 @@ export function canManageNewsContent(
 ): boolean {
   if (!user) return false;
   const role = derivePortalRole(user);
-  if (role && getPortalPermissions(role).canManageNews) return true;
-  if (Array.isArray(user.allowed_areas)) return user.allowed_areas.includes('marketing');
-  return user.permissions?.news_manage === true;
+  if (role === 'timan_backend') return true;
+  if (role !== 'timan_seller' && role !== 'timan_service') return false;
+  return user.permissions?.news_manage === true || user.allowed_areas?.includes('marketing') === true;
 }
 
 export function canManageMarketingVideos(
@@ -447,6 +447,10 @@ export function hasAreaAccess(
   // manual user settings must never hide an area that Backend can manage.
   if (role === 'timan_backend') return true;
 
+  // Marketing publishing has a stricter permission model than a general area:
+  // the UI must use the same internal-role gate as the RLS policies.
+  if (area === 'marketing') return canManageNewsContent(user);
+
   // Highest priority: manual Backend → Brugere area choices.
   // Empty array means "no areas"; null/undefined means "use role defaults".
   if (Array.isArray(user.allowed_areas)) {
@@ -454,10 +458,6 @@ export function hasAreaAccess(
   }
 
   if (user.role === 'slutkunde' && !role) return false;
-
-  if (area === 'marketing') {
-    return canManageNewsContent(user);
-  }
 
   if (area === 'calendar') {
     const moduleOverride = getUserModuleAccessOverride(user);
