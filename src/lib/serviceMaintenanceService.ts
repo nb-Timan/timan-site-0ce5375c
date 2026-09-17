@@ -174,6 +174,38 @@ export async function listServiceMachines(opts?: {
   return (data ?? []).map((row) => mapMachine(row as Record<string, unknown>));
 }
 
+/**
+ * Read a known effective dealer scope without ever falling back to an
+ * unfiltered RPC call. This matters during Backend View-as: the authenticated
+ * JWT remains Backend, while the UI must still only receive the previewed
+ * dealer's machine population.
+ */
+export async function listServiceMachinesForDealerNumbers(
+  dealerNumbers: Iterable<string>,
+  opts?: Omit<Parameters<typeof listServiceMachines>[0], 'dealerNumber'>,
+): Promise<ServiceMachine[]> {
+  const numbers = Array.from(new Set(
+    Array.from(dealerNumbers)
+      .map((number) => number.trim())
+      .filter(Boolean),
+  ));
+  const rows: ServiceMachine[] = [];
+  const seen = new Set<string>();
+
+  // Keep the request bounded and avoid a global result set when a service
+  // partner has more than one allowed dealer.
+  for (const dealerNumber of numbers) {
+    const dealerRows = await listServiceMachines({ ...opts, dealerNumber });
+    for (const row of dealerRows) {
+      const key = row.machine_registration_id ?? row.normalized_serial;
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      rows.push(row);
+    }
+  }
+  return rows;
+}
+
 export async function searchServiceMachines(query: string, dealerNumber?: string | null): Promise<ServiceMachine[]> {
   const normalized = query.trim();
   if (!normalized) return [];
@@ -195,6 +227,30 @@ export async function listServiceRegistrations(opts?: {
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((row) => mapRegistration(row as RawRegistration));
+}
+
+/** See listServiceMachinesForDealerNumbers for why View-as reads stay scoped. */
+export async function listServiceRegistrationsForDealerNumbers(
+  dealerNumbers: Iterable<string>,
+  opts?: Omit<Parameters<typeof listServiceRegistrations>[0], 'dealerNumber'>,
+): Promise<ServiceRegistration[]> {
+  const numbers = Array.from(new Set(
+    Array.from(dealerNumbers)
+      .map((number) => number.trim())
+      .filter(Boolean),
+  ));
+  const rows: ServiceRegistration[] = [];
+  const seen = new Set<string>();
+
+  for (const dealerNumber of numbers) {
+    const dealerRows = await listServiceRegistrations({ ...opts, dealerNumber });
+    for (const row of dealerRows) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      rows.push(row);
+    }
+  }
+  return rows.sort((a, b) => b.service_date.localeCompare(a.service_date));
 }
 
 export async function getServiceRegistration(id: string): Promise<ServiceRegistration | null> {

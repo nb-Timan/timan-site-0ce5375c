@@ -18,13 +18,17 @@ import { pickT } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
+import { applyScopeFilter, teknikScopeIdentityKey, useTeknikScope } from '@/lib/useTeknikScope';
+import { fetchDealerAccountsByNumbers } from '@/lib/dealerAccountsService';
 import LastChangedLine from '@/components/portal/LastChangedLine';
 import {
   ServiceMachine,
   ServiceRegistration,
   ServiceInterval,
   listServiceMachines,
+  listServiceMachinesForDealerNumbers,
   listServiceRegistrations,
+  listServiceRegistrationsForDealerNumbers,
   listScopedServiceDealers,
   searchServiceMachines,
   createServiceRegistration,
@@ -136,6 +140,13 @@ export default function ServiceMaintenancePage() {
   const portalRole = derivePortalRole(effectiveUser);
   const isBackend = portalRole === 'timan_backend' || portalRole === 'timan_service';
   const canChooseServiceDealer = isBackend || portalRole === 'timan_importer' || portalRole === 'timan_service_partner';
+  const { scope: teknikScope, loading: resolvingTeknikScope } = useTeknikScope();
+  const effectiveScopeIdentity = teknikScopeIdentityKey(effectiveUser);
+  const scopedDealerNumbers = useMemo(
+    () => Array.from(teknikScope.dealerNumbers).sort(),
+    [teknikScope],
+  );
+  const scopedDealerNumbersKey = scopedDealerNumbers.join('|');
 
   const [searchParams, setSearchParams] = useSearchParams();
   const view = parseView(searchParams.get('view'), 'dashboard');
@@ -157,9 +168,30 @@ export default function ServiceMaintenancePage() {
   const [dealers, setDealers] = useState<ScopedServiceDealer[]>([]);
 
   useEffect(() => {
-    if (!appUser) return;
-    listScopedServiceDealers().then(setDealers).catch(() => setDealers([]));
-  }, [appUser]);
+    if (!appUser || resolvingTeknikScope || !canChooseServiceDealer) {
+      setDealers([]);
+      return;
+    }
+    let cancelled = false;
+    const setIfCurrent = (rows: ScopedServiceDealer[]) => {
+      if (!cancelled) setDealers(rows);
+    };
+
+    if (teknikScope.unrestricted) {
+      listScopedServiceDealers().then(setIfCurrent).catch(() => setIfCurrent([]));
+    } else {
+      // Do not invoke the Backend-global dealer resolver during View-as.
+      // Query only the accounts already resolved into the effective scope.
+      fetchDealerAccountsByNumbers(scopedDealerNumbers)
+        .then(({ rows }) => setIfCurrent(rows.map((row) => ({
+          id: row.id,
+          account_number: row.account_number,
+          company_name: row.company_name,
+        }))))
+        .catch(() => setIfCurrent([]));
+    }
+    return () => { cancelled = true; };
+  }, [appUser, canChooseServiceDealer, resolvingTeknikScope, scopedDealerNumbersKey, teknikScope.unrestricted]);
 
   // Form
   const dealerNumber = effectiveUser?.dealer_number ?? null;
@@ -232,46 +264,85 @@ export default function ServiceMaintenancePage() {
 
   useEffect(() => {
     const query = form.serial_number.trim();
-    if (query.length < 2) {
+    if (query.length < 2 || resolvingTeknikScope) {
       setMachineSuggestions([]);
       return;
     }
     let cancelled = false;
     const timer = window.setTimeout(() => {
       searchServiceMachines(query, form.dealer_number || null)
-        .then((rows) => { if (!cancelled) setMachineSuggestions(rows); })
+        .then((rows) => {
+          if (!cancelled) {
+            setMachineSuggestions(applyScopeFilter(teknikScope, rows, (row) => ({
+              dealer_number: row.dealer_number,
+              dealer_name: row.dealer_name,
+            })));
+          }
+        })
         .catch(() => { if (!cancelled) setMachineSuggestions([]); });
     }, 200);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [form.serial_number, form.dealer_number]);
+  }, [form.serial_number, form.dealer_number, resolvingTeknikScope, scopedDealerNumbersKey, teknikScope]);
 
   const reload = useMemo(() => async () => {
+    if (resolvingTeknikScope) return;
     try {
-      const m = await listServiceMachines({
-        dealerNumber: isBackend ? (fDealer || null) : null,
+      const machineFilters = {
         machineType: fType || null,
         search: fSerial || null,
-      });
-      setMachines(m);
-      const r = await listServiceRegistrations({
-        dealerNumber: isBackend ? (fDealer || undefined) : undefined,
-      });
-      setRegistrations(r);
+      };
+      const registrationFilters = isBackend && fDealer
+        ? { dealerNumber: fDealer }
+        : undefined;
+      const [m, r] = teknikScope.unrestricted
+        ? await Promise.all([
+          listServiceMachines({ ...machineFilters, dealerNumber: isBackend ? (fDealer || null) : null }),
+          listServiceRegistrations(registrationFilters),
+        ])
+        : await Promise.all([
+          listServiceMachinesForDealerNumbers(scopedDealerNumbers, machineFilters),
+          listServiceRegistrationsForDealerNumbers(scopedDealerNumbers),
+        ]);
+
+      // Belt and suspenders: the source requests are narrowed by effective
+      // dealer number, and rendering applies the same canonical scope again.
+      setMachines(applyScopeFilter(teknikScope, m, (row) => ({
+        dealer_number: row.dealer_number,
+        dealer_name: row.dealer_name,
+      })));
+      setRegistrations(applyScopeFilter(teknikScope, r, (row) => ({
+        dealer_number: row.dealer_number,
+        dealer_name: row.dealer_name,
+      })));
     } catch (e) {
       console.error('[service-maintenance] load failed', e);
     }
-  }, [isBackend, fDealer, fType, fSerial]);
+  }, [isBackend, fDealer, fType, fSerial, resolvingTeknikScope, scopedDealerNumbersKey, teknikScope]);
 
   useEffect(() => { if (appUser) reload(); }, [appUser, reload]);
 
-  if (loading || resolving) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
+  // A backend JWT may have filled the prior list before View-as changes.
+  // Clear it immediately and wait for the new effective scope to resolve.
+  useEffect(() => {
+    setMachines([]);
+    setRegistrations([]);
+    setHistoryFor(null);
+    setHistoryRows([]);
+  }, [effectiveScopeIdentity]);
+
+  if (loading || resolving || resolvingTeknikScope) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   if (!appUser || !effectiveUser) return <Navigate to="/portal" replace />;
 
   const lastServiceFor = (serial: string) => registrations.find(r => r.serial_number.toLowerCase() === serial.toLowerCase());
   const historyOpen = async (m: ServiceMachine) => {
     setHistoryFor(m);
-    const rows = await listServiceRegistrations({ serialNumber: m.serial_number });
-    setHistoryRows(rows);
+    const rows = teknikScope.unrestricted
+      ? await listServiceRegistrations({ serialNumber: m.serial_number })
+      : await listServiceRegistrationsForDealerNumbers(scopedDealerNumbers, { serialNumber: m.serial_number });
+    setHistoryRows(applyScopeFilter(teknikScope, rows, (row) => ({
+      dealer_number: row.dealer_number,
+      dealer_name: row.dealer_name,
+    })));
   };
 
   async function handleSubmit(e: React.FormEvent) {
