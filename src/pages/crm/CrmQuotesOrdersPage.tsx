@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink } from 'lucide-react';
+import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink, History } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import CrmLayout from '@/components/crm/CrmLayout';
 import EditOrderContactModal from '@/components/crm/EditOrderContactModal';
+import SubmittedOrderRevisionHistoryModal from '@/components/crm/SubmittedOrderRevisionHistoryModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -131,6 +132,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [search, setSearch] = useState(dealerParam);
   const [reloadKey, setReloadKey] = useState(0);
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
+  const [revisionRow, setRevisionRow] = useState<CrmConfigurationRow | null>(null);
   const [deletingRow, setDeletingRow] = useState<CrmConfigurationRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -141,6 +143,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   // `portalRole` is derived from the effective user, so this remains hidden
   // when Backend is viewing the portal with a seller or external scope.
   const canEditOrderContacts = portalRole === 'timan_backend' && mode === 'order';
+  const canReopenSubmittedOrder = isBackendFull && mode === 'order';
   // Soft-delete UI is Backend-only and hidden in seller-view mode / external roles.
   const canDelete = isBackendFull;
 
@@ -344,7 +347,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                   <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
                   {mode === 'quote' && <th className="text-left px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
-                  {canEditOrderContacts && <th className="px-3 py-2 font-semibold w-10"></th>}
+                  {canEditOrderContacts && <th className="px-3 py-2 font-semibold w-24"></th>}
                   {canDelete && <th className="px-3 py-2 font-semibold w-10"></th>}
                 </tr>
               </thead>
@@ -417,15 +420,39 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       )}
                       {canEditOrderContacts && (
                         <td className="px-3 py-2.5 text-right">
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setEditingRow(r); }}
-                            className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
-                            title="Redigér ordreoplysninger"
-                            aria-label="Redigér ordreoplysninger"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setEditingRow(r); }}
+                              className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
+                              title="Redigér ordreoplysninger"
+                              aria-label="Redigér ordreoplysninger"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            {canReopenSubmittedOrder && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); navigate(`${configuratorHref}&orderCorrection=1`); }}
+                                className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
+                                title="Åbn i Configurator"
+                                aria-label="Åbn i Configurator"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            {canReopenSubmittedOrder && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setRevisionRow(r); }}
+                                className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
+                                title="Revisionshistorik"
+                                aria-label="Revisionshistorik"
+                              >
+                                <History className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                       {canDelete && (
@@ -458,6 +485,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
           onSaved={() => setReloadKey((k) => k + 1)}
         />
       )}
+      {revisionRow && <SubmittedOrderRevisionHistoryModal row={revisionRow} onClose={() => setRevisionRow(null)} />}
 
       <AlertDialog
         open={!!deletingRow}

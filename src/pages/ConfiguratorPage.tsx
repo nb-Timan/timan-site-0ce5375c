@@ -1281,7 +1281,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         // every UI guard that keys on state.flowType lights up correctly,
         // even if the persisted state_json still says 'quote' (legacy data
         // or a quote that was later converted/submitted as an order).
-        if (lockedOnLoad) setFlowType('order');
+        if (lockedOnLoad) {
+          setFlowType('order');
+          if (searchParams.get('orderCorrection') === '1' && canCorrectSubmittedOrder) {
+            setBackendCorrectionDialogOpen(true);
+          }
+        }
         setSavedQuoteNumber(saved.quote_number);
         setSavedOrderNumber(saved.order_number);
         setSavedSourceQuoteNumber(saved.source_quote_number ?? null);
@@ -1314,11 +1319,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         // avoid duplicate restores when the user starts editing).
         const next = new URLSearchParams(searchParams);
         next.delete('configId');
+        next.delete('orderCorrection');
         setSearchParams(next, { replace: true });
         setResumeBusy(false);
       }
     })();
-  }, [searchParams, appUser, lang, setState, setSearchParams]);
+  }, [searchParams, appUser, lang, setState, setSearchParams, setFlowType, canCorrectSubmittedOrder]);
 
   // CRM lead → configurator quote draft (?fromLeadQuote=<lead-id>).
   // This keeps the lead linked and preselects known machines/equipment, then
@@ -1827,7 +1833,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const openConfirmation = async () => {
 
     // Hard guard: a submitted order can never reopen the send confirmation.
-    if (orderLocked) {
+    if (orderLocked && !backendCorrectionSessionId) {
       toast.error(T('orderCannotResendTitle'));
       return;
     }
@@ -1939,6 +1945,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         return false;
       }
     } else if (activeCaseId) {
+      // A correction must persist the live Configurator snapshot before its
+      // confirmation/PDF is generated. The same correction session permits
+      // this write and later records the before/after revision atomically.
+      if (backendCorrectionSessionId) {
+        const correctionSave = await updateConfiguration(activeCaseId, state, {
+          ownership: ownershipPayload,
+          leadId: effectiveLeadId,
+          pricingMode: isExhibition ? 'messe' : undefined,
+        });
+        if (correctionSave.error || correctionSave.itemsError) {
+          toast.error('Kunne ikke gemme ordreændringer før gensendelse.', {
+            description: correctionSave.error || correctionSave.itemsError || undefined,
+          });
+          return false;
+        }
+      }
       try {
         const refs = await ensureReferenceNumbers(activeCaseId, effectiveFlowType === 'order');
         if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
@@ -1968,7 +1990,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       }
 
       const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
-      if (lockCheck.locked) {
+      if (lockCheck.locked && !backendCorrectionSessionId) {
         setOrderLocked(true);
         toast.error(T('orderCannotResendTitle'));
         setConfirmModalOpen(false);
@@ -1978,13 +2000,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       // The live trigger only permits an O-number together with the submitted
       // timestamp. Reserve the sequence value for the outgoing PDF/webhook,
       // then persist that exact value atomically in markAsOrderSubmitted().
-      const reservedOrderNumber = await getNextCrmDocumentNumber('order');
-      if (!reservedOrderNumber) {
-        toast.error(T('saveFailed'));
-        return false;
+      // A reopened order must keep its original O-number. Only new order
+      // submissions reserve a number from the sequence.
+      if (!activeOrderNumber) {
+        const reservedOrderNumber = await getNextCrmDocumentNumber('order');
+        if (!reservedOrderNumber) {
+          toast.error(T('saveFailed'));
+          return false;
+        }
+        activeOrderNumber = reservedOrderNumber;
+        setSavedOrderNumber(reservedOrderNumber);
       }
-      activeOrderNumber = reservedOrderNumber;
-      setSavedOrderNumber(reservedOrderNumber);
     }
 
     try {
@@ -2202,10 +2228,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 const submittedOrderNumber = await markAsOrderSubmitted(activeCaseId, {
                   pricingMode: isExhibition ? 'messe' : undefined,
                   orderNumber: activeOrderNumber,
+                  resend: Boolean(backendCorrectionSessionId),
                 });
-                if (submittedOrderNumber) {
-                  activeOrderNumber = submittedOrderNumber;
-                  setSavedOrderNumber(submittedOrderNumber);
+                if (!submittedOrderNumber) {
+                  throw new Error('Kunne ikke opdatere den gensendte ordre.');
+                }
+                activeOrderNumber = submittedOrderNumber;
+                setSavedOrderNumber(submittedOrderNumber);
+                if (backendCorrectionSessionId) {
+                  const completion = await completeSubmittedOrderCorrection(backendCorrectionSessionId);
+                  if (completion.error) throw new Error(completion.error);
+                  setBackendCorrectionSessionId(null);
                 }
               } catch (markErr) {
                 console.error('Failed to mark order as submitted:', markErr);
@@ -2645,15 +2678,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 {TC('close')}
               </button>
               <button
-                onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked)) setConfirmSubmitOpen(true); }}
-                disabled={submitting || (state.flowType === 'order' && orderLocked)}
-                title={state.flowType === 'order' && orderLocked ? TC('orderCannotResendTitle') : undefined}
+                onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked && !backendCorrectionSessionId)) setConfirmSubmitOpen(true); }}
+                disabled={submitting || (state.flowType === 'order' && orderLocked && !backendCorrectionSessionId)}
+                title={state.flowType === 'order' && orderLocked && !backendCorrectionSessionId ? TC('orderCannotResendTitle') : undefined}
                 className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
-                {state.flowType === 'order' && orderLocked
+                {state.flowType === 'order' && orderLocked && !backendCorrectionSessionId
                   ? TC('orderSubmittedBadge')
                   : submitting
                     ? (state.flowType === 'order' ? TC('sendingOrderBtn') : TC('sendingQuoteBtn'))
-                    : (state.flowType === 'order' ? TC('submitOrderBtn') : TC('submitQuoteBtn'))}
+                    : (state.flowType === 'order' && backendCorrectionSessionId ? 'Gem og gensend ordre' : state.flowType === 'order' ? TC('submitOrderBtn') : TC('submitQuoteBtn'))}
               </button>
             </div>
           </div>
@@ -2672,7 +2705,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             <p className="text-sm text-gray-700 mb-6">
               {state.flowType === 'order'
                 ? (lang === 'da'
-                    ? 'Vil du afsende denne ordre til Timan? Der oprettes et ordrenummer og PDF sendes.'
+                    ? (backendCorrectionSessionId
+                        ? 'Ændringerne gemmes på samme ordre, og den seneste ordrebekræftelse sendes igen.'
+                        : 'Vil du afsende denne ordre til Timan? Der oprettes et ordrenummer og PDF sendes.')
                     : 'Do you want to submit this order to Timan? An order number will be created and the PDF will be sent.')
                 : (lang === 'da'
                     ? 'Vil du afsende dette tilbud? Der oprettes et tilbudsnummer og PDF sendes.'
@@ -2695,7 +2730,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow disabled:opacity-60 disabled:cursor-not-allowed">
                 {submitting
                   ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
-                  : (lang === 'da' ? 'Bekræft' : 'Confirm')}
+                  : (backendCorrectionSessionId && state.flowType === 'order' ? 'Gem og gensend ordre' : lang === 'da' ? 'Bekræft' : 'Confirm')}
               </button>
             </div>
           </div>

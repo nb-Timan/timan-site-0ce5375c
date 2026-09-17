@@ -1509,13 +1509,14 @@ export async function deleteConfiguration(id: string) {
 /** Mark configuration as order submitted */
 export async function markAsOrderSubmitted(
   id: string,
-  options?: { pricingMode?: ConfigurationPricingMode; orderNumber?: string | null },
+  options?: { pricingMode?: ConfigurationPricingMode; orderNumber?: string | null; resend?: boolean },
 ): Promise<string | null> {
   const nowIso = new Date().toISOString();
   // Unscoped row read so backend/CRM users can convert a quote they did
   // NOT originally create (e.g. backend reopens Birger's quote). RLS still
   // guards the actual UPDATE below.
   let orderSentAt: string | null = nowIso;
+  let submittedAt: string | null = nowIso;
   let rowSnapshot: Record<string, unknown> | null = null;
   try {
     const { data: row } = await supabase
@@ -1525,8 +1526,12 @@ export async function markAsOrderSubmitted(
       .maybeSingle();
     rowSnapshot = (row as Record<string, unknown> | null) ?? null;
     const existingOrderSentAt = rowSnapshot?.order_sent_at;
-    if (typeof existingOrderSentAt === 'string' && existingOrderSentAt) {
+    if (!options?.resend && typeof existingOrderSentAt === 'string' && existingOrderSentAt) {
       orderSentAt = existingOrderSentAt;
+    }
+    const existingSubmittedAt = rowSnapshot?.submitted_at;
+    if (typeof existingSubmittedAt === 'string' && existingSubmittedAt) {
+      submittedAt = existingSubmittedAt;
     }
   } catch (e) {
     console.warn('[markAsOrderSubmitted] row snapshot read failed (ignored):', e);
@@ -1568,7 +1573,9 @@ export async function markAsOrderSubmitted(
     order_number: orderNumber,
     subtotal,
     total_price: totalPrice,
-    submitted_at: nowIso,
+    // Re-sending a corrected order updates only the explicit sent timestamp.
+    // The original submission remains the canonical lifecycle transition.
+    submitted_at: submittedAt,
     order_sent_at: orderSentAt,
     last_saved_at: nowIso,
   });
