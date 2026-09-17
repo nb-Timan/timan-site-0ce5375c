@@ -2056,35 +2056,37 @@ export default function CrmNewLeadPage() {
                     ? (q.order_number || q.quote_number || '—')
                     : (q.quote_number || '—');
                   return (
-                    <li key={q.id} className="py-2.5 flex items-center gap-3 text-sm">
+                    <li key={q.id} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2 gap-y-1 py-2.5 text-sm sm:flex sm:items-center sm:gap-3">
                       <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-slate-700">
                         {documentNumber}
                       </span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700">
                         {kindLabel}
                       </span>
-                      <span className="flex-1 truncate text-gray-800">{q.title || dealer}</span>
-                      <span className="text-xs text-gray-500 truncate">{dealer}</span>
-                      <span className="text-xs text-gray-500 truncate">{machines}</span>
-                      <span className="text-xs text-gray-500 tabular-nums">
+                      <span className="col-span-full min-w-0 break-words text-gray-800 sm:col-auto sm:flex-1 sm:truncate">{q.title || dealer}</span>
+                      <span className="hidden text-xs text-gray-500 sm:block sm:truncate">{dealer}</span>
+                      <span className="hidden text-xs text-gray-500 sm:block sm:truncate">{machines}</span>
+                      <span className="hidden text-xs text-gray-500 tabular-nums sm:block">
                         {new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(q.total_value || 0)}
                       </span>
-                      <span className="text-xs text-gray-400">
+                      <span className="col-span-full text-xs text-gray-400 sm:col-auto">
                         {sentAt ? new Date(sentAt).toLocaleDateString('da-DK') : '—'}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => void handleSyncConfigurationToLead(q.id)}
-                        disabled={syncingConfigurationId === q.id}
-                        className="text-xs font-semibold text-[#2d5a27] hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {syncingConfigurationId === q.id
-                          ? (lang === 'da' ? 'Synker...' : 'Syncing...')
-                          : (lang === 'da' ? `Synkronisér fra ${documentNumber}` : `Sync from ${documentNumber}`)}
-                      </button>
-                      <Link to={getCrmConfigurationDeepLink(q)} className="text-xs text-[#2d5a27] hover:underline">
-                        {lang === 'da' ? 'Åbn' : 'Open'}
-                      </Link>
+                      <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 sm:contents">
+                        <button
+                          type="button"
+                          onClick={() => void handleSyncConfigurationToLead(q.id)}
+                          disabled={syncingConfigurationId === q.id}
+                          className="text-left text-xs font-semibold text-[#2d5a27] hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {syncingConfigurationId === q.id
+                            ? (lang === 'da' ? 'Synker...' : 'Syncing...')
+                            : (lang === 'da' ? `Synkronisér fra ${documentNumber}` : `Sync from ${documentNumber}`)}
+                        </button>
+                        <Link to={getCrmConfigurationDeepLink(q)} className="text-xs text-[#2d5a27] hover:underline">
+                          {lang === 'da' ? 'Åbn' : 'Open'}
+                        </Link>
+                      </div>
                     </li>
                   );
                 })}
