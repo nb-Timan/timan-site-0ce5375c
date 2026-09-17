@@ -1434,6 +1434,11 @@ export interface SubmittedOrderContactDetails {
   date: string;
 }
 
+export interface SubmittedOrderTimelineDetails {
+  createdDate: string;
+  sentDate: string;
+}
+
 const submittedOrderContactKeys = [
   'firmanavn',
   'kontaktperson',
@@ -1515,6 +1520,61 @@ export async function updateSubmittedOrderContactDetails(
   });
   if (error) {
     console.error('[updateSubmittedOrderContactDetails] error:', error);
+    return { ok: false, error: formatSupabaseError(error) };
+  }
+  return { ok: true, error: null };
+}
+
+function isoToDateInput(value: unknown): string {
+  return typeof value === 'string' && value.length >= 10 ? value.slice(0, 10) : '';
+}
+
+/** Backend-only read model for the two administrative order timeline dates. */
+export async function loadSubmittedOrderTimelineDetails(
+  id: string,
+): Promise<{ details: SubmittedOrderTimelineDetails | null; error: string | null }> {
+  const { data, error } = await supabase
+    .from('configurations')
+    .select('id, created_at, order_sent_at')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error || !data) {
+    return { details: null, error: error ? formatSupabaseError(error) : 'Ordren blev ikke fundet.' };
+  }
+
+  return {
+    details: {
+      createdDate: isoToDateInput((data as Record<string, unknown>).created_at),
+      sentDate: isoToDateInput((data as Record<string, unknown>).order_sent_at),
+    },
+    error: null,
+  };
+}
+
+/**
+ * Edits only the two administrative timeline dates through the Backend-only
+ * RPC. The server preserves each timestamp's time-of-day and audits the
+ * before/after values; it never sends or re-submits the order.
+ */
+export async function updateSubmittedOrderTimelineDetails(
+  id: string,
+  details: SubmittedOrderTimelineDetails,
+): Promise<{ ok: boolean; error: string | null }> {
+  if (!details.createdDate || !details.sentDate) {
+    return { ok: false, error: 'Udfyld både oprettet- og sendt-dato.' };
+  }
+  if (details.createdDate > details.sentDate) {
+    return { ok: false, error: 'Sendt-dato kan ikke ligge før oprettet-dato.' };
+  }
+
+  const { error } = await supabase.rpc('update_submitted_order_timeline_dates', {
+    p_configuration_id: id,
+    p_created_date: details.createdDate,
+    p_order_sent_date: details.sentDate,
+  });
+  if (error) {
+    console.error('[updateSubmittedOrderTimelineDetails] error:', error);
     return { ok: false, error: formatSupabaseError(error) };
   }
   return { ok: true, error: null };

@@ -20,6 +20,7 @@ import {
   LOOSE_TOOL_KEY,
 } from '@/data/machines';
 import { snapshotAccessoryPrice, snapshotMachinePrice } from '@/lib/configuratorPricing';
+import { resolvePaymentTerms } from '@/lib/paymentTerms';
 
 export interface SummaryAccessoryLine {
   id: string;
@@ -57,6 +58,7 @@ export interface QuoteContentSummary {
   language: Language;
   currency: 'DKK' | 'EUR';
   flow_type: 'quote' | 'order';
+  payment_terms: string;
   delivery: {
     method: string;
     date: string | null;
@@ -175,6 +177,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
     language: lang,
     currency,
     flow_type: state.flowType === 'order' ? 'order' : 'quote',
+    payment_terms: resolvePaymentTerms(state.paymentTerms),
     delivery: {
       method: state.deliveryMethod || '',
       date: state.date || null,

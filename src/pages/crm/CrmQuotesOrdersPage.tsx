@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink, History } from 'lucide-react';
+import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink, History, CalendarDays } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import CrmLayout from '@/components/crm/CrmLayout';
 import EditOrderContactModal from '@/components/crm/EditOrderContactModal';
+import EditOrderTimelineModal from '@/components/crm/EditOrderTimelineModal';
 import SubmittedOrderRevisionHistoryModal from '@/components/crm/SubmittedOrderRevisionHistoryModal';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -84,6 +85,7 @@ const T: Record<string, Record<Language, string>> = {
   col_seller: { da: 'Sælger', en: 'Seller', de: 'Verkäufer', it: 'Venditore', hu: 'Értékesítő' },
   col_dealer: { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő' },
   col_status: { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Státusz' },
+  col_expected_delivery: { da: 'Forventet levering', en: 'Expected delivery', de: 'Voraussichtliche Lieferung', it: 'Consegna prevista', hu: 'Várható szállítás' },
   col_created: { da: 'Oprettet', en: 'Created', de: 'Erstellt', it: 'Creato', hu: 'Létrehozva' },
   col_sent: { da: 'Sendt', en: 'Sent', de: 'Gesendet', it: 'Inviato', hu: 'Elküldve' },
   col_actions: { da: 'Handling', en: 'Actions', de: 'Aktionen', it: 'Azioni', hu: 'Műveletek' },
@@ -132,6 +134,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [search, setSearch] = useState(dealerParam);
   const [reloadKey, setReloadKey] = useState(0);
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
+  const [editingTimelineRow, setEditingTimelineRow] = useState<CrmConfigurationRow | null>(null);
   const [revisionRow, setRevisionRow] = useState<CrmConfigurationRow | null>(null);
   const [deletingRow, setDeletingRow] = useState<CrmConfigurationRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -344,6 +347,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                   <th className="text-left px-3 py-2 font-semibold">{T.col_seller[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_dealer[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>
+                  {mode === 'order' && <th className="text-left px-3 py-2 font-semibold">{T.col_expected_delivery[lang]}</th>}
                   <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
                   {mode === 'quote' && <th className="text-left px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
@@ -392,6 +396,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                           {badge.label}
                         </span>
                       </td>
+                      {mode === 'order' && <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.delivery_date)}</td>}
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.created_at)}</td>
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(sentAt)}</td>
                       {mode === 'quote' && (
@@ -429,6 +434,15 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                               aria-label="Redigér ordreoplysninger"
                             >
                               <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setEditingTimelineRow(r); }}
+                              className="inline-flex items-center gap-1 text-[12px] text-slate-600 hover:text-[#2d5a27]"
+                              title="Redigér oprettet og sendt"
+                              aria-label="Redigér oprettet og sendt"
+                            >
+                              <CalendarDays className="h-3.5 w-3.5" />
                             </button>
                             {canReopenSubmittedOrder && (
                               <button
@@ -482,6 +496,14 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
           row={editingRow}
           canEdit={canEditOrderContacts}
           onClose={() => setEditingRow(null)}
+          onSaved={() => setReloadKey((k) => k + 1)}
+        />
+      )}
+      {editingTimelineRow && (
+        <EditOrderTimelineModal
+          row={editingTimelineRow}
+          canEdit={canEditOrderContacts}
+          onClose={() => setEditingTimelineRow(null)}
           onSaved={() => setReloadKey((k) => k + 1)}
         />
       )}

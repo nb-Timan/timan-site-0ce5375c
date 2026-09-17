@@ -402,6 +402,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [dealerContacts, setDealerContacts] = useState<DealerContact[]>([]);
   const [dealerContactsLoading, setDealerContactsLoading] = useState(false);
   const previousCustomerDealerKey = useRef<string | null>(null);
+  // A dealer's term is a default for a new draft, never a later replacement
+  // for an explicitly selected or restored order term.
+  const paymentTermsExplicitRef = useRef(false);
+  const paymentTermsDealerIdRef = useRef<string | null>(null);
 
   // Step 3 reminder for Timan 3330 → varenr 721122 (centerslange).
   // Acknowledged set is keyed by unit configKey so it does not repeat for the
@@ -546,6 +550,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   useEffect(() => {
     let cancelled = false;
     const dealerId = ownership.dealerAccountId;
+    if (paymentTermsDealerIdRef.current !== dealerId) {
+      paymentTermsDealerIdRef.current = dealerId;
+      paymentTermsExplicitRef.current = false;
+    }
     if (!dealerId) {
       setSelectedDealerCustomerType(null);
       setSelectedDealerContractBaseDiscountPct(null);
@@ -567,11 +575,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         const terms = resolveConfiguratorContractTerms(data ?? {});
         setSelectedDealerCustomerType(ct);
         setSelectedDealerContractBaseDiscountPct(terms.baseDiscountPct);
-        if (terms.baseDiscountPct !== null || terms.paymentTerms !== null) {
+        if (terms.baseDiscountPct !== null || (terms.paymentTerms !== null && !paymentTermsExplicitRef.current)) {
           setState((current) => ({
             ...current,
             ...(terms.baseDiscountPct !== null ? { baseDiscountPct: terms.baseDiscountPct } : {}),
-            ...(terms.paymentTerms !== null ? { paymentTerms: terms.paymentTerms } : {}),
+            ...(terms.paymentTerms !== null && !paymentTermsExplicitRef.current ? { paymentTerms: terms.paymentTerms } : {}),
           }));
         }
       } catch {
@@ -1286,6 +1294,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           toast.error(lang === 'da' ? 'Kunne ikke indlæse sagen' : 'Failed to load case');
           return;
         }
+        paymentTermsExplicitRef.current = Boolean(saved.state_json.paymentTerms?.trim());
+        paymentTermsDealerIdRef.current = row.dealer_account_id ?? null;
         setState(saved.state_json);
         setSavedConfigurationId(saved.id);
         const lockedOnLoad = isSavedConfigurationOrderLocked(saved);
@@ -2163,6 +2173,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // emails with full machine + accessory details.
             language: state.language,
             currency: contentSummary.currency,
+            payment_terms: contentSummary.payment_terms,
             delivery: contentSummary.delivery,
             machines: contentSummary.machines,
             totals: contentSummary.totals,
@@ -2399,6 +2410,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // empty fields.
             language: state.language,
             currency: contentSummary.currency,
+            payment_terms: contentSummary.payment_terms,
             delivery: contentSummary.delivery,
             machines: contentSummary.machines,
             totals: contentSummary.totals,
@@ -3949,6 +3961,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 navigate('/portal', { replace: true });
               }}
               onRestoreState={(restored, configId, savedOwnership, options) => {
+                paymentTermsExplicitRef.current = Boolean(restored.paymentTerms?.trim());
+                paymentTermsDealerIdRef.current = savedOwnership?.dealer_account_id ?? null;
                 setState(restored);
                 if (options?.asNewDraft) {
                   setSavedConfigurationId(null);
@@ -4124,6 +4138,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           value={resolvePaymentTerms(state.paymentTerms)}
                           onChange={(e) => {
                             const v = e.target.value || DEFAULT_PAYMENT_TERMS;
+                            paymentTermsExplicitRef.current = true;
                             setState((s) => ({ ...s, paymentTerms: v }));
                           }}
                           className="w-full p-1.5 border rounded-lg text-sm bg-white"

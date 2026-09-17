@@ -35,6 +35,7 @@ export interface CrmConfigurationRow {
   case_status: string | null;
   status: string | null;
   created_at: string;
+  delivery_date: string | null;
   last_saved_at: string | null;
   title: string | null;
   quote_number: string | null;
@@ -134,6 +135,7 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
     lead_id: (row.lead_id as string | null) ?? null,
     status,
     created_at: (row.created_at as string) || new Date().toISOString(),
+    delivery_date: (row.delivery_date as string | null) ?? null,
     last_saved_at: (row.last_saved_at as string | null) ?? null,
     title: (row.title as string | null) ?? null,
     quote_number: (row.quote_number as string | null) ?? null,
