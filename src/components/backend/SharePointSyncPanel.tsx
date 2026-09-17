@@ -5,7 +5,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, CloudCog, CloudDownload, Loader2, ScanSearch, Zap } from "lucide-react";
+import { AlertTriangle, CheckCircle2, CloudCog, CloudDownload, Loader2, ScanSearch } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 import SharePointVerifyButton, { type SharePointVerifyHandle } from "./SharePointVerifyButton";
@@ -42,7 +42,6 @@ export default function SharePointSyncPanel() {
   const [loadingLog, setLoadingLog] = useState(true);
   const [verifyBusy, setVerifyBusy] = useState(false);
   const [dryRunBusy, setDryRunBusy] = useState(false);
-  const [realSyncBusy, setRealSyncBusy] = useState(false);
   const verifyRef = useRef<SharePointVerifyHandle>(null);
   const dryRunRef = useRef<SharePointDryRunHandle>(null);
   const realSyncRef = useRef<SharePointRealSyncHandle>(null);
@@ -80,15 +79,12 @@ export default function SharePointSyncPanel() {
     setTimeout(() => setDryRunBusy(false), 600);
   }
 
-  function startRealSync() {
-    setRealSyncBusy(true);
-    realSyncRef.current?.start();
-    setTimeout(() => setRealSyncBusy(false), 600);
-  }
-
   function handleRealSyncCompleted() {
     verifyRef.current?.clear();
     void loadLatest();
+    // Re-run dry-run after a selected sync so the completed rows disappear
+    // from the candidate list while any remaining differences stay visible.
+    dryRunRef.current?.start();
   }
 
   return (
@@ -164,28 +160,20 @@ export default function SharePointSyncPanel() {
           </button>
         </div>
 
-        <div className="flex items-start justify-between gap-4 bg-emerald-50/50 px-5 py-4">
+        <div className="flex items-start gap-4 bg-emerald-50/50 px-5 py-4">
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-bold text-slate-900">Synkronisér forhandlere fra SharePoint</h3>
+            <h3 className="text-base font-bold text-slate-900">Synkronisér valgte forhandlere</h3>
             <p className="mt-1 text-[15px] leading-relaxed text-slate-700">
-              Opdaterer kun stamdata. CRM, brugere, tilbud, ordrer og aktiviteter bevares.
+              Start med dry-run, vælg de konkrete rækker og bekræft derefter. Kun valgte stamdata opdateres.
+              CRM, brugere, tilbud, ordrer og aktiviteter bevares.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={startRealSync}
-            disabled={realSyncBusy}
-            className="inline-flex h-10 flex-shrink-0 items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-60"
-          >
-            {realSyncBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-            Synkronisér forhandlere fra SharePoint
-          </button>
         </div>
       </div>
 
       <SharePointVerifyButton ref={verifyRef} resultOnly />
-      <SharePointDryRunButton ref={dryRunRef} hideTrigger onRequestRealSync={() => realSyncRef.current?.start()} />
-      <SharePointRealSyncButton ref={realSyncRef} hideTrigger onSynced={handleRealSyncCompleted} />
+      <SharePointDryRunButton ref={dryRunRef} hideTrigger onRequestRealSync={(selectedAccountIds) => realSyncRef.current?.start(selectedAccountIds)} />
+      <SharePointRealSyncButton ref={realSyncRef} onSynced={handleRealSyncCompleted} />
     </div>
   );
 }
