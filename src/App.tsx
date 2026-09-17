@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Suspense, lazy, useEffect, useRef, useState, type ComponentType } from "react";
+import { Component, Suspense, lazy, useEffect, useRef, useState, type ComponentType, type ErrorInfo, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -105,21 +105,23 @@ ensureAkrSeed();
 const queryClient = new QueryClient();
 
 const CRM_MY_DEALERS_CHUNK_RELOAD_KEY = "timan.crm-my-dealers.chunk-reload";
+const CONFIGURATOR_CHUNK_RELOAD_KEY = "timan.configurator.chunk-reload";
 
 function lazyWithDynamicImportRecovery<T extends ComponentType<any>>(
   factory: () => Promise<{ default: T }>,
+  reloadKey = CRM_MY_DEALERS_CHUNK_RELOAD_KEY,
 ) {
   return lazy(async () => {
     try {
       const module = await factory();
-      sessionStorage.removeItem(CRM_MY_DEALERS_CHUNK_RELOAD_KEY);
+      sessionStorage.removeItem(reloadKey);
       return module;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const isStaleChunk = /failed to fetch dynamically imported module|importing a module script failed|loading chunk/i.test(message);
 
-      if (isStaleChunk && !sessionStorage.getItem(CRM_MY_DEALERS_CHUNK_RELOAD_KEY)) {
-        sessionStorage.setItem(CRM_MY_DEALERS_CHUNK_RELOAD_KEY, "1");
+      if (isStaleChunk && !sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, "1");
         window.location.reload();
         return new Promise<{ default: T }>(() => undefined);
       }
@@ -152,7 +154,10 @@ const CrmBudgetPage = lazy(() => import("./pages/crm/CrmBudgetPage"));
 const CrmBudgetDashboardPage = lazy(() => import("./pages/crm/CrmBudgetDashboardPage"));
 const CrmCalendarPage = lazy(() => import("./pages/crm/CrmCalendarPage"));
 
-const ConfiguratorPage = lazy(() => import("./pages/ConfiguratorPage"));
+const ConfiguratorPage = lazyWithDynamicImportRecovery(
+  () => import("./pages/ConfiguratorPage"),
+  CONFIGURATOR_CHUNK_RELOAD_KEY,
+);
 const AcademyPage = lazy(() => import("./pages/AcademyPage"));
 const AcademyCrmLeadsPage = lazy(() => import("./pages/crm/AcademyCrmLeadsPage"));
 const AcademyCrmRoute = lazy(() => import("./pages/crm/AcademyCrmLeadsPage").then((module) => ({ default: module.AcademyCrmRoute })));
@@ -232,6 +237,52 @@ function RouteFallback() {
       Henter...
     </div>
   );
+}
+
+type ConfiguratorRouteErrorBoundaryProps = {
+  children: ReactNode;
+};
+
+type ConfiguratorRouteErrorBoundaryState = {
+  hasError: boolean;
+};
+
+/** Prevent incomplete historic snapshots from ever degrading into a blank route. */
+class ConfiguratorRouteErrorBoundary extends Component<
+  ConfiguratorRouteErrorBoundaryProps,
+  ConfiguratorRouteErrorBoundaryState
+> {
+  state: ConfiguratorRouteErrorBoundaryState = { hasError: false };
+
+  static getDerivedStateFromError(): ConfiguratorRouteErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("[ConfiguratorRoute] Failed to render reopened configuration", error, errorInfo);
+  }
+
+  render() {
+    if (!this.state.hasError) return this.props.children;
+
+    return (
+      <main className="min-h-screen flex items-center justify-center p-6">
+        <section className="max-w-md space-y-3 text-center">
+          <h1 className="text-xl font-semibold">Konfigurationen kunne ikke åbnes</h1>
+          <p className="text-sm text-muted-foreground">
+            Den gemte konfiguration kunne ikke gendannes. Intet er blevet ændret.
+          </p>
+          <button
+            type="button"
+            className="text-sm font-medium underline"
+            onClick={() => window.history.back()}
+          >
+            Tilbage
+          </button>
+        </section>
+      </main>
+    );
+  }
 }
 
 const App = () => (
@@ -374,7 +425,7 @@ const App = () => (
               <Route path="/portal/backend/system-map" element={<BackendSystemMapPage />} />
 
               {/* Existing configurator is preserved at /configurator */}
-              <Route path="/configurator" element={<PortalLockGuard><AcademyCapabilityGuard capability="configurator"><ConfiguratorPage /></AcademyCapabilityGuard></PortalLockGuard>} />
+              <Route path="/configurator" element={<ConfiguratorRouteErrorBoundary><PortalLockGuard><AcademyCapabilityGuard capability="configurator"><ConfiguratorPage /></AcademyCapabilityGuard></PortalLockGuard></ConfiguratorRouteErrorBoundary>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
