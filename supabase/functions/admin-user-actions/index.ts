@@ -25,7 +25,7 @@
 //   • SUPABASE_ANON_KEY
 //
 // Optional:
-//   • PORTAL_SITE_URL  (defaults to https://timan-portal.lovable.app)
+//   • PORTAL_SITE_URL  (Lovable remains the fallback during the Vercel pilot)
 //
 // Deploy with: supabase functions deploy admin-user-actions
 // or via the Lovable / Supabase dashboard.
@@ -41,6 +41,10 @@ const corsHeaders = {
 
 const PORTAL_SITE_URL =
   Deno.env.get("PORTAL_SITE_URL") ?? "https://timan-portal.lovable.app";
+
+function isHttpsUrl(value: string | undefined): value is string {
+  return !!value && /^https?:\/\//i.test(value);
+}
 
 type Action =
   | "invite"
@@ -452,7 +456,9 @@ Deno.serve(async (req) => {
     } catch (e) {
       return json({ error: `Auth lookup fejlede: ${(e as Error).message}` }, 500);
     }
-    const redirectTo = `${PORTAL_SITE_URL}/portal/contracts/${contractId}`;
+    const redirectTo = isHttpsUrl(body.redirect_to)
+      ? body.redirect_to
+      : `${PORTAL_SITE_URL}/portal/contracts/${contractId}`;
     const inviteResult = existingAuth
       ? await admin.auth.resetPasswordForEmail(targetEmail, { redirectTo })
       : await admin.auth.admin.inviteUserByEmail(targetEmail, { redirectTo });
@@ -804,8 +810,6 @@ Deno.serve(async (req) => {
   }
 
   const redirectTo = `${PORTAL_SITE_URL}/portal`;
-  const isHttpsUrl = (u: string | undefined): u is string =>
-    !!u && /^https?:\/\//i.test(u);
   const resetRedirect = isHttpsUrl(body.redirect_to)
     ? body.redirect_to
     : `${PORTAL_SITE_URL}/reset-password`;

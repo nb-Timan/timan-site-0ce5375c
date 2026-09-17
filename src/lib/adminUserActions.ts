@@ -12,6 +12,7 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import { portalUrl } from "@/lib/portalSiteUrl";
 
 const SESSION_REFRESH_SKEW_MS = 30_000;
 const SESSION_EXPIRED_MESSAGE = "Din session er udløbet. Log ind igen for at fortsætte.";
@@ -108,7 +109,9 @@ async function invokeAdminAction(
     dealer_account_number: opts.dealerAccountNumber ?? null,
     partner_name: opts.partnerName ?? null,
     patch: opts.patch,
-    redirect_to: `${window.location.origin}/reset-password`,
+    redirect_to: opts.contractId
+      ? portalUrl(`/portal/contracts/${opts.contractId}`)
+      : portalUrl('/reset-password'),
   };
 
   try {

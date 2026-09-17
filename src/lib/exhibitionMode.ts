@@ -13,6 +13,8 @@
  *   - the canonical QR URL for printed materials.
  */
 
+import { portalUrl } from '@/lib/portalSiteUrl';
+
 const MESSE_ENABLED_KEY = 'timan.messeEnabled';
 
 /** Backend-controlled toggle for public QR access. Default: enabled. */
@@ -33,6 +35,5 @@ export function setMesseEnabled(enabled: boolean): void {
 }
 
 export function getMesseUrl(): string {
-  // Always point to the production site so printed QR codes work at fairs.
-  return 'https://timan-site.lovable.app/portal?redirect=/messe';
+  return portalUrl('/portal?redirect=/messe', { configured: true });
 }
