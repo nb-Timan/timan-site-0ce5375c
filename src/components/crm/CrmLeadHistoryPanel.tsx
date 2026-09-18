@@ -17,6 +17,7 @@ interface CrmLeadHistoryPanelProps {
   ownerName?: string | null;
   legacyNotes?: string | null;
   initialLimit?: number;
+  showComposer?: boolean;
   onCancel?: () => void;
   onNoteSaved?: (note: CrmLeadNote) => void;
 }
@@ -47,6 +48,7 @@ export function CrmLeadHistoryPanel({
   ownerName,
   legacyNotes,
   initialLimit,
+  showComposer = true,
   onCancel,
   onNoteSaved,
 }: CrmLeadHistoryPanelProps) {
@@ -102,24 +104,26 @@ export function CrmLeadHistoryPanel({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-        <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-800" htmlFor={`lead-note-${leadId}`}>
-          <MessageSquarePlus className="h-4 w-4 text-emerald-700" /> Tilføj note
-        </label>
-        <textarea
-          id={`lead-note-${leadId}`}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Skriv en kort opfølgning eller kommentar"
-          className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
-        />
-        <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => { setDraft(''); onCancel?.(); }} disabled={saving}>Annuller</Button>
-          <Button type="button" size="sm" onClick={() => void saveNote()} disabled={!draft.trim() || saving}>
-            {saving && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />} Gem
-          </Button>
+      {showComposer && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+          <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-800" htmlFor={`lead-note-${leadId}`}>
+            <MessageSquarePlus className="h-4 w-4 text-emerald-700" /> Tilføj note
+          </label>
+          <textarea
+            id={`lead-note-${leadId}`}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Skriv en kort opfølgning eller kommentar"
+            className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+          />
+          <div className="mt-2 flex justify-end gap-2">
+            <Button type="button" variant="outline" size="sm" onClick={() => { setDraft(''); onCancel?.(); }} disabled={saving}>Annuller</Button>
+            <Button type="button" size="sm" onClick={() => void saveNote()} disabled={!draft.trim() || saving}>
+              {saving && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />} Gem
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
       {legacyNotes?.trim() && (
         <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-sm text-amber-950">

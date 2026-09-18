@@ -41,6 +41,8 @@ describe('CRM lead quick notes and history', () => {
     expect(overview).toContain('<CrmLeadHistoryPanel');
     expect(overview).toContain('initialLimit={3}');
     expect(overview).toContain('notesByLeadId');
+    expect(overview).toContain('setHistoryTarget(r)');
+    expect(overview).toContain('showComposer={false}');
     expect(detail).toContain('<CrmLeadHistoryPanel');
     expect(noteService).toContain("order('created_at', { ascending: false })");
     expect(historyPanel).toContain('Vis hele historikken');
