@@ -29,7 +29,7 @@ import {
   deriveLegacyPipelineStage,
 } from '@/lib/leadStatus';
 import { classifyLeadFollowupUrgency } from '@/lib/leadFollowupUrgency';
-import { ArrowDownAZ, Plus, Search, Sparkles, TrendingUp, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X, NotebookPen } from 'lucide-react';
+import { ArrowDownAZ, Plus, Search, Sparkles, TrendingUp, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
 import { listSharedLeadIdsForUser } from '@/lib/crmLeadSharingService';
@@ -497,7 +497,6 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const [quoteConvertBusyId, setQuoteConvertBusyId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ title: string; images: CrmLeadAttachmentPreview[] } | null>(null);
   const [noteTarget, setNoteTarget] = useState<UnifiedLead | null>(null);
-  const [historyTarget, setHistoryTarget] = useState<UnifiedLead | null>(null);
   const [notesByLeadId, setNotesByLeadId] = useState<Record<string, CrmLeadNote[]>>({});
   const topFilterButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm leading-none transition whitespace-nowrap';
   const topActionButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium leading-none shadow-sm transition whitespace-nowrap';
@@ -1028,6 +1027,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                   const followupTone = getFollowupTone(r.next_followup);
                   const canActOnOpenLead = r.type === 'open' && isOpenRow(r);
                   const noteCount = notesByLeadId[r.id]?.length ?? 0;
+                  const noteActionLabel = noteCount > 0 ? `Note (${noteCount})` : 'Note';
                   return (
                     <tr key={`${r.type}-${r.id}`}
                       onClick={() => { if (r.detail_href) navigate(r.detail_href); }}
@@ -1131,8 +1131,8 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                           {r.type === 'open' && !repository.academy && (
                             <button
                               type="button"
-                              title="Tilføj note"
-                              aria-label={`Tilføj note til ${r.display_no}`}
+                              title={noteCount > 0 ? `Tilføj eller vis ${noteCount} noter` : 'Tilføj note'}
+                              aria-label={`${noteActionLabel} for ${r.display_no}`}
                               onClick={(event) => {
                                 event.stopPropagation();
                                 setNoteTarget(r);
@@ -1140,22 +1140,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                               className="inline-flex h-8 items-center gap-1 rounded-md px-1.5 text-[12px] text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                             >
                               <Plus className="h-3.5 w-3.5" />
-                              <span>Note</span>
-                            </button>
-                          )}
-                          {r.type === 'open' && !repository.academy && noteCount > 0 && (
-                            <button
-                              type="button"
-                              title={`Vis ${noteCount} noter`}
-                              aria-label={`Vis ${noteCount} noter for ${r.display_no}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setHistoryTarget(r);
-                              }}
-                              className="inline-flex h-8 items-center gap-1 rounded-md px-1.5 text-[12px] text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                            >
-                              <NotebookPen className="h-3.5 w-3.5" />
-                              <span className="rounded bg-slate-100 px-1 text-[10px] font-medium tabular-nums">{noteCount}</span>
+                              <span>{noteActionLabel}</span>
                             </button>
                           )}
                           {canActOnOpenLead && (
@@ -1310,32 +1295,6 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                 setNotesByLeadId((current) => ({
                   ...current,
                   [noteTarget.id]: sortCrmLeadNotes(notes),
-                }));
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!historyTarget} onOpenChange={(open) => { if (!open) setHistoryTarget(null); }}>
-        <DialogContent className="max-h-[86vh] w-[calc(100vw-2rem)] max-w-5xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Seneste noter - {historyTarget?.display_no}</DialogTitle>
-          </DialogHeader>
-          {historyTarget && (
-            <CrmLeadHistoryPanel
-              leadId={historyTarget.id}
-              leadLabel={historyTarget.title}
-              authorUserId={appUser?.id ?? null}
-              authorName={appUser?.display_name || appUser?.email || null}
-              ownerUserId={historyTarget.owner_user_id}
-              ownerName={historyTarget.owner_name}
-              initialLimit={3}
-              showComposer={false}
-              onNotesChanged={(notes) => {
-                setNotesByLeadId((current) => ({
-                  ...current,
-                  [historyTarget.id]: sortCrmLeadNotes(notes),
                 }));
               }}
             />

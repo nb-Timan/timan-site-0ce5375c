@@ -55,12 +55,15 @@ describe('CRM lead quick notes and history', () => {
     expect(leadService).toContain('lead_id: row.id,\n        machine_types');
   });
 
-  it('shows the same chronological history from the overview and lead detail', () => {
+  it('uses one overview note action while retaining the same chronological history as lead detail', () => {
     expect(overview).toContain('<CrmLeadHistoryPanel');
     expect(overview).toContain('initialLimit={3}');
     expect(overview).toContain('notesByLeadId');
-    expect(overview).toContain('setHistoryTarget(r)');
-    expect(overview).toContain('showComposer={false}');
+    expect(overview).toContain("const noteActionLabel = noteCount > 0 ? `Note (${noteCount})` : 'Note';");
+    expect(overview).toContain('setNoteTarget(r)');
+    expect(overview).not.toContain('setHistoryTarget(r)');
+    expect(overview).not.toContain('showComposer={false}');
+    expect(overview).not.toContain('NotebookPen');
     expect(detail).toContain('<CrmLeadHistoryPanel');
     expect(noteService).toContain("order('created_at', { ascending: false })");
     expect(historyPanel).toContain('Vis hele historikken');
