@@ -14,9 +14,25 @@ describe('configurator quote/order mail flow', () => {
     expect(source).toContain("const INTERNAL_TIMAN_COPY_EMAIL = 'sales@timan.dk'");
     expect(source).toContain('bcc_recipients: bccRecipients');
     expect(source).toContain('bccRecipients,');
-    expect(source).toContain('toRecipients: recipients');
+    expect(source).toContain('to_addresses: recipients');
     expect(source).toContain('bccRecipients,');
     expect(source).not.toContain('NB@Timan.dk');
     expect(source).not.toContain('nb@timan.dk');
+  });
+
+  it('records each verified Configurator outcome in the canonical mail audit', () => {
+    const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+
+    expect(source).toContain("import { logMailAuditEvent } from '@/lib/mailAuditService'");
+    expect(source).toContain("category: 'quote'");
+    expect(source).toContain("category: 'order'");
+    expect(source).toContain("source_action: 'send_quote'");
+    expect(source).toContain("source_action: 'send_order'");
+    expect(source).toContain("provider: 'n8n:timan-afsend-tilbud'");
+    expect(source).toContain("provider: 'n8n:timan-afsend-ordre'");
+    expect(source).toContain("status: delivered ? 'sent' : 'failed'");
+    expect(source).toContain('to_addresses: recipients');
+    expect(source).toContain('bcc_addresses: bccRecipients');
+    expect(source).toContain('related_entity_id: activeCaseId');
   });
 });

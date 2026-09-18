@@ -59,7 +59,7 @@ import { getActiveSellerView } from '@/lib/activeMode';
 import { getOrderWebhookUrl, getQuoteWebhookUrl, getWebhookEnv } from '@/lib/webhookUrls';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { buildMainCategories } from '@/lib/mainCategories';
-import { logConfigurationEmailSend } from '@/lib/configurationEmailLogService';
+import { logMailAuditEvent } from '@/lib/mailAuditService';
 import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermissionDefaults';
 import { resolveBaseDiscountPct, isImporterAppUser, IMPORTER_BASE_DISCOUNT_PCT, DEFAULT_BASE_DISCOUNT_PCT } from '@/lib/importerDiscount';
 import { resolveConfiguratorContractTerms } from '@/lib/contractCommercialTerms';
@@ -2224,27 +2224,34 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             console.error('[Order webhook] fetch failed:', fetchErr);
           }
 
-          // Audit log (success or failed). Never blocks send flow.
+          // The canonical append-only mail audit mirrors the verified n8n
+          // outcome without ever affecting the delivery result.
           if (activeCaseId) {
-            await logConfigurationEmailSend({
-              configurationId: activeCaseId,
-              documentType: 'order',
-              quoteNumber: activeQuoteNumber || null,
-              orderNumber: activeOrderNumber || null,
-              toRecipients: recipients,
-              ccRecipients: [],
-              bccRecipients,
-              sendStatus: delivered ? 'success' : 'failed',
-              httpStatus: webhookHttpStatus,
-              errorMessage: delivered ? null : failureReason || null,
-              webhookResponse: webhookRespText || null,
-              webhookUrl: orderWebhookUrl,
-              pdfFilename,
-              pdfStoragePath: orderSentPdfPath || null,
-              createdByEmail: appUser?.email || null,
-              sellerEmail: ownership.sellerEmail || null,
-              sellerInitials: ownership.sellerInitials || null,
-            });
+            try {
+              const responsibleSellerId = await resolveSellerId(ownership.sellerEmail || appUser?.email);
+              await logMailAuditEvent({
+                sent_at: delivered ? new Date().toISOString() : null,
+                category: 'order',
+                source_module: 'Configurator',
+                source_action: 'send_order',
+                subject: `Ordrebekræftelse ${activeOrderNumber || activeQuoteNumber || ''}`.trim(),
+                to_addresses: recipients,
+                cc_addresses: [],
+                bcc_addresses: bccRecipients,
+                responsible_user_id: responsibleSellerId,
+                responsible_seller_id: responsibleSellerId,
+                related_entity_type: 'configuration',
+                related_entity_id: activeCaseId,
+                related_entity_label: activeOrderNumber || activeQuoteNumber || activeCaseId,
+                status: delivered ? 'sent' : 'failed',
+                provider: 'n8n:timan-afsend-ordre',
+                provider_message_id: null,
+                attachment_count: pdfBase64 ? 1 : 0,
+                error_message: delivered ? null : failureReason || null,
+              });
+            } catch (auditError) {
+              console.error('[order mail audit] failed:', auditError);
+            }
           }
 
           if (delivered) {
@@ -2464,27 +2471,34 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             console.error('[Quote webhook] fetch failed:', fetchErr);
           }
 
-          // Audit log (success or failed). Never blocks send flow.
+          // The canonical append-only mail audit mirrors the verified n8n
+          // outcome without ever affecting the delivery result.
           if (activeCaseId) {
-            await logConfigurationEmailSend({
-              configurationId: activeCaseId,
-              documentType: 'quote',
-              quoteNumber: activeQuoteNumber || null,
-              orderNumber: activeOrderNumber || null,
-              toRecipients: recipients,
-              ccRecipients: [],
-              bccRecipients,
-              sendStatus: delivered ? 'success' : 'failed',
-              httpStatus: webhookHttpStatus,
-              errorMessage: delivered ? null : failureReason || null,
-              webhookResponse: webhookRespText || null,
-              webhookUrl: quoteWebhookUrl,
-              pdfFilename,
-              pdfStoragePath: quoteSentPdfPath || null,
-              createdByEmail: appUser?.email || null,
-              sellerEmail: ownership.sellerEmail || null,
-              sellerInitials: ownership.sellerInitials || null,
-            });
+            try {
+              const responsibleSellerId = await resolveSellerId(ownership.sellerEmail || appUser?.email);
+              await logMailAuditEvent({
+                sent_at: delivered ? new Date().toISOString() : null,
+                category: 'quote',
+                source_module: 'Configurator',
+                source_action: 'send_quote',
+                subject: `Tilbud ${activeQuoteNumber || activeOrderNumber || ''}`.trim(),
+                to_addresses: recipients,
+                cc_addresses: [],
+                bcc_addresses: bccRecipients,
+                responsible_user_id: responsibleSellerId,
+                responsible_seller_id: responsibleSellerId,
+                related_entity_type: 'configuration',
+                related_entity_id: activeCaseId,
+                related_entity_label: activeQuoteNumber || activeOrderNumber || activeCaseId,
+                status: delivered ? 'sent' : 'failed',
+                provider: 'n8n:timan-afsend-tilbud',
+                provider_message_id: null,
+                attachment_count: pdfBase64 ? 1 : 0,
+                error_message: delivered ? null : failureReason || null,
+              });
+            } catch (auditError) {
+              console.error('[quote mail audit] failed:', auditError);
+            }
           }
 
           if (delivered) {
