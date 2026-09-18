@@ -29,7 +29,7 @@ import {
   deriveLegacyPipelineStage,
 } from '@/lib/leadStatus';
 import { classifyLeadFollowupUrgency } from '@/lib/leadFollowupUrgency';
-import { ArrowDownAZ, Plus, Search, Sparkles, TrendingUp, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X } from 'lucide-react';
+import { ArrowDownAZ, Plus, Search, Sparkles, TrendingUp, XCircle, CheckCircle2, AlertTriangle, Trash2, FileText, Image as ImageIcon, X, NotebookPen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { fetchDealerAccounts } from '@/lib/dealerAccountsService';
 import { listSharedLeadIdsForUser } from '@/lib/crmLeadSharingService';
@@ -56,6 +56,8 @@ import {
 } from '@/lib/crmLeadOwnerFilter';
 import { formatConvertedMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
+import { listCrmLeadNotes, type CrmLeadNote } from '@/lib/crmLeadNotesService';
+import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
 
 // ---- i18n. English fallback. ----
 type TKey =
@@ -494,6 +496,8 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [quoteConvertBusyId, setQuoteConvertBusyId] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<{ title: string; images: CrmLeadAttachmentPreview[] } | null>(null);
+  const [noteTarget, setNoteTarget] = useState<UnifiedLead | null>(null);
+  const [notesByLeadId, setNotesByLeadId] = useState<Record<string, CrmLeadNote[]>>({});
   const topFilterButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3.5 text-sm leading-none transition whitespace-nowrap';
   const topActionButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium leading-none shadow-sm transition whitespace-nowrap';
   const mobileControlClass = 'flex min-h-11 w-full items-center justify-between gap-1 rounded-lg border px-2 py-1.5 text-left text-[11px] font-medium leading-tight transition';
@@ -618,6 +622,30 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
     () => (pageResult?.rows ?? []).map((row) => ({ ...row, detail_href: row.detail_href || null })),
     [pageResult],
   );
+
+  useEffect(() => {
+    let cancelled = false;
+    const leadIds = repository.academy
+      ? []
+      : visible.filter((row) => row.type === 'open').map((row) => row.id);
+    if (!leadIds.length) {
+      setNotesByLeadId({});
+      return;
+    }
+    void listCrmLeadNotes(leadIds).then((notes) => {
+      if (cancelled) return;
+      const grouped: Record<string, CrmLeadNote[]> = {};
+      for (const note of notes) {
+        if (!note.lead_id) continue;
+        (grouped[note.lead_id] ||= []).push(note);
+      }
+      setNotesByLeadId(grouped);
+    }).catch((error) => {
+      console.warn('[CRM Leads] lead-note summary failed', error);
+      if (!cancelled) setNotesByLeadId({});
+    });
+    return () => { cancelled = true; };
+  }, [repository.academy, visible]);
 
   const counts = pageResult?.counts ?? { all: 0, open: 0, won: 0, closed: 0 };
   const followupCounts = pageResult?.followup_counts ?? { overdue: 0, soon: 0, later: 0 };
@@ -998,6 +1026,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                   const userType = getUserLeadType(r);
                   const followupTone = getFollowupTone(r.next_followup);
                   const canActOnOpenLead = r.type === 'open' && isOpenRow(r);
+                  const noteCount = notesByLeadId[r.id]?.length ?? 0;
                   return (
                     <tr key={`${r.type}-${r.id}`}
                       onClick={() => { if (r.detail_href) navigate(r.detail_href); }}
@@ -1098,6 +1127,22 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                       </td>
                       <td className="px-2 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {r.type === 'open' && !repository.academy && (
+                            <button
+                              type="button"
+                              title={noteCount ? `Vis eller tilføj noter (${noteCount})` : 'Tilføj note'}
+                              aria-label={noteCount ? `Noter (${noteCount})` : 'Tilføj note'}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setNoteTarget(r);
+                              }}
+                              className="inline-flex h-8 items-center gap-1 rounded-md px-1.5 text-[12px] text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                            >
+                              <NotebookPen className="h-3.5 w-3.5" />
+                              <span>Note</span>
+                              {noteCount > 0 && <span className="rounded bg-slate-100 px-1 text-[10px] font-medium tabular-nums">{noteCount}</span>}
+                            </button>
+                          )}
                           {canActOnOpenLead && (
                             <>
                               {!r.has_demo && (
@@ -1230,6 +1275,32 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
           </div>
         </div>
       )}
+
+      <Dialog open={!!noteTarget} onOpenChange={(open) => { if (!open) setNoteTarget(null); }}>
+        <DialogContent className="max-h-[86vh] max-w-lg overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Tilføj note – {noteTarget?.display_no}</DialogTitle>
+          </DialogHeader>
+          {noteTarget && (
+            <CrmLeadHistoryPanel
+              leadId={noteTarget.id}
+              leadLabel={noteTarget.title}
+              authorUserId={appUser?.id ?? null}
+              authorName={appUser?.display_name || appUser?.email || null}
+              ownerUserId={noteTarget.owner_user_id}
+              ownerName={noteTarget.owner_name}
+              initialLimit={3}
+              onCancel={() => setNoteTarget(null)}
+              onNoteSaved={(note) => {
+                setNotesByLeadId((current) => ({
+                  ...current,
+                  [noteTarget.id]: [note, ...(current[noteTarget.id] ?? [])],
+                }));
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <WonLostDialog
         lead={closeTarget}

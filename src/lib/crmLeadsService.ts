@@ -540,6 +540,7 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       activity_type: row.pipeline_stage === "Won" ? "order_created"
                   : row.pipeline_stage === "Lost" ? "lead_rejected"
                   : "lead_created",
+      lead_id: row.id,
       title: row.title,
       description: `${row.customer_type || ""} · ${row.contact_type || ""}`.trim(),
       status: row.pipeline_stage,
@@ -550,6 +551,7 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       value: row.estimated_value,
       currency: "DKK",
       meta: {
+        lead_id: row.id,
         machine_types: row.machine_types,
         probability: row.probability,
         lost_reason: row.lost_reason,

@@ -180,7 +180,9 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
     currency,
     flow_type: state.flowType === 'order' ? 'order' : 'quote',
     payment_terms: resolvePaymentTerms(state.paymentTerms),
-    purchase_order_number: state.purchaseOrderNumber.trim() || null,
+    // Older saved configurations predate the REK/PO field. They must still
+    // hydrate safely instead of throwing while their snapshot is summarized.
+    purchase_order_number: state.purchaseOrderNumber?.trim() || null,
     delivery: {
       method: state.deliveryMethod || '',
       date: state.date || null,

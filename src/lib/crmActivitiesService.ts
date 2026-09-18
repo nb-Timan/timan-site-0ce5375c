@@ -32,6 +32,7 @@ export type CrmActivityType =
 export interface CrmActivity {
   id: string;
   activity_type: CrmActivityType;
+  lead_id: string | null;
   activity_date: string;
   account_id: string | null;
   account_name: string | null;
@@ -53,6 +54,8 @@ export interface CrmActivity {
 
 export interface NewCrmActivity {
   activity_type: CrmActivityType;
+  /** Canonical CRM lead relation for lead history/comments. */
+  lead_id?: string | null;
   dealer_account_id?: string | null;
   dealer_number?: string | null;
   dealer_name?: string | null;
@@ -168,6 +171,7 @@ function mapDbActivity(row: Record<string, unknown>): CrmActivity {
   return {
     id: String(row.id ?? ""),
     activity_type: row.activity_type as CrmActivityType,
+    lead_id: (row.lead_id as string | null | undefined) ?? metaString(meta, "lead_id"),
     activity_date: String(row.activity_date ?? row.created_at ?? new Date().toISOString()),
     account_id: (row.account_id as string | null | undefined) ?? (row.dealer_account_id as string | null | undefined) ?? null,
     account_name: (row.account_name as string | null | undefined) ?? (row.dealer_name as string | null | undefined) ?? null,
@@ -211,6 +215,7 @@ export async function logActivity(
   const row: CrmActivity = {
     id: uuid(),
     activity_type: input.activity_type,
+    lead_id: input.lead_id ?? metaString(input.meta, "lead_id"),
     activity_date: now,
     account_id: input.account_id ?? null,
     account_name: input.account_name ?? null,
@@ -264,6 +269,7 @@ export async function logActivity(
   const payload = {
     id: row.id,
     activity_type: row.activity_type,
+    lead_id: row.lead_id,
     title: row.title,
     description: row.description,
     configuration_id: row.configuration_id,

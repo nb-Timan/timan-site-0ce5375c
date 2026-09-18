@@ -65,6 +65,7 @@ import {
   type LeadShareTarget,
 } from '@/lib/crmLeadSharingService';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
+import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import {
@@ -1997,6 +1998,20 @@ export default function CrmNewLeadPage() {
             </Field>
             {/* Pipeline-stage is no longer manually editable — derived from Næste aktivitet. */}
           </Section>
+
+          {isEdit && editId && !repository.academy && (
+            <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <CrmLeadHistoryPanel
+                leadId={editId}
+                leadLabel={title || (editLeadNo != null ? formatLeadNo(editLeadNo) : 'Lead')}
+                authorUserId={appUser?.id ?? null}
+                authorName={appUser?.display_name || appUser?.email || null}
+                ownerUserId={responsibleSellerId || null}
+                ownerName={responsibleName || null}
+                legacyNotes={notes}
+              />
+            </section>
+          )}
 
           {isLost && (
             <section className="bg-rose-50/40 rounded-2xl border border-rose-100 shadow-sm p-6 mb-5">

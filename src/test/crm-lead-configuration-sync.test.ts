@@ -102,6 +102,7 @@ const state: ConfiguratorState = {
   emailRecipient: '',
   comment: '',
   internalNote: '',
+  purchaseOrderNumber: '',
   paymentTerms: 'net_30',
   customerNeeds: { tasks: [], focus: [] },
 };
@@ -234,5 +235,18 @@ describe('CRM lead configurator sync', () => {
       itemNumber: '411701',
       itemName: 'Stativ til afsætning af slagleklipper',
     })).toBe('Equipment: RC-1000s - Stativ til afsætning af slagleklipper (411701)');
+  });
+
+  it('keeps legacy configurations without REK/PO snapshots reopenable', () => {
+    const legacyState = { ...state } as Record<string, unknown>;
+    delete legacyState.purchaseOrderNumber;
+
+    expect(() => buildLeadPatchFromConfigurationState(
+      baseLead(),
+      linkedQuoteRow,
+      legacyState as ConfiguratorState,
+      '2026-09-02T12:00:00.000Z',
+      linkedQuoteRow.assigned_seller_id,
+    )).not.toThrow();
   });
 });
