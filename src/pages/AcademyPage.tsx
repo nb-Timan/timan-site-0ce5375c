@@ -228,18 +228,6 @@ export default function AcademyPage() {
   const completed = academySandbox.getCompletedCaseIds();
   const configurator = getAcademyCapabilityProgress('configurator', completed);
   const unlocked = !resolving && isAcademyCapabilityUnlocked(user, 'configurator', completed);
-  const requirements = [
-    task.machine,
-    task.flail,
-    task.weedBrush,
-    task.oil,
-    task.workLight,
-    task.wireHarness,
-    task.rc751,
-    task.quantityDiscount,
-    task.quoteGenerated,
-    Boolean(task.leadId),
-  ].filter(Boolean).length;
   const caseState: State = task.completed ? 'done' : task.started ? 'active' : 'new';
   const case2Unlocked = task.completed;
   const videoCaseState: State = videoTask.completed ? 'done' : videoTask.started && case2Unlocked ? 'active' : case2Unlocked ? 'ready' : 'locked';
@@ -297,17 +285,6 @@ export default function AcademyPage() {
   const crmPart2State: State = crm.part2Completed ? 'done' : academyCrmSandbox.getState().part2Started ? 'active' : crm.part1Completed ? 'ready' : 'locked';
   const partnerDataPart1State: State = partnerData.part1Completed ? 'done' : academyPartnerDataSandbox.getState().part1Started ? 'active' : 'new';
   const partnerDataPart2State: State = partnerData.part2Completed ? 'done' : academyPartnerDataSandbox.getState().part2Started ? 'active' : partnerData.part1Completed ? 'ready' : 'locked';
-  const activeCaseId = academySandbox.getActiveCase();
-  const activeCaseCompleted = activeCaseId === 'sales.case_1_rc1000' ? task.completed
-    : activeCaseId === 'sales.case_2_video_3330' ? videoTask.completed
-      : activeCaseId === 'portal.basics_5' ? portalBasics.completed
-        : activeCaseId === 'portal.partner_map' ? partnerMap.completed
-          : activeCaseId === 'crm.part_1' ? crm.part1Completed
-            : activeCaseId === 'crm.part_2' ? crm.part2Completed
-              : activeCaseId === 'partnerdata.part_1_profile' ? partnerData.part1Completed
-                : activeCaseId === 'partnerdata.part_2_relations' ? partnerData.part2Completed
-                  : false;
-  const resumableActiveCase = activeCaseId && !activeCaseCompleted ? activeCaseId : null;
   const startCase = () => {
     if (cycleActionBlocked) return;
     academySandbox.startCase1();
@@ -365,13 +342,24 @@ export default function AcademyPage() {
       />
       <main className="mx-auto w-full max-w-[1760px] px-4 py-4 sm:px-6 lg:px-8 xl:px-10">
         <div className="mx-auto w-full max-w-[1600px]">
-          <section className="relative overflow-hidden rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-sm sm:px-7">
-            <div className="relative z-10 max-w-2xl">
-              <h1 className="text-3xl font-bold text-slate-900">{tr('academyTitle')}</h1>
-              <p className="mt-1.5 max-w-xl text-sm leading-5 text-slate-600">{tr('academySandboxNotice')}</p>
-              <p className="mt-2 text-xs font-semibold text-emerald-800">{cycle ? (cycle.status === 'completed' ? tr('academyCycleCompleted') : tr('academyCycleActive')).replace('{number}', String(cycle.cycle_number)) : tr('academyLocalPreview')}</p>
+          <section className="rounded-xl border border-slate-200 bg-white px-5 py-5 shadow-sm sm:px-7">
+            <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] lg:items-center">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">{tr('academyTitle')}</h1>
+                <p className="mt-1.5 max-w-xl text-sm leading-5 text-slate-600">{tr('academySandboxNotice')}</p>
+                <p className="mt-2 text-xs font-semibold text-emerald-800">{cycle ? (cycle.status === 'completed' ? tr('academyCycleCompleted') : tr('academyCycleActive')).replace('{number}', String(cycle.cycle_number)) : tr('academyLocalPreview')}</p>
+              </div>
+              <div className="border-t border-slate-200 pt-5 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Map className="h-4 w-4 text-[#126a45]" />{tr('academySalesJourney')}</div>
+                <div className="relative mt-5 flex items-start justify-between">
+                  <div className="absolute left-[12%] right-[12%] top-[18px] h-px bg-slate-200" />
+                  <Journey icon={ShoppingCart} label={tr('academyConfigurator')} active={unlocked} />
+                  <Journey icon={Users} label="CRM" active={crm.part1Completed} />
+                  <Journey icon={CirclePlay} label={tr('academyDemo')} active={crm.part2Completed} />
+                  <Journey icon={Gem} label={tr('academyQuoteOrder')} />
+                </div>
+              </div>
             </div>
-            <img src="/messe/machines/rc-1000s-tile.png" alt="" className="pointer-events-none absolute right-6 top-1/2 hidden h-[115%] w-64 -translate-y-1/2 object-contain opacity-70 xl:block" />
           </section>
 
           {params.get('locked') && (
@@ -415,31 +403,6 @@ export default function AcademyPage() {
                 <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-800"><Medal className="h-4 w-4 text-[#b77939]" />{tr('academyAwardBronze')}</span><span className="text-slate-500">× {awardCounts.bronze}</span></div>
                 <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><ShieldCheck className="h-4 w-4 text-slate-400" />{tr('academyAwardSilver')}</span><span className="text-slate-500">× {awardCounts.silver}</span></div>
                 <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><Crown className="h-4 w-4 text-amber-500" />{tr('academyAwardGold')}</span><span className="text-slate-500">× {awardCounts.gold}</span></div>
-              </div>
-            </section>
-          </div>
-
-          <div className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
-            <section className="relative min-h-[174px] overflow-hidden rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><CirclePlay className="h-4 w-4 text-[#126a45]" />{tr('academyContinueWhere')}</div>
-                <p className="mt-3 text-sm font-bold text-slate-900">{resumableActiveCase ? tr('academyActiveTask') : task.completed ? tr('academyCaseCompleted') : tr('academySalesCase1Title')}</p>
-                <p className="mt-1 text-xs text-slate-500">{resumableActiveCase ? tr('academyResumeTask') : task.completed ? tr('academySalesCase2Title') : tr('academyRequirementsProgress').replace('{completed}', String(requirements)).replace('{total}', '10')}</p>
-                {!cycleActionBlocked && (resumableActiveCase || !task.completed) && <button type="button" onClick={() => resumableActiveCase ? navigate(academySandbox.getContinueRoute()) : startCase()} className="mt-3 inline-flex items-center gap-2 rounded-md bg-[#126a45] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0f5a3b]">
-                  {resumableActiveCase ? tr('academyContinue') : tr('academyStart')}
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </button>}
-              </div>
-              <img src="/messe/machines/rc-1000s-tile.png" alt="" className="pointer-events-none absolute -bottom-6 right-2 h-36 w-36 object-contain opacity-80" />
-            </section>
-            <section className="min-h-[174px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Map className="h-4 w-4 text-[#126a45]" />{tr('academySalesJourney')}</div>
-              <div className="relative mt-6 flex items-start justify-between">
-                <div className="absolute left-[12%] right-[12%] top-[18px] h-px bg-slate-200" />
-                <Journey icon={ShoppingCart} label={tr('academyConfigurator')} active={unlocked} />
-                <Journey icon={Users} label="CRM" active={crm.part1Completed} />
-                <Journey icon={CirclePlay} label={tr('academyDemo')} active={crm.part2Completed} />
-                <Journey icon={Gem} label={tr('academyQuoteOrder')} />
               </div>
             </section>
           </div>
