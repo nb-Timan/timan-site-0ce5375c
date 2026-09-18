@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
-import { History, Loader2, MessageSquarePlus } from 'lucide-react';
+import { History, Loader2, MessageSquarePlus, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   createCrmLeadNote,
   listCrmLeadNotes,
+  setCrmLeadNotePriority,
+  sortCrmLeadNotes,
   type CrmLeadNote,
+  type CrmLeadNotePriority,
 } from '@/lib/crmLeadNotesService';
 import { toast } from 'sonner';
 
@@ -19,7 +22,7 @@ interface CrmLeadHistoryPanelProps {
   initialLimit?: number;
   showComposer?: boolean;
   onCancel?: () => void;
-  onNoteSaved?: (note: CrmLeadNote) => void;
+  onNotesChanged?: (notes: CrmLeadNote[]) => void;
 }
 
 function formatNoteTimestamp(value: string | null | undefined): string {
@@ -50,7 +53,7 @@ export function CrmLeadHistoryPanel({
   initialLimit,
   showComposer = true,
   onCancel,
-  onNoteSaved,
+  onNotesChanged,
 }: CrmLeadHistoryPanelProps) {
   const [notes, setNotes] = useState<CrmLeadNote[]>([]);
   const [draft, setDraft] = useState('');
@@ -87,10 +90,11 @@ export function CrmLeadHistoryPanel({
         ownerUserId,
         ownerName,
       });
-      setNotes((current) => [note, ...current]);
+      const next = sortCrmLeadNotes([note, ...notes]);
+      setNotes(next);
+      onNotesChanged?.(next);
       setDraft('');
       setShowAll(true);
-      onNoteSaved?.(note);
       toast.success('Noten er gemt');
     } catch (error) {
       console.error('Could not save CRM lead note', error);
@@ -101,6 +105,22 @@ export function CrmLeadHistoryPanel({
   }
 
   const visibleNotes = showAll || !initialLimit ? notes : notes.slice(0, initialLimit);
+
+  async function changePriority(noteId: string, priority: CrmLeadNotePriority | null) {
+    setSaving(true);
+    try {
+      await setCrmLeadNotePriority(noteId, priority);
+      const next = await listCrmLeadNotes([leadId]);
+      setNotes(next);
+      onNotesChanged?.(next);
+      toast.success(priority ? `Note fastgjort som ${priority}` : 'Prioritet fjernet');
+    } catch (error) {
+      console.error('Could not update CRM lead note priority', error);
+      toast.error('Kunne ikke ændre noteprioritet');
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -145,8 +165,40 @@ export function CrmLeadHistoryPanel({
           <ol className="space-y-2">
             {visibleNotes.map((note) => (
               <li key={note.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
-                <p className="mb-1 text-xs font-medium text-slate-500">{formatNoteTimestamp(note.created_at || note.activity_date)} · {authorLabel(note)}</p>
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <p className="text-xs font-medium text-slate-500">{formatNoteTimestamp(note.created_at || note.activity_date)} · {authorLabel(note)}</p>
+                  {note.priority_position && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800" title={`Prioritet ${note.priority_position}`}>
+                      <Pin className="h-3 w-3" /> {note.priority_position}
+                    </span>
+                  )}
+                </div>
                 <p className="whitespace-pre-wrap text-sm text-slate-800">{note.description || '—'}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-slate-500">
+                  <span className="mr-1">Fastgør:</span>
+                  {([1, 2, 3] as CrmLeadNotePriority[]).map((priority) => (
+                    <button
+                      key={priority}
+                      type="button"
+                      onClick={() => void changePriority(note.id, priority)}
+                      disabled={saving || note.priority_position === priority}
+                      className="inline-flex h-6 min-w-6 items-center justify-center rounded border border-slate-200 px-1 font-medium text-slate-600 hover:border-amber-300 hover:bg-amber-50 disabled:cursor-default disabled:border-amber-200 disabled:bg-amber-50 disabled:text-amber-800"
+                      aria-label={`Fastgør som prioritet ${priority}`}
+                    >
+                      {priority}
+                    </button>
+                  ))}
+                  {note.priority_position && (
+                    <button
+                      type="button"
+                      onClick={() => void changePriority(note.id, null)}
+                      disabled={saving}
+                      className="ml-1 text-slate-500 hover:text-slate-900 hover:underline disabled:cursor-not-allowed"
+                    >
+                      Fjern
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ol>

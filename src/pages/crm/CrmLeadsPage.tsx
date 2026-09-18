@@ -56,7 +56,7 @@ import {
 } from '@/lib/crmLeadOwnerFilter';
 import { formatConvertedMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
-import { listCrmLeadNotes, type CrmLeadNote } from '@/lib/crmLeadNotesService';
+import { listCrmLeadNotes, sortCrmLeadNotes, type CrmLeadNote } from '@/lib/crmLeadNotesService';
 import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
 
 // ---- i18n. English fallback. ----
@@ -1292,7 +1292,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       )}
 
       <Dialog open={!!noteTarget} onOpenChange={(open) => { if (!open) setNoteTarget(null); }}>
-        <DialogContent className="max-h-[86vh] max-w-lg overflow-y-auto">
+        <DialogContent className="max-h-[86vh] w-[calc(100vw-2rem)] max-w-5xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Tilføj note – {noteTarget?.display_no}</DialogTitle>
           </DialogHeader>
@@ -1306,10 +1306,10 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               ownerName={noteTarget.owner_name}
               initialLimit={3}
               onCancel={() => setNoteTarget(null)}
-              onNoteSaved={(note) => {
+              onNotesChanged={(notes) => {
                 setNotesByLeadId((current) => ({
                   ...current,
-                  [noteTarget.id]: [note, ...(current[noteTarget.id] ?? [])],
+                  [noteTarget.id]: sortCrmLeadNotes(notes),
                 }));
               }}
             />
@@ -1318,7 +1318,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       </Dialog>
 
       <Dialog open={!!historyTarget} onOpenChange={(open) => { if (!open) setHistoryTarget(null); }}>
-        <DialogContent className="max-h-[86vh] max-w-lg overflow-y-auto">
+        <DialogContent className="max-h-[86vh] w-[calc(100vw-2rem)] max-w-5xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Seneste noter - {historyTarget?.display_no}</DialogTitle>
           </DialogHeader>
@@ -1332,6 +1332,12 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               ownerName={historyTarget.owner_name}
               initialLimit={3}
               showComposer={false}
+              onNotesChanged={(notes) => {
+                setNotesByLeadId((current) => ({
+                  ...current,
+                  [historyTarget.id]: sortCrmLeadNotes(notes),
+                }));
+              }}
             />
           )}
         </DialogContent>
