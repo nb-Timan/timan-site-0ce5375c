@@ -16,6 +16,8 @@
 import { supabase } from "@/lib/supabase";
 import { buildConfiguratorSeed, type SeedRow } from "@/lib/configuratorPriceSeed";
 import type { PriceListItem } from "@/lib/priceListService";
+import { publishedProduct } from '@/lib/publishedProductMaster';
+import { loadPublishedConfiguratorPrices } from '@/lib/configuratorPublishedPrices';
 
 export interface PublishPreviewRow {
   item_number: string;
@@ -71,16 +73,17 @@ export function buildPublishPreview(
     )
     .map((it): PublishPreviewRow => {
       const s = seedMap.get(it.item_number);
+      const published = publishedProduct(it.item_number);
       return {
         item_number: it.item_number,
         item_text_da: it.item_text_da,
-        old_item_text_da: s?.item_text_da ?? null,
+        old_item_text_da: published?.item_text_da ?? s?.item_text_da ?? null,
         price_dkk: it.price_dkk,
-        old_price_dkk: s?.price_dkk ?? null,
+        old_price_dkk: published?.price_dkk ?? s?.price_dkk ?? null,
         price_eur: it.price_eur,
-        old_price_eur: s?.price_eur ?? null,
+        old_price_eur: published?.price_eur ?? s?.price_eur ?? null,
         price_sek: it.price_sek,
-        old_price_sek: null, // configurator has no SEK source
+        old_price_sek: published?.price_sek ?? null,
         inConfigurator: !!s,
         status: s ? "ready" : "missing_in_configurator",
       };
@@ -96,6 +99,11 @@ export async function publishItems(
     });
     if (error) throw error;
     const d = (data ?? {}) as Record<string, unknown>;
+    if (Number(d.created ?? 0) + Number(d.updated ?? 0) > 0) {
+      try { await loadPublishedConfiguratorPrices(); }
+      catch (error) { console.error('[product-master] Published, but catalog refresh failed', error); }
+      window.dispatchEvent(new Event('timan:product-master-published'));
+    }
     return {
       ok: true,
       summary: {

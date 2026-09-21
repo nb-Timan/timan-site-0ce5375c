@@ -151,6 +151,8 @@ export interface ConfiguratorPricingSnapshot {
   discountDetails?: DiscountDetail[];
   campaignLines?: CampaignLineSnapshot[];
   prices: Record<string, number>;
+  /** Commercial identity captured with the price, not live Marketing copy. */
+  names?: Record<string, string>;
   /** Frozen commercial lines; older snapshots are reconstructed from active units only. */
   lines?: {
     unitNumber?: number;

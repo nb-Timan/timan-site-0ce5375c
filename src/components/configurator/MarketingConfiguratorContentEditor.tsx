@@ -61,7 +61,7 @@ function fieldFor(item: MarketingConfiguratorCatalogItem, records: MarketingConf
   return {
     draft,
     published,
-    content: mergeMarketingConfiguratorContent(item.defaults, draft?.content || published?.content),
+    content: mergeMarketingConfiguratorContent(item.defaults, draft?.content || published?.content, item.itemNumber),
   };
 }
 

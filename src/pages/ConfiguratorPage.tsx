@@ -98,7 +98,8 @@ import {
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
 import { createConfiguratorPricingSnapshot } from '@/lib/configuratorPricing';
 import { calculateConfiguration, configurationCampaignSelection } from '@/lib/calcConfiguration';
-import { loadPublishedConfiguratorPrices } from '@/lib/configuratorPublishedPrices';
+import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
+import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 
 // Configurator language selector — uses the 9 portal UI languages.
 // Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
@@ -213,7 +214,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   } = useConfigurator();
   const lang = state.language;
   const [primaryVideosByProduct, setPrimaryVideosByProduct] = useState<Map<string, MarketingVideo>>(() => new Map());
-  const [, setCatalogRevision] = useState(0);
   const [publishedMarketingContent, setPublishedMarketingContent] = useState<Map<string, MarketingConfiguratorContentRecord>>(() => new Map());
   const [marketingEditorRecords, setMarketingEditorRecords] = useState<MarketingConfiguratorContentRecord[]>([]);
   const [marketingEditorItem, setMarketingEditorItem] = useState<MarketingConfiguratorCatalogItem | null>(null);
@@ -239,20 +239,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     Promise.all([listPublishedMarketingConfiguratorContent(), loadPublishedMarketingCampaigns()]).then(([rows]) => {
       if (!cancelled) setPublishedMarketingContent(rows);
     });
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadPublishedConfiguratorPrices()
-      .then(() => {
-        if (!cancelled) setCatalogRevision((revision) => revision + 1);
-      })
-      .catch((error) => {
-        // The built-in catalogue is the deliberate safe fallback when the
-        // published overlay is temporarily unavailable.
-        console.warn('[ConfiguratorPage] published price overlay unavailable', error);
-      });
     return () => { cancelled = true; };
   }, []);
 
@@ -695,22 +681,23 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // inside modals matches the product/accessory data (which is only available
   // in da/en/de/it/hu). Prevents mixed-language modals.
   const contentUiLang = resolveContentUiLanguage(uiLanguage);
+  const productRevision = useProductMasterRevision();
   const marketingCatalogByKey = useMemo(
-    () => new Map(listMarketingConfiguratorCatalog(uiLanguage).map((item) => [item.productKey, item])),
-    [uiLanguage],
+    () => { void productRevision; return new Map(listMarketingConfiguratorCatalog(uiLanguage).map((item) => [item.productKey, item])); },
+    [uiLanguage, productRevision],
   );
   // Marketing may only affect the visual product content. Every configuration
   // and price calculation below continues to use the original canonical item.
   const marketingContentFor = (machineType: string, itemId: string | undefined) => {
     if (!itemId) return null;
     const key = productContentKey(machineType, itemId);
-    if (marketingEditMode) {
-      return marketingEditorRecords.find((record) => record.product_key === key && record.status === 'draft')?.content
+    const content = marketingEditMode
+      ? marketingEditorRecords.find((record) => record.product_key === key && record.status === 'draft')?.content
         || marketingEditorRecords.find((record) => record.product_key === key && record.status === 'published')?.content
         || publishedMarketingContent.get(key)?.content
-        || null;
-    }
-    return publishedMarketingContent.get(key)?.content || null;
+        || null
+      : publishedMarketingContent.get(key)?.content || null;
+    return content ? resolveMarketingProductIdentity(marketingCatalogByKey.get(key)?.itemNumber, content) : null;
   };
   const campaignClock = useMarketingBadgeClock();
   const campaignSelection = useMemo(() => configurationCampaignSelection(state), [state]);

@@ -1,4 +1,5 @@
 import { Machine, Accessory, Language } from '@/types/configurator';
+import { notifyProductMaster, publishedProduct, replaceProductMaster, resolvePublishedProduct, type PublishedProductMaster } from '@/lib/publishedProductMaster';
 
 // ===== CONSTANTS =====
 export const ACC_ID_WIRE_HARNESS = '412614';
@@ -21,24 +22,21 @@ export const PACKAGING_TRIGGER_IDS = ['720125', '720130', '720132', '720133'];
 export const ACC_ID_OIL_1000_PARENT = '445566778899';
 
 /** Approved Backend prices overlay the static catalogue for fresh sessions. */
-export interface PublishedConfiguratorPrice {
-  item_number: string;
-  price_dkk: number | null;
-  price_eur: number | null;
-}
-
-const publishedPriceOverlay = new Map<string, PublishedConfiguratorPrice>();
+export type PublishedConfiguratorPrice = PublishedProductMaster;
 
 export function replacePublishedConfiguratorPrices(rows: PublishedConfiguratorPrice[]): void {
-  publishedPriceOverlay.clear();
-  for (const row of rows) {
-    const itemNumber = String(row.item_number || '').trim();
-    if (itemNumber) publishedPriceOverlay.set(itemNumber, row);
-  }
+  replaceProductMaster(rows);
+  PRODUCTS = Object.fromEntries(Object.entries(BASE_PRODUCTS).map(([key, item]) => [key, resolvePublishedProduct(item)]));
+  const resolveAccessory = (item: Accessory): Accessory => ({
+    ...resolvePublishedProduct(item),
+    ...(item.subItems ? { subItems: item.subItems.map(sub => resolveAccessory(sub as Accessory)) } : {}),
+  });
+  ACCESSORIES = Object.fromEntries(Object.entries(BASE_ACCESSORIES).map(([key, items]) => [key, items.map(resolveAccessory)]));
+  notifyProductMaster();
 }
 
 export function clearPublishedConfiguratorPricesForTest(): void {
-  publishedPriceOverlay.clear();
+  replacePublishedConfiguratorPrices([]);
 }
 
 // ===== SUB-ITEMS FACTORY =====
@@ -65,7 +63,7 @@ function createUniqueSweeperSubItems(parentId: string) {
 }
 
 // ===== PRODUCTS =====
-export const PRODUCTS: Record<string, Machine> = {
+const BASE_PRODUCTS: Record<string, Machine> = {
   'RC-1000S': {
     id: 'RC-1000S',
     name: 'RC-1000s Basismaskine',
@@ -382,7 +380,7 @@ export const PRODUCTS: Record<string, Machine> = {
 };
 
 // ===== ACCESSORIES =====
-export const ACCESSORIES: Record<string, Accessory[]> = {
+const BASE_ACCESSORIES: Record<string, Accessory[]> = {
   'RC-1000S': [
     // Oil group (mandatory)
     { id: ACC_ID_OIL_NORMAL, varenr: '13101003', name: { da: 'Standard olie - Texaco HDZ46', en: 'Standard oil - Texaco HDZ46', de: 'Standardöl - Texaco HDZ46', it: 'Olio standard - Texaco HDZ46', hu: 'Standard olaj - Texaco HDZ46' }, priceDKK: 0, priceEUR: 0, group: 'oil_1000', sectionStart: 'oil_section',
@@ -864,7 +862,7 @@ export function getLocalizedName(name: string | { da: string; en: string; [key: 
 // Get price based on language/currency
 export function getPrice(item: { varenr?: string; priceDKK: number; priceEUR: number }, lang: Language = 'da'): number {
   const isEUR = ['en', 'de', 'it', 'hu'].includes(lang);
-  const published = publishedPriceOverlay.get(String(item.varenr || '').trim());
+  const published = publishedProduct(item.varenr);
   const publishedPrice = isEUR ? published?.price_eur : published?.price_dkk;
   return typeof publishedPrice === 'number' && Number.isFinite(publishedPrice)
     ? publishedPrice
@@ -1058,7 +1056,7 @@ export function getLooseToolAccessories(): Accessory[] {
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
-  });
+  }).map(resolvePublishedProduct);
 }
 
 // Flatten accessories including sub-items
@@ -1071,7 +1069,7 @@ export function getAccessoriesFlat(machineType: string): Accessory[] {
     if (!item) return;
     const key = item.id ? `id:${item.id}` : null;
     if (!key || !seen.has(key)) {
-      out.push(item);
+      out.push(resolvePublishedProduct(item));
       if (key) seen.add(key);
     }
     if (item.subItems) {
@@ -1089,5 +1087,9 @@ export function getMachineById(id: string): Machine | undefined {
   return PRODUCTS[id];
 }
 
-// Legacy compatibility
+// Resolved current catalog; structural originals are never mutated.
+export let PRODUCTS = BASE_PRODUCTS;
+export let ACCESSORIES = BASE_ACCESSORIES;
+
+// Legacy compatibility (structural catalog only)
 export const machines = Object.values(PRODUCTS);

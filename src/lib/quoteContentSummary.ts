@@ -19,7 +19,7 @@ import {
   getPrice,
   LOOSE_TOOL_KEY,
 } from '@/data/machines';
-import { snapshotAccessoryPrice, snapshotMachinePrice } from '@/lib/configuratorPricing';
+import { snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { resolvePaymentTerms } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 
@@ -99,7 +99,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
     if (!product) continue;
 
     const isShared = mc.configMode === 'shared';
-    const modelName = getLocalizedName(product.name, lang);
+    const modelName = snapshotProductName(state, product.varenr, getLocalizedName(product.name, lang));
     const unitPrice = snapshotMachinePrice(state, mc.type, getPrice(product, lang));
     const flatAccs = getAccessoriesFlat(mc.type);
 
@@ -134,7 +134,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
         return {
           id: a.id,
           varenr: a.varenr,
-          name: getLocalizedName(a.name, lang),
+          name: snapshotProductName(state, a.varenr, getLocalizedName(a.name, lang)),
           qty,
           unit_price: accUnitPrice,
           total,

@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Accessory, Machine, TechSpec } from '@/types/configurator';
 import type { MarketingBadgeSchedule } from '@/lib/marketingBadgeSchedule';
+import { publishedProduct, resolvePublishedTitle } from '@/lib/publishedProductMaster';
 
 export type MarketingConfiguratorContentStatus = 'draft' | 'published';
 
@@ -153,9 +154,10 @@ export function listMarketingConfiguratorCatalog(language: PortalUiLanguage = 'd
 export function mergeMarketingConfiguratorContent(
   defaults: MarketingConfiguratorContentFields,
   override: MarketingConfiguratorContentFields | null | undefined,
+  itemNumber?: string,
 ): MarketingConfiguratorContentFields {
   if (!override) return defaults;
-  return {
+  return resolveMarketingProductIdentity(itemNumber, {
     title: override.title || defaults.title,
     description: override.description || defaults.description,
     key_features: override.key_features.length ? override.key_features : defaults.key_features,
@@ -167,7 +169,18 @@ export function mergeMarketingConfiguratorContent(
     badge_starts_at: override.badge_starts_at || null,
     badge_ends_at: override.badge_ends_at || null,
     badge_show_countdown: override.badge_show_countdown === true,
-  };
+  });
+}
+
+/** Keep unclassifiable custom copy as description, never as a replacement identity. */
+export function resolveMarketingProductIdentity(itemNumber: string | undefined, content: MarketingConfiguratorContentFields): MarketingConfiguratorContentFields {
+  const row = publishedProduct(itemNumber);
+  if (!row?.item_text_da) return content;
+  const title = resolvePublishedTitle(itemNumber, content.title);
+  const knownPrefix = [row.item_text_da, ...(row.identity_aliases || [])].some(alias => content.title === alias || content.title.startsWith(`${alias} `));
+  const customCopy = content.title && !knownPrefix && content.title !== title ? content.title : '';
+  return { ...content, title, description: customCopy && !content.description.includes(customCopy)
+    ? [customCopy, content.description].filter(Boolean).join('\n\n') : content.description };
 }
 
 export async function listMarketingConfiguratorContent(): Promise<{ rows: MarketingConfiguratorContentRecord[]; error: string | null }> {

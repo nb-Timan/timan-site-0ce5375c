@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 import { academySandbox } from '@/lib/academySandbox';
 import { academyScopedStorageKey } from '@/lib/academyCycleStorage';
 import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult } from '@/types/configurator';
@@ -306,8 +307,10 @@ export function useConfigurator() {
 
   // Calculate prices
   const campaignRevision = useCampaignRevision();
+  const productRevision = useProductMasterRevision();
   const campaignClock = useMarketingBadgeClock();
   const calcResult = useMemo((): CalcResult | null => {
+    void productRevision;
     void campaignRevision;
     if (state.pricingSnapshot?.totalsOnly) return null;
     if (hasFrozenConfiguratorPricing(state)) {
@@ -316,7 +319,7 @@ export function useConfigurator() {
     }
     if (!state.machineConfigs.length) return null;
     return calculateConfiguration(state, { now: campaignClock });
-  }, [state, campaignRevision, campaignClock]);
+  }, [state, campaignRevision, campaignClock, productRevision]);
 
   const resetState = useCallback(() => {
     setState(prev => createEmptyConfiguratorState(prev.language));

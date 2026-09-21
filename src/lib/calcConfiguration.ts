@@ -1,7 +1,7 @@
 import type { CalcResult, ConfiguratorState, DiscountDetail, LineItem } from '@/types/configurator';
 import { PRODUCTS, getAccessoriesFlat, getLocalizedName, getPrice } from '@/data/machines';
 import { t } from '@/data/translations';
-import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice } from '@/lib/configuratorPricing';
+import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { campaignProductPricing, isCampaignActive, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
 
@@ -55,12 +55,12 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
       const demo = Boolean(state.demoMachines?.[`${product.varenr}_${unit}`]);
       const eligible = !demo && product.isDiscountEligible === true;
       if (eligible) eligibleUnits++;
-      add({ txt: `${T('machineLabel')} ${unit} (${getLocalizedName(product.name, state.language)})`, price: snapshotMachinePrice(state, machine.type, getPrice(product, state.language)), varenr: product.varenr, bold: true, isMachine: true, index: unit }, 1, demo, eligible, `${machine.type}::${product.id}`);
+      add({ txt: `${T('machineLabel')} ${unit} (${snapshotProductName(state, product.varenr, getLocalizedName(product.name, state.language))})`, price: snapshotMachinePrice(state, machine.type, getPrice(product, state.language)), varenr: product.varenr, bold: true, isMachine: true, index: unit }, 1, demo, eligible, `${machine.type}::${product.id}`);
       for (const accessory of getAccessoriesFlat(machine.type)) {
         if (accessory.isHeader) continue;
         const quantity = state.accQty?.[`${key}_${accessory.id}`] || 1;
         if (!selected.includes(accessory.id) && !shouldIncludeQuantityAccessory(machine.type, accessory, selected, state.accQty?.[`${key}_${accessory.id}`] || 0)) continue;
-        add({ txt: `- ${getLocalizedName(accessory.name, state.language)}${quantity > 1 ? ` x${quantity}` : ''}`, price: snapshotAccessoryPrice(state, machine.type, accessory, getPrice(accessory, state.language)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`, selected.indexOf(accessory.id));
+        add({ txt: `- ${snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, state.language))}${quantity > 1 ? ` x${quantity}` : ''}`, price: snapshotAccessoryPrice(state, machine.type, accessory, getPrice(accessory, state.language)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`, selected.indexOf(accessory.id));
       }
       if (demo) add({ txt: `- ${T('demoMachineLabel')}`, price: snapshotDemoFee(state, state.language), varenr: 'DEMO', sub: true }, 1, true, false);
       lineItems.push({ txt: `${T('subtotalMachine')} ${unit}:`, price: roundPricingMoney(lines.filter(line => line.unit === unit).reduce((sum, line) => sum + line.gross, 0)), varenr: 'SUBTOTAL', subtotal: true, index: unit });

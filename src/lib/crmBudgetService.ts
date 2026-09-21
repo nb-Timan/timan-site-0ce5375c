@@ -11,6 +11,7 @@
  */
 import { supabase } from "@/lib/supabase";
 import { PRODUCTS, ACCESSORIES, LOOSE_TOOL_KEY, getAccessoriesFlat } from "@/data/machines";
+import { subscribeProductMaster } from '@/lib/publishedProductMaster';
 import { appendAuditEntry } from "@/lib/audit-log-store";
 import type { Accessory, Language, LocalizedString, ConfiguratorState } from "@/types/configurator";
 import { normalizeConfiguratorState } from "@/lib/configuratorState";
@@ -244,9 +245,6 @@ function readConfiguratorMachine(key: string): { name: string; varenr: string; p
   return { name: stripBaseSuffix(rawName), varenr: m.varenr || "", priceDKK: m.priceDKK || 0, priceEUR: m.priceEUR || 0 };
 }
 
-const RC1000 = readConfiguratorMachine("RC-1000S");
-const RC751  = readConfiguratorMachine("RC-751");
-const T3330  = readConfiguratorMachine("Timan 3330");
 
 // ---------- Equipment categories under machines ----------
 // Reads from the configurator ACCESSORIES catalog. We expose grouped
@@ -399,7 +397,11 @@ export function localizedName(name: LocalizedString, lang: Language): string {
   return name[lang] || name.da || name.en || "";
 }
 
-export const BUDGET_PRODUCTS: BudgetProduct[] = [
+function currentBudgetProducts(): BudgetProduct[] {
+const RC1000 = readConfiguratorMachine("RC-1000S");
+const RC751 = readConfiguratorMachine("RC-751");
+const T3330 = readConfiguratorMachine("Timan 3330");
+return [
   {
     key: "RC-751",
     name: RC751?.name || "RC-751",
@@ -435,6 +437,9 @@ export const BUDGET_PRODUCTS: BudgetProduct[] = [
     status: "coming_soon",
   },
 ];
+}
+export let BUDGET_PRODUCTS = currentBudgetProducts();
+subscribeProductMaster(() => { BUDGET_PRODUCTS = currentBudgetProducts(); });
 
 // ---------- Custom (Budget-only) products ----------
 // Created via the "Nyt varenr." flow on the CRM Budget page. These are

@@ -1,10 +1,16 @@
-import { getAccessoriesFlat, getPrice, PRODUCTS, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
+import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
 import type { Accessory, ConfiguratorPricingSnapshot, ConfiguratorState, Language } from '@/types/configurator';
 
 const machineKey = (machineType: string) => `machine:${machineType}`;
 const accessoryKey = (machineType: string, accessoryId: string) => `accessory:${machineType}:${accessoryId}`;
 const demoKey = (language: Language) => `demo:${language}`;
 const startupKey = (language: Language, option: string) => `startup:${language}:${option}`;
+
+export function snapshotProductName(state: ConfiguratorState, itemNumber: string, currentName: string): string {
+  return state.pricingSnapshot?.names?.[itemNumber]
+    ?? state.pricingSnapshot?.lines?.find(line => line.itemNo === itemNumber)?.description
+    ?? currentName;
+}
 
 function positivePrice(value: unknown): number | null {
   const number = Number(value);
@@ -82,11 +88,13 @@ export function protectLegacySentPricing(state: ConfiguratorState, row: { quote_
 /** Capture every selected product's unit price at the explicit commercial boundary. */
 export function createConfiguratorPricingSnapshot(state: ConfiguratorState): ConfiguratorPricingSnapshot {
   const prices: Record<string, number> = {};
+  const names: Record<string, string> = {};
   const language = state.language;
 
   for (const machine of state.machineConfigs ?? []) {
     const product = PRODUCTS[machine.type];
     if (product) prices[machineKey(machine.type)] = getPrice(product, language);
+    if (product?.varenr) names[product.varenr] = snapshotProductName(state, product.varenr, getLocalizedName(product.name, language));
 
     for (const accessory of getAccessoriesFlat(machine.type)) {
       if (accessory.isHeader) continue;
@@ -94,6 +102,7 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
         || Object.keys(state.individualUnitConfigs ?? {}).some(key => state.individualUnitConfigs[key]?.acc?.includes(accessory.id))
         || Object.keys(state.accQty ?? {}).some(key => key.endsWith(`_${accessory.id}`) && (state.accQty[key] ?? 0) > 0);
       if (selected) prices[accessoryKey(machine.type, accessory.id)] = getPrice(accessory, language);
+      if (selected && accessory.varenr) names[accessory.varenr] = snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, language));
     }
   }
 
@@ -107,5 +116,5 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
     prices[startupKey(language, state.deliveryDeliverStartup)] = currentPrice;
   }
 
-  return { version: 1, discountEngineVersion: 2, capturedAt: new Date().toISOString(), prices };
+  return { version: 1, discountEngineVersion: 2, capturedAt: new Date().toISOString(), prices, names };
 }

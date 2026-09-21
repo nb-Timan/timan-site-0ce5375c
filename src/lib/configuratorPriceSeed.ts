@@ -19,6 +19,7 @@ import {
   getLooseToolAccessories,
 } from "@/data/machines";
 import type { Accessory, Machine } from "@/types/configurator";
+import { publishedProduct } from '@/lib/publishedProductMaster';
 
 export type ProductGroupKey =
   | "RC-751"
@@ -44,7 +45,7 @@ export interface SeedRow {
   item_text_da: string;
   price_dkk: number | null;
   price_eur: number | null;
-  price_sek: null;
+  price_sek: number | null;
   group: ProductGroupKey;
 }
 
@@ -62,12 +63,13 @@ function pickDa(name: Accessory["name"] | Machine["name"]): string {
 function machineRow(m: Machine, group: ProductGroupKey): SeedRow | null {
   const item = String(m.varenr || "").trim();
   if (!item) return null;
+  const published = publishedProduct(item);
   return {
     item_number: item,
-    item_text_da: pickDa(m.name),
+    item_text_da: published?.item_text_da ?? pickDa(m.name),
     price_dkk: Number.isFinite(m.priceDKK) ? m.priceDKK : null,
     price_eur: Number.isFinite(m.priceEUR) ? m.priceEUR : null,
-    price_sek: null,
+    price_sek: published?.price_sek ?? null,
     group,
   };
 }
@@ -78,14 +80,15 @@ function accessoryRow(a: Accessory, group: ProductGroupKey): SeedRow | null {
   if (!item || item.toUpperCase() === "HEADER") return null;
   const dkk = Number.isFinite(a.priceDKK) ? a.priceDKK : 0;
   const eur = Number.isFinite(a.priceEUR) ? a.priceEUR : 0;
+  const published = publishedProduct(item);
   // Skip rows where both prices are zero (placeholders / option-only headers)
-  if (!dkk && !eur) return null;
+  if (!dkk && !eur && !published) return null;
   return {
     item_number: item,
-    item_text_da: pickDa(a.name),
-    price_dkk: dkk || null,
-    price_eur: eur || null,
-    price_sek: null,
+    item_text_da: published?.item_text_da ?? pickDa(a.name),
+    price_dkk: published?.price_dkk ?? (dkk || null),
+    price_eur: published?.price_eur ?? (eur || null),
+    price_sek: published?.price_sek ?? null,
     group,
   };
 }

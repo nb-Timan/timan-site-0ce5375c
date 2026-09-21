@@ -1,7 +1,7 @@
 import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS } from '@/data/machines';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
-import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice } from '@/lib/configuratorPricing';
+import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { machinePurchaseReference } from '@/lib/orderPurchaseReferences';
 import type { ConfiguratorState, Language } from '@/types/configurator';
@@ -170,7 +170,7 @@ export function buildAccountCaseLines(
       lines.push({
         unitNumber: machineUnitNumber,
         itemNo: product?.varenr || machine.type,
-        description: product ? getLocalizedName(product.name, legacyLang) : machine.type,
+        description: product ? snapshotProductName(state, product.varenr, getLocalizedName(product.name, legacyLang)) : machine.type,
         note: configurationModeLabel(machine.configMode, language),
         purchaseReferences,
         unitPrice,
@@ -198,7 +198,7 @@ export function buildAccountCaseLines(
         lines.push({
           unitNumber: machineUnitNumber,
           itemNo: String(accessory.varenr || accessory.id),
-          description: getLocalizedName(accessory.name, legacyLang),
+          description: snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, legacyLang)),
           note: machine.type,
           purchaseReferences,
           unitPrice: accessoryPrice,

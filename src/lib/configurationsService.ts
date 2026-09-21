@@ -1454,6 +1454,7 @@ export async function finalizeConfiguratorPricingSnapshot(
     capturedAt: state.pricingSnapshot?.capturedAt ?? currentSnapshot.capturedAt,
     discountEngineVersion: state.pricingSnapshot ? state.pricingSnapshot.discountEngineVersion : 2 as const,
     prices: { ...currentSnapshot.prices, ...state.pricingSnapshot?.prices },
+    names: { ...currentSnapshot.names, ...state.pricingSnapshot?.names },
     signature: configuratorPricingSignature(state),
     lines: undefined,
   };

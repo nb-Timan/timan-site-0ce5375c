@@ -1554,8 +1554,8 @@ function PublishModal({
             <h3 className="text-lg font-bold text-slate-900">Upload ændringer til konfigurator</h3>
             <p className="text-xs text-slate-500 mt-1">
               Sammenligner ændrede prislistevarer (Backend) mod konfiguratorens nuværende værdier
-              (machines.ts). Ved bekræftelse skrives kun de ændrede varer til <span className="font-mono">price_list_published</span>.
-              Nye Configurator-sessioner og refresh læser herefter den publicerede pris. Eksisterende sendte tilbud,
+              (publiceret Product Master). Ved bekræftelse skrives kun de ændrede varer til <span className="font-mono">price_list_published</span>.
+              Nye Configurator-sessioner og refresh læser herefter publiceret varetekst og pris. Eksisterende sendte tilbud,
               ordrer og PDF'er bevarer deres låste prissnapshot.
             </p>
             <p className="text-xs text-slate-600 mt-2">

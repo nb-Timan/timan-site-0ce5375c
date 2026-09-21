@@ -15,6 +15,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { getActiveSellerView, type SellerView } from "@/lib/activeMode";
 import { supabase } from "@/lib/supabase";
 import { WARRANTY_CREATE_ROUTE } from "@/lib/warrantyRoutes";
+import PublishedProductMasterBoundary from '@/components/PublishedProductMasterBoundary';
 
 function PreferredLanguageBootstrap() {
   const { appUser } = useAppUser();
@@ -305,6 +306,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+      <PublishedProductMasterBoundary>
         <AppUserProvider>
           <LanguageProvider>
             <AcademyCaseCompletionModalHost />
@@ -448,6 +450,7 @@ const App = () => (
             <PreferredLanguageBootstrap />
           </LanguageProvider>
         </AppUserProvider>
+      </PublishedProductMasterBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
