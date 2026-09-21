@@ -1,9 +1,10 @@
-import type { CalcResult, ConfiguratorState, DiscountDetail, LineItem } from '@/types/configurator';
+import type { CalcResult, ConfiguratorState, DiscountDetail, LineItem, MachineDeliveryDiscount } from '@/types/configurator';
 import { PRODUCTS, getAccessoriesFlat, getLocalizedName, getPrice } from '@/data/machines';
 import { t } from '@/data/translations';
 import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { campaignBenefitEntitlement, campaignProductPricing, campaignTriggerSetCount, isCampaignActive, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
+import { hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate } from '@/lib/configuratorDelivery';
 
 export const roundPricingMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
@@ -37,12 +38,13 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   const lineItems: LineItem[] = [];
   const lines: EconomicLine[] = [];
   const details: DiscountDetail[] = [];
+  let deliveryDiscounts: MachineDeliveryDiscount[] = [];
   let eligibleUnits = 0;
   let unit = 0;
-  const add = (item: LineItem, quantity: number, demo: boolean, quantityEligible: boolean, productKey = '', selectionOrder = -1) => {
+  const add = (item: LineItem, quantity: number, demo: boolean, quantityEligible: boolean, productKey = '', selectionOrder = -1, lineUnit = unit) => {
     item.price = roundPricingMoney(item.price);
     lineItems.push(item);
-    lines.push({ gross: item.price, net: item.price, quantity, unit, demo, quantityEligible, productKey, item, campaignApplied: false, selectionOrder });
+    lines.push({ gross: item.price, net: item.price, quantity, unit: lineUnit, demo, quantityEligible, productKey, item, campaignApplied: false, selectionOrder });
   };
 
   for (const machine of state.machineConfigs ?? []) {
@@ -69,7 +71,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   if (unit && state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
     const option = state.deliveryDeliverStartup;
     const fallback = option === 'no_bridge' ? (state.language === 'da' ? 1500 : 200) : option === 'with_bridge' ? (state.language === 'da' ? 2500 : 335) : 0;
-    add({ txt: `- ${T(option === 'no_bridge' ? 'startupNoBridgeCalc' : option === 'with_bridge' ? 'startupWithBridgeCalc' : 'startupOtherCalc')}`, price: snapshotStartupPrice(state, state.language, option, fallback), varenr: '795050', sub: true }, 1, false, false);
+    add({ txt: `- ${T(option === 'no_bridge' ? 'startupNoBridgeCalc' : option === 'with_bridge' ? 'startupWithBridgeCalc' : 'startupOtherCalc')}`, price: snapshotStartupPrice(state, state.language, option, fallback), varenr: '795050', sub: true }, 1, false, false, '', -1, 0);
   }
   const subtotal = roundPricingMoney(lines.reduce((sum, line) => sum + line.gross, 0));
   const apply = (kind: DiscountDetail['kind'], percent: number, eligible: (line: EconomicLine) => boolean, label: string, varenr?: string) => {
@@ -92,9 +94,30 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   if (!options.grossManualDiscountOnly) {
     apply('demo', 32.5, line => line.demo, T('demoDiscount'));
     apply('base', (state.baseDiscountPct ?? 0.25) * 100, line => !line.demo, T('baseDiscountLabel'));
-    const threshold = new Date(now);
-    threshold.setMonth(threshold.getMonth() + 3);
-    if (state.date && new Date(state.date) > threshold) apply('delivery', 2, line => !line.demo, T('deliveryDiscountLabel'), '795045');
+    const eligibleDeliveryUnits = new Set<number>();
+    const deliveryBasisByUnit = new Map<number, number>();
+    for (let unitNumber = 1; unitNumber <= unit; unitNumber += 1) {
+      const basis = roundPricingMoney(lines.filter(line => line.unit === unitNumber && !line.demo).reduce((sum, line) => sum + line.net, 0));
+      deliveryBasisByUnit.set(unitNumber, basis);
+      if (basis > 0 && isDeliveryDiscountEligible(machineDeliveryDate(state, unitNumber), now)) eligibleDeliveryUnits.add(unitNumber);
+    }
+    if (eligibleDeliveryUnits.size > 0) {
+      apply('delivery', 2, line => !line.demo && eligibleDeliveryUnits.has(line.unit), T('deliveryDiscountLabel'), '795045');
+    }
+    deliveryDiscounts = Array.from({ length: unit }, (_, index) => {
+      const unitNumber = index + 1;
+      const basis = deliveryBasisByUnit.get(unitNumber) ?? 0;
+      const netAfter = roundPricingMoney(lines.filter(line => line.unit === unitNumber && !line.demo).reduce((sum, line) => sum + line.net, 0));
+      const eligible = eligibleDeliveryUnits.has(unitNumber);
+      return {
+        unitNumber,
+        date: machineDeliveryDate(state, unitNumber),
+        overridden: hasMachineDeliveryOverride(state, unitNumber),
+        percent: eligible ? 2 : 0,
+        basis,
+        amount: eligible ? roundPricingMoney(basis - netAfter) : 0,
+      };
+    });
     apply('quantity', quantityPct, line => line.quantityEligible, T('qtyDiscountLabel'), '795043');
   }
   apply('dealer', Math.min(100, Math.max(0, state.manualDealerDiscountPct || 0)), () => true, T('extraDealerDiscountLabel'), '795042');
@@ -163,7 +186,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   }
   const currentPrice = roundPricingMoney(lines.reduce((sum, line) => sum + line.net, 0));
   const totalDiscount = roundPricingMoney(subtotal - currentPrice);
-  return { lineItems, subtotal, discountDetails: details, totalDiscount, currentPrice, totalPct: subtotal ? totalDiscount / subtotal * 100 : 0, qtyPct: quantityPct / 100, campaignLines };
+  return { lineItems, subtotal, discountDetails: details, deliveryDiscounts, totalDiscount, currentPrice, totalPct: subtotal ? totalDiscount / subtotal * 100 : 0, qtyPct: quantityPct / 100, campaignLines };
 }
 
 export function calcConfigurationTotals(state: ConfiguratorState, options: PricingOptions = {}): { subtotal: number; totalDiscount: number; finalPrice: number } {

@@ -2,6 +2,7 @@ import type { CalcResult, ConfiguratorState, DiscountDetail, Language, LineItem 
 import { formatMoney } from "@/data/machines";
 import { getPaymentTermsLabel, resolvePaymentTerms } from "@/lib/paymentTerms";
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from "@/lib/orderPurchaseReferences";
+import { commonMachineDeliveryDate, machineDeliveryDate } from "@/lib/configuratorDelivery";
 
 type ConfiguratorPdfFlowType = "quote" | "order";
 
@@ -35,6 +36,7 @@ type MachinePdfSection = {
   rows: LineItem[];
   subtotal?: LineItem;
   purchaseReference?: string | null;
+  deliveryDate?: string | null;
 };
 
 const PAGE = {
@@ -129,6 +131,7 @@ function plainText(text: string): string {
 function groupMachineSections(lineItems: LineItem[], state: ConfiguratorState): MachinePdfSection[] {
   const sections: MachinePdfSection[] = [];
   let current: MachinePdfSection | null = null;
+  const commonDelivery = commonMachineDeliveryDate(state);
 
   for (const item of lineItems) {
     if (item.bold && item.isMachine) {
@@ -136,6 +139,7 @@ function groupMachineSections(lineItems: LineItem[], state: ConfiguratorState): 
         title: `${item.txt.replace(/\s*\([^)]*\)\s*$/, "")} - ${cleanMachineTitle(item.txt)}`,
         rows: [{ ...item, txt: cleanMachineTitle(item.txt) }],
         purchaseReference: item.index ? machinePurchaseReference(state, item.index) : null,
+        deliveryDate: !commonDelivery && item.index ? machineDeliveryDate(state, item.index) : null,
       };
       sections.push(current);
       continue;
@@ -289,7 +293,7 @@ function drawMachineSection(
   y: number,
   input: Pick<BuildConfiguratorPdfInput, "uiLanguage" | "contentLanguage" | "showPrices" | "TC">,
 ): number {
-  y = ensureSpace(pdf, y, section.purchaseReference ? 30 : 24);
+  y = ensureSpace(pdf, y, section.purchaseReference || section.deliveryDate ? 34 : 24);
   setColor(pdf, "text", COLORS.text);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(10);
@@ -299,6 +303,12 @@ function drawMachineSection(
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7.5);
     pdf.text(`${purchaseOrderLabel(input.contentLanguage)}: ${section.purchaseReference}`, PAGE.marginX, y);
+    y += 4.5;
+  }
+  if (section.deliveryDate) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.text(`${input.TC("confirmDelivery").replace(":", "")}: ${formatDate(section.deliveryDate, input.contentLanguage)}`, PAGE.marginX, y);
     y += 4.5;
   }
 
@@ -397,6 +407,10 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
 
   let y = 36;
   const deliveryMethodText = input.state.deliveryMethod ? input.TC(input.state.deliveryMethod) : "-";
+  const commonDeliveryDate = commonMachineDeliveryDate(input.state);
+  const deliveryDateText = commonDeliveryDate
+    ? formatDate(commonDeliveryDate, input.contentLanguage)
+    : input.TC("multipleDeliveryDates");
   const purchaseReferences = orderPurchaseReferenceSummary(input.state);
   const metadata: Array<[string, string | null | undefined]> = input.flowType === "quote"
     ? [
@@ -404,12 +418,12 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
         [input.TC("confirmDate").replace(":", ""), today(input.contentLanguage)],
         [input.TC("pdfValidUntil"), "-"],
         [input.TC("deliveryMethod"), deliveryMethodText],
-        [input.TC("confirmDelivery").replace(":", ""), formatDate(input.state.date, input.contentLanguage)],
+        [input.TC("confirmDelivery").replace(":", ""), deliveryDateText],
       ]
     : [
         input.orderNumber ? [input.TC("pdfOrderNo"), input.orderNumber] : ["", ""],
         [input.TC("confirmDate").replace(":", ""), today(input.contentLanguage)],
-        [input.TC("confirmDelivery").replace(":", ""), formatDate(input.state.date, input.contentLanguage)],
+        [input.TC("confirmDelivery").replace(":", ""), deliveryDateText],
         [input.TC("deliveryMethod"), deliveryMethodText],
         purchaseReferences.headerValue
           ? [purchaseOrderLabel(input.contentLanguage), purchaseReferences.headerValue]
@@ -436,7 +450,7 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
 
   const terms = [
     `${getPaymentTermsLabel(input.contentLanguage)}: ${resolvePaymentTerms(input.state.paymentTerms)}`,
-    `${input.TC("confirmDelivery")} ${formatDate(input.state.date, input.contentLanguage)}`,
+    `${input.TC("confirmDelivery")} ${deliveryDateText}`,
     `${input.TC("deliveryMethod")}: ${deliveryMethodText}`,
     input.TC("confirmExVat"),
   ].join("\n");

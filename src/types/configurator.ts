@@ -149,6 +149,7 @@ export interface ConfiguratorPricingSnapshot {
   /** Absent on legacy snapshots, which remain frozen. */
   discountEngineVersion?: 2;
   discountDetails?: DiscountDetail[];
+  deliveryDiscounts?: MachineDeliveryDiscount[];
   campaignLines?: CampaignLineSnapshot[];
   prices: Record<string, number>;
   /** Commercial identity captured with the price, not live Marketing copy. */
@@ -182,6 +183,8 @@ export interface ConfiguratorState {
   ralCodes: Record<string, string>;
   accQty: Record<string, number>;
   date: string;
+  /** Optional delivery-date overrides keyed by stable machine id and unit index, e.g. m1_1. */
+  machineDeliveryDates?: Record<string, string>;
   deliveryMethod: DeliveryMethod | '';
   deliveryDeliverStartup: string | null;
   manualDealerDiscountPct: number;
@@ -260,6 +263,7 @@ export interface DiscountDetail {
 
 export interface CalcResult {
   campaignLines?: CampaignLineSnapshot[];
+  deliveryDiscounts?: MachineDeliveryDiscount[];
   lineItems: LineItem[];
   subtotal: number;
   discountDetails: DiscountDetail[];
@@ -267,6 +271,15 @@ export interface CalcResult {
   currentPrice: number;
   totalPct: number;
   qtyPct: number;
+}
+
+export interface MachineDeliveryDiscount {
+  unitNumber: number;
+  date: string;
+  overridden: boolean;
+  percent: number;
+  basis: number;
+  amount: number;
 }
 
 export interface MachineUnit {

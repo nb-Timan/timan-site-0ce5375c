@@ -100,6 +100,7 @@ import { createConfiguratorPricingSnapshot } from '@/lib/configuratorPricing';
 import { calculateConfiguration, configurationCampaignSelection } from '@/lib/calcConfiguration';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
+import { commonMachineDeliveryDate, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey } from '@/lib/configuratorDelivery';
 
 // Configurator language selector — uses the 9 portal UI languages.
 // Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
@@ -1646,6 +1647,36 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     setState(s => ({ ...s, reqNumbers: { ...s.reqNumbers, [`machine_${unitNumber}`]: value.slice(0, 20) } }));
   };
 
+  const setMachineDeliveryOverride = (unitNumber: number, enabled: boolean) => {
+    setState(s => {
+      const key = machineDeliveryDateKey(s, unitNumber);
+      const nextDates = { ...(s.machineDeliveryDates ?? {}) };
+      if (enabled) nextDates[key] = nextDates[key] || s.date;
+      else {
+        delete nextDates[key];
+        delete nextDates[`machine_${unitNumber}`];
+      }
+      return { ...s, machineDeliveryDates: nextDates };
+    });
+  };
+
+  const setMachineDeliveryDate = (unitNumber: number, value: string) => {
+    if (!value) return;
+    const selected = new Date(`${value}T12:00:00`);
+    if (Number.isNaN(selected.getTime())) return;
+    if (selected.getDay() === 0 || selected.getDay() === 6) {
+      toast.error(T('weekendDateError'));
+      return;
+    }
+    setState(s => ({
+      ...s,
+      machineDeliveryDates: {
+        ...(s.machineDeliveryDates ?? {}),
+        [machineDeliveryDateKey(s, unitNumber)]: value,
+      },
+    }));
+  };
+
   const getDemoFee = () => isEURCurrency() ? DEMO_FEE_EUR : DEMO_FEE_DKK;
   const getDemoKey = (varenr: string, unitNumber: number) => `${varenr}_${unitNumber}`;
   const isDemoSelected = (varenr: string, unitNumber: number) => !!state.demoMachines[getDemoKey(varenr, unitNumber)];
@@ -1729,7 +1760,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const buildConfirmationHtml = (overrides?: { quoteNumber?: string | null; orderNumber?: string | null; sourceQuoteNumber?: string | null; flowType?: ConfiguratorSubmitFlowType }) => {
     if (!calcResult) return '';
     const dateLocale: Record<string, string> = { da: 'da-DK', en: 'en-US', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' };
-    const delDate = state.date ? new Date(state.date + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK') : 'N/A';
+    const commonDelivery = commonMachineDeliveryDate(state);
+    const delDate = commonDelivery
+      ? new Date(commonDelivery + 'T12:00:00').toLocaleDateString(dateLocale[lang] || 'da-DK')
+      : T('multipleDeliveryDates');
     const today = new Date().toLocaleDateString(dateLocale[lang] || 'da-DK');
     const deliveryMethodText = state.deliveryMethod ? TC(state.deliveryMethod) : 'N/A';
     const renderFlowType = overrides?.flowType ?? state.flowType;
@@ -1823,6 +1857,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           const reqVal = state.reqNumbers[`machine_${i.index}`];
           if (reqVal) {
             html += `<div class="text-xs text-gray-500 pl-0 pb-1">${TC('reqNrLabel')}: ${reqVal}</div>`;
+          }
+          const unitDeliveryDate = commonDelivery ? '' : machineDeliveryDate(state, i.index);
+          if (unitDeliveryDate) {
+            const formattedUnitDelivery = new Date(`${unitDeliveryDate}T12:00:00`).toLocaleDateString(dateLocale[lang] || 'da-DK');
+            html += `<div class="text-xs text-gray-500 pl-0 pb-1">${TC('confirmDelivery')} ${formattedUnitDelivery}</div>`;
           }
         }
       } else {
@@ -4262,6 +4301,46 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         {item.isMachine && (
                           <div className="text-[11px] text-gray-500 pl-4 mt-0.5">
                             <span className="mr-2">{item.varenr}</span>
+                          </div>
+                        )}
+                        {!isExhibition && state.date && item.isMachine && item.index && (
+                          <div className="ml-4 mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="inline-flex items-center gap-1.5">
+                                <CalendarIcon className="h-3.5 w-3.5" />
+                                <strong>{T('deliveryDate')}:</strong>
+                                {machineDeliveryDate(state, item.index)
+                                  ? format(new Date(`${machineDeliveryDate(state, item.index)}T12:00:00`), 'dd-MM-yyyy', { locale: dateLocale })
+                                  : '—'}
+                              </span>
+                              <span className={`rounded px-1.5 py-0.5 ${hasMachineDeliveryOverride(state, item.index) ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
+                                {T(hasMachineDeliveryOverride(state, item.index) ? 'individualDeliveryDate' : 'standardDeliveryDate')}
+                              </span>
+                            </div>
+                            <label className="mt-2 flex cursor-pointer items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={hasMachineDeliveryOverride(state, item.index)}
+                                disabled={submittedOrderEditorLocked}
+                                onChange={(event) => setMachineDeliveryOverride(item.index!, event.target.checked)}
+                              />
+                              <span>{T('useDifferentDeliveryDate')}</span>
+                            </label>
+                            {hasMachineDeliveryOverride(state, item.index) && (
+                              <div className="mt-2 flex flex-wrap items-center gap-2">
+                                <input
+                                  type="date"
+                                  value={machineDeliveryDate(state, item.index)}
+                                  min={canSelectPastDeliveryDate ? undefined : format(new Date(), 'yyyy-MM-dd')}
+                                  disabled={submittedOrderEditorLocked}
+                                  onChange={(event) => setMachineDeliveryDate(item.index!, event.target.value)}
+                                  className="min-w-0 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+                                />
+                                {isDeliveryDiscountEligible(machineDeliveryDate(state, item.index)) && (
+                                  <span className="rounded bg-emerald-100 px-2 py-1 font-semibold text-emerald-700">2% {T('deliveryDiscount')}</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         )}
                         {!isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && permissions.canSeePrices && (

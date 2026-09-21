@@ -7,6 +7,7 @@ import { formatMoney } from '@/data/machines';
 import { buildSubmittedOrderDocument } from '@/lib/submittedOrderConfirmation';
 import { resolvePaymentTerms } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
+import { activeMachineDeliveryDates, commonMachineDeliveryDate } from '@/lib/configuratorDelivery';
 import type { SavedConfiguration } from '@/lib/configurationsService';
 
 interface Props {
@@ -44,6 +45,9 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
   const sentAt = order.order_sent_at || order.submitted_at || order.created_at;
   const money = (value: number) => formatMoney(value, state.language);
   const purchaseReferences = orderPurchaseReferenceSummary(state);
+  const deliveryDates = activeMachineDeliveryDates(state);
+  const commonDelivery = commonMachineDeliveryDate(state);
+  const hasIndividualDeliveryDates = new Set(deliveryDates.filter(Boolean)).size > 1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 sm:p-5">
@@ -68,7 +72,7 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
           <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-5">
             <Detail label="Ordrenr." value={reference} />
             <Detail label="Dato" value={formatDate(sentAt)} />
-            <Detail label="Forventet levering" value={state.date ? formatDate(`${state.date}T12:00:00`) : '—'} />
+            <Detail label="Forventet levering" value={commonDelivery ? formatDate(`${commonDelivery}T12:00:00`) : 'Individuelle datoer'} />
             <Detail label="Leveringsmetode" value={deliveryMethodLabel(state.deliveryMethod)} />
             <Detail label="Rekvisitionsnr. / PO nr." value={purchaseReferences.headerValue} />
           </div>
@@ -89,12 +93,22 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
               <h4 className="mb-3 text-sm font-semibold text-slate-900">Handels- og leveringsoplysninger</h4>
               <dl className="grid gap-3 sm:grid-cols-2">
                 <Detail label="Betalingsbetingelser" value={resolvePaymentTerms(state.paymentTerms)} />
-                <Detail label="Ønsket levering" value={state.date ? formatDate(`${state.date}T12:00:00`) : '—'} />
+                <Detail label="Ønsket levering" value={commonDelivery ? formatDate(`${commonDelivery}T12:00:00`) : 'Individuelle datoer'} />
                 <Detail label="Leveringsmetode" value={deliveryMethodLabel(state.deliveryMethod)} />
                 <Detail label="Rekvisitionsnr. / PO nr." value={purchaseReferences.headerValue} />
                 {state.alternativeDeliveryAddress && <Detail label="Alternativ leveringsadresse" value={state.alternativeDeliveryAddress} />}
                 {state.comment && <Detail label="Kommentar" value={state.comment} />}
               </dl>
+              {hasIndividualDeliveryDates && (
+                <div className="mt-3 border-t border-slate-100 pt-3">
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Levering pr. maskine</p>
+                  <div className="grid gap-1 text-sm text-slate-700 sm:grid-cols-2">
+                    {deliveryDates.map((date, index) => (
+                      <div key={`${index + 1}-${date}`}>Maskine {index + 1}: <span className="font-medium">{formatDate(`${date}T12:00:00`)}</span></div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </section>
           </div>
 

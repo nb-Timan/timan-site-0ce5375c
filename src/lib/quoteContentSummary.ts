@@ -22,6 +22,7 @@ import {
 import { snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { resolvePaymentTerms } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
+import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
 
 export interface SummaryAccessoryLine {
   id: string;
@@ -39,6 +40,8 @@ export interface SummaryMachineUnit {
   config_key: string;
   is_demo: boolean;
   req_number: string | null;
+  delivery_date: string | null;
+  delivery_date_overridden: boolean;
   accessories: SummaryAccessoryLine[];
   unit_total: number;
 }
@@ -156,6 +159,8 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
         config_key: configKey,
         is_demo: !!state.demoMachines?.[demoKey],
         req_number: reqNumber && reqNumber.trim() ? reqNumber : null,
+        delivery_date: machineDeliveryDate(state, runningUnitNumber) || null,
+        delivery_date_overridden: hasMachineDeliveryOverride(state, runningUnitNumber),
         accessories: accessoryLines,
         unit_total: unitTotal,
       });

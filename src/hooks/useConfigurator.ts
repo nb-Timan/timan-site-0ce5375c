@@ -94,7 +94,10 @@ export function useConfigurator() {
       const configs = [...s.machineConfigs];
       let config = configs.find(c => c.type === machineType);
       if (!config) {
-        config = { id: `m${configs.length}`, type: machineType, qty: 0, configMode: 'individual', acc: [] };
+        const usedIds = new Set(configs.map(item => item.id));
+        let nextId = 0;
+        while (usedIds.has(`m${nextId}`)) nextId += 1;
+        config = { id: `m${nextId}`, type: machineType, qty: 0, configMode: 'individual', acc: [] };
         configs.push(config);
       }
       const newQty = Math.max(0, config.qty + delta);

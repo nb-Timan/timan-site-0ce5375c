@@ -4,6 +4,7 @@ import { hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
 import type { QuoteContentSummary } from '@/lib/quoteContentSummary';
 import { resolvePaymentTerms } from '@/lib/paymentTerms';
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
+import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
 
 /** A historical document must never silently substitute today's prices. */
 export function buildSubmittedOrderDocument(state: ConfiguratorState) {
@@ -30,6 +31,7 @@ export function buildSubmittedOrderDocument(state: ConfiguratorState) {
     totalPct: totals.subtotal ? totals.totalDiscount / totals.subtotal * 100 : 0,
     qtyPct: 0,
     discountDetails: state.pricingSnapshot?.discountDetails ?? [{ txt: 'Rabat', amount: totals.totalDiscount }],
+    deliveryDiscounts: state.pricingSnapshot?.deliveryDiscounts,
     campaignLines: state.pricingSnapshot?.campaignLines,
   };
   return { lines, totals, calcResult };
@@ -51,6 +53,8 @@ export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteC
         config_key: machine.configMode === 'shared' ? machine.id : `${machine.id}_${index + 1}`,
         is_demo: accessories.some(line => line.itemNo === 'DEMO'),
         req_number: machinePurchaseReference(state, unitNumber),
+        delivery_date: machineDeliveryDate(state, unitNumber) || null,
+        delivery_date_overridden: hasMachineDeliveryOverride(state, unitNumber),
         accessories: accessories.map(line => ({
           id: line.itemNo, varenr: line.itemNo, name: line.description,
           qty: line.quantity, unit_price: line.unitPrice, total: line.total,

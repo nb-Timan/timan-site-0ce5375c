@@ -41,6 +41,9 @@ export function snapshotStartupPrice(state: ConfiguratorState, language: Languag
 
 /** Stable identity for choices that affect the commercial calculation. */
 export function configuratorPricingSignature(state: ConfiguratorState): string {
+  const machineDeliveryDates = Object.entries(state.machineDeliveryDates ?? {})
+    .filter(([, value]) => Boolean(value))
+    .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify({
     language: state.language,
     machines: (state.machineConfigs ?? []).map(machine => ({
@@ -57,6 +60,7 @@ export function configuratorPricingSignature(state: ConfiguratorState): string {
     deliveryMethod: state.deliveryMethod,
     deliveryStartup: state.deliveryDeliverStartup,
     deliveryDate: state.date,
+    ...(machineDeliveryDates.length ? { machineDeliveryDates } : {}),
     baseDiscountPct: state.baseDiscountPct ?? 0.25,
     manualDealerDiscountPct: state.manualDealerDiscountPct ?? 0,
   });

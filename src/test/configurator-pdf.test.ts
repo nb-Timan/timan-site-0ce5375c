@@ -182,6 +182,34 @@ describe("configurator PDF generator", () => {
     expect(output).toContain("T-4003");
   });
 
+  it("shows individual delivery dates per machine instead of a false common date", () => {
+    const pdf = buildConfiguratorPdf({
+      jsPDF: NoRasterJsPDF,
+      state: {
+        ...baseState,
+        machineConfigs: [
+          { id: "m0", type: "Timan 3330", qty: 1, configMode: "shared", acc: [] },
+          { id: "m1", type: "RC-1000S", qty: 1, configMode: "shared", acc: [] },
+        ],
+        date: "2026-10-12",
+        machineDeliveryDates: { m1_1: "2027-01-21" },
+      },
+      calcResult: makeCalcResult(2, 1),
+      flowType: "order",
+      orderNumber: "O-DELIVERY-QA",
+      showPrices: true,
+      uiLanguage: "da",
+      contentLanguage: "da",
+      T: (key) => t(key, "da"),
+      TC: (key) => t(key, "da"),
+    });
+    const output = pdf.output();
+
+    expect(output).toContain("Individuelle datoer");
+    expect(output).toContain("12.10.2026");
+    expect(output).toContain("21.1.2027");
+  });
+
   it("does not render a false quote reference when an order has no source quote", () => {
     const pdf = buildConfiguratorPdf({
       jsPDF: NoRasterJsPDF,

@@ -1467,7 +1467,7 @@ export async function finalizeConfiguratorPricingSnapshot(
   const { buildAccountCaseLines } = await import('@/lib/configuratorAccountSummaries');
   const lines = buildAccountCaseLines(stateWithSnapshot, state.language);
   const totals = { subtotal: calculation.subtotal, totalDiscount: calculation.totalDiscount, finalPrice: calculation.currentPrice };
-  return { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals, lines, discountDetails: calculation.discountDetails, campaignLines: calculation.campaignLines } };
+  return { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals, lines, discountDetails: calculation.discountDetails, deliveryDiscounts: calculation.deliveryDiscounts, campaignLines: calculation.campaignLines } };
 }
 
 export interface SubmittedOrderContactDetails {
