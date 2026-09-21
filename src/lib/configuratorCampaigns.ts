@@ -70,7 +70,7 @@ const finite = (value: unknown): value is number => typeof value === 'number' &&
 export function campaignError(campaign: Pick<ProductCampaign, 'name' | 'type' | 'benefitPricingType' | 'discountPct' | 'targetPriceDkk' | 'targetPriceEur' | 'triggerMinQuantity' | 'benefitQuantity' | 'startsAt' | 'endsAt' | 'products'>): string | null {
   if (!campaign.name.trim()) return 'Angiv et kampagnenavn.';
   if (!['badge', 'percentage', 'fixed', 'conditional'].includes(campaign.type)) return 'Ugyldig kampagnetype.';
-  if (!(campaign.triggerMinQuantity > 0) || !(campaign.benefitQuantity > 0)) return 'Antal skal være mindst 1.';
+  if (!Number.isInteger(campaign.triggerMinQuantity) || !Number.isInteger(campaign.benefitQuantity) || !(campaign.triggerMinQuantity > 0) || !(campaign.benefitQuantity > 0)) return 'Antal skal være et helt tal på mindst 1.';
   const start = Date.parse(campaign.startsAt);
   const end = Date.parse(campaign.endsAt);
   if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 'Kampagnens slutdato skal være efter startdatoen.';
@@ -80,6 +80,11 @@ export function campaignError(campaign: Pick<ProductCampaign, 'name' | 'type' | 
   if (pricing === 'fixed' && [campaign.targetPriceDkk, campaign.targetPriceEur].some(value => !finite(value) || value < 0)) return 'Angiv en kampagnepris på mindst 0 i både DKK og EUR.';
   if (campaign.type === 'conditional' && !campaign.products.some(product => product.role === 'trigger')) return 'Tilføj mindst ét triggerprodukt.';
   if (campaign.type === 'conditional' && !campaign.products.some(product => product.role === 'benefit')) return 'Tilføj mindst ét benefitprodukt.';
+  for (const product of campaign.products) {
+    if (product.discountPct != null && (!finite(product.discountPct) || product.discountPct <= 0 || product.discountPct > 100)) return 'Kampagnerabat skal være større end 0 og højst 100 %.';
+    if ([product.targetPriceDkk, product.targetPriceEur].some(value => value != null && (!finite(value) || value < 0))) return 'Kampagnepris skal være mindst 0.';
+    if (product.discountPct != null && (product.targetPriceDkk != null || product.targetPriceEur != null)) return 'Vælg enten procent eller fast pris pr. produkt.';
+  }
   return null;
 }
 
@@ -94,6 +99,30 @@ export function campaignPricingError(fields: CampaignPricingFields): string | nu
 
 export function isCampaignActive(campaign: ProductCampaign, now = Date.now()) {
   return campaign.status === 'published' && Date.parse(campaign.startsAt) <= now && Date.parse(campaign.endsAt) > now && !campaignError(campaign);
+}
+
+/** Product overrides use the existing mutually exclusive percentage/target fields. */
+export function campaignProductPricing(campaign: ProductCampaign, product?: CampaignProductLink) {
+  if (campaign.type === 'badge') return { type: 'badge', discountPct: null, targetPriceDkk: null, targetPriceEur: null };
+  const type = product?.discountPct != null ? 'percentage'
+    : product?.targetPriceDkk != null || product?.targetPriceEur != null ? 'fixed'
+      : campaign.type === 'conditional' ? campaign.benefitPricingType : campaign.type;
+  return {
+    type,
+    discountPct: product?.discountPct ?? campaign.discountPct,
+    targetPriceDkk: product?.targetPriceDkk ?? campaign.targetPriceDkk,
+    targetPriceEur: product?.targetPriceEur ?? campaign.targetPriceEur,
+  };
+}
+
+export function eligibleCampaignFor(productKey: string, selection: { productKey: string; quantity: number }[], now = Date.now()) {
+  return publishedCampaignsFor(productKey).find(campaign => {
+    if (!isCampaignActive(campaign, now)) return false;
+    if (campaign.type !== 'conditional') return true;
+    if (!campaign.products.some(product => product.productKey === productKey && product.role === 'benefit')) return false;
+    const triggerKeys = new Set(campaign.products.filter(product => product.role === 'trigger').map(product => product.productKey));
+    return selection.reduce((sum, item) => sum + (triggerKeys.has(item.productKey) ? item.quantity : 0), 0) >= campaign.triggerMinQuantity;
+  });
 }
 
 let campaigns: ProductCampaign[] = [];

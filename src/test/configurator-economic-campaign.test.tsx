@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, render, renderHook, screen } from '@testing-library/react';
-import { calculateConfiguration, calcConfigurationTotals, roundPricingMoney } from '@/lib/calcConfiguration';
-import { campaignError, replacePublishedCampaigns, type CampaignProductLink, type ProductCampaign } from '@/lib/configuratorCampaigns';
+import { calculateConfiguration, calcConfigurationTotals, configurationCampaignSelection, roundPricingMoney } from '@/lib/calcConfiguration';
+import { campaignError, eligibleCampaignFor, replacePublishedCampaigns, type CampaignProductLink, type ProductCampaign } from '@/lib/configuratorCampaigns';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import { finalizeConfiguratorPricingSnapshot } from '@/lib/configurationsService';
 import { buildSubmittedOrderDocument } from '@/lib/submittedOrderConfirmation';
@@ -96,7 +96,7 @@ describe('canonical multi-product campaigns', () => {
     expect(new Set(rows.map(row => row.campaignId))).toEqual(new Set(['qa-campaign']));
     expect(new Set(rows.map(row => row.itemNumber))).toEqual(new Set(['725138', '725132']));
   });
-  it('applies the safe benefit quantity independently to each conditional benefit product', () => {
+  it('shares one entitlement across all choices and moves it to the latest selected choice', () => {
     const input = state();
     input.machineConfigs[0].acc.push('725132');
     replacePublishedCampaigns([campaign({
@@ -109,8 +109,36 @@ describe('canonical multi-product campaigns', () => {
       ],
     })]);
     const rows = calculateConfiguration(input, { now }).campaignLines || [];
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].itemNumber).toBe('725132');
     expect(rows.every(row => row.quantity === 1 && row.finalLineValue === 0)).toBe(true);
+    input.machineConfigs[0].acc = ['725132', '725138'];
+    expect(calculateConfiguration(input, { now }).campaignLines?.[0].itemNumber).toBe('725138');
+  });
+  it.each([1, 3])('caps all three CS-200 choices at a shared benefit quantity of %s', quantity => {
+    const input = state();
+    input.machineConfigs[0].acc = ['725131', '725132', '725138'];
+    replacePublishedCampaigns([campaign({ type: 'conditional', benefitPricingType: 'fixed', targetPriceDkk: 0, targetPriceEur: 0, discountPct: null, benefitQuantity: quantity,
+      products: [link({ role: 'trigger', productKey: 'Timan 3330::Timan 3330', itemNumber: '712000' }), ...['725131', '725132', '725138'].map(itemNumber => link({ role: 'benefit', productKey: `Timan 3330::${itemNumber}`, itemNumber }))] })]);
+    const result = calculateConfiguration(input, { now });
+    expect(result.campaignLines).toHaveLength(quantity);
+    expect(result.campaignLines?.reduce((sum, row) => sum + row.quantity, 0)).toBe(quantity);
+    expect(result.discountDetails.filter(row => row.kind === 'campaign').reduce((sum, row) => sum + row.amount, 0)).toBeCloseTo(result.campaignLines!.reduce((sum, row) => sum + row.preCampaignNet, 0), 2);
+    expect(result.totalPct).toBeCloseTo((result.subtotal - result.currentPrice) / result.subtotal * 100, 8);
+    for (const itemNumber of ['725131', '725132', '725138']) {
+      expect(eligibleCampaignFor(`Timan 3330::${itemNumber}`, configurationCampaignSelection(input), now)?.code).toBe('K09-2026-01');
+      expect(eligibleCampaignFor(`Timan 3330::${itemNumber}`, [], now)).toBeUndefined();
+      expect(eligibleCampaignFor(`Timan 3330::${itemNumber}`, configurationCampaignSelection(input), Date.parse('2100-01-01'))).toBeUndefined();
+    }
+    input.machineConfigs = [];
+    expect(calculateConfiguration(input, { now }).campaignLines).toEqual([]);
+  });
+  it('supports different benefit price rules within the same campaign', () => {
+    const input = state(); input.machineConfigs[0].acc.push('725132');
+    replacePublishedCampaigns([campaign({ type: 'fixed', targetPriceDkk: 0, targetPriceEur: 0, discountPct: null, products: [link(), link({ productKey: 'Timan 3330::725132', itemNumber: '725132', discountPct: 10 })] })]);
+    const rows = calculateConfiguration(input, { now }).campaignLines!;
+    expect(rows.find(row => row.itemNumber === '725138')).toMatchObject({ pricingType: 'fixed', finalLineValue: 0 });
+    expect(rows.find(row => row.itemNumber === '725132')).toMatchObject({ pricingType: 'percentage', configuredPct: 10, finalLineValue: 35336.25 });
   });
   it.each(['DKK', 'EUR', 'SEK'] as const)('keeps %s currency conversion finite', currency => {
     const input = state(); input.language = currency === 'DKK' ? 'da' : 'en';
@@ -153,7 +181,7 @@ describe('canonical multi-product campaigns', () => {
     const { rerender } = render(<MarketingConfiguratorBadge badge="Kampagne" campaign={campaign()} />);
     expect(screen.getByText(/Kampagne · 25%/)).toBeInTheDocument();
     rerender(<MarketingConfiguratorBadge badge="Kampagne" campaign={campaign({ type: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0 })} />);
-    expect(screen.getByText(/Kampagne · 0 kr\./)).toBeInTheDocument();
+    expect(screen.getByText(/Kampagne · 0\s+kr\./)).toBeInTheDocument();
   });
   it.each([0, -1, 101, NaN, Infinity])('rejects invalid percentage %s', value => {
     expect(campaignError(campaign({ discountPct: value }))).not.toBeNull();

@@ -7,6 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select';
 import { MARKETING_BADGE_PRESETS, MarketingConfiguratorBadge, MarketingConfiguratorBadgeOption } from '@/components/configurator/MarketingConfiguratorBadge';
 import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
+import MarketingCampaignManager from '@/components/configurator/MarketingCampaignManager';
+import { listMarketingCampaigns } from '@/lib/marketingCampaignService';
+import type { ProductCampaign } from '@/lib/configuratorCampaigns';
 import { getPrice } from '@/data/machines';
 import { itemNoLabel } from '@/data/translations';
 import { convertCurrency, currencyFromLanguage, formatMoney } from '@/lib/currency';
@@ -30,6 +33,7 @@ export const MARKETING_BADGE_OPTIONS = ['', ...MARKETING_BADGE_PRESETS.map((opti
 
 type Props = {
   item: MarketingConfiguratorCatalogItem | null;
+  catalog?: MarketingConfiguratorCatalogItem[];
   records: MarketingConfiguratorContentRecord[];
   uiLanguage: PortalUiLanguage;
   priceSourceLanguage: Language;
@@ -67,7 +71,8 @@ function AssetState({ label, published, draft }: { label: string; published: boo
   return <span className={`inline-flex items-center gap-1 text-xs font-medium ${state}`}><Icon className="h-3.5 w-3.5" />{label}</span>;
 }
 
-export default function MarketingConfiguratorContentEditor({ item, records, uiLanguage, priceSourceLanguage, onClose, onSaved, onDraftDeleted }: Props) {
+export default function MarketingConfiguratorContentEditor({ item, catalog = [], records, uiLanguage, priceSourceLanguage, onClose, onSaved, onDraftDeleted }: Props) {
+  const [linkedCampaign, setLinkedCampaign] = useState<ProductCampaign | null>(null);
   const [draft, setDraft] = useState<MarketingConfiguratorContentFields | null>(null);
   const [customBadge, setCustomBadge] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -98,11 +103,27 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
     setEndMode(next?.badge_ends_at ? 'specific' : 'duration');
   }, [item, records]);
 
+  useEffect(() => {
+    setLinkedCampaign(null);
+    if (!item) return;
+    let cancelled = false;
+    void listMarketingCampaigns().then(({ rows }) => {
+      if (cancelled) return;
+      const campaign = rows.find(row => row.products.some(product => product.productKey === item.productKey));
+      setLinkedCampaign(campaign ?? null);
+      if (campaign) setDraft(current => current ? { ...current, badge: 'Kampagne' } : current);
+    });
+    return () => { cancelled = true; };
+  }, [item]);
+
   const save = async (status: 'draft' | 'published') => {
     if (!item || !draft) return;
     setSaving(true);
     setError(null);
-    const result = await saveMarketingConfiguratorContent(item, draft, status);
+    const content = linkedCampaign && draft.badge === 'Kampagne'
+      ? { ...draft, badge: '', badge_starts_at: null, badge_ends_at: null, badge_show_countdown: false }
+      : draft;
+    const result = await saveMarketingConfiguratorContent(item, content, status);
     setSaving(false);
     if (result.error || !result.row) {
       setError(result.error || 'Indholdet kunne ikke gemmes.');
@@ -183,7 +204,11 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
               <Field label="Billede"><div className="flex gap-2"><Input value={draft.image_url} onChange={(event) => setDraft({ ...draft, image_url: event.target.value })} placeholder="https://..." /><Button type="button" variant="outline" onClick={() => uploadInput.current?.click()}><Upload className="mr-1.5 h-4 w-4" />Upload</Button><input ref={uploadInput} type="file" accept="image/*" className="hidden" onChange={(event) => void uploadImage(event.target.files?.[0])} /></div></Field>
               <Field label="Badge"><Select value={customBadge ? 'custom' : (draft.badge || 'none')} onValueChange={(selected) => { const isCustom = selected === 'custom'; setCustomBadge(isCustom); setDraft({ ...draft, badge: isCustom || selected === 'none' ? '' : selected, ...(selected === 'none' ? { badge_starts_at: null, badge_ends_at: null, badge_show_countdown: false } : {}) }); }}><SelectTrigger><MarketingConfiguratorBadgeOption badge={customBadge ? (draft.badge || 'Egen tekst') : draft.badge} /></SelectTrigger><SelectContent><SelectItem value="none">Ingen</SelectItem>{MARKETING_BADGE_PRESETS.map((option) => <SelectItem key={option.value} value={option.value}><MarketingConfiguratorBadgeOption badge={option.value} /></SelectItem>)}<SelectItem value="custom"><MarketingConfiguratorBadgeOption badge="Egen tekst" /></SelectItem></SelectContent></Select></Field>
               {customBadge && <Field label="Egen badge-tekst"><Input value={draft.badge} onChange={(event) => setDraft({ ...draft, badge: event.target.value })} /></Field>}
-              {draft.badge && <section className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+              {draft.badge === 'Kampagne' && <section className="space-y-2 border-y py-3">
+                {linkedCampaign && <div className="text-sm"><strong>{linkedCampaign.code}</strong> · {linkedCampaign.name}<div>{portalT('campaignBenefitQuantity', uiLanguage)}: {linkedCampaign.benefitQuantity}</div></div>}
+                <MarketingCampaignManager catalog={catalog.length ? catalog : [item]} language={uiLanguage} initialProduct={item} onSaved={setLinkedCampaign} />
+              </section>}
+              {draft.badge && !linkedCampaign && <section className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                 <div className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-emerald-700" /><p className="text-sm font-semibold text-slate-800">{portalT('marketingBadgeDisplayPeriod', uiLanguage)}</p></div>
                 <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={portalT('marketingBadgeDisplayPeriod', uiLanguage)}>
                   <Button type="button" size="sm" variant={!draft.badge_ends_at ? 'default' : 'outline'} onClick={() => setDraft({ ...draft, badge_starts_at: null, badge_ends_at: null, badge_show_countdown: false })}>{portalT('marketingBadgePermanent', uiLanguage)}</Button>
@@ -211,6 +236,7 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
                 description={draft.description}
                 specs={draft.specs.filter((spec) => spec.label && spec.value).map((spec) => ({ label: spec.label, value: typeof spec.value === 'string' ? spec.value : '' }))}
                 badge={draft.badge}
+                campaign={draft.badge === 'Kampagne' ? linkedCampaign : null}
                 badgeSchedule={draft}
                 language={uiLanguage}
                 actions={<><span className="flex items-center gap-1 text-sm font-medium text-emerald-600"><Film className="h-4 w-4" />{t('videoLink', uiLanguage)}</span><span className="flex items-center gap-1 text-sm font-medium text-emerald-600"><Image className="h-4 w-4" />{t('imageLink', uiLanguage)}</span><span className="flex items-center gap-1 text-sm font-medium text-blue-600"><FileText className="h-4 w-4" />{t('infoSpecs', uiLanguage)}</span></>}

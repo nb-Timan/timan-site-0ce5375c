@@ -3,11 +3,31 @@ import { PRODUCTS, getAccessoriesFlat, getLocalizedName, getPrice } from '@/data
 import { t } from '@/data/translations';
 import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice } from '@/lib/configuratorPricing';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
-import { isCampaignActive, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
+import { campaignProductPricing, isCampaignActive, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
 
 export const roundPricingMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
-type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean };
+type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean; selectionOrder: number };
+
+export function configurationCampaignSelection(state: ConfiguratorState) {
+  return state.machineConfigs.flatMap(machine => {
+    const product = PRODUCTS[machine.type];
+    if (!product) return [];
+    const selection = [{ productKey: `${machine.type}::${product.id}`, quantity: machine.qty }];
+    for (let index = 1; index <= machine.qty; index++) {
+      const key = machine.configMode === 'shared' ? machine.id : `${machine.id}_${index}`;
+      const selected = machine.configMode === 'shared' ? machine.acc ?? [] : state.individualUnitConfigs?.[key]?.acc ?? [];
+      for (const accessory of getAccessoriesFlat(machine.type)) {
+        if (accessory.isHeader) continue;
+        const quantity = state.accQty?.[`${key}_${accessory.id}`] || 0;
+        if (selected.includes(accessory.id) || shouldIncludeQuantityAccessory(machine.type, accessory, selected, quantity)) {
+          selection.push({ productKey: `${machine.type}::${accessory.id}`, quantity: quantity || 1 });
+        }
+      }
+    }
+    return selection;
+  });
+}
 
 /** One commercial calculation for the live cart, persistence and document totals. */
 export function calculateConfiguration(state: ConfiguratorState, options: PricingOptions = {}): CalcResult {
@@ -19,10 +39,10 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   const details: DiscountDetail[] = [];
   let eligibleUnits = 0;
   let unit = 0;
-  const add = (item: LineItem, quantity: number, demo: boolean, quantityEligible: boolean, productKey = '') => {
+  const add = (item: LineItem, quantity: number, demo: boolean, quantityEligible: boolean, productKey = '', selectionOrder = -1) => {
     item.price = roundPricingMoney(item.price);
     lineItems.push(item);
-    lines.push({ gross: item.price, net: item.price, quantity, unit, demo, quantityEligible, productKey, item, campaignApplied: false });
+    lines.push({ gross: item.price, net: item.price, quantity, unit, demo, quantityEligible, productKey, item, campaignApplied: false, selectionOrder });
   };
 
   for (const machine of state.machineConfigs ?? []) {
@@ -40,7 +60,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         if (accessory.isHeader) continue;
         const quantity = state.accQty?.[`${key}_${accessory.id}`] || 1;
         if (!selected.includes(accessory.id) && !shouldIncludeQuantityAccessory(machine.type, accessory, selected, state.accQty?.[`${key}_${accessory.id}`] || 0)) continue;
-        add({ txt: `- ${getLocalizedName(accessory.name, state.language)}${quantity > 1 ? ` x${quantity}` : ''}`, price: snapshotAccessoryPrice(state, machine.type, accessory, getPrice(accessory, state.language)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`);
+        add({ txt: `- ${getLocalizedName(accessory.name, state.language)}${quantity > 1 ? ` x${quantity}` : ''}`, price: snapshotAccessoryPrice(state, machine.type, accessory, getPrice(accessory, state.language)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`, selected.indexOf(accessory.id));
       }
       if (demo) add({ txt: `- ${T('demoMachineLabel')}`, price: snapshotDemoFee(state, state.language), varenr: 'DEMO', sub: true }, 1, true, false);
       lineItems.push({ txt: `${T('subtotalMachine')} ${unit}:`, price: roundPricingMoney(lines.filter(line => line.unit === unit).reduce((sum, line) => sum + line.gross, 0)), varenr: 'SUBTOTAL', subtotal: true, index: unit });
@@ -90,23 +110,25 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
       if (campaign.type === 'conditional' && triggerQuantity < campaign.triggerMinQuantity) continue;
       const scale = campaign.type === 'conditional' && campaign.scaleBenefitWithTrigger
         ? Math.floor(triggerQuantity / campaign.triggerMinQuantity) : 1;
-      const remainingBenefitQuantity = new Map(benefitLinks.map(product => [
-        product.productKey,
-        campaign.type === 'conditional' ? campaign.benefitQuantity * scale : Number.POSITIVE_INFINITY,
-      ]));
-      for (const line of lines) {
+      let remainingBenefitQuantity = campaign.type === 'conditional' ? campaign.benefitQuantity * scale : Number.POSITIVE_INFINITY;
+      // A single entitlement is shared by all choices; the latest selected choice wins.
+      const benefitLines = campaign.type === 'conditional'
+        ? [...lines].sort((a, b) => b.selectionOrder - a.selectionOrder || a.unit - b.unit)
+        : lines;
+      for (const line of benefitLines) {
         if (line.campaignApplied) continue;
         const benefit = benefitLinks.find(product => product.productKey === line.productKey);
         if (!benefit) continue;
-        const remaining = remainingBenefitQuantity.get(benefit.productKey) ?? 0;
+        const remaining = remainingBenefitQuantity;
         if (remaining <= 0) continue;
         const eligibleQuantity = Math.min(line.quantity, remaining);
         if (!(eligibleQuantity > 0)) continue;
-        const pricingType = (campaign.type === 'conditional' ? campaign.benefitPricingType : campaign.type) as 'percentage' | 'fixed';
+        const pricing = campaignProductPricing(campaign, benefit);
+        const pricingType = pricing.type as 'percentage' | 'fixed';
         const currency = state.language === 'da' ? 'DKK' : 'EUR';
-        const configuredPct = benefit.discountPct ?? campaign.discountPct;
+        const configuredPct = pricing.discountPct;
         const target = pricingType === 'fixed'
-          ? currency === 'DKK' ? benefit.targetPriceDkk ?? campaign.targetPriceDkk : benefit.targetPriceEur ?? campaign.targetPriceEur
+          ? currency === 'DKK' ? pricing.targetPriceDkk : pricing.targetPriceEur
           : null;
         const lineBefore = line.net;
         const eligibleBasis = roundPricingMoney(lineBefore * eligibleQuantity / line.quantity);
@@ -133,7 +155,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
           details.push({ kind: 'campaign', campaignId: campaign.id, varenr: line.item.varenr, percent: snapshot.discountPct, basis: eligibleBasis, amount,
             txt: `${T('campaignDiscountLabel')} · ${campaign.code} · ${line.item.varenr} (${snapshot.discountPct.toLocaleString(state.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)` });
         }
-        remainingBenefitQuantity.set(benefit.productKey, remaining - eligibleQuantity);
+        remainingBenefitQuantity -= eligibleQuantity;
       }
     }
   }

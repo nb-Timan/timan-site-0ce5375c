@@ -1,6 +1,7 @@
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
 const en = {
+  campaignSetup: 'Campaign setup', campaignDefaultPricing: 'Use campaign pricing',
   campaignManager: 'Campaigns', campaignNew: 'New campaign', campaignCode: 'Campaign code', campaignCodeAutomatic: 'Generated automatically',
   campaignName: 'Campaign name', campaignStart: 'Start', campaignEnd: 'End', campaignType: 'Campaign type', campaignBadgeOnly: 'Badge/content only',
   campaignPercentage: 'Percentage discount', campaignFixed: 'Fixed campaign price', campaignConditional: 'Buy X, get Y', campaignBenefitType: 'Benefit type',
@@ -16,6 +17,7 @@ type CampaignCopy = Record<keyof typeof en, string>;
 
 export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
   da: {
+    campaignSetup: 'Kampagneopsætning', campaignDefaultPricing: 'Brug kampagnens prisregel',
     campaignManager: 'Kampagner', campaignNew: 'Ny kampagne', campaignCode: 'Kampagnekode', campaignCodeAutomatic: 'Genereres automatisk',
     campaignName: 'Kampagnenavn', campaignStart: 'Start', campaignEnd: 'Slut', campaignType: 'Kampagnetype', campaignBadgeOnly: 'Kun badge/indhold',
     campaignPercentage: 'Rabat i %', campaignFixed: 'Fast kampagnepris', campaignConditional: 'Køb X, få Y', campaignBenefitType: 'Fordelstype',
@@ -28,6 +30,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
   },
   en,
   de: {
+    campaignSetup: 'Kampagneneinstellungen', campaignDefaultPricing: 'Kampagnenpreisregel verwenden',
     campaignManager: 'Kampagnen', campaignNew: 'Neue Kampagne', campaignCode: 'Kampagnencode', campaignCodeAutomatic: 'Wird automatisch erzeugt',
     campaignName: 'Kampagnenname', campaignStart: 'Start', campaignEnd: 'Ende', campaignType: 'Kampagnentyp', campaignBadgeOnly: 'Nur Badge/Inhalt',
     campaignPercentage: 'Prozentrabatt', campaignFixed: 'Fester Kampagnenpreis', campaignConditional: 'X kaufen, Y erhalten', campaignBenefitType: 'Vorteilstyp',
@@ -39,6 +42,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignApplied: 'Kampagne', campaignAppliedPrice: 'Kampagnenpreis', campaignRemoveProduct: 'Produkt entfernen',
   },
   it: {
+    campaignSetup: 'Impostazioni campagna', campaignDefaultPricing: 'Usa il prezzo della campagna',
     campaignManager: 'Campagne', campaignNew: 'Nuova campagna', campaignCode: 'Codice campagna', campaignCodeAutomatic: 'Generato automaticamente',
     campaignName: 'Nome campagna', campaignStart: 'Inizio', campaignEnd: 'Fine', campaignType: 'Tipo di campagna', campaignBadgeOnly: 'Solo badge/contenuto',
     campaignPercentage: 'Sconto percentuale', campaignFixed: 'Prezzo campagna fisso', campaignConditional: 'Acquista X, ricevi Y', campaignBenefitType: 'Tipo di vantaggio',
@@ -50,6 +54,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignApplied: 'Campagna', campaignAppliedPrice: 'Prezzo campagna', campaignRemoveProduct: 'Rimuovi prodotto',
   },
   hu: {
+    campaignSetup: 'Kampánybeállítások', campaignDefaultPricing: 'Kampányárazás használata',
     campaignManager: 'Kampányok', campaignNew: 'Új kampány', campaignCode: 'Kampánykód', campaignCodeAutomatic: 'Automatikusan létrehozva',
     campaignName: 'Kampány neve', campaignStart: 'Kezdés', campaignEnd: 'Befejezés', campaignType: 'Kampánytípus', campaignBadgeOnly: 'Csak jelvény/tartalom',
     campaignPercentage: 'Százalékos kedvezmény', campaignFixed: 'Fix kampányár', campaignConditional: 'Vásárolj X-et, kapj Y-t', campaignBenefitType: 'Kedvezmény típusa',
@@ -61,6 +66,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignApplied: 'Kampány', campaignAppliedPrice: 'Kampányár', campaignRemoveProduct: 'Termék eltávolítása',
   },
   sv: {
+    campaignSetup: 'Kampanjinställningar', campaignDefaultPricing: 'Använd kampanjens prisregel',
     campaignManager: 'Kampanjer', campaignNew: 'Ny kampanj', campaignCode: 'Kampanjkod', campaignCodeAutomatic: 'Genereras automatiskt',
     campaignName: 'Kampanjnamn', campaignStart: 'Start', campaignEnd: 'Slut', campaignType: 'Kampanjtyp', campaignBadgeOnly: 'Endast märkning/innehåll',
     campaignPercentage: 'Procentrabatt', campaignFixed: 'Fast kampanjpris', campaignConditional: 'Köp X, få Y', campaignBenefitType: 'Förmånstyp',
@@ -72,6 +78,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignApplied: 'Kampanj', campaignAppliedPrice: 'Kampanjpris', campaignRemoveProduct: 'Ta bort produkt',
   },
   fr: {
+    campaignSetup: 'Paramètres de campagne', campaignDefaultPricing: 'Utiliser le tarif de la campagne',
     campaignManager: 'Campagnes', campaignNew: 'Nouvelle campagne', campaignCode: 'Code campagne', campaignCodeAutomatic: 'Généré automatiquement',
     campaignName: 'Nom de la campagne', campaignStart: 'Début', campaignEnd: 'Fin', campaignType: 'Type de campagne', campaignBadgeOnly: 'Badge/contenu uniquement',
     campaignPercentage: 'Remise en pourcentage', campaignFixed: 'Prix campagne fixe', campaignConditional: 'Achetez X, obtenez Y', campaignBenefitType: 'Type d’avantage',
@@ -83,6 +90,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignApplied: 'Campagne', campaignAppliedPrice: 'Prix campagne', campaignRemoveProduct: 'Retirer le produit',
   },
   pl: {
+    campaignSetup: 'Ustawienia kampanii', campaignDefaultPricing: 'Użyj cen kampanii',
     campaignManager: 'Kampanie', campaignNew: 'Nowa kampania', campaignCode: 'Kod kampanii', campaignCodeAutomatic: 'Generowany automatycznie',
     campaignName: 'Nazwa kampanii', campaignStart: 'Początek', campaignEnd: 'Koniec', campaignType: 'Typ kampanii', campaignBadgeOnly: 'Tylko oznaczenie/treść',
     campaignPercentage: 'Rabat procentowy', campaignFixed: 'Stała cena kampanii', campaignConditional: 'Kup X, otrzymaj Y', campaignBenefitType: 'Typ korzyści',
@@ -94,6 +102,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignApplied: 'Kampania', campaignAppliedPrice: 'Cena kampanii', campaignRemoveProduct: 'Usuń produkt',
   },
   cs: {
+    campaignSetup: 'Nastavení kampaně', campaignDefaultPricing: 'Použít cenu kampaně',
     campaignManager: 'Kampaně', campaignNew: 'Nová kampaň', campaignCode: 'Kód kampaně', campaignCodeAutomatic: 'Vygenerováno automaticky',
     campaignName: 'Název kampaně', campaignStart: 'Začátek', campaignEnd: 'Konec', campaignType: 'Typ kampaně', campaignBadgeOnly: 'Pouze odznak/obsah',
     campaignPercentage: 'Procentní sleva', campaignFixed: 'Pevná akční cena', campaignConditional: 'Kupte X, získejte Y', campaignBenefitType: 'Typ výhody',

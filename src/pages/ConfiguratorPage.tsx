@@ -37,7 +37,8 @@ import MarketingCampaignManager from '@/components/configurator/MarketingCampaig
 import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
 import { loadPublishedMarketingCampaigns } from '@/lib/marketingCampaignService';
-import { publishedCampaignFor } from '@/lib/configuratorCampaigns';
+import { eligibleCampaignFor } from '@/lib/configuratorCampaigns';
+import { useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
 import { ConfiguratorImageModal, type ConfiguratorImagePreview } from '@/components/configurator/ConfiguratorImageModal';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -96,7 +97,7 @@ import {
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
 import { createConfiguratorPricingSnapshot } from '@/lib/configuratorPricing';
-import { calculateConfiguration } from '@/lib/calcConfiguration';
+import { calculateConfiguration, configurationCampaignSelection } from '@/lib/calcConfiguration';
 import { loadPublishedConfiguratorPrices } from '@/lib/configuratorPublishedPrices';
 
 // Configurator language selector — uses the 9 portal UI languages.
@@ -711,8 +712,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     }
     return publishedMarketingContent.get(key)?.content || null;
   };
+  const campaignClock = useMarketingBadgeClock();
+  const campaignSelection = useMemo(() => configurationCampaignSelection(state), [state]);
   const marketingCampaignFor = (machineType: string, itemId: string | undefined) => itemId
-    ? publishedCampaignFor(productContentKey(machineType, itemId)) ?? null
+    ? eligibleCampaignFor(productContentKey(machineType, itemId), campaignSelection, campaignClock) ?? null
     : null;
   const openMarketingEditor = (machineType: string, itemId: string | undefined) => {
     if (!marketingEditMode || !itemId) return;
@@ -742,7 +745,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   };
   const renderMarketingBadge = (machineType: string, itemId: string | undefined, content?: MarketingConfiguratorContentRecord['content'] | null, variant: 'main' | 'compact' = 'main') => {
     const campaign = marketingCampaignFor(machineType, itemId);
-    return <MarketingConfiguratorBadge badge={campaign ? 'Kampagne' : content?.badge} schedule={content} campaign={campaign} language={uiLanguage} variant={variant} />;
+    return <MarketingConfiguratorBadge badge={campaign ? 'Kampagne' : content?.badge} schedule={content} campaign={campaign} campaignProduct={campaign?.products.find(product => product.productKey === productContentKey(machineType, itemId || '') && product.role !== 'trigger')} language={uiLanguage} variant={variant} />;
   };
   const TC = (key: string) => t(key, contentUiLang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
@@ -4815,6 +4818,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       </Dialog>
       <MarketingConfiguratorContentEditor
         item={marketingEditorItem}
+        catalog={[...marketingCatalogByKey.values()]}
         records={marketingEditorRecords}
         uiLanguage={uiLanguage}
         priceSourceLanguage={lang}

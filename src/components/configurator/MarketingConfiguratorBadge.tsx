@@ -1,5 +1,5 @@
 import { BadgeCheck, CircleAlert, CircleDollarSign, Megaphone, Tag, type LucideIcon } from 'lucide-react';
-import type { ProductCampaign } from '@/lib/configuratorCampaigns';
+import { campaignProductPricing, type CampaignProductLink, type ProductCampaign } from '@/lib/configuratorCampaigns';
 import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { formatMarketingBadgeCountdown, isMarketingBadgeActive, type MarketingBadgeSchedule, useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
@@ -46,6 +46,7 @@ export function MarketingConfiguratorBadge({
   variant = 'main',
   schedule,
   campaign,
+  campaignProduct,
   campaignLabel,
   preview = false,
   className = '',
@@ -55,6 +56,7 @@ export function MarketingConfiguratorBadge({
   variant?: 'main' | 'compact';
   schedule?: MarketingBadgeSchedule | null;
   campaign?: ProductCampaign | null;
+  campaignProduct?: CampaignProductLink;
   campaignLabel?: string | null;
   preview?: boolean;
   className?: string;
@@ -64,11 +66,12 @@ export function MarketingConfiguratorBadge({
   if (!badge || (!preview && !isMarketingBadgeActive(activeSchedule, now))) return null;
   const { label, Icon, className: tone } = optionFor(badge, language);
   const countdown = (campaign || schedule?.badge_show_countdown) ? formatMarketingBadgeCountdown(activeSchedule?.badge_ends_at, language, now) : '';
-  const pricing = campaign?.type === 'conditional' ? campaign.benefitPricingType : campaign?.type;
-  const economicLabel = campaignLabel ? `${label} · ${campaignLabel}` : pricing === 'percentage'
-    ? `${label} · ${campaign?.discountPct}%`
-    : pricing === 'fixed' && campaign?.targetPriceDkk === 0 && campaign?.targetPriceEur === 0
-      ? `${label} · ${language === 'da' ? '0 kr.' : '€0'}`
+  const pricing = campaign ? campaignProductPricing(campaign, campaignProduct) : null;
+  const target = language === 'da' ? pricing?.targetPriceDkk : pricing?.targetPriceEur;
+  const economicLabel = campaignLabel ? `${label} · ${campaignLabel}` : pricing?.type === 'percentage'
+    ? `${label} · ${pricing.discountPct}%`
+    : pricing?.type === 'fixed' && target != null
+      ? `${label} · ${new Intl.NumberFormat(language, { style: 'currency', currency: language === 'da' ? 'DKK' : 'EUR', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(target)}`
       : campaign?.code ? `${label} · ${campaign.code}` : label;
   const isCompact = variant === 'compact';
   return (
@@ -77,7 +80,7 @@ export function MarketingConfiguratorBadge({
       : 'h-7 gap-1.5 rounded-full px-2.5 text-[11px] leading-none shadow-sm'
     } ${className}`}>
       <Icon className={isCompact ? 'h-3 w-3 shrink-0' : 'h-3.5 w-3.5 shrink-0'} aria-hidden="true" />
-      <span className="whitespace-nowrap">{countdown ? `${economicLabel} · ${countdown}` : economicLabel}</span>
+      <span className="whitespace-nowrap" title={campaign?.code}>{countdown ? `${economicLabel} · ${countdown}` : economicLabel}</span>
     </span>
   );
 }
