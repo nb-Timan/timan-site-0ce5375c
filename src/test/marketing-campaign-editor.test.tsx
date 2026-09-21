@@ -81,4 +81,18 @@ describe('product-linked Campaign editor', () => {
     expect(screen.getByLabelText('Slut')).toHaveValue('');
     expect(screen.getByRole('button', { name: 'Gem kladde' })).toBeVisible();
   });
+  it('closes only the nested editor after a successful publish', async () => {
+    const onSaved = vi.fn();
+    const published = { ...draft(), status: 'published' as const };
+    vi.mocked(listMarketingCampaigns)
+      .mockResolvedValueOnce({ rows: [draft()], error: null })
+      .mockResolvedValueOnce({ rows: [published], error: null });
+    render(<MarketingCampaignManager catalog={catalog} language="da" initialProduct={item} closeOnPublish onSaved={onSaved} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Kampagneopsætning' }));
+    await screen.findByDisplayValue('TEST editor');
+    fireEvent.click(screen.getByRole('button', { name: 'Publicér' }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(published));
+    expect(screen.queryByDisplayValue('TEST editor')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Kampagneopsætning' })).toBeVisible();
+  });
 });

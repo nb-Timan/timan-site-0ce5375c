@@ -11,14 +11,20 @@ import type { MarketingConfiguratorCatalogItem } from '@/lib/marketingConfigurat
 import { deleteMarketingCampaign, emptyMarketingCampaign, listMarketingCampaigns, loadPublishedMarketingCampaigns, saveMarketingCampaign } from '@/lib/marketingCampaignService';
 import type { CampaignProductLink, CampaignProductRole, CampaignType, ProductCampaign } from '@/lib/configuratorCampaigns';
 
-type Props = { catalog: MarketingConfiguratorCatalogItem[]; language: PortalUiLanguage; initialProduct?: MarketingConfiguratorCatalogItem; onSaved?: (campaign: ProductCampaign) => void };
+type Props = {
+  catalog: MarketingConfiguratorCatalogItem[];
+  language: PortalUiLanguage;
+  initialProduct?: MarketingConfiguratorCatalogItem;
+  onSaved?: (campaign: ProductCampaign) => void;
+  closeOnPublish?: boolean;
+};
 const localDate = (value: string) => {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '' : new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
 };
 const isoDate = (value: string) => value && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : '';
 
-export default function MarketingCampaignManager({ catalog, language, initialProduct, onSaved }: Props) {
+export default function MarketingCampaignManager({ catalog, language, initialProduct, onSaved, closeOnPublish = false }: Props) {
   const T = (key: string) => t(key, language);
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<ProductCampaign[]>([]);
@@ -71,7 +77,12 @@ export default function MarketingCampaignManager({ catalog, language, initialPro
     const saved = await refresh(result.id);
     await loadPublishedMarketingCampaigns();
     if (saved) onSaved?.(saved);
-    setMessage(T('campaignSaved'));
+    if (status === 'published' && closeOnPublish) {
+      setOpen(false);
+      setMessage(null);
+      return;
+    }
+    setMessage(T(status === 'published' ? 'campaignPublishedSuccess' : 'campaignSaved'));
   };
   const deleteDraft = async () => {
     if (!draft?.id || draft.status === 'published') return;
@@ -83,9 +94,9 @@ export default function MarketingCampaignManager({ catalog, language, initialPro
 
   return <>
     <div className={initialProduct ? 'py-2' : 'mx-auto mb-4 flex max-w-6xl justify-end'}>
-      <Button type="button" onClick={() => setOpen(true)}><Megaphone className="mr-2 h-4 w-4" />{T(initialProduct ? 'campaignSetup' : 'campaignManager')}</Button>
+      <Button type="button" onClick={() => { setMessage(null); setOpen(true); }}><Megaphone className="mr-2 h-4 w-4" />{T(initialProduct ? 'campaignSetup' : 'campaignManager')}</Button>
     </div>
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setMessage(null); }}>
       <DialogContent aria-describedby={undefined} className="flex max-h-[94vh] flex-col overflow-hidden sm:max-w-6xl">
         <DialogHeader><DialogTitle>{T('campaignManager')}</DialogTitle></DialogHeader>
         {message && <div role="status" className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">{message}</div>}

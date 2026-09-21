@@ -10,7 +10,7 @@ import { resolveMarketingBadge } from '@/components/configurator/MarketingConfig
 import { t } from '@/lib/i18n/translations';
 import { addMarketingBadgeDuration, formatMarketingBadgeCountdown, isMarketingBadgeActive, marketingBadgeScheduleState } from '@/lib/marketingBadgeSchedule';
 
-const seller: any = {
+const seller: NonNullable<Parameters<typeof canManageMarketingConfiguratorContent>[0]> = {
   email: 'seller@timan.dk',
   role: 'timan_saelger',
   partner_type: null,
@@ -111,7 +111,7 @@ describe('Marketing configurator content', () => {
     expect(editor).toContain('deleteMarketingConfiguratorDraftContent');
     expect(editor).toContain('Slet kladde');
     expect(editor).toContain('Den publicerede produktvisning ændres ikke.');
-    expect(editor).toMatch(/onSaved\(result\.row\);\s+onClose\(\);/);
+    expect(editor).toMatch(/onSaved\(result\.row\);[\s\S]*productPublishedSuccess[\s\S]*onClose\(\);/);
     expect(editor).toContain('MARKETING_BADGE_OPTIONS');
     expect(editor).toContain('MarketingConfiguratorProductCard');
     expect(editor).not.toContain('Specifikationslink');

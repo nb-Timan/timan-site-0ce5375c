@@ -10,7 +10,7 @@ const en = {
   campaignAddTrigger: 'Add as trigger', campaignAddBenefit: 'Add as benefit', campaignTriggerQuantity: 'Minimum trigger quantity', campaignBenefitQuantity: 'Benefit quantity',
   campaignTriggerMatch: 'Trigger group', campaignMatchAny: 'Any trigger (OR)', campaignMatchAll: 'All triggers (AND)', campaignScaleBenefit: 'Scaling', campaignScaleOnce: 'Once per campaign', campaignScaleRepeat: 'Repeat per completed trigger', campaignQaOnly: 'QA only (visible only to me)',
   campaignSaveDraft: 'Save draft', campaignPublish: 'Publish', campaignDeleteDraft: 'Delete draft',
-  campaignDraft: 'Draft', campaignPublished: 'Published', campaignNoResults: 'No products found', campaignSaved: 'Campaign saved', campaignSaveError: 'Campaign could not be saved',
+  campaignDraft: 'Draft', campaignPublished: 'Published', campaignNoResults: 'No products found', campaignSaved: 'Campaign saved', campaignPublishedSuccess: 'Campaign published', productPublishedSuccess: 'Product published', campaignSaveError: 'Campaign could not be saved',
   campaignApplied: 'Campaign', campaignAppliedPrice: 'Campaign price', campaignRemoveProduct: 'Remove product',
 };
 
@@ -27,7 +27,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignAddTrigger: 'Tilføj som trigger', campaignAddBenefit: 'Tilføj som fordel', campaignTriggerQuantity: 'Minimum triggerantal', campaignBenefitQuantity: 'Fordelsantal',
     campaignTriggerMatch: 'Triggergruppe', campaignMatchAny: 'Mindst én trigger (ELLER)', campaignMatchAll: 'Alle triggere (OG)', campaignScaleBenefit: 'Skalering', campaignScaleOnce: 'Kun én gang', campaignScaleRepeat: 'Gentag pr. opfyldt trigger', campaignQaOnly: 'Kun QA (kun synlig for mig)',
     campaignSaveDraft: 'Gem kladde', campaignPublish: 'Publicér', campaignDeleteDraft: 'Slet kladde',
-    campaignDraft: 'Kladde', campaignPublished: 'Publiceret', campaignNoResults: 'Ingen produkter fundet', campaignSaved: 'Kampagnen er gemt', campaignSaveError: 'Kampagnen kunne ikke gemmes',
+    campaignDraft: 'Kladde', campaignPublished: 'Publiceret', campaignNoResults: 'Ingen produkter fundet', campaignSaved: 'Kampagnen er gemt', campaignPublishedSuccess: 'Kampagnen er publiceret', productPublishedSuccess: 'Produktet er publiceret', campaignSaveError: 'Kampagnen kunne ikke gemmes',
     campaignApplied: 'Kampagne', campaignAppliedPrice: 'Kampagnepris', campaignRemoveProduct: 'Fjern produkt',
   },
   en,
@@ -41,7 +41,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignAddTrigger: 'Als Trigger hinzufügen', campaignAddBenefit: 'Als Vorteil hinzufügen', campaignTriggerQuantity: 'Mindestmenge Trigger', campaignBenefitQuantity: 'Vorteilsmenge',
     campaignTriggerMatch: 'Trigger-Gruppe', campaignMatchAny: 'Mindestens ein Trigger (ODER)', campaignMatchAll: 'Alle Trigger (UND)', campaignScaleBenefit: 'Skalierung', campaignScaleOnce: 'Nur einmal', campaignScaleRepeat: 'Je erfülltem Trigger wiederholen', campaignQaOnly: 'Nur QA (nur für mich sichtbar)',
     campaignSaveDraft: 'Entwurf speichern', campaignPublish: 'Veröffentlichen', campaignDeleteDraft: 'Entwurf löschen',
-    campaignDraft: 'Entwurf', campaignPublished: 'Veröffentlicht', campaignNoResults: 'Keine Produkte gefunden', campaignSaved: 'Kampagne gespeichert', campaignSaveError: 'Kampagne konnte nicht gespeichert werden',
+    campaignDraft: 'Entwurf', campaignPublished: 'Veröffentlicht', campaignNoResults: 'Keine Produkte gefunden', campaignSaved: 'Kampagne gespeichert', campaignPublishedSuccess: 'Kampagne veröffentlicht', productPublishedSuccess: 'Produkt veröffentlicht', campaignSaveError: 'Kampagne konnte nicht gespeichert werden',
     campaignApplied: 'Kampagne', campaignAppliedPrice: 'Kampagnenpreis', campaignRemoveProduct: 'Produkt entfernen',
   },
   it: {
@@ -54,7 +54,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignAddTrigger: 'Aggiungi come trigger', campaignAddBenefit: 'Aggiungi come vantaggio', campaignTriggerQuantity: 'Quantità minima trigger', campaignBenefitQuantity: 'Quantità vantaggio',
     campaignTriggerMatch: 'Gruppo trigger', campaignMatchAny: 'Un trigger qualsiasi (OR)', campaignMatchAll: 'Tutti i trigger (AND)', campaignScaleBenefit: 'Ridimensionamento', campaignScaleOnce: 'Una sola volta', campaignScaleRepeat: 'Ripeti per trigger completato', campaignQaOnly: 'Solo QA (visibile solo a me)',
     campaignSaveDraft: 'Salva bozza', campaignPublish: 'Pubblica', campaignDeleteDraft: 'Elimina bozza',
-    campaignDraft: 'Bozza', campaignPublished: 'Pubblicata', campaignNoResults: 'Nessun prodotto trovato', campaignSaved: 'Campagna salvata', campaignSaveError: 'Impossibile salvare la campagna',
+    campaignDraft: 'Bozza', campaignPublished: 'Pubblicata', campaignNoResults: 'Nessun prodotto trovato', campaignSaved: 'Campagna salvata', campaignPublishedSuccess: 'Campagna pubblicata', productPublishedSuccess: 'Prodotto pubblicato', campaignSaveError: 'Impossibile salvare la campagna',
     campaignApplied: 'Campagna', campaignAppliedPrice: 'Prezzo campagna', campaignRemoveProduct: 'Rimuovi prodotto',
   },
   hu: {
@@ -67,7 +67,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignAddTrigger: 'Hozzáadás feltételként', campaignAddBenefit: 'Hozzáadás kedvezményként', campaignTriggerQuantity: 'Minimális feltételmennyiség', campaignBenefitQuantity: 'Kedvezményes mennyiség',
     campaignTriggerMatch: 'Feltételcsoport', campaignMatchAny: 'Bármely feltétel (VAGY)', campaignMatchAll: 'Minden feltétel (ÉS)', campaignScaleBenefit: 'Skálázás', campaignScaleOnce: 'Csak egyszer', campaignScaleRepeat: 'Ismétlés teljesült feltételenként', campaignQaOnly: 'Csak QA (csak nekem látható)',
     campaignSaveDraft: 'Piszkozat mentése', campaignPublish: 'Közzététel', campaignDeleteDraft: 'Piszkozat törlése',
-    campaignDraft: 'Piszkozat', campaignPublished: 'Közzétéve', campaignNoResults: 'Nem található termék', campaignSaved: 'Kampány mentve', campaignSaveError: 'A kampány nem menthető',
+    campaignDraft: 'Piszkozat', campaignPublished: 'Közzétéve', campaignNoResults: 'Nem található termék', campaignSaved: 'Kampány mentve', campaignPublishedSuccess: 'Kampány közzétéve', productPublishedSuccess: 'Termék közzétéve', campaignSaveError: 'A kampány nem menthető',
     campaignApplied: 'Kampány', campaignAppliedPrice: 'Kampányár', campaignRemoveProduct: 'Termék eltávolítása',
   },
   sv: {
@@ -80,7 +80,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignAddTrigger: 'Lägg till som villkor', campaignAddBenefit: 'Lägg till som förmån', campaignTriggerQuantity: 'Minsta villkorsantal', campaignBenefitQuantity: 'Förmånsantal',
     campaignTriggerMatch: 'Villkorsgrupp', campaignMatchAny: 'Valfritt villkor (ELLER)', campaignMatchAll: 'Alla villkor (OCH)', campaignScaleBenefit: 'Skalning', campaignScaleOnce: 'Endast en gång', campaignScaleRepeat: 'Upprepa per uppfyllt villkor', campaignQaOnly: 'Endast QA (synlig bara för mig)',
     campaignSaveDraft: 'Spara utkast', campaignPublish: 'Publicera', campaignDeleteDraft: 'Radera utkast',
-    campaignDraft: 'Utkast', campaignPublished: 'Publicerad', campaignNoResults: 'Inga produkter hittades', campaignSaved: 'Kampanjen har sparats', campaignSaveError: 'Kampanjen kunde inte sparas',
+    campaignDraft: 'Utkast', campaignPublished: 'Publicerad', campaignNoResults: 'Inga produkter hittades', campaignSaved: 'Kampanjen har sparats', campaignPublishedSuccess: 'Kampanjen har publicerats', productPublishedSuccess: 'Produkten har publicerats', campaignSaveError: 'Kampanjen kunde inte sparas',
     campaignApplied: 'Kampanj', campaignAppliedPrice: 'Kampanjpris', campaignRemoveProduct: 'Ta bort produkt',
   },
   fr: {
@@ -93,7 +93,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignAddTrigger: 'Ajouter comme déclencheur', campaignAddBenefit: 'Ajouter comme avantage', campaignTriggerQuantity: 'Quantité minimale déclencheur', campaignBenefitQuantity: 'Quantité avantage',
     campaignTriggerMatch: 'Groupe déclencheur', campaignMatchAny: 'Un déclencheur (OU)', campaignMatchAll: 'Tous les déclencheurs (ET)', campaignScaleBenefit: 'Répétition', campaignScaleOnce: 'Une seule fois', campaignScaleRepeat: 'Répéter par déclencheur rempli', campaignQaOnly: 'QA uniquement (visible seulement pour moi)',
     campaignSaveDraft: 'Enregistrer le brouillon', campaignPublish: 'Publier', campaignDeleteDraft: 'Supprimer le brouillon',
-    campaignDraft: 'Brouillon', campaignPublished: 'Publiée', campaignNoResults: 'Aucun produit trouvé', campaignSaved: 'Campagne enregistrée', campaignSaveError: 'Impossible d’enregistrer la campagne',
+    campaignDraft: 'Brouillon', campaignPublished: 'Publiée', campaignNoResults: 'Aucun produit trouvé', campaignSaved: 'Campagne enregistrée', campaignPublishedSuccess: 'Campagne publiée', productPublishedSuccess: 'Produit publié', campaignSaveError: 'Impossible d’enregistrer la campagne',
     campaignApplied: 'Campagne', campaignAppliedPrice: 'Prix campagne', campaignRemoveProduct: 'Retirer le produit',
   },
   pl: {
@@ -106,7 +106,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignAddTrigger: 'Dodaj jako warunek', campaignAddBenefit: 'Dodaj jako korzyść', campaignTriggerQuantity: 'Minimalna ilość warunkowa', campaignBenefitQuantity: 'Ilość promocyjna',
     campaignTriggerMatch: 'Grupa warunków', campaignMatchAny: 'Dowolny warunek (LUB)', campaignMatchAll: 'Wszystkie warunki (I)', campaignScaleBenefit: 'Skalowanie', campaignScaleOnce: 'Tylko raz', campaignScaleRepeat: 'Powtarzaj dla spełnionego warunku', campaignQaOnly: 'Tylko QA (widoczne tylko dla mnie)',
     campaignSaveDraft: 'Zapisz szkic', campaignPublish: 'Opublikuj', campaignDeleteDraft: 'Usuń szkic',
-    campaignDraft: 'Szkic', campaignPublished: 'Opublikowana', campaignNoResults: 'Nie znaleziono produktów', campaignSaved: 'Kampania zapisana', campaignSaveError: 'Nie można zapisać kampanii',
+    campaignDraft: 'Szkic', campaignPublished: 'Opublikowana', campaignNoResults: 'Nie znaleziono produktów', campaignSaved: 'Kampania zapisana', campaignPublishedSuccess: 'Kampania opublikowana', productPublishedSuccess: 'Produkt opublikowany', campaignSaveError: 'Nie można zapisać kampanii',
     campaignApplied: 'Kampania', campaignAppliedPrice: 'Cena kampanii', campaignRemoveProduct: 'Usuń produkt',
   },
   cs: {
@@ -119,7 +119,7 @@ export const CAMPAIGN_TRANSLATIONS: Record<PortalUiLanguage, CampaignCopy> = {
     campaignAddTrigger: 'Přidat jako podmínku', campaignAddBenefit: 'Přidat jako výhodu', campaignTriggerQuantity: 'Minimální podmínkové množství', campaignBenefitQuantity: 'Zvýhodněné množství',
     campaignTriggerMatch: 'Skupina podmínek', campaignMatchAny: 'Libovolná podmínka (NEBO)', campaignMatchAll: 'Všechny podmínky (A)', campaignScaleBenefit: 'Škálování', campaignScaleOnce: 'Pouze jednou', campaignScaleRepeat: 'Opakovat pro splněnou podmínku', campaignQaOnly: 'Pouze QA (viditelné jen pro mě)',
     campaignSaveDraft: 'Uložit koncept', campaignPublish: 'Publikovat', campaignDeleteDraft: 'Smazat koncept',
-    campaignDraft: 'Koncept', campaignPublished: 'Publikováno', campaignNoResults: 'Nebyly nalezeny žádné produkty', campaignSaved: 'Kampaň uložena', campaignSaveError: 'Kampaň se nepodařilo uložit',
+    campaignDraft: 'Koncept', campaignPublished: 'Publikováno', campaignNoResults: 'Nebyly nalezeny žádné produkty', campaignSaved: 'Kampaň uložena', campaignPublishedSuccess: 'Kampaň publikována', productPublishedSuccess: 'Produkt publikován', campaignSaveError: 'Kampaň se nepodařilo uložit',
     campaignApplied: 'Kampaň', campaignAppliedPrice: 'Akční cena', campaignRemoveProduct: 'Odebrat produkt',
   },
 };

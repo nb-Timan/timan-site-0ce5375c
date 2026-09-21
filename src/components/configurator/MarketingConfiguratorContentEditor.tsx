@@ -28,6 +28,7 @@ import type { Language, TechSpec } from '@/types/configurator';
 import { t } from '@/data/translations';
 import { t as portalT } from '@/lib/i18n/translations';
 import { addMarketingBadgeDuration, formatMarketingBadgeDateTime, marketingBadgeScheduleState, type MarketingBadgeDurationUnit } from '@/lib/marketingBadgeSchedule';
+import { toast } from 'sonner';
 
 export const MARKETING_BADGE_OPTIONS = ['', ...MARKETING_BADGE_PRESETS.map((option) => option.value), 'Egen tekst'] as const;
 
@@ -130,6 +131,7 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
       return;
     }
     onSaved(result.row);
+    if (status === 'published') toast.success(portalT('productPublishedSuccess', uiLanguage));
     onClose();
   };
 
@@ -182,7 +184,7 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
 
   return (
     <Dialog open={!!item} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="max-h-[94vh] overflow-y-auto sm:max-w-5xl xl:max-w-6xl">
+      <DialogContent aria-describedby={undefined} className="max-h-[94vh] overflow-y-auto sm:max-w-5xl xl:max-w-6xl">
         <DialogHeader><DialogTitle>Redigér præsentationsindhold</DialogTitle></DialogHeader>
         {item && draft && <div className="space-y-5">
           <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
@@ -205,8 +207,17 @@ export default function MarketingConfiguratorContentEditor({ item, catalog = [],
               <Field label="Badge"><Select value={customBadge ? 'custom' : (draft.badge || 'none')} onValueChange={(selected) => { const isCustom = selected === 'custom'; setCustomBadge(isCustom); setDraft({ ...draft, badge: isCustom || selected === 'none' ? '' : selected, ...(selected === 'none' ? { badge_starts_at: null, badge_ends_at: null, badge_show_countdown: false } : {}) }); }}><SelectTrigger><MarketingConfiguratorBadgeOption badge={customBadge ? (draft.badge || 'Egen tekst') : draft.badge} /></SelectTrigger><SelectContent><SelectItem value="none">Ingen</SelectItem>{MARKETING_BADGE_PRESETS.map((option) => <SelectItem key={option.value} value={option.value}><MarketingConfiguratorBadgeOption badge={option.value} /></SelectItem>)}<SelectItem value="custom"><MarketingConfiguratorBadgeOption badge="Egen tekst" /></SelectItem></SelectContent></Select></Field>
               {customBadge && <Field label="Egen badge-tekst"><Input value={draft.badge} onChange={(event) => setDraft({ ...draft, badge: event.target.value })} /></Field>}
               {draft.badge === 'Kampagne' && <section className="space-y-2 border-y py-3">
-                {linkedCampaign && <div className="text-sm"><strong>{linkedCampaign.code}</strong> · {linkedCampaign.name}<div>{portalT('campaignBenefitQuantity', uiLanguage)}: {linkedCampaign.benefitQuantity}</div></div>}
-                <MarketingCampaignManager catalog={catalog.length ? catalog : [item]} language={uiLanguage} initialProduct={item} onSaved={setLinkedCampaign} />
+                {linkedCampaign && <div data-testid="linked-campaign-summary" className="text-sm"><strong>{linkedCampaign.code}</strong> · {linkedCampaign.name}<div>{portalT('campaignBenefitQuantity', uiLanguage)}: {linkedCampaign.benefitQuantity}</div></div>}
+                <MarketingCampaignManager
+                  catalog={catalog.length ? catalog : [item]}
+                  language={uiLanguage}
+                  initialProduct={item}
+                  closeOnPublish
+                  onSaved={(campaign) => {
+                    setLinkedCampaign(campaign);
+                    if (campaign.status === 'published') toast.success(portalT('campaignPublishedSuccess', uiLanguage));
+                  }}
+                />
               </section>}
               {draft.badge && !linkedCampaign && <section className="space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3">
                 <div className="flex items-center gap-2"><CalendarClock className="h-4 w-4 text-emerald-700" /><p className="text-sm font-semibold text-slate-800">{portalT('marketingBadgeDisplayPeriod', uiLanguage)}</p></div>
