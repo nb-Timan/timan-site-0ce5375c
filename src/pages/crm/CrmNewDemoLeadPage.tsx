@@ -6,10 +6,10 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
 import { derivePortalRole } from '@/lib/portalAccess';
-import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
+import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  formatLeadNo,
+  createCrmDemoLifecycle, formatLeadNo,
   DEMO_MACHINE_CATEGORY, DEMO_RESULT_STATUS, type CrmLeadAttachment,
 } from '@/lib/crmLeadsService';
 import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
@@ -194,9 +194,10 @@ export default function CrmNewDemoLeadPage() {
   const repository = getCrmLeadRepository();
   const academyPart = searchParams.get('academy_part') === '2' ? 2 : 1;
   const portalRole = derivePortalRole(appUser);
-  const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole) || isExternalCrmRole(portalRole);
-
-  const today = new Date().toISOString().slice(0, 10);
+  // A demo creates or updates the canonical CRM opportunity. Keep it to the
+  // same internal CRM roles that may create that opportunity; external CRM
+  // visibility never implied write access to a new lead.
+  const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
 
   const [title, setTitle] = useState('');
   const [responsibleSellerId, setResponsibleSellerId] = useState<string>('');
@@ -211,7 +212,9 @@ export default function CrmNewDemoLeadPage() {
   const [machineCategory, setMachineCategory] = useState<string[]>([]);
   const [machineInterest, setMachineInterest] = useState<string[]>([]);
 
-  const [demoDate, setDemoDate] = useState(today);
+  // A blank date is intentional: it means "Ønsker demo" (40%), not a
+  // scheduled demonstration. The lead's follow-up date remains independent.
+  const [demoDate, setDemoDate] = useState('');
   const [interest, setInterest] = useState(3);
   const [wantsOffer, setWantsOffer] = useState<'yes' | 'no'>('yes');
   const [followup, setFollowup] = useState('');
@@ -229,6 +232,8 @@ export default function CrmNewDemoLeadPage() {
   // Phase 38 — prefill from a CRM lead when ?fromLead=<id> is in the URL.
   const [sourceLeadId, setSourceLeadId] = useState<string | null>(null);
   const [sourceLeadNo, setSourceLeadNo] = useState<number | null>(null);
+  const [linkMode, setLinkMode] = useState<'existing' | 'new'>(fromLeadId ? 'existing' : 'new');
+  const [leadChoices, setLeadChoices] = useState<{ id: string; label: string }[]>([]);
 
 
   // Dealers + sellers
@@ -300,8 +305,11 @@ export default function CrmNewDemoLeadPage() {
       if (lead.owner_user_id) setResponsibleSellerId(prev => prev || lead.owner_user_id || '');
       if (lead.owner_name) setResponsibleName(prev => prev || lead.owner_name || '');
       if (lead.linked_dealer_id) {
-        setDealerCompany(prev => prev || lead.linked_dealer_id || '');
-        setDealerCompanyLabel(prev => prev || lead.linked_dealer_id || '');
+        const dealer = dealers.find((row) => row.id === lead.linked_dealer_id);
+        if (dealer) {
+          setDealerCompany(dealer.account_number);
+          setDealerCompanyLabel(`${dealer.company_name} · ${dealer.account_number}`);
+        }
       }
       if (lead.contact_information) setCustomerName(prev => prev || lead.contact_information || '');
       if (lead.notes) setNotes(prev => prev || lead.notes || '');
@@ -316,10 +324,49 @@ export default function CrmNewDemoLeadPage() {
         ]);
       }
       if (lead.estimated_value != null) setEstValue(prev => prev || String(lead.estimated_value));
-      if (lead.probability != null) setProbability(String(lead.probability));
     })();
     return () => { cancelled = true; };
-  }, [fromLeadId, repository]);
+  }, [fromLeadId, repository, dealers]);
+
+  useEffect(() => {
+    setProbability(demoDate ? '50' : '40');
+  }, [demoDate]);
+
+  useEffect(() => {
+    if (repository.academy || linkMode !== 'existing' || sourceLeadId) return;
+    let cancelled = false;
+    void repository.listLeadsPage({
+      isAdmin: isCrmAdmin(portalRole),
+      ownerEmail: appUser?.email ?? null,
+      tab: 'open',
+      limit: 100,
+    }).then((page) => {
+      if (!cancelled) setLeadChoices(page.rows.filter((row) => row.type === 'open').map((row) => ({
+        id: row.id,
+        label: `${row.display_no} · ${row.title}${row.customer ? ` · ${row.customer}` : ''}`,
+      })));
+    }).catch(() => { if (!cancelled) setLeadChoices([]); });
+    return () => { cancelled = true; };
+  }, [appUser?.email, linkMode, portalRole, repository, sourceLeadId]);
+
+  async function selectExistingLead(leadId: string) {
+    const lead = await repository.getLead(leadId);
+    if (!lead) { toast.error('Leadet findes ikke i din adgang'); return; }
+    setSourceLeadId(lead.id);
+    setSourceLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
+    setTitle(lead.title || '');
+    setResponsibleSellerId(lead.owner_user_id || '');
+    setResponsibleName(lead.owner_name || '');
+    const dealer = dealers.find((row) => row.id === lead.linked_dealer_id);
+    if (dealer) {
+      setDealerCompany(dealer.account_number);
+      setDealerCompanyLabel(`${dealer.company_name} · ${dealer.account_number}`);
+    }
+    setCustomerName(lead.contact_information || '');
+    setNotes(lead.notes || '');
+    setMachineInterest(lead.machine_types || []);
+    setEstValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
+  }
 
 
   const sellerDir = useSellerDirectory();
@@ -383,11 +430,14 @@ export default function CrmNewDemoLeadPage() {
         ? 'academy-local-sales-user'
         : chosen?.id || (await resolveSellerId(appUser?.email));
       const dealerLabel = selectedDealer?.label || dealerCompanyLabel || dealerCompany;
-      await repository.createDemoLead({
+      const payload = {
         title: title.trim(),
         owner_user_id: sellerId,
         owner_name: chosen?.name || responsibleName || null,
+        owner_email: chosen?.email || null,
         dealer_company: dealerLabel || null,
+        dealer_country: dealers.find((dealer) => dealer.account_number === dealerCompany)?.country || null,
+        dealer_account_id: dealers.find((dealer) => dealer.account_number === dealerCompany)?.id || null,
         dealer_rep: dealerRep || null,
         customer_name: customerName || null,
         customer_address: customerAddress || null,
@@ -407,11 +457,17 @@ export default function CrmNewDemoLeadPage() {
         result_status: status,
         attachments: files as unknown as CrmLeadAttachment[],
         source_lead_id: sourceLeadId,
-      });
+        machine_interest: machineInterest,
+      };
+      if (repository.academy) {
+        await repository.createDemoLead(payload);
+        toast.success(tt('created_ok', lang));
+        navigate(`/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`);
+        return;
+      }
+      const result = await createCrmDemoLifecycle(payload);
       toast.success(tt('created_ok', lang));
-      navigate(repository.academy
-        ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
-        : '/portal/crm/demo-leads');
+      navigate(`/portal/crm/leads/${result.lead_id}`);
     } catch (err) {
       console.error(err);
       toast.error(tt('created_err', lang));
@@ -443,6 +499,30 @@ export default function CrmNewDemoLeadPage() {
           </div>
         )}
 
+        {!repository.academy && !fromLeadId && (
+          <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-[15px] font-semibold text-slate-900">Demoens lead</h3>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setLinkMode('existing')}
+                className={cn('rounded-lg border px-3 py-2 text-sm font-medium', linkMode === 'existing' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-200 text-slate-700')}>
+                Knyt til eksisterende lead
+              </button>
+              <button type="button" onClick={() => { setLinkMode('new'); setSourceLeadId(null); setSourceLeadNo(null); }}
+                className={cn('rounded-lg border px-3 py-2 text-sm font-medium', linkMode === 'new' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-200 text-slate-700')}>
+                Opret nyt lead
+              </button>
+            </div>
+            {linkMode === 'existing' && !sourceLeadId && (
+              <label className="mt-4 block text-sm font-medium text-slate-700">
+                Vælg eksisterende lead
+                <select className={cn(inputCls, 'mt-1.5')} defaultValue="" onChange={(event) => { if (event.target.value) void selectExistingLead(event.target.value); }}>
+                  <option value="">Vælg lead…</option>
+                  {leadChoices.map((lead) => <option key={lead.id} value={lead.id}>{lead.label}</option>)}
+                </select>
+              </label>
+            )}
+          </section>
+        )}
 
         <form onSubmit={handleSubmit}>
           <Section title={tt('sec_basic', lang)}>
@@ -454,6 +534,7 @@ export default function CrmNewDemoLeadPage() {
               <select
                 className={inputCls}
                 value={responsibleSellerId}
+                disabled={!!sourceLeadId}
                 onChange={e => {
                   const id = e.target.value;
                   setResponsibleSellerId(id);
@@ -477,6 +558,7 @@ export default function CrmNewDemoLeadPage() {
                     type="button"
                     variant="outline"
                     role="combobox"
+                    disabled={!!sourceLeadId}
                     className={cn(
                       'w-full justify-between font-normal h-10 rounded-xl border-gray-200',
                       !dealerCompany && 'text-gray-400'
@@ -609,7 +691,10 @@ export default function CrmNewDemoLeadPage() {
               />
             </Field>
             <Field label={tt('lbl_probability', lang)}>
-              <input type="number" min={0} max={100} className={inputCls} value={probability} onChange={e=>setProbability(e.target.value)} />
+              <input type="number" readOnly className={cn(inputCls, 'bg-gray-50 text-gray-600')} value={probability} aria-describedby="demo-probability-help" />
+              <span id="demo-probability-help" className="text-xs text-gray-500">
+                {demoDate ? 'Demo planlagt' : 'Ønsker demo'}
+              </span>
             </Field>
             <Field label={tt('lbl_competitors', lang)}>
               <div className="flex gap-2">

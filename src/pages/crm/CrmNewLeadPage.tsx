@@ -66,6 +66,7 @@ import {
 } from '@/lib/crmLeadSharingService';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
+import { CrmLeadDemoSection } from '@/components/crm/CrmLeadDemoSection';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import {
@@ -1885,12 +1886,12 @@ export default function CrmNewLeadPage() {
                 ))}
               </div>
             </Field>
-            {demoHasRun === 'yes' && (
+            {isEdit && editId && (
               <Field label={tt('lbl_convert', lang)}>
                 <Link
-                  to={repository.academy && editId
+                  to={repository.academy
                     ? `/academy/crm/demo-leads/new?academy_mode=true&academy_part=2&fromLead=${encodeURIComponent(editId)}`
-                    : '/portal/crm/demo-leads/new'}
+                    : `/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(editId)}`}
                   className="inline-flex items-center gap-1.5 text-sm text-[#2d5a27] hover:underline self-start mt-1"
                 >
                   {tt('cta_convert', lang)}
@@ -1998,6 +1999,10 @@ export default function CrmNewLeadPage() {
             </Field>
             {/* Pipeline-stage is no longer manually editable — derived from Næste aktivitet. */}
           </Section>
+
+          {isEdit && editId && !repository.academy && (
+            <CrmLeadDemoSection leadId={editId} />
+          )}
 
           {isEdit && editId && !repository.academy && (
             <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

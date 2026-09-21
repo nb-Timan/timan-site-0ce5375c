@@ -3,11 +3,13 @@ import { History, Loader2, MessageSquarePlus, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   createCrmLeadNote,
+  listCrmLeadDemoHistory,
   listCrmLeadNotes,
   setCrmLeadNotePriority,
   sortCrmLeadNotes,
   type CrmLeadNote,
   type CrmLeadNotePriority,
+  type CrmLeadDemoHistoryEvent,
 } from '@/lib/crmLeadNotesService';
 import { toast } from 'sonner';
 
@@ -56,6 +58,7 @@ export function CrmLeadHistoryPanel({
   onNotesChanged,
 }: CrmLeadHistoryPanelProps) {
   const [notes, setNotes] = useState<CrmLeadNote[]>([]);
+  const [demoEvents, setDemoEvents] = useState<CrmLeadDemoHistoryEvent[]>([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -64,9 +67,12 @@ export function CrmLeadHistoryPanel({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    void listCrmLeadNotes([leadId])
-      .then((result) => {
-        if (!cancelled) setNotes(result);
+    void Promise.all([listCrmLeadNotes([leadId]), listCrmLeadDemoHistory(leadId)])
+      .then(([nextNotes, nextDemoEvents]) => {
+        if (!cancelled) {
+          setNotes(nextNotes);
+          setDemoEvents(nextDemoEvents);
+        }
       })
       .catch(() => {
         if (!cancelled) toast.error('Kunne ikke hente leadhistorik');
@@ -209,6 +215,21 @@ export function CrmLeadHistoryPanel({
           </button>
         )}
       </div>
+
+      {demoEvents.length > 0 && (
+        <div>
+          <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900"><History className="h-4 w-4" /> Demo-hændelser</h3>
+          <ol className="space-y-2">
+            {demoEvents.map((event) => (
+              <li key={event.id} className="rounded-lg border border-violet-100 bg-violet-50/40 px-3 py-2.5">
+                <p className="text-xs font-medium text-slate-500">{formatNoteTimestamp(event.created_at)} · {event.created_by_name || 'Ukendt bruger'}</p>
+                <p className="mt-1 text-sm font-medium text-slate-800">{event.title || 'Demo'}</p>
+                {event.description && <p className="mt-0.5 text-sm text-slate-700">{event.description}</p>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }

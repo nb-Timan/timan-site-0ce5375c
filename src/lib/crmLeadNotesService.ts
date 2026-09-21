@@ -10,6 +10,15 @@ export type CrmLeadNote = Pick<
 
 export type CrmLeadNotePriority = 1 | 2 | 3;
 
+export interface CrmLeadDemoHistoryEvent {
+  id: string;
+  lead_id: string | null;
+  title: string | null;
+  description: string | null;
+  created_at: string;
+  created_by_name: string | null;
+}
+
 export interface CreateCrmLeadNoteInput {
   leadId: string;
   text: string;
@@ -59,6 +68,26 @@ export async function listCrmLeadNotes(leadIds: string[], limit = 300): Promise<
     .limit(limit);
   if (error) throw error;
   return sortCrmLeadNotes(((data ?? []) as Record<string, unknown>[]).map(mapNote));
+}
+
+/** Demo events use the same append-only CRM activity stream as lead notes. */
+export async function listCrmLeadDemoHistory(leadId: string): Promise<CrmLeadDemoHistoryEvent[]> {
+  if (!leadId) return [];
+  const { data, error } = await supabase
+    .from('crm_activities')
+    .select('id, lead_id, title, description, created_at, created_by_name')
+    .in('activity_type', ['demo_requested', 'demo_scheduled', 'demo_held'])
+    .eq('lead_id', leadId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+    id: String(row.id ?? ''),
+    lead_id: typeof row.lead_id === 'string' ? row.lead_id : null,
+    title: typeof row.title === 'string' ? row.title : null,
+    description: typeof row.description === 'string' ? row.description : null,
+    created_at: String(row.created_at ?? ''),
+    created_by_name: typeof row.created_by_name === 'string' ? row.created_by_name : null,
+  }));
 }
 
 /** Atomically assigns a unique pinned position within the note's existing lead scope. */

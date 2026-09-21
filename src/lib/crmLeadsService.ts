@@ -29,6 +29,7 @@ export const NEXT_ACTIVITY_OPTIONS = [
   "Follow-up on leads",
   "Sales material sent to the customer",
   "Offer sent to the customer",
+  "Customer wants a demonstration",
   "Customer requests a demonstration",
   "Lead sent to the dealer",
   "Closed without order",
@@ -1038,6 +1039,108 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
 // ---------- Demo Leads ----------
 
 export type NewCrmDemoLead = Omit<CrmDemoLead, "id" | "created_at">;
+
+export interface CreateCrmDemoLifecycleInput extends NewCrmDemoLead {
+  /** Canonical dealer account relation used when a new lead is created. */
+  dealer_account_id?: string | null;
+  /** Preserve the complete selected machine interest on a newly created lead. */
+  machine_interest?: string[];
+}
+
+export interface CrmDemoLifecycleResult {
+  lead_id: string;
+  lead_no: number | null;
+  demo_id: string;
+  demo_no: number | null;
+  demo_date: string | null;
+}
+
+/**
+ * Creates a demo as part of one canonical sales opportunity. The database
+ * operation is atomic: a new lead (when needed), the demo, its lead-history
+ * event and its calendar event either all succeed or all roll back.
+ */
+export async function createCrmDemoLifecycle(
+  input: CreateCrmDemoLifecycleInput,
+): Promise<CrmDemoLifecycleResult> {
+  if (academySandbox.isActive()) {
+    throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
+  }
+
+  const { data, error } = await supabase.rpc('create_crm_demo_lifecycle', {
+    p_source_lead_id: input.source_lead_id ?? null,
+    p_demo: {
+      title: input.title,
+      owner_user_id: input.owner_user_id,
+      owner_name: input.owner_name,
+      owner_email: input.owner_email ?? null,
+      dealer_account_id: input.dealer_account_id ?? null,
+      dealer_company: input.dealer_company,
+      dealer_country: input.dealer_country ?? null,
+      dealer_rep: input.dealer_rep,
+      customer_name: input.customer_name,
+      customer_address: input.customer_address,
+      notes: input.notes,
+      machine_category: input.machine_category,
+      machine_interest: input.machine_interest ?? [],
+      demo_machine: input.demo_machine,
+      demo_equipment: input.demo_equipment,
+      demo_date: input.demo_date,
+      interest_level: input.interest_level,
+      wants_offer: input.wants_offer,
+      followup_date: input.followup_date,
+      estimated_value: input.estimated_value,
+      competitors_present: input.competitors_present,
+      competitor_name: input.competitor_name,
+      notes_after_demo: input.notes_after_demo,
+      result_status: input.result_status,
+      attachments: input.attachments ?? [],
+    },
+  });
+  if (error) throw error;
+  if (!data || typeof data !== 'object') {
+    throw new Error('CRM demo lifecycle returned no result');
+  }
+  const row = data as Record<string, unknown>;
+  if (typeof row.lead_id !== 'string' || typeof row.demo_id !== 'string') {
+    throw new Error('CRM demo lifecycle returned an invalid result');
+  }
+  return {
+    lead_id: row.lead_id,
+    lead_no: typeof row.lead_no === 'number' ? row.lead_no : null,
+    demo_id: row.demo_id,
+    demo_no: typeof row.demo_no === 'number' ? row.demo_no : null,
+    demo_date: typeof row.demo_date === 'string' ? row.demo_date : null,
+  };
+}
+
+/** Read linked demo records only through the existing demo RLS scope. */
+export async function listDemoLeadsForSource(leadId: string): Promise<CrmDemoLead[]> {
+  if (!leadId) return [];
+  const { data, error } = await supabase
+    .from('crm_demo_leads')
+    .select('*')
+    .eq('source_lead_id', leadId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as unknown as CrmDemoLead[];
+}
+
+/**
+ * Updates the scheduled date on the canonical demo record. The database
+ * trigger upserts its one linked calendar activity, so rescheduling cannot
+ * create a second calendar event.
+ */
+export async function updateDemoLeadDate(demoId: string, demoDate: string | null): Promise<CrmDemoLead> {
+  const { data, error } = await supabase
+    .from('crm_demo_leads')
+    .update({ demo_date: demoDate || null })
+    .eq('id', demoId)
+    .select('*')
+    .single();
+  if (error) throw error;
+  return data as unknown as CrmDemoLead;
+}
 
 export async function createDemoLead(input: NewCrmDemoLead): Promise<CrmDemoLead> {
   if (academySandbox.isActive()) {

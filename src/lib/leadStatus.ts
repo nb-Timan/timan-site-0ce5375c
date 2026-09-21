@@ -26,6 +26,7 @@ type LeadStatusSource = Pick<CrmLead, "next_activity" | "pipeline_stage"> & Part
 
 export type LeadDisplayStatus =
   | "Lead"
+  | "Ønsker demo"
   | "Demo planlagt"
   | "Tilbud sendt"
   | "Follow-up"
@@ -34,6 +35,7 @@ export type LeadDisplayStatus =
 
 export const LEAD_DISPLAY_STATUSES: readonly LeadDisplayStatus[] = [
   "Lead",
+  "Ønsker demo",
   "Demo planlagt",
   "Tilbud sendt",
   "Follow-up",
@@ -55,6 +57,7 @@ const NA_TO_STATUS: Record<string, LeadDisplayStatus> = {
   "Wants to be contacted":                 "Lead",
   "Lead sent to the dealer":               "Lead",
   "Sales material sent to the customer":   "Lead",
+  "Customer wants a demonstration":        "Ønsker demo",
   "Customer requests a demonstration":     "Demo planlagt",
   "Follow-up on leads":                    "Follow-up",
   "Offer sent to the customer":            "Tilbud sendt",
@@ -68,6 +71,7 @@ const NA_TO_PROBABILITY: Record<string, number> = {
   "Wants to be contacted":                 15,
   "Lead sent to the dealer":               10,
   "Sales material sent to the customer":   30,
+  "Customer wants a demonstration":        40,
   "Customer requests a demonstration":     50,
   "Follow-up on leads":                    25,
   "Offer sent to the customer":            70,
@@ -202,7 +206,8 @@ export function isOfferLead(
 export function isDemoLead(
   lead: Pick<CrmLead, "next_activity" | "pipeline_stage">,
 ): boolean {
-  return effectiveLeadStatus(lead) === "Demo planlagt";
+  const status = effectiveLeadStatus(lead);
+  return status === "Ønsker demo" || status === "Demo planlagt";
 }
 
 // ---------- Derive a legacy pipeline_stage from current next_activity ----------
@@ -211,6 +216,7 @@ export function isDemoLead(
 
 const STATUS_TO_LEGACY_STAGE: Record<LeadDisplayStatus, PipelineStage> = {
   Lead:           "Lead",
+  "Ønsker demo": "Qualified",
   "Demo planlagt":"Qualified",
   "Follow-up":    "Qualified",
   "Tilbud sendt": "Offer sent",
