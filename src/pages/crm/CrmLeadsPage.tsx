@@ -1301,6 +1301,9 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                   [noteTarget.id]: sortCrmLeadNotes(notes),
                 }));
               }}
+              onFollowupChanged={() => {
+                void refreshLeads();
+              }}
             />
           )}
         </DialogContent>

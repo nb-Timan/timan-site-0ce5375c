@@ -52,7 +52,7 @@ describe('CRM lead quick notes and history', () => {
 
   it('keeps newly created lead activity tied to the same lead', () => {
     expect(leadService).toContain('lead_id: row.id');
-    expect(leadService).toContain('lead_id: row.id,\n        machine_types');
+    expect(leadService).toMatch(/lead_id: row\.id,\r?\n\s+machine_types/);
   });
 
   it('uses one overview note action while retaining the same chronological history as lead detail', () => {

@@ -1,16 +1,21 @@
-import { useEffect, useState } from 'react';
-import { History, Loader2, MessageSquarePlus, Pin } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { CalendarPlus, History, Loader2, MessageSquarePlus, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CrmLeadFollowupFields } from '@/components/crm/CrmLeadFollowupFields';
 import {
-  createCrmLeadNote,
+  getCrmLeadFollowupState,
   listCrmLeadDemoHistory,
   listCrmLeadNotes,
+  saveCrmLeadNoteFollowup,
   setCrmLeadNotePriority,
   sortCrmLeadNotes,
   type CrmLeadNote,
   type CrmLeadNotePriority,
+  type CrmLeadFollowupState,
   type CrmLeadDemoHistoryEvent,
 } from '@/lib/crmLeadNotesService';
+import { NEXT_ACTIVITY_OPTIONS } from '@/lib/crmLeadsService';
+import { nextActivityToProbability } from '@/lib/leadStatus';
 import { toast } from 'sonner';
 
 interface CrmLeadHistoryPanelProps {
@@ -25,7 +30,13 @@ interface CrmLeadHistoryPanelProps {
   showComposer?: boolean;
   onCancel?: () => void;
   onNotesChanged?: (notes: CrmLeadNote[]) => void;
+  onFollowupChanged?: (state: CrmLeadFollowupState) => void;
 }
+
+const QUICK_NOTE_ACTIVITY_OPTIONS = NEXT_ACTIVITY_OPTIONS
+  .filter((option) => option !== 'Closed with order' && option !== 'Closed without order')
+  .slice()
+  .sort((left, right) => nextActivityToProbability(left) - nextActivityToProbability(right));
 
 function formatNoteTimestamp(value: string | null | undefined): string {
   if (!value) return 'Ukendt tidspunkt';
@@ -47,31 +58,38 @@ function authorLabel(note: CrmLeadNote): string {
 export function CrmLeadHistoryPanel({
   leadId,
   leadLabel,
-  authorUserId,
-  authorName,
-  ownerUserId,
-  ownerName,
   legacyNotes,
   initialLimit,
   showComposer = true,
   onCancel,
   onNotesChanged,
+  onFollowupChanged,
 }: CrmLeadHistoryPanelProps) {
   const [notes, setNotes] = useState<CrmLeadNote[]>([]);
   const [demoEvents, setDemoEvents] = useState<CrmLeadDemoHistoryEvent[]>([]);
   const [draft, setDraft] = useState('');
+  const [nextFollowupDate, setNextFollowupDate] = useState('');
+  const [nextActivity, setNextActivity] = useState('');
+  const [addToCalendar, setAddToCalendar] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showAll, setShowAll] = useState(!initialLimit);
+  const pendingNoteIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    void Promise.all([listCrmLeadNotes([leadId]), listCrmLeadDemoHistory(leadId)])
-      .then(([nextNotes, nextDemoEvents]) => {
+    void Promise.all([
+      listCrmLeadNotes([leadId]),
+      listCrmLeadDemoHistory(leadId),
+      getCrmLeadFollowupState(leadId),
+    ])
+      .then(([nextNotes, nextDemoEvents, followup]) => {
         if (!cancelled) {
           setNotes(nextNotes);
           setDemoEvents(nextDemoEvents);
+          setNextFollowupDate(followup.nextFollowupDate);
+          setNextActivity(followup.nextActivity);
         }
       })
       .catch(() => {
@@ -85,23 +103,34 @@ export function CrmLeadHistoryPanel({
 
   async function saveNote() {
     if (!draft.trim() || saving) return;
+    if (addToCalendar && !nextFollowupDate) {
+      toast.error('Vælg en opfølgningsdato før kalenderen tilføjes');
+      return;
+    }
     setSaving(true);
     try {
-      const note = await createCrmLeadNote({
+      const noteId = pendingNoteIdRef.current ?? crypto.randomUUID();
+      pendingNoteIdRef.current = noteId;
+      const result = await saveCrmLeadNoteFollowup({
+        noteId,
         leadId,
         leadTitle: leadLabel,
         text: draft,
-        authorUserId,
-        authorName,
-        ownerUserId,
-        ownerName,
+        nextFollowupDate,
+        nextActivity,
+        addToCalendar,
       });
-      const next = sortCrmLeadNotes([note, ...notes]);
+      const next = sortCrmLeadNotes([result.note, ...notes.filter((note) => note.id !== result.note.id)]);
       setNotes(next);
       onNotesChanged?.(next);
+      onFollowupChanged?.(result.lead);
+      setNextFollowupDate(result.lead.nextFollowupDate);
+      setNextActivity(result.lead.nextActivity);
       setDraft('');
+      setAddToCalendar(false);
+      pendingNoteIdRef.current = null;
       setShowAll(true);
-      toast.success('Noten er gemt');
+      toast.success(result.calendarActivityId ? 'Note og kalenderopfølgning er gemt' : 'Noten er gemt');
     } catch (error) {
       console.error('Could not save CRM lead note', error);
       toast.error('Kunne ikke gemme noten');
@@ -138,13 +167,35 @@ export function CrmLeadHistoryPanel({
           <textarea
             id={`lead-note-${leadId}`}
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => {
+              setDraft(event.target.value);
+              pendingNoteIdRef.current = null;
+            }}
             placeholder="Skriv en kort opfølgning eller kommentar"
             className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
           />
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <CrmLeadFollowupFields
+              nextFollowup={nextFollowupDate}
+              activity={nextActivity}
+              onNextFollowupChange={setNextFollowupDate}
+              onActivityChange={setNextActivity}
+              activityOptions={QUICK_NOTE_ACTIVITY_OPTIONS}
+            />
+          </div>
+          <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={addToCalendar}
+              onChange={(event) => setAddToCalendar(event.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500"
+            />
+            <CalendarPlus className="h-4 w-4 text-emerald-700" />
+            Tilføj denne opfølgning til kalender
+          </label>
           <div className="mt-2 flex justify-end gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => { setDraft(''); onCancel?.(); }} disabled={saving}>Annuller</Button>
-            <Button type="button" size="sm" onClick={() => void saveNote()} disabled={!draft.trim() || saving}>
+            <Button type="button" variant="outline" size="sm" onClick={() => { setDraft(''); setAddToCalendar(false); pendingNoteIdRef.current = null; onCancel?.(); }} disabled={saving}>Annuller</Button>
+            <Button type="button" size="sm" onClick={() => void saveNote()} disabled={!draft.trim() || loading || saving}>
               {saving && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />} Gem
             </Button>
           </div>

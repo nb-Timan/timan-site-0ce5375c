@@ -29,6 +29,29 @@ export interface CreateCrmLeadNoteInput {
   ownerName?: string | null;
 }
 
+export interface CrmLeadFollowupState {
+  nextFollowupDate: string;
+  nextActivity: string;
+  probability: number | null;
+  pipelineStage: string | null;
+}
+
+export interface SaveCrmLeadNoteFollowupInput {
+  noteId: string;
+  leadId: string;
+  leadTitle?: string | null;
+  text: string;
+  nextFollowupDate: string;
+  nextActivity: string;
+  addToCalendar: boolean;
+}
+
+export interface SaveCrmLeadNoteFollowupResult {
+  note: CrmLeadNote;
+  lead: CrmLeadFollowupState;
+  calendarActivityId: string | null;
+}
+
 function mapNote(row: Record<string, unknown>): CrmLeadNote {
   return {
     id: String(row.id ?? ''),
@@ -97,6 +120,60 @@ export async function setCrmLeadNotePriority(noteId: string, priority: CrmLeadNo
     p_priority: priority,
   });
   if (error) throw error;
+}
+
+/** Read the same canonical fields used by the lead editor and overview. */
+export async function getCrmLeadFollowupState(leadId: string): Promise<CrmLeadFollowupState> {
+  const { data, error } = await supabase
+    .from('crm_leads')
+    .select('next_followup_date, next_activity, probability, pipeline_stage')
+    .eq('id', leadId)
+    .single();
+  if (error) throw error;
+  const row = data as Record<string, unknown>;
+  return {
+    nextFollowupDate: typeof row.next_followup_date === 'string' ? row.next_followup_date : '',
+    nextActivity: typeof row.next_activity === 'string' ? row.next_activity : '',
+    probability: typeof row.probability === 'number' ? row.probability : null,
+    pipelineStage: typeof row.pipeline_stage === 'string' ? row.pipeline_stage : null,
+  };
+}
+
+/**
+ * Save a note and its follow-up/calendar changes in one RLS-scoped transaction.
+ * Reusing noteId makes retries idempotent and the calendar relation is unique.
+ */
+export async function saveCrmLeadNoteFollowup(
+  input: SaveCrmLeadNoteFollowupInput,
+): Promise<SaveCrmLeadNoteFollowupResult> {
+  const text = input.text.trim();
+  if (!text) throw new Error('Noten må ikke være tom.');
+  if (input.addToCalendar && !input.nextFollowupDate) {
+    throw new Error('Vælg en opfølgningsdato før kalenderen tilføjes.');
+  }
+  const { data, error } = await supabase.rpc('save_crm_lead_note_followup', {
+    p_note_id: input.noteId,
+    p_lead_id: input.leadId,
+    p_note: text,
+    p_next_followup_date: input.nextFollowupDate || null,
+    p_next_activity: input.nextActivity || null,
+    p_add_to_calendar: input.addToCalendar,
+    p_lead_title: input.leadTitle || null,
+  });
+  if (error) throw error;
+  const result = (data ?? {}) as Record<string, unknown>;
+  const noteRow = (result.note ?? {}) as Record<string, unknown>;
+  const leadRow = (result.lead ?? {}) as Record<string, unknown>;
+  return {
+    note: mapNote(noteRow),
+    lead: {
+      nextFollowupDate: typeof leadRow.next_followup_date === 'string' ? leadRow.next_followup_date : '',
+      nextActivity: typeof leadRow.next_activity === 'string' ? leadRow.next_activity : '',
+      probability: typeof leadRow.probability === 'number' ? leadRow.probability : null,
+      pipelineStage: typeof leadRow.pipeline_stage === 'string' ? leadRow.pipeline_stage : null,
+    },
+    calendarActivityId: typeof result.calendar_activity_id === 'string' ? result.calendar_activity_id : null,
+  };
 }
 
 /** Append a lead note without mutating the lead's legacy free-text fields. */

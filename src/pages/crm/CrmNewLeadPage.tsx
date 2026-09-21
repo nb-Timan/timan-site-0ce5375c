@@ -2014,6 +2014,13 @@ export default function CrmNewLeadPage() {
                 ownerUserId={responsibleSellerId || null}
                 ownerName={responsibleName || null}
                 legacyNotes={notes}
+                onFollowupChanged={(followup) => {
+                  setNextFollowup(followup.nextFollowupDate);
+                  setNextActivity(followup.nextActivity);
+                  setProbability(String(followup.probability ?? nextActivityToProbability(followup.nextActivity)));
+                  setStage(deriveLegacyPipelineStage(followup.nextActivity));
+                  setNextFollowupChanged(true);
+                }}
               />
             </section>
           )}
