@@ -35,6 +35,7 @@ import MarketingConfiguratorContentEditor from '@/components/configurator/Market
 import MarketingConfiguratorBulkTools from '@/components/configurator/MarketingConfiguratorBulkTools';
 import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
+import { ConfiguratorImageModal, type ConfiguratorImagePreview } from '@/components/configurator/ConfiguratorImageModal';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -102,6 +103,18 @@ const LANGUAGES: { code: PortalUiLanguage; flag: string }[] = PORTAL_LANGUAGES.m
 }));
 
 const INTERNAL_TIMAN_COPY_EMAIL = 'sales@timan.dk';
+
+const IMAGE_UNAVAILABLE_COPY: Record<PortalUiLanguage, string> = {
+  da: 'Billedet kunne ikke indlæses.',
+  en: 'The image could not be loaded.',
+  de: 'Das Bild konnte nicht geladen werden.',
+  it: 'Impossibile caricare l’immagine.',
+  hu: 'A kép nem tölthető be.',
+  sv: 'Bilden kunde inte laddas.',
+  fr: 'L’image n’a pas pu être chargée.',
+  pl: 'Nie udało się wczytać obrazu.',
+  cs: 'Obrázek se nepodařilo načíst.',
+};
 
 const CUSTOMER_MODE_COPY: Record<Language, {
   title: string;
@@ -741,6 +754,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   // Modal states
   const [infoModal, setInfoModal] = useState<{ title: string; content: string } | null>(null);
+  const [productImagePreview, setProductImagePreview] = useState<ConfiguratorImagePreview | null>(null);
   const [marketingInformation, setMarketingInformation] = useState<{ title: string; description: string; keyFeatures: string[]; specs: { label: string; value: string }[] } | null>(null);
   const [deliveryInfoOpen, setDeliveryInfoOpen] = useState(false);
   const [oilModalOpen, setOilModalOpen] = useState(false);
@@ -1657,10 +1671,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     }
   };
 
-  const renderActionLinks = (item: { videoUrl?: string; imageUrl?: string; images?: { url: string | null }[]; videos?: { url: string | null }[]; specs?: any[]; id?: string }, machineType: string) => {
+  const renderActionLinks = (item: { videoUrl?: string; imageUrl?: string; images?: { url: string | null }[]; videos?: { url: string | null }[]; specs?: any[]; id?: string; varenr?: string; name?: Accessory['name'] | SubItem['name'] }, machineType: string) => {
     const marketingContent = marketingContentFor(machineType, item.id);
     const videoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
     const imageUrl = marketingContent?.image_url || getImageUrlForItem(item);
+    const productTitle = marketingContent?.title || (item.name ? getLocalizedName(item.name, lang) : machineType);
     const hasSpecs = Boolean(marketingContent?.description || marketingContent?.key_features.length || marketingContent?.specs.length || item.specs?.length);
     const showVideoIcon = !!videoUrl;
     const showImageIcon = !!(item.imageUrl || (item.images && item.images.length > 0) || item.videoUrl || (item.videos && item.videos.length > 0));
@@ -1673,7 +1688,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">🎥 {T('videoLink')}</span>
         ))}
         {showImageIcon && (imageUrl ? (
-          <a href={imageUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs flex items-center gap-0.5 hover:text-emerald-800 transition" onClick={e => e.stopPropagation()}>📸 {T('imageLink')}</a>
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-emerald-600 transition hover:text-emerald-800" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductImagePreview({ src: imageUrl, title: productTitle, itemNumber: item.varenr || item.id || null }); }}>📸 {T('imageLink')}</button>
         ) : (
           <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">📸 {T('imageLink')}</span>
         ))}
@@ -2672,6 +2687,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   return (
     <div className="p-4 md:p-8" style={{ fontFamily: "'Inter', sans-serif", backgroundColor: '#f4f7f9' }}>
+      <ConfiguratorImageModal
+        preview={productImagePreview}
+        itemNumberLabel={itemNoLabel(uiLanguage)}
+        unavailableLabel={IMAGE_UNAVAILABLE_COPY[uiLanguage]}
+        onClose={() => setProductImagePreview(null)}
+      />
+
       {/* Info Modal */}
       {infoModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setInfoModal(null)}>
@@ -3153,12 +3175,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                       : marketingContent?.specs.length ? marketingContent.specs : p.techSpecs;
                     const cardVideoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(p, primaryVideosByProduct);
                     const cardImageUrl = marketingContent?.image_url || getImageUrlForItem(p);
+                    const cardTitle = marketingContent?.title || getLocalizedName(p.name, lang);
 
                     return (
                       <MarketingConfiguratorProductCard
                         key={key}
                         className={`transition ${isSelected ? 'border-emerald-500 bg-emerald-50' : 'hover:border-gray-300'}`}
-                        title={marketingContent?.title || getLocalizedName(p.name, lang)}
+                        title={cardTitle}
                         itemNumber={p.varenr}
                         itemNumberLabel={itemNoLabel(uiLanguage)}
                         price={permissions.canSeePrices ? formatDisplayMoney(getPrice(p, lang)) : ''}
@@ -3176,7 +3199,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                             <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">🎥 {T('videoLink')}</button>
                           ))}
                           {cardImageUrl ? (
-                            <a href={cardImageUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">📸 {T('imageLink')}</a>
+                            <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductImagePreview({ src: cardImageUrl, title: cardTitle, itemNumber: p.varenr }); }} className="flex items-center gap-1 bg-transparent p-0 text-sm font-medium text-emerald-600 hover:text-emerald-800">📸 {T('imageLink')}</button>
                           ) : (key === 'Timan 2620' && (
                             <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📸 {T('imageLink')}</button>
                           ))}

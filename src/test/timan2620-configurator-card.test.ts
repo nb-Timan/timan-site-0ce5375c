@@ -36,6 +36,6 @@ describe('Timan 2620 Configurator card', () => {
     const page = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
     expect(page).toContain("!machine || !content || key === 'Timan 2620'");
     expect(page).toContain("description={key === 'Timan 2620' ? undefined : marketingContent?.description}");
-    expect(page).toContain("key === 'Timan 2620'\n                      ? p.techSpecs");
+    expect(page).toMatch(/key === 'Timan 2620'\r?\n\s+\? p\.techSpecs/);
   });
 });
