@@ -60,6 +60,7 @@ import {
 } from "@/lib/pricePublishService";
 
 const FIELD_LABEL: Record<string, string> = {
+  item_number: "Varenr.",
   item_text_da: "Varetekst",
   cost_price_dkk: "Kostpris DKK",
   price_dkk: "Pris DKK",

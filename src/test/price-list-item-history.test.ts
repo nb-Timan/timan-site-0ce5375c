@@ -29,13 +29,17 @@ function entry(field_name: PriceListHistoryEntry['field_name'], oldValue: number
 
 describe('price-list item history', () => {
   it('classifies price and text fields for compact history filters', () => {
-    const entries = [entry('price_dkk', 40900, 60800), entry('item_text_da', null, null)];
+    const entries = [
+      entry('price_dkk', 40900, 60800),
+      entry('item_text_da', null, null),
+      entry('item_number', null, null),
+    ];
 
     expect(isPriceHistoryPriceField('price_dkk')).toBe(true);
     expect(isPriceHistoryPriceField('item_text_da')).toBe(false);
-    expect(filterPriceHistory(entries, 'all')).toHaveLength(2);
+    expect(filterPriceHistory(entries, 'all')).toHaveLength(3);
     expect(filterPriceHistory(entries, 'price')).toEqual([entries[0]]);
-    expect(filterPriceHistory(entries, 'text')).toEqual([entries[1]]);
+    expect(filterPriceHistory(entries, 'text')).toEqual([entries[1], entries[2]]);
   });
 
   it('calculates a positive amount and percentage from an actual price change', () => {
