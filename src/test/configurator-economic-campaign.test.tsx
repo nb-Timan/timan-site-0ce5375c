@@ -245,14 +245,17 @@ describe('canonical multi-product campaigns', () => {
     expect(buildSubmittedOrderDocument(reopened).calcResult.currentPrice).toBe(live.currentPrice);
     expect(calcConfigurationTotals(reopened).finalPrice).toBe(live.currentPrice);
   });
-  it('does not retrofit historical snapshots or legacy sent offers', async () => {
+  it('keeps legacy submitted orders frozen but sent offers editable', async () => {
     const input = state(); const original = calculateConfiguration(input);
     input.pricingSnapshot = { version: 1, capturedAt: '2026-01-01', prices: {}, signature: configuratorPricingSignature(input), totals: { subtotal: original.subtotal, totalDiscount: original.totalDiscount, finalPrice: original.currentPrice } };
     replacePublishedCampaigns([campaign()]);
     expect(calcConfigurationTotals(input).finalPrice).toBe(original.currentPrice);
-    const legacy = protectLegacySentPricing(state(), { quote_sent_at: '2026-09-16', subtotal: 61470, total_price: 40801 });
-    expect(calcConfigurationTotals(legacy).finalPrice).toBe(40801);
-    await expect(finalizeConfiguratorPricingSnapshot(legacy)).rejects.toThrow('Historiske');
+    const sentOffer = protectLegacySentPricing(state(), { quote_sent_at: '2026-09-16', subtotal: 61470, total_price: 40801 });
+    expect(sentOffer.pricingSnapshot).toBeUndefined();
+    expect((await finalizeConfiguratorPricingSnapshot(sentOffer)).pricingSnapshot?.totalsOnly).not.toBe(true);
+    const submittedOrder = protectLegacySentPricing(state(), { submitted_at: '2026-09-16', subtotal: 61470, total_price: 40801 });
+    expect(calcConfigurationTotals(submittedOrder).finalPrice).toBe(40801);
+    await expect(finalizeConfiguratorPricingSnapshot(submittedOrder)).rejects.toThrow('Historiske');
   });
   it('updates the one shared live calculation store', () => {
     const { result } = renderHook(() => useConfigurator());

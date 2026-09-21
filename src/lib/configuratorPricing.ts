@@ -71,9 +71,16 @@ export function hasFrozenConfiguratorPricing(state: ConfiguratorState): boolean 
   );
 }
 
-/** Protect old sent documents without inventing historical catalogue prices. */
+/**
+ * Protect legacy submitted orders without inventing historical catalogue prices.
+ *
+ * A sent quote is still an editable working case. Its previously sent PDF remains
+ * immutable in Storage, while the next explicit save captures a complete current
+ * pricing snapshot on the same T-number. Treating quote_sent_at as an order lock
+ * leaves the quote in a totals-only state that cannot be edited or saved.
+ */
 export function protectLegacySentPricing(state: ConfiguratorState, row: { quote_sent_at?: unknown; order_sent_at?: unknown; submitted_at?: unknown; subtotal?: unknown; total_price?: unknown }): ConfiguratorState {
-  const sentAt = row.order_sent_at || row.submitted_at || row.quote_sent_at;
+  const sentAt = row.order_sent_at || row.submitted_at;
   if (state.pricingSnapshot || !sentAt) return state;
   const subtotal = Number(row.subtotal);
   const finalPrice = Number(row.total_price);

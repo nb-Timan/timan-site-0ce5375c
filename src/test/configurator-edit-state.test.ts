@@ -14,6 +14,13 @@ describe('configurator saved edit state', () => {
     expect(code).toContain('const flowType = deriveEditableFlowType(row)');
   });
 
+  it('does not apply the submitted-order totals-only lock to a sent offer', () => {
+    const pricing = readFileSync('src/lib/configuratorPricing.ts', 'utf8');
+    expect(pricing).toContain('const sentAt = row.order_sent_at || row.submitted_at;');
+    expect(pricing).not.toContain('row.order_sent_at || row.submitted_at || row.quote_sent_at');
+    expect(pricing).toContain('A sent quote is still an editable working case');
+  });
+
   it('saves edits back to the same canonical row using the current flow type', () => {
     const code = source();
     expect(code).toContain('stateForPersistence = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode)');
