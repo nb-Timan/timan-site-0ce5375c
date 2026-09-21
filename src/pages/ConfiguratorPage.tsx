@@ -90,6 +90,7 @@ import {
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
 import { createConfiguratorPricingSnapshot } from '@/lib/configuratorPricing';
+import { loadPublishedConfiguratorPrices } from '@/lib/configuratorPublishedPrices';
 
 // Configurator language selector — uses the 9 portal UI languages.
 // Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
@@ -191,6 +192,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   } = useConfigurator();
   const lang = state.language;
   const [primaryVideosByProduct, setPrimaryVideosByProduct] = useState<Map<string, MarketingVideo>>(() => new Map());
+  const [, setCatalogRevision] = useState(0);
   const [publishedMarketingContent, setPublishedMarketingContent] = useState<Map<string, MarketingConfiguratorContentRecord>>(() => new Map());
   const [marketingEditorRecords, setMarketingEditorRecords] = useState<MarketingConfiguratorContentRecord[]>([]);
   const [marketingEditorItem, setMarketingEditorItem] = useState<MarketingConfiguratorCatalogItem | null>(null);
@@ -216,6 +218,20 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     listPublishedMarketingConfiguratorContent().then((rows) => {
       if (!cancelled) setPublishedMarketingContent(rows);
     });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPublishedConfiguratorPrices()
+      .then(() => {
+        if (!cancelled) setCatalogRevision((revision) => revision + 1);
+      })
+      .catch((error) => {
+        // The built-in catalogue is the deliberate safe fallback when the
+        // published overlay is temporarily unavailable.
+        console.warn('[ConfiguratorPage] published price overlay unavailable', error);
+      });
     return () => { cancelled = true; };
   }, []);
 

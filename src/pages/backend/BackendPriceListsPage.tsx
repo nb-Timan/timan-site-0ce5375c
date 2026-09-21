@@ -278,7 +278,11 @@ export default function BackendPriceListsPage() {
     }
     setPublishSummary(res.summary);
     const total = res.summary.created + res.summary.updated;
-    toast.success(`${total} vare(r) publiceret til konfigurator-overlay.`);
+    if (res.summary.errors.length > 0) {
+      toast.error(`${total} vare(r) publiceret, men ${res.summary.errors.length} vare(r) fejlede.`);
+    } else {
+      toast.success(`${total} vare(r) opdateret i Configurator.`);
+    }
     await reload();
   }
 
@@ -352,7 +356,7 @@ export default function BackendPriceListsPage() {
                   onClick={() => { setPublishSummary(null); setPublishOpen(true); }}
                   disabled={dirtyItems.length === 0}
                   className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Publicér ændrede prislistevarer til konfigurator-overlay (price_list_published). Konfiguratorens kode ændres ikke i denne fase."
+                  title="Publicér ændrede prislistevarer til Configuratorens aktuelle priskatalog."
                 >
                   <UploadCloud className="h-3.5 w-3.5" />
                   Upload ændringer til konfigurator{dirtyItems.length > 0 ? ` (${dirtyItems.length})` : ""}
@@ -1426,7 +1430,8 @@ function PublishModal({
             <p className="text-xs text-slate-500 mt-1">
               Sammenligner ændrede prislistevarer (Backend) mod konfiguratorens nuværende værdier
               (machines.ts). Ved bekræftelse skrives kun de ændrede varer til <span className="font-mono">price_list_published</span>.
-              Konfiguratoren læser ikke fra denne tabel endnu — eksisterende tilbud, ordrer, PDF og e-mail er uændrede.
+              Nye Configurator-sessioner og refresh læser herefter den publicerede pris. Eksisterende sendte tilbud,
+              ordrer og PDF'er bevarer deres låste prissnapshot.
             </p>
             <p className="text-xs text-slate-600 mt-2">
               <strong>{ready.length}</strong> klar til upload
@@ -1439,13 +1444,15 @@ function PublishModal({
 
         <div className="flex-1 overflow-auto p-6">
           {summary ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className={`rounded-xl border p-4 ${summary.errors.length > 0 ? "border-amber-200 bg-amber-50" : "border-emerald-200 bg-emerald-50"}`}>
               <div className="flex items-start gap-3">
-                <CheckCircle2 className="h-6 w-6 text-emerald-700 mt-0.5" />
+                <CheckCircle2 className={`h-6 w-6 mt-0.5 ${summary.errors.length > 0 ? "text-amber-700" : "text-emerald-700"}`} />
                 <div>
-                  <p className="font-bold text-emerald-900">Publicering gennemført</p>
-                  <p className="text-sm text-emerald-900 mt-1">
-                    <strong>{summary.created}</strong> oprettet, <strong>{summary.updated}</strong> opdateret,{" "}
+                  <p className={`font-bold ${summary.errors.length > 0 ? "text-amber-900" : "text-emerald-900"}`}>
+                    {summary.errors.length > 0 ? "Publicering afsluttet med fejl" : "Publicering gennemført"}
+                  </p>
+                  <p className={`text-sm mt-1 ${summary.errors.length > 0 ? "text-amber-900" : "text-emerald-900"}`}>
+                    <strong>{summary.created + summary.updated}</strong> vare(r) opdateret i Configurator ({summary.created} oprettet, {summary.updated} opdateret),{" "}
                     <strong>{summary.skipped}</strong> sprunget over.
                   </p>
                   {summary.errors.length > 0 && (

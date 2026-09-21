@@ -20,6 +20,27 @@ export const PACKAGING_COST_ID = '725789';
 export const PACKAGING_TRIGGER_IDS = ['720125', '720130', '720132', '720133'];
 export const ACC_ID_OIL_1000_PARENT = '445566778899';
 
+/** Approved Backend prices overlay the static catalogue for fresh sessions. */
+export interface PublishedConfiguratorPrice {
+  item_number: string;
+  price_dkk: number | null;
+  price_eur: number | null;
+}
+
+const publishedPriceOverlay = new Map<string, PublishedConfiguratorPrice>();
+
+export function replacePublishedConfiguratorPrices(rows: PublishedConfiguratorPrice[]): void {
+  publishedPriceOverlay.clear();
+  for (const row of rows) {
+    const itemNumber = String(row.item_number || '').trim();
+    if (itemNumber) publishedPriceOverlay.set(itemNumber, row);
+  }
+}
+
+export function clearPublishedConfiguratorPricesForTest(): void {
+  publishedPriceOverlay.clear();
+}
+
 // ===== SUB-ITEMS FACTORY =====
 const SWEEPER_SUB_ITEMS_TEMPLATE = [
   { id: '721122', varenr: '721122',
@@ -841,9 +862,13 @@ export function getLocalizedName(name: string | { da: string; en: string; [key: 
 }
 
 // Get price based on language/currency
-export function getPrice(item: { priceDKK: number; priceEUR: number }, lang: Language = 'da'): number {
+export function getPrice(item: { varenr?: string; priceDKK: number; priceEUR: number }, lang: Language = 'da'): number {
   const isEUR = ['en', 'de', 'it', 'hu'].includes(lang);
-  return isEUR ? item.priceEUR : item.priceDKK;
+  const published = publishedPriceOverlay.get(String(item.varenr || '').trim());
+  const publishedPrice = isEUR ? published?.price_eur : published?.price_dkk;
+  return typeof publishedPrice === 'number' && Number.isFinite(publishedPrice)
+    ? publishedPrice
+    : (isEUR ? item.priceEUR : item.priceDKK);
 }
 
 // Format money
