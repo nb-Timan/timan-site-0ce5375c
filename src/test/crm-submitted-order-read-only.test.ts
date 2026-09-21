@@ -8,6 +8,7 @@ describe('CRM submitted-order read-only confirmation', () => {
     const state = normalizeConfiguratorState({
       flowType: 'order',
       purchaseOrderNumber: 'REK-7011',
+      reqNumbers: { machine_1: 'REK-7011' },
     });
 
     expect(buildQuoteContentSummary(state).purchase_order_number).toBe('REK-7011');
@@ -39,7 +40,8 @@ describe('CRM submitted-order read-only confirmation', () => {
 
     expect(modal).toContain('calcConfigurationTotals(state)');
     expect(modal).toContain("buildAccountCaseLines(state, 'da', state.language)");
-    expect(modal).toContain('state.purchaseOrderNumber');
+    expect(modal).toContain('orderPurchaseReferenceSummary(state)');
+    expect(modal).toContain('line.purchaseReferences');
     expect(modal).not.toMatch(/<input|<textarea|onChange=/);
   });
 });

@@ -435,7 +435,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
                         {number}
                         {mode === 'order' && r.purchase_order_number && (
-                          <span className="mt-0.5 block font-sans text-[11px] text-slate-500 sm:hidden">REK./PO: {r.purchase_order_number}</span>
+                          <span className="mt-0.5 block font-sans text-[11px] text-slate-500" title={r.purchase_order_numbers.join(', ') || undefined}>REK./PO: {r.purchase_order_number}</span>
                         )}
                       </td>
                       {mode === 'order' && (
@@ -459,7 +459,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                         </span>
                       </td>
                       {mode === 'order' && <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.delivery_date)}</td>}
-                      {mode === 'order' && <td className="hidden px-3 py-2.5 font-mono text-[12px] text-slate-600 sm:table-cell">{r.purchase_order_number || '—'}</td>}
+                      {mode === 'order' && <td className="hidden px-3 py-2.5 font-mono text-[12px] text-slate-600 sm:table-cell" title={r.purchase_order_numbers.join(', ') || undefined}>{r.purchase_order_number || '—'}</td>}
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.created_at)}</td>
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(sentAt)}</td>
                       {mode === 'quote' && (

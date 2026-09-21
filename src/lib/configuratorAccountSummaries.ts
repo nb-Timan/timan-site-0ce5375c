@@ -2,6 +2,7 @@ import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS } from '@/data
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { snapshotAccessoryPrice, snapshotMachinePrice } from '@/lib/configuratorPricing';
+import { machinePurchaseReference } from '@/lib/orderPurchaseReferences';
 import type { ConfiguratorState, Language } from '@/types/configurator';
 
 export type AccountCaseStatusFilter = 'all' | 'active' | 'sent' | 'paused';
@@ -52,6 +53,7 @@ export interface AccountCaseLine {
   itemNo: string;
   description: string;
   note: string;
+  purchaseReferences?: string[];
   unitPrice: number;
   quantity: number;
   total: number;
@@ -155,6 +157,7 @@ export function buildAccountCaseLines(
 ): AccountCaseLine[] {
   const legacyLang = normalizeLang(language);
   const lines: AccountCaseLine[] = [];
+  let machineUnitNumber = 0;
 
   state.machineConfigs.forEach((machine) => {
     const product = PRODUCTS[machine.type];
@@ -162,11 +165,18 @@ export function buildAccountCaseLines(
     const unitPrice = product
       ? snapshotMachinePrice(state, machine.type, getPrice(product, sourceLanguage))
       : 0;
+    const purchaseReferences = new Set<string>();
+    for (let unit = 0; unit < quantity; unit += 1) {
+      machineUnitNumber += 1;
+      const reference = machinePurchaseReference(state, machineUnitNumber);
+      if (reference) purchaseReferences.add(reference);
+    }
 
     lines.push({
       itemNo: product?.varenr || machine.type,
       description: product ? getLocalizedName(product.name, legacyLang) : machine.type,
       note: configurationModeLabel(machine.configMode, language),
+      purchaseReferences: Array.from(purchaseReferences),
       unitPrice,
       quantity,
       total: unitPrice * quantity,

@@ -5,6 +5,8 @@ import {
   type SubmittedOrderRevision,
 } from '@/lib/submittedOrderCorrectionService';
 import type { CrmConfigurationRow } from '@/lib/crmConfigurationsService';
+import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
+import { normalizeConfiguratorState } from '@/lib/configuratorState';
 
 interface Props {
   row: CrmConfigurationRow;
@@ -15,6 +17,7 @@ interface OrderSnapshotSummary {
   customer: string;
   deliveryDate: string;
   paymentTerms: string;
+  purchaseOrder: string;
   itemCount: number;
   totalPrice: string;
 }
@@ -24,12 +27,14 @@ function snapshotSummary(snapshot: Record<string, unknown> | null): OrderSnapsho
   const state = (configuration.state_json ?? {}) as Record<string, unknown>;
   const items = Array.isArray(snapshot?.items) ? snapshot.items : [];
   const totalPrice = configuration.total_price;
+  const purchaseOrder = orderPurchaseReferenceSummary(normalizeConfiguratorState(state)).headerValue ?? '—';
   return {
     customer: typeof state.firmanavn === 'string' && state.firmanavn.trim() ? state.firmanavn : '—',
     deliveryDate: typeof configuration.delivery_date === 'string' && configuration.delivery_date
       ? new Date(`${configuration.delivery_date.slice(0, 10)}T00:00:00`).toLocaleDateString('da-DK')
       : '—',
     paymentTerms: typeof state.paymentTerms === 'string' && state.paymentTerms.trim() ? state.paymentTerms : '—',
+    purchaseOrder,
     itemCount: items.length,
     totalPrice: typeof totalPrice === 'number'
       ? new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(totalPrice)
@@ -46,6 +51,7 @@ function Snapshot({ label, snapshot }: { label: string; snapshot: Record<string,
         <div><dt className="text-slate-500">Kunde</dt><dd className="truncate font-medium" title={summary.customer}>{summary.customer}</dd></div>
         <div><dt className="text-slate-500">Levering</dt><dd className="font-medium">{summary.deliveryDate}</dd></div>
         <div><dt className="text-slate-500">Betaling</dt><dd className="font-medium">{summary.paymentTerms}</dd></div>
+        <div><dt className="text-slate-500">REK./PO</dt><dd className="font-medium">{summary.purchaseOrder}</dd></div>
         <div><dt className="text-slate-500">Linjer / total</dt><dd className="font-medium">{summary.itemCount} / {summary.totalPrice}</dd></div>
       </dl>
     </div>

@@ -7,6 +7,7 @@ import { formatMoney } from '@/data/machines';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { buildAccountCaseLines } from '@/lib/configuratorAccountSummaries';
 import { resolvePaymentTerms } from '@/lib/paymentTerms';
+import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import type { SavedConfiguration } from '@/lib/configurationsService';
 
 interface Props {
@@ -39,6 +40,7 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
   const reference = order.order_number || order.quote_number || order.id.slice(0, 8);
   const sentAt = order.order_sent_at || order.submitted_at || order.created_at;
   const money = (value: number) => formatMoney(value, state.language);
+  const purchaseReferences = orderPurchaseReferenceSummary(state);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 sm:p-5">
@@ -64,7 +66,7 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
             <Detail label="Dato" value={formatDate(sentAt)} />
             <Detail label="Forventet levering" value={state.date ? formatDate(`${state.date}T12:00:00`) : '—'} />
             <Detail label="Leveringsmetode" value={deliveryMethodLabel(state.deliveryMethod)} />
-            <Detail label="Rekvisitionsnr. / PO nr." value={state.purchaseOrderNumber} />
+            <Detail label="Rekvisitionsnr. / PO nr." value={purchaseReferences.headerValue} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
@@ -85,7 +87,7 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
                 <Detail label="Betalingsbetingelser" value={resolvePaymentTerms(state.paymentTerms)} />
                 <Detail label="Ønsket levering" value={state.date ? formatDate(`${state.date}T12:00:00`) : '—'} />
                 <Detail label="Leveringsmetode" value={deliveryMethodLabel(state.deliveryMethod)} />
-                <Detail label="Rekvisitionsnr. / PO nr." value={state.purchaseOrderNumber} />
+                <Detail label="Rekvisitionsnr. / PO nr." value={purchaseReferences.headerValue} />
                 {state.alternativeDeliveryAddress && <Detail label="Alternativ leveringsadresse" value={state.alternativeDeliveryAddress} />}
                 {state.comment && <Detail label="Kommentar" value={state.comment} />}
               </dl>
@@ -101,7 +103,12 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
               {lines.map((line, index) => (
                 <div key={`${line.itemNo}-${index}`} className="grid gap-x-3 gap-y-1 px-4 py-3 text-sm sm:grid-cols-[7rem_minmax(12rem,1fr)_5rem_8rem_8rem] sm:items-center">
                   <div className="font-mono text-xs text-slate-500">{line.itemNo}</div>
-                  <div className="font-medium text-slate-900">{line.description}<span className="ml-2 text-xs font-normal text-slate-500">{line.note}</span></div>
+                  <div className="font-medium text-slate-900">
+                    {line.description}<span className="ml-2 text-xs font-normal text-slate-500">{line.note}</span>
+                    {line.purchaseReferences?.length ? (
+                      <span className="mt-0.5 block text-xs font-normal text-slate-500">REK./PO: {line.purchaseReferences.join(', ')}</span>
+                    ) : null}
+                  </div>
                   <div className="text-right tabular-nums text-slate-700">{line.quantity}</div>
                   <div className="text-right tabular-nums text-slate-700">{money(line.unitPrice)}</div>
                   <div className="text-right font-semibold tabular-nums text-slate-900">{money(line.total)}</div>

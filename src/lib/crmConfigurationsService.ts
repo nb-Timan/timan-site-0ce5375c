@@ -24,6 +24,7 @@ import type { ConfiguratorState } from '@/types/configurator';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { currencyFromLanguage, toDkk, type Currency } from '@/lib/currency';
 import { isExternalCrmRole } from '@/lib/crmScope';
+import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 
 export type CrmDocumentType = 'quote' | 'order';
 
@@ -42,6 +43,8 @@ export interface CrmConfigurationRow {
   order_number: string | null;
   /** Canonical customer reference stored inside the Configurator snapshot. */
   purchase_order_number: string | null;
+  /** Ordered unique references from the frozen order snapshot. */
+  purchase_order_numbers: string[];
   total_price: number | null;
   note: unknown | null;
 
@@ -124,14 +127,16 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
   const orderSentAt = (row.order_sent_at as string | null) ?? null;
   const submittedAt = (row.submitted_at as string | null) ?? null;
   let purchaseOrderNumber: string | null = null;
+  let purchaseOrderNumbers: string[] = [];
   try {
     const rawState = typeof row.state_json === 'string'
       ? JSON.parse(row.state_json)
       : row.state_json;
-    const value = rawState && typeof rawState === 'object'
-      ? (rawState as Record<string, unknown>).purchaseOrderNumber
-      : null;
-    if (typeof value === 'string' && value.trim()) purchaseOrderNumber = value.trim();
+    if (rawState && typeof rawState === 'object') {
+      const summary = orderPurchaseReferenceSummary(rawState as Pick<ConfiguratorState, 'reqNumbers' | 'purchaseOrderNumber'>);
+      purchaseOrderNumber = summary.headerValue;
+      purchaseOrderNumbers = summary.values;
+    }
   } catch {
     // A legacy or malformed snapshot simply has no customer reference.
   }
@@ -155,6 +160,7 @@ function rowToConfig(row: Record<string, unknown>): CrmConfigurationRow {
     quote_number: (row.quote_number as string | null) ?? null,
     order_number: (row.order_number as string | null) ?? null,
     purchase_order_number: purchaseOrderNumber,
+    purchase_order_numbers: purchaseOrderNumbers,
     total_price: row.total_price == null ? null : Number(row.total_price),
     note: row.note ?? null,
     seller_initials: (row.seller_initials as string | null) ?? null,

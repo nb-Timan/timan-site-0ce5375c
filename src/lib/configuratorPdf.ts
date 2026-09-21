@@ -1,6 +1,7 @@
 import type { CalcResult, ConfiguratorState, DiscountDetail, Language, LineItem } from "@/types/configurator";
 import { formatMoney } from "@/data/machines";
 import { getPaymentTermsLabel, resolvePaymentTerms } from "@/lib/paymentTerms";
+import { machinePurchaseReference, orderPurchaseReferenceSummary } from "@/lib/orderPurchaseReferences";
 
 type ConfiguratorPdfFlowType = "quote" | "order";
 
@@ -32,6 +33,7 @@ type MachinePdfSection = {
   title: string;
   rows: LineItem[];
   subtotal?: LineItem;
+  purchaseReference?: string | null;
 };
 
 const PAGE = {
@@ -123,7 +125,7 @@ function plainText(text: string): string {
     .trim();
 }
 
-function groupMachineSections(lineItems: LineItem[]): MachinePdfSection[] {
+function groupMachineSections(lineItems: LineItem[], state: ConfiguratorState): MachinePdfSection[] {
   const sections: MachinePdfSection[] = [];
   let current: MachinePdfSection | null = null;
 
@@ -132,6 +134,7 @@ function groupMachineSections(lineItems: LineItem[]): MachinePdfSection[] {
       current = {
         title: `${item.txt.replace(/\s*\([^)]*\)\s*$/, "")} - ${cleanMachineTitle(item.txt)}`,
         rows: [{ ...item, txt: cleanMachineTitle(item.txt) }],
+        purchaseReference: item.index ? machinePurchaseReference(state, item.index) : null,
       };
       sections.push(current);
       continue;
@@ -283,14 +286,20 @@ function drawMachineSection(
   pdf: any,
   section: MachinePdfSection,
   y: number,
-  input: Pick<BuildConfiguratorPdfInput, "uiLanguage" | "showPrices" | "TC">,
+  input: Pick<BuildConfiguratorPdfInput, "uiLanguage" | "contentLanguage" | "showPrices" | "TC">,
 ): number {
-  y = ensureSpace(pdf, y, 24);
+  y = ensureSpace(pdf, y, section.purchaseReference ? 30 : 24);
   setColor(pdf, "text", COLORS.text);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(10);
   pdf.text(section.title, PAGE.marginX, y);
   y += 5;
+  if (section.purchaseReference) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7.5);
+    pdf.text(`${purchaseOrderLabel(input.contentLanguage)}: ${section.purchaseReference}`, PAGE.marginX, y);
+    y += 4.5;
+  }
 
   const labels = { itemNo: input.TC("pdfItemNo"), description: input.TC("confirmDescription"), price: input.TC("pdfPrice") };
   drawTableHeader(pdf, y, labels);
@@ -387,6 +396,7 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
 
   let y = 36;
   const deliveryMethodText = input.state.deliveryMethod ? input.TC(input.state.deliveryMethod) : "-";
+  const purchaseReferences = orderPurchaseReferenceSummary(input.state);
   const metadata: Array<[string, string | null | undefined]> = input.flowType === "quote"
     ? [
         [input.TC("pdfQuoteNo"), input.quoteNumber || "-"],
@@ -400,8 +410,8 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
         [input.TC("confirmDate").replace(":", ""), today(input.contentLanguage)],
         [input.TC("confirmDelivery").replace(":", ""), formatDate(input.state.date, input.contentLanguage)],
         [input.TC("deliveryMethod"), deliveryMethodText],
-        input.state.purchaseOrderNumber.trim()
-          ? [purchaseOrderLabel(input.contentLanguage), input.state.purchaseOrderNumber.trim()]
+        purchaseReferences.headerValue
+          ? [purchaseOrderLabel(input.contentLanguage), purchaseReferences.headerValue]
           : ["", ""],
         input.sourceQuoteNumber ? [input.TC("pdfQuoteNo"), input.sourceQuoteNumber] : ["", ""],
       ];
@@ -416,7 +426,7 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
     input.state.comment ? [input.TC("confirmComment").replace(":", ""), input.state.comment] : ["", ""],
   ], y);
 
-  const sections = groupMachineSections(input.calcResult.lineItems);
+  const sections = groupMachineSections(input.calcResult.lineItems, input.state);
   sections.forEach((section) => {
     y = drawMachineSection(pdf, section, y, input);
   });

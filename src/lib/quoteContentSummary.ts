@@ -21,6 +21,7 @@ import {
 } from '@/data/machines';
 import { snapshotAccessoryPrice, snapshotMachinePrice } from '@/lib/configuratorPricing';
 import { resolvePaymentTerms } from '@/lib/paymentTerms';
+import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 
 export interface SummaryAccessoryLine {
   id: string;
@@ -180,9 +181,9 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
     currency,
     flow_type: state.flowType === 'order' ? 'order' : 'quote',
     payment_terms: resolvePaymentTerms(state.paymentTerms),
-    // Older saved configurations predate the REK/PO field. They must still
-    // hydrate safely instead of throwing while their snapshot is summarized.
-    purchase_order_number: state.purchaseOrderNumber?.trim() || null,
+    // The order-level label is derived from the frozen machine references.
+    // Legacy snapshots without them retain their original global fallback.
+    purchase_order_number: orderPurchaseReferenceSummary(state).headerValue,
     delivery: {
       method: state.deliveryMethod || '',
       date: state.date || null,
