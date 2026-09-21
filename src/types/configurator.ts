@@ -144,6 +144,17 @@ export interface ConfiguratorPricingSnapshot {
   version: 1;
   capturedAt: string;
   prices: Record<string, number>;
+  /** Frozen commercial lines; older snapshots are reconstructed from active units only. */
+  lines?: {
+    unitNumber?: number;
+    itemNo: string;
+    description: string;
+    note: string;
+    purchaseReferences?: string[];
+    unitPrice: number;
+    quantity: number;
+    total: number;
+  }[];
   /** Price-relevant state only; customer/contact edits keep this unchanged. */
   signature?: string;
   totals?: {

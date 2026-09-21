@@ -1,7 +1,8 @@
 import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS } from '@/data/machines';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
-import { snapshotAccessoryPrice, snapshotMachinePrice } from '@/lib/configuratorPricing';
+import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice } from '@/lib/configuratorPricing';
+import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { machinePurchaseReference } from '@/lib/orderPurchaseReferences';
 import type { ConfiguratorState, Language } from '@/types/configurator';
 
@@ -50,6 +51,7 @@ export interface AccountCaseSummary {
 }
 
 export interface AccountCaseLine {
+  unitNumber?: number;
   itemNo: string;
   description: string;
   note: string;
@@ -69,19 +71,6 @@ function configurationModeLabel(mode: string, language: string): string {
     individual: { da: 'Individuelle valg', en: 'Individual choices', de: 'Individuelle Auswahl', it: 'Scelte individuali', hu: 'Egyedi választások', sv: 'Individuella val', fr: 'Choix individuels', pl: 'Wybory indywidualne', cs: 'Individuální volby' },
   };
   return labels[mode]?.[language] || labels[mode]?.[normalizeLang(language)] || mode;
-}
-
-function getSelectedAccessoryIds(state: ConfiguratorState, machineId: string): string[] {
-  const machine = state.machineConfigs.find((config) => config.id === machineId);
-  if (!machine) return [];
-  if (machine.configMode === 'shared') return machine.acc || [];
-
-  const ids = new Set<string>();
-  Object.entries(state.individualUnitConfigs || {}).forEach(([key, value]) => {
-    if (!key.startsWith(`${machineId}_`)) return;
-    (value?.acc || []).forEach((id) => ids.add(id));
-  });
-  return Array.from(ids);
 }
 
 function isAccountCaseSent(item: Pick<AccountCaseLike, 'case_status' | 'submitted_at' | 'order_sent_at'>): boolean {
@@ -155,56 +144,82 @@ export function buildAccountCaseLines(
   language: string,
   sourceLanguage: Language = state.language,
 ): AccountCaseLine[] {
+  if (hasFrozenConfiguratorPricing(state) && state.pricingSnapshot?.lines) {
+    return state.pricingSnapshot.lines.map(line => {
+      const reference = line.unitNumber ? machinePurchaseReference(state, line.unitNumber) : null;
+      return { ...line, purchaseReferences: reference ? [reference] : [] };
+    });
+  }
   const legacyLang = normalizeLang(language);
+  const frozen = hasFrozenConfiguratorPricing(state);
   const lines: AccountCaseLine[] = [];
   let machineUnitNumber = 0;
 
   state.machineConfigs.forEach((machine) => {
     const product = PRODUCTS[machine.type];
-    const quantity = Math.max(1, machine.qty || 1);
+    const quantity = Math.max(0, machine.qty || 0);
     const unitPrice = product
-      ? snapshotMachinePrice(state, machine.type, getPrice(product, sourceLanguage))
-      : 0;
-    const purchaseReferences = new Set<string>();
-    for (let unit = 0; unit < quantity; unit += 1) {
+      ? snapshotMachinePrice(state, machine.type, frozen ? Number.NaN : getPrice(product, sourceLanguage))
+      : Number.NaN;
+    for (let unit = 1; unit <= quantity; unit += 1) {
       machineUnitNumber += 1;
       const reference = machinePurchaseReference(state, machineUnitNumber);
-      if (reference) purchaseReferences.add(reference);
-    }
+      const purchaseReferences = reference ? [reference] : [];
+      const configKey = machine.configMode === 'shared' ? machine.id : `${machine.id}_${unit}`;
 
-    lines.push({
-      itemNo: product?.varenr || machine.type,
-      description: product ? getLocalizedName(product.name, legacyLang) : machine.type,
-      note: configurationModeLabel(machine.configMode, language),
-      purchaseReferences: Array.from(purchaseReferences),
-      unitPrice,
-      quantity,
-      total: unitPrice * quantity,
-    });
-
-    const selectedIds = getSelectedAccessoryIds(state, machine.id);
-    const accessories = getAccessoriesFlat(machine.type)
-      .filter((accessory) => selectedIds.includes(accessory.id) && !accessory.isHeader);
-
-    accessories.forEach((accessory) => {
-      const qtyKey = `${machine.id}_${accessory.id}`;
-      const qty = Math.max(1, state.accQty?.[qtyKey] || 1);
-      const accessoryPrice = snapshotAccessoryPrice(
-        state,
-        machine.type,
-        accessory,
-        getPrice(accessory, sourceLanguage),
-      );
       lines.push({
-        itemNo: String(accessory.varenr || accessory.id),
-        description: getLocalizedName(accessory.name, legacyLang),
-        note: machine.type,
-        unitPrice: accessoryPrice,
-        quantity: qty,
-        total: accessoryPrice * qty,
+        unitNumber: machineUnitNumber,
+        itemNo: product?.varenr || machine.type,
+        description: product ? getLocalizedName(product.name, legacyLang) : machine.type,
+        note: configurationModeLabel(machine.configMode, language),
+        purchaseReferences,
+        unitPrice,
+        quantity: 1,
+        total: unitPrice,
       });
-    });
+
+      // Ignore stale unit drafts beyond the saved machine quantity (e.g. m0_2).
+      const selectedIds = machine.configMode === 'shared'
+        ? machine.acc ?? []
+        : state.individualUnitConfigs?.[configKey]?.acc ?? [];
+      const accessories = getAccessoriesFlat(machine.type)
+        .filter((accessory) => !accessory.isHeader && (selectedIds.includes(accessory.id)
+          || shouldIncludeQuantityAccessory(machine.type, accessory, selectedIds, state.accQty?.[`${configKey}_${accessory.id}`] ?? 0)));
+
+      accessories.forEach((accessory) => {
+        const qtyKey = `${configKey}_${accessory.id}`;
+        const qty = Math.max(1, state.accQty?.[qtyKey] || 1);
+        const accessoryPrice = snapshotAccessoryPrice(
+          state,
+          machine.type,
+          accessory,
+          frozen ? Number.NaN : getPrice(accessory, sourceLanguage),
+        );
+        lines.push({
+          unitNumber: machineUnitNumber,
+          itemNo: String(accessory.varenr || accessory.id),
+          description: getLocalizedName(accessory.name, legacyLang),
+          note: machine.type,
+          purchaseReferences,
+          unitPrice: accessoryPrice,
+          quantity: qty,
+          total: accessoryPrice * qty,
+        });
+      });
+      if (state.demoMachines?.[`${product?.varenr}_${machineUnitNumber}`]) {
+        const fee = frozen ? state.pricingSnapshot?.prices[`demo:${sourceLanguage}`] ?? Number.NaN : snapshotDemoFee(state, sourceLanguage);
+        lines.push({ unitNumber: machineUnitNumber, itemNo: 'DEMO', description: 'Demo', note: machine.type, purchaseReferences, unitPrice: fee, quantity: 1, total: fee });
+      }
+    }
   });
+
+  if (state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
+    const option = state.deliveryDeliverStartup;
+    const fallback = option === 'no_bridge' ? (sourceLanguage === 'da' ? 1500 : 200)
+      : option === 'with_bridge' ? (sourceLanguage === 'da' ? 2500 : 335) : 0;
+    const price = snapshotStartupPrice(state, sourceLanguage, option, frozen ? Number.NaN : fallback);
+    lines.push({ itemNo: '795050', description: 'Levering / opstart', note: option, unitPrice: price, quantity: 1, total: price });
+  }
 
   return lines;
 }

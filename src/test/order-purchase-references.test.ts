@@ -8,6 +8,13 @@ import {
 } from '@/lib/orderPurchaseReferences';
 
 describe('submitted order requisition / PO presentation', () => {
+  it('does not show the PO of a removed unit while preserving it in history', () => {
+    const state = createEmptyConfiguratorState('da', 'order');
+    state.machineConfigs = [{ id: 'm0', type: 'Loader Line', qty: 1, configMode: 'individual', acc: [] }];
+    state.reqNumbers = { machine_1: 'PO-ONE', machine_2: 'PO-REMOVED' };
+    expect(orderPurchaseReferenceSummary(state).headerValue).toBe('PO-ONE');
+    expect(state.reqNumbers.machine_2).toBe('PO-REMOVED');
+  });
   it('keeps an order with no PO empty', () => {
     const state = createEmptyConfiguratorState('da', 'order');
 

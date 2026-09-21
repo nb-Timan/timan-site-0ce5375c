@@ -18,6 +18,7 @@ type BuildConfiguratorPdfInput = {
   quoteNumber?: string | null;
   orderNumber?: string | null;
   sourceQuoteNumber?: string | null;
+  revisionNumber?: number;
   showPrices: boolean;
   uiLanguage: Language;
   contentLanguage: Language;
@@ -392,7 +393,7 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
   const pdf = new input.jsPDF("p", "mm", "a4");
   const title = input.flowType === "quote" ? input.TC("quoteRequestTitle") : input.TC("orderRequestTitle");
   const ref = input.flowType === "order" ? input.orderNumber || "" : input.quoteNumber || "";
-  addHeader(pdf, title, ref);
+  addHeader(pdf, title, `${ref}${input.revisionNumber ? ` / Revision ${input.revisionNumber}` : ''}`);
 
   let y = 36;
   const deliveryMethodText = input.state.deliveryMethod ? input.TC(input.state.deliveryMethod) : "-";
@@ -455,11 +456,12 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
 export function buildConfiguratorPdfFilename(input: {
   flowType: ConfiguratorPdfFlowType;
   refNumber?: string | null;
+  revisionNumber?: number;
   date?: Date;
   T: (key: string) => string;
 }): string {
   const pdfTitle = input.flowType === "quote" ? input.T("quote") : input.T("order");
-  const refSuffix = input.refNumber ? `_${input.refNumber}` : "";
+  const refSuffix = (input.refNumber ? `_${input.refNumber}` : "") + (input.revisionNumber ? `_Revision_${input.revisionNumber}` : '');
   const date = (input.date ?? new Date()).toISOString().slice(0, 10);
   return `Timan_${pdfTitle}${refSuffix}_${date}.pdf`;
 }

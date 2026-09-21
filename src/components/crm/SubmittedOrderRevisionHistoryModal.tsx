@@ -7,6 +7,7 @@ import {
 import type { CrmConfigurationRow } from '@/lib/crmConfigurationsService';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
+import { buildSubmittedOrderDocument } from '@/lib/submittedOrderConfirmation';
 
 interface Props {
   row: CrmConfigurationRow;
@@ -44,6 +45,14 @@ function snapshotSummary(snapshot: Record<string, unknown> | null): OrderSnapsho
 
 function Snapshot({ label, snapshot }: { label: string; snapshot: Record<string, unknown> | null }) {
   const summary = snapshotSummary(snapshot);
+  let detail: ReturnType<typeof buildSubmittedOrderDocument> | null = null;
+  let warning = '';
+  if (snapshot) {
+    try {
+      const configuration = snapshot.configuration as Record<string, unknown>;
+      detail = buildSubmittedOrderDocument(normalizeConfiguratorState(configuration.state_json));
+    } catch (error) { warning = error instanceof Error ? error.message : 'Historiske linjer kunne ikke indlæses.'; }
+  }
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
@@ -54,6 +63,14 @@ function Snapshot({ label, snapshot }: { label: string; snapshot: Record<string,
         <div><dt className="text-slate-500">REK./PO</dt><dd className="font-medium">{summary.purchaseOrder}</dd></div>
         <div><dt className="text-slate-500">Linjer / total</dt><dd className="font-medium">{summary.itemCount} / {summary.totalPrice}</dd></div>
       </dl>
+      {snapshot && <details className="mt-3 text-xs">
+        <summary className="cursor-pointer font-medium">Vis historiske ordrelinjer</summary>
+        {warning && <p className="mt-2 text-amber-800">{warning}</p>}
+        {detail && <ul className="mt-2 space-y-2">{detail.lines.map((line, index) => <li key={index}>
+          <span className="font-mono">{line.itemNo}</span> · {line.description} · {line.quantity} × {line.unitPrice} = {line.total}
+          {line.purchaseReferences?.length ? ` · REK./PO: ${line.purchaseReferences.join(', ')}` : ''}
+        </li>)}</ul>}
+      </details>}
     </div>
   );
 }

@@ -30,7 +30,7 @@ describe('CRM submitted-order read-only confirmation', () => {
     const page = readFileSync('src/pages/crm/CrmQuotesOrdersPage.tsx', 'utf8');
 
     expect(page).toContain("const canOpenSubmittedOrder = mode === 'order' && (portalRole === 'timan_backend' || portalRole === 'timan_seller');");
-    expect(page.indexOf('fetchCrmConfigurationVisible(row.id, scope)')).toBeLessThan(page.indexOf('loadConfigurationByIdUnscoped(row.id, ownerEmail)'));
+    expect(page.indexOf('fetchCrmConfigurationVisible(row.id, scope)')).toBeLessThan(page.indexOf('loadSubmittedOrderConfirmation(row.id, ownerEmail, effectiveUser?.id)'));
     expect(page).toContain('ReadOnlyOrderConfirmationModal');
     expect(page).toContain("const canEditOrderContacts = portalRole === 'timan_backend' && mode === 'order';");
   });
@@ -38,8 +38,7 @@ describe('CRM submitted-order read-only confirmation', () => {
   it('renders the confirmation from the saved state and never exposes editable order fields', () => {
     const modal = readFileSync('src/components/crm/ReadOnlyOrderConfirmationModal.tsx', 'utf8');
 
-    expect(modal).toContain('calcConfigurationTotals(state)');
-    expect(modal).toContain("buildAccountCaseLines(state, 'da', state.language)");
+    expect(modal).toContain('buildSubmittedOrderDocument(state)');
     expect(modal).toContain('orderPurchaseReferenceSummary(state)');
     expect(modal).toContain('line.purchaseReferences');
     expect(modal).not.toMatch(/<input|<textarea|onChange=/);

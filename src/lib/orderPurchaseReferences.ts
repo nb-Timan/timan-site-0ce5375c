@@ -22,10 +22,14 @@ function machineNumber(key: string): number | null {
  * order-wide field remains a fallback for snapshots created before individual
  * machine references were available.
  */
-export function orderPurchaseReferences(state: Pick<ConfiguratorState, 'reqNumbers' | 'purchaseOrderNumber'>): string[] {
+type PurchaseReferenceState = Pick<ConfiguratorState, 'reqNumbers' | 'purchaseOrderNumber'> & Partial<Pick<ConfiguratorState, 'machineConfigs'>>;
+
+export function orderPurchaseReferences(state: PurchaseReferenceState): string[] {
+  const activeUnits = state.machineConfigs?.reduce((sum, machine) => sum + machine.qty, 0);
   const machineReferences = Object.entries(state.reqNumbers ?? {})
     .map(([key, value]) => ({ number: machineNumber(key), value: normalize(value) }))
     .filter((entry): entry is { number: number; value: string } => entry.number !== null && entry.value !== null)
+    .filter(entry => !activeUnits || entry.number <= activeUnits)
     .sort((a, b) => a.number - b.number)
     .map((entry) => entry.value);
 
@@ -37,7 +41,7 @@ export function orderPurchaseReferences(state: Pick<ConfiguratorState, 'reqNumbe
 }
 
 export function orderPurchaseReferenceSummary(
-  state: Pick<ConfiguratorState, 'reqNumbers' | 'purchaseOrderNumber'>,
+  state: PurchaseReferenceState,
 ): OrderPurchaseReferenceSummary {
   const values = orderPurchaseReferences(state);
   return {

@@ -22,10 +22,19 @@ describe('Backend submitted-order revision confirmations', () => {
     const confirmationOnly = source.slice(start, end);
 
     expect(source).toContain('pdf.save(pdfFilename);');
-    expect(confirmationOnly).toContain('completeSubmittedOrderCorrection(backendCorrectionSessionId)');
+    expect(source.indexOf('const completed = await loadSubmittedOrderConfirmation')).toBeLessThan(source.indexOf('const pdf = buildConfiguratorPdf'));
+    expect(confirmationOnly).toContain('if (!completedRevisionId)');
     expect(confirmationOnly).not.toContain('fetch(orderWebhookUrl');
     expect(confirmationOnly).not.toContain('logMailAuditEvent');
     expect(confirmationOnly).not.toContain('markAsOrderSubmitted');
+  });
+
+  it('claims a revision send before webhook and keeps original submission untouched', () => {
+    expect(source.indexOf("'begin_send', effectiveUser?.id")).toBeLessThan(source.indexOf('const webhookRes = await fetch(orderWebhookUrl'));
+    expect(source).toContain("recordOrderRevisionConfirmation(completedRevisionId, 'sent'");
+    expect(source).toContain('persistOnConfiguration: false');
+    expect(source).toContain('state: documentState');
+    expect(source).toContain('calcResult: documentCalc');
   });
 
   it('keeps the send action on the canonical n8n and mail-audit path', () => {

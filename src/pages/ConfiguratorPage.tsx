@@ -67,7 +67,9 @@ import { resolveConfiguratorContractTerms } from '@/lib/contractCommercialTerms'
 import { getLead } from '@/lib/crmLeadsService';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
 import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
-import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection } from '@/lib/submittedOrderCorrectionService';
+import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection, recordOrderRevisionConfirmation } from '@/lib/submittedOrderCorrectionService';
+import { loadSubmittedOrderConfirmation } from '@/lib/configurationsService';
+import { buildSubmittedOrderDocument, buildSubmittedOrderMailSummary } from '@/lib/submittedOrderConfirmation';
 import { ACADEMY_CASE_1, academySandbox } from '@/lib/academySandbox';
 import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
@@ -762,6 +764,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [oilError, setOilError] = useState(false);
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+  const submitInFlightRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [successModal, setSuccessModal] = useState<{ flowType: 'quote' | 'order'; orderNumber: string; quoteNumber: string; recipients: string[] } | null>(null);
   const [newConfigModalOpen, setNewConfigModalOpen] = useState(false);
@@ -1322,10 +1325,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           });
           return;
         }
-        const saved = await loadConfigurationByIdUnscoped(configId, appUser.email);
+        let saved = await loadConfigurationByIdUnscoped(configId, appUser.email);
         if (!saved) {
           toast.error(lang === 'da' ? 'Kunne ikke indlæse sagen' : 'Failed to load case');
           return;
+        }
+        if (isSavedConfigurationOrderLocked(saved)) {
+          saved = await loadSubmittedOrderConfirmation(configId, appUser.email, effectiveUser?.id);
         }
         paymentTermsExplicitRef.current = Boolean(saved.state_json.paymentTerms?.trim());
         paymentTermsDealerIdRef.current = row.dealer_account_id ?? null;
@@ -1380,7 +1386,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         setResumeBusy(false);
       }
     })();
-  }, [searchParams, appUser, lang, setState, setSearchParams, setFlowType, canCorrectSubmittedOrder]);
+  }, [searchParams, appUser, effectiveUser?.id, lang, setState, setSearchParams, setFlowType, canCorrectSubmittedOrder]);
 
   // CRM lead → configurator quote draft (?fromLeadQuote=<lead-id>).
   // This keeps the lead linked and preselects known machines/equipment, then
@@ -1954,11 +1960,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       toast.success('Academy-tilbud genereret lokalt');
       return true;
     }
-    if (submitting) return false;
+    if (submitting || submitInFlightRef.current) return false;
+    submitInFlightRef.current = true;
     setSubmitting(true);
     try {
       return await downloadPdfInner(flowOverride, options);
     } finally {
+      submitInFlightRef.current = false;
       setSubmitting(false);
     }
   };
@@ -1968,6 +1976,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     options?: { orderRevisionAction?: OrderRevisionAction },
   ): Promise<boolean> => {
     const effectiveFlowType = flowOverride ?? state.flowType;
+    let documentState = state;
+    let documentCalc = displayCalc!;
+    let completedRevisionId: string | null = null;
+    let confirmationRevisionNumber: number | undefined;
+    if (backendCorrectionSessionId && activePortalRole !== 'timan_backend') {
+      toast.error('Kun Backend kan afslutte en ordrerevision.');
+      return false;
+    }
     let el = confirmContentRef.current;
     if (!el) {
       el = document.createElement('div');
@@ -2085,6 +2101,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     }
 
     try {
+      if (effectiveFlowType === 'order' && backendCorrectionSessionId && activeCaseId) {
+        const completion = await completeSubmittedOrderCorrection(backendCorrectionSessionId);
+        if (completion.error) throw new Error(completion.error);
+        completedRevisionId = backendCorrectionSessionId;
+        setBackendCorrectionSessionId(null);
+        const completed = await loadSubmittedOrderConfirmation(activeCaseId, appUser?.email || '', effectiveUser?.id);
+        if (completed.confirmation_revision_id !== completedRevisionId) {
+          throw new Error('En anden revision er nu den aktuelle. Åbn ordren igen.');
+        }
+        documentState = completed.state_json;
+        documentCalc = buildSubmittedOrderDocument(documentState).calcResult;
+        confirmationRevisionNumber = completed.confirmation_revision_number;
+      }
       const jsPDFModule = await import('jspdf');
       const { jsPDF } = jsPDFModule;
       const selectedBulletsArr = salesArgsData
@@ -2095,8 +2124,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         : [];
       const pdf = buildConfiguratorPdf({
         jsPDF,
-        state,
-        calcResult: displayCalc!,
+        state: documentState,
+        calcResult: documentCalc,
+        revisionNumber: confirmationRevisionNumber,
         flowType: effectiveFlowType,
         quoteNumber: activeQuoteNumber,
         orderNumber: activeOrderNumber,
@@ -2122,6 +2152,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       const pdfFilename = buildConfiguratorPdfFilename({
         flowType: effectiveFlowType,
         refNumber: refNum,
+        revisionNumber: confirmationRevisionNumber,
         T,
       });
       pdf.save(pdfFilename);
@@ -2137,24 +2168,21 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         console.error('Failed to encode PDF as base64:', b64Err);
       }
 
-      // A Backend correction can create a revised confirmation without
-      // dispatching it. The saved state has already been written under the
-      // correction session, so this PDF is rendered from the revision's
-      // canonical AFTER snapshot. It deliberately never reaches n8n, mail
-      // audit or order_sent_at.
+      let revisionPdfPath: string | null = null;
+      if (completedRevisionId && activeCaseId) {
+        if (!pdfBlob || !pdfBase64) throw new Error('PDF kunne ikke genereres. Ingen mail er sendt.');
+        const upload = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename, { persistOnConfiguration: false });
+        if (upload.error) throw new Error(upload.error);
+        revisionPdfPath = upload.path;
+        await recordOrderRevisionConfirmation(completedRevisionId, 'generated', effectiveUser?.id ?? null, revisionPdfPath);
+      }
+
+      // Generate-only exits before webhook, mail audit and sent timestamps.
       if (effectiveFlowType === 'order' && options?.orderRevisionAction === 'confirmation') {
-        if (!backendCorrectionSessionId) {
+        if (!completedRevisionId) {
           toast.error('En Backend-rettelse skal være aktiv for at oprette en ny ordrebekræftelse.');
           return false;
         }
-        const completion = await completeSubmittedOrderCorrection(backendCorrectionSessionId);
-        if (completion.error) {
-          toast.error('Ordrebekræftelsen blev oprettet, men rettelsesvinduet kunne ikke afsluttes.', {
-            description: completion.error,
-          });
-          return false;
-        }
-        setBackendCorrectionSessionId(null);
         setConfirmModalOpen(false);
         toast.success('Ændringer gemt og ny ordrebekræftelse oprettet.', {
           description: activeOrderNumber || activeCaseId || undefined,
@@ -2172,8 +2200,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       if (effectiveFlowType === 'order') {
         // Upload sent PDF to storage BEFORE webhook so we can include the
         // stored path/filename in the email payload (single source of truth).
-        let orderSentPdfPath: string | null = null;
-        if (activeCaseId && pdfBlob) {
+        let orderSentPdfPath: string | null = revisionPdfPath;
+        if (activeCaseId && pdfBlob && !completedRevisionId) {
           try {
             const up = await uploadSentPdf(activeCaseId, pdfBlob, pdfFilename);
             if (up.error) console.error('[Order] sent PDF upload error:', up.error);
@@ -2186,7 +2214,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         try {
           // Build structured content summary so the email template can render
           // machine + accessory specifications even without parsing the PDF.
-          const contentSummary = buildQuoteContentSummary(state);
+          const contentSummary = completedRevisionId
+            ? buildSubmittedOrderMailSummary(documentState)
+            : buildQuoteContentSummary(documentState);
 
           // Order recipients:
           //  - Always include "E-mail på udfylder".
@@ -2194,8 +2224,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           //    addresses separated by , or ;).
           //  - Send Timan's internal copy as BCC.
           //  - Deduplicate if both fields contain the same address.
-          const emailUdfylder = (state.email || '').trim().toLowerCase();
-          const emailModtagerRaw = (state.emailRecipient || '').trim().toLowerCase();
+          const emailUdfylder = (documentState.email || '').trim().toLowerCase();
+          const emailModtagerRaw = (documentState.emailRecipient || '').trim().toLowerCase();
           const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           const splitAddrs = (s: string) => s.split(/[,;\s]+/).map(x => x.trim()).filter(Boolean);
           const modtagerList = splitAddrs(emailModtagerRaw);
@@ -2229,13 +2259,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             order_number: activeOrderNumber || '',
             quote_number: activeQuoteNumber || '',
             source_quote_number: activeSourceQuoteNumber || '',
-            firma: state.firmanavn,
-            kontaktperson: state.kontaktperson,
-            telefon: state.telefon,
+            revision_id: completedRevisionId,
+            confirmation_revision: confirmationRevisionNumber,
+            firma: documentState.firmanavn,
+            kontaktperson: documentState.kontaktperson,
+            telefon: documentState.telefon,
             email_udfylder: emailUdfylder,
             email_modtager: emailModtager,
             recipients,
-            kommentar: state.comment,
+            kommentar: documentState.comment,
             pdf_url: '',
             pdf_storage_path: orderSentPdfPath || '',
             pdf_filename: pdfFilename,
@@ -2244,15 +2276,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // Structured product/specification data — source of truth is the
             // saved configurator state. Used by n8n to render quote/order
             // emails with full machine + accessory details.
-            language: state.language,
+            language: documentState.language,
             currency: contentSummary.currency,
             payment_terms: contentSummary.payment_terms,
             purchase_order_number: contentSummary.purchase_order_number,
             delivery: contentSummary.delivery,
             machines: contentSummary.machines,
-            totals: contentSummary.totals,
-            state_summary: contentSummary,
-            main_categories: buildMainCategories(state),
+            totals: completedRevisionId ? { subtotal: documentCalc.subtotal, totalDiscount: documentCalc.totalDiscount, finalPrice: documentCalc.currentPrice } : contentSummary.totals,
+            confirmation_lines: completedRevisionId ? buildSubmittedOrderDocument(documentState).lines : undefined,
+            state_summary: completedRevisionId ? {
+              ...contentSummary,
+              totals: { subtotal: documentCalc.subtotal, totalDiscount: documentCalc.totalDiscount, finalPrice: documentCalc.currentPrice },
+            } : contentSummary,
+            main_categories: buildMainCategories(documentState),
           }, bccRecipients);
 
           const orderWebhookUrl = getOrderWebhookUrl();
@@ -2272,6 +2308,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           let failureReason = '';
           let webhookHttpStatus: number | null = null;
           let webhookRespText = '';
+          if (completedRevisionId) {
+            await recordOrderRevisionConfirmation(completedRevisionId, 'begin_send', effectiveUser?.id ?? null, orderSentPdfPath);
+          }
           try {
             const webhookRes = await fetch(orderWebhookUrl, {
               method: 'POST',
@@ -2303,7 +2342,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 category: 'order',
                 source_module: 'Configurator',
                 source_action: 'send_order',
-                subject: `Ordrebekræftelse ${activeOrderNumber || activeQuoteNumber || ''}`.trim(),
+                subject: `Ordrebekræftelse ${activeOrderNumber || activeQuoteNumber || ''}${confirmationRevisionNumber ? ` · Revision ${confirmationRevisionNumber}` : ''}`.trim(),
                 to_addresses: recipients,
                 cc_addresses: [],
                 bcc_addresses: bccRecipients,
@@ -2330,6 +2369,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // must NOT clear the quote sent date.
             if (activeCaseId) {
               try {
+                if (completedRevisionId) {
+                  await recordOrderRevisionConfirmation(completedRevisionId, 'sent', effectiveUser?.id ?? null);
+                } else {
                 const submittedOrderNumber = await markAsOrderSubmitted(activeCaseId, {
                   pricingMode: isExhibition ? 'messe' : undefined,
                   orderNumber: activeOrderNumber,
@@ -2340,13 +2382,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 }
                 activeOrderNumber = submittedOrderNumber;
                 setSavedOrderNumber(submittedOrderNumber);
-                if (backendCorrectionSessionId) {
-                  const completion = await completeSubmittedOrderCorrection(backendCorrectionSessionId);
-                  if (completion.error) throw new Error(completion.error);
-                  setBackendCorrectionSessionId(null);
                 }
               } catch (markErr) {
                 console.error('Failed to mark order as submitted:', markErr);
+                if (completedRevisionId) {
+                  setConfirmModalOpen(false);
+                  toast.warning('Mailen er afsendt, men revisionens afsendelsestid kunne ikke registreres. Send ikke igen.', {
+                    description: markErr instanceof Error ? markErr.message : String(markErr),
+                  });
+                  return false;
+                }
               }
             }
             toast.success(T('orderSentToTiman'));
@@ -2606,6 +2651,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       }
 
     } catch (e) {
+      if (backendCorrectionSessionId || completedRevisionId) {
+        toast.error(completedRevisionId ? 'Revisionen er gemt, men ordrebekræftelsen kunne ikke færdiggøres.' : 'Ordrebekræftelsen kunne ikke oprettes.', {
+          description: e instanceof Error ? e.message : String(e),
+        });
+        return false;
+      }
       // Fallback to browser print
       const printWin = window.open('', '_blank');
       if (!printWin) return false;
@@ -4163,7 +4214,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             </div>
 
             {!calcResult ? (
-              <p className="text-gray-400 italic text-center">{T('cartEmpty')}</p>
+              state.pricingSnapshot && state.machineConfigs.length > 0
+                ? <p role="alert" className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Ordrelinjer og historiske priser kunne ikke valideres. Ingen ny ordrebekræftelse kan oprettes.</p>
+                : <p className="text-gray-400 italic text-center">{T('cartEmpty')}</p>
             ) : (
               <>
                 <div className="space-y-1 text-sm mb-6 max-h-[60vh] overflow-y-auto">

@@ -6,7 +6,8 @@ import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, 
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import { shouldEnforceAccessoryParentDependency, shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { t } from '@/data/translations';
-import { snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice } from '@/lib/configuratorPricing';
+import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice } from '@/lib/configuratorPricing';
+import { buildSubmittedOrderDocument } from '@/lib/submittedOrderConfirmation';
 import { toast } from 'sonner';
 
 // Items capped at max 1 selection per varenr across the whole configuration
@@ -303,6 +304,10 @@ export function useConfigurator() {
 
   // Calculate prices
   const calcResult = useMemo((): CalcResult | null => {
+    if (hasFrozenConfiguratorPricing(state)) {
+      try { return buildSubmittedOrderDocument(state).calcResult; }
+      catch { return null; }
+    }
     const allUnits = getGlobalMachineUnits();
     if (allUnits.length === 0) return null;
     const lang = state.language;

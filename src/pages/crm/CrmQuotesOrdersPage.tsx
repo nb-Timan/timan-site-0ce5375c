@@ -26,6 +26,7 @@ import EditOrderContactModal from '@/components/crm/EditOrderContactModal';
 import EditOrderTimelineModal from '@/components/crm/EditOrderTimelineModal';
 import SubmittedOrderRevisionHistoryModal from '@/components/crm/SubmittedOrderRevisionHistoryModal';
 import ReadOnlyOrderConfirmationModal from '@/components/crm/ReadOnlyOrderConfirmationModal';
+import { loadSubmittedOrderConfirmation } from '@/lib/configurationsService';
 import { useAppUser, type SessionUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -246,16 +247,18 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
         toast.error('Kunne ikke identificere den aktuelle portalbruger.');
         return;
       }
-      const saved = await loadConfigurationByIdUnscoped(row.id, ownerEmail);
+      const saved = await loadSubmittedOrderConfirmation(row.id, ownerEmail, effectiveUser?.id);
       if (!saved || !isSavedConfigurationOrderLocked(saved)) {
         toast.error('Kunne ikke indlæse den afsendte ordre.');
         return;
       }
       setOpenedOrder(saved);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke indlæse ordrebekræftelsen.');
     } finally {
       setOpeningOrderId(null);
     }
-  }, [appUser?.email, buildCurrentCrmScope, effectiveUserEmail, openingOrderId]);
+  }, [appUser?.email, buildCurrentCrmScope, effectiveUserEmail, effectiveUser?.id, openingOrderId]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingRow) return;

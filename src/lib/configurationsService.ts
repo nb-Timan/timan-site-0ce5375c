@@ -227,6 +227,8 @@ export async function resolveHideScopeForCurrentUser(
 export type SavedStatus = 'aktiv' | 'pause' | 'ordre_afgivet' | 'deleted';
 
 export interface SavedConfiguration {
+  confirmation_revision_number?: number;
+  confirmation_revision_id?: string | null;
   id: string;
   created_by_user_id: string | null;
   created_by_email: string;
@@ -1395,6 +1397,26 @@ export interface OwnershipPatch {
   dealer_account_id: string | null;
 }
 
+export async function loadSubmittedOrderConfirmation(id: string, ownerEmail: string, effectiveUserId?: string | null): Promise<SavedConfiguration> {
+  const { data, error } = await supabase.rpc('read_submitted_order_confirmation', {
+    p_configuration_id: id,
+    p_effective_user_id: effectiveUserId ?? null,
+  });
+  if (error) throw new Error(error.message);
+  const snapshot = data?.snapshot;
+  if (!snapshot?.configuration?.state_json || snapshot.configuration.id !== id) {
+    throw new Error('Ordrebekræftelsens gemte snapshot mangler.');
+  }
+  const saved = mapConfigurationRowWithItems(snapshot.configuration, ownerEmail, snapshot.items ?? []);
+  return {
+    ...saved,
+    // Do not merge current row columns, items or catalogue choices into a revision.
+    state_json: normalizeConfiguratorState(snapshot.configuration.state_json),
+    confirmation_revision_number: data.revision_number,
+    confirmation_revision_id: data.revision_id,
+  };
+}
+
 async function finalizeConfiguratorPricingSnapshot(
   state: ConfiguratorState,
   pricingMode?: ConfigurationPricingMode,
@@ -1409,6 +1431,7 @@ async function finalizeConfiguratorPricingSnapshot(
     ...state.pricingSnapshot,
     prices: { ...currentSnapshot.prices, ...state.pricingSnapshot.prices },
     signature: configuratorPricingSignature(state),
+    lines: undefined,
   };
   const stateWithSnapshot = { ...state, pricingSnapshot: snapshot };
   const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
@@ -1416,7 +1439,9 @@ async function finalizeConfiguratorPricingSnapshot(
     { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals: undefined } },
     { grossManualDiscountOnly: pricingMode === 'messe' },
   );
-  return { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals } };
+  const { buildAccountCaseLines } = await import('@/lib/configuratorAccountSummaries');
+  const lines = buildAccountCaseLines(stateWithSnapshot, state.language);
+  return { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals, lines } };
 }
 
 export interface SubmittedOrderContactDetails {
@@ -1660,12 +1685,14 @@ export async function markAsOrderSubmitted(
         const snapshot = createConfiguratorPricingSnapshot(state);
         const draft = { ...state, pricingSnapshot: snapshot };
         const baseline = calcConfigurationTotals(draft, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+        const { buildAccountCaseLines } = await import('@/lib/configuratorAccountSummaries');
         persistedState = {
           ...draft,
           pricingSnapshot: {
             ...snapshot,
             signature: configuratorPricingSignature(state),
             totals: baseline,
+            lines: buildAccountCaseLines(draft, state.language),
           },
         };
       }
@@ -1885,6 +1912,7 @@ export async function uploadSentPdf(
   configurationId: string,
   pdfBlob: Blob,
   filename: string,
+  options?: { persistOnConfiguration?: boolean },
 ): Promise<{ path: string | null; error: string | null }> {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
@@ -1908,6 +1936,8 @@ export async function uploadSentPdf(
     console.error('[uploadSentPdf] upload failed:', uploadError);
     return { path: null, error: uploadError.message };
   }
+
+  if (options?.persistOnConfiguration === false) return { path, error: null };
 
   const { error: updateError } = await updateConfigurationRow(configurationId, {
     sent_pdf_path: path,

@@ -42,6 +42,19 @@ export async function completeSubmittedOrderCorrection(
   return { error: error?.message ?? null };
 }
 
+export async function recordOrderRevisionConfirmation(
+  revisionId: string,
+  action: 'generated' | 'begin_send' | 'sent',
+  effectiveUserId: string | null,
+  pdfPath?: string | null,
+): Promise<void> {
+  const { error } = await supabase.rpc('record_order_revision_confirmation', {
+    p_revision_id: revisionId, p_action: action,
+    p_effective_user_id: effectiveUserId, p_pdf_path: pdfPath ?? null,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function listSubmittedOrderRevisions(
   configurationId: string,
 ): Promise<{ revisions: SubmittedOrderRevision[]; error: string | null }> {

@@ -4,8 +4,7 @@
  */
 import { FileText, X } from 'lucide-react';
 import { formatMoney } from '@/data/machines';
-import { calcConfigurationTotals } from '@/lib/calcConfiguration';
-import { buildAccountCaseLines } from '@/lib/configuratorAccountSummaries';
+import { buildSubmittedOrderDocument } from '@/lib/submittedOrderConfirmation';
 import { resolvePaymentTerms } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import type { SavedConfiguration } from '@/lib/configurationsService';
@@ -35,8 +34,12 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
 
 export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props) {
   const state = order.state_json;
-  const totals = calcConfigurationTotals(state);
-  const lines = buildAccountCaseLines(state, 'da', state.language);
+  let document: ReturnType<typeof buildSubmittedOrderDocument> | null = null;
+  let documentError = '';
+  try { document = buildSubmittedOrderDocument(state); }
+  catch (error) { documentError = error instanceof Error ? error.message : 'Ordrebekræftelsen kunne ikke indlæses.'; }
+  const lines = document?.lines ?? [];
+  const totals = document?.totals;
   const reference = order.order_number || order.quote_number || order.id.slice(0, 8);
   const sentAt = order.order_sent_at || order.submitted_at || order.created_at;
   const money = (value: number) => formatMoney(value, state.language);
@@ -51,8 +54,8 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
               <FileText className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-base font-semibold text-slate-900">Ordrebekræftelse</h3>
-              <p className="mt-0.5 text-xs text-slate-500">Read-only kopi af den gemte ordre på afsendelsestidspunktet.</p>
+              <h3 className="text-base font-semibold text-slate-900">Ordrebekræftelse{order.confirmation_revision_number ? ` · Revision ${order.confirmation_revision_number}` : ''}</h3>
+              <p className="mt-0.5 text-xs text-slate-500">{order.confirmation_revision_number ? 'Seneste afsluttede revision.' : 'Oprindelig afsendt ordre.'}</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Luk ordrebekræftelse">
@@ -61,6 +64,7 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
         </header>
 
         <div className="min-h-0 space-y-5 overflow-y-auto p-5 sm:p-6">
+          {documentError && <p role="alert" className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{documentError}</p>}
           <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-5">
             <Detail label="Ordrenr." value={reference} />
             <Detail label="Dato" value={formatDate(sentAt)} />
@@ -115,11 +119,11 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
                 </div>
               ))}
             </div>
-            <div className="space-y-1 border-t border-slate-200 bg-white px-4 py-3 text-sm">
+            {totals && <div className="space-y-1 border-t border-slate-200 bg-white px-4 py-3 text-sm">
               <div className="flex justify-end gap-6"><span className="text-slate-500">Subtotal</span><span className="w-32 text-right font-semibold tabular-nums">{money(totals.subtotal)}</span></div>
               <div className="flex justify-end gap-6"><span className="text-slate-500">Rabat</span><span className="w-32 text-right font-semibold tabular-nums">{money(totals.totalDiscount)}</span></div>
               <div className="flex justify-end gap-6 text-base"><span className="font-bold text-slate-900">Total ekskl. moms</span><span className="w-32 text-right font-bold tabular-nums text-slate-900">{money(totals.finalPrice)}</span></div>
-            </div>
+            </div>}
           </section>
         </div>
 
