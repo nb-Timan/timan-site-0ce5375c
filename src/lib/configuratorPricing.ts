@@ -65,6 +65,20 @@ export function hasFrozenConfiguratorPricing(state: ConfiguratorState): boolean 
   );
 }
 
+/** Protect old sent documents without inventing historical catalogue prices. */
+export function protectLegacySentPricing(state: ConfiguratorState, row: { quote_sent_at?: unknown; order_sent_at?: unknown; submitted_at?: unknown; subtotal?: unknown; total_price?: unknown }): ConfiguratorState {
+  const sentAt = row.order_sent_at || row.submitted_at || row.quote_sent_at;
+  if (state.pricingSnapshot || !sentAt) return state;
+  const subtotal = Number(row.subtotal);
+  const finalPrice = Number(row.total_price);
+  const valid = row.subtotal != null && row.total_price != null && Number.isFinite(subtotal) && Number.isFinite(finalPrice) && subtotal >= finalPrice && finalPrice >= 0;
+  return { ...state, pricingSnapshot: {
+    version: 1, totalsOnly: true, capturedAt: String(sentAt), prices: {},
+    signature: configuratorPricingSignature(state),
+    ...(valid ? { totals: { subtotal, totalDiscount: subtotal - finalPrice, finalPrice } } : {}),
+  } };
+}
+
 /** Capture every selected product's unit price at the explicit commercial boundary. */
 export function createConfiguratorPricingSnapshot(state: ConfiguratorState): ConfiguratorPricingSnapshot {
   const prices: Record<string, number> = {};
@@ -93,5 +107,5 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
     prices[startupKey(language, state.deliveryDeliverStartup)] = currentPrice;
   }
 
-  return { version: 1, capturedAt: new Date().toISOString(), prices };
+  return { version: 1, discountEngineVersion: 2, capturedAt: new Date().toISOString(), prices };
 }

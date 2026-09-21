@@ -1,12 +1,14 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { academySandbox } from '@/lib/academySandbox';
 import { academyScopedStorageKey } from '@/lib/academyCycleStorage';
-import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult, LineItem, DiscountDetail } from '@/types/configurator';
+import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult } from '@/types/configurator';
 import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, getLooseToolAccessories } from '@/data/machines';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
-import { shouldEnforceAccessoryParentDependency, shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
-import { t } from '@/data/translations';
-import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice } from '@/lib/configuratorPricing';
+import { shouldEnforceAccessoryParentDependency } from '@/lib/looseToolDependencies';
+import { hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
+import { calculateConfiguration } from '@/lib/calcConfiguration';
+import { useCampaignRevision } from '@/lib/configuratorCampaigns';
+import { useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
 import { buildSubmittedOrderDocument } from '@/lib/submittedOrderConfirmation';
 import { toast } from 'sonner';
 
@@ -303,177 +305,18 @@ export function useConfigurator() {
   }, []);
 
   // Calculate prices
+  const campaignRevision = useCampaignRevision();
+  const campaignClock = useMarketingBadgeClock();
   const calcResult = useMemo((): CalcResult | null => {
+    void campaignRevision;
+    if (state.pricingSnapshot?.totalsOnly) return null;
     if (hasFrozenConfiguratorPricing(state)) {
       try { return buildSubmittedOrderDocument(state).calcResult; }
       catch { return null; }
     }
-    const allUnits = getGlobalMachineUnits();
-    if (allUnits.length === 0) return null;
-    const lang = state.language;
-    const T = (key: string) => t(key, lang);
-
-    let subtotal = 0;
-    const lineItems: LineItem[] = [];
-
-    // Track per-unit subtotals and demo status
-    const unitSubtotals: { unitNumber: number; total: number; isDemo: boolean; modelType: string; isDiscountEligible: boolean }[] = [];
-
-    allUnits.forEach(unit => {
-      const mach = PRODUCTS[unit.modelType];
-      if (!mach) return;
-      const machPrice = snapshotMachinePrice(state, unit.modelType, getPrice(mach, state.language));
-      lineItems.push({ txt: `${T('machineLabel')} ${unit.unitNumber} (${getLocalizedName(mach.name, state.language)})`, price: machPrice, varenr: mach.varenr, bold: true, isMachine: true, index: unit.unitNumber });
-      let unitTotal = machPrice;
-
-      // Get selected accessories
-      let accIds: string[] = [];
-      if (unit.isSharedUnit) {
-        const mc = state.machineConfigs.find(c => c.id === unit.modelId);
-        accIds = mc?.acc || [];
-      } else {
-        accIds = state.individualUnitConfigs[unit.configKey]?.acc || [];
-      }
-
-      const flatAccs = getAccessoriesFlat(unit.modelType);
-      const selectedAccs = flatAccs.filter(a => accIds.includes(a.id) && !a.isHeader);
-
-      // Loose tools may include quantity children without their parent. Normal machine
-      // configurations retain the existing parent dependency requirement.
-      const qtyOnlyAccs = flatAccs.filter(a => {
-        const q = state.accQty[`${unit.configKey}_${a.id}`] || 0;
-        return shouldIncludeQuantityAccessory(unit.modelType, a, accIds, q);
-      });
-
-      [...selectedAccs, ...qtyOnlyAccs].forEach(a => {
-        const qty = state.accQty[`${unit.configKey}_${a.id}`] || 1;
-        const accPrice = snapshotAccessoryPrice(state, unit.modelType, a, getPrice(a, state.language)) * qty;
-        unitTotal += accPrice;
-        const label = getLocalizedName(a.name, state.language);
-        lineItems.push({
-          txt: `- ${label}${qty > 1 ? ` x${qty}` : ''}`,
-          price: accPrice,
-          varenr: a.varenr,
-          sub: true,
-          isAutoAdded: !!a.hidden,
-        });
-      });
-
-      // Check if this unit is marked as demo and add demo fee to its subtotal
-      const demoKey = `${mach.varenr}_${unit.unitNumber}`;
-      const isDemo = !!state.demoMachines[demoKey];
-      if (isDemo) {
-        const demoFee = snapshotDemoFee(state, lang);
-        unitTotal += demoFee;
-        lineItems.push({
-          txt: `- ${T('demoMachineLabel')}`,
-          price: demoFee,
-          varenr: 'DEMO',
-          sub: true,
-        });
-      }
-
-      subtotal += unitTotal;
-      lineItems.push({ txt: `${T('subtotalMachine')} ${unit.unitNumber}:`, price: unitTotal, varenr: 'SUBTOTAL', subtotal: true, index: unit.unitNumber });
-
-      unitSubtotals.push({ unitNumber: unit.unitNumber, total: unitTotal, isDemo, modelType: unit.modelType, isDiscountEligible: mach.isDiscountEligible === true });
-    });
-
-    // Startup pricing for "Timan leverer"
-    if (state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
-      let startupPrice = 0;
-      let startupTxt = '';
-      if (state.deliveryDeliverStartup === 'no_bridge') {
-        startupPrice = snapshotStartupPrice(state, lang, 'no_bridge', lang === 'da' ? 1500 : 200);
-        startupTxt = T('startupNoBridgeCalc');
-      } else if (state.deliveryDeliverStartup === 'with_bridge') {
-        startupPrice = snapshotStartupPrice(state, lang, 'with_bridge', lang === 'da' ? 2500 : 335);
-        startupTxt = T('startupWithBridgeCalc');
-      } else {
-        startupPrice = 0;
-        startupTxt = T('startupOtherCalc');
-      }
-      lineItems.push({ txt: `- ${startupTxt}`, price: startupPrice, varenr: '795050', sub: true });
-      subtotal += startupPrice;
-    }
-
-    // Split into demo vs non-demo subtotals
-    const demoSubtotal = unitSubtotals.filter(u => u.isDemo).reduce((sum, u) => sum + u.total, 0);
-    const nonDemoSubtotal = subtotal - demoSubtotal; // includes startup costs with non-demo
-    const discountEligibleQty = unitSubtotals.filter(u => !u.isDemo && u.isDiscountEligible).length;
-    const discountEligibleSubtotal = unitSubtotals
-      .filter(u => !u.isDemo && u.isDiscountEligible)
-      .reduce((sum, u) => sum + u.total, 0);
-
-    // Discount chain
-    let disc = 0;
-    const details: DiscountDetail[] = [];
-    let price = subtotal;
-
-    // --- Demo machines: fixed 32.5% total discount ---
-    if (demoSubtotal > 0) {
-      const demoDisc = demoSubtotal * 0.325;
-      price -= demoDisc;
-      disc += demoDisc;
-      details.push({ txt: T('demoDiscount'), amount: demoDisc });
-    }
-
-    // --- Non-demo machines: normal discount chain ---
-    if (nonDemoSubtotal > 0) {
-      // 1. Base discount (25% default, 30% for importør — Phase 63).
-      const baseDiscountPct = typeof state.baseDiscountPct === 'number' ? state.baseDiscountPct : 0.25;
-      const basePctLabel = Math.round(baseDiscountPct * 1000) / 10; // 25, 30, 27.5 ...
-      const d1 = nonDemoSubtotal * baseDiscountPct;
-      price -= d1;
-      disc += d1;
-      const baseLabelRaw = T('baseDiscountLabel');
-      const baseLabel = /\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/.test(baseLabelRaw)
-        ? baseLabelRaw.replace(/\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/, `(${basePctLabel}%)`)
-        : `${baseLabelRaw} (${basePctLabel}%)`;
-      details.push({ txt: baseLabel, amount: d1 });
-
-      // 2. Qty discount (based only on non-demo discount-eligible real machines)
-      let qtyPct = discountEligibleQty >= 4 ? 0.04 : (discountEligibleQty >= 2 ? 0.02 : 0);
-      let qtyDiscountAmount = 0;
-      if (qtyPct > 0) {
-        const eligibleBaseDiscount = discountEligibleSubtotal * baseDiscountPct;
-        const d2 = (discountEligibleSubtotal - eligibleBaseDiscount) * qtyPct;
-        qtyDiscountAmount = d2;
-        price -= d2;
-        disc += d2;
-        details.push({ txt: `${T('qtyDiscountLabel')} (${qtyPct * 100}%)`, amount: d2, varenr: '795043' });
-      }
-
-      // 3. Delivery discount
-      let delActive = false;
-      if (state.date) {
-        const threeMonths = new Date();
-        threeMonths.setMonth(threeMonths.getMonth() + 3);
-        const deliveryDate = new Date(state.date);
-        if (deliveryDate > threeMonths) delActive = true;
-      }
-      if (delActive) {
-        const nonDemoDiscSoFar = d1 + qtyDiscountAmount;
-        const d3 = (nonDemoSubtotal - nonDemoDiscSoFar) * 0.02;
-        price -= d3;
-        disc += d3;
-        details.push({ txt: `${T('deliveryDiscountLabel')} (2%)`, amount: d3, varenr: '795045' });
-      }
-    }
-
-    // 4. Manual dealer discount (on remaining price)
-    if (state.step === 4 && state.manualDealerDiscountPct > 0) {
-      const d4 = (subtotal - disc) * (state.manualDealerDiscountPct / 100);
-      price -= d4;
-      disc += d4;
-      details.push({ txt: `${T('extraDealerDiscountLabel')} (${state.manualDealerDiscountPct}%)`, amount: d4, varenr: '795042' });
-    }
-
-    const totalPct = subtotal > 0 ? (disc / subtotal) * 100 : 0;
-    const qtyPct = discountEligibleQty >= 4 ? 0.04 : (discountEligibleQty >= 2 ? 0.02 : 0);
-
-    return { lineItems, subtotal, discountDetails: details, totalDiscount: disc, currentPrice: price, totalPct, qtyPct };
-  }, [state, getGlobalMachineUnits]);
+    if (!state.machineConfigs.length) return null;
+    return calculateConfiguration(state, { now: campaignClock });
+  }, [state, campaignRevision, campaignClock]);
 
   const resetState = useCallback(() => {
     setState(prev => createEmptyConfiguratorState(prev.language));

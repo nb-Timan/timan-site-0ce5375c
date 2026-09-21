@@ -1,181 +1,154 @@
-import { ConfiguratorState } from '@/types/configurator';
-import { PRODUCTS, getAccessoriesFlat, getPrice } from '@/data/machines';
+import type { CalcResult, ConfiguratorState, DiscountDetail, LineItem } from '@/types/configurator';
+import { PRODUCTS, getAccessoriesFlat, getLocalizedName, getPrice } from '@/data/machines';
+import { t } from '@/data/translations';
 import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice } from '@/lib/configuratorPricing';
+import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
+import { isCampaignActive, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
 
-/**
- * Pure calculation of subtotal, total discount and final price for a saved configuration.
- * Mirrors the logic in useConfigurator.calcResult but works on any ConfiguratorState
- * snapshot (used by AccountPanel statistics).
- */
-export function calcConfigurationTotals(state: ConfiguratorState, options?: { grossManualDiscountOnly?: boolean }): {
-  subtotal: number;
-  totalDiscount: number;
-  finalPrice: number;
-} {
-  if (!options?.grossManualDiscountOnly && hasFrozenConfiguratorPricing(state) && state.pricingSnapshot?.totals) {
-    return state.pricingSnapshot.totals;
-  }
-  if (!state || !Array.isArray(state.machineConfigs) || state.machineConfigs.length === 0) {
-    return { subtotal: 0, totalDiscount: 0, finalPrice: 0 };
-  }
+export const roundPricingMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
+type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean };
 
-  // Build units
-  type Unit = { modelId: string; modelType: string; configKey: string; isSharedUnit: boolean; unitNumber: number };
-  const units: Unit[] = [];
-  let gi = 0;
-  state.machineConfigs.forEach(mc => {
-    const isShared = mc.configMode === 'shared';
-    for (let i = 1; i <= mc.qty; i++) {
-      units.push({
-        modelId: mc.id,
-        modelType: mc.type,
-        configKey: isShared ? mc.id : `${mc.id}_${i}`,
-        isSharedUnit: isShared,
-        unitNumber: gi + 1,
-      });
-      gi++;
-    }
-  });
+/** One commercial calculation for the live cart, persistence and document totals. */
+export function calculateConfiguration(state: ConfiguratorState, options: PricingOptions = {}): CalcResult {
+  if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler. Brug det afsendte dokument; priser genberegnes ikke automatisk.');
+  const now = options.now ?? Date.now();
+  const T = (key: string) => t(key, state.language);
+  const lineItems: LineItem[] = [];
+  const lines: EconomicLine[] = [];
+  const details: DiscountDetail[] = [];
+  let eligibleUnits = 0;
+  let unit = 0;
+  const add = (item: LineItem, quantity: number, demo: boolean, quantityEligible: boolean, productKey = '') => {
+    item.price = roundPricingMoney(item.price);
+    lineItems.push(item);
+    lines.push({ gross: item.price, net: item.price, quantity, unit, demo, quantityEligible, productKey, item, campaignApplied: false });
+  };
 
-  if (units.length === 0) return { subtotal: 0, totalDiscount: 0, finalPrice: 0 };
-
-  let subtotal = 0;
-  const unitSubtotals: { unitNumber: number; total: number; isDemo: boolean; modelType: string; isDiscountEligible: boolean }[] = [];
-
-  units.forEach(unit => {
-    const mach = PRODUCTS[unit.modelType];
-    if (!mach) return;
-    const machPrice = snapshotMachinePrice(state, unit.modelType, getPrice(mach, state.language));
-    let unitTotal = machPrice;
-
-    let accIds: string[] = [];
-    if (unit.isSharedUnit) {
-      const mc = state.machineConfigs.find(c => c.id === unit.modelId);
-      accIds = mc?.acc || [];
-    } else {
-      accIds = state.individualUnitConfigs?.[unit.configKey]?.acc || [];
-    }
-
-    const flatAccs = getAccessoriesFlat(unit.modelType);
-    const selectedAccs = flatAccs.filter(a => accIds.includes(a.id) && !a.isHeader);
-
-    // Also include qty-input items with qty > 0 whose parent (requires) is selected
-    const qtyOnlyAccs = flatAccs.filter(a => {
-      if (!a.isQtyInput || a.isHeader) return false;
-      if (accIds.includes(a.id)) return false;
-      if (a.requires && !accIds.includes(a.requires)) return false;
-      const q = state.accQty?.[`${unit.configKey}_${a.id}`] || 0;
-      return q > 0;
-    });
-
-    [...selectedAccs, ...qtyOnlyAccs].forEach(a => {
-      const qty = state.accQty?.[`${unit.configKey}_${a.id}`] || 1;
-      unitTotal += snapshotAccessoryPrice(state, unit.modelType, a, getPrice(a, state.language)) * qty;
-    });
-
-    const demoKey = `${mach.varenr}_${unit.unitNumber}`;
-    const isDemo = !!state.demoMachines?.[demoKey];
-    if (isDemo) {
-      const demoFee = snapshotDemoFee(state, state.language);
-      unitTotal += demoFee;
-    }
-
-    subtotal += unitTotal;
-    unitSubtotals.push({ unitNumber: unit.unitNumber, total: unitTotal, isDemo, modelType: unit.modelType, isDiscountEligible: mach.isDiscountEligible === true });
-  });
-
-  // Startup pricing for "Timan leverer"
-  if (state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
-    let startupPrice = 0;
-    if (state.deliveryDeliverStartup === 'no_bridge') {
-      startupPrice = snapshotStartupPrice(state, state.language, 'no_bridge', state.language === 'da' ? 1500 : 200);
-    } else if (state.deliveryDeliverStartup === 'with_bridge') {
-      startupPrice = snapshotStartupPrice(state, state.language, 'with_bridge', state.language === 'da' ? 2500 : 335);
-    }
-    subtotal += startupPrice;
-  }
-
-  if (options?.grossManualDiscountOnly) {
-    const manualPct = Math.max(0, Math.min(100, state.manualDealerDiscountPct || 0));
-    const manualDiscount = subtotal * (manualPct / 100);
-    return {
-      subtotal,
-      totalDiscount: manualDiscount,
-      finalPrice: Math.max(0, subtotal - manualDiscount),
-    };
-  }
-
-  const demoSubtotal = unitSubtotals.filter(u => u.isDemo).reduce((s, u) => s + u.total, 0);
-  const nonDemoSubtotal = subtotal - demoSubtotal;
-  const discountEligibleQty = unitSubtotals.filter(u => !u.isDemo && u.isDiscountEligible).length;
-  const discountEligibleSubtotal = unitSubtotals
-    .filter(u => !u.isDemo && u.isDiscountEligible)
-    .reduce((sum, u) => sum + u.total, 0);
-
-  let disc = 0;
-  let price = subtotal;
-
-  if (demoSubtotal > 0) {
-    const demoDisc = demoSubtotal * 0.325;
-    price -= demoDisc;
-    disc += demoDisc;
-  }
-
-  if (nonDemoSubtotal > 0) {
-    // Phase 63 — base/standard discount: 25% default, 30% for importør.
-    const baseDiscountPct = typeof state.baseDiscountPct === 'number' ? state.baseDiscountPct : 0.25;
-    const d1 = nonDemoSubtotal * baseDiscountPct;
-    price -= d1;
-    disc += d1;
-
-    const qtyPct = discountEligibleQty >= 4 ? 0.04 : (discountEligibleQty >= 2 ? 0.02 : 0);
-    let qtyDiscountAmount = 0;
-    if (qtyPct > 0) {
-      const eligibleBaseDiscount = discountEligibleSubtotal * baseDiscountPct;
-      const d2 = (discountEligibleSubtotal - eligibleBaseDiscount) * qtyPct;
-      qtyDiscountAmount = d2;
-      price -= d2;
-      disc += d2;
-    }
-
-    let delActive = false;
-    if (state.date) {
-      const threeMonths = new Date();
-      threeMonths.setMonth(threeMonths.getMonth() + 3);
-      const deliveryDate = new Date(state.date);
-      if (deliveryDate > threeMonths) delActive = true;
-    }
-    if (delActive) {
-      const nonDemoDiscSoFar = d1 + qtyDiscountAmount;
-      const d3 = (nonDemoSubtotal - nonDemoDiscSoFar) * 0.02;
-      price -= d3;
-      disc += d3;
+  for (const machine of state.machineConfigs ?? []) {
+    const product = PRODUCTS[machine.type];
+    if (!product) continue;
+    for (let index = 1; index <= machine.qty; index++) {
+      unit++;
+      const key = machine.configMode === 'shared' ? machine.id : `${machine.id}_${index}`;
+      const selected = machine.configMode === 'shared' ? machine.acc ?? [] : state.individualUnitConfigs?.[key]?.acc ?? [];
+      const demo = Boolean(state.demoMachines?.[`${product.varenr}_${unit}`]);
+      const eligible = !demo && product.isDiscountEligible === true;
+      if (eligible) eligibleUnits++;
+      add({ txt: `${T('machineLabel')} ${unit} (${getLocalizedName(product.name, state.language)})`, price: snapshotMachinePrice(state, machine.type, getPrice(product, state.language)), varenr: product.varenr, bold: true, isMachine: true, index: unit }, 1, demo, eligible, `${machine.type}::${product.id}`);
+      for (const accessory of getAccessoriesFlat(machine.type)) {
+        if (accessory.isHeader) continue;
+        const quantity = state.accQty?.[`${key}_${accessory.id}`] || 1;
+        if (!selected.includes(accessory.id) && !shouldIncludeQuantityAccessory(machine.type, accessory, selected, state.accQty?.[`${key}_${accessory.id}`] || 0)) continue;
+        add({ txt: `- ${getLocalizedName(accessory.name, state.language)}${quantity > 1 ? ` x${quantity}` : ''}`, price: snapshotAccessoryPrice(state, machine.type, accessory, getPrice(accessory, state.language)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`);
+      }
+      if (demo) add({ txt: `- ${T('demoMachineLabel')}`, price: snapshotDemoFee(state, state.language), varenr: 'DEMO', sub: true }, 1, true, false);
+      lineItems.push({ txt: `${T('subtotalMachine')} ${unit}:`, price: roundPricingMoney(lines.filter(line => line.unit === unit).reduce((sum, line) => sum + line.gross, 0)), varenr: 'SUBTOTAL', subtotal: true, index: unit });
     }
   }
-
-  if ((state.manualDealerDiscountPct || 0) > 0) {
-    const d4 = (subtotal - disc) * ((state.manualDealerDiscountPct || 0) / 100);
-    price -= d4;
-    disc += d4;
+  if (unit && state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
+    const option = state.deliveryDeliverStartup;
+    const fallback = option === 'no_bridge' ? (state.language === 'da' ? 1500 : 200) : option === 'with_bridge' ? (state.language === 'da' ? 2500 : 335) : 0;
+    add({ txt: `- ${T(option === 'no_bridge' ? 'startupNoBridgeCalc' : option === 'with_bridge' ? 'startupWithBridgeCalc' : 'startupOtherCalc')}`, price: snapshotStartupPrice(state, state.language, option, fallback), varenr: '795050', sub: true }, 1, false, false);
   }
+  const subtotal = roundPricingMoney(lines.reduce((sum, line) => sum + line.gross, 0));
+  const apply = (kind: DiscountDetail['kind'], percent: number, eligible: (line: EconomicLine) => boolean, label: string, varenr?: string) => {
+    if (!(percent > 0)) return;
+    const affected = lines.filter(eligible);
+    const basis = roundPricingMoney(affected.reduce((sum, line) => sum + line.net, 0));
+    // Allocate rounded aggregate discount deterministically, conserving every cent.
+    const amount = roundPricingMoney(basis * Math.min(100, percent) / 100);
+    let allocated = 0;
+    let cumulative = 0;
+    for (const line of affected) {
+      cumulative += line.net;
+      const next = basis ? roundPricingMoney(amount * cumulative / basis) : 0;
+      line.net = roundPricingMoney(line.net - (next - allocated));
+      allocated = next;
+    }
+    if (amount > 0) details.push({ kind, percent, basis, txt: `${label.replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/, '')} (${percent.toLocaleString(state.language, { maximumFractionDigits: 2 })}%)`, amount, varenr });
+  };
+  const quantityPct = eligibleUnits >= 4 ? 4 : eligibleUnits >= 2 ? 2 : 0;
+  if (!options.grossManualDiscountOnly) {
+    apply('demo', 32.5, line => line.demo, T('demoDiscount'));
+    apply('base', (state.baseDiscountPct ?? 0.25) * 100, line => !line.demo, T('baseDiscountLabel'));
+    const threshold = new Date(now);
+    threshold.setMonth(threshold.getMonth() + 3);
+    if (state.date && new Date(state.date) > threshold) apply('delivery', 2, line => !line.demo, T('deliveryDiscountLabel'), '795045');
+    apply('quantity', quantityPct, line => line.quantityEligible, T('qtyDiscountLabel'), '795043');
+  }
+  apply('dealer', Math.min(100, Math.max(0, state.manualDealerDiscountPct || 0)), () => true, T('extraDealerDiscountLabel'), '795042');
 
-  return { subtotal, totalDiscount: disc, finalPrice: Math.max(0, price) };
+  const campaignLines: CampaignLineSnapshot[] = [];
+  // Old snapshots contain no economic campaign baseline: never retrofit one.
+  if (!options.grossManualDiscountOnly && (!state.pricingSnapshot || state.pricingSnapshot.discountEngineVersion === 2)) {
+    for (const campaign of publishedCampaignDefinitions()) {
+      if (!isCampaignActive(campaign, now) || campaign.type === 'badge') continue;
+      const triggerLinks = campaign.products.filter(product => product.role === 'trigger');
+      const benefitLinks = campaign.products.filter(product => product.role === 'benefit' || (campaign.type !== 'conditional' && product.role === 'linked'));
+      const triggerQuantity = triggerLinks.reduce((sum, product) => sum + lines.filter(line => line.productKey === product.productKey).reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
+      if (campaign.type === 'conditional' && triggerQuantity < campaign.triggerMinQuantity) continue;
+      const scale = campaign.type === 'conditional' && campaign.scaleBenefitWithTrigger
+        ? Math.floor(triggerQuantity / campaign.triggerMinQuantity) : 1;
+      const remainingBenefitQuantity = new Map(benefitLinks.map(product => [
+        product.productKey,
+        campaign.type === 'conditional' ? campaign.benefitQuantity * scale : Number.POSITIVE_INFINITY,
+      ]));
+      for (const line of lines) {
+        if (line.campaignApplied) continue;
+        const benefit = benefitLinks.find(product => product.productKey === line.productKey);
+        if (!benefit) continue;
+        const remaining = remainingBenefitQuantity.get(benefit.productKey) ?? 0;
+        if (remaining <= 0) continue;
+        const eligibleQuantity = Math.min(line.quantity, remaining);
+        if (!(eligibleQuantity > 0)) continue;
+        const pricingType = (campaign.type === 'conditional' ? campaign.benefitPricingType : campaign.type) as 'percentage' | 'fixed';
+        const currency = state.language === 'da' ? 'DKK' : 'EUR';
+        const configuredPct = benefit.discountPct ?? campaign.discountPct;
+        const target = pricingType === 'fixed'
+          ? currency === 'DKK' ? benefit.targetPriceDkk ?? campaign.targetPriceDkk : benefit.targetPriceEur ?? campaign.targetPriceEur
+          : null;
+        const lineBefore = line.net;
+        const eligibleBasis = roundPricingMoney(lineBefore * eligibleQuantity / line.quantity);
+        const amount = roundPricingMoney(pricingType === 'percentage'
+          ? eligibleBasis * (configuredPct ?? 0) / 100
+          : Math.max(0, eligibleBasis - roundPricingMoney((target ?? 0) * eligibleQuantity)));
+        line.net = roundPricingMoney(lineBefore - amount);
+        const percent = eligibleBasis > 0 ? amount / eligibleBasis * 100 : 0;
+        const snapshot: CampaignLineSnapshot = {
+          campaignId: campaign.id, campaignCode: campaign.code, campaignName: campaign.name,
+          campaignType: campaign.type, pricingType, applied: amount > 0,
+          triggerItemNumbers: triggerLinks.map(product => product.itemNumber), benefitItemNumber: benefit.itemNumber,
+          configuredPct: pricingType === 'percentage' ? configuredPct : null,
+          discountPct: pricingType === 'percentage' ? configuredPct ?? 0 : percent,
+          discountAmount: amount, targetPrice: target, currency, productKey: line.productKey,
+          itemNumber: line.item.varenr, unitNumber: line.unit, quantity: eligibleQuantity,
+          startsAt: campaign.startsAt, endsAt: campaign.endsAt,
+          grossLineValue: line.gross, preCampaignNet: lineBefore, finalLineValue: line.net,
+        };
+        campaignLines.push(snapshot);
+        line.item.campaign = snapshot;
+        if (amount > 0) {
+          line.campaignApplied = true;
+          details.push({ kind: 'campaign', campaignId: campaign.id, varenr: line.item.varenr, percent: snapshot.discountPct, basis: eligibleBasis, amount,
+            txt: `${T('campaignDiscountLabel')} · ${campaign.code} · ${line.item.varenr} (${snapshot.discountPct.toLocaleString(state.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)` });
+        }
+        remainingBenefitQuantity.set(benefit.productKey, remaining - eligibleQuantity);
+      }
+    }
+  }
+  const currentPrice = roundPricingMoney(lines.reduce((sum, line) => sum + line.net, 0));
+  const totalDiscount = roundPricingMoney(subtotal - currentPrice);
+  return { lineItems, subtotal, discountDetails: details, totalDiscount, currentPrice, totalPct: subtotal ? totalDiscount / subtotal * 100 : 0, qtyPct: quantityPct / 100, campaignLines };
 }
 
-/**
- * Format a money amount based on language. DK shows DKK, others EUR.
- */
+export function calcConfigurationTotals(state: ConfiguratorState, options: PricingOptions = {}): { subtotal: number; totalDiscount: number; finalPrice: number } {
+  if (!options.grossManualDiscountOnly && hasFrozenConfiguratorPricing(state) && state.pricingSnapshot?.totals) return state.pricingSnapshot.totals;
+  const result = calculateConfiguration(state, options);
+  return { subtotal: result.subtotal, totalDiscount: result.totalDiscount, finalPrice: result.currentPrice };
+}
+
 export function formatMoney(amount: number, language: string): string {
-  const isDk = language === 'da';
-  const locale = { da: 'da-DK', en: 'en-GB', de: 'de-DE', it: 'it-IT', hu: 'hu-HU' }[language] || 'en-GB';
-  const currency = isDk ? 'DKK' : 'EUR';
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  } catch {
-    return `${Math.round(amount).toLocaleString()} ${currency}`;
-  }
+  const currency = language === 'da' ? 'DKK' : 'EUR';
+  return new Intl.NumberFormat(language || 'en', { style: 'currency', currency, maximumFractionDigits: 0 }).format(amount);
 }

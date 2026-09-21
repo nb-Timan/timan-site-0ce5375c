@@ -29,7 +29,7 @@ describe('Configurator Step 3 accessory card layout', () => {
   });
 
   it('keeps campaign presentation and price in the original separate right block', () => {
-    expect(source).toContain("renderMarketingBadge(marketingContent, 'compact') || renderNewBadge(a.isNew)");
+    expect(source).toContain("renderMarketingBadge(machineType, a.id, marketingContent, 'compact') || renderNewBadge(a.isNew)");
     expect(source).toContain('font-bold text-base text-emerald-700 price-col');
     expect(source).toContain('flex shrink-0 items-center justify-end gap-2 text-right');
   });

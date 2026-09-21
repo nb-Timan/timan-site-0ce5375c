@@ -20,6 +20,7 @@ export function buildSubmittedOrderDocument(state: ConfiguratorState) {
   }
   const calcResult: CalcResult = {
     lineItems: lines.map(line => ({
+      campaign: state.pricingSnapshot?.campaignLines?.find(campaign => campaign.itemNumber === line.itemNo && campaign.unitNumber === line.unitNumber),
       txt: `${line.description}${line.quantity > 1 ? ` x${line.quantity}` : ''}${line.purchaseReferences?.length ? ` · REK./PO: ${line.purchaseReferences.join(', ')}` : ''}`,
       varenr: line.itemNo, price: line.total,
     })),
@@ -28,7 +29,8 @@ export function buildSubmittedOrderDocument(state: ConfiguratorState) {
     currentPrice: totals.finalPrice,
     totalPct: totals.subtotal ? totals.totalDiscount / totals.subtotal * 100 : 0,
     qtyPct: 0,
-    discountDetails: [{ txt: 'Rabat', amount: totals.totalDiscount }],
+    discountDetails: state.pricingSnapshot?.discountDetails ?? [{ txt: 'Rabat', amount: totals.totalDiscount }],
+    campaignLines: state.pricingSnapshot?.campaignLines,
   };
   return { lines, totals, calcResult };
 }

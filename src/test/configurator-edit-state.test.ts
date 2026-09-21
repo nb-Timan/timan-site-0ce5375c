@@ -16,9 +16,12 @@ describe('configurator saved edit state', () => {
 
   it('saves edits back to the same canonical row using the current flow type', () => {
     const code = source();
-    expect(code).toContain('document_type: state.flowType');
-    expect(code).toContain('case_type: state.flowType');
-    expect(code).toContain('state_json: state');
+    expect(code).toContain('stateForPersistence = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode)');
+    expect(code).toContain('existingRowLoaded && !submittedOrder && !stateForPersistence.pricingSnapshot');
+    expect(code).toContain('legacy draft pricing finalization failed');
+    expect(code).toContain('document_type: stateForPersistence.flowType');
+    expect(code).toContain('case_type: stateForPersistence.flowType');
+    expect(code).toContain('state_json: stateForPersistence');
   });
 
   it('uses full state_json as the canonical selected-item source before stale item rows', () => {

@@ -33,8 +33,11 @@ import { listPublishedPrimaryVideos, type MarketingVideo } from '@/lib/videoLibr
 import { listMarketingConfiguratorCatalog, listMarketingConfiguratorContent, listPublishedMarketingConfiguratorContent, productContentKey, type MarketingConfiguratorCatalogItem, type MarketingConfiguratorContentRecord } from '@/lib/marketingConfiguratorContentService';
 import MarketingConfiguratorContentEditor from '@/components/configurator/MarketingConfiguratorContentEditor';
 import MarketingConfiguratorBulkTools from '@/components/configurator/MarketingConfiguratorBulkTools';
+import MarketingCampaignManager from '@/components/configurator/MarketingCampaignManager';
 import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
+import { loadPublishedMarketingCampaigns } from '@/lib/marketingCampaignService';
+import { publishedCampaignFor } from '@/lib/configuratorCampaigns';
 import { ConfiguratorImageModal, type ConfiguratorImagePreview } from '@/components/configurator/ConfiguratorImageModal';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -93,6 +96,7 @@ import {
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
 import { createConfiguratorPricingSnapshot } from '@/lib/configuratorPricing';
+import { calculateConfiguration } from '@/lib/calcConfiguration';
 import { loadPublishedConfiguratorPrices } from '@/lib/configuratorPublishedPrices';
 
 // Configurator language selector — uses the 9 portal UI languages.
@@ -231,7 +235,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   useEffect(() => {
     let cancelled = false;
-    listPublishedMarketingConfiguratorContent().then((rows) => {
+    Promise.all([listPublishedMarketingConfiguratorContent(), loadPublishedMarketingCampaigns()]).then(([rows]) => {
       if (!cancelled) setPublishedMarketingContent(rows);
     });
     return () => { cancelled = true; };
@@ -351,19 +355,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const isDealerUserPricing = isDealerUser;
   const isGrossPriceMode = isDealerUserPricing || isExhibition;
   const displayCalc = calcResult && isGrossPriceMode
-    ? (() => {
-        const manualPct = isExhibition ? (state.manualDealerDiscountPct || 0) : 0;
-        const manualAmount = calcResult.subtotal * (manualPct / 100);
-        return {
-          ...calcResult,
-          discountDetails: manualAmount > 0
-            ? [{ txt: `Ekstra rabat (${manualPct}%)`, amount: manualAmount, varenr: '795042' }]
-            : [],
-          totalDiscount: manualAmount,
-          totalPct: manualPct,
-          currentPrice: calcResult.subtotal - manualAmount,
-        };
-      })()
+    ? calculateConfiguration({ ...state, manualDealerDiscountPct: isExhibition ? state.manualDealerDiscountPct : 0 }, { grossManualDiscountOnly: true })
     : calcResult;
 
   const leaveAcademy = useCallback(async () => {
@@ -719,6 +711,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     }
     return publishedMarketingContent.get(key)?.content || null;
   };
+  const marketingCampaignFor = (machineType: string, itemId: string | undefined) => itemId
+    ? publishedCampaignFor(productContentKey(machineType, itemId)) ?? null
+    : null;
   const openMarketingEditor = (machineType: string, itemId: string | undefined) => {
     if (!marketingEditMode || !itemId) return;
     const item = marketingCatalogByKey.get(productContentKey(machineType, itemId));
@@ -745,7 +740,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const label = state === 'draft' ? 'Kladde' : 'Publiceret';
     return <span className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${styles}`}>{label}</span>;
   };
-  const renderMarketingBadge = (content?: MarketingConfiguratorContentRecord['content'] | null, variant: 'main' | 'compact' = 'main') => <MarketingConfiguratorBadge badge={content?.badge} schedule={content} language={uiLanguage} variant={variant} />;
+  const renderMarketingBadge = (machineType: string, itemId: string | undefined, content?: MarketingConfiguratorContentRecord['content'] | null, variant: 'main' | 'compact' = 'main') => {
+    const campaign = marketingCampaignFor(machineType, itemId);
+    return <MarketingConfiguratorBadge badge={campaign ? 'Kampagne' : content?.badge} schedule={content} campaign={campaign} language={uiLanguage} variant={variant} />;
+  };
   const TC = (key: string) => t(key, contentUiLang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
@@ -821,7 +819,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     return activePortalRole === 'timan_backend' || activePortalRole === 'timan_seller';
   })();
   const canCorrectSubmittedOrder = activePortalRole === 'timan_backend';
-  const requiresLegacyOrderReprice = state.flowType === 'order' && orderLocked && !state.pricingSnapshot;
+  const requiresLegacyOrderReprice = state.flowType === 'order' && orderLocked && (!state.pricingSnapshot || state.pricingSnapshot.totalsOnly);
   const submittedOrderEditorLocked = state.flowType === 'order' && orderLocked && !backendCorrectionSessionId;
   const existingConfigurationLeadLocked = Boolean(savedConfigurationId && linkedLeadId);
   const canCreateLeadForCurrentConfiguration = !savedConfigurationId && !linkedLeadId;
@@ -3162,11 +3160,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       </AlertDialog>
 
       {marketingEditMode && (
-        <MarketingConfiguratorBulkTools
-          catalog={[...marketingCatalogByKey.values()]}
-          records={marketingEditorRecords}
-          onSaved={(record) => setMarketingEditorRecords((current) => [...current.filter((entry) => entry.id !== record.id), record])}
-        />
+        <><MarketingCampaignManager catalog={[...marketingCatalogByKey.values()]} language={uiLanguage} /><MarketingConfiguratorBulkTools
+            catalog={[...marketingCatalogByKey.values()]}
+            records={marketingEditorRecords}
+            onSaved={(record) => setMarketingEditorRecords((current) => [...current.filter((entry) => entry.id !== record.id), record])}
+          /></>
       )}
 
       {/* Step Tabs */}
@@ -3238,8 +3236,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         price={permissions.canSeePrices ? formatDisplayMoney(getPrice(p, lang)) : ''}
                         description={key === 'Timan 2620' ? undefined : marketingContent?.description}
                         specs={cardSpecs.map((spec) => ({ label: translateSpecLabel(spec.label, uiLanguage), value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || '') }))}
-                        badge={marketingContent?.badge}
+                        badge={marketingCampaignFor(key, p.id) ? 'Kampagne' : marketingContent?.badge}
                         badgeSchedule={marketingContent}
+                        campaign={marketingCampaignFor(key, p.id)}
                         language={uiLanguage}
                         status={renderMarketingContentState(key, p.id)}
                         editControl={marketingEditButton(key, p.id)}
@@ -3595,7 +3594,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               setState(s => ({ ...s, accQty: { ...s.accQty, [`${currentUnit.configKey}_${a.id}`]: val } }));
                             }}
                             onClick={e => e.stopPropagation()} className="w-16 p-1.5 border rounded-md text-center" />
-                          {renderMarketingBadge(marketingContent, 'compact') || renderNewBadge(a.isNew)}
+                          {renderMarketingBadge(machineType, a.id, marketingContent, 'compact') || renderNewBadge(a.isNew)}
                           {renderMarketingContentState(machineType, a.id)}
                             <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</div>{marketingEditButton(machineType, a.id)}
                         </div>
@@ -3646,7 +3645,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               {renderActionLinks(a, machineType)}
                             </div>
                             <div className="flex shrink-0 items-center justify-end gap-2 text-right">
-                              {renderMarketingBadge(marketingContent, 'compact') || renderNewBadge(a.isNew)}
+                              {renderMarketingBadge(machineType, a.id, marketingContent, 'compact') || renderNewBadge(a.isNew)}
                               {renderMarketingContentState(machineType, a.id)}
                               <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</span>{marketingEditButton(machineType, a.id)}
                             </div>
@@ -4215,12 +4214,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
             {!calcResult ? (
               state.pricingSnapshot && state.machineConfigs.length > 0
-                ? <p role="alert" className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Ordrelinjer og historiske priser kunne ikke valideres. Ingen ny ordrebekræftelse kan oprettes.</p>
+                ? <p role="alert" className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">Historiske linjepriser kunne ikke valideres. Brug det afsendte dokument. Ingen priser eller kampagner genberegnes automatisk.</p>
                 : <p className="text-gray-400 italic text-center">{T('cartEmpty')}</p>
             ) : (
               <>
                 <div className="space-y-1 text-sm mb-6 max-h-[60vh] overflow-y-auto">
-                  {calcResult.lineItems.map((item, idx) => {
+                  {displayCalc!.lineItems.map((item, idx) => {
                     if (item.subtotal) {
                       return (
                         <div key={idx} className="mt-2 mb-4 pb-3 border-b border-dashed border-emerald-400">
@@ -4263,6 +4262,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               )}
                             </div>
                             {item.subText && <div className="mt-1">{item.subText}</div>}
+                            {item.campaign?.applied && <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <MarketingConfiguratorBadge badge="Kampagne" language={uiLanguage} variant="compact" campaignLabel={item.campaign.campaignCode} />
+                              <span className="text-[11px] font-semibold text-emerald-800">{tPortal('campaignAppliedPrice', uiLanguage)}: {formatDisplayMoney(item.campaign.finalLineValue)}</span>
+                            </div>}
                           </div>
                           {permissions.canSeePrices && <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatDisplayMoney(item.price)}</span>}
                         </div>

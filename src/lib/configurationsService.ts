@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
-import { configuratorPricingSignature, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
+import { configuratorPricingSignature, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, protectLegacySentPricing } from '@/lib/configuratorPricing';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
@@ -578,7 +578,7 @@ function buildRestoredState(
   });
 
   return {
-    state: restoredState,
+    state: protectLegacySentPricing(restoredState, row),
     hasFullState: Boolean(parsedState || payloadState || restoredState.machineConfigs.length > 0),
   };
 }
@@ -992,6 +992,7 @@ export async function saveConfiguration(
   }
 
   const now = new Date().toISOString();
+  state = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
 
   // Pre-compute subtotal/total_price so even drafts and the initial save carry
@@ -1152,6 +1153,7 @@ export async function updateConfiguration(
       stateForPersistence = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
     } catch (error) {
       console.warn('[updateConfiguration] pricing snapshot finalization failed:', error);
+      return { error: error instanceof Error ? error.message : 'Pris-snapshot kunne ikke valideres', itemsError: null };
     }
   }
 
@@ -1171,6 +1173,8 @@ export async function updateConfiguration(
   let pdfDownloaded = false;
   let pdfDownloadedAt: string | null = null;
   let persistedLeadId: string | null = null;
+  let existingRowLoaded = false;
+  let submittedOrder = false;
   try {
     const { data: row } = await supabase
       .from('configurations')
@@ -1178,6 +1182,7 @@ export async function updateConfiguration(
       .eq('id', id)
       .maybeSingle();
     if (row) {
+      existingRowLoaded = true;
       const storedPayload = parseStoredConfigurationPayload((row as Record<string, unknown>).note);
       internalNote = state.internalNote
         ?? ((row as Record<string, unknown>).internal_note as string | null)
@@ -1188,7 +1193,7 @@ export async function updateConfiguration(
         ?? storedPayload?.pdf_downloaded_at
         ?? null;
       persistedLeadId = ((row as Record<string, unknown>).lead_id as string | null) ?? null;
-      const submittedOrder = Boolean((row as Record<string, unknown>).submitted_at || (row as Record<string, unknown>).order_sent_at);
+      submittedOrder = Boolean((row as Record<string, unknown>).submitted_at || (row as Record<string, unknown>).order_sent_at);
       // Legacy submitted orders predate per-item price snapshots. Do not let a
       // contact-only correction replace their persisted commercial total with
       // today's catalogue calculation. The Backend dialog requires explicit
@@ -1201,6 +1206,22 @@ export async function updateConfiguration(
       }
     }
   } catch { /* ignore */ }
+
+  // A legacy, unsent draft may predate pricing snapshots. Its next explicit
+  // save adopts the current engine and campaign metadata. Submitted history is
+  // deliberately excluded and can only be repriced through Backend revision.
+  if (existingRowLoaded && !submittedOrder && !stateForPersistence.pricingSnapshot) {
+    try {
+      stateForPersistence = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
+      const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+      const totals = calcConfigurationTotals(stateForPersistence, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+      subtotal = Math.round(totals.subtotal || 0);
+      totalPrice = Math.round(totals.finalPrice || 0);
+    } catch (error) {
+      console.warn('[updateConfiguration] legacy draft pricing finalization failed:', error);
+      return { error: error instanceof Error ? error.message : 'Pris-snapshot kunne ikke valideres', itemsError: null };
+    }
+  }
 
   const now = new Date().toISOString();
   const storedNote = serializeStoredConfigurationPayload(stateForPersistence, internalNote, pdfDownloaded, pdfDownloadedAt);
@@ -1417,11 +1438,11 @@ export async function loadSubmittedOrderConfirmation(id: string, ownerEmail: str
   };
 }
 
-async function finalizeConfiguratorPricingSnapshot(
+export async function finalizeConfiguratorPricingSnapshot(
   state: ConfiguratorState,
   pricingMode?: ConfigurationPricingMode,
 ): Promise<ConfiguratorState> {
-  if (!state.pricingSnapshot) return state;
+  if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler; ingen automatisk genberegning.');
   if (hasFrozenConfiguratorPricing(state)) return state;
 
   const currentSnapshot = createConfiguratorPricingSnapshot(state);
@@ -1429,19 +1450,23 @@ async function finalizeConfiguratorPricingSnapshot(
   // price only because no historic price exists for them.
   const snapshot = {
     ...state.pricingSnapshot,
-    prices: { ...currentSnapshot.prices, ...state.pricingSnapshot.prices },
+    version: 1 as const,
+    capturedAt: state.pricingSnapshot?.capturedAt ?? currentSnapshot.capturedAt,
+    discountEngineVersion: state.pricingSnapshot ? state.pricingSnapshot.discountEngineVersion : 2 as const,
+    prices: { ...currentSnapshot.prices, ...state.pricingSnapshot?.prices },
     signature: configuratorPricingSignature(state),
     lines: undefined,
   };
   const stateWithSnapshot = { ...state, pricingSnapshot: snapshot };
-  const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
-  const totals = calcConfigurationTotals(
+  const { calculateConfiguration } = await import('@/lib/calcConfiguration');
+  const calculation = calculateConfiguration(
     { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals: undefined } },
     { grossManualDiscountOnly: pricingMode === 'messe' },
   );
   const { buildAccountCaseLines } = await import('@/lib/configuratorAccountSummaries');
   const lines = buildAccountCaseLines(stateWithSnapshot, state.language);
-  return { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals, lines } };
+  const totals = { subtotal: calculation.subtotal, totalDiscount: calculation.totalDiscount, finalPrice: calculation.currentPrice };
+  return { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals, lines, discountDetails: calculation.discountDetails, campaignLines: calculation.campaignLines } };
 }
 
 export interface SubmittedOrderContactDetails {
@@ -1682,19 +1707,7 @@ export async function markAsOrderSubmitted(
       persistedState = state;
       const isInitialOrderSubmission = !rowSnapshot?.submitted_at && !rowSnapshot?.order_sent_at;
       if (isInitialOrderSubmission && !state.pricingSnapshot) {
-        const snapshot = createConfiguratorPricingSnapshot(state);
-        const draft = { ...state, pricingSnapshot: snapshot };
-        const baseline = calcConfigurationTotals(draft, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
-        const { buildAccountCaseLines } = await import('@/lib/configuratorAccountSummaries');
-        persistedState = {
-          ...draft,
-          pricingSnapshot: {
-            ...snapshot,
-            signature: configuratorPricingSignature(state),
-            totals: baseline,
-            lines: buildAccountCaseLines(draft, state.language),
-          },
-        };
+        persistedState = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
       }
       const totals = calcConfigurationTotals(persistedState, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
       subtotal = Math.round(totals.subtotal || 0);

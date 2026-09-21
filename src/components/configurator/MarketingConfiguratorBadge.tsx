@@ -1,4 +1,5 @@
 import { BadgeCheck, CircleAlert, CircleDollarSign, Megaphone, Tag, type LucideIcon } from 'lucide-react';
+import type { ProductCampaign } from '@/lib/configuratorCampaigns';
 import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { formatMarketingBadgeCountdown, isMarketingBadgeActive, type MarketingBadgeSchedule, useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
@@ -44,18 +45,31 @@ export function MarketingConfiguratorBadge({
   language = 'da',
   variant = 'main',
   schedule,
+  campaign,
+  campaignLabel,
+  preview = false,
   className = '',
 }: {
   badge?: string | null;
   language?: PortalUiLanguage;
   variant?: 'main' | 'compact';
   schedule?: MarketingBadgeSchedule | null;
+  campaign?: ProductCampaign | null;
+  campaignLabel?: string | null;
+  preview?: boolean;
   className?: string;
 }) {
   const now = useMarketingBadgeClock();
-  if (!badge || !isMarketingBadgeActive(schedule, now)) return null;
+  const activeSchedule = campaign ? { badge_starts_at: campaign.startsAt, badge_ends_at: campaign.endsAt } : schedule;
+  if (!badge || (!preview && !isMarketingBadgeActive(activeSchedule, now))) return null;
   const { label, Icon, className: tone } = optionFor(badge, language);
-  const countdown = schedule?.badge_show_countdown ? formatMarketingBadgeCountdown(schedule.badge_ends_at, language, now) : '';
+  const countdown = (campaign || schedule?.badge_show_countdown) ? formatMarketingBadgeCountdown(activeSchedule?.badge_ends_at, language, now) : '';
+  const pricing = campaign?.type === 'conditional' ? campaign.benefitPricingType : campaign?.type;
+  const economicLabel = campaignLabel ? `${label} · ${campaignLabel}` : pricing === 'percentage'
+    ? `${label} · ${campaign?.discountPct}%`
+    : pricing === 'fixed' && campaign?.targetPriceDkk === 0 && campaign?.targetPriceEur === 0
+      ? `${label} · ${language === 'da' ? '0 kr.' : '€0'}`
+      : campaign?.code ? `${label} · ${campaign.code}` : label;
   const isCompact = variant === 'compact';
   return (
     <span className={`inline-flex w-fit max-w-full items-center border font-bold ${tone} ${isCompact
@@ -63,7 +77,7 @@ export function MarketingConfiguratorBadge({
       : 'h-7 gap-1.5 rounded-full px-2.5 text-[11px] leading-none shadow-sm'
     } ${className}`}>
       <Icon className={isCompact ? 'h-3 w-3 shrink-0' : 'h-3.5 w-3.5 shrink-0'} aria-hidden="true" />
-      <span className="whitespace-nowrap">{countdown ? `${label} · ${countdown}` : label}</span>
+      <span className="whitespace-nowrap">{countdown ? `${economicLabel} · ${countdown}` : economicLabel}</span>
     </span>
   );
 }

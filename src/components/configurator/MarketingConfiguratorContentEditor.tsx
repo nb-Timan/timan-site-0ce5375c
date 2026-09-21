@@ -166,7 +166,7 @@ export default function MarketingConfiguratorContentEditor({ item, records, uiLa
         {item && draft && <div className="space-y-5">
           <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
             <strong>{item.defaults.title}</strong><br />
-            <span className="text-slate-500">{item.machineKey} · Varenr. {item.itemNumber}. Varenummer, pris, rabat og afhængigheder er låst canonical data.</span>
+            <span className="text-slate-500">{item.machineKey} · Varenr. {item.itemNumber}</span>
           </div>
           <div className="flex flex-wrap gap-4 rounded-md border border-slate-200 px-3 py-2">
             <AssetState label="Video" published={Boolean(item.defaults.video_url)} draft={Boolean(draft.video_url && draft.video_url !== item.defaults.video_url)} />

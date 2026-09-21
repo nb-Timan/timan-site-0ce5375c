@@ -17,6 +17,7 @@ import { SITE_FEATURE_TRANSLATIONS } from '@/lib/i18n/siteFeatureTranslations';
 import { TIMAN_2620_INFO_TRANSLATIONS } from '@/lib/i18n/timan2620InfoTranslations';
 import { MESSE_HOME_TRANSLATIONS } from '@/lib/i18n/messeHomeTranslations';
 import { ACADEMY_TRANSLATIONS } from '@/lib/i18n/academyTranslations';
+import { CAMPAIGN_TRANSLATIONS } from '@/lib/i18n/campaignTranslations';
 
 type Dict = Record<string, string>;
 
@@ -25,6 +26,7 @@ type Dict = Record<string, string>;
 // ---------------------------------------------------------------------------
 const da: Dict = {
   ...ACADEMY_TRANSLATIONS.da,
+  ...CAMPAIGN_TRANSLATIONS.da,
   newsCmsBadgeNews: 'NYHED',
   marketingBadgeNew: 'Nyhed',
   marketingBadgeOffer: 'Tilbud',
@@ -702,6 +704,7 @@ const da: Dict = {
 // ---------------------------------------------------------------------------
 const en: Dict = {
   ...ACADEMY_TRANSLATIONS.en,
+  ...CAMPAIGN_TRANSLATIONS.en,
   marketingBadgeNew: 'New',
   marketingBadgeOffer: 'Offer',
   marketingBadgeGoodPrice: 'Good price',
@@ -1364,6 +1367,7 @@ const en: Dict = {
 const de: Dict = {
   ...en,
   ...ACADEMY_TRANSLATIONS.de,
+  ...CAMPAIGN_TRANSLATIONS.de,
   contractFullTextHeading: 'Der Vertrag',
   contractFullTextIntro: 'Die vollständige Vereinbarung in der Reihenfolge des endgültigen Vertrags.',
   contractPaymentTermsLabel: 'Zahlungsbedingungen',
@@ -1826,6 +1830,7 @@ const de: Dict = {
 const it: Dict = {
   ...en,
   ...ACADEMY_TRANSLATIONS.it,
+  ...CAMPAIGN_TRANSLATIONS.it,
   contractFullTextHeading: 'Il contratto',
   contractFullTextIntro: 'L’accordo completo nell’ordine utilizzato nel contratto finale.',
   contractPaymentTermsLabel: 'Termini di pagamento',
@@ -2266,6 +2271,7 @@ const it: Dict = {
 const hu: Dict = {
   ...en,
   ...ACADEMY_TRANSLATIONS.hu,
+  ...CAMPAIGN_TRANSLATIONS.hu,
   contractFullTextHeading: 'A szerződés',
   contractFullTextIntro: 'A teljes megállapodás a végleges szerződésben szereplő sorrendben.',
   contractPaymentTermsLabel: 'Fizetési feltételek',
@@ -2706,6 +2712,7 @@ const hu: Dict = {
 const sv: Dict = {
   ...en,
   ...ACADEMY_TRANSLATIONS.sv,
+  ...CAMPAIGN_TRANSLATIONS.sv,
   contractFullTextHeading: 'Avtalet',
   contractFullTextIntro: 'Hela avtalet i den ordning som används i det slutliga avtalet.',
   contractPaymentTermsLabel: 'Betalningsvillkor',
@@ -3147,6 +3154,7 @@ const sv: Dict = {
 const fr: Dict = {
   ...en,
   ...ACADEMY_TRANSLATIONS.fr,
+  ...CAMPAIGN_TRANSLATIONS.fr,
   contractFullTextHeading: 'Le contrat',
   contractFullTextIntro: 'L’accord complet dans l’ordre utilisé dans le contrat final.',
   contractPaymentTermsLabel: 'Conditions de paiement',
@@ -3588,6 +3596,7 @@ const fr: Dict = {
 const pl: Dict = {
   ...en,
   ...ACADEMY_TRANSLATIONS.pl,
+  ...CAMPAIGN_TRANSLATIONS.pl,
   contractFullTextHeading: 'Umowa',
   contractFullTextIntro: 'Pełna umowa w kolejności użytej w umowie końcowej.',
   contractPaymentTermsLabel: 'Warunki płatności',
@@ -4029,6 +4038,7 @@ const pl: Dict = {
 const cs: Dict = {
   ...en,
   ...ACADEMY_TRANSLATIONS.cs,
+  ...CAMPAIGN_TRANSLATIONS.cs,
   contractFullTextHeading: 'Smlouva',
   contractFullTextIntro: 'Úplná smlouva v pořadí použitém v konečné smlouvě.',
   contractPaymentTermsLabel: 'Platební podmínky',

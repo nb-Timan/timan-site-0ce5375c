@@ -137,7 +137,7 @@ describe('Marketing configurator content', () => {
       configurator.indexOf('const marketingEditButton'),
     );
     expect(contentState.indexOf("record.status === 'published'")).toBeLessThan(contentState.indexOf("record.status === 'draft'"));
-    expect(configurator).toContain("renderMarketingBadge(marketingContent, 'compact')");
+    expect(configurator).toContain("renderMarketingBadge(machineType, a.id, marketingContent, 'compact')");
     expect(configurator).toContain('badgeSchedule={marketingContent}');
     expect(editor).toContain('marketingBadgeDisplayPeriod');
     expect(editor).toContain('badge_show_countdown');

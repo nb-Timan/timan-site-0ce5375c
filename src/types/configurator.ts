@@ -1,4 +1,5 @@
 // Types for the Timan machine configurator
+import type { CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
 
 export type DocumentType = 'quote' | 'order';
 export type FlowType = 'quote' | 'order';
@@ -143,6 +144,12 @@ export interface MachineConfig {
 export interface ConfiguratorPricingSnapshot {
   version: 1;
   capturedAt: string;
+  /** Read-only legacy document: only persisted totals are known, not line prices. */
+  totalsOnly?: boolean;
+  /** Absent on legacy snapshots, which remain frozen. */
+  discountEngineVersion?: 2;
+  discountDetails?: DiscountDetail[];
+  campaignLines?: CampaignLineSnapshot[];
   prices: Record<string, number>;
   /** Frozen commercial lines; older snapshots are reconstructed from active units only. */
   lines?: {
@@ -222,6 +229,7 @@ export interface ConfiguratorState {
 }
 
 export interface LineItem {
+  campaign?: CampaignLineSnapshot;
   txt: string;
   price: number;
   varenr: string;
@@ -239,12 +247,17 @@ export interface LineItem {
 }
 
 export interface DiscountDetail {
+  kind?: 'demo' | 'base' | 'delivery' | 'quantity' | 'dealer' | 'campaign';
+  percent?: number;
+  basis?: number;
+  campaignId?: string;
   txt: string;
   amount: number;
   varenr?: string;
 }
 
 export interface CalcResult {
+  campaignLines?: CampaignLineSnapshot[];
   lineItems: LineItem[];
   subtotal: number;
   discountDetails: DiscountDetail[];
