@@ -17,7 +17,6 @@ import openLeadsSeed from "@/data/openLeadsSeed.json";
 import {
   NEXT_ACTIVITY_DEMO_AGREED,
   NEXT_ACTIVITY_DEMO_REQUESTED,
-  NEXT_ACTIVITY_DEMO_REQUESTED_LEGACY,
 } from '@/lib/crmDemoStageI18n';
 
 // ---------- Shared option lists (Danish UI) ----------
@@ -36,7 +35,6 @@ export const NEXT_ACTIVITY_OPTIONS = [
   "Offer sent to the customer",
   NEXT_ACTIVITY_DEMO_REQUESTED,
   NEXT_ACTIVITY_DEMO_AGREED,
-  NEXT_ACTIVITY_DEMO_REQUESTED_LEGACY,
   "Lead sent to the dealer",
   "Closed without order",
   "Closed with order",
@@ -151,6 +149,7 @@ export const CRM_LEAD_SUMMARY_SELECT = [
   "move_to_working_qty",
   "converted_demo_lead_id",
   "incomplete_from_configurator",
+  "demo_registration_pending",
   "created_at",
   "updated_at",
 ].join(",");
@@ -302,6 +301,7 @@ export interface CrmLead {
    *  required CRM fields. Cleared automatically when the lead is saved
    *  through the normal CRM edit form. */
   incomplete_from_configurator?: boolean | null;
+  demo_registration_pending?: boolean;
   /** Read-only lifecycle signal derived from scoped configurations. */
   linked_sales_event?: CrmLinkedSalesEvent | null;
   created_at: string;
@@ -803,6 +803,7 @@ export interface CrmLeadsPageRow {
   attachments: CrmLeadAttachment[];
   has_demo?: boolean;
   incomplete?: boolean;
+  demo_registration_pending?: boolean;
   shared?: boolean;
   quote_id?: string | null;
 }
@@ -1047,6 +1048,7 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
 export type NewCrmDemoLead = Omit<CrmDemoLead, "id" | "created_at">;
 
 export interface CreateCrmDemoLifecycleInput extends NewCrmDemoLead {
+  update_followup?: boolean;
   /** Canonical dealer account relation used when a new lead is created. */
   dealer_account_id?: string | null;
   /** Preserve the complete selected machine interest on a newly created lead. */
@@ -1095,6 +1097,7 @@ export async function createCrmDemoLifecycle(
       interest_level: input.interest_level,
       wants_offer: input.wants_offer,
       followup_date: input.followup_date,
+      update_followup: input.update_followup === true,
       estimated_value: input.estimated_value,
       competitors_present: input.competitors_present,
       competitor_name: input.competitor_name,
@@ -1118,6 +1121,13 @@ export async function createCrmDemoLifecycle(
     demo_no: typeof row.demo_no === 'number' ? row.demo_no : null,
     demo_date: typeof row.demo_date === 'string' ? row.demo_date : null,
   };
+}
+
+/** Record scheduling intent without manufacturing a dated demo. Repeated starts are idempotent. */
+export async function startCrmDemoRegistration(leadId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc('start_crm_demo_registration', { p_lead_id: leadId });
+  if (error) throw error;
+  return typeof data === 'string' ? data : null;
 }
 
 /** Read linked demo records only through the existing demo RLS scope. */

@@ -17,6 +17,8 @@ import {
 import { NEXT_ACTIVITY_OPTIONS } from '@/lib/crmLeadsService';
 import { nextActivityToProbability } from '@/lib/leadStatus';
 import { toast } from 'sonner';
+import { useLanguage } from '@/context/LanguageContext';
+import { crmNextActivityLabel, crmDemoRegistrationText, crmDemoStageLabel, normalizeDemoActivity, NEXT_ACTIVITY_DEMO_AGREED } from '@/lib/crmDemoStageI18n';
 
 interface CrmLeadHistoryPanelProps {
   leadId: string;
@@ -34,7 +36,7 @@ interface CrmLeadHistoryPanelProps {
 }
 
 const QUICK_NOTE_ACTIVITY_OPTIONS = NEXT_ACTIVITY_OPTIONS
-  .filter((option) => option !== 'Closed with order' && option !== 'Closed without order')
+  .filter((option) => option !== 'Closed with order' && option !== 'Closed without order' && option !== NEXT_ACTIVITY_DEMO_AGREED)
   .slice()
   .sort((left, right) => nextActivityToProbability(left) - nextActivityToProbability(right));
 
@@ -65,6 +67,7 @@ export function CrmLeadHistoryPanel({
   onNotesChanged,
   onFollowupChanged,
 }: CrmLeadHistoryPanelProps) {
+  const { uiLanguage } = useLanguage();
   const [notes, setNotes] = useState<CrmLeadNote[]>([]);
   const [demoEvents, setDemoEvents] = useState<CrmLeadDemoHistoryEvent[]>([]);
   const [draft, setDraft] = useState('');
@@ -89,7 +92,7 @@ export function CrmLeadHistoryPanel({
           setNotes(nextNotes);
           setDemoEvents(nextDemoEvents);
           setNextFollowupDate(followup.nextFollowupDate);
-          setNextActivity(followup.nextActivity);
+          setNextActivity(normalizeDemoActivity(followup.nextActivity));
         }
       })
       .catch(() => {
@@ -180,7 +183,8 @@ export function CrmLeadHistoryPanel({
               activity={nextActivity}
               onNextFollowupChange={setNextFollowupDate}
               onActivityChange={setNextActivity}
-              activityOptions={QUICK_NOTE_ACTIVITY_OPTIONS}
+              activityOptions={[...new Set([...QUICK_NOTE_ACTIVITY_OPTIONS, nextActivity].filter(Boolean))]}
+              activityLabel={(activity) => crmNextActivityLabel(activity, uiLanguage)}
             />
           </div>
           <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
@@ -274,7 +278,11 @@ export function CrmLeadHistoryPanel({
             {demoEvents.map((event) => (
               <li key={event.id} className="rounded-lg border border-violet-100 bg-violet-50/40 px-3 py-2.5">
                 <p className="text-xs font-medium text-slate-500">{formatNoteTimestamp(event.created_at)} · {event.created_by_name || 'Ukendt bruger'}</p>
-                <p className="mt-1 text-sm font-medium text-slate-800">{event.title || 'Demo'}</p>
+                <p className="mt-1 text-sm font-medium text-slate-800">{event.registration_event
+                  ? event.activity_type === 'demo_registration_started' ? crmDemoRegistrationText('started', uiLanguage)
+                    : event.activity_type === 'demo_date_changed' ? crmDemoRegistrationText('dateChanged', uiLanguage)
+                      : crmDemoStageLabel(event.activity_type === 'demo_requested' ? 'requested' : 'agreed', uiLanguage)
+                  : event.title || 'Demo'}</p>
                 {event.description && <p className="mt-0.5 text-sm text-slate-700">{event.description}</p>}
               </li>
             ))}

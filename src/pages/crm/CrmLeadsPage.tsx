@@ -4,6 +4,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { crmDemoMissingLabel } from '@/lib/crmDemoStageI18n';
 import { Language } from '@/types/configurator';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -212,6 +213,7 @@ interface UnifiedLead {
   /** Phase 40 — true when the lead was created via the configurator's
    *  "Save as lead" shortcut and still needs completion in CRM. */
   incomplete?: boolean;
+  demo_registration_pending?: boolean;
   shared?: boolean;
 }
 
@@ -321,6 +323,7 @@ function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
     attachments: l.attachments || [],
     has_demo: l.demo_has_run === 'yes',
     incomplete: l.incomplete_from_configurator === true,
+    demo_registration_pending: l.demo_registration_pending === true,
   };
 }
 
@@ -1056,6 +1059,11 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                           {r.shared && (
                             <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200">
                               {tt('shared_chip', lang)}
+                            </span>
+                          )}
+                          {r.demo_registration_pending && (
+                            <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-amber-50 text-amber-800 border-amber-200">
+                              {crmDemoMissingLabel(lang)}
                             </span>
                           )}
                           {imageAttachments.length > 0 && (

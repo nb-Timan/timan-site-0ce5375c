@@ -50,7 +50,7 @@ describe('canonical CRM demo stage normalization', () => {
     expect(crmDemoStageLabel('requested', 'da')).toBe('Ønsker demo');
     expect(crmDemoStageLabel('agreed', 'da')).toBe('Demo aftalt');
     expect(crmDemoStageLabel('requested', 'en')).toBe('Demo requested');
-    expect(crmDemoStageLabel('agreed', 'en')).toBe('Demo agreed');
+    expect(crmDemoStageLabel('agreed', 'en')).toBe('Demo scheduled');
     expect(crmDemoStageLabel('requested', 'de')).toBe('Demo gewünscht');
     expect(crmDemoStageLabel('agreed', 'de')).toBe('Demo vereinbart');
   });

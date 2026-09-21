@@ -1,26 +1,27 @@
 import { useEffect, useState } from 'react';
 import { CalendarDays, ExternalLink, Loader2, MapPin, UserRound, Wrench } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { formatDemoNo, listDemoLeadsForSource, updateDemoLeadDate, type CrmDemoLead } from '@/lib/crmLeadsService';
+import { formatDemoNo, getLead, listDemoLeadsForSource, updateDemoLeadDate, type CrmDemoLead } from '@/lib/crmLeadsService';
 import { toast } from 'sonner';
 import { useLanguage } from '@/context/LanguageContext';
-import { crmDemoStageLabel } from '@/lib/crmDemoStageI18n';
+import { crmDemoStageLabel, crmDemoMissingLabel } from '@/lib/crmDemoStageI18n';
 
 function valueOrDash(value: string | null | undefined): string {
   return value?.trim() || '—';
 }
 
 /** The demo is an activity of this lead; it never replaces the opportunity. */
-export function CrmLeadDemoSection({ leadId }: { leadId: string }) {
+export function CrmLeadDemoSection({ leadId, onStageChange }: { leadId: string; onStageChange?: (activity: string, probability: number) => void }) {
   const { uiLanguage } = useLanguage();
   const [demos, setDemos] = useState<CrmDemoLead[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState(false);
   const [savingDemoId, setSavingDemoId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    void listDemoLeadsForSource(leadId)
-      .then((rows) => { if (!cancelled) setDemos(rows); })
+    void Promise.all([listDemoLeadsForSource(leadId), getLead(leadId)])
+      .then(([rows, lead]) => { if (!cancelled) { setDemos(rows); setPending(lead?.demo_registration_pending === true); } })
       .catch(() => { if (!cancelled) setDemos([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -31,6 +32,9 @@ export function CrmLeadDemoSection({ leadId }: { leadId: string }) {
     try {
       const updated = await updateDemoLeadDate(demo.id, demoDate || null);
       setDemos((rows) => rows.map((row) => row.id === updated.id ? updated : row));
+      const lead = await getLead(leadId);
+      setPending(lead?.demo_registration_pending === true);
+      if (lead?.next_activity && lead.probability != null) onStageChange?.(lead.next_activity, lead.probability);
       toast.success(demoDate ? 'Demo-dato og kalender er opdateret' : 'Demo-dato er fjernet');
     } catch (error) {
       console.error('Could not update linked demo date', error);
@@ -41,18 +45,19 @@ export function CrmLeadDemoSection({ leadId }: { leadId: string }) {
   }
 
   return (
-    <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section id="lead-demo" className="mb-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      {pending && <p className="mb-3 inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold uppercase text-amber-800">{crmDemoMissingLabel(uiLanguage)}</p>}
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <h3 className="text-[15px] font-semibold text-slate-900">Demo</h3>
           <p className="mt-1 text-xs text-slate-500">Demo-dato er separat fra leadets næste opfølgning.</p>
         </div>
-        <Link
+        {!loading && demos.length === 0 && <Link
           to={`/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(leadId)}`}
           className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-emerald-700 hover:underline"
         >
           Opret demo <ExternalLink className="h-3.5 w-3.5" />
-        </Link>
+        </Link>}
       </div>
 
       {loading ? (
@@ -64,7 +69,7 @@ export function CrmLeadDemoSection({ leadId }: { leadId: string }) {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="rounded-md border border-violet-200 bg-white px-2 py-0.5 font-mono text-xs text-violet-800">{formatDemoNo(demo.demo_no)}</span>
-              <span className="text-sm font-medium text-slate-900">{crmDemoStageLabel(demo.demo_date ? 'agreed' : 'requested', uiLanguage)}</span>
+              <span className="text-sm font-medium text-slate-900">{crmDemoStageLabel(demo.demo_date && !['canceled', 'cancelled'].includes((demo.result_status || '').toLowerCase()) ? 'agreed' : 'requested', uiLanguage)}</span>
             </div>
             <Link to={`/portal/crm/demo-leads/${demo.id}`} className="text-xs font-medium text-violet-700 hover:underline">Åbn demo</Link>
           </div>

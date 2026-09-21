@@ -19,6 +19,7 @@
 import type { CrmLead, CrmLinkedSalesEvent, PipelineStage } from "@/lib/crmLeadsService";
 import {
   NEXT_ACTIVITY_DEMO_AGREED,
+  NEXT_ACTIVITY_DEMO_AGREED_LEGACY,
   NEXT_ACTIVITY_DEMO_REQUESTED,
   NEXT_ACTIVITY_DEMO_REQUESTED_LEGACY,
 } from '@/lib/crmDemoStageI18n';
@@ -67,6 +68,7 @@ const NA_TO_STATUS: Record<string, LeadDisplayStatus> = {
   [NEXT_ACTIVITY_DEMO_REQUESTED_LEGACY]:     "Ønsker demo",
   [NEXT_ACTIVITY_DEMO_REQUESTED]:            "Ønsker demo",
   [NEXT_ACTIVITY_DEMO_AGREED]:               "Demo aftalt",
+  [NEXT_ACTIVITY_DEMO_AGREED_LEGACY]:        "Demo aftalt",
   "Follow-up on leads":                    "Follow-up",
   "Offer sent to the customer":            "Tilbud sendt",
   [NEXT_ACTIVITY_WON]:                     "Vundet",
@@ -82,6 +84,7 @@ const NA_TO_PROBABILITY: Record<string, number> = {
   [NEXT_ACTIVITY_DEMO_REQUESTED_LEGACY]:     40,
   [NEXT_ACTIVITY_DEMO_REQUESTED]:            40,
   [NEXT_ACTIVITY_DEMO_AGREED]:               50,
+  [NEXT_ACTIVITY_DEMO_AGREED_LEGACY]:        50,
   "Follow-up on leads":                    25,
   "Offer sent to the customer":            70,
   [NEXT_ACTIVITY_WON]:                     100,

@@ -69,7 +69,7 @@ import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
 import { CrmLeadDemoSection } from '@/components/crm/CrmLeadDemoSection';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
-import { crmNextActivityLabel } from '@/lib/crmDemoStageI18n';
+import { crmNextActivityLabel, crmDemoRegistrationText, NEXT_ACTIVITY_DEMO_AGREED, normalizeDemoActivity } from '@/lib/crmDemoStageI18n';
 import {
   getMissingOrdinaryCrmLeadFields,
   isLegacyWorkingBudgetOnlySave,
@@ -963,7 +963,7 @@ export default function CrmNewLeadPage() {
       setExpectedCloseChanged(true);
       setNextFollowupChanged(true);
       setMachineTypes(lead.machine_types || []);
-      setNextActivity(lead.next_activity || '');
+      setNextActivity(normalizeDemoActivity(lead.next_activity || ''));
       setLinkedSalesEvent(lead.linked_sales_event ?? null);
       setDemoHasRun(lead.demo_has_run || 'no');
       setContactType(lead.contact_type || '');
@@ -1357,6 +1357,11 @@ export default function CrmNewLeadPage() {
 
   // Auto-derive probability + legacy pipeline stage from next_activity selection.
   function handleNextActivityChange(na: string) {
+    if (na === NEXT_ACTIVITY_DEMO_AGREED && !repository.academy) {
+      if (editId) navigate(`/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(editId)}`);
+      else toast.error(crmDemoRegistrationText('saveLeadFirst', uiLanguage));
+      return;
+    }
     setNextActivity(na);
     if (na) {
       setProbability(String(nextActivityToProbability(na)));
@@ -2003,7 +2008,9 @@ export default function CrmNewLeadPage() {
           </Section>
 
           {isEdit && editId && !repository.academy && (
-            <CrmLeadDemoSection leadId={editId} />
+            <CrmLeadDemoSection leadId={editId} onStageChange={(activity, value) => {
+              setNextActivity(activity); setProbability(String(value)); setStage(deriveLegacyPipelineStage(activity));
+            }} />
           )}
 
           {isEdit && editId && !repository.academy && (

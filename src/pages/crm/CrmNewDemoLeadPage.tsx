@@ -29,7 +29,8 @@ import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft'
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 import { listSelectableDemoLeads, type DemoLeadChoice } from '@/lib/crmDemoLeadSelector';
 import { demoLinkingText } from '@/lib/crmDemoLinkingI18n';
-import { crmDemoStageLabel } from '@/lib/crmDemoStageI18n';
+import { crmDemoStageLabel, crmDemoMissingLabel, crmDemoDateRequiredLabel, crmDemoRegistrationText } from '@/lib/crmDemoStageI18n';
+import { startCrmDemoRegistration } from '@/lib/crmLeadsService';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getDemoSelectionErrors, splitDemoMachineInterest } from '@/lib/crmDemoSelection';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
@@ -220,9 +221,10 @@ export default function CrmNewDemoLeadPage() {
   const [machineCategory, setMachineCategory] = useState<string[]>([]);
   const [machineInterest, setMachineInterest] = useState<string[]>([]);
 
-  // A blank date is intentional: it means "Ønsker demo" (40%), not a
-  // scheduled demonstration. The lead's follow-up date remains independent.
+  // Scheduling starts blank and requires an explicit date. Lead follow-up is independent.
   const [demoDate, setDemoDate] = useState('');
+  const [missingDemoDate, setMissingDemoDate] = useState(false);
+  const [followupEdited, setFollowupEdited] = useState(false);
   const [interest, setInterest] = useState(3);
   const [wantsOffer, setWantsOffer] = useState<'yes' | 'no'>('yes');
   const [followup, setFollowup] = useState('');
@@ -235,12 +237,24 @@ export default function CrmNewDemoLeadPage() {
 
   const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
   const [showErrors, setShowErrors] = useState(false);
 
   // Phase 38 — prefill from a CRM lead when ?fromLead=<id> is in the URL.
   const [sourceLeadId, setSourceLeadId] = useState<string | null>(null);
   const [sourceLeadNo, setSourceLeadNo] = useState<number | null>(null);
   const [linkMode, setLinkMode] = useState<'existing' | 'new'>(fromLeadId ? 'existing' : 'new');
+  useEffect(() => {
+    if (!sourceLeadId || repository.academy) return;
+    let cancelled = false;
+    void startCrmDemoRegistration(sourceLeadId).then((existingDemoId) => {
+      if (!cancelled && existingDemoId) navigate(`/portal/crm/leads/${sourceLeadId}#lead-demo`);
+    }).catch((error) => {
+      console.error('Could not start scoped demo registration', error);
+      if (!cancelled) toast.error(crmDemoRegistrationText('startError', uiLanguage));
+    });
+    return () => { cancelled = true; };
+  }, [sourceLeadId, repository.academy, navigate, uiLanguage]);
   const [leadChoices, setLeadChoices] = useState<DemoLeadChoice[]>([]);
   const [leadChoicesLoading, setLeadChoicesLoading] = useState(false);
   const [leadChoicesLoaded, setLeadChoicesLoaded] = useState(false);
@@ -316,6 +330,7 @@ export default function CrmNewDemoLeadPage() {
       if (cancelled || !lead) return;
       setSourceLeadId(lead.id);
       setSourceLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
+      if (!followupEdited) setFollowup(lead.next_followup_date || '');
       setTitle(prev => prev || lead.title || '');
       if (lead.owner_user_id) setResponsibleSellerId(prev => prev || lead.owner_user_id || '');
       if (lead.owner_name) setResponsibleName(prev => prev || lead.owner_name || '');
@@ -341,7 +356,7 @@ export default function CrmNewDemoLeadPage() {
       if (lead.estimated_value != null) setEstValue(prev => prev || String(lead.estimated_value));
     })();
     return () => { cancelled = true; };
-  }, [fromLeadId, repository, dealers, leadChoices, leadChoicesLoaded, uiLanguage]);
+  }, [fromLeadId, repository, dealers, leadChoices, leadChoicesLoaded, uiLanguage, followupEdited]);
 
   useEffect(() => {
     setProbability(demoDate ? '50' : '40');
@@ -393,6 +408,8 @@ export default function CrmNewDemoLeadPage() {
     setLeadPickerOpen(false);
     setSourceLeadId(lead.id);
     setSourceLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
+    setFollowup(lead.next_followup_date || '');
+    setFollowupEdited(false);
     setTitle(lead.title || '');
     setResponsibleSellerId(lead.owner_user_id || '');
     setResponsibleName(lead.owner_name || '');
@@ -454,6 +471,16 @@ export default function CrmNewDemoLeadPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submittingRef.current) return;
+    if (!repository.academy && linkMode === 'existing' && !sourceLeadId) {
+      toast.error(demoLinkingText('leadUnavailable', uiLanguage));
+      return;
+    }
+    if (!repository.academy && !demoDate) {
+      setMissingDemoDate(true);
+      toast.error(crmDemoDateRequiredLabel(uiLanguage));
+      return;
+    }
     if (!title.trim())        { toast.error(tt('val_title', lang)); return; }
     if (!responsibleSellerId) { toast.error(tt('val_seller', lang)); return; }
     if (!dealerCompany)       { toast.error(tt('val_dealer', lang)); return; }
@@ -462,6 +489,7 @@ export default function CrmNewDemoLeadPage() {
       toast.error(errDemoType || errDemoMachine || errDemoEquipment);
       return;
     }
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       const chosen = sellers.find(s => s.id === responsibleSellerId);
@@ -488,6 +516,7 @@ export default function CrmNewDemoLeadPage() {
         interest_level: interest,
         wants_offer: wantsOffer,
         followup_date: followup || null,
+        update_followup: followupEdited,
         estimated_value: estValue ? Number(estValue) : null,
         probability: probability ? Number(probability) : null,
         competitors_present: competitorsPresent,
@@ -511,6 +540,7 @@ export default function CrmNewDemoLeadPage() {
       console.error(err);
       toast.error(tt('created_err', lang));
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
@@ -526,6 +556,12 @@ export default function CrmNewDemoLeadPage() {
           </div>
         </div>
 
+        {missingDemoDate && !demoDate && (
+          <div role="alert" className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+            <span className="uppercase">{crmDemoMissingLabel(uiLanguage)}</span>
+            <p className="mt-1 font-normal">{crmDemoDateRequiredLabel(uiLanguage)}</p>
+          </div>
+        )}
         {sourceLeadId && (
           <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm text-violet-900">
             <span>
@@ -761,7 +797,7 @@ export default function CrmNewDemoLeadPage() {
               </div>
             </Field>
             <Field label={tt('lbl_followup', lang)}>
-              <input type="date" className={inputCls} value={followup} onChange={e=>setFollowup(e.target.value)} />
+              <input type="date" className={inputCls} value={followup} onChange={e=>{ setFollowup(e.target.value); setFollowupEdited(true); }} />
             </Field>
             <Field label={tt('lbl_value', lang)}>
               <input

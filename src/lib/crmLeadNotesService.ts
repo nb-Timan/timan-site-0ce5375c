@@ -17,6 +17,8 @@ export interface CrmLeadDemoHistoryEvent {
   description: string | null;
   created_at: string;
   created_by_name: string | null;
+  activity_type?: string;
+  registration_event?: boolean;
 }
 
 export interface CreateCrmLeadNoteInput {
@@ -98,8 +100,8 @@ export async function listCrmLeadDemoHistory(leadId: string): Promise<CrmLeadDem
   if (!leadId) return [];
   const { data, error } = await supabase
     .from('crm_activities')
-    .select('id, lead_id, title, description, created_at, created_by_name')
-    .in('activity_type', ['demo_requested', 'demo_scheduled', 'demo_held'])
+    .select('id, lead_id, title, description, created_at, created_by_name, activity_type, meta')
+    .in('activity_type', ['demo_requested', 'demo_registration_started', 'demo_scheduled', 'demo_date_changed', 'demo_held'])
     .eq('lead_id', leadId)
     .order('created_at', { ascending: false });
   if (error) throw error;
@@ -107,6 +109,8 @@ export async function listCrmLeadDemoHistory(leadId: string): Promise<CrmLeadDem
     id: String(row.id ?? ''),
     lead_id: typeof row.lead_id === 'string' ? row.lead_id : null,
     title: typeof row.title === 'string' ? row.title : null,
+    activity_type: typeof row.activity_type === 'string' ? row.activity_type : undefined,
+    registration_event: (row.meta as Record<string, unknown> | null)?.source === 'crm_demo_registration',
     description: typeof row.description === 'string' ? row.description : null,
     created_at: String(row.created_at ?? ''),
     created_by_name: typeof row.created_by_name === 'string' ? row.created_by_name : null,
