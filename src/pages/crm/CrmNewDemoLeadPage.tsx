@@ -1,5 +1,5 @@
 import AcademyCrmGuidance from '@/components/academy/AcademyCrmGuidance';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
@@ -27,6 +27,9 @@ import AddressAutocomplete from '@/components/crm/AddressAutocomplete';
 import MachineInterestPicker from '@/components/crm/MachineInterestPicker';
 import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
+import { listSelectableDemoLeads, type DemoLeadChoice } from '@/lib/crmDemoLeadSelector';
+import { demoLinkingText } from '@/lib/crmDemoLinkingI18n';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getDemoSelectionErrors, splitDemoMachineInterest } from '@/lib/crmDemoSelection';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
@@ -187,13 +190,17 @@ function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): 
 export default function CrmNewDemoLeadPage() {
   const { appUser: sessionUser, loading: authLoading } = useAppUser();
   const appUser = academyCrmSandbox.isActive() ? getLocalAcademyUser() : sessionUser;
-  const { language: lang } = useLanguage();
+  const { effectiveUser: resolvedEffectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
+  const effectiveUser = resolvedEffectiveUser ?? appUser;
+  const effectiveUserRef = useRef(effectiveUser);
+  effectiveUserRef.current = effectiveUser;
+  const { language: lang, uiLanguage } = useLanguage();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromLeadId = searchParams.get('fromLead') || '';
   const repository = getCrmLeadRepository();
   const academyPart = searchParams.get('academy_part') === '2' ? 2 : 1;
-  const portalRole = derivePortalRole(appUser);
+  const portalRole = derivePortalRole(effectiveUser);
   // A demo creates or updates the canonical CRM opportunity. Keep it to the
   // same internal CRM roles that may create that opportunity; external CRM
   // visibility never implied write access to a new lead.
@@ -233,7 +240,10 @@ export default function CrmNewDemoLeadPage() {
   const [sourceLeadId, setSourceLeadId] = useState<string | null>(null);
   const [sourceLeadNo, setSourceLeadNo] = useState<number | null>(null);
   const [linkMode, setLinkMode] = useState<'existing' | 'new'>(fromLeadId ? 'existing' : 'new');
-  const [leadChoices, setLeadChoices] = useState<{ id: string; label: string }[]>([]);
+  const [leadChoices, setLeadChoices] = useState<DemoLeadChoice[]>([]);
+  const [leadChoicesLoading, setLeadChoicesLoading] = useState(false);
+  const [leadChoicesLoaded, setLeadChoicesLoaded] = useState(false);
+  const [leadPickerOpen, setLeadPickerOpen] = useState(false);
 
 
   // Dealers + sellers
@@ -294,7 +304,11 @@ export default function CrmNewDemoLeadPage() {
 
   // Phase 38 — prefill from originating lead.
   useEffect(() => {
-    if (!fromLeadId) return;
+    if (!fromLeadId || !leadChoicesLoaded) return;
+    if (!leadChoices.some((lead) => lead.id === fromLeadId)) {
+      toast.error(demoLinkingText('leadUnavailable', uiLanguage));
+      return;
+    }
     let cancelled = false;
     (async () => {
       const lead = await repository.getLead(fromLeadId);
@@ -326,32 +340,56 @@ export default function CrmNewDemoLeadPage() {
       if (lead.estimated_value != null) setEstValue(prev => prev || String(lead.estimated_value));
     })();
     return () => { cancelled = true; };
-  }, [fromLeadId, repository, dealers]);
+  }, [fromLeadId, repository, dealers, leadChoices, leadChoicesLoaded, uiLanguage]);
 
   useEffect(() => {
     setProbability(demoDate ? '50' : '40');
   }, [demoDate]);
 
   useEffect(() => {
-    if (repository.academy || linkMode !== 'existing' || sourceLeadId) return;
+    const scopeUser = effectiveUserRef.current;
+    if (repository.academy || linkMode !== 'existing' || resolvingEffectiveUser || !scopeUser) return;
     let cancelled = false;
-    void repository.listLeadsPage({
-      isAdmin: isCrmAdmin(portalRole),
-      ownerEmail: appUser?.email ?? null,
-      tab: 'open',
-      limit: 100,
-    }).then((page) => {
-      if (!cancelled) setLeadChoices(page.rows.filter((row) => row.type === 'open').map((row) => ({
-        id: row.id,
-        label: `${row.display_no} · ${row.title}${row.customer ? ` · ${row.customer}` : ''}`,
-      })));
-    }).catch(() => { if (!cancelled) setLeadChoices([]); });
+    setLeadChoicesLoading(true);
+    setLeadChoicesLoaded(false);
+    void listSelectableDemoLeads({
+      repository,
+      sessionUser: appUser?.email ? { email: appUser.email } : null,
+      effectiveUser: scopeUser,
+      portalRole,
+      dealerAccounts: dealers,
+    }).then((choices) => {
+      if (!cancelled) setLeadChoices(choices);
+    }).catch(() => {
+      if (!cancelled) setLeadChoices([]);
+    }).finally(() => {
+      if (!cancelled) {
+        setLeadChoicesLoading(false);
+        setLeadChoicesLoaded(true);
+      }
+    });
     return () => { cancelled = true; };
-  }, [appUser?.email, linkMode, portalRole, repository, sourceLeadId]);
+  }, [
+    appUser?.email,
+    dealers,
+    effectiveUser?.company_dealer,
+    effectiveUser?.dealer_number,
+    effectiveUser?.email,
+    effectiveUser?.id,
+    linkMode,
+    portalRole,
+    repository,
+    resolvingEffectiveUser,
+  ]);
 
   async function selectExistingLead(leadId: string) {
+    if (!leadChoices.some((lead) => lead.id === leadId)) {
+      toast.error(demoLinkingText('leadUnavailable', uiLanguage));
+      return;
+    }
     const lead = await repository.getLead(leadId);
-    if (!lead) { toast.error('Leadet findes ikke i din adgang'); return; }
+    if (!lead) { toast.error(demoLinkingText('leadUnavailable', uiLanguage)); return; }
+    setLeadPickerOpen(false);
     setSourceLeadId(lead.id);
     setSourceLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
     setTitle(lead.title || '');
@@ -406,7 +444,7 @@ export default function CrmNewDemoLeadPage() {
     setEstValue(machineEstimate.value);
   }, [machineEstimate.value]);
 
-  if (!authLoading && !canCreate) return <Navigate to="/portal/crm" replace />;
+  if (!authLoading && !resolvingEffectiveUser && !canCreate) return <Navigate to="/portal/crm" replace />;
 
   const demoSelectionErrors = getDemoSelectionErrors(machineCategory, machineInterest);
   const errDemoType = demoSelectionErrors.demoType ? tt('val_demo_type', lang) : '';
@@ -501,25 +539,69 @@ export default function CrmNewDemoLeadPage() {
 
         {!repository.academy && !fromLeadId && (
           <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h3 className="text-[15px] font-semibold text-slate-900">Demoens lead</h3>
+            <h3 className="text-[15px] font-semibold text-slate-900">{demoLinkingText('title', uiLanguage)}</h3>
             <div className="mt-3 flex flex-wrap gap-2">
               <button type="button" onClick={() => setLinkMode('existing')}
                 className={cn('rounded-lg border px-3 py-2 text-sm font-medium', linkMode === 'existing' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-200 text-slate-700')}>
-                Knyt til eksisterende lead
+                {demoLinkingText('linkExisting', uiLanguage)}
               </button>
-              <button type="button" onClick={() => { setLinkMode('new'); setSourceLeadId(null); setSourceLeadNo(null); }}
+              <button type="button" onClick={() => { setLinkMode('new'); setSourceLeadId(null); setSourceLeadNo(null); setLeadPickerOpen(false); }}
                 className={cn('rounded-lg border px-3 py-2 text-sm font-medium', linkMode === 'new' ? 'border-emerald-700 bg-emerald-700 text-white' : 'border-slate-200 text-slate-700')}>
-                Opret nyt lead
+                {demoLinkingText('createNew', uiLanguage)}
               </button>
             </div>
             {linkMode === 'existing' && !sourceLeadId && (
-              <label className="mt-4 block text-sm font-medium text-slate-700">
-                Vælg eksisterende lead
-                <select className={cn(inputCls, 'mt-1.5')} defaultValue="" onChange={(event) => { if (event.target.value) void selectExistingLead(event.target.value); }}>
-                  <option value="">Vælg lead…</option>
-                  {leadChoices.map((lead) => <option key={lead.id} value={lead.id}>{lead.label}</option>)}
-                </select>
-              </label>
+              <div className="mt-4">
+                <div className="mb-1.5 text-sm font-medium text-slate-700">
+                  {demoLinkingText('selectExisting', uiLanguage)}
+                </div>
+                <Popover open={leadPickerOpen} onOpenChange={setLeadPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={leadPickerOpen}
+                      className="h-auto min-h-11 w-full justify-between whitespace-normal rounded-xl border-gray-200 px-3 py-2.5 text-left text-sm font-normal"
+                    >
+                      <span className="text-slate-500">
+                        {leadChoicesLoading
+                          ? demoLinkingText('loadingLeads', uiLanguage)
+                          : demoLinkingText('selectPlaceholder', uiLanguage)}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder={demoLinkingText('searchLead', uiLanguage)} />
+                      <CommandList>
+                        <CommandEmpty>{demoLinkingText('noLeads', uiLanguage)}</CommandEmpty>
+                        <CommandGroup>
+                          {leadChoices.map((lead) => {
+                            const details = [lead.customer, lead.status, lead.machine].filter(Boolean).join(' · ');
+                            return (
+                              <CommandItem
+                                key={lead.id}
+                                value={lead.searchValue}
+                                onSelect={() => { void selectExistingLead(lead.id); }}
+                                className="items-start"
+                              >
+                                <div className="min-w-0 py-0.5">
+                                  <div className="truncate text-sm font-medium text-slate-900">
+                                    {lead.displayNo} · {lead.title}
+                                  </div>
+                                  {details && <div className="mt-0.5 truncate text-xs text-slate-500">{details}</div>}
+                                </div>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
             )}
           </section>
         )}
