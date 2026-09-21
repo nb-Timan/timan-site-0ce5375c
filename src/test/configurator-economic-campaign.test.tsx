@@ -17,7 +17,7 @@ const link = (patch: Partial<CampaignProductLink> = {}): CampaignProductLink => 
 });
 const campaign = (patch: Partial<ProductCampaign> = {}): ProductCampaign => ({
   id: 'qa-campaign', code: 'K09-2026-01', name: 'QA CS-200', status: 'published', type: 'percentage', benefitPricingType: null,
-  discountPct: 25, targetPriceDkk: null, targetPriceEur: null, triggerMinQuantity: 1, benefitQuantity: 1, scaleBenefitWithTrigger: false,
+  discountPct: 25, targetPriceDkk: null, targetPriceEur: null, triggerMinQuantity: 1, triggerMatchMode: 'any', benefitQuantity: 1, scaleBenefitWithTrigger: false, audience: 'public',
   startsAt: '2026-01-01T00:00:00Z', endsAt: '2099-01-01T00:00:00Z', badge_starts_at: '2026-01-01T00:00:00Z', badge_ends_at: '2099-01-01T00:00:00Z', badge_show_countdown: true,
   products: [link()], ...patch,
 });
@@ -88,6 +88,89 @@ describe('canonical multi-product campaigns', () => {
     replacePublishedCampaigns([campaign({ type: 'conditional', benefitPricingType: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0, scaleBenefitWithTrigger: true,
       products: [link({ role: 'trigger', productKey: 'Timan 3330::Timan 3330', itemNumber: '712000' }), link({ role: 'benefit' })] })]);
     expect(calculateConfiguration(input, { now }).campaignLines).toHaveLength(2);
+  });
+  it('evaluates 3 x RC-1000s -> 1 x RC-751 across separate machine slots', () => {
+    const input = { ...createEmptyConfiguratorState('da'), machineConfigs: [
+      { id: 'rc-a', type: 'RC-1000S', qty: 1, configMode: 'shared' as const, acc: [] },
+      { id: 'rc-b', type: 'RC-1000S', qty: 1, configMode: 'shared' as const, acc: [] },
+      { id: 'rc-benefit', type: 'RC-751', qty: 1, configMode: 'shared' as const, acc: [] },
+    ] } as ConfiguratorState;
+    replacePublishedCampaigns([campaign({
+      name: 'QA generic RC family', type: 'conditional', benefitPricingType: 'fixed', discountPct: null,
+      targetPriceDkk: 0, targetPriceEur: 0, triggerMinQuantity: 3,
+      products: [
+        link({ role: 'trigger', productKey: 'RC-1000S::RC-1000S', machineKey: 'RC-1000S', itemNumber: '411000' }),
+        link({ role: 'benefit', productKey: 'RC-751::RC-751', machineKey: 'RC-751', itemNumber: '410040' }),
+      ],
+    })]);
+    expect(calculateConfiguration(input, { now }).campaignLines).toEqual([]);
+    input.machineConfigs[1].qty = 2;
+    const active = calculateConfiguration(input, { now });
+    expect(active.campaignLines).toHaveLength(1);
+    expect(active.campaignLines?.[0]).toMatchObject({
+      benefitItemNumber: '410040', targetPrice: 0, finalLineValue: 0,
+      triggerItemNumbers: ['411000'], triggerSetCount: 1, benefitEntitlementQuantity: 1,
+    });
+    input.machineConfigs = input.machineConfigs.filter(machine => machine.type !== 'RC-1000S');
+    expect(calculateConfiguration(input, { now }).campaignLines).toEqual([]);
+  });
+  it('supports once and repeat scaling for a generic 3-to-1 quantity ratio', () => {
+    const input = { ...createEmptyConfiguratorState('da'), machineConfigs: [
+      { id: 'rc-trigger', type: 'RC-1000S', qty: 6, configMode: 'shared' as const, acc: [] },
+      { id: 'rc-benefit', type: 'RC-751', qty: 2, configMode: 'shared' as const, acc: [] },
+    ] } as ConfiguratorState;
+    const rule = campaign({
+      type: 'conditional', benefitPricingType: 'fixed', discountPct: null,
+      targetPriceDkk: 0, targetPriceEur: 0, triggerMinQuantity: 3,
+      products: [
+        link({ role: 'trigger', productKey: 'RC-1000S::RC-1000S', machineKey: 'RC-1000S', itemNumber: '411000' }),
+        link({ role: 'benefit', productKey: 'RC-751::RC-751', machineKey: 'RC-751', itemNumber: '410040' }),
+      ],
+    });
+    replacePublishedCampaigns([rule]);
+    const once = calculateConfiguration(input, { now });
+    expect(once.campaignLines).toHaveLength(1);
+    expect(once.campaignLines?.[0]).toMatchObject({ triggerSetCount: 2, repeatPerTrigger: false, benefitEntitlementQuantity: 1 });
+    replacePublishedCampaigns([{ ...rule, scaleBenefitWithTrigger: true }]);
+    const repeated = calculateConfiguration(input, { now });
+    expect(repeated.campaignLines).toHaveLength(2);
+    expect(repeated.campaignLines?.every(row => row.triggerSetCount === 2 && row.benefitEntitlementQuantity === 2)).toBe(true);
+  });
+  it('requires every trigger product in an AND group and supports OR groups without product-specific code', () => {
+    const input = state();
+    input.machineConfigs.push({ id: 'benefit', type: 'RC-751', qty: 1, configMode: 'shared', acc: [] });
+    const products = [
+      link({ role: 'trigger', productKey: 'Timan 3330::Timan 3330', itemNumber: '712000' }),
+      link({ role: 'trigger', productKey: 'Timan 3330::725132', itemNumber: '725132' }),
+      link({ role: 'benefit', productKey: 'RC-751::RC-751', machineKey: 'RC-751', itemNumber: '410040' }),
+    ];
+    const rule = campaign({ type: 'conditional', benefitPricingType: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0, triggerMatchMode: 'all', products });
+    replacePublishedCampaigns([rule]);
+    expect(calculateConfiguration(input, { now }).campaignLines).toEqual([]);
+    input.machineConfigs[0].acc.push('725132');
+    expect(calculateConfiguration(input, { now }).campaignLines?.[0]).toMatchObject({ triggerMatchMode: 'all', triggerSetCount: 1, finalLineValue: 0 });
+    input.machineConfigs[0].acc = [];
+    replacePublishedCampaigns([{ ...rule, triggerMatchMode: 'any' }]);
+    expect(calculateConfiguration(input, { now }).campaignLines?.[0]).toMatchObject({ triggerMatchMode: 'any', finalLineValue: 0 });
+  });
+  it('does not combine partial quantities from separate OR alternatives', () => {
+    const input = state();
+    input.machineConfigs[0].qty = 2;
+    input.machineConfigs.push({ id: 'alternative', type: 'RC-1000S', qty: 2, configMode: 'shared', acc: [] });
+    input.machineConfigs.push({ id: 'benefit', type: 'RC-751', qty: 1, configMode: 'shared', acc: [] });
+    const rule = campaign({
+      type: 'conditional', benefitPricingType: 'fixed', discountPct: null,
+      targetPriceDkk: 0, targetPriceEur: 0, triggerMinQuantity: 3, triggerMatchMode: 'any',
+      products: [
+        link({ role: 'trigger', productKey: 'Timan 3330::Timan 3330', itemNumber: '712000' }),
+        link({ role: 'trigger', productKey: 'RC-1000S::RC-1000S', machineKey: 'RC-1000S', itemNumber: '411000' }),
+        link({ role: 'benefit', productKey: 'RC-751::RC-751', machineKey: 'RC-751', itemNumber: '410040' }),
+      ],
+    });
+    replacePublishedCampaigns([rule]);
+    expect(calculateConfiguration(input, { now }).campaignLines).toEqual([]);
+    input.machineConfigs[1].qty = 3;
+    expect(calculateConfiguration(input, { now }).campaignLines?.[0]).toMatchObject({ triggerSetCount: 1, finalLineValue: 0 });
   });
   it('supports several products under one campaign id and code', () => {
     const input = state(); input.machineConfigs[0].acc.push('725132');

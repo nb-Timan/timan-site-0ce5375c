@@ -6,6 +6,8 @@ import { campaignError } from '@/lib/configuratorCampaigns';
 
 describe('Marketing multi-product campaign model', () => {
   const migration = () => readFileSync('supabase/migrations/20260921163934_canonical_multi_product_campaigns.sql', 'utf8');
+  const genericMigration = () => readFileSync('supabase/migrations/20260921191456_generic_campaign_trigger_groups.sql', 'utf8');
+  const qaMigration = () => readFileSync('supabase/migrations/20260921191514_campaign_qa_audience_scope.sql', 'utf8');
 
   it('uses one campaign entity and role-based product links', () => {
     const sql = migration();
@@ -14,6 +16,15 @@ describe('Marketing multi-product campaign model', () => {
     expect(sql).toContain("product_role in ('linked', 'trigger', 'benefit')");
     expect(sql).toContain('unique (campaign_id, product_key, product_role)');
     expect(sql).toContain('save_marketing_campaign');
+  });
+
+  it('stores generic ANY/ALL trigger groups and owner-isolated QA campaigns', () => {
+    expect(genericMigration()).toContain("trigger_match_mode in ('any', 'all')");
+    const sql = qaMigration();
+    expect(sql).toContain("audience in ('public', 'qa')");
+    expect(sql).toContain("audience = 'qa' and qa_user_id = (select auth.uid())");
+    expect(sql).toContain("audience = 'public'");
+    expect(sql).not.toContain('security definer');
   });
 
   it('generates unique monthly codes under an advisory transaction lock', () => {
@@ -49,6 +60,8 @@ describe('Marketing multi-product campaign model', () => {
       expect(copy.campaignConditional).toBeTruthy();
       expect(copy.campaignSearchProducts).toBeTruthy();
       expect(copy.campaignPublish).toBeTruthy();
+      expect(copy.campaignMatchAll).toBeTruthy();
+      expect(copy.campaignQaOnly).toBeTruthy();
     }
   });
 

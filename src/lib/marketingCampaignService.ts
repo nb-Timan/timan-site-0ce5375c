@@ -9,7 +9,7 @@ import {
 const CAMPAIGN_SELECT = `
   id, campaign_code, campaign_name, status, campaign_type, benefit_pricing_type,
   discount_pct, target_price_dkk, target_price_eur, trigger_min_quantity,
-  benefit_quantity, scale_benefit_with_trigger, starts_at, ends_at,
+  trigger_match_mode, benefit_quantity, scale_benefit_with_trigger, audience, starts_at, ends_at,
   created_at, updated_at, published_at,
   marketing_campaign_products (
     id, campaign_id, product_key, machine_key, item_number, product_role,
@@ -51,8 +51,10 @@ function parseCampaign(value: Record<string, unknown>): ProductCampaign {
     targetPriceDkk: numberOrNull(value.target_price_dkk),
     targetPriceEur: numberOrNull(value.target_price_eur),
     triggerMinQuantity: Math.max(1, Number(value.trigger_min_quantity) || 1),
+    triggerMatchMode: value.trigger_match_mode === 'all' ? 'all' : 'any',
     benefitQuantity: Math.max(1, Number(value.benefit_quantity) || 1),
     scaleBenefitWithTrigger: value.scale_benefit_with_trigger === true,
+    audience: value.audience === 'qa' ? 'qa' : 'public',
     startsAt: String(value.starts_at || ''),
     endsAt: String(value.ends_at || ''),
     badge_starts_at: String(value.starts_at || '') || null,
@@ -69,7 +71,7 @@ export function emptyMarketingCampaign(): ProductCampaign {
   return {
     id: '', code: '', name: '', status: 'draft', type: 'badge', benefitPricingType: null,
     discountPct: null, targetPriceDkk: null, targetPriceEur: null,
-    triggerMinQuantity: 1, benefitQuantity: 1, scaleBenefitWithTrigger: false,
+    triggerMinQuantity: 1, triggerMatchMode: 'any', benefitQuantity: 1, scaleBenefitWithTrigger: false, audience: 'public',
     startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString(),
     badge_starts_at: startsAt.toISOString(), badge_ends_at: endsAt.toISOString(), badge_show_countdown: true,
     products: [],
@@ -115,7 +117,9 @@ export async function saveMarketingCampaign(campaign: ProductCampaign, status: '
       status, campaign_type: next.type, benefit_pricing_type: next.benefitPricingType,
       discount_pct: next.discountPct, target_price_dkk: next.targetPriceDkk,
       target_price_eur: next.targetPriceEur, trigger_min_quantity: next.triggerMinQuantity,
+      trigger_match_mode: next.triggerMatchMode,
       benefit_quantity: next.benefitQuantity, scale_benefit_with_trigger: next.scaleBenefitWithTrigger,
+      audience: next.audience,
       starts_at: next.startsAt, ends_at: next.endsAt,
     },
     p_products: products,

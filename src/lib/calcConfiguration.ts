@@ -3,7 +3,7 @@ import { PRODUCTS, getAccessoriesFlat, getLocalizedName, getPrice } from '@/data
 import { t } from '@/data/translations';
 import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
-import { campaignProductPricing, isCampaignActive, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
+import { campaignBenefitEntitlement, campaignProductPricing, campaignTriggerSetCount, isCampaignActive, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
 
 export const roundPricingMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
@@ -13,7 +13,7 @@ export function configurationCampaignSelection(state: ConfiguratorState) {
   return state.machineConfigs.flatMap(machine => {
     const product = PRODUCTS[machine.type];
     if (!product) return [];
-    const selection = [{ productKey: `${machine.type}::${product.id}`, quantity: machine.qty }];
+    const selection = [{ productKey: `${machine.type}::${product.id}`, itemNumber: product.varenr, quantity: machine.qty }];
     for (let index = 1; index <= machine.qty; index++) {
       const key = machine.configMode === 'shared' ? machine.id : `${machine.id}_${index}`;
       const selected = machine.configMode === 'shared' ? machine.acc ?? [] : state.individualUnitConfigs?.[key]?.acc ?? [];
@@ -21,7 +21,7 @@ export function configurationCampaignSelection(state: ConfiguratorState) {
         if (accessory.isHeader) continue;
         const quantity = state.accQty?.[`${key}_${accessory.id}`] || 0;
         if (selected.includes(accessory.id) || shouldIncludeQuantityAccessory(machine.type, accessory, selected, quantity)) {
-          selection.push({ productKey: `${machine.type}::${accessory.id}`, quantity: quantity || 1 });
+          selection.push({ productKey: `${machine.type}::${accessory.id}`, itemNumber: accessory.varenr, quantity: quantity || 1 });
         }
       }
     }
@@ -86,7 +86,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
       line.net = roundPricingMoney(line.net - (next - allocated));
       allocated = next;
     }
-    if (amount > 0) details.push({ kind, percent, basis, txt: `${label.replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/, '')} (${percent.toLocaleString(state.language, { maximumFractionDigits: 2 })}%)`, amount, varenr });
+    if (amount > 0) details.push({ kind, percent, basis, txt: `${label.replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/, '')} (${percent.toLocaleString(state.language, { maximumFractionDigits: 2 })}%)`, amount, ...(varenr ? { varenr } : {}) });
   };
   const quantityPct = eligibleUnits >= 4 ? 4 : eligibleUnits >= 2 ? 2 : 0;
   if (!options.grossManualDiscountOnly) {
@@ -106,18 +106,18 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
       if (!isCampaignActive(campaign, now) || campaign.type === 'badge') continue;
       const triggerLinks = campaign.products.filter(product => product.role === 'trigger');
       const benefitLinks = campaign.products.filter(product => product.role === 'benefit' || (campaign.type !== 'conditional' && product.role === 'linked'));
-      const triggerQuantity = triggerLinks.reduce((sum, product) => sum + lines.filter(line => line.productKey === product.productKey).reduce((lineSum, line) => lineSum + line.quantity, 0), 0);
-      if (campaign.type === 'conditional' && triggerQuantity < campaign.triggerMinQuantity) continue;
-      const scale = campaign.type === 'conditional' && campaign.scaleBenefitWithTrigger
-        ? Math.floor(triggerQuantity / campaign.triggerMinQuantity) : 1;
-      let remainingBenefitQuantity = campaign.type === 'conditional' ? campaign.benefitQuantity * scale : Number.POSITIVE_INFINITY;
+      const campaignSelection = lines.map(line => ({ productKey: line.productKey, itemNumber: line.item.varenr, quantity: line.quantity }));
+      const triggerSetCount = campaignTriggerSetCount(campaign, campaignSelection);
+      let remainingBenefitQuantity = campaignBenefitEntitlement(campaign, campaignSelection);
+      if (campaign.type === 'conditional' && remainingBenefitQuantity <= 0) continue;
+      const benefitEntitlementQuantity = campaign.type === 'conditional' ? remainingBenefitQuantity : null;
       // A single entitlement is shared by all choices; the latest selected choice wins.
       const benefitLines = campaign.type === 'conditional'
         ? [...lines].sort((a, b) => b.selectionOrder - a.selectionOrder || a.unit - b.unit)
         : lines;
       for (const line of benefitLines) {
         if (line.campaignApplied) continue;
-        const benefit = benefitLinks.find(product => product.productKey === line.productKey);
+        const benefit = benefitLinks.find(product => product.itemNumber === line.item.varenr || product.productKey === line.productKey);
         if (!benefit) continue;
         const remaining = remainingBenefitQuantity;
         if (remaining <= 0) continue;
@@ -141,6 +141,8 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
           campaignId: campaign.id, campaignCode: campaign.code, campaignName: campaign.name,
           campaignType: campaign.type, pricingType, applied: amount > 0,
           triggerItemNumbers: triggerLinks.map(product => product.itemNumber), benefitItemNumber: benefit.itemNumber,
+          triggerMatchMode: campaign.triggerMatchMode, triggerSetCount,
+          repeatPerTrigger: campaign.scaleBenefitWithTrigger, benefitEntitlementQuantity,
           configuredPct: pricingType === 'percentage' ? configuredPct : null,
           discountPct: pricingType === 'percentage' ? configuredPct ?? 0 : percent,
           discountAmount: amount, targetPrice: target, currency, productKey: line.productKey,

@@ -36,6 +36,8 @@ describe('product-linked Campaign editor', () => {
     await screen.findByDisplayValue('TEST editor');
     expect(screen.getByDisplayValue('QA-EDITOR')).toBeVisible();
     expect(screen.getByLabelText('Fordelsantal')).toHaveValue(1);
+    expect(screen.getByText('Mindst én trigger (ELLER)')).toBeVisible();
+    expect(screen.getByText('Kun én gang')).toBeVisible();
     for (const id of ['725131', '725132', '725138']) expect(screen.getByLabelText(`Fordelsprodukter ${id}`)).toBeVisible();
     fireEvent.change(screen.getByLabelText('Fordelsantal'), { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Gem kladde' }));
@@ -43,6 +45,19 @@ describe('product-linked Campaign editor', () => {
     const saved = vi.mocked(saveMarketingCampaign).mock.calls[0][0];
     expect(saved).toMatchObject({ id: 'qa', benefitQuantity: 3, targetPriceDkk: 0 });
     expect(saved.products.filter(row => row.role === 'benefit')).toHaveLength(3);
+  });
+  it('persists trigger grouping, repeat scaling and QA-only visibility', async () => {
+    render(<MarketingCampaignManager catalog={catalog} language="da" initialProduct={item} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Kampagneopsætning' }));
+    await screen.findByDisplayValue('TEST editor');
+    fireEvent.click(screen.getByText('Mindst én trigger (ELLER)'));
+    fireEvent.click(await screen.findByRole('option', { name: 'Alle triggere (OG)' }));
+    fireEvent.click(screen.getByText('Kun én gang'));
+    fireEvent.click(await screen.findByRole('option', { name: 'Gentag pr. opfyldt trigger' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Kun QA (kun synlig for mig)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gem kladde' }));
+    await waitFor(() => expect(saveMarketingCampaign).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(saveMarketingCampaign).mock.calls[0][0]).toMatchObject({ triggerMatchMode: 'all', scaleBenefitWithTrigger: true, audience: 'qa' });
   });
   it('changes an individual benefit to percentage without changing the other benefits', async () => {
     render(<MarketingCampaignManager catalog={catalog} language="da" initialProduct={item} />);

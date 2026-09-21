@@ -6,6 +6,8 @@ export type CampaignType = 'badge' | 'percentage' | 'fixed' | 'conditional';
 export type CampaignBenefitPricingType = 'percentage' | 'fixed';
 export type CampaignProductRole = 'linked' | 'trigger' | 'benefit';
 export type CampaignPricingType = 'none' | 'percentage' | 'fixed';
+export type CampaignTriggerMatchMode = 'any' | 'all';
+export type CampaignAudience = 'public' | 'qa';
 export interface CampaignPricingFields {
   campaign_pricing_type?: CampaignPricingType;
   campaign_discount_pct?: number | null;
@@ -35,8 +37,10 @@ export interface ProductCampaign extends MarketingBadgeSchedule {
   targetPriceDkk: number | null;
   targetPriceEur: number | null;
   triggerMinQuantity: number;
+  triggerMatchMode: CampaignTriggerMatchMode;
   benefitQuantity: number;
   scaleBenefitWithTrigger: boolean;
+  audience: CampaignAudience;
   startsAt: string;
   endsAt: string;
   products: CampaignProductLink[];
@@ -49,6 +53,10 @@ export interface CampaignLineSnapshot {
   pricingType: CampaignBenefitPricingType;
   applied: boolean;
   triggerItemNumbers: string[];
+  triggerMatchMode: CampaignTriggerMatchMode;
+  triggerSetCount: number;
+  repeatPerTrigger: boolean;
+  benefitEntitlementQuantity: number | null;
   benefitItemNumber: string;
   configuredPct: number | null;
   discountPct: number;
@@ -67,9 +75,11 @@ export interface CampaignLineSnapshot {
 }
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
-export function campaignError(campaign: Pick<ProductCampaign, 'name' | 'type' | 'benefitPricingType' | 'discountPct' | 'targetPriceDkk' | 'targetPriceEur' | 'triggerMinQuantity' | 'benefitQuantity' | 'startsAt' | 'endsAt' | 'products'>): string | null {
+export function campaignError(campaign: Pick<ProductCampaign, 'name' | 'type' | 'benefitPricingType' | 'discountPct' | 'targetPriceDkk' | 'targetPriceEur' | 'triggerMinQuantity' | 'triggerMatchMode' | 'benefitQuantity' | 'audience' | 'startsAt' | 'endsAt' | 'products'>): string | null {
   if (!campaign.name.trim()) return 'Angiv et kampagnenavn.';
   if (!['badge', 'percentage', 'fixed', 'conditional'].includes(campaign.type)) return 'Ugyldig kampagnetype.';
+  if (!['any', 'all'].includes(campaign.triggerMatchMode)) return 'Ugyldig triggergruppe.';
+  if (!['public', 'qa'].includes(campaign.audience)) return 'Ugyldig kampagnemålgruppe.';
   if (!Number.isInteger(campaign.triggerMinQuantity) || !Number.isInteger(campaign.benefitQuantity) || !(campaign.triggerMinQuantity > 0) || !(campaign.benefitQuantity > 0)) return 'Antal skal være et helt tal på mindst 1.';
   const start = Date.parse(campaign.startsAt);
   const end = Date.parse(campaign.endsAt);
@@ -101,6 +111,38 @@ export function isCampaignActive(campaign: ProductCampaign, now = Date.now()) {
   return campaign.status === 'published' && Date.parse(campaign.startsAt) <= now && Date.parse(campaign.endsAt) > now && !campaignError(campaign);
 }
 
+export type CampaignSelectionLine = { productKey: string; itemNumber?: string; quantity: number };
+
+const campaignProductIdentity = (product: Pick<CampaignProductLink, 'productKey' | 'itemNumber'>) => product.itemNumber.trim() || product.productKey;
+
+function selectedCampaignQuantity(product: CampaignProductLink, selection: CampaignSelectionLine[]) {
+  const identity = campaignProductIdentity(product);
+  return selection.reduce((sum, item) => {
+    const itemIdentity = item.itemNumber?.trim() || item.productKey;
+    return sum + (itemIdentity === identity ? Math.max(0, item.quantity) : 0);
+  }, 0);
+}
+
+/** Number of complete trigger groups across the entire canonical cart. */
+export function campaignTriggerSetCount(campaign: ProductCampaign, selection: CampaignSelectionLine[]) {
+  if (campaign.type !== 'conditional') return 1;
+  const triggers = campaign.products.filter(product => product.role === 'trigger');
+  if (!triggers.length) return 0;
+  const uniqueTriggers = [...new Map(triggers.map(product => [campaignProductIdentity(product), product])).values()];
+  const quantities = uniqueTriggers.map(product => selectedCampaignQuantity(product, selection));
+  if (campaign.triggerMatchMode === 'all') {
+    return Math.min(...quantities.map(quantity => Math.floor(quantity / campaign.triggerMinQuantity)));
+  }
+  return Math.max(...quantities.map(quantity => Math.floor(quantity / campaign.triggerMinQuantity)));
+}
+
+export function campaignBenefitEntitlement(campaign: ProductCampaign, selection: CampaignSelectionLine[]) {
+  if (campaign.type !== 'conditional') return Number.POSITIVE_INFINITY;
+  const triggerSets = campaignTriggerSetCount(campaign, selection);
+  if (triggerSets < 1) return 0;
+  return campaign.benefitQuantity * (campaign.scaleBenefitWithTrigger ? triggerSets : 1);
+}
+
 /** Product overrides use the existing mutually exclusive percentage/target fields. */
 export function campaignProductPricing(campaign: ProductCampaign, product?: CampaignProductLink) {
   if (campaign.type === 'badge') return { type: 'badge', discountPct: null, targetPriceDkk: null, targetPriceEur: null };
@@ -120,8 +162,7 @@ export function eligibleCampaignFor(productKey: string, selection: { productKey:
     if (!isCampaignActive(campaign, now)) return false;
     if (campaign.type !== 'conditional') return true;
     if (!campaign.products.some(product => product.productKey === productKey && product.role === 'benefit')) return false;
-    const triggerKeys = new Set(campaign.products.filter(product => product.role === 'trigger').map(product => product.productKey));
-    return selection.reduce((sum, item) => sum + (triggerKeys.has(item.productKey) ? item.quantity : 0), 0) >= campaign.triggerMinQuantity;
+    return campaignTriggerSetCount(campaign, selection) > 0;
   });
 }
 
