@@ -30,6 +30,24 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('product-linked Campaign editor', () => {
+  it('separates Buy X from Get Y, explains quantities and shows a live example', async () => {
+    render(<MarketingCampaignManager catalog={catalog} language="da" initialProduct={item} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Kampagneopsætning' }));
+    await screen.findByDisplayValue('TEST editor');
+
+    expect(screen.getByRole('region', { name: 'KØB X / TRIGGER' })).toBeVisible();
+    expect(screen.getByRole('region', { name: 'FÅ Y / FORDEL' })).toBeVisible();
+    expect(screen.getByText('Antal X der skal være i kurven før kampagnen aktiveres.')).toBeVisible();
+    expect(screen.getByText('Antal Y der kan få kampagneprisen eller rabatten.')).toBeVisible();
+    expect(screen.getByText(/Kun én gang giver fordelen én gang/)).toBeVisible();
+    expect(screen.getByLabelText('Kampagnens prisregel')).toHaveTextContent('0 kr.');
+    expect(screen.getByLabelText('Fordelstype 725138')).toHaveTextContent('Brug kampagnens prisregel');
+    expect(screen.getByTestId('campaign-live-summary')).toHaveTextContent('Køb 1 ×');
+    expect(screen.getByTestId('campaign-live-summary')).toHaveTextContent('få 1 ×');
+    expect(screen.getByTestId('campaign-live-summary')).toHaveTextContent('0 kr.');
+    expect(screen.getByRole('dialog')).toHaveClass('sm:max-w-[90rem]');
+  });
+
   it('opens the existing shared campaign from a product and persists its three choices and shared quantity', async () => {
     render(<MarketingCampaignManager catalog={catalog} language="da" initialProduct={item} />);
     fireEvent.click(screen.getByRole('button', { name: 'Kampagneopsætning' }));
@@ -72,6 +90,18 @@ describe('product-linked Campaign editor', () => {
     const saved = vi.mocked(saveMarketingCampaign).mock.calls[0][0];
     expect(saved.products.find(row => row.itemNumber === '725138')).toMatchObject({ discountPct: 10, targetPriceDkk: null, targetPriceEur: null });
     expect(saved.targetPriceDkk).toBe(0);
+  });
+  it('maps the explicit zero-price choice to the existing fixed zero target model', async () => {
+    const percentageDraft = { ...draft(), benefitPricingType: 'percentage' as const, discountPct: 15, targetPriceDkk: null, targetPriceEur: null };
+    vi.mocked(listMarketingCampaigns).mockResolvedValue({ rows: [percentageDraft], error: null });
+    render(<MarketingCampaignManager catalog={catalog} language="da" initialProduct={item} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Kampagneopsætning' }));
+    await screen.findByDisplayValue('TEST editor');
+    fireEvent.click(screen.getByLabelText('Kampagnens prisregel'));
+    fireEvent.click(await screen.findByRole('option', { name: '0 kr.' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gem kladde' }));
+    await waitFor(() => expect(saveMarketingCampaign).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(saveMarketingCampaign).mock.calls[0][0]).toMatchObject({ benefitPricingType: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0 });
   });
   it('keeps an invalid cleared date editable rather than throwing', async () => {
     render(<MarketingCampaignManager catalog={catalog} language="da" initialProduct={item} />);

@@ -91,13 +91,51 @@ export default function MarketingCampaignManager({ catalog, language, initialPro
     setDraft(null); await refresh();
   };
   const roleTitle = (role: CampaignProductRole) => role === 'trigger' ? T('campaignTriggerProducts') : role === 'benefit' ? T('campaignBenefitProducts') : T('campaignLinkedProducts');
+  const campaignBenefitMode = draft?.benefitPricingType === 'percentage'
+    ? 'percentage'
+    : draft?.targetPriceDkk === 0 && draft?.targetPriceEur === 0 ? 'zero' : 'fixed';
+  const setCampaignBenefitMode = (mode: 'percentage' | 'fixed' | 'zero') => setDraft(current => {
+    if (!current) return current;
+    if (mode === 'percentage') return { ...current, benefitPricingType: 'percentage', discountPct: current.discountPct || 1, targetPriceDkk: null, targetPriceEur: null };
+    if (mode === 'zero') return { ...current, benefitPricingType: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0 };
+    return {
+      ...current,
+      benefitPricingType: 'fixed',
+      discountPct: null,
+      targetPriceDkk: current.targetPriceDkk === 0 ? null : current.targetPriceDkk,
+      targetPriceEur: current.targetPriceEur === 0 ? null : current.targetPriceEur,
+    };
+  });
+  const productNames = (role: CampaignProductRole) => draft?.products
+    .filter(product => product.role === role)
+    .map(product => catalogByKey.get(product.productKey)?.defaults.title || product.itemNumber)
+    .join(' / ') || '—';
+  const benefitSummary = () => {
+    if (!draft) return '';
+    if (campaignBenefitMode === 'zero') return T('campaignZeroPrice');
+    if (campaignBenefitMode === 'percentage') return `${draft.discountPct ?? 0}%`;
+    const values = [draft.targetPriceDkk != null ? `${draft.targetPriceDkk} DKK` : '', draft.targetPriceEur != null ? `${draft.targetPriceEur} EUR` : ''].filter(Boolean);
+    return values.join(' / ') || T('campaignFixed');
+  };
+  const renderProducts = (role: CampaignProductRole) => {
+    if (!draft) return null;
+    const products = draft.products.filter(product => product.role === role);
+    if (!products.length) return <div className="rounded-md border border-dashed border-slate-300 px-3 py-4 text-sm text-slate-500">{T('campaignNoResults')}</div>;
+    return <div className="space-y-2">{products.map(product => {
+      const item = catalogByKey.get(product.productKey);
+      return <div key={`${role}-${product.productKey}`} className="space-y-2 rounded-md border border-slate-200 bg-white p-3 text-sm" aria-label={`${roleTitle(role)} ${product.itemNumber}`}>
+        <div className="flex items-start justify-between gap-2"><span><strong>{product.itemNumber}</strong> · {item?.defaults.title || product.productKey}</span><Button size="icon" variant="ghost" onClick={() => removeProduct(product.productKey, role)} aria-label={`${T('campaignRemoveProduct')} ${product.itemNumber}`}><X className="h-4 w-4" /></Button></div>
+        {role === 'benefit' && <ProductPricing product={product} campaign={draft} language={language} onChange={patch => updateProduct(product.productKey, role, patch)} />}
+      </div>;
+    })}</div>;
+  };
 
   return <>
     <div className={initialProduct ? 'py-2' : 'mx-auto mb-4 flex max-w-6xl justify-end'}>
       <Button type="button" onClick={() => { setMessage(null); setOpen(true); }}><Megaphone className="mr-2 h-4 w-4" />{T(initialProduct ? 'campaignSetup' : 'campaignManager')}</Button>
     </div>
     <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setMessage(null); }}>
-      <DialogContent aria-describedby={undefined} className="flex max-h-[94vh] flex-col overflow-hidden sm:max-w-6xl">
+      <DialogContent aria-describedby={undefined} className="flex max-h-[94vh] w-[96vw] max-w-[96vw] flex-col overflow-hidden sm:max-w-[90rem]">
         <DialogHeader><DialogTitle>{T('campaignManager')}</DialogTitle></DialogHeader>
         {message && <div role="status" className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm">{message}</div>}
         <div className="grid min-h-0 gap-5 overflow-y-auto lg:grid-cols-[17rem_minmax(0,1fr)]">
@@ -120,21 +158,38 @@ export default function MarketingCampaignManager({ catalog, language, initialPro
               <div className="flex min-h-12 items-center rounded-md border border-slate-200 bg-slate-50 px-3">
                 <MarketingConfiguratorBadge badge="Kampagne" language={language} campaign={draft} preview />
               </div>
-              {draft.type === 'conditional' && <div className="grid gap-3 sm:grid-cols-2"><label className="space-y-1 text-sm"><span>{T('campaignTriggerQuantity')}</span><Input type="number" min="1" value={draft.triggerMinQuantity} onChange={event => setDraft({ ...draft, triggerMinQuantity: Math.max(1, Number(event.target.value) || 1) })} /></label><label className="space-y-1 text-sm"><span>{T('campaignBenefitQuantity')}</span><Input type="number" min="1" value={draft.benefitQuantity} onChange={event => setDraft({ ...draft, benefitQuantity: Math.max(1, Number(event.target.value) || 1) })} /></label><label className="space-y-1 text-sm"><span>{T('campaignTriggerMatch')}</span><Select value={draft.triggerMatchMode} onValueChange={value => setDraft({ ...draft, triggerMatchMode: value as 'any' | 'all' })}><SelectTrigger>{T(draft.triggerMatchMode === 'all' ? 'campaignMatchAll' : 'campaignMatchAny')}</SelectTrigger><SelectContent><SelectItem value="any">{T('campaignMatchAny')}</SelectItem><SelectItem value="all">{T('campaignMatchAll')}</SelectItem></SelectContent></Select></label><label className="space-y-1 text-sm"><span>{T('campaignScaleBenefit')}</span><Select value={draft.scaleBenefitWithTrigger ? 'repeat' : 'once'} onValueChange={value => setDraft({ ...draft, scaleBenefitWithTrigger: value === 'repeat' })}><SelectTrigger>{T(draft.scaleBenefitWithTrigger ? 'campaignScaleRepeat' : 'campaignScaleOnce')}</SelectTrigger><SelectContent><SelectItem value="once">{T('campaignScaleOnce')}</SelectItem><SelectItem value="repeat">{T('campaignScaleRepeat')}</SelectItem></SelectContent></Select></label><label className="space-y-1 text-sm sm:col-span-2"><span>{T('campaignBenefitType')}</span><Select value={draft.benefitPricingType || 'fixed'} onValueChange={value => setDraft({ ...draft, benefitPricingType: value as 'percentage' | 'fixed' })}><SelectTrigger>{T(draft.benefitPricingType === 'percentage' ? 'campaignPercentage' : 'campaignFixed')}</SelectTrigger><SelectContent><SelectItem value="percentage">{T('campaignPercentage')}</SelectItem><SelectItem value="fixed">{T('campaignFixed')}</SelectItem></SelectContent></Select></label></div>}
-              {(draft.type === 'percentage' || (draft.type === 'conditional' && draft.benefitPricingType === 'percentage')) && <label className="block space-y-1 text-sm"><span>{T('campaignDiscountPct')}</span><Input type="number" min="0.01" max="100" step="0.01" value={draft.discountPct ?? ''} onChange={event => setDraft({ ...draft, discountPct: event.target.value === '' ? null : Number(event.target.value) })} /></label>}
-              {(draft.type === 'fixed' || (draft.type === 'conditional' && draft.benefitPricingType === 'fixed')) && <div className="grid gap-3 sm:grid-cols-2"><label className="space-y-1 text-sm"><span>{T('campaignTargetDkk')}</span><Input type="number" min="0" step="0.01" value={draft.targetPriceDkk ?? ''} onChange={event => setDraft({ ...draft, targetPriceDkk: event.target.value === '' ? null : Number(event.target.value) })} /></label><label className="space-y-1 text-sm"><span>{T('campaignTargetEur')}</span><Input type="number" min="0" step="0.01" value={draft.targetPriceEur ?? ''} onChange={event => setDraft({ ...draft, targetPriceEur: event.target.value === '' ? null : Number(event.target.value) })} /></label></div>}
               <div className="space-y-2"><label className="relative block"><Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" /><Input className="pl-9" value={search} onChange={event => setSearch(event.target.value)} placeholder={T('campaignSearchProducts')} /></label>{search && <div className="max-h-48 overflow-y-auto rounded-md border">{results.length ? results.map(item => <div key={item.productKey} className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2 text-sm last:border-0"><span><strong>{item.itemNumber}</strong> · {item.defaults.title}<span className="ml-1 text-slate-400">({item.machineKey})</span></span><span className="flex gap-1">{draft.type === 'conditional' ? <><Button size="sm" variant="outline" onClick={() => addProduct(item, 'trigger')}>{T('campaignAddTrigger')}</Button><Button size="sm" variant="outline" onClick={() => addProduct(item, 'benefit')}>{T('campaignAddBenefit')}</Button></> : <Button size="sm" variant="outline" onClick={() => addProduct(item, 'linked')}>{T('campaignAddProduct')}</Button>}</span></div>) : <div className="p-3 text-sm text-slate-500">{T('campaignNoResults')}</div>}</div>}</div>
-              {(['trigger', 'benefit', 'linked'] as CampaignProductRole[]).map(role => {
-                const products = draft.products.filter(product => product.role === role);
-                if (!products.length) return null;
-                return <div key={role} className="space-y-2"><h3 className="text-sm font-semibold">{roleTitle(role)}</h3>{products.map(product => {
-                  const item = catalogByKey.get(product.productKey);
-                  return <div key={`${role}-${product.productKey}`} className="space-y-2 border-b py-3 text-sm" aria-label={`${roleTitle(role)} ${product.itemNumber}`}>
-                    <div className="flex items-center justify-between gap-2"><span><strong>{product.itemNumber}</strong> · {item?.defaults.title || product.productKey}</span><Button size="icon" variant="ghost" onClick={() => removeProduct(product.productKey, role)} aria-label={`${T('campaignRemoveProduct')} ${product.itemNumber}`}><X className="h-4 w-4" /></Button></div>
-                    {role !== 'trigger' && draft.type !== 'badge' && <ProductPricing product={product} campaign={draft} language={language} onChange={patch => updateProduct(product.productKey, role, patch)} />}
-                  </div>;
-                })}</div>;
-              })}
+              {draft.type === 'conditional' ? <>
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <section aria-label={T('campaignBuyXSection')} className="space-y-4 rounded-lg border border-slate-300 bg-slate-50/70 p-4">
+                    <div><h3 className="text-sm font-bold text-slate-900">A. {T('campaignBuyXSection')}</h3><p className="mt-1 text-xs text-slate-500">{T('campaignTriggerProducts')}</p></div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="space-y-1 text-sm"><span>{T('campaignTriggerQuantity')}</span><Input aria-label={T('campaignTriggerQuantity')} type="number" min="1" value={draft.triggerMinQuantity} onChange={event => setDraft({ ...draft, triggerMinQuantity: Math.max(1, Number(event.target.value) || 1) })} /><span className="block text-xs leading-5 text-slate-500">{T('campaignTriggerQuantityHelp')}</span></label>
+                      <label className="space-y-1 text-sm"><span>{T('campaignTriggerMatch')}</span><Select value={draft.triggerMatchMode} onValueChange={value => setDraft({ ...draft, triggerMatchMode: value as 'any' | 'all' })}><SelectTrigger>{T(draft.triggerMatchMode === 'all' ? 'campaignMatchAll' : 'campaignMatchAny')}</SelectTrigger><SelectContent><SelectItem value="any">{T('campaignMatchAny')}</SelectItem><SelectItem value="all">{T('campaignMatchAll')}</SelectItem></SelectContent></Select></label>
+                      <label className="space-y-1 text-sm sm:col-span-2"><span>{T('campaignScaleBenefit')}</span><Select value={draft.scaleBenefitWithTrigger ? 'repeat' : 'once'} onValueChange={value => setDraft({ ...draft, scaleBenefitWithTrigger: value === 'repeat' })}><SelectTrigger>{T(draft.scaleBenefitWithTrigger ? 'campaignScaleRepeat' : 'campaignScaleOnce')}</SelectTrigger><SelectContent><SelectItem value="once">{T('campaignScaleOnce')}</SelectItem><SelectItem value="repeat">{T('campaignScaleRepeat')}</SelectItem></SelectContent></Select><span className="block text-xs leading-5 text-slate-500">{T('campaignScaleHelp')}</span></label>
+                    </div>
+                    {renderProducts('trigger')}
+                  </section>
+                  <section aria-label={T('campaignGetYSection')} className="space-y-4 rounded-lg border border-emerald-300 bg-emerald-50/50 p-4">
+                    <div><h3 className="text-sm font-bold text-slate-900">B. {T('campaignGetYSection')}</h3><p className="mt-1 text-xs text-slate-500">{T('campaignBenefitProducts')}</p></div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <label className="space-y-1 text-sm"><span>{T('campaignBenefitQuantity')}</span><Input aria-label={T('campaignBenefitQuantity')} type="number" min="1" value={draft.benefitQuantity} onChange={event => setDraft({ ...draft, benefitQuantity: Math.max(1, Number(event.target.value) || 1) })} /><span className="block text-xs leading-5 text-slate-500">{T('campaignBenefitQuantityHelp')}</span></label>
+                      <label className="space-y-1 text-sm"><span>{T('campaignStandardBenefit')}</span><Select value={campaignBenefitMode} onValueChange={value => setCampaignBenefitMode(value as 'percentage' | 'fixed' | 'zero')}><SelectTrigger aria-label={T('campaignStandardBenefit')}>{T(campaignBenefitMode === 'zero' ? 'campaignZeroPrice' : campaignBenefitMode === 'percentage' ? 'campaignPercentage' : 'campaignFixed')}</SelectTrigger><SelectContent><SelectItem value="percentage">{T('campaignPercentage')}</SelectItem><SelectItem value="fixed">{T('campaignFixed')}</SelectItem><SelectItem value="zero">{T('campaignZeroPrice')}</SelectItem></SelectContent></Select></label>
+                      {campaignBenefitMode === 'percentage' && <label className="space-y-1 text-sm sm:col-span-2"><span>{T('campaignDiscountPct')}</span><Input type="number" min="0.01" max="100" step="0.01" value={draft.discountPct ?? ''} onChange={event => setDraft({ ...draft, discountPct: event.target.value === '' ? null : Number(event.target.value) })} /></label>}
+                      {campaignBenefitMode === 'fixed' && <><label className="space-y-1 text-sm"><span>{T('campaignTargetDkk')}</span><Input type="number" min="0" step="0.01" value={draft.targetPriceDkk ?? ''} onChange={event => setDraft({ ...draft, targetPriceDkk: event.target.value === '' ? null : Number(event.target.value) })} /></label><label className="space-y-1 text-sm"><span>{T('campaignTargetEur')}</span><Input type="number" min="0" step="0.01" value={draft.targetPriceEur ?? ''} onChange={event => setDraft({ ...draft, targetPriceEur: event.target.value === '' ? null : Number(event.target.value) })} /></label></>}
+                    </div>
+                    {renderProducts('benefit')}
+                  </section>
+                </div>
+                <div data-testid="campaign-live-summary" className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
+                  <span className="block text-xs font-semibold uppercase text-emerald-700">{T('campaignLiveSummary')}</span>
+                  <strong>{T('campaignExampleBuy')} {draft.triggerMinQuantity} × {productNames('trigger')} → {T('campaignExampleGet')} {draft.benefitQuantity} × {productNames('benefit')} · {benefitSummary()}</strong>
+                </div>
+              </> : <>
+                {draft.type === 'percentage' && <label className="block space-y-1 text-sm"><span>{T('campaignDiscountPct')}</span><Input type="number" min="0.01" max="100" step="0.01" value={draft.discountPct ?? ''} onChange={event => setDraft({ ...draft, discountPct: event.target.value === '' ? null : Number(event.target.value) })} /></label>}
+                {draft.type === 'fixed' && <div className="grid gap-3 sm:grid-cols-2"><label className="space-y-1 text-sm"><span>{T('campaignTargetDkk')}</span><Input type="number" min="0" step="0.01" value={draft.targetPriceDkk ?? ''} onChange={event => setDraft({ ...draft, targetPriceDkk: event.target.value === '' ? null : Number(event.target.value) })} /></label><label className="space-y-1 text-sm"><span>{T('campaignTargetEur')}</span><Input type="number" min="0" step="0.01" value={draft.targetPriceEur ?? ''} onChange={event => setDraft({ ...draft, targetPriceEur: event.target.value === '' ? null : Number(event.target.value) })} /></label></div>}
+                {renderProducts('linked')}
+              </>}
             </div>}
           </section>
         </div>
@@ -146,13 +201,20 @@ export default function MarketingCampaignManager({ catalog, language, initialPro
 
 function ProductPricing({ product, campaign, language, onChange }: { product: CampaignProductLink; campaign: ProductCampaign; language: PortalUiLanguage; onChange: (patch: Partial<CampaignProductLink>) => void }) {
   const T = (key: string) => t(key, language);
-  const type = product.discountPct != null ? 'percentage' : product.targetPriceDkk != null || product.targetPriceEur != null ? 'fixed' : 'default';
+  const type = product.discountPct != null
+    ? 'percentage'
+    : product.targetPriceDkk === 0 && product.targetPriceEur === 0 ? 'zero'
+      : product.targetPriceDkk != null || product.targetPriceEur != null ? 'fixed' : 'default';
   const value = (text: string) => text === '' ? null : Number(text);
   return <div className="grid gap-2 sm:grid-cols-2">
     <label className="space-y-1 sm:col-span-2"><span>{T('campaignBenefitType')}</span>
-      <Select value={type} onValueChange={next => onChange({ discountPct: next === 'percentage' ? campaign.discountPct ?? 1 : null, targetPriceDkk: next === 'fixed' ? campaign.targetPriceDkk ?? 0 : null, targetPriceEur: next === 'fixed' ? campaign.targetPriceEur ?? 0 : null })}>
-        <SelectTrigger aria-label={`${T('campaignBenefitType')} ${product.itemNumber}`}>{T(type === 'default' ? 'campaignDefaultPricing' : type === 'fixed' ? 'campaignFixed' : 'campaignPercentage')}</SelectTrigger>
-        <SelectContent><SelectItem value="default">{T('campaignDefaultPricing')}</SelectItem><SelectItem value="percentage">{T('campaignPercentage')}</SelectItem><SelectItem value="fixed">{T('campaignFixed')}</SelectItem></SelectContent>
+      <Select value={type} onValueChange={next => onChange({
+        discountPct: next === 'percentage' ? campaign.discountPct ?? 1 : null,
+        targetPriceDkk: next === 'zero' ? 0 : next === 'fixed' ? (campaign.targetPriceDkk === 0 ? null : campaign.targetPriceDkk) : null,
+        targetPriceEur: next === 'zero' ? 0 : next === 'fixed' ? (campaign.targetPriceEur === 0 ? null : campaign.targetPriceEur) : null,
+      })}>
+        <SelectTrigger aria-label={`${T('campaignBenefitType')} ${product.itemNumber}`}>{T(type === 'default' ? 'campaignDefaultPricing' : type === 'zero' ? 'campaignZeroPrice' : type === 'fixed' ? 'campaignFixed' : 'campaignPercentage')}</SelectTrigger>
+        <SelectContent><SelectItem value="default">{T('campaignDefaultPricing')}</SelectItem><SelectItem value="percentage">{T('campaignPercentage')}</SelectItem><SelectItem value="fixed">{T('campaignFixed')}</SelectItem><SelectItem value="zero">{T('campaignZeroPrice')}</SelectItem></SelectContent>
       </Select>
     </label>
     {type === 'percentage' && <label className="space-y-1"><span>{T('campaignDiscountPct')}</span><Input type="number" min="0.01" max="100" step="0.01" value={product.discountPct ?? ''} onChange={event => onChange({ discountPct: value(event.target.value) })} /></label>}
