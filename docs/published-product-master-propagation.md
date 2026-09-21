@@ -99,3 +99,39 @@ derived identity-alias metadata, not product prices, product text or documents.
 - Live read confirms 725131/725132/725138 published text/prices and aliases.
 - Full TypeScript/lint baseline has pre-existing failures; report these separately
   from this change rather than claiming a clean repository.
+
+## Authenticated MCP acceptance (2026-09-21)
+
+Verified the deployed Lovable preview on commit `dd92d1b7`, authenticated as
+Backend, through actual Edge browser interaction:
+
+| Item | Fresh normal Configurator and Marketing catalog | DKK |
+| --- | --- | --- |
+| 725131 | CS-200 Valsespreder, for lad, manuel regulering. Husk lad og vogn | 38,500 |
+| 725132 | CS-200 Combi, for lad, manuel regulering. Husk lad og vogn | 52,350 |
+| 725138 | CS-200 Combi, for lad, el regulering. Husk lad og vogn | 58,350 |
+
+The Marketing editor for 725132 also showed the resolved title and price in its
+live preview, with existing campaign presentation retained. Cancelled without
+saving. In Backend Price Lists, the 725132 editor showed the canonical text and
+its real history: `manuel reg.` changed to `manuel regulering.` at 19:36 local
+time. Cancelled without saving. Normal Configurator and Marketing Configurator
+were both opened fresh; temporary local selections were discarded.
+
+This acceptance used the user's already-published product changes. It did NOT
+repeat a temporary live product edit/publish/restore cycle, send documents, or
+modify offers/orders/Marketing records. That exact additional browser cycle
+remains unverified. Arbitrary non-CS-200 item propagation and historical
+snapshot protection were covered by automated tests, not a claimed live edit.
+
+Validation results:
+
+- Targeted suites: 150/150 tests across 17 files passed.
+- Production build and `git diff --check`: passed.
+- Application typecheck: 27 errors, matching the pre-change baseline.
+- Changed-file lint comparison: 33 baseline errors, 33 current errors, no new
+  errors. New implementation/test files and the updated seed passed lint.
+- Broader source lint (`src`, `supabase/functions`, `scripts`): 781 files,
+  190 errors and 159 warnings. This is NOT a green full-repository lint result.
+- SQL rollback verification passed; no QA Product Master record remained.
+- Applied migration version and repository file: `20260921181718`.
