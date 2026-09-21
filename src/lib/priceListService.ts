@@ -43,6 +43,62 @@ export interface PriceListImportLog {
   error_count: number;
 }
 
+export const PRICE_HISTORY_PRICE_FIELDS = [
+  "cost_price_dkk",
+  "price_dkk",
+  "price_sek",
+  "price_eur",
+] as const;
+
+export type PriceHistoryField = "item_number" | "item_text_da" | typeof PRICE_HISTORY_PRICE_FIELDS[number];
+export type PriceHistoryFilter = "all" | "price" | "text";
+
+export interface PriceListHistoryEntry {
+  id: string;
+  change_set_id: string;
+  item_id: string;
+  item_number: string;
+  actor_user_id: string | null;
+  actor_name: string | null;
+  actor_initials: string | null;
+  actor_email: string | null;
+  field_name: PriceHistoryField;
+  old_value: string | null;
+  new_value: string | null;
+  old_numeric_value: number | null;
+  new_numeric_value: number | null;
+  changed_at: string;
+}
+
+export function isPriceHistoryField(field: string): field is PriceHistoryField {
+  return field === "item_number" || field === "item_text_da" || PRICE_HISTORY_PRICE_FIELDS.includes(field as typeof PRICE_HISTORY_PRICE_FIELDS[number]);
+}
+
+export function isPriceHistoryPriceField(field: PriceHistoryField): boolean {
+  return PRICE_HISTORY_PRICE_FIELDS.includes(field as typeof PRICE_HISTORY_PRICE_FIELDS[number]);
+}
+
+export function filterPriceHistory(entries: PriceListHistoryEntry[], filter: PriceHistoryFilter): PriceListHistoryEntry[] {
+  if (filter === "all") return entries;
+  return entries.filter((entry) => filter === "price"
+    ? isPriceHistoryPriceField(entry.field_name)
+    : !isPriceHistoryPriceField(entry.field_name));
+}
+
+export function priceHistoryDelta(entry: Pick<PriceListHistoryEntry, 'old_numeric_value' | 'new_numeric_value'>): {
+  amount: number | null;
+  percentage: number | null;
+} {
+  if (entry.old_numeric_value == null || entry.new_numeric_value == null) {
+    return { amount: null, percentage: null };
+  }
+  const amount = entry.new_numeric_value - entry.old_numeric_value;
+  return {
+    amount,
+    percentage: entry.old_numeric_value === 0 ? null : (amount / entry.old_numeric_value) * 100,
+  };
+}
+
 export const PRICE_FIELDS = ["item_text_da", "cost_price_dkk", "price_dkk", "price_sek", "price_eur"] as const;
 export type PriceField = typeof PRICE_FIELDS[number];
 
@@ -103,6 +159,42 @@ export async function listImportLogs(): Promise<PriceListImportLog[]> {
     .limit(50);
   if (error) return [];
   return (data ?? []) as PriceListImportLog[];
+}
+
+export async function listPriceItemHistory(
+  itemId: string,
+  limit = 10,
+  offset = 0,
+  filter: PriceHistoryFilter = "all",
+): Promise<PriceListHistoryEntry[]> {
+  let query = supabase
+    .from("price_list_item_history")
+    .select("id, change_set_id, item_id, item_number, actor_user_id, actor_name, actor_initials, actor_email, field_name, old_value, new_value, old_numeric_value, new_numeric_value, changed_at")
+    .eq("item_id", itemId);
+
+  if (filter === "price") {
+    query = query.in("field_name", PRICE_HISTORY_PRICE_FIELDS);
+  } else if (filter === "text") {
+    query = query.in("field_name", ["item_number", "item_text_da"]);
+  }
+
+  const { data, error } = await query
+    .order("changed_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) {
+    // eslint-disable-next-line no-console
+    console.warn("[priceListService] listPriceItemHistory:", error);
+    return [];
+  }
+  return (data ?? [])
+    .filter((entry): entry is PriceListHistoryEntry => typeof entry.field_name === "string" && isPriceHistoryField(entry.field_name))
+    .map((entry) => ({
+      ...entry,
+      field_name: entry.field_name,
+      old_numeric_value: entry.old_numeric_value == null ? null : Number(entry.old_numeric_value),
+      new_numeric_value: entry.new_numeric_value == null ? null : Number(entry.new_numeric_value),
+    }));
 }
 
 /* ---------------- Manual edit ---------------- */

@@ -29,12 +29,17 @@ import { isBackendActor } from "@/lib/portalAccess";
 import {
   listPriceItems,
   listImportLogs,
+  listPriceItemHistory,
+  isPriceHistoryPriceField,
+  priceHistoryDelta,
   parsePriceCsv,
   parsePriceWorkbook,
   buildPreview,
   runImport,
   updatePriceItem,
   type PriceListItem,
+  type PriceListHistoryEntry,
+  type PriceHistoryFilter,
   type PriceListImportLog,
   type PreviewRow,
   type ImportSummary,
@@ -1264,6 +1269,28 @@ function EditModal({ item, onClose, onSaved }: {
   const [eur, setEur] = useState(formatEditablePrice(item.price_eur));
   const [sek, setSek] = useState(formatEditablePrice(item.price_sek));
   const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState<PriceListHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<PriceHistoryFilter>("all");
+
+  useEffect(() => {
+    let cancelled = false;
+    setHistoryLoading(true);
+    void listPriceItemHistory(item.id, 10, 0, historyFilter).then((entries) => {
+      if (cancelled) return;
+      setHistory(entries);
+      setHistoryHasMore(entries.length === 10);
+      setHistoryLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [item.id, historyFilter]);
+
+  async function loadMoreHistory() {
+    const entries = await listPriceItemHistory(item.id, 10, history.length, historyFilter);
+    setHistory((current) => [...current, ...entries]);
+    setHistoryHasMore(entries.length === 10);
+  }
 
   function num(v: string): number | null {
     const n = parseEditablePrice(v);
@@ -1300,8 +1327,8 @@ function EditModal({ item, onClose, onSaved }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-start justify-between mb-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-3xl w-full max-h-[88vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between p-6 pb-4 border-b border-slate-100">
           <div>
             <h3 className="text-lg font-bold text-slate-900">Rediger varenr.</h3>
             <p className="text-xs text-slate-500 font-mono mt-0.5">{item.item_number}</p>
@@ -1309,36 +1336,133 @@ function EditModal({ item, onClose, onSaved }: {
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
         </div>
 
-        <div className="space-y-3">
-          <Field label="Varenr.">
-            <input value={itemNumber} onChange={(e) => setItemNumber(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono" />
-          </Field>
-          <Field label="Varetekst">
-            <input value={text} onChange={(e) => setText(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-          </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Kostpris DKK"><PriceInput value={costDkk} onChange={setCostDkk} /></Field>
-            <Field label="Pris DKK"><PriceInput value={dkk} onChange={setDkk} /></Field>
-            <Field label="Pris SEK"><PriceInput value={sek} onChange={setSek} /></Field>
-            <Field label="Pris EUR"><PriceInput value={eur} onChange={setEur} /></Field>
+        <div className="flex-1 overflow-y-auto p-6 pt-4">
+          <div className="space-y-3">
+            <Field label="Varenr.">
+              <input value={itemNumber} onChange={(e) => setItemNumber(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono" />
+            </Field>
+            <Field label="Varetekst">
+              <input value={text} onChange={(e) => setText(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            </Field>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Kostpris DKK"><PriceInput value={costDkk} onChange={setCostDkk} /></Field>
+              <Field label="Pris DKK"><PriceInput value={dkk} onChange={setDkk} /></Field>
+              <Field label="Pris SEK"><PriceInput value={sek} onChange={setSek} /></Field>
+              <Field label="Pris EUR"><PriceInput value={eur} onChange={setEur} /></Field>
+            </div>
           </div>
-        </div>
 
-        <div className="mt-6 flex justify-end gap-2">
-          <button onClick={onClose}
-            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-            Annuller
-          </button>
-          <button onClick={() => void save()} disabled={busy}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50">
-            {busy ? "Gemmer…" : "Gem"}
-          </button>
+          <div className="mt-6 flex justify-end gap-2">
+            <button onClick={onClose}
+              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              Annuller
+            </button>
+            <button onClick={() => void save()} disabled={busy}
+              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50">
+              {busy ? "Gemmer…" : "Gem"}
+            </button>
+          </div>
+
+          <PriceItemHistory
+            entries={history}
+            activeFilter={historyFilter}
+            loading={historyLoading}
+            hasMore={historyHasMore}
+            onFilterChange={setHistoryFilter}
+            onLoadMore={() => void loadMoreHistory()}
+          />
         </div>
       </div>
     </div>
   );
+}
+
+function PriceItemHistory({
+  entries,
+  activeFilter,
+  loading,
+  hasMore,
+  onFilterChange,
+  onLoadMore,
+}: {
+  entries: PriceListHistoryEntry[];
+  activeFilter: PriceHistoryFilter;
+  loading: boolean;
+  hasMore: boolean;
+  onFilterChange: (filter: PriceHistoryFilter) => void;
+  onLoadMore: () => void;
+}) {
+  return (
+    <section className="mt-8 border-t border-slate-200 pt-5" aria-label="Historik">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h4 className="text-sm font-bold tracking-wide text-slate-900">HISTORIK</h4>
+        <div className="flex rounded-lg border border-slate-200 p-0.5 text-xs font-semibold">
+          {([['all', 'Alle'], ['price', 'Prisændringer'], ['text', 'Tekstændringer']] as const).map(([filter, label]) => (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => onFilterChange(filter)}
+              className={`rounded-md px-2.5 py-1.5 ${activeFilter === filter ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <p className="py-5 text-sm text-slate-500">Henter historik…</p>
+      ) : entries.length === 0 ? (
+        <p className="py-5 text-sm text-slate-500">Ingen registrerede ændringer endnu.</p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {entries.map((entry) => <PriceHistoryEntry key={entry.id} entry={entry} />)}
+        </div>
+      )}
+
+      {hasMore && !loading && (
+        <button type="button" onClick={onLoadMore} className="mt-4 text-sm font-semibold text-slate-700 underline underline-offset-2 hover:text-slate-950">
+          Vis flere
+        </button>
+      )}
+    </section>
+  );
+}
+
+function PriceHistoryEntry({ entry }: { entry: PriceListHistoryEntry }) {
+  const isPrice = isPriceHistoryPriceField(entry.field_name);
+  const oldValue = isPrice ? formatHistoryMoney(entry.old_numeric_value, entry.field_name) : `“${entry.old_value ?? '—'}”`;
+  const newValue = isPrice ? formatHistoryMoney(entry.new_numeric_value, entry.field_name) : `“${entry.new_value ?? '—'}”`;
+  const { amount: delta, percentage } = isPrice
+    ? priceHistoryDelta(entry)
+    : { amount: null, percentage: null };
+  const actor = entry.actor_initials || entry.actor_name || entry.actor_email || 'Ukendt bruger';
+
+  return (
+    <article className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
+      <p className="text-xs font-semibold text-slate-500">
+        {new Intl.DateTimeFormat('da-DK', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(entry.changed_at))} · {actor}
+      </p>
+      <p className="mt-2 font-semibold text-slate-900">{FIELD_LABEL[entry.field_name]}</p>
+      <p className="mt-1 break-words text-slate-700">
+        <span className="text-slate-500">{oldValue}</span> <span className="px-1 text-slate-400">→</span> <span className="font-semibold">{newValue}</span>
+      </p>
+      {delta != null && (
+        <p className={`mt-1 text-xs font-bold ${delta > 0 ? 'text-emerald-700' : delta < 0 ? 'text-rose-700' : 'text-slate-600'}`}>
+          {delta > 0 ? 'Pris steget: ' : delta < 0 ? 'Pris faldet: ' : 'Pris uændret: '}
+          {delta > 0 ? '+' : ''}{formatHistoryMoney(delta, entry.field_name)}{percentage != null ? ` / ${percentage > 0 ? '+' : ''}${percentage.toLocaleString('da-DK', { maximumFractionDigits: 1 })} %` : ''}
+        </p>
+      )}
+    </article>
+  );
+}
+
+function formatHistoryMoney(value: number | null, field: PriceListHistoryEntry['field_name']): string {
+  if (value == null) return '—';
+  const currency = field === 'price_eur' ? 'EUR' : field === 'price_sek' ? 'SEK' : 'DKK';
+  return `${fmtPrice(value)} ${currency}`;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
