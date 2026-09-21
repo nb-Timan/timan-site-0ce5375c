@@ -75,7 +75,7 @@ const T: Record<string, Record<Language, string>> = {
   trend30:        { da: 'Pipeline (sidste 30 dage)', en: 'Pipeline (last 30 days)', de: 'Pipeline (30 Tage)', it: 'Pipeline (30 gg)',   hu: 'Pipeline (30 nap)' },
 
   stage_lead:     { da: 'Lead',          en: 'Lead',          de: 'Lead',          it: 'Lead',          hu: 'Lead' },
-  stage_demo:     { da: 'Demo planlagt', en: 'Demo planned',  de: 'Demo geplant',  it: 'Demo pianificata', hu: 'Demó tervezve' },
+  stage_demo:     { da: 'Demo aftalt', en: 'Demo agreed',  de: 'Demo vereinbart',  it: 'Demo concordata', hu: 'Demó egyeztetve' },
   stage_quote:    { da: 'Tilbud sendt',  en: 'Quote sent',    de: 'Angebot gesendet', it: 'Preventivo inviato', hu: 'Árajánlat elküldve' },
   stage_neg:      { da: 'Forhandling',   en: 'Negotiation',   de: 'Verhandlung',   it: 'Negoziazione',  hu: 'Tárgyalás' },
   stage_won:      { da: 'Vundet',        en: 'Won',           de: 'Gewonnen',      it: 'Vinto',         hu: 'Megnyert' },
@@ -1477,7 +1477,7 @@ function buildPipelineRows(args: {
     if (status === 'Vundet') bucket = 'won';
     else if (status === 'Tabt') bucket = 'lost';
     else if (status === 'Tilbud sendt') continue; // handled via openQuotes
-    else if (status === 'Demo planlagt') bucket = 'demo';
+    else if (status === 'Demo aftalt') bucket = 'demo';
     else bucket = 'lead';
     const row: PipelineRow = {
       id: l.id,
@@ -1495,7 +1495,7 @@ function buildPipelineRows(args: {
     out[bucket].push(row);
   }
 
-  // Demo planlagt → crm_calendar_activities (type=demo, status=planned)
+  // Demo aftalt → crm_calendar_activities (type=demo, status=planned)
   for (const c of args.calendar) {
     if (c.activity_type !== 'demo') continue;
     if (c.status && c.status !== 'planned') continue;

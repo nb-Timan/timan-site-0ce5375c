@@ -29,6 +29,7 @@ import { calculateMachineInterestEstimate } from '@/lib/leadToConfiguratorDraft'
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 import { listSelectableDemoLeads, type DemoLeadChoice } from '@/lib/crmDemoLeadSelector';
 import { demoLinkingText } from '@/lib/crmDemoLinkingI18n';
+import { crmDemoStageLabel } from '@/lib/crmDemoStageI18n';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getDemoSelectionErrors, splitDemoMachineInterest } from '@/lib/crmDemoSelection';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
@@ -775,7 +776,7 @@ export default function CrmNewDemoLeadPage() {
             <Field label={tt('lbl_probability', lang)}>
               <input type="number" readOnly className={cn(inputCls, 'bg-gray-50 text-gray-600')} value={probability} aria-describedby="demo-probability-help" />
               <span id="demo-probability-help" className="text-xs text-gray-500">
-                {demoDate ? 'Demo planlagt' : 'Ønsker demo'}
+                {crmDemoStageLabel(demoDate ? 'agreed' : 'requested', uiLanguage)}
               </span>
             </Field>
             <Field label={tt('lbl_competitors', lang)}>

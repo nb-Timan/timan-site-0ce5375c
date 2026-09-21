@@ -762,7 +762,7 @@ export default function MesseFollowUpPage() {
         country: selectedLeadCountry || selectedAllowedDealer?.country || null,
         notes: leadNotes,
         estimated_value: estimatedLeadValue > 0 ? estimatedLeadValue : null,
-        probability: wantsDemo === 'yes' ? 50 : 25,
+        probability: wantsDemo === 'yes' ? 40 : 25,
         pipeline_stage: 'Lead',
         lost_competitor: null,
         lost_reason: null,

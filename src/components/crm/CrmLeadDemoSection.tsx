@@ -3,6 +3,8 @@ import { CalendarDays, ExternalLink, Loader2, MapPin, UserRound, Wrench } from '
 import { Link } from 'react-router-dom';
 import { formatDemoNo, listDemoLeadsForSource, updateDemoLeadDate, type CrmDemoLead } from '@/lib/crmLeadsService';
 import { toast } from 'sonner';
+import { useLanguage } from '@/context/LanguageContext';
+import { crmDemoStageLabel } from '@/lib/crmDemoStageI18n';
 
 function valueOrDash(value: string | null | undefined): string {
   return value?.trim() || '—';
@@ -10,6 +12,7 @@ function valueOrDash(value: string | null | undefined): string {
 
 /** The demo is an activity of this lead; it never replaces the opportunity. */
 export function CrmLeadDemoSection({ leadId }: { leadId: string }) {
+  const { uiLanguage } = useLanguage();
   const [demos, setDemos] = useState<CrmDemoLead[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingDemoId, setSavingDemoId] = useState<string | null>(null);
@@ -61,7 +64,7 @@ export function CrmLeadDemoSection({ leadId }: { leadId: string }) {
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="rounded-md border border-violet-200 bg-white px-2 py-0.5 font-mono text-xs text-violet-800">{formatDemoNo(demo.demo_no)}</span>
-              <span className="text-sm font-medium text-slate-900">{demo.demo_date ? 'Demo planlagt' : 'Ønsker demo'}</span>
+              <span className="text-sm font-medium text-slate-900">{crmDemoStageLabel(demo.demo_date ? 'agreed' : 'requested', uiLanguage)}</span>
             </div>
             <Link to={`/portal/crm/demo-leads/${demo.id}`} className="text-xs font-medium text-violet-700 hover:underline">Åbn demo</Link>
           </div>

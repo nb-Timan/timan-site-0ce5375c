@@ -35,7 +35,8 @@ function lead(partial: Partial<CrmLead>): CrmLead {
 
 describe('next_activity → status mapping', () => {
   it('maps known next_activity values', () => {
-    expect(nextActivityToLeadStatus('Customer requests a demonstration')).toBe('Demo planlagt');
+    expect(nextActivityToLeadStatus('Customer requests a demonstration')).toBe('Ønsker demo');
+    expect(nextActivityToLeadStatus('Demo agreed')).toBe('Demo aftalt');
     expect(nextActivityToLeadStatus('Offer sent to the customer')).toBe('Tilbud sendt');
     expect(nextActivityToLeadStatus('Follow-up on leads')).toBe('Follow-up');
     expect(nextActivityToLeadStatus(NEXT_ACTIVITY_WON)).toBe('Vundet');
@@ -50,7 +51,8 @@ describe('next_activity → status mapping', () => {
 describe('next_activity → probability mapping', () => {
   it('returns expected probabilities', () => {
     expect(nextActivityToProbability('Offer sent to the customer')).toBe(70);
-    expect(nextActivityToProbability('Customer requests a demonstration')).toBe(50);
+    expect(nextActivityToProbability('Customer requests a demonstration')).toBe(40);
+    expect(nextActivityToProbability('Demo agreed')).toBe(50);
     expect(nextActivityToProbability(NEXT_ACTIVITY_WON)).toBe(100);
     expect(nextActivityToProbability(NEXT_ACTIVITY_LOST)).toBe(0);
     expect(nextActivityToProbability(null)).toBe(10);

@@ -6,6 +6,7 @@ type CrmLeadFollowupFieldsProps = {
   onNextFollowupChange: (value: string) => void;
   onActivityChange: (value: string) => void;
   activityOptions: readonly string[];
+  activityLabel?: (activity: string) => string;
   renderFollowup?: () => ReactNode;
   required?: boolean;
 };
@@ -20,6 +21,7 @@ export function CrmLeadFollowupFields({
   onNextFollowupChange,
   onActivityChange,
   activityOptions,
+  activityLabel = (value) => value,
   renderFollowup,
   required = false,
 }: CrmLeadFollowupFieldsProps) {
@@ -48,7 +50,7 @@ export function CrmLeadFollowupFields({
           onChange={(event) => onActivityChange(event.target.value)}
         >
           <option value="">Vælg…</option>
-          {activityOptions.map((option) => <option key={option} value={option}>{option}</option>)}
+          {activityOptions.map((option) => <option key={option} value={option}>{activityLabel(option)}</option>)}
         </select>
       </label>
     </>

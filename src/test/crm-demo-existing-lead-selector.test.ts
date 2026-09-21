@@ -26,13 +26,13 @@ function pageRows() {
         id: 'lead-akr', display_no: 'L-1113', type: 'open', title: 'Landtechnik Meyer',
         customer: 'Meyer', dealer: 'Meyer', owner_user_id: 'seller-akr', owner_name: 'AKR', owner_email: 'akr@timan.dk',
         responsible_name: 'AKR', machine: 'RC-751', equipment: null, date: '2026-09-21', next_followup: null,
-        status: 'Demo planlagt', probability: 50, value: 1000, detail_href: '/portal/crm/leads/lead-akr', attachments: [],
+        status: 'Ønsker demo', probability: 40, value: 1000, detail_href: '/portal/crm/leads/lead-akr', attachments: [],
       },
       {
         id: 'demo-row', display_no: 'D-8001', type: 'demo', title: 'Linked demo',
         customer: 'Meyer', dealer: 'Meyer', owner_user_id: 'seller-akr', owner_name: 'AKR', owner_email: 'akr@timan.dk',
         responsible_name: 'AKR', machine: 'RC-751', equipment: null, date: '2026-09-21', next_followup: null,
-        status: 'Demo planlagt', probability: 50, value: 1000, detail_href: '/portal/crm/demo/demo-row', attachments: [],
+        status: 'Demo aftalt', probability: 50, value: 1000, detail_href: '/portal/crm/demo/demo-row', attachments: [],
       },
     ],
     counts: { all: 1, open: 1, won: 0, closed: 0 },
@@ -68,7 +68,7 @@ describe('Demo existing-lead selector scope', () => {
       tab: 'open',
     }));
     expect(choices).toEqual([expect.objectContaining({
-      id: 'lead-akr', displayNo: 'L-1113', status: 'Demo planlagt', machine: 'RC-751',
+      id: 'lead-akr', displayNo: 'L-1113', status: 'Ønsker demo', machine: 'RC-751',
     })]);
   });
 

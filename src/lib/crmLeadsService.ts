@@ -14,6 +14,11 @@ import { BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, fiscalYearForCalendarMonth, loca
 import { getLeadPipelineValueSnapshot } from "@/lib/crmPipelineValue";
 import machineDemoSeed from "@/data/machineDemoSeed.json";
 import openLeadsSeed from "@/data/openLeadsSeed.json";
+import {
+  NEXT_ACTIVITY_DEMO_AGREED,
+  NEXT_ACTIVITY_DEMO_REQUESTED,
+  NEXT_ACTIVITY_DEMO_REQUESTED_LEGACY,
+} from '@/lib/crmDemoStageI18n';
 
 // ---------- Shared option lists (Danish UI) ----------
 
@@ -29,8 +34,9 @@ export const NEXT_ACTIVITY_OPTIONS = [
   "Follow-up on leads",
   "Sales material sent to the customer",
   "Offer sent to the customer",
-  "Customer wants a demonstration",
-  "Customer requests a demonstration",
+  NEXT_ACTIVITY_DEMO_REQUESTED,
+  NEXT_ACTIVITY_DEMO_AGREED,
+  NEXT_ACTIVITY_DEMO_REQUESTED_LEGACY,
   "Lead sent to the dealer",
   "Closed without order",
   "Closed with order",

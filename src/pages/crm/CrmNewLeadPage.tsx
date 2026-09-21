@@ -69,6 +69,7 @@ import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
 import { CrmLeadDemoSection } from '@/components/crm/CrmLeadDemoSection';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
+import { crmNextActivityLabel } from '@/lib/crmDemoStageI18n';
 import {
   getMissingOrdinaryCrmLeadFields,
   isLegacyWorkingBudgetOnlySave,
@@ -780,7 +781,7 @@ function dealerToOption(d: DealerAccount, mine: boolean, liveInitials: string): 
 export default function CrmNewLeadPage() {
   const { appUser: sessionUser, loading: authLoading } = useAppUser();
   const appUser = academyCrmSandbox.isActive() ? getLocalAcademyUser() : sessionUser;
-  const { language: lang } = useLanguage();
+  const { language: lang, uiLanguage } = useLanguage();
   const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
   const { id: editId } = useParams<{ id: string }>();
@@ -1691,6 +1692,7 @@ export default function CrmNewLeadPage() {
                     .sort((a, b) => nextActivityToProbability(a) - nextActivityToProbability(b)),
                   nextActivity,
                 ].filter(Boolean))]}
+                activityLabel={(activity) => crmNextActivityLabel(activity, uiLanguage)}
                 required
                 renderFollowup={() => <SmartDateField
                   label={tt('lbl_next_followup', lang)}

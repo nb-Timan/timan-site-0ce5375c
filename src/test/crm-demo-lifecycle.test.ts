@@ -48,15 +48,17 @@ describe('canonical lead → demo lifecycle', () => {
     }));
   });
 
-  it('distinguishes a requested demo from a scheduled demo without using follow-up as the demo date', () => {
+  it('distinguishes a requested demo from an agreed demo without using expected close as the demo date', () => {
     expect(nextActivityToLeadStatus('Customer wants a demonstration')).toBe('Ønsker demo');
     expect(effectiveLeadProbability({ next_activity: 'Customer wants a demonstration', pipeline_stage: 'Qualified', probability: 40 })).toBe(40);
-    expect(nextActivityToLeadStatus('Customer requests a demonstration')).toBe('Demo planlagt');
-    expect(effectiveLeadProbability({ next_activity: 'Customer requests a demonstration', pipeline_stage: 'Qualified', probability: 50 })).toBe(50);
+    expect(nextActivityToLeadStatus('Customer requests a demonstration')).toBe('Ønsker demo');
+    expect(effectiveLeadProbability({ next_activity: 'Customer requests a demonstration', pipeline_stage: 'Qualified', probability: 40 })).toBe(40);
+    expect(nextActivityToLeadStatus('Demo agreed')).toBe('Demo aftalt');
+    expect(effectiveLeadProbability({ next_activity: 'Demo agreed', pipeline_stage: 'Qualified', probability: 50 })).toBe(50);
     expect(deriveLegacyPipelineStage('Customer wants a demonstration')).toBe('Qualified');
     expect(effectiveLeadStatus({ next_activity: 'Customer wants a demonstration', pipeline_stage: 'Qualified' })).toBe('Ønsker demo');
     expect(effectiveLeadStatus({
-      next_activity: 'Customer requests a demonstration', pipeline_stage: 'Qualified', demo_has_run: 'yes',
+      next_activity: 'Demo agreed', pipeline_stage: 'Qualified', demo_has_run: 'yes',
     })).toBe('Demo afholdt');
   });
 
@@ -68,12 +70,14 @@ describe('canonical lead → demo lifecycle', () => {
   });
 
   it('guards one linked demo and one calendar event per canonical demo in the migration', () => {
-    const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260921082820_canonical_lead_demo_lifecycle.sql'), 'utf8');
-    expect(sql).toContain('crm_demo_leads_one_source_lead');
-    expect(sql).toContain('crm_calendar_activities_one_demo');
-    expect(sql).toContain('on conflict (demo_lead_id)');
-    expect(sql).toContain("'Customer wants a demonstration'");
-    expect(sql).toContain('on conflict (demo_lead_id)');
+    const baseSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260921082820_canonical_lead_demo_lifecycle.sql'), 'utf8');
+    const normalizedSql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260921120628_normalize_crm_demo_stages.sql'), 'utf8');
+    expect(baseSql).toContain('crm_demo_leads_one_source_lead');
+    expect(baseSql).toContain('crm_calendar_activities_one_demo');
+    expect(normalizedSql).toContain('on conflict (demo_lead_id)');
+    expect(normalizedSql).toContain("'Demo agreed'");
+    expect(normalizedSql).toContain('next_followup_date = new.demo_date');
+    expect(normalizedSql).not.toMatch(/expected_close_date\s*=/);
   });
 
   it('reschedules the existing demo record, allowing the calendar trigger to update its one event', async () => {
