@@ -38,7 +38,9 @@ describe('Backend submitted-order reopen and revision flow', () => {
     expect(page).toContain('if (!activeOrderNumber)');
     expect(page).toContain('resend: Boolean(backendCorrectionSessionId)');
     expect(page).toContain('completeSubmittedOrderCorrection(backendCorrectionSessionId)');
-    expect(page).toContain('Gem og gensend ordre');
+    expect(page).toContain('Gem ændring');
+    expect(page).toContain('Gem og opret ny ordrebekræftelse');
+    expect(page).toContain('Gem og send ny ordrebekræftelse');
   });
 
   it('preserves the original order number and submission timestamp while an explicit resend updates sent-at', () => {

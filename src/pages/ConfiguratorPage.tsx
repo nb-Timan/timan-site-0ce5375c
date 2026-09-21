@@ -152,6 +152,7 @@ type MesseProfileAppUser = AppUser & {
 };
 
 type ConfiguratorSubmitFlowType = 'quote' | 'order';
+type OrderRevisionAction = 'confirmation' | 'send';
 
 function getYoutubeThumbnail(url: string | undefined | null, quality: 'hqdefault' | 'maxresdefault' = 'hqdefault'): string | null {
   if (!url) return null;
@@ -984,22 +985,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   }, [savedConfigurationId, linkedLeadId, syncingLead, lang]);
 
 
-  const handleSaveChanges = useCallback(async () => {
+  const handleSaveChanges = useCallback(async (): Promise<boolean> => {
     if (academySandbox.isActive()) {
       toast.info('Academy-træning gemmes kun lokalt.');
-      return;
+      return false;
     }
-    if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return; }
-    if (savingChanges) return;
+    if (isExhibition) { toast.info('Demo mode — gemning er deaktiveret.'); return false; }
+    if (savingChanges) return false;
     // Block saving on already-submitted orders (local + server re-check).
     if (orderLocked && !backendCorrectionSessionId) {
       toast.error(T('orderAlreadySubmittedToast'));
-      return;
+      return false;
     }
     setSavingChanges(true);
     try {
       const ownershipPayload = await getRequiredOwnershipPayload();
-      if (!ownershipPayload) return;
+      if (!ownershipPayload) return false;
       // If the user picked "Opret nyt lead" in the picker, create the
       // lead now so the saved row carries the lead_id link from the start.
       const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
@@ -1009,7 +1010,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         if (serverCheck.locked && !backendCorrectionSessionId) {
           setOrderLocked(true);
           toast.error(T('orderAlreadySubmittedToast'));
-          return;
+          return false;
         }
         const res = await updateConfiguration(savedConfigurationId, state, {
           ownership: ownershipPayload,
@@ -1020,19 +1021,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
             description: res.error,
           });
-          return;
+          return false;
         }
         if (res.itemsError) {
           toast.error(state.language === 'da' ? 'Ændringer gemt, men linjer fejlede' : 'Changes saved, but line items failed', {
             description: res.itemsError,
           });
-          return;
+          return false;
         }
         if (backendCorrectionSessionId) {
           const completion = await completeSubmittedOrderCorrection(backendCorrectionSessionId);
           if (completion.error) {
             toast.error('Ændringerne blev gemt, men rettelsesvinduet kunne ikke afsluttes.', { description: completion.error });
-            return;
+            return false;
           }
           setBackendCorrectionSessionId(null);
         }
@@ -1047,10 +1048,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             toast.error('Sagen blev gemt, men kan ikke vises i Min konto. Tjek ejer/sælger-tilknytning.');
           }
         } catch { /* ignore */ }
+        return true;
       } else {
         if (!appUser) {
           toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case');
-          return;
+          return false;
         }
         const label = state.firmanavn
           ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
@@ -1064,7 +1066,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case', {
             description: saveRes.error,
           });
-          return;
+          return false;
         }
         if (saveRes.id) {
           setSavedConfigurationId(saveRes.id);
@@ -1077,7 +1079,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           toast.error(state.language === 'da' ? 'Sag gemt, men linjer fejlede' : 'Case saved, but line items failed', {
             description: saveRes.itemsError,
           });
-          return;
+          return false;
         }
         // Readback verification before showing success.
         let visibleInScope = true;
@@ -1094,6 +1096,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             description: saveRes.id ? `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${saveRes.id}` : undefined,
           });
         }
+        return visibleInScope;
       }
     } finally {
       setSavingChanges(false);
@@ -1923,7 +1926,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   // PDF download + submit (single async flow). Guarded by `submitting` so the
   // button cannot trigger a second PDF/save/webhook.
-  const downloadPdf = async (flowOverride?: ConfiguratorSubmitFlowType): Promise<boolean> => {
+  const downloadPdf = async (
+    flowOverride?: ConfiguratorSubmitFlowType,
+    options?: { orderRevisionAction?: OrderRevisionAction },
+  ): Promise<boolean> => {
     if (academySandbox.isActive()) {
       if (!academySandbox.getCase1().leadId) {
         toast.error(tPortal('academyCase1NextLead', uiLanguage));
@@ -1936,13 +1942,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     if (submitting) return false;
     setSubmitting(true);
     try {
-      return await downloadPdfInner(flowOverride);
+      return await downloadPdfInner(flowOverride, options);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const downloadPdfInner = async (flowOverride?: ConfiguratorSubmitFlowType): Promise<boolean> => {
+  const downloadPdfInner = async (
+    flowOverride?: ConfiguratorSubmitFlowType,
+    options?: { orderRevisionAction?: OrderRevisionAction },
+  ): Promise<boolean> => {
     const effectiveFlowType = flowOverride ?? state.flowType;
     let el = confirmContentRef.current;
     if (!el) {
@@ -2046,6 +2055,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       // A reopened order must keep its original O-number. Only new order
       // submissions reserve a number from the sequence.
       if (!activeOrderNumber) {
+        if (backendCorrectionSessionId) {
+          toast.error('Denne afgivne ordre mangler et canonical ordrenummer og kan ikke revideres sikkert.');
+          return false;
+        }
         const reservedOrderNumber = await getNextCrmDocumentNumber('order');
         if (!reservedOrderNumber) {
           toast.error(T('saveFailed'));
@@ -2107,6 +2120,31 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         pdfBlob = pdf.output('blob');
       } catch (b64Err) {
         console.error('Failed to encode PDF as base64:', b64Err);
+      }
+
+      // A Backend correction can create a revised confirmation without
+      // dispatching it. The saved state has already been written under the
+      // correction session, so this PDF is rendered from the revision's
+      // canonical AFTER snapshot. It deliberately never reaches n8n, mail
+      // audit or order_sent_at.
+      if (effectiveFlowType === 'order' && options?.orderRevisionAction === 'confirmation') {
+        if (!backendCorrectionSessionId) {
+          toast.error('En Backend-rettelse skal være aktiv for at oprette en ny ordrebekræftelse.');
+          return false;
+        }
+        const completion = await completeSubmittedOrderCorrection(backendCorrectionSessionId);
+        if (completion.error) {
+          toast.error('Ordrebekræftelsen blev oprettet, men rettelsesvinduet kunne ikke afsluttes.', {
+            description: completion.error,
+          });
+          return false;
+        }
+        setBackendCorrectionSessionId(null);
+        setConfirmModalOpen(false);
+        toast.success('Ændringer gemt og ny ordrebekræftelse oprettet.', {
+          description: activeOrderNumber || activeCaseId || undefined,
+        });
+        return true;
       }
 
       // Track PDF generation in Supabase (silent — this is part of the SEND flow,
@@ -2738,17 +2776,48 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 className="px-6 py-3 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed">
                 {TC('close')}
               </button>
-              <button
-                onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked && !backendCorrectionSessionId)) setConfirmSubmitOpen(true); }}
-                disabled={submitting || (state.flowType === 'order' && orderLocked && !backendCorrectionSessionId)}
-                title={state.flowType === 'order' && orderLocked && !backendCorrectionSessionId ? TC('orderCannotResendTitle') : undefined}
-                className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
-                {state.flowType === 'order' && orderLocked && !backendCorrectionSessionId
-                  ? TC('orderSubmittedBadge')
-                  : submitting
-                    ? (state.flowType === 'order' ? TC('sendingOrderBtn') : TC('sendingQuoteBtn'))
-                    : (state.flowType === 'order' && backendCorrectionSessionId ? 'Gem og gensend ordre' : state.flowType === 'order' ? TC('submitOrderBtn') : TC('submitQuoteBtn'))}
-              </button>
+              {state.flowType === 'order' && backendCorrectionSessionId ? (
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (await handleSaveChanges()) setConfirmModalOpen(false);
+                    }}
+                    disabled={submitting || savingChanges}
+                    className="px-4 py-3 rounded-lg border border-slate-300 bg-white font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    Gem ændring
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void downloadPdf('order', { orderRevisionAction: 'confirmation' })}
+                    disabled={submitting || savingChanges}
+                    className="px-4 py-3 rounded-lg bg-slate-700 font-medium text-white shadow hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    Gem og opret ny ordrebekræftelse
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { if (!submitting) setConfirmSubmitOpen(true); }}
+                    disabled={submitting || savingChanges}
+                    className="px-4 py-3 rounded-lg bg-emerald-600 font-medium text-white shadow hover:bg-emerald-700 disabled:opacity-60"
+                  >
+                    Gem og send ny ordrebekræftelse
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { if (!submitting && !(state.flowType === 'order' && orderLocked && !backendCorrectionSessionId)) setConfirmSubmitOpen(true); }}
+                  disabled={submitting || (state.flowType === 'order' && orderLocked && !backendCorrectionSessionId)}
+                  title={state.flowType === 'order' && orderLocked && !backendCorrectionSessionId ? TC('orderCannotResendTitle') : undefined}
+                  className="px-6 py-3 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow-lg disabled:opacity-60 disabled:cursor-not-allowed">
+                  {state.flowType === 'order' && orderLocked && !backendCorrectionSessionId
+                    ? TC('orderSubmittedBadge')
+                    : submitting
+                      ? (state.flowType === 'order' ? TC('sendingOrderBtn') : TC('sendingQuoteBtn'))
+                      : state.flowType === 'order' ? TC('submitOrderBtn') : TC('submitQuoteBtn')}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2767,7 +2836,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               {state.flowType === 'order'
                 ? (lang === 'da'
                     ? (backendCorrectionSessionId
-                        ? 'Ændringerne gemmes på samme ordre, og den seneste ordrebekræftelse sendes igen.'
+                        ? 'Ændringerne gemmes på samme ordre, og en ny ordrebekræftelse sendes.'
                         : 'Vil du afsende denne ordre til Timan? Der oprettes et ordrenummer og PDF sendes.')
                     : 'Do you want to submit this order to Timan? An order number will be created and the PDF will be sent.')
                 : (lang === 'da'
@@ -2785,13 +2854,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 onClick={async () => {
                   if (submitting) return;
                   setConfirmSubmitOpen(false);
-                  await downloadPdf();
+                  await downloadPdf(
+                    undefined,
+                    backendCorrectionSessionId && state.flowType === 'order'
+                      ? { orderRevisionAction: 'send' }
+                      : undefined,
+                  );
                 }}
                 disabled={submitting}
                 className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow disabled:opacity-60 disabled:cursor-not-allowed">
                 {submitting
                   ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
-                  : (backendCorrectionSessionId && state.flowType === 'order' ? 'Gem og gensend ordre' : lang === 'da' ? 'Bekræft' : 'Confirm')}
+                  : (backendCorrectionSessionId && state.flowType === 'order' ? 'Gem og send ny ordrebekræftelse' : lang === 'da' ? 'Bekræft' : 'Confirm')}
               </button>
             </div>
           </div>
