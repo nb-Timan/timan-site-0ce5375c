@@ -67,3 +67,21 @@ Each migration name occurs once in live history. QA rollback rows remaining: 0.
   must use the released build; it is not inferred from database/unit tests.
 
 No email or external calendar invitation is sent by these QA checks.
+
+## Public MCP acceptance: deployment blocked
+
+After pushing code commit `334790bf`, authenticated Edge was reloaded on an
+existing AKR-scoped lead. The fully rendered activity selectors still contained
+both `Customer requests a demonstration` and `Customer wants a demonstration`,
+and scheduled was still stored as `Demo agreed`, not `Demonstration scheduled`.
+The observed entry asset was `/assets/index-Bk8FupjF.js`.
+
+This proves the public frontend does not contain this release. Its exact commit
+is not exposed in the UI and is not guessed. Only read-only MCP inspection was
+performed on this production lead; no save or demo conversion was triggered.
+
+Remaining acceptance after publishing `334790bf` or newer:
+requested 40/no warning -> scheduled selection opens same-lead form -> missing
+date blocked/warning -> dated save 50/warning cleared -> verify three independent
+dates, same lead/demo/calendar, reload, then safe QA cleanup. Do not claim MCP
+end-to-end PASS from the successful rollback integration tests.
