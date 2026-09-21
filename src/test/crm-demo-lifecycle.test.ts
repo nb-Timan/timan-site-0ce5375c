@@ -55,6 +55,16 @@ describe('canonical lead → demo lifecycle', () => {
     expect(effectiveLeadProbability({ next_activity: 'Customer requests a demonstration', pipeline_stage: 'Qualified', probability: 50 })).toBe(50);
     expect(deriveLegacyPipelineStage('Customer wants a demonstration')).toBe('Qualified');
     expect(effectiveLeadStatus({ next_activity: 'Customer wants a demonstration', pipeline_stage: 'Qualified' })).toBe('Ønsker demo');
+    expect(effectiveLeadStatus({
+      next_activity: 'Customer requests a demonstration', pipeline_stage: 'Qualified', demo_has_run: 'yes',
+    })).toBe('Demo afholdt');
+  });
+
+  it('keeps the existing demo-held toggle in the canonical activity and calendar path', () => {
+    const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260921085622_lead_demo_held_status_history.sql'), 'utf8');
+    expect(sql).toContain("'demo_held'");
+    expect(sql).toContain("status = 'completed'");
+    expect(sql).toContain('append_crm_demo_held_history');
   });
 
   it('guards one linked demo and one calendar event per canonical demo in the migration', () => {

@@ -18,7 +18,7 @@
 
 import type { CrmLead, CrmLinkedSalesEvent, PipelineStage } from "@/lib/crmLeadsService";
 
-type LeadStatusSource = Pick<CrmLead, "next_activity" | "pipeline_stage"> & Partial<Pick<CrmLead, "probability">> & {
+type LeadStatusSource = Pick<CrmLead, "next_activity" | "pipeline_stage"> & Partial<Pick<CrmLead, "probability" | "demo_has_run">> & {
   linked_sales_event?: CrmLinkedSalesEvent | null;
 };
 
@@ -28,6 +28,7 @@ export type LeadDisplayStatus =
   | "Lead"
   | "Ønsker demo"
   | "Demo planlagt"
+  | "Demo afholdt"
   | "Tilbud sendt"
   | "Follow-up"
   | "Vundet"
@@ -37,6 +38,7 @@ export const LEAD_DISPLAY_STATUSES: readonly LeadDisplayStatus[] = [
   "Lead",
   "Ønsker demo",
   "Demo planlagt",
+  "Demo afholdt",
   "Tilbud sendt",
   "Follow-up",
   "Vundet",
@@ -157,6 +159,7 @@ export function effectiveLeadStatus(
   const ownStatus = nextActivityToLeadStatus(effectiveNextActivity(lead));
   if (lead.linked_sales_event === "order_submitted") return "Vundet";
   if (lead.linked_sales_event === "quote_sent") return "Tilbud sendt";
+  if (lead.demo_has_run === "yes") return "Demo afholdt";
   return ownStatus;
 }
 
@@ -207,7 +210,7 @@ export function isDemoLead(
   lead: Pick<CrmLead, "next_activity" | "pipeline_stage">,
 ): boolean {
   const status = effectiveLeadStatus(lead);
-  return status === "Ønsker demo" || status === "Demo planlagt";
+  return status === "Ønsker demo" || status === "Demo planlagt" || status === "Demo afholdt";
 }
 
 // ---------- Derive a legacy pipeline_stage from current next_activity ----------
@@ -218,6 +221,7 @@ const STATUS_TO_LEGACY_STAGE: Record<LeadDisplayStatus, PipelineStage> = {
   Lead:           "Lead",
   "Ønsker demo": "Qualified",
   "Demo planlagt":"Qualified",
+  "Demo afholdt": "Qualified",
   "Follow-up":    "Qualified",
   "Tilbud sendt": "Offer sent",
   Vundet:         "Won",

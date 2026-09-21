@@ -82,7 +82,7 @@ type TKey =
   | 'sort_default' | 'sort_title_asc' | 'sort_title_desc'
   | 'sort_date_desc' | 'sort_date_asc' | 'sort_prob_desc' | 'sort_prob_asc'
   | 'page_prev' | 'page_next' | 'page_range'
-  | 'st_Lead' | 'st_DemoWant' | 'st_Demo' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
+  | 'st_Lead' | 'st_DemoWant' | 'st_Demo' | 'st_DemoHeld' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
 type UiText = Record<Language, string> & Partial<Record<Exclude<PortalUiLanguage, Language>, string>>;
 
@@ -172,6 +172,7 @@ const T: Record<TKey, UiText> = {
   st_Lead:       { da: 'Lead', en: 'Lead', de: 'Lead', it: 'Lead', hu: 'Lead', fr: 'Lead', pl: 'Lead', cs: 'Lead' },
   st_DemoWant:   { da: 'Ønsker demo', en: 'Demo requested', de: 'Demo gewünscht', it: 'Demo richiesta', hu: 'Demó kért', fr: 'Démo demandée', pl: 'Demo oczekiwane', cs: 'Demo požadováno' },
   st_Demo:       { da: 'Demo planlagt', en: 'Demo planned', de: 'Demo geplant', it: 'Demo pianificata', hu: 'Demo tervezve', fr: 'Démo planifiée', pl: 'Demo zaplanowane', cs: 'Demo plánováno' },
+  st_DemoHeld:   { da: 'Demo afholdt', en: 'Demo held', de: 'Demo durchgeführt', it: 'Demo effettuata', hu: 'Demo megtartva', fr: 'Démo effectuée', pl: 'Demo odbyło się', cs: 'Demo proběhlo' },
   st_Tilbud:     { da: 'Tilbud sendt', en: 'Offer sent', de: 'Angebot gesendet', it: 'Offerta inviata', hu: 'Ajánlat elküldve', fr: 'Devis envoyé', pl: 'Oferta wysłana', cs: 'Nabídka odeslána' },
   st_Followup:   { da: 'Follow-up', en: 'Follow-up', de: 'Follow-up', it: 'Follow-up', hu: 'Utánkövetés', fr: 'Suivi', pl: 'Kontakt', cs: 'Kontakt' },
   st_Vundet:     { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes', fr: 'Gagné', pl: 'Wygrane', cs: 'Vyhrané' },
@@ -218,6 +219,7 @@ const ST_TKEY: Record<LeadDisplayStatus, TKey> = {
   Lead: 'st_Lead',
   'Ønsker demo': 'st_DemoWant',
   'Demo planlagt': 'st_Demo',
+  'Demo afholdt': 'st_DemoHeld',
   'Tilbud sendt': 'st_Tilbud',
   'Follow-up': 'st_Followup',
   Vundet: 'st_Vundet',
