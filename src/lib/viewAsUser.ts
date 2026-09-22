@@ -185,7 +185,7 @@ export function mergeEffectivePortalUser(
     partner_type: target.partner_type,
     can_view_prices: target.can_view_prices,
     can_submit_order: target.can_submit_order,
-    portal_role: isSameBackendUserInSellerMode ? viewUser.portalRole : (target.portal_role ?? appUser.portal_role),
+    portal_role: viewUser?.portalRole ?? target.portal_role ?? appUser.portal_role,
     module_access: isSameBackendUserInSellerMode ? null : (target.module_access ?? null),
     allowed_areas: isSameBackendUserInSellerMode ? null : (target.allowed_areas ?? null),
     allowed_modules: isSameBackendUserInSellerMode ? null : (target.allowed_modules ?? null),
@@ -194,8 +194,8 @@ export function mergeEffectivePortalUser(
     portal_variant: target.portal_variant ?? appUser.portal_variant,
     display_name: target.display_name || appUser.display_name,
     initials: target.initials || appUser.initials,
-    dealer_number: target.dealer_number ?? null,
-    company_dealer: target.company_dealer ?? null,
+    dealer_number: viewUser?.dealerNumber ?? target.dealer_number ?? null,
+    company_dealer: viewUser?.companyDealer ?? target.company_dealer ?? null,
   };
 }
 

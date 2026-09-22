@@ -89,6 +89,33 @@ describe("mergeEffectivePortalUser", () => {
     expect(canManageNewsContent(effective)).toBe(false);
     expect(canManageMarketingVideos(effective)).toBe(false);
   });
+
+  it("does not inherit an internal stored role or account into the DVP dealer preview", () => {
+    const target: SessionUser = {
+      ...baseUser,
+      id: "dvp-user-id",
+      email: "dagvilpet@gmail.com",
+      display_name: "Dag Vilster Petersen",
+      portal_role: "timan_service",
+      dealer_number: "100",
+      company_dealer: "Timan",
+    };
+    const effective = mergeEffectivePortalUser(baseUser, target, {
+      key: "DVP",
+      initials: "DVP",
+      email: "dagvilpet@gmail.com",
+      portalRole: "timan_dealer",
+      viewRole: "dealer",
+      label: "DVP Forhandler",
+      dealerNumber: "10458",
+      companyDealer: "Tiefel Garten + Forstgeräte GmbH",
+    });
+
+    expect(derivePortalRole(effective)).toBe("timan_dealer");
+    expect(effective.dealer_number).toBe("10458");
+    expect(effective.company_dealer).toBe("Tiefel Garten + Forstgeräte GmbH");
+    expect(hasAreaAccess(effective, "timan_backend")).toBe(false);
+  });
 });
 
 describe("withSellerScopeIdentity", () => {

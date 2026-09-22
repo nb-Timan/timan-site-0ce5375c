@@ -12,9 +12,9 @@
  *      Backed by public.service_partner_dealer_links (additive table
  *      created in db/sql/20260608_partner_hierarchy.sql).
  *
- * Mutations are restricted server-side to Timan Backend / Service via RLS
- * (is_timan_staff() policies). The UI in BackendPartnerRelationsPage also
- * gates the page client-side, but RLS is the source of truth.
+ * General mutations remain restricted server-side. The service-partner main
+ * relation uses its scoped RPC, which validates the current internal user's
+ * administrative scope for both accounts before writing.
  */
 import { supabase } from "@/lib/supabase";
 
@@ -37,6 +37,13 @@ export interface PartnerAccountRelation {
   updated_at: string;
 }
 
+export interface ServicePartnerMainRelationResult {
+  child_account_id: string;
+  parent_account_id: string | null;
+  billing_account_id: string | null;
+  relation_id: string | null;
+}
+
 export interface ServicePartnerLink {
   id: string;
   service_partner_account_id: string;
@@ -55,6 +62,36 @@ export async function listPartnerAccountRelations(): Promise<PartnerAccountRelat
     return [];
   }
   return (data ?? []) as PartnerAccountRelation[];
+}
+
+export async function listPartnerAccountRelationsForAccount(accountId: string): Promise<PartnerAccountRelation[]> {
+  if (!accountId) return [];
+  const { data, error } = await supabase
+    .from("partner_account_relations")
+    .select("id, source_account_id, target_account_id, relation_type, active, created_at, updated_at")
+    .or(`source_account_id.eq.${accountId},target_account_id.eq.${accountId}`)
+    .eq("active", true)
+    .order("updated_at", { ascending: false });
+  if (error) {
+    console.warn("[partnerRelations] account relation read failed", error.message);
+    return [];
+  }
+  return (data ?? []) as PartnerAccountRelation[];
+}
+
+export async function setServicePartnerMainRelation(input: {
+  childAccountId: string;
+  parentAccountId: string | null;
+  billViaParent: boolean;
+}): Promise<{ ok: boolean; row?: ServicePartnerMainRelationResult; error?: string }> {
+  const { data, error } = await supabase.rpc("set_service_partner_main_relation", {
+    p_child_account_id: input.childAccountId,
+    p_parent_account_id: input.parentAccountId,
+    p_bill_via_parent: input.billViaParent,
+  });
+  if (error) return { ok: false, error: error.message };
+  const row = Array.isArray(data) ? data[0] : data;
+  return { ok: true, row: row as ServicePartnerMainRelationResult | undefined };
 }
 
 export async function upsertPartnerAccountRelation(

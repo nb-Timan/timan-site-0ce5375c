@@ -1,4 +1,5 @@
 import type { DealerAccount } from "@/lib/dealerAccountsService";
+import type { PartnerAccountRelation } from "@/lib/partnerRelationsService";
 
 function normalizeAccountNumber(value: string | null | undefined): string {
   return (value ?? "").trim().toLowerCase();
@@ -30,6 +31,28 @@ export function buildDealerDetailRowsFromVisibleDealers(
   }
 
   return visibleDealers.filter((dealer) => allowedNumbers.has(normalizeAccountNumber(dealer.account_number)));
+}
+
+export function addRelatedDealerDetailRowsFromVisibleDealers(
+  detailRows: DealerAccount[],
+  visibleDealers: DealerAccount[],
+  selectedAccountId: string,
+  relations: PartnerAccountRelation[],
+): DealerAccount[] {
+  if (!selectedAccountId || detailRows.length === 0) return detailRows;
+
+  const relatedAccountIds = new Set<string>();
+  for (const relation of relations) {
+    if (!relation.active) continue;
+    if (relation.source_account_id === selectedAccountId) relatedAccountIds.add(relation.target_account_id);
+    if (relation.target_account_id === selectedAccountId) relatedAccountIds.add(relation.source_account_id);
+  }
+
+  const existingIds = new Set(detailRows.map((dealer) => dealer.id));
+  const relatedVisibleRows = visibleDealers.filter(
+    (dealer) => relatedAccountIds.has(dealer.id) && !existingIds.has(dealer.id),
+  );
+  return relatedVisibleRows.length > 0 ? [...detailRows, ...relatedVisibleRows] : detailRows;
 }
 
 export function canOpenDealerDetailFromVisibleDealers(

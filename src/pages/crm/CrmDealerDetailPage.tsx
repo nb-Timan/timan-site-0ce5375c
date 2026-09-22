@@ -53,7 +53,10 @@ import {
   type UpdateDealerAccountPatch,
   isDealerInactive, dealerLifecycleStatus, resolveActiveDealer, isDealerCustomerAccount,
 } from "@/lib/dealerAccountsService";
-import { buildDealerDetailRowsFromVisibleDealers } from "@/lib/dealerDetailScope";
+import {
+  addRelatedDealerDetailRowsFromVisibleDealers,
+  buildDealerDetailRowsFromVisibleDealers,
+} from "@/lib/dealerDetailScope";
 import type { BackendUser } from "@/lib/backend-users-store";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
 import {
@@ -69,8 +72,14 @@ import {
   buildPartnerAdminSellerState,
   buildPartnerAdminTypePatch,
   getInitialPartnerAdminType,
+  isEligibleServicePartnerParent,
   type PartnerAdminSellerOption,
 } from "@/lib/partnerAdminEdit";
+import {
+  listPartnerAccountRelationsForAccount,
+  setServicePartnerMainRelation,
+  type PartnerAccountRelation,
+} from "@/lib/partnerRelationsService";
 import { supabase } from "@/lib/supabase";
 import {
   listActivities as listCalendarActivities,
@@ -225,6 +234,11 @@ const L: Record<string, DealerDetailText> = {
   main_account:     { da: "Hovedkonto", en: "Main account", de: "Hauptkonto", it: "Account principale", hu: "Fő fiók", sv: "Huvudkonto", fr: "Compte principal", pl: "Konto główne", cs: "Hlavní účet" },
   no_budget:        { da: "Intet budget", en: "No budget", de: "Kein Budget", it: "Nessun budget", hu: "Nincs költségvetés", sv: "Ingen budget", fr: "Aucun budget", pl: "Brak budżetu", cs: "Žádný rozpočet" },
   edit_dealer:      { da: "Rediger partner", en: "Edit partner", de: "Partner bearbeiten", it: "Modifica partner", hu: "Partner szerkesztése", sv: "Redigera partner", fr: "Modifier le partenaire", pl: "Edytuj partnera", cs: "Upravit partnera" },
+  linked_main_partner: { da: "Tilknyttet hovedpartner", en: "Linked main partner", de: "Zugeordneter Hauptpartner", it: "Partner principale collegato", hu: "Kapcsolt főpartner", sv: "Kopplad huvudpartner", fr: "Partenaire principal lié", pl: "Powiązany partner główny", cs: "Propojený hlavní partner" },
+  search_main_partner: { da: "Søg navn eller kontonummer", en: "Search name or account number", de: "Name oder Kontonummer suchen", it: "Cerca nome o numero conto", hu: "Keresés név vagy számlaszám alapján", sv: "Sök namn eller kontonummer", fr: "Rechercher un nom ou un numéro de compte", pl: "Szukaj nazwy lub numeru konta", cs: "Hledat název nebo číslo účtu" },
+  no_main_partner: { da: "Ingen hovedpartner", en: "No main partner", de: "Kein Hauptpartner", it: "Nessun partner principale", hu: "Nincs főpartner", sv: "Ingen huvudpartner", fr: "Aucun partenaire principal", pl: "Brak partnera głównego", cs: "Žádný hlavní partner" },
+  billing_via: { da: "Fakturering via", en: "Billing via", de: "Abrechnung über", it: "Fatturazione tramite", hu: "Számlázás ezen keresztül", sv: "Fakturering via", fr: "Facturation via", pl: "Fakturowanie przez", cs: "Fakturace přes" },
+  own_account: { da: "Egen konto", en: "Own account", de: "Eigenes Konto", it: "Conto proprio", hu: "Saját fiók", sv: "Eget konto", fr: "Compte propre", pl: "Własne konto", cs: "Vlastní účet" },
   notes_heading:    { da: "Noter", en: "Notes", de: "Notizen", it: "Note", hu: "Jegyzetek", sv: "Anteckningar", fr: "Notes", pl: "Notatki", cs: "Poznámky" },
   internal_notes:   { da: "Interne noter", en: "Internal notes", de: "Interne Notizen", it: "Note interne", hu: "Belső jegyzetek", sv: "Interna anteckningar", fr: "Notes internes", pl: "Notatki wewnętrzne", cs: "Interní poznámky" },
   shared_notes:     { da: "Delte noter", en: "Shared notes", de: "Geteilte Notizen", it: "Note condivise", hu: "Megosztott jegyzetek", sv: "Delade anteckningar", fr: "Notes partagées", pl: "Notatki udostępnione", cs: "Sdílené poznámky" },
@@ -588,7 +602,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   const { appUser: sessionUser, loading } = useAppUser();
   const academyMode = academyPartnerDataSandbox.isActive();
   const appUser = academyMode ? ACADEMY_PARTNER_USER : sessionUser;
-  const { listDealerContacts, updateDealerAccount } = getPartnerDataRepository();
+  const { listPartnerDataDealers, listDealerContacts, updateDealerAccount } = getPartnerDataRepository();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { uiLanguage: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
@@ -599,6 +613,8 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [partnerRelations, setPartnerRelations] = useState<PartnerAccountRelation[]>([]);
+  const [partnerAdminAccounts, setPartnerAdminAccounts] = useState<DealerAccount[]>([]);
   const [stats, setStats] = useState<Record<string, DealerAccountStats>>({});
   const [users, setUsers] = useState<BackendUser[]>([]);
   const [calendar, setCalendar] = useState<CalendarActivity[]>([]);
@@ -685,12 +701,23 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         let dealerRows: DealerAccount[] = [];
         let scopedDealerNumbers: string[] | null = null;
         let sellerStats: Record<string, DealerAccountStats> | null = null;
+        let preloadedRelations: PartnerAccountRelation[] | null = null;
         if (seller) {
           const sellerRes = await fetchDealerAccountsForSeller({
             initials: getEffectiveSellerInitials(appUser),
             email: getEffectiveSellerEmail(appUser),
           });
           dealerRows = buildDealerDetailRowsFromVisibleDealers(sellerRes.dealers, accountNumber);
+          const selectedVisibleDealer = sellerRes.dealers.find((row) => row.account_number === accountNumber);
+          if (selectedVisibleDealer && dealerRows.length > 0) {
+            preloadedRelations = await listPartnerAccountRelationsForAccount(selectedVisibleDealer.id);
+            dealerRows = addRelatedDealerDetailRowsFromVisibleDealers(
+              dealerRows,
+              sellerRes.dealers,
+              selectedVisibleDealer.id,
+              preloadedRelations,
+            );
+          }
           sellerStats = sellerRes.stats;
         } else {
           const [scopeRes, dRes] = await Promise.all([
@@ -709,6 +736,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         if (cancelled) return;
         if (dealerRows.length === 0) {
           setDealers([]);
+          setPartnerRelations([]);
           setStats({});
           setUsers([]);
           setCalendar([]);
@@ -722,6 +750,10 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         }
         const dealerNumbers = Array.from(new Set(dealerRows.map((d) => d.account_number).filter(Boolean)));
         const dealerIds = Array.from(new Set(dealerRows.map((d) => d.id).filter(Boolean)));
+        const selectedDealer = dealerRows.find((row) => row.account_number === accountNumber) ?? dealerRows[0];
+        const accountRelations = preloadedRelations ?? (academyMode || !selectedDealer
+          ? []
+          : await listPartnerAccountRelationsForAccount(selectedDealer.id));
         const [sRes, detailUsers, cal] = await Promise.all([
           sellerStats ? Promise.resolve({ rows: [] as DealerAccountStats[] }) : fetchDealerAccountStatsByNumbers(dealerNumbers),
           fetchDealerDetailUsers(dealerRows, { includeAllTimanUsers: admin || seller }),
@@ -729,6 +761,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         ]);
         if (cancelled) return;
         setDealers(dealerRows);
+        setPartnerRelations(accountRelations);
         const map: Record<string, DealerAccountStats> = {};
         if (sellerStats) {
           for (const dealer of dealerRows) {
@@ -802,6 +835,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         if (!cancelled) {
           const fallbackDealer = externalCrm ? fallbackDealerFromUser(effectiveUser, accountNumber) : null;
           setDealers(fallbackDealer ? [fallbackDealer] : []);
+          setPartnerRelations([]);
           setStats({});
           setUsers([]);
           setCalendar([]);
@@ -925,6 +959,15 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
     setSearchParams(next, { replace: true });
   }, [dealer, canEditPartnerAdmin, searchParams, setSearchParams]);
 
+  useEffect(() => {
+    if (!showEditDealer || !canEditPartnerAdmin) return;
+    let cancelled = false;
+    listPartnerDataDealers(effectiveUser, portalRole).then((result) => {
+      if (!cancelled) setPartnerAdminAccounts(result.rows);
+    });
+    return () => { cancelled = true; };
+  }, [showEditDealer, canEditPartnerAdmin, effectiveUserKey, portalRole, listPartnerDataDealers]);
+
   if (loading) return <div className="min-h-screen flex items-center justify-center"><span className="text-sm text-slate-500">…</span></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!canAccess) return <Navigate to="/portal" replace />;
@@ -1040,11 +1083,23 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   const hasGroup = branchNumbers.length > 1;
   const collaborationPartners = dealers
     .filter((d) => {
-      if (d.parent_account_number !== mainAccountNumber) return false;
+      const linkedByRelation = partnerRelations.some((relation) =>
+        relation.active && relation.source_account_id === dealer.id && relation.target_account_id === d.id
+      );
+      if (d.parent_account_number !== mainAccountNumber && !linkedByRelation) return false;
+      if (d.id === dealer.id) return false;
       if (d.is_deleted || d.is_blocked) return false;
-      return Boolean(d.parent_account_number) || isDealerCustomerAccount(d) || isServicePartnerAccount(d);
+      return linkedByRelation || Boolean(d.parent_account_number) || isDealerCustomerAccount(d) || isServicePartnerAccount(d);
     })
     .sort((a, b) => (a.branch_name || a.company_name).localeCompare(b.branch_name || b.company_name, "da"));
+  const linkedMainPartnerRelation = partnerRelations.find((relation) =>
+    relation.active
+    && relation.target_account_id === dealer.id
+    && (relation.relation_type === "dealer_has_service_partner" || relation.relation_type === "importer_has_service_partner")
+  ) ?? null;
+  const linkedMainPartner = linkedMainPartnerRelation
+    ? dealers.find((row) => row.id === linkedMainPartnerRelation.source_account_id) ?? null
+    : null;
 
   const sellerCtx = getActiveSellerView(appUser.email);
   const effInitials = getEffectiveSellerInitials(appUser);
@@ -1359,16 +1414,32 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
     );
   }
 
-  async function handleSaveDealer(patch: UpdateDealerAccountPatch): Promise<{ ok: boolean; error?: string }> {
+  async function handleSaveDealer(
+    patch: UpdateDealerAccountPatch,
+    hierarchy: { parentAccountId: string | null; billViaParent: boolean },
+  ): Promise<{ ok: boolean; error?: string }> {
     if (!dealer) return { ok: false, error: tl("dealer_missing_error", lang) };
     const res = await updateDealerAccount(dealer.id, patch);
     if (!res.ok) {
       toast.error(res.error || tl("partner_update_error", lang));
       return res;
     }
+    if (!academyMode) {
+      const relationResult = await setServicePartnerMainRelation({
+        childAccountId: dealer.id,
+        parentAccountId: hierarchy.parentAccountId,
+        billViaParent: hierarchy.billViaParent,
+      });
+      if (!relationResult.ok) {
+        const error = relationResult.error || tl("partner_update_error", lang);
+        toast.error(error);
+        return { ok: false, error };
+      }
+    }
     // Refresh only this dealer family; the detail view derives from it.
     const dRes = academyMode ? { rows: academyPartnerDataSandbox.listDealers() } : await fetchDealerAccountFamilyByNumber(accountNumber, { includeDeleted: false });
     setDealers(dRes.rows);
+    if (!academyMode) setPartnerRelations(await listPartnerAccountRelationsForAccount(dealer.id));
     toast.success(tl("partner_update_success", lang));
     setShowEditDealer(false);
     return { ok: true };
@@ -1512,6 +1583,17 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
                   </ul>
                 )}
               </div>
+
+              {linkedMainPartner && (
+                <div className="sm:col-span-2">
+                  <LinkedMainPartnerPanel
+                    partner={linkedMainPartner}
+                    billingViaParent={dealer.billing_account_id === linkedMainPartner.id}
+                    lang={lang}
+                    onOpen={() => navigate(dealerOverviewHref(linkedMainPartner.account_number))}
+                  />
+                </div>
+              )}
 
               <div className="sm:col-span-2">
                 <CollaborationPartnersPanel
@@ -1708,6 +1790,8 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         <EditDealerModal
           dealer={dealer}
           sellers={partnerAdminSellerOptions}
+          parentCandidates={partnerAdminAccounts}
+          linkedMainPartner={linkedMainPartner}
           lang={lang}
           onCancel={() => setShowEditDealer(false)}
           onSave={handleSaveDealer}
@@ -1743,6 +1827,37 @@ function Kpi({ icon, label, value, hint }: { icon: React.ReactNode; label: strin
       <div className="mt-1 text-lg font-bold text-slate-900">{value}</div>
       {hint && <div className="text-[10px] text-slate-400 mt-0.5">{hint}</div>}
     </div>
+  );
+}
+
+function LinkedMainPartnerPanel({
+  partner,
+  billingViaParent,
+  lang,
+  onOpen,
+}: {
+  partner: DealerAccount;
+  billingViaParent: boolean;
+  lang: PortalUiLanguage;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4 text-left hover:bg-emerald-50"
+    >
+      <span className="min-w-0">
+        <span className="block text-xs font-bold uppercase tracking-wide text-emerald-700">{tl("linked_main_partner", lang)}</span>
+        <span className="mt-1 block truncate text-sm font-semibold text-slate-900">
+          {partner.company_name} · #{partner.account_number}
+        </span>
+        <span className="mt-1 block text-xs text-slate-500">
+          {tl("billing_via", lang)}: {billingViaParent ? partner.company_name : tl("own_account", lang)}
+        </span>
+      </span>
+      <ArrowRight className="h-4 w-4 shrink-0 text-emerald-700" />
+    </button>
   );
 }
 
@@ -2570,6 +2685,8 @@ function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
 function EditDealerModal({
   dealer,
   sellers,
+  parentCandidates,
+  linkedMainPartner,
   lang,
   onCancel,
   onSave,
@@ -2577,9 +2694,14 @@ function EditDealerModal({
 }: {
   dealer: DealerAccount;
   sellers: PartnerAdminSellerOption[];
+  parentCandidates: DealerAccount[];
+  linkedMainPartner: DealerAccount | null;
   lang: PortalUiLanguage;
   onCancel: () => void;
-  onSave: (patch: UpdateDealerAccountPatch) => Promise<{ ok: boolean; error?: string }>;
+  onSave: (
+    patch: UpdateDealerAccountPatch,
+    hierarchy: { parentAccountId: string | null; billViaParent: boolean },
+  ) => Promise<{ ok: boolean; error?: string }>;
   onGeocoded?: () => void | Promise<void>;
 }) {
   const initialSellerState = buildPartnerAdminSellerState(dealer, sellers);
@@ -2595,6 +2717,8 @@ function EditDealerModal({
     phone: dealer.phone || "",
     ...initialSellerState,
     partner_type: initialPartnerType,
+    main_partner_id: linkedMainPartner?.id || "",
+    billing_mode: dealer.billing_account_id ? "parent" : "own",
   });
   // Geo captured from Google Places when the user selects a suggestion.
   // Manual typing leaves these null; backend manual geocode panel handles backfill.
@@ -2604,6 +2728,7 @@ function EditDealerModal({
     google_place_id: dealer.google_place_id ?? null,
   });
   const [saving, setSaving] = useState(false);
+  const [parentSearch, setParentSearch] = useState("");
 
   const upd = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -2613,6 +2738,24 @@ function EditDealerModal({
   const sellerOptions = useMemo<PartnerAdminSellerOption[]>(() => {
     return buildPartnerAdminSellerOptions(form, sellers);
   }, [sellers, form.assigned_seller_email, form.assigned_seller_id, form.assigned_seller_initials, form.assigned_seller_name]);
+  const parentOptions = useMemo(() => {
+    const byId = new Map(parentCandidates
+      .filter((account) => isEligibleServicePartnerParent(account, dealer.id))
+      .map((account) => [account.id, account]));
+    if (linkedMainPartner && isEligibleServicePartnerParent(linkedMainPartner, dealer.id)) {
+      byId.set(linkedMainPartner.id, linkedMainPartner);
+    }
+    return Array.from(byId.values()).sort((a, b) => a.company_name.localeCompare(b.company_name, "da"));
+  }, [dealer.id, linkedMainPartner, parentCandidates]);
+  const visibleParentOptions = useMemo(() => {
+    const query = parentSearch.trim().toLocaleLowerCase("da");
+    if (!query) return parentOptions;
+    return parentOptions.filter((account) =>
+      account.id === form.main_partner_id
+      || account.company_name.toLocaleLowerCase("da").includes(query)
+      || account.account_number.toLocaleLowerCase("da").includes(query)
+    );
+  }, [form.main_partner_id, parentOptions, parentSearch]);
 
   function applySeller(sellerId: string) {
     if (!sellerId) {
@@ -2741,6 +2884,51 @@ function EditDealerModal({
               )}
             </select>
           </label>
+          {form.partner_type === "service_partner" && (
+            <>
+              <label className="block">
+                <span className="block text-xs font-bold text-slate-600 mb-1">{tl("linked_main_partner", lang)}</span>
+                <input
+                  type="search"
+                  value={parentSearch}
+                  onChange={(event) => setParentSearch(event.target.value)}
+                  placeholder={tl("search_main_partner", lang)}
+                  className="mb-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+                <select
+                  value={form.main_partner_id}
+                  onChange={(event) => setForm((current) => ({
+                    ...current,
+                    main_partner_id: event.target.value,
+                    billing_mode: event.target.value ? current.billing_mode : "own",
+                  }))}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+                >
+                  <option value="">{tl("no_main_partner", lang)}</option>
+                  {visibleParentOptions.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.company_name} · #{account.account_number}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="block text-xs font-bold text-slate-600 mb-1">{tl("billing_via", lang)}</span>
+                <select
+                  value={form.billing_mode}
+                  onChange={setText("billing_mode")}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm bg-white"
+                >
+                  <option value="own">{tl("own_account", lang)} · #{dealer.account_number}</option>
+                  <option value="parent" disabled={!form.main_partner_id}>
+                    {form.main_partner_id
+                      ? `${parentOptions.find((account) => account.id === form.main_partner_id)?.company_name ?? tl("linked_main_partner", lang)}`
+                      : tl("linked_main_partner", lang)}
+                  </option>
+                </select>
+              </label>
+            </>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 mt-5">
@@ -2757,8 +2945,9 @@ function EditDealerModal({
               setSaving(true);
               try {
                 const trim = (s: string) => (s.trim() === "" ? null : s.trim());
+                const existingAddress = dealer.address ?? dealer.address_line_1 ?? null;
                 const addressChanged =
-                  trim(form.address) !== (dealer.address ?? null) ||
+                  trim(form.address) !== existingAddress ||
                   trim(form.postal_code) !== (dealer.postal_code ?? null) ||
                   trim(form.city) !== (dealer.city ?? null) ||
                   trim(form.country) !== (dealer.country ?? null);
@@ -2766,8 +2955,8 @@ function EditDealerModal({
                   company_name: form.company_name.trim(),
                   account_number: form.account_number.trim(),
                   country: trim(form.country),
-                  address: trim(form.address),
-                  address_line_1: trim(form.address),
+                  address: addressChanged ? trim(form.address) : dealer.address,
+                  address_line_1: addressChanged ? trim(form.address) : dealer.address_line_1,
                   postal_code: trim(form.postal_code),
                   city: trim(form.city),
                   email: trim(form.email),
@@ -2790,7 +2979,12 @@ function EditDealerModal({
                 } else if (addressChanged) {
                   Object.assign(patch, buildPendingGeocodingPatch(hasUsableDealerAddress(addressParts)));
                 }
-                const saved = await onSave(patch);
+                const saved = await onSave(patch, {
+                  parentAccountId: form.partner_type === "service_partner" && form.main_partner_id
+                    ? form.main_partner_id
+                    : null,
+                  billViaParent: form.partner_type === "service_partner" && form.billing_mode === "parent",
+                });
                 if (saved.ok && addressChanged && !resolvedPatch && hasUsableDealerAddress(addressParts)) {
                   const geocoded = await requestDealerGeocoding(dealer.id);
                   if (!geocoded.ok) {

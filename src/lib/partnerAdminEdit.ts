@@ -9,6 +9,24 @@ import { sellerInitialsMatch } from "@/lib/sellerInitials";
 
 export type PartnerAdminSellerOption = Pick<BackendUser, "id" | "email" | "initials" | "name" | "phone">;
 
+export function isEligibleServicePartnerParent(
+  account: Pick<DealerAccount, "id" | "customer_type" | "customer_type_label" | "dealer_type" | "is_blocked" | "is_deleted">,
+  childId?: string | null,
+): boolean {
+  if (account.id === childId || account.is_blocked || account.is_deleted) return false;
+  const type = resolvePartnerAccountType(account);
+  return type === "dealer" || type === "importer";
+}
+
+export function resolveServicePartnerMainRelationType(
+  account: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type">,
+): "dealer_has_service_partner" | "importer_has_service_partner" | null {
+  const type = resolvePartnerAccountType(account);
+  if (type === "dealer") return "dealer_has_service_partner";
+  if (type === "importer") return "importer_has_service_partner";
+  return null;
+}
+
 export function resolvePartnerAdminSeller<T extends Pick<BackendUser, "id" | "email" | "initials">>(
   dealer: Pick<DealerAccount, "assigned_seller_id" | "assigned_seller_email" | "assigned_seller_initials">,
   sellers: T[],

@@ -47,6 +47,7 @@ export interface DealerAccount {
   deleted_at: string | null;
   deleted_by: string | null;
   parent_account_number: string | null;
+  billing_account_id: string | null;
   is_main_account: boolean;
   branch_name: string | null;
   director_name: string | null;
@@ -226,6 +227,7 @@ export function rowToDealer(row: Record<string, unknown>): DealerAccount {
     deleted_at: (row.deleted_at as string | null) ?? null,
     deleted_by: (row.deleted_by as string | null) ?? null,
     parent_account_number: (row.parent_account_number as string | null) ?? null,
+    billing_account_id: (row.billing_account_id as string | null) ?? null,
     is_main_account: Boolean(row.is_main_account ?? false),
     branch_name: (row.branch_name as string | null) ?? null,
     director_name: (row.director_name as string | null) ?? null,
@@ -1369,11 +1371,35 @@ export async function fetchDealerAccountFamilyByNumber(
       childrenQuery = childrenQuery.eq("is_deleted", false);
     }
 
-    const [rootRes, childrenRes] = await Promise.all([rootQuery, childrenQuery]);
+    const relationsRes = await supabase
+      .from("partner_account_relations")
+      .select("source_account_id, target_account_id")
+      .eq("active", true)
+      .or(`source_account_id.eq.${selected.row.id},target_account_id.eq.${selected.row.id}`);
+    const relatedIds = Array.from(new Set((relationsRes.data ?? []).flatMap((relation) => [
+      String(relation.source_account_id || ""),
+      String(relation.target_account_id || ""),
+    ]).filter((id) => id && id !== selected.row?.id)));
+    let relatedQuery = supabase
+      .from("dealer_accounts")
+      .select("*")
+      .in("id", relatedIds.length > 0 ? relatedIds : [selected.row.id])
+      .order("company_name", { ascending: true });
+    if (!opts.includeDeleted) relatedQuery = relatedQuery.eq("is_deleted", false);
+
+    const [rootRes, childrenRes, relatedRes] = await Promise.all([rootQuery, childrenQuery, relatedQuery]);
     if (rootRes.error) throw rootRes.error;
     if (childrenRes.error) throw childrenRes.error;
+    // Relation visibility is additive. A role without relation access keeps
+    // the established main/branch family instead of losing the whole page.
+    if (relationsRes.error) {
+      console.warn("[dealerAccountsService] partner family relation read failed", relationsRes.error.message);
+    }
+    if (relatedRes.error) {
+      console.warn("[dealerAccountsService] related partner account read failed", relatedRes.error.message);
+    }
     const rowsById = new Map<string, DealerAccount>();
-    for (const row of [...(rootRes.data ?? []), ...(childrenRes.data ?? [])]) {
+    for (const row of [...(rootRes.data ?? []), ...(childrenRes.data ?? []), ...(relatedRes.data ?? [])]) {
       const dealer = rowToDealer(row as Record<string, unknown>);
       rowsById.set(dealer.id, dealer);
     }

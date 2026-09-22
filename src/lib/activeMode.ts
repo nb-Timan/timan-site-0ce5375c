@@ -37,6 +37,8 @@ export interface UserView {
   portalRole: 'timan_seller' | 'timan_dealer';
   viewRole: UserViewRole;
   label: string;
+  dealerNumber?: string;
+  companyDealer?: string;
 }
 
 /** Predefined seller views any backend user may switch into. */
@@ -62,6 +64,8 @@ export const USER_VIEWS: readonly UserView[] = [
     portalRole: 'timan_dealer',
     viewRole: 'dealer',
     label: 'DVP Forhandler',
+    dealerNumber: '10458',
+    companyDealer: 'Tiefel Garten + Forstgeräte GmbH',
   },
 ];
 
