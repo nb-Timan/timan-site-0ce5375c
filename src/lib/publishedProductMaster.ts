@@ -2,6 +2,8 @@
 export interface PublishedProductMaster {
   item_number: string;
   item_text_da?: string | null;
+  item_text_de?: string | null;
+  item_text_en?: string | null;
   price_dkk: number | null;
   price_eur: number | null;
   price_sek?: number | null;
@@ -52,9 +54,19 @@ type CatalogItem = {
 export function resolvePublishedProduct<T extends CatalogItem>(item: T): T {
   const row = publishedProduct(item.varenr);
   if (!row) return item;
+  const titleDa = resolvePublishedTitle(item.varenr, typeof item.name === 'string' ? item.name : item.name.da);
+  const titleDe = row.item_text_de?.trim();
+  const titleEn = row.item_text_en?.trim();
   const name = typeof item.name === 'string'
-    ? resolvePublishedTitle(item.varenr, item.name)
-    : { ...item.name, da: resolvePublishedTitle(item.varenr, item.name.da) };
+    ? titleDe || titleEn
+      ? { da: titleDa, en: titleEn || item.name, ...(titleDe ? { de: titleDe } : {}) }
+      : titleDa
+    : {
+        ...item.name,
+        da: titleDa,
+        ...(titleDe ? { de: titleDe } : {}),
+        ...(titleEn ? { en: titleEn } : {}),
+      };
   return {
     ...item, name,
     priceDKK: row.price_dkk ?? item.priceDKK,

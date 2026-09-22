@@ -20,6 +20,8 @@ export interface PriceListItem {
   item_number: string;
   renamed_from_item_number: string | null;
   item_text_da: string | null;
+  item_text_de: string | null;
+  item_text_en: string | null;
   price_dkk: number | null;
   price_eur: number | null;
   price_sek: number | null;
@@ -50,7 +52,14 @@ export const PRICE_HISTORY_PRICE_FIELDS = [
   "price_eur",
 ] as const;
 
-export type PriceHistoryField = "item_number" | "item_text_da" | typeof PRICE_HISTORY_PRICE_FIELDS[number];
+export const PRICE_HISTORY_TEXT_FIELDS = [
+  "item_number",
+  "item_text_da",
+  "item_text_de",
+  "item_text_en",
+] as const;
+
+export type PriceHistoryField = typeof PRICE_HISTORY_TEXT_FIELDS[number] | typeof PRICE_HISTORY_PRICE_FIELDS[number];
 export type PriceHistoryFilter = "all" | "price" | "text";
 
 export interface PriceListHistoryEntry {
@@ -71,7 +80,8 @@ export interface PriceListHistoryEntry {
 }
 
 export function isPriceHistoryField(field: string): field is PriceHistoryField {
-  return field === "item_number" || field === "item_text_da" || PRICE_HISTORY_PRICE_FIELDS.includes(field as typeof PRICE_HISTORY_PRICE_FIELDS[number]);
+  return PRICE_HISTORY_TEXT_FIELDS.includes(field as typeof PRICE_HISTORY_TEXT_FIELDS[number])
+    || PRICE_HISTORY_PRICE_FIELDS.includes(field as typeof PRICE_HISTORY_PRICE_FIELDS[number]);
 }
 
 export function isPriceHistoryPriceField(field: PriceHistoryField): boolean {
@@ -141,7 +151,7 @@ export interface ImportSummary {
 export async function listPriceItems(): Promise<PriceListItem[]> {
   const { data, error } = await supabase
     .from("price_list_items")
-    .select("id, item_number, renamed_from_item_number, item_text_da, price_dkk, price_eur, price_sek, cost_price_dkk, cost_price_source, cost_price_updated_at, updated_at, updated_by_email, is_dirty, last_published_at")
+    .select("id, item_number, renamed_from_item_number, item_text_da, item_text_de, item_text_en, price_dkk, price_eur, price_sek, cost_price_dkk, cost_price_source, cost_price_updated_at, updated_at, updated_by_email, is_dirty, last_published_at")
     .order("item_number", { ascending: true });
   if (error) {
     // eslint-disable-next-line no-console
@@ -175,7 +185,7 @@ export async function listPriceItemHistory(
   if (filter === "price") {
     query = query.in("field_name", PRICE_HISTORY_PRICE_FIELDS);
   } else if (filter === "text") {
-    query = query.in("field_name", ["item_number", "item_text_da"]);
+    query = query.in("field_name", PRICE_HISTORY_TEXT_FIELDS);
   }
 
   const { data, error } = await query
@@ -212,6 +222,8 @@ export async function updatePriceItem(input: {
   item_number: string;
   new_item_number: string;
   item_text_da: string | null;
+  item_text_de: string | null;
+  item_text_en: string | null;
   price_dkk: number | null;
   price_eur: number | null;
   price_sek: number | null;
@@ -222,6 +234,8 @@ export async function updatePriceItem(input: {
       p_item_number: input.item_number,
       p_new_item_number: input.new_item_number,
       p_item_text_da: input.item_text_da,
+      p_item_text_de: input.item_text_de,
+      p_item_text_en: input.item_text_en,
       p_price_dkk: input.price_dkk,
       p_price_eur: input.price_eur,
       p_price_sek: input.price_sek,

@@ -23,6 +23,10 @@ export interface PublishPreviewRow {
   item_number: string;
   item_text_da: string | null;          // new (Backend Prisliste)
   old_item_text_da: string | null;      // current configurator/seed value
+  item_text_de: string | null;
+  old_item_text_de: string | null;
+  item_text_en: string | null;
+  old_item_text_en: string | null;
   price_dkk: number | null;             // new
   old_price_dkk: number | null;         // current configurator/seed value
   price_eur: number | null;
@@ -78,6 +82,10 @@ export function buildPublishPreview(
         item_number: it.item_number,
         item_text_da: it.item_text_da,
         old_item_text_da: published?.item_text_da ?? s?.item_text_da ?? null,
+        item_text_de: it.item_text_de,
+        old_item_text_de: published?.item_text_de ?? null,
+        item_text_en: it.item_text_en,
+        old_item_text_en: published?.item_text_en ?? null,
         price_dkk: it.price_dkk,
         old_price_dkk: published?.price_dkk ?? s?.price_dkk ?? null,
         price_eur: it.price_eur,

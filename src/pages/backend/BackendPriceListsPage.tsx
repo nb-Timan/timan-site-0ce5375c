@@ -61,7 +61,9 @@ import {
 
 const FIELD_LABEL: Record<string, string> = {
   item_number: "Varenr.",
-  item_text_da: "Varetekst",
+  item_text_da: "Varetekst dansk",
+  item_text_de: "Varetekst tysk",
+  item_text_en: "Varetekst engelsk",
   cost_price_dkk: "Kostpris DKK",
   price_dkk: "Pris DKK",
   price_sek: "Pris SEK",
@@ -141,7 +143,9 @@ export default function BackendPriceListsPage() {
       : exportItems.filter((i) =>
           i.item_number.toLowerCase().includes(term) ||
           (i.renamed_from_item_number ?? "").toLowerCase().includes(term) ||
-          (i.item_text_da ?? "").toLowerCase().includes(term),
+          (i.item_text_da ?? "").toLowerCase().includes(term) ||
+          (i.item_text_de ?? "").toLowerCase().includes(term) ||
+          (i.item_text_en ?? "").toLowerCase().includes(term),
         );
     return [...base].sort((a, b) => {
       const ga = groupMap.get(a.item_number) ?? "Options/accessories/other";
@@ -715,6 +719,8 @@ function seedToPriceListItem(seed: ReturnType<typeof buildConfiguratorSeed>[numb
     item_number: seed.item_number,
     renamed_from_item_number: null,
     item_text_da: seed.item_text_da,
+    item_text_de: null,
+    item_text_en: null,
     cost_price_dkk: null,
     cost_price_source: null,
     cost_price_updated_at: null,
@@ -1264,7 +1270,9 @@ function EditModal({ item, onClose, onSaved }: {
   onSaved: () => void | Promise<void>;
 }) {
   const [itemNumber, setItemNumber] = useState(item.item_number);
-  const [text, setText] = useState(item.item_text_da ?? "");
+  const [textDa, setTextDa] = useState(item.item_text_da ?? "");
+  const [textDe, setTextDe] = useState(item.item_text_de ?? "");
+  const [textEn, setTextEn] = useState(item.item_text_en ?? "");
   const [costDkk, setCostDkk] = useState(formatEditablePrice(item.cost_price_dkk));
   const [dkk, setDkk] = useState(formatEditablePrice(item.price_dkk));
   const [eur, setEur] = useState(formatEditablePrice(item.price_eur));
@@ -1314,7 +1322,9 @@ function EditModal({ item, onClose, onSaved }: {
     const res = await updatePriceItem({
       item_number: item.item_number,
       new_item_number: nextItemNumber,
-      item_text_da: text.trim() || null,
+      item_text_da: textDa.trim() || null,
+      item_text_de: textDe.trim() || null,
+      item_text_en: textEn.trim() || null,
       cost_price_dkk: c,
       price_dkk: d,
       price_eur: e,
@@ -1343,8 +1353,16 @@ function EditModal({ item, onClose, onSaved }: {
               <input value={itemNumber} onChange={(e) => setItemNumber(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono" />
             </Field>
-            <Field label="Varetekst">
-              <input value={text} onChange={(e) => setText(e.target.value)}
+            <Field label="Varetekst dansk">
+              <input value={textDa} onChange={(e) => setTextDa(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            </Field>
+            <Field label="Varetekst tysk">
+              <input value={textDe} onChange={(e) => setTextDe(e.target.value)}
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+            </Field>
+            <Field label="Varetekst engelsk">
+              <input value={textEn} onChange={(e) => setTextEn(e.target.value)}
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
             </Field>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -1597,7 +1615,7 @@ function PublishModal({
                   <tr className="text-left">
                     <th className="px-2 py-1.5">Status</th>
                     <th className="px-2 py-1.5">Varenr.</th>
-                    <th className="px-2 py-1.5">Varetekst (gammel → ny)</th>
+                    <th className="px-2 py-1.5">Varetekster (gammel → ny)</th>
                     <th className="px-2 py-1.5 text-right">Pris DKK</th>
                     <th className="px-2 py-1.5 text-right">Pris EUR</th>
                     <th className="px-2 py-1.5 text-right">Pris SEK</th>
@@ -1614,7 +1632,13 @@ function PublishModal({
                         )}
                       </td>
                       <td className="px-2 py-1.5 font-mono">{r.item_number}</td>
-                      <td className="px-2 py-1.5">{diffText(r.old_item_text_da, r.item_text_da)}</td>
+                      <td className="px-2 py-1.5">
+                        <div className="space-y-1">
+                          <div><span className="mr-1 font-bold text-slate-500">DA</span>{diffText(r.old_item_text_da, r.item_text_da)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">DE</span>{diffText(r.old_item_text_de, r.item_text_de)}</div>
+                          <div><span className="mr-1 font-bold text-slate-500">EN</span>{diffText(r.old_item_text_en, r.item_text_en)}</div>
+                        </div>
+                      </td>
                       <td className="px-2 py-1.5 text-right">{diffNum(r.old_price_dkk, r.price_dkk)}</td>
                       <td className="px-2 py-1.5 text-right">{diffNum(r.old_price_eur, r.price_eur)}</td>
                       <td className="px-2 py-1.5 text-right">{diffNum(r.old_price_sek, r.price_sek)}</td>

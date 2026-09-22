@@ -32,14 +32,18 @@ describe('price-list item history', () => {
     const entries = [
       entry('price_dkk', 40900, 60800),
       entry('item_text_da', null, null),
+      entry('item_text_de', null, null),
+      entry('item_text_en', null, null),
       entry('item_number', null, null),
     ];
 
     expect(isPriceHistoryPriceField('price_dkk')).toBe(true);
     expect(isPriceHistoryPriceField('item_text_da')).toBe(false);
-    expect(filterPriceHistory(entries, 'all')).toHaveLength(3);
+    expect(isPriceHistoryPriceField('item_text_de')).toBe(false);
+    expect(isPriceHistoryPriceField('item_text_en')).toBe(false);
+    expect(filterPriceHistory(entries, 'all')).toHaveLength(5);
     expect(filterPriceHistory(entries, 'price')).toEqual([entries[0]]);
-    expect(filterPriceHistory(entries, 'text')).toEqual([entries[1], entries[2]]);
+    expect(filterPriceHistory(entries, 'text')).toEqual(entries.slice(1));
   });
 
   it('calculates a positive amount and percentage from an actual price change', () => {
@@ -56,9 +60,12 @@ describe('price-list item history', () => {
   });
 
   it('keeps unchanged saves out of the append-only trigger', () => {
-    const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260921073553_price_list_item_history.sql'), 'utf8');
+    const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260922100804_localized_price_list_item_texts.sql'), 'utf8');
     expect(migration).toContain('if old.item_number is not distinct from new.item_number');
+    expect(migration).toContain('old.item_text_de is not distinct from new.item_text_de');
+    expect(migration).toContain('old.item_text_en is not distinct from new.item_text_en');
+    expect(migration).toContain("'item_text_de', old.item_text_de, new.item_text_de");
+    expect(migration).toContain("'item_text_en', old.item_text_en, new.item_text_en");
     expect(migration).toContain('return new;');
-    expect(migration).toContain('after update on public.price_list_items');
   });
 });

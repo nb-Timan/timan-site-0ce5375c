@@ -9,7 +9,16 @@ import { publishItems } from '@/lib/pricePublishService';
 
 const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc } }));
-const row = { item_number: '725132', item_text_da: 'New canonical title', price_dkk: '0', price_eur: null, price_sek: '123', identity_aliases: ['Old title'] };
+const row = {
+  item_number: '725132',
+  item_text_da: 'New canonical title',
+  item_text_de: 'Neuer kanonischer Titel',
+  item_text_en: 'New canonical English title',
+  price_dkk: '0',
+  price_eur: null,
+  price_sek: '123',
+  identity_aliases: ['Old title'],
+};
 beforeEach(() => rpc.mockReset());
 afterEach(() => { cleanup(); clearPublishedConfiguratorPricesForTest(); vi.restoreAllMocks(); });
 
@@ -22,6 +31,10 @@ describe('Product Master loading and publishing', () => {
     expect(publishedProduct('725132')).toMatchObject({ price_dkk: 0, price_eur: null, price_sek: 123 });
     await loadPublishedConfiguratorPrices();
     expect(rpc).toHaveBeenCalledTimes(2);
+    expect(publishedProduct('725132')).toMatchObject({
+      item_text_de: row.item_text_de,
+      item_text_en: row.item_text_en,
+    });
   });
 
   it('does not mount catalog consumers with stale static prices before the read completes', async () => {

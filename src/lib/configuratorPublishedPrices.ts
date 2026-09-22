@@ -27,6 +27,8 @@ async function fetchMaster(): Promise<number> {
       return {
         item_number: itemNumber,
         item_text_da: typeof value.item_text_da === 'string' ? value.item_text_da : null,
+        item_text_de: typeof value.item_text_de === 'string' ? value.item_text_de : null,
+        item_text_en: typeof value.item_text_en === 'string' ? value.item_text_en : null,
         identity_aliases: Array.isArray(value.identity_aliases) ? value.identity_aliases.filter((alias): alias is string => typeof alias === 'string') : [],
         price_dkk: nullableNumber(value.price_dkk),
         price_eur: nullableNumber(value.price_eur),
