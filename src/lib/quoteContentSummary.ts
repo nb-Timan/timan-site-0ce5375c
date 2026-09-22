@@ -20,7 +20,7 @@ import {
   LOOSE_TOOL_KEY,
 } from '@/data/machines';
 import { snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
-import { resolvePaymentTerms } from '@/lib/paymentTerms';
+import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
 
@@ -185,7 +185,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
     language: lang,
     currency,
     flow_type: state.flowType === 'order' ? 'order' : 'quote',
-    payment_terms: resolvePaymentTerms(state.paymentTerms),
+    payment_terms: getPaymentTermsDocumentValue(state.paymentTerms),
     // The order-level label is derived from the frozen machine references.
     // Legacy snapshots without them retain their original global fallback.
     purchase_order_number: orderPurchaseReferenceSummary(state).headerValue,

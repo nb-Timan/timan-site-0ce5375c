@@ -116,6 +116,30 @@ describe('canonical completed order confirmation', () => {
     expect(screen.getByRole('alert').textContent).toContain('historisk pris-snapshot');
   });
 
+  it('renders the payment term from the frozen submitted snapshot', () => {
+    const net21 = revisionState();
+    net21.paymentTerms = 'Standard NET21';
+    const { unmount } = render(<ReadOnlyOrderConfirmationModal order={{ state_json: net21, id: 'qa-21', order_number: 'O-QA-21' } as SavedConfiguration} onClose={vi.fn()} />);
+    expect(screen.getByText('NET21')).toBeTruthy();
+    unmount();
+
+    const net14 = revisionState();
+    net14.paymentTerms = 'Net 14 days';
+    render(<ReadOnlyOrderConfirmationModal order={{ state_json: net14, id: 'qa-14', order_number: 'O-QA-14' } as SavedConfiguration} onClose={vi.fn()} />);
+    expect(screen.getByText('NET14')).toBeTruthy();
+  });
+
+  it('keeps the historical term even if the current default changes later', () => {
+    const submitted = revisionState();
+    submitted.paymentTerms = 'Net 14 days';
+    const historicalSnapshot = JSON.parse(JSON.stringify(submitted));
+    const currentDraft = { ...submitted, paymentTerms: 'Standard NET21' };
+
+    expect(buildSubmittedOrderMailSummary(historicalSnapshot).payment_terms).toBe('NET14');
+    expect(buildSubmittedOrderMailSummary(currentDraft).payment_terms).toBe('NET21');
+    expect(historicalSnapshot.paymentTerms).toBe('Net 14 days');
+  });
+
   it('uses exactly the same commercial rows for UI and PDF, with revision and PO', () => {
     const state = revisionState();
     const document = buildSubmittedOrderDocument(state);

@@ -1,6 +1,6 @@
 import type { CalcResult, ConfiguratorState, DiscountDetail, Language, LineItem } from "@/types/configurator";
 import { formatMoney } from "@/data/machines";
-import { getPaymentTermsLabel, resolvePaymentTerms } from "@/lib/paymentTerms";
+import { getPaymentTermsDocumentValue, getPaymentTermsLabel } from "@/lib/paymentTerms";
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from "@/lib/orderPurchaseReferences";
 import { commonMachineDeliveryDate, machineDeliveryDate } from "@/lib/configuratorDelivery";
 
@@ -449,7 +449,7 @@ export function buildConfiguratorPdf(input: BuildConfiguratorPdfInput): any {
   y = drawPriceSummary(pdf, input.calcResult, input.calcResult.discountDetails, y, input);
 
   const terms = [
-    `${getPaymentTermsLabel(input.contentLanguage)}: ${resolvePaymentTerms(input.state.paymentTerms)}`,
+    `${getPaymentTermsLabel(input.contentLanguage)}: ${getPaymentTermsDocumentValue(input.state.paymentTerms)}`,
     `${input.TC("confirmDelivery")} ${deliveryDateText}`,
     `${input.TC("deliveryMethod")}: ${deliveryMethodText}`,
     input.TC("confirmExVat"),

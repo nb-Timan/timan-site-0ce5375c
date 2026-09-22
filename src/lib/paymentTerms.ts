@@ -86,6 +86,16 @@ export function resolvePaymentTerms(value: unknown): string {
   return trimmed;
 }
 
+/** Canonical value printed on confirmations, PDFs and mail payloads. */
+export function getPaymentTermsDocumentValue(value: unknown): string {
+  const resolved = resolvePaymentTerms(value);
+  const compact = resolved.toLowerCase().replace(/[\s_-]+/g, '');
+  const netDays = compact.match(/^(?:standard)?net(7|14|21|30|40)(?:days?)?$/);
+  if (netDays) return `NET${netDays[1]}`;
+  if (compact === 'cbscashbeforeshipment' || compact === 'cbs') return 'CBS';
+  return resolved;
+}
+
 export const PAYMENT_TERMS_PERMISSION_KEY = 'can_manage_payment_terms' as const;
 
 export type DealerPaymentTermsSource = 'override' | 'contract' | 'unset';

@@ -91,6 +91,7 @@ import {
   PAYMENT_TERMS_OPTIONS,
   DEFAULT_PAYMENT_TERMS,
   resolvePaymentTerms,
+  getPaymentTermsDocumentValue,
   getPaymentTermsLabel,
   getPaymentTermsOptionLabel,
 } from '@/lib/paymentTerms';
@@ -1902,7 +1903,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       </div>
       <div class="flex justify-between w-full text-xs text-gray-700 mt-2">
         <span>${getPaymentTermsLabel(lang)}</span>
-        <span>${resolvePaymentTerms(state.paymentTerms)}</span>
+        <span>${getPaymentTermsDocumentValue(state.paymentTerms)}</span>
       </div>
       <p class="text-xs text-gray-500 mt-1">${TC('confirmExVat')}</p>
     </div></div></div>`;
@@ -2035,6 +2036,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     // the save/send flow links the configuration to the new lead.
     const effectiveLeadId = await ensurePendingLeadCreated() ?? linkedLeadId;
 
+    // Check the canonical server lock before persisting the live state. A
+    // submitted order remains immutable outside an explicit Backend revision.
+    if (activeCaseId && effectiveFlowType === 'order') {
+      const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
+      if (lockCheck.locked && !backendCorrectionSessionId) {
+        setOrderLocked(true);
+        toast.error(T('orderCannotResendTitle'));
+        setConfirmModalOpen(false);
+        return false;
+      }
+    }
+
     if (!activeCaseId && appUser) {
       try {
         const label = state.firmanavn
@@ -2060,21 +2073,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         return false;
       }
     } else if (activeCaseId) {
-      // A correction must persist the live Configurator snapshot before its
-      // confirmation/PDF is generated. The same correction session permits
-      // this write and later records the before/after revision atomically.
-      if (backendCorrectionSessionId) {
-        const correctionSave = await updateConfiguration(activeCaseId, state, {
-          ownership: ownershipPayload,
-          leadId: effectiveLeadId,
-          pricingMode: isExhibition ? 'messe' : undefined,
+      // Persist the exact live state before preview/PDF/submission. This is
+      // also required for ordinary saved drafts: markAsOrderSubmitted freezes
+      // the database snapshot, so a stale draft must never become the
+      // historical confirmation while the PDF uses newer React state.
+      const preSubmissionSave = await updateConfiguration(activeCaseId, state, {
+        ownership: ownershipPayload,
+        leadId: effectiveLeadId,
+        pricingMode: isExhibition ? 'messe' : undefined,
+      });
+      if (preSubmissionSave.error || preSubmissionSave.itemsError) {
+        toast.error(backendCorrectionSessionId
+          ? 'Kunne ikke gemme ordreændringer før gensendelse.'
+          : T('saveFailed'), {
+          description: preSubmissionSave.error || preSubmissionSave.itemsError || undefined,
         });
-        if (correctionSave.error || correctionSave.itemsError) {
-          toast.error('Kunne ikke gemme ordreændringer før gensendelse.', {
-            description: correctionSave.error || correctionSave.itemsError || undefined,
-          });
-          return false;
-        }
+        return false;
       }
       try {
         const refs = await ensureReferenceNumbers(activeCaseId, effectiveFlowType === 'order');
@@ -2101,14 +2115,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     if (effectiveFlowType === 'order') {
       if (!activeCaseId) {
         toast.error(T('saveFailed'));
-        return false;
-      }
-
-      const lockCheck = await fetchIsOrderSubmitted(activeCaseId);
-      if (lockCheck.locked && !backendCorrectionSessionId) {
-        setOrderLocked(true);
-        toast.error(T('orderCannotResendTitle'));
-        setConfirmModalOpen(false);
         return false;
       }
 

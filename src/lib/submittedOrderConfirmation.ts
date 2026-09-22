@@ -2,7 +2,7 @@ import type { CalcResult, ConfiguratorState } from '@/types/configurator';
 import { buildAccountCaseLines } from '@/lib/configuratorAccountSummaries';
 import { hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
 import type { QuoteContentSummary } from '@/lib/quoteContentSummary';
-import { resolvePaymentTerms } from '@/lib/paymentTerms';
+import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
 
@@ -73,7 +73,7 @@ export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteC
   });
   return {
     language: state.language, currency: state.language === 'da' ? 'DKK' : 'EUR', flow_type: 'order',
-    payment_terms: resolvePaymentTerms(state.paymentTerms),
+    payment_terms: getPaymentTermsDocumentValue(state.paymentTerms),
     purchase_order_number: orderPurchaseReferenceSummary(state).headerValue,
     delivery: { method: state.deliveryMethod || '', date: state.date || null, startup_option: state.deliveryDeliverStartup ?? null },
     machines, totals: { subtotal: totals.subtotal },

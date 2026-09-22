@@ -5,7 +5,7 @@
 import { FileText, X } from 'lucide-react';
 import { formatMoney } from '@/data/machines';
 import { buildSubmittedOrderDocument } from '@/lib/submittedOrderConfirmation';
-import { resolvePaymentTerms } from '@/lib/paymentTerms';
+import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { activeMachineDeliveryDates, commonMachineDeliveryDate } from '@/lib/configuratorDelivery';
 import type { SavedConfiguration } from '@/lib/configurationsService';
@@ -92,7 +92,7 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
             <section className="rounded-lg border border-slate-200 p-4">
               <h4 className="mb-3 text-sm font-semibold text-slate-900">Handels- og leveringsoplysninger</h4>
               <dl className="grid gap-3 sm:grid-cols-2">
-                <Detail label="Betalingsbetingelser" value={resolvePaymentTerms(state.paymentTerms)} />
+                <Detail label="Betalingsbetingelser" value={getPaymentTermsDocumentValue(state.paymentTerms)} />
                 <Detail label="Ønsket levering" value={commonDelivery ? formatDate(`${commonDelivery}T12:00:00`) : 'Individuelle datoer'} />
                 <Detail label="Leveringsmetode" value={deliveryMethodLabel(state.deliveryMethod)} />
                 <Detail label="Rekvisitionsnr. / PO nr." value={purchaseReferences.headerValue} />
