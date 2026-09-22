@@ -33,6 +33,7 @@ import { crmDemoStageLabel, crmDemoMissingLabel, crmDemoDateRequiredLabel, crmDe
 import { startCrmDemoRegistration } from '@/lib/crmLeadsService';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getDemoSelectionErrors, splitDemoMachineInterest } from '@/lib/crmDemoSelection';
+import { listDemoDealerPeople, type DemoDealerPerson } from '@/lib/crmDemoDealerPeople';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
 
@@ -51,7 +52,9 @@ type TKey =
   | 'no_match' | 'val_title' | 'val_seller' | 'val_dealer'
   | 'created_ok' | 'created_err' | 'search_dealer'
   | 'val_demo_type' | 'val_demo_machine' | 'val_demo_equipment' | 'ph_addr'
-  | 'from_lead_banner' | 'from_lead_link';
+  | 'from_lead_banner' | 'from_lead_link'
+  | 'pick_dealer_rep' | 'search_dealer_rep' | 'manual_dealer_rep'
+  | 'known_dealer_rep' | 'no_dealer_people' | 'loading_dealer_people';
 
 const T: Record<TKey, Record<Language, string>> = {
   page_title:    { da: 'Nyt demo lead', en: 'New demo lead', de: 'Neuer Demo-Lead', it: 'Nuovo demo lead', hu: 'Új demo lead' },
@@ -77,6 +80,12 @@ const T: Record<TKey, Record<Language, string>> = {
   lbl_dealer:    { da: 'Forhandler-firma', en: 'Dealer company', de: 'Händler-Firma', it: 'Azienda rivenditore', hu: 'Kereskedő cég' },
   ph_dealer:     { da: 'Vælg forhandler…', en: 'Select dealer…', de: 'Händler wählen…', it: 'Seleziona rivenditore…', hu: 'Válasszon kereskedőt…' },
   lbl_dealer_rep:{ da: 'Sælger / demonstrator hos forhandler', en: 'Seller / demonstrator at dealer', de: 'Verkäufer / Vorführer beim Händler', it: 'Venditore / dimostratore presso rivenditore', hu: 'Értékesítő / bemutató a kereskedőnél' },
+  pick_dealer_rep: { da: 'Vælg kendt person…', en: 'Select known person…', de: 'Bekannte Person auswählen…', it: 'Seleziona persona conosciuta…', hu: 'Ismert személy kiválasztása…' },
+  search_dealer_rep: { da: 'Søg navn, initialer eller rolle…', en: 'Search name, initials or role…', de: 'Name, Initialen oder Rolle suchen…', it: 'Cerca nome, iniziali o ruolo…', hu: 'Keresés név, monogram vagy szerepkör alapján…' },
+  manual_dealer_rep: { da: 'Indtast manuelt', en: 'Enter manually', de: 'Manuell eingeben', it: 'Inserisci manualmente', hu: 'Kézi bevitel' },
+  known_dealer_rep: { da: 'Vælg kendt person', en: 'Select known person', de: 'Bekannte Person auswählen', it: 'Seleziona persona conosciuta', hu: 'Ismert személy kiválasztása' },
+  no_dealer_people: { da: 'Ingen kendte personer fundet', en: 'No known people found', de: 'Keine bekannten Personen gefunden', it: 'Nessuna persona conosciuta trovata', hu: 'Nem található ismert személy' },
+  loading_dealer_people: { da: 'Henter personer…', en: 'Loading people…', de: 'Personen werden geladen…', it: 'Caricamento persone…', hu: 'Személyek betöltése…' },
   lbl_customer:  { da: 'Kunde-firma / CVR', en: 'Customer company / VAT', de: 'Kundenfirma / USt-IdNr.', it: 'Azienda cliente / P.IVA', hu: 'Ügyfél cég / adószám' },
   lbl_customer_addr: { da: 'Kunde-adresse', en: 'Customer address', de: 'Kundenadresse', it: 'Indirizzo cliente', hu: 'Ügyfél cím' },
   lbl_notes:     { da: 'Noter / øvrig info', en: 'Notes / other info', de: 'Notizen / weitere Infos', it: 'Note / altre info', hu: 'Megjegyzések / egyéb' },
@@ -214,6 +223,11 @@ export default function CrmNewDemoLeadPage() {
   const [dealerCompany, setDealerCompany] = useState<string>(''); // account_number
   const [dealerCompanyLabel, setDealerCompanyLabel] = useState<string>(''); // display label persisted to DB
   const [dealerRep, setDealerRep] = useState('');
+  const [dealerRepMode, setDealerRepMode] = useState<'known' | 'manual'>('known');
+  const [dealerRepPerson, setDealerRepPerson] = useState<DemoDealerPerson | null>(null);
+  const [dealerPeople, setDealerPeople] = useState<DemoDealerPerson[]>([]);
+  const [dealerPeopleLoading, setDealerPeopleLoading] = useState(false);
+  const [dealerRepPickerOpen, setDealerRepPickerOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [notes, setNotes] = useState('');
@@ -444,6 +458,35 @@ export default function CrmNewDemoLeadPage() {
 
   const selectedDealer = allOptions.find(o => o.value === dealerCompany) || null;
   const dealerTriggerLabel = selectedDealer ? selectedDealer.label : (dealerCompanyLabel || tt('ph_dealer', lang));
+  const selectedDealerAccount = dealers.find(dealer => dealer.account_number === dealerCompany) || null;
+
+  useEffect(() => {
+    if (repository.academy || !selectedDealerAccount) {
+      setDealerPeople([]);
+      setDealerPeopleLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDealerPeopleLoading(true);
+    void listDemoDealerPeople(selectedDealerAccount.account_number, selectedDealerAccount.id)
+      .then((people) => {
+        if (cancelled) return;
+        setDealerPeople(people);
+        if (people.length === 0) setDealerRepMode('manual');
+      })
+      .finally(() => { if (!cancelled) setDealerPeopleLoading(false); });
+    return () => { cancelled = true; };
+  }, [repository.academy, selectedDealerAccount?.account_number, selectedDealerAccount?.id]);
+
+  function selectDealer(option: DealerOption) {
+    if (dealerCompany && dealerCompany !== option.value) {
+      setDealerRepPerson(null);
+      if (dealerRepMode === 'known') setDealerRep('');
+    }
+    setDealerCompany(option.value);
+    setDealerCompanyLabel(option.label);
+    setPickerOpen(false);
+  }
 
   const selectedMachineInterest = useMemo(() => splitDemoMachineInterest(machineInterest), [machineInterest]);
   const machineEstimate = useMemo(() => {
@@ -506,6 +549,8 @@ export default function CrmNewDemoLeadPage() {
         dealer_country: dealers.find((dealer) => dealer.account_number === dealerCompany)?.country || null,
         dealer_account_id: dealers.find((dealer) => dealer.account_number === dealerCompany)?.id || null,
         dealer_rep: dealerRep || null,
+        dealer_rep_contact_id: dealerRepPerson?.source === 'dealer_contact' ? dealerRepPerson.id : null,
+        dealer_rep_user_id: dealerRepPerson?.source === 'app_user' ? dealerRepPerson.id : null,
         customer_name: customerName || null,
         customer_address: customerAddress || null,
         notes: notes || null,
@@ -705,7 +750,7 @@ export default function CrmNewDemoLeadPage() {
                             <CommandItem
                               key={o.value}
                               value={o.value}
-                              onSelect={() => { setDealerCompany(o.value); setDealerCompanyLabel(o.label); setPickerOpen(false); }}
+                              onSelect={() => selectDealer(o)}
                             >
                               <Check className={cn('mr-2 h-4 w-4', dealerCompany === o.value ? 'opacity-100' : 'opacity-0')} />
                               <span className="truncate">{o.label}</span>
@@ -720,7 +765,7 @@ export default function CrmNewDemoLeadPage() {
                             <CommandItem
                               key={o.value}
                               value={o.value}
-                              onSelect={() => { setDealerCompany(o.value); setDealerCompanyLabel(o.label); setPickerOpen(false); }}
+                              onSelect={() => selectDealer(o)}
                             >
                               <Check className={cn('mr-2 h-4 w-4', dealerCompany === o.value ? 'opacity-100' : 'opacity-0')} />
                               <span className="truncate">{o.label}</span>
@@ -735,7 +780,61 @@ export default function CrmNewDemoLeadPage() {
             </Field>
 
             <Field label={tt('lbl_dealer_rep', lang)}>
-              <input className={inputCls} value={dealerRep} onChange={e=>setDealerRep(e.target.value)} />
+              {dealerRepMode === 'manual' ? (
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
+                  <input className={inputCls} value={dealerRep} onChange={e=>setDealerRep(e.target.value)} />
+                  {dealerPeople.length > 0 && (
+                    <Button type="button" variant="outline" className="h-10 w-full shrink-0 rounded-xl px-3 sm:w-auto" onClick={() => { setDealerRepMode('known'); setDealerRep(''); }}>
+                      {tt('known_dealer_rep', lang)}
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Popover open={dealerRepPickerOpen} onOpenChange={setDealerRepPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" role="combobox" disabled={!selectedDealerAccount || dealerPeopleLoading} className="h-10 w-full justify-between rounded-xl border-gray-200 font-normal">
+                      <span className={cn('truncate text-left', !dealerRepPerson && 'text-gray-400')}>
+                        {dealerPeopleLoading ? tt('loading_dealer_people', lang) : (dealerRepPerson?.name || tt('pick_dealer_rep', lang))}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] min-w-[300px] p-0" align="start">
+                    <Command filter={(value, search) => {
+                      const person = dealerPeople.find(option => option.key === value);
+                      return (person?.searchText || value.toLowerCase()).includes(search.toLowerCase()) ? 1 : 0;
+                    }}>
+                      <CommandInput placeholder={tt('search_dealer_rep', lang)} />
+                      <CommandList>
+                        <CommandEmpty>{tt('no_dealer_people', lang)}</CommandEmpty>
+                        <CommandGroup>
+                          {dealerPeople.map(person => (
+                            <CommandItem key={person.key} value={person.key} onSelect={() => {
+                              setDealerRepPerson(person);
+                              setDealerRep(person.name);
+                              setDealerRepPickerOpen(false);
+                            }}>
+                              <Check className={cn('mr-2 h-4 w-4', dealerRepPerson?.key === person.key ? 'opacity-100' : 'opacity-0')} />
+                              <div className="min-w-0">
+                                <div className="truncate">{person.initials ? `${person.initials} · ${person.name}` : person.name}</div>
+                                {person.role && <div className="truncate text-xs text-slate-500">{person.role}</div>}
+                              </div>
+                            </CommandItem>
+                          ))}
+                          <CommandItem value="manual-entry" onSelect={() => {
+                            setDealerRepMode('manual');
+                            setDealerRepPerson(null);
+                            setDealerRep('');
+                            setDealerRepPickerOpen(false);
+                          }}>
+                            {tt('manual_dealer_rep', lang)}
+                          </CommandItem>
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              )}
             </Field>
             <Field label={tt('lbl_customer', lang)}>
               <input className={inputCls} value={customerName} onChange={e=>setCustomerName(e.target.value)} />

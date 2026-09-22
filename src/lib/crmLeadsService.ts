@@ -324,6 +324,10 @@ export interface CrmDemoLead {
   dealer_company: string | null;
   dealer_country?: string | null;
   dealer_rep: string | null;
+  dealer_account_id?: string | null;
+  /** Stable reference when the demonstrator was selected from canonical partner data. */
+  dealer_rep_contact_id?: string | null;
+  dealer_rep_user_id?: string | null;
   customer_name: string | null;
   customer_address: string | null;
   notes: string | null;
@@ -1045,7 +1049,7 @@ export async function createCrmDemoLifecycle(
     throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
   }
 
-  const { data, error } = await supabase.rpc('create_crm_demo_lifecycle', {
+  const { data, error } = await supabase.rpc('create_crm_demo_lifecycle_with_representative', {
     p_source_lead_id: input.source_lead_id ?? null,
     p_demo: {
       title: input.title,
@@ -1056,6 +1060,8 @@ export async function createCrmDemoLifecycle(
       dealer_company: input.dealer_company,
       dealer_country: input.dealer_country ?? null,
       dealer_rep: input.dealer_rep,
+      dealer_rep_contact_id: input.dealer_rep_contact_id ?? null,
+      dealer_rep_user_id: input.dealer_rep_user_id ?? null,
       customer_name: input.customer_name,
       customer_address: input.customer_address,
       notes: input.notes,

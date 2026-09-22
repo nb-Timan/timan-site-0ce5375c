@@ -42,9 +42,32 @@ describe('canonical lead → demo lifecycle', () => {
   it('keeps an existing lead as the source of truth and sends its id to the atomic RPC', async () => {
     const result = await createCrmDemoLifecycle({ ...baseDemo, dealer_account_id: 'dealer-1', machine_interest: ['RC-751'] });
     expect(result).toMatchObject({ lead_id: 'lead-1', demo_id: 'demo-1', lead_no: 1048 });
-    expect(rpc).toHaveBeenCalledWith('create_crm_demo_lifecycle', expect.objectContaining({
+    expect(rpc).toHaveBeenCalledWith('create_crm_demo_lifecycle_with_representative', expect.objectContaining({
       p_source_lead_id: 'lead-1',
-      p_demo: expect.objectContaining({ dealer_account_id: 'dealer-1', machine_interest: ['RC-751'], demo_date: null }),
+      p_demo: expect.objectContaining({
+        dealer_account_id: 'dealer-1',
+        dealer_rep_contact_id: null,
+        dealer_rep_user_id: null,
+        machine_interest: ['RC-751'],
+        demo_date: null,
+      }),
+    }));
+  });
+
+  it('sends the selected canonical dealer-person reference with the name snapshot', async () => {
+    await createCrmDemoLifecycle({
+      ...baseDemo,
+      dealer_account_id: 'dealer-1',
+      dealer_rep: 'Dag Vilster Petersen',
+      dealer_rep_user_id: 'user-dvp',
+      machine_interest: ['RC-751'],
+    });
+    expect(rpc).toHaveBeenCalledWith('create_crm_demo_lifecycle_with_representative', expect.objectContaining({
+      p_demo: expect.objectContaining({
+        dealer_rep: 'Dag Vilster Petersen',
+        dealer_rep_contact_id: null,
+        dealer_rep_user_id: 'user-dvp',
+      }),
     }));
   });
 
