@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Accessory, Machine, TechSpec } from '@/types/configurator';
 import type { MarketingBadgeSchedule } from '@/lib/marketingBadgeSchedule';
-import { publishedProduct, resolvePublishedTitle } from '@/lib/publishedProductMaster';
+import { publishedProduct, publishedProductText, resolvePublishedTitle, type PublishedProductLanguage } from '@/lib/publishedProductMaster';
 
 export type MarketingConfiguratorContentStatus = 'draft' | 'published';
 
@@ -173,11 +173,23 @@ export function mergeMarketingConfiguratorContent(
 }
 
 /** Keep unclassifiable custom copy as description, never as a replacement identity. */
-export function resolveMarketingProductIdentity(itemNumber: string | undefined, content: MarketingConfiguratorContentFields): MarketingConfiguratorContentFields {
+export function resolveMarketingProductIdentity(
+  itemNumber: string | undefined,
+  content: MarketingConfiguratorContentFields,
+  requestedLanguage: PublishedProductLanguage = 'da',
+): MarketingConfiguratorContentFields {
   const row = publishedProduct(itemNumber);
   if (!row?.item_text_da) return content;
-  const title = resolvePublishedTitle(itemNumber, content.title);
-  const knownPrefix = [row.item_text_da, ...(row.identity_aliases || [])].some(alias => content.title === alias || content.title.startsWith(`${alias} `));
+  const language = requestedLanguage === 'de' || requestedLanguage === 'en' ? requestedLanguage : 'da';
+  const canonicalTitle = publishedProductText(itemNumber, language);
+  if (!canonicalTitle) return content;
+  const title = resolvePublishedTitle(itemNumber, content.title, language);
+  const knownPrefix = [
+    row.item_text_da,
+    row.item_text_de,
+    row.item_text_en,
+    ...(row.identity_aliases || []),
+  ].filter((alias): alias is string => Boolean(alias)).some(alias => content.title === alias || content.title.startsWith(`${alias} `));
   const customCopy = content.title && !knownPrefix && content.title !== title ? content.title : '';
   return { ...content, title, description: customCopy && !content.description.includes(customCopy)
     ? [customCopy, content.description].filter(Boolean).join('\n\n') : content.description };

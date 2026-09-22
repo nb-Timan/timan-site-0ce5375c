@@ -702,7 +702,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         || publishedMarketingContent.get(key)?.content
         || null
       : publishedMarketingContent.get(key)?.content || null;
-    return content ? resolveMarketingProductIdentity(marketingCatalogByKey.get(key)?.itemNumber, content) : null;
+    return content ? resolveMarketingProductIdentity(marketingCatalogByKey.get(key)?.itemNumber, content, lang) : null;
   };
   const campaignClock = useMarketingBadgeClock();
   const campaignSelection = useMemo(() => configurationCampaignSelection(state), [state]);

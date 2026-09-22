@@ -16,7 +16,7 @@ afterEach(() => act(() => clearPublishedConfiguratorPricesForTest()));
 const oldTitle = 'CS-200 Combi, for lad, manuel reg.';
 const title = 'CS-200 Combi, for lad, manuel regulering.';
 const publish = () => replacePublishedConfiguratorPrices([
-  { item_number: '725132', item_text_da: title, identity_aliases: [oldTitle], price_dkk: 60000, price_eur: 8050, price_sek: 91000 },
+  { item_number: '725132', item_text_da: title, item_text_de: 'CS-200 Kombi-Streuer, manuelle Regulierung', item_text_en: null, identity_aliases: [oldTitle], price_dkk: 60000, price_eur: 8050, price_sek: 91000 },
 ]);
 const state = () => ({ ...createEmptyConfiguratorState('da'), machineConfigs: [
   { id: 'qa', type: 'Timan 3330', qty: 1, configMode: 'shared' as const, acc: ['725132'] },
@@ -67,6 +67,10 @@ describe('published Product Master propagation', () => {
     expect(content.title).toBe(`${title} Husk lad og vogn`);
     expect(content.badge).toBe('Kampagne');
     expect(content.image_url).toBe('https://example.invalid/image.jpg');
+    const german = resolveMarketingProductIdentity('725132', { ...content, title: `${oldTitle} Husk lad og vogn` }, 'de');
+    expect(german.title).toBe('CS-200 Kombi-Streuer, manuelle Regulierung. Husk lad og vogn');
+    const englishFallback = resolveMarketingProductIdentity('725132', { ...content, title: oldTitle }, 'en');
+    expect(englishFallback.title).toBe(title);
     const custom = resolveMarketingProductIdentity('725132', { ...content, title: 'Independent editorial tagline' });
     expect(custom.title).toBe(title);
     expect(custom.description).toContain('Independent editorial tagline');

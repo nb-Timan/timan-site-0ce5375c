@@ -66,7 +66,7 @@ describe('localized Product Master texts', () => {
     expect(resolved.priceEUR).toBe(45);
   });
 
-  it('keeps existing localized fallbacks when a translation is still empty', () => {
+  it('falls missing German and English text back to canonical Danish, never stale static copy', () => {
     replaceProductMaster([{
       item_number: '725135',
       item_text_da: 'Dansk publiceret',
@@ -84,9 +84,28 @@ describe('localized Product Master texts', () => {
 
     expect(resolvePublishedProduct(base).name).toEqual({
       da: 'Dansk publiceret',
-      de: 'Deutsch alt',
-      en: 'English old',
+      de: 'Dansk publiceret',
+      en: 'Dansk publiceret',
     });
+  });
+
+  it('keeps unrelated portal languages on their existing static presentation', () => {
+    replaceProductMaster([{
+      item_number: '725135',
+      item_text_da: 'Dansk publiceret',
+      item_text_de: 'Deutsch veröffentlicht',
+      item_text_en: 'English published',
+      price_dkk: null,
+      price_eur: null,
+    }]);
+    const base = {
+      varenr: '725135',
+      name: { da: 'Dansk gammel', de: 'Deutsch alt', en: 'English old', it: 'Italiano', hu: 'Magyar' },
+      priceDKK: 123,
+      priceEUR: 45,
+    };
+
+    expect(resolvePublishedProduct(base).name).toMatchObject({ it: 'Italiano', hu: 'Magyar' });
   });
 
   it('keeps all three text inputs visible and labels history per language', () => {
@@ -107,5 +126,16 @@ describe('localized Product Master texts', () => {
     expect(migration).toContain('if not public.is_timan_backend() then');
     expect(migration).toContain('revoke all on function public.update_price_list_item');
     expect(migration).not.toMatch(/create table[^;]+translation/is);
+  });
+
+  it('reads current text with published prices so text saves do not publish draft prices', () => {
+    const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260922115308_current_product_text_read_model.sql'), 'utf8');
+    expect(migration).toContain('coalesce(current_item.item_text_da, published.item_text_da)');
+    expect(migration).toContain('then current_item.item_text_de else published.item_text_de end');
+    expect(migration).toContain('then current_item.item_text_en else published.item_text_en end');
+    expect(migration).toContain('published.price_dkk');
+    expect(migration).toContain('published.price_eur');
+    expect(migration).not.toContain('current_item.price_dkk');
+    expect(migration).not.toContain('current_item.price_eur');
   });
 });

@@ -1332,6 +1332,7 @@ function EditModal({ item, onClose, onSaved }: {
     });
     setBusy(false);
     if (!res.ok) { toast.error(res.error ?? "Kunne ikke gemme."); return; }
+    window.dispatchEvent(new Event('timan:product-master-published'));
     toast.success("Varen er opdateret.");
     await onSaved();
   }

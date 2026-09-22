@@ -28,12 +28,37 @@ export function notifyProductMaster(): void {
   listeners.forEach(listener => listener());
 }
 
-/** Only exact, known identity prefixes are replaced. Never guess which words are enrichment. */
-export function resolvePublishedTitle(itemNumber: string | undefined, presentation: string): string {
+export type PublishedProductLanguage = 'da' | 'de' | 'en';
+
+/** DA is canonical; missing DE/EN deliberately falls back to DA, never static copy. */
+export function publishedProductText(
+  itemNumber: string | undefined,
+  language: PublishedProductLanguage = 'da',
+): string | null {
   const row = publishedProduct(itemNumber);
-  const title = row?.item_text_da?.trim();
+  const titleDa = row?.item_text_da?.trim();
+  if (!titleDa) return null;
+  if (language === 'de') return row?.item_text_de?.trim() || titleDa;
+  if (language === 'en') return row?.item_text_en?.trim() || titleDa;
+  return titleDa;
+}
+
+/** Only exact, known identity prefixes are replaced. Never guess which words are enrichment. */
+export function resolvePublishedTitle(
+  itemNumber: string | undefined,
+  presentation: string,
+  language: PublishedProductLanguage = 'da',
+): string {
+  const row = publishedProduct(itemNumber);
+  const title = publishedProductText(itemNumber, language);
   if (!title) return presentation;
-  const aliases = [title, ...(row.identity_aliases || [])].filter(Boolean).sort((a, b) => b.length - a.length);
+  const aliases = [
+    title,
+    row?.item_text_da?.trim(),
+    row?.item_text_de?.trim(),
+    row?.item_text_en?.trim(),
+    ...(row?.identity_aliases || []),
+  ].filter((alias): alias is string => Boolean(alias)).sort((a, b) => b.length - a.length);
   const prefix = aliases.find(alias => presentation === alias
     || (presentation.startsWith(alias) && /^[\s.,;:!?-]/.test(presentation.slice(alias.length, alias.length + 1))));
   if (!presentation || prefix === presentation) return title;
@@ -54,19 +79,14 @@ type CatalogItem = {
 export function resolvePublishedProduct<T extends CatalogItem>(item: T): T {
   const row = publishedProduct(item.varenr);
   if (!row) return item;
-  const titleDa = resolvePublishedTitle(item.varenr, typeof item.name === 'string' ? item.name : item.name.da);
-  const titleDe = row.item_text_de?.trim();
-  const titleEn = row.item_text_en?.trim();
-  const name = typeof item.name === 'string'
-    ? titleDe || titleEn
-      ? { da: titleDa, en: titleEn || item.name, ...(titleDe ? { de: titleDe } : {}) }
-      : titleDa
-    : {
-        ...item.name,
-        da: titleDa,
-        ...(titleDe ? { de: titleDe } : {}),
-        ...(titleEn ? { en: titleEn } : {}),
-      };
+  let name = item.name;
+  if (row.item_text_da?.trim()) {
+    const baseName = typeof item.name === 'string' ? { da: item.name, de: item.name, en: item.name } : item.name;
+    const titleDa = resolvePublishedTitle(item.varenr, baseName.da, 'da');
+    const titleDe = resolvePublishedTitle(item.varenr, baseName.de || baseName.da, 'de');
+    const titleEn = resolvePublishedTitle(item.varenr, baseName.en || baseName.da, 'en');
+    name = { ...baseName, da: titleDa, de: titleDe, en: titleEn };
+  }
   return {
     ...item, name,
     priceDKK: row.price_dkk ?? item.priceDKK,
