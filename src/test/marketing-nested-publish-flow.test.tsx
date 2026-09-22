@@ -68,7 +68,7 @@ describe('nested Marketing publish flow', () => {
     const onSaved = vi.fn();
     render(<MarketingConfiguratorContentEditor item={item} catalog={catalog} records={[record()]} uiLanguage="da" priceSourceLanguage="da" onClose={onClose} onSaved={onSaved} onDraftDeleted={vi.fn()} />);
 
-    const title = await screen.findByLabelText('Visningstitel');
+    const title = await screen.findByLabelText('Visningstitel Dansk');
     fireEvent.change(title, { target: { value: 'Bevaret produkttitel' } });
     fireEvent.click(screen.getByRole('button', { name: 'Kampagneopsætning' }));
     const campaignName = await screen.findByLabelText('Kampagnenavn');
@@ -77,14 +77,17 @@ describe('nested Marketing publish flow', () => {
 
     await waitFor(() => expect(screen.queryByDisplayValue('Opdateret kampagne')).not.toBeInTheDocument());
     expect(screen.getByRole('heading', { name: 'Redigér præsentationsindhold' })).toBeVisible();
-    expect(screen.getByLabelText('Visningstitel')).toHaveValue('Bevaret produkttitel');
+    expect(screen.getByLabelText('Visningstitel Dansk')).toHaveValue('Bevaret produkttitel');
     expect(screen.getByTestId('linked-campaign-summary')).toHaveTextContent('Opdateret kampagne');
     expect(toast.success).toHaveBeenCalledWith('Kampagnen er publiceret');
     expect(onClose).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Publicér' }));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(saveMarketingConfiguratorContent).toHaveBeenCalledWith(item, expect.objectContaining({ title: 'Bevaret produkttitel' }), 'published');
+    expect(saveMarketingConfiguratorContent).toHaveBeenCalledWith(item, expect.objectContaining({
+      title: 'Bevaret produkttitel',
+      localized_titles: expect.objectContaining({ da: 'Bevaret produkttitel' }),
+    }), 'published');
     expect(onSaved).toHaveBeenCalledTimes(1);
     expect(toast.success).toHaveBeenCalledWith('Produktet er publiceret');
   });
@@ -92,17 +95,35 @@ describe('nested Marketing publish flow', () => {
   it('cancels each editor at its own level without publishing', async () => {
     const onClose = vi.fn();
     render(<MarketingConfiguratorContentEditor item={item} catalog={catalog} records={[record()]} uiLanguage="da" priceSourceLanguage="da" onClose={onClose} onSaved={vi.fn()} onDraftDeleted={vi.fn()} />);
-    fireEvent.change(await screen.findByLabelText('Visningstitel'), { target: { value: 'Draft bevares' } });
+    fireEvent.change(await screen.findByLabelText('Visningstitel Dansk'), { target: { value: 'Draft bevares' } });
     fireEvent.click(screen.getByRole('button', { name: 'Kampagneopsætning' }));
     await screen.findByLabelText('Kampagnenavn');
     const closeButtons = screen.getAllByRole('button', { name: 'Close' });
     fireEvent.click(closeButtons.at(-1)!);
     await waitFor(() => expect(screen.queryByLabelText('Kampagnenavn')).not.toBeInTheDocument());
-    expect(screen.getByLabelText('Visningstitel')).toHaveValue('Draft bevares');
+    expect(screen.getByLabelText('Visningstitel Dansk')).toHaveValue('Draft bevares');
     expect(onClose).not.toHaveBeenCalled();
     expect(saveMarketingCampaign).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Annuller' }));
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(saveMarketingConfiguratorContent).not.toHaveBeenCalled();
+  });
+
+  it('edits all three title languages in one draft without publishing Product Master', async () => {
+    const onClose = vi.fn();
+    render(<MarketingConfiguratorContentEditor item={item} catalog={catalog} records={[]} uiLanguage="da" priceSourceLanguage="da" onClose={onClose} onSaved={vi.fn()} onDraftDeleted={vi.fn()} />);
+
+    fireEvent.change(await screen.findByLabelText('Visningstitel Dansk'), { target: { value: 'Dansk QA' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'Deutsch' }));
+    fireEvent.change(screen.getByLabelText('Visningstitel Deutsch'), { target: { value: 'Deutsch QA' } });
+    fireEvent.click(screen.getByRole('tab', { name: 'English' }));
+    fireEvent.change(screen.getByLabelText('Visningstitel English'), { target: { value: 'English QA' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gem kladde' }));
+
+    await waitFor(() => expect(saveMarketingConfiguratorContent).toHaveBeenCalledWith(item, expect.objectContaining({
+      title: 'Dansk QA',
+      localized_titles: { da: 'Dansk QA', de: 'Deutsch QA', en: 'English QA' },
+    }), 'draft'));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

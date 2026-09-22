@@ -3,12 +3,19 @@ import { supabase } from '@/lib/supabase';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Accessory, Machine, TechSpec } from '@/types/configurator';
 import type { MarketingBadgeSchedule } from '@/lib/marketingBadgeSchedule';
-import { publishedProduct, publishedProductText, resolvePublishedTitle, type PublishedProductLanguage } from '@/lib/publishedProductMaster';
+import { publishedProduct, publishedProductText, type PublishedProductLanguage } from '@/lib/publishedProductMaster';
 
 export type MarketingConfiguratorContentStatus = 'draft' | 'published';
 
+export type LocalizedProductTitles = {
+  da: string;
+  de: string;
+  en: string;
+};
+
 export interface MarketingConfiguratorContentFields extends MarketingBadgeSchedule {
   title: string;
+  localized_titles?: LocalizedProductTitles;
   description: string;
   key_features: string[];
   image_url: string;
@@ -91,8 +98,16 @@ function defaultContent(item: Machine | Accessory, language: PortalUiLanguage): 
 
 function normalizeContent(value: unknown): MarketingConfiguratorContentFields {
   const content = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const localized = content.localized_titles && typeof content.localized_titles === 'object'
+    ? content.localized_titles as Record<string, unknown>
+    : null;
   return {
     title: typeof content.title === 'string' ? content.title : '',
+    ...(localized ? { localized_titles: {
+      da: typeof localized.da === 'string' ? localized.da : '',
+      de: typeof localized.de === 'string' ? localized.de : '',
+      en: typeof localized.en === 'string' ? localized.en : '',
+    } } : {}),
     description: typeof content.description === 'string' ? content.description : '',
     key_features: Array.isArray(content.key_features)
       ? content.key_features.filter((feature): feature is string => typeof feature === 'string').map((feature) => feature.trim()).filter(Boolean)
@@ -155,8 +170,9 @@ export function mergeMarketingConfiguratorContent(
   defaults: MarketingConfiguratorContentFields,
   override: MarketingConfiguratorContentFields | null | undefined,
   itemNumber?: string,
+  language: PublishedProductLanguage = 'da',
 ): MarketingConfiguratorContentFields {
-  if (!override) return defaults;
+  if (!override) return resolveMarketingProductIdentity(itemNumber, defaults, language);
   return resolveMarketingProductIdentity(itemNumber, {
     title: override.title || defaults.title,
     description: override.description || defaults.description,
@@ -169,10 +185,47 @@ export function mergeMarketingConfiguratorContent(
     badge_starts_at: override.badge_starts_at || null,
     badge_ends_at: override.badge_ends_at || null,
     badge_show_countdown: override.badge_show_countdown === true,
-  });
+  }, language);
 }
 
-/** Keep unclassifiable custom copy as description, never as a replacement identity. */
+export function canonicalLocalizedProductTitles(
+  itemNumber: string | undefined,
+  fallbackDa = '',
+): LocalizedProductTitles {
+  const row = publishedProduct(itemNumber);
+  return {
+    da: row?.item_text_da?.trim() || fallbackDa,
+    de: row?.item_text_de?.trim() || '',
+    en: row?.item_text_en?.trim() || '',
+  };
+}
+
+export function localizedDraftTitles(
+  content: MarketingConfiguratorContentFields | null | undefined,
+  canonical: LocalizedProductTitles,
+): LocalizedProductTitles {
+  if (!content) return canonical;
+  if (content.localized_titles) return { ...content.localized_titles };
+  return { ...canonical, da: content.title || canonical.da };
+}
+
+function titleEnrichment(itemNumber: string | undefined, marketingTitle: string): string {
+  const title = marketingTitle.trim();
+  const row = publishedProduct(itemNumber);
+  if (!title || !row) return '';
+  const aliases = [
+    row.item_text_da,
+    row.item_text_de,
+    row.item_text_en,
+    ...(row.identity_aliases || []),
+  ].filter((alias): alias is string => Boolean(alias)).sort((a, b) => b.length - a.length);
+  const prefix = aliases.find(alias => title === alias
+    || (title.startsWith(alias) && /^[\s.,;:!?-]/.test(title.slice(alias.length, alias.length + 1))));
+  if (prefix) return title.slice(prefix.length).trim().replace(/^[.\s]+/, '');
+  return title;
+}
+
+/** Product identity always comes from Product Master; legacy Marketing title copy becomes enrichment. */
 export function resolveMarketingProductIdentity(
   itemNumber: string | undefined,
   content: MarketingConfiguratorContentFields,
@@ -183,16 +236,9 @@ export function resolveMarketingProductIdentity(
   const language = requestedLanguage === 'de' || requestedLanguage === 'en' ? requestedLanguage : 'da';
   const canonicalTitle = publishedProductText(itemNumber, language);
   if (!canonicalTitle) return content;
-  const title = resolvePublishedTitle(itemNumber, content.title, language);
-  const knownPrefix = [
-    row.item_text_da,
-    row.item_text_de,
-    row.item_text_en,
-    ...(row.identity_aliases || []),
-  ].filter((alias): alias is string => Boolean(alias)).some(alias => content.title === alias || content.title.startsWith(`${alias} `));
-  const customCopy = content.title && !knownPrefix && content.title !== title ? content.title : '';
-  return { ...content, title, description: customCopy && !content.description.includes(customCopy)
-    ? [customCopy, content.description].filter(Boolean).join('\n\n') : content.description };
+  const enrichment = titleEnrichment(itemNumber, content.title);
+  return { ...content, title: canonicalTitle, description: enrichment && !content.description.includes(enrichment)
+    ? [enrichment, content.description].filter(Boolean).join('\n\n') : content.description };
 }
 
 export async function listMarketingConfiguratorContent(): Promise<{ rows: MarketingConfiguratorContentRecord[]; error: string | null }> {
@@ -226,6 +272,17 @@ export async function saveMarketingConfiguratorContent(
   content: MarketingConfiguratorContentFields,
   status: MarketingConfiguratorContentStatus,
 ): Promise<{ row: MarketingConfiguratorContentRecord | null; error: string | null }> {
+  if (status === 'published') {
+    const { data, error } = await supabase.rpc('publish_marketing_configurator_product_content', {
+      p_product_key: item.productKey,
+      p_machine_key: item.machineKey,
+      p_item_number: item.itemNumber,
+      p_content: content,
+    });
+    const result = Array.isArray(data) ? data[0] : data;
+    if (!error && result) window.dispatchEvent(new Event('timan:product-master-published'));
+    return { row: result ? toRecord(result as Record<string, unknown>) : null, error: error?.message || null };
+  }
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from('marketing_configurator_product_content')
@@ -235,7 +292,7 @@ export async function saveMarketingConfiguratorContent(
       item_number: item.itemNumber,
       content,
       status,
-      published_at: status === 'published' ? now : null,
+      published_at: null,
       updated_at: now,
     }, { onConflict: 'product_key,status' })
     .select('id, product_key, machine_key, item_number, content, status, published_at, updated_at')

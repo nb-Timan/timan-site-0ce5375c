@@ -64,11 +64,13 @@ describe('published Product Master propagation', () => {
     expect(listVideoProductOptions('da').find(item => item.itemNumber === '725132')?.label).toBe(`${title} Husk lad og vogn`);
     const catalog = listMarketingConfiguratorCatalog().find(item => item.itemNumber === '725132')!;
     const content = resolveMarketingProductIdentity('725132', { ...catalog.defaults, title: `${oldTitle} Husk lad og vogn`, badge: 'Kampagne', image_url: 'https://example.invalid/image.jpg' });
-    expect(content.title).toBe(`${title} Husk lad og vogn`);
+    expect(content.title).toBe(title);
+    expect(content.description).toContain('Husk lad og vogn');
     expect(content.badge).toBe('Kampagne');
     expect(content.image_url).toBe('https://example.invalid/image.jpg');
     const german = resolveMarketingProductIdentity('725132', { ...content, title: `${oldTitle} Husk lad og vogn` }, 'de');
-    expect(german.title).toBe('CS-200 Kombi-Streuer, manuelle Regulierung. Husk lad og vogn');
+    expect(german.title).toBe('CS-200 Kombi-Streuer, manuelle Regulierung');
+    expect(german.description).toContain('Husk lad og vogn');
     const englishFallback = resolveMarketingProductIdentity('725132', { ...content, title: oldTitle }, 'en');
     expect(englishFallback.title).toBe(title);
     const custom = resolveMarketingProductIdentity('725132', { ...content, title: 'Independent editorial tagline' });

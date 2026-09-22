@@ -1,10 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
+  EMPTY_CONTENT,
+  canonicalLocalizedProductTitles,
   listMarketingConfiguratorCatalog,
+  localizedDraftTitles,
   mergeMarketingConfiguratorContent,
   productContentKey,
 } from '@/lib/marketingConfiguratorContentService';
+import { replaceProductMaster } from '@/lib/publishedProductMaster';
 import { canManageMarketingConfiguratorContent } from '@/lib/portalAccess';
 import { resolveMarketingBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { t } from '@/lib/i18n/translations';
@@ -39,6 +43,23 @@ describe('Marketing configurator content', () => {
     expect(merged.description).toBe('Canonical description');
     expect(merged.key_features).toEqual(['Marketing feature']);
     expect(merged.video_url).toBe('new-video');
+  });
+
+  it('uses Product Master as the only live localized identity while preserving a Marketing draft', () => {
+    replaceProductMaster([{
+      item_number: '725132', item_text_da: 'Dansk canonical', item_text_de: 'Deutsch canonical', item_text_en: 'English canonical',
+      price_dkk: 10, price_eur: 2,
+    }]);
+    const canonical = canonicalLocalizedProductTitles('725132', 'fallback');
+    expect(canonical).toEqual({ da: 'Dansk canonical', de: 'Deutsch canonical', en: 'English canonical' });
+    const draft = localizedDraftTitles({
+      ...EMPTY_CONTENT,
+      title: 'Draft dansk',
+      localized_titles: { da: 'Draft dansk', de: 'Draft deutsch', en: 'Draft English' },
+    }, canonical);
+    expect(draft).toEqual({ da: 'Draft dansk', de: 'Draft deutsch', en: 'Draft English' });
+    expect(mergeMarketingConfiguratorContent({ ...EMPTY_CONTENT, title: 'static' }, { ...EMPTY_CONTENT, title: 'stale Marketing' }, '725132', 'de').title).toBe('Deutsch canonical');
+    replaceProductMaster([]);
   });
 
   it('maps legacy badge values to the premium badge types and translates labels for every portal language', () => {
@@ -108,6 +129,9 @@ describe('Marketing configurator content', () => {
     expect(configurator).toContain('marketingContent?.description');
     expect(editor).toContain("save('draft')");
     expect(editor).toContain("save('published')");
+    expect(editor).toContain("['da', 'Dansk']");
+    expect(editor).toContain("['de', 'Deutsch']");
+    expect(editor).toContain("['en', 'English']");
     expect(editor).toContain('deleteMarketingConfiguratorDraftContent');
     expect(editor).toContain('Slet kladde');
     expect(editor).toContain('Den publicerede produktvisning ændres ikke.');
@@ -146,6 +170,14 @@ describe('Marketing configurator content', () => {
     expect(card).toContain('badgeSchedule');
     expect(badge).toContain('isMarketingBadgeActive');
     const service = readFileSync('src/lib/marketingConfiguratorContentService.ts', 'utf8');
+    const localizedPublishMigration = readFileSync('supabase/migrations/20260922124349_canonical_marketing_product_titles.sql', 'utf8');
+    expect(service).toContain("supabase.rpc('publish_marketing_configurator_product_content'");
+    expect(localizedPublishMigration).toContain('if not public.can_manage_marketing_configurator_content() then');
+    expect(localizedPublishMigration).toContain('item_text_da = v_title_da');
+    expect(localizedPublishMigration).toContain('item_text_de = v_title_de');
+    expect(localizedPublishMigration).toContain('item_text_en = v_title_en');
+    expect(localizedPublishMigration).not.toContain('price_dkk =');
+    expect(localizedPublishMigration).not.toContain('is_dirty =');
     const deleteDraft = service.slice(service.indexOf('export async function deleteMarketingConfiguratorDraftContent'), service.indexOf('export async function uploadMarketingConfiguratorImage'));
     expect(deleteDraft).toContain(".eq('product_key', item.productKey)");
     expect(deleteDraft).toContain(".eq('status', 'draft')");
@@ -155,6 +187,8 @@ describe('Marketing configurator content', () => {
     expect(bulkTools).toContain('Tilføj videolinks');
     expect(bulkTools).toContain('Batch redigér');
     expect(bulkTools).toContain("saveMarketingConfiguratorContent(item, content, 'draft')");
+    expect(bulkTools).toContain('canonicalLocalizedProductTitles(item.itemNumber');
+    expect(bulkTools).toContain('localizedDraftTitles(draft?.content, canonicalTitles)');
     expect(app).toContain('/portal/marketing/configurator');
     expect(marketingArea).toContain('canManageMarketingConfiguratorContent');
   });
