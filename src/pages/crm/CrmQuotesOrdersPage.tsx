@@ -38,14 +38,13 @@ import { getActiveSellerView } from '@/lib/activeMode';
 import {
   listCrmConfigurations,
   fetchCrmConfigurationVisible,
-  softDeleteConfiguration,
+  permanentlyDeleteConfiguration,
   getCrmConfigurationDeepLink,
   getCrmConfigurationLeadDeepLink,
   CrmConfigurationRow,
   CrmConfigurationFilter,
   CrmDocumentType,
 } from '@/lib/crmConfigurationsService';
-import { logActivity } from '@/lib/crmActivitiesService';
 import { isSavedConfigurationOrderLocked, loadConfigurationByIdUnscoped, type SavedConfiguration } from '@/lib/configurationsService';
 import { Language } from '@/types/configurator';
 
@@ -263,7 +262,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingRow) return;
     setDeleteBusy(true);
-    const { error: delErr } = await softDeleteConfiguration(deletingRow.id);
+    const { error: delErr } = await permanentlyDeleteConfiguration(deletingRow.id);
     setDeleteBusy(false);
     if (delErr) {
       console.error('[CrmQuotesOrdersPage] delete failed', delErr);
@@ -271,51 +270,12 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
       return;
     }
 
-    // Audit trail: log the deletion as a CRM activity. Activities are stored
-    // in a separate table and are not affected by the soft-delete on the
-    // configuration row, so the entry remains visible in CRM → Aktiviteter.
     const isOrder = mode === 'order';
-    const docNumber = isOrder
-      ? (deletingRow.order_number || deletingRow.quote_number || deletingRow.id)
-      : (deletingRow.quote_number || deletingRow.id);
-    const company = deletingRow.dealer_company_name || deletingRow.dealer_name || null;
-    const actorName = appUser?.display_name || appUser?.email || null;
-    try {
-      await logActivity({
-        activity_type: isOrder ? 'order_deleted' : 'quote_deleted',
-        title: `${isOrder ? 'Ordre' : 'Tilbud'} slettet: ${docNumber}${company ? ` · ${company}` : ''}`,
-        description: `Slettet af ${actorName || 'ukendt bruger'}`,
-        configuration_id: deletingRow.id,
-        quote_id: isOrder ? null : (deletingRow.quote_number || null),
-        order_id: isOrder ? (deletingRow.order_number || null) : null,
-        dealer_account_id: deletingRow.dealer_account_id,
-        dealer_number: deletingRow.dealer_number,
-        dealer_name: company,
-        seller_user_id: deletingRow.assigned_seller_id,
-        seller_email: deletingRow.seller_email,
-        seller_initials: deletingRow.seller_initials,
-        seller_name: deletingRow.seller_name,
-        account_name: company,
-        created_by_email: appUser?.email ?? null,
-        created_by_name: actorName,
-        meta: {
-          deleted_number: docNumber,
-          deleted_document_type: isOrder ? 'order' : 'quote',
-          deleted_at: new Date().toISOString(),
-          deleted_by_email: appUser?.email ?? null,
-          deleted_by_name: actorName,
-          dealer_company_name: company,
-        },
-      });
-    } catch (e) {
-      console.warn('[CrmQuotesOrdersPage] activity log failed (delete still applied)', e);
-    }
-
     setRows((prev) => prev.filter((x) => x.id !== deletingRow.id));
     toast.success(isOrder ? 'Ordren er slettet.' : 'Tilbuddet er slettet.');
     setDeletingRow(null);
     setReloadKey((k) => k + 1);
-  }, [deletingRow, mode, appUser?.display_name, appUser?.email]);
+  }, [deletingRow, mode]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -596,12 +556,12 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {mode === 'order' ? 'Slet ordre?' : 'Slet tilbud?'}
+              {mode === 'order' ? 'Slet ordre permanent?' : 'Slet tilbud permanent?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {mode === 'order'
-                ? 'Er du sikker på, at du vil slette denne ordre? Ordren fjernes fra portalen og kan ikke bruges i CRM, Dashboard eller Budget.'
-                : 'Er du sikker på, at du vil slette dette tilbud? Tilbuddet fjernes fra portalen og kan ikke bruges i CRM, Dashboard eller Budget.'}
+                ? 'Ordren slettes permanent fra Timan-systemet og fjernes fra CRM, Dashboard og Budget. Handlingen kan ikke fortrydes.'
+                : 'Tilbuddet slettes permanent fra Timan-systemet og fjernes fra CRM, Dashboard og Budget. Handlingen kan ikke fortrydes.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -611,7 +571,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
               disabled={deleteBusy}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {deleteBusy ? '…' : 'Ja, slet'}
+              {deleteBusy ? '…' : 'Ja, slet permanent'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

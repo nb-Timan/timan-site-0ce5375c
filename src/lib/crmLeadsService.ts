@@ -7,6 +7,7 @@
  * crmActivitiesService.ts.
  */
 import { supabase } from "@/lib/supabase";
+import { deleteCrmRecordPermanently } from '@/lib/crmPermanentDelete';
 import { academySandbox } from '@/lib/academySandbox';
 import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
@@ -588,41 +589,10 @@ export interface DeleteLeadAudit {
 
 export async function deleteLead(id: string, audit: DeleteLeadAudit = {}): Promise<{ error?: string }> {
   try {
-    const { error } = await supabase.from("crm_leads").delete().eq("id", id);
-    if (error) throw error;
+    await deleteCrmRecordPermanently('lead', id);
     markDeletedId(LS_DELETED_LEADS, id);
     removeLeadFromLocalCache(id);
     notifyCrmLeadsChanged();
-    try {
-      await logActivity({
-        activity_type: "lead_deleted",
-        title: audit.title ? `Slettet lead: ${audit.title}` : "Slettet lead",
-        description: [
-          audit.display_no,
-          audit.customer,
-          audit.deleted_by_name ? `Slettet af: ${audit.deleted_by_name}` : null,
-          audit.deleted_by_role ? `Rolle: ${audit.deleted_by_role}` : null,
-        ].filter(Boolean).join(" · "),
-        status: "Slettet",
-        account_name: audit.dealer ?? null,
-        assigned_owner_user_id: audit.owner_user_id ?? null,
-        assigned_owner_name: audit.owner_name ?? null,
-        created_by_user_id: audit.deleted_by_user_id ?? null,
-        created_by_name: audit.deleted_by_name ?? audit.deleted_by_email ?? null,
-        created_by_email: audit.deleted_by_email ?? null,
-        value: audit.value ?? null,
-        currency: audit.value != null ? "DKK" : null,
-        meta: {
-          deleted_entity: "crm_lead",
-          deleted_lead_id: id,
-          deleted_lead_no: audit.display_no,
-          deleted_by_email: audit.deleted_by_email,
-          deleted_by_role: audit.deleted_by_role,
-          owner_email: audit.owner_email,
-          machine: audit.machine,
-        },
-      });
-    } catch { /* deletion already succeeded; activity logging is best-effort */ }
     return {};
   } catch (err) {
     notifyLocalFallback({ table: "crm_leads", action: "delete", error: err });

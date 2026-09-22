@@ -1,5 +1,9 @@
 project_id = "rdodyoixxybiozvmuqon"
 
+# Verifies the caller with auth.getUser and the canonical Backend role check.
+[functions.admin-crm-delete]
+verify_jwt = false
+
 [functions.send-quote]
 verify_jwt = false
 

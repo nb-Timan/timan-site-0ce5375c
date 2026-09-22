@@ -1329,9 +1329,9 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Slet lead?</AlertDialogTitle>
+            <AlertDialogTitle>Slet lead permanent?</AlertDialogTitle>
             <AlertDialogDescription>
-              Er du sikker på, at du vil slette dette lead? Det fjernes fra CRM-listen.
+              Leadet slettes permanent fra Timan-systemet og fjernes fra CRM, Dashboard og Budget. Handlingen kan ikke fortrydes.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1341,7 +1341,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               disabled={deleteBusy}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
-              {deleteBusy ? '…' : 'Ja, slet'}
+              {deleteBusy ? '…' : 'Ja, slet permanent'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

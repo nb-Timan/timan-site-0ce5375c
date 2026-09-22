@@ -17,6 +17,7 @@
  * Pricing, calculations, PDFs, n8n flows are NOT touched.
  */
 import { supabase } from '@/lib/supabase';
+import { deleteCrmRecordPermanently } from '@/lib/crmPermanentDelete';
 import { PortalRole } from '@/lib/portalAccess';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
@@ -499,22 +500,19 @@ export async function listScopedOrdersWithValue(
 }
 
 // ────────────────────────────────────────────────────────────
-// Soft-delete (Backend only) — sets case_status = 'deleted'.
-// Does NOT touch related rows (configuration_items, dealer, seller, etc.).
+// Permanent deletion is a single, Backend-only database transaction. The
+// linked CRM lead is intentionally preserved; document-local items and
+// activities are cleaned up by the RPC.
 // ────────────────────────────────────────────────────────────
-export async function softDeleteConfiguration(
+export async function permanentlyDeleteConfiguration(
   id: string,
 ): Promise<{ error?: string }> {
   try {
-    const { error } = await supabase
-      .from('configurations')
-      .update({ case_status: 'deleted' })
-      .eq('id', id);
-    if (error) throw error;
+    await deleteCrmRecordPermanently('document', id);
     return {};
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error('[softDeleteConfiguration] failed', { id, error: e });
+    console.error('[permanentlyDeleteConfiguration] failed', { id, error: e });
     return { error: msg };
   }
 }
