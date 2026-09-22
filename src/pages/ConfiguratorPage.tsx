@@ -775,6 +775,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const [legacyOrderRepriceApproved, setLegacyOrderRepriceApproved] = useState(false);
   const [startingBackendCorrection, setStartingBackendCorrection] = useState(false);
   const [savingBeforeReset, setSavingBeforeReset] = useState(false);
+  const [machineDeliveryEditorOpen, setMachineDeliveryEditorOpen] = useState(false);
   const confirmContentRef = useRef<HTMLDivElement>(null);
   const [salesArgsModalOpen, setSalesArgsModalOpen] = useState(false);
   const [salesArgsData, setSalesArgsData] = useState<SalesArgsStructured | null>(null);
@@ -3431,6 +3432,74 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   })()}
                 </div>
 
+                <div className="mb-8 mx-auto max-w-2xl text-left">
+                  <button
+                    type="button"
+                    aria-expanded={machineDeliveryEditorOpen}
+                    onClick={() => setMachineDeliveryEditorOpen(open => !open)}
+                    disabled={!state.date}
+                    className="mx-auto flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:text-gray-400"
+                  >
+                    <CalendarIcon className="h-4 w-4" />
+                    {T('customizeMachineDeliveryDates')}
+                  </button>
+                  {machineDeliveryEditorOpen && state.date && (
+                    <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 p-3 sm:p-4">
+                      <p className="mb-3 text-xs text-gray-500">{T('machineDeliveryDateHelp')}</p>
+                      <div className="space-y-3">
+                        {getGlobalMachineUnits().map(unit => {
+                          const overridden = hasMachineDeliveryOverride(state, unit.unitNumber);
+                          const effectiveDate = machineDeliveryDate(state, unit.unitNumber);
+                          return (
+                            <div
+                              key={`${unit.modelId}-${unit.unitNumber}`}
+                              className="grid gap-2 border-b border-gray-200 pb-3 last:border-b-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-sm font-semibold text-gray-800">
+                                  {T('machineLabel')} {unit.unitNumber} – {unit.modelType}
+                                </div>
+                                {!overridden && (
+                                  <div className="mt-0.5 text-xs text-gray-500">
+                                    {T('standardDeliveryDate')}: {format(new Date(`${effectiveDate}T12:00:00`), 'dd-MM-yyyy', { locale: dateLocale })}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col items-start gap-2 sm:items-end">
+                                <label className="flex min-h-9 cursor-pointer items-center gap-2 text-sm text-gray-700">
+                                  <input
+                                    type="checkbox"
+                                    checked={overridden}
+                                    disabled={submittedOrderEditorLocked}
+                                    onChange={(event) => setMachineDeliveryOverride(unit.unitNumber, event.target.checked)}
+                                  />
+                                  <span>{T('useDifferentDeliveryDate')}</span>
+                                </label>
+                                {overridden && (
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <input
+                                      type="date"
+                                      aria-label={`${T('individualDeliveryDate')} – ${T('machineLabel')} ${unit.unitNumber}`}
+                                      value={effectiveDate}
+                                      min={canSelectPastDeliveryDate ? undefined : format(new Date(), 'yyyy-MM-dd')}
+                                      disabled={submittedOrderEditorLocked}
+                                      onChange={(event) => setMachineDeliveryDate(unit.unitNumber, event.target.value)}
+                                      className="min-w-0 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+                                    />
+                                    {isDeliveryDiscountEligible(effectiveDate) && (
+                                      <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">2% {T('deliveryDiscount')}</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <div className="mt-3 space-y-3 w-full flex flex-col items-center max-w-2xl mx-auto">
                   {(['pickup', 'send', 'deliver'] as const).map(method => (
                     <label key={method} className="w-full max-w-2xl cursor-pointer">
@@ -4317,30 +4386,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                                 {T(hasMachineDeliveryOverride(state, item.index) ? 'individualDeliveryDate' : 'standardDeliveryDate')}
                               </span>
                             </div>
-                            <label className="mt-2 flex cursor-pointer items-center gap-2">
-                              <input
-                                type="checkbox"
-                                checked={hasMachineDeliveryOverride(state, item.index)}
-                                disabled={submittedOrderEditorLocked}
-                                onChange={(event) => setMachineDeliveryOverride(item.index!, event.target.checked)}
-                              />
-                              <span>{T('useDifferentDeliveryDate')}</span>
-                            </label>
-                            {hasMachineDeliveryOverride(state, item.index) && (
-                              <div className="mt-2 flex flex-wrap items-center gap-2">
-                                <input
-                                  type="date"
-                                  value={machineDeliveryDate(state, item.index)}
-                                  min={canSelectPastDeliveryDate ? undefined : format(new Date(), 'yyyy-MM-dd')}
-                                  disabled={submittedOrderEditorLocked}
-                                  onChange={(event) => setMachineDeliveryDate(item.index!, event.target.value)}
-                                  className="min-w-0 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
-                                />
-                                {isDeliveryDiscountEligible(machineDeliveryDate(state, item.index)) && (
-                                  <span className="rounded bg-emerald-100 px-2 py-1 font-semibold text-emerald-700">2% {T('deliveryDiscount')}</span>
-                                )}
-                              </div>
-                            )}
                           </div>
                         )}
                         {!isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && permissions.canSeePrices && (

@@ -169,11 +169,24 @@ describe('per-machine delivery dates and sequential delivery discount', () => {
     expect(configuratorPricingSignature(normalized)).not.toBe(legacySignature);
   });
 
-  it('keeps the override control inside the compact machine summary', () => {
+  it('edits machine overrides in step 2 and keeps the cart summary read-only', () => {
     const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+    const step2Start = source.indexOf('{/* Step 2: Delivery */}');
+    const step3Start = source.indexOf('{/* Step 3: Accessories */}');
+    const cartSummaryStart = source.indexOf("!isExhibition && state.date && item.isMachine && item.index");
+    const cartSummaryEnd = source.indexOf("!isExhibition && state.step === 4", cartSummaryStart);
+    const step2Source = source.slice(step2Start, step3Start);
+    const cartSummarySource = source.slice(cartSummaryStart, cartSummaryEnd);
+
+    expect(step2Source).toContain("T('customizeMachineDeliveryDates')");
     expect(source).toContain("T('useDifferentDeliveryDate')");
     expect(source).toContain('machineDeliveryDate(state, item.index)');
-    expect(source).toContain('setMachineDeliveryOverride(item.index!, event.target.checked)');
-    expect(source).toContain('type="date"');
+    expect(step2Source).toContain('setMachineDeliveryOverride(unit.unitNumber, event.target.checked)');
+    expect(step2Source).toContain('setMachineDeliveryDate(unit.unitNumber, event.target.value)');
+    expect(step2Source).toContain('type="date"');
+    expect(cartSummarySource).toContain("'individualDeliveryDate' : 'standardDeliveryDate'");
+    expect(cartSummarySource).not.toContain('type="checkbox"');
+    expect(cartSummarySource).not.toContain('type="date"');
+    expect(cartSummarySource).not.toContain('setMachineDeliveryOverride');
   });
 });
