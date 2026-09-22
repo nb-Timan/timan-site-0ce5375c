@@ -10,6 +10,16 @@ export const roundPricingMoney = (value: number) => Math.round((value + Number.E
 type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
 type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean; selectionOrder: number };
 
+/** Keeps campaign SKU provenance in the detail while omitting it from summaries. */
+export function formatDiscountDetailLabel(detail: DiscountDetail, includeItemNumber = false): string {
+  const label = detail.kind === 'campaign' && detail.varenr
+    ? detail.txt.replace(` · ${detail.varenr}`, '')
+    : detail.txt;
+  return includeItemNumber && detail.kind !== 'campaign' && detail.varenr
+    ? `${label} (${detail.varenr})`
+    : label;
+}
+
 export function configurationCampaignSelection(state: ConfiguratorState) {
   return state.machineConfigs.flatMap(machine => {
     const product = PRODUCTS[machine.type];
@@ -178,7 +188,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         if (amount > 0) {
           line.campaignApplied = true;
           details.push({ kind: 'campaign', campaignId: campaign.id, varenr: line.item.varenr, percent: snapshot.discountPct, basis: eligibleBasis, amount,
-            txt: `${T('campaignDiscountLabel')} · ${campaign.code} · ${line.item.varenr} (${snapshot.discountPct.toLocaleString(state.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)` });
+            txt: `${T('campaignDiscountLabel')} · ${campaign.code} (${snapshot.discountPct.toLocaleString(state.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)` });
         }
         remainingBenefitQuantity -= eligibleQuantity;
       }

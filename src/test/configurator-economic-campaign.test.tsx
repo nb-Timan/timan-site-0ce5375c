@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { act, render, renderHook, screen } from '@testing-library/react';
-import { calculateConfiguration, calcConfigurationTotals, configurationCampaignSelection, roundPricingMoney } from '@/lib/calcConfiguration';
+import { calculateConfiguration, calcConfigurationTotals, configurationCampaignSelection, formatDiscountDetailLabel, roundPricingMoney } from '@/lib/calcConfiguration';
 import { campaignError, eligibleCampaignFor, replacePublishedCampaigns, type CampaignProductLink, type ProductCampaign } from '@/lib/configuratorCampaigns';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import { finalizeConfiguratorPricingSnapshot } from '@/lib/configurationsService';
@@ -60,6 +60,16 @@ describe('canonical multi-product campaigns', () => {
     const result = calculateConfiguration(state(), { now });
     expect(result.lineItems.find(item => item.varenr === '725138')?.price).toBe(58350);
     expect(result.campaignLines?.[0]).toMatchObject({ targetPrice: 0, preCampaignNet: 43762.5, discountAmount: 43762.5, finalLineValue: 0 });
+  });
+  it('hides a campaign SKU from the discount summary while retaining its provenance', () => {
+    replacePublishedCampaigns([campaign({ code: 'K-0001-26', type: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0 })]);
+    const detail = calculateConfiguration(state(), { now }).discountDetails.find(row => row.kind === 'campaign');
+
+    expect(detail).toMatchObject({ campaignId: 'qa-campaign', varenr: '725138' });
+    expect(detail?.txt).toBe('Kampagnerabat · K-0001-26 (100,00%)');
+    expect(formatDiscountDetailLabel(detail!)).toBe('Kampagnerabat · K-0001-26 (100,00%)');
+    expect(formatDiscountDetailLabel({ ...detail!, txt: 'Kampagnerabat · K-0001-26 · 725138 (100,00%)' }, true))
+      .toBe('Kampagnerabat · K-0001-26 (100,00%)');
   });
   it('never raises a lower discounted price to a fixed target', () => {
     replacePublishedCampaigns([campaign({ type: 'fixed', discountPct: null, targetPriceDkk: 50000, targetPriceEur: 7000 })]);

@@ -97,7 +97,7 @@ import {
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
 import { createConfiguratorPricingSnapshot } from '@/lib/configuratorPricing';
-import { calculateConfiguration, configurationCampaignSelection } from '@/lib/calcConfiguration';
+import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel } from '@/lib/calcConfiguration';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 import { commonMachineDeliveryDate, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey } from '@/lib/configuratorDelivery';
@@ -1881,7 +1881,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <span class="price-col">${formatDisplayMoney(displayCalc!.subtotal)}</span>
       </div>`;
     displayCalc!.discountDetails.filter(d => d.amount > 0).forEach(d => {
-      const discLabel = (state.flowType === 'order' && d.varenr) ? `${d.txt} (${d.varenr})` : d.txt;
+      const discLabel = formatDiscountDetailLabel(d, state.flowType === 'order');
       html += `<div class="flex justify-between w-full text-xs text-red-600">
         <span>${discLabel}</span><span class="price-col">-${formatDisplayMoney(d.amount)}</span></div>`;
     });
@@ -4369,7 +4369,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                       <div className="text-red-600 text-sm space-y-1">
                         {displayCalc!.discountDetails.filter(d => d.amount > 0).map((d, i) => (
                           <div key={i} className="flex justify-between">
-                            <span className="text-red-500">{state.flowType === 'order' && d.varenr ? `${d.txt} (${d.varenr})` : d.txt}</span>
+                            <span className="text-red-500">{formatDiscountDetailLabel(d, state.flowType === 'order')}</span>
                             <span className="text-red-500 price-col">-{formatDisplayMoney(d.amount)}</span>
                           </div>
                         ))}
