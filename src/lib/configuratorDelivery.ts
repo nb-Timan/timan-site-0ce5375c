@@ -2,6 +2,8 @@ import type { ConfiguratorState } from '@/types/configurator';
 
 type DeliveryState = Pick<ConfiguratorState, 'machineConfigs' | 'machineDeliveryDates'>;
 
+export const DELIVERY_DISCOUNT_PERCENT = 2;
+
 export function machineDeliveryDateKey(state: ConfiguratorState, unitNumber: number): string {
   let runningUnit = 0;
   for (const machine of state.machineConfigs ?? []) {
@@ -48,6 +50,19 @@ export function isDeliveryDiscountEligible(date: string, now = Date.now()): bool
   const threshold = new Date(now);
   threshold.setMonth(threshold.getMonth() + 3);
   return delivery > threshold;
+}
+
+export function isWeekendDeliveryDate(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+export function isDeliveryDateDisabled(date: Date, canSelectPastDate = false, now = Date.now()): boolean {
+  if (isWeekendDeliveryDate(date)) return true;
+  if (canSelectPastDate) return false;
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  return date < today;
 }
 
 export function activeMachineDeliveryDates(state: ConfiguratorState): string[] {

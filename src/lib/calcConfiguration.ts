@@ -4,7 +4,7 @@ import { t } from '@/data/translations';
 import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { campaignBenefitEntitlement, campaignProductPricing, campaignTriggerSetCount, isCampaignActive, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
-import { hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate } from '@/lib/configuratorDelivery';
+import { DELIVERY_DISCOUNT_PERCENT, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate } from '@/lib/configuratorDelivery';
 
 export const roundPricingMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
@@ -112,7 +112,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
       if (basis > 0 && isDeliveryDiscountEligible(machineDeliveryDate(state, unitNumber), now)) eligibleDeliveryUnits.add(unitNumber);
     }
     if (eligibleDeliveryUnits.size > 0) {
-      apply('delivery', 2, line => !line.demo && eligibleDeliveryUnits.has(line.unit), T('deliveryDiscountLabel'), '795045');
+      apply('delivery', DELIVERY_DISCOUNT_PERCENT, line => !line.demo && eligibleDeliveryUnits.has(line.unit), T('deliveryDiscountLabel'), '795045');
     }
     deliveryDiscounts = Array.from({ length: unit }, (_, index) => {
       const unitNumber = index + 1;
@@ -123,7 +123,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         unitNumber,
         date: machineDeliveryDate(state, unitNumber),
         overridden: hasMachineDeliveryOverride(state, unitNumber),
-        percent: eligible ? 2 : 0,
+        percent: eligible ? DELIVERY_DISCOUNT_PERCENT : 0,
         basis,
         amount: eligible ? roundPricingMoney(basis - netAfter) : 0,
       };

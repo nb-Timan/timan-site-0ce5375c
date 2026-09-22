@@ -56,7 +56,11 @@ describe('configurator saved edit state', () => {
 
   it('allows only the effective Backend role to choose a historical delivery date', () => {
     const code = configuratorSource();
+    const picker = readFileSync('src/components/configurator/ConfiguratorDeliveryDatePicker.tsx', 'utf8');
+    const delivery = readFileSync('src/lib/configuratorDelivery.ts', 'utf8');
     expect(code).toContain("const canSelectPastDeliveryDate = activePortalRole === 'timan_backend';");
-    expect(code).toContain('(!canSelectPastDeliveryDate && date < today) || day === 0 || day === 6');
+    expect(code).toContain('canSelectPastDate={canSelectPastDeliveryDate}');
+    expect(picker).toContain('isDeliveryDateDisabled(date, canSelectPastDate)');
+    expect(delivery).toContain('if (canSelectPastDate) return false;');
   });
 });

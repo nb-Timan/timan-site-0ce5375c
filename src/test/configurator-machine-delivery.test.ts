@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { calculateConfiguration, roundPricingMoney } from '@/lib/calcConfiguration';
 import {
+  DELIVERY_DISCOUNT_PERCENT,
   commonMachineDeliveryDate,
   hasMachineDeliveryOverride,
+  isDeliveryDateDisabled,
   isDeliveryDiscountEligible,
+  isWeekendDeliveryDate,
   machineDeliveryDate,
 } from '@/lib/configuratorDelivery';
 import { configuratorPricingSignature } from '@/lib/configuratorPricing';
@@ -111,11 +114,51 @@ describe('per-machine delivery dates and sequential delivery discount', () => {
     const one = calculateConfiguration(state, { now: NOW });
     expect(one.discountDetails.find(detail => detail.kind === 'delivery')?.basis)
       .toBeLessThan(roundPricingMoney(one.subtotal * 0.75));
+    expect(one.deliveryDiscounts?.map(discount => ({
+      unitNumber: discount.unitNumber,
+      percent: discount.percent,
+      eligible: discount.amount > 0,
+    }))).toEqual([
+      { unitNumber: 1, percent: 0, eligible: false },
+      { unitNumber: 2, percent: DELIVERY_DISCOUNT_PERCENT, eligible: true },
+    ]);
+  });
+
+  it('keeps calculator-backed machine badges in sync with standard dates and removed overrides', () => {
+    const state = twoMachineState();
+    state.date = '2027-01-21';
+    state.machineDeliveryDates = { m0_1: '2026-10-12' };
+
+    const overridden = calculateConfiguration(state, { now: NOW });
+    expect(overridden.deliveryDiscounts?.map(discount => discount.percent)).toEqual([0, DELIVERY_DISCOUNT_PERCENT]);
+    expect(overridden.deliveryDiscounts?.[1]).toMatchObject({
+      unitNumber: 2,
+      date: '2027-01-21',
+      overridden: false,
+    });
+
+    delete state.machineDeliveryDates.m0_1;
+    const inherited = calculateConfiguration(state, { now: NOW });
+    expect(inherited.deliveryDiscounts?.map(discount => discount.percent))
+      .toEqual([DELIVERY_DISCOUNT_PERCENT, DELIVERY_DISCOUNT_PERCENT]);
   });
 
   it('keeps three-calendar-month eligibility deterministic', () => {
     expect(isDeliveryDiscountEligible('2026-12-21', NOW)).toBe(false);
     expect(isDeliveryDiscountEligible('2026-12-22', NOW)).toBe(true);
+  });
+
+  it('uses one canonical weekend rule for global and per-machine calendars', () => {
+    const saturday = new Date('2026-10-10T12:00:00');
+    const sunday = new Date('2026-10-11T12:00:00');
+    const monday = new Date('2026-10-12T12:00:00');
+
+    expect(isWeekendDeliveryDate(saturday)).toBe(true);
+    expect(isWeekendDeliveryDate(sunday)).toBe(true);
+    expect(isWeekendDeliveryDate(monday)).toBe(false);
+    expect(isDeliveryDateDisabled(saturday, true, NOW)).toBe(true);
+    expect(isDeliveryDateDisabled(sunday, true, NOW)).toBe(true);
+    expect(isDeliveryDateDisabled(monday, true, NOW)).toBe(false);
   });
 
   it('persists effective dates and override metadata in the canonical quote summary', () => {
@@ -169,8 +212,9 @@ describe('per-machine delivery dates and sequential delivery discount', () => {
     expect(configuratorPricingSignature(normalized)).not.toBe(legacySignature);
   });
 
-  it('edits machine overrides in step 2 and keeps the cart summary read-only', () => {
+  it('reuses the Timan calendar in step 2 and keeps the cart summary read-only', () => {
     const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+    const pickerSource = readFileSync('src/components/configurator/ConfiguratorDeliveryDatePicker.tsx', 'utf8');
     const step2Start = source.indexOf('{/* Step 2: Delivery */}');
     const step3Start = source.indexOf('{/* Step 3: Accessories */}');
     const cartSummaryStart = source.indexOf("!isExhibition && state.date && item.isMachine && item.index");
@@ -182,9 +226,14 @@ describe('per-machine delivery dates and sequential delivery discount', () => {
     expect(source).toContain("T('useDifferentDeliveryDate')");
     expect(source).toContain('machineDeliveryDate(state, item.index)');
     expect(step2Source).toContain('setMachineDeliveryOverride(unit.unitNumber, event.target.checked)');
-    expect(step2Source).toContain('setMachineDeliveryDate(unit.unitNumber, event.target.value)');
-    expect(step2Source).toContain('type="date"');
+    expect(step2Source).toContain('setMachineDeliveryDate(unit.unitNumber, value)');
+    expect(step2Source.match(/<ConfiguratorDeliveryDatePicker/g)).toHaveLength(2);
+    expect(step2Source).not.toContain('type="date"');
+    expect(pickerSource).toContain('isDeliveryDateDisabled(date, canSelectPastDate)');
+    expect(pickerSource).toContain("discount: (date) => !isWeekendDeliveryDate(date) && isDeliveryDiscountEligible(format(date, 'yyyy-MM-dd'))");
+    expect(pickerSource).toContain("modifiersClassNames={{ discount: 'delivery-discount-date' }}");
     expect(cartSummarySource).toContain("'individualDeliveryDate' : 'standardDeliveryDate'");
+    expect(cartSummarySource).toContain('machineDeliveryDiscount.percent');
     expect(cartSummarySource).not.toContain('type="checkbox"');
     expect(cartSummarySource).not.toContain('type="date"');
     expect(cartSummarySource).not.toContain('setMachineDeliveryOverride');

@@ -36,13 +36,13 @@ import MarketingConfiguratorBulkTools from '@/components/configurator/MarketingC
 import MarketingCampaignManager from '@/components/configurator/MarketingCampaignManager';
 import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
+import { ConfiguratorDeliveryDatePicker } from '@/components/configurator/ConfiguratorDeliveryDatePicker';
 import { loadPublishedMarketingCampaigns } from '@/lib/marketingCampaignService';
 import { eligibleCampaignFor } from '@/lib/configuratorCampaigns';
 import { useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
 import { ConfiguratorImageModal, type ConfiguratorImagePreview } from '@/components/configurator/ConfiguratorImageModal';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -54,7 +54,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { saveConfiguration, updateConfiguration, markPdfDownloaded, markAsOrderSubmitted, ensureReferenceNumbers, updateConfigurationFlowType, uploadSentPdf, loadConfigurationByIdUnscoped, isSavedConfigurationOrderLocked, fetchIsOrderSubmitted, loadConfigurations } from '@/lib/configurationsService';
 import { supabase } from '@/lib/supabase';
 import { fetchCrmConfigurationVisible } from '@/lib/crmConfigurationsService';
@@ -100,7 +99,7 @@ import { createConfiguratorPricingSnapshot } from '@/lib/configuratorPricing';
 import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel } from '@/lib/calcConfiguration';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
-import { commonMachineDeliveryDate, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey } from '@/lib/configuratorDelivery';
+import { DELIVERY_DISCOUNT_PERCENT, commonMachineDeliveryDate, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey } from '@/lib/configuratorDelivery';
 
 // Configurator language selector — uses the 9 portal UI languages.
 // Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
@@ -345,6 +344,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const displayCalc = calcResult && isGrossPriceMode
     ? calculateConfiguration({ ...state, manualDealerDiscountPct: isExhibition ? state.manualDealerDiscountPct : 0 }, { grossManualDiscountOnly: true })
     : calcResult;
+  const machineDeliveryDiscountByUnit = useMemo(
+    () => new Map((displayCalc?.deliveryDiscounts ?? []).map(discount => [discount.unitNumber, discount])),
+    [displayCalc?.deliveryDiscounts],
+  );
 
   const leaveAcademy = useCallback(async () => {
     academySandbox.leaveSession();
@@ -737,7 +740,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   };
   const TC = (key: string) => t(key, contentUiLang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
-  const selectedDeliveryDate = state.date ? new Date(`${state.date}T00:00:00`) : undefined;
+  const deliveryDiscountPercentLabel = `${DELIVERY_DISCOUNT_PERCENT.toLocaleString(uiLanguage)}%`;
+  const deliveryDiscountLegend = T('calendarDiscountNote').replace(/\d+(?:[.,]\d+)?\s*%/, deliveryDiscountPercentLabel);
 
   const totalQty = state.machineConfigs.reduce((sum, c) => sum + c.qty, 0);
   const discountEligibleQty = state.machineConfigs.reduce((sum, c) => sum + (PRODUCTS[c.type]?.isDiscountEligible ? c.qty : 0), 0);
@@ -3349,87 +3353,27 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 <p className="text-gray-600 font-medium mb-6">{T('step2Desc')}</p>
                 <div className="mb-8 mx-auto max-w-sm">
                   <label className="block text-sm font-medium text-gray-700 mb-2">{T('deliveryDate')}</label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className={cn(
-                          'mt-1 w-full rounded-full justify-start text-left font-normal',
-                          !state.date && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                        <span className="flex-1 pointer-events-none select-none">
-                          {selectedDeliveryDate ? format(selectedDeliveryDate, 'dd-MM-yyyy', { locale: dateLocale }) : T('datePlaceholder')}
-                        </span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="center">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDeliveryDate}
-                        onSelect={(date) => {
-                          if (!date) return;
-                          const day = date.getDay();
-                          if (day === 0 || day === 6) {
-                            const next = new Date(date);
-                            while (next.getDay() === 0 || next.getDay() === 6) next.setDate(next.getDate() + 1);
-                            toast.error('Leveringsdato kan ikke være en weekend.');
-                            setDate(format(next, 'yyyy-MM-dd'));
-                            return;
-                          }
-                          setDate(format(date, 'yyyy-MM-dd'));
-                        }}
-                        disabled={(date) => {
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const day = date.getDay();
-                          return (!canSelectPastDeliveryDate && date < today) || day === 0 || day === 6;
-                        }}
-                        modifiers={{
-                          discount: (date) => {
-                            const threshold = new Date();
-                            threshold.setMonth(threshold.getMonth() + 3);
-                            return date > threshold;
-                          },
-                        }}
-                        modifiersStyles={{
-                          discount: {
-                            backgroundColor: 'hsl(45 93% 80%)',
-                            borderRadius: '6px',
-                          },
-                        }}
-                        initialFocus
-                        className="p-3 pointer-events-auto"
-                      />
-                      <div className="px-3 pb-3 flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="inline-block w-3 h-3 rounded" style={{ backgroundColor: 'hsl(45 93% 80%)' }} />
-                        {T('calendarDiscountNote')}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                  {(() => {
-                    const hasDeliveryDiscount = state.date && (() => {
-                      const d = new Date(state.date);
-                      const threshold = new Date();
-                      threshold.setMonth(threshold.getMonth() + 3);
-                      return d > threshold;
-                    })();
-                    return (
-                      <div className="mt-2 text-center">
-                        {hasDeliveryDiscount ? (
-                          <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-block">
-                            ✅ {T('deliveryDiscountActive')}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-500">
-                            {T('deliveryDiscountHint')}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })()}
+                  <ConfiguratorDeliveryDatePicker
+                    value={state.date}
+                    onChange={setDate}
+                    locale={dateLocale}
+                    placeholder={T('datePlaceholder')}
+                    ariaLabel={T('deliveryDate')}
+                    discountLegend={deliveryDiscountLegend}
+                    weekendError={T('weekendDateError')}
+                    canSelectPastDate={canSelectPastDeliveryDate}
+                    disabled={submittedOrderEditorLocked}
+                    triggerClassName="mt-1 rounded-full"
+                  />
+                  <div className="mt-2 text-center">
+                    {isDeliveryDiscountEligible(state.date) ? (
+                      <span className="inline-block rounded bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-600">
+                        ✅ {T('deliveryDiscountActive')}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-500">{T('deliveryDiscountHint')}</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mb-8 mx-auto max-w-2xl text-left">
@@ -3450,6 +3394,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         {getGlobalMachineUnits().map(unit => {
                           const overridden = hasMachineDeliveryOverride(state, unit.unitNumber);
                           const effectiveDate = machineDeliveryDate(state, unit.unitNumber);
+                          const deliveryDiscount = machineDeliveryDiscountByUnit.get(unit.unitNumber);
                           return (
                             <div
                               key={`${unit.modelId}-${unit.unitNumber}`}
@@ -3477,17 +3422,23 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                                 </label>
                                 {overridden && (
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <input
-                                      type="date"
-                                      aria-label={`${T('individualDeliveryDate')} – ${T('machineLabel')} ${unit.unitNumber}`}
+                                    <ConfiguratorDeliveryDatePicker
                                       value={effectiveDate}
-                                      min={canSelectPastDeliveryDate ? undefined : format(new Date(), 'yyyy-MM-dd')}
+                                      onChange={(value) => setMachineDeliveryDate(unit.unitNumber, value)}
+                                      locale={dateLocale}
+                                      placeholder={T('datePlaceholder')}
+                                      ariaLabel={`${T('individualDeliveryDate')} – ${T('machineLabel')} ${unit.unitNumber}`}
+                                      discountLegend={deliveryDiscountLegend}
+                                      weekendError={T('weekendDateError')}
+                                      canSelectPastDate={canSelectPastDeliveryDate}
                                       disabled={submittedOrderEditorLocked}
-                                      onChange={(event) => setMachineDeliveryDate(unit.unitNumber, event.target.value)}
-                                      className="min-w-0 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm"
+                                      align="end"
+                                      triggerClassName="min-h-9 rounded-md bg-white px-2 py-1.5 text-sm sm:w-[220px]"
                                     />
-                                    {isDeliveryDiscountEligible(effectiveDate) && (
-                                      <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">2% {T('deliveryDiscount')}</span>
+                                    {deliveryDiscount && deliveryDiscount.percent > 0 && (
+                                      <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+                                        {deliveryDiscount.percent.toLocaleString(uiLanguage)}% {T('deliveryDiscount')}
+                                      </span>
                                     )}
                                   </div>
                                 )}
@@ -4340,6 +4291,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                       else if (item.isPrimaryAccessory) indent = 'pl-6';
                       else indent = 'pl-4';
                     }
+                    const machineDeliveryDiscount = item.isMachine && item.index
+                      ? machineDeliveryDiscountByUnit.get(item.index)
+                      : undefined;
                     return (
                       <div key={idx}>
                         {item.isMachine && item.index && (
@@ -4382,8 +4336,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                                   ? format(new Date(`${machineDeliveryDate(state, item.index)}T12:00:00`), 'dd-MM-yyyy', { locale: dateLocale })
                                   : '—'}
                               </span>
-                              <span className={`rounded px-1.5 py-0.5 ${hasMachineDeliveryOverride(state, item.index) ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
-                                {T(hasMachineDeliveryOverride(state, item.index) ? 'individualDeliveryDate' : 'standardDeliveryDate')}
+                              <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                                <span className={`rounded px-1.5 py-0.5 ${hasMachineDeliveryOverride(state, item.index) ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
+                                  {T(hasMachineDeliveryOverride(state, item.index) ? 'individualDeliveryDate' : 'standardDeliveryDate')}
+                                </span>
+                                {machineDeliveryDiscount && machineDeliveryDiscount.percent > 0 && (
+                                  <span className="rounded bg-emerald-100 px-1.5 py-0.5 font-semibold text-emerald-700">
+                                    {machineDeliveryDiscount.percent.toLocaleString(uiLanguage)}% {T('deliveryDiscount')}
+                                  </span>
+                                )}
                               </span>
                             </div>
                           </div>
