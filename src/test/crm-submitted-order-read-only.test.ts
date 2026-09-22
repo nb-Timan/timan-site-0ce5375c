@@ -40,7 +40,7 @@ describe('CRM submitted-order read-only confirmation', () => {
 
     expect(modal).toContain('buildSubmittedOrderDocument(state)');
     expect(modal).toContain('orderPurchaseReferenceSummary(state)');
-    expect(modal).toContain('line.purchaseReferences');
+    expect(modal).toContain('group.purchaseReference');
     expect(modal).not.toMatch(/<input|<textarea|onChange=/);
   });
 });

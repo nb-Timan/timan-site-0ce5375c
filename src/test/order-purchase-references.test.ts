@@ -69,7 +69,7 @@ describe('submitted order requisition / PO presentation', () => {
     expect(overview).toContain('orderPurchaseReferenceSummary');
     expect(overview).toContain('purchase_order_numbers: purchaseOrderNumbers');
     expect(confirmation).toContain('purchaseReferences.headerValue');
-    expect(confirmation).toContain('line.purchaseReferences.join');
+    expect(confirmation).toContain('group.purchaseReference');
     expect(pdf).toContain('orderPurchaseReferenceSummary(input.state)');
     expect(pdf).toContain('machinePurchaseReference(state, item.index)');
     expect(revisions).toContain('orderPurchaseReferenceSummary(normalizeConfiguratorState(state))');

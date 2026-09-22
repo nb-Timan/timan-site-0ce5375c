@@ -1,10 +1,49 @@
 import type { CalcResult, ConfiguratorState } from '@/types/configurator';
-import { buildAccountCaseLines } from '@/lib/configuratorAccountSummaries';
+import { buildAccountCaseLines, type AccountCaseLine } from '@/lib/configuratorAccountSummaries';
 import { hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
 import type { QuoteContentSummary } from '@/lib/quoteContentSummary';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
+
+export interface SubmittedOrderMachineGroup {
+  unitNumber: number;
+  machineConfigId: string;
+  machineType: string;
+  title: string;
+  purchaseReference: string | null;
+  deliveryDate: string | null;
+  lines: AccountCaseLine[];
+  subtotal: number;
+}
+
+function groupSubmittedOrderLines(state: ConfiguratorState, lines: AccountCaseLine[]) {
+  const machineGroups: SubmittedOrderMachineGroup[] = [];
+  const groupedUnitNumbers = new Set<number>();
+  let unitNumber = 0;
+
+  state.machineConfigs.forEach((machine) => {
+    for (let unitIndex = 1; unitIndex <= Math.max(0, machine.qty || 0); unitIndex += 1) {
+      unitNumber += 1;
+      const unitLines = lines.filter(line => line.unitNumber === unitNumber);
+      if (unitLines.length === 0) continue;
+      groupedUnitNumbers.add(unitNumber);
+      machineGroups.push({
+        unitNumber,
+        machineConfigId: machine.id,
+        machineType: machine.type,
+        title: unitLines[0]?.description || machine.type,
+        purchaseReference: machinePurchaseReference(state, unitNumber),
+        deliveryDate: machineDeliveryDate(state, unitNumber) || null,
+        lines: unitLines,
+        subtotal: unitLines.reduce((sum, line) => sum + line.total, 0),
+      });
+    }
+  });
+
+  const ungroupedLines = lines.filter(line => !line.unitNumber || !groupedUnitNumbers.has(line.unitNumber));
+  return { machineGroups, ungroupedLines };
+}
 
 /** A historical document must never silently substitute today's prices. */
 export function buildSubmittedOrderDocument(state: ConfiguratorState) {
@@ -12,6 +51,7 @@ export function buildSubmittedOrderDocument(state: ConfiguratorState) {
     throw new Error('Ordren mangler et gyldigt historisk pris-snapshot. Backend skal gennemgå ordren før en ny ordrebekræftelse.');
   }
   const lines = buildAccountCaseLines(state, state.language);
+  const { machineGroups, ungroupedLines } = groupSubmittedOrderLines(state, lines);
   const totals = state.pricingSnapshot!.totals!;
   const sum = lines.reduce((total, line) => total + line.total, 0);
   if (![sum, totals.subtotal, totals.totalDiscount, totals.finalPrice].every(Number.isFinite)
@@ -34,7 +74,7 @@ export function buildSubmittedOrderDocument(state: ConfiguratorState) {
     deliveryDiscounts: state.pricingSnapshot?.deliveryDiscounts,
     campaignLines: state.pricingSnapshot?.campaignLines,
   };
-  return { lines, totals, calcResult };
+  return { lines, machineGroups, ungroupedLines, totals, calcResult };
 }
 
 /** Keep the existing webhook shape, but resolve every commercial line from the document. */

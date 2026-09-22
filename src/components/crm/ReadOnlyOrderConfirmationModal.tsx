@@ -9,6 +9,7 @@ import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { activeMachineDeliveryDates, commonMachineDeliveryDate } from '@/lib/configuratorDelivery';
 import type { SavedConfiguration } from '@/lib/configurationsService';
+import type { AccountCaseLine } from '@/lib/configuratorAccountSummaries';
 
 interface Props {
   order: SavedConfiguration;
@@ -33,6 +34,25 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
   );
 }
 
+function OrderLineRows({ lines, money }: { lines: AccountCaseLine[]; money: (value: number) => string }) {
+  return (
+    <div className="divide-y divide-slate-100">
+      {lines.map((line, index) => (
+        <div key={`${line.unitNumber ?? 'other'}-${line.itemNo}-${index}`} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 px-4 py-3 text-sm sm:grid-cols-[7rem_minmax(12rem,1fr)_5rem_8rem_8rem] sm:items-center">
+          <div className="min-w-0 font-mono text-xs text-slate-500">{line.itemNo}</div>
+          <div className="col-span-2 min-w-0 break-words font-medium text-slate-900 sm:col-span-1">
+            {line.description}<span className="ml-2 text-xs font-normal text-slate-500">{line.note}</span>
+            <span className="mt-1 block text-xs font-normal text-slate-500 sm:hidden">Antal {line.quantity} · Enhedspris {money(line.unitPrice)}</span>
+          </div>
+          <div className="hidden text-right tabular-nums text-slate-700 sm:block">{line.quantity}</div>
+          <div className="hidden text-right tabular-nums text-slate-700 sm:block">{money(line.unitPrice)}</div>
+          <div className="col-start-2 row-start-1 whitespace-nowrap text-right font-semibold tabular-nums text-slate-900 sm:col-auto sm:row-auto">{money(line.total)}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props) {
   const state = order.state_json;
   let document: ReturnType<typeof buildSubmittedOrderDocument> | null = null;
@@ -40,6 +60,8 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
   try { document = buildSubmittedOrderDocument(state); }
   catch (error) { documentError = error instanceof Error ? error.message : 'Ordrebekræftelsen kunne ikke indlæses.'; }
   const lines = document?.lines ?? [];
+  const machineGroups = document?.machineGroups ?? [];
+  const ungroupedLines = document?.ungroupedLines ?? lines;
   const totals = document?.totals;
   const reference = order.order_number || order.quote_number || order.id.slice(0, 8);
   const sentAt = order.order_sent_at || order.submitted_at || order.created_at;
@@ -114,24 +136,32 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
 
           <section className="overflow-hidden rounded-lg border border-slate-200">
             <div className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900">Ordrelinjer</div>
-            <div className="hidden grid-cols-[7rem_minmax(12rem,1fr)_5rem_8rem_8rem] gap-3 border-b border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:grid">
-              <div>Varenr.</div><div>Beskrivelse</div><div className="text-right">Antal</div><div className="text-right">Enhedspris</div><div className="text-right">Linjetotal</div>
-            </div>
-            <div className="divide-y divide-slate-100">
-              {lines.map((line, index) => (
-                <div key={`${line.itemNo}-${index}`} className="grid gap-x-3 gap-y-1 px-4 py-3 text-sm sm:grid-cols-[7rem_minmax(12rem,1fr)_5rem_8rem_8rem] sm:items-center">
-                  <div className="font-mono text-xs text-slate-500">{line.itemNo}</div>
-                  <div className="font-medium text-slate-900">
-                    {line.description}<span className="ml-2 text-xs font-normal text-slate-500">{line.note}</span>
-                    {line.purchaseReferences?.length ? (
-                      <span className="mt-0.5 block text-xs font-normal text-slate-500">REK./PO: {line.purchaseReferences.join(', ')}</span>
-                    ) : null}
+            <div className="space-y-4 bg-slate-50/40 p-3 sm:p-4">
+              {machineGroups.map(group => (
+                <section key={`${group.machineConfigId}-${group.unitNumber}`} className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                    <h5 className="text-sm font-semibold text-slate-900">Maskine {group.unitNumber} – {group.title}</h5>
+                    <dl className="mt-1 grid gap-x-5 gap-y-0.5 text-xs text-slate-600 sm:grid-cols-2">
+                      <div><dt className="inline font-medium">Rekvisitionsnr. / PO nr.:</dt> <dd className="inline">{group.purchaseReference || '—'}</dd></div>
+                      <div><dt className="inline font-medium">Ønsket levering:</dt> <dd className="inline">{formatDate(group.deliveryDate ? `${group.deliveryDate}T12:00:00` : null)}</dd></div>
+                    </dl>
                   </div>
-                  <div className="text-right tabular-nums text-slate-700">{line.quantity}</div>
-                  <div className="text-right tabular-nums text-slate-700">{money(line.unitPrice)}</div>
-                  <div className="text-right font-semibold tabular-nums text-slate-900">{money(line.total)}</div>
-                </div>
+                  <div className="hidden grid-cols-[7rem_minmax(12rem,1fr)_5rem_8rem_8rem] gap-3 border-b border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 sm:grid">
+                    <div>Varenr.</div><div>Beskrivelse</div><div className="text-right">Antal</div><div className="text-right">Enhedspris</div><div className="text-right">Linjetotal</div>
+                  </div>
+                  <OrderLineRows lines={group.lines} money={money} />
+                  <div className="flex justify-end gap-4 border-t border-slate-200 bg-slate-50 px-4 py-2 text-sm">
+                    <span className="text-slate-600">Subtotal Maskine {group.unitNumber}</span>
+                    <span className="w-32 text-right font-semibold tabular-nums text-slate-900">{money(group.subtotal)}</span>
+                  </div>
+                </section>
               ))}
+              {ungroupedLines.length > 0 && (
+                <section className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                  {machineGroups.length > 0 && <h5 className="border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900">Øvrige ordrelinjer</h5>}
+                  <OrderLineRows lines={ungroupedLines} money={money} />
+                </section>
+              )}
             </div>
             {totals && <div className="space-y-1 border-t border-slate-200 bg-white px-4 py-3 text-sm">
               <div className="flex justify-end gap-6"><span className="text-slate-500">Subtotal</span><span className="w-32 text-right font-semibold tabular-nums">{money(totals.subtotal)}</span></div>

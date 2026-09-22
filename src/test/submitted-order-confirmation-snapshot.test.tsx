@@ -38,6 +38,31 @@ function revisionState() {
   return state;
 }
 
+function multiMachineState() {
+  const state = normalizeConfiguratorState({
+    flowType: 'order', language: 'da', date: '2026-10-15', deliveryMethod: 'send',
+    paymentTerms: 'Standard NET21',
+    reqNumbers: { machine_1: '3515', machine_2: '3514' },
+    machineDeliveryDates: { m0_1: '2026-10-15', m1_1: '2026-11-10' },
+    machineConfigs: [
+      { id: 'm0', type: 'Loader Line', qty: 1, configMode: 'individual', acc: [] },
+      { id: 'm1', type: 'Loader Line', qty: 1, configMode: 'individual', acc: [] },
+    ],
+    pricingSnapshot: {
+      version: 1, capturedAt: '2026-09-22T08:00:00Z', prices: {},
+      lines: [
+        { unitNumber: 1, itemNo: '725131', description: 'Loader-Line & CS-200 Traktor', note: 'Individuelle valg', unitPrice: 60000, quantity: 1, total: 60000 },
+        { unitNumber: 1, itemNo: '412594', description: 'Arbejdslamper', note: 'Loader Line', unitPrice: 6700, quantity: 1, total: 6700 },
+        { unitNumber: 2, itemNo: '725138', description: 'Loader-Line & CS-200 Traktor', note: 'Individuelle valg', unitPrice: 60000, quantity: 1, total: 60000 },
+        { unitNumber: 2, itemNo: '410910', description: 'Slagleklipper', note: 'Loader Line', unitPrice: 10300, quantity: 1, total: 10300 },
+      ],
+      totals: { subtotal: 137000, totalDiscount: 0, finalPrice: 137000 },
+    },
+  });
+  state.pricingSnapshot!.signature = configuratorPricingSignature(state);
+  return state;
+}
+
 describe('canonical completed order confirmation', () => {
   it('keeps reopened Configurator preview on the same frozen document', () => {
     const state = revisionState();
@@ -138,6 +163,50 @@ describe('canonical completed order confirmation', () => {
     expect(buildSubmittedOrderMailSummary(historicalSnapshot).payment_terms).toBe('NET14');
     expect(buildSubmittedOrderMailSummary(currentDraft).payment_terms).toBe('NET21');
     expect(historicalSnapshot.paymentTerms).toBe('Net 14 days');
+  });
+
+  it('groups frozen lines by their submitted machine identity', () => {
+    const document = buildSubmittedOrderDocument(multiMachineState());
+    expect(document.machineGroups).toHaveLength(2);
+    expect(document.machineGroups.map(group => ({
+      unit: group.unitNumber,
+      title: group.title,
+      po: group.purchaseReference,
+      delivery: group.deliveryDate,
+      items: group.lines.map(line => line.itemNo),
+      subtotal: group.subtotal,
+    }))).toEqual([
+      { unit: 1, title: 'Loader-Line & CS-200 Traktor', po: '3515', delivery: '2026-10-15', items: ['725131', '412594'], subtotal: 66700 },
+      { unit: 2, title: 'Loader-Line & CS-200 Traktor', po: '3514', delivery: '2026-11-10', items: ['725138', '410910'], subtotal: 70300 },
+    ]);
+    expect(document.ungroupedLines).toEqual([]);
+    expect(document.machineGroups.flatMap(group => group.lines)).toHaveLength(document.lines.length);
+    expect(document.totals).toEqual({ subtotal: 137000, totalDiscount: 0, finalPrice: 137000 });
+  });
+
+  it('renders compact machine sections with historical PO and delivery dates', () => {
+    const state = multiMachineState();
+    render(<ReadOnlyOrderConfirmationModal order={{ state_json: state, id: 'qa-multi', order_number: 'O-7014' } as SavedConfiguration} onClose={vi.fn()} />);
+
+    expect(screen.getByText('Maskine 1 – Loader-Line & CS-200 Traktor')).toBeTruthy();
+    expect(screen.getByText('Maskine 2 – Loader-Line & CS-200 Traktor')).toBeTruthy();
+    expect(screen.getByText('3515')).toBeTruthy();
+    expect(screen.getByText('3514')).toBeTruthy();
+    expect(screen.getAllByText('15.10.2026').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('10.11.2026').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Subtotal Maskine 1')).toBeTruthy();
+    expect(screen.getByText('Subtotal Maskine 2')).toBeTruthy();
+    expect(screen.getAllByText('412594')).toHaveLength(1);
+    expect(screen.getAllByText('410910')).toHaveLength(1);
+  });
+
+  it('keeps a single-machine submitted order in the same clean structure', () => {
+    const state = revisionState();
+    const document = buildSubmittedOrderDocument(state);
+    expect(document.machineGroups).toHaveLength(1);
+    render(<ReadOnlyOrderConfirmationModal order={{ state_json: state, id: 'qa-single', order_number: 'O-QA' } as SavedConfiguration} onClose={vi.fn()} />);
+    expect(screen.getByText(/^Maskine 1 –/)).toBeTruthy();
+    expect(screen.getByText('Subtotal Maskine 1')).toBeTruthy();
   });
 
   it('uses exactly the same commercial rows for UI and PDF, with revision and PO', () => {
