@@ -38,6 +38,8 @@ interface Props {
   onReset?: () => void;
   /** Inputs / fields. */
   children: ReactNode;
+  /** Canonical dealer selected by a form. External users remain locked to their own account. */
+  dealerSelection?: { accountNumber: string | null; companyName: string | null };
 }
 
 export default function FormSubmitShell({
@@ -48,6 +50,7 @@ export default function FormSubmitShell({
   buildPayload,
   onReset,
   children,
+  dealerSelection,
 }: Props) {
   const { appUser: sessionUser } = useAppUser();
   const academyMode = academyPartnerDataSandbox.isActive();
@@ -63,10 +66,10 @@ export default function FormSubmitShell({
   // men kan have egen dropdown længere oppe i deres egen form (ikke her).
   const dealerNumber = !academyMode && scope.isExternalDealerUser
     ? scope.lockedDealerNumber
-    : appUser?.dealer_number ?? null;
+    : dealerSelection?.accountNumber ?? appUser?.dealer_number ?? null;
   const dealerName = !academyMode && scope.isExternalDealerUser
     ? scope.lockedDealerName
-    : appUser?.company_dealer ?? null;
+    : dealerSelection?.companyName ?? appUser?.company_dealer ?? null;
   const missingDealer = requireDealer && !dealerNumber;
 
   async function handleSubmit(e: FormEvent) {

@@ -97,6 +97,14 @@ export const academyPartnerDataSandbox = {
   },
   listDealers() { assertActive(); return read().dealers; },
   listContacts(id: string) { assertActive(); return read().contacts.filter((row) => row.dealer_account_id === id); },
+  listInvoiceAcceptPeople(accountNumber: string) {
+    assertActive();
+    if (accountNumber !== ACADEMY_PARTNER_ACCOUNT) return [];
+    return [{
+      key: 'academy_user:academy-local-sales-user', id: 'academy-local-sales-user', name: 'Academy Sales',
+      email: 'academy.sales@localhost', source: 'academy_user' as const,
+    }];
+  },
   trackAcademyMachineOpened(accountNumber: string) {
     const state = read();
     if (state.part1Started && state.activePart === 1 && accountNumber === ACADEMY_PARTNER_ACCOUNT) {

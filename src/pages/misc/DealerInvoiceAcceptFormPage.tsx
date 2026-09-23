@@ -1,7 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLanguage } from '@/context/LanguageContext';
 import FormSubmitShell, { Field, inputCls, textareaCls } from './FormSubmitShell';
 import { Language } from '@/types/configurator';
+import { useAppUser } from '@/context/AppUserContext';
+import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { useDealerScope } from '@/lib/dealerScope';
+import { listPartnerDataDealers } from '@/lib/partnerDataScope';
+import { listDemoDealerPeople } from '@/lib/crmDemoDealerPeople';
+import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
+import {
+  personForInvoiceAccept,
+  preferredInvoiceAcceptCompany,
+  preferredInvoiceAcceptPerson,
+  type DealerInvoiceAcceptCompany,
+  type DealerInvoiceAcceptPerson,
+} from '@/lib/dealerInvoiceAcceptIdentity';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const T: Record<string, Record<Language, string>> = {
   title: {
@@ -37,8 +51,11 @@ const T: Record<string, Record<Language, string>> = {
     hu: 'Az Önök cégén keresztüli számlázás elfogadásának előnyei:',
   },
 
-  yourCompany: { da: 'Firmanavn på jeres virksomhed', en: 'Company name of your business', de: 'Firmenname Ihres Unternehmens', it: 'Ragione sociale della vostra azienda', hu: 'Az Önök cégének neve' },
+  yourCompany: { da: 'Virksomhed', en: 'Company', de: 'Unternehmen', it: 'Azienda', hu: 'Vállalat' },
   yourName:    { da: 'Dit navn', en: 'Your name', de: 'Ihr Name', it: 'Il tuo nome', hu: 'Az Ön neve' },
+  selectCompany: { da: 'Vælg virksomhed', en: 'Select company', de: 'Unternehmen auswählen', it: 'Seleziona azienda', hu: 'Válasszon vállalatot' },
+  selectPerson: { da: 'Vælg person', en: 'Select person', de: 'Person auswählen', it: 'Seleziona persona', hu: 'Válasszon személyt' },
+  noPeople: { da: 'Ingen aktive personer er tilgængelige for denne virksomhed.', en: 'No active people are available for this company.', de: 'Für dieses Unternehmen sind keine aktiven Personen verfügbar.', it: 'Non sono disponibili persone attive per questa azienda.', hu: 'Ehhez a vállalathoz nem érhetők el aktív személyek.' },
   decisionLbl: { da: 'Vælg om fakturering er tilladt gennem jeres virksomhed eller ej', en: 'Choose whether invoicing is allowed through your company or not', de: 'Wählen Sie, ob die Fakturierung über Ihr Unternehmen erlaubt ist oder nicht', it: 'Scegli se la fatturazione è consentita tramite la vostra azienda o no', hu: 'Válassza ki, hogy engedélyezett-e a számlázás az Önök cégén keresztül vagy sem' },
 
   optAccept: { da: 'Ja, nedenstående virksomhed må faktureres gennem vores virksomhed', en: 'Yes, the company below may be invoiced through our company', de: 'Ja, das unten genannte Unternehmen darf über unser Unternehmen fakturiert werden', it: 'Sì, l\'azienda indicata può essere fatturata tramite la nostra azienda', hu: 'Igen, az alábbi cég számlázható a mi cégünkön keresztül' },
@@ -91,8 +108,14 @@ type Decision = 'accept' | 'reject' | 'decline';
 
 export default function DealerInvoiceAcceptFormPage() {
   const { language: lang } = useLanguage();
-  const [yourCompany, setYourCompany] = useState('');
-  const [yourName, setYourName] = useState('');
+  const { appUser } = useAppUser();
+  const effectiveUser = useEffectivePortalUser(appUser);
+  const scope = useDealerScope({ requireDealer: true });
+  const academyMode = academyPartnerDataSandbox.isActive();
+  const [companies, setCompanies] = useState<DealerInvoiceAcceptCompany[]>([]);
+  const [people, setPeople] = useState<DealerInvoiceAcceptPerson[]>([]);
+  const [selectedCompanyNumber, setSelectedCompanyNumber] = useState('');
+  const [selectedPersonKey, setSelectedPersonKey] = useState('');
   const [decision, setDecision] = useState<Decision | ''>('');
   const [thirdCompany, setThirdCompany] = useState('');
   const [thirdCvr, setThirdCvr] = useState('');
@@ -100,6 +123,72 @@ export default function DealerInvoiceAcceptFormPage() {
 
   const showFields = decision !== '';
   const isAccept = decision === 'accept';
+  const selectedCompany = useMemo(
+    () => companies.find((company) => company.accountNumber === selectedCompanyNumber) ?? null,
+    [companies, selectedCompanyNumber],
+  );
+  const selectedPerson = useMemo(
+    () => personForInvoiceAccept(people, selectedPersonKey),
+    [people, selectedPersonKey],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    if (academyMode) {
+      const localCompanies = academyPartnerDataSandbox.listDealers()
+        .filter((dealer) => !dealer.is_deleted && !dealer.is_blocked)
+        .map((dealer) => ({ id: dealer.id, accountNumber: dealer.account_number, name: dealer.company_name }));
+      if (!cancelled) {
+        setCompanies(localCompanies);
+        setSelectedCompanyNumber((current) => current || preferredInvoiceAcceptCompany(localCompanies, effectiveUser?.dealer_number));
+      }
+      return () => { cancelled = true; };
+    }
+
+    if (!effectiveUser || !scope.role) {
+      setCompanies([]);
+      setSelectedCompanyNumber('');
+      return () => { cancelled = true; };
+    }
+    void listPartnerDataDealers(effectiveUser, scope.role).then((result) => {
+      if (cancelled) return;
+      const scopedCompanies = result.rows
+        .filter((dealer) => !dealer.is_deleted && !dealer.is_blocked)
+        .map((dealer) => ({ id: dealer.id, accountNumber: dealer.account_number, name: dealer.company_name }));
+      setCompanies(scopedCompanies);
+      setSelectedCompanyNumber((current) => {
+        if (scopedCompanies.some((company) => company.accountNumber === current)) return current;
+        return preferredInvoiceAcceptCompany(scopedCompanies, effectiveUser.dealer_number);
+      });
+    });
+    return () => { cancelled = true; };
+  }, [academyMode, effectiveUser, scope.role]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPeople([]);
+    setSelectedPersonKey('');
+    if (!selectedCompany) return () => { cancelled = true; };
+
+    if (academyMode) {
+      const localPeople = academyPartnerDataSandbox.listInvoiceAcceptPeople(selectedCompany.accountNumber);
+      if (!cancelled) {
+        setPeople(localPeople);
+        setSelectedPersonKey(preferredInvoiceAcceptPerson(localPeople, effectiveUser?.id));
+      }
+      return () => { cancelled = true; };
+    }
+
+    void listDemoDealerPeople(selectedCompany.accountNumber, selectedCompany.id).then((rows) => {
+      if (cancelled) return;
+      const scopedPeople: DealerInvoiceAcceptPerson[] = rows.map((person) => ({
+        key: person.key, id: person.id, name: person.name, email: person.email, source: person.source,
+      }));
+      setPeople(scopedPeople);
+      setSelectedPersonKey(preferredInvoiceAcceptPerson(scopedPeople, effectiveUser?.id));
+    });
+    return () => { cancelled = true; };
+  }, [academyMode, effectiveUser?.id, selectedCompany]);
 
   const decisionLabel = (d: Decision) =>
     d === 'accept' ? T.optAccept[lang] : d === 'reject' ? T.optReject[lang] : T.optDecline[lang];
@@ -110,11 +199,17 @@ export default function DealerInvoiceAcceptFormPage() {
       title={T.title[lang]}
       intro={T.intro[lang]}
       requireDealer
+      dealerSelection={selectedCompany ? { accountNumber: selectedCompany.accountNumber, companyName: selectedCompany.name } : undefined}
       buildPayload={() => {
-        if (!decision) return null;
+        if (!decision || !selectedCompany || !selectedPerson) return null;
         return {
-          your_company_name: yourCompany.trim(),
-          your_name: yourName.trim(),
+          your_company_name: selectedCompany.name,
+          your_name: selectedPerson.name,
+          selected_company_id: selectedCompany.id,
+          selected_company_account_number: selectedCompany.accountNumber,
+          selected_person_id: selectedPerson.id,
+          selected_person_source: selectedPerson.source,
+          selected_person_email: selectedPerson.email,
           decision,
           decision_label: decisionLabel(decision),
           third_party_company_name: thirdCompany.trim(),
@@ -123,7 +218,7 @@ export default function DealerInvoiceAcceptFormPage() {
         };
       }}
       onReset={() => {
-        setYourCompany(''); setYourName(''); setDecision('');
+        setDecision('');
         setThirdCompany(''); setThirdCvr(''); setOther('');
       }}
     >
@@ -135,11 +230,22 @@ export default function DealerInvoiceAcceptFormPage() {
       </div>
 
       <Field label={T.yourCompany[lang]}>
-        <input type="text" required value={yourCompany} onChange={e => setYourCompany(e.target.value)} className={inputCls} />
+        <Select value={selectedCompanyNumber} onValueChange={setSelectedCompanyNumber}>
+          <SelectTrigger aria-label={T.yourCompany[lang]}><SelectValue placeholder={T.selectCompany[lang]} /></SelectTrigger>
+          <SelectContent>
+            {companies.map((company) => <SelectItem key={company.id} value={company.accountNumber}>{company.name} · #{company.accountNumber}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </Field>
 
       <Field label={T.yourName[lang]}>
-        <input type="text" required value={yourName} onChange={e => setYourName(e.target.value)} className={inputCls} />
+        <Select value={selectedPersonKey} onValueChange={setSelectedPersonKey} disabled={!selectedCompany || people.length === 0}>
+          <SelectTrigger aria-label={T.yourName[lang]}><SelectValue placeholder={T.selectPerson[lang]} /></SelectTrigger>
+          <SelectContent>
+            {people.map((person) => <SelectItem key={person.key} value={person.key}>{person.name}{person.email ? ` · ${person.email}` : ''}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {selectedCompany && people.length === 0 && <p className="mt-1.5 text-xs text-amber-700">{T.noPeople[lang]}</p>}
       </Field>
 
       <fieldset>
