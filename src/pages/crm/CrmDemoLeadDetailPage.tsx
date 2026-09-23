@@ -105,14 +105,14 @@ export default function CrmDemoLeadDetailPage() {
             <button type="button" className="px-3 py-2 text-sm" onClick={() => setParams({})}>{text('cancel')}</button>
             <button type="submit" disabled={saving} className="rounded-md bg-emerald-800 px-4 py-2 text-sm text-white disabled:opacity-50">{saving ? text('loading') : text('save')}</button>
           </div>
-        </form> : <dl className="grid gap-5 py-5 sm:grid-cols-2">
+        </form> : demo.completed_at ? <dl className="grid gap-5 py-5 sm:grid-cols-2">
           {field('interest', demo.interest_level != null ? `${demo.interest_level}/5` : null)}
           {field('wantsOffer', demo.wants_offer ? text(demo.wants_offer) : null)}
           {field('result', demo.result_status ? text(demo.result_status as DemoFlowTextKey) || demo.result_status : null)}
           {field('followup', result.followup_date)}{field('probability', demo.probability != null ? `${demo.probability}%` : null)}
           {field('value', demo.estimated_value)}{field('competitors', demo.competitors_present ? text(demo.competitors_present) : null)}
           {field('notesAfter', demo.notes_after_demo)}
-        </dl>}
+        </dl> : null}
       </>}
     </div>
   </CrmLayout>;
