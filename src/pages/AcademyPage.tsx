@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   ChevronRight,
   CirclePlay,
-  ClipboardList,
   Crown,
   Gem,
   Lock,
@@ -36,6 +35,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { t } from '@/lib/i18n/translations';
 import { cn } from '@/lib/utils';
+import { ACADEMY_AREA_ICONS } from '@/lib/academyAreaIcons';
 
 type State = 'new' | 'active' | 'ready' | 'done' | 'locked';
 
@@ -114,8 +114,8 @@ function LockedModule({ icon: Icon, title, progress, description, lockedLabel }:
   );
 }
 
-function AcademyRow({ image, title, description, state, statusLabel, action, onClick }: {
-  image?: string;
+function AcademyRow({ icon: Icon, title, description, state, statusLabel, action, onClick }: {
+  icon: typeof ShoppingCart;
   title: string;
   description: string;
   state: State;
@@ -124,15 +124,15 @@ function AcademyRow({ image, title, description, state, statusLabel, action, onC
   onClick?: () => void;
 }) {
   return (
-    <div className="grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 border-t border-slate-100 px-4 py-2.5">
-      <div className="flex h-10 w-11 items-center justify-center overflow-hidden rounded-lg bg-slate-100">
-        {image ? <img src={image} alt="" className="h-full w-full object-cover" /> : <ClipboardList className="h-5 w-5 text-slate-400" />}
+    <div className="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-3 border-t border-slate-100 px-4 py-2.5 sm:grid-cols-[40px_minmax(0,1fr)_auto]">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-100 bg-emerald-50 text-[#126a45]">
+        <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
       </div>
       <div className="min-w-0">
         <div className="truncate text-sm font-semibold text-slate-900">{title}</div>
         <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-slate-500">{description}</p>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 sm:col-span-1 sm:flex-nowrap sm:gap-3">
         <Status state={state} label={statusLabel} />
         {action && (
           <button type="button" onClick={onClick} className="inline-flex items-center gap-1 rounded-md bg-[#126a45] px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#0f5a3b]">
@@ -408,21 +408,21 @@ export default function AcademyPage() {
           </div>
 
           <div className="mt-4 grid items-start gap-3 lg:grid-cols-2">
-            <Module icon={ShoppingCart} title={tr('academySales')} progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 ${tr('academyCompleted')}`}>
-              <AcademyRow image="/messe/machines/rc-1000s-tile.png" title={tr('academySalesCase1Title')} description={tr('academySalesCase1Description')} state={caseState} statusLabel={stateLabel(caseState)} action={actionForCase(caseState, task.started)} onClick={cycleActionBlocked ? undefined : startCase} />
-              <AcademyRow image="/messe/machines/timan-3330-tile.png" title={tr('academySalesCase2Title')} description={tr('academySalesCase2Description')} state={videoCaseState} statusLabel={stateLabel(videoCaseState)} action={actionForCase(videoCaseState, videoTask.started)} onClick={cycleActionBlocked ? undefined : case2Unlocked ? startVideoCase : undefined} />
+            <Module icon={ACADEMY_AREA_ICONS.sales} title={tr('academySales')} progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 ${tr('academyCompleted')}`}>
+              <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase1Title')} description={tr('academySalesCase1Description')} state={caseState} statusLabel={stateLabel(caseState)} action={actionForCase(caseState, task.started)} onClick={cycleActionBlocked ? undefined : startCase} />
+              <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase2Title')} description={tr('academySalesCase2Description')} state={videoCaseState} statusLabel={stateLabel(videoCaseState)} action={actionForCase(videoCaseState, videoTask.started)} onClick={cycleActionBlocked ? undefined : case2Unlocked ? startVideoCase : undefined} />
             </Module>
-            <Module icon={Map} title={tr('academyPortalBasics')} progress={`${Number(portalBasics.completed) + Number(partnerMap.completed)} / 2 ${tr('academyCompleted')}`}>
-              <AcademyRow title={tr('academyPortalBasicsCaseTitle')} description={tr('academyPortalBasicsCaseDescription')} state={portalBasicsState} statusLabel={stateLabel(portalBasicsState)} action={actionForCase(portalBasicsState, portalBasics.started)} onClick={cycleActionBlocked ? undefined : startPortalBasics} />
-              <AcademyRow title={tr('academyPartnerMapTitle')} description={tr('academyPartnerMapDescription')} state={partnerMapState} statusLabel={stateLabel(partnerMapState)} action={actionForCase(partnerMapState, partnerMap.started)} onClick={cycleActionBlocked ? undefined : partnerMapUnlocked ? startPartnerMap : undefined} />
+            <Module icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPortalBasics')} progress={`${Number(portalBasics.completed) + Number(partnerMap.completed)} / 2 ${tr('academyCompleted')}`}>
+              <AcademyRow icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPortalBasicsCaseTitle')} description={tr('academyPortalBasicsCaseDescription')} state={portalBasicsState} statusLabel={stateLabel(portalBasicsState)} action={actionForCase(portalBasicsState, portalBasics.started)} onClick={cycleActionBlocked ? undefined : startPortalBasics} />
+              <AcademyRow icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPartnerMapTitle')} description={tr('academyPartnerMapDescription')} state={partnerMapState} statusLabel={stateLabel(partnerMapState)} action={actionForCase(partnerMapState, partnerMap.started)} onClick={cycleActionBlocked ? undefined : partnerMapUnlocked ? startPartnerMap : undefined} />
             </Module>
-            <Module icon={Users} title={tr('academyPartnerData')} progress={`${partnerDataCompleted} / 2 ${tr('academyCompleted')}`}>
-              <AcademyRow title={tr('academyPartnerDataPart1Title')} description={tr('academyPartnerDataPart1Description')} state={partnerDataPart1State} statusLabel={stateLabel(partnerDataPart1State)} action={actionForCase(partnerDataPart1State, academyPartnerDataSandbox.getState().part1Started)} onClick={cycleActionBlocked ? undefined : startPartnerDataPart1} />
-              <AcademyRow title={tr('academyPartnerDataPart2Title')} description={tr('academyPartnerDataPart2Description')} state={partnerDataPart2State} statusLabel={stateLabel(partnerDataPart2State)} action={actionForCase(partnerDataPart2State, academyPartnerDataSandbox.getState().part2Started)} onClick={cycleActionBlocked ? undefined : partnerData.part1Completed ? startPartnerDataPart2 : undefined} />
+            <Module icon={ACADEMY_AREA_ICONS.partnerData} title={tr('academyPartnerData')} progress={`${partnerDataCompleted} / 2 ${tr('academyCompleted')}`}>
+              <AcademyRow icon={ACADEMY_AREA_ICONS.partnerData} title={tr('academyPartnerDataPart1Title')} description={tr('academyPartnerDataPart1Description')} state={partnerDataPart1State} statusLabel={stateLabel(partnerDataPart1State)} action={actionForCase(partnerDataPart1State, academyPartnerDataSandbox.getState().part1Started)} onClick={cycleActionBlocked ? undefined : startPartnerDataPart1} />
+              <AcademyRow icon={ACADEMY_AREA_ICONS.partnerData} title={tr('academyPartnerDataPart2Title')} description={tr('academyPartnerDataPart2Description')} state={partnerDataPart2State} statusLabel={stateLabel(partnerDataPart2State)} action={actionForCase(partnerDataPart2State, academyPartnerDataSandbox.getState().part2Started)} onClick={cycleActionBlocked ? undefined : partnerData.part1Completed ? startPartnerDataPart2 : undefined} />
             </Module>
-            <Module icon={Users} title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
-              <AcademyRow title={tr('academyCrmCase1Title')} description={tr('academyCrmDashboardCase1Description')} state={crmPart1State} statusLabel={stateLabel(crmPart1State)} action={actionForCase(crmPart1State, academyCrmSandbox.getState().part1Started)} onClick={cycleActionBlocked ? undefined : startCrmPart1} />
-              <AcademyRow title={tr('academyCrmCase2Title')} description={tr('academyCrmDashboardCase2Description')} state={crmPart2State} statusLabel={stateLabel(crmPart2State)} action={actionForCase(crmPart2State, academyCrmSandbox.getState().part2Started)} onClick={cycleActionBlocked ? undefined : crm.part1Completed ? startCrmPart2 : undefined} />
+            <Module icon={ACADEMY_AREA_ICONS.crm} title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
+              <AcademyRow icon={ACADEMY_AREA_ICONS.crm} title={tr('academyCrmCase1Title')} description={tr('academyCrmDashboardCase1Description')} state={crmPart1State} statusLabel={stateLabel(crmPart1State)} action={actionForCase(crmPart1State, academyCrmSandbox.getState().part1Started)} onClick={cycleActionBlocked ? undefined : startCrmPart1} />
+              <AcademyRow icon={ACADEMY_AREA_ICONS.crm} title={tr('academyCrmCase2Title')} description={tr('academyCrmDashboardCase2Description')} state={crmPart2State} statusLabel={stateLabel(crmPart2State)} action={actionForCase(crmPart2State, academyCrmSandbox.getState().part2Started)} onClick={cycleActionBlocked ? undefined : crm.part1Completed ? startCrmPart2 : undefined} />
             </Module>
             <LockedModule icon={CalendarDays} title={tr('academyCalendar')} progress={`0 / 1 ${tr('academyCompleted')}`} description={tr('academyCalendarLocked')} lockedLabel={stateLabel('locked')} />
           </div>

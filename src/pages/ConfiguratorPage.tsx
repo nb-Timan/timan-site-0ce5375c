@@ -83,6 +83,7 @@ import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
 import { RecommendationInfoPopover } from '@/components/configurator/RecommendationInfoPopover';
 import type { CustomerNeeds } from '@/lib/customerNeeds';
 import { cn } from '@/lib/utils';
+import { academyProductInstruction, getAcademyCase1ProductNames } from '@/lib/academyProductText';
 import { derivePortalRole, isMesseVariantUser } from '@/lib/portalAccess';
 import { isMessePreviewActive } from '@/lib/messePreview';
 
@@ -743,6 +744,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const deliveryDiscountPercentLabel = `${DELIVERY_DISCOUNT_PERCENT.toLocaleString(uiLanguage)}%`;
   const deliveryDiscountLegend = T('calendarDiscountNote').replace(/\d+(?:[.,]\d+)?\s*%/, deliveryDiscountPercentLabel);
+  const academyProductNames = getAcademyCase1ProductNames(lang);
+  const academyProductCopy = (key: string) => academyProductInstruction(tPortal(key, uiLanguage), academyProductNames);
 
   const totalQty = state.machineConfigs.reduce((sum, c) => sum + c.qty, 0);
   const discountEligibleQty = state.machineConfigs.reduce((sum, c) => sum + (PRODUCTS[c.type]?.isDiscountEligible ? c.qty : 0), 0);
@@ -3162,10 +3165,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 { complete: academyCase.rc751, label: tPortal('academyCase1Rc751Selected', uiLanguage) },
                 { complete: academyCase.quantityDiscount, label: tPortal('academyCase1QuantityDiscount', uiLanguage) },
               ] },
-              { title: tPortal('academyCase1AddOilFlailAndWorkLight', uiLanguage), tasks: [
-                { complete: academyCase.oil, label: tPortal('academyCase1OilSelected', uiLanguage) },
-                { complete: academyCase.flail, label: tPortal('academyCase1FlailSelected', uiLanguage) },
-                { complete: academyCase.workLight, label: tPortal('academyCase1WorkLightSelected', uiLanguage) },
+              { title: academyProductCopy('academyCase1AddOilFlailAndWorkLight'), tasks: [
+                { complete: academyCase.oil, label: academyProductCopy('academyCase1OilSelected') },
+                { complete: academyCase.flail, label: academyProductCopy('academyCase1FlailSelected') },
+                { complete: academyCase.workLight, label: academyProductCopy('academyCase1WorkLightSelected') },
               ] },
               { title: tPortal('academyCase1AddWeedBrushAndHarness', uiLanguage), tasks: [
                 { complete: academyCase.weedBrush, label: tPortal('academyCase1WeedBrushSelected', uiLanguage) },
@@ -3174,7 +3177,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               { title: tPortal('academyCase1SaveLead', uiLanguage), tasks: [{ complete: Boolean(academyCase.leadId), label: tPortal('academyCase1LeadSaved', uiLanguage) }] },
               { title: tPortal('academyCase1GenerateQuote', uiLanguage), tasks: [{ complete: academyCase.quoteGenerated, label: tPortal('academyCase1QuoteGenerated', uiLanguage) }] },
             ]}
-            next={!academyCase.machine ? tPortal('academyCase1NextMachine', uiLanguage) : !academyCase.rc751 || !academyCase.quantityDiscount ? tPortal('academyCase1NextRc751', uiLanguage) : !academyCase.oil || !academyCase.flail || !academyCase.workLight ? tPortal('academyCase1NextOilFlailWorkLight', uiLanguage) : !academyCase.weedBrush || !academyCase.wireHarness ? tPortal('academyCase1NextWeedBrushHarness', uiLanguage) : !academyCase.leadId ? tPortal('academyCase1NextLead', uiLanguage) : !academyCase.quoteGenerated ? tPortal('academyCase1NextQuote', uiLanguage) : tPortal('academyCase1NextQuote', uiLanguage)}
+            next={!academyCase.machine ? tPortal('academyCase1NextMachine', uiLanguage) : !academyCase.rc751 || !academyCase.quantityDiscount ? tPortal('academyCase1NextRc751', uiLanguage) : !academyCase.oil || !academyCase.flail || !academyCase.workLight ? academyProductCopy('academyCase1NextOilFlailWorkLight') : !academyCase.weedBrush || !academyCase.wireHarness ? tPortal('academyCase1NextWeedBrushHarness', uiLanguage) : !academyCase.leadId ? tPortal('academyCase1NextLead', uiLanguage) : !academyCase.quoteGenerated ? tPortal('academyCase1NextQuote', uiLanguage) : tPortal('academyCase1NextQuote', uiLanguage)}
             completion
             caseId={ACADEMY_CASE_1}
             actions={<button type="button"
