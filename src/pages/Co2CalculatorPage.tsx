@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Cloud, Fuel, Leaf } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -136,159 +137,149 @@ export default function Co2CalculatorPage() {
         }}
       />
 
-      {/* CO2 sub-header */}
-      <header className="bg-white border-b border-gray-200 py-6 no-print">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900">{t.co2Title}</h1>
-            <p className="text-gray-500">{t.co2Subtitle}</p>
+      <main className="mx-auto w-full max-w-6xl flex-grow px-4 py-5 no-print sm:px-6 sm:py-7">
+        <header className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">{t.co2Title}</h1>
+            <p className="mt-1 text-sm text-slate-500 sm:text-base">{t.co2Subtitle}</p>
           </div>
-        </div>
-      </header>
+          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 sm:pb-1">
+            <Leaf className="h-4 w-4" aria-hidden="true" />
+            <span>{t.timanBetter}</span>
+          </div>
+        </header>
 
-      <main className="max-w-4xl mx-auto px-4 py-8 flex-grow w-full no-print">
-        <div className="w-full">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-5">
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:row-span-2" aria-labelledby="co2-parameters-title">
+            <h2 id="co2-parameters-title" className="text-base font-bold text-slate-950">{t.parameters}</h2>
+            <div className="mt-5 space-y-7">
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label htmlFor="co2-hours" className="text-sm font-semibold text-slate-600">{t.hoursLabel}</label>
+                  <span className="shrink-0 text-base font-bold text-[#E30613]">
+                    {co2.hours} <span className="text-xs font-semibold text-slate-500">{t.hoursUnit}</span>
+                  </span>
+                </div>
+                <input
+                  id="co2-hours"
+                  type="range" min={100} max={2000} step={50}
+                  value={co2.hours}
+                  onChange={(e) => setCo2(s => ({ ...s, hours: Number(e.target.value) }))}
+                  className="h-2 w-full cursor-pointer accent-emerald-600"
+                />
+                <div className="mt-1 flex justify-between text-[11px] text-slate-400"><span>100</span><span>2.000</span></div>
+              </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left column: parameters + info */}
-            <div className="lg:col-span-1 space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-sm font-bold text-gray-900 mb-6 uppercase tracking-wider">{t.parameters}</h3>
-                <div className="space-y-8">
-                  {/* Hours per year */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t.hoursLabel}</label>
-                      <span className="text-sm font-black text-[#E30613]">
-                        {co2.hours} <span className="text-[10px] text-gray-400">{t.hoursUnit}</span>
-                      </span>
-                    </div>
-                    <input
-                      type="range" min={100} max={2000} step={50}
-                      value={co2.hours}
-                      onChange={(e) => setCo2(s => ({ ...s, hours: Number(e.target.value) }))}
-                      className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer"
-                      style={{ accentColor: '#E30613' }}
-                    />
-                  </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label htmlFor="co2-years" className="text-sm font-semibold text-slate-600">{t.yearsLabel}</label>
+                  <span className="shrink-0 text-base font-bold text-[#E30613]">
+                    {co2.years} <span className="text-xs font-semibold text-slate-500">{t.yearsUnit}</span>
+                  </span>
+                </div>
+                <input
+                  id="co2-years"
+                  type="range" min={1} max={15} step={1}
+                  value={co2.years}
+                  onChange={(e) => setCo2(s => ({ ...s, years: Number(e.target.value) }))}
+                  className="h-2 w-full cursor-pointer accent-emerald-600"
+                />
+                <div className="mt-1 flex justify-between text-[11px] text-slate-400"><span>1</span><span>15</span></div>
+              </div>
 
-                  {/* Years */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t.yearsLabel}</label>
-                      <span className="text-sm font-black text-[#E30613]">
-                        {co2.years} <span className="text-[10px] text-gray-400">{t.yearsUnit}</span>
-                      </span>
-                    </div>
-                    <input
-                      type="range" min={1} max={15} step={1}
-                      value={co2.years}
-                      onChange={(e) => setCo2(s => ({ ...s, years: Number(e.target.value) }))}
-                      className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer"
-                      style={{ accentColor: '#E30613' }}
-                    />
-                  </div>
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label htmlFor="co2-fuel-price" className="text-sm font-semibold text-slate-600">{t.fuelPriceLabel}</label>
+                  <span className="shrink-0 text-base font-bold text-[#E30613]">
+                    {displayedPrice} <span className="text-xs font-semibold text-slate-500">{t.currency}</span>
+                  </span>
+                </div>
+                <input
+                  id="co2-fuel-price"
+                  type="range" min={5} max={25} step={0.5}
+                  value={co2.baseFuelPriceDKK}
+                  onChange={(e) => setCo2(s => ({ ...s, baseFuelPriceDKK: Number(e.target.value) }))}
+                  className="h-2 w-full cursor-pointer accent-emerald-600"
+                />
+                <div className="mt-1 flex justify-between text-[11px] text-slate-400"><span>5</span><span>25</span></div>
+              </div>
+            </div>
+          </section>
 
-                  {/* Fuel price */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{t.fuelPriceLabel}</label>
-                      <span className="text-sm font-black text-[#E30613]">
-                        {displayedPrice} <span className="text-[10px] text-gray-400">{t.currency}</span>
-                      </span>
-                    </div>
-                    <input
-                      type="range" min={5} max={25} step={0.5}
-                      value={co2.baseFuelPriceDKK}
-                      onChange={(e) => setCo2(s => ({ ...s, baseFuelPriceDKK: Number(e.target.value) }))}
-                      className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer"
-                      style={{ accentColor: '#E30613' }}
-                    />
-                  </div>
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="co2-comparison-title">
+            <div className="flex items-center justify-between gap-3">
+              <h2 id="co2-comparison-title" className="text-base font-bold text-slate-950">{t.comparisonTitle}</h2>
+              <span className="text-xs text-slate-400">kg CO2</span>
+            </div>
+            <div className="mt-6 space-y-7">
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold text-emerald-600">Timan 3330</span>
+                  <span className="shrink-0 text-base font-bold text-emerald-600">
+                    {fmt(timanCo2)} <span className="text-xs font-semibold opacity-70">kg CO2</span>
+                  </span>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full bg-emerald-500 transition-all duration-700 ease-out" style={{ width: `${(timanCo2 / visualMax) * 100}%` }} />
                 </div>
               </div>
 
-              <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-6 flex gap-4">
-                <div className="text-xs text-emerald-800 leading-relaxed font-medium">
-                  <strong>{t.timanBetter}</strong>
-                  <br />
-                  {t.timanBetterBody}
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <span className="text-sm font-bold text-slate-500">Egholm 2260</span>
+                  <span className="shrink-0 text-base font-bold text-slate-500">
+                    {fmt(egholmCo2)} <span className="text-xs font-semibold opacity-70">kg CO2</span>
+                  </span>
+                </div>
+                <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                  <div className="h-full bg-slate-400 transition-all duration-700 ease-out" style={{ width: `${(egholmCo2 / visualMax) * 100}%` }} />
                 </div>
               </div>
             </div>
+          </section>
 
-            {/* Right column: comparison + savings */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
-                <h3 className="text-sm font-bold text-gray-900 mb-8 uppercase tracking-wider text-center">
-                  {t.comparisonTitle}
-                </h3>
-                <div className="space-y-10">
-                  {/* Timan bar */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Timan 3330</span>
-                      <span className="text-lg font-black text-emerald-600">
-                        {fmt(timanCo2)} <span className="text-xs font-bold opacity-50">kg CO2</span>
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-100 h-4 rounded-full overflow-hidden shadow-inner">
-                      <div
-                        className="bg-emerald-500 h-full transition-all duration-700 ease-out"
-                        style={{ width: `${(timanCo2 / visualMax) * 100}%` }}
-                      />
-                    </div>
-                  </div>
+          <aside className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-900 sm:p-5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+              <Leaf className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div className="min-w-0 text-xs leading-relaxed sm:text-sm">
+              <strong className="block font-bold">{t.timanBetter}</strong>
+              <span className="text-emerald-800">{t.timanBetterBody}</span>
+            </div>
+          </aside>
 
-                  {/* Egholm bar */}
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Egholm 2260</span>
-                      <span className="text-lg font-black text-gray-400">
-                        {fmt(egholmCo2)} <span className="text-xs font-bold opacity-50">kg CO2</span>
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-100 h-4 rounded-full overflow-hidden shadow-inner">
-                      <div
-                        className="bg-gray-400 h-full transition-all duration-700 ease-out"
-                        style={{ width: `${(egholmCo2 / visualMax) * 100}%` }}
-                      />
-                    </div>
-                  </div>
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-2" aria-labelledby="co2-savings-title">
+            <h2 id="co2-savings-title" className="text-base font-bold text-slate-950">{t.savingsTitle}</h2>
+            <div className="mt-5 grid grid-cols-2 divide-x divide-slate-200">
+              <div className="flex min-w-0 items-center gap-3 pr-3 sm:gap-5 sm:pr-6">
+                <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 sm:flex">
+                  <Fuel className="h-6 w-6" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-slate-500">{t.fuelSaved}</p>
+                  <p className="mt-1 whitespace-nowrap text-xl font-bold text-slate-950 sm:text-3xl">
+                    {fmt(fuelSavedVal)} <span className="text-sm font-semibold text-slate-600 sm:text-lg">L</span>
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-emerald-600 sm:text-sm">{fmt(moneySaved)} {t.currency}</p>
                 </div>
               </div>
 
-              {/* Savings panel */}
-              <div className="bg-gray-900 rounded-3xl p-10 text-white relative overflow-hidden shadow-2xl">
-                <div className="relative z-10">
-                  <h2 className="text-gray-400 uppercase text-[10px] font-black mb-8 tracking-[0.2em] text-center">
-                    {t.savingsTitle}
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="text-center">
-                      <p className="text-[9px] text-gray-500 uppercase font-black mb-1">{t.fuelSaved}</p>
-                      <p className="text-4xl font-black text-white">
-                        {fmt(fuelSavedVal)} <span className="text-xl text-gray-500">L</span>
-                      </p>
-                      <p className="text-emerald-400 text-sm font-bold mt-2">
-                        {fmt(moneySaved)} {t.currency}
-                      </p>
-                    </div>
-
-                    <div className="text-center md:border-l md:border-white/10">
-                      <p className="text-[9px] text-emerald-400 uppercase font-black mb-1">{t.co2Saved}</p>
-                      <p className="text-5xl font-black text-emerald-400 tracking-tighter">
-                        {fmt(co2SavedVal)} <span className="text-2xl text-emerald-600/50">kg</span>
-                      </p>
-                      <div className="mt-3 inline-block bg-emerald-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black">
-                        ≈ {(co2SavedVal / 1000).toLocaleString(t.locale, { minimumFractionDigits: 1 })} {t.tons.toUpperCase()}
-                      </div>
-                    </div>
-                  </div>
+              <div className="flex min-w-0 items-center gap-3 pl-3 sm:gap-5 sm:pl-6">
+                <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 sm:flex">
+                  <Cloud className="h-6 w-6" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-slate-500">{t.co2Saved}</p>
+                  <p className="mt-1 whitespace-nowrap text-xl font-bold text-slate-950 sm:text-3xl">
+                    {fmt(co2SavedVal)} <span className="text-sm font-semibold text-slate-600 sm:text-lg">kg</span>
+                  </p>
+                  <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+                    ≈ {(co2SavedVal / 1000).toLocaleString(t.locale, { minimumFractionDigits: 1 })} {t.tons}
+                  </span>
                 </div>
               </div>
             </div>
-          </div>
+          </section>
         </div>
       </main>
 
