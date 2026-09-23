@@ -14,14 +14,16 @@ describe('Academy area icons', () => {
   });
 
   it('uses the same area icon for every case and removes decorative case images', () => {
-    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.sales\}/g)).toHaveLength(3);
-    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.portalBasics\}/g)).toHaveLength(3);
-    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.partnerData\}/g)).toHaveLength(3);
-    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.crm\}/g)).toHaveLength(3);
+    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.sales\}/g)).toHaveLength(4);
+    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.portalBasics\}/g)).toHaveLength(4);
+    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.partnerData\}/g)).toHaveLength(4);
+    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.crm\}/g)).toHaveLength(4);
     expect(source).not.toContain('/messe/machines/rc-1000s-tile.png');
     expect(source).not.toContain('/messe/machines/timan-3330-tile.png');
     expect(source).not.toContain('<img');
     expect(source).toContain('<Status state={state} label={statusLabel} />');
     expect(source).toContain('{action && (');
+    expect(source).toContain("disabled={!interactive}");
+    expect(source).toContain("state === 'completed' ? tr('academyOpen')");
   });
 });

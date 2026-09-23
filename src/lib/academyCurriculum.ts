@@ -4,6 +4,56 @@ import type { BackendUser } from '@/lib/backend-users-store';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, isBackendActor } from '@/lib/portalAccess';
 
 export const ACADEMY_CASE_1_ID = 'sales.case_1_rc1000';
+export const ACADEMY_CASE_IDS = {
+  partnerDataPart1: 'partnerdata.part_1_profile',
+  partnerDataPart2: 'partnerdata.part_2_relations',
+  portalBasics: 'portal.basics_5',
+  partnerMap: 'portal.partner_map',
+  salesCase1: ACADEMY_CASE_1_ID,
+  salesCase2: 'sales.case_2_video_3330',
+  crmPart1: 'crm.part_1',
+  crmPart2: 'crm.part_2',
+} as const;
+
+export type AcademyCurriculumCaseId = typeof ACADEMY_CASE_IDS[keyof typeof ACADEMY_CASE_IDS];
+export type AcademyCaseState = 'locked' | 'ready' | 'active' | 'completed';
+
+export const ACADEMY_CURRICULUM_ORDER: readonly AcademyCurriculumCaseId[] = [
+  ACADEMY_CASE_IDS.partnerDataPart1,
+  ACADEMY_CASE_IDS.partnerDataPart2,
+  ACADEMY_CASE_IDS.portalBasics,
+  ACADEMY_CASE_IDS.partnerMap,
+  ACADEMY_CASE_IDS.salesCase1,
+  ACADEMY_CASE_IDS.salesCase2,
+  ACADEMY_CASE_IDS.crmPart1,
+  ACADEMY_CASE_IDS.crmPart2,
+];
+
+/**
+ * A case is available only when every earlier curriculum step is complete.
+ * Completed historical cases remain completed, but never skip prerequisites
+ * for the next incomplete case.
+ */
+export function getAcademyCaseState(
+  caseId: AcademyCurriculumCaseId,
+  completedCaseIds: Iterable<string>,
+  startedCaseIds: Iterable<string> = [],
+  curriculumAvailable = true,
+): AcademyCaseState {
+  const completed = new Set(completedCaseIds);
+  if (completed.has(caseId)) return 'completed';
+  if (!curriculumAvailable) return 'locked';
+
+  const index = ACADEMY_CURRICULUM_ORDER.indexOf(caseId);
+  const prerequisitesComplete = index >= 0
+    && ACADEMY_CURRICULUM_ORDER.slice(0, index).every((id) => completed.has(id));
+  if (!prerequisitesComplete) return 'locked';
+  return new Set(startedCaseIds).has(caseId) ? 'active' : 'ready';
+}
+
+export function canOpenAcademyCase(state: AcademyCaseState) {
+  return state !== 'locked';
+}
 const LOCAL_ACADEMY_ENROLLMENT_KEY = 'timan.academy.local-enrollment.v1';
 
 export type AcademyCapability = 'configurator' | 'crm' | 'demo' | 'quote' | 'order';

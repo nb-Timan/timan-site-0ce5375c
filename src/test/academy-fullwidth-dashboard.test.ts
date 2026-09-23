@@ -10,10 +10,13 @@ describe('Academy fullwidth dashboard layout', () => {
     expect(academyPage).toContain('max-w-[1600px]');
   });
 
-  it('keeps the Sales Academy journey in the top block without a duplicate continue card', () => {
+  it('keeps the canonical Academy journey in the top block without a duplicate continue card', () => {
     expect(academyPage).toContain("tr('academyProgress')");
     expect(academyPage).toContain("tr('academyNextUnlock')");
-    expect(academyPage).toContain('Konfigurator');
+    expect(academyPage).toContain("label={tr('academyPartnerData')}");
+    expect(academyPage).toContain("label={tr('academyPortalBasics')}");
+    expect(academyPage).toContain("label={tr('academySales')}");
+    expect(academyPage).toContain('label="CRM"');
     expect(academyPage).toContain("tr('academyNextMilestone')");
     expect(academyPage).toContain("tr('academyBadges')");
     expect(academyPage).toContain("tr('academySalesJourney')");
