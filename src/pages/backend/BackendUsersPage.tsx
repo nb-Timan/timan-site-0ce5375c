@@ -11,7 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { Check, KeyRound, Mail, Pencil, RotateCcw, ShieldAlert, Users as UsersIcon, X } from "lucide-react";
+import { Check, ChevronsUpDown, KeyRound, Mail, Pencil, RotateCcw, Search, ShieldAlert, Users as UsersIcon, X } from "lucide-react";
 import { callAdminUserAction } from "@/lib/adminUserActions";
 import { clearSellerIdCache } from "@/lib/resolveSellerId";
 import { clearViewAsCache } from "@/lib/viewAsUser";
@@ -53,7 +53,10 @@ import {
 } from "@/lib/backendUsersService";
 import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import { filterBackendUsers, type BackendUserListFilters } from "@/lib/backendUserListFilters";
 import { toast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
   getAcademyCycleHistory,
   resetAcademyCycle,
@@ -187,6 +190,101 @@ function formatLastLogin(iso: string | null): string {
   try { return new Date(iso).toLocaleString("da-DK"); } catch { return "—"; }
 }
 
+function CompactFilterSelect({
+  ariaLabel,
+  value,
+  onChange,
+  options,
+}: {
+  ariaLabel: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <select
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-9 max-w-full rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+    >
+      {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+    </select>
+  );
+}
+
+function DealerFilter({
+  dealers,
+  value,
+  onChange,
+}: {
+  dealers: DealerAccount[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const availableDealers = useMemo(
+    () => dealers
+      .filter((dealer) => !dealer.is_deleted)
+      .slice()
+      .sort((a, b) => a.company_name.localeCompare(b.company_name, "da")),
+    [dealers],
+  );
+  const selected = availableDealers.find((dealer) => dealer.account_number === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Filtrér efter forhandler"
+          aria-expanded={open}
+          className="inline-flex h-9 w-[190px] max-w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50"
+        >
+          <span className="truncate">{selected ? `${selected.company_name} · ${selected.account_number}` : "Alle forhandlere"}</span>
+          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[320px] max-w-[calc(100vw-2rem)] p-0">
+        <Command>
+          <CommandInput placeholder="Søg forhandler eller kontonr." />
+          <CommandList>
+            <CommandEmpty>Ingen forhandlere fundet.</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="alle forhandlere"
+                onSelect={() => {
+                  onChange("all");
+                  setOpen(false);
+                }}
+              >
+                <Check className={`mr-2 h-4 w-4 ${value === "all" ? "opacity-100" : "opacity-0"}`} />
+                Alle forhandlere
+              </CommandItem>
+              {availableDealers.map((dealer) => (
+                <CommandItem
+                  key={dealer.id || dealer.account_number}
+                  value={`${dealer.company_name} ${dealer.account_number}`}
+                  onSelect={() => {
+                    onChange(dealer.account_number);
+                    setOpen(false);
+                  }}
+                >
+                  <Check className={`mr-2 h-4 w-4 ${value === dealer.account_number ? "opacity-100" : "opacity-0"}`} />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{dealer.company_name}</span>
+                    <span className="block text-[11px] text-slate-500">{dealer.account_number}</span>
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function BackendUsersPage() {
   const { appUser, loading, logout, refreshAppUser } = useAppUser();
   const { language: lang, setLanguage } = useLanguage();
@@ -200,6 +298,13 @@ export default function BackendUsersPage() {
   const [actionMsg, setActionMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [loadingUsers, setLoadingUsers] = useState(true);
+  const [filters, setFilters] = useState<BackendUserListFilters>({
+    query: "",
+    role: "all",
+    dealerNumber: "all",
+    country: "all",
+    status: "all",
+  });
 
   const reload = useMemo(
     () => async () => {
@@ -222,6 +327,20 @@ export default function BackendUsersPage() {
   }, [users]);
 
   const isBackend = isBackendActor(appUser);
+  const filteredUsers = useMemo(() => filterBackendUsers(users, dealers, filters), [users, dealers, filters]);
+  const roleOptions = useMemo(
+    () => PORTAL_ROLES.filter((role) => users.some((user) => user.role === role)),
+    [users],
+  );
+  const countryOptions = useMemo(
+    () => Array.from(new Set(users.map((user) => user.country?.trim().toUpperCase()).filter(Boolean) as string[])).sort(),
+    [users],
+  );
+  const hasActiveFilters = filters.query.trim() !== ""
+    || filters.role !== "all"
+    || filters.dealerNumber !== "all"
+    || filters.country !== "all"
+    || filters.status !== "all";
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><span className="text-sm text-slate-500">…</span></div>;
@@ -271,7 +390,7 @@ export default function BackendUsersPage() {
       />
 
       <main className="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-12 py-10 flex-grow w-full">
-        <div className="mb-8 flex items-end justify-between gap-4 flex-wrap">
+        <div className="mb-8 flex items-start justify-between gap-5 flex-wrap">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
               <UsersIcon className="h-6 w-6 text-indigo-600" />
@@ -291,13 +410,66 @@ export default function BackendUsersPage() {
               <p className="text-slate-500 mt-1 text-sm">Administrer brugere, roller, områder og modul-adgang.</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void reload()}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-          >
-            <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
-          </button>
+          <div className="flex max-w-full flex-1 flex-wrap items-center justify-end gap-2 lg:min-w-[720px]">
+            <label className="relative w-full sm:w-[280px]">
+              <span className="sr-only">Søg brugere</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="search"
+                value={filters.query}
+                onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))}
+                placeholder="Søg navn, e-mail, forhandler eller kontonr."
+                className="h-9 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+              />
+            </label>
+            <CompactFilterSelect
+              ariaLabel="Filtrér efter brugertype"
+              value={filters.role}
+              onChange={(value) => setFilters((current) => ({ ...current, role: value as BackendUserListFilters["role"] }))}
+              options={[
+                { value: "all", label: "Alle brugertyper" },
+                ...roleOptions.map((role) => ({ value: role, label: PORTAL_ROLE_LABELS[role]?.da ?? role })),
+              ]}
+            />
+            <DealerFilter
+              dealers={dealers}
+              value={filters.dealerNumber}
+              onChange={(dealerNumber) => setFilters((current) => ({ ...current, dealerNumber }))}
+            />
+            <CompactFilterSelect
+              ariaLabel="Filtrér efter land"
+              value={filters.country}
+              onChange={(country) => setFilters((current) => ({ ...current, country }))}
+              options={[{ value: "all", label: "Alle lande" }, ...countryOptions.map((country) => ({ value: country, label: country }))]}
+            />
+            <CompactFilterSelect
+              ariaLabel="Filtrér efter status"
+              value={filters.status}
+              onChange={(status) => setFilters((current) => ({ ...current, status: status as BackendUserListFilters["status"] }))}
+              options={[
+                { value: "all", label: "Alle statusser" },
+                ...Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })),
+              ]}
+            />
+            <button
+              type="button"
+              disabled={!hasActiveFilters}
+              onClick={() => setFilters({ query: "", role: "all", dealerNumber: "all", country: "all", status: "all" })}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:cursor-default disabled:opacity-40"
+            >
+              <X className="h-3.5 w-3.5" /> Nulstil
+            </button>
+            <button
+              type="button"
+              onClick={() => void reload()}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Genindlæs
+            </button>
+            <span className="min-w-[70px] text-right text-xs font-semibold text-slate-500">
+              {filteredUsers.length} {filteredUsers.length === 1 ? "bruger" : "brugere"}
+            </span>
+          </div>
         </div>
 
         {(loadError || saveError) && (
@@ -339,7 +511,7 @@ export default function BackendUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users.map((u) => {
+              {filteredUsers.map((u) => {
                 const langOpt = PORTAL_LANGUAGES.find((l) => l.code === u.language);
                 const dealer = u.dealer_number ? dealers.find((d) => d.account_number === u.dealer_number) : undefined;
                 const userType = PORTAL_ROLE_LABELS[u.role]?.da ?? u.role;
@@ -465,8 +637,8 @@ export default function BackendUsersPage() {
                   </Td>
                 </tr>
               );})}
-              {users.length === 0 && !loadingUsers && (
-                <tr><td colSpan={13} className="px-3 py-10 text-center text-sm text-slate-500">Ingen brugere fundet.</td></tr>
+              {filteredUsers.length === 0 && !loadingUsers && (
+                <tr><td colSpan={13} className="px-3 py-10 text-center text-sm text-slate-500">Ingen brugere matcher de valgte filtre.</td></tr>
               )}
             </tbody>
           </table>
