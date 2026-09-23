@@ -19,6 +19,7 @@ import { nextActivityToProbability } from '@/lib/leadStatus';
 import { toast } from 'sonner';
 import { useLanguage } from '@/context/LanguageContext';
 import { crmNextActivityLabel, crmDemoRegistrationText, crmDemoStageLabel, normalizeDemoActivity, NEXT_ACTIVITY_DEMO_AGREED } from '@/lib/crmDemoStageI18n';
+import { resolveReferencedUserInitials, useSellerDirectory, type SellerDirectory } from '@/lib/sellerDirectory';
 
 interface CrmLeadHistoryPanelProps {
   leadId: string;
@@ -49,11 +50,14 @@ function formatNoteTimestamp(value: string | null | undefined): string {
   }).format(date);
 }
 
-function authorLabel(note: CrmLeadNote): string {
-  const name = note.created_by_name?.trim();
-  if (!name) return 'Ukendt bruger';
-  const words = name.split(/\s+/).filter(Boolean);
-  return words.length > 1 ? words.map((word) => word[0]).join('').toUpperCase() : name;
+function authorLabel(
+  author: Pick<CrmLeadNote, 'created_by_user_id' | 'created_by_name'>,
+  directory: SellerDirectory,
+): string {
+  return resolveReferencedUserInitials({
+    userId: author.created_by_user_id,
+    legacyLabel: author.created_by_name,
+  }, directory) || 'Ukendt bruger';
 }
 
 /** Canonical lead comments rendered from the existing append-only CRM activity stream. */
@@ -68,6 +72,7 @@ export function CrmLeadHistoryPanel({
   onFollowupChanged,
 }: CrmLeadHistoryPanelProps) {
   const { uiLanguage } = useLanguage();
+  const userDirectory = useSellerDirectory();
   const [notes, setNotes] = useState<CrmLeadNote[]>([]);
   const [demoEvents, setDemoEvents] = useState<CrmLeadDemoHistoryEvent[]>([]);
   const [draft, setDraft] = useState('');
@@ -227,7 +232,7 @@ export function CrmLeadHistoryPanel({
             {visibleNotes.map((note) => (
               <li key={note.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-slate-500">{formatNoteTimestamp(note.created_at || note.activity_date)} · {authorLabel(note)}</p>
+                  <p className="text-xs font-medium text-slate-500">{formatNoteTimestamp(note.created_at || note.activity_date)} · {authorLabel(note, userDirectory)}</p>
                   {note.priority_position && (
                     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800" title={`Prioritet ${note.priority_position}`}>
                       <Pin className="h-3 w-3" /> {note.priority_position}
@@ -277,7 +282,7 @@ export function CrmLeadHistoryPanel({
           <ol className="space-y-2">
             {demoEvents.map((event) => (
               <li key={event.id} className="rounded-lg border border-violet-100 bg-violet-50/40 px-3 py-2.5">
-                <p className="text-xs font-medium text-slate-500">{formatNoteTimestamp(event.created_at)} · {event.created_by_name || 'Ukendt bruger'}</p>
+                <p className="text-xs font-medium text-slate-500">{formatNoteTimestamp(event.created_at)} · {authorLabel(event, userDirectory)}</p>
                 <p className="mt-1 text-sm font-medium text-slate-800">{event.registration_event
                   ? event.activity_type === 'demo_registration_started' ? crmDemoRegistrationText('started', uiLanguage)
                     : event.activity_type === 'demo_date_changed' ? crmDemoRegistrationText('dateChanged', uiLanguage)

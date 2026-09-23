@@ -293,6 +293,24 @@ export interface SellerDisplay {
   matched: boolean;
 }
 
+export interface ReferencedUserInitialsInput {
+  userId?: string | null;
+  legacyLabel?: string | null;
+}
+
+/**
+ * Resolve initials only through a stable app_users reference. Legacy rows
+ * without that relation keep their stored label unchanged; we never guess an
+ * identity from a historical name or email.
+ */
+export function resolveReferencedUserInitials(
+  input: ReferencedUserInitialsInput,
+  dir: SellerDirectory,
+): string {
+  const referencedUser = input.userId ? dir.byId.get(String(input.userId)) : undefined;
+  return referencedUser?.initials || input.legacyLabel?.trim() || "";
+}
+
 /**
  * Resolve the live display values for a seller. When the row can be matched
  * to an `app_users` entry (by email, id, or initials key), return the

@@ -108,4 +108,12 @@ describe('CRM lead quick notes and history', () => {
     expect(historyPanel).toContain('legacyNotes.trim()');
     expect(migration).not.toContain('update public.crm_leads set notes');
   });
+
+  it('renders referenced note and demo authors from canonical app_users initials', () => {
+    expect(noteService).toContain('created_by_user_id, activity_type, meta');
+    expect(historyPanel).toContain('resolveReferencedUserInitials');
+    expect(historyPanel).toContain('authorLabel(note, userDirectory)');
+    expect(historyPanel).toContain('authorLabel(event, userDirectory)');
+    expect(historyPanel).not.toContain("words.map((word) => word[0])");
+  });
 });
