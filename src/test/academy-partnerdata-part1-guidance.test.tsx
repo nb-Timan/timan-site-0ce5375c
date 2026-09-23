@@ -18,9 +18,10 @@ describe('Academy Partnerdata Part 1 guidance', () => {
     expect(screen.getByText('Punkt 1: Åbn Academy Maskiner')).toBeInTheDocument();
     expect(screen.getByText('Punkt 2: Gå til Virksomheds- og persondata')).toBeInTheDocument();
     expect(screen.getByText('Punkt 3: Gem en kontaktperson under Salg')).toBeInTheDocument();
+    expect(screen.getByText(/Brug gerne dig selv med korrekte oplysninger/)).toBeInTheDocument();
     expect(screen.getByText('Punkt 5: Tilføj hjemmesideadresse')).toBeInTheDocument();
     expect(screen.getByText('Hvorfor denne opgave?')).toBeInTheDocument();
-    expect(screen.getByText(/Én gang om året skal I gennemgå jeres virksomheds- og kontaktoplysninger/)).toBeInTheDocument();
+    expect(screen.getByText(/Senere i Academy bruger vi den gemte kontaktperson i bl.a. Leads og Configurator/)).toBeInTheDocument();
     expect(screen.getByText('0 / 6 krav')).toBeInTheDocument();
     expect(screen.getByText('Næste punkt: Punkt 1: Åbn Academy Maskiner.')).toBeInTheDocument();
 

@@ -67,7 +67,7 @@ export default function AcademyPartnerDataGuidance() {
       steps={part === 1 ? [
         { title: tr('academyPartnerDataMachine'), tasks: [{ label: tr('academyPartnerDataMachineOpened'), complete: progress.academyMachineOpened }] },
         { title: tr('academyPartnerDataCompany'), tasks: [{ label: tr('academyPartnerDataCompanyOpened'), complete: progress.companyDataOpened }] },
-        { title: tr('academyPartnerDataContact'), tasks: [{ label: tr('academyPartnerDataContactSaved'), complete: progress.salesContactSaved }] },
+        { title: tr('academyPartnerDataContact'), description: tr('academyPartnerDataContactHelper'), tasks: [{ label: tr('academyPartnerDataContactSaved'), complete: progress.salesContactSaved }] },
         { title: tr('academyPartnerDataPrimary'), tasks: [{ label: tr('academyPartnerDataPrimarySelected'), complete: progress.primarySalesContactSelected }] },
         { title: tr('academyPartnerDataWebsite'), tasks: [
           { label: tr('academyPartnerDataWebsiteAdded'), complete: progress.websiteAdded },

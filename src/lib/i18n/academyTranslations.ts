@@ -420,6 +420,43 @@ Object.assign(ACADEMY_TRANSLATIONS.cs, {
   configuratorLeadInvalidEmail: 'Zadejte platnou e-mailovou adresu.',
 });
 
+Object.assign(ACADEMY_TRANSLATIONS.da, {
+  academyPartnerDataContactHelper: 'Brug gerne dig selv med korrekte oplysninger. Vi genbruger kontaktpersonen senere i Academy, bl.a. i Leads og Configurator, så du lærer, hvordan gemte kontaktdata gør arbejdet hurtigere.',
+  academyPartnerDataWhyOne: 'Opret gerne dig selv som kontaktperson med korrekte kontaktoplysninger. Senere i Academy bruger vi den gemte kontaktperson i bl.a. Leads og Configurator. Her vil du se, hvordan korrekte Partnerdata gør det hurtigere at vælge kontaktpersoner og genbruge oplysninger uden at indtaste dem igen.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.en, {
+  academyPartnerDataContactHelper: 'You may use yourself with correct details. We reuse this contact later in Academy, including in Leads and Configurator, so you can see how saved contact data makes work faster.',
+  academyPartnerDataWhyOne: 'Feel free to create yourself as a contact with correct contact details. Later in Academy, we use the saved contact in Leads and Configurator. You will see how accurate Partner data makes it quicker to select contacts and reuse information without entering it again.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.de, {
+  academyPartnerDataContactHelper: 'Sie können sich selbst mit korrekten Angaben als Kontaktperson verwenden. Wir nutzen die Kontaktperson später in der Academy, unter anderem in Leads und im Configurator, damit Sie sehen, wie gespeicherte Kontaktdaten die Arbeit beschleunigen.',
+  academyPartnerDataWhyOne: 'Legen Sie sich gern selbst mit korrekten Kontaktdaten als Kontaktperson an. Später in der Academy verwenden wir die gespeicherte Kontaktperson unter anderem in Leads und im Configurator. So sehen Sie, wie korrekte Partnerdaten die Auswahl von Kontaktpersonen beschleunigen und erneute Eingaben vermeiden.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.it, {
+  academyPartnerDataContactHelper: 'Puoi usare te stesso con dati corretti. Riutilizzeremo il contatto più avanti nell’Academy, anche in Lead e Configurator, per mostrare come i dati salvati rendono il lavoro più rapido.',
+  academyPartnerDataWhyOne: 'Puoi creare te stesso come contatto con dati corretti. Più avanti nell’Academy useremo il contatto salvato anche in Lead e Configurator. Vedrai come dati partner accurati rendano più rapido selezionare i contatti e riutilizzare le informazioni senza inserirle di nuovo.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.hu, {
+  academyPartnerDataContactHelper: 'Nyugodtan használja saját magát helyes adatokkal. A kapcsolattartót később az Academyben, többek között a Leadekben és a Configuratorban is felhasználjuk, így láthatja, hogyan gyorsítják a mentett adatok a munkát.',
+  academyPartnerDataWhyOne: 'Hozza létre nyugodtan saját magát kapcsolattartóként helyes elérhetőségekkel. Később az Academyben a mentett kapcsolattartót a Leadekben és a Configuratorban is használjuk. Így láthatja, hogy a pontos partneradatok hogyan gyorsítják a kapcsolattartók kiválasztását és az adatok újbóli bevitele nélküli újrafelhasználását.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.sv, {
+  academyPartnerDataContactHelper: 'Använd gärna dig själv med korrekta uppgifter. Vi återanvänder kontaktpersonen senare i Academy, bland annat i Leads och Configurator, så att du ser hur sparade kontaktuppgifter gör arbetet snabbare.',
+  academyPartnerDataWhyOne: 'Skapa gärna dig själv som kontaktperson med korrekta kontaktuppgifter. Senare i Academy använder vi den sparade kontaktpersonen bland annat i Leads och Configurator. Där ser du hur korrekta partnerdata gör det snabbare att välja kontaktpersoner och återanvända uppgifter utan att skriva in dem igen.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.fr, {
+  academyPartnerDataContactHelper: 'Vous pouvez utiliser vos propres coordonnées correctes. Nous réutiliserons ce contact plus tard dans Academy, notamment dans les leads et le Configurator, afin de montrer comment les données enregistrées accélèrent le travail.',
+  academyPartnerDataWhyOne: 'Vous pouvez vous créer comme contact avec des coordonnées correctes. Plus tard dans Academy, nous utiliserons le contact enregistré notamment dans les leads et le Configurator. Vous verrez comment des données partenaire exactes permettent de sélectionner plus rapidement les contacts et de réutiliser les informations sans les saisir à nouveau.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.pl, {
+  academyPartnerDataContactHelper: 'Możesz użyć siebie z poprawnymi danymi. Wykorzystamy ten kontakt później w Academy, między innymi w Leadach i Configuratorze, aby pokazać, jak zapisane dane kontaktowe przyspieszają pracę.',
+  academyPartnerDataWhyOne: 'Możesz utworzyć siebie jako kontakt z poprawnymi danymi kontaktowymi. Później w Academy użyjemy zapisanego kontaktu między innymi w Leadach i Configuratorze. Zobaczysz, jak poprawne dane partnera przyspieszają wybieranie kontaktów i ponowne wykorzystywanie informacji bez ich ponownego wpisywania.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.cs, {
+  academyPartnerDataContactHelper: 'Můžete použít sami sebe se správnými údaji. Kontakt později v Academy znovu použijeme, mimo jiné v Leadech a Configuratoru, abyste viděli, jak uložené kontaktní údaje urychlují práci.',
+  academyPartnerDataWhyOne: 'Můžete vytvořit sami sebe jako kontakt se správnými kontaktními údaji. Později v Academy použijeme uložený kontakt mimo jiné v Leadech a Configuratoru. Uvidíte, jak správné partnerské údaje urychlují výběr kontaktů a opakované použití informací bez jejich dalšího zadávání.',
+});
+
 Object.assign(ACADEMY_TRANSLATIONS.da, { configuratorLeadOwnershipMessage: 'Vælg den ansvarlige forhandler og sælger.' });
 Object.assign(ACADEMY_TRANSLATIONS.en, { configuratorLeadOwnershipMessage: 'Select the responsible dealer and seller.' });
 Object.assign(ACADEMY_TRANSLATIONS.de, { configuratorLeadOwnershipMessage: 'Wählen Sie den zuständigen Händler und Verkäufer.' });
