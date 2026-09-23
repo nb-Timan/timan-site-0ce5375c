@@ -71,10 +71,14 @@ import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { crmNextActivityLabel, crmDemoRegistrationText, NEXT_ACTIVITY_DEMO_AGREED, normalizeDemoActivity } from '@/lib/crmDemoStageI18n';
 import {
-  getMissingOrdinaryCrmLeadFields,
+  getMissingCrmLeadFields,
+  importedChoiceValue,
+  parseStructuredContactInformation,
+  splitTradeFairYear,
   isLegacyWorkingBudgetOnlySave,
   normalizeWorkingBudgetQuantity,
-  type OrdinaryCrmLeadRequiredField,
+  type CrmLeadRequiredField,
+  type StructuredContactInfo,
 } from '@/lib/crmLeadValidation';
 
 // ---- i18n. English is the fallback. ----
@@ -89,7 +93,7 @@ type TKey =
   | 'lbl_expected_close' | 'lbl_next_followup' | 'lbl_next_activity'
   | 'pick' | 'lbl_demo_held' | 'yes' | 'no' | 'lbl_convert' | 'cta_convert'
   | 'lbl_contact_type' | 'lbl_customer_type'
-  | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_notes'
+  | 'lbl_contact_info' | 'ph_contact_info' | 'lbl_tradefair' | 'lbl_country' | 'lbl_tradefair_year' | 'lbl_tradefair_name' | 'ph_tradefair_name' | 'lbl_notes'
   | 'lbl_contact_company' | 'lbl_contact_person' | 'lbl_contact_phone' | 'lbl_contact_email'
   | 'lbl_contact_address' | 'lbl_contact_zip_city' | 'lbl_contact_postal_code' | 'lbl_contact_city'
   | 'use_dealer_details' | 'enter_manual_customer' | 'lbl_dealer_contact' | 'ph_dealer_contact'
@@ -160,6 +164,9 @@ const T: Record<TKey, Record<Language, string>> = {
   dealer_details_hint: { da: 'Kopierer kun den valgte forhandlers aktuelle kontaktoplysninger til dette lead.', en: 'Copies only the selected dealer’s current contact details to this lead.', de: 'Kopiert nur die aktuellen Kontaktdaten des ausgewählten Händlers in diesen Lead.', it: 'Copia solo i dati di contatto correnti del rivenditore selezionato in questo lead.', hu: 'Csak a kiválasztott kereskedő aktuális kapcsolattartási adatait másolja ebbe a leadbe.' },
   lbl_tradefair: { da: 'Messe', en: 'Trade fair', de: 'Messe', it: 'Fiera', hu: 'Vásár' },
   lbl_country:   { da: 'Land', en: 'Country', de: 'Land', it: 'Paese', hu: 'Ország' },
+  lbl_tradefair_year: { da: 'År', en: 'Year', de: 'Jahr', it: 'Anno', hu: 'Év' },
+  lbl_tradefair_name: { da: 'Messenavn', en: 'Trade fair name', de: 'Messename', it: 'Nome della fiera', hu: 'Vásár neve' },
+  ph_tradefair_name: { da: 'Skriv messens navn', en: 'Enter trade fair name', de: 'Messenamen eingeben', it: 'Inserisci il nome della fiera', hu: 'Adja meg a vásár nevét' },
   lbl_notes:     { da: 'Noter', en: 'Notes', de: 'Notizen', it: 'Note', hu: 'Megjegyzések' },
   lbl_budget:    { da: 'Budget-estimat', en: 'Budget estimate', de: 'Budget-Schätzung', it: 'Stima budget', hu: 'Költségvetés-becslés' },
   lbl_move_work: { da: 'Flyt til arbejdsbudget (stk.)', en: 'Move to working forecast (qty)', de: 'In Arbeitsprognose verschieben (Stk.)', it: 'Sposta in previsione (pz.)', hu: 'Munka-előrejelzésbe (db)' },
@@ -228,18 +235,6 @@ function Field({ label, required, children, full, error }: { label: string; requ
   );
 }
 
-type StructuredContactInfo = {
-  company: string;
-  contactPerson: string;
-  address: string;
-  postalCode: string;
-  city: string;
-  zipCity: string;
-  phone: string;
-  email: string;
-  country: string;
-};
-
 function contactInfoToDraft(info: StructuredContactInfo): CrmLeadDealerContactSnapshot {
   return {
     company: info.company,
@@ -251,55 +246,6 @@ function contactInfoToDraft(info: StructuredContactInfo): CrmLeadDealerContactSn
     city: info.city || (!info.postalCode ? info.zipCity : ''),
     country: info.country,
   };
-}
-
-function splitPostalCodeAndCity(value: string): { postalCode: string; city: string } {
-  const trimmed = value.trim();
-  const match = trimmed.match(/^([A-Z]{0,3}[-\s]?\d{3,6})\s+(.+)$/i);
-  if (!match) return { postalCode: '', city: '' };
-  return { postalCode: match[1].trim(), city: match[2].trim() };
-}
-
-function parseStructuredContactInformation(value: string, fallbackCountry: string): StructuredContactInfo {
-  const info: StructuredContactInfo = {
-    company: '',
-    contactPerson: '',
-    address: '',
-    postalCode: '',
-    city: '',
-    zipCity: '',
-    phone: '',
-    email: '',
-    country: '',
-  };
-
-  value.split(/\r?\n/).forEach((line) => {
-    const separatorIndex = line.indexOf(':');
-    if (separatorIndex < 0) return;
-    const key = line.slice(0, separatorIndex).trim().toLowerCase();
-    const fieldValue = line.slice(separatorIndex + 1).trim();
-    if (!fieldValue) return;
-
-    if (key.startsWith('firma')) info.company = fieldValue;
-    else if (key.startsWith('kontaktperson')) info.contactPerson = fieldValue;
-    else if (key.startsWith('adresse')) info.address = fieldValue;
-    else if (key.startsWith('postnr') || key.includes('zip') || key.includes('plz')) {
-      info.zipCity = fieldValue;
-      const split = splitPostalCodeAndCity(fieldValue);
-      info.postalCode = split.postalCode;
-      info.city = split.city;
-    }
-    else if (key === 'by' || key === 'city' || key === 'ort') info.city = fieldValue;
-    else if (key.startsWith('telefon') || key.startsWith('phone')) info.phone = fieldValue;
-    else if (key.startsWith('e-mail') || key === 'email') info.email = fieldValue;
-    else if (key.startsWith('land') || key === 'country') info.country = fieldValue;
-  });
-
-  if (!info.country && value.trim() && fallbackCountry) {
-    info.country = fallbackCountry;
-  }
-
-  return info;
 }
 
 function buildStructuredContactInformation(info: StructuredContactInfo): string {
@@ -383,6 +329,7 @@ function SmartDateField({
   onChange,
   options,
   full,
+  error,
 }: {
   label: string;
   required?: boolean;
@@ -390,6 +337,7 @@ function SmartDateField({
   onChange: (value: string) => void;
   options: DateQuickOption[];
   full?: boolean;
+  error?: string;
 }) {
   const [open, setOpen] = useState(false);
   const selectedDate = parseLocalIsoDate(value);
@@ -400,7 +348,7 @@ function SmartDateField({
   }
 
   return (
-    <Field label={label} required={required} full={full}>
+    <Field label={label} required={required} full={full} error={error}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <div
@@ -416,7 +364,7 @@ function SmartDateField({
               type="text"
               inputMode="numeric"
               placeholder="dd-mm-yyyy"
-              className={cn(inputCls, 'pr-10 cursor-pointer')}
+              className={cn(inputCls, 'pr-10 cursor-pointer', error && inputErrorCls)}
               value={formatDateDisplay(value)}
               onChange={(event) => onChange(parseDateInput(event.target.value) || event.target.value)}
               onClick={openDateOptions}
@@ -497,17 +445,10 @@ const COUNTRY_OPTIONS = ['Danmark', 'Tyskland', 'Other'] as const;
 const CURRENT_YEAR = new Date().getFullYear();
 const TRADE_FAIR_YEARS = Array.from({ length: 7 }, (_, index) => String(CURRENT_YEAR - 1 + index));
 
-function splitTradeFairYear(value: string): { name: string; year: string } {
-  const trimmed = value.trim();
-  const match = trimmed.match(/^(.*)\s+\((\d{4})\)$/);
-  if (!match) return { name: trimmed, year: String(CURRENT_YEAR) };
-  return { name: match[1].trim(), year: match[2] };
-}
-
 function buildTradeFairValue(name: string, year: string): string | null {
   const cleanName = name.trim();
   if (!cleanName) return null;
-  return `${cleanName} (${year || CURRENT_YEAR})`;
+  return year ? `${cleanName} (${year})` : cleanName;
 }
 
 /** Lead estimates are stored canonically in DKK; only their display follows the portal language. */
@@ -819,7 +760,7 @@ export default function CrmNewLeadPage() {
   const [tradeFairChoice, setTradeFairChoice] = useState('');
   const [tradeFair, setTradeFair] = useState('');
   const [tradeFairYear, setTradeFairYear] = useState(String(CURRENT_YEAR));
-  const [countryChoice, setCountryChoice] = useState<(typeof COUNTRY_OPTIONS)[number]>('Danmark');
+  const [countryChoice, setCountryChoice] = useState<(typeof COUNTRY_OPTIONS)[number] | ''>('Danmark');
   const [country, setCountry] = useState('Danmark');
   const [notes, setNotes] = useState('');
   const [estimatedValue, setEstimatedValue] = useState<string>('');
@@ -851,7 +792,7 @@ export default function CrmNewLeadPage() {
   const [shareIncludeEmail, setShareIncludeEmail] = useState(false);
   const [shareLoading, setShareLoading] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
-  const [fieldErrors, setFieldErrors] = useState<Partial<Record<OrdinaryCrmLeadRequiredField, string>>>({});
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<CrmLeadRequiredField, string>>>({});
 
   // Dealer picker state
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -968,8 +909,9 @@ export default function CrmNewLeadPage() {
       setDemoHasRun(lead.demo_has_run || 'no');
       setContactType(lead.contact_type || '');
       setCustomerType(lead.customer_type || '');
-      const parsedContact = parseStructuredContactInformation(lead.contact_information || '', lead.country || '');
-      const parsedTradeFair = splitTradeFairYear(lead.trade_fair || '');
+      const loadedCountry = importedChoiceValue(lead.country, lead.notes);
+      const parsedContact = parseStructuredContactInformation(lead.contact_information || '', loadedCountry);
+      const parsedTradeFair = splitTradeFairYear(importedChoiceValue(lead.trade_fair, lead.notes));
       if ((KNOWN_TRADE_FAIRS as readonly string[]).includes(parsedTradeFair.name)) {
         setTradeFairChoice(parsedTradeFair.name);
         setTradeFair(parsedTradeFair.name);
@@ -981,16 +923,16 @@ export default function CrmNewLeadPage() {
         setTradeFair('');
       }
       setTradeFairYear(parsedTradeFair.year);
-      const loadedCountry = lead.country || parsedContact.country || 'Danmark';
-      setManualCustomerDraft({ ...contactInfoToDraft(parsedContact), country: loadedCountry });
+      const effectiveCountry = loadedCountry || importedChoiceValue(parsedContact.country, lead.notes);
+      setManualCustomerDraft({ ...contactInfoToDraft(parsedContact), country: effectiveCountry });
       setDealerCustomerData(EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
       setContactMode('manual');
-      if (loadedCountry === 'Danmark' || loadedCountry === 'Tyskland') {
-        setCountryChoice(loadedCountry);
+      if (effectiveCountry === 'Danmark' || effectiveCountry === 'Tyskland') {
+        setCountryChoice(effectiveCountry);
       } else {
-        setCountryChoice('Other');
+        setCountryChoice(effectiveCountry ? 'Other' : '');
       }
-      setCountry(loadedCountry);
+      setCountry(effectiveCountry);
       setNotes(lead.notes || '');
       const savedEstimatedValue = lead.estimated_value != null ? String(lead.estimated_value) : '';
       setLoadedEstimatedValue(savedEstimatedValue);
@@ -1165,25 +1107,16 @@ export default function CrmNewLeadPage() {
       country: activeCustomerData.country,
     };
   }, [activeCustomerData]);
-  const isLeadFormReady = Boolean(
-    title.trim()
-    && responsibleSellerId
-    && linkedDealer
-    && firstContact
-    && expectedClose
-    && nextFollowup
-    && nextActivity
-    && contactType
-    && customerType
-    && machineTypes.length > 0
-    && activeCustomerData.company.trim()
-    && activeCustomerData.contactPerson.trim()
-    && activeCustomerData.phone.trim()
-    && activeCustomerData.email.trim()
-    && activeCustomerData.postalCode.trim()
-    && activeCustomerData.city.trim()
-    && activeCustomerData.country.trim()
-  );
+  const missingRequiredFields = getMissingCrmLeadFields({
+    title, responsibleSellerId, linkedDealer, firstContact, expectedClose,
+    nextFollowup, nextActivity, contactType, customerType, machineTypes,
+    contactCompany: activeCustomerData.company,
+    contactPersonName: activeCustomerData.contactPerson,
+    contactPhone: activeCustomerData.phone, contactEmail: activeCustomerData.email,
+    contactPostalCode: activeCustomerData.postalCode, contactCity: activeCustomerData.city,
+    country: activeCustomerData.country, tradeFair, tradeFairYear,
+  });
+  const isLeadFormReady = missingRequiredFields.length === 0;
   const legacyWorkingBudgetOnlySave = isLegacyWorkingBudgetOnlySave({
     isEditingExistingLead: isEdit,
     isLeadFormReady,
@@ -1191,9 +1124,10 @@ export default function CrmNewLeadPage() {
     currentWorkingBudgetQuantity: moveToWorking,
   });
   const canSave = !submitting && (isLeadFormReady || legacyWorkingBudgetOnlySave);
-  const fieldError = (field: OrdinaryCrmLeadRequiredField) => fieldErrors[field];
-  const requiredInputClass = (field: OrdinaryCrmLeadRequiredField) => cn(inputCls, fieldError(field) && inputErrorCls);
-  const clearFieldError = (field: OrdinaryCrmLeadRequiredField) => {
+  const fieldError = (field: CrmLeadRequiredField) =>
+    (isEdit && !loadingLead && missingRequiredFields.includes(field)) ? tt('val_required', lang) : fieldErrors[field];
+  const requiredInputClass = (field: CrmLeadRequiredField) => cn(inputCls, fieldError(field) && inputErrorCls);
+  const clearFieldError = (field: CrmLeadRequiredField) => {
     if (!fieldErrors[field]) return;
     setFieldErrors((prev) => {
       const next = { ...prev };
@@ -1214,7 +1148,7 @@ export default function CrmNewLeadPage() {
     setDealerCustomerData(next.dealerCustomerData);
     if (snapshot.country) {
       setCountry(snapshot.country);
-      setCountryChoice(snapshot.country === 'Danmark' || snapshot.country === 'Tyskland' ? snapshot.country : 'Other');
+      setCountryChoice(snapshot.country === 'Danmark' || snapshot.country === 'Tyskland' ? snapshot.country : snapshot.country ? 'Other' : '');
     }
     (['contactCompany', 'contactPersonName', 'contactPhone', 'contactEmail', 'contactPostalCode', 'contactCity', 'country'] as const)
       .forEach(clearFieldError);
@@ -1253,7 +1187,7 @@ export default function CrmNewLeadPage() {
     setCountryChoice(
       manualCustomerDraft.country === 'Danmark' || manualCustomerDraft.country === 'Tyskland'
         ? manualCustomerDraft.country
-        : 'Other',
+        : manualCustomerDraft.country ? 'Other' : '',
     );
   }
 
@@ -1271,7 +1205,7 @@ export default function CrmNewLeadPage() {
     setManualCustomerDraft(next.manualCustomerDraft);
     if (patch.country !== undefined) {
       setCountry(patch.country);
-      setCountryChoice(patch.country === 'Danmark' || patch.country === 'Tyskland' ? patch.country : 'Other');
+      setCountryChoice(patch.country === 'Danmark' || patch.country === 'Tyskland' ? patch.country : patch.country ? 'Other' : '');
     }
   }
 
@@ -1447,19 +1381,9 @@ export default function CrmNewLeadPage() {
       if (!contactType)        { toast.error(tt('val_contact', lang)); return; }
       if (!customerType)       { toast.error(tt('val_customer', lang)); return; }
       if (!nextActivity)       { toast.error(tt('val_next_act', lang)); return; }
-      const missingFields = getMissingOrdinaryCrmLeadFields({
-        machineTypes,
-        contactCompany: activeCustomerData.company,
-        contactPersonName: activeCustomerData.contactPerson,
-        contactPhone: activeCustomerData.phone,
-        contactEmail: activeCustomerData.email,
-        contactPostalCode: activeCustomerData.postalCode,
-        contactCity: activeCustomerData.city,
-        country: activeCustomerData.country,
-      });
-      if (missingFields.length > 0) {
+      if (missingRequiredFields.length > 0) {
         setFieldErrors(
-          Object.fromEntries(missingFields.map((field) => [field, tt('val_required', lang)])) as Partial<Record<OrdinaryCrmLeadRequiredField, string>>
+          Object.fromEntries(missingRequiredFields.map((field) => [field, tt('val_required', lang)])) as Partial<Record<CrmLeadRequiredField, string>>
         );
         toast.error(tt('val_required', lang));
         return;
@@ -1579,12 +1503,12 @@ export default function CrmNewLeadPage() {
         <form onSubmit={handleSubmit}>
           <Section title={tt('sec_basic', lang)} subtitle={tt('sec_basic_sub', lang)}>
             {/* form sections below */}
-            <Field label={tt('lbl_title', lang)} required full>
-              <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', lang)} />
+            <Field label={tt('lbl_title', lang)} required full error={fieldError('title')}>
+              <input className={requiredInputClass('title')} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', lang)} />
             </Field>
-            <Field label={tt('lbl_seller', lang)} required>
+            <Field label={tt('lbl_seller', lang)} required error={fieldError('responsibleSellerId')}>
               <select
-                className={inputCls}
+                className={requiredInputClass('responsibleSellerId')}
                 value={responsibleSellerId}
                 onChange={e => {
                   const id = e.target.value;
@@ -1601,7 +1525,7 @@ export default function CrmNewLeadPage() {
                 ))}
               </select>
             </Field>
-            <Field label={tt('lbl_dealer', lang)} required>
+            <Field label={tt('lbl_dealer', lang)} required error={fieldError('linkedDealer')}>
               {lockedDealerNumber ? (
                 <div className={cn(inputCls, 'flex items-center justify-between bg-gray-50 text-gray-700')}>
                   <span className="truncate">{selectedDealer?.label || lockedDealerNumber}</span>
@@ -1616,7 +1540,8 @@ export default function CrmNewLeadPage() {
                       role="combobox"
                       className={cn(
                         'w-full justify-between font-normal h-10 rounded-xl border-gray-200',
-                        !linkedDealer && 'text-gray-400'
+                        !linkedDealer && 'text-gray-400',
+                        fieldError('linkedDealer') && inputErrorCls
                       )}
                     >
                       <span className="truncate text-left">{dealerTriggerLabel}</span>
@@ -1673,6 +1598,7 @@ export default function CrmNewLeadPage() {
             <SmartDateField
               label={tt('lbl_first_contact', lang)}
               required
+              error={fieldError('firstContact')}
               value={firstContact}
               onChange={handleFirstContactChange}
               options={firstContactQuickOptions}
@@ -1680,6 +1606,7 @@ export default function CrmNewLeadPage() {
             <SmartDateField
               label={tt('lbl_expected_close', lang)}
               required
+              error={fieldError('expectedClose')}
               value={expectedClose}
               onChange={handleExpectedCloseChange}
               options={relativeDateQuickOptions}
@@ -1702,12 +1629,14 @@ export default function CrmNewLeadPage() {
                 renderFollowup={() => <SmartDateField
                   label={tt('lbl_next_followup', lang)}
                   required
+                  error={fieldError('nextFollowup')}
                   full
                   value={nextFollowup}
                   onChange={handleNextFollowupChange}
                   options={relativeDateQuickOptions}
                 />}
               />
+              {fieldError('nextActivity') && <p className="mt-2 text-[11px] font-medium text-rose-600">{tt('lbl_next_activity', lang)}: {fieldError('nextActivity')}</p>}
               {linkedSalesEvent && (
                 <p className="mt-2 text-xs font-medium text-emerald-800">
                   {lang === 'da' ? 'Aktuel salgsstatus' : 'Current sales status'}: {effectiveLeadStatus({
@@ -1910,14 +1839,14 @@ export default function CrmNewLeadPage() {
 
           </>}
           <Section title={tt('sec_contact_cust', lang)}>
-            <Field label={tt('lbl_contact_type', lang)} required>
-              <select className={inputCls} value={contactType} onChange={e=>setContactType(e.target.value)}>
+            <Field label={tt('lbl_contact_type', lang)} required error={fieldError('contactType')}>
+              <select className={requiredInputClass('contactType')} value={contactType} onChange={e=>setContactType(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
                 {CONTACT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
             </Field>
-            <Field label={tt('lbl_customer_type', lang)} required>
-              <select className={inputCls} value={customerType} onChange={e=>setCustomerType(e.target.value)}>
+            <Field label={tt('lbl_customer_type', lang)} required error={fieldError('customerType')}>
+              <select className={requiredInputClass('customerType')} value={customerType} onChange={e=>setCustomerType(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
                 {CUSTOMER_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
@@ -1926,8 +1855,8 @@ export default function CrmNewLeadPage() {
 
           <Section title={tt('sec_details', lang)}>
             <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-x-5 gap-y-4">
-              <Field label={tt('lbl_tradefair', lang)}>
-                <select className={inputCls} value={tradeFairChoice} onChange={e=>handleTradeFairChoiceChange(e.target.value)}>
+              <Field label={tt('lbl_tradefair', lang)} required={contactType === 'Trade fair'} error={fieldError('tradeFair')}>
+                <select className={requiredInputClass('tradeFair')} value={tradeFairChoice} onChange={e=>handleTradeFairChoiceChange(e.target.value)}>
                   <option value="">{tt('pick', lang)}</option>
                   {TRADE_FAIR_OPTIONS.map(option => (
                     <option key={option.value} value={option.value}>{option.value}</option>
@@ -1936,25 +1865,27 @@ export default function CrmNewLeadPage() {
               </Field>
               <Field label={tt('lbl_country', lang)} required error={fieldError('country')}>
                 <select className={requiredInputClass('country')} value={countryChoice} onChange={e=>handleCountryChoiceChange(e.target.value as (typeof COUNTRY_OPTIONS)[number])}>
+                  <option value="">{tt('pick', lang)}</option>
                   {COUNTRY_OPTIONS.map(option => (
                     <option key={option} value={option}>{option}</option>
                   ))}
                 </select>
               </Field>
-              <Field label="År">
-                <select className={inputCls} value={tradeFairYear} onChange={e=>setTradeFairYear(e.target.value)}>
-                  {TRADE_FAIR_YEARS.map(year => (
+              <Field label={tt('lbl_tradefair_year', lang)} required={contactType === 'Trade fair'} error={fieldError('tradeFairYear')}>
+                <select className={requiredInputClass('tradeFairYear')} value={tradeFairYear} onChange={e=>setTradeFairYear(e.target.value)}>
+                  <option value="">{tt('pick', lang)}</option>
+                  {[...new Set([...TRADE_FAIR_YEARS, tradeFairYear])].filter(Boolean).sort().map(year => (
                     <option key={year} value={year}>{year}</option>
                   ))}
                 </select>
               </Field>
               {tradeFairChoice === 'Other' && (
-                <Field label="Messenavn" full>
-                  <input className={inputCls} value={tradeFair} onChange={e=>setTradeFair(e.target.value)} placeholder="Skriv messens navn" />
+                <Field label={tt('lbl_tradefair_name', lang)} required={contactType === 'Trade fair'} full error={fieldError('tradeFair')}>
+                  <input className={requiredInputClass('tradeFair')} value={tradeFair} onChange={e=>setTradeFair(e.target.value)} placeholder={tt('ph_tradefair_name', lang)} />
                 </Field>
               )}
               {countryChoice === 'Other' && (
-                <Field label="Land" required full error={fieldError('country')}>
+                <Field label={tt('lbl_country', lang)} required full error={fieldError('country')}>
                   <input
                     className={requiredInputClass('country')}
                     value={country}
@@ -1962,7 +1893,7 @@ export default function CrmNewLeadPage() {
                       updateActiveCustomerCountry(e.target.value);
                       if (e.target.value.trim()) clearFieldError('country');
                     }}
-                    placeholder="Skriv land"
+                    placeholder={tt('lbl_country', lang)}
                   />
                 </Field>
               )}

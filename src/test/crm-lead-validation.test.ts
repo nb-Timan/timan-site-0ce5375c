@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
   getMissingOrdinaryCrmLeadFields,
+  getMissingCrmLeadFields,
+  getMissingStoredCrmLeadFields,
+  importedChoiceValue,
+  splitTradeFairYear,
   isLegacyWorkingBudgetOnlySave,
+  type CrmLeadCompletenessInput,
   type OrdinaryCrmLeadRequiredInput,
 } from '@/lib/crmLeadValidation';
 
@@ -15,6 +20,58 @@ const validLead: OrdinaryCrmLeadRequiredInput = {
   contactCity: 'Ringkobing',
   country: 'Danmark',
 };
+
+const completeFair: CrmLeadCompletenessInput = {
+  ...validLead,
+  title: 'Test lead', responsibleSellerId: 'seller-1', linkedDealer: 'dealer-1',
+  firstContact: '2026-09-01', expectedClose: '2026-11-01', nextFollowup: '2026-10-01',
+  nextActivity: 'Follow-up on leads', contactType: 'Trade fair', customerType: 'End customer',
+  tradeFair: 'GaLaBau', tradeFairYear: '2026',
+};
+
+const completeStored = {
+  title: completeFair.title, owner_user_id: completeFair.responsibleSellerId,
+  linked_dealer_id: completeFair.linkedDealer, first_contact_date: completeFair.firstContact,
+  expected_close_date: completeFair.expectedClose, next_followup_date: completeFair.nextFollowup,
+  next_activity: completeFair.nextActivity, contact_type: completeFair.contactType,
+  customer_type: completeFair.customerType, machine_types: completeFair.machineTypes,
+  contact_information: 'Firma/CVR: Test Firma\nKontaktperson: Test Person\nTelefon: 12 34 56 78\nE-mail: test@example.dk\nPostnr. og by: 6950 Ringkobing\nLand: Danmark',
+  country: 'Danmark', trade_fair: 'GaLaBau (2026)', notes: null,
+};
+
+describe('canonical CRM lead completeness', () => {
+  it('uses the same required fields for editable and stored leads', () => {
+    expect(getMissingCrmLeadFields(completeFair)).toEqual([]);
+    expect(getMissingStoredCrmLeadFields(completeStored)).toEqual([]);
+    expect(getMissingCrmLeadFields({ ...completeFair, contactEmail: '' })).toContain('contactEmail');
+    expect(getMissingStoredCrmLeadFields({ ...completeStored, contact_information: completeStored.contact_information.replace('E-mail: test@example.dk', '') })).toContain('contactEmail');
+    expect(getMissingStoredCrmLeadFields({ ...completeStored, contact_information: completeStored.contact_information.replace('6950 Ringkobing', 'Ringkobing') })).toContain('contactPostalCode');
+    expect(getMissingStoredCrmLeadFields({
+      ...completeStored,
+      contact_information: completeStored.contact_information.replace('E-mail: test@example.dk', '')
+        + '\nOprindelig kontaktinfo:\nE-mail: legacy@example.dk',
+    })).toContain('contactEmail');
+  });
+
+  it('requires a real trade fair and year for trade-fair leads only', () => {
+    expect(getMissingCrmLeadFields({ ...completeFair, tradeFair: '', tradeFairYear: '' })).toEqual(expect.arrayContaining(['tradeFair', 'tradeFairYear']));
+    expect(getMissingCrmLeadFields({ ...completeFair, contactType: 'Phone', tradeFair: '', tradeFairYear: '' })).toEqual([]);
+    expect(splitTradeFairYear('Gala-Bau 2022')).toEqual({ name: 'Gala-Bau', year: '2022' });
+    expect(splitTradeFairYear('GaLaBau (2026)')).toEqual({ name: 'GaLaBau', year: '2026' });
+  });
+
+  it('treats only provenance-marked imported Other as unknown', () => {
+    const imported = {
+      ...completeStored, country: 'Other', trade_fair: 'Other',
+      contact_information: completeStored.contact_information.replace('\nLand: Danmark', ''),
+      notes: 'Historisk import fra LeadsData_renset_26-08-26.xlsx.',
+    };
+    expect(getMissingStoredCrmLeadFields(imported)).toEqual(expect.arrayContaining(['country', 'tradeFair', 'tradeFairYear']));
+    expect(importedChoiceValue('Other', imported.notes)).toBe('');
+    expect(importedChoiceValue('Other', null)).toBe('Other');
+    expect(getMissingStoredCrmLeadFields({ ...completeStored, country: 'Other' })).not.toContain('country');
+  });
+});
 
 describe('ordinary CRM lead required fields', () => {
   it.each([

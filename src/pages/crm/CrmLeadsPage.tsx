@@ -59,6 +59,7 @@ import { formatConvertedMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { listCrmLeadNotes, sortCrmLeadNotes, type CrmLeadNote } from '@/lib/crmLeadNotesService';
 import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
+import { getMissingStoredCrmLeadFields } from '@/lib/crmLeadValidation';
 
 // ---- i18n. English fallback. ----
 type TKey =
@@ -133,7 +134,7 @@ const T: Record<TKey, UiText> = {
   type_won:      { da: 'Vundet', en: 'Won', de: 'Gewonnen', it: 'Vinto', hu: 'Nyertes', fr: 'Gagné', pl: 'Wygrane', cs: 'Vyhrané' },
   type_lost:     { da: 'Tabt', en: 'Lost', de: 'Verloren', it: 'Perso', hu: 'Elveszett', fr: 'Perdu', pl: 'Utracone', cs: 'Ztracené' },
   unassigned_chip:{ da: 'Utildelt', en: 'Unassigned', de: 'Nicht zugewiesen', it: 'Non assegnato', hu: 'Kiosztatlan', fr: 'Non assigné', pl: 'Nieprzypisane', cs: 'Nepřiřazeno' },
-  incomplete_chip:{ da: 'Ikke færdig oprettet', en: 'Incomplete lead', de: 'Unvollständiger Lead', it: 'Lead incompleto', hu: 'Hiányos lead', fr: 'Lead incomplet', pl: 'Niekompletny lead', cs: 'Neúplný lead' },
+  incomplete_chip:{ da: 'Mangler udfyldelse', en: 'Needs completion', de: 'Angaben fehlen', it: 'Dati mancanti', hu: 'Hiányzó adatok', fr: 'Informations manquantes', pl: 'Brakujące dane', cs: 'Chybějící údaje' },
   shared_chip:   { da: 'Delt med dig', en: 'Shared with you', de: 'Mit dir geteilt', it: 'Condiviso con te', hu: 'Megosztva veled', fr: 'Partagé avec vous', pl: 'Udostępnione Tobie', cs: 'Sdíleno s vámi' },
   close_btn:     { da: 'Luk', en: 'Close', de: 'Schließen', it: 'Chiudi', hu: 'Lezárás', fr: 'Fermer', pl: 'Zamknij', cs: 'Zavřít' },
   close_title:   { da: 'Luk lead', en: 'Close lead', de: 'Lead schließen', it: 'Chiudi lead', hu: 'Lead lezárása', fr: 'Fermer le lead', pl: 'Zamknij lead', cs: 'Zavřít lead' },
@@ -323,7 +324,7 @@ function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
     detail_href: `/portal/crm/leads/${l.id}`,
     attachments: l.attachments || [],
     has_demo: l.demo_has_run === 'yes',
-    incomplete: l.incomplete_from_configurator === true,
+    incomplete: getMissingStoredCrmLeadFields(l).length > 0,
     demo_registration_pending: l.demo_registration_pending === true,
     demo_registration: l.demo_registration,
   };
@@ -1397,7 +1398,7 @@ function WonLostDialog({
           lost_comment: comment || null,
         }),
         updated_at: closedAt,
-      } as any);
+      });
       // Verify before showing success.
       const fresh = await getLead(lead.id);
       const ok = !!fresh && fresh.next_activity === nextActivity;

@@ -13,6 +13,7 @@ import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
 import { BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, fiscalYearForCalendarMonth, localizedName } from "@/lib/crmBudgetService";
 import { getLeadPipelineValueSnapshot } from "@/lib/crmPipelineValue";
+import { getMissingStoredCrmLeadFields, type StoredCrmLeadCompleteness } from '@/lib/crmLeadValidation';
 import machineDemoSeed from "@/data/machineDemoSeed.json";
 import openLeadsSeed from "@/data/openLeadsSeed.json";
 import {
@@ -889,7 +890,7 @@ async function attachLinkedSalesEvents<T extends CrmLead>(rows: T[]): Promise<T[
 }
 
 function normalizePageResult(payload: unknown): CrmLeadsPageQueryResult {
-  const obj = (payload ?? {}) as Record<string, any>;
+  const obj = (payload ?? {}) as Record<string, unknown>;
   const counts = (obj.counts ?? {}) as Record<string, unknown>;
   const followup = (obj.followup_counts ?? {}) as Record<string, unknown>;
   const options = (obj.options ?? {}) as Record<string, unknown>;
@@ -952,7 +953,24 @@ export async function listLeadsPage(opts: ListLeadsPageOpts): Promise<CrmLeadsPa
     p_offset: opts.offset ?? 0,
   });
   if (error) throw error;
-  return normalizePageResult(data);
+  const page = normalizePageResult(data);
+  const leadIds = page.rows.filter((row) => row.type === 'open').map((row) => row.id);
+  if (leadIds.length === 0) return page;
+  const { data: leads, error: completenessError } = await supabase.from('crm_leads')
+    .select('id,title,owner_user_id,linked_dealer_id,first_contact_date,expected_close_date,next_followup_date,next_activity,contact_type,customer_type,machine_types,contact_information,country,trade_fair,notes')
+    .in('id', leadIds);
+  if (completenessError) {
+    console.warn('[crm.listLeadsPage] completeness lookup failed', completenessError);
+    return page;
+  }
+  const byId = new Map((leads || []).map((lead) => [lead.id, lead as StoredCrmLeadCompleteness]));
+  page.rows = page.rows.map((row) => {
+    const lead = byId.get(row.id);
+    return row.type === 'open' && lead
+      ? { ...row, incomplete: getMissingStoredCrmLeadFields(lead).length > 0 }
+      : row;
+  });
+  return page;
 }
 
 function seedOpenLeads(): CrmLead[] {
@@ -963,7 +981,7 @@ function dedupOpenLeads(rows: (CrmLead & { legacy_id?: string | null })[]): CrmL
   const seen = new Set<string>();
   const out: CrmLead[] = [];
   for (const r of rows) {
-    const k1 = (r as any).legacy_id ? `lid:${(r as any).legacy_id}` : "";
+    const k1 = r.legacy_id ? `lid:${r.legacy_id}` : "";
     const k2 = `t:${(r.title||"").toLowerCase()}|${r.first_contact_date||""}`;
     if (k1 && seen.has(k1)) continue;
     if (seen.has(k2)) continue;
@@ -999,7 +1017,7 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   }
   const localRows = readLS<CrmLead>(LS_LEADS).filter((r) => !deletedIds.has(r.id));
   const seeded = seedOpenLeads().filter((r) => !deletedIds.has(r.id));
-  let merged = dedupOpenLeads([...supRows, ...localRows, ...seeded] as any);
+  let merged = dedupOpenLeads([...supRows, ...localRows, ...seeded]);
   if (opts.ownerUserId) merged = merged.filter(r => r.owner_user_id === opts.ownerUserId);
   if (opts.linkedDealerIds && opts.linkedDealerIds.length > 0) {
     const ids = new Set(opts.linkedDealerIds);
