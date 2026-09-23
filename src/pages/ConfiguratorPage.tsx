@@ -4001,9 +4001,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                       type="email"
                       value={state.emailRecipient}
                       onChange={e => updateActiveCustomerField('emailRecipient', e.target.value)}
-                      className={`w-full p-2 border rounded-lg ${state.flowType === 'order' ? 'bg-gray-100' : ''}`}
+                      className="w-full p-2 border rounded-lg"
                       placeholder={T('emailRecipientPlaceholder')}
-                      readOnly={state.flowType === 'order'}
                     />
                   </div>
                   <div>

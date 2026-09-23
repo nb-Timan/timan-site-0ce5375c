@@ -90,4 +90,51 @@ describe('Configurator dealer and end-customer mode', () => {
     expect(reopened).toMatchObject(dealerCustomer);
     expect(reopened.manualCustomerDraft).toEqual(manualCustomer);
   });
+
+  it('keeps an edited dealer recipient email in the active configuration without mutating the contact snapshot', () => {
+    const originalContact = {
+      ...dealerCustomer,
+      emailRecipient: 'm.schulte@wilmers-kommunaltechnik.de',
+    };
+    const manualDraft = {
+      ...manualCustomer,
+      emailRecipient: 'manual@example.com',
+    };
+
+    let state = normalizeConfiguratorState({ ...createEmptyConfiguratorState(), ...manualDraft });
+    state = replaceConfiguratorDealerCustomerData(state, originalContact, 'michael-schulte');
+    state = selectConfiguratorCustomerMode(state, 'dealer');
+    state = updateConfiguratorCustomerDraftField(state, 'emailRecipient', 'purchase@wilmers-kommunaltechnik.de');
+
+    expect(state.emailRecipient).toBe('purchase@wilmers-kommunaltechnik.de');
+    expect(state.dealerCustomerData?.emailRecipient).toBe('purchase@wilmers-kommunaltechnik.de');
+    expect(state.manualCustomerDraft?.emailRecipient).toBe('manual@example.com');
+    expect(originalContact.emailRecipient).toBe('m.schulte@wilmers-kommunaltechnik.de');
+
+    const reopened = normalizeConfiguratorState(state);
+    expect(reopened.emailRecipient).toBe('purchase@wilmers-kommunaltechnik.de');
+  });
+
+  it('refreshes the recipient email from the newly selected dealer contact', () => {
+    const firstContact = {
+      ...dealerCustomer,
+      emailRecipient: 'm.schulte@wilmers-kommunaltechnik.de',
+    };
+    const secondContact = {
+      ...dealerCustomer,
+      kontaktperson: 'Sascha Becker',
+      emailRecipient: 's.becker@wilmers-kommunaltechnik.de',
+    };
+
+    let state = normalizeConfiguratorState({ ...createEmptyConfiguratorState(), ...manualCustomer });
+    state = replaceConfiguratorDealerCustomerData(state, firstContact, 'michael-schulte');
+    state = selectConfiguratorCustomerMode(state, 'dealer');
+    state = updateConfiguratorCustomerDraftField(state, 'emailRecipient', 'purchase@wilmers-kommunaltechnik.de');
+    state = replaceConfiguratorDealerCustomerData(state, secondContact, 'sascha-becker');
+
+    expect(state.dealerContactId).toBe('sascha-becker');
+    expect(state.emailRecipient).toBe('s.becker@wilmers-kommunaltechnik.de');
+    expect(state.dealerCustomerData?.emailRecipient).toBe('s.becker@wilmers-kommunaltechnik.de');
+    expect(state.manualCustomerDraft).toEqual(manualCustomer);
+  });
 });
