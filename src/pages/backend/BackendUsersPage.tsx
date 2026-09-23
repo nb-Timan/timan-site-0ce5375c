@@ -115,13 +115,55 @@ const BACKEND_MODULE_LABEL: Record<BackendMetaModule, string> = {
   audit_log: "Audit Log",
 };
 
-// Visual grouping for Allowed Modules editor. Keys not present here will be
-// rendered in an "Øvrige" bucket so nothing silently disappears if new keys
-// are added later.
-const MODULE_GROUPS: { label: string; modules: ModuleAccessKey[] }[] = [
-  { label: "Academy", modules: ["academy"] },
-  { label: "Salg", modules: ["messe_portal", "byg_din_timan", "resources", "videos", "sales_tools", "contracts", "tilbud", "ordre"] },
-  { label: "Teknik & Service", modules: ["claims", "warranty", "tsb", "service_information"] },
+type PermissionKey = keyof BackendUser["perms"];
+
+type AccessDomain = {
+  label: string;
+  modules: ModuleAccessKey[];
+  permissions: { value: PermissionKey; label: string }[];
+  quickActions: QuickActionKey[];
+};
+
+// Presentation only: every entry still writes the existing canonical key.
+const ACCESS_DOMAINS: AccessDomain[] = [
+  {
+    label: "Salg",
+    modules: ["messe_portal", "byg_din_timan", "resources", "videos", "sales_tools", "contracts", "tilbud", "ordre"],
+    permissions: [
+      { value: "can_view_prices", label: "Se priser / Can view prices" },
+      { value: "can_submit_order", label: "Opret ordre / Can submit order" },
+      { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser" },
+      { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount" },
+      { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
+      { value: "marketing_videos_manage", label: "Videoer / Administrér videoer" },
+    ],
+    quickActions: ["create_lead", "create_demo", "company_contact_info", "dealer_invoice_accept", "partner_map"],
+  },
+  {
+    label: "Marketing",
+    modules: [],
+    permissions: [
+      { value: "marketing_configurator_manage", label: "Marketing / Redigér Byg din Timan" },
+      { value: "news_manage", label: "Administrér nyheder / Manage news" },
+    ],
+    quickActions: [],
+  },
+  {
+    label: "Teknik & Service",
+    modules: ["claims", "warranty", "tsb", "service_information"],
+    permissions: [
+      { value: "can_create_claims", label: "Can create claims" },
+      { value: "can_approve_claims", label: "Can approve claims" },
+      { value: "can_create_tsb", label: "Can create TSB" },
+    ],
+    quickActions: ["create_warranty_registration", "warranty_registrations"],
+  },
+  {
+    label: "Timan Backend",
+    modules: [],
+    permissions: [{ value: "can_manage_users", label: "Can manage users" }],
+    quickActions: [],
+  },
 ];
 
 const QUICK_ACTION_LABEL: Record<QuickActionKey, { da: string; en: string }> = {
@@ -947,16 +989,39 @@ function EditUserModal({
             })()}
           </Section>
 
-          {/* Allowed Modules */}
-          <Section title="Allowed Modules">
+          {/* Modules, permissions and quick actions share one visual domain structure. */}
+          <Section title="Adgang efter fagområde">
             {(() => {
               const dealerSide = isDealerSideRole(draft.role);
+              const restricted = isPaymentAndDiscountRestrictedRole(draft.role);
               const FORBIDDEN_MODULES: ModuleAccessKey[] = ["timan_backend"];
-              const groupedKeys = new Set<ModuleAccessKey>(MODULE_GROUPS.flatMap((g) => g.modules));
+              const effectivePerms = {
+                ...draft.perms,
+                ...(restricted ? { can_manage_payment_terms: false, can_apply_extra_dealer_discount: false } : {}),
+                ...(dealerSide ? { can_manage_users: false } : {}),
+              };
+              const permissionChecked = (Object.entries(effectivePerms) as [PermissionKey, boolean][])
+                .filter(([, enabled]) => enabled)
+                .map(([key]) => key);
+              const configurableQuickActions = configurableQuickActionsForRole(draft.role);
+              const selectedQuickActions = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
+              const groupedKeys = new Set<ModuleAccessKey>(ACCESS_DOMAINS.flatMap((group) => group.modules));
               const otherModules = ALL_MODULES.filter((m) => !groupedKeys.has(m));
-              const renderGroup = (label: string, modules: ModuleAccessKey[]) => (
-                <div key={label} className="mb-3">
-                  <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
+              const togglePermission = (key: PermissionKey) => {
+                if (editingOwnUser && key === "can_manage_users") return;
+                if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;
+                if (dealerSide && (key === "can_manage_users" || key === "marketing_videos_manage" || key === "marketing_configurator_manage")) return;
+                setDraft({ ...draft, perms: { ...draft.perms, [key]: !draft.perms[key] } });
+              };
+              const toggleQuickAction = (key: QuickActionKey) => {
+                const next = selectedQuickActions.includes(key)
+                  ? selectedQuickActions.filter((current) => current !== key)
+                  : [...selectedQuickActions, key];
+                setDraft({ ...draft, quick_actions: next });
+              };
+              const renderModules = (modules: ModuleAccessKey[]) => modules.length > 0 && (
+                <div>
+                  <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Moduler</p>
                   <CheckboxGroup
                     items={modules.map((m) => ({
                       value: m,
@@ -974,8 +1039,72 @@ function EditUserModal({
               );
               return (
                 <>
-                  {MODULE_GROUPS.map((g) => renderGroup(g.label, g.modules))}
-                  {otherModules.length > 0 && renderGroup("Øvrige", otherModules)}
+                  <div className="space-y-4">
+                    {ACCESS_DOMAINS.map((group) => {
+                      const domainQuickActions = group.quickActions.filter((key) => configurableQuickActions.includes(key));
+                      return (
+                        <div key={group.label} data-access-domain={group.label} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-700">{group.label}</p>
+                          <div className="space-y-3">
+                            {renderModules(group.modules)}
+                            {group.label === "Timan Backend" && (
+                              <div>
+                                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Moduler</p>
+                                <CheckboxGroup
+                                  items={BACKEND_META_MODULES.map((m) => ({
+                                    value: m,
+                                    label: accessLabel(BACKEND_MODULE_LABEL[m], roleDefaultBackendModules.includes(m), draft.backend_modules.includes(m), false),
+                                    disabled: (draft.role === "timan_backend" && roleDefaultBackendModules.includes(m)) || dealerSide,
+                                  }))}
+                                  checked={dealerSide ? [] : effectiveBackendModules}
+                                  onChange={(value) => {
+                                    const mod = value as BackendMetaModule;
+                                    if ((draft.role === "timan_backend" && roleDefaultBackendModules.includes(mod)) || dealerSide) return;
+                                    setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, mod) });
+                                  }}
+                                />
+                              </div>
+                            )}
+                            {group.permissions.length > 0 && (
+                              <div>
+                                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Rettigheder</p>
+                                <CheckboxGroup
+                                  items={group.permissions.map((permission) => ({
+                                    ...permission,
+                                    disabled:
+                                      (editingOwnUser && permission.value === "can_manage_users")
+                                      || (restricted && (permission.value === "can_manage_payment_terms" || permission.value === "can_apply_extra_dealer_discount"))
+                                      || (dealerSide && (permission.value === "can_manage_users" || permission.value === "marketing_videos_manage" || permission.value === "marketing_configurator_manage")),
+                                  }))}
+                                  checked={permissionChecked}
+                                  onChange={(value) => togglePermission(value as PermissionKey)}
+                                />
+                              </div>
+                            )}
+                            {domainQuickActions.length > 0 && (
+                              <div>
+                                <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Hurtige handlinger</p>
+                                <CheckboxGroup
+                                  items={domainQuickActions.map((key) => ({
+                                    value: key,
+                                    label: `${QUICK_ACTION_LABEL[key].da} / ${QUICK_ACTION_LABEL[key].en}`,
+                                  }))}
+                                  checked={selectedQuickActions}
+                                  onChange={(value) => toggleQuickAction(value as QuickActionKey)}
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {otherModules.length > 0 && (
+                      <div data-access-domain="Øvrige moduler" className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                        <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-700">Øvrige moduler</p>
+                        {renderModules(otherModules)}
+                      </div>
+                    )}
+                  </div>
                   {draft.has_manual_module_override && (
                     <button
                       type="button"
@@ -985,22 +1114,11 @@ function EditUserModal({
                       Nulstil til rolle
                     </button>
                   )}
-                  <div className="mb-1">
-                    <p className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">Timan Backend</p>
-                    <CheckboxGroup
-                      items={BACKEND_META_MODULES.map((m) => ({
-                        value: m,
-                        label: accessLabel(BACKEND_MODULE_LABEL[m], roleDefaultBackendModules.includes(m), draft.backend_modules.includes(m), false),
-                        disabled: (draft.role === "timan_backend" && roleDefaultBackendModules.includes(m)) || dealerSide,
-                      }))}
-                      checked={dealerSide ? [] : effectiveBackendModules}
-                      onChange={(v) => {
-                        const mod = v as BackendMetaModule;
-                        if ((draft.role === "timan_backend" && roleDefaultBackendModules.includes(mod)) || dealerSide) return;
-                        setDraft({ ...draft, backend_modules: toggle(draft.backend_modules, mod) });
-                      }}
-                    />
-                  </div>
+                  {restricted && (
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      Dealer-side roller har som standard Se priser og Opret ordre. Betalingsbetingelser og ekstra forhandlerrabat: kun Timan Backend og Timan Sælger.
+                    </p>
+                  )}
                   {dealerSide && (
                     <p className="mt-2 text-[11px] text-slate-500">
                       Eksterne dealer-side roller kan få begrænset CRM-adgang, men har ikke adgang til Timan Backend.
@@ -1009,79 +1127,6 @@ function EditUserModal({
                 </>
               );
             })()}
-          </Section>
-
-
-          {/* Permissions */}
-          <Section title="Permissions">
-            {(() => {
-              const restricted = isPaymentAndDiscountRestrictedRole(draft.role);
-              const dealerSide = isDealerSideRole(draft.role);
-              const effectivePerms = {
-                ...draft.perms,
-                ...(restricted ? { can_manage_payment_terms: false, can_apply_extra_dealer_discount: false } : {}),
-                ...(dealerSide ? { can_manage_users: false } : {}),
-              };
-              return (
-                <>
-                  <CheckboxGroup
-                    items={[
-                      { value: "can_view_prices", label: "Se priser / Can view prices" },
-                      { value: "can_submit_order", label: "Opret ordre / Can submit order" },
-                      { value: "can_create_claims", label: "Can create claims" },
-                      { value: "can_approve_claims", label: "Can approve claims" },
-                      { value: "can_create_tsb", label: "Can create TSB" },
-                      { value: "can_manage_users", label: "Can manage users", disabled: editingOwnUser || dealerSide },
-                      { value: "can_manage_payment_terms", label: "Kan vælge betalingsbetingelser", disabled: restricted },
-                      { value: "can_apply_extra_dealer_discount", label: "Kan give ekstra forhandlerrabat / Can apply extra dealer discount", disabled: restricted },
-                      { value: "can_save_configurator_as_lead", label: "Kan gemme konfigurator som lead / Can save configurator as lead" },
-                      { value: "marketing_videos_manage", label: "Videoer / Administrér videoer", disabled: dealerSide },
-                      { value: "marketing_configurator_manage", label: "Marketing / Redigér Byg din Timan", disabled: dealerSide },
-                      { value: "news_manage", label: "Administrér nyheder / Manage news" },
-                    ]}
-                    checked={(Object.entries(effectivePerms) as [keyof BackendUser["perms"], boolean][])
-                      .filter(([, v]) => v)
-                      .map(([k]) => k)}
-                    onChange={(key) => {
-                      if (editingOwnUser && key === "can_manage_users") return;
-                      if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;
-                      if (dealerSide && (key === "can_manage_users" || key === "marketing_videos_manage" || key === "marketing_configurator_manage")) return;
-                      setDraft({
-                        ...draft,
-                        perms: { ...draft.perms, [key]: !draft.perms[key as keyof BackendUser["perms"]] },
-                      });
-                    }}
-                  />
-                  {restricted && (
-                    <p className="mt-2 text-[11px] text-slate-500">
-                      Dealer-side roller har som standard Se priser og Opret ordre. Betalingsbetingelser og ekstra forhandlerrabat: kun Timan Backend og Timan Sælger.
-                    </p>
-                  )}
-                </>
-              );
-            })()}
-          </Section>
-
-
-          {/* Quick actions — portal front-page "Hurtige handlinger" allow-list. */}
-          <Section title="Hurtige handlinger / Quick actions">
-            <p className="text-[11px] text-slate-500 mb-2">
-              Vælg hvilke genvejskort brugeren ser øverst på portal-forsiden.
-              Når intet er valgt manuelt, anvendes standarder for rollen.
-            </p>
-            <CheckboxGroup
-              items={configurableQuickActionsForRole(draft.role).map((k) => ({
-                value: k,
-                label: `${QUICK_ACTION_LABEL[k].da} / ${QUICK_ACTION_LABEL[k].en}`,
-              }))}
-              checked={(draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as string[]}
-              onChange={(key) => {
-                const k = key as QuickActionKey;
-                const current = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
-                const next = current.includes(k) ? current.filter((x) => x !== k) : [...current, k];
-                setDraft({ ...draft, quick_actions: next });
-              }}
-            />
           </Section>
         </div>
 

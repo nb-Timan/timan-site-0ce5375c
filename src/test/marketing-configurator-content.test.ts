@@ -110,12 +110,13 @@ describe('Marketing configurator content', () => {
     expect(addMarketingBadgeDuration(new Date('2026-01-01T10:00:00.000Z'), 1, 'years').toISOString()).toBe('2027-01-01T10:00:00.000Z');
   });
 
-  it('keeps the editor out of Timan Seller sessions, even with a Marketing permission', () => {
+  it('uses the explicit Marketing area and capability for internal seller/service access', () => {
     expect(canManageMarketingConfiguratorContent({ ...seller, allowed_areas: ['marketing'], permissions: {} })).toBe(false);
-    expect(canManageMarketingConfiguratorContent({ ...seller, allowed_areas: ['marketing'], permissions: { marketing_configurator_manage: true } })).toBe(false);
+    expect(canManageMarketingConfiguratorContent({ ...seller, allowed_areas: ['marketing'], permissions: { marketing_configurator_manage: true } })).toBe(true);
     expect(canManageMarketingConfiguratorContent({ ...seller, permissions: { marketing_configurator_manage: true } })).toBe(false);
     expect(canManageMarketingConfiguratorContent({ ...seller, portal_role: 'timan_backend', allowed_areas: [], permissions: {} })).toBe(true);
     expect(canManageMarketingConfiguratorContent({ ...seller, portal_role: 'timan_service', allowed_areas: ['marketing'], permissions: { marketing_configurator_manage: true } })).toBe(true);
+    expect(canManageMarketingConfiguratorContent({ ...seller, portal_role: 'timan_dealer', allowed_areas: ['marketing'], permissions: { marketing_configurator_manage: true } })).toBe(false);
   });
 
   it('keeps draft and published content separated by RLS and uses the existing Configurator sales page', () => {
