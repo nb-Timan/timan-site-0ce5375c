@@ -24,6 +24,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -43,9 +44,11 @@ import { isBackendActor } from "@/lib/portalAccess";
 import {
   fetchPortalUsageFilterOptions,
   fetchPortalUsageAnalytics,
+  fetchPortalUsageUserComparisons,
   type PortalUsageAnalytics,
   type PortalUsageAnalyticsFilterOptions,
   type PortalUsageModuleSummary,
+  type PortalUsageUserComparison,
 } from "@/lib/portalModuleUsageAnalyticsService";
 import {
   analyticsUserKey,
@@ -60,6 +63,11 @@ import {
   type PortalAnalyticsTrend,
 } from "@/lib/portalAnalyticsTrends";
 import { resolvePortalAnalyticsUserSelectionView } from "@/lib/portalAnalyticsUserSelectionView";
+import {
+  buildPortalAnalyticsComparison,
+  PORTAL_ANALYTICS_COMPARISON_LIMIT,
+  type PortalAnalyticsSeries,
+} from "@/lib/portalAnalyticsComparison";
 
 const ALL = "__all__";
 const PERIODS = [
@@ -241,6 +249,68 @@ function ActiveDaysChart({ rows }: { rows: PortalUsageAnalytics["active_days_ove
   );
 }
 
+function ComparisonActivityChart({
+  rows,
+  series,
+}: {
+  rows: Array<Record<string, string | number>>;
+  series: PortalAnalyticsSeries[];
+}) {
+  if (!rows.some((row) => series.some((item) => Number(row[item.dataKey]) > 0))) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart data={rows} margin={{ top: 8, right: 16, left: 0, bottom: 8 }}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="day" tick={{ fontSize: 11 }} minTickGap={24} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={34} />
+        <Tooltip formatter={(value: number, name: string) => [value, name]} labelFormatter={(label) => `Dato: ${label}`} />
+        <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8, whiteSpace: "normal" }} />
+        {series.map((item) => (
+          <Line
+            key={item.key}
+            type="monotone"
+            dataKey={item.dataKey}
+            name={item.name}
+            stroke={item.color}
+            strokeWidth={2}
+            dot={false}
+          />
+        ))}
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+function ComparisonModuleBars({
+  rows,
+  series,
+  valueKey = "visits",
+}: {
+  rows: Array<Record<string, string | number>>;
+  series: PortalAnalyticsSeries[];
+  valueKey?: "visits" | "active_seconds";
+}) {
+  const data = rows.map((row) => ({ ...row, name: formatModuleKey(String(row.moduleKey || "")) }));
+  if (!data.some((row) => series.some((item) => Number(row[item.dataKey]) > 0))) return <EmptyChart />;
+  return (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 24 }} barGap={2}>
+        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+        <XAxis dataKey="name" tick={{ fontSize: 10 }} interval={0} angle={-12} textAnchor="end" height={58} />
+        <YAxis allowDecimals={false} tick={{ fontSize: 11 }} width={40} />
+        <Tooltip
+          formatter={(value: number, name: string) => [valueKey === "active_seconds" ? formatSeconds(value) : value, name]}
+          labelFormatter={(label) => `Modul: ${label}`}
+        />
+        <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8, whiteSpace: "normal" }} />
+        {series.map((item) => (
+          <Bar key={item.key} dataKey={item.dataKey} name={item.name} fill={item.color} radius={[3, 3, 0, 0]} />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 function DataTable({ analytics }: { analytics: PortalUsageAnalytics }) {
   return (
     <Card className="rounded-lg">
@@ -345,6 +415,7 @@ export default function BackendPortalAnalyticsPage() {
   const [selectedModuleKeys, setSelectedModuleKeys] = useState<string[]>([]);
   const [days, setDays] = useState("30");
   const [analytics, setAnalytics] = useState<PortalUsageAnalytics | null>(null);
+  const [userComparisons, setUserComparisons] = useState<PortalUsageUserComparison[]>([]);
   const [filterOptions, setFilterOptions] = useState<PortalUsageAnalyticsFilterOptions | null>(null);
   const [busy, setBusy] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -364,6 +435,7 @@ export default function BackendPortalAnalyticsPage() {
     let cancelled = false;
     setBusy(true);
     setErr(null);
+    setUserComparisons([]);
 
     fetchPortalUsageFilterOptions()
       .then(async (options) => {
@@ -378,18 +450,31 @@ export default function BackendPortalAnalyticsPage() {
           selectedUserKeys,
         });
         const hasScopedAudience = audience !== "portal" || selectedRoles.length > 0 || selectedUserKeys.length > 0 || partnerType !== "all";
-        const data = await fetchPortalUsageAnalytics({
-          userKeys: scope.effectiveUserKeys.length > 0 ? scope.effectiveUserKeys : (hasScopedAudience ? NO_USERS_FILTER : null),
-          moduleKeys: selectedModuleKeys,
-          days: Number(days),
-        });
+        const comparisonUsers = selectedUserKeys.length >= 2
+          && scope.effectiveUsers.length <= PORTAL_ANALYTICS_COMPARISON_LIMIT
+          ? scope.effectiveUsers
+          : [];
+        const [data, comparisons] = await Promise.all([
+          fetchPortalUsageAnalytics({
+            userKeys: scope.effectiveUserKeys.length > 0 ? scope.effectiveUserKeys : (hasScopedAudience ? NO_USERS_FILTER : null),
+            moduleKeys: selectedModuleKeys,
+            days: Number(days),
+          }),
+          comparisonUsers.length >= 2
+            ? fetchPortalUsageUserComparisons(comparisonUsers, {
+                moduleKeys: selectedModuleKeys,
+                days: Number(days),
+              })
+            : Promise.resolve([]),
+        ]);
         if (!cancelled) {
           data.filters = options;
           setAnalytics(data);
+          setUserComparisons(comparisons);
         }
       })
-      .catch((error: any) => {
-        if (!cancelled) setErr(error?.message || String(error));
+      .catch((error: unknown) => {
+        if (!cancelled) setErr(error instanceof Error ? error.message : String(error));
       })
       .finally(() => {
         if (!cancelled) setBusy(false);
@@ -401,12 +486,20 @@ export default function BackendPortalAnalyticsPage() {
   }, [appUser?.email, audience, days, isBackend, partnerType, refreshKey, selectedModuleKeys, selectedRoles, selectedUserKeys]);
 
   const selectedUser = useMemo(() => analytics?.users[0] || null, [analytics]);
-  const selectedUserCount = selectedUserKeys.length;
+  const selectedUserCount = selectedUserKeys.length ? resolvedScope.effectiveUsers.length : 0;
   const userSelectionView = resolvePortalAnalyticsUserSelectionView(selectedUserCount);
   const showSingleUserSummary = userSelectionView === "single" && Boolean(selectedUser);
   const showUsersTable = userSelectionView !== "single";
   const hasAudienceFilter = audience !== "portal" || partnerType !== "all" || selectedUserKeys.length > 0 || selectedRoles.length > 0;
   const hasAnyFilter = hasAudienceFilter || selectedModuleKeys.length > 0;
+  const comparisonLimitExceeded = selectedUserCount > PORTAL_ANALYTICS_COMPARISON_LIMIT;
+  const comparisonData = useMemo(
+    () => buildPortalAnalyticsComparison(userComparisons),
+    [userComparisons],
+  );
+  const comparisonActive = userSelectionView === "multi"
+    && !comparisonLimitExceeded
+    && comparisonData.series.length === selectedUserCount;
 
   const toggleValue = (current: string[], value: string, setter: (next: string[]) => void) => {
     setter(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
@@ -639,26 +732,47 @@ export default function BackendPortalAnalyticsPage() {
 
             {showSingleUserSummary && selectedUser && <SelectedUserSummary user={selectedUser} />}
             {showUsersTable && <DataTable analytics={analytics} />}
+            {comparisonLimitExceeded && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                Sammenligning vises for op til {PORTAL_ANALYTICS_COMPARISON_LIMIT} manuelt valgte brugere. De aktuelle data vises samlet.
+              </div>
+            )}
 
             <div className="grid gap-6 xl:grid-cols-2">
               <Card className="rounded-lg">
                 <CardHeader><CardTitle className="text-base">Modulbrug denne uge</CardTitle></CardHeader>
-                <CardContent className="h-[280px]"><ModuleBars rows={analytics.module_usage_this_week} /></CardContent>
+                <CardContent className="h-[300px]">
+                  {comparisonActive
+                    ? <ComparisonModuleBars rows={comparisonData.weekModuleRows} series={comparisonData.series} />
+                    : <ModuleBars rows={analytics.module_usage_this_week} />}
+                </CardContent>
               </Card>
 
               <Card className="rounded-lg">
                 <CardHeader><CardTitle className="text-base">Modulbrug sidste 30 dage</CardTitle></CardHeader>
-                <CardContent className="h-[280px]"><ModuleBars rows={analytics.module_usage_last_30_days} /></CardContent>
+                <CardContent className="h-[300px]">
+                  {comparisonActive
+                    ? <ComparisonModuleBars rows={comparisonData.monthModuleRows} series={comparisonData.series} />
+                    : <ModuleBars rows={analytics.module_usage_last_30_days} />}
+                </CardContent>
               </Card>
 
               <Card className="rounded-lg">
-                <CardHeader><CardTitle className="text-base">Aktive dage over tid</CardTitle></CardHeader>
-                <CardContent className="h-[280px]"><ActiveDaysChart rows={analytics.active_days_over_time} /></CardContent>
+                <CardHeader><CardTitle className="text-base">{comparisonActive ? "Aktivitet over tid" : "Aktive dage over tid"}</CardTitle></CardHeader>
+                <CardContent className="h-[300px]">
+                  {comparisonActive
+                    ? <ComparisonActivityChart rows={comparisonData.activityRows} series={comparisonData.series} />
+                    : <ActiveDaysChart rows={analytics.active_days_over_time} />}
+                </CardContent>
               </Card>
 
               <Card className="rounded-lg">
                 <CardHeader><CardTitle className="text-base">Aktiv tid pr. modul</CardTitle></CardHeader>
-                <CardContent className="h-[280px]"><ModuleBars rows={analytics.modules} valueKey="active_seconds" /></CardContent>
+                <CardContent className="h-[300px]">
+                  {comparisonActive
+                    ? <ComparisonModuleBars rows={comparisonData.activeSecondsModuleRows} series={comparisonData.series} valueKey="active_seconds" />
+                    : <ModuleBars rows={analytics.modules} valueKey="active_seconds" />}
+                </CardContent>
               </Card>
             </div>
 
