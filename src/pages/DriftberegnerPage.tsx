@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Calculator, RotateCw, Info, Printer } from 'lucide-react';
+import { BarChart3, ChevronDown, FileText, Info, Leaf, Printer, RotateCw, Settings2 } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -25,7 +25,7 @@ type Texts = {
   serviceCost: string; residualValue: string; calcData: string;
   totalHours: string; fuelCost: string; capitalCost: string;
   totalYear: string; totalHour: string; guidanceHeader: string;
-  guidancePoints: string[]; print: string; disclaimer: string;
+  guidancePoints: string[]; print: string; printHelp: string; disclaimer: string;
   useCalculated: string; seeBasis: string; modalInterval: string;
   modalPartId: string; modalDescription: string; modalPrice: string;
   modalCount: string; modalSum: string; modalNoData: string;
@@ -43,7 +43,7 @@ const locales: Record<LangKey, Locale> = {
   da: {
     label: 'DK', currency: 'DKK', currencyLocale: 'da-DK', currencySymbol: 'kr.', rate: 1,
     texts: {
-      title: 'Driftberegner', subtitle: 'RC-751, RC-1000s og 3330+T2',
+      title: 'Timan Driftsberegner', subtitle: 'Sammenlign driftsomkostninger for Timan maskiner',
       commonHeader: 'Forudsætninger', fuelPrice: 'Brændstofpris', days: 'Antal dage',
       hours: 'Timer/dag', depreciation: 'Afskrivning (år)', interest: 'Rente (%)',
       reset: 'Nulstil', machineData: 'MASKIN DATA', purchasePrice: 'Pris',
@@ -57,7 +57,7 @@ const locales: Record<LangKey, Locale> = {
         'Service er estimater baseret på reservedele.',
         'Afskrivning påvirker timeprisen.'
       ],
-      print: 'Udskriv rapport', disclaimer: 'Vejledende beregning. Forbehold for fejl.',
+      print: 'Udskriv rapport', printHelp: 'Få en samlet rapport med beregninger og forudsætninger.', disclaimer: 'Vejledende beregning. Forbehold for fejl.',
       useCalculated: 'Brug beregnet', seeBasis: 'Se grundlag',
       modalInterval: 'Vælg interval:', modalPartId: 'Varenr', modalDescription: 'Beskrivelse',
       modalPrice: 'Stk pris', modalCount: 'Antal', modalSum: 'Sum', modalNoData: 'Ingen data.',
@@ -78,7 +78,7 @@ const locales: Record<LangKey, Locale> = {
       capitalCost: 'Abschr./Zins', totalYear: 'Gesamt/Jahr', totalHour: 'Preis/Std',
       guidanceHeader: 'Anleitung',
       guidancePoints: ['Gelbe Felder bearbeitbar.', 'Kraftstoffpreis anpassen.'],
-      print: 'Drucken', disclaimer: 'Unverbindliche Berechnung.',
+      print: 'Drucken', printHelp: 'Erhalten Sie einen Gesamtbericht mit Berechnungen und Annahmen.', disclaimer: 'Unverbindliche Berechnung.',
       useCalculated: 'Auto', seeBasis: 'Details',
       modalInterval: 'Intervall:', modalPartId: 'Art.Nr.', modalDescription: 'Beschreibung',
       modalPrice: 'Preis', modalCount: 'Menge', modalSum: 'Summe', modalNoData: 'Keine Daten.',
@@ -99,7 +99,7 @@ const locales: Record<LangKey, Locale> = {
       capitalCost: 'Depr./Int.', totalYear: 'Total/yr', totalHour: 'Cost/hr',
       guidanceHeader: 'Guidance',
       guidancePoints: ['Yellow fields editable.'],
-      print: 'Print', disclaimer: 'Indicative calculation.',
+      print: 'Print', printHelp: 'Get a complete report with calculations and assumptions.', disclaimer: 'Indicative calculation.',
       useCalculated: 'Auto', seeBasis: 'See basis',
       modalInterval: 'Select interval:', modalPartId: 'Part No.', modalDescription: 'Description',
       modalPrice: 'Price', modalCount: 'Qty', modalSum: 'Sum', modalNoData: 'No data.',
@@ -140,7 +140,8 @@ const num = (v: string | number) => {
 };
 
 
-function calculateCosts(common: Common, machine: Machine, serviceCostYear: number) {
+// eslint-disable-next-line react-refresh/only-export-components -- exported for output-regression tests.
+export function calculateCosts(common: Common, machine: Machine, serviceCostYear: number) {
   const totalHours = num(common.daysPerYear) * num(common.hoursPerDay);
   const residualVal = num(machine.purchasePrice) * (num(machine.residualValuePercent) / 100);
   const deprYear = num(common.depreciationYears) > 0
@@ -178,6 +179,7 @@ export default function DriftberegnerPage() {
   const [timan3330, setTiman3330] = useState<Machine>({ ...baseMachines.timan3330, isServiceManual: false });
   const [modalMachine, setModalMachine] = useState<MachineKey | null>(null);
   const [selectedInterval, setSelectedInterval] = useState<number | null>(null);
+  const [expandedMachine, setExpandedMachine] = useState<MachineKey | null>('rc751');
 
 
 
@@ -260,6 +262,8 @@ export default function DriftberegnerPage() {
       <style>{`
         @media print {
           .no-print { display: none !important; }
+          .drift-mobile-cards { display: none !important; }
+          .drift-desktop-table { display: block !important; }
           body { background: white; }
           .print-area {
             width: 100% !important;
@@ -287,28 +291,42 @@ export default function DriftberegnerPage() {
         />
       </div>
 
-      {/* Calculator sub-header */}
-      <header className="bg-white border-b border-gray-200 py-6 no-print">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900">{t.title}</h1>
-            <p className="text-gray-500">{t.subtitle}</p>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 py-8 flex flex-col items-center w-full flex-grow">
-        <div className="w-full space-y-6 print-area">
-
-          {/* Assumptions */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex items-center gap-2 font-bold text-gray-700">
-              {t.commonHeader}
+      <main className="mx-auto w-full max-w-6xl flex-grow px-4 py-5 sm:px-6 sm:py-7">
+        <div className="w-full space-y-4 print-area sm:space-y-5">
+          <header className="no-print flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-950 sm:text-3xl">{t.title}</h1>
+              <p className="mt-1 text-sm text-slate-500 sm:text-base">{t.subtitle}</p>
             </div>
-            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 sm:pb-1">
+              <Leaf className="h-4 w-4" aria-hidden="true" />
+              <span>Sammen for en grønnere fremtid</span>
+            </div>
+          </header>
+
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" aria-labelledby="drift-assumptions-title">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                  <Settings2 className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <div className="min-w-0">
+                  <h2 id="drift-assumptions-title" className="text-sm font-bold text-slate-950 sm:text-base">{t.commonHeader}</h2>
+                  <p className="hidden text-xs text-slate-500 sm:block">Indtast dine forudsætninger for beregningen</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={resetCalculator}
+                className="no-print inline-flex shrink-0 items-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 hover:bg-emerald-100"
+              >
+                <RotateCw className="h-3.5 w-3.5" aria-hidden="true" /> {t.reset}
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5 lg:p-5">
               <div className="min-w-0">
                 <label
-                  className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
+                  className="mb-1 block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold text-slate-500"
                   title={`${t.fuelPrice} (${loc.currency})`}
                 >
                   {t.fuelPrice} ({loc.currency})
@@ -316,7 +334,7 @@ export default function DriftberegnerPage() {
                 <DriftNumericInput
                   value={common.fuelPrice}
                   onValueChange={(value) => updateCommon('fuelPrice', value)}
-                  className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                  className="drift-num-input w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-600"
                 />
               </div>
               {([
@@ -327,7 +345,7 @@ export default function DriftberegnerPage() {
               ] as { key: keyof Common; label: string }[]).map(({ key, label }) => (
                 <div key={key} className="min-w-0">
                   <label
-                    className="block text-[10px] font-bold text-gray-400 uppercase mb-1 whitespace-nowrap overflow-hidden text-ellipsis"
+                    className="mb-1 block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-semibold text-slate-500"
                     title={label}
                   >
                     {label}
@@ -335,147 +353,135 @@ export default function DriftberegnerPage() {
                   <DriftNumericInput
                     value={common[key]}
                     onValueChange={(value) => updateCommon(key, value)}
-                    className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded-md px-2 py-1 text-sm font-bold focus:ring-2 focus:ring-[#2d5a27] outline-none"
+                    className="drift-num-input w-full rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-600"
                   />
                 </div>
               ))}
             </div>
-          </div>
+          </section>
 
-          {/* TCO comparison table */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="bg-[#2d5a27] text-white px-6 py-4 flex justify-between items-center">
-              <h2 className="font-bold flex items-center gap-2">
-                <Calculator className="h-4 w-4" /> TCO Sammenligning
-              </h2>
-              <button
-                onClick={resetCalculator}
-                className="text-[10px] bg-white/10 hover:bg-white/20 px-3 py-1 rounded-full flex items-center gap-1 transition-all uppercase font-bold"
-              >
-                <RotateCw className="h-3 w-3" /> {t.reset}
-              </button>
+          <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" aria-labelledby="drift-comparison-title">
+            <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                <BarChart3 className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <div>
+                <h2 id="drift-comparison-title" className="text-sm font-bold text-slate-950 sm:text-base">TCO Sammenligning</h2>
+                <p className="text-xs text-slate-500">Sammenlign de samlede årlige driftsomkostninger</p>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
+
+            <div className="drift-desktop-table hidden md:block">
+              <table className="w-full table-fixed text-left text-sm">
                 <thead>
-                  <tr className="bg-gray-50 text-[10px] text-gray-400 uppercase tracking-widest border-b border-gray-100">
-                    <th className="px-6 py-4 font-bold">Parameter</th>
+                  <tr className="border-b border-emerald-100 bg-emerald-50 text-xs text-slate-700">
+                    <th className="w-[22%] px-4 py-3 font-bold">Parameter</th>
                     {MACHINE_KEYS.map(m => (
-                      <th key={m} className="px-6 py-4 text-center text-gray-900 font-black">
+                      <th key={m} className="px-3 py-3 text-center text-sm font-bold text-slate-950">
                         {machinesState[m].name}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {/* Purchase price */}
+                <tbody className="divide-y divide-slate-100">
                   <tr>
-                    <td className="px-6 py-4 font-medium text-gray-500">{t.purchasePrice} ({loc.currency})</td>
+                    <td className="px-4 py-2 font-medium text-slate-500">{t.purchasePrice} ({loc.currency})</td>
                     {MACHINE_KEYS.map(m => (
-                      <td key={m} className="px-6 py-4">
+                      <td key={m} className="px-3 py-2">
                         <DriftNumericInput
                           value={machinesState[m].purchasePrice}
                           onValueChange={(value) => updateMachineField(m, 'purchasePrice', value)}
                           formatDisplay={formatThousands}
-                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none"
+                          className="w-full rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-center text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-600"
                         />
                       </td>
                     ))}
                   </tr>
-                  {/* Fuel consumption */}
                   <tr>
-                    <td className="px-6 py-4 font-medium text-gray-500">{t.fuelConsumption}</td>
+                    <td className="px-4 py-2 font-medium text-slate-500">{t.fuelConsumption}</td>
                     {MACHINE_KEYS.map(m => (
-                      <td key={m} className="px-6 py-4">
+                      <td key={m} className="px-3 py-2">
                         <DriftNumericInput
                           value={machinesState[m].fuelConsumption}
                           onValueChange={(value) => updateMachineField(m, 'fuelConsumption', value)}
-                          className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none"
+                          className="drift-num-input w-full rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-center text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-600"
                         />
                       </td>
                     ))}
                   </tr>
-                  {/* Service cost */}
                   <tr>
-                    <td className="px-6 py-4 font-medium text-gray-500">{t.serviceCost}</td>
+                    <td className="px-4 py-2 font-medium text-slate-500">{t.serviceCost}</td>
                     {MACHINE_KEYS.map(m => (
-                      <td key={m} className="px-6 py-4 text-center">
+                      <td key={m} className="px-3 py-2 text-center">
                         <input
                           type="text"
                           value={formatThousands(Math.round(results[m].serviceCostYear))}
                           readOnly
                           tabIndex={-1}
-                          className="w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none mb-1 cursor-default"
+                          className="mb-0.5 w-full cursor-default rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-center text-sm font-bold outline-none"
                         />
                         <button
                           onClick={() => openServiceModal(m)}
-                          className="text-[9px] text-[#2d5a27] font-bold hover:underline uppercase tracking-tighter"
+                          className="text-[10px] font-bold uppercase text-emerald-700 hover:underline"
                         >
                           {t.seeBasis}
                         </button>
                       </td>
                     ))}
                   </tr>
-                  {/* Residual value (%) - editable */}
                   <tr>
-                    <td className="px-6 py-4 font-medium text-gray-500">{t.residualValue} (%)</td>
+                    <td className="px-4 py-2 font-medium text-slate-500">{t.residualValue} (%)</td>
                     {MACHINE_KEYS.map(m => (
-                      <td key={m} className="px-6 py-4">
+                      <td key={m} className="px-3 py-2">
                         <DriftNumericInput
                           value={machinesState[m].residualValuePercent}
                           onValueChange={(value) => updateMachineField(m, 'residualValuePercent', value)}
-                          className="drift-num-input w-full bg-yellow-50 border border-yellow-200 rounded px-3 py-2 text-center font-bold text-sm outline-none"
+                          className="drift-num-input w-full rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-center text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-600"
                         />
                       </td>
                     ))}
                   </tr>
-                  {/* Calculated header */}
-                  <tr className="bg-gray-50/50">
-                    <td colSpan={4} className="px-6 py-2 text-[10px] font-black text-gray-300 uppercase">
+                  <tr className="bg-slate-50">
+                    <td colSpan={4} className="px-4 py-2 text-[10px] font-bold uppercase text-slate-400">
                       {t.calcData}
                     </td>
                   </tr>
-                  {/* Hours per year */}
                   <tr>
-                    <td className="px-6 py-4 text-gray-500">{t.totalHours}</td>
+                    <td className="px-4 py-2 text-slate-500">{t.totalHours}</td>
                     {MACHINE_KEYS.map(m => (
-                      <td key={m} className="px-6 py-4 text-center font-bold">
+                      <td key={m} className="px-3 py-2 text-center font-bold">
                         {formatThousands(results[m].totalHours)}
                       </td>
                     ))}
                   </tr>
-                  {/* Fuel cost */}
                   <tr>
-                    <td className="px-6 py-4 text-gray-500">{t.fuelCost}</td>
+                    <td className="px-4 py-2 text-slate-500">{t.fuelCost}</td>
                     {MACHINE_KEYS.map(m => (
-                      <td key={m} className="px-6 py-4 text-center font-bold">
+                      <td key={m} className="px-3 py-2 text-center font-bold">
                         {formatCurrency(results[m].fuel)}
                       </td>
                     ))}
                   </tr>
-                  {/* Capital cost (depreciation + interest) */}
                   <tr>
-                    <td className="px-6 py-4 text-gray-500">{t.capitalCost}</td>
+                    <td className="px-4 py-2 text-slate-500">{t.capitalCost}</td>
                     {MACHINE_KEYS.map(m => (
-                      <td key={m} className="px-6 py-4 text-center font-bold">
+                      <td key={m} className="px-3 py-2 text-center font-bold">
                         {formatCurrency(results[m].capital)}
                       </td>
                     ))}
                   </tr>
-                  {/* Total per year */}
                   <tr>
-                    <td className="px-6 py-4 text-gray-500">{t.totalYear}</td>
+                    <td className="px-4 py-2 text-slate-500">{t.totalYear}</td>
                     {MACHINE_KEYS.map(m => (
-                      <td key={m} className="px-6 py-4 text-center font-bold">
+                      <td key={m} className="px-3 py-2 text-center font-bold">
                         {formatCurrency(results[m].totalYear)}
                       </td>
                     ))}
                   </tr>
-                  {/* Total per hour */}
-                  <tr className="bg-gray-900 text-white font-black">
-                    <td className="px-6 py-4">{t.totalHour}</td>
+                  <tr className="bg-slate-950 font-bold text-white">
+                    <td className="px-4 py-2.5">{t.totalHour}</td>
                     {MACHINE_KEYS.map(m => (
-                      <td key={m} className="px-6 py-4 text-center text-lg text-green-400">
+                      <td key={m} className="px-3 py-2.5 text-center text-lg text-emerald-400">
                         {formatCurrency(results[m].hourCost)}
                       </td>
                     ))}
@@ -483,28 +489,107 @@ export default function DriftberegnerPage() {
                 </tbody>
               </table>
             </div>
-          </div>
 
-          {/* Guidance + Print */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 no-print">
-            <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex gap-4">
-              <span className="text-[#2d5a27] mt-1"><Info className="h-4 w-4" /></span>
+            <div className="drift-mobile-cards divide-y divide-slate-200 md:hidden">
+              {MACHINE_KEYS.map((m) => {
+                const isOpen = expandedMachine === m;
+                const machine = machinesState[m];
+                const result = results[m];
+                return (
+                  <article key={m}>
+                    <button
+                      type="button"
+                      aria-expanded={isOpen}
+                      onClick={() => setExpandedMachine(isOpen ? null : m)}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-bold text-slate-950"
+                    >
+                      {machine.name}
+                      <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                    </button>
+                    {isOpen && (
+                      <div className="space-y-3 border-t border-slate-100 px-4 pb-4 pt-3">
+                        <div className="grid grid-cols-[minmax(0,1fr)_minmax(110px,0.8fr)] items-center gap-3">
+                          <label className="text-xs font-medium text-slate-500">{t.purchasePrice} ({loc.currency})</label>
+                          <DriftNumericInput
+                            value={machine.purchasePrice}
+                            onValueChange={(value) => updateMachineField(m, 'purchasePrice', value)}
+                            formatDisplay={formatThousands}
+                            className="w-full rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-right text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-600"
+                          />
+                          <label className="text-xs font-medium text-slate-500">{t.fuelConsumption}</label>
+                          <DriftNumericInput
+                            value={machine.fuelConsumption}
+                            onValueChange={(value) => updateMachineField(m, 'fuelConsumption', value)}
+                            className="drift-num-input w-full rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-right text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-600"
+                          />
+                          <span className="text-xs font-medium text-slate-500">{t.serviceCost}</span>
+                          <div className="text-right">
+                            <span className="block text-sm font-bold text-slate-900">{formatThousands(Math.round(result.serviceCostYear))}</span>
+                            <button type="button" onClick={() => openServiceModal(m)} className="text-[10px] font-bold uppercase text-emerald-700 hover:underline">{t.seeBasis}</button>
+                          </div>
+                          <label className="text-xs font-medium text-slate-500">{t.residualValue} (%)</label>
+                          <DriftNumericInput
+                            value={machine.residualValuePercent}
+                            onValueChange={(value) => updateMachineField(m, 'residualValuePercent', value)}
+                            className="drift-num-input w-full rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-right text-sm font-bold outline-none focus:ring-2 focus:ring-emerald-600"
+                          />
+                        </div>
+
+                        <div className="bg-slate-50 px-3 py-2 text-[10px] font-bold uppercase text-slate-400">{t.calcData}</div>
+                        <dl className="space-y-2 text-xs">
+                          {[
+                            [t.totalHours, formatThousands(result.totalHours)],
+                            [t.fuelCost, formatCurrency(result.fuel)],
+                            [t.capitalCost, formatCurrency(result.capital)],
+                            [t.totalYear, formatCurrency(result.totalYear)],
+                          ].map(([label, value]) => (
+                            <div key={label} className="flex items-center justify-between gap-3">
+                              <dt className="text-slate-500">{label}</dt>
+                              <dd className="font-bold text-slate-900">{value}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                        <div className="flex items-center justify-between gap-3 rounded-md bg-slate-950 px-3 py-2.5 text-sm font-bold text-white">
+                          <span>{t.totalHour}</span>
+                          <span className="text-lg text-emerald-400">{formatCurrency(result.hourCost)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="grid grid-cols-1 gap-4 no-print md:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+            <section className="flex gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700"><Info className="h-4 w-4" aria-hidden="true" /></span>
               <div>
-                <h4 className="font-bold mb-1">{t.guidanceHeader}</h4>
-                <ul className="text-xs text-gray-500 list-disc list-inside space-y-1">
+                <h2 className="text-sm font-bold text-slate-950">{t.guidanceHeader}</h2>
+                <ul className="mt-2 list-inside list-disc space-y-1 text-xs text-slate-500">
                   {t.guidancePoints.map((p, i) => <li key={i}>{p}</li>)}
                 </ul>
               </div>
-            </div>
-            <button
-              onClick={() => window.print()}
-              className="bg-gray-900 text-white p-6 rounded-2xl hover:bg-gray-800 transition-colors flex items-center justify-center gap-3 font-bold"
-            >
-              <Printer className="h-4 w-4" /> {t.print}
-            </button>
+            </section>
+            <section className="flex flex-col justify-between gap-4 rounded-lg bg-slate-950 p-4 text-white shadow-sm sm:flex-row sm:items-center sm:p-5">
+              <div className="flex min-w-0 gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400"><FileText className="h-4 w-4" aria-hidden="true" /></span>
+                <div>
+                  <h2 className="text-sm font-bold">{t.print}</h2>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-300">{t.printHelp}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-white px-4 py-2 text-xs font-bold text-slate-950 hover:bg-slate-100"
+              >
+                <Printer className="h-4 w-4" aria-hidden="true" /> {t.print}
+              </button>
+            </section>
           </div>
 
-          <p className="text-[10px] text-center text-gray-400 italic">{t.disclaimer}</p>
+          <p className="text-center text-[10px] italic text-slate-400">{t.disclaimer}</p>
         </div>
       </main>
 
@@ -570,8 +655,8 @@ export default function DriftberegnerPage() {
                 </div>
 
                 {/* Parts table */}
-                <div className="mt-5 bg-white border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="w-full text-left">
+                <div className="mt-5 overflow-x-auto rounded-lg border border-gray-200 bg-white">
+                  <table className="w-full min-w-[640px] text-left">
                     <thead className="bg-gray-100 text-gray-700">
                       <tr>
                         <th className="px-4 py-3 font-bold">Varenr</th>

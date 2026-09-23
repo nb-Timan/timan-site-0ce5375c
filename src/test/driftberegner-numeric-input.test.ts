@@ -92,7 +92,7 @@ describe('Driftberegner numeric input behavior', () => {
   it('uses the same raw-input component for every editable calculator field', () => {
     const page = readFileSync('src/pages/DriftberegnerPage.tsx', 'utf8');
 
-    expect(page.match(/<DriftNumericInput/g)).toHaveLength(5);
+    expect(page.match(/<DriftNumericInput/g)).toHaveLength(8);
     expect(page).toContain("onValueChange={(value) => updateCommon('fuelPrice', value)}");
     expect(page).toContain("onValueChange={(value) => updateMachineField(m, 'purchasePrice', value)}");
     expect(page).toContain("onValueChange={(value) => updateMachineField(m, 'fuelConsumption', value)}");
