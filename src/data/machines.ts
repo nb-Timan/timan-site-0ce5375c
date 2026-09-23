@@ -136,7 +136,10 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         { label: 'Teoretisk maks. output', value: '6.000 m2/t' },
         { label: 'Transmission til bælter/redskab', value: 'Hydraulisk' },
       ],
-      overviewImageUrl: '/images/rc-1000s/rc-1000s-dimensions-overview.png',
+      overviewImageUrls: [
+        '/images/rc-1000s/rc-1000s-dimensions-overview.png',
+        '/images/rc-1000s/rc-1000s-flail-mower-dimensions.png',
+      ],
       preferCanonicalDimensions: true,
     },
   },

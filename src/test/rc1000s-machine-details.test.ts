@@ -22,10 +22,15 @@ describe('RC-1000s machine information modal data', () => {
     const rc1000Details = PRODUCTS['RC-1000S'].machineDetails;
     const pageSource = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
 
-    expect(rc1000Details?.overviewImageUrl).toBe('/images/rc-1000s/rc-1000s-dimensions-overview.png');
+    expect(rc1000Details?.overviewImageUrls).toEqual([
+      '/images/rc-1000s/rc-1000s-dimensions-overview.png',
+      '/images/rc-1000s/rc-1000s-flail-mower-dimensions.png',
+    ]);
     expect(rc1000Details?.preferCanonicalDimensions).toBe(true);
     expect(existsSync('public/images/rc-1000s/rc-1000s-dimensions-overview.png')).toBe(true);
+    expect(existsSync('public/images/rc-1000s/rc-1000s-flail-mower-dimensions.png')).toBe(true);
     expect(pageSource).toContain('max-h-[60vh] w-full max-w-full object-contain');
-    expect(PRODUCTS['RC-751'].machineDetails?.overviewImageUrl).toBeUndefined();
+    expect(pageSource).toContain('space-y-4');
+    expect(PRODUCTS['RC-751'].machineDetails?.overviewImageUrls).toBeUndefined();
   });
 });
