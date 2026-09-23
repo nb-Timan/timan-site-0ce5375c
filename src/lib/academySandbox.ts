@@ -56,7 +56,7 @@ function readSession(): { active: boolean; caseId?: AcademyActiveCase } {
   if (active) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   return session;
 }
-const PORTAL_BASICS_NEWS_TITLE = 'Skivehøster til Timan RC-1000s';
+export const PORTAL_BASICS_NEWS_TITLE = 'Skivehøster til Timan RC-1000s';
 
 export type AcademyCase1State = {
   started: boolean; completed: boolean; quoteGenerated: boolean; leadId: string | null;

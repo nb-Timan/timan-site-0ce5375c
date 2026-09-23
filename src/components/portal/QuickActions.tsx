@@ -9,7 +9,7 @@ import { getDefaultQuickActionRoles, resolveEffectiveQuickActions } from '@/lib/
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 import { academySandbox } from '@/lib/academySandbox';
-import { type AcademyCapability, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
+import { getLocalAcademyUser, type AcademyCapability, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { WARRANTY_CREATE_ROUTE } from '@/lib/warrantyRoutes';
 
 interface Action {
@@ -66,14 +66,16 @@ interface Props {
 
 export default function QuickActions({ language, showAllActions = false, showRoleOverview = false }: Props) {
   const { appUser } = useAppUser();
-  const effectiveUser = useEffectivePortalUser(appUser);
-  if (!appUser || !effectiveUser) return null;
+  const academyUser = academySandbox.isActive() ? getLocalAcademyUser() : null;
+  const renderUser = academyUser ?? appUser;
+  const effectiveUser = useEffectivePortalUser(renderUser);
+  if (!renderUser || !effectiveUser) return null;
 
   const portalRole = derivePortalRole(effectiveUser);
   const effectiveRoleKey = portalRole || (effectiveUser.portal_role || '').toLowerCase();
   const isEffectiveBackend = effectiveRoleKey === 'timan_backend';
-  const canShowAllActions = showAllActions && isEffectiveBackend;
-  const canShowRoleOverview = showRoleOverview && isEffectiveBackend;
+  const canShowAllActions = !academyUser && showAllActions && isEffectiveBackend;
+  const canShowRoleOverview = !academyUser && showRoleOverview && isEffectiveBackend;
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
 
   let actions: Action[] = canShowAllActions ? ALL_ACTIONS : [];
@@ -99,7 +101,7 @@ export default function QuickActions({ language, showAllActions = false, showRol
     contextLabel = t('quickActionsContextDealer', language);
   } else if (effectiveRoleKey === 'timan_backend' || effectiveRoleKey === 'timan_seller') {
     actions = INTERNAL_ACTIONS;
-    const activeSeller = isEffectiveBackend ? getActiveSellerView(appUser.email) : null;
+    const activeSeller = isEffectiveBackend && appUser ? getActiveSellerView(appUser.email) : null;
     contextLabel = activeSeller
       ? t('quickActionsContextAs', language).replace('{name}', activeSeller.label)
       : isEffectiveBackend ? t('quickActionsContextBackend', language) : t('quickActionsContextSeller', language);

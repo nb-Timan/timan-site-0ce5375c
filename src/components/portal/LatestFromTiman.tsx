@@ -6,7 +6,7 @@ import PublicNewsPostModal from '@/components/portal/PublicNewsPostModal';
 import { resolveNewsRenderContent } from '@/features/news-cms/lib/newsContent';
 import { readNewsHomepageFocus, resolveNewsHomepageMedia } from '@/features/news-cms/lib/newsHomepageFocus';
 import { getNewsTemplate } from '@/features/news-cms/templates/registry';
-import { academySandbox } from '@/lib/academySandbox';
+import { academySandbox, PORTAL_BASICS_NEWS_TITLE } from '@/lib/academySandbox';
 
 interface Props {
   language: PortalUiLanguage;
@@ -78,7 +78,7 @@ function buildPlaceholders(language: PortalUiLanguage): NewsPost[] {
 function buildAcademyNews(): NewsPost[] {
   return [{
     id: 'academy-news-rc1000s-disc-mower',
-    title: 'Skivehøster til Timan RC-1000s',
+    title: PORTAL_BASICS_NEWS_TITLE,
     excerpt: 'Lokalt Academy-eksempel til Portal Basics.',
     image_url: null,
     link_url: null,

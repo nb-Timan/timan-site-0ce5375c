@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { getDefaultQuickActionRoles, resolveEffectiveQuickActions } from "@/lib/quickActionsAccess";
 import { mergeEffectivePortalUser } from "@/lib/viewAsUser";
 import { derivePortalRole } from "@/lib/portalAccess";
+import { getLocalAcademyUser } from "@/lib/academyCurriculum";
 import type { SessionUser } from "@/context/AppUserContext";
 import type { UserView } from "@/lib/activeMode";
 
@@ -79,8 +80,8 @@ describe("quick action access", () => {
     const backendHome = readFileSync(join(process.cwd(), "src/components/portal/BackendHome.tsx"), "utf8");
 
     expect(portalPage).toContain("const isEffectiveBackend = portalRole === 'timan_backend';");
-    expect(portalPage).toContain("showAllActions={isEffectiveBackend}");
-    expect(portalPage).toContain("showRoleOverview={isEffectiveBackend}");
+    expect(portalPage).toContain("showAllActions={isEffectiveBackend && !academySandbox.isActive()}");
+    expect(portalPage).toContain("showRoleOverview={isEffectiveBackend && !academySandbox.isActive()}");
     expect(backendHome).not.toContain("QuickActions");
   });
 
@@ -91,6 +92,19 @@ describe("quick action access", () => {
       "company_contact_info",
       "partner_map",
     ]);
+  });
+
+  it("uses the Academy Sales persona with the same resolver before applying Academy locks", () => {
+    expect(resolveEffectiveQuickActions(getLocalAcademyUser())).toEqual([
+      "create_lead",
+      "create_demo",
+    ]);
+
+    const quickActions = readFileSync(join(process.cwd(), "src/components/portal/QuickActions.tsx"), "utf8");
+    expect(quickActions).toContain("const academyUser = academySandbox.isActive() ? getLocalAcademyUser() : null;");
+    expect(quickActions).toContain("const renderUser = academyUser ?? appUser;");
+    expect(quickActions).toContain("const canShowAllActions = !academyUser && showAllActions && isEffectiveBackend;");
+    expect(quickActions).toContain("const academyLocked = capability && !isAcademyCapabilityUnlocked(effectiveUser, capability");
   });
 
   it("lets JTN's manual quick action setup show all four configured actions", () => {

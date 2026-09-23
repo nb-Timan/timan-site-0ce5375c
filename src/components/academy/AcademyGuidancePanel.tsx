@@ -20,6 +20,8 @@ export default function AcademyGuidancePanel({
   explanation,
   activeTaskLabel,
   stepColumns = 1,
+  taskColumns = 3,
+  compactTasks = false,
   stepNumbers,
   stepLabelKey = 'academyStep',
   nextLabelKey = 'academyNextStep',
@@ -35,6 +37,8 @@ export default function AcademyGuidancePanel({
   explanation?: ReactNode;
   activeTaskLabel?: string;
   stepColumns?: 1 | 2 | 3;
+  taskColumns?: 1 | 2 | 3;
+  compactTasks?: boolean;
   stepNumbers?: string[];
   stepLabelKey?: string;
   nextLabelKey?: string;
@@ -97,10 +101,10 @@ export default function AcademyGuidancePanel({
             })}
           </ol>
         ) : (
-          <ul className="mt-3 grid gap-x-5 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className={taskColumns === 3 ? 'mt-3 grid gap-2 lg:grid-cols-3' : taskColumns === 2 ? 'mt-3 grid gap-2 md:grid-cols-2' : 'mt-3 space-y-2'}>
             {allTasks.map((task) => {
               const active = task.label === activeTaskLabel && !task.complete;
-              return <li key={task.label} className={`flex items-start gap-1.5 rounded-md px-2 py-1.5 ${task.complete ? 'text-emerald-800' : active ? 'border border-amber-400 bg-white font-semibold text-amber-950 shadow-sm' : 'text-amber-900'}`}>
+              return <li key={task.label} className={`flex items-start gap-1.5 rounded-md ${compactTasks ? 'border p-2.5' : 'px-2 py-1.5'} ${task.complete ? compactTasks ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800' : 'text-emerald-800' : active ? 'border border-amber-400 bg-white font-semibold text-amber-950 shadow-sm' : compactTasks ? 'border-amber-200 bg-amber-50/60 text-amber-900' : 'text-amber-900'}`}>
                 {task.complete ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Circle className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
                 <div>
                   <p>{task.label}</p>

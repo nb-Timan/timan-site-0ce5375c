@@ -18,7 +18,7 @@ import { sortPortalHomeCards } from '@/lib/portalHomeOrder';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
-import { ACADEMY_PORTAL_BASICS, academySandbox, type AcademyPortalBasicsState } from '@/lib/academySandbox';
+import { ACADEMY_PORTAL_BASICS, academySandbox, PORTAL_BASICS_NEWS_TITLE, type AcademyPortalBasicsState } from '@/lib/academySandbox';
 import { getAcademyCapabilityProgress, getAcademyProgress, getLocalAcademyUser, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { Language } from '@/types/configurator';
 import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
@@ -72,20 +72,20 @@ const MESSE_DESC: Record<Language, string> = {
 function getPortalBasicsNext(state: AcademyPortalBasicsState, uiLanguage: string): string {
   if (!state.frenchSelected) return 'Skift portalsproget til fransk.';
   if (!state.languageRestored) return 'Skift tilbage til dit oprindelige portalsprog.';
-  if (!state.partnerDataOpened) return 'Åbn Partnerdata og se dine forhandlere.';
+  if (!state.partnerDataOpened) return 'Tryk på Partnerdata og se dine forhandlere.';
   if (!state.returnedHomeFromPartnerData) return 'Klik på Timan-logoet øverst til venstre for at gå tilbage til forsiden.';
   if (!state.fullscreenUsed) return t('academyPortalBasicsFullscreenNext', uiLanguage);
   if (!state.mapAreaChanged) return 'Åbn Partnerkort og skift område.';
-  if (!state.targetNewsOpened) return 'Åbn nyheden Skivehøster til Timan RC-1000s.';
+  if (!state.targetNewsOpened) return `Tryk på Messe → Nyheder → åbn nyheden ${PORTAL_BASICS_NEWS_TITLE}.`;
   return 'Alle Portal Basics-opgaver er gennemført.';
 }
 
 function getPortalBasicsActiveTask(state: AcademyPortalBasicsState, uiLanguage: string): string | undefined {
   if (!state.frenchSelected || !state.languageRestored) return 'Skift til fransk og tilbage';
-  if (!state.partnerDataOpened || !state.returnedHomeFromPartnerData) return 'Partnerdata og Timan-logoet';
+  if (!state.partnerDataOpened || !state.returnedHomeFromPartnerData) return 'Tryk på Partnerdata og derefter Timan-logoet øverst på siden';
   if (!state.fullscreenUsed) return t('academyPortalBasicsFullscreenTask', uiLanguage);
   if (!state.mapAreaChanged) return 'Skift område på Partnerkortet';
-  if (!state.targetNewsOpened) return 'Åbn RC-1000s-nyheden';
+  if (!state.targetNewsOpened) return `Messe → Nyheder → ${PORTAL_BASICS_NEWS_TITLE}`;
   return undefined;
 }
 
@@ -319,15 +319,17 @@ export default function PortalPage() {
               description="Gennemfør de fem handlinger i den almindelige portal. Din fremdrift gemmes kun lokalt i Academy."
               tasks={[
                 { label: 'Skift til fransk og tilbage', complete: portalBasics.frenchSelected && portalBasics.languageRestored },
-                { label: 'Partnerdata og Timan-logoet', complete: portalBasics.partnerDataOpened && portalBasics.returnedHomeFromPartnerData },
+                { label: 'Tryk på Partnerdata og derefter Timan-logoet øverst på siden', complete: portalBasics.partnerDataOpened && portalBasics.returnedHomeFromPartnerData },
                 {
                   label: t('academyPortalBasicsFullscreenTask', uiLanguage),
                   description: t('academyPortalBasicsFullscreenDescription', uiLanguage),
                   complete: portalBasics.fullscreenUsed,
                 },
                 { label: 'Skift område på Partnerkortet', complete: portalBasics.mapAreaChanged },
-                { label: 'Åbn RC-1000s-nyheden', complete: portalBasics.targetNewsOpened },
+                { label: `Messe → Nyheder → ${PORTAL_BASICS_NEWS_TITLE}`, complete: portalBasics.targetNewsOpened },
               ]}
+              taskColumns={3}
+              compactTasks
               activeTaskLabel={getPortalBasicsActiveTask(portalBasics, uiLanguage)}
               next={getPortalBasicsNext(portalBasics, uiLanguage)}
               completion
@@ -416,8 +418,8 @@ export default function PortalPage() {
 
         <QuickActions
           language={uiLanguage}
-          showAllActions={isEffectiveBackend}
-          showRoleOverview={isEffectiveBackend}
+          showAllActions={isEffectiveBackend && !academySandbox.isActive()}
+          showRoleOverview={isEffectiveBackend && !academySandbox.isActive()}
         />
 
         <LatestChanges language={uiLanguage} />
