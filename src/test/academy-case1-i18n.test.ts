@@ -14,6 +14,11 @@ describe('Academy Case 1 quantity-discount guidance translations', () => {
       expect(translations.academyCase1NextWeedBrushHarness).toBeTruthy();
       expect(translations.academyCase1NextQuote).toBeTruthy();
       expect(translations.academyCase1NextLead).toBeTruthy();
+      expect(translations.academyPoint).toBeTruthy();
+      expect(translations.academyNextPoint).toBeTruthy();
+      expect(translations.configuratorLeadValidationTitle).toBeTruthy();
+      expect(translations.configuratorLeadValidationMessage).toBeTruthy();
+      expect(translations.configuratorLeadInvalidEmail).toBeTruthy();
     }
   });
 

@@ -328,3 +328,104 @@ Object.assign(ACADEMY_TRANSLATIONS.cs, {
   academyCase1NextOilFlailWorkLight: 'Vyberte jednu z možností {oil} a také {flail} a {workLight}.',
   academyCase1NextWeedBrushHarness: 'Vyberte WB-170, aby se kabelový svazek přidal automaticky.',
 });
+
+Object.assign(ACADEMY_TRANSLATIONS.da, {
+  academyPoint: 'Punkt', academyNextPoint: 'Næste punkt:',
+  academyCase1ChooseMachine: 'Vælg RC-1000s',
+  academyCase1ChooseRc751: 'Tilføj RC-751 og opnå mængderabat',
+  academyCase1GenerateQuote: 'Tryk Næste og generér træningstilbud',
+  academyCase1NextQuote: 'Tryk Næste og generér træningstilbuddet.',
+  configuratorLeadValidationTitle: 'Udfyld de obligatoriske leadfelter',
+  configuratorLeadValidationMessage: 'Udfyld maskine, firma, kontaktperson, telefon, e-mail, postnr., by og land.',
+  configuratorLeadInvalidEmail: 'Indtast en gyldig e-mailadresse.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.en, {
+  academyPoint: 'Point', academyNextPoint: 'Next point:',
+  academyCase1ChooseMachine: 'Select RC-1000s',
+  academyCase1ChooseRc751: 'Add RC-751 and achieve the quantity discount',
+  academyCase1GenerateQuote: 'Select Next and generate the training quote',
+  academyCase1NextQuote: 'Select Next and generate the training quote.',
+  configuratorLeadValidationTitle: 'Complete the required lead fields',
+  configuratorLeadValidationMessage: 'Complete machine, company, contact person, phone, email, postal code, city and country.',
+  configuratorLeadInvalidEmail: 'Enter a valid email address.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.de, {
+  academyPoint: 'Punkt', academyNextPoint: 'Nächster Punkt:',
+  academyCase1ChooseMachine: 'RC-1000s auswählen',
+  academyCase1ChooseRc751: 'RC-751 hinzufügen und Mengenrabatt erhalten',
+  academyCase1GenerateQuote: 'Weiter wählen und Trainingsangebot erstellen',
+  academyCase1NextQuote: 'Wählen Sie Weiter und erstellen Sie das Trainingsangebot.',
+  configuratorLeadValidationTitle: 'Pflichtfelder für den Lead ausfüllen',
+  configuratorLeadValidationMessage: 'Füllen Sie Maschine, Firma, Kontaktperson, Telefon, E-Mail, Postleitzahl, Stadt und Land aus.',
+  configuratorLeadInvalidEmail: 'Geben Sie eine gültige E-Mail-Adresse ein.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.it, {
+  academyPoint: 'Punto', academyNextPoint: 'Punto successivo:',
+  academyCase1ChooseMachine: 'Seleziona RC-1000s',
+  academyCase1ChooseRc751: 'Aggiungi RC-751 e ottieni lo sconto quantità',
+  academyCase1GenerateQuote: 'Seleziona Avanti e genera l’offerta di formazione',
+  academyCase1NextQuote: 'Seleziona Avanti e genera l’offerta di formazione.',
+  configuratorLeadValidationTitle: 'Compila i campi obbligatori del lead',
+  configuratorLeadValidationMessage: 'Compila macchina, azienda, contatto, telefono, e-mail, CAP, città e paese.',
+  configuratorLeadInvalidEmail: 'Inserisci un indirizzo e-mail valido.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.hu, {
+  academyPoint: 'Pont', academyNextPoint: 'Következő pont:',
+  academyCase1ChooseMachine: 'Válassza ki az RC-1000s-et',
+  academyCase1ChooseRc751: 'Adja hozzá az RC-751-et és érje el a mennyiségi kedvezményt',
+  academyCase1GenerateQuote: 'Kattintson a Tovább gombra, és készítse el a képzési ajánlatot',
+  academyCase1NextQuote: 'Kattintson a Tovább gombra, és készítse el a képzési ajánlatot.',
+  configuratorLeadValidationTitle: 'Töltse ki a kötelező lead mezőket',
+  configuratorLeadValidationMessage: 'Töltse ki a gép, cég, kapcsolattartó, telefon, e-mail, irányítószám, város és ország mezőket.',
+  configuratorLeadInvalidEmail: 'Adjon meg érvényes e-mail-címet.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.sv, {
+  academyPoint: 'Punkt', academyNextPoint: 'Nästa punkt:',
+  academyCase1ChooseMachine: 'Välj RC-1000s',
+  academyCase1ChooseRc751: 'Lägg till RC-751 och uppnå mängdrabatt',
+  academyCase1GenerateQuote: 'Välj Nästa och skapa utbildningsofferten',
+  academyCase1NextQuote: 'Välj Nästa och skapa utbildningsofferten.',
+  configuratorLeadValidationTitle: 'Fyll i obligatoriska leadfält',
+  configuratorLeadValidationMessage: 'Fyll i maskin, företag, kontaktperson, telefon, e-post, postnummer, ort och land.',
+  configuratorLeadInvalidEmail: 'Ange en giltig e-postadress.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.fr, {
+  academyPoint: 'Point', academyNextPoint: 'Point suivant :',
+  academyCase1ChooseMachine: 'Sélectionnez la RC-1000s',
+  academyCase1ChooseRc751: 'Ajoutez la RC-751 et obtenez la remise quantité',
+  academyCase1GenerateQuote: 'Sélectionnez Suivant et générez l’offre de formation',
+  academyCase1NextQuote: 'Sélectionnez Suivant et générez l’offre de formation.',
+  configuratorLeadValidationTitle: 'Renseignez les champs obligatoires du lead',
+  configuratorLeadValidationMessage: 'Renseignez la machine, l’entreprise, le contact, le téléphone, l’e-mail, le code postal, la ville et le pays.',
+  configuratorLeadInvalidEmail: 'Saisissez une adresse e-mail valide.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.pl, {
+  academyPoint: 'Punkt', academyNextPoint: 'Następny punkt:',
+  academyCase1ChooseMachine: 'Wybierz RC-1000s',
+  academyCase1ChooseRc751: 'Dodaj RC-751 i uzyskaj rabat ilościowy',
+  academyCase1GenerateQuote: 'Wybierz Dalej i wygeneruj ofertę szkoleniową',
+  academyCase1NextQuote: 'Wybierz Dalej i wygeneruj ofertę szkoleniową.',
+  configuratorLeadValidationTitle: 'Uzupełnij wymagane pola leada',
+  configuratorLeadValidationMessage: 'Uzupełnij maszynę, firmę, kontakt, telefon, e-mail, kod pocztowy, miasto i kraj.',
+  configuratorLeadInvalidEmail: 'Wpisz prawidłowy adres e-mail.',
+});
+Object.assign(ACADEMY_TRANSLATIONS.cs, {
+  academyPoint: 'Bod', academyNextPoint: 'Další bod:',
+  academyCase1ChooseMachine: 'Vyberte RC-1000s',
+  academyCase1ChooseRc751: 'Přidejte RC-751 a získejte množstevní slevu',
+  academyCase1GenerateQuote: 'Zvolte Další a vytvořte školicí nabídku',
+  academyCase1NextQuote: 'Zvolte Další a vytvořte školicí nabídku.',
+  configuratorLeadValidationTitle: 'Vyplňte povinná pole leadu',
+  configuratorLeadValidationMessage: 'Vyplňte stroj, společnost, kontakt, telefon, e-mail, PSČ, město a zemi.',
+  configuratorLeadInvalidEmail: 'Zadejte platnou e-mailovou adresu.',
+});
+
+Object.assign(ACADEMY_TRANSLATIONS.da, { configuratorLeadOwnershipMessage: 'Vælg den ansvarlige forhandler og sælger.' });
+Object.assign(ACADEMY_TRANSLATIONS.en, { configuratorLeadOwnershipMessage: 'Select the responsible dealer and seller.' });
+Object.assign(ACADEMY_TRANSLATIONS.de, { configuratorLeadOwnershipMessage: 'Wählen Sie den zuständigen Händler und Verkäufer.' });
+Object.assign(ACADEMY_TRANSLATIONS.it, { configuratorLeadOwnershipMessage: 'Seleziona il rivenditore e il venditore responsabili.' });
+Object.assign(ACADEMY_TRANSLATIONS.hu, { configuratorLeadOwnershipMessage: 'Válassza ki a felelős kereskedőt és értékesítőt.' });
+Object.assign(ACADEMY_TRANSLATIONS.sv, { configuratorLeadOwnershipMessage: 'Välj ansvarig återförsäljare och säljare.' });
+Object.assign(ACADEMY_TRANSLATIONS.fr, { configuratorLeadOwnershipMessage: 'Sélectionnez le revendeur et le vendeur responsables.' });
+Object.assign(ACADEMY_TRANSLATIONS.pl, { configuratorLeadOwnershipMessage: 'Wybierz odpowiedzialnego dealera i sprzedawcę.' });
+Object.assign(ACADEMY_TRANSLATIONS.cs, { configuratorLeadOwnershipMessage: 'Vyberte odpovědného prodejce a obchodníka.' });

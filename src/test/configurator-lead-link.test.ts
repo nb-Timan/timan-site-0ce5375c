@@ -36,4 +36,11 @@ describe('configurator existing lead protection', () => {
     expect(accountPanel).toContain('{ linkedLeadId: saved.lead_id ?? null }');
     expect(configuratorCode).toContain('setLinkedLeadId(options?.linkedLeadId ?? null)');
   });
+
+  it('validates only when a new lead is requested and keeps save-without-lead available', () => {
+    const code = configurator();
+    expect(code).toContain('if (!pendingNewLead) return null');
+    expect(code).toContain('if (!validateNewLeadIntent()) return null');
+    expect(picker()).toContain("none:     { da: 'Gem uden lead'");
+  });
 });

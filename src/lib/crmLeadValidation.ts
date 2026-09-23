@@ -74,6 +74,20 @@ export type StructuredContactInfo = {
   city: string; zipCity: string; phone: string; email: string; country: string;
 };
 
+export function buildStructuredContactInformation(info: StructuredContactInfo): string {
+  const zipCity = info.zipCity.trim()
+    || [info.postalCode.trim(), info.city.trim()].filter(Boolean).join(' ');
+  return [
+    info.company.trim() ? `Firma/CVR: ${info.company.trim()}` : null,
+    info.contactPerson.trim() ? `Kontaktperson: ${info.contactPerson.trim()}` : null,
+    info.address.trim() ? `Adresse: ${info.address.trim()}` : null,
+    zipCity ? `Postnr. og by: ${zipCity}` : null,
+    info.phone.trim() ? `Telefon: ${info.phone.trim()}` : null,
+    info.email.trim() ? `E-mail: ${info.email.trim()}` : null,
+    info.country.trim() ? `Land: ${info.country.trim()}` : null,
+  ].filter(Boolean).join('\n');
+}
+
 export function parseStructuredContactInformation(value: string, fallbackCountry: string): StructuredContactInfo {
   const info: StructuredContactInfo = {
     company: '', contactPerson: '', address: '', postalCode: '', city: '',

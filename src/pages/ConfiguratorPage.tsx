@@ -77,6 +77,8 @@ import { ACADEMY_CASE_1, academySandbox } from '@/lib/academySandbox';
 import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
+import { validateConfiguratorLead, type ConfiguratorLeadField } from '@/lib/configuratorLeadValidation';
+import { buildStructuredContactInformation } from '@/lib/crmLeadValidation';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
@@ -256,6 +258,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const navigate = useNavigate();
   const location = useLocation();
   const isAcademyMode = academySandbox.isActive();
+  const [leadValidationErrors, setLeadValidationErrors] = useState<ConfiguratorLeadField[]>([]);
+  const leadValidationBlockedRef = useRef(false);
   // Academy supplies a render-only identity in local training mode. It never
   // modifies the authenticated portal session or reaches production writes.
   const appUser = isAcademyMode ? getLocalAcademyUser() : sessionAppUser;
@@ -554,6 +558,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   const updateActiveCustomerField = useCallback((field: keyof ConfiguratorCustomerSnapshot, value: string) => {
     setState((current) => updateConfiguratorCustomerDraftField(current, field, value));
+    setLeadValidationErrors((current) => current.filter((item) => item !== field));
   }, [setState]);
 
   // Phase 63 — Importør standard-rabat (30%).
@@ -683,6 +688,34 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // legacy inline `{ da, en, de, it, hu }[lang]` lookups and product-data
   // localisation, which only have 5-language coverage.
   const T = (key: string) => t(key, uiLanguage);
+  const validateNewLeadIntent = useCallback(() => {
+    const result = validateConfiguratorLead(state);
+    const ownershipValid = (isAcademyMode || isExhibition || Boolean(ownership.dealerNumber))
+      && (!isExhibition || Boolean(ownership.sellerEmail));
+    leadValidationBlockedRef.current = !result.valid || !ownershipValid;
+    setLeadValidationErrors(result.invalidFields);
+    if (result.valid && ownershipValid) return true;
+
+    const firstField = result.invalidFields[0];
+    if (firstField) setStep(firstField === 'machineConfigs' ? 1 : 4);
+    toast.error(tPortal('configuratorLeadValidationTitle', uiLanguage), {
+      description: !ownershipValid
+        ? tPortal('configuratorLeadOwnershipMessage', uiLanguage)
+        : result.invalidEmail
+        ? tPortal('configuratorLeadInvalidEmail', uiLanguage)
+        : tPortal('configuratorLeadValidationMessage', uiLanguage),
+    });
+    if (firstField) {
+      window.setTimeout(() => {
+        document.getElementById(`configurator-lead-${firstField}`)?.focus();
+      }, 0);
+    }
+    return false;
+  }, [isAcademyMode, isExhibition, ownership.dealerNumber, ownership.sellerEmail, setStep, state, uiLanguage]);
+  const leadFieldClass = (field: ConfiguratorLeadField) => cn(
+    'w-full rounded-lg border p-2',
+    leadValidationErrors.includes(field) && 'border-red-500 ring-2 ring-red-100',
+  );
   // Modal/HTML "content language" — collapses sv/fr/pl/cs to 'en' so chrome
   // inside modals matches the product/accessory data (which is only available
   // in da/en/de/it/hu). Prevents mixed-language modals.
@@ -881,6 +914,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
    * available. Returns the created lead id, or null on failure.
    */
   const createLeadFromCurrentState = useCallback(async (): Promise<string | null> => {
+    if (!validateNewLeadIntent()) return null;
     try {
       const { createLead } = await import('@/lib/crmLeadsService');
       const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
@@ -912,8 +946,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
       const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
       const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
-      const contactInfo = [state.kontaktperson, state.email || state.emailRecipient, state.telefon]
-        .filter(Boolean).join(' · ') || null;
+      const contactInfo = buildStructuredContactInformation({
+        company: state.firmanavn,
+        contactPerson: state.kontaktperson,
+        address: state.address,
+        postalCode: state.postalCode,
+        city: state.city,
+        zipCity: '',
+        phone: state.telefon,
+        email: state.email,
+        country: state.country,
+      }) || null;
 
       const created = await createLead({
         title,
@@ -931,7 +974,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         customer_type: null,
         contact_information: contactInfo,
         trade_fair: null,
-        country: null,
+        country: state.country,
         notes: notes || null,
         estimated_value: Math.round(estimatedValue || 0),
         probability: 10,
@@ -948,7 +991,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       console.error('[createLeadFromCurrentState] failed:', err);
       return null;
     }
-  }, [state, ownership, appUser, savedQuoteNumber, savedOrderNumber, isExhibition, displayCalc]);
+  }, [state, ownership, appUser, savedQuoteNumber, savedOrderNumber, isExhibition, displayCalc, validateNewLeadIntent]);
 
   /**
    * If the user selected "Opret nyt lead" in the picker, create the lead
@@ -964,7 +1007,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     if (!pendingNewLead) return null;
     const newId = await createLeadFromCurrentState();
     if (!newId) {
-      toast.error({ da: 'Kunne ikke oprette lead', en: 'Failed to create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'A lead létrehozása sikertelen' }[lang]);
+      if (!leadValidationBlockedRef.current) {
+        toast.error({ da: 'Kunne ikke oprette lead', en: 'Failed to create lead', de: 'Lead konnte nicht erstellt werden', it: 'Impossibile creare il lead', hu: 'A lead létrehozása sikertelen' }[lang]);
+      }
       return null;
     }
     setLinkedLeadId(newId);
@@ -1123,6 +1168,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // current configurator state without sending the quote. Only available on
   // the Tilbud flow for users with can_save_configurator_as_lead.
   const handleSaveAsLead = useCallback(async (options?: { quiet?: boolean }): Promise<string | null> => {
+    if (!validateNewLeadIntent()) return null;
     if (academySandbox.isActive()) {
       refreshAcademyCase();
       const lead = academySandbox.saveLead();
@@ -1178,8 +1224,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
       const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
       const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
-      const contactInfo = [state.kontaktperson, state.email || state.emailRecipient, state.telefon]
-        .filter(Boolean).join(' · ') || null;
+      const contactInfo = buildStructuredContactInformation({
+        company: state.firmanavn,
+        contactPerson: state.kontaktperson,
+        address: state.address,
+        postalCode: state.postalCode,
+        city: state.city,
+        zipCity: '',
+        phone: state.telefon,
+        email: state.email,
+        country: state.country,
+      }) || null;
 
       const created = await createLead({
         title,
@@ -1197,7 +1252,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         customer_type: null,
         contact_information: contactInfo,
         trade_fair: null,
-        country: null,
+        country: state.country,
         notes: notes || null,
         estimated_value: Math.round(estimatedValue || 0),
         probability: 10,
@@ -1280,7 +1335,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     } finally {
       setSavingAsLead(false);
     }
-  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isExhibition, displayCalc, refreshAcademyCase]);
+  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isExhibition, displayCalc, refreshAcademyCase, validateNewLeadIntent]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
@@ -3159,6 +3214,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             title={tPortal('academySalesCase1Title', uiLanguage)}
             description={tPortal('academyConfiguratorDescription', uiLanguage)}
             stepColumns={2}
+            stepNumbers={['1.1', '1.2', '2.1', '2.2', '3', '4']}
+            stepLabelKey="academyPoint"
+            nextLabelKey="academyNextPoint"
             steps={[
               { title: tPortal('academyCase1ChooseMachine', uiLanguage), tasks: [{ complete: academyCase.machine, label: tPortal('academyCase1MachineSelected', uiLanguage) }] },
               { title: tPortal('academyCase1ChooseRc751', uiLanguage), description: tPortal('academyCase1QuantityDiscountExplanation', uiLanguage), tasks: [
@@ -3980,19 +4038,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 <div className="space-y-4 max-w-lg mx-auto">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')}</label>
-                    <input type="text" value={state.firmanavn} onChange={e => updateActiveCustomerField('firmanavn', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    <input id="configurator-lead-firmanavn" aria-invalid={leadValidationErrors.includes('firmanavn')} type="text" value={state.firmanavn} onChange={e => updateActiveCustomerField('firmanavn', e.target.value)} className={leadFieldClass('firmanavn')} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('contactPerson')}</label>
-                    <input type="text" value={state.kontaktperson} onChange={e => updateActiveCustomerField('kontaktperson', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    <input id="configurator-lead-kontaktperson" aria-invalid={leadValidationErrors.includes('kontaktperson')} type="text" value={state.kontaktperson} onChange={e => updateActiveCustomerField('kontaktperson', e.target.value)} className={leadFieldClass('kontaktperson')} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('phone')}</label>
-                    <input type="text" value={state.telefon} onChange={e => updateActiveCustomerField('telefon', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    <input id="configurator-lead-telefon" aria-invalid={leadValidationErrors.includes('telefon')} type="text" value={state.telefon} onChange={e => updateActiveCustomerField('telefon', e.target.value)} className={leadFieldClass('telefon')} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('email')} {state.flowType === 'order' && <span className="text-red-500">*</span>}</label>
-                    <input type="email" value={state.email} onChange={e => setCustomerField('email', e.target.value)} className="w-full p-2 border rounded-lg" placeholder={T('emailSenderPlaceholder')} />
+                    <input id="configurator-lead-email" aria-invalid={leadValidationErrors.includes('email')} type="email" value={state.email} onChange={e => { setCustomerField('email', e.target.value); setLeadValidationErrors((current) => current.filter((item) => item !== 'email')); }} className={leadFieldClass('email')} placeholder={T('emailSenderPlaceholder')} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -4015,16 +4073,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.postalCode}</label>
-                      <input type="text" value={state.postalCode} onChange={e => updateActiveCustomerField('postalCode', e.target.value)} className="w-full p-2 border rounded-lg" />
+                      <input id="configurator-lead-postalCode" aria-invalid={leadValidationErrors.includes('postalCode')} type="text" value={state.postalCode} onChange={e => updateActiveCustomerField('postalCode', e.target.value)} className={leadFieldClass('postalCode')} />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.city}</label>
-                      <input type="text" value={state.city} onChange={e => updateActiveCustomerField('city', e.target.value)} className="w-full p-2 border rounded-lg" />
+                      <input id="configurator-lead-city" aria-invalid={leadValidationErrors.includes('city')} type="text" value={state.city} onChange={e => updateActiveCustomerField('city', e.target.value)} className={leadFieldClass('city')} />
                     </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.country}</label>
-                    <input type="text" value={state.country} onChange={e => updateActiveCustomerField('country', e.target.value)} className="w-full p-2 border rounded-lg" />
+                    <input id="configurator-lead-country" aria-invalid={leadValidationErrors.includes('country')} type="text" value={state.country} onChange={e => updateActiveCustomerField('country', e.target.value)} className={leadFieldClass('country')} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Rekvisitionsnr. / PO nr.</label>
@@ -4162,7 +4220,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               </div>
             )}
             {state.step === 4 && state.flowType === 'quote' && canCreateLeadForCurrentConfiguration && (isAcademyMode || (isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
-              const hasRequired = isAcademyMode || !!((isExhibition || ownership.dealerNumber) && state.firmanavn.trim() && state.kontaktperson.trim() && state.email.trim() && (!isExhibition || ownership.sellerEmail));
+              const hasRequired = validateConfiguratorLead(state).valid && !!((isAcademyMode || isExhibition || ownership.dealerNumber) && (!isExhibition || ownership.sellerEmail));
               const label = isTimanMesseUser
                 ? ({ da: 'Gem som lead og send ordre', en: 'Save lead and send order', de: 'Lead speichern und Bestellung senden', it: 'Salva lead e invia ordine', hu: 'Lead mentése és rendelés küldése' }[lang])
                 : isAcademyMode
@@ -4170,11 +4228,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   : ({ da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang]);
               const isActionBlockedByExistingLead = !isAcademyMode && !isTimanMesseUser && !!linkedLeadId;
               const disabledTitle = !hasRequired
-                ? { da: 'Udfyld forhandler, firmanavn, kontaktperson og e-mail.',
-                    en: 'Fill in dealer, company, contact and email.',
-                    de: 'Händler, Firma, Kontakt und E-Mail ausfüllen.',
-                    it: 'Compila concessionario, azienda, contatto ed email.',
-                    hu: 'Töltsd ki a kereskedőt, céget, kapcsolattartót és e-mailt.' }[lang]
+                ? tPortal('configuratorLeadValidationMessage', uiLanguage)
                 : isTimanMesseUser && orderLocked
                   ? T('orderCannotResendTitle')
                 : isActionBlockedByExistingLead
@@ -4188,7 +4242,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 <button
                   type="button"
                   onClick={() => void (isTimanMesseUser ? handleSaveLeadAndSendOrder() : handleSaveAsLead())}
-                  disabled={!hasRequired || savingAsLead || savingLeadAndOrder || submitting || isActionBlockedByExistingLead || (isTimanMesseUser && orderLocked)}
+                  disabled={savingAsLead || savingLeadAndOrder || submitting || isActionBlockedByExistingLead || (isTimanMesseUser && orderLocked)}
                   title={disabledTitle}
                   className="w-full mb-3 px-4 py-2 text-sm font-semibold rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >

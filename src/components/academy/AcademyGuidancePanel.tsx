@@ -20,6 +20,9 @@ export default function AcademyGuidancePanel({
   explanation,
   activeTaskLabel,
   stepColumns = 1,
+  stepNumbers,
+  stepLabelKey = 'academyStep',
+  nextLabelKey = 'academyNextStep',
   caseId,
 }: {
   title: string;
@@ -32,6 +35,9 @@ export default function AcademyGuidancePanel({
   explanation?: ReactNode;
   activeTaskLabel?: string;
   stepColumns?: 1 | 2;
+  stepNumbers?: string[];
+  stepLabelKey?: string;
+  nextLabelKey?: string;
   caseId?: AcademyActiveCase;
 }) {
   const navigate = useNavigate();
@@ -70,13 +76,14 @@ export default function AcademyGuidancePanel({
             {steps.map((step, index) => {
               const stepComplete = step.tasks.every((task) => task.complete);
               const active = index === activeStepIndex;
+              const stepNumber = stepNumbers?.[index] ?? String(index + 1);
               return <li key={step.title} className={`h-full rounded-md border p-3 ${stepComplete ? 'border-emerald-200 bg-emerald-50/70 text-emerald-800' : active ? 'border-amber-400 bg-white text-amber-950 shadow-sm' : 'border-amber-200 bg-amber-50/60 text-amber-900'}`}>
                 <div className="flex items-start gap-2">
-                  <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${stepComplete ? 'bg-emerald-600 text-white' : active ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-900'}`}>
-                    {stepComplete ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
+                  <span className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 text-xs font-bold ${stepComplete ? 'bg-emerald-600 text-white' : active ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-900'}`}>
+                    {stepComplete ? <CheckCircle2 className="h-4 w-4" /> : stepNumber}
                   </span>
                   <div className="min-w-0">
-                    <p className="font-semibold">{tr('academyStep')} {index + 1}: {step.title}</p>
+                    <p className="font-semibold">{tr(stepLabelKey)} {stepNumber}: {step.title}</p>
                     {step.description && <p className="mt-1 text-xs font-normal leading-relaxed text-amber-950">{step.description}</p>}
                     <ul className="mt-2 grid gap-x-4 gap-y-1 sm:grid-cols-2">
                       {step.tasks.map((task) => <li key={task.label} className={`flex items-start gap-1.5 text-xs ${task.complete ? 'text-emerald-800' : 'text-amber-900'}`}>
@@ -106,7 +113,7 @@ export default function AcademyGuidancePanel({
         {explanation && <div className="mt-3 border-t border-amber-200 pt-3 text-xs leading-relaxed text-amber-950">{explanation}</div>}
         {actions && <div className="mt-3">{actions}</div>}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
-          <span className={isComplete ? 'text-emerald-800' : 'text-amber-950'}>{isComplete ? tr('academyCaseCompleted') : `${tr('academyNextStep')} ${next}`}</span>
+          <span className={isComplete ? 'text-emerald-800' : 'text-amber-950'}>{isComplete ? tr('academyCaseCompleted') : `${tr(nextLabelKey)} ${next}`}</span>
           <Link to="/academy" className="text-[#126a45] hover:underline">{tr('academyBackToAcademy')}</Link>
         </div>
       </section>
