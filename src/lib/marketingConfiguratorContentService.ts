@@ -13,10 +13,13 @@ export type LocalizedProductTitles = {
   en: string;
 };
 
+export type LocalizedProductDescriptions = LocalizedProductTitles;
+
 export interface MarketingConfiguratorContentFields extends MarketingBadgeSchedule {
   title: string;
   localized_titles?: LocalizedProductTitles;
   description: string;
+  localized_descriptions?: LocalizedProductDescriptions;
   key_features: string[];
   image_url: string;
   video_url: string;
@@ -63,16 +66,6 @@ function catalogLanguage(language: PortalUiLanguage) {
   return language === 'sv' || language === 'fr' || language === 'pl' || language === 'cs' ? 'en' : language;
 }
 
-function textOf(value: unknown, language: PortalUiLanguage): string {
-  if (typeof value === 'string') return value;
-  if (value && typeof value === 'object') {
-    const values = value as Record<string, unknown>;
-    const preferred = values[catalogLanguage(language)] ?? values.da ?? values.en;
-    return typeof preferred === 'string' ? preferred : '';
-  }
-  return '';
-}
-
 function firstUrl(item: { imageUrl?: string; images?: { url: string | null }[]; videoUrl?: string; videos?: { url: string | null }[] }, field: 'image' | 'video') {
   if (field === 'image') return item.images?.find((entry) => entry.url)?.url || item.imageUrl || '';
   return item.videos?.find((entry) => entry.url)?.url || item.videoUrl || '';
@@ -81,12 +74,9 @@ function firstUrl(item: { imageUrl?: string; images?: { url: string | null }[]; 
 function defaultContent(item: Machine | Accessory, language: PortalUiLanguage): MarketingConfiguratorContentFields {
   const isMachine = 'techSpecs' in item;
   const specs = isMachine ? item.techSpecs : (item.specs || []);
-  const description = 'techSpecs' in item
-    ? textOf(item.machineDetails?.main, language)
-    : textOf(item.specs?.find((spec) => spec.label === 'Beskrivelse')?.value, language);
   return {
     title: getLocalizedName(item.name, catalogLanguage(language)),
-    description,
+    description: '',
     key_features: [],
     image_url: firstUrl(item, 'image'),
     video_url: firstUrl(item, 'video'),
@@ -101,6 +91,9 @@ function normalizeContent(value: unknown): MarketingConfiguratorContentFields {
   const localized = content.localized_titles && typeof content.localized_titles === 'object'
     ? content.localized_titles as Record<string, unknown>
     : null;
+  const localizedDescriptions = content.localized_descriptions && typeof content.localized_descriptions === 'object'
+    ? content.localized_descriptions as Record<string, unknown>
+    : null;
   return {
     title: typeof content.title === 'string' ? content.title : '',
     ...(localized ? { localized_titles: {
@@ -109,6 +102,11 @@ function normalizeContent(value: unknown): MarketingConfiguratorContentFields {
       en: typeof localized.en === 'string' ? localized.en : '',
     } } : {}),
     description: typeof content.description === 'string' ? content.description : '',
+    ...(localizedDescriptions ? { localized_descriptions: {
+      da: typeof localizedDescriptions.da === 'string' ? localizedDescriptions.da : '',
+      de: typeof localizedDescriptions.de === 'string' ? localizedDescriptions.de : '',
+      en: typeof localizedDescriptions.en === 'string' ? localizedDescriptions.en : '',
+    } } : {}),
     key_features: Array.isArray(content.key_features)
       ? content.key_features.filter((feature): feature is string => typeof feature === 'string').map((feature) => feature.trim()).filter(Boolean)
       : [],
@@ -175,7 +173,9 @@ export function mergeMarketingConfiguratorContent(
   if (!override) return resolveMarketingProductIdentity(itemNumber, defaults, language);
   return resolveMarketingProductIdentity(itemNumber, {
     title: override.title || defaults.title,
-    description: override.description || defaults.description,
+    ...(override.localized_titles ? { localized_titles: override.localized_titles } : {}),
+    description: override.description,
+    ...(override.localized_descriptions ? { localized_descriptions: override.localized_descriptions } : {}),
     key_features: override.key_features.length ? override.key_features : defaults.key_features,
     image_url: override.image_url || defaults.image_url,
     video_url: override.video_url || defaults.video_url,
@@ -209,36 +209,40 @@ export function localizedDraftTitles(
   return { ...canonical, da: content.title || canonical.da };
 }
 
-function titleEnrichment(itemNumber: string | undefined, marketingTitle: string): string {
-  const title = marketingTitle.trim();
-  const row = publishedProduct(itemNumber);
-  if (!title || !row) return '';
-  const aliases = [
-    row.item_text_da,
-    row.item_text_de,
-    row.item_text_en,
-    ...(row.identity_aliases || []),
-  ].filter((alias): alias is string => Boolean(alias)).sort((a, b) => b.length - a.length);
-  const prefix = aliases.find(alias => title === alias
-    || (title.startsWith(alias) && /^[\s.,;:!?-]/.test(title.slice(alias.length, alias.length + 1))));
-  if (prefix) return title.slice(prefix.length).trim().replace(/^[.\s]+/, '');
-  return title;
+export function localizedDraftDescriptions(
+  content: MarketingConfiguratorContentFields | null | undefined,
+): LocalizedProductDescriptions {
+  if (!content) return { da: '', de: '', en: '' };
+  if (content.localized_descriptions) return { ...content.localized_descriptions };
+  return { da: content.description, de: '', en: '' };
 }
 
-/** Product identity always comes from Product Master; legacy Marketing title copy becomes enrichment. */
+/** Product identity comes from Product Master; presentation copy remains an independent exact value. */
 export function resolveMarketingProductIdentity(
   itemNumber: string | undefined,
   content: MarketingConfiguratorContentFields,
   requestedLanguage: PublishedProductLanguage = 'da',
 ): MarketingConfiguratorContentFields {
-  const row = publishedProduct(itemNumber);
-  if (!row?.item_text_da) return content;
   const language = requestedLanguage === 'de' || requestedLanguage === 'en' ? requestedLanguage : 'da';
+  const localizedDescriptions = localizedDraftDescriptions(content);
+  const resolvedContent = {
+    ...content,
+    description: localizedDescriptions[language],
+    localized_descriptions: localizedDescriptions,
+  };
+  const row = publishedProduct(itemNumber);
+  if (!row?.item_text_da) {
+    return resolvedContent.description.trim() === resolvedContent.title.trim()
+      ? { ...resolvedContent, description: '' }
+      : resolvedContent;
+  }
   const canonicalTitle = publishedProductText(itemNumber, language);
-  if (!canonicalTitle) return content;
-  const enrichment = titleEnrichment(itemNumber, content.title);
-  return { ...content, title: canonicalTitle, description: enrichment && !content.description.includes(enrichment)
-    ? [enrichment, content.description].filter(Boolean).join('\n\n') : content.description };
+  if (!canonicalTitle) return resolvedContent;
+  return {
+    ...resolvedContent,
+    title: canonicalTitle,
+    description: resolvedContent.description.trim() === canonicalTitle.trim() ? '' : resolvedContent.description,
+  };
 }
 
 export async function listMarketingConfiguratorContent(): Promise<{ rows: MarketingConfiguratorContentRecord[]; error: string | null }> {

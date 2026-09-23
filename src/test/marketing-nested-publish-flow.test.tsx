@@ -114,16 +114,34 @@ describe('nested Marketing publish flow', () => {
     render(<MarketingConfiguratorContentEditor item={item} catalog={catalog} records={[]} uiLanguage="da" priceSourceLanguage="da" onClose={onClose} onSaved={vi.fn()} onDraftDeleted={vi.fn()} />);
 
     fireEvent.change(await screen.findByLabelText('Visningstitel Dansk'), { target: { value: 'Dansk QA' } });
+    fireEvent.change(screen.getByLabelText('Kort beskrivelse Dansk'), { target: { value: 'Dansk kort QA' } });
     fireEvent.click(screen.getByRole('tab', { name: 'Deutsch' }));
     fireEvent.change(screen.getByLabelText('Visningstitel Deutsch'), { target: { value: 'Deutsch QA' } });
+    fireEvent.change(screen.getByLabelText('Kort beskrivelse Deutsch'), { target: { value: '' } });
     fireEvent.click(screen.getByRole('tab', { name: 'English' }));
     fireEvent.change(screen.getByLabelText('Visningstitel English'), { target: { value: 'English QA' } });
+    fireEvent.change(screen.getByLabelText('Kort beskrivelse English'), { target: { value: 'English short QA' } });
     fireEvent.click(screen.getByRole('button', { name: 'Gem kladde' }));
 
     await waitFor(() => expect(saveMarketingConfiguratorContent).toHaveBeenCalledWith(item, expect.objectContaining({
       title: 'Dansk QA',
       localized_titles: { da: 'Dansk QA', de: 'Deutsch QA', en: 'English QA' },
+      description: 'Dansk kort QA',
+      localized_descriptions: { da: 'Dansk kort QA', de: '', en: 'English short QA' },
     }), 'draft'));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('reopens an intentionally empty short-description draft without restoring defaults', async () => {
+    const emptyDraft = record();
+    emptyDraft.content = {
+      ...emptyDraft.content,
+      description: '',
+      localized_descriptions: { da: '', de: '', en: '' },
+    };
+    render(<MarketingConfiguratorContentEditor item={item} catalog={catalog} records={[emptyDraft]} uiLanguage="da" priceSourceLanguage="da" onClose={vi.fn()} onSaved={vi.fn()} onDraftDeleted={vi.fn()} />);
+
+    expect(await screen.findByLabelText('Kort beskrivelse Dansk')).toHaveValue('');
+    expect(screen.queryByDisplayValue(/manuel regulering/i)).not.toBeInTheDocument();
   });
 });

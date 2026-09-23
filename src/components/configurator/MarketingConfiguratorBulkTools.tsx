@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Input } from '@/components/ui/input';
 import {
   canonicalLocalizedProductTitles,
+  localizedDraftDescriptions,
   localizedDraftTitles,
   mergeMarketingConfiguratorContent,
   saveMarketingConfiguratorContent,
@@ -37,14 +38,22 @@ function catalogState(records: MarketingConfiguratorContentRecord[], item: Marke
 
 function effectiveContent(records: MarketingConfiguratorContentRecord[], item: MarketingConfiguratorCatalogItem) {
   const draft = recordFor(records, item, 'draft');
+  const source = draft?.content || recordFor(records, item, 'published')?.content;
   const canonicalTitles = canonicalLocalizedProductTitles(item.itemNumber, item.defaults.title);
   const content = mergeMarketingConfiguratorContent(
     item.defaults,
-    draft?.content || recordFor(records, item, 'published')?.content,
+    source,
     item.itemNumber,
   );
   const localizedTitles = localizedDraftTitles(draft?.content, canonicalTitles);
-  return { ...content, title: localizedTitles.da, localized_titles: localizedTitles };
+  const localizedDescriptions = localizedDraftDescriptions(source);
+  return {
+    ...content,
+    title: localizedTitles.da,
+    localized_titles: localizedTitles,
+    description: localizedDescriptions.da,
+    localized_descriptions: localizedDescriptions,
+  };
 }
 
 export default function MarketingConfiguratorBulkTools({ catalog, records, onSaved }: Props) {

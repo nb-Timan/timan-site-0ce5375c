@@ -17,6 +17,8 @@ const content = {
   ...EMPTY_CONTENT,
   title: 'Dansk canonical',
   localized_titles: { da: 'Dansk canonical', de: 'Deutsch canonical', en: 'English canonical' },
+  description: '',
+  localized_descriptions: { da: '', de: 'Deutsche Kurzbeschreibung', en: 'English short copy' },
 };
 const row = {
   id: 'content-id',

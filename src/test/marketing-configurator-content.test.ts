@@ -4,6 +4,7 @@ import {
   EMPTY_CONTENT,
   canonicalLocalizedProductTitles,
   listMarketingConfiguratorCatalog,
+  localizedDraftDescriptions,
   localizedDraftTitles,
   mergeMarketingConfiguratorContent,
   productContentKey,
@@ -40,9 +41,22 @@ describe('Marketing configurator content', () => {
       title: 'RC-1000s', description: '', key_features: ['Marketing feature'], image_url: '', video_url: 'new-video', specification_url: '', specs: [], badge: 'Ny',
     });
     expect(merged.title).toBe('RC-1000s');
-    expect(merged.description).toBe('Canonical description');
+    expect(merged.description).toBe('');
     expect(merged.key_features).toEqual(['Marketing feature']);
     expect(merged.video_url).toBe('new-video');
+  });
+
+  it('keeps localized short descriptions exact, including intentional empty values', () => {
+    const descriptions = localizedDraftDescriptions({
+      ...EMPTY_CONTENT,
+      description: 'Dansk kort tekst',
+      localized_descriptions: { da: 'Dansk kort tekst', de: '', en: 'English short copy' },
+    });
+    expect(descriptions).toEqual({ da: 'Dansk kort tekst', de: '', en: 'English short copy' });
+
+    const defaults = { ...EMPTY_CONTENT, title: 'Default title', description: 'Legacy generated copy' };
+    const explicitEmpty = { ...EMPTY_CONTENT, title: 'Draft title', description: '', localized_descriptions: { da: '', de: '', en: '' } };
+    expect(mergeMarketingConfiguratorContent(defaults, explicitEmpty).description).toBe('');
   });
 
   it('uses Product Master as the only live localized identity while preserving a Marketing draft', () => {
@@ -132,6 +146,9 @@ describe('Marketing configurator content', () => {
     expect(editor).toContain("['da', 'Dansk']");
     expect(editor).toContain("['de', 'Deutsch']");
     expect(editor).toContain("['en', 'English']");
+    expect(editor).toContain('Kort beskrivelse');
+    expect(editor).toContain('localized_descriptions');
+    expect(editor).not.toContain('Field label="Hovedinformation"');
     expect(editor).toContain('deleteMarketingConfiguratorDraftContent');
     expect(editor).toContain('Slet kladde');
     expect(editor).toContain('Den publicerede produktvisning ændres ikke.');

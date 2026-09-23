@@ -65,17 +65,34 @@ describe('published Product Master propagation', () => {
     const catalog = listMarketingConfiguratorCatalog().find(item => item.itemNumber === '725132')!;
     const content = resolveMarketingProductIdentity('725132', { ...catalog.defaults, title: `${oldTitle} Husk lad og vogn`, badge: 'Kampagne', image_url: 'https://example.invalid/image.jpg' });
     expect(content.title).toBe(title);
-    expect(content.description).toContain('Husk lad og vogn');
+    expect(content.description).toBe('');
     expect(content.badge).toBe('Kampagne');
     expect(content.image_url).toBe('https://example.invalid/image.jpg');
     const german = resolveMarketingProductIdentity('725132', { ...content, title: `${oldTitle} Husk lad og vogn` }, 'de');
     expect(german.title).toBe('CS-200 Kombi-Streuer, manuelle Regulierung');
-    expect(german.description).toContain('Husk lad og vogn');
+    expect(german.description).toBe('');
     const englishFallback = resolveMarketingProductIdentity('725132', { ...content, title: oldTitle }, 'en');
     expect(englishFallback.title).toBe(title);
     const custom = resolveMarketingProductIdentity('725132', { ...content, title: 'Independent editorial tagline' });
     expect(custom.title).toBe(title);
-    expect(custom.description).toContain('Independent editorial tagline');
+    expect(custom.description).toBe('');
+  });
+
+  it('renders localized Marketing descriptions independently and suppresses a duplicate title', () => {
+    publish();
+    const localized = resolveMarketingProductIdentity('725132', {
+      ...listMarketingConfiguratorCatalog().find(item => item.itemNumber === '725132')!.defaults,
+      title,
+      description: 'Dansk kort tekst',
+      localized_descriptions: { da: 'Dansk kort tekst', de: 'Deutsche Kurzbeschreibung', en: '' },
+    }, 'de');
+    expect(localized.description).toBe('Deutsche Kurzbeschreibung');
+
+    const duplicate = resolveMarketingProductIdentity('725132', {
+      ...localized,
+      localized_descriptions: { da: title, de: '', en: '' },
+    });
+    expect(duplicate.description).toBe('');
   });
 
   it('does not guess identity prefixes or discard unrelated editorial words', () => {
