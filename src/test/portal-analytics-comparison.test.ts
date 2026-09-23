@@ -37,6 +37,13 @@ function analytics({
       { day: "2026-09-22", active_users: visits[0] ? 1 : 0, session_count: visits[0] ? 1 : 0, visit_count: visits[0], active_seconds: 0 },
       { day: "2026-09-23", active_users: visits[1] ? 1 : 0, session_count: visits[1] ? 1 : 0, visit_count: visits[1], active_seconds: activeSeconds },
     ],
+    activity_users: [],
+    selected_period_comparison: {
+      days: 30, current_from: "", current_to: "", previous_from: "", previous_to: "",
+      current_visits: 0, previous_visits: 0, current_seconds: 0, previous_seconds: 0,
+      current_sessions: 0, previous_sessions: 0, current_users: 0, previous_users: 0,
+      current_active_days: 0, previous_active_days: 0, has_previous_data: false,
+    },
     comparisons: {
       week: { current_visits: 0, previous_visits: 0, current_seconds: 0, previous_seconds: 0 },
       month: { current_visits: 0, previous_visits: 0, current_seconds: 0, previous_seconds: 0 },
@@ -94,7 +101,7 @@ describe("portal analytics manual user comparison", () => {
     expect(page).toContain("comparisonActive");
     expect(page).toContain("<ModuleBars rows={analytics.module_usage_this_week}");
     expect(page).toContain("Sammenligning vises for op til");
-    expect(service).toContain('supabase.rpc("get_backend_user_activity_analytics_v2"');
+    expect(service).toContain('supabase.rpc("get_backend_user_activity_analytics_v3"');
     expect(service).toContain("p_module_keys: cleanModules.length ? cleanModules : null");
   });
 });

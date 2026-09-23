@@ -69,6 +69,19 @@ export interface PortalUsageComparisonPeriod {
   previous_users?: number;
   current_active_days?: number;
   previous_active_days?: number;
+  has_previous_data?: boolean;
+}
+
+export interface PortalUsageActivityUser extends PortalUsageUserOption {
+  user_key: string;
+  current_active_days: number;
+  current_active_seconds: number;
+  current_sessions: number;
+  current_visits: number;
+  previous_active_days: number;
+  previous_active_seconds: number;
+  previous_sessions: number;
+  previous_visits: number;
 }
 
 export interface PortalUsageAnalytics {
@@ -80,6 +93,14 @@ export interface PortalUsageAnalytics {
   module_usage_this_week: PortalUsageModuleSummary[];
   module_usage_last_30_days: PortalUsageModuleSummary[];
   active_days_over_time: PortalUsageDaySummary[];
+  activity_users: PortalUsageActivityUser[];
+  selected_period_comparison: PortalUsageComparisonPeriod & {
+    days: number;
+    current_from: string;
+    current_to: string;
+    previous_from: string;
+    previous_to: string;
+  };
   comparisons: {
     week: PortalUsageComparisonPeriod;
     month: PortalUsageComparisonPeriod;
@@ -156,6 +177,7 @@ function normalizeAnalytics(value: unknown): PortalUsageAnalytics {
   const week = record(comparisons.week);
   const month = record(comparisons.month);
   const lastYear = record(comparisons.same_period_last_year);
+  const selectedPeriod = record(payload.selected_period_comparison);
   const filters = record(payload.filters);
 
   return {
@@ -210,6 +232,41 @@ function normalizeAnalytics(value: unknown): PortalUsageAnalytics {
           };
         })
       : [],
+    activity_users: Array.isArray(payload.activity_users)
+      ? payload.activity_users.map((value) => {
+          const row = record(value);
+          return {
+            ...normalizeUserOption(row),
+            user_key: String(row.user_key || row.user_id || row.email || "").toLowerCase(),
+            current_active_days: num(row.current_active_days),
+            current_active_seconds: num(row.current_active_seconds),
+            current_sessions: num(row.current_sessions),
+            current_visits: num(row.current_visits),
+            previous_active_days: num(row.previous_active_days),
+            previous_active_seconds: num(row.previous_active_seconds),
+            previous_sessions: num(row.previous_sessions),
+            previous_visits: num(row.previous_visits),
+          };
+        })
+      : [],
+    selected_period_comparison: {
+      days: num(selectedPeriod.days) || num(record(payload.period).days) || 30,
+      current_from: String(selectedPeriod.current_from || record(payload.period).from || ""),
+      current_to: String(selectedPeriod.current_to || record(payload.period).to || ""),
+      previous_from: String(selectedPeriod.previous_from || ""),
+      previous_to: String(selectedPeriod.previous_to || ""),
+      current_visits: num(selectedPeriod.current_visits),
+      previous_visits: num(selectedPeriod.previous_visits),
+      current_seconds: num(selectedPeriod.current_seconds),
+      previous_seconds: num(selectedPeriod.previous_seconds),
+      current_sessions: num(selectedPeriod.current_sessions),
+      previous_sessions: num(selectedPeriod.previous_sessions),
+      current_users: num(selectedPeriod.current_users),
+      previous_users: num(selectedPeriod.previous_users),
+      current_active_days: num(selectedPeriod.current_active_days),
+      previous_active_days: num(selectedPeriod.previous_active_days),
+      has_previous_data: selectedPeriod.has_previous_data === true,
+    },
     comparisons: {
       week: {
         current_visits: num(week.current_visits), previous_visits: num(week.previous_visits),
@@ -264,7 +321,7 @@ export async function fetchPortalUsageAnalytics(filters: PortalUsageAnalyticsFil
     return out.length ? out : null;
   };
 
-  const analyticsResult = await supabase.rpc("get_backend_user_activity_analytics_v2", {
+  const analyticsResult = await supabase.rpc("get_backend_user_activity_analytics_v3", {
     p_user_keys: clean(filters.userKeys),
     p_roles: clean(filters.roles),
     p_dealer_numbers: clean(filters.dealerNumbers),
@@ -291,7 +348,7 @@ export async function fetchPortalUsageUserComparisons(
     .filter(Boolean)));
   return Promise.all(users.map(async (user) => {
     const userKey = String(user.user_id || user.email).trim().toLowerCase();
-    const result = await supabase.rpc("get_backend_user_activity_analytics_v2", {
+    const result = await supabase.rpc("get_backend_user_activity_analytics_v3", {
       p_user_keys: [userKey],
       p_roles: null,
       p_dealer_numbers: null,

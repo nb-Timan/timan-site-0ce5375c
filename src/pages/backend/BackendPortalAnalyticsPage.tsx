@@ -12,6 +12,7 @@ import {
   CalendarDays,
   CheckSquare,
   Clock3,
+  Info,
   Minus,
   MonitorUp,
   RefreshCw,
@@ -37,6 +38,11 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Tooltip as UiTooltip,
+  TooltipContent as UiTooltipContent,
+  TooltipTrigger as UiTooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { formatDateTime } from "@/lib/format-date";
@@ -68,6 +74,13 @@ import {
   PORTAL_ANALYTICS_COMPARISON_LIMIT,
   type PortalAnalyticsSeries,
 } from "@/lib/portalAnalyticsComparison";
+import {
+  calculatePortalActivityIndexes,
+  mergePortalActivityCohort,
+  takePortalActivityTopFive,
+  type PortalActivityIndexRow,
+} from "@/lib/portalAnalyticsActivityIndex";
+import { getPortalAnalyticsCopy } from "@/lib/portalAnalyticsI18n";
 
 const ALL = "__all__";
 const PERIODS = [
@@ -198,6 +211,72 @@ function KpiCard({
             {trend.text}
           </p>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function TopActivityCard({
+  rows,
+  periodDays,
+  copy,
+}: {
+  rows: PortalActivityIndexRow[];
+  periodDays: number;
+  copy: ReturnType<typeof getPortalAnalyticsCopy>;
+}) {
+  const deltaLabel = (row: PortalActivityIndexRow) => {
+    if (row.delta.state === "unavailable") return copy.unavailable;
+    if (row.delta.state === "new") return copy.newActivity;
+    if (row.delta.state === "flat") return `— ${row.delta.percent ?? 0} %`;
+    return `${row.delta.state === "up" ? "↑" : "↓"} ${Math.abs(row.delta.percent || 0)} %`;
+  };
+
+  return (
+    <Card className="min-w-0 rounded-lg">
+      <CardHeader className="space-y-1 pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-xs font-semibold uppercase tracking-wide text-slate-500">{copy.topActivity}</CardTitle>
+          <UiTooltip>
+            <UiTooltipTrigger asChild>
+              <button type="button" className="text-slate-400 hover:text-slate-700" aria-label={copy.activityIndex}>
+                <Info className="h-4 w-4" />
+              </button>
+            </UiTooltipTrigger>
+            <UiTooltipContent className="max-w-xs text-xs">{copy.explanation}</UiTooltipContent>
+          </UiTooltip>
+        </div>
+        <p className="text-xs text-slate-500">{copy.period(periodDays)}</p>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {rows.map((row, index) => (
+          <UiTooltip key={row.user_key}>
+            <UiTooltipTrigger asChild>
+              <div className="grid min-w-0 grid-cols-[1rem_minmax(0,1fr)_2rem_auto] items-center gap-1.5 text-xs">
+                <span className="text-slate-400">{index + 1}.</span>
+                <span className="truncate font-medium text-slate-800">{displayUserName(row)}</span>
+                <span className="text-right font-bold tabular-nums text-slate-950">{row.currentIndex}</span>
+                <span className={row.delta.state === "up" || row.delta.state === "new"
+                  ? "whitespace-nowrap text-emerald-700"
+                  : row.delta.state === "down"
+                    ? "whitespace-nowrap text-rose-700"
+                    : "whitespace-nowrap text-slate-500"}
+                >
+                  {deltaLabel(row)}
+                </span>
+              </div>
+            </UiTooltipTrigger>
+            <UiTooltipContent className="max-w-xs text-xs">
+              <div className="font-semibold">{copy.activityIndex}: {row.currentIndex}</div>
+              <div>{copy.previousPeriod(periodDays)}: {row.previousIndex}</div>
+              <div>{copy.activeDays}: {row.current.activeDays}</div>
+              <div>{copy.activeTime}: {formatSeconds(row.current.activeSeconds)}</div>
+              <div>{copy.sessions}: {row.current.sessions}</div>
+              <div>{copy.visits}: {row.current.visits}</div>
+            </UiTooltipContent>
+          </UiTooltip>
+        ))}
+        {rows.length === 0 && <p className="text-xs text-slate-400">{copy.noActivity}</p>}
       </CardContent>
     </Card>
   );
@@ -404,7 +483,7 @@ function SelectedUserSummary({ user }: { user: PortalUsageAnalytics["users"][num
 
 export default function BackendPortalAnalyticsPage() {
   const { appUser, loading, logout } = useAppUser();
-  const { language: lang, setLanguage } = useLanguage();
+  const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const isBackend = isBackendActor(appUser);
 
@@ -500,6 +579,31 @@ export default function BackendPortalAnalyticsPage() {
   const comparisonActive = userSelectionView === "multi"
     && !comparisonLimitExceeded
     && comparisonData.series.length === selectedUserCount;
+  const analyticsCopy = useMemo(() => getPortalAnalyticsCopy(uiLanguage), [uiLanguage]);
+  const topActivityRows = useMemo(() => {
+    if (!analytics) return [];
+    const metrics = analytics.activity_users.map((user) => ({
+      ...user,
+      current: {
+        activeDays: user.current_active_days,
+        activeSeconds: user.current_active_seconds,
+        sessions: user.current_sessions,
+        visits: user.current_visits,
+      },
+      previous: {
+        activeDays: user.previous_active_days,
+        activeSeconds: user.previous_active_seconds,
+        sessions: user.previous_sessions,
+        visits: user.previous_visits,
+      },
+    }));
+    const cohort = mergePortalActivityCohort(resolvedScope.effectiveUsers, metrics);
+    return takePortalActivityTopFive(calculatePortalActivityIndexes(
+      cohort,
+      analytics.period.days,
+      analytics.selected_period_comparison.has_previous_data === true,
+    ));
+  }, [analytics, resolvedScope.effectiveUsers]);
 
   const toggleValue = (current: string[], value: string, setter: (next: string[]) => void) => {
     setter(current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
@@ -700,34 +804,35 @@ export default function BackendPortalAnalyticsPage() {
           <div className="rounded-lg border bg-white p-8 text-center text-sm text-slate-500">Henter brugeraktivitet...</div>
         ) : (
           <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <KpiCard
                 icon={Users}
                 label="Aktive brugere"
                 value={analytics.totals.user_count}
                 sub={`Periode: ${analytics.period.days} dage`}
-                trend={formatPercentTrend(analytics.comparisons.week.current_users || 0, analytics.comparisons.week.previous_users || 0)}
+                trend={formatPercentTrend(analytics.selected_period_comparison.current_users || 0, analytics.selected_period_comparison.previous_users || 0, analyticsCopy.previousPeriod(analytics.period.days))}
               />
               <KpiCard
                 icon={MonitorUp}
                 label="Sessioner"
                 value={analytics.totals.session_count}
                 sub={`${analytics.totals.visit_count} modulbesøg`}
-                trend={formatCountTrend(analytics.comparisons.week.current_sessions || 0, analytics.comparisons.week.previous_sessions || 0, "sessioner")}
+                trend={formatCountTrend(analytics.selected_period_comparison.current_sessions || 0, analytics.selected_period_comparison.previous_sessions || 0, "sessioner", analyticsCopy.previousPeriod(analytics.period.days))}
               />
               <KpiCard
                 icon={Clock3}
                 label="Samlet aktiv tid"
                 value={formatSeconds(analytics.totals.active_seconds)}
                 sub={`Senest aktiv: ${analytics.totals.last_active_at ? formatDateTime(analytics.totals.last_active_at) : "-"}`}
-                trend={formatPercentTrend(analytics.comparisons.week.current_seconds || 0, analytics.comparisons.week.previous_seconds || 0)}
+                trend={formatPercentTrend(analytics.selected_period_comparison.current_seconds || 0, analytics.selected_period_comparison.previous_seconds || 0, analyticsCopy.previousPeriod(analytics.period.days))}
               />
               <KpiCard
                 icon={CalendarDays}
                 label="Aktive dage 7/30/90"
                 value={`${analytics.totals.active_days_7}/${analytics.totals.active_days_30}/${analytics.totals.active_days_90}`}
-                trend={formatCountTrend(analytics.comparisons.week.current_active_days || 0, analytics.comparisons.week.previous_active_days || 0, "dage")}
+                trend={formatCountTrend(analytics.selected_period_comparison.current_active_days || 0, analytics.selected_period_comparison.previous_active_days || 0, "dage", analyticsCopy.previousPeriod(analytics.period.days))}
               />
+              <TopActivityCard rows={topActivityRows} periodDays={analytics.period.days} copy={analyticsCopy} />
             </div>
 
             {showSingleUserSummary && selectedUser && <SelectedUserSummary user={selectedUser} />}
