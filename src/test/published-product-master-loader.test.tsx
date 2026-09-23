@@ -27,7 +27,7 @@ describe('Product Master loading and publishing', () => {
     rpc.mockResolvedValue({ data: [row], error: null });
     await Promise.all([loadPublishedConfiguratorPrices(), loadPublishedConfiguratorPrices()]);
     expect(rpc).toHaveBeenCalledTimes(1);
-    expect(rpc).toHaveBeenCalledWith('list_published_product_master');
+    expect(rpc).toHaveBeenCalledWith('list_published_product_master', undefined, { get: true });
     expect(publishedProduct('725132')).toMatchObject({ price_dkk: 0, price_eur: null, price_sek: 123 });
     await loadPublishedConfiguratorPrices();
     expect(rpc).toHaveBeenCalledTimes(2);

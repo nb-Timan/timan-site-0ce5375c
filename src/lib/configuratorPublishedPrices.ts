@@ -15,7 +15,8 @@ export function loadPublishedConfiguratorPrices(): Promise<number> {
 }
 
 async function fetchMaster(): Promise<number> {
-  const { data, error } = await supabase.rpc('list_published_product_master');
+  // This STABLE catalog RPC is a read, including during a persisted Academy session.
+  const { data, error } = await supabase.rpc('list_published_product_master', undefined, { get: true });
   if (error) throw error;
 
   const rows = (Array.isArray(data) ? data : [])
