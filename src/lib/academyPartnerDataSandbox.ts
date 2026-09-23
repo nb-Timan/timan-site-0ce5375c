@@ -19,6 +19,8 @@ export const ACADEMY_PARTNER_USER = {
 const KEY = 'timan.academy.partnerdata.v2';
 const DEALER_ID = 'academy-dealer-100';
 const STAMP = '2026-01-01T12:00:00.000Z';
+const ACADEMY_RELATION_EVENT_ID = 'academy-service-contract-history';
+const ACADEMY_INVOICE_EVENT_ID = 'academy-invoice-accept-history';
 type State = {
   part1Started: boolean; part2Started: boolean; activePart: 1 | 2 | null;
   dealers: DealerAccount[]; contacts: DealerContact[];
@@ -152,15 +154,27 @@ export const academyPartnerDataSandbox = {
   history(accountNumber: string): PartnerAgreementHistoryEvent[] {
     assertActive();
     if (accountNumber !== ACADEMY_PARTNER_ACCOUNT) return [];
-    return [...(read().historyEvents ?? []).filter((event) => event.dealer_account_number === accountNumber), { id: 'academy-relation-history', dealer_account_id: DEALER_ID, dealer_account_number: accountNumber,
-      event_type: 'service_partner_added', event_title: 'Academy Servicepartner',
-      event_description: 'Servicepartneren er tilknyttet Academy Maskiner. Reservedelsfakturering dokumenteres med Forhandler Accept - Fakturering.',
-      contract_id: null, upload_version_id: null, partner_relation_id: 'academy-relation', document_bucket: null, document_path: null,
-      metadata: {}, created_by_user_id: null, created_by_name: 'Academy', created_by_email: null, occurred_at: STAMP, created_at: STAMP }];
+    const timeline: PartnerAgreementHistoryEvent[] = [
+      { id: 'academy-service-relation-history', dealer_account_id: DEALER_ID, dealer_account_number: accountNumber,
+        event_type: 'service_partner_added', event_title: 'Servicepartnerrelation oprettet', event_description: 'Academy Servicepartner er tilknyttet Academy Maskiner som servicepartner.',
+        contract_id: null, upload_version_id: null, partner_relation_id: 'academy-relation', document_bucket: null, document_path: null,
+        metadata: { academy_title_key: 'academyPartnerDataHistoryRelationTitle', academy_description_key: 'academyPartnerDataHistoryRelationDescription' }, created_by_user_id: null, created_by_name: 'Academy', created_by_email: null, occurred_at: STAMP, created_at: STAMP },
+      { id: ACADEMY_RELATION_EVENT_ID, dealer_account_id: DEALER_ID, dealer_account_number: accountNumber,
+        event_type: 'contract_approved', event_title: 'Servicepartnerkontrakt accepteret', event_description: 'Servicepartneraftalen mellem Academy Maskiner og Academy Servicepartner er accepteret.',
+        contract_id: null, upload_version_id: null, partner_relation_id: 'academy-relation', document_bucket: null, document_path: null,
+        metadata: { academy_title_key: 'academyPartnerDataHistoryContractTitle', academy_description_key: 'academyPartnerDataHistoryContractDescription', academy_relation_review: true }, created_by_user_id: null, created_by_name: 'Academy', created_by_email: null, occurred_at: '2026-01-15T12:00:00.000Z', created_at: STAMP },
+      ...(read().historyEvents ?? []).filter((event) => event.dealer_account_number === accountNumber),
+    ];
+    return timeline.sort((a, b) => (a.occurred_at || a.created_at).localeCompare(b.occurred_at || b.created_at));
   },
-  reviewPartnerRelation(accountNumber: string) {
+  isAcademyRelationReviewEvent(event: PartnerAgreementHistoryEvent) {
+    return event.id === ACADEMY_RELATION_EVENT_ID && event.metadata?.academy_relation_review === true;
+  },
+  reviewPartnerRelation(accountNumber: string, eventId: string) {
     const state = read();
-    if (state.part2Started && accountNumber === ACADEMY_PARTNER_ACCOUNT) write({ ...state, relationReviewed: true });
+    if (state.part2Started && progress(state).invoiceFlowReviewed && accountNumber === ACADEMY_PARTNER_ACCOUNT && eventId === ACADEMY_RELATION_EVENT_ID) {
+      write({ ...state, relationReviewed: true });
+    }
   },
   async submitInvoice(input: PortalFormSubmissionInput): Promise<PortalFormSubmission> {
     assertActive(); const state = read();
@@ -172,6 +186,13 @@ export const academyPartnerDataSandbox = {
       dealer_name: input.dealer_name ?? null, submitted_by_user_id: 'academy-local-sales-user', submitted_by_email: 'academy.sales@localhost',
       review_status: 'pending', reviewed_at: null, reviewed_by_user_id: null, review_note: null, approved_dealer_account_id: null,
     };
-    write({ ...state, submissions: [row] }); return row;
+    const historyEvents = (state.historyEvents ?? []).filter((event) => event.id !== ACADEMY_INVOICE_EVENT_ID);
+    historyEvents.push({
+      id: ACADEMY_INVOICE_EVENT_ID, dealer_account_id: DEALER_ID, dealer_account_number: ACADEMY_PARTNER_ACCOUNT,
+      event_type: 'contract_approved', event_title: 'Fakturaaccept accepteret', event_description: 'Academy Servicepartner har accepteret fakturering gennem Academy Maskiner.',
+      contract_id: null, upload_version_id: null, partner_relation_id: 'academy-relation', document_bucket: null, document_path: null,
+      metadata: { academy_title_key: 'academyPartnerDataHistoryInvoiceTitle', academy_description_key: 'academyPartnerDataHistoryInvoiceDescription' }, created_by_user_id: 'academy-local-sales-user', created_by_name: 'Academy Sales', created_by_email: 'academy.sales@localhost', occurred_at: '2026-03-10T12:00:00.000Z', created_at: new Date().toISOString(),
+    });
+    write({ ...state, submissions: [row], historyEvents }); return row;
   },
 };

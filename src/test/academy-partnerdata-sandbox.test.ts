@@ -51,24 +51,31 @@ describe('canonical Partnerdata with a local data adapter', () => {
     expect((await repo.listDealerContacts(dealer.id))[0].name).toBe('Academy Kontakt');
   });
 
-  it('gates Part 2 and requires a validated invoice from the real form', async () => {
+  it('gates Part 2 in invoice-first order and requires an explicit agreement-history read', async () => {
     expect(() => sandbox.start(2)).toThrow('Complete Partnerdata Part 1');
     await completeProfile();
     sandbox.start(2);
-    sandbox.reviewPartnerRelation(ACADEMY_PARTNER_ACCOUNT);
+    sandbox.reviewPartnerRelation(ACADEMY_PARTNER_ACCOUNT, 'academy-service-contract-history');
     expect(sandbox.getProgress().part2Completed).toBe(false);
     await expect(sandbox.submitInvoice({ ...invoice, payload: {} })).rejects.toThrow();
     const first = await sandbox.submitInvoice(invoice);
     const retry = await sandbox.submitInvoice(invoice);
     expect(retry.id).toBe(first.id);
     expect(sandbox.getState().submissions).toHaveLength(1);
+    expect(sandbox.getProgress()).toMatchObject({ invoiceFlowReviewed: true, part2Completed: false });
+    expect(sandbox.history(ACADEMY_PARTNER_ACCOUNT).map((event) => event.event_title)).toEqual([
+      'Servicepartnerrelation oprettet',
+      'Servicepartnerkontrakt accepteret',
+      'Fakturaaccept accepteret',
+    ]);
+    sandbox.reviewPartnerRelation(ACADEMY_PARTNER_ACCOUNT, 'academy-service-contract-history');
     expect(sandbox.getProgress().part2Completed).toBe(true);
   });
 
   it('preserves both profile and invoice progress across repository re-entry', async () => {
     await completeProfile(); sandbox.start(2);
-    sandbox.reviewPartnerRelation(ACADEMY_PARTNER_ACCOUNT);
     await sandbox.submitInvoice(invoice);
+    sandbox.reviewPartnerRelation(ACADEMY_PARTNER_ACCOUNT, 'academy-service-contract-history');
     window.history.replaceState({}, '', '/academy?academy_mode=true');
     expect(sandbox.getProgress()).toMatchObject({ part1Completed: true, part2Completed: true });
     expect(sandbox.getState().dealers[0].social_youtube).toBe('https://youtube.com/@academy');

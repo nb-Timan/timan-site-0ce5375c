@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
 import { ACADEMY_PARTNER_ACCOUNT, academyPartnerDataSandbox as sandbox } from '@/lib/academyPartnerDataSandbox';
+import { ACADEMY_TRANSLATIONS } from '@/lib/i18n/academyTranslations';
 
 describe('Academy Partnerdata Part 1 guidance', () => {
   beforeEach(() => {
@@ -42,9 +43,23 @@ describe('Academy Partnerdata Part 1 guidance', () => {
 
     const { container } = render(<MemoryRouter><AcademyPartnerDataGuidance /></MemoryRouter>);
 
-    expect(screen.getByText('Punkt 1: Læs partnerrelationen')).toBeInTheDocument();
-    expect(screen.getByText('Punkt 2: Udfyld fakturaaccept')).toBeInTheDocument();
-    expect(screen.getByText('Næste punkt: Punkt 1: Læs partnerrelationen.')).toBeInTheDocument();
-    expect(container.querySelector('ol')).toHaveClass('lg:grid-cols-3');
+    expect(screen.getByText('Punkt 1: Udfyld Forhandler Accept - Fakturering')).toBeInTheDocument();
+    expect(screen.getByText('Punkt 2: Gennemgå partnerrelation og aftalehistorik')).toBeInTheDocument();
+    expect(screen.getByText('Næste punkt: Punkt 1: Udfyld Forhandler Accept - Fakturering.')).toBeInTheDocument();
+    expect(screen.getByText(/Her lærer du først at registrere en fakturaaccept/)).toBeInTheDocument();
+    expect(container.querySelector('ol')).toHaveClass('md:grid-cols-2');
+  });
+
+  it('provides the Part 2 invoice, history, and event copy in every Academy language', () => {
+    for (const locale of ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs']) {
+      const translations = ACADEMY_TRANSLATIONS[locale];
+      expect(translations.academyPartnerDataInvoice).toBeTruthy();
+      expect(translations.academyPartnerDataRelation).toBeTruthy();
+      expect(translations.academyPartnerDataPart2Why).toBeTruthy();
+      expect(translations.academyPartnerDataReadHistoryEvent).toBeTruthy();
+      expect(translations.academyPartnerDataHistoryRelationTitle).toBeTruthy();
+      expect(translations.academyPartnerDataHistoryContractTitle).toBeTruthy();
+      expect(translations.academyPartnerDataHistoryInvoiceTitle).toBeTruthy();
+    }
   });
 });

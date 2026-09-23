@@ -62,6 +62,9 @@ export default function AcademyPartnerDataGuidance() {
         <p className="font-semibold">{tr('academyWhyThisTask')}</p>
         <p className="mt-1">{tr('academyPartnerDataWhyOne')}</p>
         <p className="mt-2">{tr('academyPartnerDataWhyTwo')}</p>
+      </> : part === 2 ? <>
+        <p className="font-semibold">{tr('academyWhyThisTask')}</p>
+        <p className="mt-1">{tr('academyPartnerDataPart2Why')}</p>
       </> : undefined}
       tasks={tasks}
       steps={part === 1 ? [
@@ -74,13 +77,13 @@ export default function AcademyPartnerDataGuidance() {
           { label: tr('academyPartnerDataYoutubeSaved'), complete: progress.youtubeAdded },
         ] },
       ] : part === 2 ? [
-        { title: tr('academyPartnerDataRelation'), tasks: [{ label: tr('academyPartnerDataRelationRead'), complete: state.relationReviewed }] },
         { title: tr('academyPartnerDataInvoice'), tasks: [{ label: tr('academyPartnerDataInvoiceSaved'), complete: progress.invoiceFlowReviewed }] },
+        { title: tr('academyPartnerDataRelation'), tasks: [{ label: tr('academyPartnerDataRelationRead'), complete: state.relationReviewed }] },
       ] : undefined}
-      stepColumns={part === 1 || part === 2 ? 3 : 1}
+      stepColumns={part === 1 ? 3 : part === 2 ? 2 : 1}
       stepLabelKey={part === 1 || part === 2 ? 'academyPoint' : undefined}
       nextLabelKey={part === 1 || part === 2 ? 'academyNextPoint' : undefined}
-      next={part === 1 ? part1Next : part === 2 ? !state.relationReviewed ? point(1, tr('academyPartnerDataRelation')) : point(2, tr('academyPartnerDataInvoice')) : portalBasicsNext}
+      next={part === 1 ? part1Next : part === 2 ? !progress.invoiceFlowReviewed ? point(1, tr('academyPartnerDataInvoice')) : !state.relationReviewed ? point(2, tr('academyPartnerDataRelation')) : tr('academyPartnerDataComplete') : portalBasicsNext}
       completion={part === 1 ? { nextUnlock: tr('academyPartnerDataPart2Title') } : part === 2}
       caseId={part === 1 ? ACADEMY_PARTNERDATA_PART_1 : part === 2 ? ACADEMY_PARTNERDATA_PART_2 : undefined} />
     {part === 2 && <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to="/portal/misc/forms/dealer-invoice-accept?academy_mode=true">{tr('academyPartnerDataOpenInvoice')}</Link>}
