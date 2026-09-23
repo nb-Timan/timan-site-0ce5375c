@@ -214,6 +214,7 @@ interface UnifiedLead {
    *  "Save as lead" shortcut and still needs completion in CRM. */
   incomplete?: boolean;
   demo_registration_pending?: boolean;
+  demo_registration?: CrmLead['demo_registration'];
   shared?: boolean;
 }
 
@@ -324,6 +325,7 @@ function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
     has_demo: l.demo_has_run === 'yes',
     incomplete: l.incomplete_from_configurator === true,
     demo_registration_pending: l.demo_registration_pending === true,
+    demo_registration: l.demo_registration,
   };
 }
 
@@ -1061,9 +1063,9 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                               {tt('shared_chip', lang)}
                             </span>
                           )}
-                          {r.demo_registration_pending && (
+                          {(r.demo_registration || r.demo_registration_pending) && (
                             <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-amber-50 text-amber-800 border-amber-200">
-                              {crmDemoMissingLabel(lang)}
+                              {r.demo_registration ? demoFlowText(crmDemoProgress(r.demo_registration), lang) : crmDemoMissingLabel(lang)}
                             </span>
                           )}
                           {imageAttachments.length > 0 && (
@@ -1163,10 +1165,12 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                                     ? `/academy/crm/demo-leads/new?academy_mode=true&academy_part=${academyPart || 2}&fromLead=${encodeURIComponent(r.id)}`
                                     : `/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(r.id)}`}
                                   onClick={(e) => e.stopPropagation()}
-                                  aria-label={tt('convert_to_demo', lang)}
+                                  aria-label={repository.academy ? tt('convert_to_demo', lang) : demoFlowText('plan', lang)}
                                   className="inline-flex h-8 min-w-[58px] items-center justify-center text-center text-violet-700 hover:underline"
                                 >
-                                  <CompactConvertLabel primary={tt('convert_label', lang)} secondary={tt('to_demo_label', lang)} />
+                                  {repository.academy
+                                    ? <CompactConvertLabel primary={tt('convert_label', lang)} secondary={tt('to_demo_label', lang)} />
+                                    : <span className="text-[12px]">{demoFlowText('plan', lang)}</span>}
                                 </Link>
                               )}
                               {!repository.academy && (r.quote_id ? (
@@ -1486,3 +1490,5 @@ function WonLostDialog({
     </Dialog>
   );
 }
+import { crmDemoProgress } from '@/lib/crmDemoFlow';
+import { demoFlowText } from '@/lib/crmDemoFlowI18n';

@@ -1502,7 +1502,7 @@ export default function CrmNewLeadPage() {
         next_followup_date: nextFollowup || null,
         machine_types: machineTypes,
         next_activity: nextActivity,
-        demo_has_run: demoHasRun,
+        ...(repository.academy ? { demo_has_run: demoHasRun } : !isEdit ? { demo_has_run: 'no' as const } : {}),
         contact_type: contactType,
         customer_type: customerType,
         contact_information: contactInformation || null,
@@ -1528,7 +1528,7 @@ export default function CrmNewLeadPage() {
         savedLeadId = editId;
         toast.success(tt('updated_ok', lang));
       } else {
-        const created = await repository.createLead(payload, { requireRemote: pendingFiles.length > 0 });
+        const created = await repository.createLead({ ...payload, demo_has_run: repository.academy ? demoHasRun : 'no' }, { requireRemote: pendingFiles.length > 0 });
         savedLeadId = created.id;
         toast.success(tt('created_ok', lang));
       }
@@ -1881,6 +1881,7 @@ export default function CrmNewLeadPage() {
           </Section>
 
 
+          {repository.academy && <>
           <Section title={tt('sec_demo', lang)}>
             <Field label={tt('lbl_demo_held', lang)}>
               <div className="flex gap-2">
@@ -1907,6 +1908,7 @@ export default function CrmNewLeadPage() {
             )}
           </Section>
 
+          </>}
           <Section title={tt('sec_contact_cust', lang)}>
             <Field label={tt('lbl_contact_type', lang)} required>
               <select className={inputCls} value={contactType} onChange={e=>setContactType(e.target.value)}>
@@ -2008,9 +2010,7 @@ export default function CrmNewLeadPage() {
           </Section>
 
           {isEdit && editId && !repository.academy && (
-            <CrmLeadDemoSection leadId={editId} onStageChange={(activity, value) => {
-              setNextActivity(activity); setProbability(String(value)); setStage(deriveLegacyPipelineStage(activity));
-            }} />
+            <CrmLeadDemoSection leadId={editId} />
           )}
 
           {isEdit && editId && !repository.academy && (

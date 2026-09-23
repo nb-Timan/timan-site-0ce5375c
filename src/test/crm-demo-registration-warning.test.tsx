@@ -1,43 +1,45 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ getLead: vi.fn(), list: vi.fn(), update: vi.fn() }));
+const mocks = vi.hoisted(() => ({ list: vi.fn(), role: 'timan_seller' }));
 vi.mock('@/lib/crmLeadsService', () => ({
-  getLead: mocks.getLead, listDemoLeadsForSource: mocks.list, updateDemoLeadDate: mocks.update,
-  formatDemoNo: (no: number) => `D-${no}`,
+  listDemoLeadsForSource: mocks.list, formatDemoNo: (no: number) => `D-${no}`,
 }));
 vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ uiLanguage: 'da' }) }));
+vi.mock('@/context/AppUserContext', () => ({ useAppUser: () => ({ appUser: {} }) }));
+vi.mock('@/lib/viewAsUser', () => ({ useEffectivePortalUserState: () => ({ effectiveUser: { portal_role: mocks.role }, resolving: false }) }));
 import { CrmLeadDemoSection } from '@/components/crm/CrmLeadDemoSection';
 
-describe('demo registration completion warning', () => {
-  beforeEach(() => { vi.clearAllMocks(); mocks.list.mockResolvedValue([]); });
+describe('one canonical lead demo section', () => {
+  beforeEach(() => { vi.clearAllMocks(); mocks.list.mockResolvedValue([]); mocks.role = 'timan_seller'; });
   afterEach(cleanup);
-  it('does not warn on an ordinary requested lead', async () => {
-    mocks.getLead.mockResolvedValue({ demo_registration_pending: false });
+  it('offers one planning entry when no demo exists and does not mutate on open', async () => {
     render(<MemoryRouter><CrmLeadDemoSection leadId="lead-a" /></MemoryRouter>);
-    expect(await screen.findByText('Ingen demo er knyttet til leadet endnu.')).toBeInTheDocument();
+    expect(await screen.findByText('Ingen demo er planlagt endnu.')).toBeInTheDocument();
+    expect(screen.getByRole('link', {name:'Planlæg demo'})).toHaveAttribute('href', '/portal/crm/demo-leads/new?fromLead=lead-a');
+    expect(screen.queryByText('Konvertér til Demo Lead')).not.toBeInTheDocument();
+    expect(mocks.list).toHaveBeenCalledWith('lead-a');
+  });
+  it('shows planned summary instead of missing registration, including legacy nullable equipment', async () => {
+    mocks.list.mockResolvedValue([{id:'demo-a',demo_no:8000,demo_date:'2099-10-15',demo_equipment:null,title:'TEST'}]);
+    render(<MemoryRouter><CrmLeadDemoSection leadId="lead-a" /></MemoryRouter>);
+    expect(await screen.findByText('Demo planlagt')).toBeInTheDocument();
+    expect(screen.getByRole('link', {name:'Redigér demo'})).toHaveAttribute('href','/portal/crm/demo-leads/new?demoId=demo-a');
+    expect(screen.queryByText('Planlæg demo')).not.toBeInTheDocument();
     expect(screen.queryByText('Mangler demo-registrering')).not.toBeInTheDocument();
   });
-  it('warns for a started but unfinished registration', async () => {
-    mocks.getLead.mockResolvedValue({ demo_registration_pending: true });
+  it('a past date offers results without inventing completion', async () => {
+    mocks.list.mockResolvedValue([{id:'demo-a',demo_date:'2020-01-01',demo_equipment:[]}]);
     render(<MemoryRouter><CrmLeadDemoSection leadId="lead-a" /></MemoryRouter>);
-    expect(await screen.findByText('Mangler demo-registrering')).toBeInTheDocument();
-    expect(mocks.list).toHaveBeenCalledWith('lead-a');
-    expect(screen.getByText('Opret demo').closest('a')).toHaveAttribute('href', '/portal/crm/demo-leads/new?fromLead=lead-a');
+    expect(await screen.findByText('Afventer demo-resultat')).toBeInTheDocument();
+    expect(screen.getByRole('link',{name:'Registrér resultat'})).toHaveAttribute('href','/portal/crm/demo-leads/demo-a?result=1');
+    expect(screen.queryByText('Demo afholdt')).not.toBeInTheDocument();
   });
-  it('uses the same demo when adding a date, clears warning and updates stage without changing follow-up', async () => {
-    const demo = { id: 'demo-a', demo_no: 8000, demo_date: null, title: 'TEST' };
-    mocks.getLead.mockResolvedValueOnce({ demo_registration_pending: true })
-      .mockResolvedValueOnce({ demo_registration_pending: false, next_activity: 'Demonstration scheduled', probability: 50 });
-    mocks.list.mockResolvedValue([demo]);
-    mocks.update.mockResolvedValue({ ...demo, demo_date: '2026-10-15' });
-    const changed = vi.fn();
-    render(<MemoryRouter><CrmLeadDemoSection leadId="lead-a" onStageChange={changed} /></MemoryRouter>);
-    await screen.findByText('Mangler demo-registrering');
-    fireEvent.change(screen.getByLabelText('Demo-dato'), { target: { value: '2026-10-15' } });
-    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith('demo-a', '2026-10-15'));
-    await waitFor(() => expect(screen.queryByText('Mangler demo-registrering')).not.toBeInTheDocument());
-    expect(changed).toHaveBeenCalledWith('Demonstration scheduled', 50);
-    expect(screen.queryByText('Opret demo')).not.toBeInTheDocument();
+  it('completion is explicit and renders the saved result', async () => {
+    mocks.list.mockResolvedValue([{id:'demo-a',demo_date:'2020-01-01',completed_at:'2020-01-02',result_status:'Warm lead',demo_equipment:[]}]);
+    render(<MemoryRouter><CrmLeadDemoSection leadId="lead-a" /></MemoryRouter>);
+    expect(await screen.findByText('Demo afholdt')).toBeInTheDocument();
+    expect(screen.getByText('Interesseret lead')).toBeInTheDocument();
+    expect(screen.queryByRole('link',{name:'Planlæg demo'})).not.toBeInTheDocument();
   });
 });

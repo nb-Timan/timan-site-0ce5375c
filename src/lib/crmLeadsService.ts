@@ -303,6 +303,7 @@ export interface CrmLead {
    *  through the normal CRM edit form. */
   incomplete_from_configurator?: boolean | null;
   demo_registration_pending?: boolean;
+  demo_registration?: Pick<CrmDemoLead, 'id' | 'demo_date' | 'completed_at' | 'result_status'> | null;
   /** Read-only lifecycle signal derived from scoped configurations. */
   linked_sales_event?: CrmLinkedSalesEvent | null;
   created_at: string;
@@ -312,6 +313,8 @@ export interface CrmLead {
 export type CrmLinkedSalesEvent = "quote_sent" | "order_submitted";
 
 export interface CrmDemoLead {
+  completed_at?: string | null;
+  completed_by?: string | null;
   id: string;
   /** Stable, human-readable demo number (8000+) → displayed as D-8000.
    *  Assigned by Supabase sequence on insert (phase31 SQL). */
@@ -779,6 +782,7 @@ export interface CrmLeadsPageRow {
   incomplete?: boolean;
   demo_registration_pending?: boolean;
   shared?: boolean;
+  demo_registration?: Pick<CrmDemoLead, 'id' | 'demo_date' | 'completed_at' | 'result_status'> | null;
   quote_id?: string | null;
 }
 
@@ -1022,6 +1026,8 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
 export type NewCrmDemoLead = Omit<CrmDemoLead, "id" | "created_at">;
 
 export interface CreateCrmDemoLifecycleInput extends NewCrmDemoLead {
+  demo_id?: string | null;
+  effective_user_id?: string | null;
   update_followup?: boolean;
   /** Canonical dealer account relation used when a new lead is created. */
   dealer_account_id?: string | null;
@@ -1049,7 +1055,9 @@ export async function createCrmDemoLifecycle(
     throw new Error('Blocked: Academy CRM writes must use the local Academy sandbox.');
   }
 
-  const { data, error } = await supabase.rpc('create_crm_demo_lifecycle_with_representative', {
+  const { data, error } = await supabase.rpc('save_crm_demo_registration', {
+    p_demo_id: input.demo_id ?? null,
+    p_effective_user_id: input.effective_user_id ?? null,
     p_source_lead_id: input.source_lead_id ?? null,
     p_demo: {
       title: input.title,
@@ -1104,6 +1112,23 @@ export async function startCrmDemoRegistration(leadId: string): Promise<string |
   const { data, error } = await supabase.rpc('start_crm_demo_registration', { p_lead_id: leadId });
   if (error) throw error;
   return typeof data === 'string' ? data : null;
+}
+
+export async function getCrmDemo(id: string, ownerId?: string | null): Promise<CrmDemoLead | null> {
+  let query = supabase.from('crm_demo_leads').select('*').eq('id', id);
+  if (ownerId) query = query.eq('owner_user_id', ownerId);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data as CrmDemoLead | null;
+}
+
+export type CrmDemoResultInput = Pick<CrmDemoLead, 'interest_level' | 'wants_offer' | 'result_status' | 'probability' | 'estimated_value' | 'competitors_present' | 'competitor_name' | 'notes_after_demo' | 'followup_date'> & { update_followup: boolean };
+export async function saveCrmDemoResult(id: string, result: CrmDemoResultInput, effectiveUserId: string): Promise<CrmDemoLead> {
+  const { data, error } = await supabase.rpc('save_crm_demo_result', {
+    p_demo_id: id, p_result: result, p_effective_user_id: effectiveUserId,
+  });
+  if (error) throw error;
+  return data as unknown as CrmDemoLead;
 }
 
 /** Read linked demo records only through the existing demo RLS scope. */

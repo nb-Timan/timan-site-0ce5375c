@@ -37,7 +37,8 @@ describe('dated canonical demo registration', () => {
   it('routes scheduled selection into the same-lead form instead of persisting a dropdown status', () => {
     expect(leadForm).toContain('if (na === NEXT_ACTIVITY_DEMO_AGREED && !repository.academy)');
     expect(leadForm).toContain('/portal/crm/demo-leads/new?fromLead=${encodeURIComponent(editId)}');
-    expect(form).toContain('startCrmDemoRegistration(sourceLeadId)');
+    expect(form).not.toContain('startCrmDemoRegistration(sourceLeadId)');
+    expect(form).toContain('...EMPTY_DEMO_RESULT');
     expect(form).toContain('if (!repository.academy && !demoDate)');
     expect(form).toContain('crmDemoMissingLabel(uiLanguage)');
   });

@@ -1,176 +1,119 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { derivePortalRole } from '@/lib/portalAccess';
-import { isCrmAdmin } from '@/lib/crmScope';
+import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
-import { listDemoLeads, resolveSeedOwners, formatDemoNo, type CrmDemoLead } from '@/lib/crmLeadsService';
-import { Building2, MapPin, User, Calendar, Wrench, Gauge, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { getCrmDemo, saveCrmDemoResult, getLead, formatDemoNo, DEMO_RESULT_STATUS, type CrmDemoLead, type CrmDemoResultInput } from '@/lib/crmLeadsService';
+import { crmDemoProgress, EMPTY_DEMO_RESULT } from '@/lib/crmDemoFlow';
+import { demoFlowText, type DemoFlowTextKey } from '@/lib/crmDemoFlowI18n';
+import { toast } from 'sonner';
 
-const STATUS_CLR: Record<string, string> = {
-  'Hot lead':        'bg-rose-50 text-rose-700 border-rose-200',
-  'Warm lead':       'bg-amber-50 text-amber-800 border-amber-200',
-  'Cold lead':       'bg-sky-50 text-sky-700 border-sky-200',
-  'Offer requested': 'bg-violet-50 text-violet-700 border-violet-200',
-  Won:               'bg-emerald-50 text-emerald-700 border-emerald-200',
-  Lost:              'bg-rose-50 text-rose-700 border-rose-200',
-  'No fit':          'bg-gray-100 text-gray-700 border-gray-200',
-};
-
-function Field({ icon: Icon, label, value }: { icon: typeof Building2; label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="mt-0.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500">
-        <Icon className="h-4 w-4" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500">{label}</p>
-        <p className="text-sm text-gray-900 mt-0.5 break-words">{value || '—'}</p>
-      </div>
-    </div>
-  );
-}
-
+const input = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm';
 export default function CrmDemoLeadDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const { appUser } = useAppUser();
-  const portalRole = derivePortalRole(appUser);
-  const isAdmin = isCrmAdmin(portalRole);
-
-  const [lead, setLead] = useState<CrmDemoLead | null>(null);
+  const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
+  const { uiLanguage } = useLanguage();
+  const role = derivePortalRole(effectiveUser);
+  const text = (key: DemoFlowTextKey) => demoFlowText(key, uiLanguage);
+  const [demo, setDemo] = useState<CrmDemoLead | null>(null);
   const [loading, setLoading] = useState(true);
-  const [denied, setDenied] = useState(false);
-
+  const [saving, setSaving] = useState(false);
+  const [result, setResult] = useState<CrmDemoResultInput>({ ...EMPTY_DEMO_RESULT });
   useEffect(() => {
+    if (!id || resolving || !effectiveUser) return;
     let cancelled = false;
-    (async () => {
-      setLoading(true);
-      const sellerId = await resolveSellerId(appUser?.email);
-      const all = await listDemoLeads({});
-      const resolved = await resolveSeedOwners(all);
+    setLoading(true);
+    void (async () => {
+      const owner = await resolveSellerId(appUser?.email);
+      if (!isCrmAdmin(role) && !isScopedSeller(role)) return null;
+      if (isScopedSeller(role) && !owner) return null;
+      return getCrmDemo(id, isScopedSeller(role) ? owner : null);
+    })().then(async row => {
       if (cancelled) return;
-      const found = resolved.find(r => r.id === id) || null;
-      if (!found) { setLead(null); setLoading(false); return; }
-      const myEmail = (appUser?.email || '').toLowerCase();
-      const visible = isAdmin
-        || (sellerId && found.owner_user_id === sellerId)
-        || (myEmail && (found.owner_email || '').toLowerCase() === myEmail);
-      if (!visible) { setDenied(true); setLead(null); }
-      else setLead(found);
-      setLoading(false);
-    })();
+      setDemo(row);
+      if (row) {
+        const lead = row.source_lead_id ? await getLead(row.source_lead_id) : null;
+        if (!cancelled) setResult({
+          interest_level: row.interest_level, wants_offer: row.wants_offer, result_status: row.result_status,
+          probability: row.probability, estimated_value: row.estimated_value,
+          competitors_present: row.competitors_present, competitor_name: row.competitor_name,
+          notes_after_demo: row.notes_after_demo, followup_date: lead?.next_followup_date || null, update_followup: false,
+        });
+      }
+    }).catch(() => { if (!cancelled) setDemo(null); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [id, appUser?.email, isAdmin]);
-
-  return (
-    <CrmLayout pageTitle="Demo lead">
-      <div className="max-w-5xl mx-auto">
-        {loading ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-sm text-gray-500">Indlæser…</div>
-        ) : denied ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
-            <p className="text-sm font-medium text-gray-900">Ingen adgang</p>
-            <p className="text-xs text-gray-500 mt-1">Dette demo lead er ikke tildelt dig.</p>
+  }, [id, resolving, effectiveUser?.id, appUser?.email, role]);
+  const canEdit = !resolving && (isCrmAdmin(role) || isScopedSeller(role));
+  const progress = crmDemoProgress(demo);
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Copenhagen' });
+  const canRecord = canEdit && demo?.source_lead_id && demo.demo_date && demo.demo_date <= today && progress !== 'cancelled';
+  const editingResult = Boolean(canRecord && params.get('result'));
+  const patch = (value: Partial<CrmDemoResultInput>) => setResult(prev => ({ ...prev, ...value }));
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    if (!demo || !effectiveUser?.id || saving) return;
+    setSaving(true);
+    try {
+      setDemo(await saveCrmDemoResult(demo.id, result, effectiveUser.id));
+      setParams({}, { replace: true });
+      toast.success(text('saved'));
+    } catch (error) {
+      console.error('Demo result save failed', error);
+      toast.error(text('error'));
+    } finally { setSaving(false); }
+  }
+  const field = (key: DemoFlowTextKey, value: React.ReactNode) => <div key={key}><dt className="text-xs text-slate-500">{text(key)}</dt><dd className="whitespace-pre-wrap break-words text-sm">{value ?? '—'}</dd></div>;
+  const formField = (key: DemoFlowTextKey, children: React.ReactNode) => <label className="flex min-w-0 flex-col gap-1.5 text-sm">{text(key)}{children}</label>;
+  return <CrmLayout pageTitle={text('demo')}>
+    <div className="mx-auto max-w-5xl">
+      {loading ? <p>{text('loading')}</p> : !demo ? <p role="alert">{text('unavailable')}</p> : <>
+        <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div><p className="font-mono text-xs text-slate-500">{formatDemoNo(demo.demo_no)}</p><h2 className="text-xl font-semibold">{demo.title}</h2></div>
+          <span className="rounded-md bg-violet-50 px-3 py-1 text-sm text-violet-800">{text(progress)}</span>
+        </header>
+        <dl className="grid gap-5 border-y border-slate-200 py-5 sm:grid-cols-2 lg:grid-cols-3">
+          {field('date', demo.demo_date)}{field('machine', [demo.demo_machine, ...(demo.demo_equipment || [])].filter(Boolean).join(' · '))}
+          {field('seller', demo.owner_name)}{field('dealer', demo.dealer_company)}{field('demonstrator', demo.dealer_rep)}
+          {field('customer', demo.customer_name)}{field('address', demo.customer_address)}{field('notes', demo.notes)}
+          {field('attachments', (demo.attachments || []).map(file => file.name).join(', ') || null)}
+        </dl>
+        <div className="my-5 flex flex-wrap gap-4 text-sm font-medium text-emerald-700">
+          {demo.source_lead_id && <Link to={`/portal/crm/leads/${demo.source_lead_id}#lead-demo`}>CRM</Link>}
+          {canEdit && demo.source_lead_id && !demo.completed_at && <Link to={`/portal/crm/demo-leads/new?demoId=${demo.id}`}>{text('edit')}</Link>}
+          {canRecord && !editingResult && <button type="button" onClick={() => setParams({result: '1'})}>{text('recordResult')}</button>}
+        </div>
+        {editingResult ? <form onSubmit={save} className="border-t border-slate-200 py-5">
+          <h3 className="mb-5 font-semibold">{text('recordResult')}</h3>
+          <div className="grid gap-5 sm:grid-cols-2">
+            {formField('interest', <select required className={input} value={result.interest_level ?? ''} onChange={e => patch({interest_level: e.target.value ? Number(e.target.value) : null})}><option value="">{text('choose')}</option>{[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}</select>)}
+            {formField('wantsOffer', <select required className={input} value={result.wants_offer ?? ''} onChange={e => patch({wants_offer: (e.target.value || null) as 'yes' | 'no' | null})}><option value="">{text('choose')}</option><option value="yes">{text('yes')}</option><option value="no">{text('no')}</option></select>)}
+            {formField('followup', <input type="date" className={input} value={result.followup_date || ''} onChange={e => patch({followup_date: e.target.value || null, update_followup: true})} />)}
+            {formField('probability', <input type="number" min={0} max={100} className={input} value={result.probability ?? ''} onChange={e => patch({probability: e.target.value === '' ? null : Number(e.target.value)})} />)}
+            {formField('value', <input type="number" min={0} step="0.01" className={input} value={result.estimated_value ?? ''} onChange={e => patch({estimated_value: e.target.value === '' ? null : Number(e.target.value)})} />)}
+            {formField('competitors', <select className={input} value={result.competitors_present ?? ''} onChange={e => patch({competitors_present: (e.target.value || null) as 'yes' | 'no' | null})}><option value="">{text('choose')}</option><option value="yes">{text('yes')}</option><option value="no">{text('no')}</option></select>)}
+            {formField('result', <select required className={input} value={result.result_status ?? ''} onChange={e => patch({result_status: e.target.value || null})}><option value="">{text('choose')}</option>{DEMO_RESULT_STATUS.map(status => <option key={status} value={status}>{text(status as DemoFlowTextKey)}</option>)}</select>)}
+            {result.competitors_present === 'yes' && formField('competitorName', <input className={input} value={result.competitor_name || ''} onChange={e => patch({competitor_name: e.target.value || null})} />)}
+            {formField('notesAfter', <textarea className={input + ' min-h-28'} value={result.notes_after_demo || ''} onChange={e => patch({notes_after_demo: e.target.value || null})} />)}
           </div>
-        ) : !lead ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 text-center">
-            <p className="text-sm font-medium text-gray-900">Demo lead ikke fundet</p>
-            <p className="text-xs text-gray-500 mt-1">Posten findes ikke længere eller er blevet slettet.</p>
+          <div className="mt-5 flex justify-end gap-3">
+            <button type="button" className="px-3 py-2 text-sm" onClick={() => setParams({})}>{text('cancel')}</button>
+            <button type="submit" disabled={saving} className="rounded-md bg-emerald-800 px-4 py-2 text-sm text-white disabled:opacity-50">{saving ? text('loading') : text('save')}</button>
           </div>
-        ) : (
-          <>
-            {/* Header card */}
-            <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border bg-emerald-50 text-emerald-700 border-emerald-200">
-                      <Sparkles className="h-3 w-3 mr-1" /> Demo lead
-                    </span>
-                    <span className="font-mono text-[11px] tabular-nums text-slate-500 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
-                      {formatDemoNo(lead.demo_no)}
-                    </span>
-                    {lead.legacy_id && (
-                      <span className="text-[11px] text-gray-400 font-mono">#{lead.legacy_id}</span>
-                    )}
-                  </div>
-                  <h2 className="text-xl font-semibold text-gray-900">{lead.title}</h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {[lead.customer_name, lead.dealer_company, lead.dealer_country].filter(Boolean).join(' · ') || '—'}
-                  </p>
-                </div>
-                {lead.result_status && (
-                  <span className={cn('inline-flex text-[11px] font-medium px-2.5 py-1 rounded-md border whitespace-nowrap',
-                    STATUS_CLR[lead.result_status] || 'bg-gray-100 text-gray-700 border-gray-200')}>
-                    {lead.result_status}
-                  </span>
-                )}
-              </div>
-            </section>
-
-            {/* Body grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-              <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 lg:col-span-2">
-                <h3 className="text-[15px] font-semibold text-gray-900 mb-5">Demonstration</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <Field icon={Wrench} label="Maskine" value={lead.demo_machine} />
-                  <Field icon={Wrench} label="Udstyr" value={(lead.demo_equipment || []).join(', ') || '—'} />
-                  <Field icon={Calendar} label="Demo-dato" value={lead.demo_date} />
-                  <Field icon={Calendar} label="Næste opfølgning" value={lead.followup_date} />
-                  <Field icon={User} label="Sælger / demonstrator" value={lead.dealer_rep} />
-                  <Field icon={Building2} label="Kategori" value={(lead.machine_category || []).join(', ') || '—'} />
-                  <Field icon={Gauge} label="Interesse-niveau" value={lead.interest_level != null ? `${lead.interest_level}/5` : '—'} />
-                  <Field icon={Gauge} label="Sandsynlighed" value={lead.probability != null ? `${lead.probability}%` : '—'} />
-                </div>
-
-                {(lead.notes || lead.notes_after_demo) && (
-                  <div className="mt-6 pt-6 border-t border-gray-100">
-                    {lead.notes && (
-                      <div className="mb-4">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500 mb-1">Noter</p>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{lead.notes}</p>
-                      </div>
-                    )}
-                    {lead.notes_after_demo && (
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-gray-500 mb-1">Noter efter demo</p>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{lead.notes_after_demo}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </section>
-
-              <aside className="space-y-5">
-                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                  <h3 className="text-[15px] font-semibold text-gray-900 mb-5">Ejer</h3>
-                  <div className="space-y-4">
-                    <Field icon={User} label="Ansvarlig sælger" value={lead.owner_name || (
-                      <span className="inline-flex text-[11px] px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                        Unassigned
-                      </span>
-                    )} />
-                    {lead.owner_email && <Field icon={User} label="Email" value={lead.owner_email} />}
-                  </div>
-                </section>
-
-                <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                  <h3 className="text-[15px] font-semibold text-gray-900 mb-5">Kunde</h3>
-                  <div className="space-y-4">
-                    <Field icon={Building2} label="Kunde" value={lead.customer_name} />
-                    <Field icon={MapPin} label="Adresse" value={lead.customer_address} />
-                    <Field icon={Building2} label="Forhandler" value={lead.dealer_company} />
-                    <Field icon={MapPin} label="Land" value={lead.dealer_country} />
-                  </div>
-                </section>
-              </aside>
-            </div>
-          </>
-        )}
-      </div>
-    </CrmLayout>
-  );
+        </form> : <dl className="grid gap-5 py-5 sm:grid-cols-2">
+          {field('interest', demo.interest_level != null ? `${demo.interest_level}/5` : null)}
+          {field('wantsOffer', demo.wants_offer ? text(demo.wants_offer) : null)}
+          {field('result', demo.result_status ? text(demo.result_status as DemoFlowTextKey) || demo.result_status : null)}
+          {field('followup', result.followup_date)}{field('probability', demo.probability != null ? `${demo.probability}%` : null)}
+          {field('value', demo.estimated_value)}{field('competitors', demo.competitors_present ? text(demo.competitors_present) : null)}
+          {field('notesAfter', demo.notes_after_demo)}
+        </dl>}
+      </>}
+    </div>
+  </CrmLayout>;
 }

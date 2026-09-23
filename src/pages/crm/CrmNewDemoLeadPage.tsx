@@ -5,14 +5,15 @@ import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { Language } from '@/types/configurator';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  createCrmDemoLifecycle, formatLeadNo,
+  createCrmDemoLifecycle, getCrmDemo, listDemoLeadsForSource, formatLeadNo,
   DEMO_MACHINE_CATEGORY, DEMO_RESULT_STATUS, type CrmLeadAttachment,
 } from '@/lib/crmLeadsService';
-import { fetchDealerAccounts, type DealerAccount } from '@/lib/dealerAccountsService';
+import { fetchDealerAccounts, fetchDealerAccountsForSeller, type DealerAccount } from '@/lib/dealerAccountsService';
 import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { toast } from 'sonner';
@@ -30,7 +31,8 @@ import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 import { listSelectableDemoLeads, type DemoLeadChoice } from '@/lib/crmDemoLeadSelector';
 import { demoLinkingText } from '@/lib/crmDemoLinkingI18n';
 import { crmDemoStageLabel, crmDemoMissingLabel, crmDemoDateRequiredLabel, crmDemoRegistrationText } from '@/lib/crmDemoStageI18n';
-import { startCrmDemoRegistration } from '@/lib/crmLeadsService';
+import { demoFlowText } from '@/lib/crmDemoFlowI18n';
+import { EMPTY_DEMO_RESULT } from '@/lib/crmDemoFlow';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getDemoSelectionErrors, splitDemoMachineInterest } from '@/lib/crmDemoSelection';
 import { listDemoDealerPeople, type DemoDealerPerson } from '@/lib/crmDemoDealerPeople';
@@ -119,8 +121,228 @@ const T: Record<TKey, Record<Language, string>> = {
   from_lead_link:   { da: 'Åbn oprindeligt lead', en: 'Open original lead', de: 'Ursprünglichen Lead öffnen', it: 'Apri lead originale', hu: 'Eredeti lead megnyitása' },
 };
 
-function tt(k: TKey, lang: Language): string {
-  return T[k][lang] || T[k].en;
+const additionalCopy: Partial<Record<TKey, readonly string[]>> = {
+  "sec_basic": [
+    "Grundinformation",
+    "Informations générales",
+    "Informacje podstawowe",
+    "Základní informace"
+  ],
+  "sec_demo_type": [
+    "Demotyp",
+    "Type de démo",
+    "Typ demonstracji",
+    "Typ ukázky"
+  ],
+  "sec_demo_type_sub": [
+    "Vad ska demonstreras?",
+    "Que faut-il présenter ?",
+    "Co będzie prezentowane?",
+    "Co bude předvedeno?"
+  ],
+  "sec_files": [
+    "Bilagor",
+    "Pièces jointes",
+    "Załączniki",
+    "Přílohy"
+  ],
+  "sec_files_sub": [
+    "Bilder, dokument och anteckningar",
+    "Photos, documents et notes",
+    "Zdjęcia, dokumenty i notatki",
+    "Fotografie, dokumenty a poznámky"
+  ],
+  "lbl_title": [
+    "Titel",
+    "Titre",
+    "Tytuł",
+    "Název"
+  ],
+  "ph_title": [
+    "T.ex. Demo RC-1000s",
+    "Ex. Démo RC-1000s",
+    "Np. demonstracja RC-1000s",
+    "Např. ukázka RC-1000s"
+  ],
+  "ph_seller": [
+    "Välj säljare…",
+    "Sélectionner un commercial…",
+    "Wybierz sprzedawcę…",
+    "Vyberte prodejce…"
+  ],
+  "ph_dealer": [
+    "Välj återförsäljare…",
+    "Sélectionner un revendeur…",
+    "Wybierz dealera…",
+    "Vyberte prodejce…"
+  ],
+  "lbl_dealer": [
+    "Återförsäljare",
+    "Revendeur",
+    "Dealer",
+    "Prodejce"
+  ],
+  "lbl_customer": [
+    "Kund / kontaktuppgifter",
+    "Client / coordonnées",
+    "Klient / dane kontaktowe",
+    "Zákazník / kontaktní údaje"
+  ],
+  "lbl_customer_addr": [
+    "Kundadress",
+    "Adresse du client",
+    "Adres klienta",
+    "Adresa zákazníka"
+  ],
+  "pick_dealer_rep": [
+    "Välj kontakt…",
+    "Sélectionner un contact…",
+    "Wybierz osobę kontaktową…",
+    "Vyberte kontakt…"
+  ],
+  "search_dealer_rep": [
+    "Sök namn, initialer eller roll…",
+    "Rechercher un nom, des initiales ou un rôle…",
+    "Szukaj nazwiska, inicjałów lub roli…",
+    "Hledat jméno, iniciály nebo roli…"
+  ],
+  "manual_dealer_rep": [
+    "Ange manuellt",
+    "Saisir manuellement",
+    "Wpisz ręcznie",
+    "Zadat ručně"
+  ],
+  "known_dealer_rep": [
+    "Välj kontakt",
+    "Sélectionner un contact",
+    "Wybierz osobę kontaktową",
+    "Vybrat kontakt"
+  ],
+  "no_dealer_people": [
+    "Inga kontakter hittades",
+    "Aucun contact trouvé",
+    "Nie znaleziono kontaktów",
+    "Nenalezeny žádné kontakty"
+  ],
+  "loading_dealer_people": [
+    "Laddar kontakter…",
+    "Chargement des contacts…",
+    "Ładowanie kontaktów…",
+    "Načítání kontaktů…"
+  ],
+  "pick_files": [
+    "Välj filer",
+    "Choisir des fichiers",
+    "Wybierz pliki",
+    "Vybrat soubory"
+  ],
+  "mine_dealers": [
+    "Mina återförsäljare",
+    "Mes revendeurs",
+    "Moi dealerzy",
+    "Moji prodejci"
+  ],
+  "other_dealers": [
+    "Övriga återförsäljare",
+    "Autres revendeurs",
+    "Inni dealerzy",
+    "Ostatní prodejci"
+  ],
+  "loading_dealers": [
+    "Laddar återförsäljare…",
+    "Chargement des revendeurs…",
+    "Ładowanie dealerów…",
+    "Načítání prodejců…"
+  ],
+  "no_match": [
+    "Inga träffar",
+    "Aucun résultat",
+    "Brak wyników",
+    "Žádné výsledky"
+  ],
+  "search_dealer": [
+    "Sök återförsäljare, nummer, ort, land…",
+    "Rechercher revendeur, numéro, ville, pays…",
+    "Szukaj dealera, numeru, miasta, kraju…",
+    "Hledat prodejce, číslo, město, zemi…"
+  ],
+  "val_title": [
+    "Titel krävs",
+    "Le titre est obligatoire",
+    "Tytuł jest wymagany",
+    "Název je povinný"
+  ],
+  "val_seller": [
+    "Välj ansvarig säljare.",
+    "Sélectionnez un commercial responsable.",
+    "Wybierz odpowiedzialnego sprzedawcę.",
+    "Vyberte odpovědného prodejce."
+  ],
+  "val_dealer": [
+    "Välj återförsäljare.",
+    "Sélectionnez un revendeur.",
+    "Wybierz dealera.",
+    "Vyberte prodejce."
+  ],
+  "val_demo_type": [
+    "Välj demotyp.",
+    "Sélectionnez le type de démo.",
+    "Wybierz typ demonstracji.",
+    "Vyberte typ ukázky."
+  ],
+  "val_demo_machine": [
+    "Välj minst en maskin.",
+    "Sélectionnez au moins une machine.",
+    "Wybierz przynajmniej jedną maszynę.",
+    "Vyberte alespoň jeden stroj."
+  ],
+  "val_demo_equipment": [
+    "Välj minst ett redskap.",
+    "Sélectionnez au moins un équipement.",
+    "Wybierz przynajmniej jeden osprzęt.",
+    "Vyberte alespoň jedno příslušenství."
+  ],
+  "ph_addr": [
+    "Börja skriva adress…",
+    "Saisissez une adresse…",
+    "Wpisz adres…",
+    "Začněte psát adresu…"
+  ],
+  "from_lead_banner": [
+    "Kopplad till lead",
+    "Liée au prospect",
+    "Powiązana z leadem",
+    "Propojeno s leadem"
+  ],
+  "from_lead_link": [
+    "Öppna lead",
+    "Ouvrir le prospect",
+    "Otwórz lead",
+    "Otevřít lead"
+  ],
+  "created_err": [
+    "Det gick inte att spara demon",
+    "Impossible d’enregistrer la démo",
+    "Nie udało się zapisać demonstracji",
+    "Ukázku nelze uložit"
+  ],
+  "saving": [
+    "Sparar…",
+    "Enregistrement…",
+    "Zapisywanie…",
+    "Ukládání…"
+  ],
+  "cancel": [
+    "Avbryt",
+    "Annuler",
+    "Anuluj",
+    "Zrušit"
+  ]
+};
+
+function tt(k: TKey, lang: PortalUiLanguage): string {
+  const index = ['sv', 'fr', 'pl', 'cs'].indexOf(lang);
+  return (index >= 0 ? additionalCopy[k]?.[index] : T[k][lang as Language]) || T[k].en;
 }
 
 // ---------- Tiny shared form primitives ----------
@@ -159,7 +381,7 @@ function parseDkkEstimate(value: string): string {
   return digits ? String(Number(digits)) : '';
 }
 
-function Chips({ options, value, onChange, single }: { options: readonly string[]; value: string[]; onChange: (v: string[]) => void; single?: boolean }) {
+function Chips({ options, value, onChange, single, labels }: { options: readonly string[]; value: string[]; onChange: (v: string[]) => void; single?: boolean; labels?: Record<string, string> }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {options.map(o => {
@@ -172,7 +394,7 @@ function Chips({ options, value, onChange, single }: { options: readonly string[
             className={cn('text-[12px] px-2.5 py-1.5 rounded-lg border transition',
               active ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
                      : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50')}>
-            {o}
+            {labels?.[o] || o}
           </button>
         );
       })}
@@ -209,6 +431,10 @@ export default function CrmNewDemoLeadPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const fromLeadId = searchParams.get('fromLead') || '';
+  const editingDemoId = searchParams.get('demoId') || '';
+  const [editLoading, setEditLoading] = useState(Boolean(editingDemoId));
+  const [editUnavailable, setEditUnavailable] = useState(false);
+  const prefilledLead = useRef<string | null>(null);
   const repository = getCrmLeadRepository();
   const academyPart = searchParams.get('academy_part') === '2' ? 2 : 1;
   const portalRole = derivePortalRole(effectiveUser);
@@ -239,15 +465,15 @@ export default function CrmNewDemoLeadPage() {
   const [demoDate, setDemoDate] = useState('');
   const [missingDemoDate, setMissingDemoDate] = useState(false);
   const [followupEdited, setFollowupEdited] = useState(false);
-  const [interest, setInterest] = useState(3);
-  const [wantsOffer, setWantsOffer] = useState<'yes' | 'no'>('yes');
+  const [interest, setInterest] = useState<number | null>(repository.academy ? 3 : null);
+  const [wantsOffer, setWantsOffer] = useState<'yes' | 'no' | null>(repository.academy ? 'yes' : null);
   const [followup, setFollowup] = useState('');
   const [estValue, setEstValue] = useState('');
-  const [probability, setProbability] = useState('40');
-  const [competitorsPresent, setCompetitorsPresent] = useState<'yes' | 'no'>('no');
+  const [probability, setProbability] = useState(repository.academy ? '40' : '');
+  const [competitorsPresent, setCompetitorsPresent] = useState<'yes' | 'no' | null>(repository.academy ? 'no' : null);
   const [competitorName, setCompetitorName] = useState('');
   const [notesAfter, setNotesAfter] = useState('');
-  const [status, setStatus] = useState<string>('Warm lead');
+  const [status, setStatus] = useState<string>(repository.academy ? 'Warm lead' : '');
 
   const [files, setFiles] = useState<{ name: string; size: number }[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -259,16 +485,13 @@ export default function CrmNewDemoLeadPage() {
   const [sourceLeadNo, setSourceLeadNo] = useState<number | null>(null);
   const [linkMode, setLinkMode] = useState<'existing' | 'new'>(fromLeadId ? 'existing' : 'new');
   useEffect(() => {
-    if (!sourceLeadId || repository.academy) return;
+    if (!sourceLeadId || repository.academy || editingDemoId) return;
     let cancelled = false;
-    void startCrmDemoRegistration(sourceLeadId).then((existingDemoId) => {
-      if (!cancelled && existingDemoId) navigate(`/portal/crm/leads/${sourceLeadId}#lead-demo`);
-    }).catch((error) => {
-      console.error('Could not start scoped demo registration', error);
-      if (!cancelled) toast.error(crmDemoRegistrationText('startError', uiLanguage));
-    });
+    void listDemoLeadsForSource(sourceLeadId).then((rows) => {
+      if (!cancelled && rows[0]) navigate(`/portal/crm/demo-leads/${rows[0].id}`, { replace: true });
+    }).catch(() => toast.error(demoFlowText('error', uiLanguage)));
     return () => { cancelled = true; };
-  }, [sourceLeadId, repository.academy, navigate, uiLanguage]);
+  }, [sourceLeadId, repository.academy, editingDemoId, navigate, uiLanguage]);
   const [leadChoices, setLeadChoices] = useState<DemoLeadChoice[]>([]);
   const [leadChoicesLoading, setLeadChoicesLoading] = useState(false);
   const [leadChoicesLoaded, setLeadChoicesLoaded] = useState(false);
@@ -288,10 +511,19 @@ export default function CrmNewDemoLeadPage() {
       setSellers([getLocalAcademyBackendUser()]);
       return;
     }
+    if (resolvingEffectiveUser) return;
     let cancelled = false;
     setDealersLoading(true);
-    fetchDealerAccounts({ includeDeleted: false })
-      .then(res => { if (!cancelled) setDealers(res.rows); })
+    const dealerRequest = isScopedSeller(portalRole)
+      ? resolveSellerId(appUser?.email).then(async (id) => {
+          const { users } = await fetchBackendUsers();
+          const seller = users.find(user => user.id === id);
+          if (!seller) return { rows: [] as DealerAccount[] };
+          const result = await fetchDealerAccountsForSeller({ email: seller.email, initials: seller.initials });
+          return { rows: result.dealers.filter(dealer => !dealer.deleted_at) };
+        })
+      : fetchDealerAccounts({ includeDeleted: false });
+    dealerRequest.then(res => { if (!cancelled) setDealers(res.rows); })
       .catch(() => { /* keep empty */ })
       .finally(() => { if (!cancelled) setDealersLoading(false); });
     fetchBackendUsers()
@@ -304,7 +536,7 @@ export default function CrmNewDemoLeadPage() {
       })
       .catch(() => { /* keep empty */ });
     return () => { cancelled = true; };
-  }, [repository]);
+  }, [repository, portalRole, resolvingEffectiveUser, effectiveUser?.id, appUser?.email]);
 
   // Default responsible seller = active seller context (logged-in user, or "view as" seller).
   useEffect(() => {
@@ -313,7 +545,7 @@ export default function CrmNewDemoLeadPage() {
       setResponsibleName('Academy Sales');
       return;
     }
-    if (responsibleSellerId) return;
+    if (responsibleSellerId || fromLeadId || editingDemoId) return;
     if (!sellers.length || !appUser?.email) return;
     // resolveSellerId honours backend "view as <seller>" override.
     let cancelled = false;
@@ -329,52 +561,57 @@ export default function CrmNewDemoLeadPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [sellers, appUser?.email, responsibleSellerId, repository]);
+  }, [sellers, appUser?.email, responsibleSellerId, repository, fromLeadId, editingDemoId]);
 
-  // Phase 38 — prefill from originating lead.
+  // Hydrate once; async dealer loading must not overwrite edits.
   useEffect(() => {
-    if (!fromLeadId || !leadChoicesLoaded) return;
-    if (!leadChoices.some((lead) => lead.id === fromLeadId)) {
-      toast.error(demoLinkingText('leadUnavailable', uiLanguage));
-      return;
-    }
+    if (!fromLeadId || editingDemoId || !leadChoicesLoaded || dealersLoading || prefilledLead.current === fromLeadId) return;
+    if (!leadChoices.some((lead) => lead.id === fromLeadId)) return;
+    prefilledLead.current = fromLeadId;
+    void selectExistingLead(fromLeadId);
+  }, [fromLeadId, editingDemoId, leadChoicesLoaded, dealersLoading, leadChoices]);
+
+  useEffect(() => {
+    if (!editingDemoId || resolvingEffectiveUser || repository.academy) return;
     let cancelled = false;
-    (async () => {
-      const lead = await repository.getLead(fromLeadId);
-      if (cancelled || !lead) return;
-      setSourceLeadId(lead.id);
-      setSourceLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
-      if (!followupEdited) setFollowup(lead.next_followup_date || '');
-      setTitle(prev => prev || lead.title || '');
-      if (lead.owner_user_id) setResponsibleSellerId(prev => prev || lead.owner_user_id || '');
-      if (lead.owner_name) setResponsibleName(prev => prev || lead.owner_name || '');
-      if (lead.linked_dealer_id) {
-        const dealer = dealers.find((row) => row.id === lead.linked_dealer_id);
-        if (dealer) {
-          setDealerCompany(dealer.account_number);
-          setDealerCompanyLabel(`${dealer.company_name} · ${dealer.account_number}`);
-        }
-      }
-      if (lead.contact_information) setCustomerName(prev => prev || lead.contact_information || '');
-      if (lead.notes) setNotes(prev => prev || lead.notes || '');
-      const types = (lead.machine_types || []).filter(Boolean);
-      if (types.length) {
-        setMachineInterest(prev => prev.length ? prev : types);
-        const hasMachine = types.some(t => !t.startsWith('Equipment:') && t !== 'Equipment');
-        const hasEquipment = types.some(t => t.startsWith('Equipment:'));
-        setMachineCategory(prev => prev.length ? prev : [
-          ...(hasMachine ? ['Timan machine'] : []),
-          ...(hasEquipment ? ['Timan equipment'] : []),
-        ]);
-      }
-      if (lead.estimated_value != null) setEstValue(prev => prev || String(lead.estimated_value));
-    })();
+    void resolveSellerId(appUser?.email).then(ownerId => isScopedSeller(portalRole) && !ownerId ? null : getCrmDemo(editingDemoId, isScopedSeller(portalRole) ? ownerId : null))
+      .then(demo => {
+        if (cancelled) return;
+        if (!demo || !demo.source_lead_id || demo.completed_at) { setEditUnavailable(true); return; }
+        setSourceLeadId(demo.source_lead_id);
+        void repository.getLead(demo.source_lead_id).then(lead => {
+          if (!cancelled) setSourceLeadNo(lead?.lead_no ?? null);
+        });
+        setTitle(demo.title);
+        setResponsibleSellerId(demo.owner_user_id || '');
+        setResponsibleName(demo.owner_name || '');
+        setDealerCompanyLabel(demo.dealer_company || '');
+        setEditingDealerId(demo.dealer_account_id || '');
+        setDealerRep(demo.dealer_rep || '');
+        setDealerRepMode('manual');
+        setEditingRepresentative({ contactId: demo.dealer_rep_contact_id || null, userId: demo.dealer_rep_user_id || null });
+        setCustomerName(demo.customer_name || '');
+        setCustomerAddress(demo.customer_address || '');
+        setNotes(demo.notes || '');
+        setMachineCategory(demo.machine_category || []);
+        setMachineInterest([...(demo.demo_machine || '').split(',').map(v => v.trim()).filter(Boolean), ...(demo.demo_equipment || []).map(v => `Equipment: ${v}`)]);
+        setDemoDate(demo.demo_date || '');
+        setFiles(demo.attachments || []);
+      }).catch(() => { if (!cancelled) setEditUnavailable(true); })
+      .finally(() => { if (!cancelled) setEditLoading(false); });
     return () => { cancelled = true; };
-  }, [fromLeadId, repository, dealers, leadChoices, leadChoicesLoaded, uiLanguage, followupEdited]);
+  }, [editingDemoId, resolvingEffectiveUser, portalRole, effectiveUser?.id, appUser?.email, repository.academy]);
+
+  const [editingDealerId, setEditingDealerId] = useState('');
+  const [editingRepresentative, setEditingRepresentative] = useState<{contactId: string | null; userId: string | null}>({contactId: null, userId: null});
+  useEffect(() => {
+    const dealer = dealers.find(row => row.id === editingDealerId);
+    if (dealer) { setDealerCompany(dealer.account_number); setDealerCompanyLabel(dealer.company_name); }
+  }, [editingDealerId, dealers]);
 
   useEffect(() => {
-    setProbability(demoDate ? '50' : '40');
-  }, [demoDate]);
+    if (repository.academy) setProbability(demoDate ? '50' : '40');
+  }, [demoDate, repository.academy]);
 
   useEffect(() => {
     const scopeUser = effectiveUserRef.current;
@@ -428,14 +665,15 @@ export default function CrmNewDemoLeadPage() {
     setResponsibleSellerId(lead.owner_user_id || '');
     setResponsibleName(lead.owner_name || '');
     const dealer = dealers.find((row) => row.id === lead.linked_dealer_id);
-    if (dealer) {
-      setDealerCompany(dealer.account_number);
-      setDealerCompanyLabel(`${dealer.company_name} · ${dealer.account_number}`);
-    }
+    setDealerCompany(dealer?.account_number || '');
+    setDealerCompanyLabel(dealer ? `${dealer.company_name} · ${dealer.account_number}` : '');
+    setCustomerAddress((lead.contact_information || '').split(/\r?\n/).filter(line => /^(Adresse|Postnr\.|Land)/i.test(line)).map(line => line.replace(/^[^:]+:\s*/, '')).join(', '));
     setCustomerName(lead.contact_information || '');
     setNotes(lead.notes || '');
-    setMachineInterest(lead.machine_types || []);
-    setEstValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
+    const types = lead.machine_types || [];
+    setMachineInterest(types);
+    setMachineCategory([...(types.some(t => !t.startsWith('Equipment:')) ? ['Timan machine'] : []), ...(types.some(t => t.startsWith('Equipment:')) ? ['Timan equipment'] : [])]);
+    if (repository.academy) setEstValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
   }
 
 
@@ -457,7 +695,7 @@ export default function CrmNewDemoLeadPage() {
   }, [dealers, sellers, responsibleSellerId, appUser?.email, sellerDir]);
 
   const selectedDealer = allOptions.find(o => o.value === dealerCompany) || null;
-  const dealerTriggerLabel = selectedDealer ? selectedDealer.label : (dealerCompanyLabel || tt('ph_dealer', lang));
+  const dealerTriggerLabel = selectedDealer ? selectedDealer.label : (dealerCompanyLabel || tt('ph_dealer', uiLanguage));
   const selectedDealerAccount = dealers.find(dealer => dealer.account_number === dealerCompany) || null;
 
   useEffect(() => {
@@ -483,6 +721,7 @@ export default function CrmNewDemoLeadPage() {
       setDealerRepPerson(null);
       if (dealerRepMode === 'known') setDealerRep('');
     }
+    setEditingRepresentative({ contactId: null, userId: null });
     setDealerCompany(option.value);
     setDealerCompanyLabel(option.label);
     setPickerOpen(false);
@@ -502,15 +741,15 @@ export default function CrmNewDemoLeadPage() {
     : '';
 
   useEffect(() => {
-    setEstValue(machineEstimate.value);
-  }, [machineEstimate.value]);
+    if (repository.academy) setEstValue(machineEstimate.value);
+  }, [machineEstimate.value, repository.academy]);
 
   if (!authLoading && !resolvingEffectiveUser && !canCreate) return <Navigate to="/portal/crm" replace />;
 
   const demoSelectionErrors = getDemoSelectionErrors(machineCategory, machineInterest);
-  const errDemoType = demoSelectionErrors.demoType ? tt('val_demo_type', lang) : '';
-  const errDemoMachine = demoSelectionErrors.machine ? tt('val_demo_machine', lang) : '';
-  const errDemoEquipment = demoSelectionErrors.equipment ? tt('val_demo_equipment', lang) : '';
+  const errDemoType = demoSelectionErrors.demoType ? tt('val_demo_type', uiLanguage) : '';
+  const errDemoMachine = demoSelectionErrors.machine ? tt('val_demo_machine', uiLanguage) : '';
+  const errDemoEquipment = demoSelectionErrors.equipment ? tt('val_demo_equipment', uiLanguage) : '';
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -524,9 +763,9 @@ export default function CrmNewDemoLeadPage() {
       toast.error(crmDemoDateRequiredLabel(uiLanguage));
       return;
     }
-    if (!title.trim())        { toast.error(tt('val_title', lang)); return; }
-    if (!responsibleSellerId) { toast.error(tt('val_seller', lang)); return; }
-    if (!dealerCompany)       { toast.error(tt('val_dealer', lang)); return; }
+    if (!title.trim())        { toast.error(tt('val_title', uiLanguage)); return; }
+    if (!responsibleSellerId) { toast.error(tt('val_seller', uiLanguage)); return; }
+    if (!dealerCompany)       { toast.error(tt('val_dealer', uiLanguage)); return; }
     if (errDemoType || errDemoMachine || errDemoEquipment) {
       setShowErrors(true);
       toast.error(errDemoType || errDemoMachine || errDemoEquipment);
@@ -541,6 +780,8 @@ export default function CrmNewDemoLeadPage() {
         : chosen?.id || (await resolveSellerId(appUser?.email));
       const dealerLabel = selectedDealer?.label || dealerCompanyLabel || dealerCompany;
       const payload = {
+        demo_id: editingDemoId || null,
+        effective_user_id: effectiveUser?.id || null,
         title: title.trim(),
         owner_user_id: sellerId,
         owner_name: chosen?.name || responsibleName || null,
@@ -549,8 +790,8 @@ export default function CrmNewDemoLeadPage() {
         dealer_country: dealers.find((dealer) => dealer.account_number === dealerCompany)?.country || null,
         dealer_account_id: dealers.find((dealer) => dealer.account_number === dealerCompany)?.id || null,
         dealer_rep: dealerRep || null,
-        dealer_rep_contact_id: dealerRepPerson?.source === 'dealer_contact' ? dealerRepPerson.id : null,
-        dealer_rep_user_id: dealerRepPerson?.source === 'app_user' ? dealerRepPerson.id : null,
+        dealer_rep_contact_id: dealerRepPerson?.source === 'dealer_contact' ? dealerRepPerson.id : editingRepresentative.contactId,
+        dealer_rep_user_id: dealerRepPerson?.source === 'app_user' ? dealerRepPerson.id : editingRepresentative.userId,
         customer_name: customerName || null,
         customer_address: customerAddress || null,
         notes: notes || null,
@@ -574,30 +815,33 @@ export default function CrmNewDemoLeadPage() {
       };
       if (repository.academy) {
         await repository.createDemoLead(payload);
-        toast.success(tt('created_ok', lang));
+        toast.success(tt('created_ok', uiLanguage));
         navigate(`/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`);
         return;
       }
-      const result = await createCrmDemoLifecycle(payload);
-      toast.success(tt('created_ok', lang));
+      const result = await createCrmDemoLifecycle({ ...payload, ...EMPTY_DEMO_RESULT });
+      toast.success(demoFlowText('saved', uiLanguage));
       navigate(`/portal/crm/leads/${result.lead_id}`);
     } catch (err) {
       console.error(err);
-      toast.error(tt('created_err', lang));
+      toast.error(tt('created_err', uiLanguage));
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
     }
   }
 
+  if (editLoading) return <CrmLayout pageTitle={demoFlowText('demo', uiLanguage)}><p>{demoFlowText('loading', uiLanguage)}</p></CrmLayout>;
+  if (editUnavailable) return <CrmLayout pageTitle={demoFlowText('demo', uiLanguage)}><p role="alert">{demoFlowText('unavailable', uiLanguage)}</p></CrmLayout>;
+
   return (
-    <CrmLayout pageTitle={tt('page_title', lang)}>
+    <CrmLayout pageTitle={demoFlowText(editingDemoId ? 'edit' : 'plan', uiLanguage)}>
       <div className="max-w-5xl mx-auto">
         {repository.academy && <AcademyCrmGuidance part={academyPart} />}
         <div className="mb-5">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{tt('page_title', lang)}</h2>
-            <p className="text-sm text-gray-500 mt-0.5">{tt('page_sub', lang)}</p>
+            <h2 className="text-xl font-semibold text-gray-900">{demoFlowText(editingDemoId ? 'edit' : 'plan', uiLanguage)}</h2>
+
           </div>
         </div>
 
@@ -610,16 +854,16 @@ export default function CrmNewDemoLeadPage() {
         {sourceLeadId && (
           <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm text-violet-900">
             <span>
-              {tt('from_lead_banner', lang)}{' '}
+              {tt('from_lead_banner', uiLanguage)}{' '}
               <span className="font-mono">{formatLeadNo(sourceLeadNo)}</span>
             </span>
             <Link to={repository.academy ? `/academy/crm/leads/${sourceLeadId}?academy_mode=true&academy_part=${academyPart}` : `/portal/crm/leads/${sourceLeadId}`} className="text-xs text-violet-800 hover:underline">
-              {tt('from_lead_link', lang)} →
+              {tt('from_lead_link', uiLanguage)} →
             </Link>
           </div>
         )}
 
-        {!repository.academy && !fromLeadId && (
+        {!repository.academy && !fromLeadId && !editingDemoId && (
           <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-[15px] font-semibold text-slate-900">{demoLinkingText('title', uiLanguage)}</h3>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -689,16 +933,16 @@ export default function CrmNewDemoLeadPage() {
         )}
 
         <form onSubmit={handleSubmit}>
-          <Section title={tt('sec_basic', lang)}>
-            <Field label={tt('lbl_title', lang)} required full>
-              <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', lang)} />
+          <Section title={tt('sec_basic', uiLanguage)}>
+            <Field label={tt('lbl_title', uiLanguage)} required full>
+              <input className={inputCls} value={title} onChange={e=>setTitle(e.target.value)} placeholder={tt('ph_title', uiLanguage)} />
             </Field>
 
-            <Field label={tt('lbl_seller', lang)} required>
+            <Field label={demoFlowText('seller', uiLanguage)} required>
               <select
                 className={inputCls}
                 value={responsibleSellerId}
-                disabled={!!sourceLeadId}
+                disabled={isScopedSeller(portalRole)}
                 onChange={e => {
                   const id = e.target.value;
                   setResponsibleSellerId(id);
@@ -706,8 +950,8 @@ export default function CrmNewDemoLeadPage() {
                   setResponsibleName(s ? (s.name || s.email) : '');
                 }}
               >
-                <option value="">{tt('ph_seller', lang)}</option>
-                {sellers.map(s => (
+                <option value="">{tt('ph_seller', uiLanguage)}</option>
+                {sellers.filter(s => !isScopedSeller(portalRole) || s.id === effectiveUser?.id || s.id === responsibleSellerId).map(s => (
                   <option key={s.id} value={s.id}>
                     {s.initials ? `${s.initials} - ${s.name || s.email}` : (s.name || s.email)}
                   </option>
@@ -715,14 +959,14 @@ export default function CrmNewDemoLeadPage() {
               </select>
             </Field>
 
-            <Field label={tt('lbl_dealer', lang)} required>
+            <Field label={tt('lbl_dealer', uiLanguage)} required>
               <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
                     role="combobox"
-                    disabled={!!sourceLeadId}
+                    disabled={dealersLoading}
                     className={cn(
                       'w-full justify-between font-normal h-10 rounded-xl border-gray-200',
                       !dealerCompany && 'text-gray-400'
@@ -740,12 +984,12 @@ export default function CrmNewDemoLeadPage() {
                       return hay.includes(search.toLowerCase()) ? 1 : 0;
                     }}
                   >
-                    <CommandInput placeholder={tt('search_dealer', lang)} />
+                    <CommandInput placeholder={tt('search_dealer', uiLanguage)} />
                     <CommandList>
-                      <CommandEmpty>{dealersLoading ? tt('loading_dealers', lang) : tt('no_match', lang)}</CommandEmpty>
+                      <CommandEmpty>{dealersLoading ? tt('loading_dealers', uiLanguage) : tt('no_match', uiLanguage)}</CommandEmpty>
 
                       {mineOptions.length > 0 && (
-                        <CommandGroup heading={tt('mine_dealers', lang)}>
+                        <CommandGroup heading={tt('mine_dealers', uiLanguage)}>
                           {mineOptions.map(o => (
                             <CommandItem
                               key={o.value}
@@ -760,7 +1004,7 @@ export default function CrmNewDemoLeadPage() {
                       )}
 
                       {otherOptions.length > 0 && (
-                        <CommandGroup heading={tt('other_dealers', lang)}>
+                        <CommandGroup heading={tt('other_dealers', uiLanguage)}>
                           {otherOptions.map(o => (
                             <CommandItem
                               key={o.value}
@@ -779,13 +1023,13 @@ export default function CrmNewDemoLeadPage() {
               </Popover>
             </Field>
 
-            <Field label={tt('lbl_dealer_rep', lang)}>
+            <Field label={demoFlowText('demonstrator', uiLanguage)}>
               {dealerRepMode === 'manual' ? (
                 <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-                  <input className={inputCls} value={dealerRep} onChange={e=>setDealerRep(e.target.value)} />
+                  <input className={inputCls} value={dealerRep} onChange={e=>{ setDealerRep(e.target.value); setEditingRepresentative({contactId:null,userId:null}); }} />
                   {dealerPeople.length > 0 && (
                     <Button type="button" variant="outline" className="h-10 w-full shrink-0 rounded-xl px-3 sm:w-auto" onClick={() => { setDealerRepMode('known'); setDealerRep(''); }}>
-                      {tt('known_dealer_rep', lang)}
+                      {tt('known_dealer_rep', uiLanguage)}
                     </Button>
                   )}
                 </div>
@@ -794,7 +1038,7 @@ export default function CrmNewDemoLeadPage() {
                   <PopoverTrigger asChild>
                     <Button type="button" variant="outline" role="combobox" disabled={!selectedDealerAccount || dealerPeopleLoading} className="h-10 w-full justify-between rounded-xl border-gray-200 font-normal">
                       <span className={cn('truncate text-left', !dealerRepPerson && 'text-gray-400')}>
-                        {dealerPeopleLoading ? tt('loading_dealer_people', lang) : (dealerRepPerson?.name || tt('pick_dealer_rep', lang))}
+                        {dealerPeopleLoading ? tt('loading_dealer_people', uiLanguage) : (dealerRepPerson?.name || tt('pick_dealer_rep', uiLanguage))}
                       </span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -804,12 +1048,13 @@ export default function CrmNewDemoLeadPage() {
                       const person = dealerPeople.find(option => option.key === value);
                       return (person?.searchText || value.toLowerCase()).includes(search.toLowerCase()) ? 1 : 0;
                     }}>
-                      <CommandInput placeholder={tt('search_dealer_rep', lang)} />
+                      <CommandInput placeholder={tt('search_dealer_rep', uiLanguage)} />
                       <CommandList>
-                        <CommandEmpty>{tt('no_dealer_people', lang)}</CommandEmpty>
+                        <CommandEmpty>{tt('no_dealer_people', uiLanguage)}</CommandEmpty>
                         <CommandGroup>
                           {dealerPeople.map(person => (
                             <CommandItem key={person.key} value={person.key} onSelect={() => {
+                              setEditingRepresentative({contactId: null, userId: null});
                               setDealerRepPerson(person);
                               setDealerRep(person.name);
                               setDealerRepPickerOpen(false);
@@ -822,12 +1067,13 @@ export default function CrmNewDemoLeadPage() {
                             </CommandItem>
                           ))}
                           <CommandItem value="manual-entry" onSelect={() => {
+                            setEditingRepresentative({contactId: null, userId: null});
                             setDealerRepMode('manual');
                             setDealerRepPerson(null);
                             setDealerRep('');
                             setDealerRepPickerOpen(false);
                           }}>
-                            {tt('manual_dealer_rep', lang)}
+                            {tt('manual_dealer_rep', uiLanguage)}
                           </CommandItem>
                         </CommandGroup>
                       </CommandList>
@@ -836,32 +1082,32 @@ export default function CrmNewDemoLeadPage() {
                 </Popover>
               )}
             </Field>
-            <Field label={tt('lbl_customer', lang)}>
-              <input className={inputCls} value={customerName} onChange={e=>setCustomerName(e.target.value)} />
+            <Field label={tt('lbl_customer', uiLanguage)}>
+              <textarea className={taCls} value={customerName} onChange={e=>setCustomerName(e.target.value)} />
             </Field>
-            <Field label={tt('lbl_customer_addr', lang)} full>
-              <AddressAutocomplete className={inputCls} value={customerAddress} onChange={setCustomerAddress} placeholder={tt('ph_addr', lang)} showValidationState addressParts={{ address_line_1: customerAddress }} />
+            <Field label={tt('lbl_customer_addr', uiLanguage)} full>
+              <AddressAutocomplete className={inputCls} value={customerAddress} onChange={setCustomerAddress} placeholder={tt('ph_addr', uiLanguage)} showValidationState addressParts={{ address_line_1: customerAddress }} />
             </Field>
-            <Field label={tt('lbl_notes', lang)} full>
+            <Field label={demoFlowText('notes', uiLanguage)} full>
               <textarea className={taCls} value={notes} onChange={e=>setNotes(e.target.value)} />
             </Field>
           </Section>
 
-          <Section title={tt('sec_demo_type', lang)} subtitle={tt('sec_demo_type_sub', lang)}>
+          <Section title={tt('sec_demo_type', uiLanguage)} >
             <div className="md:col-span-2">
-              <div className="text-[12px] font-medium text-gray-700 mb-1.5">{tt('sec_demo_type', lang)} <span className="text-rose-500">*</span></div>
-              <Chips options={DEMO_MACHINE_CATEGORY} value={machineCategory} onChange={setMachineCategory} />
+              <div className="text-[12px] font-medium text-gray-700 mb-1.5">{tt('sec_demo_type', uiLanguage)} <span className="text-rose-500">*</span></div>
+              <Chips options={DEMO_MACHINE_CATEGORY} value={machineCategory} onChange={setMachineCategory} labels={Object.fromEntries(DEMO_MACHINE_CATEGORY.map(category => [category, demoFlowText(category, uiLanguage)]))} />
               {showErrors && errDemoType && <p className="mt-1.5 text-xs text-rose-600">{errDemoType}</p>}
             </div>
           </Section>
 
-          <Section title="Maskine-interesse" subtitle={`${tt('sec_demo_machine', lang)} / ${tt('sec_demo_equipment', lang)}`}>
+          <Section title={demoFlowText('machine', uiLanguage)}>
             <div className="md:col-span-2">
-              <div className="text-[12px] font-medium text-gray-700 mb-1.5">Maskine og redskaber <span className="text-rose-500">*</span></div>
+              <div className="text-[12px] font-medium text-gray-700 mb-1.5">{demoFlowText('machine', uiLanguage)} <span className="text-rose-500">*</span></div>
               <MachineInterestPicker value={machineInterest} onChange={setMachineInterest} />
               {showErrors && errDemoMachine && <p className="mt-1.5 text-xs text-rose-600">{errDemoMachine}</p>}
               {showErrors && errDemoEquipment && <p className="mt-1.5 text-xs text-rose-600">{errDemoEquipment}</p>}
-              {machineEstimate.unmappedItems.length > 0 && (
+              {repository.academy && machineEstimate.unmappedItems.length > 0 && (
                 <p className="mt-2 text-xs text-slate-500">
                   {machineEstimateNote}
                 </p>
@@ -869,11 +1115,16 @@ export default function CrmNewDemoLeadPage() {
             </div>
           </Section>
 
-          <Section title={tt('sec_demo_result', lang)}>
-            <Field label={tt('lbl_demo_date', lang)}>
+          {!repository.academy && <Section title={demoFlowText('planning', uiLanguage)}>
+            <Field label={demoFlowText('date', uiLanguage)} required>
+              <input type="date" className={inputCls} value={demoDate} onChange={e => setDemoDate(e.target.value)} />
+            </Field>
+          </Section>}
+          {repository.academy && <><Section title={tt('sec_demo_result', uiLanguage)}>
+            <Field label={tt('lbl_demo_date', uiLanguage)}>
               <input type="date" className={inputCls} value={demoDate} onChange={e=>setDemoDate(e.target.value)} />
             </Field>
-            <Field label={tt('lbl_interest', lang)}>
+            <Field label={tt('lbl_interest', uiLanguage)}>
               <div className="flex gap-2">
                 {[1,2,3,4,5].map(n => (
                   <button type="button" key={n} onClick={()=>setInterest(n)}
@@ -884,21 +1135,21 @@ export default function CrmNewDemoLeadPage() {
                 ))}
               </div>
             </Field>
-            <Field label={tt('lbl_wants_offer', lang)}>
+            <Field label={tt('lbl_wants_offer', uiLanguage)}>
               <div className="flex gap-2">
                 {(['yes','no'] as const).map(v => (
                   <button type="button" key={v} onClick={()=>setWantsOffer(v)}
                     className={cn('px-4 py-2 rounded-xl text-sm border transition',
                       wantsOffer===v ? 'bg-[#2d5a27] border-[#2d5a27] text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}>
-                    {v==='yes' ? tt('yes', lang) : tt('no', lang)}
+                    {v==='yes' ? tt('yes', uiLanguage) : tt('no', uiLanguage)}
                   </button>
                 ))}
               </div>
             </Field>
-            <Field label={tt('lbl_followup', lang)}>
+            <Field label={tt('lbl_followup', uiLanguage)}>
               <input type="date" className={inputCls} value={followup} onChange={e=>{ setFollowup(e.target.value); setFollowupEdited(true); }} />
             </Field>
-            <Field label={tt('lbl_value', lang)}>
+            <Field label={tt('lbl_value', uiLanguage)}>
               <input
                 type="text"
                 inputMode="numeric"
@@ -908,34 +1159,34 @@ export default function CrmNewDemoLeadPage() {
                 placeholder="0,-"
               />
             </Field>
-            <Field label={tt('lbl_probability', lang)}>
+            <Field label={tt('lbl_probability', uiLanguage)}>
               <input type="number" readOnly className={cn(inputCls, 'bg-gray-50 text-gray-600')} value={probability} aria-describedby="demo-probability-help" />
               <span id="demo-probability-help" className="text-xs text-gray-500">
                 {crmDemoStageLabel(demoDate ? 'agreed' : 'requested', uiLanguage)}
               </span>
             </Field>
-            <Field label={tt('lbl_competitors', lang)}>
+            <Field label={tt('lbl_competitors', uiLanguage)}>
               <div className="flex gap-2">
                 {(['yes','no'] as const).map(v => (
                   <button type="button" key={v} onClick={()=>setCompetitorsPresent(v)}
                     className={cn('px-4 py-2 rounded-xl text-sm border transition',
                       competitorsPresent===v ? 'bg-[#2d5a27] border-[#2d5a27] text-white' : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50')}>
-                    {v==='yes' ? tt('yes', lang) : tt('no', lang)}
+                    {v==='yes' ? tt('yes', uiLanguage) : tt('no', uiLanguage)}
                   </button>
                 ))}
               </div>
             </Field>
             {competitorsPresent === 'yes' && (
-              <Field label={tt('lbl_competitor_name', lang)}>
+              <Field label={tt('lbl_competitor_name', uiLanguage)}>
                 <input className={inputCls} value={competitorName} onChange={e=>setCompetitorName(e.target.value)} />
               </Field>
             )}
-            <Field label={tt('lbl_notes_after', lang)} full>
+            <Field label={tt('lbl_notes_after', uiLanguage)} full>
               <textarea className={taCls} value={notesAfter} onChange={e=>setNotesAfter(e.target.value)} />
             </Field>
           </Section>
 
-          <Section title={tt('sec_status', lang)}>
+          <Section title={tt('sec_status', uiLanguage)}>
             <div className="md:col-span-2 flex flex-wrap gap-2">
               {DEMO_RESULT_STATUS.map(s => (
                 <button type="button" key={s} onClick={()=>setStatus(s)}
@@ -947,11 +1198,12 @@ export default function CrmNewDemoLeadPage() {
             </div>
           </Section>
 
-          <Section title={tt('sec_files', lang)} subtitle={tt('sec_files_sub', lang)}>
+          </>}
+          <Section title={tt('sec_files', uiLanguage)} subtitle={tt('sec_files_sub', uiLanguage)}>
             <div className="md:col-span-2">
               <label className="flex items-center gap-2 cursor-pointer text-sm border border-dashed border-gray-300 rounded-xl px-4 py-6 justify-center hover:bg-gray-50 transition">
                 <Upload className="h-4 w-4 text-gray-500" />
-                <span className="text-gray-600">{tt('pick_files', lang)}</span>
+                <span className="text-gray-600">{tt('pick_files', uiLanguage)}</span>
                 <input type="file" multiple className="hidden" onChange={e => {
                   const list = Array.from(e.target.files || []).map(f => ({ name: f.name, size: f.size }));
                   setFiles(prev => [...prev, ...list]);
@@ -973,11 +1225,11 @@ export default function CrmNewDemoLeadPage() {
           </Section>
 
           <div className="sticky bottom-4 flex items-center justify-end gap-3 bg-white/90 backdrop-blur rounded-2xl border border-gray-100 shadow-sm p-3 mt-6">
-            <Link to="/portal/crm/demo-leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
+            <Link to="/portal/crm/demo-leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', uiLanguage)}</Link>
             <button type="submit" disabled={submitting}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />
-              {submitting ? tt('saving', lang) : tt('save', lang)}
+              {submitting ? tt('saving', uiLanguage) : demoFlowText('save', uiLanguage)}
             </button>
           </div>
         </form>

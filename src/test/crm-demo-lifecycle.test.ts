@@ -20,7 +20,8 @@ const { rpc, from, update, eq } = vi.hoisted(() => {
 
 vi.mock('@/lib/supabase', () => ({ supabase: { rpc, from } }));
 
-import { createCrmDemoLifecycle, updateDemoLeadDate } from '@/lib/crmLeadsService';
+import { createCrmDemoLifecycle, saveCrmDemoResult, updateDemoLeadDate } from '@/lib/crmLeadsService';
+import { EMPTY_DEMO_RESULT } from '@/lib/crmDemoFlow';
 import {
   deriveLegacyPipelineStage,
   effectiveLeadProbability,
@@ -39,10 +40,25 @@ const baseDemo = {
 };
 
 describe('canonical lead → demo lifecycle', () => {
+  it('records results through the same scoped demo without a create operation', async () => {
+    const result = { ...EMPTY_DEMO_RESULT, interest_level: 4, wants_offer: 'yes' as const, result_status: 'Warm lead' };
+    await saveCrmDemoResult('demo-1', result, 'seller-1');
+    expect(rpc).toHaveBeenLastCalledWith('save_crm_demo_result', {
+      p_demo_id: 'demo-1', p_result: result, p_effective_user_id: 'seller-1',
+    });
+  });
+
+  it('edits the same demo and lead with explicit effective scope', async () => {
+    await createCrmDemoLifecycle({ ...baseDemo, demo_id: 'demo-1', effective_user_id: 'seller-1' });
+    expect(rpc).toHaveBeenLastCalledWith('save_crm_demo_registration', expect.objectContaining({
+      p_demo_id: 'demo-1', p_source_lead_id: 'lead-1', p_effective_user_id: 'seller-1',
+    }));
+  });
+
   it('keeps an existing lead as the source of truth and sends its id to the atomic RPC', async () => {
     const result = await createCrmDemoLifecycle({ ...baseDemo, dealer_account_id: 'dealer-1', machine_interest: ['RC-751'] });
     expect(result).toMatchObject({ lead_id: 'lead-1', demo_id: 'demo-1', lead_no: 1048 });
-    expect(rpc).toHaveBeenCalledWith('create_crm_demo_lifecycle_with_representative', expect.objectContaining({
+    expect(rpc).toHaveBeenCalledWith('save_crm_demo_registration', expect.objectContaining({
       p_source_lead_id: 'lead-1',
       p_demo: expect.objectContaining({
         dealer_account_id: 'dealer-1',
@@ -62,7 +78,7 @@ describe('canonical lead → demo lifecycle', () => {
       dealer_rep_user_id: 'user-dvp',
       machine_interest: ['RC-751'],
     });
-    expect(rpc).toHaveBeenCalledWith('create_crm_demo_lifecycle_with_representative', expect.objectContaining({
+    expect(rpc).toHaveBeenCalledWith('save_crm_demo_registration', expect.objectContaining({
       p_demo: expect.objectContaining({
         dealer_rep: 'Dag Vilster Petersen',
         dealer_rep_contact_id: null,
