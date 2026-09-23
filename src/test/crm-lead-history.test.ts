@@ -59,14 +59,14 @@ describe('CRM lead quick notes and history', () => {
     expect(overview).toContain('<CrmLeadHistoryPanel');
     expect(overview).toContain('initialLimit={3}');
     expect(overview).toContain('notesByLeadId');
-    expect(overview).toContain("const noteActionLabel = noteCount > 0 ? `Note (${noteCount})` : 'Note';");
+    expect(overview).toContain("const noteActionLabel = noteCount > 0 ? `${crmLeadText('note', lang)} (${noteCount})` : crmLeadText('note', lang);");
     expect(overview).toContain('setNoteTarget(r)');
     expect(overview).not.toContain('setHistoryTarget(r)');
     expect(overview).not.toContain('showComposer={false}');
     expect(overview).not.toContain('NotebookPen');
     expect(detail).toContain('<CrmLeadHistoryPanel');
     expect(noteService).toContain("order('created_at', { ascending: false })");
-    expect(historyPanel).toContain('Vis hele historikken');
+    expect(historyPanel).toContain("crmLeadText('showFullHistory', uiLanguage)");
   });
 
   it('keeps at most one pinned position per lead and uses the same priority order everywhere', () => {
@@ -82,8 +82,8 @@ describe('CRM lead quick notes and history', () => {
     expect(priorityGrantMigration).toContain('to authenticated');
     expect(noteService).toContain(".order('priority_position', { ascending: true, nullsFirst: false })");
     expect(noteService).toContain('sortCrmLeadNotes');
-    expect(historyPanel).toContain('Fastgør:');
-    expect(historyPanel).toContain('Fjern');
+    expect(historyPanel).toContain("crmLeadText('pin', uiLanguage)");
+    expect(historyPanel).toContain("crmLeadText('remove', uiLanguage)");
   });
 
   it('orders priority 1/2/3 before newer unpinned notes', () => {
@@ -104,16 +104,16 @@ describe('CRM lead quick notes and history', () => {
   });
 
   it('preserves legacy lead free text without rewriting it into guessed records', () => {
-    expect(historyPanel).toContain('Tidligere noter');
-    expect(historyPanel).toContain('legacyNotes.trim()');
+    expect(historyPanel).toContain("crmLeadText('previousNotes', uiLanguage)");
+    expect(historyPanel).toContain('localizeLeadHistoryBlock(legacyNotes.trim(), uiLanguage)');
     expect(migration).not.toContain('update public.crm_leads set notes');
   });
 
   it('renders referenced note and demo authors from canonical app_users initials', () => {
     expect(noteService).toContain('created_by_user_id, activity_type, meta');
     expect(historyPanel).toContain('resolveReferencedUserInitials');
-    expect(historyPanel).toContain('authorLabel(note, userDirectory)');
-    expect(historyPanel).toContain('authorLabel(event, userDirectory)');
+    expect(historyPanel).toContain('authorLabel(note, userDirectory, uiLanguage)');
+    expect(historyPanel).toContain('authorLabel(event, userDirectory, uiLanguage)');
     expect(historyPanel).not.toContain("words.map((word) => word[0])");
   });
 });

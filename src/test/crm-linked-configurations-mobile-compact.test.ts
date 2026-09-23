@@ -2,9 +2,10 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
 const page = readFileSync('src/pages/crm/CrmNewLeadPage.tsx', 'utf8');
+const linkedStart = page.indexOf("crmLeadText('linkedTitle', uiLanguage)");
 const linkedConfigurations = page.slice(
-  page.indexOf("Linkede konfigurationer / tilbud"),
-  page.indexOf('{isEdit && editId && ('),
+  linkedStart,
+  page.indexOf("crmLeadText('shareTitle', uiLanguage)", linkedStart),
 );
 
 describe('CRM linked configurations mobile compact layout', () => {
@@ -13,8 +14,8 @@ describe('CRM linked configurations mobile compact layout', () => {
     expect(linkedConfigurations).toContain('{documentNumber}');
     expect(linkedConfigurations).toContain('{kindLabel}');
     expect(linkedConfigurations).toContain('{q.title || dealer}');
-    expect(linkedConfigurations).toContain("toLocaleDateString('da-DK')");
-    expect(linkedConfigurations).toContain('Synkronisér fra ${documentNumber}');
+    expect(linkedConfigurations).toContain('toLocaleDateString(crmLeadLocale(uiLanguage))');
+    expect(linkedConfigurations).toContain("`${crmLeadText('syncFrom', uiLanguage)} ${documentNumber}`");
     expect(linkedConfigurations).toContain('getCrmConfigurationDeepLink(q)');
   });
 

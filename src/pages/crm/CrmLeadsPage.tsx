@@ -5,6 +5,7 @@ import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { crmDemoMissingLabel } from '@/lib/crmDemoStageI18n';
+import { crmLeadText } from '@/lib/crmLeadI18n';
 import { Language } from '@/types/configurator';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -533,7 +534,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       navigate(`/configurator?fromLeadQuote=${encodeURIComponent(leadId)}`);
     } catch (e) {
       console.error(e);
-      toast.error(lang === 'da' ? 'Kunne ikke konvertere leadet til tilbud' : 'Could not convert lead to quote');
+      toast.error(crmLeadText('quoteConversionError', lang));
       setQuoteConvertBusyId(null);
     }
   }
@@ -616,13 +617,13 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
         setPageResult(result);
       } catch (err) {
         console.error('[CRM Leads] page query failed:', err);
-        toast.error(lang === 'da' ? 'Kunne ikke hente leads' : 'Could not load leads');
+        toast.error(crmLeadText('leadLoadError', lang));
         setPageResult(null);
       }
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appUser?.email, effectiveSellerEmail, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, machineFilter, equipmentFilter, ownerFilter, ownerOptions.primarySellerIds, page, portalRole, q, reloadKey, repository, sort, stage, tab, typeFilter]);
+  }, [appUser?.email, effectiveSellerEmail, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, lang, machineFilter, equipmentFilter, ownerFilter, ownerOptions.primarySellerIds, page, portalRole, q, reloadKey, repository, sort, stage, tab, typeFilter]);
 
   useEffect(() => {
     setPage(0);
@@ -1037,7 +1038,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                   const followupTone = getFollowupTone(r.next_followup);
                   const canActOnOpenLead = r.type === 'open' && isOpenRow(r);
                   const noteCount = notesByLeadId[r.id]?.length ?? 0;
-                  const noteActionLabel = noteCount > 0 ? `Note (${noteCount})` : 'Note';
+                  const noteActionLabel = noteCount > 0 ? `${crmLeadText('note', lang)} (${noteCount})` : crmLeadText('note', lang);
                   return (
                     <tr key={`${r.type}-${r.id}`}
                       onClick={() => { if (r.detail_href) navigate(r.detail_href); }}
@@ -1146,7 +1147,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                           {r.type === 'open' && !repository.academy && (
                             <button
                               type="button"
-                              title={noteCount > 0 ? `Tilføj eller vis ${noteCount} noter` : 'Tilføj note'}
+                              title={noteCount > 0 ? `${crmLeadText('addNote', lang)} · ${noteCount} ${crmLeadText('notesCount', lang)}` : crmLeadText('addNote', lang)}
                               aria-label={`${noteActionLabel} for ${r.display_no}`}
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -1296,7 +1297,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       <Dialog open={!!noteTarget} onOpenChange={(open) => { if (!open) setNoteTarget(null); }}>
         <DialogContent className="max-h-[86vh] w-[calc(100vw-2rem)] max-w-5xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Tilføj note – {noteTarget?.display_no}</DialogTitle>
+            <DialogTitle>{crmLeadText('addNote', lang)} – {noteTarget?.display_no}</DialogTitle>
           </DialogHeader>
           {noteTarget && (
             <CrmLeadHistoryPanel

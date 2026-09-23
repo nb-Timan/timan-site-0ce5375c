@@ -129,7 +129,7 @@ describe('CRM Quick Note follow-up and calendar flow', () => {
 
   it('uses the shared fields in both overview and detail without changing note history', () => {
     expect(panel).toContain('<CrmLeadFollowupFields');
-    expect(panel).toContain('Tilføj denne opfølgning til kalender');
+    expect(panel).toContain("crmLeadText('addFollowupToCalendar', uiLanguage)");
     expect(panel).toContain('pendingNoteIdRef');
     expect(panel).toContain('sortCrmLeadNotes');
     expect(panel).toContain('setCrmLeadNotePriority');

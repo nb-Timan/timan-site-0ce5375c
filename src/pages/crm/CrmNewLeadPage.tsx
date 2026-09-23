@@ -5,7 +5,7 @@ import CrmLayout from '@/components/crm/CrmLayout';
 import { CrmLeadFollowupFields } from '@/components/crm/CrmLeadFollowupFields';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
-import { Language } from '@/types/configurator';
+import { Accessory, Language } from '@/types/configurator';
 import { convertCurrency, formatMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -70,6 +70,10 @@ import { CrmLeadDemoSection } from '@/components/crm/CrmLeadDemoSection';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { crmNextActivityLabel, crmDemoRegistrationText, NEXT_ACTIVITY_DEMO_AGREED, normalizeDemoActivity } from '@/lib/crmDemoStageI18n';
+import { crmLeadActivityLabel, crmLeadChoiceLabel, crmLeadEquipmentGroupLabel, crmLeadLocale, crmLeadStatusLabel, crmLeadText } from '@/lib/crmLeadI18n';
+import { mapUiLanguageToLegacy, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { formatCountry } from '@/lib/formatCountry';
+import { ACCESSORIES } from '@/data/machines';
 import {
   getMissingCrmLeadFields,
   importedChoiceValue,
@@ -339,6 +343,7 @@ function SmartDateField({
   full?: boolean;
   error?: string;
 }) {
+  const { uiLanguage } = useLanguage();
   const [open, setOpen] = useState(false);
   const selectedDate = parseLocalIsoDate(value);
   const today = toLocalIsoDate(new Date());
@@ -412,7 +417,7 @@ function SmartDateField({
                 setOpen(false);
               }}
             >
-              Ryd
+              {crmLeadText('clear', uiLanguage)}
             </Button>
             <Button
               type="button"
@@ -424,7 +429,7 @@ function SmartDateField({
                 setOpen(false);
               }}
             >
-              I dag
+              {crmLeadText('today', uiLanguage)}
             </Button>
           </div>
         </PopoverContent>
@@ -590,7 +595,22 @@ function equipmentValue(machine: string, item: string, group?: string): string {
   return group ? `Equipment: ${machine} - ${group} - ${item}` : `Equipment: ${machine} - ${item}`;
 }
 
-function MachineInterestPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+function localizedCatalogProductLabel(label: string, language: PortalUiLanguage): string {
+  const legacyLanguage = mapUiLanguageToLegacy(language);
+  const queue = Object.values(ACCESSORIES).flat() as Accessory[];
+  while (queue.length > 0) {
+    const item = queue.shift();
+    if (!item) continue;
+    if (item.subItems?.length) queue.push(...item.subItems as Accessory[]);
+    const names = typeof item.name === 'string' ? { da: item.name } : item.name;
+    const canonicalDanish = names?.da || names?.en || '';
+    if (canonicalDanish.trim().toLocaleLowerCase('da-DK') !== label.trim().toLocaleLowerCase('da-DK')) continue;
+    return names?.[legacyLanguage] || names?.en || canonicalDanish || label;
+  }
+  return label;
+}
+
+function MachineInterestPicker({ value, onChange, language }: { value: string[]; onChange: (v: string[]) => void; language: PortalUiLanguage }) {
   const toggleValue = (item: string) => {
     onChange(value.includes(item) ? value.filter(v => v !== item) : [...value, item]);
   };
@@ -639,14 +659,14 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
                 active ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
                        : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50')}
             >
-              {entry.label}
+              {crmLeadEquipmentGroupLabel(entry.label, language)}
             </button>
           );
         })}
       </div>
 
       <details className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-3" open={hasSelectedEquipmentContext}>
-        <summary className="cursor-pointer text-sm font-semibold text-emerald-900">Redskaber under maskiner</summary>
+        <summary className="cursor-pointer text-sm font-semibold text-emerald-900">{crmLeadText('equipmentUnderMachines', language)}</summary>
         <div className="mt-3 grid gap-3 lg:grid-cols-2">
           {MACHINE_INTEREST_EQUIPMENT.map(group => (
             <div key={group.machine} className={equipmentGroupClass(isEquipmentGroupActive(group.machine))}>
@@ -655,13 +675,13 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
                 <div className="space-y-3">
                   {group.groups.map(sub => (
                     <div key={sub.title} className="space-y-2">
-                      <div className="rounded-md bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{sub.title}</div>
+                      <div className="rounded-md bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{crmLeadEquipmentGroupLabel(sub.title, language)}</div>
                       {sub.items.map(item => {
                         const val = equipmentValue(group.machine, item, sub.title);
                         return (
                           <label key={val} className="flex items-start gap-2 text-sm text-slate-700">
                             <input type="checkbox" checked={value.includes(val)} onChange={() => toggleValue(val)} className="mt-0.5 h-4 w-4 accent-emerald-700" />
-                            <span>{item}</span>
+                            <span>{localizedCatalogProductLabel(item, language)}</span>
                           </label>
                         );
                       })}
@@ -675,7 +695,7 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
                     return (
                       <label key={val} className="flex items-start gap-2 text-sm text-slate-700">
                         <input type="checkbox" checked={value.includes(val)} onChange={() => toggleValue(val)} className="mt-0.5 h-4 w-4 accent-emerald-700" />
-                        <span>{item}</span>
+                        <span>{localizedCatalogProductLabel(item, language)}</span>
                       </label>
                     );
                   })}
@@ -688,7 +708,7 @@ function MachineInterestPicker({ value, onChange }: { value: string[]; onChange:
 
       {otherSelected.length > 0 && (
         <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
-          <div className="mb-2 text-xs font-bold text-amber-900">Andre valgte CRM-interesser</div>
+          <div className="mb-2 text-xs font-bold text-amber-900">{crmLeadText('otherInterests', language)}</div>
           <MultiChip options={otherSelected} value={value} onChange={onChange} />
         </div>
       )}
@@ -993,11 +1013,11 @@ export default function CrmNewLeadPage() {
       setMachineTypesChanged(false);
       const refreshed = await listConfigurationsForLead(editId);
       setLinkedQuotes(refreshed.rows);
-      toast.success(lang === 'da' ? 'Lead synkroniseret' : 'Lead synchronized', {
+      toast.success(crmLeadText('syncSuccess', uiLanguage), {
         description: result.configurationNumber || configurationId,
       });
     } catch (err) {
-      toast.error(lang === 'da' ? 'Kunne ikke synkronisere lead' : 'Could not synchronize lead', {
+      toast.error(crmLeadText('syncError', uiLanguage), {
         description: err instanceof Error ? err.message : String(err),
       });
     } finally {
@@ -1064,21 +1084,21 @@ export default function CrmNewLeadPage() {
   }, [contactMode, selectedDealerAccount?.id, selectedDealerContactId]);
 
   const firstContactQuickOptions: DateQuickOption[] = [
-    { label: '-1 dag', value: addDaysToIsoDate(today, -1) },
-    { label: 'I dag', value: today },
-    { label: '+1 dag', value: addDaysToIsoDate(today, 1) },
+    { label: crmLeadText('oneDayAgo', uiLanguage), value: addDaysToIsoDate(today, -1) },
+    { label: crmLeadText('today', uiLanguage), value: today },
+    { label: crmLeadText('inOneDay', uiLanguage), value: addDaysToIsoDate(today, 1) },
   ];
   const relativeDateBase = firstContact || today;
   const relativeDateQuickOptions: DateQuickOption[] = [
-    { label: '+1 uge', value: addDaysToIsoDate(relativeDateBase, 7) },
-    { label: '+1 måned', value: addMonthsToIsoDate(relativeDateBase, 1) },
-    { label: '+3 måneder', value: addMonthsToIsoDate(relativeDateBase, 3) },
-    { label: '+6 måneder', value: addMonthsToIsoDate(relativeDateBase, 6) },
+    { label: crmLeadText('oneWeek', uiLanguage), value: addDaysToIsoDate(relativeDateBase, 7) },
+    { label: crmLeadText('oneMonth', uiLanguage), value: addMonthsToIsoDate(relativeDateBase, 1) },
+    { label: crmLeadText('threeMonths', uiLanguage), value: addMonthsToIsoDate(relativeDateBase, 3) },
+    { label: crmLeadText('sixMonths', uiLanguage), value: addMonthsToIsoDate(relativeDateBase, 6) },
   ];
 
   const isLost = nextActivity === NEXT_ACTIVITY_LOST || stage === 'Lost';
   const shareDirection = isInternal ? 'timan_to_dealer' : 'dealer_to_timan';
-  const shareButtonLabel = isInternal ? 'Del med forhandler' : 'Del med Timan';
+  const shareButtonLabel = crmLeadText(isInternal ? 'shareWithDealer' : 'shareWithTiman', uiLanguage);
   const selectedShareTarget = shareTargets.find((target) => target.id === shareTargetId) || null;
 
   const machineEstimate = useMemo(() => {
@@ -1318,9 +1338,7 @@ export default function CrmNewLeadPage() {
       setShareTargets(targets);
       setShareTargetId(targets[0]?.id || '');
       if (targets.length === 0) {
-        setShareError(isInternal
-          ? 'Der er ingen aktive brugere på den valgte forhandler.'
-          : 'Der er ikke fundet en ansvarlig Timan-sælger på forhandleren.');
+        setShareError(crmLeadText(isInternal ? 'shareNoDealerUsers' : 'shareNoSeller', uiLanguage));
       }
       setShareLoading(false);
     })().catch(() => {
@@ -1329,7 +1347,7 @@ export default function CrmNewLeadPage() {
       setShareLoading(false);
     });
     return () => { cancelled = true; };
-  }, [shareDialogOpen, linkedDealer, isInternal, repository]);
+  }, [shareDialogOpen, linkedDealer, isInternal, repository, uiLanguage]);
 
   async function handleShareLead() {
     if (!editId || !selectedShareTarget) return;
@@ -1348,7 +1366,7 @@ export default function CrmNewLeadPage() {
       const rows = await repository.listLeadShares(editId);
       setLeadShares(rows.some((row) => row.id === saved.id) ? rows : [saved, ...rows]);
       setShareDialogOpen(false);
-      toast.success(includeEmail ? 'Lead delt. Mail åbnes nu.' : 'Lead delt i portalen.');
+      toast.success(crmLeadText(includeEmail ? 'shareEmailSuccess' : 'shareSuccess', uiLanguage));
       if (includeEmail && selectedShareTarget.email) {
         const leadTitle = title || (editLeadNo != null ? formatLeadNo(editLeadNo) : 'Lead');
         window.location.href = leadShareMailto({
@@ -1624,7 +1642,7 @@ export default function CrmNewLeadPage() {
                     .sort((a, b) => nextActivityToProbability(a) - nextActivityToProbability(b)),
                   nextActivity,
                 ].filter(Boolean))]}
-                activityLabel={(activity) => crmNextActivityLabel(activity, uiLanguage)}
+                  activityLabel={(activity) => crmLeadActivityLabel(crmNextActivityLabel(activity, uiLanguage), uiLanguage)}
                 required
                 renderFollowup={() => <SmartDateField
                   label={tt('lbl_next_followup', lang)}
@@ -1639,12 +1657,12 @@ export default function CrmNewLeadPage() {
               {fieldError('nextActivity') && <p className="mt-2 text-[11px] font-medium text-rose-600">{tt('lbl_next_activity', lang)}: {fieldError('nextActivity')}</p>}
               {linkedSalesEvent && (
                 <p className="mt-2 text-xs font-medium text-emerald-800">
-                  {lang === 'da' ? 'Aktuel salgsstatus' : 'Current sales status'}: {effectiveLeadStatus({
+                  {crmLeadText('currentSalesStatus', uiLanguage)}: {crmLeadStatusLabel(effectiveLeadStatus({
                     next_activity: nextActivity,
                     pipeline_stage: stage,
                     probability: Number(probability) || null,
                     linked_sales_event: linkedSalesEvent,
-                  })} · {effectiveLeadProbability({
+                  }), uiLanguage)} · {effectiveLeadProbability({
                     next_activity: nextActivity,
                     pipeline_stage: stage,
                     probability: Number(probability) || null,
@@ -1796,7 +1814,7 @@ export default function CrmNewLeadPage() {
           <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)} required>
             <div className="md:col-span-2">
               <div className={cn('rounded-xl', fieldError('machineTypes') && 'ring-2 ring-rose-300 ring-offset-2')}>
-                <MachineInterestPicker value={machineTypes} onChange={handleMachineTypesChange} />
+                <MachineInterestPicker value={machineTypes} onChange={handleMachineTypesChange} language={uiLanguage} />
               </div>
               {fieldError('machineTypes') && (
                 <p className="mt-2 text-[11px] font-medium text-rose-600">{fieldError('machineTypes')}</p>
@@ -1842,13 +1860,13 @@ export default function CrmNewLeadPage() {
             <Field label={tt('lbl_contact_type', lang)} required error={fieldError('contactType')}>
               <select className={requiredInputClass('contactType')} value={contactType} onChange={e=>setContactType(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
-                {CONTACT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                {CONTACT_TYPE_OPTIONS.map(o => <option key={o} value={o}>{crmLeadChoiceLabel(o, uiLanguage)}</option>)}
               </select>
             </Field>
             <Field label={tt('lbl_customer_type', lang)} required error={fieldError('customerType')}>
               <select className={requiredInputClass('customerType')} value={customerType} onChange={e=>setCustomerType(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
-                {CUSTOMER_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                {CUSTOMER_TYPE_OPTIONS.map(o => <option key={o} value={o}>{crmLeadChoiceLabel(o, uiLanguage)}</option>)}
               </select>
             </Field>
           </Section>
@@ -1859,7 +1877,7 @@ export default function CrmNewLeadPage() {
                 <select className={requiredInputClass('tradeFair')} value={tradeFairChoice} onChange={e=>handleTradeFairChoiceChange(e.target.value)}>
                   <option value="">{tt('pick', lang)}</option>
                   {TRADE_FAIR_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value}>{option.value}</option>
+                    <option key={option.value} value={option.value}>{crmLeadChoiceLabel(option.value, uiLanguage)}</option>
                   ))}
                 </select>
               </Field>
@@ -1867,7 +1885,7 @@ export default function CrmNewLeadPage() {
                 <select className={requiredInputClass('country')} value={countryChoice} onChange={e=>handleCountryChoiceChange(e.target.value as (typeof COUNTRY_OPTIONS)[number])}>
                   <option value="">{tt('pick', lang)}</option>
                   {COUNTRY_OPTIONS.map(option => (
-                    <option key={option} value={option}>{option}</option>
+                    <option key={option} value={option}>{option === 'Other' ? crmLeadText('other', uiLanguage) : formatCountry(option, lang)}</option>
                   ))}
                 </select>
               </Field>
@@ -1975,7 +1993,7 @@ export default function CrmNewLeadPage() {
                 <Field label={tt('lbl_lost_to', lang)}>
                   <select className={inputCls} value={lostCompetitor} onChange={e=>setLostCompetitor(e.target.value)}>
                     <option value="">{tt('pick', lang)}</option>
-                    {LOST_COMPETITOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    {LOST_COMPETITOR_OPTIONS.map(o => <option key={o} value={o}>{crmLeadChoiceLabel(o, uiLanguage)}</option>)}
                   </select>
                 </Field>
                 {lostCompetitor === 'Andre' && (
@@ -1986,7 +2004,7 @@ export default function CrmNewLeadPage() {
                 <Field label={tt('lbl_lost_reason', lang)} full>
                   <select className={inputCls} value={lostReason} onChange={e=>setLostReason(e.target.value)}>
                     <option value="">{tt('pick', lang)}</option>
-                    {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                    {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{crmLeadChoiceLabel(o, uiLanguage)}</option>)}
                   </select>
                 </Field>
                 <Field label={tt('lbl_lost_comment', lang)} full>
@@ -2000,22 +2018,20 @@ export default function CrmNewLeadPage() {
             <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-5">
               <header className="mb-4">
                 <h3 className="text-[15px] font-semibold text-gray-900">
-                  {lang === 'da' ? 'Linkede konfigurationer / tilbud' : 'Linked configurations / quotes'}
+                  {crmLeadText('linkedTitle', uiLanguage)}
                 </h3>
                 <p className="text-xs text-gray-500 mt-1">
-                  {lang === 'da'
-                    ? 'Konfigurationer, tilbud og ordrer fra konfiguratoren knyttet til dette lead.'
-                    : 'Configurations, quotes and orders from the configurator linked to this lead.'}
+                  {crmLeadText('linkedDescription', uiLanguage)}
                 </p>
               </header>
               <ul className="divide-y divide-gray-100">
                 {linkedQuotes.map(q => {
                   const kind = getCrmLinkedConfigurationKind(q);
                   const kindLabel = kind === 'order'
-                    ? (lang === 'da' ? 'Ordre' : 'Order')
+                    ? crmLeadText('order', uiLanguage)
                     : kind === 'quote'
-                      ? (lang === 'da' ? 'Tilbud' : 'Quote')
-                      : (lang === 'da' ? 'Konfiguration' : 'Configuration');
+                      ? crmLeadText('quote', uiLanguage)
+                      : crmLeadText('configuration', uiLanguage);
                   const dealer = q.dealer_company_name || q.dealer_name || q.dealer_number || '—';
                   const sentAt = q.order_sent_at || q.submitted_at || q.quote_sent_at || q.created_at;
                   const machines = q.machine_keys.join(', ') || '—';
@@ -2037,7 +2053,7 @@ export default function CrmNewLeadPage() {
                         {new Intl.NumberFormat('da-DK', { style: 'currency', currency: 'DKK', maximumFractionDigits: 0 }).format(q.total_value || 0)}
                       </span>
                       <span className="col-span-full text-xs text-gray-400 sm:col-auto">
-                        {sentAt ? new Date(sentAt).toLocaleDateString('da-DK') : '—'}
+                        {sentAt ? new Date(sentAt).toLocaleDateString(crmLeadLocale(uiLanguage)) : '—'}
                       </span>
                       <div className="col-span-full flex flex-wrap items-center gap-x-3 gap-y-1 sm:contents">
                         <button
@@ -2047,11 +2063,11 @@ export default function CrmNewLeadPage() {
                           className="text-left text-xs font-semibold text-[#2d5a27] hover:underline disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {syncingConfigurationId === q.id
-                            ? (lang === 'da' ? 'Synker...' : 'Syncing...')
-                            : (lang === 'da' ? `Synkronisér fra ${documentNumber}` : `Sync from ${documentNumber}`)}
+                            ? crmLeadText('syncing', uiLanguage)
+                            : `${crmLeadText('syncFrom', uiLanguage)} ${documentNumber}`}
                         </button>
                         <Link to={getCrmConfigurationDeepLink(q)} className="text-xs text-[#2d5a27] hover:underline">
-                          {lang === 'da' ? 'Åbn' : 'Open'}
+                          {crmLeadText('open', uiLanguage)}
                         </Link>
                       </div>
                     </li>
@@ -2065,9 +2081,9 @@ export default function CrmNewLeadPage() {
             <section className="bg-white rounded-2xl border border-emerald-100 shadow-sm p-6 mb-5">
               <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h3 className="text-[15px] font-semibold text-gray-900">Lead-deling</h3>
+                  <h3 className="text-[15px] font-semibold text-gray-900">{crmLeadText('shareTitle', uiLanguage)}</h3>
                   <p className="text-xs text-gray-500 mt-1">
-                    Del samme lead i portalen uden at oprette en kopi.
+                    {crmLeadText('shareDescription', uiLanguage)}
                   </p>
                 </div>
                 <button
@@ -2084,13 +2100,13 @@ export default function CrmNewLeadPage() {
                   {leadShares.map((share) => (
                     <span key={share.id} className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
                       <Share2 className="h-3.5 w-3.5" />
-                      {share.shared_with_name || share.shared_with_email || 'Delt bruger'}
+                      {share.shared_with_name || share.shared_with_email || crmLeadText('sharedUser', uiLanguage)}
                       {share.channel === 'portal_email' && <Mail className="h-3.5 w-3.5" />}
                     </span>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">Dette lead er ikke delt endnu.</p>
+                <p className="text-sm text-gray-500">{crmLeadText('notShared', uiLanguage)}</p>
               )}
             </section>
           )}
@@ -2128,14 +2144,14 @@ export default function CrmNewLeadPage() {
                               onClick={async () => {
                                 const signedUrl = await getLeadAttachmentSignedUrl(f);
                                 if (!signedUrl) {
-                                  toast.error('Kunne ikke åbne filen');
+                                  toast.error(crmLeadText('fileOpenError', uiLanguage));
                                   return;
                                 }
                                 window.open(signedUrl, '_blank', 'noopener,noreferrer');
                               }}
                               className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 hover:underline"
                             >
-                              Åbn <ExternalLink className="h-3 w-3" />
+                              {crmLeadText('open', uiLanguage)} <ExternalLink className="h-3 w-3" />
                             </button>
                           )}
                         </div>
@@ -2152,7 +2168,7 @@ export default function CrmNewLeadPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-gray-700">{f.name}</div>
-                        <div className="mt-1 text-[11px] text-amber-700">Uploades når leadet gemmes</div>
+                        <div className="mt-1 text-[11px] text-amber-700">{crmLeadText('uploadOnSave', uiLanguage)}</div>
                       </div>
                       <button type="button" onClick={()=>setPendingFiles(pendingFiles.filter((_,j)=>j!==i))} className="shrink-0 text-gray-400 hover:text-rose-600">
                         <X className="h-3.5 w-3.5" />
@@ -2179,17 +2195,17 @@ export default function CrmNewLeadPage() {
               </DialogHeader>
               <div className="space-y-4">
                 <p className="text-sm text-gray-600">
-                  Leadet deles altid i portalen. Vælg mail, hvis modtageren også skal have besked.
+                  {crmLeadText('shareDialogDescription', uiLanguage)}
                 </p>
                 <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Modtager
+                  {crmLeadText('recipient', uiLanguage)}
                   <select
                     className={cn(inputCls, 'mt-1')}
                     value={shareTargetId}
                     onChange={(event) => setShareTargetId(event.target.value)}
                     disabled={shareLoading || shareTargets.length === 0}
                   >
-                    {shareTargets.length === 0 && <option value="">Ingen modtager fundet</option>}
+                    {shareTargets.length === 0 && <option value="">{crmLeadText('noRecipient', uiLanguage)}</option>}
                     {shareTargets.map((target) => (
                       <option key={target.id} value={target.id}>
                         {target.name} - {target.email}
@@ -2203,7 +2219,7 @@ export default function CrmNewLeadPage() {
                     checked={shareIncludeEmail}
                     onChange={(event) => setShareIncludeEmail(event.target.checked)}
                   />
-                  Send også som mail
+                  {crmLeadText('sendEmail', uiLanguage)}
                 </label>
                 {shareError && (
                   <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
@@ -2213,10 +2229,10 @@ export default function CrmNewLeadPage() {
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setShareDialogOpen(false)}>
-                  Annuller
+                  {crmLeadText('cancel', uiLanguage)}
                 </Button>
                 <Button type="button" onClick={handleShareLead} disabled={shareLoading || !selectedShareTarget}>
-                  {shareLoading ? 'Deler...' : 'Del lead'}
+                  {crmLeadText(shareLoading ? 'sharing' : 'shareLead', uiLanguage)}
                 </Button>
               </DialogFooter>
             </DialogContent>
