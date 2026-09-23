@@ -4,7 +4,8 @@ import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { machinePurchaseReference } from '@/lib/orderPurchaseReferences';
-import type { ConfiguratorState, Language } from '@/types/configurator';
+import { t as portalT } from '@/lib/i18n/translations';
+import type { ConfiguratorPricingSnapshot, ConfiguratorState, DiscountDetail, Language } from '@/types/configurator';
 
 export type AccountCaseStatusFilter = 'all' | 'active' | 'sent' | 'paused';
 
@@ -59,6 +60,47 @@ export interface AccountCaseLine {
   unitPrice: number;
   quantity: number;
   total: number;
+}
+
+export interface AccountOrderDiscountRow {
+  label: string;
+  amount: number;
+}
+
+/** Present the submitted order's captured discounts; never infer historical discounts from today's rules. */
+export function buildAccountOrderDiscountRows(
+  snapshot: ConfiguratorPricingSnapshot | undefined,
+  totalDiscount: number,
+  language: string,
+): AccountOrderDiscountRow[] {
+  if (!Number.isFinite(totalDiscount) || totalDiscount <= 0) return [];
+  const fallback = [{ label: portalT('accountOrderDiscount', language), amount: totalDiscount }];
+  const details = snapshot?.discountDetails?.filter(detail => Number.isFinite(detail.amount) && detail.amount > 0);
+  if (!details?.length) return fallback;
+  const detailSum = details.reduce((sum, detail) => sum + Math.round(detail.amount * 100), 0);
+  if (Math.abs(detailSum - Math.round(totalDiscount * 100)) > 2) return fallback;
+
+  const labelKeys: Record<NonNullable<DiscountDetail['kind']>, string> = {
+    demo: 'accountOrderDemoDiscount',
+    base: 'accountOrderBaseDiscount',
+    delivery: 'accountOrderDeliveryDiscount',
+    quantity: 'accountOrderQuantityDiscount',
+    dealer: 'accountOrderDealerDiscount',
+    campaign: 'accountOrderCampaignDiscount',
+  };
+  const percent = (value: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 2 }).format(value);
+  const grouped = new Map<string, number>();
+  for (const detail of details) {
+    const label = portalT(detail.kind ? labelKeys[detail.kind] : 'accountOrderDiscount', language);
+    const campaignCode = detail.kind === 'campaign'
+      ? snapshot?.campaignLines?.find(line => line.campaignId === detail.campaignId && line.itemNumber === detail.varenr)?.campaignCode
+        ?? snapshot?.campaignLines?.find(line => line.campaignId === detail.campaignId)?.campaignCode
+        ?? detail.txt.match(/\bK-[A-Za-z0-9-]+\b/)?.[0]
+      : undefined;
+    const display = `${label}${campaignCode ? `: ${campaignCode}` : ''}${Number.isFinite(detail.percent) ? ` (${percent(detail.percent!)} %)` : ''}`;
+    grouped.set(display, (grouped.get(display) ?? 0) + Math.round(detail.amount * 100));
+  }
+  return Array.from(grouped, ([label, cents]) => ({ label, amount: cents / 100 }));
 }
 
 function normalizeLang(language: string): Language {

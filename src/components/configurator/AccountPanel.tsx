@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppUser } from '@/data/appUsers';
 import { Language, ConfiguratorState, PartnerType } from '@/types/configurator';
-import { pickT } from '@/lib/i18n/translations';
+import { pickT, t as portalT } from '@/lib/i18n/translations';
 import { type PortalUiLanguage, mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -36,6 +36,7 @@ import {
 import {
   AccountCaseStatusFilter,
   buildAccountCaseLines,
+  buildAccountOrderDiscountRows,
   buildAccountCaseSummary,
   buildReorderDraft,
   filterAccountCases,
@@ -380,6 +381,12 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
   const detailTotals = useMemo(
     () => detailItem ? calcConfigurationTotals(detailItem.state_json) : null,
     [detailItem],
+  );
+  const detailDiscountRows = useMemo(
+    () => detailItem && detailTotals
+      ? buildAccountOrderDiscountRows(detailItem.state_json.pricingSnapshot, detailTotals.totalDiscount, language)
+      : [],
+    [detailItem, detailTotals, language],
   );
   const detailCurrencyLanguage = detailItem?.state_json.language || mapUiLanguageToLegacy(language);
 
@@ -772,10 +779,18 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
                     <span className="text-gray-500">{tx('subtotal')}</span>
                     <span className="w-32 text-right font-semibold tabular-nums">{formatDisplayMoney(detailTotals.subtotal, detailCurrencyLanguage)}</span>
                   </div>
-                  <div className="flex justify-end gap-6 text-sm">
-                    <span className="text-gray-500">{tx('discount')}</span>
-                    <span className="w-32 text-right font-semibold tabular-nums">{formatDisplayMoney(detailTotals.totalDiscount, detailCurrencyLanguage)}</span>
-                  </div>
+                  {detailDiscountRows.map(row => (
+                    <div key={row.label} className="flex justify-end gap-6 text-sm">
+                      <span className="text-right text-gray-500">{row.label}</span>
+                      <span className="w-32 shrink-0 text-right font-semibold tabular-nums">{formatDisplayMoney(-row.amount, detailCurrencyLanguage)}</span>
+                    </div>
+                  ))}
+                  {detailTotals.totalDiscount > 0 && (
+                    <div className="flex justify-end gap-6 border-t border-gray-100 pt-1 text-sm">
+                      <span className="font-semibold text-gray-700">{portalT('accountOrderTotalDiscount', language)}</span>
+                      <span className="w-32 shrink-0 text-right font-semibold tabular-nums">{formatDisplayMoney(-detailTotals.totalDiscount, detailCurrencyLanguage)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-end gap-6 text-base">
                     <span className="font-bold text-gray-900">{tx('totalPrice')}</span>
                     <span className="w-32 text-right font-bold tabular-nums">{formatDisplayMoney(detailTotals.finalPrice, detailCurrencyLanguage)}</span>
