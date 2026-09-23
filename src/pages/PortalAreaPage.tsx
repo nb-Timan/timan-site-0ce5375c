@@ -242,7 +242,8 @@ export default function PortalAreaPage({ areaId }: Props) {
               language={lang}
               to="/portal/marketing/configurator"
               icon={Wrench}
-              description="Redigér produktindhold, billeder, video og specifikationer til Configurator."
+              label="Configurator & kampagner"
+              description="Redigér produktindhold, billeder, video og specifikationer – og opret, redigér og publicér kampagner til Configurator."
             />
           )}
           {areaId === 'marketing' && canManageNewsContent(effectiveUser) && (

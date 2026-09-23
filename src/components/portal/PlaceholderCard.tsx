@@ -29,13 +29,15 @@ interface Props {
   icon?: LucideIcon;
   /** Optional short description shown below the title. */
   description?: string;
+  /** Optional contextual label for a live portal card. */
+  label?: string;
   /** Optional changelog update badge ("NY" / "VIGTIG"). */
   updateBadge?: PlaceholderUpdateBadge | null;
   /** Called when the card is activated (click/keyboard) — used to mark read. */
   onActivate?: () => void;
 }
 
-export default function PlaceholderCard({ title, language, to, icon: Icon = Sparkles, description, updateBadge, onActivate }: Props) {
+export default function PlaceholderCard({ title, language, to, icon: Icon = Sparkles, description, label, updateBadge, onActivate }: Props) {
   const live = !!to;
   const badgeClass = updateBadge?.kind === 'major'
     ? 'bg-rose-100 text-rose-700'
@@ -48,16 +50,25 @@ export default function PlaceholderCard({ title, language, to, icon: Icon = Spar
         live ? 'hover:shadow-md hover:border-[#2d5a27]/30 cursor-pointer' : 'opacity-70',
       )}
     >
-      {updateBadge && (
+      {(label || updateBadge) && (
+        <div className="absolute top-3 right-3 flex items-center gap-1.5">
+          {label && (
+            <span className="rounded-full bg-[#2d5a27]/10 px-2 py-0.5 text-[10px] font-semibold text-[#2d5a27]">
+              {label}
+            </span>
+          )}
+          {updateBadge && (
         <span
           className={cn(
-            'absolute top-3 right-3 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide',
+            'rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
             badgeClass,
           )}
           title={updateBadge.tooltip}
         >
           {updateBadge.label}
         </span>
+          )}
+        </div>
       )}
 
       <div className={cn(

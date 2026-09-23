@@ -209,5 +209,7 @@ describe('Marketing configurator content', () => {
     expect(bulkTools).toContain('localizedDraftTitles(draft?.content, canonicalTitles)');
     expect(app).toContain('/portal/marketing/configurator');
     expect(marketingArea).toContain('canManageMarketingConfiguratorContent');
+    expect(marketingArea).toContain('label="Configurator & kampagner"');
+    expect(marketingArea).toContain('Redigér produktindhold, billeder, video og specifikationer – og opret, redigér og publicér kampagner til Configurator.');
   });
 });
