@@ -81,6 +81,11 @@ import { listPortalFormSubmissions, submissionBelongsToSeller, type PortalFormSu
 import PendingPartnerSubmissions, { getPendingPartnerSubmissionDetails } from "@/components/crm/PendingPartnerSubmissions";
 import DealerSalesDashboardPrototype from "@/components/crm/DealerSalesDashboardPrototype";
 import { prototypeScopeForSeller, type PrototypeScopeMode } from "@/lib/crmDealerDashboardPrototype";
+import {
+  listPartnerAccountRelations,
+  mainPartnerAccountNumbersByChild,
+  type PartnerAccountRelation,
+} from "@/lib/partnerRelationsService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 const profileTextKeyByDanishLabel: Record<string, string> = {
   "Firma information": "crmProfileSectionCompany",
@@ -219,6 +224,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const partnerDataPresentation = presentation === "partnerdata";
   const partnerListRequested = partnerDataPresentation || searchParams.get("view") === "partner-list";
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
+  const [partnerRelations, setPartnerRelations] = useState<PartnerAccountRelation[]>([]);
   const [statsMap, setStatsMap] = useState<Record<string, DealerAccountStats>>({});
   const [allUsers, setAllUsers] = useState<BackendUser[]>([]);
   const [contactsByDealerId, setContactsByDealerId] = useState<Record<string, DealerContact[]>>({});
@@ -314,6 +320,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
       if (academyMode) {
         const rows = academyPartnerDataSandbox.listDealers();
         setDealers(rows);
+        setPartnerRelations([]);
         setContactsByDealerId(Object.fromEntries(rows.map((row) => [row.id, academyPartnerDataSandbox.listContacts(row.id)])));
         setAllUsers([]); setStatsMap({}); setBudgetIndex(null); setError(null); setLoadingRows(false);
         return;
@@ -324,6 +331,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
       }
       setLoadingRows(true);
       try {
+        const relationsPromise = listPartnerAccountRelations();
         const initials = getEffectiveSellerInitials(appUser);
         const effEmail = getEffectiveSellerEmail(appUser);
 
@@ -382,8 +390,14 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
           setError(missingOwnAccountError ?? dRes.error ?? sRes.error ?? null);
         }
 
-        // Render the scoped list as soon as it is ready. Completion and budget
-        // enrichment continue below without blocking the usable table.
+        // The current list needs the same canonical relation source as the
+        // partner detail before it can place service partners under a main.
+        const relations = await relationsPromise;
+        if (cancelled) return;
+        setPartnerRelations(relations);
+
+        // Render the scoped list as soon as hierarchy data is ready. Completion
+        // and budget enrichment continue below without blocking the table.
         if (!cancelled) setLoadingRows(false);
 
         const contacts = await listDealerContactsForAccounts(loadedDealers.map((dealer) => dealer.id));
@@ -482,11 +496,15 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   // When searching, ensure parent anchors of matched branches stay visible.
   const dealersByAcct = new Map<string, DealerAccount>();
   for (const d of dealers ?? []) dealersByAcct.set(d.account_number, d);
+  const mainPartnerByChildAccount = mainPartnerAccountNumbersByChild(dealers ?? [], partnerRelations);
+  const parentAccountNumberFor = (dealer: DealerAccount) =>
+    mainPartnerByChildAccount.get(dealer.account_number) ?? dealer.parent_account_number;
   const visibleIds = new Set(filteredDealers.map((d) => d.id));
   if (q || countryFilter !== "all" || typeFilter !== "all" || profileFilter !== "all" || statusFilter !== "all") {
     for (const d of filteredDealers) {
-      if (d.parent_account_number) {
-        const parent = dealersByAcct.get(d.parent_account_number);
+      const parentAccountNumber = parentAccountNumberFor(d);
+      if (parentAccountNumber) {
+        const parent = dealersByAcct.get(parentAccountNumber);
         if (parent) visibleIds.add(parent.id);
       }
     }
@@ -498,7 +516,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const visibleDealers = (dealers ?? []).filter((d) =>
     visibleIds.has(d.id) && !absorbedIds.has(d.id) && !isDealerCustomerAccount(d)
   );
-  const groups = groupDealersByParent(visibleDealers);
+  const groups = groupDealersByParent(visibleDealers, mainPartnerByChildAccount);
   const dealerCustomersByParent = new Map<string, DealerAccount[]>();
   for (const d of visibleDealerCustomers) {
     const parent = d.parent_account_number || "";

@@ -18,6 +18,11 @@
  */
 import { supabase } from "@/lib/supabase";
 
+type PartnerAccountReference = {
+  id: string;
+  account_number: string;
+};
+
 export type PartnerAccountRelationType =
   | "importer_has_dealer"
   | "importer_has_service_partner"
@@ -35,6 +40,34 @@ export interface PartnerAccountRelation {
   active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+const MAIN_SERVICE_PARTNER_RELATION_TYPES = new Set<PartnerAccountRelationType>([
+  "dealer_has_service_partner",
+  "importer_has_service_partner",
+]);
+
+/**
+ * Resolves the canonical main-partner relation to account numbers for list
+ * rendering. This deliberately does not reuse billing_account_id: hierarchy
+ * and billing are separate concepts.
+ */
+export function mainPartnerAccountNumbersByChild(
+  accounts: PartnerAccountReference[],
+  relations: PartnerAccountRelation[],
+): Map<string, string> {
+  const byId = new Map(accounts.map((account) => [account.id, account]));
+  const parentByChild = new Map<string, string>();
+
+  for (const relation of relations) {
+    if (!relation.active || !MAIN_SERVICE_PARTNER_RELATION_TYPES.has(relation.relation_type)) continue;
+    const parent = byId.get(relation.source_account_id);
+    const child = byId.get(relation.target_account_id);
+    if (!parent || !child || parent.account_number === child.account_number) continue;
+    parentByChild.set(child.account_number, parent.account_number);
+  }
+
+  return parentByChild;
 }
 
 export interface ServicePartnerMainRelationResult {

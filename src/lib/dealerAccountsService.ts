@@ -1767,21 +1767,27 @@ export interface DealerGroup {
  *     surfaced as standalone groups so they remain visible.
  *   • Dealers with is_main_account=true but no children still appear.
  */
-export function groupDealersByParent(rows: DealerAccount[]): DealerGroup[] {
+export function groupDealersByParent(
+  rows: DealerAccount[],
+  canonicalParentAccountNumbers: ReadonlyMap<string, string> = new Map(),
+): DealerGroup[] {
   const byAcct = new Map<string, DealerAccount>();
   for (const r of rows) byAcct.set(r.account_number, r);
+  const parentAccountNumberFor = (row: DealerAccount) =>
+    canonicalParentAccountNumbers.get(row.account_number) ?? row.parent_account_number;
 
   const groups = new Map<string, DealerGroup>();
   // First pass: create a group for every potential main account.
   for (const r of rows) {
-    if (!r.parent_account_number) {
+    if (!parentAccountNumberFor(r)) {
       groups.set(r.account_number, { main: r, branches: [] });
     }
   }
   // Second pass: attach branches to parents.
   for (const r of rows) {
-    if (!r.parent_account_number) continue;
-    const parent = byAcct.get(r.parent_account_number);
+    const parentAccountNumber = parentAccountNumberFor(r);
+    if (!parentAccountNumber) continue;
+    const parent = byAcct.get(parentAccountNumber);
     if (parent && groups.has(parent.account_number)) {
       groups.get(parent.account_number)!.branches.push(r);
     } else {

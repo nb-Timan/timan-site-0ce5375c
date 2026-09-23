@@ -4,6 +4,8 @@ import {
   isEligibleServicePartnerParent,
   resolveServicePartnerMainRelationType,
 } from "@/lib/partnerAdminEdit";
+import { groupDealersByParent } from "@/lib/dealerAccountsService";
+import { mainPartnerAccountNumbersByChild, type PartnerAccountRelation } from "@/lib/partnerRelationsService";
 
 const migrationPath = "supabase/migrations/20260922104421_service_partner_main_billing_relation.sql";
 
@@ -80,5 +82,37 @@ describe("service partner main relation", () => {
     expect(page).toContain("linkedMainPartnerRelation");
     expect(service).toContain('.from("partner_account_relations")');
     expect(service).toContain("related partner account read failed");
+  });
+
+  it("groups a service partner below its canonical main partner without changing billing", () => {
+    const parent = account({ id: "parent", account_number: "10295", company_name: "AB Lauridsen Maskiner ApS", parent_account_number: null });
+    const child = account({
+      id: "child",
+      account_number: "10285",
+      company_name: "Det Mobile Skov-Have & Park Værksted",
+      customer_type: "Servicepartner",
+      customer_type_label: "Servicepartner",
+      dealer_type: "service_partner",
+      parent_account_number: null,
+      billing_account_id: "own-billing-account",
+    });
+    const relations: PartnerAccountRelation[] = [{
+      id: "relation",
+      source_account_id: "parent",
+      target_account_id: "child",
+      relation_type: "dealer_has_service_partner",
+      active: true,
+      created_at: "2026-09-23T00:00:00.000Z",
+      updated_at: "2026-09-23T00:00:00.000Z",
+    }];
+
+    const parents = mainPartnerAccountNumbersByChild([parent, child], relations);
+    const groups = groupDealersByParent([parent, child], parents);
+
+    expect(parents.get("10285")).toBe("10295");
+    expect(groups).toHaveLength(1);
+    expect(groups[0].main.account_number).toBe("10295");
+    expect(groups[0].branches.map((row) => row.account_number)).toEqual(["10285"]);
+    expect(child.billing_account_id).toBe("own-billing-account");
   });
 });
