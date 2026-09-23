@@ -39,4 +39,24 @@ describe('Academy numbered work steps', () => {
 
     expect(container.querySelector('ol')).toHaveClass('md:grid-cols-2');
   });
+
+  it('uses three compact cards at desktop breakpoints when requested', () => {
+    const { container } = render(<MemoryRouter><AcademyGuidancePanel
+      title="Testforløb"
+      description="Test"
+      stepColumns={3}
+      stepLabelKey="academyPoint"
+      nextLabelKey="academyNextPoint"
+      steps={[
+        { title: 'Punkt A', tasks: [{ label: 'Krav A', complete: false }] },
+        { title: 'Punkt B', tasks: [{ label: 'Krav B', complete: false }] },
+        { title: 'Punkt C', tasks: [{ label: 'Krav C', complete: false }] },
+      ]}
+      next="Punkt 1: Punkt A."
+    /></MemoryRouter>);
+
+    expect(container.querySelector('ol')).toHaveClass('lg:grid-cols-3');
+    expect(screen.getByText('Punkt 1: Punkt A')).toBeInTheDocument();
+    expect(screen.getByText('Næste punkt: Punkt 1: Punkt A.')).toBeInTheDocument();
+  });
 });

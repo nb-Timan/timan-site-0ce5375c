@@ -41,18 +41,19 @@ export default function AcademyPartnerDataGuidance() {
     : !portalBasics.returnedHomeFromPartnerData
       ? tr('academyPartnerDataLogoNext')
       : tr('academyPartnerDataLogoComplete');
+  const point = (number: number, title: string) => `${tr('academyPoint')} ${number}: ${title}.`;
   const part1Next = !progress.academyMachineOpened
-    ? tr('academyPartnerDataStep1')
+    ? point(1, tr('academyPartnerDataMachine'))
     : !progress.companyDataOpened
-      ? tr('academyPartnerDataStep2')
+      ? point(2, tr('academyPartnerDataCompany'))
       : !progress.salesContactSaved
-        ? tr('academyPartnerDataStep3')
+        ? point(3, tr('academyPartnerDataContact'))
         : !progress.primarySalesContactSelected
-          ? tr('academyPartnerDataStep4')
+          ? point(4, tr('academyPartnerDataPrimary'))
           : !progress.websiteAdded
-            ? tr('academyPartnerDataStep5')
+            ? point(5, tr('academyPartnerDataWebsite'))
             : !progress.youtubeAdded
-              ? tr('academyPartnerDataStep6')
+              ? point(5, tr('academyPartnerDataYoutubeSaved'))
               : tr('academyPartnerDataComplete');
   return <>
     <AcademyGuidancePanel title={part === 1 ? tr('academyPartnerDataPart1Title') : part === 2 ? tr('academyPartnerDataPart2Title') : tr('academyPortalBasicsPartnerDataTitle')}
@@ -76,7 +77,10 @@ export default function AcademyPartnerDataGuidance() {
         { title: tr('academyPartnerDataRelation'), tasks: [{ label: tr('academyPartnerDataRelationRead'), complete: state.relationReviewed }] },
         { title: tr('academyPartnerDataInvoice'), tasks: [{ label: tr('academyPartnerDataInvoiceSaved'), complete: progress.invoiceFlowReviewed }] },
       ] : undefined}
-      next={part === 1 ? part1Next : part === 2 ? !state.relationReviewed ? tr('academyPartnerDataPart2Step1') : tr('academyPartnerDataPart2Step2') : portalBasicsNext}
+      stepColumns={part === 1 || part === 2 ? 3 : 1}
+      stepLabelKey={part === 1 || part === 2 ? 'academyPoint' : undefined}
+      nextLabelKey={part === 1 || part === 2 ? 'academyNextPoint' : undefined}
+      next={part === 1 ? part1Next : part === 2 ? !state.relationReviewed ? point(1, tr('academyPartnerDataRelation')) : point(2, tr('academyPartnerDataInvoice')) : portalBasicsNext}
       completion={part === 1 ? { nextUnlock: tr('academyPartnerDataPart2Title') } : part === 2}
       caseId={part === 1 ? ACADEMY_PARTNERDATA_PART_1 : part === 2 ? ACADEMY_PARTNERDATA_PART_2 : undefined} />
     {part === 2 && <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to="/portal/misc/forms/dealer-invoice-accept?academy_mode=true">{tr('academyPartnerDataOpenInvoice')}</Link>}

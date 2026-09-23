@@ -34,7 +34,7 @@ export default function AcademyGuidancePanel({
   completion?: boolean | { nextUnlock?: string };
   explanation?: ReactNode;
   activeTaskLabel?: string;
-  stepColumns?: 1 | 2;
+  stepColumns?: 1 | 2 | 3;
   stepNumbers?: string[];
   stepLabelKey?: string;
   nextLabelKey?: string;
@@ -72,7 +72,7 @@ export default function AcademyGuidancePanel({
           <span className="rounded-full border border-amber-300 bg-white px-2.5 py-1 text-xs font-bold">{completed} / {allTasks.length} {tr('academyRequirements')}</span>
         </div>
         {steps ? (
-          <ol className={stepColumns === 2 ? 'mt-3 grid gap-2.5 md:grid-cols-2' : 'mt-3 space-y-2.5'}>
+          <ol className={stepColumns === 3 ? 'mt-3 grid gap-2.5 lg:grid-cols-3' : stepColumns === 2 ? 'mt-3 grid gap-2.5 md:grid-cols-2' : 'mt-3 space-y-2.5'}>
             {steps.map((step, index) => {
               const stepComplete = step.tasks.every((task) => task.complete);
               const active = index === activeStepIndex;
