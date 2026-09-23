@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Cloud, Fuel, Leaf } from 'lucide-react';
+import { Banknote, Cloud, Fuel, Leaf } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -24,7 +24,7 @@ type Tx = {
   timanBetter: string; timanBetterBody: string;
   comparisonTitle: string;
   savingsTitle: string;
-  fuelSaved: string; co2Saved: string; tons: string;
+  fuelSaved: string; co2Saved: string; moneySaved: string; tons: string;
 };
 
 // Translations from mockup (DA/EN/DE). IT/HU fall back to DA.
@@ -38,7 +38,7 @@ const TR: Record<string, Tx> = {
     timanBetterBody: 'Baseret på testdata: Timan (5,1 l/t) vs Egholm (6,9 l/t). 1L diesel = 2.4kg CO2.',
     comparisonTitle: 'Sammenligning af udledning',
     savingsTitle: 'Din samlede besparelse',
-    fuelSaved: 'Liter sparet', co2Saved: 'CO2 sparet (kg)', tons: 'tons',
+    fuelSaved: 'Liter sparet', co2Saved: 'CO2 sparet (kg)', moneySaved: 'Besparelse i kr.', tons: 'tons',
   },
   en: {
     co2Title: 'Timan CO2 Calculator', co2Subtitle: 'Compare Timan 3330 with Egholm 2260',
@@ -49,7 +49,7 @@ const TR: Record<string, Tx> = {
     timanBetterBody: 'Based on test data: Timan (5.1 l/h) vs Egholm (6.9 l/h). 1L diesel = 2.4kg CO2.',
     comparisonTitle: 'Emissions comparison',
     savingsTitle: 'Your total savings',
-    fuelSaved: 'Liters saved', co2Saved: 'CO2 saved (kg)', tons: 'tons',
+    fuelSaved: 'Liters saved', co2Saved: 'CO2 saved (kg)', moneySaved: 'Savings', tons: 'tons',
   },
   de: {
     co2Title: 'Timan CO2-Rechner', co2Subtitle: 'Timan 3330 vs Egholm 2260',
@@ -60,7 +60,7 @@ const TR: Record<string, Tx> = {
     timanBetterBody: 'Basierend auf Testdaten: Timan (5,1 l/Std) vs Egholm (6,9 l/Std). 1L Diesel = 2,4kg CO2.',
     comparisonTitle: 'Emissionsvergleich',
     savingsTitle: 'Ihre Gesamtersparnis',
-    fuelSaved: 'Liter gespart', co2Saved: 'CO2 gespart (kg)', tons: 'Tonnen',
+    fuelSaved: 'Liter gespart', co2Saved: 'CO2 gespart (kg)', moneySaved: 'Ersparnis', tons: 'Tonnen',
   },
 };
 
@@ -250,8 +250,8 @@ export default function Co2CalculatorPage() {
 
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6 lg:col-span-2" aria-labelledby="co2-savings-title">
             <h2 id="co2-savings-title" className="text-base font-bold text-slate-950">{t.savingsTitle}</h2>
-            <div className="mt-5 grid grid-cols-2 divide-x divide-slate-200">
-              <div className="flex min-w-0 items-center gap-3 pr-3 sm:gap-5 sm:pr-6">
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="flex min-w-0 items-center gap-3 rounded-md bg-slate-50 p-4 sm:gap-4">
                 <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 sm:flex">
                   <Fuel className="h-6 w-6" aria-hidden="true" />
                 </div>
@@ -260,11 +260,10 @@ export default function Co2CalculatorPage() {
                   <p className="mt-1 whitespace-nowrap text-xl font-bold text-slate-950 sm:text-3xl">
                     {fmt(fuelSavedVal)} <span className="text-sm font-semibold text-slate-600 sm:text-lg">L</span>
                   </p>
-                  <p className="mt-1 text-xs font-bold text-emerald-600 sm:text-sm">{fmt(moneySaved)} {t.currency}</p>
                 </div>
               </div>
 
-              <div className="flex min-w-0 items-center gap-3 pl-3 sm:gap-5 sm:pl-6">
+              <div className="flex min-w-0 items-center gap-3 rounded-md bg-slate-50 p-4 sm:gap-4">
                 <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 sm:flex">
                   <Cloud className="h-6 w-6" aria-hidden="true" />
                 </div>
@@ -276,6 +275,18 @@ export default function Co2CalculatorPage() {
                   <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
                     ≈ {(co2SavedVal / 1000).toLocaleString(t.locale, { minimumFractionDigits: 1 })} {t.tons}
                   </span>
+                </div>
+              </div>
+
+              <div className="flex min-w-0 items-center gap-3 rounded-md bg-slate-50 p-4 sm:gap-4">
+                <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 sm:flex">
+                  <Banknote className="h-6 w-6" aria-hidden="true" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-slate-500">{t.moneySaved}</p>
+                  <p className="mt-1 whitespace-nowrap text-xl font-bold text-emerald-600 sm:text-3xl">
+                    {fmt(moneySaved)} <span className="text-sm font-semibold sm:text-lg">{t.currency}</span>
+                  </p>
                 </div>
               </div>
             </div>

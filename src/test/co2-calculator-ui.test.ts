@@ -52,4 +52,11 @@ describe('CO2 calculator portal redesign', () => {
     expect(source).toContain('lg:col-span-2');
     expect(source).not.toContain('bg-gray-900 rounded-3xl');
   });
+
+  it('renders the existing money saving as its own responsive KPI', () => {
+    expect(source).toContain("moneySaved: 'Besparelse i kr.'");
+    expect(source).toContain('grid-cols-1 gap-3 sm:grid-cols-3');
+    expect(source).toContain('<Banknote className="h-6 w-6"');
+    expect(source).toContain('{fmt(moneySaved)}');
+  });
 });
