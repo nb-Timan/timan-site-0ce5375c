@@ -6,7 +6,7 @@ import {
   ACC_ID_WIRE_HARNESS,
   ACC_ID_WORK_LIGHT,
 } from '@/data/machines';
-import { ACADEMY_CASE_1, ACADEMY_CASE_2_TARGET_VIDEO_ID, ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_CASE_1, ACADEMY_CASE_2_TARGET_VIDEO_ID, ACADEMY_CASE_COMPLETED, ACADEMY_PORTAL_BASICS, ACADEMY_PROGRESS_CHANGED, PORTAL_BASICS_NEWS_ID, academySandbox } from '@/lib/academySandbox';
 
 const completeInput = {
   machineConfigs: [
@@ -336,7 +336,7 @@ describe('Academy Case 1 sandbox', () => {
     academySandbox.trackPortalBasicsLogoHome('/portal/dealer-data');
     academySandbox.trackPortalBasicsFullscreen();
     academySandbox.trackPortalBasicsMapArea('de_plz2');
-    academySandbox.trackPortalBasicsNews('Forkert nyhed');
+    academySandbox.trackPortalBasicsNews('wrong-news-id');
 
     expect(academySandbox.getPortalBasics()).toMatchObject({
       frenchSelected: true,
@@ -349,9 +349,46 @@ describe('Academy Case 1 sandbox', () => {
       completed: false,
     });
 
-    academySandbox.trackPortalBasicsNews('Skivehøster til Timan RC-1000s');
+    academySandbox.trackPortalBasicsNews(PORTAL_BASICS_NEWS_ID);
     expect(academySandbox.getPortalBasics().completed).toBe(true);
     expect(academySandbox.getCompletedCaseIds()).toContain(ACADEMY_PORTAL_BASICS);
+  });
+
+  it('updates the current tab and emits one case completion when the canonical news ID completes Portal Basics', () => {
+    window.history.replaceState({}, '', '/portal?academy_mode=true');
+    academySandbox.startPortalBasics('da');
+    academySandbox.trackPortalBasicsLanguage('fr');
+    academySandbox.trackPortalBasicsLanguage('da');
+    academySandbox.trackPortalBasicsPartnerData();
+    academySandbox.trackPortalBasicsLogoHome('/portal/dealer-data');
+    academySandbox.trackPortalBasicsFullscreen();
+    academySandbox.trackPortalBasicsMapArea('de_plz2');
+
+    let progressEvents = 0;
+    const completions: unknown[] = [];
+    const onProgress = () => { progressEvents += 1; };
+    const onCompletion = (event: Event) => completions.push((event as CustomEvent).detail);
+    window.addEventListener(ACADEMY_PROGRESS_CHANGED, onProgress);
+    window.addEventListener(ACADEMY_CASE_COMPLETED, onCompletion);
+
+    academySandbox.trackPortalBasicsNews('Skivehøster til Timan RC-1000s');
+    expect(academySandbox.getPortalBasics().completed).toBe(false);
+
+    academySandbox.trackPortalBasicsNews(PORTAL_BASICS_NEWS_ID);
+    expect(academySandbox.getPortalBasics()).toMatchObject({ targetNewsOpened: true, completed: true });
+    expect(academySandbox.getCompletedCaseIds()).toContain(ACADEMY_PORTAL_BASICS);
+    expect(progressEvents).toBe(1);
+    expect(completions).toEqual([{
+      caseId: ACADEMY_PORTAL_BASICS,
+      titleKey: 'academyPortalBasicsCaseTitle',
+      completed: 5,
+      total: 5,
+    }]);
+
+    academySandbox.trackPortalBasicsNews(PORTAL_BASICS_NEWS_ID);
+    expect(completions).toHaveLength(1);
+    window.removeEventListener(ACADEMY_PROGRESS_CHANGED, onProgress);
+    window.removeEventListener(ACADEMY_CASE_COMPLETED, onCompletion);
   });
 
   it('keeps Portal Basics local across a refresh-equivalent read', () => {

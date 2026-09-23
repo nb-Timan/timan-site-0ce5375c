@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 import AcademyPortalBasicsStepSuccessModal from '@/components/academy/AcademyPortalBasicsStepSuccessModal';
-import { academySandbox } from '@/lib/academySandbox';
+import { PORTAL_BASICS_NEWS_ID, academySandbox } from '@/lib/academySandbox';
 
 function completeFirstFourTasks() {
   academySandbox.trackPortalBasicsLanguage('fr');
@@ -86,7 +86,7 @@ describe('Academy Portal Basics step success', () => {
 
   it('leaves the fifth transition for the existing full completion modal', () => {
     completeFirstFourTasks();
-    academySandbox.trackPortalBasicsNews('Skivehøster til Timan RC-1000s');
+    academySandbox.trackPortalBasicsNews(PORTAL_BASICS_NEWS_ID);
 
     expect(academySandbox.getPortalBasics().completed).toBe(true);
     expect(academySandbox.getPortalBasicsStepSuccess()).toBeNull();

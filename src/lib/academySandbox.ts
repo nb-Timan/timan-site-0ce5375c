@@ -11,6 +11,7 @@ export const ACADEMY_CASE_1 = ACADEMY_CASE_1_ID;
 export const ACADEMY_CASE_2 = 'sales.case_2_video_3330';
 export const ACADEMY_PORTAL_BASICS = 'portal.basics_5';
 export const ACADEMY_PARTNER_MAP = 'portal.partner_map';
+export const PORTAL_BASICS_NEWS_ID = 'academy-news-rc1000s-disc-mower';
 export const ACADEMY_CASE_2_TARGET_VIDEO_ID = 'sxYALA86PaI';
 export const ACADEMY_CASE_2_MACHINE_KEY = 'Timan 3330';
 export const ACADEMY_CASE_2_CONTENT_TYPE = 'maintenance';
@@ -224,6 +225,22 @@ function portalBasicsCompletedCount(state: AcademyPortalBasicsState) {
     + Number(state.targetNewsOpened);
 }
 
+function savePortalBasicsTransition(current: AcademySandboxState, portalBasics: AcademyPortalBasicsState) {
+  portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
+  const saved = save({ ...current, portalBasics }).portalBasics;
+  if (!current.portalBasics.completed && saved.completed) {
+    window.dispatchEvent(new CustomEvent<AcademyCaseCompletion>(ACADEMY_CASE_COMPLETED, {
+      detail: {
+        caseId: ACADEMY_PORTAL_BASICS,
+        titleKey: 'academyPortalBasicsCaseTitle',
+        completed: 5,
+        total: 5,
+      },
+    }));
+  }
+  return saved;
+}
+
 function isPartnerMapComplete(state: AcademyPartnerMapState) {
   return state.ownDealerShown
     && state.fullscreenUsed
@@ -415,52 +432,46 @@ export const academySandbox = {
       && language === current.portalBasics.startingLanguage
     );
     let portalBasics = { ...current.portalBasics, frenchSelected, languageRestored };
-    portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
     portalBasics = withPortalBasicsStepSuccess(current.portalBasics, portalBasics, 'language', 'Skift portalsprog til fransk og tilbage');
-    return save({ ...current, portalBasics }).portalBasics;
+    return savePortalBasicsTransition(current, portalBasics);
   },
   trackPortalBasicsPartnerData() {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started) return current.portalBasics;
     const portalBasics = { ...current.portalBasics, partnerDataOpened: true };
-    portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
-    return save({ ...current, portalBasics }).portalBasics;
+    return savePortalBasicsTransition(current, portalBasics);
   },
   trackPortalBasicsLogoHome(fromPath: string) {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started || fromPath !== '/portal/dealer-data') return current.portalBasics;
     let portalBasics = { ...current.portalBasics, returnedHomeFromPartnerData: current.portalBasics.partnerDataOpened };
-    portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
     portalBasics = withPortalBasicsStepSuccess(current.portalBasics, portalBasics, 'partnerdata', 'Partnerdata og Timan-logoet');
-    return save({ ...current, portalBasics }).portalBasics;
+    return savePortalBasicsTransition(current, portalBasics);
   },
   trackPortalBasicsFullscreen() {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started) return current.portalBasics;
     let portalBasics = { ...current.portalBasics, fullscreenUsed: true };
-    portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
     portalBasics = withPortalBasicsStepSuccess(current.portalBasics, portalBasics, 'fullscreen', 'Aktivér fullscreen');
-    return save({ ...current, portalBasics }).portalBasics;
+    return savePortalBasicsTransition(current, portalBasics);
   },
   trackPortalBasicsMapArea(area: string) {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
     if (!current.portalBasics.started || area === 'none') return current.portalBasics;
     let portalBasics = { ...current.portalBasics, mapAreaChanged: true };
-    portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
     portalBasics = withPortalBasicsStepSuccess(current.portalBasics, portalBasics, 'partner_map', 'Skift område på Partnerkortet');
-    return save({ ...current, portalBasics }).portalBasics;
+    return savePortalBasicsTransition(current, portalBasics);
   },
-  trackPortalBasicsNews(title: string) {
+  trackPortalBasicsNews(newsId: string) {
     if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_PORTAL_BASICS) return load().portalBasics;
     const current = load();
-    if (!current.portalBasics.started || title !== PORTAL_BASICS_NEWS_TITLE) return current.portalBasics;
+    if (!current.portalBasics.started || newsId !== PORTAL_BASICS_NEWS_ID) return current.portalBasics;
     const portalBasics = { ...current.portalBasics, targetNewsOpened: true, pendingStepSuccess: null };
-    portalBasics.completed = current.portalBasics.completed || isPortalBasicsComplete(portalBasics);
-    return save({ ...current, portalBasics }).portalBasics;
+    return savePortalBasicsTransition(current, portalBasics);
   },
   evaluate(input: AcademyCase1Input) {
     if (!isLocalAcademyMode()) throw new Error('Academy sandbox is only available on localhost.');

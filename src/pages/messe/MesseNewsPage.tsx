@@ -30,6 +30,7 @@ import { getNewsTemplate } from '@/features/news-cms/templates/registry';
 import type { NewsTemplateId } from '@/features/news-cms/templates/types';
 import { missingNewsLanguages } from '@/features/news-cms/lib/newsContent';
 import { translateNewsContentDynamically } from '@/features/news-cms/lib/dynamicNewsTranslation';
+import { ACADEMY_PORTAL_BASICS, academySandbox, PORTAL_BASICS_NEWS_ID, PORTAL_BASICS_NEWS_TITLE } from '@/lib/academySandbox';
 import {
   getAttachmentOptionsForMachine,
   getCombinedAttachmentOptions,
@@ -58,7 +59,21 @@ function languageFlag(code: PortalUiLanguage) {
 }
 
 export function opensPublicNewsModal(post: Pick<NewsPost, 'source' | 'localized_content'>): boolean {
-  return post.source === 'news_cms' || !!post.localized_content;
+  return post.source === 'academy' || post.source === 'news_cms' || !!post.localized_content;
+}
+
+function academyPortalBasicsNews(): NewsPost {
+  return {
+    id: PORTAL_BASICS_NEWS_ID,
+    title: PORTAL_BASICS_NEWS_TITLE,
+    excerpt: 'Lokalt Academy-eksempel til Portal Basics.',
+    image_url: null,
+    link_url: null,
+    category: 'NYHED',
+    published_at: '2026-01-01T00:00:00.000Z',
+    is_active: true,
+    source: 'academy',
+  };
 }
 
 export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
@@ -130,9 +145,12 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
     [machineFilter, attachmentFilter],
   );
 
+  const academyPortalBasicsNewsActive = academySandbox.isActive()
+    && academySandbox.getActiveCase() === ACADEMY_PORTAL_BASICS;
   const filteredCmsNews = useMemo(
-    () => (news ?? []).filter((post) => matchesNewsTopicFilter(post, machineFilter, attachmentFilter)),
-    [news, machineFilter, attachmentFilter],
+    () => (academyPortalBasicsNewsActive ? [academyPortalBasicsNews(), ...(news ?? []).filter((post) => post.id !== PORTAL_BASICS_NEWS_ID)] : news ?? [])
+      .filter((post) => matchesNewsTopicFilter(post, machineFilter, attachmentFilter)),
+    [academyPortalBasicsNewsActive, news, machineFilter, attachmentFilter],
   );
   const showCuratedFallback = !isMarketingMode && (news ?? []).length === 0;
   const hasActiveTopicFilter = machineFilter !== 'all' || attachmentFilter !== 'all';
@@ -328,7 +346,10 @@ export default function MesseNewsPage({ mode = 'messe' }: MesseNewsPageProps) {
     );
 
     return isCmsPost ? (
-      <button key={post.id} type="button" onClick={() => setOpenPost(post)} className={cardClass}>
+      <button key={post.id} type="button" onClick={() => {
+        if (academySandbox.isActive()) academySandbox.trackPortalBasicsNews(post.id);
+        setOpenPost(post);
+      }} className={cardClass}>
         {renderAdminActions(post)}
         {body}
       </button>
