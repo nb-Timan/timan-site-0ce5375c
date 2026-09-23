@@ -27,6 +27,8 @@ import {
   DEFAULT_MODULE_ACCESS,
   PortalRole,
   ModuleAccessKey,
+  PORTAL_TOP_LEVEL_ACCESS,
+  type PortalTopLevelAreaId,
   isBackendActor,
 } from "@/lib/portalAccess";
 import {
@@ -73,18 +75,22 @@ const STATUS_PILL: Record<UserStatus, string> = {
   blocked: "bg-rose-100 text-rose-800",
 };
 
-const AREA_LABEL: Record<AreaKey, string> = {
+const TOP_LEVEL_AREA_LABEL: Record<PortalTopLevelAreaId, string> = {
   salg_marketing: "Salg",
   marketing: "Marketing",
   teknik_service: "Teknik & Service",
-  dealer_data:    "Partnerdata",
-  timan_crm:      "CRM",
-  timan_backend:  "Timan Backend",
+  dealer_data: "Partnerdata",
+  timan_crm: "CRM",
+  calendar: "Kalender",
+  messe: "Messe",
+  academy: "Timan Academy",
+  timan_backend: "Timan Backend",
 };
 
 const MODULE_LABEL: Record<ModuleAccessKey, string> = {
   teknik_service: "Teknik & Service",
   salg_marketing: "Salg",
+  calendar: "Kalender",
   marketing: "Marketing",
   timan_backend: "Timan Backend",
   projects: "Projekter",
@@ -128,7 +134,7 @@ type AccessDomain = {
 const ACCESS_DOMAINS: AccessDomain[] = [
   {
     label: "Salg",
-    modules: ["messe_portal", "byg_din_timan", "resources", "videos", "sales_tools", "contracts", "tilbud", "ordre"],
+    modules: ["byg_din_timan", "resources", "videos", "sales_tools", "contracts", "tilbud", "ordre"],
     permissions: [
       { value: "can_view_prices", label: "Se priser / Can view prices" },
       { value: "can_submit_order", label: "Opret ordre / Can submit order" },
@@ -656,6 +662,9 @@ function EditUserModal({
   const effectiveBackendModules = draft.role === "timan_backend"
     ? Array.from(new Set([...roleDefaultBackendModules, ...draft.backend_modules]))
     : draft.backend_modules;
+  const moduleBackedAreaKeys = new Set<ModuleAccessKey>(
+    PORTAL_TOP_LEVEL_ACCESS.filter((entry) => entry.source === "module").map((entry) => entry.key),
+  );
 
   function accessLabel(label: string, inherited: boolean, enabled: boolean, manualOverride: boolean) {
     return (
@@ -955,25 +964,65 @@ function EditUserModal({
             {(() => {
               const dealerSide = isDealerSideRole(draft.role);
               const FORBIDDEN_AREAS: AreaKey[] = ["timan_backend"];
+              const checkedAreas = PORTAL_TOP_LEVEL_ACCESS
+                .filter((entry) => entry.source === "area"
+                  ? effectiveAllowedAreas.includes(entry.key as AreaKey)
+                  : effectiveAllowedModules.includes(entry.key))
+                .map((entry) => entry.id);
+              const moduleBackedAreaChanged = [...moduleBackedAreaKeys].some(
+                (key) => draft.allowed_modules.includes(key) !== roleDefaultModules.includes(key),
+              );
               return (
                 <>
                   <CheckboxGroup
-                    items={ALL_AREAS.map((a) => ({
-                      value: a,
-                      label: accessLabel(AREA_LABEL[a], roleDefaultAreas.includes(a), draft.allowed_areas.includes(a), draft.has_manual_area_override === true),
-                      disabled: (draft.role === "timan_backend" && roleDefaultAreas.includes(a)) || (dealerSide && FORBIDDEN_AREAS.includes(a)),
-                    }))}
-                    checked={effectiveAllowedAreas}
+                    items={PORTAL_TOP_LEVEL_ACCESS.map((entry) => {
+                      const inherited = entry.source === "area"
+                        ? roleDefaultAreas.includes(entry.key as AreaKey)
+                        : roleDefaultModules.includes(entry.key);
+                      const enabled = entry.source === "area"
+                        ? draft.allowed_areas.includes(entry.key as AreaKey)
+                        : draft.allowed_modules.includes(entry.key);
+                      const manualOverride = entry.source === "area"
+                        ? draft.has_manual_area_override === true
+                        : draft.has_manual_module_override === true;
+                      const forbidden = entry.source === "area"
+                        && dealerSide
+                        && FORBIDDEN_AREAS.includes(entry.key as AreaKey);
+                      return {
+                        value: entry.id,
+                        label: accessLabel(TOP_LEVEL_AREA_LABEL[entry.id], inherited, enabled, manualOverride),
+                        disabled: (draft.role === "timan_backend" && inherited) || forbidden,
+                      };
+                    })}
+                    checked={checkedAreas}
                     onChange={(v) => {
-                      const area = v as AreaKey;
-                      if ((draft.role === "timan_backend" && roleDefaultAreas.includes(area)) || (dealerSide && FORBIDDEN_AREAS.includes(area))) return;
-                      setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, area), has_manual_area_override: true });
+                      const entry = PORTAL_TOP_LEVEL_ACCESS.find((candidate) => candidate.id === v);
+                      if (!entry) return;
+                      const inherited = entry.source === "area"
+                        ? roleDefaultAreas.includes(entry.key as AreaKey)
+                        : roleDefaultModules.includes(entry.key);
+                      if (draft.role === "timan_backend" && inherited) return;
+                      if (entry.source === "area") {
+                        const area = entry.key as AreaKey;
+                        if (dealerSide && FORBIDDEN_AREAS.includes(area)) return;
+                        setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, area), has_manual_area_override: true });
+                        return;
+                      }
+                      setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, entry.key), has_manual_module_override: true });
                     }}
                   />
-                  {draft.has_manual_area_override && (
+                  {(draft.has_manual_area_override || moduleBackedAreaChanged) && (
                     <button
                       type="button"
-                      onClick={() => setDraft({ ...draft, allowed_areas: roleDefaultAreas, has_manual_area_override: false })}
+                      onClick={() => setDraft({
+                        ...draft,
+                        allowed_areas: roleDefaultAreas,
+                        allowed_modules: [
+                          ...draft.allowed_modules.filter((key) => !moduleBackedAreaKeys.has(key)),
+                          ...roleDefaultModules.filter((key) => moduleBackedAreaKeys.has(key)),
+                        ],
+                        has_manual_area_override: false,
+                      })}
                       className="mt-2 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
                     >
                       Nulstil til rolle
@@ -1006,7 +1055,7 @@ function EditUserModal({
               const configurableQuickActions = configurableQuickActionsForRole(draft.role);
               const selectedQuickActions = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
               const groupedKeys = new Set<ModuleAccessKey>(ACCESS_DOMAINS.flatMap((group) => group.modules));
-              const otherModules = ALL_MODULES.filter((m) => !groupedKeys.has(m));
+              const otherModules = ALL_MODULES.filter((m) => !groupedKeys.has(m) && !moduleBackedAreaKeys.has(m));
               const togglePermission = (key: PermissionKey) => {
                 if (editingOwnUser && key === "can_manage_users") return;
                 if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;

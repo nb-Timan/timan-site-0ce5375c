@@ -17,9 +17,9 @@ import {
 import type { OrganizationAccessRole } from "@/lib/organizationAccess";
 
 export type UserStatus = "active" | "pending" | "blocked";
-export type AreaKey = "teknik_service" | "salg_marketing" | "marketing" | "timan_crm" | "timan_backend" | "dealer_data";
+export type AreaKey = "teknik_service" | "salg_marketing" | "calendar" | "marketing" | "timan_crm" | "timan_backend" | "dealer_data";
 
-export const ALL_AREAS: AreaKey[] = ["salg_marketing", "marketing", "teknik_service", "dealer_data", "timan_crm", "timan_backend"];
+export const ALL_AREAS: AreaKey[] = ["salg_marketing", "marketing", "teknik_service", "dealer_data", "timan_crm", "calendar", "timan_backend"];
 
 export const ALL_MODULES: ModuleAccessKey[] = [
   // Training

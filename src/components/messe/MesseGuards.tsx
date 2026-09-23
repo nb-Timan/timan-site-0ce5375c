@@ -60,7 +60,7 @@ export function PortalLockGuard({ children }: { children: ReactNode }) {
   useMessePreviewVersion();
   const { appUser } = useAppUser();
   const portalRole = derivePortalRole(appUser);
-  if (appUser && (isMesseVariantUser(appUser) || portalRole === 'exhibition_user' || (portalRole === 'dealer_user' && hasMessePortalAccess(appUser)))) {
+  if (appUser && (isMesseVariantUser(appUser) || portalRole === 'exhibition_user')) {
     return <Navigate to="/messe" replace />;
   }
   return <>{children}</>;

@@ -61,6 +61,7 @@ export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = 
 export type ModuleAccessKey =
   | 'teknik_service'
   | 'salg_marketing'
+  | 'calendar'
   | 'marketing'
   | 'timan_backend'
   | 'timan_crm'
@@ -92,6 +93,28 @@ export type PortalAreaAccessKey =
   | 'dealer_data'
   | 'projects';
 
+export type PortalTopLevelAreaId =
+  | Exclude<PortalAreaAccessKey, 'projects'>
+  | 'messe'
+  | 'academy';
+
+export type PortalTopLevelAccessDefinition =
+  | { id: Exclude<PortalAreaAccessKey, 'projects'>; source: 'area'; key: Exclude<PortalAreaAccessKey, 'projects'> }
+  | { id: 'messe' | 'academy'; source: 'module'; key: 'messe_portal' | 'academy' };
+
+/** Shared top-level navigation/access model used by the portal and user editor. */
+export const PORTAL_TOP_LEVEL_ACCESS: readonly PortalTopLevelAccessDefinition[] = [
+  { id: 'salg_marketing', source: 'area', key: 'salg_marketing' },
+  { id: 'marketing', source: 'area', key: 'marketing' },
+  { id: 'teknik_service', source: 'area', key: 'teknik_service' },
+  { id: 'dealer_data', source: 'area', key: 'dealer_data' },
+  { id: 'timan_crm', source: 'area', key: 'timan_crm' },
+  { id: 'calendar', source: 'area', key: 'calendar' },
+  { id: 'messe', source: 'module', key: 'messe_portal' },
+  { id: 'academy', source: 'module', key: 'academy' },
+  { id: 'timan_backend', source: 'area', key: 'timan_backend' },
+] as const;
+
 export type PortalAccessUser = (
   Pick<AppUser, 'role' | 'partner_type'> & {
     email?: string | null;
@@ -108,13 +131,13 @@ export type PortalAccessUser = (
 // ---------- Default per-role module access ----------
 export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
   timan_backend: [
-    'teknik_service', 'salg_marketing', 'marketing', 'timan_backend', 'timan_crm', 'dealer_data',
+    'teknik_service', 'salg_marketing', 'calendar', 'marketing', 'timan_backend', 'timan_crm', 'dealer_data',
     'projects',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'messe_portal', 'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'contracts', 'resources', 'videos',
   ],
   timan_seller: [
-    'teknik_service', 'salg_marketing', 'timan_crm', 'dealer_data',
+    'teknik_service', 'salg_marketing', 'calendar', 'timan_crm', 'dealer_data',
     'projects',
     'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'messe_portal', 'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
@@ -130,7 +153,7 @@ export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
   ],
   timan_dealer: [
-    'teknik_service', 'salg_marketing', 'timan_crm', 'dealer_data',
+    'teknik_service', 'salg_marketing', 'calendar', 'timan_crm', 'dealer_data',
     'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
     'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
     'messe_portal',
@@ -481,4 +504,18 @@ export function hasAreaAccess(
   }
 
   return hasModuleAccess(role, area as ModuleAccessKey, moduleOverride);
+}
+
+export function hasTopLevelPortalAreaAccess(
+  user: PortalAccessUser | null | undefined,
+  areaId: PortalTopLevelAreaId,
+): boolean {
+  const definition = PORTAL_TOP_LEVEL_ACCESS.find((entry) => entry.id === areaId);
+  if (!definition) return false;
+  if (definition.source === 'area') return hasAreaAccess(user, definition.key);
+  return hasModuleAccess(
+    derivePortalRole(user),
+    definition.key,
+    getUserModuleAccessOverride(user),
+  );
 }

@@ -50,4 +50,14 @@ describe('backend user permission grouping', () => {
     expect(editor).toContain('Manuelt fra');
     expect(editor).toContain('has_manual_module_override: true');
   });
+
+  it('shows every canonical top-level area without duplicating Messe or Academy as modules', () => {
+    expect(editor).toContain('PORTAL_TOP_LEVEL_ACCESS.map');
+    expect(editor).toContain('messe: "Messe"');
+    expect(editor).toContain('academy: "Timan Academy"');
+    expect(editor).toContain('calendar: "Kalender"');
+    expect(editor).toContain('!moduleBackedAreaKeys.has(m)');
+    expect(editor).toContain('moduleBackedAreaChanged');
+    expect(editor).not.toContain('modules: ["messe_portal"');
+  });
 });

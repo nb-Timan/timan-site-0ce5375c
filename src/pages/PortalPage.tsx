@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PORTAL_MODULES } from '@/lib/portalModules';
 import { useAppUser } from '@/context/AppUserContext';
-import { derivePortalRole, deriveStoredPortalRole, getUserModuleAccessOverride, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
+import { derivePortalRole, hasTopLevelPortalAreaAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -19,7 +19,7 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { ACADEMY_PORTAL_BASICS, academySandbox, type AcademyPortalBasicsState } from '@/lib/academySandbox';
-import { canAccessAcademy, getAcademyCapabilityProgress, getAcademyProgress, getLocalAcademyUser, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
+import { getAcademyCapabilityProgress, getAcademyProgress, getLocalAcademyUser, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { Language } from '@/types/configurator';
 import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
 import { t } from '@/lib/i18n/translations';
@@ -256,7 +256,7 @@ export default function PortalPage() {
   }
 
   const portalRole = derivePortalRole(effectiveUser);
-  const academyEnabled = canAccessAcademy(effectiveUser);
+  const academyEnabled = hasTopLevelPortalAreaAccess(effectiveUser, 'academy');
   const academyCompletedCaseIds = academySandbox.getCompletedCaseIds();
   const academyProgress = getAcademyProgress(effectiveUser, academyCompletedCaseIds);
   const portalBasics = academySandbox.getPortalBasics();
@@ -265,14 +265,8 @@ export default function PortalPage() {
   const academyCapabilityGated = isAcademyCapabilityGated(effectiveUser);
   const configuratorUnlocked = isAcademyCapabilityUnlocked(effectiveUser, 'configurator', academyCompletedCaseIds);
   const configuratorProgress = getAcademyCapabilityProgress('configurator', academyCompletedCaseIds);
-  const realPortalRole = deriveStoredPortalRole(portalUser);
   const isEffectiveBackend = portalRole === 'timan_backend';
-  const moduleOverride = getUserModuleAccessOverride(effectiveUser);
-  const showMesseCard = (
-    realPortalRole === 'timan_backend' ||
-    realPortalRole === 'timan_seller' ||
-    hasModuleAccess(portalRole, 'messe_portal', moduleOverride)
-  );
+  const showMesseCard = hasTopLevelPortalAreaAccess(effectiveUser, 'messe');
   const academyAllowedHomeCards = academySandbox.getAllowedPortalHomeCardIds();
   const visibleHomeCards = sortPortalHomeCards([
     ...PORTAL_AREAS

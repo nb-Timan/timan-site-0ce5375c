@@ -92,7 +92,7 @@ function PreferredLanguageBootstrap() {
   return null;
 }
 import { MesseRouteGuard, PortalLockGuard } from "./components/messe/MesseGuards";
-import { DealerUserServiceGuard } from "./components/guards/DealerUserServiceGuard";
+import { DealerUserServiceGuard, PortalAreaAccessGuard } from "./components/guards/DealerUserServiceGuard";
 import AcademyCapabilityGuard from "./components/academy/AcademyCapabilityGuard";
 import AcademyAccessGuard from "./components/academy/AcademyAccessGuard";
 import PartnerDataRoute from "./pages/portal/PartnerDataRoute";
@@ -372,7 +372,7 @@ const App = () => (
               <Route path="/portal/crm/demo-leads/:id" element={<AcademyCapabilityGuard capability="crm"><CrmDemoLeadDetailPage /></AcademyCapabilityGuard>} />
               <Route path="/portal/crm/budget" element={<AcademyCapabilityGuard capability="crm"><CrmBudgetPage /></AcademyCapabilityGuard>} />
               <Route path="/portal/crm/budget-dashboard" element={<AcademyCapabilityGuard capability="crm"><CrmBudgetDashboardPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/calendar" element={<AcademyCapabilityGuard capability="crm"><CrmCalendarPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/calendar" element={<PortalAreaAccessGuard area="calendar"><AcademyCapabilityGuard capability="crm"><CrmCalendarPage /></AcademyCapabilityGuard></PortalAreaAccessGuard>} />
               <Route path="/portal/crm/quotes" element={<AcademyCapabilityGuard capability="quote"><CrmQuotesOrdersPage mode="quote" /></AcademyCapabilityGuard>} />
               <Route path="/portal/crm/orders" element={<AcademyCapabilityGuard capability="order"><CrmQuotesOrdersPage mode="order" /></AcademyCapabilityGuard>} />
               <Route path="/portal/crm/reports" element={<AcademyCapabilityGuard capability="crm"><Navigate to="/portal/crm/dashboard" replace /></AcademyCapabilityGuard>} />
