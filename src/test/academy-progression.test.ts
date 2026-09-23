@@ -71,10 +71,10 @@ describe('canonical Academy progression', () => {
 
   it('renders curriculum modules in canonical order and uses a whole-row button', () => {
     const source = readFileSync('src/pages/AcademyPage.tsx', 'utf8');
-    const partnerData = source.indexOf('<Module icon={ACADEMY_AREA_ICONS.partnerData}');
-    const portalBasics = source.indexOf('<Module icon={ACADEMY_AREA_ICONS.portalBasics}', partnerData + 1);
-    const sales = source.indexOf('<Module icon={ACADEMY_AREA_ICONS.sales}', portalBasics + 1);
-    const crm = source.indexOf('<Module icon={ACADEMY_AREA_ICONS.crm}', sales + 1);
+    const partnerData = source.indexOf("<Module title={tr('academyPartnerData')}");
+    const portalBasics = source.indexOf("<Module title={tr('academyPortalBasics')}", partnerData + 1);
+    const sales = source.indexOf("<Module title={tr('academySales')}", portalBasics + 1);
+    const crm = source.indexOf('<Module title="CRM"', sales + 1);
 
     expect(partnerData).toBeGreaterThan(-1);
     expect(partnerData).toBeLessThan(portalBasics);

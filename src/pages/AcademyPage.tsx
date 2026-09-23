@@ -3,7 +3,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   ArrowRight,
   BarChart3,
-  CalendarDays,
   CheckCircle2,
   ChevronRight,
   Crown,
@@ -66,8 +65,7 @@ function Status({ state, label }: { state: AcademyCaseState; label: string }) {
   );
 }
 
-function Module({ icon: Icon, title, progress, children }: {
-  icon: typeof ShoppingCart;
+function Module({ title, progress, children }: {
   title: string;
   progress: string;
   children: React.ReactNode;
@@ -75,10 +73,7 @@ function Module({ icon: Icon, title, progress, children }: {
   return (
     <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <header className="flex items-center justify-between px-4 py-3.5">
-        <div className="flex items-center gap-2.5">
-          <Icon className="h-[18px] w-[18px] text-[#126a45]" />
-          <h2 className="text-sm font-bold text-slate-900">{title}</h2>
-        </div>
+        <h2 className="text-sm font-bold text-slate-900">{title}</h2>
         <span className="text-xs font-medium text-slate-500">{progress}</span>
       </header>
       {children}
@@ -86,8 +81,7 @@ function Module({ icon: Icon, title, progress, children }: {
   );
 }
 
-function LockedModule({ icon: Icon, title, progress, description, lockedLabel }: {
-  icon: typeof ShoppingCart;
+function LockedModule({ title, progress, description, lockedLabel }: {
   title: string;
   progress: string;
   description: string;
@@ -95,14 +89,9 @@ function LockedModule({ icon: Icon, title, progress, description, lockedLabel }:
 }) {
   return (
     <section className="flex min-h-[104px] flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3.5">
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
-          <Icon className="h-4 w-4" />
-        </div>
-        <div className="min-w-0">
-          <h2 className="text-sm font-bold text-slate-700">{title}</h2>
-          <p className="mt-0.5 text-xs text-slate-500">{description}</p>
-        </div>
+      <div className="min-w-0">
+        <h2 className="text-sm font-bold text-slate-700">{title}</h2>
+        <p className="mt-0.5 text-xs text-slate-500">{description}</p>
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <span className="text-xs font-medium text-slate-500">{progress}</span>
@@ -442,23 +431,23 @@ export default function AcademyPage() {
           </div>
 
           <div className="mt-4 grid items-start gap-3 lg:grid-cols-2">
-            <Module icon={ACADEMY_AREA_ICONS.partnerData} title={tr('academyPartnerData')} progress={`${partnerDataCompleted} / 2 ${tr('academyCompleted')}`}>
+            <Module title={tr('academyPartnerData')} progress={`${partnerDataCompleted} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.partnerData} title={tr('academyPartnerDataPart1Title')} description={tr('academyPartnerDataPart1Description')} state={partnerDataPart1State} statusLabel={stateLabel(partnerDataPart1State)} action={actionForCase(partnerDataPart1State)} onClick={mayOpen(partnerDataPart1State) ? startPartnerDataPart1 : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.partnerData} title={tr('academyPartnerDataPart2Title')} description={tr('academyPartnerDataPart2Description')} state={partnerDataPart2State} statusLabel={stateLabel(partnerDataPart2State)} action={actionForCase(partnerDataPart2State)} onClick={mayOpen(partnerDataPart2State) ? startPartnerDataPart2 : undefined} />
             </Module>
-            <Module icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPortalBasics')} progress={`${Number(portalBasics.completed) + Number(partnerMap.completed)} / 2 ${tr('academyCompleted')}`}>
+            <Module title={tr('academyPortalBasics')} progress={`${Number(portalBasics.completed) + Number(partnerMap.completed)} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPortalBasicsCaseTitle')} description={tr('academyPortalBasicsCaseDescription')} state={portalBasicsState} statusLabel={stateLabel(portalBasicsState)} action={actionForCase(portalBasicsState)} onClick={mayOpen(portalBasicsState) ? startPortalBasics : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPartnerMapTitle')} description={tr('academyPartnerMapDescription')} state={partnerMapState} statusLabel={stateLabel(partnerMapState)} action={actionForCase(partnerMapState)} onClick={mayOpen(partnerMapState) ? startPartnerMap : undefined} />
             </Module>
-            <Module icon={ACADEMY_AREA_ICONS.sales} title={tr('academySales')} progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 ${tr('academyCompleted')}`}>
+            <Module title={tr('academySales')} progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase1Title')} description={tr('academySalesCase1Description')} state={caseState} statusLabel={stateLabel(caseState)} action={actionForCase(caseState)} onClick={mayOpen(caseState) ? startCase : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase2Title')} description={tr('academySalesCase2Description')} state={videoCaseState} statusLabel={stateLabel(videoCaseState)} action={actionForCase(videoCaseState)} onClick={mayOpen(videoCaseState) ? startVideoCase : undefined} />
             </Module>
-            <Module icon={ACADEMY_AREA_ICONS.crm} title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
+            <Module title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.crm} title={tr('academyCrmCase1Title')} description={tr('academyCrmDashboardCase1Description')} state={crmPart1State} statusLabel={stateLabel(crmPart1State)} action={actionForCase(crmPart1State)} onClick={mayOpen(crmPart1State) ? startCrmPart1 : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.crm} title={tr('academyCrmCase2Title')} description={tr('academyCrmDashboardCase2Description')} state={crmPart2State} statusLabel={stateLabel(crmPart2State)} action={actionForCase(crmPart2State)} onClick={mayOpen(crmPart2State) ? startCrmPart2 : undefined} />
             </Module>
-            <LockedModule icon={CalendarDays} title={tr('academyCalendar')} progress={`0 / 1 ${tr('academyCompleted')}`} description={tr('academyCalendarLocked')} lockedLabel={stateLabel('locked')} />
+            <LockedModule title={tr('academyCalendar')} progress={`0 / 1 ${tr('academyCompleted')}`} description={tr('academyCalendarLocked')} lockedLabel={stateLabel('locked')} />
           </div>
 
           <Link className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#126a45] hover:underline" to="/portal">← {tr('academyBackToPortal')}</Link>
