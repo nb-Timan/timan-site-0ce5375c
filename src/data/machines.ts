@@ -127,15 +127,17 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         ]
       },
       dimensions: [
-        { label: 'Længde (Basis)', value: '1.310 mm' },
-        { label: 'Bredde (Basis)', value: '1.000 mm' },
-        { label: 'Højde (Basis)', value: '685 mm' },
+        { label: 'Bredde (Basis)', value: '995 mm' },
+        { label: 'Højde (Basis)', value: '692 mm' },
         { label: 'Vægt (Basis)', value: '440 kg' },
+        { label: 'Længde (uden slagleklipper)', value: '1.313 mm' },
         { label: 'Længde (m/ Slagleklipper)', value: '1.970 mm' },
         { label: 'Klippebredde', value: '1.000 mm' },
         { label: 'Teoretisk maks. output', value: '6.000 m2/t' },
         { label: 'Transmission til bælter/redskab', value: 'Hydraulisk' },
       ],
+      overviewImageUrl: '/images/rc-1000s/rc-1000s-dimensions-overview.png',
+      preferCanonicalDimensions: true,
     },
   },
   'RC-751': {

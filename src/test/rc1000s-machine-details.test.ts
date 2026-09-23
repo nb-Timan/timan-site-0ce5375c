@@ -1,0 +1,31 @@
+import { describe, expect, it } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import { PRODUCTS } from '@/data/machines';
+
+describe('RC-1000s machine information modal data', () => {
+  it('uses the corrected canonical dimensions in the requested order', () => {
+    const details = PRODUCTS['RC-1000S'].machineDetails;
+    const dimensions = details?.dimensions ?? [];
+    const byLabel = new Map(dimensions.map((item) => [item.label, item.value]));
+    const labels = dimensions.map((item) => item.label);
+
+    expect(byLabel.get('Bredde (Basis)')).toBe('995 mm');
+    expect(byLabel.get('Højde (Basis)')).toBe('692 mm');
+    expect(byLabel.get('Længde (uden slagleklipper)')).toBe('1.313 mm');
+    expect(byLabel.has('Længde (Basis)')).toBe(false);
+    expect(labels.indexOf('Længde (uden slagleklipper)')).toBe(
+      labels.indexOf('Længde (m/ Slagleklipper)') - 1,
+    );
+  });
+
+  it('provides the RC-1000s overview image without changing other machines', () => {
+    const rc1000Details = PRODUCTS['RC-1000S'].machineDetails;
+    const pageSource = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+
+    expect(rc1000Details?.overviewImageUrl).toBe('/images/rc-1000s/rc-1000s-dimensions-overview.png');
+    expect(rc1000Details?.preferCanonicalDimensions).toBe(true);
+    expect(existsSync('public/images/rc-1000s/rc-1000s-dimensions-overview.png')).toBe(true);
+    expect(pageSource).toContain('max-h-[60vh] w-full max-w-full object-contain');
+    expect(PRODUCTS['RC-751'].machineDetails?.overviewImageUrl).toBeUndefined();
+  });
+});

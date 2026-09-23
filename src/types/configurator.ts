@@ -65,6 +65,8 @@ export interface MachineDetails {
   main: LocalizedString;
   bullets: Record<string, string[]>;
   dimensions: TechSpec[];
+  overviewImageUrl?: string;
+  preferCanonicalDimensions?: boolean;
 }
 
 export interface MediaLink {
