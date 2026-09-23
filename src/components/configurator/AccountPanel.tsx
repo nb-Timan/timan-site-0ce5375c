@@ -28,6 +28,7 @@ import {
 import { hideConfigurationForScope } from '@/lib/userHiddenConfigurationsService';
 import { resolveHideScopeForCurrentUser } from '@/lib/configurationsService';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import {
   convertCurrency,
   currencyFromLanguage,
@@ -259,7 +260,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       return;
     }
 
-    onRestoreState(saved.state_json, saved.id, {
+    onRestoreState(isSavedConfigurationOrderLocked(saved) ? saved.state_json : refreshConfiguratorProductDescriptions(saved.state_json), saved.id, {
       seller_initials: saved.seller_initials,
       seller_email: saved.seller_email,
       seller_name: saved.seller_name,

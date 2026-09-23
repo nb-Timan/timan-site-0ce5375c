@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
-import { configuratorPricingSignature, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, protectLegacySentPricing } from '@/lib/configuratorPricing';
+import { configuratorPricingSignature, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, protectLegacySentPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
@@ -992,7 +992,7 @@ export async function saveConfiguration(
   }
 
   const now = new Date().toISOString();
-  state = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
+  state = await finalizeConfiguratorPricingSnapshot(refreshConfiguratorProductDescriptions(state), options?.pricingMode);
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
 
   // Pre-compute subtotal/total_price so even drafts and the initial save carry
@@ -1147,10 +1147,10 @@ export async function updateConfiguration(
     return { error: authError ? formatSupabaseError(authError) : 'No authenticated user', itemsError: null };
   }
 
-  let stateForPersistence = state;
+  let stateForPersistence = refreshConfiguratorProductDescriptions(state);
   if (state.pricingSnapshot) {
     try {
-      stateForPersistence = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
+      stateForPersistence = await finalizeConfiguratorPricingSnapshot(stateForPersistence, options?.pricingMode);
     } catch (error) {
       console.warn('[updateConfiguration] pricing snapshot finalization failed:', error);
       return { error: error instanceof Error ? error.message : 'Pris-snapshot kunne ikke valideres', itemsError: null };

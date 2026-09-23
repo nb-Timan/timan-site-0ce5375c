@@ -96,7 +96,7 @@ import {
   getPaymentTermsOptionLabel,
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
-import { createConfiguratorPricingSnapshot } from '@/lib/configuratorPricing';
+import { createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel } from '@/lib/calcConfiguration';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
@@ -840,6 +840,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         return;
       }
       setBackendCorrectionSessionId(sessionId);
+      setState(refreshConfiguratorProductDescriptions);
       setBackendCorrectionDialogOpen(false);
       setBackendCorrectionReason('');
       setLegacyOrderRepriceApproved(false);
@@ -1330,7 +1331,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         }
         paymentTermsExplicitRef.current = Boolean(saved.state_json.paymentTerms?.trim());
         paymentTermsDealerIdRef.current = row.dealer_account_id ?? null;
-        setState(saved.state_json);
+        setState(isSavedConfigurationOrderLocked(saved)
+          ? saved.state_json
+          : refreshConfiguratorProductDescriptions(saved.state_json));
         setSavedConfigurationId(saved.id);
         const lockedOnLoad = isSavedConfigurationOrderLocked(saved);
         setOrderLocked(lockedOnLoad);
@@ -1965,8 +1968,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       setInfoModal({ title: T('missingFieldsTitle'), content: T('missingFieldsMsg') });
       return;
     }
-
-
+    setState(refreshConfiguratorProductDescriptions);
     // NOTE: No auto-save here. Saving only happens on:
     // 1) Download PDF (quote), 2) Afsend ordre til Timan (order), 3) "+ Gem nuværende" in My account.
     // If the case is already saved, ensure reference numbers exist for display in the preview.
@@ -2033,8 +2035,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     options?: { orderRevisionAction?: OrderRevisionAction },
   ): Promise<boolean> => {
     const effectiveFlowType = flowOverride ?? state.flowType;
-    let documentState = state;
-    let documentCalc = displayCalc!;
+    let documentState = refreshConfiguratorProductDescriptions(state);
+    let documentCalc = hasFrozenConfiguratorPricing(documentState) && !isGrossPriceMode
+      ? buildSubmittedOrderDocument(documentState).calcResult
+      : calculateConfiguration({ ...documentState, manualDealerDiscountPct: isGrossPriceMode && !isExhibition ? 0 : documentState.manualDealerDiscountPct }, { grossManualDiscountOnly: isGrossPriceMode });
     let completedRevisionId: string | null = null;
     let confirmationRevisionNumber: number | undefined;
     if (backendCorrectionSessionId && activePortalRole !== 'timan_backend') {

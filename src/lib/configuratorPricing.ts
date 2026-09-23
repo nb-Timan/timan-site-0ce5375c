@@ -1,5 +1,6 @@
 import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
 import type { Accessory, ConfiguratorPricingSnapshot, ConfiguratorState, Language } from '@/types/configurator';
+import { publishedProductText } from '@/lib/publishedProductMaster';
 
 const machineKey = (machineType: string) => `machine:${machineType}`;
 const accessoryKey = (machineType: string, accessoryId: string) => `accessory:${machineType}:${accessoryId}`;
@@ -9,7 +10,28 @@ const startupKey = (language: Language, option: string) => `startup:${language}:
 export function snapshotProductName(state: ConfiguratorState, itemNumber: string, currentName: string): string {
   return state.pricingSnapshot?.names?.[itemNumber]
     ?? state.pricingSnapshot?.lines?.find(line => line.itemNo === itemNumber)?.description
-    ?? currentName;
+    ?? currentProductDescription(itemNumber, state.language, currentName);
+}
+
+/** Commercial identity excludes catalog/Marketing presentation suffixes. */
+export function currentProductDescription(itemNumber: string, language: Language, fallback: string): string {
+  return publishedProductText(itemNumber, language === 'de' || language === 'en' ? language : 'da') ?? fallback;
+}
+
+/** Explicit edit boundary only. Historical readers retain the original snapshot. */
+export function refreshConfiguratorProductDescriptions(state: ConfiguratorState): ConfiguratorState {
+  const snapshot = state.pricingSnapshot;
+  if (!snapshot) return state;
+  const names = { ...snapshot.names };
+  const lines = snapshot.lines?.map(line => ({
+    ...line,
+    description: currentProductDescription(line.itemNo, state.language, line.description),
+  }));
+  for (const line of lines ?? []) names[line.itemNo] ??= line.description;
+  for (const itemNumber of Object.keys(names)) {
+    names[itemNumber] = currentProductDescription(itemNumber, state.language, names[itemNumber]);
+  }
+  return { ...state, pricingSnapshot: { ...snapshot, names, ...(lines ? { lines } : {}) } };
 }
 
 function positivePrice(value: unknown): number | null {
@@ -105,7 +127,7 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
   for (const machine of state.machineConfigs ?? []) {
     const product = PRODUCTS[machine.type];
     if (product) prices[machineKey(machine.type)] = getPrice(product, language);
-    if (product?.varenr) names[product.varenr] = snapshotProductName(state, product.varenr, getLocalizedName(product.name, language));
+    if (product?.varenr) names[product.varenr] = currentProductDescription(product.varenr, language, getLocalizedName(product.name, language));
 
     for (const accessory of getAccessoriesFlat(machine.type)) {
       if (accessory.isHeader) continue;
@@ -113,7 +135,7 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
         || Object.keys(state.individualUnitConfigs ?? {}).some(key => state.individualUnitConfigs[key]?.acc?.includes(accessory.id))
         || Object.keys(state.accQty ?? {}).some(key => key.endsWith(`_${accessory.id}`) && (state.accQty[key] ?? 0) > 0);
       if (selected) prices[accessoryKey(machine.type, accessory.id)] = getPrice(accessory, language);
-      if (selected && accessory.varenr) names[accessory.varenr] = snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, language));
+      if (selected && accessory.varenr) names[accessory.varenr] = currentProductDescription(accessory.varenr, language, getLocalizedName(accessory.name, language));
     }
   }
 
