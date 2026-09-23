@@ -98,6 +98,32 @@ html, body {
   color: #6b72f0;
 }
 
+@keyframes academy-hint-pulse {
+  0%, 100% { outline-color: rgba(16, 185, 129, 0.35); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.10); }
+  50% { outline-color: rgba(245, 158, 11, 0.70); box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.16); }
+}
+
+.academy-hint-target {
+  position: relative;
+  outline: 2px solid rgba(16, 185, 129, 0.45);
+  outline-offset: 3px;
+  border-radius: 0.25rem;
+}
+
+.academy-hint-target[data-academy-hint-state='pulse'] {
+  animation: academy-hint-pulse 1.4s ease-in-out 3;
+}
+
+.academy-hint-target[data-academy-hint-state='static'] {
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.10);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .academy-hint-target[data-academy-hint-state='pulse'] {
+    animation: none;
+  }
+}
+
 /* Price column */
 .price-col {
   white-space: nowrap;

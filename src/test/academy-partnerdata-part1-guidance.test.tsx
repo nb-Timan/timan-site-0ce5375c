@@ -47,6 +47,7 @@ describe('Academy Partnerdata Part 1 guidance', () => {
     expect(screen.getByText('Punkt 2: Gennemgå partnerrelation og aftalehistorik')).toBeInTheDocument();
     expect(screen.getByText('Næste punkt: Punkt 1: Udfyld Forhandler Accept - Fakturering.')).toBeInTheDocument();
     expect(screen.getByText(/Her lærer du først at registrere en fakturaaccept/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Åbn Forhandler Accept - Fakturering' })).toHaveAttribute('data-academy-hint-target', 'partner-invoice-accept');
     expect(container.querySelector('ol')).toHaveClass('md:grid-cols-2');
   });
 

@@ -4,12 +4,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
 import { readFileSync } from 'node:fs';
 import { academySandbox } from '@/lib/academySandbox';
+import { PORTAL_BASICS_NEWS_ID, PORTAL_BASICS_NEWS_TITLE } from '@/lib/academySandbox';
 
 describe('Academy Portal Basics Partnerdata guidance', () => {
   it('uses a local-only target news item instead of mutating or depending on the production feed', () => {
     const latest = readFileSync('src/components/portal/LatestFromTiman.tsx', 'utf8');
-    expect(latest).toContain("id: 'academy-news-rc1000s-disc-mower'");
-    expect(latest).toContain("title: 'Skivehøster til Timan RC-1000s'");
+    expect(PORTAL_BASICS_NEWS_ID).toBe('academy-news-rc1000s-disc-mower');
+    expect(PORTAL_BASICS_NEWS_TITLE).toBe('Skivehøster til Timan RC-1000s');
+    expect(latest).toContain('id: PORTAL_BASICS_NEWS_ID');
+    expect(latest).toContain('title: PORTAL_BASICS_NEWS_TITLE');
     expect(latest).toContain('if (academySandbox.isActive())');
   });
 

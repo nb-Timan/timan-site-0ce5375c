@@ -5,6 +5,7 @@ import { academyPartnerDataSandbox as sandbox, ACADEMY_PARTNER_CHANGED, ACADEMY_
 import { ACADEMY_PROGRESS_CHANGED, academySandbox } from '@/lib/academySandbox';
 import { useOptionalLanguage } from '@/context/LanguageContext';
 import { t } from '@/lib/i18n/translations';
+import AcademyHintTarget from './AcademyHintTarget';
 
 export default function AcademyPartnerDataGuidance() {
   const { uiLanguage } = useOptionalLanguage();
@@ -41,6 +42,9 @@ export default function AcademyPartnerDataGuidance() {
     : !portalBasics.returnedHomeFromPartnerData
       ? tr('academyPartnerDataLogoNext')
       : tr('academyPartnerDataLogoComplete');
+  const activeHintTarget = part === 2 && !progress.invoiceFlowReviewed
+    ? 'partner-invoice-accept'
+    : null;
   const point = (number: number, title: string) => `${tr('academyPoint')} ${number}: ${title}.`;
   const part1Next = !progress.academyMachineOpened
     ? point(1, tr('academyPartnerDataMachine'))
@@ -86,6 +90,10 @@ export default function AcademyPartnerDataGuidance() {
       next={part === 1 ? part1Next : part === 2 ? !progress.invoiceFlowReviewed ? point(1, tr('academyPartnerDataInvoice')) : !state.relationReviewed ? point(2, tr('academyPartnerDataRelation')) : tr('academyPartnerDataComplete') : portalBasicsNext}
       completion={part === 1 ? { nextUnlock: tr('academyPartnerDataPart2Title') } : part === 2}
       caseId={part === 1 ? ACADEMY_PARTNERDATA_PART_1 : part === 2 ? ACADEMY_PARTNERDATA_PART_2 : undefined} />
-    {part === 2 && <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to="/portal/misc/forms/dealer-invoice-accept?academy_mode=true">{tr('academyPartnerDataOpenInvoice')}</Link>}
+    {part === 2 && (
+      <AcademyHintTarget targetKey="partner-invoice-accept" activeTargetKey={activeHintTarget}>
+        <Link className="mb-4 inline-block text-sm font-semibold text-emerald-800 underline" to="/portal/misc/forms/dealer-invoice-accept?academy_mode=true">{tr('academyPartnerDataOpenInvoice')}</Link>
+      </AcademyHintTarget>
+    )}
   </>;
 }
