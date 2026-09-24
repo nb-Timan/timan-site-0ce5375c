@@ -1,6 +1,7 @@
 /** Public commercial fields only. Costs and editorial audit never enter the browser catalog. */
 export interface PublishedProductMaster {
   item_number: string;
+  is_active?: boolean;
   item_text_da?: string | null;
   item_text_de?: string | null;
   item_text_en?: string | null;
@@ -20,6 +21,7 @@ export const subscribeProductMaster = (listener: () => void) => {
   return () => { listeners.delete(listener); };
 };
 export const publishedProduct = (itemNumber?: string) => master.get(String(itemNumber || '').trim());
+export const isProductActive = (itemNumber?: string) => publishedProduct(itemNumber)?.is_active !== false;
 export function replaceProductMaster(rows: PublishedProductMaster[]): void {
   master = new Map(rows.filter(row => row.item_number.trim()).map(row => [row.item_number.trim(), row]));
 }
@@ -89,6 +91,7 @@ export function resolvePublishedProduct<T extends CatalogItem>(item: T): T {
   }
   return {
     ...item, name,
+    ...(row.is_active === false ? { hidden: true } : {}),
     priceDKK: row.price_dkk ?? item.priceDKK,
     priceEUR: row.price_eur ?? item.priceEUR,
   };

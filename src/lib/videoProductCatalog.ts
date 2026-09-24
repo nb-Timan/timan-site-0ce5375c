@@ -1,4 +1,5 @@
 import { ACCESSORIES, getAccessoriesFlat, getLocalizedName, PRODUCTS } from "@/data/machines";
+import { isProductActive } from '@/lib/publishedProductMaster';
 import type { Accessory, Machine } from "@/types/configurator";
 import type { PortalUiLanguage } from "@/lib/portalLanguages";
 
@@ -63,6 +64,7 @@ export function listVideoProductOptions(lang: PortalUiLanguage = "da"): VideoPro
     seen.add(machineOptionKey);
 
     for (const accessory of getAccessoriesFlat(machineKey)) {
+      if (!isProductActive(accessory.varenr)) continue;
       const productKey = accessory.id;
       const optionKey = `${machineKey}::${productKey}`;
       if (!productKey || seen.has(optionKey) || !accessory.varenr || accessory.isHeader) continue;
@@ -81,6 +83,7 @@ export function listVideoProductOptions(lang: PortalUiLanguage = "da"): VideoPro
 
   for (const [machineKey, accessories] of Object.entries(ACCESSORIES)) {
     for (const accessory of accessories) {
+      if (!isProductActive(accessory.varenr)) continue;
       const productKey = accessory.id;
       const optionKey = `${machineKey}::${productKey}`;
       if (!productKey || seen.has(optionKey) || !accessory.varenr || accessory.isHeader) continue;

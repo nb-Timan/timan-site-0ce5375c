@@ -152,6 +152,7 @@ export async function listPriceItems(): Promise<PriceListItem[]> {
   const { data, error } = await supabase
     .from("price_list_items")
     .select("id, item_number, renamed_from_item_number, item_text_da, item_text_de, item_text_en, price_dkk, price_eur, price_sek, cost_price_dkk, cost_price_source, cost_price_updated_at, updated_at, updated_by_email, is_dirty, last_published_at")
+    .eq("is_active", true)
     .order("item_number", { ascending: true });
   if (error) {
     // eslint-disable-next-line no-console

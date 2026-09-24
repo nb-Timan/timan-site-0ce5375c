@@ -19,7 +19,7 @@ import {
   getLooseToolAccessories,
 } from "@/data/machines";
 import type { Accessory, Machine } from "@/types/configurator";
-import { publishedProduct } from '@/lib/publishedProductMaster';
+import { isProductActive, publishedProduct } from '@/lib/publishedProductMaster';
 
 export type ProductGroupKey =
   | "RC-751"
@@ -76,6 +76,7 @@ function machineRow(m: Machine, group: ProductGroupKey): SeedRow | null {
 
 function accessoryRow(a: Accessory, group: ProductGroupKey): SeedRow | null {
   if (!a || a.isHeader) return null;
+  if (!isProductActive(a.varenr)) return null;
   const item = String(a.varenr || "").trim();
   if (!item || item.toUpperCase() === "HEADER") return null;
   const dkk = Number.isFinite(a.priceDKK) ? a.priceDKK : 0;

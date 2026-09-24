@@ -30,7 +30,7 @@ describe('Marketing configurator content', () => {
 
     expect(catalog.some((item) => item.kind === 'machine' && item.machineKey === 'RC-1000S')).toBe(true);
     expect(scraper?.productKey).toBe(productContentKey('RC-1000S', scraper?.item.id || ''));
-    expect(workLight?.defaults.title).toContain('Arbejdslamper');
+    expect(workLight?.defaults.title).toBe('Arbejdslys 2 stk.');
   });
 
   it('uses a published override only for presentation fields and preserves canonical defaults as fallback', () => {
@@ -179,7 +179,7 @@ describe('Marketing configurator content', () => {
       configurator.indexOf('const marketingEditButton'),
     );
     expect(contentState.indexOf("record.status === 'published'")).toBeLessThan(contentState.indexOf("record.status === 'draft'"));
-    expect(configurator).toContain("renderMarketingBadge(machineType, a.id, marketingContent, 'compact')");
+    expect(configurator).toContain("renderMarketingBadge(machineType, a.id, marketingContent, 'compact', currentUnitDemo)");
     expect(configurator).toContain('badgeSchedule={marketingContent}');
     expect(editor).toContain('marketingBadgeDisplayPeriod');
     expect(editor).toContain('badge_show_countdown');

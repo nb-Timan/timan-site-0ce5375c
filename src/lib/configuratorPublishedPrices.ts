@@ -27,6 +27,7 @@ async function fetchMaster(): Promise<number> {
       if (!itemNumber) return null;
       return {
         item_number: itemNumber,
+        is_active: value.is_active !== false,
         item_text_da: typeof value.item_text_da === 'string' ? value.item_text_da : null,
         item_text_de: typeof value.item_text_de === 'string' ? value.item_text_de : null,
         item_text_en: typeof value.item_text_en === 'string' ? value.item_text_en : null,

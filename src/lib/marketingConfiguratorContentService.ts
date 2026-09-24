@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Accessory, Machine, TechSpec } from '@/types/configurator';
 import type { MarketingBadgeSchedule } from '@/lib/marketingBadgeSchedule';
-import { publishedProduct, publishedProductText, type PublishedProductLanguage } from '@/lib/publishedProductMaster';
+import { isProductActive, publishedProduct, publishedProductText, type PublishedProductLanguage } from '@/lib/publishedProductMaster';
 
 export type MarketingConfiguratorContentStatus = 'draft' | 'published';
 
@@ -265,7 +265,7 @@ export async function listPublishedMarketingConfiguratorContent(): Promise<Map<s
     console.warn('[marketingConfiguratorContent] published content lookup failed:', error.message);
     return new Map();
   }
-  return new Map(((data || []) as Record<string, unknown>[]).map((row) => {
+  return new Map(((data || []) as Record<string, unknown>[]).filter(row => isProductActive(String(row.item_number))).map((row) => {
     const record = toRecord(row);
     return [record.product_key, record] as const;
   }));
@@ -276,6 +276,7 @@ export async function saveMarketingConfiguratorContent(
   content: MarketingConfiguratorContentFields,
   status: MarketingConfiguratorContentStatus,
 ): Promise<{ row: MarketingConfiguratorContentRecord | null; error: string | null }> {
+  if (!isProductActive(item.itemNumber)) return { row: null, error: `Varenr. ${item.itemNumber} er udgået.` };
   if (status === 'published') {
     const { data, error } = await supabase.rpc('publish_marketing_configurator_product_content', {
       p_product_key: item.productKey,

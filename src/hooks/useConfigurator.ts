@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
+import { isProductActive } from '@/lib/publishedProductMaster';
 import { academySandbox } from '@/lib/academySandbox';
 import { academyScopedStorageKey } from '@/lib/academyCycleStorage';
 import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult } from '@/types/configurator';
@@ -165,6 +166,10 @@ export function useConfigurator() {
       // Resolves accId → varenr (covers generated ids like 721122_<parentId>).
       // Removal is always allowed; only adding is blocked when the varenr is already selected once.
       const clickedVarenr = getVarenrForAccId(unit.modelType, accId);
+      const selectedAccessories = unit.isSharedUnit
+        ? s.machineConfigs.find(c => c.id === unit.modelId)?.acc || []
+        : s.individualUnitConfigs[unit.configKey]?.acc || [];
+      if (!selectedAccessories.includes(accId) && !isProductActive(clickedVarenr)) return s;
       if (clickedVarenr && SINGLETON_VARENR.has(clickedVarenr)) {
         const currentList = unit.isSharedUnit
           ? (s.machineConfigs.find(c => c.id === unit.modelId)?.acc || [])

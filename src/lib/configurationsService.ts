@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase';
+import { getAccessoriesFlat } from '@/data/machines';
+import { isProductActive } from '@/lib/publishedProductMaster';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
 import { configuratorPricingSignature, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, protectLegacySentPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
@@ -1444,6 +1446,15 @@ export async function finalizeConfiguratorPricingSnapshot(
 ): Promise<ConfiguratorState> {
   if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler; ingen automatisk genberegning.');
   if (hasFrozenConfiguratorPricing(state)) return state;
+
+  for (const machine of state.machineConfigs) {
+    const selected = machine.configMode === 'shared' ? machine.acc : Array.from({ length: machine.qty }, (_, index) =>
+      state.individualUnitConfigs?.[`${machine.id}_${index + 1}`]?.acc || []).flat();
+    const retired = getAccessoriesFlat(machine.type).find(item => selected.includes(item.id)
+      && !isProductActive(item.varenr)
+      && !state.pricingSnapshot?.lines?.some(line => line.itemNo === item.varenr));
+    if (retired) throw new Error(`Varenr. ${retired.varenr} er udgået og kan ikke vælges i et nyt tilbud eller en ny ordre.`);
+  }
 
   const currentSnapshot = createConfiguratorPricingSnapshot(state);
   // Existing snapshot prices always win. Newly selected items get a current
