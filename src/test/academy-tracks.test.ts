@@ -17,8 +17,8 @@ describe('Academy assigned tracks', () => {
     expect(getAssignedAcademyCurriculum(user(true, true, false))).toEqual([]);
   });
   it.each([
-    [false, false, ['basic'], 4], [true, false, ['basic', 'sales'], 8],
-    [false, true, ['basic', 'service'], 5], [true, true, ['basic', 'sales', 'service'], 9],
+    [false, false, ['basic'], 4], [true, false, ['basic', 'sales'], 9],
+    [false, true, ['basic', 'service'], 5], [true, true, ['basic', 'sales', 'service'], 10],
   ] as const)('resolves Sales=%s Service=%s without duplicating Basic', (sales, service, tracks, total) => {
     const target = user(sales, service);
     expect(getAcademyTracks(target)).toEqual(tracks);
@@ -30,7 +30,7 @@ describe('Academy assigned tracks', () => {
   });
   it('preserves the old curriculum and ids when no track overrides exist', () => {
     expect(getAssignedAcademyCurriculum(user())).toEqual(ACADEMY_CURRICULUM_ORDER.filter((id) => ACADEMY_CASE_TRACK[id] !== 'service'));
-    expect(getAcademyProgress(user(), [ACADEMY_CASE_IDS.salesCase1])).toMatchObject({ completedCount: 1, total: 8 });
+    expect(getAcademyProgress(user(), [ACADEMY_CASE_IDS.salesCase1])).toMatchObject({ completedCount: 1, total: 9 });
   });
   it('maps Partnerdata/Portal Basics to Basic and Sales/CRM to Sales', () => {
     for (const id of ACADEMY_CURRICULUM_ORDER) expect(ACADEMY_CASE_TRACK[id]).toBe(/^(partnerdata|portal)\./.test(id) ? 'basic' : id.startsWith('service.') ? 'service' : 'sales');
@@ -76,5 +76,8 @@ describe('Academy assigned tracks', () => {
     expect(sql).toContain('v_total = cardinality(v_cases)');
     expect(sql).toContain('completed_curriculum = v_cases');
     expect(sql).not.toContain('create policy');
+    const case3Sql = readFileSync('supabase/migrations/20260924173730_academy_sales_case_3.sql', 'utf8');
+    expect(case3Sql).toContain("'sales.case_1_rc1000', 'sales.case_2_video_3330', 'sales.case_3_rc1000_delivery'");
+    expect(case3Sql).toContain('security invoker');
   });
 });

@@ -26,9 +26,11 @@ import {
   getAssignedAcademyCurriculum,
   getAcademyTracks,
   getAcademyAwardTargets,
+  getAcademyCasePrerequisites,
   activateLocalAcademyEnrollment,
   canOpenAcademyCase,
   getAcademyCaseState,
+  getNextAcademyCase,
   getLocalAcademyUser,
   type AcademyCaseState,
   type AcademyCurriculumCaseId,
@@ -174,6 +176,7 @@ export default function AcademyPage() {
   const [, setProgressVersion] = useState(0);
   const task = academySandbox.getCase1();
   const videoTask = academySandbox.getCase2();
+  const deliveryTask = academySandbox.getCase3();
   const portalBasics = academySandbox.getPortalBasics();
   const partnerMap = academySandbox.getPartnerMap();
   const serviceTask = academySandbox.getServiceCase1();
@@ -249,6 +252,7 @@ export default function AcademyPage() {
     serviceTask.started && ACADEMY_CASE_IDS.serviceCase1,
     task.started && ACADEMY_CASE_IDS.salesCase1,
     videoTask.started && ACADEMY_CASE_IDS.salesCase2,
+    deliveryTask.started && ACADEMY_CASE_IDS.salesCase3,
     portalBasics.started && ACADEMY_CASE_IDS.portalBasics,
     partnerMap.started && ACADEMY_CASE_IDS.partnerMap,
     crmState.part1Started && ACADEMY_CASE_IDS.crmPart1,
@@ -259,7 +263,7 @@ export default function AcademyPage() {
   const cycle = cycleSnapshot?.cycle ?? null;
   const activeCycle = cycle?.status === 'active' ? cycle : null;
   const cycleMissing = Boolean(appUser) && cycleResolved && !cycle && !cycleLoadFailed;
-  const cycleActionBlocked = Boolean(appUser) && cycleResolved && !activeCycle;
+  const cycleActionBlocked = Boolean(appUser) && cycleResolved && !cycle;
   const stateFor = (caseId: AcademyCurriculumCaseId) => getAcademyCaseState(caseId, localCompletionIds, startedCaseIds, !cycleActionBlocked, assignedCurriculum);
   const partnerDataPart1State = stateFor(ACADEMY_CASE_IDS.partnerDataPart1);
   const partnerDataPart2State = stateFor(ACADEMY_CASE_IDS.partnerDataPart2);
@@ -267,6 +271,7 @@ export default function AcademyPage() {
   const partnerMapState = stateFor(ACADEMY_CASE_IDS.partnerMap);
   const caseState = stateFor(ACADEMY_CASE_IDS.salesCase1);
   const videoCaseState = stateFor(ACADEMY_CASE_IDS.salesCase2);
+  const deliveryCaseState = stateFor(ACADEMY_CASE_IDS.salesCase3);
   const crmPart1State = stateFor(ACADEMY_CASE_IDS.crmPart1);
   const crmPart2State = stateFor(ACADEMY_CASE_IDS.crmPart2);
   const serviceCaseState = stateFor(ACADEMY_CASE_IDS.serviceCase1);
@@ -312,15 +317,18 @@ export default function AcademyPage() {
     [ACADEMY_CASE_IDS.partnerMap]: tr('academyPartnerMapTitle'),
     [ACADEMY_CASE_IDS.salesCase1]: tr('academySalesCase1Title'),
     [ACADEMY_CASE_IDS.salesCase2]: tr('academySalesCase2Title'),
+    [ACADEMY_CASE_IDS.salesCase3]: tr('academySalesCase3Title'),
     [ACADEMY_CASE_IDS.crmPart1]: tr('academyCrmCase1Title'),
     [ACADEMY_CASE_IDS.crmPart2]: tr('academyCrmCase2Title'),
     [ACADEMY_CASE_IDS.serviceCase1]: tr('academyServiceCase1Title'),
   })[caseId];
-  const nextCaseId = assignedCurriculum.find((id) => stateFor(id) !== 'completed');
+  const nextCaseId = getNextAcademyCase(assignedCurriculum, stateFor);
   const nextCaseState = nextCaseId ? stateFor(nextCaseId) : null;
-  const nextCaseIndex = nextCaseId ? assignedCurriculum.indexOf(nextCaseId) : assignedCurriculum.length;
-  const completedBeforeNext = assignedCurriculum.slice(0, nextCaseIndex).filter((id) => localCompletionIds.includes(id)).length;
-  const nextCaseRequirementCount = nextCaseId ? Math.max(1, nextCaseIndex) : overallTotal;
+  const nextCasePrerequisites = nextCaseId
+    ? getAcademyCasePrerequisites(nextCaseId).filter((id) => assignedCurriculum.includes(id))
+    : assignedCurriculum;
+  const completedBeforeNext = nextCasePrerequisites.filter((id) => localCompletionIds.includes(id)).length;
+  const nextCaseRequirementCount = Math.max(1, nextCasePrerequisites.length);
   const areaReached = (caseIds: AcademyCurriculumCaseId[]) => caseIds.some((id) => stateFor(id) !== 'locked');
   const mayOpen = (state: AcademyCaseState) => canOpenAcademyCase(state);
   const startCase = () => {
@@ -332,6 +340,11 @@ export default function AcademyPage() {
     if (!mayOpen(videoCaseState)) return;
     academySandbox.startCase2();
     navigate('/portal/videos?academy_mode=true&academy_case=2');
+  };
+  const startDeliveryCase = () => {
+    if (!mayOpen(deliveryCaseState)) return;
+    academySandbox.startCase3();
+    navigate('/configurator?academy_mode=true&academy_case=3');
   };
   const startPortalBasics = () => {
     if (!mayOpen(portalBasicsState)) return;
@@ -391,7 +404,7 @@ export default function AcademyPage() {
                 <div className="relative mt-5 flex items-start justify-between">
                   <div className="absolute left-[12%] right-[12%] top-[18px] h-px bg-slate-200" />
                   <Journey icon={ACADEMY_AREA_ICONS.partnerData} label="Basic" active={areaReached([ACADEMY_CASE_IDS.partnerDataPart1, ACADEMY_CASE_IDS.partnerDataPart2, ACADEMY_CASE_IDS.portalBasics, ACADEMY_CASE_IDS.partnerMap])} />
-                  {hasSalesTrack && <Journey icon={ACADEMY_AREA_ICONS.sales} label={tr('academySales')} active={areaReached([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2, ACADEMY_CASE_IDS.crmPart1, ACADEMY_CASE_IDS.crmPart2])} />}
+                  {hasSalesTrack && <Journey icon={ACADEMY_AREA_ICONS.sales} label={tr('academySales')} active={areaReached([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2, ACADEMY_CASE_IDS.salesCase3, ACADEMY_CASE_IDS.crmPart1, ACADEMY_CASE_IDS.crmPart2])} />}
                   {assignedTracks.includes('service') && <Journey icon={ShieldCheck} label={tr('academyServiceTrack')} active={areaReached([ACADEMY_CASE_IDS.serviceCase1])} />}
                 </div>
               </div>
@@ -452,9 +465,10 @@ export default function AcademyPage() {
               <AcademyRow icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPortalBasicsCaseTitle')} description={tr('academyPortalBasicsCaseDescription')} state={portalBasicsState} statusLabel={stateLabel(portalBasicsState)} action={actionForCase(portalBasicsState)} onClick={mayOpen(portalBasicsState) ? startPortalBasics : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPartnerMapTitle')} description={tr('academyPartnerMapDescription')} state={partnerMapState} statusLabel={stateLabel(partnerMapState)} action={actionForCase(partnerMapState)} onClick={mayOpen(partnerMapState) ? startPartnerMap : undefined} />
             </Module>
-            {hasSalesTrack && <Module title={tr('academySales')} progress={`${countCompleted([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2])} / 2 ${tr('academyCompleted')}`}>
+            {hasSalesTrack && <Module title={tr('academySales')} progress={`${countCompleted([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2, ACADEMY_CASE_IDS.salesCase3])} / 3 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase1Title')} description={tr('academySalesCase1Description')} state={caseState} statusLabel={stateLabel(caseState)} action={actionForCase(caseState)} onClick={mayOpen(caseState) ? startCase : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase2Title')} description={tr('academySalesCase2Description')} state={videoCaseState} statusLabel={stateLabel(videoCaseState)} action={actionForCase(videoCaseState)} onClick={mayOpen(videoCaseState) ? startVideoCase : undefined} />
+              <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase3Title')} description={tr('academySalesCase3Description')} state={deliveryCaseState} statusLabel={stateLabel(deliveryCaseState)} action={actionForCase(deliveryCaseState)} onClick={mayOpen(deliveryCaseState) ? startDeliveryCase : undefined} />
             </Module>}
             {hasSalesTrack && <Module title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.crm} title={tr('academyCrmCase1Title')} description={tr('academyCrmDashboardCase1Description')} state={crmPart1State} statusLabel={stateLabel(crmPart1State)} action={actionForCase(crmPart1State)} onClick={mayOpen(crmPart1State) ? startCrmPart1 : undefined} />

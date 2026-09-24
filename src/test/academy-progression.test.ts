@@ -4,13 +4,10 @@ import {
   ACADEMY_CASE_IDS,
   ACADEMY_CURRICULUM_ORDER,
   canOpenAcademyCase,
+  getAcademyCasePrerequisites,
   getAcademyCaseState,
+  getNextAcademyCase,
 } from '@/lib/academyCurriculum';
-
-const completedBefore = (caseId: typeof ACADEMY_CURRICULUM_ORDER[number]) => {
-  const index = ACADEMY_CURRICULUM_ORDER.indexOf(caseId);
-  return ACADEMY_CURRICULUM_ORDER.slice(0, index);
-};
 
 describe('canonical Academy progression', () => {
   it('uses Partnerdata -> Portal Basics -> Sales -> CRM without changing case ids', () => {
@@ -21,6 +18,7 @@ describe('canonical Academy progression', () => {
       'portal.partner_map',
       'sales.case_1_rc1000',
       'sales.case_2_video_3330',
+      'sales.case_3_rc1000_delivery',
       'crm.part_1',
       'crm.part_2',
       'service.case_1_machine_history',
@@ -34,23 +32,78 @@ describe('canonical Academy progression', () => {
     }
   });
 
-  it.each(ACADEMY_CURRICULUM_ORDER.slice(1))('unlocks %s after every earlier step', (caseId) => {
-    expect(getAcademyCaseState(caseId, completedBefore(caseId))).toBe('ready');
+  it.each(ACADEMY_CURRICULUM_ORDER.slice(1))('unlocks %s after its canonical prerequisites', (caseId) => {
+    expect(getAcademyCaseState(caseId, getAcademyCasePrerequisites(caseId))).toBe('ready');
   });
 
   it('shows an available started case as active', () => {
     expect(getAcademyCaseState(
       ACADEMY_CASE_IDS.portalBasics,
-      completedBefore(ACADEMY_CASE_IDS.portalBasics),
+      getAcademyCasePrerequisites(ACADEMY_CASE_IDS.portalBasics),
       [ACADEMY_CASE_IDS.portalBasics],
     )).toBe('active');
   });
 
-  it('keeps historical later completion while preserving prerequisites for future unlocks', () => {
+  it('prioritizes historical completion and unlocks the next case from its direct prerequisite', () => {
     const completed = [ACADEMY_CASE_IDS.salesCase1];
     expect(getAcademyCaseState(ACADEMY_CASE_IDS.salesCase1, completed)).toBe('completed');
-    expect(getAcademyCaseState(ACADEMY_CASE_IDS.salesCase2, completed)).toBe('locked');
+    expect(getAcademyCaseState(ACADEMY_CASE_IDS.salesCase2, completed)).toBe('ready');
     expect(getAcademyCaseState(ACADEMY_CASE_IDS.partnerDataPart1, completed)).toBe('ready');
+  });
+
+  it('assigns Sales Case 3 to the sales track and unlocks it after Case 2', () => {
+    expect(getAcademyCaseState(
+      ACADEMY_CASE_IDS.salesCase3,
+      getAcademyCasePrerequisites(ACADEMY_CASE_IDS.salesCase3),
+    )).toBe('ready');
+    expect(getAcademyCaseState(
+      ACADEMY_CASE_IDS.salesCase3,
+      [ACADEMY_CASE_IDS.salesCase1],
+    )).toBe('locked');
+    expect(ACADEMY_CURRICULUM_ORDER.filter((id) => id.startsWith('sales.case_'))).toHaveLength(3);
+  });
+
+  it('unlocks CRM Case 1 after Sales Case 2 without making Sales Case 3 a blocker', () => {
+    const completed = [ACADEMY_CASE_IDS.salesCase2];
+    expect(getAcademyCaseState(ACADEMY_CASE_IDS.crmPart1, completed)).toBe('ready');
+    expect(getAcademyCaseState(ACADEMY_CASE_IDS.salesCase3, completed)).toBe('ready');
+  });
+
+  it('keeps the service track independent from the Sales chain', () => {
+    expect(getAcademyCaseState(
+      ACADEMY_CASE_IDS.serviceCase1,
+      [ACADEMY_CASE_IDS.partnerMap],
+    )).toBe('ready');
+    expect(getAcademyCaseState(
+      ACADEMY_CASE_IDS.salesCase2,
+      [ACADEMY_CASE_IDS.serviceCase1],
+    )).toBe('locked');
+  });
+
+  it('points next unlock at a real actionable case instead of an unrelated locked row', () => {
+    const completed = new Set([ACADEMY_CASE_IDS.salesCase1]);
+    const stateFor = (caseId: typeof ACADEMY_CURRICULUM_ORDER[number]) => getAcademyCaseState(caseId, completed);
+
+    expect(getNextAcademyCase(ACADEMY_CURRICULUM_ORDER, stateFor)).toBe(ACADEMY_CASE_IDS.partnerDataPart1);
+
+    const salesCurriculum = [ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2, ACADEMY_CASE_IDS.salesCase3, ACADEMY_CASE_IDS.crmPart1];
+    expect(getNextAcademyCase(salesCurriculum, (caseId) => getAcademyCaseState(caseId, completed, [], true, salesCurriculum)))
+      .toBe(ACADEMY_CASE_IDS.salesCase2);
+  });
+
+  it('prioritizes the mandatory CRM chain over the optional Sales Case 3', () => {
+    const completed = new Set([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2]);
+    const salesCurriculum = [
+      ACADEMY_CASE_IDS.salesCase1,
+      ACADEMY_CASE_IDS.salesCase2,
+      ACADEMY_CASE_IDS.salesCase3,
+      ACADEMY_CASE_IDS.crmPart1,
+    ];
+
+    expect(getNextAcademyCase(
+      salesCurriculum,
+      (caseId) => getAcademyCaseState(caseId, completed, [], true, salesCurriculum),
+    )).toBe(ACADEMY_CASE_IDS.crmPart1);
   });
 
   it('makes ready, active and completed cases navigable, but not locked cases', () => {

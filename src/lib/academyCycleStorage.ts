@@ -26,6 +26,10 @@ export function getAcademyCycleStorageScope() {
   return readScope();
 }
 
+export function hasAcademyCycleCompletion(caseId: string) {
+  return readScope()?.completionIds?.includes(caseId) ?? false;
+}
+
 /** A completed server cycle preserves its local history but cannot keep a training session active. */
 export function isAcademyCycleStorageScopeActive() {
   return readScope()?.status !== 'completed';

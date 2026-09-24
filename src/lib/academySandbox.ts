@@ -5,10 +5,13 @@ import {
   ACC_ID_WORK_LIGHT,
 } from '@/data/machines';
 import { ACADEMY_CASE_1_ID } from '@/lib/academyCurriculum';
-import { academyScopedStorageKey, isAcademyCycleStorageScopeActive } from '@/lib/academyCycleStorage';
+import { academyScopedStorageKey, hasAcademyCycleCompletion, isAcademyCycleStorageScopeActive } from '@/lib/academyCycleStorage';
+import { DELIVERY_DISCOUNT_PERCENT, hasMachineDeliveryOverride, isDeliveryDateDisabled, isDeliveryDiscountEligible, machineDeliveryDate } from '@/lib/configuratorDelivery';
+import type { ConfiguratorState, MachineDeliveryDiscount } from '@/types/configurator';
 
 export const ACADEMY_CASE_1 = ACADEMY_CASE_1_ID;
 export const ACADEMY_CASE_2 = 'sales.case_2_video_3330';
+export const ACADEMY_CASE_3 = 'sales.case_3_rc1000_delivery';
 export const ACADEMY_PORTAL_BASICS = 'portal.basics_5';
 export const ACADEMY_PARTNER_MAP = 'portal.partner_map';
 export const PORTAL_BASICS_NEWS_ID = 'academy-news-rc1000s-disc-mower';
@@ -19,12 +22,13 @@ export const ACADEMY_PROGRESS_CHANGED = 'timan:academy-progress-changed';
 export const ACADEMY_CASE_COMPLETED = 'timan:academy-case-completed';
 const KEY = 'timan.academy.sandbox.v1';
 const SESSION_KEY = 'timan.academy.session.v1';
-export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'portal.basics_5' | 'portal.partner_map' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations' | 'service.case_1_machine_history';
+export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'sales.case_3_rc1000_delivery' | 'portal.basics_5' | 'portal.partner_map' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations' | 'service.case_1_machine_history';
 export type AcademyPortalHomeCardId = 'academy' | 'salg_marketing' | 'dealer_data' | 'timan_crm' | 'marketing' | 'teknik_service' | 'calendar' | 'projects' | 'messe' | 'timan_backend';
 const CASE_ROUTES: Record<AcademyActiveCase, string> = {
   'service.case_1_machine_history': '/portal/teknik-service?academy_mode=true',
   'sales.case_1_rc1000': '/configurator?academy_mode=true',
   'sales.case_2_video_3330': '/portal/videos?academy_mode=true&academy_case=2',
+  'sales.case_3_rc1000_delivery': '/configurator?academy_mode=true&academy_case=3',
   'portal.basics_5': '/portal?academy_mode=true',
   'portal.partner_map': '/portal/misc/partner-map?academy_mode=true',
   'crm.part_1': '/academy/crm/leads?academy_mode=true&academy_part=1',
@@ -36,6 +40,7 @@ const CASE_PORTAL_HOME_CARDS: Record<AcademyActiveCase, readonly AcademyPortalHo
   'service.case_1_machine_history': ['academy', 'teknik_service'],
   'sales.case_1_rc1000': ['academy', 'salg_marketing'],
   'sales.case_2_video_3330': ['academy', 'salg_marketing'],
+  'sales.case_3_rc1000_delivery': ['academy', 'salg_marketing'],
   'portal.basics_5': ['academy', 'dealer_data', 'messe'],
   'portal.partner_map': ['academy', 'salg_marketing'],
   'crm.part_1': ['academy', 'timan_crm'],
@@ -43,13 +48,19 @@ const CASE_PORTAL_HOME_CARDS: Record<AcademyActiveCase, readonly AcademyPortalHo
   'partnerdata.part_1_profile': ['academy', 'dealer_data'],
   'partnerdata.part_2_relations': ['academy', 'dealer_data'],
 };
-function readSession(): { active: boolean; caseId?: AcademyActiveCase } {
+type AcademySession = { active: boolean; caseId?: AcademyActiveCase; completedCycleContinuation?: boolean };
+
+function readSession(): AcademySession {
   try {
     const stored = localStorage.getItem(SESSION_KEY);
     if (stored) {
       const parsed = JSON.parse(stored);
       if (parsed && typeof parsed.active === 'boolean') {
-        return { active: parsed.active, caseId: Object.prototype.hasOwnProperty.call(CASE_ROUTES, parsed.caseId) ? parsed.caseId : undefined };
+        return {
+          active: parsed.active,
+          caseId: Object.prototype.hasOwnProperty.call(CASE_ROUTES, parsed.caseId) ? parsed.caseId : undefined,
+          completedCycleContinuation: parsed.completedCycleContinuation === true,
+        };
       }
     }
   } catch { /* Restore the legacy tab session below. */ }
@@ -82,6 +93,23 @@ export type AcademyCase2State = {
   maintenanceFiltered: boolean;
   targetFound: boolean;
   targetOpened: boolean;
+};
+
+export type AcademyCase3State = {
+  started: boolean;
+  completed: boolean;
+  twoMachinesDifferent: boolean;
+  individualDeliveryDates: boolean;
+  deliveryDiscountOnlyMachine2: boolean;
+  equipmentCorrect: boolean;
+  leadId: string | null;
+};
+
+export type AcademyCase3Input = Pick<ConfiguratorState,
+  'machineConfigs' | 'individualUnitConfigs' | 'machineDeliveryDates' | 'date'
+> & {
+  deliveryDiscounts: MachineDeliveryDiscount[];
+  now?: number;
 };
 
 export type AcademyPortalBasicsState = {
@@ -127,6 +155,7 @@ export type AcademyCaseCompletion = {
 type AcademySandboxState = AcademyCase1State & {
   serviceCase1: AcademyServiceCaseState;
   case2: AcademyCase2State;
+  case3: AcademyCase3State;
   portalBasics: AcademyPortalBasicsState;
   partnerMap: AcademyPartnerMapState;
 };
@@ -144,6 +173,7 @@ const initialServiceCase = (): AcademyServiceCaseState => ({
 
 const initialCase1 = (): AcademyCase1State => ({ started: false, completed: false, quoteGenerated: false, leadId: null, machine: false, flail: false, weedBrush: false, oil: false, workLight: false, wireHarness: false, rc751: false, quantityDiscount: false });
 const initialCase2 = (): AcademyCase2State => ({ started: false, completed: false, machineFiltered: false, maintenanceFiltered: false, targetFound: false, targetOpened: false });
+const initialCase3 = (): AcademyCase3State => ({ started: false, completed: false, twoMachinesDifferent: false, individualDeliveryDates: false, deliveryDiscountOnlyMachine2: false, equipmentCorrect: false, leadId: null });
 const initialPortalBasics = (): AcademyPortalBasicsState => ({
   started: false,
   completed: false,
@@ -168,7 +198,7 @@ const initialPartnerMap = (): AcademyPartnerMapState => ({
   serviceDetailOpened: false,
   requiresServiceDetail: false,
 });
-const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialCase2(), portalBasics: initialPortalBasics(), partnerMap: initialPartnerMap(), serviceCase1: initialServiceCase() });
+const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialCase2(), case3: initialCase3(), portalBasics: initialPortalBasics(), partnerMap: initialPartnerMap(), serviceCase1: initialServiceCase() });
 
 function isComplete(state: AcademyCase1State) {
   return state.machine && state.flail && state.weedBrush && state.oil
@@ -176,8 +206,14 @@ function isComplete(state: AcademyCase1State) {
     && state.quantityDiscount && state.quoteGenerated && Boolean(state.leadId);
 }
 
+function isCase2Complete(state: AcademyCase2State) {
+  return state.machineFiltered && state.maintenanceFiltered && state.targetFound && state.targetOpened;
+}
+
 function isLocalAcademyMode() {
-  return readSession().active === true && isAcademyCycleStorageScopeActive();
+  const session = readSession();
+  return session.active === true
+    && (isAcademyCycleStorageScopeActive() || session.completedCycleContinuation === true);
 }
 
 function load(): AcademySandboxState {
@@ -187,10 +223,12 @@ function load(): AcademySandboxState {
       ...initial(),
       ...saved,
       case2: { ...initialCase2(), ...saved.case2 },
+      case3: { ...initialCase3(), ...saved.case3 },
       portalBasics: { ...initialPortalBasics(), ...saved.portalBasics },
       partnerMap: { ...initialPartnerMap(), ...saved.partnerMap },
       serviceCase1: { ...initialServiceCase(), ...saved.serviceCase1 },
     };
+    state.case2.completed = state.case2.completed || isCase2Complete(state.case2);
     // Completion can only be awarded after every Case 1 requirement has
     // passed. Repair local progress saved by the earlier refresh bug, where
     // a reset Configurator form overwrote checklist detail after completion.
@@ -221,7 +259,36 @@ function save(state: AcademySandboxState) {
   }
   return state;
 }
-function case1Of({ case2: _case2, portalBasics: _portalBasics, partnerMap: _partnerMap, serviceCase1: _serviceCase1, ...case1 }: AcademySandboxState): AcademyCase1State { return case1; }
+function case1Of({ case2: _case2, case3: _case3, portalBasics: _portalBasics, partnerMap: _partnerMap, serviceCase1: _serviceCase1, ...case1 }: AcademySandboxState): AcademyCase1State { return case1; }
+
+function isCase3Complete(state: AcademyCase3State) {
+  return state.twoMachinesDifferent
+    && state.individualDeliveryDates
+    && state.deliveryDiscountOnlyMachine2
+    && state.equipmentCorrect
+    && Boolean(state.leadId);
+}
+
+function isNearTermSelectableDate(date: string, now: number) {
+  if (!date) return false;
+  const selected = new Date(`${date}T12:00:00`);
+  if (Number.isNaN(selected.getTime()) || isDeliveryDateDisabled(selected, false, now)) return false;
+  const today = new Date(now);
+  today.setHours(12, 0, 0, 0);
+  const days = Math.round((selected.getTime() - today.getTime()) / 86_400_000);
+  return days >= 1 && days <= 7;
+}
+
+function saveCase3Transition(current: AcademySandboxState, case3: AcademyCase3State) {
+  case3.completed = current.case3.completed || isCase3Complete(case3);
+  const saved = save({ ...current, case3 }).case3;
+  if (!current.case3.completed && saved.completed) {
+    window.dispatchEvent(new CustomEvent<AcademyCaseCompletion>(ACADEMY_CASE_COMPLETED, {
+      detail: { caseId: ACADEMY_CASE_3, titleKey: 'academySalesCase3Title', completed: 5, total: 5 },
+    }));
+  }
+  return saved;
+}
 function isPortalBasicsComplete(state: AcademyPortalBasicsState) {
   return state.frenchSelected
     && state.languageRestored
@@ -307,7 +374,11 @@ export const academySandbox = {
     sessionStorage.removeItem(SESSION_KEY);
   },
   activateCase(caseId: AcademyActiveCase) {
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ active: true, caseId }));
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      active: true,
+      caseId,
+      ...(!isAcademyCycleStorageScopeActive() ? { completedCycleContinuation: true } : {}),
+    }));
   },
   clearActiveCase(caseId?: AcademyActiveCase) {
     const session = readSession();
@@ -322,7 +393,8 @@ export const academySandbox = {
     if (!isLocalAcademyMode()) return null;
     // A stale tab must not keep Case 2 reachable after local Academy progress
     // has been reset. The dashboard will offer Case 1 again.
-    if (session.caseId === ACADEMY_CASE_2 && !load().completed) return null;
+    if (session.caseId === ACADEMY_CASE_2 && !this.isCase2Unlocked()) return null;
+    if (session.caseId === ACADEMY_CASE_3 && !this.isCase3Unlocked()) return null;
     return session.caseId ?? null;
   },
   getContinueRoute() {
@@ -341,7 +413,9 @@ export const academySandbox = {
   },
   getCase1() { return case1Of(load()); },
   getCase2() { return load().case2; },
-  isCase2Unlocked() { return load().completed; },
+  getCase3() { return load().case3; },
+  isCase2Unlocked() { return load().completed || hasAcademyCycleCompletion(ACADEMY_CASE_1); },
+  isCase3Unlocked() { return load().case2.completed || hasAcademyCycleCompletion(ACADEMY_CASE_2); },
   getPortalBasics() { return load().portalBasics; },
   getPartnerMap() { return load().partnerMap; },
   getServiceCase1() { return load().serviceCase1; },
@@ -393,6 +467,7 @@ export const academySandbox = {
     return [
       state.completed && ACADEMY_CASE_1,
       state.case2.completed && ACADEMY_CASE_2,
+      state.case3.completed && ACADEMY_CASE_3,
       state.portalBasics.completed && ACADEMY_PORTAL_BASICS,
       state.partnerMap.completed && ACADEMY_PARTNER_MAP,
       state.serviceCase1.completed && ACADEMY_SERVICE_CASE_1,
@@ -404,6 +479,12 @@ export const academySandbox = {
     this.activateCase(ACADEMY_CASE_2);
     const current = load();
     return save({ ...current, case2: { ...current.case2, started: true } }).case2;
+  },
+  startCase3() {
+    if (!this.isCase3Unlocked()) throw new Error('Sales Case 2 skal gennemføres før Case 3.');
+    this.activateCase(ACADEMY_CASE_3);
+    const current = load();
+    return save({ ...current, case3: { ...current.case3, started: true } }).case3;
   },
   startPortalBasics(startingLanguage: string) {
     this.activateCase(ACADEMY_PORTAL_BASICS);
@@ -549,9 +630,53 @@ export const academySandbox = {
   saveLead() {
     if (!isLocalAcademyMode()) throw new Error('Academy writes must never use production persistence.');
     const current = load();
+    if (this.getActiveCase() === ACADEMY_CASE_3) {
+      return saveCase3Transition(current, {
+        ...current.case3,
+        leadId: current.case3.leadId ?? `academy-lead-${crypto.randomUUID()}`,
+      });
+    }
     const next = { ...current, leadId: current.leadId ?? `academy-lead-${crypto.randomUUID()}` };
     next.completed = isComplete(next);
     return case1Of(save(next));
+  },
+  evaluateCase3(input: AcademyCase3Input) {
+    if (!isLocalAcademyMode()) throw new Error('Academy sandbox is only available on localhost.');
+    const current = load();
+    if (this.getActiveCase() !== ACADEMY_CASE_3 || !current.case3.started || current.case3.completed) return current.case3;
+
+    const activeMachines = input.machineConfigs.filter(machine => machine.qty > 0);
+    const rc = activeMachines.length === 1 && activeMachines[0].type === 'RC-1000S' ? activeMachines[0] : null;
+    const twoMachinesDifferent = Boolean(rc && rc.qty === 2 && rc.configMode === 'individual');
+    const firstDate = machineDeliveryDate(input, 1);
+    const secondDate = machineDeliveryDate(input, 2);
+    const now = input.now ?? Date.now();
+    const individualDeliveryDates = twoMachinesDifferent
+      && hasMachineDeliveryOverride(input, 1)
+      && hasMachineDeliveryOverride(input, 2)
+      && isNearTermSelectableDate(firstDate, now)
+      && isDeliveryDiscountEligible(secondDate, now);
+    const firstDiscount = input.deliveryDiscounts.find(discount => discount.unitNumber === 1);
+    const secondDiscount = input.deliveryDiscounts.find(discount => discount.unitNumber === 2);
+    const deliveryDiscountOnlyMachine2 = individualDeliveryDates
+      && (firstDiscount?.percent ?? 0) === 0
+      && secondDiscount?.percent === DELIVERY_DISCOUNT_PERCENT
+      && (secondDiscount.amount ?? 0) > 0;
+    const firstEquipment = rc ? input.individualUnitConfigs[`${rc.id}_1`]?.acc ?? [] : [];
+    const secondEquipment = rc ? input.individualUnitConfigs[`${rc.id}_2`]?.acc ?? [] : [];
+    const equipmentCorrect = twoMachinesDifferent
+      && firstEquipment.includes('410910')
+      && !firstEquipment.includes('HFS-1012')
+      && secondEquipment.includes('410910')
+      && secondEquipment.includes('HFS-1012');
+
+    return saveCase3Transition(current, {
+      ...current.case3,
+      twoMachinesDifferent,
+      individualDeliveryDates,
+      deliveryDiscountOnlyMachine2,
+      equipmentCorrect,
+    });
   },
   trackCase2Filters(input: { machineFilter: string; contentType: string; targetVisible: boolean }) {
     if (!isLocalAcademyMode()) throw new Error('Academy sandbox is only available on localhost.');

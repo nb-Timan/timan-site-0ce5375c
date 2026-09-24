@@ -1,10 +1,10 @@
 import type { ConfiguratorState } from '@/types/configurator';
 
-type DeliveryState = Pick<ConfiguratorState, 'machineConfigs' | 'machineDeliveryDates'>;
+type DeliveryState = Pick<ConfiguratorState, 'machineConfigs' | 'machineDeliveryDates'> & Partial<Pick<ConfiguratorState, 'date'>>;
 
 export const DELIVERY_DISCOUNT_PERCENT = 2;
 
-export function machineDeliveryDateKey(state: ConfiguratorState, unitNumber: number): string {
+export function machineDeliveryDateKey(state: DeliveryState, unitNumber: number): string {
   let runningUnit = 0;
   for (const machine of state.machineConfigs ?? []) {
     for (let index = 1; index <= machine.qty; index += 1) {
@@ -30,7 +30,7 @@ export function normalizeMachineDeliveryDates(state: DeliveryState): Record<stri
   return normalized;
 }
 
-export function machineDeliveryDate(state: ConfiguratorState, unitNumber: number): string {
+export function machineDeliveryDate(state: DeliveryState, unitNumber: number): string {
   const stableKey = machineDeliveryDateKey(state, unitNumber);
   return state.machineDeliveryDates?.[stableKey]
     || state.machineDeliveryDates?.[`machine_${unitNumber}`]
@@ -38,7 +38,7 @@ export function machineDeliveryDate(state: ConfiguratorState, unitNumber: number
     || '';
 }
 
-export function hasMachineDeliveryOverride(state: ConfiguratorState, unitNumber: number): boolean {
+export function hasMachineDeliveryOverride(state: DeliveryState, unitNumber: number): boolean {
   const stableKey = machineDeliveryDateKey(state, unitNumber);
   return Boolean(state.machineDeliveryDates?.[stableKey] || state.machineDeliveryDates?.[`machine_${unitNumber}`]);
 }

@@ -236,6 +236,22 @@ describe('Academy Case 1 sandbox', () => {
     expect(academySandbox.getCase2()).toEqual(complete);
   });
 
+  it('self-heals persisted 4/4 Case 2 requirements when the stale completion marker is missing', () => {
+    localStorage.setItem('timan.academy.sandbox.v1', JSON.stringify({
+      case2: {
+        started: true,
+        completed: false,
+        machineFiltered: true,
+        maintenanceFiltered: true,
+        targetFound: true,
+        targetOpened: true,
+      },
+    }));
+
+    expect(academySandbox.getCase2().completed).toBe(true);
+    expect(academySandbox.getCompletedCaseIds()).toContain('sales.case_2_video_3330');
+  });
+
   it('does not complete Case 2 when the target video is opened without the required filters', () => {
     window.history.replaceState({}, '', '/portal/videos?academy_mode=true&academy_case=2');
     completeCase1();

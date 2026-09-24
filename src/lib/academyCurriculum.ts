@@ -11,6 +11,7 @@ export const ACADEMY_CASE_IDS = {
   partnerMap: 'portal.partner_map',
   salesCase1: ACADEMY_CASE_1_ID,
   salesCase2: 'sales.case_2_video_3330',
+  salesCase3: 'sales.case_3_rc1000_delivery',
   crmPart1: 'crm.part_1',
   crmPart2: 'crm.part_2',
   serviceCase1: 'service.case_1_machine_history',
@@ -32,6 +33,7 @@ export const ACADEMY_CASE_TRACK: Record<AcademyCurriculumCaseId, AcademyTrack> =
   [ACADEMY_CASE_IDS.partnerMap]: 'basic',
   [ACADEMY_CASE_IDS.salesCase1]: 'sales',
   [ACADEMY_CASE_IDS.salesCase2]: 'sales',
+  [ACADEMY_CASE_IDS.salesCase3]: 'sales',
   [ACADEMY_CASE_IDS.crmPart1]: 'sales',
   [ACADEMY_CASE_IDS.crmPart2]: 'sales',
   [ACADEMY_CASE_IDS.serviceCase1]: 'service',
@@ -82,10 +84,28 @@ export const ACADEMY_CURRICULUM_ORDER: readonly AcademyCurriculumCaseId[] = [
   ACADEMY_CASE_IDS.partnerMap,
   ACADEMY_CASE_IDS.salesCase1,
   ACADEMY_CASE_IDS.salesCase2,
+  ACADEMY_CASE_IDS.salesCase3,
   ACADEMY_CASE_IDS.crmPart1,
   ACADEMY_CASE_IDS.crmPart2,
   ACADEMY_CASE_IDS.serviceCase1,
 ];
+
+const ACADEMY_CASE_PREREQUISITES: Record<AcademyCurriculumCaseId, readonly AcademyCurriculumCaseId[]> = {
+  [ACADEMY_CASE_IDS.partnerDataPart1]: [],
+  [ACADEMY_CASE_IDS.partnerDataPart2]: [ACADEMY_CASE_IDS.partnerDataPart1],
+  [ACADEMY_CASE_IDS.portalBasics]: [ACADEMY_CASE_IDS.partnerDataPart2],
+  [ACADEMY_CASE_IDS.partnerMap]: [ACADEMY_CASE_IDS.portalBasics],
+  [ACADEMY_CASE_IDS.salesCase1]: [ACADEMY_CASE_IDS.partnerMap],
+  [ACADEMY_CASE_IDS.salesCase2]: [ACADEMY_CASE_IDS.salesCase1],
+  [ACADEMY_CASE_IDS.salesCase3]: [ACADEMY_CASE_IDS.salesCase2],
+  [ACADEMY_CASE_IDS.crmPart1]: [ACADEMY_CASE_IDS.salesCase2],
+  [ACADEMY_CASE_IDS.crmPart2]: [ACADEMY_CASE_IDS.crmPart1],
+  [ACADEMY_CASE_IDS.serviceCase1]: [ACADEMY_CASE_IDS.partnerMap],
+};
+
+export function getAcademyCasePrerequisites(caseId: AcademyCurriculumCaseId) {
+  return ACADEMY_CASE_PREREQUISITES[caseId];
+}
 
 /**
  * A case is available only when every earlier curriculum step is complete.
@@ -104,17 +124,29 @@ export function getAcademyCaseState(
   if (completed.has(caseId)) return 'completed';
   if (!curriculumAvailable) return 'locked';
 
-  const index = curriculum.indexOf(caseId);
-  const prerequisitesComplete = index >= 0
-    && curriculum.slice(0, index)
-      .filter((id) => ACADEMY_CASE_TRACK[id] === 'basic' || ACADEMY_CASE_TRACK[id] === ACADEMY_CASE_TRACK[caseId])
-      .every((id) => completed.has(id));
+  const prerequisitesComplete = getAcademyCasePrerequisites(caseId)
+    .filter((id) => curriculum.includes(id))
+    .every((id) => completed.has(id));
   if (!prerequisitesComplete) return 'locked';
   return new Set(startedCaseIds).has(caseId) ? 'active' : 'ready';
 }
 
 export function canOpenAcademyCase(state: AcademyCaseState) {
   return state !== 'locked';
+}
+
+const OPTIONAL_ACADEMY_CASES = new Set<AcademyCurriculumCaseId>([
+  ACADEMY_CASE_IDS.salesCase3,
+]);
+
+export function getNextAcademyCase(
+  curriculum: readonly AcademyCurriculumCaseId[],
+  stateFor: (caseId: AcademyCurriculumCaseId) => AcademyCaseState,
+) {
+  const actionable = (id: AcademyCurriculumCaseId) => ['ready', 'active'].includes(stateFor(id));
+  return curriculum.find((id) => !OPTIONAL_ACADEMY_CASES.has(id) && actionable(id))
+    ?? curriculum.find(actionable)
+    ?? curriculum.find((id) => stateFor(id) !== 'completed');
 }
 const LOCAL_ACADEMY_ENROLLMENT_KEY = 'timan.academy.local-enrollment.v1';
 

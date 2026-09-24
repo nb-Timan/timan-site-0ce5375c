@@ -20,4 +20,26 @@ describe('Academy server cycle context', () => {
     expect(academySandbox.getActiveCase()).toBeNull();
     expect(academySandbox.getPartnerMap().ownDealerShown).toBe(true);
   });
+
+  it('allows an explicitly started unresolved case to continue after an older curriculum completed', () => {
+    setAcademyCycleStorageScope('cycle-1', 0, 'completed', ['sales.case_1_rc1000']);
+
+    expect(academySandbox.isActive()).toBe(false);
+    academySandbox.startCase2();
+
+    expect(academySandbox.isActive()).toBe(true);
+    expect(academySandbox.getActiveCase()).toBe('sales.case_2_video_3330');
+  });
+
+  it('uses canonical cycle completions for the Sales Case 3 prerequisite', () => {
+    setAcademyCycleStorageScope('cycle-1', 0, 'completed', [
+      'sales.case_1_rc1000',
+      'sales.case_2_video_3330',
+    ]);
+
+    academySandbox.startCase3();
+
+    expect(academySandbox.isActive()).toBe(true);
+    expect(academySandbox.getActiveCase()).toBe('sales.case_3_rc1000_delivery');
+  });
 });

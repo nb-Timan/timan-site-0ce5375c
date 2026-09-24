@@ -73,7 +73,7 @@ import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection, recordOrderRevisionConfirmation } from '@/lib/submittedOrderCorrectionService';
 import { loadSubmittedOrderConfirmation } from '@/lib/configurationsService';
 import { buildSubmittedOrderDocument, buildSubmittedOrderMailSummary } from '@/lib/submittedOrderConfirmation';
-import { ACADEMY_CASE_1, academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_CASE_1, ACADEMY_CASE_3, academySandbox } from '@/lib/academySandbox';
 import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
@@ -259,6 +259,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const navigate = useNavigate();
   const location = useLocation();
   const isAcademyMode = academySandbox.isActive();
+  const activeAcademyCase = isAcademyMode ? academySandbox.getActiveCase() : null;
+  const isAcademyCase3 = activeAcademyCase === ACADEMY_CASE_3;
   const [leadValidationErrors, setLeadValidationErrors] = useState<ConfiguratorLeadField[]>([]);
   const leadValidationBlockedRef = useRef(false);
   // Academy supplies a render-only identity in local training mode. It never
@@ -364,6 +366,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     navigate('/portal', { replace: true });
   }, [navigate, refreshAppUser, setAppUserCtx]);
   const [academyCase, setAcademyCase] = useState(() => academySandbox.getCase1());
+  const [academyCase3, setAcademyCase3] = useState(() => academySandbox.getCase3());
   const academyMachineConfigs = useMemo(() => state.machineConfigs.map((machine) => {
     const accessoryIds = machine.configMode === 'shared'
       ? machine.acc
@@ -372,6 +375,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   }), [state.machineConfigs, state.individualUnitConfigs]);
   const refreshAcademyCase = useCallback((quoteGenerated?: boolean) => {
     if (!isAcademyMode) return academySandbox.getCase1();
+    if (isAcademyCase3) {
+      const next = academySandbox.evaluateCase3({
+        machineConfigs: state.machineConfigs,
+        individualUnitConfigs: state.individualUnitConfigs,
+        machineDeliveryDates: state.machineDeliveryDates,
+        date: state.date,
+        deliveryDiscounts: calcResult?.deliveryDiscounts ?? [],
+      });
+      setAcademyCase3(next);
+      return next;
+    }
     const next = academySandbox.evaluate({
       machineConfigs: academyMachineConfigs,
       wiringHarnessInCart: Boolean(calcResult?.lineItems.some((lineItem) => lineItem.varenr === ACC_ID_WIRE_HARNESS)),
@@ -380,17 +394,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     });
     setAcademyCase(next);
     return next;
-  }, [academyMachineConfigs, calcResult, isAcademyMode]);
+  }, [academyMachineConfigs, calcResult, isAcademyCase3, isAcademyMode, state.date, state.individualUnitConfigs, state.machineConfigs, state.machineDeliveryDates]);
 
   useEffect(() => {
     if (isAcademyMode) refreshAcademyCase();
   }, [isAcademyMode, refreshAcademyCase]);
 
   useEffect(() => {
-    if (isAcademyMode && !academySandbox.getCase1().started) {
+    if (isAcademyMode && !(isAcademyCase3 ? academySandbox.getCase3().started : academySandbox.getCase1().started)) {
       navigate('/academy', { replace: true });
     }
-  }, [isAcademyMode, navigate]);
+  }, [isAcademyCase3, isAcademyMode, navigate]);
 
   // Phase 38 — security: when the user is not allowed to apply an extra
   // dealer discount, force the stored value to 0 so calcConfiguration, the
@@ -1174,6 +1188,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       refreshAcademyCase();
       const lead = academySandbox.saveLead();
       refreshAcademyCase();
+      if (isAcademyCase3) setAcademyCase3(academySandbox.getCase3());
       setLinkedLeadId(lead.leadId);
       if (!options?.quiet) toast.success('Academy-lead gemt lokalt');
       return lead.leadId;
@@ -1336,7 +1351,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     } finally {
       setSavingAsLead(false);
     }
-  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isExhibition, displayCalc, refreshAcademyCase, validateNewLeadIntent]);
+  }, [savingAsLead, savedConfigurationId, linkedLeadId, state, ownership, appUser, lang, getRequiredOwnershipPayload, isAcademyCase3, isExhibition, displayCalc, refreshAcademyCase, validateNewLeadIntent]);
 
   // ── CRM → Tilbud/Ordrer: "Åbn i konfigurator" (?configId=<uuid>) ──
   // When opened with ?configId, fetch the saved configuration (respecting
@@ -3214,7 +3229,34 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
       {isAcademyMode && (
         <div className="mx-auto w-full max-w-6xl">
-          <AcademyGuidancePanel
+          {isAcademyCase3 ? (
+            <AcademyGuidancePanel
+              title={tPortal('academySalesCase3Title', uiLanguage)}
+              description={tPortal('academySalesCase3Description', uiLanguage)}
+              stepColumns={2}
+              stepNumbers={['1', '2', '3', '4', '5']}
+              stepLabelKey="academyPoint"
+              nextLabelKey="academyNextPoint"
+              steps={[
+                { title: tPortal('academyCase3Point1', uiLanguage), tasks: [{ complete: academyCase3.twoMachinesDifferent, label: tPortal('academyCase3Point1Done', uiLanguage) }] },
+                { title: tPortal('academyCase3Point2', uiLanguage), tasks: [{ complete: academyCase3.individualDeliveryDates, label: tPortal('academyCase3Point2Done', uiLanguage) }] },
+                { title: tPortal('academyCase3Point3', uiLanguage), tasks: [{ complete: academyCase3.deliveryDiscountOnlyMachine2, label: tPortal('academyCase3Point3Done', uiLanguage) }] },
+                { title: tPortal('academyCase3Point4', uiLanguage), tasks: [{ complete: academyCase3.equipmentCorrect, label: tPortal('academyCase3Point4Done', uiLanguage) }] },
+                { title: tPortal('academyCase3Point5', uiLanguage), tasks: [{ complete: Boolean(academyCase3.leadId), label: tPortal('academyCase3Point5Done', uiLanguage) }] },
+              ]}
+              next={!academyCase3.twoMachinesDifferent
+                ? tPortal('academyCase3Next1', uiLanguage)
+                : !academyCase3.individualDeliveryDates
+                  ? tPortal('academyCase3Next2', uiLanguage)
+                  : !academyCase3.deliveryDiscountOnlyMachine2
+                    ? tPortal('academyCase3Next3', uiLanguage)
+                    : !academyCase3.equipmentCorrect
+                      ? tPortal('academyCase3Next4', uiLanguage)
+                      : tPortal('academyCase3Next5', uiLanguage)}
+              completion
+              caseId={ACADEMY_CASE_3}
+            />
+          ) : <AcademyGuidancePanel
             title={tPortal('academySalesCase1Title', uiLanguage)}
             description={tPortal('academyConfiguratorDescription', uiLanguage)}
             stepColumns={2}
@@ -3248,7 +3290,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               className="rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-60">
               {academyCase.quoteGenerated ? tPortal('academyCase1QuoteGenerated', uiLanguage) : tPortal('academyCase1GenerateQuote', uiLanguage)}
             </button>}
-          />
+          />}
         </div>
       )}
 
@@ -4229,7 +4271,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               const label = isTimanMesseUser
                 ? ({ da: 'Gem som lead og send ordre', en: 'Save lead and send order', de: 'Lead speichern und Bestellung senden', it: 'Salva lead e invia ordine', hu: 'Lead mentése és rendelés küldése' }[lang])
                 : isAcademyMode
-                  ? tPortal('academyCase1SaveLead', uiLanguage)
+                  ? tPortal(isAcademyCase3 ? 'academyCase3Point5' : 'academyCase1SaveLead', uiLanguage)
                   : ({ da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang]);
               const isActionBlockedByExistingLead = !isAcademyMode && !isTimanMesseUser && !!linkedLeadId;
               const disabledTitle = !hasRequired
