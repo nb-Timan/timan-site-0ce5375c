@@ -8,7 +8,9 @@ import { getLocalAcademyUser } from "@/lib/academyCurriculum";
 import type { SessionUser } from "@/context/AppUserContext";
 import type { UserView } from "@/lib/activeMode";
 
-const seller: any = {
+type QuickActionAccessUser = NonNullable<Parameters<typeof resolveEffectiveQuickActions>[0]>;
+
+const seller: QuickActionAccessUser = {
   email: "jtn@timan.dk",
   role: "timan_saelger",
   partner_type: null,
@@ -18,7 +20,7 @@ const seller: any = {
   module_access: null,
 };
 
-const dealer: any = {
+const dealer: QuickActionAccessUser = {
   email: "dagvilpet@gmail.com",
   role: "partner",
   partner_type: "forhandler",
@@ -201,7 +203,7 @@ describe("quick action access", () => {
   it("keeps Backend's action overview as the union of the existing role action lists", () => {
     const quickActions = readFileSync(join(process.cwd(), "src/components/portal/QuickActions.tsx"), "utf8");
 
-    expect(quickActions).toContain("...DEALER_ACTIONS");
+    expect(quickActions).toContain("QUICK_ACTION_KEYS.map((key) => QUICK_ACTION_CARDS[key])");
     expect(quickActions).toContain("to: WARRANTY_CREATE_ROUTE");
     expect(quickActions).toContain("to: '/portal/service/maintenance?view=create'");
   });
@@ -210,8 +212,14 @@ describe("quick action access", () => {
     const quickActions = readFileSync(join(process.cwd(), "src/components/portal/QuickActions.tsx"), "utf8");
 
     expect(quickActions).toContain("effectiveRoleKey === 'timan_dealer'");
-    expect(quickActions).toContain("actions = DEALER_ACTIONS");
+    expect(quickActions).toContain("effectiveQuickActions.map((key) => QUICK_ACTION_CARDS[key])");
     expect(quickActions).toContain("effectiveRoleKey === 'timan_service'");
     expect(quickActions).toContain("requires: 'teknik_service'");
+  });
+
+  it("does not cap or slice the canonical quick-action result", () => {
+    const quickActions = readFileSync(join(process.cwd(), "src/components/portal/QuickActions.tsx"), "utf8");
+    expect(quickActions).not.toMatch(/actions\.slice\(0,\s*4\)/);
+    expect(quickActions).not.toContain('maxVisible');
   });
 });

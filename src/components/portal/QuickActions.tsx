@@ -4,7 +4,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { getActiveSellerView } from '@/lib/activeMode';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, ModuleAccessKey, PORTAL_ROLE_LABELS, type PortalRole } from '@/lib/portalAccess';
-import { QuickActionKey } from '@/lib/backend-users-store';
+import { QUICK_ACTION_KEYS, type QuickActionKey } from '@/lib/backend-users-store';
 import { getDefaultQuickActionRoles, resolveEffectiveQuickActions } from '@/lib/quickActionsAccess';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
@@ -26,36 +26,26 @@ function academyCapabilityForAction(key?: QuickActionKey): AcademyCapability | n
   return null;
 }
 
-const INTERNAL_ACTIONS: Action[] = [
-  { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'timan_crm' },
-  { key: 'create_demo', labelKey: 'quickActionCreateDemo', to: '/portal/crm/demo-leads/new', icon: FlaskConical, requires: 'timan_crm' },
-  { key: 'company_contact_info', labelKey: 'quickActionCompanyContactInfo', to: '/portal/misc/forms/company-contact-info', icon: Building2, requires: 'sales_tools' },
-  { key: 'partner_map', labelKey: 'quickActionPartnerMap', to: '/portal/misc/partner-map', icon: MapPinned, requires: 'sales_tools' },
-];
-
-const PARTNER_ACTIONS: Action[] = [
-  { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'sales_tools' },
-  { key: 'create_demo', labelKey: 'quickActionCreateDemo', to: '/portal/crm/demo-leads/new', icon: FlaskConical, requires: 'sales_tools' },
-  { key: 'dealer_invoice_accept', labelKey: 'quickActionDealerInvoiceAccept', to: '/portal/misc/forms/dealer-invoice-accept', icon: FileCheck2, requires: 'sales_tools' },
-  { key: 'partner_map', labelKey: 'quickActionPartnerMap', to: '/portal/misc/partner-map', icon: MapPinned, requires: 'sales_tools' },
-];
-
-const DEALER_ACTIONS: Action[] = [
-  { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'sales_tools' },
-  { key: 'dealer_invoice_accept', labelKey: 'quickActionDealerInvoiceAccept', to: '/portal/misc/forms/dealer-invoice-accept', icon: FileCheck2, requires: 'sales_tools' },
-  { key: 'create_warranty_registration', labelKey: 'quickActionCreateWarrantyRegistration', to: WARRANTY_CREATE_ROUTE, icon: ShieldCheck, requires: 'warranty' },
-];
+const QUICK_ACTION_CARDS: Record<QuickActionKey, Action> = {
+  create_lead: { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'timan_crm' },
+  create_demo: { key: 'create_demo', labelKey: 'quickActionCreateDemo', to: '/portal/crm/demo-leads/new', icon: FlaskConical, requires: 'timan_crm' },
+  company_contact_info: { key: 'company_contact_info', labelKey: 'quickActionCompanyContactInfo', to: '/portal/misc/forms/company-contact-info', icon: Building2, requires: 'sales_tools' },
+  dealer_invoice_accept: { key: 'dealer_invoice_accept', labelKey: 'quickActionDealerInvoiceAccept', to: '/portal/misc/forms/dealer-invoice-accept', icon: FileCheck2, requires: 'sales_tools' },
+  create_warranty_registration: { key: 'create_warranty_registration', labelKey: 'quickActionCreateWarrantyRegistration', to: WARRANTY_CREATE_ROUTE, icon: ShieldCheck, requires: 'warranty' },
+  warranty_registrations: { key: 'warranty_registrations', labelKey: 'quickActionWarrantyRegistrations', to: '/portal/service/warranty/registrations', icon: ShieldCheck, requires: 'warranty' },
+  partner_map: { key: 'partner_map', labelKey: 'quickActionPartnerMap', to: '/portal/misc/partner-map', icon: MapPinned, requires: 'sales_tools' },
+};
 
 const SERVICE_ACTIONS: Action[] = [
-  { labelKey: 'quickActionCreateWarrantyRegistration', to: WARRANTY_CREATE_ROUTE, icon: ShieldCheck, requires: 'warranty' },
-  { labelKey: 'quickActionWarrantyRegistrations', to: '/portal/service/warranty/registrations', icon: ShieldCheck, requires: 'warranty' },
+  QUICK_ACTION_CARDS.create_warranty_registration,
+  QUICK_ACTION_CARDS.warranty_registrations,
   { labelKey: 'quickActionCreateServiceRegistration', to: '/portal/service/maintenance?view=create', icon: Wrench, requires: 'teknik_service' },
   { labelKey: 'quickActionClaims', to: '/portal/service/claims', icon: FileWarning, requires: 'claims' },
 ];
 
-// Backend sees the union of the existing role-specific actions. Scoped roles
-// still use their own action list below, so this does not broaden their access.
-const ALL_ACTIONS = [...INTERNAL_ACTIONS, ...PARTNER_ACTIONS, ...DEALER_ACTIONS, ...SERVICE_ACTIONS]
+// Backend's overview includes every configurable action plus the two existing
+// Service module shortcuts that do not have individual quick-action keys.
+const ALL_ACTIONS = [...QUICK_ACTION_KEYS.map((key) => QUICK_ACTION_CARDS[key]), ...SERVICE_ACTIONS]
   .filter((action, index, actions) => actions.findIndex((candidate) => candidate.to === action.to) === index);
 
 interface Props {
@@ -79,18 +69,21 @@ export default function QuickActions({ language, showAllActions = false, showRol
   const canShowRoleOverview = !academyUser && showRoleOverview && isEffectiveBackend;
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
 
-  let actions: Action[] = canShowAllActions ? ALL_ACTIONS : [];
+  const effectiveQuickActions = resolveEffectiveQuickActions(effectiveUser);
+  let actions: Action[] = canShowAllActions
+    ? ALL_ACTIONS
+    : effectiveQuickActions.map((key) => QUICK_ACTION_CARDS[key]);
   let contextLabel = '';
 
   if (canShowAllActions) {
     contextLabel = 'Alle portalroller';
   } else if (effectiveRoleKey === 'timan_service') {
-    actions = SERVICE_ACTIONS;
+    actions = [...actions, ...SERVICE_ACTIONS]
+      .filter((action, index, all) => all.findIndex((candidate) => candidate.to === action.to) === index);
     contextLabel = t('quickActionsContextService', language);
   } else if (
     effectiveRoleKey === 'timan_dealer'
   ) {
-    actions = DEALER_ACTIONS;
     contextLabel = t('quickActionsContextDealer', language);
   } else if (
     effectiveRoleKey === 'timan_service_partner' ||
@@ -98,10 +91,8 @@ export default function QuickActions({ language, showAllActions = false, showRol
     effectiveRoleKey === 'dealer_customer' ||
     effectiveRoleKey === 'dealer_user'
   ) {
-    actions = PARTNER_ACTIONS;
     contextLabel = t('quickActionsContextDealer', language);
   } else if (effectiveRoleKey === 'timan_backend' || effectiveRoleKey === 'timan_seller') {
-    actions = INTERNAL_ACTIONS;
     const activeSeller = isEffectiveBackend && appUser ? getActiveSellerView(appUser.email) : null;
     contextLabel = activeSeller
       ? t('quickActionsContextAs', language).replace('{name}', activeSeller.label)
@@ -110,11 +101,7 @@ export default function QuickActions({ language, showAllActions = false, showRol
     return null;
   }
 
-  if (!canShowAllActions) {
-    const qaAllowed = resolveEffectiveQuickActions(effectiveUser);
-    actions = actions.filter((action) => !action.key || qaAllowed.includes(action.key));
-    actions = actions.filter((a) => a.key || !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
-  }
+  if (!canShowAllActions) actions = actions.filter((a) => a.key || !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
   if (academyUser && !getAcademyTracks(accessUser).includes('sales')) {
     actions = actions.filter((action) => !academyCapabilityForAction(action.key));
   }
