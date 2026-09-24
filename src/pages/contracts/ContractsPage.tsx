@@ -13,12 +13,15 @@ import {
   buildContractSnapshot,
   canLeaveContractStep,
   canPrepareContractForSignature,
-  CONTRACT_STEPS,
+  getContractSteps,
+  getSnapshotContractSteps,
   getContractAppendixLabel,
   getContractStepLabel,
   getContractWorkflowStatusLabel,
   hasReachedContractStatus,
   type ContractSnapshot,
+  type ContractStepDefinition,
+  type ContractStepId,
   type ContractStatus,
   type ContractWorkflowStatus,
   ContractConfirmations,
@@ -94,7 +97,6 @@ import {
   formatContractDemoCompensation,
   getContractDiscountStructure,
   getNewContractDiscountDefaults,
-  getPartnerTypeDiscountFormPatch,
   resolveContractCommercialTerms,
 } from '@/lib/contractCommercialTerms';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
@@ -1339,7 +1341,8 @@ export default function ContractsPage() {
         }));
         setConfirmations({ ...EMPTY_CONTRACT_CONFIRMATIONS, ...row.confirmations });
         setFinalSnapshot(row.final_snapshot);
-        const stepIndex = CONTRACT_STEPS.findIndex((step) => step.id === normalizeContractStepId(row.current_step));
+        const rowSteps = getSnapshotContractSteps(row.form_data.partnerType, row.final_snapshot);
+        const stepIndex = rowSteps.findIndex((step) => step.id === normalizeContractStepId(row.current_step, row.form_data.partnerType));
         setActiveStepIndex(stepIndex >= 0 ? stepIndex : 0);
         if (row.signature_data_url) setSignatureName('Gemt signatur');
       } else {
@@ -1470,8 +1473,12 @@ export default function ContractsPage() {
   const hasActiveAccessWindow = Boolean(accessWindow && new Date(accessWindow.opens_at).getTime() <= Date.now() && new Date(accessWindow.closes_at).getTime() > Date.now() && !accessWindow.revoked_at);
   const hasApprovedPartnerDocumentAccess = ['awaiting_signed_upload', 'submitted_for_approval', 'changes_requested', 'approved', 'archived'].includes(contractRecord?.contract_status ?? '');
   const hasAccess = hasInternalContractModuleAccess || hasActiveAccessWindow || hasApprovedPartnerDocumentAccess;
-  const activeStep = CONTRACT_STEPS[activeStepIndex];
-  const activeStepLabel = getContractStepLabel(activeStep.id, uiLanguage);
+  const contractSteps = useMemo(
+    () => getSnapshotContractSteps(form.partnerType, contractRecord?.final_snapshot),
+    [contractRecord?.final_snapshot, form.partnerType],
+  );
+  const activeStep = contractSteps[Math.min(activeStepIndex, contractSteps.length - 1)] ?? contractSteps[0];
+  const activeStepLabel = getContractStepLabel(activeStep.id, uiLanguage, form.partnerType);
   const appendixLabel = getContractAppendixLabel(uiLanguage);
   const showActiveStepAppendixBadge = activeStep.appendix
     && activeStep.id !== 'territory'
@@ -1494,7 +1501,7 @@ export default function ContractsPage() {
   const externalGuidedAccessBlocked = !isInternalContractActor
     && !hasActiveAccessWindow
     && !hasApprovedPartnerDocumentAccess;
-  const readyForSignature = canPrepareContractForSignature(form, confirmations);
+  const readyForSignature = isLockedContract || canPrepareContractForSignature(form, confirmations);
   const guidedReviewCompleted = Boolean(contractRecord?.guided_review_completed_at)
     && hasReachedContractStatus(workflowStatus, 'ready_for_signature');
   const currentConfirmationId = getRequiredConfirmationForStep(activeStep.id);
@@ -1556,11 +1563,19 @@ export default function ContractsPage() {
 
   const updateContractPartnerType = (partnerType: ContractPartnerType | '') => {
     if (!isInternalContractActor) return;
+    const currentStepId = contractSteps[activeStepIndex]?.id ?? 'parties';
+    const nextSteps = getContractSteps(partnerType);
+    const nextStepIndex = nextSteps.findIndex((step) => step.id === currentStepId);
     setForm((current) => ({
       ...current,
       partnerType,
-      ...getPartnerTypeDiscountFormPatch(partnerType),
+      ...Object.fromEntries(
+        Object.entries(getNewContractDiscountDefaults(partnerType))
+          .filter(([key]) => current[key as keyof ContractFormData] == null),
+      ),
     }));
+    setConfirmations({ ...EMPTY_CONTRACT_CONFIRMATIONS });
+    setActiveStepIndex(nextStepIndex >= 0 ? nextStepIndex : 0);
     markDraftChanged();
   };
 
@@ -1901,7 +1916,7 @@ export default function ContractsPage() {
 
   const goNext = () => {
     if (isHistoricalReadOnly) {
-      setActiveStepIndex((current) => Math.min(current + 1, CONTRACT_STEPS.length - 1));
+      setActiveStepIndex((current) => Math.min(current + 1, contractSteps.length - 1));
       return;
     }
     if (activeStep.id === 'full_contract' && !guidedReviewCompleted) {
@@ -1924,7 +1939,7 @@ export default function ContractsPage() {
       toast.error(contractUi('partyDataRequired', uiLanguage));
       return;
     }
-    setActiveStepIndex((current) => Math.min(current + 1, CONTRACT_STEPS.length - 1));
+    setActiveStepIndex((current) => Math.min(current + 1, contractSteps.length - 1));
     markDraftChanged();
   };
 
@@ -1975,18 +1990,23 @@ export default function ContractsPage() {
       equipmentDiscountPct: form.equipmentDiscountPct,
       sparePartsDiscountPct: form.sparePartsDiscountPct,
     });
-    const appendix2Paragraphs = renderAppendix2Paragraphs(
-      form.partnerType,
-      getContractDiscountStructure(form.partnerType, form),
-      uiLanguage,
-    );
+    const appendices = form.partnerType === 'service_partner'
+      ? {}
+      : {
+          appendix2Paragraphs: renderAppendix2Paragraphs(
+            form.partnerType,
+            getContractDiscountStructure(form.partnerType, form),
+            uiLanguage,
+          ),
+          appendix2ExampleLines: renderAppendix2ExampleLines(uiLanguage),
+        };
     const completedAt = new Date().toISOString();
     const snapshot = buildContractSnapshot(form, confirmations, {
       contractId: id,
       contractNumber: contractRecord?.contract_number,
       workflowStatus: 'ready_for_signature',
       legalSections,
-      appendices: { appendix2Paragraphs, appendix2ExampleLines: renderAppendix2ExampleLines(uiLanguage) },
+      appendices,
       completedGuidedReviewAt: completedAt,
       completedGuidedReviewBy: effectiveUser?.display_name || effectiveUser?.email || form.timanSellerName,
       completedGuidedReviewByEmail: effectiveUser?.email || form.timanSellerEmail,
@@ -2362,8 +2382,10 @@ export default function ContractsPage() {
               </div>
             </div>
             <ProgressSteps
+              steps={contractSteps}
               activeStepIndex={activeStepIndex}
               confirmations={confirmations}
+              partnerType={form.partnerType}
               language={uiLanguage}
               onStepSelect={(stepIndex) => {
                 setActiveStepIndex(stepIndex);
@@ -2386,7 +2408,7 @@ export default function ContractsPage() {
               </div>
             )}
             <div ref={contractStepTopRef} className="mb-6 scroll-mt-4">
-              <p className="text-sm font-bold uppercase tracking-wide text-amber-700">{contractUi('stepOf', uiLanguage, { current: activeStepIndex + 1, total: CONTRACT_STEPS.length })}</p>
+              <p className="text-sm font-bold uppercase tracking-wide text-amber-700">{contractUi('stepOf', uiLanguage, { current: activeStepIndex + 1, total: contractSteps.length })}</p>
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 <h2 className="text-2xl font-bold text-gray-950">{activeStepLabel.title}</h2>
                 {showActiveStepAppendixBadge && (
@@ -2484,6 +2506,7 @@ export default function ContractsPage() {
                   workflowStatusLabel={workflowStatusLabel}
                   readyForSignature={readyForSignature}
                   locked={isLockedContract}
+                  snapshot={isLockedContract ? finalSnapshot : null}
                 />
                 {activeStep.id === 'full_contract' && !isHistoricalReadOnly && (
                   <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
@@ -2542,7 +2565,7 @@ export default function ContractsPage() {
                 <ChevronLeft className="h-4 w-4" />
                 {contractUi('previous', uiLanguage)}
               </button>
-              {activeStepIndex < CONTRACT_STEPS.length - 1 ? (
+              {activeStepIndex < contractSteps.length - 1 ? (
                 <button
                   type="button"
                   onClick={goNext}
@@ -3428,8 +3451,9 @@ function ReviewStep({
   workflowStatusLabel,
   readyForSignature,
   locked,
+  snapshot,
 }: {
-  stepId: (typeof CONTRACT_STEPS)[number]['id'];
+  stepId: ContractStepId;
   confirmationId?: string;
   confirmation?: { confirmed: boolean; confirmedAt?: string; confirmedBy?: string };
   onConfirm: () => void;
@@ -3440,6 +3464,7 @@ function ReviewStep({
   workflowStatusLabel: string;
   readyForSignature: boolean;
   locked?: boolean;
+  snapshot?: ContractSnapshot | null;
 }) {
   const { uiLanguage } = useLanguage();
   const fullContract = stepId === 'full_contract';
@@ -3461,8 +3486,13 @@ function ReviewStep({
     sparePartsDiscountPct: form.sparePartsDiscountPct,
     preserveDiscountSnapshot: locked,
   };
-  const section = getRenderedGuidedContractSection(stepId, contractTextContext, uiLanguage);
-  const contractSections = renderGuidedContractSections(contractTextContext, uiLanguage);
+  const frozenSections = Array.isArray(snapshot?.legalSections)
+    ? snapshot.legalSections as GuidedContractSection[]
+    : null;
+  const renderedSections = renderGuidedContractSections(contractTextContext, uiLanguage);
+  const contractSections = frozenSections ?? renderedSections;
+  const section = contractSections.find((candidate) => candidate.stepId === stepId)
+    ?? getRenderedGuidedContractSection(stepId, contractTextContext, uiLanguage);
 
   return (
     <div className="space-y-5">
@@ -5284,21 +5314,25 @@ function Appendix2DiscountSection({
 }
 
 function ProgressSteps({
+  steps,
   activeStepIndex,
   confirmations,
   language,
+  partnerType,
   onStepSelect,
 }: {
+  steps: ContractStepDefinition[];
   activeStepIndex: number;
   confirmations: ContractConfirmations;
   language: string;
+  partnerType: ContractFormData['partnerType'];
   onStepSelect: (index: number) => void;
 }) {
   return (
     <div className="overflow-x-auto pb-0.5 lg:overflow-x-visible">
       <div className="grid min-w-max grid-flow-col auto-cols-[5.9rem] gap-1 lg:min-w-0 lg:grid-flow-row lg:auto-cols-auto lg:grid-cols-11 lg:gap-1.5">
-        {CONTRACT_STEPS.map((step, index) => {
-          const label = getContractStepLabel(step.id, language);
+        {steps.map((step, index) => {
+          const label = getContractStepLabel(step.id, language, partnerType);
           const confirmationId = step.confirmationId;
           const confirmed = !confirmationId || confirmations[confirmationId]?.confirmed;
           const active = index === activeStepIndex;

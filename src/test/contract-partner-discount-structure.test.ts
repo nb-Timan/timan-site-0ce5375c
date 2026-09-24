@@ -64,14 +64,15 @@ describe('contract partner discount structure', () => {
 
   it('uses the same type-aware terms in legal text and appendix 2', () => {
     const serviceTerms = getContractDiscountStructure('service_partner', { sparePartsDiscountPct: 25 });
-    const discountSection = renderGuidedContractSections({
+    const serviceSections = renderGuidedContractSections({
       companyName: 'Servicepartner A/S',
       partnerType: 'service_partner',
       ...serviceTerms,
-    }).find((section) => section.stepId === 'discount_structure');
+    });
+    const serviceSection = serviceSections.find((section) => section.stepId === 'spare_parts_service');
 
-    expect(discountSection?.blocks[0]?.paragraphs).toContain('Reservedelsrabat: 25%.');
-    expect(discountSection?.blocks[0]?.paragraphs?.join(' ')).toContain('autoriserede Timan-forhandler');
+    expect(JSON.stringify(serviceSection)).toContain('Servicepartnerens reservedelsrabat er 25%.');
+    expect(serviceSections.map((section) => section.stepId)).not.toContain('discount_structure');
     expect(renderAppendix2Paragraphs('importer', {
       machineDiscountPct: 30,
       equipmentDiscountPct: 30,

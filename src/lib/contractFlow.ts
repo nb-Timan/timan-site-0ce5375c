@@ -25,9 +25,11 @@ export type ContractStepId =
   | 'purpose_prices_orders_portal'
   | 'territory'
   | 'discount_structure'
+  | 'machine_sales_referral'
   | 'demo_machines'
   | 'spare_parts_service'
   | 'marketing'
+  | 'sales_service_days'
   | 'payment_delivery'
   | 'termination'
   | 'full_contract'
@@ -37,9 +39,11 @@ export type ContractConfirmationId =
   | 'purpose_prices_orders_portal'
   | 'territory'
   | 'discount_structure'
+  | 'machine_sales_referral'
   | 'demo_machines'
   | 'spare_parts_service'
   | 'marketing'
+  | 'sales_service_days'
   | 'payment_delivery'
   | 'termination'
   | 'full_contract';
@@ -105,7 +109,7 @@ export type ContractConfirmation = {
 
 export type ContractConfirmations = Record<ContractConfirmationId, ContractConfirmation>;
 
-export const CONTRACT_VERSION = 'forhandlerkontrakt-timan-2026-08-partner-type';
+export const CONTRACT_VERSION = 'partneraftale-timan-2026-09-partner-type-variant';
 
 export const CONTRACT_STATUS_LABELS_DA: Record<ContractWorkflowStatus, string> = {
   pending_decision: 'Afventer',
@@ -209,14 +213,16 @@ export const PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE = 'Samarbejde, handel og
 export const PURPOSE_PRICES_ORDERS_PORTAL_SECTION_INTRO = 'Gennemgå vilkårene for samarbejde, handel, forhandlerportal og det årlige forhandlermøde.';
 export const PURPOSE_PRICES_ORDERS_PORTAL_SECTION_SOURCE = 'Kontrakt, punkt 1, 2 og 10';
 
-export const CONTRACT_STEPS: Array<{
+export type ContractStepDefinition = {
   id: ContractStepId;
   title: string;
   shortTitle: string;
   intro: string;
   appendix?: boolean;
   confirmationId?: ContractConfirmationId;
-}> = [
+};
+
+export const CONTRACT_STEPS: ContractStepDefinition[] = [
   {
     id: 'parties',
     title: 'Oplysninger',
@@ -298,6 +304,73 @@ export const CONTRACT_STEPS: Array<{
   },
 ];
 
+export const SERVICE_PARTNER_CONTRACT_STEPS: ContractStepDefinition[] = [
+  CONTRACT_STEPS[0],
+  {
+    id: 'purpose_prices_orders_portal',
+    title: 'Samarbejde, priser & portal',
+    shortTitle: 'Samarbejde',
+    intro: 'Gennemgå Servicepartnerens samarbejde med Timan, gældende priser og adgang til partnerportalen.',
+    confirmationId: 'purpose_prices_orders_portal',
+  },
+  CONTRACT_STEPS[2],
+  {
+    id: 'machine_sales_referral',
+    title: 'Maskinsalg & henvisning',
+    shortTitle: 'Henvisning',
+    intro: 'Gennemgå hvordan henvendelser om nye maskiner henvises til en autoriseret forhandler, og hvornår Timan kan støtte processen.',
+    confirmationId: 'machine_sales_referral',
+  },
+  {
+    id: 'spare_parts_service',
+    title: 'Reservedele & Service',
+    shortTitle: 'Reservedele',
+    intro: 'Gennemgå Servicepartnerens ansvar for service og reservedele samt de gældende servicevilkår.',
+    appendix: true,
+    confirmationId: 'spare_parts_service',
+  },
+  CONTRACT_STEPS[6],
+  {
+    id: 'sales_service_days',
+    title: 'Salgs- og servicedage',
+    shortTitle: 'Servicedage',
+    intro: 'Gennemgå kravet om teknisk opdatering, den første servicedag hos Timan og senere obligatoriske salgs- og servicedage.',
+    confirmationId: 'sales_service_days',
+  },
+  CONTRACT_STEPS[7],
+  {
+    ...CONTRACT_STEPS[8],
+    title: 'Varighed & opsigelse',
+    shortTitle: 'Varighed',
+  },
+  CONTRACT_STEPS[9],
+  CONTRACT_STEPS[10],
+];
+
+export function getContractSteps(partnerType: ContractPartnerType | '' | null | undefined): ContractStepDefinition[] {
+  return partnerType === 'service_partner' ? SERVICE_PARTNER_CONTRACT_STEPS : CONTRACT_STEPS;
+}
+
+export function getContractVariantId(partnerType: ContractPartnerType | '' | null | undefined): ContractPartnerType {
+  return partnerType === 'service_partner' ? 'service_partner' : partnerType === 'importer' ? 'importer' : 'dealer';
+}
+
+export function getSnapshotContractSteps(
+  partnerType: ContractPartnerType | '' | null | undefined,
+  snapshot?: { applicableStepIds?: unknown } | null,
+): ContractStepDefinition[] {
+  if (snapshot && Array.isArray(snapshot.applicableStepIds)) {
+    const definitions = getContractSteps(partnerType);
+    const byId = new Map(definitions.map((step) => [step.id, step]));
+    const frozenSteps = snapshot.applicableStepIds
+      .map((id) => byId.get(id as ContractStepId))
+      .filter((step): step is ContractStepDefinition => Boolean(step));
+    if (frozenSteps.length) return frozenSteps;
+  }
+  // Snapshots created before variant metadata retain the original Dealer flow.
+  return snapshot ? CONTRACT_STEPS : getContractSteps(partnerType);
+}
+
 type ContractStepLabel = Pick<(typeof CONTRACT_STEPS)[number], 'title' | 'shortTitle' | 'intro'>;
 
 const allLanguageLabels = (
@@ -365,6 +438,19 @@ const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, Cont
     { title: 'Discount structure', shortTitle: 'Discount', intro: 'Review the existing discount structure, calculation rules and visualization.' },
     { de: { title: 'Rabattstruktur', shortTitle: 'Rabatt', intro: 'Prüfen Sie die bestehende Rabattstruktur, Berechnungsregeln und Visualisierung.' } },
   ),
+  machine_sales_referral: allLanguageLabels(
+    { title: 'Maskinsalg & henvisning', shortTitle: 'Henvisning', intro: 'Gennemgå hvordan henvendelser om nye maskiner henvises til en autoriseret forhandler, og hvornår Timan kan støtte processen.' },
+    { title: 'Machine sales & referral', shortTitle: 'Referral', intro: 'Review how enquiries about new machines are referred to an authorised dealer and when Timan may support the process.' },
+    {
+      de: { title: 'Maschinenverkauf & Vermittlung', shortTitle: 'Vermittlung', intro: 'Prüfen Sie, wie Anfragen zu neuen Maschinen an einen autorisierten Händler vermittelt werden und wann Timan den Prozess unterstützen kann.' },
+      it: { title: 'Vendita macchine e segnalazione', shortTitle: 'Segnalazione', intro: 'Esamina come le richieste per nuove macchine vengono indirizzate a un rivenditore autorizzato.' },
+      hu: { title: 'Gépértékesítés és továbbítás', shortTitle: 'Továbbítás', intro: 'Tekintse át, hogyan kerülnek az új gépekre vonatkozó megkeresések hivatalos kereskedőhöz.' },
+      sv: { title: 'Maskinförsäljning och hänvisning', shortTitle: 'Hänvisning', intro: 'Granska hur förfrågningar om nya maskiner hänvisas till en auktoriserad återförsäljare.' },
+      fr: { title: 'Vente de machines et orientation', shortTitle: 'Orientation', intro: 'Examinez comment les demandes de machines neuves sont orientées vers un revendeur agréé.' },
+      pl: { title: 'Sprzedaż maszyn i przekazanie', shortTitle: 'Przekazanie', intro: 'Sprawdź, jak zapytania o nowe maszyny są przekazywane autoryzowanemu dealerowi.' },
+      cs: { title: 'Prodej strojů a předání', shortTitle: 'Předání', intro: 'Zkontrolujte, jak jsou poptávky po nových strojích předávány autorizovanému prodejci.' },
+    },
+  ),
   demo_machines: allLanguageLabels(
     { title: 'Demo-maskiner', shortTitle: 'Demo', intro: 'Gennemgå de eksisterende bestemmelser om demo-maskiner, demo-rabat og videresalg.' },
     { title: 'Demo machines', shortTitle: 'Demo', intro: 'Review the existing provisions about demo machines, demo discount and resale.' },
@@ -379,6 +465,19 @@ const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, Cont
     { title: 'Marketing', shortTitle: 'Marketing', intro: 'Gennemgå de eksisterende marketingforpligtelser for samarbejdspartneren og Timan.' },
     { title: 'Marketing', shortTitle: 'Marketing', intro: 'Review the existing marketing obligations for the partner and Timan.' },
     { de: { title: 'Marketing', shortTitle: 'Marketing', intro: 'Prüfen Sie die bestehenden Marketingpflichten des Partners und von Timan.' } },
+  ),
+  sales_service_days: allLanguageLabels(
+    { title: 'Salgs- og servicedage', shortTitle: 'Servicedage', intro: 'Gennemgå kravene til teknisk opdatering, servicedag hos Timan og senere obligatoriske salgs- og servicedage.' },
+    { title: 'Sales and service days', shortTitle: 'Service days', intro: 'Review the requirements for technical updates, the service day at Timan and later mandatory sales and service days.' },
+    {
+      de: { title: 'Verkaufs- und Servicetage', shortTitle: 'Servicetage', intro: 'Prüfen Sie die Anforderungen an technische Aktualisierung, den Servicetag bei Timan und spätere verpflichtende Verkaufs- und Servicetage.' },
+      it: { title: 'Giornate vendita e assistenza', shortTitle: 'Giornate assistenza', intro: 'Esamina i requisiti per l’aggiornamento tecnico e le giornate obbligatorie di vendita e assistenza.' },
+      hu: { title: 'Értékesítési és szerviznapok', shortTitle: 'Szerviznapok', intro: 'Tekintse át a műszaki naprakészség és a kötelező szerviznapok követelményeit.' },
+      sv: { title: 'Försäljnings- och servicedagar', shortTitle: 'Servicedagar', intro: 'Granska kraven på teknisk uppdatering och obligatoriska försäljnings- och servicedagar.' },
+      fr: { title: 'Journées vente et service', shortTitle: 'Journées service', intro: 'Examinez les exigences de mise à jour technique et les journées obligatoires de vente et de service.' },
+      pl: { title: 'Dni sprzedaży i serwisu', shortTitle: 'Dni serwisowe', intro: 'Sprawdź wymagania dotyczące wiedzy technicznej oraz obowiązkowych dni sprzedaży i serwisu.' },
+      cs: { title: 'Prodejní a servisní dny', shortTitle: 'Servisní dny', intro: 'Zkontrolujte požadavky na technické znalosti a povinné prodejní a servisní dny.' },
+    },
   ),
   payment_delivery: allLanguageLabels(
     { title: 'Betaling og levering', shortTitle: 'Betaling', intro: 'Gennemgå betaling, levering og Bilag 4 med salgs- og leveringsbetingelser.' },
@@ -402,9 +501,51 @@ const CONTRACT_STEP_LABELS: Record<ContractStepId, Record<PortalUiLanguage, Cont
   ),
 };
 
+const SERVICE_PARTNER_STEP_LABELS: Partial<Record<ContractStepId, Record<PortalUiLanguage, ContractStepLabel>>> = {
+  purpose_prices_orders_portal: allLanguageLabels(
+    { title: 'Samarbejde, priser & portal', shortTitle: 'Samarbejde', intro: 'Gennemgå Servicepartnerens samarbejde med Timan, gældende priser og adgang til partnerportalen.' },
+    { title: 'Cooperation, prices & portal', shortTitle: 'Cooperation', intro: 'Review the Service Partner’s cooperation with Timan, applicable prices and access to the partner portal.' },
+    {
+      de: { title: 'Zusammenarbeit, Preise & Portal', shortTitle: 'Zusammenarbeit', intro: 'Prüfen Sie die Zusammenarbeit des Servicepartners mit Timan, die geltenden Preise und den Zugang zum Partnerportal.' },
+      it: { title: 'Collaborazione, prezzi e portale', shortTitle: 'Collaborazione', intro: 'Esamina la collaborazione del partner di assistenza con Timan, i prezzi applicabili e l’accesso al portale.' },
+      hu: { title: 'Együttműködés, árak és portál', shortTitle: 'Együttműködés', intro: 'Tekintse át a szervizpartner együttműködését, az árakat és a partnerportál hozzáférését.' },
+      sv: { title: 'Samarbete, priser och portal', shortTitle: 'Samarbete', intro: 'Granska servicepartnerns samarbete med Timan, gällande priser och åtkomst till partnerportalen.' },
+      fr: { title: 'Coopération, prix et portail', shortTitle: 'Coopération', intro: 'Examinez la coopération du partenaire de service avec Timan, les prix applicables et l’accès au portail.' },
+      pl: { title: 'Współpraca, ceny i portal', shortTitle: 'Współpraca', intro: 'Sprawdź współpracę partnera serwisowego z Timan, obowiązujące ceny i dostęp do portalu.' },
+      cs: { title: 'Spolupráce, ceny a portál', shortTitle: 'Spolupráce', intro: 'Zkontrolujte spolupráci servisního partnera s Timan, platné ceny a přístup k portálu.' },
+    },
+  ),
+  spare_parts_service: allLanguageLabels(
+    { title: 'Reservedele & Service', shortTitle: 'Reservedele', intro: 'Gennemgå Servicepartnerens ansvar for service og reservedele samt de gældende servicevilkår.' },
+    { title: 'Spare parts & service', shortTitle: 'Spare parts', intro: 'Review the Service Partner’s responsibilities for service and spare parts and the applicable service terms.' },
+    {
+      de: { title: 'Ersatzteile & Service', shortTitle: 'Ersatzteile', intro: 'Prüfen Sie die Verantwortung des Servicepartners für Service und Ersatzteile sowie die geltenden Servicebedingungen.' },
+      it: { title: 'Ricambi e assistenza', shortTitle: 'Ricambi', intro: 'Esamina le responsabilità del partner di assistenza per servizio e ricambi.' },
+      hu: { title: 'Alkatrészek és szerviz', shortTitle: 'Alkatrészek', intro: 'Tekintse át a szervizpartner felelősségét a szervizért és az alkatrészekért.' },
+      sv: { title: 'Reservdelar och service', shortTitle: 'Reservdelar', intro: 'Granska servicepartnerns ansvar för service och reservdelar.' },
+      fr: { title: 'Pièces et service', shortTitle: 'Pièces', intro: 'Examinez les responsabilités du partenaire de service pour le service et les pièces.' },
+      pl: { title: 'Części i serwis', shortTitle: 'Części', intro: 'Sprawdź odpowiedzialność partnera serwisowego za serwis i części.' },
+      cs: { title: 'Díly a servis', shortTitle: 'Díly', intro: 'Zkontrolujte odpovědnost servisního partnera za servis a náhradní díly.' },
+    },
+  ),
+  termination: allLanguageLabels(
+    { title: 'Varighed & opsigelse', shortTitle: 'Varighed', intro: 'Gennemgå aftalens varighed, opsigelse og afsluttende vilkår før samlet gennemlæsning.' },
+    { title: 'Duration & termination', shortTitle: 'Duration', intro: 'Review the duration, termination and final terms before the full review.' },
+    {
+      de: { title: 'Laufzeit & Kündigung', shortTitle: 'Laufzeit', intro: 'Prüfen Sie Laufzeit, Kündigung und Schlussbestimmungen vor der vollständigen Durchsicht.' },
+      it: { title: 'Durata e risoluzione', shortTitle: 'Durata', intro: 'Esamina durata, risoluzione e condizioni finali.' },
+      hu: { title: 'Időtartam és felmondás', shortTitle: 'Időtartam', intro: 'Tekintse át az időtartamot, a felmondást és a záró feltételeket.' },
+      sv: { title: 'Löptid och uppsägning', shortTitle: 'Löptid', intro: 'Granska löptid, uppsägning och slutvillkor.' },
+      fr: { title: 'Durée et résiliation', shortTitle: 'Durée', intro: 'Examinez la durée, la résiliation et les conditions finales.' },
+      pl: { title: 'Okres i wypowiedzenie', shortTitle: 'Okres', intro: 'Sprawdź okres obowiązywania, wypowiedzenie i warunki końcowe.' },
+      cs: { title: 'Doba a ukončení', shortTitle: 'Doba', intro: 'Zkontrolujte dobu trvání, ukončení a závěrečné podmínky.' },
+    },
+  ),
+};
+
 // These labels are review-only. They deliberately do not participate in the
 // legal signature/PDF language selection, which remains DA/EN/DE.
-const REVIEW_STEP_TRANSLATIONS: Partial<Record<Exclude<PortalUiLanguage, 'da' | 'en' | 'de'>, Record<Exclude<ContractStepId, 'signature'>, ContractStepLabel>>> = {
+const REVIEW_STEP_TRANSLATIONS: Partial<Record<Exclude<PortalUiLanguage, 'da' | 'en' | 'de'>, Partial<Record<Exclude<ContractStepId, 'signature'>, ContractStepLabel>>>> = {
   it: {
     parties: { title: 'Dettagli', shortTitle: 'Dettagli', intro: 'Scegli il tipo di partner e verifica i dati di Timan e dell’azienda.' },
     purpose_prices_orders_portal: { title: 'Collaborazione, prezzi, ordini e portale', shortTitle: 'Collaborazione', intro: 'Esamina collaborazione, prezzi, ordini, portale partner e incontro annuale.' },
@@ -494,6 +635,7 @@ export const CONTRACT_APPENDIX_LABELS: Record<PortalUiLanguage, string> = {
 export function getContractStepLabel(
   stepId: ContractStepId,
   language: PortalUiLanguage | string | null | undefined = 'da',
+  partnerType?: ContractPartnerType | '' | null,
 ): ContractStepLabel {
   // Signature is intentionally limited to the contract's three approved
   // signature languages. Other portal languages use the English signature UI.
@@ -501,10 +643,13 @@ export function getContractStepLabel(
     ? 'en'
     : language;
   const reviewTranslation = stepId === 'signature' ? null : REVIEW_STEP_TRANSLATIONS[language as Exclude<PortalUiLanguage, 'da' | 'en' | 'de'>]?.[stepId as Exclude<ContractStepId, 'signature'>];
-  if (reviewTranslation) return reviewTranslation;
   const lang = (signatureLanguage && CONTRACT_STEP_LABELS[stepId]?.[signatureLanguage as PortalUiLanguage])
     ? signatureLanguage as PortalUiLanguage
     : 'en';
+  if (partnerType === 'service_partner' && SERVICE_PARTNER_STEP_LABELS[stepId]) {
+    return SERVICE_PARTNER_STEP_LABELS[stepId]?.[lang] ?? SERVICE_PARTNER_STEP_LABELS[stepId]!.en;
+  }
+  if (reviewTranslation) return reviewTranslation;
   return CONTRACT_STEP_LABELS[stepId][lang];
 }
 
@@ -549,9 +694,11 @@ export const EMPTY_CONTRACT_CONFIRMATIONS: ContractConfirmations = {
   purpose_prices_orders_portal: { confirmed: false },
   territory: { confirmed: false },
   discount_structure: { confirmed: false },
+  machine_sales_referral: { confirmed: false },
   demo_machines: { confirmed: false },
   spare_parts_service: { confirmed: false },
   marketing: { confirmed: false },
+  sales_service_days: { confirmed: false },
   payment_delivery: { confirmed: false },
   termination: { confirmed: false },
   full_contract: { confirmed: false },
@@ -580,21 +727,25 @@ export function normalizeContractConfirmations(
     normalized.spare_parts_service = source.responsibilities;
     normalized.marketing = source.responsibilities;
   }
-  if (source.sales_service_days?.confirmed && !normalized.spare_parts_service.confirmed) {
-    normalized.spare_parts_service = source.sales_service_days;
+  if (source.sales_service_days?.confirmed) {
+    normalized.sales_service_days = source.sales_service_days;
+    if (!normalized.spare_parts_service.confirmed) normalized.spare_parts_service = source.sales_service_days;
   }
 
   return normalized;
 }
 
-export function normalizeContractStepId(stepId: string | null | undefined): ContractStepId {
-  if (stepId === 'sales_service_days') return 'spare_parts_service';
-  if (CONTRACT_STEPS.some((step) => step.id === stepId)) return stepId as ContractStepId;
+export function normalizeContractStepId(
+  stepId: string | null | undefined,
+  partnerType?: ContractPartnerType | '' | null,
+): ContractStepId {
+  if (stepId === 'sales_service_days' && partnerType !== 'service_partner') return 'spare_parts_service';
+  if ([...CONTRACT_STEPS, ...SERVICE_PARTNER_CONTRACT_STEPS].some((step) => step.id === stepId)) return stepId as ContractStepId;
   return 'parties';
 }
 
 export function getRequiredConfirmationForStep(stepId: ContractStepId) {
-  return CONTRACT_STEPS.find((step) => step.id === stepId)?.confirmationId;
+  return [...CONTRACT_STEPS, ...SERVICE_PARTNER_CONTRACT_STEPS].find((step) => step.id === stepId)?.confirmationId;
 }
 
 export function canLeaveContractStep(stepId: ContractStepId, confirmations: ContractConfirmations) {
@@ -625,25 +776,32 @@ export function canAutosaveContractDraft(
   return Boolean(dealerAccountNumber?.trim()) && hasRequiredPartyData(form);
 }
 
+export function getRequiredContractConfirmationIds(partnerType: ContractPartnerType | '' | null | undefined) {
+  return getContractSteps(partnerType)
+    .map((step) => step.confirmationId)
+    .filter((confirmationId): confirmationId is ContractConfirmationId => Boolean(confirmationId));
+}
+
 export function canPrepareContractForSignature(form: ContractFormData, confirmations: ContractConfirmations) {
   return hasRequiredPartyData(form)
     && hasValidContractTerritory(form)
     && isValidContractServiceHourlyRateDkk(form.serviceHourlyRateDkk)
-    && Object.values(confirmations).every((confirmation) => confirmation.confirmed);
+    && getRequiredContractConfirmationIds(form.partnerType).every((confirmationId) => confirmations[confirmationId]?.confirmed);
 }
 
 export function getContractStatus(form: ContractFormData, confirmations: ContractConfirmations): ContractStatus {
   if (form.signatureDataUrl && canPrepareContractForSignature(form, confirmations)) return 'Signed';
   if (canPrepareContractForSignature(form, confirmations)) return 'Ready for signature';
-  if (Object.values(confirmations).some((confirmation) => confirmation.confirmed)) return 'In review';
+  if (getRequiredContractConfirmationIds(form.partnerType).some((confirmationId) => confirmations[confirmationId]?.confirmed)) return 'In review';
   return 'Draft';
 }
 
 export function getCompletedContractStepIds(
   activeStepIndex: number,
   confirmations: ContractConfirmations,
+  partnerType: ContractPartnerType | '' | null | undefined = 'dealer',
 ): ContractStepId[] {
-  return CONTRACT_STEPS
+  return getContractSteps(partnerType)
     .filter((step, index) => {
       const confirmationId = step.confirmationId;
       const confirmed = !confirmationId || Boolean(confirmations[confirmationId]?.confirmed);
@@ -673,6 +831,8 @@ export function buildContractSnapshot(
     contractId: options.contractId ?? null,
     contractNumber: options.contractNumber ?? null,
     version: CONTRACT_VERSION,
+    contractVariant: getContractVariantId(form.partnerType),
+    applicableStepIds: getContractSteps(form.partnerType).map((step) => step.id),
     contractLanguage: form.contractLanguage ?? 'da',
     createdAt: new Date().toISOString(),
     status: getLegacyContractStatus(options.workflowStatus ?? getWorkflowStatusFromLegacy(getContractStatus(form, confirmations))),

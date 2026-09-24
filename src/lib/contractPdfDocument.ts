@@ -1,7 +1,7 @@
 import timanLogoUrl from '@/assets/timan-logo-transparent-trimmed.png';
 import { renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import { getContractDiscountStructure } from '@/lib/contractCommercialTerms';
-import { type ContractSnapshot } from '@/lib/contractFlow';
+import { getRequiredContractConfirmationIds, type ContractSnapshot } from '@/lib/contractFlow';
 import { getContractPartnerTerms } from '@/lib/contractPartnerTerms';
 import {
   renderGuidedContractSections,
@@ -93,7 +93,9 @@ export function getSnapshotLegalSections(
 ): GuidedContractSection[] {
   // Existing Danish snapshots are immutable source material. Localized PDFs use
   // the same frozen business data with the approved language rendering.
-  if (language === 'da' && Array.isArray(snapshot.legalSections)) return snapshot.legalSections as GuidedContractSection[];
+  if (Array.isArray(snapshot.legalSections) && (language === 'da' || !Array.isArray(snapshot.applicableStepIds))) {
+    return snapshot.legalSections as GuidedContractSection[];
+  }
   return renderGuidedContractSections({
     companyName: snapshot.dealer.name,
     partnerType: snapshot.dealer.partnerType,
@@ -179,7 +181,10 @@ export function getContractPdfPreflightIssues(input: Pick<ContractPdfInput, 'sna
   if (!snapshot.timan.sellerName.trim() || !snapshot.timan.sellerEmail.trim()) issues.push('timan_contact');
   if (!snapshot.territory?.primaryTerritory) issues.push('territory');
   if (!snapshot.paymentTerms?.paymentTerm) issues.push('payment_terms');
-  if (Object.values(snapshot.confirmations).some((confirmation) => !confirmation.confirmed)) issues.push('acknowledgements');
+  const confirmationPartnerType = Array.isArray(snapshot.applicableStepIds) ? snapshot.dealer.partnerType : 'dealer';
+  if (getRequiredContractConfirmationIds(confirmationPartnerType).some((confirmationId) => !snapshot.confirmations[confirmationId]?.confirmed)) {
+    issues.push('acknowledgements');
+  }
   return issues;
 }
 

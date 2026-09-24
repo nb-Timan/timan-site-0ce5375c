@@ -69,13 +69,13 @@ describe('contract i18n', () => {
       partnerType: 'service_partner' as const,
       sparePartsDiscountPct: 25,
     };
-    const english = JSON.stringify(renderGuidedContractSections(context, 'en').find((section) => section.stepId === 'discount_structure'));
-    const german = JSON.stringify(renderGuidedContractSections(context, 'de').find((section) => section.stepId === 'discount_structure'));
-    const italian = JSON.stringify(renderGuidedContractSections(context, 'it').find((section) => section.stepId === 'discount_structure'));
+    const english = JSON.stringify(renderGuidedContractSections(context, 'en').find((section) => section.stepId === 'spare_parts_service'));
+    const german = JSON.stringify(renderGuidedContractSections(context, 'de').find((section) => section.stepId === 'spare_parts_service'));
+    const italian = JSON.stringify(renderGuidedContractSections(context, 'it').find((section) => section.stepId === 'spare_parts_service'));
 
-    expect(english).toContain('Spare parts discount: 25%.');
-    expect(german).toContain('Ersatzteilrabatt: 25%.');
-    expect(italian).toContain('Spare parts discount: 25%.');
+    expect(english).toContain('Service Partner’s spare-parts discount is 25%.');
+    expect(german).toContain('Der Ersatzteilrabatt des Servicepartners beträgt 25%.');
+    expect(italian).toContain('Service Partner’s spare-parts discount is 25%.');
     expect(english).not.toContain('Reservedelsrabat');
     expect(german).not.toContain('Maskiner købes gennem');
     expect(italian).not.toContain('Reservedelsrabat');

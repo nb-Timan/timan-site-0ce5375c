@@ -1062,7 +1062,7 @@ describe('contract flow', () => {
   });
 
   it('removes the redundant demo discount helper from complete rendered contracts', () => {
-    for (const partnerType of CONTRACT_PARTNER_TYPES) {
+    for (const partnerType of ['dealer', 'importer'] as const) {
       const legalSections = renderGuidedContractSections({
         companyName: partnerType === 'importer' ? 'ABC Maschinen GmbH' : partnerType === 'service_partner' ? 'Service Pro ApS' : 'Dealer House A/S',
         partnerType,
@@ -1073,6 +1073,12 @@ describe('contract flow', () => {
       expect(bodyText).toContain('Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.');
       expect(bodyText).toContain('Demonstrationsmaskinerabat: 25 %–10 %.');
     }
+    const servicePartnerText = JSON.stringify(renderGuidedContractSections({
+      companyName: 'Service Pro ApS',
+      partnerType: 'service_partner',
+    }));
+    expect(servicePartnerText).not.toContain('Demo-maskiner');
+    expect(servicePartnerText).not.toContain('Demonstrationsmaskinerabat');
   });
 
   it('removes the redundant territory intro and starts directly at Appendix 3 content', () => {
@@ -1246,10 +1252,12 @@ describe('contract flow', () => {
   ] as const)('renders contract party text dynamically for %s', (partnerType, singular, definite, plural, portal) => {
     const companyName = partnerType === 'importer' ? 'ABC Maschinen GmbH' : partnerType === 'service_partner' ? 'Service Pro ApS' : 'Dealer House A/S';
     const legalSections = renderGuidedContractSections({ companyName, partnerType });
-    const appendix2Paragraphs = renderAppendix2Paragraphs(partnerType);
+    const appendix2Paragraphs = partnerType === 'service_partner' ? [] : renderAppendix2Paragraphs(partnerType);
     const text = `${JSON.stringify(legalSections)} ${appendix2Paragraphs.join(' ')}`;
 
-    expect(text).toContain(`Timan A/S og ${companyName}, herefter nævnt som ${singular}`);
+    expect(text).toContain(partnerType === 'service_partner'
+      ? `Timan A/S og ${companyName}, herefter benævnt ${singular}`
+      : `Timan A/S og ${companyName}, herefter nævnt som ${singular}`);
     expect(text).toContain(definite);
     expect(text).toContain(plural);
     expect(text).toContain(portal);
@@ -1279,7 +1287,7 @@ describe('contract flow', () => {
     ['dealer', 'Dealer House A/S', ['importøren', 'importørens', 'servicepartneren', 'servicepartnerens', 'importørportalen', 'servicepartnerportalen']],
   ] as const)('does not render the contract party as another partner type for %s', (partnerType, companyName, forbiddenTerms) => {
     const legalSections = renderGuidedContractSections({ companyName, partnerType });
-    const appendix2Paragraphs = renderAppendix2Paragraphs(partnerType);
+    const appendix2Paragraphs = partnerType === 'service_partner' ? [] : renderAppendix2Paragraphs(partnerType);
     const bodyText = [
       ...legalSections.flatMap((section) => section.blocks.flatMap((block) => [
         block.heading,

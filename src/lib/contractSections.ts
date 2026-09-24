@@ -1,6 +1,7 @@
 import {
   PURPOSE_PRICES_ORDERS_PORTAL_SECTION_SOURCE,
   PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE,
+  getContractStepLabel,
   type ContractStepId,
 } from '@/lib/contractFlow';
 import { getContractPartnerTerms, type ContractPartnerType } from '@/lib/contractPartnerTerms';
@@ -67,6 +68,9 @@ const SECTION_TITLES: Record<Exclude<GuidedContractSection['stepId'], never>, Re
   discount_structure: {
     da: 'Rabatstruktur og Bilag 2', en: 'Discount structure and Appendix 2', de: 'Rabattstruktur und Anhang 2', it: 'Struttura degli sconti e allegato 2', hu: 'Kedvezménystruktúra és 2. melléklet', sv: 'Rabattsstruktur och bilaga 2', fr: 'Structure des remises et annexe 2', pl: 'Struktura rabatów i załącznik 2', cs: 'Struktura slev a příloha 2',
   },
+  machine_sales_referral: {
+    da: 'Maskinsalg & henvisning', en: 'Machine sales & referral', de: 'Maschinenverkauf & Vermittlung', it: 'Vendita macchine e segnalazione', hu: 'Gépértékesítés és továbbítás', sv: 'Maskinförsäljning och hänvisning', fr: 'Vente de machines et orientation', pl: 'Sprzedaż maszyn i przekazanie', cs: 'Prodej strojů a předání',
+  },
   demo_machines: {
     da: 'Demo-maskiner', en: 'Demonstration machines', de: 'Demomaschinen', it: 'Macchine dimostrative', hu: 'Bemutatógépek', sv: 'Demomaskiner', fr: 'Machines de démonstration', pl: 'Maszyny demonstracyjne', cs: 'Předváděcí stroje',
   },
@@ -75,6 +79,9 @@ const SECTION_TITLES: Record<Exclude<GuidedContractSection['stepId'], never>, Re
   },
   marketing: {
     da: 'Marketing', en: 'Marketing', de: 'Marketing', it: 'Marketing', hu: 'Marketing', sv: 'Marknadsföring', fr: 'Marketing', pl: 'Marketing', cs: 'Marketing',
+  },
+  sales_service_days: {
+    da: 'Salgs- og servicedage', en: 'Sales and service days', de: 'Verkaufs- und Servicetage', it: 'Giornate vendita e assistenza', hu: 'Értékesítési és szerviznapok', sv: 'Försäljnings- och servicedagar', fr: 'Journées vente et service', pl: 'Dni sprzedaży i serwisu', cs: 'Prodejní a servisní dny',
   },
   payment_delivery: {
     da: 'Betaling og levering', en: 'Payment and delivery', de: 'Zahlung und Lieferung', it: 'Pagamento e consegna', hu: 'Fizetés és szállítás', sv: 'Betalning och leverans', fr: 'Paiement et livraison', pl: 'Płatność i dostawa', cs: 'Platba a dodání',
@@ -785,8 +792,75 @@ const TERMINATION_CONTRACT_TEXT: Partial<Record<ContractTextLanguage, Record<str
   },
 };
 
+const SERVICE_PARTNER_CONTRACT_TEXT: Partial<Record<ApprovedContractLegalLanguage, Record<string, string>>> = {
+  en: {
+    'Servicepartneraftale, punkt 1 og 2': 'Service Partner Agreement, sections 1 and 2',
+    'Servicepartneraftale, maskinsalg og henvisning': 'Service Partner Agreement, machine sales and referral',
+    'Servicepartneraftale, reservedele og service + Bilag 1': 'Service Partner Agreement, spare parts and service + Appendix 1',
+    'Servicepartneraftale, salgs- og servicedage': 'Service Partner Agreement, sales and service days',
+    'Servicepartneraftale, betaling og levering + Bilag 4': 'Service Partner Agreement, payment and delivery + Appendix 4',
+    '1. Samarbejde': '1. Cooperation',
+    'Formålet med aftalen er at fastlægge samarbejdet mellem Timan A/S og {{companyName}}, herefter benævnt {{partnerSingular}}, om service, reservedele og henvisning af kunder med interesse i nye Timan-maskiner.': 'The purpose of this agreement is to set out the cooperation between Timan A/S and {{companyName}}, hereinafter referred to as the {{partnerSingular}}, concerning service, spare parts and referral of customers interested in new Timan machines.',
+    '2. Priser, ordre og servicepartnerportal': '2. Prices, orders and Service Partner portal',
+    'Handler følger den til enhver tid gældende prisliste, hvor den er relevant for Servicepartnerens aftalte område.': 'Transactions follow the price list in force at the relevant time where applicable to the Service Partner’s agreed scope.',
+    "Reservedele bestilles gennem Timan A/S' webshop efter den gældende ordreproces.": 'Spare parts are ordered through Timan A/S’ webshop according to the applicable ordering process.',
+    'Autoriserede Servicepartnere har adgang til partnerportalen.': 'Authorised Service Partners have access to the partner portal.',
+    'Partnerportalen indeholder salgsmateriale og serviceinformation.': 'The partner portal contains sales material and service information.',
+    '4. Maskinsalg og henvisning': '4. Machine sales and referral',
+    'Servicepartneren fungerer ikke som almindelig maskinforhandler og er derfor ikke omfattet af den almindelige rabatstruktur for nye maskiner.': 'The Service Partner does not operate as a standard machine dealer and is therefore not covered by the standard discount structure for new machines.',
+    'Når en kunde ønsker at købe en ny maskine, henviser Servicepartneren kunden til den nærmeste autoriserede Timan-forhandler.': 'When a customer wishes to purchase a new machine, the Service Partner refers the customer to the nearest authorised Timan dealer.',
+    'Den autoriserede forhandler arbejder herefter sammen med kunden om at finde den rette løsning.': 'The authorised dealer then works with the customer to find the appropriate solution.',
+    'Hvis der ikke findes en autoriseret forhandler, eller hvis en løsning ikke kan findes, kan Timan støtte processen direkte sammen med Servicepartneren.': 'If no authorised dealer exists or no solution can be found, Timan may support the process directly together with the Service Partner.',
+    '5. Reservedele og Service': '5. Spare parts and service',
+    'Servicepartneren varetager support vedrørende service og reservedele.': 'The Service Partner provides support relating to service and spare parts.',
+    'Servicepartnerens reservedelsrabat er {{sparePartsDiscountPct}}%.': 'The Service Partner’s spare-parts discount is {{sparePartsDiscountPct}}%.',
+    'Reservedele leveres fragtfrit med den transportør, der vælges af Timan.': 'Spare parts are delivered freight-free using the carrier selected by Timan.',
+    'De relevante servicevilkår fremgår af Bilag 1.': 'The applicable service terms are set out in Appendix 1.',
+    'Reklamationer må kun udføres af en autoriseret Timan-servicepartner.': 'Claims may only be carried out by an authorised Timan Service Partner.',
+    '7. Salgs- og servicedage': '7. Sales and service days',
+    'Servicepartneren skal have mindst én servicetekniker, som deltager i én servicedag hos Timan og holder sig opdateret om de tekniske forhold ved Timans produkter.': 'The Service Partner must have at least one service technician who attends one service day at Timan and remains up to date on the technical aspects of Timan products.',
+    'Fremtidige salgs- og servicedage, som Timan indkalder til efter aftalen, er obligatoriske.': 'Future sales and service days convened by Timan under the agreement are mandatory.',
+    '8. Betaling og levering': '8. Payment and delivery',
+    'Maskiner og udstyr leveres EXW fra fabrikken.': 'Machines and equipment are delivered EXW from the factory.',
+    'Ved for sen betaling pålægges lovbestemt rente efter de gældende vilkår.': 'Late payment is subject to statutory interest under the applicable terms.',
+  },
+  de: {
+    'Servicepartneraftale, punkt 1 og 2': 'Servicepartnervertrag, Abschnitte 1 und 2',
+    'Servicepartneraftale, maskinsalg og henvisning': 'Servicepartnervertrag, Maschinenverkauf und Vermittlung',
+    'Servicepartneraftale, reservedele og service + Bilag 1': 'Servicepartnervertrag, Ersatzteile und Service + Anhang 1',
+    'Servicepartneraftale, salgs- og servicedage': 'Servicepartnervertrag, Verkaufs- und Servicetage',
+    'Servicepartneraftale, betaling og levering + Bilag 4': 'Servicepartnervertrag, Zahlung und Lieferung + Anhang 4',
+    '1. Samarbejde': '1. Zusammenarbeit',
+    'Formålet med aftalen er at fastlægge samarbejdet mellem Timan A/S og {{companyName}}, herefter benævnt {{partnerSingular}}, om service, reservedele og henvisning af kunder med interesse i nye Timan-maskiner.': 'Zweck dieses Vertrags ist es, die Zusammenarbeit zwischen Timan A/S und {{companyName}}, nachfolgend {{partnerSingular}} genannt, in Bezug auf Service, Ersatzteile und die Vermittlung von Kunden mit Interesse an neuen Timan-Maschinen festzulegen.',
+    '2. Priser, ordre og servicepartnerportal': '2. Preise, Bestellungen und Servicepartnerportal',
+    'Handler følger den til enhver tid gældende prisliste, hvor den er relevant for Servicepartnerens aftalte område.': 'Für Geschäfte gilt die jeweils aktuelle Preisliste, soweit sie für den vereinbarten Bereich des Servicepartners relevant ist.',
+    "Reservedele bestilles gennem Timan A/S' webshop efter den gældende ordreproces.": 'Ersatzteile werden gemäß dem geltenden Bestellprozess über den Webshop von Timan A/S bestellt.',
+    'Autoriserede Servicepartnere har adgang til partnerportalen.': 'Autorisierte Servicepartner haben Zugang zum Partnerportal.',
+    'Partnerportalen indeholder salgsmateriale og serviceinformation.': 'Das Partnerportal enthält Verkaufsmaterial und Serviceinformationen.',
+    '4. Maskinsalg og henvisning': '4. Maschinenverkauf und Vermittlung',
+    'Servicepartneren fungerer ikke som almindelig maskinforhandler og er derfor ikke omfattet af den almindelige rabatstruktur for nye maskiner.': 'Der Servicepartner handelt nicht als regulärer Maschinenhändler und unterliegt daher nicht der üblichen Rabattstruktur für neue Maschinen.',
+    'Når en kunde ønsker at købe en ny maskine, henviser Servicepartneren kunden til den nærmeste autoriserede Timan-forhandler.': 'Wenn ein Kunde eine neue Maschine kaufen möchte, verweist der Servicepartner ihn an den nächstgelegenen autorisierten Timan-Händler.',
+    'Den autoriserede forhandler arbejder herefter sammen med kunden om at finde den rette løsning.': 'Der autorisierte Händler arbeitet anschließend mit dem Kunden an der passenden Lösung.',
+    'Hvis der ikke findes en autoriseret forhandler, eller hvis en løsning ikke kan findes, kan Timan støtte processen direkte sammen med Servicepartneren.': 'Wenn kein autorisierter Händler vorhanden ist oder keine Lösung gefunden werden kann, kann Timan den Prozess direkt gemeinsam mit dem Servicepartner unterstützen.',
+    '5. Reservedele og Service': '5. Ersatzteile und Service',
+    'Servicepartneren varetager support vedrørende service og reservedele.': 'Der Servicepartner übernimmt die Unterstützung in Bezug auf Service und Ersatzteile.',
+    'Servicepartnerens reservedelsrabat er {{sparePartsDiscountPct}}%.': 'Der Ersatzteilrabatt des Servicepartners beträgt {{sparePartsDiscountPct}}%.',
+    'Reservedele leveres fragtfrit med den transportør, der vælges af Timan.': 'Ersatzteile werden frachtfrei mit dem von Timan gewählten Frachtführer geliefert.',
+    'De relevante servicevilkår fremgår af Bilag 1.': 'Die geltenden Servicebedingungen sind in Anhang 1 aufgeführt.',
+    'Reklamationer må kun udføres af en autoriseret Timan-servicepartner.': 'Reklamationsarbeiten dürfen nur von einem autorisierten Timan-Servicepartner ausgeführt werden.',
+    '7. Salgs- og servicedage': '7. Verkaufs- und Servicetage',
+    'Servicepartneren skal have mindst én servicetekniker, som deltager i én servicedag hos Timan og holder sig opdateret om de tekniske forhold ved Timans produkter.': 'Der Servicepartner muss mindestens einen Servicetechniker haben, der an einem Servicetag bei Timan teilnimmt und technisch über Timan-Produkte auf dem aktuellen Stand bleibt.',
+    'Fremtidige salgs- og servicedage, som Timan indkalder til efter aftalen, er obligatoriske.': 'Künftige von Timan gemäß dem Vertrag einberufene Verkaufs- und Servicetage sind verpflichtend.',
+    '8. Betaling og levering': '8. Zahlung und Lieferung',
+    'Maskiner og udstyr leveres EXW fra fabrikken.': 'Maschinen und Ausrüstung werden EXW ab Werk geliefert.',
+    'Ved for sen betaling pålægges lovbestemt rente efter de gældende vilkår.': 'Bei verspäteter Zahlung fallen gesetzliche Zinsen gemäß den geltenden Bedingungen an.',
+  },
+};
+
 function localizeContractTemplate(value: string, language: ContractTextLanguage): string {
   const legalLanguage = resolveApprovedContractLegalLanguage(language);
+  const servicePartnerTranslation = SERVICE_PARTNER_CONTRACT_TEXT[legalLanguage]?.[value];
+  if (servicePartnerTranslation) return servicePartnerTranslation;
   if (legalLanguage === 'da') return value;
   const paymentDeliveryTranslation = ALL_PAYMENT_DELIVERY_CONTRACT_TEXT[legalLanguage]?.[value];
   if (paymentDeliveryTranslation) return paymentDeliveryTranslation;
@@ -1093,6 +1167,123 @@ export const GUIDED_CONTRACT_SECTIONS: readonly GuidedContractSection[] = [
   },
 ];
 
+function getServicePartnerContractSections(): GuidedContractSection[] {
+  const shared = (stepId: GuidedContractSection['stepId']) => {
+    const section = GUIDED_CONTRACT_SECTIONS.find((candidate) => candidate.stepId === stepId);
+    if (!section) throw new Error(`Missing shared contract section: ${stepId}`);
+    return section;
+  };
+  const serviceAppendixBlocks = shared('spare_parts_service').blocks.slice(2).map((block) => ({
+    ...block,
+    bullets: block.bullets?.map((bullet) => (
+      bullet === 'Reklamationer må kun udføres af autoriseret Timan forhandler.'
+        ? 'Reklamationer må kun udføres af en autoriseret Timan-servicepartner.'
+        : bullet
+    )),
+  }));
+  const salesTermsAppendix = shared('payment_delivery').blocks.find((block) => block.heading === 'Bilag 4: Salgs- og leveringsbetingelser');
+
+  return [
+    {
+      stepId: 'purpose_prices_orders_portal',
+      title: 'Samarbejde, priser & portal',
+      source: 'Servicepartneraftale, punkt 1 og 2',
+      blocks: [
+        {
+          heading: '1. Samarbejde',
+          paragraphs: [
+            'Formålet med aftalen er at fastlægge samarbejdet mellem Timan A/S og {{companyName}}, herefter benævnt {{partnerSingular}}, om service, reservedele og henvisning af kunder med interesse i nye Timan-maskiner.',
+          ],
+        },
+        {
+          heading: '2. Priser, ordre og servicepartnerportal',
+          bullets: [
+            'Handler følger den til enhver tid gældende prisliste, hvor den er relevant for Servicepartnerens aftalte område.',
+            'Reservedele bestilles gennem Timan A/S\' webshop efter den gældende ordreproces.',
+            'Autoriserede Servicepartnere har adgang til partnerportalen.',
+            'Partnerportalen indeholder salgsmateriale og serviceinformation.',
+          ],
+        },
+      ],
+    },
+    shared('territory'),
+    {
+      stepId: 'machine_sales_referral',
+      title: 'Maskinsalg & henvisning',
+      source: 'Servicepartneraftale, maskinsalg og henvisning',
+      blocks: [
+        {
+          heading: '4. Maskinsalg og henvisning',
+          paragraphs: [
+            'Servicepartneren fungerer ikke som almindelig maskinforhandler og er derfor ikke omfattet af den almindelige rabatstruktur for nye maskiner.',
+          ],
+          bullets: [
+            'Når en kunde ønsker at købe en ny maskine, henviser Servicepartneren kunden til den nærmeste autoriserede Timan-forhandler.',
+            'Den autoriserede forhandler arbejder herefter sammen med kunden om at finde den rette løsning.',
+            'Hvis der ikke findes en autoriseret forhandler, eller hvis en løsning ikke kan findes, kan Timan støtte processen direkte sammen med Servicepartneren.',
+          ],
+        },
+      ],
+    },
+    {
+      stepId: 'spare_parts_service',
+      title: 'Reservedele & Service',
+      source: 'Servicepartneraftale, reservedele og service + Bilag 1',
+      hideGuidedSource: true,
+      blocks: [
+        {
+          heading: '5. Reservedele og Service',
+          bullets: [
+            'Servicepartneren varetager support vedrørende service og reservedele.',
+            'Reservedele bestilles via Timan A/S\' webshop.',
+            'Servicepartnerens reservedelsrabat er {{sparePartsDiscountPct}}%.',
+            'Reservedele leveres fragtfrit med den transportør, der vælges af Timan.',
+            'De relevante servicevilkår fremgår af Bilag 1.',
+          ],
+        },
+        ...serviceAppendixBlocks,
+      ],
+    },
+    shared('marketing'),
+    {
+      stepId: 'sales_service_days',
+      title: 'Salgs- og servicedage',
+      source: 'Servicepartneraftale, salgs- og servicedage',
+      blocks: [
+        {
+          heading: '7. Salgs- og servicedage',
+          paragraphs: [
+            'Servicepartneren skal have mindst én servicetekniker, som deltager i én servicedag hos Timan og holder sig opdateret om de tekniske forhold ved Timans produkter.',
+            'Fremtidige salgs- og servicedage, som Timan indkalder til efter aftalen, er obligatoriske.',
+          ],
+        },
+      ],
+    },
+    {
+      stepId: 'payment_delivery',
+      title: 'Betaling og levering',
+      source: 'Servicepartneraftale, betaling og levering + Bilag 4',
+      blocks: [
+        {
+          heading: '8. Betaling og levering',
+          bullets: [
+            'Maskiner og udstyr leveres EXW fra fabrikken.',
+            'Reservedele leveres fragtfrit med den transportør, der vælges af Timan.',
+            '{{paymentTermsLegalText}}',
+            'Ved for sen betaling pålægges lovbestemt rente efter de gældende vilkår.',
+          ],
+        },
+        ...(salesTermsAppendix ? [salesTermsAppendix] : []),
+      ],
+    },
+    shared('termination'),
+  ];
+}
+
+export function getGuidedContractSections(partnerType: ContractPartnerType | '' | null | undefined) {
+  return partnerType === 'service_partner' ? getServicePartnerContractSections() : [...GUIDED_CONTRACT_SECTIONS];
+}
+
 function capitalize(value: string) {
   return value ? `${value.slice(0, 1).toUpperCase()}${value.slice(1)}` : value;
 }
@@ -1177,14 +1368,16 @@ export function renderGuidedContractSections(
   context: ContractTextRenderContext,
   language: ContractTextLanguage = 'da',
 ): GuidedContractSection[] {
-  return GUIDED_CONTRACT_SECTIONS.map((section) => {
+  return getGuidedContractSections(context.partnerType).map((section) => {
     const sourceBlocks = section.stepId === 'discount_structure'
       ? getDiscountStructureBlocks(context)
       : section.blocks;
 
     return ({
     ...section,
-    title: SECTION_TITLES[section.stepId][language] ?? SECTION_TITLES[section.stepId].en,
+    title: context.partnerType === 'service_partner'
+      ? getContractStepLabel(section.stepId, language, 'service_partner').title
+      : SECTION_TITLES[section.stepId][language] ?? SECTION_TITLES[section.stepId].en,
     source: localizeContractTemplate(section.source, language),
     blocks: sourceBlocks
       .map((block) => ({
@@ -1201,8 +1394,8 @@ export function renderGuidedContractSections(
   });
 }
 
-export function getGuidedContractSection(stepId: ContractStepId) {
-  return GUIDED_CONTRACT_SECTIONS.find((section) => section.stepId === stepId) ?? null;
+export function getGuidedContractSection(stepId: ContractStepId, partnerType?: ContractPartnerType | '' | null) {
+  return getGuidedContractSections(partnerType).find((section) => section.stepId === stepId) ?? null;
 }
 
 export function getRenderedGuidedContractSection(

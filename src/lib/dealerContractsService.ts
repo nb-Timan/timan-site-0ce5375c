@@ -3,7 +3,7 @@ import { getDealerContractOverviewStatusLabel, getDealerContractOverviewActionLa
 export { getDealerContractOverviewStatusLabel } from '@/lib/contractOverviewLabels';
 import {
   CONTRACT_VERSION,
-  CONTRACT_STEPS,
+  getContractSteps,
   normalizeContractConfirmations,
   type ContractConfirmations,
   type ContractFormData,
@@ -276,8 +276,9 @@ export function buildNewDealerContractDraftKey(ownerEmail: string, dealerAccount
   return `${buildDealerContractDraftKey(ownerEmail, dealerAccountNumber)}:new:${instance || "manual"}`;
 }
 
-export function getCurrentStepId(activeStepIndex: number) {
-  return CONTRACT_STEPS[Math.min(Math.max(activeStepIndex, 0), CONTRACT_STEPS.length - 1)]?.id ?? "parties";
+export function getCurrentStepId(activeStepIndex: number, partnerType: ContractFormData['partnerType'] = 'dealer') {
+  const steps = getContractSteps(partnerType);
+  return steps[Math.min(Math.max(activeStepIndex, 0), steps.length - 1)]?.id ?? "parties";
 }
 
 function removeSignatureFromFormData(form: ContractFormData) {
@@ -651,8 +652,8 @@ export async function saveDealerContractDraft(
     dealer_account_id: dealerAccountId,
     owner_email: input.ownerEmail.trim().toLowerCase(),
     owner_name: input.ownerName || null,
-    current_step: getCurrentStepId(input.activeStepIndex),
-    completed_steps: getCompletedContractStepIds(input.activeStepIndex, input.confirmations),
+    current_step: getCurrentStepId(input.activeStepIndex, input.form.partnerType),
+    completed_steps: getCompletedContractStepIds(input.activeStepIndex, input.confirmations, input.form.partnerType),
     confirmations: input.confirmations,
     form_data: removeSignatureFromFormData(input.form),
     contract_version: CONTRACT_VERSION,
