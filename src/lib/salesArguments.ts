@@ -1118,7 +1118,7 @@ const RECOMMENDATION_RULES: RecommendationRule[] = [
   { matchIds: ['712147'], parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138'], label: 'Skyderuder', reason: '', priority: 3 },
   { matchIds: ['712140'], parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138'], label: 'Luftaffjedret sæde', reason: '', priority: 3 },
   { matchIds: ['712166', '712167'], parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138'], label: 'Bakkamera', reason: '', priority: 1 },
-  { matchIds: ['795002'], parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138', '730017', 'HGM-2007'], label: 'Udvidet komponentgaranti (Timan 3330)', reason: '', priority: 4 },
+  { matchIds: ['795018'], parentIds: ['720125', '720130', '720132', '720133', '730020', '730114', '725131', '725132', '725138', '730017', 'HGM-2007'], label: 'Udvidet komponentgaranti (Timan 3330)', reason: '', priority: 4 },
   { matchIds: ['712902', '725131__712902', '725132__712902', '725138__712902'], parentIds: ['725131', '725132', '725138'], label: 'Rustbeskyttelse til CS-200 spreder', reason: '', priority: 4 },
   { matchIds: ['725120', '725131__725120', '725132__725120', '725138__725120'], parentIds: ['725131', '725132', '725138'], label: 'LED arbejdslys bag på spreder', reason: '', priority: 1 },
   { matchIds: ['V34-029', '725131__V34-029', '725132__V34-029', '725138__V34-029'], parentIds: ['725131', '725132', '725138'], label: 'Vogn til afmontering af spreder', reason: '', priority: 1 },

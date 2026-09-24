@@ -8,6 +8,7 @@ import { finalizeConfiguratorPricingSnapshot } from '@/lib/configurationsService
 import { buildSubmittedOrderDocument, buildSubmittedOrderMailSummary } from '@/lib/submittedOrderConfirmation';
 import { buildConfiguratorPdf } from '@/lib/configuratorPdf';
 import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingConfiguratorBadge';
+import { clearPublishedConfiguratorPricesForTest, getAccessoriesFlat, replacePublishedConfiguratorPrices } from '@/data/machines';
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { t } from '@/data/translations';
 import type { ConfiguratorState } from '@/types/configurator';
@@ -30,9 +31,43 @@ const input = (demo = true): ConfiguratorState => ({
   demoMachines: { '712000_1': demo },
 });
 
-afterEach(() => { cleanup(); act(() => replacePublishedCampaigns([])); vi.restoreAllMocks(); });
+afterEach(() => {
+  cleanup();
+  act(() => replacePublishedCampaigns([]));
+  clearPublishedConfiguratorPricesForTest();
+  vi.restoreAllMocks();
+});
 
 describe('exclusive per-machine demo pricing', () => {
+  it('keeps the 3330 warranty on 795018 and reserves 795002 for the demo surcharge', () => {
+    const warranty = getAccessoriesFlat('Timan 3330').find(row => row.varenr === '795018');
+    expect(warranty).toMatchObject({
+      id: '795018',
+      priceDKK: 4950,
+      priceEUR: 665,
+      name: {
+        da: 'Udvidet komponentgaranti 3330',
+        en: 'Timan 3330 extended component warranty (12 months)',
+      },
+    });
+    expect(typeof warranty?.name === 'string' ? null : warranty?.name.de).toBeUndefined();
+    expect(getAccessoriesFlat('Timan 3330').some(row => row.varenr === '795002')).toBe(false);
+  });
+  it.each([
+    ['da', 'Demo maskine', 75],
+    ['de', 'Demo-Maschine', 10],
+    ['en', 'Demo machine', 10],
+  ] as const)('uses canonical 795002 Product Master data in %s', (language, description, price) => {
+    replacePublishedConfiguratorPrices([{
+      item_number: '795002', item_text_da: 'Demo maskine', item_text_de: 'Demo-Maschine', item_text_en: 'Demo machine',
+      price_dkk: 75, price_eur: 10,
+    }]);
+    const state = input();
+    state.language = language;
+    expect(calculateConfiguration(state, { now }).lineItems.find(row => row.varenr === '795002')).toMatchObject({
+      description, price, quantity: 1,
+    });
+  });
   it('preserves normal base pricing', () => {
     const result = calculateConfiguration(input(false), { now });
     expect(result.discountDetails.map(row => row.kind)).toEqual(['base']);
@@ -54,7 +89,7 @@ describe('exclusive per-machine demo pricing', () => {
   it('preserves the 75 DKK demo line and its existing discount basis', () => {
     const demo = calculateConfiguration(input(), { now });
     const normal = calculateConfiguration(input(false), { now });
-    expect(demo.lineItems.find(row => row.varenr === 'DEMO')?.price).toBe(75);
+    expect(demo.lineItems.find(row => row.varenr === '795002')).toMatchObject({ price: 75, quantity: 1 });
     expect(demo.subtotal).toBe(normal.subtotal + 75);
   });
   it('preserves the existing quantity threshold: demo units do not count or receive it', () => {

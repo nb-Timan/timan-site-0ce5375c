@@ -280,6 +280,7 @@ export const BUDGET_EXCLUDED_EQUIPMENT_VARENR = new Set([
   "V35-502",
   "V35-300",
   "795002",
+  "795018",
   "721059",
   "712903",
   "725126",

@@ -326,7 +326,7 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
     category: "machine_carrier",
     platform: "Timan 3330",
     compatibleMachines: ["Timan 3330"],
-    recommendedWith: ["720125", "725131", "730020", "730114", "712060", "712147", "712140", "712166", "795002"],
+    recommendedWith: ["720125", "725131", "730020", "730114", "712060", "712147", "712140", "712166", "795018"],
     industries: ["municipality", "facility_management", "landscaping", "highway_road", "industrial_site"],
     workTasks: ["fine_grass", "sweeping", "snow_plowing", "de_icing", "site_cleaning", "leaf_collection"],
     seasonRelevance: ["all_year"],
@@ -338,7 +338,7 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
       { da: "Kabinemaskine med plads til aircon, skyderuder og luftaffjedret sæde.", en: "Cab machine — supports air-con, sliding windows and air-suspended seat." },
     ],
     serviceWarrantyNotes: [
-      { da: "Udvidet komponentgaranti (varenr. 795002) tilgængelig.", en: "Extended component warranty (item 795002) available." },
+      { da: "Udvidet komponentgaranti (varenr. 795018) tilgængelig.", en: "Extended component warranty (item 795018) available." },
     ],
     recommendationPriority: 1,
     shortPitch: {
@@ -738,7 +738,7 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
     category: "accessory_protection",
     platform: "Timan 3330",
     compatibleMachines: ["Timan 3330"],
-    recommendedWith: ["795002"],
+    recommendedWith: ["795018"],
     industries: ["municipality", "highway_road", "facility_management"],
     workTasks: ["de_icing", "snow_plowing"],
     seasonRelevance: ["winter"],
@@ -823,9 +823,9 @@ export const PRODUCT_RECOMMENDATION_META: Record<string, ProductRecommendationMe
     shortPitch: { da: "Udvidet garanti til RC-751 – forudsigelige driftsomkostninger.", en: "Extended warranty for the RC-751 — predictable operating costs." },
   },
 
-  "795002": {
-    productId: "795002",
-    varenr: "795002",
+  "795018": {
+    productId: "795018",
+    varenr: "795018",
     name: "Udvidet komponentgaranti (Timan 3330)",
     category: "service_warranty",
     platform: "Timan 3330",

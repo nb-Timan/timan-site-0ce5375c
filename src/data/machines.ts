@@ -9,11 +9,13 @@ export const ACC_ID_FLASH_LIGHT = '411630';
 export const ACC_ID_WORK_LIGHT = '412594';
 export const ACC_ID_WARRANTY_1000 = '795016';
 export const ACC_ID_WARRANTY_751 = '795015';
+export const ACC_ID_WARRANTY_3330 = '795018';
 export const ACC_ID_OIL_NORMAL = '13101003';
 export const ACC_ID_OIL_BIO = '13101005';
 export const ACC_ID_RAL_COLOR = '961050';
 export const RAL_ALLOWED_IDS = new Set([ACC_ID_RAL_COLOR, 'V34-165']);
 export const DEMO_ELIGIBLE_VARENR = new Set(['411000', '410040', '712000']);
+export const DEMO_FEE_ITEM_NUMBER = '795002';
 export const DEMO_FEE_DKK = 75;
 export const DEMO_FEE_EUR = 10;
 export const LOOSE_TOOL_KEY = 'LOOSE_TOOL';
@@ -710,7 +712,7 @@ const BASE_ACCESSORIES: Record<string, Accessory[]> = {
       ]
     },
     // Warranty
-    { id: '795002', varenr: '795002', name: { da: 'Timan 3330 udvidet komponentgaranti med 12 mdr.', en: 'Timan 3330 extended component warranty (12 months)', de: 'Timan 3330 erweiterte Garantie (12 Monate)', it: 'Timan 3330 garanzia estesa (12 mesi)', hu: 'Timan 3330 bővített garancia (12 hónap)' }, priceDKK: 4950, priceEUR: 665,
+    { id: ACC_ID_WARRANTY_3330, varenr: ACC_ID_WARRANTY_3330, name: { da: 'Udvidet komponentgaranti 3330', en: 'Timan 3330 extended component warranty (12 months)', it: 'Timan 3330 garanzia estesa (12 mesi)', hu: 'Timan 3330 bővített garancia (12 hónap)' }, priceDKK: 4950, priceEUR: 665,
       specs: [{ label: 'Beskrivelse', value: { da: `Timan maskiner kan leveres med 12 måneders udvidet komponentgaranti, som giver ekstra sikkerhed for maskinens vigtigste komponenter.\n\nGarantien tegnes fra maskinens købsdato og kan maksimalt tegnes for op til 3 år.\n\nDen udvidede komponentgaranti omfatter:\n• Motorens hovedkomponenter\n• Hydrauliksystemets pumper, motorer og ventiler\n• Transmission og drivlinje\n• Styre- og kontrolmoduler\n• Chassisrelaterede funktionskomponenter\n\nGarantien dækker både komponenter samt arbejdsløn.\nBetalingsbetingelser: én gang årligt – første gang ved tegning. Netto 21 dage.`, en: `Timan machines can be supplied with a 12-month extended component warranty, providing additional security for the machine's key components.\n\nThe warranty covers:\n• Main engine components\n• Hydraulic system pumps, motors and valves\n• Transmission and drivetrain\n• Steering and control modules\n• Chassis-related functional components\n\nPayment terms: once annually – first payment upon signing. Net 21 days.` } }]
     },
   ],
@@ -921,7 +923,7 @@ export function getLooseToolAccessories(): Accessory[] {
   function findRedskabHeaderIndex(list: Accessory[]) {
     return list.findIndex(a => {
       if (!a?.isHeader) return false;
-      const name = typeof a.name === 'string' ? a.name : (a.name as any)?.da || '';
+      const name = typeof a.name === 'string' ? a.name : a.name.da || '';
       return name.toLowerCase().includes('redskab');
     });
   }

@@ -258,7 +258,7 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
 
     const allItemNumbers = new Set(Object.values(EQUIPMENT_BY_MACHINE).flat().map((item) => item.varenr));
     expect(BUDGET_EXCLUDED_EQUIPMENT_VARENR).toEqual(new Set([
-      "13101003", "411891", "411906", "V35-502", "V35-300", "795002", "721059",
+      "13101003", "411891", "411906", "V35-502", "V35-300", "795002", "795018", "721059",
       "712903", "725126", "712902", "725120", "725121", "712901",
       "50101017", "50101018", "50101019", "50101020",
       "411701", "412585", "411594", "412603", "712900",
@@ -355,8 +355,9 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
         .filter((item) => BUDGET_EXCLUDED_EQUIPMENT_VARENR.has(item.varenr))
         .map((item) => ({ machineType, itemNumber: item.varenr, itemId: item.id })),
     );
+    // 795002 is a generated per-machine demo surcharge, not a selectable accessory.
     expect(new Set(excludedSelections.map((selection) => selection.itemNumber)))
-      .toEqual(BUDGET_EXCLUDED_EQUIPMENT_VARENR);
+      .toEqual(new Set([...BUDGET_EXCLUDED_EQUIPMENT_VARENR].filter((itemNumber) => itemNumber !== "795002")));
 
     const view = {
       id: "excluded-equipment-order", order_number: "O-7997", seller_email: AKR.email, seller_initials: AKR.initials,

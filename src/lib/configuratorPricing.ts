@@ -1,6 +1,6 @@
-import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS, DEMO_FEE_DKK, DEMO_FEE_EUR } from '@/data/machines';
+import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS, DEMO_FEE_DKK, DEMO_FEE_EUR, DEMO_FEE_ITEM_NUMBER } from '@/data/machines';
 import type { Accessory, ConfiguratorPricingSnapshot, ConfiguratorState, Language } from '@/types/configurator';
-import { publishedProductText } from '@/lib/publishedProductMaster';
+import { publishedProduct, publishedProductText } from '@/lib/publishedProductMaster';
 
 const machineKey = (machineType: string) => `machine:${machineType}`;
 const accessoryKey = (machineType: string, accessoryId: string) => `accessory:${machineType}:${accessoryId}`;
@@ -53,8 +53,13 @@ export function snapshotAccessoryPrice(
 }
 
 export function snapshotDemoFee(state: ConfiguratorState, language: Language): number {
-  const currentPrice = language === 'da' ? DEMO_FEE_DKK : DEMO_FEE_EUR;
-  return positivePrice(state.pricingSnapshot?.prices[demoKey(language)]) ?? currentPrice;
+  return positivePrice(state.pricingSnapshot?.prices[demoKey(language)]) ?? currentDemoFee(language);
+}
+
+export function currentDemoFee(language: Language): number {
+  const published = publishedProduct(DEMO_FEE_ITEM_NUMBER);
+  const currentPrice = language === 'da' ? published?.price_dkk : published?.price_eur;
+  return positivePrice(currentPrice) ?? (language === 'da' ? DEMO_FEE_DKK : DEMO_FEE_EUR);
 }
 
 export function snapshotStartupPrice(state: ConfiguratorState, language: Language, option: string, currentPrice: number): number {
@@ -139,7 +144,10 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
     }
   }
 
-  if (Object.values(state.demoMachines ?? {}).some(Boolean)) prices[demoKey(language)] = language === 'da' ? DEMO_FEE_DKK : DEMO_FEE_EUR;
+  if (Object.values(state.demoMachines ?? {}).some(Boolean)) {
+    prices[demoKey(language)] = currentDemoFee(language);
+    names[DEMO_FEE_ITEM_NUMBER] = currentProductDescription(DEMO_FEE_ITEM_NUMBER, language, 'Demo machine');
+  }
   if (state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
     const currentPrice = state.deliveryDeliverStartup === 'no_bridge'
       ? (language === 'da' ? 1500 : 200)

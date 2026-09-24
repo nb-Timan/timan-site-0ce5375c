@@ -1,5 +1,5 @@
 import type { CalcResult, ConfiguratorState, DiscountDetail, LineItem, MachineDeliveryDiscount } from '@/types/configurator';
-import { PRODUCTS, getAccessoriesFlat, getLocalizedName, getPrice } from '@/data/machines';
+import { DEMO_FEE_ITEM_NUMBER, PRODUCTS, getAccessoriesFlat, getLocalizedName, getPrice } from '@/data/machines';
 import { t } from '@/data/translations';
 import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
@@ -81,7 +81,10 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         const description = snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, state.language));
         add({ txt: `- ${description}`, description, price: snapshotAccessoryPrice(state, machine.type, accessory, getPrice(accessory, state.language)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`, selected.indexOf(accessory.id));
       }
-      if (demo) add({ txt: `- ${T('demoMachineLabel')}`, description: T('demoMachineLabel'), price: snapshotDemoFee(state, state.language), varenr: 'DEMO', sub: true }, 1, true, false);
+      if (demo) {
+        const description = snapshotProductName(state, DEMO_FEE_ITEM_NUMBER, T('demoMachineLabel'));
+        add({ txt: `- ${description}`, description, price: snapshotDemoFee(state, state.language), varenr: DEMO_FEE_ITEM_NUMBER, sub: true }, 1, true, false);
+      }
       lineItems.push({ txt: `${T('subtotalMachine')} ${unit}:`, price: roundPricingMoney(lines.filter(line => line.unit === unit).reduce((sum, line) => sum + line.gross, 0)), varenr: 'SUBTOTAL', subtotal: true, index: unit });
     }
   }
