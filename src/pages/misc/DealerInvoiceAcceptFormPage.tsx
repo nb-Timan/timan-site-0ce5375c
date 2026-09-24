@@ -7,7 +7,7 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useDealerScope } from '@/lib/dealerScope';
 import { listPartnerDataDealers } from '@/lib/partnerDataScope';
 import { listDemoDealerPeople } from '@/lib/crmDemoDealerPeople';
-import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
+import { ACADEMY_PARTNER_ACCOUNT, ACADEMY_PARTNER_USER, academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import {
   personForInvoiceAccept,
   preferredInvoiceAcceptCompany,
@@ -112,10 +112,17 @@ export default function DealerInvoiceAcceptFormPage() {
   const effectiveUser = useEffectivePortalUser(appUser);
   const scope = useDealerScope({ requireDealer: true });
   const academyMode = academyPartnerDataSandbox.isActive();
+  const preferredDealerNumber = academyMode ? ACADEMY_PARTNER_ACCOUNT : effectiveUser?.dealer_number;
+  const preferredUserId = academyMode ? ACADEMY_PARTNER_USER.id : effectiveUser?.id;
   const [companies, setCompanies] = useState<DealerInvoiceAcceptCompany[]>([]);
   const [people, setPeople] = useState<DealerInvoiceAcceptPerson[]>([]);
-  const [selectedCompanyNumber, setSelectedCompanyNumber] = useState('');
-  const [selectedPersonKey, setSelectedPersonKey] = useState('');
+  const [selectedCompanyNumber, setSelectedCompanyNumber] = useState(academyMode ? ACADEMY_PARTNER_ACCOUNT : '');
+  const [selectedPersonKey, setSelectedPersonKey] = useState(() => academyMode
+    ? preferredInvoiceAcceptPerson(
+        academyPartnerDataSandbox.listInvoiceAcceptPeople(ACADEMY_PARTNER_ACCOUNT),
+        ACADEMY_PARTNER_USER.id,
+      )
+    : '');
   const [decision, setDecision] = useState<Decision | ''>('');
   const [thirdCompany, setThirdCompany] = useState('');
   const [thirdCvr, setThirdCvr] = useState('');
@@ -127,24 +134,25 @@ export default function DealerInvoiceAcceptFormPage() {
     () => companies.find((company) => company.accountNumber === selectedCompanyNumber) ?? null,
     [companies, selectedCompanyNumber],
   );
+  const effectiveSelectedPersonKey = selectedPersonKey
+    || (academyMode ? preferredInvoiceAcceptPerson(people, preferredUserId) : '');
   const selectedPerson = useMemo(
-    () => personForInvoiceAccept(people, selectedPersonKey),
-    [people, selectedPersonKey],
+    () => personForInvoiceAccept(people, effectiveSelectedPersonKey),
+    [effectiveSelectedPersonKey, people],
   );
 
   useEffect(() => {
-    let cancelled = false;
-    if (academyMode) {
-      const localCompanies = academyPartnerDataSandbox.listDealers()
-        .filter((dealer) => !dealer.is_deleted && !dealer.is_blocked)
-        .map((dealer) => ({ id: dealer.id, accountNumber: dealer.account_number, name: dealer.company_name }));
-      if (!cancelled) {
-        setCompanies(localCompanies);
-        setSelectedCompanyNumber((current) => current || preferredInvoiceAcceptCompany(localCompanies, effectiveUser?.dealer_number));
-      }
-      return () => { cancelled = true; };
-    }
+    if (!academyMode) return;
+    const localCompanies = academyPartnerDataSandbox.listDealers()
+      .filter((dealer) => !dealer.is_deleted && !dealer.is_blocked)
+      .map((dealer) => ({ id: dealer.id, accountNumber: dealer.account_number, name: dealer.company_name }));
+    setCompanies(localCompanies);
+    setSelectedCompanyNumber((current) => current || preferredInvoiceAcceptCompany(localCompanies, preferredDealerNumber));
+  }, [academyMode, preferredDealerNumber]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (academyMode) return () => { cancelled = true; };
     if (!effectiveUser || !scope.role) {
       setCompanies([]);
       setSelectedCompanyNumber('');
@@ -174,7 +182,7 @@ export default function DealerInvoiceAcceptFormPage() {
       const localPeople = academyPartnerDataSandbox.listInvoiceAcceptPeople(selectedCompany.accountNumber);
       if (!cancelled) {
         setPeople(localPeople);
-        setSelectedPersonKey(preferredInvoiceAcceptPerson(localPeople, effectiveUser?.id));
+        setSelectedPersonKey(preferredInvoiceAcceptPerson(localPeople, preferredUserId));
       }
       return () => { cancelled = true; };
     }
@@ -185,10 +193,10 @@ export default function DealerInvoiceAcceptFormPage() {
         key: person.key, id: person.id, name: person.name, email: person.email, source: person.source,
       }));
       setPeople(scopedPeople);
-      setSelectedPersonKey(preferredInvoiceAcceptPerson(scopedPeople, effectiveUser?.id));
+      setSelectedPersonKey(preferredInvoiceAcceptPerson(scopedPeople, preferredUserId));
     });
     return () => { cancelled = true; };
-  }, [academyMode, effectiveUser?.id, selectedCompany]);
+  }, [academyMode, preferredUserId, selectedCompany]);
 
   const decisionLabel = (d: Decision) =>
     d === 'accept' ? T.optAccept[lang] : d === 'reject' ? T.optReject[lang] : T.optDecline[lang];
@@ -239,7 +247,7 @@ export default function DealerInvoiceAcceptFormPage() {
       </Field>
 
       <Field label={T.yourName[lang]}>
-        <Select value={selectedPersonKey} onValueChange={setSelectedPersonKey} disabled={!selectedCompany || people.length === 0}>
+        <Select value={effectiveSelectedPersonKey} onValueChange={setSelectedPersonKey} disabled={!selectedCompany || people.length === 0}>
           <SelectTrigger aria-label={T.yourName[lang]}><SelectValue placeholder={T.selectPerson[lang]} /></SelectTrigger>
           <SelectContent>
             {people.map((person) => <SelectItem key={person.key} value={person.key}>{person.name}{person.email ? ` · ${person.email}` : ''}</SelectItem>)}

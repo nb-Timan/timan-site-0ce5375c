@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   personForInvoiceAccept,
@@ -35,5 +36,16 @@ describe('dealer invoice acceptance identity selection', () => {
       { key: 'academy_user:academy-local-sales-user', id: 'academy-local-sales-user', name: 'Academy Sales', email: 'academy.sales@localhost', source: 'academy_user' },
     ];
     expect(preferredInvoiceAcceptPerson(academyPeople, 'academy-local-sales-user')).toBe('academy_user:academy-local-sales-user');
+  });
+
+  it('uses the canonical Academy identity for company and person prefill', () => {
+    const source = readFileSync('src/pages/misc/DealerInvoiceAcceptFormPage.tsx', 'utf8');
+    expect(source).toContain("useState(academyMode ? ACADEMY_PARTNER_ACCOUNT : '')");
+    expect(source).toContain('academyMode ? ACADEMY_PARTNER_ACCOUNT : effectiveUser?.dealer_number');
+    expect(source).toContain('academyMode ? ACADEMY_PARTNER_USER.id : effectiveUser?.id');
+    expect(source).toContain('academyPartnerDataSandbox.listInvoiceAcceptPeople(ACADEMY_PARTNER_ACCOUNT)');
+    expect(source).toContain('if (!academyMode) return;');
+    expect(source).toContain('if (academyMode) return () => { cancelled = true; };');
+    expect(source).toContain("academyMode ? preferredInvoiceAcceptPerson(people, preferredUserId) : ''");
   });
 });
