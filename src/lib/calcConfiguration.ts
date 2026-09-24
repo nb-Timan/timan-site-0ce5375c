@@ -56,6 +56,8 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   let unit = 0;
   const add = (item: LineItem, quantity: number, demo: boolean, quantityEligible: boolean, productKey = '', selectionOrder = -1, lineUnit = unit) => {
     item.price = roundPricingMoney(item.price);
+    item.quantity = quantity;
+    item.unitPrice = roundPricingMoney(item.price / Math.max(1, quantity));
     lineItems.push(item);
     lines.push({ gross: item.price, net: item.price, quantity, unit: lineUnit, demo, quantityEligible, productKey, item, campaignApplied: false, selectionOrder });
   };
@@ -70,21 +72,24 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
       const demo = Boolean(state.demoMachines?.[`${product.varenr}_${unit}`]);
       const eligible = !demo && product.isDiscountEligible === true;
       if (eligible) eligibleUnits++;
-      add({ txt: `${T('machineLabel')} ${unit} (${snapshotProductName(state, product.varenr, getLocalizedName(product.name, state.language))})`, price: snapshotMachinePrice(state, machine.type, getPrice(product, state.language)), varenr: product.varenr, bold: true, isMachine: true, index: unit }, 1, demo, eligible, `${machine.type}::${product.id}`);
+      const machineDescription = snapshotProductName(state, product.varenr, getLocalizedName(product.name, state.language));
+      add({ txt: `${T('machineLabel')} ${unit} (${machineDescription})`, description: machineDescription, price: snapshotMachinePrice(state, machine.type, getPrice(product, state.language)), varenr: product.varenr, bold: true, isMachine: true, index: unit }, 1, demo, eligible, `${machine.type}::${product.id}`);
       for (const accessory of getAccessoriesFlat(machine.type)) {
         if (accessory.isHeader) continue;
         const quantity = state.accQty?.[`${key}_${accessory.id}`] || 1;
         if (!selected.includes(accessory.id) && !shouldIncludeQuantityAccessory(machine.type, accessory, selected, state.accQty?.[`${key}_${accessory.id}`] || 0)) continue;
-        add({ txt: `- ${snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, state.language))}${quantity > 1 ? ` x${quantity}` : ''}`, price: snapshotAccessoryPrice(state, machine.type, accessory, getPrice(accessory, state.language)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`, selected.indexOf(accessory.id));
+        const description = snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, state.language));
+        add({ txt: `- ${description}`, description, price: snapshotAccessoryPrice(state, machine.type, accessory, getPrice(accessory, state.language)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`, selected.indexOf(accessory.id));
       }
-      if (demo) add({ txt: `- ${T('demoMachineLabel')}`, price: snapshotDemoFee(state, state.language), varenr: 'DEMO', sub: true }, 1, true, false);
+      if (demo) add({ txt: `- ${T('demoMachineLabel')}`, description: T('demoMachineLabel'), price: snapshotDemoFee(state, state.language), varenr: 'DEMO', sub: true }, 1, true, false);
       lineItems.push({ txt: `${T('subtotalMachine')} ${unit}:`, price: roundPricingMoney(lines.filter(line => line.unit === unit).reduce((sum, line) => sum + line.gross, 0)), varenr: 'SUBTOTAL', subtotal: true, index: unit });
     }
   }
   if (unit && state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
     const option = state.deliveryDeliverStartup;
     const fallback = option === 'no_bridge' ? (state.language === 'da' ? 1500 : 200) : option === 'with_bridge' ? (state.language === 'da' ? 2500 : 335) : 0;
-    add({ txt: `- ${T(option === 'no_bridge' ? 'startupNoBridgeCalc' : option === 'with_bridge' ? 'startupWithBridgeCalc' : 'startupOtherCalc')}`, price: snapshotStartupPrice(state, state.language, option, fallback), varenr: '795050', sub: true }, 1, false, false, '', -1, 0);
+    const description = T(option === 'no_bridge' ? 'startupNoBridgeCalc' : option === 'with_bridge' ? 'startupWithBridgeCalc' : 'startupOtherCalc');
+    add({ txt: `- ${description}`, description, price: snapshotStartupPrice(state, state.language, option, fallback), varenr: '795050', sub: true }, 1, false, false, '', -1, 0);
   }
   const subtotal = roundPricingMoney(lines.reduce((sum, line) => sum + line.gross, 0));
   const apply = (kind: DiscountDetail['kind'], percent: number, eligible: (line: EconomicLine) => boolean, label: string, varenr?: string) => {

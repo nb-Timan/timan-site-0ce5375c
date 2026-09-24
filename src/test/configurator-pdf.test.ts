@@ -43,8 +43,11 @@ function makeCalcResult(machineCount: number, rowsPerMachine: number): CalcResul
   for (let machine = 1; machine <= machineCount; machine++) {
     const machinePrice = 100000;
     subtotal += machinePrice;
-    lineItems.push({
-      txt: `Maskine ${machine} (Timan 3330)`,
+      lineItems.push({
+        txt: `Maskine ${machine} (Timan 3330)`,
+        description: 'Timan 3330',
+        quantity: 1,
+        unitPrice: machinePrice,
       price: machinePrice,
       varenr: `M-${machine}`,
       bold: true,
@@ -57,6 +60,9 @@ function makeCalcResult(machineCount: number, rowsPerMachine: number): CalcResul
       subtotal += price;
       lineItems.push({
         txt: `- Lang tilvalgslinje ${row} med ekstra tekst, så beskrivelsen skal wrappe pænt i PDF-tabellen uden clipping`,
+        description: `Lang tilvalgslinje ${row} med ekstra tekst, så beskrivelsen skal wrappe pænt i PDF-tabellen uden clipping`,
+        quantity: 1,
+        unitPrice: price,
         price,
         varenr: `A-${machine}-${row}`,
         sub: true,
@@ -180,6 +186,29 @@ describe("configurator PDF generator", () => {
 
     expect(output).toContain("O-7004");
     expect(output).toContain("T-4003");
+  });
+
+  it.each([
+    ['da', 'Stk.', 'Stk. pris', 'I alt'],
+    ['de', 'Stk.', 'Stückpreis', 'Gesamt'],
+    ['en', 'Qty.', 'Unit price', 'Total'],
+  ] as const)('renders five localized line columns in %s', (language, quantity, unitPrice, total) => {
+    const pdf = buildConfiguratorPdf({
+      jsPDF: NoRasterJsPDF,
+      state: { ...baseState, language },
+      calcResult: makeCalcResult(1, 1),
+      flowType: 'quote',
+      quoteNumber: 'T-QA',
+      showPrices: true,
+      uiLanguage: language,
+      contentLanguage: language,
+      T: key => t(key, language),
+      TC: key => t(key, language),
+    });
+    const output = pdf.output();
+    expect(output).toContain(quantity);
+    expect(output).toContain(unitPrice);
+    expect(output).toContain(total);
   });
 
   it("shows individual delivery dates per machine instead of a false common date", () => {

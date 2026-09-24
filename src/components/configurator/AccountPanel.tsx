@@ -428,7 +428,7 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
       description:         { da: 'Beskrivelse',                             en: 'Description',                         de: 'Beschreibung',                        it: 'Descrizione',                                   hu: 'Leírás',                                        sv: 'Beskrivning',                                fr: 'Description',                              pl: 'Opis',                                     cs: 'Popis' },
       note:                { da: 'Note',                                    en: 'Note',                                de: 'Notiz',                               it: 'Nota',                                           hu: 'Megjegyzés',                                    sv: 'Not',                                        fr: 'Note',                                      pl: 'Notatka',                                  cs: 'Poznámka' },
       unitPrice:           { da: 'Pris pr. stk.',                           en: 'Unit price',                          de: 'Stückpreis',                          it: 'Prezzo unitario',                               hu: 'Egységár',                                      sv: 'Pris/st.',                                   fr: 'Prix unitaire',                           pl: 'Cena jedn.',                              cs: 'Jedn. cena' },
-      quantity:            { da: 'Antal',                                   en: 'Quantity',                            de: 'Menge',                               it: 'Quantità',                                       hu: 'Mennyiség',                                     sv: 'Antal',                                      fr: 'Quantité',                                pl: 'Ilość',                                   cs: 'Množství' },
+      quantity:            { da: 'Stk.',                                    en: 'Qty.',                                de: 'Stk.',                                it: 'Qtà',                                            hu: 'Db',                                            sv: 'Antal',                                      fr: 'Qté',                                     pl: 'Ilość',                                   cs: 'Ks' },
       lineTotal:           { da: 'I alt',                                   en: 'Total',                               de: 'Gesamt',                              it: 'Totale',                                         hu: 'Összesen',                                      sv: 'Totalt',                                     fr: 'Total',                                    pl: 'Razem',                                   cs: 'Celkem' },
       subtotal:            { da: 'Subtotal',                                en: 'Subtotal',                            de: 'Zwischensumme',                       it: 'Subtotale',                                      hu: 'Részösszeg',                                    sv: 'Delsumma',                                   fr: 'Sous-total',                              pl: 'Suma częściowa',                         cs: 'Mezisoučet' },
       discount:            { da: 'Rabat',                                   en: 'Discount',                            de: 'Rabatt',                              it: 'Sconto',                                         hu: 'Kedvezmény',                                    sv: 'Rabatt',                                     fr: 'Remise',                                   pl: 'Rabat',                                   cs: 'Sleva' },
@@ -755,23 +755,27 @@ export default function AccountPanel({ appUser, language, currentState, onLogout
               </div>
 
               <div className="rounded-xl border border-gray-200 overflow-hidden">
-                <div className="grid grid-cols-[1fr_2fr_1fr_1fr_0.7fr_1fr] gap-3 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500">
+                <div className="hidden grid-cols-[7rem_minmax(12rem,1fr)_4rem_8rem_8rem] gap-3 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wide text-gray-500 sm:grid">
                   <div>{tx('itemNo')}</div>
                   <div>{tx('description')}</div>
-                  <div>{tx('note')}</div>
-                  <div className="text-right">{tx('unitPrice')}</div>
                   <div className="text-right">{tx('quantity')}</div>
+                  <div className="text-right">{tx('unitPrice')}</div>
                   <div className="text-right">{tx('lineTotal')}</div>
                 </div>
                 <div className="divide-y divide-gray-100">
                   {detailLines.map((line, index) => (
-                    <div key={`${line.itemNo}-${index}`} className="grid grid-cols-[1fr_2fr_1fr_1fr_0.7fr_1fr] gap-3 px-4 py-3 text-sm">
-                      <div className="font-mono text-xs text-gray-600">{line.itemNo}</div>
-                      <div className="font-medium text-gray-900">{line.description}</div>
-                      <div className="text-gray-500">{line.note || '-'}</div>
-                      <div className="text-right tabular-nums">{formatDisplayMoney(line.unitPrice, detailCurrencyLanguage)}</div>
-                      <div className="text-right tabular-nums">{line.quantity}</div>
-                      <div className="text-right font-semibold tabular-nums">{formatDisplayMoney(line.total, detailCurrencyLanguage)}</div>
+                    <div key={`${line.itemNo}-${index}`} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 px-4 py-3 text-sm sm:grid-cols-[7rem_minmax(12rem,1fr)_4rem_8rem_8rem] sm:items-center">
+                      <div className="hidden font-mono text-xs text-gray-600 sm:block">{line.itemNo}</div>
+                      <div className="min-w-0 break-words font-medium text-gray-900">
+                        {line.description}
+                        {line.note && <div className="mt-0.5 text-xs font-normal text-gray-500">{line.note}</div>}
+                        <div className="mt-1 text-xs font-normal text-gray-500 sm:hidden">
+                          <span className="font-mono">{line.itemNo}</span> · {tx('quantity')} {line.quantity} · {tx('unitPrice')} {formatDisplayMoney(line.unitPrice, detailCurrencyLanguage)}
+                        </div>
+                      </div>
+                      <div className="hidden text-right tabular-nums sm:block">{line.quantity}</div>
+                      <div className="hidden text-right tabular-nums sm:block">{formatDisplayMoney(line.unitPrice, detailCurrencyLanguage)}</div>
+                      <div className="col-start-2 row-start-1 whitespace-nowrap text-right font-semibold tabular-nums sm:col-auto sm:row-auto">{formatDisplayMoney(line.total, detailCurrencyLanguage)}</div>
                     </div>
                   ))}
                 </div>

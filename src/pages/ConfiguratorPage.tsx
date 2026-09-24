@@ -101,6 +101,7 @@ import {
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
 import { createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel } from '@/lib/calcConfiguration';
+import { configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 import { DELIVERY_DISCOUNT_PERCENT, commonMachineDeliveryDate, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey } from '@/lib/configuratorDelivery';
@@ -4361,6 +4362,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             ) : (
               <>
                 <div className="space-y-1 text-sm mb-6 max-h-[60vh] overflow-y-auto">
+                  <div className={`hidden border-b border-gray-200 px-2 pb-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:grid sm:gap-3 ${permissions.canSeePrices ? 'sm:grid-cols-[6.5rem_minmax(12rem,1fr)_3.5rem_7rem_7rem]' : 'sm:grid-cols-[6.5rem_minmax(12rem,1fr)_3.5rem]'}`}>
+                    <div>{T('pdfItemNo')}</div>
+                    <div>{T('confirmDescription')}</div>
+                    <div className="text-right">{T('pdfQuantity')}</div>
+                    {permissions.canSeePrices && <><div className="text-right">{T('pdfUnitPrice')}</div><div className="text-right">{T('pdfLineTotal')}</div></>}
+                  </div>
                   {displayCalc!.lineItems.map((item, idx) => {
                     if (item.subtotal) {
                       return (
@@ -4387,6 +4394,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const machineDeliveryDiscount = item.isMachine && item.index
                       ? machineDeliveryDiscountByUnit.get(item.index)
                       : undefined;
+                    const lineDescription = configuratorLineDescription(item);
+                    const lineQuantity = configuratorLineQuantity(item);
+                    const lineUnitPrice = configuratorLineUnitPrice(item);
                     return (
                       <div key={idx}>
                         {item.isMachine && item.index && (
@@ -4398,27 +4408,31 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 placeholder-gray-400" />
                           </div>
                         )}
-                        <div className={`flex justify-between items-start ${lineClasses} ${indent}`}>
-                          <div className="min-w-0 flex-1">
+                        <div className={`grid min-w-0 items-start gap-x-3 gap-y-1 border-b border-gray-100 px-2 py-2 ${lineClasses} ${permissions.canSeePrices ? 'grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[6.5rem_minmax(12rem,1fr)_3.5rem_7rem_7rem]' : 'grid-cols-1 sm:grid-cols-[6.5rem_minmax(12rem,1fr)_3.5rem]'}`}>
+                          <div className="hidden min-w-0 font-mono text-[11px] font-normal text-gray-500 sm:block">{item.varenr}</div>
+                          <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span>{item.txt}</span>
+                              <span className="break-words">{lineDescription}</span>
                               {item.isAutoAdded && (
                                 <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium whitespace-nowrap">{T('autoAdded')}</span>
                               )}
                             </div>
                             {item.subText && <div className="mt-1">{item.subText}</div>}
+                            <div className="mt-1 text-[11px] font-normal text-gray-500 sm:hidden">
+                              <span className="font-mono">{item.varenr}</span> · {T('pdfQuantity')} {lineQuantity}
+                              {permissions.canSeePrices && <> · {T('pdfUnitPrice')} {formatDisplayMoney(lineUnitPrice)}</>}
+                            </div>
                             {item.campaign?.applied && <div className="mt-1 flex flex-wrap items-center gap-2">
                               <MarketingConfiguratorBadge badge="Kampagne" language={uiLanguage} variant="compact" campaignLabel={item.campaign.campaignCode} />
                               <span className="text-[11px] font-semibold text-emerald-800">{tPortal('campaignAppliedPrice', uiLanguage)}: {formatDisplayMoney(item.campaign.finalLineValue)}</span>
                             </div>}
                           </div>
-                          {permissions.canSeePrices && <span className="font-medium text-right price-col ml-3 whitespace-nowrap">{formatDisplayMoney(item.price)}</span>}
+                          <div className="hidden text-right font-normal tabular-nums text-gray-600 sm:block">{lineQuantity}</div>
+                          {permissions.canSeePrices && <>
+                            <div className="hidden text-right font-normal tabular-nums text-gray-600 sm:block">{formatDisplayMoney(lineUnitPrice)}</div>
+                            <div className="col-start-2 row-start-1 whitespace-nowrap text-right font-medium tabular-nums sm:col-auto sm:row-auto">{formatDisplayMoney(item.price)}</div>
+                          </>}
                         </div>
-                        {item.isMachine && (
-                          <div className="text-[11px] text-gray-500 pl-4 mt-0.5">
-                            <span className="mr-2">{item.varenr}</span>
-                          </div>
-                        )}
                         {!isExhibition && state.date && item.isMachine && item.index && (
                           <div className="ml-4 mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
                             <div className="flex flex-wrap items-center justify-between gap-2">

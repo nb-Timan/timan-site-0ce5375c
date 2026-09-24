@@ -3,6 +3,7 @@ import { formatMoney } from "@/data/machines";
 import { getPaymentTermsDocumentValue, getPaymentTermsLabel } from "@/lib/paymentTerms";
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from "@/lib/orderPurchaseReferences";
 import { commonMachineDeliveryDate, machineDeliveryDate } from "@/lib/configuratorDelivery";
+import { configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from "@/lib/configuratorLinePresentation";
 
 type ConfiguratorPdfFlowType = "quote" | "order";
 
@@ -237,9 +238,15 @@ function drawLabelValueGrid(pdf: any, title: string, items: Array<[string, strin
   return y + Math.ceil(visible.length / 2) * rowH + 6;
 }
 
-function drawTableHeader(pdf: any, y: number, labels: { itemNo: string; description: string; price: string }) {
+type LineTableLabels = { itemNo: string; description: string; quantity: string; unitPrice: string; total: string };
+
+function drawTableHeader(pdf: any, y: number, labels: LineTableLabels) {
   const left = PAGE.marginX;
   const width = PAGE.width - PAGE.marginX * 2;
+  const itemNoW = 23;
+  const descriptionW = 83;
+  const quantityW = 14;
+  const unitPriceW = 28;
   setColor(pdf, "fill", COLORS.greenPale);
   setColor(pdf, "draw", COLORS.green);
   pdf.roundedRect(left, y, width, 8, 1.5, 1.5, "FD");
@@ -247,8 +254,10 @@ function drawTableHeader(pdf: any, y: number, labels: { itemNo: string; descript
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(7.5);
   pdf.text(labels.itemNo, left + 2, y + 5.2);
-  pdf.text(labels.description, left + 28, y + 5.2);
-  pdf.text(labels.price, left + width - 2, y + 5.2, { align: "right" });
+  pdf.text(labels.description, left + itemNoW + 2, y + 5.2);
+  pdf.text(labels.quantity, left + itemNoW + descriptionW + quantityW - 2, y + 5.2, { align: "right" });
+  pdf.text(labels.unitPrice, left + itemNoW + descriptionW + quantityW + unitPriceW - 2, y + 5.2, { align: "right" });
+  pdf.text(labels.total, left + width - 2, y + 5.2, { align: "right" });
 }
 
 function drawLineRow(
@@ -259,10 +268,12 @@ function drawLineRow(
 ): number {
   const left = PAGE.marginX;
   const width = PAGE.width - PAGE.marginX * 2;
-  const itemNoW = 24;
-  const priceW = 34;
-  const descW = width - itemNoW - priceW - 6;
-  const description = `${plainText(item.txt)}${item.isAutoAdded ? ` (${input.TC("autoAdded")})` : ""}`;
+  const itemNoW = 23;
+  const descriptionW = 83;
+  const quantityW = 14;
+  const unitPriceW = 28;
+  const descW = descriptionW - 4;
+  const description = `${plainText(configuratorLineDescription(item))}${item.isAutoAdded ? ` (${input.TC("autoAdded")})` : ""}`;
   const descLines = pdf.splitTextToSize(description, descW);
   const rowH = Math.max(7, descLines.length * 4.2 + 3);
 
@@ -270,7 +281,9 @@ function drawLineRow(
     drawTableHeader(pdf, 34, {
       itemNo: input.TC("pdfItemNo"),
       description: input.TC("confirmDescription"),
-      price: input.TC("pdfPrice"),
+      quantity: input.TC("pdfQuantity"),
+      unitPrice: input.TC("pdfUnitPrice"),
+      total: input.TC("pdfLineTotal"),
     });
     return 44;
   });
@@ -283,6 +296,8 @@ function drawLineRow(
   pdf.setFontSize(item.bold ? 8 : 7.5);
   pdf.text(item.varenr || "-", left + 2, y + 5);
   pdf.text(descLines, left + itemNoW + 3, y + 5);
+  pdf.text(String(configuratorLineQuantity(item)), left + itemNoW + descriptionW + quantityW - 2, y + 5, { align: "right" });
+  pdf.text(money(configuratorLineUnitPrice(item), input.uiLanguage, input.showPrices), left + itemNoW + descriptionW + quantityW + unitPriceW - 2, y + 5, { align: "right" });
   pdf.text(money(item.price, input.uiLanguage, input.showPrices), left + width - 2, y + 5, { align: "right" });
   return y + rowH;
 }
@@ -312,7 +327,13 @@ function drawMachineSection(
     y += 4.5;
   }
 
-  const labels = { itemNo: input.TC("pdfItemNo"), description: input.TC("confirmDescription"), price: input.TC("pdfPrice") };
+  const labels = {
+    itemNo: input.TC("pdfItemNo"),
+    description: input.TC("confirmDescription"),
+    quantity: input.TC("pdfQuantity"),
+    unitPrice: input.TC("pdfUnitPrice"),
+    total: input.TC("pdfLineTotal"),
+  };
   drawTableHeader(pdf, y, labels);
   y += 9;
   section.rows.forEach((row) => {

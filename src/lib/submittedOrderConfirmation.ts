@@ -62,7 +62,10 @@ export function buildSubmittedOrderDocument(state: ConfiguratorState) {
   const calcResult: CalcResult = {
     lineItems: lines.map(line => ({
       campaign: state.pricingSnapshot?.campaignLines?.find(campaign => campaign.itemNumber === line.itemNo && campaign.unitNumber === line.unitNumber),
-      txt: `${line.description}${line.quantity > 1 ? ` x${line.quantity}` : ''}${line.purchaseReferences?.length ? ` · REK./PO: ${line.purchaseReferences.join(', ')}` : ''}`,
+      txt: line.description,
+      description: line.description,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
       varenr: line.itemNo, price: line.total,
     })),
     subtotal: totals.subtotal,

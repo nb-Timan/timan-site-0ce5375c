@@ -238,6 +238,12 @@ export interface ConfiguratorState {
 export interface LineItem {
   campaign?: CampaignLineSnapshot;
   txt: string;
+  /** Canonical localized product description without generated quantity text. */
+  description?: string;
+  /** Canonical line quantity. Subtotal/header rows intentionally omit it. */
+  quantity?: number;
+  /** Canonical price per unit. `price` remains the existing line total. */
+  unitPrice?: number;
   price: number;
   varenr: string;
   bold?: boolean;

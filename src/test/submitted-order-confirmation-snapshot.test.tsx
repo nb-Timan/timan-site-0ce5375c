@@ -104,7 +104,28 @@ describe('canonical completed order confirmation', () => {
   it('preserves independent per-unit accessory quantities', () => {
     const state = revisionState();
     state.accQty.m0_1_725135 = 2;
-    expect(buildAccountCaseLines(state, 'da').find(line => line.itemNo === '725135')?.total).toBe(121600);
+    state.pricingSnapshot!.signature = configuratorPricingSignature(state);
+    state.pricingSnapshot!.lines = buildAccountCaseLines(state, 'da');
+    const subtotal = state.pricingSnapshot!.lines.reduce((sum, line) => sum + line.total, 0);
+    state.pricingSnapshot!.totals = { subtotal, totalDiscount: 0, finalPrice: subtotal };
+    const document = buildSubmittedOrderDocument(state);
+    const frozenLine = document.lines.find(line => line.itemNo === '725135');
+    const renderedLine = document.calcResult.lineItems.find(line => line.varenr === '725135');
+    expect(frozenLine).toMatchObject({ quantity: 2, unitPrice: 60800, total: 121600 });
+    expect(renderedLine).toMatchObject({ description: frozenLine?.description, quantity: 2, unitPrice: 60800, price: 121600 });
+    expect(renderedLine?.txt).not.toContain('x2');
+  });
+
+  it('localizes read-only line headers without changing frozen values', () => {
+    const state = multiMachineState();
+    state.language = 'de';
+    state.pricingSnapshot!.signature = configuratorPricingSignature(state);
+    render(<ReadOnlyOrderConfirmationModal order={{ state_json: state, id: 'qa-de', order_number: 'O-QA-DE' } as SavedConfiguration} onClose={vi.fn()} />);
+    expect(screen.getAllByText('Art.-Nr.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Stk.').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Stückpreis').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Gesamt').length).toBeGreaterThan(0);
+    expect(buildSubmittedOrderDocument(state).totals).toEqual({ subtotal: 137000, totalDiscount: 0, finalPrice: 137000 });
   });
 
   it('fails closed instead of showing mismatched totals', () => {
