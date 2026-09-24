@@ -277,13 +277,14 @@ export function generateReferenceNumber(prefix: 'Q' | 'T' | 'O'): string {
 export async function ensureReferenceNumbers(
   configId: string,
   isOrder: boolean,
+  options?: { pricingMode?: ConfigurationPricingMode },
 ): Promise<{ quote_number: string | null; order_number: string | null }> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { quote_number: null, order_number: null };
 
   const { data: row } = await supabase
     .from('configurations')
-    .select('quote_number, order_number')
+    .select('*')
     .eq('id', configId)
     .maybeSingle();
 
@@ -302,8 +303,55 @@ export async function ensureReferenceNumbers(
     const qn = await getNextCrmDocumentNumber('quote');
     patch.quote_number = qn;
     result.quote_number = qn;
+
+    // A T-number is the commercial boundary. Capture the frozen quote
+    // snapshot here, never during an ordinary editable case/lead save.
+    const storedPayload = parseStoredConfigurationPayload(row.note);
+    const state = parseStateJson(row.state_json) ?? storedPayload?.state ?? buildFallbackState(row);
+    const quotedState = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
+    const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
+    const totals = calcConfigurationTotals(quotedState, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
+    patch.state_json = quotedState;
+    patch.note = serializeStoredConfigurationPayload(
+      quotedState,
+      row.internal_note ?? storedPayload?.internalNote ?? '',
+      Boolean(row.pdf_downloaded ?? storedPayload?.pdf_downloaded),
+      row.pdf_downloaded_at ?? storedPayload?.pdf_downloaded_at ?? null,
+    );
+    patch.subtotal = Math.round(totals.subtotal || 0);
+    patch.total_price = Math.round(totals.finalPrice || 0);
+    patch.last_saved_at = new Date().toISOString();
   }
-  await updateConfigurationRow(configId, patch);
+  const { error } = await updateConfigurationRow(configId, patch);
+  if (error) throw new Error(formatSupabaseError(error));
+
+  if (needsQuote) {
+    try {
+      const { logActivity } = await import('@/lib/crmActivitiesService');
+      await logActivity({
+        activity_type: 'quote_created',
+        configuration_id: configId,
+        quote_id: configId,
+        title: result.quote_number || row.title || 'Tilbud oprettet',
+        description: 'Tilbud oprettet',
+        status: 'aktiv',
+        created_by_user_id: row.created_by_user_id ?? user.id,
+        created_by_name: row.created_by_email ?? user.email ?? null,
+        assigned_owner_user_id: row.assigned_seller_id ?? null,
+        assigned_owner_name: row.seller_name ?? row.seller_initials ?? null,
+        meta: {
+          seller_initials: row.seller_initials ?? null,
+          seller_email: row.seller_email ?? null,
+          dealer_number: row.dealer_number ?? null,
+          dealer_name: row.dealer_name ?? null,
+          dealer_account_id: row.dealer_account_id ?? null,
+          document_type: 'quote',
+        },
+      });
+    } catch (error) {
+      console.warn('[ensureReferenceNumbers] quote activity log failed (ignored):', error);
+    }
+  }
   return result;
 }
 
@@ -994,7 +1042,9 @@ export async function saveConfiguration(
   }
 
   const now = new Date().toISOString();
-  state = await finalizeConfiguratorPricingSnapshot(refreshConfiguratorProductDescriptions(state), options?.pricingMode);
+  // A saved case remains editable catalogue state. The frozen commercial
+  // snapshot is created only when the first real quote/order is produced.
+  state = { ...refreshConfiguratorProductDescriptions(state), pricingSnapshot: undefined };
   const storedNote = serializeStoredConfigurationPayload(state, state.internalNote ?? '', false, null);
 
   // Pre-compute subtotal/total_price so even drafts and the initial save carry
@@ -1033,7 +1083,7 @@ export async function saveConfiguration(
     created_case_at: now,
     quote_sent_at: null,
     order_sent_at: null,
-    quote_number: isOrder ? null : await getNextCrmDocumentNumber('quote'),
+    quote_number: null,
     // O-numbers are assigned only by markAsOrderSubmitted after the order
     // has been successfully sent. An editable order draft has no O-number.
     order_number: null,
@@ -1075,34 +1125,6 @@ export async function saveConfiguration(
 
   const savedQuoteNumber = (row.quote_number as string) ?? data.quote_number ?? null;
   const savedOrderNumber = (row.order_number as string) ?? data.order_number ?? null;
-
-  // CRM: log quote_created / order_created on first save (best-effort).
-  try {
-    const { logActivity } = await import('@/lib/crmActivitiesService');
-    await logActivity({
-      activity_type: isOrder ? 'order_created' : 'quote_created',
-      configuration_id: data.id,
-      quote_id: isOrder ? null : data.id,
-      order_id: isOrder ? data.id : null,
-      title: (isOrder ? savedOrderNumber : savedQuoteNumber) || label,
-      description: isOrder ? 'Ordre oprettet' : 'Tilbud oprettet',
-      status: 'aktiv',
-      created_by_user_id: user.id,
-      created_by_name: user.email ?? null,
-      assigned_owner_user_id: options?.ownership?.assigned_seller_id ?? null,
-      assigned_owner_name: options?.ownership?.seller_name ?? options?.ownership?.seller_initials ?? null,
-      meta: {
-        seller_initials: options?.ownership?.seller_initials ?? null,
-        seller_email: options?.ownership?.seller_email ?? null,
-        dealer_number: options?.ownership?.dealer_number ?? null,
-        dealer_name: options?.ownership?.dealer_name ?? null,
-        dealer_account_id: options?.ownership?.dealer_account_id ?? null,
-        document_type: documentType,
-      },
-    });
-  } catch (e) {
-    console.warn('[saveConfiguration] crm log failed (ignored):', e);
-  }
 
   return {
     data: mapConfigurationRow({
@@ -1175,16 +1197,15 @@ export async function updateConfiguration(
   let pdfDownloaded = false;
   let pdfDownloadedAt: string | null = null;
   let persistedLeadId: string | null = null;
-  let existingRowLoaded = false;
   let submittedOrder = false;
+  let existingQuote = false;
   try {
     const { data: row } = await supabase
       .from('configurations')
-      .select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id, submitted_at, order_sent_at, subtotal, total_price')
+      .select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id, quote_number, submitted_at, order_sent_at, subtotal, total_price')
       .eq('id', id)
       .maybeSingle();
     if (row) {
-      existingRowLoaded = true;
       const storedPayload = parseStoredConfigurationPayload((row as Record<string, unknown>).note);
       internalNote = state.internalNote
         ?? ((row as Record<string, unknown>).internal_note as string | null)
@@ -1195,6 +1216,7 @@ export async function updateConfiguration(
         ?? storedPayload?.pdf_downloaded_at
         ?? null;
       persistedLeadId = ((row as Record<string, unknown>).lead_id as string | null) ?? null;
+      existingQuote = Boolean((row as Record<string, unknown>).quote_number);
       submittedOrder = Boolean((row as Record<string, unknown>).submitted_at || (row as Record<string, unknown>).order_sent_at);
       // Legacy submitted orders predate per-item price snapshots. Do not let a
       // contact-only correction replace their persisted commercial total with
@@ -1209,10 +1231,10 @@ export async function updateConfiguration(
     }
   } catch { /* ignore */ }
 
-  // A legacy, unsent draft may predate pricing snapshots. Its next explicit
-  // save adopts the current engine and campaign metadata. Submitted history is
-  // deliberately excluded and can only be repriced through Backend revision.
-  if (existingRowLoaded && !submittedOrder && !stateForPersistence.pricingSnapshot) {
+  // Once the case has crossed the explicit T-number boundary, edits remain
+  // revisions of that same quote. Refresh its current snapshot without ever
+  // allocating another number. Numberless cases stay snapshot-free.
+  if (existingQuote && !submittedOrder && !stateForPersistence.pricingSnapshot) {
     try {
       stateForPersistence = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
       const { calcConfigurationTotals } = await import('@/lib/calcConfiguration');
@@ -1220,7 +1242,7 @@ export async function updateConfiguration(
       subtotal = Math.round(totals.subtotal || 0);
       totalPrice = Math.round(totals.finalPrice || 0);
     } catch (error) {
-      console.warn('[updateConfiguration] legacy draft pricing finalization failed:', error);
+      console.warn('[updateConfiguration] quote snapshot refresh failed:', error);
       return { error: error instanceof Error ? error.message : 'Pris-snapshot kunne ikke valideres', itemsError: null };
     }
   }
@@ -1323,12 +1345,11 @@ export async function updateConfigurationFlowType(
   const baseState = parseStateJson(row.state_json) ?? storedPayload?.state ?? buildFallbackState(row);
   const nextState = normalizeConfiguratorState({ ...baseState, flowType });
 
-  let quoteNumber: string | null = row.quote_number ?? null;
-  let orderNumber: string | null = row.order_number ?? null;
+  const quoteNumber: string | null = row.quote_number ?? null;
+  const orderNumber: string | null = row.order_number ?? null;
 
-  if (!isOrder && !quoteNumber) quoteNumber = await getNextCrmDocumentNumber('quote');
-  // Do not allocate an O-number for a draft or merely switching the flow.
-  // markAsOrderSubmitted() assigns it with submitted_at/order_sent_at.
+  // Merely switching the editable flow never allocates a T/O-number.
+  // The explicit quote/order action owns the commercial transition.
 
   const patch: Record<string, unknown> = {
     case_type: flowType,

@@ -56,6 +56,19 @@ function configuration(overrides: Partial<AccountCaseLike> = {}): AccountCaseLik
 }
 
 describe('configurator account summaries', () => {
+  it('classifies a numberless editable configuration as a case, not a quote', () => {
+    const summary = buildAccountCaseSummary(configuration({
+      case_type: 'quote',
+      case_status: 'aktiv',
+      quote_number: null,
+      order_number: null,
+      submitted_at: null,
+      order_sent_at: null,
+    }), 'da');
+
+    expect(summary.typeLabel).toBe('case');
+    expect(summary.reference).not.toMatch(/^T-/);
+  });
   it('builds an order summary from existing configuration data', () => {
     const summary = buildAccountCaseSummary(configuration(), 'da');
 

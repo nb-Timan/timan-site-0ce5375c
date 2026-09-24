@@ -9,9 +9,17 @@ describe('configurator existing lead protection', () => {
   it('locks the lead picker and hides new-lead actions for a saved linked configuration', () => {
     const code = configurator();
     expect(code).toContain('const existingConfigurationLeadLocked = Boolean(savedConfigurationId && linkedLeadId)');
-    expect(code).toContain('const canCreateLeadForCurrentConfiguration = !savedConfigurationId && !linkedLeadId');
+    expect(code).toContain('const canCreateLeadForCurrentConfiguration = !linkedLeadId');
     expect(code).toContain('readOnly={Boolean(savedConfigurationId)}');
     expect(code).toContain('canCreateLeadForCurrentConfiguration &&');
+  });
+
+  it('allows an explicitly saved case without a lead to be promoted to one lead', () => {
+    const code = configurator();
+    expect(code).toContain('if (linkedLeadId) {');
+    expect(code).not.toContain('if (savedConfigurationId || linkedLeadId) {');
+    expect(code).toContain('leadId: created.id');
+    expect(code).not.toContain(".update({ lead_id: created.id })");
   });
 
   it('renders the existing relation as read-only instead of offering a new lead', () => {
@@ -23,7 +31,7 @@ describe('configurator existing lead protection', () => {
 
   it('keeps persisted lead_id over any edit-time client value', () => {
     const code = service();
-    expect(code).toContain(".select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id, submitted_at, order_sent_at, subtotal, total_price')");
+    expect(code).toContain(".select('internal_note, note, pdf_downloaded, pdf_downloaded_at, lead_id, quote_number, submitted_at, order_sent_at, subtotal, total_price')");
     expect(code).toContain('let persistedLeadId: string | null = null');
     expect(code).toContain('persistedLeadId = ((row as Record<string, unknown>).lead_id as string | null) ?? null');
     expect(code).toContain('...(persistedLeadId');

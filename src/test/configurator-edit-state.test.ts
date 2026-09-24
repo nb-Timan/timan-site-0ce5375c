@@ -23,9 +23,9 @@ describe('configurator saved edit state', () => {
 
   it('saves edits back to the same canonical row using the current flow type', () => {
     const code = source();
-    expect(code).toContain('stateForPersistence = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode)');
-    expect(code).toContain('existingRowLoaded && !submittedOrder && !stateForPersistence.pricingSnapshot');
-    expect(code).toContain('legacy draft pricing finalization failed');
+    expect(code).not.toContain('existingRowLoaded && !submittedOrder && !stateForPersistence.pricingSnapshot');
+    expect(code).toContain('existingQuote && !submittedOrder && !stateForPersistence.pricingSnapshot');
+    expect(code).toContain('quote snapshot refresh failed');
     expect(code).toContain('document_type: stateForPersistence.flowType');
     expect(code).toContain('case_type: stateForPersistence.flowType');
     expect(code).toContain('state_json: stateForPersistence');

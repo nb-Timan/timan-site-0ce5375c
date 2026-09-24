@@ -870,7 +870,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const requiresLegacyOrderReprice = state.flowType === 'order' && orderLocked && (!state.pricingSnapshot || state.pricingSnapshot.totalsOnly);
   const submittedOrderEditorLocked = state.flowType === 'order' && orderLocked && !backendCorrectionSessionId;
   const existingConfigurationLeadLocked = Boolean(savedConfigurationId && linkedLeadId);
-  const canCreateLeadForCurrentConfiguration = !savedConfigurationId && !linkedLeadId;
+  const canCreateLeadForCurrentConfiguration = !linkedLeadId;
 
   const handleStartBackendCorrection = useCallback(async () => {
     if (!savedConfigurationId || !backendCorrectionReason.trim() || startingBackendCorrection) return;
@@ -1194,9 +1194,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       return lead.leadId;
     }
     if (savingAsLead) return null;
-    // Saved configurations retain their relation. New lead creation is only
-    // available before the first configuration save.
-    if (savedConfigurationId || linkedLeadId) {
+    // An existing relation is idempotent. A saved case without a lead may
+    // still be explicitly promoted via "Gem som lead".
+    if (linkedLeadId) {
       if (!options?.quiet) {
         toast.info(
           { da: 'Denne konfiguration er allerede knyttet til et lead.',
@@ -1292,15 +1292,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         const ownershipPayload = await getRequiredOwnershipPayload();
         if (ownershipPayload && appUser) {
           if (savedConfigurationId) {
-            const updRes = await updateConfiguration(savedConfigurationId, state, { ownership: ownershipPayload, pricingMode: isExhibition ? 'messe' : undefined });
+            const updRes = await updateConfiguration(savedConfigurationId, state, {
+              ownership: ownershipPayload,
+              leadId: created.id,
+              pricingMode: isExhibition ? 'messe' : undefined,
+            });
             if (updRes.error) throw new Error(updRes.error);
-            try {
-              await supabase.from('configurations')
-                .update({ lead_id: created.id })
-                .eq('id', savedConfigurationId);
-            } catch (e) {
-              console.warn('[handleSaveAsLead] link lead_id failed:', e);
-            }
           } else {
             const label = state.firmanavn
               ? `${state.firmanavn} — ${state.machineConfigs.map(m => m.type).join(', ')}`
@@ -2046,19 +2043,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       return;
     }
     setState(refreshConfiguratorProductDescriptions);
-    // NOTE: No auto-save here. Saving only happens on:
-    // 1) Download PDF (quote), 2) Afsend ordre til Timan (order), 3) "+ Gem nuværende" in My account.
-    // If the case is already saved, ensure reference numbers exist for display in the preview.
-    if (savedConfigurationId) {
-      try {
-        const isOrder = state.flowType === 'order';
-        const refs = await ensureReferenceNumbers(savedConfigurationId, isOrder);
-        if (refs.quote_number) setSavedQuoteNumber(refs.quote_number);
-        if (refs.order_number) setSavedOrderNumber(refs.order_number);
-      } catch (err) {
-        console.error('Failed to ensure reference numbers:', err);
-      }
-    }
+    // Opening the preview is not a commercial transition. Reference numbers
+    // are allocated only by the explicit quote/order action below.
 
     // Show sales args prompt for quotes
     if (state.flowType === 'quote') {
@@ -2196,7 +2182,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         return false;
       }
       try {
-        const refs = await ensureReferenceNumbers(activeCaseId, effectiveFlowType === 'order');
+        const refs = await ensureReferenceNumbers(activeCaseId, effectiveFlowType === 'order', { pricingMode: isExhibition ? 'messe' : undefined });
         if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
         if (refs.order_number) { activeOrderNumber = refs.order_number; setSavedOrderNumber(refs.order_number); }
       } catch (err) {
@@ -2589,7 +2575,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           }
         } else if (activeCaseId && !activeQuoteNumber) {
           try {
-            const refs = await ensureReferenceNumbers(activeCaseId, false);
+            const refs = await ensureReferenceNumbers(activeCaseId, false, { pricingMode: isExhibition ? 'messe' : undefined });
             if (refs.quote_number) { activeQuoteNumber = refs.quote_number; setSavedQuoteNumber(refs.quote_number); }
           } catch (err) {
             console.error('Failed to ensure quote number before webhook:', err);

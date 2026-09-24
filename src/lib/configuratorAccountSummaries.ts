@@ -43,7 +43,7 @@ export interface AccountCaseSummary {
   sellerEmail: string;
   status: string;
   statusGroup: AccountCaseStatusFilter;
-  typeLabel: 'quote' | 'order';
+  typeLabel: 'case' | 'quote' | 'order';
   totalPrice: number;
   currencyLanguage: Language;
   deliveryDate: string | null;
@@ -150,7 +150,11 @@ export function buildAccountCaseSummary(item: AccountCaseLike, language: string)
     sellerEmail: item.seller_email || '-',
     status: isAccountCaseSent(item) ? 'ordre_afgivet' : item.case_status,
     statusGroup: getAccountCaseStatusGroup(item),
-    typeLabel: isAccountCaseSent(item) ? 'order' : item.case_type,
+    typeLabel: isAccountCaseSent(item)
+      ? 'order'
+      : item.quote_number
+        ? 'quote'
+        : 'case',
     totalPrice: totals.finalPrice,
     // Saved configurations retain their own commercial currency when the portal UI changes language.
     currencyLanguage: item.state_json.language || legacyLang,
