@@ -9,7 +9,7 @@
  */
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink, History, CalendarDays, Eye } from 'lucide-react';
+import { FileText, ShoppingCart, Search, AlertTriangle, Pencil, Trash2, ExternalLink, History, CalendarDays, Eye, ArrowDown, ArrowUp, Check, ChevronsUpDown, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   AlertDialog,
@@ -26,6 +26,8 @@ import EditOrderContactModal from '@/components/crm/EditOrderContactModal';
 import EditOrderTimelineModal from '@/components/crm/EditOrderTimelineModal';
 import SubmittedOrderRevisionHistoryModal from '@/components/crm/SubmittedOrderRevisionHistoryModal';
 import ReadOnlyOrderConfirmationModal from '@/components/crm/ReadOnlyOrderConfirmationModal';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { loadSubmittedOrderConfirmation } from '@/lib/configurationsService';
 import { useAppUser, type SessionUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -47,6 +49,19 @@ import {
 } from '@/lib/crmConfigurationsService';
 import { isSavedConfigurationOrderLocked, loadConfigurationByIdUnscoped, type SavedConfiguration } from '@/lib/configurationsService';
 import { Language } from '@/types/configurator';
+import {
+  DEFAULT_CRM_DOCUMENT_FILTERS,
+  buildCrmDocumentCountries,
+  buildCrmDocumentDealerOptions,
+  buildCrmDocumentStatuses,
+  crmDocumentDealerLabel,
+  crmDocumentNumber,
+  crmDocumentSentAt,
+  crmDocumentStatus,
+  filterAndSortCrmDocuments,
+  type CrmDocumentDealerOption,
+  type CrmDocumentSort,
+} from '@/lib/crmDocumentListFilters';
 
 interface Props { mode: CrmDocumentType }
 
@@ -68,6 +83,27 @@ const T: Record<string, Record<Language, string>> = {
     hu: 'A Timan konfigurátorban készült rendelések.',
   },
   search: { da: 'Søg…', en: 'Search…', de: 'Suchen…', it: 'Cerca…', hu: 'Keresés…' },
+  all_dealers: { da: 'Alle forhandlere', en: 'All dealers', de: 'Alle Händler', it: 'Tutti i rivenditori', hu: 'Minden kereskedő' },
+  search_dealer: { da: 'Søg forhandler eller kontonr.', en: 'Search dealer or account no.', de: 'Händler oder Kontonr. suchen', it: 'Cerca rivenditore o conto', hu: 'Kereskedő vagy ügyfélszám keresése' },
+  no_dealers: { da: 'Ingen forhandlere fundet.', en: 'No dealers found.', de: 'Keine Händler gefunden.', it: 'Nessun rivenditore trovato.', hu: 'Nem található kereskedő.' },
+  all_countries: { da: 'Alle lande', en: 'All countries', de: 'Alle Länder', it: 'Tutti i paesi', hu: 'Minden ország' },
+  all_statuses: { da: 'Alle statusser', en: 'All statuses', de: 'Alle Status', it: 'Tutti gli stati', hu: 'Minden állapot' },
+  sorting: { da: 'Sortering', en: 'Sorting', de: 'Sortierung', it: 'Ordinamento', hu: 'Rendezés' },
+  sort_standard: { da: 'Standardvisning', en: 'Default view', de: 'Standardansicht', it: 'Vista standard', hu: 'Alapértelmezett nézet' },
+  sort_newest: { da: 'Nyeste først', en: 'Newest first', de: 'Neueste zuerst', it: 'Più recenti', hu: 'Legújabb elöl' },
+  sort_oldest: { da: 'Ældste først', en: 'Oldest first', de: 'Älteste zuerst', it: 'Meno recenti', hu: 'Legrégebbi elöl' },
+  sort_sent_newest: { da: 'Senest sendt først', en: 'Most recently sent', de: 'Zuletzt gesendet', it: 'Ultimo invio', hu: 'Legutóbb küldött' },
+  sort_sent_oldest: { da: 'Ældst sendt først', en: 'Oldest sent first', de: 'Älteste Sendung', it: 'Primo invio', hu: 'Legrégebben küldött' },
+  sort_number_asc: { da: 'Nummer stigende', en: 'Number ascending', de: 'Nummer aufsteigend', it: 'Numero crescente', hu: 'Szám szerint növekvő' },
+  sort_number_desc: { da: 'Nummer faldende', en: 'Number descending', de: 'Nummer absteigend', it: 'Numero decrescente', hu: 'Szám szerint csökkenő' },
+  sort_dealer_asc: { da: 'Forhandler A–Å', en: 'Dealer A–Z', de: 'Händler A–Z', it: 'Rivenditore A–Z', hu: 'Kereskedő A–Z' },
+  sort_dealer_desc: { da: 'Forhandler Å–A', en: 'Dealer Z–A', de: 'Händler Z–A', it: 'Rivenditore Z–A', hu: 'Kereskedő Z–A' },
+  reset_filters: { da: 'Nulstil filtre', en: 'Reset filters', de: 'Filter zurücksetzen', it: 'Reimposta filtri', hu: 'Szűrők törlése' },
+  status_submitted: { da: 'Ordre afgivet', en: 'Order submitted', de: 'Auftrag aufgegeben', it: 'Ordine inviato', hu: 'Rendelés leadva' },
+  status_sent: { da: 'Sendt', en: 'Sent', de: 'Gesendet', it: 'Inviato', hu: 'Elküldve' },
+  status_active: { da: 'Aktiv', en: 'Active', de: 'Aktiv', it: 'Attivo', hu: 'Aktív' },
+  status_paused: { da: 'Pause', en: 'Paused', de: 'Pausiert', it: 'In pausa', hu: 'Szünetel' },
+  status_unknown: { da: 'Ukendt', en: 'Unknown', de: 'Unbekannt', it: 'Sconosciuto', hu: 'Ismeretlen' },
   empty_quotes: {
     da: 'Ingen tilbud at vise. Opret et tilbud i konfiguratoren.',
     en: 'No quotes to show. Create one in the configurator.',
@@ -108,13 +144,111 @@ function fmtDate(iso: string | null): string {
   try { return new Date(iso).toLocaleDateString('da-DK'); } catch { return '—'; }
 }
 
-function statusBadge(row: Pick<CrmConfigurationRow, 'case_status' | 'status' | 'submitted_at' | 'order_sent_at'>): { label: string; cls: string } {
-  const s = (row.case_status || row.status || 'aktiv').toLowerCase();
-  if (row.order_sent_at || row.submitted_at) return { label: 'Ordre afgivet', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
-  if (s === 'ordre_afgivet') return { label: 'Ordre afgivet', cls: 'bg-blue-50 text-blue-700 border-blue-200' };
-  if (s === 'pause')         return { label: 'Pause',         cls: 'bg-amber-50 text-amber-700 border-amber-200' };
-  if (s === 'aktiv')         return { label: 'Aktiv',         cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
-  return { label: row.case_status || row.status || '—', cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+function statusBadge(row: CrmConfigurationRow, mode: CrmDocumentType, lang: Language): { label: string; cls: string } {
+  const status = crmDocumentStatus(row, mode);
+  if (status === 'submitted' || status === 'ordre_afgivet') return { label: T.status_submitted[lang], cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+  if (status === 'sent') return { label: T.status_sent[lang], cls: 'bg-blue-50 text-blue-700 border-blue-200' };
+  if (status === 'pause') return { label: T.status_paused[lang], cls: 'bg-amber-50 text-amber-700 border-amber-200' };
+  if (status === 'aktiv') return { label: T.status_active[lang], cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+  return { label: statusFilterLabel(status, lang), cls: 'bg-slate-50 text-slate-700 border-slate-200' };
+}
+
+function statusFilterLabel(status: string, lang: Language): string {
+  if (status === 'submitted' || status === 'ordre_afgivet') return T.status_submitted[lang];
+  if (status === 'sent') return T.status_sent[lang];
+  if (status === 'aktiv') return T.status_active[lang];
+  if (status === 'pause') return T.status_paused[lang];
+  if (status === 'unknown') return T.status_unknown[lang];
+  return status.replace(/[_-]+/g, ' ').replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function DealerFilter({
+  dealers,
+  value,
+  onChange,
+  lang,
+}: {
+  dealers: CrmDocumentDealerOption[];
+  value: string;
+  onChange: (value: string) => void;
+  lang: Language;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = dealers.find((dealer) => dealer.key === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={T.all_dealers[lang]}
+          aria-expanded={open}
+          className="inline-flex h-9 w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 xl:w-[210px]"
+        >
+          <span className="truncate">
+            {selected
+              ? `${selected.label}${selected.accountNumber ? ` · ${selected.accountNumber}` : ''}`
+              : T.all_dealers[lang]}
+          </span>
+          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[330px] max-w-[calc(100vw-2rem)] p-0">
+        <Command>
+          <CommandInput placeholder={T.search_dealer[lang]} />
+          <CommandList>
+            <CommandEmpty>{T.no_dealers[lang]}</CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value={T.all_dealers[lang]}
+                onSelect={() => { onChange('all'); setOpen(false); }}
+              >
+                <Check className={`mr-2 h-4 w-4 ${value === 'all' ? 'opacity-100' : 'opacity-0'}`} />
+                {T.all_dealers[lang]}
+              </CommandItem>
+              {dealers.map((dealer) => (
+                <CommandItem
+                  key={dealer.key}
+                  value={`${dealer.label} ${dealer.accountNumber ?? ''}`}
+                  onSelect={() => { onChange(dealer.key); setOpen(false); }}
+                >
+                  <Check className={`mr-2 h-4 w-4 ${value === dealer.key ? 'opacity-100' : 'opacity-0'}`} />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{dealer.label}</span>
+                    {dealer.accountNumber && <span className="block text-[11px] text-slate-500">{dealer.accountNumber}</span>}
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SortableHeader({
+  label,
+  active,
+  direction,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  direction: 'asc' | 'desc';
+  onClick: () => void;
+}) {
+  const DirectionIcon = direction === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1 whitespace-nowrap rounded-sm hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40"
+    >
+      {label}
+      <DirectionIcon className={`h-3 w-3 ${active ? 'opacity-100' : 'opacity-25'}`} />
+    </button>
+  );
 }
 
 export default function CrmQuotesOrdersPage({ mode }: Props) {
@@ -138,6 +272,10 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState(dealerParam);
+  const [dealerFilter, setDealerFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.dealerKey);
+  const [countryFilter, setCountryFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.country);
+  const [statusFilter, setStatusFilter] = useState(DEFAULT_CRM_DOCUMENT_FILTERS.status);
+  const [sort, setSort] = useState<CrmDocumentSort>(DEFAULT_CRM_DOCUMENT_FILTERS.sort);
   const [reloadKey, setReloadKey] = useState(0);
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
   const [editingTimelineRow, setEditingTimelineRow] = useState<CrmConfigurationRow | null>(null);
@@ -277,18 +415,40 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
     setReloadKey((k) => k + 1);
   }, [deletingRow, mode]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) => {
-      const hay = [
-        r.quote_number, r.order_number, r.title,
-        r.seller_initials, r.seller_email, r.seller_name,
-        r.dealer_number, r.dealer_name, r.dealer_company_name, r.purchase_order_number,
-      ].filter(Boolean).join(' ').toLowerCase();
-      return hay.includes(q);
-    });
-  }, [rows, search]);
+  const dealerOptions = useMemo(() => buildCrmDocumentDealerOptions(rows), [rows]);
+  const countryOptions = useMemo(() => buildCrmDocumentCountries(rows), [rows]);
+  const statusOptions = useMemo(() => buildCrmDocumentStatuses(rows, mode), [mode, rows]);
+  useEffect(() => {
+    if (dealerFilter !== 'all' && !dealerOptions.some((dealer) => dealer.key === dealerFilter)) setDealerFilter('all');
+    if (countryFilter !== 'all' && !countryOptions.includes(countryFilter)) setCountryFilter('all');
+    if (statusFilter !== 'all' && !statusOptions.includes(statusFilter)) setStatusFilter('all');
+  }, [countryFilter, countryOptions, dealerFilter, dealerOptions, statusFilter, statusOptions]);
+  const filtered = useMemo(() => filterAndSortCrmDocuments(rows, {
+    search,
+    dealerKey: dealerFilter,
+    country: countryFilter,
+    status: statusFilter,
+    sort,
+  }, mode), [countryFilter, dealerFilter, mode, rows, search, sort, statusFilter]);
+  const filtersActive = Boolean(
+    search.trim()
+    || dealerFilter !== 'all'
+    || countryFilter !== 'all'
+    || statusFilter !== 'all'
+    || sort !== 'standard',
+  );
+
+  const resetFilters = useCallback(() => {
+    setSearch('');
+    setDealerFilter(DEFAULT_CRM_DOCUMENT_FILTERS.dealerKey);
+    setCountryFilter(DEFAULT_CRM_DOCUMENT_FILTERS.country);
+    setStatusFilter(DEFAULT_CRM_DOCUMENT_FILTERS.status);
+    setSort(DEFAULT_CRM_DOCUMENT_FILTERS.sort);
+  }, []);
+
+  const toggleSort = useCallback((ascending: CrmDocumentSort, descending: CrmDocumentSort) => {
+    setSort((current) => current === ascending ? descending : ascending);
+  }, []);
 
   const titleKey = mode === 'order' ? 'title_orders' : 'title_quotes';
   const subtitleKey = mode === 'order' ? 'subtitle_orders' : 'subtitle_quotes';
@@ -317,20 +477,78 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
               {scopeLabel}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              {filtered.length} {T.count_label[lang]}
+              {filtersActive ? `${filtered.length} af ${rows.length}` : filtered.length} {T.count_label[lang]}
             </span>
           </div>
         </div>
 
-        <div className="relative mb-4 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={T.search[lang]}
-            className="w-full pl-10 pr-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500"
+        <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:flex-wrap xl:items-center">
+          <div className="relative min-w-0 sm:col-span-2 xl:w-[260px] xl:shrink-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={T.search[lang]}
+              aria-label={T.search[lang]}
+              className="h-9 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+            />
+          </div>
+
+          <DealerFilter
+            dealers={dealerOptions}
+            value={dealerFilter}
+            onChange={setDealerFilter}
+            lang={lang}
           />
+
+          <select
+            value={countryFilter}
+            onChange={(event) => setCountryFilter(event.target.value)}
+            aria-label={T.all_countries[lang]}
+            className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 xl:w-[150px]"
+          >
+            <option value="all">{T.all_countries[lang]}</option>
+            {countryOptions.map((country) => <option key={country} value={country}>{country}</option>)}
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value)}
+            aria-label={T.all_statuses[lang]}
+            className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 xl:w-[155px]"
+          >
+            <option value="all">{T.all_statuses[lang]}</option>
+            {statusOptions.map((status) => <option key={status} value={status}>{statusFilterLabel(status, lang)}</option>)}
+          </select>
+
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as CrmDocumentSort)}
+            aria-label={T.sorting[lang]}
+            className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 xl:w-[180px]"
+          >
+            <option value="standard">{T.sort_standard[lang]}</option>
+            <option value="date-desc">{T.sort_newest[lang]}</option>
+            <option value="date-asc">{T.sort_oldest[lang]}</option>
+            <option value="sent-desc">{T.sort_sent_newest[lang]}</option>
+            <option value="sent-asc">{T.sort_sent_oldest[lang]}</option>
+            <option value="number-asc">{T.sort_number_asc[lang]}</option>
+            <option value="number-desc">{T.sort_number_desc[lang]}</option>
+            <option value="dealer-asc">{T.sort_dealer_asc[lang]}</option>
+            <option value="dealer-desc">{T.sort_dealer_desc[lang]}</option>
+          </select>
+
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-2.5 text-xs font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:justify-self-start"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              {T.reset_filters[lang]}
+            </button>
+          )}
         </div>
 
         {error && (
@@ -358,19 +576,45 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
               <thead>
                 <tr className="text-[11px] uppercase tracking-wider text-slate-500 border-b border-slate-200">
                   <th className="text-left px-3 py-2 font-semibold">
-                    {mode === 'order' ? T.col_order_number[lang] : T.col_number[lang]}
+                    <SortableHeader
+                      label={mode === 'order' ? T.col_order_number[lang] : T.col_quote_number[lang]}
+                      active={sort === 'number-asc' || sort === 'number-desc'}
+                      direction={sort === 'number-desc' ? 'desc' : 'asc'}
+                      onClick={() => toggleSort('number-asc', 'number-desc')}
+                    />
                   </th>
                   {mode === 'order' && (
                     <th className="text-left px-3 py-2 font-semibold">{T.col_quote_number[lang]}</th>
                   )}
                   <th className="text-left px-3 py-2 font-semibold">{T.col_title[lang]}</th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_seller[lang]}</th>
-                  <th className="text-left px-3 py-2 font-semibold">{T.col_dealer[lang]}</th>
+                  <th className="text-left px-3 py-2 font-semibold">
+                    <SortableHeader
+                      label={T.col_dealer[lang]}
+                      active={sort === 'dealer-asc' || sort === 'dealer-desc'}
+                      direction={sort === 'dealer-desc' ? 'desc' : 'asc'}
+                      onClick={() => toggleSort('dealer-asc', 'dealer-desc')}
+                    />
+                  </th>
                   <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>
                   {mode === 'order' && <th className="text-left px-3 py-2 font-semibold">{T.col_expected_delivery[lang]}</th>}
                   {mode === 'order' && <th className="hidden px-3 py-2 text-left font-semibold sm:table-cell">{T.col_purchase_order[lang]}</th>}
-                  <th className="text-left px-3 py-2 font-semibold">{T.col_created[lang]}</th>
-                  <th className="text-left px-3 py-2 font-semibold">{T.col_sent[lang]}</th>
+                  <th className="text-left px-3 py-2 font-semibold">
+                    <SortableHeader
+                      label={T.col_created[lang]}
+                      active={sort === 'date-asc' || sort === 'date-desc'}
+                      direction={sort === 'date-desc' ? 'desc' : 'asc'}
+                      onClick={() => toggleSort('date-asc', 'date-desc')}
+                    />
+                  </th>
+                  <th className="text-left px-3 py-2 font-semibold">
+                    <SortableHeader
+                      label={T.col_sent[lang]}
+                      active={sort === 'sent-asc' || sort === 'sent-desc'}
+                      direction={sort === 'sent-desc' ? 'desc' : 'asc'}
+                      onClick={() => toggleSort('sent-asc', 'sent-desc')}
+                    />
+                  </th>
                   {mode === 'quote' && <th className="text-left px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
                   {canOpenSubmittedOrder && <th className="px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
                   {canEditOrderContacts && <th className="px-3 py-2 font-semibold w-24"></th>}
@@ -379,14 +623,10 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
               </thead>
               <tbody>
                 {filtered.map((r) => {
-                  const number = mode === 'order'
-                    ? (r.order_number || r.quote_number || r.id.slice(0, 8))
-                    : (r.quote_number || r.id.slice(0, 8));
-                  const sentAt = mode === 'order' ? (r.order_sent_at || r.submitted_at) : r.quote_sent_at;
-                  const badge = statusBadge(r);
-                  const dealerLabel = r.dealer_company_name
-                    ?? r.dealer_name
-                    ?? (r.dealer_number ? `#${r.dealer_number}` : '—');
+                  const number = crmDocumentNumber(r, mode);
+                  const sentAt = crmDocumentSentAt(r, mode);
+                  const badge = statusBadge(r, mode, lang);
+                  const dealerLabel = crmDocumentDealerLabel(r);
                   const configuratorHref = getCrmConfigurationDeepLink(r);
                   const leadHref = getCrmConfigurationLeadDeepLink(r);
                   return (
