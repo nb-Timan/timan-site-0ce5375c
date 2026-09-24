@@ -49,6 +49,7 @@ import {
 } from '@/lib/crmConfigurationsService';
 import { isSavedConfigurationOrderLocked, loadConfigurationByIdUnscoped, type SavedConfiguration } from '@/lib/configurationsService';
 import { Language } from '@/types/configurator';
+import { useCountryFormatter } from '@/lib/formatCountry';
 import {
   DEFAULT_CRM_DOCUMENT_FILTERS,
   buildCrmDocumentCountries,
@@ -134,6 +135,7 @@ const T: Record<string, Record<Language, string>> = {
   open_lead: { da: 'Åbn Lead', en: 'Open Lead', de: 'Lead öffnen', it: 'Apri lead', hu: 'Lead megnyitása' },
   no_linked_lead: { da: 'Intet tilknyttet lead', en: 'No linked lead', de: 'Kein verknüpfter Lead', it: 'Nessun lead collegato', hu: 'Nincs kapcsolt lead' },
   count_label: { da: 'rækker', en: 'rows', de: 'Zeilen', it: 'righe', hu: 'sor' },
+  count_of: { da: 'af', en: 'of', de: 'von', it: 'di', hu: '/' },
   scope_backend: { da: 'Viser alle (Backend)', en: 'Showing all (Backend)', de: 'Alle (Backend)', it: 'Tutti (Backend)', hu: 'Mind (Backend)' },
   scope_seller: { da: 'Viser kun egne', en: 'Showing only own', de: 'Nur eigene', it: 'Solo i propri', hu: 'Csak sajátok' },
   scope_dealer: { da: 'Viser kun egen forhandler', en: 'Showing only own dealer', de: 'Nur eigener Händler', it: 'Solo proprio rivenditore', hu: 'Csak saját kereskedő' },
@@ -255,6 +257,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const { appUser } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser);
   const { language: lang } = useLanguage();
+  const { formatCountry } = useCountryFormatter();
   const portalRole = derivePortalRole(effectiveUser);
   const effectiveUserEmail = effectiveUser?.email ?? null;
   const effectiveUserDisplayName = effectiveUser?.display_name ?? null;
@@ -477,7 +480,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
               {scopeLabel}
             </span>
             <span className="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              {filtersActive ? `${filtered.length} af ${rows.length}` : filtered.length} {T.count_label[lang]}
+              {filtersActive ? `${filtered.length} ${T.count_of[lang]} ${rows.length}` : filtered.length} {T.count_label[lang]}
             </span>
           </div>
         </div>
@@ -509,7 +512,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
             className="h-9 min-w-0 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 xl:w-[150px]"
           >
             <option value="all">{T.all_countries[lang]}</option>
-            {countryOptions.map((country) => <option key={country} value={country}>{country}</option>)}
+            {countryOptions.map((country) => <option key={country} value={country}>{formatCountry(country)}</option>)}
           </select>
 
           <select
@@ -654,7 +657,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       </td>
                       <td className="px-3 py-2.5 text-slate-700 max-w-[260px] truncate">
                         {dealerLabel}
-                        {r.dealer_country && <span className="ml-1 text-[11px] text-slate-400">· {r.dealer_country}</span>}
+                        {r.dealer_country && <span className="ml-1 text-[11px] text-slate-400">· {formatCountry(r.dealer_country)}</span>}
                       </td>
                       <td className="px-3 py-2.5">
                         <span className={`inline-flex text-[11px] px-2 py-0.5 rounded-full border font-medium ${badge.cls}`}>

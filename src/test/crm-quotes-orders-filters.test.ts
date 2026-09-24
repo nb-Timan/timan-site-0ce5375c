@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { CrmConfigurationRow, CrmDocumentType } from '@/lib/crmConfigurationsService';
+import { applyDealerCountryLookup } from '@/lib/crmConfigurationsService';
 import {
   DEFAULT_CRM_DOCUMENT_FILTERS,
   buildCrmDocumentCountries,
@@ -98,6 +99,19 @@ describe('CRM quote/order shared filters', () => {
     expect(buildCrmDocumentCountries([alpha, beta])).toEqual(['DE', 'DK']);
   });
 
+  it('fills a missing country from the canonical dealer account without changing scope', () => {
+    const withoutCountry = row({ dealer_country: null });
+    const enriched = applyDealerCountryLookup([withoutCountry], [{
+      id: 'dealer-alpha',
+      account_number: '1001',
+      company_name: 'Alpha Dealer',
+      country: 'DK',
+    }]);
+    expect(enriched).toHaveLength(1);
+    expect(enriched[0].id).toBe(withoutCountry.id);
+    expect(enriched[0].dealer_country).toBe('DK');
+  });
+
   it('filters by country and canonical status', () => {
     expect(ids(filterAndSortCrmDocuments([alpha, beta, gamma], filters({ country: 'SE', status: 'pause' }), 'quote'))).toEqual(['gamma']);
     expect(buildCrmDocumentStatuses([alpha, beta, gamma], 'quote')).toEqual(['aktiv', 'pause', 'sent']);
@@ -160,6 +174,6 @@ describe('CRM quote/order shared filters', () => {
     expect(page).toContain("toggleSort('date-asc', 'date-desc')");
     expect(page).toContain("toggleSort('sent-asc', 'sent-desc')");
     expect(page).toContain('sm:grid-cols-2 xl:flex');
-    expect(page).toContain("`${filtered.length} af ${rows.length}`");
+    expect(page).toContain('`${filtered.length} ${T.count_of[lang]} ${rows.length}`');
   });
 });

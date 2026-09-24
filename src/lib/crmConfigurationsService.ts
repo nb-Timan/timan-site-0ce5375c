@@ -237,6 +237,67 @@ function dealerNumberOrFilter(numbers: string[]): string {
   return `dealer_number.in.(${list})`;
 }
 
+type DealerCountryLookupRow = {
+  id: string;
+  account_number: string | null;
+  company_name: string | null;
+  country: string | null;
+};
+
+function normalizedDealerLookupValue(value: string | null | undefined): string {
+  return (value ?? '').trim().toLocaleLowerCase();
+}
+
+/** Fill missing view countries from the same canonical dealer account records. */
+export function applyDealerCountryLookup(
+  rows: CrmConfigurationRow[],
+  dealers: DealerCountryLookupRow[],
+): CrmConfigurationRow[] {
+  const byId = new Map(dealers.map((dealer) => [dealer.id, dealer.country]));
+  const byNumber = new Map(dealers
+    .map((dealer) => [normalizedDealerLookupValue(dealer.account_number), dealer.country] as const)
+    .filter(([key]) => Boolean(key)));
+  const byName = new Map(dealers
+    .map((dealer) => [normalizedDealerLookupValue(dealer.company_name), dealer.country] as const)
+    .filter(([key]) => Boolean(key)));
+
+  return rows.map((row) => {
+    if (row.dealer_country) return row;
+    const country = (row.dealer_account_id ? byId.get(row.dealer_account_id) : null)
+      ?? byNumber.get(normalizedDealerLookupValue(row.dealer_account_number || row.dealer_number))
+      ?? byName.get(normalizedDealerLookupValue(row.dealer_company_name || row.dealer_name))
+      ?? null;
+    return country ? { ...row, dealer_country: country } : row;
+  });
+}
+
+async function enrichDealerCountries(rows: CrmConfigurationRow[]): Promise<CrmConfigurationRow[]> {
+  const unresolved = rows.filter((row) => !row.dealer_country);
+  if (unresolved.length === 0) return rows;
+
+  const ids = [...new Set(unresolved.map((row) => row.dealer_account_id).filter((value): value is string => Boolean(value)))];
+  const numbers = [...new Set(unresolved
+    .map((row) => row.dealer_account_number || row.dealer_number)
+    .filter((value): value is string => Boolean(value)))];
+  const names = [...new Set(unresolved
+    .map((row) => row.dealer_company_name || row.dealer_name)
+    .filter((value): value is string => Boolean(value)))];
+  const clauses = [
+    ids.length > 0 ? `id.in.(${ids.map(quotePostgrestValue).join(',')})` : null,
+    numbers.length > 0 ? `account_number.in.(${numbers.map(quotePostgrestValue).join(',')})` : null,
+    names.length > 0 ? `company_name.in.(${names.map(quotePostgrestValue).join(',')})` : null,
+  ].filter((value): value is string => Boolean(value));
+  if (clauses.length === 0) return rows;
+
+  const { data, error } = await supabase
+    .from('dealer_accounts')
+    .select('id, account_number, company_name, country')
+    .or(clauses.join(','))
+    .limit(500);
+  if (error || !data) return rows;
+  return applyDealerCountryLookup(rows, data as DealerCountryLookupRow[]);
+}
+
 /**
  * Fetch quotes or orders for the current scope.
  * Tries the crm_configurations_view first, then falls back to selecting
@@ -307,11 +368,11 @@ export async function listCrmConfigurations(
     }
   }
 
-  return {
-    rows: rows
-      .filter((r) => isSentForCrm(r, docType))
-      .filter((r) => rowVisibleToScope(r, filter)),
-  };
+  const scopedRows = rows
+    .filter((r) => isSentForCrm(r, docType))
+    .filter((r) => rowVisibleToScope(r, filter));
+
+  return { rows: await enrichDealerCountries(scopedRows) };
 }
 
 /**
