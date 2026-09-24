@@ -1914,7 +1914,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       </div>
         </div>
       </div>
-      <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${TC('confirmDescription')}</h2>`;
+      <div class="mt-6"><h2 class="font-bold text-base mb-2 border-b border-gray-200 pb-1">${TC('confirmDescription')}</h2>
+        <div class="hidden border-b border-gray-200 bg-gray-50 px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-gray-500 sm:grid sm:gap-3 ${permissions.canSeePrices ? 'sm:grid-cols-[6rem_minmax(12rem,1fr)_3.5rem_7rem_7rem]' : 'sm:grid-cols-[6rem_minmax(12rem,1fr)_3.5rem]'}">
+          <div>${TC('pdfItemNo')}</div>
+          <div>${TC('confirmDescription')}</div>
+          <div class="text-right">${TC('pdfQuantity')}</div>
+          ${permissions.canSeePrices ? `<div class="text-right">${TC('pdfUnitPrice')}</div><div class="text-right">${TC('pdfLineTotal')}</div>` : ''}
+        </div>`;
 
     // Line items
     calcResult.lineItems.forEach(i => {
@@ -1935,17 +1941,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       if (i.bold) {
         html += `<div class="text-sm font-bold text-gray-800 pt-3 pb-1 border-t border-gray-200 mt-2">${i.txt}</div>`;
         if (i.isMachine && i.index) {
-          // Always render the base machine line (varenr + name + price) so visible
-          // line items match the subtotal. Display-only; totals are unchanged.
-          const machName = i.txt.replace(/^.*\(([^)]+)\)\s*$/, '$1') || i.txt;
-          const priceCol = permissions.canSeePrices
-            ? `<div class="w-28 shrink-0 text-right price-col">${formatDisplayMoney(i.price)}</div>`
-            : '';
-          html += `<div class="flex items-start text-sm py-1 text-gray-800 font-semibold">
-            <div class="w-16 shrink-0 opacity-80">${varenr}</div>
-            <div class="flex-grow px-2 leading-snug break-words">${machName}</div>
-            ${priceCol}
-          </div>`;
           const reqVal = state.reqNumbers[`machine_${i.index}`];
           if (reqVal) {
             html += `<div class="text-xs text-gray-500 pl-0 pb-1">${TC('reqNrLabel')}: ${reqVal}</div>`;
@@ -1956,14 +1951,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             html += `<div class="text-xs text-gray-500 pl-0 pb-1">${TC('confirmDelivery')} ${formattedUnitDelivery}</div>`;
           }
         }
-      } else {
-        const autoTag = i.isAutoAdded ? ` <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">${TC('autoAdded')}</span>` : '';
-        html += `<div class="flex items-start text-sm py-1 text-gray-600">
-          <div class="w-16 shrink-0 opacity-80">${varenr}</div>
-          <div class="flex-grow px-2 ${paddingClass} leading-snug break-words">${i.txt}${autoTag}</div>
-          <div class="w-28 shrink-0 text-right price-col">${formatDisplayMoney(i.price)}</div>
-        </div>`;
       }
+      const description = configuratorLineDescription(i);
+      const quantity = configuratorLineQuantity(i);
+      const unitPrice = configuratorLineUnitPrice(i);
+      const autoTag = i.isAutoAdded ? ` <span style="font-size:9px;color:#b45309;background:#fef3c7;padding:1px 4px;border-radius:3px;margin-left:4px;">${TC('autoAdded')}</span>` : '';
+      html += `<div class="grid min-w-0 items-start gap-x-3 gap-y-1 border-b border-gray-100 px-2 py-2 text-sm ${i.bold ? 'font-semibold text-gray-800' : 'text-gray-600'} ${permissions.canSeePrices ? 'grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[6rem_minmax(12rem,1fr)_3.5rem_7rem_7rem]' : 'grid-cols-1 sm:grid-cols-[6rem_minmax(12rem,1fr)_3.5rem]'}">
+        <div class="hidden min-w-0 font-mono text-[11px] font-normal opacity-80 sm:block">${varenr}</div>
+        <div class="min-w-0 ${paddingClass} leading-snug break-words">
+          ${description}${autoTag}
+          <div class="mt-1 text-[11px] font-normal text-gray-500 sm:hidden">
+            <span class="font-mono">${varenr}</span> · ${TC('pdfQuantity')} ${quantity}${permissions.canSeePrices ? ` · ${TC('pdfUnitPrice')} ${formatDisplayMoney(unitPrice)}` : ''}
+          </div>
+        </div>
+        <div class="hidden text-right font-normal tabular-nums sm:block">${quantity}</div>
+        ${permissions.canSeePrices ? `<div class="hidden text-right font-normal tabular-nums sm:block">${formatDisplayMoney(unitPrice)}</div><div class="col-start-2 row-start-1 whitespace-nowrap text-right font-medium tabular-nums sm:col-auto sm:row-auto">${formatDisplayMoney(i.price)}</div>` : ''}
+      </div>`;
     });
 
     // Totals
