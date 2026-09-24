@@ -33,11 +33,14 @@ describe('Academy cycles and completion history', () => {
     expect(academySandbox.getCase1().completed).toBe(false);
   });
 
-  it('only permits the one canonical Academy metadata RPC while Academy is active', async () => {
+  it('permits canonical cycle metadata while still blocking business writes and admin mutations', async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response('{}'));
     vi.stubGlobal('fetch', fetchMock);
 
     await academyProtectedFetch('https://example.supabase.co/rest/v1/rpc/record_academy_cycle_completion', { method: 'POST' });
+    await academyProtectedFetch('https://example.supabase.co/rest/v1/rpc/get_my_academy_cycle', { method: 'POST' });
+    await academyProtectedFetch('https://example.supabase.co/rest/v1/rpc/admin_get_academy_cycle_history?p_user_id=qa', { method: 'GET' });
+    await expect(academyProtectedFetch('https://example.supabase.co/rest/v1/rpc/admin_get_academy_cycle_history', { method: 'POST' })).rejects.toThrow('production writes');
     await expect(academyProtectedFetch('https://example.supabase.co/rest/v1/rpc/admin_start_academy_cycle', { method: 'POST' })).rejects.toThrow('production writes');
     await expect(academyProtectedFetch('https://example.supabase.co/rest/v1/crm_leads', { method: 'POST' })).rejects.toThrow('production writes');
   });

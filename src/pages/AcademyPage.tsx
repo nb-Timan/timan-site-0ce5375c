@@ -22,7 +22,9 @@ import { setAcademyCycleStorageScope } from '@/lib/academyCycleStorage';
 import { getMyAcademyCycle, recordAcademyCycleCompletion, type AcademyCycleSnapshot } from '@/lib/academyCyclesService';
 import {
   ACADEMY_CASE_IDS,
-  ACADEMY_CURRICULUM_ORDER,
+  getAssignedAcademyCurriculum,
+  getAcademyTracks,
+  getAcademyAwardTargets,
   activateLocalAcademyEnrollment,
   canOpenAcademyCase,
   getAcademyCaseState,
@@ -200,7 +202,7 @@ export default function AcademyPage() {
       academySandbox.enterSession();
     }
     let cancelled = false;
-    void getMyAcademyCycle()
+    void getMyAcademyCycle(effectiveUser?.id !== appUser?.id ? effectiveUser?.id : undefined)
       .then((snapshot) => {
         if (cancelled) return;
         applyCycleSnapshot(snapshot, localPreview);
@@ -212,7 +214,7 @@ export default function AcademyPage() {
         }
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [appUser?.id, effectiveUser?.id]);
 
   useEffect(() => {
     const refresh = () => setProgressVersion((value) => value + 1);
@@ -227,15 +229,20 @@ export default function AcademyPage() {
   }, []);
 
   const user = effectiveUser || appUser || getLocalAcademyUser();
-  const crmCompleted = Number(Boolean(crm.part1Completed)) + Number(Boolean(crm.part2Completed));
-  const partnerDataCompleted = Number(Boolean(partnerData.part1Completed)) + Number(Boolean(partnerData.part2Completed));
+  const assignedCurriculum = getAssignedAcademyCurriculum(user);
+  const assignedTracks = getAcademyTracks(user);
+  const hasSalesTrack = assignedTracks.includes('sales');
   const localCompletionIds = [
+    ...(cycleSnapshot?.completionIds ?? []),
     ...academySandbox.getCompletedCaseIds(),
     crm.part1Completed && ACADEMY_CASE_IDS.crmPart1,
     crm.part2Completed && ACADEMY_CASE_IDS.crmPart2,
     partnerData.part1Completed && ACADEMY_CASE_IDS.partnerDataPart1,
     partnerData.part2Completed && ACADEMY_CASE_IDS.partnerDataPart2,
   ].filter(Boolean) as string[];
+  const countCompleted = (ids: AcademyCurriculumCaseId[]) => ids.filter((id) => assignedCurriculum.includes(id) && localCompletionIds.includes(id)).length;
+  const crmCompleted = countCompleted([ACADEMY_CASE_IDS.crmPart1, ACADEMY_CASE_IDS.crmPart2]);
+  const partnerDataCompleted = countCompleted([ACADEMY_CASE_IDS.partnerDataPart1, ACADEMY_CASE_IDS.partnerDataPart2]);
   const startedCaseIds = [
     task.started && ACADEMY_CASE_IDS.salesCase1,
     videoTask.started && ACADEMY_CASE_IDS.salesCase2,
@@ -250,7 +257,7 @@ export default function AcademyPage() {
   const activeCycle = cycle?.status === 'active' ? cycle : null;
   const cycleMissing = Boolean(appUser) && cycleResolved && !cycle && !cycleLoadFailed;
   const cycleActionBlocked = Boolean(appUser) && cycleResolved && !activeCycle;
-  const stateFor = (caseId: AcademyCurriculumCaseId) => getAcademyCaseState(caseId, localCompletionIds, startedCaseIds, !cycleActionBlocked);
+  const stateFor = (caseId: AcademyCurriculumCaseId) => getAcademyCaseState(caseId, localCompletionIds, startedCaseIds, !cycleActionBlocked, assignedCurriculum);
   const partnerDataPart1State = stateFor(ACADEMY_CASE_IDS.partnerDataPart1);
   const partnerDataPart2State = stateFor(ACADEMY_CASE_IDS.partnerDataPart2);
   const portalBasicsState = stateFor(ACADEMY_CASE_IDS.portalBasics);
@@ -259,20 +266,22 @@ export default function AcademyPage() {
   const videoCaseState = stateFor(ACADEMY_CASE_IDS.salesCase2);
   const crmPart1State = stateFor(ACADEMY_CASE_IDS.crmPart1);
   const crmPart2State = stateFor(ACADEMY_CASE_IDS.crmPart2);
-  const overallCompleted = ACADEMY_CURRICULUM_ORDER.filter((id) => localCompletionIds.includes(id)).length;
-  const overallTotal = ACADEMY_CURRICULUM_ORDER.length;
-  const overallPercentage = overallCompleted / overallTotal * 100;
+  const overallCompleted = assignedCurriculum.filter((id) => localCompletionIds.includes(id)).length;
+  const overallTotal = assignedCurriculum.length;
+  const overallPercentage = overallTotal ? overallCompleted / overallTotal * 100 : 0;
   const actionForCase = (state: AcademyCaseState) => state === 'locked'
     ? undefined
     : state === 'completed' ? tr('academyOpen') : state === 'active' ? tr('academyContinue') : tr('academyStart');
   const completedCycles = cycleSnapshot?.completedCycleCount ?? 0;
   const awardCounts = cycleSnapshot?.awardCounts ?? { bronze: 0, silver: 0, gold: 0 };
   const currentCycleAwards = cycleSnapshot?.awards ?? [];
-  const nextAward = !currentCycleAwards.includes('bronze') ? tr('academyAwardBronze') : !currentCycleAwards.includes('silver') ? tr('academyAwardSilver') : !currentCycleAwards.includes('gold') ? tr('academyAwardGold') : tr('academyAllBadges');
+  const awardTargets = getAcademyAwardTargets(user);
+  const nextAwardKey = awardTargets.find((award) => !currentCycleAwards.includes(award));
+  const nextAward = nextAwardKey ? tr({ bronze: 'academyAwardBronze', silver: 'academyAwardSilver', gold: 'academyAwardGold' }[nextAwardKey]) : tr('academyAllBadges');
 
   useEffect(() => {
-    if (!activeCycle) return;
-    const missing = localCompletionIds.filter((id) => !cycleSnapshot?.completionIds.includes(id));
+    if (!activeCycle || (effectiveUser?.id && effectiveUser.id !== appUser?.id)) return;
+    const missing = assignedCurriculum.filter((id) => localCompletionIds.includes(id) && !cycleSnapshot?.completionIds.includes(id));
     if (!missing.length) return;
     let cancelled = false;
     void (async () => {
@@ -302,10 +311,10 @@ export default function AcademyPage() {
     [ACADEMY_CASE_IDS.crmPart1]: tr('academyCrmCase1Title'),
     [ACADEMY_CASE_IDS.crmPart2]: tr('academyCrmCase2Title'),
   })[caseId];
-  const nextCaseId = ACADEMY_CURRICULUM_ORDER.find((id) => stateFor(id) !== 'completed');
+  const nextCaseId = assignedCurriculum.find((id) => stateFor(id) !== 'completed');
   const nextCaseState = nextCaseId ? stateFor(nextCaseId) : null;
-  const nextCaseIndex = nextCaseId ? ACADEMY_CURRICULUM_ORDER.indexOf(nextCaseId) : ACADEMY_CURRICULUM_ORDER.length;
-  const completedBeforeNext = ACADEMY_CURRICULUM_ORDER.slice(0, nextCaseIndex).filter((id) => localCompletionIds.includes(id)).length;
+  const nextCaseIndex = nextCaseId ? assignedCurriculum.indexOf(nextCaseId) : assignedCurriculum.length;
+  const completedBeforeNext = assignedCurriculum.slice(0, nextCaseIndex).filter((id) => localCompletionIds.includes(id)).length;
   const nextCaseRequirementCount = nextCaseId ? Math.max(1, nextCaseIndex) : overallTotal;
   const areaReached = (caseIds: AcademyCurriculumCaseId[]) => caseIds.some((id) => stateFor(id) !== 'locked');
   const mayOpen = (state: AcademyCaseState) => canOpenAcademyCase(state);
@@ -373,13 +382,12 @@ export default function AcademyPage() {
                 <p className="mt-2 text-xs font-semibold text-emerald-800">{cycle ? (cycle.status === 'completed' ? tr('academyCycleCompleted') : tr('academyCycleActive')).replace('{number}', String(cycle.cycle_number)) : tr('academyLocalPreview')}</p>
               </div>
               <div className="border-t border-slate-200 pt-5 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Map className="h-4 w-4 text-[#126a45]" />{tr('academySalesJourney')}</div>
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Map className="h-4 w-4 text-[#126a45]" />{tr('academyJourney')}</div>
                 <div className="relative mt-5 flex items-start justify-between">
                   <div className="absolute left-[12%] right-[12%] top-[18px] h-px bg-slate-200" />
-                  <Journey icon={ACADEMY_AREA_ICONS.partnerData} label={tr('academyPartnerData')} active={areaReached([ACADEMY_CASE_IDS.partnerDataPart1, ACADEMY_CASE_IDS.partnerDataPart2])} />
-                  <Journey icon={ACADEMY_AREA_ICONS.portalBasics} label={tr('academyPortalBasics')} active={areaReached([ACADEMY_CASE_IDS.portalBasics, ACADEMY_CASE_IDS.partnerMap])} />
-                  <Journey icon={ACADEMY_AREA_ICONS.sales} label={tr('academySales')} active={areaReached([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2])} />
-                  <Journey icon={ACADEMY_AREA_ICONS.crm} label="CRM" active={areaReached([ACADEMY_CASE_IDS.crmPart1, ACADEMY_CASE_IDS.crmPart2])} />
+                  <Journey icon={ACADEMY_AREA_ICONS.partnerData} label="Basic" active={areaReached([ACADEMY_CASE_IDS.partnerDataPart1, ACADEMY_CASE_IDS.partnerDataPart2, ACADEMY_CASE_IDS.portalBasics, ACADEMY_CASE_IDS.partnerMap])} />
+                  {hasSalesTrack && <Journey icon={ACADEMY_AREA_ICONS.sales} label={tr('academySales')} active={areaReached([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2, ACADEMY_CASE_IDS.crmPart1, ACADEMY_CASE_IDS.crmPart2])} />}
+                  {assignedTracks.includes('service') && <Journey icon={ShieldCheck} label={tr('academyServiceTrack')} active={false} />}
                 </div>
               </div>
             </div>
@@ -416,15 +424,15 @@ export default function AcademyPage() {
             <section className="min-h-[154px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Trophy className="h-4 w-4 text-amber-600" />{tr('academyNextMilestone')}</div>
               <p className="mt-3 text-lg font-bold text-slate-900">{nextAward}</p>
-              <p className="mt-1 text-xs leading-4 text-slate-600">{currentCycleAwards.length === 3 ? tr('academyAllBadges') : completedCycles ? tr('academyCompletedCycles').replace('{count}', String(completedCycles)) : tr('academyCompleteSalesTasks')}</p>
+              <p className="mt-1 text-xs leading-4 text-slate-600">{!nextAwardKey ? tr('academyAllBadges') : completedCycles ? tr('academyCompletedCycles').replace('{count}', String(completedCycles)) : tr('academyCompleteAssignedTasks')}</p>
               <ProgressBar value={overallPercentage} />
               <p className="mt-2 text-xs font-bold text-slate-600">{overallCompleted} / {overallTotal}</p>
             </section>
             <section className="min-h-[154px] rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900"><Medal className="h-4 w-4 text-[#126a45]" />{tr('academyBadges')}</div>
               <div className="mt-3 space-y-2 text-xs">
-                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-800"><Medal className="h-4 w-4 text-[#b77939]" />{tr('academyAwardBronze')}</span><span className="text-slate-500">× {awardCounts.bronze}</span></div>
-                <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><ShieldCheck className="h-4 w-4 text-slate-400" />{tr('academyAwardSilver')}</span><span className="text-slate-500">× {awardCounts.silver}</span></div>
+                {(hasSalesTrack || awardCounts.bronze > 0) && <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-800"><Medal className="h-4 w-4 text-[#b77939]" />{tr('academyAwardBronze')}</span><span className="text-slate-500">× {awardCounts.bronze}</span></div>}
+                {(hasSalesTrack || awardCounts.silver > 0) && <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><ShieldCheck className="h-4 w-4 text-slate-400" />{tr('academyAwardSilver')}</span><span className="text-slate-500">× {awardCounts.silver}</span></div>}
                 <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><Crown className="h-4 w-4 text-amber-500" />{tr('academyAwardGold')}</span><span className="text-slate-500">× {awardCounts.gold}</span></div>
               </div>
             </section>
@@ -435,19 +443,19 @@ export default function AcademyPage() {
               <AcademyRow icon={ACADEMY_AREA_ICONS.partnerData} title={tr('academyPartnerDataPart1Title')} description={tr('academyPartnerDataPart1Description')} state={partnerDataPart1State} statusLabel={stateLabel(partnerDataPart1State)} action={actionForCase(partnerDataPart1State)} onClick={mayOpen(partnerDataPart1State) ? startPartnerDataPart1 : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.partnerData} title={tr('academyPartnerDataPart2Title')} description={tr('academyPartnerDataPart2Description')} state={partnerDataPart2State} statusLabel={stateLabel(partnerDataPart2State)} action={actionForCase(partnerDataPart2State)} onClick={mayOpen(partnerDataPart2State) ? startPartnerDataPart2 : undefined} />
             </Module>
-            <Module title={tr('academyPortalBasics')} progress={`${Number(portalBasics.completed) + Number(partnerMap.completed)} / 2 ${tr('academyCompleted')}`}>
+            <Module title={tr('academyPortalBasics')} progress={`${countCompleted([ACADEMY_CASE_IDS.portalBasics, ACADEMY_CASE_IDS.partnerMap])} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPortalBasicsCaseTitle')} description={tr('academyPortalBasicsCaseDescription')} state={portalBasicsState} statusLabel={stateLabel(portalBasicsState)} action={actionForCase(portalBasicsState)} onClick={mayOpen(portalBasicsState) ? startPortalBasics : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPartnerMapTitle')} description={tr('academyPartnerMapDescription')} state={partnerMapState} statusLabel={stateLabel(partnerMapState)} action={actionForCase(partnerMapState)} onClick={mayOpen(partnerMapState) ? startPartnerMap : undefined} />
             </Module>
-            <Module title={tr('academySales')} progress={`${Number(task.completed) + Number(videoTask.completed)} / 2 ${tr('academyCompleted')}`}>
+            {hasSalesTrack && <Module title={tr('academySales')} progress={`${countCompleted([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2])} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase1Title')} description={tr('academySalesCase1Description')} state={caseState} statusLabel={stateLabel(caseState)} action={actionForCase(caseState)} onClick={mayOpen(caseState) ? startCase : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase2Title')} description={tr('academySalesCase2Description')} state={videoCaseState} statusLabel={stateLabel(videoCaseState)} action={actionForCase(videoCaseState)} onClick={mayOpen(videoCaseState) ? startVideoCase : undefined} />
-            </Module>
-            <Module title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
+            </Module>}
+            {hasSalesTrack && <Module title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.crm} title={tr('academyCrmCase1Title')} description={tr('academyCrmDashboardCase1Description')} state={crmPart1State} statusLabel={stateLabel(crmPart1State)} action={actionForCase(crmPart1State)} onClick={mayOpen(crmPart1State) ? startCrmPart1 : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.crm} title={tr('academyCrmCase2Title')} description={tr('academyCrmDashboardCase2Description')} state={crmPart2State} statusLabel={stateLabel(crmPart2State)} action={actionForCase(crmPart2State)} onClick={mayOpen(crmPart2State) ? startCrmPart2 : undefined} />
-            </Module>
-            <LockedModule title={tr('academyCalendar')} progress={`0 / 1 ${tr('academyCompleted')}`} description={tr('academyCalendarLocked')} lockedLabel={stateLabel('locked')} />
+            </Module>}
+            {assignedTracks.includes('service') && <LockedModule title={tr('academyServiceTrack')} progress="0" description={tr('academyServiceComingSoon')} lockedLabel={tr('academyServiceComingSoon')} />}
           </div>
 
           <Link className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-[#126a45] hover:underline" to="/portal">← {tr('academyBackToPortal')}</Link>

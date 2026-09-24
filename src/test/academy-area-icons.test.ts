@@ -15,9 +15,9 @@ describe('Academy area icons', () => {
 
   it('keeps subject icons on case rows and removes them from section headers', () => {
     expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.sales\}/g)).toHaveLength(3);
-    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.portalBasics\}/g)).toHaveLength(3);
+    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.portalBasics\}/g)).toHaveLength(2);
     expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.partnerData\}/g)).toHaveLength(3);
-    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.crm\}/g)).toHaveLength(3);
+    expect(source.match(/icon=\{ACADEMY_AREA_ICONS\.crm\}/g)).toHaveLength(2);
     expect(source).toContain('function Module({ title, progress, children }');
     expect(source).not.toContain('<Module icon=');
     expect(source).not.toContain('/messe/machines/rc-1000s-tile.png');

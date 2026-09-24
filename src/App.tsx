@@ -95,6 +95,7 @@ import { MesseRouteGuard, PortalLockGuard } from "./components/messe/MesseGuards
 import { DealerUserServiceGuard, PortalAreaAccessGuard } from "./components/guards/DealerUserServiceGuard";
 import AcademyCapabilityGuard from "./components/academy/AcademyCapabilityGuard";
 import AcademyAccessGuard from "./components/academy/AcademyAccessGuard";
+import AcademyTrackGuard from "./components/academy/AcademyTrackGuard";
 import PartnerDataRoute from "./pages/portal/PartnerDataRoute";
 import MarketingConfiguratorPage from "./pages/MarketingConfiguratorPage";
 
@@ -312,7 +313,7 @@ const App = () => (
             <AcademyCaseCompletionModalHost />
             <AcademyPortalBasicsStepSuccessModal />
             <Suspense fallback={<RouteFallback />}>
-            <Routes>
+            <AcademyTrackGuard><Routes>
               {/* Public Messe / exhibition routes (no auth required) */}
               <Route path="/messe" element={<MesseRouteGuard><MesseHomePage /></MesseRouteGuard>} />
               <Route path="/messe/konfigurator" element={<MesseRouteGuard><MesseConfiguratorPage /></MesseRouteGuard>} />
@@ -444,7 +445,7 @@ const App = () => (
               <Route path="/configurator" element={<ConfiguratorRouteErrorBoundary><PortalLockGuard><AcademyCapabilityGuard capability="configurator"><ConfiguratorPage /></AcademyCapabilityGuard></PortalLockGuard></ConfiguratorRouteErrorBoundary>} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
-            </Routes>
+            </Routes></AcademyTrackGuard>
             </Suspense>
             <VisitorTracker />
             <PreferredLanguageBootstrap />

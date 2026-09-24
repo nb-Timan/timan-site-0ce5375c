@@ -13,6 +13,7 @@ export type AcademyCycle = {
   completed_at: string | null;
   next_activation_at: string | null;
   reset_version: number;
+  completed_curriculum?: string[] | null;
 };
 
 export type AcademyAward = 'bronze' | 'silver' | 'gold';
@@ -20,7 +21,7 @@ export type AcademyAwardCounts = Record<AcademyAward, number>;
 export type AcademyCycleSnapshot = { cycle: AcademyCycle | null; completionIds: string[]; completedCycleCount: number; awardCounts: AcademyAwardCounts; awards: AcademyAward[] };
 
 function normalizeSnapshot(value: unknown): AcademyCycleSnapshot {
-  const row = (value && typeof value === 'object' ? value : {}) as { cycle?: AcademyCycle | null; completion_ids?: unknown; award_counts?: unknown; awards?: unknown };
+  const row = (value && typeof value === 'object' ? value : {}) as { cycle?: AcademyCycle | null; completion_ids?: unknown; completed_cycle_count?: unknown; award_counts?: unknown; awards?: unknown };
   const sourceCounts = row.award_counts && typeof row.award_counts === 'object' ? row.award_counts as Partial<AcademyAwardCounts> : {};
   return {
     cycle: row.cycle ?? null,
@@ -40,7 +41,14 @@ function normalizeCycle(value: unknown): AcademyCycle {
   return value as AcademyCycle;
 }
 
-export async function getMyAcademyCycle(): Promise<AcademyCycleSnapshot> {
+export async function getMyAcademyCycle(viewAsUserId?: string): Promise<AcademyCycleSnapshot> {
+  if (viewAsUserId) {
+    // The existing Backend-only history RPC scopes View-as to the target user.
+    const history = await getAcademyCycleHistory(viewAsUserId);
+    const latest = history[0] ?? normalizeSnapshot(null);
+    return { ...latest, completedCycleCount: history.filter((entry) => entry.cycle?.status === 'completed').length,
+      awardCounts: Object.fromEntries(['bronze', 'silver', 'gold'].map((award) => [award, history.filter((entry) => entry.awards.includes(award as AcademyAward)).length])) as AcademyAwardCounts };
+  }
   const { data, error } = await supabase.rpc('get_my_academy_cycle');
   if (error) throw error;
   return normalizeSnapshot(data);
@@ -82,7 +90,7 @@ export async function setAcademyCycleCadence(userId: string, cadence: AcademyCad
 }
 
 export async function getAcademyCycleHistory(userId: string): Promise<AcademyCycleSnapshot[]> {
-  const { data, error } = await supabase.rpc('admin_get_academy_cycle_history', { p_user_id: userId });
+  const { data, error } = await supabase.rpc('admin_get_academy_cycle_history', { p_user_id: userId }, { get: true });
   if (error) throw error;
   return Array.isArray(data) ? data.map(normalizeSnapshot) : [];
 }

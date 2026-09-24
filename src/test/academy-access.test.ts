@@ -67,9 +67,9 @@ describe('Academy module access', () => {
     const academyPage = readFileSync('src/pages/AcademyPage.tsx', 'utf8');
 
     expect(editor).toContain('academy: "Timan Academy"');
-    expect(editor).toContain('{ label: "Academy", modules: ["academy"] }');
+    expect(editor).toContain('data-access-domain="Academy"');
     expect(routes).toContain('<AcademyAccessGuard><AcademyPage /></AcademyAccessGuard>');
-    expect(portal).toContain('const academyEnabled = canAccessAcademy(effectiveUser);');
+    expect(portal).toContain("const academyEnabled = hasTopLevelPortalAreaAccess(effectiveUser, 'academy');");
     expect(academyPage).toContain('useEffectivePortalUserState(appUser)');
   });
 

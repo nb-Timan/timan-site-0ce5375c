@@ -101,6 +101,8 @@ export interface BackendUser {
   backend_modules: BackendMetaModule[];
   organization_access_role: OrganizationAccessRole | null;
   perms: {
+    academy_track_sales?: boolean;
+    academy_track_service?: boolean;
     can_create_claims: boolean;
     can_approve_claims: boolean;
     can_create_tsb: boolean;

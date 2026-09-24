@@ -9,7 +9,7 @@ import { getDefaultQuickActionRoles, resolveEffectiveQuickActions } from '@/lib/
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { t } from '@/lib/i18n/translations';
 import { academySandbox } from '@/lib/academySandbox';
-import { getLocalAcademyUser, type AcademyCapability, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
+import { getLocalAcademyUser, getAcademyTracks, type AcademyCapability, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { WARRANTY_CREATE_ROUTE } from '@/lib/warrantyRoutes';
 
 interface Action {
@@ -69,6 +69,7 @@ export default function QuickActions({ language, showAllActions = false, showRol
   const academyUser = academySandbox.isActive() ? getLocalAcademyUser() : null;
   const renderUser = academyUser ?? appUser;
   const effectiveUser = useEffectivePortalUser(renderUser);
+  const accessUser = useEffectivePortalUser(appUser ?? academyUser);
   if (!renderUser || !effectiveUser) return null;
 
   const portalRole = derivePortalRole(effectiveUser);
@@ -114,6 +115,9 @@ export default function QuickActions({ language, showAllActions = false, showRol
     actions = actions.filter((action) => !action.key || qaAllowed.includes(action.key));
     actions = actions.filter((a) => a.key || !a.requires || hasModuleAccess(portalRole, a.requires, moduleOverride));
   }
+  if (academyUser && !getAcademyTracks(accessUser).includes('sales')) {
+    actions = actions.filter((action) => !academyCapabilityForAction(action.key));
+  }
 
   if (actions.length === 0) return null;
 
@@ -126,7 +130,7 @@ export default function QuickActions({ language, showAllActions = false, showRol
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {actions.map(({ key, labelKey, to, icon: Icon }) => {
           const capability = academyCapabilityForAction(key);
-          const academyLocked = capability && !isAcademyCapabilityUnlocked(effectiveUser, capability, academySandbox.getCompletedCaseIds());
+          const academyLocked = capability && !isAcademyCapabilityUnlocked(accessUser, capability, academySandbox.getCompletedCaseIds());
           const target = academyLocked
             ? `/academy?locked=${capability}`
             : to;

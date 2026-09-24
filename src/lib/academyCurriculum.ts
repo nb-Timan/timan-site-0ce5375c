@@ -18,6 +18,58 @@ export const ACADEMY_CASE_IDS = {
 export type AcademyCurriculumCaseId = typeof ACADEMY_CASE_IDS[keyof typeof ACADEMY_CASE_IDS];
 export type AcademyCaseState = 'locked' | 'ready' | 'active' | 'completed';
 
+export type AcademyTrack = 'basic' | 'sales' | 'service';
+export const ACADEMY_TRACK_PERMISSIONS = ['academy_track_sales', 'academy_track_service'] as const;
+export type AcademyTrackPermission = typeof ACADEMY_TRACK_PERMISSIONS[number];
+// The existing Academy curriculum was Sales. Missing keys retain that access;
+// the new Service track is opt-in, including for existing service users.
+export const ACADEMY_TRACK_DEFAULTS = { academy_track_sales: true, academy_track_service: false } as const;
+export const ACADEMY_CASE_TRACK: Record<AcademyCurriculumCaseId, AcademyTrack> = {
+  [ACADEMY_CASE_IDS.partnerDataPart1]: 'basic',
+  [ACADEMY_CASE_IDS.partnerDataPart2]: 'basic',
+  [ACADEMY_CASE_IDS.portalBasics]: 'basic',
+  [ACADEMY_CASE_IDS.partnerMap]: 'basic',
+  [ACADEMY_CASE_IDS.salesCase1]: 'sales',
+  [ACADEMY_CASE_IDS.salesCase2]: 'sales',
+  [ACADEMY_CASE_IDS.crmPart1]: 'sales',
+  [ACADEMY_CASE_IDS.crmPart2]: 'sales',
+};
+
+export function getAcademyTracks(user: AcademyUser | null | undefined): AcademyTrack[] {
+  if (!canAccessAcademy(user)) return [];
+  return [
+    'basic',
+    ...((user?.permissions?.academy_track_sales ?? ACADEMY_TRACK_DEFAULTS.academy_track_sales) ? ['sales' as const] : []),
+    ...((user?.permissions?.academy_track_service ?? ACADEMY_TRACK_DEFAULTS.academy_track_service) ? ['service' as const] : []),
+  ];
+}
+
+export function getAssignedAcademyCurriculum(user: AcademyUser | null | undefined) {
+  const tracks = getAcademyTracks(user);
+  return ACADEMY_CURRICULUM_ORDER.filter((id) => tracks.includes(ACADEMY_CASE_TRACK[id]));
+}
+
+export function canAccessAcademyCase(user: AcademyUser | null | undefined, caseId: string) {
+  return getAssignedAcademyCurriculum(user).includes(caseId as AcademyCurriculumCaseId);
+}
+
+export function getAcademyAwardTargets(user: AcademyUser | null | undefined) {
+  return getAcademyTracks(user).includes('sales') ? ['bronze', 'silver', 'gold'] as const : ['gold'] as const;
+}
+
+/** Shared training routes must enforce track access before mounting their pages. */
+export function getAcademyRouteTrack(pathname: string, search: string, activeCase?: string | null): AcademyTrack | null {
+  const params = new URLSearchParams(search);
+  const requestedTrack = params.get('track');
+  if (pathname.startsWith('/academy/crm') || pathname.startsWith('/portal/crm')
+    || pathname === '/configurator' || pathname === '/messe/konfigurator'
+    || pathname === '/portal/videos') return 'sales';
+  if (requestedTrack && ['basic', 'sales', 'service'].includes(requestedTrack)) return requestedTrack as AcademyTrack;
+  if (pathname === '/academy') return null;
+  if (activeCase) return ACADEMY_CASE_TRACK[activeCase as AcademyCurriculumCaseId] ?? null;
+  return null;
+}
+
 export const ACADEMY_CURRICULUM_ORDER: readonly AcademyCurriculumCaseId[] = [
   ACADEMY_CASE_IDS.partnerDataPart1,
   ACADEMY_CASE_IDS.partnerDataPart2,
@@ -39,14 +91,16 @@ export function getAcademyCaseState(
   completedCaseIds: Iterable<string>,
   startedCaseIds: Iterable<string> = [],
   curriculumAvailable = true,
+  curriculum: readonly AcademyCurriculumCaseId[] = ACADEMY_CURRICULUM_ORDER,
 ): AcademyCaseState {
+  if (!curriculum.includes(caseId)) return 'locked';
   const completed = new Set(completedCaseIds);
   if (completed.has(caseId)) return 'completed';
   if (!curriculumAvailable) return 'locked';
 
-  const index = ACADEMY_CURRICULUM_ORDER.indexOf(caseId);
+  const index = curriculum.indexOf(caseId);
   const prerequisitesComplete = index >= 0
-    && ACADEMY_CURRICULUM_ORDER.slice(0, index).every((id) => completed.has(id));
+    && curriculum.slice(0, index).every((id) => completed.has(id));
   if (!prerequisitesComplete) return 'locked';
   return new Set(startedCaseIds).has(caseId) ? 'active' : 'ready';
 }
@@ -58,7 +112,7 @@ const LOCAL_ACADEMY_ENROLLMENT_KEY = 'timan.academy.local-enrollment.v1';
 
 export type AcademyCapability = 'configurator' | 'crm' | 'demo' | 'quote' | 'order';
 
-type AcademyUser = Pick<AppUser, 'role' | 'partner_type'> & {
+export type AcademyUser = Pick<AppUser, 'role' | 'partner_type'> & {
   portal_role?: string | null;
   allowed_modules?: string[] | null;
   module_access?: string[] | null;
@@ -124,9 +178,11 @@ export function canAccessAcademy(user: AcademyUser | null | undefined) {
 export function isAcademyCapabilityGated(user: AcademyUser | null | undefined) {
   return hasAcademyModuleAccess(user);
 }
-export function getAcademyProgress(_user: AcademyUser | null | undefined, completedCaseIds: Iterable<string>) {
-  const completed = new Set(completedCaseIds).has(ACADEMY_CASE_1_ID) ? 1 : 0;
-  return { completedCount: completed, total: 1, percentage: completed * 100 };
+export function getAcademyProgress(user: AcademyUser | null | undefined, completedCaseIds: Iterable<string>) {
+  const curriculum = getAssignedAcademyCurriculum(user);
+  const completed = new Set(completedCaseIds);
+  const completedCount = curriculum.filter((id) => completed.has(id)).length;
+  return { completedCount, total: curriculum.length, percentage: curriculum.length ? completedCount / curriculum.length * 100 : 0 };
 }
 export function getAcademyCapabilityProgress(capability: AcademyCapability, completedCaseIds: Iterable<string>) {
   const completed = new Set(completedCaseIds);
@@ -134,6 +190,7 @@ export function getAcademyCapabilityProgress(capability: AcademyCapability, comp
   return { completedCount: required.filter((id) => completed.has(id)).length, total: required.length };
 }
 export function isAcademyCapabilityUnlocked(user: AcademyUser | null | undefined, capability: AcademyCapability, completedCaseIds: Iterable<string>) {
+  if (isAcademyCapabilityGated(user) && !getAcademyTracks(user).includes('sales')) return false;
   if (!isAcademyCapabilityGated(user) || (Boolean(user?.permissions?.academy_bypass) && isBackendActor(user))) return true;
   const progress = getAcademyCapabilityProgress(capability, completedCaseIds);
   return progress.completedCount === progress.total;

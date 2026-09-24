@@ -57,7 +57,8 @@ describe('backend user permission grouping', () => {
     expect(editor).toContain('academy: "Timan Academy"');
     expect(editor).toContain('calendar: "Kalender"');
     expect(editor).toContain('!moduleBackedAreaKeys.has(m)');
-    expect(editor).toContain('moduleBackedAreaChanged');
+    expect(editor.match(/Nulstil til rolle/g)).toHaveLength(1);
+    expect(editor).toContain('allowed_areas: roleDefaultAreas, allowed_modules: roleDefaultModules');
     expect(editor).not.toContain('modules: ["messe_portal"');
   });
 });

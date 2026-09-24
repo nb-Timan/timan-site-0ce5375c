@@ -2,6 +2,8 @@ import { academySandbox } from '@/lib/academySandbox';
 
 const ACADEMY_METADATA_RPC = new Set([
   'record_academy_cycle_completion',
+  // Reads the caller's cycle and may activate an already scheduled recurrence.
+  'get_my_academy_cycle',
 ]);
 
 /** Last line of defence if an Academy data adapter misses a production caller. */

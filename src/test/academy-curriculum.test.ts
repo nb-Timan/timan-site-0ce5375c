@@ -18,6 +18,6 @@ describe('Academy Case 1 checkpoint curriculum', () => {
 
   it('does not apply Academy gates to a normal seller', () => {
     expect(isAcademyCapabilityUnlocked(normalSeller, 'configurator', [])).toBe(true);
-    expect(getAcademyProgress(academySeller, [ACADEMY_CASE_1_ID])).toMatchObject({ completedCount: 1, total: 1, percentage: 100 });
+    expect(getAcademyProgress(academySeller, [ACADEMY_CASE_1_ID])).toMatchObject({ completedCount: 1, total: 8, percentage: 12.5 });
   });
 });

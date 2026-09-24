@@ -13,13 +13,13 @@ describe('Academy fullwidth dashboard layout', () => {
   it('keeps the canonical Academy journey in the top block without a duplicate continue card', () => {
     expect(academyPage).toContain("tr('academyProgress')");
     expect(academyPage).toContain("tr('academyNextUnlock')");
-    expect(academyPage).toContain("label={tr('academyPartnerData')}");
-    expect(academyPage).toContain("label={tr('academyPortalBasics')}");
+    expect(academyPage).toContain('label="Basic"');
     expect(academyPage).toContain("label={tr('academySales')}");
-    expect(academyPage).toContain('label="CRM"');
+    expect(academyPage).toContain("assignedTracks.includes('service') && <Journey");
+    expect(academyPage).toContain('hasSalesTrack && <Journey');
     expect(academyPage).toContain("tr('academyNextMilestone')");
     expect(academyPage).toContain("tr('academyBadges')");
-    expect(academyPage).toContain("tr('academySalesJourney')");
+    expect(academyPage).toContain("tr('academyJourney')");
     expect(academyPage).toContain('sm:grid-cols-2 lg:grid-cols-4');
     expect(academyPage).toContain('lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]');
     expect(academyPage).not.toContain("tr('academyContinueWhere')");

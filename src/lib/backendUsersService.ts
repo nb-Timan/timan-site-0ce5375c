@@ -150,6 +150,8 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     backend_modules,
     organization_access_role: normalizeOrganizationAccessRole(row.organization_access_role as string | null),
     perms: {
+      ...(typeof perms.academy_track_sales === 'boolean' ? { academy_track_sales: perms.academy_track_sales } : {}),
+      ...(typeof perms.academy_track_service === 'boolean' ? { academy_track_service: perms.academy_track_service } : {}),
       can_view_prices: defaultCanViewPrices(row.can_view_prices, row.portal_role, row.role, row.partner_type),
       can_submit_order: defaultCanSubmitOrder(row.can_submit_order, row.portal_role, row.role, row.partner_type),
       can_create_claims: perms.can_create_claims ?? !isBackend,

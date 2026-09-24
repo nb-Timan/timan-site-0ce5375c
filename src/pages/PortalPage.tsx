@@ -19,7 +19,9 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { ACADEMY_PORTAL_BASICS, academySandbox, PORTAL_BASICS_NEWS_TITLE, type AcademyPortalBasicsState } from '@/lib/academySandbox';
-import { getAcademyCapabilityProgress, getAcademyProgress, getLocalAcademyUser, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
+import { getAcademyCapabilityProgress, getAcademyProgress, getAcademyTracks, getLocalAcademyUser, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
+import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
+import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { Language } from '@/types/configurator';
 import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
 import { t } from '@/lib/i18n/translations';
@@ -257,7 +259,13 @@ export default function PortalPage() {
 
   const portalRole = derivePortalRole(effectiveUser);
   const academyEnabled = hasTopLevelPortalAreaAccess(effectiveUser, 'academy');
-  const academyCompletedCaseIds = academySandbox.getCompletedCaseIds();
+  const academyCompletedCaseIds = [
+    ...academySandbox.getCompletedCaseIds(),
+    ...(academyPartnerDataSandbox.getProgress().part1Completed ? ['partnerdata.part_1_profile'] : []),
+    ...(academyPartnerDataSandbox.getProgress().part2Completed ? ['partnerdata.part_2_relations'] : []),
+    ...(academyCrmSandbox.getProgress().part1Completed ? ['crm.part_1'] : []),
+    ...(academyCrmSandbox.getProgress().part2Completed ? ['crm.part_2'] : []),
+  ];
   const academyProgress = getAcademyProgress(effectiveUser, academyCompletedCaseIds);
   const portalBasics = academySandbox.getPortalBasics();
   const isPortalBasicsAcademy = academySandbox.isActive()
@@ -407,7 +415,7 @@ export default function PortalPage() {
           })}
         </div>
 
-        {academyEnabled && academyCapabilityGated && !configuratorUnlocked && !isPortalBasicsAcademy && (
+        {academyEnabled && getAcademyTracks(effectiveUser).includes('sales') && academyCapabilityGated && !configuratorUnlocked && !isPortalBasicsAcademy && (
           <section className="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
             <p className="font-semibold">Næste oplåsning: Konfigurator</p>
             <p className="mt-1">Gennemfør Sales Case 1 og Case 2 for at få adgang til den rigtige konfigurator.</p>

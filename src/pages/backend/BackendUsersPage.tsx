@@ -15,6 +15,7 @@ import { Check, ChevronsUpDown, KeyRound, Mail, Pencil, RotateCcw, Search, Shiel
 import { callAdminUserAction } from "@/lib/adminUserActions";
 import { clearSellerIdCache } from "@/lib/resolveSellerId";
 import { clearViewAsCache } from "@/lib/viewAsUser";
+import { ACADEMY_TRACK_DEFAULTS, ACADEMY_TRACK_PERMISSIONS, getAssignedAcademyCurriculum } from '@/lib/academyCurriculum';
 import { invalidateSellerDirectory } from "@/lib/sellerDirectory";
 import { useAppUser } from "@/context/AppUserContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -1141,9 +1142,6 @@ function EditUserModal({
                   ? effectiveAllowedAreas.includes(entry.key as AreaKey)
                   : effectiveAllowedModules.includes(entry.key))
                 .map((entry) => entry.id);
-              const moduleBackedAreaChanged = [...moduleBackedAreaKeys].some(
-                (key) => draft.allowed_modules.includes(key) !== roleDefaultModules.includes(key),
-              );
               return (
                 <>
                   <CheckboxGroup
@@ -1183,23 +1181,6 @@ function EditUserModal({
                       setDraft({ ...draft, allowed_modules: toggle(draft.allowed_modules, entry.key), has_manual_module_override: true });
                     }}
                   />
-                  {(draft.has_manual_area_override || moduleBackedAreaChanged) && (
-                    <button
-                      type="button"
-                      onClick={() => setDraft({
-                        ...draft,
-                        allowed_areas: roleDefaultAreas,
-                        allowed_modules: [
-                          ...draft.allowed_modules.filter((key) => !moduleBackedAreaKeys.has(key)),
-                          ...roleDefaultModules.filter((key) => moduleBackedAreaKeys.has(key)),
-                        ],
-                        has_manual_area_override: false,
-                      })}
-                      className="mt-2 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
-                    >
-                      Nulstil til rolle
-                    </button>
-                  )}
                   {dealerSide && (
                     <p className="mt-2 text-[11px] text-slate-500">
                       Eksterne dealer-side roller kan få begrænset CRM-adgang, men har ikke adgang til Timan Backend.
@@ -1319,6 +1300,25 @@ function EditUserModal({
                         </div>
                       );
                     })}
+                    <div data-access-domain="Academy" className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                      <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-700">Academy</p>
+                      <CheckboxGroup items={[{ value: 'basic', label: 'Basic – altid inkluderet når Timan Academy er aktiv', disabled: true }]}
+                        checked={effectiveAllowedModules.includes('academy') ? ['basic'] : []} onChange={() => {}} />
+                      <div className="mt-3">
+                        <CheckboxGroup
+                          items={ACADEMY_TRACK_PERMISSIONS.map((key) => ({
+                            value: key,
+                            label: accessLabel(key === 'academy_track_sales' ? 'Salg' : 'Teknik & Service', ACADEMY_TRACK_DEFAULTS[key], draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key], typeof draft.perms[key] === 'boolean'),
+                            disabled: !effectiveAllowedModules.includes('academy'),
+                          }))}
+                          checked={ACADEMY_TRACK_PERMISSIONS.filter((key) => draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key])}
+                          onChange={(value) => {
+                            const key = value as typeof ACADEMY_TRACK_PERMISSIONS[number];
+                            setDraft({ ...draft, perms: { ...draft.perms, [key]: !(draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key]) } });
+                          }}
+                        />
+                      </div>
+                    </div>
                     {otherModules.length > 0 && (
                       <div data-access-domain="Øvrige moduler" className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
                         <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-700">Øvrige moduler</p>
@@ -1326,10 +1326,14 @@ function EditUserModal({
                       </div>
                     )}
                   </div>
-                  {draft.has_manual_module_override && (
+                  {(draft.has_manual_module_override || draft.has_manual_area_override || ACADEMY_TRACK_PERMISSIONS.some((key) => typeof draft.perms[key] === 'boolean')) && (
                     <button
                       type="button"
-                      onClick={() => setDraft({ ...draft, allowed_modules: roleDefaultModules, has_manual_module_override: false })}
+                      onClick={() => {
+                        const perms = { ...draft.perms };
+                        for (const key of ACADEMY_TRACK_PERMISSIONS) delete perms[key];
+                        setDraft({ ...draft, perms, allowed_areas: roleDefaultAreas, allowed_modules: roleDefaultModules, has_manual_area_override: false, has_manual_module_override: false });
+                      }}
                       className="mb-3 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
                     >
                       Nulstil til rolle
@@ -1462,7 +1466,11 @@ function AcademyCycleManager({ user }: { user: BackendUser }) {
         {history.length > 0 && <details className="mt-3 rounded-md border border-emerald-100 bg-white p-2">
           <summary className="cursor-pointer font-semibold text-slate-800">{tr('academyAdminHistory')} ({history.length})</summary>
           <ul className="mt-2 space-y-1 text-[11px] text-slate-600">
-            {history.map((entry) => entry.cycle && <li key={entry.cycle.id}>{tr('academyAdminCycle').replace('{number}', String(entry.cycle.cycle_number))}: {entry.cycle.status === 'completed' ? tr('academyStatusDone') : tr('academyStatusActive')} · {entry.completionIds.length}/8 {tr('academyAdminTasks')}{entry.awards.length ? ` · ${tr('academyBadges').toLowerCase()}: ${entry.awards.join(', ')}` : ''}</li>)}
+            {history.map((entry) => {
+              if (!entry.cycle) return null;
+              const curriculum = entry.cycle.completed_curriculum ?? getAssignedAcademyCurriculum({ role: 'timan_saelger', portal_role: user.role, allowed_modules: user.allowed_modules, permissions: user.perms });
+              return <li key={entry.cycle.id}>{tr('academyAdminCycle').replace('{number}', String(entry.cycle.cycle_number))}: {entry.cycle.status === 'completed' ? tr('academyStatusDone') : tr('academyStatusActive')} · {entry.completionIds.filter((id) => curriculum.includes(id)).length}/{curriculum.length} {tr('academyAdminTasks')}{entry.awards.length ? ` · ${tr('academyBadges').toLowerCase()}: ${entry.awards.join(', ')}` : ''}</li>;
+            })}
           </ul>
         </details>}
         {message && <p className="mt-3 rounded-md bg-white px-2 py-1.5 text-[11px] text-slate-700">{message}</p>}
