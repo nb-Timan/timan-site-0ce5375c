@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { calculateConfiguration } from '@/lib/calcConfiguration';
-import { configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
+import { readFileSync } from 'node:fs';
+import { configuratorCartLineDescription, configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import { t } from '@/data/translations';
 
@@ -33,6 +34,24 @@ describe('configurator line presentation', () => {
   it('preserves a legitimate x2 in canonical product text', () => {
     expect(configuratorLineDescription({ txt: '- Legacy x2 suffix', description: 'Hydraulic x2 connector', quantity: 2, unitPrice: 10, price: 20, varenr: 'QA' }))
       .toBe('Hydraulic x2 connector');
+    expect(configuratorCartLineDescription({ txt: '- Hydraulic x2 connector', description: 'Hydraulic x2 connector', quantity: 2, unitPrice: 10, price: 20, varenr: 'QA' }))
+      .toBe('- Hydraulic x2 connector x2');
+  });
+
+  it('keeps the live cart compact while the confirmation keeps document columns', () => {
+    const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+    const liveCartStart = source.indexOf("{T('summaryTitle')}");
+    const liveCart = source.slice(liveCartStart, source.indexOf('displayCalc!.discountDetails', liveCartStart));
+    const confirmation = source.slice(source.indexOf('const buildConfirmationHtml'), source.indexOf('// Totals', source.indexOf('const buildConfirmationHtml')));
+
+    expect(liveCart).toContain('configuratorCartLineDescription(item)');
+    expect(liveCart).not.toContain("T('pdfQuantity')");
+    expect(liveCart).not.toContain("T('pdfUnitPrice')");
+    expect(liveCart).not.toContain("T('pdfLineTotal')");
+    expect(liveCart).not.toContain('overflow-x-auto');
+    expect(confirmation).toContain("TC('pdfQuantity')");
+    expect(confirmation).toContain("TC('pdfUnitPrice')");
+    expect(confirmation).toContain("TC('pdfLineTotal')");
   });
 
   it('localizes the five line-table headers for DA, DE, and EN', () => {
