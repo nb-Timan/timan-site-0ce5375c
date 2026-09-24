@@ -8,7 +8,7 @@ import {
   replaceCrmLeadDealerCustomerData,
   selectCrmLeadCustomerMode,
   sortCrmLeadDealerContacts,
-  updateManualCrmLeadCustomerDraft,
+  updateActiveCrmLeadCustomerDraft,
 } from '@/lib/crmLeadDealerContact';
 import type { DealerAccount } from '@/lib/dealerAccountsService';
 import type { DealerContact } from '@/lib/dealerContactsService';
@@ -113,23 +113,62 @@ describe('CRM lead dealer contact autofill', () => {
     expect(activeCrmLeadCustomerDraft(selectCrmLeadCustomerMode(dealerMode, 'manual'))).toEqual(manualCustomerDraft);
   });
 
-  it('uses the edited manual draft as the only save source', () => {
+  it('keeps dealer mode and unrelated prefilled fields when phone is completed locally', () => {
     const manualCustomerDraft = {
       ...EMPTY_CRM_LEAD_CUSTOMER_DRAFT,
       company: 'Original manual customer',
       country: 'Danmark',
     };
     const dealerCustomerData = buildCrmLeadDealerContactSnapshot(dealer, contact('1', 'sales', 'Dealer Contact'));
-    const edited = updateManualCrmLeadCustomerDraft({
+    const edited = updateActiveCrmLeadCustomerDraft({
       mode: 'dealer',
       manualCustomerDraft,
       dealerCustomerData,
-    }, { company: 'New manual customer', email: 'new@example.dk' });
+    }, { phone: '+45 87 65 43 21' });
 
-    expect(activeCrmLeadCustomerDraft(edited)).toMatchObject({
-      company: 'New manual customer',
-      email: 'new@example.dk',
+    expect(edited.mode).toBe('dealer');
+    expect(activeCrmLeadCustomerDraft(edited)).toEqual({
+      ...dealerCustomerData,
+      phone: '+45 87 65 43 21',
     });
+    expect(edited.manualCustomerDraft).toEqual(manualCustomerDraft);
+  });
+
+  it('keeps dealer mode for every editable lead-local customer field', () => {
+    const manualCustomerDraft = { ...EMPTY_CRM_LEAD_CUSTOMER_DRAFT, company: 'Preserved manual customer' };
+    const dealerCustomerData = buildCrmLeadDealerContactSnapshot(dealer, contact('1', 'sales', 'Dealer Contact'));
+    const patch = {
+      company: 'Local company override',
+      contactPerson: 'Local contact override',
+      phone: '+45 11 22 33 44',
+      email: 'local@example.test',
+      address: 'Local Street 2',
+      postalCode: '9000',
+      city: 'Aalborg',
+      country: 'Danmark',
+    };
+
+    const edited = updateActiveCrmLeadCustomerDraft({
+      mode: 'dealer',
+      manualCustomerDraft,
+      dealerCustomerData,
+    }, patch);
+
+    expect(edited.mode).toBe('dealer');
+    expect(edited.dealerCustomerData).toEqual(patch);
+    expect(edited.manualCustomerDraft).toEqual(manualCustomerDraft);
+  });
+
+  it('updates the manual draft without changing mode when manual mode was explicitly selected', () => {
+    const dealerCustomerData = buildCrmLeadDealerContactSnapshot(dealer, contact('1', 'sales', 'Dealer Contact'));
+    const edited = updateActiveCrmLeadCustomerDraft({
+      mode: 'manual',
+      manualCustomerDraft: { ...EMPTY_CRM_LEAD_CUSTOMER_DRAFT, company: 'Manual customer' },
+      dealerCustomerData,
+    }, { email: 'manual@example.dk' });
+
+    expect(edited.mode).toBe('manual');
+    expect(edited.manualCustomerDraft.email).toBe('manual@example.dk');
     expect(edited.dealerCustomerData).toEqual(dealerCustomerData);
   });
 

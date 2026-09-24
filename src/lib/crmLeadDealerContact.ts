@@ -48,16 +48,14 @@ export function selectCrmLeadCustomerMode(
   return { ...state, mode };
 }
 
-/** Manual typing always resumes the preserved manual draft. */
-export function updateManualCrmLeadCustomerDraft(
+/** Field edits update the active lead-local snapshot without changing source mode. */
+export function updateActiveCrmLeadCustomerDraft(
   state: CrmLeadCustomerDraftState,
   patch: Partial<CrmLeadDealerContactSnapshot>,
 ): CrmLeadCustomerDraftState {
-  return {
-    ...state,
-    mode: 'manual',
-    manualCustomerDraft: { ...state.manualCustomerDraft, ...patch },
-  };
+  return state.mode === 'dealer'
+    ? { ...state, dealerCustomerData: { ...state.dealerCustomerData, ...patch } }
+    : { ...state, manualCustomerDraft: { ...state.manualCustomerDraft, ...patch } };
 }
 
 /** A dealer change replaces only the dealer-derived snapshot. */

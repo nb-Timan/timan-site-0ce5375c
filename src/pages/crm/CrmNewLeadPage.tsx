@@ -41,7 +41,7 @@ import {
   formatCrmLeadDealerContact,
   replaceCrmLeadDealerCustomerData,
   sortCrmLeadDealerContacts,
-  updateManualCrmLeadCustomerDraft,
+  updateActiveCrmLeadCustomerDraft,
   type CrmLeadDealerContactSnapshot,
   type CrmLeadContactMode,
 } from '@/lib/crmLeadDealerContact';
@@ -1184,10 +1184,12 @@ export default function CrmNewLeadPage() {
 
   function handleDealerContactChange(contactId: string) {
     if (!contactId) {
-      handleManualCustomer();
+      setSelectedDealerContactId('');
+      setDealerContactEmailMissing(false);
+      applyDealerContactSnapshot(null);
       return;
     }
-    setContactMode(contactId ? 'dealer' : 'manual');
+    setContactMode('dealer');
     setSelectedDealerContactId(contactId);
     const contact = sortedDealerContacts.find((candidate) => candidate.id === contactId) || null;
     setDealerContactEmailMissing(Boolean(contact && !contact.email?.trim()));
@@ -1211,18 +1213,14 @@ export default function CrmNewLeadPage() {
     );
   }
 
-  function updateManualCustomerDraft(patch: Partial<CrmLeadDealerContactSnapshot>) {
-    const next = updateManualCrmLeadCustomerDraft({
+  function updateActiveCustomerDraft(patch: Partial<CrmLeadDealerContactSnapshot>) {
+    const next = updateActiveCrmLeadCustomerDraft({
       mode: contactMode,
       manualCustomerDraft,
       dealerCustomerData,
     }, patch);
-    if (contactMode !== next.mode) {
-      setContactMode('manual');
-      setSelectedDealerContactId('');
-      setDealerContactEmailMissing(false);
-    }
     setManualCustomerDraft(next.manualCustomerDraft);
+    setDealerCustomerData(next.dealerCustomerData);
     if (patch.country !== undefined) {
       setCountry(patch.country);
       setCountryChoice(patch.country === 'Danmark' || patch.country === 'Tyskland' ? patch.country : patch.country ? 'Other' : '');
@@ -1736,7 +1734,7 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactCompany')}
                 value={activeCustomerData.company}
                 onChange={e=>{
-                  updateManualCustomerDraft({ company: e.target.value });
+                  updateActiveCustomerDraft({ company: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactCompany');
                 }}
               />
@@ -1746,7 +1744,7 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactPersonName')}
                 value={activeCustomerData.contactPerson}
                 onChange={e=>{
-                  updateManualCustomerDraft({ contactPerson: e.target.value });
+                  updateActiveCustomerDraft({ contactPerson: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactPersonName');
                 }}
               />
@@ -1757,7 +1755,7 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactPhone')}
                 value={activeCustomerData.phone}
                 onChange={e=>{
-                  updateManualCustomerDraft({ phone: e.target.value });
+                  updateActiveCustomerDraft({ phone: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactPhone');
                 }}
               />
@@ -1768,14 +1766,14 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactEmail')}
                 value={activeCustomerData.email}
                 onChange={e=>{
-                  updateManualCustomerDraft({ email: e.target.value });
+                  updateActiveCustomerDraft({ email: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactEmail');
                 }}
               />
             </Field>
             <Field label={tt('lbl_contact_address', lang)} full>
               <input className={inputCls} value={activeCustomerData.address} onChange={e=>{
-                updateManualCustomerDraft({ address: e.target.value });
+                updateActiveCustomerDraft({ address: e.target.value });
               }} />
             </Field>
             <Field label={tt('lbl_contact_postal_code', lang)} required error={fieldError('contactPostalCode')}>
@@ -1783,7 +1781,7 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactPostalCode')}
                 value={activeCustomerData.postalCode}
                 onChange={e=>{
-                  updateManualCustomerDraft({ postalCode: e.target.value });
+                  updateActiveCustomerDraft({ postalCode: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactPostalCode');
                 }}
               />
@@ -1793,7 +1791,7 @@ export default function CrmNewLeadPage() {
                 className={requiredInputClass('contactCity')}
                 value={activeCustomerData.city}
                 onChange={e=>{
-                  updateManualCustomerDraft({ city: e.target.value });
+                  updateActiveCustomerDraft({ city: e.target.value });
                   if (e.target.value.trim()) clearFieldError('contactCity');
                 }}
               />
@@ -1804,7 +1802,7 @@ export default function CrmNewLeadPage() {
                 value={activeCustomerData.country}
                 onChange={e=>{
                   const nextCountry = e.target.value;
-                  updateManualCustomerDraft({ country: nextCountry });
+                  updateActiveCustomerDraft({ country: nextCountry });
                   if (nextCountry.trim()) clearFieldError('country');
                 }}
               />
