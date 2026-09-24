@@ -21,18 +21,21 @@ export function formatDiscountDetailLabel(detail: DiscountDetail, includeItemNum
 }
 
 export function configurationCampaignSelection(state: ConfiguratorState) {
+  let unit = 0;
   return state.machineConfigs.flatMap(machine => {
     const product = PRODUCTS[machine.type];
     if (!product) return [];
-    const selection = [{ productKey: `${machine.type}::${product.id}`, itemNumber: product.varenr, quantity: machine.qty }];
+    const selection: { productKey: string; itemNumber: string; quantity: number; demo: boolean }[] = [];
     for (let index = 1; index <= machine.qty; index++) {
+      const demo = Boolean(state.demoMachines?.[`${product.varenr}_${++unit}`]);
+      selection.push({ productKey: `${machine.type}::${product.id}`, itemNumber: product.varenr, quantity: 1, demo });
       const key = machine.configMode === 'shared' ? machine.id : `${machine.id}_${index}`;
       const selected = machine.configMode === 'shared' ? machine.acc ?? [] : state.individualUnitConfigs?.[key]?.acc ?? [];
       for (const accessory of getAccessoriesFlat(machine.type)) {
         if (accessory.isHeader) continue;
         const quantity = state.accQty?.[`${key}_${accessory.id}`] || 0;
         if (selected.includes(accessory.id) || shouldIncludeQuantityAccessory(machine.type, accessory, selected, quantity)) {
-          selection.push({ productKey: `${machine.type}::${accessory.id}`, itemNumber: accessory.varenr, quantity: quantity || 1 });
+          selection.push({ productKey: `${machine.type}::${accessory.id}`, itemNumber: accessory.varenr, quantity: quantity || 1, demo });
         }
       }
     }
@@ -86,7 +89,8 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   const subtotal = roundPricingMoney(lines.reduce((sum, line) => sum + line.gross, 0));
   const apply = (kind: DiscountDetail['kind'], percent: number, eligible: (line: EconomicLine) => boolean, label: string, varenr?: string) => {
     if (!(percent > 0)) return;
-    const affected = lines.filter(eligible);
+    // Demo is an exclusive per-unit regime, including its existing surcharge.
+    const affected = lines.filter(line => (kind === 'demo' || !line.demo) && eligible(line));
     const basis = roundPricingMoney(affected.reduce((sum, line) => sum + line.net, 0));
     // Allocate rounded aggregate discount deterministically, conserving every cent.
     const amount = roundPricingMoney(basis * Math.min(100, percent) / 100);
@@ -139,10 +143,9 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
       if (!isCampaignActive(campaign, now) || campaign.type === 'badge') continue;
       const triggerLinks = campaign.products.filter(product => product.role === 'trigger');
       const benefitLinks = campaign.products.filter(product => product.role === 'benefit' || (campaign.type !== 'conditional' && product.role === 'linked'));
-      const campaignSelection = lines.map(line => ({ productKey: line.productKey, itemNumber: line.item.varenr, quantity: line.quantity }));
+      const campaignSelection = lines.map(line => ({ productKey: line.productKey, itemNumber: line.item.varenr, quantity: line.quantity, demo: line.demo }));
       const triggerSetCount = campaignTriggerSetCount(campaign, campaignSelection);
       let remainingBenefitQuantity = campaignBenefitEntitlement(campaign, campaignSelection);
-      if (campaign.type === 'conditional' && remainingBenefitQuantity <= 0) continue;
       const benefitEntitlementQuantity = campaign.type === 'conditional' ? remainingBenefitQuantity : null;
       // A single entitlement is shared by all choices; the latest selected choice wins.
       const benefitLines = campaign.type === 'conditional'
@@ -153,8 +156,8 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         const benefit = benefitLinks.find(product => product.itemNumber === line.item.varenr || product.productKey === line.productKey);
         if (!benefit) continue;
         const remaining = remainingBenefitQuantity;
-        if (remaining <= 0) continue;
-        const eligibleQuantity = Math.min(line.quantity, remaining);
+        if (!line.demo && remaining <= 0) continue;
+        const eligibleQuantity = line.demo ? line.quantity : Math.min(line.quantity, remaining);
         if (!(eligibleQuantity > 0)) continue;
         const pricing = campaignProductPricing(campaign, benefit);
         const pricingType = pricing.type as 'percentage' | 'fixed';
@@ -165,7 +168,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
           : null;
         const lineBefore = line.net;
         const eligibleBasis = roundPricingMoney(lineBefore * eligibleQuantity / line.quantity);
-        const amount = roundPricingMoney(pricingType === 'percentage'
+        const amount = line.demo ? 0 : roundPricingMoney(pricingType === 'percentage'
           ? eligibleBasis * (configuredPct ?? 0) / 100
           : Math.max(0, eligibleBasis - roundPricingMoney((target ?? 0) * eligibleQuantity)));
         line.net = roundPricingMoney(lineBefore - amount);
@@ -173,11 +176,12 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         const snapshot: CampaignLineSnapshot = {
           campaignId: campaign.id, campaignCode: campaign.code, campaignName: campaign.name,
           campaignType: campaign.type, pricingType, applied: amount > 0,
+          ...(line.demo ? { suppressedReason: 'demo_machine' as const } : {}),
           triggerItemNumbers: triggerLinks.map(product => product.itemNumber), benefitItemNumber: benefit.itemNumber,
           triggerMatchMode: campaign.triggerMatchMode, triggerSetCount,
           repeatPerTrigger: campaign.scaleBenefitWithTrigger, benefitEntitlementQuantity,
           configuredPct: pricingType === 'percentage' ? configuredPct : null,
-          discountPct: pricingType === 'percentage' ? configuredPct ?? 0 : percent,
+          discountPct: line.demo ? 0 : pricingType === 'percentage' ? configuredPct ?? 0 : percent,
           discountAmount: amount, targetPrice: target, currency, productKey: line.productKey,
           itemNumber: line.item.varenr, unitNumber: line.unit, quantity: eligibleQuantity,
           startsAt: campaign.startsAt, endsAt: campaign.endsAt,
@@ -190,7 +194,8 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
           details.push({ kind: 'campaign', campaignId: campaign.id, varenr: line.item.varenr, percent: snapshot.discountPct, basis: eligibleBasis, amount,
             txt: `${T('campaignDiscountLabel')} · ${campaign.code} (${snapshot.discountPct.toLocaleString(state.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)` });
         }
-        remainingBenefitQuantity -= eligibleQuantity;
+        // Related demo products retain provenance but consume no entitlement.
+        if (!line.demo) remainingBenefitQuantity -= eligibleQuantity;
       }
     }
   }

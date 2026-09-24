@@ -124,7 +124,7 @@ const translations: Record<string, Record<string, string>> = {
     // New translation keys
     machineLabel: 'Maskine',
     subtotalMachine: 'Subtotal Maskine',
-    demoDiscount: 'Demo maskine rabat (32,5%)',
+    demoDiscount: 'Demomaskinerabat (32,5%)',
     baseDiscountLabel: 'Grund rabat (25%)',
     qtyDiscountLabel: 'Stk. rabat',
     deliveryDiscountLabel: 'Leveringsrabat over 3 mdr.',

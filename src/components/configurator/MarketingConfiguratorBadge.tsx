@@ -49,6 +49,7 @@ export function MarketingConfiguratorBadge({
   campaignProduct,
   campaignLabel,
   preview = false,
+  suppressCampaign = false,
   className = '',
 }: {
   badge?: string | null;
@@ -59,9 +60,11 @@ export function MarketingConfiguratorBadge({
   campaignProduct?: CampaignProductLink;
   campaignLabel?: string | null;
   preview?: boolean;
+  suppressCampaign?: boolean;
   className?: string;
 }) {
   const now = useMarketingBadgeClock();
+  if (suppressCampaign && (campaign || resolveMarketingBadge(badge)?.kind === 'campaign')) return null;
   const activeSchedule = campaign ? { badge_starts_at: campaign.startsAt, badge_ends_at: campaign.endsAt } : schedule;
   if (!badge || (!preview && !isMarketingBadgeActive(activeSchedule, now))) return null;
   const { label, Icon, className: tone } = optionFor(badge, language);

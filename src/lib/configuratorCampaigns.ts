@@ -52,6 +52,7 @@ export interface CampaignLineSnapshot {
   campaignType: CampaignType;
   pricingType: CampaignBenefitPricingType;
   applied: boolean;
+  suppressedReason?: 'demo_machine';
   triggerItemNumbers: string[];
   triggerMatchMode: CampaignTriggerMatchMode;
   triggerSetCount: number;
@@ -111,13 +112,14 @@ export function isCampaignActive(campaign: ProductCampaign, now = Date.now()) {
   return campaign.status === 'published' && Date.parse(campaign.startsAt) <= now && Date.parse(campaign.endsAt) > now && !campaignError(campaign);
 }
 
-export type CampaignSelectionLine = { productKey: string; itemNumber?: string; quantity: number };
+export type CampaignSelectionLine = { productKey: string; itemNumber?: string; quantity: number; demo?: boolean };
 
 const campaignProductIdentity = (product: Pick<CampaignProductLink, 'productKey' | 'itemNumber'>) => product.itemNumber.trim() || product.productKey;
 
 function selectedCampaignQuantity(product: CampaignProductLink, selection: CampaignSelectionLine[]) {
   const identity = campaignProductIdentity(product);
   return selection.reduce((sum, item) => {
+    if (item.demo) return sum;
     const itemIdentity = item.itemNumber?.trim() || item.productKey;
     return sum + (itemIdentity === identity ? Math.max(0, item.quantity) : 0);
   }, 0);
@@ -157,7 +159,7 @@ export function campaignProductPricing(campaign: ProductCampaign, product?: Camp
   };
 }
 
-export function eligibleCampaignFor(productKey: string, selection: { productKey: string; quantity: number }[], now = Date.now()) {
+export function eligibleCampaignFor(productKey: string, selection: CampaignSelectionLine[], now = Date.now()) {
   return publishedCampaignsFor(productKey).find(campaign => {
     if (!isCampaignActive(campaign, now)) return false;
     if (campaign.type !== 'conditional') return true;
