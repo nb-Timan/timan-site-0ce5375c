@@ -24,6 +24,7 @@ import { getMyAcademyCycle, recordAcademyCycleCompletion, type AcademyCycleSnaps
 import {
   ACADEMY_CASE_IDS,
   getAssignedAcademyCurriculum,
+  getMandatoryAcademyCurriculum,
   getAcademyTracks,
   getAcademyAwardTargets,
   getAcademyCasePrerequisites,
@@ -235,6 +236,7 @@ export default function AcademyPage() {
 
   const user = effectiveUser || appUser || getLocalAcademyUser();
   const assignedCurriculum = getAssignedAcademyCurriculum(user);
+  const mandatoryCurriculum = getMandatoryAcademyCurriculum(user);
   const assignedTracks = getAcademyTracks(user);
   const hasSalesTrack = assignedTracks.includes('sales');
   const localCompletionIds = [
@@ -275,8 +277,8 @@ export default function AcademyPage() {
   const crmPart1State = stateFor(ACADEMY_CASE_IDS.crmPart1);
   const crmPart2State = stateFor(ACADEMY_CASE_IDS.crmPart2);
   const serviceCaseState = stateFor(ACADEMY_CASE_IDS.serviceCase1);
-  const overallCompleted = assignedCurriculum.filter((id) => localCompletionIds.includes(id)).length;
-  const overallTotal = assignedCurriculum.length;
+  const overallCompleted = mandatoryCurriculum.filter((id) => localCompletionIds.includes(id)).length;
+  const overallTotal = mandatoryCurriculum.length;
   const overallPercentage = overallTotal ? overallCompleted / overallTotal * 100 : 0;
   const actionForCase = (state: AcademyCaseState) => state === 'locked'
     ? undefined
@@ -465,10 +467,12 @@ export default function AcademyPage() {
               <AcademyRow icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPortalBasicsCaseTitle')} description={tr('academyPortalBasicsCaseDescription')} state={portalBasicsState} statusLabel={stateLabel(portalBasicsState)} action={actionForCase(portalBasicsState)} onClick={mayOpen(portalBasicsState) ? startPortalBasics : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.portalBasics} title={tr('academyPartnerMapTitle')} description={tr('academyPartnerMapDescription')} state={partnerMapState} statusLabel={stateLabel(partnerMapState)} action={actionForCase(partnerMapState)} onClick={mayOpen(partnerMapState) ? startPartnerMap : undefined} />
             </Module>
-            {hasSalesTrack && <Module title={tr('academySales')} progress={`${countCompleted([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2, ACADEMY_CASE_IDS.salesCase3])} / 3 ${tr('academyCompleted')}`}>
+            {hasSalesTrack && <Module title={tr('academySales')} progress={`${countCompleted([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2])} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase1Title')} description={tr('academySalesCase1Description')} state={caseState} statusLabel={stateLabel(caseState)} action={actionForCase(caseState)} onClick={mayOpen(caseState) ? startCase : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase2Title')} description={tr('academySalesCase2Description')} state={videoCaseState} statusLabel={stateLabel(videoCaseState)} action={actionForCase(videoCaseState)} onClick={mayOpen(videoCaseState) ? startVideoCase : undefined} />
-              <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase3Title')} description={tr('academySalesCase3Description')} state={deliveryCaseState} statusLabel={stateLabel(deliveryCaseState)} action={actionForCase(deliveryCaseState)} onClick={mayOpen(deliveryCaseState) ? startDeliveryCase : undefined} />
+            </Module>}
+            {hasSalesTrack && <Module title={tr('academyBonusSales')} progress={deliveryCaseState === 'completed' ? `1 / 1 ${tr('academyCompleted')}` : tr('academyOptional')}>
+              <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase3Title')} description={tr('academySalesCase3Description')} state={deliveryCaseState} statusLabel={deliveryCaseState === 'ready' ? tr('academyOptional') : stateLabel(deliveryCaseState)} action={actionForCase(deliveryCaseState)} onClick={mayOpen(deliveryCaseState) ? startDeliveryCase : undefined} />
             </Module>}
             {hasSalesTrack && <Module title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.crm} title={tr('academyCrmCase1Title')} description={tr('academyCrmDashboardCase1Description')} state={crmPart1State} statusLabel={stateLabel(crmPart1State)} action={actionForCase(crmPart1State)} onClick={mayOpen(crmPart1State) ? startCrmPart1 : undefined} />

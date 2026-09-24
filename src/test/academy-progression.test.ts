@@ -128,12 +128,16 @@ describe('canonical Academy progression', () => {
     const partnerData = source.indexOf("<Module title={tr('academyPartnerData')}");
     const portalBasics = source.indexOf("<Module title={tr('academyPortalBasics')}", partnerData + 1);
     const sales = source.indexOf("<Module title={tr('academySales')}", portalBasics + 1);
-    const crm = source.indexOf('<Module title="CRM"', sales + 1);
+    const bonus = source.indexOf("<Module title={tr('academyBonusSales')}", sales + 1);
+    const crm = source.indexOf('<Module title="CRM"', bonus + 1);
 
     expect(partnerData).toBeGreaterThan(-1);
     expect(partnerData).toBeLessThan(portalBasics);
     expect(portalBasics).toBeLessThan(sales);
-    expect(sales).toBeLessThan(crm);
+    expect(sales).toBeLessThan(bonus);
+    expect(bonus).toBeLessThan(crm);
+    expect(source).toContain("countCompleted([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2])} / 2");
+    expect(source).toContain("deliveryCaseState === 'completed' ? `1 / 1");
     expect(source).toContain("'grid w-full grid-cols-[40px_minmax(0,1fr)]");
     expect(source).toContain('disabled={!interactive}');
   });

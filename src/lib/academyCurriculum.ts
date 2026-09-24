@@ -139,12 +139,20 @@ const OPTIONAL_ACADEMY_CASES = new Set<AcademyCurriculumCaseId>([
   ACADEMY_CASE_IDS.salesCase3,
 ]);
 
+export function isOptionalAcademyCase(caseId: AcademyCurriculumCaseId) {
+  return OPTIONAL_ACADEMY_CASES.has(caseId);
+}
+
+export function getMandatoryAcademyCurriculum(user: AcademyUser | null | undefined) {
+  return getAssignedAcademyCurriculum(user).filter((id) => !isOptionalAcademyCase(id));
+}
+
 export function getNextAcademyCase(
   curriculum: readonly AcademyCurriculumCaseId[],
   stateFor: (caseId: AcademyCurriculumCaseId) => AcademyCaseState,
 ) {
   const actionable = (id: AcademyCurriculumCaseId) => ['ready', 'active'].includes(stateFor(id));
-  return curriculum.find((id) => !OPTIONAL_ACADEMY_CASES.has(id) && actionable(id))
+  return curriculum.find((id) => !isOptionalAcademyCase(id) && actionable(id))
     ?? curriculum.find(actionable)
     ?? curriculum.find((id) => stateFor(id) !== 'completed');
 }
@@ -219,7 +227,7 @@ export function isAcademyCapabilityGated(user: AcademyUser | null | undefined) {
   return hasAcademyModuleAccess(user);
 }
 export function getAcademyProgress(user: AcademyUser | null | undefined, completedCaseIds: Iterable<string>) {
-  const curriculum = getAssignedAcademyCurriculum(user);
+  const curriculum = getMandatoryAcademyCurriculum(user);
   const completed = new Set(completedCaseIds);
   const completedCount = curriculum.filter((id) => completed.has(id)).length;
   return { completedCount, total: curriculum.length, percentage: curriculum.length ? completedCount / curriculum.length * 100 : 0 };

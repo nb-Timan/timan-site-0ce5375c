@@ -545,3 +545,13 @@ const salesCase3Copy: Record<string, string[]> = {
 for (const [language, copy] of Object.entries(salesCase3Copy)) {
   Object.assign(ACADEMY_TRANSLATIONS[language], Object.fromEntries(salesCase3Keys.map((key, index) => [key, copy[index]])));
 }
+
+Object.assign(ACADEMY_TRANSLATIONS.da, { academyBonusSales: 'Bonus / Avanceret salg', academyOptional: 'Valgfri' });
+Object.assign(ACADEMY_TRANSLATIONS.en, { academyBonusSales: 'Bonus / Advanced sales', academyOptional: 'Optional' });
+Object.assign(ACADEMY_TRANSLATIONS.de, { academyBonusSales: 'Bonus / Fortgeschrittener Vertrieb', academyOptional: 'Optional' });
+Object.assign(ACADEMY_TRANSLATIONS.it, { academyBonusSales: 'Bonus / Vendite avanzate', academyOptional: 'Facoltativo' });
+Object.assign(ACADEMY_TRANSLATIONS.hu, { academyBonusSales: 'Bónusz / Haladó értékesítés', academyOptional: 'Opcionális' });
+Object.assign(ACADEMY_TRANSLATIONS.sv, { academyBonusSales: 'Bonus / Avancerad försäljning', academyOptional: 'Valfri' });
+Object.assign(ACADEMY_TRANSLATIONS.fr, { academyBonusSales: 'Bonus / Vente avancée', academyOptional: 'Facultatif' });
+Object.assign(ACADEMY_TRANSLATIONS.pl, { academyBonusSales: 'Bonus / Sprzedaż zaawansowana', academyOptional: 'Opcjonalne' });
+Object.assign(ACADEMY_TRANSLATIONS.cs, { academyBonusSales: 'Bonus / Pokročilý prodej', academyOptional: 'Volitelné' });

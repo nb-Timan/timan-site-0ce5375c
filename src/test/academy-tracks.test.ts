@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
-import { ACADEMY_CASE_IDS, ACADEMY_CASE_TRACK, ACADEMY_CURRICULUM_ORDER, canAccessAcademyCase, getAcademyAwardTargets, getAcademyCaseState, getAcademyProgress, getAcademyRouteTrack, getAcademyTracks, getAssignedAcademyCurriculum, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
+import { ACADEMY_CASE_IDS, ACADEMY_CASE_TRACK, ACADEMY_CURRICULUM_ORDER, canAccessAcademyCase, getAcademyAwardTargets, getAcademyCaseState, getAcademyProgress, getAcademyRouteTrack, getAcademyTracks, getAssignedAcademyCurriculum, getMandatoryAcademyCurriculum, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { sanitizeAccessForRole } from '@/lib/backendUsersService';
 import { getLocalAcademyBackendUser } from '@/lib/academyCurriculum';
 import { getLocalAcademyUser } from '@/lib/academyCurriculum';
@@ -26,11 +26,20 @@ describe('Academy assigned tracks', () => {
     expect(curriculum).toHaveLength(total);
     expect(new Set(curriculum).size).toBe(total);
     expect(curriculum.filter((id) => ACADEMY_CASE_TRACK[id] === 'basic')).toHaveLength(4);
-    expect(getAcademyProgress(target, ACADEMY_CURRICULUM_ORDER)).toEqual({ completedCount: total, total, percentage: 100 });
+    const mandatoryTotal = total - (sales ? 1 : 0);
+    expect(getAcademyProgress(target, ACADEMY_CURRICULUM_ORDER)).toEqual({ completedCount: mandatoryTotal, total: mandatoryTotal, percentage: 100 });
   });
   it('preserves the old curriculum and ids when no track overrides exist', () => {
     expect(getAssignedAcademyCurriculum(user())).toEqual(ACADEMY_CURRICULUM_ORDER.filter((id) => ACADEMY_CASE_TRACK[id] !== 'service'));
-    expect(getAcademyProgress(user(), [ACADEMY_CASE_IDS.salesCase1])).toMatchObject({ completedCount: 1, total: 9 });
+    expect(getAcademyProgress(user(), [ACADEMY_CASE_IDS.salesCase1])).toMatchObject({ completedCount: 1, total: 8 });
+  });
+  it('keeps the optional Sales case assigned but excludes it from mandatory progress', () => {
+    const target = user(true, true);
+    expect(getAssignedAcademyCurriculum(target)).toContain(ACADEMY_CASE_IDS.salesCase3);
+    expect(getMandatoryAcademyCurriculum(target)).not.toContain(ACADEMY_CASE_IDS.salesCase3);
+    const beforeBonus = getAcademyProgress(target, ACADEMY_CURRICULUM_ORDER.filter((id) => id !== ACADEMY_CASE_IDS.salesCase3));
+    const afterBonus = getAcademyProgress(target, ACADEMY_CURRICULUM_ORDER);
+    expect(afterBonus).toEqual(beforeBonus);
   });
   it('maps Partnerdata/Portal Basics to Basic and Sales/CRM to Sales', () => {
     for (const id of ACADEMY_CURRICULUM_ORDER) expect(ACADEMY_CASE_TRACK[id]).toBe(/^(partnerdata|portal)\./.test(id) ? 'basic' : id.startsWith('service.') ? 'service' : 'sales');
@@ -79,5 +88,11 @@ describe('Academy assigned tracks', () => {
     const case3Sql = readFileSync('supabase/migrations/20260924173730_academy_sales_case_3.sql', 'utf8');
     expect(case3Sql).toContain("'sales.case_1_rc1000', 'sales.case_2_video_3330', 'sales.case_3_rc1000_delivery'");
     expect(case3Sql).toContain('security invoker');
+    const optionalSql = readFileSync('supabase/migrations/20260924190521_academy_optional_sales_case.sql', 'utf8');
+    expect(optionalSql).toContain("array_remove(v_cases, 'sales.case_3_rc1000_delivery')");
+    expect(optionalSql).toContain('p_case_id = any(v_cases)');
+    expect(optionalSql).toContain('v_total = cardinality(v_mandatory_cases)');
+    expect(optionalSql).toContain('completed_curriculum = v_mandatory_cases');
+    expect(optionalSql).not.toContain('create policy');
   });
 });
