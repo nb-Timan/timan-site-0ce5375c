@@ -1027,8 +1027,6 @@ function EditUserModal({
             )}
           </Section>
 
-          <AcademyCycleManager user={user} />
-
           {/* Portal variant — locks user to /messe layout when 'messe'. */}
           <Section title="Portal variant">
             <div className="flex flex-wrap gap-2">
@@ -1209,6 +1207,14 @@ function EditUserModal({
               const selectedQuickActions = (draft.quick_actions ?? DEFAULT_QUICK_ACTIONS[draft.role] ?? []) as QuickActionKey[];
               const groupedKeys = new Set<ModuleAccessKey>(ACCESS_DOMAINS.flatMap((group) => group.modules));
               const otherModules = ALL_MODULES.filter((m) => !groupedKeys.has(m) && !moduleBackedAreaKeys.has(m));
+              const hasRoleOverrides = draft.has_manual_module_override
+                || draft.has_manual_area_override
+                || ACADEMY_TRACK_PERMISSIONS.some((key) => typeof draft.perms[key] === 'boolean');
+              const resetRoleOverrides = () => {
+                const perms = { ...draft.perms };
+                for (const key of ACADEMY_TRACK_PERMISSIONS) delete perms[key];
+                setDraft({ ...draft, perms, allowed_areas: roleDefaultAreas, allowed_modules: roleDefaultModules, has_manual_area_override: false, has_manual_module_override: false });
+              };
               const togglePermission = (key: PermissionKey) => {
                 if (editingOwnUser && key === "can_manage_users") return;
                 if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;
@@ -1300,45 +1306,52 @@ function EditUserModal({
                         </div>
                       );
                     })}
-                    <div data-access-domain="Academy" className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-                      <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-700">Academy</p>
-                      <CheckboxGroup items={[{ value: 'basic', label: 'Basic – altid inkluderet når Timan Academy er aktiv', disabled: true }]}
-                        checked={effectiveAllowedModules.includes('academy') ? ['basic'] : []} onChange={() => {}} />
-                      <div className="mt-3">
-                        <CheckboxGroup
-                          items={ACADEMY_TRACK_PERMISSIONS.map((key) => ({
-                            value: key,
-                            label: accessLabel(key === 'academy_track_sales' ? 'Salg' : 'Teknik & Service', ACADEMY_TRACK_DEFAULTS[key], draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key], typeof draft.perms[key] === 'boolean'),
-                            disabled: !effectiveAllowedModules.includes('academy'),
-                          }))}
-                          checked={ACADEMY_TRACK_PERMISSIONS.filter((key) => draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key])}
-                          onChange={(value) => {
-                            const key = value as typeof ACADEMY_TRACK_PERMISSIONS[number];
-                            setDraft({ ...draft, perms: { ...draft.perms, [key]: !(draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key]) } });
-                          }}
-                        />
-                      </div>
-                    </div>
                     {otherModules.length > 0 && (
                       <div data-access-domain="Øvrige moduler" className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
                         <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-700">Øvrige moduler</p>
                         {renderModules(otherModules)}
                       </div>
                     )}
+                    <div data-access-domain="Academy" className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                      <p className="mb-3 text-xs font-bold uppercase tracking-wide text-slate-700">Academy</p>
+                      <div data-academy-access>
+                        <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">Academy-adgang</p>
+                        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Basic</p>
+                        <CheckboxGroup items={[{ value: 'basic', label: 'Basic – altid inkluderet når Timan Academy er aktiv', disabled: true }]}
+                          checked={effectiveAllowedModules.includes('academy') ? ['basic'] : []} onChange={() => {}} />
+                        <div className="mt-3">
+                          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Academy-spor</p>
+                          <CheckboxGroup
+                            items={ACADEMY_TRACK_PERMISSIONS.map((key) => ({
+                              value: key,
+                              label: accessLabel(key === 'academy_track_sales' ? 'Salg' : 'Teknik & Service', ACADEMY_TRACK_DEFAULTS[key], draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key], typeof draft.perms[key] === 'boolean'),
+                              disabled: !effectiveAllowedModules.includes('academy'),
+                            }))}
+                            checked={ACADEMY_TRACK_PERMISSIONS.filter((key) => draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key])}
+                            onChange={(value) => {
+                              const key = value as typeof ACADEMY_TRACK_PERMISSIONS[number];
+                              setDraft({ ...draft, perms: { ...draft.perms, [key]: !(draft.perms[key] ?? ACADEMY_TRACK_DEFAULTS[key]) } });
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <AcademyCycleManager user={user} academyEnabled={effectiveAllowedModules.includes('academy')} />
+
+                      {hasRoleOverrides && (
+                        <div data-academy-role-reset className="mt-4 border-t border-slate-200 pt-3">
+                          <button
+                            type="button"
+                            onClick={resetRoleOverrides}
+                            className="text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
+                          >
+                            Nulstil til rolle
+                          </button>
+                          <p className="mt-1 text-[11px] text-slate-500">Nulstiller adgang og Academy-spor til rollens standard. Academy-progressen ændres ikke.</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  {(draft.has_manual_module_override || draft.has_manual_area_override || ACADEMY_TRACK_PERMISSIONS.some((key) => typeof draft.perms[key] === 'boolean')) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const perms = { ...draft.perms };
-                        for (const key of ACADEMY_TRACK_PERMISSIONS) delete perms[key];
-                        setDraft({ ...draft, perms, allowed_areas: roleDefaultAreas, allowed_modules: roleDefaultModules, has_manual_area_override: false, has_manual_module_override: false });
-                      }}
-                      className="mb-3 text-xs font-semibold text-slate-600 underline underline-offset-2 hover:text-slate-900"
-                    >
-                      Nulstil til rolle
-                    </button>
-                  )}
                   {restricted && (
                     <p className="mt-2 text-[11px] text-slate-500">
                       Dealer-side roller har som standard Se priser og Opret ordre. Betalingsbetingelser og ekstra forhandlerrabat: kun Timan Backend og Timan Sælger.
@@ -1386,7 +1399,7 @@ function EditUserModal({
   );
 }
 
-function AcademyCycleManager({ user }: { user: BackendUser }) {
+function AcademyCycleManager({ user, academyEnabled }: { user: BackendUser; academyEnabled: boolean }) {
   const { uiLanguage } = useLanguage();
   const tr = (key: string) => t(key, uiLanguage);
   const [history, setHistory] = useState<AcademyCycleSnapshot[]>([]);
@@ -1427,7 +1440,8 @@ function AcademyCycleManager({ user }: { user: BackendUser }) {
   };
 
   return (
-    <Section title={tr('academyAdminTitle')}>
+    <div data-academy-lifecycle className="mt-4 border-t border-slate-200 pt-4">
+      <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-500">{tr('academyAdminTitle')}</p>
       <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 text-xs text-slate-700">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
@@ -1442,6 +1456,7 @@ function AcademyCycleManager({ user }: { user: BackendUser }) {
             label={tr('academyAdminCadence')}
             value={cadence}
             onChange={(value) => setCadence(value as AcademyCadence)}
+            disabled={!academyEnabled}
             options={[
               { value: 'manual', label: tr('academyAdminManual') },
               { value: 'annual', label: tr('academyAdminAnnual') },
@@ -1449,14 +1464,15 @@ function AcademyCycleManager({ user }: { user: BackendUser }) {
               { value: 'custom', label: tr('academyAdminCustomDate') },
             ]}
           />
-          {cadence === 'custom' && <Input label={tr('academyAdminNextActivation')} type="date" value={customDate} onChange={setCustomDate} />}
+          {cadence === 'custom' && <Input label={tr('academyAdminNextActivation')} type="date" value={customDate} onChange={setCustomDate} disabled={!academyEnabled} />}
         </div>
 
         <p className="mt-2 text-[11px] text-slate-600">{tr('academyAdminNextActivation')}: {latest?.next_activation_at ? new Date(latest.next_activation_at).toLocaleDateString(uiLanguage) : cadence === 'annual' || cadence === 'biennial' ? tr('academyAdminAfterCompletion') : tr('academyAdminNotScheduled')}</p>
+        {!academyEnabled && <p className="mt-2 text-[11px] font-semibold text-amber-700">Aktivér Timan Academy under Allowed Areas for at administrere Academy-forløbet.</p>}
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" disabled={busy || !!active || (cadence === 'custom' && !customIso)} onClick={() => void run(() => startAcademyCycle(user.id, cadence, customIso), tr('academyAdminStarted'))} className="rounded-md bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">{tr('academyAdminStartCycle')}</button>
-          <button type="button" disabled={busy || !latest || (cadence === 'custom' && !customIso)} onClick={() => void run(() => setAcademyCycleCadence(user.id, cadence, customIso), tr('academyAdminScheduled'))} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">{tr('academyAdminSchedule')}</button>
-          <button type="button" disabled={busy || !active} onClick={() => {
+          <button type="button" disabled={!academyEnabled || busy || !!active || (cadence === 'custom' && !customIso)} onClick={() => void run(() => startAcademyCycle(user.id, cadence, customIso), tr('academyAdminStarted'))} className="rounded-md bg-emerald-700 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">{tr('academyAdminStartCycle')}</button>
+          <button type="button" disabled={!academyEnabled || busy || !latest || (cadence === 'custom' && !customIso)} onClick={() => void run(() => setAcademyCycleCadence(user.id, cadence, customIso), tr('academyAdminScheduled'))} className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50">{tr('academyAdminSchedule')}</button>
+          <button data-academy-cycle-reset type="button" disabled={!academyEnabled || busy || !active} onClick={() => {
             if (window.confirm(tr('academyAdminResetConfirm'))) {
               void run(() => resetAcademyCycle(user.id), tr('academyAdminResetDone'));
             }
@@ -1475,7 +1491,7 @@ function AcademyCycleManager({ user }: { user: BackendUser }) {
         </details>}
         {message && <p className="mt-3 rounded-md bg-white px-2 py-1.5 text-[11px] text-slate-700">{message}</p>}
       </div>
-    </Section>
+    </div>
   );
 }
 
@@ -1492,15 +1508,16 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Grid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>;
 }
-function Input({ label, value, onChange, type = 'text' }: { label: string; value: string; onChange: (v: string) => void; type?: 'text' | 'date' }) {
+function Input({ label, value, onChange, type = 'text', disabled = false }: { label: string; value: string; onChange: (v: string) => void; type?: 'text' | 'date'; disabled?: boolean }) {
   return (
     <label className="block">
       <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">{label}</span>
       <input
         type={type}
         value={value}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none"
+        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
       />
     </label>
   );

@@ -67,10 +67,45 @@ describe('Academy cycles and completion history', () => {
 
   it('exposes canonical cycle management in the existing Backend user editor', () => {
     const editor = readFileSync('src/pages/backend/BackendUsersPage.tsx', 'utf8');
-    expect(editor).toContain('<AcademyCycleManager user={user} />');
+    expect(editor).toContain("<AcademyCycleManager user={user} academyEnabled={effectiveAllowedModules.includes('academy')} />");
     expect(editor).toContain("academyAdminStartCycle");
     expect(editor).toContain("academyAdminReset");
     expect(editor).toContain("academyAdminHistory");
+  });
+
+  it('consolidates Academy access and lifecycle in one editor section', () => {
+    const editor = readFileSync('src/pages/backend/BackendUsersPage.tsx', 'utf8');
+    const academySection = editor.indexOf('data-access-domain="Academy"');
+    const lifecycle = editor.indexOf('<AcademyCycleManager user={user}');
+
+    expect(academySection).toBeGreaterThan(-1);
+    expect(lifecycle).toBeGreaterThan(academySection);
+    expect(editor.match(/<AcademyCycleManager user=\{user\}/g)).toHaveLength(1);
+    expect(editor).toContain('data-academy-access');
+    expect(editor).toContain('data-academy-lifecycle');
+    expect(editor).toContain('Academy-adgang');
+    expect(editor).toContain('Academy-spor');
+  });
+
+  it('keeps cycle reset, role reset and history as separate controls', () => {
+    const editor = readFileSync('src/pages/backend/BackendUsersPage.tsx', 'utf8');
+
+    expect(editor).toContain('data-academy-cycle-reset');
+    expect(editor).toContain('data-academy-role-reset');
+    expect(editor).toContain("resetAcademyCycle(user.id)");
+    expect(editor).toContain('onClick={resetRoleOverrides}');
+    expect(editor).toContain("delete perms[key]");
+    expect(editor).toContain("<summary className=\"cursor-pointer font-semibold text-slate-800\">{tr('academyAdminHistory')}");
+  });
+
+  it('disables lifecycle mutations when canonical Academy access is off', () => {
+    const editor = readFileSync('src/pages/backend/BackendUsersPage.tsx', 'utf8');
+
+    expect(editor).toContain('disabled={!academyEnabled || busy || !!active');
+    expect(editor).toContain('disabled={!academyEnabled || busy || !latest');
+    expect(editor).toContain('disabled={!academyEnabled || busy || !active}');
+    expect(editor).toContain('className="mt-3 flex flex-wrap gap-2"');
+    expect(editor).toContain('sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]');
   });
 
   it('renders badge totals from canonical award history, not completed-cycle arithmetic', () => {
