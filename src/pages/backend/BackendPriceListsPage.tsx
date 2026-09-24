@@ -58,6 +58,10 @@ import {
   type PublishPreviewRow,
   type PublishSummary,
 } from "@/lib/pricePublishService";
+import {
+  filterPriceListItems,
+  parsePriceListSkuTokens,
+} from "@/lib/priceListSearch";
 
 const FIELD_LABEL: Record<string, string> = {
   item_number: "Varenr.",
@@ -88,6 +92,7 @@ export default function BackendPriceListsPage() {
   const [items, setItems] = useState<PriceListItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [q, setQ] = useState("");
+  const [skuFilters, setSkuFilters] = useState<string[]>([]);
   const [editing, setEditing] = useState<PriceListItem | null>(null);
 
   // Import state
@@ -137,16 +142,7 @@ export default function BackendPriceListsPage() {
   );
 
   const filteredItems = useMemo(() => {
-    const term = q.trim().toLowerCase();
-    const base = !term
-      ? exportItems
-      : exportItems.filter((i) =>
-          i.item_number.toLowerCase().includes(term) ||
-          (i.renamed_from_item_number ?? "").toLowerCase().includes(term) ||
-          (i.item_text_da ?? "").toLowerCase().includes(term) ||
-          (i.item_text_de ?? "").toLowerCase().includes(term) ||
-          (i.item_text_en ?? "").toLowerCase().includes(term),
-        );
+    const base = filterPriceListItems(exportItems, skuFilters, q);
     return [...base].sort((a, b) => {
       const ga = groupMap.get(a.item_number) ?? "Options/accessories/other";
       const gb = groupMap.get(b.item_number) ?? "Options/accessories/other";
@@ -154,7 +150,15 @@ export default function BackendPriceListsPage() {
       if (oi !== 0) return oi;
       return a.item_number.localeCompare(b.item_number, "da", { numeric: true });
     });
-  }, [exportItems, q, groupMap]);
+  }, [exportItems, skuFilters, q, groupMap]);
+
+  function addSkuFilters(value: string): boolean {
+    const tokens = parsePriceListSkuTokens(value);
+    if (tokens.length === 0) return false;
+    setSkuFilters((current) => [...new Set([...current, ...tokens])]);
+    setQ("");
+    return true;
+  }
 
   const counts = useMemo(() => {
     const c = { create: 0, update: 0, skip: 0, error: 0 };
@@ -350,15 +354,49 @@ export default function BackendPriceListsPage() {
         {tab === "list" && (
           <section className="bg-white border border-slate-200 rounded-2xl p-5">
             <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
-              <div className="relative flex-1 min-w-[260px] max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="search"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Søg varenr. eller varetekst…"
-                  className="w-full rounded-lg border border-slate-200 bg-white pl-9 pr-3 py-2 text-sm"
-                />
+              <div className="flex-1 min-w-[260px] max-w-2xl">
+                <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 focus-within:ring-2 focus-within:ring-indigo-200">
+                  <Search className="ml-1 h-4 w-4 shrink-0 text-slate-400" />
+                  {skuFilters.map((sku) => (
+                    <span key={sku} className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-1 font-mono text-xs font-semibold text-indigo-800">
+                      {sku}
+                      <button
+                        type="button"
+                        onClick={() => setSkuFilters((current) => current.filter((value) => value !== sku))}
+                        className="rounded-sm text-indigo-600 hover:text-indigo-950"
+                        aria-label={`Fjern varenr. ${sku}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                  <input
+                    type="search"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && addSkuFilters(q)) e.preventDefault();
+                    }}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData("text");
+                      if (addSkuFilters(pasted)) e.preventDefault();
+                    }}
+                    placeholder={skuFilters.length > 0 ? "Søg videre…" : "Søg varenr. eller varetekst…"}
+                    className="min-w-[180px] flex-1 border-0 bg-transparent px-1 py-1 text-sm outline-none"
+                    aria-label="Søg varenr. eller varetekst"
+                  />
+                  {(skuFilters.length > 0 || q) && (
+                    <button
+                      type="button"
+                      onClick={() => { setSkuFilters([]); setQ(""); }}
+                      className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                      aria-label="Ryd søgning"
+                      title="Ryd søgning"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-3 flex-wrap">
                 <button
