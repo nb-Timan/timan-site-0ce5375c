@@ -11,12 +11,12 @@ describe("machine search effective View-as scope", () => {
   it("uses a stable identity key instead of refetching for every View-as render", () => {
     expect(searchPage).toContain("useEffectivePortalUserState(appUser)");
     expect(searchPage).toContain("const scopeIdentity = [");
-    expect(searchPage).toContain("}, [appUser, resolvingEffectiveUser, scopeIdentity, query,");
+    expect(searchPage).toContain("}, [appUser, resolvingEffectiveUser, scopeIdentity, academyMode, query,");
     expect(searchPage).not.toContain("[appUser, effectiveUser, portalRole, query,");
   });
 
   it("waits for the effective account and clears stale Backend results before scoped results render", () => {
-    expect(searchPage).toContain("if (!appUser || resolvingEffectiveUser || !effectiveUser) return;");
+    expect(searchPage).toContain("if ((!appUser && !academyMode) || resolvingEffectiveUser || !effectiveUser) return;");
     expect(searchPage).toContain("setOverview([]);");
     expect(searchPage).toContain("if (resolvingEffectiveUser || !effectiveUser)");
   });
@@ -29,7 +29,7 @@ describe("machine search effective View-as scope", () => {
   it("keeps the canonical detail route scoped to the effective View-as account", () => {
     expect(journalPage).toContain("useEffectivePortalUserState(appUser)");
     expect(journalPage).toContain("const scope: JournalScope = await buildJournalScope(scopeUser, scopeRole);");
-    expect(journalPage).toContain("}, [appUser, serial, resolvingEffectiveUser, scopeIdentity, navigate]);");
+    expect(journalPage).toContain("}, [appUser, serial, resolvingEffectiveUser, scopeIdentity, navigate, academyMode, uiLanguage]);");
     expect(journalPage).not.toContain("buildJournalScope(appUser, role)");
   });
 

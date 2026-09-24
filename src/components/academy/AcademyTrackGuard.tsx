@@ -4,6 +4,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { academySandbox } from '@/lib/academySandbox';
 import { canAccessAcademy, getAcademyRouteTrack, getAcademyTracks, getLocalAcademyUser } from '@/lib/academyCurriculum';
+import { canOpenAcademyService } from '@/lib/academyMachineSandbox';
 
 export default function AcademyTrackGuard({ children }: { children: ReactNode }) {
   const { appUser, loading } = useAppUser();
@@ -30,5 +31,11 @@ export default function AcademyTrackGuard({ children }: { children: ReactNode })
   if (loading || resolving) return null;
   if (!allowed) return <Navigate to="/portal" replace />;
   if (track && !tracks.includes(track)) return <Navigate to="/academy?locked=track" replace />;
+  if (track === 'service') {
+    // Only the two sandbox-backed machine pages and their area are available.
+    // Other service routes must never fall through to production in training.
+    const sandboxRoute = pathname === '/portal/teknik-service' || /^\/portal\/service\/machines(?:\/[^/]+)?$/.test(pathname);
+    if (!sandboxRoute || !academySandbox.isActive() || activeCase !== 'service.case_1_machine_history' || !canOpenAcademyService(user)) return <Navigate to="/academy?locked=service" replace />;
+  }
   return <>{children}</>;
 }

@@ -13,6 +13,7 @@ export const ACADEMY_CASE_IDS = {
   salesCase2: 'sales.case_2_video_3330',
   crmPart1: 'crm.part_1',
   crmPart2: 'crm.part_2',
+  serviceCase1: 'service.case_1_machine_history',
 } as const;
 
 export type AcademyCurriculumCaseId = typeof ACADEMY_CASE_IDS[keyof typeof ACADEMY_CASE_IDS];
@@ -33,6 +34,7 @@ export const ACADEMY_CASE_TRACK: Record<AcademyCurriculumCaseId, AcademyTrack> =
   [ACADEMY_CASE_IDS.salesCase2]: 'sales',
   [ACADEMY_CASE_IDS.crmPart1]: 'sales',
   [ACADEMY_CASE_IDS.crmPart2]: 'sales',
+  [ACADEMY_CASE_IDS.serviceCase1]: 'service',
 };
 
 export function getAcademyTracks(user: AcademyUser | null | undefined): AcademyTrack[] {
@@ -61,6 +63,9 @@ export function getAcademyAwardTargets(user: AcademyUser | null | undefined) {
 export function getAcademyRouteTrack(pathname: string, search: string, activeCase?: string | null): AcademyTrack | null {
   const params = new URLSearchParams(search);
   const requestedTrack = params.get('track');
+  // Basic Partner Map has its own existing read-only machine-detail exercise.
+  if (activeCase === ACADEMY_CASE_IDS.partnerMap && /^\/portal\/service\/machines\/[^/]+$/.test(pathname)) return 'basic';
+  if (pathname === '/portal/teknik-service' || pathname.startsWith('/portal/service/')) return 'service';
   if (pathname.startsWith('/academy/crm') || pathname.startsWith('/portal/crm')
     || pathname === '/configurator' || pathname === '/messe/konfigurator'
     || pathname === '/portal/videos') return 'sales';
@@ -79,6 +84,7 @@ export const ACADEMY_CURRICULUM_ORDER: readonly AcademyCurriculumCaseId[] = [
   ACADEMY_CASE_IDS.salesCase2,
   ACADEMY_CASE_IDS.crmPart1,
   ACADEMY_CASE_IDS.crmPart2,
+  ACADEMY_CASE_IDS.serviceCase1,
 ];
 
 /**
@@ -100,7 +106,9 @@ export function getAcademyCaseState(
 
   const index = curriculum.indexOf(caseId);
   const prerequisitesComplete = index >= 0
-    && curriculum.slice(0, index).every((id) => completed.has(id));
+    && curriculum.slice(0, index)
+      .filter((id) => ACADEMY_CASE_TRACK[id] === 'basic' || ACADEMY_CASE_TRACK[id] === ACADEMY_CASE_TRACK[caseId])
+      .every((id) => completed.has(id));
   if (!prerequisitesComplete) return 'locked';
   return new Set(startedCaseIds).has(caseId) ? 'active' : 'ready';
 }

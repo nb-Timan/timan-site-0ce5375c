@@ -20,7 +20,10 @@ import { t } from '@/lib/i18n/translations';
 import { tv } from '@/lib/videoLibraryI18n';
 import { fetchActiveDealerContractAccessWindow, type DealerContractAccessWindow } from '@/lib/dealerContractsService';
 import { academySandbox } from '@/lib/academySandbox';
-import { isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
+import { isAcademyCapabilityUnlocked, getLocalAcademyUser } from '@/lib/academyCurriculum';
+import { canOpenAcademyService } from '@/lib/academyMachineSandbox';
+import AcademyMachineGuidance from '@/components/academy/AcademyMachineGuidance';
+import AcademyHintTarget from '@/components/academy/AcademyHintTarget';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -80,7 +83,8 @@ interface Props { areaId: PortalAreaId }
 
 export default function PortalAreaPage({ areaId }: Props) {
   const { appUser: sessionUser, loading, setAppUser, logout } = useAppUser();
-  const appUser = academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
+  const academyService = academySandbox.isActive() && areaId === 'teknik_service';
+  const appUser = academyService ? sessionUser ?? (import.meta.env.DEV ? getLocalAcademyUser() : null) : academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
   const { language: lang, uiLanguage, setLanguage } = useLanguage();
   const navigate = useNavigate();
   // Hooks must run unconditionally on every render — keep this above all
@@ -91,7 +95,7 @@ export default function PortalAreaPage({ areaId }: Props) {
   useEffect(() => {
     // Mark only module-level area entries read on mount. Submodule-tagged
     // entries remain unread until the user opens the matching submodule.
-    if (appUser) markAreaRead(areaId);
+    if (appUser && !academyService) markAreaRead(areaId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [areaId, appUser?.email]);
 
@@ -128,7 +132,7 @@ export default function PortalAreaPage({ areaId }: Props) {
   }
 
   const area = PORTAL_AREAS.find(a => a.id === areaId);
-  if (!area || !isAreaVisible(area, effectiveUser)) return <Navigate to="/portal" replace />;
+  if (!area || (academyService ? !canOpenAcademyService(effectiveUser) : !isAreaVisible(area, effectiveUser))) return <Navigate to="/portal" replace />;
 
   const portalRole = derivePortalRole(effectiveUser);
   const moduleOverride = getUserModuleAccessOverride(effectiveUser);
@@ -164,6 +168,7 @@ export default function PortalAreaPage({ areaId }: Props) {
       />
 
       <main className={`${areaId === 'timan_backend' || areaId === 'teknik_service' ? 'max-w-[1700px] xl:px-12' : 'max-w-7xl'} mx-auto px-4 sm:px-6 lg:px-8 py-12 flex-grow w-full`}>
+        {academyService && <AcademyMachineGuidance />}
         <div className="mb-10">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900">{AREA_TITLE_KEY[areaId] ? t(AREA_TITLE_KEY[areaId], uiLanguage) : (area.title[lang] || area.title.en)}</h1>
           <p className="text-gray-600 text-base mt-2 max-w-3xl">{AREA_DESC_KEY[areaId] ? t(AREA_DESC_KEY[areaId], uiLanguage) : (area.description[lang] || area.description.en)}</p>
@@ -255,7 +260,7 @@ export default function PortalAreaPage({ areaId }: Props) {
               description={t('siteFeaturesCardDescription', uiLanguage)}
             />
           )}
-          {area.placeholders.map(p => {
+          {area.placeholders.filter(p => !academyService || p.key === 'machine_search').map(p => {
             let href: string | undefined;
             let icon: LucideIcon | undefined;
             if (p.key === 'tsb_portal') {
@@ -305,23 +310,28 @@ export default function PortalAreaPage({ areaId }: Props) {
                   ].filter(Boolean).join('\n'),
                 }
               : null;
-            return (
+            const card = (
               <PlaceholderCard
                 key={p.key}
                 title={titleKey ? t(titleKey, uiLanguage) : (p.title[lang] || p.title.en)}
                 language={lang}
-                to={href}
+                to={academyService && href ? `${href}?academy_mode=true` : href}
                 icon={icon}
                 description={descKey ? t(descKey, uiLanguage) : undefined}
                 updateBadge={updateBadge}
-                onActivate={() => markSubmoduleRead(p.key)}
+                onActivate={() => { if (!academyService) markSubmoduleRead(p.key); }}
               />
             );
+            return academyService ? (
+              <AcademyHintTarget key={p.key} targetKey="academy-machine-search-open" activeTargetKey={!academySandbox.getServiceCase1().searchOpened ? 'academy-machine-search-open' : null}>
+                <div>{card}</div>
+              </AcademyHintTarget>
+            ) : card;
           })}
         </div>
         )}
 
-        {areaId === 'teknik_service' && (
+        {areaId === 'teknik_service' && !academyService && (
           <section className="mt-12">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">{t('supportSectionTitle', uiLanguage)}</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

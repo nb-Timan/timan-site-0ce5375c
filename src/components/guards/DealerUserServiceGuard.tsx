@@ -1,5 +1,7 @@
 import { ReactNode } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { academySandbox } from '@/lib/academySandbox';
+import { canOpenAcademyService } from '@/lib/academyMachineSandbox';
 import { useAppUser } from '@/context/AppUserContext';
 import { derivePortalRole, hasAreaAccess, type PortalAreaAccessKey } from '@/lib/portalAccess';
 import { useEffectivePortalUser, useEffectivePortalUserState } from '@/lib/viewAsUser';
@@ -32,8 +34,12 @@ export function PortalAreaAccessGuard({
 export function DealerUserServiceGuard({ children }: { children?: ReactNode }) {
   const { appUser, loading } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser) ?? appUser;
+  const { pathname } = useLocation();
   if (loading) return null;
   const role = derivePortalRole(effectiveUser);
-  if (role === 'dealer_user') return <Navigate to="/portal" replace />;
+  const academyMachineRoute = academySandbox.isActive()
+    && (pathname === '/portal/teknik-service' || /^\/portal\/service\/machines(?:\/[^/]+)?$/.test(pathname))
+    && canOpenAcademyService(effectiveUser);
+  if (role === 'dealer_user' && !academyMachineRoute) return <Navigate to="/portal" replace />;
   return <>{children ?? <Outlet />}</>;
 }

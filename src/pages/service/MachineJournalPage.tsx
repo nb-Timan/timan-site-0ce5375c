@@ -10,6 +10,11 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { academySandbox } from '@/lib/academySandbox';
+import { getLocalAcademyUser } from '@/lib/academyCurriculum';
+import { getAcademyMachineJournal } from '@/lib/academyMachineSandbox';
+import AcademyMachineGuidance from '@/components/academy/AcademyMachineGuidance';
+import AcademyHintTarget from '@/components/academy/AcademyHintTarget';
 import { ArrowUpDown, ChevronRight, Loader2 } from "lucide-react";
 import {
   Tooltip,
@@ -131,7 +136,9 @@ export default function MachineJournalPage() {
   const { language: lang, setLanguage, uiLanguage } = useLanguage();
   const navigate = useNavigate();
   const params = useParams<{ serialNumber: string }>();
-  const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
+  const { effectiveUser: resolvedUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
+  const academyMode = academySandbox.isActive() && academySandbox.getActiveCase() === 'service.case_1_machine_history';
+  const effectiveUser = resolvedUser ?? (academyMode && import.meta.env.DEV ? getLocalAcademyUser() : null);
   const role = derivePortalRole(effectiveUser);
   const internal = isInternalRole(role);
   const sellerView = getActiveSellerView(appUser?.email);
@@ -156,7 +163,8 @@ export default function MachineJournalPage() {
   const [savingCorrection, setSavingCorrection] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const [correctionDraft, setCorrectionDraft] = useState({ dealer_account_id: "", approved_warranty_registration_id: "", machine_model: "", delivery_date: "" });
-  const canCorrect = canEditMachineRegistry(effectiveUser);
+  const canCorrect = !academyMode && canEditMachineRegistry(effectiveUser);
+  const [expandedAcademyEvent, setExpandedAcademyEvent] = useState<string | null>(null);
   const breadcrumbCurrent = useMemo(() => {
     if (journal?.summary) {
       return journal.summary.machineType || journal.summary.model || journal.summary.serial || serial;
@@ -165,7 +173,7 @@ export default function MachineJournalPage() {
   }, [journal, serial]);
 
   useEffect(() => {
-    if (!appUser) {
+    if (!appUser && !academyMode) {
       navigate("/portal", { replace: true });
       return;
     }
@@ -174,6 +182,14 @@ export default function MachineJournalPage() {
     setLoading(true);
     (async () => {
       try {
+        if (academyMode) {
+          const localJournal = getAcademyMachineJournal(effectiveUser, serial, uiLanguage);
+          if (!cancelled) {
+            setJournal(localJournal);
+            if (localJournal) academySandbox.trackMachineAction('machine-open', localJournal.summary.serial);
+          }
+          return;
+        }
         const scopeUser = withSellerScopeIdentity(effectiveUser, sellerView?.email);
         const scope: JournalScope = await buildJournalScope(scopeUser, scopeRole);
         const j = await loadMachineJournal(serial, scope);
@@ -189,7 +205,7 @@ export default function MachineJournalPage() {
     // scopeIdentity tracks the effective account without subscribing to the
     // fresh View-as object returned on each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appUser, serial, resolvingEffectiveUser, scopeIdentity, navigate]);
+  }, [appUser, serial, resolvingEffectiveUser, scopeIdentity, navigate, academyMode, uiLanguage]);
 
   useEffect(() => {
     if (!canCorrect || !serial) {
@@ -221,7 +237,7 @@ export default function MachineJournalPage() {
   }, [canCorrect, serial]);
 
   const saveCorrection = async () => {
-    if (!journal) return;
+    if (!journal || academyMode) return;
     setSavingCorrection(true);
     setCorrectionError(null);
     try {
@@ -250,6 +266,7 @@ export default function MachineJournalPage() {
   };
 
   const handleOpenDoc = async (d: MachineDocumentRow) => {
+    if (academyMode) return;
     try {
       const url = await getMachineDocumentSignedUrl(d.storage_bucket, d.storage_path, 60 * 60);
       window.open(url, "_blank", "noopener,noreferrer");
@@ -273,7 +290,7 @@ export default function MachineJournalPage() {
     return Array.from(set);
   }, [journal]);
 
-  if (!appUser) return null;
+  if (!appUser && !academyMode) return null;
 
   if (resolvingEffectiveUser || !effectiveUser) {
     return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="h-4 w-4 animate-spin text-slate-500" /></div>;
@@ -282,7 +299,7 @@ export default function MachineJournalPage() {
   return (
     <div className="tk-scale-up min-h-screen bg-slate-50 text-slate-950 flex flex-col">
       <PortalHeader
-        user={appUser}
+        user={appUser ?? effectiveUser}
         language={lang}
         onLanguageChange={setLanguage}
         onLogout={async () => { await logout(); navigate("/portal", { replace: true }); }}
@@ -310,6 +327,7 @@ export default function MachineJournalPage() {
 
 
       <main className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+        {academyMode && <AcademyMachineGuidance />}
         <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{T.pageTitle[lang]}</div>
 
         {loading ? (
@@ -488,13 +506,20 @@ export default function MachineJournalPage() {
                           <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${KIND_BADGE[e.kind]}`}>
                             {T[`source_${e.kind}` as keyof typeof T]?.[lang] ?? e.kind}
                           </span>
-                          {e.href ? (
+                          {academyMode ? (
+                            <AcademyHintTarget targetKey="academy-machine-history" activeTargetKey={!academySandbox.getServiceCase1().historyOpened && e.id === sortedTimeline[0]?.id ? 'academy-machine-history' : null}>
+                              <button type="button" aria-expanded={expandedAcademyEvent === e.id} className="min-h-10 text-left font-semibold text-slate-900 hover:underline" onClick={() => {
+                                setExpandedAcademyEvent(expandedAcademyEvent === e.id ? null : e.id);
+                                academySandbox.trackMachineAction('history-open', journal.summary.serial);
+                              }}>{e.title}</button>
+                            </AcademyHintTarget>
+                          ) : e.href ? (
                             <Link to={e.href} className="font-semibold text-slate-900 hover:underline">{e.title}</Link>
                           ) : (
                             <span className="font-semibold text-slate-900">{e.title}</span>
                           )}
                         </div>
-                        {e.description && <div className="mt-0.5 text-xs text-slate-600">{e.description}</div>}
+                        {e.description && (!academyMode || expandedAcademyEvent === e.id) && <div className="mt-0.5 text-xs text-slate-600">{e.description}</div>}
                       </div>
                     </li>
                   ))}

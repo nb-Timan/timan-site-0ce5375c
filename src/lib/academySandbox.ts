@@ -19,9 +19,10 @@ export const ACADEMY_PROGRESS_CHANGED = 'timan:academy-progress-changed';
 export const ACADEMY_CASE_COMPLETED = 'timan:academy-case-completed';
 const KEY = 'timan.academy.sandbox.v1';
 const SESSION_KEY = 'timan.academy.session.v1';
-export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'portal.basics_5' | 'portal.partner_map' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations';
+export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'portal.basics_5' | 'portal.partner_map' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations' | 'service.case_1_machine_history';
 export type AcademyPortalHomeCardId = 'academy' | 'salg_marketing' | 'dealer_data' | 'timan_crm' | 'marketing' | 'teknik_service' | 'calendar' | 'projects' | 'messe' | 'timan_backend';
 const CASE_ROUTES: Record<AcademyActiveCase, string> = {
+  'service.case_1_machine_history': '/portal/teknik-service?academy_mode=true',
   'sales.case_1_rc1000': '/configurator?academy_mode=true',
   'sales.case_2_video_3330': '/portal/videos?academy_mode=true&academy_case=2',
   'portal.basics_5': '/portal?academy_mode=true',
@@ -32,6 +33,7 @@ const CASE_ROUTES: Record<AcademyActiveCase, string> = {
   'partnerdata.part_2_relations': '/portal/dealer-data?academy_mode=true&academy_part=2',
 };
 const CASE_PORTAL_HOME_CARDS: Record<AcademyActiveCase, readonly AcademyPortalHomeCardId[]> = {
+  'service.case_1_machine_history': ['academy', 'teknik_service'],
   'sales.case_1_rc1000': ['academy', 'salg_marketing'],
   'sales.case_2_video_3330': ['academy', 'salg_marketing'],
   'portal.basics_5': ['academy', 'dealer_data', 'messe'],
@@ -123,10 +125,22 @@ export type AcademyCaseCompletion = {
 };
 
 type AcademySandboxState = AcademyCase1State & {
+  serviceCase1: AcademyServiceCaseState;
   case2: AcademyCase2State;
   portalBasics: AcademyPortalBasicsState;
   partnerMap: AcademyPartnerMapState;
 };
+
+export const ACADEMY_SERVICE_CASE_1 = 'service.case_1_machine_history';
+export const ACADEMY_MACHINE_TARGET_SERIAL = 'ACA-411000-26-1017';
+export type AcademyServiceCaseState = {
+  started: boolean; searchOpened: boolean; targetSearched: boolean;
+  targetOpened: boolean; historyOpened: boolean; completed: boolean;
+};
+const initialServiceCase = (): AcademyServiceCaseState => ({
+  started: false, searchOpened: false, targetSearched: false,
+  targetOpened: false, historyOpened: false, completed: false,
+});
 
 const initialCase1 = (): AcademyCase1State => ({ started: false, completed: false, quoteGenerated: false, leadId: null, machine: false, flail: false, weedBrush: false, oil: false, workLight: false, wireHarness: false, rc751: false, quantityDiscount: false });
 const initialCase2 = (): AcademyCase2State => ({ started: false, completed: false, machineFiltered: false, maintenanceFiltered: false, targetFound: false, targetOpened: false });
@@ -154,7 +168,7 @@ const initialPartnerMap = (): AcademyPartnerMapState => ({
   serviceDetailOpened: false,
   requiresServiceDetail: false,
 });
-const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialCase2(), portalBasics: initialPortalBasics(), partnerMap: initialPartnerMap() });
+const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialCase2(), portalBasics: initialPortalBasics(), partnerMap: initialPartnerMap(), serviceCase1: initialServiceCase() });
 
 function isComplete(state: AcademyCase1State) {
   return state.machine && state.flail && state.weedBrush && state.oil
@@ -175,6 +189,7 @@ function load(): AcademySandboxState {
       case2: { ...initialCase2(), ...saved.case2 },
       portalBasics: { ...initialPortalBasics(), ...saved.portalBasics },
       partnerMap: { ...initialPartnerMap(), ...saved.partnerMap },
+      serviceCase1: { ...initialServiceCase(), ...saved.serviceCase1 },
     };
     // Completion can only be awarded after every Case 1 requirement has
     // passed. Repair local progress saved by the earlier refresh bug, where
@@ -206,7 +221,7 @@ function save(state: AcademySandboxState) {
   }
   return state;
 }
-function case1Of({ case2: _case2, portalBasics: _portalBasics, partnerMap: _partnerMap, ...case1 }: AcademySandboxState): AcademyCase1State { return case1; }
+function case1Of({ case2: _case2, portalBasics: _portalBasics, partnerMap: _partnerMap, serviceCase1: _serviceCase1, ...case1 }: AcademySandboxState): AcademyCase1State { return case1; }
 function isPortalBasicsComplete(state: AcademyPortalBasicsState) {
   return state.frenchSelected
     && state.languageRestored
@@ -329,6 +344,31 @@ export const academySandbox = {
   isCase2Unlocked() { return load().completed; },
   getPortalBasics() { return load().portalBasics; },
   getPartnerMap() { return load().partnerMap; },
+  getServiceCase1() { return load().serviceCase1; },
+  startServiceCase1() {
+    this.activateCase(ACADEMY_SERVICE_CASE_1);
+    const current = load();
+    return save({ ...current, serviceCase1: { ...current.serviceCase1, started: true } }).serviceCase1;
+  },
+  trackMachineAction(action: 'search-open' | 'search' | 'machine-open' | 'history-open', serial?: string) {
+    const current = load();
+    if (!isLocalAcademyMode() || this.getActiveCase() !== ACADEMY_SERVICE_CASE_1 || !current.serviceCase1.started) return current.serviceCase1;
+    const state = { ...current.serviceCase1 };
+    const normalize = (value: string) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const target = normalize(serial ?? '') === normalize(ACADEMY_MACHINE_TARGET_SERIAL);
+    if (action === 'search-open') state.searchOpened = true;
+    if (action === 'search' && target && state.searchOpened) state.targetSearched = true;
+    if (action === 'machine-open' && target && state.targetSearched) state.targetOpened = true;
+    if (action === 'history-open' && target && state.targetOpened) state.historyOpened = true;
+    state.completed = state.searchOpened && state.targetSearched && state.targetOpened && state.historyOpened;
+    save({ ...current, serviceCase1: state });
+    if (state.completed && !current.serviceCase1.completed) {
+      window.dispatchEvent(new CustomEvent<AcademyCaseCompletion>(ACADEMY_CASE_COMPLETED, {
+        detail: { caseId: ACADEMY_SERVICE_CASE_1, titleKey: 'academyServiceCase1Title', completed: 4, total: 4 },
+      }));
+    }
+    return state;
+  },
   getPortalBasicsStepSuccess() {
     const state = load().portalBasics;
     return state.pendingStepSuccess && !state.acknowledgedStepSuccesses.includes(state.pendingStepSuccess.taskId)
@@ -355,6 +395,7 @@ export const academySandbox = {
       state.case2.completed && ACADEMY_CASE_2,
       state.portalBasics.completed && ACADEMY_PORTAL_BASICS,
       state.partnerMap.completed && ACADEMY_PARTNER_MAP,
+      state.serviceCase1.completed && ACADEMY_SERVICE_CASE_1,
     ].filter(Boolean) as string[];
   },
   startCase1() { this.activateCase(ACADEMY_CASE_1); return case1Of(save({ ...load(), started: true })); },

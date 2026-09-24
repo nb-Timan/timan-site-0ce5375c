@@ -23,6 +23,7 @@ describe('canonical Academy progression', () => {
       'sales.case_2_video_3330',
       'crm.part_1',
       'crm.part_2',
+      'service.case_1_machine_history',
     ]);
   });
 

@@ -18,7 +18,7 @@ describe('Academy assigned tracks', () => {
   });
   it.each([
     [false, false, ['basic'], 4], [true, false, ['basic', 'sales'], 8],
-    [false, true, ['basic', 'service'], 4], [true, true, ['basic', 'sales', 'service'], 8],
+    [false, true, ['basic', 'service'], 5], [true, true, ['basic', 'sales', 'service'], 9],
   ] as const)('resolves Sales=%s Service=%s without duplicating Basic', (sales, service, tracks, total) => {
     const target = user(sales, service);
     expect(getAcademyTracks(target)).toEqual(tracks);
@@ -29,11 +29,11 @@ describe('Academy assigned tracks', () => {
     expect(getAcademyProgress(target, ACADEMY_CURRICULUM_ORDER)).toEqual({ completedCount: total, total, percentage: 100 });
   });
   it('preserves the old curriculum and ids when no track overrides exist', () => {
-    expect(getAssignedAcademyCurriculum(user())).toEqual(ACADEMY_CURRICULUM_ORDER);
+    expect(getAssignedAcademyCurriculum(user())).toEqual(ACADEMY_CURRICULUM_ORDER.filter((id) => ACADEMY_CASE_TRACK[id] !== 'service'));
     expect(getAcademyProgress(user(), [ACADEMY_CASE_IDS.salesCase1])).toMatchObject({ completedCount: 1, total: 8 });
   });
   it('maps Partnerdata/Portal Basics to Basic and Sales/CRM to Sales', () => {
-    for (const id of ACADEMY_CURRICULUM_ORDER) expect(ACADEMY_CASE_TRACK[id]).toBe(/^(partnerdata|portal)\./.test(id) ? 'basic' : 'sales');
+    for (const id of ACADEMY_CURRICULUM_ORDER) expect(ACADEMY_CASE_TRACK[id]).toBe(/^(partnerdata|portal)\./.test(id) ? 'basic' : id.startsWith('service.') ? 'service' : 'sales');
   });
   it('does not allow disabling Basic separately', () => {
     expect(getAcademyTracks({ ...user(false, false), permissions: { academy_track_sales: false, academy_track_basic: false } })).toEqual(['basic']);
