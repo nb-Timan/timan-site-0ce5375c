@@ -1,4 +1,5 @@
 import { normalizePortalLanguageCode, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { getDealerContractOverviewStatusLabel, getDealerContractOverviewActionLabel } from '@/lib/contractOverviewLabels';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Pencil, Plus, Save, Search, Trash2, Upload } from 'lucide-react';
@@ -110,6 +111,7 @@ import {
   CONTRACT_PARTNER_TYPES,
   getContractPartnerTerms,
   getContractPartnerTypeLabel,
+  normalizeContractPartnerType,
   inferContractPartnerTypeFromDealerAccount,
   type ContractPartnerType,
 } from '@/lib/contractPartnerTerms';
@@ -174,6 +176,12 @@ import { pickT, t } from '@/lib/i18n/translations';
 // UI copy belongs to the guided-flow surface. Legal contract content remains the
 // existing source-of-truth text and is deliberately not translated here.
 const CONTRACT_UI_COPY = {
+  overviewTitle: { da: 'Kontrakter', en: 'Contracts', de: 'Verträge', it: 'Contratti', hu: 'Szerződések', sv: 'Avtal', fr: 'Contrats', pl: 'Umowy', cs: 'Smlouvy' },
+  overviewIntro: { da: 'Intern oversigt over kladder, gennemgang, godkendelser og historik.', en: 'Internal overview of drafts, reviews, approvals and history.', de: 'Interne Übersicht über Entwürfe, Prüfungen, Genehmigungen und Verlauf.', it: 'Panoramica interna di bozze, revisioni, approvazioni e cronologia.', hu: 'Piszkozatok, felülvizsgálatok, jóváhagyások és előzmények belső áttekintése.', sv: 'Intern översikt över utkast, granskningar, godkännanden och historik.', fr: 'Vue interne des brouillons, examens, approbations et de l’historique.', pl: 'Wewnętrzny przegląd szkiców, przeglądów, zatwierdzeń i historii.', cs: 'Interní přehled konceptů, kontrol, schválení a historie.' },
+  newContract: { da: 'Ny kontrakt', en: 'New contract', de: 'Neuer Vertrag', it: 'Nuovo contratto', hu: 'Új szerződés', sv: 'Nytt avtal', fr: 'Nouveau contrat', pl: 'Nowa umowa', cs: 'Nová smlouva' },
+  overviewStatus: { da: 'Status', en: 'Status', de: 'Status', it: 'Stato', hu: 'Állapot', sv: 'Status', fr: 'Statut', pl: 'Status', cs: 'Stav' },
+  overviewPartner: { da: 'Partner', en: 'Partner', de: 'Partner', it: 'Partner', hu: 'Partner', sv: 'Partner', fr: 'Partenaire', pl: 'Partner', cs: 'Partner' },
+  unknownPartner: { da: 'Ukendt partner', en: 'Unknown partner', de: 'Unbekannter Partner', it: 'Partner sconosciuto', hu: 'Ismeretlen partner', sv: 'Okänd partner', fr: 'Partenaire inconnu', pl: 'Nieznany partner', cs: 'Neznámý partner' },
   guidedTitle: { da: 'Guidet forhandlerkontrakt', en: 'Guided dealer contract', de: 'Geführter Händlervertrag' },
   guidedIntro: { da: 'Gennemgå aftalen trin for trin, før den gøres klar til underskrift og PDF.', en: 'Review the agreement step by step before it is prepared for signature and PDF.', de: 'Prüfen Sie den Vertrag Schritt für Schritt, bevor er für Unterschrift und PDF vorbereitet wird.' },
   saveDraft: { da: 'Gem kladde', en: 'Save draft', de: 'Entwurf speichern' },
@@ -2782,7 +2790,7 @@ function PartnerContractAccessPanel({
   );
 }
 
-function InternalContractsOverview({
+export function InternalContractsOverview({
   appUser,
   effectiveUser,
   language,
@@ -2893,7 +2901,7 @@ function InternalContractsOverview({
     }
     const confirmed = window.confirm(
       contractUi('deleteContractConfirm', uiLanguage, {
-        partner: row.partnerName,
+        partner: row.partnerName || contractUi('unknownPartner', uiLanguage),
         contract: row.contract.contract_number || row.contract.id,
       }),
     );
@@ -2935,9 +2943,9 @@ function InternalContractsOverview({
                 <FileSignature className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-950">Kontrakter</h1>
+                <h1 className="text-2xl font-bold text-gray-950">{contractUi('overviewTitle', uiLanguage)}</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                  Intern oversigt over kladder, gennemgang, godkendelser og historik.
+                  {contractUi('overviewIntro', uiLanguage)}
                 </p>
               </div>
             </div>
@@ -2947,7 +2955,7 @@ function InternalContractsOverview({
               className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-800"
             >
               <Plus className="h-4 w-4" />
-              Ny kontrakt
+              {contractUi('newContract', uiLanguage)}
             </button>
           </div>
 
@@ -2987,7 +2995,7 @@ function InternalContractsOverview({
               </div>
             </label>
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Status</span>
+              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{contractUi('overviewStatus', uiLanguage)}</span>
               <select
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value as DealerContractOverviewStatusFilter)}
@@ -3002,7 +3010,7 @@ function InternalContractsOverview({
               </select>
             </label>
             <label className="block">
-              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Partnertype</span>
+              <span className="text-xs font-bold uppercase tracking-wide text-gray-500">{contractUi('partnerTypeHeader', uiLanguage)}</span>
               <select
                 value={partnerTypeFilter}
                 onChange={(event) => setPartnerTypeFilter(event.target.value)}
@@ -3039,14 +3047,14 @@ function InternalContractsOverview({
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead>
                 <tr className="text-left text-xs font-bold uppercase tracking-wide text-gray-500">
-                  <th className="px-3 py-3">Partner</th>
+                  <th className="px-3 py-3">{contractUi('overviewPartner', uiLanguage)}</th>
                   <th className="px-3 py-3">{contractUi('accountNoShort', uiLanguage)}</th>
                   <th className="px-3 py-3">{contractUi('partnerTypeHeader', uiLanguage)}</th>
                   <th className="px-3 py-3">{contractUi('countryHeader', uiLanguage)}</th>
                   <th className="px-3 py-3">{contractUi('timanSeller', uiLanguage)}</th>
                   <th className="px-3 py-3">{contractUi('createdAtHeader', uiLanguage)}</th>
                   <th className="px-3 py-3">{contractUi('updatedAtHeader', uiLanguage)}</th>
-                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3">{contractUi('overviewStatus', uiLanguage)}</th>
                   <th className="px-3 py-3 text-right">{contractUi('actionHeader', uiLanguage)}</th>
                 </tr>
               </thead>
@@ -3067,11 +3075,11 @@ function InternalContractsOverview({
                         onClick={() => onOpenContract(row.contract.id)}
                         className="text-left font-bold text-emerald-800 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       >
-                        {row.partnerName}
+                        {row.partnerName || contractUi('unknownPartner', uiLanguage)}
                       </button>
                     </td>
                     <td className="px-3 py-3 font-medium text-gray-700">{row.accountNumber || '-'}</td>
-                    <td className="px-3 py-3 text-gray-700">{row.contract.form_data.partnerType ? getContractPartnerTypeLabel(row.contract.form_data.partnerType, uiLanguage) : row.partnerType || '-'}</td>
+                    <td className="px-3 py-3 text-gray-700">{normalizeContractPartnerType(row.contract.form_data.partnerType || row.partnerType) ? getContractPartnerTypeLabel(normalizeContractPartnerType(row.contract.form_data.partnerType || row.partnerType)!, uiLanguage) : row.partnerType || '-'}</td>
                     <td className="px-3 py-3 font-semibold text-gray-700">{toCountryCode(row.country) || row.country || '-'}</td>
                     <td className="px-3 py-3 text-gray-700">
                       <span className="font-bold">{row.sellerInitials || '-'}</span>
@@ -3081,7 +3089,7 @@ function InternalContractsOverview({
                     <td className="px-3 py-3 text-gray-700">{formatDateTimeDa(row.updatedAt)}</td>
                     <td className="px-3 py-3">
                       <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800">
-                        {row.statusLabel}
+                        {getDealerContractOverviewStatusLabel(row.contract.contract_status, uiLanguage)}
                       </span>
                     </td>
                     <td className="px-3 py-3 text-right">
@@ -3091,14 +3099,14 @@ function InternalContractsOverview({
                           onClick={() => onOpenContract(row.contract.id)}
                           className="inline-flex items-center justify-center rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-800 hover:bg-gray-50"
                         >
-                          {row.actionLabel}
+                          {getDealerContractOverviewActionLabel(row.contract.contract_status, uiLanguage)}
                         </button>
                         {isBackend && (
                           <button
                             type="button"
                             onClick={() => handleDeleteContract(row)}
                             disabled={deletingContractId === row.contract.id}
-                            aria-label={contractUi('deleteContractForPartner', uiLanguage, { partner: row.partnerName })}
+                            aria-label={contractUi('deleteContractForPartner', uiLanguage, { partner: row.partnerName || contractUi('unknownPartner', uiLanguage) })}
                             title={contractUi('deleteContract', uiLanguage)}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-red-100 bg-white text-red-600 transition hover:border-red-200 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >

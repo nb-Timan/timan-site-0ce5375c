@@ -1,4 +1,6 @@
 import { supabase } from "@/lib/supabase";
+import { getDealerContractOverviewStatusLabel, getDealerContractOverviewActionLabel } from '@/lib/contractOverviewLabels';
+export { getDealerContractOverviewStatusLabel } from '@/lib/contractOverviewLabels';
 import {
   CONTRACT_VERSION,
   CONTRACT_STEPS,
@@ -549,26 +551,8 @@ export function getDealerContractOverviewStatusGroup(
   return "pending";
 }
 
-export function getDealerContractOverviewStatusLabel(status: ContractWorkflowStatus) {
-  if (status === "pending_decision") return "Afventer";
-  if (status === "draft") return "Kladde";
-  if (status === "guided_review") return "Klargjort / klar til gennemgang";
-  if (status === "ready_for_signature" || status === "awaiting_signed_upload") return "Gennemgang / afventer partner";
-  if (status === "submitted_for_approval") return "Modtaget / afventer Timan";
-  if (status === "approved") return "Godkendt";
-  if (status === "changes_requested") return "Ikke godkendt / afvist";
-  return "Opsagt / ophørt";
-}
-
 export function canHardDeleteDealerContract(status: ContractWorkflowStatus | null | undefined): boolean {
   return status !== "approved" && status !== "archived";
-}
-
-function getDealerContractOverviewActionLabel(status: ContractWorkflowStatus) {
-  if (status === "pending_decision") return "Start";
-  if (status === "draft" || status === "guided_review") return "Fortsæt";
-  if (status === "approved" || status === "archived") return "Åbn";
-  return "Gennemgå";
 }
 
 type DealerContractOverviewRpcRow = {
@@ -588,7 +572,7 @@ function buildOverviewRowFromRpc(raw: DealerContractOverviewRpcRow): DealerContr
   const statusGroup = getDealerContractOverviewStatusGroup(contract.contract_status);
   return {
     contract,
-    partnerName: raw.partner_name || "Ukendt partner",
+    partnerName: raw.partner_name || "",
     accountNumber: raw.account_number || contract.dealer_account_number || "",
     partnerType: raw.partner_type || "",
     country: raw.country || "",
