@@ -47,10 +47,10 @@ describe('exclusive per-machine demo pricing', () => {
       priceEUR: 665,
       name: {
         da: 'Udvidet komponentgaranti 3330',
+        de: 'Erweiterte Komponentengarantie Timan 3330 (12 Monate)',
         en: 'Timan 3330 extended component warranty (12 months)',
       },
     });
-    expect(typeof warranty?.name === 'string' ? null : warranty?.name.de).toBeUndefined();
     expect(getAccessoriesFlat('Timan 3330').some(row => row.varenr === '795002')).toBe(false);
   });
   it.each([
@@ -91,6 +91,38 @@ describe('exclusive per-machine demo pricing', () => {
     const normal = calculateConfiguration(input(false), { now });
     expect(demo.lineItems.find(row => row.varenr === '795002')).toMatchObject({ price: 75, quantity: 1 });
     expect(demo.subtotal).toBe(normal.subtotal + 75);
+  });
+  it('keeps one canonical 795002 surcharge with each selected demo machine', async () => {
+    replacePublishedConfiguratorPrices([{
+      item_number: '795002', item_text_da: 'Demo maskine', item_text_de: 'Demo-Maschine', item_text_en: 'Demo machine',
+      price_dkk: 75, price_eur: 10,
+    }]);
+    const state = input();
+    state.machineConfigs[0].qty = 3;
+    state.demoMachines = { '712000_1': true, '712000_2': true };
+    const saved = await finalizeConfiguratorPricingSnapshot(state);
+    const document = buildSubmittedOrderDocument(saved);
+    const demoLines = document.lines.filter(line => line.itemNo === '795002');
+
+    expect(demoLines).toEqual([
+      expect.objectContaining({ unitNumber: 1, description: 'Demo maskine', quantity: 1, unitPrice: 75, total: 75 }),
+      expect.objectContaining({ unitNumber: 2, description: 'Demo maskine', quantity: 1, unitPrice: 75, total: 75 }),
+    ]);
+    expect(document.machineGroups[2].lines.some(line => line.itemNo === '795002')).toBe(false);
+    expect(buildSubmittedOrderMailSummary(saved).machines[0].units.map(unit => unit.is_demo)).toEqual([true, true, false]);
+  });
+  it('freezes the canonical 10 EUR surcharge in the submitted document', async () => {
+    replacePublishedConfiguratorPrices([{
+      item_number: '795002', item_text_da: 'Demo maskine', item_text_de: 'Demo-Maschine', item_text_en: 'Demo machine',
+      price_dkk: 75, price_eur: 10,
+    }]);
+    const state = input();
+    state.language = 'de';
+    const saved = await finalizeConfiguratorPricingSnapshot(state);
+
+    expect(buildSubmittedOrderDocument(saved).lines.find(line => line.itemNo === '795002')).toMatchObject({
+      description: 'Demo-Maschine', quantity: 1, unitPrice: 10, total: 10,
+    });
   });
   it('preserves the existing quantity threshold: demo units do not count or receive it', () => {
     const state = input(); state.machineConfigs[0].qty = 4;
@@ -159,6 +191,7 @@ describe('exclusive per-machine demo pricing', () => {
     expect(result.current.calcResult!.discountDetails.map(row => row.kind)).toEqual(['demo']);
     act(() => result.current.setState(input(false)));
     expect(result.current.calcResult!.currentPrice).toBe(normalPrice);
+    expect(result.current.calcResult!.lineItems.some(row => row.varenr === '795002')).toBe(false);
   });
   it('suppresses campaign badges for a demo without hiding unrelated marketing labels', () => {
     const { rerender } = render(<MarketingConfiguratorBadge badge="Kampagne" campaign={campaign()} suppressCampaign />);
@@ -173,6 +206,7 @@ describe('exclusive per-machine demo pricing', () => {
     const before = JSON.stringify(saved);
     const document = buildSubmittedOrderDocument(saved);
     expect(document.calcResult.discountDetails.map(row => row.kind)).toEqual(['demo']);
+    expect(document.lines.find(line => line.itemNo === '795002')).toMatchObject({ quantity: 1, unitPrice: 75, total: 75 });
     expect(saved.pricingSnapshot?.campaignLines?.[0].discountAmount).toBe(0);
     expect(buildSubmittedOrderMailSummary(saved).machines[0].units[0].is_demo).toBe(true);
     // Inspect the actual vector PDF stream; never save/send a business document.

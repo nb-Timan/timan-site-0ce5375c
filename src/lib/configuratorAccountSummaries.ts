@@ -1,4 +1,4 @@
-import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS } from '@/data/machines';
+import { DEMO_FEE_ITEM_NUMBER, getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS } from '@/data/machines';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
@@ -250,7 +250,10 @@ export function buildAccountCaseLines(
       });
       if (state.demoMachines?.[`${product?.varenr}_${machineUnitNumber}`]) {
         const fee = frozen ? state.pricingSnapshot?.prices[`demo:${sourceLanguage}`] ?? Number.NaN : snapshotDemoFee(state, sourceLanguage);
-        lines.push({ unitNumber: machineUnitNumber, itemNo: 'DEMO', description: 'Demo', note: machine.type, purchaseReferences, unitPrice: fee, quantity: 1, total: fee });
+        const itemNo = frozen ? 'DEMO' : DEMO_FEE_ITEM_NUMBER;
+        const fallbackDescription = sourceLanguage === 'da' ? 'Demo maskine' : sourceLanguage === 'de' ? 'Demo-Maschine' : 'Demo machine';
+        const description = frozen ? 'Demo' : snapshotProductName(state, DEMO_FEE_ITEM_NUMBER, fallbackDescription);
+        lines.push({ unitNumber: machineUnitNumber, itemNo, description, note: machine.type, purchaseReferences, unitPrice: fee, quantity: 1, total: fee });
       }
     }
   });

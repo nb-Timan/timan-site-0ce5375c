@@ -5,6 +5,7 @@ import type { QuoteContentSummary } from '@/lib/quoteContentSummary';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
+import { DEMO_FEE_ITEM_NUMBER } from '@/data/machines';
 
 export interface SubmittedOrderMachineGroup {
   unitNumber: number;
@@ -94,7 +95,7 @@ export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteC
         base,
         unit_number: unitNumber,
         config_key: machine.configMode === 'shared' ? machine.id : `${machine.id}_${index + 1}`,
-        is_demo: accessories.some(line => line.itemNo === 'DEMO'),
+        is_demo: accessories.some(line => line.itemNo === DEMO_FEE_ITEM_NUMBER || line.itemNo === 'DEMO'),
         req_number: machinePurchaseReference(state, unitNumber),
         delivery_date: machineDeliveryDate(state, unitNumber) || null,
         delivery_date_overridden: hasMachineDeliveryOverride(state, unitNumber),
