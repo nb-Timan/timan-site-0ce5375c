@@ -14,6 +14,12 @@ export interface DemoDealerPerson {
   searchText: string;
 }
 
+export type DemoDealerRepresentativeResolution = {
+  mode: 'known' | 'manual';
+  person: DemoDealerPerson | null;
+  value: string;
+};
+
 interface DealerPortalUserRow {
   id: string;
   email: string | null;
@@ -33,6 +39,51 @@ function normalizedEmail(value: string | null | undefined): string {
 
 function personSearchText(person: Omit<DemoDealerPerson, 'searchText'>): string {
   return [person.name, person.email, person.initials, person.role].filter(Boolean).join(' ').toLowerCase();
+}
+
+function normalizedName(value: string | null | undefined): string {
+  return (value || '').trim().toLocaleLowerCase();
+}
+
+export function formatDemoDealerPerson(person: DemoDealerPerson): string {
+  return [person.name, person.role].filter(Boolean).join(' · ');
+}
+
+/** Resolve a stable reference first, then fall back to the historical name snapshot. */
+export function resolveDemoDealerRepresentative(
+  people: DemoDealerPerson[],
+  input: { contactId?: string | null; userId?: string | null; snapshot?: string | null },
+): DemoDealerRepresentativeResolution {
+  const referenced = people.find((person) =>
+    (person.source === 'dealer_contact' && person.id === input.contactId)
+    || (person.source === 'app_user' && person.id === input.userId),
+  );
+  if (referenced) return { mode: 'known', person: referenced, value: referenced.name };
+
+  const snapshot = input.snapshot?.trim() || '';
+  const matchingName = snapshot
+    ? people.find((person) => normalizedName(person.name) === normalizedName(snapshot))
+    : null;
+  if (matchingName) return { mode: 'known', person: matchingName, value: matchingName.name };
+  return { mode: snapshot ? 'manual' : 'known', person: null, value: snapshot };
+}
+
+/** Academy uses deterministic local people and never queries production partner data. */
+export function listAcademyDemoDealerPeople(
+  dealerNumber: string,
+  dealerAccountId: string,
+): DemoDealerPerson[] {
+  if (dealerNumber !== 'ACADEMY-01' || dealerAccountId !== 'academy-service-partner') return [];
+  const base = {
+    key: 'dealer_contact:academy-service-partner-contact',
+    source: 'dealer_contact' as const,
+    id: 'academy-service-partner-contact',
+    name: 'Academy Kontakt',
+    email: 'academy.partner@example.test',
+    initials: null,
+    role: 'Academy demonstratør',
+  };
+  return [{ ...base, searchText: personSearchText(base) }];
 }
 
 /** Merge the two canonical partner-person sources without creating a new directory. */

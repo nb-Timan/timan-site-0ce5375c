@@ -35,9 +35,16 @@ import { demoFlowText } from '@/lib/crmDemoFlowI18n';
 import { EMPTY_DEMO_RESULT } from '@/lib/crmDemoFlow';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { getDemoSelectionErrors, splitDemoMachineInterest } from '@/lib/crmDemoSelection';
-import { listDemoDealerPeople, type DemoDealerPerson } from '@/lib/crmDemoDealerPeople';
+import {
+  formatDemoDealerPerson,
+  listAcademyDemoDealerPeople,
+  listDemoDealerPeople,
+  resolveDemoDealerRepresentative,
+  type DemoDealerPerson,
+} from '@/lib/crmDemoDealerPeople';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
+import { parseStructuredContactInformation } from '@/lib/crmLeadValidation';
 
 // ---------- i18n. English is the fallback. ----------
 type TKey =
@@ -453,7 +460,13 @@ export default function CrmNewDemoLeadPage() {
   const [dealerRepPerson, setDealerRepPerson] = useState<DemoDealerPerson | null>(null);
   const [dealerPeople, setDealerPeople] = useState<DemoDealerPerson[]>([]);
   const [dealerPeopleLoading, setDealerPeopleLoading] = useState(false);
+  const [dealerPeopleForAccountId, setDealerPeopleForAccountId] = useState('');
   const [dealerRepPickerOpen, setDealerRepPickerOpen] = useState(false);
+  const [representativePrefill, setRepresentativePrefill] = useState<{
+    snapshot: string;
+    contactId: string | null;
+    userId: string | null;
+  } | null>(null);
   const [customerName, setCustomerName] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [notes, setNotes] = useState('');
@@ -590,6 +603,11 @@ export default function CrmNewDemoLeadPage() {
         setDealerRep(demo.dealer_rep || '');
         setDealerRepMode('manual');
         setEditingRepresentative({ contactId: demo.dealer_rep_contact_id || null, userId: demo.dealer_rep_user_id || null });
+        setRepresentativePrefill({
+          snapshot: demo.dealer_rep || '',
+          contactId: demo.dealer_rep_contact_id || null,
+          userId: demo.dealer_rep_user_id || null,
+        });
         setCustomerName(demo.customer_name || '');
         setCustomerAddress(demo.customer_address || '');
         setNotes(demo.notes || '');
@@ -667,8 +685,14 @@ export default function CrmNewDemoLeadPage() {
     const dealer = dealers.find((row) => row.id === lead.linked_dealer_id);
     setDealerCompany(dealer?.account_number || '');
     setDealerCompanyLabel(dealer ? `${dealer.company_name} · ${dealer.account_number}` : '');
+    const contact = parseStructuredContactInformation(lead.contact_information, lead.country);
     setCustomerAddress((lead.contact_information || '').split(/\r?\n/).filter(line => /^(Adresse|Postnr\.|Land)/i.test(line)).map(line => line.replace(/^[^:]+:\s*/, '')).join(', '));
     setCustomerName(lead.contact_information || '');
+    setDealerRep(contact.contactPerson);
+    setDealerRepPerson(null);
+    setDealerRepMode(contact.contactPerson ? 'manual' : 'known');
+    setEditingRepresentative({ contactId: null, userId: null });
+    setRepresentativePrefill({ snapshot: contact.contactPerson, contactId: null, userId: null });
     setNotes(lead.notes || '');
     const types = lead.machine_types || [];
     setMachineInterest(types);
@@ -699,29 +723,54 @@ export default function CrmNewDemoLeadPage() {
   const selectedDealerAccount = dealers.find(dealer => dealer.account_number === dealerCompany) || null;
 
   useEffect(() => {
-    if (repository.academy || !selectedDealerAccount) {
+    if (!selectedDealerAccount) {
       setDealerPeople([]);
       setDealerPeopleLoading(false);
+      setDealerPeopleForAccountId('');
+      return;
+    }
+    if (repository.academy) {
+      setDealerPeople(listAcademyDemoDealerPeople(selectedDealerAccount.account_number, selectedDealerAccount.id));
+      setDealerPeopleLoading(false);
+      setDealerPeopleForAccountId(selectedDealerAccount.id);
       return;
     }
     let cancelled = false;
+    setDealerPeopleForAccountId('');
     setDealerPeopleLoading(true);
     void listDemoDealerPeople(selectedDealerAccount.account_number, selectedDealerAccount.id)
       .then((people) => {
         if (cancelled) return;
         setDealerPeople(people);
+        setDealerPeopleForAccountId(selectedDealerAccount.id);
         if (people.length === 0) setDealerRepMode('manual');
       })
       .finally(() => { if (!cancelled) setDealerPeopleLoading(false); });
     return () => { cancelled = true; };
   }, [repository.academy, selectedDealerAccount?.account_number, selectedDealerAccount?.id]);
 
+  useEffect(() => {
+    if (!representativePrefill || dealerPeopleLoading || !selectedDealerAccount
+      || dealerPeopleForAccountId !== selectedDealerAccount.id) return;
+    const resolved = resolveDemoDealerRepresentative(dealerPeople, representativePrefill);
+    setDealerRepMode(resolved.mode);
+    setDealerRepPerson(resolved.person);
+    setDealerRep(resolved.value);
+    setEditingRepresentative({
+      contactId: resolved.person?.source === 'dealer_contact' ? resolved.person.id : null,
+      userId: resolved.person?.source === 'app_user' ? resolved.person.id : null,
+    });
+    setRepresentativePrefill(null);
+  }, [dealerPeople, dealerPeopleForAccountId, dealerPeopleLoading, representativePrefill, selectedDealerAccount]);
+
   function selectDealer(option: DealerOption) {
-    if (dealerCompany && dealerCompany !== option.value) {
+    const changed = Boolean(dealerCompany && dealerCompany !== option.value);
+    if (changed) {
       setDealerRepPerson(null);
       if (dealerRepMode === 'known') setDealerRep('');
+      setEditingRepresentative({ contactId: null, userId: null });
+      setRepresentativePrefill(null);
     }
-    setEditingRepresentative({ contactId: null, userId: null });
     setDealerCompany(option.value);
     setDealerCompanyLabel(option.label);
     setPickerOpen(false);
@@ -1026,7 +1075,7 @@ export default function CrmNewDemoLeadPage() {
             <Field label={demoFlowText('demonstrator', uiLanguage)}>
               {dealerRepMode === 'manual' ? (
                 <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
-                  <input className={inputCls} value={dealerRep} onChange={e=>{ setDealerRep(e.target.value); setEditingRepresentative({contactId:null,userId:null}); }} />
+                  <input className={inputCls} value={dealerRep} onChange={e=>{ setDealerRep(e.target.value); setEditingRepresentative({contactId:null,userId:null}); setRepresentativePrefill(null); }} />
                   {dealerPeople.length > 0 && (
                     <Button type="button" variant="outline" className="h-10 w-full shrink-0 rounded-xl px-3 sm:w-auto" onClick={() => { setDealerRepMode('known'); setDealerRep(''); }}>
                       {tt('known_dealer_rep', uiLanguage)}
@@ -1038,7 +1087,7 @@ export default function CrmNewDemoLeadPage() {
                   <PopoverTrigger asChild>
                     <Button type="button" variant="outline" role="combobox" disabled={!selectedDealerAccount || dealerPeopleLoading} className="h-10 w-full justify-between rounded-xl border-gray-200 font-normal">
                       <span className={cn('truncate text-left', !dealerRepPerson && 'text-gray-400')}>
-                        {dealerPeopleLoading ? tt('loading_dealer_people', uiLanguage) : (dealerRepPerson?.name || tt('pick_dealer_rep', uiLanguage))}
+                        {dealerPeopleLoading ? tt('loading_dealer_people', uiLanguage) : (dealerRepPerson ? formatDemoDealerPerson(dealerRepPerson) : tt('pick_dealer_rep', uiLanguage))}
                       </span>
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
@@ -1055,19 +1104,21 @@ export default function CrmNewDemoLeadPage() {
                           {dealerPeople.map(person => (
                             <CommandItem key={person.key} value={person.key} onSelect={() => {
                               setEditingRepresentative({contactId: null, userId: null});
+                              setRepresentativePrefill(null);
                               setDealerRepPerson(person);
                               setDealerRep(person.name);
                               setDealerRepPickerOpen(false);
                             }}>
                               <Check className={cn('mr-2 h-4 w-4', dealerRepPerson?.key === person.key ? 'opacity-100' : 'opacity-0')} />
                               <div className="min-w-0">
-                                <div className="truncate">{person.initials ? `${person.initials} · ${person.name}` : person.name}</div>
-                                {person.role && <div className="truncate text-xs text-slate-500">{person.role}</div>}
+                                <div className="truncate">{formatDemoDealerPerson(person)}</div>
+                                {(person.initials || person.email) && <div className="truncate text-xs text-slate-500">{[person.initials, person.email].filter(Boolean).join(' · ')}</div>}
                               </div>
                             </CommandItem>
                           ))}
                           <CommandItem value="manual-entry" onSelect={() => {
                             setEditingRepresentative({contactId: null, userId: null});
+                            setRepresentativePrefill(null);
                             setDealerRepMode('manual');
                             setDealerRepPerson(null);
                             setDealerRep('');

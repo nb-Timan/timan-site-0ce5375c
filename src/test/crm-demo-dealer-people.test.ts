@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { buildDemoDealerPeople } from '@/lib/crmDemoDealerPeople';
+import {
+  buildDemoDealerPeople,
+  formatDemoDealerPerson,
+  listAcademyDemoDealerPeople,
+  resolveDemoDealerRepresentative,
+} from '@/lib/crmDemoDealerPeople';
 
 const portalUsers = [
   {
@@ -69,5 +74,32 @@ describe('CRM demo dealer-person source', () => {
     expect(sql).not.toMatch(/insert\s+into\s+public\.dealer_contacts/i);
     expect(sql).toContain('dealer_rep_contact_id = v_contact_id');
     expect(sql).toContain('dealer_rep_user_id = v_user_id');
+  });
+
+  it('restores canonical selections by stable id and by an exact lead snapshot', () => {
+    const people = buildDemoDealerPeople('10458', 'dealer-tiefel', portalUsers, contacts);
+    expect(resolveDemoDealerRepresentative(people, { contactId: 'contact-thomas', snapshot: 'Old text' })).toMatchObject({
+      mode: 'known', person: { id: 'contact-thomas' }, value: 'Thomas Tiefel',
+    });
+    expect(resolveDemoDealerRepresentative(people, { snapshot: 'thomas tiefel' })).toMatchObject({
+      mode: 'known', person: { id: 'contact-thomas' }, value: 'Thomas Tiefel',
+    });
+  });
+
+  it('preserves an unmatched lead contact as a manual snapshot', () => {
+    const people = buildDemoDealerPeople('10458', 'dealer-tiefel', portalUsers, contacts);
+    expect(resolveDemoDealerRepresentative(people, { snapshot: 'External demonstrator' })).toEqual({
+      mode: 'manual', person: null, value: 'External demonstrator',
+    });
+  });
+
+  it('keeps Academy contacts local and dealer-scoped', () => {
+    const people = listAcademyDemoDealerPeople('ACADEMY-01', 'academy-service-partner');
+    expect(people).toHaveLength(1);
+    expect(people[0]).toMatchObject({
+      source: 'dealer_contact', id: 'academy-service-partner-contact', name: 'Academy Kontakt',
+    });
+    expect(formatDemoDealerPerson(people[0])).toBe('Academy Kontakt · Academy demonstratør');
+    expect(listAcademyDemoDealerPeople('10458', 'dealer-tiefel')).toEqual([]);
   });
 });
