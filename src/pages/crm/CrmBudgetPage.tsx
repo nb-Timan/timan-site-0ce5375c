@@ -25,6 +25,7 @@ import {
   BUDGET_SELLERS, BUDGET_BACKEND_USERS, availableYears, currentFiscalYearForBudget, fiscalYearForDate, fiscalYearLabel,
   FISCAL_MONTH_ORDER, reorderCalendarMonthsForFiscalYear,
   listBudgetLines, listForecasts, listSalesActuals, orderDetailsForBudgetCell,
+  initializeWorkingBudgetFromOriginal, workingBudgetInitializationSellerEmails,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   buildOrderActualsByKey, canonicalBudgetProductKey, orderActualKey, monthlyOrderQtyForProduct,
   EQUIPMENT_BY_MACHINE, localizedName,
@@ -483,10 +484,27 @@ export default function CrmBudgetPage() {
       return;
     }
     Promise.all([listBudgetLines({ year }), listForecasts(year), listSalesActuals(year), listLeads({ limit: 1000, payload: "summary" }), listBudgetDealerLines(year)])
-      .then(([l, f, a, leads, dl]) => {
+      .then(async ([initialLines, initialForecasts, a, leads, dl]) => {
+        let l = initialLines;
+        let f = initialForecasts;
+        const activeSeller = getActiveSellerView(appUser?.email);
+        const scopedSellerEmail = isAdmin
+          ? null
+          : ((activeSeller?.email || appUser?.email || "").trim().toLowerCase() || null);
+        const initializationEmails = workingBudgetInitializationSellerEmails(l, dl, scopedSellerEmail);
+        const initialization = await Promise.all(
+          initializationEmails.map(email => initializeWorkingBudgetFromOriginal(year, email)),
+        );
+        if (initialization.some(result => result.status === "seeded")) {
+          [l, f] = await Promise.all([listBudgetLines({ year }), listForecasts(year)]);
+        }
         setLines(l); setForecasts(f); setActuals(a);
         setLeadContribs(buildLeadWorkingContributions(leads).filter(c => c.year === year));
         setDealerLines(dl);
+      })
+      .catch((error) => {
+        console.error("[budget] working-budget initialization failed", error);
+        toast.error("Arbejdsbudget kunne ikke initialiseres");
       })
       .finally(() => setBusy(false));
     // Re-hydrate effective lock map for this year (per-seller resolved against
@@ -1030,9 +1048,9 @@ export default function CrmBudgetPage() {
     const savedMonthly = (fc?.monthly_qty && fc.monthly_qty.length === 12)
       ? fc.monthly_qty.map(v => Number(v) || 0)
       : null;
-    // Arbejdsbudget is fully independent from Budget. If no forecast has been
-    // saved yet, default to zeros — never fall back to qty_budget (that would
-    // make Budget edits visually mutate Arbejdsbudget).
+    // A missing forecast is shown as zero only while the transactional
+    // seller/year initializer is still pending (or deliberately skipped as
+    // ambiguous). Once seeded, the saved monthly_qty is the independent plan.
     const legacyForecast = (fc && (fc.qty_forecast ?? 0) > 0)
       ? splitToMonthly(fc.qty_forecast, split)
       : Array(12).fill(0);

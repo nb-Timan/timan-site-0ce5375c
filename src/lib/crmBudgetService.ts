@@ -127,6 +127,17 @@ export interface BudgetOrderDetail {
   currency: Currency;
 }
 
+export type WorkingBudgetInitializationStatus =
+  | "seeded"
+  | "already_initialized"
+  | "ambiguous_reference_history"
+  | "no_original_budget";
+
+export interface WorkingBudgetInitializationResult {
+  status: WorkingBudgetInitializationStatus;
+  seeded_count: number;
+}
+
 export type OrderActualsByKey = Record<string, number>;
 
 export function orderActualSellerKey(sellerInitialsOrEmail: string | null | undefined): string {
@@ -1962,6 +1973,50 @@ export function aggregateDealerBudgetSellerBreakdown(
   }
   return Array.from(totalsBySeller.values())
     .sort((a, b) => a.initials.localeCompare(b.initials));
+}
+
+/**
+ * Initializes a seller/year working budget exactly once from the canonical
+ * original-budget aggregation. The database function is transactional and
+ * refuses to touch partially initialized or referenced working budgets.
+ */
+export async function initializeWorkingBudgetFromOriginal(
+  year: number,
+  sellerEmail: string,
+): Promise<WorkingBudgetInitializationResult> {
+  const normalizedEmail = sellerEmail.trim().toLowerCase();
+  if (!normalizedEmail) return { status: "no_original_budget", seeded_count: 0 };
+
+  const { data, error } = await supabase.rpc("initialize_crm_working_budget_from_original", {
+    p_year: year,
+    p_seller_email: normalizedEmail,
+  });
+  if (error) {
+    throw new BudgetPersistenceError(
+      `Working budget initialization failed: ${errorText(error)}`,
+      "crm_budget_forecasts",
+      error,
+    );
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    status: (row?.status || "no_original_budget") as WorkingBudgetInitializationStatus,
+    seeded_count: Number(row?.seeded_count || 0),
+  };
+}
+
+/** Resolve the seller scopes that the current Budget view may initialize. */
+export function workingBudgetInitializationSellerEmails(
+  lines: BudgetLine[],
+  dealerLines: BudgetDealerLine[],
+  sellerEmail: string | null,
+): string[] {
+  if (sellerEmail) return [sellerEmail.trim().toLowerCase()].filter(Boolean);
+  return Array.from(new Set(
+    [...lines.map(line => line.seller_email), ...dealerLines.map(line => line.seller_email)]
+      .map(email => (email || "").trim().toLowerCase())
+      .filter(Boolean),
+  )).sort();
 }
 
 export interface OriginalBudgetDealerAllocation {
