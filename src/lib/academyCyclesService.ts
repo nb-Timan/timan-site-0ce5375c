@@ -16,7 +16,7 @@ export type AcademyCycle = {
   completed_curriculum?: string[] | null;
 };
 
-export type AcademyAward = 'bronze' | 'silver' | 'gold';
+export type AcademyAward = 'bronze' | 'silver' | 'gold' | 'advanced_sales';
 export type AcademyAwardCounts = Record<AcademyAward, number>;
 export type AcademyCycleSnapshot = { cycle: AcademyCycle | null; completionIds: string[]; completedCycleCount: number; awardCounts: AcademyAwardCounts; awards: AcademyAward[] };
 
@@ -31,8 +31,9 @@ function normalizeSnapshot(value: unknown): AcademyCycleSnapshot {
       bronze: typeof sourceCounts.bronze === 'number' ? sourceCounts.bronze : 0,
       silver: typeof sourceCounts.silver === 'number' ? sourceCounts.silver : 0,
       gold: typeof sourceCounts.gold === 'number' ? sourceCounts.gold : 0,
+      advanced_sales: typeof sourceCounts.advanced_sales === 'number' ? sourceCounts.advanced_sales : 0,
     },
-    awards: Array.isArray(row.awards) ? row.awards.filter((award): award is AcademyAward => award === 'bronze' || award === 'silver' || award === 'gold') : [],
+    awards: Array.isArray(row.awards) ? row.awards.filter((award): award is AcademyAward => award === 'bronze' || award === 'silver' || award === 'gold' || award === 'advanced_sales') : [],
   };
 }
 
@@ -47,7 +48,7 @@ export async function getMyAcademyCycle(viewAsUserId?: string): Promise<AcademyC
     const history = await getAcademyCycleHistory(viewAsUserId);
     const latest = history[0] ?? normalizeSnapshot(null);
     return { ...latest, completedCycleCount: history.filter((entry) => entry.cycle?.status === 'completed').length,
-      awardCounts: Object.fromEntries(['bronze', 'silver', 'gold'].map((award) => [award, history.filter((entry) => entry.awards.includes(award as AcademyAward)).length])) as AcademyAwardCounts };
+      awardCounts: Object.fromEntries(['bronze', 'silver', 'gold', 'advanced_sales'].map((award) => [award, history.filter((entry) => entry.awards.includes(award as AcademyAward)).length])) as AcademyAwardCounts };
   }
   const { data, error } = await supabase.rpc('get_my_academy_cycle');
   if (error) throw error;

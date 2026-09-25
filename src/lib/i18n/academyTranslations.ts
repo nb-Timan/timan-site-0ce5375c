@@ -555,3 +555,74 @@ Object.assign(ACADEMY_TRANSLATIONS.sv, { academyBonusSales: 'Bonus / Avancerad f
 Object.assign(ACADEMY_TRANSLATIONS.fr, { academyBonusSales: 'Bonus / Vente avancée', academyOptional: 'Facultatif' });
 Object.assign(ACADEMY_TRANSLATIONS.pl, { academyBonusSales: 'Bonus / Sprzedaż zaawansowana', academyOptional: 'Opcjonalne' });
 Object.assign(ACADEMY_TRANSLATIONS.cs, { academyBonusSales: 'Bonus / Pokročilý prodej', academyOptional: 'Volitelné' });
+
+const salesBonusCase2Keys = [
+  'academySalesBonusCase2Title', 'academySalesBonusCase2Description',
+  'academyBonus2Point1', 'academyBonus2Point1Done', 'academyBonus2Point2', 'academyBonus2Point2Done',
+  'academyBonus2Point3', 'academyBonus2Point3Done', 'academyBonus2Point4', 'academyBonus2Point4Done',
+  'academyBonus2Point5', 'academyBonus2Point5Done', 'academyBonus2Point6', 'academyBonus2Point6Done',
+  'academyBonus2Point7', 'academyBonus2Point7Done', 'academyBonus2Point8', 'academyBonus2Point8Done',
+  'academyBonus2Point9', 'academyBonus2Point9Done', 'academyBonus2Point10', 'academyBonus2Point10Done',
+  'academyBonus2Next1', 'academyBonus2Next2', 'academyBonus2Next3', 'academyBonus2Next4', 'academyBonus2Next5',
+  'academyBonus2Next6', 'academyBonus2Next7', 'academyBonus2Next8', 'academyBonus2Next9', 'academyBonus2Next10',
+  'academySalesBonusCase2NotReady', 'academySalesBonusCase2OrderSubmitted',
+  'academyBonus2LoadCustomer', 'academyBonus2CustomerLoaded', 'academyAdvancedSalesBadge',
+];
+const salesBonusCase2Copy: Record<string, string[]> = {
+  da: [
+    'Bonus Case 2 – Timan 3330 + CS-200 traktorløsning med kampagne',
+    'Byg en 3330 og en separat CS-200 traktorløsning, kontrollér kampagnen og afsend en lokal Academy-ordre.',
+    'Vælg Timan 3330 og Loader-Line & CS-200 Traktor', 'Maskine 1 og 2 er grupperet korrekt',
+    'Vælg Standard forsendelse – Timan booker (FCA)', 'Canonical standardforsendelse er valgt',
+    'Tilføj de fire krævede 3330-tilvalg', '712060, 712146, 712141 og 712143 er valgt',
+    'Tilføj centerslange 721122', '721122 er tilføjet via afhængighedsdialogen',
+    'Konfigurér CS-200 til traktor', '725142, 712902, 725120 og 725747 er valgt på maskine 2',
+    'Aktivér Academy-kampagnen', '712000 udløser kampagnen på tværs af maskinerne',
+    'Kontrollér kampagnefordelen', '725142 får den beregnede målpris 0 kr.',
+    'Skift fra Tilbud til Ordre', 'Ordre er valgt uden produktionsordre',
+    'Brug den syntetiske Academy-kunde', 'Academy-kundedata består den normale validering',
+    'Afsend ordren til Timan', 'Præcis én lokal Academy-ordre er simuleret',
+    'Vælg én Timan 3330 som maskine 1 og én Loader-Line som maskine 2.',
+    'Gå til Trin 2 og vælg Standard forsendelse – Timan booker (FCA).',
+    'Tilføj 712060, 712146, 712141 og 712143 til Timan 3330.',
+    'Gå videre fra 3330 og vælg Tilføj 721122 i dialogen.',
+    'Vælg 725142 samt 712902, 725120 og 725747 på Loader-Line.',
+    'Kontrollér at Academy-kampagnen er udløst af 712000.',
+    'Kontrollér at kampagneprisen på 725142 er 0 kr.',
+    'Skift kurven fra Tilbud til Ordre.',
+    'Indlæs Academy-kunden og kontrollér felterne i Trin 4.',
+    'Klik Afsend ordre til Timan og bekræft den lokale simulering.',
+    'Academy-ordren er ikke klar endnu.', 'Academy-ordren blev afsendt lokalt uden produktionsdata.',
+    'Indlæs Academy-kunde', 'Academy-kunde indlæst', 'Avanceret salg',
+  ],
+  en: [
+    'Bonus Case 2 – Timan 3330 + CS-200 tractor solution with campaign',
+    'Build a 3330 and a separate CS-200 tractor solution, verify the campaign and submit a local Academy order.',
+    'Select Timan 3330 and Loader-Line & CS-200 Tractor', 'Machines 1 and 2 are grouped correctly',
+    'Select Standard shipping – Timan books (FCA)', 'The canonical standard shipping method is selected',
+    'Add the four required 3330 options', '712060, 712146, 712141 and 712143 are selected',
+    'Add centre hose 721122', '721122 was added through the dependency dialog',
+    'Configure the tractor CS-200', '725142, 712902, 725120 and 725747 are selected on machine 2',
+    'Activate the Academy campaign', '712000 triggers the campaign across the machines',
+    'Verify the campaign benefit', '725142 receives the calculated target price of 0',
+    'Switch from Quote to Order', 'Order is selected without a production order',
+    'Use the synthetic Academy customer', 'Academy customer data passes normal validation',
+    'Submit the order to Timan', 'Exactly one local Academy order is simulated',
+    'Select one Timan 3330 as machine 1 and one Loader-Line as machine 2.',
+    'Go to Step 2 and select Standard shipping – Timan books (FCA).',
+    'Add 712060, 712146, 712141 and 712143 to the Timan 3330.',
+    'Continue from the 3330 and choose Add 721122 in the dialog.',
+    'Select 725142 plus 712902, 725120 and 725747 on Loader-Line.',
+    'Check that 712000 activates the Academy campaign.',
+    'Check that the campaign price for 725142 is 0.',
+    'Switch the cart from Quote to Order.',
+    'Load the Academy customer and check the fields in Step 4.',
+    'Click Submit order to Timan and confirm the local simulation.',
+    'The Academy order is not ready yet.', 'The Academy order was submitted locally without production data.',
+    'Load Academy customer', 'Academy customer loaded', 'Advanced sales',
+  ],
+};
+for (const language of Object.keys(ACADEMY_TRANSLATIONS)) {
+  const copy = salesBonusCase2Copy[language] ?? salesBonusCase2Copy.en;
+  Object.assign(ACADEMY_TRANSLATIONS[language], Object.fromEntries(salesBonusCase2Keys.map((key, index) => [key, copy[index]])));
+}

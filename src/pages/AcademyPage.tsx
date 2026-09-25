@@ -27,6 +27,7 @@ import {
   getMandatoryAcademyCurriculum,
   getAcademyTracks,
   getAcademyAwardTargets,
+  hasAdvancedSalesBadge,
   getAcademyCasePrerequisites,
   activateLocalAcademyEnrollment,
   canOpenAcademyCase,
@@ -178,6 +179,7 @@ export default function AcademyPage() {
   const task = academySandbox.getCase1();
   const videoTask = academySandbox.getCase2();
   const deliveryTask = academySandbox.getCase3();
+  const campaignBonusTask = academySandbox.getSalesBonusCase2();
   const portalBasics = academySandbox.getPortalBasics();
   const partnerMap = academySandbox.getPartnerMap();
   const serviceTask = academySandbox.getServiceCase1();
@@ -255,6 +257,7 @@ export default function AcademyPage() {
     task.started && ACADEMY_CASE_IDS.salesCase1,
     videoTask.started && ACADEMY_CASE_IDS.salesCase2,
     deliveryTask.started && ACADEMY_CASE_IDS.salesCase3,
+    campaignBonusTask.started && ACADEMY_CASE_IDS.salesBonusCase2,
     portalBasics.started && ACADEMY_CASE_IDS.portalBasics,
     partnerMap.started && ACADEMY_CASE_IDS.partnerMap,
     crmState.part1Started && ACADEMY_CASE_IDS.crmPart1,
@@ -274,6 +277,7 @@ export default function AcademyPage() {
   const caseState = stateFor(ACADEMY_CASE_IDS.salesCase1);
   const videoCaseState = stateFor(ACADEMY_CASE_IDS.salesCase2);
   const deliveryCaseState = stateFor(ACADEMY_CASE_IDS.salesCase3);
+  const campaignBonusCaseState = stateFor(ACADEMY_CASE_IDS.salesBonusCase2);
   const crmPart1State = stateFor(ACADEMY_CASE_IDS.crmPart1);
   const crmPart2State = stateFor(ACADEMY_CASE_IDS.crmPart2);
   const serviceCaseState = stateFor(ACADEMY_CASE_IDS.serviceCase1);
@@ -284,8 +288,10 @@ export default function AcademyPage() {
     ? undefined
     : state === 'completed' ? tr('academyOpen') : state === 'active' ? tr('academyContinue') : tr('academyStart');
   const completedCycles = cycleSnapshot?.completedCycleCount ?? 0;
-  const awardCounts = cycleSnapshot?.awardCounts ?? { bronze: 0, silver: 0, gold: 0 };
+  const awardCounts = cycleSnapshot?.awardCounts ?? { bronze: 0, silver: 0, gold: 0, advanced_sales: 0 };
   const currentCycleAwards = cycleSnapshot?.awards ?? [];
+  const advancedSalesAwarded = currentCycleAwards.includes('advanced_sales') || hasAdvancedSalesBadge(localCompletionIds);
+  const bonusSalesCompleted = countCompleted([ACADEMY_CASE_IDS.salesCase3, ACADEMY_CASE_IDS.salesBonusCase2]);
   const awardTargets = getAcademyAwardTargets(user);
   const nextAwardKey = awardTargets.find((award) => !currentCycleAwards.includes(award));
   const nextAward = nextAwardKey ? tr({ bronze: 'academyAwardBronze', silver: 'academyAwardSilver', gold: 'academyAwardGold' }[nextAwardKey]) : tr('academyAllBadges');
@@ -320,6 +326,7 @@ export default function AcademyPage() {
     [ACADEMY_CASE_IDS.salesCase1]: tr('academySalesCase1Title'),
     [ACADEMY_CASE_IDS.salesCase2]: tr('academySalesCase2Title'),
     [ACADEMY_CASE_IDS.salesCase3]: tr('academySalesCase3Title'),
+    [ACADEMY_CASE_IDS.salesBonusCase2]: tr('academySalesBonusCase2Title'),
     [ACADEMY_CASE_IDS.crmPart1]: tr('academyCrmCase1Title'),
     [ACADEMY_CASE_IDS.crmPart2]: tr('academyCrmCase2Title'),
     [ACADEMY_CASE_IDS.serviceCase1]: tr('academyServiceCase1Title'),
@@ -347,6 +354,11 @@ export default function AcademyPage() {
     if (!mayOpen(deliveryCaseState)) return;
     academySandbox.startCase3();
     navigate('/configurator?academy_mode=true&academy_case=3');
+  };
+  const startCampaignBonusCase = () => {
+    if (!mayOpen(campaignBonusCaseState)) return;
+    academySandbox.startSalesBonusCase2();
+    navigate('/configurator?academy_mode=true&academy_case=bonus-campaign');
   };
   const startPortalBasics = () => {
     if (!mayOpen(portalBasicsState)) return;
@@ -406,7 +418,7 @@ export default function AcademyPage() {
                 <div className="relative mt-5 flex items-start justify-between">
                   <div className="absolute left-[12%] right-[12%] top-[18px] h-px bg-slate-200" />
                   <Journey icon={ACADEMY_AREA_ICONS.partnerData} label="Basic" active={areaReached([ACADEMY_CASE_IDS.partnerDataPart1, ACADEMY_CASE_IDS.partnerDataPart2, ACADEMY_CASE_IDS.portalBasics, ACADEMY_CASE_IDS.partnerMap])} />
-                  {hasSalesTrack && <Journey icon={ACADEMY_AREA_ICONS.sales} label={tr('academySales')} active={areaReached([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2, ACADEMY_CASE_IDS.salesCase3, ACADEMY_CASE_IDS.crmPart1, ACADEMY_CASE_IDS.crmPart2])} />}
+                  {hasSalesTrack && <Journey icon={ACADEMY_AREA_ICONS.sales} label={tr('academySales')} active={areaReached([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2, ACADEMY_CASE_IDS.salesCase3, ACADEMY_CASE_IDS.salesBonusCase2, ACADEMY_CASE_IDS.crmPart1, ACADEMY_CASE_IDS.crmPart2])} />}
                   {assignedTracks.includes('service') && <Journey icon={ShieldCheck} label={tr('academyServiceTrack')} active={areaReached([ACADEMY_CASE_IDS.serviceCase1])} />}
                 </div>
               </div>
@@ -454,6 +466,7 @@ export default function AcademyPage() {
                 {(hasSalesTrack || awardCounts.bronze > 0) && <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-800"><Medal className="h-4 w-4 text-[#b77939]" />{tr('academyAwardBronze')}</span><span className="text-slate-500">× {awardCounts.bronze}</span></div>}
                 {(hasSalesTrack || awardCounts.silver > 0) && <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><ShieldCheck className="h-4 w-4 text-slate-400" />{tr('academyAwardSilver')}</span><span className="text-slate-500">× {awardCounts.silver}</span></div>}
                 <div className="flex items-center justify-between gap-2"><span className="flex items-center gap-2 font-semibold text-slate-700"><Crown className="h-4 w-4 text-amber-500" />{tr('academyAwardGold')}</span><span className="text-slate-500">× {awardCounts.gold}</span></div>
+                <div className="flex items-center justify-between gap-2"><span className={cn('flex items-center gap-2 font-semibold', advancedSalesAwarded ? 'text-emerald-800' : 'text-slate-500')}><Trophy className={cn('h-4 w-4', advancedSalesAwarded ? 'text-emerald-600' : 'text-slate-300')} />{tr('academyAdvancedSalesBadge')}</span><span className="text-slate-500">{advancedSalesAwarded ? `× ${Math.max(1, awardCounts.advanced_sales)}` : `${bonusSalesCompleted} / 2`}</span></div>
               </div>
             </section>
           </div>
@@ -471,8 +484,9 @@ export default function AcademyPage() {
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase1Title')} description={tr('academySalesCase1Description')} state={caseState} statusLabel={stateLabel(caseState)} action={actionForCase(caseState)} onClick={mayOpen(caseState) ? startCase : undefined} />
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase2Title')} description={tr('academySalesCase2Description')} state={videoCaseState} statusLabel={stateLabel(videoCaseState)} action={actionForCase(videoCaseState)} onClick={mayOpen(videoCaseState) ? startVideoCase : undefined} />
             </Module>}
-            {hasSalesTrack && <Module title={tr('academyBonusSales')} progress={deliveryCaseState === 'completed' ? `1 / 1 ${tr('academyCompleted')}` : tr('academyOptional')}>
+            {hasSalesTrack && <Module title={tr('academyBonusSales')} progress={`${bonusSalesCompleted} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesCase3Title')} description={tr('academySalesCase3Description')} state={deliveryCaseState} statusLabel={deliveryCaseState === 'ready' ? tr('academyOptional') : stateLabel(deliveryCaseState)} action={actionForCase(deliveryCaseState)} onClick={mayOpen(deliveryCaseState) ? startDeliveryCase : undefined} />
+              <AcademyRow icon={ACADEMY_AREA_ICONS.sales} title={tr('academySalesBonusCase2Title')} description={tr('academySalesBonusCase2Description')} state={campaignBonusCaseState} statusLabel={campaignBonusCaseState === 'ready' ? tr('academyOptional') : stateLabel(campaignBonusCaseState)} action={actionForCase(campaignBonusCaseState)} onClick={mayOpen(campaignBonusCaseState) ? startCampaignBonusCase : undefined} />
             </Module>}
             {hasSalesTrack && <Module title="CRM" progress={`${crmCompleted} / 2 ${tr('academyCompleted')}`}>
               <AcademyRow icon={ACADEMY_AREA_ICONS.crm} title={tr('academyCrmCase1Title')} description={tr('academyCrmDashboardCase1Description')} state={crmPart1State} statusLabel={stateLabel(crmPart1State)} action={actionForCase(crmPart1State)} onClick={mayOpen(crmPart1State) ? startCrmPart1 : undefined} />

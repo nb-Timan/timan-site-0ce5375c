@@ -3,8 +3,12 @@ import {
   ACC_ID_OIL_NORMAL,
   ACC_ID_WEEDBRUSH,
   ACC_ID_WORK_LIGHT,
+  getAccessoriesFlat,
+  PRODUCTS,
 } from '@/data/machines';
 import { ACADEMY_CASE_1_ID } from '@/lib/academyCurriculum';
+import { ACADEMY_SALES_BONUS_CAMPAIGN_ID, ACADEMY_SALES_BONUS_CASE_2 } from '@/lib/academySalesBonusCampaign';
+import type { CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
 import { academyScopedStorageKey, hasAcademyCycleCompletion, isAcademyCycleStorageScopeActive } from '@/lib/academyCycleStorage';
 import { DELIVERY_DISCOUNT_PERCENT, hasMachineDeliveryOverride, isDeliveryDateDisabled, isDeliveryDiscountEligible, machineDeliveryDate } from '@/lib/configuratorDelivery';
 import type { ConfiguratorState, MachineDeliveryDiscount } from '@/types/configurator';
@@ -12,6 +16,7 @@ import type { ConfiguratorState, MachineDeliveryDiscount } from '@/types/configu
 export const ACADEMY_CASE_1 = ACADEMY_CASE_1_ID;
 export const ACADEMY_CASE_2 = 'sales.case_2_video_3330';
 export const ACADEMY_CASE_3 = 'sales.case_3_rc1000_delivery';
+export const ACADEMY_BONUS_CASE_2 = ACADEMY_SALES_BONUS_CASE_2;
 export const ACADEMY_PORTAL_BASICS = 'portal.basics_5';
 export const ACADEMY_PARTNER_MAP = 'portal.partner_map';
 export const PORTAL_BASICS_NEWS_ID = 'academy-news-rc1000s-disc-mower';
@@ -22,13 +27,14 @@ export const ACADEMY_PROGRESS_CHANGED = 'timan:academy-progress-changed';
 export const ACADEMY_CASE_COMPLETED = 'timan:academy-case-completed';
 const KEY = 'timan.academy.sandbox.v1';
 const SESSION_KEY = 'timan.academy.session.v1';
-export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'sales.case_3_rc1000_delivery' | 'portal.basics_5' | 'portal.partner_map' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations' | 'service.case_1_machine_history';
+export type AcademyActiveCase = 'sales.case_1_rc1000' | 'sales.case_2_video_3330' | 'sales.case_3_rc1000_delivery' | 'sales.bonus_case_2_3330_cs200_campaign' | 'portal.basics_5' | 'portal.partner_map' | 'crm.part_1' | 'crm.part_2' | 'partnerdata.part_1_profile' | 'partnerdata.part_2_relations' | 'service.case_1_machine_history';
 export type AcademyPortalHomeCardId = 'academy' | 'salg_marketing' | 'dealer_data' | 'timan_crm' | 'marketing' | 'teknik_service' | 'calendar' | 'projects' | 'messe' | 'timan_backend';
 const CASE_ROUTES: Record<AcademyActiveCase, string> = {
   'service.case_1_machine_history': '/portal/teknik-service?academy_mode=true',
   'sales.case_1_rc1000': '/configurator?academy_mode=true',
   'sales.case_2_video_3330': '/portal/videos?academy_mode=true&academy_case=2',
   'sales.case_3_rc1000_delivery': '/configurator?academy_mode=true&academy_case=3',
+  'sales.bonus_case_2_3330_cs200_campaign': '/configurator?academy_mode=true&academy_case=bonus-campaign',
   'portal.basics_5': '/portal?academy_mode=true',
   'portal.partner_map': '/portal/misc/partner-map?academy_mode=true',
   'crm.part_1': '/academy/crm/leads?academy_mode=true&academy_part=1',
@@ -41,6 +47,7 @@ const CASE_PORTAL_HOME_CARDS: Record<AcademyActiveCase, readonly AcademyPortalHo
   'sales.case_1_rc1000': ['academy', 'salg_marketing'],
   'sales.case_2_video_3330': ['academy', 'salg_marketing'],
   'sales.case_3_rc1000_delivery': ['academy', 'salg_marketing'],
+  'sales.bonus_case_2_3330_cs200_campaign': ['academy', 'salg_marketing'],
   'portal.basics_5': ['academy', 'dealer_data', 'messe'],
   'portal.partner_map': ['academy', 'salg_marketing'],
   'crm.part_1': ['academy', 'timan_crm'],
@@ -112,6 +119,32 @@ export type AcademyCase3Input = Pick<ConfiguratorState,
   now?: number;
 };
 
+export type AcademySalesBonusCase2State = {
+  started: boolean;
+  completed: boolean;
+  machinesCorrect: boolean;
+  deliveryCorrect: boolean;
+  timan3330OptionsCorrect: boolean;
+  dependency721122Added: boolean;
+  tractorEquipmentCorrect: boolean;
+  campaignTriggered: boolean;
+  campaignBenefitApplied: boolean;
+  orderMode: boolean;
+  syntheticCustomerValid: boolean;
+  orderSubmitted: boolean;
+  simulatedOrderId: string | null;
+  simulatedOrderCount: number;
+  bonusPoints: number;
+};
+
+export type AcademySalesBonusCase2Input = Pick<ConfiguratorState,
+  'machineConfigs' | 'individualUnitConfigs' | 'deliveryMethod' | 'flowType'
+> & {
+  campaignLines: CampaignLineSnapshot[];
+  customerValid: boolean;
+  customerIsSynthetic: boolean;
+};
+
 export type AcademyPortalBasicsState = {
   started: boolean;
   completed: boolean;
@@ -156,6 +189,7 @@ type AcademySandboxState = AcademyCase1State & {
   serviceCase1: AcademyServiceCaseState;
   case2: AcademyCase2State;
   case3: AcademyCase3State;
+  salesBonusCase2: AcademySalesBonusCase2State;
   portalBasics: AcademyPortalBasicsState;
   partnerMap: AcademyPartnerMapState;
 };
@@ -174,6 +208,23 @@ const initialServiceCase = (): AcademyServiceCaseState => ({
 const initialCase1 = (): AcademyCase1State => ({ started: false, completed: false, quoteGenerated: false, leadId: null, machine: false, flail: false, weedBrush: false, oil: false, workLight: false, wireHarness: false, rc751: false, quantityDiscount: false });
 const initialCase2 = (): AcademyCase2State => ({ started: false, completed: false, machineFiltered: false, maintenanceFiltered: false, targetFound: false, targetOpened: false });
 const initialCase3 = (): AcademyCase3State => ({ started: false, completed: false, twoMachinesDifferent: false, individualDeliveryDates: false, deliveryDiscountOnlyMachine2: false, equipmentCorrect: false, leadId: null });
+const initialSalesBonusCase2 = (): AcademySalesBonusCase2State => ({
+  started: false,
+  completed: false,
+  machinesCorrect: false,
+  deliveryCorrect: false,
+  timan3330OptionsCorrect: false,
+  dependency721122Added: false,
+  tractorEquipmentCorrect: false,
+  campaignTriggered: false,
+  campaignBenefitApplied: false,
+  orderMode: false,
+  syntheticCustomerValid: false,
+  orderSubmitted: false,
+  simulatedOrderId: null,
+  simulatedOrderCount: 0,
+  bonusPoints: 0,
+});
 const initialPortalBasics = (): AcademyPortalBasicsState => ({
   started: false,
   completed: false,
@@ -198,7 +249,7 @@ const initialPartnerMap = (): AcademyPartnerMapState => ({
   serviceDetailOpened: false,
   requiresServiceDetail: false,
 });
-const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialCase2(), case3: initialCase3(), portalBasics: initialPortalBasics(), partnerMap: initialPartnerMap(), serviceCase1: initialServiceCase() });
+const initial = (): AcademySandboxState => ({ ...initialCase1(), case2: initialCase2(), case3: initialCase3(), salesBonusCase2: initialSalesBonusCase2(), portalBasics: initialPortalBasics(), partnerMap: initialPartnerMap(), serviceCase1: initialServiceCase() });
 
 function isComplete(state: AcademyCase1State) {
   return state.machine && state.flail && state.weedBrush && state.oil
@@ -224,6 +275,7 @@ function load(): AcademySandboxState {
       ...saved,
       case2: { ...initialCase2(), ...saved.case2 },
       case3: { ...initialCase3(), ...saved.case3 },
+      salesBonusCase2: { ...initialSalesBonusCase2(), ...saved.salesBonusCase2 },
       portalBasics: { ...initialPortalBasics(), ...saved.portalBasics },
       partnerMap: { ...initialPartnerMap(), ...saved.partnerMap },
       serviceCase1: { ...initialServiceCase(), ...saved.serviceCase1 },
@@ -259,7 +311,7 @@ function save(state: AcademySandboxState) {
   }
   return state;
 }
-function case1Of({ case2: _case2, case3: _case3, portalBasics: _portalBasics, partnerMap: _partnerMap, serviceCase1: _serviceCase1, ...case1 }: AcademySandboxState): AcademyCase1State { return case1; }
+function case1Of({ case2: _case2, case3: _case3, salesBonusCase2: _salesBonusCase2, portalBasics: _portalBasics, partnerMap: _partnerMap, serviceCase1: _serviceCase1, ...case1 }: AcademySandboxState): AcademyCase1State { return case1; }
 
 function isCase3Complete(state: AcademyCase3State) {
   return state.twoMachinesDifferent
@@ -285,6 +337,44 @@ function saveCase3Transition(current: AcademySandboxState, case3: AcademyCase3St
   if (!current.case3.completed && saved.completed) {
     window.dispatchEvent(new CustomEvent<AcademyCaseCompletion>(ACADEMY_CASE_COMPLETED, {
       detail: { caseId: ACADEMY_CASE_3, titleKey: 'academySalesCase3Title', completed: 5, total: 5 },
+    }));
+  }
+  return saved;
+}
+
+const BONUS_CASE_2_REQUIRED_3330 = ['712060', '712146', '712141', '712143'];
+const BONUS_CASE_2_REQUIRED_TRACTOR = ['725142', '712902', '725120', '725747'];
+
+function selectedItemNumbersForMachine(input: AcademySalesBonusCase2Input, machineIndex: number) {
+  const machine = input.machineConfigs[machineIndex];
+  if (!machine) return new Set<string>();
+  const selectedIds = machine.configMode === 'shared'
+    ? machine.acc
+    : Array.from({ length: machine.qty }, (_, index) => input.individualUnitConfigs[`${machine.id}_${index + 1}`]?.acc ?? []).flat();
+  const byId = new Map(getAccessoriesFlat(machine.type).map(accessory => [accessory.id, accessory.varenr]));
+  return new Set(selectedIds.map(id => byId.get(id)).filter((itemNumber): itemNumber is string => Boolean(itemNumber)));
+}
+
+function isSalesBonusCase2Complete(state: AcademySalesBonusCase2State) {
+  return state.machinesCorrect
+    && state.deliveryCorrect
+    && state.timan3330OptionsCorrect
+    && state.dependency721122Added
+    && state.tractorEquipmentCorrect
+    && state.campaignTriggered
+    && state.campaignBenefitApplied
+    && state.orderMode
+    && state.syntheticCustomerValid
+    && state.orderSubmitted;
+}
+
+function saveSalesBonusCase2Transition(current: AcademySandboxState, next: AcademySalesBonusCase2State) {
+  next.completed = current.salesBonusCase2.completed || isSalesBonusCase2Complete(next);
+  next.bonusPoints = next.completed ? Math.max(1, current.salesBonusCase2.bonusPoints) : current.salesBonusCase2.bonusPoints;
+  const saved = save({ ...current, salesBonusCase2: next }).salesBonusCase2;
+  if (!current.salesBonusCase2.completed && saved.completed) {
+    window.dispatchEvent(new CustomEvent<AcademyCaseCompletion>(ACADEMY_CASE_COMPLETED, {
+      detail: { caseId: ACADEMY_BONUS_CASE_2, titleKey: 'academySalesBonusCase2Title', completed: 10, total: 10 },
     }));
   }
   return saved;
@@ -395,6 +485,7 @@ export const academySandbox = {
     // has been reset. The dashboard will offer Case 1 again.
     if (session.caseId === ACADEMY_CASE_2 && !this.isCase2Unlocked()) return null;
     if (session.caseId === ACADEMY_CASE_3 && !this.isCase3Unlocked()) return null;
+    if (session.caseId === ACADEMY_BONUS_CASE_2 && !this.isSalesBonusCase2Unlocked()) return null;
     return session.caseId ?? null;
   },
   getContinueRoute() {
@@ -414,8 +505,10 @@ export const academySandbox = {
   getCase1() { return case1Of(load()); },
   getCase2() { return load().case2; },
   getCase3() { return load().case3; },
+  getSalesBonusCase2() { return load().salesBonusCase2; },
   isCase2Unlocked() { return load().completed || hasAcademyCycleCompletion(ACADEMY_CASE_1); },
   isCase3Unlocked() { return load().case2.completed || hasAcademyCycleCompletion(ACADEMY_CASE_2); },
+  isSalesBonusCase2Unlocked() { return load().case2.completed || hasAcademyCycleCompletion(ACADEMY_CASE_2); },
   getPortalBasics() { return load().portalBasics; },
   getPartnerMap() { return load().partnerMap; },
   getServiceCase1() { return load().serviceCase1; },
@@ -468,6 +561,7 @@ export const academySandbox = {
       state.completed && ACADEMY_CASE_1,
       state.case2.completed && ACADEMY_CASE_2,
       state.case3.completed && ACADEMY_CASE_3,
+      state.salesBonusCase2.completed && ACADEMY_BONUS_CASE_2,
       state.portalBasics.completed && ACADEMY_PORTAL_BASICS,
       state.partnerMap.completed && ACADEMY_PARTNER_MAP,
       state.serviceCase1.completed && ACADEMY_SERVICE_CASE_1,
@@ -485,6 +579,12 @@ export const academySandbox = {
     this.activateCase(ACADEMY_CASE_3);
     const current = load();
     return save({ ...current, case3: { ...current.case3, started: true } }).case3;
+  },
+  startSalesBonusCase2() {
+    if (!this.isSalesBonusCase2Unlocked()) throw new Error('Sales Case 2 skal gennemføres før Bonus Case 2.');
+    this.activateCase(ACADEMY_BONUS_CASE_2);
+    const current = load();
+    return save({ ...current, salesBonusCase2: { ...current.salesBonusCase2, started: true } }).salesBonusCase2;
   },
   startPortalBasics(startingLanguage: string) {
     this.activateCase(ACADEMY_PORTAL_BASICS);
@@ -676,6 +776,60 @@ export const academySandbox = {
       individualDeliveryDates,
       deliveryDiscountOnlyMachine2,
       equipmentCorrect,
+    });
+  },
+  evaluateSalesBonusCase2(input: AcademySalesBonusCase2Input) {
+    if (!isLocalAcademyMode()) throw new Error('Academy sandbox is only available on localhost.');
+    const current = load();
+    if (this.getActiveCase() !== ACADEMY_BONUS_CASE_2 || !current.salesBonusCase2.started || current.salesBonusCase2.completed) return current.salesBonusCase2;
+
+    const activeMachines = input.machineConfigs.filter(machine => machine.qty > 0);
+    const machinesCorrect = activeMachines.length === 2
+      && activeMachines[0].type === 'Timan 3330'
+      && activeMachines[0].qty === 1
+      && PRODUCTS[activeMachines[0].type]?.varenr === '712000'
+      && activeMachines[1].type === 'Loader Line'
+      && activeMachines[1].qty === 1
+      && PRODUCTS[activeMachines[1].type]?.varenr === '666-333';
+    const timan3330Items = machinesCorrect ? selectedItemNumbersForMachine(input, 0) : new Set<string>();
+    const tractorItems = machinesCorrect ? selectedItemNumbersForMachine(input, 1) : new Set<string>();
+    const campaignLine = input.campaignLines.find(line => line.campaignId === ACADEMY_SALES_BONUS_CAMPAIGN_ID && line.benefitItemNumber === '725142');
+    const campaignTriggered = Boolean(campaignLine && campaignLine.triggerItemNumbers.includes('712000') && campaignLine.triggerSetCount >= 1);
+    const campaignBenefitApplied = Boolean(campaignLine
+      && campaignLine.applied
+      && campaignLine.quantity === 1
+      && campaignLine.targetPrice === 0
+      && campaignLine.finalLineValue === 0
+      && campaignLine.discountAmount > 0);
+
+    return saveSalesBonusCase2Transition(current, {
+      ...current.salesBonusCase2,
+      machinesCorrect,
+      deliveryCorrect: input.deliveryMethod === 'send',
+      timan3330OptionsCorrect: BONUS_CASE_2_REQUIRED_3330.every(itemNumber => timan3330Items.has(itemNumber)),
+      dependency721122Added: timan3330Items.has('721122'),
+      tractorEquipmentCorrect: BONUS_CASE_2_REQUIRED_TRACTOR.every(itemNumber => tractorItems.has(itemNumber)),
+      campaignTriggered,
+      campaignBenefitApplied,
+      orderMode: input.flowType === 'order',
+      syntheticCustomerValid: input.customerValid && input.customerIsSynthetic,
+    });
+  },
+  submitSalesBonusCase2Order(input: AcademySalesBonusCase2Input) {
+    if (!isLocalAcademyMode()) throw new Error('Academy writes must never use production persistence.');
+    if (this.getActiveCase() !== ACADEMY_BONUS_CASE_2) return load().salesBonusCase2;
+    this.evaluateSalesBonusCase2(input);
+    const current = load();
+    const state = current.salesBonusCase2;
+    const ready = state.machinesCorrect && state.deliveryCorrect && state.timan3330OptionsCorrect
+      && state.dependency721122Added && state.tractorEquipmentCorrect && state.campaignTriggered
+      && state.campaignBenefitApplied && state.orderMode && state.syntheticCustomerValid;
+    if (!ready) return state;
+    return saveSalesBonusCase2Transition(current, {
+      ...state,
+      orderSubmitted: true,
+      simulatedOrderId: state.simulatedOrderId ?? `academy-order-${crypto.randomUUID()}`,
+      simulatedOrderCount: state.simulatedOrderId ? state.simulatedOrderCount : 1,
     });
   },
   trackCase2Filters(input: { machineFilter: string; contentType: string; targetVisible: boolean }) {

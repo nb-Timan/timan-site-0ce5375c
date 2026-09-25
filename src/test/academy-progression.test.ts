@@ -19,6 +19,7 @@ describe('canonical Academy progression', () => {
       'sales.case_1_rc1000',
       'sales.case_2_video_3330',
       'sales.case_3_rc1000_delivery',
+      'sales.bonus_case_2_3330_cs200_campaign',
       'crm.part_1',
       'crm.part_2',
       'service.case_1_machine_history',
@@ -60,13 +61,14 @@ describe('canonical Academy progression', () => {
       ACADEMY_CASE_IDS.salesCase3,
       [ACADEMY_CASE_IDS.salesCase1],
     )).toBe('locked');
-    expect(ACADEMY_CURRICULUM_ORDER.filter((id) => id.startsWith('sales.case_'))).toHaveLength(3);
+    expect(ACADEMY_CURRICULUM_ORDER.filter((id) => id.startsWith('sales.case_') || id.startsWith('sales.bonus_'))).toHaveLength(4);
   });
 
   it('unlocks CRM Case 1 after Sales Case 2 without making Sales Case 3 a blocker', () => {
     const completed = [ACADEMY_CASE_IDS.salesCase2];
     expect(getAcademyCaseState(ACADEMY_CASE_IDS.crmPart1, completed)).toBe('ready');
     expect(getAcademyCaseState(ACADEMY_CASE_IDS.salesCase3, completed)).toBe('ready');
+    expect(getAcademyCaseState(ACADEMY_CASE_IDS.salesBonusCase2, completed)).toBe('ready');
   });
 
   it('keeps the service track independent from the Sales chain', () => {
@@ -97,6 +99,7 @@ describe('canonical Academy progression', () => {
       ACADEMY_CASE_IDS.salesCase1,
       ACADEMY_CASE_IDS.salesCase2,
       ACADEMY_CASE_IDS.salesCase3,
+      ACADEMY_CASE_IDS.salesBonusCase2,
       ACADEMY_CASE_IDS.crmPart1,
     ];
 
@@ -137,7 +140,7 @@ describe('canonical Academy progression', () => {
     expect(sales).toBeLessThan(bonus);
     expect(bonus).toBeLessThan(crm);
     expect(source).toContain("countCompleted([ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2])} / 2");
-    expect(source).toContain("deliveryCaseState === 'completed' ? `1 / 1");
+    expect(source).toContain('bonusSalesCompleted} / 2');
     expect(source).toContain("'grid w-full grid-cols-[40px_minmax(0,1fr)]");
     expect(source).toContain('disabled={!interactive}');
   });

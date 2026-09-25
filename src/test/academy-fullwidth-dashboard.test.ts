@@ -25,7 +25,7 @@ describe('Academy fullwidth dashboard layout', () => {
     expect(academyPage).not.toContain("tr('academyContinueWhere')");
     expect(academyPage).not.toContain('rc-1000s-tile.png" alt="" className="pointer-events-none absolute');
     expect(academyPage).toContain('lg:grid-cols-2');
-    expect(academyPage).toContain('<LockedModule');
+    expect(academyPage).not.toContain('<LockedModule');
     expect(academyPage).toContain('startCase');
     expect(academyPage).toContain("tr('academyBackToPortal')");
   });

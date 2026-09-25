@@ -38,7 +38,7 @@ import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingC
 import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
 import { ConfiguratorDeliveryDatePicker } from '@/components/configurator/ConfiguratorDeliveryDatePicker';
 import { loadPublishedMarketingCampaigns } from '@/lib/marketingCampaignService';
-import { eligibleCampaignFor } from '@/lib/configuratorCampaigns';
+import { eligibleCampaignFor, replacePublishedCampaigns } from '@/lib/configuratorCampaigns';
 import { useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
 import { ConfiguratorImageModal, type ConfiguratorImagePreview } from '@/components/configurator/ConfiguratorImageModal';
 import { ArrowLeft } from 'lucide-react';
@@ -73,7 +73,8 @@ import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection, recordOrderRevisionConfirmation } from '@/lib/submittedOrderCorrectionService';
 import { loadSubmittedOrderConfirmation } from '@/lib/configurationsService';
 import { buildSubmittedOrderDocument, buildSubmittedOrderMailSummary } from '@/lib/submittedOrderConfirmation';
-import { ACADEMY_CASE_1, ACADEMY_CASE_3, academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_BONUS_CASE_2, ACADEMY_CASE_1, ACADEMY_CASE_3, academySandbox } from '@/lib/academySandbox';
+import { ACADEMY_SALES_BONUS_CUSTOMER, isAcademySalesBonusCustomer, withAcademySalesBonusCampaign } from '@/lib/academySalesBonusCampaign';
 import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
@@ -276,14 +277,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   }, [uiLanguage]);
 
   useEffect(() => {
-    let cancelled = false;
-    Promise.all([listPublishedMarketingConfiguratorContent(), loadPublishedMarketingCampaigns()]).then(([rows]) => {
-      if (!cancelled) setPublishedMarketingContent(rows);
-    });
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
     if (!marketingEditMode) return;
     let cancelled = false;
     listMarketingConfiguratorContent().then(({ rows }) => {
@@ -297,6 +290,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const isAcademyMode = academySandbox.isActive();
   const activeAcademyCase = isAcademyMode ? academySandbox.getActiveCase() : null;
   const isAcademyCase3 = activeAcademyCase === ACADEMY_CASE_3;
+  const isAcademySalesBonusCase2 = activeAcademyCase === ACADEMY_BONUS_CASE_2;
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([listPublishedMarketingConfiguratorContent(), loadPublishedMarketingCampaigns()]).then(([rows, campaigns]) => {
+      if (cancelled) return;
+      setPublishedMarketingContent(rows);
+      replacePublishedCampaigns(withAcademySalesBonusCampaign(campaigns, activeAcademyCase));
+    });
+    return () => { cancelled = true; };
+  }, [activeAcademyCase]);
   const [leadValidationErrors, setLeadValidationErrors] = useState<ConfiguratorLeadField[]>([]);
   const leadValidationBlockedRef = useRef(false);
   // Academy supplies a render-only identity in local training mode. It never
@@ -372,7 +376,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       effectiveUser?.role,
       effectiveUser?.partner_type,
     ),
-    canSubmitOrder: defaultCanSubmitOrder(
+    canSubmitOrder: isAcademySalesBonusCase2 || defaultCanSubmitOrder(
       effectiveUser?.can_submit_order,
       effectiveUser?.portal_role,
       effectiveUser?.role,
@@ -403,12 +407,32 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   }, [navigate, refreshAppUser, setAppUserCtx]);
   const [academyCase, setAcademyCase] = useState(() => academySandbox.getCase1());
   const [academyCase3, setAcademyCase3] = useState(() => academySandbox.getCase3());
+  const [academySalesBonusCase2, setAcademySalesBonusCase2] = useState(() => academySandbox.getSalesBonusCase2());
   const academyMachineConfigs = useMemo(() => state.machineConfigs.map((machine) => {
     const accessoryIds = machine.configMode === 'shared'
       ? machine.acc
       : Array.from({ length: machine.qty }, (_, index) => state.individualUnitConfigs[`${machine.id}_${index + 1}`]?.acc ?? []).flat();
     return { type: machine.type, acc: accessoryIds, qty: machine.qty };
   }), [state.machineConfigs, state.individualUnitConfigs]);
+  const getAcademySalesBonusCase2Input = useCallback(() => ({
+    machineConfigs: state.machineConfigs,
+    individualUnitConfigs: state.individualUnitConfigs,
+    deliveryMethod: state.deliveryMethod,
+    flowType: state.flowType,
+    campaignLines: calcResult?.campaignLines ?? [],
+    customerValid: validateConfiguratorLead(state).valid,
+    customerIsSynthetic: isAcademySalesBonusCustomer(state as unknown as Record<string, unknown>),
+  }), [calcResult?.campaignLines, state]);
+  const loadAcademySalesBonusCustomer = useCallback(() => {
+    setState((current) => {
+      let next = selectConfiguratorCustomerMode(current, 'manual');
+      for (const [field, value] of Object.entries(ACADEMY_SALES_BONUS_CUSTOMER)) {
+        if (field === 'email') continue;
+        next = updateConfiguratorCustomerDraftField(next, field as keyof ConfiguratorCustomerSnapshot, value);
+      }
+      return { ...next, email: ACADEMY_SALES_BONUS_CUSTOMER.email };
+    });
+  }, [setState]);
   const refreshAcademyCase = useCallback((quoteGenerated?: boolean) => {
     if (!isAcademyMode) return academySandbox.getCase1();
     if (isAcademyCase3) {
@@ -422,6 +446,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       setAcademyCase3(next);
       return next;
     }
+    if (isAcademySalesBonusCase2) {
+      const next = academySandbox.evaluateSalesBonusCase2(getAcademySalesBonusCase2Input());
+      setAcademySalesBonusCase2(next);
+      return next;
+    }
     const next = academySandbox.evaluate({
       machineConfigs: academyMachineConfigs,
       wiringHarnessInCart: Boolean(calcResult?.lineItems.some((lineItem) => lineItem.varenr === ACC_ID_WIRE_HARNESS)),
@@ -430,17 +459,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     });
     setAcademyCase(next);
     return next;
-  }, [academyMachineConfigs, calcResult, isAcademyCase3, isAcademyMode, state.date, state.individualUnitConfigs, state.machineConfigs, state.machineDeliveryDates]);
+  }, [academyMachineConfigs, calcResult, getAcademySalesBonusCase2Input, isAcademyCase3, isAcademyMode, isAcademySalesBonusCase2, state.date, state.individualUnitConfigs, state.machineConfigs, state.machineDeliveryDates]);
 
   useEffect(() => {
     if (isAcademyMode) refreshAcademyCase();
   }, [isAcademyMode, refreshAcademyCase]);
 
   useEffect(() => {
-    if (isAcademyMode && !(isAcademyCase3 ? academySandbox.getCase3().started : academySandbox.getCase1().started)) {
+    const caseStarted = isAcademySalesBonusCase2
+      ? academySandbox.getSalesBonusCase2().started
+      : isAcademyCase3
+        ? academySandbox.getCase3().started
+        : academySandbox.getCase1().started;
+    if (isAcademyMode && !caseStarted) {
       navigate('/academy', { replace: true });
     }
-  }, [isAcademyCase3, isAcademyMode, navigate]);
+  }, [isAcademyCase3, isAcademyMode, isAcademySalesBonusCase2, navigate]);
 
   // Phase 38 — security: when the user is not allowed to apply an extra
   // dealer discount, force the stored value to 0 so calcConfiguration, the
@@ -2110,6 +2144,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     options?: { orderRevisionAction?: OrderRevisionAction },
   ): Promise<boolean> => {
     if (academySandbox.isActive()) {
+      if (isAcademySalesBonusCase2) {
+        const submitted = academySandbox.submitSalesBonusCase2Order(getAcademySalesBonusCase2Input());
+        setAcademySalesBonusCase2(submitted);
+        if (!submitted.orderSubmitted) {
+          toast.error(tPortal('academySalesBonusCase2NotReady', uiLanguage));
+          return false;
+        }
+        setConfirmModalOpen(false);
+        toast.success(tPortal('academySalesBonusCase2OrderSubmitted', uiLanguage));
+        return true;
+      }
       if (!academySandbox.getCase1().leadId) {
         toast.error(tPortal('academyCase1NextLead', uiLanguage));
         return false;
@@ -3278,6 +3323,49 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               completion
               caseId={ACADEMY_CASE_3}
             />
+          ) : isAcademySalesBonusCase2 ? (
+            <AcademyGuidancePanel
+              title={tPortal('academySalesBonusCase2Title', uiLanguage)}
+              description={tPortal('academySalesBonusCase2Description', uiLanguage)}
+              stepColumns={2}
+              stepNumbers={['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']}
+              stepLabelKey="academyPoint"
+              nextLabelKey="academyNextPoint"
+              steps={[
+                { title: tPortal('academyBonus2Point1', uiLanguage), tasks: [{ complete: academySalesBonusCase2.machinesCorrect, label: tPortal('academyBonus2Point1Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point2', uiLanguage), tasks: [{ complete: academySalesBonusCase2.deliveryCorrect, label: tPortal('academyBonus2Point2Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point3', uiLanguage), tasks: [{ complete: academySalesBonusCase2.timan3330OptionsCorrect, label: tPortal('academyBonus2Point3Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point4', uiLanguage), tasks: [{ complete: academySalesBonusCase2.dependency721122Added, label: tPortal('academyBonus2Point4Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point5', uiLanguage), tasks: [{ complete: academySalesBonusCase2.tractorEquipmentCorrect, label: tPortal('academyBonus2Point5Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point6', uiLanguage), tasks: [{ complete: academySalesBonusCase2.campaignTriggered, label: tPortal('academyBonus2Point6Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point7', uiLanguage), tasks: [{ complete: academySalesBonusCase2.campaignBenefitApplied, label: tPortal('academyBonus2Point7Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point8', uiLanguage), tasks: [{ complete: academySalesBonusCase2.orderMode, label: tPortal('academyBonus2Point8Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point9', uiLanguage), tasks: [{ complete: academySalesBonusCase2.syntheticCustomerValid, label: tPortal('academyBonus2Point9Done', uiLanguage) }] },
+                { title: tPortal('academyBonus2Point10', uiLanguage), tasks: [{ complete: academySalesBonusCase2.orderSubmitted, label: tPortal('academyBonus2Point10Done', uiLanguage) }] },
+              ]}
+              next={tPortal(`academyBonus2Next${[
+                academySalesBonusCase2.machinesCorrect,
+                academySalesBonusCase2.deliveryCorrect,
+                academySalesBonusCase2.timan3330OptionsCorrect,
+                academySalesBonusCase2.dependency721122Added,
+                academySalesBonusCase2.tractorEquipmentCorrect,
+                academySalesBonusCase2.campaignTriggered,
+                academySalesBonusCase2.campaignBenefitApplied,
+                academySalesBonusCase2.orderMode,
+                academySalesBonusCase2.syntheticCustomerValid,
+                academySalesBonusCase2.orderSubmitted,
+              ].findIndex(complete => !complete) + 1 || 10}`, uiLanguage)}
+              completion
+              caseId={ACADEMY_BONUS_CASE_2}
+              actions={<button type="button"
+                onClick={loadAcademySalesBonusCustomer}
+                disabled={academySalesBonusCase2.syntheticCustomerValid}
+                className="rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-semibold disabled:opacity-60">
+                {academySalesBonusCase2.syntheticCustomerValid
+                  ? tPortal('academyBonus2CustomerLoaded', uiLanguage)
+                  : tPortal('academyBonus2LoadCustomer', uiLanguage)}
+              </button>}
+            />
           ) : <AcademyGuidancePanel
             title={tPortal('academySalesCase1Title', uiLanguage)}
             description={tPortal('academyConfiguratorDescription', uiLanguage)}
@@ -4288,7 +4376,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 </button>
               </div>
             )}
-            {state.step === 4 && state.flowType === 'quote' && canCreateLeadForCurrentConfiguration && (isAcademyMode || (isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
+            {state.step === 4 && state.flowType === 'quote' && !isAcademySalesBonusCase2 && canCreateLeadForCurrentConfiguration && (isAcademyMode || (isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
               const hasRequired = validateConfiguratorLead(state).valid && !!((isAcademyMode || isExhibition || ownership.dealerNumber) && (!isExhibition || ownership.sellerEmail));
               const label = isTimanMesseUser
                 ? ({ da: 'Gem som lead og send ordre', en: 'Save lead and send order', de: 'Lead speichern und Bestellung senden', it: 'Salva lead e invia ordine', hu: 'Lead mentése és rendelés küldése' }[lang])

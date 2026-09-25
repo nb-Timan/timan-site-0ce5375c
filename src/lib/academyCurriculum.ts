@@ -2,6 +2,7 @@ import type { AppUser } from '@/data/appUsers';
 import type { SessionUser } from '@/context/AppUserContext';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, isBackendActor } from '@/lib/portalAccess';
+import { ACADEMY_SALES_BONUS_CASE_2 } from '@/lib/academySalesBonusCampaign';
 
 export const ACADEMY_CASE_1_ID = 'sales.case_1_rc1000';
 export const ACADEMY_CASE_IDS = {
@@ -12,6 +13,7 @@ export const ACADEMY_CASE_IDS = {
   salesCase1: ACADEMY_CASE_1_ID,
   salesCase2: 'sales.case_2_video_3330',
   salesCase3: 'sales.case_3_rc1000_delivery',
+  salesBonusCase2: ACADEMY_SALES_BONUS_CASE_2,
   crmPart1: 'crm.part_1',
   crmPart2: 'crm.part_2',
   serviceCase1: 'service.case_1_machine_history',
@@ -34,6 +36,7 @@ export const ACADEMY_CASE_TRACK: Record<AcademyCurriculumCaseId, AcademyTrack> =
   [ACADEMY_CASE_IDS.salesCase1]: 'sales',
   [ACADEMY_CASE_IDS.salesCase2]: 'sales',
   [ACADEMY_CASE_IDS.salesCase3]: 'sales',
+  [ACADEMY_CASE_IDS.salesBonusCase2]: 'sales',
   [ACADEMY_CASE_IDS.crmPart1]: 'sales',
   [ACADEMY_CASE_IDS.crmPart2]: 'sales',
   [ACADEMY_CASE_IDS.serviceCase1]: 'service',
@@ -85,6 +88,7 @@ export const ACADEMY_CURRICULUM_ORDER: readonly AcademyCurriculumCaseId[] = [
   ACADEMY_CASE_IDS.salesCase1,
   ACADEMY_CASE_IDS.salesCase2,
   ACADEMY_CASE_IDS.salesCase3,
+  ACADEMY_CASE_IDS.salesBonusCase2,
   ACADEMY_CASE_IDS.crmPart1,
   ACADEMY_CASE_IDS.crmPart2,
   ACADEMY_CASE_IDS.serviceCase1,
@@ -98,6 +102,7 @@ const ACADEMY_CASE_PREREQUISITES: Record<AcademyCurriculumCaseId, readonly Acade
   [ACADEMY_CASE_IDS.salesCase1]: [ACADEMY_CASE_IDS.partnerMap],
   [ACADEMY_CASE_IDS.salesCase2]: [ACADEMY_CASE_IDS.salesCase1],
   [ACADEMY_CASE_IDS.salesCase3]: [ACADEMY_CASE_IDS.salesCase2],
+  [ACADEMY_CASE_IDS.salesBonusCase2]: [ACADEMY_CASE_IDS.salesCase2],
   [ACADEMY_CASE_IDS.crmPart1]: [ACADEMY_CASE_IDS.salesCase2],
   [ACADEMY_CASE_IDS.crmPart2]: [ACADEMY_CASE_IDS.crmPart1],
   [ACADEMY_CASE_IDS.serviceCase1]: [ACADEMY_CASE_IDS.partnerMap],
@@ -137,7 +142,14 @@ export function canOpenAcademyCase(state: AcademyCaseState) {
 
 const OPTIONAL_ACADEMY_CASES = new Set<AcademyCurriculumCaseId>([
   ACADEMY_CASE_IDS.salesCase3,
+  ACADEMY_CASE_IDS.salesBonusCase2,
 ]);
+
+export function hasAdvancedSalesBadge(completedCaseIds: Iterable<string>) {
+  const completed = new Set(completedCaseIds);
+  return completed.has(ACADEMY_CASE_IDS.salesCase3)
+    && completed.has(ACADEMY_CASE_IDS.salesBonusCase2);
+}
 
 export function isOptionalAcademyCase(caseId: AcademyCurriculumCaseId) {
   return OPTIONAL_ACADEMY_CASES.has(caseId);
