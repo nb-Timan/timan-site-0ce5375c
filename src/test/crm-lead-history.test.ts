@@ -65,6 +65,8 @@ describe('CRM lead quick notes and history', () => {
     expect(overview).not.toContain('showComposer={false}');
     expect(overview).not.toContain('NotebookPen');
     expect(detail).toContain('<CrmLeadHistoryPanel');
+    expect(detail).toContain('showFollowupControls={false}');
+    expect(historyPanel).toContain('createCrmLeadNote');
     expect(noteService).toContain("order('created_at', { ascending: false })");
     expect(historyPanel).toContain("crmLeadText('showFullHistory', uiLanguage)");
   });

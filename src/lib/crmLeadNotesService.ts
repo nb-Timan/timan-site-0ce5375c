@@ -55,6 +55,14 @@ export interface SaveCrmLeadNoteFollowupResult {
   calendarActivityId: string | null;
 }
 
+export interface SyncCrmLeadFollowupCalendarInput {
+  leadId: string;
+  leadTitle?: string | null;
+  nextFollowupDate: string;
+  nextActivity: string;
+  enabled: boolean;
+}
+
 function mapNote(row: Record<string, unknown>): CrmLeadNote {
   return {
     id: String(row.id ?? ''),
@@ -143,6 +151,38 @@ export async function getCrmLeadFollowupState(leadId: string): Promise<CrmLeadFo
     probability: typeof row.probability === 'number' ? row.probability : null,
     pipelineStage: typeof row.pipeline_stage === 'string' ? row.pipeline_stage : null,
   };
+}
+
+/** Read the one lead-level calendar relation edited with Grundinformation. */
+export async function hasCrmLeadFollowupCalendarActivity(leadId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('crm_calendar_activities')
+    .select('id')
+    .eq('lead_id', leadId)
+    .is('lead_activity_id', null)
+    .is('demo_lead_id', null)
+    .eq('activity_type', 'andet')
+    .maybeSingle();
+  if (error) throw error;
+  return Boolean(data?.id);
+}
+
+/** Keep the lead fields and their optional calendar event on the main lead-save path. */
+export async function syncCrmLeadFollowupCalendarActivity(
+  input: SyncCrmLeadFollowupCalendarInput,
+): Promise<string | null> {
+  if (input.enabled && !input.nextFollowupDate) {
+    throw new Error('Vælg en opfølgningsdato før kalenderen tilføjes.');
+  }
+  const { data, error } = await supabase.rpc('sync_crm_lead_followup_calendar', {
+    p_lead_id: input.leadId,
+    p_enabled: input.enabled,
+    p_next_followup_date: input.nextFollowupDate || null,
+    p_next_activity: input.nextActivity || null,
+    p_lead_title: input.leadTitle || null,
+  });
+  if (error) throw error;
+  return typeof data === 'string' ? data : null;
 }
 
 /**

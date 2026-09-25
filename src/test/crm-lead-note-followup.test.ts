@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   select: vi.fn(),
   eq: vi.fn(),
+  is: vi.fn(),
+  maybeSingle: vi.fn(),
   single: vi.fn(),
 }));
 
@@ -16,20 +18,57 @@ vi.mock('@/lib/crmActivitiesService', () => ({ logActivity: vi.fn() }));
 
 import {
   getCrmLeadFollowupState,
+  hasCrmLeadFollowupCalendarActivity,
   saveCrmLeadNoteFollowup,
+  syncCrmLeadFollowupCalendarActivity,
 } from '@/lib/crmLeadNotesService';
 
 const panel = readFileSync('src/components/crm/CrmLeadHistoryPanel.tsx', 'utf8');
 const overview = readFileSync('src/pages/crm/CrmLeadsPage.tsx', 'utf8');
 const detail = readFileSync('src/pages/crm/CrmNewLeadPage.tsx', 'utf8');
 const migration = readFileSync('supabase/migrations/20260921103715_crm_lead_note_followup_calendar.sql', 'utf8');
+const detailCalendarMigration = readFileSync('supabase/migrations/20260925102455_sync_crm_lead_followup_calendar.sql', 'utf8');
 
 describe('CRM Quick Note follow-up and calendar flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.from.mockReturnValue({ select: mocks.select });
-    mocks.select.mockReturnValue({ eq: mocks.eq });
-    mocks.eq.mockReturnValue({ single: mocks.single });
+    const query = {
+      select: mocks.select,
+      eq: mocks.eq,
+      is: mocks.is,
+      maybeSingle: mocks.maybeSingle,
+      single: mocks.single,
+    };
+    mocks.from.mockReturnValue(query);
+    mocks.select.mockReturnValue(query);
+    mocks.eq.mockReturnValue(query);
+    mocks.is.mockReturnValue(query);
+  });
+
+  it('reads and synchronizes the one lead-level follow-up calendar relation', async () => {
+    mocks.maybeSingle.mockResolvedValue({ data: { id: 'calendar-1' }, error: null });
+    mocks.rpc.mockResolvedValue({ data: 'calendar-1', error: null });
+
+    await expect(hasCrmLeadFollowupCalendarActivity('lead-1')).resolves.toBe(true);
+    expect(mocks.from).toHaveBeenCalledWith('crm_calendar_activities');
+    expect(mocks.eq).toHaveBeenCalledWith('lead_id', 'lead-1');
+    expect(mocks.is).toHaveBeenCalledWith('lead_activity_id', null);
+    expect(mocks.is).toHaveBeenCalledWith('demo_lead_id', null);
+
+    await expect(syncCrmLeadFollowupCalendarActivity({
+      leadId: 'lead-1',
+      leadTitle: 'L-1001',
+      nextFollowupDate: '2026-10-12',
+      nextActivity: 'Follow-up on leads',
+      enabled: true,
+    })).resolves.toBe('calendar-1');
+    expect(mocks.rpc).toHaveBeenCalledWith('sync_crm_lead_followup_calendar', {
+      p_lead_id: 'lead-1',
+      p_enabled: true,
+      p_next_followup_date: '2026-10-12',
+      p_next_activity: 'Follow-up on leads',
+      p_lead_title: 'L-1001',
+    });
   });
 
   it('reads the same canonical follow-up fields used by lead detail and overview', async () => {
@@ -130,13 +169,29 @@ describe('CRM Quick Note follow-up and calendar flow', () => {
   it('uses the shared fields in both overview and detail without changing note history', () => {
     expect(panel).toContain('<CrmLeadFollowupFields');
     expect(panel).toContain("crmLeadText('addFollowupToCalendar', uiLanguage)");
+    expect(panel).toContain('showFollowupControls = true');
+    expect(panel).toContain('createCrmLeadNote');
     expect(panel).toContain('pendingNoteIdRef');
     expect(panel).toContain('sortCrmLeadNotes');
     expect(panel).toContain('setCrmLeadNotePriority');
     expect(overview).toContain('onFollowupChanged');
     expect(overview).toContain('void refreshLeads()');
-    expect(detail).toContain('onFollowupChanged');
-    expect(detail).toContain('setNextFollowup(followup.nextFollowupDate)');
-    expect(detail).toContain('setNextActivity(followup.nextActivity)');
+    expect(detail).toContain('showFollowupControls={false}');
+    expect(detail).toContain('checked={addFollowupToCalendar}');
+    expect(detail).toContain('syncCrmLeadFollowupCalendarActivity');
+    expect(detail).not.toContain('setNextFollowup(followup.nextFollowupDate)');
+    expect(detail).not.toContain('setNextActivity(followup.nextActivity)');
+  });
+
+  it('keeps the moved calendar control unique, RLS scoped and on the main save path', () => {
+    expect(detailCalendarMigration).toContain('crm_calendar_activities_lead_followup_unique');
+    expect(detailCalendarMigration).toContain('security invoker');
+    expect(detailCalendarMigration).toContain("at time zone 'Europe/Copenhagen'");
+    expect(detailCalendarMigration).toContain('on conflict (lead_id)');
+    expect(detailCalendarMigration).toContain('Lead not found or not permitted');
+    expect(detailCalendarMigration).not.toContain('security definer');
+    expect(detailCalendarMigration).not.toContain('create policy');
+    expect(detail).toContain('await repository.updateLead(editId, payload');
+    expect(detail).toContain('await syncCrmLeadFollowupCalendarActivity({');
   });
 });

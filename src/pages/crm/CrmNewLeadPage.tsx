@@ -49,7 +49,7 @@ import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon, CalendarIcon, Share2, Mail } from 'lucide-react';
+import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon, CalendarIcon, CalendarPlus, Share2, Mail } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -66,6 +66,7 @@ import {
 } from '@/lib/crmLeadSharingService';
 import { getCrmLeadRepository } from '@/lib/crmLeadRepository';
 import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
+import { hasCrmLeadFollowupCalendarActivity, syncCrmLeadFollowupCalendarActivity } from '@/lib/crmLeadNotesService';
 import { CrmLeadDemoSection } from '@/components/crm/CrmLeadDemoSection';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { getLocalAcademyBackendUser, getLocalAcademyUser } from '@/lib/academyCurriculum';
@@ -756,6 +757,7 @@ export default function CrmNewLeadPage() {
   const [nextFollowup, setNextFollowup] = useState(() => addDaysToIsoDate(today, 7));
   const [expectedCloseChanged, setExpectedCloseChanged] = useState(isEdit);
   const [nextFollowupChanged, setNextFollowupChanged] = useState(isEdit);
+  const [addFollowupToCalendar, setAddFollowupToCalendar] = useState(false);
 
   const [machineTypes, setMachineTypes] = useState<string[]>([]);
   const [nextActivity, setNextActivity] = useState<string>('');
@@ -897,7 +899,10 @@ export default function CrmNewLeadPage() {
     if (!isEdit || !editId) return;
     let cancelled = false;
     (async () => {
-      const lead = await repository.getLead(editId);
+      const [lead, hasCalendarActivity] = await Promise.all([
+        repository.getLead(editId),
+        repository.academy ? Promise.resolve(false) : hasCrmLeadFollowupCalendarActivity(editId),
+      ]);
       if (cancelled || !lead) { setLoadingLead(false); return; }
       setEditLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
       setTitle(lead.title || '');
@@ -911,6 +916,7 @@ export default function CrmNewLeadPage() {
       setNextFollowupChanged(true);
       setMachineTypes(lead.machine_types || []);
       setNextActivity(normalizeDemoActivity(lead.next_activity || ''));
+      setAddFollowupToCalendar(hasCalendarActivity);
       setLinkedSalesEvent(lead.linked_sales_event ?? null);
       setDemoHasRun(lead.demo_has_run || 'no');
       setContactType(lead.contact_type || '');
@@ -1458,6 +1464,15 @@ export default function CrmNewLeadPage() {
         savedLeadId = created.id;
         toast.success(tt('created_ok', lang));
       }
+      if (!repository.academy) {
+        await syncCrmLeadFollowupCalendarActivity({
+          leadId: savedLeadId,
+          leadTitle: title.trim(),
+          nextFollowupDate: nextFollowup,
+          nextActivity,
+          enabled: addFollowupToCalendar,
+        });
+      }
       if (repository.academy && pendingFiles.length > 0) {
         throw new Error('Academy CRM gemmer ikke filer i produktion.');
       }
@@ -1639,6 +1654,18 @@ export default function CrmNewLeadPage() {
                 />}
               />
               {fieldError('nextActivity') && <p className="mt-2 text-[11px] font-medium text-rose-600">{tt('lbl_next_activity', lang)}: {fieldError('nextActivity')}</p>}
+              {!repository.academy && (
+                <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={addFollowupToCalendar}
+                    onChange={(event) => setAddFollowupToCalendar(event.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-500"
+                  />
+                  <CalendarPlus className="h-4 w-4 shrink-0 text-emerald-700" />
+                  <span>{crmLeadText('addFollowupToCalendar', uiLanguage)}</span>
+                </label>
+              )}
               {linkedSalesEvent && (
                 <p className="mt-2 text-xs font-medium text-emerald-800">
                   {crmLeadText('currentSalesStatus', uiLanguage)}: {crmLeadStatusLabel(effectiveLeadStatus({
@@ -1956,13 +1983,7 @@ export default function CrmNewLeadPage() {
                 ownerUserId={responsibleSellerId || null}
                 ownerName={responsibleName || null}
                 legacyNotes={notes}
-                onFollowupChanged={(followup) => {
-                  setNextFollowup(followup.nextFollowupDate);
-                  setNextActivity(followup.nextActivity);
-                  setProbability(String(followup.probability ?? nextActivityToProbability(followup.nextActivity)));
-                  setStage(deriveLegacyPipelineStage(followup.nextActivity));
-                  setNextFollowupChanged(true);
-                }}
+                showFollowupControls={false}
               />
             </section>
           )}

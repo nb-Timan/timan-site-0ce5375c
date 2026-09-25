@@ -3,6 +3,7 @@ import { CalendarPlus, History, Loader2, MessageSquarePlus, Pin } from 'lucide-r
 import { Button } from '@/components/ui/button';
 import { CrmLeadFollowupFields } from '@/components/crm/CrmLeadFollowupFields';
 import {
+  createCrmLeadNote,
   getCrmLeadFollowupState,
   listCrmLeadDemoHistory,
   listCrmLeadNotes,
@@ -33,6 +34,7 @@ interface CrmLeadHistoryPanelProps {
   legacyNotes?: string | null;
   initialLimit?: number;
   showComposer?: boolean;
+  showFollowupControls?: boolean;
   onCancel?: () => void;
   onNotesChanged?: (notes: CrmLeadNote[]) => void;
   onFollowupChanged?: (state: CrmLeadFollowupState) => void;
@@ -67,9 +69,14 @@ function authorLabel(
 export function CrmLeadHistoryPanel({
   leadId,
   leadLabel,
+  authorUserId,
+  authorName,
+  ownerUserId,
+  ownerName,
   legacyNotes,
   initialLimit,
   showComposer = true,
+  showFollowupControls = true,
   onCancel,
   onNotesChanged,
   onFollowupChanged,
@@ -93,14 +100,16 @@ export function CrmLeadHistoryPanel({
     void Promise.all([
       listCrmLeadNotes([leadId]),
       listCrmLeadDemoHistory(leadId),
-      getCrmLeadFollowupState(leadId),
+      showFollowupControls ? getCrmLeadFollowupState(leadId) : Promise.resolve(null),
     ])
       .then(([nextNotes, nextDemoEvents, followup]) => {
         if (!cancelled) {
           setNotes(nextNotes);
           setDemoEvents(nextDemoEvents);
-          setNextFollowupDate(followup.nextFollowupDate);
-          setNextActivity(normalizeDemoActivity(followup.nextActivity));
+          if (followup) {
+            setNextFollowupDate(followup.nextFollowupDate);
+            setNextActivity(normalizeDemoActivity(followup.nextActivity));
+          }
         }
       })
       .catch(() => {
@@ -110,11 +119,11 @@ export function CrmLeadHistoryPanel({
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [leadId, uiLanguage]);
+  }, [leadId, showFollowupControls, uiLanguage]);
 
   async function saveNote() {
     if (!draft.trim() || saving) return;
-    if (addToCalendar && !nextFollowupDate) {
+    if (showFollowupControls && addToCalendar && !nextFollowupDate) {
       toast.error(crmLeadText('followupDateRequired', uiLanguage));
       return;
     }
@@ -122,21 +131,33 @@ export function CrmLeadHistoryPanel({
     try {
       const noteId = pendingNoteIdRef.current ?? crypto.randomUUID();
       pendingNoteIdRef.current = noteId;
-      const result = await saveCrmLeadNoteFollowup({
-        noteId,
-        leadId,
-        leadTitle: leadLabel,
-        text: draft,
-        nextFollowupDate,
-        nextActivity,
-        addToCalendar,
-      });
+      const result = showFollowupControls
+        ? await saveCrmLeadNoteFollowup({
+            noteId,
+            leadId,
+            leadTitle: leadLabel,
+            text: draft,
+            nextFollowupDate,
+            nextActivity,
+            addToCalendar,
+          })
+        : { note: await createCrmLeadNote({
+            leadId,
+            leadTitle: leadLabel,
+            text: draft,
+            authorUserId,
+            authorName,
+            ownerUserId,
+            ownerName,
+          }), lead: null, calendarActivityId: null };
       const next = sortCrmLeadNotes([result.note, ...notes.filter((note) => note.id !== result.note.id)]);
       setNotes(next);
       onNotesChanged?.(next);
-      onFollowupChanged?.(result.lead);
-      setNextFollowupDate(result.lead.nextFollowupDate);
-      setNextActivity(result.lead.nextActivity);
+      if (result.lead) {
+        onFollowupChanged?.(result.lead);
+        setNextFollowupDate(result.lead.nextFollowupDate);
+        setNextActivity(result.lead.nextActivity);
+      }
       setDraft('');
       setAddToCalendar(false);
       pendingNoteIdRef.current = null;
@@ -185,26 +206,30 @@ export function CrmLeadHistoryPanel({
             placeholder={crmLeadText('notePlaceholder', uiLanguage)}
             className="min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
           />
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
-            <CrmLeadFollowupFields
-              nextFollowup={nextFollowupDate}
-              activity={nextActivity}
-              onNextFollowupChange={setNextFollowupDate}
-              onActivityChange={setNextActivity}
-              activityOptions={[...new Set([...QUICK_NOTE_ACTIVITY_OPTIONS, nextActivity].filter(Boolean))]}
-              activityLabel={(activity) => crmLeadActivityLabel(crmNextActivityLabel(activity, uiLanguage), uiLanguage)}
-            />
-          </div>
-          <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={addToCalendar}
-              onChange={(event) => setAddToCalendar(event.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500"
-            />
-            <CalendarPlus className="h-4 w-4 text-emerald-700" />
-            {crmLeadText('addFollowupToCalendar', uiLanguage)}
-          </label>
+          {showFollowupControls && (
+            <>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <CrmLeadFollowupFields
+                  nextFollowup={nextFollowupDate}
+                  activity={nextActivity}
+                  onNextFollowupChange={setNextFollowupDate}
+                  onActivityChange={setNextActivity}
+                  activityOptions={[...new Set([...QUICK_NOTE_ACTIVITY_OPTIONS, nextActivity].filter(Boolean))]}
+                  activityLabel={(activity) => crmLeadActivityLabel(crmNextActivityLabel(activity, uiLanguage), uiLanguage)}
+                />
+              </div>
+              <label className="mt-3 flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={addToCalendar}
+                  onChange={(event) => setAddToCalendar(event.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500"
+                />
+                <CalendarPlus className="h-4 w-4 text-emerald-700" />
+                {crmLeadText('addFollowupToCalendar', uiLanguage)}
+              </label>
+            </>
+          )}
           <div className="mt-2 flex justify-end gap-2">
             <Button type="button" variant="outline" size="sm" onClick={() => { setDraft(''); setAddToCalendar(false); pendingNoteIdRef.current = null; onCancel?.(); }} disabled={saving}>{crmLeadText('cancel', uiLanguage)}</Button>
             <Button type="button" size="sm" onClick={() => void saveNote()} disabled={!draft.trim() || loading || saving}>
