@@ -6,6 +6,7 @@ export type CrmLeadNote = Pick<
   'id' | 'lead_id' | 'description' | 'created_at' | 'activity_date' | 'created_by_name' | 'created_by_user_id'
 > & {
   priority_position: CrmLeadNotePriority | null;
+  meta: Record<string, unknown>;
 };
 
 export type CrmLeadNotePriority = 1 | 2 | 3;
@@ -75,7 +76,12 @@ function mapNote(row: Record<string, unknown>): CrmLeadNote {
     priority_position: row.priority_position === 1 || row.priority_position === 2 || row.priority_position === 3
       ? row.priority_position
       : null,
+    meta: row.meta && typeof row.meta === 'object' ? row.meta as Record<string, unknown> : {},
   };
+}
+
+export function isLegacyImportedLeadComment(note: Pick<CrmLeadNote, 'meta'>): boolean {
+  return note.meta.source === 'legacy_leads_csv';
 }
 
 /** Pinned positions always come before ordinary notes, which stay newest-first. */
@@ -94,7 +100,7 @@ export async function listCrmLeadNotes(leadIds: string[], limit = 300): Promise<
   if (!ids.length) return [];
   const { data, error } = await supabase
     .from('crm_activities')
-    .select('id, lead_id, description, created_at, activity_date, created_by_name, created_by_user_id, priority_position')
+    .select('id, lead_id, description, created_at, activity_date, created_by_name, created_by_user_id, priority_position, meta')
     .eq('activity_type', 'comment')
     .in('lead_id', ids)
     .order('priority_position', { ascending: true, nullsFirst: false })
@@ -246,5 +252,6 @@ export async function createCrmLeadNote(input: CreateCrmLeadNoteInput): Promise<
     created_by_name: activity.created_by_name,
     created_by_user_id: activity.created_by_user_id,
     priority_position: null,
+    meta: activity.meta ?? {},
   };
 }

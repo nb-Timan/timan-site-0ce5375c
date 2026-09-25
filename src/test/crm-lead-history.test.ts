@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { sortCrmLeadNotes, type CrmLeadNote } from '@/lib/crmLeadNotesService';
+import { isLegacyImportedLeadComment, sortCrmLeadNotes, type CrmLeadNote } from '@/lib/crmLeadNotesService';
 
 const activityService = readFileSync('src/lib/crmActivitiesService.ts', 'utf8');
 const leadService = readFileSync('src/lib/crmLeadsService.ts', 'utf8');
@@ -24,6 +24,7 @@ function note(id: string, createdAt: string, priority: 1 | 2 | 3 | null = null):
     created_by_name: 'BP',
     created_by_user_id: null,
     priority_position: priority,
+    meta: {},
   };
 }
 
@@ -117,5 +118,12 @@ describe('CRM lead quick notes and history', () => {
     expect(historyPanel).toContain('authorLabel(note, userDirectory, uiLanguage)');
     expect(historyPanel).toContain('authorLabel(event, userDirectory, uiLanguage)');
     expect(historyPanel).not.toContain("words.map((word) => word[0])");
+  });
+
+  it('keeps imported legacy comments in the same history without exposing the CSV author', () => {
+    const imported = { ...note('legacy', '2025-10-06T12:42:54.077Z'), meta: { source: 'legacy_leads_csv' } };
+    expect(isLegacyImportedLeadComment(imported)).toBe(true);
+    expect(historyPanel).toContain('!isLegacyImportedLeadComment(note)');
+    expect(noteService).toContain('priority_position, meta');
   });
 });

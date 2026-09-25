@@ -5,6 +5,7 @@ import { CrmLeadFollowupFields } from '@/components/crm/CrmLeadFollowupFields';
 import {
   createCrmLeadNote,
   getCrmLeadFollowupState,
+  isLegacyImportedLeadComment,
   listCrmLeadDemoHistory,
   listCrmLeadNotes,
   saveCrmLeadNoteFollowup,
@@ -260,7 +261,10 @@ export function CrmLeadHistoryPanel({
             {visibleNotes.map((note) => (
               <li key={note.id} className="rounded-lg border border-slate-200 bg-white px-3 py-2.5">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-slate-500">{formatNoteTimestamp(note.created_at || note.activity_date, uiLanguage)} · {authorLabel(note, userDirectory, uiLanguage)}</p>
+                  <p className="text-xs font-medium text-slate-500">
+                    {formatNoteTimestamp(note.created_at || note.activity_date, uiLanguage)}
+                    {!isLegacyImportedLeadComment(note) && <> · {authorLabel(note, userDirectory, uiLanguage)}</>}
+                  </p>
                   {note.priority_position && (
                     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800" title={`${crmLeadText('priority', uiLanguage)} ${note.priority_position}`}>
                       <Pin className="h-3 w-3" /> {note.priority_position}
