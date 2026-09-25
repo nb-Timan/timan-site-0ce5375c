@@ -3,6 +3,7 @@ import { academyScopedStorageKey } from '@/lib/academyCycleStorage';
 import { rowToDealer } from '@/lib/dealerAccountsService';
 import type { CrmDemoLead, CrmLead, CrmLeadPatch, CrmLeadsPageQueryResult, ListLeadsPageOpts, NewCrmDemoLead, NewCrmLead } from '@/lib/crmLeadsService';
 import type { CrmLeadShare, LeadShareTarget } from '@/lib/crmLeadSharingService';
+import { getCrmLeadEquipmentValues, matchesCrmLeadEquipmentFilter, matchesCrmLeadMachineFilter } from '@/lib/crmLeadMachineFilter';
 
 export type AcademyLeadId = string;
 export type AcademyLead = { id: AcademyLeadId; title: string; nextFollowup: string; activity: string; incomplete: boolean; fromConfigurator: boolean; shared: boolean; convertedToDemo: boolean; saved: boolean; record?: Partial<CrmLead> };
@@ -47,10 +48,16 @@ export const academyCrmSandbox = {
     const part = this.getPart();
     const all = read().leads.filter((lead) => part === 2 ? lead.id === 'academy-demo-lead' : lead.id !== 'academy-demo-lead');
     const q = (options.search || '').trim().toLowerCase();
-    const leads = q ? all.filter((lead) => lead.title.toLowerCase().includes(q)) : all;
+    const leads = all.filter((lead) => {
+      const record = this.getCrmLead(lead.id);
+      const machines = record?.machine_types ?? [];
+      return (!q || lead.title.toLowerCase().includes(q))
+        && matchesCrmLeadMachineFilter(machines, null, options.machineFilter)
+        && matchesCrmLeadEquipmentFilter(machines, null, options.equipmentFilter);
+    });
     const rows = leads.map((lead) => ({ id: lead.id, display_no: `L-${lead.id === 'academy-overdue-lead' ? 9101 : lead.id === 'academy-configurator-lead' ? 9102 : 9103}`, type: 'open' as const, title: lead.title, customer: 'Academy Kunde', dealer: ACADEMY_CRM_PARTNER.name, owner_user_id: 'academy-local-sales-user', owner_name: 'Academy Sales', owner_email: 'academy.sales@localhost', responsible_name: 'Academy Sales', machine: 'RC-1000', equipment: null, date: '2026-09-01', next_followup: lead.nextFollowup, status: 'Åben', probability: 25, value: 100000, detail_href: `/academy/crm/leads/${lead.id}?academy_mode=true&academy_part=${part}`, attachments: [], incomplete: lead.incomplete, shared: lead.shared }));
     const today = new Date().toISOString().slice(0, 10);
-    return { rows, counts: { all: rows.length, open: rows.length, won: 0, closed: 0 }, followup_counts: { overdue: rows.filter((row) => !!row.next_followup && row.next_followup < today).length, soon: 0, later: rows.filter((row) => !!row.next_followup && row.next_followup >= today).length }, unassigned_count: 0, total_count: rows.length, total_value: rows.reduce((sum, row) => sum + (row.value || 0), 0), page_limit: options.limit || 50, page_offset: 0, options: { types: ['open'], machines: ['RC-1000'], equipment: [], statuses: [{ value: 'Åben::25', status: 'Åben', probability: 25 }] } };
+    return { rows, counts: { all: rows.length, open: rows.length, won: 0, closed: 0 }, followup_counts: { overdue: rows.filter((row) => !!row.next_followup && row.next_followup < today).length, soon: 0, later: rows.filter((row) => !!row.next_followup && row.next_followup >= today).length }, unassigned_count: 0, total_count: rows.length, total_value: rows.reduce((sum, row) => sum + (row.value || 0), 0), page_limit: options.limit || 50, page_offset: 0, options: { types: ['open'], machines: ['RC-1000'], equipment: getCrmLeadEquipmentValues(['RC-1000']), statuses: [{ value: 'Åben::25', status: 'Åben', probability: 25 }] } };
   },
   updateCrmLead(id: string, patch: CrmLeadPatch): CrmLead {
     const existing = read().leads.find((lead) => lead.id === id);

@@ -61,6 +61,11 @@ import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { listCrmLeadNotes, sortCrmLeadNotes, type CrmLeadNote } from '@/lib/crmLeadNotesService';
 import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
 import { getMissingStoredCrmLeadFields } from '@/lib/crmLeadValidation';
+import {
+  CRM_LEAD_MACHINE_FAMILIES,
+  getCrmLeadEquipmentOptions,
+  getCrmLeadMachineFamilyLabel,
+} from '@/lib/crmLeadMachineFilter';
 
 // ---- i18n. English fallback. ----
 type TKey =
@@ -688,12 +693,15 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   }, [pageResult?.options.types]);
 
   const machineOptions = useMemo(() => {
-    return pageResult?.options.machines ?? [];
-  }, [pageResult?.options.machines]);
+    return CRM_LEAD_MACHINE_FAMILIES;
+  }, []);
 
   const equipmentOptions = useMemo(() => {
-    return pageResult?.options.equipment ?? [];
-  }, [pageResult?.options.equipment]);
+    return getCrmLeadEquipmentOptions(
+      pageResult?.options.machines ?? [],
+      pageResult?.options.equipment ?? [],
+    );
+  }, [pageResult?.options.equipment, pageResult?.options.machines]);
 
   const statusOptions = useMemo(() => {
     const values = new Map<string, string>();
@@ -964,7 +972,9 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
           aria-label={tt('filter_machine', lang)}
           className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_machines', lang)}</option>
-          {machineOptions.map((machine) => <option key={machine} value={machine}>{machine}</option>)}
+          {machineOptions.map((machine) => (
+            <option key={machine} value={machine}>{getCrmLeadMachineFamilyLabel(machine, lang)}</option>
+          ))}
         </select>
         <select value={equipmentFilter} onChange={e=>setEquipmentFilter(e.target.value)}
           aria-label={tt('filter_equipment', lang)}
