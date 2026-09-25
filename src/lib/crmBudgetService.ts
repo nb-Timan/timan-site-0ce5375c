@@ -449,7 +449,7 @@ return [
     name: "Timan 2620",
     varenr: "563219",
     category: "machine",
-    status: "coming_soon",
+    status: "available",
   },
 ];
 }

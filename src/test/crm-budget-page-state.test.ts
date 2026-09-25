@@ -123,6 +123,17 @@ async function persistBudgetLine(productKey: string): Promise<BudgetLine> {
   });
 }
 
+describe("CRM Budget product metadata", () => {
+  it("renders Timan 2620 as an active machine with its canonical identity", () => {
+    expect(BUDGET_PRODUCTS.find(product => product.key === "Timan 2620")).toMatchObject({
+      name: "Timan 2620",
+      varenr: "563219",
+      category: "machine",
+      status: "available",
+    });
+  });
+});
+
 describe("CrmBudgetPage — order display is independent from budget_line_id", () => {
   beforeEach(() => {
     localStorage.clear();
