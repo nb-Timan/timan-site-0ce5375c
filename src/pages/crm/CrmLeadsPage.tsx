@@ -514,6 +514,27 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const mobileControlClass = 'flex min-h-11 w-full items-center justify-between gap-1 rounded-lg border px-2 py-1.5 text-left text-[11px] font-medium leading-tight transition';
   const mobileCountClass = 'inline-flex min-w-5 shrink-0 items-center justify-center rounded-md px-1 py-0.5 text-[10px] tabular-nums';
 
+  const resetAllLeadFilters = () => {
+    setTab('all');
+    setFollowupFilter(null);
+    setQ('');
+    setTypeFilter('');
+    setMachineFilter('');
+    setEquipmentFilter('');
+    setOwnerFilter('');
+    setStage('');
+    setSort('default');
+  };
+
+  const selectLeadTab = (nextTab: TabKey) => {
+    if (nextTab === 'all') {
+      resetAllLeadFilters();
+      return;
+    }
+    setTab(nextTab);
+    setFollowupFilter(null);
+  };
+
   useEffect(() => {
     if (dealerParam) {
       setQ(dealerParam);
@@ -748,10 +769,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={t.key}
-                onClick={() => {
-                  setTab(t.key);
-                  setFollowupFilter(null);
-                }}
+                onClick={() => selectLeadTab(t.key)}
                 className={cn(
                   mobileControlClass,
                   active
@@ -790,10 +808,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={t.key}
-                onClick={() => {
-                  setTab(t.key);
-                  setFollowupFilter(null);
-                }}
+                onClick={() => selectLeadTab(t.key)}
                 className={cn(
                   mobileControlClass,
                   active
@@ -829,10 +844,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={t.key}
-                onClick={() => {
-                  setTab(t.key);
-                  setFollowupFilter(null);
-                }}
+                onClick={() => selectLeadTab(t.key)}
                 className={cn(
                   topFilterButtonClass,
                   active
@@ -877,10 +889,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={t.key}
-                onClick={() => {
-                  setTab(t.key);
-                  setFollowupFilter(null);
-                }}
+                onClick={() => selectLeadTab(t.key)}
                 className={cn(
                   topFilterButtonClass,
                   active
@@ -903,10 +912,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={t.key}
-                onClick={() => {
-                  setTab(t.key);
-                  setFollowupFilter(null);
-                }}
+                onClick={() => selectLeadTab(t.key)}
                 className={cn(
                   topFilterButtonClass,
                   active
