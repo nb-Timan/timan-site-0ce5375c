@@ -75,6 +75,7 @@ import { mapUiLanguageToLegacy, type PortalUiLanguage } from '@/lib/portalLangua
 import { formatCountry } from '@/lib/formatCountry';
 import { ACCESSORIES } from '@/data/machines';
 import {
+  buildStructuredContactInformation,
   getMissingCrmLeadFields,
   importedChoiceValue,
   parseStructuredContactInformation,
@@ -247,24 +248,9 @@ function contactInfoToDraft(info: StructuredContactInfo): CrmLeadDealerContactSn
     email: info.email,
     address: info.address,
     postalCode: info.postalCode,
-    city: info.city || (!info.postalCode ? info.zipCity : ''),
+    city: info.city,
     country: info.country,
   };
-}
-
-function buildStructuredContactInformation(info: StructuredContactInfo): string {
-  const postalCode = info.postalCode.trim();
-  const city = info.city.trim();
-  const zipCity = info.zipCity.trim() || [postalCode, city].filter(Boolean).join(' ').trim();
-  return [
-    info.company.trim() ? `Firma/CVR: ${info.company.trim()}` : null,
-    info.contactPerson.trim() ? `Kontaktperson: ${info.contactPerson.trim()}` : null,
-    info.address.trim() ? `Adresse: ${info.address.trim()}` : null,
-    zipCity ? `Postnr. og by: ${zipCity}` : null,
-    info.phone.trim() ? `Telefon: ${info.phone.trim()}` : null,
-    info.email.trim() ? `E-mail: ${info.email.trim()}` : null,
-    info.country.trim() ? `Land: ${info.country.trim()}` : null,
-  ].filter(Boolean).join('\n');
 }
 
 const inputCls = 'w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none transition';
@@ -1464,7 +1450,7 @@ export default function CrmNewLeadPage() {
       };
       let savedLeadId = editId || '';
       if (isEdit && editId) {
-        await repository.updateLead(editId, payload);
+        await repository.updateLead(editId, payload, { requireRemote: !repository.academy });
         savedLeadId = editId;
         toast.success(tt('updated_ok', lang));
       } else {

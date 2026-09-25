@@ -4,6 +4,11 @@ import { getCrmLinkedConfigurationKind } from '@/lib/crmConfigurationsService';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import { currencyFromLanguage, toDkk } from '@/lib/currency';
 import { getLead, updateLead, type CrmLead, type CrmLeadPatch } from '@/lib/crmLeadsService';
+import {
+  buildStructuredContactInformation,
+  parseStructuredContactInformation,
+  type StructuredContactInfo,
+} from '@/lib/crmLeadValidation';
 import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { resolveSellerId } from '@/lib/resolveSellerId';
@@ -181,82 +186,6 @@ function buildMachineTypesFromState(state: ConfiguratorState, existingMachineTyp
     }
   }
   return mergeUnique(values);
-}
-
-type StructuredContactInfo = {
-  company: string;
-  contactPerson: string;
-  address: string;
-  postalCode: string;
-  city: string;
-  zipCity: string;
-  phone: string;
-  email: string;
-  country: string;
-};
-
-function splitPostalCodeAndCity(value: string): { postalCode: string; city: string } {
-  const trimmed = value.trim();
-  const match = trimmed.match(/^([A-Z]{0,3}[-\s]?\d{3,6})\s+(.+)$/i);
-  if (!match) return { postalCode: '', city: '' };
-  return { postalCode: match[1].trim(), city: match[2].trim() };
-}
-
-function parseStructuredContactInformation(value: string | null | undefined, fallbackCountry: string | null | undefined): StructuredContactInfo {
-  const info: StructuredContactInfo = {
-    company: '',
-    contactPerson: '',
-    address: '',
-    postalCode: '',
-    city: '',
-    zipCity: '',
-    phone: '',
-    email: '',
-    country: '',
-  };
-
-  String(value ?? '').split(/\r?\n/).forEach((line) => {
-    const separatorIndex = line.indexOf(':');
-    if (separatorIndex < 0) return;
-    const key = line.slice(0, separatorIndex).trim().toLowerCase();
-    const fieldValue = line.slice(separatorIndex + 1).trim();
-    if (!fieldValue) return;
-
-    if (key.startsWith('firma')) info.company = fieldValue;
-    else if (key.startsWith('kontaktperson')) info.contactPerson = fieldValue;
-    else if (key.startsWith('adresse')) info.address = fieldValue;
-    else if (key.startsWith('postnr') || key.includes('zip') || key.includes('plz')) {
-      info.zipCity = fieldValue;
-      const split = splitPostalCodeAndCity(fieldValue);
-      info.postalCode = split.postalCode;
-      info.city = split.city;
-    }
-    else if (key === 'by' || key === 'city' || key === 'ort') info.city = fieldValue;
-    else if (key.startsWith('telefon') || key.startsWith('phone')) info.phone = fieldValue;
-    else if (key.startsWith('e-mail') || key === 'email') info.email = fieldValue;
-    else if (key.startsWith('land') || key === 'country') info.country = fieldValue;
-  });
-
-  if (!info.country && String(value ?? '').trim() && fallbackCountry) {
-    info.country = fallbackCountry;
-  }
-
-  return info;
-}
-
-function buildStructuredContactInformation(info: StructuredContactInfo): string {
-  const postalCode = info.postalCode.trim();
-  const city = info.city.trim();
-  const zipCity = info.zipCity.trim() || [postalCode, city].filter(Boolean).join(' ').trim();
-  return [
-    info.company.trim() ? `Firma/CVR: ${info.company.trim()}` : null,
-    info.contactPerson.trim() ? `Kontaktperson: ${info.contactPerson.trim()}` : null,
-    info.address.trim() ? `Adresse: ${info.address.trim()}` : null,
-    zipCity ? `Postnr. og by: ${zipCity}` : null,
-    info.phone.trim() ? `Telefon: ${info.phone.trim()}` : null,
-    info.email.trim() ? `E-mail: ${info.email.trim()}` : null,
-    info.country.trim() ? `Land: ${info.country.trim()}` : null,
-  ].filter(Boolean).join('\n');
 }
 
 function readStateField(state: ConfiguratorState, keys: string[]): string | null {

@@ -74,30 +74,56 @@ export type StructuredContactInfo = {
   city: string; zipCity: string; phone: string; email: string; country: string;
 };
 
+function splitPostalCodeAndCity(value: string): { postalCode: string; city: string } {
+  const match = value.trim().match(/^([A-Z]{0,3}[-\s]?\d{3,6})\s+(.+)$/i);
+  return match
+    ? { postalCode: match[1].trim(), city: match[2].trim() }
+    : { postalCode: '', city: '' };
+}
+
+function postalCityLines(info: StructuredContactInfo): string[] {
+  const postalCode = info.postalCode.trim();
+  const city = info.city.trim();
+  if (postalCode && city) {
+    const combined = `${postalCode} ${city}`;
+    const parsed = splitPostalCodeAndCity(combined);
+    if (parsed.postalCode === postalCode && parsed.city === city) {
+      return [`Postnr. og by: ${combined}`];
+    }
+    return [`Postnr.: ${postalCode}`, `By: ${city}`];
+  }
+  if (postalCode) return [`Postnr.: ${postalCode}`];
+  if (city) return [`By: ${city}`];
+  return info.zipCity.trim() ? [`Postnr. og by: ${info.zipCity.trim()}`] : [];
+}
+
 export function buildStructuredContactInformation(info: StructuredContactInfo): string {
-  const zipCity = info.zipCity.trim()
-    || [info.postalCode.trim(), info.city.trim()].filter(Boolean).join(' ');
   return [
     info.company.trim() ? `Firma/CVR: ${info.company.trim()}` : null,
     info.contactPerson.trim() ? `Kontaktperson: ${info.contactPerson.trim()}` : null,
     info.address.trim() ? `Adresse: ${info.address.trim()}` : null,
-    zipCity ? `Postnr. og by: ${zipCity}` : null,
+    ...postalCityLines(info),
     info.phone.trim() ? `Telefon: ${info.phone.trim()}` : null,
     info.email.trim() ? `E-mail: ${info.email.trim()}` : null,
     info.country.trim() ? `Land: ${info.country.trim()}` : null,
   ].filter(Boolean).join('\n');
 }
 
-export function parseStructuredContactInformation(value: string, fallbackCountry: string): StructuredContactInfo {
+export function parseStructuredContactInformation(
+  value: string | null | undefined,
+  fallbackCountry: string | null | undefined,
+): StructuredContactInfo {
+  const contactInformation = String(value ?? '');
   const info: StructuredContactInfo = {
     company: '', contactPerson: '', address: '', postalCode: '', city: '',
     zipCity: '', phone: '', email: '', country: '',
   };
   let originalImportText = false;
-  value.split(/\r?\n/).forEach((line) => {
+  contactInformation.split(/\r?\n/).forEach((line) => {
     const separatorIndex = line.indexOf(':');
     if (separatorIndex < 0) return;
     const key = line.slice(0, separatorIndex).trim().toLowerCase();
+    const normalizedKey = key.replace(/\.$/, '');
     if (key.startsWith('oprindelig kontaktinfo')) { originalImportText = true; return; }
     if (originalImportText) return;
     const fieldValue = line.slice(separatorIndex + 1).trim();
@@ -105,16 +131,22 @@ export function parseStructuredContactInformation(value: string, fallbackCountry
     if (key.startsWith('firma')) info.company = fieldValue;
     else if (key.startsWith('kontaktperson')) info.contactPerson = fieldValue;
     else if (key.startsWith('adresse')) info.address = fieldValue;
-    else if (key.startsWith('postnr') || key.includes('zip') || key.includes('plz')) {
+    else if (normalizedKey === 'postnr' || normalizedKey === 'postal code'
+      || normalizedKey === 'zip code' || normalizedKey === 'plz') {
+      info.postalCode = fieldValue;
+    } else if (key.startsWith('postnr') || key.includes('zip') || key.includes('plz')) {
       info.zipCity = fieldValue;
-      const match = fieldValue.match(/^([A-Z]{0,3}[-\s]?\d{3,6})\s+(.+)$/i);
-      if (match) { info.postalCode = match[1].trim(); info.city = match[2].trim(); }
+      const parsed = splitPostalCodeAndCity(fieldValue);
+      if (parsed.postalCode) {
+        info.postalCode = parsed.postalCode;
+        info.city = parsed.city;
+      }
     } else if (key === 'by' || key === 'city' || key === 'ort') info.city = fieldValue;
     else if (key.startsWith('telefon') || key.startsWith('phone')) info.phone = fieldValue;
     else if (key.startsWith('e-mail') || key === 'email') info.email = fieldValue;
     else if (key.startsWith('land') || key === 'country') info.country = fieldValue;
   });
-  if (!info.country && value.trim() && fallbackCountry) info.country = fallbackCountry;
+  if (!info.country && contactInformation.trim() && fallbackCountry) info.country = fallbackCountry;
   return info;
 }
 
