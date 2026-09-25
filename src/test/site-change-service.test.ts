@@ -248,7 +248,7 @@ describe('site change service', () => {
   it('keeps GitHub-imported technical metadata separate from suggested public text', () => {
     const source = readFileSync('supabase/functions/import-site-changes-from-github/index.ts', 'utf8');
 
-    expect(source).toContain('buildPublishedSuggestion(module, changeType)');
+    expect(source).toContain('buildPublishedSuggestion(module, changeType, source)');
     expect(source).toContain('title_public: localizedContent.da.title');
     expect(source).toContain('description_public: localizedContent.da.description');
     expect(source).toContain('technical_description');
@@ -300,7 +300,7 @@ describe('site change service', () => {
     expect(page).toContain('siteFeaturesRemoveFromGroup');
 
     expect(edgeFunction).toContain('dailyGroupKeys(groupingCandidates)');
-    expect(edgeFunction).toContain('const groupingCandidates: Array<Pick<SiteChangeInsert, "module" | "implemented_at">> = [...entries];');
+    expect(edgeFunction).toContain('const groupingCandidates: Array<Pick<SiteChangeInsert, "module" | "implemented_at" | "title_internal" | "description_internal" | "technical_description">> = [...entries];');
     expect(edgeFunction).toContain('if (body.mode === "manual")');
     expect(edgeFunction).toContain('.is("group_parent_id", null)');
     expect(edgeFunction).toContain('const publishedSource = entries.find((entry) => entry.status === "published");');
@@ -308,9 +308,9 @@ describe('site change service', () => {
     expect(edgeFunction).toContain('.eq("source", "github")');
     expect(edgeFunction).toContain('priorAutomaticGroupIds');
     expect(edgeFunction).toContain('dailyGroupSourceRef');
-    expect(edgeFunction).toContain('github-day:${module}:${date}');
+    expect(edgeFunction).toContain('github-day:${module}:${date}:${topic}');
     expect(edgeFunction).toContain('const date = dayKey(entry.implemented_at)');
-    expect(edgeFunction).toContain('keys.set(`${entry.module}:${date}`, { module: entry.module, date });');
+    expect(edgeFunction).toContain('keys.set(`${entry.module}:${date}:${topic}`, { module: entry.module, date, topic });');
     expect(edgeFunction).toContain('groupsSuggested');
     expect(edgeFunction).toContain('type SiteChangeGroupSuggestion');
     expect(edgeFunction).toContain('.eq("source_ref", suggestion.group.source_ref)');

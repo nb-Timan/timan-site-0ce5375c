@@ -3,7 +3,7 @@
  *
  * Internal product changelog editor. This is separate from News CMS.
  */
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Archive, CheckCircle2, FilePenLine, Layers, RotateCcw, Send, Sparkles, Undo2 } from "lucide-react";
 import { useAppUser } from "@/context/AppUserContext";
@@ -22,6 +22,7 @@ import {
   adminUpdateChangelog,
   adminUpdateChangelogStatus,
   getPublishedFeatureContent,
+  isCoherentSiteFeatureGroup,
   localizedContentFromDraft,
   missingSiteChangeLanguages,
   recommendPublication,
@@ -190,12 +191,6 @@ function statusClass(status: SiteChangeStatus) {
   return "bg-amber-50 text-amber-700 ring-amber-200";
 }
 
-function recommendationClass(rec: SiteChangeRecommendation) {
-  if (rec === "publish") return "bg-emerald-50 text-emerald-700 ring-emerald-200";
-  if (rec === "internal") return "bg-slate-100 text-slate-600 ring-slate-200";
-  return "bg-amber-50 text-amber-700 ring-amber-200";
-}
-
 function emptyDraft(): ChangelogDraft {
   return {
     source: "manual",
@@ -274,6 +269,17 @@ function publicationPreview(description: string): { summary: string; bullets: st
     .join(' ');
 
   return { summary, bullets: bullets.length > 0 ? bullets : summary ? [summary] : [] };
+}
+
+function featureCardDescription(description: string): string {
+  const lines = description
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^hvad er ændret\??$/i.test(line))
+    .filter((line) => !/^(?:område|area|bereich|terület|omr\u00e5de|zone|obszar|oblast)\s*:/i.test(line));
+  const line = lines.find((value) => /^(?:[•*-])\s+/.test(value)) || lines[0] || "";
+  return line.replace(/^(?:[•*-])\s+/, "");
 }
 
 function languageFlag(code: PortalUiLanguage) {
@@ -519,6 +525,16 @@ export default function BackendChangelogPage() {
     acc[row.group_parent_id] = [...(acc[row.group_parent_id] || []), row];
     return acc;
   }, {} as Record<string, SiteChangeEntryRow[]>);
+  const coherentGroupIds = new Set(
+    rows
+      .filter((row) => row.is_group && isCoherentSiteFeatureGroup(groupChildren[row.id] || []))
+      .map((row) => row.id),
+  );
+  const visibleRows = rows.filter((row) => {
+    if (row.is_group) return coherentGroupIds.has(row.id);
+    if (row.group_parent_id) return !coherentGroupIds.has(row.group_parent_id);
+    return true;
+  });
   const selectedRow = rows.find((row) => row.id === selectedRowId) ?? null;
   const selectedPublished = selectedRow ? getPublishedFeatureContent(selectedRow, uiLanguage) : null;
   const selectedPreview = selectedPublished ? publicationPreview(selectedPublished.description) : null;
@@ -622,42 +638,21 @@ export default function BackendChangelogPage() {
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]">
           <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesGroup")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesDate")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesFeature")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesArea")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesType")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesAudience")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesImpact")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesRecommendation")}</th>
-                    <th className="px-4 py-3 text-left font-semibold">{st("siteFeaturesStatus")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    const published = getPublishedFeatureContent(row, uiLanguage);
-                    const children = groupChildren[row.id] || [];
-                    const isExpanded = expandedGroupIds.includes(row.id);
-                    return (
-                    <Fragment key={row.id}>
-                    <tr
-                      key={row.id}
-                      onClick={() => selectRow(row)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          selectRow(row);
-                        }
-                      }}
-                      tabIndex={0}
-                      aria-selected={selectedRowId === row.id}
-                      className={`cursor-pointer border-t border-slate-100 align-top outline-none transition-colors hover:bg-slate-50/70 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500 ${selectedRowId === row.id ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300" : ""}`}
-                    >
-                      <td className="px-4 py-4">
+            <div className="divide-y divide-slate-100">
+              {visibleRows.map((row) => {
+                const published = getPublishedFeatureContent(row, uiLanguage);
+                const description = featureCardDescription(published.description);
+                const children = groupChildren[row.id] || [];
+                const isExpanded = expandedGroupIds.includes(row.id);
+                return (
+                  <article
+                    key={row.id}
+                    data-testid="site-feature-card"
+                    aria-selected={selectedRowId === row.id}
+                    className={`transition-colors ${selectedRowId === row.id ? "bg-emerald-50 ring-1 ring-inset ring-emerald-300" : "hover:bg-slate-50/70"}`}
+                  >
+                    <div className="flex items-start gap-3 px-4 py-4 sm:px-5">
+                      <div className="pt-1">
                         {!row.is_group && !row.group_parent_id && (
                           <input
                             type="checkbox"
@@ -672,73 +667,74 @@ export default function BackendChangelogPage() {
                             {st("siteFeaturesGroupedChild")}
                           </span>
                         )}
-                      </td>
-                      <td className="whitespace-nowrap px-4 py-4 text-xs text-slate-500">{formatDate(row.implemented_at, uiLanguage)}</td>
-                      <td className="min-w-[260px] px-4 py-4">
-                        <div className="font-semibold text-slate-900">{published.title}</div>
-                        {row.is_group && (
-                          <button type="button" onClick={(event) => { event.stopPropagation(); toggleExpandedGroup(row.id); }} className="mt-2 inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200">
-                            {interpolateLabel(st("siteFeaturesGroupedCount"), { count: children.length })} · {st("siteFeaturesShowTechnicalHistory")}
-                          </button>
-                        )}
-                        {published.description && <div className="mt-1 line-clamp-3 text-xs leading-snug text-slate-600">{published.description}</div>}
-                        <div className="mt-2 text-[11px] text-slate-400">
-                          {st("siteFeaturesInternalTitle")}: {row.title_internal}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => selectRow(row)}
+                        aria-selected={selectedRowId === row.id}
+                        className="min-w-0 flex-1 text-left outline-none focus-visible:rounded-lg focus-visible:ring-2 focus-visible:ring-emerald-500"
+                      >
+                        <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-500">
+                          <time dateTime={row.implemented_at}>{formatDate(row.implemented_at, uiLanguage)}</time>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600 ring-1 ring-slate-200">
+                            {published.moduleLabel || moduleLabel(row.module, uiLanguage)}
+                          </span>
+                          <span className="rounded-full bg-white px-2 py-0.5 text-slate-500 ring-1 ring-slate-200">
+                            {changeTypeLabel(row.change_type, uiLanguage)}
+                          </span>
+                          <span className={`rounded-full px-2 py-0.5 ring-1 ${statusClass(row.status)}`}>
+                            {statusLabel(row.status, uiLanguage)}
+                          </span>
                         </div>
-                        {row.source_ref && <div className="mt-1 font-mono text-[11px] text-slate-400">{row.source_ref}</div>}
-                        {missingSiteChangeLanguages(row).length > 0 && (
-                          <div className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200">
-                            {st("siteFeaturesMissing")} {missingSiteChangeLanguages(row).map(languageFlag).join(", ")}
-                          </div>
+                        <h3 className="mt-2 text-sm font-bold leading-snug text-slate-900 sm:text-base">{published.title}</h3>
+                        {description && (
+                          <p data-testid="site-feature-card-description" className="mt-1 line-clamp-2 text-sm leading-relaxed text-slate-600">
+                            {description}
+                          </p>
                         )}
-                      </td>
-                      <td className="px-4 py-4 text-slate-600">{published.moduleLabel || moduleLabel(row.module, uiLanguage)}</td>
-                      <td className="px-4 py-4 text-slate-600">{changeTypeLabel(row.change_type, uiLanguage)}</td>
-                      <td className="min-w-[180px] px-4 py-4 text-xs text-slate-500">{row.affected_roles.map((role) => roleLabel(role, uiLanguage)).join(", ")}</td>
-                      <td className="px-4 py-4 text-xs text-slate-600">
-                        <div>{st("siteFeaturesUser")}: <strong>{row.user_impact_score}/10</strong></div>
-                        <div>{st("siteFeaturesTechnical")}: <strong>{row.technical_impact_score}/10</strong></div>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${recommendationClass(row.publish_recommendation)}`}>
-                          {recommendationLabel(row.publish_recommendation, uiLanguage)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4">
-                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ring-1 ${statusClass(row.status)}`}>
-                          {statusLabel(row.status, uiLanguage)}
-                        </span>
-                      </td>
-                    </tr>
-                    {row.is_group && isExpanded && children.length > 0 && (
-                      <tr className="border-t border-emerald-100 bg-emerald-50/30">
-                        <td colSpan={9} className="px-4 py-3">
-                          <div className="rounded-xl border border-emerald-100 bg-white p-3">
-                            <div className="mb-2 text-xs font-bold uppercase tracking-wide text-emerald-700">{st("siteFeaturesTechnicalHistory")}</div>
-                            <div className="space-y-2">
-                              {children.map((child) => (
-                                <div key={child.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                                  <div className="font-semibold text-slate-900">{child.title_internal}</div>
-                                  <div className="mt-1 font-mono text-[11px] text-slate-400">{child.source_ref || child.id}</div>
-                                  <div className="mt-1">{formatDate(child.implemented_at, uiLanguage)}</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
+                        {missingSiteChangeLanguages(row).length > 0 && (
+                          <span className="mt-2 inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700 ring-1 ring-amber-200">
+                            {st("siteFeaturesMissing")} {missingSiteChangeLanguages(row).map(languageFlag).join(", ")}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                    {row.is_group && (
+                      <div className="border-t border-slate-100 px-4 py-2 sm:px-5">
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandedGroup(row.id)}
+                          className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 ring-1 ring-emerald-200"
+                        >
+                          {interpolateLabel(st("siteFeaturesGroupedCount"), { count: children.length })} · {st("siteFeaturesShowTechnicalHistory")}
+                        </button>
+                      </div>
                     )}
-                    </Fragment>
-                    );
-                  })}
-                  {!loadingRows && rows.length === 0 && (
-                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesNoFilterMatches")}</td></tr>
-                  )}
-                  {loadingRows && (
-                    <tr><td colSpan={9} className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesLoadingChanges")}</td></tr>
-                  )}
-                </tbody>
-              </table>
+                    {row.is_group && isExpanded && children.length > 0 && (
+                      <div className="border-t border-emerald-100 bg-emerald-50/30 px-4 py-3 sm:px-5">
+                        <div className="rounded-xl border border-emerald-100 bg-white p-3">
+                          <div className="mb-2 text-xs font-bold uppercase text-emerald-700">{st("siteFeaturesTechnicalHistory")}</div>
+                          <div className="space-y-2">
+                            {children.map((child) => (
+                              <div key={child.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                                <div className="font-semibold text-slate-900">{child.title_internal}</div>
+                                <div className="mt-1 break-all font-mono text-[11px] text-slate-400">{child.source_ref || child.id}</div>
+                                <div className="mt-1">{formatDate(child.implemented_at, uiLanguage)}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+              {!loadingRows && visibleRows.length === 0 && (
+                <div className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesNoFilterMatches")}</div>
+              )}
+              {loadingRows && (
+                <div className="px-4 py-10 text-center text-sm text-slate-500">{st("siteFeaturesLoadingChanges")}</div>
+              )}
             </div>
             <div className="flex items-center justify-between border-t border-slate-100 px-4 py-3 text-xs text-slate-500">
               <span>{count} {st("siteFeaturesTotalChanges")}</span>

@@ -14,6 +14,17 @@ describe('New features publication UX', () => {
     expect(page).toContain('aria-label={st("siteFeaturesGroupSelect")}');
   });
 
+  it('uses compact user-facing cards instead of exposing technical table columns', () => {
+    expect(page).toContain('data-testid="site-feature-card"');
+    expect(page).toContain('data-testid="site-feature-card-description"');
+    expect(page).toContain('featureCardDescription(published.description)');
+    expect(page).toContain('isCoherentSiteFeatureGroup(groupChildren[row.id] || [])');
+    expect(page).toContain('visibleRows.map((row) =>');
+    expect(page).not.toContain('<table');
+    expect(page).not.toContain('{st("siteFeaturesInternalTitle")}: {row.title_internal}');
+    expect(page).not.toContain('{row.source_ref && <div');
+  });
+
   it('shows the user-facing published copy and its concrete change bullets in the selected preview', () => {
     expect(page).toContain('getPublishedFeatureContent(selectedRow, uiLanguage)');
     expect(page).toContain('function publicationPreview(description: string)');

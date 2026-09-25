@@ -13,6 +13,10 @@ import {
   ChangelogRole,
 } from './portalChangelog';
 import { PORTAL_LANGUAGE_CODES, portalLanguageLookupOrder, type PortalUiLanguage } from '@/lib/portalLanguages';
+import {
+  resolveUserFacingSiteFeature,
+  siteFeatureTopicKey,
+} from '../../supabase/functions/_shared/siteFeatureNormalization';
 
 const PAGE_SIZE = 1000;
 
@@ -155,6 +159,8 @@ type SiteChangeContentSource = {
   description_public?: string | null;
   title_internal?: string | null;
   description_internal?: string | null;
+  technical_description?: string | null;
+  is_group?: boolean;
   module: string;
   change_type: string;
 };
@@ -319,6 +325,24 @@ function rowTextForGrouping(row: Pick<SiteChangeEntryRow, 'title_internal' | 'de
   return `${row.title_internal}\n${row.description_internal || ''}\n${row.technical_description || ''}`.toLowerCase();
 }
 
+function isGenericPublicTitle(value: string | null | undefined, feature: SiteChangeContentSource): boolean {
+  const title = firstText(value);
+  if (!title) return false;
+  return PORTAL_LANGUAGE_CODES.some((language) => {
+    const template = MODULE_PUBLIC_TEXT[feature.module]?.[language] || fallbackPublicText(feature.module, feature.change_type, language);
+    return title === template.title;
+  });
+}
+
+function isGenericPublicDescription(value: string | null | undefined, feature: SiteChangeContentSource): boolean {
+  const description = firstText(value);
+  if (!description) return false;
+  return PORTAL_LANGUAGE_CODES.some((language) => {
+    const template = MODULE_PUBLIC_TEXT[feature.module]?.[language] || fallbackPublicText(feature.module, feature.change_type, language);
+    return description === template.description || description.startsWith(`${template.description}\n\n${AREA_PREFIX[language]}:`);
+  });
+}
+
 const GROUPED_DANISH_COPY: Array<{ pattern: RegExp; title: string; bullet: string }> = [
   {
     pattern: /\b(manual|manuelle).*(customer|kunde)|(customer|kunde).*(manual|manuelle)\b/,
@@ -369,6 +393,13 @@ const GROUPED_DANISH_COPY: Array<{ pattern: RegExp; title: string; bullet: strin
 
 type GroupedRow = Pick<SiteChangeEntryRow, 'title_internal' | 'description_internal' | 'technical_description' | 'module'>;
 
+export function isCoherentSiteFeatureGroup(rows: GroupedRow[]): boolean {
+  const topics = new Set(rows.map((row) => siteFeatureTopicKey(row)).filter(Boolean));
+  if (topics.size !== 1) return false;
+  const [topic] = topics;
+  return rows.every((row) => siteFeatureTopicKey(row) === topic);
+}
+
 function readableTechnicalTitle(title: string): string {
   return title
     .replace(/^(feat|fix|chore|refactor|style|test|docs|build|ci)(\([^)]+\))?:\s*/i, '')
@@ -402,16 +433,18 @@ export function buildGroupedFeatureSuggestion(rows: SiteChangeEntryRow[]): SiteC
   const changeType = rows[0]?.change_type || 'improvement';
   const danishBullets = groupedDanishBullets(rows);
   const danishTitle = groupedDanishTitle(rows, danishBullets);
+  const oneTopic = isCoherentSiteFeatureGroup(rows);
 
   return PORTAL_LANGUAGE_CODES.reduce((acc, lang) => {
     const area = moduleName(module)[lang] || moduleName(module).en || moduleName(module).da || module;
     const generated = buildPublishedFeatureSuggestion(module, changeType, lang);
+    const normalized = oneTopic ? resolveUserFacingSiteFeature(rows[0], lang) : null;
     acc[lang] = {
       ...generated,
-      title: lang === 'da' ? danishTitle : generated.title,
-      description: lang === 'da'
+      title: normalized?.title || (lang === 'da' ? danishTitle : generated.title),
+      description: normalized?.description || (lang === 'da'
         ? `Hvad er ændret?\n${danishBullets.map((bullet) => `• ${bullet}`).join('\n')}\n\n${AREA_PREFIX[lang]}: ${area}`
-        : generated.description || '',
+        : generated.description || ''),
     };
     return acc;
   }, {} as SiteChangeLocalizedContent);
@@ -447,18 +480,31 @@ export function getPublishedFeatureContent(
   const content = feature.localized_content || {};
   const moduleLabels = moduleName(feature.module);
   const generated = buildPublishedFeatureSuggestion(feature.module, feature.change_type, language);
+  const normalized = feature.is_group ? null : resolveUserFacingSiteFeature(feature, language);
+  const localizedTitle = userFacingLocalizedText(content, 'title', language, feature);
+  const localizedDescription = userFacingLocalizedText(content, 'description', language, feature);
   const fallbackTitle = firstText(
-    !isTechnicalPublicTitle(feature.title_public, feature) ? feature.title_public : '',
-    !isTechnicalPublicTitle(feature.title, feature) ? feature.title : '',
+    !isTechnicalPublicTitle(feature.title_public, feature) && !(normalized && isGenericPublicTitle(feature.title_public, feature)) ? feature.title_public : '',
+    !isTechnicalPublicTitle(feature.title, feature) && !(normalized && isGenericPublicTitle(feature.title, feature)) ? feature.title : '',
+    normalized?.title,
     generated.title,
   );
   const fallbackDescription = firstText(
-    !isGitHubImportPlaceholder(feature.description_public) ? feature.description_public : '',
-    !isGitHubImportPlaceholder(feature.description) ? feature.description : '',
+    !isGitHubImportPlaceholder(feature.description_public) && !(normalized && isGenericPublicDescription(feature.description_public, feature)) ? feature.description_public : '',
+    !isGitHubImportPlaceholder(feature.description) && !(normalized && isGenericPublicDescription(feature.description, feature)) ? feature.description : '',
+    normalized?.description,
     generated.description,
   );
-  const title = firstText(userFacingLocalizedText(content, 'title', language, feature), fallbackTitle);
-  const description = firstText(userFacingLocalizedText(content, 'description', language, feature), fallbackDescription);
+  const title = firstText(
+    !(normalized && isGenericPublicTitle(localizedTitle, feature)) ? localizedTitle : '',
+    normalized?.title,
+    fallbackTitle,
+  );
+  const description = firstText(
+    !(normalized && isGenericPublicDescription(localizedDescription, feature)) ? localizedDescription : '',
+    normalized?.description,
+    fallbackDescription,
+  );
 
   return {
     title,
@@ -698,7 +744,9 @@ export function getEntriesForLanguage(_language: PortalUiLanguage): ChangeLogEnt
 
 // ---------- Admin CRUD helpers ----------
 
-function applyFilters(query: any, options: ChangelogListOptions) {
+type ChangelogFilterQuery = ReturnType<ReturnType<typeof supabase.from>['select']>;
+
+function applyFilters(query: ChangelogFilterQuery, options: ChangelogListOptions) {
   let q = query;
   if (options.status && options.status !== 'all') q = q.eq('status', options.status);
   if (options.recommendation && options.recommendation !== 'all') q = q.eq('publish_recommendation', options.recommendation);
@@ -857,6 +905,9 @@ export async function adminCreateChangelogGroup(ids: string[]): Promise<{ row: S
   const day = groupDayKey(rows[0].implemented_at);
   if (!day || rows.some((row) => row.module !== module || groupDayKey(row.implemented_at) !== day)) {
     return { row: null, error: 'Vælg kun ændringer fra samme modul og samme dato.' };
+  }
+  if (!isCoherentSiteFeatureGroup(rows)) {
+    return { row: null, error: 'Vælg kun ændringer, der beskriver den samme brugerrettede feature.' };
   }
 
   const localized = buildGroupedFeatureSuggestion(rows);

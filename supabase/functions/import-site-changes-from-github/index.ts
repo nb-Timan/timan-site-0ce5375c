@@ -1,4 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+import {
+  isPureTechnicalSiteChange,
+  resolveUserFacingSiteFeature,
+  siteFeatureTopicKey,
+  type SiteFeatureSource,
+} from "../_shared/siteFeatureNormalization.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -72,6 +78,7 @@ type SiteChangeGroupSuggestion = {
 type DailyGroupKey = {
   module: string;
   date: string;
+  topic: string;
 };
 
 type StoredGitHubEntry = SiteChangeInsert & {
@@ -292,13 +299,14 @@ function fallbackPublicText(module: string, changeType: string, language: Portal
   };
 }
 
-function buildPublishedSuggestion(module: string, changeType: string): Record<string, Record<string, string>> {
+function buildPublishedSuggestion(module: string, changeType: string, source?: SiteFeatureSource): Record<string, Record<string, string>> {
   return PORTAL_LANGUAGES.reduce((acc, language) => {
     const template = MODULE_PUBLIC_TEXT[module]?.[language] || fallbackPublicText(module, changeType, language);
+    const normalized = source ? resolveUserFacingSiteFeature(source, language) : null;
     const area = moduleLabel(module, language);
     acc[language] = {
-      title: template.title,
-      description: `${template.description}\n\n${AREA_PREFIX[language]}: ${area}`,
+      title: normalized?.title || template.title,
+      description: normalized?.description || `${template.description}\n\n${AREA_PREFIX[language]}: ${area}`,
       note: template.note,
       module_label: area,
       change_type_label: changeType,
@@ -312,8 +320,8 @@ function dayKey(value: string): string {
   return Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
 }
 
-function dailyGroupSourceRef(module: string, date: string): string {
-  return `github-day:${module}:${date}`;
+function dailyGroupSourceRef(module: string, date: string, topic: string): string {
+  return `github-day:${module}:${date}:${topic}`;
 }
 
 const GROUPED_DANISH_COPY: Array<{ pattern: RegExp; title: string; bullet: string }> = [
@@ -356,8 +364,10 @@ function groupedDanishTitle(entries: Array<Pick<SiteChangeInsert, "title_interna
 function buildGroupSuggestion(entries: StoredGitHubEntry[]): SiteChangeGroupSuggestion | null {
   if (entries.length < 2) return null;
   const module = entries[0].module;
+  const topic = siteFeatureTopicKey(entries[0]);
+  if (!topic || entries.some((entry) => siteFeatureTopicKey(entry) !== topic)) return null;
   const changeType = entries.every((entry) => entry.change_type === entries[0].change_type) ? entries[0].change_type : "improvement";
-  const localizedContent = buildPublishedSuggestion(module, changeType);
+  const localizedContent = buildPublishedSuggestion(module, changeType, entries[0]);
   const danishBullets = groupedDanishBullets(entries);
   localizedContent.da.title = groupedDanishTitle(entries, danishBullets);
   localizedContent.da.description = `Hvad er ændret?\n${danishBullets.map((bullet) => `• ${bullet}`).join("\n")}\n\nOmråde: ${moduleLabel(module, "da")}`;
@@ -368,7 +378,7 @@ function buildGroupSuggestion(entries: StoredGitHubEntry[]): SiteChangeGroupSugg
   const publicContent = publishedSource?.localized_content || localizedContent;
   const group = {
     source: "github_daily_group",
-    source_ref: dailyGroupSourceRef(module, dayKey(implementedAt)),
+    source_ref: dailyGroupSourceRef(module, dayKey(implementedAt), topic),
     implemented_at: implementedAt,
     title_internal: `${entries.length} ændringer samlet: ${localizedContent.da.title}`,
     description_internal: `Automatisk gruppeforslag fra GitHub-sync. Publiceringsteksten er foreslået ud fra ${entries.length} relaterede commits.`,
@@ -401,11 +411,13 @@ function buildGroupSuggestion(entries: StoredGitHubEntry[]): SiteChangeGroupSugg
   };
 }
 
-function dailyGroupKeys(entries: Array<Pick<SiteChangeInsert, "module" | "implemented_at">>): DailyGroupKey[] {
+function dailyGroupKeys(entries: Array<Pick<SiteChangeInsert, "module" | "implemented_at" | "title_internal" | "description_internal" | "technical_description">>): DailyGroupKey[] {
   const keys = new Map<string, DailyGroupKey>();
   for (const entry of entries) {
     const date = dayKey(entry.implemented_at);
-    keys.set(`${entry.module}:${date}`, { module: entry.module, date });
+    const topic = siteFeatureTopicKey(entry);
+    if (!topic) continue;
+    keys.set(`${entry.module}:${date}:${topic}`, { module: entry.module, date, topic });
   }
   return Array.from(keys.values());
 }
@@ -424,10 +436,24 @@ function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInser
   const files = changedFiles(commit);
   const module = inferModule(files, message);
   const changeType = inferChangeType(files, message);
-  const impact = impactFor(changeType, module);
-  const localizedContent = buildPublishedSuggestion(module, changeType);
   const fileText = files.length ? files.map((file) => `- ${file}`).join("\n") : "- Ingen fil-liste modtaget.";
   const url = cleanText(commit.url || commit.html_url);
+  const technicalDescription = [
+    `Kilde: GitHub`,
+    `Repository: ${repository}`,
+    `Commit: ${sha}`,
+    url ? `URL: ${url}` : null,
+    "",
+    "Commit message:",
+    message || "(tom)",
+    "",
+    "Ændrede filer:",
+    fileText,
+  ].filter((line) => line !== null).join("\n");
+  const source = { title_internal: title, description_internal: message, technical_description: technicalDescription };
+  const technicalOnly = isPureTechnicalSiteChange(source);
+  const impact = technicalOnly ? { user: 1, technical: 6, recommendation: "internal" as const } : impactFor(changeType, module);
+  const localizedContent = buildPublishedSuggestion(module, changeType, source);
 
   return {
     source: "github",
@@ -435,18 +461,7 @@ function toEntry(commit: GitHubCommitInput, repository: string): SiteChangeInser
     implemented_at: cleanText(commit.timestamp || commit.commit?.author?.date) || new Date().toISOString(),
     title_internal: title,
     description_internal: `Automatisk importeret fra GitHub. Publiceringsteksten er foreslået ud fra område og ændringstype.`,
-    technical_description: [
-      `Kilde: GitHub`,
-      `Repository: ${repository}`,
-      `Commit: ${sha}`,
-      url ? `URL: ${url}` : null,
-      "",
-      "Commit message:",
-      message || "(tom)",
-      "",
-      "Ændrede filer:",
-      fileText,
-    ].filter((line) => line !== null).join("\n"),
+    technical_description: technicalDescription,
     title_public: localizedContent.da.title,
     description_public: localizedContent.da.description,
     localized_content: localizedContent,
@@ -591,11 +606,11 @@ Deno.serve(async (req) => {
     if (insertError) return json({ error: `Import fejlede: ${insertError.message}` }, 500);
   }
 
-  const groupingCandidates: Array<Pick<SiteChangeInsert, "module" | "implemented_at">> = [...entries];
+  const groupingCandidates: Array<Pick<SiteChangeInsert, "module" | "implemented_at" | "title_internal" | "description_internal" | "technical_description">> = [...entries];
   if (body.mode === "manual") {
     const { data: ungroupedRows, error: ungroupedRowsError } = await admin
       .from("site_change_entries")
-      .select("module,implemented_at")
+      .select("module,implemented_at,title_internal,description_internal,technical_description")
       .eq("source", "github")
       .is("group_parent_id", null);
     if (ungroupedRowsError) return json({ error: `Kunne ikke finde tidligere GitHub-ændringer: ${ungroupedRowsError.message}` }, 500);
@@ -613,7 +628,8 @@ Deno.serve(async (req) => {
       .lt("implemented_at", `${nextUtcDay(key.date)}T00:00:00.000Z`);
     if (dailyRowsError) continue;
 
-    const sourceRows = (dailyRows || []) as StoredGitHubEntry[];
+    const sourceRows = ((dailyRows || []) as StoredGitHubEntry[])
+      .filter((entry) => siteFeatureTopicKey(entry) === key.topic);
     const suggestion = buildGroupSuggestion(sourceRows);
     if (!suggestion) continue;
     const childIds = sourceRows.map((row) => row.id);
