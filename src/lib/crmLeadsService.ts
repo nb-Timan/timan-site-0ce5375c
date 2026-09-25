@@ -466,6 +466,14 @@ function removeLeadFromLocalCache(id: string): void {
   writeLS<CrmLead>(LS_LEADS, readLS<CrmLead>(LS_LEADS).filter(r => r.id !== id));
 }
 
+function replaceLeadInLocalCache(lead: CrmLead): void {
+  const local = readLS<CrmLead>(LS_LEADS);
+  const index = local.findIndex((row) => row.id === lead.id);
+  if (index >= 0) local[index] = lead;
+  else local.unshift(lead);
+  writeLS<CrmLead>(LS_LEADS, local);
+}
+
 function isUuid(value: string | null | undefined): boolean {
   return !!value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
@@ -735,14 +743,18 @@ export async function updateLead(
   return merged;
 }
 
-/** Fetch a single lead by id from local override → supabase → seed. */
+/** Fetch canonical remote data first; local storage is only an offline fallback. */
 export async function getLead(id: string): Promise<CrmLead | null> {
-  const local = readLS<CrmLead>(LS_LEADS).find(r => r.id === id);
-  if (local) return (await attachLinkedSalesEvents(ensureLeadNumbers([local])))[0] || null;
   try {
     const { data } = await supabase.from("crm_leads").select("*").eq("id", id).maybeSingle();
-    if (data) return (await attachLinkedSalesEvents(ensureLeadNumbers([data as unknown as CrmLead])))[0] || null;
+    if (data) {
+      const remote = ensureLeadNumbers([data as unknown as CrmLead])[0];
+      replaceLeadInLocalCache(remote);
+      return (await attachLinkedSalesEvents([remote]))[0] || null;
+    }
   } catch { /* */ }
+  const local = readLS<CrmLead>(LS_LEADS).find(r => r.id === id);
+  if (local) return (await attachLinkedSalesEvents(ensureLeadNumbers([local])))[0] || null;
   const seeded = seedOpenLeads().find(r => r.id === id);
   return seeded ? (await attachLinkedSalesEvents(ensureLeadNumbers([seeded])))[0] || null : null;
 }
