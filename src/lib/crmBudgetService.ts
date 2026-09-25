@@ -1946,6 +1946,64 @@ export function aggregateDealerBudgetSellerBreakdown(
     .sort((a, b) => a.initials.localeCompare(b.initials));
 }
 
+export interface OriginalBudgetDealerAllocation {
+  dealer_account_id: string | null;
+  dealer_account_number: string | null;
+  dealer_name: string;
+  qty: number;
+}
+
+export interface OriginalBudgetBasis {
+  total: number;
+  allocations: OriginalBudgetDealerAllocation[];
+}
+
+/** Read-only view of the imported dealer allocation behind one budget cell.
+ *  `monthIdx = null` aggregates the full fiscal year. Working-budget
+ *  references deliberately never participate in this calculation. */
+export function originalBudgetBasisForCell(
+  rows: BudgetDealerLine[],
+  year: number,
+  monthIdx: number | null,
+  productKey: string,
+  sellerEmails: Set<string> | null,
+): OriginalBudgetBasis | null {
+  const matching = rows.filter((row) =>
+    !row.excluded_from_total &&
+    row.qty > 0 &&
+    row.year === year &&
+    (monthIdx === null || row.month_idx === monthIdx) &&
+    productKeysEqual(row.product_key, productKey) &&
+    (!sellerEmails || sellerEmails.has((row.seller_email || "").toLowerCase()))
+  );
+  if (matching.length === 0) return null;
+
+  const grouped = new Map<string, OriginalBudgetDealerAllocation>();
+  for (const row of matching) {
+    const key = row.dealer_account_id
+      || row.dealer_account_number
+      || row.dealer_name_norm
+      || row.dealer_name
+      || row.id;
+    const current = grouped.get(key) || {
+      dealer_account_id: row.dealer_account_id,
+      dealer_account_number: row.dealer_account_number,
+      dealer_name: row.dealer_name?.trim() || row.dealer_account_number || "Ukendt forhandler",
+      qty: 0,
+    };
+    current.qty += row.qty;
+    grouped.set(key, current);
+  }
+
+  const allocations = Array.from(grouped.values()).sort((a, b) =>
+    b.qty - a.qty || a.dealer_name.localeCompare(b.dealer_name)
+  );
+  return {
+    total: allocations.reduce((sum, allocation) => sum + allocation.qty, 0),
+    allocations,
+  };
+}
+
 /** Pick the largest non-excluded dealer row for a given (year, month, product,
  *  seller-scope) cell. Used by CRM Budget plus/minus to know which dealer row
  *  to mutate. Tie-breaker: dealer_name asc, then id asc — deterministic. */

@@ -42,6 +42,8 @@ import {
 } from "@/lib/budgetReferenceCrmOptions";
 import { listLeads, listDemoLeads, type CrmLead, type CrmDemoLead } from "@/lib/crmLeadsService";
 import type { BudgetType } from "@/lib/crmBudgetService";
+import type { OriginalBudgetBasis } from "@/lib/crmBudgetService";
+import BudgetOriginalBasis from "@/components/crm/BudgetOriginalBasis";
 
 export interface BudgetReferenceContext {
   cell_key: string;
@@ -66,6 +68,8 @@ export interface BudgetReferenceContext {
    *  antal stk. (ikke kun den seneste budgetændring), så modal afspejler
    *  hele cellens samlede fordeling. */
   delta_total: number;
+  /** Read-only imported dealer allocation for the same fiscal cell. */
+  original_budget_basis?: OriginalBudgetBasis | null;
 }
 
 interface Props {
@@ -341,6 +345,10 @@ export default function BudgetReferenceModal({
               <CtxRow label="Ændring" value={`${ctx.old_value} → ${ctx.new_value}`} />
             )}
           </div>
+        )}
+
+        {ctx?.original_budget_basis && (
+          <BudgetOriginalBasis basis={ctx.original_budget_basis} framed />
         )}
 
         {/* Allocation summary: explains that the qty inputs distribute the

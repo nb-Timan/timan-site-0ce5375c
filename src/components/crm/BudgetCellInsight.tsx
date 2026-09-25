@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/tooltip";
 import { formatConvertedMoney } from "@/lib/currency";
 import { usePortalCurrency } from "@/lib/usePortalCurrency";
+import BudgetOriginalBasis from "@/components/crm/BudgetOriginalBasis";
+import type { OriginalBudgetBasis } from "@/lib/crmBudgetService";
 
 export type SellerNum = { initials: string; value: number };
 
@@ -56,6 +58,8 @@ interface Props {
   orderDetails?: OrderTooltipDetail[];
   /** Keep the total after the explanatory rows for budget/order cells. */
   totalAtBottom?: boolean;
+  /** Canonical imported dealer allocation. Kept separate from references. */
+  originalBudgetBasis?: OriginalBudgetBasis | null;
 }
 
 function refKindLabel(r: CellReference): string {
@@ -67,7 +71,7 @@ function refKindLabel(r: CellReference): string {
 
 export default function BudgetCellInsight({
   children, title, total, rows, variant = "budget", missingBudget, extra, side = "top", references, dealers,
-  orderDetails, totalAtBottom = false,
+  orderDetails, totalAtBottom = false, originalBudgetBasis,
 }: Props) {
   const displayCurrency = usePortalCurrency();
   const display = variant === "budget" ? rows.filter(r => r.value !== 0) : rows;
@@ -92,7 +96,12 @@ export default function BudgetCellInsight({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span className="cursor-default">{children}</span>
+        <span
+          className={originalBudgetBasis ? "cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded-sm" : "cursor-default"}
+          tabIndex={originalBudgetBasis ? 0 : undefined}
+        >
+          {children}
+        </span>
       </TooltipTrigger>
       <TooltipContent side={side} className="max-w-[300px]">
         <div className="text-xs space-y-1">
@@ -153,6 +162,12 @@ export default function BudgetCellInsight({
                 ))}
               </ul>
             </div>
+          )}
+          {originalBudgetBasis && (
+            <BudgetOriginalBasis
+              basis={originalBudgetBasis}
+              className="border-t border-slate-200/60 pt-1.5"
+            />
           )}
           {concreteOrders.length === 0 && dealerGroups.length > 0 && (
             <div className="pt-1 border-t border-slate-200/60 space-y-0.5">

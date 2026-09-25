@@ -34,6 +34,7 @@ import {
   listBudgetDealerLines,
   aggregateDealerBudgetMonthly, hasDealerBudgetByMonth, mergeMonthlyPreferDealer,
   aggregateDealerBudgetSellerBreakdown,
+  originalBudgetBasisForCell,
   resolveBudgetScopeEmails,
   collapseDealerLinesForCell,
   type BudgetLine, type BudgetForecast, type SalesActual, type SellerYearLock,
@@ -2052,6 +2053,9 @@ export default function CrmBudgetPage() {
                     const totalWorking = workingMonthly.reduce((a, b) => a + b, 0);
                     const totalPipeline = quoteCellsByMonth.reduce((s, c) => s + c.qty, 0);
                     const totalPipelineValue = quoteCellsByMonth.reduce((s, c) => s + c.value, 0);
+                    const annualOriginalBasis = originalBudgetBasisForCell(
+                      dealerLines, year, null, blockProductKey, scopeEmails,
+                    );
 
                     const totalPerf = totalOrders - totalBudget;
                     const scorePct = totalBudget > 0 ? Math.round((totalOrders / totalBudget) * 100) : 0;
@@ -2083,6 +2087,9 @@ export default function CrmBudgetPage() {
                             const ordersRows = sellerBreakdownFor(linesForAgg, i, "orders");
                             const orderDetails = orderDetailsFor(blockProductKey, productName, i);
                             const tipTitle = `${monthLabel} · ${productName}`;
+                            const originalBudgetBasis = originalBudgetBasisForCell(
+                              dealerLines, year, i, blockProductKey, scopeEmails,
+                            );
                             // Reference distribution context. `delta_total`
                             // is the CELL's current total (b), so modalens
                             // "Fordelt: X / N" matches det antal stk. cellen
@@ -2105,6 +2112,7 @@ export default function CrmBudgetPage() {
                               actor_name: appUser?.display_name || null,
                               change_id: latest?.id || null,
                               delta_total: b,
+                              original_budget_basis: originalBudgetBasis,
                             };
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
@@ -2120,6 +2128,7 @@ export default function CrmBudgetPage() {
                                        total={b}
                                        rows={budgetRows}
                                        references={refsByCell[ck]}
+                                       originalBudgetBasis={originalBudgetBasis}
                                        totalAtBottom
                                      >
                                        <span className="min-w-[14px] text-center font-semibold text-slate-700 inline-block tabular-nums">{b}</span>
@@ -2150,7 +2159,7 @@ export default function CrmBudgetPage() {
                                    </div>
                                 ) : (
                                   <>
-                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows} references={refsByCell[ck]} totalAtBottom>
+                                    <BudgetCellInsight title={`Budget · ${tipTitle}`} total={b} rows={budgetRows} references={refsByCell[ck]} originalBudgetBasis={originalBudgetBasis} totalAtBottom>
                                       <span className="text-slate-500">{b}</span>
                                     </BudgetCellInsight>
                                     <span className="text-slate-400 mx-0.5">/</span>
@@ -2174,6 +2183,7 @@ export default function CrmBudgetPage() {
                               title={`Budget total · ${productName}`}
                               total={totalBudget}
                               rows={budgetSellerBreakdownFor(linesForAgg, blockProductKey, scopeEmails, null)}
+                              originalBudgetBasis={annualOriginalBasis}
                               totalAtBottom
                             >
                               <span className="text-slate-600">{totalBudget}</span>
@@ -2252,6 +2262,9 @@ export default function CrmBudgetPage() {
                             const latest = latestAuditByCell[ck];
                             const monthLabel = MONTHS_BY_LANG[lang][i] || `M${i + 1}`;
                             const workRows = sellerBreakdownFor(linesForAgg, i, "working");
+                            const originalBudgetBasis = originalBudgetBasisForCell(
+                              dealerLines, year, i, blockProductKey, scopeEmails,
+                            );
                             const latestNewW = (latest?.new_value as Record<string, unknown> | null) || null;
                             const latestOldW = (latest?.old_value as Record<string, unknown> | null) || null;
                             const refOldW = latestOldW && typeof latestOldW.value === "number" ? (latestOldW.value as number) : w;
@@ -2270,6 +2283,7 @@ export default function CrmBudgetPage() {
                               actor_name: appUser?.display_name || null,
                               change_id: latest?.id || null,
                               delta_total: w,
+                              original_budget_basis: originalBudgetBasis,
                             };
                             const cellLeads = leadWorkingByMonth[i];
                             return (
