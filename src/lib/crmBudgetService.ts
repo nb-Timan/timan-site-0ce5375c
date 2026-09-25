@@ -16,6 +16,7 @@ import { appendAuditEntry } from "@/lib/audit-log-store";
 import type { Accessory, Language, LocalizedString, ConfiguratorState } from "@/types/configurator";
 import { normalizeConfiguratorState } from "@/lib/configuratorState";
 import { calcConfigurationTotals } from "@/lib/calcConfiguration";
+import { currencyFromLanguage, toDkk, type Currency } from "@/lib/currency";
 
 // ---------- Types ----------
 export type BudgetCategory = "machine" | "attachment" | "service" | "other";
@@ -122,6 +123,8 @@ export interface BudgetOrderDetail {
   quantity: number;
   /** Canonical submitted-order total, not a new product-price calculation. */
   order_total: number;
+  /** Currency of the frozen submitted-order total above. */
+  currency: Currency;
 }
 
 export type OrderActualsByKey = Record<string, number>;
@@ -769,6 +772,17 @@ function parseOrderState(row: BudgetOrderRow): ConfiguratorState | null {
   return null;
 }
 
+export function resolveBudgetOrderCurrency(
+  storedCurrency: unknown,
+  snapshotLanguage: string | null | undefined,
+): Currency {
+  // Configurator prices are selected by snapshot language. Some older rows
+  // retained the table's DKK default even though their frozen state is EUR.
+  if (snapshotLanguage) return currencyFromLanguage(snapshotLanguage);
+  const normalized = String(storedCurrency ?? '').trim().toUpperCase();
+  return normalized === 'EUR' || normalized === 'SEK' ? normalized : 'DKK';
+}
+
 function machineQtyFromOrder(row: BudgetOrderRow, productByNormKey: Map<string, string>): { qtyByKey: Record<string, number>; totalQty: number } {
   const qtyByKey: Record<string, number> = {};
   let totalQty = 0;
@@ -902,7 +916,7 @@ function orderSeller(row: BudgetOrderRow, sellers: SellerIdentityIndex): { selle
 }
 
 async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
-  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id,state_json,note,total_price";
+  const columns = "id,title,order_number,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id,state_json,note,total_price,currency";
   try {
     const { data, error } = await supabase
       .from("crm_configurations_view")
@@ -922,12 +936,12 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
 
     const { data: details, error: detailsError } = await supabase
       .from("configurations")
-      .select("id,state_json,note,total_price")
+      .select("id,state_json,note,total_price,currency")
       .in("id", missingStateIds);
     if (detailsError || !details) return rows;
 
     const detailById = new Map(
-      (details as Array<Pick<BudgetOrderRow, "id" | "state_json" | "note" | "total_price">>)
+      (details as Array<Pick<BudgetOrderRow, "id" | "state_json" | "note" | "total_price" | "currency">>)
         .map((detail) => [String(detail.id), detail]),
     );
     return rows.map((row) => {
@@ -938,6 +952,7 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
         state_json: row.state_json ?? detail.state_json,
         note: row.note ?? detail.note,
         total_price: row.total_price ?? detail.total_price,
+        currency: row.currency ?? detail.currency,
       };
     });
   } catch {
@@ -947,9 +962,9 @@ async function fetchBudgetOrderRows(year: number): Promise<BudgetOrderRow[]> {
       .or("case_status.eq.ordre_afgivet,order_sent_at.not.is.null,submitted_at.not.is.null")
       .neq("case_status", "deleted")
       .limit(5000);
-    let res = await trySel("id,title,order_number,state_json,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
+    let res = await trySel("id,title,order_number,state_json,note,total_price,currency,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
     if (res.error && /state_json/.test(res.error.message || "")) {
-      res = await trySel("id,title,order_number,note,total_price,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
+      res = await trySel("id,title,order_number,note,total_price,currency,seller_email,seller_initials,seller_name,assigned_seller_id,delivery_date,order_sent_at,submitted_at,created_at,case_status,document_type,case_type,dealer_name,dealer_company_name,dealer_number,dealer_account_id");
     }
     if (res.error) throw res.error;
     return ((res.data ?? []) as unknown as BudgetOrderRow[]).filter((r) => orderIsInFiscalYear(r, year));
@@ -1120,7 +1135,7 @@ export async function listSalesActuals(year: number): Promise<SalesActual[]> {
  * Build sales actuals by walking configurator orders (the same scoped
  * source the CRM Orders page uses). Each order contributes:
  *   • qty_sold  → sum of state.machineConfigs[*].qty per machine_type
- *   • value_sold → calcConfigurationTotals(state).finalPrice, allocated
+ *   • value_sold → frozen order total normalized to DKK, allocated
  *                  proportionally per machine when there are multiple types
  * Stored under a stable read key whose display identity is
  * (seller, year, product_key, month). The legacy budget_line_id field is kept
@@ -1163,11 +1178,13 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
         const tp = Number(row.total_price ?? 0);
         if (Number.isFinite(tp) && tp > 0) finalPrice = tp;
       }
+      const sourceCurrency = resolveBudgetOrderCurrency(row.currency, state?.language);
+      const finalPriceDkk = toDkk(finalPrice, sourceCurrency);
 
       const { qtyByKey, totalQty } = machineQtyFromOrder(row, productByNormKey);
       if (totalQty === 0) continue;
 
-      const addActual = (productKey: string, qty: number, value: number) => {
+      const addActual = (productKey: string, qty: number, valueDkk: number) => {
         const actualId = `actual_${year}_${productKey}_${seller.email.replace(/[^a-z0-9]/gi, "")}`;
         const prev = totals.get(actualId) || {
           budget_line_id: actualId,
@@ -1184,13 +1201,13 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           monthly_order_details: Array.from({ length: 12 }, () => [] as BudgetOrderDetail[]),
         };
         prev.qty_sold += qty;
-        prev.value_sold += value;
+        prev.value_sold += valueDkk;
         if (!prev.monthly_qty) prev.monthly_qty = ZERO12();
         if (!prev.monthly_value) prev.monthly_value = ZERO12();
         if (!prev.monthly_dealers) prev.monthly_dealers = Array.from({ length: 12 }, () => [] as Array<{ name: string; qty: number }>);
         if (!prev.monthly_order_details) prev.monthly_order_details = Array.from({ length: 12 }, () => [] as BudgetOrderDetail[]);
         prev.monthly_qty[monthIdx] += qty;
-        prev.monthly_value[monthIdx] += value;
+        prev.monthly_value[monthIdx] += valueDkk;
         const dealerName =
           (row.dealer_name as string | null) ||
           (row.dealer_company_name as string | null) ||
@@ -1208,12 +1225,13 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
           product_key: productKey,
           quantity: qty,
           order_total: finalPrice,
+          currency: sourceCurrency,
         });
         totals.set(actualId, prev);
       };
 
       for (const [machineKey, qty] of Object.entries(qtyByKey)) {
-        addActual(machineKey, qty, finalPrice * (qty / totalQty));
+        addActual(machineKey, qty, finalPriceDkk * (qty / totalQty));
       }
       for (const [equipmentKey, qty] of Object.entries(equipmentQtyFromOrder(row, productByNormKey, equipmentLookup))) {
         addActual(equipmentKey, qty, 0);

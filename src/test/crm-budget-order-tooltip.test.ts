@@ -26,6 +26,7 @@ function actual(overrides: Partial<SalesActual> = {}): SalesActual {
       product_key: "RC-1000s",
       quantity: 1,
       order_total: 50000,
+      currency: "DKK",
     }] : []),
     ...overrides,
   };
@@ -60,6 +61,7 @@ describe("CRM Budget order tooltip", () => {
         product_key: "RC-1000s",
         quantity: 2,
         order_total: 80000,
+        currency: "DKK",
       }] : []),
     });
 

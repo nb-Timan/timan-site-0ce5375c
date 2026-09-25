@@ -69,9 +69,11 @@ import * as supabaseModule from "@/lib/supabase";
 import { ACCESSORIES, LOOSE_TOOL_KEY, getAccessoriesFlat } from "@/data/machines";
 import {
   listSalesActuals, createBudgetLine, buildOrderActualsByKey, orderActualKey, monthlyOrderQtyForProduct, orderDetailsForBudgetCell,
+  resolveBudgetOrderCurrency,
   BUDGET_SELLERS, BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, BUDGET_EXCLUDED_EQUIPMENT_VARENR, canonicalBudgetProductKey,
   type BudgetLine, type SalesActual,
 } from "@/lib/crmBudgetService";
+import { formatLocalizedConvertedMoney, toDkk } from "@/lib/currency";
 
 const YEAR = 2025;
 const MAY_FISCAL_YEAR = YEAR - 1;
@@ -134,6 +136,42 @@ describe("CrmBudgetPage — order display is independent from budget_line_id", (
     const actuals = await listSalesActuals(MAY_FISCAL_YEAR);
     expect(rowOrderInMay(seedLineFor("RC-751"), actuals)).toBe(1);
     expect(rowOrderInMay(seedLineFor("RC-1000s"), actuals)).toBe(3);
+  });
+
+  it("normalizes mixed submitted-order currencies to DKK before Budget aggregation", async () => {
+    const da = makeOrder("ord-da", "RC-1000S", 1);
+    const de = makeOrder("ord-de", "RC-1000S", 1);
+    da.view.order_number = "O-DKK";
+    de.view.order_number = "O-EUR";
+    da.details.state_json.language = "da";
+    de.details.state_json.language = "de";
+    (da.view as Record<string, unknown>).currency = "DKK";
+    // Mirrors O-7019: the old column default says DKK while the frozen
+    // Configurator snapshot that owns its prices is German/EUR.
+    (de.view as Record<string, unknown>).currency = "DKK";
+    setOrders([da.view, de.view], [da.details, de.details]);
+
+    const actuals = await listSalesActuals(MAY_FISCAL_YEAR);
+    const actual = actuals.find((row) => row.product_key === "RC-1000s")!;
+    const details = orderDetailsForBudgetCell(actuals, MAY_FISCAL_YEAR, "RC-1000s", MAY_IDX, null);
+    const dkk = details.find((detail) => detail.order_number === "O-DKK")!;
+    const eur = details.find((detail) => detail.order_number === "O-EUR")!;
+
+    expect(dkk.currency).toBe("DKK");
+    expect(eur.currency).toBe("EUR");
+    expect(actual.value_sold).toBeCloseTo(toDkk(dkk.order_total, dkk.currency) + toDkk(eur.order_total, eur.currency));
+    expect(actual.qty_sold).toBe(2);
+  });
+
+  it("uses the snapshot language for display conversion without changing the raw amount", () => {
+    const rawTotal = 247_476;
+    const sourceCurrency = resolveBudgetOrderCurrency("DKK", "de");
+
+    expect(sourceCurrency).toBe("EUR");
+    expect(formatLocalizedConvertedMoney(rawTotal, sourceCurrency, "EUR", "de")).toBe("247.476 €");
+    expect(formatLocalizedConvertedMoney(rawTotal, sourceCurrency, "EUR", "en")).toBe("€247,476");
+    expect(formatLocalizedConvertedMoney(rawTotal, sourceCurrency, "DKK", "da")).toBe("1.846.171 kr.");
+    expect(rawTotal).toBe(247_476);
   });
 
   it("after Budget + persists a new b_ id, order counts stay visible without rebinding", async () => {

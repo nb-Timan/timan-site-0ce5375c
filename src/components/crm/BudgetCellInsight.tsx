@@ -13,8 +13,9 @@ import { ReactNode } from "react";
 import {
   Tooltip, TooltipContent, TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { formatConvertedMoney } from "@/lib/currency";
+import { formatLocalizedConvertedMoney, type Currency } from "@/lib/currency";
 import { usePortalCurrency } from "@/lib/usePortalCurrency";
+import { useLanguage } from "@/context/LanguageContext";
 import BudgetOriginalBasis from "@/components/crm/BudgetOriginalBasis";
 import type { OriginalBudgetBasis } from "@/lib/crmBudgetService";
 
@@ -29,6 +30,7 @@ export interface OrderTooltipDetail {
   product_label: string;
   quantity: number;
   order_total: number;
+  currency: Currency;
 }
 
 export interface CellReference {
@@ -74,6 +76,7 @@ export default function BudgetCellInsight({
   orderDetails, totalAtBottom = false, originalBudgetBasis,
 }: Props) {
   const displayCurrency = usePortalCurrency();
+  const { uiLanguage } = useLanguage();
   const display = variant === "budget" ? rows.filter(r => r.value !== 0) : rows;
   const refs = references ?? [];
   const concreteOrders = orderDetails ?? [];
@@ -122,7 +125,7 @@ export default function BudgetCellInsight({
                   <div className="flex justify-between gap-3">
                     <span className="text-slate-500">Sælger: {order.seller_initials || "—"}</span>
                     <span className="font-semibold tabular-nums">
-                      Beløb: {formatConvertedMoney(order.order_total, "DKK", displayCurrency)}
+                      Beløb: {formatLocalizedConvertedMoney(order.order_total, order.currency, displayCurrency, uiLanguage)}
                     </span>
                   </div>
                 </div>
