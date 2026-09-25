@@ -213,10 +213,46 @@ function hasSubOptions(acc: Accessory, allAccs: Accessory[]): boolean {
 
 export default function ConfiguratorPage({ marketingEditMode = false }: { marketingEditMode?: boolean }) {
   const {
-    state, setStep, setLanguage: setConfigLanguage, setFlowType, setMachineQty, setConfigMode,
+    state, setLanguage: setConfigLanguage, setFlowType, setMachineQty, setConfigMode,
     setDate, setDeliveryMethod, setCustomerField, toggleAcc, calcResult,
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
+  const stepContentRef = useRef<HTMLFieldSetElement>(null);
+  const equipmentScrollRef = useRef<HTMLDivElement>(null);
+  const pendingStepScrollRef = useRef<number | null>(null);
+  const pendingMachineScrollRef = useRef<number | null>(null);
+  const navigateToStep = useCallback((nextStep: number) => {
+    setState((current) => {
+      if (nextStep === current.step) return current;
+      pendingStepScrollRef.current = nextStep;
+      return { ...current, step: nextStep };
+    });
+  }, [setState]);
+  const navigateToMachine = useCallback((nextMachineIndex: number) => {
+    setState((current) => {
+      if (nextMachineIndex === current.currentMachineIndex) return current;
+      pendingMachineScrollRef.current = nextMachineIndex;
+      return { ...current, currentMachineIndex: nextMachineIndex };
+    });
+  }, [setState]);
+
+  useEffect(() => {
+    if (pendingStepScrollRef.current !== state.step) return;
+    pendingStepScrollRef.current = null;
+    const frame = window.requestAnimationFrame(() => {
+      stepContentRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [state.step]);
+
+  useEffect(() => {
+    if (state.step !== 3 || pendingMachineScrollRef.current !== state.currentMachineIndex) return;
+    pendingMachineScrollRef.current = null;
+    const frame = window.requestAnimationFrame(() => {
+      if (equipmentScrollRef.current) equipmentScrollRef.current.scrollTop = 0;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [state.currentMachineIndex, state.step]);
   const lang = state.language;
   const [primaryVideosByProduct, setPrimaryVideosByProduct] = useState<Map<string, MarketingVideo>>(() => new Map());
   const [publishedMarketingContent, setPublishedMarketingContent] = useState<Map<string, MarketingConfiguratorContentRecord>>(() => new Map());
@@ -712,7 +748,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     if (result.valid && ownershipValid) return true;
 
     const firstField = result.invalidFields[0];
-    if (firstField) setStep(firstField === 'machineConfigs' ? 1 : 4);
+    if (firstField) navigateToStep(firstField === 'machineConfigs' ? 1 : 4);
     toast.error(tPortal('configuratorLeadValidationTitle', uiLanguage), {
       description: !ownershipValid
         ? tPortal('configuratorLeadOwnershipMessage', uiLanguage)
@@ -726,7 +762,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       }, 0);
     }
     return false;
-  }, [isAcademyMode, isExhibition, ownership.dealerNumber, ownership.sellerEmail, setStep, state, uiLanguage]);
+  }, [isAcademyMode, isExhibition, navigateToStep, ownership.dealerNumber, ownership.sellerEmail, state, uiLanguage]);
   const leadFieldClass = (field: ConfiguratorLeadField) => cn(
     'w-full rounded-lg border p-2',
     leadValidationErrors.includes(field) && 'border-red-500 ring-2 ring-red-100',
@@ -1531,7 +1567,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     if (state.step !== 2) return;
     if (isExhibition) {
       setState(s => ({ ...s, currentMachineIndex: 0 }));
-      setStep(3);
+      navigateToStep(3);
       return;
     }
     if (state.date) return;
@@ -1546,7 +1582,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     // Safety: if landed on weekend, push to Monday
     while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
     setDate(format(d, 'yyyy-MM-dd'));
-  }, [state.step, state.date, isExhibition, setDate, setStep]);
+  }, [state.step, state.date, isExhibition, navigateToStep, setDate]);
 
   useEffect(() => {
     if (isExhibition && state.flowType !== 'quote') {
@@ -3338,7 +3374,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             const allowed = step <= maxStep;
             return (
             <button key={step}
-              onClick={() => { if (step <= state.step && allowed) setStep(step); }}
+              onClick={() => { if (step <= state.step && allowed) navigateToStep(step); }}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg transition ${state.step === step ? 'tab-active bg-white border-x border-t' : step <= state.step && allowed ? 'tab-inactive hover:bg-gray-100 cursor-pointer' : 'text-gray-400 cursor-not-allowed'}`}>
               {T(`step${step}Tab`)}
             </button>
@@ -3356,7 +3392,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               <span className="flex items-center gap-3"><span className="text-xs font-mono text-amber-800">{savedOrderNumber || ''}</span>{canCorrectSubmittedOrder && !backendCorrectionSessionId && <button type="button" onClick={() => setBackendCorrectionDialogOpen(true)} className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100">Ret afgivet ordre</button>}</span>
             </div>
           )}
-          <fieldset disabled={submittedOrderEditorLocked} className={submittedOrderEditorLocked ? 'space-y-6 opacity-90 [&_*]:!cursor-not-allowed' : 'space-y-6'} style={submittedOrderEditorLocked ? { pointerEvents: 'none' } : undefined}>
+          <fieldset ref={stepContentRef} disabled={submittedOrderEditorLocked} className={`${submittedOrderEditorLocked ? 'space-y-6 opacity-90 [&_*]:!cursor-not-allowed' : 'space-y-6'} scroll-mt-24`} style={submittedOrderEditorLocked ? { pointerEvents: 'none' } : undefined}>
             {/* Step 1 */}
             {state.step === 1 && (
               <div className="bg-white rounded-2xl shadow p-6">
@@ -3463,10 +3499,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   <button onClick={() => {
                     if (isExhibition) {
                       setState(s => ({ ...s, currentMachineIndex: 0 }));
-                      setStep(3);
+                      navigateToStep(3);
                       return;
                     }
-                    setStep(2);
+                    navigateToStep(2);
                   }} disabled={!flowSelected || totalQty === 0}
                     className={`px-6 py-3 rounded-lg text-base font-semibold transition ${flowSelected && totalQty > 0 ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
                     {isExhibition ? T('goToEquipment') : T('goToDelivery')}
@@ -3626,7 +3662,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 )}
 
                 <div className="flex justify-between max-w-md mx-auto mt-8">
-                  <button onClick={() => setStep(1)} className="text-gray-600">{T('back')}</button>
+                  <button onClick={() => navigateToStep(1)} className="text-gray-600">{T('back')}</button>
                   <div className="flex flex-col items-end gap-1">
                     {!state.date && (
                       <p className="text-red-500 text-xs">{T('selectDeliveryDate')}</p>
@@ -3637,7 +3673,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <button onClick={() => {
                       if (!canProceedStep2) return;
                       setState(s => ({ ...s, currentMachineIndex: 0 }));
-                      setStep(3);
+                      navigateToStep(3);
                     }}
                       disabled={!canProceedStep2}
                       className={`px-4 py-2 rounded-lg font-medium shadow-lg text-sm ${canProceedStep2 ? 'bg-emerald-600 text-white' : 'bg-gray-400 text-white cursor-not-allowed'}`}>
@@ -3877,14 +3913,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <div className="flex space-x-2 border-b border-gray-200 overflow-x-auto mb-4">
                       {displayUnits.map(du => (
                         <button key={du.globalIndex}
-                          onClick={() => setState(s => ({ ...s, currentMachineIndex: du.globalIndex }))}
+                          onClick={() => navigateToMachine(du.globalIndex)}
                           className={`px-4 py-2 text-sm rounded-t-lg whitespace-nowrap ${du.globalIndex === state.currentMachineIndex ? 'tab-active bg-white border-x border-t' : 'tab-inactive hover:bg-gray-100'}`}>
                           {du.isSharedUnit ? `${T('allMachines')} ${getLocalizedName(PRODUCTS[du.modelType]?.name || '', lang)}` : `${T('machineLabel')} ${du.unitNumber}`}
                         </button>
                       ))}
                     </div>
                   )}
-                  <div className="space-y-2 mb-8 max-h-[60vh] overflow-y-auto pr-2 text-left">
+                  <div ref={equipmentScrollRef} data-testid="configurator-equipment-scroll" className="space-y-2 mb-8 max-h-[60vh] overflow-y-auto pr-2 text-left">
                     {renderAccessories()}
                   </div>
                   {/* Step 3 validation: check all required groups across ALL units */}
@@ -3921,7 +3957,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
                     return (
                       <div className="flex justify-between pt-4 border-t">
-                        <button onClick={() => setStep(isExhibition ? 1 : 2)} className="text-gray-600">{T('back')}</button>
+                        <button onClick={() => navigateToStep(isExhibition ? 1 : 2)} className="text-gray-600">{T('back')}</button>
                         {!allMandatoryMet && (
                           <p className="text-red-500 text-xs self-center">{T('requiredGroupsHint')}</p>
                         )}
@@ -3929,9 +3965,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           if (!canProceedStep3) return;
                           const proceed = () => {
                             if (currentDisplayIdx < displayUnits.length - 1) {
-                              setState(s => ({ ...s, currentMachineIndex: displayUnits[currentDisplayIdx + 1].globalIndex }));
+                              navigateToMachine(displayUnits[currentDisplayIdx + 1].globalIndex);
                             } else {
-                              setStep(4);
+                              navigateToStep(4);
                             }
                           };
                           // Timan 3330 reminder: warn if varenr 721122 is not selected on this unit
@@ -4134,7 +4170,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 </div>
                 <div className="flex justify-between items-center mt-8 pt-4 border-t">
                   <div className="flex items-center gap-3">
-                    <button onClick={() => setStep(3)} className="text-gray-600">{T('back')}</button>
+                    <button onClick={() => navigateToStep(3)} className="text-gray-600">{T('back')}</button>
                     <button
                       onClick={() => {
                         if (isSavedCurrent) {
