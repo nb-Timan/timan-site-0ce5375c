@@ -44,6 +44,8 @@ import { listLeads, listDemoLeads, type CrmLead, type CrmDemoLead } from "@/lib/
 import type { BudgetType } from "@/lib/crmBudgetService";
 import type { OriginalBudgetBasis } from "@/lib/crmBudgetService";
 import BudgetOriginalBasis from "@/components/crm/BudgetOriginalBasis";
+import BudgetWorkingAllocation from "@/components/crm/BudgetWorkingAllocation";
+import { resolveWorkingBudgetAllocation } from "@/lib/workingBudgetAllocation";
 
 export interface BudgetReferenceContext {
   cell_key: string;
@@ -70,6 +72,8 @@ export interface BudgetReferenceContext {
   delta_total: number;
   /** Read-only imported dealer allocation for the same fiscal cell. */
   original_budget_basis?: OriginalBudgetBasis | null;
+  /** True when audit/lead state proves that the working cell was changed. */
+  has_working_change?: boolean;
 }
 
 interface Props {
@@ -131,6 +135,7 @@ export default function BudgetReferenceModal({
   isAdmin = true, currentSellerInitials = null, currentSellerEmail = null,
 }: Props) {
   const [rows, setRows] = useState<RefRow[]>([newRow()]);
+  const [rowsRepresentExplicitAllocation, setRowsRepresentExplicitAllocation] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const [dealers, setDealers] = useState<DealerAccount[]>([]);
@@ -183,8 +188,10 @@ export default function BudgetReferenceModal({
           };
         });
         setRows(seed);
+        setRowsRepresentExplicitAllocation(true);
       } else {
         setRows([newRow()]);
+        setRowsRepresentExplicitAllocation(ctx?.budget_type !== "arbejdsbudget");
       }
     }).finally(() => {
       if (cancelled) return;
@@ -208,13 +215,35 @@ export default function BudgetReferenceModal({
   // Total stk. brugeren må fordele i denne modal. Kommer fra ctx.delta_total
   // (typisk = |new − old| af seneste budgetændring). Aldrig negativ.
   const totalAllowed = Math.max(0, Math.trunc(ctx?.delta_total ?? 0));
-  const allocated = rows.reduce((s, r) => s + Math.max(0, Math.trunc(r.qty || 0)), 0);
+  const rawAllocated = rowsRepresentExplicitAllocation
+    ? rows.reduce((s, r) => s + Math.max(0, Math.trunc(r.qty || 0)), 0)
+    : 0;
+  const draftReferences = rowsRepresentExplicitAllocation
+    ? rows.map((row) => {
+        const dealer = options.find((option) => option.value === row.dealerId);
+        return {
+          dealer_name: dealer?.company_name || null,
+          dealer_account_number: dealer?.account_number || null,
+          qty: row.qty,
+        };
+      })
+    : [];
+  const workingAllocation = resolveWorkingBudgetAllocation({
+    workingQty: totalAllowed,
+    originalBasis: ctx?.original_budget_basis,
+    references: draftReferences,
+    hasWorkingChange: ctx?.has_working_change ?? false,
+  });
+  const allocated = ctx?.budget_type === "arbejdsbudget"
+    ? workingAllocation.allocated
+    : Math.min(rawAllocated, totalAllowed);
   const hasAllocationLimit = totalAllowed > 0;
-  const overAllocated = hasAllocationLimit && allocated > totalAllowed;
+  const overAllocated = hasAllocationLimit && rawAllocated > totalAllowed;
   const underAllocated = hasAllocationLimit && allocated < totalAllowed;
-  const remaining = totalAllowed - allocated;
+  const remaining = Math.max(0, totalAllowed - allocated);
 
   function patchRow(uid: string, patch: Partial<RefRow>) {
+    setRowsRepresentExplicitAllocation(true);
     setRows((rs) => rs.map((r) => {
       if (r.uid !== uid) return r;
       const next = { ...r, ...patch };
@@ -231,9 +260,11 @@ export default function BudgetReferenceModal({
     }));
   }
   function removeRow(uid: string) {
+    setRowsRepresentExplicitAllocation(true);
     setRows((rs) => (rs.length === 1 ? [newRow()] : rs.filter((r) => r.uid !== uid)));
   }
   function addRow() {
+    setRowsRepresentExplicitAllocation(true);
     setRows((rs) => [...rs, newRow()]);
   }
 
@@ -245,6 +276,10 @@ export default function BudgetReferenceModal({
 
   async function handleSave() {
     if (!ctx) { onClose(); return; }
+    if (!rowsRepresentExplicitAllocation) {
+      onClose();
+      return;
+    }
     const filled = rows.filter(rowHasContent);
     const cellTarget = {
       cell_key: ctx.cell_key,
@@ -351,31 +386,27 @@ export default function BudgetReferenceModal({
           <BudgetOriginalBasis basis={ctx.original_budget_basis} framed />
         )}
 
-        {/* Allocation summary: explains that the qty inputs distribute the
-            recent budget change, not extra budget on top. */}
-        <div
-          className={cn(
-            "text-xs rounded-lg border px-3 py-2 flex items-center justify-between gap-3",
-            overAllocated
-              ? "border-rose-300 bg-rose-50 text-rose-800"
-              : underAllocated
-                ? "border-amber-300 bg-amber-50 text-amber-900"
-                : "border-emerald-300 bg-emerald-50 text-emerald-800",
-          )}
-        >
-          <span>
-            Fordelt: <span className="font-semibold tabular-nums">{allocated}</span> / <span className="font-semibold tabular-nums">{totalAllowed}</span> stk.
-          </span>
-          <span className="text-[11px]">
-            {totalAllowed === 0
-              ? "Ingen budgetændring at fordele"
-              : overAllocated
-                ? `${allocated - totalAllowed} stk. for meget`
+        {ctx?.budget_type === "arbejdsbudget" ? (
+          <BudgetWorkingAllocation
+            allocation={workingAllocation}
+            framed
+            className={cn(overAllocated && "border-rose-300 bg-rose-50")}
+          />
+        ) : (
+          <div
+            className={cn(
+              "text-xs rounded-lg border px-3 py-2 flex items-center justify-between gap-3",
+              overAllocated
+                ? "border-rose-300 bg-rose-50 text-rose-800"
                 : underAllocated
-                  ? `${remaining} stk. ikke fordelt`
-                  : "Alt fordelt"}
-          </span>
-        </div>
+                  ? "border-amber-300 bg-amber-50 text-amber-900"
+                  : "border-emerald-300 bg-emerald-50 text-emerald-800",
+            )}
+          >
+            <span>Fordelt: <span className="font-semibold tabular-nums">{allocated}</span> / <span className="font-semibold tabular-nums">{totalAllowed}</span> stk.</span>
+            <span className="text-[11px]">{underAllocated ? `${remaining} stk. ikke fordelt` : "Alt fordelt"}</span>
+          </div>
+        )}
 
         <div className="space-y-3">
           {rows.map((r, idx) => (
@@ -390,7 +421,7 @@ export default function BudgetReferenceModal({
               canRemove={rows.length > 1}
               quantityLimits={getBudgetReferenceQuantityLimits({
                 totalAllowed,
-                allocated,
+                allocated: rawAllocated,
                 rowQuantity: r.qty,
               })}
               onChange={(patch) => patchRow(r.uid, patch)}
@@ -402,7 +433,7 @@ export default function BudgetReferenceModal({
             variant="ghost"
             size="sm"
             onClick={addRow}
-            disabled={busy || (totalAllowed > 0 && allocated >= totalAllowed)}
+            disabled={busy || (totalAllowed > 0 && rawAllocated >= totalAllowed)}
             className="w-full border border-dashed border-slate-300 hover:bg-slate-50"
           >
             <Plus className="h-3.5 w-3.5 mr-1" /> Tilføj reference

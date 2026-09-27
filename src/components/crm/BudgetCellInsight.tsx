@@ -17,7 +17,9 @@ import { formatLocalizedConvertedMoney, type Currency } from "@/lib/currency";
 import { usePortalCurrency } from "@/lib/usePortalCurrency";
 import { useLanguage } from "@/context/LanguageContext";
 import BudgetOriginalBasis from "@/components/crm/BudgetOriginalBasis";
+import BudgetWorkingAllocation from "@/components/crm/BudgetWorkingAllocation";
 import type { OriginalBudgetBasis } from "@/lib/crmBudgetService";
+import type { WorkingBudgetAllocation } from "@/lib/workingBudgetAllocation";
 
 export type SellerNum = { initials: string; value: number };
 
@@ -35,6 +37,8 @@ export interface OrderTooltipDetail {
 
 export interface CellReference {
   dealer_label: string | null;   // already-formatted "Company · 12345 · BP" or fritekst from before
+  dealer_name?: string | null;
+  dealer_account_number?: string | null;
   has_lead: boolean;
   has_demo: boolean;
   note?: string | null;
@@ -62,6 +66,8 @@ interface Props {
   totalAtBottom?: boolean;
   /** Canonical imported dealer allocation. Kept separate from references. */
   originalBudgetBasis?: OriginalBudgetBasis | null;
+  /** Canonical current allocation for a Working Budget cell. */
+  workingAllocation?: WorkingBudgetAllocation | null;
 }
 
 function refKindLabel(r: CellReference): string {
@@ -73,7 +79,7 @@ function refKindLabel(r: CellReference): string {
 
 export default function BudgetCellInsight({
   children, title, total, rows, variant = "budget", missingBudget, extra, side = "top", references, dealers,
-  orderDetails, totalAtBottom = false, originalBudgetBasis,
+  orderDetails, totalAtBottom = false, originalBudgetBasis, workingAllocation,
 }: Props) {
   const displayCurrency = usePortalCurrency();
   const { uiLanguage } = useLanguage();
@@ -100,8 +106,8 @@ export default function BudgetCellInsight({
     <Tooltip>
       <TooltipTrigger asChild>
         <span
-          className={originalBudgetBasis ? "cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded-sm" : "cursor-default"}
-          tabIndex={originalBudgetBasis ? 0 : undefined}
+          className={originalBudgetBasis || workingAllocation ? "cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded-sm" : "cursor-default"}
+          tabIndex={originalBudgetBasis || workingAllocation ? 0 : undefined}
         >
           {children}
         </span>
@@ -109,8 +115,10 @@ export default function BudgetCellInsight({
       <TooltipContent side={side} className="max-w-[300px]">
         <div className="text-xs space-y-1">
           <div className="font-semibold border-b border-slate-200/60 pb-1">{title}</div>
-          {!totalAtBottom && totalRow}
-          {concreteOrders.length > 0 ? (
+          {workingAllocation ? (
+            <BudgetWorkingAllocation allocation={workingAllocation} />
+          ) : !totalAtBottom && totalRow}
+          {!workingAllocation && concreteOrders.length > 0 ? (
             <div className="space-y-1.5">
               {concreteOrders.map((order) => (
                 <div key={`${order.order_id}-${order.product_label}`} className="space-y-0.5 border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
@@ -131,7 +139,7 @@ export default function BudgetCellInsight({
                 </div>
               ))}
             </div>
-          ) : display.length > 0 ? (
+          ) : !workingAllocation && display.length > 0 ? (
             <ul className="space-y-0.5">
               {display.map((r) => {
                 let cls = "tabular-nums";
@@ -149,10 +157,10 @@ export default function BudgetCellInsight({
                 );
               })}
             </ul>
-          ) : (
+          ) : !workingAllocation ? (
             <div className="text-slate-500 italic">Ingen sælgere har værdier</div>
-          )}
-          {refs.length > 0 && (
+          ) : null}
+          {!workingAllocation && refs.length > 0 && (
             <div className="pt-1 border-t border-slate-200/60 space-y-0.5">
               <div className="text-slate-700">Referencer ({refs.length})</div>
               <ul className="space-y-0.5">
@@ -190,7 +198,7 @@ export default function BudgetCellInsight({
             </div>
           )}
           {extra && <div className="pt-1 border-t border-slate-200/60">{extra}</div>}
-          {totalAtBottom && totalRow}
+          {!workingAllocation && totalAtBottom && totalRow}
         </div>
       </TooltipContent>
     </Tooltip>

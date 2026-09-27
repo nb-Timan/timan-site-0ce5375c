@@ -67,6 +67,7 @@ import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferenc
 import type { CellReference, OrderTooltipDetail } from "@/components/crm/BudgetCellInsight";
 import { formatLocalizedConvertedMoney } from "@/lib/currency";
 import { usePortalCurrency } from "@/lib/usePortalCurrency";
+import { resolveWorkingBudgetAllocation } from "@/lib/workingBudgetAllocation";
 
 
 // ────────────────────────────────────────────────────────────
@@ -629,6 +630,8 @@ export default function CrmBudgetPage() {
         if (!r.cell_key) continue;
         const item: CellReference = {
           dealer_label: r.dealer_name,
+          dealer_name: r.dealer_name,
+          dealer_account_number: r.dealer_account_number,
           has_lead: !!(r.lead_id && r.lead_id.trim()),
           has_demo: !!(r.demo_id && r.demo_id.trim()),
           note: r.note,
@@ -2287,6 +2290,9 @@ export default function CrmBudgetPage() {
                             const latestOldW = (latest?.old_value as Record<string, unknown> | null) || null;
                             const refOldW = latestOldW && typeof latestOldW.value === "number" ? (latestOldW.value as number) : w;
                             const refNewW = latestNewW && typeof latestNewW.value === "number" ? (latestNewW.value as number) : w;
+                            const cellLeads = leadWorkingByMonth[i];
+                            const workingReferences = refsByCell[ck] || [];
+                            const hasWorkingChange = !!latest || cellLeads.length > 0;
                             const refCtx: BudgetReferenceContext = {
                               cell_key: ck, budget_year: year,
                               seller_initials: primaryLine.seller_initials,
@@ -2302,8 +2308,18 @@ export default function CrmBudgetPage() {
                               change_id: latest?.id || null,
                               delta_total: w,
                               original_budget_basis: originalBudgetBasis,
+                              has_working_change: hasWorkingChange,
                             };
-                            const cellLeads = leadWorkingByMonth[i];
+                            const workingAllocation = resolveWorkingBudgetAllocation({
+                              workingQty: w,
+                              originalBasis: originalBudgetBasis,
+                              references: workingReferences.map((reference) => ({
+                                dealer_name: reference.dealer_name || reference.dealer_label,
+                                dealer_account_number: reference.dealer_account_number,
+                                qty: reference.qty,
+                              })),
+                              hasWorkingChange,
+                            });
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">
                                 {cellLeads.length > 0 && (
@@ -2349,7 +2365,8 @@ export default function CrmBudgetPage() {
                                         title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
                                         total={w}
                                         rows={workRows}
-                                        references={refsByCell[ck]}
+                                        references={workingReferences}
+                                        workingAllocation={workingAllocation}
                                       >
                                         <span className="min-w-[14px] text-center font-semibold inline-block tabular-nums">{w}</span>
                                       </BudgetCellInsight>
@@ -2371,7 +2388,8 @@ export default function CrmBudgetPage() {
                                     title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
                                     total={w}
                                     rows={workRows}
-                                    references={refsByCell[ck]}
+                                    references={workingReferences}
+                                    workingAllocation={workingAllocation}
                                   >
                                     <span className="font-semibold">{w}</span>
                                   </BudgetCellInsight>
