@@ -1330,6 +1330,12 @@ export default function ContractsPage() {
         setContractLoaded(true);
         return;
       }
+      if (routeContractIdValue && !row) {
+        setContractLoadError('Contract not found.');
+        toast.error(contractUi('contractCouldNotLoad', uiLanguage));
+        setContractLoaded(true);
+        return;
+      }
       if (row) {
         setContractRowId(row.id);
         setContractRecord(row);

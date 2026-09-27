@@ -1435,6 +1435,14 @@ describe('contract flow', () => {
     expect(serviceSource).toContain('fetchDealerContractDraftByKey(draftKey)');
   });
 
+  it('shows one controlled error when a routed contract id does not exist', () => {
+    const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+
+    expect(source).toContain('if (routeContractIdValue && !row) {');
+    expect(source).toContain("setContractLoadError('Contract not found.');");
+    expect(source).toContain("toast.error(contractUi('contractCouldNotLoad', uiLanguage));");
+  });
+
   it('creates an independent revision draft without mutating the locked contract snapshot', () => {
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
 

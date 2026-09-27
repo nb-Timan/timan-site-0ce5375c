@@ -20,7 +20,7 @@
  * No DB writes. No auth changes. Pure presentation.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { SessionUser } from '@/context/AppUserContext';
 import {
@@ -110,9 +110,29 @@ export function useEffectivePortalUserState(appUser: SessionUser | null): {
     return () => window.removeEventListener('timan:active-mode-changed', bump);
   }, []);
 
+  const mode = useMemo(
+    () => {
+      void rev; // Re-read localStorage after the active-mode event.
+      return appUser ? getActiveMode(appUser.email) : null;
+    },
+    [appUser, rev],
+  );
+  const viewUser = useMemo(
+    () => {
+      void rev; // Re-read localStorage after the active-mode event.
+      return appUser ? getActiveUserView(appUser.email) : null;
+    },
+    [appUser, rev],
+  );
+  const preview = useMemo(
+    () => (appUser && typeof mode === 'string' && mode.startsWith('role:')
+      ? getActiveRolePreview(appUser.email)
+      : null),
+    [appUser, mode],
+  );
+
   useEffect(() => {
     if (!appUser || !canSwitchMode(appUser)) { setTarget(null); setResolving(false); return; }
-    const viewUser = getActiveUserView(appUser.email);
     if (!viewUser) { setTarget(null); setResolving(false); return; }
     let cancelled = false;
     setResolving(true);
@@ -128,28 +148,35 @@ export function useEffectivePortalUserState(appUser: SessionUser | null): {
         setResolving(false);
       });
     return () => { cancelled = true; };
-  }, [appUser, rev]);
+  }, [appUser, rev, viewUser]);
+
+  const rolePreviewUser = useMemo<SessionUser | null>(() => {
+    if (!appUser || !preview) return null;
+    return {
+      ...appUser,
+      portal_role: preview.key,
+      module_access: null,
+      allowed_areas: null,
+      allowed_modules: null,
+      permissions: null,
+      quick_actions: null,
+    };
+  }, [appUser, preview]);
+
+  const viewedUser = useMemo(
+    () => (appUser && target ? mergeEffectivePortalUser(appUser, target, viewUser) : null),
+    [appUser, target, viewUser],
+  );
 
   if (!appUser) return { effectiveUser: null, resolving: false };
   if (!canSwitchMode(appUser)) return { effectiveUser: appUser, resolving: false };
 
   // Role preview (no actual user row to fetch — clear module_access so
   // role defaults apply).
-  const mode = getActiveMode(appUser.email);
-  const viewUser = getActiveUserView(appUser.email);
   if (typeof mode === 'string' && mode.startsWith('role:')) {
-    const preview = getActiveRolePreview(appUser.email);
-    if (!preview) return { effectiveUser: appUser, resolving: false };
+    if (!rolePreviewUser) return { effectiveUser: appUser, resolving: false };
     return {
-      effectiveUser: {
-        ...appUser,
-        portal_role: preview.key,
-        module_access: null,
-        allowed_areas: null,
-        allowed_modules: null,
-        permissions: null,
-        quick_actions: null,
-      },
+      effectiveUser: rolePreviewUser,
       resolving: false,
     };
   }
@@ -158,9 +185,9 @@ export function useEffectivePortalUserState(appUser: SessionUser | null): {
     return { effectiveUser: null, resolving: true };
   }
 
-  if (target) {
+  if (viewedUser) {
     return {
-      effectiveUser: mergeEffectivePortalUser(appUser, target, viewUser),
+      effectiveUser: viewedUser,
       resolving: false,
     };
   }
