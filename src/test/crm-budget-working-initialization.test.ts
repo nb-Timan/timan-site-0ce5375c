@@ -25,6 +25,10 @@ const uuidAggregateFix = readFileSync(resolve(
   process.cwd(),
   "supabase/migrations/20260925183150_fix_working_budget_uuid_aggregate.sql",
 ), "utf8");
+const hardenedInitialization = readFileSync(resolve(
+  process.cwd(),
+  "supabase/migrations/20260927102108_harden_working_budget_initialization_detection.sql",
+), "utf8");
 const page = readFileSync(resolve(process.cwd(), "src/pages/crm/CrmBudgetPage.tsx"), "utf8");
 const service = readFileSync(resolve(process.cwd(), "src/lib/crmBudgetService.ts"), "utf8");
 
@@ -89,12 +93,27 @@ describe("CRM working-budget initialization", () => {
     });
   });
 
+  it("surfaces an unexplained partial forecast without overwriting it", async () => {
+    rpc.mockResolvedValue({ data: [{ status: "ambiguous_partial_forecast", seeded_count: 0 }], error: null });
+    await expect(initializeWorkingBudgetFromOriginal(2026, "jtn@timan.dk")).resolves.toEqual({
+      status: "ambiguous_partial_forecast", seeded_count: 0,
+    });
+  });
+
   it("serializes seller/year initialization to prevent reload races", () => {
     expect(migration).toMatch(/pg_advisory_xact_lock[\s\S]*p_year::text[\s\S]*v_seller_email/i);
   });
 
-  it("protects every partially initialized seller/year", () => {
-    expect(migration).toMatch(/if exists[\s\S]*crm_budget_forecasts[\s\S]*already_initialized/i);
+  it("preserves genuine seller edits with canonical audit evidence", () => {
+    expect(hardenedInitialization).toMatch(/public\.audit_log[\s\S]*budget_type'[\s\S]*arbejdsbudget[\s\S]*v_has_audit_history/i);
+    expect(hardenedInitialization).toMatch(/if v_has_audit_history[\s\S]*already_initialized/i);
+  });
+
+  it("does not treat an unexplained partial forecast as fully initialized", () => {
+    expect(hardenedInitialization).toMatch(/v_existing_forecast_count[\s\S]*v_expected_product_count/i);
+    expect(hardenedInitialization).toMatch(/ambiguous_partial_forecast/i);
+    expect(hardenedInitialization).not.toMatch(/delete from public\.crm_budget_forecasts/i);
+    expect(hardenedInitialization).not.toMatch(/update public\.crm_budget_forecasts/i);
   });
 
   it("protects ambiguous historical working-budget references", () => {

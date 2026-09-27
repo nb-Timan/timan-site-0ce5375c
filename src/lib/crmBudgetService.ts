@@ -131,6 +131,7 @@ export type WorkingBudgetInitializationStatus =
   | "seeded"
   | "already_initialized"
   | "ambiguous_reference_history"
+  | "ambiguous_partial_forecast"
   | "no_original_budget";
 
 export interface WorkingBudgetInitializationResult {
