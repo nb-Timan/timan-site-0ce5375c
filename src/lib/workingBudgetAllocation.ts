@@ -20,6 +20,24 @@ export interface WorkingBudgetAllocation {
   source: "inherited" | "explicit" | "unallocated";
 }
 
+export interface WorkingBudgetSellerAllocationInput extends ResolveWorkingBudgetAllocationInput {
+  seller_initials: string;
+  seller_email?: string | null;
+}
+
+export interface WorkingBudgetSellerAllocation {
+  seller_initials: string;
+  seller_email: string | null;
+  allocation: WorkingBudgetAllocation;
+}
+
+export interface WorkingBudgetAggregateAllocation {
+  total: number;
+  allocated: number;
+  unallocated: number;
+  sellers: WorkingBudgetSellerAllocation[];
+}
+
 interface ResolveWorkingBudgetAllocationInput {
   workingQty: number;
   originalBasis?: OriginalBudgetBasis | null;
@@ -116,4 +134,29 @@ export function resolveWorkingBudgetAllocation({
     allocations: [],
     source: "unallocated",
   };
+}
+
+/**
+ * Composes the canonical per-seller resolver for Backend's all-sellers view.
+ * Dealer rows stay nested under their seller, so equal dealers in separate
+ * seller scopes are never merged.
+ */
+export function resolveWorkingBudgetAggregateAllocation(
+  inputs: WorkingBudgetSellerAllocationInput[],
+): WorkingBudgetAggregateAllocation {
+  const sellers = inputs
+    .map(({ seller_initials, seller_email = null, ...input }) => ({
+      seller_initials: seller_initials.trim().toUpperCase() || "—",
+      seller_email: seller_email?.trim().toLowerCase() || null,
+      allocation: resolveWorkingBudgetAllocation(input),
+    }))
+    .filter((seller) => seller.allocation.total > 0);
+
+  return sellers.reduce<WorkingBudgetAggregateAllocation>((result, seller) => {
+    result.sellers.push(seller);
+    result.total += seller.allocation.total;
+    result.allocated += seller.allocation.allocated;
+    result.unallocated += seller.allocation.unallocated;
+    return result;
+  }, { total: 0, allocated: 0, unallocated: 0, sellers: [] });
 }

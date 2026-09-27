@@ -18,8 +18,9 @@ import { usePortalCurrency } from "@/lib/usePortalCurrency";
 import { useLanguage } from "@/context/LanguageContext";
 import BudgetOriginalBasis from "@/components/crm/BudgetOriginalBasis";
 import BudgetWorkingAllocation from "@/components/crm/BudgetWorkingAllocation";
+import BudgetWorkingSellerAllocation from "@/components/crm/BudgetWorkingSellerAllocation";
 import type { OriginalBudgetBasis } from "@/lib/crmBudgetService";
-import type { WorkingBudgetAllocation } from "@/lib/workingBudgetAllocation";
+import type { WorkingBudgetAggregateAllocation, WorkingBudgetAllocation } from "@/lib/workingBudgetAllocation";
 
 export type SellerNum = { initials: string; value: number };
 
@@ -68,6 +69,8 @@ interface Props {
   originalBudgetBasis?: OriginalBudgetBasis | null;
   /** Canonical current allocation for a Working Budget cell. */
   workingAllocation?: WorkingBudgetAllocation | null;
+  /** Backend-only composition of canonical seller-scoped allocations. */
+  workingSellerAllocation?: WorkingBudgetAggregateAllocation | null;
 }
 
 function refKindLabel(r: CellReference): string {
@@ -79,7 +82,7 @@ function refKindLabel(r: CellReference): string {
 
 export default function BudgetCellInsight({
   children, title, total, rows, variant = "budget", missingBudget, extra, side = "top", references, dealers,
-  orderDetails, totalAtBottom = false, originalBudgetBasis, workingAllocation,
+  orderDetails, totalAtBottom = false, originalBudgetBasis, workingAllocation, workingSellerAllocation,
 }: Props) {
   const displayCurrency = usePortalCurrency();
   const { uiLanguage } = useLanguage();
@@ -106,19 +109,21 @@ export default function BudgetCellInsight({
     <Tooltip>
       <TooltipTrigger asChild>
         <span
-          className={originalBudgetBasis || workingAllocation ? "cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded-sm" : "cursor-default"}
-          tabIndex={originalBudgetBasis || workingAllocation ? 0 : undefined}
+          className={originalBudgetBasis || workingAllocation || workingSellerAllocation ? "cursor-help focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 rounded-sm" : "cursor-default"}
+          tabIndex={originalBudgetBasis || workingAllocation || workingSellerAllocation ? 0 : undefined}
         >
           {children}
         </span>
       </TooltipTrigger>
-      <TooltipContent side={side} className="max-w-[300px]">
+      <TooltipContent side={side} className={workingSellerAllocation ? "max-h-[min(75vh,560px)] w-[min(420px,calc(100vw-1rem))] max-w-none overflow-y-auto" : "max-w-[300px]"}>
         <div className="text-xs space-y-1">
           <div className="font-semibold border-b border-slate-200/60 pb-1">{title}</div>
-          {workingAllocation ? (
+          {workingSellerAllocation ? (
+            <BudgetWorkingSellerAllocation allocation={workingSellerAllocation} />
+          ) : workingAllocation ? (
             <BudgetWorkingAllocation allocation={workingAllocation} />
           ) : !totalAtBottom && totalRow}
-          {!workingAllocation && concreteOrders.length > 0 ? (
+          {!workingAllocation && !workingSellerAllocation && concreteOrders.length > 0 ? (
             <div className="space-y-1.5">
               {concreteOrders.map((order) => (
                 <div key={`${order.order_id}-${order.product_label}`} className="space-y-0.5 border-b border-slate-100 pb-1.5 last:border-0 last:pb-0">
@@ -139,7 +144,7 @@ export default function BudgetCellInsight({
                 </div>
               ))}
             </div>
-          ) : !workingAllocation && display.length > 0 ? (
+          ) : !workingAllocation && !workingSellerAllocation && display.length > 0 ? (
             <ul className="space-y-0.5">
               {display.map((r) => {
                 let cls = "tabular-nums";
@@ -157,10 +162,10 @@ export default function BudgetCellInsight({
                 );
               })}
             </ul>
-          ) : !workingAllocation ? (
+          ) : !workingAllocation && !workingSellerAllocation ? (
             <div className="text-slate-500 italic">Ingen sælgere har værdier</div>
           ) : null}
-          {!workingAllocation && refs.length > 0 && (
+          {!workingAllocation && !workingSellerAllocation && refs.length > 0 && (
             <div className="pt-1 border-t border-slate-200/60 space-y-0.5">
               <div className="text-slate-700">Referencer ({refs.length})</div>
               <ul className="space-y-0.5">
@@ -198,7 +203,7 @@ export default function BudgetCellInsight({
             </div>
           )}
           {extra && <div className="pt-1 border-t border-slate-200/60">{extra}</div>}
-          {!workingAllocation && totalAtBottom && totalRow}
+          {!workingAllocation && !workingSellerAllocation && totalAtBottom && totalRow}
         </div>
       </TooltipContent>
     </Tooltip>

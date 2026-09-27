@@ -3,9 +3,13 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
-import { resolveWorkingBudgetAllocation } from "@/lib/workingBudgetAllocation";
+import {
+  resolveWorkingBudgetAggregateAllocation,
+  resolveWorkingBudgetAllocation,
+} from "@/lib/workingBudgetAllocation";
 import type { OriginalBudgetBasis } from "@/lib/crmBudgetService";
 import BudgetWorkingAllocation from "@/components/crm/BudgetWorkingAllocation";
+import BudgetWorkingSellerAllocation from "@/components/crm/BudgetWorkingSellerAllocation";
 
 const original: OriginalBudgetBasis = {
   total: 5,
@@ -106,5 +110,82 @@ describe("CRM Working Budget dealer allocation", () => {
     expect(html).toContain("5 / 5 stk.");
     expect(html).toContain("Ikke fordelt");
     expect(html).toContain("0 stk.");
+  });
+
+  it("composes seller-scoped resolver results without flattening dealer ownership", () => {
+    const result = resolveWorkingBudgetAggregateAllocation([
+      {
+        seller_initials: "AKR",
+        seller_email: "akr@timan.dk",
+        workingQty: 7,
+        references: [{ dealer_name: "Shared Dealer", dealer_account_number: "100", qty: 4 }],
+      },
+      {
+        seller_initials: "BP",
+        seller_email: "bp@timan.dk",
+        workingQty: 5,
+        references: [{ dealer_name: "Shared Dealer", dealer_account_number: "100", qty: 5 }],
+      },
+    ]);
+
+    expect(result).toMatchObject({ total: 12, allocated: 9, unallocated: 3 });
+    expect(result.sellers).toHaveLength(2);
+    expect(result.sellers[0].allocation.allocations[0]).toMatchObject({ dealer_name: "Shared Dealer", qty: 4 });
+    expect(result.sellers[1].allocation.allocations[0]).toMatchObject({ dealer_name: "Shared Dealer", qty: 5 });
+  });
+
+  it("omits zero-quantity sellers without changing aggregate totals", () => {
+    const result = resolveWorkingBudgetAggregateAllocation([
+      { seller_initials: "EM", workingQty: 0, references: [{ dealer_name: "Unused", qty: 2 }] },
+      { seller_initials: "JTN", workingQty: 3, references: [{ dealer_name: "Dealer J", qty: 2 }] },
+    ]);
+
+    expect(result.sellers.map((seller) => seller.seller_initials)).toEqual(["JTN"]);
+    expect(result).toMatchObject({ total: 3, allocated: 2, unallocated: 1 });
+  });
+
+  it("keeps inherited baselines and explicit references isolated per seller", () => {
+    const result = resolveWorkingBudgetAggregateAllocation([
+      { seller_initials: "BP", workingQty: 5, originalBasis: original },
+      {
+        seller_initials: "AKR",
+        workingQty: 7,
+        originalBasis: { total: 7, allocations: [{ dealer_account_id: "z", dealer_account_number: "9", dealer_name: "Old", qty: 7 }] },
+        references: [{ dealer_name: "Current", dealer_account_number: "10", qty: 4 }],
+      },
+    ]);
+
+    expect(result.sellers[0].allocation.source).toBe("inherited");
+    expect(result.sellers[1].allocation.source).toBe("explicit");
+    expect(result.sellers[1].allocation.allocations).toEqual([{
+      dealer_name: "Current",
+      dealer_account_number: "10",
+      qty: 4,
+    }]);
+  });
+
+  it("renders seller sections and reconciled Backend totals in a narrow-safe layout", () => {
+    const allocation = resolveWorkingBudgetAggregateAllocation([
+      { seller_initials: "AKR", workingQty: 7, references: [{ dealer_name: "Dealer A", qty: 4 }] },
+      { seller_initials: "BP", workingQty: 5, originalBasis: original },
+    ]);
+    const html = renderToStaticMarkup(createElement(BudgetWorkingSellerAllocation, { allocation }));
+
+    expect(html).toContain("Aktuel forhandlerfordeling pr. sælger");
+    expect(html).toContain("AKR");
+    expect(html).toContain("BP");
+    expect(html).toContain("Dealer A");
+    expect(html).toContain("Avitech · #11913");
+    expect(html).toContain("TOTAL FORDELT");
+    expect(html).toContain("9 / 12 stk.");
+    expect(html).toContain("TOTAL IKKE FORDELT");
+    expect(html).toContain("3 stk.");
+  });
+
+  it("uses aggregate allocation only for Backend all-sellers hover composition", () => {
+    const page = readFileSync(resolve(process.cwd(), "src/pages/crm/CrmBudgetPage.tsx"), "utf8");
+    expect(page).toContain('isAdmin && backendFilter === "all"');
+    expect(page).toContain("resolveWorkingBudgetAggregateAllocation(inputs)");
+    expect(page).toContain("workingAllocation={workingSellerAllocation ? null : workingAllocation}");
   });
 });

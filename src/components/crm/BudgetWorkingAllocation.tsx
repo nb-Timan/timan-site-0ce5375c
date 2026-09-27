@@ -4,10 +4,11 @@ import type { WorkingBudgetAllocation } from "@/lib/workingBudgetAllocation";
 interface Props {
   allocation: WorkingBudgetAllocation;
   framed?: boolean;
+  showTotal?: boolean;
   className?: string;
 }
 
-export default function BudgetWorkingAllocation({ allocation, framed = false, className }: Props) {
+export default function BudgetWorkingAllocation({ allocation, framed = false, showTotal = true, className }: Props) {
   return (
     <section
       aria-label="Aktuel forhandlerfordeling"
@@ -17,10 +18,12 @@ export default function BudgetWorkingAllocation({ allocation, framed = false, cl
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-3 text-slate-700">
-        <span className="font-semibold">Total</span>
-        <span className="font-semibold tabular-nums">{allocation.total} stk.</span>
-      </div>
+      {showTotal && (
+        <div className="flex items-center justify-between gap-3 text-slate-700">
+          <span className="font-semibold">Total</span>
+          <span className="font-semibold tabular-nums">{allocation.total} stk.</span>
+        </div>
+      )}
       {allocation.source === "inherited" && (
         <div className="text-[11px] text-slate-500">Startfordeling fra oprindeligt budget</div>
       )}

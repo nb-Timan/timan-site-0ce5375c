@@ -67,7 +67,12 @@ import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferenc
 import type { CellReference, OrderTooltipDetail } from "@/components/crm/BudgetCellInsight";
 import { formatLocalizedConvertedMoney } from "@/lib/currency";
 import { usePortalCurrency } from "@/lib/usePortalCurrency";
-import { resolveWorkingBudgetAllocation } from "@/lib/workingBudgetAllocation";
+import {
+  resolveWorkingBudgetAggregateAllocation,
+  resolveWorkingBudgetAllocation,
+  type WorkingBudgetAggregateAllocation,
+  type WorkingBudgetSellerAllocationInput,
+} from "@/lib/workingBudgetAllocation";
 
 
 // ────────────────────────────────────────────────────────────
@@ -1088,6 +1093,109 @@ export default function CrmBudgetPage() {
     }
     for (const [ini, v] of map.entries()) if (!seen.has(ini)) out.push({ initials: ini, value: v });
     return out;
+  }
+
+  /** Backend composes the same canonical allocation resolver per seller. */
+  function workingSellerAllocationForCell({
+    linesIn,
+    productKey,
+    productCode,
+    monthIdx,
+    leadRows,
+  }: {
+    linesIn: BudgetLine[];
+    productKey: string;
+    productCode: string;
+    monthIdx: number;
+    leadRows: LeadWorkingContribution[];
+  }): WorkingBudgetAggregateAllocation {
+    const sellers = new Map<string, {
+      seller_initials: string;
+      seller_email: string | null;
+      workingQty: number;
+      leads: LeadWorkingContribution[];
+    }>();
+
+    const sellerIdentity = (emailValue: string | null, initialsValue: string | null) => {
+      const email = (emailValue || "").trim().toLowerCase();
+      const initials = (initialsValue || "").trim().toUpperCase();
+      const canonical = BUDGET_SELLERS.find((seller) =>
+        seller.email.toLowerCase() === email || seller.initials.toUpperCase() === initials
+      );
+      return {
+        email: email || canonical?.email.toLowerCase() || null,
+        initials: initials || canonical?.initials.toUpperCase() || "—",
+      };
+    };
+
+    for (const line of linesIn) {
+      const identity = sellerIdentity(line.seller_email, line.seller_initials);
+      const key = identity.email || identity.initials;
+      const seller = sellers.get(key) || {
+        seller_initials: identity.initials,
+        seller_email: identity.email,
+        workingQty: 0,
+        leads: [],
+      };
+      seller.workingQty += lineMonthly(line).workingMonthly[monthIdx] || 0;
+      sellers.set(key, seller);
+    }
+
+    for (const lead of leadRows) {
+      const identity = sellerIdentity(lead.owner_email, null);
+      const key = identity.email || identity.initials;
+      const seller = sellers.get(key) || {
+        seller_initials: identity.initials,
+        seller_email: identity.email,
+        workingQty: 0,
+        leads: [],
+      };
+      seller.workingQty += lead.qty;
+      seller.leads.push(lead);
+      sellers.set(key, seller);
+    }
+
+    const canonicalOrder = BUDGET_SELLERS.map((seller) => seller.initials.toUpperCase());
+    const inputs: WorkingBudgetSellerAllocationInput[] = Array.from(sellers.values())
+      .filter((seller) => seller.workingQty > 0)
+      .sort((a, b) => {
+        const aIndex = canonicalOrder.indexOf(a.seller_initials);
+        const bIndex = canonicalOrder.indexOf(b.seller_initials);
+        const aOrder = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
+        const bOrder = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
+        return aOrder - bOrder || a.seller_initials.localeCompare(b.seller_initials);
+      })
+      .map((seller) => {
+        const sellerCellKey = budgetCellKey({
+          year,
+          seller_initials: seller.seller_initials,
+          product_code: productCode,
+          month_idx: monthIdx,
+          budget_type: "arbejdsbudget",
+        });
+        const references = refsByCell[sellerCellKey] || [];
+        const sellerScope = seller.seller_email ? new Set([seller.seller_email]) : new Set<string>();
+        return {
+          seller_initials: seller.seller_initials,
+          seller_email: seller.seller_email,
+          workingQty: seller.workingQty,
+          originalBasis: originalBudgetBasisForCell(
+            dealerLines,
+            year,
+            monthIdx,
+            productKey,
+            sellerScope,
+          ),
+          references: references.map((reference) => ({
+            dealer_name: reference.dealer_name || reference.dealer_label,
+            dealer_account_number: reference.dealer_account_number,
+            qty: reference.qty,
+          })),
+          hasWorkingChange: !!latestAuditByCell[sellerCellKey] || seller.leads.length > 0,
+        };
+      });
+
+    return resolveWorkingBudgetAggregateAllocation(inputs);
   }
 
   /** Mirrors mergeMonthlyPreferDealer for the Budget tooltip. Imported dealer
@@ -2293,6 +2401,15 @@ export default function CrmBudgetPage() {
                             const cellLeads = leadWorkingByMonth[i];
                             const workingReferences = refsByCell[ck] || [];
                             const hasWorkingChange = !!latest || cellLeads.length > 0;
+                            const workingSellerAllocation = isAdmin && backendFilter === "all"
+                              ? workingSellerAllocationForCell({
+                                  linesIn: linesForAgg,
+                                  productKey: blockProductKey,
+                                  productCode: primaryLine.item_number || primaryLine.product_key,
+                                  monthIdx: i,
+                                  leadRows: cellLeads,
+                                })
+                              : null;
                             const refCtx: BudgetReferenceContext = {
                               cell_key: ck, budget_year: year,
                               seller_initials: primaryLine.seller_initials,
@@ -2367,6 +2484,7 @@ export default function CrmBudgetPage() {
                                         rows={workRows}
                                         references={workingReferences}
                                         workingAllocation={workingAllocation}
+                                        workingSellerAllocation={workingSellerAllocation}
                                       >
                                         <span className="min-w-[14px] text-center font-semibold inline-block tabular-nums">{w}</span>
                                       </BudgetCellInsight>
@@ -2389,7 +2507,8 @@ export default function CrmBudgetPage() {
                                     total={w}
                                     rows={workRows}
                                     references={workingReferences}
-                                    workingAllocation={workingAllocation}
+                                    workingAllocation={workingSellerAllocation ? null : workingAllocation}
+                                    workingSellerAllocation={workingSellerAllocation}
                                   >
                                     <span className="font-semibold">{w}</span>
                                   </BudgetCellInsight>
