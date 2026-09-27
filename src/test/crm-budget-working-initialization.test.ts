@@ -29,6 +29,10 @@ const hardenedInitialization = readFileSync(resolve(
   process.cwd(),
   "supabase/migrations/20260927102108_harden_working_budget_initialization_detection.sql",
 ), "utf8");
+const cellLevelInitialization = readFileSync(resolve(
+  process.cwd(),
+  "supabase/migrations/20260927111524_reconcile_working_budget_cells.sql",
+), "utf8");
 const page = readFileSync(resolve(process.cwd(), "src/pages/crm/CrmBudgetPage.tsx"), "utf8");
 const service = readFileSync(resolve(process.cwd(), "src/lib/crmBudgetService.ts"), "utf8");
 
@@ -100,6 +104,13 @@ describe("CRM working-budget initialization", () => {
     });
   });
 
+  it("accepts a cell-level reconciliation result", async () => {
+    rpc.mockResolvedValue({ data: [{ status: "reconciled", seeded_count: 35 }], error: null });
+    await expect(initializeWorkingBudgetFromOriginal(2026, "jtn@timan.dk")).resolves.toEqual({
+      status: "reconciled", seeded_count: 35,
+    });
+  });
+
   it("serializes seller/year initialization to prevent reload races", () => {
     expect(migration).toMatch(/pg_advisory_xact_lock[\s\S]*p_year::text[\s\S]*v_seller_email/i);
   });
@@ -107,6 +118,50 @@ describe("CRM working-budget initialization", () => {
   it("preserves genuine seller edits with canonical audit evidence", () => {
     expect(hardenedInitialization).toMatch(/public\.audit_log[\s\S]*budget_type'[\s\S]*arbejdsbudget[\s\S]*v_has_audit_history/i);
     expect(hardenedInitialization).toMatch(/if v_has_audit_history[\s\S]*already_initialized/i);
+  });
+
+  it("tracks initialization by seller, product and month", () => {
+    expect(cellLevelInitialization).toMatch(/create table if not exists public\.crm_working_budget_initialized_cells/i);
+    expect(cellLevelInitialization).toMatch(/primary key \(budget_line_id, month_idx\)/i);
+    expect(cellLevelInitialization).toMatch(/initialized\.month_idx = baseline\.month_idx/i);
+  });
+
+  it("reconciles untouched cells from original budget while applying edit deltas", () => {
+    expect(cellLevelInitialization).toMatch(/baseline\.baseline_qty \+ audit\.edit_delta/i);
+    expect(cellLevelInitialization).toMatch(/new_value ->> 'value'[\s\S]*old_value ->> 'value'/i);
+    expect(cellLevelInitialization).toMatch(/v_result_status := case[\s\S]*'reconciled'[\s\S]*'seeded'/i);
+  });
+
+  it("preserves explicit zero edits through their signed audit delta", () => {
+    expect(cellLevelInitialization).toMatch(/sum\([\s\S]*new_value ->> 'value'[\s\S]*-[\s\S]*old_value ->> 'value'/i);
+    expect(cellLevelInitialization).toMatch(/greatest\(0, baseline\.baseline_qty \+ audit\.edit_delta\)/i);
+  });
+
+  it("does not let pre-import audit rows alter a later canonical baseline", () => {
+    expect(cellLevelInitialization).toMatch(/audit\.created_at >= baseline\.baseline_at/i);
+    expect(cellLevelInitialization).toMatch(/max\(coalesce\(dealer\.imported_at, dealer\.created_at\)\)/i);
+  });
+
+  it("keeps ambiguous legacy values and references untouched", () => {
+    expect(cellLevelInitialization).toMatch(/v_ambiguous_reference_count[\s\S]*ambiguous_reference_history/i);
+    expect(cellLevelInitialization).toMatch(/v_ambiguous_cell_count[\s\S]*ambiguous_partial_forecast/i);
+  });
+
+  it("does not manufacture references or change original allocation rows", () => {
+    expect(cellLevelInitialization).not.toMatch(/insert into public\.budget_references/i);
+    expect(cellLevelInitialization).not.toMatch(/update public\.crm_budget_dealer_lines/i);
+    expect(cellLevelInitialization).not.toMatch(/delete from public\.crm_budget_dealer_lines/i);
+  });
+
+  it("keeps cell provenance protected by the existing seller/backend scope", () => {
+    expect(cellLevelInitialization).toMatch(/enable row level security/i);
+    expect(cellLevelInitialization).toMatch(/is_timan_backend\(\)[\s\S]*is_timan_budget_seller\(line\.seller_email\)/i);
+    expect(cellLevelInitialization).toMatch(/security invoker/i);
+    expect(cellLevelInitialization).toMatch(/revoke all on function[\s\S]*from anon/i);
+  });
+
+  it("reloads the page data after either seed or reconciliation", () => {
+    expect(page).toMatch(/result\.status === "seeded" \|\| result\.status === "reconciled"/i);
   });
 
   it("does not treat an unexplained partial forecast as fully initialized", () => {

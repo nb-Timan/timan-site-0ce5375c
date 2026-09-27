@@ -129,6 +129,7 @@ export interface BudgetOrderDetail {
 
 export type WorkingBudgetInitializationStatus =
   | "seeded"
+  | "reconciled"
   | "already_initialized"
   | "ambiguous_reference_history"
   | "ambiguous_partial_forecast"

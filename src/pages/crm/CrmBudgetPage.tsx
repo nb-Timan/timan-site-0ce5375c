@@ -496,7 +496,7 @@ export default function CrmBudgetPage() {
         const initialization = await Promise.all(
           initializationEmails.map(email => initializeWorkingBudgetFromOriginal(year, email)),
         );
-        if (initialization.some(result => result.status === "seeded")) {
+        if (initialization.some(result => result.status === "seeded" || result.status === "reconciled")) {
           [l, f] = await Promise.all([listBudgetLines({ year }), listForecasts(year)]);
         }
         setLines(l); setForecasts(f); setActuals(a);
