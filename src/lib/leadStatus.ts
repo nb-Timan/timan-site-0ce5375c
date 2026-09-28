@@ -24,7 +24,7 @@ import {
   NEXT_ACTIVITY_DEMO_REQUESTED_LEGACY,
 } from '@/lib/crmDemoStageI18n';
 
-type LeadStatusSource = Pick<CrmLead, "next_activity" | "pipeline_stage"> & Partial<Pick<CrmLead, "probability" | "demo_has_run">> & {
+type LeadStatusSource = Pick<CrmLead, "next_activity" | "pipeline_stage"> & Partial<Pick<CrmLead, "probability" | "demo_has_run" | "status">> & {
   linked_sales_event?: CrmLinkedSalesEvent | null;
 };
 
@@ -72,7 +72,9 @@ const NA_TO_STATUS: Record<string, LeadDisplayStatus> = {
   "Follow-up on leads":                    "Follow-up",
   "Offer sent to the customer":            "Tilbud sendt",
   [NEXT_ACTIVITY_WON]:                     "Vundet",
+  "Lukket med ordre":                    "Vundet",
   [NEXT_ACTIVITY_LOST]:                    "Tabt",
+  "Lukket uden ordre":                   "Tabt",
   [NEXT_ACTIVITY_NOT_RELEVANT]:            "Tabt",
 };
 
@@ -88,7 +90,9 @@ const NA_TO_PROBABILITY: Record<string, number> = {
   "Follow-up on leads":                    25,
   "Offer sent to the customer":            70,
   [NEXT_ACTIVITY_WON]:                     100,
+  "Lukket med ordre":                    100,
   [NEXT_ACTIVITY_LOST]:                    0,
+  "Lukket uden ordre":                   0,
   [NEXT_ACTIVITY_NOT_RELEVANT]:            0,
 };
 
@@ -144,6 +148,16 @@ export function nextActivityToProbability(
   return typeof v === "number" ? v : 10;
 }
 
+function canonicalClosedLeadStatus(lead: LeadStatusSource): LeadDisplayStatus | null {
+  if (lead.status?.trim().toLowerCase() === "closed") {
+    if (lead.pipeline_stage === "Won") return "Vundet";
+    if (lead.pipeline_stage === "Lost") return "Tabt";
+  }
+
+  const activityStatus = nextActivityToLeadStatus(lead.next_activity?.trim());
+  return activityStatus === "Vundet" || activityStatus === "Tabt" ? activityStatus : null;
+}
+
 /** Closed = Won / Lost / Not relevant (no longer counts as active lead). */
 export function isLeadClosed(
   leadOrActivity:
@@ -166,6 +180,8 @@ export function isLeadClosed(
 export function effectiveLeadStatus(
   lead: LeadStatusSource,
 ): LeadDisplayStatus {
+  const closedStatus = canonicalClosedLeadStatus(lead);
+  if (closedStatus) return closedStatus;
   const ownStatus = nextActivityToLeadStatus(effectiveNextActivity(lead));
   if (lead.linked_sales_event === "order_submitted") return "Vundet";
   if (lead.linked_sales_event === "quote_sent") return "Tilbud sendt";
@@ -176,6 +192,9 @@ export function effectiveLeadStatus(
 export function effectiveLeadProbability(
   lead: LeadStatusSource,
 ): number {
+  const closedStatus = canonicalClosedLeadStatus(lead);
+  if (closedStatus === "Vundet") return 100;
+  if (closedStatus === "Tabt") return 0;
   if (lead.linked_sales_event === "order_submitted") return 100;
   if (lead.linked_sales_event === "quote_sent") return 70;
   const ownStatus = nextActivityToLeadStatus(effectiveNextActivity(lead));
@@ -192,32 +211,32 @@ export function effectiveLeadProbability(
 // ---------- Bucket predicates (used to replace old OPEN_STAGES sets) ----------
 
 export function isOpenLead(
-  lead: Pick<CrmLead, "next_activity" | "pipeline_stage">,
+  lead: LeadStatusSource,
 ): boolean {
   const s = effectiveLeadStatus(lead);
   return s !== "Vundet" && s !== "Tabt";
 }
 
 export function isWonLead(
-  lead: Pick<CrmLead, "next_activity" | "pipeline_stage">,
+  lead: LeadStatusSource,
 ): boolean {
   return effectiveLeadStatus(lead) === "Vundet";
 }
 
 export function isLostLead(
-  lead: Pick<CrmLead, "next_activity" | "pipeline_stage">,
+  lead: LeadStatusSource,
 ): boolean {
   return effectiveLeadStatus(lead) === "Tabt";
 }
 
 export function isOfferLead(
-  lead: Pick<CrmLead, "next_activity" | "pipeline_stage">,
+  lead: LeadStatusSource,
 ): boolean {
   return effectiveLeadStatus(lead) === "Tilbud sendt";
 }
 
 export function isDemoLead(
-  lead: Pick<CrmLead, "next_activity" | "pipeline_stage">,
+  lead: LeadStatusSource,
 ): boolean {
   const status = effectiveLeadStatus(lead);
   return status === "Ønsker demo" || status === "Demo aftalt" || status === "Demo afholdt";

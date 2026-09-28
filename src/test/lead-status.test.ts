@@ -5,7 +5,10 @@ import {
   nextActivityToLeadStatus,
   nextActivityToProbability,
   isLeadClosed,
+  isDemoLead,
+  isLostLead,
   isOpenLead,
+  isWonLead,
   normalizeLegacyPipelineStageToNextActivity,
   deriveLegacyPipelineStage,
   NEXT_ACTIVITY_WON,
@@ -121,6 +124,69 @@ describe('active lead exclusion after closed', () => {
   it('not open once closed Won/Lost', () => {
     expect(isOpenLead(lead({ next_activity: NEXT_ACTIVITY_WON }))).toBe(false);
     expect(isOpenLead(lead({ next_activity: NEXT_ACTIVITY_LOST }))).toBe(false);
+  });
+
+  it('keeps G-5166 lost when historical demo metadata is present', () => {
+    const g5166 = lead({
+      lead_no: 5166,
+      status: 'closed',
+      pipeline_stage: 'Lost',
+      probability: 0,
+      next_activity: NEXT_ACTIVITY_LOST,
+      demo_has_run: 'yes',
+    });
+
+    expect(effectiveLeadStatus(g5166)).toBe('Tabt');
+    expect(effectiveLeadProbability(g5166)).toBe(0);
+    expect(isOpenLead(g5166)).toBe(false);
+    expect(isLostLead(g5166)).toBe(true);
+    expect(isDemoLead(g5166)).toBe(false);
+  });
+
+  it('keeps a closed won demo lead in won instead of open/demo', () => {
+    const wonDemo = lead({
+      status: 'closed',
+      pipeline_stage: 'Won',
+      probability: 100,
+      next_activity: NEXT_ACTIVITY_WON,
+      demo_has_run: 'yes',
+    });
+
+    expect(effectiveLeadStatus(wonDemo)).toBe('Vundet');
+    expect(isOpenLead(wonDemo)).toBe(false);
+    expect(isWonLead(wonDemo)).toBe(true);
+    expect(isDemoLead(wonDemo)).toBe(false);
+  });
+
+  it('lets canonical closed status outrank stale active demo activity', () => {
+    const staleDemo = lead({
+      status: 'closed',
+      pipeline_stage: 'Lost',
+      next_activity: 'Demonstration scheduled',
+      demo_has_run: 'yes',
+    });
+
+    expect(effectiveLeadStatus(staleDemo)).toBe('Tabt');
+    expect(isOpenLead(staleDemo)).toBe(false);
+  });
+
+  it('recognizes verified Danish closure aliases even with demo history', () => {
+    expect(effectiveLeadStatus(lead({ next_activity: 'Lukket uden ordre', demo_has_run: 'yes' }))).toBe('Tabt');
+    expect(effectiveLeadStatus(lead({ next_activity: 'Lukket med ordre', demo_has_run: 'yes' }))).toBe('Vundet');
+  });
+
+  it('preserves modern open demo semantics', () => {
+    const modernDemo = lead({
+      lead_no: 1200,
+      status: 'open',
+      pipeline_stage: 'Qualified',
+      next_activity: 'Demonstration scheduled',
+      demo_has_run: 'yes',
+    });
+
+    expect(effectiveLeadStatus(modernDemo)).toBe('Demo afholdt');
+    expect(isOpenLead(modernDemo)).toBe(true);
+    expect(isDemoLead(modernDemo)).toBe(true);
   });
 });
 
