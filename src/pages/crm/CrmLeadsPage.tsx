@@ -1,6 +1,6 @@
 import AcademyCrmGuidance from '@/components/academy/AcademyCrmGuidance';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -68,6 +68,7 @@ import {
 } from '@/lib/crmLeadMachineFilter';
 import {
   defaultCrmLeadsNavigationState,
+  createCrmLeadsDetailNavigationState,
   parseCrmLeadsNavigationState,
   readCurrentCrmLeadsScrollPosition,
   rememberCurrentCrmLeadsScrollPosition,
@@ -477,6 +478,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const { uiLanguage: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
@@ -1085,7 +1087,9 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                       onClick={() => {
                         if (!r.detail_href) return;
                         rememberCurrentCrmLeadsScrollPosition();
-                        navigate(r.detail_href);
+                        navigate(r.detail_href, {
+                          state: createCrmLeadsDetailNavigationState(location.pathname, location.search),
+                        });
                       }}
                       className={cn('transition-colors', clickable ? 'cursor-pointer hover:bg-gray-50/60' : 'hover:bg-gray-50/40')}>
                       <td className="px-4 py-3.5">

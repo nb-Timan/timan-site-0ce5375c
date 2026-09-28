@@ -1,6 +1,6 @@
 import AcademyCrmGuidance from '@/components/academy/AcademyCrmGuidance';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { CrmLeadFollowupFields } from '@/components/crm/CrmLeadFollowupFields';
 import { useAppUser } from '@/context/AppUserContext';
@@ -9,6 +9,7 @@ import { Accessory, Language } from '@/types/configurator';
 import { convertCurrency, formatMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { derivePortalRole } from '@/lib/portalAccess';
+import { readCrmLeadsReturnTarget } from '@/lib/crmLeadsNavigationState';
 import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
@@ -733,10 +734,15 @@ export default function CrmNewLeadPage() {
   const { language: lang, uiLanguage } = useLanguage();
   const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
+  const location = useLocation();
   const { id: editId } = useParams<{ id: string }>();
   const isEdit = !!editId;
   const repository = getCrmLeadRepository();
   const academyPart = academyCrmSandbox.getPart();
+  const leadsReturnTarget = readCrmLeadsReturnTarget(location.state)
+    ?? (repository.academy
+      ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
+      : '/portal/crm/leads');
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole) || isExternalCrmRole(portalRole);
 
@@ -2187,7 +2193,7 @@ export default function CrmNewLeadPage() {
           </Section>}
 
           <div className="sticky bottom-4 flex items-center justify-end gap-3 bg-white/90 backdrop-blur rounded-2xl border border-gray-100 shadow-sm p-3 mt-6">
-            <Link to={repository.academy ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}` : '/portal/crm/leads'} className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
+            <Link to={leadsReturnTarget} className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', lang)}</Link>
             <button type="submit" disabled={!canSave}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />

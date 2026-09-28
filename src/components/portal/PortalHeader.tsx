@@ -24,7 +24,7 @@ import BackendSideNav from '@/components/portal/BackendSideNav';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
 import { ACADEMY_PARTNER_MAP, ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
 import { useAppUser } from '@/context/AppUserContext';
-import { clearCurrentCrmLeadsHistoryState } from '@/lib/crmLeadsNavigationState';
+import { clearCurrentCrmLeadsHistoryState, readCrmLeadsReturnTarget } from '@/lib/crmLeadsNavigationState';
 
 const LANGS = PORTAL_LANGUAGES;
 
@@ -97,9 +97,11 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   const navigate = useNavigate();
   const showMesseHomeShortcut = !hideMesseHomeShortcut && location.pathname.startsWith('/messe/') && location.pathname !== '/messe';
   const backInfo = getPortalBackInfo(location.pathname, language, location.search);
+  const crmLeadsReturnTarget = readCrmLeadsReturnTarget(location.state);
   const isDealerUser = derivePortalRole(user) === 'dealer_user';
   const showPortalBackButton = location.pathname.startsWith('/portal/') || location.pathname === '/configurator' || (academySandbox.isActive() && location.pathname !== '/academy');
-  const portalBackTarget = academySandbox.isActive() ? '/academy' : isDealerUser && location.pathname.startsWith('/portal/') ? '/portal' : backInfo.to;
+  const portalBackTarget = crmLeadsReturnTarget
+    ?? (academySandbox.isActive() ? '/academy' : isDealerUser && location.pathname.startsWith('/portal/') ? '/portal' : backInfo.to);
   const portalBackLabel = t('previous', uiLanguage);
   const activeLanguage = LANGS.find((l) => l.code === uiLanguage) || LANGS[0];
   const academyActive = location.pathname.startsWith('/academy') || academySandbox.isActive();

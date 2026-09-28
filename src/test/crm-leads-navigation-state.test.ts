@@ -3,15 +3,18 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import {
   clearCrmLeadsNavigationParams,
   clearCurrentCrmLeadsHistoryState,
+  createCrmLeadsDetailNavigationState,
   defaultCrmLeadsNavigationState,
   parseCrmLeadsNavigationState,
   readCurrentCrmLeadsScrollPosition,
+  readCrmLeadsReturnTarget,
   rememberCurrentCrmLeadsScrollPosition,
   serializeCrmLeadsNavigationState,
   type CrmLeadsNavigationState,
 } from '@/lib/crmLeadsNavigationState';
 
 const leadsPage = readFileSync('src/pages/crm/CrmLeadsPage.tsx', 'utf8');
+const leadDetailPage = readFileSync('src/pages/crm/CrmNewLeadPage.tsx', 'utf8');
 const portalHeader = readFileSync('src/components/portal/PortalHeader.tsx', 'utf8');
 const navigationHelper = readFileSync('src/lib/crmLeadsNavigationState.ts', 'utf8');
 
@@ -57,6 +60,30 @@ describe('CRM Leads navigation state', () => {
     expect(params.get('academy_mode')).toBe('true');
     expect(params.get('academy_part')).toBe('2');
     expect(parseCrmLeadsNavigationState(params, { isAdmin: true })).toEqual(combinedState);
+  });
+
+  it('carries the exact filtered list URL into lead detail navigation', () => {
+    const search = `?${serializeCrmLeadsNavigationState(
+      new URLSearchParams(),
+      combinedState,
+      { isAdmin: true },
+    ).toString()}`;
+    const detailState = createCrmLeadsDetailNavigationState('/portal/crm/leads', search);
+
+    expect(readCrmLeadsReturnTarget(detailState)).toBe(`/portal/crm/leads${search}`);
+    expect(parseCrmLeadsNavigationState(
+      new URLSearchParams(readCrmLeadsReturnTarget(detailState)?.split('?')[1]),
+      { isAdmin: true },
+    )).toEqual(combinedState);
+  });
+
+  it('accepts only local canonical Leads return targets', () => {
+    expect(readCrmLeadsReturnTarget({ timanCrmLeadsReturnTo: '/portal/crm/leads?type=demo' }))
+      .toBe('/portal/crm/leads?type=demo');
+    expect(readCrmLeadsReturnTarget({ timanCrmLeadsReturnTo: 'https://example.com/portal/crm/leads' }))
+      .toBeNull();
+    expect(readCrmLeadsReturnTarget({ timanCrmLeadsReturnTo: '/portal/backend?type=demo' }))
+      .toBeNull();
   });
 
   it('keeps the selected status card/cohort in the URL', () => {
@@ -162,9 +189,17 @@ describe('CRM Leads navigation state', () => {
 
   it('wires detail navigation, scroll restoration and URL replacement', () => {
     expect(leadsPage).toContain('rememberCurrentCrmLeadsScrollPosition();');
+    expect(leadsPage).toContain('state: createCrmLeadsDetailNavigationState(location.pathname, location.search)');
     expect(leadsPage).toContain("window.scrollTo({ top: y, behavior: 'auto' })");
     expect(leadsPage).toContain("setSearchParams((currentParams)");
     expect(leadsPage).toContain('{ replace: true }');
+  });
+
+  it('uses the exact filtered return target in both visible detail exits', () => {
+    expect(portalHeader).toContain('readCrmLeadsReturnTarget(location.state)');
+    expect(portalHeader).toMatch(/const portalBackTarget = crmLeadsReturnTarget\s*\?\?/);
+    expect(leadDetailPage).toContain('const leadsReturnTarget = readCrmLeadsReturnTarget(location.state)');
+    expect(leadDetailPage).toContain('<Link to={leadsReturnTarget}');
   });
 
   it('keeps Quick Note local to the current filtered list', () => {
