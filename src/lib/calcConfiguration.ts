@@ -49,6 +49,7 @@ export function configurationCampaignSelection(state: ConfiguratorState) {
 export function calculateConfiguration(state: ConfiguratorState, options: PricingOptions = {}): CalcResult {
   if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler. Brug det afsendte dokument; priser genberegnes ikke automatisk.');
   const now = options.now ?? Date.now();
+  const directPricing = state.pricingMode === 'direct';
   const T = (key: string) => t(key, state.language);
   const lineItems: LineItem[] = [];
   const lines: EconomicLine[] = [];
@@ -71,7 +72,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
       unit++;
       const key = machine.configMode === 'shared' ? machine.id : `${machine.id}_${index}`;
       const selected = machine.configMode === 'shared' ? machine.acc ?? [] : state.individualUnitConfigs?.[key]?.acc ?? [];
-      const demo = Boolean(state.demoMachines?.[`${product.varenr}_${unit}`]);
+      const demo = !directPricing && Boolean(state.demoMachines?.[`${product.varenr}_${unit}`]);
       const eligible = !demo && product.isDiscountEligible === true;
       if (eligible) eligibleUnits++;
       const machineDescription = snapshotProductName(state, product.varenr, getLocalizedName(product.name, state.language));
@@ -115,7 +116,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     if (amount > 0) details.push({ kind, percent, basis, txt: `${label.replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/, '')} (${percent.toLocaleString(state.language, { maximumFractionDigits: 2 })}%)`, amount, ...(varenr ? { varenr } : {}) });
   };
   const quantityPct = eligibleUnits >= 4 ? 4 : eligibleUnits >= 2 ? 2 : 0;
-  if (!options.grossManualDiscountOnly) {
+  if (!directPricing && !options.grossManualDiscountOnly) {
     apply('demo', 32.5, line => line.demo, T('demoDiscount'));
     apply('base', (state.baseDiscountPct ?? 0.25) * 100, line => !line.demo, T('baseDiscountLabel'));
   }
@@ -124,7 +125,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   // Campaigns are resolved after the standard partner discount but before all
   // optional normal-pricing layers. Demo quantities are excluded canonically
   // by campaignTriggerSetCount/campaignBenefitEntitlement.
-  if (!options.grossManualDiscountOnly && (!state.pricingSnapshot || state.pricingSnapshot.discountEngineVersion === 2)) {
+  if (!directPricing && !options.grossManualDiscountOnly && (!state.pricingSnapshot || state.pricingSnapshot.discountEngineVersion === 2)) {
     for (const campaign of publishedCampaignDefinitions()) {
       if (!isCampaignActive(campaign, now) || campaign.type === 'badge') continue;
       const triggerLinks = campaign.products.filter(product => product.role === 'trigger');
@@ -187,7 +188,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   }
   const campaignPricingActive = isCampaignPricingActive(campaignLines);
 
-  if (!options.grossManualDiscountOnly && !campaignPricingActive) {
+  if (!directPricing && !options.grossManualDiscountOnly && !campaignPricingActive) {
     const eligibleDeliveryUnits = new Set<number>();
     const deliveryBasisByUnit = new Map<number, number>();
     for (let unitNumber = 1; unitNumber <= unit; unitNumber += 1) {
@@ -214,12 +215,14 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     });
     apply('quantity', quantityPct, line => line.quantityEligible, T('qtyDiscountLabel'), '795043');
   }
-  if (!campaignPricingActive) {
+  if (directPricing) {
+    apply('direct', Math.min(100, Math.max(0, state.manualDealerDiscountPct || 0)), () => true, T('directExtraDiscountLabel'));
+  } else if (!campaignPricingActive) {
     apply('dealer', Math.min(100, Math.max(0, state.manualDealerDiscountPct || 0)), () => true, T('extraDealerDiscountLabel'), '795042');
   }
   const currentPrice = roundPricingMoney(lines.reduce((sum, line) => sum + line.net, 0));
   const totalDiscount = roundPricingMoney(subtotal - currentPrice);
-  return { lineItems, subtotal, discountDetails: details, deliveryDiscounts, totalDiscount, currentPrice, totalPct: subtotal ? totalDiscount / subtotal * 100 : 0, qtyPct: quantityPct / 100, campaignLines };
+  return { lineItems, subtotal, discountDetails: details, deliveryDiscounts, totalDiscount, currentPrice, totalPct: subtotal ? totalDiscount / subtotal * 100 : 0, qtyPct: directPricing ? 0 : quantityPct / 100, campaignLines };
 }
 
 export function calcConfigurationTotals(state: ConfiguratorState, options: PricingOptions = {}): { subtotal: number; totalDiscount: number; finalPrice: number } {

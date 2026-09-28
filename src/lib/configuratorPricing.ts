@@ -99,6 +99,7 @@ export function configuratorPricingSignature(state: ConfiguratorState): string {
     .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify({
     language: state.language,
+    ...(state.pricingMode === 'direct' ? { pricingMode: 'direct' } : {}),
     machines: (state.machineConfigs ?? []).map(machine => ({
       type: machine.type,
       qty: machine.qty,
@@ -170,7 +171,7 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
     }
   }
 
-  if (Object.values(state.demoMachines ?? {}).some(Boolean)) {
+  if (state.pricingMode !== 'direct' && Object.values(state.demoMachines ?? {}).some(Boolean)) {
     prices[demoKey(language)] = currentDemoFee(language);
     names[DEMO_FEE_ITEM_NUMBER] = currentProductDescription(DEMO_FEE_ITEM_NUMBER, language, 'Demo machine');
   }

@@ -12,6 +12,7 @@ export const createEmptyConfiguratorState = (
 ): ConfiguratorState => ({
   step: 1,
   flowType,
+  pricingMode: 'partner',
   language,
   machineConfigs: [],
   individualUnitConfigs: {},
@@ -49,6 +50,7 @@ export const createEmptyConfiguratorState = (
 
 export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | null): ConfiguratorState {
   const base = createEmptyConfiguratorState(value?.language ?? 'da', value?.flowType ?? 'quote');
+  const pricingMode = value?.pricingMode === 'direct' ? 'direct' : 'partner';
   const customerDraft = normalizeConfiguratorCustomerDraftState(value ?? base);
   const activeCustomer = customerDraft.customerMode === 'dealer'
     ? customerDraft.dealerCustomerData
@@ -57,6 +59,7 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
   return {
     ...base,
     ...value,
+    pricingMode,
     machineConfigs: Array.isArray(value?.machineConfigs) ? value.machineConfigs : [],
     individualUnitConfigs: value?.individualUnitConfigs ?? {},
     ralCodes: value?.ralCodes ?? {},
@@ -72,7 +75,7 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     baseDiscountPct: typeof value?.baseDiscountPct === 'number' && value.baseDiscountPct >= 0 && value.baseDiscountPct <= 1
       ? value.baseDiscountPct
       : 0.25,
-    demoMachines: value?.demoMachines ?? {},
+    demoMachines: pricingMode === 'direct' ? {} : value?.demoMachines ?? {},
     reqNumbers: value?.reqNumbers ?? {},
     currentMachineIndex: typeof value?.currentMachineIndex === 'number' ? value.currentMachineIndex : 0,
     firmanavn: activeCustomer.firmanavn,

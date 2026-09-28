@@ -361,10 +361,10 @@ function drawPriceSummary(
   calc: CalcResult,
   discounts: DiscountDetail[],
   y: number,
-  input: Pick<BuildConfiguratorPdfInput, "uiLanguage" | "showPrices" | "TC">,
+  input: Pick<BuildConfiguratorPdfInput, "state" | "uiLanguage" | "showPrices" | "TC">,
 ): number {
   const lines: Array<{ label: string; value: string; red?: boolean; bold?: boolean; large?: boolean }> = [
-    { label: input.TC("confirmSubtotal"), value: money(calc.subtotal, input.uiLanguage, input.showPrices) },
+    { label: input.TC(input.state.pricingMode === 'direct' ? "directNetPrice" : "confirmSubtotal"), value: money(calc.subtotal, input.uiLanguage, input.showPrices) },
     ...discounts.filter((d) => d.amount > 0).map((d) => ({
       label: d.varenr ? `${d.txt} (${d.varenr})` : d.txt,
       value: `-${money(d.amount, input.uiLanguage, input.showPrices)}`,

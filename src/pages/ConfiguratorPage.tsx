@@ -43,6 +43,7 @@ import { useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
 import { ConfiguratorImageModal, type ConfiguratorImagePreview } from '@/components/configurator/ConfiguratorImageModal';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -106,6 +107,7 @@ import { configuratorCartLineDescription, configuratorLineDescription, configura
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 import { DELIVERY_DISCOUNT_PERCENT, commonMachineDeliveryDate, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey } from '@/lib/configuratorDelivery';
+import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
 
 // Configurator language selector — uses the 9 portal UI languages.
 // Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
@@ -346,6 +348,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // both via the same code path. Falls back to logged-in user when no view-as.
   const effectiveUser = useEffectivePortalUser(appUser) ?? appUser;
   const activePortalRole = derivePortalRole(effectiveUser ?? appUser);
+  const canUseDirectPricingMode = !isExhibition && canUseDirectPricing(effectiveUser ?? appUser);
+  const isDirectPricing = state.pricingMode === 'direct';
+  const hasFrozenPricing = hasFrozenConfiguratorPricing(state);
   const isDealerUser = activePortalRole === 'dealer_user';
   // A real Backend session may register an order with a historical delivery
   // date. View-as deliberately follows the displayed role, not Backend auth.
@@ -382,7 +387,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       effectiveUser?.role,
       effectiveUser?.partner_type,
     ),
-    canSetDiscount: (isExhibition || canApplyExtraDealerDiscount) && activePortalRole !== 'dealer_user',
+    canSetDiscount: isDirectPricing
+      ? canUseDirectPricingMode
+      : (isExhibition || canApplyExtraDealerDiscount) && activePortalRole !== 'dealer_user',
     canChooseWorkingFor: appUser?.can_switch_customer_mode ?? false,
   };
 
@@ -482,10 +489,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // PDF, the order/quote payload, the email and any persisted state cannot
   // include it. Runs on every change to permission or state.
   useEffect(() => {
-    if (!isExhibition && !canApplyExtraDealerDiscount && (state.manualDealerDiscountPct || 0) !== 0) {
+    if (!isDirectPricing && !isExhibition && !canApplyExtraDealerDiscount && (state.manualDealerDiscountPct || 0) !== 0) {
       setState((s) => ({ ...s, manualDealerDiscountPct: 0 }));
     }
-  }, [isExhibition, canApplyExtraDealerDiscount, state.manualDealerDiscountPct, setState]);
+  }, [isDirectPricing, isExhibition, canApplyExtraDealerDiscount, state.manualDealerDiscountPct, setState]);
+
+  useEffect(() => {
+    if (isDirectPricing && !canUseDirectPricingMode && !hasFrozenPricing) {
+      setState((current) => ({ ...current, pricingMode: 'partner' }));
+    }
+  }, [canUseDirectPricingMode, hasFrozenPricing, isDirectPricing, setState]);
 
   // Phase 27 — Payment terms: visible only when the ACTIVE mode/role is
   // Backend or Timan Sælger AND the user has `can_manage_payment_terms`.
@@ -1871,6 +1884,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     }
   };
 
+  const setDirectPricingMode = (enabled: boolean) => {
+    if (enabled && Object.values(state.demoMachines ?? {}).some(Boolean)) {
+      toast.error(T('directDemoConflict'));
+      return;
+    }
+    setState(current => ({ ...current, pricingMode: enabled ? 'direct' : 'partner' }));
+  };
+
   const renderActionLinks = (item: { videoUrl?: string; imageUrl?: string; images?: { url: string | null }[]; videos?: { url: string | null }[]; specs?: any[]; id?: string; varenr?: string; name?: Accessory['name'] | SubItem['name'] }, machineType: string) => {
     const marketingContent = marketingContentFor(machineType, item.id);
     const videoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
@@ -2055,7 +2076,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     // Totals
     html += `<div data-pdf-keep="1" class="mt-8 border-t-2 pt-4 flex flex-col items-end">
       <div class="flex justify-between w-full text-xs">
-        <span>${TC('confirmSubtotal')}</span>
+        <span>${TC(isDirectPricing ? 'directNetPrice' : 'confirmSubtotal')}</span>
         <span class="price-col">${formatDisplayMoney(displayCalc!.subtotal)}</span>
       </div>`;
     displayCalc!.discountDetails.filter(d => d.amount > 0).forEach(d => {
@@ -3557,7 +3578,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                                 style={{ width: 32, height: 32, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>+</button>
                             </div>
                           </div>
-                          {!isExhibition && currentQty >= 1 && p.isDiscountEligible && (
+                          {!isExhibition && !isDirectPricing && currentQty >= 1 && p.isDiscountEligible && (
                             <div className={`mt-1 text-center text-xs ${discountEligibleQty >= 2 ? 'font-semibold text-emerald-600' : 'text-gray-500'}`}
                               dangerouslySetInnerHTML={{ __html: discountEligibleQty >= 4 ? `✅ ${T('qtyStatus4')}` : discountEligibleQty >= 2 ? `✅ ${T('qtyStatus2')}` : T('qtyStatus1') }} />
                           )}
@@ -4487,9 +4508,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               }}
             />
 
-            <div className="flex items-center justify-between gap-3 mb-4 border-b border-emerald-200 pb-2">
-              <h2 className="text-xl font-bold text-gray-800">{T('summaryTitle')}</h2>
-              <div className="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm" role="group" aria-label="flow type">
+            <div className="mb-4 border-b border-emerald-200 pb-3">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-gray-800">{T('summaryTitle')}</h2>
+                <div className="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm" role="group" aria-label="flow type">
                 {(isExhibition ? (['quote'] as const) : (['quote', 'order'] as const)).map(ft => {
                   const active = state.flowType === ft;
                   return (
@@ -4508,7 +4530,22 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     </button>
                   );
                 })}
+                </div>
               </div>
+              {canUseDirectPricingMode && (
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <label htmlFor="configurator-direct-pricing" className="text-sm font-semibold text-gray-800">{T('directMode')}</label>
+                    <p className="text-xs text-gray-500">{T('directModeHint')}</p>
+                  </div>
+                  <Switch
+                    id="configurator-direct-pricing"
+                    checked={isDirectPricing}
+                    onCheckedChange={setDirectPricingMode}
+                    aria-label={T('directMode')}
+                  />
+                </div>
+              )}
             </div>
 
             {!calcResult ? (
@@ -4601,8 +4638,9 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         )}
                         {!isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && permissions.canSeePrices && (
                           <div className={`flex justify-between items-center text-xs ${indent} mt-1`}>
-                            <label className="flex items-center gap-2 text-gray-700 cursor-pointer select-none">
+                            <label className={`flex items-center gap-2 select-none ${isDirectPricing ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-gray-700'}`}>
                               <input type="checkbox"
+                                disabled={isDirectPricing}
                                 checked={isDemoSelected(item.varenr, item.index)}
                                 onChange={() => toggleDemoMachine(item.varenr, item.index!, item.txt)} />
                               <span>{T('demoMachineLabel')} <span className="text-gray-500">(+{formatDisplayMoney(getDemoFee())})</span></span>
@@ -4618,7 +4656,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 {permissions.canSeePrices && (
                   <div className="pt-4 border-t border-emerald-200 space-y-2">
                     <div className="flex justify-between text-gray-600">
-                      <span>{T('subtotal')}</span>
+                      <span>{T(isDirectPricing ? 'directNetPrice' : 'subtotal')}</span>
                       <span className="font-medium price-col">{formatDisplayMoney(displayCalc!.subtotal)}</span>
                     </div>
                     {displayCalc!.totalDiscount > 0 && (
@@ -4639,7 +4677,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     {permissions.canSetDiscount && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          {T('extraDealerDiscountPct')}
+                          {T(isDirectPricing ? 'directExtraDiscountPct' : 'extraDealerDiscountPct')}
                         </label>
                         <input type="number" min="0" max="100" step="0.1"
                           value={state.manualDealerDiscountPct || ''}

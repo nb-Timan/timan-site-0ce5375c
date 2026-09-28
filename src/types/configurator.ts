@@ -182,6 +182,8 @@ export interface ConfiguratorPricingSnapshot {
 export interface ConfiguratorState {
   step: number;
   flowType: FlowType;
+  /** Explicit document-wide commercial pricing mode. Legacy states default to partner pricing. */
+  pricingMode?: 'partner' | 'direct';
   language: Language;
   machineConfigs: MachineConfig[];
   individualUnitConfigs: Record<string, { acc: string[] }>;
@@ -263,7 +265,7 @@ export interface LineItem {
 }
 
 export interface DiscountDetail {
-  kind?: 'demo' | 'base' | 'delivery' | 'quantity' | 'dealer' | 'campaign';
+  kind?: 'demo' | 'base' | 'delivery' | 'quantity' | 'dealer' | 'campaign' | 'direct';
   percent?: number;
   basis?: number;
   campaignId?: string;
