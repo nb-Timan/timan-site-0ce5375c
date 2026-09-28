@@ -131,20 +131,19 @@ describe('exclusive per-machine demo pricing', () => {
     const demoGross = result.lineItems.find(row => row.subtotal && row.index === 1)!.price;
     expect(result.discountDetails.find(row => row.kind === 'quantity')?.basis).toBe(money((result.subtotal - demoGross) * 0.75));
   });
-  it('aggregates mixed machines without allocating normal discounts to the demo', () => {
+  it('keeps campaign pricing exclusive while allocating demo pricing only to the demo unit', () => {
     const state = input(); state.machineConfigs[0].qty = 3; state.date = '2098-01-01'; state.manualDealerDiscountPct = 7;
     replacePublishedCampaigns([campaign()]);
     const result = calculateConfiguration(state, { now });
     const demoGross = result.lineItems.find(row => row.subtotal && row.index === 1)!.price;
     const normalGross = money(result.subtotal - demoGross);
     const base = money(normalGross * 0.25);
-    const delivery = money((normalGross - base) * 0.02);
-    const quantity = money((normalGross - base - delivery) * 0.02);
-    const dealer = money((normalGross - base - delivery - quantity) * 0.07);
-    expect(result.discountDetails.find(row => row.kind === 'dealer')?.amount).toBe(dealer);
+    expect(result.discountDetails.map(row => row.kind)).toEqual(['demo', 'base', 'campaign', 'campaign']);
+    expect(result.discountDetails.some(row => ['delivery', 'quantity', 'dealer'].includes(row.kind))).toBe(false);
+    expect(result.deliveryDiscounts).toEqual([]);
     expect(result.campaignLines?.filter(row => row.applied).map(row => row.unitNumber)).toEqual([2, 3]);
     const campaigns = result.campaignLines!.reduce((sum, row) => sum + row.discountAmount, 0);
-    expect(result.currentPrice).toBe(money(demoGross - money(demoGross * 0.325) + normalGross - base - delivery - quantity - dealer - campaigns));
+    expect(result.currentPrice).toBe(money(demoGross - money(demoGross * 0.325) + normalGross - base - campaigns));
     expect(money(result.discountDetails.reduce((sum, row) => sum + row.amount, 0))).toBe(result.totalDiscount);
   });
   it('retains campaign identity with explicitly suppressed, zero economic contribution', () => {
@@ -173,6 +172,16 @@ describe('exclusive per-machine demo pricing', () => {
     const result = calculateConfiguration(state, { now });
     expect(result.campaignLines?.find(row => row.unitNumber === 1)?.applied).toBe(false);
     expect(result.campaignLines?.find(row => row.unitNumber === 2)).toMatchObject({ applied: true, quantity: 1, finalLineValue: 0 });
+  });
+  it('keeps an unrelated campaign valid when a different machine is demo', () => {
+    const state = input(false);
+    state.machineConfigs.push({ id: 'm1', type: 'RC-751', qty: 1, configMode: 'shared', acc: [] });
+    state.demoMachines['410040_2'] = true;
+    replacePublishedCampaigns([campaign(true)]);
+    const result = calculateConfiguration(state, { now });
+    expect(result.campaignLines?.filter(row => row.applied)).toHaveLength(1);
+    expect(result.campaignLines?.[0]).toMatchObject({ benefitItemNumber: '725138', unitNumber: 1, finalLineValue: 0 });
+    expect(result.discountDetails.some(row => row.kind === 'demo')).toBe(true);
   });
   it('excludes demo quantities from ANY/ALL and repeat trigger counts', () => {
     const state = input(); state.machineConfigs[0].qty = 3;

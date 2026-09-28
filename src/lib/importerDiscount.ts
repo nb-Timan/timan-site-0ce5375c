@@ -14,9 +14,8 @@
  *   resolveBaseDiscountPct({ appUser, dealer }) → 0.30 hvis enten den
  *     aktive bruger eller den valgte forhandler er importør, ellers 0.25.
  *
- * Ekstra forhandlerrabat (manualDealerDiscountPct), demo-rabat (32,5 %),
- * antalsrabat og leveringsrabat påvirkes ikke — de oven på basis-rabatten
- * præcis som før.
+ * Basisrabatten er fælles input til normal-, kampagne- og dokumentpriser.
+ * De øvrige rabatlag styres af den kanoniske prioritet i calcConfiguration.
  */
 
 export const DEFAULT_BASE_DISCOUNT_PCT = 0.25;

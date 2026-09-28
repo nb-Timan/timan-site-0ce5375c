@@ -101,7 +101,7 @@ import {
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
 import { createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
-import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel } from '@/lib/calcConfiguration';
+import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel, isCampaignPricingActive } from '@/lib/calcConfiguration';
 import { configuratorCartLineDescription, configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
@@ -393,6 +393,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const displayCalc = calcResult && isGrossPriceMode
     ? calculateConfiguration({ ...state, manualDealerDiscountPct: isExhibition ? state.manualDealerDiscountPct : 0 }, { grossManualDiscountOnly: true })
     : calcResult;
+  const campaignPricingActive = isCampaignPricingActive(displayCalc?.campaignLines);
   const machineDeliveryDiscountByUnit = useMemo(
     () => new Map((displayCalc?.deliveryDiscounts ?? []).map(discount => [discount.unitNumber, discount])),
     [displayCalc?.deliveryDiscounts],
@@ -4642,11 +4643,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         </label>
                         <input type="number" min="0" max="100" step="0.1"
                           value={state.manualDealerDiscountPct || ''}
+                          disabled={campaignPricingActive}
                           onChange={e => {
                             const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
                             setState(s => ({ ...s, manualDealerDiscountPct: v }));
                           }}
-                          placeholder="0" className="w-20 p-1.5 border rounded-lg text-center text-sm" />
+                          placeholder="0" className="w-20 p-1.5 border rounded-lg text-center text-sm disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed" />
+                        {campaignPricingActive && (
+                          <p className="mt-1 text-xs text-gray-500">{T('campaignExclusivePricing')}</p>
+                        )}
                       </div>
                     )}
                     {/* Phase 27 — Payment terms (information only, never affects totals).

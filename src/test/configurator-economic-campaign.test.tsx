@@ -43,16 +43,39 @@ describe('canonical multi-product campaigns', () => {
     expect(result.currentPrice).toBeCloseTo(expected, 1);
     expect(result.discountDetails.reduce((sum, detail) => sum + detail.amount, 0)).toBeCloseTo(result.totalDiscount, 2);
   });
-  it('applies percentage last and only to linked benefit products', () => {
+  it.each([
+    ['Dealer', 0.25, 25],
+    ['Importer', 0.30, 30],
+  ] as const)('preserves canonical %s standard pricing without a campaign', (_partner, baseDiscountPct) => {
+    const input = state(); input.baseDiscountPct = baseDiscountPct;
+    const result = calculateConfiguration(input, { now });
+    expect(result.discountDetails.map(detail => detail.kind)).toEqual(['base']);
+    expect(result.currentPrice).toBeCloseTo(result.subtotal * (1 - baseDiscountPct), 2);
+  });
+  it.each([
+    ['Dealer', 0.25, 25],
+    ['Importer', 0.30, 30],
+  ] as const)('uses only the canonical %s standard discount plus campaign benefit', (_partner, baseDiscountPct, expectedPercent) => {
+    const input = state(); input.baseDiscountPct = baseDiscountPct; input.machineConfigs[0].qty = 2;
+    input.date = '2098-01-01'; input.manualDealerDiscountPct = 1.6;
+    replacePublishedCampaigns([campaign({ type: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0 })]);
+    const result = calculateConfiguration(input, { now });
+    expect(result.discountDetails.map(detail => detail.kind)).toEqual(['base', 'campaign', 'campaign']);
+    expect(result.discountDetails[0].percent).toBe(expectedPercent);
+    expect(result.discountDetails.some(detail => ['delivery', 'quantity', 'dealer'].includes(detail.kind))).toBe(false);
+    expect(result.deliveryDiscounts).toEqual([]);
+    expect(result.campaignLines?.every(line => line.finalLineValue === 0)).toBe(true);
+    expect(input.manualDealerDiscountPct).toBe(1.6);
+  });
+  it('applies campaign pricing after standard discount and only to linked benefit products', () => {
     const input = state(); input.machineConfigs[0].qty = 2; input.date = '2098-01-01'; input.manualDealerDiscountPct = 1.6;
-    const baseline = calculateConfiguration(input, { now });
     replacePublishedCampaigns([campaign()]);
     const result = calculateConfiguration(input, { now });
-    expect(result.discountDetails.map(detail => detail.kind)).toEqual(['base', 'delivery', 'quantity', 'dealer', 'campaign', 'campaign']);
-    expect(result.discountDetails.slice(0, 4)).toEqual(baseline.discountDetails);
+    expect(result.discountDetails.map(detail => detail.kind)).toEqual(['base', 'campaign', 'campaign']);
+    expect(result.deliveryDiscounts).toEqual([]);
     expect(result.campaignLines).toHaveLength(2);
     expect(result.campaignLines?.every(line => line.campaignCode === 'K09-2026-01' && line.benefitItemNumber === '725138')).toBe(true);
-    expect(result.currentPrice).toBeCloseTo(baseline.currentPrice - result.campaignLines!.reduce((sum, line) => sum + line.discountAmount, 0), 2);
+    expect(result.currentPrice).toBeCloseTo(result.subtotal * 0.75 - result.campaignLines!.reduce((sum, line) => sum + line.discountAmount, 0), 2);
     expect(result.totalPct).toBeCloseTo((result.subtotal - result.currentPrice) / result.subtotal * 100, 8);
   });
   it('supports a zero fixed target without changing the canonical list price', () => {

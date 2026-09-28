@@ -7,6 +7,8 @@ import { campaignBenefitEntitlement, campaignProductPricing, campaignTriggerSetC
 import { DELIVERY_DISCOUNT_PERCENT, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate } from '@/lib/configuratorDelivery';
 
 export const roundPricingMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+export const isCampaignPricingActive = (campaignLines: CampaignLineSnapshot[] | undefined): boolean =>
+  Boolean(campaignLines?.some(line => !line.suppressedReason));
 type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
 type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean; selectionOrder: number };
 
@@ -116,36 +118,12 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   if (!options.grossManualDiscountOnly) {
     apply('demo', 32.5, line => line.demo, T('demoDiscount'));
     apply('base', (state.baseDiscountPct ?? 0.25) * 100, line => !line.demo, T('baseDiscountLabel'));
-    const eligibleDeliveryUnits = new Set<number>();
-    const deliveryBasisByUnit = new Map<number, number>();
-    for (let unitNumber = 1; unitNumber <= unit; unitNumber += 1) {
-      const basis = roundPricingMoney(lines.filter(line => line.unit === unitNumber && !line.demo).reduce((sum, line) => sum + line.net, 0));
-      deliveryBasisByUnit.set(unitNumber, basis);
-      if (basis > 0 && isDeliveryDiscountEligible(machineDeliveryDate(state, unitNumber), now)) eligibleDeliveryUnits.add(unitNumber);
-    }
-    if (eligibleDeliveryUnits.size > 0) {
-      apply('delivery', DELIVERY_DISCOUNT_PERCENT, line => !line.demo && eligibleDeliveryUnits.has(line.unit), T('deliveryDiscountLabel'), '795045');
-    }
-    deliveryDiscounts = Array.from({ length: unit }, (_, index) => {
-      const unitNumber = index + 1;
-      const basis = deliveryBasisByUnit.get(unitNumber) ?? 0;
-      const netAfter = roundPricingMoney(lines.filter(line => line.unit === unitNumber && !line.demo).reduce((sum, line) => sum + line.net, 0));
-      const eligible = eligibleDeliveryUnits.has(unitNumber);
-      return {
-        unitNumber,
-        date: machineDeliveryDate(state, unitNumber),
-        overridden: hasMachineDeliveryOverride(state, unitNumber),
-        percent: eligible ? DELIVERY_DISCOUNT_PERCENT : 0,
-        basis,
-        amount: eligible ? roundPricingMoney(basis - netAfter) : 0,
-      };
-    });
-    apply('quantity', quantityPct, line => line.quantityEligible, T('qtyDiscountLabel'), '795043');
   }
-  apply('dealer', Math.min(100, Math.max(0, state.manualDealerDiscountPct || 0)), () => true, T('extraDealerDiscountLabel'), '795042');
 
   const campaignLines: CampaignLineSnapshot[] = [];
-  // Old snapshots contain no economic campaign baseline: never retrofit one.
+  // Campaigns are resolved after the standard partner discount but before all
+  // optional normal-pricing layers. Demo quantities are excluded canonically
+  // by campaignTriggerSetCount/campaignBenefitEntitlement.
   if (!options.grossManualDiscountOnly && (!state.pricingSnapshot || state.pricingSnapshot.discountEngineVersion === 2)) {
     for (const campaign of publishedCampaignDefinitions()) {
       if (!isCampaignActive(campaign, now) || campaign.type === 'badge') continue;
@@ -206,6 +184,38 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         if (!line.demo) remainingBenefitQuantity -= eligibleQuantity;
       }
     }
+  }
+  const campaignPricingActive = isCampaignPricingActive(campaignLines);
+
+  if (!options.grossManualDiscountOnly && !campaignPricingActive) {
+    const eligibleDeliveryUnits = new Set<number>();
+    const deliveryBasisByUnit = new Map<number, number>();
+    for (let unitNumber = 1; unitNumber <= unit; unitNumber += 1) {
+      const basis = roundPricingMoney(lines.filter(line => line.unit === unitNumber && !line.demo).reduce((sum, line) => sum + line.net, 0));
+      deliveryBasisByUnit.set(unitNumber, basis);
+      if (basis > 0 && isDeliveryDiscountEligible(machineDeliveryDate(state, unitNumber), now)) eligibleDeliveryUnits.add(unitNumber);
+    }
+    if (eligibleDeliveryUnits.size > 0) {
+      apply('delivery', DELIVERY_DISCOUNT_PERCENT, line => !line.demo && eligibleDeliveryUnits.has(line.unit), T('deliveryDiscountLabel'), '795045');
+    }
+    deliveryDiscounts = Array.from({ length: unit }, (_, index) => {
+      const unitNumber = index + 1;
+      const basis = deliveryBasisByUnit.get(unitNumber) ?? 0;
+      const netAfter = roundPricingMoney(lines.filter(line => line.unit === unitNumber && !line.demo).reduce((sum, line) => sum + line.net, 0));
+      const eligible = eligibleDeliveryUnits.has(unitNumber);
+      return {
+        unitNumber,
+        date: machineDeliveryDate(state, unitNumber),
+        overridden: hasMachineDeliveryOverride(state, unitNumber),
+        percent: eligible ? DELIVERY_DISCOUNT_PERCENT : 0,
+        basis,
+        amount: eligible ? roundPricingMoney(basis - netAfter) : 0,
+      };
+    });
+    apply('quantity', quantityPct, line => line.quantityEligible, T('qtyDiscountLabel'), '795043');
+  }
+  if (!campaignPricingActive) {
+    apply('dealer', Math.min(100, Math.max(0, state.manualDealerDiscountPct || 0)), () => true, T('extraDealerDiscountLabel'), '795042');
   }
   const currentPrice = roundPricingMoney(lines.reduce((sum, line) => sum + line.net, 0));
   const totalDiscount = roundPricingMoney(subtotal - currentPrice);
