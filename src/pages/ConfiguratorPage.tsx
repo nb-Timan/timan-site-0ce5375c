@@ -1739,6 +1739,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const mainText = typeof md.main === 'string' ? md.main : (md.main[lang] || md.main.da);
     const bullets = md.bullets[lang] || md.bullets.da || [];
     const dims = md.dimensions || [];
+    const specLabelLanguage = key === 'RC-751' ? uiLanguage : contentUiLang;
     let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${TC('mainInfo')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
     if (bullets.length > 0) {
       html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('keyFeatures')}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
@@ -1749,10 +1750,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('dimSpecs')}</h4>`;
       dims.forEach(d => {
         if (d.isHeader) {
-          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, contentUiLang)}</h5>`;
+          html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, specLabelLanguage)}</h5>`;
         } else {
           const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[lang] || (d.value as any)?.da || '');
-          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, contentUiLang)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
+          if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, specLabelLanguage)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
         }
       });
       html += '</div>';
@@ -1770,10 +1771,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const showMarketingInformation = (
     title: string,
     content: { description: string; key_features: string[]; specs: { label: string; value?: unknown }[] },
-    options?: { specs?: { label: string; value?: unknown }[]; overviewImageUrls?: string[] },
+    options?: { specs?: { label: string; value?: unknown }[]; overviewImageUrls?: string[]; specLabelLanguage?: PortalUiLanguage },
   ) => {
     const specs = (options?.specs ?? content.specs).map((spec) => ({
-      label: translateSpecLabel(spec.label, contentUiLang),
+      label: translateSpecLabel(spec.label, options?.specLabelLanguage ?? contentUiLang),
       value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || ''),
     })).filter((spec) => spec.label && spec.value);
     setMarketingInformation({
@@ -1799,6 +1800,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     showMarketingInformation(content.title || getLocalizedName(machine.name, lang), content, {
       specs: details?.preferCanonicalDimensions ? details.dimensions : undefined,
       overviewImageUrls: details?.overviewImageUrls,
+      specLabelLanguage: key === 'RC-751' ? uiLanguage : undefined,
     });
   };
 

@@ -202,11 +202,13 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         { label: 'Max. hældning', value: '50 grader' },
         { label: 'Vægt (Basis)', value: '345 kg' },
         { label: 'Klippebredde', value: '750 mm' },
-        { label: 'Højde', value: '600 mm' },
+        { label: 'Højde', value: '603 mm' },
+        { label: 'Længde', value: '1876 mm' },
       ],
       overviewImageUrls: [
         '/images/rc-751/rc-751-dimensions-overview.png',
       ],
+      preferCanonicalDimensions: true,
     },
   },
   'Timan 3330': {
