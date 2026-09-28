@@ -134,7 +134,7 @@ import type { MachineSortDirection, MachineSortKey } from "@/lib/machineOverview
 
 /** New multilang strings for redesigned dealer detail. */
 type DealerDetailText = Partial<Record<PortalUiLanguage, string>> & { da: string; en?: string };
-const L: Record<string, DealerDetailText> = {
+const L = {
   primary_contact:  { da: "Primær kontaktperson", en: "Primary contact", de: "Hauptansprechpartner", it: "Contatto principale", hu: "Elsődleges kapcsolat" },
   no_primary:       { da: "Primær kontaktperson mangler", en: "Primary contact missing", de: "Hauptansprechpartner fehlt", it: "Contatto principale mancante", hu: "Hiányzó elsődleges kapcsolat" },
   call:             { da: "Kontaktperson", en: "Contact person", de: "Ansprechpartner", it: "Referente", hu: "Kapcsolattartó" },
@@ -247,6 +247,7 @@ const L: Record<string, DealerDetailText> = {
   shared:           { da: "Delt", en: "Shared", de: "Geteilt", it: "Condivisa", hu: "Megosztva", sv: "Delad", fr: "Partagée", pl: "Udostępnione", cs: "Sdíleno" },
   add_activity_note:{ da: "Tilføj aktivitet / note", en: "Add activity / note", de: "Aktivität / Notiz hinzufügen", it: "Aggiungi attività / nota", hu: "Tevékenység / jegyzet hozzáadása", sv: "Lägg till aktivitet / anteckning", fr: "Ajouter une activité / note", pl: "Dodaj aktywność / notatkę", cs: "Přidat aktivitu / poznámku" },
   add_note_title:   { da: "Tilføj note", en: "Add note", de: "Notiz hinzufügen", it: "Aggiungi nota", hu: "Jegyzet hozzáadása", sv: "Lägg till anteckning", fr: "Ajouter une note", pl: "Dodaj notatkę", cs: "Přidat poznámku" },
+  note_type:        { da: "Notetype", en: "Note type", de: "Notiztyp", it: "Tipo di nota", hu: "Jegyzettípus", sv: "Anteckningstyp", fr: "Type de note", pl: "Typ notatki", cs: "Typ poznámky" },
   dealer_internal_default: { da: "Forhandler: {dealer} · intern som standard", en: "Dealer: {dealer} · internal by default", de: "Händler: {dealer} · standardmäßig intern", it: "Rivenditore: {dealer} · interna come standard", hu: "Kereskedő: {dealer} · alapértelmezetten belső", sv: "Återförsäljare: {dealer} · intern som standard", fr: "Revendeur : {dealer} · interne par défaut", pl: "Dealer: {dealer} · domyślnie wewnętrzna", cs: "Prodejce: {dealer} · výchozí interní" },
   note_text:        { da: "Notetekst", en: "Note text", de: "Notiztext", it: "Testo nota", hu: "Jegyzet szövege", sv: "Anteckningstext", fr: "Texte de la note", pl: "Treść notatki", cs: "Text poznámky" },
   followup_optional:{ da: "Opfølgningsdato (valgfri)", en: "Follow-up date (optional)", de: "Nachfassdatum (optional)", it: "Data follow-up (facoltativa)", hu: "Utánkövetési dátum (opcionális)", sv: "Uppföljningsdatum (valfritt)", fr: "Date de suivi (facultatif)", pl: "Data działania następczego (opcjonalnie)", cs: "Datum následné akce (volitelné)" },
@@ -309,7 +310,7 @@ const L: Record<string, DealerDetailText> = {
   note_demo:        { da: "Demo", en: "Demo", de: "Demo", it: "Demo", hu: "Demó", sv: "Demo", fr: "Démo", pl: "Demo", cs: "Demo" },
   note_offer:       { da: "Tilbud", en: "Offer", de: "Angebot", it: "Offerta", hu: "Ajánlat", sv: "Offert", fr: "Offre", pl: "Oferta", cs: "Nabídka" },
   note_service:     { da: "Service", en: "Service", de: "Service", it: "Assistenza", hu: "Szerviz", sv: "Service", fr: "Service", pl: "Serwis", cs: "Servis" },
-};
+} satisfies Record<string, DealerDetailText>;
 const tl = (k: keyof typeof L, lang: PortalUiLanguage): string => L[k][lang] ?? L[k].en ?? L[k].da;
 
 function isServicePartnerAccount(d: Pick<DealerAccount, "customer_type" | "customer_type_label" | "dealer_type">): boolean {
@@ -2569,7 +2570,7 @@ function Row({ icon, label, value }: { icon: React.ReactNode; label: string; val
   );
 }
 
-interface NewNoteForm {
+export interface NewNoteForm {
   note_type: DealerNoteType;
   note_text: string;
   follow_up_date: string;
@@ -2580,7 +2581,7 @@ interface NewNoteForm {
   cal_when: string;
 }
 
-function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
+export function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
   dealerLabel: string;
   shareLabel: string;
   lang: PortalUiLanguage;
@@ -2598,11 +2599,17 @@ function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
     cal_when: "",
   });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-4 overflow-auto">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 mt-12">
-        <h2 className="text-lg font-bold text-slate-900 mb-1">{tl("add_note_title", lang)}</h2>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dealer-note-modal-title"
+        className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 mt-12"
+      >
+        <h2 id="dealer-note-modal-title" className="text-lg font-bold text-slate-900 mb-1">{tl("add_note_title", lang)}</h2>
         <p className="text-xs text-slate-500 mb-4">{tl("dealer_internal_default", lang).replace("{dealer}", dealerLabel)}</p>
 
         <label className="block text-xs font-bold text-slate-600 mb-1">{tl("note_type", lang)}</label>
@@ -2657,12 +2664,20 @@ function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
           </div>
         )}
 
+        {saveError && (
+          <p role="alert" className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+            {saveError}
+          </p>
+        )}
+
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onCancel} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100">{tl("cancel", lang)}</button>
+          <button type="button" onClick={onCancel} className="px-4 py-2 rounded-lg text-sm text-slate-600 hover:bg-slate-100">{tl("cancel", lang)}</button>
           <button
+            type="button"
             disabled={saving || !form.note_text.trim()}
             onClick={async () => {
               setSaving(true);
+              setSaveError(null);
               try {
                 // Convert datetime-local to ISO if present
                 const iso = (s: string) => s ? new Date(s).toISOString() : "";
@@ -2671,6 +2686,8 @@ function NoteModal({ dealerLabel, shareLabel, lang, onCancel, onSave }: {
                   follow_up_date: iso(form.follow_up_date),
                   cal_when: iso(form.cal_when),
                 });
+              } catch {
+                setSaveError(tl("note_save_error", lang));
               } finally { setSaving(false); }
             }}
             className="px-4 py-2 rounded-lg text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50">
