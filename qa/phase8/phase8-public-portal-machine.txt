@@ -1,0 +1,64 @@
+PHASE 8 QA TEST - CANONICAL PUBLIC, PORTAL, MACHINE AND COMMERCIAL FACTS
+
+Purpose: stable synthetic evaluation knowledge for Timan Assistant quality testing. This document contains no customer data and must not be treated as a production manual.
+
+Portal navigation and language
+- Offers are opened in CRM under Tilbud. Expected evidence terms: CRM, tilbud.
+- The portal language is changed in the header. Expected evidence terms: sprog, header.
+- Min konto is opened from the portal account area.
+- Kalender is opened from the portal's Kalender area.
+
+Public Timan information
+- Public Timan contact and product information is available at timan.dk.
+
+RC-1000s machine facts
+- RC-1000s base width: 995 mm.
+- RC-1000s base height: 692 mm.
+- RC-1000s base weight: 440 kg.
+- RC-1000s length without flail mower: 1.313 mm.
+- RC-1000s cutting width: 1.000 mm.
+- A registered machine's current status is shown on its machine detail.
+
+Products and attachments
+- CS-200 is compatible with Timan 3330.
+- Timan 3330 extended component warranty has SKU 795018 and costs 665 EUR.
+- Skovl Timan 3330 has SKU 730035.
+- SKU 730107 is not active in a new configuration: ikke aktiv.
+- Current CS-200 variants are 725131, 725132 and 725138.
+- T2 is a required dependency and is auto-added when the related option requires T2.
+
+Configurator save and quote rules
+- Gem sag saves the editable case only and creates intet T-nummer.
+- Gem som lead creates exactly et CRM lead and intet T-nummer.
+- A saved case reopens as the same case with no T-number.
+- The first T-number is created only by the explicit Afsend tilbud action.
+- Discarding an unsent configuration creates no lead, no quote and no order.
+- Editing a recipient email is a lead/configuration-local snapshot change and does not change dealer master data: no.
+
+Campaign and discount rules
+- A conditional campaign evaluates the whole cart, including separate machine slots.
+- Campaign K-0001-26 grants one eligible CS-200 benefit.
+- Base discount and campaign discount remain separate.
+- Configurator discounts are applied sequentially.
+- A conditional campaign may use a target price of 0.
+- After its trigger is removed, the Normalpreis is restored.
+- Demo machine discount is 32,5 %.
+- Demo line SKU 795002 has price 75 DKK or 10 EUR and participates in the same demo discount.
+
+Partnerdata scope and contacts
+- Dealer contacts are found under Partnerdata as kontaktperson records.
+- A Servicepartner is displayed below its main partner but remains an eigenes Konto.
+- A lead-local change does not change dealer master data: nein.
+- View-as must not show unrelated partner accounts: nein.
+- Partner search supports Kontonummer.
+
+Quote and document rules
+- Quote PDF columns are Varenr., Beskrivelse, Stk., Stk. pris and I alt.
+- A sent quote snapshot remains oförändrad.
+- Email can be prepared without sending: preparare.
+- Send without confirmation is blocked: bloccato.
+- Repeating the same quote creation is idempotent and occurs una sola volta.
+
+Phase 7 safe action references
+- A Timan 3330 plus T2 quote preview requires confirmation before any external action.
+- Quote preview, PDF data preparation, email preparation and service handoff can be evaluated as dry runs without sending email or submitting an order.

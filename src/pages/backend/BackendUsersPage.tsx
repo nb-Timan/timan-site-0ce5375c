@@ -53,6 +53,7 @@ import {
   type BackendUsersSource,
 } from "@/lib/backendUsersService";
 import { PORTAL_LANGUAGES } from "@/lib/portalLanguages";
+import { canAssignSupportAccess, SUPPORT_ACCESS_PERMISSION } from "@/lib/supportAccess";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 import { filterBackendUsers, type BackendUserListFilters } from "@/lib/backendUserListFilters";
 import { toast } from "@/hooks/use-toast";
@@ -171,7 +172,10 @@ const ACCESS_DOMAINS: AccessDomain[] = [
   {
     label: "Timan Backend",
     modules: [],
-    permissions: [{ value: "can_manage_users", label: "Can manage users" }],
+    permissions: [
+      { value: "can_manage_users", label: "Can manage users" },
+      { value: SUPPORT_ACCESS_PERMISSION, label: "Support" },
+    ],
     quickActions: [],
   },
 ];
@@ -735,6 +739,7 @@ function EditUserModal({
   onClose: () => void;
   onSave: (patch: BackendUser) => Promise<{ ok: boolean; error?: string }>;
 }) {
+  const { uiLanguage } = useLanguage();
   const [draft, setDraft] = useState<BackendUser>(user);
   const [saving, setSaving] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -1199,6 +1204,7 @@ function EditUserModal({
                 ...draft.perms,
                 ...(restricted ? { can_manage_payment_terms: false, can_apply_extra_dealer_discount: false } : {}),
                 ...(dealerSide ? { can_manage_users: false } : {}),
+                ...(!canAssignSupportAccess(draft.role) ? { support_access: false } : {}),
               };
               const permissionChecked = (Object.entries(effectivePerms) as [PermissionKey, boolean][])
                 .filter(([, enabled]) => enabled)
@@ -1217,6 +1223,7 @@ function EditUserModal({
               };
               const togglePermission = (key: PermissionKey) => {
                 if (editingOwnUser && key === "can_manage_users") return;
+                if (key === SUPPORT_ACCESS_PERMISSION && !canAssignSupportAccess(draft.role)) return;
                 if (restricted && (key === "can_manage_payment_terms" || key === "can_apply_extra_dealer_discount")) return;
                 if (dealerSide && (key === "can_manage_users" || key === "marketing_videos_manage" || key === "marketing_configurator_manage")) return;
                 setDraft({ ...draft, perms: { ...draft.perms, [key]: !draft.perms[key] } });
@@ -1279,8 +1286,12 @@ function EditUserModal({
                                 <CheckboxGroup
                                   items={group.permissions.map((permission) => ({
                                     ...permission,
+                                    label: permission.value === SUPPORT_ACCESS_PERMISSION
+                                      ? t('backendPermissionSupport', uiLanguage)
+                                      : permission.label,
                                     disabled:
                                       (editingOwnUser && permission.value === "can_manage_users")
+                                      || (permission.value === SUPPORT_ACCESS_PERMISSION && !canAssignSupportAccess(draft.role))
                                       || (restricted && (permission.value === "can_manage_payment_terms" || permission.value === "can_apply_extra_dealer_discount"))
                                       || (dealerSide && (permission.value === "can_manage_users" || permission.value === "marketing_videos_manage" || permission.value === "marketing_configurator_manage")),
                                   }))}

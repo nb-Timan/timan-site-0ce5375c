@@ -546,6 +546,26 @@ Deno.serve(async (req) => {
 
     const beforeRow = before as Record<string, unknown>;
     const effectivePortalRole = effectiveString(patch, beforeRow, "portal_role");
+    const beforePermissions = ((beforeRow.permissions ?? {}) as Record<string, unknown>);
+    const hasPermissionsPatch = "permissions" in patch
+      && patch.permissions
+      && typeof patch.permissions === "object"
+      && !Array.isArray(patch.permissions);
+    const requestedPermissions = (
+      hasPermissionsPatch
+        ? patch.permissions
+        : beforePermissions
+    ) as Record<string, unknown>;
+
+    // Phase 1 Support is deliberately Backend-only. Runtime authorization also
+    // checks the role, but assignment is rejected here so stale/manipulated
+    // permissions cannot become a latent privilege on another role.
+    if (effectivePortalRole !== "timan_backend" && hasPermissionsPatch && requestedPermissions.support_access === true) {
+      return json({ error: "Support-adgang kan kun tildeles Timan Backend-brugere." }, 403);
+    }
+    if (effectivePortalRole !== "timan_backend" && beforePermissions.support_access === true) {
+      patch.permissions = { ...requestedPermissions, support_access: false };
+    }
     const effectiveDealerNumber = effectiveString(patch, beforeRow, "dealer_number");
     const effectiveStatus = effectiveString(patch, beforeRow, "status");
     const effectiveApproved = "approved" in patch ? patch.approved : beforeRow.approved;

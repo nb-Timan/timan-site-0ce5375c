@@ -103,6 +103,7 @@ export interface BackendUser {
   perms: {
     academy_track_sales?: boolean;
     academy_track_service?: boolean;
+    support_access?: boolean;
     can_create_claims: boolean;
     can_approve_claims: boolean;
     can_create_tsb: boolean;
@@ -177,6 +178,7 @@ function seedUser(
       can_approve_claims: isInternal,
       can_create_tsb: isBackend,
       can_manage_users: isBackend,
+      support_access: false,
       can_manage_payment_terms: isBackend || role === "timan_seller",
       can_apply_extra_dealer_discount: isBackend,
       can_save_configurator_as_lead: isBackend || role === "timan_seller",

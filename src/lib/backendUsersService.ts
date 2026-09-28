@@ -33,6 +33,7 @@ import {
 import { defaultCanSubmitOrder, defaultCanViewPrices } from "@/lib/sessionPermissionDefaults";
 import { canonicalDisplayName, canonicalInitials } from "@/lib/canonicalUserIdentity";
 import { normalizeOrganizationAccessRole } from "@/lib/organizationAccess";
+import { canAssignSupportAccess } from "@/lib/supportAccess";
 
 export type BackendUsersSource = "supabase" | "fallback";
 
@@ -152,6 +153,7 @@ function rowToBackendUser(row: Record<string, unknown>): BackendUser {
     perms: {
       ...(typeof perms.academy_track_sales === 'boolean' ? { academy_track_sales: perms.academy_track_sales } : {}),
       ...(typeof perms.academy_track_service === 'boolean' ? { academy_track_service: perms.academy_track_service } : {}),
+      support_access: perms.support_access === true && isBackend,
       can_view_prices: defaultCanViewPrices(row.can_view_prices, row.portal_role, row.role, row.partner_type),
       can_submit_order: defaultCanSubmitOrder(row.can_submit_order, row.portal_role, row.role, row.partner_type),
       can_create_claims: perms.can_create_claims ?? !isBackend,
@@ -246,8 +248,11 @@ export function isDealerSideRole(role: string | null | undefined): boolean {
   return !!role && (DEALER_SIDE_ROLES as string[]).includes(role);
 }
 
-function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): BackendUser["perms"] {
+export function sanitizePermsForRole(role: string, perms: BackendUser["perms"]): BackendUser["perms"] {
   let next = perms;
+  if (!canAssignSupportAccess(role)) {
+    next = { ...next, support_access: false };
+  }
   if (isPaymentAndDiscountRestrictedRole(role)) {
     next = { ...next, can_manage_payment_terms: false, can_apply_extra_dealer_discount: false };
   }
@@ -473,7 +478,6 @@ export async function saveBackendUser(id: string, draft: BackendUser): Promise<S
   if (droppedColumns.length > 0) {
     // Developer-only warning — don't fail the save because optional
     // columns are missing from the live schema.
-    // eslint-disable-next-line no-console
     console.warn(
       `[backendUsersService] Skipped columns missing from public.app_users: ${droppedColumns.join(", ")}. ` +
       `Run the relevant phase2_backend_users.sql / phase3_crm_account_owner.sql migration to enable persistence.`,

@@ -43,3 +43,38 @@ verify_jwt = false
 
 [functions.import-site-changes-from-github]
 verify_jwt = false
+
+# Validates the caller JWT and canonical can_access_support() RPC internally,
+# then uses the service role only for private Storage and background processing.
+[functions.support-knowledge-ingestion]
+verify_jwt = false
+
+# Both functions validate the JWT and canonical can_access_support() RPC in
+# their bodies before any service-role database or provider operation.
+[functions.support-index-knowledge]
+verify_jwt = false
+
+[functions.support-chat]
+verify_jwt = false
+
+[functions.support-actions]
+enabled = true
+verify_jwt = true
+import_map = "./functions/support-actions/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/support-actions/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/support-actions/*.html" ]
+
+[functions.support-evaluate]
+enabled = true
+verify_jwt = true
+import_map = "./functions/support-evaluate/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/support-evaluate/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/support-evaluate/*.html" ]

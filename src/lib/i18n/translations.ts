@@ -19,6 +19,7 @@ import { MESSE_HOME_TRANSLATIONS } from '@/lib/i18n/messeHomeTranslations';
 import { ACADEMY_TRANSLATIONS } from '@/lib/i18n/academyTranslations';
 import { CAMPAIGN_TRANSLATIONS } from '@/lib/i18n/campaignTranslations';
 import { ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS } from '@/lib/i18n/accountOrderDiscountTranslations';
+import { SUPPORT_TRANSLATIONS } from '@/lib/i18n/supportTranslations';
 
 type Dict = Record<string, string>;
 
@@ -26,9 +27,11 @@ type Dict = Record<string, string>;
 // Danish (source of truth)
 // ---------------------------------------------------------------------------
 const da: Dict = {
+  ...SUPPORT_TRANSLATIONS.da,
   ...ACADEMY_TRANSLATIONS.da,
   ...CAMPAIGN_TRANSLATIONS.da,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.da,
+  backendPermissionSupport: 'Support',
   newsCmsBadgeNews: 'NYHED',
   marketingBadgeNew: 'Nyhed',
   marketingBadgeOffer: 'Tilbud',
@@ -705,9 +708,11 @@ const da: Dict = {
 // English
 // ---------------------------------------------------------------------------
 const en: Dict = {
+  ...SUPPORT_TRANSLATIONS.en,
   ...ACADEMY_TRANSLATIONS.en,
   ...CAMPAIGN_TRANSLATIONS.en,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.en,
+  backendPermissionSupport: 'Support',
   marketingBadgeNew: 'New',
   marketingBadgeOffer: 'Offer',
   marketingBadgeGoodPrice: 'Good price',
@@ -1369,9 +1374,11 @@ const en: Dict = {
 // ---------------------------------------------------------------------------
 const de: Dict = {
   ...en,
+  ...SUPPORT_TRANSLATIONS.de,
   ...ACADEMY_TRANSLATIONS.de,
   ...CAMPAIGN_TRANSLATIONS.de,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.de,
+  backendPermissionSupport: 'Support',
   contractFullTextHeading: 'Der Vertrag',
   contractFullTextIntro: 'Die vollständige Vereinbarung in der Reihenfolge des endgültigen Vertrags.',
   contractPaymentTermsLabel: 'Zahlungsbedingungen',
@@ -1833,9 +1840,11 @@ const de: Dict = {
 // ---------------------------------------------------------------------------
 const it: Dict = {
   ...en,
+  ...SUPPORT_TRANSLATIONS.it,
   ...ACADEMY_TRANSLATIONS.it,
   ...CAMPAIGN_TRANSLATIONS.it,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.it,
+  backendPermissionSupport: 'Assistenza',
   contractFullTextHeading: 'Il contratto',
   contractFullTextIntro: 'L’accordo completo nell’ordine utilizzato nel contratto finale.',
   contractPaymentTermsLabel: 'Termini di pagamento',
@@ -2275,9 +2284,11 @@ const it: Dict = {
 // ---------------------------------------------------------------------------
 const hu: Dict = {
   ...en,
+  ...SUPPORT_TRANSLATIONS.hu,
   ...ACADEMY_TRANSLATIONS.hu,
   ...CAMPAIGN_TRANSLATIONS.hu,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.hu,
+  backendPermissionSupport: 'Támogatás',
   contractFullTextHeading: 'A szerződés',
   contractFullTextIntro: 'A teljes megállapodás a végleges szerződésben szereplő sorrendben.',
   contractPaymentTermsLabel: 'Fizetési feltételek',
@@ -2717,9 +2728,11 @@ const hu: Dict = {
 // ---------------------------------------------------------------------------
 const sv: Dict = {
   ...en,
+  ...SUPPORT_TRANSLATIONS.sv,
   ...ACADEMY_TRANSLATIONS.sv,
   ...CAMPAIGN_TRANSLATIONS.sv,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.sv,
+  backendPermissionSupport: 'Support',
   contractFullTextHeading: 'Avtalet',
   contractFullTextIntro: 'Hela avtalet i den ordning som används i det slutliga avtalet.',
   contractPaymentTermsLabel: 'Betalningsvillkor',
@@ -3160,9 +3173,11 @@ const sv: Dict = {
 // ---------------------------------------------------------------------------
 const fr: Dict = {
   ...en,
+  ...SUPPORT_TRANSLATIONS.fr,
   ...ACADEMY_TRANSLATIONS.fr,
   ...CAMPAIGN_TRANSLATIONS.fr,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.fr,
+  backendPermissionSupport: 'Assistance',
   contractFullTextHeading: 'Le contrat',
   contractFullTextIntro: 'L’accord complet dans l’ordre utilisé dans le contrat final.',
   contractPaymentTermsLabel: 'Conditions de paiement',
@@ -3603,9 +3618,11 @@ const fr: Dict = {
 // ---------------------------------------------------------------------------
 const pl: Dict = {
   ...en,
+  ...SUPPORT_TRANSLATIONS.pl,
   ...ACADEMY_TRANSLATIONS.pl,
   ...CAMPAIGN_TRANSLATIONS.pl,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.pl,
+  backendPermissionSupport: 'Wsparcie',
   contractFullTextHeading: 'Umowa',
   contractFullTextIntro: 'Pełna umowa w kolejności użytej w umowie końcowej.',
   contractPaymentTermsLabel: 'Warunki płatności',
@@ -4046,9 +4063,11 @@ const pl: Dict = {
 // ---------------------------------------------------------------------------
 const cs: Dict = {
   ...en,
+  ...SUPPORT_TRANSLATIONS.cs,
   ...ACADEMY_TRANSLATIONS.cs,
   ...CAMPAIGN_TRANSLATIONS.cs,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.cs,
+  backendPermissionSupport: 'Podpora',
   contractFullTextHeading: 'Smlouva',
   contractFullTextIntro: 'Úplná smlouva v pořadí použitém v konečné smlouvě.',
   contractPaymentTermsLabel: 'Platební podmínky',

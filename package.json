@@ -15,7 +15,11 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "evaluation:smoke": "node --experimental-strip-types scripts/runSupportEvaluation.ts SMOKE",
+    "evaluation:targeted": "node --experimental-strip-types scripts/runSupportEvaluation.ts TARGETED",
+    "evaluation:full": "node --experimental-strip-types scripts/runSupportEvaluation.ts FULL",
+    "evaluation:security": "node --experimental-strip-types scripts/runSupportEvaluation.ts SECURITY"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

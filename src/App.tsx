@@ -16,6 +16,7 @@ import { getActiveSellerView, type SellerView } from "@/lib/activeMode";
 import { supabase } from "@/lib/supabase";
 import { WARRANTY_CREATE_ROUTE } from "@/lib/warrantyRoutes";
 import PublishedProductMasterBoundary from '@/components/PublishedProductMasterBoundary';
+import TimanSupportHost from '@/components/support/TimanSupportHost';
 
 function PreferredLanguageBootstrap() {
   const { appUser } = useAppUser();
@@ -109,7 +110,7 @@ const queryClient = new QueryClient();
 const CRM_MY_DEALERS_CHUNK_RELOAD_KEY = "timan.crm-my-dealers.chunk-reload";
 const CONFIGURATOR_CHUNK_RELOAD_KEY = "timan.configurator.chunk-reload";
 
-function lazyWithDynamicImportRecovery<T extends ComponentType<any>>(
+function lazyWithDynamicImportRecovery<T extends ComponentType>(
   factory: () => Promise<{ default: T }>,
   reloadKey = CRM_MY_DEALERS_CHUNK_RELOAD_KEY,
 ) {
@@ -211,6 +212,7 @@ const BackendMesseSettingsPage = lazy(() => import("./pages/backend/BackendMesse
 const BackendNewsPage = lazy(() => import("./pages/backend/BackendNewsPage"));
 const BackendVideoManagementPage = lazy(() => import("./pages/backend/BackendVideoManagementPage"));
 const BackendSystemMapPage = lazy(() => import("./pages/backend/BackendSystemMapPage"));
+const BackendAiSupportPage = lazy(() => import("./pages/backend/BackendAiSupportPage"));
 const BackendSectionPage = lazy(() => import("./pages/backend/BackendSectionPage"));
 
 const MiscPage = lazy(() => import("./pages/misc/MiscPage"));
@@ -440,6 +442,7 @@ const App = () => (
               <Route path="/portal/backend/partner-relations" element={<BackendPartnerRelationsPage />} />
               <Route path="/portal/backend/messe" element={<BackendMesseSettingsPage />} />
               <Route path="/portal/backend/system-map" element={<BackendSystemMapPage />} />
+              <Route path="/portal/backend/ai-support" element={<BackendAiSupportPage />} />
 
               {/* Existing configurator is preserved at /configurator */}
               <Route path="/configurator" element={<ConfiguratorRouteErrorBoundary><PortalLockGuard><AcademyCapabilityGuard capability="configurator"><ConfiguratorPage /></AcademyCapabilityGuard></PortalLockGuard></ConfiguratorRouteErrorBoundary>} />
@@ -449,6 +452,7 @@ const App = () => (
             </Suspense>
             <VisitorTracker />
             <PreferredLanguageBootstrap />
+            <TimanSupportHost />
           </LanguageProvider>
         </AppUserProvider>
       </PublishedProductMasterBoundary>

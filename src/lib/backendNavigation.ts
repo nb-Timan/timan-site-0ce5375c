@@ -1,6 +1,7 @@
 import {
   Activity,
   BarChart3,
+  Bot,
   Building2,
   Database,
   FileSearch,
@@ -27,6 +28,7 @@ export type BackendSectionId =
   | "partner-management"
   | "data-integrations"
   | "analytics"
+  | "ai-support"
   | "system";
 
 export interface BackendNavItem {
@@ -105,6 +107,15 @@ export const backendSections: BackendSection[] = [
     ],
   },
   {
+    id: "ai-support",
+    title: "AI Support",
+    navLabel: "AI Support",
+    description: "Spørgsmål, videnshuller, feedback, vidensbase og teknisk overvågning.",
+    to: "/portal/backend/ai-support",
+    icon: Bot,
+    items: [],
+  },
+  {
     id: "system",
     title: "System",
     navLabel: "System",
@@ -142,6 +153,7 @@ export function getBackendSectionForPath(pathname: string, search = ""): Backend
   if (pathname.startsWith("/portal/backend/partnerstyring")) return "partner-management";
   if (pathname.startsWith("/portal/backend/data-integrationer")) return "data-integrations";
   if (pathname.startsWith("/portal/backend/analyse")) return "analytics";
+  if (pathname.startsWith("/portal/backend/ai-support")) return "ai-support";
   if (pathname.startsWith("/portal/backend/system")) return "system";
   if (pathname === "/portal/backend/data") {
     if (search.includes("tab=garanti") || search.includes("tab=forhandlere")) return "partner-management";
