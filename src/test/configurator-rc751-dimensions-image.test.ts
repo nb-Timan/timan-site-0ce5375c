@@ -16,7 +16,7 @@ describe('RC-751 dimensions image', () => {
     }
 
     const checksum = createHash('sha256').update(readFileSync(assetPath)).digest('hex');
-    expect(checksum).toBe('e9adc42a8a6f9a2b992b1b8b32382775104c75f7f38cdbb011fc439a68be36fc');
+    expect(checksum).toBe('7dc6e36b622eda79f0cfd833e2d6871a368650f9bea5093ba9ea37694cded563');
   });
 
   it('renders overview images after specifications and before the close action', () => {
