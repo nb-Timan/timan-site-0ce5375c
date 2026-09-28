@@ -20,8 +20,10 @@ import {
 import {
   applyAssistantConfiguratorCommand,
   applyAssistantTextInput,
+  classifyAssistantWorkflowInput,
   createAssistantConfiguratorDraft,
   hydrateAssistantWorkflow,
+  matchAssistantWorkflowTextChoice,
   nextAssistantConfiguratorPrompt,
 } from '@/lib/assistantConfiguratorWorkflow';
 import { calculateConfiguration } from '@/lib/calcConfiguration';
@@ -33,8 +35,11 @@ import type {
   AssistantWorkflowState,
   SupportActionCard,
   SupportMessage,
+  SupportWorkflowState,
 } from '@/lib/supportTypes';
 import type { ConfiguratorState } from '@/types/configurator';
+import { t } from '@/lib/i18n/translations';
+import { normalizePortalLanguageCode } from '@/lib/portalLanguages';
 
 function id(): string {
   return crypto.randomUUID();
@@ -42,7 +47,7 @@ function id(): string {
 
 function message(
   content: string,
-  workflowState?: AssistantWorkflowState,
+  workflowState?: SupportWorkflowState,
   actionCard?: SupportActionCard,
 ): SupportMessage {
   return {
@@ -77,12 +82,44 @@ function clientWorkflow(server: AssistantServerWorkflow): AssistantWorkflowState
     quoteNumber: server.quote_number || null,
     leadId: server.lead_id || null,
     emailDraft: server.email_draft || null,
+    canGoBack: server.can_go_back === true,
+    hasMeaningfulChoices: server.has_meaningful_choices === true,
   };
 }
 
 function workflowFromRequest(request: SupportSendRequest): AssistantWorkflowState | null {
   const workflow = request.workflowState as AssistantWorkflowState;
-  return workflow?.workflowId && workflow.configurator ? workflow : null;
+  const activeStatuses = ['DRAFT', 'READY', 'QUOTE_CREATED', 'PDF_GENERATED', 'EMAIL_PREPARED'];
+  return workflow?.workflowId && workflow.configurator && activeStatuses.includes(workflow.status) ? workflow : null;
+}
+
+function uiLanguage(language: string) {
+  return normalizePortalLanguageCode(language) || 'en';
+}
+
+function topicSwitchMessage(
+  workflow: AssistantWorkflowState,
+  pendingMessage: string,
+  language: string,
+): SupportMessage {
+  const lang = uiLanguage(language);
+  return message(t('supportWorkflowTopicSwitchPrompt', lang), workflow, {
+    kind: 'confirmation',
+    title: t('supportWorkflowTopicSwitchTitle', lang),
+    choices: [
+      {
+        id: `interrupt-yes-${id()}`,
+        label: t('supportWorkflowTopicSwitchYes', lang),
+        emphasis: 'danger',
+        command: { type: 'confirm_topic_switch', parameters: { pending_message: pendingMessage } },
+      },
+      {
+        id: `interrupt-no-${id()}`,
+        label: t('supportWorkflowTopicSwitchNo', lang),
+        command: { type: 'continue_workflow' },
+      },
+    ],
+  });
 }
 
 function dealerFrom(value: Record<string, unknown>): AssistantDealer {
@@ -174,6 +211,26 @@ export class AssistantSupportService implements SupportService {
     private readonly appUser: SessionUser,
     private readonly fallback: SupportService,
   ) {}
+
+  private async abandonWorkflow(
+    request: SupportSendRequest,
+    workflow: AssistantWorkflowState,
+    reason: 'USER_RESET' | 'TOPIC_SWITCH',
+  ) {
+    return confirmAssistantAction({
+      conversationId: request.conversation.id,
+      workflowId: workflow.workflowId,
+      stateVersion: workflow.stateVersion,
+      action: 'abandon_workflow',
+      parameters: { reason },
+      idempotencyKey: `abandon:${reason}:${workflow.workflowId}:${workflow.stateVersion}`,
+    });
+  }
+
+  private repeatCurrentPrompt(request: SupportSendRequest, workflow: AssistantWorkflowState): SupportMessage {
+    const prompt = nextAssistantConfiguratorPrompt(hydrateAssistantWorkflow(workflow), request.language);
+    return message(prompt.content, workflow, prompt.card);
+  }
 
   private async persist(
     request: SupportSendRequest,
@@ -383,6 +440,9 @@ export class AssistantSupportService implements SupportService {
     const workflow = workflowFromRequest(request);
     const command = request.command;
     if (!workflow && !command && !isQuoteIntent(request)) return this.fallback.sendMessage(request);
+    if (!workflow && command && command.type !== 'start_quote') {
+      return message(t('supportWorkflowInactive', uiLanguage(request.language)), {});
+    }
 
     if (!workflow) {
       const initial = createAssistantConfiguratorDraft(request.content, request.language);
@@ -407,6 +467,34 @@ export class AssistantSupportService implements SupportService {
       return confirmationMessage(command.action, workflow, request.language);
     }
     if (command?.type === 'confirm_action') return this.executeConfirmed(request, workflow, command);
+    if (command?.type === 'workflow_back') {
+      const response = await invokeAssistantAction({
+        action: 'navigate_workflow_back',
+        conversationId: request.conversation.id,
+        workflowId: workflow.workflowId,
+        expectedStateVersion: workflow.stateVersion,
+      });
+      if (!response.workflow) throw new Error('WORKFLOW_BACK_FAILED');
+      return this.repeatCurrentPrompt(request, clientWorkflow(response.workflow));
+    }
+    if (command?.type === 'reset_workflow') {
+      await this.abandonWorkflow(request, workflow, 'USER_RESET');
+      return message(t('supportWorkflowResetDone', uiLanguage(request.language)), {});
+    }
+    if (command?.type === 'confirm_topic_switch') {
+      const pendingMessage = String(command.parameters?.pending_message || '').trim();
+      if (!pendingMessage) throw new Error('PENDING_MESSAGE_MISSING');
+      await this.abandonWorkflow(request, workflow, 'TOPIC_SWITCH');
+      const resumed = await this.fallback.sendMessage({
+        ...request,
+        content: pendingMessage,
+        workflowState: {},
+        intent: undefined,
+        command: undefined,
+      });
+      return { ...resumed, workflowState: {} };
+    }
+    if (command?.type === 'continue_workflow') return this.repeatCurrentPrompt(request, workflow);
 
     const draft = hydrateAssistantWorkflow(workflow);
     if (command?.type === 'select_dealer') {
@@ -444,6 +532,21 @@ export class AssistantSupportService implements SupportService {
     }
     if (command) {
       const next = applyAssistantConfiguratorCommand(draft, command);
+      return this.promptAndPersist(request, workflow, next);
+    }
+    const compatibility = classifyAssistantWorkflowInput(draft, request.content, request.language);
+    if (compatibility === 'interrupt') return topicSwitchMessage(workflow, request.content, request.language);
+    if (compatibility === 'ambiguous') {
+      const prompt = nextAssistantConfiguratorPrompt(draft, request.language);
+      return message(
+        `${t('supportWorkflowClarify', uiLanguage(request.language))}\n\n${prompt.content}`,
+        workflow,
+        prompt.card,
+      );
+    }
+    const matchedChoice = matchAssistantWorkflowTextChoice(draft, request.content, request.language);
+    if (matchedChoice) {
+      const next = applyAssistantConfiguratorCommand(draft, matchedChoice);
       return this.promptAndPersist(request, workflow, next);
     }
     if (draft.pendingField === 'dealer') {

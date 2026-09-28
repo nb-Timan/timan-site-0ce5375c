@@ -44,6 +44,8 @@ const ACTIONS: Record<string, ActionDefinition> = {
   inspect_lead: { level: 0, permission: 'lead' },
   create_configuration_draft: { level: 1, permission: 'support' },
   set_configuration_option: { level: 1, permission: 'support' },
+  navigate_workflow_back: { level: 1, permission: 'support' },
+  abandon_workflow: { level: 2, permission: 'support' },
   prepare_quote_email: { level: 1, permission: 'quote' },
   request_confirmation: { level: 1, permission: 'support' },
   create_quote_draft: { level: 2, permission: 'quote', clientExecution: 'quote' },
@@ -176,7 +178,12 @@ async function ensureConversation(service: Client, actor: Actor, conversationId:
 
 async function loadWorkflow(service: Client, actor: Actor, workflowId: string | null, conversationId: string) {
   let query = service.from('support_assistant_workflows').select('*').eq('user_id', actor.id);
-  query = workflowId ? query.eq('id', workflowId) : query.eq('conversation_id', conversationId);
+  query = workflowId
+    ? query.eq('id', workflowId).eq('conversation_id', conversationId)
+    : query.eq('conversation_id', conversationId)
+      .in('status', ['DRAFT', 'READY', 'QUOTE_CREATED', 'PDF_GENERATED', 'EMAIL_PREPARED'])
+      .order('updated_at', { ascending: false })
+      .limit(1);
   const { data, error } = await query.maybeSingle();
   if (error) throw error;
   return data;
@@ -237,6 +244,12 @@ async function consumeConfirmation(service: Client, input: {
 
 function publicWorkflow(row: Json | null) {
   if (!row) return null;
+  const history = Array.isArray(row.state_history) ? row.state_history : [];
+  const state = object(row.state_json);
+  const configurator = object(state.configurator);
+  const hasMeaningfulChoices = history.length > 0
+    || (Array.isArray(configurator.machineConfigs) && configurator.machineConfigs.length > 0)
+    || Boolean(configurator.date || configurator.deliveryMethod || state.dealer || state.contact || state.quoteKind);
   return {
     id: row.id, conversation_id: row.conversation_id, state: row.state_json,
     state_version: row.state_version, status: row.status, dealer_account_id: row.dealer_account_id,
@@ -244,6 +257,8 @@ function publicWorkflow(row: Json | null) {
     configuration_id: row.configuration_id, quote_number: row.quote_number,
     pricing_snapshot: row.pricing_snapshot, email_draft: row.email_draft,
     last_calculated_at: row.last_calculated_at, updated_at: row.updated_at,
+    can_go_back: ['DRAFT', 'READY'].includes(String(row.status)) && history.length > 0,
+    has_meaningful_choices: hasMeaningfulChoices,
   };
 }
 
@@ -465,8 +480,11 @@ Deno.serve(async (request) => {
           .select('id, dealer_account_id').eq('id', stateContactId).eq('dealer_account_id', stateDealerId).maybeSingle();
         if (contactError || !visibleContact) throw new Error('CONTACT_OUT_OF_SCOPE');
       }
+      const history = Array.isArray(workflow.state_history) ? workflow.state_history : [];
+      const nextHistory = [...history.slice(-49), workflow.state_json];
       const { data: updated, error } = await service.from('support_assistant_workflows').update({
         state_json: state, state_hash: await hash(state), state_version: expectedStateVersion! + 1,
+        state_history: nextHistory,
         status: 'DRAFT', pricing_snapshot: null, last_calculated_at: null,
         dealer_account_id: stateDealerId || null,
         dealer_number: text(stateDealer.account_number, 100) || null,
@@ -478,6 +496,61 @@ Deno.serve(async (request) => {
         .eq('workflow_id', workflowId!).is('consumed_at', null).is('invalidated_at', null);
       const result = { workflow: publicWorkflow(updated) };
       await completeAction(service, { actionId, actor, conversationId, workflowId, actionType, level: 1, stateVersion: updated.state_version, permissionResult, result });
+      return json(result);
+    }
+    if (actionType === 'navigate_workflow_back') {
+      if (!['DRAFT', 'READY'].includes(String(workflow.status))) throw new Error('WORKFLOW_BACK_NOT_ALLOWED');
+      const history = Array.isArray(workflow.state_history) ? workflow.state_history : [];
+      if (!history.length) throw new Error('WORKFLOW_HISTORY_EMPTY');
+      const restoredState = object(history[history.length - 1]);
+      const restoredDealer = object(restoredState.dealer);
+      const restoredContact = object(restoredState.contact);
+      const restoredDealerId = text(restoredDealer.id, 64);
+      const restoredContactId = text(restoredContact.id, 64);
+      const { data: updated, error } = await service.from('support_assistant_workflows').update({
+        state_json: restoredState,
+        state_hash: await hash(restoredState),
+        state_history: history.slice(0, -1),
+        state_version: expectedStateVersion! + 1,
+        status: 'DRAFT',
+        pricing_snapshot: null,
+        last_calculated_at: null,
+        dealer_account_id: restoredDealerId || null,
+        dealer_number: text(restoredDealer.account_number, 100) || null,
+        dealer_contact_id: restoredContactId || null,
+      }).eq('id', workflowId!).eq('user_id', actor.id).eq('state_version', expectedStateVersion!).select('*').maybeSingle();
+      if (error) throw error;
+      if (!updated) throw new Error('STALE_WORKFLOW');
+      await service.from('support_assistant_confirmations').update({ invalidated_at: new Date().toISOString() })
+        .eq('workflow_id', workflowId!).is('consumed_at', null).is('invalidated_at', null);
+      const result = { workflow: publicWorkflow(updated) };
+      await completeAction(service, { actionId, actor, conversationId, workflowId, actionType, level: 1, stateVersion: updated.state_version, permissionResult, result });
+      return json(result);
+    }
+    if (actionType === 'abandon_workflow') {
+      if (['EMAIL_SENT', 'HANDED_OFF', 'ABANDONED', 'FAILED'].includes(String(workflow.status))) {
+        throw new Error('WORKFLOW_ALREADY_TERMINAL');
+      }
+      const completedAt = new Date().toISOString();
+      const { data: updated, error } = await service.from('support_assistant_workflows').update({
+        status: 'ABANDONED',
+        state_version: expectedStateVersion! + 1,
+        completed_at: completedAt,
+      }).eq('id', workflowId!).eq('user_id', actor.id).eq('state_version', expectedStateVersion!).select('*').maybeSingle();
+      if (error) throw error;
+      if (!updated) throw new Error('STALE_WORKFLOW');
+      await service.from('support_assistant_confirmations').update({ invalidated_at: completedAt })
+        .eq('workflow_id', workflowId!).is('consumed_at', null).is('invalidated_at', null);
+      const result = {
+        workflow: publicWorkflow(updated),
+        abandoned: true,
+        preserved_entities: {
+          configuration_id: workflow.configuration_id || null,
+          lead_id: workflow.lead_id || null,
+          quote_number: workflow.quote_number || null,
+        },
+      };
+      await completeAction(service, { actionId, actor, conversationId, workflowId, actionType, level: 2, stateVersion: updated.state_version, permissionResult, result });
       return json(result);
     }
     if (actionType === 'get_machine_configuration_options') {

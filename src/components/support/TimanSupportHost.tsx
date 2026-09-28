@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { BookOpen, Bot, ExternalLink, FileText, Loader2, MessageCircle, RotateCcw, Send, Wrench, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Bot, ExternalLink, FileText, Loader2, MessageCircle, RotateCcw, Send, Wrench, X } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -14,6 +14,16 @@ import { getActiveMode } from '@/lib/activeMode';
 import { AssistantSupportService } from '@/lib/assistantSupportService';
 import { supportService } from '@/lib/supportService';
 import type { AssistantActionCommand } from '@/lib/supportTypes';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const QUICK_ACTIONS: Array<{
   intent: SupportQuickIntent;
@@ -59,6 +69,7 @@ export default function TimanSupportHost() {
   });
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
+  const [resetOpen, setResetOpen] = useState(false);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const messageEndRef = useRef<HTMLDivElement>(null);
@@ -86,6 +97,7 @@ export default function TimanSupportHost() {
   });
 
   const closePanel = () => {
+    setResetOpen(false);
     setOpen(false);
     window.setTimeout(() => launcherRef.current?.focus(), 0);
   };
@@ -94,6 +106,17 @@ export default function TimanSupportHost() {
     if (!content.trim() || state.status === 'sending') return;
     setDraft('');
     await sendMessage(content, intent, command);
+  };
+
+  const workflow = state.conversation.workflowState;
+  const activeWorkflow = Boolean(
+    workflow.workflowId
+      && ['DRAFT', 'READY', 'QUOTE_CREATED', 'PDF_GENERATED', 'EMAIL_PREPARED'].includes(String(workflow.status)),
+  );
+
+  const requestReset = () => {
+    if (workflow.hasMeaningfulChoices) setResetOpen(true);
+    else void submit(t('supportWorkflowReset', uiLanguage), undefined, { type: 'reset_workflow' });
   };
 
   const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -164,6 +187,29 @@ export default function TimanSupportHost() {
               </button>
             </header>
 
+            {activeWorkflow && (
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
+                <button
+                  type="button"
+                  disabled={!workflow.canGoBack || state.status === 'sending'}
+                  onClick={() => void submit(t('supportWorkflowBack', uiLanguage), undefined, { type: 'workflow_back' })}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-slate-700 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                  {t('supportWorkflowBack', uiLanguage)}
+                </button>
+                <button
+                  type="button"
+                  disabled={state.status === 'sending'}
+                  onClick={requestReset}
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-red-700 hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  {t('supportWorkflowReset', uiLanguage)}
+                </button>
+              </div>
+            )}
+
             <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4" aria-live="polite">
               {state.conversation.messages.length === 0 && (
                 <div className="space-y-4">
@@ -217,7 +263,7 @@ export default function TimanSupportHost() {
                             </dl>
                           )}
                           {message.actionCard.choices && message.actionCard.choices.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-2">
+                            <div className="mt-3 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
                               {message.actionCard.choices.map((choice) => (
                                 <button
                                   key={choice.id}
@@ -225,7 +271,7 @@ export default function TimanSupportHost() {
                                   disabled={state.status === 'sending'}
                                   onClick={() => void submit(choice.label, undefined, choice.command)}
                                   className={cn(
-                                    'min-h-9 rounded-md border px-2.5 py-1.5 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50',
+                                    'min-h-9 w-full rounded-md border px-2.5 py-1.5 text-xs font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50 sm:w-auto',
                                     choice.emphasis === 'danger'
                                       ? 'border-red-600 bg-red-600 text-white hover:bg-red-700'
                                       : choice.emphasis === 'primary'
@@ -309,6 +355,23 @@ export default function TimanSupportHost() {
               </button>
             </form>
           </section>
+          <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+            <AlertDialogContent className="w-[calc(100%-2rem)] max-w-md rounded-lg">
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t('supportWorkflowResetTitle', uiLanguage)}</AlertDialogTitle>
+                <AlertDialogDescription>{t('supportWorkflowResetDescription', uiLanguage)}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t('supportWorkflowCancel', uiLanguage)}</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  onClick={() => void submit(t('supportWorkflowReset', uiLanguage), undefined, { type: 'reset_workflow' })}
+                >
+                  {t('supportWorkflowReset', uiLanguage)}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
     </>

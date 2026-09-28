@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import TimanSupportHost from '@/components/support/TimanSupportHost';
 import { deriveSupportPageContext } from '@/lib/supportContext';
+import { createAssistantConfiguratorDraft, nextAssistantConfiguratorPrompt } from '@/lib/assistantConfiguratorWorkflow';
 
 const state = vi.hoisted(() => ({
   user: {
@@ -93,6 +94,38 @@ describe('Timan Support UI', () => {
     const panel = screen.getByRole('dialog', { name: 'Timan Support' });
     expect(panel.className).toContain('h-[min(88dvh,46rem)]');
     expect(panel.className).toContain('sm:w-[420px]');
+    expect(screen.queryByRole('button', { name: 'Tilbage' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Nulstil tilbud' })).not.toBeInTheDocument();
+  });
+
+  it('shows active workflow controls, keeps X as close, and uses the reset confirmation', () => {
+    const prompt = nextAssistantConfiguratorPrompt(createAssistantConfiguratorDraft('Opret tilbud på RC-1000S', 'da'), 'da');
+    window.sessionStorage.setItem('timan.support.session.v1:backend@timan.dk', JSON.stringify({
+      id: '22222222-2222-4222-8222-222222222222',
+      messages: [],
+      context: { route: '/portal' },
+      workflowState: {
+        workflowId: '11111111-1111-4111-8111-111111111111',
+        stateVersion: 2,
+        status: 'DRAFT',
+        configurator: prompt.state.configurator,
+        pendingField: prompt.state.pendingField,
+        canGoBack: true,
+        hasMeaningfulChoices: true,
+      },
+    }));
+
+    renderSupport();
+    fireEvent.click(screen.getByRole('button', { name: 'Åbn Timan Support' }));
+    expect(screen.getByRole('button', { name: 'Tilbage' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Nulstil tilbud' }));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(screen.getByText('De valgte oplysninger i dette tilbudsflow bliver nulstillet.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Annuller' }));
+
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Timan Support' })).getByRole('button', { name: 'Luk Timan Support' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Åbn Timan Support' }));
+    expect(screen.getByRole('button', { name: 'Nulstil tilbud' })).toBeInTheDocument();
   });
 
   it('derives minimal route context without retrieval or data fetching', () => {

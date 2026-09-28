@@ -23,6 +23,8 @@ type AssistantDraftState = {
   [key: string]: unknown;
 };
 
+export type AssistantWorkflowInputCompatibility = 'compatible' | 'interrupt' | 'ambiguous';
+
 export interface AssistantPrompt {
   state: AssistantDraftState;
   content: string;
@@ -201,6 +203,60 @@ export function applyAssistantTextInput(input: AssistantDraftState, content: str
     if (iso) state = { ...state, date: iso };
   }
   return { ...input, configurator: state, pendingField: null };
+}
+
+const WORKFLOW_CANCEL_PATTERNS = [
+  /\b(?:stop|annuller|nulstil|afbryd)\b.{0,40}\btilbud(?:det)?\b/i,
+  /\bjeg\s+vil\s+ikke\s+have\s+et\s+tilbud\b/i,
+  /\bjeg\s+vil\s+hellere\s+sp[øo]rge\s+om\s+noget\s+andet\b/i,
+  /\b(?:stop|cancel|reset|abort)\b.{0,40}\b(?:quote|offer)\b/i,
+  /\bi\s+(?:do\s+not|don['’]?t)\s+want\s+(?:a\s+)?(?:quote|offer)\b/i,
+  /\b(?:angebot|offerta|aj[aá]nlat|offert|devis|ofert[aeę]|nab[ií]dk[au])\b.{0,40}\b(?:abbrechen|stornieren|annullare|megszak[ií]t|avbryt|annuler|anuluj|zru[sš]it)\b/i,
+  /\b(?:abbrechen|stornieren|annullare|megszak[ií]t|avbryt|annuler|anuluj|zru[sš]it)\b.{0,40}\b(?:angebot|offerta|aj[aá]nlat|offert|devis|ofert[aeę]|nab[ií]dk[au])\b/i,
+];
+
+const QUESTION_WORDS = /\b(?:hvor|hvad|hvordan|hvem|hvilken|hvilket|what|where|when|how|who|which|was|wer|wie|wo|wann|quanto|quale|come|dove|mi|mit|hogyan|ki|melyik|vad|var|n[aä]r|hur|qui|quoi|quel|comment|o[uù]|kto|co|jak|gdzie|kdo|jak|kde)\b/i;
+
+export function matchAssistantWorkflowTextChoice(
+  input: AssistantDraftState,
+  content: string,
+  uiLanguage: string,
+): AssistantActionCommand | null {
+  const prompt = nextAssistantConfiguratorPrompt(input, uiLanguage);
+  const query = normalized(content);
+  if (!query || !prompt.card?.choices?.length) return null;
+  const choice = prompt.card.choices.find((item) => {
+    const label = normalized(item.label);
+    const value = normalized(item.command.value);
+    return query === label
+      || (label.length >= 4 && query.includes(label))
+      || (value.length >= 4 && query === value);
+  });
+  return choice?.command || null;
+}
+
+export function classifyAssistantWorkflowInput(
+  input: AssistantDraftState,
+  content: string,
+  uiLanguage: string,
+): AssistantWorkflowInputCompatibility {
+  const value = content.trim();
+  const pending = String(input.pendingField || '');
+  if (!value) return 'ambiguous';
+  if (WORKFLOW_CANCEL_PATTERNS.some((pattern) => pattern.test(value))) return 'interrupt';
+
+  const choice = matchAssistantWorkflowTextChoice(input, value, uiLanguage);
+  if (choice) return 'compatible';
+  if (QUESTION_WORDS.test(value)) return 'interrupt';
+
+  if (pending === 'machine') return resolveAssistantMachine(value) ? 'compatible' : 'ambiguous';
+  if (pending === 'delivery_date') return /\b20\d{2}-\d{2}-\d{2}\b/.test(value) ? 'compatible' : 'ambiguous';
+  if (pending === 'dealer') return normalized(value).length >= 2 ? 'compatible' : 'ambiguous';
+  if (pending === 'contact') return 'ambiguous';
+  if (pending.startsWith('accessory:') || pending === 'delivery_method' || pending === 'quote_kind') {
+    return 'ambiguous';
+  }
+  return 'interrupt';
 }
 
 export function nextAssistantConfiguratorPrompt(input: AssistantDraftState, uiLanguage: string): AssistantPrompt {

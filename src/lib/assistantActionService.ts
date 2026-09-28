@@ -11,6 +11,8 @@ export type AssistantEndpointAction =
   | 'inspect_lead'
   | 'create_configuration_draft'
   | 'set_configuration_option'
+  | 'navigate_workflow_back'
+  | 'abandon_workflow'
   | 'prepare_quote_email'
   | 'request_confirmation'
   | 'create_quote_draft'
@@ -42,6 +44,8 @@ export interface AssistantServerWorkflow {
   quote_number?: string | null;
   pricing_snapshot?: Record<string, unknown> | null;
   email_draft?: Record<string, unknown> | null;
+  can_go_back?: boolean;
+  has_meaningful_choices?: boolean;
 }
 
 export interface AssistantActionResponse {
