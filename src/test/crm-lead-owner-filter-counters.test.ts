@@ -30,9 +30,8 @@ describe('CRM lead owner-filtered counters', () => {
     );
 
     expect(tabHandler).toContain("if (nextTab === 'all')");
-    expect(tabHandler).toContain('setTab(nextTab)');
-    expect(tabHandler).toContain('setFollowupFilter(null)');
-    expect(tabHandler).not.toContain("setOwnerFilter('')");
+    expect(tabHandler).toContain('updateNavigationState({ tab: nextTab, followupFilter: null })');
+    expect(tabHandler).not.toContain('ownerFilter:');
     expect(page.match(/onClick=\{\(\) => selectLeadTab\(t\.key\)\}/g)).toHaveLength(5);
   });
 
@@ -42,14 +41,8 @@ describe('CRM lead owner-filtered counters', () => {
       page.indexOf('const selectLeadTab'),
     );
 
-    expect(resetHandler).toContain("setTab('all')");
-    expect(resetHandler).toContain('setFollowupFilter(null)');
-    expect(resetHandler).toContain("setQ('')");
-    expect(resetHandler).toContain("setTypeFilter('')");
-    expect(resetHandler).toContain("setMachineFilter('')");
-    expect(resetHandler).toContain("setEquipmentFilter('')");
-    expect(resetHandler).toContain("setOwnerFilter('')");
-    expect(resetHandler).toContain("setStage('')");
-    expect(resetHandler).toContain("setSort('default')");
+    expect(resetHandler).toContain("defaultCrmLeadsNavigationState('all')");
+    expect(resetHandler).toContain('clearDealer: true');
+    expect(resetHandler).toContain('serializeCrmLeadsNavigationState');
   });
 });

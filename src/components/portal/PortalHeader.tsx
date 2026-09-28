@@ -24,6 +24,7 @@ import BackendSideNav from '@/components/portal/BackendSideNav';
 import { clearLocalAcademyEnrollment } from '@/lib/academyCurriculum';
 import { ACADEMY_PARTNER_MAP, ACADEMY_PORTAL_BASICS, academySandbox } from '@/lib/academySandbox';
 import { useAppUser } from '@/context/AppUserContext';
+import { clearCurrentCrmLeadsHistoryState } from '@/lib/crmLeadsNavigationState';
 
 const LANGS = PORTAL_LANGUAGES;
 
@@ -120,6 +121,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
   }
 
   function chooseMode(mode: ActiveMode) {
+    clearCurrentCrmLeadsHistoryState();
     setActiveModeState(mode);
     setModeMenuOpen(false);
     setActiveMode(user.email, mode);
@@ -237,6 +239,7 @@ export default function PortalHeader({ user, language, onLanguageChange, onLogou
                 if (academySandbox.getActiveCase() === ACADEMY_PORTAL_BASICS) {
                   academySandbox.trackPortalBasicsLogoHome(location.pathname);
                 }
+                clearCurrentCrmLeadsHistoryState();
                 navigate(homeTarget());
               }}
               className="inline-flex items-center rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2d5a27] focus-visible:ring-offset-2"

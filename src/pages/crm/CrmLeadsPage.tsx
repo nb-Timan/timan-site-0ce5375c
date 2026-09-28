@@ -1,5 +1,5 @@
 import AcademyCrmGuidance from '@/components/academy/AcademyCrmGuidance';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
@@ -66,6 +66,18 @@ import {
   getCrmLeadEquipmentOptions,
   getCrmLeadMachineFamilyLabel,
 } from '@/lib/crmLeadMachineFilter';
+import {
+  defaultCrmLeadsNavigationState,
+  parseCrmLeadsNavigationState,
+  readCurrentCrmLeadsScrollPosition,
+  rememberCurrentCrmLeadsScrollPosition,
+  serializeCrmLeadsNavigationState,
+  type CrmLeadsFollowupFilter,
+  type CrmLeadsNavigationState,
+  type CrmLeadsSort,
+  type CrmLeadsTab,
+  type CrmLeadsType,
+} from '@/lib/crmLeadsNavigationState';
 
 // ---- i18n. English fallback. ----
 type TKey =
@@ -364,11 +376,11 @@ function mapDemo(d: CrmDemoLead): UnifiedLead {
   };
 }
 
-type TabKey = 'open' | 'won' | 'closed' | 'all';
-type SortKey = 'default' | 'title_asc' | 'title_desc' | 'date_desc' | 'date_asc' | 'prob_desc' | 'prob_asc';
-type UserLeadType = 'open' | 'demo' | 'won' | 'lost';
+type TabKey = CrmLeadsTab;
+type SortKey = CrmLeadsSort;
+type UserLeadType = CrmLeadsType;
 type FollowupTone = 'overdue' | 'soon' | 'later' | 'neutral';
-type FollowupFilter = Exclude<FollowupTone, 'neutral'>;
+type FollowupFilter = CrmLeadsFollowupFilter;
 
 const USER_LEAD_TYPES: UserLeadType[] = ['open', 'demo', 'won', 'lost'];
 const MOBILE_RESULT_TABS: TabKey[] = ['all', 'won', 'closed'];
@@ -465,8 +477,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const { uiLanguage: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const dealerParam = searchParams.get('dealer') || '';
+  const [searchParams, setSearchParams] = useSearchParams();
   const portalRole = derivePortalRole(effectiveUser);
   const isAdmin = isCrmAdmin(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
@@ -496,17 +507,24 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const [pageResult, setPageResult] = useState<CrmLeadsPageQueryResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
-
-  const [tab, setTab] = useState<TabKey>(dealerParam ? 'all' : 'open');
-  const [followupFilter, setFollowupFilter] = useState<FollowupFilter | null>(null);
-  const [q, setQ] = useState(dealerParam);
-  const [typeFilter, setTypeFilter] = useState<UserLeadType | ''>('');
-  const [machineFilter, setMachineFilter] = useState('');
-  const [equipmentFilter, setEquipmentFilter] = useState('');
-  const [ownerFilter, setOwnerFilter] = useState<CrmLeadOwnerFilter>('');
-  const [stage, setStage] = useState<string>('');
-  const [sort, setSort] = useState<SortKey>('default');
-  const [page, setPage] = useState(0);
+  const navigationState = useMemo(
+    () => parseCrmLeadsNavigationState(searchParams, { isAdmin }),
+    [isAdmin, searchParams],
+  );
+  const {
+    tab,
+    followupFilter,
+    q,
+    typeFilter,
+    machineFilter,
+    equipmentFilter,
+    ownerFilter,
+    stage,
+    sort,
+    page,
+  } = navigationState;
+  const pendingScrollRestore = useRef<number | null>(readCurrentCrmLeadsScrollPosition());
+  const scrollRestoreComplete = useRef(false);
   const [closeTarget, setCloseTarget] = useState<CrmLead | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<UnifiedLead | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -519,16 +537,27 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const mobileControlClass = 'flex min-h-11 w-full items-center justify-between gap-1 rounded-lg border px-2 py-1.5 text-left text-[11px] font-medium leading-tight transition';
   const mobileCountClass = 'inline-flex min-w-5 shrink-0 items-center justify-center rounded-md px-1 py-0.5 text-[10px] tabular-nums';
 
+  const updateNavigationState = useCallback((
+    patch: Partial<CrmLeadsNavigationState>,
+    options: { clearDealer?: boolean; resetPage?: boolean } = {},
+  ) => {
+    setSearchParams((currentParams) => {
+      const current = parseCrmLeadsNavigationState(currentParams, { isAdmin });
+      const next = { ...current, ...patch };
+      if (options.resetPage !== false && patch.page === undefined) next.page = 0;
+      return serializeCrmLeadsNavigationState(currentParams, next, {
+        isAdmin,
+        clearDealer: options.clearDealer,
+      });
+    }, { replace: true });
+  }, [isAdmin, setSearchParams]);
+
   const resetAllLeadFilters = () => {
-    setTab('all');
-    setFollowupFilter(null);
-    setQ('');
-    setTypeFilter('');
-    setMachineFilter('');
-    setEquipmentFilter('');
-    setOwnerFilter('');
-    setStage('');
-    setSort('default');
+    setSearchParams((currentParams) => serializeCrmLeadsNavigationState(
+      currentParams,
+      defaultCrmLeadsNavigationState('all'),
+      { isAdmin, clearDealer: true },
+    ), { replace: true });
   };
 
   const selectLeadTab = (nextTab: TabKey) => {
@@ -536,17 +565,8 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       resetAllLeadFilters();
       return;
     }
-    setTab(nextTab);
-    setFollowupFilter(null);
+    updateNavigationState({ tab: nextTab, followupFilter: null });
   };
-
-  useEffect(() => {
-    if (dealerParam) {
-      setQ(dealerParam);
-      setTab('all');
-      setFollowupFilter(null);
-    }
-  }, [dealerParam]);
 
   const refreshLeads = async () => {
     setReloadKey((value) => value + 1);
@@ -564,12 +584,6 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       setQuoteConvertBusyId(null);
     }
   }
-
-  useEffect(() => {
-    if (!dealerParam) {
-      setTab('open');
-    }
-  }, [dealerParam]);
 
   useEffect(() => {
     let cancelled = false;
@@ -651,10 +665,6 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
     return () => { cancelled = true; };
   }, [appUser?.email, effectiveSellerEmail, externalDealerScope, externalScopeLoading, followupFilter, isAdmin, lang, machineFilter, equipmentFilter, ownerFilter, ownerOptions.primarySellerIds, page, portalRole, q, reloadKey, repository, sort, stage, tab, typeFilter]);
 
-  useEffect(() => {
-    setPage(0);
-  }, [tab, followupFilter, q, typeFilter, machineFilter, equipmentFilter, ownerFilter, stage, sort]);
-
   const visible = useMemo<UnifiedLead[]>(
     () => (pageResult?.rows ?? []).map((row) => ({ ...row, detail_href: row.detail_href || null })),
     [pageResult],
@@ -683,6 +693,16 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
     });
     return () => { cancelled = true; };
   }, [repository.academy, visible]);
+
+  useEffect(() => {
+    if (loading || scrollRestoreComplete.current) return;
+    scrollRestoreComplete.current = true;
+    const y = pendingScrollRestore.current;
+    pendingScrollRestore.current = null;
+    if (y == null) return;
+    const frame = requestAnimationFrame(() => window.scrollTo({ top: y, behavior: 'auto' }));
+    return () => cancelAnimationFrame(frame);
+  }, [loading]);
 
   const counts = pageResult?.counts ?? { all: 0, open: 0, won: 0, closed: 0 };
   const followupCounts = pageResult?.followup_counts ?? { overdue: 0, soon: 0, later: 0 };
@@ -796,8 +816,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               <button
                 key={item.key}
                 onClick={() => {
-                  setTab('open');
-                  setFollowupFilter(active ? null : item.key);
+                  updateNavigationState({ tab: 'open', followupFilter: active ? null : item.key });
                 }}
                 className={cn(mobileControlClass, FOLLOWUP_BADGE[item.key], active && 'shadow-sm ring-2 ring-offset-1 ring-current/20')}
               >
@@ -874,8 +893,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               <button
                 key={item.key}
                 onClick={() => {
-                  setTab('open');
-                  setFollowupFilter(active ? null : item.key);
+                  updateNavigationState({ tab: 'open', followupFilter: active ? null : item.key });
                 }}
                 className={cn(
                   topFilterButtonClass,
@@ -957,10 +975,10 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       )}>
         <div className="relative min-w-0 col-span-2 md:col-span-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input value={q} onChange={e=>setQ(e.target.value)} placeholder={tt('search_ph', lang)}
+          <input value={q} onChange={e=>updateNavigationState({ q: e.target.value })} placeholder={tt('search_ph', lang)}
             className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:border-[#2d5a27] focus:ring-2 focus:ring-[#2d5a27]/10 outline-none" />
         </div>
-        <select value={typeFilter} onChange={e=>setTypeFilter(e.target.value as UserLeadType | '')}
+        <select value={typeFilter} onChange={e=>updateNavigationState({ typeFilter: e.target.value as UserLeadType | '' })}
           aria-label={tt('filter_type', lang)}
           className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_types', lang)}</option>
@@ -968,7 +986,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             <option key={type} value={type}>{tt('filter_type', lang)}: {getUserLeadTypeLabel(type, lang)}</option>
           ))}
         </select>
-        <select value={machineFilter} onChange={e=>setMachineFilter(e.target.value)}
+        <select value={machineFilter} onChange={e=>updateNavigationState({ machineFilter: e.target.value })}
           aria-label={tt('filter_machine', lang)}
           className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_machines', lang)}</option>
@@ -976,20 +994,20 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             <option key={machine} value={machine}>{getCrmLeadMachineFamilyLabel(machine, lang)}</option>
           ))}
         </select>
-        <select value={equipmentFilter} onChange={e=>setEquipmentFilter(e.target.value)}
+        <select value={equipmentFilter} onChange={e=>updateNavigationState({ equipmentFilter: e.target.value })}
           aria-label={tt('filter_equipment', lang)}
           className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white"
           disabled={equipmentOptions.length === 0}>
           <option value="">{tt('all_equipment', lang)}</option>
           {equipmentOptions.map((equipment) => <option key={equipment} value={equipment}>{equipment}</option>)}
         </select>
-        <select value={stage} onChange={e=>setStage(e.target.value)}
+        <select value={stage} onChange={e=>updateNavigationState({ stage: e.target.value })}
           className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
           <option value="">{tt('all_status', lang)}</option>
           {statusOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
         {isAdmin && (
-          <select value={ownerFilter} onChange={e=>setOwnerFilter(e.target.value as CrmLeadOwnerFilter)}
+          <select value={ownerFilter} onChange={e=>updateNavigationState({ ownerFilter: e.target.value as CrmLeadOwnerFilter })}
             aria-label={tt('filter_owner', lang)}
             className="min-w-0 w-full truncate rounded-xl border border-gray-200 text-sm px-3 py-2.5 bg-white">
             <option value="">{tt('all_owners', lang)}</option>
@@ -1005,7 +1023,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
         )}
         <div className="relative min-w-0">
           <ArrowDownAZ className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <select value={sort} onChange={e=>setSort(e.target.value as SortKey)}
+          <select value={sort} onChange={e=>updateNavigationState({ sort: e.target.value as SortKey })}
             className="w-full truncate rounded-xl border border-gray-200 text-sm pl-10 pr-3 py-2.5 bg-white">
             <option value="default">{tt('sort_default', lang)}</option>
             <option value="title_asc">{tt('sort_title_asc', lang)}</option>
@@ -1064,7 +1082,11 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                   const noteActionLabel = noteCount > 0 ? `${crmLeadText('note', lang)} (${noteCount})` : crmLeadText('note', lang);
                   return (
                     <tr key={`${r.type}-${r.id}`}
-                      onClick={() => { if (r.detail_href) navigate(r.detail_href); }}
+                      onClick={() => {
+                        if (!r.detail_href) return;
+                        rememberCurrentCrmLeadsScrollPosition();
+                        navigate(r.detail_href);
+                      }}
                       className={cn('transition-colors', clickable ? 'cursor-pointer hover:bg-gray-50/60' : 'hover:bg-gray-50/40')}>
                       <td className="px-4 py-3.5">
                         <span className={cn(
@@ -1273,7 +1295,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               <button
                 type="button"
                 disabled={page === 0}
-                onClick={() => setPage((value) => Math.max(0, value - 1))}
+                onClick={() => updateNavigationState({ page: Math.max(0, page - 1) }, { resetPage: false })}
                 className="inline-flex h-9 items-center justify-center rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {tt('page_prev', lang)}
@@ -1281,7 +1303,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               <button
                 type="button"
                 disabled={pageEnd >= totalCount}
-                onClick={() => setPage((value) => value + 1)}
+                onClick={() => updateNavigationState({ page: page + 1 }, { resetPage: false })}
                 className="inline-flex h-9 items-center justify-center rounded-xl border border-gray-200 bg-white px-3 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {tt('page_next', lang)}

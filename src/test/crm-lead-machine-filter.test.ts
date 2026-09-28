@@ -81,8 +81,10 @@ describe('CRM lead canonical machine filtering', () => {
 
   it('keeps the master reset wired to the machine and equipment filters', () => {
     const page = readFileSync('src/pages/crm/CrmLeadsPage.tsx', 'utf8');
+    const navigation = readFileSync('src/lib/crmLeadsNavigationState.ts', 'utf8');
     const reset = page.slice(page.indexOf('const resetAllLeadFilters'), page.indexOf('const selectLeadTab'));
-    expect(reset).toContain("setMachineFilter('')");
-    expect(reset).toContain("setEquipmentFilter('')");
+    expect(reset).toContain("defaultCrmLeadsNavigationState('all')");
+    expect(navigation).toContain("machineFilter: ''");
+    expect(navigation).toContain("equipmentFilter: ''");
   });
 });

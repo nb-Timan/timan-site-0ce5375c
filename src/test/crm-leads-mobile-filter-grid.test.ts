@@ -30,11 +30,11 @@ describe('CRM leads mobile filter grid', () => {
       position = nextPosition;
     }
 
-    expect(filterStrip).toContain('onChange={e=>setTypeFilter');
-    expect(filterStrip).toContain('onChange={e=>setMachineFilter');
-    expect(filterStrip).toContain('onChange={e=>setEquipmentFilter');
-    expect(filterStrip).toContain('onChange={e=>setStage');
-    expect(filterStrip).toContain('onChange={e=>setOwnerFilter');
-    expect(filterStrip).toContain('onChange={e=>setSort');
+    expect(filterStrip).toContain('updateNavigationState({ typeFilter:');
+    expect(filterStrip).toContain('updateNavigationState({ machineFilter:');
+    expect(filterStrip).toContain('updateNavigationState({ equipmentFilter:');
+    expect(filterStrip).toContain('updateNavigationState({ stage:');
+    expect(filterStrip).toContain('updateNavigationState({ ownerFilter:');
+    expect(filterStrip).toContain('updateNavigationState({ sort:');
   });
 });
