@@ -2983,7 +2983,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           <div className="bg-white rounded-2xl shadow-2xl max-w-[620px] w-[95%] max-h-[90vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-4 border-b pb-2 text-gray-900">{infoModal.title}</h3>
             <div dangerouslySetInnerHTML={{ __html: infoModal.content }} />
-            {!!infoModal.overviewImages?.length && <div className="mt-5 space-y-4">{infoModal.overviewImages.map((image) => <img key={image.src} src={image.src} alt={image.alt} className="block h-auto max-h-[60vh] w-full max-w-full object-contain" />)}</div>}
+            {!!infoModal.overviewImages?.length && <div className="mt-5 space-y-4">{infoModal.overviewImages.map((image) => <img key={image.src} src={image.src} alt={image.alt} className={image.src === '/images/rc-751/rc-751-dimensions-overview.png' ? 'mx-auto block h-auto w-full max-w-[720px] object-contain' : 'block h-auto max-h-[60vh] w-full max-w-full object-contain'} />)}</div>}
             <div className="mt-6 text-center">
               <button onClick={() => setInfoModal(null)} className="px-6 py-3 bg-gray-200 border border-gray-300 rounded-lg hover:bg-gray-300 font-medium text-gray-700">{TC('close')}</button>
             </div>
@@ -2999,7 +2999,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               {marketingInformation.description && <section className="rounded-lg bg-gray-50 p-3"><h4 className="mb-2 font-bold text-gray-800">{TC('mainInfo')}</h4><p className="whitespace-pre-line text-sm text-gray-700">{marketingInformation.description}</p></section>}
               {marketingInformation.keyFeatures.length > 0 && <section className="border-t border-gray-200 pt-4"><h4 className="mb-2 font-bold text-gray-800">{TC('keyFeatures')}</h4><ul className="list-disc space-y-1 pl-5 text-sm text-gray-700">{marketingInformation.keyFeatures.map((feature, index) => <li key={`${feature}-${index}`}>{feature}</li>)}</ul></section>}
               {marketingInformation.specs.length > 0 && <section className="border-t border-gray-200 pt-4"><h4 className="mb-2 font-bold text-gray-800">{TC('dimSpecs')}</h4><div className="grid grid-cols-1 gap-x-4 gap-y-2 rounded-lg bg-gray-50 p-3 text-sm sm:grid-cols-2">{marketingInformation.specs.map((spec, index) => <div key={`${spec.label}-${index}`} className="contents"><span className="font-medium text-gray-700">{spec.label}</span><span className="font-semibold text-gray-900">{spec.value}</span></div>)}</div></section>}
-              {!!marketingInformation.overviewImages?.length && <div className="space-y-4">{marketingInformation.overviewImages.map((image) => <img key={image.src} src={image.src} alt={image.alt} className="block h-auto max-h-[60vh] w-full max-w-full object-contain" />)}</div>}
+              {!!marketingInformation.overviewImages?.length && <div className="space-y-4">{marketingInformation.overviewImages.map((image) => <img key={image.src} src={image.src} alt={image.alt} className={image.src === '/images/rc-751/rc-751-dimensions-overview.png' ? 'mx-auto block h-auto w-full max-w-[720px] object-contain' : 'block h-auto max-h-[60vh] w-full max-w-full object-contain'} />)}</div>}
             </div>
             <div className="mt-6 text-center"><button onClick={() => setMarketingInformation(null)} className="rounded-lg border border-gray-300 bg-gray-200 px-6 py-3 font-medium text-gray-700 hover:bg-gray-300">{TC('close')}</button></div>
           </div>

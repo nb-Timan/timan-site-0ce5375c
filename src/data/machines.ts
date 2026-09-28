@@ -204,6 +204,9 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         { label: 'Klippebredde', value: '750 mm' },
         { label: 'Højde', value: '600 mm' },
       ],
+      overviewImageUrls: [
+        '/images/rc-751/rc-751-dimensions-overview.png',
+      ],
     },
   },
   'Timan 3330': {
