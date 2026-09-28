@@ -1043,6 +1043,13 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                   <th className="text-left px-4 py-3">{tt('col_date', lang)}</th>
                   <th className="text-left px-4 py-3 whitespace-nowrap">{tt('col_followup', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_status', lang)}</th>
+                  <th
+                    scope="col"
+                    data-testid="crm-leads-note-header"
+                    className="w-[84px] min-w-[84px] px-2 py-3 text-left whitespace-nowrap"
+                  >
+                    {crmLeadText('note', lang)}
+                  </th>
                   <th className="text-right px-4 py-3">{tt('col_action', lang)}</th>
                 </tr>
               </thead>
@@ -1158,23 +1165,30 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                           </div>
                         ) : '—'}
                       </td>
+                      <td
+                        data-testid="crm-leads-note-cell"
+                        className="w-[84px] min-w-[84px] px-2 py-3.5 text-left align-middle"
+                      >
+                        {r.type === 'open' && !repository.academy ? (
+                          <button
+                            type="button"
+                            title={noteCount > 0 ? `${crmLeadText('addNote', lang)} · ${noteCount} ${crmLeadText('notesCount', lang)}` : crmLeadText('addNote', lang)}
+                            aria-label={`${noteActionLabel} for ${r.display_no}`}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setNoteTarget(r);
+                            }}
+                            className="inline-flex h-8 items-center justify-start gap-1 whitespace-nowrap rounded-md px-1.5 text-[12px] text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>{noteActionLabel}</span>
+                          </button>
+                        ) : (
+                          <span className="text-[12px] text-gray-400">—</span>
+                        )}
+                      </td>
                       <td className="px-2 py-3.5 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {r.type === 'open' && !repository.academy && (
-                            <button
-                              type="button"
-                              title={noteCount > 0 ? `${crmLeadText('addNote', lang)} · ${noteCount} ${crmLeadText('notesCount', lang)}` : crmLeadText('addNote', lang)}
-                              aria-label={`${noteActionLabel} for ${r.display_no}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setNoteTarget(r);
-                              }}
-                              className="inline-flex h-8 items-center gap-1 rounded-md px-1.5 text-[12px] text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                              <span>{noteActionLabel}</span>
-                            </button>
-                          )}
+                        <div data-testid="crm-leads-action-cell" className="flex items-center justify-end gap-2">
                           {canActOnOpenLead && (
                             <>
                               {!r.has_demo && (
