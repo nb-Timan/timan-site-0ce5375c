@@ -112,4 +112,4 @@ export interface SupportSessionState {
   failedRequest: SupportFailedRequest | null;
 }
 
-export type SupportQuickIntent = 'machine-info' | 'portal-help' | 'timan-website' | 'create-quote';
+export type SupportQuickIntent = 'machine-info' | 'portal-help' | 'timan-website' | 'product-discovery' | 'create-quote';

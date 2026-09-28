@@ -40,6 +40,10 @@ import type {
 import type { ConfiguratorState } from '@/types/configurator';
 import { t } from '@/lib/i18n/translations';
 import { normalizePortalLanguageCode } from '@/lib/portalLanguages';
+import {
+  buildSupportProductDiscoveryContext,
+  isProductDiscoveryQuestion,
+} from '@/lib/supportProductDiscovery';
 
 function id(): string {
   return crypto.randomUUID();
@@ -64,7 +68,7 @@ function message(
 
 function isQuoteIntent(request: SupportSendRequest): boolean {
   if (request.intent === 'create-quote') return true;
-  return /\b(tilbud|quote|angebot|offerta|ajanlat)\b/i.test(request.content);
+  return /\b(opret|lav|start|create|make|starten|erstellen|crea|készíts|skapa|créer|utwórz|vytvoř)\b.{0,24}\b(tilbud|quote|angebot|offerta|ajánlat|offert|devis|ofert|nabídku)\b/i.test(request.content);
 }
 
 function clientWorkflow(server: AssistantServerWorkflow): AssistantWorkflowState {
@@ -439,7 +443,23 @@ export class AssistantSupportService implements SupportService {
   async sendMessage(request: SupportSendRequest): Promise<SupportMessage> {
     const workflow = workflowFromRequest(request);
     const command = request.command;
-    if (!workflow && !command && !isQuoteIntent(request)) return this.fallback.sendMessage(request);
+    if (!workflow && !command && !isQuoteIntent(request)) {
+      if (!isProductDiscoveryQuestion(request.content)) return this.fallback.sendMessage(request);
+      const catalog = await invokeAssistantAction({
+        action: 'get_machine_configuration_options',
+        conversationId: request.conversation.id,
+      });
+      const productDiscovery = buildSupportProductDiscoveryContext(
+        request.content,
+        request.language,
+        catalog.options || [],
+      );
+      return this.fallback.sendMessage({
+        ...request,
+        intent: productDiscovery ? 'product-discovery' : request.intent,
+        productDiscovery: productDiscovery || undefined,
+      });
+    }
     if (!workflow && command && command.type !== 'start_quote') {
       return message(t('supportWorkflowInactive', uiLanguage(request.language)), {});
     }

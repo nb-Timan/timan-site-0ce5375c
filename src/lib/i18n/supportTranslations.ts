@@ -27,6 +27,8 @@ type SupportTranslationKey =
   | 'supportWorkflowTopicSwitchNo'
   | 'supportWorkflowClarify'
   | 'supportWorkflowInactive'
+  | 'supportDiscoveryQuoteTitle'
+  | 'supportDiscoveryQuoteAction'
   | 'supportMock3330'
   | 'supportMockPortal'
   | 'supportMockTimanWebsite'
@@ -62,6 +64,8 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportWorkflowTopicSwitchNo: 'Nej, fortsæt tilbud',
     supportWorkflowClarify: 'Jeg kunne ikke sikkert knytte svaret til det aktuelle tilbudstrin. Vælg en mulighed eller skriv et tydeligere svar.',
     supportWorkflowInactive: 'Tilbudsflowet er ikke længere aktivt.',
+    supportDiscoveryQuoteTitle: 'Vil du gå videre med en løsning?',
+    supportDiscoveryQuoteAction: 'Opret tilbud',
     supportMock3330: 'Timan 3330 er en kompakt redskabsbærer. Dette er et fast testsvar og indeholder ikke live produktdata.',
     supportMockPortal: 'Jeg kan hjælpe med at finde rundt i portalen. Dette er et fast testsvar; prøv den relevante menu eller sideoverskrift.',
     supportMockTimanWebsite: 'Information fra Timan.dk bliver tilgængelig i en senere fase. Dette er et fast testsvar.',
@@ -94,6 +98,8 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportWorkflowTopicSwitchNo: 'No, continue quote',
     supportWorkflowClarify: 'I could not safely match that answer to the current quote step. Choose an option or enter a clearer answer.',
     supportWorkflowInactive: 'The quote workflow is no longer active.',
+    supportDiscoveryQuoteTitle: 'Would you like to continue with a solution?',
+    supportDiscoveryQuoteAction: 'Create quote',
     supportMock3330: 'The Timan 3330 is a compact tool carrier. This is a fixed test response and does not contain live product data.',
     supportMockPortal: 'I can help you navigate the portal. This is a fixed test response; try the relevant menu or page heading.',
     supportMockTimanWebsite: 'Information from Timan.dk will be available in a later phase. This is a fixed test response.',
@@ -126,6 +132,8 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportWorkflowTopicSwitchNo: 'Nein, Angebot fortsetzen',
     supportWorkflowClarify: 'Die Antwort konnte dem aktuellen Angebotsschritt nicht sicher zugeordnet werden. Wählen Sie eine Option oder geben Sie eine eindeutigere Antwort ein.',
     supportWorkflowInactive: 'Der Angebotsablauf ist nicht mehr aktiv.',
+    supportDiscoveryQuoteTitle: 'Möchten Sie mit einer Lösung fortfahren?',
+    supportDiscoveryQuoteAction: 'Angebot erstellen',
     supportMock3330: 'Der Timan 3330 ist ein kompakter Geräteträger. Dies ist eine feste Testantwort ohne Live-Produktdaten.',
     supportMockPortal: 'Ich kann bei der Navigation im Portal helfen. Dies ist eine feste Testantwort; nutzen Sie das passende Menü oder die Seitenüberschrift.',
     supportMockTimanWebsite: 'Informationen von Timan.dk werden in einer späteren Phase verfügbar. Dies ist eine feste Testantwort.',
@@ -158,6 +166,8 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportWorkflowTopicSwitchNo: 'No, continua offerta',
     supportWorkflowClarify: 'Non è stato possibile associare con certezza la risposta al passaggio corrente. Scegli un’opzione o inserisci una risposta più chiara.',
     supportWorkflowInactive: 'Il flusso dell’offerta non è più attivo.',
+    supportDiscoveryQuoteTitle: 'Vuoi continuare con una soluzione?',
+    supportDiscoveryQuoteAction: 'Crea offerta',
     supportMock3330: 'Timan 3330 è un portattrezzi compatto. Questa è una risposta di prova fissa e non contiene dati prodotto in tempo reale.',
     supportMockPortal: 'Posso aiutarti a navigare nel portale. Questa è una risposta di prova fissa; prova il menu o il titolo della pagina pertinente.',
     supportMockTimanWebsite: 'Le informazioni da Timan.dk saranno disponibili in una fase successiva. Questa è una risposta di prova fissa.',
@@ -190,6 +200,8 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportWorkflowTopicSwitchNo: 'Nem, ajánlat folytatása',
     supportWorkflowClarify: 'A választ nem lehetett biztonságosan az aktuális ajánlati lépéshez kapcsolni. Válasszon egy lehetőséget, vagy adjon egyértelműbb választ.',
     supportWorkflowInactive: 'Az ajánlati folyamat már nem aktív.',
+    supportDiscoveryQuoteTitle: 'Szeretné folytatni egy megoldással?',
+    supportDiscoveryQuoteAction: 'Ajánlat létrehozása',
     supportMock3330: 'A Timan 3330 egy kompakt eszközhordozó. Ez egy rögzített tesztválasz, amely nem tartalmaz élő termékadatokat.',
     supportMockPortal: 'Segítek eligazodni a portálon. Ez egy rögzített tesztválasz; próbálja a megfelelő menüt vagy oldalfejlécet.',
     supportMockTimanWebsite: 'A Timan.dk információi egy későbbi fázisban lesznek elérhetők. Ez egy rögzített tesztválasz.',
@@ -222,6 +234,8 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportWorkflowTopicSwitchNo: 'Nej, fortsätt offert',
     supportWorkflowClarify: 'Svaret kunde inte säkert kopplas till det aktuella offertsteget. Välj ett alternativ eller skriv ett tydligare svar.',
     supportWorkflowInactive: 'Offertflödet är inte längre aktivt.',
+    supportDiscoveryQuoteTitle: 'Vill du gå vidare med en lösning?',
+    supportDiscoveryQuoteAction: 'Skapa offert',
     supportMock3330: 'Timan 3330 är en kompakt redskapsbärare. Detta är ett fast testsvar utan produktdata i realtid.',
     supportMockPortal: 'Jag kan hjälpa dig att hitta i portalen. Detta är ett fast testsvar; prova relevant meny eller sidrubrik.',
     supportMockTimanWebsite: 'Information från Timan.dk blir tillgänglig i en senare fas. Detta är ett fast testsvar.',
@@ -254,6 +268,8 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportWorkflowTopicSwitchNo: 'Non, continuer le devis',
     supportWorkflowClarify: 'La réponse n’a pas pu être associée avec certitude à l’étape actuelle. Choisissez une option ou saisissez une réponse plus claire.',
     supportWorkflowInactive: 'Le parcours de devis n’est plus actif.',
+    supportDiscoveryQuoteTitle: 'Souhaitez-vous poursuivre avec une solution ?',
+    supportDiscoveryQuoteAction: 'Créer un devis',
     supportMock3330: "Le Timan 3330 est un porte-outils compact. Ceci est une réponse de test fixe sans données produit en direct.",
     supportMockPortal: "Je peux vous aider à naviguer dans le portail. Ceci est une réponse de test fixe ; essayez le menu ou le titre de page correspondant.",
     supportMockTimanWebsite: "Les informations de Timan.dk seront disponibles dans une phase ultérieure. Ceci est une réponse de test fixe.",
@@ -286,6 +302,8 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportWorkflowTopicSwitchNo: 'Nie, kontynuuj ofertę',
     supportWorkflowClarify: 'Nie można bezpiecznie dopasować odpowiedzi do bieżącego kroku oferty. Wybierz opcję lub wpisz jaśniejszą odpowiedź.',
     supportWorkflowInactive: 'Proces oferty nie jest już aktywny.',
+    supportDiscoveryQuoteTitle: 'Czy chcesz przejść dalej z rozwiązaniem?',
+    supportDiscoveryQuoteAction: 'Utwórz ofertę',
     supportMock3330: 'Timan 3330 to kompaktowy nośnik narzędzi. Jest to stała odpowiedź testowa bez danych produktu na żywo.',
     supportMockPortal: 'Pomogę poruszać się po portalu. Jest to stała odpowiedź testowa; użyj odpowiedniego menu lub nagłówka strony.',
     supportMockTimanWebsite: 'Informacje z Timan.dk będą dostępne w późniejszej fazie. Jest to stała odpowiedź testowa.',
@@ -318,6 +336,8 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportWorkflowTopicSwitchNo: 'Ne, pokračovat v nabídce',
     supportWorkflowClarify: 'Odpověď nebylo možné bezpečně přiřadit k aktuálnímu kroku nabídky. Vyberte možnost nebo zadejte jasnější odpověď.',
     supportWorkflowInactive: 'Proces nabídky již není aktivní.',
+    supportDiscoveryQuoteTitle: 'Chcete pokračovat s řešením?',
+    supportDiscoveryQuoteAction: 'Vytvořit nabídku',
     supportMock3330: 'Timan 3330 je kompaktní nosič nářadí. Toto je pevná testovací odpověď bez živých produktových dat.',
     supportMockPortal: 'Pomohu vám s orientací v portálu. Toto je pevná testovací odpověď; použijte příslušnou nabídku nebo nadpis stránky.',
     supportMockTimanWebsite: 'Informace z Timan.dk budou dostupné v pozdější fázi. Toto je pevná testovací odpověď.',

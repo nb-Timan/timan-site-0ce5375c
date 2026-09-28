@@ -9,6 +9,7 @@ import type {
   SupportQuickIntent,
   SupportWorkflowState,
 } from '@/lib/supportTypes';
+import type { SupportProductDiscoveryContext } from '@/lib/supportProductDiscovery';
 
 export interface SupportSendRequest {
   content: string;
@@ -20,6 +21,7 @@ export interface SupportSendRequest {
   requestId?: string;
   viewAsActive?: boolean;
   command?: AssistantActionCommand;
+  productDiscovery?: SupportProductDiscoveryContext;
 }
 
 export interface SupportService {
@@ -71,6 +73,7 @@ interface SupportChatResponse {
   confidence_score?: number;
   confidence_reason?: string;
   outcome_type?: string;
+  suggest_quote_workflow?: boolean;
 }
 
 export class ApiSupportService implements SupportService {
@@ -88,12 +91,22 @@ export class ApiSupportService implements SupportService {
           productId: request.context.productId,
         },
         intent: request.intent,
+        product_discovery: request.productDiscovery,
         view_as_active: request.viewAsActive === true,
       },
     });
     if (error || !data?.answer) {
       throw new Error(error?.message || 'support-chat-error');
     }
+    const actionCard = data.suggest_quote_workflow ? {
+      kind: 'choices' as const,
+      title: t('supportDiscoveryQuoteTitle', request.language),
+      choices: [{
+        id: 'start-quote-from-discovery',
+        label: t('supportDiscoveryQuoteAction', request.language),
+        command: { type: 'start_quote' as const },
+      }],
+    } : undefined;
     return {
       id: data.response_id || `support-${requestId}`,
       role: 'assistant',
@@ -107,6 +120,7 @@ export class ApiSupportService implements SupportService {
       confidenceScore: data.confidence_score,
       confidenceReason: data.confidence_reason,
       outcomeType: data.outcome_type,
+      actionCard,
     };
   }
 }

@@ -177,6 +177,53 @@ function knowledgePayload(draft: SupportKnowledgeDraft) {
   };
 }
 
+export function normalizeControlledTimanUrl(value: string): string | null {
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== 'https:' || !['timan.dk', 'www.timan.dk'].includes(url.hostname.toLowerCase())) return null;
+    if (url.username || url.password) return null;
+    url.hash = '';
+    url.hostname = url.hostname.toLowerCase();
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+async function registerControlledTimanSource(item: SupportKnowledgeItem): Promise<void> {
+  const canonicalUrl = normalizeControlledTimanUrl(item.source_reference || '');
+  if (!canonicalUrl) return;
+  const language = normalizePortalLanguageCode(item.language) || FALLBACK_LANGUAGE;
+  const { data: existing, error: readError } = await supabase
+    .from('support_controlled_source_registry')
+    .select('id, knowledge_item_id')
+    .eq('canonical_url', canonicalUrl)
+    .eq('language', language)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (existing?.knowledge_item_id && existing.knowledge_item_id !== item.id) {
+    throw new Error('Controlled Timan source is already linked to another knowledge item.');
+  }
+  if (existing) {
+    if (!existing.knowledge_item_id) {
+      const { error } = await supabase.from('support_controlled_source_registry')
+        .update({ knowledge_item_id: item.id }).eq('id', existing.id);
+      if (error) throw error;
+    }
+    return;
+  }
+  const parsed = new URL(canonicalUrl);
+  const { error } = await supabase.from('support_controlled_source_registry').insert({
+    knowledge_item_id: item.id,
+    canonical_url: canonicalUrl,
+    domain: parsed.hostname,
+    language,
+    page_type: 'PRODUCT_PAGE',
+    approval_state: 'DRAFT',
+  });
+  if (error) throw error;
+}
+
 export async function createSupportKnowledgeItem(
   draft: SupportKnowledgeDraft,
 ): Promise<SupportKnowledgeItem> {
@@ -189,7 +236,9 @@ export async function createSupportKnowledgeItem(
     .select('*')
     .single();
   if (error) throw error;
-  return data as SupportKnowledgeItem;
+  const item = data as SupportKnowledgeItem;
+  await registerControlledTimanSource(item);
+  return item;
 }
 
 export async function updateSupportKnowledgeItem(
@@ -206,7 +255,9 @@ export async function updateSupportKnowledgeItem(
     .select('*')
     .single();
   if (error) throw error;
-  return data as SupportKnowledgeItem;
+  const updated = data as SupportKnowledgeItem;
+  await registerControlledTimanSource(updated);
+  return updated;
 }
 
 export function draftKnowledgeFromGap(gap: SupportKnowledgeGapRow): SupportKnowledgeDraft {
@@ -275,7 +326,20 @@ export async function transitionSupportKnowledgeSource(
     p_note: null,
   });
   if (error) throw error;
-  return data as SupportKnowledgeSource;
+  const source = data as SupportKnowledgeSource;
+  const { data: item } = await supabase.from('support_knowledge_items')
+    .select('id, source_reference, language').eq('id', source.knowledge_item_id).maybeSingle();
+  const canonicalUrl = normalizeControlledTimanUrl(item?.source_reference || '');
+  if (canonicalUrl && item) {
+    const language = normalizePortalLanguageCode(item.language) || FALLBACK_LANGUAGE;
+    const { error: registryError } = await supabase.from('support_controlled_source_registry')
+      .update({ approval_state: status })
+      .eq('canonical_url', canonicalUrl)
+      .eq('language', language)
+      .eq('knowledge_item_id', item.id);
+    if (registryError) throw registryError;
+  }
+  return source;
 }
 
 export async function fetchSupportKnowledgeAssociations(knowledgeItemId: string): Promise<SupportKnowledgeAssociations> {
