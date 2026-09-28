@@ -168,6 +168,10 @@ describe('CRM Quick Note follow-up and calendar flow', () => {
 
   it('uses the shared fields in both overview and detail without changing note history', () => {
     expect(panel).toContain('<CrmLeadFollowupFields');
+    expect(panel).toContain('MANUAL_NEXT_ACTIVITY_OPTIONS');
+    expect(panel).toContain('disabledActivityOptions={CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS}');
+    expect(panel).not.toContain("option !== 'Closed with order'");
+    expect(panel).not.toContain("option !== 'Closed without order'");
     expect(panel).toContain("crmLeadText('addFollowupToCalendar', uiLanguage)");
     expect(panel).toContain('showFollowupControls = true');
     expect(panel).toContain('createCrmLeadNote');

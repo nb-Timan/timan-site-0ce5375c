@@ -12,8 +12,9 @@ import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
-  NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
+  CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
   CUSTOMER_TYPE_OPTIONS, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
+  getNextActivitySelectorOptions, MANUAL_NEXT_ACTIVITY_OPTIONS,
   PipelineStage, formatLeadNo,
   getLeadAttachmentSignedUrl, getLeadAttachmentSignedUrls, getLeadImageAttachments, uploadLeadAttachments, type CrmLeadAttachment, type CrmLinkedSalesEvent,
 } from '@/lib/crmLeadsService';
@@ -1634,13 +1635,13 @@ export default function CrmNewLeadPage() {
                 activity={nextActivity}
                 onNextFollowupChange={handleNextFollowupChange}
                 onActivityChange={handleNextActivityChange}
-                activityOptions={[...new Set([
-                  ...NEXT_ACTIVITY_OPTIONS
-                    .filter((option) => option !== 'Closed with order' && option !== 'Closed without order')
+                activityOptions={getNextActivitySelectorOptions(
+                  nextActivity,
+                  MANUAL_NEXT_ACTIVITY_OPTIONS
                     .slice()
                     .sort((a, b) => nextActivityToProbability(a) - nextActivityToProbability(b)),
-                  nextActivity,
-                ].filter(Boolean))]}
+                )}
+                disabledActivityOptions={CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS}
                   activityLabel={(activity) => crmLeadActivityLabel(crmNextActivityLabel(activity, uiLanguage), uiLanguage)}
                 required
                 renderFollowup={() => <SmartDateField

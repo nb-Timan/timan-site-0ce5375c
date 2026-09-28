@@ -10,6 +10,7 @@ import {
   deriveLegacyPipelineStage,
   NEXT_ACTIVITY_WON,
   NEXT_ACTIVITY_LOST,
+  NEXT_ACTIVITY_NOT_RELEVANT,
 } from '@/lib/leadStatus';
 import { classifyLeadFollowupUrgency } from '@/lib/leadFollowupUrgency';
 import type { CrmLead } from '@/lib/crmLeadsService';
@@ -90,6 +91,12 @@ describe('Won/Lost close flow values', () => {
     expect(nextActivityToProbability(na)).toBe(0);
     expect(isLeadClosed(na)).toBe(true);
     expect(deriveLegacyPipelineStage(na)).toBe('Lost');
+  });
+  it('Not relevant keeps its existing closed-loss semantics', () => {
+    expect(nextActivityToLeadStatus(NEXT_ACTIVITY_NOT_RELEVANT)).toBe('Tabt');
+    expect(nextActivityToProbability(NEXT_ACTIVITY_NOT_RELEVANT)).toBe(0);
+    expect(isLeadClosed(NEXT_ACTIVITY_NOT_RELEVANT)).toBe(true);
+    expect(deriveLegacyPipelineStage(NEXT_ACTIVITY_NOT_RELEVANT)).toBe('Lost');
   });
 });
 

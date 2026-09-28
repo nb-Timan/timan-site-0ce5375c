@@ -16,7 +16,11 @@ import {
   type CrmLeadFollowupState,
   type CrmLeadDemoHistoryEvent,
 } from '@/lib/crmLeadNotesService';
-import { NEXT_ACTIVITY_OPTIONS } from '@/lib/crmLeadsService';
+import {
+  CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS,
+  getNextActivitySelectorOptions,
+  MANUAL_NEXT_ACTIVITY_OPTIONS,
+} from '@/lib/crmLeadsService';
 import { nextActivityToProbability } from '@/lib/leadStatus';
 import { toast } from 'sonner';
 import { useLanguage } from '@/context/LanguageContext';
@@ -41,8 +45,8 @@ interface CrmLeadHistoryPanelProps {
   onFollowupChanged?: (state: CrmLeadFollowupState) => void;
 }
 
-const QUICK_NOTE_ACTIVITY_OPTIONS = NEXT_ACTIVITY_OPTIONS
-  .filter((option) => option !== 'Closed with order' && option !== 'Closed without order' && option !== NEXT_ACTIVITY_DEMO_AGREED)
+const QUICK_NOTE_ACTIVITY_OPTIONS = MANUAL_NEXT_ACTIVITY_OPTIONS
+  .filter((option) => option !== NEXT_ACTIVITY_DEMO_AGREED)
   .slice()
   .sort((left, right) => nextActivityToProbability(left) - nextActivityToProbability(right));
 
@@ -215,7 +219,8 @@ export function CrmLeadHistoryPanel({
                   activity={nextActivity}
                   onNextFollowupChange={setNextFollowupDate}
                   onActivityChange={setNextActivity}
-                  activityOptions={[...new Set([...QUICK_NOTE_ACTIVITY_OPTIONS, nextActivity].filter(Boolean))]}
+                  activityOptions={getNextActivitySelectorOptions(nextActivity, QUICK_NOTE_ACTIVITY_OPTIONS)}
+                  disabledActivityOptions={CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS}
                   activityLabel={(activity) => crmLeadActivityLabel(crmNextActivityLabel(activity, uiLanguage), uiLanguage)}
                 />
               </div>

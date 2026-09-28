@@ -20,6 +20,11 @@ import {
   NEXT_ACTIVITY_DEMO_AGREED,
   NEXT_ACTIVITY_DEMO_REQUESTED,
 } from '@/lib/crmDemoStageI18n';
+import {
+  NEXT_ACTIVITY_LOST,
+  NEXT_ACTIVITY_NOT_RELEVANT,
+  NEXT_ACTIVITY_WON,
+} from '@/lib/leadStatus';
 
 // ---------- Shared option lists (Danish UI) ----------
 
@@ -38,13 +43,38 @@ export const NEXT_ACTIVITY_OPTIONS = [
   NEXT_ACTIVITY_DEMO_REQUESTED,
   NEXT_ACTIVITY_DEMO_AGREED,
   "Lead sent to the dealer",
-  "Closed without order",
-  "Closed with order",
-  "Not relevant",
+  NEXT_ACTIVITY_LOST,
+  NEXT_ACTIVITY_WON,
+  NEXT_ACTIVITY_NOT_RELEVANT,
   "New lead",
   "Wants to be contacted",
   "Timan",
 ] as const;
+
+export const CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS = [
+  NEXT_ACTIVITY_LOST,
+  NEXT_ACTIVITY_WON,
+  NEXT_ACTIVITY_NOT_RELEVANT,
+] as const;
+
+const CLOSE_FLOW_NEXT_ACTIVITY_SET = new Set<string>(CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS);
+
+export const MANUAL_NEXT_ACTIVITY_OPTIONS = NEXT_ACTIVITY_OPTIONS.filter(
+  (option) => !CLOSE_FLOW_NEXT_ACTIVITY_SET.has(option),
+);
+
+export function isManualNextActivityOption(activity: string | null | undefined): boolean {
+  return !!activity && !CLOSE_FLOW_NEXT_ACTIVITY_SET.has(activity);
+}
+
+export function getNextActivitySelectorOptions(
+  currentActivity: string | null | undefined,
+  options: readonly string[] = MANUAL_NEXT_ACTIVITY_OPTIONS,
+): string[] {
+  const current = currentActivity?.trim();
+  if (!current || options.includes(current)) return [...options];
+  return [current, ...options];
+}
 
 export const CONTACT_TYPE_OPTIONS = [
   "Phone", "Email", "Trade fair", "Dealer", "SoMe",
