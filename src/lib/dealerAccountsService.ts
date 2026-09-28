@@ -933,12 +933,14 @@ export async function fetchDealerAccountStatsForSeller(opts: {
  * see the same grouped structure as Timan Backend → Forhandlere.
  */
 export async function fetchDealerAccountsForSeller(opts: {
+  sellerId?: string | null;
   initials?: string | null;
   email?: string | null;
 }): Promise<{ dealers: DealerAccount[]; stats: Record<string, DealerAccountStats>; error?: string }> {
+  const sellerId = opts.sellerId?.trim() || null;
   const initials = opts.initials?.trim().toUpperCase() || null;
   const email = opts.email?.trim().toLowerCase() || null;
-  if (!initials && !email) return { dealers: [], stats: {} };
+  if (!sellerId && !initials && !email) return { dealers: [], stats: {} };
 
   const [dRes, sRes] = await Promise.all([
     fetchDealerAccounts({ includeDeleted: true }),
@@ -947,6 +949,7 @@ export async function fetchDealerAccountsForSeller(opts: {
   if (dRes.error) return { dealers: [], stats: {}, error: dRes.error };
 
   const matches = (d: DealerAccount): boolean => {
+    if (sellerId) return d.assigned_seller_id === sellerId;
     const re = d.assigned_seller_email?.trim().toLowerCase() || null;
     return (initials != null && sellerInitialsMatch(d.assigned_seller_initials, initials))
       || (email != null && re === email);

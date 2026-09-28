@@ -61,6 +61,7 @@ export async function listPartnerDataDealers(
 
   if (role === "timan_seller") {
     const result = await fetchDealerAccountsForSeller({
+      sellerId: user.id,
       initials: user.initials,
       email: user.email,
     });
@@ -91,8 +92,12 @@ export function canEditPartnerDataAccount(
   user: SessionUser | null,
   role: PortalRole | null,
   accountNumber: string | null | undefined,
+  assignedSellerId?: string | null,
 ): boolean {
   if (!user || !role || !accountNumber) return false;
-  if (INTERNAL_ROLES.has(role) || role === "timan_seller") return true;
+  if (INTERNAL_ROLES.has(role)) return true;
+  if (role === "timan_seller") {
+    return Boolean(user.id && assignedSellerId && user.id === assignedSellerId);
+  }
   return EXTERNAL_ROLES.has(role) && user.dealer_number === accountNumber;
 }
