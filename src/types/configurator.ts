@@ -1,5 +1,6 @@
 // Types for the Timan machine configurator
 import type { CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
+import type { Currency } from '@/lib/currency';
 
 export type DocumentType = 'quote' | 'order';
 export type FlowType = 'quote' | 'order';
@@ -146,6 +147,8 @@ export interface MachineConfig {
 export interface ConfiguratorPricingSnapshot {
   version: 1;
   capturedAt: string;
+  /** Currency identity for every monetary value in this snapshot. */
+  currency?: Currency;
   /** Read-only legacy document: only persisted totals are known, not line prices. */
   totalsOnly?: boolean;
   /** Absent on legacy snapshots, which remain frozen. */

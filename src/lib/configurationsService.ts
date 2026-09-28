@@ -3,13 +3,14 @@ import { getAccessoriesFlat } from '@/data/machines';
 import { isProductActive } from '@/lib/publishedProductMaster';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
 import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
-import { configuratorPricingSignature, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, protectLegacySentPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
+import { configuratorPricingSignature, configuratorSnapshotCurrency, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, protectLegacySentPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
 import { generateLocalCrmDocumentNumber, getNextCrmDocumentNumber } from '@/lib/crmNumberSequencesService';
 import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
+import { currencyFromLanguage } from '@/lib/currency';
 
 async function recordConfiguratorUsage(activeSeconds = 0): Promise<void> {
   try {
@@ -1070,6 +1071,7 @@ export async function saveConfiguration(
     subtotal: initialSubtotal,
     total_price: initialTotal,
     language: state.language,
+    currency: currencyFromLanguage(state.language),
     delivery_date: state.date || null,
     delivery_method: state.deliveryMethod || null,
     delivery_startup_option: state.deliveryDeliverStartup,
@@ -1257,6 +1259,7 @@ export async function updateConfiguration(
     note: storedNote,
     internal_note: internalNote,
     language: stateForPersistence.language,
+    currency: currencyFromLanguage(stateForPersistence.language),
     delivery_date: stateForPersistence.date || null,
     delivery_method: stateForPersistence.deliveryMethod || null,
     delivery_startup_option: stateForPersistence.deliveryDeliverStartup,
@@ -1478,15 +1481,19 @@ export async function finalizeConfiguratorPricingSnapshot(
   }
 
   const currentSnapshot = createConfiguratorPricingSnapshot(state);
-  // Existing snapshot prices always win. Newly selected items get a current
-  // price only because no historic price exists for them.
+  const snapshotCurrency = configuratorSnapshotCurrency(state);
+  const sameCurrency = snapshotCurrency === currentSnapshot.currency;
+  // Existing prices only win inside their original currency. A currency switch
+  // starts from the canonical target-currency catalogue and cannot relabel the
+  // old numeric values.
   const snapshot = {
     ...state.pricingSnapshot,
     version: 1 as const,
-    capturedAt: state.pricingSnapshot?.capturedAt ?? currentSnapshot.capturedAt,
+    capturedAt: sameCurrency ? state.pricingSnapshot?.capturedAt ?? currentSnapshot.capturedAt : currentSnapshot.capturedAt,
+    currency: currentSnapshot.currency,
     discountEngineVersion: state.pricingSnapshot ? state.pricingSnapshot.discountEngineVersion : 2 as const,
-    prices: { ...currentSnapshot.prices, ...state.pricingSnapshot?.prices },
-    names: { ...currentSnapshot.names, ...state.pricingSnapshot?.names },
+    prices: sameCurrency ? { ...currentSnapshot.prices, ...state.pricingSnapshot?.prices } : currentSnapshot.prices,
+    names: sameCurrency ? { ...currentSnapshot.names, ...state.pricingSnapshot?.names } : currentSnapshot.names,
     signature: configuratorPricingSignature(state),
     lines: undefined,
   };

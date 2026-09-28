@@ -1,5 +1,6 @@
 import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS, DEMO_FEE_DKK, DEMO_FEE_EUR, DEMO_FEE_ITEM_NUMBER } from '@/data/machines';
 import type { Accessory, ConfiguratorPricingSnapshot, ConfiguratorState, Language } from '@/types/configurator';
+import { currencyFromLanguage, type Currency } from '@/lib/currency';
 import { publishedProduct, publishedProductText } from '@/lib/publishedProductMaster';
 
 const machineKey = (machineType: string) => `machine:${machineType}`;
@@ -39,7 +40,29 @@ function positivePrice(value: unknown): number | null {
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
+function signatureCurrency(signature?: string): Currency | null {
+  if (!signature) return null;
+  try {
+    const language = (JSON.parse(signature) as { language?: unknown }).language;
+    return typeof language === 'string' ? currencyFromLanguage(language) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Legacy snapshots identify their currency through the language in the signature. */
+export function configuratorSnapshotCurrency(state: ConfiguratorState): Currency | null {
+  const snapshot = state.pricingSnapshot;
+  if (!snapshot) return null;
+  return snapshot.currency ?? signatureCurrency(snapshot.signature) ?? currencyFromLanguage(state.language);
+}
+
+function snapshotUsesCurrentCurrency(state: ConfiguratorState): boolean {
+  return configuratorSnapshotCurrency(state) === currencyFromLanguage(state.language);
+}
+
 export function snapshotMachinePrice(state: ConfiguratorState, machineType: string, currentPrice: number): number {
+  if (!snapshotUsesCurrentCurrency(state)) return currentPrice;
   return positivePrice(state.pricingSnapshot?.prices[machineKey(machineType)]) ?? currentPrice;
 }
 
@@ -49,10 +72,12 @@ export function snapshotAccessoryPrice(
   accessory: Pick<Accessory, 'id'>,
   currentPrice: number,
 ): number {
+  if (!snapshotUsesCurrentCurrency(state)) return currentPrice;
   return positivePrice(state.pricingSnapshot?.prices[accessoryKey(machineType, accessory.id)]) ?? currentPrice;
 }
 
 export function snapshotDemoFee(state: ConfiguratorState, language: Language): number {
+  if (!snapshotUsesCurrentCurrency(state)) return currentDemoFee(language);
   return positivePrice(state.pricingSnapshot?.prices[demoKey(language)]) ?? currentDemoFee(language);
 }
 
@@ -63,6 +88,7 @@ export function currentDemoFee(language: Language): number {
 }
 
 export function snapshotStartupPrice(state: ConfiguratorState, language: Language, option: string, currentPrice: number): number {
+  if (!snapshotUsesCurrentCurrency(state)) return currentPrice;
   return positivePrice(state.pricingSnapshot?.prices[startupKey(language, option)]) ?? currentPrice;
 }
 
@@ -117,7 +143,7 @@ export function protectLegacySentPricing(state: ConfiguratorState, row: { quote_
   const finalPrice = Number(row.total_price);
   const valid = row.subtotal != null && row.total_price != null && Number.isFinite(subtotal) && Number.isFinite(finalPrice) && subtotal >= finalPrice && finalPrice >= 0;
   return { ...state, pricingSnapshot: {
-    version: 1, totalsOnly: true, capturedAt: String(sentAt), prices: {},
+    version: 1, totalsOnly: true, capturedAt: String(sentAt), currency: currencyFromLanguage(state.language), prices: {},
     signature: configuratorPricingSignature(state),
     ...(valid ? { totals: { subtotal, totalDiscount: subtotal - finalPrice, finalPrice } } : {}),
   } };
@@ -157,5 +183,12 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
     prices[startupKey(language, state.deliveryDeliverStartup)] = currentPrice;
   }
 
-  return { version: 1, discountEngineVersion: 2, capturedAt: new Date().toISOString(), prices, names };
+  return {
+    version: 1,
+    discountEngineVersion: 2,
+    capturedAt: new Date().toISOString(),
+    currency: currencyFromLanguage(language),
+    prices,
+    names,
+  };
 }
