@@ -221,6 +221,7 @@ async function productionRagObservation(service: ServiceClient, actorId: string,
     p_language: testCase.language,
     p_machine_id: null,
     p_product_id: null,
+    p_include_evaluation_only: true,
   });
   if (retrievalError) throw new Error(`RETRIEVAL_ERROR:${retrievalError.message}`);
   const candidates = (retrieved || []) as Candidate[];

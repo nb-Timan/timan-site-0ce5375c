@@ -351,6 +351,7 @@ Deno.serve(async (request) => {
       p_language: language,
       p_machine_id: machineId,
       p_product_id: productId,
+      p_include_evaluation_only: false,
     });
     if (retrievalError) throw new Error('RETRIEVAL_ERROR');
     const candidates = (retrieved || []) as Candidate[];

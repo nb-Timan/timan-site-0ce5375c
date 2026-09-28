@@ -233,6 +233,7 @@ export interface SupportKnowledgeItem {
   language: string;
   status: SupportKnowledgeStatus;
   access_scope: SupportKnowledgeAccessScope;
+  evaluation_only: boolean;
   required_area: string | null;
   required_module: string | null;
   created_by_user_id: string | null;
