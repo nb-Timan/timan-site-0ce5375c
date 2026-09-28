@@ -27,7 +27,7 @@ import { listLeads, listDemoLeads, resolveSeedOwners, demoLeadsToActivities, typ
 import { effectiveLeadStatus } from '@/lib/leadStatus';
 import { listActivities as listCalendarActivities, type CalendarActivity } from '@/lib/crmCalendarService';
 import { resolveSellerId } from '@/lib/resolveSellerId';
-import { getActiveSellerView } from '@/lib/activeMode';
+import { getActiveSellerView, getEffectiveSellerEmail } from '@/lib/activeMode';
 import { BUDGET_SELLERS } from '@/lib/crmBudgetService';
 import { isCrmAdmin, isExternalCrmRole } from '@/lib/crmScope';
 import { buildJournalScope } from '@/lib/machineJournalScope';
@@ -648,7 +648,7 @@ export default function CrmDashboardPage() {
         {/* SELLER COCKPIT — Lead focus + Budget focus (switcher hidden; controlled by top filter) */}
         <SellerCockpitSection
           isAdmin={isAdmin}
-          sellerEmail={appUser?.email ?? null}
+          sellerEmail={getEffectiveSellerEmail(appUser) ?? appUser?.email ?? null}
           sellerId={sellerId}
           controlledInitials={isAdmin ? topSellerInitials : undefined}
         />

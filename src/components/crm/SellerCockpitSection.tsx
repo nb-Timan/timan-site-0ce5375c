@@ -8,9 +8,9 @@
  *
  * Reuses:
  *   - listLeads()           → urgency classification by next_followup_date
- *   - listBudgetLines / listForecasts / listSalesActuals → per-machine score
+ *   - canonical Budget reads + aggregateBudget → per-machine score
  *   - listActivities()      → for orders/pipeline counts in comparison
- *   - BUDGET_SELLERS        → canonical seller list (BP/EM/JTN/AKR)
+ *   - BUDGET_SELLERS        → canonical seller list (BP/EM/JTN/AKR/NB)
  *   - useLanguage / Language → DA/EN/DE labels
  *
  * No backend writes, no route changes, no auth changes.
@@ -33,8 +33,9 @@ import {
 import { isOpenLead, effectiveLeadStatus } from "@/lib/leadStatus";
 import { classifyLeadFollowupUrgency, type LeadFollowupUrgency } from "@/lib/leadFollowupUrgency";
 import {
-  listBudgetLines, listForecasts, listSalesActuals, aggregateBudget,
-  BUDGET_SELLERS, type BudgetLine, type BudgetForecast, type SalesActual,
+  listBudgetLines, listForecasts, listSalesActuals, listBudgetDealerLines, aggregateBudget,
+  currentFiscalYearForBudget, BUDGET_SELLERS,
+  type BudgetLine, type BudgetForecast, type SalesActual, type BudgetDealerLine,
 } from "@/lib/crmBudgetService";
 import { listActivities, type CrmActivity } from "@/lib/crmActivitiesService";
 import { AlertTriangle, Flame, Target, Users, Filter, TrendingUp, Clock } from "lucide-react";
@@ -275,19 +276,22 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
   const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
   const [forecasts, setForecasts] = useState<BudgetForecast[]>([]);
   const [actuals, setActuals] = useState<SalesActual[]>([]);
+  const [dealerLines, setDealerLines] = useState<BudgetDealerLine[]>([]);
+  const budgetYear = currentFiscalYearForBudget();
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [rawLeads, rawDemoLeads, acts, lines, fc, ac] = await Promise.all([
+        const [rawLeads, rawDemoLeads, acts, lines, fc, ac, dl] = await Promise.all([
           // Match CRM → Leads: fetch a broad list, then scope locally.
           listLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 5000, payload: "summary" }),
           listDemoLeads({ ownerUserId: isAdmin ? null : sellerId, limit: 5000, payload: "summary" }),
           listActivities({ ownerUserId: isAdmin ? null : sellerId, limit: 500 }),
-          listBudgetLines({ year: new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear() }),
-          listForecasts(new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear()),
-          listSalesActuals(new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear()),
+          listBudgetLines({ year: budgetYear }),
+          listForecasts(budgetYear),
+          listSalesActuals(budgetYear),
+          listBudgetDealerLines(budgetYear),
         ]);
         const [leads, demoLeads] = await Promise.all([
           resolveSeedOwners(rawLeads),
@@ -300,13 +304,14 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
         setBudgetLines(lines);
         setForecasts(fc);
         setActuals(ac);
+        setDealerLines(dl);
       } catch (err) {
         // Defensive — never throw from a dashboard widget.
         console.warn("[SellerCockpit] data load failed:", err);
       }
     })();
     return () => { cancelled = true; };
-  }, [isAdmin, sellerId]);
+  }, [isAdmin, sellerId, budgetYear]);
 
   // Filter by selected seller.
   // - For sellers (non-admin), allLeads is already server-scoped via
@@ -360,8 +365,8 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
   // We deliberately do NOT add a separate orders/pipeline source here so
   // dashboard numbers always match the Budget table cell-for-cell.
   const aggregated = useMemo(
-    () => aggregateBudget(budgetLines, forecasts, actuals, activeSeller?.email ?? null),
-    [budgetLines, forecasts, actuals, activeSeller],
+    () => aggregateBudget(budgetLines, forecasts, actuals, activeSeller?.email ?? null, dealerLines, budgetYear),
+    [budgetLines, forecasts, actuals, activeSeller, dealerLines, budgetYear],
   );
   const scopedBudget = useMemo(() => {
     if (!activeSeller) return { lines: budgetLines, forecasts, actuals };
@@ -387,7 +392,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
 
   // Lead → Arbejdsbudget contributions for current scope (same logic as
   // CRM → Budget). scopedLeads is already filtered by seller scope above.
-  const currentYear = new Date().getFullYear() < 2026 ? 2026 : new Date().getFullYear();
+  const currentYear = budgetYear;
   const leadContribs = useMemo(
     () => buildLeadWorkingContributions(scopedLeads).filter(c => c.year === currentYear),
     [scopedLeads, currentYear],
@@ -440,7 +445,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
   const sellerComparison = useMemo(() => {
     if (!isAdmin) return [];
     const perSeller = BUDGET_SELLERS.map(seller => {
-      const agg = aggregateBudget(budgetLines, forecasts, actuals, seller.email);
+      const agg = aggregateBudget(budgetLines, forecasts, actuals, seller.email, dealerLines, budgetYear);
       return { seller, agg };
     });
     const totals = {
@@ -466,7 +471,7 @@ export default function SellerCockpitSection({ isAdmin, sellerEmail, sellerId, c
         noFollow,
       };
     });
-  }, [isAdmin, allLeads, allDemoLeads, budgetLines, forecasts, actuals, scopedLeadFocusRows.length, now]);
+  }, [isAdmin, allLeads, allDemoLeads, budgetLines, forecasts, actuals, dealerLines, budgetYear, scopedLeadFocusRows.length, now]);
 
 
   const alerts = useMemo(() => {

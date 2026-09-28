@@ -166,6 +166,22 @@ function splitAnnualEvenly(qty: number): number[] {
   return floors;
 }
 
+/** Distribute an annual quantity across calendar months without changing its total. */
+export function splitAnnualQuantityMonthly(qty: number, split: number[]): number[] {
+  const safe = split.length === 12 ? split : EVEN_SPLIT;
+  const raw = safe.map((share) => qty * share);
+  const floors = raw.map((value) => Math.floor(value));
+  let remainder = qty - floors.reduce((sum, value) => sum + value, 0);
+  const order = raw
+    .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
+    .sort((a, b) => b.fraction - a.fraction);
+  const result = [...floors];
+  for (let index = 0; index < order.length && remainder > 0; index++, remainder--) {
+    result[order[index].index] += 1;
+  }
+  return result;
+}
+
 export function buildOrderActualsByKey(actuals: SalesActual[]): OrderActualsByKey {
   const out: OrderActualsByKey = {};
   for (const a of actuals) {
@@ -1653,6 +1669,11 @@ export interface AggregatedBudget {
   totals: { budgetQty: number; ordersQty: number; forecastQty: number; scorePct: number };
 }
 
+/** Canonical Budget performance: submitted-order quantity / original budget quantity. */
+export function calculateBudgetScorePct(originalBudgetQty: number, ordersQty: number): number {
+  return originalBudgetQty === 0 ? 0 : Math.round((ordersQty / originalBudgetQty) * 100);
+}
+
 /**
  * Scope budget lines + actuals + forecasts to a single seller using the
  * same rules CrmBudgetPage uses (seller_email match OR seed_<year>_<key>_<emailSlug>).
@@ -1663,28 +1684,41 @@ export function aggregateBudget(
   forecasts: BudgetForecast[],
   actuals: SalesActual[],
   sellerEmail: string | null,
+  dealerLines: BudgetDealerLine[] = [],
+  year: number | null = null,
 ): AggregatedBudget {
+  const yearLines = year === null ? lines : lines.filter((line) => line.year === year);
   const scopedLines = sellerEmail
-    ? lines.filter(l => (l.seller_email || "").toLowerCase() === sellerEmail.toLowerCase())
-    : lines;
+    ? yearLines.filter(l => (l.seller_email || "").toLowerCase() === sellerEmail.toLowerCase())
+    : yearLines;
   const scopedLineIds = new Set(scopedLines.map(l => l.id));
   const sellerRef = sellerEmail
     ? BUDGET_SELLERS.find(s => norm(s.email) === norm(sellerEmail))
     : null;
   const scopedActuals = actuals.filter(a => {
     if (!a.product_key || !a.year) return false;
+    if (year !== null && a.year !== year) return false;
     if (!sellerEmail) return true;
     return norm(a.seller_email) === norm(sellerEmail)
       || norm(a.seller_key) === norm(sellerEmail)
       || (!!sellerRef && upper(a.seller_initials) === upper(sellerRef.initials));
   });
   const scopedForecasts = forecasts.filter(f => scopedLineIds.has(f.budget_line_id));
+  const sellerEmails = sellerEmail ? new Set([norm(sellerEmail)]) : null;
+  const scopedDealerLines = year === null
+    ? dealerLines
+    : dealerLines.filter((line) => line.year === year);
 
   // Determine all machine product_keys we should display: those with budget
   // lines (scoped) AND those that have actual orders (so a machine with
   // orders but no budget still shows, instead of "Intet budget" hiding it).
   const productMeta = new Map<string, string>(); // key → name
   for (const l of scopedLines) productMeta.set(l.product_key, l.product_name || l.product_key);
+  for (const line of scopedDealerLines) {
+    if (line.excluded_from_total || line.qty <= 0) continue;
+    if (sellerEmails && !sellerEmails.has(norm(line.seller_email))) continue;
+    productMeta.set(line.product_key, line.product_name || line.product_key);
+  }
   for (const a of scopedActuals) {
     const pk = a.product_key;
     const product = BUDGET_PRODUCTS.find(p => normKey(p.key) === normKey(pk));
@@ -1695,7 +1729,15 @@ export function aggregateBudget(
   for (const [pk, name] of productMeta) {
     const linesFor = scopedLines.filter(l => l.product_key === pk);
     const lineIds = new Set(linesFor.map(l => l.id));
-    const budgetQty = linesFor.reduce((s, l) => s + (l.qty_budget || 0), 0);
+    const manualMonthly = Array.from({ length: 12 }, () => 0);
+    for (const line of linesFor) {
+      const monthly = splitAnnualQuantityMonthly(line.qty_budget || 0, line.monthly_split || EVEN_SPLIT);
+      monthly.forEach((quantity, monthIdx) => { manualMonthly[monthIdx] += quantity; });
+    }
+    const dealerMonthly = aggregateDealerBudgetMonthly(scopedDealerLines, pk, sellerEmails);
+    const dealerMonths = hasDealerBudgetByMonth(scopedDealerLines, pk, sellerEmails);
+    const budgetQty = mergeMonthlyPreferDealer(manualMonthly, dealerMonthly, dealerMonths)
+      .reduce((sum, quantity) => sum + quantity, 0);
     const ordersQty = scopedActuals
       .filter(a => normKey(a.product_key) === normKey(pk))
       .reduce((s, a) => s + (a.qty_sold || 0), 0);
@@ -1703,7 +1745,7 @@ export function aggregateBudget(
       .filter(f => lineIds.has(f.budget_line_id))
       .reduce((s, f) => s + (f.qty_forecast || 0), 0);
     const remainingGap = Math.max(0, budgetQty - ordersQty);
-    const scorePct = budgetQty === 0 ? 0 : Math.round((ordersQty / budgetQty) * 100);
+    const scorePct = calculateBudgetScorePct(budgetQty, ordersQty);
     byMachine.push({ product_key: pk, product_name: name, budgetQty, ordersQty, forecastQty, remainingGap, scorePct });
   }
 
@@ -1713,7 +1755,15 @@ export function aggregateBudget(
     (order.get(a.product_key) ?? 999) - (order.get(b.product_key) ?? 999)
     || a.product_name.localeCompare(b.product_name));
 
-  const totals = byMachine.reduce(
+  // CRM Budget's top-level score covers the rendered machine blocks only.
+  // Equipment and unknown order-only rows remain visible in byMachine, but do
+  // not inflate the canonical seller score.
+  const scoreRows = byMachine.filter((row) =>
+    BUDGET_PRODUCTS.some((product) =>
+      product.category === "machine" && normKey(product.key) === normKey(row.product_key),
+    ),
+  );
+  const totals = scoreRows.reduce(
     (t, r) => {
       t.budgetQty += r.budgetQty;
       t.ordersQty += r.ordersQty;
@@ -1722,7 +1772,7 @@ export function aggregateBudget(
     },
     { budgetQty: 0, ordersQty: 0, forecastQty: 0, scorePct: 0 },
   );
-  totals.scorePct = totals.budgetQty === 0 ? 0 : Math.round((totals.ordersQty / totals.budgetQty) * 100);
+  totals.scorePct = calculateBudgetScorePct(totals.budgetQty, totals.ordersQty);
   return { byMachine, totals };
 }
 

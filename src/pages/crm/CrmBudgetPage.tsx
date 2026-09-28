@@ -28,6 +28,7 @@ import {
   initializeWorkingBudgetFromOriginal, workingBudgetInitializationSellerEmails,
   createBudgetLine, deleteBudgetLine, setLineLock, upsertForecast, upsertBudgetLine,
   buildOrderActualsByKey, canonicalBudgetProductKey, orderActualKey, monthlyOrderQtyForProduct,
+  calculateBudgetScorePct, splitAnnualQuantityMonthly,
   EQUIPMENT_BY_MACHINE, localizedName,
   getSellerYearLock, setSellerYearLock, getEffectiveLock, setGlobalYearLock,
   appendBudgetAuditEntry, budgetCellKey,
@@ -289,22 +290,6 @@ function generatePipeline(_line: BudgetLine, _year: number): PipelineOffer[][] {
 void SAMPLE_DEALERS; void SAMPLE_CUSTOMERS; void SAMPLE_ATTACHMENTS; void SAMPLE_STATUSES; void seedRand;
 
 // ---------- Helpers ----------
-function splitToMonthly(qty: number, split: number[]): number[] {
-  const safe = split.length === 12 ? split : EVEN;
-  // Distribute qty across months by share, then round so totals stay close to qty.
-  const raw = safe.map(s => qty * s);
-  const floors = raw.map(v => Math.floor(v));
-  let remainder = qty - floors.reduce((a, b) => a + b, 0);
-  const order = raw
-    .map((v, i) => ({ i, frac: v - Math.floor(v) }))
-    .sort((a, b) => b.frac - a.frac);
-  const result = [...floors];
-  for (let k = 0; k < order.length && remainder > 0; k++) {
-    result[order[k].i]++; remainder--;
-  }
-  return result;
-}
-
 function fmtDate(iso: string, lang: Language): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -912,7 +897,7 @@ export default function CrmBudgetPage() {
     const fc = forecasts
       .filter(f => visibleLines.some(l => l.id === f.budget_line_id))
       .reduce((acc, f) => ({ qty: acc.qty + f.qty_forecast, value: acc.value + f.value_forecast }), { qty: 0, value: 0 });
-    const score = annualQty > 0 ? Math.round((soldQty / annualQty) * 100) : 0;
+    const score = calculateBudgetScorePct(annualQty, soldQty);
     return { annualBudget, annualQty, sold: { qty: soldQty, value: soldValue }, fc, score };
   }, [grouped, visibleLines, orderActualsByKey, actuals, forecasts, dealerLines, leadContribs, workingDraft, isAdmin, backendFilter, selectedSellerEmail, myEmail, sellerCtxEmail, year]);
 
@@ -1044,7 +1029,7 @@ export default function CrmBudgetPage() {
     const split = (line.monthly_split && line.monthly_split.length === 12) ? line.monthly_split : EVEN;
     const ac = actualsForLine(line)[0];
     const fc = forecasts.find(f => f.budget_line_id === line.id);
-    const budgetMonthly = splitToMonthly(line.qty_budget, split);
+    const budgetMonthly = splitAnnualQuantityMonthly(line.qty_budget, split);
     const ordersMonthly = ordersMonthlyForLine(line);
     const draft = workingDraft[line.id];
     // Source of truth for working forecast (Arbejdsbudget):
@@ -1060,7 +1045,7 @@ export default function CrmBudgetPage() {
     // seller/year initializer is still pending (or deliberately skipped as
     // ambiguous). Once seeded, the saved monthly_qty is the independent plan.
     const legacyForecast = (fc && (fc.qty_forecast ?? 0) > 0)
-      ? splitToMonthly(fc.qty_forecast, split)
+      ? splitAnnualQuantityMonthly(fc.qty_forecast, split)
       : Array(12).fill(0);
     const workingMonthly = draft ?? savedMonthly ?? legacyForecast;
     return { budgetMonthly, ordersMonthly, workingMonthly, ac, fc, split };
@@ -1345,7 +1330,7 @@ export default function CrmBudgetPage() {
     const baselineMonthly = (fcExisting?.monthly_qty && fcExisting.monthly_qty.length === 12)
       ? fcExisting.monthly_qty.map(v => Number(v) || 0)
       : ((fcExisting && (fcExisting.qty_forecast ?? 0) > 0)
-          ? splitToMonthly(fcExisting.qty_forecast, split)
+          ? splitAnnualQuantityMonthly(fcExisting.qty_forecast, split)
           : Array(12).fill(0));
     const prevDraft = workingDraft[lineId] ?? baselineMonthly;
     const oldVal = prevDraft[monthIdx] ?? 0;
@@ -1376,7 +1361,7 @@ export default function CrmBudgetPage() {
       const baseline = (fc?.monthly_qty && fc.monthly_qty.length === 12)
         ? fc.monthly_qty.map(v => Number(v) || 0)
         : ((fc && (fc.qty_forecast ?? 0) > 0)
-            ? splitToMonthly(fc.qty_forecast, split)
+            ? splitAnnualQuantityMonthly(fc.qty_forecast, split)
             : Array(12).fill(0));
       for (let i = 0; i < 12; i++) {
         const oldV = baseline[i] ?? 0;
@@ -1512,7 +1497,7 @@ export default function CrmBudgetPage() {
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
-    const monthlyQty = splitToMonthly(persisted.qty_budget, split);
+    const monthlyQty = splitAnnualQuantityMonthly(persisted.qty_budget, split);
     const manualVal = monthlyQty[monthIdx] ?? 0;
     // Displayed value uses the same dealer-prefer merge as render.
     const displayedVal = hasDealerForCell ? dealerSumForCell : manualVal;
@@ -1558,7 +1543,7 @@ export default function CrmBudgetPage() {
     },
   ) {
     const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
-    const monthlyQty = splitToMonthly(persisted.qty_budget, split);
+    const monthlyQty = splitAnnualQuantityMonthly(persisted.qty_budget, split);
     monthlyQty[monthIdx] = newVal;
     const newQty = monthlyQty.reduce((a, b) => a + b, 0);
     const newSplit: number[] = newQty > 0 ? monthlyQty.map(v => v / newQty) : EVEN;

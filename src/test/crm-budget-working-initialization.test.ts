@@ -210,7 +210,8 @@ describe("CRM working-budget initialization", () => {
   });
 
   it("keeps Performance based on orders divided by original Budget", () => {
-    expect(service).toMatch(/scorePct = budgetQty === 0 \? 0 : Math\.round\(\(ordersQty \/ budgetQty\) \* 100\)/);
-    expect(page).toMatch(/score = annualQty > 0 \? Math\.round\(\(soldQty \/ annualQty\) \* 100\) : 0/);
+    expect(service).toMatch(/calculateBudgetScorePct\(originalBudgetQty: number, ordersQty: number\)/);
+    expect(service).toMatch(/Math\.round\(\(ordersQty \/ originalBudgetQty\) \* 100\)/);
+    expect(page).toContain("calculateBudgetScorePct(annualQty, soldQty)");
   });
 });
