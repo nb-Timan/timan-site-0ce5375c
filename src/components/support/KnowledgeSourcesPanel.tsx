@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { useLanguage } from '@/context/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
 import { machines } from '@/data/machines';
-import { mapUiLanguageToLegacy, PORTAL_LANGUAGES } from '@/lib/portalLanguages';
+import { FALLBACK_LANGUAGE, mapUiLanguageToLegacy, normalizePortalLanguageCode, PORTAL_LANGUAGES, portalLanguageDisplayCode } from '@/lib/portalLanguages';
 import {
   createSupportKnowledgeSourceDownloadUrl,
   fetchSupportKnowledgeAssociations,
@@ -48,7 +48,7 @@ export function KnowledgeSourcesPanel({ item }: { item: SupportKnowledgeItem }) 
   const [productIds, setProductIds] = useState<string[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [file, setFile] = useState<File | null>(null);
-  const [sourceLanguage, setSourceLanguage] = useState(item.language);
+  const [sourceLanguage, setSourceLanguage] = useState(normalizePortalLanguageCode(item.language) || FALLBACK_LANGUAGE);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
 
@@ -175,7 +175,7 @@ export function KnowledgeSourcesPanel({ item }: { item: SupportKnowledgeItem }) 
       </div>
       <div className="grid gap-3 rounded-md border border-slate-200 bg-white p-4 sm:grid-cols-[minmax(0,1fr)_12rem_auto] sm:items-end">
         <div><Label className="text-xs text-slate-600">{copy.sourceFile}</Label><Input className="mt-2" type="file" accept="application/pdf,text/plain,.pdf,.txt" onChange={(event) => setFile(event.target.files?.[0] || null)} /></div>
-        <div><Label className="text-xs text-slate-600">{copy.sourceLanguage}</Label><select className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={sourceLanguage} onChange={(event) => setSourceLanguage(event.target.value)}>{PORTAL_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.label}</option>)}</select></div>
+        <div><Label className="text-xs text-slate-600">{copy.sourceLanguage}</Label><select className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={sourceLanguage} onChange={(event) => setSourceLanguage(normalizePortalLanguageCode(event.target.value) || FALLBACK_LANGUAGE)}>{PORTAL_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.flag}</option>)}</select></div>
         <Button disabled={!file || busy} onClick={() => void upload()}><Upload className="mr-2 h-4 w-4" />{copy.uploadAndProcess}</Button>
       </div>
       <div className="space-y-3">
@@ -185,7 +185,7 @@ export function KnowledgeSourcesPanel({ item }: { item: SupportKnowledgeItem }) 
           const latestRun = source.runs[0];
           return <article key={source.id} className="rounded-md border border-slate-200 bg-white p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0"><p className="flex items-center gap-2 font-medium text-slate-950"><FileText className="h-4 w-4 shrink-0" /><span className="truncate">{source.original_filename || source.original_url}</span></p><p className="mt-1 text-xs text-slate-500">{copy.revision} {source.revision} · {copy.uploaded} {new Date(source.created_at).toLocaleString()}</p><div className="mt-2 flex flex-wrap gap-1.5"><span className="rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">{supportIngestionStatusLabel(uiLanguage, source.lifecycle_status)}</span>{source.is_current && <span className="rounded bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-800">{copy.currentVersion}</span>}{source.stale_states.map((state) => <span key={state} className="rounded bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-800">{supportIngestionStatusLabel(uiLanguage, state)}</span>)}</div></div>
+              <div className="min-w-0"><p className="flex items-center gap-2 font-medium text-slate-950"><FileText className="h-4 w-4 shrink-0" /><span className="truncate">{source.original_filename || source.original_url}</span></p><p className="mt-1 text-xs text-slate-500">{copy.revision} {source.revision} · {portalLanguageDisplayCode(source.source_language)} · {copy.uploaded} {new Date(source.created_at).toLocaleString()}</p><div className="mt-2 flex flex-wrap gap-1.5"><span className="rounded bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-700">{supportIngestionStatusLabel(uiLanguage, source.lifecycle_status)}</span>{source.is_current && <span className="rounded bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-800">{copy.currentVersion}</span>}{source.stale_states.map((state) => <span key={state} className="rounded bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-800">{supportIngestionStatusLabel(uiLanguage, state)}</span>)}</div></div>
               <span className={cn('w-fit rounded-full px-2 py-1 text-xs font-medium', source.ingestion_status === 'FAILED' ? 'bg-red-50 text-red-700' : source.ingestion_status === 'READY_FOR_REVIEW' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800')}>{supportIngestionStatusLabel(uiLanguage, source.ingestion_status)}</span>
             </div>
             <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4"><span>{copy.pages}: {latestRun?.page_count ?? '—'}</span><span>{copy.characters}: {latestRun?.extracted_character_count ?? '—'}</span><span>{copy.chunks}: {latestRun?.chunk_count ?? '—'}</span><span>{copy.indexState}: {supportIngestionStatusLabel(uiLanguage, source.index_state?.status || 'NOT_INDEXED')}</span><span>{copy.reviewed}: {source.reviewed_at ? new Date(source.reviewed_at).toLocaleDateString() : '—'}</span><span>{copy.effectiveFrom}: {source.effective_from ? new Date(source.effective_from).toLocaleDateString() : '—'}</span><span>{copy.embeddingModel}: {source.index_state?.embedding_model_name || '—'}</span><span>{copy.supersedes}: {source.supersedes_source_id ? `${copy.revision} ${Math.max(1, source.revision - 1)}` : '—'}</span></div>

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { FALLBACK_LANGUAGE, normalizePortalLanguageCode, portalLanguageQueryAliases } from '@/lib/portalLanguages';
 import {
   EMPTY_SUPPORT_ADMIN_OVERVIEW,
   canTransitionKnowledgeStatus,
@@ -78,7 +79,8 @@ export async function fetchSupportQuestions(filters: SupportQuestionFilters = {}
   if (filters.userId) query = query.eq('asked_by_user_id', filters.userId);
   if (filters.partnerId) query = query.eq('partner_id', filters.partnerId);
   if (filters.role) query = query.eq('role_snapshot', filters.role);
-  if (filters.language) query = query.eq('portal_language', filters.language);
+  const languageAliases = portalLanguageQueryAliases(filters.language);
+  if (languageAliases.length) query = query.in('portal_language', languageAliases);
   if (filters.category) query = query.eq('category', filters.category);
   if (filters.machineId) query = query.eq('machine_id', filters.machineId);
   if (filters.resultStatus) query = query.eq('result_status', filters.resultStatus);
@@ -87,7 +89,10 @@ export async function fetchSupportQuestions(filters: SupportQuestionFilters = {}
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data || []) as unknown as SupportQuestionRow[];
+  return (data || []).map((row) => ({
+    ...row,
+    portal_language: normalizePortalLanguageCode(row.portal_language) || row.portal_language,
+  })) as unknown as SupportQuestionRow[];
 }
 
 export async function fetchSupportFeedback(): Promise<SupportFeedbackRow[]> {
@@ -114,7 +119,14 @@ export async function fetchSupportKnowledgeGaps(filters: SupportGapFilters = {})
   if (filters.minimumOccurrences) query = query.gte('occurrence_count', filters.minimumOccurrences);
   const { data, error } = await query;
   if (error) throw error;
-  return (data || []) as unknown as SupportKnowledgeGapRow[];
+  return (data || []).map((row) => ({
+    ...row,
+    languages: Array.from(new Set((row.languages || []).map((language) => normalizePortalLanguageCode(language) || language))),
+    question: row.question ? {
+      ...row.question,
+      portal_language: normalizePortalLanguageCode(row.question.portal_language) || row.question.portal_language,
+    } : row.question,
+  })) as unknown as SupportKnowledgeGapRow[];
 }
 
 export async function fetchSupportKnowledgeItems(filters: SupportKnowledgeFilters = {}): Promise<SupportKnowledgeItem[]> {
@@ -132,11 +144,15 @@ export async function fetchSupportKnowledgeItems(filters: SupportKnowledgeFilter
   if (filters.type) query = query.eq('knowledge_type', filters.type);
   if (filters.machineId) query = query.eq('machine_id', filters.machineId);
   if (filters.category) query = query.eq('category', filters.category);
-  if (filters.language) query = query.eq('language', filters.language);
+  const languageAliases = portalLanguageQueryAliases(filters.language);
+  if (languageAliases.length) query = query.in('language', languageAliases);
   if (filters.accessScope) query = query.eq('access_scope', filters.accessScope);
   const { data, error } = await query;
   if (error) throw error;
-  return (data || []) as SupportKnowledgeItem[];
+  return (data || []).map((row) => ({
+    ...row,
+    language: normalizePortalLanguageCode(row.language) || row.language,
+  })) as SupportKnowledgeItem[];
 }
 
 function knowledgePayload(draft: SupportKnowledgeDraft) {
@@ -150,7 +166,7 @@ function knowledgePayload(draft: SupportKnowledgeDraft) {
     category: nullable(draft.category),
     keywords: draft.keywords.map((keyword) => keyword.trim()).filter(Boolean),
     source_reference: nullable(draft.source_reference),
-    language: draft.language,
+    language: normalizePortalLanguageCode(draft.language) || FALLBACK_LANGUAGE,
     status: draft.status,
     access_scope: draft.access_scope,
     required_area: nullable(draft.required_area),
@@ -204,7 +220,7 @@ export function draftKnowledgeFromGap(gap: SupportKnowledgeGapRow): SupportKnowl
     category: gap.category || '',
     keywords: [],
     source_reference: gap.question_id ? `support-question:${gap.question_id}` : '',
-    language: gap.question?.portal_language || gap.languages[0] || 'da',
+    language: normalizePortalLanguageCode(gap.question?.portal_language || gap.languages[0]) || FALLBACK_LANGUAGE,
     status: 'DRAFT',
     access_scope: 'BACKEND',
     required_area: '',
@@ -232,6 +248,7 @@ export async function fetchSupportKnowledgeSources(knowledgeItemId: string): Pro
   if (stateError) throw stateError;
   return sources.map((source) => ({
     ...source,
+    source_language: normalizePortalLanguageCode(source.source_language) || source.source_language,
     runs: (runs || []).filter((run) => run.knowledge_source_id === source.id),
     index_state: (states || []).find((state) => state.knowledge_source_id === source.id) || null,
   })) as SupportKnowledgeSource[];
@@ -320,7 +337,7 @@ export async function uploadSupportKnowledgeSource(input: {
 }): Promise<{ source_id: string; ingestion_run_id: string; revision: number; status: string }> {
   const form = new FormData();
   form.set('knowledge_item_id', input.knowledgeItemId);
-  form.set('source_language', input.sourceLanguage);
+  form.set('source_language', normalizePortalLanguageCode(input.sourceLanguage) || FALLBACK_LANGUAGE);
   form.set('file', input.file);
   const { data, error } = await supabase.functions.invoke('support-knowledge-ingestion', { body: form });
   if (error || data?.error) await throwSupportFunctionError(error, data);

@@ -91,6 +91,22 @@ export function normalizePortalLanguageCode(value: string | null | undefined): P
   return null;
 }
 
+/** Portal-facing country label for a canonical language code or safe alias. */
+export function portalLanguageDisplayCode(value: string | null | undefined): string {
+  const normalized = normalizePortalLanguageCode(value);
+  if (!normalized) return String(value || '').trim().toUpperCase();
+  return PORTAL_LANGUAGES.find((language) => language.code === normalized)?.flag || normalized.toUpperCase();
+}
+
+/** Canonical and legacy-safe values accepted when filtering existing records. */
+export function portalLanguageQueryAliases(value: string | null | undefined): string[] {
+  const normalized = normalizePortalLanguageCode(value);
+  if (!normalized) return [];
+  return Array.from(new Set(
+    PORTAL_LANGUAGE_ALIASES[normalized].flatMap((alias) => [alias, alias.toUpperCase()]),
+  ));
+}
+
 export function portalLanguageLookupOrder(
   lang: PortalUiLanguage | string | null | undefined,
   includeAll = false,

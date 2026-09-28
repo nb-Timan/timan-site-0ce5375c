@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useLanguage } from '@/context/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
 import { getSupportEvaluationCopy } from '@/lib/i18n/supportEvaluationTranslations';
+import { portalLanguageDisplayCode } from '@/lib/portalLanguages';
 import { approveSupportEvaluationBaseline, fetchSupportEvaluationDashboard, startSupportEvaluation, type SupportEvaluationDashboardData } from '@/lib/supportEvaluationService';
 import type { SupportEvaluationCaseResult, SupportEvaluationMetrics, SupportEvaluationTier } from '@/lib/supportEvaluationTypes';
 import { cn } from '@/lib/utils';
@@ -29,7 +30,7 @@ function FailureList({ rows, empty }: { rows: SupportEvaluationCaseResult[]; emp
       {rows.map((row) => (
         <article key={row.caseKey} className="border-b border-slate-200 p-4 last:border-b-0">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0"><h3 className="font-semibold text-slate-950">{row.caseKey}</h3><p className="mt-1 text-xs text-slate-500">{row.category} · {row.language.toUpperCase()}</p></div>
+            <div className="min-w-0"><h3 className="font-semibold text-slate-950">{row.caseKey}</h3><p className="mt-1 text-xs text-slate-500">{row.category} · {portalLanguageDisplayCode(row.language)}</p></div>
             <span className={cn('rounded px-2 py-1 text-xs font-bold', row.severity === 'SEV-0' || row.severity === 'SEV-1' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800')}>{row.severity}</span>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">

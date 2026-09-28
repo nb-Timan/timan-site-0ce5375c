@@ -34,7 +34,7 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useToast } from '@/hooks/use-toast';
 import { getSupportAdminCopy, supportAdminCodeLabel } from '@/lib/i18n/supportAdminTranslations';
-import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
+import { FALLBACK_LANGUAGE, PORTAL_LANGUAGES, normalizePortalLanguageCode, portalLanguageDisplayCode } from '@/lib/portalLanguages';
 import {
   createSupportKnowledgeItem,
   draftKnowledgeFromGap,
@@ -230,14 +230,14 @@ function FilterInput({ label, value, onChange, type = 'text' }: { label: string;
   );
 }
 
-function FilterSelect({ label, value, onChange, options, allLabel }: { label: string; value: string; onChange: (value: string) => void; options: readonly string[]; allLabel: string }) {
+function FilterSelect({ label, value, onChange, options, allLabel, getOptionLabel }: { label: string; value: string; onChange: (value: string) => void; options: readonly string[]; allLabel: string; getOptionLabel?: (option: string) => string }) {
   const { uiLanguage } = useLanguage();
   return (
     <label className="min-w-0">
       <span className="mb-1 block text-[11px] font-semibold uppercase text-slate-500">{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)} className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-800">
         <option value="">{allLabel}</option>
-        {options.map((option) => <option key={option} value={option}>{supportAdminCodeLabel(uiLanguage, option)}</option>)}
+        {options.map((option) => <option key={option} value={option}>{getOptionLabel?.(option) || supportAdminCodeLabel(uiLanguage, option)}</option>)}
       </select>
     </label>
   );
@@ -268,7 +268,7 @@ function QuestionDetailDialog({ question, onClose }: { question: SupportQuestion
                 [copy.userReference, question.asked_by_user_id],
                 [copy.partnerReference, question.partner_id],
                 [copy.role, question.role_snapshot],
-                [copy.language, question.portal_language],
+                [copy.language, portalLanguageDisplayCode(question.portal_language)],
                 [copy.route, question.current_route],
                 [copy.machine, question.machine_id],
                 [copy.category, question.category],
@@ -330,7 +330,7 @@ function QuestionsPanel() {
           <FilterInput label={copy.search} value={filters.search || ''} onChange={(search) => setFilters({ ...filters, search })} />
           <FilterInput label={copy.dateFrom} type="date" value={filters.dateFrom || ''} onChange={(dateFrom) => setFilters({ ...filters, dateFrom })} />
           <FilterInput label={copy.dateTo} type="date" value={filters.dateTo || ''} onChange={(dateTo) => setFilters({ ...filters, dateTo })} />
-          <FilterSelect label={copy.language} value={filters.language || ''} onChange={(language) => setFilters({ ...filters, language })} options={PORTAL_LANGUAGES.map((language) => language.code)} allLabel={copy.all} />
+          <FilterSelect label={copy.language} value={filters.language || ''} onChange={(language) => setFilters({ ...filters, language })} options={PORTAL_LANGUAGES.map((language) => language.code)} allLabel={copy.all} getOptionLabel={portalLanguageDisplayCode} />
           <FilterSelect label={copy.result} value={filters.resultStatus || ''} onChange={(resultStatus) => setFilters({ ...filters, resultStatus: resultStatus as SupportQuestionFilters['resultStatus'] || undefined })} options={SUPPORT_RESULT_STATUSES} allLabel={copy.all} />
           <FilterSelect label={copy.confidence} value={filters.confidenceLevel || ''} onChange={(confidenceLevel) => setFilters({ ...filters, confidenceLevel: confidenceLevel as SupportQuestionFilters['confidenceLevel'] || undefined })} options={SUPPORT_CONFIDENCE_LEVELS} allLabel={copy.all} />
           <FilterSelect label={copy.outcome} value={filters.outcomeType || ''} onChange={(outcomeType) => setFilters({ ...filters, outcomeType: outcomeType as SupportQuestionFilters['outcomeType'] || undefined })} options={SUPPORT_OUTCOMES} allLabel={copy.all} />
@@ -348,7 +348,7 @@ function QuestionsPanel() {
             {rows.map((row) => (
               <button key={row.id} type="button" onClick={() => setSelected(row)} className="grid w-full gap-2 border-b border-slate-100 px-4 py-3 text-left last:border-0 hover:bg-slate-50 sm:grid-cols-[minmax(0,1fr)_6rem_8rem_8rem_auto] sm:items-center">
                 <span className="min-w-0 truncate text-sm font-medium text-slate-900">{row.question_text}</span>
-                <span className="text-xs text-slate-500">{row.portal_language.toUpperCase()}</span>
+                <span className="text-xs text-slate-500">{portalLanguageDisplayCode(row.portal_language)}</span>
                 <StatusPill value={row.result_status} language={uiLanguage} />
                 <StatusPill value={row.confidence_level || 'UNKNOWN'} language={uiLanguage} />
                 <span className="text-xs text-slate-500">{formatDate(row.created_at, uiLanguage)}</span>
@@ -398,7 +398,7 @@ function UnansweredPanel({ onCreateDraft }: { onCreateDraft: (draft: SupportKnow
                   <span>{copy.reason}: {supportAdminCodeLabel(uiLanguage, row.reason_code)}</span>
                   <span>{copy.occurrenceCount}: {row.occurrence_count}</span>
                   <span>{copy.machine}: {row.machine_id || '—'}</span>
-                  <span>{copy.language}: {row.languages.join(', ') || '—'}</span>
+                  <span>{copy.language}: {row.languages.map(portalLanguageDisplayCode).join(', ') || '—'}</span>
                   <span>{copy.firstSeen}: {formatDate(row.first_seen_at, uiLanguage)}</span>
                   <span>{copy.lastSeen}: {formatDate(row.last_seen_at, uiLanguage)}</span>
                 </div>
@@ -454,7 +454,7 @@ function KnowledgeEditor({ item, initialDraft, onClose, onSaved }: { item: Suppo
   useEffect(() => {
     if (item) {
       setDraft({
-        title: item.title, knowledge_type: item.knowledge_type, content: item.content, summary: item.summary || '', machine_id: item.machine_id || '', product_id: item.product_id || '', category: item.category || '', keywords: item.keywords, source_reference: item.source_reference || '', language: item.language, status: item.status, access_scope: item.access_scope, required_area: item.required_area || '', required_module: item.required_module || '', effective_from: toDateTimeLocal(item.effective_from), effective_until: toDateTimeLocal(item.effective_until), next_review_at: toDateTimeLocal(item.next_review_at),
+        title: item.title, knowledge_type: item.knowledge_type, content: item.content, summary: item.summary || '', machine_id: item.machine_id || '', product_id: item.product_id || '', category: item.category || '', keywords: item.keywords, source_reference: item.source_reference || '', language: normalizePortalLanguageCode(item.language) || FALLBACK_LANGUAGE, status: item.status, access_scope: item.access_scope, required_area: item.required_area || '', required_module: item.required_module || '', effective_from: toDateTimeLocal(item.effective_from), effective_until: toDateTimeLocal(item.effective_until), next_review_at: toDateTimeLocal(item.next_review_at),
       });
     } else if (initialDraft) setDraft(initialDraft);
   }, [item, initialDraft]);
@@ -484,7 +484,7 @@ function KnowledgeEditor({ item, initialDraft, onClose, onSaved }: { item: Suppo
           <Field label={copy.titleField} className="sm:col-span-2"><Input value={draft.title} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></Field>
           <Field label={copy.type}><SelectField value={draft.knowledge_type} onChange={(knowledge_type) => setDraft({ ...draft, knowledge_type: knowledge_type as SupportKnowledgeDraft['knowledge_type'] })} options={SUPPORT_KNOWLEDGE_TYPES} language={uiLanguage} /></Field>
           <Field label={copy.status}><SelectField value={draft.status} onChange={(status) => setDraft({ ...draft, status: status as SupportKnowledgeDraft['status'] })} options={allowedStatuses} language={uiLanguage} /></Field>
-          <Field label={copy.language}><select value={draft.language} onChange={(event) => setDraft({ ...draft, language: event.target.value })} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">{PORTAL_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.label}</option>)}</select></Field>
+          <Field label={copy.language}><select value={draft.language} onChange={(event) => setDraft({ ...draft, language: normalizePortalLanguageCode(event.target.value) || FALLBACK_LANGUAGE })} className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm">{PORTAL_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.flag}</option>)}</select></Field>
           <Field label={copy.access}><SelectField value={draft.access_scope} onChange={(access_scope) => setDraft({ ...draft, access_scope: access_scope as SupportKnowledgeDraft['access_scope'] })} options={SUPPORT_ACCESS_SCOPES} language={uiLanguage} /></Field>
           <Field label={copy.machine}><Input value={draft.machine_id} onChange={(event) => setDraft({ ...draft, machine_id: event.target.value })} /></Field>
           <Field label={copy.productReference}><Input value={draft.product_id} onChange={(event) => setDraft({ ...draft, product_id: event.target.value })} /></Field>
@@ -544,7 +544,7 @@ function KnowledgePanel({ externalDraft, clearExternalDraft }: { externalDraft: 
           <FilterSelect label={copy.access} value={filters.accessScope || ''} onChange={(accessScope) => setFilters({ ...filters, accessScope: accessScope as SupportKnowledgeFilters['accessScope'] || undefined })} options={SUPPORT_ACCESS_SCOPES} allLabel={copy.all} />
           <FilterInput label={copy.machine} value={filters.machineId || ''} onChange={(machineId) => setFilters({ ...filters, machineId })} />
           <FilterInput label={copy.category} value={filters.category || ''} onChange={(category) => setFilters({ ...filters, category })} />
-          <FilterSelect label={copy.language} value={filters.language || ''} onChange={(language) => setFilters({ ...filters, language })} options={PORTAL_LANGUAGES.map((language) => language.code)} allLabel={copy.all} />
+          <FilterSelect label={copy.language} value={filters.language || ''} onChange={(language) => setFilters({ ...filters, language })} options={PORTAL_LANGUAGES.map((language) => language.code)} allLabel={copy.all} getOptionLabel={portalLanguageDisplayCode} />
         </div>
         <Button onClick={() => setCreating(true)}><Plus className="mr-2 h-4 w-4" />{copy.newKnowledge}</Button>
       </div>
@@ -554,7 +554,7 @@ function KnowledgePanel({ externalDraft, clearExternalDraft }: { externalDraft: 
             {rows.map((item) => (
               <article key={item.id} className="rounded-md border border-slate-200 bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0"><h3 className="truncate font-semibold text-slate-950">{item.title}</h3><p className="mt-1 text-xs text-slate-500">{supportAdminCodeLabel(uiLanguage, item.knowledge_type)} · {item.language.toUpperCase()} · {copy.version} {item.version_number}</p>{item.next_review_at && <p className={cn('mt-1 text-xs', new Date(item.next_review_at) < new Date() ? 'font-medium text-amber-700' : 'text-slate-500')}>{copy.nextReview}: {formatDate(item.next_review_at, uiLanguage)}</p>}</div>
+                  <div className="min-w-0"><h3 className="truncate font-semibold text-slate-950">{item.title}</h3><p className="mt-1 text-xs text-slate-500">{supportAdminCodeLabel(uiLanguage, item.knowledge_type)} · {portalLanguageDisplayCode(item.language)} · {copy.version} {item.version_number}</p>{item.next_review_at && <p className={cn('mt-1 text-xs', new Date(item.next_review_at) < new Date() ? 'font-medium text-amber-700' : 'text-slate-500')}>{copy.nextReview}: {formatDate(item.next_review_at, uiLanguage)}</p>}</div>
                   <StatusPill value={item.status} language={uiLanguage} />
                 </div>
                 <p className="mt-3 line-clamp-2 text-sm text-slate-600">{item.summary || item.content || '—'}</p>
