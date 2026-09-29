@@ -12,6 +12,7 @@ const chat = readFileSync('supabase/functions/support-chat/index.ts', 'utf8');
 const migration = readFileSync('supabase/migrations/20260929210659_support_evaluation_failure_review_v11.sql', 'utf8');
 const semanticMigration = readFileSync('supabase/migrations/20260929211959_support_evaluation_semantic_normalization_v12.sql', 'utf8');
 const inflectionMigration = readFileSync('supabase/migrations/20260929213241_support_evaluation_inflection_variants_v13.sql', 'utf8');
+const leadSemanticsMigration = readFileSync('supabase/migrations/20260929222931_support_evaluation_lead_semantics_v14.sql', 'utf8');
 
 const confidenceConfig = {
   confidence_high_threshold: 0.7,
@@ -85,5 +86,35 @@ describe('Support question policy', () => {
     expect(inflectionMigration).toContain("'P8-089-forr-s-tk-z-s'");
     expect(inflectionMigration).toContain("'ellentmondó', 'ellentmondanak', 'ellentmondást'");
     expect(inflectionMigration).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+  });
+
+  it('creates immutable v14 lead semantics from v13 without loosening generic CRM assertions', () => {
+    expect(leadSemanticsMigration).toContain("cv.version_number = 13 and cv.status = 'APPROVED'");
+    expect(leadSemanticsMigration).toContain("v_case.case_id, 14, 'APPROVED'");
+    expect(leadSemanticsMigration).toContain("'P8-065-gem-som-lead'");
+    expect(leadSemanticsMigration).toContain("'lead i CRM-systemet'");
+    expect(leadSemanticsMigration).toContain("jsonb_build_array('T-nummer')");
+
+    const leadConcepts = [
+      'gem som lead', 'gemmes som lead', 'opret som lead', 'oprettes som lead', 'opret et lead', 'oprette et lead', 'lead i CRM',
+      'lead i CRM-systemet', 'gemmes i CRM som lead', 'CRM lead', 'CRM-lead',
+    ];
+    const matchesLeadSemantics = (response: string) => {
+      const normalized = normalizeSupportAssertionText(response);
+      return leadConcepts.some((concept) => normalized.includes(normalizeSupportAssertionText(concept)));
+    };
+
+    for (const response of [
+      'Konfigurationen kan gemmes som lead.',
+      'Du kan oprette et lead.',
+      'Sagen bliver oprettet som lead i CRM-systemet.',
+      'Konfigurationen gemmes i CRM som lead.',
+    ]) expect(matchesLeadSemantics(response)).toBe(true);
+
+    for (const response of [
+      'CRM findes i portalen.',
+      'Du kan se CRM.',
+      'Kontakt salgsafdelingen.',
+    ]) expect(matchesLeadSemantics(response)).toBe(false);
   });
 });
