@@ -6,14 +6,17 @@ import {
   type ConfidenceEvaluation,
   type SupportConfidenceConfig,
 } from '../_shared/supportConfidence.ts';
-import { supportQuestionGuidance } from '../_shared/supportQuestionPolicy.ts';
+import {
+  normalizeSupportAssertionText,
+  supportQuestionGuidance,
+} from '../_shared/supportQuestionPolicy.ts';
 
 const corsHeaders = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 const TIERS = new Set(['SMOKE', 'TARGETED', 'FULL', 'SECURITY']);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const severityOrder: Record<string, number> = { 'SEV-0': 0, 'SEV-1': 1, 'SEV-2': 2, 'SEV-3': 3, 'SEV-4': 4 };
-const normalize = (value: string) => value.toLocaleLowerCase().replace(/\s+/g, ' ').trim();
+const normalize = normalizeSupportAssertionText;
 const includesAny = (left: string[] = [], right: string[] = []) => right.some((value) => left.includes(value));
 const excludesAll = (left: string[] = [], right: string[] = []) => right.every((value) => !left.includes(value));
 const percent = (n: number, d: number) => d ? Math.round((n / d) * 10000) / 100 : 100;

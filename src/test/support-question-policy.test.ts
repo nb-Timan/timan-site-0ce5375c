@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
   isPromptInjectionAttempt,
+  normalizeSupportAssertionText,
   supportQuestionGuidance,
 } from '../../supabase/functions/_shared/supportQuestionPolicy';
 import { evaluateSupportConfidence } from '../../supabase/functions/_shared/supportConfidence';
@@ -9,6 +10,8 @@ import { evaluateSupportConfidence } from '../../supabase/functions/_shared/supp
 const evaluator = readFileSync('supabase/functions/support-evaluate/index.ts', 'utf8');
 const chat = readFileSync('supabase/functions/support-chat/index.ts', 'utf8');
 const migration = readFileSync('supabase/migrations/20260929210659_support_evaluation_failure_review_v11.sql', 'utf8');
+const semanticMigration = readFileSync('supabase/migrations/20260929211959_support_evaluation_semantic_normalization_v12.sql', 'utf8');
+const inflectionMigration = readFileSync('supabase/migrations/20260929213241_support_evaluation_inflection_variants_v13.sql', 'utf8');
 
 const confidenceConfig = {
   confidence_high_threshold: 0.7,
@@ -49,6 +52,11 @@ describe('Support question policy', () => {
     expect(evaluator).toContain('supportQuestionGuidance(testCase.request_text)');
   });
 
+  it('normalizes harmless punctuation spacing without changing the required fact', () => {
+    expect(normalizeSupportAssertionText('32.5 %')).toBe(normalizeSupportAssertionText('32.5%'));
+    expect(normalizeSupportAssertionText('32,5 %')).toBe(normalizeSupportAssertionText('32,5%'));
+  });
+
   it('creates immutable v11 expectations from v10 without generated UUIDs', () => {
     expect(migration).toContain("cv.version_number = 10 and cv.status = 'APPROVED'");
     expect(migration).toContain("v_case.case_id, 11, 'APPROVED'");
@@ -57,5 +65,25 @@ describe('Support question policy', () => {
     expect(migration).toContain("'P8-064-offentlig-produktside'");
     expect(migration).toContain("i.evaluation_only = false");
     expect(migration).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+  });
+
+  it('creates immutable v12 semantic expectations from v11', () => {
+    expect(semanticMigration).toContain("cv.version_number = 11 and cv.status = 'APPROVED'");
+    expect(semanticMigration).toContain("v_case.case_id, 12, 'APPROVED'");
+    expect(semanticMigration).toContain("'P8-006-portal-language-de'");
+    expect(semanticMigration).toContain("jsonb_build_array('Portalsprache', 'Sprache des Portals')");
+    expect(semanticMigration).toContain("'P8-051-maskinstatus'");
+    expect(semanticMigration).toContain("'PHASE 8 QA TEST — Technical Service restricted knowledge'");
+    expect(semanticMigration).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+  });
+
+  it('creates immutable v13 inflection variants from v12', () => {
+    expect(inflectionMigration).toContain("cv.version_number = 12 and cv.status = 'APPROVED'");
+    expect(inflectionMigration).toContain("v_case.case_id, 13, 'APPROVED'");
+    expect(inflectionMigration).toContain("'P8-085-invio-senza-conferma'");
+    expect(inflectionMigration).toContain("'bloccato', 'bloccata'");
+    expect(inflectionMigration).toContain("'P8-089-forr-s-tk-z-s'");
+    expect(inflectionMigration).toContain("'ellentmondó', 'ellentmondanak', 'ellentmondást'");
+    expect(inflectionMigration).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
   });
 });

@@ -21,6 +21,10 @@ function normalizeQuestion(value: string): string {
     .trim();
 }
 
+export function normalizeSupportAssertionText(value: string): string {
+  return normalizeQuestion(value);
+}
+
 export function isPromptInjectionAttempt(question: string): boolean {
   const normalized = normalizeQuestion(question);
   const overridesPolicy = /\b(?:ignore|ignorer|ignorez|ignoriere|ignora|ignoruj|zignoruj|ignorera)\b.*\b(?:instruction|instructions|instrukcje|rules|rule|regler|pravidla|policy|permissions|role|rolle)\b/.test(normalized);
