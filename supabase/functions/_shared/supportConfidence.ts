@@ -1,3 +1,5 @@
+import { isPromptInjectionAttempt } from './supportQuestionPolicy.ts';
+
 export type SupportConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW' | 'NO_GROUNDED_ANSWER';
 export type SupportOutcome =
   | 'ANSWERED'
@@ -132,6 +134,13 @@ export function evaluateSupportConfidence(input: {
   staleBlockCount?: number;
 }): ConfidenceEvaluation {
   const { candidates, config } = input;
+  if (isPromptInjectionAttempt(input.question)) {
+    return {
+      level: 'NO_GROUNDED_ANSWER', score: 0,
+      reason: 'PROMPT_INJECTION_BLOCKED', outcome: 'NO_RELEVANT_KNOWLEDGE',
+      clarificationRequested: false, sourceConflict: false, citationCoverage: 0,
+    };
+  }
   if (!candidates.length) {
     const stale = Number(input.staleBlockCount || 0) > 0;
     return {
