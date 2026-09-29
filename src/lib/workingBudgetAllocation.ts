@@ -1,12 +1,14 @@
 import type { OriginalBudgetBasis } from "@/lib/crmBudgetService";
 
 export interface WorkingBudgetAllocationReference {
+  dealer_account_id?: string | null;
   dealer_name?: string | null;
   dealer_account_number?: string | null;
   qty?: number | null;
 }
 
 export interface WorkingBudgetDealerAllocation {
+  dealer_account_id: string | null;
   dealer_name: string;
   dealer_account_number: string | null;
   qty: number;
@@ -70,10 +72,11 @@ function clampAndGroup(
     const qty = Math.min(requested, remaining);
     const dealerName = normalizedDealerName(row.dealer_name);
     const accountNumber = row.dealer_account_number?.trim() || null;
-    const key = accountNumber || dealerName.toLocaleLowerCase();
+    const key = row.dealer_account_id?.trim() || accountNumber || dealerName.toLocaleLowerCase();
     const existing = grouped.get(key);
     if (existing) existing.qty += qty;
     else grouped.set(key, {
+      dealer_account_id: row.dealer_account_id?.trim() || null,
       dealer_name: dealerName,
       dealer_account_number: accountNumber,
       qty,
@@ -113,6 +116,7 @@ export function resolveWorkingBudgetAllocation({
 
   if (!hasWorkingChange && originalBasis && total === normalizedQuantity(originalBasis.total)) {
     const allocations = clampAndGroup(total, originalBasis.allocations.map((row) => ({
+      dealer_account_id: row.dealer_account_id,
       dealer_name: row.dealer_name,
       dealer_account_number: row.dealer_account_number,
       qty: row.qty,

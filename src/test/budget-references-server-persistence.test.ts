@@ -66,8 +66,10 @@ const input: NewBudgetReference = {
   cell_key: "2026:bp:410040:4:budget", budget_year: 2026, seller_initials: "BP", seller_email: "bp@timan.dk",
   product_code: "410040", model_name: "Timan 3330", category: "machine", month: "Maj", month_idx: 4,
   budget_type: "budget", old_value: 3, new_value: 4, dealer_name: "Tiefel Garten + Forstgerate GmbH",
-  dealer_account_number: "10458", contact_name: "Dag Vilster Petersen", lead_id: null, demo_id: null,
+  dealer_account_id: "053bf4f3-9b83-4e8f-aa81-1625dd90a872", dealer_account_number: "10458",
+  contact_name: "Dag Vilster Petersen", lead_id: null, demo_id: null,
   note: null, created_by_email: "bp@timan.dk", created_by_name: "BP", delta_qty: 1, reference_group_id: "audit-1",
+  movement_id: null, source_reference_id: null,
 };
 
 describe("budget references server persistence", () => {
@@ -78,7 +80,7 @@ describe("budget references server persistence", () => {
     const reopened = await listBudgetReferences({ cell_key: input.cell_key, year: input.budget_year, budget_type: input.budget_type });
     expect(db.references).toHaveLength(1);
     expect(reopened).toEqual([saved]);
-    expect(reopened[0]).toMatchObject({ dealer_account_number: "10458", contact_name: "Dag Vilster Petersen", delta_qty: 1 });
+    expect(reopened[0]).toMatchObject({ dealer_account_id: input.dealer_account_id, dealer_account_number: "10458", contact_name: "Dag Vilster Petersen", delta_qty: 1 });
   });
 
   it("does not use stale localStorage when Supabase confirms an empty result", async () => {

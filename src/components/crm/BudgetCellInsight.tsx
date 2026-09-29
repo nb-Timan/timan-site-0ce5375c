@@ -38,6 +38,7 @@ export interface OrderTooltipDetail {
 
 export interface CellReference {
   dealer_label: string | null;   // already-formatted "Company · 12345 · BP" or fritekst from before
+  dealer_account_id?: string | null;
   dealer_name?: string | null;
   dealer_account_number?: string | null;
   has_lead: boolean;

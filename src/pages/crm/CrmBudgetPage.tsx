@@ -63,6 +63,7 @@ import BudgetSaveConfirmDialog, { type BudgetChangedCell } from "@/components/cr
 import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel";
 import BudgetCellInsight from "@/components/crm/BudgetCellInsight";
 import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/crm/BudgetReferenceModal";
+import BudgetWorkingMoveDialog, { type BudgetWorkingMoveContext } from "@/components/crm/BudgetWorkingMoveDialog";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
 import type { CellReference, OrderTooltipDetail } from "@/components/crm/BudgetCellInsight";
@@ -74,6 +75,10 @@ import {
   type WorkingBudgetAggregateAllocation,
   type WorkingBudgetSellerAllocationInput,
 } from "@/lib/workingBudgetAllocation";
+import {
+  moveWorkingBudgetAllocations,
+  type WorkingBudgetMoveSelection,
+} from "@/lib/workingBudgetMoveService";
 
 
 // ────────────────────────────────────────────────────────────
@@ -388,6 +393,8 @@ export default function CrmBudgetPage() {
   const [savingDraft, setSavingDraft] = useState(false);
   // "Add reference" modal state — opened from the small Link2 icon next to a cell.
   const [refModal, setRefModal] = useState<BudgetReferenceContext | null>(null);
+  const [workingMove, setWorkingMove] = useState<BudgetWorkingMoveContext | null>(null);
+  const [workingMoveBusy, setWorkingMoveBusy] = useState(false);
   // Bumped after each audit-write so the latest-changes panel + indicators refresh.
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   // Map of cell_key → latest AuditEntry for the current scope (used for the
@@ -620,6 +627,7 @@ export default function CrmBudgetPage() {
         if (!r.cell_key) continue;
         const item: CellReference = {
           dealer_label: r.dealer_name,
+          dealer_account_id: r.dealer_account_id,
           dealer_name: r.dealer_name,
           dealer_account_number: r.dealer_account_number,
           has_lead: !!(r.lead_id && r.lead_id.trim()),
@@ -1172,6 +1180,7 @@ export default function CrmBudgetPage() {
             sellerScope,
           ),
           references: references.map((reference) => ({
+            dealer_account_id: reference.dealer_account_id,
             dealer_name: reference.dealer_name || reference.dealer_label,
             dealer_account_number: reference.dealer_account_number,
             qty: reference.qty,
@@ -1344,6 +1353,59 @@ export default function CrmBudgetPage() {
       return { ...prev, [lineId]: next };
     });
     bumpEditActivity();
+  }
+
+  async function openWorkingMove(
+    line: BudgetLine,
+    monthIdx: number,
+    allocation: ReturnType<typeof resolveWorkingBudgetAllocation>,
+  ) {
+    if (workingMoveBusy) return;
+    if (Object.keys(workingDraft).length > 0) {
+      toast.message("Gem eller annullér dine øvrige Working Budget-ændringer før du flytter en allokering.");
+      return;
+    }
+    const persisted = await ensurePersistedLine(line);
+    if (!persisted) return;
+    setWorkingMove({
+      budgetLineId: persisted.id,
+      modelName: persisted.product_name,
+      sellerLabel: persisted.seller_initials || persisted.seller_name || "—",
+      sourceMonthIdx: monthIdx,
+      sourceMonthLabel: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+      allocation,
+    });
+  }
+
+  async function confirmWorkingMove(
+    destinationMonthIdx: number,
+    selections: WorkingBudgetMoveSelection[],
+  ) {
+    if (!workingMove || workingMoveBusy || selections.length === 0) return;
+    setWorkingMoveBusy(true);
+    try {
+      const requestId = crypto.randomUUID();
+      await moveWorkingBudgetAllocations({
+        budgetLineId: workingMove.budgetLineId,
+        sourceMonthIdx: workingMove.sourceMonthIdx,
+        destinationMonthIdx,
+        selections,
+        requestId,
+      });
+      const fresh = await listForecasts(year);
+      setForecasts(fresh);
+      setWorkingDraft({});
+      setAuditRefreshKey((key) => key + 1);
+      setWorkingMove(null);
+      bumpEditActivity();
+      toast.success("Working Budget-allokering flyttet");
+    } catch (error) {
+      console.error("[budget] allocation move failed", error);
+      const message = error instanceof Error ? error.message : "Flytningen kunne ikke gemmes";
+      toast.error("Allokeringen blev ikke flyttet", { description: message });
+    } finally {
+      setWorkingMoveBusy(false);
+    }
   }
   // void to silence unused warnings while the per-cell large-change popup is disabled.
   void isLargeBudgetChange;
@@ -2416,6 +2478,7 @@ export default function CrmBudgetPage() {
                               workingQty: w,
                               originalBasis: originalBudgetBasis,
                               references: workingReferences.map((reference) => ({
+                                dealer_account_id: reference.dealer_account_id,
                                 dealer_name: reference.dealer_name || reference.dealer_label,
                                 dealer_account_number: reference.dealer_account_number,
                                 qty: reference.qty,
@@ -2459,9 +2522,11 @@ export default function CrmBudgetPage() {
                                 {canEditWorking ? (
                                     <div className="inline-flex items-center gap-x-0.5 bg-slate-800 rounded px-0.5 h-5 leading-none align-middle min-w-[88px] justify-center">
                                       <button
-                                        onClick={() => adjustWorking(primaryLine, i, -1)}
+                                        onClick={() => workingAllocation.allocated > 0
+                                          ? openWorkingMove(primaryLine, i, workingAllocation)
+                                          : adjustWorking(primaryLine, i, -1)}
                                         className="h-3.5 w-3.5 shrink-0 flex items-center justify-center hover:bg-slate-700 rounded"
-                                        title="−1"
+                                        title={workingAllocation.allocated > 0 ? "Flyt allokering" : "−1"}
                                       ><Minus className="h-2.5 w-2.5" /></button>
                                       <BudgetCellInsight
                                         title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
@@ -2805,6 +2870,15 @@ export default function CrmBudgetPage() {
         isAdmin={isAdmin}
         currentSellerInitials={sellerCtxInitials ? sellerCtxInitials.toUpperCase() : null}
         currentSellerEmail={sellerCtxEmail || null}
+      />
+
+      <BudgetWorkingMoveDialog
+        open={workingMove != null}
+        context={workingMove}
+        monthLabels={MONTHS_BY_LANG[lang]}
+        busy={workingMoveBusy}
+        onClose={() => { if (!workingMoveBusy) setWorkingMove(null); }}
+        onConfirm={confirmWorkingMove}
       />
 
 

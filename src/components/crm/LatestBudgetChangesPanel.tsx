@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Clock, Link2 } from "lucide-react";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
+import { readWorkingBudgetMoveAudit } from "@/lib/workingBudgetMoveAudit";
 
 interface Props {
   year: number;
@@ -89,6 +90,7 @@ export default function LatestBudgetChangesPanel({ year, sellerContext, refreshK
                 const nv = r.new_value as { cell_key?: string } | null;
                 const ck = nv && typeof nv === "object" ? nv.cell_key || "" : "";
                 const ref = ck ? refByCell.get(ck) : undefined;
+                const movement = readWorkingBudgetMoveAudit(r.new_value);
                 return (
                   <tr key={r.id} className="hover:bg-slate-50/60">
                     <Td className="text-slate-500 whitespace-nowrap">{fmtDateTime(r.ts)}</Td>
@@ -116,6 +118,16 @@ export default function LatestBudgetChangesPanel({ year, sellerContext, refreshK
                           </span>
                         )}
                       </div>
+                      {movement && (
+                        <div className="mt-0.5 text-[10px] text-emerald-700">
+                          Flyttet {movement.quantity} stk. · {movement.sourceMonth} → {movement.destinationMonth}
+                          {movement.allocations.length > 0 && ` · ${movement.allocations.map((allocation) =>
+                            allocation.kind === "unallocated"
+                              ? "Ikke fordelt"
+                              : `${allocation.dealer_name || "Forhandler"}${allocation.dealer_account_number ? ` #${allocation.dealer_account_number}` : ""}`
+                          ).join(", ")}`}
+                        </div>
+                      )}
                     </Td>
                   </tr>
                 );

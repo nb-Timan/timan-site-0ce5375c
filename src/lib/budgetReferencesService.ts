@@ -1,12 +1,13 @@
 /**
  * Budget references — optional context (dealer / contact / lead id / demo id /
  * note) the user can attach when changing a Budget or Arbejdsbudget value.
+ * Working Budget uses the same rows as its current dealer allocation source;
+ * no parallel allocation registry is maintained.
  *
  * Storage: public.budget_references. Supabase is canonical; localStorage is
  * retained only as a read fallback when the remote table is unavailable.
  *
- * Note: References are explanatory metadata only. They never participate in
- * budget / pipeline / order calculations.
+ * The rows never change budget / pipeline / order calculations by themselves.
  */
 import { supabase } from "@/lib/supabase";
 import { notifyLocalFallback } from "@/lib/persistenceWarning";
@@ -28,6 +29,8 @@ export interface BudgetReference {
   old_value: number | null;
   new_value: number | null;
   dealer_name: string | null;
+  /** Stable Partnerdata identity. Added without replacing historical snapshots. */
+  dealer_account_id: string | null;
   /** Forhandlerkontonummer (DealerAccount.account_number). Primær kobling til
    *  forhandler. NULL på gamle rækker fra før Phase 48 — fallback via
    *  dealer_name håndteres af UI'et. */
@@ -43,6 +46,9 @@ export interface BudgetReference {
   /** Stabil id for den budgetændring rækken hører til (typisk audit-id).
    *  Alle rækker fra samme gem deler samme id. NULL = gamle rækker uden gruppe. */
   reference_group_id: string | null;
+  /** Atomic Working Budget move that created or last adjusted this row. */
+  movement_id: string | null;
+  source_reference_id: string | null;
 }
 
 export type NewBudgetReference = Omit<BudgetReference, "id" | "created_at">;
@@ -93,6 +99,7 @@ export async function createBudgetReference(input: NewBudgetReference): Promise<
       old_value: row.old_value,
       new_value: row.new_value,
       dealer_name: row.dealer_name,
+      dealer_account_id: row.dealer_account_id,
       dealer_account_number: row.dealer_account_number,
       contact_name: row.contact_name,
       lead_id: row.lead_id,
@@ -102,6 +109,8 @@ export async function createBudgetReference(input: NewBudgetReference): Promise<
       created_by_name: row.created_by_name,
       delta_qty: row.delta_qty,
       reference_group_id: row.reference_group_id,
+      movement_id: row.movement_id,
+      source_reference_id: row.source_reference_id,
     };
     const { data, error } = await supabase
       .from("budget_references")

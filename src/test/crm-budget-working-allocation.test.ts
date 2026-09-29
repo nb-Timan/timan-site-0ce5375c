@@ -76,6 +76,7 @@ describe("CRM Working Budget dealer allocation", () => {
       ],
     });
     expect(result.allocations).toEqual([{
+      dealer_account_id: null,
       dealer_name: "Avitech",
       dealer_account_number: "11913",
       qty: 3,
@@ -158,6 +159,7 @@ describe("CRM Working Budget dealer allocation", () => {
     expect(result.sellers[0].allocation.source).toBe("inherited");
     expect(result.sellers[1].allocation.source).toBe("explicit");
     expect(result.sellers[1].allocation.allocations).toEqual([{
+      dealer_account_id: null,
       dealer_name: "Current",
       dealer_account_number: "10",
       qty: 4,

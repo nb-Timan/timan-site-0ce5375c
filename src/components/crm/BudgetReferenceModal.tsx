@@ -10,9 +10,9 @@
  *   - demo id (dropdown filtreret på valgt forhandler)
  *   - note
  *
- * Alle felter er valgfri. Tomme rækker springes over. References er ren
- * forklarende metadata — de ændrer ALDRIG budget / pipeline / ordreberegning,
- * og de overskriver ALDRIG eksisterende budgetlinjer eller andre referencer.
+ * Alle felter er valgfri. Tomme rækker springes over. References ændrer ikke
+ * budget / pipeline / ordreberegning; for Working Budget er de samtidig den
+ * canonical dealerfordeling bag den viste aggregatværdi.
  */
 import { useEffect, useMemo, useState } from "react";
 import { sellerInitialsMatch } from "@/lib/sellerInitials";
@@ -171,7 +171,9 @@ export default function BudgetReferenceModal({
         const seed: RefRow[] = existing.map((ex): RefRow => {
           const accountFromLabel = (ex.dealer_name || "").split("·")[1]?.trim() || null;
           const match = d.find(x =>
+            (ex.dealer_account_id && x.id === ex.dealer_account_id) ||
             (accountFromLabel && x.account_number === accountFromLabel) ||
+            (ex.dealer_account_number && x.account_number === ex.dealer_account_number) ||
             (ex.dealer_name && x.company_name && ex.dealer_name.startsWith(x.company_name))
           );
           return {
@@ -335,6 +337,7 @@ export default function BudgetReferenceModal({
           old_value: ctx.old_value,
           new_value: ctx.new_value,
           dealer_name: dealerLabel,
+          dealer_account_id: opt?.value || null,
           dealer_account_number: opt?.account_number || null,
           contact_name: r.contact.trim() || null,
           lead_id: r.leadId.trim() || null,
@@ -344,6 +347,8 @@ export default function BudgetReferenceModal({
           created_by_name: ctx.actor_name,
           delta_qty: qty,
           reference_group_id: ctx.change_id,
+          movement_id: null,
+          source_reference_id: null,
         });
       }
       toast.success(filled.length === 1 ? "Reference gemt" : `${filled.length} referencer gemt`);
