@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
 import { Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Activity, FileText, ShoppingCart, Sparkles, Wallet, CalendarDays, Store, Gauge } from 'lucide-react';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -13,24 +12,7 @@ import LastChangedLine from '@/components/portal/LastChangedLine';
 import { t } from '@/lib/i18n/translations';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
-
-interface NavItem { tKey: string; to: string; icon: typeof LayoutDashboard }
-const NAV: NavItem[] = [
-  { tKey: 'crmDashboard',        to: '/portal/crm/dashboard',        icon: LayoutDashboard },
-  { tKey: 'crmMyDealers',        to: '/portal/crm/my-dealers',       icon: Store },
-  { tKey: 'crmLeads',            to: '/portal/crm/leads',            icon: Sparkles },
-  { tKey: 'crmQuotes',           to: '/portal/crm/quotes',           icon: FileText },
-  { tKey: 'crmOrders',           to: '/portal/crm/orders',           icon: ShoppingCart },
-  { tKey: 'crmActivities',       to: '/portal/crm/activities',       icon: Activity },
-  { tKey: 'crmCalendar',         to: '/portal/crm/calendar',         icon: CalendarDays },
-  { tKey: 'crmBudget',           to: '/portal/crm/budget',           icon: Wallet },
-  { tKey: 'crmBudgetDashboard',  to: '/portal/crm/budget-dashboard', icon: Gauge },
-];
-
-const EXTERNAL_NAV_BLOCKLIST = new Set([
-  '/portal/crm/activities',
-  '/portal/crm/budget-dashboard',
-]);
+import { CRM_NAV_ITEMS, EXTERNAL_CRM_NAV_BLOCKLIST } from '@/lib/crmNavigation';
 
 interface Props { children: ReactNode; pageTitle?: string; partnerDataPresentation?: boolean }
 
@@ -65,16 +47,16 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
   if (!canUseCrm(portalRole)) {
     return <Navigate to="/portal" replace />;
   }
-  if (externalCrm && EXTERNAL_NAV_BLOCKLIST.has(location.pathname)) {
+  if (externalCrm && EXTERNAL_CRM_NAV_BLOCKLIST.has(location.pathname)) {
     return <Navigate to="/portal/crm/dashboard" replace />;
   }
   const baseNavItems = partnerDataPresentation
-    ? NAV.map((item) => item.to === '/portal/crm/my-dealers'
+    ? CRM_NAV_ITEMS.map((item) => item.to === '/portal/crm/my-dealers'
       ? { ...item, tKey: 'area_dealer_data_title', to: '/portal/dealer-data' }
       : item)
-    : NAV;
+    : CRM_NAV_ITEMS;
   const navItems = externalCrm
-    ? (hasCrmAreaAccess ? baseNavItems.filter((item) => !EXTERNAL_NAV_BLOCKLIST.has(item.to)) : [])
+    ? (hasCrmAreaAccess ? baseNavItems.filter((item) => !EXTERNAL_CRM_NAV_BLOCKLIST.has(item.to)) : [])
     : baseNavItems;
 
   return (

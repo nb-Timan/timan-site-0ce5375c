@@ -8,6 +8,7 @@ import type {
   SupportPageContext,
   SupportQuickIntent,
   SupportWorkflowState,
+  SupportPortalHelpContext,
 } from '@/lib/supportTypes';
 import type { SupportProductDiscoveryContext } from '@/lib/supportProductDiscovery';
 
@@ -22,6 +23,7 @@ export interface SupportSendRequest {
   viewAsActive?: boolean;
   command?: AssistantActionCommand;
   productDiscovery?: SupportProductDiscoveryContext;
+  portalHelp?: SupportPortalHelpContext;
 }
 
 export interface SupportService {
@@ -92,6 +94,7 @@ export class ApiSupportService implements SupportService {
         },
         intent: request.intent,
         product_discovery: request.productDiscovery,
+        portal_help: request.portalHelp,
         view_as_active: request.viewAsActive === true,
       },
     });

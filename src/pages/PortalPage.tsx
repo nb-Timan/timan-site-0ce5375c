@@ -24,6 +24,7 @@ import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { Language } from '@/types/configurator';
 import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
+import { PORTAL_AREA_ROUTES } from '@/lib/portalNavigation';
 import { t } from '@/lib/i18n/translations';
 
 const AREA_TITLE_KEY: Record<string, string> = {
@@ -46,13 +47,13 @@ const AREA_DESC_KEY: Record<string, string> = {
 };
 
 const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'primary' | 'sky' | 'violet' }> = {
-  teknik_service: { to: '/portal/teknik-service', icon: Wrench,      accent: 'primary' },
-  salg_marketing: { to: '/portal/salg-marketing', icon: ShoppingBag, accent: 'sky' },
-  calendar:       { to: '/portal/crm/calendar',   icon: CalendarDays, accent: 'primary' },
-  marketing:      { to: '/portal/marketing',      icon: Newspaper,   accent: 'primary' },
-  timan_crm:      { to: '/portal/crm',            icon: Users,       accent: 'primary' },
-  timan_backend:  { to: '/portal/backend',        icon: Settings,    accent: 'violet' },
-  dealer_data:    { to: '/portal/dealer-data',    icon: Building2,   accent: 'sky' },
+  teknik_service: { to: PORTAL_AREA_ROUTES.teknik_service, icon: Wrench, accent: 'primary' },
+  salg_marketing: { to: PORTAL_AREA_ROUTES.salg_marketing, icon: ShoppingBag, accent: 'sky' },
+  calendar:       { to: PORTAL_AREA_ROUTES.calendar, icon: CalendarDays, accent: 'primary' },
+  marketing:      { to: PORTAL_AREA_ROUTES.marketing, icon: Newspaper, accent: 'primary' },
+  timan_crm:      { to: PORTAL_AREA_ROUTES.timan_crm, icon: Users, accent: 'primary' },
+  timan_backend:  { to: PORTAL_AREA_ROUTES.timan_backend, icon: Settings, accent: 'violet' },
+  dealer_data:    { to: PORTAL_AREA_ROUTES.dealer_data, icon: Building2, accent: 'sky' },
 };
 
 const MESSE_TITLE: Record<Language, string> = {

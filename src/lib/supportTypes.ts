@@ -1,4 +1,7 @@
 import type { ConfiguratorState } from '@/types/configurator';
+import type { SupportPortalHelpContext } from '@/lib/supportPortalHelp';
+
+export type { SupportPortalHelpContext } from '@/lib/supportPortalHelp';
 
 export type SupportMessageRole = 'user' | 'assistant';
 export type SupportMessageStatus = 'sending' | 'sent' | 'error';

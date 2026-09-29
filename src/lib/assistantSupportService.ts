@@ -44,6 +44,7 @@ import {
   buildSupportProductDiscoveryContext,
   isProductDiscoveryQuestion,
 } from '@/lib/supportProductDiscovery';
+import { buildSupportPortalHelpContext } from '@/lib/supportPortalHelp';
 
 function id(): string {
   return crypto.randomUUID();
@@ -444,6 +445,14 @@ export class AssistantSupportService implements SupportService {
     const workflow = workflowFromRequest(request);
     const command = request.command;
     if (!workflow && !command && !isQuoteIntent(request)) {
+      const portalHelp = buildSupportPortalHelpContext(request.content, request.language, this.appUser);
+      if (portalHelp) {
+        return this.fallback.sendMessage({
+          ...request,
+          intent: 'portal-help',
+          portalHelp,
+        });
+      }
       if (!isProductDiscoveryQuestion(request.content)) return this.fallback.sendMessage(request);
       const catalog = await invokeAssistantAction({
         action: 'get_machine_configuration_options',
