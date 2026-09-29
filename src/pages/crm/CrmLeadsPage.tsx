@@ -79,6 +79,7 @@ import {
   type CrmLeadsTab,
   type CrmLeadsType,
 } from '@/lib/crmLeadsNavigationState';
+import { compareCrmLeadExpectedClose } from '@/lib/crmLeadExpectedCloseSort';
 
 // ---- i18n. English fallback. ----
 type TKey =
@@ -102,6 +103,7 @@ type TKey =
   | 'urgency_overdue' | 'urgency_soon' | 'urgency_later'
   | 'sort_default' | 'sort_title_asc' | 'sort_title_desc'
   | 'sort_date_desc' | 'sort_date_asc' | 'sort_prob_desc' | 'sort_prob_asc'
+  | 'sort_expected_close_asc' | 'sort_expected_close_desc'
   | 'page_prev' | 'page_next' | 'page_range'
   | 'st_Lead' | 'st_DemoWant' | 'st_Demo' | 'st_DemoHeld' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
@@ -187,6 +189,8 @@ const T: Record<TKey, UiText> = {
   sort_date_asc:  { da: 'Dato: ældste først', en: 'Date: oldest first', de: 'Datum: älteste zuerst', it: 'Data: meno recenti prima', hu: 'Dátum: legrégebbi elöl', fr: 'Date : plus ancien', pl: 'Data: najstarsze', cs: 'Datum: nejstarší' },
   sort_prob_desc: { da: 'Status %: høj til lav', en: 'Status %: high to low', de: 'Status %: hoch zu niedrig', it: 'Status %: alto-basso', hu: 'Státusz %: magas-alacsony', fr: 'Statut % : décroissant', pl: 'Status %: malejąco', cs: 'Stav %: sestupně' },
   sort_prob_asc:  { da: 'Status %: lav til høj', en: 'Status %: low to high', de: 'Status %: niedrig zu hoch', it: 'Status %: basso-alto', hu: 'Státusz %: alacsony-magas', fr: 'Statut % : croissant', pl: 'Status %: rosnąco', cs: 'Stav %: vzestupně' },
+  sort_expected_close_asc: { da: 'Forventet luk: nærmest først', en: 'Expected close: nearest first', de: 'Erwarteter Abschluss: nächster zuerst', it: 'Chiusura prevista: più vicina prima', hu: 'Várható zárás: legközelebbi elöl', sv: 'Förväntat avslut: närmast först', fr: 'Clôture prévue : plus proche', pl: 'Planowane zamknięcie: najbliższe', cs: 'Očekávané uzavření: nejbližší' },
+  sort_expected_close_desc:{ da: 'Forventet luk: senest først', en: 'Expected close: latest first', de: 'Erwarteter Abschluss: spätester zuerst', it: 'Chiusura prevista: più lontana prima', hu: 'Várható zárás: legtávolabbi elöl', sv: 'Förväntat avslut: senast först', fr: 'Clôture prévue : plus éloignée', pl: 'Planowane zamknięcie: najpóźniejsze', cs: 'Očekávané uzavření: nejpozdější' },
   page_prev:      { da: 'Forrige', en: 'Previous', de: 'Zurück', it: 'Precedente', hu: 'Előző', fr: 'Précédent', pl: 'Poprzednia', cs: 'Předchozí' },
   page_next:      { da: 'Næste', en: 'Next', de: 'Weiter', it: 'Successiva', hu: 'Következő', fr: 'Suivant', pl: 'Następna', cs: 'Další' },
   page_range:     { da: 'Viser', en: 'Showing', de: 'Zeigt', it: 'Mostra', hu: 'Megjelenítve', fr: 'Affichage', pl: 'Pokazuje', cs: 'Zobrazuje' },
@@ -223,6 +227,7 @@ interface UnifiedLead {
   equipment: string | null;
   date: string | null;
   next_followup: string | null;
+  expected_close_date: string | null;
   status: string | null;
   probability: number | null;
   value: number | null;
@@ -465,6 +470,8 @@ function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
   if (sort === 'date_asc') return (a.date || '').localeCompare(b.date || '');
   if (sort === 'prob_desc') return (b.probability ?? -1) - (a.probability ?? -1);
   if (sort === 'prob_asc') return (a.probability ?? 999) - (b.probability ?? 999);
+  if (sort === 'expected_close_asc') return compareCrmLeadExpectedClose(a, b, 'asc');
+  if (sort === 'expected_close_desc') return compareCrmLeadExpectedClose(a, b, 'desc');
   const aLegacy = /^G-/.test(a.display_no || '');
   const bLegacy = /^G-/.test(b.display_no || '');
   if (aLegacy !== bLegacy) return aLegacy ? 1 : -1;
@@ -568,6 +575,15 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
       return;
     }
     updateNavigationState({ tab: nextTab, followupFilter: null });
+  };
+
+  const selectFollowupCohort = (nextFilter: CrmLeadsFollowupFilter) => {
+    const active = followupFilter === nextFilter;
+    updateNavigationState({
+      tab: 'open',
+      followupFilter: active ? null : nextFilter,
+      ...(nextFilter === 'later' && !active ? { sort: 'expected_close_asc' as const } : {}),
+    });
   };
 
   const refreshLeads = async () => {
@@ -817,9 +833,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={item.key}
-                onClick={() => {
-                  updateNavigationState({ tab: 'open', followupFilter: active ? null : item.key });
-                }}
+                onClick={() => selectFollowupCohort(item.key)}
                 className={cn(mobileControlClass, FOLLOWUP_BADGE[item.key], active && 'shadow-sm ring-2 ring-offset-1 ring-current/20')}
               >
                 <span className="min-w-0">{tt(item.labelKey, lang)}</span>
@@ -894,9 +908,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             return (
               <button
                 key={item.key}
-                onClick={() => {
-                  updateNavigationState({ tab: 'open', followupFilter: active ? null : item.key });
-                }}
+                onClick={() => selectFollowupCohort(item.key)}
                 className={cn(
                   topFilterButtonClass,
                   FOLLOWUP_BADGE[item.key],
@@ -1034,6 +1046,8 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             <option value="date_asc">{tt('sort_date_asc', lang)}</option>
             <option value="prob_desc">{tt('sort_prob_desc', lang)}</option>
             <option value="prob_asc">{tt('sort_prob_asc', lang)}</option>
+            <option value="expected_close_asc">{tt('sort_expected_close_asc', lang)}</option>
+            <option value="expected_close_desc">{tt('sort_expected_close_desc', lang)}</option>
           </select>
         </div>
       </div>

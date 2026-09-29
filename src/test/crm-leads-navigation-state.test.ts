@@ -44,6 +44,7 @@ describe('CRM Leads navigation state', () => {
     ['ownerFilter', 'owner', 'seller:akr-user-id'],
     ['q', 'q', 'G-5054'],
     ['sort', 'sort', 'date_desc'],
+    ['sort', 'sort', 'expected_close_asc'],
   ] as const)('round-trips %s through the URL', (stateKey, queryKey, value) => {
     const state = { ...defaultCrmLeadsNavigationState('open'), [stateKey]: value };
     const params = serializeCrmLeadsNavigationState(new URLSearchParams(), state, { isAdmin: true });

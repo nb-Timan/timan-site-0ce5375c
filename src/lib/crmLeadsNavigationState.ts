@@ -1,7 +1,16 @@
 import type { CrmLeadOwnerFilter } from '@/lib/crmLeadOwnerFilter';
 
 export type CrmLeadsTab = 'open' | 'won' | 'closed' | 'all';
-export type CrmLeadsSort = 'default' | 'title_asc' | 'title_desc' | 'date_desc' | 'date_asc' | 'prob_desc' | 'prob_asc';
+export type CrmLeadsSort =
+  | 'default'
+  | 'title_asc'
+  | 'title_desc'
+  | 'date_desc'
+  | 'date_asc'
+  | 'prob_desc'
+  | 'prob_asc'
+  | 'expected_close_asc'
+  | 'expected_close_desc';
 export type CrmLeadsType = 'open' | 'demo' | 'won' | 'lost';
 export type CrmLeadsFollowupFilter = 'overdue' | 'soon' | 'later';
 
@@ -27,7 +36,17 @@ interface SerializeOptions extends NavigationOptions {
 }
 
 const TAB_VALUES = new Set<CrmLeadsTab>(['open', 'won', 'closed', 'all']);
-const SORT_VALUES = new Set<CrmLeadsSort>(['default', 'title_asc', 'title_desc', 'date_desc', 'date_asc', 'prob_desc', 'prob_asc']);
+const SORT_VALUES = new Set<CrmLeadsSort>([
+  'default',
+  'title_asc',
+  'title_desc',
+  'date_desc',
+  'date_asc',
+  'prob_desc',
+  'prob_asc',
+  'expected_close_asc',
+  'expected_close_desc',
+]);
 const TYPE_VALUES = new Set<CrmLeadsType | ''>(['', 'open', 'demo', 'won', 'lost']);
 const FOLLOWUP_VALUES = new Set<CrmLeadsFollowupFilter>(['overdue', 'soon', 'later']);
 const STATIC_OWNER_VALUES = new Set<CrmLeadOwnerFilter>([

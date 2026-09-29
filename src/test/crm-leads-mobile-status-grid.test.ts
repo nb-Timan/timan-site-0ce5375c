@@ -20,7 +20,8 @@ describe('CRM leads mobile status grid', () => {
     expect(mobileGrid).toContain('[...FOLLOWUP_FILTERS].reverse()');
     expect(page).toContain("const MOBILE_RESULT_TABS: TabKey[] = ['all', 'won', 'closed'];");
     expect(mobileGrid).toContain('MOBILE_RESULT_TABS.map');
-    expect(mobileGrid).toContain("updateNavigationState({ tab: 'open', followupFilter: active ? null : item.key })");
+    expect(mobileGrid).toContain('selectFollowupCohort(item.key)');
+    expect(page).toContain("nextFilter === 'later' && !active ? { sort: 'expected_close_asc' as const } : {}");
   });
 
   it('preserves the canonical new lead and demo routes', () => {

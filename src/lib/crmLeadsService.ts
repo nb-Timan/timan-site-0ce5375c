@@ -816,6 +816,7 @@ export interface CrmLeadsPageRow {
   equipment: string | null;
   date: string | null;
   next_followup: string | null;
+  expected_close_date: string | null;
   status: string | null;
   probability: number | null;
   value: number | null;
