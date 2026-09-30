@@ -40,6 +40,7 @@ import { teknikScopeIdentityKey } from "@/lib/useTeknikScope";
 import { getMachineDocumentSignedUrl, MachineDocumentRow } from "@/lib/machineLifecycleService";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
 import { canEditMachineRegistry, fetchApprovedWarrantyReferences, fetchMachineRegistryCorrection, fetchMachineRegistryCorrectionHistory, saveMachineRegistryCorrection, type ApprovedWarrantyReference, type MachineRegistryCorrection, type MachineRegistryCorrectionHistory } from "@/lib/machineRegistryCorrectionsService";
+import { findServiceMachineType, resolveMachineModelCorrectionValue, SERVICE_MACHINE_TYPES } from "@/lib/serviceMachineTypes";
 
 const T: Record<string, Record<Language, string>> = {
   pageTitle:        { da: "Min Maskine", en: "My Machine", de: "Meine Maschine", it: "La mia macchina", hu: "Saját gép" },
@@ -237,15 +238,36 @@ export default function MachineJournalPage() {
     return () => { cancelled = true; };
   }, [canCorrect, serial]);
 
+  const openCorrectionEditor = () => {
+    const effectiveModel = journal?.summary.machineType || journal?.summary.model || "";
+    setCorrectionDraft({
+      dealer_account_id: correction?.dealer_account_id ?? "",
+      approved_warranty_registration_id: correction?.approved_warranty_registration_id ?? "",
+      machine_model: resolveMachineModelCorrectionValue(correction?.machine_model, effectiveModel),
+      delivery_date: correction?.delivery_date ?? "",
+    });
+    setCorrectionError(null);
+    setEditingCorrection(true);
+  };
+
+  const selectedCanonicalModel = findServiceMachineType(correctionDraft.machine_model);
+  const legacyCorrectionModel = correctionDraft.machine_model && !selectedCanonicalModel
+    ? correctionDraft.machine_model
+    : null;
+
   const saveCorrection = async () => {
     if (!journal || academyMode) return;
+    if (!selectedCanonicalModel) {
+      setCorrectionError("Vælg en gyldig Timan-model fra listen.");
+      return;
+    }
     setSavingCorrection(true);
     setCorrectionError(null);
     try {
       const saved = await saveMachineRegistryCorrection(journal.summary.serial, {
         dealer_account_id: correctionDraft.dealer_account_id || null,
         approved_warranty_registration_id: correctionDraft.approved_warranty_registration_id || null,
-        machine_model: correctionDraft.machine_model.trim() || null,
+        machine_model: selectedCanonicalModel.value,
         delivery_date: correctionDraft.delivery_date || null,
       });
       setCorrection(saved);
@@ -360,13 +382,13 @@ export default function MachineJournalPage() {
                 <div className="font-semibold">Denne maskine kræver afklaring</div>
                 <div className="mt-1">{journal.summary.registryRecord.warrantyMatchDetail === "missing_warranty_and_active_dealer" ? "Mangler garantiregistrering og aktiv forhandler." : journal.summary.registryRecord.warrantyMatchDetail === "missing_warranty_registration" ? "Mangler garantiregistrering." : "Mangler aktiv forhandler."}</div>
                 {canCorrect && !editingCorrection && (
-                  <button type="button" onClick={() => setEditingCorrection(true)} className="mt-3 rounded-md bg-amber-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-900">Ret manglende oplysninger</button>
+                  <button type="button" onClick={openCorrectionEditor} className="mt-3 rounded-md bg-amber-800 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-900">Ret manglende oplysninger</button>
                 )}
               </section>
             )}
 
             <section className="mb-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Maskinoplysninger</h2>{canCorrect && !editingCorrection && <button type="button" onClick={() => setEditingCorrection(true)} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Redigér oplysninger</button>}</div>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><h2 className="text-lg font-bold">Maskinoplysninger</h2>{canCorrect && !editingCorrection && <button type="button" onClick={openCorrectionEditor} className="rounded-md border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Redigér oplysninger</button>}</div>
               <dl className="grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <Info label="Serienummer" value={journal.summary.serial} />
                 <Info label="Model" value={journal.summary.machineType || journal.summary.model} />
@@ -386,12 +408,12 @@ export default function MachineJournalPage() {
                   <p className="mt-1 text-xs text-slate-500">Kildedata ændres ikke. Rettelsen gemmes separat med revisionsspor.</p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <label className="text-xs font-semibold text-slate-700">Aktiv forhandler<select value={correctionDraft.dealer_account_id} onChange={(event) => setCorrectionDraft((draft) => ({ ...draft, dealer_account_id: event.target.value }))} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-normal"><option value="">Mangler / ingen valgt</option>{dealers.map((dealer) => <option key={dealer.id} value={dealer.id}>{dealer.account_number} - {dealer.company_name}</option>)}</select></label>
-                    <label className="text-xs font-semibold text-slate-700">Model<input value={correctionDraft.machine_model} onChange={(event) => setCorrectionDraft((draft) => ({ ...draft, machine_model: event.target.value }))} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-2 text-sm font-normal" /></label>
+                    <label className="text-xs font-semibold text-slate-700">Model<select value={correctionDraft.machine_model} onChange={(event) => setCorrectionDraft((draft) => ({ ...draft, machine_model: event.target.value }))} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-normal"><option value="" disabled>Vælg model…</option>{legacyCorrectionModel && <option value={legacyCorrectionModel} disabled>Nuværende kildeværdi: {legacyCorrectionModel} (vælg gyldig model)</option>}{SERVICE_MACHINE_TYPES.map((machineType) => <option key={machineType.value} value={machineType.value}>{machineType.label}</option>)}</select>{legacyCorrectionModel && <span className="mt-1 block text-[11px] font-normal text-amber-700">Den nuværende værdi er ikke en canonical Portal-model. Vælg bevidst en model fra listen før gem.</span>}</label>
                     <label className="text-xs font-semibold text-slate-700">Leveringsdato<input type="date" value={correctionDraft.delivery_date} onChange={(event) => setCorrectionDraft((draft) => ({ ...draft, delivery_date: event.target.value }))} className="mt-1 block w-full rounded-md border border-slate-300 px-2 py-2 text-sm font-normal" /></label>
                     <label className="text-xs font-semibold text-slate-700">Godkendt garanti-reference<select value={correctionDraft.approved_warranty_registration_id} onChange={(event) => setCorrectionDraft((draft) => ({ ...draft, approved_warranty_registration_id: event.target.value }))} className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-sm font-normal"><option value="">Ingen garanti koblet</option>{approvedWarranties.map((warranty) => <option key={warranty.id} value={warranty.id}>{warranty.certificate_number || "Godkendt garanti"}{warranty.delivery_date ? ` · ${fmtDate(warranty.delivery_date)}` : ""}</option>)}</select></label>
                   </div>
                   {correctionError && <p className="mt-3 text-sm text-red-700">{correctionError}</p>}
-                  <div className="mt-4 flex gap-2"><button type="button" disabled={savingCorrection} onClick={saveCorrection} className="rounded-md bg-[#2d5a27] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60">{savingCorrection ? "Gemmer…" : "Gem rettelse"}</button><button type="button" disabled={savingCorrection} onClick={() => setEditingCorrection(false)} className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Annuller</button></div>
+                  <div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={savingCorrection || !selectedCanonicalModel} onClick={saveCorrection} className="rounded-md bg-[#2d5a27] px-3 py-2 text-xs font-semibold text-white disabled:opacity-60">{savingCorrection ? "Gemmer…" : "Gem rettelse"}</button><button type="button" disabled={savingCorrection} onClick={() => setEditingCorrection(false)} className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Annuller</button></div>
                 </div>
               )}
               {correction && <p className="mt-3 text-xs text-slate-500">Seneste portalrettelse: {fmtDate(correction.updated_at)}</p>}
