@@ -16,11 +16,18 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CloudCog, Loader2, AlertTriangle, ShieldCheck, X,
   ScanSearch, CloudDownload, CheckCircle2, Check, Zap,
+  ChevronDown, ChevronRight, ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAppUser } from "@/context/AppUserContext";
 import { fetchDealerAccounts, type DealerAccount } from "@/lib/dealerAccountsService";
+import {
+  buildWarrantyReviewGroups,
+  formatWarrantyMatchScore,
+  type PendingWarrantyReviewGroup,
+  type WarrantyReviewEntry,
+} from "@/lib/warrantyDealerReview";
 
 // ---- Result shapes (must match edge function responses) ----
 
@@ -52,20 +59,10 @@ interface SafeMatch {
   dealer_account_number: string | null;
   reason: "exact" | "alias" | "portal_approved";
 }
-interface NeedsReview {
-  sharepoint_item_id: string;
-  dealer_name_snapshot: string;
-  candidates: Array<{
-    dealer_account_id: string;
-    company_name: string;
-    account_number: string | null;
-    score: number;
-  }>;
+interface NeedsReview extends WarrantyReviewEntry {
+  candidates: NonNullable<WarrantyReviewEntry["candidates"]>;
 }
-interface Unmatched {
-  sharepoint_item_id: string;
-  dealer_name_snapshot: string;
-}
+type Unmatched = WarrantyReviewEntry;
 interface RejectedWarrantyRow {
   sharepoint_item_id: string;
   dealer_name_snapshot: string;
@@ -799,7 +796,11 @@ function DryRunView({ data, onRerun }: { data: DryRunResult; onRerun: () => void
                       <td className="px-2 py-1.5 font-bold text-emerald-700">{m.dealer_company_name}</td>
                       <td className="px-2 py-1.5 font-mono text-slate-700">{m.dealer_account_number ?? "—"}</td>
                       <td className="px-2 py-1.5 text-slate-600">
-                        {m.reason === "portal_approved" ? "portal-godkendt" : m.reason}
+                        {m.reason === "portal_approved"
+                          ? "Portal-godkendt match"
+                          : m.reason === "alias"
+                            ? "Tidligere godkendt alias"
+                            : "Eksakt navn"}
                       </td>
                     </tr>
                   ))}
@@ -831,63 +832,6 @@ function DryRunView({ data, onRerun }: { data: DryRunResult; onRerun: () => void
 // pick a dealer_account, approve. Writes one alias per SP name.
 // After approval, the parent re-runs dry-run so the group disappears.
 // ----------------------------------------------------------------------------
-
-interface PendingGroup {
-  sp_dealer_name: string;
-  row_count: number;
-  item_ids: string[];
-  bucket: "needs_review" | "unmatched";
-  candidates: Array<{
-    dealer_account_id: string;
-    company_name: string;
-    account_number: string | null;
-    score: number;
-  }>;
-}
-
-function buildPendingGroups(needsReview: NeedsReview[], unmatched: Unmatched[]): PendingGroup[] {
-  const byName = new Map<string, PendingGroup>();
-
-  for (const r of needsReview ?? []) {
-    const name = (r.dealer_name_snapshot || "").trim();
-    const key = `nr::${name.toLowerCase()}`;
-    const existing = byName.get(key);
-    if (existing) {
-      existing.row_count += 1;
-      existing.item_ids.push(r.sharepoint_item_id);
-    } else {
-      byName.set(key, {
-        sp_dealer_name: name,
-        row_count: 1,
-        item_ids: [r.sharepoint_item_id],
-        bucket: "needs_review",
-        candidates: (r.candidates ?? []).map((c) => ({ ...c })),
-      });
-    }
-  }
-  for (const u of unmatched ?? []) {
-    const name = (u.dealer_name_snapshot || "").trim();
-    const key = `um::${name.toLowerCase()}`;
-    const existing = byName.get(key);
-    if (existing) {
-      existing.row_count += 1;
-      existing.item_ids.push(u.sharepoint_item_id);
-    } else {
-      byName.set(key, {
-        sp_dealer_name: name,
-        row_count: 1,
-        item_ids: [u.sharepoint_item_id],
-        bucket: "unmatched",
-        candidates: [],
-      });
-    }
-  }
-
-  return Array.from(byName.values()).sort((a, b) => {
-    if (a.bucket !== b.bucket) return a.bucket === "needs_review" ? -1 : 1;
-    return b.row_count - a.row_count;
-  });
-}
 
 function ManualApprovalSection({
   needsReview,
@@ -921,7 +865,7 @@ function ManualApprovalSection({
   }, []);
 
   const groups = useMemo(
-    () => buildPendingGroups(needsReview, unmatched),
+    () => buildWarrantyReviewGroups(needsReview, unmatched),
     [needsReview, unmatched],
   );
 
@@ -954,7 +898,7 @@ function ManualApprovalSection({
       <ul className="divide-y divide-slate-100">
         {groups.map((g) => (
           <ApprovalRow
-            key={`${g.bucket}::${g.sp_dealer_name.toLowerCase()}`}
+            key={g.key}
             group={g}
             dealers={dealers}
             dealersLoading={dealersLoading}
@@ -972,7 +916,7 @@ function ApprovalRow({
   dealersLoading,
   onApproved,
 }: {
-  group: PendingGroup;
+  group: PendingWarrantyReviewGroup;
   dealers: DealerAccount[];
   dealersLoading: boolean;
   onApproved: () => void | Promise<void>;
@@ -993,29 +937,37 @@ function ApprovalRow({
   // foreslå successoren i stedet (kræver stadig manuel godkendelse).
   const initialSelection = useMemo(() => {
     const firstId = group.candidates[0]?.dealer_account_id ?? "";
-    if (!firstId) return "";
+    if (!firstId) return { dealerId: "", reason: "Intet match valgt" };
     const cand = byId.get(firstId);
     if (cand && (cand.is_blocked || cand.is_deleted) && cand.successor_dealer_account_number) {
       const succ = byAcct.get(cand.successor_dealer_account_number);
-      if (succ && !succ.is_blocked && !succ.is_deleted) return succ.id;
+      if (succ && !succ.is_blocked && !succ.is_deleted) {
+        return { dealerId: succ.id, reason: "Forvalgt som aktiv efterfølger til bedste forslag" };
+      }
     }
-    return firstId;
+    return { dealerId: firstId, reason: "Forvalgt fra bedste forslag" };
   }, [group.candidates, byId, byAcct]);
 
-  const [selected, setSelected] = useState<string>(initialSelection);
+  const [selected, setSelected] = useState<string>(initialSelection.dealerId);
+  const [selectionWasChanged, setSelectionWasChanged] = useState(false);
+  const [rowsExpanded, setRowsExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
   // Hold selected i sync når dealers indlæses.
-  useEffect(() => { if (!selected && initialSelection) setSelected(initialSelection); }, [initialSelection]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!selected && initialSelection.dealerId) setSelected(initialSelection.dealerId);
+  }, [initialSelection.dealerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedDealer = selected ? byId.get(selected) : undefined;
   const selectedIsInactive = !!(selectedDealer && (selectedDealer.is_blocked || selectedDealer.is_deleted));
+  const topCandidate = group.candidates[0];
+  const selectionReason = selectionWasChanged ? "Manuelt valgt" : initialSelection.reason;
 
   async function approve() {
     setErr(null);
-    if (!group.sp_dealer_name) {
+    if (!group.approval_source_name) {
       setErr("Tomt SharePoint-navn kan ikke godkendes.");
       toast.error("Godkendelse fejlede", { description: "Tomt SharePoint-navn kan ikke godkendes." });
       return;
@@ -1029,7 +981,7 @@ function ApprovalRow({
     try {
       const { data, error } = await supabase.functions.invoke(
         "sharepoint-warranty-approve-alias",
-        { body: { sp_dealer_name: group.sp_dealer_name, dealer_account_id: selected } },
+        { body: { sp_dealer_name: group.approval_source_name, dealer_account_id: selected } },
       );
       if (error) {
         let msg: string | null = null;
@@ -1054,7 +1006,7 @@ function ApprovalRow({
       const company = (data as { dealer_company_name?: string })?.dealer_company_name ?? "(ukendt)";
       setDone(company);
       toast.success("Match godkendt", {
-        description: `${group.sp_dealer_name} → ${company}`,
+        description: `${group.approval_source_name} → ${company}`,
       });
       void onApproved();
     } catch (e) {
@@ -1072,7 +1024,7 @@ function ApprovalRow({
         <Check className="h-4 w-4 text-emerald-700 mt-0.5" />
         <div className="text-xs text-emerald-900">
           <p className="font-bold">
-            Godkendt: <span className="font-mono">{group.sp_dealer_name || "(tomt)"}</span> → {done}
+            Godkendt: <span className="font-mono">{group.approval_source_name || "(tomt)"}</span> → {done}
           </p>
           <p className="mt-0.5 text-emerald-800">
             Dry-run opdateres — rækkerne flyttes til sikre matches.
@@ -1083,87 +1035,122 @@ function ApprovalRow({
   }
 
   return (
-    <li className="px-3 py-3">
-      <div className="flex flex-wrap items-start gap-2 justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={
-              "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide " +
-              (group.bucket === "needs_review"
-                ? "bg-amber-100 text-amber-900 border border-amber-200"
-                : "bg-rose-100 text-rose-900 border border-rose-200")
-            }>
-              {group.bucket === "needs_review" ? "Kræver gennemgang" : "Unmatched"}
-            </span>
-            <span className="text-sm font-bold text-slate-900">
-              {group.sp_dealer_name || <em className="text-slate-400">(tomt SharePoint-navn)</em>}
-            </span>
-            <span className="text-[11px] text-slate-500">
-              {group.row_count} warranty-{group.row_count === 1 ? "række" : "rækker"}
-            </span>
-          </div>
+    <li className="px-3 py-4 space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className={
+          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide " +
+          (group.bucket === "needs_review"
+            ? "bg-amber-100 text-amber-900 border border-amber-200"
+            : "bg-rose-100 text-rose-900 border border-rose-200")
+        }>
+          {group.bucket === "needs_review" ? "Kræver gennemgang" : "Unmatched"}
+        </span>
+        <span className="text-[11px] text-slate-500">
+          {group.row_count} warranty-{group.row_count === 1 ? "række" : "rækker"}
+        </span>
+      </div>
 
-          {group.candidates.length > 0 && (
-            <ul className="mt-1.5 space-y-1">
-              {group.candidates.map((c) => {
-                const dealer = byId.get(c.dealer_account_id);
-                const inactive = !!(dealer && (dealer.is_blocked || dealer.is_deleted));
-                const succ = dealer?.successor_dealer_account_number
-                  ? byAcct.get(dealer.successor_dealer_account_number)
-                  : undefined;
-                return (
-                  <li key={c.dealer_account_id} className="text-[11px] text-slate-700">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className={`font-bold ${inactive ? "text-rose-700 line-through" : "text-amber-800"}`}>
-                        {c.company_name}
-                      </span>
-                      <span className="font-mono text-slate-600">{c.account_number ?? "—"}</span>
-                      <span className="text-slate-500">score {c.score.toFixed(3)}</span>
-                      {dealer?.is_deleted && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-bold text-rose-800">
-                          Lukket
-                        </span>
-                      )}
-                      {dealer?.is_blocked && !dealer?.is_deleted && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-bold text-amber-800">
-                          Spærret
-                        </span>
-                      )}
-                    </div>
-                    {inactive && (
-                      <div className="ml-1 mt-0.5 text-[11px] text-slate-700">
-                        Historik bevares på {c.company_name}.{" "}
-                        {succ && !succ.is_blocked && !succ.is_deleted ? (
-                          <>
-                            Foreslået aktiv ansvarlig:{" "}
-                            <button
-                              type="button"
-                              onClick={() => setSelected(succ.id)}
-                              className="font-bold text-indigo-700 underline"
-                            >
-                              {succ.company_name} ({succ.account_number})
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-rose-700">
-                            Ingen aktiv efterfølger registreret — vælg manuelt eller registrér efterfølger i Backend → Forhandlere.
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Skrevet i SharePoint</p>
+        <div className="mt-1 space-y-1">
+          {group.raw_source_values.map((source) => (
+            <p key={source.value} className="break-words font-mono text-sm font-bold text-slate-900">
+              {source.value || <em className="font-sans font-normal text-slate-400">(tomt SharePoint-navn)</em>}
+              {group.raw_source_values.length > 1 && (
+                <span className="ml-2 font-sans text-[10px] font-normal text-slate-500">{source.count} rækker</span>
+              )}
+            </p>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <button
+          type="button"
+          onClick={() => setRowsExpanded((expanded) => !expanded)}
+          className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700 hover:text-indigo-900"
+          aria-expanded={rowsExpanded}
+        >
+          {rowsExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          Berører {group.row_count} garantiregistreringer
+        </button>
+
+        {rowsExpanded && (
+          <div className="mt-2 rounded border border-slate-200 bg-slate-50/60">
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="min-w-full text-[11px]">
+                <thead className="text-slate-600">
+                  <tr>
+                    <th className="px-2 py-1.5 text-left font-bold">SP item</th>
+                    <th className="px-2 py-1.5 text-left font-bold">Serienr.</th>
+                    <th className="px-2 py-1.5 text-left font-bold">Maskine</th>
+                    <th className="px-2 py-1.5 text-left font-bold">Rå SharePoint-værdi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {group.rows.map((row) => (
+                    <tr key={row.sharepoint_item_id}>
+                      <td className="px-2 py-1.5 font-mono">{row.sharepoint_item_id}</td>
+                      <td className="px-2 py-1.5 font-mono">{row.machine_serial_raw || row.machine_serial_number || "—"}</td>
+                      <td className="px-2 py-1.5">{row.machine_model || "—"}</td>
+                      <td className="px-2 py-1.5 font-mono">{row.source_dealer_name_raw || <em className="font-sans text-slate-400">(tomt)</em>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <ul className="divide-y divide-slate-200 sm:hidden">
+              {group.rows.map((row) => (
+                <li key={row.sharepoint_item_id} className="px-2 py-2 text-[11px] text-slate-700">
+                  <p><span className="font-bold">SP item:</span> <span className="font-mono">{row.sharepoint_item_id}</span></p>
+                  <p><span className="font-bold">Serienr.:</span> <span className="font-mono">{row.machine_serial_raw || row.machine_serial_number || "—"}</span></p>
+                  <p><span className="font-bold">Maskine:</span> {row.machine_model || "—"}</p>
+                  <p className="break-words"><span className="font-bold">Rå SharePoint-værdi:</span> <span className="font-mono">{row.source_dealer_name_raw || "(tomt)"}</span></p>
+                </li>
+              ))}
             </ul>
+          </div>
+        )}
+      </div>
+
+      {topCandidate ? (
+        <div className="grid gap-3 border-t border-slate-100 pt-3 md:grid-cols-2">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Bedste forslag</p>
+            <p className="mt-1 text-xs font-bold text-amber-900">
+              {topCandidate.company_name} <span className="font-mono text-slate-600">#{topCandidate.account_number ?? "—"}</span>
+            </p>
+            <p className="mt-0.5 text-[11px] text-slate-600">Matchscore: {formatWarrantyMatchScore(topCandidate.score)}</p>
+          </div>
+          {group.candidates.length > 1 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Andre kandidater</p>
+              <ul className="mt-1 space-y-1 text-[11px] text-slate-700">
+                {group.candidates.slice(1).map((candidate) => (
+                  <li key={candidate.dealer_account_id} className="break-words">
+                    {candidate.company_name} <span className="font-mono">#{candidate.account_number ?? "—"}</span>
+                    <span className="ml-1 text-slate-500">({formatWarrantyMatchScore(candidate.score)})</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
+      ) : (
+        <p className="border-t border-slate-100 pt-3 text-xs text-slate-600">Ingen automatisk kandidat fundet.</p>
+      )}
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="border-t border-slate-100 pt-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Valgt match</p>
+        <div className="mt-1.5 flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <select
             value={selected}
-            onChange={(e) => setSelected(e.target.value)}
-            disabled={dealersLoading || busy || !group.sp_dealer_name}
-            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 min-w-[260px] max-w-[360px]"
+            onChange={(e) => {
+              setSelected(e.target.value);
+              setSelectionWasChanged(true);
+            }}
+            disabled={dealersLoading || busy || !group.approval_source_name}
+            className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 sm:max-w-[420px]"
           >
             <option value="">
               {dealersLoading ? "Henter forhandlere…" : "Vælg forhandler…"}
@@ -1180,13 +1167,21 @@ function ApprovalRow({
           <button
             type="button"
             onClick={approve}
-            disabled={busy || !selected || !group.sp_dealer_name}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+            disabled={busy || !selected || !group.approval_source_name}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
           >
             {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
             Godkend match
           </button>
         </div>
+        <p className="mt-1 text-[11px] text-slate-600">Årsag: {selectionReason}</p>
+        {selectedDealer && (
+          <p className="mt-2 flex min-w-0 items-center gap-1.5 text-[11px] text-slate-700">
+            <span className="min-w-0 break-words font-mono">{group.approval_source_name}</span>
+            <ArrowRight className="h-3.5 w-3.5 flex-shrink-0 text-slate-400" />
+            <span className="min-w-0 break-words font-bold">{selectedDealer.company_name} #{selectedDealer.account_number}</span>
+          </p>
+        )}
       </div>
 
       {selectedIsInactive && (
