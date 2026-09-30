@@ -15,6 +15,7 @@ import {
   DEFAULT_MODULE_ACCESS,
 } from "@/lib/portalAccess";
 import type { OrganizationAccessRole } from "@/lib/organizationAccess";
+import { PORTAL_ROLE_DEFAULT_QUICK_ACTIONS } from "../../supabase/functions/_shared/portalCapabilityContract";
 
 export type UserStatus = "active" | "pending" | "blocked";
 export type AreaKey = "teknik_service" | "salg_marketing" | "calendar" | "marketing" | "timan_crm" | "timan_backend" | "dealer_data";
@@ -52,19 +53,7 @@ export const QUICK_ACTION_KEYS = ["create_lead", "create_demo", "company_contact
 export type QuickActionKey = typeof QUICK_ACTION_KEYS[number];
 
 /** Default quick actions per portal role. Used when quick_actions is NULL. */
-export const DEFAULT_QUICK_ACTIONS: Record<PortalRole, QuickActionKey[]> = {
-  timan_backend: ["create_lead", "create_demo", "company_contact_info", "partner_map"],
-  timan_seller:  ["create_lead", "create_demo", "company_contact_info", "partner_map"],
-  timan_service: [],
-  timan_importer: ["create_lead", "create_demo", "dealer_invoice_accept", "partner_map"],
-  timan_dealer: ["create_lead", "dealer_invoice_accept", "create_warranty_registration"],
-  timan_service_partner: ["create_lead", "create_demo", "dealer_invoice_accept", "partner_map"],
-  dealer_customer: [],
-  dealer_user: [],
-  private_end_user: [],
-  exhibition_user: [],
-  pending: [],
-};
+export const DEFAULT_QUICK_ACTIONS = PORTAL_ROLE_DEFAULT_QUICK_ACTIONS as Record<PortalRole, QuickActionKey[]>;
 
 /** Dealer actions are a fixed canonical flow, not an individually expanded menu. */
 export function configurableQuickActionsForRole(role: PortalRole): readonly QuickActionKey[] {

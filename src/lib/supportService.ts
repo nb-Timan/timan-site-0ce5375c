@@ -9,8 +9,10 @@ import type {
   SupportQuickIntent,
   SupportWorkflowState,
   SupportPortalHelpContext,
+  SupportHowToContext,
 } from '@/lib/supportTypes';
 import type { SupportProductDiscoveryContext } from '@/lib/supportProductDiscovery';
+import { findPortalCapabilityContract } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 export interface SupportSendRequest {
   content: string;
@@ -24,6 +26,7 @@ export interface SupportSendRequest {
   command?: AssistantActionCommand;
   productDiscovery?: SupportProductDiscoveryContext;
   portalHelp?: SupportPortalHelpContext;
+  howTo?: SupportHowToContext;
 }
 
 export interface SupportService {
@@ -76,6 +79,28 @@ interface SupportChatResponse {
   confidence_reason?: string;
   outcome_type?: string;
   suggest_quote_workflow?: boolean;
+  portal_navigation?: {
+    type: 'PORTAL_NAVIGATION';
+    feature_key: string;
+    label: string;
+    route: string;
+  } | null;
+}
+
+function validatedNavigationAction(value: SupportChatResponse['portal_navigation']) {
+  if (!value || value.type !== 'PORTAL_NAVIGATION') return undefined;
+  const contract = findPortalCapabilityContract(value.feature_key);
+  if (!contract) return undefined;
+  const routeMatches = contract.routeUsesDealerNumber
+    ? /^\/portal\/dealer-data\?accountNumber=[^&#]+$/.test(value.route) || value.route === '/portal/dealer-data'
+    : value.route === contract.route;
+  if (!routeMatches) return undefined;
+  return {
+    type: value.type,
+    featureKey: contract.featureKey,
+    label: value.label,
+    route: value.route,
+  } as const;
 }
 
 export class ApiSupportService implements SupportService {
@@ -95,6 +120,7 @@ export class ApiSupportService implements SupportService {
         intent: request.intent,
         product_discovery: request.productDiscovery,
         portal_help: request.portalHelp,
+        how_to: request.howTo,
         view_as_active: request.viewAsActive === true,
       },
     });
@@ -124,6 +150,7 @@ export class ApiSupportService implements SupportService {
       confidenceReason: data.confidence_reason,
       outcomeType: data.outcome_type,
       actionCard,
+      navigationAction: validatedNavigationAction(data.portal_navigation),
     };
   }
 }

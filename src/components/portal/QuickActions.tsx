@@ -11,6 +11,7 @@ import { t } from '@/lib/i18n/translations';
 import { academySandbox } from '@/lib/academySandbox';
 import { getLocalAcademyUser, getAcademyTracks, type AcademyCapability, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { WARRANTY_CREATE_ROUTE } from '@/lib/warrantyRoutes';
+import { portalCapabilityRoute } from '../../../supabase/functions/_shared/portalCapabilityContract';
 
 interface Action {
   key?: QuickActionKey;
@@ -27,13 +28,13 @@ function academyCapabilityForAction(key?: QuickActionKey): AcademyCapability | n
 }
 
 const QUICK_ACTION_CARDS: Record<QuickActionKey, Action> = {
-  create_lead: { key: 'create_lead', labelKey: 'quickActionCreateLead', to: '/portal/crm/leads/new', icon: Plus, requires: 'timan_crm' },
-  create_demo: { key: 'create_demo', labelKey: 'quickActionCreateDemo', to: '/portal/crm/demo-leads/new', icon: FlaskConical, requires: 'timan_crm' },
-  company_contact_info: { key: 'company_contact_info', labelKey: 'quickActionCompanyContactInfo', to: '/portal/misc/forms/company-contact-info', icon: Building2, requires: 'sales_tools' },
-  dealer_invoice_accept: { key: 'dealer_invoice_accept', labelKey: 'quickActionDealerInvoiceAccept', to: '/portal/misc/forms/dealer-invoice-accept', icon: FileCheck2, requires: 'sales_tools' },
+  create_lead: { key: 'create_lead', labelKey: 'quickActionCreateLead', to: portalCapabilityRoute('quick.create_lead'), icon: Plus, requires: 'timan_crm' },
+  create_demo: { key: 'create_demo', labelKey: 'quickActionCreateDemo', to: portalCapabilityRoute('quick.create_demo'), icon: FlaskConical, requires: 'timan_crm' },
+  company_contact_info: { key: 'company_contact_info', labelKey: 'quickActionCompanyContactInfo', to: portalCapabilityRoute('quick.company_contact_info'), icon: Building2, requires: 'sales_tools' },
+  dealer_invoice_accept: { key: 'dealer_invoice_accept', labelKey: 'quickActionDealerInvoiceAccept', to: portalCapabilityRoute('quick.dealer_invoice_accept'), icon: FileCheck2, requires: 'sales_tools' },
   create_warranty_registration: { key: 'create_warranty_registration', labelKey: 'quickActionCreateWarrantyRegistration', to: WARRANTY_CREATE_ROUTE, icon: ShieldCheck, requires: 'warranty' },
-  warranty_registrations: { key: 'warranty_registrations', labelKey: 'quickActionWarrantyRegistrations', to: '/portal/service/warranty/registrations', icon: ShieldCheck, requires: 'warranty' },
-  partner_map: { key: 'partner_map', labelKey: 'quickActionPartnerMap', to: '/portal/misc/partner-map', icon: MapPinned, requires: 'sales_tools' },
+  warranty_registrations: { key: 'warranty_registrations', labelKey: 'quickActionWarrantyRegistrations', to: portalCapabilityRoute('quick.warranty_registrations'), icon: ShieldCheck, requires: 'warranty' },
+  partner_map: { key: 'partner_map', labelKey: 'quickActionPartnerMap', to: portalCapabilityRoute('quick.partner_map'), icon: MapPinned, requires: 'sales_tools' },
 };
 
 const SERVICE_ACTIONS: Action[] = [

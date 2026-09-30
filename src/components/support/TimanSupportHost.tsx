@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowLeft, BookOpen, Bot, ExternalLink, FileText, Loader2, MessageCircle, MessageSquarePlus, MoreVertical, RotateCcw, Send, ThumbsDown, ThumbsUp, Wrench, X } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { ArrowLeft, ArrowRight, BookOpen, Bot, ExternalLink, FileText, Loader2, MessageCircle, MessageSquarePlus, MoreVertical, RotateCcw, Send, ThumbsDown, ThumbsUp, Wrench, X } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { useSupportSession } from '@/hooks/useSupportSession';
@@ -65,6 +65,7 @@ export default function TimanSupportHost() {
   const { uiLanguage } = useLanguage();
   const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
   const location = useLocation();
+  const navigate = useNavigate();
   const context = useMemo(
     () => deriveSupportPageContext(location.pathname, location.search),
     [location.pathname, location.search],
@@ -132,6 +133,11 @@ export default function TimanSupportHost() {
     if (!content.trim() || state.status === 'sending') return;
     setDraft('');
     await sendMessage(content, intent, command);
+  };
+
+  const openPortalDestination = (route: string) => {
+    setOpen(false);
+    navigate(route);
   };
 
   const workflow = state.conversation.workflowState;
@@ -395,6 +401,18 @@ export default function TimanSupportHost() {
                               </li>
                             ))}
                           </ul>
+                        </div>
+                      )}
+                      {message.role === 'assistant' && message.navigationAction && (
+                        <div className="mt-3 border-t border-slate-200 pt-3">
+                          <button
+                            type="button"
+                            onClick={() => openPortalDestination(message.navigationAction!.route)}
+                            className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md border border-emerald-700 bg-white px-3 py-2 text-left text-sm font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                          >
+                            <span className="min-w-0 break-words">{t('supportOpenPortalFeature', uiLanguage).replace('{feature}', message.navigationAction.label)}</span>
+                            <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          </button>
                         </div>
                       )}
                       {isFeedbackEligibleMessage(message) && (

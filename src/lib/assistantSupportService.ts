@@ -45,6 +45,7 @@ import {
   isProductDiscoveryQuestion,
 } from '@/lib/supportProductDiscovery';
 import { buildSupportPortalHelpContext } from '@/lib/supportPortalHelp';
+import { buildSupportHowToContext } from '@/lib/supportHowTo';
 
 function id(): string {
   return crypto.randomUUID();
@@ -451,6 +452,14 @@ export class AssistantSupportService implements SupportService {
           ...request,
           intent: 'portal-help',
           portalHelp,
+        });
+      }
+      const howTo = buildSupportHowToContext(request.content);
+      if (howTo) {
+        return this.fallback.sendMessage({
+          ...request,
+          intent: 'timan-how-to',
+          howTo,
         });
       }
       if (!isProductDiscoveryQuestion(request.content)) return this.fallback.sendMessage(request);

@@ -15,6 +15,7 @@ type SupportTranslationKey =
   | 'supportError'
   | 'supportRetry'
   | 'supportSourcesLabel'
+  | 'supportOpenPortalFeature'
   | 'supportWorkflowBack'
   | 'supportWorkflowReset'
   | 'supportWorkflowResetTitle'
@@ -63,6 +64,7 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportError: 'Supportsvaret kunne ikke hentes.',
     supportRetry: 'Prøv igen',
     supportSourcesLabel: 'Kilder',
+    supportOpenPortalFeature: 'Åbn {feature}',
     supportWorkflowBack: 'Tilbage',
     supportWorkflowReset: 'Nulstil tilbud',
     supportWorkflowResetTitle: 'Nulstil tilbud?',
@@ -108,6 +110,7 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportError: 'The Support response could not be loaded.',
     supportRetry: 'Try again',
     supportSourcesLabel: 'Sources',
+    supportOpenPortalFeature: 'Open {feature}',
     supportWorkflowBack: 'Back',
     supportWorkflowReset: 'Reset quote',
     supportWorkflowResetTitle: 'Reset quote?',
@@ -153,6 +156,7 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportError: 'Die Support-Antwort konnte nicht geladen werden.',
     supportRetry: 'Erneut versuchen',
     supportSourcesLabel: 'Quellen',
+    supportOpenPortalFeature: '{feature} öffnen',
     supportWorkflowBack: 'Zurück',
     supportWorkflowReset: 'Angebot zurücksetzen',
     supportWorkflowResetTitle: 'Angebot zurücksetzen?',
@@ -198,6 +202,7 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportError: 'Impossibile caricare la risposta di Support.',
     supportRetry: 'Riprova',
     supportSourcesLabel: 'Fonti',
+    supportOpenPortalFeature: 'Apri {feature}',
     supportWorkflowBack: 'Indietro',
     supportWorkflowReset: 'Reimposta offerta',
     supportWorkflowResetTitle: 'Reimpostare l’offerta?',
@@ -243,6 +248,7 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportError: 'A Support-válasz nem tölthető be.',
     supportRetry: 'Próbálja újra',
     supportSourcesLabel: 'Források',
+    supportOpenPortalFeature: '{feature} megnyitása',
     supportWorkflowBack: 'Vissza',
     supportWorkflowReset: 'Ajánlat visszaállítása',
     supportWorkflowResetTitle: 'Visszaállítja az ajánlatot?',
@@ -288,6 +294,7 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportError: 'Supportsvaret kunde inte hämtas.',
     supportRetry: 'Försök igen',
     supportSourcesLabel: 'Källor',
+    supportOpenPortalFeature: 'Öppna {feature}',
     supportWorkflowBack: 'Tillbaka',
     supportWorkflowReset: 'Återställ offert',
     supportWorkflowResetTitle: 'Återställ offert?',
@@ -333,6 +340,7 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportError: "La réponse Support n'a pas pu être chargée.",
     supportRetry: 'Réessayer',
     supportSourcesLabel: 'Sources',
+    supportOpenPortalFeature: 'Ouvrir {feature}',
     supportWorkflowBack: 'Retour',
     supportWorkflowReset: 'Réinitialiser le devis',
     supportWorkflowResetTitle: 'Réinitialiser le devis ?',
@@ -378,6 +386,7 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportError: 'Nie udało się pobrać odpowiedzi Support.',
     supportRetry: 'Spróbuj ponownie',
     supportSourcesLabel: 'Źródła',
+    supportOpenPortalFeature: 'Otwórz {feature}',
     supportWorkflowBack: 'Wstecz',
     supportWorkflowReset: 'Resetuj ofertę',
     supportWorkflowResetTitle: 'Zresetować ofertę?',
@@ -423,6 +432,7 @@ export const SUPPORT_TRANSLATIONS: Record<PortalUiLanguage, SupportTranslations>
     supportError: 'Odpověď Support se nepodařilo načíst.',
     supportRetry: 'Zkusit znovu',
     supportSourcesLabel: 'Zdroje',
+    supportOpenPortalFeature: 'Otevřít {feature}',
     supportWorkflowBack: 'Zpět',
     supportWorkflowReset: 'Resetovat nabídku',
     supportWorkflowResetTitle: 'Resetovat nabídku?',

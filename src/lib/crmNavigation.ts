@@ -9,6 +9,7 @@ import {
   Store,
   Wallet,
 } from 'lucide-react';
+import { portalCapabilityRoute } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 export interface CrmNavItem {
   tKey: string;
@@ -18,15 +19,15 @@ export interface CrmNavItem {
 
 /** Canonical CRM navigation shared by the CRM shell and read-only portal help. */
 export const CRM_NAV_ITEMS: CrmNavItem[] = [
-  { tKey: 'crmDashboard', to: '/portal/crm/dashboard', icon: LayoutDashboard },
-  { tKey: 'crmMyDealers', to: '/portal/crm/my-dealers', icon: Store },
-  { tKey: 'crmLeads', to: '/portal/crm/leads', icon: Sparkles },
-  { tKey: 'crmQuotes', to: '/portal/crm/quotes', icon: FileText },
-  { tKey: 'crmOrders', to: '/portal/crm/orders', icon: ShoppingCart },
-  { tKey: 'crmActivities', to: '/portal/crm/activities', icon: Activity },
-  { tKey: 'crmCalendar', to: '/portal/crm/calendar', icon: CalendarDays },
-  { tKey: 'crmBudget', to: '/portal/crm/budget', icon: Wallet },
-  { tKey: 'crmBudgetDashboard', to: '/portal/crm/budget-dashboard', icon: Gauge },
+  { tKey: 'crmDashboard', to: portalCapabilityRoute('crm.dashboard'), icon: LayoutDashboard },
+  { tKey: 'crmMyDealers', to: portalCapabilityRoute('crm.my_dealers'), icon: Store },
+  { tKey: 'crmLeads', to: portalCapabilityRoute('crm.leads'), icon: Sparkles },
+  { tKey: 'crmQuotes', to: portalCapabilityRoute('crm.quotes'), icon: FileText },
+  { tKey: 'crmOrders', to: portalCapabilityRoute('crm.orders'), icon: ShoppingCart },
+  { tKey: 'crmActivities', to: portalCapabilityRoute('crm.activities'), icon: Activity },
+  { tKey: 'crmCalendar', to: portalCapabilityRoute('crm.calendar'), icon: CalendarDays },
+  { tKey: 'crmBudget', to: portalCapabilityRoute('crm.budget'), icon: Wallet },
+  { tKey: 'crmBudgetDashboard', to: portalCapabilityRoute('crm.budget_dashboard'), icon: Gauge },
 ];
 
 export const EXTERNAL_CRM_NAV_BLOCKLIST = new Set([

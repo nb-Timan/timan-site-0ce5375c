@@ -24,6 +24,7 @@ import { isAcademyCapabilityUnlocked, getLocalAcademyUser } from '@/lib/academyC
 import { canOpenAcademyService } from '@/lib/academyMachineSandbox';
 import AcademyMachineGuidance from '@/components/academy/AcademyMachineGuidance';
 import AcademyHintTarget from '@/components/academy/AcademyHintTarget';
+import { portalCapabilityRoute } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -218,7 +219,7 @@ export default function PortalAreaPage({ areaId }: Props) {
             <PlaceholderCard
               title={t('newsCmsTitle', uiLanguage)}
               language={lang}
-              to="/portal/marketing/news"
+              to={portalCapabilityRoute('marketing.news_create')}
               icon={Newspaper}
               description={t('newsCmsSubtitle', uiLanguage)}
             />
@@ -227,7 +228,7 @@ export default function PortalAreaPage({ areaId }: Props) {
             <PlaceholderCard
               title={t('newsCmsOverview', uiLanguage)}
               language={lang}
-              to="/portal/marketing/news/overview"
+              to={portalCapabilityRoute('marketing.news_overview')}
               icon={ListChecks}
               description={t('newsCmsDashboardHelp', uiLanguage)}
             />
@@ -236,7 +237,7 @@ export default function PortalAreaPage({ areaId }: Props) {
             <PlaceholderCard
               title={tv('videoMgmtTitle', uiLanguage)}
               language={lang}
-              to="/portal/marketing/videos"
+              to={portalCapabilityRoute('marketing.videos')}
               icon={Film}
               description={tv('videoMgmtIntro', uiLanguage)}
             />
@@ -245,7 +246,7 @@ export default function PortalAreaPage({ areaId }: Props) {
             <PlaceholderCard
               title="Byg din Timan"
               language={lang}
-              to="/portal/marketing/configurator"
+              to={portalCapabilityRoute('marketing.configurator')}
               icon={Wrench}
               label="Configurator & kampagner"
               description="Redigér produktindhold, billeder, video og specifikationer – og opret, redigér og publicér kampagner til Configurator."
@@ -255,7 +256,7 @@ export default function PortalAreaPage({ areaId }: Props) {
             <PlaceholderCard
               title={t('siteFeaturesTitle', uiLanguage)}
               language={lang}
-              to="/portal/marketing/site-features"
+              to={portalCapabilityRoute('marketing.site_features')}
               icon={Sparkles}
               description={t('siteFeaturesCardDescription', uiLanguage)}
             />
@@ -265,18 +266,18 @@ export default function PortalAreaPage({ areaId }: Props) {
             let icon: LucideIcon | undefined;
             if (p.key === 'tsb_portal') {
               if (!canAccessTsb(portalRole, effectiveUser ?? null)) return null;
-              href = '/portal/service/tsb';
+              href = portalCapabilityRoute('service.tsb');
             } else if (p.key === 'warranty_reg') {
-              href = '/portal/service/warranty';
+              href = portalCapabilityRoute('service.warranty');
             } else if (p.key === 'service_maintenance') {
-              href = '/portal/service/maintenance'; icon = Wrench;
+              href = portalCapabilityRoute('service.maintenance'); icon = Wrench;
             } else if (p.key === 'service_tickets') {
-              href = '/portal/service/tickets'; icon = Ticket;
+              href = portalCapabilityRoute('service.tickets'); icon = Ticket;
             } else if (p.key === 'machine_search') {
-              href = '/portal/service/machines'; icon = Search;
+              href = portalCapabilityRoute('service.machine_search'); icon = Search;
             } else if (p.key === 'claims') {
               if (!hasModuleAccess(portalRole, 'claims', moduleOverride)) return null;
-              href = '/portal/service/claims'; icon = LifeBuoy;
+              href = portalCapabilityRoute('service.claims'); icon = LifeBuoy;
             } else if (p.key === 'users') {
               href = '/portal/backend/users'; icon = Users;
             } else if (p.key === 'roles') {

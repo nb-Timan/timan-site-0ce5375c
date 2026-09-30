@@ -21,6 +21,7 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { portalCapabilityRoute } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 export type BackendSectionId =
   | "dashboard"
@@ -54,14 +55,14 @@ export const backendSections: BackendSection[] = [
     title: "Brugerstyring",
     navLabel: "Brugerstyring",
     description: "Brugere, roller, modul-adgang og audit log.",
-    to: "/portal/backend/brugerstyring",
+    to: portalCapabilityRoute('backend.user_management'),
     icon: Users,
     items: [
-      { title: "Brugere", icon: Users, to: "/portal/backend/users", description: "Administrér alle portal-brugere, godkend nye signups og tildel roller." },
-      { title: "Roller", icon: ShieldCheck, to: "/portal/backend/roles", description: "Definér portal-roller og standard-rettigheder." },
-      { title: "Modul-adgang", icon: KeyRound, to: "/portal/backend/module-access", description: "Styr hvilke moduler hver rolle har adgang til." },
-      { title: "Audit Log", icon: ScrollText, to: "/portal/backend/audit-log", description: "Se ændringer på brugere, roller og adgang." },
-      { title: "Timan sælgere", icon: UserCog, to: "/portal/backend/sellers", description: "Se sælgernes tildelte forhandlere og aggregeret aktivitet." },
+      { title: "Brugere", icon: Users, to: portalCapabilityRoute('backend.users'), description: "Administrér alle portal-brugere, godkend nye signups og tildel roller." },
+      { title: "Roller", icon: ShieldCheck, to: portalCapabilityRoute('backend.roles'), description: "Definér portal-roller og standard-rettigheder." },
+      { title: "Modul-adgang", icon: KeyRound, to: portalCapabilityRoute('backend.module_access'), description: "Styr hvilke moduler hver rolle har adgang til." },
+      { title: "Audit Log", icon: ScrollText, to: portalCapabilityRoute('backend.audit_log'), description: "Se ændringer på brugere, roller og adgang." },
+      { title: "Timan sælgere", icon: UserCog, to: portalCapabilityRoute('backend.sellers'), description: "Se sælgernes tildelte forhandlere og aggregeret aktivitet." },
     ],
   },
   {
@@ -69,14 +70,14 @@ export const backendSections: BackendSection[] = [
     title: "Partnerstyring",
     navLabel: "Partnerstyring",
     description: "Forhandlere, importører, servicepartnere, relationer og geografisk dækning.",
-    to: "/portal/backend/partnerstyring",
+    to: portalCapabilityRoute('backend.partner_management'),
     icon: Building2,
     items: [
-      { title: "Forhandlere", icon: Building2, to: "/portal/backend/dealer-accounts", description: "Master-overblik over alle forhandlere, servicepartnere og importører." },
-      { title: "Kontraktgodkendelse", icon: ScrollText, to: "/portal/backend/contracts", description: "Gennemgå underskrevne forhandlerkontrakter og godkend arkivering." },
-      { title: "Dealer Matching", icon: Link2, to: "/portal/backend/data?tab=garanti", description: "Manuel matching af garantiregistreringer mod forhandlere." },
-      { title: "Partner relationer", icon: Link2, to: "/portal/backend/partner-relations", description: "Importør→forhandler-hierarki og servicepartner→forhandler-relationer." },
-      { title: "Geografisk dækning", icon: MapPin, to: "/portal/backend/data?tab=forhandlere", description: "Geocoding af forhandleradresser og dækningsoverblik." },
+      { title: "Forhandlere", icon: Building2, to: portalCapabilityRoute('backend.dealer_accounts'), description: "Master-overblik over alle forhandlere, servicepartnere og importører." },
+      { title: "Kontraktgodkendelse", icon: ScrollText, to: portalCapabilityRoute('backend.contract_approval'), description: "Gennemgå underskrevne forhandlerkontrakter og godkend arkivering." },
+      { title: "Dealer Matching", icon: Link2, to: `${portalCapabilityRoute('backend.data')}?tab=garanti`, description: "Manuel matching af garantiregistreringer mod forhandlere." },
+      { title: "Partner relationer", icon: Link2, to: portalCapabilityRoute('backend.partner_relations'), description: "Importør→forhandler-hierarki og servicepartner→forhandler-relationer." },
+      { title: "Geografisk dækning", icon: MapPin, to: `${portalCapabilityRoute('backend.data')}?tab=forhandlere`, description: "Geocoding af forhandleradresser og dækningsoverblik." },
       { title: "Partnerkort administration", icon: Map, description: "Administrér det offentlige partnerkort, når funktionen bliver klar." },
     ],
   },
@@ -85,14 +86,14 @@ export const backendSections: BackendSection[] = [
     title: "Data & Integrationer",
     navLabel: "Data & Integrationer",
     description: "Import, eksport, SharePoint-sync, warranty-sync, prislister, ERP og budgetimport.",
-    to: "/portal/backend/data-integrationer",
+    to: portalCapabilityRoute('backend.data_integrations'),
     icon: Database,
     items: [
-      { title: "Data & Integrationer", icon: Database, to: "/portal/backend/data", description: "Samlet kontrolcenter for imports, eksports og syncs med status og historik." },
-      { title: "Geocoding", icon: MapPin, to: "/portal/backend/geocoding", description: "Geokod adresser til Partnerkort, garantikort og geografiske visninger." },
-      { title: "Dealer Import", icon: Upload, to: "/portal/backend/dealer-import", description: "Importér og opdatér forhandlerdata fra SharePoint/CSV-kilder." },
-      { title: "Budget Import", icon: Upload, to: "/portal/backend/budget-import", description: "Importér sælgerbudgetter fra Excel-oversigt til CRM Budget." },
-      { title: "Prislister", icon: Tag, to: "/portal/backend/price-lists", description: "Importér, ret og publicér prislistedata." },
+      { title: "Data & Integrationer", icon: Database, to: portalCapabilityRoute('backend.data'), description: "Samlet kontrolcenter for imports, eksports og syncs med status og historik." },
+      { title: "Geocoding", icon: MapPin, to: portalCapabilityRoute('backend.geocoding'), description: "Geokod adresser til Partnerkort, garantikort og geografiske visninger." },
+      { title: "Dealer Import", icon: Upload, to: portalCapabilityRoute('backend.dealer_import'), description: "Importér og opdatér forhandlerdata fra SharePoint/CSV-kilder." },
+      { title: "Budget Import", icon: Upload, to: portalCapabilityRoute('backend.budget_import'), description: "Importér sælgerbudgetter fra Excel-oversigt til CRM Budget." },
+      { title: "Prislister", icon: Tag, to: portalCapabilityRoute('backend.price_lists'), description: "Importér, ret og publicér prislistedata." },
     ],
   },
   {
@@ -100,10 +101,10 @@ export const backendSections: BackendSection[] = [
     title: "Analyse",
     navLabel: "Analyse",
     description: "Administrative analyser, brugeraktivitet og portalstatistik.",
-    to: "/portal/backend/analyse",
+    to: portalCapabilityRoute('backend.analytics'),
     icon: BarChart3,
     items: [
-      { title: "Portal Analytics", icon: BarChart3, to: "/portal/backend/portal-analytics", description: "Brug af portalen — besøg, sessioner og moduler." },
+      { title: "Portal Analytics", icon: BarChart3, to: portalCapabilityRoute('backend.portal_analytics'), description: "Brug af portalen — besøg, sessioner og moduler." },
     ],
   },
   {
@@ -111,7 +112,7 @@ export const backendSections: BackendSection[] = [
     title: "AI Support",
     navLabel: "AI Support",
     description: "Spørgsmål, videnshuller, feedback, vidensbase og teknisk overvågning.",
-    to: "/portal/backend/ai-support",
+    to: portalCapabilityRoute('backend.ai_support'),
     icon: Bot,
     items: [],
   },
@@ -120,13 +121,13 @@ export const backendSections: BackendSection[] = [
     title: "System",
     navLabel: "System",
     description: "Tekniske overblik, systemkort, logs og vedligeholdelse.",
-    to: "/portal/backend/system",
+    to: portalCapabilityRoute('backend.system'),
     icon: Activity,
     items: [
-      { title: "Systemkort", icon: Network, to: "/portal/backend/system-map", description: "Visuelt overblik over portalen, moduler, integrationer og dataflows." },
-      { title: "Persistence Audit", icon: FileSearch, to: "/portal/backend/persistence-audit", description: "Tjek dataintegritet og overvåg gemte ressourcer." },
-      { title: "Messe", icon: QrCode, to: "/portal/backend/messe", description: "Aktivér offentlig QR-adgang til /messe og download QR-kode til messer." },
-      { title: "Mailoversigt", icon: Mail, to: "/portal/backend/mailoversigt", description: "Central audit over portalens mailforsøg og sendestatus." },
+      { title: "Systemkort", icon: Network, to: portalCapabilityRoute('backend.system_map'), description: "Visuelt overblik over portalen, moduler, integrationer og dataflows." },
+      { title: "Persistence Audit", icon: FileSearch, to: portalCapabilityRoute('backend.persistence_audit'), description: "Tjek dataintegritet og overvåg gemte ressourcer." },
+      { title: "Messe", icon: QrCode, to: portalCapabilityRoute('backend.messe'), description: "Aktivér offentlig QR-adgang til /messe og download QR-kode til messer." },
+      { title: "Mailoversigt", icon: Mail, to: portalCapabilityRoute('backend.mail_overview'), description: "Central audit over portalens mailforsøg og sendestatus." },
       { title: "Job Queue", icon: ListChecks, description: "Baggrundsjobs og kørselshistorik." },
       { title: "Systemstatus", icon: Activity, description: "Edge functions, database og integrationer." },
     ],
@@ -138,7 +139,7 @@ export const backendDashboardNav = {
   title: "Dashboard",
   navLabel: "Dashboard",
   description: "Kort overblik og genveje til de faste Backend-hovedområder.",
-  to: "/portal/backend",
+  to: portalCapabilityRoute('area.backend'),
   icon: BarChart3,
 };
 

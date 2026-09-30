@@ -197,7 +197,7 @@ describe("quick action access", () => {
     expect(quickActions).toContain("key: 'create_warranty_registration'");
     expect(quickActions).toContain("labelKey: 'quickActionCreateWarrantyRegistration'");
     expect(quickActions).toContain("to: WARRANTY_CREATE_ROUTE");
-    expect(quickActions).toContain("to: '/portal/service/warranty/registrations'");
+    expect(quickActions).toContain("to: portalCapabilityRoute('quick.warranty_registrations')");
   });
 
   it("keeps Backend's action overview as the union of the existing role action lists", () => {

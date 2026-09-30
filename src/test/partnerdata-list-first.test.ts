@@ -12,7 +12,7 @@ describe("Partnerdata list-first flow", () => {
 
     expect(app).toContain('path="/portal/dealer-data" element={<PartnerDataRoute />}');
     expect(app).toContain('path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm"><CrmMyDealersPage /></AcademyCapabilityGuard>}');
-    expect(portal).toContain("dealer_data:    { to: '/portal/dealer-data'");
+    expect(portal).toContain('dealer_data:    { to: PORTAL_AREA_ROUTES.dealer_data');
   });
 
   it("routes no-account links to the list and only opens detail after a selection", () => {

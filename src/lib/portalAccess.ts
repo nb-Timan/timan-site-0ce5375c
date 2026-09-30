@@ -13,6 +13,7 @@
 import { AppUser } from '@/data/appUsers';
 import { Language } from '@/types/configurator';
 import { canSwitchMode, getActiveRolePreview, getActiveUserView } from '@/lib/activeMode';
+import { PORTAL_ROLE_DEFAULT_MODULE_ACCESS } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 // ---------- Portal roles (internal English keys) ----------
 export type PortalRole =
@@ -129,59 +130,7 @@ export type PortalAccessUser = (
 
 
 // ---------- Default per-role module access ----------
-export const DEFAULT_MODULE_ACCESS: Record<PortalRole, ModuleAccessKey[]> = {
-  timan_backend: [
-    'teknik_service', 'salg_marketing', 'calendar', 'marketing', 'timan_backend', 'timan_crm', 'dealer_data',
-    'projects',
-    'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'messe_portal', 'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'contracts', 'resources', 'videos',
-  ],
-  timan_seller: [
-    'teknik_service', 'salg_marketing', 'calendar', 'timan_crm', 'dealer_data',
-    'projects',
-    'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'messe_portal', 'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
-  ],
-  timan_service: [
-    'teknik_service', 'dealer_data',
-    'claims', 'tsb', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'messe_portal', 'videos',
-  ],
-  timan_importer: [
-    'teknik_service', 'salg_marketing', 'dealer_data',
-    'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
-  ],
-  timan_dealer: [
-    'teknik_service', 'salg_marketing', 'calendar', 'timan_crm', 'dealer_data',
-    'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
-    'messe_portal',
-  ],
-  timan_service_partner: [
-    'teknik_service', 'salg_marketing', 'dealer_data',
-    'claims', 'warranty', 'service_information', 'service_tickets', 'machine_search',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
-  ],
-  dealer_customer: [
-    'salg_marketing', 'dealer_data',
-    'byg_din_timan', 'tilbud', 'ordre', 'sales_tools', 'resources', 'videos',
-  ],
-  // Read-only / visual access only.
-  // Dealer User is intentionally restricted to Salg & Marketing.
-  // Forhandlerdata is granted only when admins set `allowed_areas` explicitly.
-  // Teknik & Service, CRM and Timan Backend are NEVER granted.
-  dealer_user: [
-    'messe_portal', 'salg_marketing', 'byg_din_timan', 'resources', 'sales_tools', 'videos',
-  ],
-  // Private / end user — same light product experience as the Messe portal.
-  private_end_user: ['messe_portal'],
-  // Messe — locked to the Messe layout with product/demo access only.
-  exhibition_user: ['messe_portal', 'byg_din_timan', 'resources', 'videos'],
-  // Awaiting admin approval — no module access until approved.
-  pending: [],
-
-};
+export const DEFAULT_MODULE_ACCESS = PORTAL_ROLE_DEFAULT_MODULE_ACCESS as Record<PortalRole, ModuleAccessKey[]>;
 
 // ---------- Action permissions per role ----------
 export interface PortalPermissions {

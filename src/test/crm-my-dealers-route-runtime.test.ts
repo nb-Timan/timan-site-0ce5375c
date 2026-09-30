@@ -11,7 +11,7 @@ describe("CRM mine forhandlere runtime route", () => {
     expect(app).toContain('path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm"><CrmMyDealersPage /></AcademyCapabilityGuard>}');
     expect(app).toContain('lazyWithDynamicImportRecovery(() => import("./pages/crm/CrmMyDealersPage"))');
     expect(app).toContain('CRM_MY_DEALERS_CHUNK_RELOAD_KEY');
-    expect(portal).toContain("dealer_data:    { to: '/portal/dealer-data'");
+    expect(portal).toContain('dealer_data:    { to: PORTAL_AREA_ROUTES.dealer_data');
     expect(portal).not.toContain('/portal/crm/my-dealers?view=partner-list');
     expect(portal).not.toContain('const ownDealerPath');
   });

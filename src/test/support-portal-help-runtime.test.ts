@@ -19,5 +19,13 @@ describe('Support portal-help runtime boundary', () => {
     expect(endpoint).toContain('If accessible is false');
     expect(endpoint).toContain('If clarification_required is true');
     expect(endpoint).toContain('Do not use retrieved knowledge to alter canonical portal navigation.');
+    expect(endpoint).toContain('findPortalCapabilityContract(featureKey)');
+    expect(endpoint).toContain('actorCanAccess(actor, contract.access)');
+    expect(endpoint).toContain("return actorCanUseCrm(actor)");
+    expect(endpoint).toContain("actorHasModule(actor, 'sales_tools')");
+    expect(endpoint).toContain("actorHasModule(actor, 'warranty')");
+    expect(endpoint).toContain("type: 'PORTAL_NAVIGATION'");
+    expect(endpoint).toContain('portal_navigation: navigationAction');
+    expect(endpoint).not.toContain('accessible: raw.accessible === true');
   });
 });

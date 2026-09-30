@@ -7,6 +7,12 @@ import {
   type SupportConfidenceConfig,
 } from '../_shared/supportConfidence.ts';
 import { supportQuestionGuidance } from '../_shared/supportQuestionPolicy.ts';
+import {
+  findPortalCapabilityContract,
+  PORTAL_ROLE_DEFAULT_MODULE_ACCESS,
+  PORTAL_ROLE_DEFAULT_QUICK_ACTIONS,
+  type PortalCapabilityAccess,
+} from '../_shared/portalCapabilityContract.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,6 +31,8 @@ type Actor = {
   allowed_areas: string[] | null;
   allowed_modules: string[] | null;
   module_access: string[] | null;
+  permissions: Record<string, boolean> | null;
+  quick_actions: string[] | null;
 };
 
 type Candidate = {
@@ -75,10 +83,13 @@ type ProductDiscoveryContext = {
 };
 
 type PortalHelpLocation = {
+  feature_key: string;
   label: string;
+  description: string;
   breadcrumb: string[];
   route: string;
   accessible: boolean;
+  available_actions: string[];
 };
 
 type PortalHelpContext = {
@@ -87,6 +98,19 @@ type PortalHelpContext = {
   topic: string;
   clarification_required: boolean;
   locations: PortalHelpLocation[];
+};
+
+type PortalNavigationAction = {
+  type: 'PORTAL_NAVIGATION';
+  feature_key: string;
+  label: string;
+  route: string;
+};
+
+type HowToContext = {
+  domain: 'TIMAN_HOW_TO';
+  source: 'approved_knowledge';
+  topic: 'spare-parts-ordering';
 };
 
 function json(body: unknown, status = 200) {
@@ -109,7 +133,7 @@ function fallbackKind(evaluation: ConfidenceEvaluation) {
 }
 
 async function resolveActor(service: ServiceClient, authUser: { id: string; email?: string | null }): Promise<Actor> {
-  let query = service.from('app_users').select('id, portal_role, dealer_number, allowed_areas, allowed_modules, module_access, approved, is_active');
+  let query = service.from('app_users').select('id, portal_role, dealer_number, allowed_areas, allowed_modules, module_access, permissions, quick_actions, approved, is_active');
   query = authUser.email
     ? query.or(`auth_user_id.eq.${authUser.id},email.ilike.${authUser.email}`)
     : query.eq('auth_user_id', authUser.id);
@@ -264,7 +288,88 @@ function portalHelpText(value: unknown, maxLength: number): string {
   return text && !/[\r\n{}]/.test(text) ? text : '';
 }
 
-function validatePortalHelpContext(input: unknown): PortalHelpContext | null {
+function actorModules(actor: Actor): string[] {
+  return actor.allowed_modules ?? actor.module_access
+    ?? PORTAL_ROLE_DEFAULT_MODULE_ACCESS[actor.portal_role || ''] ?? [];
+}
+
+function actorHasArea(actor: Actor, area: string): boolean {
+  if (actor.portal_role === 'timan_backend') return true;
+  if (area === 'marketing') {
+    return ['timan_seller', 'timan_service'].includes(actor.portal_role || '')
+      && (actor.permissions?.news_manage === true || actor.allowed_areas?.includes('marketing') === true);
+  }
+  if (Array.isArray(actor.allowed_areas)) return actor.allowed_areas.includes(area);
+  const modules = actorModules(actor);
+  if (area === 'calendar') return modules.includes('timan_crm');
+  if (area === 'dealer_data') {
+    return modules.includes('dealer_data') || [
+      'timan_seller', 'timan_service', 'timan_importer', 'timan_dealer',
+      'timan_service_partner', 'dealer_customer',
+    ].includes(actor.portal_role || '');
+  }
+  return modules.includes(area);
+}
+
+function actorHasModule(actor: Actor, key: string): boolean {
+  if (key === 'academy') return actorModules(actor).includes('academy');
+  return actor.portal_role === 'timan_backend' || actorModules(actor).includes(key);
+}
+
+function actorCanUseCrm(actor: Actor): boolean {
+  return actorHasArea(actor, 'timan_crm') && [
+    'timan_backend', 'timan_service', 'timan_seller', 'timan_importer',
+    'timan_dealer', 'timan_service_partner', 'dealer_customer', 'dealer_user',
+  ].includes(actor.portal_role || '');
+}
+
+function actorQuickActions(actor: Actor): string[] {
+  if (actor.portal_role === 'timan_dealer') return PORTAL_ROLE_DEFAULT_QUICK_ACTIONS.timan_dealer;
+  return actor.quick_actions ?? PORTAL_ROLE_DEFAULT_QUICK_ACTIONS[actor.portal_role || ''] ?? [];
+}
+
+function actorCanUseQuickAction(actor: Actor, key: string): boolean {
+  if (!actorQuickActions(actor).includes(key)) return false;
+  if (key === 'create_lead' || key === 'create_demo') return actorCanUseCrm(actor);
+  if (key === 'company_contact_info' || key === 'dealer_invoice_accept' || key === 'partner_map') {
+    return actorHasModule(actor, 'sales_tools');
+  }
+  if (key === 'create_warranty_registration' || key === 'warranty_registrations') {
+    return actorHasModule(actor, 'warranty');
+  }
+  return false;
+}
+
+function actorCanAccess(actor: Actor, access: PortalCapabilityAccess): boolean {
+  if (access.kind === 'area') return actorHasArea(actor, access.key);
+  if (access.kind === 'module') return (!access.area || actorHasArea(actor, access.area)) && actorHasModule(actor, access.key);
+  if (access.kind === 'crm') return actorCanUseCrm(actor);
+  if (access.kind === 'backend') return actor.portal_role === 'timan_backend';
+  if (access.kind === 'backend_support') {
+    return actor.portal_role === 'timan_backend' && actor.permissions?.support_access === true;
+  }
+  if (access.kind === 'messe') return actorHasModule(actor, 'messe_portal');
+  if (access.kind === 'quick_action') return actorCanUseQuickAction(actor, access.key);
+  if (access.kind === 'permission') {
+    if (actor.portal_role === 'timan_backend') return true;
+    if (!actorHasArea(actor, access.area || 'marketing')) return false;
+    if (!['timan_seller', 'timan_service'].includes(actor.portal_role || '')) return false;
+    if (access.key === 'marketing_videos_manage') {
+      return actor.permissions?.marketing_videos_manage ?? actor.permissions?.news_manage ?? false;
+    }
+    return actor.permissions?.[access.key] === true;
+  }
+  return false;
+}
+
+function capabilityRoute(actor: Actor, route: string, useDealerNumber: boolean): string {
+  if (!useDealerNumber) return route;
+  return actor.dealer_number
+    ? route.replace(':dealerNumber', encodeURIComponent(actor.dealer_number))
+    : '/portal/dealer-data';
+}
+
+function validatePortalHelpContext(input: unknown, actor: Actor): PortalHelpContext | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const value = input as Record<string, unknown>;
   if (value.domain !== 'PORTAL_HELP' || value.navigation_source !== 'canonical_portal_navigation') return null;
@@ -273,13 +378,25 @@ function validatePortalHelpContext(input: unknown): PortalHelpContext | null {
   const locations = rawLocations.flatMap((entry): PortalHelpLocation[] => {
     if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
     const raw = entry as Record<string, unknown>;
+    const featureKey = portalHelpText(raw.feature_key, 100);
+    const contract = findPortalCapabilityContract(featureKey);
+    if (!contract) return [];
     const label = portalHelpText(raw.label, 100);
-    const route = portalHelpText(raw.route, 300);
+    const description = portalHelpText(raw.description, 500);
     const breadcrumb = safeStringList(raw.breadcrumb, 5, 100)
       .map((part) => portalHelpText(part, 100))
       .filter(Boolean);
-    if (!label || !breadcrumb.length || !/^\/(portal(?:\/|$)|configurator(?:\?|$)|academy(?:\/|$))/.test(route)) return [];
-    return [{ label, breadcrumb, route, accessible: raw.accessible === true }];
+    if (!label || !breadcrumb.length) return [];
+    const route = capabilityRoute(actor, contract.route, contract.routeUsesDealerNumber === true);
+    return [{
+      feature_key: contract.featureKey,
+      label,
+      description,
+      breadcrumb,
+      route,
+      accessible: actorCanAccess(actor, contract.access),
+      available_actions: [...contract.actions],
+    }];
   });
   if (!topic || !locations.length) return null;
   return {
@@ -291,8 +408,38 @@ function validatePortalHelpContext(input: unknown): PortalHelpContext | null {
   };
 }
 
+function portalNavigationAction(value: PortalHelpContext | null): PortalNavigationAction | null {
+  if (!value || value.clarification_required || value.locations.length !== 1) return null;
+  const location = value.locations[0];
+  if (!location.accessible) return null;
+  return {
+    type: 'PORTAL_NAVIGATION',
+    feature_key: location.feature_key,
+    label: location.label,
+    route: location.route,
+  };
+}
+
 function portalHelpContext(value: PortalHelpContext): string {
   return JSON.stringify(value, null, 2);
+}
+
+function validateHowToContext(input: unknown): HowToContext | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const value = input as Record<string, unknown>;
+  if (value.domain !== 'TIMAN_HOW_TO'
+      || value.source !== 'approved_knowledge'
+      || value.topic !== 'spare-parts-ordering') return null;
+  return {
+    domain: 'TIMAN_HOW_TO',
+    source: 'approved_knowledge',
+    topic: 'spare-parts-ordering',
+  };
+}
+
+function howToRetrievalQuery(message: string, howTo: HowToContext | null): string {
+  if (!howTo) return message;
+  return `${message}\nTiman vejledning bestilling reservedele reservedelsportal autoriseret forhandler varenummer`;
 }
 
 function structuredConfidence(reason = 'CANONICAL_PRODUCT_DATA'): ConfidenceEvaluation {
@@ -432,8 +579,11 @@ Deno.serve(async (request) => {
     const route = typeof context.route === 'string' ? context.route.slice(0, 500) : null;
     const partnerId = await resolvePartnerId(service, actor.dealer_number);
     const productDiscovery = await validateProductDiscoveryContext(service, payload.product_discovery);
-    const portalHelp = validatePortalHelpContext(payload.portal_help);
+    const portalHelp = validatePortalHelpContext(payload.portal_help, actor);
+    const navigationAction = portalNavigationAction(portalHelp);
+    const howTo = validateHowToContext(payload.how_to);
     const interactionCategory = portalHelp ? 'Portal help / Navigation'
+      : howTo ? 'Portal help / How-to'
       : productDiscovery ? 'Sales / Product discovery' : null;
 
     const { data: existingConversation } = await service.from('support_conversations').select('id, started_by_user_id')
@@ -462,7 +612,12 @@ Deno.serve(async (request) => {
     if (claimError) throw claimError;
     const decision = claim?.[0];
     if (decision?.decision === 'DUPLICATE') {
-      if (decision.existing_response_id) return json(await existingResponse(service, decision.existing_response_id));
+      if (decision.existing_response_id) {
+        return json({
+          ...await existingResponse(service, decision.existing_response_id),
+          portal_navigation: navigationAction,
+        });
+      }
       return json({ error: 'REQUEST_IN_PROGRESS' }, 409);
     }
     if (decision?.decision === 'DISABLED') {
@@ -500,7 +655,8 @@ Deno.serve(async (request) => {
     const apiKey = Deno.env.get('OPENAI_API_KEY');
     if (!apiKey) throw new Error('PROVIDER_NOT_CONFIGURED');
     const embeddingStarted = Date.now();
-    const embedding = await createEmbedding(message, config.embedding_model, config.embedding_dimensions, {
+    const retrievalQuery = howToRetrievalQuery(message, howTo);
+    const embedding = await createEmbedding(retrievalQuery, config.embedding_model, config.embedding_dimensions, {
       apiKey, timeoutMs: config.provider_timeout_ms, retryCount: 0,
     });
     if (Array.isArray(embedding)) throw new Error('INVALID_EMBEDDING_RESPONSE');
@@ -516,7 +672,7 @@ Deno.serve(async (request) => {
     const { data: retrieved, error: retrievalError } = await service.rpc('support_retrieve_authorized_chunks_v2', {
       p_actor_user_id: actor.id,
       p_query_embedding: JSON.stringify(embedding.embedding),
-      p_query_text: message,
+      p_query_text: retrievalQuery,
       p_candidate_limit: config.retrieval_candidate_limit,
       p_result_limit: config.final_chunk_limit,
       p_language: language,
@@ -664,6 +820,8 @@ Deno.serve(async (request) => {
       'Canonical portal navigation is trusted read-only route data. Use its breadcrumb and route exactly; do not invent menu steps.',
       portalHelp
         ? 'Answer the navigation question concisely. If accessible is false, state the location but clearly say the current user does not have access. If clarification_required is true, list the alternatives and ask which one the user means.'
+        : howTo
+        ? 'Answer as read-only how-to guidance from the approved retrieved knowledge. Explain the process concisely. Do not start or suggest a quote, order, email, CRM action, or workflow.'
         : '',
       'Use only citation IDs present in the knowledge blocks. Cite every claim that comes from retrieved knowledge.',
       supportQuestionGuidance(message),
@@ -809,6 +967,7 @@ Deno.serve(async (request) => {
       confidence_reason: effectiveConfidence.reason,
       outcome_type: effectiveConfidence.outcome,
       suggest_quote_workflow: productDiscovery?.purchase_intent === true,
+      portal_navigation: navigationAction,
       citations: citationRows.map((row) => ({
         id: row.opaque_citation_id, label: row.citation_label,
         language: row.source_language, page_start: row.page_start,

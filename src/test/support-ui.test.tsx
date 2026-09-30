@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import TimanSupportHost from '@/components/support/TimanSupportHost';
 import { deriveSupportPageContext } from '@/lib/supportContext';
@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
     permissions: { support_access: true },
   } as Record<string, unknown> | null,
   resolving: false,
+  navigationAction: null as null | { type: 'PORTAL_NAVIGATION'; featureKey: string; label: string; route: string },
 }));
 
 const feedback = vi.hoisted(() => ({
@@ -52,6 +53,7 @@ vi.mock('@/lib/supportService', async (importOriginal) => {
       sendMessage: vi.fn(async () => ({
         id: '11111111-1111-4111-8111-111111111111', role: 'assistant', content: 'Dette er et testsvar.',
         timestamp: '2026-09-27T10:00:00.000Z', status: 'sent', answerStatus: 'ACCEPTED',
+        navigationAction: state.navigationAction || undefined,
       })),
     },
   };
@@ -62,8 +64,13 @@ vi.mock('@/lib/supportFeedbackService', async (importOriginal) => {
   return { ...actual, fetchSupportAnswerFeedback: feedback.fetch, saveSupportAnswerFeedback: feedback.save };
 });
 
+function LocationProbe() {
+  const location = useLocation();
+  return <output aria-label="current route">{location.pathname}{location.search}</output>;
+}
+
 function renderSupport(path = '/portal') {
-  return render(<MemoryRouter initialEntries={[path]}><TimanSupportHost /></MemoryRouter>);
+  return render(<MemoryRouter initialEntries={[path]}><LocationProbe /><TimanSupportHost /></MemoryRouter>);
 }
 
 describe('Timan Support UI', () => {
@@ -71,6 +78,7 @@ describe('Timan Support UI', () => {
     vi.clearAllMocks();
     window.sessionStorage.clear();
     state.resolving = false;
+    state.navigationAction = null;
     state.user = {
       id: '22222222-2222-4222-8222-222222222222', email: 'backend@timan.dk', role: 'timan_backend', portal_role: 'timan_backend',
       partner_type: null, approved: true, is_active: true,
@@ -146,6 +154,26 @@ describe('Timan Support UI', () => {
     expect(panel.className).toContain('sm:w-[420px]');
     expect(screen.queryByRole('button', { name: 'Tilbage' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Nulstil tilbud' })).not.toBeInTheDocument();
+  });
+
+  it('opens a server-validated Portal destination and preserves the conversation', async () => {
+    state.navigationAction = {
+      type: 'PORTAL_NAVIGATION', featureKey: 'partner.company_person_data',
+      label: 'Virksomheds- og persondata', route: '/portal/dealer-data?accountNumber=D-100',
+    };
+    renderSupport();
+    fireEvent.click(screen.getByRole('button', { name: 'Åbn Timan Support' }));
+    fireEvent.change(screen.getByPlaceholderText('Skriv dit spørgsmål...'), { target: { value: 'Hvor ændrer jeg kontaktoplysninger?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send besked' }));
+    const deepLink = await screen.findByRole('button', { name: 'Åbn Virksomheds- og persondata' });
+    expect(deepLink.className).toContain('min-h-11');
+    expect(deepLink.className).toContain('w-full');
+    fireEvent.click(deepLink);
+    expect(screen.getByLabelText('current route')).toHaveTextContent('/portal/dealer-data?accountNumber=D-100');
+    expect(screen.queryByRole('dialog', { name: 'Timan Support' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Åbn Timan Support' }));
+    expect(screen.getByText('Hvor ændrer jeg kontaktoplysninger?')).toBeInTheDocument();
+    expect(screen.getByText('Dette er et testsvar.')).toBeInTheDocument();
   });
 
   it('shows active workflow controls, keeps X as close, and uses the reset confirmation', () => {

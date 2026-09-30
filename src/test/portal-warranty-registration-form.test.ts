@@ -75,7 +75,9 @@ describe("portal warranty registration form", () => {
 
     expect(WARRANTY_CREATE_ROUTE).toBe("/portal/service/warranty/new");
     expect(app).toContain("path={WARRANTY_CREATE_ROUTE}");
-    expect(quickActions.match(/to: WARRANTY_CREATE_ROUTE/g)).toHaveLength(2);
+    expect(quickActions.match(/to: WARRANTY_CREATE_ROUTE/g)).toHaveLength(1);
+    expect(readFileSync(join(process.cwd(), "src/lib/warrantyRoutes.ts"), "utf8"))
+      .toContain("portalCapabilityRoute('quick.create_warranty')");
     expect(registrations).toContain("to={WARRANTY_CREATE_ROUTE}");
     expect(page).toContain("<WarrantyNewForm");
   });
