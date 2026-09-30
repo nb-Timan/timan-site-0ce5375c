@@ -29,7 +29,7 @@ describe("machine search effective View-as scope", () => {
   it("keeps the canonical detail route scoped to the effective View-as account", () => {
     expect(journalPage).toContain("useEffectivePortalUserState(appUser)");
     expect(journalPage).toContain("const scope: JournalScope = await buildJournalScope(scopeUser, scopeRole);");
-    expect(journalPage).toContain("}, [appUser, serial, resolvingEffectiveUser, scopeIdentity, navigate, academyMode, uiLanguage]);");
+    expect(journalPage).toContain("}, [appUser, serial, resolvingEffectiveUser, scopeIdentity, navigate, academyMode, uiLanguage, journalRefreshVersion]);");
     expect(journalPage).not.toContain("buildJournalScope(appUser, role)");
   });
 

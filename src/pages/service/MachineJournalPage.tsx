@@ -163,6 +163,7 @@ export default function MachineJournalPage() {
   const [savingCorrection, setSavingCorrection] = useState(false);
   const [correctionError, setCorrectionError] = useState<string | null>(null);
   const [correctionDraft, setCorrectionDraft] = useState({ dealer_account_id: "", approved_warranty_registration_id: "", machine_model: "", delivery_date: "" });
+  const [journalRefreshVersion, setJournalRefreshVersion] = useState(0);
   const canCorrect = !academyMode && canEditMachineRegistry(effectiveUser);
   const [expandedAcademyEvent, setExpandedAcademyEvent] = useState<string | null>(null);
   const breadcrumbCurrent = useMemo(() => {
@@ -205,7 +206,7 @@ export default function MachineJournalPage() {
     // scopeIdentity tracks the effective account without subscribing to the
     // fresh View-as object returned on each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appUser, serial, resolvingEffectiveUser, scopeIdentity, navigate, academyMode, uiLanguage]);
+  }, [appUser, serial, resolvingEffectiveUser, scopeIdentity, navigate, academyMode, uiLanguage, journalRefreshVersion]);
 
   useEffect(() => {
     if (!canCorrect || !serial) {
@@ -248,16 +249,9 @@ export default function MachineJournalPage() {
         delivery_date: correctionDraft.delivery_date || null,
       });
       setCorrection(saved);
-      setCorrectionHistory((history) => [{
-        id: `local-${saved.updated_at}`,
-        actor_email: null,
-        old_values: {},
-        new_values: saved,
-        created_at: saved.updated_at,
-      }, ...history]);
+      setCorrectionHistory(await fetchMachineRegistryCorrectionHistory(journal.summary.serial));
       setEditingCorrection(false);
-      // Reload from the canonical registry after the atomic correction RPC.
-      window.location.reload();
+      setJournalRefreshVersion((version) => version + 1);
     } catch (error) {
       setCorrectionError(error instanceof Error ? error.message : "Kunne ikke gemme rettelsen.");
     } finally {

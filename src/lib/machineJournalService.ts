@@ -41,7 +41,6 @@
  */
 import { supabase } from "@/lib/supabase";
 import { fetchMachineRegistryPage, type RegistryMachineRow } from "@/lib/machineRegistryPageService";
-import { fetchMachineRegistryCorrection } from "@/lib/machineRegistryCorrectionsService";
 import { resolveMachineHealth, SERVICE_DUE_SOON_DAYS, SERVICE_OVERDUE_DAYS } from "@/lib/machineHealth";
 import { fetchWarrantyRegistrations, DbWarrantyRegistration } from "@/lib/warrantyRegistrationsService";
 import { listServiceRegistrations, ServiceRegistration } from "@/lib/serviceMaintenanceService";
@@ -909,47 +908,13 @@ export async function loadMachineJournal(
   }).then((page) => page.rows.find((row) => serialMatches(row.serial, display)) ?? null)
     .catch(() => null as RegistryMachineRow | null);
 
-  // Corrections are a separate internal audit layer over historical MO rows.
-  // A missing permission is intentionally equivalent to no correction here.
-  const correctionLookup = fetchMachineRegistryCorrection(display).catch(() => null);
-
-  const [machinesRes, warrantiesAll, serviceRegsRaw, tickets, registrySourceRecord, registryCorrection] = await Promise.all([
+  const [machinesRes, warrantiesAll, serviceRegsRaw, tickets, registryRecord] = await Promise.all([
     machineLookup,
     fetchWarrantyRegistrations().catch(() => [] as DbWarrantyRegistration[]),
     listServiceRegistrations({ serialNumber: display }).catch(() => [] as ServiceRegistration[]),
     fetchVisibleServiceTickets(500).catch(() => [] as ServiceTicket[]),
     registryLookup,
-    correctionLookup,
   ]);
-
-  let registryRecord = registrySourceRecord;
-  if (registrySourceRecord?.warrantyType === "historical" && registryCorrection) {
-    let correctionDealer: { company_name: string | null; account_number: string | null } | null = null;
-    if (registryCorrection.dealer_account_id) {
-      const { data } = await supabase
-        .from("dealer_accounts")
-        .select("company_name, account_number")
-        .eq("id", registryCorrection.dealer_account_id)
-        .maybeSingle();
-      correctionDealer = data as typeof correctionDealer;
-    }
-    registryRecord = {
-      ...registrySourceRecord,
-      machineModel: registryCorrection.machine_model ?? registrySourceRecord.machineModel,
-      deliveryDate: registryCorrection.delivery_date ?? registrySourceRecord.deliveryDate,
-      dealerName: correctionDealer?.company_name ?? registrySourceRecord.dealerName,
-      dealerNumber: correctionDealer?.account_number ?? registrySourceRecord.dealerNumber,
-      warrantyId: registryCorrection.approved_warranty_registration_id
-        ? "Godkendt garanti koblet"
-        : registrySourceRecord.warrantyId,
-      warrantyMatchStatus: registryCorrection.approved_warranty_registration_id && (correctionDealer || registrySourceRecord.dealerName)
-        ? "approved"
-        : registrySourceRecord.warrantyMatchStatus,
-      warrantyMatchDetail: registryCorrection.approved_warranty_registration_id && (correctionDealer || registrySourceRecord.dealerName)
-        ? "approved"
-        : registrySourceRecord.warrantyMatchDetail,
-    };
-  }
 
   let machine = machinesRes;
   // Drop machine row if dealer scope disallows it (RLS belt + suspenders).
