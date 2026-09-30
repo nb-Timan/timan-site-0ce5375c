@@ -16,7 +16,7 @@ describe('Support Timan how-to runtime boundary', () => {
   it('uses targeted retrieval expansion without bypassing approved knowledge or confidence', () => {
     expect(endpoint).toContain("value.domain !== 'TIMAN_HOW_TO'");
     expect(endpoint).toContain("value.topic !== 'spare-parts-ordering'");
-    expect(endpoint).toContain('const retrievalQuery = howToRetrievalQuery(message, howTo)');
+    expect(endpoint).toContain(': howToRetrievalQuery(message, howTo)');
     expect(endpoint).toContain('p_query_text: retrievalQuery');
     expect(endpoint).toContain("p_include_evaluation_only: false");
     expect(endpoint).toContain('Answer as read-only how-to guidance from the approved retrieved knowledge.');

@@ -2,10 +2,12 @@ import type { ConfiguratorState } from '@/types/configurator';
 import type { SupportPortalHelpContext } from '@/lib/supportPortalHelp';
 import type { SupportHowToContext } from '@/lib/supportHowTo';
 import type { SupportCompanyInfoContext } from '@/lib/supportCompanyInfo';
+import type { SupportSparePartsIdentificationContext } from '@/lib/supportSparePartsIdentification';
 
 export type { SupportPortalHelpContext } from '@/lib/supportPortalHelp';
 export type { SupportHowToContext } from '@/lib/supportHowTo';
 export type { SupportCompanyInfoContext } from '@/lib/supportCompanyInfo';
+export type { SupportSparePartsIdentificationContext } from '@/lib/supportSparePartsIdentification';
 
 export type SupportMessageRole = 'user' | 'assistant';
 export type SupportMessageStatus = 'sending' | 'sent' | 'error';
@@ -34,6 +36,7 @@ export interface SupportMessage {
   outcomeType?: string;
   actionCard?: SupportActionCard;
   navigationAction?: SupportNavigationAction;
+  externalLinkAction?: SupportExternalLinkAction;
   workflowState?: SupportWorkflowState;
 }
 
@@ -42,6 +45,13 @@ export interface SupportNavigationAction {
   featureKey: string;
   label: string;
   route: string;
+}
+
+export interface SupportExternalLinkAction {
+  type: 'EXTERNAL_LINK';
+  key: 'interactive_spares';
+  label: string;
+  url: string;
 }
 
 export interface SupportPageContext {
@@ -127,4 +137,4 @@ export interface SupportSessionState {
   failedRequest: SupportFailedRequest | null;
 }
 
-export type SupportQuickIntent = 'machine-info' | 'portal-help' | 'timan-company-info' | 'timan-how-to' | 'timan-website' | 'product-discovery' | 'create-quote';
+export type SupportQuickIntent = 'machine-info' | 'portal-help' | 'timan-company-info' | 'timan-how-to' | 'spare-parts-identification' | 'timan-website' | 'product-discovery' | 'create-quote';

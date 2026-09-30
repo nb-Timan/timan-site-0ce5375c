@@ -34,6 +34,7 @@ import {
   canAutosaveContractDraft,
   normalizeContractStepId,
 } from '@/lib/contractFlow';
+import { SPARE_PARTS_PORTAL } from '../../../supabase/functions/_shared/sparePartsPortal';
 import {
   addSignedUrlsToUploadVersions,
   addSignedUrlsToDocumentVersions,
@@ -600,7 +601,6 @@ const CONTRACT_DOCS = [
   { title: 'Bilag 4 - Salgs- og leveringsbetingelser', href: '/contracts/bilag-4-salgs-og-leveringsbetingelser-timan.pdf', section: 'Kommercielle vilkår' },
 ];
 
-const SPARE_PARTS_PORTAL_URL = 'https://cloud.interactivespares.com/timan/categorie/0000+-+Front+page';
 const SPARE_PARTS_PORTAL_BULLET = "Reservedele bestilles via Timan A/S' webshop.";
 
 function todayIso() {
@@ -4890,7 +4890,7 @@ function ContractTextBlockView({ block, sectionTitle }: { block: ContractTextBlo
                 <>
                   {' '}
                   <a
-                    href={SPARE_PARTS_PORTAL_URL}
+                    href={SPARE_PARTS_PORTAL.url}
                     target="_blank"
                     rel="noreferrer noopener"
                     className="font-bold text-amber-800 underline underline-offset-2 hover:text-amber-900"

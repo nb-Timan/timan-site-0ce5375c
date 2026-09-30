@@ -47,6 +47,7 @@ import {
 import { buildSupportPortalHelpContext } from '@/lib/supportPortalHelp';
 import { buildSupportHowToContext } from '@/lib/supportHowTo';
 import { buildSupportCompanyInfoContext } from '@/lib/supportCompanyInfo';
+import { buildSparePartsIdentificationContext } from '@/lib/supportSparePartsIdentification';
 
 function id(): string {
   return crypto.randomUUID();
@@ -469,6 +470,19 @@ export class AssistantSupportService implements SupportService {
           ...request,
           intent: 'timan-how-to',
           howTo,
+        });
+      }
+      const sparePartsIdentification = await buildSparePartsIdentificationContext(
+        request.content,
+        request.language,
+        this.appUser,
+        request.viewAsActive === true,
+      );
+      if (sparePartsIdentification) {
+        return this.fallback.sendMessage({
+          ...request,
+          intent: 'spare-parts-identification',
+          sparePartsIdentification,
         });
       }
       if (!isProductDiscoveryQuestion(request.content)) return this.fallback.sendMessage(request);

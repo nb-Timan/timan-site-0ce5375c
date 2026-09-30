@@ -11,9 +11,11 @@ import type {
   SupportPortalHelpContext,
   SupportHowToContext,
   SupportCompanyInfoContext,
+  SupportSparePartsIdentificationContext,
 } from '@/lib/supportTypes';
 import type { SupportProductDiscoveryContext } from '@/lib/supportProductDiscovery';
 import { findPortalCapabilityContract } from '../../supabase/functions/_shared/portalCapabilityContract';
+import { SPARE_PARTS_PORTAL, sparePartsPortalLabel } from '../../supabase/functions/_shared/sparePartsPortal';
 
 export interface SupportSendRequest {
   content: string;
@@ -29,6 +31,7 @@ export interface SupportSendRequest {
   portalHelp?: SupportPortalHelpContext;
   howTo?: SupportHowToContext;
   companyInfo?: SupportCompanyInfoContext;
+  sparePartsIdentification?: SupportSparePartsIdentificationContext;
 }
 
 export interface SupportService {
@@ -87,6 +90,12 @@ interface SupportChatResponse {
     label: string;
     route: string;
   } | null;
+  external_link?: {
+    type: 'EXTERNAL_LINK';
+    key: string;
+    label: string;
+    url: string;
+  } | null;
 }
 
 function validatedNavigationAction(value: SupportChatResponse['portal_navigation']) {
@@ -103,6 +112,20 @@ function validatedNavigationAction(value: SupportChatResponse['portal_navigation
     label: value.label,
     route: value.route,
   } as const;
+}
+
+export function validatedExternalLinkAction(
+  value: SupportChatResponse['external_link'],
+  language: PortalUiLanguage,
+) {
+  if (!value || value.type !== 'EXTERNAL_LINK' || value.key !== SPARE_PARTS_PORTAL.key) return undefined;
+  if (value.url !== SPARE_PARTS_PORTAL.url) return undefined;
+  return {
+    type: 'EXTERNAL_LINK' as const,
+    key: SPARE_PARTS_PORTAL.key,
+    label: sparePartsPortalLabel(language),
+    url: SPARE_PARTS_PORTAL.url,
+  };
 }
 
 export class ApiSupportService implements SupportService {
@@ -124,6 +147,7 @@ export class ApiSupportService implements SupportService {
         portal_help: request.portalHelp,
         how_to: request.howTo,
         company_info: request.companyInfo,
+        spare_parts_identification: request.sparePartsIdentification,
         view_as_active: request.viewAsActive === true,
       },
     });
@@ -154,6 +178,7 @@ export class ApiSupportService implements SupportService {
       outcomeType: data.outcome_type,
       actionCard,
       navigationAction: validatedNavigationAction(data.portal_navigation),
+      externalLinkAction: validatedExternalLinkAction(data.external_link, request.language),
     };
   }
 }

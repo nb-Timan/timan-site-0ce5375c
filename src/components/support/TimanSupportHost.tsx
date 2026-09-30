@@ -140,6 +140,10 @@ export default function TimanSupportHost() {
     navigate(route);
   };
 
+  const openExternalDestination = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   const workflow = state.conversation.workflowState;
   const activeWorkflow = Boolean(
     workflow.workflowId
@@ -412,6 +416,18 @@ export default function TimanSupportHost() {
                           >
                             <span className="min-w-0 break-words">{t('supportOpenPortalFeature', uiLanguage).replace('{feature}', message.navigationAction.label)}</span>
                             <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+                          </button>
+                        </div>
+                      )}
+                      {message.role === 'assistant' && message.externalLinkAction && (
+                        <div className="mt-3 border-t border-slate-200 pt-3">
+                          <button
+                            type="button"
+                            onClick={() => openExternalDestination(message.externalLinkAction!.url)}
+                            className="flex min-h-11 w-full items-center justify-between gap-2 rounded-md border border-emerald-700 bg-white px-3 py-2 text-left text-sm font-semibold text-emerald-800 hover:bg-emerald-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                          >
+                            <span className="min-w-0 break-words">{message.externalLinkAction.label}</span>
+                            <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
                           </button>
                         </div>
                       )}
