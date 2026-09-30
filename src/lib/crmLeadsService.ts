@@ -13,7 +13,11 @@ import { notifyLocalFallback } from "@/lib/persistenceWarning";
 import { logActivity, type CrmActivity } from "@/lib/crmActivitiesService";
 import { BUDGET_PRODUCTS, EQUIPMENT_BY_MACHINE, fiscalYearForCalendarMonth, localizedName } from "@/lib/crmBudgetService";
 import { getLeadPipelineValueSnapshot } from "@/lib/crmPipelineValue";
-import { getMissingStoredCrmLeadFields, type StoredCrmLeadCompleteness } from '@/lib/crmLeadValidation';
+import {
+  getMissingStoredCrmLeadFields,
+  readCrmLeadStructuredContact,
+  type StoredCrmLeadCompleteness,
+} from '@/lib/crmLeadValidation';
 import machineDemoSeed from "@/data/machineDemoSeed.json";
 import openLeadsSeed from "@/data/openLeadsSeed.json";
 import {
@@ -168,6 +172,16 @@ export const CRM_LEAD_SUMMARY_SELECT = [
   "contact_type",
   "customer_type",
   "contact_information",
+  "company_name",
+  "company_cvr",
+  "contact_person_name",
+  "phone",
+  "email",
+  "address",
+  "postal_code",
+  "city",
+  "lead_reference_type",
+  "linked_dealer_contact_id",
   "country",
   "estimated_value",
   "pipeline_value_snapshot",
@@ -294,11 +308,13 @@ export interface CrmLead {
   /** Stable, human-readable lead number (1000+) → displayed as L-1000.
    *  Assigned by Supabase sequence on insert (phase31 SQL). */
   lead_no?: number | null;
+  lead_reference_type?: "L" | "G" | null;
   title: string;
   owner_user_id: string | null;
   owner_name: string | null;
   owner_email?: string | null;
   linked_dealer_id: string | null;
+  linked_dealer_contact_id?: string | null;
   first_contact_date: string | null;
   expected_close_date: string | null;
   next_followup_date: string | null;
@@ -308,6 +324,14 @@ export interface CrmLead {
   contact_type: string | null;
   customer_type: string | null;
   contact_information: string | null;
+  company_name?: string | null;
+  company_cvr?: string | null;
+  contact_person_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  postal_code?: string | null;
+  city?: string | null;
   trade_fair: string | null;
   country: string | null;
   notes: string | null;
@@ -446,9 +470,24 @@ export const DEMO_NO_PREFIX = "D-";
 const LEAD_NO_START = 1001;
 const DEMO_NO_START = 8000;
 
-export function formatLeadNo(n: number | null | undefined): string {
+export function resolveLeadReferenceType(
+  n: number | null | undefined,
+  referenceType?: "L" | "G" | null,
+): "L" | "G" {
+  if (referenceType === "L" || referenceType === "G") return referenceType;
+  return n != null && n >= 5000 ? "G" : "L";
+}
+
+export function formatLeadRelation(
+  n: number | null | undefined,
+  referenceType?: "L" | "G" | null,
+): "L-" | "G-" {
+  return `${resolveLeadReferenceType(n, referenceType)}-`;
+}
+
+export function formatLeadNo(n: number | null | undefined, referenceType?: "L" | "G" | null): string {
   if (n == null) return "—";
-  return n >= 5000 ? `${LEGACY_LEAD_NO_PREFIX}${n}` : `${LEAD_NO_PREFIX}${n}`;
+  return `${formatLeadRelation(n, referenceType)}${n}`;
 }
 export function formatDemoNo(n: number | null | undefined): string {
   return n == null ? "—" : `${DEMO_NO_PREFIX}${n}`;
@@ -540,6 +579,7 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       owner_name: row.owner_name,
       owner_email: row.owner_email ?? null,
       linked_dealer_id: isUuid(row.linked_dealer_id) ? row.linked_dealer_id : null,
+      linked_dealer_contact_id: isUuid(row.linked_dealer_contact_id) ? row.linked_dealer_contact_id : null,
       first_contact_date: row.first_contact_date,
       expected_close_date: row.expected_close_date,
       next_followup_date: row.next_followup_date,
@@ -549,6 +589,14 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       contact_type: row.contact_type,
       customer_type: row.customer_type,
       contact_information: row.contact_information,
+      company_name: row.company_name ?? null,
+      company_cvr: row.company_cvr ?? null,
+      contact_person_name: row.contact_person_name ?? null,
+      phone: row.phone ?? null,
+      email: row.email ?? null,
+      address: row.address ?? null,
+      postal_code: row.postal_code ?? null,
+      city: row.city ?? null,
       trade_fair: row.trade_fair,
       country: row.country,
       notes: row.notes,
@@ -565,7 +613,7 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       status: row.status,
       move_to_working_qty: row.move_to_working_qty ?? 0,
       incomplete_from_configurator: row.incomplete_from_configurator ?? false,
-    }).select("lead_no").maybeSingle();
+    }).select("lead_no, lead_reference_type").maybeSingle();
     if (error) {
       notifyLocalFallback({ table: "crm_leads", action: "insert", error });
       if (opts.requireRemote) {
@@ -575,10 +623,14 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
     }
     if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
       row.lead_no = (data as { lead_no: number }).lead_no;
+      row.lead_reference_type = (data as { lead_reference_type?: "L" | "G" }).lead_reference_type || "L";
       // Sync the local row with the authoritative number.
       const ls = readLS<CrmLead>(LS_LEADS);
       const idx = ls.findIndex(r => r.id === row.id);
-      if (idx >= 0) { ls[idx] = { ...ls[idx], lead_no: row.lead_no }; writeLS(LS_LEADS, ls); }
+      if (idx >= 0) {
+        ls[idx] = { ...ls[idx], lead_no: row.lead_no, lead_reference_type: row.lead_reference_type };
+        writeLS(LS_LEADS, ls);
+      }
     }
   } catch (err) {
     notifyLocalFallback({ table: "crm_leads", action: "insert", error: err });
@@ -718,6 +770,7 @@ export async function updateLead(
       owner_name: merged.owner_name,
       owner_email: merged.owner_email ?? null,
       linked_dealer_id: merged.linked_dealer_id,
+      linked_dealer_contact_id: merged.linked_dealer_contact_id ?? null,
       first_contact_date: merged.first_contact_date,
       expected_close_date: merged.expected_close_date,
       next_followup_date: merged.next_followup_date,
@@ -727,6 +780,14 @@ export async function updateLead(
       contact_type: merged.contact_type,
       customer_type: merged.customer_type,
       contact_information: merged.contact_information,
+      company_name: merged.company_name ?? null,
+      company_cvr: merged.company_cvr ?? null,
+      contact_person_name: merged.contact_person_name ?? null,
+      phone: merged.phone ?? null,
+      email: merged.email ?? null,
+      address: merged.address ?? null,
+      postal_code: merged.postal_code ?? null,
+      city: merged.city ?? null,
       trade_fair: merged.trade_fair,
       country: merged.country,
       notes: merged.notes,
@@ -800,6 +861,8 @@ export interface ListLeadsOpts {
 export interface CrmLeadsPageRow {
   id: string;
   display_no: string;
+  reference_no?: number | null;
+  reference_type?: "L" | "G" | null;
   type: "open" | "demo";
   title: string;
   customer: string | null;
@@ -1000,7 +1063,7 @@ export async function listLeadsPage(opts: ListLeadsPageOpts): Promise<CrmLeadsPa
   const leadIds = page.rows.filter((row) => row.type === 'open').map((row) => row.id);
   if (leadIds.length === 0) return page;
   const { data: leads, error: completenessError } = await supabase.from('crm_leads')
-    .select('id,title,owner_user_id,linked_dealer_id,first_contact_date,expected_close_date,next_followup_date,next_activity,contact_type,customer_type,machine_types,contact_information,country,trade_fair,notes')
+    .select('id,lead_no,lead_reference_type,title,owner_user_id,linked_dealer_id,first_contact_date,expected_close_date,next_followup_date,next_activity,contact_type,customer_type,machine_types,contact_information,company_name,company_cvr,contact_person_name,phone,email,address,postal_code,city,country,trade_fair,notes')
     .in('id', leadIds);
   if (completenessError) {
     console.warn('[crm.listLeadsPage] completeness lookup failed', completenessError);
@@ -1010,7 +1073,13 @@ export async function listLeadsPage(opts: ListLeadsPageOpts): Promise<CrmLeadsPa
   page.rows = page.rows.map((row) => {
     const lead = byId.get(row.id);
     return row.type === 'open' && lead
-      ? { ...row, incomplete: getMissingStoredCrmLeadFields(lead).length > 0 }
+      ? {
+          ...row,
+          reference_no: typeof lead.lead_no === 'number' ? lead.lead_no : null,
+          reference_type: lead.lead_reference_type === 'G' ? 'G' : 'L',
+          customer: readCrmLeadStructuredContact(lead).company || row.customer,
+          incomplete: getMissingStoredCrmLeadFields(lead).length > 0,
+        }
       : row;
   });
   return page;

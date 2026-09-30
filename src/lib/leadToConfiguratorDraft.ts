@@ -1,6 +1,7 @@
 import { getAccessoriesFlat, getLocalizedName, getPrice, LOOSE_TOOL_KEY, PRODUCTS } from '@/data/machines';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import type { CrmLead } from '@/lib/crmLeadsService';
+import { readCrmLeadStructuredContact } from '@/lib/crmLeadValidation';
 import type { Accessory, ConfiguratorState, Language } from '@/types/configurator';
 
 const MACHINE_ORDER = ['RC-751', 'RC-1000S', 'Timan 2620', 'Timan 3330', LOOSE_TOOL_KEY];
@@ -25,17 +26,6 @@ function machineKeyFromText(value: string): string | null {
   if (s.includes('3330')) return 'Timan 3330';
   if (s.includes('loader') || s.includes('tractor') || s.includes('traktor')) return LOOSE_TOOL_KEY;
   return null;
-}
-
-function parseLeadField(text: string | null | undefined, label: string): string {
-  const lines = String(text || '').split(/\r?\n/);
-  const wanted = norm(label);
-  for (const line of lines) {
-    const idx = line.indexOf(':');
-    if (idx === -1) continue;
-    if (norm(line.slice(0, idx)) === wanted) return line.slice(idx + 1).trim();
-  }
-  return '';
 }
 
 function accessoryName(acc: Accessory): string {
@@ -77,7 +67,8 @@ function addAccessoryWithParents(machineKey: string, ids: Set<string>, acc: Acce
   const flat = getAccessoriesFlat(machineKey);
   let current: Accessory | undefined = acc;
   for (let i = 0; i < 8 && current; i++) {
-    const parentId = (current as any).requires || (current as any).parentId;
+    const relation = current as Accessory & { requires?: string; parentId?: string };
+    const parentId = relation.requires || relation.parentId;
     if (!parentId) break;
     ids.add(parentId);
     current = flat.find((item) => item.id === parentId);
@@ -220,17 +211,22 @@ export function buildConfiguratorStateFromLead(
   previous: ConfiguratorState,
 ): ConfiguratorState {
   const { state } = buildConfiguratorStateFromMachineTypes(lead.machine_types, previous);
-  const contactText = lead.contact_information || '';
+  const contact = readCrmLeadStructuredContact(lead);
   const noteText = [lead.notes, lead.trade_fair ? `Messe: ${lead.trade_fair}` : null]
     .filter(Boolean)
     .join('\n\n');
 
   return {
     ...state,
-    firmanavn: parseLeadField(contactText, 'Firma/CVR'),
-    kontaktperson: parseLeadField(contactText, 'Kontaktperson'),
-    telefon: parseLeadField(contactText, 'Telefon'),
-    email: parseLeadField(contactText, 'E-mail'),
+    firmanavn: contact.company,
+    kontaktperson: contact.contactPerson,
+    telefon: contact.phone,
+    email: contact.email,
+    emailRecipient: contact.email,
+    address: contact.address,
+    postalCode: contact.postalCode,
+    city: contact.city,
+    country: contact.country || state.country,
     comment: noteText,
   };
 }

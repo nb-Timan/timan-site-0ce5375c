@@ -6,7 +6,8 @@ import { currencyFromLanguage, toDkk } from '@/lib/currency';
 import { getLead, updateLead, type CrmLead, type CrmLeadPatch } from '@/lib/crmLeadsService';
 import {
   buildStructuredContactInformation,
-  parseStructuredContactInformation,
+  readCrmLeadStructuredContact,
+  structuredCrmLeadContactColumns,
   type StructuredContactInfo,
 } from '@/lib/crmLeadValidation';
 import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
@@ -197,8 +198,8 @@ function readStateField(state: ConfiguratorState, keys: string[]): string | null
   return null;
 }
 
-function contactInformationFromState(lead: CrmLead, state: ConfiguratorState): string | null {
-  const current = parseStructuredContactInformation(lead.contact_information, lead.country);
+function contactFromState(lead: CrmLead, state: ConfiguratorState): StructuredContactInfo {
+  const current = readCrmLeadStructuredContact(lead);
   const next: StructuredContactInfo = {
     company: preferNonEmpty(state.firmanavn, current.company) ?? '',
     contactPerson: preferNonEmpty(state.kontaktperson, current.contactPerson) ?? '',
@@ -215,7 +216,7 @@ function contactInformationFromState(lead: CrmLead, state: ConfiguratorState): s
     next.zipCity = [next.postalCode, next.city].filter(Boolean).join(' ');
   }
 
-  return buildStructuredContactInformation(next) || lead.contact_information || null;
+  return next;
 }
 
 function getConfigurationSourceValue(state: ConfiguratorState, row: CrmLeadConfigurationSyncRow): number {
@@ -293,11 +294,13 @@ export function buildLeadPatchFromConfigurationState(
     ?? preferNonEmpty(row.dealer_number, null)
     ?? lead.linked_dealer_id
     ?? null;
+  const contact = contactFromState(lead, state);
 
   const patch: CrmLeadPatch = {
     title: preferNonEmpty(state.firmanavn, null) ?? preferNonEmpty(row.title, null) ?? lead.title,
     machine_types: machineTypes.length > 0 ? machineTypes : lead.machine_types,
-    contact_information: contactInformationFromState(lead, state),
+    ...structuredCrmLeadContactColumns(contact),
+    contact_information: lead.contact_information || buildStructuredContactInformation(contact) || null,
     estimated_value: estimatedValue || lead.estimated_value,
     linked_dealer_id: linkedDealerId,
     owner_user_id: preferNonEmpty(sellerId, null) ?? preferNonEmpty(row.assigned_seller_id, null) ?? lead.owner_user_id,

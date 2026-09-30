@@ -21,6 +21,7 @@ import {
 import { getMesseLeadWebhookUrl } from '@/lib/webhookUrls';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
+import { parseStructuredContactInformation, structuredCrmLeadContactColumns } from '@/lib/crmLeadValidation';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { buildMesseLeadInternalMailRouting } from '@/lib/messeLeadMail';
@@ -718,6 +719,9 @@ export default function MesseFollowUpPage() {
         cleanEmail ? `E-mail: ${cleanEmail}` : null,
         selectedLeadCountry ? `Land: ${selectedLeadCountry}` : null,
       ].filter(Boolean).join('\n');
+      const structuredContactColumns = structuredCrmLeadContactColumns(
+        parseStructuredContactInformation(contactInformation, selectedLeadCountry),
+      );
       const dealerText = selectedAllowedDealer
         ? `${selectedAllowedDealer.company_name} (${selectedAllowedDealer.account_number})`
         : 'Ingen forhandler valgt';
@@ -758,6 +762,7 @@ export default function MesseFollowUpPage() {
         contact_type: 'Trade fair',
         customer_type: leadType === 'dealer' ? 'Dealer/Demo machine' : 'Company',
         contact_information: contactInformation,
+        ...structuredContactColumns,
         trade_fair: 'Messe / Exhibition',
         country: selectedLeadCountry || selectedAllowedDealer?.country || null,
         notes: leadNotes,

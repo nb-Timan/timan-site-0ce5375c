@@ -9,6 +9,7 @@ import {
   uploadSentPdf,
 } from '@/lib/configurationsService';
 import { createLead, type NewCrmLead } from '@/lib/crmLeadsService';
+import { buildStructuredContactInformation, structuredCrmLeadContactColumns } from '@/lib/crmLeadValidation';
 import { logMailAuditEvent } from '@/lib/mailAuditService';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { resolveSellerId } from '@/lib/resolveSellerId';
@@ -118,6 +119,17 @@ export async function createAssistantLead(input: {
   const state = applyAssistantCustomer(input.state, input.dealer, input.contact);
   const calc = calculateConfiguration(state);
   const ownerId = await resolveSellerId(input.appUser.email) || input.appUser.id || null;
+  const contact = {
+    company: state.firmanavn,
+    contactPerson: state.kontaktperson,
+    phone: state.telefon,
+    email: state.emailRecipient,
+    address: state.address,
+    postalCode: state.postalCode,
+    city: state.city,
+    zipCity: [state.postalCode, state.city].filter(Boolean).join(' '),
+    country: state.country || input.dealer?.country || '',
+  };
   const lead: NewCrmLead = {
     lead_no: null,
     title: labelForQuote(state, input.dealer),
@@ -125,6 +137,7 @@ export async function createAssistantLead(input: {
     owner_name: input.appUser.display_name || input.appUser.email,
     owner_email: input.appUser.email.toLowerCase(),
     linked_dealer_id: input.dealer?.id || null,
+    linked_dealer_contact_id: input.contact?.id || state.dealerContactId || null,
     first_contact_date: new Date().toISOString().slice(0, 10),
     expected_close_date: null,
     next_followup_date: null,
@@ -133,7 +146,8 @@ export async function createAssistantLead(input: {
     demo_has_run: Object.values(state.demoMachines).some(Boolean) ? 'yes' : 'no',
     contact_type: 'Timan',
     customer_type: 'Needs to be filled in',
-    contact_information: [state.kontaktperson, state.emailRecipient, state.telefon].filter(Boolean).join(' | ') || null,
+    ...structuredCrmLeadContactColumns(contact),
+    contact_information: buildStructuredContactInformation(contact) || null,
     trade_fair: null,
     country: state.country || input.dealer?.country || null,
     notes: ['Created from Timan Assistant configuration workflow.', state.internalNote].filter(Boolean).join(' '),

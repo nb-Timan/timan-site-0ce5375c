@@ -85,7 +85,7 @@ import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
 import { clearLocalAcademyEnrollment, getLocalAcademyUser } from '@/lib/academyCurriculum';
 import { isLooseToolMode, shouldRenderAccessory } from '@/lib/looseToolDependencies';
 import { validateConfiguratorLead, type ConfiguratorLeadField } from '@/lib/configuratorLeadValidation';
-import { buildStructuredContactInformation } from '@/lib/crmLeadValidation';
+import { buildStructuredContactInformation, structuredCrmLeadContactColumns } from '@/lib/crmLeadValidation';
 
 import { generateSalesArguments, generateRecommendations, SalesArgsStructured, RecommendationStructured } from '@/lib/salesArguments';
 import CustomerNeedsPanel from '@/components/configurator/CustomerNeedsPanel';
@@ -1044,7 +1044,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
       const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
       const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
-      const contactInfo = buildStructuredContactInformation({
+      const contact = {
         company: state.firmanavn,
         contactPerson: state.kontaktperson,
         address: state.address,
@@ -1054,7 +1054,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         phone: state.telefon,
         email: state.email,
         country: state.country,
-      }) || null;
+      };
+      const contactInfo = buildStructuredContactInformation(contact) || null;
 
       const created = await createLead({
         title,
@@ -1062,6 +1063,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         owner_name: ownership.sellerName || appUser?.display_name || null,
         owner_email: ownership.sellerEmail || appUser?.email || null,
         linked_dealer_id: ownership.dealerNumber || null,
+        linked_dealer_contact_id: state.dealerContactId || null,
         first_contact_date: new Date().toISOString().slice(0, 10),
         expected_close_date: null,
         next_followup_date: null,
@@ -1071,6 +1073,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         contact_type: null,
         customer_type: null,
         contact_information: contactInfo,
+        ...structuredCrmLeadContactColumns(contact),
         trade_fair: null,
         country: state.country,
         notes: notes || null,
@@ -1323,7 +1326,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
       const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
       const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
-      const contactInfo = buildStructuredContactInformation({
+      const contact = {
         company: state.firmanavn,
         contactPerson: state.kontaktperson,
         address: state.address,
@@ -1333,7 +1336,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         phone: state.telefon,
         email: state.email,
         country: state.country,
-      }) || null;
+      };
+      const contactInfo = buildStructuredContactInformation(contact) || null;
 
       const created = await createLead({
         title,
@@ -1341,6 +1345,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         owner_name: ownership.sellerName || appUser?.display_name || null,
         owner_email: ownership.sellerEmail || appUser?.email || null,
         linked_dealer_id: ownership.dealerNumber || null,
+        linked_dealer_contact_id: state.dealerContactId || null,
         first_contact_date: new Date().toISOString().slice(0, 10),
         expected_close_date: null,
         next_followup_date: null,
@@ -1350,6 +1355,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         contact_type: null,
         customer_type: null,
         contact_information: contactInfo,
+        ...structuredCrmLeadContactColumns(contact),
         trade_fair: null,
         country: state.country,
         notes: notes || null,

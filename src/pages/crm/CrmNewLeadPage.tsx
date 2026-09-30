@@ -1,5 +1,5 @@
 import AcademyCrmGuidance from '@/components/academy/AcademyCrmGuidance';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { CrmLeadFollowupFields } from '@/components/crm/CrmLeadFollowupFields';
@@ -17,7 +17,7 @@ import {
   CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
   CUSTOMER_TYPE_OPTIONS, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   getNextActivitySelectorOptions, MANUAL_NEXT_ACTIVITY_OPTIONS,
-  PipelineStage, formatLeadNo,
+  PipelineStage, formatLeadNo, formatLeadRelation,
   getLeadAttachmentSignedUrl, getLeadAttachmentSignedUrls, getLeadImageAttachments, uploadLeadAttachments, type CrmLeadAttachment, type CrmLinkedSalesEvent,
 } from '@/lib/crmLeadsService';
 import {
@@ -82,8 +82,9 @@ import {
   buildStructuredContactInformation,
   getMissingCrmLeadFields,
   importedChoiceValue,
-  parseStructuredContactInformation,
+  readCrmLeadStructuredContact,
   splitTradeFairYear,
+  structuredCrmLeadContactColumns,
   isLegacyWorkingBudgetOnlySave,
   normalizeWorkingBudgetQuantity,
   type CrmLeadRequiredField,
@@ -811,6 +812,7 @@ export default function CrmNewLeadPage() {
   const [dealerContacts, setDealerContacts] = useState<DealerContact[]>([]);
   const [dealerContactsLoading, setDealerContactsLoading] = useState(false);
   const [selectedDealerContactId, setSelectedDealerContactId] = useState('');
+  const pendingDealerContactIdRef = useRef('');
   const [dealerContactEmailMissing, setDealerContactEmailMissing] = useState(false);
   // This is UI state only. The saved lead keeps a snapshot of the chosen
   // customer/contact, while linked_dealer_id remains the responsible partner.
@@ -822,6 +824,8 @@ export default function CrmNewLeadPage() {
     country: 'Danmark',
   });
   const [dealerCustomerData, setDealerCustomerData] = useState<CrmLeadDealerContactSnapshot>(EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
+  const [legacyContactInformation, setLegacyContactInformation] = useState<string | null>(null);
+  const [editLeadReferenceType, setEditLeadReferenceType] = useState<'L' | 'G' | null>(null);
 
   // Sellers (Timan Sælger / Timan Backend) for the responsible-seller dropdown.
   const [sellers, setSellers] = useState<BackendUser[]>([]);
@@ -907,6 +911,7 @@ export default function CrmNewLeadPage() {
       ]);
       if (cancelled || !lead) { setLoadingLead(false); return; }
       setEditLeadNo(typeof lead.lead_no === 'number' ? lead.lead_no : null);
+      setEditLeadReferenceType(lead.lead_reference_type || null);
       setTitle(lead.title || '');
       setResponsibleSellerId(lead.owner_user_id || '');
       setResponsibleName(lead.owner_name || '');
@@ -924,7 +929,7 @@ export default function CrmNewLeadPage() {
       setContactType(lead.contact_type || '');
       setCustomerType(lead.customer_type || '');
       const loadedCountry = importedChoiceValue(lead.country, lead.notes);
-      const parsedContact = parseStructuredContactInformation(lead.contact_information || '', loadedCountry);
+      const parsedContact = readCrmLeadStructuredContact({ ...lead, country: loadedCountry });
       const parsedTradeFair = splitTradeFairYear(importedChoiceValue(lead.trade_fair, lead.notes));
       if ((KNOWN_TRADE_FAIRS as readonly string[]).includes(parsedTradeFair.name)) {
         setTradeFairChoice(parsedTradeFair.name);
@@ -938,9 +943,13 @@ export default function CrmNewLeadPage() {
       }
       setTradeFairYear(parsedTradeFair.year);
       const effectiveCountry = loadedCountry || importedChoiceValue(parsedContact.country, lead.notes);
-      setManualCustomerDraft({ ...contactInfoToDraft(parsedContact), country: effectiveCountry });
-      setDealerCustomerData(EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
-      setContactMode('manual');
+      const loadedContact = { ...contactInfoToDraft(parsedContact), country: effectiveCountry };
+      setLegacyContactInformation(lead.contact_information || null);
+      setManualCustomerDraft(loadedContact);
+      setDealerCustomerData(lead.linked_dealer_contact_id ? loadedContact : EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
+      pendingDealerContactIdRef.current = lead.linked_dealer_contact_id || '';
+      setSelectedDealerContactId(lead.linked_dealer_contact_id || '');
+      setContactMode(lead.linked_dealer_contact_id ? 'dealer' : 'manual');
       if (effectiveCountry === 'Danmark' || effectiveCountry === 'Tyskland') {
         setCountryChoice(effectiveCountry);
       } else {
@@ -996,11 +1005,14 @@ export default function CrmNewLeadPage() {
       setTitle(lead.title || '');
       setLinkedDealer(lead.linked_dealer_id || '');
       setMachineTypes(lead.machine_types || []);
-      const parsedContact = parseStructuredContactInformation(lead.contact_information || '', lead.country || '');
+      const parsedContact = readCrmLeadStructuredContact(lead);
       const syncedCountry = parsedContact.country || lead.country || country;
       setManualCustomerDraft({ ...contactInfoToDraft(parsedContact), country: syncedCountry });
       setDealerCustomerData(EMPTY_CRM_LEAD_CUSTOMER_DRAFT);
       setContactMode('manual');
+      setSelectedDealerContactId('');
+      pendingDealerContactIdRef.current = '';
+      setLegacyContactInformation(lead.contact_information || null);
       setCountry(syncedCountry);
       setNotes(lead.notes || '');
       setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '');
@@ -1049,7 +1061,7 @@ export default function CrmNewLeadPage() {
     : (linkedDealer ? linkedDealer : tt('ph_dealer', lang));
 
   useEffect(() => {
-    setSelectedDealerContactId('');
+    setSelectedDealerContactId(pendingDealerContactIdRef.current);
     setDealerContactEmailMissing(false);
     if (repository.academy || !selectedDealerAccount) {
       setDealerContacts([]);
@@ -1061,7 +1073,12 @@ export default function CrmNewLeadPage() {
     setDealerContactsLoading(true);
     listDealerContacts(selectedDealerAccount.id)
       .then((contacts) => {
-        if (!cancelled) setDealerContacts(contacts);
+        if (!cancelled) {
+          setDealerContacts(contacts);
+          const linkedContact = contacts.find((contact) => contact.id === pendingDealerContactIdRef.current);
+          setSelectedDealerContactId(linkedContact?.id || '');
+          pendingDealerContactIdRef.current = '';
+        }
       })
       .catch(() => {
         if (!cancelled) setDealerContacts([]);
@@ -1198,6 +1215,7 @@ export default function CrmNewLeadPage() {
     });
     setContactMode(next.mode);
     setSelectedDealerContactId(next.selectedDealerContactId);
+    pendingDealerContactIdRef.current = '';
     setDealerContactEmailMissing(false);
     setCountry(manualCustomerDraft.country);
     setCountryChoice(
@@ -1424,6 +1442,7 @@ export default function CrmNewLeadPage() {
         ? 'academy-local-sales-user'
         : chosen?.id || (await resolveSellerId(appUser?.email));
       const contactInformation = buildStructuredContactInformation(structuredContactInfo);
+      const structuredContactColumns = structuredCrmLeadContactColumns(structuredContactInfo);
       const payload = {
         title: title.trim(),
         owner_user_id: sellerId,
@@ -1431,6 +1450,7 @@ export default function CrmNewLeadPage() {
         // Working-budget seller scope resolves against the canonical owner email.
         owner_email: chosen?.email || appUser?.email || null,
         linked_dealer_id: linkedDealer,
+        linked_dealer_contact_id: contactMode === 'dealer' ? selectedDealerContactId || null : null,
         first_contact_date: firstContact || null,
         expected_close_date: expectedClose || null,
         next_followup_date: nextFollowup || null,
@@ -1439,7 +1459,8 @@ export default function CrmNewLeadPage() {
         ...(repository.academy ? { demo_has_run: demoHasRun } : !isEdit ? { demo_has_run: 'no' as const } : {}),
         contact_type: contactType,
         customer_type: customerType,
-        contact_information: contactInformation || null,
+        ...structuredContactColumns,
+        contact_information: isEdit ? legacyContactInformation : contactInformation || null,
         trade_fair: buildTradeFairValue(tradeFair, tradeFairYear),
         country: activeCustomerData.country || null,
         notes: notes || null,
@@ -1507,8 +1528,13 @@ export default function CrmNewLeadPage() {
             <h2 className="text-xl font-semibold text-gray-900 inline-flex items-center gap-2.5">
               {isEdit ? tt('edit_title', lang) : tt('page_title', lang)}
               {isEdit && editLeadNo != null && (
-                <span className="font-mono text-xs text-slate-500 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
-                  {formatLeadNo(editLeadNo)}
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="font-mono text-xs text-slate-500 px-2 py-0.5 rounded-md bg-slate-100 border border-slate-200">
+                    {editLeadNo}
+                  </span>
+                  <span data-testid="crm-lead-detail-relation" className="font-mono text-xs font-semibold text-[#2d5a27]">
+                    {formatLeadRelation(editLeadNo, editLeadReferenceType)}
+                  </span>
                 </span>
               )}
             </h2>

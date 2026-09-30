@@ -123,7 +123,10 @@ describe('CRM lead configurator sync', () => {
     expect(patch.estimated_value).toBe(32584);
     expect(patch.machine_types).toContain('RC-1000s');
     expect(patch.machine_types).toContain('Equipment: RC-1000s - Slagleklipper inkl. Y-slagle sæt');
-    expect(patch.contact_information).toContain('Roman Guichen');
+    expect(patch.contact_information).toBe(baseLead().contact_information);
+    expect(patch.contact_person_name).toBe('Roman Guichen');
+    expect(patch.phone).toBe('+420 123 456');
+    expect(patch.email).toBe('roman@example.com');
     expect(patch.notes).toContain('Manual CRM note');
     expect(patch.notes).toContain('Konfiguration: T-4001');
     expect(patch.notes).not.toContain('Old sync');
