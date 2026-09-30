@@ -133,8 +133,8 @@ describe('Phase 7 protected actions and human handoff', () => {
     expect(canonicalActions).toContain('buildConfiguratorPdf(');
     expect(canonicalActions).toContain('createLead(');
     expect(canonicalActions).toContain('getQuoteWebhookUrl()');
-    expect(canonicalActions).toContain('initials: input.appUser.initials');
-    expect(canonicalActions).toContain('input.appUser.id || null');
+    expect(canonicalActions).toContain('initials: input.timanSeller?.initials || input.appUser.initials');
+    expect(canonicalActions).toContain('input.timanSeller?.id || await resolveSellerId');
   });
 
   it('requires immediate confirmation before the external quote webhook', () => {

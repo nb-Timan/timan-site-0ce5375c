@@ -19,6 +19,8 @@ type AssistantDraftState = {
   pendingAccessoryChoices?: Array<{ unitIndex: number; accessoryId: string }>;
   dealer?: Record<string, unknown> | null;
   contact?: Record<string, unknown> | null;
+  timanSeller?: Record<string, unknown> | null;
+  canChangeTimanSeller?: boolean;
   quoteKind?: 'ordinary' | 'demo';
   [key: string]: unknown;
 };
@@ -252,7 +254,7 @@ export function classifyAssistantWorkflowInput(
   if (pending === 'machine') return resolveAssistantMachine(value) ? 'compatible' : 'ambiguous';
   if (pending === 'delivery_date') return /\b20\d{2}-\d{2}-\d{2}\b/.test(value) ? 'compatible' : 'ambiguous';
   if (pending === 'dealer') return normalized(value).length >= 2 ? 'compatible' : 'ambiguous';
-  if (pending === 'contact') return 'ambiguous';
+  if (pending === 'contact' || pending === 'timan_seller') return 'ambiguous';
   if (pending.startsWith('accessory:') || pending === 'delivery_method' || pending === 'quote_kind') {
     return 'ambiguous';
   }
@@ -354,16 +356,31 @@ export function nextAssistantConfiguratorPrompt(input: AssistantDraftState, uiLa
       ready: false,
     };
   }
+  if (!input.timanSeller) {
+    return {
+      state: { ...input, configurator: state, pendingField: 'timan_seller' },
+      content: lang === 'da' ? 'Timan-sælgeren findes ud fra forhandlerens ansvarlige sælger og land.' : 'The Timan seller is resolved from the dealer owner and country.',
+      ready: false,
+    };
+  }
   if (!input.quoteKind) {
+    const sellerName = String(input.timanSeller.name || '');
+    const sellerEmail = String(input.timanSeller.email || '');
     return {
       state: { ...input, configurator: state, pendingField: 'quote_kind' },
       content: lang === 'da' ? 'Er det et almindeligt tilbud eller en demomaskine?' : 'Is this an ordinary quote or a demo machine?',
       card: {
         kind: 'choices',
-        title: lang === 'da' ? 'Tilbudstype' : 'Quote type',
+        title: lang === 'da' ? 'Tilbud' : 'Quote',
+        lines: [
+          { label: lang === 'da' ? 'Timan-sælger' : 'Timan seller', value: [sellerName, sellerEmail].filter(Boolean).join(' · ') },
+        ],
         choices: [
           { id: 'quote-ordinary', label: lang === 'da' ? 'Almindeligt tilbud' : 'Ordinary quote', command: { type: 'set_quote_kind', value: 'ordinary' } },
           { id: 'quote-demo', label: lang === 'da' ? 'Demomaskine' : 'Demo machine', command: { type: 'set_quote_kind', value: 'demo' } },
+          ...(input.canChangeTimanSeller
+            ? [{ id: 'change-timan-seller', label: lang === 'da' ? 'Skift sælger' : 'Change seller', command: { type: 'change_timan_seller' as const } }]
+            : []),
         ],
       },
       ready: false,
@@ -386,6 +403,8 @@ export function hydrateAssistantWorkflow(workflow: AssistantWorkflowState): Assi
       : [],
     dealer: workflow.dealer,
     contact: workflow.contact,
+    timanSeller: workflow.timanSeller,
+    canChangeTimanSeller: workflow.canChangeTimanSeller,
     quoteKind: workflow.quoteKind,
   };
 }

@@ -9,6 +9,7 @@ import {
 } from '@/lib/assistantActionService';
 import {
   applyAssistantCustomer,
+  applyAssistantTimanSeller,
   createAssistantLead,
   createAssistantQuote,
   generateAssistantQuotePdf,
@@ -16,6 +17,7 @@ import {
   sendAssistantQuoteEmail,
   type AssistantContact,
   type AssistantDealer,
+  type AssistantTimanSeller,
 } from '@/lib/assistantCanonicalActions';
 import {
   applyAssistantConfiguratorCommand,
@@ -89,6 +91,8 @@ function clientWorkflow(server: AssistantServerWorkflow): AssistantWorkflowState
     pendingMachineType: server.state.pendingMachineType as string | null | undefined,
     dealer: (server.state.dealer as Record<string, unknown> | null | undefined) || null,
     contact: (server.state.contact as Record<string, unknown> | null | undefined) || null,
+    timanSeller: (server.state.timanSeller as Record<string, unknown> | null | undefined) || null,
+    canChangeTimanSeller: server.state.canChangeTimanSeller === true,
     quoteKind: server.state.quoteKind,
     configurationId: server.configuration_id || null,
     quoteNumber: server.quote_number || null,
@@ -153,6 +157,23 @@ function contactFrom(value: Record<string, unknown>): AssistantContact {
   };
 }
 
+function timanSellerFrom(value: Record<string, unknown>): AssistantTimanSeller {
+  return {
+    id: String(value.id || '') || null,
+    contact_id: String(value.contact_id || '') || null,
+    name: String(value.name || '') || null,
+    email: String(value.email || '') || null,
+    phone: String(value.phone || '') || null,
+    initials: String(value.initials || '') || null,
+  };
+}
+
+function preferredQuoteContact(contacts: Array<Record<string, unknown>>): Record<string, unknown> | null {
+  const primary = contacts.filter((contact) => contact.is_primary === true);
+  if (primary.length === 1) return primary[0];
+  return contacts.length === 1 ? contacts[0] : null;
+}
+
 function recordParameter(command: AssistantActionCommand, key: string): Record<string, unknown> {
   const value = command.parameters?.[key];
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
@@ -175,6 +196,7 @@ function actionTitle(action: AssistantActionName, language: string): string {
 function actionParameters(action: AssistantActionName, workflow: AssistantWorkflowState) {
   if (action === 'handoff_to_sales' || action === 'handoff_to_service') {
     const internalNote = String(workflow.configurator.internalNote || '').trim();
+    const timanSeller = workflow.timanSeller || null;
     return {
       reason_code: action === 'handoff_to_sales' ? 'ASSISTANT_SALES_REQUEST' : 'ASSISTANT_SERVICE_REQUEST',
       summary: [
@@ -182,7 +204,13 @@ function actionParameters(action: AssistantActionName, workflow: AssistantWorkfl
         workflow.quoteNumber ? `Quote ${workflow.quoteNumber}.` : '',
         internalNote,
       ].filter(Boolean).join(' '),
-      authorized_context: { configuration_id: workflow.configurationId || null, lead_id: workflow.leadId || null },
+      authorized_context: {
+        configuration_id: workflow.configurationId || null,
+        lead_id: workflow.leadId || null,
+        timan_seller_id: timanSeller?.id || null,
+        timan_seller_contact_id: timanSeller?.contact_id || null,
+        timan_seller_initials: timanSeller?.initials || null,
+      },
     };
   }
   return {
@@ -260,6 +288,28 @@ export class AssistantSupportService implements SupportService {
     return clientWorkflow(response.workflow);
   }
 
+  private sellerChoiceMessage(
+    request: SupportSendRequest,
+    workflow: AssistantWorkflowState,
+    sellers: Array<Record<string, unknown>>,
+  ): SupportMessage {
+    return message(
+      request.language === 'da'
+        ? 'Vælg den ansvarlige Timan-sælger. Tyske forhandlere uden en registreret ansvarlig skal afklares mellem JTN og AKR.'
+        : 'Choose the responsible Timan seller. German dealers without an assigned owner must be clarified between JTN and AKR.',
+      workflow,
+      {
+        kind: 'choices',
+        title: request.language === 'da' ? 'Timan-sælger' : 'Timan seller',
+        choices: sellers.map((seller) => ({
+          id: `timan-seller-${String(seller.id)}`,
+          label: [seller.name, seller.email].filter(Boolean).join(' · '),
+          command: { type: 'select_timan_seller', value: String(seller.id), parameters: { timanSeller: seller } },
+        })),
+      },
+    );
+  }
+
   private async promptAndPersist(
     request: SupportSendRequest,
     workflow: AssistantWorkflowState,
@@ -275,8 +325,9 @@ export class AssistantSupportService implements SupportService {
         expectedStateVersion: workflow.stateVersion,
         parameters: { dealer_account_id: dealerId },
       });
-      if ((contacts.contacts || []).length === 1) {
-        draft.contact = contacts.contacts![0];
+      const preferred = preferredQuoteContact(contacts.contacts || []);
+      if (preferred) {
+        draft.contact = preferred;
         prompt = nextAssistantConfiguratorPrompt(draft, request.language);
       } else if ((contacts.contacts || []).length > 1) {
         const updated = await this.persist(request, workflow, prompt.state);
@@ -299,6 +350,23 @@ export class AssistantSupportService implements SupportService {
         prompt = nextAssistantConfiguratorPrompt(draft, request.language);
       }
     }
+    if (prompt.state.pendingField === 'timan_seller' && draft.dealer && !draft.timanSeller) {
+      const resolution = await invokeAssistantAction({
+        action: 'resolve_timan_sales_contact',
+        conversationId: request.conversation.id,
+        workflowId: workflow.workflowId,
+        expectedStateVersion: workflow.stateVersion,
+        parameters: { dealer_account_id: String(draft.dealer.id || '') },
+      });
+      draft.canChangeTimanSeller = resolution.can_change_seller === true;
+      if (resolution.seller) {
+        draft.timanSeller = resolution.seller;
+        prompt = nextAssistantConfiguratorPrompt(draft, request.language);
+      } else {
+        const updated = await this.persist(request, workflow, { ...prompt.state, canChangeTimanSeller: draft.canChangeTimanSeller });
+        return this.sellerChoiceMessage(request, updated, resolution.seller_choices || []);
+      }
+    }
     const updated = await this.persist(request, workflow, prompt.state);
     if (!prompt.ready) return message(prompt.content, updated, prompt.card);
     return this.preview(request, updated);
@@ -307,7 +375,8 @@ export class AssistantSupportService implements SupportService {
   private async preview(request: SupportSendRequest, workflow: AssistantWorkflowState): Promise<SupportMessage> {
     const dealer = workflow.dealer ? dealerFrom(workflow.dealer) : null;
     const contact = workflow.contact ? contactFrom(workflow.contact) : null;
-    const state = applyAssistantCustomer(workflow.configurator, dealer, contact);
+    const timanSeller = workflow.timanSeller ? timanSellerFrom(workflow.timanSeller) : null;
+    const state = applyAssistantTimanSeller(applyAssistantCustomer(workflow.configurator, dealer, contact), timanSeller);
     const calc = calculateConfiguration(state);
     const response = await invokeAssistantAction({
       action: 'calculate_quote_preview',
@@ -338,12 +407,16 @@ export class AssistantSupportService implements SupportService {
           { label: request.language === 'da' ? 'Subtotal' : 'Subtotal', value: formatMoney(calc.subtotal, state.language) },
           { label: request.language === 'da' ? 'Rabat' : 'Discount', value: formatMoney(calc.totalDiscount, state.language) },
           { label: request.language === 'da' ? 'Total ekskl. moms' : 'Total excl. VAT', value: `${formatMoney(calc.currentPrice, state.language)} ${currency}` },
+          { label: request.language === 'da' ? 'Timan-sælger' : 'Timan seller', value: [timanSeller?.name, timanSeller?.email].filter(Boolean).join(' · ') },
         ],
         choices: [
           { id: 'create-quote', label: actionTitle('create_quote_draft', request.language), emphasis: 'primary', command: { type: 'propose_action', action: 'create_quote_draft' } },
           { id: 'create-lead', label: actionTitle('create_or_link_lead', request.language), command: { type: 'propose_action', action: 'create_or_link_lead' } },
           { id: 'handoff-sales', label: actionTitle('handoff_to_sales', request.language), command: { type: 'propose_action', action: 'handoff_to_sales' } },
           { id: 'handoff-service', label: actionTitle('handoff_to_service', request.language), command: { type: 'propose_action', action: 'handoff_to_service' } },
+          ...(workflow.canChangeTimanSeller
+            ? [{ id: 'change-timan-seller', label: request.language === 'da' ? 'Skift sælger' : 'Change seller', command: { type: 'change_timan_seller' as const } }]
+            : []),
         ],
       },
     );
@@ -379,18 +452,19 @@ export class AssistantSupportService implements SupportService {
     try {
       const dealer = workflow.dealer ? dealerFrom(workflow.dealer) : null;
       const contact = workflow.contact ? contactFrom(workflow.contact) : null;
-      const state = applyAssistantCustomer(workflow.configurator, dealer, contact);
+      const timanSeller = workflow.timanSeller ? timanSellerFrom(workflow.timanSeller) : null;
+      const state = applyAssistantTimanSeller(applyAssistantCustomer(workflow.configurator, dealer, contact), timanSeller);
       let result: Record<string, unknown>;
       if (command.action === 'create_quote_draft') {
-        result = await createAssistantQuote({ state, appUser: this.appUser, dealer, contact });
+        result = await createAssistantQuote({ state, appUser: this.appUser, dealer, contact, timanSeller });
       } else if (command.action === 'create_or_link_lead') {
-        result = await createAssistantLead({ state, appUser: this.appUser, dealer, contact });
+        result = await createAssistantLead({ state, appUser: this.appUser, dealer, contact, timanSeller });
       } else if (command.action === 'generate_quote_pdf') {
         if (!workflow.configurationId) throw new Error('QUOTE_REQUIRED');
         result = await generateAssistantQuotePdf({ state, configurationId: workflow.configurationId, quoteNumber: workflow.quoteNumber || null });
       } else if (command.action === 'send_quote_email') {
         if (!workflow.configurationId) throw new Error('QUOTE_REQUIRED');
-        result = await sendAssistantQuoteEmail({ state, configurationId: workflow.configurationId, quoteNumber: workflow.quoteNumber || null, idempotencyKey });
+        result = await sendAssistantQuoteEmail({ state, configurationId: workflow.configurationId, quoteNumber: workflow.quoteNumber || null, idempotencyKey, timanSeller });
       } else {
         throw new Error('CLIENT_ACTION_NOT_SUPPORTED');
       }
@@ -428,7 +502,11 @@ export class AssistantSupportService implements SupportService {
 
   private async prepareEmail(request: SupportSendRequest, workflow: AssistantWorkflowState): Promise<SupportMessage> {
     if (!workflow.configurationId) throw new Error('QUOTE_REQUIRED');
-    const draft = prepareAssistantQuoteEmail({ state: workflow.configurator, quoteNumber: workflow.quoteNumber || null });
+    const dealer = workflow.dealer ? dealerFrom(workflow.dealer) : null;
+    const contact = workflow.contact ? contactFrom(workflow.contact) : null;
+    const timanSeller = workflow.timanSeller ? timanSellerFrom(workflow.timanSeller) : null;
+    const state = applyAssistantTimanSeller(applyAssistantCustomer(workflow.configurator, dealer, contact), timanSeller);
+    const draft = prepareAssistantQuoteEmail({ state, quoteNumber: workflow.quoteNumber || null });
     const response = await invokeAssistantAction({
       action: 'prepare_quote_email',
       conversationId: request.conversation.id,
@@ -584,36 +662,28 @@ export class AssistantSupportService implements SupportService {
     const draft = hydrateAssistantWorkflow(workflow);
     if (command?.type === 'select_dealer') {
       draft.dealer = recordParameter(command, 'dealer');
-      const dealerId = String(draft.dealer.id || '');
-      const contacts = await invokeAssistantAction({
-        action: 'find_partner_contact', conversationId: request.conversation.id,
-        workflowId: workflow.workflowId, expectedStateVersion: workflow.stateVersion,
-        parameters: { dealer_account_id: dealerId },
-      });
-      if ((contacts.contacts || []).length === 1) draft.contact = contacts.contacts![0];
-      else if ((contacts.contacts || []).length > 1) {
-        draft.pendingField = 'contact';
-        const updated = await this.persist(request, workflow, draft);
-        return message(request.language === 'da' ? 'Vælg kontaktpersonen.' : 'Choose the contact.', updated, {
-          kind: 'choices', title: request.language === 'da' ? 'Kontaktperson' : 'Contact',
-          choices: contacts.contacts!.map((contact) => ({
-            id: `contact-${String(contact.id)}`, label: String(contact.name || contact.email || 'Contact'),
-            command: { type: 'select_contact', value: String(contact.id), parameters: { contact } },
-          })),
-        });
-      } else {
-        draft.contact = {
-          id: null,
-          name: String(draft.dealer.primary_contact_name || draft.dealer.sales_contact_name || ''),
-          email: String(draft.dealer.primary_contact_email || draft.dealer.sales_contact_email || ''),
-          phone: String(draft.dealer.primary_contact_phone || draft.dealer.sales_contact_phone || ''),
-        };
-      }
+      draft.contact = null;
+      draft.timanSeller = null;
+      draft.canChangeTimanSeller = false;
       return this.promptAndPersist(request, workflow, draft);
     }
     if (command?.type === 'select_contact') {
       draft.contact = recordParameter(command, 'contact');
       return this.promptAndPersist(request, workflow, draft);
+    }
+    if (command?.type === 'select_timan_seller') {
+      draft.timanSeller = recordParameter(command, 'timanSeller');
+      return this.promptAndPersist(request, workflow, draft);
+    }
+    if (command?.type === 'change_timan_seller') {
+      const resolution = await invokeAssistantAction({
+        action: 'resolve_timan_sales_contact',
+        conversationId: request.conversation.id,
+        workflowId: workflow.workflowId,
+        expectedStateVersion: workflow.stateVersion,
+        parameters: { dealer_account_id: String(draft.dealer?.id || ''), force_choices: true },
+      });
+      return this.sellerChoiceMessage(request, workflow, resolution.seller_choices || []);
     }
     if (command) {
       const next = applyAssistantConfiguratorCommand(draft, command);

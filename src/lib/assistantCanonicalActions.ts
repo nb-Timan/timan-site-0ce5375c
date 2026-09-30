@@ -40,6 +40,15 @@ export interface AssistantContact {
   phone?: string | null;
 }
 
+export interface AssistantTimanSeller {
+  id?: string | null;
+  contact_id?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  initials?: string | null;
+}
+
 export interface GeneratedAssistantPdf {
   filename: string;
   blob: Blob;
@@ -86,19 +95,31 @@ export function applyAssistantCustomer(
   };
 }
 
+export function applyAssistantTimanSeller(
+  state: ConfiguratorState,
+  seller?: AssistantTimanSeller | null,
+): ConfiguratorState {
+  return seller?.email ? { ...state, email: seller.email.toLowerCase() } : state;
+}
+
 export async function createAssistantQuote(input: {
   state: ConfiguratorState;
   appUser: SessionUser;
   dealer?: AssistantDealer | null;
   contact?: AssistantContact | null;
+  timanSeller?: AssistantTimanSeller | null;
 }): Promise<{ entity_id: string; quote_number: string | null }> {
-  const state = applyAssistantCustomer(input.state, input.dealer, input.contact);
+  const state = applyAssistantTimanSeller(
+    applyAssistantCustomer(input.state, input.dealer, input.contact),
+    input.timanSeller,
+  );
   const ownership = await buildConfiguratorOwnership(input.appUser, {
     seller: {
-      initials: input.appUser.initials,
-      email: input.appUser.email,
-      name: input.appUser.display_name,
+      initials: input.timanSeller?.initials || input.appUser.initials,
+      email: input.timanSeller?.email || input.appUser.email,
+      name: input.timanSeller?.name || input.appUser.display_name,
     },
+    sellerVerifiedByServer: Boolean(input.timanSeller?.id && input.timanSeller?.contact_id),
     dealer: input.dealer ? {
       account_id: input.dealer.id,
       account_number: input.dealer.account_number,
@@ -116,10 +137,14 @@ export async function createAssistantLead(input: {
   appUser: SessionUser;
   dealer?: AssistantDealer | null;
   contact?: AssistantContact | null;
+  timanSeller?: AssistantTimanSeller | null;
 }): Promise<{ entity_id: string; lead_no: number | null }> {
-  const state = applyAssistantCustomer(input.state, input.dealer, input.contact);
+  const state = applyAssistantTimanSeller(
+    applyAssistantCustomer(input.state, input.dealer, input.contact),
+    input.timanSeller,
+  );
   const calc = calculateConfiguration(state);
-  const ownerId = await resolveSellerId(input.appUser.email) || input.appUser.id || null;
+  const ownerId = input.timanSeller?.id || await resolveSellerId(input.timanSeller?.email || input.appUser.email) || input.appUser.id || null;
   const contact = {
     company: state.firmanavn,
     contactPerson: state.kontaktperson,
@@ -135,8 +160,8 @@ export async function createAssistantLead(input: {
     lead_no: null,
     title: labelForQuote(state, input.dealer),
     owner_user_id: ownerId,
-    owner_name: input.appUser.display_name || input.appUser.email,
-    owner_email: input.appUser.email.toLowerCase(),
+    owner_name: input.timanSeller?.name || input.appUser.display_name || input.appUser.email,
+    owner_email: (input.timanSeller?.email || input.appUser.email).toLowerCase(),
     linked_dealer_id: input.dealer?.id || null,
     linked_dealer_contact_id: input.contact?.id || state.dealerContactId || null,
     first_contact_date: new Date().toISOString().slice(0, 10),
@@ -233,6 +258,7 @@ export async function sendAssistantQuoteEmail(input: {
   configurationId: string;
   quoteNumber: string | null;
   idempotencyKey: string;
+  timanSeller?: AssistantTimanSeller | null;
 }): Promise<{ entity_id: string; delivered: true; recipients: string[]; pdf_path: string | null }> {
   const recipients = splitRecipients(input.state);
   const bcc = [INTERNAL_TIMAN_COPY_EMAIL];
@@ -288,7 +314,7 @@ export async function sendAssistantQuoteEmail(input: {
   } catch (error) {
     failureReason = error instanceof Error ? error.message : String(error);
   }
-  const sellerId = await resolveSellerId(input.state.email || undefined);
+  const sellerId = input.timanSeller?.id || await resolveSellerId(input.timanSeller?.email || input.state.email || undefined);
   try {
     await logMailAuditEvent({
       sent_at: delivered ? new Date().toISOString() : null,

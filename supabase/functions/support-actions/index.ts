@@ -1,4 +1,10 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.101.1';
+import {
+  buildCanonicalTimanSalesContacts,
+  resolveCanonicalTimanQuoteSeller,
+  type DealerSalesAssignment,
+  type TimanQuoteSeller,
+} from '../_shared/timanSalesContact.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -41,6 +47,7 @@ const ACTIONS: Record<string, ActionDefinition> = {
   preview_quote: { level: 0, permission: 'price' },
   find_dealer: { level: 0, permission: 'support' },
   find_partner_contact: { level: 0, permission: 'support' },
+  resolve_timan_sales_contact: { level: 0, permission: 'support' },
   inspect_lead: { level: 0, permission: 'lead' },
   create_configuration_draft: { level: 1, permission: 'support' },
   set_configuration_option: { level: 1, permission: 'support' },
@@ -262,6 +269,33 @@ function publicWorkflow(row: Json | null) {
   };
 }
 
+function canChangeTimanSeller(actor: Actor): boolean {
+  return actor.portal_role === 'timan_backend' || actor.portal_role === 'timan_seller';
+}
+
+async function loadTimanSalesContext(service: Client, dealer: DealerSalesAssignment) {
+  const { data: timanAccount, error: accountError } = await service.from('dealer_accounts')
+    .select('id').eq('account_number', '100').eq('is_deleted', false).limit(1).maybeSingle();
+  if (accountError) throw accountError;
+  if (!timanAccount?.id) throw new Error('TIMAN_ACCOUNT_100_NOT_FOUND');
+  const [{ data: contacts, error: contactError }, { data: users, error: userError }] = await Promise.all([
+    service.from('dealer_contacts')
+      .select('id, contact_area, name, email, phone')
+      .eq('dealer_account_id', timanAccount.id)
+      .eq('contact_area', 'sales'),
+    service.from('app_users')
+      .select('id, email, display_name, initials, portal_role, status, approved')
+      .eq('dealer_number', '100')
+      .eq('approved', true)
+      .eq('is_active', true),
+  ]);
+  if (contactError) throw contactError;
+  if (userError) throw userError;
+  const sellers = buildCanonicalTimanSalesContacts(contacts || [], users || []);
+  if (!sellers.length) throw new Error('TIMAN_SALES_CONTACT_NOT_FOUND');
+  return { sellers, resolution: resolveCanonicalTimanQuoteSeller(dealer, sellers) };
+}
+
 async function reportClientResult(service: Client, userClient: Client, actor: Actor, payload: Json) {
   const executionActionId = uuid(payload.execution_action_id)!;
   const { data: action, error } = await service.from('support_assistant_actions').select('*')
@@ -441,10 +475,16 @@ Deno.serve(async (request) => {
         return json(result);
       }
       const dealerResult = actor.dealer_number
-        ? await auth.userClient.from('dealer_accounts').select('id, account_number, company_name, country, city, customer_type, customer_type_label, dealer_type').eq('account_number', actor.dealer_number).maybeSingle()
+        ? await auth.userClient.from('dealer_accounts').select('id, account_number, company_name, country, city, customer_type, customer_type_label, dealer_type, assigned_seller_id, assigned_seller_initials, assigned_seller_name, assigned_seller_email').eq('account_number', actor.dealer_number).maybeSingle()
         : { data: null, error: null };
       const dealer = dealerResult.data;
-      const { dealer: _untrustedDealer, contact: _untrustedContact, ...safeState } = state;
+      const {
+        dealer: _untrustedDealer,
+        contact: _untrustedContact,
+        timanSeller: _untrustedTimanSeller,
+        canChangeTimanSeller: _untrustedCanChangeTimanSeller,
+        ...safeState
+      } = state;
       const initialState = dealer ? { ...safeState, dealer } : safeState;
       const { data: workflow, error } = await service.from('support_assistant_workflows').insert({
         conversation_id: conversationId, user_id: actor.id, state_json: initialState,
@@ -460,14 +500,22 @@ Deno.serve(async (request) => {
 
     const workflow = await loadWorkflow(service, actor, workflowId, conversationId);
     if (!workflow && !['find_dealer', 'get_machine_configuration_options'].includes(actionType)) throw new Error('WORKFLOW_NOT_FOUND');
+    if ([
+      'create_quote_draft', 'create_or_link_lead', 'generate_quote_pdf', 'prepare_quote_email',
+      'send_quote_email', 'handoff_to_sales', 'handoff_to_service',
+    ].includes(actionType) && !text(object(object(workflow?.state_json).timanSeller).id, 64)) {
+      throw new Error('TIMAN_SELLER_REQUIRED');
+    }
 
     if (actionType === 'set_configuration_option') {
       const state = object(parameters.state);
       if (Number(state.manualDealerDiscountPct || 0) > 0 && !discountAllowed(actor)) throw new Error('EXTRA_DISCOUNT_DENIED');
       const stateDealer = object(state.dealer);
       const stateContact = object(state.contact);
+      const stateSeller = object(state.timanSeller);
       const stateDealerId = text(stateDealer.id, 64);
       const stateContactId = text(stateContact.id, 64);
+      const stateSellerId = text(stateSeller.id, 64);
       if (stateDealerId) {
         if (!UUID.test(stateDealerId)) throw new Error('INVALID_DEALER');
         const { data: visibleDealer, error: dealerError } = await auth.userClient.from('dealer_accounts')
@@ -477,8 +525,31 @@ Deno.serve(async (request) => {
       if (stateContactId) {
         if (!UUID.test(stateContactId) || !stateDealerId) throw new Error('INVALID_CONTACT');
         const { data: visibleContact, error: contactError } = await auth.userClient.from('dealer_contacts')
-          .select('id, dealer_account_id').eq('id', stateContactId).eq('dealer_account_id', stateDealerId).maybeSingle();
-        if (contactError || !visibleContact) throw new Error('CONTACT_OUT_OF_SCOPE');
+          .select('id, dealer_account_id, contact_area').eq('id', stateContactId).eq('dealer_account_id', stateDealerId).maybeSingle();
+        if (contactError || !visibleContact || !['director', 'sales'].includes(String(visibleContact.contact_area))) {
+          throw new Error('CONTACT_OUT_OF_SCOPE');
+        }
+      }
+      if (stateSellerId) {
+        if (!UUID.test(stateSellerId) || !stateDealerId) throw new Error('INVALID_TIMAN_SELLER');
+        const { data: dealerForSeller, error: sellerDealerError } = await auth.userClient.from('dealer_accounts')
+          .select('country, assigned_seller_id, assigned_seller_email, assigned_seller_initials')
+          .eq('id', stateDealerId).maybeSingle();
+        if (sellerDealerError || !dealerForSeller) throw new Error('DEALER_OUT_OF_SCOPE');
+        const context = await loadTimanSalesContext(service, dealerForSeller);
+        const forced = resolveCanonicalTimanQuoteSeller({ ...dealerForSeller, assigned_seller_id: null, assigned_seller_email: null, assigned_seller_initials: null }, context.sellers);
+        const allowed = [context.resolution.seller, ...forced.choices]
+          .filter((seller): seller is TimanQuoteSeller => Boolean(seller));
+        const selected = allowed.find((seller) => (
+          seller.id === stateSellerId
+          && seller.contact_id === text(stateSeller.contact_id, 64)
+          && seller.email === text(stateSeller.email, 320).toLowerCase()
+        ));
+        if (!selected || (!canChangeTimanSeller(actor) && selected.id !== context.resolution.seller?.id)) {
+          throw new Error('TIMAN_SELLER_OUT_OF_SCOPE');
+        }
+        state.timanSeller = selected;
+        state.canChangeTimanSeller = canChangeTimanSeller(actor);
       }
       const history = Array.isArray(workflow.state_history) ? workflow.state_history : [];
       const nextHistory = [...history.slice(-49), workflow.state_json];
@@ -570,7 +641,7 @@ Deno.serve(async (request) => {
       const search = text(parameters.search, 120);
       if (search.length < 2) throw new Error('SEARCH_TOO_SHORT');
       const { data, error } = await auth.userClient.from('dealer_accounts')
-        .select('id, account_number, company_name, country, city, primary_contact_name, primary_contact_email, primary_contact_phone, sales_contact_name, sales_contact_email, sales_contact_phone, customer_type, customer_type_label, dealer_type, is_blocked, is_deleted')
+        .select('id, account_number, company_name, country, city, primary_contact_name, primary_contact_email, primary_contact_phone, sales_contact_name, sales_contact_email, sales_contact_phone, customer_type, customer_type_label, dealer_type, assigned_seller_id, assigned_seller_initials, assigned_seller_name, assigned_seller_email, is_blocked, is_deleted')
         .or(`company_name.ilike.%${search.replace(/[,%()]/g, '')}%,account_number.ilike.%${search.replace(/[,%()]/g, '')}%`)
         .eq('is_deleted', false).limit(20);
       if (error) throw error;
@@ -584,9 +655,33 @@ Deno.serve(async (request) => {
       if (!visibleDealer) throw new Error('DEALER_OUT_OF_SCOPE');
       const { data, error } = await auth.userClient.from('dealer_contacts')
         .select('id, dealer_account_id, contact_area, role_title, name, email, phone, is_primary')
-        .eq('dealer_account_id', dealerId).order('is_primary', { ascending: false }).order('created_at');
+        .eq('dealer_account_id', dealerId)
+        .in('contact_area', ['director', 'sales'])
+        .order('is_primary', { ascending: false }).order('created_at');
       if (error) throw error;
       const result = { contacts: data || [] };
+      await completeAction(service, { actionId, actor, conversationId, workflowId, actionType, level: 0, permissionResult, result });
+      return json(result);
+    }
+    if (actionType === 'resolve_timan_sales_contact') {
+      const dealerId = uuid(parameters.dealer_account_id)!;
+      const { data: dealer, error: dealerError } = await auth.userClient.from('dealer_accounts')
+        .select('id, country, assigned_seller_id, assigned_seller_email, assigned_seller_initials')
+        .eq('id', dealerId).maybeSingle();
+      if (dealerError || !dealer) throw new Error('DEALER_OUT_OF_SCOPE');
+      const context = await loadTimanSalesContext(service, dealer);
+      const canChange = canChangeTimanSeller(actor);
+      const forceChoices = parameters.force_choices === true;
+      if (forceChoices && !canChange) throw new Error('TIMAN_SELLER_CHANGE_DENIED');
+      const manual = forceChoices
+        ? resolveCanonicalTimanQuoteSeller({ ...dealer, assigned_seller_id: null, assigned_seller_email: null, assigned_seller_initials: null }, context.sellers)
+        : context.resolution;
+      const result = {
+        seller: forceChoices ? null : manual.seller,
+        seller_choices: manual.choices,
+        resolution_reason: manual.reason,
+        can_change_seller: canChange,
+      };
       await completeAction(service, { actionId, actor, conversationId, workflowId, actionType, level: 0, permissionResult, result });
       return json(result);
     }

@@ -8,6 +8,7 @@ export type AssistantEndpointAction =
   | 'preview_quote'
   | 'find_dealer'
   | 'find_partner_contact'
+  | 'resolve_timan_sales_contact'
   | 'inspect_lead'
   | 'create_configuration_draft'
   | 'set_configuration_option'
@@ -31,6 +32,8 @@ export interface AssistantServerWorkflow {
     pendingMachineType?: string | null;
     dealer?: Record<string, unknown> | null;
     contact?: Record<string, unknown> | null;
+    timanSeller?: Record<string, unknown> | null;
+    canChangeTimanSeller?: boolean;
     quoteKind?: 'ordinary' | 'demo';
     [key: string]: unknown;
   };
@@ -54,6 +57,10 @@ export interface AssistantActionResponse {
   options?: Array<Record<string, unknown>>;
   dealers?: Array<Record<string, unknown>>;
   contacts?: Array<Record<string, unknown>>;
+  seller?: Record<string, unknown> | null;
+  seller_choices?: Array<Record<string, unknown>>;
+  can_change_seller?: boolean;
+  resolution_reason?: string;
   lead?: Record<string, unknown>;
   email?: Record<string, unknown>;
   confirmation_token?: string;

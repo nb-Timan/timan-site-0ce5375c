@@ -71,7 +71,8 @@ export type AssistantActionName =
 
 export interface AssistantActionCommand {
   type: 'start_quote' | 'select_machine' | 'select_accessory' | 'set_delivery_method'
-    | 'select_dealer' | 'select_contact' | 'set_quote_kind' | 'propose_action' | 'confirm_action'
+    | 'select_dealer' | 'select_contact' | 'select_timan_seller' | 'change_timan_seller'
+    | 'set_quote_kind' | 'propose_action' | 'confirm_action'
     | 'workflow_back' | 'reset_workflow' | 'confirm_topic_switch' | 'continue_workflow';
   value?: string;
   action?: AssistantActionName;
@@ -102,6 +103,8 @@ export interface AssistantWorkflowState extends Record<string, unknown> {
   pendingMachineType?: string | null;
   dealer?: Record<string, unknown> | null;
   contact?: Record<string, unknown> | null;
+  timanSeller?: Record<string, unknown> | null;
+  canChangeTimanSeller?: boolean;
   quoteKind?: 'ordinary' | 'demo';
   configurationId?: string | null;
   quoteNumber?: string | null;
