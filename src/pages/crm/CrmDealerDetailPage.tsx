@@ -166,29 +166,30 @@ const L = {
   area:             { da: "Område", en: "Area", de: "Bereich", it: "Area", hu: "Terület" },
   comment:          { da: "Kommentar", en: "Comment", de: "Kommentar", it: "Commento", hu: "Megjegyzés" },
   no_documents:     { da: "Ingen dokumenter endnu.", en: "No documents yet.", de: "Noch keine Dokumente.", it: "Nessun documento.", hu: "Még nincsenek dokumentumok." },
-  demo_machines:    { da: "Demo-maskiner", en: "Demo machines", de: "Demomaschinen", it: "Macchine demo", hu: "Demógépek" },
+  demo_machines:    { da: "Demo-maskiner", en: "Demo machines", de: "Demomaschinen", it: "Macchine demo", hu: "Demógépek", sv: "Demomaskiner", fr: "Machines de démonstration", pl: "Maszyny demonstracyjne", cs: "Předváděcí stroje" },
   no_active_demo_machines: { da: "Ingen aktive demo-maskiner", en: "No active demo machines", de: "Keine aktiven Demomaschinen", it: "Nessuna macchina demo attiva", hu: "Nincs aktív demógép" },
   no_machines:      { da: "Ingen maskiner", en: "No machines", de: "Keine Maschinen", it: "Nessuna macchina", hu: "Nincs gép" },
   view_machines:    { da: "Se maskiner", en: "View machines", de: "Maschinen anzeigen", it: "Vedi macchine", hu: "Gépek megtekintése" },
-  all_machines:     { da: "Alle", en: "All", de: "Alle", it: "Tutte", hu: "Összes" },
+  all_machines:     { da: "Alle", en: "All", de: "Alle", it: "Tutte", hu: "Összes", sv: "Alla", fr: "Toutes", pl: "Wszystkie", cs: "Všechny" },
   serial_number:    { da: "Serienummer", en: "Serial number", de: "Seriennummer", it: "Numero di serie", hu: "Sorozatszám" },
   machine_model:    { da: "Model/type", en: "Model/type", de: "Modell/Typ", it: "Modello/tipo", hu: "Modell/típus" },
   order_no:         { da: "Ordrenr.", en: "Order no.", de: "Auftragsnr.", it: "N. ordine", hu: "Rendelésszám" },
   delivery_date:    { da: "Levering", en: "Delivery", de: "Lieferung", it: "Consegna", hu: "Szállítás" },
   customer:         { da: "Kunde", en: "Customer", de: "Kunde", it: "Cliente", hu: "Ügyfél" },
   warranty_sp:      { da: "Garanti/SP", en: "Warranty/SP", de: "Garantie/SP", it: "Garanzia/SP", hu: "Garancia/SP" },
+  demo_machine:     { da: "Demo-maskine", en: "Demo machine", de: "Demomaschine", it: "Macchina demo", hu: "Demógép", sv: "Demomaskin", fr: "Machine de démonstration", pl: "Maszyna demonstracyjna", cs: "Předváděcí stroj" },
   extended_warranty: { da: "Forlænget garanti", en: "Extended warranty", de: "Garantieverlängerung", it: "Garanzia estesa", hu: "Kiterjesztett garancia", sv: "Förlängd garanti", fr: "Garantie prolongée", pl: "Przedłużona gwarancja", cs: "Prodloužená záruka" },
   extended_warranty_registered: { da: "Forlænget garanti registreret", en: "Extended warranty registered", de: "Garantieverlängerung registriert", it: "Garanzia estesa registrata", hu: "Kiterjesztett garancia regisztrálva", sv: "Förlängd garanti registrerad", fr: "Garantie prolongée enregistrée", pl: "Zarejestrowano przedłużoną gwarancję", cs: "Prodloužená záruka registrována" },
-  lifecycle_status: { da: "Lifecycle-status", en: "Lifecycle status", de: "Lifecycle-Status", it: "Stato lifecycle", hu: "Életciklus állapot" },
-  normal_machine:   { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál" },
-  active_demo:      { da: "Aktiv demo", en: "Active demo", de: "Aktive Demo", it: "Demo attiva", hu: "Aktív demó" },
-  ready_for_sale:   { da: "Klar til salg", en: "Ready for sale", de: "Verkaufsbereit", it: "Pronta per la vendita", hu: "Eladásra kész" },
-  sold_early:       { da: "Solgt før tilladt dato", en: "Sold before allowed date", de: "Vor erlaubtem Datum verkauft", it: "Venduta prima della data consentita", hu: "Engedélyezett dátum előtt eladva" },
-  sold_registered:  { da: "Solgt/garantiregistreret", en: "Sold/warranty registered", de: "Verkauft/garantieregistriert", it: "Venduta/registrata in garanzia", hu: "Eladva/garanciára regisztrálva" },
-  demo_missing_delivery: { da: "Demo - leveringsdato mangler", en: "Demo - delivery date missing", de: "Demo - Lieferdatum fehlt", it: "Demo - data consegna mancante", hu: "Demó - szállítási dátum hiányzik" },
-  days_left:        { da: "dage tilbage", en: "days left", de: "Tage verbleiben", it: "giorni rimanenti", hu: "nap van hátra" },
-  days_early:       { da: "dage før tid", en: "days early", de: "Tage zu früh", it: "giorni in anticipo", hu: "nappal korábban" },
-  after_9_months:   { da: "efter 9 mdr.", en: "after 9 months", de: "nach 9 Monaten", it: "dopo 9 mesi", hu: "9 hónap után" },
+  demo_status:      { da: "Demo-status", en: "Demo status", de: "Demo-Status", it: "Stato demo", hu: "Demó állapota", sv: "Demostatus", fr: "Statut de démonstration", pl: "Status maszyny demonstracyjnej", cs: "Stav předváděcího stroje" },
+  normal_machine:   { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál", sv: "Normal", fr: "Normale", pl: "Standardowa", cs: "Běžný" },
+  active_demo:      { da: "Aktiv demo", en: "Active demo", de: "Aktive Demo", it: "Demo attiva", hu: "Aktív demó", sv: "Aktiv demo", fr: "Démo active", pl: "Aktywna maszyna demonstracyjna", cs: "Aktivní předváděcí stroj" },
+  ready_for_sale:   { da: "Klar til salg", en: "Ready for sale", de: "Verkaufsbereit", it: "Pronta per la vendita", hu: "Eladásra kész", sv: "Klar för försäljning", fr: "Prête à la vente", pl: "Gotowa do sprzedaży", cs: "Připraveno k prodeji" },
+  sold_early:       { da: "Solgt før tilladt dato", en: "Sold before allowed date", de: "Vor erlaubtem Datum verkauft", it: "Venduta prima della data consentita", hu: "Engedélyezett dátum előtt eladva", sv: "Såld före tillåtet datum", fr: "Vendue avant la date autorisée", pl: "Sprzedana przed dozwolonym terminem", cs: "Prodáno před povoleným datem" },
+  sold_registered:  { da: "Solgt/garantiregistreret", en: "Sold/warranty registered", de: "Verkauft/garantieregistriert", it: "Venduta/registrata in garanzia", hu: "Eladva/garanciára regisztrálva", sv: "Såld/garantiregistrerad", fr: "Vendue/enregistrée sous garantie", pl: "Sprzedana/zarejestrowana gwarancyjnie", cs: "Prodáno/registrováno v záruce" },
+  demo_missing_delivery: { da: "Demo - leveringsdato mangler", en: "Demo - delivery date missing", de: "Demo - Lieferdatum fehlt", it: "Demo - data consegna mancante", hu: "Demó - szállítási dátum hiányzik", sv: "Demo - leveransdatum saknas", fr: "Démo - date de livraison manquante", pl: "Demo - brak daty dostawy", cs: "Demo - chybí datum dodání" },
+  days_left:        { da: "dage tilbage", en: "days left", de: "Tage verbleiben", it: "giorni rimanenti", hu: "nap van hátra", sv: "dagar kvar", fr: "jours restants", pl: "dni pozostało", cs: "dní zbývá" },
+  days_early:       { da: "dage før tid", en: "days early", de: "Tage zu früh", it: "giorni in anticipo", hu: "nappal korábban", sv: "dagar för tidigt", fr: "jours trop tôt", pl: "dni za wcześnie", cs: "dní předčasně" },
+  after_9_months:   { da: "efter 9 mdr.", en: "after 9 months", de: "nach 9 Monaten", it: "dopo 9 mesi", hu: "9 hónap után", sv: "efter 9 månader", fr: "après 9 mois", pl: "po 9 miesiącach", cs: "po 9 měsících" },
 
   role:             { da: "Rolle", en: "Role", de: "Rolle", it: "Ruolo", hu: "Szerep" },
   phone:            { da: "Telefon", en: "Phone", de: "Telefon", it: "Telefono", hu: "Telefon" },
@@ -2192,8 +2193,8 @@ function CrmMachineRegisterPanel({
     if (direction === initial) { setDirection(initial === "asc" ? "desc" : "asc"); setPage(1); return; }
     setSort("delivery"); setDirection("desc"); setPage(1);
   };
-  const SortHeader = ({ label, sortKey, initial = "asc" }: { label: string; sortKey: MachineSortKey; initial?: MachineSortDirection }) => (
-    <th className="py-2 pr-3 whitespace-nowrap">
+  const SortHeader = ({ label, sortKey, initial = "asc", sentenceCase = false }: { label: string; sortKey: MachineSortKey; initial?: MachineSortDirection; sentenceCase?: boolean }) => (
+    <th className={`py-2 pr-3 whitespace-nowrap ${sentenceCase ? "normal-case" : ""}`}>
       <button type="button" onClick={() => toggleSort(sortKey, initial)} className="inline-flex items-center gap-1 hover:text-slate-800">
         {label}{sort !== sortKey ? <ArrowUpDown className="h-3 w-3" /> : direction === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
       </button>
@@ -2244,12 +2245,13 @@ function CrmMachineRegisterPanel({
                 <SortHeader label={tl("serial_number", lang)} sortKey="serial" />
                 <SortHeader label={tl("machine_model", lang)} sortKey="model" />
                 <SortHeader label="Garanti nr." sortKey="warrantyId" />
-                <th className="py-2 pr-3 whitespace-nowrap">{tl("extended_warranty", lang)}</th>
+                <SortHeader label={tl("demo_machine", lang)} sortKey="status" sentenceCase />
+                <th className="py-2 pr-3 whitespace-nowrap normal-case">{tl("extended_warranty", lang)}</th>
+                {demoOnly && <SortHeader label={tl("demo_status", lang)} sortKey="lifecycle" sentenceCase />}
                 <SortHeader label="MO nr." sortKey="machineOrder" />
                 <SortHeader label="ERP nr." sortKey="erpOrder" />
                 <SortHeader label="Portal-ordrenr." sortKey="portalOrder" />
                 <SortHeader label={tl("delivery_date", lang)} sortKey="delivery" initial="desc" />
-                <SortHeader label={tl("status", lang)} sortKey="status" />
                 <SortHeader label={tl("customer", lang)} sortKey="customer" />
                 <SortHeader label="Fakturanr." sortKey="invoice" />
                 {showCommercials && <SortHeader label="Omsætning" sortKey="revenue" initial="desc" />}
@@ -2258,7 +2260,6 @@ function CrmMachineRegisterPanel({
                   <SortHeader label="Dækningsbidrag" sortKey="margin" initial="desc" />
                 </>}
                 {showCommercials && <SortHeader label="Dækningsgrad" sortKey="marginPercent" initial="desc" />}
-                <SortHeader label={tl("lifecycle_status", lang)} sortKey="lifecycle" />
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -2269,6 +2270,7 @@ function CrmMachineRegisterPanel({
                     <td className="py-3 pr-3 font-mono font-semibold text-slate-900 whitespace-nowrap">{row.serial}</td>
                     <td className="py-3 pr-3 text-slate-700">{row.machineModel || row.machineType || "—"}</td>
                     <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{row.warrantyCertificate || "—"}</td>
+                    <td className="py-3 pr-3 text-slate-700">{row.machineKind === "demo" ? "Demo" : tl("normal_machine", lang)}</td>
                     <td className="py-3 pr-3 text-left align-middle">
                       {hasExtendedWarranty(row) ? (
                         <CheckCircle2
@@ -2278,11 +2280,18 @@ function CrmMachineRegisterPanel({
                         />
                       ) : null}
                     </td>
+                    {demoOnly && (
+                      <td className="py-3 pr-3">
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${meta.badge}`}>
+                          {meta.icon}{meta.label}
+                        </span>
+                        {meta.detail && <div className="mt-1 text-xs text-slate-500">{meta.detail}</div>}
+                      </td>
+                    )}
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.machineOrderNumber || "—"}</td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.erpOrderNumber || "—"}</td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.portalOrderNumber || "—"}</td>
                     <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{fmtDate(row.deliveryDate)}</td>
-                    <td className="py-3 pr-3 text-slate-700">{row.machineKind === "demo" ? "Demo" : tl("normal_machine", lang)}</td>
                     <td className="py-3 pr-3 text-slate-700">{row.customerName || "—"}</td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.invoiceNumber || "—"}</td>
                     {showCommercials && <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.revenue)}</td>}
@@ -2291,12 +2300,6 @@ function CrmMachineRegisterPanel({
                       <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.contributionMarginAmount)}</td>
                     </>}
                     {showCommercials && <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatPercent(row.contributionMarginPercent)}</td>}
-                    <td className="py-3 pr-3">
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${meta.badge}`}>
-                        {meta.icon}{meta.label}
-                      </span>
-                      {meta.detail && <div className="mt-1 text-xs text-slate-500">{meta.detail}</div>}
-                    </td>
                   </tr>
                 );
               })}
