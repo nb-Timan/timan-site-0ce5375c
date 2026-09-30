@@ -9,10 +9,9 @@ export type CrmLeadsSort =
   | 'date_asc'
   | 'prob_desc'
   | 'prob_asc'
-  | 'expected_close_asc'
-  | 'expected_close_desc';
+  | 'expected_close_asc';
 export type CrmLeadsType = 'open' | 'demo' | 'won' | 'lost';
-export type CrmLeadsFollowupFilter = 'overdue' | 'soon' | 'later';
+export type CrmLeadsFollowupFilter = 'overdue' | 'later';
 
 export interface CrmLeadsNavigationState {
   tab: CrmLeadsTab;
@@ -45,10 +44,9 @@ const SORT_VALUES = new Set<CrmLeadsSort>([
   'prob_desc',
   'prob_asc',
   'expected_close_asc',
-  'expected_close_desc',
 ]);
 const TYPE_VALUES = new Set<CrmLeadsType | ''>(['', 'open', 'demo', 'won', 'lost']);
-const FOLLOWUP_VALUES = new Set<CrmLeadsFollowupFilter>(['overdue', 'soon', 'later']);
+const FOLLOWUP_VALUES = new Set<CrmLeadsFollowupFilter>(['overdue', 'later']);
 const STATIC_OWNER_VALUES = new Set<CrmLeadOwnerFilter>([
   '',
   'other_timan_sellers',

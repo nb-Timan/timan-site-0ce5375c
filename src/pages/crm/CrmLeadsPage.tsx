@@ -100,10 +100,10 @@ type TKey =
   | 'lost_analysis_title' | 'lost_to' | 'lost_other' | 'lost_reason' | 'lost_comment'
   | 'save' | 'cancel' | 'pick' | 'closed_ok' | 'close_err' | 'verify_err'
   | 'convert_to_demo' | 'convert_to_quote' | 'convert_label' | 'to_demo_label' | 'to_quote_label' | 'go_to_quote'
-  | 'urgency_overdue' | 'urgency_soon' | 'urgency_later'
+  | 'urgency_overdue' | 'urgency_later'
   | 'sort_default' | 'sort_title_asc' | 'sort_title_desc'
   | 'sort_date_desc' | 'sort_date_asc' | 'sort_prob_desc' | 'sort_prob_asc'
-  | 'sort_expected_close_asc' | 'sort_expected_close_desc'
+  | 'sort_expected_close_asc'
   | 'page_prev' | 'page_next' | 'page_range'
   | 'st_Lead' | 'st_DemoWant' | 'st_Demo' | 'st_DemoHeld' | 'st_Tilbud' | 'st_Followup' | 'st_Vundet' | 'st_Tabt';
 
@@ -180,8 +180,7 @@ const T: Record<TKey, UiText> = {
   to_quote_label:{ da: 'til tilbud', en: 'to quote', de: 'in Angebot', it: 'in offerta', hu: 'ajánlattá', fr: 'en devis', pl: 'na ofertę', cs: 'na nabídku' },
   go_to_quote:    { da: 'Gå til tilbud', en: 'Go to quote', de: 'Zum Angebot', it: 'Vai all\'offerta', hu: 'Ugrás az ajánlathoz', fr: 'Aller au devis', pl: 'Przejdź do oferty', cs: 'Přejít na nabídku' },
   urgency_overdue:{ da: 'Forfalden', en: 'Overdue', de: 'Überfällig', it: 'Scaduto', hu: 'Lejárt', fr: 'En retard', pl: 'Zaległe', cs: 'Po termínu' },
-  urgency_soon:   { da: 'Inden 20 dage', en: 'Within 20 days', de: 'In 20 Tagen', it: 'Entro 20 giorni', hu: '20 napon belül', fr: 'Dans 20 jours', pl: 'W ciągu 20 dni', cs: 'Do 20 dnů' },
-  urgency_later:  { da: 'Inden 2 mdr.', en: 'Within 2 mo.', de: 'In 2 Mon.', it: 'Entro 2 mesi', hu: '2 hónapon belül', fr: 'Dans 2 mois', pl: 'W ciągu 2 mies.', cs: 'Do 2 měs.' },
+  urgency_later:  { da: 'Inden for 2 måneder', en: 'Within 2 months', de: 'Innerhalb von 2 Monaten', it: 'Entro 2 mesi', hu: '2 hónapon belül', sv: 'Inom 2 månader', fr: 'Dans les 2 mois', pl: 'W ciągu 2 miesięcy', cs: 'Do 2 měsíců' },
   sort_default:   { da: 'Sortér: standard', en: 'Sort: default', de: 'Sortieren: Standard', it: 'Ordina: standard', hu: 'Rendezés: alap', fr: 'Tri : standard', pl: 'Sortuj: standard', cs: 'Řadit: standard' },
   sort_title_asc: { da: 'Titel: A-Å', en: 'Title: A-Z', de: 'Titel: A-Z', it: 'Titolo: A-Z', hu: 'Cím: A-Z', fr: 'Titre : A-Z', pl: 'Tytuł: A-Z', cs: 'Název: A-Z' },
   sort_title_desc:{ da: 'Titel: Å-A', en: 'Title: Z-A', de: 'Titel: Z-A', it: 'Titolo: Z-A', hu: 'Cím: Z-A', fr: 'Titre : Z-A', pl: 'Tytuł: Z-A', cs: 'Název: Z-A' },
@@ -189,8 +188,7 @@ const T: Record<TKey, UiText> = {
   sort_date_asc:  { da: 'Dato: ældste først', en: 'Date: oldest first', de: 'Datum: älteste zuerst', it: 'Data: meno recenti prima', hu: 'Dátum: legrégebbi elöl', fr: 'Date : plus ancien', pl: 'Data: najstarsze', cs: 'Datum: nejstarší' },
   sort_prob_desc: { da: 'Status %: høj til lav', en: 'Status %: high to low', de: 'Status %: hoch zu niedrig', it: 'Status %: alto-basso', hu: 'Státusz %: magas-alacsony', fr: 'Statut % : décroissant', pl: 'Status %: malejąco', cs: 'Stav %: sestupně' },
   sort_prob_asc:  { da: 'Status %: lav til høj', en: 'Status %: low to high', de: 'Status %: niedrig zu hoch', it: 'Status %: basso-alto', hu: 'Státusz %: alacsony-magas', fr: 'Statut % : croissant', pl: 'Status %: rosnąco', cs: 'Stav %: vzestupně' },
-  sort_expected_close_asc: { da: 'Forventet luk: nærmest først', en: 'Expected close: nearest first', de: 'Erwarteter Abschluss: nächster zuerst', it: 'Chiusura prevista: più vicina prima', hu: 'Várható zárás: legközelebbi elöl', sv: 'Förväntat avslut: närmast först', fr: 'Clôture prévue : plus proche', pl: 'Planowane zamknięcie: najbliższe', cs: 'Očekávané uzavření: nejbližší' },
-  sort_expected_close_desc:{ da: 'Forventet luk: senest først', en: 'Expected close: latest first', de: 'Erwarteter Abschluss: spätester zuerst', it: 'Chiusura prevista: più lontana prima', hu: 'Várható zárás: legtávolabbi elöl', sv: 'Förväntat avslut: senast först', fr: 'Clôture prévue : plus éloignée', pl: 'Planowane zamknięcie: najpóźniejsze', cs: 'Očekávané uzavření: nejpozdější' },
+  sort_expected_close_asc: { da: 'Forventet luk: tidligst til senest', en: 'Expected close: earliest to latest', de: 'Erwarteter Abschluss: frühester bis spätester', it: 'Chiusura prevista: dalla prima all’ultima', hu: 'Várható zárás: legkorábbitól a legkésőbbiig', sv: 'Förväntat avslut: tidigast till senast', fr: 'Clôture prévue : du plus tôt au plus tard', pl: 'Planowane zamknięcie: od najwcześniejszego do najpóźniejszego', cs: 'Očekávané uzavření: od nejdřívějšího po nejpozdější' },
   page_prev:      { da: 'Forrige', en: 'Previous', de: 'Zurück', it: 'Precedente', hu: 'Előző', fr: 'Précédent', pl: 'Poprzednia', cs: 'Předchozí' },
   page_next:      { da: 'Næste', en: 'Next', de: 'Weiter', it: 'Successiva', hu: 'Következő', fr: 'Suivant', pl: 'Następna', cs: 'Další' },
   page_range:     { da: 'Viser', en: 'Showing', de: 'Zeigt', it: 'Mostra', hu: 'Megjelenítve', fr: 'Affichage', pl: 'Pokazuje', cs: 'Zobrazuje' },
@@ -430,7 +428,6 @@ const FOLLOWUP_BADGE: Record<FollowupTone, string> = {
 
 const FOLLOWUP_FILTERS: Array<{ key: FollowupFilter; labelKey: TKey }> = [
   { key: 'overdue', labelKey: 'urgency_overdue' },
-  { key: 'soon', labelKey: 'urgency_soon' },
   { key: 'later', labelKey: 'urgency_later' },
 ];
 
@@ -471,7 +468,6 @@ function compareRows(a: UnifiedLead, b: UnifiedLead, sort: SortKey): number {
   if (sort === 'prob_desc') return (b.probability ?? -1) - (a.probability ?? -1);
   if (sort === 'prob_asc') return (a.probability ?? 999) - (b.probability ?? 999);
   if (sort === 'expected_close_asc') return compareCrmLeadExpectedClose(a, b, 'asc');
-  if (sort === 'expected_close_desc') return compareCrmLeadExpectedClose(a, b, 'desc');
   const aLegacy = /^G-/.test(a.display_no || '');
   const bLegacy = /^G-/.test(b.display_no || '');
   if (aLegacy !== bLegacy) return aLegacy ? 1 : -1;
@@ -1047,7 +1043,6 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             <option value="prob_desc">{tt('sort_prob_desc', lang)}</option>
             <option value="prob_asc">{tt('sort_prob_asc', lang)}</option>
             <option value="expected_close_asc">{tt('sort_expected_close_asc', lang)}</option>
-            <option value="expected_close_desc">{tt('sort_expected_close_desc', lang)}</option>
           </select>
         </div>
       </div>

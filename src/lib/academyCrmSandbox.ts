@@ -5,6 +5,7 @@ import type { CrmDemoLead, CrmLead, CrmLeadPatch, CrmLeadsPageQueryResult, ListL
 import type { CrmLeadShare, LeadShareTarget } from '@/lib/crmLeadSharingService';
 import { getCrmLeadEquipmentValues, matchesCrmLeadEquipmentFilter, matchesCrmLeadMachineFilter } from '@/lib/crmLeadMachineFilter';
 import { compareCrmLeadExpectedClose } from '@/lib/crmLeadExpectedCloseSort';
+import { isExpectedCloseWithinTwoCalendarMonths, localDateToIso } from '@/lib/crmLeadExpectedClose';
 
 export type AcademyLeadId = string;
 export type AcademyLead = { id: AcademyLeadId; title: string; nextFollowup: string; activity: string; incomplete: boolean; fromConfigurator: boolean; shared: boolean; convertedToDemo: boolean; saved: boolean; record?: Partial<CrmLead> };
@@ -56,14 +57,18 @@ export const academyCrmSandbox = {
         && matchesCrmLeadMachineFilter(machines, null, options.machineFilter)
         && matchesCrmLeadEquipmentFilter(machines, null, options.equipmentFilter);
     });
-    const rows = leads.map((lead) => {
+    const allRows = leads.map((lead) => {
       const record = this.getCrmLead(lead.id);
       return { id: lead.id, display_no: `L-${lead.id === 'academy-overdue-lead' ? 9101 : lead.id === 'academy-configurator-lead' ? 9102 : 9103}`, type: 'open' as const, title: lead.title, customer: 'Academy Kunde', dealer: ACADEMY_CRM_PARTNER.name, owner_user_id: 'academy-local-sales-user', owner_name: 'Academy Sales', owner_email: 'academy.sales@localhost', responsible_name: 'Academy Sales', machine: 'RC-1000', equipment: null, date: '2026-09-01', next_followup: lead.nextFollowup, expected_close_date: record?.expected_close_date ?? null, status: 'Åben', probability: 25, value: 100000, detail_href: `/academy/crm/leads/${lead.id}?academy_mode=true&academy_part=${part}`, attachments: [], incomplete: lead.incomplete, shared: lead.shared };
     });
+    const today = localDateToIso(new Date());
+    const rows = allRows.filter((row) => options.followupFilter === 'overdue'
+      ? !!row.next_followup && row.next_followup < today
+      : options.followupFilter === 'later'
+        ? isExpectedCloseWithinTwoCalendarMonths(row.expected_close_date, today)
+        : true);
     if (options.sort === 'expected_close_asc') rows.sort((a, b) => compareCrmLeadExpectedClose(a, b, 'asc'));
-    if (options.sort === 'expected_close_desc') rows.sort((a, b) => compareCrmLeadExpectedClose(a, b, 'desc'));
-    const today = new Date().toISOString().slice(0, 10);
-    return { rows, counts: { all: rows.length, open: rows.length, won: 0, closed: 0 }, followup_counts: { overdue: rows.filter((row) => !!row.next_followup && row.next_followup < today).length, soon: 0, later: rows.filter((row) => !!row.next_followup && row.next_followup >= today).length }, unassigned_count: 0, total_count: rows.length, total_value: rows.reduce((sum, row) => sum + (row.value || 0), 0), page_limit: options.limit || 50, page_offset: 0, options: { types: ['open'], machines: ['RC-1000'], equipment: getCrmLeadEquipmentValues(['RC-1000']), statuses: [{ value: 'Åben::25', status: 'Åben', probability: 25 }] } };
+    return { rows, counts: { all: allRows.length, open: allRows.length, won: 0, closed: 0 }, followup_counts: { overdue: allRows.filter((row) => !!row.next_followup && row.next_followup < today).length, soon: 0, later: allRows.filter((row) => isExpectedCloseWithinTwoCalendarMonths(row.expected_close_date, today)).length }, unassigned_count: 0, total_count: rows.length, total_value: rows.reduce((sum, row) => sum + (row.value || 0), 0), page_limit: options.limit || 50, page_offset: 0, options: { types: ['open'], machines: ['RC-1000'], equipment: getCrmLeadEquipmentValues(['RC-1000']), statuses: [{ value: 'Åben::25', status: 'Åben', probability: 25 }] } };
   },
   updateCrmLead(id: string, patch: CrmLeadPatch): CrmLead {
     const existing = read().leads.find((lead) => lead.id === id);

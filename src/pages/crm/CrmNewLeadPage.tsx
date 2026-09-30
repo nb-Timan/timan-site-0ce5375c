@@ -10,6 +10,7 @@ import { convertCurrency, formatMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { readCrmLeadsReturnTarget } from '@/lib/crmLeadsNavigationState';
+import { addMonthsToIsoDate } from '@/lib/crmLeadExpectedClose';
 import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
@@ -301,12 +302,6 @@ function parseDateInput(value: string): string | null {
 function addDaysToIsoDate(baseIso: string, days: number): string {
   const date = parseLocalIsoDate(baseIso) || new Date();
   date.setDate(date.getDate() + days);
-  return toLocalIsoDate(date);
-}
-
-function addMonthsToIsoDate(baseIso: string, months: number): string {
-  const date = parseLocalIsoDate(baseIso) || new Date();
-  date.setMonth(date.getMonth() + months);
   return toLocalIsoDate(date);
 }
 

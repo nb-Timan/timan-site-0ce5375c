@@ -20,7 +20,7 @@ const navigationHelper = readFileSync('src/lib/crmLeadsNavigationState.ts', 'utf
 
 const combinedState: CrmLeadsNavigationState = {
   tab: 'open',
-  followupFilter: 'soon',
+  followupFilter: 'later',
   q: 'G-5054',
   typeFilter: 'demo',
   machineFilter: 'Timan 3330',
@@ -98,6 +98,13 @@ describe('CRM Leads navigation state', () => {
       tab: 'open',
       followupFilter: 'overdue',
     });
+  });
+
+  it('rejects removed expected-close variants from stale URLs', () => {
+    expect(parseCrmLeadsNavigationState(
+      new URLSearchParams('followup=soon&sort=expected_close_desc'),
+      { isAdmin: true },
+    )).toMatchObject({ followupFilter: null, sort: 'default' });
   });
 
   it('keeps dealer links canonical without duplicating the dealer search', () => {
