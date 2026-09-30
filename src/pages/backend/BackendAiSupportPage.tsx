@@ -430,12 +430,30 @@ function FeedbackPanel() {
   return (
     <LoadBoundary loading={loading} error={error} retry={() => void load()}>
       {rows.length === 0 ? <EmptyState icon={ThumbsUp} title={copy.noFeedback} /> : (
-        <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
+        <div className="space-y-3">
           {rows.map((row) => (
-            <article key={row.id} className="grid gap-2 border-b border-slate-100 px-4 py-3 last:border-0 sm:grid-cols-[8rem_minmax(0,1fr)_10rem] sm:items-center">
-              <StatusPill value={row.sentiment} language={uiLanguage} />
-              <p className="text-sm text-slate-800">{row.comment || '—'}</p>
-              <time className="text-xs text-slate-500">{formatDate(row.created_at, uiLanguage)}</time>
+            <article key={row.id} className="rounded-md border border-slate-200 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <StatusPill value={row.sentiment} language={uiLanguage} />
+                <time className="text-xs text-slate-500">{formatDate(row.created_at, uiLanguage)}</time>
+              </div>
+              <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs font-medium text-slate-500">{copy.question}</dt>
+                  <dd className="mt-1 text-slate-900">{row.question?.question_text || row.question_id || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-slate-500">{copy.answer}</dt>
+                  <dd className="mt-1 text-slate-900">{row.response?.response_text || row.response_id || '—'}</dd>
+                </div>
+              </dl>
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-slate-600">
+                <span>{copy.reason}: {row.reason_code ? supportAdminCodeLabel(uiLanguage, row.reason_code) : row.comment || '—'}</span>
+                <span>{copy.language}: {row.question?.portal_language ? portalLanguageDisplayCode(row.question.portal_language) : '—'}</span>
+                <span>{copy.userReference}: {row.submitted_by?.email || row.submitted_by_user_id || '—'}</span>
+                <span>{copy.result}: {row.response?.answer_status || '—'}</span>
+                <span>{copy.sourceReferences}: {row.response?.sources?.length || 0}</span>
+              </div>
             </article>
           ))}
         </div>

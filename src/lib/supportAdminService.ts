@@ -98,11 +98,29 @@ export async function fetchSupportQuestions(filters: SupportQuestionFilters = {}
 export async function fetchSupportFeedback(): Promise<SupportFeedbackRow[]> {
   const { data, error } = await supabase
     .from('support_feedback')
-    .select('*')
+    .select(`
+      *,
+      question:support_questions(id, question_text, portal_language),
+      response:support_responses(
+        id, response_text, answer_status, confidence_level,
+        question:support_questions(id, question_text, portal_language),
+        sources:support_response_sources(id, knowledge_item_id, knowledge_version, citation_label)
+      ),
+      submitted_by:app_users(id, email)
+    `)
     .order('created_at', { ascending: false })
     .limit(250);
   if (error) throw error;
-  return (data || []) as SupportFeedbackRow[];
+  return (data || []).map((row) => {
+    const question = row.question || row.response?.question || null;
+    return {
+      ...row,
+      question: question ? {
+        ...question,
+        portal_language: normalizePortalLanguageCode(question.portal_language) || question.portal_language,
+      } : null,
+    };
+  }) as unknown as SupportFeedbackRow[];
 }
 
 export async function fetchSupportKnowledgeGaps(filters: SupportGapFilters = {}): Promise<SupportKnowledgeGapRow[]> {

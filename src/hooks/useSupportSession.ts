@@ -240,5 +240,9 @@ export function useSupportSession({
     }));
   }, [updateState]);
 
-  return { state, sendMessage, retry, setWorkflowState };
+  const startNewConversation = useCallback(() => {
+    updateState((current) => createSupportSession(current.conversation.context));
+  }, [updateState]);
+
+  return { state, sendMessage, retry, setWorkflowState, startNewConversation };
 }

@@ -6,6 +6,9 @@ const page = readFileSync('src/pages/backend/BackendAiSupportPage.tsx', 'utf8');
 const routes = readFileSync('src/App.tsx', 'utf8');
 const service = readFileSync('src/lib/supportAdminService.ts', 'utf8');
 const actorAuditMigration = readFileSync('supabase/migrations/20260927133648_support_knowledge_actor_audit.sql', 'utf8');
+const answerFeedbackMigration = readFileSync('supabase/migrations/20260930050152_support_answer_feedback.sql', 'utf8');
+const feedbackActorHardeningMigration = readFileSync('supabase/migrations/20260930051055_harden_support_feedback_actor_lookup.sql', 'utf8');
+const feedbackActorStampMigration = readFileSync('supabase/migrations/20260930052700_stamp_support_feedback_actor.sql', 'utf8');
 
 describe('Support administration database foundation', () => {
   it('creates normalized question, feedback, knowledge, traceability and usage structures', () => {
@@ -57,6 +60,28 @@ describe('Support administration database foundation', () => {
     expect(actorAuditMigration).toContain("lower(u.email) = lower(nullif(auth.jwt() ->> 'email', ''))");
     expect(service).not.toContain('created_by_user_id: actorUserId');
     expect(service).not.toContain('approved_by_user_id:');
+  });
+
+  it('keeps one canonical feedback state per user and response with optional reasons', () => {
+    expect(answerFeedbackMigration).toContain('unique (response_id, submitted_by_user_id)');
+    expect(answerFeedbackMigration).toContain('support_feedback_reason_code_check');
+    expect(answerFeedbackMigration).toContain('support_feedback_touch_updated_at');
+    expect(answerFeedbackMigration).toContain('support_feedback_actor_user_id()');
+    expect(answerFeedbackMigration).toContain('submitted_by_user_id = (select public.support_feedback_actor_user_id())');
+    expect(answerFeedbackMigration).not.toMatch(/create table public\.support_feedback/i);
+  });
+
+  it('keeps the feedback actor resolver outside the exposed public schema', () => {
+    expect(feedbackActorHardeningMigration).toContain('private.support_feedback_actor_user_id()');
+    expect(feedbackActorHardeningMigration).toContain('submitted_by_user_id = (select private.support_feedback_actor_user_id())');
+    expect(feedbackActorHardeningMigration).toContain('drop function if exists public.support_feedback_actor_user_id()');
+    expect(feedbackActorHardeningMigration).toContain('grant execute on function private.support_feedback_actor_user_id() to authenticated');
+  });
+
+  it('stamps feedback ownership from the authenticated actor instead of client input', () => {
+    expect(feedbackActorStampMigration).toContain('new.submitted_by_user_id := v_actor_user_id');
+    expect(feedbackActorStampMigration).toContain('private.support_feedback_actor_user_id()');
+    expect(feedbackActorStampMigration).toContain('before insert or update on public.support_feedback');
   });
 });
 

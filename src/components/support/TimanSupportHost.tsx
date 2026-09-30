@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { ArrowLeft, BookOpen, Bot, ExternalLink, FileText, Loader2, MessageCircle, RotateCcw, Send, Wrench, X } from 'lucide-react';
+import { ArrowLeft, BookOpen, Bot, ExternalLink, FileText, Loader2, MessageCircle, MessageSquarePlus, MoreVertical, RotateCcw, Send, ThumbsDown, ThumbsUp, Wrench, X } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
 import { useLanguage } from '@/context/LanguageContext';
@@ -15,6 +15,14 @@ import { AssistantSupportService } from '@/lib/assistantSupportService';
 import { supportService } from '@/lib/supportService';
 import type { AssistantActionCommand } from '@/lib/supportTypes';
 import {
+  fetchSupportAnswerFeedback,
+  isFeedbackEligibleMessage,
+  saveSupportAnswerFeedback,
+  type SupportAnswerFeedback,
+  type SupportFeedbackReason,
+  type SupportFeedbackSentiment,
+} from '@/lib/supportFeedbackService';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -24,6 +32,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+const FEEDBACK_REASONS: Array<{ value: SupportFeedbackReason; labelKey: string }> = [
+  { value: 'INCORRECT', labelKey: 'supportFeedbackReasonIncorrect' },
+  { value: 'NOT_RELEVANT', labelKey: 'supportFeedbackReasonNotRelevant' },
+  { value: 'MISSING_INFORMATION', labelKey: 'supportFeedbackReasonMissingInformation' },
+  { value: 'HARD_TO_UNDERSTAND', labelKey: 'supportFeedbackReasonHardToUnderstand' },
+  { value: 'OTHER', labelKey: 'supportFeedbackReasonOther' },
+];
 
 const QUICK_ACTIONS: Array<{
   intent: SupportQuickIntent;
@@ -59,7 +81,7 @@ export default function TimanSupportHost() {
     () => appUser ? new AssistantSupportService(appUser, supportService) : supportService,
     [appUser],
   );
-  const { state, sendMessage, retry } = useSupportSession({
+  const { state, sendMessage, retry, startNewConversation } = useSupportSession({
     identity,
     enabled: allowed,
     language: uiLanguage,
@@ -70,6 +92,10 @@ export default function TimanSupportHost() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [resetOpen, setResetOpen] = useState(false);
+  const [feedbackByResponse, setFeedbackByResponse] = useState<Record<string, SupportAnswerFeedback>>({});
+  const [feedbackBusyId, setFeedbackBusyId] = useState<string | null>(null);
+  const [feedbackReasonResponseId, setFeedbackReasonResponseId] = useState<string | null>(null);
+  const [feedbackErrorId, setFeedbackErrorId] = useState<string | null>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const messageEndRef = useRef<HTMLDivElement>(null);
@@ -117,6 +143,55 @@ export default function TimanSupportHost() {
   const requestReset = () => {
     if (workflow.hasMeaningfulChoices) setResetOpen(true);
     else void submit(t('supportWorkflowReset', uiLanguage), undefined, { type: 'reset_workflow' });
+  };
+
+  const feedbackResponseIds = useMemo(
+    () => state.conversation.messages.filter(isFeedbackEligibleMessage).map((message) => message.id),
+    [state.conversation.messages],
+  );
+  useEffect(() => {
+    if (!open || !feedbackResponseIds.length) return;
+    let active = true;
+    void fetchSupportAnswerFeedback(feedbackResponseIds)
+      .then((feedback) => {
+        if (active) setFeedbackByResponse(feedback);
+      })
+      .catch(() => {
+        if (active) setFeedbackErrorId(feedbackResponseIds[feedbackResponseIds.length - 1]);
+      });
+    return () => { active = false; };
+  }, [feedbackResponseIds, open]);
+
+  const submitFeedback = async (
+    responseId: string,
+    sentiment: SupportFeedbackSentiment,
+    reasonCode?: SupportFeedbackReason | null,
+  ) => {
+    if (feedbackBusyId) return;
+    setFeedbackBusyId(responseId);
+    setFeedbackErrorId(null);
+    try {
+      const feedback = await saveSupportAnswerFeedback({
+        conversationId: state.conversation.id,
+        responseId,
+        sentiment,
+        reasonCode,
+      });
+      setFeedbackByResponse((current) => ({ ...current, [responseId]: feedback }));
+      setFeedbackReasonResponseId(sentiment === 'NEGATIVE' ? responseId : null);
+    } catch {
+      setFeedbackErrorId(responseId);
+    } finally {
+      setFeedbackBusyId(null);
+    }
+  };
+
+  const beginNewConversation = () => {
+    startNewConversation();
+    setFeedbackByResponse({});
+    setFeedbackReasonResponseId(null);
+    setFeedbackErrorId(null);
+    composerRef.current?.focus();
   };
 
   const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -177,14 +252,35 @@ export default function TimanSupportHost() {
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                aria-label={t('supportCloseLabel', uiLanguage)}
-                onClick={closePanel}
-                className="grid h-10 w-10 shrink-0 place-items-center rounded-md text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
+              <div className="flex shrink-0 items-center gap-1">
+                {!activeWorkflow && state.conversation.messages.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={t('supportMoreActions', uiLanguage)}
+                        className="grid h-10 w-10 place-items-center rounded-md text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                      >
+                        <MoreVertical className="h-5 w-5" aria-hidden="true" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="z-[70]">
+                      <DropdownMenuItem onSelect={beginNewConversation}>
+                        <MessageSquarePlus className="mr-2 h-4 w-4" aria-hidden="true" />
+                        {t('supportNewConversation', uiLanguage)}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <button
+                  type="button"
+                  aria-label={t('supportCloseLabel', uiLanguage)}
+                  onClick={closePanel}
+                  className="grid h-10 w-10 place-items-center rounded-md text-slate-600 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600"
+                >
+                  <X className="h-5 w-5" aria-hidden="true" />
+                </button>
+              </div>
             </header>
 
             {activeWorkflow && (
@@ -299,6 +395,55 @@ export default function TimanSupportHost() {
                               </li>
                             ))}
                           </ul>
+                        </div>
+                      )}
+                      {isFeedbackEligibleMessage(message) && (
+                        <div className="mt-2 border-t border-slate-200 pt-2">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              aria-label={t('supportFeedbackHelpful', uiLanguage)}
+                              aria-pressed={feedbackByResponse[message.id]?.sentiment === 'POSITIVE'}
+                              disabled={feedbackBusyId === message.id}
+                              onClick={() => void submitFeedback(message.id, 'POSITIVE')}
+                              className={cn(
+                                'grid h-8 w-8 place-items-center rounded-md text-slate-500 hover:bg-white hover:text-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 disabled:opacity-50',
+                                feedbackByResponse[message.id]?.sentiment === 'POSITIVE' && 'bg-emerald-100 text-emerald-800',
+                              )}
+                            >
+                              <ThumbsUp className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={t('supportFeedbackNotHelpful', uiLanguage)}
+                              aria-pressed={feedbackByResponse[message.id]?.sentiment === 'NEGATIVE'}
+                              disabled={feedbackBusyId === message.id}
+                              onClick={() => void submitFeedback(message.id, 'NEGATIVE', feedbackByResponse[message.id]?.reason_code)}
+                              className={cn(
+                                'grid h-8 w-8 place-items-center rounded-md text-slate-500 hover:bg-white hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600 disabled:opacity-50',
+                                feedbackByResponse[message.id]?.sentiment === 'NEGATIVE' && 'bg-red-100 text-red-800',
+                              )}
+                            >
+                              <ThumbsDown className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          </div>
+                          {(feedbackReasonResponseId === message.id || feedbackByResponse[message.id]?.sentiment === 'NEGATIVE') && (
+                            <select
+                              aria-label={t('supportFeedbackReason', uiLanguage)}
+                              value={feedbackByResponse[message.id]?.reason_code || ''}
+                              disabled={feedbackBusyId === message.id}
+                              onChange={(event) => void submitFeedback(message.id, 'NEGATIVE', (event.target.value || null) as SupportFeedbackReason | null)}
+                              className="mt-1.5 h-9 max-w-full rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-700 focus:border-emerald-600 focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                            >
+                              <option value="">{t('supportFeedbackReason', uiLanguage)}</option>
+                              {FEEDBACK_REASONS.map((reason) => (
+                                <option key={reason.value} value={reason.value}>{t(reason.labelKey, uiLanguage)}</option>
+                              ))}
+                            </select>
+                          )}
+                          {feedbackErrorId === message.id && (
+                            <p role="alert" className="mt-1 text-xs text-red-700">{t('supportFeedbackError', uiLanguage)}</p>
+                          )}
                         </div>
                       )}
                     </div>

@@ -68,4 +68,21 @@ describe('Timan Support session state', () => {
       status: 'idle', error: null, failedRequest: null,
     });
   });
+
+  it('starts a new conversation without deleting the stored backend history', async () => {
+    const service: SupportService = {
+      sendMessage: vi.fn(async () => ({
+        id: 'assistant-3', role: 'assistant', content: 'Svar', timestamp: '', status: 'sent',
+      })),
+    };
+    const { result } = renderHook(() => useSupportSession({
+      identity: 'backend@timan.dk', enabled: true, language: 'da', context, service,
+    }));
+    const firstId = result.current.state.conversation.id;
+    await act(async () => result.current.sendMessage('Hej'));
+    act(() => result.current.startNewConversation());
+    expect(result.current.state.conversation.id).not.toBe(firstId);
+    expect(result.current.state.conversation.messages).toEqual([]);
+    expect(result.current.state.conversation.workflowState).toEqual({});
+  });
 });

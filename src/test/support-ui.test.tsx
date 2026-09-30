@@ -18,6 +18,20 @@ const state = vi.hoisted(() => ({
   resolving: false,
 }));
 
+const feedback = vi.hoisted(() => ({
+  fetch: vi.fn(async () => ({})),
+  save: vi.fn(async (input: { conversationId: string; responseId: string; userId: string; sentiment: 'POSITIVE' | 'NEGATIVE'; reasonCode?: string | null }) => ({
+    id: '55555555-5555-4555-8555-555555555555',
+    conversation_id: input.conversationId,
+    response_id: input.responseId,
+    submitted_by_user_id: input.userId,
+    sentiment: input.sentiment,
+    reason_code: input.reasonCode || null,
+    created_at: '2026-09-30T00:00:00.000Z',
+    updated_at: '2026-09-30T00:00:00.000Z',
+  })),
+}));
+
 vi.mock('@/context/AppUserContext', () => ({
   useAppUser: () => ({ appUser: state.user, loading: false }),
 }));
@@ -36,11 +50,16 @@ vi.mock('@/lib/supportService', async (importOriginal) => {
     ...actual,
     supportService: {
       sendMessage: vi.fn(async () => ({
-        id: 'assistant-ui', role: 'assistant', content: 'Dette er et testsvar.',
-        timestamp: '2026-09-27T10:00:00.000Z', status: 'sent',
+        id: '11111111-1111-4111-8111-111111111111', role: 'assistant', content: 'Dette er et testsvar.',
+        timestamp: '2026-09-27T10:00:00.000Z', status: 'sent', answerStatus: 'ACCEPTED',
       })),
     },
   };
+});
+
+vi.mock('@/lib/supportFeedbackService', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/supportFeedbackService')>();
+  return { ...actual, fetchSupportAnswerFeedback: feedback.fetch, saveSupportAnswerFeedback: feedback.save };
 });
 
 function renderSupport(path = '/portal') {
@@ -49,10 +68,11 @@ function renderSupport(path = '/portal') {
 
 describe('Timan Support UI', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     window.sessionStorage.clear();
     state.resolving = false;
     state.user = {
-      email: 'backend@timan.dk', role: 'timan_backend', portal_role: 'timan_backend',
+      id: '22222222-2222-4222-8222-222222222222', email: 'backend@timan.dk', role: 'timan_backend', portal_role: 'timan_backend',
       partner_type: null, approved: true, is_active: true,
       permissions: { support_access: true },
     };
@@ -83,6 +103,36 @@ describe('Timan Support UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Åbn Timan Support' }));
     expect(screen.getByText('Hej Support')).toBeInTheDocument();
     expect(screen.getByText('Dette er et testsvar.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Nyttigt svar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ikke nyttigt svar' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Nulstil tilbud' })).not.toBeInTheDocument();
+  });
+
+  it('persists positive and negative feedback and offers an optional reason', async () => {
+    renderSupport();
+    fireEvent.click(screen.getByRole('button', { name: 'Åbn Timan Support' }));
+    fireEvent.change(screen.getByPlaceholderText('Skriv dit spørgsmål...'), { target: { value: 'Test svar' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send besked' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Nyttigt svar' })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nyttigt svar' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Nyttigt svar' })).toHaveAttribute('aria-pressed', 'true'));
+    fireEvent.click(screen.getByRole('button', { name: 'Ikke nyttigt svar' }));
+    await waitFor(() => expect(screen.getByLabelText('Vælg evt. årsag')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Vælg evt. årsag'), { target: { value: 'MISSING_INFORMATION' } });
+    await waitFor(() => expect(feedback.save).toHaveBeenLastCalledWith(expect.objectContaining({
+      sentiment: 'NEGATIVE', reasonCode: 'MISSING_INFORMATION',
+    })));
+  });
+
+  it('offers a compact new-conversation menu without showing workflow reset controls', async () => {
+    renderSupport();
+    fireEvent.click(screen.getByRole('button', { name: 'Åbn Timan Support' }));
+    fireEvent.change(screen.getByPlaceholderText('Skriv dit spørgsmål...'), { target: { value: 'Hej' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send besked' }));
+    await waitFor(() => expect(screen.getByText('Dette er et testsvar.')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: 'Flere handlinger' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Nulstil tilbud' })).not.toBeInTheDocument();
   });
 
   it('exposes quick actions and responsive desktop/mobile panel constraints', () => {

@@ -196,12 +196,25 @@ export interface SupportResponseSourceRow {
 
 export interface SupportFeedbackRow {
   id: string;
+  conversation_id: string | null;
   question_id: string | null;
   response_id: string | null;
   submitted_by_user_id: string | null;
   sentiment: 'POSITIVE' | 'NEGATIVE';
+  reason_code: string | null;
   comment: string | null;
   created_at: string;
+  updated_at: string;
+  question?: Pick<SupportQuestionRow, 'id' | 'question_text' | 'portal_language'> | null;
+  response?: {
+    id: string;
+    response_text: string;
+    answer_status: string;
+    confidence_level: string | null;
+    question?: Pick<SupportQuestionRow, 'id' | 'question_text' | 'portal_language'> | null;
+    sources?: SupportResponseSourceRow[];
+  } | null;
+  submitted_by?: { id: string; email: string } | null;
 }
 
 export interface SupportKnowledgeGapRow {
