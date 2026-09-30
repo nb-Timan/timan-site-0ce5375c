@@ -355,7 +355,7 @@ export class AssistantSupportService implements SupportService {
     command: AssistantActionCommand,
   ): Promise<SupportMessage> {
     if (!command.action) throw new Error('ACTION_MISSING');
-    const parameters = { ...actionParameters(command.action, workflow), ...(command.parameters || {}) };
+    const parameters: Record<string, unknown> = { ...actionParameters(command.action, workflow), ...(command.parameters || {}) };
     const idempotencyKey = String(parameters.idempotency_key || `${command.action}:${workflow.workflowId}:${workflow.stateVersion}`);
     delete parameters.idempotency_key;
     const lease = await confirmAssistantAction({
