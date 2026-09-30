@@ -15,6 +15,7 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getQuoteWebhookUrl } from '@/lib/webhookUrls';
 import { t as configuratorTranslation } from '@/data/translations';
 import type { ConfiguratorState } from '@/types/configurator';
+import { resolveConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
 
 const INTERNAL_TIMAN_COPY_EMAIL = 'sales@timan.dk';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -25,6 +26,9 @@ export interface AssistantDealer {
   company_name?: string | null;
   country?: string | null;
   city?: string | null;
+  customer_type?: string | null;
+  customer_type_label?: string | null;
+  dealer_type?: string | null;
 }
 
 export interface AssistantContact {
@@ -73,6 +77,7 @@ export function applyAssistantCustomer(
   return {
     ...state,
     ...customer,
+    ...(dealer ? { partnerAccountType: resolveConfiguratorPartnerAccountType({ dealer }) } : {}),
     customerMode: 'dealer',
     dealerContactId: contact?.id || state.dealerContactId,
     dealerCustomerData: customer,

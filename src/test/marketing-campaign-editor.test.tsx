@@ -77,6 +77,27 @@ describe('product-linked Campaign editor', () => {
     await waitFor(() => expect(saveMarketingCampaign).toHaveBeenCalledTimes(1));
     expect(vi.mocked(saveMarketingCampaign).mock.calls[0][0]).toMatchObject({ triggerMatchMode: 'all', scaleBenefitWithTrigger: true, audience: 'qa' });
   });
+  it('defaults to all partner types, persists targeting and blocks an empty audience', async () => {
+    render(<MarketingCampaignManager catalog={catalog} language="da" initialProduct={item} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Kampagneopsætning' }));
+    await screen.findByDisplayValue('TEST editor');
+
+    const audience = screen.getByRole('group', { name: 'Målgruppe' });
+    expect(within(audience).getByRole('checkbox', { name: 'Forhandler' })).toBeChecked();
+    expect(within(audience).getByRole('checkbox', { name: 'Importør' })).toBeChecked();
+    expect(within(audience).getByRole('checkbox', { name: 'Servicepartner' })).toBeChecked();
+
+    fireEvent.click(within(audience).getByRole('checkbox', { name: 'Importør' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gem kladde' }));
+    await waitFor(() => expect(saveMarketingCampaign).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(saveMarketingCampaign).mock.calls[0][0].eligiblePartnerTypes).toEqual(['dealer', 'service_partner']);
+
+    fireEvent.click(within(audience).getByRole('checkbox', { name: 'Importør' }));
+    fireEvent.click(within(audience).getByRole('checkbox', { name: 'Forhandler' }));
+    fireEvent.click(within(audience).getByRole('checkbox', { name: 'Servicepartner' }));
+    expect(screen.getByRole('button', { name: 'Gem kladde' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Publicér' })).toBeDisabled();
+  });
   it('changes an individual benefit to percentage without changing the other benefits', async () => {
     render(<MarketingCampaignManager catalog={catalog} language="da" initialProduct={item} />);
     fireEvent.click(screen.getByRole('button', { name: 'Kampagneopsætning' }));

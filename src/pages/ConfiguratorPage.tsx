@@ -66,7 +66,12 @@ import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { buildMainCategories } from '@/lib/mainCategories';
 import { logMailAuditEvent } from '@/lib/mailAuditService';
 import { defaultCanSubmitOrder, defaultCanViewPrices } from '@/lib/sessionPermissionDefaults';
-import { resolveBaseDiscountPct, isImporterAppUser, IMPORTER_BASE_DISCOUNT_PCT, DEFAULT_BASE_DISCOUNT_PCT } from '@/lib/importerDiscount';
+import {
+  canonicalBaseDiscountPct,
+  resolveConfiguratorPartnerAccountType,
+  toConfiguratorPartnerAccountType,
+  type ConfiguratorPartnerAccountType,
+} from '@/lib/importerDiscount';
 import { resolveConfiguratorContractTerms } from '@/lib/contractCommercialTerms';
 import { getLead } from '@/lib/crmLeadsService';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
@@ -667,7 +672,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   //   • 25% ellers
   // Skriver resultatet ind i state.baseDiscountPct, så calc, PDF, payload,
   // gemte cases og CRM-synkronisering alle bruger samme værdi.
-  const [selectedDealerCustomerType, setSelectedDealerCustomerType] = useState<string | null>(null);
+  const [selectedDealerPartnerType, setSelectedDealerPartnerType] = useState<ConfiguratorPartnerAccountType | null>(null);
   const [selectedDealerContractBaseDiscountPct, setSelectedDealerContractBaseDiscountPct] = useState<number | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -677,7 +682,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       paymentTermsExplicitRef.current = false;
     }
     if (!dealerId) {
-      setSelectedDealerCustomerType(null);
+      setSelectedDealerPartnerType(null);
       setSelectedDealerContractBaseDiscountPct(null);
       return;
     }
@@ -689,45 +694,39 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           .eq('id', dealerId)
           .maybeSingle();
         if (cancelled) return;
-        const ct =
-          (data?.customer_type as string | null) ??
-          (data?.customer_type_label as string | null) ??
-          (data?.dealer_type as string | null) ??
-          null;
         const terms = resolveConfiguratorContractTerms(data ?? {});
-        setSelectedDealerCustomerType(ct);
-        setSelectedDealerContractBaseDiscountPct(terms.baseDiscountPct);
-        if (terms.baseDiscountPct !== null || (terms.paymentTerms !== null && !paymentTermsExplicitRef.current)) {
+        const partnerAccountType = toConfiguratorPartnerAccountType(terms.partnerType) ?? 'dealer';
+        const baseDiscountPct = canonicalBaseDiscountPct(partnerAccountType, terms.baseDiscountPct);
+        setSelectedDealerPartnerType(partnerAccountType);
+        setSelectedDealerContractBaseDiscountPct(baseDiscountPct);
+        if (!hasFrozenPricing && (baseDiscountPct !== null || (terms.paymentTerms !== null && !paymentTermsExplicitRef.current))) {
           setState((current) => ({
             ...current,
-            ...(terms.baseDiscountPct !== null ? { baseDiscountPct: terms.baseDiscountPct } : {}),
+            partnerAccountType,
+            baseDiscountPct,
             ...(terms.paymentTerms !== null && !paymentTermsExplicitRef.current ? { paymentTerms: terms.paymentTerms } : {}),
           }));
         }
       } catch {
         if (!cancelled) {
-          setSelectedDealerCustomerType(null);
+          setSelectedDealerPartnerType(null);
           setSelectedDealerContractBaseDiscountPct(null);
         }
       }
     })();
     return () => { cancelled = true; };
-  }, [ownership.dealerAccountId]);
+  }, [hasFrozenPricing, isAcademyMode, ownership.dealerAccountId, setState]);
 
   useEffect(() => {
-    if (selectedDealerContractBaseDiscountPct !== null) return;
-    const userIsImporter = isImporterAppUser(effectiveUser);
-    const dealerCt = selectedDealerCustomerType;
-    const pct = resolveBaseDiscountPct({
-      appUser: effectiveUser,
-      dealer: dealerCt ? { customer_type: dealerCt } : null,
-    });
-    const target = userIsImporter ? IMPORTER_BASE_DISCOUNT_PCT : pct;
-    const current = typeof state.baseDiscountPct === 'number' ? state.baseDiscountPct : DEFAULT_BASE_DISCOUNT_PCT;
-    if (Math.abs(target - current) > 1e-6) {
-      setState((s) => ({ ...s, baseDiscountPct: target }));
+    if (hasFrozenPricing) return;
+    const partnerAccountType = selectedDealerPartnerType
+      ?? resolveConfiguratorPartnerAccountType({ appUser: effectiveUser, persisted: state.partnerAccountType });
+    const target = canonicalBaseDiscountPct(partnerAccountType, selectedDealerContractBaseDiscountPct ?? state.baseDiscountPct);
+    const current = canonicalBaseDiscountPct(partnerAccountType, state.baseDiscountPct);
+    if (state.partnerAccountType !== partnerAccountType || Math.abs(target - current) > 1e-6) {
+      setState((s) => ({ ...s, partnerAccountType, baseDiscountPct: target }));
     }
-  }, [effectiveUser?.portal_role, effectiveUser?.partner_type, selectedDealerCustomerType, selectedDealerContractBaseDiscountPct, state.baseDiscountPct, setState]);
+  }, [effectiveUser, hasFrozenPricing, selectedDealerContractBaseDiscountPct, selectedDealerPartnerType, state.baseDiscountPct, state.partnerAccountType, setState]);
 
   // Build the ownership payload sent to saveConfiguration / order webhook.
   // Picker selections override active "view as" mode when the internal
@@ -840,7 +839,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const campaignClock = useMarketingBadgeClock();
   const campaignSelection = useMemo(() => configurationCampaignSelection(state), [state]);
   const marketingCampaignFor = (machineType: string, itemId: string | undefined) => itemId
-    ? eligibleCampaignFor(productContentKey(machineType, itemId), campaignSelection, campaignClock) ?? null
+    ? eligibleCampaignFor(productContentKey(machineType, itemId), campaignSelection, campaignClock, state.partnerAccountType ?? 'dealer') ?? null
     : null;
   const openMarketingEditor = (machineType: string, itemId: string | undefined) => {
     if (!marketingEditMode || !itemId) return;

@@ -441,7 +441,7 @@ Deno.serve(async (request) => {
         return json(result);
       }
       const dealerResult = actor.dealer_number
-        ? await auth.userClient.from('dealer_accounts').select('id, account_number, company_name, country, city').eq('account_number', actor.dealer_number).maybeSingle()
+        ? await auth.userClient.from('dealer_accounts').select('id, account_number, company_name, country, city, customer_type, customer_type_label, dealer_type').eq('account_number', actor.dealer_number).maybeSingle()
         : { data: null, error: null };
       const dealer = dealerResult.data;
       const { dealer: _untrustedDealer, contact: _untrustedContact, ...safeState } = state;

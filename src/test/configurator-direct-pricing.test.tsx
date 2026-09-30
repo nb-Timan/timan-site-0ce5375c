@@ -27,7 +27,7 @@ const campaign = (): ProductCampaign => ({
   id: 'qa-direct-campaign', code: 'QA-DIRECT', name: 'Direct isolation', status: 'published',
   type: 'fixed', benefitPricingType: null, discountPct: null, targetPriceDkk: 0, targetPriceEur: 0,
   triggerMinQuantity: 1, triggerMatchMode: 'any', benefitQuantity: 1, scaleBenefitWithTrigger: false,
-  audience: 'public', startsAt: '2020-01-01T00:00:00Z', endsAt: '2099-01-01T00:00:00Z',
+  audience: 'public', eligiblePartnerTypes: ['dealer', 'importer', 'service_partner'], startsAt: '2020-01-01T00:00:00Z', endsAt: '2099-01-01T00:00:00Z',
   products: [{
     campaignId: 'qa-direct-campaign', productKey: 'RC-751::RC-751', machineKey: 'RC-751',
     itemNumber: '410040', role: 'linked', quantity: 1,

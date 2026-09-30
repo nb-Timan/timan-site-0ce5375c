@@ -1,6 +1,7 @@
 // Types for the Timan machine configurator
 import type { CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
 import type { Currency } from '@/lib/currency';
+import type { ConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
 
 export type DocumentType = 'quote' | 'order';
 export type FlowType = 'quote' | 'order';
@@ -184,6 +185,8 @@ export interface ConfiguratorState {
   flowType: FlowType;
   /** Explicit document-wide commercial pricing mode. Legacy states default to partner pricing. */
   pricingMode?: 'partner' | 'direct';
+  /** Canonical type of the commercial account used for pricing and campaign eligibility. */
+  partnerAccountType?: ConfiguratorPartnerAccountType;
   language: Language;
   machineConfigs: MachineConfig[];
   individualUnitConfigs: Record<string, { acc: string[] }>;

@@ -2,6 +2,7 @@ import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS, DEMO_FEE_DKK,
 import type { Accessory, ConfiguratorPricingSnapshot, ConfiguratorState, Language } from '@/types/configurator';
 import { currencyFromLanguage, type Currency } from '@/lib/currency';
 import { publishedProduct, publishedProductText } from '@/lib/publishedProductMaster';
+import { isConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
 
 const machineKey = (machineType: string) => `machine:${machineType}`;
 const accessoryKey = (machineType: string, accessoryId: string) => `accessory:${machineType}:${accessoryId}`;
@@ -100,6 +101,7 @@ export function configuratorPricingSignature(state: ConfiguratorState): string {
   return JSON.stringify({
     language: state.language,
     ...(state.pricingMode === 'direct' ? { pricingMode: 'direct' } : {}),
+    ...(isConfiguratorPartnerAccountType(state.partnerAccountType) ? { partnerAccountType: state.partnerAccountType } : {}),
     machines: (state.machineConfigs ?? []).map(machine => ({
       type: machine.type,
       qty: machine.qty,

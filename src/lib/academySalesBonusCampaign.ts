@@ -35,6 +35,7 @@ export const ACADEMY_SALES_BONUS_CAMPAIGN: ProductCampaign = {
   benefitQuantity: 1,
   scaleBenefitWithTrigger: false,
   audience: 'qa',
+  eligiblePartnerTypes: ['dealer', 'importer', 'service_partner'],
   startsAt: '2026-01-01T00:00:00.000Z',
   endsAt: '2100-01-01T00:00:00.000Z',
   badge_starts_at: '2026-01-01T00:00:00.000Z',

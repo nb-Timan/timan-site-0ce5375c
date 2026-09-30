@@ -19,7 +19,7 @@ const campaign = (conditional = false): ProductCampaign => ({
   type: conditional ? 'conditional' : 'fixed', benefitPricingType: conditional ? 'fixed' : null,
   discountPct: null, targetPriceDkk: 0, targetPriceEur: 0,
   triggerMinQuantity: 1, triggerMatchMode: 'any', benefitQuantity: 1, scaleBenefitWithTrigger: false,
-  audience: 'qa', startsAt: '2020-01-01T00:00:00Z', endsAt: '2099-01-01T00:00:00Z',
+  audience: 'qa', eligiblePartnerTypes: ['dealer', 'importer', 'service_partner'], startsAt: '2020-01-01T00:00:00Z', endsAt: '2099-01-01T00:00:00Z',
   products: [
     ...(conditional ? [{ campaignId: 'qa-demo-precedence', productKey: 'Timan 3330::Timan 3330', machineKey: 'Timan 3330', itemNumber: '712000', role: 'trigger' as const, quantity: 1 }] : []),
     { campaignId: 'qa-demo-precedence', productKey: 'Timan 3330::725138', machineKey: 'Timan 3330', itemNumber: '725138', role: conditional ? 'benefit' : 'linked', quantity: 1 },

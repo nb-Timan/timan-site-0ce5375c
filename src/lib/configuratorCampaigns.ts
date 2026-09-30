@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { Currency } from '@/lib/currency';
 import type { MarketingBadgeSchedule } from '@/lib/marketingBadgeSchedule';
+import type { PartnerAccountTypeId } from '@/lib/partnerAccountTypes';
 
 export type CampaignType = 'badge' | 'percentage' | 'fixed' | 'conditional';
 export type CampaignBenefitPricingType = 'percentage' | 'fixed';
@@ -8,6 +9,12 @@ export type CampaignProductRole = 'linked' | 'trigger' | 'benefit';
 export type CampaignPricingType = 'none' | 'percentage' | 'fixed';
 export type CampaignTriggerMatchMode = 'any' | 'all';
 export type CampaignAudience = 'public' | 'qa';
+export type CampaignPartnerType = Extract<PartnerAccountTypeId, 'dealer' | 'importer' | 'service_partner'>;
+export const ALL_CAMPAIGN_PARTNER_TYPES: readonly CampaignPartnerType[] = ['dealer', 'importer', 'service_partner'];
+
+export function isCampaignPartnerType(value: unknown): value is CampaignPartnerType {
+  return typeof value === 'string' && (ALL_CAMPAIGN_PARTNER_TYPES as readonly string[]).includes(value);
+}
 export interface CampaignPricingFields {
   campaign_pricing_type?: CampaignPricingType;
   campaign_discount_pct?: number | null;
@@ -41,6 +48,7 @@ export interface ProductCampaign extends MarketingBadgeSchedule {
   benefitQuantity: number;
   scaleBenefitWithTrigger: boolean;
   audience: CampaignAudience;
+  eligiblePartnerTypes: CampaignPartnerType[];
   startsAt: string;
   endsAt: string;
   products: CampaignProductLink[];
@@ -52,6 +60,8 @@ export interface CampaignLineSnapshot {
   campaignType: CampaignType;
   pricingType: CampaignBenefitPricingType;
   applied: boolean;
+  partnerAccountType: CampaignPartnerType;
+  eligiblePartnerTypes: CampaignPartnerType[];
   suppressedReason?: 'demo_machine';
   triggerItemNumbers: string[];
   triggerMatchMode: CampaignTriggerMatchMode;
@@ -76,11 +86,13 @@ export interface CampaignLineSnapshot {
 }
 
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
-export function campaignError(campaign: Pick<ProductCampaign, 'name' | 'type' | 'benefitPricingType' | 'discountPct' | 'targetPriceDkk' | 'targetPriceEur' | 'triggerMinQuantity' | 'triggerMatchMode' | 'benefitQuantity' | 'audience' | 'startsAt' | 'endsAt' | 'products'>): string | null {
+export function campaignError(campaign: Pick<ProductCampaign, 'name' | 'type' | 'benefitPricingType' | 'discountPct' | 'targetPriceDkk' | 'targetPriceEur' | 'triggerMinQuantity' | 'triggerMatchMode' | 'benefitQuantity' | 'audience' | 'eligiblePartnerTypes' | 'startsAt' | 'endsAt' | 'products'>): string | null {
   if (!campaign.name.trim()) return 'Angiv et kampagnenavn.';
   if (!['badge', 'percentage', 'fixed', 'conditional'].includes(campaign.type)) return 'Ugyldig kampagnetype.';
   if (!['any', 'all'].includes(campaign.triggerMatchMode)) return 'Ugyldig triggergruppe.';
   if (!['public', 'qa'].includes(campaign.audience)) return 'Ugyldig kampagnemålgruppe.';
+  if (!campaign.eligiblePartnerTypes.length) return 'Vælg mindst én partnertype.';
+  if (campaign.eligiblePartnerTypes.some(value => !isCampaignPartnerType(value))) return 'Ugyldig partnertype.';
   if (!Number.isInteger(campaign.triggerMinQuantity) || !Number.isInteger(campaign.benefitQuantity) || !(campaign.triggerMinQuantity > 0) || !(campaign.benefitQuantity > 0)) return 'Antal skal være et helt tal på mindst 1.';
   const start = Date.parse(campaign.startsAt);
   const end = Date.parse(campaign.endsAt);
@@ -110,6 +122,13 @@ export function campaignPricingError(fields: CampaignPricingFields): string | nu
 
 export function isCampaignActive(campaign: ProductCampaign, now = Date.now()) {
   return campaign.status === 'published' && Date.parse(campaign.startsAt) <= now && Date.parse(campaign.endsAt) > now && !campaignError(campaign);
+}
+
+export function isCampaignEligibleForPartnerType(
+  campaign: Pick<ProductCampaign, 'eligiblePartnerTypes'>,
+  partnerAccountType: CampaignPartnerType,
+): boolean {
+  return campaign.eligiblePartnerTypes.includes(partnerAccountType);
 }
 
 export type CampaignSelectionLine = { productKey: string; itemNumber?: string; quantity: number; demo?: boolean };
@@ -159,9 +178,15 @@ export function campaignProductPricing(campaign: ProductCampaign, product?: Camp
   };
 }
 
-export function eligibleCampaignFor(productKey: string, selection: CampaignSelectionLine[], now = Date.now()) {
+export function eligibleCampaignFor(
+  productKey: string,
+  selection: CampaignSelectionLine[],
+  now = Date.now(),
+  partnerAccountType: CampaignPartnerType = 'dealer',
+) {
   return publishedCampaignsFor(productKey).find(campaign => {
     if (!isCampaignActive(campaign, now)) return false;
+    if (!isCampaignEligibleForPartnerType(campaign, partnerAccountType)) return false;
     if (campaign.type !== 'conditional') return true;
     if (!campaign.products.some(product => product.productKey === productKey && product.role === 'benefit')) return false;
     return campaignTriggerSetCount(campaign, selection) > 0;

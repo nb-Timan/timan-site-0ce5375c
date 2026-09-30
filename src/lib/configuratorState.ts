@@ -5,6 +5,7 @@ import {
   normalizeConfiguratorCustomerDraftState,
 } from '@/lib/configuratorCustomerMode';
 import { normalizeMachineDeliveryDates } from '@/lib/configuratorDelivery';
+import { isConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
 
 export const createEmptyConfiguratorState = (
   language: Language = 'da',
@@ -60,6 +61,9 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     ...base,
     ...value,
     pricingMode,
+    partnerAccountType: isConfiguratorPartnerAccountType(value?.partnerAccountType)
+      ? value.partnerAccountType
+      : undefined,
     machineConfigs: Array.isArray(value?.machineConfigs) ? value.machineConfigs : [],
     individualUnitConfigs: value?.individualUnitConfigs ?? {},
     ralCodes: value?.ralCodes ?? {},

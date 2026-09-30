@@ -109,6 +109,12 @@ export function buildCanonicalActionParityReport(): CanonicalActionParityReport 
   const assistantDemo = withDemo(assistantBase);
   const portalExtra = { ...portalBase, manualDealerDiscountPct: 5 };
   const assistantExtra = { ...assistantBase, manualDealerDiscountPct: 5 };
+  const portalImporter = { ...portalMachine('Timan 3330', 3), partnerAccountType: 'importer' as const, baseDiscountPct: 0.30 };
+  const assistantImporter = { ...assistantMachine('Lav et tilbud på 3 stk Timan 3330'), partnerAccountType: 'importer' as const, baseDiscountPct: 0.30 };
+  const portalImporterDelivery = withDeliveryDiscount(portalImporter);
+  const assistantImporterDelivery = withDeliveryDiscount(assistantImporter);
+  const portalImporterDemo = withDemo({ ...portalMachine('Timan 3330'), partnerAccountType: 'importer' as const, baseDiscountPct: 0.30 });
+  const assistantImporterDemo = withDemo({ ...assistantMachine('Lav et tilbud på 1 stk Timan 3330'), partnerAccountType: 'importer' as const, baseDiscountPct: 0.30 });
 
   const dealer = { id: 'qa-dealer', account_number: 'QA-100', company_name: 'PHASE 8 QA Dealer', country: 'DK', city: 'Ringkobing' };
   const contact = { id: 'qa-contact', name: 'PHASE 8 QA Contact', email: 'qa-recipient@example.invalid', phone: '+4500000000' };
@@ -174,6 +180,9 @@ export function buildCanonicalActionParityReport(): CanonicalActionParityReport 
       caseRow('demo-line', demoLine(portalDemo), demoLine(assistantDemo)),
       caseRow('extra-discount-allowed', pricingSnapshot(portalExtra), pricingSnapshot(assistantExtra)),
       caseRow('extra-discount-denied', pricingSnapshot(portalBase), pricingSnapshot(assistantBase)),
+      caseRow('importer-multi-pricing', pricingSnapshot(portalImporter), pricingSnapshot(assistantImporter)),
+      caseRow('importer-delivery-excluded', pricingSnapshot(portalImporterDelivery), pricingSnapshot(assistantImporterDelivery)),
+      caseRow('importer-demo-pricing', pricingSnapshot(portalImporterDemo), pricingSnapshot(assistantImporterDemo)),
       caseRow('dealer-scope', { allowed: false, dealerId: 'out-of-scope' }, { allowed: false, dealerId: 'out-of-scope' }),
       caseRow('contact-scope', { allowed: false, contactId: 'wrong-dealer' }, { allowed: false, contactId: 'wrong-dealer' }),
       caseRow('quote-preview', pricingSnapshot(portalCustomer), pricingSnapshot(assistantCustomer)),

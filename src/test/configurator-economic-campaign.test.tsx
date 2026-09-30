@@ -18,6 +18,7 @@ const link = (patch: Partial<CampaignProductLink> = {}): CampaignProductLink => 
 const campaign = (patch: Partial<ProductCampaign> = {}): ProductCampaign => ({
   id: 'qa-campaign', code: 'K09-2026-01', name: 'QA CS-200', status: 'published', type: 'percentage', benefitPricingType: null,
   discountPct: 25, targetPriceDkk: null, targetPriceEur: null, triggerMinQuantity: 1, triggerMatchMode: 'any', benefitQuantity: 1, scaleBenefitWithTrigger: false, audience: 'public',
+  eligiblePartnerTypes: ['dealer', 'importer', 'service_partner'],
   startsAt: '2026-01-01T00:00:00Z', endsAt: '2099-01-01T00:00:00Z', badge_starts_at: '2026-01-01T00:00:00Z', badge_ends_at: '2099-01-01T00:00:00Z', badge_show_countdown: true,
   products: [link()], ...patch,
 });

@@ -9,7 +9,8 @@ import { t } from '@/lib/i18n/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { MarketingConfiguratorCatalogItem } from '@/lib/marketingConfiguratorContentService';
 import { deleteMarketingCampaign, emptyMarketingCampaign, listMarketingCampaigns, loadPublishedMarketingCampaigns, saveMarketingCampaign } from '@/lib/marketingCampaignService';
-import type { CampaignProductLink, CampaignProductRole, CampaignType, ProductCampaign } from '@/lib/configuratorCampaigns';
+import { ALL_CAMPAIGN_PARTNER_TYPES, type CampaignPartnerType, type CampaignProductLink, type CampaignProductRole, type CampaignType, type ProductCampaign } from '@/lib/configuratorCampaigns';
+import { getPartnerAccountTypeLabel } from '@/lib/partnerAccountTypes';
 
 type Props = {
   catalog: MarketingConfiguratorCatalogItem[];
@@ -68,6 +69,19 @@ export default function MarketingCampaignManager({ catalog, language, initialPro
   });
   const removeProduct = (productKey: string, role: CampaignProductRole) => setDraft(current => current ? { ...current, products: current.products.filter(product => product.productKey !== productKey || product.role !== role) } : current);
   const updateProduct = (productKey: string, role: CampaignProductRole, patch: Partial<CampaignProductLink>) => setDraft(current => current ? { ...current, products: current.products.map(product => product.productKey === productKey && product.role === role ? { ...product, ...patch } : product) } : current);
+  const togglePartnerType = (partnerType: CampaignPartnerType) => setDraft(current => {
+    if (!current) return current;
+    const selected = current.eligiblePartnerTypes.includes(partnerType);
+    return {
+      ...current,
+      eligiblePartnerTypes: selected
+        ? current.eligiblePartnerTypes.filter(value => value !== partnerType)
+        : [...current.eligiblePartnerTypes, partnerType],
+    };
+  });
+  const partnerAudienceLabel = (campaign: ProductCampaign) => campaign.eligiblePartnerTypes
+    .map(partnerType => getPartnerAccountTypeLabel(partnerType, language))
+    .join(' · ');
   const save = async (status: 'draft' | 'published') => {
     if (!draft) return;
     setSaving(true); setMessage(null);
@@ -142,7 +156,7 @@ export default function MarketingCampaignManager({ catalog, language, initialPro
           <aside className="min-h-0 space-y-2 overflow-y-auto border-r pr-4">
             <Button className="w-full" variant="outline" onClick={() => { setDraft(newDraft()); setMessage(null); }}><Plus className="mr-2 h-4 w-4" />{T('campaignNew')}</Button>
             {rows.map(row => <button key={row.id} type="button" onClick={() => { setDraft(row); setMessage(null); }} className={`w-full rounded-md border px-3 py-2 text-left ${draft?.id === row.id ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:bg-slate-50'}`}>
-              <div className="font-mono text-xs text-slate-500">{row.code}</div><div className="truncate text-sm font-semibold">{row.name}</div><div className="mt-1 text-xs text-slate-500">{row.status === 'published' ? T('campaignPublished') : T('campaignDraft')}</div>
+              <div className="font-mono text-xs text-slate-500">{row.code}</div><div className="truncate text-sm font-semibold">{row.name}</div><div className="mt-1 text-xs text-slate-500">{row.status === 'published' ? T('campaignPublished') : T('campaignDraft')}</div><div className="mt-1 truncate text-xs text-slate-500">{partnerAudienceLabel(row)}</div>
             </button>)}
           </aside>
           <section className="min-h-0 overflow-y-auto pr-1">
@@ -154,6 +168,19 @@ export default function MarketingCampaignManager({ catalog, language, initialPro
                 <label className="space-y-1 text-sm"><span>{T('campaignEnd')}</span><Input type="datetime-local" value={localDate(draft.endsAt)} onChange={event => setDraft({ ...draft, endsAt: isoDate(event.target.value), badge_ends_at: isoDate(event.target.value) })} /></label>
               </div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.audience === 'qa'} onChange={event => setDraft({ ...draft, audience: event.target.checked ? 'qa' : 'public' })} />{T('campaignQaOnly')}</label>
+              <fieldset aria-label={T('campaignTargetAudience')} className="rounded-md border border-slate-200 px-3 py-2">
+                <legend className="px-1 text-sm font-medium text-slate-800">{T('campaignTargetAudience')}</legend>
+                <div className="flex flex-wrap gap-x-5 gap-y-2">
+                  {ALL_CAMPAIGN_PARTNER_TYPES.map(partnerType => <label key={partnerType} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={draft.eligiblePartnerTypes.includes(partnerType)}
+                      onChange={() => togglePartnerType(partnerType)}
+                    />
+                    {getPartnerAccountTypeLabel(partnerType, language)}
+                  </label>)}
+                </div>
+              </fieldset>
               <label className="block space-y-1 text-sm"><span>{T('campaignType')}</span><Select value={draft.type} onValueChange={value => updateType(value as CampaignType)}><SelectTrigger>{T({ badge: 'campaignBadgeOnly', percentage: 'campaignPercentage', fixed: 'campaignFixed', conditional: 'campaignConditional' }[draft.type])}</SelectTrigger><SelectContent>{(['badge', 'percentage', 'fixed', 'conditional'] as CampaignType[]).map(type => <SelectItem key={type} value={type}>{T({ badge: 'campaignBadgeOnly', percentage: 'campaignPercentage', fixed: 'campaignFixed', conditional: 'campaignConditional' }[type])}</SelectItem>)}</SelectContent></Select></label>
               <div className="flex min-h-12 items-center rounded-md border border-slate-200 bg-slate-50 px-3">
                 <MarketingConfiguratorBadge badge="Kampagne" language={language} campaign={draft} preview />
@@ -193,7 +220,7 @@ export default function MarketingCampaignManager({ catalog, language, initialPro
             </div>}
           </section>
         </div>
-        {draft && <DialogFooter className="gap-2 sm:justify-between"><div>{draft.status !== 'published' && draft.id && <Button variant="ghost" className="text-rose-700" onClick={() => void deleteDraft()}><Trash2 className="mr-2 h-4 w-4" />{T('campaignDeleteDraft')}</Button>}</div><div className="flex gap-2">{draft.status !== 'published' && <Button variant="outline" disabled={saving} onClick={() => void save('draft')}>{T('campaignSaveDraft')}</Button>}<Button disabled={saving} onClick={() => void save('published')}>{T('campaignPublish')}</Button></div></DialogFooter>}
+        {draft && <DialogFooter className="gap-2 sm:justify-between"><div>{draft.status !== 'published' && draft.id && <Button variant="ghost" className="text-rose-700" onClick={() => void deleteDraft()}><Trash2 className="mr-2 h-4 w-4" />{T('campaignDeleteDraft')}</Button>}</div><div className="flex gap-2">{draft.status !== 'published' && <Button variant="outline" disabled={saving || draft.eligiblePartnerTypes.length === 0} onClick={() => void save('draft')}>{T('campaignSaveDraft')}</Button>}<Button disabled={saving || draft.eligiblePartnerTypes.length === 0} onClick={() => void save('published')}>{T('campaignPublish')}</Button></div></DialogFooter>}
       </DialogContent>
     </Dialog>
   </>;

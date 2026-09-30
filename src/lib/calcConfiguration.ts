@@ -3,8 +3,9 @@ import { DEMO_FEE_ITEM_NUMBER, PRODUCTS, getAccessoriesFlat, getLocalizedName, g
 import { t } from '@/data/translations';
 import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
-import { campaignBenefitEntitlement, campaignProductPricing, campaignTriggerSetCount, isCampaignActive, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
+import { campaignBenefitEntitlement, campaignProductPricing, campaignTriggerSetCount, isCampaignActive, isCampaignEligibleForPartnerType, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
 import { DELIVERY_DISCOUNT_PERCENT, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate } from '@/lib/configuratorDelivery';
+import { canonicalBaseDiscountPct, IMPORTER_DEMO_DISCOUNT_PCT, resolveConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
 
 export const roundPricingMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 export const isCampaignPricingActive = (campaignLines: CampaignLineSnapshot[] | undefined): boolean =>
@@ -50,6 +51,8 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler. Brug det afsendte dokument; priser genberegnes ikke automatisk.');
   const now = options.now ?? Date.now();
   const directPricing = state.pricingMode === 'direct';
+  const partnerAccountType = resolveConfiguratorPartnerAccountType({ persisted: state.partnerAccountType });
+  const importerPricing = !directPricing && partnerAccountType === 'importer';
   const T = (key: string) => t(key, state.language);
   const lineItems: LineItem[] = [];
   const lines: EconomicLine[] = [];
@@ -115,10 +118,10 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     }
     if (amount > 0) details.push({ kind, percent, basis, txt: `${label.replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/, '')} (${percent.toLocaleString(state.language, { maximumFractionDigits: 2 })}%)`, amount, ...(varenr ? { varenr } : {}) });
   };
-  const quantityPct = eligibleUnits >= 4 ? 4 : eligibleUnits >= 2 ? 2 : 0;
+  const quantityPct = importerPricing ? 0 : eligibleUnits >= 4 ? 4 : eligibleUnits >= 2 ? 2 : 0;
   if (!directPricing && !options.grossManualDiscountOnly) {
-    apply('demo', 32.5, line => line.demo, T('demoDiscount'));
-    apply('base', (state.baseDiscountPct ?? 0.25) * 100, line => !line.demo, T('baseDiscountLabel'));
+    apply('demo', IMPORTER_DEMO_DISCOUNT_PCT, line => line.demo, T('demoDiscount'));
+    apply('base', canonicalBaseDiscountPct(partnerAccountType, state.baseDiscountPct) * 100, line => !line.demo, T('baseDiscountLabel'));
   }
 
   const campaignLines: CampaignLineSnapshot[] = [];
@@ -127,7 +130,9 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   // by campaignTriggerSetCount/campaignBenefitEntitlement.
   if (!directPricing && !options.grossManualDiscountOnly && (!state.pricingSnapshot || state.pricingSnapshot.discountEngineVersion === 2)) {
     for (const campaign of publishedCampaignDefinitions()) {
-      if (!isCampaignActive(campaign, now) || campaign.type === 'badge') continue;
+      if (!isCampaignActive(campaign, now)
+          || !isCampaignEligibleForPartnerType(campaign, partnerAccountType)
+          || campaign.type === 'badge') continue;
       const triggerLinks = campaign.products.filter(product => product.role === 'trigger');
       const benefitLinks = campaign.products.filter(product => product.role === 'benefit' || (campaign.type !== 'conditional' && product.role === 'linked'));
       const campaignSelection = lines.map(line => ({ productKey: line.productKey, itemNumber: line.item.varenr, quantity: line.quantity, demo: line.demo }));
@@ -163,6 +168,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         const snapshot: CampaignLineSnapshot = {
           campaignId: campaign.id, campaignCode: campaign.code, campaignName: campaign.name,
           campaignType: campaign.type, pricingType, applied: amount > 0,
+          partnerAccountType, eligiblePartnerTypes: campaign.eligiblePartnerTypes,
           ...(line.demo ? { suppressedReason: 'demo_machine' as const } : {}),
           triggerItemNumbers: triggerLinks.map(product => product.itemNumber), benefitItemNumber: benefit.itemNumber,
           triggerMatchMode: campaign.triggerMatchMode, triggerSetCount,
@@ -188,7 +194,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   }
   const campaignPricingActive = isCampaignPricingActive(campaignLines);
 
-  if (!directPricing && !options.grossManualDiscountOnly && !campaignPricingActive) {
+  if (!directPricing && !options.grossManualDiscountOnly && !campaignPricingActive && !importerPricing) {
     const eligibleDeliveryUnits = new Set<number>();
     const deliveryBasisByUnit = new Map<number, number>();
     for (let unitNumber = 1; unitNumber <= unit; unitNumber += 1) {

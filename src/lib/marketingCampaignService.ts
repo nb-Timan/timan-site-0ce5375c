@@ -9,7 +9,7 @@ import {
 const CAMPAIGN_SELECT = `
   id, campaign_code, campaign_name, status, campaign_type, benefit_pricing_type,
   discount_pct, target_price_dkk, target_price_eur, trigger_min_quantity,
-  trigger_match_mode, benefit_quantity, scale_benefit_with_trigger, audience, starts_at, ends_at,
+  trigger_match_mode, benefit_quantity, scale_benefit_with_trigger, audience, eligible_partner_types, starts_at, ends_at,
   created_at, updated_at, published_at,
   marketing_campaign_products (
     id, campaign_id, product_key, machine_key, item_number, product_role,
@@ -55,6 +55,9 @@ function parseCampaign(value: Record<string, unknown>): ProductCampaign {
     benefitQuantity: Math.max(1, Number(value.benefit_quantity) || 1),
     scaleBenefitWithTrigger: value.scale_benefit_with_trigger === true,
     audience: value.audience === 'qa' ? 'qa' : 'public',
+    eligiblePartnerTypes: Array.isArray(value.eligible_partner_types)
+      ? value.eligible_partner_types.filter((entry): entry is ProductCampaign['eligiblePartnerTypes'][number] => entry === 'dealer' || entry === 'importer' || entry === 'service_partner')
+      : ['dealer', 'importer', 'service_partner'],
     startsAt: String(value.starts_at || ''),
     endsAt: String(value.ends_at || ''),
     badge_starts_at: String(value.starts_at || '') || null,
@@ -72,6 +75,7 @@ export function emptyMarketingCampaign(): ProductCampaign {
     id: '', code: '', name: '', status: 'draft', type: 'badge', benefitPricingType: null,
     discountPct: null, targetPriceDkk: null, targetPriceEur: null,
     triggerMinQuantity: 1, triggerMatchMode: 'any', benefitQuantity: 1, scaleBenefitWithTrigger: false, audience: 'public',
+    eligiblePartnerTypes: ['dealer', 'importer', 'service_partner'],
     startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString(),
     badge_starts_at: startsAt.toISOString(), badge_ends_at: endsAt.toISOString(), badge_show_countdown: true,
     products: [],
@@ -119,7 +123,7 @@ export async function saveMarketingCampaign(campaign: ProductCampaign, status: '
       target_price_eur: next.targetPriceEur, trigger_min_quantity: next.triggerMinQuantity,
       trigger_match_mode: next.triggerMatchMode,
       benefit_quantity: next.benefitQuantity, scale_benefit_with_trigger: next.scaleBenefitWithTrigger,
-      audience: next.audience,
+      audience: next.audience, eligible_partner_types: next.eligiblePartnerTypes,
       starts_at: next.startsAt, ends_at: next.endsAt,
     },
     p_products: products,

@@ -1,3 +1,9 @@
+import {
+  normalizePartnerAccountType,
+  resolvePartnerAccountType,
+  type PartnerAccountTypeId,
+} from '@/lib/partnerAccountTypes';
+
 /**
  * Importør-rabat (Phase 63)
  *
@@ -20,6 +26,18 @@
 
 export const DEFAULT_BASE_DISCOUNT_PCT = 0.25;
 export const IMPORTER_BASE_DISCOUNT_PCT = 0.30;
+export const IMPORTER_DEMO_DISCOUNT_PCT = 32.5;
+
+export type ConfiguratorPartnerAccountType = Extract<
+  PartnerAccountTypeId,
+  'dealer' | 'importer' | 'service_partner'
+>;
+
+export const CONFIGURATOR_PARTNER_ACCOUNT_TYPES: readonly ConfiguratorPartnerAccountType[] = [
+  'dealer',
+  'importer',
+  'service_partner',
+];
 
 type MaybeUser = {
   portal_role?: string | null;
@@ -33,35 +51,67 @@ type MaybeDealer = {
 } | null | undefined;
 
 export function isImporterAppUser(user: MaybeUser): boolean {
-  if (!user) return false;
-  const role = (user.portal_role || '').toLowerCase();
-  if (role === 'timan_importer') return true;
-  const partner = (user.partner_type || '').toLowerCase();
-  if (partner === 'importoer' || partner === 'importer' || partner === 'importør') return true;
-  return false;
+  return resolveAppUserPartnerAccountType(user) === 'importer';
 }
 
-function looksLikeImporter(value: string | null | undefined): boolean {
-  if (!value) return false;
-  const v = value.toLowerCase();
-  return v.includes('import'); // matches "importer", "importør", "importoer"
+export function isConfiguratorPartnerAccountType(value: unknown): value is ConfiguratorPartnerAccountType {
+  return typeof value === 'string'
+    && (CONFIGURATOR_PARTNER_ACCOUNT_TYPES as readonly string[]).includes(value);
+}
+
+export function toConfiguratorPartnerAccountType(
+  value: PartnerAccountTypeId | string | null | undefined,
+): ConfiguratorPartnerAccountType | null {
+  const normalized = normalizePartnerAccountType(value);
+  return isConfiguratorPartnerAccountType(normalized) ? normalized : null;
+}
+
+export function resolveAppUserPartnerAccountType(user: MaybeUser): ConfiguratorPartnerAccountType | null {
+  if (!user) return null;
+  const role = (user.portal_role || '').trim().toLowerCase();
+  if (role === 'timan_importer') return 'importer';
+  if (role === 'timan_service_partner') return 'service_partner';
+  if (role === 'timan_dealer' || role === 'dealer_user') return 'dealer';
+  return toConfiguratorPartnerAccountType(user.partner_type);
 }
 
 export function isImporterDealerAccount(dealer: MaybeDealer): boolean {
-  if (!dealer) return false;
-  return (
-    looksLikeImporter(dealer.customer_type) ||
-    looksLikeImporter(dealer.customer_type_label) ||
-    looksLikeImporter(dealer.dealer_type)
-  );
+  return resolveDealerPartnerAccountType(dealer) === 'importer';
+}
+
+export function resolveDealerPartnerAccountType(dealer: MaybeDealer): ConfiguratorPartnerAccountType | null {
+  if (!dealer) return null;
+  return toConfiguratorPartnerAccountType(resolvePartnerAccountType(dealer));
+}
+
+/** The selected commercial account wins; the effective user is only a fallback. */
+export function resolveConfiguratorPartnerAccountType(input: {
+  appUser?: MaybeUser;
+  dealer?: MaybeDealer;
+  persisted?: unknown;
+}): ConfiguratorPartnerAccountType {
+  return resolveDealerPartnerAccountType(input.dealer)
+    ?? resolveAppUserPartnerAccountType(input.appUser)
+    ?? (isConfiguratorPartnerAccountType(input.persisted) ? input.persisted : null)
+    ?? 'dealer';
+}
+
+export function canonicalBaseDiscountPct(
+  partnerType: ConfiguratorPartnerAccountType,
+  configuredDiscountPct?: number | null,
+): number {
+  if (partnerType === 'importer') return IMPORTER_BASE_DISCOUNT_PCT;
+  if (typeof configuredDiscountPct !== 'number' || configuredDiscountPct < 0) {
+    return DEFAULT_BASE_DISCOUNT_PCT;
+  }
+  if (configuredDiscountPct <= 1) return configuredDiscountPct;
+  if (configuredDiscountPct <= 100) return configuredDiscountPct / 100;
+  return DEFAULT_BASE_DISCOUNT_PCT;
 }
 
 export function resolveBaseDiscountPct(input: {
   appUser?: MaybeUser;
   dealer?: MaybeDealer;
 }): number {
-  if (isImporterAppUser(input.appUser) || isImporterDealerAccount(input.dealer)) {
-    return IMPORTER_BASE_DISCOUNT_PCT;
-  }
-  return DEFAULT_BASE_DISCOUNT_PCT;
+  return canonicalBaseDiscountPct(resolveConfiguratorPartnerAccountType(input));
 }
