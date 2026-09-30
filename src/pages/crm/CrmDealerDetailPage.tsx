@@ -131,6 +131,7 @@ import PartnerAgreementHistory from "@/components/portal/PartnerAgreementHistory
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { JournalScope } from "@/lib/machineJournalService";
 import type { MachineSortDirection, MachineSortKey } from "@/lib/machineOverviewFilters";
+import { hasExtendedWarranty } from "@/lib/extendedWarranty";
 
 /** New multilang strings for redesigned dealer detail. */
 type DealerDetailText = Partial<Record<PortalUiLanguage, string>> & { da: string; en?: string };
@@ -176,6 +177,8 @@ const L = {
   delivery_date:    { da: "Levering", en: "Delivery", de: "Lieferung", it: "Consegna", hu: "Szállítás" },
   customer:         { da: "Kunde", en: "Customer", de: "Kunde", it: "Cliente", hu: "Ügyfél" },
   warranty_sp:      { da: "Garanti/SP", en: "Warranty/SP", de: "Garantie/SP", it: "Garanzia/SP", hu: "Garancia/SP" },
+  extended_warranty: { da: "Forlænget garanti", en: "Extended warranty", de: "Garantieverlängerung", it: "Garanzia estesa", hu: "Kiterjesztett garancia", sv: "Förlängd garanti", fr: "Garantie prolongée", pl: "Przedłużona gwarancja", cs: "Prodloužená záruka" },
+  extended_warranty_registered: { da: "Forlænget garanti registreret", en: "Extended warranty registered", de: "Garantieverlängerung registriert", it: "Garanzia estesa registrata", hu: "Kiterjesztett garancia regisztrálva", sv: "Förlängd garanti registrerad", fr: "Garantie prolongée enregistrée", pl: "Zarejestrowano przedłużoną gwarancję", cs: "Prodloužená záruka registrována" },
   lifecycle_status: { da: "Lifecycle-status", en: "Lifecycle status", de: "Lifecycle-Status", it: "Stato lifecycle", hu: "Életciklus állapot" },
   normal_machine:   { da: "Normal", en: "Normal", de: "Normal", it: "Normale", hu: "Normál" },
   active_demo:      { da: "Aktiv demo", en: "Active demo", de: "Aktive Demo", it: "Demo attiva", hu: "Aktív demó" },
@@ -663,6 +666,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   const admin = isCrmAdmin(portalRole);
   const seller = isScopedSeller(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
+  const sellerViewActive = portalRole === "timan_backend" && Boolean(getActiveSellerView(appUser?.email));
   const canPreviewDealerMachines = admin || seller;
   const partnerDataPresentation = presentation === "partnerdata";
   const dealerOverviewHref = (dealerNumber: string) => partnerDataPresentation
@@ -1769,7 +1773,8 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
             scope={machineContext?.scope ?? null}
             lang={lang}
             initialDemoOnly={machineListDemoOnly}
-            showFinancials={!externalCrm && machinePresentation === "timan"}
+            showCommercials={!externalCrm && machinePresentation === "timan"}
+            showBackendMargins={portalRole === "timan_backend" && !sellerViewActive && machinePresentation === "timan"}
           />
         </TabsContent>
 
@@ -2121,13 +2126,15 @@ function CrmMachineRegisterPanel({
   scope,
   lang,
   initialDemoOnly,
-  showFinancials,
+  showCommercials,
+  showBackendMargins,
 }: {
   dealer: DealerAccount | null;
   scope: JournalScope | null;
   lang: PortalUiLanguage;
   initialDemoOnly: boolean;
-  showFinancials: boolean;
+  showCommercials: boolean;
+  showBackendMargins: boolean;
 }) {
   const [rows, setRows] = useState<DealerMachineRegisterRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -2142,9 +2149,9 @@ function CrmMachineRegisterPanel({
   const formatDkk = (value: number | null) => value == null
     ? "—"
     : formatConvertedMoney(value, "DKK", displayCurrency);
-  const formatPercent = (revenue: number | null, margin: number | null) => {
-    if (revenue == null || margin == null || revenue === 0) return "—";
-    return new Intl.NumberFormat("da-DK", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(margin / revenue);
+  const formatPercent = (value: number | null | undefined) => {
+    if (value == null) return "—";
+    return new Intl.NumberFormat("da-DK", { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(value);
   };
 
   // A dealer change is a new list. Never reuse a prior dealer's search or sort.
@@ -2166,6 +2173,7 @@ function CrmMachineRegisterPanel({
       try {
         const result = await fetchDealerMachineRegisterPage({
           dealer, scope, query, demoOnly, sort, direction, page, pageSize,
+          includeBackendMargins: showBackendMargins,
         });
         if (!cancelled) { setRows(result.rows); setTotal(result.total); }
       } catch (error) {
@@ -2176,7 +2184,7 @@ function CrmMachineRegisterPanel({
       }
     }, 180);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [dealer, scope, query, demoOnly, sort, direction, page]);
+  }, [dealer, scope, query, demoOnly, sort, direction, page, showBackendMargins]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const toggleSort = (key: MachineSortKey, initial: MachineSortDirection = "asc") => {
@@ -2236,6 +2244,7 @@ function CrmMachineRegisterPanel({
                 <SortHeader label={tl("serial_number", lang)} sortKey="serial" />
                 <SortHeader label={tl("machine_model", lang)} sortKey="model" />
                 <SortHeader label="Garanti nr." sortKey="warrantyId" />
+                <th className="py-2 pr-3 whitespace-nowrap">{tl("extended_warranty", lang)}</th>
                 <SortHeader label="MO nr." sortKey="machineOrder" />
                 <SortHeader label="ERP nr." sortKey="erpOrder" />
                 <SortHeader label="Portal-ordrenr." sortKey="portalOrder" />
@@ -2243,12 +2252,12 @@ function CrmMachineRegisterPanel({
                 <SortHeader label={tl("status", lang)} sortKey="status" />
                 <SortHeader label={tl("customer", lang)} sortKey="customer" />
                 <SortHeader label="Fakturanr." sortKey="invoice" />
-                {showFinancials && <>
-                  <SortHeader label="Omsætning" sortKey="revenue" initial="desc" />
+                {showCommercials && <SortHeader label="Omsætning" sortKey="revenue" initial="desc" />}
+                {showBackendMargins && <>
                   <SortHeader label="Kostpris" sortKey="cost" initial="desc" />
                   <SortHeader label="Dækningsbidrag" sortKey="margin" initial="desc" />
-                  <SortHeader label="Dækningsgrad" sortKey="marginPercent" initial="desc" />
                 </>}
+                {showCommercials && <SortHeader label="Dækningsgrad" sortKey="marginPercent" initial="desc" />}
                 <SortHeader label={tl("lifecycle_status", lang)} sortKey="lifecycle" />
               </tr>
             </thead>
@@ -2260,6 +2269,15 @@ function CrmMachineRegisterPanel({
                     <td className="py-3 pr-3 font-mono font-semibold text-slate-900 whitespace-nowrap">{row.serial}</td>
                     <td className="py-3 pr-3 text-slate-700">{row.machineModel || row.machineType || "—"}</td>
                     <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{row.warrantyCertificate || "—"}</td>
+                    <td className="py-3 pr-3 text-left align-middle">
+                      {hasExtendedWarranty(row) ? (
+                        <CheckCircle2
+                          className="h-4 w-4 text-emerald-600"
+                          aria-label={tl("extended_warranty_registered", lang)}
+                          title={tl("extended_warranty_registered", lang)}
+                        />
+                      ) : null}
+                    </td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.machineOrderNumber || "—"}</td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.erpOrderNumber || "—"}</td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.portalOrderNumber || "—"}</td>
@@ -2267,12 +2285,12 @@ function CrmMachineRegisterPanel({
                     <td className="py-3 pr-3 text-slate-700">{row.machineKind === "demo" ? "Demo" : tl("normal_machine", lang)}</td>
                     <td className="py-3 pr-3 text-slate-700">{row.customerName || "—"}</td>
                     <td className="py-3 pr-3 font-mono text-slate-700 whitespace-nowrap">{row.invoiceNumber || "—"}</td>
-                    {showFinancials && <>
-                      <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.revenue)}</td>
+                    {showCommercials && <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.revenue)}</td>}
+                    {showBackendMargins && <>
                       <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.costAmount)}</td>
                       <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatDkk(row.contributionMarginAmount)}</td>
-                      <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatPercent(row.revenue, row.contributionMarginAmount)}</td>
                     </>}
+                    {showCommercials && <td className="py-3 pr-3 text-slate-700 whitespace-nowrap">{formatPercent(row.contributionMarginPercent)}</td>}
                     <td className="py-3 pr-3">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${meta.badge}`}>
                         {meta.icon}{meta.label}

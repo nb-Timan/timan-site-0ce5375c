@@ -45,11 +45,13 @@ describe("CRM dealer detail machine register integration", () => {
     expect(source).not.toContain("[appUser, effectiveUser, accountNumber, portalRole");
   });
 
-  it("uses the dealer preview only to hide commercial fields, without changing the machine source", () => {
-    expect(source).toContain('showFinancials={!externalCrm && machinePresentation === "timan"}');
+  it("uses canonical role and View-as state to protect backend-only margins", () => {
+    expect(source).toContain('showCommercials={!externalCrm && machinePresentation === "timan"}');
+    expect(source).toContain('showBackendMargins={portalRole === "timan_backend" && !sellerViewActive && machinePresentation === "timan"}');
+    expect(source).toContain("includeBackendMargins: showBackendMargins");
     expect(source).toContain('machinePresentation={machinePresentation}');
     expect(source).toContain('onMachinePresentationChange={setMachinePresentation}');
-    expect(source).toContain('{showFinancials && <>');
+    expect(source).toContain('{showBackendMargins && <>');
   });
 
   it("redacts commercial values in the RPC for external roles", () => {
@@ -69,11 +71,12 @@ describe("CRM dealer detail machine register integration", () => {
     expect(source).toContain("row.portalOrderNumber || \"—\"");
     expect(source).toContain('label="Fakturanr." sortKey="invoice"');
     expect(source).toContain('label="Omsætning" sortKey="revenue"');
+    expect(source).toContain('showBackendMargins && <>');
     expect(source).toContain('label="Kostpris" sortKey="cost"');
     expect(source).toContain('label="Dækningsbidrag" sortKey="margin"');
     expect(source).toContain('label="Dækningsgrad" sortKey="marginPercent"');
     expect(source).toContain("formatDkk(row.costAmount)");
-    expect(source).toContain("formatPercent(row.revenue, row.contributionMarginAmount)");
+    expect(source).toContain("formatPercent(row.contributionMarginPercent)");
   });
 
   it("sends every visible sortable column to the canonical paged registry", () => {

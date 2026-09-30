@@ -24,6 +24,7 @@ export interface DealerMachineRegisterRow {
   revenue: number | null;
   costAmount: number | null;
   contributionMarginAmount: number | null;
+  contributionMarginPercent?: number | null;
   orderDate: string | null;
   deliveryDate: string | null;
   dealerName: string | null;
@@ -32,6 +33,7 @@ export interface DealerMachineRegisterRow {
   machineKind: "demo" | "normal";
   warrantyCertificate: string | null;
   warrantyRegistrationDate: string | null;
+  hasExtendedWarranty?: boolean;
   lifecycle: DealerMachineLifecycleKind;
   demoSaleEligibleAt: string | null;
   daysRemaining: number | null;
@@ -164,6 +166,7 @@ export function reconcileDealerMachineRows(input: {
         revenue: null,
         costAmount: null,
         contributionMarginAmount: null,
+        contributionMarginPercent: null,
         orderDate: null,
         deliveryDate: null,
         dealerName: input.dealer.company_name ?? null,
@@ -172,6 +175,7 @@ export function reconcileDealerMachineRows(input: {
         machineKind: "normal",
         warrantyCertificate: null,
         warrantyRegistrationDate: null,
+        hasExtendedWarranty: false,
         lifecycle: "normal",
         demoSaleEligibleAt: null,
         daysRemaining: null,
@@ -249,6 +253,7 @@ export async function fetchDealerMachineRegisterPage(input: {
   direction: MachineSortDirection;
   page: number;
   pageSize: number;
+  includeBackendMargins?: boolean;
 }): Promise<DealerMachineRegisterPage> {
   const { dealer, scope } = input;
   if (!scopeAllowsDealer(scope, dealer)) {
@@ -270,6 +275,7 @@ export async function fetchDealerMachineRegisterPage(input: {
     direction: input.direction,
     page: input.page,
     pageSize: input.pageSize,
+    includeBackendMargins: input.includeBackendMargins,
     demoOnly: input.demoOnly,
   });
 
@@ -287,6 +293,7 @@ export async function fetchDealerMachineRegisterPage(input: {
     revenue: row.revenue ?? null,
     costAmount: row.costAmount ?? null,
     contributionMarginAmount: row.contributionMarginAmount ?? null,
+    contributionMarginPercent: row.contributionMarginPercent ?? null,
     orderDate: null,
     deliveryDate: row.deliveryDate,
     dealerName: row.dealerName,
@@ -295,6 +302,7 @@ export async function fetchDealerMachineRegisterPage(input: {
     machineKind: row.isDemo ? "demo" : "normal",
     warrantyCertificate: row.warrantyId,
     warrantyRegistrationDate: row.warrantyType === "normal" ? row.latestActivityDate : null,
+    hasExtendedWarranty: row.hasExtendedWarranty === true,
     lifecycle: "normal",
     demoSaleEligibleAt: null,
     daysRemaining: null,

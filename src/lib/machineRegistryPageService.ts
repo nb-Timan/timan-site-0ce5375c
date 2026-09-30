@@ -13,9 +13,11 @@ export type RegistryMachineRow = Omit<MachineOverviewRow, "sources" | "warrantyI
   revenue?: number | null;
   costAmount?: number | null;
   contributionMarginAmount?: number | null;
+  contributionMarginPercent?: number | null;
   grossSalesPrice?: number | null;
   discountAmount?: number | null;
   discountPercent?: number | null;
+  hasExtendedWarranty?: boolean;
   isDemo?: boolean;
 };
 type RegistryResponse = {
@@ -33,6 +35,7 @@ export async function fetchMachineRegistryPage(input: {
   demoOnly?: boolean;
   dateFrom: string; dateTo: string; sort: MachineSortKey | null; direction: MachineSortDirection;
   page: number; pageSize: number;
+  includeBackendMargins?: boolean;
 }): Promise<MachineRegistryPage> {
   const { data, error } = await supabase.rpc("machine_registry_page_scoped", {
     p_allowed_dealers: input.allowedDealers, p_query: input.query || null, p_dealer: input.dealer || null,
@@ -42,6 +45,7 @@ export async function fetchMachineRegistryPage(input: {
     p_date_from: input.dateFrom || null, p_date_to: input.dateTo || null,
     p_sort: input.sort ?? "activity", p_direction: input.direction, p_limit: input.pageSize,
     p_offset: Math.max(0, input.page - 1) * input.pageSize,
+    p_include_backend_margins: input.includeBackendMargins ?? false,
   });
   if (error) throw error;
   const result = data as RegistryResponse;
