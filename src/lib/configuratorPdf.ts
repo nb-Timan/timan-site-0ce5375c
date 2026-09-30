@@ -4,6 +4,7 @@ import { getPaymentTermsDocumentValue, getPaymentTermsLabel } from "@/lib/paymen
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from "@/lib/orderPurchaseReferences";
 import { commonMachineDeliveryDate, machineDeliveryDate } from "@/lib/configuratorDelivery";
 import { configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from "@/lib/configuratorLinePresentation";
+import { timanCompanyLegalLine } from "../../supabase/functions/_shared/timanCompanyProfile";
 
 type ConfiguratorPdfFlowType = "quote" | "order";
 
@@ -191,7 +192,7 @@ function addFooters(pdf: any) {
     setColor(pdf, "text", COLORS.muted);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(7);
-    pdf.text("Timan A/S · Fabriksvej 13 · 6980 Tim · Danmark", PAGE.marginX, 287);
+    pdf.text(timanCompanyLegalLine(), PAGE.marginX, 287);
     pdf.text(`Side ${page} af ${pageCount}`, PAGE.width - PAGE.marginX, 287, { align: "right" });
   }
 }

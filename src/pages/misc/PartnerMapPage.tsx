@@ -28,6 +28,7 @@ import { useSellerDirectory, resolveSellerDisplay } from '@/lib/sellerDirectory'
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { formatDate } from '@/lib/format-date';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
+import { timanCompanyAddress } from '../../../supabase/functions/_shared/timanCompanyProfile';
 import {
   PARTNER_ACCOUNT_MAP_TYPE_IDS,
   getPartnerAccountTypeColor,
@@ -101,7 +102,7 @@ interface Partner {
 const TIMAN_GREEN = '#2d5a27';
 const TIMAN_GOLD = '#c9a227';
 const TIMAN_HQ_COORDS: [number, number] = [56.1986, 8.3032];
-const TIMAN_HQ_ADDRESS = 'Osvald Pedersens Vej 2A-D, 6980 Tim';
+const TIMAN_HQ_ADDRESS = timanCompanyAddress();
 // Esri's reference layer provides zoom-aware country and city labels for its
 // imagery basemap. It stays below Leaflet's marker pane, so partner pins are
 // always rendered above the labels.

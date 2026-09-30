@@ -11,6 +11,7 @@ import { activeMachineDeliveryDates, commonMachineDeliveryDate } from '@/lib/con
 import type { SavedConfiguration } from '@/lib/configurationsService';
 import type { AccountCaseLine } from '@/lib/configuratorAccountSummaries';
 import { t } from '@/data/translations';
+import { timanCompanyLegalLine } from '../../../supabase/functions/_shared/timanCompanyProfile';
 
 interface Props {
   order: SavedConfiguration;
@@ -109,12 +110,13 @@ export default function ReadOnlyOrderConfirmationModal({ order, onClose }: Props
 
         <div className="min-h-0 space-y-5 overflow-y-auto p-5 sm:p-6">
           {documentError && <p role="alert" className="border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">{documentError}</p>}
-          <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 sm:grid-cols-2 lg:grid-cols-6">
             <Detail label="Ordrenr." value={reference} />
             <Detail label="Dato" value={formatDate(sentAt)} />
             <Detail label="Forventet levering" value={commonDelivery ? formatDate(`${commonDelivery}T12:00:00`) : 'Individuelle datoer'} />
             <Detail label="Leveringsmetode" value={deliveryMethodLabel(state.deliveryMethod)} />
             <Detail label="Rekvisitionsnr. / PO nr." value={purchaseReferences.headerValue} />
+            <Detail label="Udsteder" value={timanCompanyLegalLine()} />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">

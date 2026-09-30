@@ -1,9 +1,11 @@
 import type { ConfiguratorState } from '@/types/configurator';
 import type { SupportPortalHelpContext } from '@/lib/supportPortalHelp';
 import type { SupportHowToContext } from '@/lib/supportHowTo';
+import type { SupportCompanyInfoContext } from '@/lib/supportCompanyInfo';
 
 export type { SupportPortalHelpContext } from '@/lib/supportPortalHelp';
 export type { SupportHowToContext } from '@/lib/supportHowTo';
+export type { SupportCompanyInfoContext } from '@/lib/supportCompanyInfo';
 
 export type SupportMessageRole = 'user' | 'assistant';
 export type SupportMessageStatus = 'sending' | 'sent' | 'error';
@@ -125,4 +127,4 @@ export interface SupportSessionState {
   failedRequest: SupportFailedRequest | null;
 }
 
-export type SupportQuickIntent = 'machine-info' | 'portal-help' | 'timan-how-to' | 'timan-website' | 'product-discovery' | 'create-quote';
+export type SupportQuickIntent = 'machine-info' | 'portal-help' | 'timan-company-info' | 'timan-how-to' | 'timan-website' | 'product-discovery' | 'create-quote';

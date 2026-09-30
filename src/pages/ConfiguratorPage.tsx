@@ -2516,6 +2516,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // saved configurator state. Used by n8n to render quote/order
             // emails with full machine + accessory details.
             language: documentState.language,
+            sender_company: contentSummary.issuer,
             currency: contentSummary.currency,
             payment_terms: contentSummary.payment_terms,
             purchase_order_number: contentSummary.purchase_order_number,
@@ -2774,6 +2775,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // includes the selected machines + accessories instead of
             // empty fields.
             language: state.language,
+            sender_company: contentSummary.issuer,
             currency: contentSummary.currency,
             payment_terms: contentSummary.payment_terms,
             purchase_order_number: contentSummary.purchase_order_number,

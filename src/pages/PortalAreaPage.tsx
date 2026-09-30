@@ -7,6 +7,10 @@ import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
+import {
+  TIMAN_COMPANY_PROFILE,
+  timanCompanyPostalCity,
+} from '../../supabase/functions/_shared/timanCompanyProfile';
 import ModuleCard from '@/components/portal/ModuleCard';
 import PlaceholderCard from '@/components/portal/PlaceholderCard';
 import BackendHome from '@/components/portal/BackendHome';
@@ -346,8 +350,10 @@ export default function PortalAreaPage({ areaId }: Props) {
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-bold text-gray-900 mb-4">{t('companyHeading', uiLanguage)}</h3>
                 <dl className="space-y-2 text-sm text-gray-700">
-                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelCompany', uiLanguage)}:</dt><dd>Timan A/S</dd></div>
-                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelAddress', uiLanguage)}:</dt><dd>Osvald Pedersens Vej 2A-D, 6980 Tim</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelCompany', uiLanguage)}:</dt><dd>{TIMAN_COMPANY_PROFILE.companyName}</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelAddress', uiLanguage)}:</dt><dd>{TIMAN_COMPANY_PROFILE.street}, {timanCompanyPostalCity()}</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelCountry', uiLanguage)}:</dt><dd>{TIMAN_COMPANY_PROFILE.country}</dd></div>
+                  <div className="flex gap-2"><dt className="font-medium text-gray-500 w-24">{t('labelCvr', uiLanguage)}:</dt><dd>{TIMAN_COMPANY_PROFILE.cvr}</dd></div>
                 </dl>
               </div>
             </div>

@@ -6,6 +6,7 @@ import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
 import { DEMO_FEE_ITEM_NUMBER } from '@/data/machines';
+import { TIMAN_COMPANY_PROFILE } from '../../supabase/functions/_shared/timanCompanyProfile';
 
 export interface SubmittedOrderMachineGroup {
   unitNumber: number;
@@ -78,7 +79,7 @@ export function buildSubmittedOrderDocument(state: ConfiguratorState) {
     deliveryDiscounts: state.pricingSnapshot?.deliveryDiscounts,
     campaignLines: state.pricingSnapshot?.campaignLines,
   };
-  return { lines, machineGroups, ungroupedLines, totals, calcResult };
+  return { issuer: { ...TIMAN_COMPANY_PROFILE }, lines, machineGroups, ungroupedLines, totals, calcResult };
 }
 
 /** Keep the existing webhook shape, but resolve every commercial line from the document. */
@@ -116,6 +117,7 @@ export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteC
     };
   });
   return {
+    issuer: { ...TIMAN_COMPANY_PROFILE },
     language: state.language, currency: state.language === 'da' ? 'DKK' : 'EUR', flow_type: 'order',
     payment_terms: getPaymentTermsDocumentValue(state.paymentTerms),
     purchase_order_number: orderPurchaseReferenceSummary(state).headerValue,

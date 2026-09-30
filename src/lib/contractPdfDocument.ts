@@ -346,6 +346,7 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
     `CVR: ${input.snapshot.timan.cvr}`,
     input.snapshot.timan.address,
     input.snapshot.timan.postalCity,
+    input.snapshot.timan.country,
     input.snapshot.timan.sellerName ? `${labels.name}: ${input.snapshot.timan.sellerName}` : '',
     input.snapshot.timan.sellerEmail ? `E-mail: ${input.snapshot.timan.sellerEmail}` : '',
   ].filter(Boolean));

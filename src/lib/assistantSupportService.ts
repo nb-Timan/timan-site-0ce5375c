@@ -46,6 +46,7 @@ import {
 } from '@/lib/supportProductDiscovery';
 import { buildSupportPortalHelpContext } from '@/lib/supportPortalHelp';
 import { buildSupportHowToContext } from '@/lib/supportHowTo';
+import { buildSupportCompanyInfoContext } from '@/lib/supportCompanyInfo';
 
 function id(): string {
   return crypto.randomUUID();
@@ -446,6 +447,14 @@ export class AssistantSupportService implements SupportService {
     const workflow = workflowFromRequest(request);
     const command = request.command;
     if (!workflow && !command && !isQuoteIntent(request)) {
+      const companyInfo = buildSupportCompanyInfoContext(request.content, request.language);
+      if (companyInfo) {
+        return this.fallback.sendMessage({
+          ...request,
+          intent: 'timan-company-info',
+          companyInfo,
+        });
+      }
       const portalHelp = buildSupportPortalHelpContext(request.content, request.language, this.appUser);
       if (portalHelp) {
         return this.fallback.sendMessage({

@@ -424,7 +424,7 @@ const da: Dict = {
   // Support / company section on Teknik & Service area
   supportSectionTitle: 'Timan Teknik support og firmainformation',
   supportHeading: 'Support', companyHeading: 'Firmainformation',
-  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Virksomhed', labelAddress: 'Adresse',
+  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Virksomhed', labelAddress: 'Adresse', labelCountry: 'Land', labelCvr: 'CVR',
 
   // CRM nav tabs
   crmDashboard: 'Dashboard', crmMyDealers: 'Mine forhandlere', crmMyPartners: 'Mine samarbejdspartnere',
@@ -1097,7 +1097,7 @@ const en: Dict = {
 
   supportSectionTitle: 'Timan Technical support and company information',
   supportHeading: 'Support', companyHeading: 'Company information',
-  labelPhone: 'Phone', labelEmail: 'Email', labelCompany: 'Company', labelAddress: 'Address',
+  labelPhone: 'Phone', labelEmail: 'Email', labelCompany: 'Company', labelAddress: 'Address', labelCountry: 'Country', labelCvr: 'CVR',
 
   crmDashboard: 'Dashboard', crmMyDealers: 'My dealers', crmMyPartners: 'My collaboration partners',
   crmAccounts: 'Accounts', crmLeads: 'Leads', crmQuotes: 'Quotes',
@@ -1606,7 +1606,7 @@ const de: Dict = {
 
   supportSectionTitle: 'Timan Technik-Support und Firmeninformationen',
   supportHeading: 'Support', companyHeading: 'Firmeninformationen',
-  labelPhone: 'Telefon', labelEmail: 'E-Mail', labelCompany: 'Unternehmen', labelAddress: 'Adresse',
+  labelPhone: 'Telefon', labelEmail: 'E-Mail', labelCompany: 'Unternehmen', labelAddress: 'Adresse', labelCountry: 'Land', labelCvr: 'CVR',
 
   crmMyDealers: 'Meine Händler', crmMyPartners: 'Meine Partner', crmAccounts: 'Konten', crmLeads: 'Leads',
   crmQuotes: 'Angebote', crmOrders: 'Aufträge', crmActivities: 'Aktivitäten',
@@ -2049,7 +2049,7 @@ const it: Dict = {
 
   supportSectionTitle: 'Supporto tecnico Timan e informazioni aziendali',
   supportHeading: 'Supporto', companyHeading: 'Informazioni aziendali',
-  labelPhone: 'Telefono', labelEmail: 'E-mail', labelCompany: 'Azienda', labelAddress: 'Indirizzo',
+  labelPhone: 'Telefono', labelEmail: 'E-mail', labelCompany: 'Azienda', labelAddress: 'Indirizzo', labelCountry: 'Paese', labelCvr: 'CVR',
 
   crmMyDealers: 'I miei rivenditori', crmAccounts: 'Account', crmLeads: 'Lead',
   crmQuotes: 'Preventivi', crmOrders: 'Ordini', crmActivities: 'Attività',
@@ -2493,7 +2493,7 @@ const hu: Dict = {
 
   supportSectionTitle: 'Timan műszaki támogatás és cégadatok',
   supportHeading: 'Támogatás', companyHeading: 'Cégadatok',
-  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Vállalat', labelAddress: 'Cím',
+  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Vállalat', labelAddress: 'Cím', labelCountry: 'Ország', labelCvr: 'CVR',
 
   crmMyDealers: 'Kereskedőim', crmAccounts: 'Fiókok', crmLeads: 'Leadek',
   crmQuotes: 'Árajánlatok', crmOrders: 'Rendelések', crmActivities: 'Tevékenységek',
@@ -2938,7 +2938,7 @@ const sv: Dict = {
 
   supportSectionTitle: 'Timan teknisk support och företagsinformation',
   supportHeading: 'Support', companyHeading: 'Företagsinformation',
-  labelPhone: 'Telefon', labelEmail: 'E-post', labelCompany: 'Företag', labelAddress: 'Adress',
+  labelPhone: 'Telefon', labelEmail: 'E-post', labelCompany: 'Företag', labelAddress: 'Adress', labelCountry: 'Land', labelCvr: 'CVR',
 
   crmMyDealers: 'Mina återförsäljare', crmAccounts: 'Konton', crmLeads: 'Leads',
   crmQuotes: 'Offerter', crmOrders: 'Ordrar', crmActivities: 'Aktiviteter',
@@ -3383,7 +3383,7 @@ const fr: Dict = {
 
   supportSectionTitle: 'Support technique Timan et informations sur l’entreprise',
   supportHeading: 'Support', companyHeading: 'Informations sur l’entreprise',
-  labelPhone: 'Téléphone', labelEmail: 'E-mail', labelCompany: 'Société', labelAddress: 'Adresse',
+  labelPhone: 'Téléphone', labelEmail: 'E-mail', labelCompany: 'Société', labelAddress: 'Adresse', labelCountry: 'Pays', labelCvr: 'CVR',
 
   crmMyDealers: 'Mes revendeurs', crmAccounts: 'Comptes', crmLeads: 'Leads',
   crmQuotes: 'Devis', crmOrders: 'Commandes', crmActivities: 'Activités',
@@ -3828,7 +3828,7 @@ const pl: Dict = {
 
   supportSectionTitle: 'Wsparcie techniczne Timan i informacje o firmie',
   supportHeading: 'Wsparcie', companyHeading: 'Informacje o firmie',
-  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Firma', labelAddress: 'Adres',
+  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Firma', labelAddress: 'Adres', labelCountry: 'Kraj', labelCvr: 'CVR',
 
   crmMyDealers: 'Moi dealerzy', crmAccounts: 'Konta', crmLeads: 'Leady',
   crmQuotes: 'Oferty', crmOrders: 'Zamówienia', crmActivities: 'Aktywności',
@@ -4273,7 +4273,7 @@ const cs: Dict = {
 
   supportSectionTitle: 'Technická podpora Timan a informace o společnosti',
   supportHeading: 'Podpora', companyHeading: 'Informace o společnosti',
-  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Společnost', labelAddress: 'Adresa',
+  labelPhone: 'Telefon', labelEmail: 'E-mail', labelCompany: 'Společnost', labelAddress: 'Adresa', labelCountry: 'Země', labelCvr: 'CVR',
 
   crmMyDealers: 'Moji prodejci', crmAccounts: 'Účty', crmLeads: 'Leady',
   crmQuotes: 'Nabídky', crmOrders: 'Objednávky', crmActivities: 'Aktivity',

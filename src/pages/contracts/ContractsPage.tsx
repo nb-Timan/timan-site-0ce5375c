@@ -3285,6 +3285,7 @@ function PartiesStep({
               <InfoField label="CVR" value={TIMAN_COMPANY_INFO.cvr} />
               <InfoField label={contractUi('address', uiLanguage)} value={TIMAN_COMPANY_INFO.address} />
               <InfoField label={contractUi('postalCity', uiLanguage)} value={TIMAN_COMPANY_INFO.postalCity} />
+              <InfoField label={contractUi('country', uiLanguage)} value={TIMAN_COMPANY_INFO.country} />
             </div>
           </div>
           <div className="border-t border-emerald-200 pt-4">
@@ -5375,7 +5376,7 @@ function ContractSummary({ form }: { form: ContractFormData }) {
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
         <h3 className="text-sm font-bold uppercase tracking-wide text-emerald-900">Timan</h3>
         <p className="mt-3 text-lg font-bold text-emerald-950">{TIMAN_COMPANY_INFO.company}</p>
-        <p className="text-sm text-emerald-900">{TIMAN_COMPANY_INFO.address}, {TIMAN_COMPANY_INFO.postalCity}</p>
+        <p className="text-sm text-emerald-900">{TIMAN_COMPANY_INFO.address}, {TIMAN_COMPANY_INFO.postalCity}, {TIMAN_COMPANY_INFO.country}</p>
         <p className="mt-3 text-sm font-bold text-emerald-950">{form.timanSellerName || '-'}</p>
         <p className="text-sm text-emerald-900">{form.timanSellerEmail || '-'}</p>
         {form.timanSellerPhone && <p className="text-sm text-emerald-900">{form.timanSellerPhone}</p>}

@@ -10,6 +10,7 @@ import type {
   SupportWorkflowState,
   SupportPortalHelpContext,
   SupportHowToContext,
+  SupportCompanyInfoContext,
 } from '@/lib/supportTypes';
 import type { SupportProductDiscoveryContext } from '@/lib/supportProductDiscovery';
 import { findPortalCapabilityContract } from '../../supabase/functions/_shared/portalCapabilityContract';
@@ -27,6 +28,7 @@ export interface SupportSendRequest {
   productDiscovery?: SupportProductDiscoveryContext;
   portalHelp?: SupportPortalHelpContext;
   howTo?: SupportHowToContext;
+  companyInfo?: SupportCompanyInfoContext;
 }
 
 export interface SupportService {
@@ -121,6 +123,7 @@ export class ApiSupportService implements SupportService {
         product_discovery: request.productDiscovery,
         portal_help: request.portalHelp,
         how_to: request.howTo,
+        company_info: request.companyInfo,
         view_as_active: request.viewAsActive === true,
       },
     });

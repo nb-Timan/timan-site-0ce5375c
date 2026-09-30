@@ -23,6 +23,10 @@ import { snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } fro
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
+import {
+  TIMAN_COMPANY_PROFILE,
+  type TimanCompanyProfile,
+} from '../../supabase/functions/_shared/timanCompanyProfile';
 
 export interface SummaryAccessoryLine {
   id: string;
@@ -59,6 +63,7 @@ export interface SummaryMachineGroup {
 }
 
 export interface QuoteContentSummary {
+  issuer: TimanCompanyProfile;
   language: Language;
   currency: 'DKK' | 'EUR';
   flow_type: 'quote' | 'order';
@@ -182,6 +187,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
   }
 
   return {
+    issuer: { ...TIMAN_COMPANY_PROFILE },
     language: lang,
     currency,
     flow_type: state.flowType === 'order' ? 'order' : 'quote',

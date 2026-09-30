@@ -17,6 +17,7 @@ import { getQuoteWebhookUrl } from '@/lib/webhookUrls';
 import { t as configuratorTranslation } from '@/data/translations';
 import type { ConfiguratorState } from '@/types/configurator';
 import { resolveConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
+import { TIMAN_COMPANY_PROFILE } from '../../supabase/functions/_shared/timanCompanyProfile';
 
 const INTERNAL_TIMAN_COPY_EMAIL = 'sales@timan.dk';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -222,7 +223,7 @@ export function prepareAssistantQuoteEmail(input: {
     cc: [] as string[],
     bcc: [INTERNAL_TIMAN_COPY_EMAIL],
     subject: `Tilbud ${input.quoteNumber || ''}`.trim(),
-    body: `Hej ${input.state.kontaktperson || ''}\n\nVedhæftet finder du tilbuddet fra Timan.\n\nMed venlig hilsen\nTiman`,
+    body: `Hej ${input.state.kontaktperson || ''}\n\nVedhæftet finder du tilbuddet fra ${TIMAN_COMPANY_PROFILE.companyName}.\n\nMed venlig hilsen\n${TIMAN_COMPANY_PROFILE.companyName}`,
     pdf_path: input.pdfPath || null,
   };
 }
@@ -262,6 +263,7 @@ export async function sendAssistantQuoteEmail(input: {
     pdf_mime_type: 'application/pdf',
     pdf_base64: generated.base64,
     language: input.state.language,
+    sender_company: summary.issuer,
     currency: summary.currency,
     payment_terms: summary.payment_terms,
     purchase_order_number: summary.purchase_order_number,

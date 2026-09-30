@@ -19,6 +19,10 @@ import {
   type ContractAssociatedPartner,
 } from '@/lib/contractAssociatedPartners';
 import { getContractDiscountStructure, resolveContractCommercialTerms } from '@/lib/contractCommercialTerms';
+import {
+  TIMAN_COMPANY_PROFILE,
+  timanCompanyPostalCity,
+} from '../../supabase/functions/_shared/timanCompanyProfile';
 
 export type ContractStepId =
   | 'parties'
@@ -99,6 +103,7 @@ export type TimanCompanyInfo = {
   cvr: string;
   address: string;
   postalCity: string;
+  country: string;
 };
 
 export type ContractConfirmation = {
@@ -203,10 +208,11 @@ export const ALLOWED_CONTRACT_STATUS_TRANSITIONS: Record<ContractWorkflowStatus,
 };
 
 export const TIMAN_COMPANY_INFO: TimanCompanyInfo = {
-  company: 'Timan A/S',
-  cvr: '27609627',
-  address: 'Osvald Pedersens Vej 2A-D',
-  postalCity: '6980 Tim',
+  company: TIMAN_COMPANY_PROFILE.companyName,
+  cvr: TIMAN_COMPANY_PROFILE.cvr,
+  address: TIMAN_COMPANY_PROFILE.street,
+  postalCity: timanCompanyPostalCity(),
+  country: TIMAN_COMPANY_PROFILE.country,
 };
 
 export const PURPOSE_PRICES_ORDERS_PORTAL_SECTION_TITLE = 'Samarbejde, handel og forhandlermøde';
@@ -843,6 +849,7 @@ export function buildContractSnapshot(
       cvr: TIMAN_COMPANY_INFO.cvr,
       address: TIMAN_COMPANY_INFO.address,
       postalCity: TIMAN_COMPANY_INFO.postalCity,
+      country: TIMAN_COMPANY_INFO.country,
       sellerName: form.timanSellerName,
       sellerEmail: form.timanSellerEmail,
       sellerPhone: form.timanSellerPhone,
