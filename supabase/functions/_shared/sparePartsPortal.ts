@@ -5,15 +5,15 @@ export const SPARE_PARTS_PORTAL = Object.freeze({
 });
 
 const LABELS: Record<string, string> = {
-  da: 'Åbn reservedelsportalen',
-  en: 'Open the spare-parts portal',
-  de: 'Ersatzteilportal öffnen',
-  it: 'Apri il portale ricambi',
-  hu: 'Alkatrészportál megnyitása',
-  sv: 'Öppna reservdelsportalen',
-  fr: 'Ouvrir le portail des pièces détachées',
-  pl: 'Otwórz portal części zamiennych',
-  cs: 'Otevřít portál náhradních dílů',
+  da: 'Åbn Timan Reservedelsportal',
+  en: 'Open Timan Spare Parts Portal',
+  de: 'Timan Ersatzteilportal öffnen',
+  it: 'Apri il portale ricambi Timan',
+  hu: 'A Timan alkatrészportál megnyitása',
+  sv: 'Öppna Timans reservdelsportal',
+  fr: 'Ouvrir le portail de pièces détachées Timan',
+  pl: 'Otwórz portal części zamiennych Timan',
+  cs: 'Otevřít portál náhradních dílů Timan',
 };
 
 export function sparePartsPortalLabel(language: string): string {

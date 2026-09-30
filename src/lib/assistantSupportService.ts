@@ -44,6 +44,10 @@ import {
   buildSupportProductDiscoveryContext,
   isProductDiscoveryQuestion,
 } from '@/lib/supportProductDiscovery';
+import {
+  buildSupportProductPriceLookupContext,
+  isProductPriceQuestion,
+} from '@/lib/supportProductPriceLookup';
 import { buildSupportPortalHelpContext } from '@/lib/supportPortalHelp';
 import { buildSupportHowToContext } from '@/lib/supportHowTo';
 import { buildSupportCompanyInfoContext } from '@/lib/supportCompanyInfo';
@@ -468,7 +472,11 @@ export class AssistantSupportService implements SupportService {
       if (howTo) {
         return this.fallback.sendMessage({
           ...request,
-          intent: 'timan-how-to',
+          intent: howTo.intent === 'SPARE_PARTS_ORDERING'
+            ? 'spare-parts-ordering'
+            : howTo.intent === 'SPARE_PARTS_PORTAL_HELP'
+              ? 'spare-parts-portal-help'
+              : 'spare-parts-delivery',
           howTo,
         });
       }
@@ -483,6 +491,22 @@ export class AssistantSupportService implements SupportService {
           ...request,
           intent: 'spare-parts-identification',
           sparePartsIdentification,
+        });
+      }
+      if (isProductPriceQuestion(request.content)) {
+        const catalog = await invokeAssistantAction({
+          action: 'get_machine_configuration_options',
+          conversationId: request.conversation.id,
+        });
+        const productPriceLookup = buildSupportProductPriceLookupContext(
+          request.content,
+          request.language,
+          catalog.options || [],
+        );
+        return this.fallback.sendMessage({
+          ...request,
+          intent: 'product-price-lookup',
+          productPriceLookup: productPriceLookup || undefined,
         });
       }
       if (!isProductDiscoveryQuestion(request.content)) return this.fallback.sendMessage(request);

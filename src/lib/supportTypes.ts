@@ -48,7 +48,7 @@ export interface SupportNavigationAction {
 }
 
 export interface SupportExternalLinkAction {
-  type: 'EXTERNAL_LINK';
+  type: 'EXTERNAL_NAVIGATION';
   key: 'interactive_spares';
   label: string;
   url: string;
@@ -137,4 +137,6 @@ export interface SupportSessionState {
   failedRequest: SupportFailedRequest | null;
 }
 
-export type SupportQuickIntent = 'machine-info' | 'portal-help' | 'timan-company-info' | 'timan-how-to' | 'spare-parts-identification' | 'timan-website' | 'product-discovery' | 'create-quote';
+export type SupportQuickIntent = 'machine-info' | 'portal-help' | 'timan-company-info' | 'timan-how-to'
+  | 'spare-parts-ordering' | 'spare-parts-identification' | 'spare-parts-portal-help' | 'spare-parts-delivery'
+  | 'timan-website' | 'product-discovery' | 'product-price-lookup' | 'create-quote';

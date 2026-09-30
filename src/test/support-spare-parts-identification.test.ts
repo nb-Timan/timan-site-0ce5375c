@@ -22,7 +22,7 @@ import {
 } from '@/lib/supportSparePartsIdentification';
 import { buildSupportHowToContext } from '@/lib/supportHowTo';
 import { validatedExternalLinkAction } from '@/lib/supportService';
-import { SPARE_PARTS_PORTAL } from '../../supabase/functions/_shared/sparePartsPortal';
+import { SPARE_PARTS_PORTAL, sparePartsPortalLabel } from '../../supabase/functions/_shared/sparePartsPortal';
 
 const machinePage = {
   total: 1, scopeTotal: 1, normal: 1, historical: 0, healthy: 1,
@@ -123,22 +123,36 @@ describe('Support spare-parts identification routing', () => {
 
   it('accepts only the canonical structured spare-parts link from the server', () => {
     expect(validatedExternalLinkAction({
-      type: 'EXTERNAL_LINK',
+      type: 'EXTERNAL_NAVIGATION',
       key: 'interactive_spares',
       label: 'untrusted server label',
       url: SPARE_PARTS_PORTAL.url,
     }, 'da')).toEqual({
-      type: 'EXTERNAL_LINK',
+      type: 'EXTERNAL_NAVIGATION',
       key: 'interactive_spares',
-      label: 'Åbn reservedelsportalen',
+      label: 'Åbn Timan Reservedelsportal',
       url: SPARE_PARTS_PORTAL.url,
     });
     expect(validatedExternalLinkAction({
-      type: 'EXTERNAL_LINK',
+      type: 'EXTERNAL_NAVIGATION',
       key: 'interactive_spares',
       label: 'Wrong destination',
       url: 'https://example.invalid',
     }, 'da')).toBeUndefined();
+  });
+
+  it('localizes the canonical action label in all portal languages', () => {
+    expect(['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'].map(sparePartsPortalLabel)).toEqual([
+      'Åbn Timan Reservedelsportal',
+      'Open Timan Spare Parts Portal',
+      'Timan Ersatzteilportal öffnen',
+      'Apri il portale ricambi Timan',
+      'A Timan alkatrészportál megnyitása',
+      'Öppna Timans reservdelsportal',
+      'Ouvrir le portail de pièces détachées Timan',
+      'Otwórz portal części zamiennych Timan',
+      'Otevřít portál náhradních dílů Timan',
+    ]);
   });
 
   it('enforces the server boundary, authorized retrieval and hallucination guard', () => {

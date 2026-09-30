@@ -29,6 +29,7 @@ type ServiceClient = ReturnType<typeof createClient>;
 type Actor = {
   id: string;
   portal_role: string | null;
+  can_view_prices: boolean | null;
   dealer_number: string | null;
   allowed_areas: string[] | null;
   allowed_modules: string[] | null;
@@ -84,6 +85,24 @@ type ProductDiscoveryContext = {
   } | null;
 };
 
+type ProductPriceCandidate = {
+  item_number: string;
+  name: string;
+  machine_families: string[];
+  price_dkk: number | null;
+  price_eur: number | null;
+  price_sek: number | null;
+  published_at: string | null;
+};
+
+type ProductPriceLookupContext = {
+  domain: 'PRODUCT_PRICE_LOOKUP';
+  catalog_source: 'canonical_configurator_catalog';
+  lookup_status: 'MATCHED' | 'AMBIGUOUS' | 'NOT_FOUND';
+  price_access_allowed: boolean;
+  candidates: ProductPriceCandidate[];
+};
+
 type PortalHelpLocation = {
   feature_key: string;
   label: string;
@@ -112,7 +131,13 @@ type PortalNavigationAction = {
 type HowToContext = {
   domain: 'TIMAN_HOW_TO';
   source: 'approved_knowledge';
-  topic: 'spare-parts-ordering';
+  topic: 'spare-parts-ordering' | 'spare-parts-portal-help' | 'spare-parts-delivery';
+  intent: 'SPARE_PARTS_ORDERING' | 'SPARE_PARTS_PORTAL_HELP' | 'SPARE_PARTS_DELIVERY';
+};
+
+type SparePartsAudience = {
+  classification: 'AUTHORIZED_PARTNER' | 'TIMAN_STAFF' | 'OTHER_AUTHENTICATED_USER';
+  portal_role: string | null;
 };
 
 type SparePartsIdentificationContext = {
@@ -158,7 +183,7 @@ function fallbackKind(evaluation: ConfidenceEvaluation) {
 }
 
 async function resolveActor(service: ServiceClient, authUser: { id: string; email?: string | null }): Promise<Actor> {
-  let query = service.from('app_users').select('id, portal_role, dealer_number, allowed_areas, allowed_modules, module_access, permissions, quick_actions, approved, is_active');
+  let query = service.from('app_users').select('id, portal_role, can_view_prices, dealer_number, allowed_areas, allowed_modules, module_access, permissions, quick_actions, approved, is_active');
   query = authUser.email
     ? query.or(`auth_user_id.eq.${authUser.id},email.ilike.${authUser.email}`)
     : query.eq('auth_user_id', authUser.id);
@@ -224,6 +249,13 @@ function knowledgeContext(candidates: Candidate[]) {
     const citationId = `C${index + 1}`;
     return `<knowledge id="${citationId}" language="${candidate.source_language}">\n${candidate.content}\n</knowledge>`;
   }).join('\n\n');
+}
+
+function priceAllowed(actor: Actor): boolean {
+  if (actor.can_view_prices === true) return true;
+  if (actor.can_view_prices === false) return false;
+  return ['timan_backend', 'timan_seller', 'timan_service', 'timan_dealer', 'timan_importer', 'timan_service_partner', 'dealer_customer']
+    .includes(actor.portal_role || '');
 }
 
 function safeText(value: unknown, maxLength: number): string {
@@ -302,6 +334,109 @@ async function validateProductDiscoveryContext(
     attachments,
     requested_compatibility: requestedCompatibility,
   };
+}
+
+function safePrice(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+async function validateProductPriceLookupContext(
+  service: ServiceClient,
+  actor: Actor,
+  value: unknown,
+): Promise<ProductPriceLookupContext | null> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const input = value as Record<string, unknown>;
+  if (input.domain !== 'PRODUCT_PRICE_LOOKUP' || input.catalog_source !== 'canonical_configurator_catalog') return null;
+  const status = ['MATCHED', 'AMBIGUOUS', 'NOT_FOUND'].includes(String(input.lookup_status))
+    ? String(input.lookup_status) as ProductPriceLookupContext['lookup_status']
+    : null;
+  if (!status) return null;
+  const rawCandidates = (Array.isArray(input.candidates) ? input.candidates : [])
+    .slice(0, 5).filter((candidate): candidate is Record<string, unknown> => Boolean(candidate && typeof candidate === 'object' && !Array.isArray(candidate)));
+  const itemNumbers = [...new Set(rawCandidates.map((candidate) => safeText(candidate.item_number, 50)).filter(Boolean))];
+  const { data, error } = itemNumbers.length
+    ? await service.from('price_list_published')
+      .select('item_number, item_text_da, item_text_en, item_text_de, price_dkk, price_eur, price_sek, published_at')
+      .in('item_number', itemNumbers)
+    : { data: [], error: null };
+  if (error) throw error;
+  const published = new Map((data || []).map((row) => [String(row.item_number), row]));
+  const maySeePrices = priceAllowed(actor);
+  const candidates = rawCandidates.flatMap((candidate): ProductPriceCandidate[] => {
+    const itemNumber = safeText(candidate.item_number, 50);
+    if (!itemNumber) return [];
+    const row = published.get(itemNumber);
+    const localizedPublishedName = safeText(row?.item_text_da, 180)
+      || safeText(row?.item_text_en, 180) || safeText(row?.item_text_de, 180);
+    return [{
+      item_number: itemNumber,
+      name: localizedPublishedName || safeText(candidate.name, 180) || itemNumber,
+      machine_families: safeStringList(candidate.machine_families, 8, 80),
+      price_dkk: maySeePrices ? safePrice(row?.price_dkk) ?? safePrice(candidate.price_dkk) : null,
+      price_eur: maySeePrices ? safePrice(row?.price_eur) ?? safePrice(candidate.price_eur) : null,
+      price_sek: maySeePrices ? safePrice(row?.price_sek) ?? safePrice(candidate.price_sek) : null,
+      published_at: safeText(row?.published_at, 50) || safeText(candidate.published_at, 50) || null,
+    }];
+  });
+  if (status === 'MATCHED' && candidates.length !== 1) return null;
+  if (status === 'AMBIGUOUS' && candidates.length < 2) return null;
+  if (status === 'NOT_FOUND' && candidates.length) return null;
+  return {
+    domain: 'PRODUCT_PRICE_LOOKUP',
+    catalog_source: 'canonical_configurator_catalog',
+    lookup_status: status,
+    price_access_allowed: maySeePrices,
+    candidates,
+  };
+}
+
+function formatProductPrice(candidate: ProductPriceCandidate, language: string): string | null {
+  const value = language === 'da' ? candidate.price_dkk : language === 'sv' ? candidate.price_sek : candidate.price_eur;
+  const currency = language === 'da' ? 'DKK' : language === 'sv' ? 'SEK' : 'EUR';
+  if (value === null) return null;
+  const locale = language === 'da' ? 'da-DK' : language === 'de' ? 'de-DE' : language === 'sv' ? 'sv-SE' : 'en-GB';
+  return new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: 0 }).format(value);
+}
+
+function productPriceAnswer(context: ProductPriceLookupContext, language: string): string {
+  if (context.lookup_status === 'NOT_FOUND') {
+    return language === 'da'
+      ? 'Jeg kan ikke finde en vare, der matcher sikkert i Timans aktuelle produktdata. Prøv med varenummeret eller et mere præcist produktnavn.'
+      : language === 'de'
+        ? 'Ich kann in den aktuellen Timan-Produktdaten keinen sicheren Treffer finden. Bitte versuchen Sie es mit der Artikelnummer oder einer genaueren Produktbezeichnung.'
+        : 'I cannot find a confident match in the current Timan product data. Try the item number or a more precise product name.';
+  }
+  if (context.lookup_status === 'AMBIGUOUS') {
+    const choices = context.candidates.map((candidate) => `${candidate.name} (${candidate.item_number})`).join(', ');
+    return language === 'da'
+      ? `Jeg kan finde flere mulige varer: ${choices}. Hvilken mener du?`
+      : language === 'de'
+        ? `Ich finde mehrere mögliche Artikel: ${choices}. Welchen meinen Sie?`
+        : `I found several possible items: ${choices}. Which one do you mean?`;
+  }
+  const candidate = context.candidates[0];
+  if (!context.price_access_allowed) {
+    return language === 'da'
+      ? `Jeg kan finde ${candidate.name} (varenr. ${candidate.item_number}), men din bruger har ikke adgang til priser.`
+      : language === 'de'
+        ? `Ich habe ${candidate.name} (Art.-Nr. ${candidate.item_number}) gefunden, aber Ihr Benutzer hat keinen Zugriff auf Preise.`
+        : `I found ${candidate.name} (item ${candidate.item_number}), but your user does not have access to prices.`;
+  }
+  const price = formatProductPrice(candidate, language);
+  if (!price) {
+    return language === 'da'
+      ? `Jeg kan finde ${candidate.name} (varenr. ${candidate.item_number}), men der er ingen aktuel pris i den valgte valuta.`
+      : language === 'de'
+        ? `Ich habe ${candidate.name} (Art.-Nr. ${candidate.item_number}) gefunden, aber in der gewählten Währung ist kein aktueller Preis verfügbar.`
+        : `I found ${candidate.name} (item ${candidate.item_number}), but no current price is available in the selected currency.`;
+  }
+  const family = candidate.machine_families.length ? ` · ${candidate.machine_families.join(', ')}` : '';
+  return language === 'da'
+    ? `${candidate.name} (varenr. ${candidate.item_number}${family}) har en aktuel basispris på ${price} ekskl. moms.`
+    : language === 'de'
+      ? `${candidate.name} (Art.-Nr. ${candidate.item_number}${family}) hat einen aktuellen Basispreis von ${price} zzgl. MwSt.`
+      : `${candidate.name} (item ${candidate.item_number}${family}) has a current base price of ${price} excl. VAT.`;
 }
 
 function productContext(value: ProductDiscoveryContext): string {
@@ -452,14 +587,31 @@ function portalHelpContext(value: PortalHelpContext): string {
 function validateHowToContext(input: unknown): HowToContext | null {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
   const value = input as Record<string, unknown>;
+  const topics = new Map<HowToContext['topic'], HowToContext['intent']>([
+    ['spare-parts-ordering', 'SPARE_PARTS_ORDERING'],
+    ['spare-parts-portal-help', 'SPARE_PARTS_PORTAL_HELP'],
+    ['spare-parts-delivery', 'SPARE_PARTS_DELIVERY'],
+  ]);
   if (value.domain !== 'TIMAN_HOW_TO'
       || value.source !== 'approved_knowledge'
-      || value.topic !== 'spare-parts-ordering') return null;
+      || !topics.has(value.topic as HowToContext['topic'])) return null;
+  const topic = value.topic as HowToContext['topic'];
   return {
     domain: 'TIMAN_HOW_TO',
     source: 'approved_knowledge',
-    topic: 'spare-parts-ordering',
+    topic,
+    intent: topics.get(topic)!,
   };
+}
+
+function sparePartsAudience(actor: Actor): SparePartsAudience {
+  if (['timan_dealer', 'timan_importer', 'timan_service_partner'].includes(actor.portal_role || '')) {
+    return { classification: 'AUTHORIZED_PARTNER', portal_role: actor.portal_role };
+  }
+  if (['timan_backend', 'timan_seller', 'timan_service'].includes(actor.portal_role || '')) {
+    return { classification: 'TIMAN_STAFF', portal_role: actor.portal_role };
+  }
+  return { classification: 'OTHER_AUTHENTICATED_USER', portal_role: actor.portal_role };
 }
 
 function validateSparePartsIdentificationContext(input: unknown): SparePartsIdentificationContext | null {
@@ -501,10 +653,10 @@ function sparePartsIdentificationContext(value: SparePartsIdentificationContext)
   }, null, 2);
 }
 
-function sparePartsExternalLink(value: SparePartsIdentificationContext | null, language: string) {
+function sparePartsExternalLink(value: SparePartsIdentificationContext | HowToContext | null, language: string) {
   if (!value) return null;
   return {
-    type: 'EXTERNAL_LINK' as const,
+    type: 'EXTERNAL_NAVIGATION' as const,
     key: SPARE_PARTS_PORTAL.key,
     label: sparePartsPortalLabel(language),
     url: SPARE_PARTS_PORTAL.url,
@@ -563,7 +715,12 @@ function companyInfoContext(value: CompanyInfoContext): string {
 
 function howToRetrievalQuery(message: string, howTo: HowToContext | null): string {
   if (!howTo) return message;
-  return `${message}\nTiman vejledning bestilling reservedele reservedelsportal autoriseret forhandler varenummer`;
+  const canonicalTerms: Record<HowToContext['topic'], string> = {
+    'spare-parts-ordering': 'Timan bestilling reservedele reservedelsportal autoriseret forhandler online ordre',
+    'spare-parts-portal-help': 'Timan reservedelsportal login registrering kurv priser lagerstatus tegninger varenummer reservedelsliste ET-liste udskriv',
+    'spare-parts-delivery': 'Timan reservedelsordre levering ordrestatus restordre del-levering',
+  };
+  return `${message}\n${canonicalTerms[howTo.topic]}`;
 }
 
 function sparePartsRetrievalQuery(message: string, value: SparePartsIdentificationContext | null): string {
@@ -714,16 +871,22 @@ Deno.serve(async (request) => {
     const route = typeof context.route === 'string' ? context.route.slice(0, 500) : null;
     const partnerId = await resolvePartnerId(service, actor.dealer_number);
     const productDiscovery = await validateProductDiscoveryContext(service, payload.product_discovery);
+    const productPriceLookup = await validateProductPriceLookupContext(service, actor, payload.product_price_lookup);
     const companyInfo = validateCompanyInfoContext(payload.company_info);
     const portalHelp = validatePortalHelpContext(payload.portal_help, actor);
     const navigationAction = portalNavigationAction(portalHelp);
     const howTo = validateHowToContext(payload.how_to);
     const sparePartsIdentification = howTo ? null : validateSparePartsIdentificationContext(payload.spare_parts_identification);
-    const externalLinkAction = sparePartsExternalLink(sparePartsIdentification, language);
+    const sparePartsGuidance = howTo || sparePartsIdentification;
+    const externalLinkAction = sparePartsExternalLink(sparePartsGuidance, language);
+    const partnerAudience = sparePartsGuidance ? sparePartsAudience(actor) : null;
     const interactionCategory = companyInfo ? 'Portal help / Company information'
       : portalHelp ? 'Portal help / Navigation'
-      : howTo ? 'Portal help / How-to'
+      : howTo?.intent === 'SPARE_PARTS_ORDERING' ? 'Spare parts / Ordering'
+      : howTo?.intent === 'SPARE_PARTS_PORTAL_HELP' ? 'Spare parts / Portal help'
+      : howTo?.intent === 'SPARE_PARTS_DELIVERY' ? 'Spare parts / Delivery'
       : sparePartsIdentification ? 'Technical / Spare-parts identification'
+      : productPriceLookup ? 'Sales / Product price lookup'
       : productDiscovery ? 'Sales / Product discovery' : null;
 
     const { data: existingConversation } = await service.from('support_conversations').select('id, started_by_user_id')
@@ -792,6 +955,66 @@ Deno.serve(async (request) => {
     });
     if (questionError) throw questionError;
     await service.from('support_ai_requests').update({ question_id: questionId }).eq('request_id', requestId);
+
+    if (productPriceLookup) {
+      const answer = productPriceAnswer(productPriceLookup, language);
+      const responseId = crypto.randomUUID();
+      const noAnswer = productPriceLookup.lookup_status === 'NOT_FOUND';
+      const clarification = productPriceLookup.lookup_status === 'AMBIGUOUS';
+      const confidenceReason = noAnswer ? 'CANONICAL_PRODUCT_NOT_FOUND'
+        : clarification ? 'CANONICAL_PRODUCT_AMBIGUOUS'
+          : productPriceLookup.price_access_allowed ? 'CANONICAL_PRODUCT_PRICE' : 'PRICE_PERMISSION_DENIED';
+      const outcome = noAnswer ? 'NO_RELEVANT_KNOWLEDGE' : clarification ? 'CLARIFICATION_REQUIRED' : 'ANSWERED';
+      const { error: responseError } = await service.from('support_responses').insert({
+        id: responseId, request_id: requestId, question_id: questionId, response_text: answer,
+        answer_status: noAnswer ? 'NO_ANSWER' : 'ACCEPTED', grounded: true,
+        latency_ms: Date.now() - totalStarted, model_name: 'canonical-configurator', provider: 'STRUCTURED',
+        confidence_level: noAnswer ? 'NO_GROUNDED_ANSWER' : 'HIGH',
+        confidence_score: noAnswer ? 0 : 1,
+        confidence_reason: confidenceReason,
+        outcome_type: outcome,
+        error_category: noAnswer ? confidenceReason : null,
+      });
+      if (responseError) throw responseError;
+      await service.from('support_questions').update({
+        result_status: noAnswer ? 'NO_ANSWER' : 'ANSWERED',
+        latency_ms: Date.now() - totalStarted,
+        confidence_level: noAnswer ? 'NO_GROUNDED_ANSWER' : 'HIGH',
+        confidence_score: noAnswer ? 0 : 1,
+        confidence_reason: confidenceReason,
+        outcome_type: outcome,
+        clarification_requested: clarification,
+        source_conflict: false,
+        stale_knowledge_blocked: false,
+        category: interactionCategory,
+      }).eq('id', questionId);
+      await service.from('support_usage_events').insert({
+        request_id: requestId, question_id: questionId, response_id: responseId,
+        user_id: actor.id, partner_id: partnerId, category: interactionCategory,
+        provider: 'STRUCTURED', model_name: 'canonical-configurator', request_status: 'SUCCESS',
+        total_latency_ms: Date.now() - totalStarted,
+        candidate_count: productPriceLookup.candidates.length,
+        selected_chunk_count: 0, citation_count: 0,
+      });
+      await service.from('support_ai_requests').update({
+        response_id: responseId, status: noAnswer ? 'NO_ANSWER' : 'SUCCESS', completed_at: new Date().toISOString(),
+      }).eq('request_id', requestId);
+      const structuredSource = productPriceLookup.candidates.length ? [{
+        id: 'PRODUCT_DATA', label: 'Timan produktdata / Configurator', language,
+      }] : [];
+      return json({
+        request_id: requestId, response_id: responseId, answer,
+        answer_status: noAnswer ? 'NO_ANSWER' : 'ACCEPTED',
+        confidence_level: noAnswer ? 'NO_GROUNDED_ANSWER' : 'HIGH',
+        confidence_score: noAnswer ? 0 : 1,
+        confidence_reason: confidenceReason,
+        outcome_type: outcome,
+        suggest_quote_workflow: productPriceLookup.lookup_status === 'MATCHED' && productPriceLookup.price_access_allowed,
+        portal_navigation: null,
+        external_link: null,
+        citations: structuredSource,
+      });
+    }
 
     const apiKey = Deno.env.get('OPENAI_API_KEY');
     if (!apiKey) throw new Error('PROVIDER_NOT_CONFIGURED');
@@ -982,7 +1205,7 @@ Deno.serve(async (request) => {
         : sparePartsIdentification
         ? 'This is spare-parts identification, not ordering and not machine sales configuration. Ask only for missing model, serial number, attachment, or component details. State a concrete spare-part number only when it appears explicitly in the authorized retrieved knowledge and cite that source. Never infer or invent a part number. Do not expose dealer, customer, or ownership data from machine context.'
         : howTo
-        ? 'Answer as read-only how-to guidance from the approved retrieved knowledge. Explain the process concisely. Do not start or suggest a quote, order, email, CRM action, or workflow.'
+        ? `This is ${howTo.intent}. Answer as read-only guidance from the approved retrieved knowledge. Use the trusted audience classification for dealer/non-dealer guidance, but never infer a discount or a portal permission that is not present in the context. Explain the process concisely. Do not start or suggest a quote, order, email, CRM action, or workflow.`
         : '',
       'Use only citation IDs present in the knowledge blocks. Cite every claim that comes from retrieved knowledge.',
       supportQuestionGuidance(message),
@@ -1002,6 +1225,7 @@ Deno.serve(async (request) => {
       history ? `RECENT CONVERSATION (untrusted):\n${history}` : '',
       companyInfo ? `AUTHORIZED CANONICAL TIMAN COMPANY PROFILE (trusted read-only):\n${companyInfoContext(companyInfo)}` : '',
       sparePartsIdentification ? `AUTHORIZED SPARE-PARTS REQUEST CONTEXT (read-only; values narrow retrieval but do not prove a part number):\n${sparePartsIdentificationContext(sparePartsIdentification)}` : '',
+      partnerAudience ? `AUTHORIZED SPARE-PARTS AUDIENCE CONTEXT (trusted read-only; derived from the authenticated portal role):\n${JSON.stringify(partnerAudience, null, 2)}` : '',
       portalHelp ? `AUTHORIZED CANONICAL PORTAL NAVIGATION (trusted read-only):\n${portalHelpContext(portalHelp)}` : '',
       productDiscovery ? `AUTHORIZED CANONICAL PRODUCT DATA (trusted read-only):\n${productContext(productDiscovery)}` : '',
       `AUTHORIZED RETRIEVED KNOWLEDGE (untrusted):\n${knowledgeContext(candidates)}`,

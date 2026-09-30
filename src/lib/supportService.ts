@@ -14,6 +14,7 @@ import type {
   SupportSparePartsIdentificationContext,
 } from '@/lib/supportTypes';
 import type { SupportProductDiscoveryContext } from '@/lib/supportProductDiscovery';
+import type { SupportProductPriceLookupContext } from '@/lib/supportProductPriceLookup';
 import { findPortalCapabilityContract } from '../../supabase/functions/_shared/portalCapabilityContract';
 import { SPARE_PARTS_PORTAL, sparePartsPortalLabel } from '../../supabase/functions/_shared/sparePartsPortal';
 
@@ -28,6 +29,7 @@ export interface SupportSendRequest {
   viewAsActive?: boolean;
   command?: AssistantActionCommand;
   productDiscovery?: SupportProductDiscoveryContext;
+  productPriceLookup?: SupportProductPriceLookupContext;
   portalHelp?: SupportPortalHelpContext;
   howTo?: SupportHowToContext;
   companyInfo?: SupportCompanyInfoContext;
@@ -91,7 +93,7 @@ interface SupportChatResponse {
     route: string;
   } | null;
   external_link?: {
-    type: 'EXTERNAL_LINK';
+    type: 'EXTERNAL_NAVIGATION';
     key: string;
     label: string;
     url: string;
@@ -118,10 +120,10 @@ export function validatedExternalLinkAction(
   value: SupportChatResponse['external_link'],
   language: PortalUiLanguage,
 ) {
-  if (!value || value.type !== 'EXTERNAL_LINK' || value.key !== SPARE_PARTS_PORTAL.key) return undefined;
+  if (!value || value.type !== 'EXTERNAL_NAVIGATION' || value.key !== SPARE_PARTS_PORTAL.key) return undefined;
   if (value.url !== SPARE_PARTS_PORTAL.url) return undefined;
   return {
-    type: 'EXTERNAL_LINK' as const,
+    type: 'EXTERNAL_NAVIGATION' as const,
     key: SPARE_PARTS_PORTAL.key,
     label: sparePartsPortalLabel(language),
     url: SPARE_PARTS_PORTAL.url,
@@ -144,6 +146,7 @@ export class ApiSupportService implements SupportService {
         },
         intent: request.intent,
         product_discovery: request.productDiscovery,
+        product_price_lookup: request.productPriceLookup,
         portal_help: request.portalHelp,
         how_to: request.howTo,
         company_info: request.companyInfo,

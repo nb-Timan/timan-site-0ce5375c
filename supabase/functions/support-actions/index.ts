@@ -555,7 +555,7 @@ Deno.serve(async (request) => {
     }
     if (actionType === 'get_machine_configuration_options') {
       let query = auth.userClient.from('price_list_published')
-        .select('id, item_number, item_text_da, item_text_en, item_text_de, price_dkk, price_eur, price_sek')
+        .select('id, item_number, item_text_da, item_text_en, item_text_de, identity_aliases, price_dkk, price_eur, price_sek, published_at')
         .order('item_number').limit(500);
       const search = text(parameters.search, 100);
       if (search) query = query.ilike('item_text_da', `%${search}%`);
