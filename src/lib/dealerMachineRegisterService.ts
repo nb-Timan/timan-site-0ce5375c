@@ -244,6 +244,43 @@ function scopeAllowsDealer(scope: JournalScope, dealer: DealerAccount): boolean 
 
 export type DealerMachineRegisterPage = Omit<MachineRegistryPage, "rows"> & { rows: DealerMachineRegisterRow[] };
 
+export function mapRegistryMachineToDealerRow(
+  row: MachineRegistryPage["rows"][number],
+): DealerMachineRegisterRow {
+  const warrantyRegistrationDate = row.warrantyType === "normal" ? row.latestActivityDate : null;
+  const lifecycle = getDemoLifecycle({
+    isDemo: row.isDemo === true,
+    deliveryDate: row.deliveryDate,
+    warrantyRegistrationDate,
+  });
+
+  return {
+    serial: row.serial,
+    normalizedSerial: row.normalizedSerial,
+    machineModel: row.machineModel,
+    machineType: row.machineModel,
+    machineOrderNumber: row.machineOrderNumber ?? null,
+    erpOrderNumber: row.erpOrderNumber ?? null,
+    portalOrderNumber: row.portalOrderNumber ?? null,
+    invoiceNumber: row.invoiceNumber ?? null,
+    revenue: row.revenue ?? null,
+    costAmount: row.costAmount ?? null,
+    contributionMarginAmount: row.contributionMarginAmount ?? null,
+    contributionMarginPercent: row.contributionMarginPercent ?? null,
+    orderDate: null,
+    deliveryDate: row.deliveryDate,
+    dealerName: row.dealerName,
+    dealerNumber: row.dealerNumber,
+    customerName: row.customerName ?? null,
+    machineKind: row.isDemo ? "demo" : "normal",
+    warrantyCertificate: row.warrantyId,
+    warrantyRegistrationDate,
+    hasExtendedWarranty: row.hasExtendedWarranty === true,
+    ...lifecycle,
+    sources: ["warranty_registrations"],
+  };
+}
+
 export async function fetchDealerMachineRegisterPage(input: {
   dealer: DealerAccount;
   scope: JournalScope;
@@ -281,34 +318,7 @@ export async function fetchDealerMachineRegisterPage(input: {
 
   return {
     ...page,
-    rows: page.rows.map((row) => ({
-    serial: row.serial,
-    normalizedSerial: row.normalizedSerial,
-    machineModel: row.machineModel,
-    machineType: row.machineModel,
-    machineOrderNumber: row.machineOrderNumber ?? null,
-    erpOrderNumber: row.erpOrderNumber ?? null,
-    portalOrderNumber: row.portalOrderNumber ?? null,
-    invoiceNumber: row.invoiceNumber ?? null,
-    revenue: row.revenue ?? null,
-    costAmount: row.costAmount ?? null,
-    contributionMarginAmount: row.contributionMarginAmount ?? null,
-    contributionMarginPercent: row.contributionMarginPercent ?? null,
-    orderDate: null,
-    deliveryDate: row.deliveryDate,
-    dealerName: row.dealerName,
-    dealerNumber: row.dealerNumber,
-    customerName: row.customerName ?? null,
-    machineKind: row.isDemo ? "demo" : "normal",
-    warrantyCertificate: row.warrantyId,
-    warrantyRegistrationDate: row.warrantyType === "normal" ? row.latestActivityDate : null,
-    hasExtendedWarranty: row.hasExtendedWarranty === true,
-    lifecycle: "normal",
-    demoSaleEligibleAt: null,
-    daysRemaining: null,
-    daysSoldEarly: null,
-    sources: ["warranty_registrations"],
-    }))
+    rows: page.rows.map(mapRegistryMachineToDealerRow),
   };
 }
 

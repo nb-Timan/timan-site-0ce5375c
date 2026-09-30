@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const page = readFileSync("src/pages/crm/CrmDealerDetailPage.tsx", "utf8");
+const service = readFileSync("src/lib/dealerMachineRegisterService.ts", "utf8");
 
 describe("Partnerdata machine demo status presentation", () => {
   it("shows the canonical demo classification before extended warranty", () => {
@@ -23,6 +24,9 @@ describe("Partnerdata machine demo status presentation", () => {
 
   it("keeps table and overview lifecycle rendering on the same helper", () => {
     expect(page.match(/crmLifecycleMeta\(row, lang\)/g)).toHaveLength(2);
+    expect(service).toContain("rows: page.rows.map(mapRegistryMachineToDealerRow)");
+    expect(service).toContain("const lifecycle = getDemoLifecycle({");
+    expect(service).not.toContain('lifecycle: "normal",\n    demoSaleEligibleAt: null');
   });
 
   it("provides sentence-case labels in all nine portal languages", () => {
