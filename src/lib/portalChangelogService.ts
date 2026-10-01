@@ -119,6 +119,7 @@ export interface ChangelogListOptions {
   changeType?: string;
   minUserImpact?: number;
   search?: string;
+  includeTechnical?: boolean;
 }
 
 export interface SiteChangeGitHubSyncResult {
@@ -126,6 +127,8 @@ export interface SiteChangeGitHubSyncResult {
   imported?: number;
   skipped?: number;
   groupsSuggested?: number;
+  reprocessed?: number;
+  technicalInternal?: number;
   commits?: string[];
   message?: string;
   error?: string;
@@ -554,6 +557,10 @@ const MODULE_LABELS: Record<string, Partial<Record<PortalUiLanguage, string>>> =
   quotes: { da: 'Tilbud', en: 'Quotes', de: 'Angebote', it: 'Offerte', hu: 'Ajánlatok', sv: 'Offerter', fr: 'Devis', pl: 'Oferty', cs: 'Nabídky' },
   orders: { da: 'Ordrer', en: 'Orders', de: 'Aufträge', it: 'Ordini', hu: 'Megrendelések', sv: 'Order', fr: 'Commandes', pl: 'Zamówienia', cs: 'Objednávky' },
   backend: { da: 'Backend', en: 'Backend', de: 'Backend', it: 'Backend', hu: 'Backend', sv: 'Backend', fr: 'Backend', pl: 'Backend', cs: 'Backend' },
+  sales: { da: 'Salg', en: 'Sales', de: 'Vertrieb', it: 'Vendite', hu: 'Értékesítés', sv: 'Försäljning', fr: 'Ventes', pl: 'Sprzedaż', cs: 'Prodej' },
+  ai_support: { da: 'AI Support', en: 'AI Support', de: 'AI Support', it: 'AI Support', hu: 'AI Support', sv: 'AI Support', fr: 'AI Support', pl: 'AI Support', cs: 'AI Support' },
+  academy: { da: 'Academy', en: 'Academy', de: 'Academy', it: 'Academy', hu: 'Academy', sv: 'Academy', fr: 'Academy', pl: 'Academy', cs: 'Academy' },
+  general: { da: 'Generelt', en: 'General', de: 'Allgemein', it: 'Generale', hu: 'Általános', sv: 'Allmänt', fr: 'Général', pl: 'Ogólne', cs: 'Obecné' },
   misc: { da: 'Formularer', en: 'Forms', de: 'Formulare', it: 'Moduli', hu: 'Űrlapok', sv: 'Formulär', fr: 'Formulaires', pl: 'Formularze', cs: 'Formuláře' },
   configurator: { da: 'Konfigurator', en: 'Configurator', de: 'Konfigurator', it: 'Configuratore', hu: 'Konfigurátor', sv: 'Konfigurator', fr: 'Configurateur', pl: 'Konfigurator', cs: 'Konfigurátor' },
   partner_map: { da: 'Partnerkort', en: 'Partner map', de: 'Partnerkarte', it: 'Mappa partner', hu: 'Partnertérkép', sv: 'Partnerkarta', fr: 'Carte partenaires', pl: 'Mapa partnerów', cs: 'Mapa partnerů' },
@@ -754,6 +761,9 @@ function applyFilters(query: ChangelogFilterQuery, options: ChangelogListOptions
   if (options.role && options.role !== 'all') q = q.contains('affected_roles', [options.role]);
   if (options.changeType && options.changeType !== 'all') q = q.eq('change_type', options.changeType);
   if (options.minUserImpact) q = q.gte('user_impact_score', options.minUserImpact);
+  if (!options.includeTechnical) {
+    q = q.neq('publish_recommendation', 'internal').neq('change_type', 'technical');
+  }
   if (options.search?.trim()) {
     const s = `%${options.search.trim()}%`;
     q = q.or(`title_internal.ilike.${s},description_internal.ilike.${s},title_public.ilike.${s},description_public.ilike.${s},source_ref.ilike.${s}`);
@@ -872,11 +882,6 @@ function groupSourceRef(ids: string[]): string {
   return `group:${ids.slice().sort().join(':').slice(0, 180)}`;
 }
 
-function groupDayKey(value: string): string {
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
-}
-
 function titleForGroupRows(rows: SiteChangeEntryRow[]): string {
   const localized = buildGroupedFeatureSuggestion(rows);
   return firstText(localized.da?.title, localized.en?.title, rows[0]?.title_internal, 'Samlet feature');
@@ -902,9 +907,8 @@ export async function adminCreateChangelogGroup(ids: string[]): Promise<{ row: S
   if (rows.length < 2) return { row: null, error: 'Gruppen kan kun oprettes af mindst to små, ikke-vigtige kandidater uden eksisterende gruppe.' };
 
   const module = rows[0].module;
-  const day = groupDayKey(rows[0].implemented_at);
-  if (!day || rows.some((row) => row.module !== module || groupDayKey(row.implemented_at) !== day)) {
-    return { row: null, error: 'Vælg kun ændringer fra samme modul og samme dato.' };
+  if (rows.some((row) => row.module !== module)) {
+    return { row: null, error: 'Vælg kun ændringer fra samme område.' };
   }
   if (!isCoherentSiteFeatureGroup(rows)) {
     return { row: null, error: 'Vælg kun ændringer, der beskriver den samme brugerrettede feature.' };
@@ -937,7 +941,9 @@ export async function adminCreateChangelogGroup(ids: string[]): Promise<{ row: S
     affected_roles: roles.length ? roles : ['all'],
     user_impact_score: Math.max(...rows.map((row) => row.user_impact_score), 3),
     technical_impact_score: Math.max(...rows.map((row) => row.technical_impact_score), 3),
-    publish_recommendation: 'maybe',
+    publish_recommendation: rows.every((row) => row.publish_recommendation === rows[0].publish_recommendation)
+      ? rows[0].publish_recommendation
+      : 'maybe',
     is_important: false,
     status: 'new',
     published_at: null,

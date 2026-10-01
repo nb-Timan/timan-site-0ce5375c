@@ -36,11 +36,11 @@ import {
 import { PORTAL_LANGUAGES, type PortalUiLanguage } from "@/lib/portalLanguages";
 
 const MODULES = [
-  "all", "crm", "leads", "dealer_portal", "dealer_data", "service",
+  "all", "sales", "crm", "leads", "dealer_portal", "dealer_data", "service", "ai_support", "academy",
   "messe", "marketing", "map", "warranty", "claims", "tsb",
-  "users", "budget", "quotes", "orders", "backend",
+  "users", "budget", "quotes", "orders", "backend", "general",
 ] as const;
-const TYPES = ["all", "feature", "improvement", "bugfix", "security", "performance", "backend", "data", "ui_ux", "integration"] as const;
+const TYPES = ["all", "feature", "improvement", "campaign", "bugfix", "technical", "security", "performance", "backend", "data", "ui_ux", "integration"] as const;
 const ROLES = [
   "all",
   "timan_backend",
@@ -90,7 +90,7 @@ const REC_LABEL_KEY: Record<SiteChangeRecommendation | "all", SiteFeatureI18nKey
   internal: "siteFeaturesRecInternal",
 };
 
-const MODULE_LABEL_KEY: Record<(typeof MODULES)[number], SiteFeatureI18nKey> = {
+const MODULE_LABEL_KEY: Partial<Record<(typeof MODULES)[number], SiteFeatureI18nKey>> = {
   all: "siteFeaturesAllModules",
   crm: "siteFeaturesModuleCrm",
   leads: "siteFeaturesModuleLeads",
@@ -121,6 +121,15 @@ const TYPE_LABEL_KEY: Record<(typeof TYPES)[number], SiteFeatureI18nKey> = {
   data: "siteFeaturesTypeData",
   ui_ux: "siteFeaturesTypeUiUx",
   integration: "siteFeaturesTypeIntegration",
+  campaign: "siteFeaturesTypeCampaign",
+  technical: "siteFeaturesTypeTechnical",
+};
+
+const CANONICAL_AREA_LABELS: Record<string, Partial<Record<PortalUiLanguage, string>>> = {
+  sales: { da: "Salg", en: "Sales", de: "Vertrieb", it: "Vendite", hu: "Értékesítés", sv: "Försäljning", fr: "Ventes", pl: "Sprzedaż", cs: "Prodej" },
+  ai_support: { da: "AI Support", en: "AI Support", de: "AI Support", it: "AI Support", hu: "AI Support", sv: "AI Support", fr: "AI Support", pl: "AI Support", cs: "AI Support" },
+  academy: { da: "Academy", en: "Academy", de: "Academy", it: "Academy", hu: "Academy", sv: "Academy", fr: "Academy", pl: "Academy", cs: "Academy" },
+  general: { da: "Generelt", en: "General", de: "Allgemein", it: "Generale", hu: "Általános", sv: "Allmänt", fr: "Général", pl: "Ogólne", cs: "Obecné" },
 };
 
 const DATE_LOCALE: Record<PortalUiLanguage, string> = {
@@ -169,7 +178,7 @@ function recommendationLabel(recommendation: SiteChangeRecommendation | "all", l
 
 function moduleLabel(module: string, lang: PortalUiLanguage): string {
   const key = MODULE_LABEL_KEY[module as (typeof MODULES)[number]];
-  return key ? t(key, lang) : module;
+  return key ? t(key, lang) : CANONICAL_AREA_LABELS[module]?.[lang] || CANONICAL_AREA_LABELS[module]?.en || module;
 }
 
 function changeTypeLabel(changeType: string, lang: PortalUiLanguage): string {
@@ -336,6 +345,7 @@ export default function BackendChangelogPage() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [minImpact, setMinImpact] = useState(0);
   const [search, setSearch] = useState("");
+  const [showTechnical, setShowTechnical] = useState(false);
   const [editing, setEditing] = useState<SiteChangeEntryRow | null>(null);
   const [draft, setDraft] = useState<ChangelogDraft>(emptyDraft());
   const [contentLanguage, setContentLanguage] = useState<PortalUiLanguage>(uiLanguage);
@@ -356,6 +366,7 @@ export default function BackendChangelogPage() {
       changeType: typeFilter,
       minUserImpact: minImpact || undefined,
       search,
+      includeTechnical: showTechnical,
     });
     setRows(result.rows);
     setCount(result.count);
@@ -366,7 +377,7 @@ export default function BackendChangelogPage() {
   useEffect(() => {
     if (!loading && appUser && canManage) void reload(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, appUser?.email, canManage, statusFilter, recFilter, moduleFilter, roleFilter, typeFilter, minImpact]);
+  }, [loading, appUser?.email, canManage, statusFilter, recFilter, moduleFilter, roleFilter, typeFilter, minImpact, showTechnical]);
 
   const applySearch = () => {
     setPage(0);
@@ -471,6 +482,8 @@ export default function BackendChangelogPage() {
       imported: result.imported ?? 0,
       skipped: result.skipped ?? 0,
       groups: result.groupsSuggested ?? 0,
+      reprocessed: result.reprocessed ?? 0,
+      technical: result.technicalInternal ?? 0,
     }));
     await reload(0);
   };
@@ -531,6 +544,7 @@ export default function BackendChangelogPage() {
       .map((row) => row.id),
   );
   const visibleRows = rows.filter((row) => {
+    if (!showTechnical && (row.publish_recommendation === "internal" || row.change_type === "technical")) return false;
     if (row.is_group) return coherentGroupIds.has(row.id);
     if (row.group_parent_id) return !coherentGroupIds.has(row.group_parent_id);
     return true;
@@ -627,13 +641,19 @@ export default function BackendChangelogPage() {
               {[0, 1, 3, 5, 7, 9].map((n) => <option key={n} value={n}>{n === 0 ? st("siteFeaturesAll") : `${n}+`}</option>)}
             </Select>
           </div>
-          <button
-            type="button"
-            onClick={applySearch}
-            className="mt-3 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-          >
-            {st("siteFeaturesApplySearch")}
-          </button>
+          <div className="mt-3 flex flex-wrap items-center gap-4">
+            <button
+              type="button"
+              onClick={applySearch}
+              className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              {st("siteFeaturesApplySearch")}
+            </button>
+            <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
+              <input type="checkbox" checked={showTechnical} onChange={(event) => setShowTechnical(event.target.checked)} />
+              {st("siteFeaturesShowTechnicalChanges")}
+            </label>
+          </div>
         </section>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]">
@@ -684,6 +704,11 @@ export default function BackendChangelogPage() {
                           </span>
                           <span className={`rounded-full px-2 py-0.5 ring-1 ${statusClass(row.status)}`}>
                             {statusLabel(row.status, uiLanguage)}
+                          </span>
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-200">
+                            {row.is_group && row.group_suggestion_status === "suggested"
+                              ? st("siteFeaturesRecMerge")
+                              : recommendationLabel(row.publish_recommendation, uiLanguage)}
                           </span>
                         </div>
                         <h3 className="mt-2 text-sm font-bold leading-snug text-slate-900 sm:text-base">{published.title}</h3>

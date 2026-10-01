@@ -41,6 +41,21 @@ describe('New features publication UX', () => {
     expect(page).toContain('localizedContentFromDraft(draft)');
   });
 
+  it('hides technical/internal candidates by default and keeps them explicitly available', () => {
+    expect(page).toContain('const [showTechnical, setShowTechnical] = useState(false);');
+    expect(page).toContain('row.publish_recommendation === "internal" || row.change_type === "technical"');
+    expect(page).toContain('includeTechnical: showTechnical');
+    expect(page).toContain('siteFeaturesShowTechnicalChanges');
+    expect(page).toContain('siteFeaturesRecMerge');
+  });
+
+  it('offers canonical campaign and technical publishing types', () => {
+    expect(page).toContain('"campaign"');
+    expect(page).toContain('"technical"');
+    expect(page).toContain('siteFeaturesTypeCampaign');
+    expect(page).toContain('siteFeaturesTypeTechnical');
+  });
+
   it('uses manual public copy before a generic generated fallback', () => {
     const published = getPublishedFeatureContent({
       module: 'dealer_data',

@@ -291,7 +291,7 @@ describe('site change service', () => {
     expect(service).toContain('adminCreateChangelogGroup');
     expect(service).toContain('adminRemoveChangeFromGroup');
     expect(service).toContain('adminSplitChangelogGroup');
-    expect(service).toContain('Vælg kun ændringer fra samme modul og samme dato.');
+    expect(service).toContain('Vælg kun ændringer fra samme område.');
     expect(service).toContain('Denne publicering består af');
 
     expect(page).toContain('selectedIds');
@@ -299,18 +299,22 @@ describe('site change service', () => {
     expect(page).toContain('siteFeaturesShowTechnicalHistory');
     expect(page).toContain('siteFeaturesRemoveFromGroup');
 
-    expect(edgeFunction).toContain('dailyGroupKeys(groupingCandidates)');
-    expect(edgeFunction).toContain('const groupingCandidates: Array<Pick<SiteChangeInsert, "module" | "implemented_at" | "title_internal" | "description_internal" | "technical_description">> = [...entries];');
+    expect(edgeFunction).toContain('semanticGroupKeys(groupingCandidates)');
+    expect(edgeFunction).toContain('if (!resolveUserFacingSiteFeature(entries[0], "da"))');
+    expect(edgeFunction).toContain('let groupingCandidates: StoredGitHubEntry[] = []');
     expect(edgeFunction).toContain('if (body.mode === "manual")');
-    expect(edgeFunction).toContain('.is("group_parent_id", null)');
-    expect(edgeFunction).toContain('const publishedSource = entries.find((entry) => entry.status === "published");');
-    expect(edgeFunction).toContain('status: publishedSource ? "published" : "new"');
+    expect(edgeFunction).toContain('.eq("status", "new")');
+    expect(edgeFunction).toContain('.is("reviewed_at", null)');
+    expect(edgeFunction).toContain('if (existingGroup?.status === "published") continue;');
     expect(edgeFunction).toContain('.eq("source", "github")');
     expect(edgeFunction).toContain('priorAutomaticGroupIds');
-    expect(edgeFunction).toContain('dailyGroupSourceRef');
-    expect(edgeFunction).toContain('github-day:${module}:${date}:${topic}');
-    expect(edgeFunction).toContain('const date = dayKey(entry.implemented_at)');
-    expect(edgeFunction).toContain('keys.set(`${entry.module}:${date}:${topic}`, { module: entry.module, date, topic });');
+    expect(edgeFunction).toContain('semanticGroupSourceRef');
+    expect(edgeFunction).toContain('github-topic:${module}:${topic}');
+    expect(edgeFunction).toContain('keys.set(`${entry.module}:${topic}`, { module: entry.module, topic });');
+    expect(edgeFunction).toContain('reprocessedEntryPatch');
+    expect(edgeFunction).toContain('hasConcretePublicCopy');
+    expect(edgeFunction).toContain('recommendation: "internal" as const');
+    expect(edgeFunction).toContain('technicalInternal');
     expect(edgeFunction).toContain('groupsSuggested');
     expect(edgeFunction).toContain('type SiteChangeGroupSuggestion');
     expect(edgeFunction).toContain('.eq("source_ref", suggestion.group.source_ref)');
