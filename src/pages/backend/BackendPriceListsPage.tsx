@@ -45,6 +45,7 @@ import {
   type PreviewRow,
   type ImportSummary,
   type CsvPriceRow,
+  type PriceImportMode,
 } from "@/lib/priceListService";
 import {
   DEFAULT_PRICE_TOOL_SETTINGS,
@@ -112,6 +113,7 @@ export default function BackendPriceListsPage() {
   const [logs, setLogs] = useState<PriceListImportLog[]>([]);
   const [filter, setFilter] = useState<"all" | "create" | "update" | "skip" | "error">("all");
   const [productScope, setProductScope] = useState<ProductScope>("all");
+  const [importMode, setImportMode] = useState<PriceImportMode>("COST_ONLY");
 
   async function reload() {
     setLoadingItems(true);
@@ -196,6 +198,17 @@ export default function BackendPriceListsPage() {
   if (!appUser) return <Navigate to="/portal" replace />;
   if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
+  function openImportMode(mode: PriceImportMode) {
+    setImportMode(mode);
+    setSummary(null);
+    setPreview(null);
+    setFileName(null);
+    setParseErrors([]);
+    setImportFormat(null);
+    setFilter("all");
+    setTab("import");
+  }
+
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     setSummary(null); setPreview(null); setParseErrors([]); setImportFormat(null);
     const f = e.target.files?.[0];
@@ -211,7 +224,7 @@ export default function BackendPriceListsPage() {
         const scopedRows = filterCsvRowsByScope(rows, productScope, groupMap);
         setParseErrors(pe);
         setImportFormat(format);
-        setPreview(buildPreview(scopedRows, exportItems, new Set(items.map((item) => item.item_number.trim()))));
+        setPreview(buildPreview(scopedRows, exportItems, importMode, new Set(items.map((item) => item.item_number.trim()))));
         if (scopedRows.length !== rows.length) {
           toast.info(`${rows.length - scopedRows.length} rækker blev sprunget over pga. valgt maskine.`);
         }
@@ -228,6 +241,7 @@ export default function BackendPriceListsPage() {
 
   function loadFromConfigurator(scope: ProductScope = "all") {
     setSummary(null); setParseErrors([]);
+    setImportMode("FULL_PRICE_LIST");
     try {
       const seed = buildConfiguratorSeed().filter((s) => scope === "all" || s.group === scope);
       const rows: CsvPriceRow[] = seed.map((s) => ({
@@ -240,7 +254,7 @@ export default function BackendPriceListsPage() {
       }));
       setFileName("konfigurator-seed");
       setImportFormat("standard");
-      setPreview(buildPreview(rows, exportItems, new Set(items.map((item) => item.item_number.trim()))));
+      setPreview(buildPreview(rows, exportItems, "FULL_PRICE_LIST", new Set(items.map((item) => item.item_number.trim()))));
       setTab("import");
       toast.success(`${rows.length} varer hentet fra konfiguratoren – tjek forhåndsvisning.`);
     } catch (err) {
@@ -251,7 +265,7 @@ export default function BackendPriceListsPage() {
   async function onConfirm() {
     if (!preview) return;
     setBusy(true);
-    const res = await runImport(preview, fileName);
+    const res = await runImport(preview, fileName, importMode, productScope);
     setBusy(false);
     if (!res.ok || !res.summary) { toast.error(res.error ?? "Import fejlede."); return; }
     setSummary(res.summary);
@@ -340,25 +354,33 @@ export default function BackendPriceListsPage() {
             <FlowStepButton active={tab === "list"} onClick={() => setTab("list")}>
               Se nuværende prisliste
             </FlowStepButton>
-            <FlowStepButton active={tab === "import"} onClick={() => setTab("import")}>
+            <FlowStepButton active={tab === "import" && importMode === "COST_ONLY"} onClick={() => openImportMode("COST_ONLY")}>
               1. Upload kostpriser
             </FlowStepButton>
             <FlowStepButton active={tab === "export"} onClick={() => setTab("export")}>
               2. Eksportér prisliste
             </FlowStepButton>
-            <FlowStepButton active={tab === "import"} onClick={() => setTab("import")}>
-              3. Indlæs redigeret prisliste
+            <FlowStepButton active={tab === "import" && importMode === "FULL_PRICE_LIST"} onClick={() => openImportMode("FULL_PRICE_LIST")}>
+              3. Upload redigeret prisliste
             </FlowStepButton>
-            <button
-              type="button"
-              onClick={() => loadFromConfigurator("all")}
-              className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
-              title="Bygger en forhåndsvisning fra konfiguratorens nuværende produkt- og tilbehørsdata. Konfiguratorens prislogik ændres ikke."
-            >
-              <Database className="h-3.5 w-3.5" />
-              Indlæs fra eksisterende konfigurator-data
-            </button>
           </div>
+          <details className="mt-4 border-t border-slate-200 pt-3">
+            <summary className="cursor-pointer text-xs font-semibold text-slate-600">Systemværktøjer</summary>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => loadFromConfigurator("all")}
+                className="inline-flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 hover:bg-indigo-100"
+                title="Bootstrapper prislisten fra Configuratorens nuværende produkt- og tilbehørsdata. Configuratorens prislogik ændres ikke."
+              >
+                <Database className="h-3.5 w-3.5" />
+                Indlæs fra eksisterende Configurator-data
+              </button>
+              <p className="max-w-2xl text-xs text-slate-500">
+                Backend-only bootstrap/synkronisering. Bruges ikke til den normale prisopdatering.
+              </p>
+            </div>
+          </details>
         </div>
 
         {tab === "list" && (
@@ -518,17 +540,29 @@ export default function BackendPriceListsPage() {
         {tab === "import" && (
           <>
             <section className="bg-white border border-slate-200 rounded-2xl p-5 mb-6">
-              <h2 className="font-bold text-slate-900 mb-2">Upload kostpriser</h2>
+              <h2 className="font-bold text-slate-900 mb-2">
+                {importMode === "COST_ONLY" ? "Upload kostpriser" : "Upload redigeret prisliste"}
+              </h2>
+              {importMode === "COST_ONLY" ? (
+                <p className="text-xs text-slate-600 mb-3">
+                  Upload Excel eller CSV med varenr. og kostpris. Denne arbejdsgang kan kun ændre kostpris DKK.
+                  Varetekst, salgspriser, kurser, rabatter og øvrige kolonner ignoreres ved import.
+                </p>
+              ) : (
+                <p className="text-xs text-slate-600 mb-3">
+                  Upload en redigeret fuld prisliste. Den eksisterende round-trip validering viser ændringer i kostpris,
+                  varetekst og understøttede salgspriser, før de anvendes.
+                </p>
+              )}
               <p className="text-xs text-slate-600 mb-3">
-                Upload et Excel- eller CSV-ark med varenr. og kostpris. Hvis arket også indeholder varetekst eller salgspriser,
-                kan de felter også opdateres i samme forhåndsvisning.
-              </p>
-              <p className="text-xs text-slate-600 mb-3">
-                Portalens prislistværktøj genkendes automatisk. Standard CSV/XLSX understøtter kolonnerne (case-insensitive): varenr / item_number, varetekst_da / item_text_da,
-                kostpris_dkk / cost_price_dkk, pris_dkk / price_dkk, pris_sek / price_sek, pris_eur / price_eur. Tomme felter overskriver
-                aldrig eksisterende værdier, og ingen varer slettes.
+                Portalens prislistværktøj genkendes automatisk. Tomme felter overskriver aldrig eksisterende værdier,
+                og ingen varer slettes.
               </p>
               <ProductScopeSelect value={productScope} onChange={setProductScope} />
+              <p className="-mt-3 mb-4 text-[11px] text-slate-500">
+                Alle maskiner betyder, at filens varenr. kan matches på tværs af de 6 canonical produktgrupper.
+                Kun rækker i den uploadede fil kan indgå i importen.
+              </p>
               <div className="flex items-center gap-3 flex-wrap">
                 <input type="file" accept=".csv,text/csv,.xlsx,.xls" onChange={onFile} disabled={loadingItems} className="block text-sm" />
                 {fileName && (
@@ -538,7 +572,7 @@ export default function BackendPriceListsPage() {
                 )}
                 {importFormat && (
                   <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
-                    Format: {importFormat === "price_tool" ? "Timan prislistværktøj" : "Standard prisimport"}
+                    Format: {importFormat === "price_tool" ? "Timan prislistværktøj" : "Standard prisimport"} · {importMode}
                   </span>
                 )}
               </div>
@@ -554,12 +588,16 @@ export default function BackendPriceListsPage() {
 
             {preview && !summary && (
               <section className="bg-white border border-slate-200 rounded-2xl p-5 mb-6">
-                <h2 className="font-bold text-slate-900 mb-3">2. Forhåndsvisning</h2>
+                <h2 className="font-bold text-slate-900 mb-3">
+                  {importMode === "COST_ONLY" ? "Forhåndsvisning af kostpriser" : "Forhåndsvisning af fuld prisliste"}
+                </h2>
                 <div className="flex flex-wrap gap-2 mb-3">
                   <Bucket label="Alle" value={preview.length} active={filter === "all"} onClick={() => setFilter("all")} color="slate" />
-                  <Bucket label="Nye" value={counts.create} active={filter === "create"} onClick={() => setFilter("create")} color="emerald" />
+                  {importMode === "FULL_PRICE_LIST" && (
+                    <Bucket label="Nye" value={counts.create} active={filter === "create"} onClick={() => setFilter("create")} color="emerald" />
+                  )}
                   <Bucket label="Opdateres" value={counts.update} active={filter === "update"} onClick={() => setFilter("update")} color="amber" />
-                  <Bucket label="Sprunget over" value={counts.skip} active={filter === "skip"} onClick={() => setFilter("skip")} color="slate" />
+                  <Bucket label={importMode === "COST_ONLY" ? "Uændrede / springes over" : "Sprunget over"} value={counts.skip} active={filter === "skip"} onClick={() => setFilter("skip")} color="slate" />
                   <Bucket label="Fejl" value={counts.error} active={filter === "error"} onClick={() => setFilter("error")} color="rose" />
                 </div>
 
@@ -567,15 +605,24 @@ export default function BackendPriceListsPage() {
                   <table className="min-w-full text-xs">
                     <thead className="bg-slate-50 sticky top-0">
                       <tr className="text-left text-slate-600">
-                        <th className="px-2 py-1.5">#</th>
+                        {importMode === "FULL_PRICE_LIST" && <th className="px-2 py-1.5">#</th>}
                         <th className="px-2 py-1.5">Status</th>
                         <th className="px-2 py-1.5">Produktgruppe</th>
                         <th className="px-2 py-1.5">Varenr.</th>
                         <th className="px-2 py-1.5">Varetekst</th>
-                        <th className="px-2 py-1.5 text-right">Kostpris DKK</th>
-                        <th className="px-2 py-1.5 text-right">Pris DKK</th>
-                        <th className="px-2 py-1.5 text-right">Pris SEK</th>
-                        <th className="px-2 py-1.5 text-right">Pris EUR</th>
+                        {importMode === "COST_ONLY" ? (
+                          <>
+                            <th className="px-2 py-1.5 text-right">Nuværende kostpris</th>
+                            <th className="px-2 py-1.5 text-right">Ny kostpris</th>
+                          </>
+                        ) : (
+                          <>
+                            <th className="px-2 py-1.5 text-right">Kostpris DKK</th>
+                            <th className="px-2 py-1.5 text-right">Pris DKK</th>
+                            <th className="px-2 py-1.5 text-right">Pris SEK</th>
+                            <th className="px-2 py-1.5 text-right">Pris EUR</th>
+                          </>
+                        )}
                         <th className="px-2 py-1.5">Ændringer / fejl</th>
                       </tr>
                     </thead>
@@ -585,23 +632,42 @@ export default function BackendPriceListsPage() {
                         const nonPriceChanges = p.changes.filter((c) => c.field === "item_text_da");
                         return (
                         <tr key={p.rowIndex} className="border-t border-slate-100 align-top">
-                          <td className="px-2 py-1.5 font-mono text-slate-400">{p.rowIndex}</td>
+                          {importMode === "FULL_PRICE_LIST" && <td className="px-2 py-1.5 font-mono text-slate-400">{p.rowIndex}</td>}
                           <td className="px-2 py-1.5"><StatusPill bucket={p.bucket} /></td>
                           <td className="px-2 py-1.5">
                             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">{grp}</span>
                           </td>
                           <td className="px-2 py-1.5 font-mono">{p.item_number ?? "—"}</td>
-                          <td className="px-2 py-1.5">{p.raw.item_text_da || p.existing?.item_text_da || "—"}</td>
-                          <PriceCell p={p} field="cost_price_dkk" />
-                          <PriceCell p={p} field="price_dkk" />
-                          <PriceCell p={p} field="price_sek" />
-                          <PriceCell p={p} field="price_eur" />
+                          <td className="px-2 py-1.5">
+                            {importMode === "COST_ONLY"
+                              ? (p.existing?.item_text_da || "—")
+                              : (p.raw.item_text_da || p.existing?.item_text_da || "—")}
+                          </td>
+                          {importMode === "COST_ONLY" ? (
+                            <>
+                              <td className="px-2 py-1.5 text-right font-mono text-slate-600">
+                                {fmtPrice(p.existing?.cost_price_dkk ?? null)}
+                              </td>
+                              <td className="px-2 py-1.5 text-right font-mono font-semibold text-amber-800">
+                                {fmtPriceStr(p.raw.cost_price_dkk)}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <PriceCell p={p} field="cost_price_dkk" />
+                              <PriceCell p={p} field="price_dkk" />
+                              <PriceCell p={p} field="price_sek" />
+                              <PriceCell p={p} field="price_eur" />
+                            </>
+                          )}
                           <td className="px-2 py-1.5">
                             {p.bucket === "error" && <span className="text-rose-700">{p.errorMessage}</span>}
                             {p.bucket === "create" && <span className="text-emerald-700">Opretter ny vare.</span>}
                             {p.bucket === "skip" && <span className="text-slate-500">Ingen ændringer.</span>}
                             {p.bucket === "update" && (
-                              nonPriceChanges.length === 0
+                              importMode === "COST_ONLY"
+                                ? <span className="text-amber-800">Kostpris opdateres.</span>
+                                : nonPriceChanges.length === 0
                                 ? <span className="text-slate-500">
                                     {p.existingPersisted ? "Kun prisændringer." : "Opdaterer eksisterende Configurator-vare."}
                                   </span>
@@ -642,7 +708,11 @@ export default function BackendPriceListsPage() {
                     className="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
                   >
                     <Upload className="h-4 w-4" />
-                    {busy ? "Importerer…" : `Importér priser (${counts.create + counts.update})`}
+                    {busy
+                      ? "Importerer…"
+                      : importMode === "COST_ONLY"
+                        ? `Importér kostpriser (${counts.update})`
+                        : `Importér priser (${counts.create + counts.update})`}
                   </button>
                 </div>
               </section>
@@ -655,8 +725,11 @@ export default function BackendPriceListsPage() {
                   <div className="flex-1">
                     <h2 className="font-bold text-emerald-900">Import gennemført</h2>
                     <p className="mt-1 text-sm text-emerald-900">
-                      <strong>{summary.created}</strong> oprettet, <strong>{summary.updated}</strong> opdateret,{" "}
-                      <strong>{summary.skipped}</strong> sprunget over.
+                      {importMode === "COST_ONLY" ? (
+                        <><strong>{summary.updated}</strong> kostpriser opdateret, <strong>{summary.skipped}</strong> uændrede.</>
+                      ) : (
+                        <><strong>{summary.created}</strong> oprettet, <strong>{summary.updated}</strong> opdateret, <strong>{summary.skipped}</strong> sprunget over.</>
+                      )}
                     </p>
                     {summary.errors.length > 0 && (
                       <details className="mt-3">
@@ -694,6 +767,9 @@ export default function BackendPriceListsPage() {
                         <th className="px-3 py-2 text-left">Tidspunkt</th>
                         <th className="px-3 py-2 text-left">Bruger</th>
                         <th className="px-3 py-2 text-left">Fil</th>
+                        <th className="px-3 py-2 text-left">Type</th>
+                        <th className="px-3 py-2 text-left">Scope</th>
+                        <th className="px-3 py-2 text-right">Rækker</th>
                         <th className="px-3 py-2 text-right">Oprettet</th>
                         <th className="px-3 py-2 text-right">Opdateret</th>
                         <th className="px-3 py-2 text-right">Sprunget over</th>
@@ -706,6 +782,11 @@ export default function BackendPriceListsPage() {
                           <td className="px-3 py-2 text-xs">{new Date(l.imported_at).toLocaleString("da-DK")}</td>
                           <td className="px-3 py-2 text-xs">{l.imported_by_email ?? "—"}</td>
                           <td className="px-3 py-2 text-xs">{l.file_name ?? "—"}</td>
+                          <td className="px-3 py-2 text-xs font-semibold">
+                            {l.import_mode === "COST_ONLY" ? "Kostprisimport" : "Fuld prislisteimport"}
+                          </td>
+                          <td className="px-3 py-2 text-xs">{l.machine_scope === "all" ? "Alle maskiner" : l.machine_scope}</td>
+                          <td className="px-3 py-2 text-right font-mono">{l.processed_count}</td>
                           <td className="px-3 py-2 text-right font-mono">{l.created_count}</td>
                           <td className="px-3 py-2 text-right font-mono">{l.updated_count}</td>
                           <td className="px-3 py-2 text-right font-mono">{l.skipped_count}</td>

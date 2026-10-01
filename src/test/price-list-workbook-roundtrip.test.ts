@@ -162,7 +162,7 @@ describe("parsePriceWorkbook", () => {
       id: "stored-410040",
     }];
     const canonical = mergeCanonicalPriceItems(rc751Seeds, persisted);
-    const preview = buildPreview(parsedRows, canonical, new Set(["410040"]));
+    const preview = buildPreview(parsedRows, canonical, "FULL_PRICE_LIST", new Set(["410040"]));
 
     expect(RC751_PRICE_TOOL_FIXTURE.every((row) => canonical.some((item) => item.item_number === row.item_number))).toBe(true);
     expect(new Set(canonical.map((row) => row.item_number)).size).toBe(canonical.length);
@@ -180,7 +180,7 @@ describe("parsePriceWorkbook", () => {
     });
 
     const afterImport = parsedRows.map((row) => priceItemFromImportedRow(row));
-    expect(buildPreview(parsedRows, afterImport).every((row) => row.bucket === "skip")).toBe(true);
+    expect(buildPreview(parsedRows, afterImport, "FULL_PRICE_LIST").every((row) => row.bucket === "skip")).toBe(true);
   });
 
   it("bevarer database-upsertens canonical varenummer-unikhed", () => {

@@ -48,6 +48,10 @@ export interface PriceListImportLog {
   updated_count: number;
   skipped_count: number;
   error_count: number;
+  import_mode: PriceImportMode;
+  machine_scope: string;
+  processed_count: number;
+  item_numbers: string[];
 }
 
 export const PRICE_HISTORY_PRICE_FIELDS = [
@@ -117,6 +121,10 @@ export function priceHistoryDelta(entry: Pick<PriceListHistoryEntry, 'old_numeri
 export const PRICE_FIELDS = ["item_text_da", "cost_price_dkk", "price_dkk", "price_sek", "price_eur"] as const;
 export type PriceField = typeof PRICE_FIELDS[number];
 
+export const PRICE_IMPORT_MODES = ["COST_ONLY", "FULL_PRICE_LIST"] as const;
+export type PriceImportMode = typeof PRICE_IMPORT_MODES[number];
+export const COST_ONLY_WRITE_FIELDS = ["cost_price_dkk"] as const;
+
 export interface CsvPriceRow {
   item_number: string;
   item_text_da?: string;
@@ -171,7 +179,7 @@ export async function listPriceItems(): Promise<PriceListItem[]> {
 export async function listImportLogs(): Promise<PriceListImportLog[]> {
   const { data, error } = await supabase
     .from("price_list_import_logs")
-    .select("id, imported_by_email, imported_at, file_name, created_count, updated_count, skipped_count, error_count")
+    .select("id, imported_by_email, imported_at, file_name, created_count, updated_count, skipped_count, error_count, import_mode, machine_scope, processed_count, item_numbers")
     .order("imported_at", { ascending: false })
     .limit(50);
   if (error) return [];
@@ -357,6 +365,13 @@ export interface ParseResult {
   settings?: PriceToolSettings;
 }
 
+export interface PriceImportPayload {
+  import_mode: PriceImportMode;
+  machine_scope: string;
+  file_name: string | null;
+  rows: Array<Record<string, string>>;
+}
+
 export function parsePriceCsv(text: string): ParseResult {
   const stripped = text.replace(/^\uFEFF/, "");
   const out = Papa.parse<Record<string, string>>(stripped, {
@@ -476,9 +491,15 @@ function parsePrice(s: string | undefined): number | null {
   const t = s.trim().replace(/\s/g, "");
   if (!t) return null;
   // Accept "1.234,56" and "1234.56"
-  const normalized = t.includes(",") && !t.includes(".")
-    ? t.replace(/\./g, "").replace(",", ".")
-    : t.replace(/,/g, "");
+  const hasComma = t.includes(",");
+  const hasDot = t.includes(".");
+  const normalized = hasComma && hasDot
+    ? t.lastIndexOf(",") > t.lastIndexOf(".")
+      ? t.replace(/\./g, "").replace(",", ".")
+      : t.replace(/,/g, "")
+    : hasComma
+      ? t.replace(",", ".")
+      : t;
   const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
 }
@@ -499,6 +520,7 @@ function rawValue(r: CsvPriceRow, field: PriceField): string {
 export function buildPreview(
   rows: CsvPriceRow[],
   existing: PriceListItem[],
+  mode: PriceImportMode,
   persistedItemNumbers: ReadonlySet<string> = new Set(existing.map((item) => item.item_number.trim())),
 ): PreviewRow[] {
   const byKey = new Map<string, PriceListItem>();
@@ -529,8 +551,12 @@ export function buildPreview(
     }
     seen.add(key);
 
-    // Validate numeric fields explicitly so user sees parse errors.
-    for (const f of ["cost_price_dkk", "price_dkk", "price_sek", "price_eur"] as const) {
+    const numericFields = mode === "COST_ONLY"
+      ? COST_ONLY_WRITE_FIELDS
+      : (["cost_price_dkk", "price_dkk", "price_sek", "price_eur"] as const);
+
+    // Cost-only intentionally ignores every non-cost column, including malformed values.
+    for (const f of numericFields) {
       const v = (raw[f] ?? "").trim();
       if (v && parsePrice(v) == null) {
         out.push({
@@ -544,12 +570,30 @@ export function buildPreview(
 
     const existingRow = byKey.get(key) ?? null;
     if (!existingRow) {
+      if (mode === "COST_ONLY") {
+        out.push({
+          rowIndex, bucket: "error", item_number: key,
+          raw, existing: null, existingPersisted: false, changes: [],
+          errorMessage: "Varenr. findes ikke i den gemte prisliste. Kostprisimport opretter aldrig nye varer.",
+        });
+        return;
+      }
       out.push({ rowIndex, bucket: "create", item_number: key, raw, existing: null, existingPersisted: false, changes: [] });
       return;
     }
 
+    if (mode === "COST_ONLY" && !persistedItemNumbers.has(key)) {
+      out.push({
+        rowIndex, bucket: "error", item_number: key,
+        raw, existing: existingRow, existingPersisted: false, changes: [],
+        errorMessage: "Varenr. findes kun i Configurator-grunddata. Opret varen via fuld prisliste eller Systemværktøjer først.",
+      });
+      return;
+    }
+
     const changes: FieldChange[] = [];
-    for (const field of PRICE_FIELDS) {
+    const comparedFields: readonly PriceField[] = mode === "COST_ONLY" ? COST_ONLY_WRITE_FIELDS : PRICE_FIELDS;
+    for (const field of comparedFields) {
       const newVal = rawValue(raw, field);
       if (!newVal) continue; // empty CSV cell -> never overwrites
       const oldVal = existingValue(existingRow, field);
@@ -585,28 +629,14 @@ export function mergeCanonicalPriceItems(
 export async function runImport(
   preview: PreviewRow[],
   fileName: string | null,
+  mode: PriceImportMode,
+  machineScope: string,
 ): Promise<{ ok: boolean; summary?: ImportSummary; error?: string }> {
-  const toSend = preview
-    .filter((p) => p.bucket === "create" || p.bucket === "update")
-    .map((p) => {
-      const r = p.raw;
-      const dkk = parsePrice(r.price_dkk);
-      const eur = parsePrice(r.price_eur);
-      const sek = parsePrice(r.price_sek);
-      const costDkk = parsePrice(r.cost_price_dkk);
-      return {
-        item_number: p.item_number!,
-        item_text_da: r.item_text_da?.trim() || "",
-        cost_price_dkk: costDkk == null ? "" : String(costDkk),
-        price_dkk: dkk == null ? "" : String(dkk),
-        price_eur: eur == null ? "" : String(eur),
-        price_sek: sek == null ? "" : String(sek),
-      };
-    });
+  const payload = buildPriceImportPayload(preview, fileName, mode, machineScope);
 
   try {
     const { data, error } = await supabase.rpc("upsert_price_list_items", {
-      payload: { rows: toSend, file_name: fileName },
+      payload,
     });
     if (error) throw error;
     const d = (data ?? {}) as Record<string, unknown>;
@@ -617,48 +647,49 @@ export async function runImport(
       errors: Array.isArray(d.errors) ? (d.errors as ImportSummary["errors"]) : [],
     };
 
-    const csvErrors = preview.filter((p) => p.bucket === "error");
-    const totalErrors = rpcSummary.errors.length + csvErrors.length;
-    const totalSkipped = rpcSummary.skipped + preview.filter((p) => p.bucket === "skip").length;
-    const failedItems = new Set(rpcSummary.errors.map((entry) => entry.item_number).filter(Boolean));
-    const canonicalCreated = preview.filter((row) => row.bucket === "create" && !failedItems.has(row.item_number)).length;
-    const canonicalUpdated = preview.filter((row) => row.bucket === "update" && !failedItems.has(row.item_number)).length;
-
-    try {
-      const { data: sess } = await supabase.auth.getUser();
-      await supabase.from("price_list_import_logs").insert({
-        imported_by: sess.user?.id ?? null,
-        imported_by_email: sess.user?.email ?? null,
-        file_name: fileName,
-        created_count: rpcSummary.created,
-        updated_count: rpcSummary.updated,
-        skipped_count: totalSkipped,
-        error_count: totalErrors,
-        errors: [
-          ...rpcSummary.errors,
-          ...csvErrors.map((e) => ({ item_number: e.item_number, error: e.errorMessage || "csv error" })),
-        ],
-      });
-    } catch (logErr) {
-      // eslint-disable-next-line no-console
-      console.warn("[priceListService] log insert failed:", logErr);
-    }
-
     return {
       ok: true,
-      summary: {
-        created: canonicalCreated,
-        updated: canonicalUpdated,
-        skipped: totalSkipped,
-        errors: [
-          ...rpcSummary.errors,
-          ...csvErrors.map((e) => ({ item_number: e.item_number, error: e.errorMessage || "csv error" })),
-        ],
-      },
+      summary: rpcSummary,
     };
   } catch (e) {
     return { ok: false, error: describeError(e) };
   }
+}
+
+export function buildPriceImportPayload(
+  preview: PreviewRow[],
+  fileName: string | null,
+  mode: PriceImportMode,
+  machineScope: string,
+): PriceImportPayload {
+  const rows = preview.map((entry) => {
+    const raw = entry.raw;
+    const itemNumber = (entry.item_number ?? raw.item_number ?? "").trim();
+    const costDkk = parsePrice(raw.cost_price_dkk);
+    const costOnlyRow = {
+      item_number: itemNumber,
+      cost_price_dkk: costDkk == null ? (raw.cost_price_dkk?.trim() ?? "") : String(costDkk),
+    };
+    if (mode === "COST_ONLY") return costOnlyRow;
+
+    const dkk = parsePrice(raw.price_dkk);
+    const eur = parsePrice(raw.price_eur);
+    const sek = parsePrice(raw.price_sek);
+    return {
+      ...costOnlyRow,
+      item_text_da: raw.item_text_da?.trim() || "",
+      price_dkk: dkk == null ? (raw.price_dkk?.trim() ?? "") : String(dkk),
+      price_eur: eur == null ? (raw.price_eur?.trim() ?? "") : String(eur),
+      price_sek: sek == null ? (raw.price_sek?.trim() ?? "") : String(sek),
+    };
+  });
+
+  return {
+    import_mode: mode,
+    machine_scope: machineScope,
+    file_name: fileName,
+    rows,
+  };
 }
 
 /* ---------------- Export ---------------- */
