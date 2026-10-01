@@ -26,21 +26,25 @@ describe('CRM submitted-order read-only confirmation', () => {
     expect(page).toContain('REK./PO: {r.purchase_order_number}');
   });
 
-  it('allows only Backend and Seller to open the scoped, persisted submitted-order snapshot', () => {
+  it('allows only Backend and Seller to open scoped, persisted sales snapshots', () => {
     const page = readFileSync('src/pages/crm/CrmQuotesOrdersPage.tsx', 'utf8');
 
-    expect(page).toContain("const canOpenSubmittedOrder = mode === 'order' && (portalRole === 'timan_backend' || portalRole === 'timan_seller');");
+    expect(page).toContain("const canOpenSalesDocument = portalRole === 'timan_backend' || portalRole === 'timan_seller';");
     expect(page.indexOf('fetchCrmConfigurationVisible(row.id, scope)')).toBeLessThan(page.indexOf('loadSubmittedOrderConfirmation(row.id, ownerEmail, effectiveUser?.id)'));
-    expect(page).toContain('ReadOnlyOrderConfirmationModal');
+    expect(page.indexOf('fetchCrmConfigurationVisible(row.id, scope)')).toBeLessThan(page.indexOf('loadConfigurationByIdUnscoped(row.id, ownerEmail)'));
+    expect(page).toContain('ReadOnlySalesDocumentModal');
+    expect(page).toContain('void handleOpenSalesDocument(r)');
     expect(page).toContain("const canEditOrderContacts = portalRole === 'timan_backend' && mode === 'order';");
   });
 
-  it('renders the confirmation from the saved state and never exposes editable order fields', () => {
-    const modal = readFileSync('src/components/crm/ReadOnlyOrderConfirmationModal.tsx', 'utf8');
+  it('renders both confirmations from the saved state and never exposes editable commercial fields', () => {
+    const modal = readFileSync('src/components/crm/ReadOnlySalesDocumentModal.tsx', 'utf8');
 
-    expect(modal).toContain('buildSubmittedOrderDocument(state)');
+    expect(modal).toContain('buildReadOnlySalesDocument(state)');
     expect(modal).toContain('orderPurchaseReferenceSummary(state)');
     expect(modal).toContain('group.purchaseReference');
+    expect(modal).toContain('buildAccountOrderDiscountRows(state.pricingSnapshot');
     expect(modal).not.toMatch(/<input|<textarea|onChange=/);
+    expect(modal).not.toMatch(/cost|margin|contribution/i);
   });
 });

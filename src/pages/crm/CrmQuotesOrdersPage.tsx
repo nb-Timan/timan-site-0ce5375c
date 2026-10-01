@@ -25,7 +25,7 @@ import CrmLayout from '@/components/crm/CrmLayout';
 import EditOrderContactModal from '@/components/crm/EditOrderContactModal';
 import EditOrderTimelineModal from '@/components/crm/EditOrderTimelineModal';
 import SubmittedOrderRevisionHistoryModal from '@/components/crm/SubmittedOrderRevisionHistoryModal';
-import ReadOnlyOrderConfirmationModal from '@/components/crm/ReadOnlyOrderConfirmationModal';
+import ReadOnlySalesDocumentModal, { type ReadOnlySalesDocumentType } from '@/components/crm/ReadOnlySalesDocumentModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { loadSubmittedOrderConfirmation } from '@/lib/configurationsService';
@@ -283,8 +283,8 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const [editingRow, setEditingRow] = useState<CrmConfigurationRow | null>(null);
   const [editingTimelineRow, setEditingTimelineRow] = useState<CrmConfigurationRow | null>(null);
   const [revisionRow, setRevisionRow] = useState<CrmConfigurationRow | null>(null);
-  const [openedOrder, setOpenedOrder] = useState<SavedConfiguration | null>(null);
-  const [openingOrderId, setOpeningOrderId] = useState<string | null>(null);
+  const [openedDocument, setOpenedDocument] = useState<{ document: SavedConfiguration; type: ReadOnlySalesDocumentType } | null>(null);
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
   const [deletingRow, setDeletingRow] = useState<CrmConfigurationRow | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
 
@@ -296,7 +296,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   // when Backend is viewing the portal with a seller or external scope.
   const canEditOrderContacts = portalRole === 'timan_backend' && mode === 'order';
   const canReopenSubmittedOrder = isBackendFull && mode === 'order';
-  const canOpenSubmittedOrder = mode === 'order' && (portalRole === 'timan_backend' || portalRole === 'timan_seller');
+  const canOpenSalesDocument = portalRole === 'timan_backend' || portalRole === 'timan_seller';
   // Soft-delete UI is Backend-only and hidden in seller-view mode / external roles.
   const canDelete = isBackendFull;
 
@@ -370,16 +370,16 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
     if (canEditOrderContacts) setEditingRow(r);
   }, [canEditOrderContacts]);
 
-  const handleOpenSubmittedOrder = useCallback(async (row: CrmConfigurationRow) => {
-    if (openingOrderId) return;
-    setOpeningOrderId(row.id);
+  const handleOpenSalesDocument = useCallback(async (row: CrmConfigurationRow) => {
+    if (openingDocumentId || !canOpenSalesDocument) return;
+    setOpeningDocumentId(row.id);
     try {
       // View-as runs under the Backend JWT, so enforce the effective CRM
       // scope before loading the full persisted snapshot.
       const scope = await buildCurrentCrmScope();
       const { row: visible, error: visibilityError } = await fetchCrmConfigurationVisible(row.id, scope);
       if (visibilityError || !visible) {
-        toast.error('Du har ikke adgang til denne ordre.');
+        toast.error(mode === 'order' ? 'Du har ikke adgang til denne ordre.' : 'Du har ikke adgang til dette tilbud.');
         return;
       }
       const ownerEmail = effectiveUserEmail ?? appUser?.email ?? '';
@@ -387,18 +387,24 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
         toast.error('Kunne ikke identificere den aktuelle portalbruger.');
         return;
       }
-      const saved = await loadSubmittedOrderConfirmation(row.id, ownerEmail, effectiveUser?.id);
-      if (!saved || !isSavedConfigurationOrderLocked(saved)) {
-        toast.error('Kunne ikke indlæse den afsendte ordre.');
+      const saved = mode === 'order'
+        ? await loadSubmittedOrderConfirmation(row.id, ownerEmail, effectiveUser?.id)
+        : await loadConfigurationByIdUnscoped(row.id, ownerEmail);
+      if (!saved || (mode === 'order' && !isSavedConfigurationOrderLocked(saved))) {
+        toast.error(mode === 'order' ? 'Kunne ikke indlæse den afsendte ordre.' : 'Kunne ikke indlæse det gemte tilbud.');
         return;
       }
-      setOpenedOrder(saved);
+      if (mode === 'quote' && saved.case_type !== 'quote') {
+        toast.error('Det valgte dokument er ikke et tilbud.');
+        return;
+      }
+      setOpenedDocument({ document: saved, type: mode });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Kunne ikke indlæse ordrebekræftelsen.');
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke indlæse dokumentbekræftelsen.');
     } finally {
-      setOpeningOrderId(null);
+      setOpeningDocumentId(null);
     }
-  }, [appUser?.email, buildCurrentCrmScope, effectiveUserEmail, effectiveUser?.id, openingOrderId]);
+  }, [appUser?.email, buildCurrentCrmScope, canOpenSalesDocument, effectiveUserEmail, effectiveUser?.id, mode, openingDocumentId]);
 
   const handleConfirmDelete = useCallback(async () => {
     if (!deletingRow) return;
@@ -619,7 +625,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                     />
                   </th>
                   {mode === 'quote' && <th className="text-left px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
-                  {canOpenSubmittedOrder && <th className="px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
+                  {mode === 'order' && canOpenSalesDocument && <th className="px-3 py-2 font-semibold">{T.col_actions[lang]}</th>}
                   {canEditOrderContacts && <th className="px-3 py-2 font-semibold w-24"></th>}
                   {canDelete && <th className="px-3 py-2 font-semibold w-10"></th>}
                 </tr>
@@ -639,7 +645,17 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       className={`border-b border-slate-100 hover:bg-slate-50/60 ${canEditOrderContacts ? 'cursor-pointer' : ''}`}
                     >
                       <td className="px-3 py-2.5 font-mono text-[12px] text-slate-700 whitespace-nowrap">
-                        {number}
+                        {canOpenSalesDocument ? (
+                          <button
+                            type="button"
+                            onClick={(event) => { event.stopPropagation(); void handleOpenSalesDocument(r); }}
+                            disabled={openingDocumentId === r.id}
+                            className="font-mono text-[12px] font-semibold text-[#2d5a27] underline decoration-emerald-700/35 underline-offset-2 hover:decoration-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label={`${mode === 'order' ? T.col_order_number[lang] : T.col_quote_number[lang]} ${number}`}
+                          >
+                            {openingDocumentId === r.id ? '…' : number}
+                          </button>
+                        ) : number}
                         {mode === 'order' && r.purchase_order_number && (
                           <span className="mt-0.5 block font-sans text-[11px] text-slate-500" title={r.purchase_order_numbers.join(', ') || undefined}>REK./PO: {r.purchase_order_number}</span>
                         )}
@@ -692,16 +708,16 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                           </div>
                         </td>
                       )}
-                      {canOpenSubmittedOrder && (
+                      {mode === 'order' && canOpenSalesDocument && (
                         <td className="px-3 py-2.5 whitespace-nowrap">
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); void handleOpenSubmittedOrder(r); }}
-                            disabled={openingOrderId === r.id}
+                            onClick={(e) => { e.stopPropagation(); void handleOpenSalesDocument(r); }}
+                            disabled={openingDocumentId === r.id}
                             className="inline-flex items-center gap-1 rounded-md border border-emerald-200 px-2 py-1 text-[12px] font-medium text-[#2d5a27] hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <Eye className="h-3.5 w-3.5" />
-                            {openingOrderId === r.id ? '…' : 'Åbn'}
+                            {openingDocumentId === r.id ? '…' : 'Åbn'}
                           </button>
                         </td>
                       )}
@@ -790,7 +806,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
         />
       )}
       {revisionRow && <SubmittedOrderRevisionHistoryModal row={revisionRow} onClose={() => setRevisionRow(null)} />}
-      {openedOrder && <ReadOnlyOrderConfirmationModal order={openedOrder} onClose={() => setOpenedOrder(null)} />}
+      {openedDocument && <ReadOnlySalesDocumentModal document={openedDocument.document} documentType={openedDocument.type} onClose={() => setOpenedDocument(null)} />}
 
       <AlertDialog
         open={!!deletingRow}

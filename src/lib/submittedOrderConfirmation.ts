@@ -47,10 +47,10 @@ function groupSubmittedOrderLines(state: ConfiguratorState, lines: AccountCaseLi
   return { machineGroups, ungroupedLines };
 }
 
-/** A historical document must never silently substitute today's prices. */
-export function buildSubmittedOrderDocument(state: ConfiguratorState) {
+/** A historical sales document must never silently substitute today's prices. */
+export function buildReadOnlySalesDocument(state: ConfiguratorState) {
   if (!hasFrozenConfiguratorPricing(state)) {
-    throw new Error('Ordren mangler et gyldigt historisk pris-snapshot. Backend skal gennemgå ordren før en ny ordrebekræftelse.');
+    throw new Error('Dokumentet mangler et gyldigt historisk pris-snapshot. Backend skal gennemgå dokumentet før en ny bekræftelse.');
   }
   const lines = buildAccountCaseLines(state, state.language);
   const { machineGroups, ungroupedLines } = groupSubmittedOrderLines(state, lines);
@@ -59,7 +59,7 @@ export function buildSubmittedOrderDocument(state: ConfiguratorState) {
   if (![sum, totals.subtotal, totals.totalDiscount, totals.finalPrice].every(Number.isFinite)
     || Math.abs(sum - totals.subtotal) > 0.02
     || Math.abs(totals.subtotal - totals.totalDiscount - totals.finalPrice) > 0.02) {
-    throw new Error('Ordrelinjer og historiske totaler stemmer ikke overens. Ordrebekræftelsen kan ikke genereres.');
+    throw new Error('Dokumentlinjer og historiske totaler stemmer ikke overens. Bekræftelsen kan ikke genereres.');
   }
   const calcResult: CalcResult = {
     lineItems: lines.map(line => ({
@@ -81,6 +81,9 @@ export function buildSubmittedOrderDocument(state: ConfiguratorState) {
   };
   return { issuer: { ...TIMAN_COMPANY_PROFILE }, lines, machineGroups, ungroupedLines, totals, calcResult };
 }
+
+/** Backwards-compatible order entry point used by mail/PDF and existing callers. */
+export const buildSubmittedOrderDocument = buildReadOnlySalesDocument;
 
 /** Keep the existing webhook shape, but resolve every commercial line from the document. */
 export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteContentSummary {

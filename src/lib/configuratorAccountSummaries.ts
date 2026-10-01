@@ -68,18 +68,36 @@ export interface AccountOrderDiscountRow {
   amount: number;
 }
 
+function completeHistoricalDiscountDetails(
+  snapshot: ConfiguratorPricingSnapshot | undefined,
+  totalDiscount: number,
+): DiscountDetail[] | null {
+  if (!Number.isFinite(totalDiscount) || totalDiscount < 0) return null;
+  const details = snapshot?.discountDetails?.filter(detail => Number.isFinite(detail.amount) && detail.amount >= 0);
+  if (!details?.length) return totalDiscount === 0 ? [] : null;
+  const detailSum = details.reduce((sum, detail) => sum + Math.round(detail.amount * 100), 0);
+  return Math.abs(detailSum - Math.round(totalDiscount * 100)) <= 2 ? details : null;
+}
+
+/** True only when the persisted components reconcile to the persisted total. */
+export function hasCompleteHistoricalDiscountBreakdown(
+  snapshot: ConfiguratorPricingSnapshot | undefined,
+  totalDiscount: number,
+): boolean {
+  return completeHistoricalDiscountDetails(snapshot, totalDiscount) !== null;
+}
+
 /** Present the submitted order's captured discounts; never infer historical discounts from today's rules. */
 export function buildAccountOrderDiscountRows(
   snapshot: ConfiguratorPricingSnapshot | undefined,
   totalDiscount: number,
   language: string,
 ): AccountOrderDiscountRow[] {
-  if (!Number.isFinite(totalDiscount) || totalDiscount <= 0) return [];
+  if (!Number.isFinite(totalDiscount) || totalDiscount < 0) return [];
   const fallback = [{ label: portalT('accountOrderDiscount', language), amount: totalDiscount }];
-  const details = snapshot?.discountDetails?.filter(detail => Number.isFinite(detail.amount) && detail.amount > 0);
-  if (!details?.length) return fallback;
-  const detailSum = details.reduce((sum, detail) => sum + Math.round(detail.amount * 100), 0);
-  if (Math.abs(detailSum - Math.round(totalDiscount * 100)) > 2) return fallback;
+  const details = completeHistoricalDiscountDetails(snapshot, totalDiscount);
+  if (details === null) return totalDiscount > 0 ? fallback : [];
+  if (!details.length) return [];
 
   const labelKeys: Record<NonNullable<DiscountDetail['kind']>, string> = {
     demo: 'accountOrderDemoDiscount',
@@ -88,10 +106,12 @@ export function buildAccountOrderDiscountRows(
     quantity: 'accountOrderQuantityDiscount',
     dealer: 'accountOrderDealerDiscount',
     campaign: 'accountOrderCampaignDiscount',
+    direct: 'accountOrderDirectDiscount',
   };
   const percent = (value: number) => new Intl.NumberFormat(language, { maximumFractionDigits: 2 }).format(value);
   const grouped = new Map<string, number>();
   for (const detail of details) {
+    if (detail.amount === 0 && detail.kind !== 'base') continue;
     const label = portalT(detail.kind ? labelKeys[detail.kind] : 'accountOrderDiscount', language);
     const campaignCode = detail.kind === 'campaign'
       ? snapshot?.campaignLines?.find(line => line.campaignId === detail.campaignId && line.itemNumber === detail.varenr)?.campaignCode

@@ -19,6 +19,7 @@ import { MESSE_HOME_TRANSLATIONS } from '@/lib/i18n/messeHomeTranslations';
 import { ACADEMY_TRANSLATIONS } from '@/lib/i18n/academyTranslations';
 import { CAMPAIGN_TRANSLATIONS } from '@/lib/i18n/campaignTranslations';
 import { ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS } from '@/lib/i18n/accountOrderDiscountTranslations';
+import { SALES_DOCUMENT_TRANSLATIONS } from '@/lib/i18n/salesDocumentTranslations';
 import { SUPPORT_TRANSLATIONS } from '@/lib/i18n/supportTranslations';
 
 type Dict = Record<string, string>;
@@ -31,6 +32,7 @@ const da: Dict = {
   ...ACADEMY_TRANSLATIONS.da,
   ...CAMPAIGN_TRANSLATIONS.da,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.da,
+  ...SALES_DOCUMENT_TRANSLATIONS.da,
   backendPermissionSupport: 'Support',
   newsCmsBadgeNews: 'NYHED',
   marketingBadgeNew: 'Nyhed',
@@ -712,6 +714,7 @@ const en: Dict = {
   ...ACADEMY_TRANSLATIONS.en,
   ...CAMPAIGN_TRANSLATIONS.en,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.en,
+  ...SALES_DOCUMENT_TRANSLATIONS.en,
   backendPermissionSupport: 'Support',
   marketingBadgeNew: 'New',
   marketingBadgeOffer: 'Offer',
@@ -1378,6 +1381,7 @@ const de: Dict = {
   ...ACADEMY_TRANSLATIONS.de,
   ...CAMPAIGN_TRANSLATIONS.de,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.de,
+  ...SALES_DOCUMENT_TRANSLATIONS.de,
   backendPermissionSupport: 'Support',
   contractFullTextHeading: 'Der Vertrag',
   contractFullTextIntro: 'Die vollständige Vereinbarung in der Reihenfolge des endgültigen Vertrags.',
@@ -1844,6 +1848,7 @@ const it: Dict = {
   ...ACADEMY_TRANSLATIONS.it,
   ...CAMPAIGN_TRANSLATIONS.it,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.it,
+  ...SALES_DOCUMENT_TRANSLATIONS.it,
   backendPermissionSupport: 'Assistenza',
   contractFullTextHeading: 'Il contratto',
   contractFullTextIntro: 'L’accordo completo nell’ordine utilizzato nel contratto finale.',
@@ -2288,6 +2293,7 @@ const hu: Dict = {
   ...ACADEMY_TRANSLATIONS.hu,
   ...CAMPAIGN_TRANSLATIONS.hu,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.hu,
+  ...SALES_DOCUMENT_TRANSLATIONS.hu,
   backendPermissionSupport: 'Támogatás',
   contractFullTextHeading: 'A szerződés',
   contractFullTextIntro: 'A teljes megállapodás a végleges szerződésben szereplő sorrendben.',
@@ -2732,6 +2738,7 @@ const sv: Dict = {
   ...ACADEMY_TRANSLATIONS.sv,
   ...CAMPAIGN_TRANSLATIONS.sv,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.sv,
+  ...SALES_DOCUMENT_TRANSLATIONS.sv,
   backendPermissionSupport: 'Support',
   contractFullTextHeading: 'Avtalet',
   contractFullTextIntro: 'Hela avtalet i den ordning som används i det slutliga avtalet.',
@@ -3177,6 +3184,7 @@ const fr: Dict = {
   ...ACADEMY_TRANSLATIONS.fr,
   ...CAMPAIGN_TRANSLATIONS.fr,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.fr,
+  ...SALES_DOCUMENT_TRANSLATIONS.fr,
   backendPermissionSupport: 'Assistance',
   contractFullTextHeading: 'Le contrat',
   contractFullTextIntro: 'L’accord complet dans l’ordre utilisé dans le contrat final.',
@@ -3622,6 +3630,7 @@ const pl: Dict = {
   ...ACADEMY_TRANSLATIONS.pl,
   ...CAMPAIGN_TRANSLATIONS.pl,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.pl,
+  ...SALES_DOCUMENT_TRANSLATIONS.pl,
   backendPermissionSupport: 'Wsparcie',
   contractFullTextHeading: 'Umowa',
   contractFullTextIntro: 'Pełna umowa w kolejności użytej w umowie końcowej.',
@@ -4067,6 +4076,7 @@ const cs: Dict = {
   ...ACADEMY_TRANSLATIONS.cs,
   ...CAMPAIGN_TRANSLATIONS.cs,
   ...ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS.cs,
+  ...SALES_DOCUMENT_TRANSLATIONS.cs,
   backendPermissionSupport: 'Podpora',
   contractFullTextHeading: 'Smlouva',
   contractFullTextIntro: 'Úplná smlouva v pořadí použitém v konečné smlouvě.',

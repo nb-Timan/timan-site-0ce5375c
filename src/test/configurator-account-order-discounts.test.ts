@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAccountOrderDiscountRows } from '@/lib/configuratorAccountSummaries';
+import { buildAccountOrderDiscountRows, hasCompleteHistoricalDiscountBreakdown } from '@/lib/configuratorAccountSummaries';
 import { t } from '@/lib/i18n/translations';
 import { PORTAL_LANGUAGE_CODES } from '@/lib/portalLanguages';
 import type { ConfiguratorPricingSnapshot, DiscountDetail } from '@/types/configurator';
@@ -32,6 +32,7 @@ describe('historical account order discount presentation', () => {
     ['delivery', 'accountOrderDeliveryDiscount'],
     ['dealer', 'accountOrderDealerDiscount'],
     ['demo', 'accountOrderDemoDiscount'],
+    ['direct', 'accountOrderDirectDiscount'],
   ] as const)('shows only the captured %s discount', (kind, labelKey) => {
     const rows = buildAccountOrderDiscountRows(snapshot([row(kind, 125)]), 125, 'da');
     expect(rows).toEqual([{ label: `${t(labelKey, 'da')} (2 %)`, amount: 125 }]);
@@ -72,6 +73,19 @@ describe('historical account order discount presentation', () => {
     expect(buildAccountOrderDiscountRows(snapshot(), 125, 'da')).toEqual([{ label: 'Rabat', amount: 125 }]);
     expect(buildAccountOrderDiscountRows(snapshot([row('base', 100)]), 125, 'da')).toEqual([{ label: 'Rabat', amount: 125 }]);
     expect(buildAccountOrderDiscountRows(snapshot([row('base', 100)]), 0, 'da')).toEqual([]);
+    expect(hasCompleteHistoricalDiscountBreakdown(snapshot(), 125)).toBe(false);
+    expect(hasCompleteHistoricalDiscountBreakdown(snapshot([row('base', 100)]), 125)).toBe(false);
+    expect(hasCompleteHistoricalDiscountBreakdown(snapshot([row('base', 125)]), 125)).toBe(true);
+  });
+
+  it('keeps a persisted zero-percent base row but hides other irrelevant zero rows', () => {
+    const rows = buildAccountOrderDiscountRows(snapshot([
+      row('base', 0, 0), row('quantity', 0, 0), row('dealer', 100, 1),
+    ]), 100, 'da');
+    expect(rows).toEqual([
+      { label: 'Grundrabat (0 %)', amount: 0 },
+      { label: 'Ekstra forhandlerrabat (1 %)', amount: 100 },
+    ]);
   });
 
   it('localizes every component in all nine portal languages', () => {
