@@ -23,6 +23,7 @@ import {
   timanLanguageFromUrl,
   timanPageCategory,
   timanProductRelations,
+  timanTranslationLinksFromHtml,
 } from '../_shared/supportTimanKnowledge.ts';
 
 const corsHeaders = {
@@ -68,6 +69,7 @@ type KnowledgeSourceRow = {
   original_url: string | null;
   topic_key: string | null;
   authority_tier: number | null;
+  quality_status: string | null;
 };
 
 type CorpusSource = SimilarityDocument & {
@@ -171,6 +173,52 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item
   return results;
 }
 
+async function fetchTimanHead(canonicalUrl: string): Promise<string> {
+  const response = await fetch(canonicalUrl, {
+    headers: { Accept: 'text/html', 'User-Agent': 'TimanPortalKnowledgeSync/1.0 (+https://timan.dk)' },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok || !response.body) return '';
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let html = '';
+  try {
+    while (html.length < 120_000) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      html += decoder.decode(value, { stream: true });
+      if (/<\/head>/i.test(html)) break;
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  return html;
+}
+
+async function linkTranslationTopics(pages: DiscoveredPage[]) {
+  const identityByUrl = new Map<string, string>();
+  const applyLinks = (fallbackUrl: string, html: string) => {
+    const links = timanTranslationLinksFromHtml(html, fallbackUrl);
+    for (const url of links.alternateUrls) identityByUrl.set(url, links.identityUrl);
+  };
+  const primaryPages = pages.filter((page) => page.language === 'da');
+  const primaryResults = await mapWithConcurrency(primaryPages, 6, async (page) => ({
+    url: page.canonicalUrl,
+    html: await fetchTimanHead(page.canonicalUrl).catch(() => ''),
+  }));
+  for (const result of primaryResults) applyLinks(result.url, result.html);
+  const unlinked = pages.filter((page) => !identityByUrl.has(page.canonicalUrl));
+  const fallbackResults = await mapWithConcurrency(unlinked, 6, async (page) => ({
+    url: page.canonicalUrl,
+    html: await fetchTimanHead(page.canonicalUrl).catch(() => ''),
+  }));
+  for (const result of fallbackResults) applyLinks(result.url, result.html);
+  for (const page of pages) {
+    const identityUrl = identityByUrl.get(page.canonicalUrl) || page.canonicalUrl;
+    page.topicKey = canonicalTopicKey(identityUrl, timanPageCategory(identityUrl), page.productRelations);
+  }
+}
+
 async function discoverPages(languages: string[], pageTypes: string[], maxPages: number) {
   const tasks = languages.flatMap((language) => pageTypes.map((pageType) => ({ language, pageType })));
   const feeds = await mapWithConcurrency(tasks, 3, async ({ language, pageType }) => ({
@@ -179,7 +227,7 @@ async function discoverPages(languages: string[], pageTypes: string[], maxPages:
     rows: await fetchWordpressRows(language, pageType),
   }));
   const discovered = new Map<string, DiscoveredPage>();
-  for (const feed of feeds) {
+  discovery: for (const feed of feeds) {
     for (const row of feed.rows) {
       if (row.status !== 'publish') continue;
       const canonicalUrl = canonicalTimanUrl(row.link);
@@ -208,10 +256,12 @@ async function discoverPages(languages: string[], pageTypes: string[], maxPages:
         topicKey,
         quality,
       });
-      if (discovered.size >= maxPages) return { pages: [...discovered.values()], feeds };
+      if (discovered.size >= maxPages) break discovery;
     }
   }
-  return { pages: [...discovered.values()], feeds };
+  const pages = [...discovered.values()];
+  await linkTranslationTopics(pages);
+  return { pages, feeds };
 }
 
 async function runSync(service: ServiceClient, actorId: string | null, triggerType: 'MANUAL' | 'SCHEDULED') {
@@ -243,7 +293,7 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
     ] = await Promise.all([
       service.from('support_controlled_source_registry').select('*').eq('domain', 'timan.dk'),
       service.from('support_knowledge_sources')
-        .select('id,knowledge_item_id,revision,is_current,created_at,normalized_content_hash,lifecycle_status,source_type,source_language,original_url,topic_key,authority_tier')
+        .select('id,knowledge_item_id,revision,is_current,created_at,normalized_content_hash,lifecycle_status,source_type,source_language,original_url,topic_key,authority_tier,quality_status')
         .order('revision', { ascending: false })
         .order('created_at', { ascending: false }),
       service.from('support_ingestion_runs')
@@ -295,6 +345,7 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
     const duplicateUpserts: Record<string, unknown>[] = [];
     const conflictUpserts: Record<string, unknown>[] = [];
     const qualityEventInserts: Record<string, unknown>[] = [];
+    const sourceTopicUpdates: Array<{ sourceId: string; topicKey: string }> = [];
     const seen = new Set<string>();
     const now = new Date().toISOString();
     let createdCount = 0;
@@ -310,9 +361,26 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
       seen.add(key);
       languageCounts[page.language] = (languageCounts[page.language] || 0) + 1;
       const existing = registryByKey.get(key);
+      const knowledgeItemId = existing?.knowledge_item_id || crypto.randomUUID();
+      const latest = latestSourceByItem.get(knowledgeItemId);
       const unchanged = existing?.normalized_content_hash === page.contentHash;
       if (unchanged) {
         unchangedCount += 1;
+        const unchangedQuality = latest?.quality_status || page.quality.status;
+        if (unchangedQuality === 'READY_FOR_REVIEW') cleanCount += 1;
+        else if (unchangedQuality === 'NEAR_DUPLICATE') needsReviewCount += 1;
+        else rejectedCount += 1;
+        if (latest) {
+          topicUpserts.push({ topic_key: page.topicKey, category: page.category, product_relations: page.productRelations });
+          topicVariantPending.push({ sourceId: latest.id, knowledgeItemId, topicKey: page.topicKey, language: page.language, canonicalUrl: page.canonicalUrl });
+          if (latest.topic_key !== page.topicKey) {
+            sourceTopicUpdates.push({ sourceId: latest.id, topicKey: page.topicKey });
+            qualityEventInserts.push({
+              event_type: 'TOPIC_LINKED', knowledge_source_id: latest.id, actor_user_id: actorId,
+              metadata: { previous_topic_key: latest.topic_key, topic_key: page.topicKey, method: 'TIMAN_HREFLANG' },
+            });
+          }
+        }
         registryUpserts.push({
           id: existing.id,
           knowledge_item_id: existing.knowledge_item_id,
@@ -340,8 +408,6 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
         continue;
       }
 
-      const knowledgeItemId = existing?.knowledge_item_id || crypto.randomUUID();
-      const latest = latestSourceByItem.get(knowledgeItemId);
       const reusableReviewSource = latest?.source_type === 'TIMAN_DK_REGISTRY'
         && latest.lifecycle_status === 'REVIEW'
         && latest.normalized_content_hash === page.contentHash;
@@ -595,6 +661,12 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
     if (chunkInserts.length) { const { error } = await service.from('support_knowledge_chunks').insert(chunkInserts); if (error) throw error; }
     if (indexInserts.length) { const { error } = await service.from('support_knowledge_index_states').insert(indexInserts); if (error) throw error; }
     if (qualityInserts.length) { const { error } = await service.from('support_knowledge_quality_assessments').upsert(qualityInserts, { onConflict: 'knowledge_source_id,assessment_version' }); if (error) throw error; }
+    if (sourceTopicUpdates.length) {
+      await mapWithConcurrency(sourceTopicUpdates, 12, async (entry) => {
+        const { error } = await service.from('support_knowledge_sources').update({ topic_key: entry.topicKey }).eq('id', entry.sourceId);
+        if (error) throw error;
+      });
+    }
     if (topicUpserts.length) {
       const uniqueTopics = [...new Map(topicUpserts.map((topic) => [String(topic.topic_key), topic])).values()];
       const { error } = await service.from('support_knowledge_topics').upsert(uniqueTopics, { onConflict: 'topic_key' });
@@ -612,7 +684,7 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
       });
       if (variants.length) {
         const { error } = await service.from('support_knowledge_topic_variants')
-          .upsert(variants, { onConflict: 'topic_id,knowledge_item_id,language' });
+          .upsert(variants, { onConflict: 'knowledge_item_id,language' });
         if (error) throw error;
       }
     }

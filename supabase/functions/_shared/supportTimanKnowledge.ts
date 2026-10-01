@@ -47,6 +47,30 @@ export function timanLanguageFromUrl(value: string): string {
   return first ? LANGUAGE_BY_PATH_PREFIX[first] || 'da' : 'da';
 }
 
+export function timanTranslationLinksFromHtml(html: string, fallbackUrl: string): {
+  identityUrl: string;
+  alternateUrls: string[];
+} {
+  const fallback = canonicalTimanUrl(fallbackUrl) || 'https://timan.dk/';
+  const alternates: Array<{ language: string; url: string }> = [];
+  for (const match of html.matchAll(/<link\b[^>]*>/gi)) {
+    const tag = match[0];
+    const rel = tag.match(/\brel\s*=\s*["']([^"']+)["']/i)?.[1]?.toLowerCase().split(/\s+/) || [];
+    if (!rel.includes('alternate')) continue;
+    const language = tag.match(/\bhreflang\s*=\s*["']([^"']+)["']/i)?.[1]?.toLowerCase();
+    const href = tag.match(/\bhref\s*=\s*["']([^"']+)["']/i)?.[1];
+    const canonical = href ? canonicalTimanUrl(href.replace(/&amp;/gi, '&')) : null;
+    if (!language || !canonical) continue;
+    alternates.push({ language, url: canonical });
+  }
+  const alternateUrls = [...new Set([fallback, ...alternates.map((entry) => entry.url)])];
+  const identityUrl = alternates.find((entry) => entry.language === 'x-default')?.url
+    || alternates.find((entry) => entry.language === 'da')?.url
+    || alternateUrls.sort()[0]
+    || fallback;
+  return { identityUrl, alternateUrls };
+}
+
 export function timanPageCategory(value: string): string {
   const path = new URL(canonicalTimanUrl(value) || 'https://timan.dk/').pathname.toLowerCase();
   if (['/redskaber/', '/tools/', '/anbaugeraete/'].some((part) => path.includes(part))) return 'Products / Attachments';

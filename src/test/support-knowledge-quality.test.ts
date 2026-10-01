@@ -8,6 +8,7 @@ import {
   detectKnowledgeFactConflicts,
   selectDiverseKnowledgeCandidates,
 } from '../../supabase/functions/_shared/supportKnowledgeQuality';
+import { timanTranslationLinksFromHtml } from '../../supabase/functions/_shared/supportTimanKnowledge';
 
 const migration = readFileSync('supabase/migrations/20261001083000_support_knowledge_quality_duplicates_conflicts.sql', 'utf8');
 const sync = readFileSync('supabase/functions/support-knowledge-sync/index.ts', 'utf8');
@@ -39,6 +40,17 @@ describe('Knowledge Quality normalization and gates', () => {
       { id: 'en', text: 'RC-751 dimensions and technical specifications', language: 'en', topicKey: 'rc-751' },
     );
     expect(result.methods).toContain('CROSS_LANGUAGE_VARIANT');
+  });
+
+  it('uses Timan.dk hreflang metadata to link translated slugs canonically', () => {
+    const links = timanTranslationLinksFromHtml(`
+      <link rel="alternate" hreflang="da" href="https://timan.dk/om-timan/">
+      <link rel="alternate" hreflang="en" href="https://timan.dk/en/om-timan/">
+      <link rel="alternate" hreflang="de" href="https://timan.dk/de/ueber-timan-2/">
+      <link rel="alternate" hreflang="x-default" href="https://timan.dk/om-timan/">
+    `, 'https://timan.dk/de/ueber-timan-2/');
+    expect(links.identityUrl).toBe('https://timan.dk/om-timan/');
+    expect(links.alternateUrls).toContain('https://timan.dk/de/ueber-timan-2/');
   });
 
   it('finds semantic near duplicates but not merely related pages', () => {
