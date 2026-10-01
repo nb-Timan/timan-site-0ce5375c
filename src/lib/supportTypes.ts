@@ -16,6 +16,7 @@ export interface SupportCitation {
   id: string;
   label: string;
   language: string;
+  url?: string;
   page_start?: number | null;
   page_end?: number | null;
   heading?: string | null;

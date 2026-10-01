@@ -130,6 +130,19 @@ export function validatedExternalLinkAction(
   };
 }
 
+function validatedCitations(citations: SupportChatResponse['citations']): SupportMessage['citations'] {
+  return (citations || []).map((citation) => {
+    if (!citation.url) return citation;
+    try {
+      const url = new URL(citation.url);
+      if (url.protocol === 'https:' && ['timan.dk', 'www.timan.dk'].includes(url.hostname.toLowerCase())) return citation;
+    } catch { /* Drop unsafe citation URLs while preserving their labels. */ }
+    const safeCitation = { ...citation };
+    delete safeCitation.url;
+    return safeCitation;
+  });
+}
+
 export class ApiSupportService implements SupportService {
   async sendMessage(request: SupportSendRequest): Promise<SupportMessage> {
     const requestId = request.requestId || crypto.randomUUID();
@@ -173,7 +186,7 @@ export class ApiSupportService implements SupportService {
       timestamp: new Date().toISOString(),
       status: 'sent',
       requestId: data.request_id,
-      citations: data.citations || [],
+      citations: validatedCitations(data.citations),
       answerStatus: data.answer_status,
       confidenceLevel: data.confidence_level,
       confidenceScore: data.confidence_score,

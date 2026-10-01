@@ -11,6 +11,7 @@ import {
   FileQuestion,
   Filter,
   Gauge,
+  Globe2,
   MessageSquare,
   Pencil,
   Plus,
@@ -43,6 +44,7 @@ import {
   fetchSupportKnowledgeGaps,
   fetchSupportKnowledgeItems,
   fetchSupportQuestions,
+  runSupportKnowledgeSync,
   updateSupportKnowledgeItem,
 } from '@/lib/supportAdminService';
 import {
@@ -171,11 +173,25 @@ function Metric({ label, value, icon: Icon, note }: { label: string; value: stri
 
 export function OverviewPanel({ overview, reload, loading, error }: { overview: SupportAdminOverview; reload: () => void; loading: boolean; error: string | null }) {
   const { uiLanguage } = useLanguage();
+  const { toast } = useToast();
+  const [syncing, setSyncing] = useState(false);
   const copy = getSupportAdminCopy(uiLanguage);
   const answerRate = percentage(overview.answered_questions, overview.total_questions);
   const groundedRate = percentage(overview.grounded_answers, overview.answered_questions);
   const noAnswerRate = percentage(overview.no_answer_questions, overview.total_questions);
   const positiveRate = percentage(overview.positive_feedback, overview.total_feedback);
+  const syncNow = async () => {
+    setSyncing(true);
+    try {
+      const result = await runSupportKnowledgeSync();
+      toast({ title: copy.syncComplete, description: `${copy.discoveredSources}: ${result.discovered_count}` });
+      reload();
+    } catch (reason) {
+      toast({ variant: 'destructive', title: reason instanceof Error ? reason.message : String(reason) });
+    } finally {
+      setSyncing(false);
+    }
+  };
   return (
     <LoadBoundary loading={loading} error={error} retry={reload}>
       <div className="space-y-5">
@@ -211,6 +227,29 @@ export function OverviewPanel({ overview, reload, loading, error }: { overview: 
           <Metric label={copy.questions30Days} value={overview.questions_30_days} icon={BarChart3} />
           <Metric label={copy.approvedKnowledge} value={overview.approved_knowledge_items} icon={BookOpen} />
         </div>
+        <section className="overflow-hidden rounded-md border border-slate-200 bg-white">
+          <header className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2"><Globe2 className="h-4 w-4 text-emerald-700" /><h2 className="text-sm font-semibold text-slate-950">{copy.timanKnowledgeSync}</h2></div>
+              <p className="mt-1 text-xs text-slate-500">{copy.lastSync}: {formatDate(overview.last_sync_at, uiLanguage)} · {copy.autoPromotionOff}</p>
+            </div>
+            <Button size="sm" variant="outline" disabled={syncing || !overview.sync_enabled} onClick={() => void syncNow()}>
+              <RefreshCw className={cn('mr-2 h-4 w-4', syncing && 'animate-spin')} />{syncing ? copy.syncRunning : copy.syncNow}
+            </Button>
+          </header>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-6">
+            <Metric label={copy.discoveredSources} value={overview.timan_sources_total} icon={Globe2} />
+            <Metric label={copy.awaitingReview} value={overview.timan_sources_review} icon={Clock3} />
+            <Metric label={copy.indexedSources} value={overview.timan_sources_indexed} icon={BookOpen} />
+            <Metric label={copy.changedSources} value={overview.timan_sources_changed} icon={RefreshCw} />
+            <Metric label={copy.staleSources} value={overview.timan_sources_stale} icon={AlertTriangle} />
+            <Metric label={copy.webCandidates} value={overview.web_candidates_review} icon={FileQuestion} />
+          </div>
+          <div className="grid gap-3 border-t border-slate-200 px-4 py-3 text-xs text-slate-600 lg:grid-cols-2">
+            <p><strong className="text-slate-800">{copy.languageCoverage}:</strong> {['da','en','de','it','hu','sv','fr','pl','cs'].map((language) => `${portalLanguageDisplayCode(language)} ${overview.language_indexed_counts[language] || 0} / ${overview.language_counts[language] || 0}`).join(' · ')}</p>
+            <p><strong className="text-slate-800">{copy.sourceBreakdown}:</strong> {Object.entries(overview.source_breakdown_30d).map(([source, count]) => `${source} ${count}`).join(' · ') || '—'} · {copy.webFallback30d} {overview.web_fallback_30d}</p>
+          </div>
+        </section>
         {overview.total_questions === 0 && (
           <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-sm text-slate-600">
             {copy.zeroStateHint}

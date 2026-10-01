@@ -95,6 +95,21 @@ export interface SupportAdminOverview {
   service_handoffs: number;
   failed_actions: number;
   open_workflows: number;
+  sync_enabled: boolean;
+  auto_promotion_enabled: boolean;
+  last_sync_at: string | null;
+  last_sync_status: string | null;
+  timan_sources_total: number;
+  timan_sources_review: number;
+  timan_sources_approved: number;
+  timan_sources_changed: number;
+  timan_sources_stale: number;
+  timan_sources_indexed: number;
+  web_candidates_review: number;
+  web_fallback_30d: number;
+  source_breakdown_30d: Record<string, number>;
+  language_counts: Record<string, number>;
+  language_indexed_counts: Record<string, number>;
 }
 
 export const EMPTY_SUPPORT_ADMIN_OVERVIEW: SupportAdminOverview = {
@@ -143,6 +158,21 @@ export const EMPTY_SUPPORT_ADMIN_OVERVIEW: SupportAdminOverview = {
   service_handoffs: 0,
   failed_actions: 0,
   open_workflows: 0,
+  sync_enabled: false,
+  auto_promotion_enabled: false,
+  last_sync_at: null,
+  last_sync_status: null,
+  timan_sources_total: 0,
+  timan_sources_review: 0,
+  timan_sources_approved: 0,
+  timan_sources_changed: 0,
+  timan_sources_stale: 0,
+  timan_sources_indexed: 0,
+  web_candidates_review: 0,
+  web_fallback_30d: 0,
+  source_breakdown_30d: {},
+  language_counts: {},
+  language_indexed_counts: {},
 };
 
 export interface SupportQuestionRow {
@@ -322,7 +352,7 @@ export interface SupportIngestionRun {
   id: string;
   knowledge_source_id: string;
   status: SupportIngestionStatus;
-  run_reason: 'UPLOAD' | 'REPROCESS' | 'RECHUNK';
+  run_reason: 'UPLOAD' | 'REPROCESS' | 'RECHUNK' | 'TIMAN_DK_SYNC';
   processor_version: string;
   processor_config: Record<string, unknown>;
   started_at: string | null;

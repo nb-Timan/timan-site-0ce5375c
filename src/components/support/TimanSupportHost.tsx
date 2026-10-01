@@ -401,7 +401,12 @@ export default function TimanSupportHost() {
                           <ul className="space-y-1.5">
                             {message.citations.map((citation) => (
                               <li key={citation.id} className="break-words text-xs leading-4 text-slate-600">
-                                {citation.label} <span className="uppercase text-slate-400">({citation.language})</span>
+                                {citation.url ? (
+                                  <a href={citation.url} target="_blank" rel="noreferrer" className="font-medium text-emerald-800 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-950">
+                                    {citation.label}
+                                  </a>
+                                ) : citation.label}{' '}
+                                <span className="uppercase text-slate-400">({citation.language})</span>
                               </li>
                             ))}
                           </ul>

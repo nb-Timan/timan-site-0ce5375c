@@ -45,15 +45,30 @@ async function throwSupportFunctionError(error: unknown, data?: unknown): Promis
 }
 
 export async function fetchSupportAdminOverview(): Promise<SupportAdminOverview> {
-  const [{ data, error }, actionOverview] = await Promise.all([
+  const [{ data, error }, actionOverview, syncOverview] = await Promise.all([
     supabase.rpc('get_support_admin_overview'),
     supabase.rpc('get_support_action_overview'),
+    supabase.rpc('get_support_knowledge_sync_overview'),
   ]);
   if (error) throw error;
   return {
     ...EMPTY_SUPPORT_ADMIN_OVERVIEW,
     ...((data || {}) as Partial<SupportAdminOverview>),
     ...(!actionOverview.error ? (actionOverview.data || {}) as Partial<SupportAdminOverview> : {}),
+    ...(!syncOverview.error ? (syncOverview.data || {}) as Partial<SupportAdminOverview> : {}),
+  };
+}
+
+export async function runSupportKnowledgeSync() {
+  const { data, error } = await supabase.functions.invoke('support-knowledge-sync', { body: { action: 'sync' } });
+  if (error || data?.error) await throwSupportFunctionError(error, data);
+  return data as {
+    run_id: string;
+    status: string;
+    discovered_count: number;
+    created_count: number;
+    changed_count: number;
+    unchanged_count: number;
   };
 }
 

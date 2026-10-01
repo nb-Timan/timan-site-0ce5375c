@@ -54,6 +54,10 @@ verify_jwt = false
 [functions.support-index-knowledge]
 verify_jwt = false
 
+# Manual calls verify can_access_support(); scheduled calls use a Vault-held secret.
+[functions.support-knowledge-sync]
+verify_jwt = false
+
 [functions.support-chat]
 verify_jwt = false
 

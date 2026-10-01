@@ -9,7 +9,12 @@ import {
 
 describe('Support administration model', () => {
   it('keeps the empty dashboard honest and zero-safe', () => {
-    expect(Object.values(EMPTY_SUPPORT_ADMIN_OVERVIEW).every((value) => value === 0)).toBe(true);
+    expect(Object.values(EMPTY_SUPPORT_ADMIN_OVERVIEW).every((value) => (
+      value === 0
+      || value === false
+      || value === null
+      || (typeof value === 'object' && Object.keys(value).length === 0)
+    ))).toBe(true);
     expect(percentage(0, 0)).toBe(0);
     expect(percentage(3, 4)).toBe(75);
   });
