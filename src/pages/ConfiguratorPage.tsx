@@ -1193,13 +1193,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           pricingMode: isExhibition ? 'messe' : undefined,
         });
         if (res.error) {
-          toast.error(state.language === 'da' ? 'Kunne ikke gemme ændringer' : 'Failed to save changes', {
+          toast.error(T('saveFailed'), {
             description: res.error,
           });
           return false;
         }
         if (res.itemsError) {
-          toast.error(state.language === 'da' ? 'Ændringer gemt, men linjer fejlede' : 'Changes saved, but line items failed', {
+          toast.error(T('saveFailed'), {
             description: res.itemsError,
           });
           return false;
@@ -1212,8 +1212,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           }
           setBackendCorrectionSessionId(null);
         }
-        toast.success(state.language === 'da' ? 'Ændringer gemt' : 'Changes saved', {
-          description: `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${savedConfigurationId}`,
+        toast.success(T('caseSaved'), {
+          description: `${T('caseIdLabel')}: ${savedConfigurationId}`,
         });
         if (effectiveLeadId) void handleSyncLinkedLead({ quiet: true });
         // Readback verification — confirm the row is visible in current Min konto scope.
@@ -1226,7 +1226,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         return true;
       } else {
         if (!appUser) {
-          toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case');
+          toast.error(T('saveFailed'));
           return false;
         }
         const label = state.firmanavn
@@ -1238,7 +1238,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           pricingMode: isExhibition ? 'messe' : undefined,
         });
         if (saveRes.error) {
-          toast.error(state.language === 'da' ? 'Kunne ikke gemme sag' : 'Could not save case', {
+          toast.error(T('saveFailed'), {
             description: saveRes.error,
           });
           return false;
@@ -1251,7 +1251,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           setIsSavedCurrent(true);
         }
         if (saveRes.itemsError) {
-          toast.error(state.language === 'da' ? 'Sag gemt, men linjer fejlede' : 'Case saved, but line items failed', {
+          toast.error(T('saveFailed'), {
             description: saveRes.itemsError,
           });
           return false;
@@ -1267,8 +1267,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         if (!visibleInScope) {
           toast.error('Sagen blev gemt, men kan ikke vises i Min konto. Tjek ejer/sælger-tilknytning.');
         } else {
-          toast.success(state.language === 'da' ? 'Sag gemt' : 'Case saved', {
-            description: saveRes.id ? `${state.language === 'da' ? 'Sag ID' : 'Case ID'}: ${saveRes.id}` : undefined,
+          toast.success(T('caseSaved'), {
+            description: saveRes.id ? `${T('caseIdLabel')}: ${saveRes.id}` : undefined,
           });
         }
         return visibleInScope;
@@ -1487,16 +1487,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           dealerNumber: appUser?.dealer_number ?? null,
         });
         if (error || !row) {
-          toast.error(lang === 'da' ? 'Kan ikke åbne sagen' : 'Cannot open case', {
-            description: lang === 'da'
-              ? 'Sagen findes ikke eller du har ikke adgang.'
-              : 'The case does not exist or you do not have access.',
+          toast.error(t('cannotOpenCase', uiLanguage), {
+            description: t('caseAccessDenied', uiLanguage),
           });
           return;
         }
         let saved = await loadConfigurationByIdUnscoped(configId, appUser.email);
         if (!saved) {
-          toast.error(lang === 'da' ? 'Kunne ikke indlæse sagen' : 'Failed to load case');
+          toast.error(t('failedLoadCase', uiLanguage));
           return;
         }
         if (isSavedConfigurationOrderLocked(saved)) {
@@ -1539,14 +1537,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           dealerNumber: row.dealer_account_number ?? row.dealer_number ?? prev.dealerNumber,
           dealerCompanyName: row.dealer_company_name ?? row.dealer_name ?? prev.dealerCompanyName,
         }));
-        toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
-          description: lang === 'da'
-            ? 'Den gemte konfiguration er genindlæst.'
-            : 'The saved configuration has been restored.',
+        toast.success(t('caseLoaded', uiLanguage), {
+          description: t('caseRestored', uiLanguage),
         });
       } catch (e) {
         console.error('[ConfiguratorPage] resume failed', e);
-        toast.error(lang === 'da' ? 'Kunne ikke indlæse sagen' : 'Failed to load case');
+        toast.error(t('failedLoadCase', uiLanguage));
       } finally {
         // Clean the URL so a manual refresh doesn't try to reload (and to
         // avoid duplicate restores when the user starts editing).
@@ -1557,7 +1553,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         setResumeBusy(false);
       }
     })();
-  }, [searchParams, appUser, effectiveUser?.id, lang, setState, setSearchParams, setFlowType, canCorrectSubmittedOrder]);
+  }, [searchParams, appUser, effectiveUser?.id, uiLanguage, setState, setSearchParams, setFlowType, canCorrectSubmittedOrder]);
 
   // CRM lead → configurator quote draft (?fromLeadQuote=<lead-id>).
   // This keeps the lead linked and preselects known machines/equipment, then
@@ -1575,7 +1571,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       try {
         const lead = await getLead(leadId);
         if (!lead) {
-          toast.error(lang === 'da' ? 'Leadet blev ikke fundet' : 'Lead was not found');
+          toast.error(t('leadNotFound', uiLanguage));
           return;
         }
         setState((prev) => buildConfiguratorStateFromLead(lead, prev));
@@ -1592,21 +1588,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           sellerEmail: lead.owner_email || prev.sellerEmail,
           dealerAccountId: lead.linked_dealer_id || prev.dealerAccountId,
         }));
-        toast.success(lang === 'da' ? 'Lead indlæst som tilbud' : 'Lead loaded as quote', {
-          description: lang === 'da'
-            ? 'Kontrollér redskaberne og udfyld levering, før tilbuddet gemmes.'
-            : 'Check the equipment and fill delivery before saving the quote.',
+        toast.success(t('leadLoadedAsQuote', uiLanguage), {
+          description: t('leadQuoteRestored', uiLanguage),
         });
       } catch (e) {
         console.error('[ConfiguratorPage] lead quote draft failed', e);
-        toast.error(lang === 'da' ? 'Kunne ikke indlæse leadet' : 'Could not load lead');
+        toast.error(t('leadLoadFailed', uiLanguage));
       } finally {
         const next = new URLSearchParams(searchParams);
         next.delete('fromLeadQuote');
         setSearchParams(next, { replace: true });
       }
     })();
-  }, [searchParams, appUser?.email, lang, setSearchParams, setState]);
+  }, [searchParams, appUser?.email, uiLanguage, setSearchParams, setState]);
 
   // Persist flowType changes to the saved case (if any), so Tilbud/Ordre is a real saved property
   const handleSetFlowType = useCallback(async (ft: 'quote' | 'order') => {
@@ -1619,14 +1613,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       updateConfigurationFlowType(savedConfigurationId, ft, ownershipPayload, { pricingMode: isExhibition ? 'messe' : undefined }).then(res => {
         if (res.error) {
           console.error('[flowType] failed to persist:', res.error);
-          toast.error(lang === 'da' ? 'Kunne ikke gemme ændring' : 'Failed to save change', { description: res.error });
+          toast.error(t('saveChangeFailed', uiLanguage), { description: res.error });
           return;
         }
         if (res.quote_number) setSavedQuoteNumber(res.quote_number);
         if (res.order_number) setSavedOrderNumber(res.order_number);
       });
     }
-  }, [state.flowType, setFlowType, savedConfigurationId, lang, getRequiredOwnershipPayload, isExhibition]);
+  }, [state.flowType, setFlowType, savedConfigurationId, uiLanguage, getRequiredOwnershipPayload, isExhibition]);
 
   // Auto-fill delivery date when entering step 2 (15 business days from today, skip weekends)
   useEffect(() => {
@@ -1674,7 +1668,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const itemName = getLocalizedName(item.name, lang);
     const itemVarenr = `${itemNoLabel(contentUiLang)}: ${item.varenr}`;
     const price = formatDisplayMoney(getPriceForCurrency(item, displayCurrency));
-    const msg = `${TC('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${TC('priceLabel') !== 'priceLabel' ? TC('priceLabel') : (lang === 'da' ? 'Pris' : 'Price')}: ${price}`;
+    const msg = `${TC('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${t('priceLabel', uiLanguage)}: ${price}`;
     setInfoModal({ title: TC('autoAddedTitle'), content: msg });
   }, [lang, contentUiLang, displayCurrency]);
 
@@ -1898,13 +1892,13 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     if (next) {
       const fee = getDemoFee();
       const feeText = formatDisplayMoney(fee);
-      const title = lang === 'da' ? 'Demo maskine valgt' : 'Demo machine selected';
+      const title = T('demoSelectedTitle');
       const campaignMessage = suppressesCampaign
         ? `<br><br><strong>${T('demoCampaignSuppressed')}</strong>`
         : '';
-      const msg = (lang === 'da'
-        ? `Du har afkrydset <strong>Demo maskine</strong> for <strong>${machineLabel}</strong>.<br><br>Der er tilføjet en ekstra omkostning på <strong>${feeText}</strong>.<br><br><strong>Vilkår:</strong><br>- Forhandleren kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.<br>- Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.<br>- Overholdes dette ikke vil Timan opkræve differencen til den almindelige maskinrabat.`
-        : `You have checked <strong>Demo machine</strong> for <strong>${machineLabel}</strong>.<br><br>An extra cost of <strong>${feeText}</strong> has been added.`) + campaignMessage;
+      const msg = T('demoSelectedMessage')
+        .replace('{machine}', machineLabel)
+        .replace('{fee}', feeText) + campaignMessage;
       setInfoModal({ title, content: msg });
     }
   };
@@ -2981,7 +2975,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   ]);
 
   // ======== Delivery startup required check ========
-  const needsStartup = lang === 'da' && state.deliveryMethod === 'deliver';
+  const needsStartup = displayCurrency === 'DKK' && state.deliveryMethod === 'deliver';
   const canProceedStep2 = !!state.date && !!state.deliveryMethod && (!needsStartup || !!state.deliveryDeliverStartup);
 
   // ======== Startup pricing in calc ========
@@ -3125,7 +3119,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     disabled={submitting || savingChanges}
                     className="px-4 py-3 rounded-lg border border-slate-300 bg-white font-medium text-slate-800 hover:bg-slate-50 disabled:opacity-60"
                   >
-                    Gem ændring
+                    {T('saveCorrection')}
                   </button>
                   <button
                     type="button"
@@ -3133,7 +3127,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     disabled={submitting || savingChanges}
                     className="px-4 py-3 rounded-lg bg-slate-700 font-medium text-white shadow hover:bg-slate-800 disabled:opacity-60"
                   >
-                    Gem og opret ny ordrebekræftelse
+                    {T('saveAndCreateOrderConfirmation')}
                   </button>
                   <button
                     type="button"
@@ -3141,7 +3135,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     disabled={submitting || savingChanges}
                     className="px-4 py-3 rounded-lg bg-emerald-600 font-medium text-white shadow hover:bg-emerald-700 disabled:opacity-60"
                   >
-                    Gem og send ny ordrebekræftelse
+                    {T('saveAndSendOrderConfirmation')}
                   </button>
                 </div>
               ) : (
@@ -3167,27 +3161,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-4" onClick={() => { if (!submitting) setConfirmSubmitOpen(false); }}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-[95%] p-6" onClick={e => e.stopPropagation()}>
             <h3 className="text-xl font-bold mb-3 text-gray-900">
-              {state.flowType === 'order'
-                ? (lang === 'da' ? 'Bekræft afsendelse' : 'Confirm submission')
-                : (lang === 'da' ? 'Bekræft afsendelse' : 'Confirm submission')}
+              {T('confirmSubmission')}
             </h3>
             <p className="text-sm text-gray-700 mb-6">
               {state.flowType === 'order'
-                ? (lang === 'da'
-                    ? (backendCorrectionSessionId
-                        ? 'Ændringerne gemmes på samme ordre, og en ny ordrebekræftelse sendes.'
-                        : 'Vil du afsende denne ordre til Timan? Der oprettes et ordrenummer og PDF sendes.')
-                    : 'Do you want to submit this order to Timan? An order number will be created and the PDF will be sent.')
-                : (lang === 'da'
-                    ? 'Vil du afsende dette tilbud? Der oprettes et tilbudsnummer og PDF sendes.'
-                    : 'Do you want to submit this quote? A quote number will be created and the PDF will be sent.')}
+                ? T(backendCorrectionSessionId ? 'confirmCorrectionDescription' : 'confirmOrderDescription')
+                : T('confirmQuoteDescription')}
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setConfirmSubmitOpen(false)}
                 disabled={submitting}
                 className="px-5 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700 disabled:opacity-50">
-                {lang === 'da' ? 'Annuller' : 'Cancel'}
+                {T('cancelAction')}
               </button>
               <button
                 onClick={async () => {
@@ -3204,7 +3190,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow disabled:opacity-60 disabled:cursor-not-allowed">
                 {submitting
                   ? (state.flowType === 'order' ? T('sendingOrderBtn') : T('sendingQuoteBtn'))
-                  : (backendCorrectionSessionId && state.flowType === 'order' ? 'Gem og send ny ordrebekræftelse' : lang === 'da' ? 'Bekræft' : 'Confirm')}
+                  : (backendCorrectionSessionId && state.flowType === 'order' ? T('saveAndSendOrderConfirmation') : T('confirmAction'))}
               </button>
             </div>
           </div>
@@ -3216,23 +3202,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[70] p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-[95%] p-6">
             <h3 className="text-xl font-bold mb-3 text-gray-900">
-              {successModal.flowType === 'order'
-                ? (lang === 'da' ? 'Din ordre er nu afsendt' : 'Your order has been submitted')
-                : (lang === 'da' ? 'Dit tilbud er nu afsendt' : 'Your quote has been submitted')}
+              {T(successModal.flowType === 'order' ? 'orderSubmittedSuccessTitle' : 'quoteSubmittedSuccessTitle')}
             </h3>
             <p className="text-sm text-gray-700 mb-6">
-              {successModal.flowType === 'order'
-                ? (lang === 'da'
-                    ? `Ordren er sendt til Timan med ordrenummer ${successModal.orderNumber || '—'}.`
-                    : `The order has been sent to Timan with order number ${successModal.orderNumber || '—'}.`)
-                : (lang === 'da'
-                    ? `Tilbuddet er sendt med tilbudsnummer ${successModal.quoteNumber || '—'}.`
-                    : `The quote has been sent with quote number ${successModal.quoteNumber || '—'}.`)}
+              {T(successModal.flowType === 'order' ? 'orderSubmittedSuccessDescription' : 'quoteSubmittedSuccessDescription')
+                .replace('{number}', successModal.flowType === 'order' ? successModal.orderNumber || '—' : successModal.quoteNumber || '—')}
             </p>
             {successModal.recipients && successModal.recipients.length > 0 && (
               <div className="mb-6 p-3 rounded-lg bg-gray-50 border border-gray-200">
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
-                  {lang === 'da' ? 'Sendt til' : 'Sent to'}
+                  {T('sentTo')}
                 </p>
                 <ul className="space-y-1">
                   {successModal.recipients.map((r) => (
@@ -3245,7 +3224,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               <button
                 onClick={() => { setSuccessModal(null); navigate('/portal'); }}
                 className="px-5 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 font-medium text-gray-700">
-                {lang === 'da' ? 'Gå til portal forsiden' : 'Go to portal home'}
+                {T('goPortalHome')}
               </button>
               <button
                 onClick={() => {
@@ -3266,7 +3245,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   }
                 }}
                 className="px-5 py-2 bg-emerald-600 rounded-lg hover:bg-emerald-700 font-medium text-white shadow">
-                {lang === 'da' ? 'Tilbage til konfigurator' : 'Back to configurator'}
+                {T('backToConfigurator')}
               </button>
 
             </div>
@@ -3335,10 +3314,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="hidden sm:inline">
-              {isDealerUser ? (uiLanguage === 'da' ? 'Tilbage til forside' : 'Back to front page') : tPortal('backToSalesMarketing', uiLanguage)}
+              {isDealerUser ? T('backToHome') : tPortal('backToSalesMarketing', uiLanguage)}
             </span>
             <span className="sm:hidden">
-              {isDealerUser ? (uiLanguage === 'da' ? 'Forside' : 'Home') : (lang === 'da' ? 'Salg' : lang === 'de' ? 'Vertrieb' : lang === 'it' ? 'Vendite' : lang === 'hu' ? 'Értékesítés' : (uiLanguage === 'sv' ? 'Försäljning' : uiLanguage === 'fr' ? 'Ventes' : uiLanguage === 'pl' ? 'Sprzedaż' : uiLanguage === 'cs' ? 'Prodej' : 'Sales'))}
+              {isDealerUser ? T('homeLabel') : tPortal('area_salg_marketing_title', uiLanguage)}
             </span>
           </button>
           ) : (
@@ -3462,27 +3441,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {lang === 'da' ? 'Forlad konfigurator?'
-                : lang === 'de' ? 'Konfigurator verlassen?'
-                : lang === 'it' ? 'Uscire dal configuratore?'
-                : lang === 'hu' ? 'Elhagyod a konfigurátort?'
-                : 'Leave configurator?'}
+              {T('leaveConfiguratorTitle')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {lang === 'da' ? 'Du har ikke-gemte ændringer. Vil du forlade konfiguratoren?'
-                : lang === 'de' ? 'Sie haben ungespeicherte Änderungen. Möchten Sie den Konfigurator verlassen?'
-                : lang === 'it' ? 'Hai modifiche non salvate. Vuoi uscire dal configuratore?'
-                : lang === 'hu' ? 'Nem mentett módosításaid vannak. Elhagyod a konfigurátort?'
-                : 'You have unsaved changes. Do you want to leave the configurator?'}
+              {T('unsavedLeaveDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>
-              {lang === 'da' ? 'Bliv her'
-                : lang === 'de' ? 'Hier bleiben'
-                : lang === 'it' ? 'Resta qui'
-                : lang === 'hu' ? 'Maradok'
-                : 'Stay here'}
+              {T('stayHere')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
@@ -3490,11 +3457,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 navigate('/portal');
               }}
             >
-              {lang === 'da' ? 'Forlad konfigurator'
-                : lang === 'de' ? 'Konfigurator verlassen'
-                : lang === 'it' ? 'Esci dal configuratore'
-                : lang === 'hu' ? 'Konfigurátor elhagyása'
-                : 'Leave configurator'}
+              {T('leaveConfigurator')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -3595,12 +3558,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           {cardVideoUrl ? (
                             <a href={cardVideoUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">🎥 {T('videoLink')}</a>
                           ) : (key === 'Timan 2620' && (
-                            <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">🎥 {T('videoLink')}</button>
+                            <button onClick={(e) => { e.stopPropagation(); toast.info(T('contentComingSoon')); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">🎥 {T('videoLink')}</button>
                           ))}
                           {cardImageUrl ? (
                             <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductImagePreview({ src: cardImageUrl, title: cardTitle, itemNumber: p.varenr }); }} className="flex items-center gap-1 bg-transparent p-0 text-sm font-medium text-emerald-600 hover:text-emerald-800">📸 {T('imageLink')}</button>
                           ) : (key === 'Timan 2620' && (
-                            <button onClick={(e) => { e.stopPropagation(); toast.info(lang === 'da' ? 'Indhold kommer senere' : 'Content coming soon'); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📸 {T('imageLink')}</button>
+                            <button onClick={(e) => { e.stopPropagation(); toast.info(T('contentComingSoon')); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📸 {T('imageLink')}</button>
                           ))}
                           {(marketingContent || p.machineDetails) && <button onClick={(e) => { e.stopPropagation(); showMachineInformation(key); }} className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">📄 {T('infoSpecs')}</button>}
                         </>}
@@ -4400,7 +4363,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   ? T('savingChangesBtn')
                   : savedConfigurationId
                     ? T('saveChangesBtn')
-                    : ({ da: 'Gem sag', en: 'Save case', de: 'Fall speichern', it: 'Salva caso', hu: 'Eset mentése' }[lang] || T('saveCase'))}
+                    : T('saveCase')}
                 {savedConfigurationId && (
                   <span className="ml-1 text-[11px] font-normal opacity-90 tabular-nums">
                     {savedQuoteNumber || savedOrderNumber || ''}
@@ -4412,14 +4375,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               <div className="mb-3 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-emerald-900">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold">
-                    {lang === 'da' ? 'Linked lead' : 'Linked lead'}: {linkedLeadId}
+                    {T('linkedLead')}: {linkedLeadId}
                   </span>
                   <button
                     type="button"
                     onClick={() => navigate(`/portal/crm/leads/${linkedLeadId}`)}
                     className="font-semibold text-emerald-700 hover:underline"
                   >
-                    {lang === 'da' ? 'Åbn' : 'Open'}
+                    {T('openAction')}
                   </button>
                 </div>
                 <button
@@ -4428,30 +4391,24 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   disabled={syncingLead}
                   className="mt-2 inline-flex w-full items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {syncingLead
-                    ? (lang === 'da' ? 'Synkroniserer...' : 'Syncing...')
-                    : (lang === 'da' ? 'Opdater lead' : 'Sync lead')}
+                  {syncingLead ? T('syncing') : T('syncLead')}
                 </button>
               </div>
             )}
             {state.step === 4 && state.flowType === 'quote' && !isAcademySalesBonusCase2 && canCreateLeadForCurrentConfiguration && (isAcademyMode || (isExhibition && !isDealerUser) || canSaveConfiguratorAsLead) && (() => {
               const hasRequired = validateConfiguratorLead(state).valid && !!((isAcademyMode || isExhibition || ownership.dealerNumber) && (!isExhibition || ownership.sellerEmail));
               const label = isTimanMesseUser
-                ? ({ da: 'Gem som lead og send ordre', en: 'Save lead and send order', de: 'Lead speichern und Bestellung senden', it: 'Salva lead e invia ordine', hu: 'Lead mentése és rendelés küldése' }[lang])
+                ? T('saveLeadAndSendOrder')
                 : isAcademyMode
                   ? tPortal(isAcademyCase3 ? 'academyCase3Point5' : 'academyCase1SaveLead', uiLanguage)
-                  : ({ da: 'Gem som lead', en: 'Save as lead', de: 'Als Lead speichern', it: 'Salva come lead', hu: 'Mentés leadként' }[lang]);
+                  : T('saveAsLead');
               const isActionBlockedByExistingLead = !isAcademyMode && !isTimanMesseUser && !!linkedLeadId;
               const disabledTitle = !hasRequired
                 ? tPortal('configuratorLeadValidationMessage', uiLanguage)
                 : isTimanMesseUser && orderLocked
                   ? T('orderCannotResendTitle')
                 : isActionBlockedByExistingLead
-                  ? { da: 'Denne konfiguration er allerede knyttet til et lead.',
-                      en: 'This configuration is already linked to a lead.',
-                      de: 'Bereits mit einem Lead verknüpft.',
-                      it: 'Già collegata a un lead.',
-                      hu: 'Már leadhez van kapcsolva.' }[lang]
+                  ? T('alreadyLinkedLead')
                   : '';
               return (
                 <button
@@ -4538,8 +4495,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     dealerCompanyName: savedOwnership.dealer_name ?? prev.dealerCompanyName,
                   }));
                 }
-                toast.success(lang === 'da' ? 'Sag indlæst' : 'Case loaded', {
-                  description: lang === 'da' ? 'Din gemte konfiguration er genindlæst.' : 'Your saved configuration has been restored.',
+                toast.success(T('caseLoaded'), {
+                  description: T('caseRestored'),
                 });
               }}
             />

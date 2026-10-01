@@ -18,6 +18,7 @@ import {
   PRODUCTS,
   replacePublishedConfiguratorPrices,
 } from '@/data/machines';
+import { t } from '@/data/translations';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
 const locales: PortalUiLanguage[] = ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'];
@@ -140,6 +141,38 @@ describe('Configurator final commercial-state matrix', () => {
       amount: 1,
       basis: 4,
     }, false, 'sv')).toContain('Grundrabatt');
+  });
+
+  it.each(locales)('provides localized Configurator lifecycle UI for %s', locale => {
+    const keys = [
+      'caseLoaded',
+      'caseRestored',
+      'confirmSubmission',
+      'confirmOrderDescription',
+      'confirmQuoteDescription',
+      'saveAndSendOrderConfirmation',
+      'orderSubmittedSuccessTitle',
+      'leaveConfiguratorTitle',
+      'linkedLead',
+      'syncLead',
+    ];
+    for (const key of keys) {
+      expect(t(key, locale)).not.toBe(key);
+      expect(t(key, locale).trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('keeps Swedish lifecycle UI free of the former English and Danish fallbacks', () => {
+    expect(t('caseLoaded', 'sv')).toBe('Ärendet har lästs in');
+    expect(t('confirmSubmission', 'sv')).toBe('Bekräfta skickande');
+    expect(t('leaveConfiguratorTitle', 'sv')).toBe('Lämna konfiguratorn?');
+    expect(t('syncLead', 'sv')).toBe('Uppdatera lead');
+  });
+
+  it('does not use locale as a Configurator capability or delivery-startup condition', () => {
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/ConfiguratorPage.tsx'), 'utf8');
+    expect(source).not.toMatch(/\b(?:lang|state\.language)\s*===\s*['"]/);
+    expect(source).toContain("const needsStartup = displayCurrency === 'DKK' && state.deliveryMethod === 'deliver';");
   });
 
   it('keeps campaign-disabled and demo state independent from locale presentation', () => {
