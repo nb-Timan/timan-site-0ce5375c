@@ -1509,9 +1509,11 @@ export default function CrmNewLeadPage() {
           setPendingFiles([]);
         }
       }
-      navigate(repository.academy
-        ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
-        : '/portal/crm');
+      navigate(isEdit
+        ? leadsReturnTarget
+        : repository.academy
+          ? `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
+          : '/portal/crm');
     } catch (err) {
       console.error(err);
       toast.error(tt(isEdit ? 'updated_err' : 'created_err', lang));

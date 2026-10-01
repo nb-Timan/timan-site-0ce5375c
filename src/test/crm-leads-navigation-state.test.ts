@@ -210,6 +210,31 @@ describe('CRM Leads navigation state', () => {
     expect(leadDetailPage).toContain('<Link to={leadsReturnTarget}');
   });
 
+  it('returns a saved existing Lead to its exact Leads list context', () => {
+    expect(leadDetailPage).toMatch(
+      /navigate\(isEdit\s*\? leadsReturnTarget\s*:\s*repository\.academy/,
+    );
+    expect(leadDetailPage).toContain("const leadsReturnTarget = readCrmLeadsReturnTarget(location.state)");
+    expect(leadDetailPage).toContain(": '/portal/crm/leads');");
+  });
+
+  it('keeps New Lead post-create navigation unchanged', () => {
+    expect(leadDetailPage).toMatch(
+      /: repository\.academy\s*\? `\/academy\/crm\/leads\?academy_mode=true&academy_part=\$\{academyPart\}`\s*:\s*'\/portal\/crm'/,
+    );
+  });
+
+  it('navigates only after the canonical save and stays on the form on failure', () => {
+    const updateIndex = leadDetailPage.indexOf('await repository.updateLead(editId, payload');
+    const navigateIndex = leadDetailPage.indexOf('navigate(isEdit');
+    const catchIndex = leadDetailPage.indexOf('} catch (err) {', updateIndex);
+
+    expect(updateIndex).toBeGreaterThan(-1);
+    expect(navigateIndex).toBeGreaterThan(updateIndex);
+    expect(catchIndex).toBeGreaterThan(navigateIndex);
+    expect(leadDetailPage.slice(catchIndex, catchIndex + 220)).not.toContain('navigate(');
+  });
+
   it('keeps Quick Note local to the current filtered list', () => {
     expect(leadsPage).toContain('setNoteTarget(r);');
     expect(leadsPage).toContain('if (!open) setNoteTarget(null);');
