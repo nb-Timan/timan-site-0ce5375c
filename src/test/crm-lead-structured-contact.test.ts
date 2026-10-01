@@ -119,6 +119,19 @@ describe('CRM lead L/G canonical relation', () => {
     expect(overview).not.toContain('data-testid="crm-leads-relation-cell"');
     expect(overview).toContain('data-testid="crm-leads-compact-reference"');
     expect(overview).toContain('formatLeadReferenceDisplay(r.reference_no, r.reference_type)');
+    const typeCell = overview.slice(
+      overview.indexOf('data-testid="crm-leads-type-cell"'),
+      overview.indexOf('data-testid="crm-leads-title-customer-cell"'),
+    );
+    const titleCustomerCell = overview.slice(
+      overview.indexOf('data-testid="crm-leads-title-customer-cell"'),
+      overview.indexOf('<td className="px-4 py-3.5 text-gray-600'),
+    );
+    expect(typeCell).toContain('data-testid="crm-leads-compact-reference"');
+    expect(typeCell).toContain('{compactReference}');
+    expect(titleCustomerCell).not.toContain('crm-leads-compact-reference');
+    expect(titleCustomerCell).toContain('{r.customer}');
+    expect(titleCustomerCell).toContain("tt('incomplete_chip', lang)");
     expect(detail).toContain('data-testid="crm-lead-detail-relation"');
   });
 

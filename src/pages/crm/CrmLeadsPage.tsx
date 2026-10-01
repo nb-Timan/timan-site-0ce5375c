@@ -1113,15 +1113,25 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                         });
                       }}
                       className={cn('transition-colors', clickable ? 'cursor-pointer hover:bg-gray-50/60' : 'hover:bg-gray-50/40')}>
-                      <td className="px-4 py-3.5">
-                        <span className={cn(
-                          'inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border',
-                          FOLLOWUP_BADGE[followupTone]
-                        )}>
-                          {getUserLeadTypeLabel(userType, lang)}
-                        </span>
+                      <td data-testid="crm-leads-type-cell" className="w-[88px] min-w-[88px] px-4 py-3 align-top">
+                        <div className="flex flex-col items-start gap-0.5">
+                          <span className={cn(
+                            'inline-flex text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-md border',
+                            FOLLOWUP_BADGE[followupTone]
+                          )}>
+                            {getUserLeadTypeLabel(userType, lang)}
+                          </span>
+                          {compactReference && (
+                            <span
+                              data-testid="crm-leads-compact-reference"
+                              className="font-mono text-[11px] leading-none tabular-nums text-slate-500 whitespace-nowrap"
+                            >
+                              {compactReference}
+                            </span>
+                          )}
+                        </div>
                       </td>
-                      <td className="min-w-[240px] px-4 py-3.5">
+                      <td data-testid="crm-leads-title-customer-cell" className="min-w-[240px] px-4 py-3.5">
                         <div className="flex items-baseline gap-2 flex-wrap">
                           <span className="font-medium text-gray-900 truncate max-w-[260px]">{r.title}</span>
                           {r.incomplete && (
@@ -1158,19 +1168,9 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                             </button>
                           )}
                         </div>
-                        {(compactReference || (r.customer && r.customer !== r.title)) && (
-                          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
-                            {compactReference && (
-                              <span
-                                data-testid="crm-leads-compact-reference"
-                                className="shrink-0 font-mono text-[11px] tabular-nums text-slate-500 whitespace-nowrap"
-                              >
-                                {compactReference}
-                              </span>
-                            )}
-                            {r.customer && r.customer !== r.title && (
-                              <span className="min-w-0 truncate max-w-[260px]">{r.customer}</span>
-                            )}
+                        {r.customer && r.customer !== r.title && (
+                          <div className="mt-0.5 min-w-0 truncate max-w-[260px] text-xs text-gray-500">
+                            {r.customer}
                           </div>
                         )}
                       </td>
