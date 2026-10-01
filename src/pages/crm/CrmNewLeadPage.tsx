@@ -10,6 +10,7 @@ import { convertCurrency, formatMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { readCrmLeadsReturnTarget } from '@/lib/crmLeadsNavigationState';
+import { crmLostReasonLabel, normalizeCrmLostReason, serializeCrmLostReason } from '@/lib/crmLostReason';
 import { addMonthsToIsoDate } from '@/lib/crmLeadExpectedClose';
 import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
@@ -967,7 +968,7 @@ export default function CrmNewLeadPage() {
       setInitialWorkingBudgetQuantity(loadedWorkingBudgetQuantity);
       setStage((lead.pipeline_stage as PipelineStage) || 'Lead');
       setLostCompetitor(lead.lost_competitor || '');
-      setLostReason(lead.lost_reason || '');
+      setLostReason(normalizeCrmLostReason(lead.lost_reason) ?? lead.lost_reason ?? '');
       setLostComment(lead.lost_comment || '');
       setFiles(lead.attachments || []);
       setLoadingLead(false);
@@ -1469,7 +1470,7 @@ export default function CrmNewLeadPage() {
         move_to_working_qty: normalizeWorkingBudgetQuantity(moveToWorking),
         pipeline_stage: stage,
         lost_competitor: isLost ? (lostCompetitor === 'Andre' ? (lostCompetitorCustom || 'Andre') : lostCompetitor) || null : null,
-        lost_reason: isLost ? (lostReason || null) : null,
+        lost_reason: isLost ? serializeCrmLostReason(lostReason) : null,
         lost_comment: isLost ? (lostComment || null) : null,
         attachments: files,
         status: 'open',
@@ -2037,7 +2038,7 @@ export default function CrmNewLeadPage() {
                 <Field label={tt('lbl_lost_reason', lang)} full>
                   <select className={inputCls} value={lostReason} onChange={e=>setLostReason(e.target.value)}>
                     <option value="">{tt('pick', lang)}</option>
-                    {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{crmLeadChoiceLabel(o, uiLanguage)}</option>)}
+                    {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{crmLostReasonLabel(o, uiLanguage)}</option>)}
                   </select>
                 </Field>
                 <Field label={tt('lbl_lost_comment', lang)} full>

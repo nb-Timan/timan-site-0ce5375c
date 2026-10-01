@@ -57,9 +57,6 @@ const CHOICE_LABELS_DE: Record<string, string> = {
   'Institution (School, Hospital, etc.)': 'Institution (Schule, Krankenhaus usw.)', Churches: 'Kirchen', Company: 'Unternehmen',
   'Private / End customer': 'Privat-/Endkunde', 'Rental company': 'Vermietungsunternehmen', 'Dealer/Demo machine': 'Händler-/Demomaschine',
   'Direct sale': 'Direktverkauf', 'Needs to be filled in': 'Angaben fehlen', Unknown: 'Unbekannt', Other: 'Andere',
-  Price: 'Preis', 'Delivery time': 'Lieferzeit', 'Machine too small': 'Maschine zu klein', 'Machine too large': 'Maschine zu groß',
-  'Customer found a used machine instead': 'Kunde hat stattdessen eine Gebrauchtmaschine gefunden',
-  'Budget changed or project was cancelled': 'Budget geändert oder Projekt abgesagt',
 };
 export function crmLeadChoiceLabel(value: string, language: PortalUiLanguage): string {
   if (language === 'de') return CHOICE_LABELS_DE[value] ?? value;

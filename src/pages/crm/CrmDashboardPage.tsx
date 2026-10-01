@@ -42,6 +42,7 @@ import {
   type CrmDashboardSalesOutcomeKpis,
 } from '@/lib/crmDashboardKpisService';
 import { summarizeWonOrderValues } from '@/lib/crmClosedOrderValue';
+import { classifyCrmLostReason, type CrmLostReasonAnalyticsCategory } from '@/lib/crmLostReason';
 import { Language } from '@/types/configurator';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
@@ -85,6 +86,7 @@ const T: Record<string, Record<Language, string>> = {
   reason_price:   { da: 'Pris',          en: 'Price',         de: 'Preis',         it: 'Prezzo',        hu: 'Ár' },
   reason_lead:    { da: 'Leveringstid',  en: 'Lead time',     de: 'Lieferzeit',    it: 'Tempo consegna',hu: 'Szállítási idő' },
   reason_comp:    { da: 'Konkurrent',    en: 'Competitor',    de: 'Wettbewerb',    it: 'Concorrente',   hu: 'Versenytárs' },
+  reason_not_relevant: { da: 'Ikke relevant', en: 'Not relevant', de: 'Nicht relevant', it: 'Non pertinente', hu: 'Nem releváns' },
   reason_other:   { da: 'Andet',         en: 'Other',         de: 'Sonstiges',     it: 'Altro',         hu: 'Egyéb' },
 
   days:           { da: 'dage',          en: 'days',          de: 'Tage',          it: 'giorni',        hu: 'nap' },
@@ -115,8 +117,8 @@ const PIPELINE_STAGES: StageMeta[] = [
   { key: 'lost',  tKey: 'stage_lost',  bar: 'bg-gradient-to-r from-rose-400 to-rose-500',     hex: '#f43f5e', ring: 'bg-rose-100 text-rose-700' },
 ];
 
-const REASON_HEX: Record<'price'|'lead'|'comp'|'other', string> = {
-  price: '#f43f5e', lead: '#f59e0b', comp: '#8b5cf6', other: '#64748b',
+const REASON_HEX: Record<CrmLostReasonAnalyticsCategory, string> = {
+  price: '#f43f5e', lead: '#f59e0b', comp: '#8b5cf6', not_relevant: '#0f766e', other: '#64748b',
 };
 
 // Mini bar chart heights (%) for the Closed Orders hero card
@@ -155,13 +157,9 @@ function classifyStage(a: CrmActivity): StageMeta['key'] | null {
     default: return null;
   }
 }
-function classifyLostReason(a: CrmActivity): 'price' | 'lead' | 'comp' | 'other' {
+function classifyLostReason(a: CrmActivity): CrmLostReasonAnalyticsCategory {
   const meta = (a.meta || {}) as Record<string, unknown>;
-  const r = String(meta.lost_reason || a.description || '').toLowerCase();
-  if (/pris|price/.test(r)) return 'price';
-  if (/lever|delivery|lead\s*time/.test(r)) return 'lead';
-  if (/konkur|competitor|comp/.test(r)) return 'comp';
-  return 'other';
+  return classifyCrmLostReason(String(meta.lost_reason || a.description || ''));
 }
 
 function activityDotClass(stage: StageMeta['key'] | null): string {
@@ -835,13 +833,13 @@ export default function CrmDashboardPage() {
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
-                        data={(['price','lead','comp','other'] as const)
+                        data={(['price','lead','comp','not_relevant','other'] as const)
                           .map(k => ({ name: T[`reason_${k}`][lang], value: metrics.lostReasons.items[k].count, fill: REASON_HEX[k] }))
                           .filter(d => d.value > 0)}
                         dataKey="value" innerRadius={42} outerRadius={64} paddingAngle={3}
                         stroke="white" strokeWidth={2}
                       >
-                        {(['price','lead','comp','other'] as const).map(k => (
+                        {(['price','lead','comp','not_relevant','other'] as const).map(k => (
                           <Cell key={k} fill={REASON_HEX[k]} />
                         ))}
                       </Pie>
@@ -850,7 +848,7 @@ export default function CrmDashboardPage() {
                   </ResponsiveContainer>
                 </div>
                 <div className="space-y-2.5">
-                  {(['price','lead','comp','other'] as const).map(key => {
+                  {(['price','lead','comp','not_relevant','other'] as const).map(key => {
                     const item = metrics.lostReasons.items[key];
                     const total = Math.max(1, metrics.lostReasons.total);
                     const pct = Math.round((item.count / total) * 100);
@@ -1220,7 +1218,7 @@ interface DerivedMetrics {
   closedCountThisMonth: number;
   closedPctChange: number;
   pipelineByStage: Array<{ key: StageMeta['key']; bar: string; hex: string; ring: string; value: number; count: number }>;
-  lostReasons: { total: number; items: Record<'price'|'lead'|'comp'|'other', { count: number }> };
+  lostReasons: { total: number; items: Record<CrmLostReasonAnalyticsCategory, { count: number }> };
   inactiveAccounts: (accounts: CrmAccount[]) => CrmAccount[];
   bestAccounts: (accounts: CrmAccount[]) => Array<{ account: CrmAccount; value: number }>;
   latestSoldUnits: Array<{ id: string; dealer: string; closedAt: string; units: Array<{ key: string; qty: number }>; totalUnits: number }>;
@@ -1300,7 +1298,7 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
   const closedValuePrev = ordersPrev.reduce((sum, o) => sum + (o.total_value_dkk || 0), 0);
   const closedPctChange = pctChange(closedValueThisMonth, closedValuePrev);
 
-  const reasonCounts = { price: 0, lead: 0, comp: 0, other: 0 };
+  const reasonCounts: Record<CrmLostReasonAnalyticsCategory, number> = { price: 0, lead: 0, comp: 0, not_relevant: 0, other: 0 };
   for (const s of lost) reasonCounts[classifyLostReason(s.a)] += 1;
   const lostReasons = {
     total: lost.length,
@@ -1308,6 +1306,7 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
       price: { count: reasonCounts.price },
       lead:  { count: reasonCounts.lead },
       comp:  { count: reasonCounts.comp },
+      not_relevant: { count: reasonCounts.not_relevant },
       other: { count: reasonCounts.other },
     },
   };

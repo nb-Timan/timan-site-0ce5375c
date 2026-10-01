@@ -7,6 +7,7 @@ import { useAcademyAccess } from '@/context/AcademyAccessContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { crmDemoMissingLabel } from '@/lib/crmDemoStageI18n';
 import { crmLeadText } from '@/lib/crmLeadI18n';
+import { crmLostReasonLabel, serializeCrmLostReason } from '@/lib/crmLostReason';
 import { Language } from '@/types/configurator';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -1483,7 +1484,7 @@ function WonLostDialog({
         status: 'closed',
         ...(isWon ? {} : {
           lost_competitor: competitor === 'Andre' ? (competitorOther || 'Andre') : (competitor || null),
-          lost_reason: reason || null,
+          lost_reason: serializeCrmLostReason(reason),
           lost_comment: comment || null,
         }),
         updated_at: closedAt,
@@ -1555,7 +1556,7 @@ function WonLostDialog({
               <select className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
                 value={reason} onChange={e => setReason(e.target.value)}>
                 <option value="">{tt('pick', lang)}</option>
-                {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                {LOST_REASON_OPTIONS.map(o => <option key={o} value={o}>{crmLostReasonLabel(o, lang)}</option>)}
               </select>
             </div>
             <div>

@@ -110,14 +110,7 @@ export const LOST_COMPETITOR_OPTIONS = [
   "Energreen", "X-Rot", "Husqvarna", "Andre",
 ] as const;
 
-export const LOST_REASON_OPTIONS = [
-  "Price",
-  "Delivery time",
-  "Machine too small",
-  "Machine too large",
-  "Customer found a used machine instead",
-  "Budget changed or project was cancelled",
-] as const;
+export { CRM_LOST_REASON_CODES as LOST_REASON_OPTIONS } from '@/lib/crmLostReason';
 
 // Demo lead specific
 export const DEMO_MACHINE_CATEGORY = [
