@@ -41,6 +41,7 @@ import {
   type CrmDashboardQuoteOrderKpis,
   type CrmDashboardSalesOutcomeKpis,
 } from '@/lib/crmDashboardKpisService';
+import { summarizeWonOrderValues } from '@/lib/crmClosedOrderValue';
 import { Language } from '@/types/configurator';
 import {
   Activity, ArrowDownRight, ArrowRight, ArrowUpRight, Award, Building2, CheckCircle2,
@@ -400,6 +401,10 @@ export default function CrmDashboardPage() {
       activeLeads: activeLeadRows.length,
       leadsPctChange: pctChange(leadsThis, leadsPrev),
       pipelineValue,
+      wonOrdersCount: serverQuoteOrderKpis?.orderCount ?? base.wonOrdersCount,
+      closedOrderValue: serverQuoteOrderKpis?.orderValueDkk ?? base.closedOrderValue,
+      wonPctChange: serverQuoteOrderKpis?.wonPctChange ?? base.wonPctChange,
+      closedPctChange: serverQuoteOrderKpis?.closedPctChange ?? base.closedPctChange,
       winRate: serverSalesOutcomeKpis?.winRate ?? base.winRate,
       avgSalesDays: serverSalesOutcomeKpis?.avgSalesDays ?? base.avgSalesDays,
       pipelineByStage: byStage,
@@ -539,7 +544,7 @@ export default function CrmDashboardPage() {
                     </p>
                   </div>
                   <p className="text-[1.45rem] leading-none font-bold tracking-tight tabular-nums mt-1">
-                    {fmtKr(metrics.closedValueThisMonth, displayCurrency)}
+                    {fmtKr(metrics.closedOrderValue, displayCurrency)}
                   </p>
                 </div>
                 <div className="h-12 w-px bg-white/15" aria-hidden />
@@ -1211,7 +1216,7 @@ interface DerivedMetrics {
   wonPctChange: number;
   winRate: number;
   avgSalesDays: number;
-  closedValueThisMonth: number;
+  closedOrderValue: number;
   closedCountThisMonth: number;
   closedPctChange: number;
   pipelineByStage: Array<{ key: StageMeta['key']; bar: string; hex: string; ring: string; value: number; count: number }>;
@@ -1258,7 +1263,8 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
   // is also counted here. Old "won" activities are no longer used for
   // closed-orders KPIs to avoid double counting and seller/dealer mismatches.
   const lost = staged.filter(s => s.stage === 'lost');
-  const wonOrdersCount = orders.length;
+  const orderValueSummary = summarizeWonOrderValues(orders);
+  const wonOrdersCount = orderValueSummary.wonOrdersCount;
   const winRate = (wonOrdersCount + lost.length) === 0
     ? 0
     : Math.round((wonOrdersCount / (wonOrdersCount + lost.length)) * 100);
@@ -1341,7 +1347,7 @@ function deriveMetrics(activities: CrmActivity[], orders: CrmOrderWithValue[], _
     activeLeads, leadsPctChange,
     wonOrdersCount, wonPctChange,
     winRate, avgSalesDays,
-    closedValueThisMonth, closedCountThisMonth, closedPctChange,
+    closedOrderValue: orderValueSummary.valueDkk, closedCountThisMonth, closedPctChange,
     pipelineByStage: byStage,
     lostReasons,
     latestSoldUnits,

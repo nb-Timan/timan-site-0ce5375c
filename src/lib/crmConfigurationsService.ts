@@ -27,6 +27,7 @@ import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { currencyFromLanguage, toDkk, type Currency } from '@/lib/currency';
 import { isExternalCrmRole } from '@/lib/crmScope';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
+import { resolveHistoricalOrderTotal } from '@/lib/crmClosedOrderValue';
 
 export type CrmDocumentType = 'quote' | 'order';
 
@@ -457,7 +458,7 @@ export async function fetchCrmConfigurationVisible(
 // ────────────────────────────────────────────────────────────
 
 export interface CrmOrderWithValue extends CrmConfigurationRow {
-  /** Computed via calcConfigurationTotals(state_json), in ORIGINAL currency. 0 if state missing. */
+  /** Persisted order total (or frozen snapshot fallback), in ORIGINAL currency. */
   total_value: number;
   /** Same total converted to DKK using EUR_TO_DKK from src/lib/currency.ts. */
   total_value_dkk: number;
@@ -485,7 +486,7 @@ function parseStateJson(value: unknown): ConfiguratorState | null {
 
 /**
  * Fetch scoped orders (same visibility rules as listCrmConfigurations) AND
- * compute their total_value + machine breakdown from configurations.state_json.
+ * read their historical total_value and machine breakdown.
  *
  * This is the SHARED source for the CRM Dashboard "Lukkede ordrer" KPI and
  * for Budget actuals — guaranteeing that any row visible in CRM → Ordrer is
@@ -533,13 +534,11 @@ export async function listScopedOrdersWithValue(
 
   const out: CrmOrderWithValue[] = scoped.map((r) => {
     const state = stateById.get(r.id) ?? null;
-    let total = 0;
+    const historicalTotal = resolveHistoricalOrderTotal(r.total_price, state);
+    const total = historicalTotal ?? 0;
     const qtyByKey: Record<string, number> = {};
     const currency: Currency = state ? configuratorCurrency(state) : currencyFromLanguage(null);
     if (state) {
-      try {
-        total = calcConfigurationTotals(state).finalPrice || 0;
-      } catch { /* ignore */ }
       for (const mc of state.machineConfigs ?? []) {
         const key = mc.type;
         if (!key) continue;
