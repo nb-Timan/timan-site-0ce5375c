@@ -1,8 +1,20 @@
 import timanLogoUrl from '@/assets/timan-logo-transparent-trimmed.png';
+import type { jsPDF } from 'jspdf';
 import { renderAppendix2Paragraphs } from '@/lib/contractAppendix2';
 import { getContractDiscountStructure } from '@/lib/contractCommercialTerms';
-import { getRequiredContractConfirmationIds, type ContractSnapshot } from '@/lib/contractFlow';
+import {
+  getRequiredContractConfirmationIds,
+  TIMAN_COMPANY_INFO,
+  type ContractSnapshot,
+} from '@/lib/contractFlow';
 import { getContractPartnerTerms } from '@/lib/contractPartnerTerms';
+import {
+  buildContractPdfPresentation,
+  loadContractPdfTerritoryMaps,
+  stripContractPdfHeadingPrefix,
+  type ContractPdfJsonLoader,
+  type ContractPdfMapModel,
+} from '@/lib/contractPdfPresentation';
 import {
   renderGuidedContractSections,
   type GuidedContractSection,
@@ -13,7 +25,7 @@ export const CONTRACT_PDF_TEMPLATE_VERSION = '2026-09-12-v2';
 export type ContractDocumentLanguage = 'da' | 'en' | 'de';
 export type ContractDocumentMode = 'draft' | 'final';
 
-type Pdf = any;
+type Pdf = jsPDF;
 
 export type ContractPdfInput = {
   snapshot: ContractSnapshot;
@@ -35,8 +47,6 @@ export type GeneratedContractPdf = {
 
 type PdfLabels = {
   agreement: string;
-  between: string;
-  contents: string;
   parties: string;
   appendices: string;
   signature: string;
@@ -61,26 +71,31 @@ type PdfLabels = {
 
 const PDF_LABELS: Record<ContractDocumentLanguage, PdfLabels> = {
   da: {
-    agreement: 'PARTNERAFTALE', between: 'mellem', contents: 'INDHOLDSFORTEGNELSE', parties: 'Parterne', appendices: 'Bilag', signature: 'Underskrift',
+    agreement: 'PARTNERAFTALE', parties: 'Parterne', appendices: 'Bilag', signature: 'Underskrift',
     contractNumber: 'Kontraktnummer', agreementDate: 'Aftaledato', partnerType: 'Partnertype', version: 'Version', accountNumber: 'Kontonr.',
     draft: 'UDKAST', final: 'ENDELIG', page: 'Side', of: 'af', timan: 'TIMAN A/S', partner: 'SAMARBEJDSPARTNER', name: 'Navn', title: 'Titel', date: 'Dato', signatureLine: 'Underskrift',
     signatureIntro: 'Kontrakten kan underskrives digitalt eller fysisk. En underskrevet version behandles som en separat, versioneret upload.',
     translationPending: 'Juridisk oversættelse af denne kontraktskabelon afventer godkendelse.',
   },
   en: {
-    agreement: 'PARTNER AGREEMENT', between: 'between', contents: 'CONTENTS', parties: 'The parties', appendices: 'Appendices', signature: 'Signature',
+    agreement: 'PARTNER AGREEMENT', parties: 'The parties', appendices: 'Appendices', signature: 'Signature',
     contractNumber: 'Contract number', agreementDate: 'Agreement date', partnerType: 'Partner type', version: 'Version', accountNumber: 'Account no.',
     draft: 'DRAFT', final: 'FINAL', page: 'Page', of: 'of', timan: 'TIMAN A/S', partner: 'PARTNER', name: 'Name', title: 'Title', date: 'Date', signatureLine: 'Signature',
     signatureIntro: 'The agreement may be signed digitally or physically. A signed version is handled as a separate, versioned upload.',
     translationPending: 'The approved legal translation for this contract template is pending review.',
   },
   de: {
-    agreement: 'PARTNERVERTRAG', between: 'zwischen', contents: 'INHALTSVERZEICHNIS', parties: 'Die Parteien', appendices: 'Anhänge', signature: 'Unterschrift',
+    agreement: 'PARTNERVERTRAG', parties: 'Die Parteien', appendices: 'Anhänge', signature: 'Unterschrift',
     contractNumber: 'Vertragsnummer', agreementDate: 'Vertragsdatum', partnerType: 'Partnertyp', version: 'Version', accountNumber: 'Kontonr.',
     draft: 'ENTWURF', final: 'ENDGÜLTIG', page: 'Seite', of: 'von', timan: 'TIMAN A/S', partner: 'PARTNER', name: 'Name', title: 'Titel', date: 'Datum', signatureLine: 'Unterschrift',
     signatureIntro: 'Der Vertrag kann digital oder physisch unterzeichnet werden. Eine unterzeichnete Version wird als separater, versionierter Upload verarbeitet.',
     translationPending: 'Die freigegebene juristische Übersetzung dieser Vertragsvorlage steht noch zur Prüfung aus.',
   },
+};
+
+export type ContractPdfGenerationOptions = {
+  loadJson?: ContractPdfJsonLoader;
+  logoDataUrl?: string | null;
 };
 
 export function getContractPdfLanguageReadiness(language: ContractDocumentLanguage) {
@@ -127,6 +142,7 @@ export async function sha256Hex(blob: Blob) {
 }
 
 async function loadPdfImage(src: string): Promise<HTMLImageElement | null> {
+  if (typeof Image === 'undefined') return null;
   return new Promise((resolve) => {
     const image = new Image();
     image.onload = () => resolve(image);
@@ -200,58 +216,147 @@ export function formatContractPdfPreflightIssues(
   return `${prefix} ${issues.map((issue) => PREFLIGHT_LABELS[language][issue]).join(', ')}.`;
 }
 
-function isAppendixHeading(title: string) {
-  return /^(?:bilag|appendix|anhang)\s+\d+/i.test(title.trim());
+type PdfPoint = [number, number];
+
+function geometryRings(geometry: GeoJSON.Geometry): GeoJSON.Position[][] {
+  if (geometry.type === 'Polygon') return geometry.coordinates;
+  if (geometry.type === 'MultiPolygon') return geometry.coordinates.flat();
+  if (geometry.type === 'GeometryCollection') return geometry.geometries.flatMap(geometryRings);
+  return [];
 }
 
-export async function generateContractPdf(input: ContractPdfInput): Promise<GeneratedContractPdf> {
+function simplifyRing(points: readonly GeoJSON.Position[], maxPoints = 320) {
+  if (points.length <= maxPoints) return points;
+  const stride = Math.ceil(points.length / maxPoints);
+  const simplified = points.filter((_, index) => index % stride === 0);
+  const last = points[points.length - 1];
+  if (simplified[simplified.length - 1] !== last) simplified.push(last);
+  return simplified;
+}
+
+function drawContractTerritoryMap(
+  pdf: Pdf,
+  model: ContractPdfMapModel,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  const rings = model.features.flatMap((feature) => geometryRings(feature.geometry));
+  const coordinates = rings.flat();
+  if (!coordinates.length) return;
+
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  coordinates.forEach((position) => {
+    const longitude = Number(position[0]);
+    const latitude = Number(position[1]);
+    minX = Math.min(minX, longitude);
+    maxX = Math.max(maxX, longitude);
+    minY = Math.min(minY, latitude);
+    maxY = Math.max(maxY, latitude);
+  });
+  const spanX = Math.max(maxX - minX, 0.001);
+  const spanY = Math.max(maxY - minY, 0.001);
+  const padding = 4;
+  const availableWidth = width - padding * 2;
+  const availableHeight = height - padding * 2;
+  const scale = Math.min(availableWidth / spanX, availableHeight / spanY);
+  const drawnWidth = spanX * scale;
+  const drawnHeight = spanY * scale;
+  const offsetX = x + padding + (availableWidth - drawnWidth) / 2;
+  const offsetY = y + padding + (availableHeight - drawnHeight) / 2;
+  const project = (position: GeoJSON.Position): PdfPoint => [
+    offsetX + (Number(position[0]) - minX) * scale,
+    offsetY + drawnHeight - (Number(position[1]) - minY) * scale,
+  ];
+
+  pdf.setFillColor(248, 250, 249);
+  pdf.setDrawColor(203, 213, 205);
+  pdf.setLineWidth(0.25);
+  pdf.roundedRect(x, y, width, height, 1.5, 1.5, 'FD');
+
+  model.features.forEach((feature) => {
+    if (feature.selected) {
+      if (model.variant === 'secondary') {
+        pdf.setFillColor(246, 235, 197);
+        pdf.setDrawColor(166, 124, 29);
+      } else {
+        pdf.setFillColor(220, 239, 226);
+        pdf.setDrawColor(40, 122, 72);
+      }
+      pdf.setLineWidth(0.45);
+    } else {
+      pdf.setFillColor(241, 245, 242);
+      pdf.setDrawColor(156, 163, 175);
+      pdf.setLineWidth(0.18);
+    }
+
+    geometryRings(feature.geometry).forEach((sourceRing) => {
+      const ring = simplifyRing(sourceRing);
+      if (ring.length < 3) return;
+      const projected = ring.map(project);
+      const [startX, startY] = projected[0];
+      const deltas = projected.slice(1).map(([pointX, pointY], index) => {
+        const [previousX, previousY] = projected[index];
+        return [pointX - previousX, pointY - previousY];
+      });
+      pdf.lines(deltas, startX, startY, [1, 1], 'FD', true);
+    });
+  });
+}
+
+export async function generateContractPdf(
+  input: ContractPdfInput,
+  options: ContractPdfGenerationOptions = {},
+): Promise<GeneratedContractPdf> {
   const { jsPDF } = await import('jspdf');
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const labels = PDF_LABELS[input.language];
   const legalSections = getSnapshotLegalSections(input.snapshot, input.language);
+  const presentation = buildContractPdfPresentation(input.snapshot, legalSections, input.language);
+  const territoryMaps = await loadContractPdfTerritoryMaps(
+    input.snapshot.territory,
+    input.language,
+    options.loadJson,
+  );
   const partnerTerms = getContractPartnerTerms(input.snapshot.dealer.partnerType, input.language)
     ?? getContractPartnerTerms('dealer', input.language)!;
   const left = 18;
   const right = 192;
   const width = right - left;
-  const top = 28;
-  const bottom = 270;
-  const tocPage = 2;
+  const top = 25;
+  const bottom = 269;
   const sectionPages: Array<{ title: string; page: number }> = [];
   let y = top;
 
-  const logo = await loadPdfImage(timanLogoUrl);
-  if (logo) pdf.addImage(logo, 'PNG', left, 18, 42, 13);
+  const logo = options.logoDataUrl === undefined ? await loadPdfImage(timanLogoUrl) : null;
+  if (options.logoDataUrl) pdf.addImage(options.logoDataUrl, 'PNG', left, 18, 44, 14);
+  else if (logo) pdf.addImage(logo, 'PNG', left, 18, 44, 14);
 
-  pdf.setTextColor(20, 59, 35);
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(27);
-  pdf.text('TIMAN', left, 61);
-  pdf.setFontSize(17);
+  pdf.setFontSize(21);
   pdf.setTextColor(17, 24, 39);
-  pdf.text(labels.agreement, left, 72);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(10);
-  pdf.setTextColor(90, 99, 110);
-  pdf.text(labels.between, left, 89);
+  pdf.text(labels.agreement, left, 62);
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(14);
-  pdf.setTextColor(17, 24, 39);
-  pdf.text('Timan A/S', left, 99);
-  pdf.text(input.snapshot.dealer.name || '-', left, 110);
+  pdf.setFontSize(11);
+  pdf.setTextColor(40, 122, 72);
+  pdf.text(partnerTerms.label, left, 73);
   pdf.setDrawColor(43, 120, 69);
-  pdf.setLineWidth(0.8);
-  pdf.line(left, 122, right, 122);
+  pdf.setLineWidth(0.6);
+  pdf.line(left, 91, right, 91);
   const coverRows = [
     [labels.contractNumber, input.contractNumber],
     [labels.agreementDate, formatDate(input.snapshot.contractDate, input.language)],
     [labels.partnerType, partnerTerms.label],
-    [labels.version, `${CONTRACT_PDF_TEMPLATE_VERSION} · ${input.documentVersion}`],
+    [labels.version, `${CONTRACT_PDF_TEMPLATE_VERSION} / ${input.documentVersion}`],
   ];
   if (input.dealerAccountNumber) coverRows.splice(1, 0, [labels.accountNumber, input.dealerAccountNumber]);
   pdf.setFontSize(9.5);
   coverRows.forEach(([label, value], index) => {
-    const rowY = 139 + index * 10;
+    const rowY = 111 + index * 10;
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(75, 85, 99);
     pdf.text(label, left, rowY);
@@ -259,16 +364,6 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
     pdf.setTextColor(17, 24, 39);
     pdf.text(value, 72, rowY);
   });
-  pdf.setFontSize(8);
-  pdf.setTextColor(107, 114, 128);
-  pdf.text(`Timan A/S · ${input.snapshot.timan.address} · ${input.snapshot.timan.postalCity}`, left, 275);
-
-  pdf.addPage();
-  pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(17, 24, 39);
-  pdf.setFontSize(16);
-  pdf.text(labels.contents, left, top);
-
   const addPage = () => {
     pdf.addPage();
     y = top;
@@ -286,71 +381,88 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
   };
   const mainHeading = (title: string) => {
     const lines = pdf.splitTextToSize(title, width) as string[];
-    ensure(Math.max(20, lines.length * 5.8 + 11));
+    ensure(Math.max(36, lines.length * 6.5 + 26));
     const page = pdf.getNumberOfPages();
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(13);
-    pdf.setTextColor(17, 24, 39);
-    wrapped(title, left, width, 5.8);
-    y += 2;
+    pdf.setFontSize(15);
+    pdf.setTextColor(20, 89, 51);
+    wrapped(title, left, width, 6.5);
+    y += 3;
     return page;
   };
   const block = (heading: string | undefined, paragraphs: string[] = [], bullets: string[] = []) => {
     const body = [...paragraphs, ...bullets];
-    const previewLines = heading ? pdf.splitTextToSize(heading, width) : [];
+    const previewLines = heading ? pdf.splitTextToSize(heading, width) as string[] : [];
     const firstBody = body[0] ? pdf.splitTextToSize(body[0], width) as string[] : [];
     const paragraphLines = paragraphs.reduce((count, paragraph) => count + (pdf.splitTextToSize(paragraph, width) as string[]).length, 0);
     const bulletLines = bullets.reduce((count, bullet) => count + (pdf.splitTextToSize(`- ${bullet}`, width - 2.5) as string[]).length, 0);
-    const totalHeight = previewLines.length * 4.6
-      + paragraphLines * 4.35
-      + bulletLines * 4.35
+    const totalHeight = previewLines.length * 5
+      + paragraphLines * 4.45
+      + bulletLines * 4.45
       + paragraphs.length * 1.4
       + bullets.length
       + 6;
-    const minimumHeight = Math.max(22, previewLines.length * 4.6 + firstBody.length * 4.35 + (body.length ? 10 : 0));
+    const minimumHeight = Math.max(18, previewLines.length * 5 + firstBody.length * 4.45 + (body.length ? 8 : 0));
     ensure(totalHeight <= bottom - top ? Math.max(minimumHeight, totalHeight) : minimumHeight);
-    const page = pdf.getNumberOfPages();
     if (heading) {
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(9.8);
+      pdf.setFontSize(10.8);
       pdf.setTextColor(17, 24, 39);
-      wrapped(heading, left, width, 4.6);
-      y += 1.4;
+      wrapped(heading, left, width, 5);
+      y += 1.6;
     }
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8.8);
+    pdf.setFontSize(9.2);
     pdf.setTextColor(45, 55, 72);
     paragraphs.forEach((paragraph) => {
-      wrapped(paragraph, left, width, 4.35);
+      wrapped(paragraph, left, width, 4.45);
       y += 1.4;
     });
     bullets.forEach((bullet) => {
-      wrapped(`- ${bullet}`, left + 2.5, width - 2.5, 4.35);
+      wrapped(`- ${bullet}`, left + 2.5, width - 2.5, 4.45);
       y += 1;
     });
     y += 2.4;
-    return page;
   };
 
-  const recordTocEntry = (title: string, page: number) => {
+  const recordSectionEntry = (title: string, page: number) => {
     if (!sectionPages.some((entry) => entry.title === title)) {
       sectionPages.push({ title, page });
     }
   };
 
   addPage();
-  const partiesTitle = `1. ${labels.parties}`;
-  recordTocEntry(partiesTitle, mainHeading(partiesTitle));
-  block(labels.timan, [
-    input.snapshot.timan.company,
-    `CVR: ${input.snapshot.timan.cvr}`,
-    input.snapshot.timan.address,
-    input.snapshot.timan.postalCity,
-    input.snapshot.timan.country,
+  const partiesTitle = `${presentation.parties.number}. ${presentation.parties.title}`;
+  recordSectionEntry(partiesTitle, mainHeading(partiesTitle));
+  const partyTop = y;
+  const columnWidth = 80;
+  const partyColumn = (x: number, heading: string, lines: string[]) => {
+    let columnY = partyTop;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9.8);
+    pdf.setTextColor(17, 24, 39);
+    pdf.text(heading, x, columnY);
+    columnY += 7;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8.9);
+    pdf.setTextColor(45, 55, 72);
+    lines.filter(Boolean).forEach((line) => {
+      const wrappedLines = pdf.splitTextToSize(line, columnWidth) as string[];
+      pdf.text(wrappedLines, x, columnY);
+      columnY += wrappedLines.length * 4.4 + 0.8;
+    });
+    return columnY;
+  };
+  const timanColumnBottom = partyColumn(left, labels.timan, [
+    TIMAN_COMPANY_INFO.company,
+    `CVR: ${TIMAN_COMPANY_INFO.cvr}`,
+    TIMAN_COMPANY_INFO.address,
+    TIMAN_COMPANY_INFO.postalCity,
+    TIMAN_COMPANY_INFO.country,
     input.snapshot.timan.sellerName ? `${labels.name}: ${input.snapshot.timan.sellerName}` : '',
     input.snapshot.timan.sellerEmail ? `E-mail: ${input.snapshot.timan.sellerEmail}` : '',
-  ].filter(Boolean));
-  block(labels.partner, [
+  ]);
+  const partnerColumnBottom = partyColumn(108, labels.partner, [
     input.snapshot.dealer.name,
     `CVR/VAT: ${input.snapshot.dealer.cvr || '-'}`,
     input.snapshot.dealer.address,
@@ -358,17 +470,20 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
     input.snapshot.dealer.country,
     input.snapshot.dealer.contactPerson ? `${labels.name}: ${input.snapshot.dealer.contactPerson}` : '',
     input.snapshot.dealer.contactTitle ? `${labels.title}: ${input.snapshot.dealer.contactTitle}` : '',
-  ].filter(Boolean));
+  ]);
+  pdf.setDrawColor(213, 220, 214);
+  pdf.setLineWidth(0.2);
+  pdf.line(101, partyTop, 101, Math.max(timanColumnBottom, partnerColumnBottom));
+  y = Math.max(timanColumnBottom, partnerColumnBottom) + 8;
 
-  legalSections.forEach((section) => {
+  presentation.sections.forEach((section) => {
+    const sectionTitle = `${section.number}. ${section.title}`;
+    recordSectionEntry(sectionTitle, mainHeading(sectionTitle));
     section.blocks.forEach((item) => {
-      if (item.heading && isAppendixHeading(item.heading)) addPage();
-      const page = block(item.heading, item.paragraphs ? [...item.paragraphs] : undefined, item.bullets ? [...item.bullets] : undefined);
-      if (item.heading) recordTocEntry(item.heading, page);
+      block(item.heading, item.paragraphs, item.bullets);
     });
 
     if (section.stepId === 'discount_structure') {
-      addPage();
       const appendixParagraphs = Array.isArray((input.snapshot.appendices as { appendix2Paragraphs?: unknown } | null)?.appendix2Paragraphs)
         ? (input.snapshot.appendices as { appendix2Paragraphs: string[] }).appendix2Paragraphs
         : renderAppendix2Paragraphs(
@@ -376,19 +491,39 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
           getContractDiscountStructure(input.snapshot.dealer.partnerType, input.snapshot.commercialTerms, { preserveStoredDiscounts: true }),
           input.language,
         );
-      const title = appendixParagraphs[0] || `${labels.appendices} 2`;
-      recordTocEntry(title, mainHeading(title));
-      appendixParagraphs.slice(1).forEach((paragraph) => block(undefined, [paragraph]));
+      const subsectionNumber = section.blocks.filter((item) => item.heading).length + 1;
+      const title = stripContractPdfHeadingPrefix(appendixParagraphs[0] || labels.appendices);
+      block(`${section.number}.${subsectionNumber} ${title}`, appendixParagraphs.slice(1));
+    }
+
+    if (section.stepId === 'territory') {
+      territoryMaps.forEach((map) => {
+        const mapHeight = 70;
+        ensure(mapHeight + 18);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(9.4);
+        pdf.setTextColor(17, 24, 39);
+        pdf.text(map.title, left, y);
+        y += 4;
+        drawContractTerritoryMap(pdf, map, left, y, width, mapHeight);
+        y += mapHeight + 3.5;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(6.8);
+        pdf.setTextColor(107, 114, 128);
+        pdf.text(map.attribution, left, y);
+        y += 8;
+      });
     }
   });
 
-  addPage();
-  recordTocEntry(labels.signature, mainHeading(labels.signature));
+  ensure(88);
+  const signatureTitle = `${presentation.signature.number}. ${presentation.signature.title}`;
+  recordSectionEntry(signatureTitle, mainHeading(signatureTitle));
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(9);
   pdf.setTextColor(45, 55, 72);
   wrapped(labels.signatureIntro, left, width, 4.5);
-  y += 14;
+  y += 10;
   const signatureColumn = (x: number, heading: string, name: string, title: string) => {
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(10);
@@ -406,27 +541,6 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
   signatureColumn(left, labels.timan, input.snapshot.timan.sellerName, 'Timan A/S');
   signatureColumn(108, labels.partner, input.snapshot.dealer.contactPerson, input.snapshot.dealer.contactTitle);
 
-  pdf.setPage(tocPage);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(9.2);
-  pdf.setTextColor(45, 55, 72);
-  let tocY = 43;
-  sectionPages.forEach((entry) => {
-    const title = entry.title;
-    pdf.text(title, left, tocY);
-    const pageText = String(entry.page);
-    const dotsStart = left + pdf.getTextWidth(title) + 3;
-    const dotsEnd = right - pdf.getTextWidth(pageText) - 3;
-    if (dotsEnd > dotsStart) {
-      pdf.setDrawColor(156, 163, 175);
-      pdf.setLineDashPattern([0.5, 1.2], 0);
-      pdf.line(dotsStart, tocY - 1.2, dotsEnd, tocY - 1.2);
-      pdf.setLineDashPattern([], 0);
-    }
-    pdf.text(pageText, right, tocY, { align: 'right' });
-    tocY += 7;
-  });
-
   const pageCount = pdf.getNumberOfPages();
   for (let page = 1; page <= pageCount; page += 1) {
     pdf.setPage(page);
@@ -442,6 +556,7 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(6.8);
     pdf.setTextColor(90, 99, 110);
+    pdf.text(`${TIMAN_COMPANY_INFO.company} · ${TIMAN_COMPANY_INFO.address} · ${TIMAN_COMPANY_INFO.postalCity}`, left, 283);
     pdf.text(`${labels.page} ${page} ${labels.of} ${pageCount}`, right, 283, { align: 'right' });
     if (input.mode === 'draft') {
       pdf.setFont('helvetica', 'bold');
@@ -451,8 +566,15 @@ export async function generateContractPdf(input: ContractPdfInput): Promise<Gene
     }
   }
 
+  if (pdf.outline?.add) {
+    const root = pdf.outline.add(null, labels.agreement, { pageNumber: 1 });
+    sectionPages.forEach((entry) => {
+      pdf.outline.add(root, entry.title, { pageNumber: entry.page });
+    });
+  }
+
   pdf.setProperties({
-    title: `Timan Partneraftale – ${input.snapshot.dealer.name || input.contractNumber}`,
+    title: `Timan Partneraftale - ${input.snapshot.dealer.name || input.contractNumber}`,
     subject: `Contract ${input.contractNumber}`,
     author: 'Timan A/S',
     keywords: `Timan, Partneraftale, ${input.contractNumber}`,
