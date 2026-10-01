@@ -3,6 +3,8 @@ import type { DashboardCurrencyFilter, DealerDashboardFilters } from "@/lib/crmD
 
 export type DealerDashboardSeriesPoint = {
   name: string;
+  /** Canonical activity date for daily chart points; `name` remains backward compatible. */
+  date?: string;
   value?: number;
   standard?: number;
   extra?: number;
