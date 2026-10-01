@@ -160,6 +160,28 @@ function discountAllowed(actor: Actor): boolean {
   });
 }
 
+function assertCampaignOptOutIntegrity(state: Json, pricingSnapshot: Json = {}, preview: Json = {}) {
+  const nestedConfigurator = object(state.configurator);
+  const configurator = 'configurator' in state ? nestedConfigurator : state;
+  if ('campaignDisabled' in configurator && typeof configurator.campaignDisabled !== 'boolean') {
+    throw new Error('INVALID_CAMPAIGN_OPT_OUT');
+  }
+  if (configurator.campaignDisabled !== true) return;
+  const embeddedSnapshot = object(configurator.pricingSnapshot);
+  const snapshot = Object.keys(pricingSnapshot).length ? pricingSnapshot : embeddedSnapshot;
+  const details = Array.isArray(snapshot.discountDetails) ? snapshot.discountDetails.map(object) : [];
+  const campaignLines = Array.isArray(snapshot.campaignLines) ? snapshot.campaignLines.map(object) : [];
+  if (details.some((detail) => detail.kind === 'campaign')) throw new Error('CAMPAIGN_OPT_OUT_INCONSISTENT');
+  if (campaignLines.some((line) => (
+    line.applied === true
+    || Number(line.discountAmount || 0) !== 0
+    || line.suppressedReason !== 'campaign_opt_out'
+  ))) throw new Error('CAMPAIGN_OPT_OUT_INCONSISTENT');
+  if (Object.keys(preview).length && preview.campaign_disabled !== true) {
+    throw new Error('CAMPAIGN_OPT_OUT_INCONSISTENT');
+  }
+}
+
 function permissionAllowed(actor: Actor, permission: ActionDefinition['permission']): boolean {
   if (permission === 'support') return true;
   if (permission === 'price') return priceAllowed(actor);
@@ -512,6 +534,7 @@ Deno.serve(async (request) => {
 
     if (actionType === 'set_configuration_option') {
       const state = object(parameters.state);
+      assertCampaignOptOutIntegrity(state);
       if (Number(state.manualDealerDiscountPct || 0) > 0 && !discountAllowed(actor)) throw new Error('EXTRA_DISCOUNT_DENIED');
       const stateDealer = object(state.dealer);
       const stateContact = object(state.contact);
@@ -700,6 +723,7 @@ Deno.serve(async (request) => {
     if (actionType === 'calculate_quote_preview' || actionType === 'preview_quote') {
       const preview = object(parameters.preview);
       const pricingSnapshot = object(parameters.pricing_snapshot);
+      assertCampaignOptOutIntegrity(object(workflow.state_json), pricingSnapshot, preview);
       const calculatedAt = new Date().toISOString();
       const { data: updated, error } = await service.from('support_assistant_workflows').update({
         pricing_snapshot: pricingSnapshot, last_calculated_at: calculatedAt, status: 'READY',
@@ -749,7 +773,10 @@ Deno.serve(async (request) => {
       await completeAction(service, { actionId, actor, conversationId, workflowId, actionType, level: 2, stateVersion: expectedStateVersion, permissionResult, result, affectedEntityType: serviceTicketId ? 'service_ticket' : 'assistant_handoff', affectedEntityId: serviceTicketId || handoff.id });
       return json(result);
     }
-    if (definition.clientExecution) return json({ execution_required: true, execution_action_id: actionId, execution_kind: definition.clientExecution, workflow: publicWorkflow(workflow) }, 202);
+    if (definition.clientExecution) {
+      assertCampaignOptOutIntegrity(object(workflow?.state_json), object(workflow?.pricing_snapshot));
+      return json({ execution_required: true, execution_action_id: actionId, execution_kind: definition.clientExecution, workflow: publicWorkflow(workflow) }, 202);
+    }
     throw new Error('ACTION_NOT_IMPLEMENTED');
   } catch (reason) {
     const code = sanitizedError(reason);

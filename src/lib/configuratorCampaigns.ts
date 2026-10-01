@@ -62,7 +62,7 @@ export interface CampaignLineSnapshot {
   applied: boolean;
   partnerAccountType: CampaignPartnerType;
   eligiblePartnerTypes: CampaignPartnerType[];
-  suppressedReason?: 'demo_machine';
+  suppressedReason?: 'demo_machine' | 'campaign_opt_out';
   triggerItemNumbers: string[];
   triggerMatchMode: CampaignTriggerMatchMode;
   triggerSetCount: number;

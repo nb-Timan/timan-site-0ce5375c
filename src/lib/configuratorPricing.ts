@@ -103,6 +103,7 @@ export function configuratorPricingSignature(state: ConfiguratorState): string {
   return JSON.stringify({
     language: state.language,
     ...(state.pricingMode === 'direct' ? { pricingMode: 'direct' } : {}),
+    ...(state.campaignDisabled ? { campaignDisabled: true } : {}),
     ...(isConfiguratorPartnerAccountType(state.partnerAccountType) ? { partnerAccountType: state.partnerAccountType } : {}),
     machines: (state.machineConfigs ?? []).map(machine => ({
       type: machine.type,

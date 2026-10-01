@@ -37,6 +37,7 @@ import MarketingCampaignManager from '@/components/configurator/MarketingCampaig
 import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
 import { ConfiguratorDeliveryDatePicker } from '@/components/configurator/ConfiguratorDeliveryDatePicker';
+import { CampaignDisableControl } from '@/components/configurator/CampaignDisableControl';
 import { loadPublishedMarketingCampaigns } from '@/lib/marketingCampaignService';
 import { eligibleCampaignFor, replacePublishedCampaigns } from '@/lib/configuratorCampaigns';
 import { useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
@@ -107,7 +108,7 @@ import {
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
 import { createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
-import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel, isCampaignPricingActive } from '@/lib/calcConfiguration';
+import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel, isCampaignPricingActive, shouldShowCampaignDisableControl } from '@/lib/calcConfiguration';
 import { configuratorCartLineDescription, configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
@@ -416,6 +417,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     ? calculateConfiguration({ ...state, manualDealerDiscountPct: isExhibition ? state.manualDealerDiscountPct : 0 }, { grossManualDiscountOnly: true })
     : calcResult;
   const campaignPricingActive = isCampaignPricingActive(displayCalc?.campaignLines);
+  const campaignPricingRelevant = shouldShowCampaignDisableControl(state, calcResult?.campaignLines, isGrossPriceMode);
   const machineDeliveryDiscountByUnit = useMemo(
     () => new Map((displayCalc?.deliveryDiscounts ?? []).map(discount => [discount.unitNumber, discount])),
     [displayCalc?.deliveryDiscounts],
@@ -684,6 +686,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // gemte cases og CRM-synkronisering alle bruger samme værdi.
   const [selectedDealerPartnerType, setSelectedDealerPartnerType] = useState<ConfiguratorPartnerAccountType | null>(null);
   const [selectedDealerContractBaseDiscountPct, setSelectedDealerContractBaseDiscountPct] = useState<number | null>(null);
+  const campaignDealerIdRef = useRef(ownership.dealerAccountId);
+  useEffect(() => {
+    const previousDealerId = campaignDealerIdRef.current || '';
+    const nextDealerId = ownership.dealerAccountId || '';
+    campaignDealerIdRef.current = nextDealerId;
+    if (previousDealerId && previousDealerId !== nextDealerId && state.campaignDisabled && !hasFrozenPricing) {
+      setState((current) => ({ ...current, campaignDisabled: false }));
+    }
+  }, [hasFrozenPricing, ownership.dealerAccountId, setState, state.campaignDisabled]);
   useEffect(() => {
     let cancelled = false;
     const dealerId = ownership.dealerAccountId;
@@ -714,6 +725,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             ...current,
             partnerAccountType,
             baseDiscountPct,
+            ...(current.partnerAccountType && current.partnerAccountType !== partnerAccountType ? { campaignDisabled: false } : {}),
             ...(terms.paymentTerms !== null && !paymentTermsExplicitRef.current ? { paymentTerms: terms.paymentTerms } : {}),
           }));
         }
@@ -734,7 +746,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const target = canonicalBaseDiscountPct(partnerAccountType, selectedDealerContractBaseDiscountPct ?? state.baseDiscountPct);
     const current = canonicalBaseDiscountPct(partnerAccountType, state.baseDiscountPct);
     if (state.partnerAccountType !== partnerAccountType || Math.abs(target - current) > 1e-6) {
-      setState((s) => ({ ...s, partnerAccountType, baseDiscountPct: target }));
+      setState((s) => ({
+        ...s,
+        partnerAccountType,
+        baseDiscountPct: target,
+        ...(s.partnerAccountType && s.partnerAccountType !== partnerAccountType ? { campaignDisabled: false } : {}),
+      }));
     }
   }, [effectiveUser, hasFrozenPricing, selectedDealerContractBaseDiscountPct, selectedDealerPartnerType, state.baseDiscountPct, state.partnerAccountType, setState]);
 
@@ -880,7 +897,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   };
   const renderMarketingBadge = (machineType: string, itemId: string | undefined, content?: MarketingConfiguratorContentRecord['content'] | null, variant: 'main' | 'compact' = 'main', demo = false) => {
     const campaign = marketingCampaignFor(machineType, itemId);
-    return <MarketingConfiguratorBadge badge={campaign ? 'Kampagne' : content?.badge} schedule={content} campaign={campaign} campaignProduct={campaign?.products.find(product => product.productKey === productContentKey(machineType, itemId || '') && product.role !== 'trigger')} language={uiLanguage} variant={variant} suppressCampaign={demo} />;
+    return <MarketingConfiguratorBadge badge={campaign ? 'Kampagne' : content?.badge} schedule={content} campaign={campaign} campaignProduct={campaign?.products.find(product => product.productKey === productContentKey(machineType, itemId || '') && product.role !== 'trigger')} language={uiLanguage} variant={variant} suppressCampaign={demo || state.campaignDisabled === true} />;
   };
   const TC = (key: string) => t(key, contentUiLang);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
@@ -1913,6 +1930,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       return;
     }
     setState(current => ({ ...current, pricingMode: enabled ? 'direct' : 'partner' }));
+  };
+
+  const setCampaignDisabled = (disabled: boolean) => {
+    setState((current) => ({ ...current, campaignDisabled: disabled }));
   };
 
   const renderActionLinks = (item: { videoUrl?: string; imageUrl?: string; images?: { url: string | null }[]; videos?: { url: string | null }[]; specs?: any[]; id?: string; varenr?: string; name?: Accessory['name'] | SubItem['name'] }, machineType: string) => {
@@ -4579,6 +4600,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   />
                 </div>
               )}
+              <CampaignDisableControl
+                visible={campaignPricingRelevant}
+                checked={state.campaignDisabled === true}
+                onCheckedChange={setCampaignDisabled}
+                disabled={submittedOrderEditorLocked}
+                label={T('campaignDisable')}
+                hint={T('campaignDisableHint')}
+              />
             </div>
 
             {!calcResult ? (

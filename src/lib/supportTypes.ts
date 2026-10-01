@@ -73,7 +73,7 @@ export type AssistantActionName =
 export interface AssistantActionCommand {
   type: 'start_quote' | 'select_machine' | 'select_accessory' | 'set_delivery_method'
     | 'select_dealer' | 'select_contact' | 'select_timan_seller' | 'change_timan_seller'
-    | 'set_quote_kind' | 'propose_action' | 'confirm_action'
+    | 'set_quote_kind' | 'set_campaign_disabled' | 'propose_action' | 'confirm_action'
     | 'workflow_back' | 'reset_workflow' | 'confirm_topic_switch' | 'continue_workflow';
   value?: string;
   action?: AssistantActionName;

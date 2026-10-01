@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { jsPDF } from 'jspdf';
 import { act, render, renderHook, screen } from '@testing-library/react';
-import { calculateConfiguration, calcConfigurationTotals, configurationCampaignSelection, formatDiscountDetailLabel, roundPricingMoney } from '@/lib/calcConfiguration';
+import { calculateConfiguration, calcConfigurationTotals, configurationCampaignSelection, formatDiscountDetailLabel, roundPricingMoney, shouldShowCampaignDisableControl } from '@/lib/calcConfiguration';
 import { campaignError, eligibleCampaignFor, replacePublishedCampaigns, type CampaignProductLink, type ProductCampaign } from '@/lib/configuratorCampaigns';
 import { createEmptyConfiguratorState } from '@/lib/configuratorState';
 import { finalizeConfiguratorPricingSnapshot } from '@/lib/configurationsService';
@@ -10,6 +11,8 @@ import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingC
 import { convertCurrency } from '@/lib/currency';
 import { configuratorPricingSignature, protectLegacySentPricing } from '@/lib/configuratorPricing';
 import type { ConfiguratorState } from '@/types/configurator';
+import { buildConfiguratorPdf } from '@/lib/configuratorPdf';
+import { t } from '@/data/translations';
 
 const now = Date.parse('2026-09-21T12:00:00Z');
 const link = (patch: Partial<CampaignProductLink> = {}): CampaignProductLink => ({
@@ -68,6 +71,82 @@ describe('canonical multi-product campaigns', () => {
     expect(result.campaignLines?.every(line => line.finalLineValue === 0)).toBe(true);
     expect(input.manualDealerDiscountPct).toBe(1.6);
   });
+  it('opts out of campaign pricing while restoring every eligible standard discount layer', () => {
+    const input = state();
+    input.machineConfigs[0].qty = 2;
+    input.date = '2098-01-01';
+    input.manualDealerDiscountPct = 1.6;
+    replacePublishedCampaigns([campaign({ code: 'K-0001-26', type: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0 })]);
+
+    const active = calculateConfiguration(input, { now });
+    expect(active.campaignLines?.every((line) => line.applied && line.finalLineValue === 0)).toBe(true);
+    expect(active.discountDetails.map((detail) => detail.kind)).toEqual(['base', 'campaign', 'campaign']);
+
+    input.campaignDisabled = true;
+    const disabled = calculateConfiguration(input, { now });
+    expect(disabled.campaignLines).toHaveLength(2);
+    expect(disabled.campaignLines?.every((line) => (
+      !line.applied
+      && line.suppressedReason === 'campaign_opt_out'
+      && line.discountAmount === 0
+      && line.finalLineValue === line.preCampaignNet
+    ))).toBe(true);
+    expect(disabled.discountDetails.map((detail) => detail.kind)).toEqual(['base', 'delivery', 'quantity', 'dealer']);
+    expect(disabled.lineItems.filter((line) => line.varenr === '725138')).toHaveLength(2);
+    expect(disabled.currentPrice).toBeGreaterThan(active.currentPrice);
+
+    input.campaignDisabled = false;
+    expect(calculateConfiguration(input, { now }).campaignLines?.every((line) => line.applied)).toBe(true);
+  });
+
+  it('returns an opted-out Importer to canonical 30% pricing without quantity or delivery discounts', () => {
+    const input = state();
+    input.partnerAccountType = 'importer';
+    input.baseDiscountPct = 0.30;
+    input.machineConfigs[0].qty = 2;
+    input.date = '2098-01-01';
+    input.campaignDisabled = true;
+    replacePublishedCampaigns([campaign({ type: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0 })]);
+    const result = calculateConfiguration(input, { now });
+    expect(result.discountDetails.map((detail) => detail.kind)).toEqual(['base']);
+    expect(result.discountDetails[0].percent).toBe(30);
+    expect(result.qtyPct).toBe(0);
+    expect(result.deliveryDiscounts).toEqual([]);
+  });
+
+  it('shows the campaign control only for relevant partner-price campaign provenance', () => {
+    const input = state();
+    expect(shouldShowCampaignDisableControl(input, [])).toBe(false);
+    replacePublishedCampaigns([campaign()]);
+    const lines = calculateConfiguration(input, { now }).campaignLines;
+    expect(shouldShowCampaignDisableControl(input, lines)).toBe(true);
+    expect(shouldShowCampaignDisableControl({ ...input, pricingMode: 'direct' }, lines)).toBe(false);
+    expect(shouldShowCampaignDisableControl(input, lines, true)).toBe(false);
+  });
+
+  it('persists opt-out provenance and quote/order totals in the frozen pricing snapshot', async () => {
+    replacePublishedCampaigns([campaign({ type: 'fixed', discountPct: null, targetPriceDkk: 0, targetPriceEur: 0 })]);
+    const input = state();
+    input.campaignDisabled = true;
+    const saved = await finalizeConfiguratorPricingSnapshot(input);
+    const reopened = JSON.parse(JSON.stringify(saved)) as ConfiguratorState;
+    const document = buildSubmittedOrderDocument(reopened);
+    expect(reopened.campaignDisabled).toBe(true);
+    expect(reopened.pricingSnapshot?.campaignLines?.[0]).toMatchObject({
+      campaignCode: 'K09-2026-01', applied: false, suppressedReason: 'campaign_opt_out', discountAmount: 0,
+    });
+    expect(reopened.pricingSnapshot?.discountDetails?.some((detail) => detail.kind === 'campaign')).toBe(false);
+    expect(document.calcResult.currentPrice).toBe(reopened.pricingSnapshot?.totals?.finalPrice);
+    expect(calcConfigurationTotals(reopened).finalPrice).toBe(reopened.pricingSnapshot?.totals?.finalPrice);
+    const pdf = buildConfiguratorPdf({
+      jsPDF, state: reopened, calcResult: document.calcResult, flowType: 'quote', quoteNumber: 'QA-NO-CAMPAIGN',
+      showPrices: true, uiLanguage: 'da', contentLanguage: 'da', T: (key) => t(key, 'da'), TC: (key) => t(key, 'da'),
+    });
+    const output = pdf.output();
+    expect(output).toContain('Grund rabat');
+    expect(output).not.toContain('Kampagnerabat');
+  });
+
   it('applies campaign pricing after standard discount and only to linked benefit products', () => {
     const input = state(); input.machineConfigs[0].qty = 2; input.date = '2098-01-01'; input.manualDealerDiscountPct = 1.6;
     replacePublishedCampaigns([campaign()]);

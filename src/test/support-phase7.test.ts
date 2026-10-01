@@ -8,6 +8,8 @@ vi.mock('@/lib/publishedProductMaster', async (importOriginal) => ({
 }));
 import {
   applyAssistantConfiguratorCommand,
+  applyAssistantTextInput,
+  assistantCampaignDisabledFromText,
   createAssistantConfiguratorDraft,
   nextAssistantConfiguratorPrompt,
   resolveAssistantMachine,
@@ -18,6 +20,7 @@ const endpoint = readFileSync(resolve('supabase/functions/support-actions/index.
 const canonicalActions = readFileSync(resolve('src/lib/assistantCanonicalActions.ts'), 'utf8');
 const actionService = readFileSync(resolve('src/lib/assistantActionService.ts'), 'utf8');
 const configuratorHook = readFileSync(resolve('src/hooks/useConfigurator.ts'), 'utf8');
+const campaignOptOutMigration = readFileSync(resolve('supabase/migrations/20261001110000_guard_configurator_campaign_opt_out.sql'), 'utf8');
 
 describe('Phase 7 conversational configuration', () => {
   it('resolves canonical Timan machines without inventing a product', () => {
@@ -78,6 +81,14 @@ describe('Phase 7 conversational configuration', () => {
       expect(configuratorHook).toContain(fn);
     }
   });
+
+  it('persists a natural-language campaign opt-out through the canonical Assistant state', () => {
+    const draft = createAssistantConfiguratorDraft('Lav et tilbud på Timan 3330 uden kampagne', 'da');
+    expect(draft.configurator.campaignDisabled).toBe(true);
+    expect(assistantCampaignDisabledFromText('Create the quote without campaign pricing')).toBe(true);
+    expect(applyAssistantTextInput(draft, 'Genaktiver kampagnen').configurator.campaignDisabled).toBe(false);
+    expect(applyAssistantConfiguratorCommand(draft, { type: 'set_campaign_disabled', value: 'true' }).configurator.campaignDisabled).toBe(true);
+  });
 });
 
 describe('Phase 7 protected actions and human handoff', () => {
@@ -95,6 +106,16 @@ describe('Phase 7 protected actions and human handoff', () => {
     expect(endpoint).toContain("auth.userClient.from('dealer_accounts')");
     expect(endpoint).toContain('DEALER_OUT_OF_SCOPE');
     expect(endpoint).toContain('CONTACT_OUT_OF_SCOPE');
+  });
+
+  it('rejects opt-out snapshots that retain campaign pricing on both server boundaries', () => {
+    expect(endpoint).toContain('assertCampaignOptOutIntegrity');
+    expect(endpoint).toContain("'configurator' in state ? nestedConfigurator : state");
+    expect(endpoint).toContain("line.suppressedReason !== 'campaign_opt_out'");
+    expect(endpoint).toContain("throw new Error('CAMPAIGN_OPT_OUT_INCONSISTENT')");
+    expect(campaignOptOutMigration).toContain('create trigger guard_configurator_campaign_opt_out');
+    expect(campaignOptOutMigration).toContain("detail ->> 'kind' = 'campaign'");
+    expect(campaignOptOutMigration).toContain("line ->> 'suppressedReason' is distinct from 'campaign_opt_out'");
   });
 
   it('claims every write with an idempotency key and expected workflow version', () => {

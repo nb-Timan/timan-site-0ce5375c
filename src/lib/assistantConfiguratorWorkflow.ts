@@ -80,6 +80,21 @@ function requestedQuantity(content: string): number {
   return match ? Number(match[1]) : 1;
 }
 
+const CAMPAIGN_DISABLE_PATTERNS = [
+  /\b(?:uden|without|ohne|senza|utan|sans|bez)\s+(?:kampagne|campaign|campagna|kampány|kampanj|campagne|kampanii|kampan[eě])\b/i,
+  /\b(?:deaktiver|disable|deaktivieren|disattiva|kikapcsol|inaktivera|désactiver|wyłącz|deaktivovat)\b.{0,24}\b(?:kampagnen?|campaign|campagna|kampány|kampanj(?:en)?|campagne|kampanię|kampaň)\b/i,
+];
+const CAMPAIGN_ENABLE_PATTERNS = [
+  /\b(?:med|with|mit|con|kampánnyal|avec|z|s)\s+(?:kampagne|campaign|campagna|kampány|kampanj|campagne|kampanią|kampaní)\b/i,
+  /\b(?:genaktiver|enable|aktivieren|riattiva|bekapcsol|aktivera|réactiver|włącz|aktivovat)\b.{0,24}\b(?:kampagnen?|campaign|campagna|kampány|kampanj(?:en)?|campagne|kampanię|kampaň)\b/i,
+];
+
+export function assistantCampaignDisabledFromText(content: string): boolean | null {
+  if (CAMPAIGN_DISABLE_PATTERNS.some((pattern) => pattern.test(content))) return true;
+  if (CAMPAIGN_ENABLE_PATTERNS.some((pattern) => pattern.test(content))) return false;
+  return null;
+}
+
 function productChoices(lang: Language): SupportActionCard {
   return {
     kind: 'choices',
@@ -129,6 +144,7 @@ function ambiguousMentionChoices(state: ConfiguratorState, content: string) {
 export function createAssistantConfiguratorDraft(content: string, uiLanguage: string): AssistantDraftState {
   const lang = language(uiLanguage);
   let configurator = createEmptyConfiguratorState(lang, 'quote');
+  configurator.campaignDisabled = assistantCampaignDisabledFromText(content) === true;
   const machineType = resolveAssistantMachine(content);
   if (machineType) {
     configurator = setConfiguratorMachineQuantity(configurator, machineType, requestedQuantity(content));
@@ -190,6 +206,8 @@ export function applyAssistantConfiguratorCommand(
   } else if (command.type === 'set_quote_kind' && (command.value === 'ordinary' || command.value === 'demo')) {
     state = applyDemoKind(state, command.value);
     return { ...input, configurator: state, quoteKind: command.value, pendingField: null };
+  } else if (command.type === 'set_campaign_disabled') {
+    state = { ...state, campaignDisabled: command.value !== 'false' };
   }
   return { ...input, configurator: state, pendingField: null, pendingAccessoryChoices: [] };
 }
@@ -197,6 +215,8 @@ export function applyAssistantConfiguratorCommand(
 export function applyAssistantTextInput(input: AssistantDraftState, content: string): AssistantDraftState {
   const pending = String(input.pendingField || '');
   let state = normalizeConfiguratorState(input.configurator);
+  const campaignDisabled = assistantCampaignDisabledFromText(content);
+  if (campaignDisabled !== null) state = { ...state, campaignDisabled };
   if (pending === 'machine') {
     const machineType = resolveAssistantMachine(content);
     if (machineType) state = setConfiguratorMachineQuantity(state, machineType, requestedQuantity(content));
@@ -246,6 +266,7 @@ export function classifyAssistantWorkflowInput(
   const pending = String(input.pendingField || '');
   if (!value) return 'ambiguous';
   if (WORKFLOW_CANCEL_PATTERNS.some((pattern) => pattern.test(value))) return 'interrupt';
+  if (assistantCampaignDisabledFromText(value) !== null) return 'compatible';
 
   const choice = matchAssistantWorkflowTextChoice(input, value, uiLanguage);
   if (choice) return 'compatible';

@@ -22,6 +22,7 @@ import {
 import {
   applyAssistantConfiguratorCommand,
   applyAssistantTextInput,
+  assistantCampaignDisabledFromText,
   classifyAssistantWorkflowInput,
   createAssistantConfiguratorDraft,
   hydrateAssistantWorkflow,
@@ -29,7 +30,7 @@ import {
   nextAssistantConfiguratorPrompt,
 } from '@/lib/assistantConfiguratorWorkflow';
 import { calculateConfiguration } from '@/lib/calcConfiguration';
-import { createConfiguratorPricingSnapshot } from '@/lib/configuratorPricing';
+import { finalizeConfiguratorPricingSnapshot } from '@/lib/configurationsService';
 import type { SupportSendRequest, SupportService } from '@/lib/supportService';
 import type {
   AssistantActionCommand,
@@ -378,6 +379,7 @@ export class AssistantSupportService implements SupportService {
     const timanSeller = workflow.timanSeller ? timanSellerFrom(workflow.timanSeller) : null;
     const state = applyAssistantTimanSeller(applyAssistantCustomer(workflow.configurator, dealer, contact), timanSeller);
     const calc = calculateConfiguration(state);
+    const finalized = await finalizeConfiguratorPricingSnapshot(state);
     const response = await invokeAssistantAction({
       action: 'calculate_quote_preview',
       conversationId: request.conversation.id,
@@ -390,8 +392,9 @@ export class AssistantSupportService implements SupportService {
           final_price: calc.currentPrice,
           currency: state.language === 'da' ? 'DKK' : 'EUR',
           machine_count: state.machineConfigs.reduce((sum, machine) => sum + machine.qty, 0),
+          campaign_disabled: state.campaignDisabled === true,
         },
-        pricing_snapshot: createConfiguratorPricingSnapshot(state),
+        pricing_snapshot: finalized.pricingSnapshot,
       },
     });
     const updated = response.workflow ? clientWorkflow(response.workflow) : { ...workflow, configurator: state };
@@ -703,6 +706,9 @@ export class AssistantSupportService implements SupportService {
     if (matchedChoice) {
       const next = applyAssistantConfiguratorCommand(draft, matchedChoice);
       return this.promptAndPersist(request, workflow, next);
+    }
+    if (assistantCampaignDisabledFromText(request.content) !== null) {
+      return this.promptAndPersist(request, workflow, applyAssistantTextInput(draft, request.content));
     }
     if (draft.pendingField === 'dealer') {
       const response = await invokeAssistantAction({

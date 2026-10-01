@@ -14,6 +14,7 @@ export const createEmptyConfiguratorState = (
   step: 1,
   flowType,
   pricingMode: 'partner',
+  campaignDisabled: false,
   language,
   machineConfigs: [],
   individualUnitConfigs: {},
@@ -61,6 +62,7 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     ...base,
     ...value,
     pricingMode,
+    campaignDisabled: value?.campaignDisabled === true,
     partnerAccountType: isConfiguratorPartnerAccountType(value?.partnerAccountType)
       ? value.partnerAccountType
       : undefined,

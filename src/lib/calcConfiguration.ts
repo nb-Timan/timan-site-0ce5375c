@@ -10,6 +10,11 @@ import { canonicalBaseDiscountPct, IMPORTER_DEMO_DISCOUNT_PCT, resolveConfigurat
 export const roundPricingMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 export const isCampaignPricingActive = (campaignLines: CampaignLineSnapshot[] | undefined): boolean =>
   Boolean(campaignLines?.some(line => !line.suppressedReason));
+export const shouldShowCampaignDisableControl = (
+  state: Pick<ConfiguratorState, 'pricingMode'>,
+  campaignLines: CampaignLineSnapshot[] | undefined,
+  grossPriceMode = false,
+): boolean => state.pricingMode !== 'direct' && !grossPriceMode && Boolean(campaignLines?.length);
 type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
 type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean; selectionOrder: number };
 
@@ -51,6 +56,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler. Brug det afsendte dokument; priser genberegnes ikke automatisk.');
   const now = options.now ?? Date.now();
   const directPricing = state.pricingMode === 'direct';
+  const campaignDisabled = state.campaignDisabled === true;
   const partnerAccountType = resolveConfiguratorPartnerAccountType({ persisted: state.partnerAccountType });
   const importerPricing = !directPricing && partnerAccountType === 'importer';
   const T = (key: string) => t(key, state.language);
@@ -160,7 +166,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
           : null;
         const lineBefore = line.net;
         const eligibleBasis = roundPricingMoney(lineBefore * eligibleQuantity / line.quantity);
-        const amount = line.demo ? 0 : roundPricingMoney(pricingType === 'percentage'
+        const amount = line.demo || campaignDisabled ? 0 : roundPricingMoney(pricingType === 'percentage'
           ? eligibleBasis * (configuredPct ?? 0) / 100
           : Math.max(0, eligibleBasis - roundPricingMoney((target ?? 0) * eligibleQuantity)));
         line.net = roundPricingMoney(lineBefore - amount);
@@ -169,12 +175,14 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
           campaignId: campaign.id, campaignCode: campaign.code, campaignName: campaign.name,
           campaignType: campaign.type, pricingType, applied: amount > 0,
           partnerAccountType, eligiblePartnerTypes: campaign.eligiblePartnerTypes,
-          ...(line.demo ? { suppressedReason: 'demo_machine' as const } : {}),
+          ...(campaignDisabled
+            ? { suppressedReason: 'campaign_opt_out' as const }
+            : line.demo ? { suppressedReason: 'demo_machine' as const } : {}),
           triggerItemNumbers: triggerLinks.map(product => product.itemNumber), benefitItemNumber: benefit.itemNumber,
           triggerMatchMode: campaign.triggerMatchMode, triggerSetCount,
           repeatPerTrigger: campaign.scaleBenefitWithTrigger, benefitEntitlementQuantity,
           configuredPct: pricingType === 'percentage' ? configuredPct : null,
-          discountPct: line.demo ? 0 : pricingType === 'percentage' ? configuredPct ?? 0 : percent,
+          discountPct: line.demo || campaignDisabled ? 0 : pricingType === 'percentage' ? configuredPct ?? 0 : percent,
           discountAmount: amount, targetPrice: target, currency, productKey: line.productKey,
           itemNumber: line.item.varenr, unitNumber: line.unit, quantity: eligibleQuantity,
           startsAt: campaign.startsAt, endsAt: campaign.endsAt,

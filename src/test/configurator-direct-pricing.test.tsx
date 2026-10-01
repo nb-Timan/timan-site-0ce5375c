@@ -142,6 +142,11 @@ describe('Configurator Direct pricing mode', () => {
     expect(configuratorPricingSignature(direct)).not.toBe(configuratorPricingSignature(partner));
   });
 
+  it.each(['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'])('localizes the campaign opt-out control in %s', (language) => {
+    expect(t('campaignDisable', language)).not.toBe('campaignDisable');
+    expect(t('campaignDisableHint', language)).not.toBe('campaignDisableHint');
+  });
+
   it('freezes and reopens Direct totals without reintroducing partner discounts', async () => {
     const input = state();
     input.manualDealerDiscountPct = 3;

@@ -187,6 +187,8 @@ export interface ConfiguratorState {
   pricingMode?: 'partner' | 'direct';
   /** Canonical type of the commercial account used for pricing and campaign eligibility. */
   partnerAccountType?: ConfiguratorPartnerAccountType;
+  /** Explicit configuration-wide opt-out from otherwise eligible campaign pricing. */
+  campaignDisabled?: boolean;
   language: Language;
   machineConfigs: MachineConfig[];
   individualUnitConfigs: Record<string, { acc: string[] }>;
