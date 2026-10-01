@@ -826,9 +826,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     'w-full rounded-lg border p-2',
     leadValidationErrors.includes(field) && 'border-red-500 ring-2 ring-red-100',
   );
-  // Modal/HTML "content language" — collapses sv/fr/pl/cs to 'en' so chrome
-  // inside modals matches the product/accessory data (which is only available
-  // in da/en/de/it/hu). Prevents mixed-language modals.
+  // Legacy document content remains five-language, while every UI label uses
+  // the actual nine-language portal locale.
   const contentUiLang = resolveContentUiLanguage(uiLanguage);
   const productRevision = useProductMasterRevision();
   const marketingCatalogByKey = useMemo(
@@ -884,7 +883,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const campaign = marketingCampaignFor(machineType, itemId);
     return <MarketingConfiguratorBadge badge={campaign ? 'Kampagne' : content?.badge} schedule={content} campaign={campaign} campaignProduct={campaign?.products.find(product => product.productKey === productContentKey(machineType, itemId || '') && product.role !== 'trigger')} language={uiLanguage} variant={variant} suppressCampaign={demo || state.campaignDisabled === true} />;
   };
-  const TC = (key: string) => t(key, contentUiLang);
+  const TC = (key: string) => t(key, uiLanguage);
   const dateLocale = { da, en: enGB, de, it, hu }[lang] || da;
   const deliveryDiscountPercentLabel = `${DELIVERY_DISCOUNT_PERCENT.toLocaleString(uiLanguage)}%`;
   const deliveryDiscountLegend = T('calendarDiscountNote').replace(/\d+(?:[.,]\d+)?\s*%/, deliveryDiscountPercentLabel);
@@ -1665,12 +1664,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   // Show auto-add modal for wire harness
   const showAutoAddModal = useCallback((item: Accessory) => {
-    const itemName = getLocalizedName(item.name, lang);
-    const itemVarenr = `${itemNoLabel(contentUiLang)}: ${item.varenr}`;
+    const itemName = getLocalizedName(item.name, uiLanguage);
+    const itemVarenr = `${itemNoLabel(uiLanguage)}: ${item.varenr}`;
     const price = formatDisplayMoney(getPriceForCurrency(item, displayCurrency));
     const msg = `${TC('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${t('priceLabel', uiLanguage)}: ${price}`;
     setInfoModal({ title: TC('autoAddedTitle'), content: msg });
-  }, [lang, contentUiLang, displayCurrency]);
+  }, [uiLanguage, displayCurrency]);
 
   // Wrapped toggleAcc that detects wire harness addition and oil modal
   const handleToggleAcc = useCallback((accId: string) => {
@@ -1748,10 +1747,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const p = PRODUCTS[key];
     if (!p?.machineDetails) return;
     const md = p.machineDetails;
-    const mainText = typeof md.main === 'string' ? md.main : (md.main[lang] || md.main.da);
-    const bullets = md.bullets[lang] || md.bullets.da || [];
+    const mainText = typeof md.main === 'string' ? md.main : (md.main[uiLanguage] || md.main.en || md.main.da);
+    const bullets = md.bullets[uiLanguage] || md.bullets.en || md.bullets.da || [];
     const dims = md.dimensions || [];
-    const specLabelLanguage = key === 'RC-751' ? uiLanguage : contentUiLang;
+    const specLabelLanguage = uiLanguage;
     let html = `<div class="p-3 bg-gray-50 rounded-lg"><h4 class="font-bold text-gray-800 mb-2">${TC('mainInfo')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${mainText}</p></div>`;
     if (bullets.length > 0) {
       html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('keyFeatures')}</h4><ul class="list-disc list-inside space-y-1 text-sm text-gray-700">`;
@@ -1764,18 +1763,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         if (d.isHeader) {
           html += `<h5 class="font-extrabold text-sm text-gray-900 mt-4 mb-1">${translateSpecLabel(d.label, specLabelLanguage)}</h5>`;
         } else {
-          const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[lang] || (d.value as any)?.da || '');
+          const val = typeof d.value === 'string' ? d.value : ((d.value as any)?.[uiLanguage] || (d.value as any)?.[lang] || (d.value as any)?.en || (d.value as any)?.da || '');
           if (val) html += `<div class="flex justify-between py-0.5 text-xs"><span class="font-medium text-gray-700">${translateSpecLabel(d.label, specLabelLanguage)}:</span><span class="font-semibold text-gray-900 text-right">${val}</span></div>`;
         }
       });
       html += '</div>';
     }
     setInfoModal({
-      title: `${TC('machineInfo')}: ${getLocalizedName(p.name, lang)}`,
+      title: `${TC('machineInfo')}: ${getLocalizedName(p.name, uiLanguage)}`,
       content: html,
       overviewImages: md.overviewImageUrls?.map((src, index) => ({
         src,
-        alt: `${getLocalizedName(p.name, lang)} - ${TC('dimSpecs')} ${index + 1}`,
+        alt: `${getLocalizedName(p.name, uiLanguage)} - ${TC('dimSpecs')} ${index + 1}`,
       })),
     });
   };
@@ -1786,8 +1785,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     options?: { specs?: { label: string; value?: unknown }[]; overviewImageUrls?: string[]; specLabelLanguage?: PortalUiLanguage },
   ) => {
     const specs = (options?.specs ?? content.specs).map((spec) => ({
-      label: translateSpecLabel(spec.label, options?.specLabelLanguage ?? contentUiLang),
-      value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || ''),
+      label: translateSpecLabel(spec.label, options?.specLabelLanguage ?? uiLanguage),
+      value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[uiLanguage] || (spec.value as any)?.[lang] || (spec.value as any)?.en || (spec.value as any)?.da || ''),
     })).filter((spec) => spec.label && spec.value);
     setMarketingInformation({
       title,
@@ -1809,10 +1808,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       return;
     }
     const details = machine.machineDetails;
-    showMarketingInformation(content.title || getLocalizedName(machine.name, lang), content, {
+    showMarketingInformation(content.title || getLocalizedName(machine.name, uiLanguage), content, {
       specs: details?.preferCanonicalDimensions ? details.dimensions : undefined,
       overviewImageUrls: details?.overviewImageUrls,
-      specLabelLanguage: key === 'RC-751' ? uiLanguage : undefined,
+      specLabelLanguage: uiLanguage,
     });
   };
 
@@ -1821,7 +1820,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const acc = flatAccs.find(a => String(a.id) === String(accId));
     const marketingContent = marketingContentFor(machineType, accId);
     if (marketingContent) {
-      showMarketingInformation(marketingContent.title || getLocalizedName(acc?.name || '', lang), marketingContent);
+      showMarketingInformation(marketingContent.title || getLocalizedName(acc?.name || '', uiLanguage), marketingContent);
       return;
     }
     const specs = marketingContent?.specs.length ? marketingContent.specs : acc?.specs;
@@ -1832,17 +1831,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     if (techSpecs.length > 0) {
       html += '<div class="p-3 bg-gray-50 rounded-lg grid grid-cols-2 gap-x-4 gap-y-2 text-sm">';
       techSpecs.forEach(s => {
-        const val = typeof s.value === 'string' ? s.value : ((s.value as any)?.[lang] || (s.value as any)?.da || '');
-        html += `<div class="font-medium text-gray-700">${translateSpecLabel(s.label, contentUiLang)}:</div><div class="font-semibold text-gray-900">${val}</div>`;
+        const val = typeof s.value === 'string' ? s.value : ((s.value as any)?.[uiLanguage] || (s.value as any)?.[lang] || (s.value as any)?.en || (s.value as any)?.da || '');
+        html += `<div class="font-medium text-gray-700">${translateSpecLabel(s.label, uiLanguage)}:</div><div class="font-semibold text-gray-900">${val}</div>`;
       });
       html += '</div>';
     }
     const marketingDescription = marketingContent?.description || '';
     if (descEntry || marketingDescription) {
-      const val = marketingDescription || (typeof descEntry?.value === 'string' ? descEntry.value : ((descEntry?.value as any)?.[lang] || (descEntry?.value as any)?.da || ''));
+      const val = marketingDescription || (typeof descEntry?.value === 'string' ? descEntry.value : ((descEntry?.value as any)?.[uiLanguage] || (descEntry?.value as any)?.[lang] || (descEntry?.value as any)?.en || (descEntry?.value as any)?.da || ''));
       html += `<div class="mt-4 pt-4 border-t border-gray-200"><h4 class="font-bold text-gray-800 mb-2">${TC('specsDetails')}</h4><p class="text-sm text-gray-700 whitespace-pre-line">${val}</p></div>`;
     }
-    setInfoModal({ title: marketingContent?.title || getLocalizedName(acc?.name || '', lang), content: html });
+    setInfoModal({ title: marketingContent?.title || getLocalizedName(acc?.name || '', uiLanguage), content: html });
   };
 
   const setReqNumber = (unitNumber: number, value: string) => {
@@ -1920,7 +1919,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     const marketingContent = marketingContentFor(machineType, item.id);
     const videoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(item, primaryVideosByProduct);
     const imageUrl = marketingContent?.image_url || getImageUrlForItem(item);
-    const productTitle = marketingContent?.title || (item.name ? getLocalizedName(item.name, lang) : machineType);
+    const productTitle = marketingContent?.title || (item.name ? getLocalizedName(item.name, uiLanguage) : machineType);
     const hasSpecs = Boolean(marketingContent?.description || marketingContent?.key_features.length || marketingContent?.specs.length || item.specs?.length);
     const showVideoIcon = !!videoUrl;
     const showImageIcon = !!(item.imageUrl || (item.images && item.images.length > 0) || item.videoUrl || (item.videos && item.videos.length > 0));
@@ -1959,7 +1958,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           </div>
           <div className="flex justify-between items-start gap-3 w-full min-w-0">
             <div className="min-w-0">
-              <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(sub.name, lang)}</div>
+              <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(sub.name, uiLanguage)}</div>
               <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {sub.varenr}</div>
               {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
               {renderActionLinks(sub as any, machineType)}
@@ -2388,7 +2387,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         orderNumber: activeOrderNumber,
         sourceQuoteNumber: activeSourceQuoteNumber,
         showPrices: permissions.canSeePrices,
-        uiLanguage: lang,
+        uiLanguage,
         contentLanguage: contentUiLang as Language,
         T,
         TC,
@@ -3529,7 +3528,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const canonicalCardSpecs = new Map(p.techSpecs.map((spec) => [spec.label, spec]));
                     const cardVideoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(p, primaryVideosByProduct);
                     const cardImageUrl = marketingContent?.image_url || getImageUrlForItem(p);
-                    const cardTitle = marketingContent?.title || getLocalizedName(p.name, lang);
+                    const cardTitle = marketingContent?.title || getLocalizedName(p.name, uiLanguage);
 
                     return (
                       <MarketingConfiguratorProductCard
@@ -3888,7 +3887,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         : 'font-bold text-gray-800 mt-10 mb-2 border-b pb-1 text-lg sticky top-0 bg-white z-10';
                     elements.push(
                       <h3 key={`header-${idx}`} className={headerCls}>
-                        {a.translationKey ? T(a.translationKey) : getLocalizedName(a.name, lang)}
+                        {a.translationKey ? T(a.translationKey) : getLocalizedName(a.name, uiLanguage)}
                       </h3>
                     );
                     return;
@@ -3911,7 +3910,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const card = (
                       <div key={a.id} className={`p-2 border rounded-lg bg-white flex items-center justify-between gap-3 ${indentClass} ${currentQtyVal > 0 ? 'btn-active border-emerald-500' : ''}`}>
                         <div className="min-w-0">
-                          <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, lang)}</div>
+                          <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</div>
                           <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                           {renderActionLinks(a, machineType)}
                         </div>
@@ -3967,7 +3966,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         <div className="flex-grow min-w-0">
                           <div className="flex justify-between items-start">
                             <div className="flex-grow min-w-0">
-                              <span className="font-medium text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, lang)}</span>
+                              <span className="font-medium text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</span>
                               <div className="text-gray-500 text-xs">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                               {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
                               {renderActionLinks(a, machineType)}
@@ -4028,7 +4027,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         <button key={du.globalIndex}
                           onClick={() => navigateToMachine(du.globalIndex)}
                           className={`px-4 py-2 text-sm rounded-t-lg whitespace-nowrap ${du.globalIndex === state.currentMachineIndex ? 'tab-active bg-white border-x border-t' : 'tab-inactive hover:bg-gray-100'}`}>
-                          {du.isSharedUnit ? `${T('allMachines')} ${getLocalizedName(PRODUCTS[du.modelType]?.name || '', lang)}` : `${T('machineLabel')} ${du.unitNumber}`}
+                          {du.isSharedUnit ? `${T('allMachines')} ${getLocalizedName(PRODUCTS[du.modelType]?.name || '', uiLanguage)}` : `${T('machineLabel')} ${du.unitNumber}`}
                         </button>
                       ))}
                     </div>

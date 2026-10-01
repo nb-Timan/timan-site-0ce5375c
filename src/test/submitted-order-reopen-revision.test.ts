@@ -1,5 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { t } from '@/data/translations';
+import { configuratorSubmittedOrderCopy } from '@/lib/configuratorStep4I18n';
 
 const migrationPath = 'supabase/migrations/20260917094832_submitted_order_revision_history.sql';
 
@@ -38,9 +40,12 @@ describe('Backend submitted-order reopen and revision flow', () => {
     expect(page).toContain('if (!activeOrderNumber)');
     expect(page).toContain('resend: Boolean(backendCorrectionSessionId)');
     expect(page).toContain('completeSubmittedOrderCorrection(backendCorrectionSessionId)');
-    expect(page).toContain('Gem ændring');
-    expect(page).toContain('Gem og opret ny ordrebekræftelse');
-    expect(page).toContain('Gem og send ny ordrebekræftelse');
+    expect(page).toContain("T('saveCorrection')");
+    expect(page).toContain("T('saveAndCreateOrderConfirmation')");
+    expect(page).toContain("T('saveAndSendOrderConfirmation')");
+    expect(t('saveCorrection', 'da')).toBe('Gem ændring');
+    expect(t('saveAndCreateOrderConfirmation', 'da')).toBe('Gem og opret ny ordrebekræftelse');
+    expect(t('saveAndSendOrderConfirmation', 'da')).toBe('Gem og send ny ordrebekræftelse');
   });
 
   it('preserves the original order number and submission timestamp while an explicit resend updates sent-at', () => {
@@ -66,6 +71,8 @@ describe('Backend submitted-order reopen and revision flow', () => {
     expect(service).toContain('isLegacySubmittedOrder');
     expect(page).toContain('requiresLegacyOrderReprice');
     expect(page).toContain('legacyOrderRepriceApproved');
-    expect(page).toContain('Jeg accepterer, at den ved denne rettelse opdateres til de nuværende katalogpriser');
+    expect(page).toContain('submittedOrderCopy.legacyRepriceWarning');
+    expect(configuratorSubmittedOrderCopy('da').legacyRepriceWarning)
+      .toContain('Jeg accepterer, at den ved denne rettelse opdateres til de nuværende katalogpriser');
   });
 });

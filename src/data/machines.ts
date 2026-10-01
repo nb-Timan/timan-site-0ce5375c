@@ -1,4 +1,4 @@
-import { Machine, Accessory, Language } from '@/types/configurator';
+import { Machine, Accessory, Language, type ConfiguratorLocale } from '@/types/configurator';
 import { notifyProductMaster, publishedProduct, replaceProductMaster, resolvePublishedProduct, type PublishedProductMaster } from '@/lib/publishedProductMaster';
 import { canonicalGermanProductText } from '@/data/configuratorGermanProductTranslations';
 import { convertCurrency, currencyFromLanguage, type Currency } from '@/lib/currency';
@@ -97,7 +97,7 @@ function createUniqueSweeperSubItems(parentId: string) {
 const BASE_PRODUCTS: Record<string, Machine> = {
   'RC-1000S': {
     id: 'RC-1000S',
-    name: 'RC-1000s Basismaskine',
+    name: { da: 'RC-1000s Basismaskine', en: 'RC-1000s Base machine', de: 'RC-1000s Basismaschine', sv: 'RC-1000s basmaskin' },
     nameShort: 'RC-1000S_SHORT',
     priceDKK: 235000,
     priceEUR: 31590,
@@ -107,8 +107,8 @@ const BASE_PRODUCTS: Record<string, Machine> = {
     imageUrl: 'https://img.youtube.com/vi/brq-kHp9gPI/hqdefault.jpg',
     images: [{ url: 'https://img.youtube.com/vi/brq-kHp9gPI/hqdefault.jpg' }],
     techSpecs: [
-      { label: 'Motor', value: { da: 'Vanguard, 23 HK', en: 'Vanguard, 23 HP', de: 'Vanguard, 23 PS' } },
-      { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad' } },
+      { label: 'Motor', value: { da: 'Vanguard, 23 HK', en: 'Vanguard, 23 HP', de: 'Vanguard, 23 PS', sv: 'Vanguard, 23 hk' } },
+      { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad', sv: '50 grader' } },
       { label: 'Vægt (Basis)', value: '440 kg' },
       { label: 'Klippebredde', value: '1000 mm' },
     ],
@@ -118,7 +118,8 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         en: `RC 1000s – a new generation of remote-controlled power, precision, and performance. Experience the fully hydraulic tool carrier of the future, designed to be safer, more efficient, and user-friendly. Its versatility and reliability make it the best choice for both varied and demanding terrain all year round. RC 1000s handles mowing, stump grinding, and snow removal on slopes up to 50 degrees with ease.`,
         de: `RC 1000s – eine neue Generation von ferngesteuerter Kraft, Präzision und Leistung. Erleben Sie den vollhydraulischen Geräteträger der Zukunft, entwickelt für mehr Sicherheit, Effizienz und Benutzerfreundlichkeit. Seine Vielseitigkeit macht ihn zur besten Wahl für sowohl normales als auch anspruchsvolles Gelände das ganze Jahr über. Der RC 1000s bewältigt Mähen, Stubbenfräsen und Schneeräumen an Hängen bis zu 50 Grad.`,
         it: `RC 1000s – una nuova generazione di potenza, precisione e prestazioni a controllo remoto. Sperimenta il porta attrezzi completamente idraulico del futuro, progettato per essere più sicuro, efficiente e facile da usare. La sua versatilità e affidabilità lo rendono la scelta migliore per terreni vari e impegnativi tutto l'anno. L'RC 1000s gestisce falciatura, triturazione di ceppi e rimozione della neve su pendenze fino a 50 gradi con facilità.`,
-        hu: `RC 1000s – a távirányítású erő, pontosság és teljesítmény új generációja. Tapasztalja meg a jövő teljesen hidraulikus szerszámhordozóját, amelyet biztonságosabbá, hatékonyabbá és felhasználóbarátabbá terveztek. Sokoldalúsága és megbízhatósága a legjobb választássá teszi mind a változatos, mind a kihívásokkal teli terepen egész évben. Az RC 1000s könnyedén megbirkózik a kaszálással, tuskómarással és hóeltakarítással akár 50 fokos lejtőn is.`
+        hu: `RC 1000s – a távirányítású erő, pontosság és teljesítmény új generációja. Tapasztalja meg a jövő teljesen hidraulikus szerszámhordozóját, amelyet biztonságosabbá, hatékonyabbá és felhasználóbarátabbá terveztek. Sokoldalúsága és megbízhatósága a legjobb választássá teszi mind a változatos, mind a kihívásokkal teli terepen egész évben. Az RC 1000s könnyedén megbirkózik a kaszálással, tuskómarással és hóeltakarítással akár 50 fokos lejtőn is.`,
+        sv: `RC 1000s är en ny generation fjärrstyrd kraft, precision och prestanda. Den helhydrauliska redskapsbäraren är utvecklad för säkrare, effektivare och mer användarvänligt arbete. Maskinen klarar klippning, stubbfräsning och snöröjning i sluttningar på upp till 50 grader.`,
       },
       bullets: {
         da: [
@@ -155,7 +156,14 @@ const BASE_PRODUCTS: Record<string, Machine> = {
           'Széles felszerelési program fedi le az összes szezont.',
           'Távirányító: 2,4 GHz, max. 150 m hatótávolság. Töltés közvetlenül a gépen is elérhető.',
           'Könnyű hozzáférés a motortérhez, nincs forgó alkatrész, amit meg kell húzni/kenni (nincsenek ékszíjak). Öntisztító olajhűtő.'
-        ]
+        ],
+        sv: [
+          'Banden har oberoende fjädring, full markkontakt och hög stabilitet i branta sluttningar.',
+          'Den kompakta konstruktionen gör det enkelt att arbeta på trånga och svårtillgängliga platser.',
+          'Det breda redskapsprogrammet täcker alla årstider.',
+          'Fjärrkontroll: 2,4 GHz och upp till 150 m räckvidd. Laddning finns direkt på maskinen.',
+          'Enkel åtkomst till motorrummet och självrengörande oljekylare.',
+        ],
       },
       dimensions: [
         { label: 'Bredde (Basis)', value: '995 mm' },
@@ -176,7 +184,7 @@ const BASE_PRODUCTS: Record<string, Machine> = {
   },
   'RC-751': {
     id: 'RC-751',
-    name: 'RC-751 Basismaskine',
+    name: { da: 'RC-751 Basismaskine', en: 'RC-751 Base machine', de: 'RC-751 Basismaschine', sv: 'RC-751 basmaskin' },
     nameShort: 'RC-751_SHORT',
     priceDKK: 167500,
     priceEUR: 22515,
@@ -186,8 +194,8 @@ const BASE_PRODUCTS: Record<string, Machine> = {
     imageUrl: 'https://img.youtube.com/vi/LqrPvmCXues/hqdefault.jpg',
     images: [{ url: 'https://img.youtube.com/vi/LqrPvmCXues/hqdefault.jpg' }],
     techSpecs: [
-      { label: 'Motor', value: { da: 'B&S, 14 HK', en: 'B&S, 14 HP', de: 'B&S, 14 PS' } },
-      { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad' } },
+      { label: 'Motor', value: { da: 'B&S, 14 HK', en: 'B&S, 14 HP', de: 'B&S, 14 PS', sv: 'B&S, 14 hk' } },
+      { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad', sv: '50 grader' } },
       { label: 'Vægt (Basis)', value: '345 kg' },
       { label: 'Klippebredde', value: '750 mm' },
     ],
@@ -197,7 +205,8 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         en: `RC-751 is a compact and powerful remote-controlled mowing solution, developed for safe and efficient operation in demanding terrain. With a low overall height of just 60 cm and a low center of gravity, it handles slopes and embankments up to 50 degrees. The hydraulic track drive and mechanical flail mower transmission ensure stable operation in dense vegetation and tall grass. RC-751 is built for hard-to-reach areas where precision and control are essential.`,
         de: `Der RC-751 ist eine kompakte und leistungsstarke ferngesteuerte Mählösung, entwickelt für sicheres und effizientes Arbeiten in anspruchsvollem Gelände. Mit einer niedrigen Bauhöhe von nur 60 cm und einem niedrigen Schwerpunkt bewältigt er Hänge und Böschungen bis zu 50 Grad. Der hydraulische Raupenantrieb und der mechanische Antrieb des Schlegelmähers sorgen für einen stabilen Betrieb in dichter Vegetation und hohem Gras. Der RC-751 ist für schwer zugängliche Bereiche konzipiert, in denen Präzision und Kontrolle entscheidend sind.`,
         it: `RC-751 è una soluzione di taglio compatta e potente a controllo remoto, sviluppata per lavorare in modo sicuro ed efficiente su terreni impegnativi. Con un'altezza complessiva di soli 60 cm e un baricentro basso, affronta pendenze e scarpate fino a 50 gradi. La trazione idraulica su cingoli e la trasmissione meccanica della trinciatrice garantiscono un funzionamento stabile in vegetazione fitta ed erba alta. RC-751 è progettata per aree difficili da raggiungere, dove precisione e controllo sono fondamentali.`,
-        hu: `Az RC-751 egy kompakt és erős, távirányítású kaszálási megoldás, amelyet biztonságos és hatékony munkavégzésre fejlesztettek ki nehéz terepviszonyok között. Mindössze 60 cm-es magasságával és alacsony súlypontjával akár 50 fokos lejtőkön és rézsűkön is dolgozik. A hidraulikus lánctalpas meghajtás és a szárzúzó mechanikus hajtása stabil működést biztosít sűrű növényzetben és magas fűben. Az RC-751 nehezen megközelíthető területekre készült, ahol a pontosság és az irányíthatóság kulcsfontosságú.`
+        hu: `Az RC-751 egy kompakt és erős, távirányítású kaszálási megoldás, amelyet biztonságos és hatékony munkavégzésre fejlesztettek ki nehéz terepviszonyok között. Mindössze 60 cm-es magasságával és alacsony súlypontjával akár 50 fokos lejtőkön és rézsűkön is dolgozik. A hidraulikus lánctalpas meghajtás és a szárzúzó mechanikus hajtása stabil működést biztosít sűrű növényzetben és magas fűben. Az RC-751 nehezen megközelíthető területekre készült, ahol a pontosság és az irányíthatóság kulcsfontosságú.`,
+        sv: `RC-751 är en kompakt och kraftfull fjärrstyrd klipplösning för säkert och effektivt arbete i krävande terräng. Den låga höjden och tyngdpunkten ger stabil drift i sluttningar på upp till 50 grader. Hydraulisk banddrift och mekanisk drivning av slaghacken ger säker drift i tät vegetation och högt gräs.`,
       },
       bullets: {
         da: [
@@ -224,11 +233,16 @@ const BASE_PRODUCTS: Record<string, Machine> = {
           'A lánctalpak független felfüggesztéssel rendelkeznek, teljes talajkapcsolatot és nagy stabilitást biztosítva meredek lejtőkön.',
           'Az RC-751 a lánctalpak szélességén túl kaszál, így közvetlenül falak mentén is dolgozhat.',
           'Munkakörnyezet: Kíméli a hátat, csípőt és bokát, valamint csökkenti a munkahelyi sérülések kockázatát.'
-        ]
+        ],
+        sv: [
+          'Banden har oberoende fjädring, full markkontakt och hög stabilitet i branta sluttningar.',
+          'RC-751 klipper utanför bandbredden så att du kan klippa direkt intill väggar och kanter.',
+          'Arbetsmiljö: Minska belastningen på rygg, höfter och fotleder samt risken för arbetsolyckor.',
+        ],
       },
       dimensions: [
-        { label: 'Motor', value: { da: 'B&S, 14 HK', en: 'B&S, 14 HP', de: 'B&S, 14 PS' } },
-        { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad' } },
+        { label: 'Motor', value: { da: 'B&S, 14 HK', en: 'B&S, 14 HP', de: 'B&S, 14 PS', sv: 'B&S, 14 hk' } },
+        { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad', sv: '50 grader' } },
         { label: 'Vægt (Basis)', value: '345 kg' },
         { label: 'Klippebredde', value: '750 mm' },
         { label: 'Højde', value: '603 mm' },
@@ -251,10 +265,10 @@ const BASE_PRODUCTS: Record<string, Machine> = {
     videoUrl: 'https://www.youtube.com/watch?v=Q1vii5cZvgw',
     imageUrl: 'https://img.youtube.com/vi/Q1vii5cZvgw/maxresdefault.jpg',
     techSpecs: [
-      { label: 'Motor', value: { da: 'Kubota benzinmotor', en: 'Kubota petrol engine', de: 'Kubota-Benzinmotor' } },
-      { label: 'HK', value: { da: '33 HK', en: '33 HP', de: '33 PS' } },
-      { label: 'Brændstof', value: 'Benzin' },
-      { label: 'Tophastighed', value: { da: '28 km/t', en: '28 km/h', de: '28 km/h' } },
+      { label: 'Motor', value: { da: 'Kubota benzinmotor', en: 'Kubota petrol engine', de: 'Kubota-Benzinmotor', sv: 'Kubota bensinmotor' } },
+      { label: 'HK', value: { da: '33 HK', en: '33 HP', de: '33 PS', sv: '33 hk' } },
+      { label: 'Brændstof', value: { da: 'Benzin', en: 'Petrol', de: 'Benzin', sv: 'Bensin' } },
+      { label: 'Tophastighed', value: { da: '28 km/t', en: '28 km/h', de: '28 km/h', sv: '28 km/h' } },
       { label: 'Lydniveau i kabine', value: '79 dB' },
       { label: 'Køreklar vægt', value: '1.185 kg' },
     ],
@@ -265,6 +279,7 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         de: `Timan 3330 ist ein vielseitiger Geräteträger für Komfort und Effizienz das ganze Jahr über.`,
         it: `Timan 3330 è un porta-attrezzi versatile progettato per comfort ed efficienza tutto l'anno.`,
         hu: `A Timan 3330 sokoldalú eszközhordozó, egész éves használatra.`,
+        sv: `Timan 3330 är en mångsidig redskapsbärare som är konstruerad för komfort och effektivitet året runt.`,
       },
       bullets: {
         da: ['Dansk produceret kvalitet.', 'Lavt støjniveau i kabinen.', 'Hurtigt skift af redskaber.', '4-hjulstræk for optimalt greb.'],
@@ -272,33 +287,34 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         de: ['Dänische Qualitätsproduktion.', 'Niedriger Geräuschpegel in der Kabine.', 'Schneller Gerätewechsel.', 'Allradantrieb für optimalen Grip.'],
         it: ['Qualità prodotta in Danimarca.', 'Basso livello di rumore in cabina.', 'Cambio rapido degli attrezzi.', 'Trazione integrale per presa ottimale.'],
         hu: ['Dániában gyártott minőség.', 'Alacsony zajszint a fülkében.', 'Gyors eszközcsere.', '4 kerék meghajtás az optimális tapadásért.'],
+        sv: ['Dansktillverkad kvalitet.', 'Låg ljudnivå i hytten.', 'Snabba redskapsbyten.', 'Fyrhjulsdrift för optimalt grepp.'],
       },
       dimensions: [
         // --- Motor ---
         { label: 'Motor', isHeader: true },
-        { label: 'Motortype', value: { da: 'Kubota benzin', en: 'Kubota petrol', de: 'Kubota Benzin', it: 'Kubota benzina', hu: 'Kubota benzinmotor' } },
-        { label: 'HK', value: { da: '33 HK', en: '33 HP', de: '33 PS', it: '33 CV', hu: '33 LE' } },
+        { label: 'Motortype', value: { da: 'Kubota benzin', en: 'Kubota petrol', de: 'Kubota Benzin', it: 'Kubota benzina', hu: 'Kubota benzinmotor', sv: 'Kubota bensin' } },
+        { label: 'HK', value: { da: '33 HK', en: '33 HP', de: '33 PS', it: '33 CV', hu: '33 LE', sv: '33 hk' } },
         { label: 'EU-norm', value: 'Stage 5' },
         { label: 'Slagvolumen', value: '962 cm³' },
         { label: 'Effekt', value: '24 kW' },
-        { label: 'Tophastighed', value: { da: '28 km/t', en: '28 km/h', de: '28 km/h', it: '28 km/h', hu: '28 km/h' } },
+        { label: 'Tophastighed', value: { da: '28 km/t', en: '28 km/h', de: '28 km/h', it: '28 km/h', hu: '28 km/h', sv: '28 km/h' } },
         { label: 'Benzintank', value: '37 L' },
         // --- Transmission ---
         { label: 'Transmission', isHeader: true },
-        { label: 'Type', value: { da: 'Stempelpumpe', en: 'Piston pump', de: 'Kolbenpumpe', it: 'Pompa a pistoni', hu: 'Dugattyús szivattyú' } },
-        { label: 'Hjulmotorer', value: { da: '4 stk. Orbitmotorer', en: '4 pcs. orbit motors', de: '4 Stk. Orbitmotoren', it: '4 motori orbit', hu: '4 db orbitmotor' } },
-        { label: 'Kølesystem', value: { da: 'Vandkøling (45°C udetemperatur)', en: 'Water cooling (45°C ambient)', de: 'Wasserkühlung (45°C Außentemperatur)', it: 'Raffreddamento ad acqua (45°C esterni)', hu: 'Víz hűtés (45°C környezet)' } },
+        { label: 'Type', value: { da: 'Stempelpumpe', en: 'Piston pump', de: 'Kolbenpumpe', it: 'Pompa a pistoni', hu: 'Dugattyús szivattyú', sv: 'Kolvpump' } },
+        { label: 'Hjulmotorer', value: { da: '4 stk. Orbitmotorer', en: '4 pcs. orbit motors', de: '4 Stk. Orbitmotoren', it: '4 motori orbit', hu: '4 db orbitmotor', sv: '4 st. orbitmotorer' } },
+        { label: 'Kølesystem', value: { da: 'Vandkøling (45°C udetemperatur)', en: 'Water cooling (45°C ambient)', de: 'Wasserkühlung (45°C Außentemperatur)', it: 'Raffreddamento ad acqua (45°C esterni)', hu: 'Víz hűtés (45°C környezet)', sv: 'Vattenkylning (45 °C omgivning)' } },
         // --- Arbejdshydraulik ---
         { label: 'Arbejdshydraulik', isHeader: true },
-        { label: 'Type', value: { da: 'Tandhjulspumpe', en: 'Gear pump', de: 'Zahnradpumpe', it: 'Pompa a ingranaggi', hu: 'Fogaskerék-szivattyú' } },
+        { label: 'Type', value: { da: 'Tandhjulspumpe', en: 'Gear pump', de: 'Zahnradpumpe', it: 'Pompa a ingranaggi', hu: 'Fogaskerék-szivattyú', sv: 'Kugghjulspump' } },
         { label: 'Kapacitet udtag bag', value: '48 L/min (nominel), 180 Bar' },
         { label: 'Kapacitet udtag front', value: '48 L/min (nominel), 180 Bar' },
-        { label: 'Olieudtag front', value: { da: '1 dobbeltvirkende m. flydestilling, 150 Bar', en: '1 double-acting w/ float, 150 Bar', de: '1 doppeltwirkend mit Schwimmstellung, 150 Bar', it: '1 doppio effetto con flottante, 150 Bar', hu: '1 kettős működésű úszóállással, 150 Bar' } },
-        { label: 'Olieudtag bag', value: { da: '1 dobbeltvirkende, 150 Bar', en: '1 double-acting, 150 Bar', de: '1 doppeltwirkend, 150 Bar', it: '1 doppio effetto, 150 Bar', hu: '1 kettős működésű, 150 Bar' } },
+        { label: 'Olieudtag front', value: { da: '1 dobbeltvirkende m. flydestilling, 150 Bar', en: '1 double-acting w/ float, 150 Bar', de: '1 doppeltwirkend mit Schwimmstellung, 150 Bar', it: '1 doppio effetto con flottante, 150 Bar', hu: '1 kettős működésű úszóállással, 150 Bar', sv: '1 dubbelverkande med flytläge, 150 bar' } },
+        { label: 'Olieudtag bag', value: { da: '1 dobbeltvirkende, 150 Bar', en: '1 double-acting, 150 Bar', de: '1 doppeltwirkend, 150 Bar', it: '1 doppio effetto, 150 Bar', hu: '1 kettős működésű, 150 Bar', sv: '1 dubbelverkande, 150 bar' } },
         // --- Liftarm ---
         { label: 'Liftarm', isHeader: true },
-        { label: 'Standard funktioner', value: { da: 'Flydestilling og parallelløft som standard', en: 'Float position and parallel lift as standard', de: 'Schwimmstellung und Parallelhub serienmäßig', it: 'Posizione flottante e sollevamento parallelo di serie', hu: 'Úszóállás és párhuzamos emelés alapfelszereltség' } },
-        { label: 'Løftekapacitet', value: { da: '150 kg, 80 cm ud fra hurtigskift / 300 kg ved hurtigskiftet', en: '150 kg, 80 cm from quick hitch / 300 kg at quick hitch', de: '150 kg, 80 cm vom Schnellwechsel / 300 kg am Schnellwechsel', it: '150 kg a 80 cm dal cambio rapido / 300 kg al cambio rapido', hu: '150 kg 80 cm-re a gyorscsatlakozótól / 300 kg a gyorscsatlakozónál' } },
+        { label: 'Standard funktioner', value: { da: 'Flydestilling og parallelløft som standard', en: 'Float position and parallel lift as standard', de: 'Schwimmstellung und Parallelhub serienmäßig', it: 'Posizione flottante e sollevamento parallelo di serie', hu: 'Úszóállás és párhuzamos emelés alapfelszereltség', sv: 'Flytläge och parallelllyft som standard' } },
+        { label: 'Løftekapacitet', value: { da: '150 kg, 80 cm ud fra hurtigskift / 300 kg ved hurtigskiftet', en: '150 kg, 80 cm from quick hitch / 300 kg at quick hitch', de: '150 kg, 80 cm vom Schnellwechsel / 300 kg am Schnellwechsel', it: '150 kg a 80 cm dal cambio rapido / 300 kg al cambio rapido', hu: '150 kg 80 cm-re a gyorscsatlakozótól / 300 kg a gyorscsatlakozónál', sv: '150 kg, 80 cm från snabbfästet / 300 kg vid snabbfästet' } },
         // --- Elsystem ---
         { label: 'Elsystem', isHeader: true },
         { label: 'Spænding', value: { da: '12 volt', en: '12 V', de: '12 V', it: '12 V', hu: '12 V' } },
@@ -336,12 +352,12 @@ const BASE_PRODUCTS: Record<string, Machine> = {
     varenr: '761000',
     isDiscountEligible: true,
     techSpecs: [
-      { label: 'Motor', value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11' } },
-      { label: 'HK', value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW' } },
-      { label: 'Cylindre / Træk', value: { da: '3 / 4-hjulstræk', en: '3 / 4-wheel drive', de: '3 / Allradantrieb', it: '3 / Trazione integrale', hu: '3 / 4 kerék hajtás' } },
-      { label: 'Brændstof', value: { da: 'Diesel / HVO biodiesel', en: 'Diesel / HVO biodiesel', de: 'Diesel / HVO-Biodiesel', it: 'Diesel / biodiesel HVO', hu: 'Dizel / HVO biodizel' } },
-      { label: 'Tophastighed', value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h' } },
-      { label: 'Bredde', value: { da: '1.020 mm uden kabine', en: '1,020 mm without cab', de: '1.020 mm ohne Kabine', it: '1.020 mm senza cabina', hu: '1.020 mm fulke nelkul' } },
+      { label: 'Motor', value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11', sv: 'Perkins 403J-11' } },
+      { label: 'HK', value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW', sv: '25 hk / 18,4 kW' } },
+      { label: 'Cylindre / Træk', value: { da: '3 / 4-hjulstræk', en: '3 / 4-wheel drive', de: '3 / Allradantrieb', it: '3 / Trazione integrale', hu: '3 / 4 kerék hajtás', sv: '3 / fyrhjulsdrift' } },
+      { label: 'Brændstof', value: { da: 'Diesel / HVO biodiesel', en: 'Diesel / HVO biodiesel', de: 'Diesel / HVO-Biodiesel', it: 'Diesel / biodiesel HVO', hu: 'Dizel / HVO biodizel', sv: 'Diesel / HVO-biodiesel' } },
+      { label: 'Tophastighed', value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h', sv: '20 km/h' } },
+      { label: 'Bredde', value: { da: '1.020 mm uden kabine', en: '1,020 mm without cab', de: '1.020 mm ohne Kabine', it: '1.020 mm senza cabina', hu: '1.020 mm fulke nelkul', sv: '1 020 mm utan hytt' } },
     ],
     machineDetails: {
       main: {
@@ -350,6 +366,7 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         de: 'Timan 2620 ist ein kompakter Diesel-Geräteträger mit Perkins Stage-V-Motor, 25 PS / 18,4 kW, Allradantrieb und flexibler Ausstattung für Ganzjahresaufgaben.',
         it: 'Timan 2620 e un porta-attrezzi diesel compatto con motore Perkins Stage V, 25 CV / 18,4 kW, trazione integrale e attrezzature flessibili per lavori tutto lanno.',
         hu: 'A Timan 2620 kompakt dizel eszkozhordozo Perkins Stage V motorral, 25 LE / 18,4 kW teljesitmennyel, 4 kerek hajtassal es egesz eves feladatokra valo felszerelessel.',
+        sv: 'Timan 2620 är en kompakt dieselredskapsbärare med Perkins Stage V-motor, 25 hk / 18,4 kW, fyrhjulsdrift och flexibel utrustning för helårsarbete.',
       },
       bullets: {
         da: ['Perkins 403J-11 dieselmotor med 25 hk / 18,4 kW.', 'Maskinbredde på 1.020 mm uden kabine og indvendig venderadius på 565 mm.', 'Stor olieudtag: 40 l/min ved 250 bar.'],
@@ -357,28 +374,29 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         de: ['Perkins 403J-11 Dieselmotor mit 25 PS / 18,4 kW.', 'Maschinenbreite von 1.020 mm ohne Kabine und innerer Wenderadius von 565 mm.', 'Großer Ölanschluss: 40 l/min bei 250 bar.'],
         it: ['Motore diesel Perkins 403J-11 con 25 CV / 18,4 kW.', 'Larghezza macchina di 1.020 mm senza cabina e raggio di sterzata interno di 565 mm.', 'Grande presa olio: 40 l/min a 250 bar.'],
         hu: ['Perkins 403J-11 dizelmotor 25 LE / 18,4 kW teljesitmennyel.', '1.020 mm gep szelesseg fulke nelkul es 565 mm belso fordulasi sugar.', 'Nagy olajcsatlakozo: 40 l/min 250 bar nyomason.'],
+        sv: ['Perkins 403J-11 dieselmotor med 25 hk / 18,4 kW.', 'Maskinbredd 1 020 mm utan hytt och inre vändradie 565 mm.', 'Hydrauluttag med hög kapacitet: 40 l/min vid 250 bar.'],
       },
       dimensions: [
         { label: 'Motor', isHeader: true },
-        { label: 'Motortype', value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11' } },
-        { label: 'HK', value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW' } },
-        { label: 'Cylindre', value: { da: '3', en: '3', de: '3', it: '3', hu: '3' } },
-        { label: 'Brændstof', value: { da: 'Diesel / HVO biodiesel', en: 'Diesel / HVO biodiesel', de: 'Diesel / HVO-Biodiesel', it: 'Diesel / biodiesel HVO', hu: 'Dizel / HVO biodizel' } },
+        { label: 'Motortype', value: { da: 'Perkins 403J-11', en: 'Perkins 403J-11', de: 'Perkins 403J-11', it: 'Perkins 403J-11', hu: 'Perkins 403J-11', sv: 'Perkins 403J-11' } },
+        { label: 'HK', value: { da: '25 hk / 18,4 kW', en: '25 hp / 18.4 kW', de: '25 PS / 18,4 kW', it: '25 CV / 18,4 kW', hu: '25 LE / 18,4 kW', sv: '25 hk / 18,4 kW' } },
+        { label: 'Cylindre', value: { da: '3', en: '3', de: '3', it: '3', hu: '3', sv: '3' } },
+        { label: 'Brændstof', value: { da: 'Diesel / HVO biodiesel', en: 'Diesel / HVO biodiesel', de: 'Diesel / HVO-Biodiesel', it: 'Diesel / biodiesel HVO', hu: 'Dizel / HVO biodizel', sv: 'Diesel / HVO-biodiesel' } },
         { label: 'EU-norm', value: 'Stage V' },
-        { label: 'Tophastighed', value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h' } },
-        { label: 'Træk', value: { da: '4-hjulstræk', en: '4-wheel drive', de: 'Allradantrieb', it: 'Trazione integrale', hu: '4 kerék hajtás' } },
+        { label: 'Tophastighed', value: { da: '20 km/t', en: '20 km/h', de: '20 km/h', it: '20 km/h', hu: '20 km/h', sv: '20 km/h' } },
+        { label: 'Træk', value: { da: '4-hjulstræk', en: '4-wheel drive', de: 'Allradantrieb', it: 'Trazione integrale', hu: '4 kerék hajtás', sv: 'Fyrhjulsdrift' } },
         { label: 'Mål og manøvrering', isHeader: true },
-        { label: 'Bredde', value: { da: '1.020 mm uden kabine', en: '1,020 mm without cab', de: '1.020 mm ohne Kabine', it: '1.020 mm senza cabina', hu: '1.020 mm fulke nelkul' } },
+        { label: 'Bredde', value: { da: '1.020 mm uden kabine', en: '1,020 mm without cab', de: '1.020 mm ohne Kabine', it: '1.020 mm senza cabina', hu: '1.020 mm fulke nelkul', sv: '1 020 mm utan hytt' } },
         { label: 'Venderadius indvendig', value: { da: '565 mm', en: '565 mm', de: '565 mm', it: '565 mm', hu: '565 mm' } },
         { label: 'Arbejdshydraulik', isHeader: true },
-        { label: 'Olieudtag', value: { da: '40 l/min ved 250 bar', en: '40 l/min at 250 bar', de: '40 l/min bei 250 bar', it: '40 l/min a 250 bar', hu: '40 l/min 250 bar nyomason' } },
-        { label: 'Funktioner', value: { da: 'Dobbeltvirkende funktioner', en: 'Double-acting functions', de: 'Doppeltwirkende Funktionen', it: 'Funzioni a doppio effetto', hu: 'Kettos mukodesu funkciok' } },
+        { label: 'Olieudtag', value: { da: '40 l/min ved 250 bar', en: '40 l/min at 250 bar', de: '40 l/min bei 250 bar', it: '40 l/min a 250 bar', hu: '40 l/min 250 bar nyomason', sv: '40 l/min vid 250 bar' } },
+        { label: 'Funktioner', value: { da: 'Dobbeltvirkende funktioner', en: 'Double-acting functions', de: 'Doppeltwirkende Funktionen', it: 'Funzioni a doppio effetto', hu: 'Kettos mukodesu funkciok', sv: 'Dubbelverkande funktioner' } },
       ],
     },
   },
   'Loader Line': {
     id: 'Loader Line',
-    name: { da: 'Loader-Line & CS-200 Traktor', en: 'Loader-Line & CS-200 Tractor', de: 'Loader-Line & CS-200 Traktor', it: 'Loader-Line & CS-200 Trattore', hu: 'Loader-Line & CS-200 Traktor' },
+    name: { da: 'Loader-Line & CS-200 Traktor', en: 'Loader-Line & CS-200 Tractor', de: 'Loader-Line & CS-200 Traktor', it: 'Loader-Line & CS-200 Trattore', hu: 'Loader-Line & CS-200 Traktor', sv: 'Loader-Line & CS-200 traktor' },
     nameShort: 'LOADER LINE',
     priceDKK: 0,
     priceEUR: 0,
@@ -392,14 +410,15 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         de: 'Loader-Line — Anbaugeräte für Weidemann und vergleichbare Lader.',
         it: 'Loader Line — implements for Weidemann and similar loaders.',
         hu: 'Loader Line — implements for Weidemann and similar loaders.',
+        sv: 'Loader Line — redskap för Weidemann och liknande lastare.',
       },
-      bullets: { da: [], en: [], de: [], it: [], hu: [] },
+      bullets: { da: [], en: [], de: [], it: [], hu: [], sv: [] },
       dimensions: [],
     },
   },
   'LOOSE_TOOL': {
     id: 'LOOSE_TOOL',
-    name: { da: 'Løs redskab', en: 'Loose attachment', de: 'Loses Anbaugerät', it: 'Attrezzo sciolto', hu: 'Külön tartozék' },
+    name: { da: 'Løs redskab', en: 'Loose attachment', de: 'Loses Anbaugerät', it: 'Attrezzo sciolto', hu: 'Külön tartozék', sv: 'Löst redskap' },
     nameShort: 'LOOSE_TOOL_SHORT',
     priceDKK: 0,
     priceEUR: 0,
@@ -412,9 +431,10 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         en: `Select this if you only need implements/equipment without a machine.`,
         de: `Wählen Sie dies, wenn Sie nur Anbaugeräte/Zubehör ohne Maschine bestellen möchten.`,
         it: `Seleziona questo se ti servono solo attrezzi/accessori senza macchina.`,
-        hu: `Válaszd ezt, ha csak eszközöket/kiegészítőket rendelsz gép nélkül.`
+        hu: `Válaszd ezt, ha csak eszközöket/kiegészítőket rendelsz gép nélkül.`,
+        sv: `Välj detta om du bara behöver beställa redskap eller utrustning utan maskin.`,
       },
-      bullets: { da: [], en: [], de: [], it: [], hu: [] },
+      bullets: { da: [], en: [], de: [], it: [], hu: [], sv: [] },
       dimensions: [],
     },
   },
@@ -893,7 +913,7 @@ const BASE_ACCESSORIES: Record<string, Accessory[]> = {
 };
 
 // Helper to get localized text
-export function getLocalizedName(name: string | { da: string; en: string; [key: string]: string | undefined }, lang: Language = 'da'): string {
+export function getLocalizedName(name: string | { da: string; en: string; [key: string]: string | undefined }, lang: ConfiguratorLocale = 'da'): string {
   if (typeof name === 'string') return name;
   // English fallback before Danish so mixed-language modals don't leak DA text
   // when a non-DA language is selected but the value isn't translated.

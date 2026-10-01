@@ -1,4 +1,4 @@
-import type { CalcResult, ConfiguratorState, DiscountDetail, Language, LineItem } from "@/types/configurator";
+import type { CalcResult, ConfiguratorLocale, ConfiguratorState, DiscountDetail, Language, LineItem } from "@/types/configurator";
 import { formatMoney } from "@/lib/currency";
 import { configuratorCurrency } from "@/lib/configuratorPricing";
 import { formatDiscountDetailLabel } from "@/lib/calcConfiguration";
@@ -25,7 +25,7 @@ type BuildConfiguratorPdfInput = {
   sourceQuoteNumber?: string | null;
   revisionNumber?: number;
   showPrices: boolean;
-  uiLanguage: Language;
+  uiLanguage: ConfiguratorLocale;
   contentLanguage: Language;
   T: (key: string) => string;
   TC: (key: string) => string;

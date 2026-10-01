@@ -14,6 +14,7 @@ import { configuratorPricingSignature } from '@/lib/configuratorPricing';
 import { getPaymentTermsLabel } from '@/lib/paymentTerms';
 import {
   clearPublishedConfiguratorPricesForTest,
+  getLocalizedName,
   getPriceForCurrency,
   PRODUCTS,
   replacePublishedConfiguratorPrices,
@@ -167,6 +168,24 @@ describe('Configurator final commercial-state matrix', () => {
     expect(t('confirmSubmission', 'sv')).toBe('Bekräfta skickande');
     expect(t('leaveConfiguratorTitle', 'sv')).toBe('Lämna konfiguratorn?');
     expect(t('syncLead', 'sv')).toBe('Uppdatera lead');
+  });
+
+  it('uses the Swedish UI locale for machine catalog presentation', () => {
+    expect(getLocalizedName(PRODUCTS['RC-1000S'].name, 'sv')).toBe('RC-1000s basmaskin');
+    expect(getLocalizedName(PRODUCTS['RC-751'].name, 'sv')).toBe('RC-751 basmaskin');
+    expect(getLocalizedName(PRODUCTS['Loader Line'].name, 'sv')).toBe('Loader-Line & CS-200 traktor');
+    expect(getLocalizedName(PRODUCTS.LOOSE_TOOL.name, 'sv')).toBe('Löst redskap');
+
+    for (const machine of Object.values(PRODUCTS)) {
+      for (const spec of machine.techSpecs) {
+        if (typeof spec.value !== 'string') expect(spec.value?.sv, `${machine.id}:${spec.label}`).toBeTruthy();
+      }
+    }
+
+    const source = fs.readFileSync(path.resolve(process.cwd(), 'src/pages/ConfiguratorPage.tsx'), 'utf8');
+    expect(source).not.toMatch(/getLocalizedName\([^\n]+, lang\)/);
+    expect(source).toContain("const TC = (key: string) => t(key, uiLanguage);");
+    expect(source).not.toMatch(/translateSpecLabel\([^\n]+contentUiLang/);
   });
 
   it('does not use locale as a Configurator capability or delivery-startup condition', () => {
