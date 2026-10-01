@@ -11,5 +11,7 @@ describe('Configurator German translations', () => {
     expect(t('step4Desc', 'de')).not.toContain('Please fill');
     expect(t('invalidEmailRecipient', 'de')).toBe('Ungültiger E-Mail-Empfänger.');
     expect(t('purchaseOrderReference', 'de')).toBe('Bestellreferenz / PO-Nr.');
+    expect(t('reqNumberPlaceholder', 'de')).toBe('Bestellreferenz / PO-Nr.');
+    expect(t('demoMachineLabel', 'de')).toBe('Demo-Maschine');
   });
 });

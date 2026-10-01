@@ -593,6 +593,7 @@ const translations: Record<string, Record<string, string>> = {
     saveFailed: 'Fall konnte nicht gespeichert werden',
     caseSaved: 'Fall gespeichert',
     caseIdLabel: 'Fall-ID',
+    reqNumberPlaceholder: 'Bestellreferenz / PO-Nr.',
     reqNrLabel: 'Best.nr.',
     mainInfo: 'Hauptinformation',
     keyFeatures: 'Hauptmerkmale',

@@ -38,6 +38,11 @@ import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingC
 import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
 import { ConfiguratorDeliveryDatePicker } from '@/components/configurator/ConfiguratorDeliveryDatePicker';
 import { CampaignDisableControl } from '@/components/configurator/CampaignDisableControl';
+import {
+  ConfiguratorDemoMachineControl,
+  ConfiguratorMachineReferenceField,
+  ConfiguratorPurchaseOrderField,
+} from '@/components/configurator/ConfiguratorStep4Controls';
 import { loadPublishedMarketingCampaigns } from '@/lib/marketingCampaignService';
 import { eligibleCampaignFor, replacePublishedCampaigns } from '@/lib/configuratorCampaigns';
 import { useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
@@ -4177,7 +4182,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
             {/* Step 4: Customer info */}
             {state.step === 4 && (
-              <div className="bg-white rounded-2xl shadow p-6">
+              <div className="bg-white rounded-2xl shadow p-6" data-testid="configurator-step4">
                 <h2 className="text-xl font-bold mb-4">{T('step4Title')}</h2>
                 <p className="text-gray-600 text-sm mb-6">{T('step4Desc')}</p>
                 <div className="max-w-lg mx-auto mb-5">
@@ -4268,7 +4273,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     )}
                   </div>
                 )}
-                <div className="space-y-4 max-w-lg mx-auto">
+                <div className="space-y-4 max-w-lg mx-auto" data-testid="configurator-step4-customer-contact">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('companyName')}</label>
                     <input id="configurator-lead-firmanavn" aria-invalid={leadValidationErrors.includes('firmanavn')} type="text" value={state.firmanavn} onChange={e => updateActiveCustomerField('firmanavn', e.target.value)} className={leadFieldClass('firmanavn')} />
@@ -4317,15 +4322,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <label className="block text-sm font-medium text-gray-700 mb-1">{customerModeCopy.country}</label>
                     <input id="configurator-lead-country" aria-invalid={leadValidationErrors.includes('country')} type="text" value={state.country} onChange={e => updateActiveCustomerField('country', e.target.value)} className={leadFieldClass('country')} />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('purchaseOrderReference')}</label>
-                    <input
-                      type="text"
-                      value={state.purchaseOrderNumber}
-                      onChange={e => setCustomerField('purchaseOrderNumber', e.target.value)}
-                      className="w-full p-2 border rounded-lg"
-                    />
-                  </div>
+                  <ConfiguratorPurchaseOrderField
+                    label={T('purchaseOrderReference')}
+                    value={state.purchaseOrderNumber}
+                    onChange={e => setCustomerField('purchaseOrderNumber', e.target.value)}
+                  />
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">{T('comment')}</label>
                     <textarea value={state.comment} onChange={e => setCustomerField('comment', e.target.value)} className="w-full p-2 border rounded-lg" rows={5} />
@@ -4565,7 +4566,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             <div className="mb-4 border-b border-emerald-200 pb-3">
               <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl font-bold text-gray-800">{T('summaryTitle')}</h2>
-                <div className="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm" role="group" aria-label="flow type">
+                <div className="inline-flex rounded-lg border border-gray-300 bg-gray-100 p-0.5 shadow-sm" role="group" aria-label="flow type" data-testid="configurator-flow-mode-control">
                 {(isExhibition ? (['quote'] as const) : (['quote', 'order'] as const)).map(ft => {
                   const active = state.flowType === ft;
                   return (
@@ -4587,7 +4588,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 </div>
               </div>
               {canUseDirectPricingMode && (
-                <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="mt-3 flex items-center justify-between gap-3" data-testid="configurator-direct-control">
                   <div className="min-w-0">
                     <label htmlFor="configurator-direct-pricing" className="text-sm font-semibold text-gray-800">{T('directMode')}</label>
                     <p className="text-xs text-gray-500">{T('directModeHint')}</p>
@@ -4646,13 +4647,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     return (
                       <div key={idx}>
                         {item.isMachine && item.index && (
-                          <div className="mt-2 mb-3 pl-2">
-                            <input type="text" maxLength={20}
-                              value={state.reqNumbers[`machine_${item.index}`] || ''}
-                              onChange={e => setReqNumber(item.index!, e.target.value)}
-                              placeholder={T('reqNumberPlaceholder')}
-                              className="w-full bg-white border border-gray-300 rounded-md px-3 py-2 text-sm text-gray-700 placeholder-gray-400" />
-                          </div>
+                          <ConfiguratorMachineReferenceField
+                            machineNumber={item.index}
+                            value={state.reqNumbers[`machine_${item.index}`] || ''}
+                            onChange={e => setReqNumber(item.index!, e.target.value)}
+                            placeholder={T('reqNumberPlaceholder')}
+                          />
                         )}
                         <div className={`flex items-start justify-between ${lineClasses} ${indent}`}>
                           <div className="min-w-0 flex-1">
@@ -4676,7 +4676,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           </div>
                         )}
                         {!isExhibition && state.date && item.isMachine && item.index && (
-                          <div className="ml-4 mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700">
+                          <div className="ml-4 mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700" data-testid="configurator-delivery-summary">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <span className="inline-flex items-center gap-1.5">
                                 <CalendarIcon className="h-3.5 w-3.5" />
@@ -4699,15 +4699,15 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           </div>
                         )}
                         {!isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && canSelectDemo && (
-                          <div className={`flex justify-between items-center text-xs ${indent} mt-1`}>
-                            <label className={`flex items-center gap-2 select-none ${isDirectPricing ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-gray-700'}`}>
-                              <input type="checkbox"
-                                disabled={isDirectPricing}
-                                checked={isDemoSelected(item.varenr, item.index)}
-                                onChange={() => toggleDemoMachine(item.varenr, item.index!, item.txt)} />
-                              <span>{T('demoMachineLabel')} <span className="text-gray-500">(+{formatDisplayMoney(getDemoFee())})</span></span>
-                            </label>
-                          </div>
+                          <ConfiguratorDemoMachineControl
+                            machineNumber={item.index}
+                            checked={isDemoSelected(item.varenr, item.index)}
+                            disabled={isDirectPricing}
+                            label={T('demoMachineLabel')}
+                            formattedFee={formatDisplayMoney(getDemoFee())}
+                            indentClassName={indent}
+                            onChange={() => toggleDemoMachine(item.varenr, item.index!, item.txt)}
+                          />
                         )}
                       </div>
                     );
@@ -4776,7 +4776,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         </select>
                       </div>
                     )}
-                    <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2">
+                    <div className="flex justify-between items-end text-lg text-gray-800 pt-4 border-t border-emerald-300 mt-2" data-testid="configurator-pricing-summary">
                       <span className="text-sm sm:text-base whitespace-nowrap font-medium">{T('finalPrice')}</span>
                       <span className="text-xl text-emerald-700 price-col ml-2">{formatDisplayMoney(displayCalc!.currentPrice)}</span>
                     </div>
