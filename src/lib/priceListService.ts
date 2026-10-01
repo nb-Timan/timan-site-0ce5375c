@@ -597,20 +597,11 @@ export function buildPreview(
         out.push({
           rowIndex, bucket: "error", item_number: key,
           raw, existing: null, existingPersisted: false, changes: [],
-          errorMessage: "Varenr. findes ikke i den gemte prisliste. Kostprisimport opretter aldrig nye varer.",
+          errorMessage: "Varenr. findes ikke i det canonical produktkatalog. Kostprisimport opretter aldrig nye produkter.",
         });
         return;
       }
       out.push({ rowIndex, bucket: "create", item_number: key, raw, existing: null, existingPersisted: false, changes: [] });
-      return;
-    }
-
-    if (mode === "COST_ONLY" && !persistedItemNumbers.has(key)) {
-      out.push({
-        rowIndex, bucket: "error", item_number: key,
-        raw, existing: existingRow, existingPersisted: false, changes: [],
-        errorMessage: "Varenr. findes kun i Configurator-grunddata. Opret varen via fuld prisliste eller Systemværktøjer først.",
-      });
       return;
     }
 
@@ -642,7 +633,18 @@ export function mergeCanonicalPriceItems(
   for (const item of configuratorItems) byItemNumber.set(item.item_number.trim(), item);
   for (const item of storedItems) {
     if (item.renamed_from_item_number) byItemNumber.delete(item.renamed_from_item_number.trim());
-    byItemNumber.set(item.item_number.trim(), item);
+    const key = item.item_number.trim();
+    const canonical = byItemNumber.get(key);
+    byItemNumber.set(key, canonical ? {
+      ...canonical,
+      ...item,
+      item_text_da: item.item_text_da ?? canonical.item_text_da,
+      item_text_de: item.item_text_de ?? canonical.item_text_de,
+      item_text_en: item.item_text_en ?? canonical.item_text_en,
+      price_dkk: item.price_dkk ?? canonical.price_dkk,
+      price_eur: item.price_eur ?? canonical.price_eur,
+      price_sek: item.price_sek ?? canonical.price_sek,
+    } : item);
   }
   return [...byItemNumber.values()];
 }
@@ -685,7 +687,10 @@ export function buildPriceImportPayload(
   mode: PriceImportMode,
   machineScope: string,
 ): PriceImportPayload {
-  const rows = preview.map((entry) => {
+  const importableRows = mode === "COST_ONLY"
+    ? preview.filter((entry) => entry.existing !== null && entry.bucket !== "error")
+    : preview;
+  const rows = importableRows.map((entry) => {
     const raw = entry.raw;
     const itemNumber = (entry.item_number ?? raw.item_number ?? "").trim();
     const costDkk = parsePrice(raw.cost_price_dkk);
@@ -693,7 +698,11 @@ export function buildPriceImportPayload(
       item_number: itemNumber,
       cost_price_dkk: costDkk == null ? (raw.cost_price_dkk?.trim() ?? "") : String(costDkk),
     };
-    if (mode === "COST_ONLY") return costOnlyRow;
+    if (mode === "COST_ONLY") {
+      return entry.existingPersisted
+        ? costOnlyRow
+        : { ...costOnlyRow, catalog_source: "CANONICAL_CONFIGURATOR" };
+    }
 
     const dkk = parsePrice(raw.price_dkk);
     const eur = parsePrice(raw.price_eur);
