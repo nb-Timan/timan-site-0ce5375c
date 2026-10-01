@@ -10,8 +10,8 @@ describe("Partnerdata list-first flow", () => {
     const app = readFileSync("src/App.tsx", "utf8");
     const portal = readFileSync("src/pages/PortalPage.tsx", "utf8");
 
-    expect(app).toContain('path="/portal/dealer-data" element={<PartnerDataRoute />}');
-    expect(app).toContain('path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm"><CrmMyDealersPage /></AcademyCapabilityGuard>}');
+    expect(app).toContain('path="/portal/dealer-data" element={<AcademyCapabilityGuard capability="partner_data"><PartnerDataRoute /></AcademyCapabilityGuard>}');
+    expect(app).toContain('path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm_complete"><CrmMyDealersPage /></AcademyCapabilityGuard>}');
     expect(portal).toContain('dealer_data:    { to: PORTAL_AREA_ROUTES.dealer_data');
   });
 
@@ -19,7 +19,7 @@ describe("Partnerdata list-first flow", () => {
     const route = readFileSync("src/pages/portal/PartnerDataRoute.tsx", "utf8");
     const app = readFileSync("src/App.tsx", "utf8");
     expect(route).toContain('<CrmMyDealersPage presentation="partnerdata" />');
-    expect(app).toContain('<Route path="/portal/dealer-data/:accountNumber" element={<CrmDealerDetailPage presentation="partnerdata" />} />');
+    expect(app).toContain('<Route path="/portal/dealer-data/:accountNumber" element={<AcademyCapabilityGuard capability="partner_data"><CrmDealerDetailPage presentation="partnerdata" /></AcademyCapabilityGuard>} />');
   });
 
   it("returns the Partnerdata overview to the Partnerdata list", () => {

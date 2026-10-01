@@ -73,12 +73,14 @@ describe('Academy module access', () => {
     expect(academyPage).toContain('useEffectivePortalUserState(appUser)');
   });
 
-  it('keeps Academy completion gates inside the active local sandbox', () => {
+  it('applies Academy completion gates to normal routes using canonical cycle progress', () => {
     const guard = readFileSync('src/components/academy/AcademyCapabilityGuard.tsx', 'utf8');
+    const provider = readFileSync('src/context/AcademyAccessContext.tsx', 'utf8');
 
-    expect(guard).toContain('if (!academySandbox.isActive()) return <>{children}</>;');
     expect(guard).toContain('isAcademyCapabilityUnlocked');
-    expect(guard).toContain("academySandbox.getActiveCase() === ACADEMY_CASE_1");
+    expect(guard).toContain('TRAINING_CASE_BYPASSES');
+    expect(provider).toContain('getMyAcademyCycle(viewAsUserId)');
+    expect(provider).toContain('snapshot.completionIds');
   });
 
   it('uses the active Academy case to restrict Portal Basics without changing real portal permissions', () => {

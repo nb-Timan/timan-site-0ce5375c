@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import CrmLayout from '@/components/crm/CrmLayout';
 import { useAppUser } from '@/context/AppUserContext';
+import { useAcademyAccess } from '@/context/AcademyAccessContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { crmDemoMissingLabel } from '@/lib/crmDemoStageI18n';
 import { crmLeadText } from '@/lib/crmLeadI18n';
@@ -486,6 +487,8 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
   const { appUser: sessionUser } = useAppUser();
   const appUser = academyCrmSandbox.isActive() ? getLocalAcademyUser() : sessionUser;
   const effectiveUser = useEffectivePortalUser(appUser);
+  const academyAccess = useAcademyAccess();
+  const crmDemoUnlocked = academyAccess?.isUnlocked('crm_demo') ?? true;
   const { uiLanguage: lang } = useLanguage();
   const displayCurrency = usePortalCurrency();
   const navigate = useNavigate();
@@ -874,10 +877,10 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               className={cn(mobileControlClass, 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm')}>
               <span className="flex min-w-0 items-center gap-1"><Plus className="h-3.5 w-3.5 shrink-0" />{tt('new_lead', lang)}</span>
             </Link>
-            <Link to="/portal/crm/demo-leads/new"
+            {crmDemoUnlocked && <Link to="/portal/crm/demo-leads/new"
               className={cn(mobileControlClass, 'bg-white text-[#2d5a27] border-[#2d5a27]/30')}>
               <span className="flex min-w-0 items-center gap-1"><Plus className="h-3.5 w-3.5 shrink-0" />{tt('new_demo', lang)}</span>
-            </Link>
+            </Link>}
           </div>
         )}
       </div>
@@ -972,10 +975,10 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
             );
           })}
           {!repository.academy && <>
-            <Link to="/portal/crm/demo-leads/new"
+            {crmDemoUnlocked && <Link to="/portal/crm/demo-leads/new"
               className={cn(topActionButtonClass, 'bg-white text-[#2d5a27] border border-[#2d5a27]/30 hover:border-[#2d5a27] hover:bg-gray-50')}>
               <Plus className="h-4 w-4" /> {tt('new_demo', lang)}
-            </Link>
+            </Link>}
             <Link to="/portal/crm/leads/new"
               className={cn(topActionButtonClass, 'bg-[#2d5a27] text-white hover:bg-[#234820]')}>
               <Plus className="h-4 w-4" /> {tt('new_lead', lang)}
@@ -1245,7 +1248,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                         <div data-testid="crm-leads-action-cell" className="flex items-center justify-end gap-2">
                           {canActOnOpenLead && (
                             <>
-                              {!r.has_demo && (
+                              {!r.has_demo && (repository.academy || crmDemoUnlocked) && (
                                 <Link
                                   to={repository.academy
                                     ? `/academy/crm/demo-leads/new?academy_mode=true&academy_part=${academyPart || 2}&fromLead=${encodeURIComponent(r.id)}`

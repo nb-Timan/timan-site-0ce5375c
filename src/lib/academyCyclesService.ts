@@ -61,6 +61,7 @@ export async function recordAcademyCycleCompletion(cycleId: string, caseId: stri
     p_case_id: caseId,
   });
   if (error) throw error;
+  if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('timan:academy-progress-changed'));
   return data;
 }
 

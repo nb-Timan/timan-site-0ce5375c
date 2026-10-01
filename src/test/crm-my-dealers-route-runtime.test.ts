@@ -7,8 +7,8 @@ const portal = fs.readFileSync(path.resolve(process.cwd(), "src/pages/PortalPage
 
 describe("CRM mine forhandlere runtime route", () => {
   it("keeps the CRM analytics route separate from Partnerdata and recovers a stale page chunk once", () => {
-    expect(app).toContain('path="/portal/dealer-data" element={<PartnerDataRoute />}');
-    expect(app).toContain('path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm"><CrmMyDealersPage /></AcademyCapabilityGuard>}');
+    expect(app).toContain('path="/portal/dealer-data" element={<AcademyCapabilityGuard capability="partner_data"><PartnerDataRoute /></AcademyCapabilityGuard>}');
+    expect(app).toContain('path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm_complete"><CrmMyDealersPage /></AcademyCapabilityGuard>}');
     expect(app).toContain('lazyWithDynamicImportRecovery(() => import("./pages/crm/CrmMyDealersPage"))');
     expect(app).toContain('CRM_MY_DEALERS_CHUNK_RELOAD_KEY');
     expect(portal).toContain('dealer_data:    { to: PORTAL_AREA_ROUTES.dealer_data');

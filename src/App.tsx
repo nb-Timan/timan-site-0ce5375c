@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppUserProvider } from "@/context/AppUserContext";
+import { AcademyAccessProvider } from "@/context/AcademyAccessContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import AcademyPortalBasicsStepSuccessModal from "@/components/academy/AcademyPortalBasicsStepSuccessModal";
 import AcademyCaseCompletionModalHost from "@/components/academy/AcademyCaseCompletionModalHost";
@@ -311,6 +312,7 @@ const App = () => (
       <BrowserRouter>
       <PublishedProductMasterBoundary>
         <AppUserProvider>
+          <AcademyAccessProvider>
           <LanguageProvider>
             <AcademyCaseCompletionModalHost />
             <AcademyPortalBasicsStepSuccessModal />
@@ -341,8 +343,8 @@ const App = () => (
               <Route path="/academy/crm/leads" element={<AcademyAccessGuard><AcademyCrmLeadsPage /></AcademyAccessGuard>} />
               <Route path="/academy/crm/leads/:id" element={<AcademyAccessGuard><AcademyCrmRoute><CrmNewLeadPage /></AcademyCrmRoute></AcademyAccessGuard>} />
               <Route path="/academy/crm/demo-leads/new" element={<AcademyAccessGuard><AcademyCrmRoute><CrmNewDemoLeadPage /></AcademyCrmRoute></AcademyAccessGuard>} />
-              <Route path="/portal/teknik-service" element={<DealerUserServiceGuard><PortalAreaPage areaId="teknik_service" /></DealerUserServiceGuard>} />
-              <Route path="/portal/salg-marketing" element={<PortalAreaPage areaId="salg_marketing" />} />
+              <Route path="/portal/teknik-service" element={<DealerUserServiceGuard><AcademyCapabilityGuard capability="technical_service"><PortalAreaPage areaId="teknik_service" /></AcademyCapabilityGuard></DealerUserServiceGuard>} />
+              <Route path="/portal/salg-marketing" element={<AcademyCapabilityGuard capability="sales_area"><PortalAreaPage areaId="salg_marketing" /></AcademyCapabilityGuard>} />
               <Route path="/portal/marketing" element={<PortalAreaPage areaId="marketing" />} />
               <Route path="/portal/marketing/news" element={<MesseNewsPage mode="marketing" />} />
               <Route path="/portal/marketing/news/overview" element={<BackendNewsPage />} />
@@ -355,46 +357,47 @@ const App = () => (
               <Route path="/portal/backend/data-integrationer" element={<BackendSectionPage sectionId="data-integrations" />} />
               <Route path="/portal/backend/analyse" element={<BackendSectionPage sectionId="analytics" />} />
               <Route path="/portal/backend/system" element={<BackendSectionPage sectionId="system" />} />
-              <Route path="/portal/dealer-data" element={<PartnerDataRoute />} />
-              <Route path="/portal/dealer-data/:accountNumber" element={<CrmDealerDetailPage presentation="partnerdata" />} />
-              <Route path="/portal/crm" element={<AcademyCapabilityGuard capability="crm"><PortalCrmPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/dashboard"  element={<AcademyCapabilityGuard capability="crm"><CrmDashboardPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/accounts"   element={<AcademyCapabilityGuard capability="crm"><Navigate to="/portal/crm/my-dealers" replace /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/konti"      element={<AcademyCapabilityGuard capability="crm"><Navigate to="/portal/crm/my-dealers" replace /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm"><CrmMyDealersPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/my-dealers/:accountNumber" element={<AcademyCapabilityGuard capability="crm"><CrmDealerDetailPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/accounts/:id" element={<AcademyCapabilityGuard capability="crm"><CrmAccountDetailPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/activities" element={<AcademyCapabilityGuard capability="crm"><CrmActivitiesPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/leads" element={<AcademyCapabilityGuard capability="crm"><CrmLeadsPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/leads/import-preview" element={<AcademyCapabilityGuard capability="crm"><CrmLegacyLeadsImportPreviewPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/leads/import-preview/:legacyId" element={<AcademyCapabilityGuard capability="crm"><CrmLegacyLeadImportPreviewDetailPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/leads/new" element={<AcademyCapabilityGuard capability="crm"><CrmNewLeadPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/leads/:id" element={<AcademyCapabilityGuard capability="crm"><CrmNewLeadPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/demo-leads" element={<AcademyCapabilityGuard capability="crm"><CrmDemoLeadsPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/demo-leads/new" element={<AcademyCapabilityGuard capability="crm"><CrmNewDemoLeadPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/demo-leads/:id" element={<AcademyCapabilityGuard capability="crm"><CrmDemoLeadDetailPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/budget" element={<AcademyCapabilityGuard capability="crm"><CrmBudgetPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/budget-dashboard" element={<AcademyCapabilityGuard capability="crm"><CrmBudgetDashboardPage /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/calendar" element={<PortalAreaAccessGuard area="calendar"><AcademyCapabilityGuard capability="crm"><CrmCalendarPage /></AcademyCapabilityGuard></PortalAreaAccessGuard>} />
-              <Route path="/portal/crm/quotes" element={<AcademyCapabilityGuard capability="quote"><CrmQuotesOrdersPage mode="quote" /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/orders" element={<AcademyCapabilityGuard capability="order"><CrmQuotesOrdersPage mode="order" /></AcademyCapabilityGuard>} />
-              <Route path="/portal/crm/reports" element={<AcademyCapabilityGuard capability="crm"><Navigate to="/portal/crm/dashboard" replace /></AcademyCapabilityGuard>} />
-              <Route path="/portal/videos" element={<VideoGalleryPage />} />
-              <Route path="/portal/videos/:categoryId" element={<VideoCategoryPage />} />
-              <Route path="/portal/resources" element={<ResourcesPage />} />
-              <Route path="/portal/resources/driftberegner" element={<DriftberegnerPage />} />
-              <Route path="/portal/resources/co2" element={<Co2CalculatorPage />} />
-              <Route path="/portal/contracts" element={<ContractsPage />} />
-              <Route path="/portal/contracts/:contractId" element={<ContractsPage />} />
+              <Route path="/portal/dealer-data" element={<AcademyCapabilityGuard capability="partner_data"><PartnerDataRoute /></AcademyCapabilityGuard>} />
+              <Route path="/portal/dealer-data/:accountNumber" element={<AcademyCapabilityGuard capability="partner_data"><CrmDealerDetailPage presentation="partnerdata" /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm" element={<AcademyCapabilityGuard capability="crm_area"><PortalCrmPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/dashboard"  element={<AcademyCapabilityGuard capability="crm_complete"><CrmDashboardPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/accounts"   element={<AcademyCapabilityGuard capability="crm_complete"><Navigate to="/portal/crm/my-dealers" replace /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/konti"      element={<AcademyCapabilityGuard capability="crm_complete"><Navigate to="/portal/crm/my-dealers" replace /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm_complete"><CrmMyDealersPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/my-dealers/:accountNumber" element={<AcademyCapabilityGuard capability="crm_complete"><CrmDealerDetailPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/accounts/:id" element={<AcademyCapabilityGuard capability="crm_complete"><CrmAccountDetailPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/activities" element={<AcademyCapabilityGuard capability="crm_complete"><CrmActivitiesPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/leads" element={<AcademyCapabilityGuard capability="crm_leads"><CrmLeadsPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/leads/import-preview" element={<AcademyCapabilityGuard capability="crm_leads"><CrmLegacyLeadsImportPreviewPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/leads/import-preview/:legacyId" element={<AcademyCapabilityGuard capability="crm_leads"><CrmLegacyLeadImportPreviewDetailPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/leads/new" element={<AcademyCapabilityGuard capability="crm_leads"><CrmNewLeadPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/leads/:id" element={<AcademyCapabilityGuard capability="crm_leads"><CrmNewLeadPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/demo-leads" element={<AcademyCapabilityGuard capability="crm_demo"><CrmDemoLeadsPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/demo-leads/new" element={<AcademyCapabilityGuard capability="crm_demo"><CrmNewDemoLeadPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/demo-leads/:id" element={<AcademyCapabilityGuard capability="crm_demo"><CrmDemoLeadDetailPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/budget" element={<AcademyCapabilityGuard capability="crm_complete"><CrmBudgetPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/budget-dashboard" element={<AcademyCapabilityGuard capability="crm_complete"><CrmBudgetDashboardPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/calendar" element={<PortalAreaAccessGuard area="calendar"><AcademyCapabilityGuard capability="crm_complete"><CrmCalendarPage /></AcademyCapabilityGuard></PortalAreaAccessGuard>} />
+              <Route path="/portal/crm/quotes" element={<AcademyCapabilityGuard capability="crm_complete"><CrmQuotesOrdersPage mode="quote" /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/orders" element={<AcademyCapabilityGuard capability="crm_complete"><CrmQuotesOrdersPage mode="order" /></AcademyCapabilityGuard>} />
+              <Route path="/portal/crm/reports" element={<AcademyCapabilityGuard capability="crm_complete"><Navigate to="/portal/crm/dashboard" replace /></AcademyCapabilityGuard>} />
+              <Route path="/portal/videos" element={<AcademyCapabilityGuard capability="sales_video"><VideoGalleryPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/videos/:categoryId" element={<AcademyCapabilityGuard capability="sales_video"><VideoCategoryPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/resources" element={<AcademyCapabilityGuard capability="sales_complete"><ResourcesPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/resources/driftberegner" element={<AcademyCapabilityGuard capability="sales_complete"><DriftberegnerPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/resources/co2" element={<AcademyCapabilityGuard capability="sales_complete"><Co2CalculatorPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/contracts" element={<AcademyCapabilityGuard capability="sales_complete"><ContractsPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/contracts/:contractId" element={<AcademyCapabilityGuard capability="sales_complete"><ContractsPage /></AcademyCapabilityGuard>} />
               <Route path="/portal/timan-2620" element={<MesseTiman2620Page backTo="/portal" />} />
               {/* Salg & Marketing > Diverse > Formularer */}
-              <Route path="/portal/misc" element={<MiscPage />} />
-              <Route path="/portal/misc/forms" element={<MiscFormsPage />} />
-              <Route path="/portal/misc/forms/budget-feedback" element={<BudgetFeedbackFormPage />} />
-              <Route path="/portal/misc/forms/dealer-invoice-accept" element={<DealerInvoiceAcceptFormPage />} />
-              <Route path="/portal/misc/forms/company-contact-info" element={<CompanyContactInfoFormPage />} />
-              <Route path="/portal/misc/partner-map" element={<PartnerMapPage />} />
+              <Route path="/portal/misc" element={<AcademyCapabilityGuard capability="sales_complete"><MiscPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/misc/forms" element={<AcademyCapabilityGuard capability="sales_complete"><MiscFormsPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/misc/forms/budget-feedback" element={<AcademyCapabilityGuard capability="sales_complete"><BudgetFeedbackFormPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/misc/forms/dealer-invoice-accept" element={<AcademyCapabilityGuard capability="sales_complete"><DealerInvoiceAcceptFormPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/misc/forms/company-contact-info" element={<AcademyCapabilityGuard capability="sales_complete"><CompanyContactInfoFormPage /></AcademyCapabilityGuard>} />
+              <Route path="/portal/misc/partner-map" element={<AcademyCapabilityGuard capability="partner_map"><PartnerMapPage /></AcademyCapabilityGuard>} />
               <Route element={<DealerUserServiceGuard />}>
+                <Route element={<AcademyCapabilityGuard capability="technical_service" />}>
                 <Route path="/portal/service/claims" element={<ClaimsPage />} />
                 <Route path="/portal/service/claims/new" element={<NewClaimPage />} />
                 <Route path="/portal/service/claims/:claimId" element={<ClaimDetailPage />} />
@@ -419,6 +422,7 @@ const App = () => (
                 <Route path="/portal/service/tickets/:ticketId" element={<ServiceTicketDetailPage />} />
                 <Route path="/portal/service/machines" element={<MachineSearchPage />} />
                 <Route path="/portal/service/machines/:serialNumber" element={<MachineJournalPage />} />
+                </Route>
               </Route>
 
               {/* Timan Backend → Users / Roles / Module access / Audit log */}
@@ -454,6 +458,7 @@ const App = () => (
             <PreferredLanguageBootstrap />
             <TimanSupportHost />
           </LanguageProvider>
+          </AcademyAccessProvider>
         </AppUserProvider>
       </PublishedProductMasterBoundary>
       </BrowserRouter>

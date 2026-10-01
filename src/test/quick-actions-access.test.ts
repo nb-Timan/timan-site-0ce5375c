@@ -106,8 +106,9 @@ describe("quick action access", () => {
     expect(quickActions).toContain("const academyUser = academySandbox.isActive() ? getLocalAcademyUser() : null;");
     expect(quickActions).toContain("const renderUser = academyUser ?? appUser;");
     expect(quickActions).toContain("const canShowAllActions = !academyUser && showAllActions && isEffectiveBackend;");
-    expect(quickActions).toContain("const accessUser = useEffectivePortalUser(appUser ?? academyUser)");
-    expect(quickActions).toContain("const academyLocked = capability && !isAcademyCapabilityUnlocked(accessUser, capability");
+    expect(quickActions).toContain("const accessUser = academyAccess?.effectiveUser ?? effectiveUser;");
+    expect(quickActions).toContain("findPortalCapabilityContract(action.featureKey)?.academyGate");
+    expect(quickActions).toContain("academyAccess?.completionIds ?? academySandbox.getCompletedCaseIds()");
   });
 
   it("lets JTN's manual quick action setup show all four configured actions", () => {

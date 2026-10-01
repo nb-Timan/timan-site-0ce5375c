@@ -2,6 +2,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { Building2, Users, ShieldCheck, KeyRound, ScrollText, BarChart3, UserCog, Tag, Upload, Wrench, Ticket, Search, LifeBuoy, Newspaper, ListChecks, Sparkles, Clock, Film, LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAppUser } from '@/context/AppUserContext';
+import { useAcademyAccess } from '@/context/AcademyAccessContext';
 import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
 import { useChangelog, formatChangedDate } from '@/lib/portalChangelog';
 import { useLanguage } from '@/context/LanguageContext';
@@ -24,11 +25,11 @@ import { t } from '@/lib/i18n/translations';
 import { tv } from '@/lib/videoLibraryI18n';
 import { fetchActiveDealerContractAccessWindow, type DealerContractAccessWindow } from '@/lib/dealerContractsService';
 import { academySandbox } from '@/lib/academySandbox';
-import { isAcademyCapabilityUnlocked, getLocalAcademyUser } from '@/lib/academyCurriculum';
+import { getLocalAcademyUser, hasEffectiveAcademyCapabilityAccess } from '@/lib/academyCurriculum';
 import { canOpenAcademyService } from '@/lib/academyMachineSandbox';
 import AcademyMachineGuidance from '@/components/academy/AcademyMachineGuidance';
 import AcademyHintTarget from '@/components/academy/AcademyHintTarget';
-import { portalCapabilityRoute } from '../../supabase/functions/_shared/portalCapabilityContract';
+import { findPortalCapabilityContractByRoute, portalCapabilityRoute } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -95,6 +96,7 @@ export default function PortalAreaPage({ areaId }: Props) {
   // Hooks must run unconditionally on every render — keep this above all
   // early returns so the hook count is stable while `loading` flips.
   const { effectiveUser, resolving: resolvingEffectiveUser } = useEffectivePortalUserState(appUser);
+  const academyAccess = useAcademyAccess();
   const [activeContractAccess, setActiveContractAccess] = useState<DealerContractAccessWindow | null>(null);
   const { markAreaRead, submoduleBadge, markSubmoduleRead, moduleBadge } = useChangelog(appUser, lang);
   useEffect(() => {
@@ -159,7 +161,13 @@ export default function PortalAreaPage({ areaId }: Props) {
       if (!key) return true;
       if (key === 'contracts') return canAccessContractsModule(effectiveUser);
       return hasModuleAccess(portalRole, key, moduleOverride);
-    });
+    })
+    .filter((module) => hasEffectiveAcademyCapabilityAccess(
+      effectiveUser,
+      true,
+      findPortalCapabilityContractByRoute(module.href)?.academyGate,
+      academyAccess?.completionIds ?? academySandbox.getCompletedCaseIds(),
+    ));
   const showCreateNewsCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
   const showNewsOverviewCard = areaId === 'marketing' && canManageNewsContent(effectiveUser);
 
@@ -183,7 +191,12 @@ export default function PortalAreaPage({ areaId }: Props) {
           <BackendHome />
         ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 ${areaId === 'teknik_service' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}>
-          {areaId === 'salg_marketing' && activeContractAccess?.contract_id && (
+          {areaId === 'salg_marketing' && activeContractAccess?.contract_id && hasEffectiveAcademyCapabilityAccess(
+            effectiveUser,
+            true,
+            'sales_complete',
+            academyAccess?.completionIds ?? academySandbox.getCompletedCaseIds(),
+          ) && (
             <PlaceholderCard
               title="Åbn kontrakt"
               language={lang}
@@ -216,7 +229,6 @@ export default function PortalAreaPage({ areaId }: Props) {
               module={m}
               language={uiLanguage}
               updateBadge={mUpdateBadge}
-              academyLocked={m.id === 'configurator' && !isAcademyCapabilityUnlocked(effectiveUser, 'configurator', academySandbox.getCompletedCaseIds())}
             />;
           })}
           {showCreateNewsCard && (

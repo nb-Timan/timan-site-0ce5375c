@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PORTAL_MODULES } from '@/lib/portalModules';
 import { useAppUser } from '@/context/AppUserContext';
+import { useAcademyAccess } from '@/context/AcademyAccessContext';
 import { derivePortalRole, hasTopLevelPortalAreaAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { useLanguage } from '@/context/LanguageContext';
 import LoginStep from '@/components/configurator/LoginStep';
@@ -19,13 +20,12 @@ import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { formatDealerProfileBadgeLabel, useDealerPortfolioProfileBadge, useDealerProfileBadge } from '@/lib/dealerProfileBadge';
 import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { ACADEMY_PORTAL_BASICS, academySandbox, PORTAL_BASICS_NEWS_TITLE, type AcademyPortalBasicsState } from '@/lib/academySandbox';
-import { getAcademyCapabilityProgress, getAcademyProgress, getAcademyTracks, getLocalAcademyUser, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
-import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
-import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
+import { getAcademyCapabilityProgress, getAcademyProgress, getAcademyTracks, getLocalAcademyUser, hasEffectiveAcademyCapabilityAccess, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { Language } from '@/types/configurator';
 import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
 import { PORTAL_AREA_ROUTES } from '@/lib/portalNavigation';
 import { t } from '@/lib/i18n/translations';
+import { findPortalAreaCapabilityContract } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 const AREA_TITLE_KEY: Record<string, string> = {
   teknik_service: 'area_teknik_service_title',
@@ -118,12 +118,6 @@ export default function PortalPage() {
     });
   }, [location.hash]);
 
-  // Phase 59 — Messe-variant users are locked to /messe. If we land on
-  // /portal with a Messe user already in session, immediately bounce.
-  if (portalUser && isMesseVariantUser(portalUser)) {
-    return <Navigate to="/messe" replace />;
-  }
-
   const prefLangApplied = useRef(false);
   useEffect(() => {
     if (prefLangApplied.current) return;
@@ -135,6 +129,7 @@ export default function PortalPage() {
   }, [portalUser, lang, setLanguage]);
 
   const effectiveUser = useEffectivePortalUser(portalUser);
+  const academyAccess = useAcademyAccess();
   const portalRoleForBadge = derivePortalRole(effectiveUser);
   const dealerProfileBadge = useDealerProfileBadge(effectiveUser?.dealer_number ?? null);
   const dealerPortfolioBadge = useDealerPortfolioProfileBadge(effectiveUser);
@@ -145,7 +140,13 @@ export default function PortalPage() {
   ) ? dealerPortfolioBadge : dealerProfileBadge;
   const changelog = useChangelog(portalUser, uiLanguage);
 
-  if (loading) {
+  // Phase 59 — Messe-variant users are locked to /messe. Keep this after
+  // hook initialization so login/session transitions preserve hook order.
+  if (portalUser && isMesseVariantUser(portalUser)) {
+    return <Navigate to="/messe" replace />;
+  }
+
+  if (loading || academyAccess?.resolving) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-sm text-gray-500">…</div>
@@ -260,13 +261,7 @@ export default function PortalPage() {
 
   const portalRole = derivePortalRole(effectiveUser);
   const academyEnabled = hasTopLevelPortalAreaAccess(effectiveUser, 'academy');
-  const academyCompletedCaseIds = [
-    ...academySandbox.getCompletedCaseIds(),
-    ...(academyPartnerDataSandbox.getProgress().part1Completed ? ['partnerdata.part_1_profile'] : []),
-    ...(academyPartnerDataSandbox.getProgress().part2Completed ? ['partnerdata.part_2_relations'] : []),
-    ...(academyCrmSandbox.getProgress().part1Completed ? ['crm.part_1'] : []),
-    ...(academyCrmSandbox.getProgress().part2Completed ? ['crm.part_2'] : []),
-  ];
+  const academyCompletedCaseIds = academyAccess?.completionIds ?? academySandbox.getCompletedCaseIds();
   const academyProgress = getAcademyProgress(effectiveUser, academyCompletedCaseIds);
   const portalBasics = academySandbox.getPortalBasics();
   const isPortalBasicsAcademy = academySandbox.isActive()
@@ -279,7 +274,12 @@ export default function PortalPage() {
   const academyAllowedHomeCards = academySandbox.getAllowedPortalHomeCardIds();
   const visibleHomeCards = sortPortalHomeCards([
     ...PORTAL_AREAS
-      .filter(area => isAreaVisible(area, effectiveUser))
+      .filter((area) => hasEffectiveAcademyCapabilityAccess(
+        effectiveUser,
+        isAreaVisible(area, effectiveUser),
+        findPortalAreaCapabilityContract(area.id)?.academyGate,
+        academyCompletedCaseIds,
+      ))
       .map((area) => ({ kind: 'area' as const, id: area.id, area })),
     ...(showMesseCard ? [{ kind: 'messe' as const, id: 'messe' as const }] : []),
   ].filter((card) => !academyAllowedHomeCards || academyAllowedHomeCards.includes(card.id)));
@@ -396,15 +396,13 @@ export default function PortalPage() {
             }
             const titleKey = AREA_TITLE_KEY[area.id];
             const descKey = AREA_DESC_KEY[area.id];
-            const academyLockedCrm = academyCapabilityGated && (area.id === 'timan_crm' || area.id === 'calendar')
-              && !isAcademyCapabilityUnlocked(effectiveUser, 'crm', academyCompletedCaseIds);
             return (
               <AreaCard
                 key={area.id}
                 title={titleKey ? t(titleKey, uiLanguage) : (area.title[lang] || area.title.en)}
-                description={academyLockedCrm ? 'Kræver Academy. Gennemfør Academy-forløbet for at åbne CRM.' : (descKey ? t(descKey, uiLanguage) : (area.description[lang] || area.description.en))}
-                cta={academyLockedCrm ? 'Kræver Academy' : t('openArea', uiLanguage)}
-                to={academyLockedCrm ? '/academy?locked=crm' : meta.to}
+                description={descKey ? t(descKey, uiLanguage) : (area.description[lang] || area.description.en)}
+                cta={t('openArea', uiLanguage)}
+                to={meta.to}
                 icon={meta.icon}
                 accent={meta.accent}
                 badge={area.id === 'dealer_data' && dealerBadge
@@ -419,7 +417,7 @@ export default function PortalPage() {
         {academyEnabled && getAcademyTracks(effectiveUser).includes('sales') && academyCapabilityGated && !configuratorUnlocked && !isPortalBasicsAcademy && (
           <section className="mt-8 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
             <p className="font-semibold">Næste oplåsning: Konfigurator</p>
-            <p className="mt-1">Gennemfør Sales Case 1 og Case 2 for at få adgang til den rigtige konfigurator.</p>
+            <p className="mt-1">Gennemfør Sales Case 1 for at få adgang til den rigtige konfigurator.</p>
             <div className="mt-3 h-2 overflow-hidden rounded bg-amber-100"><div className="h-full bg-amber-500" style={{ width: `${(configuratorProgress.completedCount / configuratorProgress.total) * 100}%` }} /></div>
             <p className="mt-2 text-xs font-semibold">{configuratorProgress.completedCount} / {configuratorProgress.total} gennemført</p>
           </section>

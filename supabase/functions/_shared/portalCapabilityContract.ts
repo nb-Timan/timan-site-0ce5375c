@@ -8,6 +8,19 @@ export type PortalCapabilityAccess =
   | { kind: 'quick_action'; key: string }
   | { kind: 'messe' };
 
+export type PortalAcademyGate =
+  | 'partner_data'
+  | 'partner_map'
+  | 'sales_area'
+  | 'configurator'
+  | 'sales_video'
+  | 'sales_complete'
+  | 'crm_area'
+  | 'crm_leads'
+  | 'crm_demo'
+  | 'crm_complete'
+  | 'technical_service';
+
 export interface PortalCapabilityContract {
   featureKey: string;
   areaKey: string;
@@ -15,6 +28,7 @@ export interface PortalCapabilityContract {
   access: PortalCapabilityAccess;
   actions: readonly ('read' | 'create' | 'edit')[];
   routeUsesDealerNumber?: boolean;
+  academyGate?: PortalAcademyGate;
 }
 
 /** Canonical role fallbacks shared by the Portal UI and server-side help gate. */
@@ -76,7 +90,8 @@ const capability = (
   access: PortalCapabilityAccess,
   actions: PortalCapabilityContract['actions'] = ['read'],
   routeUsesDealerNumber = false,
-): PortalCapabilityContract => ({ featureKey, areaKey, route, access, actions, routeUsesDealerNumber });
+  academyGate?: PortalAcademyGate,
+): PortalCapabilityContract => ({ featureKey, areaKey, route, access, actions, routeUsesDealerNumber, academyGate });
 
 /**
  * Shared route/access contract used by both the Portal UI and support-chat.
@@ -84,43 +99,43 @@ const capability = (
  * sources; this file only carries the server-safe identity, route and gate.
  */
 export const PORTAL_CAPABILITY_CONTRACTS = [
-  capability('area.sales', 'salg_marketing', '/portal/salg-marketing', { kind: 'area', key: 'salg_marketing' }),
-  capability('area.partner_data', 'dealer_data', '/portal/dealer-data', { kind: 'area', key: 'dealer_data' }),
-  capability('area.crm', 'timan_crm', '/portal/crm', { kind: 'crm' }),
+  capability('area.sales', 'salg_marketing', '/portal/salg-marketing', { kind: 'area', key: 'salg_marketing' }, ['read'], false, 'sales_area'),
+  capability('area.partner_data', 'dealer_data', '/portal/dealer-data', { kind: 'area', key: 'dealer_data' }, ['read'], false, 'partner_data'),
+  capability('area.crm', 'timan_crm', '/portal/crm', { kind: 'crm' }, ['read'], false, 'crm_area'),
   capability('area.marketing', 'marketing', '/portal/marketing', { kind: 'area', key: 'marketing' }),
-  capability('area.technical_service', 'teknik_service', '/portal/teknik-service', { kind: 'area', key: 'teknik_service' }),
-  capability('area.calendar', 'calendar', '/portal/crm/calendar', { kind: 'area', key: 'calendar' }),
+  capability('area.technical_service', 'teknik_service', '/portal/teknik-service', { kind: 'area', key: 'teknik_service' }, ['read'], false, 'technical_service'),
+  capability('area.calendar', 'calendar', '/portal/crm/calendar', { kind: 'area', key: 'calendar' }, ['read'], false, 'crm_complete'),
   capability('area.backend', 'timan_backend', '/portal/backend', { kind: 'backend' }),
   capability('area.academy', 'academy', '/academy', { kind: 'module', key: 'academy' }),
   capability('area.messe', 'messe', '/messe', { kind: 'messe' }),
 
-  capability('sales.configurator', 'salg_marketing', '/configurator', { kind: 'module', key: 'byg_din_timan', area: 'salg_marketing' }),
-  capability('sales.videos', 'salg_marketing', '/portal/videos', { kind: 'module', key: 'videos', area: 'salg_marketing' }),
-  capability('sales.resources', 'salg_marketing', '/portal/resources', { kind: 'module', key: 'resources', area: 'salg_marketing' }),
-  capability('sales.forms', 'salg_marketing', '/portal/misc/forms', { kind: 'module', key: 'sales_tools', area: 'salg_marketing' }),
-  capability('sales.contracts', 'salg_marketing', '/portal/contracts', { kind: 'module', key: 'contracts', area: 'salg_marketing' }, ['read', 'edit']),
-  capability('sales.partner_map', 'salg_marketing', '/portal/misc/partner-map', { kind: 'module', key: 'sales_tools', area: 'salg_marketing' }),
+  capability('sales.configurator', 'salg_marketing', '/configurator', { kind: 'module', key: 'byg_din_timan', area: 'salg_marketing' }, ['read'], false, 'configurator'),
+  capability('sales.videos', 'salg_marketing', '/portal/videos', { kind: 'module', key: 'videos', area: 'salg_marketing' }, ['read'], false, 'sales_video'),
+  capability('sales.resources', 'salg_marketing', '/portal/resources', { kind: 'module', key: 'resources', area: 'salg_marketing' }, ['read'], false, 'sales_complete'),
+  capability('sales.forms', 'salg_marketing', '/portal/misc/forms', { kind: 'module', key: 'sales_tools', area: 'salg_marketing' }, ['read'], false, 'sales_complete'),
+  capability('sales.contracts', 'salg_marketing', '/portal/contracts', { kind: 'module', key: 'contracts', area: 'salg_marketing' }, ['read', 'edit'], false, 'sales_complete'),
+  capability('sales.partner_map', 'salg_marketing', '/portal/misc/partner-map', { kind: 'module', key: 'sales_tools', area: 'salg_marketing' }, ['read'], false, 'partner_map'),
 
-  capability('partner.company_person_data', 'dealer_data', '/portal/dealer-data?accountNumber=:dealerNumber', { kind: 'area', key: 'dealer_data' }, ['read', 'edit'], true),
+  capability('partner.company_person_data', 'dealer_data', '/portal/dealer-data?accountNumber=:dealerNumber', { kind: 'area', key: 'dealer_data' }, ['read', 'edit'], true, 'partner_data'),
 
-  capability('crm.dashboard', 'timan_crm', '/portal/crm/dashboard', { kind: 'crm' }),
-  capability('crm.my_dealers', 'timan_crm', '/portal/crm/my-dealers', { kind: 'crm' }),
-  capability('crm.leads', 'timan_crm', '/portal/crm/leads', { kind: 'crm' }),
-  capability('crm.quotes', 'timan_crm', '/portal/crm/quotes', { kind: 'crm' }),
-  capability('crm.orders', 'timan_crm', '/portal/crm/orders', { kind: 'crm' }),
-  capability('crm.activities', 'timan_crm', '/portal/crm/activities', { kind: 'crm' }),
-  capability('crm.calendar', 'calendar', '/portal/crm/calendar', { kind: 'area', key: 'calendar' }),
-  capability('crm.budget', 'timan_crm', '/portal/crm/budget', { kind: 'crm' }),
-  capability('crm.budget_dashboard', 'timan_crm', '/portal/crm/budget-dashboard', { kind: 'crm' }),
-  capability('quick.create_lead', 'timan_crm', '/portal/crm/leads/new', { kind: 'quick_action', key: 'create_lead' }, ['create']),
-  capability('quick.create_demo', 'timan_crm', '/portal/crm/demo-leads/new', { kind: 'quick_action', key: 'create_demo' }, ['create']),
+  capability('crm.dashboard', 'timan_crm', '/portal/crm/dashboard', { kind: 'crm' }, ['read'], false, 'crm_complete'),
+  capability('crm.my_dealers', 'timan_crm', '/portal/crm/my-dealers', { kind: 'crm' }, ['read'], false, 'crm_complete'),
+  capability('crm.leads', 'timan_crm', '/portal/crm/leads', { kind: 'crm' }, ['read'], false, 'crm_leads'),
+  capability('crm.quotes', 'timan_crm', '/portal/crm/quotes', { kind: 'crm' }, ['read'], false, 'crm_complete'),
+  capability('crm.orders', 'timan_crm', '/portal/crm/orders', { kind: 'crm' }, ['read'], false, 'crm_complete'),
+  capability('crm.activities', 'timan_crm', '/portal/crm/activities', { kind: 'crm' }, ['read'], false, 'crm_complete'),
+  capability('crm.calendar', 'calendar', '/portal/crm/calendar', { kind: 'area', key: 'calendar' }, ['read'], false, 'crm_complete'),
+  capability('crm.budget', 'timan_crm', '/portal/crm/budget', { kind: 'crm' }, ['read'], false, 'crm_complete'),
+  capability('crm.budget_dashboard', 'timan_crm', '/portal/crm/budget-dashboard', { kind: 'crm' }, ['read'], false, 'crm_complete'),
+  capability('quick.create_lead', 'timan_crm', '/portal/crm/leads/new', { kind: 'quick_action', key: 'create_lead' }, ['create'], false, 'crm_leads'),
+  capability('quick.create_demo', 'timan_crm', '/portal/crm/demo-leads/new', { kind: 'quick_action', key: 'create_demo' }, ['create'], false, 'crm_demo'),
 
-  capability('service.machine_search', 'teknik_service', '/portal/service/machines', { kind: 'module', key: 'machine_search', area: 'teknik_service' }),
-  capability('service.tickets', 'teknik_service', '/portal/service/tickets', { kind: 'module', key: 'service_tickets', area: 'teknik_service' }),
-  capability('service.maintenance', 'teknik_service', '/portal/service/maintenance', { kind: 'module', key: 'service_information', area: 'teknik_service' }, ['read', 'create']),
-  capability('service.claims', 'teknik_service', '/portal/service/claims', { kind: 'module', key: 'claims', area: 'teknik_service' }, ['read', 'create']),
-  capability('service.warranty', 'teknik_service', '/portal/service/warranty', { kind: 'module', key: 'warranty', area: 'teknik_service' }, ['read', 'create']),
-  capability('service.tsb', 'teknik_service', '/portal/service/tsb', { kind: 'module', key: 'tsb', area: 'teknik_service' }),
+  capability('service.machine_search', 'teknik_service', '/portal/service/machines', { kind: 'module', key: 'machine_search', area: 'teknik_service' }, ['read'], false, 'technical_service'),
+  capability('service.tickets', 'teknik_service', '/portal/service/tickets', { kind: 'module', key: 'service_tickets', area: 'teknik_service' }, ['read'], false, 'technical_service'),
+  capability('service.maintenance', 'teknik_service', '/portal/service/maintenance', { kind: 'module', key: 'service_information', area: 'teknik_service' }, ['read', 'create'], false, 'technical_service'),
+  capability('service.claims', 'teknik_service', '/portal/service/claims', { kind: 'module', key: 'claims', area: 'teknik_service' }, ['read', 'create'], false, 'technical_service'),
+  capability('service.warranty', 'teknik_service', '/portal/service/warranty', { kind: 'module', key: 'warranty', area: 'teknik_service' }, ['read', 'create'], false, 'technical_service'),
+  capability('service.tsb', 'teknik_service', '/portal/service/tsb', { kind: 'module', key: 'tsb', area: 'teknik_service' }, ['read'], false, 'technical_service'),
 
   capability('marketing.news_create', 'marketing', '/portal/marketing/news', { kind: 'permission', key: 'news_manage', area: 'marketing' }, ['create']),
   capability('marketing.news_overview', 'marketing', '/portal/marketing/news/overview', { kind: 'permission', key: 'news_manage', area: 'marketing' }),
@@ -128,11 +143,11 @@ export const PORTAL_CAPABILITY_CONTRACTS = [
   capability('marketing.configurator', 'marketing', '/portal/marketing/configurator', { kind: 'permission', key: 'marketing_configurator_manage', area: 'marketing' }, ['read', 'edit']),
   capability('marketing.site_features', 'marketing', '/portal/marketing/site-features', { kind: 'permission', key: 'news_manage', area: 'marketing' }, ['read', 'edit']),
 
-  capability('quick.company_contact_info', 'salg_marketing', '/portal/misc/forms/company-contact-info', { kind: 'quick_action', key: 'company_contact_info' }, ['edit']),
-  capability('quick.dealer_invoice_accept', 'salg_marketing', '/portal/misc/forms/dealer-invoice-accept', { kind: 'quick_action', key: 'dealer_invoice_accept' }, ['edit']),
-  capability('quick.create_warranty', 'teknik_service', '/portal/service/warranty/new', { kind: 'quick_action', key: 'create_warranty_registration' }, ['create']),
-  capability('quick.warranty_registrations', 'teknik_service', '/portal/service/warranty/registrations', { kind: 'quick_action', key: 'warranty_registrations' }),
-  capability('quick.partner_map', 'salg_marketing', '/portal/misc/partner-map', { kind: 'quick_action', key: 'partner_map' }),
+  capability('quick.company_contact_info', 'salg_marketing', '/portal/misc/forms/company-contact-info', { kind: 'quick_action', key: 'company_contact_info' }, ['edit'], false, 'sales_complete'),
+  capability('quick.dealer_invoice_accept', 'salg_marketing', '/portal/misc/forms/dealer-invoice-accept', { kind: 'quick_action', key: 'dealer_invoice_accept' }, ['edit'], false, 'sales_complete'),
+  capability('quick.create_warranty', 'teknik_service', '/portal/service/warranty/new', { kind: 'quick_action', key: 'create_warranty_registration' }, ['create'], false, 'technical_service'),
+  capability('quick.warranty_registrations', 'teknik_service', '/portal/service/warranty/registrations', { kind: 'quick_action', key: 'warranty_registrations' }, ['read'], false, 'technical_service'),
+  capability('quick.partner_map', 'salg_marketing', '/portal/misc/partner-map', { kind: 'quick_action', key: 'partner_map' }, ['read'], false, 'partner_map'),
 
   capability('backend.user_management', 'timan_backend', '/portal/backend/brugerstyring', { kind: 'backend' }),
   capability('backend.partner_management', 'timan_backend', '/portal/backend/partnerstyring', { kind: 'backend' }),
@@ -164,6 +179,14 @@ export type PortalCapabilityFeatureKey = typeof PORTAL_CAPABILITY_CONTRACTS[numb
 
 export function findPortalCapabilityContract(featureKey: string): PortalCapabilityContract | null {
   return PORTAL_CAPABILITY_CONTRACTS.find((entry) => entry.featureKey === featureKey) ?? null;
+}
+
+export function findPortalAreaCapabilityContract(areaKey: string): PortalCapabilityContract | null {
+  return PORTAL_CAPABILITY_CONTRACTS.find((entry) => entry.featureKey.startsWith('area.') && entry.areaKey === areaKey) ?? null;
+}
+
+export function findPortalCapabilityContractByRoute(route: string): PortalCapabilityContract | null {
+  return PORTAL_CAPABILITY_CONTRACTS.find((entry) => entry.route === route) ?? null;
 }
 
 export function portalCapabilityRoute(featureKey: PortalCapabilityFeatureKey): string {

@@ -3,6 +3,7 @@ import type { SessionUser } from '@/context/AppUserContext';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, isBackendActor } from '@/lib/portalAccess';
 import { ACADEMY_SALES_BONUS_CASE_2 } from '@/lib/academySalesBonusCampaign';
+import type { PortalAcademyGate } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 export const ACADEMY_CASE_1_ID = 'sales.case_1_rc1000';
 export const ACADEMY_CASE_IDS = {
@@ -170,7 +171,7 @@ export function getNextAcademyCase(
 }
 const LOCAL_ACADEMY_ENROLLMENT_KEY = 'timan.academy.local-enrollment.v1';
 
-export type AcademyCapability = 'configurator' | 'crm' | 'demo' | 'quote' | 'order';
+export type AcademyCapability = PortalAcademyGate;
 
 export type AcademyUser = Pick<AppUser, 'role' | 'partner_type'> & {
   portal_role?: string | null;
@@ -246,12 +247,45 @@ export function getAcademyProgress(user: AcademyUser | null | undefined, complet
 }
 export function getAcademyCapabilityProgress(capability: AcademyCapability, completedCaseIds: Iterable<string>) {
   const completed = new Set(completedCaseIds);
-  const required = capability === 'configurator' ? [ACADEMY_CASE_1_ID] : ['future-academy-case'];
+  const required: Record<AcademyCapability, readonly AcademyCurriculumCaseId[]> = {
+    partner_data: [ACADEMY_CASE_IDS.partnerDataPart1, ACADEMY_CASE_IDS.partnerDataPart2],
+    partner_map: [ACADEMY_CASE_IDS.partnerMap],
+    sales_area: [ACADEMY_CASE_IDS.salesCase1],
+    configurator: [ACADEMY_CASE_IDS.salesCase1],
+    sales_video: [ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2],
+    sales_complete: [ACADEMY_CASE_IDS.salesCase1, ACADEMY_CASE_IDS.salesCase2],
+    crm_area: [ACADEMY_CASE_IDS.crmPart1],
+    crm_leads: [ACADEMY_CASE_IDS.crmPart1],
+    crm_demo: [ACADEMY_CASE_IDS.crmPart1, ACADEMY_CASE_IDS.crmPart2],
+    crm_complete: [ACADEMY_CASE_IDS.crmPart1, ACADEMY_CASE_IDS.crmPart2],
+    technical_service: [ACADEMY_CASE_IDS.serviceCase1],
+  }[capability];
   return { completedCount: required.filter((id) => completed.has(id)).length, total: required.length };
 }
 export function isAcademyCapabilityUnlocked(user: AcademyUser | null | undefined, capability: AcademyCapability, completedCaseIds: Iterable<string>) {
-  if (isAcademyCapabilityGated(user) && !getAcademyTracks(user).includes('sales')) return false;
   if (!isAcademyCapabilityGated(user) || (Boolean(user?.permissions?.academy_bypass) && isBackendActor(user))) return true;
+  const requiredTrack: Partial<Record<AcademyCapability, AcademyTrack>> = {
+    sales_area: 'sales',
+    configurator: 'sales',
+    sales_video: 'sales',
+    sales_complete: 'sales',
+    crm_area: 'sales',
+    crm_leads: 'sales',
+    crm_demo: 'sales',
+    crm_complete: 'sales',
+    technical_service: 'service',
+  };
+  const track = requiredTrack[capability];
+  if (track && !getAcademyTracks(user).includes(track)) return false;
   const progress = getAcademyCapabilityProgress(capability, completedCaseIds);
   return progress.completedCount === progress.total;
+}
+
+export function hasEffectiveAcademyCapabilityAccess(
+  user: AcademyUser | null | undefined,
+  normalPermissionAllowed: boolean,
+  capability: AcademyCapability | null | undefined,
+  completedCaseIds: Iterable<string>,
+) {
+  return normalPermissionAllowed && (!capability || isAcademyCapabilityUnlocked(user, capability, completedCaseIds));
 }

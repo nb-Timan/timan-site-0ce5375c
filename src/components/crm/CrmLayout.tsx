@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Navigate, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAppUser } from '@/context/AppUserContext';
+import { useAcademyAccess } from '@/context/AcademyAccessContext';
 import { useLanguage } from '@/context/LanguageContext';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
@@ -13,6 +14,8 @@ import { t } from '@/lib/i18n/translations';
 import { academyCrmSandbox } from '@/lib/academyCrmSandbox';
 import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPartnerDataSandbox';
 import { CRM_NAV_ITEMS, EXTERNAL_CRM_NAV_BLOCKLIST } from '@/lib/crmNavigation';
+import { hasEffectiveAcademyCapabilityAccess } from '@/lib/academyCurriculum';
+import { findPortalCapabilityContractByRoute } from '../../../supabase/functions/_shared/portalCapabilityContract';
 
 interface Props { children: ReactNode; pageTitle?: string; partnerDataPresentation?: boolean }
 
@@ -23,6 +26,7 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
   const location = useLocation();
   const appUser = academyPartnerDataSandbox.isActive() ? ACADEMY_PARTNER_USER : sessionUser;
   const effectiveUser = useEffectivePortalUser(appUser);
+  const academyAccess = useAcademyAccess();
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><div className="text-sm text-gray-500">…</div></div>;
   if (!appUser) return <Navigate to="/portal" replace />;
@@ -55,9 +59,15 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
       ? { ...item, tKey: 'area_dealer_data_title', to: '/portal/dealer-data' }
       : item)
     : CRM_NAV_ITEMS;
-  const navItems = externalCrm
+  const roleScopedNavItems = externalCrm
     ? (hasCrmAreaAccess ? baseNavItems.filter((item) => !EXTERNAL_CRM_NAV_BLOCKLIST.has(item.to)) : [])
     : baseNavItems;
+  const navItems = roleScopedNavItems.filter((item) => hasEffectiveAcademyCapabilityAccess(
+    effectiveUser,
+    true,
+    findPortalCapabilityContractByRoute(item.to)?.academyGate,
+    academyAccess?.completionIds ?? [],
+  ));
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>

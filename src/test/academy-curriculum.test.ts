@@ -7,12 +7,12 @@ const normalSeller = { role: 'timan_saelger' as const, partner_type: null, porta
 describe('Academy Case 1 checkpoint curriculum', () => {
   it('keeps a new Academy seller locked out of Configurator and CRM', () => {
     expect(isAcademyCapabilityUnlocked(academySeller, 'configurator', [])).toBe(false);
-    expect(isAcademyCapabilityUnlocked(academySeller, 'crm', [])).toBe(false);
+    expect(isAcademyCapabilityUnlocked(academySeller, 'crm_area', [])).toBe(false);
   });
 
   it('unlocks Configurator only after Case 1, while CRM stays locked', () => {
     expect(isAcademyCapabilityUnlocked(academySeller, 'configurator', [ACADEMY_CASE_1_ID])).toBe(true);
-    expect(isAcademyCapabilityUnlocked(academySeller, 'crm', [ACADEMY_CASE_1_ID])).toBe(false);
+    expect(isAcademyCapabilityUnlocked(academySeller, 'crm_area', [ACADEMY_CASE_1_ID])).toBe(false);
     expect(getAcademyCapabilityProgress('configurator', [ACADEMY_CASE_1_ID])).toEqual({ completedCount: 1, total: 1 });
   });
 
