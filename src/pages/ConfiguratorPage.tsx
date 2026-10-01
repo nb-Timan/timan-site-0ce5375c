@@ -93,7 +93,7 @@ import { RecommendationInfoPopover } from '@/components/configurator/Recommendat
 import type { CustomerNeeds } from '@/lib/customerNeeds';
 import { cn } from '@/lib/utils';
 import { academyProductInstruction, getAcademyCase1ProductNames } from '@/lib/academyProductText';
-import { derivePortalRole, isMesseVariantUser } from '@/lib/portalAccess';
+import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { isMessePreviewActive } from '@/lib/messePreview';
 
 import { toast } from 'sonner';
@@ -113,6 +113,10 @@ import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorCont
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 import { DELIVERY_DISCOUNT_PERCENT, commonMachineDeliveryDate, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey } from '@/lib/configuratorDelivery';
 import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
+import {
+  canApplyExtraDealerDiscount as resolveExtraDealerDiscountPermission,
+  canSelectConfiguratorDemo,
+} from '../../supabase/functions/_shared/configuratorPermissionContract';
 
 // Configurator language selector — uses the 9 portal UI languages.
 // Selecting sv/fr/pl/cs maps to 'en' for internal state (so existing
@@ -360,18 +364,12 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // A real Backend session may register an order with a historical delivery
   // date. View-as deliberately follows the displayed role, not Backend auth.
   const canSelectPastDeliveryDate = activePortalRole === 'timan_backend';
-  const canApplyExtraDealerDiscount = (() => {
-    const flag = effectiveUser?.permissions?.can_apply_extra_dealer_discount;
-    if (flag === true) return true;
-    if (flag === false) return false;
-    // No explicit override → role default. Backend = true, others = false.
-    // Preserve legacy: respect the older top-level can_edit_discount flag
-    // when an admin already enabled it for a non-backend user.
-    if (activePortalRole === 'timan_backend') return true;
-    return !!effectiveUser?.can_edit_discount;
-  })();
+  const canApplyExtraDealerDiscount = resolveExtraDealerDiscountPermission({
+    portalRole: activePortalRole,
+    permissions: effectiveUser?.permissions,
+    canEditDiscount: effectiveUser?.can_edit_discount,
+  });
   if (import.meta.env.DEV) {
-    // eslint-disable-next-line no-console
     console.debug('[extra-dealer-discount]', {
       loggedInEmail: appUser?.email,
       effectiveEmail: effectiveUser?.email,
@@ -379,13 +377,25 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       resolved: canApplyExtraDealerDiscount,
     });
   }
-  const permissions = {
-    canSeePrices: isExhibition || defaultCanViewPrices(
-      effectiveUser?.can_view_prices,
-      effectiveUser?.portal_role,
-      effectiveUser?.role,
-      effectiveUser?.partner_type,
+  const canSeePrices = isExhibition || defaultCanViewPrices(
+    effectiveUser?.can_view_prices,
+    effectiveUser?.portal_role,
+    effectiveUser?.role,
+    effectiveUser?.partner_type,
+  );
+  const canSelectDemo = canSelectConfiguratorDemo({
+    portalRole: activePortalRole,
+    hasConfiguratorAccess: hasModuleAccess(
+      activePortalRole,
+      'byg_din_timan',
+      getUserModuleAccessOverride(effectiveUser),
     ),
+    canViewPrices: canSeePrices,
+    isDirectPricing,
+    isExhibition,
+  });
+  const permissions = {
+    canSeePrices,
     canSubmitOrder: isAcademySalesBonusCase2 || defaultCanSubmitOrder(
       effectiveUser?.can_submit_order,
       effectiveUser?.portal_role,
@@ -1880,14 +1890,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const toggleDemoMachine = (varenr: string, unitNumber: number, machineLabel: string) => {
     const key = getDemoKey(varenr, unitNumber);
     const next = !state.demoMachines[key];
+    const suppressesCampaign = next && (displayCalc?.campaignLines ?? [])
+      .some((line) => line.unitNumber === unitNumber && line.applied);
     setState(s => ({ ...s, demoMachines: { ...s.demoMachines, [key]: next } }));
     if (next) {
       const fee = getDemoFee();
       const feeText = formatDisplayMoney(fee);
       const title = lang === 'da' ? 'Demo maskine valgt' : 'Demo machine selected';
-      const msg = lang === 'da'
+      const campaignMessage = suppressesCampaign
+        ? `<br><br><strong>${T('demoCampaignSuppressed')}</strong>`
+        : '';
+      const msg = (lang === 'da'
         ? `Du har afkrydset <strong>Demo maskine</strong> for <strong>${machineLabel}</strong>.<br><br>Der er tilføjet en ekstra omkostning på <strong>${feeText}</strong>.<br><br><strong>Vilkår:</strong><br>- Forhandleren kan erhverve 1 stk. af hver maskine pr. år til demonstrations-brug.<br>- Demo-maskiner må ikke videresælges før 9 måneder efter levering fra Timan A/S.<br>- Overholdes dette ikke vil Timan opkræve differencen til den almindelige maskinrabat.`
-        : `You have checked <strong>Demo machine</strong> for <strong>${machineLabel}</strong>.<br><br>An extra cost of <strong>${feeText}</strong> has been added.`;
+        : `You have checked <strong>Demo machine</strong> for <strong>${machineLabel}</strong>.<br><br>An extra cost of <strong>${feeText}</strong> has been added.`) + campaignMessage;
       setInfoModal({ title, content: msg });
     }
   };
@@ -4654,7 +4669,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                             </div>
                           </div>
                         )}
-                        {!isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && permissions.canSeePrices && (
+                        {!isExhibition && state.step === 4 && item.isMachine && item.index && DEMO_ELIGIBLE_VARENR.has(item.varenr) && canSelectDemo && (
                           <div className={`flex justify-between items-center text-xs ${indent} mt-1`}>
                             <label className={`flex items-center gap-2 select-none ${isDirectPricing ? 'cursor-not-allowed text-gray-400' : 'cursor-pointer text-gray-700'}`}>
                               <input type="checkbox"

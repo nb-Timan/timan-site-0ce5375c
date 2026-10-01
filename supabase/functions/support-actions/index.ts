@@ -5,6 +5,7 @@ import {
   type DealerSalesAssignment,
   type TimanQuoteSeller,
 } from '../_shared/timanSalesContact.ts';
+import { canApplyExtraDealerDiscount } from '../_shared/configuratorPermissionContract.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -152,9 +153,11 @@ function leadAllowed(actor: Actor): boolean {
 }
 
 function discountAllowed(actor: Actor): boolean {
-  const explicit = actor.permissions?.can_apply_extra_dealer_discount;
-  if (explicit !== undefined) return explicit === true;
-  return actor.portal_role === 'timan_backend' || actor.can_edit_discount === true;
+  return canApplyExtraDealerDiscount({
+    portalRole: actor.portal_role,
+    permissions: actor.permissions,
+    canEditDiscount: actor.can_edit_discount,
+  });
 }
 
 function permissionAllowed(actor: Actor, permission: ActionDefinition['permission']): boolean {
