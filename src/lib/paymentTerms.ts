@@ -5,7 +5,6 @@
  * and the localized field label.
  */
 
-import type { Language } from '@/types/configurator';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 
 export const DEFAULT_PAYMENT_TERMS = 'Standard NET21';
@@ -61,16 +60,20 @@ const OPTION_LABELS: Record<string, Record<PortalUiLanguage, string>> = {
   },
 };
 
-const LABEL: Partial<Record<Language, string>> = {
+const LABEL: Record<PortalUiLanguage, string> = {
   da: 'Betalingsbetingelser',
   en: 'Payment terms',
   de: 'Zahlungsbedingungen',
   it: 'Termini di pagamento',
   hu: 'Fizetési feltételek',
+  sv: 'Betalningsvillkor',
+  fr: 'Conditions de paiement',
+  pl: 'Warunki płatności',
+  cs: 'Platební podmínky',
 };
 
-export function getPaymentTermsLabel(lang: Language): string {
-  return LABEL[lang] ?? LABEL.en!;
+export function getPaymentTermsLabel(lang: PortalUiLanguage): string {
+  return LABEL[lang] ?? LABEL.en;
 }
 
 /** Localized display text while preserving canonical stored option values. */

@@ -10,6 +10,10 @@ import { normalizePortalLanguageCode } from '@/lib/portalLanguages';
 
 export type Currency = 'DKK' | 'EUR' | 'SEK';
 
+export function isCurrency(value: unknown): value is Currency {
+  return value === 'DKK' || value === 'EUR' || value === 'SEK';
+}
+
 /** Partner default currencies. This never converts historical commercial data. */
 export const PARTNER_CURRENCY_CODES = ['DKK', 'EUR', 'SEK'] as const;
 export type PartnerCurrencyCode = (typeof PARTNER_CURRENCY_CODES)[number];

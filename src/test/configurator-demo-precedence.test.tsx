@@ -12,6 +12,7 @@ import { clearPublishedConfiguratorPricesForTest, getAccessoriesFlat, replacePub
 import { useConfigurator } from '@/hooks/useConfigurator';
 import { t } from '@/data/translations';
 import type { ConfiguratorState } from '@/types/configurator';
+import { currencyFromLanguage } from '@/lib/currency';
 
 const now = Date.parse('2026-09-24T12:00:00Z');
 const campaign = (conditional = false): ProductCampaign => ({
@@ -64,6 +65,7 @@ describe('exclusive per-machine demo pricing', () => {
     }]);
     const state = input();
     state.language = language;
+    state.currency = currencyFromLanguage(language);
     expect(calculateConfiguration(state, { now }).lineItems.find(row => row.varenr === '795002')).toMatchObject({
       description, price, quantity: 1,
     });
@@ -118,6 +120,7 @@ describe('exclusive per-machine demo pricing', () => {
     }]);
     const state = input();
     state.language = 'de';
+    state.currency = 'EUR';
     const saved = await finalizeConfiguratorPricingSnapshot(state);
 
     expect(buildSubmittedOrderDocument(saved).lines.find(line => line.itemNo === '795002')).toMatchObject({

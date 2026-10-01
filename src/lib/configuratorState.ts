@@ -6,6 +6,9 @@ import {
 } from '@/lib/configuratorCustomerMode';
 import { normalizeMachineDeliveryDates } from '@/lib/configuratorDelivery';
 import { isConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
+import { currencyFromLanguage, isCurrency } from '@/lib/currency';
+
+const CONFIGURATOR_LOCALES = new Set(['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs']);
 
 export const createEmptyConfiguratorState = (
   language: Language = 'da',
@@ -15,6 +18,8 @@ export const createEmptyConfiguratorState = (
   flowType,
   pricingMode: 'partner',
   campaignDisabled: false,
+  locale: language,
+  currency: currencyFromLanguage(language),
   language,
   machineConfigs: [],
   individualUnitConfigs: {},
@@ -51,8 +56,11 @@ export const createEmptyConfiguratorState = (
 });
 
 export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | null): ConfiguratorState {
-  const base = createEmptyConfiguratorState(value?.language ?? 'da', value?.flowType ?? 'quote');
-  const pricingMode = value?.pricingMode === 'direct' ? 'direct' : 'partner';
+  const flowType = value?.flowType === 'order' ? 'order' : 'quote';
+  const base = createEmptyConfiguratorState(value?.language ?? 'da', flowType);
+  const requestedDirect = value?.pricingMode === 'direct';
+  const pricingMode = flowType === 'quote' && requestedDirect ? 'direct' : 'partner';
+  const invalidOrderDirect = flowType === 'order' && requestedDirect;
   const customerDraft = normalizeConfiguratorCustomerDraftState(value ?? base);
   const activeCustomer = customerDraft.customerMode === 'dealer'
     ? customerDraft.dealerCustomerData
@@ -61,7 +69,17 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
   return {
     ...base,
     ...value,
+    flowType,
     pricingMode,
+    locale: typeof value?.locale === 'string' && CONFIGURATOR_LOCALES.has(value.locale)
+      ? value.locale
+      : value?.language ?? 'da',
+    currency: isCurrency(value?.currency)
+      ? value.currency
+      : isCurrency(value?.pricingSnapshot?.currency)
+        ? value.pricingSnapshot.currency
+        : currencyFromLanguage(value?.language),
+    pricingSnapshot: invalidOrderDirect ? undefined : value?.pricingSnapshot,
     campaignDisabled: value?.campaignDisabled === true,
     partnerAccountType: isConfiguratorPartnerAccountType(value?.partnerAccountType)
       ? value.partnerAccountType
@@ -104,4 +122,21 @@ export function normalizeConfiguratorState(value?: Partial<ConfiguratorState> | 
     paymentTerms: resolvePaymentTerms(value?.paymentTerms),
     customerNeeds: value?.customerNeeds ?? { tasks: [], focus: [] },
   };
+}
+
+/** The only valid commercial transition between quote and order modes. */
+export function transitionConfiguratorFlowType(state: ConfiguratorState, flowType: FlowType): ConfiguratorState {
+  if (state.flowType === flowType && !(flowType === 'order' && state.pricingMode === 'direct')) return state;
+  return normalizeConfiguratorState({
+    ...state,
+    flowType,
+    ...(flowType === 'order' ? { pricingMode: 'partner' as const } : {}),
+    pricingSnapshot: undefined,
+  });
+}
+
+export function assertValidConfiguratorCommercialState(state: Pick<ConfiguratorState, 'flowType' | 'pricingMode'>): void {
+  if (state.flowType === 'order' && state.pricingMode === 'direct') {
+    throw new Error('ORDER_DIRECT_NOT_ALLOWED');
+  }
 }

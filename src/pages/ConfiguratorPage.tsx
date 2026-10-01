@@ -4,9 +4,8 @@ import { format } from 'date-fns';
 import { da, de, enGB, hu, it } from 'date-fns/locale';
 import { CalendarIcon, Pencil, Sparkles } from 'lucide-react';
 import { useConfigurator } from '@/hooks/useConfigurator';
-import { PRODUCTS, ACCESSORIES, getLocalizedName, getPrice, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, DEMO_FEE_DKK, DEMO_FEE_EUR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
-import { convertCurrency, currencyFromLanguage, formatMoney } from '@/lib/currency';
-import { usePortalCurrency } from '@/lib/usePortalCurrency';
+import { PRODUCTS, ACCESSORIES, getLocalizedName, getPriceForCurrency, getAccessoriesFlat, ACC_ID_WIRE_HARNESS, ACC_ID_VPLOW, ACC_ID_WEEDBRUSH, ACC_ID_FLASH_LIGHT, ACC_ID_WORK_LIGHT, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, ACC_ID_RAL_COLOR, DEMO_ELIGIBLE_VARENR, LOOSE_TOOL_KEY, PACKAGING_COST_ID, PACKAGING_TRIGGER_IDS, ACC_ID_OIL_1000_PARENT, getLooseToolAccessories } from '@/data/machines';
+import { formatMoney, resolveDisplayCurrency } from '@/lib/currency';
 import { t, translateSpecLabel, itemNoLabel } from '@/data/translations';
 import { t as tPortal } from '@/lib/i18n/translations';
 import { Language, Accessory, SubItem } from '@/types/configurator';
@@ -27,7 +26,7 @@ import {
 import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { useLanguage } from '@/context/LanguageContext';
-import { PORTAL_LANGUAGES, mapUiLanguageToLegacy, resolveContentUiLanguage, type PortalUiLanguage } from '@/lib/portalLanguages';
+import { PORTAL_LANGUAGES, resolveContentUiLanguage, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { listPublishedPrimaryVideos, type MarketingVideo } from '@/lib/videoLibraryService';
 import { listMarketingConfiguratorCatalog, listMarketingConfiguratorContent, listPublishedMarketingConfiguratorContent, productContentKey, type MarketingConfiguratorCatalogItem, type MarketingConfiguratorContentRecord } from '@/lib/marketingConfiguratorContentService';
@@ -112,13 +111,14 @@ import {
   getPaymentTermsOptionLabel,
 } from '@/lib/paymentTerms';
 import { buildConfiguratorPdf, buildConfiguratorPdfFilename } from '@/lib/configuratorPdf';
-import { createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
+import { configuratorCurrency, createConfiguratorPricingSnapshot, currentDemoFee, hasFrozenConfiguratorPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import { calculateConfiguration, configurationCampaignSelection, formatDiscountDetailLabel, isCampaignPricingActive, shouldShowCampaignDisableControl } from '@/lib/calcConfiguration';
 import { configuratorCartLineDescription, configuratorLineDescription, configuratorLineQuantity, configuratorLineUnitPrice } from '@/lib/configuratorLinePresentation';
 import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorContentService';
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 import { DELIVERY_DISCOUNT_PERCENT, commonMachineDeliveryDate, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey } from '@/lib/configuratorDelivery';
 import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
+import { configuratorCustomerModeCopy } from '@/lib/configuratorStep4I18n';
 import {
   canApplyExtraDealerDiscount as resolveExtraDealerDiscountPermission,
   canSelectConfiguratorDemo,
@@ -145,26 +145,6 @@ const IMAGE_UNAVAILABLE_COPY: Record<PortalUiLanguage, string> = {
   fr: 'L’image n’a pas pu être chargée.',
   pl: 'Nie udało się wczytać obrazu.',
   cs: 'Obrázek se nepodařilo načíst.',
-};
-
-const CUSTOMER_MODE_COPY: Record<Language, {
-  title: string;
-  useDealer: string;
-  enterManual: string;
-  dealer: string;
-  dealerContact: string;
-  chooseContact: string;
-  noContacts: string;
-  address: string;
-  postalCode: string;
-  city: string;
-  country: string;
-}> = {
-  da: { title: 'Kundeoplysninger', useDealer: 'Brug forhandlerens oplysninger', enterManual: 'Indtast anden kunde manuelt', dealer: 'Forhandler', dealerContact: 'Kontaktperson', chooseContact: 'Vælg kontaktperson', noContacts: 'Ingen kontaktpersoner er registreret. Udfyld kontaktoplysningerne manuelt.', address: 'Adresse', postalCode: 'Postnr.', city: 'By', country: 'Land' },
-  en: { title: 'Customer details', useDealer: 'Use dealer details', enterManual: 'Enter another customer manually', dealer: 'Dealer', dealerContact: 'Contact person', chooseContact: 'Choose contact person', noContacts: 'No contacts are registered. Enter the contact details manually.', address: 'Address', postalCode: 'Postal code', city: 'City', country: 'Country' },
-  de: { title: 'Kundendaten', useDealer: 'Händlerdaten verwenden', enterManual: 'Anderen Kunden manuell eingeben', dealer: 'Händler', dealerContact: 'Kontaktperson', chooseContact: 'Kontaktperson wählen', noContacts: 'Keine Kontaktpersonen hinterlegt. Kontaktinformationen manuell eingeben.', address: 'Adresse', postalCode: 'Postleitzahl', city: 'Stadt', country: 'Land' },
-  it: { title: 'Dati cliente', useDealer: 'Usa dati rivenditore', enterManual: 'Inserisci un altro cliente manualmente', dealer: 'Rivenditore', dealerContact: 'Contatto', chooseContact: 'Scegli contatto', noContacts: 'Nessun contatto registrato. Inserisci i dati manualmente.', address: 'Indirizzo', postalCode: 'CAP', city: 'Città', country: 'Paese' },
-  hu: { title: 'Ügyféladatok', useDealer: 'Kereskedői adatok használata', enterManual: 'Másik ügyfél kézi megadása', dealer: 'Kereskedő', dealerContact: 'Kapcsolattartó', chooseContact: 'Kapcsolattartó kiválasztása', noContacts: 'Nincs regisztrált kapcsolattartó. Adja meg kézzel az adatokat.', address: 'Cím', postalCode: 'Irányítószám', city: 'Város', country: 'Ország' },
 };
 
 function appendInternalBcc<T extends Record<string, unknown>>(payload: T, bccRecipients: string[]): T & {
@@ -231,7 +211,7 @@ function hasSubOptions(acc: Accessory, allAccs: Accessory[]): boolean {
 
 export default function ConfiguratorPage({ marketingEditMode = false }: { marketingEditMode?: boolean }) {
   const {
-    state, setLanguage: setConfigLanguage, setFlowType, setMachineQty, setConfigMode,
+    state, setFlowType, setMachineQty, setConfigMode,
     setDate, setDeliveryMethod, setCustomerField, toggleAcc, calcResult,
     getGlobalMachineUnits, getDisplayMachineUnits, setState, resetState,
   } = useConfigurator();
@@ -337,15 +317,18 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const isExhibition = isMessePath || isTimanMesseUser || isMesseVariantUser(appUser) || isMessePreviewActive(appUser?.email);
 
 
-  // Keep the configurator's internal language in sync with the global portal
-  // language so the top-bar selector controls every page consistently.
-  // `globalLanguage` is the legacy `Language` (sv/fr/pl/cs map to 'en'), which
-  // matches the keys used by the inline T objects throughout the configurator.
+  // Locale controls presentation. Currency is initialized once for an empty
+  // configuration and then remains part of the commercial state.
   useEffect(() => {
-    if (state.language !== globalLanguage) {
-      setConfigLanguage(globalLanguage);
-    }
-  }, [globalLanguage, state.language, setConfigLanguage]);
+    setState((current) => {
+      const emptyDraft = current.step === 1 && current.machineConfigs.length === 0 && !current.pricingSnapshot;
+      const nextCurrency = emptyDraft
+        ? resolveDisplayCurrency({ activeLanguage: uiLanguage })
+        : configuratorCurrency(current);
+      if (current.language === globalLanguage && current.locale === uiLanguage && current.currency === nextCurrency) return current;
+      return { ...current, language: globalLanguage, locale: uiLanguage, currency: nextCurrency };
+    });
+  }, [globalLanguage, uiLanguage, setState]);
 
   // Wrap setLanguage so the in-page flag buttons push BOTH:
   //  - the global portal selection (preserves the real chosen code, e.g. 'fr')
@@ -353,8 +336,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   //    keep working without crashes)
   const setLanguage = useCallback((next: PortalUiLanguage) => {
     setGlobalLanguage(next);
-    setConfigLanguage(mapUiLanguageToLegacy(next));
-  }, [setConfigLanguage, setGlobalLanguage]);
+  }, [setGlobalLanguage]);
   // Phase 38/40 — "Ekstra forhandlerrabat (%)" gated by an explicit per-user
   // permission stored in app_users.permissions.can_apply_extra_dealer_discount.
   // We read from the EFFECTIVE portal user so that:
@@ -565,7 +547,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     setOwnership(deriveInitialOwnership(appUser));
   }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
 
-  const customerModeCopy = CUSTOMER_MODE_COPY[lang];
+  const customerModeCopy = configuratorCustomerModeCopy(uiLanguage);
   const sortedDealerContacts = useMemo(() => dealerContacts
     .filter((contact) => Boolean(contact.name?.trim()))
     .slice()
@@ -808,11 +790,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
 
   const [savingChanges, setSavingChanges] = useState(false);
 
-  const displayCurrency = usePortalCurrency();
-  const formatDisplayMoney = (value: number) => formatMoney(
-    convertCurrency(value, currencyFromLanguage(lang), displayCurrency),
-    displayCurrency,
-  );
+  const displayCurrency = configuratorCurrency(state);
+  const formatDisplayMoney = (value: number) => formatMoney(value, displayCurrency);
   // Use uiLanguage (9-locale) for translation lookups so PL/SE/FR/CZ resolve
   // to their own strings. `lang` (5-locale state.language) still drives
   // legacy inline `{ da, en, de, it, hu }[lang]` lookups and product-data
@@ -1687,16 +1666,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     }
   }, [state.step, isExhibition, ownership.sellerEmail, state.email]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isEURCurrency = useCallback(() => ['en', 'de', 'it', 'hu'].includes(lang), [lang]);
+  const isEURCurrency = useCallback(() => displayCurrency !== 'DKK', [displayCurrency]);
 
   // Show auto-add modal for wire harness
   const showAutoAddModal = useCallback((item: Accessory) => {
     const itemName = getLocalizedName(item.name, lang);
     const itemVarenr = `${itemNoLabel(contentUiLang)}: ${item.varenr}`;
-    const price = formatDisplayMoney(getPrice(item, lang));
+    const price = formatDisplayMoney(getPriceForCurrency(item, displayCurrency));
     const msg = `${TC('autoAddedTitle')}: <strong>${itemName}</strong><br><br>${itemVarenr}<br>${TC('priceLabel') !== 'priceLabel' ? TC('priceLabel') : (lang === 'da' ? 'Pris' : 'Price')}: ${price}`;
     setInfoModal({ title: TC('autoAddedTitle'), content: msg });
-  }, [lang, isEURCurrency, contentUiLang]);
+  }, [lang, contentUiLang, displayCurrency]);
 
   // Wrapped toggleAcc that detects wire harness addition and oil modal
   const handleToggleAcc = useCallback((accId: string) => {
@@ -1905,7 +1884,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     }));
   };
 
-  const getDemoFee = () => isEURCurrency() ? DEMO_FEE_EUR : DEMO_FEE_DKK;
+  const getDemoFee = () => currentDemoFee(displayCurrency);
   const getDemoKey = (varenr: string, unitNumber: number) => `${varenr}_${unitNumber}`;
   const isDemoSelected = (varenr: string, unitNumber: number) => !!state.demoMachines[getDemoKey(varenr, unitNumber)];
 
@@ -1930,6 +1909,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   };
 
   const setDirectPricingMode = (enabled: boolean) => {
+    if (enabled && state.flowType !== 'quote') return;
     if (enabled && Object.values(state.demoMachines ?? {}).some(Boolean)) {
       toast.error(T('directDemoConflict'));
       return;
@@ -1989,7 +1969,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
               {renderActionLinks(sub as any, machineType)}
             </div>
-            <div className="flex items-center gap-2">{renderMarketingContentState(machineType, sub.id)}<div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatDisplayMoney(getPrice(sub, lang)) : ''}</div>{marketingEditButton(machineType, sub.id)}</div>
+            <div className="flex items-center gap-2">{renderMarketingContentState(machineType, sub.id)}<div className="font-bold text-emerald-700 whitespace-nowrap">{permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(sub, displayCurrency)) : ''}</div>{marketingEditButton(machineType, sub.id)}</div>
           </div>
         </div>
         {(isSelected || isLooseToolMode(machineType)) && hasNestedSubs && (
@@ -2129,7 +2109,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <span class="price-col">${formatDisplayMoney(displayCalc!.subtotal)}</span>
       </div>`;
     displayCalc!.discountDetails.filter(d => d.amount > 0).forEach(d => {
-      const discLabel = formatDiscountDetailLabel(d, state.flowType === 'order');
+      const discLabel = formatDiscountDetailLabel(d, state.flowType === 'order', uiLanguage);
       html += `<div class="flex justify-between w-full text-xs text-red-600">
         <span>${discLabel}</span><span class="price-col">-${formatDisplayMoney(d.amount)}</span></div>`;
     });
@@ -2144,7 +2124,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <span class="price-col">${formatDisplayMoney(displayCalc!.currentPrice)}</span>
       </div>
       <div class="flex justify-between w-full text-xs text-gray-700 mt-2">
-        <span>${getPaymentTermsLabel(lang)}</span>
+        <span>${getPaymentTermsLabel(uiLanguage)}</span>
         <span>${getPaymentTermsDocumentValue(state.paymentTerms)}</span>
       </div>
       <p class="text-xs text-gray-500 mt-1">${TC('confirmExVat')}</p>
@@ -3075,7 +3055,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   {(() => {
                     const flatAccs = getAccessoriesFlat('RC-1000S');
                     const oil = flatAccs.find(a => a.id === ACC_ID_OIL_NORMAL);
-                    return oil ? formatDisplayMoney(getPrice(oil, lang)) : '';
+                    return oil ? formatDisplayMoney(getPriceForCurrency(oil, displayCurrency)) : '';
                   })()}
                 </div>
               </label>
@@ -3091,7 +3071,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                   {(() => {
                     const flatAccs = getAccessoriesFlat('RC-1000S');
                     const oil = flatAccs.find(a => a.id === ACC_ID_OIL_BIO);
-                    return oil ? formatDisplayMoney(getPrice(oil, lang)) : '';
+                    return oil ? formatDisplayMoney(getPriceForCurrency(oil, displayCurrency)) : '';
                   })()}
                 </div>
               </label>
@@ -3594,7 +3574,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         title={cardTitle}
                         itemNumber={p.varenr}
                         itemNumberLabel={itemNoLabel(uiLanguage)}
-                        price={permissions.canSeePrices ? formatDisplayMoney(getPrice(p, lang)) : ''}
+                        price={permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(p, displayCurrency)) : ''}
                         description={key === 'Timan 2620' ? undefined : marketingContent?.description}
                         specs={cardSpecs.map((spec) => {
                           const canonicalValue = canonicalCardSpecs.get(spec.label)?.value;
@@ -3980,7 +3960,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                             onClick={e => e.stopPropagation()} className="w-16 p-1.5 border rounded-md text-center" />
                           {renderMarketingBadge(machineType, a.id, marketingContent, 'compact', currentUnitDemo) || renderNewBadge(a.isNew)}
                           {renderMarketingContentState(machineType, a.id)}
-                            <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</div>{marketingEditButton(machineType, a.id)}
+                            <div className="font-bold text-emerald-700 whitespace-nowrap w-24 text-right">{permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(a, displayCurrency)) : ''}</div>{marketingEditButton(machineType, a.id)}
                         </div>
                       </div>
                     );
@@ -4031,7 +4011,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                             <div className="flex shrink-0 items-center justify-end gap-2 text-right">
                               {renderMarketingBadge(machineType, a.id, marketingContent, 'compact', currentUnitDemo) || renderNewBadge(a.isNew)}
                               {renderMarketingContentState(machineType, a.id)}
-                              <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatDisplayMoney(getPrice(a, lang)) : ''}</span>{marketingEditButton(machineType, a.id)}
+                              <span className="font-bold text-base text-emerald-700 price-col">{permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(a, displayCurrency)) : ''}</span>{marketingEditButton(machineType, a.id)}
                             </div>
                           </div>
                           {ralInput}
@@ -4587,7 +4567,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 })}
                 </div>
               </div>
-              {canUseDirectPricingMode && (
+              {canUseDirectPricingMode && state.flowType === 'quote' && (
                 <div className="mt-3 flex items-center justify-between gap-3" data-testid="configurator-direct-control">
                   <div className="min-w-0">
                     <label htmlFor="configurator-direct-pricing" className="text-sm font-semibold text-gray-800">{T('directMode')}</label>
@@ -4725,7 +4705,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                       <div className="text-red-600 text-sm space-y-1">
                         {displayCalc!.discountDetails.filter(d => d.amount > 0).map((d, i) => (
                           <div key={i} className="flex justify-between">
-                            <span className="text-red-500">{formatDiscountDetailLabel(d, state.flowType === 'order')}</span>
+                            <span className="text-red-500">{formatDiscountDetailLabel(d, state.flowType === 'order', uiLanguage)}</span>
                             <span className="text-red-500 price-col">-{formatDisplayMoney(d.amount)}</span>
                           </div>
                         ))}
@@ -4759,7 +4739,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     {canManagePaymentTerms && (
                       <div className="mt-3 pt-3 border-t border-dashed border-emerald-200">
                         <label className="block text-xs font-medium text-gray-600 mb-1">
-                          {getPaymentTermsLabel(lang)}
+                          {getPaymentTermsLabel(uiLanguage)}
                         </label>
                         <select
                           value={resolvePaymentTerms(state.paymentTerms)}

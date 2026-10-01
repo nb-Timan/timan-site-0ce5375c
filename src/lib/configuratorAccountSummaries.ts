@@ -1,7 +1,8 @@
-import { DEMO_FEE_ITEM_NUMBER, getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS } from '@/data/machines';
+import { DEMO_FEE_ITEM_NUMBER, getAccessoriesFlat, getLocalizedName, getPriceForCurrency, PRODUCTS } from '@/data/machines';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { mapUiLanguageToLegacy } from '@/lib/portalLanguages';
-import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
+import { configuratorCurrency, hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
+import { convertCurrency } from '@/lib/currency';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { machinePurchaseReference } from '@/lib/orderPurchaseReferences';
 import { t as portalT } from '@/lib/i18n/translations';
@@ -198,6 +199,7 @@ export function buildAccountCaseLines(
   }
   const legacyLang = normalizeLang(language);
   const frozen = hasFrozenConfiguratorPricing(state);
+  const currency = configuratorCurrency(state);
   const lines: AccountCaseLine[] = [];
   let machineUnitNumber = 0;
 
@@ -205,7 +207,7 @@ export function buildAccountCaseLines(
     const product = PRODUCTS[machine.type];
     const quantity = Math.max(0, machine.qty || 0);
     const unitPrice = product
-      ? snapshotMachinePrice(state, machine.type, frozen ? Number.NaN : getPrice(product, sourceLanguage))
+      ? snapshotMachinePrice(state, machine.type, frozen ? Number.NaN : getPriceForCurrency(product, currency))
       : Number.NaN;
     for (let unit = 1; unit <= quantity; unit += 1) {
       machineUnitNumber += 1;
@@ -239,7 +241,7 @@ export function buildAccountCaseLines(
           state,
           machine.type,
           accessory,
-          frozen ? Number.NaN : getPrice(accessory, sourceLanguage),
+          frozen ? Number.NaN : getPriceForCurrency(accessory, currency),
         );
         lines.push({
           unitNumber: machineUnitNumber,
@@ -253,7 +255,7 @@ export function buildAccountCaseLines(
         });
       });
       if (state.demoMachines?.[`${product?.varenr}_${machineUnitNumber}`]) {
-        const fee = frozen ? state.pricingSnapshot?.prices[`demo:${sourceLanguage}`] ?? Number.NaN : snapshotDemoFee(state, sourceLanguage);
+        const fee = snapshotDemoFee(state, currency);
         const itemNo = frozen ? 'DEMO' : DEMO_FEE_ITEM_NUMBER;
         const fallbackDescription = sourceLanguage === 'da' ? 'Demo maskine' : sourceLanguage === 'de' ? 'Demo-Maschine' : 'Demo machine';
         const description = frozen ? 'Demo' : snapshotProductName(state, DEMO_FEE_ITEM_NUMBER, fallbackDescription);
@@ -264,9 +266,11 @@ export function buildAccountCaseLines(
 
   if (state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
     const option = state.deliveryDeliverStartup;
-    const fallback = option === 'no_bridge' ? (sourceLanguage === 'da' ? 1500 : 200)
-      : option === 'with_bridge' ? (sourceLanguage === 'da' ? 2500 : 335) : 0;
-    const price = snapshotStartupPrice(state, sourceLanguage, option, frozen ? Number.NaN : fallback);
+    const dkkFallback = option === 'no_bridge' ? 1500 : option === 'with_bridge' ? 2500 : 0;
+    const fallback = currency === 'DKK' ? dkkFallback
+      : currency === 'EUR' ? (option === 'no_bridge' ? 200 : option === 'with_bridge' ? 335 : 0)
+        : convertCurrency(dkkFallback, 'DKK', 'SEK');
+    const price = snapshotStartupPrice(state, currency, option, frozen ? Number.NaN : fallback);
     lines.push({ itemNo: '795050', description: 'Levering / opstart', note: option, unitPrice: price, quantity: 1, total: price });
   }
 

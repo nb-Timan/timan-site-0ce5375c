@@ -20,6 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { deleteCrmRecordPermanently } from '@/lib/crmPermanentDelete';
 import { PortalRole } from '@/lib/portalAccess';
 import { calcConfigurationTotals } from '@/lib/calcConfiguration';
+import { configuratorCurrency } from '@/lib/configuratorPricing';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
 import type { ConfiguratorState } from '@/types/configurator';
 import { sellerInitialsMatch } from '@/lib/sellerInitials';
@@ -534,7 +535,7 @@ export async function listScopedOrdersWithValue(
     const state = stateById.get(r.id) ?? null;
     let total = 0;
     const qtyByKey: Record<string, number> = {};
-    const currency: Currency = currencyFromLanguage(state?.language ?? null);
+    const currency: Currency = state ? configuratorCurrency(state) : currencyFromLanguage(null);
     if (state) {
       try {
         total = calcConfigurationTotals(state).finalPrice || 0;

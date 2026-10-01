@@ -182,6 +182,14 @@ function assertCampaignOptOutIntegrity(state: Json, pricingSnapshot: Json = {}, 
   }
 }
 
+function assertConfiguratorCommercialState(state: Json) {
+  const nestedConfigurator = object(state.configurator);
+  const configurator = 'configurator' in state ? nestedConfigurator : state;
+  const flowType = String(configurator.flowType || configurator.mode || '').toLowerCase();
+  const direct = configurator.pricingMode === 'direct' || configurator.direct === true;
+  if (flowType === 'order' && direct) throw new Error('ORDER_DIRECT_NOT_ALLOWED');
+}
+
 function permissionAllowed(actor: Actor, permission: ActionDefinition['permission']): boolean {
   if (permission === 'support') return true;
   if (permission === 'price') return priceAllowed(actor);
@@ -534,6 +542,7 @@ Deno.serve(async (request) => {
 
     if (actionType === 'set_configuration_option') {
       const state = object(parameters.state);
+      assertConfiguratorCommercialState(state);
       assertCampaignOptOutIntegrity(state);
       if (Number(state.manualDealerDiscountPct || 0) > 0 && !discountAllowed(actor)) throw new Error('EXTRA_DISCOUNT_DENIED');
       const stateDealer = object(state.dealer);
@@ -723,6 +732,7 @@ Deno.serve(async (request) => {
     if (actionType === 'calculate_quote_preview' || actionType === 'preview_quote') {
       const preview = object(parameters.preview);
       const pricingSnapshot = object(parameters.pricing_snapshot);
+      assertConfiguratorCommercialState(object(workflow.state_json));
       assertCampaignOptOutIntegrity(object(workflow.state_json), pricingSnapshot, preview);
       const calculatedAt = new Date().toISOString();
       const { data: updated, error } = await service.from('support_assistant_workflows').update({
@@ -774,6 +784,7 @@ Deno.serve(async (request) => {
       return json(result);
     }
     if (definition.clientExecution) {
+      assertConfiguratorCommercialState(object(workflow?.state_json));
       assertCampaignOptOutIntegrity(object(workflow?.state_json), object(workflow?.pricing_snapshot));
       return json({ execution_required: true, execution_action_id: actionId, execution_kind: definition.clientExecution, workflow: publicWorkflow(workflow) }, 202);
     }

@@ -1,7 +1,9 @@
 import type { CalcResult, ConfiguratorState, DiscountDetail, LineItem, MachineDeliveryDiscount } from '@/types/configurator';
-import { DEMO_FEE_ITEM_NUMBER, PRODUCTS, getAccessoriesFlat, getLocalizedName, getPrice } from '@/data/machines';
+import { DEMO_FEE_ITEM_NUMBER, PRODUCTS, getAccessoriesFlat, getLocalizedName, getPriceForCurrency } from '@/data/machines';
 import { t } from '@/data/translations';
-import { hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
+import { configuratorCurrency, hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
+import { convertCurrency } from '@/lib/currency';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import { shouldIncludeQuantityAccessory } from '@/lib/looseToolDependencies';
 import { campaignBenefitEntitlement, campaignProductPricing, campaignTriggerSetCount, isCampaignActive, isCampaignEligibleForPartnerType, publishedCampaignDefinitions, type CampaignLineSnapshot } from '@/lib/configuratorCampaigns';
 import { DELIVERY_DISCOUNT_PERCENT, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate } from '@/lib/configuratorDelivery';
@@ -19,10 +21,26 @@ type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
 type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean; selectionOrder: number };
 
 /** Keeps campaign SKU provenance in the detail while omitting it from summaries. */
-export function formatDiscountDetailLabel(detail: DiscountDetail, includeItemNumber = false): string {
-  const label = detail.kind === 'campaign' && detail.varenr
+export function formatDiscountDetailLabel(detail: DiscountDetail, includeItemNumber = false, locale?: PortalUiLanguage): string {
+  const originalLabel = detail.kind === 'campaign' && detail.varenr
     ? detail.txt.replace(` · ${detail.varenr}`, '')
     : detail.txt;
+  const translationKeys: Partial<Record<NonNullable<DiscountDetail['kind']>, string>> = {
+    demo: 'demoDiscount', base: 'baseDiscountLabel', delivery: 'deliveryDiscountLabel',
+    quantity: 'qtyDiscountLabel', dealer: 'extraDealerDiscountLabel', campaign: 'campaignDiscountLabel',
+    direct: 'directExtraDiscountLabel',
+  };
+  let label = originalLabel;
+  if (locale && detail.kind && translationKeys[detail.kind]) {
+    const base = t(translationKeys[detail.kind]!, locale).replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/, '');
+    const campaignCode = detail.kind === 'campaign'
+      ? originalLabel.match(/·\s*([^()·]+?)(?:\s*\(|$)/)?.[1]?.trim()
+      : null;
+    const percent = typeof detail.percent === 'number'
+      ? ` (${detail.percent.toLocaleString(locale, { maximumFractionDigits: 2 })}%)`
+      : '';
+    label = `${base}${campaignCode ? ` · ${campaignCode}` : ''}${percent}`;
+  }
   return includeItemNumber && detail.kind !== 'campaign' && detail.varenr
     ? `${label} (${detail.varenr})`
     : label;
@@ -58,6 +76,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   const directPricing = state.pricingMode === 'direct';
   const campaignDisabled = state.campaignDisabled === true;
   const partnerAccountType = resolveConfiguratorPartnerAccountType({ persisted: state.partnerAccountType });
+  const currency = configuratorCurrency(state);
   const importerPricing = !directPricing && partnerAccountType === 'importer';
   const T = (key: string) => t(key, state.language);
   const lineItems: LineItem[] = [];
@@ -85,26 +104,29 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
       const eligible = !demo && product.isDiscountEligible === true;
       if (eligible) eligibleUnits++;
       const machineDescription = snapshotProductName(state, product.varenr, getLocalizedName(product.name, state.language));
-      add({ txt: `${T('machineLabel')} ${unit} (${machineDescription})`, description: machineDescription, price: snapshotMachinePrice(state, machine.type, getPrice(product, state.language)), varenr: product.varenr, bold: true, isMachine: true, index: unit }, 1, demo, eligible, `${machine.type}::${product.id}`);
+      add({ txt: `${T('machineLabel')} ${unit} (${machineDescription})`, description: machineDescription, price: snapshotMachinePrice(state, machine.type, getPriceForCurrency(product, currency)), varenr: product.varenr, bold: true, isMachine: true, index: unit }, 1, demo, eligible, `${machine.type}::${product.id}`);
       for (const accessory of getAccessoriesFlat(machine.type)) {
         if (accessory.isHeader) continue;
         const quantity = state.accQty?.[`${key}_${accessory.id}`] || 1;
         if (!selected.includes(accessory.id) && !shouldIncludeQuantityAccessory(machine.type, accessory, selected, state.accQty?.[`${key}_${accessory.id}`] || 0)) continue;
         const description = snapshotProductName(state, accessory.varenr, getLocalizedName(accessory.name, state.language));
-        add({ txt: `- ${description}`, description, price: snapshotAccessoryPrice(state, machine.type, accessory, getPrice(accessory, state.language)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`, selected.indexOf(accessory.id));
+        add({ txt: `- ${description}`, description, price: snapshotAccessoryPrice(state, machine.type, accessory, getPriceForCurrency(accessory, currency)) * quantity, varenr: accessory.varenr, sub: true, isAutoAdded: !!accessory.hidden }, quantity, demo, eligible, `${machine.type}::${accessory.id}`, selected.indexOf(accessory.id));
       }
       if (demo) {
         const description = snapshotProductName(state, DEMO_FEE_ITEM_NUMBER, T('demoMachineLabel'));
-        add({ txt: `- ${description}`, description, price: snapshotDemoFee(state, state.language), varenr: DEMO_FEE_ITEM_NUMBER, sub: true }, 1, true, false);
+        add({ txt: `- ${description}`, description, price: snapshotDemoFee(state, currency), varenr: DEMO_FEE_ITEM_NUMBER, sub: true }, 1, true, false);
       }
       lineItems.push({ txt: `${T('subtotalMachine')} ${unit}:`, price: roundPricingMoney(lines.filter(line => line.unit === unit).reduce((sum, line) => sum + line.gross, 0)), varenr: 'SUBTOTAL', subtotal: true, index: unit });
     }
   }
   if (unit && state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
     const option = state.deliveryDeliverStartup;
-    const fallback = option === 'no_bridge' ? (state.language === 'da' ? 1500 : 200) : option === 'with_bridge' ? (state.language === 'da' ? 2500 : 335) : 0;
+    const dkkFallback = option === 'no_bridge' ? 1500 : option === 'with_bridge' ? 2500 : 0;
+    const fallback = currency === 'DKK' ? dkkFallback
+      : currency === 'EUR' ? (option === 'no_bridge' ? 200 : option === 'with_bridge' ? 335 : 0)
+        : convertCurrency(dkkFallback, 'DKK', 'SEK');
     const description = T(option === 'no_bridge' ? 'startupNoBridgeCalc' : option === 'with_bridge' ? 'startupWithBridgeCalc' : 'startupOtherCalc');
-    add({ txt: `- ${description}`, description, price: snapshotStartupPrice(state, state.language, option, fallback), varenr: '795050', sub: true }, 1, false, false, '', -1, 0);
+    add({ txt: `- ${description}`, description, price: snapshotStartupPrice(state, currency, option, fallback), varenr: '795050', sub: true }, 1, false, false, '', -1, 0);
   }
   const subtotal = roundPricingMoney(lines.reduce((sum, line) => sum + line.gross, 0));
   const apply = (kind: DiscountDetail['kind'], percent: number, eligible: (line: EconomicLine) => boolean, label: string, varenr?: string) => {
@@ -159,10 +181,11 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         if (!(eligibleQuantity > 0)) continue;
         const pricing = campaignProductPricing(campaign, benefit);
         const pricingType = pricing.type as 'percentage' | 'fixed';
-        const currency = state.language === 'da' ? 'DKK' : 'EUR';
         const configuredPct = pricing.discountPct;
         const target = pricingType === 'fixed'
-          ? currency === 'DKK' ? pricing.targetPriceDkk : pricing.targetPriceEur
+          ? currency === 'DKK' ? pricing.targetPriceDkk
+            : currency === 'EUR' ? pricing.targetPriceEur
+              : convertCurrency(pricing.targetPriceDkk ?? 0, 'DKK', 'SEK')
           : null;
         const lineBefore = line.net;
         const eligibleBasis = roundPricingMoney(lineBefore * eligibleQuantity / line.quantity);

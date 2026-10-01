@@ -54,6 +54,6 @@ describe('Configurator reopen route resilience', () => {
     const configurator = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
 
     expect(configurator.indexOf('const lang = state.language;'))
-      .toBeLessThan(configurator.indexOf('const customerModeCopy = CUSTOMER_MODE_COPY[lang];'));
+      .toBeLessThan(configurator.indexOf('const customerModeCopy = configuratorCustomerModeCopy(uiLanguage);'));
   });
 });

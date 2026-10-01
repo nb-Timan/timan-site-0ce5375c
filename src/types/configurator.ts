@@ -8,6 +8,7 @@ export type FlowType = 'quote' | 'order';
 export type DeliveryMethod = 'pickup' | 'send' | 'deliver';
 export type ConfigMode = 'shared' | 'individual';
 export type Language = 'da' | 'en' | 'de' | 'it' | 'hu';
+export type ConfiguratorLocale = Language | 'sv' | 'fr' | 'pl' | 'cs';
 export type ConfiguratorCustomerMode = 'dealer' | 'manual';
 
 // Role system
@@ -189,6 +190,10 @@ export interface ConfiguratorState {
   partnerAccountType?: ConfiguratorPartnerAccountType;
   /** Explicit configuration-wide opt-out from otherwise eligible campaign pricing. */
   campaignDisabled?: boolean;
+  /** Presentation locale only. It must never select prices or capabilities. */
+  locale?: ConfiguratorLocale;
+  /** Canonical commercial currency, independent from the presentation locale. */
+  currency?: Currency;
   language: Language;
   machineConfigs: MachineConfig[];
   individualUnitConfigs: Record<string, { acc: string[] }>;

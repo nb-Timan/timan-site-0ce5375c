@@ -25,7 +25,7 @@ describe('configurator line presentation', () => {
     expect(configuratorLineQuantity(arm)).toBe(2);
     expect(configuratorLineUnitPrice(arm)).toBe(1235);
     expect(arm.price).toBe(2470);
-    expect(brush.description).toBe('Bürste für Seitenbesen (Low noise)');
+    expect(brush.description).toBe('Bürste für Seitenbesen (geräuscharm)');
     expect(configuratorLineQuantity(brush)).toBe(2);
     expect(configuratorLineUnitPrice(brush)).toBe(125);
     expect(brush.price).toBe(250);

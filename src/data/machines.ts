@@ -1,6 +1,7 @@
 import { Machine, Accessory, Language } from '@/types/configurator';
 import { notifyProductMaster, publishedProduct, replaceProductMaster, resolvePublishedProduct, type PublishedProductMaster } from '@/lib/publishedProductMaster';
 import { canonicalGermanProductText } from '@/data/configuratorGermanProductTranslations';
+import { convertCurrency, currencyFromLanguage, type Currency } from '@/lib/currency';
 
 // ===== CONSTANTS =====
 export const ACC_ID_WIRE_HARNESS = '412614';
@@ -1097,6 +1098,23 @@ export function getLooseToolAccessories(): Accessory[] {
     seen.add(key);
     return true;
   }).map(resolvePublishedProduct);
+}
+
+/** Canonical commercial price lookup. Locale is deliberately not an input. */
+export function getPriceForCurrency(
+  item: { varenr?: string; priceDKK: number; priceEUR: number },
+  currency: Currency,
+): number {
+  const published = publishedProduct(item.varenr);
+  const publishedPrice = currency === 'DKK'
+    ? published?.price_dkk
+    : currency === 'SEK'
+      ? published?.price_sek
+      : published?.price_eur;
+  if (typeof publishedPrice === 'number' && Number.isFinite(publishedPrice)) return publishedPrice;
+  if (currency === 'DKK') return item.priceDKK;
+  if (currency === 'EUR') return item.priceEUR;
+  return convertCurrency(item.priceDKK, currencyFromLanguage('da'), 'SEK');
 }
 
 // Flatten accessories including sub-items

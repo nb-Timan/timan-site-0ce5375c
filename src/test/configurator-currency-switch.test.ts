@@ -92,13 +92,13 @@ describe('Configurator quote currency switches', () => {
   it('persists the canonical currency column on both create and update', () => {
     const source = fs.readFileSync(path.resolve(process.cwd(), 'src/lib/configurationsService.ts'), 'utf8');
 
-    expect(source).toContain('currency: currencyFromLanguage(state.language)');
-    expect(source).toContain('currency: currencyFromLanguage(stateForPersistence.language)');
+    expect(source).toContain('currency: configuratorCurrency(state)');
+    expect(source).toContain('currency: configuratorCurrency(stateForPersistence)');
   });
 
   it('recalculates a reopened DKK quote from canonical EUR line prices for DA to DE', () => {
     const original = frozenDkkT4014();
-    const switched = { ...original, language: 'de' as const };
+    const switched = { ...original, language: 'de' as const, locale: 'de' as const, currency: 'EUR' as const };
 
     expectLinePrices(switched, EUR_PRICES);
     expectDiscounts(switched, {
@@ -119,7 +119,7 @@ describe('Configurator quote currency switches', () => {
       signature: configuratorPricingSignature(original),
       totals: { subtotal: 69010, totalDiscount: 22081.68, finalPrice: 46928.32 },
     };
-    const switched = { ...original, language: 'da' as const };
+    const switched = { ...original, language: 'da' as const, locale: 'da' as const, currency: 'DKK' as const };
 
     expectLinePrices(switched, DKK_PRICES);
     expectDiscounts(switched, {
@@ -132,16 +132,16 @@ describe('Configurator quote currency switches', () => {
   });
 
   it.each([
-    ['da', 'en', EUR_PRICES, 69010, 46928.32],
-    ['en', 'de', EUR_PRICES, 69010, 46928.32],
-  ] as const)('keeps every line in one canonical currency for %s to %s', (from, to, prices, subtotal, finalPrice) => {
+    ['da', 'en', 'EUR', EUR_PRICES, 69010, 46928.32],
+    ['en', 'de', 'EUR', EUR_PRICES, 69010, 46928.32],
+  ] as const)('keeps every line in one canonical currency for %s to %s', (from, to, currency, prices, subtotal, finalPrice) => {
     const original = t4014State(from);
     original.pricingSnapshot = {
       ...createConfiguratorPricingSnapshot(original),
       signature: configuratorPricingSignature(original),
       totals: calculateConfiguration(original),
     };
-    const switched = { ...original, language: to };
+    const switched = { ...original, language: to, locale: to, currency };
 
     expectLinePrices(switched, prices);
     expect(calculateConfiguration(switched)).toMatchObject({ subtotal, currentPrice: finalPrice });
@@ -149,7 +149,7 @@ describe('Configurator quote currency switches', () => {
 
   it('persists and reopens a fresh target-currency snapshot without carrying DKK values into EUR', async () => {
     const original = frozenDkkT4014();
-    const switched = { ...original, language: 'de' as const };
+    const switched = { ...original, language: 'de' as const, locale: 'de' as const, currency: 'EUR' as const };
 
     const saved = await finalizeConfiguratorPricingSnapshot(switched);
     expect(saved.pricingSnapshot).toMatchObject({ currency: 'EUR', prices: EUR_PRICES });
@@ -162,10 +162,10 @@ describe('Configurator quote currency switches', () => {
   });
 
   it.each([
-    ['da', '513.350', '69.010'],
-    ['de', '69.010', '513.350'],
-  ] as const)('renders the %s quote PDF from its canonical currency totals', (language, expectedGross, wrongGross) => {
-    const state = { ...frozenDkkT4014(), language };
+    ['da', 'DKK', '513.350', '69.010'],
+    ['de', 'EUR', '69.010', '513.350'],
+  ] as const)('renders the %s quote PDF from its canonical currency totals', (language, currency, expectedGross, wrongGross) => {
+    const state = { ...frozenDkkT4014(), language, locale: language, currency };
     const calculation = calculateConfiguration(state);
     const pdf = buildConfiguratorPdf({
       jsPDF: NoRasterJsPDF,
@@ -191,5 +191,18 @@ describe('Configurator quote currency switches', () => {
     expect(output).toContain('T-4014-QA');
     expect(output).toContain(expectedGross);
     expect(output).not.toContain(wrongGross);
+  });
+
+  it('keeps canonical prices unchanged when only the portal locale changes', () => {
+    const original = frozenDkkT4014();
+    const originalTotals = calcConfigurationTotals(original);
+
+    for (const locale of ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'] as const) {
+      const language = locale === 'da' ? 'da' as const : locale === 'de' ? 'de' as const : 'en' as const;
+      const localized = { ...original, locale, language };
+      expect(localized.currency).toBe('DKK');
+      expect(calcConfigurationTotals(localized)).toEqual(originalTotals);
+      expectLinePrices(localized, DKK_PRICES);
+    }
   });
 });

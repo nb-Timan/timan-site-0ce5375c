@@ -2,7 +2,8 @@ import { calcConfigurationTotals } from '@/lib/calcConfiguration';
 import { logActivity } from '@/lib/crmActivitiesService';
 import { getCrmLinkedConfigurationKind } from '@/lib/crmConfigurationsService';
 import { normalizeConfiguratorState } from '@/lib/configuratorState';
-import { currencyFromLanguage, toDkk } from '@/lib/currency';
+import { configuratorCurrency } from '@/lib/configuratorPricing';
+import { toDkk } from '@/lib/currency';
 import { getLead, updateLead, type CrmLead, type CrmLeadPatch } from '@/lib/crmLeadsService';
 import {
   buildStructuredContactInformation,
@@ -225,7 +226,7 @@ function getConfigurationSourceValue(state: ConfiguratorState, row: CrmLeadConfi
 }
 
 function getConfigurationValueDkk(state: ConfiguratorState, row: CrmLeadConfigurationSyncRow): number {
-  return Math.round(toDkk(getConfigurationSourceValue(state, row), currencyFromLanguage(state.language)));
+  return Math.round(toDkk(getConfigurationSourceValue(state, row), configuratorCurrency(state)));
 }
 
 function buildSyncNote(state: ConfiguratorState, row: CrmLeadConfigurationSyncRow, syncedAt: string): string {
@@ -243,7 +244,7 @@ function buildSyncNote(state: ConfiguratorState, row: CrmLeadConfigurationSyncRo
     if (accessoryNames.length > 0) lines.push(`  Udstyr: ${accessoryNames.join(', ')}`);
   }
   const sourceValue = Math.round(getConfigurationSourceValue(state, row));
-  const sourceCurrency = currencyFromLanguage(state.language);
+  const sourceCurrency = configuratorCurrency(state);
   const crmValueDkk = getConfigurationValueDkk(state, row);
   lines.push(`Værdi: ${sourceValue} ${sourceCurrency} (${crmValueDkk} DKK i CRM)`);
   lines.push(SYNC_END);

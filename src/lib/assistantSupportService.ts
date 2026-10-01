@@ -1,5 +1,5 @@
 import type { SessionUser } from '@/context/AppUserContext';
-import { formatMoney } from '@/data/machines';
+import { formatMoney } from '@/lib/currency';
 import {
   confirmAssistantAction,
   invokeAssistantAction,
@@ -30,6 +30,7 @@ import {
   nextAssistantConfiguratorPrompt,
 } from '@/lib/assistantConfiguratorWorkflow';
 import { calculateConfiguration } from '@/lib/calcConfiguration';
+import { configuratorCurrency } from '@/lib/configuratorPricing';
 import { finalizeConfiguratorPricingSnapshot } from '@/lib/configurationsService';
 import type { SupportSendRequest, SupportService } from '@/lib/supportService';
 import type {
@@ -390,7 +391,7 @@ export class AssistantSupportService implements SupportService {
           subtotal: calc.subtotal,
           total_discount: calc.totalDiscount,
           final_price: calc.currentPrice,
-          currency: state.language === 'da' ? 'DKK' : 'EUR',
+          currency: configuratorCurrency(state),
           machine_count: state.machineConfigs.reduce((sum, machine) => sum + machine.qty, 0),
           campaign_disabled: state.campaignDisabled === true,
         },
@@ -398,7 +399,7 @@ export class AssistantSupportService implements SupportService {
       },
     });
     const updated = response.workflow ? clientWorkflow(response.workflow) : { ...workflow, configurator: state };
-    const currency = state.language === 'da' ? 'DKK' : 'EUR';
+    const currency = configuratorCurrency(state);
     return message(
       request.language === 'da' ? 'Her er den canonical prisberegning fra Configurator.' : 'Here is the canonical Configurator price calculation.',
       updated,
@@ -407,9 +408,9 @@ export class AssistantSupportService implements SupportService {
         title: request.language === 'da' ? 'Tilbudsoversigt' : 'Quote preview',
         lines: [
           { label: request.language === 'da' ? 'Maskiner' : 'Machines', value: String(state.machineConfigs.reduce((sum, machine) => sum + machine.qty, 0)) },
-          { label: request.language === 'da' ? 'Subtotal' : 'Subtotal', value: formatMoney(calc.subtotal, state.language) },
-          { label: request.language === 'da' ? 'Rabat' : 'Discount', value: formatMoney(calc.totalDiscount, state.language) },
-          { label: request.language === 'da' ? 'Total ekskl. moms' : 'Total excl. VAT', value: `${formatMoney(calc.currentPrice, state.language)} ${currency}` },
+          { label: request.language === 'da' ? 'Subtotal' : 'Subtotal', value: formatMoney(calc.subtotal, currency) },
+          { label: request.language === 'da' ? 'Rabat' : 'Discount', value: formatMoney(calc.totalDiscount, currency) },
+          { label: request.language === 'da' ? 'Total ekskl. moms' : 'Total excl. VAT', value: formatMoney(calc.currentPrice, currency) },
           { label: request.language === 'da' ? 'Timan-sælger' : 'Timan seller', value: [timanSeller?.name, timanSeller?.email].filter(Boolean).join(' · ') },
         ],
         choices: [

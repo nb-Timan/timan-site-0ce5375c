@@ -16,10 +16,10 @@ import {
   PRODUCTS,
   getAccessoriesFlat,
   getLocalizedName,
-  getPrice,
+  getPriceForCurrency,
   LOOSE_TOOL_KEY,
 } from '@/data/machines';
-import { snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
+import { configuratorCurrency, snapshotAccessoryPrice, snapshotMachinePrice, snapshotProductName } from '@/lib/configuratorPricing';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
 import { hasMachineDeliveryOverride, machineDeliveryDate } from '@/lib/configuratorDelivery';
@@ -65,7 +65,7 @@ export interface SummaryMachineGroup {
 export interface QuoteContentSummary {
   issuer: TimanCompanyProfile;
   language: Language;
-  currency: 'DKK' | 'EUR';
+  currency: 'DKK' | 'EUR' | 'SEK';
   flow_type: 'quote' | 'order';
   payment_terms: string;
   /** Customer reference from the persisted Configurator state. */
@@ -81,10 +81,6 @@ export interface QuoteContentSummary {
   };
 }
 
-function isEurLanguage(lang: Language): boolean {
-  return lang === 'en' || lang === 'de' || lang === 'it' || lang === 'hu';
-}
-
 function getRalCodeFor(state: ConfiguratorState, configKey: string, accId: string): string | undefined {
   const direct = state.ralCodes?.[`${configKey}_${accId}`];
   if (typeof direct === 'string' && direct.trim()) return direct.trim();
@@ -96,7 +92,7 @@ function getRalCodeFor(state: ConfiguratorState, configKey: string, accId: strin
 
 export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContentSummary {
   const lang = state.language;
-  const currency: 'DKK' | 'EUR' = isEurLanguage(lang) ? 'EUR' : 'DKK';
+  const currency = configuratorCurrency(state);
 
   const machines: SummaryMachineGroup[] = [];
   let subtotal = 0;
@@ -108,7 +104,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
 
     const isShared = mc.configMode === 'shared';
     const modelName = snapshotProductName(state, product.varenr, getLocalizedName(product.name, lang));
-    const unitPrice = snapshotMachinePrice(state, mc.type, getPrice(product, lang));
+    const unitPrice = snapshotMachinePrice(state, mc.type, getPriceForCurrency(product, currency));
     const flatAccs = getAccessoriesFlat(mc.type);
 
     const units: SummaryMachineUnit[] = [];
@@ -136,7 +132,7 @@ export function buildQuoteContentSummary(state: ConfiguratorState): QuoteContent
 
       const accessoryLines: SummaryAccessoryLine[] = [...selectedAccs, ...qtyOnlyAccs].map(a => {
         const qty = state.accQty?.[`${configKey}_${a.id}`] || 1;
-        const accUnitPrice = snapshotAccessoryPrice(state, mc.type, a, getPrice(a, lang));
+        const accUnitPrice = snapshotAccessoryPrice(state, mc.type, a, getPriceForCurrency(a, currency));
         const total = accUnitPrice * qty;
         const ral = a.isRAL ? getRalCodeFor(state, configKey, a.id) : undefined;
         return {

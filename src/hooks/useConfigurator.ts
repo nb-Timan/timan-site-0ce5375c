@@ -4,7 +4,7 @@ import { academySandbox } from '@/lib/academySandbox';
 import { academyScopedStorageKey } from '@/lib/academyCycleStorage';
 import { ConfiguratorState, Language, FlowType, DeliveryMethod, CalcResult } from '@/types/configurator';
 import { PRODUCTS, ACCESSORIES, getAccessoriesFlat, getPrice, getLocalizedName, ACC_ID_OIL_NORMAL, ACC_ID_OIL_BIO, LOOSE_TOOL_KEY, DEMO_ELIGIBLE_VARENR, getLooseToolAccessories } from '@/data/machines';
-import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
+import { createEmptyConfiguratorState, normalizeConfiguratorState, transitionConfiguratorFlowType } from '@/lib/configuratorState';
 import { hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
 import {
   getConfiguratorMachineUnits,
@@ -54,7 +54,7 @@ export function useConfigurator() {
 
   const setStep = useCallback((step: number) => setState(s => ({ ...s, step })), []);
   const setLanguage = useCallback((language: Language) => setState(s => ({ ...s, language })), []);
-  const setFlowType = useCallback((flowType: FlowType) => setState(s => ({ ...s, flowType })), []);
+  const setFlowType = useCallback((flowType: FlowType) => setState(s => transitionConfiguratorFlowType(s, flowType)), []);
   const setDeliveryMethod = useCallback((deliveryMethod: DeliveryMethod | '') => setState(s => ({ ...s, deliveryMethod })), []);
   const setDate = useCallback((date: string) => setState(s => ({ ...s, date })), []);
 

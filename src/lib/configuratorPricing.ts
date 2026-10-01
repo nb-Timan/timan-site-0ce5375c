@@ -1,13 +1,17 @@
-import { getAccessoriesFlat, getLocalizedName, getPrice, PRODUCTS, DEMO_FEE_DKK, DEMO_FEE_EUR, DEMO_FEE_ITEM_NUMBER } from '@/data/machines';
+import { getAccessoriesFlat, getLocalizedName, getPriceForCurrency, PRODUCTS, DEMO_FEE_DKK, DEMO_FEE_EUR, DEMO_FEE_ITEM_NUMBER } from '@/data/machines';
 import type { Accessory, ConfiguratorPricingSnapshot, ConfiguratorState, Language } from '@/types/configurator';
-import { currencyFromLanguage, type Currency } from '@/lib/currency';
+import { convertCurrency, currencyFromLanguage, isCurrency, type Currency } from '@/lib/currency';
 import { publishedProduct, publishedProductText } from '@/lib/publishedProductMaster';
 import { isConfiguratorPartnerAccountType } from '@/lib/importerDiscount';
 
 const machineKey = (machineType: string) => `machine:${machineType}`;
 const accessoryKey = (machineType: string, accessoryId: string) => `accessory:${machineType}:${accessoryId}`;
-const demoKey = (language: Language) => `demo:${language}`;
-const startupKey = (language: Language, option: string) => `startup:${language}:${option}`;
+const demoKey = (currency: Currency) => `demo:${currency}`;
+const startupKey = (currency: Currency, option: string) => `startup:${currency}:${option}`;
+
+export function configuratorCurrency(state: Pick<ConfiguratorState, 'currency' | 'language'>): Currency {
+  return isCurrency(state.currency) ? state.currency : currencyFromLanguage(state.language);
+}
 
 export function snapshotProductName(state: ConfiguratorState, itemNumber: string, currentName: string): string {
   return state.pricingSnapshot?.names?.[itemNumber]
@@ -46,7 +50,9 @@ function positivePrice(value: unknown): number | null {
 function signatureCurrency(signature?: string): Currency | null {
   if (!signature) return null;
   try {
-    const language = (JSON.parse(signature) as { language?: unknown }).language;
+    const parsed = JSON.parse(signature) as { currency?: unknown; language?: unknown };
+    if (isCurrency(parsed.currency)) return parsed.currency;
+    const language = parsed.language;
     return typeof language === 'string' ? currencyFromLanguage(language) : null;
   } catch {
     return null;
@@ -57,11 +63,11 @@ function signatureCurrency(signature?: string): Currency | null {
 export function configuratorSnapshotCurrency(state: ConfiguratorState): Currency | null {
   const snapshot = state.pricingSnapshot;
   if (!snapshot) return null;
-  return snapshot.currency ?? signatureCurrency(snapshot.signature) ?? currencyFromLanguage(state.language);
+  return snapshot.currency ?? signatureCurrency(snapshot.signature) ?? configuratorCurrency(state);
 }
 
 function snapshotUsesCurrentCurrency(state: ConfiguratorState): boolean {
-  return configuratorSnapshotCurrency(state) === currencyFromLanguage(state.language);
+  return configuratorSnapshotCurrency(state) === configuratorCurrency(state);
 }
 
 export function snapshotMachinePrice(state: ConfiguratorState, machineType: string, currentPrice: number): number {
@@ -79,29 +85,36 @@ export function snapshotAccessoryPrice(
   return positivePrice(state.pricingSnapshot?.prices[accessoryKey(machineType, accessory.id)]) ?? currentPrice;
 }
 
-export function snapshotDemoFee(state: ConfiguratorState, language: Language): number {
-  if (!snapshotUsesCurrentCurrency(state)) return currentDemoFee(language);
-  return positivePrice(state.pricingSnapshot?.prices[demoKey(language)]) ?? currentDemoFee(language);
+export function snapshotDemoFee(state: ConfiguratorState, currency: Currency = configuratorCurrency(state)): number {
+  if (!snapshotUsesCurrentCurrency(state)) return currentDemoFee(currency);
+  const legacyKey = `demo:${state.language}`;
+  return positivePrice(state.pricingSnapshot?.prices[demoKey(currency)])
+    ?? positivePrice(state.pricingSnapshot?.prices[legacyKey])
+    ?? currentDemoFee(currency);
 }
 
-export function currentDemoFee(language: Language): number {
+export function currentDemoFee(currency: Currency): number {
   const published = publishedProduct(DEMO_FEE_ITEM_NUMBER);
-  const currentPrice = language === 'da' ? published?.price_dkk : published?.price_eur;
-  return positivePrice(currentPrice) ?? (language === 'da' ? DEMO_FEE_DKK : DEMO_FEE_EUR);
+  const currentPrice = currency === 'DKK' ? published?.price_dkk : currency === 'SEK' ? published?.price_sek : published?.price_eur;
+  if (positivePrice(currentPrice) != null) return positivePrice(currentPrice)!;
+  if (currency === 'DKK') return DEMO_FEE_DKK;
+  if (currency === 'EUR') return DEMO_FEE_EUR;
+  return convertCurrency(DEMO_FEE_DKK, 'DKK', 'SEK');
 }
 
-export function snapshotStartupPrice(state: ConfiguratorState, language: Language, option: string, currentPrice: number): number {
+export function snapshotStartupPrice(state: ConfiguratorState, currency: Currency, option: string, currentPrice: number): number {
   if (!snapshotUsesCurrentCurrency(state)) return currentPrice;
-  return positivePrice(state.pricingSnapshot?.prices[startupKey(language, option)]) ?? currentPrice;
+  return positivePrice(state.pricingSnapshot?.prices[startupKey(currency, option)])
+    ?? positivePrice(state.pricingSnapshot?.prices[`startup:${state.language}:${option}`])
+    ?? currentPrice;
 }
 
-/** Stable identity for choices that affect the commercial calculation. */
-export function configuratorPricingSignature(state: ConfiguratorState): string {
+function pricingSignature(state: ConfiguratorState, identity: { currency: Currency } | { language: Language }): string {
   const machineDeliveryDates = Object.entries(state.machineDeliveryDates ?? {})
     .filter(([, value]) => Boolean(value))
     .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify({
-    language: state.language,
+    ...identity,
     ...(state.pricingMode === 'direct' ? { pricingMode: 'direct' } : {}),
     ...(state.campaignDisabled ? { campaignDisabled: true } : {}),
     ...(isConfiguratorPartnerAccountType(state.partnerAccountType) ? { partnerAccountType: state.partnerAccountType } : {}),
@@ -125,12 +138,22 @@ export function configuratorPricingSignature(state: ConfiguratorState): string {
   });
 }
 
+/** Stable identity for choices that affect the commercial calculation. */
+export function configuratorPricingSignature(state: ConfiguratorState): string {
+  return pricingSignature(state, { currency: configuratorCurrency(state) });
+}
+
+function legacyConfiguratorPricingSignature(state: ConfiguratorState): string {
+  return pricingSignature(state, { language: state.language });
+}
+
 export function hasFrozenConfiguratorPricing(state: ConfiguratorState): boolean {
   const snapshot = state.pricingSnapshot;
   return Boolean(
     snapshot?.totals
     && snapshot.signature
-    && snapshot.signature === configuratorPricingSignature(state),
+    && (snapshot.signature === configuratorPricingSignature(state)
+      || snapshot.signature === legacyConfiguratorPricingSignature(state)),
   );
 }
 
@@ -149,7 +172,7 @@ export function protectLegacySentPricing(state: ConfiguratorState, row: { quote_
   const finalPrice = Number(row.total_price);
   const valid = row.subtotal != null && row.total_price != null && Number.isFinite(subtotal) && Number.isFinite(finalPrice) && subtotal >= finalPrice && finalPrice >= 0;
   return { ...state, pricingSnapshot: {
-    version: 1, totalsOnly: true, capturedAt: String(sentAt), currency: currencyFromLanguage(state.language), prices: {},
+    version: 1, totalsOnly: true, capturedAt: String(sentAt), currency: configuratorCurrency(state), prices: {},
     signature: configuratorPricingSignature(state),
     ...(valid ? { totals: { subtotal, totalDiscount: subtotal - finalPrice, finalPrice } } : {}),
   } };
@@ -160,10 +183,11 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
   const prices: Record<string, number> = {};
   const names: Record<string, string> = {};
   const language = state.language;
+  const currency = configuratorCurrency(state);
 
   for (const machine of state.machineConfigs ?? []) {
     const product = PRODUCTS[machine.type];
-    if (product) prices[machineKey(machine.type)] = getPrice(product, language);
+    if (product) prices[machineKey(machine.type)] = getPriceForCurrency(product, currency);
     if (product?.varenr) names[product.varenr] = currentProductDescription(product.varenr, language, getLocalizedName(product.name, language));
 
     for (const accessory of getAccessoriesFlat(machine.type)) {
@@ -171,29 +195,29 @@ export function createConfiguratorPricingSnapshot(state: ConfiguratorState): Con
       const selected = machine.acc?.includes(accessory.id)
         || Object.keys(state.individualUnitConfigs ?? {}).some(key => state.individualUnitConfigs[key]?.acc?.includes(accessory.id))
         || Object.keys(state.accQty ?? {}).some(key => key.endsWith(`_${accessory.id}`) && (state.accQty[key] ?? 0) > 0);
-      if (selected) prices[accessoryKey(machine.type, accessory.id)] = getPrice(accessory, language);
+      if (selected) prices[accessoryKey(machine.type, accessory.id)] = getPriceForCurrency(accessory, currency);
       if (selected && accessory.varenr) names[accessory.varenr] = currentProductDescription(accessory.varenr, language, getLocalizedName(accessory.name, language));
     }
   }
 
   if (state.pricingMode !== 'direct' && Object.values(state.demoMachines ?? {}).some(Boolean)) {
-    prices[demoKey(language)] = currentDemoFee(language);
+    prices[demoKey(currency)] = currentDemoFee(currency);
     names[DEMO_FEE_ITEM_NUMBER] = currentProductDescription(DEMO_FEE_ITEM_NUMBER, language, 'Demo machine');
   }
   if (state.deliveryMethod === 'deliver' && state.deliveryDeliverStartup) {
-    const currentPrice = state.deliveryDeliverStartup === 'no_bridge'
-      ? (language === 'da' ? 1500 : 200)
-      : state.deliveryDeliverStartup === 'with_bridge'
-        ? (language === 'da' ? 2500 : 335)
-        : 0;
-    prices[startupKey(language, state.deliveryDeliverStartup)] = currentPrice;
+    const dkkPrice = state.deliveryDeliverStartup === 'no_bridge' ? 1500
+      : state.deliveryDeliverStartup === 'with_bridge' ? 2500 : 0;
+    const currentPrice = currency === 'DKK' ? dkkPrice
+      : currency === 'EUR' ? (state.deliveryDeliverStartup === 'no_bridge' ? 200 : state.deliveryDeliverStartup === 'with_bridge' ? 335 : 0)
+        : convertCurrency(dkkPrice, 'DKK', 'SEK');
+    prices[startupKey(currency, state.deliveryDeliverStartup)] = currentPrice;
   }
 
   return {
     version: 1,
     discountEngineVersion: 2,
     capturedAt: new Date().toISOString(),
-    currency: currencyFromLanguage(language),
+    currency,
     prices,
     names,
   };

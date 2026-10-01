@@ -1,5 +1,7 @@
 import type { CalcResult, ConfiguratorState, DiscountDetail, Language, LineItem } from "@/types/configurator";
-import { formatMoney } from "@/data/machines";
+import { formatMoney } from "@/lib/currency";
+import { configuratorCurrency } from "@/lib/configuratorPricing";
+import { formatDiscountDetailLabel } from "@/lib/calcConfiguration";
 import { getPaymentTermsDocumentValue, getPaymentTermsLabel } from "@/lib/paymentTerms";
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from "@/lib/orderPurchaseReferences";
 import { commonMachineDeliveryDate, machineDeliveryDate } from "@/lib/configuratorDelivery";
@@ -77,8 +79,8 @@ function setColor(pdf: any, kind: "text" | "draw" | "fill", color: readonly numb
   if (kind === "fill") pdf.setFillColor(color[0], color[1], color[2]);
 }
 
-function money(value: number, language: Language, showPrices: boolean): string {
-  return showPrices ? formatMoney(value, language) : "-";
+function money(value: number, state: ConfiguratorState, showPrices: boolean): string {
+  return showPrices ? formatMoney(value, configuratorCurrency(state)) : "-";
 }
 
 function formatDate(value: string | undefined, language: Language): string {
@@ -298,8 +300,8 @@ function drawLineRow(
   pdf.text(item.varenr || "-", left + 2, y + 5);
   pdf.text(descLines, left + itemNoW + 3, y + 5);
   pdf.text(String(configuratorLineQuantity(item)), left + itemNoW + descriptionW + quantityW - 2, y + 5, { align: "right" });
-  pdf.text(money(configuratorLineUnitPrice(item), input.uiLanguage, input.showPrices), left + itemNoW + descriptionW + quantityW + unitPriceW - 2, y + 5, { align: "right" });
-  pdf.text(money(item.price, input.uiLanguage, input.showPrices), left + width - 2, y + 5, { align: "right" });
+  pdf.text(money(configuratorLineUnitPrice(item), input.state, input.showPrices), left + itemNoW + descriptionW + quantityW + unitPriceW - 2, y + 5, { align: "right" });
+  pdf.text(money(item.price, input.state, input.showPrices), left + width - 2, y + 5, { align: "right" });
   return y + rowH;
 }
 
@@ -350,7 +352,7 @@ function drawMachineSection(
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8);
     pdf.text(subtotalLabelLines, subtotalColumns.labelRightX, y + 5, { align: "right" });
-    pdf.text(money(section.subtotal.price, input.uiLanguage, input.showPrices), subtotalColumns.amountRightX, y + 5, { align: "right" });
+    pdf.text(money(section.subtotal.price, input.state, input.showPrices), subtotalColumns.amountRightX, y + 5, { align: "right" });
     y += subtotalHeight + 2;
   }
 
@@ -365,22 +367,22 @@ function drawPriceSummary(
   input: Pick<BuildConfiguratorPdfInput, "state" | "uiLanguage" | "showPrices" | "TC">,
 ): number {
   const lines: Array<{ label: string; value: string; red?: boolean; bold?: boolean; large?: boolean }> = [
-    { label: input.TC(input.state.pricingMode === 'direct' ? "directNetPrice" : "confirmSubtotal"), value: money(calc.subtotal, input.uiLanguage, input.showPrices) },
+    { label: input.TC(input.state.pricingMode === 'direct' ? "directNetPrice" : "confirmSubtotal"), value: money(calc.subtotal, input.state, input.showPrices) },
     ...discounts.filter((d) => d.amount > 0).map((d) => ({
-      label: d.varenr ? `${d.txt} (${d.varenr})` : d.txt,
-      value: `-${money(d.amount, input.uiLanguage, input.showPrices)}`,
+      label: formatDiscountDetailLabel(d, true, input.uiLanguage),
+      value: `-${money(d.amount, input.state, input.showPrices)}`,
       red: true,
     })),
   ];
   if (calc.totalDiscount > 0) {
     lines.push({
       label: `${input.TC("confirmTotalDiscount")} (${calc.totalPct.toFixed(2).replace(".", ",")}%)`,
-      value: `-${money(calc.totalDiscount, input.uiLanguage, input.showPrices)}`,
+      value: `-${money(calc.totalDiscount, input.state, input.showPrices)}`,
       red: true,
       bold: true,
     });
   }
-  lines.push({ label: input.TC("confirmTotal"), value: money(calc.currentPrice, input.uiLanguage, input.showPrices), bold: true, large: true });
+  lines.push({ label: input.TC("confirmTotal"), value: money(calc.currentPrice, input.state, input.showPrices), bold: true, large: true });
 
   y = ensureSpace(pdf, y, 16 + lines.length * 7);
   const boxW = 92;

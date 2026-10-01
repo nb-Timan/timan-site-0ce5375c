@@ -2,15 +2,15 @@ import { supabase } from '@/lib/supabase';
 import { getAccessoriesFlat } from '@/data/machines';
 import { isProductActive } from '@/lib/publishedProductMaster';
 import { ConfiguratorState, MachineConfig } from '@/types/configurator';
-import { createEmptyConfiguratorState, normalizeConfiguratorState } from '@/lib/configuratorState';
-import { configuratorPricingSignature, configuratorSnapshotCurrency, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, protectLegacySentPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
+import { assertValidConfiguratorCommercialState, createEmptyConfiguratorState, normalizeConfiguratorState, transitionConfiguratorFlowType } from '@/lib/configuratorState';
+import { configuratorCurrency, configuratorPricingSignature, configuratorSnapshotCurrency, createConfiguratorPricingSnapshot, hasFrozenConfiguratorPricing, protectLegacySentPricing, refreshConfiguratorProductDescriptions } from '@/lib/configuratorPricing';
 import { OWNERSHIP_REQUIRED_MESSAGE } from '@/lib/configuratorOwnership';
 import { listHiddenConfigurationIdsForScope, type HideScope } from '@/lib/userHiddenConfigurationsService';
 import { getActiveSellerView, getSellerViewByEmail } from '@/lib/activeMode';
 import { normalizeSellerInitials } from '@/lib/sellerInitials';
 import { generateLocalCrmDocumentNumber, getNextCrmDocumentNumber } from '@/lib/crmNumberSequencesService';
 import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
-import { currencyFromLanguage } from '@/lib/currency';
+import { isCurrency } from '@/lib/currency';
 
 async function recordConfiguratorUsage(activeSeconds = 0): Promise<void> {
   try {
@@ -607,6 +607,7 @@ function buildRestoredState(
     ...baseState,
     flowType,
     language,
+    currency: isCurrency(row.currency) ? row.currency : baseState.currency,
     date: typeof row.delivery_date === 'string' ? row.delivery_date.slice(0, 10) : baseState.date,
     deliveryMethod,
     deliveryDeliverStartup: typeof row.delivery_startup_option === 'string'
@@ -1005,6 +1006,14 @@ export async function saveConfiguration(
     ownerEmail,
     machineCount: state.machineConfigs.length,
   });
+  try {
+    assertValidConfiguratorCommercialState(state);
+  } catch (error) {
+    return {
+      data: null, id: null, error: error instanceof Error ? error.message : 'INVALID_CONFIGURATOR_STATE', itemsError: null,
+      quote_number: null, order_number: null, source_quote_id: null, source_quote_number: null,
+    };
+  }
 
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
@@ -1071,7 +1080,7 @@ export async function saveConfiguration(
     subtotal: initialSubtotal,
     total_price: initialTotal,
     language: state.language,
-    currency: currencyFromLanguage(state.language),
+    currency: configuratorCurrency(state),
     delivery_date: state.date || null,
     delivery_method: state.deliveryMethod || null,
     delivery_startup_option: state.deliveryDeliverStartup,
@@ -1168,6 +1177,11 @@ export async function updateConfiguration(
   state: ConfiguratorState,
   options?: { ownership?: SaveOwnership; leadId?: string | null; pricingMode?: ConfigurationPricingMode },
 ): Promise<{ error: string | null; itemsError: string | null }> {
+  try {
+    assertValidConfiguratorCommercialState(state);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : 'INVALID_CONFIGURATOR_STATE', itemsError: null };
+  }
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
     return { error: authError ? formatSupabaseError(authError) : 'No authenticated user', itemsError: null };
@@ -1259,7 +1273,7 @@ export async function updateConfiguration(
     note: storedNote,
     internal_note: internalNote,
     language: stateForPersistence.language,
-    currency: currencyFromLanguage(stateForPersistence.language),
+    currency: configuratorCurrency(stateForPersistence),
     delivery_date: stateForPersistence.date || null,
     delivery_method: stateForPersistence.deliveryMethod || null,
     delivery_startup_option: stateForPersistence.deliveryDeliverStartup,
@@ -1346,7 +1360,7 @@ export async function updateConfigurationFlowType(
   }
   const storedPayload = parseStoredConfigurationPayload(row.note);
   const baseState = parseStateJson(row.state_json) ?? storedPayload?.state ?? buildFallbackState(row);
-  const nextState = normalizeConfiguratorState({ ...baseState, flowType });
+  const nextState = transitionConfiguratorFlowType(baseState, flowType);
 
   const quoteNumber: string | null = row.quote_number ?? null;
   const orderNumber: string | null = row.order_number ?? null;
@@ -1468,6 +1482,7 @@ export async function finalizeConfiguratorPricingSnapshot(
   state: ConfiguratorState,
   pricingMode?: ConfigurationPricingMode,
 ): Promise<ConfiguratorState> {
+  assertValidConfiguratorCommercialState(state);
   if (state.pricingSnapshot?.totalsOnly) throw new Error('Historiske linjepriser mangler; ingen automatisk genberegning.');
   if (hasFrozenConfiguratorPricing(state)) return state;
 
@@ -1744,10 +1759,14 @@ export async function markAsOrderSubmitted(
     const storedPayload = parseStoredConfigurationPayload(rowSnapshot?.note);
     const state = parseStateJson(rowSnapshot?.state_json) ?? storedPayload?.state ?? null;
     if (state) {
-      persistedState = state;
+      if (state.pricingMode === 'direct') {
+        console.error('[markAsOrderSubmitted] ORDER_DIRECT_NOT_ALLOWED');
+        return null;
+      }
+      persistedState = transitionConfiguratorFlowType(state, 'order');
       const isInitialOrderSubmission = !rowSnapshot?.submitted_at && !rowSnapshot?.order_sent_at;
-      if (isInitialOrderSubmission && !state.pricingSnapshot) {
-        persistedState = await finalizeConfiguratorPricingSnapshot(state, options?.pricingMode);
+      if (isInitialOrderSubmission && !persistedState.pricingSnapshot) {
+        persistedState = await finalizeConfiguratorPricingSnapshot(persistedState, options?.pricingMode);
       }
       const totals = calcConfigurationTotals(persistedState, { grossManualDiscountOnly: options?.pricingMode === 'messe' });
       subtotal = Math.round(totals.subtotal || 0);

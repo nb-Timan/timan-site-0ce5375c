@@ -59,7 +59,7 @@ describe('Backend submitted-order reopen and revision flow', () => {
     const page = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
 
     expect(service).toContain('createConfiguratorPricingSnapshot');
-    expect(service).toContain('isInitialOrderSubmission && !state.pricingSnapshot');
+    expect(service).toContain('isInitialOrderSubmission && !persistedState.pricingSnapshot');
     expect(service).toContain('configuratorPricingSignature(state)');
     expect(service).toContain('if (hasFrozenConfiguratorPricing(state)) return state;');
     expect(service).toContain('submittedOrder && !stateForPersistence.pricingSnapshot');

@@ -16,7 +16,7 @@ import { appendAuditEntry } from "@/lib/audit-log-store";
 import type { Accessory, Language, LocalizedString, ConfiguratorState } from "@/types/configurator";
 import { normalizeConfiguratorState } from "@/lib/configuratorState";
 import { calcConfigurationTotals } from "@/lib/calcConfiguration";
-import { currencyFromLanguage, toDkk, type Currency } from "@/lib/currency";
+import { currencyFromLanguage, isCurrency, toDkk, type Currency } from "@/lib/currency";
 
 // ---------- Types ----------
 export type BudgetCategory = "machine" | "attachment" | "service" | "other";
@@ -803,11 +803,12 @@ function parseOrderState(row: BudgetOrderRow): ConfiguratorState | null {
 
 export function resolveBudgetOrderCurrency(
   storedCurrency: unknown,
-  snapshotLanguage: string | null | undefined,
+  snapshotCurrencyOrLanguage: string | null | undefined,
 ): Currency {
-  // Configurator prices are selected by snapshot language. Some older rows
-  // retained the table's DKK default even though their frozen state is EUR.
-  if (snapshotLanguage) return currencyFromLanguage(snapshotLanguage);
+  // New snapshots persist currency explicitly. Legacy snapshots only carry
+  // language, so keep that fallback without coupling new state to locale.
+  if (isCurrency(snapshotCurrencyOrLanguage)) return snapshotCurrencyOrLanguage;
+  if (snapshotCurrencyOrLanguage) return currencyFromLanguage(snapshotCurrencyOrLanguage);
   const normalized = String(storedCurrency ?? '').trim().toUpperCase();
   return normalized === 'EUR' || normalized === 'SEK' ? normalized : 'DKK';
 }
@@ -1207,7 +1208,7 @@ async function deriveActualsFromOrders(year: number): Promise<SalesActual[]> {
         const tp = Number(row.total_price ?? 0);
         if (Number.isFinite(tp) && tp > 0) finalPrice = tp;
       }
-      const sourceCurrency = resolveBudgetOrderCurrency(row.currency, state?.language);
+      const sourceCurrency = resolveBudgetOrderCurrency(row.currency, state?.currency ?? state?.language);
       const finalPriceDkk = toDkk(finalPrice, sourceCurrency);
 
       const { qtyByKey, totalQty } = machineQtyFromOrder(row, productByNormKey);

@@ -1,6 +1,6 @@
 import type { CalcResult, ConfiguratorState } from '@/types/configurator';
 import { buildAccountCaseLines, type AccountCaseLine } from '@/lib/configuratorAccountSummaries';
-import { hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
+import { configuratorCurrency, hasFrozenConfiguratorPricing } from '@/lib/configuratorPricing';
 import type { QuoteContentSummary } from '@/lib/quoteContentSummary';
 import { getPaymentTermsDocumentValue } from '@/lib/paymentTerms';
 import { machinePurchaseReference, orderPurchaseReferenceSummary } from '@/lib/orderPurchaseReferences';
@@ -118,7 +118,7 @@ export function buildSubmittedOrderMailSummary(state: ConfiguratorState): QuoteC
   });
   return {
     issuer: { ...TIMAN_COMPANY_PROFILE },
-    language: state.language, currency: state.language === 'da' ? 'DKK' : 'EUR', flow_type: 'order',
+    language: state.language, currency: configuratorCurrency(state), flow_type: 'order',
     payment_terms: getPaymentTermsDocumentValue(state.paymentTerms),
     purchase_order_number: orderPurchaseReferenceSummary(state).headerValue,
     delivery: { method: state.deliveryMethod || '', date: state.date || null, startup_option: state.deliveryDeliverStartup ?? null },
