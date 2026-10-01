@@ -186,6 +186,7 @@ describe('Configurator final commercial-state matrix', () => {
     expect(source).not.toMatch(/getLocalizedName\([^\n]+, lang\)/);
     expect(source).toContain("const TC = (key: string) => t(key, uiLanguage);");
     expect(source).not.toMatch(/translateSpecLabel\([^\n]+contentUiLang/);
+    expect(source).toContain("value?.[uiLanguage] || value?.[lang] || value?.en || value?.da");
   });
 
   it('does not use locale as a Configurator capability or delivery-startup condition', () => {

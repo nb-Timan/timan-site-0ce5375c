@@ -3544,7 +3544,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           const value = canonicalValue && typeof canonicalValue !== 'string' ? canonicalValue : spec.value;
                           return {
                             label: translateSpecLabel(spec.label, uiLanguage),
-                            value: typeof value === 'string' ? value : (value?.[lang] || value?.da || ''),
+                            value: typeof value === 'string' ? value : (value?.[uiLanguage] || value?.[lang] || value?.en || value?.da || ''),
                           };
                         })}
                         badge={marketingCampaignFor(key, p.id) ? 'Kampagne' : marketingContent?.badge}
