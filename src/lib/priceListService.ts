@@ -14,6 +14,11 @@
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { supabase } from "@/lib/supabase";
+import {
+  PRICE_TOOL_MARKER,
+  calculatePriceToolValues,
+  type PriceToolSettings,
+} from "@/lib/priceListWorkbook";
 
 export interface PriceListItem {
   id: string;
@@ -135,6 +140,7 @@ export interface PreviewRow {
   item_number: string | null;
   raw: CsvPriceRow;
   existing: PriceListItem | null;
+  existingPersisted: boolean;
   changes: FieldChange[];
   errorMessage?: string;
 }
@@ -347,6 +353,8 @@ function formatWorkbookNumber(value: number | null): string {
 export interface ParseResult {
   rows: CsvPriceRow[];
   parseErrors: string[];
+  format: "price_tool" | "standard";
+  settings?: PriceToolSettings;
 }
 
 export function parsePriceCsv(text: string): ParseResult {
@@ -365,13 +373,13 @@ export function parsePriceCsv(text: string): ParseResult {
     price_eur: pickField(r, "price_eur"),
     price_sek: pickField(r, "price_sek"),
   }));
-  return { rows, parseErrors };
+  return { rows, parseErrors, format: "standard" };
 }
 
 export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
   const wb = XLSX.read(buffer, { type: "array" });
   const sheetName = wb.SheetNames[0];
-  if (!sheetName) return { rows: [], parseErrors: ["Excel-filen har ingen ark."] };
+  if (!sheetName) return { rows: [], parseErrors: ["Excel-filen har ingen ark."], format: "standard" };
   const sheet = wb.Sheets[sheetName];
   const rawRows = XLSX.utils.sheet_to_json<Array<unknown>>(sheet, { header: 1, defval: "", blankrows: false });
   const itemNumberAliases = HEADER_ALIASES.item_number.map(normalizeKey);
@@ -379,27 +387,54 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
     row.some((cell) => itemNumberAliases.includes(normalizeKey(String(cell ?? "")))),
   );
   if (headerIndex < 0) {
-    return { rows: [], parseErrors: ["Excel-filen mangler en kolonne med varenr."] };
+    return { rows: [], parseErrors: ["Excel-filen mangler en kolonne med varenr."], format: "standard" };
   }
 
   const headers = rawRows[headerIndex].map((value) => String(value ?? "").trim());
   const data = rawRows.slice(headerIndex + 1);
 
-  const readSetting = (labelPattern: RegExp): number | null => {
+  const readSetting = (labelPattern: RegExp, percent = false): number | null => {
     for (const row of rawRows.slice(0, headerIndex)) {
       for (let idx = 0; idx < row.length; idx++) {
         const label = String(row[idx] ?? "");
         if (!labelPattern.test(label)) continue;
         const rawValue = String(row[idx + 1] ?? "");
-        const parsed = parseWorkbookPercent(rawValue) ?? parsePrice(rawValue);
+        const parsed = percent ? parseWorkbookPercent(rawValue) : parsePrice(rawValue);
         if (parsed != null) return parsed;
       }
     }
     return null;
   };
+  const isPriceTool = normalizeKey(String(rawRows[0]?.[0] ?? "")) === normalizeKey(PRICE_TOOL_MARKER);
+
+  if (!isPriceTool) {
+    const rows: CsvPriceRow[] = data
+      .map((values) => ({
+        item_number: pickWorkbookCell(values, headers, HEADER_ALIASES.item_number),
+        item_text_da: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_da),
+        cost_price_dkk: pickWorkbookCell(values, headers, HEADER_ALIASES.cost_price_dkk),
+        price_dkk: pickWorkbookCell(values, headers, HEADER_ALIASES.price_dkk),
+        price_eur: pickWorkbookCell(values, headers, HEADER_ALIASES.price_eur),
+        price_sek: pickWorkbookCell(values, headers, HEADER_ALIASES.price_sek),
+      }))
+      .filter((row) => row.item_number.trim() !== "");
+    return { rows, parseErrors: [], format: "standard" };
+  }
+
   const sekRate = readSetting(/sek\s*kurs/i);
   const eurRate = readSetting(/eur\s*kurs/i);
-  const massChangePct = readSetting(/masse/i) ?? 0;
+  const standardDiscountPct = readSetting(/standard\s*rabat/i, true);
+  const massChangePct = readSetting(/masseændring|masseaendring/i, true) ?? 0;
+  const parseErrors: string[] = [];
+  if (sekRate == null || sekRate <= 0) parseErrors.push("Prislistværktøjet mangler en gyldig SEK-kurs.");
+  if (eurRate == null || eurRate <= 0) parseErrors.push("Prislistværktøjet mangler en gyldig EUR-kurs.");
+  if (standardDiscountPct == null) parseErrors.push("Prislistværktøjet mangler en gyldig standardrabat.");
+  const settings: PriceToolSettings = {
+    sekRateDkkPer100: sekRate ?? 0,
+    eurRateDkkPer1: eurRate ?? 0,
+    standardDiscountPct: standardDiscountPct ?? 0,
+    massChangePct,
+  };
 
   const rows: CsvPriceRow[] = data
     .map((values) => {
@@ -408,29 +443,22 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
       const manualDkk = parsePrice(pickWorkbookCellAt(values, headers, ["Ny pris DKK", "manuel_ny_pris_dkk", "manual_new_price_dkk"], [9]));
       const rowChangePct = parseWorkbookPercent(pickWorkbookCell(values, headers, ["Prisændring %", "prisændring_pct", "price_change_pct"], [10]));
       const massSelected = isMassChangeSelected(pickWorkbookCell(values, headers, ["Masseændring - skriv X", "Masseændring – skriv X", "masseændring_skriv_x", "masseaendring_skriv_x", "vælg_til_masseændring", "vaelg_til_masseaendring", "mass_change", "mass_change_selected"], [11]));
-      const existingNewDkk = parsePrice(pickWorkbookCellAt(values, headers, ["Ny pris DKK", "ny_pris_dkk", "price_dkk", "pris_dkk", "dkk"], [12]));
-      const calculatedDkk = manualDkk != null
-        ? manualDkk
-        : massSelected && massChangePct !== 0 && currentDkk != null
-            ? currentDkk * (1 + massChangePct)
-            : rowChangePct != null && rowChangePct !== 0 && currentDkk != null
-              ? currentDkk * (1 + rowChangePct)
-              : existingNewDkk != null && currentDkk != null && existingNewDkk !== currentDkk
-                ? existingNewDkk
-                : "";
-      const calculatedSek = typeof calculatedDkk === "number" && sekRate != null && sekRate !== 0
-        ? (calculatedDkk / sekRate) * 100
-        : null;
-      const calculatedEur = typeof calculatedDkk === "number" && eurRate != null && eurRate !== 0
-        ? calculatedDkk / eurRate
-        : null;
+      const costPriceDkk = parsePrice(pickWorkbookCell(values, headers, HEADER_ALIASES.cost_price_dkk, [3]));
+      const calculated = calculatePriceToolValues({
+        currentDkk,
+        manualDkk,
+        rowChangePct,
+        massChangeSelected: massSelected,
+        costPriceDkk,
+        settings,
+      });
       return {
         item_number: itemNumber,
         item_text_da: pickWorkbookCell(values, headers, HEADER_ALIASES.item_text_da, [2]),
-        cost_price_dkk: pickWorkbookCell(values, headers, HEADER_ALIASES.cost_price_dkk, [3]),
-        price_dkk: formatWorkbookNumber(calculatedDkk === "" ? null : calculatedDkk),
-        price_eur: formatWorkbookNumber(calculatedEur),
-        price_sek: formatWorkbookNumber(calculatedSek),
+        cost_price_dkk: formatWorkbookNumber(costPriceDkk),
+        price_dkk: formatWorkbookNumber(calculated.priceDkk),
+        price_eur: formatWorkbookNumber(calculated.priceEur),
+        price_sek: formatWorkbookNumber(calculated.priceSek),
       };
     })
     .filter((r) => {
@@ -438,7 +466,7 @@ export function parsePriceWorkbook(buffer: ArrayBuffer): ParseResult {
       return itemNumber !== "" && !/\s/.test(itemNumber);
     });
 
-  return { rows, parseErrors: [] };
+  return { rows, parseErrors, format: "price_tool", settings };
 }
 
 /* ---------------- Preview ---------------- */
@@ -468,7 +496,11 @@ function rawValue(r: CsvPriceRow, field: PriceField): string {
   return n == null ? "" : String(n);
 }
 
-export function buildPreview(rows: CsvPriceRow[], existing: PriceListItem[]): PreviewRow[] {
+export function buildPreview(
+  rows: CsvPriceRow[],
+  existing: PriceListItem[],
+  persistedItemNumbers: ReadonlySet<string> = new Set(existing.map((item) => item.item_number.trim())),
+): PreviewRow[] {
   const byKey = new Map<string, PriceListItem>();
   for (const x of existing) byKey.set(x.item_number.trim(), x);
 
@@ -482,7 +514,7 @@ export function buildPreview(rows: CsvPriceRow[], existing: PriceListItem[]): Pr
     if (!key) {
       out.push({
         rowIndex, bucket: "error", item_number: null,
-        raw, existing: null, changes: [],
+        raw, existing: null, existingPersisted: false, changes: [],
         errorMessage: "Mangler varenr.",
       });
       return;
@@ -490,7 +522,7 @@ export function buildPreview(rows: CsvPriceRow[], existing: PriceListItem[]): Pr
     if (seen.has(key)) {
       out.push({
         rowIndex, bucket: "error", item_number: key,
-        raw, existing: byKey.get(key) ?? null, changes: [],
+        raw, existing: byKey.get(key) ?? null, existingPersisted: persistedItemNumbers.has(key), changes: [],
         errorMessage: "Duplikeret varenr i CSV-filen.",
       });
       return;
@@ -503,7 +535,7 @@ export function buildPreview(rows: CsvPriceRow[], existing: PriceListItem[]): Pr
       if (v && parsePrice(v) == null) {
         out.push({
           rowIndex, bucket: "error", item_number: key,
-          raw, existing: byKey.get(key) ?? null, changes: [],
+          raw, existing: byKey.get(key) ?? null, existingPersisted: persistedItemNumbers.has(key), changes: [],
           errorMessage: `Ugyldig pris i ${f}: "${v}"`,
         });
         return;
@@ -512,7 +544,7 @@ export function buildPreview(rows: CsvPriceRow[], existing: PriceListItem[]): Pr
 
     const existingRow = byKey.get(key) ?? null;
     if (!existingRow) {
-      out.push({ rowIndex, bucket: "create", item_number: key, raw, existing: null, changes: [] });
+      out.push({ rowIndex, bucket: "create", item_number: key, raw, existing: null, existingPersisted: false, changes: [] });
       return;
     }
 
@@ -528,11 +560,24 @@ export function buildPreview(rows: CsvPriceRow[], existing: PriceListItem[]): Pr
       rowIndex,
       bucket: changes.length > 0 ? "update" : "skip",
       item_number: key,
-      raw, existing: existingRow, changes,
+      raw, existing: existingRow, existingPersisted: persistedItemNumbers.has(key), changes,
     });
   });
 
   return out;
+}
+
+export function mergeCanonicalPriceItems(
+  configuratorItems: PriceListItem[],
+  storedItems: PriceListItem[],
+): PriceListItem[] {
+  const byItemNumber = new Map<string, PriceListItem>();
+  for (const item of configuratorItems) byItemNumber.set(item.item_number.trim(), item);
+  for (const item of storedItems) {
+    if (item.renamed_from_item_number) byItemNumber.delete(item.renamed_from_item_number.trim());
+    byItemNumber.set(item.item_number.trim(), item);
+  }
+  return [...byItemNumber.values()];
 }
 
 /* ---------------- Run import ---------------- */
@@ -575,6 +620,9 @@ export async function runImport(
     const csvErrors = preview.filter((p) => p.bucket === "error");
     const totalErrors = rpcSummary.errors.length + csvErrors.length;
     const totalSkipped = rpcSummary.skipped + preview.filter((p) => p.bucket === "skip").length;
+    const failedItems = new Set(rpcSummary.errors.map((entry) => entry.item_number).filter(Boolean));
+    const canonicalCreated = preview.filter((row) => row.bucket === "create" && !failedItems.has(row.item_number)).length;
+    const canonicalUpdated = preview.filter((row) => row.bucket === "update" && !failedItems.has(row.item_number)).length;
 
     try {
       const { data: sess } = await supabase.auth.getUser();
@@ -599,7 +647,8 @@ export async function runImport(
     return {
       ok: true,
       summary: {
-        ...rpcSummary,
+        created: canonicalCreated,
+        updated: canonicalUpdated,
         skipped: totalSkipped,
         errors: [
           ...rpcSummary.errors,

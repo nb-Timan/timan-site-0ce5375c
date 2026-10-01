@@ -35,6 +35,7 @@ import {
   parsePriceCsv,
   parsePriceWorkbook,
   buildPreview,
+  mergeCanonicalPriceItems,
   runImport,
   updatePriceItem,
   type PriceListItem,
@@ -45,6 +46,12 @@ import {
   type ImportSummary,
   type CsvPriceRow,
 } from "@/lib/priceListService";
+import {
+  DEFAULT_PRICE_TOOL_SETTINGS,
+  PRICE_TOOL_MARKER,
+  calculatePriceToolValues,
+  priceToolFormulas,
+} from "@/lib/priceListWorkbook";
 import {
   buildConfiguratorSeed,
   buildVarenrGroupMap,
@@ -99,6 +106,7 @@ export default function BackendPriceListsPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewRow[] | null>(null);
   const [parseErrors, setParseErrors] = useState<string[]>([]);
+  const [importFormat, setImportFormat] = useState<"price_tool" | "standard" | null>(null);
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [logs, setLogs] = useState<PriceListImportLog[]>([]);
@@ -132,7 +140,7 @@ export default function BackendPriceListsPage() {
   );
 
   const exportItems = useMemo(
-    () => mergeSeedAndStoredItems(configuratorSeedItems, items),
+    () => mergeCanonicalPriceItems(configuratorSeedItems, items),
     [configuratorSeedItems, items],
   );
 
@@ -189,7 +197,7 @@ export default function BackendPriceListsPage() {
   if (!isBackend) return <Navigate to="/portal/backend" replace />;
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    setSummary(null); setPreview(null); setParseErrors([]);
+    setSummary(null); setPreview(null); setParseErrors([]); setImportFormat(null);
     const f = e.target.files?.[0];
     if (!f) return;
     setFileName(f.name);
@@ -199,15 +207,16 @@ export default function BackendPriceListsPage() {
         const parsed = /\.(xlsx|xls)$/i.test(f.name)
           ? parsePriceWorkbook(reader.result as ArrayBuffer)
           : parsePriceCsv(String(reader.result ?? ""));
-        const { rows, parseErrors: pe } = parsed;
+        const { rows, parseErrors: pe, format } = parsed;
         const scopedRows = filterCsvRowsByScope(rows, productScope, groupMap);
         setParseErrors(pe);
-        setPreview(buildPreview(scopedRows, items));
+        setImportFormat(format);
+        setPreview(buildPreview(scopedRows, exportItems, new Set(items.map((item) => item.item_number.trim()))));
         if (scopedRows.length !== rows.length) {
           toast.info(`${rows.length - scopedRows.length} rækker blev sprunget over pga. valgt maskine.`);
         }
       } catch (err) {
-        toast.error("Kunne ikke læse CSV: " + (err instanceof Error ? err.message : String(err)));
+        toast.error("Kunne ikke læse filen: " + (err instanceof Error ? err.message : String(err)));
       }
     };
     if (/\.(xlsx|xls)$/i.test(f.name)) {
@@ -230,7 +239,8 @@ export default function BackendPriceListsPage() {
         price_eur: s.price_eur == null ? "" : String(s.price_eur),
       }));
       setFileName("konfigurator-seed");
-      setPreview(buildPreview(rows, items));
+      setImportFormat("standard");
+      setPreview(buildPreview(rows, exportItems, new Set(items.map((item) => item.item_number.trim()))));
       setTab("import");
       toast.success(`${rows.length} varer hentet fra konfiguratoren – tjek forhåndsvisning.`);
     } catch (err) {
@@ -475,7 +485,9 @@ export default function BackendPriceListsPage() {
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_sek)}</td>
                         <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_eur)}</td>
                         <td className="px-3 py-2 text-xs text-slate-500">
-                          {new Date(i.updated_at).toLocaleDateString("da-DK")}
+                          {i.id.startsWith("configurator-")
+                            ? "Configurator-standard"
+                            : new Date(i.updated_at).toLocaleDateString("da-DK")}
                         </td>
                         <td className="px-3 py-2 text-right">
                           <button
@@ -512,7 +524,7 @@ export default function BackendPriceListsPage() {
                 kan de felter også opdateres i samme forhåndsvisning.
               </p>
               <p className="text-xs text-slate-600 mb-3">
-                Understøttede kolonner (case-insensitive): varenr / item_number, varetekst_da / item_text_da,
+                Portalens prislistværktøj genkendes automatisk. Standard CSV/XLSX understøtter kolonnerne (case-insensitive): varenr / item_number, varetekst_da / item_text_da,
                 kostpris_dkk / cost_price_dkk, pris_dkk / price_dkk, pris_sek / price_sek, pris_eur / price_eur. Tomme felter overskriver
                 aldrig eksisterende værdier, og ingen varer slettes.
               </p>
@@ -524,10 +536,15 @@ export default function BackendPriceListsPage() {
                     <FileText className="h-3.5 w-3.5" /> {fileName}
                   </span>
                 )}
+                {importFormat && (
+                  <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                    Format: {importFormat === "price_tool" ? "Timan prislistværktøj" : "Standard prisimport"}
+                  </span>
+                )}
               </div>
               {parseErrors.length > 0 && (
                 <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  <p className="font-semibold mb-1">CSV-parse advarsler:</p>
+                  <p className="font-semibold mb-1">Fil-advarsler:</p>
                   <ul className="list-disc pl-5 max-h-32 overflow-y-auto space-y-0.5">
                     {parseErrors.slice(0, 20).map((e, i) => <li key={i}>{e}</li>)}
                   </ul>
@@ -585,7 +602,9 @@ export default function BackendPriceListsPage() {
                             {p.bucket === "skip" && <span className="text-slate-500">Ingen ændringer.</span>}
                             {p.bucket === "update" && (
                               nonPriceChanges.length === 0
-                                ? <span className="text-slate-500">Kun prisændringer.</span>
+                                ? <span className="text-slate-500">
+                                    {p.existingPersisted ? "Kun prisændringer." : "Opdaterer eksisterende Configurator-vare."}
+                                  </span>
                                 : <ul className="space-y-0.5">
                                     {nonPriceChanges.map((c) => (
                                       <li key={c.field}>
@@ -612,7 +631,7 @@ export default function BackendPriceListsPage() {
 
                 <div className="mt-4 flex items-center justify-end gap-2">
                   <button
-                    onClick={() => { setPreview(null); setFileName(null); setParseErrors([]); }}
+                    onClick={() => { setPreview(null); setFileName(null); setParseErrors([]); setImportFormat(null); }}
                     className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
                   >
                     Annuller
@@ -653,7 +672,7 @@ export default function BackendPriceListsPage() {
                       </details>
                     )}
                     <button
-                      onClick={() => { setSummary(null); setPreview(null); setFileName(null); }}
+                      onClick={() => { setSummary(null); setPreview(null); setFileName(null); setImportFormat(null); }}
                       className="mt-3 inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-800"
                     >
                       <RotateCcw className="h-3.5 w-3.5" /> Importér en ny fil
@@ -805,7 +824,7 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
   ];
 
   const aoa: Array<Array<string | number>> = [
-    ["PRISLISTEVÆRKTØJ"],
+    [PRICE_TOOL_MARKER],
     ["1. INDSTILLINGER", "", "", "HURTIG INFO", "", "", "", "SÅDAN BRUGER DU ARKET"],
     ["SEK kurs (DKK pr. 100 SEK)", 66.5, "", "Skriv i de orange felter til venstre.", "", "", "", "1. Ret eventuelt SEK/EUR-kurs, standardrabat eller masseændring øverst."],
     ["EUR kurs (DKK pr. 1 EUR)", 7.45, "", "Ret én vare via Ny pris DKK eller Prisændring %.", "", "", "", "2. Ret én vare: skriv ønsket pris i Ny pris DKK eller skriv fx 1,00% i Prisændring %."],
@@ -850,16 +869,25 @@ export function buildPriceWorkbookSheet(rows: PriceWorkbookRow[]) {
     const row = rows[r - firstDataRow];
     const price = toWorkbookNumber(row.price_dkk);
     const cost = toWorkbookNumber(row.cost_price_dkk);
-    const currentDb = price != null && cost != null ? roundMoney(price * 0.75 - cost) : "";
-    const currentDg = typeof currentDb === "number" && price != null && price > 0 ? currentDb / price : "";
-    ws[`H${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: `IF(OR(E${r}="",D${r}=""),"",ROUND(E${r}*(1-$B$5)-D${r},2))` };
-    ws[`I${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: `IF(OR(E${r}="",E${r}=0,H${r}=""),"",H${r}/E${r})` };
+    const calculated = calculatePriceToolValues({
+      currentDkk: price,
+      manualDkk: null,
+      rowChangePct: 0,
+      massChangeSelected: false,
+      costPriceDkk: cost,
+      settings: DEFAULT_PRICE_TOOL_SETTINGS,
+    });
+    const currentDb = calculated.contributionMarginDkk ?? "";
+    const currentDg = calculated.contributionMarginPct ?? "";
+    const formulas = priceToolFormulas(r);
+    ws[`H${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: formulas.currentDb };
+    ws[`I${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: formulas.currentDg };
     ws[`K${r}`] = { t: "n", v: 0 };
-    ws[`M${r}`] = { t: price == null ? "s" : "n", v: price ?? "", f: `IF(ISNUMBER(J${r}),J${r},IF(LOWER(TRIM(L${r}))="x",ROUND(E${r}*(1+$B$6),2),IF(ISNUMBER(K${r}),ROUND(E${r}*(1+K${r}),2),E${r})))` };
-    ws[`N${r}`] = { t: price == null ? "s" : "n", v: price == null ? "" : roundMoney((price / 66.5) * 100), f: `IF(M${r}="","",ROUND(M${r}/$B$3*100,2))` };
-    ws[`O${r}`] = { t: price == null ? "s" : "n", v: price == null ? "" : roundMoney(price / 7.45), f: `IF(M${r}="","",ROUND(M${r}/$B$4,2))` };
-    ws[`P${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: `IF(OR(M${r}="",D${r}=""),"",ROUND(M${r}*(1-$B$5)-D${r},2))` };
-    ws[`Q${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: `IF(OR(M${r}="",M${r}=0,P${r}=""),"",P${r}/M${r})` };
+    ws[`M${r}`] = { t: calculated.priceDkk == null ? "s" : "n", v: calculated.priceDkk ?? "", f: formulas.priceDkk };
+    ws[`N${r}`] = { t: calculated.priceSek == null ? "s" : "n", v: calculated.priceSek ?? "", f: formulas.priceSek };
+    ws[`O${r}`] = { t: calculated.priceEur == null ? "s" : "n", v: calculated.priceEur ?? "", f: formulas.priceEur };
+    ws[`P${r}`] = { t: typeof currentDb === "number" ? "n" : "s", v: currentDb, f: formulas.newDb };
+    ws[`Q${r}`] = { t: typeof currentDg === "number" ? "n" : "s", v: currentDg, f: formulas.newDg };
   }
 
   const border = {
@@ -1090,20 +1118,6 @@ function toWorkbookNumber(value: number | string | null | undefined): number | n
     : trimmed.replace(/,/g, "");
   const n = Number(normalized);
   return Number.isFinite(n) ? n : null;
-}
-
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function mergeSeedAndStoredItems(seedItems: PriceListItem[], storedItems: PriceListItem[]): PriceListItem[] {
-  const byItemNumber = new Map<string, PriceListItem>();
-  for (const item of seedItems) byItemNumber.set(item.item_number, item);
-  for (const item of storedItems) {
-    if (item.renamed_from_item_number) byItemNumber.delete(item.renamed_from_item_number);
-  }
-  for (const item of storedItems) byItemNumber.set(item.item_number, item);
-  return [...byItemNumber.values()];
 }
 
 function filterItemsByScope(
