@@ -132,6 +132,7 @@ export function evaluateSupportConfidence(input: {
   productId?: string | null;
   citationCount?: number;
   staleBlockCount?: number;
+  unresolvedConflict?: boolean;
 }): ConfidenceEvaluation {
   const { candidates, config } = input;
   if (isPromptInjectionAttempt(input.question)) {
@@ -160,7 +161,8 @@ export function evaluateSupportConfidence(input: {
     };
   }
 
-  const conflict = detectSourceConflict(candidates, Number(config.confidence_conflict_score_tolerance));
+  const conflict = input.unresolvedConflict === true
+    || detectSourceConflict(candidates, Number(config.confidence_conflict_score_tolerance));
   if (conflict) {
     return {
       level: 'LOW', score: 0.25, reason: 'MATERIAL_SOURCE_CONFLICT',

@@ -9,6 +9,16 @@ import {
   sha256Hex,
 } from '../_shared/supportKnowledgeIngestion.ts';
 import {
+  SUPPORT_KNOWLEDGE_QUALITY_VERSION,
+  assessKnowledgeQuality,
+  canonicalTopicKey,
+  cleanWordpressText,
+  compareKnowledgeDocuments,
+  detectKnowledgeFactConflicts,
+  type KnowledgeQualityAssessment,
+  type SimilarityDocument,
+} from '../_shared/supportKnowledgeQuality.ts';
+import {
   canonicalTimanUrl,
   timanLanguageFromUrl,
   timanPageCategory,
@@ -42,6 +52,8 @@ type DiscoveredPage = {
   modifiedAt: string | null;
   contentHash: string;
   pageType: string;
+  topicKey: string;
+  quality: KnowledgeQualityAssessment;
 };
 type KnowledgeSourceRow = {
   id: string;
@@ -52,6 +64,18 @@ type KnowledgeSourceRow = {
   normalized_content_hash: string | null;
   lifecycle_status: string;
   source_type: string;
+  source_language: string;
+  original_url: string | null;
+  topic_key: string | null;
+  authority_tier: number | null;
+};
+
+type CorpusSource = SimilarityDocument & {
+  sourceId: string;
+  knowledgeItemId: string;
+  lifecycleStatus: string;
+  authorityTier: number;
+  normalizedHash: string | null;
 };
 
 function json(body: unknown, status = 200) {
@@ -72,7 +96,7 @@ function plainText(html: string): string {
   for (const node of document.querySelectorAll('script,style,noscript,svg,form,iframe')) node.remove();
   for (const node of document.querySelectorAll('br,p,li,h1,h2,h3,h4,h5,h6,tr,th,td,caption,figcaption,dt,dd,blockquote,section')) node.append('\n');
   const text = document.querySelector('main')?.textContent || '';
-  return normalizeExtractedText(text.replace(/\[\/?[a-z][^\]]*\]/gi, ' '));
+  return normalizeExtractedText(cleanWordpressText(text.replace(/\[\/?[a-z][^\]]*\]/gi, ' ')));
 }
 
 async function resolveActor(service: ServiceClient, authUser: { id: string; email?: string | null }) {
@@ -165,18 +189,24 @@ async function discoverPages(languages: string[], pageTypes: string[], maxPages:
       const title = plainText(row.title?.rendered || '').slice(0, 500);
       const body = plainText(row.content?.rendered || row.excerpt?.rendered || '');
       const content = normalizeExtractedText([title, body].filter(Boolean).join('\n\n')).slice(0, 150_000);
-      if (!title || content.length < 80) continue;
+      if (!title) continue;
+      const category = timanPageCategory(canonicalUrl);
+      const productRelations = timanProductRelations(`${canonicalUrl} ${title} ${content.slice(0, 4000)}`);
+      const topicKey = canonicalTopicKey(canonicalUrl, category, productRelations);
+      const quality = assessKnowledgeQuality({ text: content, language, canonicalUrl });
       const key = `${language}:${canonicalUrl}`;
       discovered.set(key, {
         canonicalUrl,
         title,
         content,
         language,
-        category: timanPageCategory(canonicalUrl),
-        productRelations: timanProductRelations(`${canonicalUrl} ${title} ${content.slice(0, 4000)}`),
+        category,
+        productRelations,
         modifiedAt: row.modified ? new Date(row.modified).toISOString() : null,
         contentHash: await sha256Hex(content),
         pageType: row.type || feed.pageType,
+        topicKey,
+        quality,
       });
       if (discovered.size >= maxPages) return { pages: [...discovered.values()], feeds };
     }
@@ -206,18 +236,51 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
     const effectiveLanguages = secondaryDue ? enabledLanguages : priorityLanguages;
     const effectiveLanguageSet = new Set(effectiveLanguages);
     const { pages, feeds } = await discoverPages(effectiveLanguages, config.wordpress_page_types, config.max_pages_per_run);
-    const [{ data: registryRows, error: registryError }, { data: sourceRows, error: sourceError }] = await Promise.all([
+    const [
+      { data: registryRows, error: registryError },
+      { data: sourceRows, error: sourceError },
+      { data: corpusRows, error: corpusError },
+    ] = await Promise.all([
       service.from('support_controlled_source_registry').select('*').eq('domain', 'timan.dk'),
       service.from('support_knowledge_sources')
-        .select('id,knowledge_item_id,revision,is_current,created_at,normalized_content_hash,lifecycle_status,source_type')
+        .select('id,knowledge_item_id,revision,is_current,created_at,normalized_content_hash,lifecycle_status,source_type,source_language,original_url,topic_key,authority_tier')
         .order('revision', { ascending: false })
         .order('created_at', { ascending: false }),
+      service.from('support_ingestion_runs')
+        .select('knowledge_source_id,extracted_text,detected_sections,created_at,source:support_knowledge_sources!inner(id,knowledge_item_id,source_language,original_url,topic_key,authority_tier,lifecycle_status,normalized_content_hash,knowledge_item:support_knowledge_items!inner(title,status))')
+        .eq('status', 'READY_FOR_REVIEW')
+        .not('extracted_text', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1500),
     ]);
-    if (registryError || sourceError) throw registryError || sourceError;
+    if (registryError || sourceError || corpusError) throw registryError || sourceError || corpusError;
     const registryByKey = new Map((registryRows || []).map((row) => [`${row.language}:${row.canonical_url}`, row]));
     const latestSourceByItem = new Map<string, KnowledgeSourceRow>();
     for (const source of (sourceRows || []) as KnowledgeSourceRow[]) {
       if (!latestSourceByItem.has(source.knowledge_item_id)) latestSourceByItem.set(source.knowledge_item_id, source);
+    }
+    const corpusBySource = new Map<string, CorpusSource>();
+    for (const row of (corpusRows || []) as Array<Record<string, unknown>>) {
+      const source = row.source as Record<string, unknown> | null;
+      const item = source?.knowledge_item as Record<string, unknown> | null;
+      const sourceId = String(source?.id || '');
+      if (!sourceId || corpusBySource.has(sourceId)) continue;
+      corpusBySource.set(sourceId, {
+        id: sourceId,
+        sourceId,
+        knowledgeItemId: String(source?.knowledge_item_id || ''),
+        text: String(row.extracted_text || ''),
+        title: String(item?.title || ''),
+        headings: ((row.detected_sections || []) as Array<{ heading?: string }>).map((entry) => entry.heading || '').filter(Boolean),
+        language: String(source?.source_language || ''),
+        canonicalUrl: source?.original_url ? String(source.original_url) : null,
+        topicKey: source?.topic_key ? String(source.topic_key) : null,
+        productRelations: [],
+        lifecycleStatus: String(source?.lifecycle_status || ''),
+        authorityTier: Number(source?.authority_tier || 4),
+        normalizedHash: source?.normalized_content_hash ? String(source.normalized_content_hash) : null,
+        similarityCacheKey: source?.normalized_content_hash ? String(source.normalized_content_hash) : sourceId,
+      });
     }
 
     const itemInserts: Record<string, unknown>[] = [];
@@ -226,11 +289,20 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
     const chunkInserts: Record<string, unknown>[] = [];
     const indexInserts: Record<string, unknown>[] = [];
     const registryUpserts: Record<string, unknown>[] = [];
+    const qualityInserts: Record<string, unknown>[] = [];
+    const topicUpserts: Record<string, unknown>[] = [];
+    const topicVariantPending: Array<{ sourceId: string; knowledgeItemId: string; topicKey: string; language: string; canonicalUrl: string }> = [];
+    const duplicateUpserts: Record<string, unknown>[] = [];
+    const conflictUpserts: Record<string, unknown>[] = [];
+    const qualityEventInserts: Record<string, unknown>[] = [];
     const seen = new Set<string>();
     const now = new Date().toISOString();
     let createdCount = 0;
     let changedCount = 0;
     let unchangedCount = 0;
+    let cleanCount = 0;
+    let needsReviewCount = 0;
+    let rejectedCount = 0;
     const languageCounts: Record<string, number> = {};
 
     for (const page of pages) {
@@ -302,7 +374,31 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
       const revision = Number(latest?.revision || 0) + 1;
       const sourceId = crypto.randomUUID();
       const ingestionRunId = crypto.randomUUID();
-      const chunks = chunkKnowledgePages([{ page: 1, text: page.content }]);
+      const exactDuplicate = [...corpusBySource.values()].find((candidate) => candidate.normalizedHash === page.contentHash
+        && candidate.knowledgeItemId !== knowledgeItemId);
+      let nearest: { source: CorpusSource; similarity: ReturnType<typeof compareKnowledgeDocuments> } | null = null;
+      for (const candidate of corpusBySource.values()) {
+        if (candidate.knowledgeItemId === knowledgeItemId || candidate.language !== page.language || exactDuplicate) continue;
+        const similarity = compareKnowledgeDocuments({
+          id: sourceId, text: page.content, title: page.title, language: page.language,
+          canonicalUrl: page.canonicalUrl, topicKey: page.topicKey, productRelations: page.productRelations,
+          similarityCacheKey: page.contentHash,
+        }, candidate);
+        if (!nearest || similarity.score > nearest.similarity.score) nearest = { source: candidate, similarity };
+      }
+      const isNearDuplicate = !!nearest && nearest.similarity.score >= 0.78;
+      const quality = assessKnowledgeQuality({
+        text: page.content,
+        language: page.language,
+        canonicalUrl: page.canonicalUrl,
+        duplicate: !!exactDuplicate,
+        nearDuplicate: isNearDuplicate,
+      });
+      const reviewable = quality.status === 'READY_FOR_REVIEW' || quality.status === 'NEAR_DUPLICATE';
+      const chunks = reviewable ? chunkKnowledgePages([{ page: 1, text: page.content }]) : [];
+      if (quality.status === 'READY_FOR_REVIEW') cleanCount += 1;
+      else if (quality.status === 'NEAR_DUPLICATE') needsReviewCount += 1;
+      else rejectedCount += 1;
       if (!existing) {
         createdCount += 1;
         itemInserts.push({
@@ -315,7 +411,7 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
           keywords: page.productRelations,
           source_reference: page.canonicalUrl,
           language: page.language,
-          status: 'REVIEW',
+          status: reviewable ? 'REVIEW' : 'DRAFT',
           access_scope: 'PORTAL',
           version_number: 1,
           source_version: page.modifiedAt,
@@ -340,15 +436,22 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
         uploaded_by: actorId,
         supersedes_source_id: latest?.id || null,
         is_current: false,
-        ingestion_status: 'READY_FOR_REVIEW',
-        lifecycle_status: 'REVIEW',
-        reviewed_by_user_id: actorId,
-        reviewed_at: now,
+        ingestion_status: reviewable ? 'READY_FOR_REVIEW' : 'FAILED',
+        ...(reviewable ? { lifecycle_status: 'REVIEW' } : { lifecycle_status: 'DRAFT' }),
+        reviewed_by_user_id: reviewable ? actorId : null,
+        reviewed_at: reviewable ? now : null,
+        quality_status: quality.status,
+        quality_score: quality.score,
+        quality_reasons: quality.reasons,
+        topic_key: page.topicKey,
+        authority_tier: 2,
+        authority_kind: 'TIMAN_DK',
+        duplicate_of_source_id: exactDuplicate?.sourceId || null,
       });
       runInserts.push({
         id: ingestionRunId,
         knowledge_source_id: sourceId,
-        status: 'READY_FOR_REVIEW',
+        status: reviewable ? 'READY_FOR_REVIEW' : 'FAILED',
         run_reason: 'TIMAN_DK_SYNC',
         processor_version: SUPPORT_PROCESSOR_VERSION,
         processor_config: { target_words: SUPPORT_CHUNK_TARGET_WORDS, overlap_words: SUPPORT_CHUNK_OVERLAP_WORDS, source: 'WORDPRESS_REST' },
@@ -360,6 +463,9 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
         chunk_count: chunks.length,
         extracted_text: page.content,
         detected_sections: [],
+        warnings: quality.reasons,
+        error_code: reviewable ? null : quality.status,
+        error_message_sanitized: reviewable ? null : 'Content did not pass the Knowledge Quality gate.',
         created_by: actorId,
       });
       for (const chunk of chunks) {
@@ -385,7 +491,7 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
         knowledge_source_id: sourceId,
         ingestion_run_id: ingestionRunId,
         status: 'NOT_INDEXED',
-        status_reason: 'AWAITING_BACKEND_APPROVAL',
+        status_reason: reviewable ? 'AWAITING_BACKEND_APPROVAL' : `QUALITY_GATE_${quality.status}`,
         processor_version: SUPPORT_PROCESSOR_VERSION,
         indexed_content_hash: null,
       });
@@ -404,10 +510,74 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
         changed_at: now,
         previous_content_hash: existing?.normalized_content_hash || null,
         normalized_content_hash: page.contentHash,
-        approval_state: 'REVIEW',
-        source_state: existing ? 'CHANGED' : 'ACTIVE',
+        approval_state: reviewable ? 'REVIEW' : 'DRAFT',
+        source_state: reviewable ? (existing ? 'CHANGED' : 'ACTIVE') : 'ERROR',
         last_http_status: 200,
         discovery_method: 'WORDPRESS_REST',
+      });
+      qualityInserts.push({
+        knowledge_source_id: sourceId,
+        ingestion_run_id: ingestionRunId,
+        assessment_version: SUPPORT_KNOWLEDGE_QUALITY_VERSION,
+        status: quality.status,
+        score: quality.score,
+        reasons: quality.reasons,
+        markup_residue_count: quality.markupResidueCount,
+        meaningful_character_count: quality.meaningfulCharacterCount,
+        normalized_content_hash: page.contentHash,
+        canonical_url: page.canonicalUrl,
+        source_type: 'TIMAN_DK_REGISTRY',
+        language: page.language,
+        metadata: { previous_hash: existing?.normalized_content_hash || null, processor_version: SUPPORT_PROCESSOR_VERSION },
+      });
+      topicUpserts.push({ topic_key: page.topicKey, category: page.category, product_relations: page.productRelations });
+      topicVariantPending.push({ sourceId, knowledgeItemId, topicKey: page.topicKey, language: page.language, canonicalUrl: page.canonicalUrl });
+      qualityEventInserts.push({
+        event_type: 'QUALITY_ASSESSED', knowledge_source_id: sourceId, actor_user_id: actorId,
+        metadata: { status: quality.status, score: quality.score, reasons: quality.reasons },
+      });
+      const duplicateTarget = exactDuplicate || (isNearDuplicate ? nearest?.source : null);
+      if (duplicateTarget) {
+        const pair = [sourceId, duplicateTarget.sourceId].sort();
+        const similarity = exactDuplicate
+          ? { score: 1, methods: ['EXACT_HASH'], matchingHeadings: [], sharedRelations: [] }
+          : nearest!.similarity;
+        duplicateUpserts.push({
+          cluster_key: `${pair[0]}:${pair[1]}`,
+          source_a_id: pair[0], source_b_id: pair[1], language: page.language,
+          similarity_score: similarity.score, detection_methods: similarity.methods,
+          matching_headings: similarity.matchingHeadings, shared_relations: similarity.sharedRelations,
+        });
+      }
+      if (!exactDuplicate && nearest && (nearest.source.topicKey === page.topicKey || nearest.similarity.score >= 0.65)) {
+        const conflicts = detectKnowledgeFactConflicts(page.content, nearest.source.text).filter((entry) => !entry.contextual);
+        for (const conflict of conflicts.slice(0, 20)) {
+          const pair = [sourceId, nearest.source.sourceId].sort();
+          conflictUpserts.push({
+            conflict_key: `${pair[0]}:${pair[1]}:${conflict.left.subject}:${conflict.left.attribute}:${conflict.left.value}:${conflict.right.value}`,
+            subject: conflict.left.subject, attribute: conflict.left.attribute,
+            source_a_id: sourceId, source_b_id: nearest.source.sourceId,
+            value_a: conflict.left.value, value_b: conflict.right.value,
+            context_a: conflict.left.context, context_b: conflict.right.context,
+            language: page.language,
+          });
+        }
+      }
+      corpusBySource.set(sourceId, {
+        id: sourceId,
+        sourceId,
+        knowledgeItemId,
+        text: page.content,
+        title: page.title,
+        headings: [],
+        language: page.language,
+        canonicalUrl: page.canonicalUrl,
+        topicKey: page.topicKey,
+        productRelations: page.productRelations,
+        lifecycleStatus: reviewable ? 'REVIEW' : 'DRAFT',
+        authorityTier: 2,
+        normalizedHash: page.contentHash,
+        similarityCacheKey: page.contentHash,
       });
     }
 
@@ -424,6 +594,31 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
     if (runInserts.length) { const { error } = await service.from('support_ingestion_runs').insert(runInserts); if (error) throw error; }
     if (chunkInserts.length) { const { error } = await service.from('support_knowledge_chunks').insert(chunkInserts); if (error) throw error; }
     if (indexInserts.length) { const { error } = await service.from('support_knowledge_index_states').insert(indexInserts); if (error) throw error; }
+    if (qualityInserts.length) { const { error } = await service.from('support_knowledge_quality_assessments').upsert(qualityInserts, { onConflict: 'knowledge_source_id,assessment_version' }); if (error) throw error; }
+    if (topicUpserts.length) {
+      const uniqueTopics = [...new Map(topicUpserts.map((topic) => [String(topic.topic_key), topic])).values()];
+      const { error } = await service.from('support_knowledge_topics').upsert(uniqueTopics, { onConflict: 'topic_key' });
+      if (error) throw error;
+      const { data: topics, error: topicError } = await service.from('support_knowledge_topics')
+        .select('id,topic_key').in('topic_key', uniqueTopics.map((topic) => String(topic.topic_key)));
+      if (topicError) throw topicError;
+      const topicIds = new Map((topics || []).map((topic) => [topic.topic_key, topic.id]));
+      const variants = topicVariantPending.flatMap((variant) => {
+        const topicId = topicIds.get(variant.topicKey);
+        return topicId ? [{
+          topic_id: topicId, knowledge_item_id: variant.knowledgeItemId, knowledge_source_id: variant.sourceId,
+          language: variant.language, canonical_url: variant.canonicalUrl,
+        }] : [];
+      });
+      if (variants.length) {
+        const { error } = await service.from('support_knowledge_topic_variants')
+          .upsert(variants, { onConflict: 'topic_id,knowledge_item_id,language' });
+        if (error) throw error;
+      }
+    }
+    if (duplicateUpserts.length) { const { error } = await service.from('support_knowledge_duplicate_clusters').upsert(duplicateUpserts, { onConflict: 'cluster_key' }); if (error) throw error; }
+    if (conflictUpserts.length) { const { error } = await service.from('support_knowledge_conflicts').upsert(conflictUpserts, { onConflict: 'conflict_key' }); if (error) throw error; }
+    if (qualityEventInserts.length) { const { error } = await service.from('support_knowledge_quality_events').insert(qualityEventInserts); if (error) throw error; }
     if (registryUpserts.length) {
       const { error } = await service.from('support_controlled_source_registry').upsert(registryUpserts, { onConflict: 'canonical_url,language' });
       if (error) throw error;
@@ -451,6 +646,11 @@ async function runSync(service: ServiceClient, actorId: string | null, triggerTy
       unchanged_count: unchangedCount,
       missing_count: missingRows.length,
       failed_count: 0,
+      quality_clean_count: cleanCount,
+      quality_needs_review_count: needsReviewCount,
+      quality_rejected_count: rejectedCount,
+      near_duplicate_count: duplicateUpserts.filter((row) => (row.detection_methods as string[]).includes('NORMALIZED_TEXT')).length,
+      potential_conflict_count: conflictUpserts.length,
       language_counts: languageCounts,
       discovery_metadata: {
         method: 'WORDPRESS_REST',

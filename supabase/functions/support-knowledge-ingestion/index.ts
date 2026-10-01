@@ -13,6 +13,12 @@ import {
   validateKnowledgeFile,
   type ExtractedPage,
 } from '../_shared/supportKnowledgeIngestion.ts';
+import {
+  SUPPORT_KNOWLEDGE_QUALITY_VERSION,
+  assessKnowledgeQuality,
+  canonicalTopicKey,
+  compareKnowledgeDocuments,
+} from '../_shared/supportKnowledgeQuality.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,7 +42,7 @@ function publicError(reason: unknown): { code: string; message: string } {
     INVALID_FILE: 'The selected file is invalid.',
     UNSUPPORTED_FORMAT: 'Only PDF and plain-text files are supported.',
     EMPTY_CONTENT: 'The selected source contains no usable content.',
-    DUPLICATE_SOURCE: 'This source has already been uploaded to the knowledge item.',
+    DUPLICATE_SOURCE: 'A possible duplicate source already exists.',
     OCR_REQUIRED: 'The PDF contains too little text and requires OCR before ingestion.',
     STORAGE_ERROR: 'The private source file could not be stored.',
   };
@@ -105,8 +111,76 @@ async function processRun(service: ServiceClient, sourceId: string, runId: strin
     if (!normalized) throw new Error('EMPTY_CONTENT');
     const normalizedHash = await sha256Hex(normalized);
     const sections = detectKnowledgeSections(pages);
-    const chunks = chunkKnowledgePages(pages);
     const item = source.knowledge_item;
+    const { data: exactDuplicate } = await service.from('support_knowledge_sources')
+      .select('id,knowledge_item_id,revision,source_language,lifecycle_status')
+      .eq('normalized_content_hash', normalizedHash).neq('id', source.id)
+      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+    let nearDuplicate: { sourceId: string; score: number; methods: string[]; matchingHeadings: string[] } | null = null;
+    if (!exactDuplicate) {
+      const { data: corpus } = await service.from('support_ingestion_runs')
+        .select('extracted_text,detected_sections,source:support_knowledge_sources!inner(id,knowledge_item_id,source_language,lifecycle_status,topic_key)')
+        .eq('status', 'READY_FOR_REVIEW').not('extracted_text', 'is', null)
+        .limit(500);
+      for (const row of (corpus || []) as Array<Record<string, unknown>>) {
+        const candidate = row.source as Record<string, unknown> | null;
+        if (!candidate?.id || candidate.id === source.id || candidate.source_language !== source.source_language) continue;
+        const similarity = compareKnowledgeDocuments({
+          id: source.id, text: normalized, title: item.title, language: source.source_language,
+          topicKey: canonicalTopicKey('', item.category || '', item.keywords || []),
+        }, {
+          id: String(candidate.id), text: String(row.extracted_text || ''),
+          headings: ((row.detected_sections || []) as Array<{ heading?: string }>).map((entry) => entry.heading || '').filter(Boolean),
+          language: String(candidate.source_language || ''), topicKey: candidate.topic_key ? String(candidate.topic_key) : null,
+        });
+        if (similarity.score >= 0.78 && (!nearDuplicate || similarity.score > nearDuplicate.score)) {
+          nearDuplicate = { sourceId: String(candidate.id), score: similarity.score, methods: similarity.methods, matchingHeadings: similarity.matchingHeadings };
+        }
+      }
+    }
+    const quality = assessKnowledgeQuality({
+      text: normalized,
+      language: source.source_language,
+      duplicate: !!exactDuplicate,
+      nearDuplicate: !!nearDuplicate,
+    });
+    const reviewable = quality.status === 'READY_FOR_REVIEW' || quality.status === 'NEAR_DUPLICATE';
+    const chunks = reviewable ? chunkKnowledgePages(pages) : [];
+    if (!reviewable) {
+      await service.from('support_knowledge_sources').update({
+        normalized_content_hash: normalizedHash,
+        content_equivalent_source_id: exactDuplicate?.id || null,
+        duplicate_of_source_id: exactDuplicate?.id || null,
+        ingestion_status: 'FAILED',
+        quality_status: quality.status,
+        quality_score: quality.score,
+        quality_reasons: quality.reasons,
+      }).eq('id', sourceId);
+      await service.from('support_ingestion_runs').update({
+        status: 'FAILED', completed_at: new Date().toISOString(), extraction_method: method,
+        page_count: pages.length, extracted_character_count: normalized.length, chunk_count: 0,
+        extracted_text: normalized, detected_sections: sections, warnings: quality.reasons,
+        error_code: quality.status, error_message_sanitized: 'Content did not pass the Knowledge Quality gate.',
+      }).eq('id', runId);
+      await service.from('support_knowledge_quality_assessments').upsert({
+        knowledge_source_id: sourceId, ingestion_run_id: runId,
+        assessment_version: SUPPORT_KNOWLEDGE_QUALITY_VERSION, status: quality.status,
+        score: quality.score, reasons: quality.reasons,
+        markup_residue_count: quality.markupResidueCount,
+        meaningful_character_count: quality.meaningfulCharacterCount,
+        normalized_content_hash: normalizedHash, source_type: source.source_type,
+        language: source.source_language,
+      }, { onConflict: 'knowledge_source_id,assessment_version' });
+      await recordEvent(service, {
+        knowledge_source_id: sourceId, ingestion_run_id: runId, event_type: 'PROCESSING_FAILED',
+        source_type: source.source_type, duration_ms: Date.now() - started,
+        error_code: quality.status, actor_user_id: actorId,
+      });
+      if (governanceJobId) await service.from('support_knowledge_governance_jobs').update({
+        status: 'FAILED', completed_at: new Date().toISOString(), error_code: quality.status,
+      }).eq('id', governanceJobId);
+      return;
+    }
 
     const chunkRows = [];
     for (const chunk of chunks) {
@@ -133,18 +207,13 @@ async function processRun(service: ServiceClient, sourceId: string, runId: strin
       const { error: chunkError } = await service.from('support_knowledge_chunks').insert(chunkRows);
       if (chunkError) throw chunkError;
     }
-    const { data: equivalent } = await service
-      .from('support_knowledge_sources')
-      .select('id')
-      .eq('knowledge_item_id', source.knowledge_item_id)
-      .eq('normalized_content_hash', normalizedHash)
-      .neq('id', source.id)
-      .limit(1)
-      .maybeSingle();
     await service.from('support_knowledge_sources').update({
       normalized_content_hash: normalizedHash,
-      content_equivalent_source_id: equivalent?.id || null,
+      content_equivalent_source_id: exactDuplicate?.id || null,
       ingestion_status: 'READY_FOR_REVIEW',
+      quality_status: quality.status,
+      quality_score: quality.score,
+      quality_reasons: quality.reasons,
     }).eq('id', sourceId);
     await service.from('support_ingestion_runs').update({
       status: 'READY_FOR_REVIEW',
@@ -155,8 +224,25 @@ async function processRun(service: ServiceClient, sourceId: string, runId: strin
       chunk_count: chunkRows.length,
       extracted_text: normalized,
       detected_sections: sections,
-      warnings: equivalent?.id ? ['CONTENT_EQUIVALENT_SOURCE'] : [],
+      warnings: quality.reasons,
     }).eq('id', runId);
+    await service.from('support_knowledge_quality_assessments').upsert({
+      knowledge_source_id: sourceId, ingestion_run_id: runId,
+      assessment_version: SUPPORT_KNOWLEDGE_QUALITY_VERSION, status: quality.status,
+      score: quality.score, reasons: quality.reasons,
+      markup_residue_count: quality.markupResidueCount,
+      meaningful_character_count: quality.meaningfulCharacterCount,
+      normalized_content_hash: normalizedHash, source_type: source.source_type,
+      language: source.source_language,
+    }, { onConflict: 'knowledge_source_id,assessment_version' });
+    if (nearDuplicate) {
+      const pair = [sourceId, nearDuplicate.sourceId].sort();
+      await service.from('support_knowledge_duplicate_clusters').upsert({
+        cluster_key: `${pair[0]}:${pair[1]}`, source_a_id: pair[0], source_b_id: pair[1],
+        language: source.source_language, similarity_score: nearDuplicate.score,
+        detection_methods: nearDuplicate.methods, matching_headings: nearDuplicate.matchingHeadings,
+      }, { onConflict: 'cluster_key' });
+    }
     const { data: priorIndexState } = await service.from('support_knowledge_index_states')
       .select('status').eq('knowledge_source_id', sourceId).maybeSingle();
     const indexWasBuilt = priorIndexState?.status === 'INDEXED' || priorIndexState?.status === 'INDEXING';
@@ -210,6 +296,7 @@ async function upload(request: Request, service: ServiceClient, actorId: string 
   const file = form.get('file');
   const knowledgeItemId = String(form.get('knowledge_item_id') || '');
   const sourceLanguage = String(form.get('source_language') || 'da').toLowerCase();
+  const duplicateDecision = String(form.get('duplicate_decision') || '');
   if (!(file instanceof File) || !/^[0-9a-f-]{36}$/i.test(knowledgeItemId)) return response({ error: 'INVALID_FILE' }, 400);
   const bytes = new Uint8Array(await file.arrayBuffer());
   let validated;
@@ -217,8 +304,19 @@ async function upload(request: Request, service: ServiceClient, actorId: string 
   catch (reason) { const safe = publicError(reason); return response({ error: safe.code, message: safe.message }, 400); }
   const rawHash = await sha256Hex(bytes);
   const { data: duplicate } = await service.from('support_knowledge_sources')
-    .select('id, revision').eq('knowledge_item_id', knowledgeItemId).eq('raw_sha256', rawHash).limit(1).maybeSingle();
-  if (duplicate) return response({ error: 'DUPLICATE_SOURCE', duplicate_source_id: duplicate.id, revision: duplicate.revision }, 409);
+    .select('id,knowledge_item_id,revision,lifecycle_status,knowledge_item:support_knowledge_items(title)')
+    .eq('raw_sha256', rawHash).order('created_at', { ascending: false }).limit(1).maybeSingle();
+  if (duplicate && duplicateDecision !== 'CONTINUE_DISTINCT' && duplicateDecision !== 'NEW_REVISION') {
+    return response({
+      error: 'DUPLICATE_SOURCE', message: 'Mulig dublet fundet',
+      duplicate_source_id: duplicate.id, existing_knowledge_item_id: duplicate.knowledge_item_id,
+      existing_knowledge_item_title: duplicate.knowledge_item?.title || null,
+      revision: duplicate.revision, current_status: duplicate.lifecycle_status, similarity: 1,
+    }, 409);
+  }
+  if (duplicate && duplicate.knowledge_item_id === knowledgeItemId) {
+    return response({ error: 'DUPLICATE_SOURCE', message: 'Unchanged content already exists for this canonical Knowledge Item.', duplicate_source_id: duplicate.id, revision: duplicate.revision }, 409);
+  }
   const { data: item } = await service.from('support_knowledge_items').select('id').eq('id', knowledgeItemId).maybeSingle();
   if (!item) return response({ error: 'INVALID_KNOWLEDGE_ITEM' }, 404);
   const { data: latest } = await service.from('support_knowledge_sources')

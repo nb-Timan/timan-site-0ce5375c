@@ -25,6 +25,7 @@ import {
 import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
 import { KnowledgeSourcesPanel } from '@/components/support/KnowledgeSourcesPanel';
+import { KnowledgeQualityPanel } from '@/components/support/KnowledgeQualityPanel';
 import { SupportEvaluationPanel } from '@/components/support/SupportEvaluationPanel';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -593,6 +594,7 @@ function KnowledgePanel({ externalDraft, clearExternalDraft }: { externalDraft: 
   const closeEditor = () => { setEditing(null); setCreating(false); clearExternalDraft(); };
   return (
     <div className="space-y-4">
+      <KnowledgeQualityPanel />
       <div className="flex flex-col gap-3 rounded-md border border-slate-200 bg-white p-4 lg:flex-row lg:items-end">
         <div className="grid flex-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <FilterInput label={copy.search} value={filters.search || ''} onChange={(search) => setFilters({ ...filters, search })} />

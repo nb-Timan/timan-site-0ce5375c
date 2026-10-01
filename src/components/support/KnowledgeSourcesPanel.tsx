@@ -51,6 +51,7 @@ export function KnowledgeSourcesPanel({ item }: { item: SupportKnowledgeItem }) 
   const [sourceLanguage, setSourceLanguage] = useState(normalizePortalLanguageCode(item.language) || FALLBACK_LANGUAGE);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState<Record<string, unknown> | null>(null);
 
   const load = useCallback(async () => {
     const [nextSources, associations, nextProducts, nextEvents] = await Promise.all([
@@ -100,15 +101,20 @@ export function KnowledgeSourcesPanel({ item }: { item: SupportKnowledgeItem }) 
     } finally { setBusy(false); }
   };
 
-  const upload = async () => {
+  const upload = async (duplicateDecision?: 'CONTINUE_DISTINCT' | 'NEW_REVISION') => {
     if (!file) return;
     setBusy(true);
     try {
-      await uploadSupportKnowledgeSource({ knowledgeItemId: item.id, sourceLanguage, file });
+      await uploadSupportKnowledgeSource({ knowledgeItemId: item.id, sourceLanguage, file, duplicateDecision });
       setFile(null);
+      setDuplicateWarning(null);
       toast({ title: copy.processingStarted });
       await load();
     } catch (reason) {
+      if (reason && typeof reason === 'object' && 'code' in reason && reason.code === 'DUPLICATE_SOURCE' && 'details' in reason) {
+        setDuplicateWarning((reason as { details?: Record<string, unknown> }).details || {});
+        return;
+      }
       toast({ variant: 'destructive', title: operationErrorMessage(reason, copy.error, copy.duplicateSource) });
     } finally { setBusy(false); }
   };
@@ -178,6 +184,15 @@ export function KnowledgeSourcesPanel({ item }: { item: SupportKnowledgeItem }) 
         <div><Label className="text-xs text-slate-600">{copy.sourceLanguage}</Label><select className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm" value={sourceLanguage} onChange={(event) => setSourceLanguage(normalizePortalLanguageCode(event.target.value) || FALLBACK_LANGUAGE)}>{PORTAL_LANGUAGES.map((language) => <option key={language.code} value={language.code}>{language.flag}</option>)}</select></div>
         <Button disabled={!file || busy} onClick={() => void upload()}><Upload className="mr-2 h-4 w-4" />{copy.uploadAndProcess}</Button>
       </div>
+      {duplicateWarning && <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-slate-800">
+        <p className="font-semibold">Mulig dublet fundet</p>
+        <p className="mt-1">{String(duplicateWarning.existing_knowledge_item_title || duplicateWarning.existing_knowledge_item_id || '')} · revision {String(duplicateWarning.revision || '')} · {String(duplicateWarning.current_status || '')} · {Math.round(Number(duplicateWarning.similarity || 1) * 100)}%</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button size="sm" variant="outline" onClick={() => { setDuplicateWarning(null); setFile(null); }}>Annullér upload</Button>
+          <Button size="sm" variant="outline" disabled={busy} onClick={() => void upload('NEW_REVISION')}>Opret ny revision</Button>
+          <Button size="sm" disabled={busy} onClick={() => void upload('CONTINUE_DISTINCT')}>Fortsæt som særskilt viden</Button>
+        </div>
+      </div>}
       <div className="space-y-3">
         <h4 className="text-sm font-semibold text-slate-900">{copy.sources}</h4>
         {!sources.length && <p className="rounded-md border border-dashed border-slate-300 p-4 text-sm text-slate-600">{copy.noSources}</p>}
@@ -189,6 +204,7 @@ export function KnowledgeSourcesPanel({ item }: { item: SupportKnowledgeItem }) 
               <span className={cn('w-fit rounded-full px-2 py-1 text-xs font-medium', source.ingestion_status === 'FAILED' ? 'bg-red-50 text-red-700' : source.ingestion_status === 'READY_FOR_REVIEW' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800')}>{supportIngestionStatusLabel(uiLanguage, source.ingestion_status)}</span>
             </div>
             <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-4"><span>{copy.pages}: {latestRun?.page_count ?? '—'}</span><span>{copy.characters}: {latestRun?.extracted_character_count ?? '—'}</span><span>{copy.chunks}: {latestRun?.chunk_count ?? '—'}</span><span>{copy.indexState}: {supportIngestionStatusLabel(uiLanguage, source.index_state?.status || 'NOT_INDEXED')}</span><span>{copy.reviewed}: {source.reviewed_at ? new Date(source.reviewed_at).toLocaleDateString() : '—'}</span><span>{copy.effectiveFrom}: {source.effective_from ? new Date(source.effective_from).toLocaleDateString() : '—'}</span><span>{copy.embeddingModel}: {source.index_state?.embedding_model_name || '—'}</span><span>{copy.supersedes}: {source.supersedes_source_id ? `${copy.revision} ${Math.max(1, source.revision - 1)}` : '—'}</span></div>
+            <p className="mt-2 text-xs text-slate-600">Knowledge Quality: {source.quality_status} · {source.quality_score}/100 · Tier {source.authority_tier}</p>
             {source.content_equivalent_source_id && <p className="mt-2 text-xs text-amber-700">{copy.equivalentContent}</p>}
             {latestRun?.error_message_sanitized && <p className="mt-2 text-sm text-red-700">{latestRun.error_message_sanitized}</p>}
             <details className="mt-3 rounded-md bg-slate-50 p-3"><summary className="cursor-pointer text-sm font-medium text-slate-800">{copy.extractionPreview}</summary><pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap break-words font-sans text-xs text-slate-700">{latestRun?.extracted_text || copy.noPreview}</pre>{latestRun?.detected_sections?.length ? <p className="mt-3 text-xs text-slate-500">{copy.sections}: {latestRun.detected_sections.slice(0, 8).map((section) => `${section.heading} (p. ${section.page})`).join(' · ')}</p> : null}</details>

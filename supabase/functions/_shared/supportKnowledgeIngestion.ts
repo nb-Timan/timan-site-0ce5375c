@@ -1,6 +1,6 @@
 export const SUPPORT_KNOWLEDGE_BUCKET = 'support-knowledge';
 export const SUPPORT_MAX_SOURCE_BYTES = 20 * 1024 * 1024;
-export const SUPPORT_PROCESSOR_VERSION = 'phase4-v1';
+export const SUPPORT_PROCESSOR_VERSION = 'knowledge-quality-v1';
 export const SUPPORT_CHUNK_TARGET_WORDS = 650;
 export const SUPPORT_CHUNK_OVERLAP_WORDS = 80;
 

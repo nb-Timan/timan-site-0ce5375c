@@ -16,6 +16,7 @@ import {
 import { TIMAN_COMPANY_PROFILE } from '../_shared/timanCompanyProfile.ts';
 import { SPARE_PARTS_PORTAL, sparePartsPortalLabel } from '../_shared/sparePartsPortal.ts';
 import { isStructuredAuthorityQuestion } from '../_shared/supportTimanKnowledge.ts';
+import { selectDiverseKnowledgeCandidates } from '../_shared/supportKnowledgeQuality.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -62,6 +63,9 @@ type Candidate = {
   product_ids: string[];
   stale_states: string[];
   review_overdue: boolean;
+  normalized_content_hash?: string | null;
+  topic_key?: string | null;
+  authority_tier?: number | null;
 };
 
 type ProductFact = {
@@ -1114,7 +1118,35 @@ Deno.serve(async (request) => {
       p_include_evaluation_only: false,
     });
     if (retrievalError) throw new Error('RETRIEVAL_ERROR');
-    const candidates = (retrieved || []) as Candidate[];
+    const rawCandidates = (retrieved || []) as Candidate[];
+    const sourceIds = [...new Set(rawCandidates.map((candidate) => candidate.knowledge_source_id))];
+    const [{ data: sourceMetadata }, { data: conflictRows }] = sourceIds.length ? await Promise.all([
+      service.from('support_knowledge_sources')
+        .select('id,normalized_content_hash,topic_key,authority_tier,retrieval_excluded')
+        .in('id', sourceIds),
+      service.from('support_knowledge_conflicts')
+        .select('source_a_id,source_b_id,status,resolution')
+        .or(`source_a_id.in.(${sourceIds.join(',')}),source_b_id.in.(${sourceIds.join(',')})`)
+        .limit(1000),
+    ]) : [{ data: [] }, { data: [] }];
+    const metadata = new Map((sourceMetadata || []).map((row) => [row.id, row]));
+    const excluded = new Set((sourceMetadata || []).filter((row) => row.retrieval_excluded).map((row) => row.id));
+    for (const conflict of conflictRows || []) {
+      if (conflict.status !== 'RESOLVED') continue;
+      if (['KEEP_SOURCE_A', 'SOURCE_B_SUPERSEDED'].includes(conflict.resolution || '')) excluded.add(conflict.source_b_id);
+      if (['KEEP_SOURCE_B', 'SOURCE_A_SUPERSEDED'].includes(conflict.resolution || '')) excluded.add(conflict.source_a_id);
+    }
+    const candidates = selectDiverseKnowledgeCandidates(rawCandidates
+      .filter((candidate) => !excluded.has(candidate.knowledge_source_id))
+      .map((candidate) => ({
+        ...candidate,
+        normalized_content_hash: metadata.get(candidate.knowledge_source_id)?.normalized_content_hash || null,
+        topic_key: metadata.get(candidate.knowledge_source_id)?.topic_key || null,
+        authority_tier: metadata.get(candidate.knowledge_source_id)?.authority_tier || 4,
+      })), Number(config.final_chunk_limit), language);
+    const selectedSourceIds = new Set(candidates.map((candidate) => candidate.knowledge_source_id));
+    const openPersistedConflict = (conflictRows || []).some((conflict) => conflict.status === 'OPEN'
+      && selectedSourceIds.has(conflict.source_a_id) && selectedSourceIds.has(conflict.source_b_id));
     const retrievalLatency = Date.now() - retrievalStarted;
     let staleBlockCount = 0;
     if (!candidates.length) {
@@ -1138,7 +1170,7 @@ Deno.serve(async (request) => {
     const confidenceConfig = config as SupportConfidenceConfig;
     let preliminaryConfidence = evaluateSupportConfidence({
       question: message, candidates, config: confidenceConfig,
-      machineId, productId, staleBlockCount,
+      machineId, productId, staleBlockCount, unresolvedConflict: openPersistedConflict,
     });
     if (companyInfo) {
       preliminaryConfidence = structuredConfidence('CANONICAL_COMPANY_PROFILE');
@@ -1494,7 +1526,7 @@ Deno.serve(async (request) => {
       : portalHelp ? structuredConfidence('CANONICAL_PORTAL_NAVIGATION')
       : productDiscovery ? structuredConfidence() : evaluateSupportConfidence({
       question: message, candidates, config: confidenceConfig, machineId, productId,
-      citationCount: citationIds.length, staleBlockCount,
+      citationCount: citationIds.length, staleBlockCount, unresolvedConflict: openPersistedConflict,
     });
     const providerDeclined = Boolean(generation.answer.noAnswerReason);
     const ungroundedPartNumber = Boolean(sparePartsIdentification)

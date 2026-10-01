@@ -110,6 +110,13 @@ export interface SupportAdminOverview {
   source_breakdown_30d: Record<string, number>;
   language_counts: Record<string, number>;
   language_indexed_counts: Record<string, number>;
+  exact_duplicates_blocked: number;
+  near_duplicates_open: number;
+  open_conflicts: number;
+  resolved_conflicts: number;
+  extraction_failures: number;
+  markup_noise_failures: number;
+  language_quality: Record<string, { clean: number; needs_review: number; rejected: number }>;
 }
 
 export const EMPTY_SUPPORT_ADMIN_OVERVIEW: SupportAdminOverview = {
@@ -173,6 +180,13 @@ export const EMPTY_SUPPORT_ADMIN_OVERVIEW: SupportAdminOverview = {
   source_breakdown_30d: {},
   language_counts: {},
   language_indexed_counts: {},
+  exact_duplicates_blocked: 0,
+  near_duplicates_open: 0,
+  open_conflicts: 0,
+  resolved_conflicts: 0,
+  extraction_failures: 0,
+  markup_noise_failures: 0,
+  language_quality: {},
 };
 
 export interface SupportQuestionRow {
@@ -344,8 +358,74 @@ export interface SupportKnowledgeSource {
   content_equivalent_source_id: string | null;
   created_at: string;
   updated_at: string;
+  quality_status: 'READY_FOR_REVIEW' | 'REJECTED_EXTRACTION_NOISE' | 'DUPLICATE' | 'NEAR_DUPLICATE' | 'EMPTY_CONTENT' | 'LANGUAGE_MISMATCH';
+  quality_score: number;
+  quality_reasons: string[];
+  topic_key: string | null;
+  authority_tier: 1 | 2 | 3 | 4;
+  authority_kind: 'CANONICAL_DOCUMENT' | 'TIMAN_DK' | 'INTERNAL_FAQ' | 'OTHER_APPROVED';
+  retrieval_excluded: boolean;
   runs: SupportIngestionRun[];
   index_state: SupportKnowledgeIndexState | null;
+}
+
+export interface SupportKnowledgeQualitySourceSummary {
+  id: string;
+  knowledge_item_id: string;
+  revision: number;
+  original_filename: string | null;
+  original_url: string | null;
+  source_language: string;
+  lifecycle_status: string;
+  quality_status: string;
+  topic_key: string | null;
+  authority_tier: number;
+  updated_at: string;
+  title: string;
+}
+
+export interface SupportKnowledgeDuplicateCluster {
+  id: string;
+  source_a_id: string;
+  source_b_id: string;
+  language: string;
+  similarity_score: number;
+  detection_methods: string[];
+  matching_headings: string[];
+  shared_relations: string[];
+  status: 'OPEN' | 'RESOLVED';
+  resolution: 'KEEP_BOTH' | 'KEEP_A' | 'KEEP_B' | 'LINK_SAME_TOPIC' | 'NEEDS_MORE_INFORMATION' | null;
+  resolution_note: string | null;
+  resolved_by_user_id: string | null;
+  detected_at: string;
+  resolved_at: string | null;
+}
+
+export interface SupportKnowledgeConflict {
+  id: string;
+  subject: string;
+  attribute: string;
+  source_a_id: string;
+  source_b_id: string;
+  value_a: string;
+  value_b: string;
+  context_a: string | null;
+  context_b: string | null;
+  language: string;
+  severity: 'INFORMATIONAL' | 'MATERIAL' | 'CRITICAL';
+  status: 'OPEN' | 'RESOLVED';
+  resolution: 'KEEP_SOURCE_A' | 'KEEP_SOURCE_B' | 'BOTH_VALID_DIFFERENT_CONTEXT' | 'SOURCE_A_SUPERSEDED' | 'SOURCE_B_SUPERSEDED' | 'NEEDS_MORE_INFORMATION' | null;
+  resolution_note: string | null;
+  resolved_by_user_id: string | null;
+  detected_at: string;
+  resolved_at: string | null;
+}
+
+export interface SupportKnowledgeQualityReview {
+  overview: Pick<SupportAdminOverview, 'exact_duplicates_blocked' | 'near_duplicates_open' | 'open_conflicts' | 'resolved_conflicts' | 'extraction_failures' | 'markup_noise_failures' | 'language_quality'>;
+  duplicates: SupportKnowledgeDuplicateCluster[];
+  conflicts: SupportKnowledgeConflict[];
+  sources: Record<string, SupportKnowledgeQualitySourceSummary>;
 }
 
 export interface SupportIngestionRun {

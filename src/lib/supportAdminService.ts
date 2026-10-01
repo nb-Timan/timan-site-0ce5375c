@@ -13,6 +13,10 @@ import {
   type SupportKnowledgeLifecycleEvent,
   type SupportKnowledgeAssociations,
   type SupportKnowledgeSource,
+  type SupportKnowledgeDuplicateCluster,
+  type SupportKnowledgeConflict,
+  type SupportKnowledgeQualityReview,
+  type SupportKnowledgeQualitySourceSummary,
   type SupportProductOption,
   type SupportQuestionFilters,
   type SupportQuestionRow,
@@ -28,27 +32,29 @@ function nullable(value: string): string | null {
 }
 
 async function throwSupportFunctionError(error: unknown, data?: unknown): Promise<never> {
-  let payload = data as { error?: string; message?: string } | null | undefined;
+  let payload = data as Record<string, unknown> | null | undefined;
   const context = error && typeof error === 'object' && 'context' in error
     ? (error as { context?: unknown }).context
     : undefined;
   if (context instanceof Response) {
     try {
-      payload = await context.clone().json() as { error?: string; message?: string };
+      payload = await context.clone().json() as Record<string, unknown>;
     } catch {
       // Keep the canonical client error when the response has no JSON body.
     }
   }
-  const resolved = new Error(payload?.message || (error instanceof Error ? error.message : 'Knowledge processing failed.')) as Error & { code?: string };
-  resolved.code = payload?.error || 'OTHER';
+  const resolved = new Error(typeof payload?.message === 'string' ? payload.message : (error instanceof Error ? error.message : 'Knowledge processing failed.')) as Error & { code?: string; details?: Record<string, unknown> };
+  resolved.code = typeof payload?.error === 'string' ? payload.error : 'OTHER';
+  resolved.details = payload || undefined;
   throw resolved;
 }
 
 export async function fetchSupportAdminOverview(): Promise<SupportAdminOverview> {
-  const [{ data, error }, actionOverview, syncOverview] = await Promise.all([
+  const [{ data, error }, actionOverview, syncOverview, qualityOverview] = await Promise.all([
     supabase.rpc('get_support_admin_overview'),
     supabase.rpc('get_support_action_overview'),
     supabase.rpc('get_support_knowledge_sync_overview'),
+    supabase.rpc('get_support_knowledge_quality_overview'),
   ]);
   if (error) throw error;
   return {
@@ -56,6 +62,7 @@ export async function fetchSupportAdminOverview(): Promise<SupportAdminOverview>
     ...((data || {}) as Partial<SupportAdminOverview>),
     ...(!actionOverview.error ? (actionOverview.data || {}) as Partial<SupportAdminOverview> : {}),
     ...(!syncOverview.error ? (syncOverview.data || {}) as Partial<SupportAdminOverview> : {}),
+    ...(!qualityOverview.error ? (qualityOverview.data || {}) as Partial<SupportAdminOverview> : {}),
   };
 }
 
@@ -431,14 +438,76 @@ export async function uploadSupportKnowledgeSource(input: {
   knowledgeItemId: string;
   sourceLanguage: string;
   file: File;
+  duplicateDecision?: 'CONTINUE_DISTINCT' | 'NEW_REVISION';
 }): Promise<{ source_id: string; ingestion_run_id: string; revision: number; status: string }> {
   const form = new FormData();
   form.set('knowledge_item_id', input.knowledgeItemId);
   form.set('source_language', normalizePortalLanguageCode(input.sourceLanguage) || FALLBACK_LANGUAGE);
   form.set('file', input.file);
+  if (input.duplicateDecision) form.set('duplicate_decision', input.duplicateDecision);
   const { data, error } = await supabase.functions.invoke('support-knowledge-ingestion', { body: form });
   if (error || data?.error) await throwSupportFunctionError(error, data);
   return data;
+}
+
+export async function fetchSupportKnowledgeQualityReview(): Promise<SupportKnowledgeQualityReview> {
+  const [overviewResult, duplicateResult, conflictResult] = await Promise.all([
+    supabase.rpc('get_support_knowledge_quality_overview'),
+    supabase.from('support_knowledge_duplicate_clusters').select('*').order('status').order('similarity_score', { ascending: false }).limit(250),
+    supabase.from('support_knowledge_conflicts').select('*').order('status').order('detected_at', { ascending: false }).limit(250),
+  ]);
+  if (overviewResult.error) throw overviewResult.error;
+  if (duplicateResult.error) throw duplicateResult.error;
+  if (conflictResult.error) throw conflictResult.error;
+  const duplicates = (duplicateResult.data || []) as SupportKnowledgeDuplicateCluster[];
+  const conflicts = (conflictResult.data || []) as SupportKnowledgeConflict[];
+  const sourceIds = Array.from(new Set([
+    ...duplicates.flatMap((row) => [row.source_a_id, row.source_b_id]),
+    ...conflicts.flatMap((row) => [row.source_a_id, row.source_b_id]),
+  ]));
+  const sources: Record<string, SupportKnowledgeQualitySourceSummary> = {};
+  if (sourceIds.length) {
+    const { data, error } = await supabase.from('support_knowledge_sources')
+      .select('id,knowledge_item_id,revision,original_filename,original_url,source_language,lifecycle_status,quality_status,topic_key,authority_tier,updated_at,knowledge_item:support_knowledge_items(title)')
+      .in('id', sourceIds);
+    if (error) throw error;
+    for (const row of data || []) {
+      const item = Array.isArray(row.knowledge_item) ? row.knowledge_item[0] : row.knowledge_item;
+      sources[row.id] = { ...row, title: item?.title || row.original_filename || row.original_url || row.id } as SupportKnowledgeQualitySourceSummary;
+    }
+  }
+  return {
+    overview: overviewResult.data as SupportKnowledgeQualityReview['overview'],
+    duplicates,
+    conflicts,
+    sources,
+  };
+}
+
+export async function resolveSupportKnowledgeDuplicate(
+  clusterId: string,
+  resolution: SupportKnowledgeDuplicateCluster['resolution'],
+  note?: string,
+) {
+  if (!resolution) throw new Error('Resolution is required.');
+  const { data, error } = await supabase.rpc('resolve_support_knowledge_duplicate', {
+    p_cluster_id: clusterId, p_resolution: resolution, p_note: note || null,
+  });
+  if (error) throw error;
+  return data as SupportKnowledgeDuplicateCluster;
+}
+
+export async function resolveSupportKnowledgeConflict(
+  conflictId: string,
+  resolution: SupportKnowledgeConflict['resolution'],
+  note?: string,
+) {
+  if (!resolution) throw new Error('Resolution is required.');
+  const { data, error } = await supabase.rpc('resolve_support_knowledge_conflict', {
+    p_conflict_id: conflictId, p_resolution: resolution, p_note: note || null,
+  });
+  if (error) throw error;
+  return data as SupportKnowledgeConflict;
 }
 
 export async function reprocessSupportKnowledgeSource(sourceId: string, action: 'reprocess' | 'rechunk') {
