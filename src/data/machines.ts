@@ -1,5 +1,5 @@
 import { Machine, Accessory, Language, type ConfiguratorLocale } from '@/types/configurator';
-import { notifyProductMaster, publishedProduct, replaceProductMaster, resolvePublishedProduct, type PublishedProductMaster } from '@/lib/publishedProductMaster';
+import { getCurrentProductPrice, notifyProductMaster, publishedProduct, replaceProductMaster, resolvePublishedProduct, type PublishedProductMaster } from '@/lib/publishedProductMaster';
 import { canonicalGermanProductText } from '@/data/configuratorGermanProductTranslations';
 import { convertCurrency, currencyFromLanguage, type Currency } from '@/lib/currency';
 
@@ -923,11 +923,11 @@ export function getLocalizedName(name: string | { da: string; en: string; [key: 
 // Get price based on language/currency
 export function getPrice(item: { varenr?: string; priceDKK: number; priceEUR: number }, lang: Language = 'da'): number {
   const isEUR = ['en', 'de', 'it', 'hu'].includes(lang);
-  const published = publishedProduct(item.varenr);
-  const publishedPrice = isEUR ? published?.price_eur : published?.price_dkk;
-  return typeof publishedPrice === 'number' && Number.isFinite(publishedPrice)
-    ? publishedPrice
-    : (isEUR ? item.priceEUR : item.priceDKK);
+  return getCurrentProductPrice({
+    itemNumber: item.varenr,
+    currency: isEUR ? 'EUR' : 'DKK',
+    legacy: { DKK: item.priceDKK, EUR: item.priceEUR },
+  }) ?? (isEUR ? item.priceEUR : item.priceDKK);
 }
 
 // Format money
@@ -1125,16 +1125,12 @@ export function getPriceForCurrency(
   item: { varenr?: string; priceDKK: number; priceEUR: number },
   currency: Currency,
 ): number {
-  const published = publishedProduct(item.varenr);
-  const publishedPrice = currency === 'DKK'
-    ? published?.price_dkk
-    : currency === 'SEK'
-      ? published?.price_sek
-      : published?.price_eur;
-  if (typeof publishedPrice === 'number' && Number.isFinite(publishedPrice)) return publishedPrice;
-  if (currency === 'DKK') return item.priceDKK;
-  if (currency === 'EUR') return item.priceEUR;
-  return convertCurrency(item.priceDKK, currencyFromLanguage('da'), 'SEK');
+  return getCurrentProductPrice({
+    itemNumber: item.varenr,
+    currency,
+    legacy: { DKK: item.priceDKK, EUR: item.priceEUR },
+  }) ?? (currency === 'DKK' ? item.priceDKK : currency === 'EUR' ? item.priceEUR
+    : convertCurrency(item.priceDKK, currencyFromLanguage('da'), 'SEK'));
 }
 
 // Flatten accessories including sub-items

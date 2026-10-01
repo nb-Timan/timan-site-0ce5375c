@@ -2,6 +2,7 @@ import { ACCESSORIES, PRODUCTS, getLocalizedName } from '@/data/machines';
 import { buildConfiguratorSeed } from '@/lib/configuratorPriceSeed';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import type { Accessory } from '@/types/configurator';
+import { getCurrentProductPrice } from '@/lib/publishedProductMaster';
 
 export interface PublishedPriceOption {
   item_number?: unknown;
@@ -99,9 +100,33 @@ function catalog(language: PortalUiLanguage, options: PublishedPriceOption[]): C
       item_number: row.item_number,
       name: localizedOptionName(option, language) || row.item_text_da,
       machine_families: [row.group],
-      price_dkk: finitePrice(option?.price_dkk) ?? row.price_dkk,
-      price_eur: finitePrice(option?.price_eur) ?? row.price_eur,
-      price_sek: finitePrice(option?.price_sek) ?? row.price_sek,
+      price_dkk: getCurrentProductPrice({
+        itemNumber: row.item_number, currency: 'DKK',
+        legacy: { DKK: row.price_dkk, EUR: row.price_eur, SEK: row.price_sek },
+        released: option ? {
+          item_number: row.item_number,
+          price_dkk: finitePrice(option.price_dkk), price_eur: finitePrice(option.price_eur),
+          price_sek: finitePrice(option.price_sek),
+        } : undefined,
+      }),
+      price_eur: getCurrentProductPrice({
+        itemNumber: row.item_number, currency: 'EUR',
+        legacy: { DKK: row.price_dkk, EUR: row.price_eur, SEK: row.price_sek },
+        released: option ? {
+          item_number: row.item_number,
+          price_dkk: finitePrice(option.price_dkk), price_eur: finitePrice(option.price_eur),
+          price_sek: finitePrice(option.price_sek),
+        } : undefined,
+      }),
+      price_sek: getCurrentProductPrice({
+        itemNumber: row.item_number, currency: 'SEK',
+        legacy: { DKK: row.price_dkk, EUR: row.price_eur, SEK: row.price_sek },
+        released: option ? {
+          item_number: row.item_number,
+          price_dkk: finitePrice(option.price_dkk), price_eur: finitePrice(option.price_eur),
+          price_sek: finitePrice(option.price_sek),
+        } : undefined,
+      }),
       published_at: typeof option?.published_at === 'string' ? option.published_at : null,
       aliases,
     });

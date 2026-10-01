@@ -63,8 +63,8 @@ describe('Product Master loading and publishing', () => {
   });
 
   it('successful publish refreshes current master; partial row errors are not hidden', async () => {
-    rpc.mockImplementation(async (name: string) => name === 'publish_price_list_items'
-      ? { data: { created: 0, updated: 1, skipped: 0, errors: [{ item_number: 'invalid', error: 'Rejected' }] }, error: null }
+    rpc.mockImplementation(async (name: string) => name === 'release_price_list_items'
+      ? { data: { created: 0, updated: 1, skipped: 0, errors: [{ item_number: 'invalid', error: 'Rejected' }], version_number: 2 }, error: null }
       : { data: [row], error: null });
     const result = await publishItems(['725132', 'invalid']);
     expect(result.summary?.updated).toBe(1);

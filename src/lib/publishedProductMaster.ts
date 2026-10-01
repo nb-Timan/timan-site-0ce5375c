@@ -1,3 +1,5 @@
+import { convertCurrency, type Currency } from '@/lib/currency';
+
 /** Public commercial fields only. Costs and editorial audit never enter the browser catalog. */
 export interface PublishedProductMaster {
   item_number: string;
@@ -31,6 +33,37 @@ export function notifyProductMaster(): void {
 }
 
 export type PublishedProductLanguage = 'da' | 'de' | 'en';
+
+export interface LegacyProductPrices {
+  DKK: number | null;
+  EUR: number | null;
+  SEK?: number | null;
+}
+
+/** Released price first; the static catalogue is only a compatibility fallback. */
+export function getCurrentProductPrice(input: {
+  itemNumber?: string;
+  currency: Currency;
+  legacy: LegacyProductPrices;
+  released?: PublishedProductMaster;
+}): number | null {
+  const released = input.released ?? publishedProduct(input.itemNumber);
+  const active = input.currency === 'DKK'
+    ? released?.price_dkk
+    : input.currency === 'EUR'
+      ? released?.price_eur
+      : released?.price_sek;
+  if (typeof active === 'number' && Number.isFinite(active) && active >= 0) return active;
+
+  const explicitFallback = input.legacy[input.currency];
+  if (typeof explicitFallback === 'number' && Number.isFinite(explicitFallback) && explicitFallback >= 0) {
+    return explicitFallback;
+  }
+  if (input.currency === 'SEK' && typeof input.legacy.DKK === 'number' && Number.isFinite(input.legacy.DKK)) {
+    return convertCurrency(input.legacy.DKK, 'DKK', 'SEK');
+  }
+  return null;
+}
 
 /** DA is canonical; missing DE/EN deliberately falls back to DA, never static copy. */
 export function publishedProductText(
@@ -95,7 +128,17 @@ export function resolvePublishedProduct<T extends CatalogItem>(item: T): T {
   return {
     ...item, name,
     ...(row.is_active === false ? { hidden: true } : {}),
-    priceDKK: row.price_dkk ?? item.priceDKK,
-    priceEUR: row.price_eur ?? item.priceEUR,
+    priceDKK: getCurrentProductPrice({
+      itemNumber: item.varenr,
+      currency: 'DKK',
+      legacy: { DKK: item.priceDKK, EUR: item.priceEUR },
+      released: row,
+    }) ?? item.priceDKK,
+    priceEUR: getCurrentProductPrice({
+      itemNumber: item.varenr,
+      currency: 'EUR',
+      legacy: { DKK: item.priceDKK, EUR: item.priceEUR },
+      released: row,
+    }) ?? item.priceEUR,
   };
 }

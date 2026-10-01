@@ -8,8 +8,8 @@
  *  2. Upload prisliste — CSV import with field-by-field preview
  *  3. Eksportér prisliste — download current prices as CSV
  *
- * SAFETY: Does NOT touch configurator, quotes, orders, calc, PDFs, email, n8n, CRM.
- * No DELETE anywhere. Empty CSV cells never overwrite existing values.
+ * FULL imports remain staged until an explicit release. Existing commercial
+ * snapshots remain immutable. No DELETE; empty cells never overwrite values.
  */
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -28,6 +28,7 @@ import PortalFooter from "@/components/portal/PortalFooter";
 import { isBackendActor } from "@/lib/portalAccess";
 import {
   listPriceItems,
+  listActivePriceItems,
   listImportLogs,
   listPriceItemHistory,
   isPriceHistoryPriceField,
@@ -39,6 +40,7 @@ import {
   runImport,
   updatePriceItem,
   type PriceListItem,
+  type ActivePriceListItem,
   type PriceListHistoryEntry,
   type PriceHistoryFilter,
   type PriceListImportLog,
@@ -62,7 +64,9 @@ import {
 } from "@/lib/configuratorPriceSeed";
 import {
   buildPublishPreview,
+  listPriceListReleases,
   publishItems,
+  type PriceListRelease,
   type PublishPreviewRow,
   type PublishSummary,
 } from "@/lib/pricePublishService";
@@ -98,6 +102,7 @@ export default function BackendPriceListsPage() {
 
   const [tab, setTab] = useState<Tab>("list");
   const [items, setItems] = useState<PriceListItem[]>([]);
+  const [activeItems, setActiveItems] = useState<ActivePriceListItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [q, setQ] = useState("");
   const [skuFilters, setSkuFilters] = useState<string[]>([]);
@@ -111,16 +116,23 @@ export default function BackendPriceListsPage() {
   const [busy, setBusy] = useState(false);
   const [summary, setSummary] = useState<ImportSummary | null>(null);
   const [logs, setLogs] = useState<PriceListImportLog[]>([]);
+  const [releases, setReleases] = useState<PriceListRelease[]>([]);
   const [filter, setFilter] = useState<"all" | "create" | "update" | "skip" | "error">("all");
   const [productScope, setProductScope] = useState<ProductScope>("all");
   const [importMode, setImportMode] = useState<PriceImportMode>("COST_ONLY");
 
   async function reload() {
     setLoadingItems(true);
-    setItems(await listPriceItems());
+    const [nextItems, nextActiveItems] = await Promise.all([listPriceItems(), listActivePriceItems()]);
+    setItems(nextItems);
+    setActiveItems(nextActiveItems);
     setLoadingItems(false);
   }
-  async function reloadLogs() { setLogs(await listImportLogs()); }
+  async function reloadLogs() {
+    const [nextLogs, nextReleases] = await Promise.all([listImportLogs(), listPriceListReleases()]);
+    setLogs(nextLogs);
+    setReleases(nextReleases);
+  }
 
   useEffect(() => {
     if (!appUser || !isBackend) return;
@@ -141,14 +153,37 @@ export default function BackendPriceListsPage() {
     [configuratorSeedItems],
   );
 
+  const activeByItemNumber = useMemo(
+    () => new Map(activeItems.map((item) => [item.item_number, item])),
+    [activeItems],
+  );
+
+  const activeRelease = releases.find((release) => release.status === 'RELEASED') ?? null;
+
   const exportItems = useMemo(
     () => mergeCanonicalPriceItems(configuratorSeedItems, items),
     [configuratorSeedItems, items],
   );
 
+  const activeExportItems = useMemo(
+    () => exportItems.map((item) => {
+      const active = activeByItemNumber.get(item.item_number);
+      return active ? {
+        ...item,
+        item_text_da: active.item_text_da ?? item.item_text_da,
+        item_text_de: active.item_text_de ?? item.item_text_de,
+        item_text_en: active.item_text_en ?? item.item_text_en,
+        price_dkk: active.price_dkk,
+        price_eur: active.price_eur,
+        price_sek: active.price_sek,
+      } : item;
+    }),
+    [activeByItemNumber, exportItems],
+  );
+
   const scopedExportItems = useMemo(
-    () => filterItemsByScope(exportItems, productScope, groupMap),
-    [exportItems, productScope, groupMap],
+    () => filterItemsByScope(activeExportItems, productScope, groupMap),
+    [activeExportItems, productScope, groupMap],
   );
 
   const filteredItems = useMemo(() => {
@@ -311,17 +346,18 @@ export default function BackendPriceListsPage() {
     const res = await publishItems(nums);
     setPublishBusy(false);
     if (!res.ok || !res.summary) {
-      toast.error(res.error ?? "Publicering fejlede.");
+      toast.error(res.error ?? "Frigivelse fejlede.");
       return;
     }
     setPublishSummary(res.summary);
     const total = res.summary.created + res.summary.updated;
     if (res.summary.errors.length > 0) {
-      toast.error(`${total} vare(r) publiceret, men ${res.summary.errors.length} vare(r) fejlede.`);
+      toast.error(`${total} vare(r) frigivet, men ${res.summary.errors.length} vare(r) fejlede.`);
     } else {
-      toast.success(`${total} vare(r) opdateret i Configurator.`);
+      toast.success(`Prisliste version ${res.summary.versionNumber ?? '—'} er frigivet med ${total} vare(r).`);
     }
     await reload();
+    await reloadLogs();
   }
 
   return (
@@ -337,8 +373,8 @@ export default function BackendPriceListsPage() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Prislister</h1>
             <p className="text-slate-500 mt-1 text-sm">
-              Backend-administration af varepriser. Konfiguratoren bruger ikke disse priser endnu —
-              eksisterende tilbud og ordrer er uændrede.
+              Den aktive prisliste bruges af Configuratoren. Nye priser træder først i kraft, når de frigives.
+              Eksisterende tilbud og ordrer bevarer deres prissnapshot.
             </p>
           </div>
         </div>
@@ -352,7 +388,7 @@ export default function BackendPriceListsPage() {
           </div>
           <div className="flex flex-wrap gap-2">
             <FlowStepButton active={tab === "list"} onClick={() => setTab("list")}>
-              Se nuværende prisliste
+              Se aktiv prisliste og kladder
             </FlowStepButton>
             <FlowStepButton active={tab === "import" && importMode === "COST_ONLY"} onClick={() => openImportMode("COST_ONLY")}>
               1. Upload kostpriser
@@ -385,6 +421,11 @@ export default function BackendPriceListsPage() {
 
         {tab === "list" && (
           <section className="bg-white border border-slate-200 rounded-2xl p-5">
+            <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-1 border-b border-slate-200 pb-3 text-xs text-slate-600">
+              <span><strong className="text-slate-900">Aktiv version:</strong> {activeRelease ? `#${activeRelease.version_number}` : 'Eksisterende publiceret katalog'}</span>
+              <span><strong className="text-slate-900">Ikrafttrådt:</strong> {activeRelease?.effective_at ? new Date(activeRelease.effective_at).toLocaleString('da-DK') : '—'}</span>
+              <span><strong className="text-slate-900">Varer:</strong> {activeItems.length}</span>
+            </div>
             <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
               <div className="flex-1 min-w-[260px] max-w-2xl">
                 <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 focus-within:ring-2 focus-within:ring-indigo-200">
@@ -436,10 +477,10 @@ export default function BackendPriceListsPage() {
                   onClick={() => { setPublishSummary(null); setPublishOpen(true); }}
                   disabled={dirtyItems.length === 0}
                   className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Publicér ændrede prislistevarer til Configuratorens aktuelle priskatalog."
+                  title="Frigiv de klargjorte priser som Configuratorens aktive prisliste."
                 >
                   <UploadCloud className="h-3.5 w-3.5" />
-                  Upload ændringer til konfigurator{dirtyItems.length > 0 ? ` (${dirtyItems.length})` : ""}
+                  Frigiv prisliste{dirtyItems.length > 0 ? ` (${dirtyItems.length})` : ""}
                 </button>
                 <span className="text-xs text-slate-500">
                   {loadingItems ? "Indlæser…" : `${filteredItems.length} af ${exportItems.length} varer`}
@@ -449,7 +490,7 @@ export default function BackendPriceListsPage() {
 
             <div className="mb-4 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
               <strong>DB/DG beregnes med 25% standardrabat.</strong>{" "}
-              Pilen ved DB vises på ændrede varer og sammenligner mod konfiguratorens nuværende pris.
+              Aktive priser bruges af Configurator og Support. Kladdepriser vises under den aktive pris, indtil de frigives.
             </div>
 
             <div className="overflow-x-auto border border-slate-200 rounded-lg max-h-[640px] overflow-y-auto">
@@ -460,24 +501,28 @@ export default function BackendPriceListsPage() {
                     <th className="px-3 py-2 text-left">Varenr.</th>
                     <th className="px-3 py-2 text-left">Varetekst</th>
                     <th className="px-3 py-2 text-right">Kostpris DKK</th>
-                    <th className="px-3 py-2 text-right">Pris DKK</th>
+                    <th className="px-3 py-2 text-right">Aktiv pris DKK</th>
                     <th className="px-3 py-2 text-right">DB DKK<br /><span className="font-normal">(25%)</span></th>
                     <th className="px-3 py-2 text-right">DG %<br /><span className="font-normal">(25%)</span></th>
-                    <th className="px-3 py-2 text-right">Pris SEK</th>
-                    <th className="px-3 py-2 text-right">Pris EUR</th>
-                    <th className="px-3 py-2 text-left">Opdateret</th>
+                    <th className="px-3 py-2 text-right">Aktiv pris SEK</th>
+                    <th className="px-3 py-2 text-right">Aktiv pris EUR</th>
+                    <th className="px-3 py-2 text-left">Frigivet</th>
                     <th className="px-3 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredItems.slice(0, 1000).map((i) => {
                     const grp = groupMap.get(i.item_number) ?? "Options/accessories/other";
-                    const marginDb = calcMarginDb(i.price_dkk, i.cost_price_dkk);
-                    const marginPct = calcMarginPct(i.price_dkk, marginDb);
                     const seedItem = configuratorSeedByItemNumber.get(i.renamed_from_item_number ?? i.item_number);
-                    const baseMarginDb = calcMarginDb(seedItem?.price_dkk ?? null, i.cost_price_dkk);
-                    const marginDelta = i.is_dirty && marginDb != null && baseMarginDb != null
-                      ? Math.round((marginDb - baseMarginDb) * 100) / 100
+                    const activeItem = activeByItemNumber.get(i.item_number);
+                    const activeDkk = activeItem?.price_dkk ?? seedItem?.price_dkk ?? null;
+                    const activeSek = activeItem?.price_sek ?? seedItem?.price_sek ?? null;
+                    const activeEur = activeItem?.price_eur ?? seedItem?.price_eur ?? null;
+                    const marginDb = calcMarginDb(activeDkk, i.cost_price_dkk);
+                    const marginPct = calcMarginPct(activeDkk, marginDb);
+                    const draftMarginDb = calcMarginDb(i.price_dkk, i.cost_price_dkk);
+                    const marginDelta = i.is_dirty && marginDb != null && draftMarginDb != null
+                      ? Math.round((draftMarginDb - marginDb) * 100) / 100
                       : null;
                     return (
                       <tr key={i.id} className="border-t border-slate-100">
@@ -490,13 +535,13 @@ export default function BackendPriceListsPage() {
                           {i.item_number}
                           {i.is_dirty && (
                             <span className="ml-2 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-800">
-                              Ændret – ikke publiceret
+                              Kladde – ikke frigivet
                             </span>
                           )}
                         </td>
-                        <td className="px-3 py-2">{i.item_text_da ?? <span className="text-slate-400">—</span>}</td>
+                        <td className="px-3 py-2">{activeItem?.item_text_da ?? seedItem?.item_text_da ?? i.item_text_da ?? <span className="text-slate-400">—</span>}</td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtPrice(i.cost_price_dkk)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_dkk)}</td>
+                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeDkk} draft={i.is_dirty ? i.price_dkk : null} /></td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">
                           <div className="flex items-center justify-end gap-2">
                             <span>{fmtPrice(marginDb)}</span>
@@ -504,12 +549,14 @@ export default function BackendPriceListsPage() {
                           </div>
                         </td>
                         <td className="px-3 py-2 text-right font-mono text-slate-700">{fmtPercent(marginPct)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_sek)}</td>
-                        <td className="px-3 py-2 text-right font-mono">{fmtPrice(i.price_eur)}</td>
+                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeSek} draft={i.is_dirty ? i.price_sek : null} /></td>
+                        <td className="px-3 py-2 text-right font-mono"><ActiveAndDraftPrice active={activeEur} draft={i.is_dirty ? i.price_eur : null} /></td>
                         <td className="px-3 py-2 text-xs text-slate-500">
-                          {i.id.startsWith("configurator-")
+                          {activeItem?.published_at
+                            ? new Date(activeItem.published_at).toLocaleDateString('da-DK')
+                            : i.id.startsWith("configurator-")
                             ? "Configurator-standard"
-                            : new Date(i.updated_at).toLocaleDateString("da-DK")}
+                            : "Ikke frigivet"}
                         </td>
                         <td className="px-3 py-2 text-right">
                           <button
@@ -841,6 +888,8 @@ export default function BackendPriceListsPage() {
           rows={publishPreview}
           busy={publishBusy}
           summary={publishSummary}
+          nextVersionNumber={(activeRelease?.version_number ?? 0) + 1}
+          actorEmail={appUser.email ?? null}
           onClose={() => { setPublishOpen(false); setPublishSummary(null); }}
           onConfirm={onPublishConfirm}
         />
@@ -1663,11 +1712,13 @@ function formatEditablePrice(value: number | null | undefined): string {
 }
 
 function PublishModal({
-  rows, busy, summary, onClose, onConfirm,
+  rows, busy, summary, nextVersionNumber, actorEmail, onClose, onConfirm,
 }: {
   rows: PublishPreviewRow[];
   busy: boolean;
   summary: PublishSummary | null;
+  nextVersionNumber: number;
+  actorEmail: string | null;
   onClose: () => void;
   onConfirm: () => void | Promise<void>;
 }) {
@@ -1703,18 +1754,19 @@ function PublishModal({
       <div className="bg-white rounded-2xl shadow-xl max-w-5xl w-full max-h-[88vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between p-6 border-b border-slate-200">
           <div>
-            <h3 className="text-lg font-bold text-slate-900">Upload ændringer til konfigurator</h3>
+            <h3 className="text-lg font-bold text-slate-900">Frigiv prisliste</h3>
             <p className="text-xs text-slate-500 mt-1">
-              Sammenligner ændrede prislistevarer (Backend) mod konfiguratorens nuværende værdier
-              (publiceret Product Master). Ved bekræftelse skrives kun de ændrede varer til <span className="font-mono">price_list_published</span>.
-              Nye Configurator-sessioner og refresh læser herefter publiceret varetekst og pris. Eksisterende sendte tilbud,
-              ordrer og PDF'er bevarer deres låste prissnapshot.
+              De viste kladdepriser bliver den aktive prisliste for nye og ikke-låste beregninger.
+              Eksisterende sendte tilbud, ordrer og PDF'er bevarer deres låste prissnapshot.
             </p>
-            <p className="text-xs text-slate-600 mt-2">
-              <strong>{ready.length}</strong> klar til upload
-              {missing.length > 0 && <> · <strong>{missing.length}</strong> mangler i konfigurator</>}
-              {" "}({rows.length} ændringer i alt)
-            </p>
+            <dl className="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-slate-600 sm:grid-cols-5">
+              <div><dt className="font-semibold text-slate-900">Version</dt><dd>#{nextVersionNumber}</dd></div>
+              <div><dt className="font-semibold text-slate-900">Ikrafttræder</dt><dd>Ved frigivelse</dd></div>
+              <div><dt className="font-semibold text-slate-900">Varer</dt><dd>{ready.length}</dd></div>
+              <div><dt className="font-semibold text-slate-900">Valutaer</dt><dd>{releaseCurrencies(rows).join(', ') || 'Tekst'}</dd></div>
+              <div><dt className="font-semibold text-slate-900">Bruger</dt><dd className="truncate" title={actorEmail ?? undefined}>{actorEmail ?? 'Aktuel backend-bruger'}</dd></div>
+            </dl>
+            {missing.length > 0 && <p className="mt-2 text-xs font-semibold text-amber-700">{missing.length} vare(r) mangler i Configurator og skal kontrolleres før frigivelse.</p>}
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
         </div>
@@ -1726,10 +1778,10 @@ function PublishModal({
                 <CheckCircle2 className={`h-6 w-6 mt-0.5 ${summary.errors.length > 0 ? "text-amber-700" : "text-emerald-700"}`} />
                 <div>
                   <p className={`font-bold ${summary.errors.length > 0 ? "text-amber-900" : "text-emerald-900"}`}>
-                    {summary.errors.length > 0 ? "Publicering afsluttet med fejl" : "Publicering gennemført"}
+                    {summary.errors.length > 0 ? "Frigivelse afsluttet med fejl" : `Prisliste version #${summary.versionNumber ?? nextVersionNumber} er frigivet`}
                   </p>
                   <p className={`text-sm mt-1 ${summary.errors.length > 0 ? "text-amber-900" : "text-emerald-900"}`}>
-                    <strong>{summary.created + summary.updated}</strong> vare(r) opdateret i Configurator ({summary.created} oprettet, {summary.updated} opdateret),{" "}
+                    <strong>{summary.created + summary.updated}</strong> vare(r) er aktive ({summary.created} oprettet, {summary.updated} opdateret),{" "}
                     <strong>{summary.skipped}</strong> sprunget over.
                   </p>
                   {summary.errors.length > 0 && (
@@ -1741,7 +1793,7 @@ function PublishModal({
               </div>
             </div>
           ) : rows.length === 0 ? (
-            <p className="text-sm text-slate-500">Ingen ændrede varer at publicere.</p>
+            <p className="text-sm text-slate-500">Ingen klargjorte varer at frigive.</p>
           ) : (
             <div className="overflow-x-auto border border-slate-200 rounded-lg">
               <table className="min-w-full text-xs">
@@ -1798,11 +1850,31 @@ function PublishModal({
               className="inline-flex items-center gap-2 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:opacity-50"
             >
               <UploadCloud className="h-4 w-4" />
-              {busy ? "Publicerer…" : `Bekræft upload til konfigurator (${rows.length})`}
+              {busy ? "Frigiver…" : `Frigiv prisliste (${rows.length})`}
             </button>
           )}
         </div>
       </div>
     </div>
   );
+}
+
+function ActiveAndDraftPrice({ active, draft }: { active: number | null; draft: number | null }) {
+  const changed = draft != null && draft !== active;
+  return (
+    <div>
+      <div>{fmtPrice(active)}</div>
+      {changed && <div className="text-[10px] font-semibold text-amber-700">Kladde {fmtPrice(draft)}</div>}
+    </div>
+  );
+}
+
+function releaseCurrencies(rows: PublishPreviewRow[]): string[] {
+  const currencies = new Set<string>();
+  for (const row of rows) {
+    if (row.price_dkk !== row.old_price_dkk) currencies.add('DKK');
+    if (row.price_sek !== row.old_price_sek) currencies.add('SEK');
+    if (row.price_eur !== row.old_price_eur) currencies.add('EUR');
+  }
+  return [...currencies];
 }

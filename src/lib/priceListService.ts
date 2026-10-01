@@ -6,7 +6,8 @@
  * - Single-row edit via RPC public.update_price_list_item
  * - Audit log: public.price_list_import_logs
  *
- * The configurator does NOT read from this table yet. Quotes/orders are unchanged.
+ * FULL_PRICE_LIST writes are staged here. Configurator reads only the separately
+ * released price_list_published read model. Quotes/orders keep their snapshots.
  * Empty CSV cells never overwrite existing values (handled server-side via COALESCE).
  * No DELETE anywhere.
  */
@@ -52,6 +53,18 @@ export interface PriceListImportLog {
   machine_scope: string;
   processed_count: number;
   item_numbers: string[];
+}
+
+export interface ActivePriceListItem {
+  item_number: string;
+  item_text_da: string | null;
+  item_text_de: string | null;
+  item_text_en: string | null;
+  price_dkk: number | null;
+  price_eur: number | null;
+  price_sek: number | null;
+  published_at: string;
+  published_by_email: string | null;
 }
 
 export const PRICE_HISTORY_PRICE_FIELDS = [
@@ -169,7 +182,6 @@ export async function listPriceItems(): Promise<PriceListItem[]> {
     .eq("is_active", true)
     .order("item_number", { ascending: true });
   if (error) {
-    // eslint-disable-next-line no-console
     console.warn("[priceListService] listPriceItems:", error);
     return [];
   }
@@ -208,7 +220,6 @@ export async function listPriceItemHistory(
     .order("id", { ascending: false })
     .range(offset, offset + limit - 1);
   if (error) {
-    // eslint-disable-next-line no-console
     console.warn("[priceListService] listPriceItemHistory:", error);
     return [];
   }
@@ -363,6 +374,18 @@ export interface ParseResult {
   parseErrors: string[];
   format: "price_tool" | "standard";
   settings?: PriceToolSettings;
+}
+
+export async function listActivePriceItems(): Promise<ActivePriceListItem[]> {
+  const { data, error } = await supabase
+    .from('price_list_published')
+    .select('item_number, item_text_da, item_text_de, item_text_en, price_dkk, price_eur, price_sek, published_at, published_by_email')
+    .order('item_number', { ascending: true });
+  if (error) {
+    console.warn('[priceListService] listActivePriceItems:', error);
+    return [];
+  }
+  return (data ?? []) as ActivePriceListItem[];
 }
 
 export interface PriceImportPayload {

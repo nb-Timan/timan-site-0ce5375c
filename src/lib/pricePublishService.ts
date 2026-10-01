@@ -1,15 +1,16 @@
 /**
- * Phase 26 — Controlled publish flow.
+ * Controlled price-list release flow.
  *
- * Reads dirty rows from price_list_items, builds a preview comparing the
+ * Reads staged rows from price_list_items, builds a preview comparing the
  * Backend Prisliste values to the current configurator seed values
  * (machines.ts via buildConfiguratorSeed), and publishes selected rows
- * into the price_list_published overlay via SECURITY DEFINER RPC.
+ * into an immutable release snapshot and the price_list_published active read
+ * model via a backend-guarded SECURITY DEFINER RPC.
  *
  * SAFETY:
  *  - No DELETE.
  *  - Empty/null source values never overwrite published values (server COALESCE).
- *  - Configurator code is NOT changed by this phase.
+ *  - Configurator reads only the active released overlay.
  *  - Quotes/orders/PDFs/email/n8n/CRM untouched.
  */
 
@@ -42,6 +43,26 @@ export interface PublishSummary {
   updated: number;
   skipped: number;
   errors: { item_number: string | null; error: string }[];
+  releaseId: string | null;
+  versionNumber: number | null;
+  effectiveAt: string | null;
+  affectedItemCount: number;
+  changedCurrencies: string[];
+}
+
+export interface PriceListRelease {
+  id: string;
+  version_number: number;
+  status: 'STAGED' | 'RELEASED' | 'SUPERSEDED';
+  source_file_name: string | null;
+  machine_scope: string;
+  created_by_email: string | null;
+  created_at: string;
+  released_by_email: string | null;
+  released_at: string | null;
+  effective_at: string | null;
+  affected_item_count: number;
+  changed_currencies: string[];
 }
 
 export interface PublishLog {
@@ -59,7 +80,7 @@ function describeError(e: unknown): string {
   if (!e) return "ukendt fejl";
   if (typeof e === "string") return e;
   const x = e as { message?: string; code?: string };
-  if (x.code === "42501") return "Kun backend kan publicere prislister.";
+  if (x.code === "42501") return "Kun backend kan frigive prislister.";
   return x.message || JSON.stringify(e);
 }
 
@@ -102,7 +123,7 @@ export async function publishItems(
   itemNumbers: string[],
 ): Promise<{ ok: boolean; summary?: PublishSummary; error?: string }> {
   try {
-    const { data, error } = await supabase.rpc("publish_price_list_items", {
+    const { data, error } = await supabase.rpc("release_price_list_items", {
       payload: { item_numbers: itemNumbers },
     });
     if (error) throw error;
@@ -119,11 +140,33 @@ export async function publishItems(
         updated: Number(d.updated ?? 0),
         skipped: Number(d.skipped ?? 0),
         errors: Array.isArray(d.errors) ? (d.errors as PublishSummary["errors"]) : [],
+        releaseId: typeof d.release_id === 'string' ? d.release_id : null,
+        versionNumber: d.version_number == null ? null : Number(d.version_number),
+        effectiveAt: typeof d.effective_at === 'string' ? d.effective_at : null,
+        affectedItemCount: Number(d.affected_item_count ?? 0),
+        changedCurrencies: Array.isArray(d.changed_currencies)
+          ? d.changed_currencies.filter((value): value is string => typeof value === 'string')
+          : [],
       },
     };
   } catch (e) {
     return { ok: false, error: describeError(e) };
   }
+}
+
+export async function listPriceListReleases(): Promise<PriceListRelease[]> {
+  const { data, error } = await supabase
+    .from('price_list_releases')
+    .select('id, version_number, status, source_file_name, machine_scope, created_by_email, created_at, released_by_email, released_at, effective_at, affected_item_count, changed_currencies')
+    .order('version_number', { ascending: false })
+    .limit(50);
+  if (error) return [];
+  return (data ?? []).map((row) => ({
+    ...row,
+    version_number: Number(row.version_number),
+    affected_item_count: Number(row.affected_item_count),
+    changed_currencies: Array.isArray(row.changed_currencies) ? row.changed_currencies : [],
+  })) as PriceListRelease[];
 }
 
 export async function listPublishLogs(): Promise<PublishLog[]> {
