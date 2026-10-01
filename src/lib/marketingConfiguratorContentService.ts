@@ -222,6 +222,7 @@ export function resolveMarketingProductIdentity(
   itemNumber: string | undefined,
   content: MarketingConfiguratorContentFields,
   requestedLanguage: PublishedProductLanguage = 'da',
+  localizedFallback?: string,
 ): MarketingConfiguratorContentFields {
   const language = requestedLanguage === 'de' || requestedLanguage === 'en' ? requestedLanguage : 'da';
   const localizedDescriptions = localizedDraftDescriptions(content);
@@ -232,11 +233,16 @@ export function resolveMarketingProductIdentity(
   };
   const row = publishedProduct(itemNumber);
   if (!row?.item_text_da) {
-    return resolvedContent.description.trim() === resolvedContent.title.trim()
-      ? { ...resolvedContent, description: '' }
-      : resolvedContent;
+    const title = language === 'de' && localizedFallback?.trim()
+      ? localizedFallback.trim()
+      : resolvedContent.title;
+    return resolvedContent.description.trim() === title.trim()
+      ? { ...resolvedContent, title, description: '' }
+      : { ...resolvedContent, title };
   }
-  const canonicalTitle = publishedProductText(itemNumber, language);
+  const canonicalTitle = language === 'de' && !row.item_text_de?.trim()
+    ? localizedFallback?.trim() || publishedProductText(itemNumber, language)
+    : publishedProductText(itemNumber, language);
   if (!canonicalTitle) return resolvedContent;
   return {
     ...resolvedContent,

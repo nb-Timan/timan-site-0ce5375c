@@ -17,6 +17,8 @@ export function snapshotProductName(state: ConfiguratorState, itemNumber: string
 
 /** Commercial identity excludes catalog/Marketing presentation suffixes. */
 export function currentProductDescription(itemNumber: string, language: Language, fallback: string): string {
+  const row = publishedProduct(itemNumber);
+  if (language === 'de' && row?.item_text_da?.trim() && !row.item_text_de?.trim()) return fallback;
   return publishedProductText(itemNumber, language === 'de' || language === 'en' ? language : 'da') ?? fallback;
 }
 

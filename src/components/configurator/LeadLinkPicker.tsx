@@ -40,7 +40,7 @@ const L = {
   others:   { da: 'Andre åbne leads', en: 'Other open leads', de: 'Andere Leads', it: 'Altri lead', hu: 'Egyéb leadek' },
   hint:     { da: 'Vælg "Opret nyt lead" for at oprette et CRM-lead automatisk når du gemmer eller sender tilbuddet. Eksisterende leads opdateres til "Offer sent" ved afsendelse.',
               en: 'Pick "Create new lead" to auto-create a CRM lead when you save or send the quote. Existing leads move to "Offer sent" on send.',
-              de: 'Mit "Neuen Lead erstellen" wird beim Speichern/Senden automatisch ein CRM-Lead angelegt. Bestehende Leads wechseln beim Senden zu "Offer sent".',
+              de: 'Mit "Neuen Lead erstellen" wird beim Speichern/Senden automatisch ein CRM-Lead angelegt. Bestehende Leads wechseln beim Senden zu "Angebot gesendet".',
               it: 'Scegli "Crea nuovo lead" per creare automaticamente un lead CRM al salvataggio o invio. I lead esistenti passano a "Offer sent".',
               hu: 'Válaszd az "Új lead létrehozása" lehetőséget az automatikus CRM lead létrehozásához mentéskor/küldéskor.' },
   linked:   { da: 'Knyttet til', en: 'Linked to', de: 'Verknüpft mit', it: 'Collegato a', hu: 'Kapcsolva ehhez' },

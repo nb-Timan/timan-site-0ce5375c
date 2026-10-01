@@ -66,7 +66,7 @@ describe('localized Product Master texts', () => {
     expect(resolved.priceEUR).toBe(45);
   });
 
-  it('falls missing German and English text back to canonical Danish, never stale static copy', () => {
+  it('keeps a reviewed static German translation when Product Master DE is missing', () => {
     replaceProductMaster([{
       item_number: '725135',
       item_text_da: 'Dansk publiceret',
@@ -84,7 +84,7 @@ describe('localized Product Master texts', () => {
 
     expect(resolvePublishedProduct(base).name).toEqual({
       da: 'Dansk publiceret',
-      de: 'Dansk publiceret',
+      de: 'Deutsch alt',
       en: 'Dansk publiceret',
     });
   });
@@ -137,5 +137,16 @@ describe('localized Product Master texts', () => {
     expect(migration).toContain('published.price_eur');
     expect(migration).not.toContain('current_item.price_dkk');
     expect(migration).not.toContain('current_item.price_eur');
+  });
+
+  it('keeps German and English translations intact during Danish price-tool imports', () => {
+    const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260813110443_backend_price_lists_and_costs.sql'), 'utf8');
+    const upsert = migration.slice(
+      migration.indexOf('create or replace function public.upsert_price_list_items'),
+      migration.indexOf('revoke all on function public.upsert_price_list_items'),
+    );
+    expect(upsert).toContain('item_text_da = coalesce(new_item_text_da, item_text_da)');
+    expect(upsert).not.toContain('item_text_de =');
+    expect(upsert).not.toContain('item_text_en =');
   });
 });

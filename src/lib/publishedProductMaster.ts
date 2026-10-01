@@ -50,9 +50,12 @@ export function resolvePublishedTitle(
   itemNumber: string | undefined,
   presentation: string,
   language: PublishedProductLanguage = 'da',
+  localizedFallback?: string,
 ): string {
   const row = publishedProduct(itemNumber);
-  const title = publishedProductText(itemNumber, language);
+  const title = language === 'de' && !row?.item_text_de?.trim()
+    ? localizedFallback?.trim() || publishedProductText(itemNumber, language)
+    : publishedProductText(itemNumber, language);
   if (!title) return presentation;
   const aliases = [
     title,
@@ -85,7 +88,7 @@ export function resolvePublishedProduct<T extends CatalogItem>(item: T): T {
   if (row.item_text_da?.trim()) {
     const baseName = typeof item.name === 'string' ? { da: item.name, de: item.name, en: item.name } : item.name;
     const titleDa = resolvePublishedTitle(item.varenr, baseName.da, 'da');
-    const titleDe = resolvePublishedTitle(item.varenr, baseName.de || baseName.da, 'de');
+    const titleDe = resolvePublishedTitle(item.varenr, baseName.de || baseName.da, 'de', baseName.de);
     const titleEn = resolvePublishedTitle(item.varenr, baseName.en || baseName.da, 'en');
     name = { ...baseName, da: titleDa, de: titleDe, en: titleEn };
   }

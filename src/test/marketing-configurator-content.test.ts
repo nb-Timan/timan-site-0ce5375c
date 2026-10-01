@@ -8,6 +8,7 @@ import {
   localizedDraftTitles,
   mergeMarketingConfiguratorContent,
   productContentKey,
+  resolveMarketingProductIdentity,
 } from '@/lib/marketingConfiguratorContentService';
 import { replaceProductMaster } from '@/lib/publishedProductMaster';
 import { canManageMarketingConfiguratorContent } from '@/lib/portalAccess';
@@ -73,6 +74,16 @@ describe('Marketing configurator content', () => {
     }, canonical);
     expect(draft).toEqual({ da: 'Draft dansk', de: 'Draft deutsch', en: 'Draft English' });
     expect(mergeMarketingConfiguratorContent({ ...EMPTY_CONTENT, title: 'static' }, { ...EMPTY_CONTENT, title: 'stale Marketing' }, '725132', 'de').title).toBe('Deutsch canonical');
+    replaceProductMaster([]);
+  });
+
+  it('uses the reviewed German catalog title when Product Master has no German text', () => {
+    replaceProductMaster([{
+      item_number: '725132', item_text_da: 'Dansk canonical', item_text_de: null, item_text_en: 'English canonical',
+      price_dkk: 10, price_eur: 2,
+    }]);
+    expect(resolveMarketingProductIdentity('725132', { ...EMPTY_CONTENT, title: 'Stale dansk' }, 'de', 'Gepruefter deutscher Titel').title)
+      .toBe('Gepruefter deutscher Titel');
     replaceProductMaster([]);
   });
 

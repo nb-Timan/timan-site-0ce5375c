@@ -1,5 +1,6 @@
 import { Machine, Accessory, Language } from '@/types/configurator';
 import { notifyProductMaster, publishedProduct, replaceProductMaster, resolvePublishedProduct, type PublishedProductMaster } from '@/lib/publishedProductMaster';
+import { canonicalGermanProductText } from '@/data/configuratorGermanProductTranslations';
 
 // ===== CONSTANTS =====
 export const ACC_ID_WIRE_HARNESS = '412614';
@@ -26,14 +27,41 @@ export const ACC_ID_OIL_1000_PARENT = '445566778899';
 /** Approved Backend prices overlay the static catalogue for fresh sessions. */
 export type PublishedConfiguratorPrice = PublishedProductMaster;
 
+type CatalogItem = Machine | Accessory;
+
+function withCanonicalGermanText<T extends CatalogItem>(item: T): T {
+  const german = canonicalGermanProductText(item.varenr);
+  const name = german
+    ? typeof item.name === 'string'
+      ? { da: item.name, en: item.name, de: german }
+      : { ...item.name, de: german }
+    : item.name;
+  const subItems = 'subItems' in item && item.subItems
+    ? item.subItems.map((subItem) => withCanonicalGermanText(subItem as Accessory))
+    : undefined;
+  return {
+    ...item,
+    name,
+    ...(subItems ? { subItems } : {}),
+  } as T;
+}
+
+function resolveCatalogProduct<T extends CatalogItem>(item: T): T {
+  return resolvePublishedProduct(withCanonicalGermanText(item));
+}
+
+function resolveCatalogAccessory(item: Accessory): Accessory {
+  const localized = withCanonicalGermanText(item);
+  return {
+    ...resolvePublishedProduct(localized),
+    ...(localized.subItems ? { subItems: localized.subItems.map((sub) => resolveCatalogAccessory(sub as Accessory)) } : {}),
+  };
+}
+
 export function replacePublishedConfiguratorPrices(rows: PublishedConfiguratorPrice[]): void {
   replaceProductMaster(rows);
-  PRODUCTS = Object.fromEntries(Object.entries(BASE_PRODUCTS).map(([key, item]) => [key, resolvePublishedProduct(item)]));
-  const resolveAccessory = (item: Accessory): Accessory => ({
-    ...resolvePublishedProduct(item),
-    ...(item.subItems ? { subItems: item.subItems.map(sub => resolveAccessory(sub as Accessory)) } : {}),
-  });
-  ACCESSORIES = Object.fromEntries(Object.entries(BASE_ACCESSORIES).map(([key, items]) => [key, items.map(resolveAccessory)]));
+  PRODUCTS = Object.fromEntries(Object.entries(BASE_PRODUCTS).map(([key, item]) => [key, resolveCatalogProduct(item)]));
+  ACCESSORIES = Object.fromEntries(Object.entries(BASE_ACCESSORIES).map(([key, items]) => [key, items.map(resolveCatalogAccessory)]));
   notifyProductMaster();
 }
 
@@ -78,8 +106,8 @@ const BASE_PRODUCTS: Record<string, Machine> = {
     imageUrl: 'https://img.youtube.com/vi/brq-kHp9gPI/hqdefault.jpg',
     images: [{ url: 'https://img.youtube.com/vi/brq-kHp9gPI/hqdefault.jpg' }],
     techSpecs: [
-      { label: 'Motor', value: 'Vanguard, 23 HK' },
-      { label: 'Max. hældning', value: '50 grader' },
+      { label: 'Motor', value: { da: 'Vanguard, 23 HK', en: 'Vanguard, 23 HP', de: 'Vanguard, 23 PS' } },
+      { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad' } },
       { label: 'Vægt (Basis)', value: '440 kg' },
       { label: 'Klippebredde', value: '1000 mm' },
     ],
@@ -110,7 +138,7 @@ const BASE_PRODUCTS: Record<string, Machine> = {
           'Raupen mit unabhängiger Aufhängung, vollem Bodenkontakt und hoher Stabilität an steilen Hängen.',
           'Die kompakteste ihrer Klasse, was ein müheloses Arbeiten an engen und unzugänglichen Stellen ermöglicht.',
           'Breites Geräteprogramm deckt alle Jahreszeiten ab.',
-          'Fjernbetjening: 2,4 Ghz, max. 150 m Reichweite. Aufladen direkt an der Maschine möglich.',
+          'Fernsteuerung: 2,4 GHz, max. 150 m Reichweite. Aufladen direkt an der Maschine möglich.',
           'Leichter Zugang zum Motorraum, keine rotierenden Teile zum Spannen/Schmieren (keine Keilriemen). Selbstreinigender Ölkühler.'
         ],
         it: [
@@ -157,8 +185,8 @@ const BASE_PRODUCTS: Record<string, Machine> = {
     imageUrl: 'https://img.youtube.com/vi/LqrPvmCXues/hqdefault.jpg',
     images: [{ url: 'https://img.youtube.com/vi/LqrPvmCXues/hqdefault.jpg' }],
     techSpecs: [
-      { label: 'Motor', value: 'B&S, 14 HK' },
-      { label: 'Max. hældning', value: '50 grader' },
+      { label: 'Motor', value: { da: 'B&S, 14 HK', en: 'B&S, 14 HP', de: 'B&S, 14 PS' } },
+      { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad' } },
       { label: 'Vægt (Basis)', value: '345 kg' },
       { label: 'Klippebredde', value: '750 mm' },
     ],
@@ -198,8 +226,8 @@ const BASE_PRODUCTS: Record<string, Machine> = {
         ]
       },
       dimensions: [
-        { label: 'Motor', value: 'B&S, 14 HK' },
-        { label: 'Max. hældning', value: '50 grader' },
+        { label: 'Motor', value: { da: 'B&S, 14 HK', en: 'B&S, 14 HP', de: 'B&S, 14 PS' } },
+        { label: 'Max. hældning', value: { da: '50 grader', en: '50 degrees', de: '50 Grad' } },
         { label: 'Vægt (Basis)', value: '345 kg' },
         { label: 'Klippebredde', value: '750 mm' },
         { label: 'Højde', value: '603 mm' },
@@ -222,10 +250,10 @@ const BASE_PRODUCTS: Record<string, Machine> = {
     videoUrl: 'https://www.youtube.com/watch?v=Q1vii5cZvgw',
     imageUrl: 'https://img.youtube.com/vi/Q1vii5cZvgw/maxresdefault.jpg',
     techSpecs: [
-      { label: 'Motor', value: 'Kubota benzinmotor' },
-      { label: 'HK', value: '33 HK' },
+      { label: 'Motor', value: { da: 'Kubota benzinmotor', en: 'Kubota petrol engine', de: 'Kubota-Benzinmotor' } },
+      { label: 'HK', value: { da: '33 HK', en: '33 HP', de: '33 PS' } },
       { label: 'Brændstof', value: 'Benzin' },
-      { label: 'Tophastighed', value: '28 km/t' },
+      { label: 'Tophastighed', value: { da: '28 km/t', en: '28 km/h', de: '28 km/h' } },
       { label: 'Lydniveau i kabine', value: '79 dB' },
       { label: 'Køreklar vægt', value: '1.185 kg' },
     ],
@@ -360,7 +388,7 @@ const BASE_PRODUCTS: Record<string, Machine> = {
       main: {
         da: 'Loader Line — redskaber til Weidemann og lignende læssere.',
         en: 'Loader Line — implements for Weidemann and similar loaders.',
-        de: 'Loader Line — implements for Weidemann and similar loaders.',
+        de: 'Loader-Line — Anbaugeräte für Weidemann und vergleichbare Lader.',
         it: 'Loader Line — implements for Weidemann and similar loaders.',
         hu: 'Loader Line — implements for Weidemann and similar loaders.',
       },
@@ -402,7 +430,7 @@ const BASE_ACCESSORIES: Record<string, Accessory[]> = {
       specs: [{ label: 'Beskrivelse', value: { da: `Pris incl. afgift og emb. afgift (20L)\n\nBiohydran TMP 46 er en bionedbrydelig hydraulikolie med en viskositet på 46 cSt ved 40 °C. Den anvendes typisk i hydrauliksystemer, hvor der er behov for en biologisk nedbrydelig olie, f.eks. i landbrug, skovbrug, marine og andre industrier.`, en: `Price incl. tax and packaging tax (20L)\n\nBiohydran TMP 46 is a biodegradable hydraulic oil with a viscosity of 46 cSt at 40 °C.`, de: `Preis inkl. Abgabe und Verpackungsabgabe (20L)\n\nBiohydran TMP 46 ist ein biologisch abbaubares Hydrauliköl.`, it: `Prezzo incl. imposta e tassa imballaggio (20L)\n\nBiohydran TMP 46 è un olio idraulico biodegradabile.`, hu: `Az ár tartalmazza az adót és a csomagolási díjat (20L)\n\nA Biohydran TMP 46 egy biológiailag lebomló hidraulikaolaj.` } }]
     },
     // Equipment
-    { id: ACC_ID_WORK_LIGHT, varenr: '412594', name: { da: 'Arbejdslys 2 stk.', en: 'Work Lights 2 pcs.', de: 'Arbeitsleuchten 2 Stk.', it: 'Luci da lavoro 2 pz.', hu: 'Munkalámpa 2 db' }, priceDKK: 1850, priceEUR: 250, sectionStart: 'Udstyr til RC-1000s',
+    { id: ACC_ID_WORK_LIGHT, varenr: '412594', name: { da: 'Arbejdslys 2 stk.', en: 'Work Lights 2 pcs.', de: 'Arbeitsleuchten 2 Stk.', it: 'Luci da lavoro 2 pz.', hu: 'Munkalámpa 2 db' }, priceDKK: 1850, priceEUR: 250, sectionStart: 'rc1000EquipmentSection',
       specs: [{ label: 'Beskrivelse', value: { da: 'LED-arbejdslamper foran – maksimal synlighed\n\nKraftige LED-arbejdslamper monteret foran på maskinen sikrer effektiv belysning af arbejdsområdet og optimale arbejdsforhold – selv i mørke eller dårlige lysforhold.', en: 'LED work lights at the front – maximum visibility\n\nPowerful LED work lights mounted at the front of the machine ensure effective illumination of the working area and optimal working conditions – even in darkness or poor lighting.', de: 'LED-Arbeitsscheinwerfer vorne – maximale Sichtbarkeit', it: 'Luci da lavoro LED anteriori – massima visibilità', hu: 'Első LED munkalámpák – maximális láthatóság' } }]
     },
     { id: ACC_ID_FLASH_LIGHT, varenr: '411630', name: { da: 'Blitzlys 2 stk.', en: 'Flashing Lights 2 pcs.', de: 'Blitzlichter 2 Stk.', it: 'Luci lampeggianti 2 pz.', hu: 'Villogó lámpa 2 db' }, priceDKK: 2360, priceEUR: 320, auto: true,
@@ -527,8 +555,8 @@ const BASE_ACCESSORIES: Record<string, Accessory[]> = {
     { id: '50101020', varenr: '50101020', name: { da: 'Børste Ø390/Ø600, 2 rækker stålwire', en: 'Brush Ø390/Ø600, 2 rows of steel wire' }, priceDKK: 5300, priceEUR: 715, videoUrl: 'https://www.youtube.com/watch?v=m4q_NlhLW74', imageUrl: 'https://img.youtube.com/vi/m4q_NlhLW74/maxresdefault.jpg', requires: ACC_ID_WEEDBRUSH, isQtyInput: true },
     { id: '412050', varenr: '412050', name: { da: 'Skovl RC-1000', en: 'Bucket RC-1000' }, priceDKK: 11800, priceEUR: 1610, isNew: true },
     // --- ØVRIGT UDSTYR ---
-    { id: ACC_ID_WIRE_HARNESS, varenr: '412614', name: { da: 'Ledningsnet til blitz/arbejdslys', en: 'Wiring Harness for Flashing/Work Lights' }, priceDKK: 890, priceEUR: 120, hidden: true, sectionStart: 'Udstyr til RC-1000s' },
-    { id: '411891', varenr: '411891', name: { da: 'Krogplade til udstyr', en: 'Hook Plate for Equipment', de: 'Hakenplatte für Ausrüstung', it: 'Piastra di aggancio per attrezzatura', hu: 'Kampós lemez felszereléshez' }, priceDKK: 700, priceEUR: 95, sectionStart: 'Øvrigt Udstyr',
+    { id: ACC_ID_WIRE_HARNESS, varenr: '412614', name: { da: 'Ledningsnet til blitz/arbejdslys', en: 'Wiring Harness for Flashing/Work Lights' }, priceDKK: 890, priceEUR: 120, hidden: true, sectionStart: 'rc1000EquipmentSection' },
+    { id: '411891', varenr: '411891', name: { da: 'Krogplade til udstyr', en: 'Hook Plate for Equipment', de: 'Hakenplatte für Ausrüstung', it: 'Piastra di aggancio per attrezzatura', hu: 'Kampós lemez felszereléshez' }, priceDKK: 700, priceEUR: 95, sectionStart: 'otherEquipmentSection',
       specs: [{ label: 'Beskrivelse', value: { da: 'Krogplade – fleksibel montering af ekstraudstyr\n\nVed montering af ekstraudstyr på maskinen anbefales en krogplade. Den sikrer en stabil, fleksibel og effektiv montering af forskelligt udstyr.', en: 'Hook plate – flexible mounting of additional equipment\n\nWhen mounting additional equipment on the machine, a hook plate is recommended.' } }]
     },
     { id: '411906', varenr: '411906', name: { da: 'Bagvægt', en: 'Rear Weight', de: 'Heckgewicht', it: 'Contrappeso posteriore', hu: 'Hátsó súly' }, priceDKK: 2820, priceEUR: 379,
@@ -537,12 +565,12 @@ const BASE_ACCESSORIES: Record<string, Accessory[]> = {
         { label: 'Beskrivelse', value: { da: 'Bagvægt til montering på RC-1000s for bedre balance ved brug af tunge frontmonterede redskaber.', en: 'Rear weight for mounting on RC-1000s for better balance when using heavy front-mounted implements.' } }
       ]
     },
-    { id: ACC_ID_RAL_COLOR, varenr: ACC_ID_RAL_COLOR, name: { da: 'Farve efter eget ønske (RAL)', en: 'Custom Color (RAL)', de: 'Wunschfarbe (RAL)', it: 'Colore personalizzato (RAL)', hu: 'Egyedi szín (RAL)' }, priceDKK: 15000, priceEUR: 2015, isRAL: true, sectionStart: 'Øvrigt Udstyr',
+    { id: ACC_ID_RAL_COLOR, varenr: ACC_ID_RAL_COLOR, name: { da: 'Farve efter eget ønske (RAL)', en: 'Custom Color (RAL)', de: 'Wunschfarbe (RAL)', it: 'Colore personalizzato (RAL)', hu: 'Egyedi szín (RAL)' }, priceDKK: 15000, priceEUR: 2015, isRAL: true, sectionStart: 'otherEquipmentSection',
       specs: [{ label: 'Beskrivelse', value: { da: 'Maskinen leveres i den ønskede RAL-farve. Angiv venligst RAL-kode (f.eks. 3003) i feltet.', en: 'The machine is supplied in the desired RAL color. Please specify the RAL code (e.g., 3003) in the field.' } }]
     },
   ],
   'RC-751': [
-    { id: '411687', varenr: '411687', name: { da: 'Blitzlys RC-751', en: 'Flashing Light RC-751', de: 'Blitzlicht RC-751', it: 'Luce lampeggiante RC-751', hu: 'Villogó lámpa RC-751' }, priceDKK: 2660, priceEUR: 360, sectionStart: 'Udstyr til RC-751',
+    { id: '411687', varenr: '411687', name: { da: 'Blitzlys RC-751', en: 'Flashing Light RC-751', de: 'Blitzlicht RC-751', it: 'Luce lampeggiante RC-751', hu: 'Villogó lámpa RC-751' }, priceDKK: 2660, priceEUR: 360, sectionStart: 'rc751EquipmentSection',
       specs: [{ label: 'Beskrivelse', value: { da: 'Blitzlys til øget sikkerhed ved arbejde nær trafik\n\nMaskinen bliver udstyret med 2 kraftige blitzlys:\n\n1 stk. monteret foran\n1 stk. monteret bagpå', en: 'Beacon lights for increased safety when working near traffic' } }]
     },
     { id: '410106', varenr: '410106', name: { da: 'Lader 12V 7.5A', en: 'Charger 12V 7.5A', de: 'Ladegerät 12V 7.5A', it: 'Caricabatterie 12V 7,5A', hu: 'Töltő 12V 7,5A' }, priceDKK: 1500, priceEUR: 205,
@@ -1100,8 +1128,12 @@ export function getMachineById(id: string): Machine | undefined {
 }
 
 // Resolved current catalog; structural originals are never mutated.
-export let PRODUCTS = BASE_PRODUCTS;
-export let ACCESSORIES = BASE_ACCESSORIES;
+export let PRODUCTS = Object.fromEntries(
+  Object.entries(BASE_PRODUCTS).map(([key, item]) => [key, resolveCatalogProduct(item)]),
+) as Record<string, Machine>;
+export let ACCESSORIES = Object.fromEntries(
+  Object.entries(BASE_ACCESSORIES).map(([key, items]) => [key, items.map(resolveCatalogAccessory)]),
+) as Record<string, Accessory[]>;
 
 // Legacy compatibility (structural catalog only)
 export const machines = Object.values(PRODUCTS);

@@ -828,13 +828,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   const marketingContentFor = (machineType: string, itemId: string | undefined) => {
     if (!itemId) return null;
     const key = productContentKey(machineType, itemId);
+    const catalogItem = marketingCatalogByKey.get(key);
     const content = marketingEditMode
       ? marketingEditorRecords.find((record) => record.product_key === key && record.status === 'draft')?.content
         || marketingEditorRecords.find((record) => record.product_key === key && record.status === 'published')?.content
         || publishedMarketingContent.get(key)?.content
         || null
       : publishedMarketingContent.get(key)?.content || null;
-    return content ? resolveMarketingProductIdentity(marketingCatalogByKey.get(key)?.itemNumber, content, lang) : null;
+    return content ? resolveMarketingProductIdentity(catalogItem?.itemNumber, content, lang, catalogItem?.defaults.title) : null;
   };
   const campaignClock = useMarketingBadgeClock();
   const campaignSelection = useMemo(() => configurationCampaignSelection(state), [state]);
@@ -3540,6 +3541,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const cardSpecs = key === 'Timan 2620'
                       ? p.techSpecs
                       : marketingContent?.specs.length ? marketingContent.specs : p.techSpecs;
+                    const canonicalCardSpecs = new Map(p.techSpecs.map((spec) => [spec.label, spec]));
                     const cardVideoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(p, primaryVideosByProduct);
                     const cardImageUrl = marketingContent?.image_url || getImageUrlForItem(p);
                     const cardTitle = marketingContent?.title || getLocalizedName(p.name, lang);
@@ -3553,7 +3555,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         itemNumberLabel={itemNoLabel(uiLanguage)}
                         price={permissions.canSeePrices ? formatDisplayMoney(getPrice(p, lang)) : ''}
                         description={key === 'Timan 2620' ? undefined : marketingContent?.description}
-                        specs={cardSpecs.map((spec) => ({ label: translateSpecLabel(spec.label, uiLanguage), value: typeof spec.value === 'string' ? spec.value : ((spec.value as any)?.[lang] || (spec.value as any)?.da || '') }))}
+                        specs={cardSpecs.map((spec) => {
+                          const canonicalValue = canonicalCardSpecs.get(spec.label)?.value;
+                          const value = canonicalValue && typeof canonicalValue !== 'string' ? canonicalValue : spec.value;
+                          return {
+                            label: translateSpecLabel(spec.label, uiLanguage),
+                            value: typeof value === 'string' ? value : (value?.[lang] || value?.da || ''),
+                          };
+                        })}
                         badge={marketingCampaignFor(key, p.id) ? 'Kampagne' : marketingContent?.badge}
                         badgeSchedule={marketingContent}
                         campaign={marketingCampaignFor(key, p.id)}
@@ -4273,7 +4282,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     <input id="configurator-lead-country" aria-invalid={leadValidationErrors.includes('country')} type="text" value={state.country} onChange={e => updateActiveCustomerField('country', e.target.value)} className={leadFieldClass('country')} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Rekvisitionsnr. / PO nr.</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">{T('purchaseOrderReference')}</label>
                     <input
                       type="text"
                       value={state.purchaseOrderNumber}
