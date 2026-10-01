@@ -61,6 +61,16 @@ describe('Configurator final commercial-state matrix', () => {
     expect(migration).toContain('before insert or update of state_json');
   });
 
+  it('requires canonical seller/dealer ownership before opening an order confirmation', () => {
+    const source = fs.readFileSync(
+      path.resolve(process.cwd(), 'src/pages/ConfiguratorPage.tsx'),
+      'utf8',
+    );
+    expect(source).toContain("if (state.flowType === 'order' && !(await getRequiredOwnershipPayload()))");
+    expect(source.indexOf("if (state.flowType === 'order' && !(await getRequiredOwnershipPayload()))"))
+      .toBeLessThan(source.indexOf('setConfirmModalOpen(true);'));
+  });
+
   it('repairs a stale stored ORDER + Direct state without retaining frozen Direct totals', () => {
     const repaired = normalizeConfiguratorState({
       ...createEmptyConfiguratorState('da', 'order'),

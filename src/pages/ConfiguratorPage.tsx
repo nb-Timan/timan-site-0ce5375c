@@ -2153,6 +2153,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       toast.error(T('orderCannotResendTitle'));
       return;
     }
+    // Resolve canonical ownership before an order reaches its confirmation.
+    // The send path repeats this check so direct calls remain protected.
+    if (state.flowType === 'order' && !(await getRequiredOwnershipPayload())) {
+      return;
+    }
     if (!state.firmanavn || !state.kontaktperson || !state.email) {
       setInfoModal({ title: T('missingFieldsTitle'), content: T('missingFieldsMsg') });
       return;
