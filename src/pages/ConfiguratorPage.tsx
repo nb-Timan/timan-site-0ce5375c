@@ -118,7 +118,7 @@ import { resolveMarketingProductIdentity } from '@/lib/marketingConfiguratorCont
 import { useProductMasterRevision } from '@/hooks/useProductMasterRevision';
 import { DELIVERY_DISCOUNT_PERCENT, commonMachineDeliveryDate, hasMachineDeliveryOverride, isDeliveryDiscountEligible, machineDeliveryDate, machineDeliveryDateKey } from '@/lib/configuratorDelivery';
 import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
-import { configuratorCustomerModeCopy } from '@/lib/configuratorStep4I18n';
+import { configuratorCustomerModeCopy, configuratorSubmittedOrderCopy } from '@/lib/configuratorStep4I18n';
 import {
   canApplyExtraDealerDiscount as resolveExtraDealerDiscountPermission,
   canSelectConfiguratorDemo,
@@ -548,6 +548,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   }, [appUser?.email, appUser?.dealer_number, appUser?.portal_role]);
 
   const customerModeCopy = configuratorCustomerModeCopy(uiLanguage);
+  const submittedOrderCopy = configuratorSubmittedOrderCopy(uiLanguage);
   const sortedDealerContacts = useMemo(() => dealerContacts
     .filter((contact) => Boolean(contact.name?.trim()))
     .slice()
@@ -3529,8 +3530,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         <main className="lg:col-span-3">
           {state.flowType === 'order' && orderLocked && (
             <div className="mb-4 rounded-xl border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 flex items-center justify-between">
-              <span><strong>{T('orderLockedBannerStrong')}</strong> — {backendCorrectionSessionId ? 'Backend-rettelse er aktiv. Gem ændringer for at låse igen.' : T('orderLockedBannerText')}</span>
-              <span className="flex items-center gap-3"><span className="text-xs font-mono text-amber-800">{savedOrderNumber || ''}</span>{canCorrectSubmittedOrder && !backendCorrectionSessionId && <button type="button" onClick={() => setBackendCorrectionDialogOpen(true)} className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100">Ret afgivet ordre</button>}</span>
+              <span><strong>{T('orderLockedBannerStrong')}</strong> — {backendCorrectionSessionId ? submittedOrderCopy.correctionActive : T('orderLockedBannerText')}</span>
+              <span className="flex items-center gap-3"><span className="text-xs font-mono text-amber-800">{savedOrderNumber || ''}</span>{canCorrectSubmittedOrder && !backendCorrectionSessionId && <button type="button" onClick={() => setBackendCorrectionDialogOpen(true)} className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-semibold text-amber-900 hover:bg-amber-100">{submittedOrderCopy.editSubmittedOrder}</button>}</span>
             </div>
           )}
           <fieldset ref={stepContentRef} disabled={submittedOrderEditorLocked} className={`${submittedOrderEditorLocked ? 'space-y-6 opacity-90 [&_*]:!cursor-not-allowed' : 'space-y-6'} scroll-mt-24`} style={submittedOrderEditorLocked ? { pointerEvents: 'none' } : undefined}>
@@ -4772,10 +4773,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
       <Dialog open={backendCorrectionDialogOpen} onOpenChange={setBackendCorrectionDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Ret afgivet ordre</DialogTitle>
+            <DialogTitle>{submittedOrderCopy.editSubmittedOrder}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-gray-600">
-            Rettelsen gælder kun denne ordre og bliver logget med begrundelse. Ordren forbliver afgivet og låses igen, når ændringerne gemmes.
+            {submittedOrderCopy.correctionDescription}
           </p>
           {requiresLegacyOrderReprice && (
             <label className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
@@ -4786,24 +4787,24 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 className="mt-0.5 h-4 w-4"
               />
               <span>
-                Denne ældre ordre har ingen gemte linjepriser. Jeg accepterer, at den ved denne rettelse opdateres til de nuværende katalogpriser og logges som en prisrevision.
+                {submittedOrderCopy.legacyRepriceWarning}
               </span>
             </label>
           )}
           <div className="space-y-2">
-            <label htmlFor="submitted-order-correction-reason" className="text-sm font-medium text-gray-800">Begrundelse</label>
+            <label htmlFor="submitted-order-correction-reason" className="text-sm font-medium text-gray-800">{submittedOrderCopy.reason}</label>
             <textarea
               id="submitted-order-correction-reason"
               value={backendCorrectionReason}
               onChange={(event) => setBackendCorrectionReason(event.target.value)}
               className="min-h-24 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              placeholder="Beskriv rettelsen..."
+              placeholder={submittedOrderCopy.reasonPlaceholder}
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setBackendCorrectionDialogOpen(false)} disabled={startingBackendCorrection}>Annuller</Button>
+            <Button type="button" variant="outline" onClick={() => setBackendCorrectionDialogOpen(false)} disabled={startingBackendCorrection}>{submittedOrderCopy.cancel}</Button>
             <Button type="button" onClick={() => void handleStartBackendCorrection()} disabled={!backendCorrectionReason.trim() || startingBackendCorrection || (requiresLegacyOrderReprice && !legacyOrderRepriceApproved)}>
-              {startingBackendCorrection ? 'Åbner...' : 'Start rettelse'}
+              {startingBackendCorrection ? submittedOrderCopy.opening : submittedOrderCopy.startCorrection}
             </Button>
           </div>
         </DialogContent>

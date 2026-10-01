@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { calculateConfiguration, calcConfigurationTotals, formatDiscountDetailLabel } from '@/lib/calcConfiguration';
 import { canUseDirectPricing } from '@/lib/configuratorDirectPricing';
-import { configuratorCustomerModeCopy } from '@/lib/configuratorStep4I18n';
+import { configuratorCustomerModeCopy, configuratorSubmittedOrderCopy } from '@/lib/configuratorStep4I18n';
 import {
   assertValidConfiguratorCommercialState,
   createEmptyConfiguratorState,
@@ -117,7 +117,9 @@ describe('Configurator final commercial-state matrix', () => {
 
   it.each(locales)('provides complete Step 4 labels for %s', locale => {
     const copy = configuratorCustomerModeCopy(locale);
+    const submittedOrderCopy = configuratorSubmittedOrderCopy(locale);
     expect(Object.values(copy).every(value => value.trim().length > 0)).toBe(true);
+    expect(Object.values(submittedOrderCopy).every(value => value.trim().length > 0)).toBe(true);
     expect(getPaymentTermsLabel(locale).trim().length).toBeGreaterThan(0);
   });
 
@@ -129,6 +131,8 @@ describe('Configurator final commercial-state matrix', () => {
       country: 'Land',
     });
     expect(getPaymentTermsLabel('sv')).toBe('Betalningsvillkor');
+    expect(configuratorSubmittedOrderCopy('sv').editSubmittedOrder).toBe('Korrigera skickad order');
+    expect(configuratorSubmittedOrderCopy('sv').startCorrection).toBe('Starta korrigering');
     expect(formatDiscountDetailLabel({
       kind: 'base',
       txt: 'Base discount',
