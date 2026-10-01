@@ -151,4 +151,12 @@ describe('professional partner agreement PDF presentation', () => {
     expect(source).toContain('drawContractTerritoryMap');
     expect(source).toContain('TIMAN_COMPANY_INFO.address');
   });
+
+  it('keeps each main heading with the beginning of its first content block', () => {
+    const source = readFileSync('src/lib/contractPdfDocument.ts', 'utf8');
+
+    expect(source).toContain('const getBlockRequiredHeight = (');
+    expect(source).toContain('const firstBlockRequiredHeight = firstBlock');
+    expect(source).toContain('mainHeading(sectionTitle, firstBlockRequiredHeight)');
+  });
 });

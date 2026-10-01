@@ -379,9 +379,28 @@ export async function generateContractPdf(
       y += lineHeight;
     });
   };
-  const mainHeading = (title: string) => {
+  const getBlockRequiredHeight = (
+    heading: string | undefined,
+    paragraphs: string[] = [],
+    bullets: string[] = [],
+  ) => {
+    const body = [...paragraphs, ...bullets];
+    const headingLines = heading ? pdf.splitTextToSize(heading, width) as string[] : [];
+    const firstBodyLines = body[0] ? pdf.splitTextToSize(body[0], width) as string[] : [];
+    const paragraphLines = paragraphs.reduce((count, paragraph) => count + (pdf.splitTextToSize(paragraph, width) as string[]).length, 0);
+    const bulletLines = bullets.reduce((count, bullet) => count + (pdf.splitTextToSize(`- ${bullet}`, width - 2.5) as string[]).length, 0);
+    const totalHeight = headingLines.length * 5
+      + paragraphLines * 4.45
+      + bulletLines * 4.45
+      + paragraphs.length * 1.4
+      + bullets.length
+      + 6;
+    const minimumHeight = Math.max(18, headingLines.length * 5 + firstBodyLines.length * 4.45 + (body.length ? 8 : 0));
+    return totalHeight <= bottom - top ? Math.max(minimumHeight, totalHeight) : minimumHeight;
+  };
+  const mainHeading = (title: string, followingContentHeight = 0) => {
     const lines = pdf.splitTextToSize(title, width) as string[];
-    ensure(Math.max(36, lines.length * 6.5 + 26));
+    ensure(Math.max(36, lines.length * 6.5 + followingContentHeight + 7));
     const page = pdf.getNumberOfPages();
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(15);
@@ -391,19 +410,7 @@ export async function generateContractPdf(
     return page;
   };
   const block = (heading: string | undefined, paragraphs: string[] = [], bullets: string[] = []) => {
-    const body = [...paragraphs, ...bullets];
-    const previewLines = heading ? pdf.splitTextToSize(heading, width) as string[] : [];
-    const firstBody = body[0] ? pdf.splitTextToSize(body[0], width) as string[] : [];
-    const paragraphLines = paragraphs.reduce((count, paragraph) => count + (pdf.splitTextToSize(paragraph, width) as string[]).length, 0);
-    const bulletLines = bullets.reduce((count, bullet) => count + (pdf.splitTextToSize(`- ${bullet}`, width - 2.5) as string[]).length, 0);
-    const totalHeight = previewLines.length * 5
-      + paragraphLines * 4.45
-      + bulletLines * 4.45
-      + paragraphs.length * 1.4
-      + bullets.length
-      + 6;
-    const minimumHeight = Math.max(18, previewLines.length * 5 + firstBody.length * 4.45 + (body.length ? 8 : 0));
-    ensure(totalHeight <= bottom - top ? Math.max(minimumHeight, totalHeight) : minimumHeight);
+    ensure(getBlockRequiredHeight(heading, paragraphs, bullets));
     if (heading) {
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(10.8);
@@ -478,7 +485,11 @@ export async function generateContractPdf(
 
   presentation.sections.forEach((section) => {
     const sectionTitle = `${section.number}. ${section.title}`;
-    recordSectionEntry(sectionTitle, mainHeading(sectionTitle));
+    const firstBlock = section.blocks[0];
+    const firstBlockRequiredHeight = firstBlock
+      ? getBlockRequiredHeight(firstBlock.heading, firstBlock.paragraphs, firstBlock.bullets)
+      : 0;
+    recordSectionEntry(sectionTitle, mainHeading(sectionTitle, firstBlockRequiredHeight));
     section.blocks.forEach((item) => {
       block(item.heading, item.paragraphs, item.bullets);
     });
