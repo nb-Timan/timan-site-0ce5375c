@@ -7,7 +7,13 @@ import {
   splitCrmLeadCompanyAndCvr,
   structuredCrmLeadContactColumns,
 } from '@/lib/crmLeadValidation';
-import { formatLeadNo, formatLeadRelation, resolveLeadReferenceType } from '@/lib/crmLeadsService';
+import {
+  formatLeadNo,
+  formatLeadReferenceDisplay,
+  formatLeadRelation,
+  resolveLeadReferenceType,
+} from '@/lib/crmLeadsService';
+import { matchesLeadSearch } from '@/lib/crmLeadSearch';
 
 const read = (path: string) => readFileSync(path, 'utf8');
 
@@ -91,15 +97,37 @@ describe('CRM lead L/G canonical relation', () => {
     expect(formatLeadNo(5500, 'G')).toBe('G-5500');
   });
 
+  it('formats compact references without merging or mutating the canonical fields', () => {
+    expect(formatLeadReferenceDisplay(1149, 'L')).toBe('L-1149');
+    expect(formatLeadReferenceDisplay(1149, 'L-')).toBe('L-1149');
+    expect(formatLeadReferenceDisplay(5040, 'G')).toBe('G-5040');
+    expect(formatLeadReferenceDisplay(5040, 'G-')).toBe('G-5040');
+    expect(formatLeadReferenceDisplay(1149, null)).toBe('1149');
+    expect(formatLeadReferenceDisplay(null, 'G-')).toBe('G-');
+    expect(formatLeadReferenceDisplay(null, null)).toBe('');
+  });
+
   it('stores, queries and displays the canonical relation without parsing display text', () => {
     const service = read('src/lib/crmLeadsService.ts');
     const overview = read('src/pages/crm/CrmLeadsPage.tsx');
     const detail = read('src/pages/crm/CrmNewLeadPage.tsx');
     expect(service).toContain('lead_reference_type');
     expect(service).toContain("reference_type: lead.lead_reference_type === 'G' ? 'G' : 'L'");
-    expect(overview).toContain('data-testid="crm-leads-relation-header"');
-    expect(overview).toContain('data-testid="crm-leads-relation-cell"');
+    expect(overview).not.toContain("tt('col_number', lang)");
+    expect(overview).not.toContain("tt('col_relation', lang)");
+    expect(overview).not.toContain('data-testid="crm-leads-relation-header"');
+    expect(overview).not.toContain('data-testid="crm-leads-relation-cell"');
+    expect(overview).toContain('data-testid="crm-leads-compact-reference"');
+    expect(overview).toContain('formatLeadReferenceDisplay(r.reference_no, r.reference_type)');
     expect(detail).toContain('data-testid="crm-lead-detail-relation"');
+  });
+
+  it('keeps compact and number-only reference searches equivalent', () => {
+    const searchableFields = ['L-1149', 'Widhopf GmbH Garten- und Kt.'];
+    expect(matchesLeadSearch(searchableFields, '1149')).toBe(true);
+    expect(matchesLeadSearch(searchableFields, 'L-1149')).toBe(true);
+    expect(matchesLeadSearch(searchableFields, 'widhopf')).toBe(true);
+    expect(matchesLeadSearch(searchableFields, 'G-5040')).toBe(false);
   });
 });
 

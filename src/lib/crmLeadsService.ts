@@ -470,22 +470,41 @@ export const DEMO_NO_PREFIX = "D-";
 const LEAD_NO_START = 1001;
 const DEMO_NO_START = 8000;
 
+function normalizeLeadReferenceType(
+  referenceType: string | null | undefined,
+): "L" | "G" | null {
+  const normalized = (referenceType || "").trim().toUpperCase().replace(/-+$/, "");
+  return normalized === "L" || normalized === "G" ? normalized : null;
+}
+
 export function resolveLeadReferenceType(
   n: number | null | undefined,
-  referenceType?: "L" | "G" | null,
+  referenceType?: string | null,
 ): "L" | "G" {
-  if (referenceType === "L" || referenceType === "G") return referenceType;
+  const normalized = normalizeLeadReferenceType(referenceType);
+  if (normalized) return normalized;
   return n != null && n >= 5000 ? "G" : "L";
 }
 
 export function formatLeadRelation(
   n: number | null | undefined,
-  referenceType?: "L" | "G" | null,
+  referenceType?: string | null,
 ): "L-" | "G-" {
   return `${resolveLeadReferenceType(n, referenceType)}-`;
 }
 
-export function formatLeadNo(n: number | null | undefined, referenceType?: "L" | "G" | null): string {
+export function formatLeadReferenceDisplay(
+  n: number | null | undefined,
+  referenceType?: string | null,
+): string {
+  const normalized = normalizeLeadReferenceType(referenceType);
+  const number = n == null ? "" : String(n).trim();
+  if (normalized && number) return `${normalized}-${number}`;
+  if (number) return number;
+  return normalized ? `${normalized}-` : "";
+}
+
+export function formatLeadNo(n: number | null | undefined, referenceType?: string | null): string {
   if (n == null) return "—";
   return `${formatLeadRelation(n, referenceType)}${n}`;
 }

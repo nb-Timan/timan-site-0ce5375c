@@ -19,7 +19,7 @@ import { resolveSellerDisplay, useSellerDirectory, type SellerDirectory } from '
 import {
   listLeadsPage, updateLead, getLead, deleteLead, deleteDemoLead,
   CrmLead, type CrmDemoLead, type CrmLeadAttachment, type CrmLeadAttachmentPreview, type CrmLeadsPageQueryResult,
-  formatLeadNo, formatDemoNo,
+  formatLeadNo, formatDemoNo, formatLeadReferenceDisplay,
   LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
   getLeadAttachmentSignedUrls, getLeadImageAttachments,
 } from '@/lib/crmLeadsService';
@@ -92,7 +92,7 @@ type TKey =
   | 'all_types' | 'all_machines' | 'all_equipment'
   | 'filter_type' | 'filter_machine' | 'filter_equipment' | 'filter_owner'
   | 'all_owners' | 'other_timan_sellers' | 'partner_created' | 'partner_created_chip' | 'unassigned_timan_seller'
-  | 'col_type' | 'col_number' | 'col_relation' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
+  | 'col_type' | 'col_title' | 'col_dealer' | 'col_owner' | 'col_machine'
   | 'col_date' | 'col_followup' | 'col_status' | 'col_action'
   | 'open_lbl' | 'demo_lbl' | 'unassigned_chip'
   | 'incomplete_chip' | 'shared_chip'
@@ -143,8 +143,6 @@ const T: Record<TKey, UiText> = {
   empty_title:   { da: 'Ingen leads i dette filter', en: 'No leads in this filter', de: 'Keine Leads in diesem Filter', it: 'Nessun lead in questo filtro', hu: 'Nincs lead ebben a szűrőben', fr: 'Aucun lead dans ce filtre', pl: 'Brak leadów w tym filtrze', cs: 'V tomto filtru nejsou žádné leady' },
   empty_sub:     { da: 'Skift fane eller opret et nyt lead.', en: 'Switch tab or create a new lead.', de: 'Tab wechseln oder neuen Lead erstellen.', it: 'Cambia scheda o crea un nuovo lead.', hu: 'Váltson fület vagy hozzon létre új leadet.', fr: 'Changez d’onglet ou créez un nouveau lead.', pl: 'Zmień zakładkę albo utwórz nowy lead.', cs: 'Změňte záložku nebo vytvořte nový lead.' },
   col_type:      { da: 'Type', en: 'Type', de: 'Typ', it: 'Tipo', hu: 'Típus', fr: 'Type', pl: 'Typ', cs: 'Typ' },
-  col_number:    { da: 'Lead nr.', en: 'Lead no.', de: 'Lead-Nr.', it: 'N. lead', hu: 'Lead sz.', fr: 'N° lead', pl: 'Nr leada', cs: 'Č. leadu' },
-  col_relation:  { da: 'Relation', en: 'Relation', de: 'Relation', it: 'Relazione', hu: 'Kapcsolat', fr: 'Relation', pl: 'Relacja', cs: 'Vztah' },
   col_title:     { da: 'Titel / Kunde', en: 'Title / Customer', de: 'Titel / Kunde', it: 'Titolo / Cliente', hu: 'Cím / Ügyfél', fr: 'Titre / Client', pl: 'Tytuł / Klient', cs: 'Název / Zákazník' },
   col_dealer:    { da: 'Forhandler', en: 'Dealer', de: 'Händler', it: 'Rivenditore', hu: 'Kereskedő', fr: 'Revendeur', pl: 'Dealer', cs: 'Prodejce' },
   col_owner:     { da: 'Ejer', en: 'Owner', de: 'Eigentümer', it: 'Proprietario', hu: 'Tulajdonos', fr: 'Responsable', pl: 'Właściciel', cs: 'Vlastník' },
@@ -1076,9 +1074,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
               <thead className="bg-gray-50/70 text-[11px] uppercase tracking-[0.06em] text-gray-500">
                 <tr>
                   <th className="text-left px-4 py-3">{tt('col_type', lang)}</th>
-                  <th className="w-[88px] min-w-[88px] text-left px-3 py-3 whitespace-nowrap">{tt('col_number', lang)}</th>
-                  <th data-testid="crm-leads-relation-header" className="w-[76px] min-w-[76px] text-left px-2 py-3 whitespace-nowrap">{tt('col_relation', lang)}</th>
-                  <th className="text-left px-4 py-3">{tt('col_title', lang)}</th>
+                  <th className="min-w-[240px] text-left px-4 py-3">{tt('col_title', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_dealer', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_owner', lang)}</th>
                   <th className="text-left px-4 py-3">{tt('col_machine', lang)}</th>
@@ -1104,6 +1100,9 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                   const canActOnOpenLead = r.type === 'open' && isOpenRow(r);
                   const noteCount = notesByLeadId[r.id]?.length ?? 0;
                   const noteActionLabel = noteCount > 0 ? `${crmLeadText('note', lang)} (${noteCount})` : crmLeadText('note', lang);
+                  const compactReference = r.type === 'open'
+                    ? formatLeadReferenceDisplay(r.reference_no, r.reference_type)
+                    : r.display_no === '—' ? '' : r.display_no;
                   return (
                     <tr key={`${r.type}-${r.id}`}
                       onClick={() => {
@@ -1122,17 +1121,7 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                           {getUserLeadTypeLabel(userType, lang)}
                         </span>
                       </td>
-                      <td className="w-[88px] min-w-[88px] px-3 py-3.5 text-left align-middle">
-                        <span className="font-mono text-[11px] tabular-nums text-slate-600 whitespace-nowrap">
-                          {r.reference_no ?? r.display_no}
-                        </span>
-                      </td>
-                      <td data-testid="crm-leads-relation-cell" className="w-[76px] min-w-[76px] px-2 py-3.5 text-left align-middle">
-                        <span className="font-mono text-[11px] font-semibold text-[#2d5a27] whitespace-nowrap">
-                          {r.reference_type ? `${r.reference_type}-` : '—'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3.5">
+                      <td className="min-w-[240px] px-4 py-3.5">
                         <div className="flex items-baseline gap-2 flex-wrap">
                           <span className="font-medium text-gray-900 truncate max-w-[260px]">{r.title}</span>
                           {r.incomplete && (
@@ -1169,8 +1158,20 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                             </button>
                           )}
                         </div>
-                        {r.customer && r.customer !== r.title && (
-                          <div className="text-xs text-gray-500 truncate max-w-[260px]">{r.customer}</div>
+                        {(compactReference || (r.customer && r.customer !== r.title)) && (
+                          <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-500">
+                            {compactReference && (
+                              <span
+                                data-testid="crm-leads-compact-reference"
+                                className="shrink-0 font-mono text-[11px] tabular-nums text-slate-500 whitespace-nowrap"
+                              >
+                                {compactReference}
+                              </span>
+                            )}
+                            {r.customer && r.customer !== r.title && (
+                              <span className="min-w-0 truncate max-w-[260px]">{r.customer}</span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-gray-600 max-w-[220px] truncate">{r.dealer || '—'}</td>
