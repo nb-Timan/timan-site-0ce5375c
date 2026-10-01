@@ -3525,7 +3525,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                     const cardSpecs = key === 'Timan 2620'
                       ? p.techSpecs
                       : marketingContent?.specs.length ? marketingContent.specs : p.techSpecs;
-                    const canonicalCardSpecs = new Map(p.techSpecs.map((spec) => [spec.label, spec]));
                     const cardVideoUrl = marketingContent?.video_url || getPrimaryVideoUrlForItem(p, primaryVideosByProduct);
                     const cardImageUrl = marketingContent?.image_url || getImageUrlForItem(p);
                     const cardTitle = marketingContent?.title || getLocalizedName(p.name, uiLanguage);
@@ -3540,7 +3539,10 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         price={permissions.canSeePrices ? formatDisplayMoney(getPriceForCurrency(p, displayCurrency)) : ''}
                         description={key === 'Timan 2620' ? undefined : marketingContent?.description}
                         specs={cardSpecs.map((spec) => {
-                          const canonicalValue = canonicalCardSpecs.get(spec.label)?.value;
+                          const canonicalValue = p.techSpecs.find((candidate) =>
+                            candidate.label === spec.label
+                            || PORTAL_LANGUAGES.some(({ code }) => translateSpecLabel(candidate.label, code) === spec.label)
+                          )?.value;
                           const value = canonicalValue && typeof canonicalValue !== 'string' ? canonicalValue : spec.value;
                           return {
                             label: translateSpecLabel(spec.label, uiLanguage),
