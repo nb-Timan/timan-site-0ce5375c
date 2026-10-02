@@ -55,6 +55,33 @@ describe("CRM Working Budget dealer allocation", () => {
     expect(result.unallocated).toBe(2);
   });
 
+  it("preserves Foras and Weimer when November increases from two to three", () => {
+    const result = resolveWorkingBudgetAllocation({
+      workingQty: 3,
+      references: [
+        {
+          dealer_account_id: "11111111-1111-4111-8111-111111111111",
+          dealer_name: "Foras GmbH Zeven",
+          dealer_account_number: "10180",
+          qty: 1,
+        },
+        {
+          dealer_account_id: "22222222-2222-4222-8222-222222222222",
+          dealer_name: "Weimer GmbH Lollar",
+          dealer_account_number: "10291",
+          qty: 1,
+        },
+      ],
+      hasWorkingChange: true,
+    });
+
+    expect(result.allocations).toEqual([
+      expect.objectContaining({ dealer_name: "Foras GmbH Zeven", dealer_account_number: "10180", qty: 1 }),
+      expect.objectContaining({ dealer_name: "Weimer GmbH Lollar", dealer_account_number: "10291", qty: 1 }),
+    ]);
+    expect(result).toMatchObject({ total: 3, allocated: 2, unallocated: 1, source: "explicit" });
+  });
+
   it("never allocates more than the Working Budget total", () => {
     const result = resolveWorkingBudgetAllocation({
       workingQty: 4,

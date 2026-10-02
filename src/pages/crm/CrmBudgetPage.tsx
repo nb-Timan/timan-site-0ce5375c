@@ -63,7 +63,7 @@ import BudgetSaveConfirmDialog, { type BudgetChangedCell } from "@/components/cr
 import LatestBudgetChangesPanel from "@/components/crm/LatestBudgetChangesPanel";
 import BudgetCellInsight from "@/components/crm/BudgetCellInsight";
 import BudgetReferenceModal, { type BudgetReferenceContext } from "@/components/crm/BudgetReferenceModal";
-import BudgetWorkingMoveDialog, { type BudgetWorkingMoveContext } from "@/components/crm/BudgetWorkingMoveDialog";
+import BudgetWorkingUnitDialog, { type BudgetWorkingUnitContext } from "@/components/crm/BudgetWorkingUnitDialog";
 import { fetchBudgetAuditEntries, type AuditEntry } from "@/lib/audit-log-store";
 import { listBudgetReferences, type BudgetReference } from "@/lib/budgetReferencesService";
 import type { CellReference, OrderTooltipDetail } from "@/components/crm/BudgetCellInsight";
@@ -76,9 +76,11 @@ import {
   type WorkingBudgetSellerAllocationInput,
 } from "@/lib/workingBudgetAllocation";
 import {
+  adjustWorkingBudgetQuantity,
   moveWorkingBudgetAllocations,
   type WorkingBudgetMoveSelection,
 } from "@/lib/workingBudgetMoveService";
+import type { WorkingBudgetMonthState } from "@/lib/workingBudgetUnitActions";
 
 
 // ────────────────────────────────────────────────────────────
@@ -356,7 +358,7 @@ export default function CrmBudgetPage() {
   const [quotePipelineRows, setQuotePipelineRows] = useState<ScopedConfiguration[]>([]);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  // Working-forecast monthly drafts per line (used as live override; auto-saved).
+  // Retained for legacy unsaved sessions; new +/- unit actions persist atomically.
   const [workingDraft, setWorkingDraft] = useState<WorkingDraft>({});
   const [showAdd, setShowAdd] = useState(false);
   // Backend-only filter: "all" | seller email (e.g. "em@timan.dk").
@@ -393,8 +395,8 @@ export default function CrmBudgetPage() {
   const [savingDraft, setSavingDraft] = useState(false);
   // "Add reference" modal state — opened from the small Link2 icon next to a cell.
   const [refModal, setRefModal] = useState<BudgetReferenceContext | null>(null);
-  const [workingMove, setWorkingMove] = useState<BudgetWorkingMoveContext | null>(null);
-  const [workingMoveBusy, setWorkingMoveBusy] = useState(false);
+  const [workingUnitAction, setWorkingUnitAction] = useState<BudgetWorkingUnitContext | null>(null);
+  const [workingUnitBusy, setWorkingUnitBusy] = useState(false);
   // Bumped after each audit-write so the latest-changes panel + indicators refresh.
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   // Map of cell_key → latest AuditEntry for the current scope (used for the
@@ -1318,93 +1320,95 @@ export default function CrmBudgetPage() {
     }
   }
 
-  // ---- Working forecast handlers (draft-only; no save until "Afslut redigering") ----
-  //
-  // Bug fix: previously each stepper press auto-saved (upsertForecast wrote
-  // an annual qty_forecast which was then redistributed across months on next
-  // read) AND triggered the "Stor budgetændring" popup per cell. Spec says:
-  //   • collect changes in a local draft
-  //   • show ONE confirmation modal at "Afslut redigering"
-  //   • save the exact draft values per (seller, model, month, year)
-  // adjustWorking therefore only mutates the in-memory draft now.
-  async function adjustWorking(line: BudgetLine, monthIdx: number, delta: number) {
-    // Backend/global is read-only — only sellers (incl. backend in "Vis som sælger") may edit.
-    if (isAdmin) return;
-    if (editModeUntil == null) return;
-    const persisted = await ensurePersistedLine(line);
-    if (!persisted) return;
-    const lineId = persisted.id;
-    const split = (persisted.monthly_split && persisted.monthly_split.length === 12) ? persisted.monthly_split : EVEN;
-    const fcExisting = forecasts.find(f => f.budget_line_id === lineId);
-    const baselineMonthly = (fcExisting?.monthly_qty && fcExisting.monthly_qty.length === 12)
-      ? fcExisting.monthly_qty.map(v => Number(v) || 0)
-      : ((fcExisting && (fcExisting.qty_forecast ?? 0) > 0)
-          ? splitAnnualQuantityMonthly(fcExisting.qty_forecast, split)
-          : Array(12).fill(0));
-    const prevDraft = workingDraft[lineId] ?? baselineMonthly;
-    const oldVal = prevDraft[monthIdx] ?? 0;
-    const newVal = Math.max(0, oldVal + delta);
-    if (newVal === oldVal) return;
-
-    setWorkingDraft(prev => {
-      const cur = prev[lineId] ?? prevDraft;
-      const next = [...cur];
-      next[monthIdx] = newVal;
-      return { ...prev, [lineId]: next };
-    });
-    bumpEditActivity();
-  }
-
-  async function openWorkingMove(
+  // Working Budget +/- changes are persisted atomically because the quantity
+  // and its dealer allocation rows form one canonical unit of data.
+  async function openWorkingUnitAction(
     line: BudgetLine,
     monthIdx: number,
-    allocation: ReturnType<typeof resolveWorkingBudgetAllocation>,
+    action: "increase" | "decrease",
+    months: WorkingBudgetMonthState[],
   ) {
-    if (workingMoveBusy) return;
+    if (workingUnitBusy) return;
     if (Object.keys(workingDraft).length > 0) {
-      toast.message("Gem eller annullér dine øvrige Working Budget-ændringer før du flytter en allokering.");
+      toast.message("Gem eller annullér dine øvrige Working Budget-ændringer først.");
       return;
     }
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
-    setWorkingMove({
+    setWorkingUnitAction({
       budgetLineId: persisted.id,
       modelName: persisted.product_name,
       sellerLabel: persisted.seller_initials || persisted.seller_name || "—",
-      sourceMonthIdx: monthIdx,
-      sourceMonthLabel: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
-      allocation,
+      action,
+      monthIdx,
+      monthLabel: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+      months,
     });
   }
 
-  async function confirmWorkingMove(
-    destinationMonthIdx: number,
-    selections: WorkingBudgetMoveSelection[],
+  async function refreshWorkingBudgetAfterUnitAction() {
+    const fresh = await listForecasts(year);
+    setForecasts(fresh);
+    setWorkingDraft({});
+    setAuditRefreshKey((key) => key + 1);
+    setWorkingUnitAction(null);
+    bumpEditActivity();
+  }
+
+  async function confirmWorkingAdjustment(
+    delta: 1 | -1,
+    selection: WorkingBudgetMoveSelection | null,
   ) {
-    if (!workingMove || workingMoveBusy || selections.length === 0) return;
-    setWorkingMoveBusy(true);
+    if (!workingUnitAction || workingUnitBusy) return;
+    const month = workingUnitAction.months.find((candidate) => candidate.monthIdx === workingUnitAction.monthIdx);
+    if (!month) return;
+    setWorkingUnitBusy(true);
     try {
-      const requestId = crypto.randomUUID();
-      await moveWorkingBudgetAllocations({
-        budgetLineId: workingMove.budgetLineId,
-        sourceMonthIdx: workingMove.sourceMonthIdx,
-        destinationMonthIdx,
-        selections,
-        requestId,
+      await adjustWorkingBudgetQuantity({
+        budgetLineId: workingUnitAction.budgetLineId,
+        monthIdx: workingUnitAction.monthIdx,
+        delta,
+        expectedValue: month.allocation.total,
+        selection,
+        requestId: crypto.randomUUID(),
       });
-      const fresh = await listForecasts(year);
-      setForecasts(fresh);
-      setWorkingDraft({});
-      setAuditRefreshKey((key) => key + 1);
-      setWorkingMove(null);
-      bumpEditActivity();
-      toast.success("Working Budget-allokering flyttet");
+      await refreshWorkingBudgetAfterUnitAction();
+      toast.success(delta === 1 ? "Enhed tilføjet til Working Budget" : "Enhed fjernet fra Working Budget");
+    } catch (error) {
+      console.error("[budget] unit adjustment failed", error);
+      const message = error instanceof Error ? error.message : "Ændringen kunne ikke gemmes";
+      toast.error("Working Budget blev ikke ændret", { description: message });
+    } finally {
+      setWorkingUnitBusy(false);
+    }
+  }
+
+  async function confirmWorkingMove(
+    sourceMonthIdx: number,
+    destinationMonthIdx: number,
+    selection: WorkingBudgetMoveSelection,
+  ) {
+    if (!workingUnitAction || workingUnitBusy) return;
+    const sourceMonth = workingUnitAction.months.find((candidate) => candidate.monthIdx === sourceMonthIdx);
+    if (!sourceMonth) return;
+    setWorkingUnitBusy(true);
+    try {
+      await moveWorkingBudgetAllocations({
+        budgetLineId: workingUnitAction.budgetLineId,
+        sourceMonthIdx,
+        destinationMonthIdx,
+        selections: [selection],
+        expectedSourceValue: sourceMonth.allocation.total,
+        requestId: crypto.randomUUID(),
+      });
+      await refreshWorkingBudgetAfterUnitAction();
+      toast.success("Working Budget-enhed flyttet");
     } catch (error) {
       console.error("[budget] allocation move failed", error);
       const message = error instanceof Error ? error.message : "Flytningen kunne ikke gemmes";
-      toast.error("Allokeringen blev ikke flyttet", { description: message });
+      toast.error("Enheden blev ikke flyttet", { description: message });
     } finally {
-      setWorkingMoveBusy(false);
+      setWorkingUnitBusy(false);
     }
   }
   // void to silence unused warnings while the per-cell large-change popup is disabled.
@@ -1692,10 +1696,6 @@ export default function CrmBudgetPage() {
     });
     setAuditRefreshKey(k => k + 1);
   }
-
-
-  // (Working forecast is auto-saved on each stepper press in adjustWorking.)
-
   // Per-row lock/delete actions removed — central Budgetstatus / Åbningsvindue
   // controls are now the single source of truth. (deleteBudgetLine + setLineLock
   // service helpers remain available for future admin tooling.)
@@ -2189,6 +2189,7 @@ export default function CrmBudgetPage() {
                       blockProductKey,
                       scopeEmails,
                       budgetMonthly,
+                      baseWorking,
                       leadWorkingByMonth,
                       workingMonthly,
                     } = renderedMonthlyForBlock({ keyPrefix, rowLines, fallbackProductKey });
@@ -2247,6 +2248,28 @@ export default function CrmBudgetPage() {
                       product_code: primaryLine.item_number || primaryLine.product_key,
                       month_idx: i,
                       budget_type: type,
+                    });
+                    const workingActionMonths: WorkingBudgetMonthState[] = Array.from({ length: 12 }, (_, monthIdx) => {
+                      const actionCellKey = cellKeyFor(monthIdx, "arbejdsbudget");
+                      const originalBasis = originalBudgetBasisForCell(
+                        dealerLines, year, monthIdx, blockProductKey, scopeEmails,
+                      );
+                      const references = refsByCell[actionCellKey] || [];
+                      return {
+                        monthIdx,
+                        monthLabel: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+                        allocation: resolveWorkingBudgetAllocation({
+                          workingQty: baseWorking[monthIdx] || 0,
+                          originalBasis,
+                          references: references.map((reference) => ({
+                            dealer_account_id: reference.dealer_account_id,
+                            dealer_name: reference.dealer_name || reference.dealer_label,
+                            dealer_account_number: reference.dealer_account_number,
+                            qty: reference.qty,
+                          })),
+                          hasWorkingChange: !!latestAuditByCell[actionCellKey],
+                        }),
+                      };
                     });
                     return (
                       <Fragment key={`block-${keyPrefix}`}>
@@ -2522,11 +2545,10 @@ export default function CrmBudgetPage() {
                                 {canEditWorking ? (
                                     <div className="inline-flex items-center gap-x-0.5 bg-slate-800 rounded px-0.5 h-5 leading-none align-middle min-w-[88px] justify-center">
                                       <button
-                                        onClick={() => workingAllocation.allocated > 0
-                                          ? openWorkingMove(primaryLine, i, workingAllocation)
-                                          : adjustWorking(primaryLine, i, -1)}
+                                        onClick={() => openWorkingUnitAction(primaryLine, i, "decrease", workingActionMonths)}
+                                        disabled={workingActionMonths[i]?.allocation.total <= 0}
                                         className="h-3.5 w-3.5 shrink-0 flex items-center justify-center hover:bg-slate-700 rounded"
-                                        title={workingAllocation.allocated > 0 ? "Flyt allokering" : "−1"}
+                                        title="Reducer eller flyt 1 enhed"
                                       ><Minus className="h-2.5 w-2.5" /></button>
                                       <BudgetCellInsight
                                         title={`Arbejdsbudget · ${monthLabel} · ${productName}`}
@@ -2539,9 +2561,9 @@ export default function CrmBudgetPage() {
                                         <span className="min-w-[14px] text-center font-semibold inline-block tabular-nums">{w}</span>
                                       </BudgetCellInsight>
                                       <button
-                                        onClick={() => adjustWorking(primaryLine, i, +1)}
+                                        onClick={() => openWorkingUnitAction(primaryLine, i, "increase", workingActionMonths)}
                                         className="h-3.5 w-3.5 shrink-0 flex items-center justify-center hover:bg-slate-700 rounded"
-                                        title="+1"
+                                        title="Tilføj eller flyt 1 enhed"
                                       ><Plus className="h-2.5 w-2.5" /></button>
                                       <button
                                         type="button"
@@ -2872,13 +2894,14 @@ export default function CrmBudgetPage() {
         currentSellerEmail={sellerCtxEmail || null}
       />
 
-      <BudgetWorkingMoveDialog
-        open={workingMove != null}
-        context={workingMove}
-        monthLabels={MONTHS_BY_LANG[lang]}
-        busy={workingMoveBusy}
-        onClose={() => { if (!workingMoveBusy) setWorkingMove(null); }}
-        onConfirm={confirmWorkingMove}
+      <BudgetWorkingUnitDialog
+        open={workingUnitAction != null}
+        context={workingUnitAction}
+        busy={workingUnitBusy}
+        onClose={() => { if (!workingUnitBusy) setWorkingUnitAction(null); }}
+        onAddNew={() => confirmWorkingAdjustment(1, null)}
+        onRemove={(selection) => confirmWorkingAdjustment(-1, selection)}
+        onMove={confirmWorkingMove}
       />
 
 
