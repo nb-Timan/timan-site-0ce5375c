@@ -1,18 +1,18 @@
 import type { WorkingBudgetAllocation } from "@/lib/workingBudgetAllocation";
-import type { WorkingBudgetMoveSelection } from "@/lib/workingBudgetMoveService";
+import type { WorkingBudgetUnit } from "@/lib/workingBudgetMoveService";
 
 export interface WorkingBudgetMonthState {
   monthIdx: number;
   monthLabel: string;
   allocation: WorkingBudgetAllocation;
+  units: WorkingBudgetUnit[];
 }
 
 export interface WorkingBudgetUnitChoice {
   key: string;
   label: string;
   detail: string;
-  available: number;
-  selection: WorkingBudgetMoveSelection;
+  unit: WorkingBudgetUnit;
 }
 
 export function workingBudgetMonthDistance(fromMonthIdx: number, toMonthIdx: number): number {
@@ -40,27 +40,38 @@ export function sortWorkingBudgetMonths(
     });
 }
 
-export function workingBudgetUnitChoices(allocation: WorkingBudgetAllocation): WorkingBudgetUnitChoice[] {
-  return [
-    ...allocation.allocations.map((row, index) => ({
-      key: `dealer:${row.dealer_account_id || row.dealer_account_number || row.dealer_name}:${index}`,
-      label: row.dealer_name,
-      detail: `${row.dealer_account_number ? `#${row.dealer_account_number} · ` : ""}${row.qty} stk.`,
-      available: row.qty,
-      selection: {
-        kind: "dealer" as const,
-        dealer_account_id: row.dealer_account_id,
-        dealer_account_number: row.dealer_account_number,
-        dealer_name: row.dealer_name,
-        quantity: 1,
-      },
-    })),
-    ...(allocation.unallocated > 0 ? [{
-      key: "unallocated",
-      label: "Ikke fordelt",
-      detail: `${allocation.unallocated} stk. uden forhandler`,
-      available: allocation.unallocated,
-      selection: { kind: "unallocated" as const, quantity: 1 },
-    }] : []),
-  ];
+export function workingBudgetUnitChoices(units: WorkingBudgetUnit[]): WorkingBudgetUnitChoice[] {
+  const dealerCounts = new Map<string, number>();
+  const dealerIndexes = new Map<string, number>();
+  let unallocatedIndex = 0;
+
+  for (const unit of units) {
+    const key = unit.dealer_account_id || unit.dealer_account_number || unit.dealer_name;
+    if (key) dealerCounts.set(key, (dealerCounts.get(key) || 0) + 1);
+  }
+
+  return units.map((unit) => {
+    const dealerKey = unit.dealer_account_id || unit.dealer_account_number || unit.dealer_name;
+    if (!dealerKey) {
+      unallocatedIndex += 1;
+      return {
+        key: unit.id,
+        label: "Ikke fordelt",
+        detail: `Enhed ${unallocatedIndex}`,
+        unit,
+      };
+    }
+
+    const dealerIndex = (dealerIndexes.get(dealerKey) || 0) + 1;
+    dealerIndexes.set(dealerKey, dealerIndex);
+    const count = dealerCounts.get(dealerKey) || 1;
+    const account = unit.dealer_account_number ? `#${unit.dealer_account_number}` : null;
+    const occurrence = count > 1 ? `Enhed ${dealerIndex} af ${count}` : null;
+    return {
+      key: unit.id,
+      label: unit.dealer_name || unit.dealer_account_number || "Ukendt forhandler",
+      detail: [account, occurrence].filter(Boolean).join(" · ") || `Enhed ${unit.sequence_no}`,
+      unit,
+    };
+  });
 }

@@ -76,9 +76,11 @@ import {
   type WorkingBudgetSellerAllocationInput,
 } from "@/lib/workingBudgetAllocation";
 import {
-  adjustWorkingBudgetQuantity,
-  moveWorkingBudgetAllocations,
-  type WorkingBudgetMoveSelection,
+  createWorkingBudgetUnit,
+  listWorkingBudgetUnits,
+  moveWorkingBudgetUnit,
+  removeWorkingBudgetUnit,
+  type WorkingBudgetUnit,
 } from "@/lib/workingBudgetMoveService";
 import type { WorkingBudgetMonthState } from "@/lib/workingBudgetUnitActions";
 
@@ -1335,15 +1337,27 @@ export default function CrmBudgetPage() {
     }
     const persisted = await ensurePersistedLine(line);
     if (!persisted) return;
-    setWorkingUnitAction({
-      budgetLineId: persisted.id,
-      modelName: persisted.product_name,
-      sellerLabel: persisted.seller_initials || persisted.seller_name || "—",
-      action,
-      monthIdx,
-      monthLabel: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
-      months,
-    });
+    setWorkingUnitBusy(true);
+    try {
+      const units = await listWorkingBudgetUnits(persisted.id);
+      setWorkingUnitAction({
+        budgetLineId: persisted.id,
+        modelName: persisted.product_name,
+        sellerLabel: persisted.seller_initials || persisted.seller_name || "—",
+        action,
+        monthIdx,
+        monthLabel: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+        months: months.map((month) => ({
+          ...month,
+          units: units.filter((unit) => unit.month_idx === month.monthIdx),
+        })),
+      });
+    } catch (error) {
+      console.error("[budget] unit loading failed", error);
+      toast.error("Working Budget-enheder kunne ikke hentes", { description: "Genindlæs siden og prøv igen." });
+    } finally {
+      setWorkingUnitBusy(false);
+    }
   }
 
   async function refreshWorkingBudgetAfterUnitAction() {
@@ -1355,25 +1369,20 @@ export default function CrmBudgetPage() {
     bumpEditActivity();
   }
 
-  async function confirmWorkingAdjustment(
-    delta: 1 | -1,
-    selection: WorkingBudgetMoveSelection | null,
-  ) {
+  async function confirmWorkingAdd() {
     if (!workingUnitAction || workingUnitBusy) return;
     const month = workingUnitAction.months.find((candidate) => candidate.monthIdx === workingUnitAction.monthIdx);
     if (!month) return;
     setWorkingUnitBusy(true);
     try {
-      await adjustWorkingBudgetQuantity({
+      await createWorkingBudgetUnit({
         budgetLineId: workingUnitAction.budgetLineId,
         monthIdx: workingUnitAction.monthIdx,
-        delta,
         expectedValue: month.allocation.total,
-        selection,
         requestId: crypto.randomUUID(),
       });
       await refreshWorkingBudgetAfterUnitAction();
-      toast.success(delta === 1 ? "Enhed tilføjet til Working Budget" : "Enhed fjernet fra Working Budget");
+      toast.success("Enhed tilføjet til Working Budget");
     } catch (error) {
       console.error("[budget] unit adjustment failed", error);
       const message = error instanceof Error ? error.message : "Ændringen kunne ikke gemmes";
@@ -1383,28 +1392,40 @@ export default function CrmBudgetPage() {
     }
   }
 
-  async function confirmWorkingMove(
-    sourceMonthIdx: number,
-    destinationMonthIdx: number,
-    selection: WorkingBudgetMoveSelection,
-  ) {
+  async function confirmWorkingRemove(unit: WorkingBudgetUnit) {
     if (!workingUnitAction || workingUnitBusy) return;
-    const sourceMonth = workingUnitAction.months.find((candidate) => candidate.monthIdx === sourceMonthIdx);
-    if (!sourceMonth) return;
     setWorkingUnitBusy(true);
     try {
-      await moveWorkingBudgetAllocations({
-        budgetLineId: workingUnitAction.budgetLineId,
-        sourceMonthIdx,
-        destinationMonthIdx,
-        selections: [selection],
-        expectedSourceValue: sourceMonth.allocation.total,
+      await removeWorkingBudgetUnit({
+        unitId: unit.id,
+        expectedVersion: unit.version,
+        requestId: crypto.randomUUID(),
+      });
+      await refreshWorkingBudgetAfterUnitAction();
+      toast.success("Enhed fjernet fra Working Budget");
+    } catch (error) {
+      console.error("[budget] unit removal failed", error);
+      const message = error instanceof Error ? error.message : "Ændringen kunne ikke gemmes";
+      toast.error("Working Budget blev ikke ændret", { description: message });
+    } finally {
+      setWorkingUnitBusy(false);
+    }
+  }
+
+  async function confirmWorkingMove(unit: WorkingBudgetUnit, destinationMonthIdx: number) {
+    if (!workingUnitAction || workingUnitBusy) return;
+    setWorkingUnitBusy(true);
+    try {
+      await moveWorkingBudgetUnit({
+        unitId: unit.id,
+        targetMonthIdx: destinationMonthIdx,
+        expectedVersion: unit.version,
         requestId: crypto.randomUUID(),
       });
       await refreshWorkingBudgetAfterUnitAction();
       toast.success("Working Budget-enhed flyttet");
     } catch (error) {
-      console.error("[budget] allocation move failed", error);
+      console.error("[budget] unit move failed", error);
       const message = error instanceof Error ? error.message : "Flytningen kunne ikke gemmes";
       toast.error("Enheden blev ikke flyttet", { description: message });
     } finally {
@@ -2258,6 +2279,7 @@ export default function CrmBudgetPage() {
                       return {
                         monthIdx,
                         monthLabel: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
+                        units: [],
                         allocation: resolveWorkingBudgetAllocation({
                           workingQty: baseWorking[monthIdx] || 0,
                           originalBasis,
@@ -2899,8 +2921,8 @@ export default function CrmBudgetPage() {
         context={workingUnitAction}
         busy={workingUnitBusy}
         onClose={() => { if (!workingUnitBusy) setWorkingUnitAction(null); }}
-        onAddNew={() => confirmWorkingAdjustment(1, null)}
-        onRemove={(selection) => confirmWorkingAdjustment(-1, selection)}
+        onAddNew={confirmWorkingAdd}
+        onRemove={confirmWorkingRemove}
         onMove={confirmWorkingMove}
       />
 

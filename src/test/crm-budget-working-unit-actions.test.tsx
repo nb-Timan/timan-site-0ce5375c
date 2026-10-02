@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import BudgetWorkingUnitDialog, { type BudgetWorkingUnitContext } from "@/components/crm/BudgetWorkingUnitDialog";
 import { resolveWorkingBudgetAllocation } from "@/lib/workingBudgetAllocation";
+import type { WorkingBudgetUnit } from "@/lib/workingBudgetMoveService";
 import {
   sortWorkingBudgetMonths,
   workingBudgetMonthDistance,
@@ -24,9 +25,42 @@ function month(
   total: number,
   references: Parameters<typeof resolveWorkingBudgetAllocation>[0]["references"] = [],
 ): WorkingBudgetMonthState {
+  const units: WorkingBudgetUnit[] = [];
+  let sequence = monthIdx * 100;
+  references.forEach((reference) => {
+    for (let index = 0; index < (reference.qty || 0); index += 1) {
+      sequence += 1;
+      units.push({
+        id: `unit-${monthIdx}-${sequence}`,
+        budget_line_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        sequence_no: sequence,
+        month_idx: monthIdx,
+        dealer_account_id: reference.dealer_account_id || null,
+        dealer_account_number: reference.dealer_account_number || null,
+        dealer_name: reference.dealer_name || null,
+        origin_type: "original_budget",
+        version: 1,
+      });
+    }
+  });
+  while (units.length < total) {
+    sequence += 1;
+    units.push({
+      id: `unit-${monthIdx}-${sequence}`,
+      budget_line_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      sequence_no: sequence,
+      month_idx: monthIdx,
+      dealer_account_id: null,
+      dealer_account_number: null,
+      dealer_name: null,
+      origin_type: "manual_add",
+      version: 1,
+    });
+  }
   return {
     monthIdx,
     monthLabel,
+    units,
     allocation: resolveWorkingBudgetAllocation({ workingQty: total, references }),
   };
 }
@@ -75,19 +109,30 @@ describe("Working Budget unit actions", () => {
   });
 
   it("creates one-unit dealer and unallocated choices without losing dealer identity", () => {
-    const choices = workingBudgetUnitChoices(months[1].allocation);
+    const choices = workingBudgetUnitChoices(months[1].units);
     expect(choices).toEqual(expect.arrayContaining([
       expect.objectContaining({
         label: "Foras GmbH Zeven",
-        selection: expect.objectContaining({
-          kind: "dealer",
+        unit: expect.objectContaining({
           dealer_account_id: dealerIds.foras,
           dealer_account_number: "10180",
-          quantity: 1,
         }),
       }),
-      expect.objectContaining({ selection: { kind: "unallocated", quantity: 1 } }),
+      expect.objectContaining({ label: "Ikke fordelt", unit: expect.objectContaining({ dealer_account_id: null }) }),
     ]));
+  });
+
+  it("keeps same-dealer units individually selectable with distinct stable ids", () => {
+    const duplicateDealerMonth = month(11, "December 2026", 3, [
+      { dealer_account_id: dealerIds.foras, dealer_account_number: "10180", dealer_name: "Foras GmbH Zeven", qty: 3 },
+    ]);
+    const choices = workingBudgetUnitChoices(duplicateDealerMonth.units);
+    expect(new Set(choices.map((choice) => choice.unit.id)).size).toBe(3);
+    expect(choices.map((choice) => choice.detail)).toEqual([
+      "#10180 · Enhed 1 af 3",
+      "#10180 · Enhed 2 af 3",
+      "#10180 · Enhed 3 af 3",
+    ]);
   });
 
   it("does not mutate on plus until the user explicitly confirms a new unit", () => {
@@ -127,18 +172,19 @@ describe("Working Budget unit actions", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Flyt fra en anden måned/i }));
     fireEvent.click(screen.getByRole("button", { name: /Vis alle måneder/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Februar 2027 · 3 stk/i }));
-    const weimerButtons = screen.getAllByRole("button", { name: /Weimer GmbH Lollar/i });
-    fireEvent.click(weimerButtons[weimerButtons.length - 1]);
+    const februaryGroup = screen.getByRole("region", { name: /Februar 2027 · 3 stk/i });
+    expect(within(februaryGroup).queryByRole("button", { name: /Februar 2027/i })).not.toBeInTheDocument();
+    fireEvent.click(within(februaryGroup).getByRole("button", { name: /Weimer GmbH Lollar/i }));
     fireEvent.click(screen.getByRole("button", { name: /Flyt 1 enhed/i }));
 
-    expect(onMove).toHaveBeenCalledWith(1, 9, {
-      kind: "dealer",
+    expect(onMove).toHaveBeenCalledWith(expect.objectContaining({
+      id: expect.any(String),
+      month_idx: 1,
       dealer_account_id: dealerIds.weimer,
       dealer_account_number: "10291",
       dealer_name: "Weimer GmbH Lollar",
-      quantity: 1,
-    });
+      version: 1,
+    }), 9);
   });
 
   it("requires an explicit allocated unit for minus and remains narrow-safe", () => {
@@ -161,9 +207,9 @@ describe("Working Budget unit actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /Foras GmbH Zeven/i }));
     fireEvent.click(screen.getByRole("button", { name: /Fjern 1 enhed/i }));
     expect(onRemove).toHaveBeenCalledWith(expect.objectContaining({
-      kind: "dealer",
       dealer_account_id: dealerIds.foras,
-      quantity: 1,
+      month_idx: 9,
+      version: 1,
     }));
   });
 
@@ -191,36 +237,35 @@ describe("Working Budget unit actions", () => {
 
 describe("safe Working Budget mutation migration", () => {
   const migration = readFileSync(
-    resolve(process.cwd(), "supabase/migrations/20261002085127_safe_working_budget_unit_adjustments.sql"),
+    resolve(process.cwd(), "supabase/migrations/20261002101500_stable_working_budget_unit_identity.sql"),
     "utf8",
   );
 
-  it("materializes inherited allocations before applying a one-unit delta", () => {
-    expect(migration).toMatch(/create or replace function public\.adjust_crm_working_budget_quantity/i);
-    expect(migration).toMatch(/insert into public\.budget_references[\s\S]*Arvet fra oprindeligt budget/i);
-    expect(migration).toMatch(/if p_delta = 1 then[\s\S]*must start unallocated/i);
-    expect(migration).toMatch(/v_new_value := v_old_value \+ p_delta/i);
+  it("materializes stable allocated and unallocated unit identities idempotently", () => {
+    expect(migration).toMatch(/create table public\.crm_working_budget_units/i);
+    expect(migration).toMatch(/id uuid primary key default gen_random_uuid/i);
+    expect(migration).toMatch(/unique \(budget_line_id, materialization_key\)/i);
+    expect(migration).toMatch(/origin_type[\s\S]*original_budget[\s\S]*working_reference[\s\S]*manual_add/i);
+    expect(migration).toMatch(/materialized-unallocated/i);
   });
 
-  it("requires explicit removal, prevents negative values and checks concurrency", () => {
-    expect(migration).toMatch(/Select the exact Working Budget unit to remove/i);
-    expect(migration).toMatch(/Working Budget quantity cannot become negative/i);
-    expect(migration).toMatch(/p_expected_value/i);
+  it("moves and removes by canonical unit id with optimistic concurrency", () => {
+    expect(migration).toMatch(/create or replace function public\.move_crm_working_budget_unit\([\s\S]*p_unit_id uuid/i);
+    expect(migration).toMatch(/create or replace function public\.remove_crm_working_budget_unit/i);
+    expect(migration).toMatch(/v_unit\.version <> p_expected_version/i);
     expect(migration).toMatch(/changed concurrently/i);
+    expect(migration).toMatch(/set month_idx = p_target_month_idx, version = version \+ 1/i);
   });
 
-  it("keeps moves atomic, authorized and recorded in the existing audit history", () => {
-    expect(migration).toMatch(/create or replace function public\.move_crm_working_budget_unit/i);
-    expect(migration).toMatch(/return public\.move_crm_working_budget_allocations/i);
-    expect(migration).toMatch(/is_timan_budget_seller\(v_line\.seller_email\)/i);
+  it("keeps unit actions atomic, authorized and attached to existing audit history", () => {
     expect(migration).toMatch(/pg_advisory_xact_lock/i);
-    expect(migration).toMatch(/crm_working_budget_adjustment/i);
-    expect(migration).toMatch(/record_type[\s\S]*crm_budget/i);
+    expect(migration).toMatch(/is_timan_budget_seller\(v_line\.seller_email\)/i);
+    expect(migration).toMatch(/working_budget_unit_id/i);
+    expect(migration).toMatch(/revoke all on table public\.crm_working_budget_units from public, anon, authenticated/i);
   });
 
-  it("does not mutate original dealer budget rows or create a parallel allocation table", () => {
+  it("does not mutate the immutable original dealer budget", () => {
     expect(migration).not.toMatch(/update public\.crm_budget_dealer_lines/i);
     expect(migration).not.toMatch(/delete from public\.crm_budget_dealer_lines/i);
-    expect(migration).not.toMatch(/create table[\s\S]*working_budget_allocations/i);
   });
 });
