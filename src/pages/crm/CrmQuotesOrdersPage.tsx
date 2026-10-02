@@ -60,6 +60,7 @@ import {
   crmDocumentSentAt,
   crmDocumentStatus,
   filterAndSortCrmDocuments,
+  showCrmDocumentStatusColumn,
   type CrmDocumentDealerOption,
   type CrmDocumentSort,
 } from '@/lib/crmDocumentListFilters';
@@ -463,6 +464,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
   const subtitleKey = mode === 'order' ? 'subtitle_orders' : 'subtitle_quotes';
   const emptyKey = mode === 'order' ? 'empty_orders' : 'empty_quotes';
   const Icon = mode === 'order' ? ShoppingCart : FileText;
+  const showStatusColumn = showCrmDocumentStatusColumn(mode);
 
   const scopeLabel = isBackendFull ? T.scope_backend[lang]
     : isSeller || getActiveSellerView(appUser?.email) ? T.scope_seller[lang]
@@ -605,7 +607,7 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                       onClick={() => toggleSort('dealer-asc', 'dealer-desc')}
                     />
                   </th>
-                  <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>
+                  {showStatusColumn && <th className="text-left px-3 py-2 font-semibold">{T.col_status[lang]}</th>}
                   {mode === 'order' && <th className="text-left px-3 py-2 font-semibold">{T.col_expected_delivery[lang]}</th>}
                   {mode === 'order' && <th className="hidden px-3 py-2 text-left font-semibold sm:table-cell">{T.col_purchase_order[lang]}</th>}
                   <th className="text-left px-3 py-2 font-semibold">
@@ -675,11 +677,13 @@ export default function CrmQuotesOrdersPage({ mode }: Props) {
                         {dealerLabel}
                         {r.dealer_country && <span className="ml-1 text-[11px] text-slate-400">· {formatCountry(r.dealer_country)}</span>}
                       </td>
-                      <td className="px-3 py-2.5">
-                        <span className={`inline-flex text-[11px] px-2 py-0.5 rounded-full border font-medium ${badge.cls}`}>
-                          {badge.label}
-                        </span>
-                      </td>
+                      {showStatusColumn && (
+                        <td className="px-3 py-2.5">
+                          <span className={`inline-flex text-[11px] px-2 py-0.5 rounded-full border font-medium ${badge.cls}`}>
+                            {badge.label}
+                          </span>
+                        </td>
+                      )}
                       {mode === 'order' && <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.delivery_date)}</td>}
                       {mode === 'order' && <td className="hidden px-3 py-2.5 font-mono text-[12px] text-slate-600 sm:table-cell" title={r.purchase_order_numbers.join(', ') || undefined}>{r.purchase_order_number || '—'}</td>}
                       <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{fmtDate(r.created_at)}</td>

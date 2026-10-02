@@ -34,6 +34,10 @@ export const DEFAULT_CRM_DOCUMENT_FILTERS: CrmDocumentListFilterState = {
   sort: 'standard',
 };
 
+export function showCrmDocumentStatusColumn(mode: CrmDocumentType): boolean {
+  return mode === 'quote';
+}
+
 const textCollator = new Intl.Collator('da', { numeric: true, sensitivity: 'base' });
 
 export function crmDocumentDealerLabel(row: CrmConfigurationRow): string {
