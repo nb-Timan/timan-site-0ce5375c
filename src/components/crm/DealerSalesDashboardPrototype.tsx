@@ -39,6 +39,7 @@ import {
   formatDashboardMonthName,
   formatRevenueSeriesPoint,
 } from "@/lib/crmDashboardDate";
+import { DealerBarShape } from "@/components/crm/TopDealersBarShape";
 
 type Props = {
   initialScope: PrototypeScopeMode;
@@ -406,7 +407,7 @@ export default function DealerSalesDashboardPrototype({ initialScope, scope: con
       </div>
 
       <div className="grid gap-3 xl:grid-cols-3">
-        <ChartCard title="Top 10 forhandlere" note="Klik en søjle for at filtrere">{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={byDealer} layout="vertical" margin={{ left: 40 }}><XAxis type="number" hide /><YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={110} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} fill="#34d399" radius={[0, 4, 4, 0]} onClick={(entry: { name?: string }) => entry.name && drill("dealers", entry.name)} /></BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
+        <ChartCard title="Top 10 forhandlere" note="Klik en søjle for at filtrere">{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={byDealer} layout="vertical" margin={{ left: 0, right: 4 }} accessibilityLayer><XAxis type="number" hide /><YAxis dataKey="name" type="category" hide width={0} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} background shape={<DealerBarShape valueFormatter={(value) => formatValue(value, filters.currency)} />} onClick={(entry: { name?: string }) => entry.name && drill("dealers", entry.name)} /></BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
         <ChartCard title="Omsætning pr. land" note="Klik en søjle for at filtrere">{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={byCountry} layout="vertical" margin={{ left: 28 }}><XAxis type="number" hide /><YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={80} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} fill="#2563eb" radius={[0, 4, 4, 0]} onClick={(entry: { name?: string }) => entry.name && drill("countries", entry.name)} /></BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
         <ChartCard title="Omsætning pr. sælger" note={usesPartnerSalesContacts ? "Partnerdata: salgs-kontakter. Manglende kontakt vises som Info mangler." : "Klik en søjle for at filtrere"}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={bySeller} layout="vertical" margin={{ left: usesPartnerSalesContacts ? 70 : 20 }}><XAxis type="number" hide /><YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={usesPartnerSalesContacts ? 110 : 48} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} fill="#60a5fa" radius={[0, 4, 4, 0]} onClick={usesPartnerSalesContacts ? undefined : (entry: { name?: string }) => entry.name && drill("sellers", entry.name)} /></BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
       </div>
