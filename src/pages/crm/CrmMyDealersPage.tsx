@@ -32,6 +32,7 @@ import { useCountryFormatter } from "@/lib/formatCountry";
 import { t as i18n } from "@/lib/i18n/translations";
 import CrmLayout from "@/components/crm/CrmLayout";
 import { derivePortalRole } from "@/lib/portalAccess";
+import { canMaintainPartnerdata, listPartnerDataDealers } from "@/lib/partnerDataScope";
 import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
 import { useEffectivePortalUserState } from "@/lib/viewAsUser";
 import { buildJournalScope } from "@/lib/machineJournalScope";
@@ -257,6 +258,8 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const admin = isCrmAdmin(portalRole);
   const seller = isScopedSeller(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
+  const canMaintainPartnerData = partnerDataPresentation
+    && canMaintainPartnerdata(effectiveUser, portalRole);
   // View-as resolves an equivalent user object on each render. Depend on the
   // selected user's stable canonical id instead of the object reference.
   const effectiveUserId = effectiveUser?.id ?? null;
@@ -335,7 +338,24 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
         const effEmail = getEffectiveSellerEmail(appUser);
 
         let loadedDealers: DealerAccount[] = [];
-        if (admin && !activeSellerView) {
+        if (canMaintainPartnerData) {
+          // Partnerdata is a shared Timan-maintenance surface. CRM's separate
+          // Mine forhandlere view remains seller-owned and uses the branches
+          // below.
+          const [scopeRes, sRes, uRes] = await Promise.all([
+            listPartnerDataDealers(effectiveUser, portalRole),
+            fetchDealerAccountStats(),
+            fetchBackendUsers(),
+          ]);
+          if (cancelled) return;
+          loadedDealers = scopeRes.rows;
+          setDealers(loadedDealers);
+          const map: Record<string, DealerAccountStats> = {};
+          for (const stat of sRes.rows) map[stat.id] = stat;
+          setStatsMap(map);
+          setAllUsers(uRes.users);
+          setError(scopeRes.error ?? sRes.error ?? null);
+        } else if (admin && !activeSellerView) {
           // Pure backend view → show everything, with grouping.
           const [dRes, sRes, uRes] = await Promise.all([
             fetchDealerAccounts({ includeDeleted: true }),
@@ -433,7 +453,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
     // `effectiveUser` is intentionally represented by its stable identity;
     // see `effectiveUserId` above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appUser, effectiveUserId, resolvingEffectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
+  }, [appUser, effectiveUserId, resolvingEffectiveUser, admin, seller, externalCrm, canMaintainPartnerData, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
 
   // Successor index — must be computed unconditionally before any early return
   // so the number of hooks remains stable across renders.
@@ -536,8 +556,12 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
     if (!appUser?.email) return;
     setStoredActiveMode(appUser.email, sellerKey);
   };
-  const pageTitle = externalCrm ? i18n("crmMyPartners", uiLanguage) : i18n("crmMyDealers", uiLanguage);
-  const pageSubtitle = externalCrm ? i18n("crmMyDealersPartnerSubtitle", uiLanguage) : i18n("crmMyDealersSubtitle", uiLanguage);
+  const pageTitle = partnerDataPresentation
+    ? i18n("area_dealer_data_title", uiLanguage)
+    : externalCrm ? i18n("crmMyPartners", uiLanguage) : i18n("crmMyDealers", uiLanguage);
+  const pageSubtitle = partnerDataPresentation
+    ? i18n("area_dealer_data_desc", uiLanguage)
+    : externalCrm ? i18n("crmMyDealersPartnerSubtitle", uiLanguage) : i18n("crmMyDealersSubtitle", uiLanguage);
   const detailPath = (dealer: DealerAccount) => partnerDataPresentation
     ? `/portal/dealer-data/${encodeURIComponent(dealer.account_number)}`
     : `/portal/crm/my-dealers/${dealer.account_number}`;
@@ -545,7 +569,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const scopeNote = externalCrm ? i18n("crmMyDealersPartnerScopeNote", uiLanguage) : i18n("crmMyDealersScopeNote", uiLanguage);
 
   return (
-    <CrmLayout pageTitle={pageTitle}>
+    <CrmLayout pageTitle={pageTitle} partnerDataPresentation={partnerDataPresentation}>
       <AcademyPartnerDataGuidance />
       <div className="mb-4 flex items-end justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-3">
@@ -580,7 +604,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
               {i18n("crmMyDealersViewAs", uiLanguage)}: {activeSellerView.label}
             </span>
           )}
-          {!admin && (
+          {!admin && !canMaintainPartnerData && (
             <span className="text-xs px-3 py-1 rounded-full bg-sky-50 text-sky-800 border border-sky-200">
               {scopeNote}
             </span>

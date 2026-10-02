@@ -10,7 +10,7 @@ describe("Partnerdata list-first flow", () => {
     const app = readFileSync("src/App.tsx", "utf8");
     const portal = readFileSync("src/pages/PortalPage.tsx", "utf8");
 
-    expect(app).toContain('path="/portal/dealer-data" element={<AcademyCapabilityGuard capability="partner_data"><PartnerDataRoute /></AcademyCapabilityGuard>}');
+    expect(app).toContain('path="/portal/dealer-data" element={<PortalAreaAccessGuard area="dealer_data"><AcademyCapabilityGuard capability="partner_data"><PartnerDataRoute /></AcademyCapabilityGuard></PortalAreaAccessGuard>}');
     expect(app).toContain('path="/portal/crm/my-dealers" element={<AcademyCapabilityGuard capability="crm_complete"><CrmMyDealersPage /></AcademyCapabilityGuard>}');
     expect(portal).toContain('dealer_data:    { to: PORTAL_AREA_ROUTES.dealer_data');
   });
@@ -19,7 +19,7 @@ describe("Partnerdata list-first flow", () => {
     const route = readFileSync("src/pages/portal/PartnerDataRoute.tsx", "utf8");
     const app = readFileSync("src/App.tsx", "utf8");
     expect(route).toContain('<CrmMyDealersPage presentation="partnerdata" />');
-    expect(app).toContain('<Route path="/portal/dealer-data/:accountNumber" element={<AcademyCapabilityGuard capability="partner_data"><CrmDealerDetailPage presentation="partnerdata" /></AcademyCapabilityGuard>} />');
+    expect(app).toContain('<Route path="/portal/dealer-data/:accountNumber" element={<PortalAreaAccessGuard area="dealer_data"><AcademyCapabilityGuard capability="partner_data"><CrmDealerDetailPage presentation="partnerdata" /></AcademyCapabilityGuard></PortalAreaAccessGuard>} />');
   });
 
   it("returns the Partnerdata overview to the Partnerdata list", () => {
@@ -45,12 +45,11 @@ describe("Partnerdata list-first flow", () => {
     expect(canEditPartnerDataAccount(user, "timan_dealer", "11841")).toBe(false);
   });
 
-  it("keeps the scope resolver explicit for global, seller, and partner users", () => {
+  it("keeps the scope resolver explicit for internal employees and external partners", () => {
     const source = readFileSync("src/lib/partnerDataScope.ts", "utf8");
     expect(source).toContain('fetchDealerAccounts()');
-    expect(source).toContain('fetchDealerAccountsForSeller');
+    expect(source).toContain('isInternalTimanPortalRole(role)');
+    expect(source).toContain('return { rows: [], source: "none" }');
     expect(source).toContain('buildJournalScope');
-    expect(source).toContain('listCanonicalRelatedAccountNumbers');
-    expect(source).toContain('result.dealers.map((dealer) => dealer.id)');
   });
 });

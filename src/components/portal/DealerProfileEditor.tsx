@@ -725,7 +725,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
         email: contact.email,
         phone: contact.phone,
         is_primary: false,
-      });
+      }, effectiveUserId);
       if (!res.ok || !res.row) {
         toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
         return;
@@ -754,7 +754,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
       email: contact.email,
       phone: contact.phone,
       is_primary: false,
-    });
+    }, effectiveUserId);
     if (!res.ok || !res.row) {
       toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
       return;

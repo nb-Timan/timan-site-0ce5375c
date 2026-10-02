@@ -16,6 +16,7 @@ import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPa
 import { CRM_NAV_ITEMS, EXTERNAL_CRM_NAV_BLOCKLIST } from '@/lib/crmNavigation';
 import { hasEffectiveAcademyCapabilityAccess } from '@/lib/academyCurriculum';
 import { findPortalCapabilityContractByRoute } from '../../../supabase/functions/_shared/portalCapabilityContract';
+import { canMaintainPartnerdata } from '@/lib/partnerDataScope';
 
 interface Props { children: ReactNode; pageTitle?: string; partnerDataPresentation?: boolean }
 
@@ -38,17 +39,20 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
   const externalCrm = isExternalCrmRole(portalRole);
   const dealerDetailMatch = location.pathname.match(/^\/portal\/(?:crm\/my-dealers|dealer-data)\/([^/]+)$/);
   const hasDealerDataAreaAccess = hasAreaAccess(effectiveUser, 'dealer_data');
+  const hasGlobalPartnerDataScope = partnerDataPresentation
+    && canMaintainPartnerdata(effectiveUser, portalRole);
   const hasCrmAreaAccess = hasAreaAccess(effectiveUser, 'timan_crm');
   const externalDealerDetailAllowed = Boolean(
     externalCrm &&
     dealerDetailMatch &&
     hasDealerDataAreaAccess,
   );
-  const crmAreaAllowed = externalDealerDetailAllowed || hasCrmAreaAccess;
+  const partnerDataAreaAllowed = partnerDataPresentation && hasDealerDataAreaAccess;
+  const crmAreaAllowed = partnerDataAreaAllowed || externalDealerDetailAllowed || hasCrmAreaAccess;
   if (!crmAreaAllowed) {
     return <Navigate to="/portal" replace />;
   }
-  if (!canUseCrm(portalRole)) {
+  if (!partnerDataPresentation && !canUseCrm(portalRole)) {
     return <Navigate to="/portal" replace />;
   }
   if (externalCrm && EXTERNAL_CRM_NAV_BLOCKLIST.has(location.pathname)) {
@@ -59,9 +63,11 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
       ? { ...item, tKey: 'area_dealer_data_title', to: '/portal/dealer-data' }
       : item)
     : CRM_NAV_ITEMS;
-  const roleScopedNavItems = externalCrm
-    ? (hasCrmAreaAccess ? baseNavItems.filter((item) => !EXTERNAL_CRM_NAV_BLOCKLIST.has(item.to)) : [])
-    : baseNavItems;
+  const roleScopedNavItems = partnerDataPresentation && !hasCrmAreaAccess
+    ? baseNavItems.filter((item) => item.to === '/portal/dealer-data')
+    : externalCrm
+      ? (hasCrmAreaAccess ? baseNavItems.filter((item) => !EXTERNAL_CRM_NAV_BLOCKLIST.has(item.to)) : [])
+      : baseNavItems;
   const navItems = roleScopedNavItems.filter((item) => hasEffectiveAcademyCapabilityAccess(
     effectiveUser,
     true,
@@ -78,9 +84,13 @@ export default function CrmLayout({ children, pageTitle, partnerDataPresentation
         <div className="flex items-center justify-end mb-3 gap-3 flex-wrap">
           <span className={cn(
             "text-xs px-3 py-1 rounded-full",
-            isCrmAdmin(portalRole) ? "bg-amber-50 text-amber-800 border border-amber-200" : "bg-sky-50 text-sky-800 border border-sky-200"
+            isCrmAdmin(portalRole) || hasGlobalPartnerDataScope
+              ? "bg-amber-50 text-amber-800 border border-amber-200"
+              : "bg-sky-50 text-sky-800 border border-sky-200"
           )}>
-            {isCrmAdmin(portalRole) ? t('crmScopeAll', uiLanguage) : t('crmScopeOwner', uiLanguage)}
+            {isCrmAdmin(portalRole) || hasGlobalPartnerDataScope
+              ? t('crmScopeAll', uiLanguage)
+              : t('crmScopeOwner', uiLanguage)}
           </span>
         </div>
 

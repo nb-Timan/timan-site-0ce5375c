@@ -357,8 +357,8 @@ const App = () => (
               <Route path="/portal/backend/data-integrationer" element={<BackendSectionPage sectionId="data-integrations" />} />
               <Route path="/portal/backend/analyse" element={<BackendSectionPage sectionId="analytics" />} />
               <Route path="/portal/backend/system" element={<BackendSectionPage sectionId="system" />} />
-              <Route path="/portal/dealer-data" element={<AcademyCapabilityGuard capability="partner_data"><PartnerDataRoute /></AcademyCapabilityGuard>} />
-              <Route path="/portal/dealer-data/:accountNumber" element={<AcademyCapabilityGuard capability="partner_data"><CrmDealerDetailPage presentation="partnerdata" /></AcademyCapabilityGuard>} />
+              <Route path="/portal/dealer-data" element={<PortalAreaAccessGuard area="dealer_data"><AcademyCapabilityGuard capability="partner_data"><PartnerDataRoute /></AcademyCapabilityGuard></PortalAreaAccessGuard>} />
+              <Route path="/portal/dealer-data/:accountNumber" element={<PortalAreaAccessGuard area="dealer_data"><AcademyCapabilityGuard capability="partner_data"><CrmDealerDetailPage presentation="partnerdata" /></AcademyCapabilityGuard></PortalAreaAccessGuard>} />
               <Route path="/portal/crm" element={<AcademyCapabilityGuard capability="crm_area"><PortalCrmPage /></AcademyCapabilityGuard>} />
               <Route path="/portal/crm/dashboard"  element={<AcademyCapabilityGuard capability="crm_complete"><CrmDashboardPage /></AcademyCapabilityGuard>} />
               <Route path="/portal/crm/accounts"   element={<AcademyCapabilityGuard capability="crm_complete"><Navigate to="/portal/crm/my-dealers" replace /></AcademyCapabilityGuard>} />

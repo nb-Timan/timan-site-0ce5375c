@@ -2,14 +2,15 @@ import type { SessionUser } from "@/context/AppUserContext";
 import {
   fetchDealerAccounts,
   fetchDealerAccountsByNumbers,
-  fetchDealerAccountsForSeller,
   type DealerAccount,
 } from "@/lib/dealerAccountsService";
 import { buildJournalScope } from "@/lib/machineJournalScope";
-import type { PortalRole } from "@/lib/portalAccess";
-import { supabase } from "@/lib/supabase";
+import {
+  hasAreaAccess,
+  isInternalTimanPortalRole,
+  type PortalRole,
+} from "@/lib/portalAccess";
 
-const INTERNAL_ROLES = new Set<PortalRole>(["timan_backend", "timan_service"]);
 const EXTERNAL_ROLES = new Set<PortalRole>([
   "timan_dealer",
   "timan_importer",
@@ -26,22 +27,17 @@ export interface PartnerDataScopeResult {
   error?: string;
 }
 
-async function listCanonicalRelatedAccountNumbers(sourceAccountIds: string[]): Promise<string[]> {
-  if (sourceAccountIds.length === 0) return [];
-  // RLS controls both the relationship read and the nested target account.
-  // This is additive to the established parent/child and service-link scope.
-  const { data, error } = await supabase
-    .from("partner_account_relations")
-    .select("target_account:dealer_accounts!partner_account_relations_target_account_id_fkey(account_number)")
-    .in("source_account_id", sourceAccountIds)
-    .eq("active", true);
-  if (error) return [];
-
-  return (data ?? []).flatMap((row) => {
-    const target = row.target_account;
-    const item = Array.isArray(target) ? target[0] : target;
-    return item?.account_number ? [item.account_number] : [];
-  });
+/**
+ * Normal Partnerdata maintenance is an employee capability, not an account
+ * ownership capability. The area check preserves per-user access overrides.
+ */
+export function canMaintainPartnerdata(
+  user: SessionUser | null,
+  role: PortalRole | null,
+): boolean {
+  if (!user || !role || !isInternalTimanPortalRole(role)) return false;
+  if (user.approved === false || user.is_active === false) return false;
+  return hasAreaAccess({ ...user, portal_role: role }, "dealer_data");
 }
 
 /**
@@ -54,26 +50,10 @@ export async function listPartnerDataDealers(
 ): Promise<PartnerDataScopeResult> {
   if (!user || !role) return { rows: [], source: "none" };
 
-  if (INTERNAL_ROLES.has(role)) {
+  if (isInternalTimanPortalRole(role)) {
+    if (!canMaintainPartnerdata(user, role)) return { rows: [], source: "none" };
     const result = await fetchDealerAccounts();
     return { rows: result.rows, source: "global", error: result.error };
-  }
-
-  if (role === "timan_seller") {
-    const result = await fetchDealerAccountsForSeller({
-      sellerId: user.id,
-      initials: user.initials,
-      email: user.email,
-    });
-    const related = await listCanonicalRelatedAccountNumbers(result.dealers.map((dealer) => dealer.id));
-    const relatedRows = await fetchDealerAccountsByNumbers(related);
-    const rowsById = new Map(result.dealers.map((dealer) => [dealer.id, dealer]));
-    for (const dealer of relatedRows.rows) rowsById.set(dealer.id, dealer);
-    return {
-      rows: Array.from(rowsById.values()).sort((a, b) => a.company_name.localeCompare(b.company_name, "da")),
-      source: "seller",
-      error: result.error ?? relatedRows.error,
-    };
   }
 
   if (EXTERNAL_ROLES.has(role)) {
@@ -92,12 +72,8 @@ export function canEditPartnerDataAccount(
   user: SessionUser | null,
   role: PortalRole | null,
   accountNumber: string | null | undefined,
-  assignedSellerId?: string | null,
 ): boolean {
   if (!user || !role || !accountNumber) return false;
-  if (INTERNAL_ROLES.has(role)) return true;
-  if (role === "timan_seller") {
-    return Boolean(user.id && assignedSellerId && user.id === assignedSellerId);
-  }
+  if (canMaintainPartnerdata(user, role)) return true;
   return EXTERNAL_ROLES.has(role) && user.dealer_number === accountNumber;
 }

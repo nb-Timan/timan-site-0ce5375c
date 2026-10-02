@@ -43,6 +43,17 @@ export const PORTAL_ROLES: PortalRole[] = [
   'pending',
 ];
 
+/** Canonical employee roles. External partner roles must never be added here. */
+export const INTERNAL_TIMAN_PORTAL_ROLES: ReadonlySet<PortalRole> = new Set([
+  'timan_backend',
+  'timan_seller',
+  'timan_service',
+]);
+
+export function isInternalTimanPortalRole(role: PortalRole | null | undefined): boolean {
+  return Boolean(role && INTERNAL_TIMAN_PORTAL_ROLES.has(role));
+}
+
 // Danish business UI labels
 export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = {
   timan_backend:         { da: 'Timan Backend',         en: 'Timan Backend',         de: 'Timan Backend',         it: 'Timan Backend',         hu: 'Timan Backend' },

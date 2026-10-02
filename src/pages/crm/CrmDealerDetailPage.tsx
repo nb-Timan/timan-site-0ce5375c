@@ -44,6 +44,7 @@ import {
   requestDealerGeocoding,
 } from "@/lib/dealerGeocodingService";
 import { derivePortalRole } from "@/lib/portalAccess";
+import { canMaintainPartnerdata } from "@/lib/partnerDataScope";
 import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
 import { useEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { buildJournalScope } from "@/lib/machineJournalScope";
@@ -670,6 +671,8 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   const sellerViewActive = portalRole === "timan_backend" && Boolean(getActiveSellerView(appUser?.email));
   const canPreviewDealerMachines = admin || seller;
   const partnerDataPresentation = presentation === "partnerdata";
+  const canMaintainPartnerData = partnerDataPresentation
+    && canMaintainPartnerdata(effectiveUser, portalRole);
   const dealerOverviewHref = (dealerNumber: string) => partnerDataPresentation
     ? `/portal/dealer-data/${encodeURIComponent(dealerNumber)}`
     : `/portal/crm/my-dealers/${encodeURIComponent(dealerNumber)}`;
@@ -708,7 +711,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         let scopedDealerNumbers: string[] | null = null;
         let sellerStats: Record<string, DealerAccountStats> | null = null;
         let preloadedRelations: PartnerAccountRelation[] | null = null;
-        if (seller) {
+        if (seller && !canMaintainPartnerData) {
           const sellerRes = await fetchDealerAccountsForSeller({
             initials: getEffectiveSellerInitials(appUser),
             email: getEffectiveSellerEmail(appUser),
@@ -861,7 +864,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   // object directly restarts this request after every state update and cancels
   // the seller machine scope before it can complete.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appUser, effectiveUserKey, accountNumber, portalRole, budgetYear, admin, seller, externalCrm, activeMode]);
+  }, [appUser, effectiveUserKey, accountNumber, portalRole, budgetYear, admin, seller, externalCrm, canMaintainPartnerData, activeMode]);
 
   const dealer = useMemo(
     () => dealers.find(d => d.account_number === accountNumber) ?? null,
