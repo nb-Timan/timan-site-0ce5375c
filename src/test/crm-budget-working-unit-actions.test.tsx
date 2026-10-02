@@ -39,6 +39,11 @@ function month(
         dealer_account_number: reference.dealer_account_number || null,
         dealer_name: reference.dealer_name || null,
         origin_type: "original_budget",
+        origin_id: `origin-${monthIdx}-${sequence}`,
+        original_month_idx: monthIdx,
+        original_dealer_account_id: reference.dealer_account_id || null,
+        original_dealer_account_number: reference.dealer_account_number || null,
+        original_dealer_name: reference.dealer_name || null,
         version: 1,
       });
     }
@@ -54,6 +59,11 @@ function month(
       dealer_account_number: null,
       dealer_name: null,
       origin_type: "manual_add",
+      origin_id: null,
+      original_month_idx: monthIdx,
+      original_dealer_account_id: null,
+      original_dealer_account_number: null,
+      original_dealer_name: null,
       version: 1,
     });
   }
@@ -129,9 +139,41 @@ describe("Working Budget unit actions", () => {
     const choices = workingBudgetUnitChoices(duplicateDealerMonth.units);
     expect(new Set(choices.map((choice) => choice.unit.id)).size).toBe(3);
     expect(choices.map((choice) => choice.detail)).toEqual([
-      "#10180 · Enhed 1 af 3",
-      "#10180 · Enhed 2 af 3",
-      "#10180 · Enhed 3 af 3",
+      "#10180 · Enhed 1 af 3 · Oprindeligt: M12",
+      "#10180 · Enhed 2 af 3 · Oprindeligt: M12",
+      "#10180 · Enhed 3 af 3 · Oprindeligt: M12",
+    ]);
+  });
+
+  it("shows immutable source month and dealer provenance on an exact unit", () => {
+    const moved = {
+      ...months[1].units[0],
+      month_idx: 9,
+      original_month_idx: 1,
+      original_dealer_account_number: "10180",
+      original_dealer_name: "Foras GmbH Zeven",
+    };
+    const [choice] = workingBudgetUnitChoices([moved], (monthIdx) => months[monthIdx].monthLabel);
+    expect(choice.label).toBe("Foras GmbH Zeven");
+    expect(choice.detail).toContain("#10180");
+    expect(choice.detail).toContain("Oprindeligt: Februar 2027");
+  });
+
+  it("uses canonical unit identities for tooltip allocation despite historical audits", () => {
+    const allocation = resolveWorkingBudgetAllocation({
+      workingQty: 3,
+      hasWorkingChange: true,
+      units: [
+        { dealer_account_number: "11871", dealer_name: "Hummelmühle GmbH" },
+        { dealer_account_number: "10083", dealer_name: "Jelinek GmbH" },
+        { dealer_account_number: "10458", dealer_name: "Tiefel GmbH" },
+      ],
+    });
+
+    expect(allocation.allocated).toBe(3);
+    expect(allocation.unallocated).toBe(0);
+    expect(allocation.allocations.map((row) => row.dealer_account_number)).toEqual([
+      "11871", "10083", "10458",
     ]);
   });
 
@@ -173,7 +215,7 @@ describe("Working Budget unit actions", () => {
     fireEvent.click(screen.getByRole("button", { name: /Flyt fra en anden måned/i }));
     fireEvent.click(screen.getByRole("button", { name: /Vis alle måneder/i }));
     const februaryGroup = screen.getByRole("region", { name: /Februar 2027 · 3 stk/i });
-    expect(within(februaryGroup).queryByRole("button", { name: /Februar 2027/i })).not.toBeInTheDocument();
+    expect(within(februaryGroup).queryByRole("button", { name: /^Februar 2027 · 3 stk\.$/i })).not.toBeInTheDocument();
     fireEvent.click(within(februaryGroup).getByRole("button", { name: /Weimer GmbH Lollar/i }));
     fireEvent.click(screen.getByRole("button", { name: /Flyt 1 enhed/i }));
 
@@ -265,6 +307,40 @@ describe("safe Working Budget mutation migration", () => {
   });
 
   it("does not mutate the immutable original dealer budget", () => {
+    expect(migration).not.toMatch(/update public\.crm_budget_dealer_lines/i);
+    expect(migration).not.toMatch(/delete from public\.crm_budget_dealer_lines/i);
+  });
+});
+
+describe("Working Budget provenance repair migration", () => {
+  const migration = readFileSync(
+    resolve(process.cwd(), "supabase/migrations/20261002112112_preserve_working_budget_unit_provenance.sql"),
+    "utf8",
+  );
+
+  it("stores original month and dealer as separate immutable source attributes", () => {
+    expect(migration).toMatch(/add column if not exists original_month_idx integer/i);
+    expect(migration).toMatch(/add column if not exists original_dealer_account_id uuid/i);
+    expect(migration).toMatch(/add column if not exists original_dealer_account_number text/i);
+    expect(migration).toMatch(/add column if not exists original_dealer_name text/i);
+  });
+
+  it("repairs only deterministic original slots and remains idempotent", () => {
+    expect(migration).toMatch(/working_budget_unit_provenance_repairs/i);
+    expect(migration).toMatch(/source_ordinal = candidate\.source_ordinal/i);
+    expect(migration).toMatch(/represented_slots/i);
+    expect(migration).toMatch(/has_same_source_working_reference/i);
+    expect(migration).toMatch(/materialization_key = 'original:' \|\| repair\.origin_id/i);
+  });
+
+  it("keeps provenance through exact moves and exposes it through authorized RPCs", () => {
+    expect(migration).toMatch(/set month_idx = p_target_month_idx, version = version \+ 1/i);
+    expect(migration).toMatch(/'original_month_idx', v_unit\.original_month_idx/i);
+    expect(migration).toMatch(/list_crm_working_budget_units_for_year/i);
+    expect(migration).toMatch(/is_timan_budget_seller\(line\.seller_email\)/i);
+  });
+
+  it("does not mutate immutable Original Budget rows", () => {
     expect(migration).not.toMatch(/update public\.crm_budget_dealer_lines/i);
     expect(migration).not.toMatch(/delete from public\.crm_budget_dealer_lines/i);
   });

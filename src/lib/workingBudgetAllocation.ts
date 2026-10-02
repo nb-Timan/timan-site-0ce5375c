@@ -7,6 +7,12 @@ export interface WorkingBudgetAllocationReference {
   qty?: number | null;
 }
 
+export interface WorkingBudgetAllocationUnit {
+  dealer_account_id?: string | null;
+  dealer_name?: string | null;
+  dealer_account_number?: string | null;
+}
+
 export interface WorkingBudgetDealerAllocation {
   dealer_account_id: string | null;
   dealer_name: string;
@@ -40,11 +46,12 @@ export interface WorkingBudgetAggregateAllocation {
   sellers: WorkingBudgetSellerAllocation[];
 }
 
-interface ResolveWorkingBudgetAllocationInput {
+export interface ResolveWorkingBudgetAllocationInput {
   workingQty: number;
   originalBasis?: OriginalBudgetBasis | null;
   references?: WorkingBudgetAllocationReference[] | null;
   hasWorkingChange?: boolean;
+  units?: WorkingBudgetAllocationUnit[] | null;
 }
 
 function normalizedQuantity(value: number | null | undefined): number {
@@ -98,9 +105,24 @@ export function resolveWorkingBudgetAllocation({
   originalBasis = null,
   references = [],
   hasWorkingChange = false,
+  units,
 }: ResolveWorkingBudgetAllocationInput): WorkingBudgetAllocation {
   const total = normalizedQuantity(workingQty);
   const explicitReferences = references || [];
+
+  if (units) {
+    const allocations = clampAndGroup(total, units
+      .filter((unit) => unit.dealer_account_id || unit.dealer_account_number || unit.dealer_name)
+      .map((unit) => ({ ...unit, qty: 1 })));
+    const allocated = allocations.reduce((sum, row) => sum + row.qty, 0);
+    return {
+      total,
+      allocated,
+      unallocated: Math.max(0, total - allocated),
+      allocations,
+      source: allocations.length > 0 ? "explicit" : "unallocated",
+    };
+  }
 
   if (explicitReferences.length > 0) {
     const allocations = clampAndGroup(total, explicitReferences);

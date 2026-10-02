@@ -69,7 +69,10 @@ export default function BudgetWorkingUnitDialog({
   const sourceMonths = sortedMonths.filter((month) => month.units.length > 0);
   const visibleSourceMonths = showAllMonths ? sourceMonths : sourceMonths.slice(0, 6);
   const visibleDestinationMonths = showAllMonths ? sortedMonths : sortedMonths.slice(0, 6);
-  const currentChoices = workingBudgetUnitChoices(currentMonth?.units ?? []);
+  const originalMonthLabel = (monthIdx: number) => (
+    context?.months.find((month) => month.monthIdx === monthIdx)?.monthLabel || `M${monthIdx + 1}`
+  );
+  const currentChoices = workingBudgetUnitChoices(currentMonth?.units ?? [], originalMonthLabel);
 
   if (!context || !currentMonth) return null;
 
@@ -162,6 +165,7 @@ export default function BudgetWorkingUnitDialog({
                   selected={selectedUnit}
                   onSelect={setSelectedUnit}
                   busy={busy}
+                  originalMonthLabel={originalMonthLabel}
                 />
               ))}
             </div>
@@ -242,11 +246,13 @@ function UnitMonthGroup({
   selected,
   onSelect,
   busy,
+  originalMonthLabel,
 }: {
   month: WorkingBudgetMonthState;
   selected: WorkingBudgetUnitChoice | null;
   onSelect: (choice: WorkingBudgetUnitChoice) => void;
   busy: boolean;
+  originalMonthLabel: (monthIdx: number) => string;
 }) {
   return (
     <section className="overflow-hidden rounded-md border border-slate-200 bg-white" aria-label={`${month.monthLabel} · ${month.units.length} stk.`}>
@@ -254,7 +260,7 @@ function UnitMonthGroup({
         {month.monthLabel} · {month.units.length} stk.
       </div>
       <div className="space-y-1 p-2">
-        {workingBudgetUnitChoices(month.units).map((choice) => (
+        {workingBudgetUnitChoices(month.units, originalMonthLabel).map((choice) => (
           <UnitChoiceButton key={choice.key} choice={choice} selected={selected?.key === choice.key} onSelect={onSelect} busy={busy} />
         ))}
       </div>

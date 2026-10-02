@@ -78,6 +78,7 @@ import {
 import {
   createWorkingBudgetUnit,
   listWorkingBudgetUnits,
+  listWorkingBudgetUnitsForYear,
   moveWorkingBudgetUnit,
   removeWorkingBudgetUnit,
   type WorkingBudgetUnit,
@@ -399,6 +400,7 @@ export default function CrmBudgetPage() {
   const [refModal, setRefModal] = useState<BudgetReferenceContext | null>(null);
   const [workingUnitAction, setWorkingUnitAction] = useState<BudgetWorkingUnitContext | null>(null);
   const [workingUnitBusy, setWorkingUnitBusy] = useState(false);
+  const [workingUnitsByLine, setWorkingUnitsByLine] = useState<Record<string, WorkingBudgetUnit[]> | null>(null);
   // Bumped after each audit-write so the latest-changes panel + indicators refresh.
   const [auditRefreshKey, setAuditRefreshKey] = useState(0);
   // Map of cell_key → latest AuditEntry for the current scope (used for the
@@ -500,7 +502,13 @@ export default function CrmBudgetPage() {
         if (initialization.some(result => result.status === "seeded" || result.status === "reconciled")) {
           [l, f] = await Promise.all([listBudgetLines({ year }), listForecasts(year)]);
         }
+        const workingUnits = await listWorkingBudgetUnitsForYear(year);
+        const unitsByLine = workingUnits.reduce<Record<string, WorkingBudgetUnit[]>>((grouped, unit) => {
+          (grouped[unit.budget_line_id] ||= []).push(unit);
+          return grouped;
+        }, {});
         setLines(l); setForecasts(f); setActuals(a);
+        setWorkingUnitsByLine(unitsByLine);
         setLeadContribs(buildLeadWorkingContributions(leads).filter(c => c.year === year));
         setDealerLines(dl);
       })
@@ -1111,6 +1119,7 @@ export default function CrmBudgetPage() {
       seller_email: string | null;
       workingQty: number;
       leads: LeadWorkingContribution[];
+      lineIds: string[];
     }>();
 
     const sellerIdentity = (emailValue: string | null, initialsValue: string | null) => {
@@ -1133,8 +1142,10 @@ export default function CrmBudgetPage() {
         seller_email: identity.email,
         workingQty: 0,
         leads: [],
+        lineIds: [],
       };
       seller.workingQty += lineMonthly(line).workingMonthly[monthIdx] || 0;
+      seller.lineIds.push(line.id);
       sellers.set(key, seller);
     }
 
@@ -1146,6 +1157,7 @@ export default function CrmBudgetPage() {
         seller_email: identity.email,
         workingQty: 0,
         leads: [],
+        lineIds: [],
       };
       seller.workingQty += lead.qty;
       seller.leads.push(lead);
@@ -1190,6 +1202,10 @@ export default function CrmBudgetPage() {
             qty: reference.qty,
           })),
           hasWorkingChange: !!latestAuditByCell[sellerCellKey] || seller.leads.length > 0,
+          units: workingUnitsByLine == null
+            ? undefined
+            : seller.lineIds.flatMap((lineId) => workingUnitsByLine[lineId] || [])
+              .filter((unit) => unit.month_idx === monthIdx),
         };
       });
 
@@ -1340,6 +1356,10 @@ export default function CrmBudgetPage() {
     setWorkingUnitBusy(true);
     try {
       const units = await listWorkingBudgetUnits(persisted.id);
+      setWorkingUnitsByLine((current) => ({
+        ...(current || {}),
+        [persisted.id]: units,
+      }));
       setWorkingUnitAction({
         budgetLineId: persisted.id,
         modelName: persisted.product_name,
@@ -1361,8 +1381,16 @@ export default function CrmBudgetPage() {
   }
 
   async function refreshWorkingBudgetAfterUnitAction() {
-    const fresh = await listForecasts(year);
+    const [fresh, workingUnits] = await Promise.all([
+      listForecasts(year),
+      listWorkingBudgetUnitsForYear(year),
+    ]);
+    const unitsByLine = workingUnits.reduce<Record<string, WorkingBudgetUnit[]>>((grouped, unit) => {
+      (grouped[unit.budget_line_id] ||= []).push(unit);
+      return grouped;
+    }, {});
     setForecasts(fresh);
+    setWorkingUnitsByLine(unitsByLine);
     setWorkingDraft({});
     setAuditRefreshKey((key) => key + 1);
     setWorkingUnitAction(null);
@@ -2279,7 +2307,8 @@ export default function CrmBudgetPage() {
                       return {
                         monthIdx,
                         monthLabel: MONTHS_BY_LANG[lang][monthIdx] || `M${monthIdx + 1}`,
-                        units: [],
+                        units: (workingUnitsByLine?.[primaryLine.id] || [])
+                          .filter((unit) => unit.month_idx === monthIdx),
                         allocation: resolveWorkingBudgetAllocation({
                           workingQty: baseWorking[monthIdx] || 0,
                           originalBasis,
@@ -2290,6 +2319,10 @@ export default function CrmBudgetPage() {
                             qty: reference.qty,
                           })),
                           hasWorkingChange: !!latestAuditByCell[actionCellKey],
+                          units: workingUnitsByLine == null
+                            ? undefined
+                            : (workingUnitsByLine[primaryLine.id] || [])
+                              .filter((unit) => unit.month_idx === monthIdx),
                         }),
                       };
                     });
@@ -2529,6 +2562,10 @@ export default function CrmBudgetPage() {
                                 qty: reference.qty,
                               })),
                               hasWorkingChange,
+                              units: workingUnitsByLine == null
+                                ? undefined
+                                : (workingUnitsByLine[primaryLine.id] || [])
+                                  .filter((unit) => unit.month_idx === i),
                             });
                             return (
                               <td key={i} className="px-1 py-1.5 text-center tabular-nums text-xs">

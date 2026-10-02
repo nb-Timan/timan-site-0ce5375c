@@ -40,7 +40,10 @@ export function sortWorkingBudgetMonths(
     });
 }
 
-export function workingBudgetUnitChoices(units: WorkingBudgetUnit[]): WorkingBudgetUnitChoice[] {
+export function workingBudgetUnitChoices(
+  units: WorkingBudgetUnit[],
+  monthLabel?: (monthIdx: number) => string,
+): WorkingBudgetUnitChoice[] {
   const dealerCounts = new Map<string, number>();
   const dealerIndexes = new Map<string, number>();
   let unallocatedIndex = 0;
@@ -51,13 +54,16 @@ export function workingBudgetUnitChoices(units: WorkingBudgetUnit[]): WorkingBud
   }
 
   return units.map((unit) => {
+    const originalMonth = unit.original_month_idx == null
+      ? null
+      : `Oprindeligt: ${monthLabel?.(unit.original_month_idx) || `M${unit.original_month_idx + 1}`}`;
     const dealerKey = unit.dealer_account_id || unit.dealer_account_number || unit.dealer_name;
     if (!dealerKey) {
       unallocatedIndex += 1;
       return {
         key: unit.id,
         label: "Ikke fordelt",
-        detail: `Enhed ${unallocatedIndex}`,
+        detail: [`Enhed ${unallocatedIndex}`, originalMonth].filter(Boolean).join(" · "),
         unit,
       };
     }
@@ -70,7 +76,7 @@ export function workingBudgetUnitChoices(units: WorkingBudgetUnit[]): WorkingBud
     return {
       key: unit.id,
       label: unit.dealer_name || unit.dealer_account_number || "Ukendt forhandler",
-      detail: [account, occurrence].filter(Boolean).join(" · ") || `Enhed ${unit.sequence_no}`,
+      detail: [account, occurrence, originalMonth].filter(Boolean).join(" · ") || `Enhed ${unit.sequence_no}`,
       unit,
     };
   });

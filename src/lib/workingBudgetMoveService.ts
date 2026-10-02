@@ -9,6 +9,11 @@ export interface WorkingBudgetUnit {
   dealer_account_number: string | null;
   dealer_name: string | null;
   origin_type: "original_budget" | "working_reference" | "manual_add";
+  origin_id: string | null;
+  original_month_idx: number | null;
+  original_dealer_account_id: string | null;
+  original_dealer_account_number: string | null;
+  original_dealer_name: string | null;
   version: number;
 }
 
@@ -28,6 +33,14 @@ export interface WorkingBudgetUnitMutationResult {
 export async function listWorkingBudgetUnits(budgetLineId: string): Promise<WorkingBudgetUnit[]> {
   const { data, error } = await supabase.rpc("list_crm_working_budget_units", {
     p_budget_line_id: budgetLineId,
+  });
+  if (error) throw error;
+  return (data ?? []) as WorkingBudgetUnit[];
+}
+
+export async function listWorkingBudgetUnitsForYear(year: number): Promise<WorkingBudgetUnit[]> {
+  const { data, error } = await supabase.rpc("list_crm_working_budget_units_for_year", {
+    p_year: year,
   });
   if (error) throw error;
   return (data ?? []) as WorkingBudgetUnit[];
