@@ -17,7 +17,6 @@ import { academyPartnerDataSandbox, ACADEMY_PARTNER_USER } from '@/lib/academyPa
 import AcademyPartnerDataGuidance from '@/components/academy/AcademyPartnerDataGuidance';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { canEditPartnerDataAccount } from '@/lib/partnerDataScope';
-import { sellerInitialsMatch } from '@/lib/sellerInitials';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 
 import DealerProfileEditor from '@/components/portal/DealerProfileEditor';
@@ -148,15 +147,7 @@ export default function DealerDataPage() {
     dealerNumber,
     dealer?.assigned_seller_id,
   );
-  const isAssignedSeller = Boolean(
-    dealer && effectiveUser && (
-      (dealer.assigned_seller_id && effectiveUser.id && dealer.assigned_seller_id === effectiveUser.id)
-      || (dealer.assigned_seller_email && dealer.assigned_seller_email.trim().toLowerCase() === effectiveUser.email.trim().toLowerCase())
-      || sellerInitialsMatch(dealer.assigned_seller_initials, effectiveUser.initials)
-    ),
-  );
-  const canManageFinancialTerms = portalRole === 'timan_backend'
-    || (portalRole === 'timan_seller' && isAssignedSeller);
+  const canManageFinancialTerms = portalRole === 'timan_backend';
 
   if (import.meta.env.DEV) {
     // eslint-disable-next-line no-console
@@ -225,6 +216,7 @@ export default function DealerDataPage() {
               language={lang}
               canEdit={canEditProfile}
               canManageFinancialTerms={canManageFinancialTerms}
+              effectiveUserId={effectiveUser?.id ?? null}
               onUpdated={(next) => setDealer(next)}
             />
           </>

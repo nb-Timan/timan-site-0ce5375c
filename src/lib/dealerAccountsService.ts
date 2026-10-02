@@ -528,9 +528,9 @@ export interface UpdateDealerAccountPatch {
 }
 
 /**
- * Update editable dealer_accounts fields. Backend/Admin only — RLS on
- * dealer_accounts will reject non-backend callers and the error is
- * surfaced as a Danish permission message.
+ * Update editable dealer_accounts fields. Partnerdata passes an effective
+ * user id so the server can enforce Seller/View-as scope. Other established
+ * admin flows keep using the direct RLS-protected table path.
  *
  * Does NOT touch orders, quotes, activities, budget, users, prices or
  * configurator data.
@@ -538,8 +538,27 @@ export interface UpdateDealerAccountPatch {
 export async function updateDealerAccount(
   id: string,
   patch: UpdateDealerAccountPatch,
+  effectiveUserId?: string | null,
 ): Promise<{ ok: boolean; error?: string; row?: DealerAccount }> {
   try {
+    if (effectiveUserId !== undefined) {
+      const { data, error } = await supabase.rpc("update_partnerdata_account_profile", {
+        p_dealer_account_id: id,
+        p_patch: patch,
+        p_effective_user_id: effectiveUserId,
+      });
+      if (error) {
+        const code = (error as { code?: string }).code;
+        const msg = (error as { message?: string }).message || "";
+        if (code === "42501" || /scope|permission|authorized/i.test(msg)) {
+          return { ok: false, error: "Du har ikke adgang til at rette denne partnerkonto." };
+        }
+        throw error;
+      }
+      const rpcRow = Array.isArray(data) ? data[0] : data;
+      return { ok: true, row: rpcRow ? rowToDealer(rpcRow as Record<string, unknown>) : undefined };
+    }
+
     const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
     for (const [k, v] of Object.entries(patch)) {
       if (v !== undefined) update[k] = v;

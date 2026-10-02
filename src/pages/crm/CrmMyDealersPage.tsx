@@ -257,10 +257,9 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
   const admin = isCrmAdmin(portalRole);
   const seller = isScopedSeller(portalRole);
   const externalCrm = isExternalCrmRole(portalRole);
-  // View-as resolves an equivalent user object on each render. Depend on a
-  // stable identity instead, otherwise the list effect cancels its contact
-  // request before canonical completion can be calculated.
-  const effectiveUserKey = effectiveUser?.email?.trim().toLowerCase() ?? null;
+  // View-as resolves an equivalent user object on each render. Depend on the
+  // selected user's stable canonical id instead of the object reference.
+  const effectiveUserId = effectiveUser?.id ?? null;
 
   const reloadPendingPartnerSubmissions = async () => {
     if (academyMode) { setPendingPartnerSubmissions([]); return; }
@@ -354,7 +353,7 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
         } else if (seller) {
           // Seller view (real seller OR backend in "view-as <seller>" mode).
           const [scopeRes, uRes] = await Promise.all([
-            fetchDealerAccountsForSeller({ initials, email: effEmail }),
+            fetchDealerAccountsForSeller({ sellerId: effectiveUserId, initials, email: effEmail }),
             fetchBackendUsers(),
           ]);
           if (cancelled) return;
@@ -432,9 +431,9 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
     })();
     return () => { cancelled = true; };
     // `effectiveUser` is intentionally represented by its stable identity;
-    // see `effectiveUserKey` above.
+    // see `effectiveUserId` above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appUser, effectiveUserKey, resolvingEffectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
+  }, [appUser, effectiveUserId, resolvingEffectiveUser, admin, seller, externalCrm, activeMode, activeSellerView, budgetYear, portalRole, uiLanguage, dealerReloadKey]);
 
   // Successor index — must be computed unconditionally before any early return
   // so the number of hooks remains stable across renders.

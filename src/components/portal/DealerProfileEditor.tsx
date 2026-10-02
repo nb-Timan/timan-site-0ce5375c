@@ -71,6 +71,7 @@ interface Props {
   language: Language;
   canEdit: boolean;
   canManageFinancialTerms: boolean;
+  effectiveUserId: string | null;
   onUpdated?: (next: DealerAccount) => void;
 }
 
@@ -428,9 +429,10 @@ function SectionShell({ skey, title, status, saving, canEdit, onSave, t, childre
   );
 }
 
-function buildProfilePatch(draft: DealerAccount): UpdateDealerAccountPatch {
+function buildProfilePatch(draft: DealerAccount, canManageFinancialTerms: boolean): UpdateDealerAccountPatch {
   const patch: UpdateDealerAccountPatch = {};
   for (const key of PROFILE_PATCH_KEYS) {
+    if (!canManageFinancialTerms && (key === "payment_terms_override" || key === "currency_code")) continue;
     patch[key] = draft[key] as never;
   }
   return patch;
@@ -442,7 +444,7 @@ function profileValue(value: DealerAccount[ProfilePatchKey]) {
 
 // ---------- main component ----------
 
-export default function DealerProfileEditor({ dealer, language, canEdit, canManageFinancialTerms, onUpdated }: Props) {
+export default function DealerProfileEditor({ dealer, language, canEdit, canManageFinancialTerms, effectiveUserId, onUpdated }: Props) {
   const { updateDealerAccount, listDealerContacts, upsertDealerContact, deleteDealerContact, fetchActiveDealerContractPaymentTerm } = getPartnerDataRepository();
   const t = useMemo(() => (k: ProfileI18nKey) => tProfile(language, k), [language]);
 
@@ -564,7 +566,11 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
     if (!canEdit) return false;
     setSavingSection(section);
     try {
-      const res = await updateDealerAccount(dealer.id, buildProfilePatch(draft));
+      const res = await updateDealerAccount(
+        dealer.id,
+        buildProfilePatch(draft, canManageFinancialTerms),
+        effectiveUserId,
+      );
       if (!res.ok) {
         toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
         return false;
@@ -640,7 +646,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
     const res = await upsertDealerContact({
       id: isLocalContact(c) ? undefined : c.id, dealer_account_id: c.dealer_account_id, contact_area: c.contact_area,
       role_title: c.role_title, name: c.name, email: c.email, phone: c.phone, is_primary: c.is_primary,
-    });
+    }, effectiveUserId);
     return res;
   };
   const saveContact = async (c: DealerContact) => {
@@ -655,7 +661,7 @@ export default function DealerProfileEditor({ dealer, language, canEdit, canMana
       setContacts((prev) => prev.filter((c) => c.id !== id));
       return;
     }
-    const res = await deleteDealerContact(id);
+    const res = await deleteDealerContact(id, effectiveUserId);
     if (res.ok) setContacts((prev) => prev.filter((c) => c.id !== id));
     else toast({ title: t("saveError"), description: res.error || "", variant: "destructive" });
   };
