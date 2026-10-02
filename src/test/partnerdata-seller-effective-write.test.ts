@@ -30,8 +30,9 @@ describe("Partnerdata Seller effective write path", () => {
     expect(dealerList).toContain("fetchDealerAccountsForSeller({ sellerId: effectiveUserId, initials, email: effEmail })");
   });
 
-  it("keeps financial terms Backend-only without using seller ownership for normal edits", () => {
+  it("keeps financial terms Backend-only while scoped normal edits use the RPC", () => {
     expect(page).toContain("const canManageFinancialTerms = portalRole === 'timan_backend'");
+    expect(page).toContain("dealer != null");
     expect(page).not.toContain("sellerInitialsMatch(dealer.assigned_seller_initials");
     expect(editor).toContain('key === "payment_terms_override" || key === "currency_code"');
     expect(editor.match(/}, effectiveUserId\);/g)?.length).toBeGreaterThanOrEqual(3);

@@ -145,6 +145,7 @@ export default function DealerDataPage() {
     effectiveUser,
     portalRole,
     dealerNumber,
+    dealer != null,
   );
   const canManageFinancialTerms = portalRole === 'timan_backend';
 

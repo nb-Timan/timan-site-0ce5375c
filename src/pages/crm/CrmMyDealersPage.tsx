@@ -40,6 +40,7 @@ import {
   DealerAccount,
   DealerAccountStats,
   fetchDealerAccountStats,
+  fetchDealerAccountStatsByNumbers,
   fetchDealerAccounts,
   fetchDealerAccountsByNumbers,
   fetchDealerAccountsForSeller,
@@ -50,7 +51,7 @@ import {
   dealerLifecycleStatus,
   isDealerCustomerAccount,
 } from "@/lib/dealerAccountsService";
-import { fetchBackendUsers } from "@/lib/backendUsersService";
+import { fetchBackendUsers, fetchBackendUsersByDealerNumbers } from "@/lib/backendUsersService";
 import { listDealerContactsForAccounts, type DealerContact } from "@/lib/dealerContactsService";
 import { BackendUser } from "@/lib/backend-users-store";
 import {
@@ -83,7 +84,7 @@ import PendingPartnerSubmissions, { getPendingPartnerSubmissionDetails } from "@
 import DealerSalesDashboardPrototype from "@/components/crm/DealerSalesDashboardPrototype";
 import { prototypeScopeForSeller, type PrototypeScopeMode } from "@/lib/crmDealerDashboardPrototype";
 import {
-  listPartnerAccountRelations,
+  listPartnerAccountRelationsForAccounts,
   mainPartnerAccountNumbersByChild,
   type PartnerAccountRelation,
 } from "@/lib/partnerRelationsService";
@@ -333,22 +334,20 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
       }
       setLoadingRows(true);
       try {
-        const relationsPromise = listPartnerAccountRelations();
         const initials = getEffectiveSellerInitials(appUser);
         const effEmail = getEffectiveSellerEmail(appUser);
 
         let loadedDealers: DealerAccount[] = [];
         if (canMaintainPartnerData) {
-          // Partnerdata is a shared Timan-maintenance surface. CRM's separate
-          // Mine forhandlere view remains seller-owned and uses the branches
-          // below.
-          const [scopeRes, sRes, uRes] = await Promise.all([
-            listPartnerDataDealers(effectiveUser, portalRole),
-            fetchDealerAccountStats(),
-            fetchBackendUsers(),
-          ]);
+          const scopeRes = await listPartnerDataDealers(effectiveUser, portalRole);
           if (cancelled) return;
           loadedDealers = scopeRes.rows;
+          const scopedNumbers = loadedDealers.map((dealer) => dealer.account_number);
+          const [sRes, uRes] = await Promise.all([
+            fetchDealerAccountStatsByNumbers(scopedNumbers),
+            fetchBackendUsersByDealerNumbers(scopedNumbers),
+          ]);
+          if (cancelled) return;
           setDealers(loadedDealers);
           const map: Record<string, DealerAccountStats> = {};
           for (const stat of sRes.rows) map[stat.id] = stat;
@@ -372,12 +371,11 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
           setError(dRes.error ?? sRes.error ?? null);
         } else if (seller) {
           // Seller view (real seller OR backend in "view-as <seller>" mode).
-          const [scopeRes, uRes] = await Promise.all([
-            fetchDealerAccountsForSeller({ sellerId: effectiveUserId, initials, email: effEmail }),
-            fetchBackendUsers(),
-          ]);
+          const scopeRes = await fetchDealerAccountsForSeller({ sellerId: effectiveUserId, initials, email: effEmail });
           if (cancelled) return;
           loadedDealers = scopeRes.dealers;
+          const uRes = await fetchBackendUsersByDealerNumbers(loadedDealers.map((dealer) => dealer.account_number));
+          if (cancelled) return;
           setDealers(loadedDealers);
           setStatsMap(scopeRes.stats);
           setAllUsers(uRes.users);
@@ -385,13 +383,14 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
         } else if (externalCrm) {
           const scopeRes = await buildJournalScope(effectiveUser, portalRole);
           const scopedDealerNumbers = Array.from(scopeRes.dealerNumbers);
-          const [dRes, sRes, uRes] = await Promise.all([
+          const [dRes, sRes] = await Promise.all([
             fetchDealerAccountsByNumbers(scopedDealerNumbers),
-            fetchDealerAccountStats(),
-            fetchBackendUsers(),
+            fetchDealerAccountStatsByNumbers(scopedDealerNumbers),
           ]);
           if (cancelled) return;
           loadedDealers = dRes.rows;
+          const uRes = await fetchBackendUsersByDealerNumbers(scopedDealerNumbers);
+          if (cancelled) return;
           setDealers(loadedDealers);
           const map: Record<string, DealerAccountStats> = {};
           for (const s of sRes.rows) map[s.id] = s;
@@ -411,7 +410,9 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
 
         // The current list needs the same canonical relation source as the
         // partner detail before it can place service partners under a main.
-        const relations = await relationsPromise;
+        const relations = await listPartnerAccountRelationsForAccounts(
+          loadedDealers.map((dealer) => dealer.id),
+        );
         if (cancelled) return;
         setPartnerRelations(relations);
 

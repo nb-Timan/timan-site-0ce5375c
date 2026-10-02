@@ -1,10 +1,8 @@
 import type { SessionUser } from "@/context/AppUserContext";
 import {
-  fetchDealerAccounts,
-  fetchDealerAccountsByNumbers,
+  fetchPartnerDataAccountsForEffectiveUser,
   type DealerAccount,
 } from "@/lib/dealerAccountsService";
-import { buildJournalScope } from "@/lib/machineJournalScope";
 import {
   hasAreaAccess,
   isInternalTimanPortalRole,
@@ -28,8 +26,8 @@ export interface PartnerDataScopeResult {
 }
 
 /**
- * Normal Partnerdata maintenance is an employee capability, not an account
- * ownership capability. The area check preserves per-user access overrides.
+ * Partnerdata maintenance capability. Account scope is deliberately resolved
+ * separately by the canonical server-side account resolver.
  */
 export function canMaintainPartnerdata(
   user: SessionUser | null,
@@ -52,16 +50,17 @@ export async function listPartnerDataDealers(
 
   if (isInternalTimanPortalRole(role)) {
     if (!canMaintainPartnerdata(user, role)) return { rows: [], source: "none" };
-    const result = await fetchDealerAccounts();
-    return { rows: result.rows, source: "global", error: result.error };
+    const result = await fetchPartnerDataAccountsForEffectiveUser(user.id, { includeDeleted: false });
+    return {
+      rows: result.rows,
+      source: role === "timan_seller" ? "seller" : "global",
+      error: result.error,
+    };
   }
 
   if (EXTERNAL_ROLES.has(role)) {
-    // The scope builder calls the collaboration-manager resolver when relevant.
-    // Keep the account read targeted; this page must never fetch every partner
-    // and trim the result in the browser.
-    const scope = await buildJournalScope(user, role);
-    const result = await fetchDealerAccountsByNumbers(Array.from(scope.dealerNumbers));
+    if (!user.dealer_number?.trim()) return { rows: [], source: "none" };
+    const result = await fetchPartnerDataAccountsForEffectiveUser(user.id, { includeDeleted: false });
     return { rows: result.rows, source: "partner", error: result.error };
   }
 
@@ -72,8 +71,14 @@ export function canEditPartnerDataAccount(
   user: SessionUser | null,
   role: PortalRole | null,
   accountNumber: string | null | undefined,
+  accountInResolvedScope = false,
 ): boolean {
   if (!user || !role || !accountNumber) return false;
-  if (canMaintainPartnerdata(user, role)) return true;
+  if (role === "timan_backend" || role === "timan_service") {
+    return canMaintainPartnerdata(user, role);
+  }
+  if (role === "timan_seller") {
+    return canMaintainPartnerdata(user, role) && accountInResolvedScope;
+  }
   return EXTERNAL_ROLES.has(role) && user.dealer_number === accountNumber;
 }

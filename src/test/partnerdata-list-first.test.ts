@@ -47,9 +47,9 @@ describe("Partnerdata list-first flow", () => {
 
   it("keeps the scope resolver explicit for internal employees and external partners", () => {
     const source = readFileSync("src/lib/partnerDataScope.ts", "utf8");
-    expect(source).toContain('fetchDealerAccounts()');
+    expect(source).toContain('fetchPartnerDataAccountsForEffectiveUser');
     expect(source).toContain('isInternalTimanPortalRole(role)');
     expect(source).toContain('return { rows: [], source: "none" }');
-    expect(source).toContain('buildJournalScope');
+    expect(source).not.toContain('buildJournalScope');
   });
 });

@@ -350,6 +350,39 @@ export async function fetchDealerAccounts(opts: { includeDeleted?: boolean } = {
 }
 
 /**
+ * Canonical Partnerdata account list for the current user or a Backend
+ * View-as identity. Account ownership is enforced inside the database RPC;
+ * callers never download the global catalogue and trim it in the browser.
+ */
+export async function fetchPartnerDataAccountsForEffectiveUser(
+  effectiveUserId: string | null,
+  opts: { includeDeleted?: boolean } = {},
+): Promise<DealerAccountsResult> {
+  try {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      return { source: "fallback", rows: [], error: "Supabase Auth session påkrævet." };
+    }
+
+    const { data, error } = await supabase.rpc("list_partnerdata_accounts", {
+      p_effective_user_id: effectiveUserId,
+      p_include_deleted: opts.includeDeleted === true,
+    });
+    if (error) throw error;
+    return {
+      source: "supabase",
+      rows: ((data ?? []) as Record<string, unknown>[]).map(rowToDealer),
+    };
+  } catch (error) {
+    return {
+      source: "fallback",
+      rows: [],
+      error: describeSupabaseError("Kunne ikke hente scoped Partnerdata", error),
+    };
+  }
+}
+
+/**
  * Public, deliberately narrow partner-map read. The Messe route has no
  * authenticated portal session, so it cannot use the Backend-only account
  * listing. The RPC exposes only active, public partner map fields.
@@ -961,11 +994,17 @@ export async function fetchDealerAccountsForSeller(opts: {
   const email = opts.email?.trim().toLowerCase() || null;
   if (!sellerId && !initials && !email) return { dealers: [], stats: {} };
 
-  const [dRes, sRes] = await Promise.all([
-    fetchDealerAccounts({ includeDeleted: true }),
-    fetchDealerAccountStats(),
-  ]);
+  // Mine forhandlere and Partnerdata pass the stable seller id. In that path
+  // the canonical hierarchy is resolved server-side, including inherited
+  // branches, parent anchors and inactive predecessors.
+  const scopedDealerRequest = sellerId
+    ? fetchPartnerDataAccountsForEffectiveUser(sellerId, { includeDeleted: true })
+    : fetchDealerAccounts({ includeDeleted: true });
+  const dRes = await scopedDealerRequest;
   if (dRes.error) return { dealers: [], stats: {}, error: dRes.error };
+  const sRes = sellerId
+    ? await fetchDealerAccountStatsByNumbers(dRes.rows.map((dealer) => dealer.account_number))
+    : await fetchDealerAccountStats();
 
   const matches = (d: DealerAccount): boolean => {
     if (sellerId) return d.assigned_seller_id === sellerId;
@@ -1008,7 +1047,10 @@ export async function fetchDealerAccountsForSeller(opts: {
     if (active && keep.has(active.id)) keep.add(d.id);
   }
 
-  const dealers = dRes.rows.filter((d) => keep.has(d.id));
+  const dealers = sellerId ? dRes.rows : dRes.rows.filter((d) => keep.has(d.id));
+  if (sellerId) {
+    for (const dealer of dealers) keep.add(dealer.id);
+  }
   const statsMap: Record<string, DealerAccountStats> = {};
   for (const s of sRes.rows) if (keep.has(s.id)) statsMap[s.id] = s;
   try {

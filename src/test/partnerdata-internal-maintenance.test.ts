@@ -18,8 +18,15 @@ function internalUser(portalRole: "timan_backend" | "timan_seller" | "timan_serv
 }
 
 describe("canonical internal Timan Partnerdata maintenance", () => {
-  it.each(["timan_backend", "timan_seller", "timan_service"] as const)(
-    "allows active %s users with Partnerdata access across account ownership",
+  it("separates a seller's Partnerdata capability from its resolved account scope", () => {
+    const seller = internalUser("timan_seller", ["dealer_data"]);
+    expect(canMaintainPartnerdata(seller, "timan_seller")).toBe(true);
+    expect(canEditPartnerDataAccount(seller, "timan_seller", "own-account", true)).toBe(true);
+    expect(canEditPartnerDataAccount(seller, "timan_seller", "other-account", false)).toBe(false);
+  });
+
+  it.each(["timan_backend", "timan_service"] as const)(
+    "preserves explicit global Partnerdata maintenance for %s",
     (role) => {
       const user = internalUser(role, role === "timan_backend" ? [] : ["dealer_data"]);
       expect(canMaintainPartnerdata(user, role)).toBe(true);
@@ -45,7 +52,7 @@ describe("canonical internal Timan Partnerdata maintenance", () => {
     expect(canEditPartnerDataAccount(external, "timan_dealer", "OTHER-200")).toBe(false);
   });
 
-  it("keeps Partnerdata global while CRM Mine forhandlere stays seller-scoped", () => {
+  it("uses the same seller-scoped account resolver in Partnerdata and Mine forhandlere", () => {
     const app = fs.readFileSync("src/App.tsx", "utf8");
     const layout = fs.readFileSync("src/components/crm/CrmLayout.tsx", "utf8");
     const overview = fs.readFileSync("src/pages/crm/CrmMyDealersPage.tsx", "utf8");
@@ -59,6 +66,7 @@ describe("canonical internal Timan Partnerdata maintenance", () => {
     expect(overview).toContain("partnerDataPresentation={partnerDataPresentation}");
     expect(overview).toContain("!admin && !canMaintainPartnerData");
     expect(overview).toContain("fetchDealerAccountsForSeller({ sellerId: effectiveUserId");
-    expect(detail).toContain("if (seller && !canMaintainPartnerData)");
+    expect(detail).toContain("if (seller)");
+    expect(detail).toContain("sellerId: effectiveUser?.id ?? null");
   });
 });

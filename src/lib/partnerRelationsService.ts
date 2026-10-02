@@ -97,6 +97,32 @@ export async function listPartnerAccountRelations(): Promise<PartnerAccountRelat
   return (data ?? []) as PartnerAccountRelation[];
 }
 
+export async function listPartnerAccountRelationsForAccounts(
+  accountIds: string[],
+): Promise<PartnerAccountRelation[]> {
+  const ids = Array.from(new Set(accountIds.map((value) => value.trim()).filter(Boolean)));
+  if (ids.length === 0) return [];
+
+  const columns = "id, source_account_id, target_account_id, relation_type, active, created_at, updated_at";
+  const [sources, targets] = await Promise.all([
+    supabase.from("partner_account_relations").select(columns).in("source_account_id", ids).eq("active", true),
+    supabase.from("partner_account_relations").select(columns).in("target_account_id", ids).eq("active", true),
+  ]);
+  if (sources.error || targets.error) {
+    console.warn(
+      "[partnerRelations] scoped relation read failed",
+      sources.error?.message ?? targets.error?.message,
+    );
+    return [];
+  }
+
+  const byId = new Map<string, PartnerAccountRelation>();
+  for (const row of [...(sources.data ?? []), ...(targets.data ?? [])] as PartnerAccountRelation[]) {
+    byId.set(row.id, row);
+  }
+  return Array.from(byId.values()).sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+}
+
 export async function listPartnerAccountRelationsForAccount(accountId: string): Promise<PartnerAccountRelation[]> {
   if (!accountId) return [];
   const { data, error } = await supabase

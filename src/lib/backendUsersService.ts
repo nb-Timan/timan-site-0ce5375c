@@ -208,6 +208,30 @@ export async function fetchBackendUsers(): Promise<BackendUsersResult> {
   }
 }
 
+export async function fetchBackendUsersByDealerNumbers(
+  dealerNumbers: string[],
+): Promise<BackendUsersResult> {
+  const numbers = Array.from(new Set(dealerNumbers.map((value) => value.trim()).filter(Boolean)));
+  if (numbers.length === 0) return { source: "supabase", users: [] };
+
+  try {
+    const { data, error } = await supabase
+      .from("app_users")
+      .select("*")
+      .in("dealer_number", numbers)
+      .order("email", { ascending: true });
+    if (error) throw error;
+    return { source: "supabase", users: (data ?? []).map(rowToBackendUser) };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      source: "fallback",
+      users: listFallbackUsers().filter((user) => numbers.includes(user.dealer_number ?? "")),
+      error: `Supabase ikke tilgængelig (${message}) — viser scoped preview-data.`,
+    };
+  }
+}
+
 export interface SaveResult {
   ok: boolean;
   source: BackendUsersSource;

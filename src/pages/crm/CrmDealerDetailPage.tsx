@@ -44,7 +44,6 @@ import {
   requestDealerGeocoding,
 } from "@/lib/dealerGeocodingService";
 import { derivePortalRole } from "@/lib/portalAccess";
-import { canMaintainPartnerdata } from "@/lib/partnerDataScope";
 import { isCrmAdmin, isDealerNumberAllowed, isExternalCrmRole, isScopedSeller } from "@/lib/crmScope";
 import { useEffectivePortalUser, withSellerScopeIdentity } from "@/lib/viewAsUser";
 import { buildJournalScope } from "@/lib/machineJournalScope";
@@ -671,8 +670,6 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   const sellerViewActive = portalRole === "timan_backend" && Boolean(getActiveSellerView(appUser?.email));
   const canPreviewDealerMachines = admin || seller;
   const partnerDataPresentation = presentation === "partnerdata";
-  const canMaintainPartnerData = partnerDataPresentation
-    && canMaintainPartnerdata(effectiveUser, portalRole);
   const dealerOverviewHref = (dealerNumber: string) => partnerDataPresentation
     ? `/portal/dealer-data/${encodeURIComponent(dealerNumber)}`
     : `/portal/crm/my-dealers/${encodeURIComponent(dealerNumber)}`;
@@ -711,8 +708,9 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
         let scopedDealerNumbers: string[] | null = null;
         let sellerStats: Record<string, DealerAccountStats> | null = null;
         let preloadedRelations: PartnerAccountRelation[] | null = null;
-        if (seller && !canMaintainPartnerData) {
+        if (seller) {
           const sellerRes = await fetchDealerAccountsForSeller({
+            sellerId: effectiveUser?.id ?? null,
             initials: getEffectiveSellerInitials(appUser),
             email: getEffectiveSellerEmail(appUser),
           });
@@ -728,6 +726,10 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
             );
           }
           sellerStats = sellerRes.stats;
+        } else if (externalCrm && partnerDataPresentation) {
+          const scopeRes = await listPartnerDataDealers(effectiveUser, portalRole);
+          dealerRows = buildDealerDetailRowsFromVisibleDealers(scopeRes.rows, accountNumber);
+          scopedDealerNumbers = scopeRes.rows.map((dealer) => dealer.account_number);
         } else {
           const [scopeRes, dRes] = await Promise.all([
             externalCrm ? buildJournalScope(effectiveUser, portalRole) : Promise.resolve(null),
@@ -864,7 +866,7 @@ export default function CrmDealerDetailPage({ presentation = "crm" }: { presenta
   // object directly restarts this request after every state update and cancels
   // the seller machine scope before it can complete.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appUser, effectiveUserKey, accountNumber, portalRole, budgetYear, admin, seller, externalCrm, canMaintainPartnerData, activeMode]);
+  }, [appUser, effectiveUserKey, accountNumber, portalRole, budgetYear, admin, seller, externalCrm, activeMode]);
 
   const dealer = useMemo(
     () => dealers.find(d => d.account_number === accountNumber) ?? null,

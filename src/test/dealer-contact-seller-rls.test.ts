@@ -32,6 +32,13 @@ const internalMaintenanceMigration = fs.readFileSync(
   ),
   "utf8",
 );
+const correctiveScopeMigration = fs.readFileSync(
+  path.resolve(
+    process.cwd(),
+    "supabase/migrations/20261002094921_narrow_partnerdata_to_canonical_account_scope.sql",
+  ),
+  "utf8",
+);
 
 const seller = {
   id: "em-id",
@@ -48,13 +55,21 @@ describe("dealer contact Partnerdata scope", () => {
     expect(contactWriteMigration).toMatch(/for update[\s\S]*using \([\s\S]*\)[\s\n]*with check \(/);
   });
 
-  it("replaces seller ownership with canonical internal maintenance in current policies", () => {
-    expect(internalMaintenanceMigration).toContain("create policy dealer_contacts_insert_scope");
-    expect(internalMaintenanceMigration).toContain("create policy dealer_contacts_update_scope");
-    expect(internalMaintenanceMigration).toContain("create policy dealer_contacts_delete_scope");
-    expect(internalMaintenanceMigration.match(/public\.can_maintain_partnerdata\(\)/g)?.length).toBeGreaterThanOrEqual(7);
-    expect(internalMaintenanceMigration.match(/da\.account_number = public\.current_user_dealer_number\(\)/g)).toHaveLength(4);
-    expect(internalMaintenanceMigration).not.toMatch(/actor\.portal_role = 'timan_seller'[\s\S]*da\.assigned_seller_id = actor\.id/);
+  it("replaces the over-broad internal policy with canonical account-scoped policies", () => {
+    expect(correctiveScopeMigration).toContain("create policy dealer_contacts_insert_scope");
+    expect(correctiveScopeMigration).toContain("create policy dealer_contacts_update_scope");
+    expect(correctiveScopeMigration).toContain("create policy dealer_contacts_delete_scope");
+    expect(correctiveScopeMigration).toContain("public.can_access_partnerdata_account(dealer_account_id)");
+    expect(correctiveScopeMigration).not.toContain("or public.can_maintain_partnerdata()\n");
+  });
+
+  it("implements the Mine forhandlere hierarchy once on the server", () => {
+    expect(correctiveScopeMigration).toContain("create or replace function public.partnerdata_seller_account_scope");
+    expect(correctiveScopeMigration).toContain("direct_accounts as");
+    expect(correctiveScopeMigration).toContain("inherited_branches as");
+    expect(correctiveScopeMigration).toContain("anchored_accounts as");
+    expect(correctiveScopeMigration).toContain("predecessor.successor_dealer_id = successor.id");
+    expect(correctiveScopeMigration).toContain("da.assigned_seller_id = p_seller_id");
   });
 
   it("uses canonical effective identities for company, contact and View-as writes", () => {
@@ -98,14 +113,23 @@ describe("dealer contact Partnerdata scope", () => {
     expect(internalMaintenanceMigration).toContain("Financial Partnerdata fields require internal Backend access");
   });
 
-  it("allows an internal seller to maintain own and cross-owner partner accounts", () => {
-    expect(canEditPartnerDataAccount(seller, "timan_seller", "10092")).toBe(true);
-    expect(canEditPartnerDataAccount(seller, "timan_seller", "10049")).toBe(true);
+  it("allows a seller only after the account was resolved inside its canonical scope", () => {
+    expect(canEditPartnerDataAccount(seller, "timan_seller", "10092", true)).toBe(true);
+    expect(canEditPartnerDataAccount(seller, "timan_seller", "10049", false)).toBe(false);
   });
 
   it("keeps Backend global and external users limited to their canonical dealer number", () => {
     expect(canEditPartnerDataAccount(seller, "timan_backend", "10049")).toBe(true);
     expect(canEditPartnerDataAccount(seller, "timan_dealer", "100")).toBe(true);
     expect(canEditPartnerDataAccount(seller, "timan_dealer", "10092")).toBe(false);
+  });
+
+  it("keeps ownership and administrative fields protected from seller tampering", () => {
+    const triggerBody = correctiveScopeMigration.match(
+      /create or replace function public\.prevent_external_partner_admin_update[\s\S]*?\$\$;/,
+    )?.[0] ?? "";
+    expect(triggerBody).toContain("actor.portal_role::text in ('timan_backend', 'timan_service')");
+    expect(triggerBody).toContain("new.assigned_seller_id is distinct from old.assigned_seller_id");
+    expect(triggerBody).toContain("Partner ownership and administrative fields require Backend access");
   });
 });
