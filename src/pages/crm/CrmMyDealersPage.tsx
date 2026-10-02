@@ -591,8 +591,8 @@ export default function CrmMyDealersPage({ presentation = "crm" }: CrmMyDealersP
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "dashboard" | "partner-list")} className="w-full">
         {!partnerDataPresentation && (
           <TabsList className="mb-4 h-auto rounded-lg bg-slate-100 p-1">
-            <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-white"><Building2 className="h-4 w-4" />Dashboard</TabsTrigger>
-            <TabsTrigger value="partner-list" className="gap-2 data-[state=active]:bg-white"><Search className="h-4 w-4" />Partnerliste</TabsTrigger>
+            <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-white"><Building2 className="h-4 w-4" />{i18n("crmDealerDashDashboard", uiLanguage)}</TabsTrigger>
+            <TabsTrigger value="partner-list" className="gap-2 data-[state=active]:bg-white"><Search className="h-4 w-4" />{i18n("crmDealerDashPartnerList", uiLanguage)}</TabsTrigger>
           </TabsList>
         )}
         {!partnerDataPresentation && (

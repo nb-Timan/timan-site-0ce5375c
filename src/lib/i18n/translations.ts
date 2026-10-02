@@ -21,6 +21,7 @@ import { CAMPAIGN_TRANSLATIONS } from '@/lib/i18n/campaignTranslations';
 import { ACCOUNT_ORDER_DISCOUNT_TRANSLATIONS } from '@/lib/i18n/accountOrderDiscountTranslations';
 import { SALES_DOCUMENT_TRANSLATIONS } from '@/lib/i18n/salesDocumentTranslations';
 import { SUPPORT_TRANSLATIONS } from '@/lib/i18n/supportTranslations';
+import { CRM_DEALER_DASHBOARD_TRANSLATIONS } from '@/lib/i18n/crmDealerDashboardTranslations';
 
 type Dict = Record<string, string>;
 
@@ -28,6 +29,7 @@ type Dict = Record<string, string>;
 // Danish (source of truth)
 // ---------------------------------------------------------------------------
 const da: Dict = {
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.da,
   ...SUPPORT_TRANSLATIONS.da,
   ...ACADEMY_TRANSLATIONS.da,
   ...CAMPAIGN_TRANSLATIONS.da,
@@ -710,6 +712,7 @@ const da: Dict = {
 // English
 // ---------------------------------------------------------------------------
 const en: Dict = {
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.en,
   ...SUPPORT_TRANSLATIONS.en,
   ...ACADEMY_TRANSLATIONS.en,
   ...CAMPAIGN_TRANSLATIONS.en,
@@ -1377,6 +1380,7 @@ const en: Dict = {
 // ---------------------------------------------------------------------------
 const de: Dict = {
   ...en,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.de,
   ...SUPPORT_TRANSLATIONS.de,
   ...ACADEMY_TRANSLATIONS.de,
   ...CAMPAIGN_TRANSLATIONS.de,
@@ -1844,6 +1848,7 @@ const de: Dict = {
 // ---------------------------------------------------------------------------
 const it: Dict = {
   ...en,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.it,
   ...SUPPORT_TRANSLATIONS.it,
   ...ACADEMY_TRANSLATIONS.it,
   ...CAMPAIGN_TRANSLATIONS.it,
@@ -2289,6 +2294,7 @@ const it: Dict = {
 // ---------------------------------------------------------------------------
 const hu: Dict = {
   ...en,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.hu,
   ...SUPPORT_TRANSLATIONS.hu,
   ...ACADEMY_TRANSLATIONS.hu,
   ...CAMPAIGN_TRANSLATIONS.hu,
@@ -2734,6 +2740,7 @@ const hu: Dict = {
 // ---------------------------------------------------------------------------
 const sv: Dict = {
   ...en,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.sv,
   ...SUPPORT_TRANSLATIONS.sv,
   ...ACADEMY_TRANSLATIONS.sv,
   ...CAMPAIGN_TRANSLATIONS.sv,
@@ -3180,6 +3187,7 @@ const sv: Dict = {
 // ---------------------------------------------------------------------------
 const fr: Dict = {
   ...en,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.fr,
   ...SUPPORT_TRANSLATIONS.fr,
   ...ACADEMY_TRANSLATIONS.fr,
   ...CAMPAIGN_TRANSLATIONS.fr,
@@ -3626,6 +3634,7 @@ const fr: Dict = {
 // ---------------------------------------------------------------------------
 const pl: Dict = {
   ...en,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.pl,
   ...SUPPORT_TRANSLATIONS.pl,
   ...ACADEMY_TRANSLATIONS.pl,
   ...CAMPAIGN_TRANSLATIONS.pl,
@@ -4072,6 +4081,7 @@ const pl: Dict = {
 // ---------------------------------------------------------------------------
 const cs: Dict = {
   ...en,
+  ...CRM_DEALER_DASHBOARD_TRANSLATIONS.cs,
   ...SUPPORT_TRANSLATIONS.cs,
   ...ACADEMY_TRANSLATIONS.cs,
   ...CAMPAIGN_TRANSLATIONS.cs,

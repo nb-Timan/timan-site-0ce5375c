@@ -34,12 +34,12 @@ import {
 import { fetchDealerSalesDashboard, type DealerDashboardLiveData } from "@/lib/crmDealerSalesDashboardService";
 import { useOptionalLanguage } from "@/context/LanguageContext";
 import {
-  dashboardMetricLabel,
   formatDashboardDate,
   formatDashboardMonthName,
   formatRevenueSeriesPoint,
 } from "@/lib/crmDashboardDate";
 import { DealerBarShape } from "@/components/crm/TopDealersBarShape";
+import { t as i18n } from "@/lib/i18n/translations";
 
 type Props = {
   initialScope: PrototypeScopeMode;
@@ -98,13 +98,13 @@ function KpiCard({ icon: Icon, label, value, note, tone = "emerald" }: {
     amber: "border-amber-100 bg-amber-50/50 text-amber-700",
   };
   return (
-    <section className="min-h-[116px] rounded-lg border bg-white p-4 shadow-sm">
+    <section className="flex min-h-[142px] min-w-0 flex-col rounded-lg border bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <span className={`rounded-md p-2 ${colors[tone]}`}><Icon className="h-4 w-4" /></span>
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</span>
+        <span className="flex min-h-8 min-w-0 flex-1 items-start justify-end text-right text-[11px] font-semibold uppercase leading-4 tracking-wide text-slate-500">{label}</span>
       </div>
-      <div className="mt-3 text-xl font-bold tabular-nums text-slate-950">{value}</div>
-      <p className="mt-1 text-xs text-slate-500">{note}</p>
+      <div className="mt-3 break-words text-xl font-bold leading-tight tabular-nums text-slate-950">{value}</div>
+      <p className="mt-auto pt-2 text-xs leading-4 text-slate-500">{note}</p>
     </section>
   );
 }
@@ -123,15 +123,18 @@ function ChartCard({ title, children, note }: { title: string; children: React.R
   );
 }
 
-function EmptyChart() {
-  return <div className="flex h-full items-center justify-center text-sm text-slate-400">Ingen data i det valgte udsnit.</div>;
+function EmptyChart({ label }: { label: string }) {
+  return <div className="flex h-full items-center justify-center text-sm text-slate-400">{label}</div>;
 }
 
-function MultiSelect({ label, options, value, onChange, searchable = false }: {
+function MultiSelect({ label, options, value, onChange, allLabel, selectedLabel, searchLabel, searchable = false }: {
   label: string;
   options: string[];
   value: string[];
   onChange: (value: string[]) => void;
+  allLabel: string;
+  selectedLabel: (count: number) => string;
+  searchLabel: (label: string) => string;
   searchable?: boolean;
 }) {
   const [search, setSearch] = useState("");
@@ -141,10 +144,10 @@ function MultiSelect({ label, options, value, onChange, searchable = false }: {
     <details className="relative min-w-0 rounded-lg border border-slate-200 bg-white text-sm shadow-sm">
       <summary className="cursor-pointer list-none px-3 py-2.5 text-slate-700">
         <span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</span>
-        <span className="block truncate font-medium">{value.length ? `${value.length} valgt` : "Alle"}</span>
+        <span className="block truncate font-medium">{value.length ? selectedLabel(value.length) : allLabel}</span>
       </summary>
       <div className="absolute z-20 mt-1 max-h-64 w-64 overflow-auto rounded-md border border-slate-200 bg-white p-2 shadow-xl">
-        {searchable && <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={`Søg ${label.toLowerCase()}...`} className="mb-2 w-full rounded border border-slate-200 px-2 py-1.5 text-xs" />}
+        {searchable && <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={searchLabel(label)} className="mb-2 w-full rounded border border-slate-200 px-2 py-1.5 text-xs" />}
         {visible.map((option) => (
           <label key={option} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-slate-50">
             <input type="checkbox" checked={value.includes(option)} onChange={() => toggle(option)} />
@@ -158,6 +161,8 @@ function MultiSelect({ label, options, value, onChange, searchable = false }: {
 
 export default function DealerSalesDashboardPrototype({ initialScope, scope: controlledScope, onScopeChange, canSwitchScope = false, live = false, viewAsEmail }: Props) {
   const { uiLanguage } = useOptionalLanguage();
+  const text = (key: string, replacements: Record<string, string | number> = {}) => Object.entries(replacements)
+    .reduce((value, [name, replacement]) => value.replace(`{${name}}`, String(replacement)), i18n(`crmDealerDash${key}`, uiLanguage));
   const [filters, setFilters] = useState<DealerDashboardFilters>(initialFilters);
   const [activeQuickPeriod, setActiveQuickPeriod] = useState<string | null>(null);
   const [localScope, setLocalScope] = useState<PrototypeScopeMode>(initialScope);
@@ -229,9 +234,11 @@ export default function DealerSalesDashboardPrototype({ initialScope, scope: con
   const extraDiscount = liveData ? liveData.summary.extra_discount_value : rows.reduce((sum, row) => sum + value(row, row.listPrice * row.extraDiscountPct / 100), 0);
   const paymentDiscount = liveData ? liveData.summary.payment_delivery_discount_value : rows.reduce((sum, row) => sum + value(row, row.listPrice * row.paymentDeliveryDiscountPct / 100), 0);
   const machineCount = liveData ? Number(liveData.summary.machine_count) : rows.reduce((sum, row) => sum + row.quantity, 0);
-  const dashboardCurrencyNote = filters.currency === "both" ? "DKK-normaliseret for samlet visning" : `Vises i ${filters.currency}`;
-  const revenueLabel = dashboardMetricLabel("revenue", uiLanguage);
-  const machinesLabel = dashboardMetricLabel("machines", uiLanguage);
+  const dashboardCurrencyNote = filters.currency === "both"
+    ? text("NormalizedDkk")
+    : text("ShownIn", { currency: filters.currency });
+  const revenueLabel = text("Revenue");
+  const machinesLabel = text("Machines");
   const moneyTooltip = (amount: number, seriesName: string) => [
     formatValue(Number(amount), filters.currency),
     seriesName === "value" ? revenueLabel : seriesName,
@@ -283,8 +290,15 @@ export default function DealerSalesDashboardPrototype({ initialScope, scope: con
       payment: selected.reduce((sum, row) => sum + value(row, row.listPrice * row.paymentDeliveryDiscountPct / 100), 0),
     };
   });
-  const topCountry = liveData?.summary.top_country ?? byCountry[0]?.name ?? "Ikke tilgængeligt";
-  const topDealer = liveData?.summary.top_dealer ?? byDealer[0]?.name ?? "Ikke tilgængeligt";
+  const topCountry = liveData?.summary.top_country ?? byCountry[0]?.name ?? text("Unavailable");
+  const topDealer = liveData?.summary.top_dealer ?? byDealer[0]?.name ?? text("Unavailable");
+  const extraDiscountNote = liveData && liveData.summary.extra_discount_missing_count > 0
+    ? text("MissingRows", { count: liveData.summary.extra_discount_missing_count })
+    : dashboardCurrencyNote;
+  const paymentDiscountNote = liveData && liveData.summary.payment_delivery_discount_missing_count > 0
+    ? text("MissingRows", { count: liveData.summary.payment_delivery_discount_missing_count })
+    : dashboardCurrencyNote;
+  const emptyChartLabel = text("EmptyChart");
 
   const update = <K extends keyof DealerDashboardFilters>(key: K, value: DealerDashboardFilters[K]) => {
     setActiveQuickPeriod(null);
@@ -333,9 +347,9 @@ export default function DealerSalesDashboardPrototype({ initialScope, scope: con
     <div className="space-y-3">
       {!live && <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-sky-200 bg-sky-50/60 px-4 py-3">
         <div>
-          <div className="text-xs font-bold uppercase tracking-wide text-sky-800">Local-only scope-simulering</div>
+          <div className="text-xs font-bold uppercase tracking-wide text-sky-800">{text("LocalScope")}</div>
           <div className="mt-0.5 text-sm font-semibold text-slate-900">{prototypeScopeLabels[scope]}</div>
-          <p className="mt-0.5 text-xs text-slate-600">Filtermulighederne er bygget fra scope først og kan derfor kun indsnævre data.</p>
+          <p className="mt-0.5 text-xs text-slate-600">{text("ScopeNote")}</p>
         </div>
         {canSwitchScope ? (
           <select value={scope} onChange={(event) => selectScope(event.target.value as PrototypeScopeMode)} className="rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
@@ -350,83 +364,131 @@ export default function DealerSalesDashboardPrototype({ initialScope, scope: con
           </select>
         ) : <span className="rounded-md border border-sky-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">{prototypeScopeLabels[scope]}</span>}
       </div>}
-      {liveError && <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">Dashboard-data kunne ikke indlæses: {liveError}</div>}
-      {liveLoading && <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">Indlæser dashboard-data…</div>}
+      {liveError && <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{text("LoadError", { error: liveError })}</div>}
+      {liveLoading && <div className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">{text("Loading")}</div>}
       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-100 pb-3">
-          <span className="mr-1 text-sm font-bold text-slate-800">Hurtigvalg</span>
-          {([ ["today", "I dag"], ["month", "Denne måned"], ["quarter", "Dette kvartal"], ["year", "Dette år"], ["lastYear", "Sidste år"], ["all", "Alt"] ] as const).map(([period, label]) => (
+          <span className="mr-1 text-sm font-bold text-slate-800">{text("QuickSelect")}</span>
+          {([ ["today", text("Today")], ["month", text("ThisMonth")], ["quarter", text("ThisQuarter")], ["year", text("ThisYear")], ["lastYear", text("LastYear")], ["all", text("All")] ] as const).map(([period, label]) => (
             <button type="button" key={period} onClick={() => setQuickPeriod(period)} className={`min-h-10 rounded-lg border px-4 text-sm font-semibold transition-colors ${activeQuickPeriod === period ? "border-emerald-600 bg-emerald-600 text-white shadow-sm" : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"}`}>{label}</button>
           ))}
           <div className="ml-auto flex items-center gap-2">
-            <button type="button" onClick={() => { setActiveQuickPeriod(null); setFilters(initialFilters); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"><FilterX className="h-4 w-4" />Nulstil</button>
-            <button type="button" disabled className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white opacity-50"><Download className="h-4 w-4" />Eksporter</button>
+            <button type="button" onClick={() => { setActiveQuickPeriod(null); setFilters(initialFilters); }} className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"><FilterX className="h-4 w-4" />{text("Reset")}</button>
+            <button type="button" disabled className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white opacity-50"><Download className="h-4 w-4" />{text("Export")}</button>
           </div>
         </div>
 
         <div className="mt-3 grid gap-3 lg:grid-cols-[120px_minmax(0,1fr)] lg:items-center rounded-lg border border-slate-100 bg-slate-50/70 p-3">
-          <div className="flex items-center gap-2 text-sm font-bold text-slate-800"><CalendarDays className="h-5 w-5 text-emerald-700" />Periode</div>
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-800"><CalendarDays className="h-5 w-5 text-emerald-700" />{text("Period")}</div>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <label className="rounded-lg border border-slate-200 bg-white px-3 py-2"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Dato fra</span><input type="date" value={filters.from} onChange={(event) => update("from", event.target.value)} className="mt-1 w-full bg-transparent text-sm font-medium outline-none" /></label>
-            <label className="rounded-lg border border-slate-200 bg-white px-3 py-2"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Dato til</span><input type="date" value={filters.to} onChange={(event) => update("to", event.target.value)} className="mt-1 w-full bg-transparent text-sm font-medium outline-none" /></label>
-            <label className="rounded-lg border border-slate-200 bg-white px-3 py-2"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">År fra</span><select value={filters.fromYear} onChange={(event) => update("fromYear", event.target.value)} className="mt-1 w-full bg-transparent text-sm font-medium outline-none"><option value="">Alle år</option>{yearOptions.map((year) => <option key={year}>{year}</option>)}</select></label>
-            <label className="rounded-lg border border-slate-200 bg-white px-3 py-2"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">År til</span><select value={filters.toYear} onChange={(event) => update("toYear", event.target.value)} className="mt-1 w-full bg-transparent text-sm font-medium outline-none"><option value="">Alle år</option>{yearOptions.map((year) => <option key={year}>{year}</option>)}</select></label>
+            <label className="rounded-lg border border-slate-200 bg-white px-3 py-2"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">{text("DateFrom")}</span><input type="date" value={filters.from} onChange={(event) => update("from", event.target.value)} className="mt-1 w-full bg-transparent text-sm font-medium outline-none" /></label>
+            <label className="rounded-lg border border-slate-200 bg-white px-3 py-2"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">{text("DateTo")}</span><input type="date" value={filters.to} onChange={(event) => update("to", event.target.value)} className="mt-1 w-full bg-transparent text-sm font-medium outline-none" /></label>
+            <label className="rounded-lg border border-slate-200 bg-white px-3 py-2"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">{text("YearFrom")}</span><select value={filters.fromYear} onChange={(event) => update("fromYear", event.target.value)} className="mt-1 w-full bg-transparent text-sm font-medium outline-none"><option value="">{text("AllYears")}</option>{yearOptions.map((year) => <option key={year}>{year}</option>)}</select></label>
+            <label className="rounded-lg border border-slate-200 bg-white px-3 py-2"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">{text("YearTo")}</span><select value={filters.toYear} onChange={(event) => update("toYear", event.target.value)} className="mt-1 w-full bg-transparent text-sm font-medium outline-none"><option value="">{text("AllYears")}</option>{yearOptions.map((year) => <option key={year}>{year}</option>)}</select></label>
           </div>
         </div>
 
         <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
-          <MultiSelect label="Land" options={options.countries} value={filters.countries} onChange={(next) => update("countries", next)} />
-          <MultiSelect label="Sælger" options={options.sellers} value={filters.sellers} onChange={(next) => update("sellers", next)} />
-          <MultiSelect label="Forhandler" options={options.dealers} value={filters.dealers} onChange={(next) => update("dealers", next)} searchable />
-          <MultiSelect label="Kunde" options={options.customers} value={filters.customers} onChange={(next) => update("customers", next)} searchable />
-          <MultiSelect label="Maskine / model" options={options.machines} value={filters.machines} onChange={(next) => update("machines", next)} />
-          <label className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">Partnertype</span><select value={filters.partnerType} onChange={(event) => update("partnerType", event.target.value)} className="mt-1 w-full bg-transparent font-medium outline-none"><option value="all">Alle</option><option>Forhandler</option><option>Importør</option><option>Servicepartner</option></select></label>
+          <MultiSelect label={text("Country")} options={options.countries} value={filters.countries} onChange={(next) => update("countries", next)} allLabel={text("All")} selectedLabel={(count) => text("Selected", { count })} searchLabel={(label) => text("Search", { label })} />
+          <MultiSelect label={text("Seller")} options={options.sellers} value={filters.sellers} onChange={(next) => update("sellers", next)} allLabel={text("All")} selectedLabel={(count) => text("Selected", { count })} searchLabel={(label) => text("Search", { label })} />
+          <MultiSelect label={text("Dealer")} options={options.dealers} value={filters.dealers} onChange={(next) => update("dealers", next)} allLabel={text("All")} selectedLabel={(count) => text("Selected", { count })} searchLabel={(label) => text("Search", { label })} searchable />
+          <MultiSelect label={text("Customer")} options={options.customers} value={filters.customers} onChange={(next) => update("customers", next)} allLabel={text("All")} selectedLabel={(count) => text("Selected", { count })} searchLabel={(label) => text("Search", { label })} searchable />
+          <MultiSelect label={text("MachineModel")} options={options.machines} value={filters.machines} onChange={(next) => update("machines", next)} allLabel={text("All")} selectedLabel={(count) => text("Selected", { count })} searchLabel={(label) => text("Search", { label })} />
+          <label className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"><span className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">{text("PartnerType")}</span><select value={filters.partnerType} onChange={(event) => update("partnerType", event.target.value)} className="mt-1 w-full bg-transparent font-medium outline-none"><option value="all">{text("All")}</option><option value="Forhandler">{text("Dealer")}</option><option value="Importør">{text("Importer")}</option><option value="Servicepartner">{text("ServicePartner")}</option></select></label>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3">
-          <div className="flex items-center gap-3"><span className="text-sm font-bold text-slate-800">Valuta</span><div className="grid grid-cols-3 overflow-hidden rounded-lg border border-slate-200 text-sm shadow-sm">{(["DKK", "EUR", "both"] as DashboardCurrencyFilter[]).map((currency) => <button type="button" key={currency} onClick={() => update("currency", currency)} className={`min-h-10 px-5 font-semibold ${filters.currency === currency ? "bg-emerald-600 text-white" : "bg-white text-slate-600 hover:bg-emerald-50"}`}>{currency === "both" ? "Begge" : currency}</button>)}</div></div>
-          <button type="button" className="ml-auto inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"><SlidersHorizontal className="h-4 w-4" />Flere filtre</button>
-          <span className="text-xs text-slate-500">Dato har prioritet · {live ? `${liveData?.detail.total_count ?? 0} canonical rækker` : `Local prototype · ${rows.length} scoped rows`}</span>
+          <div className="flex items-center gap-3"><span className="text-sm font-bold text-slate-800">{text("Currency")}</span><div className="grid grid-cols-3 overflow-hidden rounded-lg border border-slate-200 text-sm shadow-sm">{(["DKK", "EUR", "both"] as DashboardCurrencyFilter[]).map((currency) => <button type="button" key={currency} onClick={() => update("currency", currency)} className={`min-h-10 px-5 font-semibold ${filters.currency === currency ? "bg-emerald-600 text-white" : "bg-white text-slate-600 hover:bg-emerald-50"}`}>{currency === "both" ? text("Both") : currency}</button>)}</div></div>
+          <button type="button" className="ml-auto inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"><SlidersHorizontal className="h-4 w-4" />{text("MoreFilters")}</button>
+          <span className="text-xs text-slate-500">{text("DatePriority")} · {live ? text("CanonicalRows", { count: liveData?.detail.total_count ?? 0 }) : text("LocalRows", { count: rows.length })}</span>
         </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
-        <KpiCard icon={BarChart3} label="Omsætning total" value={formatValue(revenue, filters.currency)} note={dashboardCurrencyNote} />
-        <KpiCard icon={ShoppingCart} label="Antal ordrer" value={String(liveData?.summary.order_count ?? rows.length)} note="Afgivne ordrer" tone="blue" />
-        <KpiCard icon={Package} label="Solgte maskiner" value={String(machineCount)} note="Maskiner i alt" />
-        <KpiCard icon={Percent} label="Gns. rabat" value={`${averageDiscount.toFixed(1)} %`} note="Samlet rabat" tone="amber" />
-        <KpiCard icon={Tag} label="Ekstra rabat i alt" value={extraDiscount === null ? "Ikke tilgængeligt" : formatValue(extraDiscount, filters.currency)} note={extraDiscount === null ? "Mangler canonical værdifelt" : dashboardCurrencyNote} />
-        <KpiCard icon={Truck} label="Betalings-/leveringsrabat" value={paymentDiscount === null ? "Ikke tilgængeligt" : formatValue(paymentDiscount, filters.currency)} note={paymentDiscount === null ? "Mangler canonical værdifelt" : dashboardCurrencyNote} tone="amber" />
-        <KpiCard icon={Globe2} label="Top land" value={topCountry} note={byCountry[0] ? formatValue(byCountry[0].value, filters.currency) : "Ingen data"} tone="blue" />
-        <KpiCard icon={Trophy} label="Top forhandler" value={topDealer} note={byDealer[0] ? formatValue(byDealer[0].value, filters.currency) : "Ingen data"} />
+        <KpiCard icon={BarChart3} label={text("TotalRevenue")} value={formatValue(revenue, filters.currency)} note={dashboardCurrencyNote} />
+        <KpiCard icon={ShoppingCart} label={text("OrderCount")} value={String(liveData?.summary.order_count ?? rows.length)} note={text("SubmittedOrders")} tone="blue" />
+        <KpiCard icon={Package} label={text("MachinesSold")} value={String(machineCount)} note={text("MachinesTotal")} />
+        <KpiCard icon={Percent} label={text("AverageDiscount")} value={`${averageDiscount.toFixed(1)} %`} note={text("TotalDiscount")} tone="amber" />
+        <KpiCard icon={Tag} label={text("ExtraDiscountTotal")} value={extraDiscount === null ? text("Unavailable") : formatValue(extraDiscount, filters.currency)} note={extraDiscountNote} />
+        <KpiCard icon={Truck} label={text("PaymentDeliveryDiscount")} value={paymentDiscount === null ? text("Unavailable") : formatValue(paymentDiscount, filters.currency)} note={paymentDiscountNote} tone="amber" />
+        <KpiCard icon={Globe2} label={text("TopCountry")} value={topCountry} note={byCountry[0] ? formatValue(byCountry[0].value, filters.currency) : text("NoData")} tone="blue" />
+        <KpiCard icon={Trophy} label={text("TopDealer")} value={topDealer} note={byDealer[0] ? formatValue(byDealer[0].value, filters.currency) : text("NoData")} />
       </div>
 
       <div className="grid gap-3 xl:grid-cols-2">
-        <ChartCard title="Omsætning over tid" note={dashboardCurrencyNote}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={revenueOverTime}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "axisLabel" : "month"} tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} width={48} /><Tooltip formatter={moneyTooltip} labelFormatter={(label, payload) => live ? payload?.[0]?.payload?.tooltipLabel ?? label : label} />{live ? <Line type="monotone" dataKey="value" name={revenueLabel} stroke={COLORS[0]} strokeWidth={2} dot={false} /> : ["2022", "2023", "2024", "2025", "2026"].map((year, index) => <Line key={year} type="monotone" dataKey={year} stroke={COLORS[index]} strokeWidth={2} dot={false} />)}</LineChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
-        <ChartCard title="Omsætning pr. kalenderår" note={dashboardCurrencyNote}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={byYear}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis tick={{ fontSize: 11 }} width={48} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} fill="#059669" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
+        <ChartCard title={text("RevenueOverTime")} note={dashboardCurrencyNote}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={revenueOverTime}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "axisLabel" : "month"} tick={{ fontSize: 11 }} /><YAxis tick={{ fontSize: 11 }} width={48} /><Tooltip formatter={moneyTooltip} labelFormatter={(label, payload) => live ? payload?.[0]?.payload?.tooltipLabel ?? label : label} />{live ? <Line type="monotone" dataKey="value" name={revenueLabel} stroke={COLORS[0]} strokeWidth={2} dot={false} /> : ["2022", "2023", "2024", "2025", "2026"].map((year, index) => <Line key={year} type="monotone" dataKey={year} stroke={COLORS[index]} strokeWidth={2} dot={false} />)}</LineChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
+        <ChartCard title={text("RevenueByYear")} note={dashboardCurrencyNote}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={byYear}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" /><YAxis tick={{ fontSize: 11 }} width={48} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} fill="#059669" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
       </div>
 
       <div className="grid gap-3 xl:grid-cols-3">
-        <ChartCard title="Top 10 forhandlere" note="Klik en søjle for at filtrere">{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={byDealer} layout="vertical" margin={{ left: 0, right: 4 }} accessibilityLayer><XAxis type="number" hide /><YAxis dataKey="name" type="category" hide width={0} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} background shape={<DealerBarShape valueFormatter={(value) => formatValue(value, filters.currency)} />} onClick={(entry: { name?: string }) => entry.name && drill("dealers", entry.name)} /></BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
-        <ChartCard title="Omsætning pr. land" note="Klik en søjle for at filtrere">{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={byCountry} layout="vertical" margin={{ left: 28 }}><XAxis type="number" hide /><YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={80} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} fill="#2563eb" radius={[0, 4, 4, 0]} onClick={(entry: { name?: string }) => entry.name && drill("countries", entry.name)} /></BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
-        <ChartCard title="Omsætning pr. sælger" note={usesPartnerSalesContacts ? "Partnerdata: salgs-kontakter. Manglende kontakt vises som Info mangler." : "Klik en søjle for at filtrere"}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={bySeller} layout="vertical" margin={{ left: usesPartnerSalesContacts ? 70 : 20 }}><XAxis type="number" hide /><YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={usesPartnerSalesContacts ? 110 : 48} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} fill="#60a5fa" radius={[0, 4, 4, 0]} onClick={usesPartnerSalesContacts ? undefined : (entry: { name?: string }) => entry.name && drill("sellers", entry.name)} /></BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
+        <ChartCard title={text("TopTenDealers")} note={text("ClickBar")}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={byDealer} layout="vertical" margin={{ left: 0, right: 4 }} accessibilityLayer><XAxis type="number" hide /><YAxis dataKey="name" type="category" hide width={0} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} background shape={<DealerBarShape valueFormatter={(value) => formatValue(value, filters.currency)} />} onClick={(entry: { name?: string }) => entry.name && drill("dealers", entry.name)} /></BarChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
+        <ChartCard title={text("RevenueByCountry")} note={text("ClickBar")}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={byCountry} layout="vertical" margin={{ left: 28 }}><XAxis type="number" hide /><YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={80} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} fill="#2563eb" radius={[0, 4, 4, 0]} onClick={(entry: { name?: string }) => entry.name && drill("countries", entry.name)} /></BarChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
+        <ChartCard title={text("RevenueBySeller")} note={usesPartnerSalesContacts ? text("PartnerSalesContacts") : text("ClickBar")}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={bySeller} layout="vertical" margin={{ left: usesPartnerSalesContacts ? 70 : 20 }}><XAxis type="number" hide /><YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={usesPartnerSalesContacts ? 110 : 48} /><Tooltip formatter={moneyTooltip} /><Bar dataKey="value" name={revenueLabel} fill="#60a5fa" radius={[0, 4, 4, 0]} onClick={usesPartnerSalesContacts ? undefined : (entry: { name?: string }) => entry.name && drill("sellers", entry.name)} /></BarChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
       </div>
 
       <div className="grid gap-3 xl:grid-cols-3">
-        <ChartCard title="Salg af maskiner (stk.)" note={live ? "Samlet i valgt periode" : "Årlig fordeling"}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={live ? liveChart("machine_volume") : machineYears}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "name" : "year"} /><YAxis allowDecimals={false} width={32} /><Tooltip formatter={(amount: number, seriesName: string) => [Number(amount), seriesName === "value" ? machinesLabel : seriesName]} /><Legend wrapperStyle={{ fontSize: 10 }} />{live ? <Bar dataKey="value" name={machinesLabel} fill="#0f766e" /> : options.machines.map((machine, index) => <Bar key={machine} dataKey={machine} stackId="machines" fill={COLORS[index]} />)}</BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
-        <ChartCard title="Maskinsalg i værdi" note={dashboardCurrencyNote}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={byMachineValue} dataKey="value" nameKey="name" innerRadius={45} outerRadius={78} paddingAngle={2}>{byMachineValue.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={moneyTooltip} /><Legend wrapperStyle={{ fontSize: 10 }} /></PieChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
-        <ChartCard title="DK vs DE - omsætning" note={dashboardCurrencyNote}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={live ? liveChart("dk_vs_de") : dkDe}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "name" : "year"} /><YAxis width={42} tick={{ fontSize: 11 }} /><Tooltip formatter={moneyTooltip} /><Legend wrapperStyle={{ fontSize: 10 }} />{live ? <Bar dataKey="value" name={revenueLabel} fill="#2563eb" radius={[4, 4, 0, 0]} /> : <><Bar dataKey="Danmark" fill="#34d399" radius={[4, 4, 0, 0]} /><Bar dataKey="Tyskland" fill="#2563eb" radius={[4, 4, 0, 0]} /></>}</BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
+        <ChartCard title={text("MachineSalesUnits")} note={live ? text("SelectedPeriod") : text("AnnualDistribution")}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={live ? liveChart("machine_volume") : machineYears}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "name" : "year"} /><YAxis allowDecimals={false} width={32} /><Tooltip formatter={(amount: number, seriesName: string) => [Number(amount), seriesName === "value" ? machinesLabel : seriesName]} /><Legend wrapperStyle={{ fontSize: 10 }} />{live ? <Bar dataKey="value" name={machinesLabel} fill="#0f766e" /> : options.machines.map((machine, index) => <Bar key={machine} dataKey={machine} stackId="machines" fill={COLORS[index]} />)}</BarChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
+        <ChartCard title={text("MachineSalesValue")} note={dashboardCurrencyNote}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={byMachineValue} dataKey="value" nameKey="name" innerRadius={45} outerRadius={78} paddingAngle={2}>{byMachineValue.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}</Pie><Tooltip formatter={moneyTooltip} /><Legend wrapperStyle={{ fontSize: 10 }} /></PieChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
+        <ChartCard title={text("DkVsDeRevenue")} note={dashboardCurrencyNote}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={live ? liveChart("dk_vs_de") : dkDe}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "name" : "year"} /><YAxis width={42} tick={{ fontSize: 11 }} /><Tooltip formatter={moneyTooltip} /><Legend wrapperStyle={{ fontSize: 10 }} />{live ? <Bar dataKey="value" name={revenueLabel} fill="#2563eb" radius={[4, 4, 0, 0]} /> : <><Bar dataKey="Danmark" fill="#34d399" radius={[4, 4, 0, 0]} /><Bar dataKey="Tyskland" fill="#2563eb" radius={[4, 4, 0, 0]} /></>}</BarChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
       </div>
 
       <div className="grid gap-3 xl:grid-cols-3">
-        <ChartCard title="Rabatfordeling pr. maskine" note="Gennemsnit i procent">{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={live ? liveChart("discount_by_machine") : discountByMachine}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "name" : "machine"} tick={{ fontSize: 10 }} /><YAxis unit="%" width={38} /><Tooltip formatter={(amount: number) => `${amount.toFixed(1)} %`} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="standard" name="Standard" stackId="discount" fill="#0f766e" /><Bar dataKey="extra" name="Ekstra" stackId="discount" fill="#2563eb" /><Bar dataKey="payment" name="Betaling/levering" stackId="discount" fill="#f59e0b" /></BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
-        <ChartCard title="Gns. rabat over tid" note="Gennemsnit i procent">{rows.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={live ? liveChart("discount_over_time") : discountOverTime}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "name" : "year"} /><YAxis unit="%" width={38} /><Tooltip formatter={(amount: number) => `${amount.toFixed(1)} %`} /><Legend wrapperStyle={{ fontSize: 10 }} /><Line type="monotone" dataKey="standard" name="Standard" stroke="#0f766e" strokeWidth={2} /><Line type="monotone" dataKey="extra" name="Ekstra" stroke="#2563eb" strokeWidth={2} /><Line type="monotone" dataKey="total" name="Samlet" stroke="#1e3a8a" strokeWidth={2} /></LineChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
-        <ChartCard title="Rabat i værdi pr. år" note={dashboardCurrencyNote}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={live ? liveChart("discount_value_by_year") : discountsByYear}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "name" : "year"} /><YAxis width={42} tick={{ fontSize: 11 }} /><Tooltip formatter={moneyTooltip} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="standard" name="Standard" stackId="discount" fill="#0f766e" /><Bar dataKey="extra" name="Ekstra" stackId="discount" fill="#2563eb" /><Bar dataKey="payment" name="Betaling/levering" stackId="discount" fill="#f59e0b" /></BarChart></ResponsiveContainer> : <EmptyChart />}</ChartCard>
+        <ChartCard title={text("DiscountByMachine")} note={text("AveragePercent")}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={live ? liveChart("discount_by_machine") : discountByMachine}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "name" : "machine"} tick={{ fontSize: 10 }} /><YAxis unit="%" width={38} /><Tooltip formatter={(amount: number) => `${amount.toFixed(1)} %`} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="standard" name={text("Standard")} stackId="discount" fill="#0f766e" /><Bar dataKey="extra" name={text("Extra")} stackId="discount" fill="#2563eb" /><Bar dataKey="payment" name={text("PaymentDelivery")} stackId="discount" fill="#f59e0b" /></BarChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
+        <ChartCard title={text("AverageDiscountOverTime")} note={text("AveragePercent")}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><LineChart data={live ? liveChart("discount_over_time") : discountOverTime}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "name" : "year"} /><YAxis unit="%" width={38} /><Tooltip formatter={(amount: number) => `${amount.toFixed(1)} %`} /><Legend wrapperStyle={{ fontSize: 10 }} /><Line type="monotone" dataKey="standard" name={text("Standard")} stroke="#0f766e" strokeWidth={2} /><Line type="monotone" dataKey="extra" name={text("Extra")} stroke="#2563eb" strokeWidth={2} /><Line type="monotone" dataKey="total" name={text("Combined")} stroke="#1e3a8a" strokeWidth={2} /></LineChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
+        <ChartCard title={text("DiscountValueByYear")} note={dashboardCurrencyNote}>{rows.length ? <ResponsiveContainer width="100%" height="100%"><BarChart data={live ? liveChart("discount_value_by_year") : discountsByYear}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey={live ? "name" : "year"} /><YAxis width={42} tick={{ fontSize: 11 }} /><Tooltip formatter={moneyTooltip} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="standard" name={text("Standard")} stackId="discount" fill="#0f766e" /><Bar dataKey="extra" name={text("Extra")} stackId="discount" fill="#2563eb" /><Bar dataKey="payment" name={text("PaymentDelivery")} stackId="discount" fill="#f59e0b" /></BarChart></ResponsiveContainer> : <EmptyChart label={emptyChartLabel} />}</ChartCard>
       </div>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-sm font-bold text-slate-900">Ordre- og rabatdetaljer</h3><p className="text-xs text-slate-500">{live ? "Canonical ordre- og tilbudsdata." : "Local prototype - klikbare detaljer kobles til canonical quote/order-detail med den kommende RPC."}</p></div><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{liveData?.detail.total_count ?? rows.length} rækker</span></div>
-        <div className="overflow-x-auto"><table className="min-w-[1780px] w-full text-left text-xs"><thead className="border-y border-slate-200 bg-slate-50 uppercase tracking-wide text-slate-500"><tr>{["Ordrenr.", "Tilbudsnr.", "Dato", "Sælger", "Land", "Forhandler", "Kunde", "Maskine", "Listepris", "Standard", "Ekstra", "Betaling/levering", "Samlet", "Rabat i alt", "Netto", "Valuta", "DB"].map((column) => <th key={column} className="whitespace-nowrap px-3 py-3 font-semibold">{column}</th>)}</tr></thead><tbody>{rows.map((row) => { const canonical = liveData?.detail.rows.find((item) => item.id === row.id); return <tr key={row.id} className="border-b border-slate-100 hover:bg-emerald-50/40"><td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{row.orderNumber}</td><td className="whitespace-nowrap px-3 py-3 text-slate-600">{row.quoteNumber}</td><td className="whitespace-nowrap px-3 py-3">{formatDashboardDate(row.date, "day", uiLanguage)}</td><td className="px-3 py-3">{row.seller}</td><td className="px-3 py-3">{row.country}</td><td className="px-3 py-3 font-medium">{row.dealer}</td><td className="px-3 py-3">{row.customer}</td><td className="px-3 py-3"><button type="button" onClick={() => drill("machines", row.machine)} className="font-semibold text-emerald-700 hover:underline">{row.machine}</button></td><td className="whitespace-nowrap px-3 py-3 tabular-nums">{formatMoney(row.listPrice, row.currency)}</td><td className="px-3 py-3">{row.standardDiscountPct} %</td><td className="px-3 py-3">{row.extraDiscountPct} %</td><td className="px-3 py-3">{row.paymentDeliveryDiscountPct} %</td><td className="px-3 py-3 font-semibold">{canonical?.total_discount_pct ?? totalDiscountPct(row)} %</td><td className="whitespace-nowrap px-3 py-3 text-rose-700 tabular-nums">{formatMoney(Number(canonical?.discount_value ?? discountValue(row)), row.currency)}</td><td className="whitespace-nowrap px-3 py-3 font-bold tabular-nums">{formatMoney(Number(canonical?.net_value ?? netValue(row)), row.currency)}</td><td className="px-3 py-3">{row.currency}</td><td className="px-3 py-3">{row.dbPct === null ? "-" : `${row.dbPct} %`}</td></tr>; })}{!rows.length && <tr><td colSpan={17} className="px-3 py-10 text-center text-slate-400">Ingen rækker matcher filtrene.</td></tr>}</tbody></table></div>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">{text("Details")}</h3>
+            <p className="text-xs text-slate-500">{text("DetailsNote")}</p>
+          </div>
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">{text("Rows", { count: liveData?.detail.total_count ?? rows.length })}</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-[1980px] w-full text-left text-xs">
+            <thead className="border-y border-slate-200 bg-slate-50 uppercase tracking-wide text-slate-500">
+              <tr>{[
+                text("OrderNo"), text("QuoteNo"), text("Date"), text("Seller"), text("Country"), text("Dealer"), text("Customer"), text("Machine"),
+                text("ListPrice"), text("Standard"), text("Extra"), text("ExtraAmount"), text("PaymentDelivery"), text("PaymentDeliveryAmount"), text("Combined"),
+                text("DiscountTotal"), text("Net"), text("Currency"), text("GrossMargin"),
+              ].map((column) => <th key={column} className="whitespace-nowrap px-3 py-3 font-semibold">{column}</th>)}</tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const canonical = liveData?.detail.rows.find((item) => item.id === row.id);
+                const extraAmount = live
+                  ? canonical?.extra_discount_available
+                    ? formatMoney(Number(canonical.extra_discount_value ?? 0), row.currency)
+                    : text("Unavailable")
+                  : formatMoney(row.listPrice * row.extraDiscountPct / 100, row.currency);
+                const paymentAmount = live
+                  ? canonical?.payment_delivery_discount_available
+                    ? formatMoney(Number(canonical.payment_delivery_discount_value ?? 0), row.currency)
+                    : text("Unavailable")
+                  : formatMoney(row.listPrice * row.paymentDeliveryDiscountPct / 100, row.currency);
+                return <tr key={row.id} className="border-b border-slate-100 hover:bg-emerald-50/40">
+                  <td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-900">{row.orderNumber}</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-slate-600">{row.quoteNumber}</td>
+                  <td className="whitespace-nowrap px-3 py-3">{formatDashboardDate(row.date, "day", uiLanguage)}</td>
+                  <td className="px-3 py-3">{row.seller}</td><td className="px-3 py-3">{row.country}</td><td className="px-3 py-3 font-medium">{row.dealer}</td><td className="px-3 py-3">{row.customer}</td>
+                  <td className="px-3 py-3"><button type="button" onClick={() => drill("machines", row.machine)} className="font-semibold text-emerald-700 hover:underline">{row.machine}</button></td>
+                  <td className="whitespace-nowrap px-3 py-3 tabular-nums">{formatMoney(row.listPrice, row.currency)}</td>
+                  <td className="px-3 py-3">{row.standardDiscountPct} %</td><td className="px-3 py-3">{row.extraDiscountPct} %</td>
+                  <td className="whitespace-nowrap px-3 py-3 tabular-nums">{extraAmount}</td>
+                  <td className="px-3 py-3">{row.paymentDeliveryDiscountPct} %</td>
+                  <td className="whitespace-nowrap px-3 py-3 tabular-nums">{paymentAmount}</td>
+                  <td className="px-3 py-3 font-semibold">{canonical?.total_discount_pct ?? totalDiscountPct(row)} %</td>
+                  <td className="whitespace-nowrap px-3 py-3 text-rose-700 tabular-nums">{formatMoney(Number(canonical?.discount_value ?? discountValue(row)), row.currency)}</td>
+                  <td className="whitespace-nowrap px-3 py-3 font-bold tabular-nums">{formatMoney(Number(canonical?.net_value ?? netValue(row)), row.currency)}</td>
+                  <td className="px-3 py-3">{row.currency}</td><td className="px-3 py-3">{row.dbPct === null ? "-" : `${row.dbPct} %`}</td>
+                </tr>;
+              })}
+              {!rows.length && <tr><td colSpan={19} className="px-3 py-10 text-center text-slate-400">{text("NoMatchingRows")}</td></tr>}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );
