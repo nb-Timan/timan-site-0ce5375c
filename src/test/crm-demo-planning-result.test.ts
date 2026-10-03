@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { crmDemoProgress, EMPTY_DEMO_RESULT } from '@/lib/crmDemoFlow';
+import { crmDemoProgress, EMPTY_DEMO_RESULT, formatDemoDate } from '@/lib/crmDemoFlow';
 import { demoFlowText } from '@/lib/crmDemoFlowI18n';
 import { PORTAL_LANGUAGES } from '@/lib/portalLanguages';
 
 describe('demo planning is independent of results', () => {
   it('does not invent survey data, value or probability at planning', () => {
-    expect(EMPTY_DEMO_RESULT).toEqual({ interest_level:null, wants_offer:null, result_status:null,
-      probability:null, estimated_value:null, competitors_present:null, competitor_name:null,
-      notes_after_demo:null, followup_date:null, update_followup:false });
+    expect(EMPTY_DEMO_RESULT).toEqual({ interest_level: null, competitors_present: null });
+    expect(formatDemoDate('2026-09-28')).toBe('28-09-2026');
   });
   it('distinguishes missing, scheduled, awaiting, completed and cancelled', () => {
     const today = '2026-09-23';
@@ -20,7 +19,7 @@ describe('demo planning is independent of results', () => {
   });
   it('localizes the new flow in all nine portal languages', () => {
     for (const { code: language } of PORTAL_LANGUAGES) {
-      for (const key of ['newRegistration','plan','empty','date','awaiting','completed','recordResult','viewResult','backToLead','interest','wantsOffer','followup','competitors','notesAfter','result'] as const) {
+      for (const key of ['newRegistration','plan','empty','date','awaiting','completed','demoRun','recordResult','editResult','resultRegistered','backToLead','interest','competitors','notSpecified'] as const) {
         expect(demoFlowText(key, language)).not.toBe(key);
         expect(demoFlowText(key, language)).toBeTruthy();
       }

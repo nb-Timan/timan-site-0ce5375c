@@ -1264,8 +1264,8 @@ export async function getCrmDemo(id: string, ownerId?: string | null): Promise<C
   return data as CrmDemoLead | null;
 }
 
-export type CrmDemoResultInput = Pick<CrmDemoLead, 'interest_level' | 'wants_offer' | 'result_status' | 'probability' | 'estimated_value' | 'competitors_present' | 'competitor_name' | 'notes_after_demo' | 'followup_date'> & { update_followup: boolean };
-export async function saveCrmDemoResult(id: string, result: CrmDemoResultInput, effectiveUserId: string): Promise<CrmDemoLead> {
+export type CrmDemoResultInput = Pick<CrmDemoLead, 'interest_level' | 'competitors_present'>;
+export async function saveCrmDemoResult(id: string, result: CrmDemoResultInput, effectiveUserId: string | null): Promise<CrmDemoLead> {
   const { data, error } = await supabase.rpc('save_crm_demo_result', {
     p_demo_id: id, p_result: result, p_effective_user_id: effectiveUserId,
   });

@@ -12,7 +12,11 @@ export function crmDemoProgress(demo: DemoProgressRecord | null | undefined, tod
 }
 
 export const EMPTY_DEMO_RESULT = {
-  interest_level: null, wants_offer: null, result_status: null, probability: null,
-  estimated_value: null, competitors_present: null, competitor_name: null, notes_after_demo: null,
-  followup_date: null, update_followup: false,
+  interest_level: null,
+  competitors_present: null,
 } as const;
+
+export function formatDemoDate(date: string | null | undefined): string | null {
+  const match = date?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : date || null;
+}

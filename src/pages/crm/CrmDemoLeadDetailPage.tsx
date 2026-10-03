@@ -7,7 +7,7 @@ import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { isCrmAdmin, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
-import { getCrmDemo, saveCrmDemoResult, getLead, formatDemoNo, DEMO_RESULT_STATUS, type CrmDemoLead, type CrmDemoResultInput } from '@/lib/crmLeadsService';
+import { getCrmDemo, saveCrmDemoResult, formatDemoNo, type CrmDemoLead, type CrmDemoResultInput } from '@/lib/crmLeadsService';
 import { crmDemoProgress, EMPTY_DEMO_RESULT } from '@/lib/crmDemoFlow';
 import { demoFlowText, type DemoFlowTextKey } from '@/lib/crmDemoFlowI18n';
 import { toast } from 'sonner';
@@ -20,13 +20,14 @@ export default function CrmDemoLeadDetailPage() {
   const { effectiveUser, resolving } = useEffectivePortalUserState(appUser);
   const { uiLanguage } = useLanguage();
   const role = derivePortalRole(effectiveUser);
+  const effectiveUserReady = Boolean(effectiveUser);
   const text = (key: DemoFlowTextKey) => demoFlowText(key, uiLanguage);
   const [demo, setDemo] = useState<CrmDemoLead | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<CrmDemoResultInput>({ ...EMPTY_DEMO_RESULT });
   useEffect(() => {
-    if (!id || resolving || !effectiveUser) return;
+    if (!id || resolving || !effectiveUserReady) return;
     let cancelled = false;
     setLoading(true);
     void (async () => {
@@ -34,21 +35,15 @@ export default function CrmDemoLeadDetailPage() {
       if (!isCrmAdmin(role) && !isScopedSeller(role)) return null;
       if (isScopedSeller(role) && !owner) return null;
       return getCrmDemo(id, isScopedSeller(role) ? owner : null);
-    })().then(async row => {
+    })().then(row => {
       if (cancelled) return;
       setDemo(row);
       if (row) {
-        const lead = row.source_lead_id ? await getLead(row.source_lead_id) : null;
-        if (!cancelled) setResult({
-          interest_level: row.interest_level, wants_offer: row.wants_offer, result_status: row.result_status,
-          probability: row.probability, estimated_value: row.estimated_value,
-          competitors_present: row.competitors_present, competitor_name: row.competitor_name,
-          notes_after_demo: row.notes_after_demo, followup_date: lead?.next_followup_date || null, update_followup: false,
-        });
+        setResult({ interest_level: row.interest_level, competitors_present: row.competitors_present });
       }
     }).catch(() => { if (!cancelled) setDemo(null); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [id, resolving, effectiveUser?.id, appUser?.email, role]);
+  }, [id, resolving, effectiveUserReady, appUser?.email, role]);
   const canEdit = !resolving && (isCrmAdmin(role) || isScopedSeller(role));
   const progress = crmDemoProgress(demo);
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Copenhagen' });
@@ -57,10 +52,10 @@ export default function CrmDemoLeadDetailPage() {
   const patch = (value: Partial<CrmDemoResultInput>) => setResult(prev => ({ ...prev, ...value }));
   async function save(event: React.FormEvent) {
     event.preventDefault();
-    if (!demo || !effectiveUser?.id || saving) return;
+    if (!demo || saving) return;
     setSaving(true);
     try {
-      setDemo(await saveCrmDemoResult(demo.id, result, effectiveUser.id));
+      setDemo(await saveCrmDemoResult(demo.id, result, effectiveUser?.id ?? appUser?.id ?? null));
       setParams({}, { replace: true });
       toast.success(text('saved'));
     } catch (error) {
@@ -86,20 +81,14 @@ export default function CrmDemoLeadDetailPage() {
         </dl>
         <div className="my-5 flex flex-wrap gap-4 text-sm font-medium text-emerald-700">
           {canEdit && demo.source_lead_id && !demo.completed_at && <Link to={`/portal/crm/demo-leads/new?demoId=${demo.id}`}>{text('edit')}</Link>}
-          {canRecord && !editingResult && <button type="button" onClick={() => setParams({result: '1'})}>{text('recordResult')}</button>}
+          {canRecord && progress === 'awaiting' && !editingResult && <button type="button" onClick={() => setParams({result: '1'})}>{text('recordResult')}</button>}
+          {canRecord && progress === 'completed' && !editingResult && <button type="button" onClick={() => setParams({result: '1'})}>{text('editResult')}</button>}
         </div>
         {editingResult ? <form onSubmit={save} className="border-t border-slate-200 py-5">
-          <h3 className="mb-5 font-semibold">{text('recordResult')}</h3>
+          <h3 className="mb-5 font-semibold">{text(progress === 'completed' ? 'editResult' : 'recordResult')}</h3>
           <div className="grid gap-5 sm:grid-cols-2">
             {formField('interest', <select required className={input} value={result.interest_level ?? ''} onChange={e => patch({interest_level: e.target.value ? Number(e.target.value) : null})}><option value="">{text('choose')}</option>{[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}</select>)}
-            {formField('wantsOffer', <select required className={input} value={result.wants_offer ?? ''} onChange={e => patch({wants_offer: (e.target.value || null) as 'yes' | 'no' | null})}><option value="">{text('choose')}</option><option value="yes">{text('yes')}</option><option value="no">{text('no')}</option></select>)}
-            {formField('followup', <input type="date" className={input} value={result.followup_date || ''} onChange={e => patch({followup_date: e.target.value || null, update_followup: true})} />)}
-            {formField('probability', <input type="number" min={0} max={100} className={input} value={result.probability ?? ''} onChange={e => patch({probability: e.target.value === '' ? null : Number(e.target.value)})} />)}
-            {formField('value', <input type="number" min={0} step="0.01" className={input} value={result.estimated_value ?? ''} onChange={e => patch({estimated_value: e.target.value === '' ? null : Number(e.target.value)})} />)}
-            {formField('competitors', <select className={input} value={result.competitors_present ?? ''} onChange={e => patch({competitors_present: (e.target.value || null) as 'yes' | 'no' | null})}><option value="">{text('choose')}</option><option value="yes">{text('yes')}</option><option value="no">{text('no')}</option></select>)}
-            {formField('result', <select required className={input} value={result.result_status ?? ''} onChange={e => patch({result_status: e.target.value || null})}><option value="">{text('choose')}</option>{DEMO_RESULT_STATUS.map(status => <option key={status} value={status}>{text(status as DemoFlowTextKey)}</option>)}</select>)}
-            {result.competitors_present === 'yes' && formField('competitorName', <input className={input} value={result.competitor_name || ''} onChange={e => patch({competitor_name: e.target.value || null})} />)}
-            {formField('notesAfter', <textarea className={input + ' min-h-28'} value={result.notes_after_demo || ''} onChange={e => patch({notes_after_demo: e.target.value || null})} />)}
+            {formField('competitors', <select className={input} value={result.competitors_present ?? ''} onChange={e => patch({competitors_present: (e.target.value || null) as 'yes' | 'no' | null})}><option value="">{text('notSpecified')}</option><option value="yes">{text('yes')}</option><option value="no">{text('no')}</option></select>)}
           </div>
           <div className="mt-5 flex justify-end gap-3">
             <button type="button" className="px-3 py-2 text-sm" onClick={() => setParams({})}>{text('cancel')}</button>
@@ -107,11 +96,7 @@ export default function CrmDemoLeadDetailPage() {
           </div>
         </form> : demo.completed_at ? <dl className="grid gap-5 py-5 sm:grid-cols-2">
           {field('interest', demo.interest_level != null ? `${demo.interest_level}/5` : null)}
-          {field('wantsOffer', demo.wants_offer ? text(demo.wants_offer) : null)}
-          {field('result', demo.result_status ? text(demo.result_status as DemoFlowTextKey) || demo.result_status : null)}
-          {field('followup', result.followup_date)}{field('probability', demo.probability != null ? `${demo.probability}%` : null)}
-          {field('value', demo.estimated_value)}{field('competitors', demo.competitors_present ? text(demo.competitors_present) : null)}
-          {field('notesAfter', demo.notes_after_demo)}
+          {field('competitors', demo.competitors_present ? text(demo.competitors_present) : text('notSpecified'))}
         </dl> : null}
       </>}
     </div>

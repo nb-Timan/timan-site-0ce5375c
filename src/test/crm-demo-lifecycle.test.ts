@@ -22,6 +22,8 @@ vi.mock('@/lib/supabase', () => ({ supabase: { rpc, from } }));
 
 import { createCrmDemoLifecycle, saveCrmDemoResult, updateDemoLeadDate } from '@/lib/crmLeadsService';
 import { EMPTY_DEMO_RESULT } from '@/lib/crmDemoFlow';
+import { demoFlowText } from '@/lib/crmDemoFlowI18n';
+import type { PortalUiLanguage } from '@/lib/portalLanguages';
 import {
   deriveLegacyPipelineStage,
   effectiveLeadProbability,
@@ -41,7 +43,7 @@ const baseDemo = {
 
 describe('canonical lead → demo lifecycle', () => {
   it('records results through the same scoped demo without a create operation', async () => {
-    const result = { ...EMPTY_DEMO_RESULT, interest_level: 4, wants_offer: 'yes' as const, result_status: 'Warm lead' };
+    const result = { ...EMPTY_DEMO_RESULT, interest_level: 4, competitors_present: 'yes' as const };
     await saveCrmDemoResult('demo-1', result, 'seller-1');
     expect(rpc).toHaveBeenLastCalledWith('save_crm_demo_result', {
       p_demo_id: 'demo-1', p_result: result, p_effective_user_id: 'seller-1',
@@ -106,6 +108,43 @@ describe('canonical lead → demo lifecycle', () => {
     expect(sql).toContain("'demo_held'");
     expect(sql).toContain("status = 'completed'");
     expect(sql).toContain('append_crm_demo_held_history');
+  });
+
+  it('lets the server resolve the authenticated actor when no view-as id is available', async () => {
+    const result = { ...EMPTY_DEMO_RESULT, interest_level: 4, competitors_present: 'yes' as const };
+    await saveCrmDemoResult('demo-1', result, null);
+    expect(rpc).toHaveBeenLastCalledWith('save_crm_demo_result', {
+      p_demo_id: 'demo-1', p_result: result, p_effective_user_id: null,
+    });
+  });
+
+  it('localizes the simplified result flow in every portal language', () => {
+    const languages: PortalUiLanguage[] = ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'];
+    for (const language of languages) {
+      for (const key of ['demoRun', 'editResult', 'resultRegistered', 'notSpecified'] as const) {
+        expect(demoFlowText(key, language)).toBeTruthy();
+      }
+    }
+  });
+
+  it('keeps commercial lead data out of the current demo-result write path', () => {
+    const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261003203723_simplify_crm_demo_result.sql'), 'utf8');
+    const leadUpdate = sql.match(/update public\.crm_leads[\s\S]*?where id = lead_row\.id;/)?.[0] ?? '';
+    expect(leadUpdate).toContain("demo_has_run = 'yes'");
+    expect(leadUpdate).toContain('demo_registration_pending = false');
+    expect(leadUpdate).not.toMatch(/\b(probability|estimated_value|next_followup_date|next_activity|status|pipeline_stage|notes)\s*=/);
+    expect(sql).toContain('interest_level = interest');
+    expect(sql).toContain('competitors_present = competitors');
+    expect(sql).toContain('completed_at = coalesce(completed_at, now())');
+    expect(sql).not.toMatch(/drop\s+column/i);
+  });
+
+  it('records one canonical completion event with demo date and dealer context', () => {
+    const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261003203723_simplify_crm_demo_result.sql'), 'utf8');
+    expect(sql).toContain("old.demo_has_run is not distinct from 'yes'");
+    expect(sql).toContain("'demo_date', v_demo.demo_date");
+    expect(sql).toContain("'dealer_company', nullif(v_demo.dealer_company, '')");
+    expect(sql).toContain("to_char(v_demo.demo_date, 'DD-MM-YYYY')");
   });
 
   it('guards one linked demo and one calendar event per canonical demo in the migration', () => {

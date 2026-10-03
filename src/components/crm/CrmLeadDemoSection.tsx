@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listDemoLeadsForSource, formatDemoNo, type CrmDemoLead } from '@/lib/crmLeadsService';
 import { useLanguage } from '@/context/LanguageContext';
-import { crmDemoProgress } from '@/lib/crmDemoFlow';
+import { crmDemoProgress, formatDemoDate } from '@/lib/crmDemoFlow';
 import { demoFlowText, type DemoFlowTextKey } from '@/lib/crmDemoFlowI18n';
 import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUserState } from '@/lib/viewAsUser';
@@ -36,30 +36,29 @@ export function CrmLeadDemoSection({ leadId }: { leadId: string }) {
     </div> : demos.map(demo => {
       const progress = crmDemoProgress(demo);
       const machine = [demo.demo_machine, ...(demo.demo_equipment || [])].filter(Boolean).join(' · ');
-      const summaryFields: [DemoFlowTextKey, string | null | undefined][] = progress === 'completed'
-        ? [
-            ['date', demo.demo_date],
-            ['result', demo.result_status ? text(demo.result_status as DemoFlowTextKey) || demo.result_status : null],
-          ]
-        : [
+      const summaryFields: [DemoFlowTextKey, string | null | undefined][] = [
             ['date', demo.demo_date],
             ['machine', machine],
             ['dealer', demo.dealer_company],
             ['demonstrator', demo.dealer_rep],
           ];
+      const completedSummary = [
+        `${text('demoRun')} ${formatDemoDate(demo.demo_date) || ''}`.trim(),
+        demo.dealer_company,
+      ].filter(Boolean).join(' · ');
       return <div key={demo.id} className="border-t border-slate-100 py-3 first:border-0">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-xs text-slate-500">{formatDemoNo(demo.demo_no)}</span>
-            <span className="rounded-md bg-violet-50 px-2 py-1 text-xs font-medium text-violet-800">{text(progress)}</span>
+            {progress !== 'completed' && <span className="rounded-md bg-violet-50 px-2 py-1 text-xs font-medium text-violet-800">{text(progress)}</span>}
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
             {canEdit && progress === 'awaiting' && <Link className="rounded-md bg-emerald-800 px-3 py-2 text-white hover:bg-emerald-900" to={`/portal/crm/demo-leads/${demo.id}?result=1`}>{text('recordResult')}</Link>}
-            <Link className={progress === 'awaiting' ? 'rounded-md border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-50' : 'rounded-md bg-emerald-800 px-3 py-2 text-white hover:bg-emerald-900'} to={`/portal/crm/demo-leads/${demo.id}`}>{text(progress === 'completed' ? 'viewResult' : 'open')}</Link>
+            <Link className={progress === 'awaiting' ? 'rounded-md border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-50' : 'rounded-md bg-emerald-800 px-3 py-2 text-white hover:bg-emerald-900'} to={`/portal/crm/demo-leads/${demo.id}`}>{text('open')}</Link>
             {canEdit && (progress === 'requested' || progress === 'scheduled') && <Link className="rounded-md border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-50" to={`/portal/crm/demo-leads/new?demoId=${demo.id}`}>{text('edit')}</Link>}
           </div>
         </div>
-        {summaryFields.some(([, value]) => Boolean(value)) && <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+        {progress === 'completed' ? <p className="text-sm font-medium text-slate-800">{completedSummary}</p> : summaryFields.some(([, value]) => Boolean(value)) && <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
           {summaryFields.filter(([, value]) => Boolean(value)).map(([key, value]) => <div key={key}><dt className="text-xs text-slate-500">{text(key)}</dt><dd className="break-words">{value}</dd></div>)}
         </dl>}
       </div>;
