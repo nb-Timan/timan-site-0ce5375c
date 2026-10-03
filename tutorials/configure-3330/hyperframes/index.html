@@ -1,145 +1,201 @@
 <!DOCTYPE html>
-<html lang="da" data-resolution="landscape">
+<html lang="da" data-resolution="portrait">
   <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=1920, height=1080">
+    <meta name="viewport" content="width=1080, height=1920">
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
     <style>
       * { box-sizing: border-box; }
 
       html,
       body {
-        width: 1920px;
-        height: 1080px;
+        width: 1080px;
+        height: 1920px;
         margin: 0;
         overflow: hidden;
-        background: #101418;
+        background: #0d1511;
         font-family: Inter, Arial, sans-serif;
       }
 
       #root {
         position: relative;
-        width: 1920px;
-        height: 1080px;
+        width: 1080px;
+        height: 1920px;
         overflow: hidden;
+        background: #0d1511;
+      }
+
+      #capture {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        width: 3413.333px;
+        height: 1920px;
+        margin-left: -1706.666px;
+        will-change: transform;
       }
 
       #browser-recording {
-        position: absolute;
-        inset: 0;
+        display: block;
         width: 100%;
         height: 100%;
-        object-fit: cover;
+        object-fit: fill;
       }
 
-      .callout {
+      .edge-shade {
         position: absolute;
-        left: 48px;
-        bottom: 46px;
+        inset: 0;
+        pointer-events: none;
+        background:
+          linear-gradient(180deg, rgba(4, 12, 8, 0.2) 0%, transparent 14%, transparent 78%, rgba(4, 12, 8, 0.2) 100%),
+          linear-gradient(90deg, rgba(4, 12, 8, 0.1), transparent 12%, transparent 88%, rgba(4, 12, 8, 0.1));
+      }
+
+      .step-card {
+        position: absolute;
+        top: 78px;
+        left: 54px;
         display: flex;
         align-items: center;
-        gap: 18px;
-        max-width: 760px;
-        padding: 18px 24px 18px 18px;
-        border: 1px solid rgba(255, 255, 255, 0.24);
+        gap: 20px;
+        width: calc(100% - 108px);
+        min-height: 104px;
+        padding: 20px 26px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
         border-radius: 8px;
         color: #ffffff;
-        background: rgba(14, 20, 25, 0.92);
-        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
-        font-size: 30px;
-        font-weight: 650;
-        line-height: 1.2;
+        background: rgba(12, 22, 16, 0.94);
+        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.28);
+        font-size: 38px;
+        font-weight: 680;
+        line-height: 1.15;
         letter-spacing: 0;
       }
 
       .step-number {
         display: grid;
-        flex: 0 0 48px;
-        width: 48px;
-        height: 48px;
+        flex: 0 0 62px;
+        width: 62px;
+        height: 62px;
         place-items: center;
         border-radius: 50%;
         color: #ffffff;
         background: #168642;
-        font-size: 25px;
-        font-weight: 750;
+        font-size: 31px;
+        font-weight: 760;
       }
 
-      .proof-label {
+      .result-card {
         position: absolute;
-        top: 28px;
-        right: 32px;
-        padding: 10px 14px;
-        border-radius: 6px;
-        color: #ffffff;
-        background: rgba(14, 20, 25, 0.78);
-        font-size: 18px;
-        font-weight: 600;
+        left: 54px;
+        bottom: 82px;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        width: calc(100% - 108px);
+        min-height: 96px;
+        padding: 18px 24px;
+        border: 1px solid rgba(64, 199, 117, 0.52);
+        border-radius: 8px;
+        color: #0f3d24;
+        background: rgba(236, 255, 243, 0.96);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.26);
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 1.15;
         letter-spacing: 0;
+      }
+
+      .result-dot {
+        flex: 0 0 24px;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #168642;
+        box-shadow: 0 0 0 9px rgba(22, 134, 66, 0.13);
+      }
+
+      .safety-card {
+        border-color: rgba(244, 208, 63, 0.7);
+        color: #3d3208;
+        background: rgba(255, 250, 224, 0.97);
+      }
+
+      .safety-card .result-dot {
+        background: #d2a90b;
+        box-shadow: 0 0 0 9px rgba(210, 169, 11, 0.15);
+      }
+
+      .brand-label {
+        position: absolute;
+        right: 54px;
+        bottom: 34px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        color: rgba(255, 255, 255, 0.9);
+        background: rgba(10, 18, 13, 0.86);
+        font-size: 22px;
+        font-weight: 650;
+        letter-spacing: 0;
+        text-shadow: 0 2px 7px rgba(0, 0, 0, 0.56);
       }
     </style>
   </head>
   <body>
-    <main data-hf-id="hf-ghew" id="root" data-composition-id="configure-3330-poc" data-start="0" data-duration="11" data-width="1920" data-height="1080">
-      <video data-hf-id="hf-ew5t" id="browser-recording" class="clip" src="configure-3330-poc.webm" muted playsinline preload="auto" data-start="0" data-duration="11" data-track-index="0" data-has-audio="false"></video>
-
-      <div data-hf-id="hf-ddpg" id="proof-label-track" class="clip" data-start="0" data-duration="11" data-track-index="1">
-        <div data-hf-id="hf-lig6" class="proof-label">TIMAN Tutorial · proof of concept</div>
-      </div>
-
-      <div data-hf-id="hf-7v6k" id="step-1-track" class="clip" data-start="0.35" data-duration="2.15" data-track-index="2">
-        <div data-hf-id="hf-mn7c" class="callout" id="callout-1">
-          <span data-hf-id="hf-95ae" class="step-number">1</span>
-          <span data-hf-id="hf-n51u">Vælg Timan 3330</span>
+    <main data-hf-id="hf-v2-root" id="root" data-composition-id="configure-3330-v2" data-start="0" data-duration="58.7" data-width="1080" data-height="1920">
+      <div data-hf-id="hf-v2-capture-track" id="capture-track">
+        <div data-hf-id="hf-v2-capture" id="capture">
+          <video data-hf-id="hf-v2-video" id="browser-recording" class="clip" src="configure-3330-v2-source.mp4" muted playsinline preload="auto" data-start="0" data-duration="58.7" data-track-index="0" data-media-start="1.3" data-playback-rate="1.06" data-has-audio="false"></video>
         </div>
+        <div data-hf-id="hf-v2-shade" class="edge-shade"></div>
       </div>
 
-      <div data-hf-id="hf-chrx" id="step-2-track" class="clip" data-start="2.5" data-duration="2.1" data-track-index="2">
-        <div data-hf-id="hf-xioz" class="callout" id="callout-2">
-          <span data-hf-id="hf-9jlf" class="step-number">2</span>
-          <span data-hf-id="hf-xr8s">Vælg levering</span>
-        </div>
-      </div>
+      <div data-hf-id="hf-v2-step-1-track" id="step-1-track" class="clip" data-start="0.2" data-duration="4.7" data-track-index="2"><div data-hf-id="hf-v2-step-1" class="step-card" id="step-1"><span data-hf-id="hf-v2-step-1-number" class="step-number">1</span><span data-hf-id="hf-v2-step-1-copy">Vælg Timan 3330</span></div></div>
+      <div data-hf-id="hf-v2-step-2-track" id="step-2-track" class="clip" data-start="4.9" data-duration="13.7" data-track-index="2"><div data-hf-id="hf-v2-step-2" class="step-card" id="step-2"><span data-hf-id="hf-v2-step-2-number" class="step-number">2</span><span data-hf-id="hf-v2-step-2-copy">Aktivér leverings- og mængderabat</span></div></div>
+      <div data-hf-id="hf-v2-step-3-track" id="step-3-track" class="clip" data-start="18.6" data-duration="15.5" data-track-index="2"><div data-hf-id="hf-v2-step-3" class="step-card" id="step-3"><span data-hf-id="hf-v2-step-3-number" class="step-number">3</span><span data-hf-id="hf-v2-step-3-copy">Tilpas maskinen</span></div></div>
+      <div data-hf-id="hf-v2-step-4-track" id="step-4-track" class="clip" data-start="34.1" data-duration="6.2" data-track-index="2"><div data-hf-id="hf-v2-step-4" class="step-card" id="step-4"><span data-hf-id="hf-v2-step-4-number" class="step-number">4</span><span data-hf-id="hf-v2-step-4-copy">Tilføj centerslange</span></div></div>
+      <div data-hf-id="hf-v2-step-5-track" id="step-5-track" class="clip" data-start="40.3" data-duration="8.4" data-track-index="2"><div data-hf-id="hf-v2-step-5" class="step-card" id="step-5"><span data-hf-id="hf-v2-step-5-number" class="step-number">5</span><span data-hf-id="hf-v2-step-5-copy">Vælg sælger og forhandler</span></div></div>
+      <div data-hf-id="hf-v2-step-6-track" id="step-6-track" class="clip" data-start="48.7" data-duration="10" data-track-index="2"><div data-hf-id="hf-v2-step-6" class="step-card" id="step-6"><span data-hf-id="hf-v2-step-6-number" class="step-number">6</span><span data-hf-id="hf-v2-step-6-copy">Skift til ordre og gennemgå</span></div></div>
 
-      <div data-hf-id="hf-dj1t" id="step-3-track" class="clip" data-start="4.6" data-duration="4.1" data-track-index="2">
-        <div data-hf-id="hf-rcz6" class="callout" id="callout-3">
-          <span data-hf-id="hf-9xwg" class="step-number">3</span>
-          <span data-hf-id="hf-7k7a">Tilpas maskinen</span>
-        </div>
-      </div>
-
-      <div data-hf-id="hf-7rfl" id="step-4-track" class="clip" data-start="8.7" data-duration="2.3" data-track-index="2">
-        <div data-hf-id="hf-asv9" class="callout" id="callout-4">
-          <span data-hf-id="hf-75r9" class="step-number">4</span>
-          <span data-hf-id="hf-py7a">Gennemgå konfigurationen</span>
-        </div>
-      </div>
+      <div data-hf-id="hf-v2-delivery-track" id="delivery-track" class="clip" data-start="9" data-duration="4.1" data-track-index="3"><div data-hf-id="hf-v2-delivery" class="result-card" id="delivery-result"><span data-hf-id="hf-v2-delivery-dot" class="result-dot"></span><span data-hf-id="hf-v2-delivery-copy">2% leveringsrabat aktiveret</span></div></div>
+      <div data-hf-id="hf-v2-quantity-track" id="quantity-track" class="clip" data-start="14.8" data-duration="3.8" data-track-index="3"><div data-hf-id="hf-v2-quantity" class="result-card" id="quantity-result"><span data-hf-id="hf-v2-quantity-dot" class="result-dot"></span><span data-hf-id="hf-v2-quantity-copy">2% mængderabat aktiveret</span></div></div>
+      <div data-hf-id="hf-v2-centerslange-track" id="centerslange-track" class="clip" data-start="34.6" data-duration="5.1" data-track-index="3"><div data-hf-id="hf-v2-centerslange" class="result-card" id="centerslange-result"><span data-hf-id="hf-v2-centerslange-dot" class="result-dot"></span><span data-hf-id="hf-v2-centerslange-copy">Vælg “Tilføj 721122”</span></div></div>
+      <div data-hf-id="hf-v2-order-track" id="order-track" class="clip" data-start="48.7" data-duration="3.5" data-track-index="3"><div data-hf-id="hf-v2-order" class="result-card" id="order-result"><span data-hf-id="hf-v2-order-dot" class="result-dot"></span><span data-hf-id="hf-v2-order-copy">Ordre valgt</span></div></div>
+      <div data-hf-id="hf-v2-confirmation-track" id="confirmation-track" class="clip" data-start="52.2" data-duration="6.5" data-track-index="3"><div data-hf-id="hf-v2-confirmation" class="result-card safety-card" id="confirmation-result"><span data-hf-id="hf-v2-confirmation-dot" class="result-dot"></span><span data-hf-id="hf-v2-confirmation-copy">Ordrebekræftelsen er klar · QA stopper før afsendelse</span></div></div>
+      <div data-hf-id="hf-v2-brand-track" id="brand-track" class="clip" data-start="0" data-duration="58.7" data-track-index="4"><div data-hf-id="hf-v2-brand" class="brand-label">TIMAN Tutorial</div></div>
     </main>
 
     <script>
       window.__timelines = window.__timelines || {};
       const timeline = gsap.timeline({ paused: true });
 
+      timeline.set("#capture", { x: 250 }, 0);
+      timeline.to("#capture", { x: 340, duration: 0.45, ease: "power2.inOut" }, 4.55);
+      timeline.to("#capture", { x: -790, duration: 0.5, ease: "power2.inOut" }, 13.8);
+      timeline.to("#capture", { x: 520, duration: 0.55, ease: "power2.inOut" }, 18.7);
+      timeline.to("#capture", { x: 0, duration: 0.5, ease: "power2.inOut" }, 33.8);
+      timeline.to("#capture", { x: 430, duration: 0.5, ease: "power2.inOut" }, 40.1);
+      timeline.to("#capture", { x: -760, duration: 0.5, ease: "power2.inOut" }, 47.9);
+      timeline.to("#capture", { x: 0, duration: 0.55, ease: "power2.inOut" }, 51.6);
+
       [
-        ["#callout-1", 0.35, 2.15],
-        ["#callout-2", 2.5, 2.1],
-        ["#callout-3", 4.6, 4.1],
-        ["#callout-4", 8.7, 2.3],
+        ["#step-1", 0.2, 4.7],
+        ["#step-2", 4.9, 13.7],
+        ["#step-3", 18.6, 15.5],
+        ["#step-4", 34.1, 6.2],
+        ["#step-5", 40.3, 8.4],
+        ["#step-6", 48.7, 10],
+        ["#delivery-result", 9, 4.1],
+        ["#quantity-result", 14.8, 3.8],
+        ["#centerslange-result", 34.6, 5.1],
+        ["#order-result", 48.7, 3.5],
+        ["#confirmation-result", 52.2, 6.5],
       ].forEach(([selector, start, duration]) => {
-        timeline.fromTo(
-          selector,
-          { opacity: 0, y: 18 },
-          { opacity: 1, y: 0, duration: 0.25, ease: "power2.out" },
-          start,
-        );
-        timeline.to(
-          selector,
-          { opacity: 0, y: 10, duration: 0.2, ease: "power1.in" },
-          start + duration - 0.2,
-        );
+        timeline.fromTo(selector, { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.28, ease: "power2.out" }, start);
+        timeline.to(selector, { opacity: 0, y: 12, duration: 0.24, ease: "power1.in" }, start + duration - 0.24);
       });
 
-      window.__timelines["configure-3330-poc"] = timeline;
+      window.__timelines["configure-3330-v2"] = timeline;
     </script>
   </body>
 </html>
