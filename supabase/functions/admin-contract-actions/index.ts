@@ -12,7 +12,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-type Action = "delete_contract";
+type Action = "delete_contract" | "reset_test_contract";
 
 interface RequestBody {
   action: Action;
@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     return json({ error: "Ugyldig JSON body." }, 400);
   }
 
-  if (body.action !== "delete_contract") {
+  if (body.action !== "delete_contract" && body.action !== "reset_test_contract") {
     return json({ error: "Ukendt action." }, 400);
   }
 
@@ -101,16 +101,71 @@ Deno.serve(async (req) => {
     return json({ error: "Godkendte kontrakter kan ikke slettes. Brug Opsig kontrakt." }, 409);
   }
 
+  const isTestReset = body.action === "reset_test_contract";
+  if (isTestReset) {
+    const ownerEmail = String(contract.owner_email || "").trim().toLowerCase();
+    const hasEmbeddedSignature = Boolean(String(contract.signature_data_url || "").trim());
+    const { count: submittedUploadCount, error: submittedUploadErr } = await admin
+      .from("dealer_contract_upload_versions")
+      .select("id", { count: "exact", head: true })
+      .eq("contract_id", contractId)
+      .in("status", ["submitted", "approved"]);
+    if (submittedUploadErr) return json({ error: `Kunne ikke kontrollere uploadstatus: ${submittedUploadErr.message}` }, 500);
+
+    const { count: sentMailCount, error: mailErr } = await admin
+      .from("mail_audit_events")
+      .select("id", { count: "exact", head: true })
+      .eq("related_entity_id", contractId)
+      .in("status", ["sent", "delivered", "success"]);
+    if (mailErr) return json({ error: `Kunne ikke kontrollere kontraktmail: ${mailErr.message}` }, 500);
+
+    const { data: historyRows, error: historyErr } = await admin
+      .from("partner_agreement_history")
+      .select("event_type, event_title")
+      .eq("contract_id", contractId);
+    if (historyErr) return json({ error: `Kunne ikke kontrollere kontrakthistorik: ${historyErr.message}` }, 500);
+    const hasBindingHistory = (historyRows ?? []).some((row) => {
+      const evidence = `${row.event_type || ""} ${row.event_title || ""}`.toLowerCase();
+      return /(sign|approv|accept|godkend|underskrev|sendt|submit)/.test(evidence);
+    });
+
+    if (
+      !ownerEmail.endsWith("@timan.dk") ||
+      contract.signed_at ||
+      contract.submitted_at ||
+      contract.approved_at ||
+      contract.approved_upload_version_id ||
+      hasEmbeddedSignature ||
+      (submittedUploadCount ?? 0) > 0 ||
+      (sentMailCount ?? 0) > 0 ||
+      hasBindingHistory
+    ) {
+      return json({ error: "QA-reset blev afvist: kontrakten har mulig bindende eller ekstern aktivitet." }, 409);
+    }
+  }
+
   const { data: files, error: filesErr } = await admin
     .from("dealer_contract_upload_files")
     .select("storage_bucket, storage_path")
     .eq("contract_id", contractId);
   if (filesErr) return json({ error: `Kunne ikke laese kontraktfiler: ${filesErr.message}` }, 500);
 
+  const { data: generatedDocuments, error: generatedDocumentsErr } = await admin
+    .from("dealer_contract_document_versions")
+    .select("storage_bucket, storage_path")
+    .eq("contract_id", contractId);
+  if (generatedDocumentsErr) return json({ error: `Kunne ikke laese genererede kontraktdokumenter: ${generatedDocumentsErr.message}` }, 500);
+
   const byBucket = new Map<string, string[]>();
   for (const file of files ?? []) {
     const bucket = String(file.storage_bucket || "dealer-contracts");
     const path = String(file.storage_path || "").trim();
+    if (!path) continue;
+    byBucket.set(bucket, [...(byBucket.get(bucket) ?? []), path]);
+  }
+  for (const document of generatedDocuments ?? []) {
+    const bucket = String(document.storage_bucket || "dealer-contracts");
+    const path = String(document.storage_path || "").trim();
     if (!path) continue;
     byBucket.set(bucket, [...(byBucket.get(bucket) ?? []), path]);
   }
@@ -141,7 +196,7 @@ Deno.serve(async (req) => {
     actor_email: callerEmail,
     actor_name: caller.display_name || caller.full_name || callerEmail,
     actor_role: caller.portal_role,
-    action: "delete",
+    action: isTestReset ? "TEST_CONTRACT_RESET" : "delete",
     module: "contracts",
     record_type: "dealer_contracts",
     record_id: contractId,
@@ -153,7 +208,9 @@ Deno.serve(async (req) => {
       dealer_account_number: contract.dealer_account_number,
       owner_email: contract.owner_email,
       upload_versions: uploadVersionCount ?? 0,
-      upload_files: removedFileCount,
+      upload_files: files?.length ?? 0,
+      generated_documents: generatedDocuments?.length ?? 0,
+      storage_objects_removed: removedFileCount,
       storage_deleted_by: "supabase_storage_api",
     },
     new_value: null,
@@ -163,7 +220,7 @@ Deno.serve(async (req) => {
 
   return json({
     ok: true,
-    action: "delete_contract",
+    action: body.action,
     contract_id: contractId,
     removed_files: removedFileCount,
     message: "Kontrakten er slettet.",

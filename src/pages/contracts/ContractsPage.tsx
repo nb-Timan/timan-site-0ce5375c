@@ -2,7 +2,7 @@ import { normalizePortalLanguageCode, type PortalUiLanguage } from '@/lib/portal
 import { getDealerContractOverviewStatusLabel, getDealerContractOverviewActionLabel } from '@/lib/contractOverviewLabels';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Check, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileSignature, FileText, Lock, Pencil, Plus, Save, Search, Trash2, Upload } from 'lucide-react';
+import { Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, Eye, FileSignature, FileText, Lock, Pencil, Plus, Save, Search, Trash2, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PortalHeader from '@/components/portal/PortalHeader';
@@ -37,13 +37,13 @@ import {
 import { SPARE_PARTS_PORTAL } from '../../../supabase/functions/_shared/sparePartsPortal';
 import {
   addSignedUrlsToUploadVersions,
-  addSignedUrlsToDocumentVersions,
   activateDealerContractAccessWindow,
   completeDealerContractGuidedReview,
   createDealerContractUploadVersion,
   canHardDeleteDealerContract,
   deleteDealerContract,
   deleteDealerContractUploadFile,
+  downloadDealerContractDocument,
   extendDealerContractAccessWindow,
   fetchActiveDealerContractAccessWindow,
   fetchDealerContractAccessWindows,
@@ -333,6 +333,13 @@ const CONTRACT_UI_COPY = {
   page: { da: 'Side {number}', en: 'Page {number}', de: 'Seite {number}' },
   removeFile: { da: 'Fjern fil', en: 'Remove file', de: 'Datei entfernen' },
   openPdf: { da: 'Åbn PDF', en: 'Open PDF', de: 'PDF öffnen', it: 'Apri PDF', hu: 'PDF megnyitása', sv: 'Öppna PDF', fr: 'Ouvrir le PDF', pl: 'Otwórz PDF', cs: 'Otevřít PDF' },
+  openPdfPreview: { da: 'Åbn PDF-preview', en: 'Open PDF preview', de: 'PDF-Vorschau öffnen', it: 'Apri anteprima PDF', hu: 'PDF-előnézet megnyitása', sv: 'Öppna PDF-förhandsvisning', fr: 'Ouvrir l’aperçu PDF', pl: 'Otwórz podgląd PDF', cs: 'Otevřít náhled PDF' },
+  pdfPreview: { da: 'PDF-preview', en: 'PDF preview', de: 'PDF-Vorschau', it: 'Anteprima PDF', hu: 'PDF-előnézet', sv: 'PDF-förhandsvisning', fr: 'Aperçu PDF', pl: 'Podgląd PDF', cs: 'Náhled PDF' },
+  currentCombinedContract: { da: 'Aktuel samlet kontrakt', en: 'Current complete contract', de: 'Aktueller Gesamtvertrag', it: 'Contratto completo attuale', hu: 'Aktuális teljes szerződés', sv: 'Aktuellt komplett avtal', fr: 'Contrat complet actuel', pl: 'Aktualna kompletna umowa', cs: 'Aktuální kompletní smlouva' },
+  previousVersions: { da: 'Tidligere versioner', en: 'Previous versions', de: 'Frühere Versionen', it: 'Versioni precedenti', hu: 'Korábbi verziók', sv: 'Tidigare versioner', fr: 'Versions précédentes', pl: 'Poprzednie wersje', cs: 'Předchozí verze' },
+  showDocumentHistory: { da: 'Vis dokumenthistorik', en: 'Show document history', de: 'Dokumentverlauf anzeigen', it: 'Mostra cronologia documenti', hu: 'Dokumentumtörténet megjelenítése', sv: 'Visa dokumenthistorik', fr: 'Afficher l’historique des documents', pl: 'Pokaż historię dokumentów', cs: 'Zobrazit historii dokumentů' },
+  closePdfViewer: { da: 'Luk PDF', en: 'Close PDF', de: 'PDF schließen', it: 'Chiudi PDF', hu: 'PDF bezárása', sv: 'Stäng PDF', fr: 'Fermer le PDF', pl: 'Zamknij PDF', cs: 'Zavřít PDF' },
+  pdfCouldNotOpenSecurely: { da: 'PDF’en kunne ikke åbnes sikkert i portalen.', en: 'The PDF could not be opened securely in the portal.', de: 'Das PDF konnte im Portal nicht sicher geöffnet werden.', it: 'Impossibile aprire il PDF in modo sicuro nel portale.', hu: 'A PDF nem nyitható meg biztonságosan a portálon.', sv: 'PDF-filen kunde inte öppnas säkert i portalen.', fr: 'Le PDF n’a pas pu être ouvert de manière sécurisée dans le portail.', pl: 'Nie można bezpiecznie otworzyć pliku PDF w portalu.', cs: 'PDF se nepodařilo bezpečně otevřít v portálu.' },
   moveUp: { da: 'Op', en: 'Up', de: 'Nach oben' },
   moveDown: { da: 'Ned', en: 'Down', de: 'Nach unten' },
   submitForTimanApproval: { da: 'Send til Timan-godkendelse', en: 'Send for Timan approval', de: 'Zur Timan-Genehmigung senden' },
@@ -1207,6 +1214,9 @@ export default function ContractsPage() {
   const [finalSnapshot, setFinalSnapshot] = useState<ContractSnapshot | null>(null);
   const [uploadVersions, setUploadVersions] = useState<DealerContractUploadVersion[]>([]);
   const [documentVersions, setDocumentVersions] = useState<DealerContractDocumentVersion[]>([]);
+  const [pdfViewer, setPdfViewer] = useState<{ url: string; title: string; fileName: string } | null>(null);
+  const [pdfViewerBusy, setPdfViewerBusy] = useState(false);
+  const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
   const [uploadBusy, setUploadBusy] = useState(false);
   const [newDraftBusy, setNewDraftBusy] = useState(false);
   const [reviewCompletionBusy, setReviewCompletionBusy] = useState(false);
@@ -1888,7 +1898,94 @@ export default function ContractsPage() {
       setDocumentVersions([]);
       return;
     }
-    setDocumentVersions(await addSignedUrlsToDocumentVersions(rows));
+    setDocumentVersions(rows);
+  };
+
+  const closePdfViewer = () => {
+    setPdfViewer((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  };
+
+  useEffect(() => () => {
+    if (pdfViewer) URL.revokeObjectURL(pdfViewer.url);
+  }, [pdfViewer]);
+
+  const showPdfBlob = (blob: Blob, title: string, fileName: string) => {
+    const url = URL.createObjectURL(blob);
+    setPdfViewer((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return { url, title, fileName };
+    });
+  };
+
+  const buildCurrentPdfSnapshot = (targetWorkflowStatus: ContractWorkflowStatus) => {
+    const documentLanguage = (form.contractLanguage ?? 'da') as ContractDocumentLanguage;
+    const legalSections = renderGuidedContractSections({
+      companyName: form.dealerName,
+      partnerType: form.partnerType,
+      primaryTerritory: form.primaryTerritory,
+      secondaryTerritory: form.secondaryTerritory,
+      serviceHourlyRateDkk: form.serviceHourlyRateDkk,
+      paymentTerm: form.paymentTerm,
+      machineDiscountPct: form.machineDiscountPct,
+      equipmentDiscountPct: form.equipmentDiscountPct,
+      sparePartsDiscountPct: form.sparePartsDiscountPct,
+    }, documentLanguage);
+    const appendices = form.partnerType === 'service_partner'
+      ? {}
+      : {
+          appendix2Paragraphs: renderAppendix2Paragraphs(
+            form.partnerType,
+            getContractDiscountStructure(form.partnerType, form),
+            documentLanguage,
+          ),
+          appendix2ExampleLines: renderAppendix2ExampleLines(documentLanguage),
+        };
+    return buildContractSnapshot(form, confirmations, {
+      contractId: contractRowId ?? undefined,
+      contractNumber: contractRecord?.contract_number ?? undefined,
+      workflowStatus: targetWorkflowStatus,
+      legalSections,
+      appendices,
+      expectedSignedPages: 1,
+    });
+  };
+
+  const openPdfPreview = async () => {
+    if (pdfViewerBusy) return;
+    setPdfViewerBusy(true);
+    try {
+      const language = (form.contractLanguage ?? 'da') as ContractDocumentLanguage;
+      const snapshot = buildCurrentPdfSnapshot(workflowStatus);
+      const contractNumber = contractRecord?.contract_number || contractRowId?.slice(0, 8) || 'PREVIEW';
+      const generated = await generateContractPdf({
+        snapshot,
+        contractNumber,
+        dealerAccountNumber: activeDealerAccountNumber,
+        language,
+        mode: 'draft',
+        documentVersion: Math.max(1, ...documentVersions.map((document) => document.document_version + 1)),
+      });
+      showPdfBlob(generated.blob, contractUi('pdfPreview', uiLanguage), generated.fileName);
+    } catch {
+      toast.error(contractUi('pdfCouldNotOpenSecurely', uiLanguage));
+    } finally {
+      setPdfViewerBusy(false);
+    }
+  };
+
+  const openStoredPdf = async (document: DealerContractDocumentVersion) => {
+    if (openingDocumentId) return;
+    setOpeningDocumentId(document.id);
+    const { blob, error } = await downloadDealerContractDocument(document);
+    setOpeningDocumentId(null);
+    if (error || !blob) {
+      toast.error(contractUi('pdfCouldNotOpenSecurely', uiLanguage));
+      return;
+    }
+    showPdfBlob(blob, contractUi('currentCombinedContract', uiLanguage), document.file_name);
   };
 
   useEffect(() => {
@@ -1985,39 +2082,14 @@ export default function ContractsPage() {
       }
     }
 
-    const legalSections = renderGuidedContractSections({
-      companyName: form.dealerName,
-      partnerType: form.partnerType,
-      primaryTerritory: form.primaryTerritory,
-      secondaryTerritory: form.secondaryTerritory,
-      serviceHourlyRateDkk: form.serviceHourlyRateDkk,
-      paymentTerm: form.paymentTerm,
-      machineDiscountPct: form.machineDiscountPct,
-      equipmentDiscountPct: form.equipmentDiscountPct,
-      sparePartsDiscountPct: form.sparePartsDiscountPct,
-    });
-    const appendices = form.partnerType === 'service_partner'
-      ? {}
-      : {
-          appendix2Paragraphs: renderAppendix2Paragraphs(
-            form.partnerType,
-            getContractDiscountStructure(form.partnerType, form),
-            uiLanguage,
-          ),
-          appendix2ExampleLines: renderAppendix2ExampleLines(uiLanguage),
-        };
     const completedAt = new Date().toISOString();
-    const snapshot = buildContractSnapshot(form, confirmations, {
+    const snapshot = {
+      ...buildCurrentPdfSnapshot('ready_for_signature'),
       contractId: id,
-      contractNumber: contractRecord?.contract_number,
-      workflowStatus: 'ready_for_signature',
-      legalSections,
-      appendices,
       completedGuidedReviewAt: completedAt,
       completedGuidedReviewBy: effectiveUser?.display_name || effectiveUser?.email || form.timanSellerName,
       completedGuidedReviewByEmail: effectiveUser?.email || form.timanSellerEmail,
-      expectedSignedPages: 1,
-    });
+    };
     setReviewCompletionBusy(true);
     setReviewCompletionError(null);
     const { row, error } = await completeDealerContractGuidedReview({
@@ -2096,7 +2168,7 @@ export default function ContractsPage() {
       dealerAccountNumber: contractRecord?.dealer_account_number,
       language,
       mode: readiness.productionReady ? 'final' : 'draft',
-      documentVersion: 1,
+      documentVersion: Math.max(0, ...documentVersions.map((document) => document.document_version)) + 1,
     });
     const documentHash = await sha256Hex(generated.blob);
     const prepared = await prepareDealerContractDocument({
@@ -2135,12 +2207,7 @@ export default function ContractsPage() {
     setContractRecord(marked.row);
     setFinalSnapshot(marked.row.final_snapshot ?? snapshot);
 
-    const url = URL.createObjectURL(generated.blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = generated.fileName;
-    link.click();
-    URL.revokeObjectURL(url);
+    showPdfBlob(generated.blob, contractUi('currentCombinedContract', uiLanguage), generated.fileName);
     toast.success(contractUi('pdfGeneratedAwaitingUpload', uiLanguage, {
       pageCount: generated.pageCount,
       hash: `${documentHash.slice(0, 12)}...`,
@@ -2513,6 +2580,12 @@ export default function ContractsPage() {
                   readyForSignature={readyForSignature}
                   locked={isLockedContract}
                   snapshot={isLockedContract ? finalSnapshot : null}
+                  contract={contractRecord}
+                  documentVersions={documentVersions}
+                  previewBusy={pdfViewerBusy}
+                  openingDocumentId={openingDocumentId}
+                  onOpenPreview={openPdfPreview}
+                  onOpenDocument={openStoredPdf}
                 />
                 {activeStep.id === 'full_contract' && !isHistoricalReadOnly && (
                   <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
@@ -2545,6 +2618,10 @@ export default function ContractsPage() {
                 signatureName={signatureName}
                 onSignatureUpload={handleSignatureUpload}
                 onGeneratePdf={generatePdf}
+                onOpenPreview={openPdfPreview}
+                onOpenDocument={openStoredPdf}
+                previewBusy={pdfViewerBusy}
+                openingDocumentId={openingDocumentId}
                 locked={isLockedContract}
                 workflowStatus={workflowStatus}
                 contract={contractRecord}
@@ -2590,6 +2667,7 @@ export default function ContractsPage() {
       </main>
 
       <PortalFooter language={lang} />
+      <ContractPdfViewerDialog viewer={pdfViewer} onClose={closePdfViewer} />
     </div>
   );
 }
@@ -3459,6 +3537,12 @@ function ReviewStep({
   readyForSignature,
   locked,
   snapshot,
+  contract,
+  documentVersions,
+  previewBusy,
+  openingDocumentId,
+  onOpenPreview,
+  onOpenDocument,
 }: {
   stepId: ContractStepId;
   confirmationId?: string;
@@ -3472,6 +3556,12 @@ function ReviewStep({
   readyForSignature: boolean;
   locked?: boolean;
   snapshot?: ContractSnapshot | null;
+  contract?: DealerContractRecord | null;
+  documentVersions?: DealerContractDocumentVersion[];
+  previewBusy?: boolean;
+  openingDocumentId?: string | null;
+  onOpenPreview?: () => void;
+  onOpenDocument?: (document: DealerContractDocumentVersion) => void;
 }) {
   const { uiLanguage } = useLanguage();
   const fullContract = stepId === 'full_contract';
@@ -3508,6 +3598,12 @@ function ReviewStep({
           form={form}
           workflowStatusLabel={workflowStatusLabel}
           readyForSignature={readyForSignature}
+          contract={contract}
+          documentVersions={documentVersions}
+          previewBusy={previewBusy}
+          openingDocumentId={openingDocumentId}
+          onOpenPreview={onOpenPreview}
+          onOpenDocument={onOpenDocument}
         />
       )}
 
@@ -4914,6 +5010,10 @@ function SignatureStep({
   signatureName,
   onSignatureUpload,
   onGeneratePdf,
+  onOpenPreview,
+  onOpenDocument,
+  previewBusy,
+  openingDocumentId,
   locked,
   workflowStatus,
   contract,
@@ -4934,6 +5034,10 @@ function SignatureStep({
   signatureName: string;
   onSignatureUpload: (file: File | undefined) => void;
   onGeneratePdf: () => void;
+  onOpenPreview: () => void;
+  onOpenDocument: (document: DealerContractDocumentVersion) => void;
+  previewBusy: boolean;
+  openingDocumentId: string | null;
   locked: boolean;
   workflowStatus: ContractWorkflowStatus;
   contract: DealerContractRecord | null;
@@ -4965,6 +5069,10 @@ function SignatureStep({
         readyForSignature={readyForSignature}
         contract={contract}
         documentVersions={documentVersions}
+        previewBusy={previewBusy}
+        openingDocumentId={openingDocumentId}
+        onOpenPreview={onOpenPreview}
+        onOpenDocument={onOpenDocument}
       />
 
       {!readyForSignature && (
@@ -5408,12 +5516,20 @@ function ContractReviewTopArea({
   readyForSignature,
   contract,
   documentVersions,
+  previewBusy,
+  openingDocumentId,
+  onOpenPreview,
+  onOpenDocument,
 }: {
   form: ContractFormData;
   workflowStatusLabel: string;
   readyForSignature: boolean;
   contract?: DealerContractRecord | null;
   documentVersions?: DealerContractDocumentVersion[];
+  previewBusy?: boolean;
+  openingDocumentId?: string | null;
+  onOpenPreview?: () => void;
+  onOpenDocument?: (document: DealerContractDocumentVersion) => void;
 }) {
   const availableDocuments = documentVersions ?? [];
   return (
@@ -5421,7 +5537,15 @@ function ContractReviewTopArea({
       <ContractSummary form={form} />
       <aside className="space-y-4">
         <ContractStatusCard status={workflowStatusLabel} readyForSignature={readyForSignature} />
-        <DocumentList contract={contract ?? null} form={form} documentVersions={availableDocuments} />
+        <DocumentList
+          contract={contract ?? null}
+          form={form}
+          documentVersions={availableDocuments}
+          previewBusy={Boolean(previewBusy)}
+          openingDocumentId={openingDocumentId ?? null}
+          onOpenPreview={onOpenPreview}
+          onOpenDocument={onOpenDocument}
+        />
       </aside>
     </div>
   );
@@ -5447,10 +5571,32 @@ function ContractStatusCard({ status, readyForSignature }: { status: string; rea
   );
 }
 
-function DocumentList({ contract, form, documentVersions }: { contract: DealerContractRecord | null; form: ContractFormData; documentVersions: DealerContractDocumentVersion[] }) {
+function DocumentList({
+  contract,
+  form,
+  documentVersions,
+  previewBusy,
+  openingDocumentId,
+  onOpenPreview,
+  onOpenDocument,
+}: {
+  contract: DealerContractRecord | null;
+  form: ContractFormData;
+  documentVersions: DealerContractDocumentVersion[];
+  previewBusy: boolean;
+  openingDocumentId: string | null;
+  onOpenPreview?: () => void;
+  onOpenDocument?: (document: DealerContractDocumentVersion) => void;
+}) {
   const { uiLanguage } = useLanguage();
   const language = (contract?.final_snapshot?.contractLanguage ?? form.contractLanguage ?? 'da') as ContractDocumentLanguage;
   const readiness = getContractPdfLanguageReadiness(language);
+  const currentDocument = documentVersions.find((document) => document.status === 'final')
+    ?? documentVersions.find((document) => document.status === 'draft')
+    ?? null;
+  const previousDocuments = currentDocument
+    ? documentVersions.filter((document) => document.id !== currentDocument.id)
+    : [];
   return (
     <aside className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
       <div className="flex items-center gap-2 mb-4">
@@ -5465,21 +5611,99 @@ function DocumentList({ contract, form, documentVersions }: { contract: DealerCo
       </div>
       {!readiness.productionReady && <p className="mt-3 text-xs leading-5 text-amber-800">{readiness.reason} {contractUi('finalPdfBlocked', uiLanguage)}</p>}
       {contract?.pdf_generated_at && <p className="mt-3 text-xs text-gray-500">{contractUi('latestPdfGenerated', uiLanguage, { date: formatDateTimeDa(contract.pdf_generated_at, uiLanguage) })}</p>}
-      {documentVersions.length > 0 && (
-        <div className="mt-4 space-y-2">
-          {documentVersions.map((document) => (
-            <div key={document.id} className="rounded-xl border border-gray-200 px-3 py-2 text-xs text-gray-700">
-              <p className="font-bold">{contractUi('version', uiLanguage)} {document.document_version} · {document.document_kind === 'final' ? contractUi('finalDocument', uiLanguage) : contractUi('draftDocument', uiLanguage)} · {contractUi('documentPages', uiLanguage, { count: document.page_count ?? '-' })}</p>
-              <p className="mt-1 truncate text-gray-500">SHA-256: {document.sha256 ?? '-'}</p>
-              {document.signed_url && <a href={document.signed_url} target="_blank" rel="noreferrer" className="mt-2 inline-flex font-bold text-emerald-800 hover:underline">{contractUi('openPdf', uiLanguage)}</a>}
-            </div>
-          ))}
-        </div>
+      <div className="mt-4 rounded-xl border border-emerald-200 bg-white p-4">
+        <p className="text-sm font-bold text-gray-950">
+          {currentDocument ? contractUi('currentCombinedContract', uiLanguage) : contractUi('pdfPreview', uiLanguage)}
+        </p>
+        {currentDocument ? (
+          <>
+            <p className="mt-1 text-xs text-gray-500">
+              {contractUi('version', uiLanguage)} {currentDocument.document_version} · {contractUi('documentPages', uiLanguage, { count: currentDocument.page_count ?? '-' })}
+            </p>
+            <button
+              type="button"
+              onClick={() => onOpenDocument?.(currentDocument)}
+              disabled={!onOpenDocument || openingDocumentId === currentDocument.id}
+              className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
+              <Eye className="h-4 w-4" />
+              {contractUi('openPdf', uiLanguage)}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenPreview}
+            disabled={!onOpenPreview || previewBusy}
+            className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-700 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-300"
+          >
+            <Eye className="h-4 w-4" />
+            {contractUi('openPdfPreview', uiLanguage)}
+          </button>
+        )}
+      </div>
+      {previousDocuments.length > 0 && (
+        <details className="group mt-4 rounded-xl border border-gray-200 bg-gray-50">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-bold text-gray-800">
+            <span>{contractUi('showDocumentHistory', uiLanguage)} · {previousDocuments.length}</span>
+            <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
+          </summary>
+          <div className="space-y-2 border-t border-gray-200 p-3">
+            <p className="px-1 text-xs font-bold uppercase tracking-wide text-gray-500">{contractUi('previousVersions', uiLanguage)}</p>
+            {previousDocuments.map((document) => (
+              <div key={document.id} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-700">
+                <p className="font-bold">{contractUi('version', uiLanguage)} {document.document_version} · {document.document_kind === 'final' ? contractUi('finalDocument', uiLanguage) : contractUi('draftDocument', uiLanguage)} · {contractUi('documentPages', uiLanguage, { count: document.page_count ?? '-' })}</p>
+                <p className="mt-1 truncate text-gray-500">SHA-256: {document.sha256 ?? '-'}</p>
+                <button
+                  type="button"
+                  onClick={() => onOpenDocument?.(document)}
+                  disabled={!onOpenDocument || openingDocumentId === document.id}
+                  className="mt-2 inline-flex font-bold text-emerald-800 hover:underline disabled:text-gray-400"
+                >
+                  {contractUi('openPdf', uiLanguage)}
+                </button>
+              </div>
+            ))}
+          </div>
+        </details>
       )}
       <div className="mt-4 rounded-xl border border-dashed border-gray-200 px-4 py-3 text-xs leading-5 text-gray-500">
         {contractUi('stepElevenArchiveHelp', uiLanguage)}
       </div>
     </aside>
+  );
+}
+
+function ContractPdfViewerDialog({
+  viewer,
+  onClose,
+}: {
+  viewer: { url: string; title: string; fileName: string } | null;
+  onClose: () => void;
+}) {
+  const { uiLanguage } = useLanguage();
+  if (!viewer) return null;
+  return (
+    <div className="fixed inset-0 z-[100] flex flex-col bg-gray-950/80 p-2 sm:p-5" role="dialog" aria-modal="true" aria-label={viewer.title}>
+      <div className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-3 py-2 sm:px-4">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-gray-950">{viewer.title}</p>
+            <p className="truncate text-xs text-gray-500">{viewer.fileName}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-600 hover:bg-gray-100"
+            aria-label={contractUi('closePdfViewer', uiLanguage)}
+            title={contractUi('closePdfViewer', uiLanguage)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <iframe src={viewer.url} title={viewer.title} className="min-h-0 w-full flex-1 bg-gray-100" />
+      </div>
+    </div>
   );
 }
 

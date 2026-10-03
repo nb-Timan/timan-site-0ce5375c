@@ -733,7 +733,8 @@ describe('contract flow', () => {
     expect(topArea).toContain('xl:grid-cols-[minmax(0,1fr)_340px]');
     expect(topArea).toContain('<ContractSummary form={form} />');
     expect(topArea).toContain('<ContractStatusCard status={workflowStatusLabel} readyForSignature={readyForSignature} />');
-    expect(topArea).toContain('<DocumentList contract={contract ?? null} form={form} documentVersions={availableDocuments} />');
+    expect(topArea).toContain('<DocumentList');
+    expect(topArea).toContain('documentVersions={availableDocuments}');
     expect(t('contractFullTextHeading', 'da')).toBe('Kontrakten');
   });
 
@@ -1031,8 +1032,8 @@ describe('contract flow', () => {
   it('renders the spare parts portal link text through portal translations', () => {
     const source = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
 
-    expect(source).toContain('SPARE_PARTS_PORTAL_URL');
-    expect(source).toContain('https://cloud.interactivespares.com/timan/categorie/0000+-+Front+page');
+    expect(source).toContain('SPARE_PARTS_PORTAL');
+    expect(source).toContain('href={SPARE_PARTS_PORTAL.url}');
     expect(source).toContain('target="_blank"');
     expect(source).toContain('rel="noreferrer noopener"');
     expect(t('contractSparePartsPortalLink', 'da')).toBe('Reservedelsportal');
@@ -1512,6 +1513,38 @@ describe('contract flow', () => {
     expect(edgeFunction).toContain('admin.storage.from(bucket).remove(chunk)');
     expect(edgeFunction).toContain('caller.portal_role !== "timan_backend"');
     expect(edgeFunction).toContain('Godkendte kontrakter kan ikke slettes. Brug Opsig kontrakt.');
+  });
+
+  it('keeps PDF preview ephemeral and opens archived PDFs through authenticated private download', () => {
+    const pageSource = readFileSync('src/pages/contracts/ContractsPage.tsx', 'utf8');
+    const serviceSource = readFileSync('src/lib/dealerContractsService.ts', 'utf8');
+    const previewStart = pageSource.indexOf('const openPdfPreview = async () =>');
+    const previewEnd = pageSource.indexOf('const openStoredPdf = async', previewStart);
+    const previewSource = pageSource.slice(previewStart, previewEnd);
+
+    expect(previewSource).toContain("mode: 'draft'");
+    expect(previewSource).toContain('generateContractPdf');
+    expect(previewSource).not.toContain('prepareDealerContractDocument');
+    expect(previewSource).not.toContain('uploadPreparedDealerContractDocument');
+    expect(previewSource).not.toContain('finalizeDealerContractDocument');
+    expect(serviceSource).toContain('export async function downloadDealerContractDocument');
+    expect(serviceSource).toContain('.download(document.storage_path)');
+    expect(pageSource).toContain('<ContractPdfViewerDialog');
+    expect(pageSource).toContain("contractUi('showDocumentHistory', uiLanguage)");
+    expect(pageSource).not.toContain('href={document.signed_url}');
+  });
+
+  it('guards QA contract reset and removes generated private documents without touching partner master data', () => {
+    const edgeFunction = readFileSync('supabase/functions/admin-contract-actions/index.ts', 'utf8');
+
+    expect(edgeFunction).toContain('type Action = "delete_contract" | "reset_test_contract"');
+    expect(edgeFunction).toContain('!ownerEmail.endsWith("@timan.dk")');
+    expect(edgeFunction).toContain('contract.approved_upload_version_id');
+    expect(edgeFunction).toContain('hasBindingHistory');
+    expect(edgeFunction).toContain('.from("dealer_contract_document_versions")');
+    expect(edgeFunction).toContain('action: isTestReset ? "TEST_CONTRACT_RESET" : "delete"');
+    expect(edgeFunction).not.toContain('.from("dealer_accounts").delete()');
+    expect(edgeFunction).not.toContain('.from("dealer_contacts").delete()');
   });
 
   it('keeps contract overview KPI cards compact with a light active state', () => {

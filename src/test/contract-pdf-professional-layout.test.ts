@@ -5,7 +5,7 @@ import {
   EMPTY_CONTRACT_CONFIRMATIONS,
   type ContractFormData,
 } from '@/lib/contractFlow';
-import { getSnapshotLegalSections } from '@/lib/contractPdfDocument';
+import { getContractPdfMapFrame, getSnapshotLegalSections } from '@/lib/contractPdfDocument';
 import {
   buildContractPdfPresentation,
   getContractPdfLegalContent,
@@ -102,6 +102,27 @@ describe('professional partner agreement PDF presentation', () => {
     expect(maps[0].features).toHaveLength(1);
     expect(maps[0].features[0]).toMatchObject({ key: 'DK', selected: true });
     expect(maps[0].attribution).toContain('Natural Earth');
+  });
+
+  it('preserves geographic map proportions instead of stretching longitude degrees', () => {
+    const frame = getContractPdfMapFrame({
+      variant: 'primary',
+      title: 'QA map',
+      attribution: 'QA',
+      features: [{
+        key: 'QA',
+        selected: true,
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[10, 60], [11, 60], [11, 61], [10, 61], [10, 60]]],
+        },
+      }],
+    });
+
+    expect(frame.aspectRatio).toBeGreaterThan(0.45);
+    expect(frame.aspectRatio).toBeLessThan(0.55);
+    expect(frame.width).toBeLessThan(100);
+    expect(frame.height).toBe(70);
   });
 
   it('keeps detailed historical geometry tied to the saved municipality IDs', async () => {

@@ -768,6 +768,13 @@ export async function addSignedUrlsToDocumentVersions(rows: DealerContractDocume
   }));
 }
 
+export async function downloadDealerContractDocument(document: DealerContractDocumentVersion) {
+  const { data, error } = await supabase.storage
+    .from(document.storage_bucket)
+    .download(document.storage_path);
+  return { blob: data ?? null, error: error?.message ?? null };
+}
+
 export async function prepareDealerContractDocument(input: {
   contractId: string;
   documentKind: 'draft' | 'final';
@@ -1040,6 +1047,31 @@ export async function deleteDealerContract(contractId: string): Promise<{ delete
     return { deleted: false, error: serverMsg ?? error.message };
   }
   if (!data?.ok) return { deleted: false, error: data?.error ?? "Kontrakten kunne ikke slettes." };
+  return { deleted: true, error: null };
+}
+
+export async function resetDealerContractTestData(contractId: string): Promise<{ deleted: boolean; error: string | null }> {
+  const { data, error } = await supabase.functions.invoke("admin-contract-actions", {
+    body: {
+      action: "reset_test_contract",
+      contract_id: contractId,
+    },
+  });
+
+  if (error) {
+    let serverMsg: string | null = null;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === "function") {
+        const body = await ctx.json();
+        serverMsg = body?.error ?? null;
+      }
+    } catch {
+      /* ignore */
+    }
+    return { deleted: false, error: serverMsg ?? error.message };
+  }
+  if (!data?.ok) return { deleted: false, error: data?.error ?? "QA-kontrakten kunne ikke nulstilles." };
   return { deleted: true, error: null };
 }
 

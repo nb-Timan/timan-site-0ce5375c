@@ -234,6 +234,34 @@ function simplifyRing(points: readonly GeoJSON.Position[], maxPoints = 320) {
   return simplified;
 }
 
+function getContractPdfMapBounds(model: ContractPdfMapModel) {
+  const coordinates = model.features.flatMap((feature) => geometryRings(feature.geometry)).flat();
+  if (!coordinates.length) return null;
+  const latitudes = coordinates.map((position) => Number(position[1]));
+  const middleLatitude = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
+  const longitudeScale = Math.max(0.1, Math.cos((middleLatitude * Math.PI) / 180));
+  const projected = coordinates.map((position) => [Number(position[0]) * longitudeScale, Number(position[1])] as PdfPoint);
+  return {
+    minX: Math.min(...projected.map(([pointX]) => pointX)),
+    maxX: Math.max(...projected.map(([pointX]) => pointX)),
+    minY: Math.min(...projected.map(([, pointY]) => pointY)),
+    maxY: Math.max(...projected.map(([, pointY]) => pointY)),
+    longitudeScale,
+  };
+}
+
+export function getContractPdfMapFrame(model: ContractPdfMapModel, maxWidth = 174, maxHeight = 70) {
+  const bounds = getContractPdfMapBounds(model);
+  if (!bounds) return { width: maxWidth, height: maxHeight, aspectRatio: maxWidth / maxHeight };
+  const aspectRatio = Math.max((bounds.maxX - bounds.minX) / Math.max(bounds.maxY - bounds.minY, 0.001), 0.1);
+  const contentWidth = Math.min(maxWidth, maxHeight * aspectRatio);
+  return {
+    width: Math.min(maxWidth, Math.max(64, contentWidth + 16)),
+    height: maxHeight,
+    aspectRatio,
+  };
+}
+
 function drawContractTerritoryMap(
   pdf: Pdf,
   model: ContractPdfMapModel,
@@ -243,21 +271,9 @@ function drawContractTerritoryMap(
   height: number,
 ) {
   const rings = model.features.flatMap((feature) => geometryRings(feature.geometry));
-  const coordinates = rings.flat();
-  if (!coordinates.length) return;
-
-  let minX = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  coordinates.forEach((position) => {
-    const longitude = Number(position[0]);
-    const latitude = Number(position[1]);
-    minX = Math.min(minX, longitude);
-    maxX = Math.max(maxX, longitude);
-    minY = Math.min(minY, latitude);
-    maxY = Math.max(maxY, latitude);
-  });
+  const bounds = getContractPdfMapBounds(model);
+  if (!bounds) return;
+  const { minX, maxX, minY, maxY, longitudeScale } = bounds;
   const spanX = Math.max(maxX - minX, 0.001);
   const spanY = Math.max(maxY - minY, 0.001);
   const padding = 4;
@@ -269,7 +285,7 @@ function drawContractTerritoryMap(
   const offsetX = x + padding + (availableWidth - drawnWidth) / 2;
   const offsetY = y + padding + (availableHeight - drawnHeight) / 2;
   const project = (position: GeoJSON.Position): PdfPoint => [
-    offsetX + (Number(position[0]) - minX) * scale,
+    offsetX + (Number(position[0]) * longitudeScale - minX) * scale,
     offsetY + drawnHeight - (Number(position[1]) - minY) * scale,
   ];
 
@@ -509,14 +525,17 @@ export async function generateContractPdf(
 
     if (section.stepId === 'territory') {
       territoryMaps.forEach((map) => {
-        const mapHeight = 70;
+        const mapFrame = getContractPdfMapFrame(map, width, 70);
+        const mapHeight = mapFrame.height;
+        const mapWidth = mapFrame.width;
+        const mapX = left + (width - mapWidth) / 2;
         ensure(mapHeight + 18);
         pdf.setFont('helvetica', 'bold');
         pdf.setFontSize(9.4);
         pdf.setTextColor(17, 24, 39);
         pdf.text(map.title, left, y);
         y += 4;
-        drawContractTerritoryMap(pdf, map, left, y, width, mapHeight);
+        drawContractTerritoryMap(pdf, map, mapX, y, mapWidth, mapHeight);
         y += mapHeight + 3.5;
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(6.8);
