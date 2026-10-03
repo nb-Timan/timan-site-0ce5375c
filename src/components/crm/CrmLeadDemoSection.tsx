@@ -48,18 +48,20 @@ export function CrmLeadDemoSection({ leadId }: { leadId: string }) {
             ['demonstrator', demo.dealer_rep],
           ];
       return <div key={demo.id} className="border-t border-slate-100 py-3 first:border-0">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="font-mono text-xs text-slate-500">{formatDemoNo(demo.demo_no)}</span>
-          <span className="rounded-md bg-violet-50 px-2 py-1 text-xs font-medium text-violet-800">{text(progress)}</span>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-xs text-slate-500">{formatDemoNo(demo.demo_no)}</span>
+            <span className="rounded-md bg-violet-50 px-2 py-1 text-xs font-medium text-violet-800">{text(progress)}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-sm font-medium">
+            {canEdit && progress === 'awaiting' && <Link className="rounded-md bg-emerald-800 px-3 py-2 text-white hover:bg-emerald-900" to={`/portal/crm/demo-leads/${demo.id}?result=1`}>{text('recordResult')}</Link>}
+            <Link className={progress === 'awaiting' ? 'rounded-md border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-50' : 'rounded-md bg-emerald-800 px-3 py-2 text-white hover:bg-emerald-900'} to={`/portal/crm/demo-leads/${demo.id}`}>{text(progress === 'completed' ? 'viewResult' : 'open')}</Link>
+            {canEdit && (progress === 'requested' || progress === 'scheduled') && <Link className="rounded-md border border-slate-300 px-3 py-2 text-slate-700 hover:bg-slate-50" to={`/portal/crm/demo-leads/new?demoId=${demo.id}`}>{text('edit')}</Link>}
+          </div>
         </div>
         {summaryFields.some(([, value]) => Boolean(value)) && <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
           {summaryFields.filter(([, value]) => Boolean(value)).map(([key, value]) => <div key={key}><dt className="text-xs text-slate-500">{text(key)}</dt><dd className="break-words">{value}</dd></div>)}
         </dl>}
-        <div className="mt-4 flex flex-wrap gap-4 text-sm font-medium text-emerald-700">
-          <Link to={`/portal/crm/demo-leads/${demo.id}`}>{text('open')}</Link>
-          {canEdit && (progress === 'requested' || progress === 'scheduled') && <Link to={`/portal/crm/demo-leads/new?demoId=${demo.id}`}>{text('edit')}</Link>}
-          {canEdit && progress === 'awaiting' && <Link to={`/portal/crm/demo-leads/${demo.id}?result=1`}>{text('recordResult')}</Link>}
-        </div>
       </div>;
     })}
   </section>;

@@ -66,12 +66,12 @@ type TKey =
   | 'known_dealer_rep' | 'no_dealer_people' | 'loading_dealer_people';
 
 const T: Record<TKey, Record<Language, string>> = {
-  page_title:    { da: 'Nyt demo lead', en: 'New demo lead', de: 'Neuer Demo-Lead', it: 'Nuovo demo lead', hu: 'Új demo lead' },
+  page_title:    { da: 'Ny demo-registrering', en: 'New demo registration', de: 'Neue Demo-Registrierung', it: 'Nuova registrazione demo', hu: 'Új demóregisztráció' },
   page_sub:      { da: 'Opfølgning efter en gennemført maskindemonstration.', en: 'Follow-up after a completed machine demo.', de: 'Nachbereitung einer durchgeführten Maschinendemo.', it: 'Follow-up dopo una demo macchina completata.', hu: 'Utánkövetés egy elvégzett gép-bemutató után.' },
   back:          { da: 'Tilbage', en: 'Back', de: 'Zurück', it: 'Indietro', hu: 'Vissza' },
   cancel:        { da: 'Annuller', en: 'Cancel', de: 'Abbrechen', it: 'Annulla', hu: 'Mégse' },
   saving:        { da: 'Gemmer…', en: 'Saving…', de: 'Speichert…', it: 'Salvataggio…', hu: 'Mentés…' },
-  save:          { da: 'Gem demo lead', en: 'Save demo lead', de: 'Demo-Lead speichern', it: 'Salva demo lead', hu: 'Demo lead mentése' },
+  save:          { da: 'Gem demo-registrering', en: 'Save demo registration', de: 'Demo-Registrierung speichern', it: 'Salva registrazione demo', hu: 'Demóregisztráció mentése' },
   sec_basic:     { da: 'Grundinformation', en: 'Basic information', de: 'Grundinformationen', it: 'Informazioni di base', hu: 'Alapadatok' },
   sec_demo_type: { da: 'Demo-type', en: 'Demo type', de: 'Demo-Typ', it: 'Tipo di demo', hu: 'Demo típus' },
   sec_demo_type_sub: { da: 'Hvad blev demonstreret', en: 'What was demonstrated', de: 'Was wurde vorgeführt', it: 'Cosa è stato dimostrato', hu: 'Mit mutattak be' },
@@ -118,8 +118,8 @@ const T: Record<TKey, Record<Language, string>> = {
   val_title:     { da: 'Titel er påkrævet', en: 'Title is required', de: 'Titel ist erforderlich', it: 'Il titolo è obbligatorio', hu: 'A cím kötelező' },
   val_seller:    { da: 'Vælg en ansvarlig sælger.', en: 'Select a responsible seller.', de: 'Wählen Sie einen Verkäufer.', it: 'Selezionare un venditore.', hu: 'Válasszon felelős értékesítőt.' },
   val_dealer:    { da: 'Vælg en forhandler.', en: 'Select a dealer.', de: 'Wählen Sie einen Händler.', it: 'Selezionare un rivenditore.', hu: 'Válasszon kereskedőt.' },
-  created_ok:    { da: 'Demo lead oprettet', en: 'Demo lead created', de: 'Demo-Lead erstellt', it: 'Demo lead creato', hu: 'Demo lead létrehozva' },
-  created_err:   { da: 'Kunne ikke oprette demo lead', en: 'Could not create demo lead', de: 'Demo-Lead konnte nicht erstellt werden', it: 'Impossibile creare il demo lead', hu: 'Nem sikerült létrehozni a demo leadet' },
+  created_ok:    { da: 'Demo-registrering oprettet', en: 'Demo registration created', de: 'Demo-Registrierung erstellt', it: 'Registrazione demo creata', hu: 'Demóregisztráció létrehozva' },
+  created_err:   { da: 'Kunne ikke oprette demo-registreringen', en: 'Could not create the demo registration', de: 'Die Demo-Registrierung konnte nicht erstellt werden', it: 'Impossibile creare la registrazione demo', hu: 'A demóregisztráció nem hozható létre' },
   val_demo_type: { da: 'Vælg demo-type.', en: 'Select demo type.', de: 'Demo-Typ auswählen.', it: 'Seleziona il tipo di demo.', hu: 'Válasszon demó típust.' },
   val_demo_machine: { da: 'Vælg mindst én demonstreret maskine.', en: 'Select at least one demonstrated machine.', de: 'Wählen Sie mindestens eine vorgeführte Maschine.', it: 'Seleziona almeno una macchina dimostrata.', hu: 'Válasszon legalább egy bemutatott gépet.' },
   val_demo_equipment: { da: 'Vælg mindst ét demonstreret udstyr.', en: 'Select at least one demonstrated equipment item.', de: 'Wählen Sie mindestens ein vorgeführtes Zubehör.', it: 'Seleziona almeno un accessorio dimostrato.', hu: 'Válasszon legalább egy bemutatott eszközt.' },
@@ -326,6 +326,12 @@ const additionalCopy: Partial<Record<TKey, readonly string[]>> = {
     "Ouvrir le prospect",
     "Otwórz lead",
     "Otevřít lead"
+  ],
+  "created_ok": [
+    "Demo-registrering skapad",
+    "Enregistrement de démo créé",
+    "Utworzono rejestrację demonstracji",
+    "Registrace ukázky vytvořena"
   ],
   "created_err": [
     "Det gick inte att spara demon",
@@ -884,12 +890,12 @@ export default function CrmNewDemoLeadPage() {
   if (editUnavailable) return <CrmLayout pageTitle={demoFlowText('demo', uiLanguage)}><p role="alert">{demoFlowText('unavailable', uiLanguage)}</p></CrmLayout>;
 
   return (
-    <CrmLayout pageTitle={demoFlowText(editingDemoId ? 'edit' : 'plan', uiLanguage)}>
+    <CrmLayout pageTitle={demoFlowText(editingDemoId ? 'edit' : 'newRegistration', uiLanguage)}>
       <div className="max-w-5xl mx-auto">
         {repository.academy && <AcademyCrmGuidance part={academyPart} />}
         <div className="mb-5">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{demoFlowText(editingDemoId ? 'edit' : 'plan', uiLanguage)}</h2>
+            <h2 className="text-xl font-semibold text-gray-900">{demoFlowText(editingDemoId ? 'edit' : 'newRegistration', uiLanguage)}</h2>
 
           </div>
         </div>
@@ -1276,7 +1282,13 @@ export default function CrmNewDemoLeadPage() {
           </Section>
 
           <div className="sticky bottom-4 flex items-center justify-end gap-3 bg-white/90 backdrop-blur rounded-2xl border border-gray-100 shadow-sm p-3 mt-6">
-            <Link to="/portal/crm/demo-leads" className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', uiLanguage)}</Link>
+            <Link to={repository.academy
+              ? sourceLeadId
+                ? `/academy/crm/leads/${sourceLeadId}?academy_mode=true&academy_part=${academyPart}`
+                : `/academy/crm/leads?academy_mode=true&academy_part=${academyPart}`
+              : sourceLeadId
+                ? `/portal/crm/leads/${sourceLeadId}`
+                : '/portal/crm/leads?type=demo'} className="px-4 py-2.5 text-sm text-gray-600 hover:text-gray-900">{tt('cancel', uiLanguage)}</Link>
             <button type="submit" disabled={submitting}
               className="inline-flex items-center gap-2 rounded-xl bg-[#2d5a27] hover:bg-[#234820] disabled:opacity-60 text-white text-sm font-medium px-5 py-2.5 shadow-sm transition">
               <Save className="h-4 w-4" />

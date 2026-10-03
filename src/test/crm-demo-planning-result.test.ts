@@ -20,7 +20,7 @@ describe('demo planning is independent of results', () => {
   });
   it('localizes the new flow in all nine portal languages', () => {
     for (const { code: language } of PORTAL_LANGUAGES) {
-      for (const key of ['plan','empty','date','awaiting','completed','recordResult','interest','wantsOffer','followup','competitors','notesAfter','result'] as const) {
+      for (const key of ['newRegistration','plan','empty','date','awaiting','completed','recordResult','viewResult','backToLead','interest','wantsOffer','followup','competitors','notesAfter','result'] as const) {
         expect(demoFlowText(key, language)).not.toBe(key);
         expect(demoFlowText(key, language)).toBeTruthy();
       }

@@ -76,7 +76,7 @@ export default function DemoStatsSection() {
             </p>
           </div>
         </div>
-        <Link to="/portal/crm/demo-leads" className="text-xs text-gray-600 hover:text-[#2d5a27] inline-flex items-center gap-1">
+        <Link to="/portal/crm/leads?type=demo" className="text-xs text-gray-600 hover:text-[#2d5a27] inline-flex items-center gap-1">
           Se alle demoer <ChevronRight className="h-3.5 w-3.5" />
         </Link>
       </header>

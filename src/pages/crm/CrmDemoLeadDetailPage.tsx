@@ -73,6 +73,7 @@ export default function CrmDemoLeadDetailPage() {
   return <CrmLayout pageTitle={text('demo')}>
     <div className="mx-auto max-w-5xl">
       {loading ? <p>{text('loading')}</p> : !demo ? <p role="alert">{text('unavailable')}</p> : <>
+        {demo.source_lead_id && <Link className="mb-3 inline-flex text-sm font-medium text-emerald-800 hover:underline" to={`/portal/crm/leads/${demo.source_lead_id}#lead-demo`}>← {text('backToLead')}</Link>}
         <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
           <div><p className="font-mono text-xs text-slate-500">{formatDemoNo(demo.demo_no)}</p><h2 className="text-xl font-semibold">{demo.title}</h2></div>
           <span className="rounded-md bg-violet-50 px-3 py-1 text-sm text-violet-800">{text(progress)}</span>
@@ -84,7 +85,6 @@ export default function CrmDemoLeadDetailPage() {
           {field('attachments', (demo.attachments || []).map(file => file.name).join(', ') || null)}
         </dl>
         <div className="my-5 flex flex-wrap gap-4 text-sm font-medium text-emerald-700">
-          {demo.source_lead_id && <Link to={`/portal/crm/leads/${demo.source_lead_id}#lead-demo`}>CRM</Link>}
           {canEdit && demo.source_lead_id && !demo.completed_at && <Link to={`/portal/crm/demo-leads/new?demoId=${demo.id}`}>{text('edit')}</Link>}
           {canRecord && !editingResult && <button type="button" onClick={() => setParams({result: '1'})}>{text('recordResult')}</button>}
         </div>

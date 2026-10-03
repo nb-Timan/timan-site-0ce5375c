@@ -1545,6 +1545,10 @@ export default function CrmNewLeadPage() {
           </div>
         </div>
 
+        {isEdit && editId && !repository.academy && (
+          <CrmLeadDemoSection leadId={editId} />
+        )}
+
         {loadingLead ? (
           <p className="text-sm text-gray-500 p-8">{tt('loading', lang)}</p>
         ) : (
@@ -1999,10 +2003,6 @@ export default function CrmNewLeadPage() {
             </Field>
             {/* Pipeline-stage is no longer manually editable — derived from Næste aktivitet. */}
           </Section>
-
-          {isEdit && editId && !repository.academy && (
-            <CrmLeadDemoSection leadId={editId} />
-          )}
 
           {isEdit && editId && !repository.academy && (
             <section className="mb-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
