@@ -1,13 +1,13 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-const mocks = vi.hoisted(() => ({ list: vi.fn(), getDemo: vi.fn(), getLead: vi.fn(), saveResult: vi.fn(), role: 'timan_seller' }));
+const mocks = vi.hoisted(() => ({ list: vi.fn(), getDemo: vi.fn(), getLead: vi.fn(), saveResult: vi.fn(), role: 'timan_seller', language: 'da' }));
 vi.mock('@/lib/crmLeadsService', () => ({
   listDemoLeadsForSource: mocks.list, formatDemoNo: (no: number) => `D-${no}`,
   getCrmDemo: mocks.getDemo, getLead: mocks.getLead, saveCrmDemoResult: mocks.saveResult,
   DEMO_RESULT_STATUS: ['Warm lead'],
 }));
-vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ uiLanguage: 'da' }) }));
+vi.mock('@/context/LanguageContext', () => ({ useLanguage: () => ({ uiLanguage: mocks.language }) }));
 vi.mock('@/context/AppUserContext', () => ({ useAppUser: () => ({ appUser: {} }) }));
 vi.mock('@/lib/viewAsUser', () => ({ useEffectivePortalUserState: () => ({ effectiveUser: { id: 'seller-a', portal_role: mocks.role }, resolving: false }) }));
 vi.mock('@/lib/resolveSellerId', () => ({ resolveSellerId: vi.fn().mockResolvedValue('seller-a') }));
@@ -17,7 +17,7 @@ import CrmDemoLeadDetailPage from '@/pages/crm/CrmDemoLeadDetailPage';
 import CrmDemoLeadsPage from '@/pages/crm/CrmDemoLeadsPage';
 
 describe('one canonical lead demo section', () => {
-  beforeEach(() => { vi.clearAllMocks(); mocks.list.mockResolvedValue([]); mocks.role = 'timan_seller'; });
+  beforeEach(() => { vi.clearAllMocks(); mocks.list.mockResolvedValue([]); mocks.role = 'timan_seller'; mocks.language = 'da'; });
   afterEach(cleanup);
   it('offers one planning entry when no demo exists and does not mutate on open', async () => {
     render(<MemoryRouter><CrmLeadDemoSection leadId="lead-a" /></MemoryRouter>);
@@ -45,22 +45,42 @@ describe('one canonical lead demo section', () => {
     expect(screen.queryByText('Mangler demo-registrering')).not.toBeInTheDocument();
   });
   it('a past date offers results without inventing completion', async () => {
-    mocks.list.mockResolvedValue([{id:'demo-a',demo_date:'2020-01-01',demo_equipment:[]}]);
+    mocks.list.mockResolvedValue([{id:'demo-a',demo_no:8028,demo_date:'2020-01-01',dealer_company:'Kobatec GmbH',demo_equipment:[]}]);
     render(<MemoryRouter><CrmLeadDemoSection leadId="lead-a" /></MemoryRouter>);
     expect(await screen.findByText('Afventer demo-resultat')).toBeInTheDocument();
+    expect(screen.getByText('D-8028')).toBeInTheDocument();
     expect(screen.getByRole('link',{name:'Registrér demo-resultat'})).toHaveAttribute('href','/portal/crm/demo-leads/demo-a?result=1');
-    expect(screen.queryByRole('link',{name:'Redigér demo'})).not.toBeInTheDocument();
+    expect(screen.getByRole('link',{name:'Redigér demo'})).toHaveAttribute('href','/portal/crm/demo-leads/new?demoId=demo-a');
+    expect(screen.queryByText('Kundens interesse')).not.toBeInTheDocument();
+    expect(screen.queryByText('Konkurrenter til stede')).not.toBeInTheDocument();
     expect(screen.queryByText('Demo afholdt')).not.toBeInTheDocument();
   });
-  it('completion is explicit and renders a compact date and dealer summary', async () => {
-    mocks.list.mockResolvedValue([{id:'demo-a',demo_date:'2026-09-28',completed_at:'2026-09-28',dealer_company:'Kobatec GmbH',result_status:'Warm lead',demo_equipment:[]}]);
+  it('completion renders the canonical result summary and both demo actions', async () => {
+    mocks.list.mockResolvedValue([{id:'demo-a',demo_no:8028,demo_date:'2026-09-28',completed_at:'2026-09-28',dealer_company:'Kobatec GmbH',interest_level:4,competitors_present:'yes',result_status:'Warm lead',demo_equipment:[]}]);
     render(<MemoryRouter><CrmLeadDemoSection leadId="lead-a" /></MemoryRouter>);
+    expect(await screen.findByText('D-8028')).toBeInTheDocument();
     expect(await screen.findByText('Demo kørt 28-09-2026 · Kobatec GmbH')).toBeInTheDocument();
+    expect(screen.getByText('Kundens interesse')).toBeInTheDocument();
+    expect(screen.getByText('4/5')).toBeInTheDocument();
+    expect(screen.getByText('Konkurrenter til stede')).toBeInTheDocument();
+    expect(screen.getByText('Ja')).toBeInTheDocument();
     expect(screen.queryByText('Interesseret lead')).not.toBeInTheDocument();
     expect(screen.getByRole('link',{name:'Åbn demo'})).toHaveAttribute('href','/portal/crm/demo-leads/demo-a');
-    expect(screen.queryByRole('link',{name:'Redigér demo'})).not.toBeInTheDocument();
+    expect(screen.getByRole('link',{name:'Redigér demo'})).toHaveAttribute('href','/portal/crm/demo-leads/new?demoId=demo-a');
     expect(screen.queryByRole('link',{name:'Registrér demo-resultat'})).not.toBeInTheDocument();
     expect(screen.queryByRole('link',{name:'Planlæg demo'})).not.toBeInTheDocument();
+  });
+
+  it('reloads changed date, dealer and result values from the canonical demo record', async () => {
+    mocks.list.mockResolvedValueOnce([{id:'demo-a',demo_no:8028,demo_date:'2026-09-28',completed_at:'2026-09-28',dealer_company:'Kobatec GmbH',interest_level:4,competitors_present:'yes',demo_equipment:[]}]);
+    render(<MemoryRouter><CrmLeadDemoSection leadId="lead-a" /></MemoryRouter>);
+    expect(await screen.findByText('Demo kørt 28-09-2026 · Kobatec GmbH')).toBeInTheDocument();
+    cleanup();
+    mocks.list.mockResolvedValueOnce([{id:'demo-a',demo_no:8028,demo_date:'2026-09-30',completed_at:'2026-09-28',dealer_company:'Updated Dealer',interest_level:5,competitors_present:'no',demo_equipment:[]}]);
+    render(<MemoryRouter><CrmLeadDemoSection leadId="lead-a" /></MemoryRouter>);
+    expect(await screen.findByText('Demo kørt 30-09-2026 · Updated Dealer')).toBeInTheDocument();
+    expect(screen.getByText('5/5')).toBeInTheDocument();
+    expect(screen.getByText('Nej')).toBeInTheDocument();
   });
 });
 
@@ -68,6 +88,7 @@ describe('progressive demo result disclosure', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.role = 'timan_seller';
+    mocks.language = 'da';
     mocks.getLead.mockResolvedValue({ next_followup_date: '2026-10-20' });
     mocks.saveResult.mockImplementation(async (_id, result) => ({
       id: 'demo-a', demo_no: 8000, title: 'TEST', source_lead_id: 'lead-a', demo_date: '2020-01-01',
@@ -128,6 +149,17 @@ describe('progressive demo result disclosure', () => {
     }, expect.any(String));
     expect(await screen.findByText('4/5')).toBeInTheDocument();
     expect(screen.getByText('Ja')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Redigér resultat' })).toBeInTheDocument();
+  });
+
+  it('keeps operational demo editing separate from result editing after completion', async () => {
+    mocks.getDemo.mockResolvedValue({
+      id: 'demo-a', demo_no: 8028, title: 'TEST', source_lead_id: 'lead-a', demo_date: '2026-09-28',
+      demo_machine: 'RC-1000s', demo_equipment: [], attachments: [], completed_at: '2026-09-28',
+      interest_level: 4, competitors_present: 'yes',
+    });
+    renderDetail();
+    expect(await screen.findByRole('link', { name: 'Redigér demo' })).toHaveAttribute('href', '/portal/crm/demo-leads/new?demoId=demo-a');
     expect(screen.getByRole('button', { name: 'Redigér resultat' })).toBeInTheDocument();
   });
 });

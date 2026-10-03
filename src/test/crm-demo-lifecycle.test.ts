@@ -121,10 +121,21 @@ describe('canonical lead → demo lifecycle', () => {
   it('localizes the simplified result flow in every portal language', () => {
     const languages: PortalUiLanguage[] = ['da', 'en', 'de', 'it', 'hu', 'sv', 'fr', 'pl', 'cs'];
     for (const language of languages) {
-      for (const key of ['demoRun', 'editResult', 'resultRegistered', 'notSpecified'] as const) {
+      for (const key of ['demoRun', 'open', 'edit', 'recordResult', 'editResult', 'interestSummary', 'competitorsSummary', 'yes', 'no'] as const) {
         expect(demoFlowText(key, language)).toBeTruthy();
+        expect(demoFlowText(key, language)).not.toBe(key);
       }
     }
+  });
+
+  it('allows completed operational edits without changing result or completion fields', () => {
+    const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20261003221848_allow_completed_demo_operational_edits.sql'), 'utf8');
+    const operationalUpdate = sql.match(/update crm_demo_leads set[\s\S]*?where id=p_demo_id returning \* into demo;/)?.[0] ?? '';
+    expect(sql).not.toContain('DEMO_ALREADY_COMPLETED');
+    expect(sql).toContain('security invoker');
+    expect(operationalUpdate).toContain("demo_date=(payload->>'demo_date')::date");
+    expect(operationalUpdate).toContain('dealer_account_id=dealer.id');
+    expect(operationalUpdate).not.toMatch(/\b(interest_level|competitors_present|completed_at|completed_by|result_status)\s*=/);
   });
 
   it('keeps commercial lead data out of the current demo-result write path', () => {

@@ -18,7 +18,14 @@ describe('canonical CRM Lead and Demo UX', () => {
   it('uses one explicit lead return path and one canonical result route', () => {
     expect(demoDetail).toContain("text('backToLead')");
     expect(demoDetail).toContain("setParams({result: '1'})");
+    expect(demoDetail).toContain("text('edit')");
+    expect(demoDetail).toContain("text('editResult')");
     expect(demoDetail).not.toContain('>CRM</Link>');
+  });
+
+  it('reuses the canonical operational edit form for completed demos', () => {
+    expect(demoRegistration).not.toContain('demo.completed_at) { setEditUnavailable');
+    expect(demoRegistration).toContain("createCrmDemoLifecycle({ ...payload, ...EMPTY_DEMO_RESULT })");
   });
 
   it('retires only the duplicate overview while preserving create and detail routes', () => {

@@ -80,7 +80,7 @@ export default function CrmDemoLeadDetailPage() {
           {field('attachments', (demo.attachments || []).map(file => file.name).join(', ') || null)}
         </dl>
         <div className="my-5 flex flex-wrap gap-4 text-sm font-medium text-emerald-700">
-          {canEdit && demo.source_lead_id && !demo.completed_at && <Link to={`/portal/crm/demo-leads/new?demoId=${demo.id}`}>{text('edit')}</Link>}
+          {canEdit && demo.source_lead_id && progress !== 'cancelled' && <Link to={`/portal/crm/demo-leads/new?demoId=${demo.id}`}>{text('edit')}</Link>}
           {canRecord && progress === 'awaiting' && !editingResult && <button type="button" onClick={() => setParams({result: '1'})}>{text('recordResult')}</button>}
           {canRecord && progress === 'completed' && !editingResult && <button type="button" onClick={() => setParams({result: '1'})}>{text('editResult')}</button>}
         </div>

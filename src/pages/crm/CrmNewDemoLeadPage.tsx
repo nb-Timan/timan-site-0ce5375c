@@ -596,7 +596,7 @@ export default function CrmNewDemoLeadPage() {
     void resolveSellerId(appUser?.email).then(ownerId => isScopedSeller(portalRole) && !ownerId ? null : getCrmDemo(editingDemoId, isScopedSeller(portalRole) ? ownerId : null))
       .then(demo => {
         if (cancelled) return;
-        if (!demo || !demo.source_lead_id || demo.completed_at) { setEditUnavailable(true); return; }
+        if (!demo || !demo.source_lead_id) { setEditUnavailable(true); return; }
         setSourceLeadId(demo.source_lead_id);
         void repository.getLead(demo.source_lead_id).then(lead => {
           if (!cancelled) setSourceLeadNo(lead?.lead_no ?? null);
