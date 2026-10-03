@@ -36,7 +36,7 @@ describe('CRM dealer dashboard canonical discount amounts', () => {
   });
 
   it('uses the same submitted-order set for summary and detail parity', () => {
-    expect(migration).toContain("order_rows as (\n    select * from rows where record_kind = 'order'");
+    expect(migration).toMatch(/order_rows as \(\r?\n {4}select \* from rows where record_kind = 'order'/);
     expect(migration).toContain("'total_count', (select count(*) from display_rows)");
     expect(migration).toContain('select * from display_rows');
     expect(migration).toContain("'extra_discount_value', extra_discount_value");
@@ -90,11 +90,10 @@ describe('CRM dealer dashboard 9-language UI', () => {
     expect(t('crmDealerDashTopDealer', 'de')).toBe('Top-Händler');
   });
 
-  it('keeps long KPI titles inside a stable two-line header area', () => {
-    expect(component).toContain('min-h-[142px]');
-    expect(component).toContain('min-h-8 min-w-0 flex-1');
-    expect(component).toContain('leading-4');
-    expect(component).toContain('sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8');
+  it('uses the shared KPI layout with equal-height responsive tracks', () => {
+    expect(component).toContain('DealerDashboardKpiCard as KpiCard');
+    expect(component).toContain('grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-4 min-[1920px]:grid-cols-8');
+    expect(component.match(/valueStyle="text"/g)).toHaveLength(2);
   });
 
   it('keeps Top 10 in-bar labels and localized dates', () => {

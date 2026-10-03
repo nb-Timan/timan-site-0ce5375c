@@ -39,6 +39,7 @@ import {
   formatRevenueSeriesPoint,
 } from "@/lib/crmDashboardDate";
 import { DealerBarShape } from "@/components/crm/TopDealersBarShape";
+import { DealerDashboardKpiCard as KpiCard } from "@/components/crm/DealerDashboardKpiCard";
 import { t as i18n } from "@/lib/i18n/translations";
 
 type Props = {
@@ -83,30 +84,6 @@ function formatValue(value: number, currency: DashboardCurrencyFilter) {
 function valueForDashboard(row: DealerDashboardRow, currency: DashboardCurrencyFilter, value = netValue(row)) {
   if (currency === "EUR") return convertCurrency(value, row.currency, "EUR");
   return toDkk(value, row.currency);
-}
-
-function KpiCard({ icon: Icon, label, value, note, tone = "emerald" }: {
-  icon: typeof BarChart3;
-  label: string;
-  value: string;
-  note: string;
-  tone?: "emerald" | "blue" | "amber";
-}) {
-  const colors = {
-    emerald: "border-emerald-100 bg-emerald-50/40 text-emerald-700",
-    blue: "border-blue-100 bg-blue-50/40 text-blue-700",
-    amber: "border-amber-100 bg-amber-50/50 text-amber-700",
-  };
-  return (
-    <section className="flex min-h-[142px] min-w-0 flex-col rounded-lg border bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <span className={`rounded-md p-2 ${colors[tone]}`}><Icon className="h-4 w-4" /></span>
-        <span className="flex min-h-8 min-w-0 flex-1 items-start justify-end text-right text-[11px] font-semibold uppercase leading-4 tracking-wide text-slate-500">{label}</span>
-      </div>
-      <div className="mt-3 break-words text-xl font-bold leading-tight tabular-nums text-slate-950">{value}</div>
-      <p className="mt-auto pt-2 text-xs leading-4 text-slate-500">{note}</p>
-    </section>
-  );
 }
 
 function ChartCard({ title, children, note }: { title: string; children: React.ReactNode; note?: string }) {
@@ -404,15 +381,15 @@ export default function DealerSalesDashboardPrototype({ initialScope, scope: con
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
+      <div className="grid auto-rows-fr gap-3 sm:grid-cols-2 xl:grid-cols-4 min-[1920px]:grid-cols-8">
         <KpiCard icon={BarChart3} label={text("TotalRevenue")} value={formatValue(revenue, filters.currency)} note={dashboardCurrencyNote} />
         <KpiCard icon={ShoppingCart} label={text("OrderCount")} value={String(liveData?.summary.order_count ?? rows.length)} note={text("SubmittedOrders")} tone="blue" />
         <KpiCard icon={Package} label={text("MachinesSold")} value={String(machineCount)} note={text("MachinesTotal")} />
         <KpiCard icon={Percent} label={text("AverageDiscount")} value={`${averageDiscount.toFixed(1)} %`} note={text("TotalDiscount")} tone="amber" />
         <KpiCard icon={Tag} label={text("ExtraDiscountTotal")} value={extraDiscount === null ? text("Unavailable") : formatValue(extraDiscount, filters.currency)} note={extraDiscountNote} />
         <KpiCard icon={Truck} label={text("PaymentDeliveryDiscount")} value={paymentDiscount === null ? text("Unavailable") : formatValue(paymentDiscount, filters.currency)} note={paymentDiscountNote} tone="amber" />
-        <KpiCard icon={Globe2} label={text("TopCountry")} value={topCountry} note={byCountry[0] ? formatValue(byCountry[0].value, filters.currency) : text("NoData")} tone="blue" />
-        <KpiCard icon={Trophy} label={text("TopDealer")} value={topDealer} note={byDealer[0] ? formatValue(byDealer[0].value, filters.currency) : text("NoData")} />
+        <KpiCard icon={Globe2} label={text("TopCountry")} value={topCountry} note={byCountry[0] ? formatValue(byCountry[0].value, filters.currency) : text("NoData")} tone="blue" valueStyle="text" />
+        <KpiCard icon={Trophy} label={text("TopDealer")} value={topDealer} note={byDealer[0] ? formatValue(byDealer[0].value, filters.currency) : text("NoData")} valueStyle="text" />
       </div>
 
       <div className="grid gap-3 xl:grid-cols-2">
