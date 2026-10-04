@@ -196,6 +196,7 @@ const OVERVIEW_POSITIONS: Record<string, { x: number; y: number }> = {
 const AREA_FOCUS_NODE_IDS: Record<SystemMapArea, SystemMapNodeId> = {
   crm: "crm",
   sales: "sales",
+  planning: "planning",
   marketing: "marketing",
   dealer_data: "dealer_data",
   service: "service",

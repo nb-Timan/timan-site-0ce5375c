@@ -463,6 +463,10 @@ function actorModules(actor: Actor): string[] {
 }
 
 function actorHasArea(actor: Actor, area: string): boolean {
+  if (area === 'planning') {
+    return ['timan_backend', 'timan_seller', 'timan_service'].includes(actor.portal_role)
+      && actor.allowed_areas?.includes('planning') === true;
+  }
   if (actor.portal_role === 'timan_backend') return true;
   if (area === 'marketing') {
     return ['timan_seller', 'timan_service'].includes(actor.portal_role || '')

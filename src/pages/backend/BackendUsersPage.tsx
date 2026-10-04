@@ -81,6 +81,7 @@ const STATUS_PILL: Record<UserStatus, string> = {
 };
 
 const TOP_LEVEL_AREA_LABEL: Record<PortalTopLevelAreaId, string> = {
+  planning: "Planlægning",
   salg_marketing: "Salg",
   marketing: "Marketing",
   teknik_service: "Teknik & Service",
@@ -93,6 +94,7 @@ const TOP_LEVEL_AREA_LABEL: Record<PortalTopLevelAreaId, string> = {
 };
 
 const MODULE_LABEL: Record<ModuleAccessKey, string> = {
+  planning: "Planlægning",
   teknik_service: "Teknik & Service",
   salg_marketing: "Salg",
   calendar: "Kalender",
@@ -1139,7 +1141,7 @@ function EditUserModal({
           <Section title="Allowed Areas">
             {(() => {
               const dealerSide = isDealerSideRole(draft.role);
-              const FORBIDDEN_AREAS: AreaKey[] = ["timan_backend"];
+              const FORBIDDEN_AREAS: AreaKey[] = ["timan_backend", "planning"];
               const checkedAreas = PORTAL_TOP_LEVEL_ACCESS
                 .filter((entry) => entry.source === "area"
                   ? effectiveAllowedAreas.includes(entry.key as AreaKey)
@@ -1159,8 +1161,8 @@ function EditUserModal({
                         ? draft.has_manual_area_override === true
                         : draft.has_manual_module_override === true;
                       const forbidden = entry.source === "area"
-                        && dealerSide
-                        && FORBIDDEN_AREAS.includes(entry.key as AreaKey);
+                        && ((dealerSide && FORBIDDEN_AREAS.includes(entry.key as AreaKey))
+                          || (entry.key === 'planning' && !['timan_backend', 'timan_seller', 'timan_service'].includes(draft.role)));
                       return {
                         value: entry.id,
                         label: accessLabel(TOP_LEVEL_AREA_LABEL[entry.id], inherited, enabled, manualOverride),
@@ -1177,7 +1179,8 @@ function EditUserModal({
                       if (draft.role === "timan_backend" && inherited) return;
                       if (entry.source === "area") {
                         const area = entry.key as AreaKey;
-                        if (dealerSide && FORBIDDEN_AREAS.includes(area)) return;
+                        if ((dealerSide && FORBIDDEN_AREAS.includes(area))
+                          || (area === 'planning' && !['timan_backend', 'timan_seller', 'timan_service'].includes(draft.role))) return;
                         setDraft({ ...draft, allowed_areas: toggle(draft.allowed_areas, area), has_manual_area_override: true });
                         return;
                       }

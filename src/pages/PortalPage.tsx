@@ -22,12 +22,13 @@ import { useChangelog, formatChangedAt } from '@/lib/portalChangelog';
 import { ACADEMY_PORTAL_BASICS, academySandbox, PORTAL_BASICS_NEWS_TITLE, type AcademyPortalBasicsState } from '@/lib/academySandbox';
 import { getAcademyCapabilityProgress, getAcademyProgress, getAcademyTracks, getLocalAcademyUser, hasEffectiveAcademyCapabilityAccess, isAcademyCapabilityGated, isAcademyCapabilityUnlocked } from '@/lib/academyCurriculum';
 import { Language } from '@/types/configurator';
-import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap } from 'lucide-react';
+import { CalendarDays, Wrench, ShoppingBag, Settings, Users, Building2, Sparkles, Newspaper, GraduationCap, ClipboardList } from 'lucide-react';
 import { PORTAL_AREA_ROUTES } from '@/lib/portalNavigation';
 import { t } from '@/lib/i18n/translations';
 import { findPortalAreaCapabilityContract } from '../../supabase/functions/_shared/portalCapabilityContract';
 
 const AREA_TITLE_KEY: Record<string, string> = {
+  planning: 'area_planning_title',
   teknik_service: 'area_teknik_service_title',
   salg_marketing: 'area_salg_marketing_title',
   calendar:       'area_calendar_title',
@@ -37,6 +38,7 @@ const AREA_TITLE_KEY: Record<string, string> = {
   dealer_data:    'area_dealer_data_title',
 };
 const AREA_DESC_KEY: Record<string, string> = {
+  planning: 'area_planning_desc',
   teknik_service: 'area_teknik_service_desc',
   salg_marketing: 'area_salg_marketing_desc',
   calendar:       'area_calendar_desc',
@@ -47,6 +49,7 @@ const AREA_DESC_KEY: Record<string, string> = {
 };
 
 const AREA_META: Record<string, { to: string; icon: typeof Wrench; accent: 'primary' | 'sky' | 'violet' }> = {
+  planning: { to: PORTAL_AREA_ROUTES.planning, icon: ClipboardList, accent: 'sky' },
   teknik_service: { to: PORTAL_AREA_ROUTES.teknik_service, icon: Wrench, accent: 'primary' },
   salg_marketing: { to: PORTAL_AREA_ROUTES.salg_marketing, icon: ShoppingBag, accent: 'sky' },
   calendar:       { to: PORTAL_AREA_ROUTES.calendar, icon: CalendarDays, accent: 'primary' },

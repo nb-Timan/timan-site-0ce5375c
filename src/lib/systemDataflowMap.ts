@@ -38,7 +38,7 @@ import { PORTAL_HOME_AREA_ORDER, type PortalHomeAreaOrderId } from "@/lib/portal
 import { SYSTEM_DNA_INITIAL_ZOOM, SYSTEM_DNA_MAX_ZOOM } from "@/lib/systemDnaViewport";
 
 export type SystemMapNodeKind = "portal" | "module" | "feature" | "data" | "technical" | "integration" | "process" | "tool";
-export type SystemMapArea = "crm" | "sales" | "marketing" | "dealer_data" | "service" | "calendar" | "projects" | "messe" | "import" | "system";
+export type SystemMapArea = "crm" | "sales" | "planning" | "marketing" | "dealer_data" | "service" | "calendar" | "projects" | "messe" | "import" | "system";
 export type SystemMapNodeId = string;
 
 export interface SystemMapNode {
@@ -65,6 +65,7 @@ export interface SystemMapNode {
 const AREA_COLORS: Record<SystemMapArea, string> = {
   crm: "emerald",
   sales: "blue",
+  planning: "teal",
   marketing: "purple",
   dealer_data: "amber",
   service: "cyan",
@@ -168,6 +169,25 @@ const baseNodes: SystemMapNode[] = [
     sendsTo: ["PDF", "E-mail/n8n", "CRM tilbud/ordrer", "Budget"],
     integrations: ["Supabase", "PDF/document generation", "E-mail/n8n"],
     explanation: "Salg gemmer konfigurator-sager i configurations og bruger samme data til tilbud, ordrer, PDF og webhooks.",
+  },
+  {
+    id: "planning",
+    title: "Planlægning",
+    subtitle: "Maskiner, tilbehør og reservationer",
+    kind: "module",
+    area: "planning",
+    color: "teal",
+    position: { x: 59, y: 43 },
+    dnaPosition: { x: 1690, y: 760 },
+    minZoom: 0.35,
+    icon: ClipboardList,
+    tables: ["planning_supply_units", "planning_supply_lots", "planning_reservations"],
+    services: ["planningService"],
+    routes: ["/portal/planning"],
+    receivesFrom: ["Konfigurator tilbud og ordrer", "Forsyningsdata"],
+    sendsTo: ["Tilgængelighed", "Leveringsoverblik"],
+    integrations: ["Supabase"],
+    explanation: "Planlægning viser adgangsstyret forsyning og reservationer for maskiner og tilbehør.",
   },
   {
     id: "marketing",
@@ -324,6 +344,7 @@ const baseNodes: SystemMapNode[] = [
 ];
 
 export const SYSTEM_OVERVIEW_PORTAL_MODULE_NODE_BY_AREA: Record<PortalHomeAreaOrderId, SystemMapNodeId> = {
+  planning: "planning",
   salg_marketing: "sales",
   dealer_data: "dealer_data",
   timan_crm: "crm",

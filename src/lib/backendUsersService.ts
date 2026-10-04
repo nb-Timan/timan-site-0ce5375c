@@ -297,9 +297,17 @@ export function sanitizePermsForRole(role: string, perms: BackendUser["perms"]):
  * via the Role dropdown in the editor.
  */
 export function sanitizeAccessForRole(draft: BackendUser): BackendUser {
-  if (!isDealerSideRole(draft.role)) return { ...draft, organization_access_role: null };
+  if (!isDealerSideRole(draft.role)) {
+    return {
+      ...draft,
+      organization_access_role: null,
+      allowed_areas: ['timan_backend', 'timan_seller', 'timan_service'].includes(draft.role)
+        ? draft.allowed_areas
+        : draft.allowed_areas.filter((area) => area !== 'planning'),
+    };
+  }
   const allowed_areas = draft.allowed_areas.filter(
-    (a) => a !== "timan_backend",
+    (a) => a !== "timan_backend" && a !== "planning",
   );
   const allowed_modules = draft.allowed_modules.filter(
     (m) => m !== "timan_backend",

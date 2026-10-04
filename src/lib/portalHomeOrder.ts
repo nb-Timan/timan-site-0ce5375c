@@ -2,6 +2,7 @@ import type { PortalArea } from '@/lib/portalAreas';
 
 export const PORTAL_HOME_AREA_ORDER = [
   'salg_marketing',
+  'planning',
   'dealer_data',
   'timan_crm',
   'marketing',

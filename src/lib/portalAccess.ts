@@ -71,6 +71,7 @@ export const PORTAL_ROLE_LABELS: Record<PortalRole, Record<Language, string>> = 
 
 // ---------- Module access keys ----------
 export type ModuleAccessKey =
+  | 'planning'
   | 'teknik_service'
   | 'salg_marketing'
   | 'calendar'
@@ -96,6 +97,7 @@ export type ModuleAccessKey =
   | 'academy';
 
 export type PortalAreaAccessKey =
+  | 'planning'
   | 'teknik_service'
   | 'salg_marketing'
   | 'calendar'
@@ -117,6 +119,7 @@ export type PortalTopLevelAccessDefinition =
 /** Shared top-level navigation/access model used by the portal and user editor. */
 export const PORTAL_TOP_LEVEL_ACCESS: readonly PortalTopLevelAccessDefinition[] = [
   { id: 'salg_marketing', source: 'area', key: 'salg_marketing' },
+  { id: 'planning', source: 'area', key: 'planning' },
   { id: 'marketing', source: 'area', key: 'marketing' },
   { id: 'teknik_service', source: 'area', key: 'teknik_service' },
   { id: 'dealer_data', source: 'area', key: 'dealer_data' },
@@ -421,6 +424,12 @@ export function hasAreaAccess(
 ): boolean {
   if (!user) return false;
   const role = derivePortalRole(user);
+
+  // Planning is deliberately opt-in, including for Backend. External roles
+  // cannot acquire it by manipulating their allowed_areas payload.
+  if (area === 'planning') {
+    return isInternalTimanPortalRole(role) && user.allowed_areas?.includes('planning') === true;
+  }
 
   // Timan Backend is super-admin. Role defaults are the minimum access, so
   // manual user settings must never hide an area that Backend can manage.

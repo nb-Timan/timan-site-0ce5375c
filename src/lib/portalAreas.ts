@@ -8,7 +8,7 @@ import { Language } from '@/types/configurator';
 import { PortalModuleId } from '@/lib/portalModules';
 import { hasAreaAccess } from '@/lib/portalAccess';
 
-export type PortalAreaId = 'teknik_service' | 'salg_marketing' | 'calendar' | 'marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
+export type PortalAreaId = 'planning' | 'teknik_service' | 'salg_marketing' | 'calendar' | 'marketing' | 'timan_crm' | 'timan_backend' | 'dealer_data';
 
 export interface PortalArea {
   id: PortalAreaId;
@@ -21,6 +21,19 @@ export interface PortalArea {
 }
 
 export const PORTAL_AREAS: PortalArea[] = [
+  {
+    id: 'planning',
+    title: { da: 'Planlægning', en: 'Planning', de: 'Planung', it: 'Pianificazione', hu: 'Tervezés' },
+    description: {
+      da: 'Maskiner, redskaber, leverancer og reservationer.',
+      en: 'Machines, attachments, deliveries and reservations.',
+      de: 'Maschinen, Anbaugeräte, Lieferungen und Reservierungen.',
+      it: 'Macchine, attrezzature, consegne e prenotazioni.',
+      hu: 'Gépek, tartozékok, szállítások és foglalások.',
+    },
+    moduleIds: [],
+    placeholders: [],
+  },
   {
     id: 'salg_marketing',
     title: { da: 'Salg', en: 'Sales', de: 'Vertrieb', it: 'Vendite', hu: 'Értékesítés' },

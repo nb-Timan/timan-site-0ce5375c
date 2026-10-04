@@ -136,6 +136,7 @@ function lazyWithDynamicImportRecovery<T extends ComponentType>(
 }
 
 const PortalPage = lazy(() => import("./pages/PortalPage"));
+const PlanningPage = lazy(() => import("./pages/PlanningPage"));
 const PortalAreaPage = lazy(() => import("./pages/PortalAreaPage"));
 const PortalCrmPage = lazy(() => import("./pages/PortalCrmPage"));
 const UpdatePasswordPage = lazy(() => import("./pages/UpdatePasswordPage"));
@@ -339,6 +340,7 @@ const App = () => (
               <Route path="/update-password" element={<UpdatePasswordPage />} />
               <Route path="/reset-password" element={<UpdatePasswordPage />} />
               <Route path="/portal" element={<PortalLockGuard><PortalPage /></PortalLockGuard>} />
+              <Route path="/portal/planning" element={<PortalAreaAccessGuard area="planning"><PlanningPage /></PortalAreaAccessGuard>} />
               <Route path="/academy" element={<AcademyAccessGuard><AcademyPage /></AcademyAccessGuard>} />
               <Route path="/academy/crm/leads" element={<AcademyAccessGuard><AcademyCrmLeadsPage /></AcademyAccessGuard>} />
               <Route path="/academy/crm/leads/:id" element={<AcademyAccessGuard><AcademyCrmRoute><CrmNewLeadPage /></AcademyCrmRoute></AcademyAccessGuard>} />

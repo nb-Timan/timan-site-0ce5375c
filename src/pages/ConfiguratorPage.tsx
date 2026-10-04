@@ -24,7 +24,7 @@ import {
   type ConfiguratorCustomerSnapshot,
 } from '@/lib/configuratorCustomerMode';
 import { useAppUser } from '@/context/AppUserContext';
-import { useEffectivePortalUser } from '@/lib/viewAsUser';
+import { useEffectivePortalUserState } from '@/lib/viewAsUser';
 import { useLanguage } from '@/context/LanguageContext';
 import { PORTAL_LANGUAGES, resolveContentUiLanguage, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
@@ -35,6 +35,9 @@ import MarketingConfiguratorBulkTools from '@/components/configurator/MarketingC
 import MarketingCampaignManager from '@/components/configurator/MarketingCampaignManager';
 import { MarketingConfiguratorBadge } from '@/components/configurator/MarketingConfiguratorBadge';
 import { MarketingConfiguratorProductCard } from '@/components/configurator/MarketingConfiguratorProductCard';
+import { PlanningAvailabilityBadge } from '@/components/configurator/PlanningAvailabilityBadge';
+import { usePlanningAvailability, worstPlanningStatus } from '@/hooks/usePlanningAvailability';
+import { planningSelectedAttachments } from '@/lib/planningConfigurationItems';
 import { ConfiguratorDeliveryDatePicker } from '@/components/configurator/ConfiguratorDeliveryDatePicker';
 import { CampaignDisableControl } from '@/components/configurator/CampaignDisableControl';
 import {
@@ -98,7 +101,7 @@ import { RecommendationInfoPopover } from '@/components/configurator/Recommendat
 import type { CustomerNeeds } from '@/lib/customerNeeds';
 import { cn } from '@/lib/utils';
 import { academyProductInstruction, getAcademyCase1ProductNames } from '@/lib/academyProductText';
-import { derivePortalRole, getUserModuleAccessOverride, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
+import { derivePortalRole, getUserModuleAccessOverride, hasAreaAccess, hasModuleAccess, isMesseVariantUser } from '@/lib/portalAccess';
 import { isMessePreviewActive } from '@/lib/messePreview';
 
 import { toast } from 'sonner';
@@ -343,7 +346,20 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   //   - direct login uses the logged-in user's app_users row, and
   //   - Backend "Vis som <bruger>" uses the previewed user's row,
   // both via the same code path. Falls back to logged-in user when no view-as.
-  const effectiveUser = useEffectivePortalUser(appUser) ?? appUser;
+  const { effectiveUser: resolvedEffectiveUser, resolving: viewAsResolving } = useEffectivePortalUserState(appUser);
+  const effectiveUser = resolvedEffectiveUser ?? appUser;
+  const planningEnabled = !isAcademyMode && !isExhibition && !viewAsResolving
+    && hasAreaAccess(resolvedEffectiveUser, 'planning');
+  const machineAvailability = usePlanningAvailability(planningEnabled,
+    MACHINE_KEYS.map((key) => ({ itemNumber: PRODUCTS[key].varenr,
+      quantity: Math.max(1, state.machineConfigs.find((config) => config.type === key)?.qty ?? 1) })),
+    state.date);
+  const selectedPlanningAttachments = planningSelectedAttachments(state);
+  const attachmentAvailability = usePlanningAvailability(planningEnabled, selectedPlanningAttachments, state.date);
+  const planningConfigurationStatus = worstPlanningStatus([
+    ...state.machineConfigs.map((machine) => machineAvailability[PRODUCTS[machine.type]?.varenr]?.status ?? 'unknown'),
+    ...selectedPlanningAttachments.map((item) => attachmentAvailability[item.itemNumber]?.status ?? 'unknown'),
+  ]);
   const activePortalRole = derivePortalRole(effectiveUser ?? appUser);
   const canUseDirectPricingMode = !isExhibition && canUseDirectPricing(effectiveUser ?? appUser);
   const isDirectPricing = state.pricingMode === 'direct';
@@ -954,6 +970,19 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   useEffect(() => {
     savedConfigurationIdRef.current = savedConfigurationId;
   }, [savedConfigurationId]);
+
+  const requestPlanningDelivery = async (demandKey: string, itemNumber: string) => {
+    if (!planningEnabled || !savedConfigurationId || orderLocked) return;
+    const { error } = await supabase.rpc('planning_request_delivery', {
+      p_configuration_id: savedConfigurationId,
+      p_demand_key: demandKey,
+      p_item_number: itemNumber,
+      p_requested_date: state.date || null,
+      p_note: null,
+    });
+    if (error) toast.error(tPortal('planningActionError', uiLanguage));
+    else toast.success(tPortal('planningDeliveryRequestOpen', uiLanguage));
+  };
 
   const canSaveConfiguratorAsLead = (() => {
     const flag = effectiveUser?.permissions?.can_save_configurator_as_lead;
@@ -3587,6 +3616,16 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                                 style={{ width: 32, height: 32, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>+</button>
                             </div>
                           </div>
+                          {planningEnabled && <PlanningAvailabilityBadge
+                            availability={machineAvailability[p.varenr]} language={uiLanguage} />}
+                          {planningEnabled && isSelected
+                            && ['red', 'unknown'].includes(machineAvailability[p.varenr]?.status ?? 'unknown')
+                            && <button type="button" disabled={!savedConfigurationId || orderLocked}
+                              title={!savedConfigurationId ? T('saveCase') : undefined}
+                              onClick={() => { if (config) void requestPlanningDelivery(`${config.id}_1`, p.varenr); }}
+                              className="mt-2 text-xs font-medium text-emerald-800 underline disabled:text-slate-400 disabled:no-underline">
+                              {tPortal('planningRequestDelivery', uiLanguage)}
+                            </button>}
                           {!isExhibition && !isDirectPricing && currentQty >= 1 && p.isDiscountEligible && (
                             <div className={`mt-1 text-center text-xs ${discountEligibleQty >= 2 ? 'font-semibold text-emerald-600' : 'text-gray-500'}`}
                               dangerouslySetInnerHTML={{ __html: discountEligibleQty >= 4 ? `✅ ${T('qtyStatus4')}` : discountEligibleQty >= 2 ? `✅ ${T('qtyStatus2')}` : T('qtyStatus1') }} />
@@ -3920,6 +3959,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                           <div className="text-sm text-gray-800">{marketingContent?.title || getLocalizedName(a.name, uiLanguage)}</div>
                           <div className="text-xs text-gray-500">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                           {renderActionLinks(a, machineType)}
+                          {planningEnabled && currentQtyVal > 0 && <PlanningAvailabilityBadge
+                            availability={attachmentAvailability[a.varenr]} language={uiLanguage} />}
+                          {planningEnabled && currentQtyVal > 0
+                            && ['red', 'unknown'].includes(attachmentAvailability[a.varenr]?.status ?? 'unknown')
+                            && <button type="button" disabled={!savedConfigurationId || orderLocked}
+                              title={!savedConfigurationId ? T('saveCase') : undefined}
+                              onClick={() => void requestPlanningDelivery(
+                                currentUnit.isSharedUnit ? `${currentUnit.modelId}_1` : currentUnit.configKey, a.varenr)}
+                              className="mt-1 block text-xs font-medium text-emerald-800 underline disabled:text-slate-400 disabled:no-underline">
+                              {tPortal('planningRequestDelivery', uiLanguage)}
+                            </button>}
                         </div>
                         <div className="flex items-center gap-3 flex-shrink-0">
                           <input type="number" min="0" max="99" value={currentQtyVal}
@@ -3977,6 +4027,17 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                               <div className="text-gray-500 text-xs">{itemNoLabel(uiLanguage)}: {a.varenr}</div>
                               {marketingContent?.description && <p className="line-clamp-2 mt-1 text-xs text-gray-600">{marketingContent.description}</p>}
                               {renderActionLinks(a, machineType)}
+                              {planningEnabled && isSelected && <div onClick={(event) => event.stopPropagation()}>
+                                <PlanningAvailabilityBadge availability={attachmentAvailability[a.varenr]} language={uiLanguage} />
+                                {['red', 'unknown'].includes(attachmentAvailability[a.varenr]?.status ?? 'unknown') &&
+                                  <button type="button" disabled={!savedConfigurationId || orderLocked}
+                                    title={!savedConfigurationId ? T('saveCase') : undefined}
+                                    onClick={() => void requestPlanningDelivery(
+                                      currentUnit.isSharedUnit ? `${currentUnit.modelId}_1` : currentUnit.configKey, a.varenr)}
+                                    className="mt-1 text-xs font-medium text-emerald-800 underline disabled:text-slate-400 disabled:no-underline">
+                                    {tPortal('planningRequestDelivery', uiLanguage)}
+                                  </button>}
+                              </div>}
                             </div>
                             <div className="flex shrink-0 items-center justify-end gap-2 text-right">
                               {renderMarketingBadge(machineType, a.id, marketingContent, 'compact', currentUnitDemo) || renderNewBadge(a.isNew)}
@@ -4007,6 +4068,11 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               return (
                 <div className="bg-white rounded-2xl shadow p-6">
                   <h2 className="text-xl font-bold mb-4 text-center">{T('step3Title')}</h2>
+                  {planningEnabled && <p className="mb-4 text-center text-sm font-medium text-slate-700">
+                    {tPortal('planningAvailability', uiLanguage)}: {tPortal({
+                      green: 'planningGreen', yellow: 'planningYellow', red: 'planningRed', unknown: 'planningUnknown',
+                    }[planningConfigurationStatus], uiLanguage)}
+                  </p>}
                   {machineType === LOOSE_TOOL_KEY && (
                     <div className="mb-5 text-left">
                       <p className="text-sm font-semibold text-gray-800 mb-2">{T('looseToolsMachineFilterPrompt')}</p>
