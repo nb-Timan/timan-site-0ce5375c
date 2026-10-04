@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Boxes, CalendarDays, ClipboardList, LockKeyhole, Package, Search, Table2, Truck } from 'lucide-react';
+import { AlertTriangle, Boxes, ClipboardList, LockKeyhole, Package, Search, Truck } from 'lucide-react';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PlanningUnitDetail from '@/components/PlanningUnitDetail';
+import PlanningIncomingView from '@/components/planning/PlanningIncomingView';
+import PlanningTimelineView from '@/components/planning/PlanningTimelineView';
 import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -13,7 +15,7 @@ import { t } from '@/lib/i18n/translations';
 import { supabase } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  loadPlanningData, planningExceptions, planningItemSummary, planningSourceState, planningTimelineBucket,
+  loadPlanningData, planningExceptions, planningItemSummary, planningSourceState,
   isPlanningSourceFresh, loadPlanningUnitPrivateDetail, planningUnitMatchesQuery, searchPlanningPrivateUnits,
   filterPlanningReservations,
   type PlanningData, type PlanningExceptionKind, type PlanningUnitPrivateDetail,
@@ -21,7 +23,6 @@ import {
 } from '@/lib/planningService';
 
 type PlanningTab = 'overview' | 'attachments' | 'reservations' | 'incoming' | 'timeline';
-type DisplayMode = 'table' | 'timeline';
 
 const MACHINE_KEYS = ['RC-751', 'RC-1000S', 'Timan 3330', 'Timan 2620'] as const;
 const TABS: { id: PlanningTab; label: string }[] = [
@@ -63,19 +64,6 @@ function readableDate(value: string | null, language: string): string {
     : value;
 }
 
-function periodStarts(scale: 'week' | 'month'): Date[] {
-  const today = new Date();
-  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  if (scale === 'week') start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
-  else start.setDate(1);
-  return Array.from({ length: 8 }, (_, index) => {
-    const date = new Date(start);
-    if (scale === 'week') date.setDate(date.getDate() + index * 7);
-    else date.setMonth(date.getMonth() + index);
-    return date;
-  });
-}
-
 export default function PlanningPage() {
   const { appUser, logout } = useAppUser();
   const effectiveUser = useEffectivePortalUser(appUser) ?? appUser;
@@ -88,11 +76,10 @@ export default function PlanningPage() {
   const [error, setError] = useState(false);
   const [tab, setTab] = useState<PlanningTab>('overview');
   const [reservationFilter, setReservationFilter] = useState<PlanningReservationFilter>('all');
-  const [mode, setMode] = useState<DisplayMode>('table');
-  const [scale, setScale] = useState<'week' | 'month'>('week');
   const [search, setSearch] = useState('');
   const [selectedMachine, setSelectedMachine] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [focusedExceptionKey, setFocusedExceptionKey] = useState<string | null>(null);
   const [privateDetail, setPrivateDetail] = useState<PlanningUnitPrivateDetail | null>(null);
   const [privateSearch, setPrivateSearch] = useState<{ query: string; ids: Set<string> } | null>(null);
   const [action, setAction] = useState<PlanningAction | null>(null);
@@ -198,6 +185,19 @@ export default function PlanningPage() {
     ? (ACCESSORIES[selectedMachine] ?? []).filter((item) => item.varenr && item.varenr !== 'HEADER' && !item.isHeader)
     : Object.values(ACCESSORIES).flat().filter((item) => item.varenr && item.varenr !== 'HEADER' && !item.isHeader);
   const dedupedAttachments = [...new Map(attachmentRows.map((item) => [item.varenr, item])).values()];
+  const itemLabel = (itemNumber: string) => {
+    const item = machineRows.find((row) => row.product.varenr === itemNumber)?.product
+      ?? Object.values(ACCESSORIES).flat().find((candidate) => candidate.varenr === itemNumber);
+    const name = item?.name;
+    const localized = typeof name === 'string' ? name : name?.[uiLanguage] ?? name?.en ?? name?.da;
+    return localized ? `${localized} · ${itemNumber}` : itemNumber;
+  };
+  const timelineRows = machineRows.map((row) => ({
+    key: row.key, itemNumber: row.product.varenr, name: row.key,
+    attachments: [...new Map((ACCESSORIES[row.key] ?? [])
+      .filter((item) => item.varenr && item.varenr !== 'HEADER' && !item.isHeader)
+      .map((item) => [item.varenr, { itemNumber: item.varenr, name: itemLabel(item.varenr) }])).values()],
+  }));
   const matches = (itemNumber: string, name: string) => {
     const query = search.trim().toLocaleLowerCase();
     if (!query) return true;
@@ -211,7 +211,6 @@ export default function PlanningPage() {
           || (privateSearch?.query === search.trim() && privateSearch.ids.has(unit.id));
       }) ?? false);
   };
-  const periods = periodStarts(scale);
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -231,7 +230,7 @@ export default function PlanningPage() {
           : !data ? <p className="text-sm text-slate-600">{label('planningLoading')}</p>
             : (
               <>
-                {!completeSupply && (
+                {!completeSupply && tab !== 'incoming' && tab !== 'timeline' && (
                   <div role="status" className="mb-5 flex items-start gap-2 border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-900">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
                     <span>{sourceState === 'missing' ? label('planningNoSupply') : label('planningStaleSupply')}</span>
@@ -274,7 +273,8 @@ export default function PlanningPage() {
                       ? <p className="text-sm text-slate-600">{label('planningNoRecords')}</p>
                       : <ul className="divide-y divide-slate-200 border-y border-slate-200 bg-white">
                         {exceptions.map((item) => (
-                          <li key={item.key} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
+                          <li key={`${item.kind}:${item.key}`} aria-current={focusedExceptionKey === item.key ? 'true' : undefined}
+                            className={`flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm ${focusedExceptionKey === item.key ? 'bg-red-50' : ''}`}>
                             <AlertTriangle className="h-4 w-4 text-amber-700" aria-hidden />
                             <span>{label(EXCEPTION_LABEL[item.kind])}</span>
                             {item.itemNumber && <span className="font-medium tabular-nums">{item.itemNumber}</span>}
@@ -303,25 +303,15 @@ export default function PlanningPage() {
 
                 {['overview', 'attachments', 'incoming', 'timeline'].includes(tab) && (
                   <>
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="mb-3">
                       <label className="relative block w-full max-w-sm">
                         <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" aria-hidden />
                         <span className="sr-only">{label('planningSearch')}</span>
                         <input value={search} onChange={(event) => setSearch(event.target.value)}
                           placeholder={label('planningSearch')} className="h-9 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm" />
                       </label>
-                      <div className="flex rounded-md border border-slate-300 bg-white" aria-label={label('planningAvailability')}>
-                        <button type="button" onClick={() => setMode('table')} aria-pressed={mode === 'table'}
-                          title={label('planningTable')} className={`p-2 ${mode === 'table' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600'}`}>
-                          <Table2 className="h-4 w-4" aria-hidden /><span className="sr-only">{label('planningTable')}</span>
-                        </button>
-                        <button type="button" onClick={() => setMode('timeline')} aria-pressed={mode === 'timeline'}
-                          title={label('planningTimelineMode')} className={`border-l border-slate-300 p-2 ${mode === 'timeline' ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600'}`}>
-                          <CalendarDays className="h-4 w-4" aria-hidden /><span className="sr-only">{label('planningTimelineMode')}</span>
-                        </button>
-                      </div>
                     </div>
-                    {mode === 'table' ? (
+                    {['overview', 'attachments'].includes(tab) && (
                       <div className="max-w-full overflow-x-auto rounded-md border border-slate-200 bg-white">
                         <table className="w-full min-w-[720px] text-left text-sm">
                           <thead className="bg-slate-50 text-xs uppercase text-slate-600">
@@ -355,61 +345,15 @@ export default function PlanningPage() {
                           </tbody>
                         </table>
                       </div>
-                    ) : (
-                      <div className="max-w-full overflow-x-auto rounded-md border border-slate-200 bg-white">
-                        <div className="flex justify-end border-b border-slate-200 p-2">
-                          <button type="button" onClick={() => setScale(scale === 'week' ? 'month' : 'week')}
-                            className="rounded border border-slate-300 px-3 py-1 text-xs font-medium">
-                            {label(scale === 'week' ? 'planningMonth' : 'planningWeek')}
-                          </button>
-                        </div>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1 border-b border-slate-200 px-2 py-1 text-[11px] text-slate-600">
-                          {([
-                            ['planningGreen', 'bg-emerald-500'], ['planningSupplyIncoming', 'bg-sky-500'],
-                            ['planningSoftQuotes', 'bg-amber-400'], ['planningLockedQuotes', 'bg-orange-500'],
-                            ['planningOrders', 'bg-indigo-500'], ['planningRequiresAction', 'bg-rose-500'],
-                          ] as const).map(([key, color]) => <span key={key} className="inline-flex items-center gap-1">
-                            <span className={`h-2 w-2 rounded-full ${color}`} aria-hidden />{label(key)}
-                          </span>)}
-                        </div>
-                        <div className="min-w-[1050px]">
-                          <div className="grid grid-cols-[170px_repeat(8,minmax(110px,1fr))] border-b border-slate-200 bg-slate-50 text-xs font-medium text-slate-600">
-                            <span className="p-2">{label('planningMachines')}</span>
-                            {periods.map((period) => <span key={period.toISOString()} className="p-2">
-                              {new Intl.DateTimeFormat(uiLanguage, { month: 'short', day: 'numeric' }).format(period)}
-                            </span>)}
-                          </div>
-                          {machineRows.filter((row) => matches(row.product.varenr, row.key)).map((row) => (
-                            <div key={row.key} className="grid grid-cols-[170px_repeat(8,minmax(110px,1fr))] border-b border-slate-100 text-xs">
-                              <span className="p-2 font-medium">{row.key}</span>
-                              {periods.map((period, index) => {
-                                const end = periods[index + 1] ?? (() => {
-                                  const next = new Date(period);
-                                  if (scale === 'week') next.setDate(next.getDate() + 7);
-                                  else next.setMonth(next.getMonth() + 1);
-                                  return next;
-                                })();
-                                const bucket = planningTimelineBucket(data, row.product.varenr, period, end);
-                                const values = bucket && ([
-                                  ['available', 'planningGreen', 'text-emerald-700'],
-                                  ['incoming', 'planningSupplyIncoming', 'text-sky-700'],
-                                  ['soft', 'planningSoftQuotes', 'text-amber-700'],
-                                  ['locked', 'planningLockedQuotes', 'text-orange-700'],
-                                  ['orders', 'planningOrders', 'text-indigo-700'],
-                                  ['problems', 'planningRequiresAction', 'text-rose-700'],
-                                ] as const).filter(([key]) => bucket[key] > 0);
-                                return <span key={period.toISOString()} className="flex flex-wrap content-start gap-x-2 border-l border-slate-100 p-2 tabular-nums">
-                                  {values?.length ? values.map(([key, labelKey, color]) =>
-                                    <span key={key} title={`${label(labelKey)}: ${bucket[key]}`} className={`font-semibold ${color}`}>
-                                      <span className="sr-only">{label(labelKey)}: </span>{bucket[key]}
-                                    </span>) : '—'}
-                                </span>;
-                              })}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
                     )}
+                    {tab === 'incoming' && <PlanningIncomingView data={data} language={uiLanguage} label={label}
+                      itemLabel={itemLabel} query={search} selectedUnitId={selectedUnitId}
+                      onSelectUnit={setSelectedUnitId} privateDetail={privateDetail} />}
+                    {tab === 'timeline' && <PlanningTimelineView data={data} language={uiLanguage} label={label}
+                      rows={timelineRows.filter((row) => matches(row.itemNumber, row.name))}
+                      selectedUnitId={selectedUnitId} onSelectUnit={setSelectedUnitId} privateDetail={privateDetail}
+                      onShowException={(key) => { setFocusedExceptionKey(key); setTab('overview'); }}
+                      onShowReservations={() => setTab('reservations')} />}
                     {tab === 'overview' && (
                       <section className="mt-4">
                         {selectedMachine && (() => {
