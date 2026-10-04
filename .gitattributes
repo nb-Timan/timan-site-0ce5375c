@@ -1,0 +1,2 @@
+# Do not print a removed historical environment file in text diffs.
+/.env -diff

@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Keep local environment values out of Git; examples contain placeholders only.
+.env
+.env.*
+!.env.example
+
 supabase/.temp/
 public/import-preview/*.json
 
