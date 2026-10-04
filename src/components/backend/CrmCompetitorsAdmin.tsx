@@ -65,7 +65,7 @@ export function CrmCompetitorsAdmin() {
       </table>
     </div>
     <Dialog open={!!draft} onOpenChange={open => { if (!open) setDraft(null); }}><DialogContent className="max-h-[90vh] max-w-xl overflow-y-auto">
-      <DialogHeader><DialogTitle>{text(draft?.id ? 'edit' : 'new')} {text('competitor').toLowerCase()}</DialogTitle></DialogHeader>
+      <DialogHeader><DialogTitle>{draft?.id ? `${text('edit')} ${draft.name}` : text('new')}</DialogTitle></DialogHeader>
       {draft && <div className="space-y-3 text-sm">
         <label className="block">{text('name')} *<input className={input} value={draft.name} onChange={event => { setDraft({ ...draft, name: event.target.value }); setConfirmedDuplicate(false); }} /></label>
         {duplicate && <div role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-900">{text('duplicate')}{duplicate.name}<label className="mt-2 flex items-center gap-2"><input type="checkbox" checked={confirmedDuplicate} onChange={event => setConfirmedDuplicate(event.target.checked)} />{text('confirmDuplicate')}</label></div>}
