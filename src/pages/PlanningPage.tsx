@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Boxes, ClipboardList, LockKeyhole, Package, Search, Truck } from 'lucide-react';
+import { AlertTriangle, Boxes, ClipboardList, Clock3, Search, Truck } from 'lucide-react';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
-import PlanningUnitDetail from '@/components/PlanningUnitDetail';
 import PlanningIncomingView from '@/components/planning/PlanningIncomingView';
+import PlanningMachineWorkspace from '@/components/planning/PlanningMachineWorkspace';
 import PlanningTimelineView from '@/components/planning/PlanningTimelineView';
 import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
@@ -22,16 +22,24 @@ import {
   type PlanningReservation, type PlanningDeliveryRequest, type PlanningReservationFilter,
 } from '@/lib/planningService';
 
-type PlanningTab = 'overview' | 'attachments' | 'reservations' | 'incoming' | 'timeline';
+type PlanningTab = 'overview' | 'attachments' | 'incoming' | 'reservations' | 'orders' | 'quotes' | 'timeline';
 
 const MACHINE_KEYS = ['RC-751', 'RC-1000S', 'Timan 3330', 'Timan 2620'] as const;
 const TABS: { id: PlanningTab; label: string }[] = [
-  { id: 'overview', label: 'planningOverview' },
+  { id: 'overview', label: 'planningMachines' },
   { id: 'attachments', label: 'planningAttachments' },
+  { id: 'incoming', label: 'planningDeliveries' },
   { id: 'reservations', label: 'planningReservations' },
-  { id: 'incoming', label: 'planningIncoming' },
-  { id: 'timeline', label: 'planningTimeline' },
+  { id: 'orders', label: 'planningOrdersTab' },
+  { id: 'quotes', label: 'planningQuotesTab' },
+  { id: 'timeline', label: 'planningCalendarView' },
 ];
+const MACHINE_IMAGES: Record<(typeof MACHINE_KEYS)[number], string> = {
+  'RC-751': '/messe/machines/rc-751-tile.png',
+  'RC-1000S': '/messe/machines/rc-1000s-tile.png',
+  'Timan 3330': '/messe/machines/timan-3330-tile.png',
+  'Timan 2620': '/messe/machines/timan-2620-tile.png',
+};
 const EXCEPTION_LABEL: Record<PlanningExceptionKind, string> = {
   source_stale: 'planningSourceStale',
   order_unassigned: 'planningOrderUnassigned',
@@ -77,7 +85,7 @@ export default function PlanningPage() {
   const [tab, setTab] = useState<PlanningTab>('overview');
   const [reservationFilter, setReservationFilter] = useState<PlanningReservationFilter>('all');
   const [search, setSearch] = useState('');
-  const [selectedMachine, setSelectedMachine] = useState<string | null>(null);
+  const [selectedMachine, setSelectedMachine] = useState<string>('RC-751');
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
   const [focusedExceptionKey, setFocusedExceptionKey] = useState<string | null>(null);
   const [privateDetail, setPrivateDetail] = useState<PlanningUnitPrivateDetail | null>(null);
@@ -174,13 +182,33 @@ export default function PlanningPage() {
   const exceptions = useMemo(() => data ? planningExceptions(data) : [], [data]);
   const machineRows = MACHINE_KEYS.map((key) => {
     const product = PRODUCTS[key];
-    return { key, product, summary: data ? planningItemSummary(data, product.varenr) : null };
+    const name = typeof product.name === 'string' ? product.name : (product.name[uiLanguage] ?? product.name.en ?? product.name.da);
+    return { key, product, itemNumber: product.varenr, name, imageUrl: MACHINE_IMAGES[key],
+      summary: data ? planningItemSummary(data, product.varenr) : null };
   });
   const stock = machineRows.reduce((sum, row) => sum + (row.summary?.stock ?? 0), 0);
   const incoming = machineRows.reduce((sum, row) => sum + (row.summary?.incoming ?? 0), 0);
   const activeReservations = data?.reservations.filter((row) => row.status === 'active') ?? [];
-  const filteredReservations = data ? filterPlanningReservations(data, reservationFilter) : [];
-  const reservationCount = (kind: string) => activeReservations.filter((row) => row.reservation_type === kind).length;
+  const filteredReservations = data ? (tab === 'orders'
+    ? filterPlanningReservations(data, 'order')
+    : tab === 'quotes'
+      ? filterPlanningReservations(data, 'all').filter((row) => row.reservation_type !== 'order')
+      : filterPlanningReservations(data, reservationFilter)) : [];
+  const machineItemNumbers = new Set(machineRows.map((row) => row.itemNumber));
+  const reservedMachines = activeReservations.filter((row) => machineItemNumbers.has(row.item_number)).length;
+  const averageLeadTimeDays = (() => {
+    const durations = data?.units.map((unit) => {
+      const start = unit.production_completed_at;
+      const end = unit.confirmed_customer_delivery_date ?? unit.current_planned_delivery_date
+        ?? unit.expected_delivery_at ?? unit.available_at;
+      if (!start || !end) return null;
+      const startTime = Date.parse(start.length === 10 ? `${start}T12:00:00Z` : start);
+      const endTime = Date.parse(end.length === 10 ? `${end}T12:00:00Z` : end);
+      const days = Math.round((endTime - startTime) / 86_400_000);
+      return Number.isFinite(days) && days >= 0 ? days : null;
+    }).filter((value): value is number => value !== null) ?? [];
+    return durations.length > 0 ? Math.round(durations.reduce((sum, value) => sum + value, 0) / durations.length) : null;
+  })();
   const attachmentRows = selectedMachine
     ? (ACCESSORIES[selectedMachine] ?? []).filter((item) => item.varenr && item.varenr !== 'HEADER' && !item.isHeader)
     : Object.values(ACCESSORIES).flat().filter((item) => item.varenr && item.varenr !== 'HEADER' && !item.isHeader);
@@ -236,21 +264,20 @@ export default function PlanningPage() {
                     <span>{sourceState === 'missing' ? label('planningNoSupply') : label('planningStaleSupply')}</span>
                   </div>
                 )}
-                <div className="mb-5 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+                <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-5">
                   {[
-                    { title: 'planningStock', value: completeSupply ? stock : '—', icon: Boxes, target: 'overview' as PlanningTab },
-                    { title: 'planningSoftQuotes', value: reservationCount('soft_quote'), icon: ClipboardList, target: 'reservations' as PlanningTab },
-                    { title: 'planningLockedQuotes', value: reservationCount('locked_quote'), icon: LockKeyhole, target: 'reservations' as PlanningTab },
-                    { title: 'planningOrders', value: reservationCount('order'), icon: Package, target: 'reservations' as PlanningTab },
-                    { title: 'planningIncomingUnits', value: completeSupply ? incoming : '—', icon: Truck, target: 'incoming' as PlanningTab },
-                    { title: 'planningRequiresAction', value: exceptions.length, icon: AlertTriangle, target: 'overview' as PlanningTab },
+                    { title: 'planningMachinesInStock', value: completeSupply ? stock : '—', icon: Boxes, target: 'overview' as PlanningTab },
+                    { title: 'planningReserved', value: reservedMachines, icon: ClipboardList, target: 'reservations' as PlanningTab },
+                    { title: 'planningOutOfStockAction', value: completeSupply ? exceptions.length : '—', icon: AlertTriangle, target: 'overview' as PlanningTab },
+                    { title: 'planningIncoming', value: completeSupply ? incoming : '—', icon: Truck, target: 'incoming' as PlanningTab },
+                    { title: 'planningAverageDeliveryTime', value: averageLeadTimeDays === null ? '—' : `${averageLeadTimeDays} ${label('planningDays')}`, icon: Clock3, target: 'timeline' as PlanningTab },
                   ].map((card) => (
                     <button key={card.title} type="button" onClick={() => setTab(card.target)}
-                      className="min-w-0 rounded-md border border-slate-200 bg-white px-3 py-3 text-left hover:border-emerald-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600">
+                      className="min-w-0 rounded-md border border-slate-200 bg-white px-3 py-2.5 text-left hover:border-emerald-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600">
                       <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
                         <span>{label(card.title)}</span><card.icon className="h-4 w-4 shrink-0" aria-hidden />
                       </div>
-                      <p className="mt-1 text-xl font-semibold tabular-nums text-slate-900">{card.value}</p>
+                      <p className="mt-1 text-lg font-semibold tabular-nums text-slate-900">{card.value}</p>
                     </button>
                   ))}
                 </div>
@@ -266,8 +293,17 @@ export default function PlanningPage() {
                   ))}
                 </nav>
 
+                {tab === 'overview' && <PlanningMachineWorkspace
+                  data={data} completeSupply={completeSupply} language={uiLanguage} label={label}
+                  machines={machineRows} selectedMachine={selectedMachine} selectedUnitId={selectedUnitId}
+                  privateDetail={privateDetail} query={search} onQueryChange={setSearch} matches={matches}
+                  onSelectMachine={setSelectedMachine} onSelectUnit={setSelectedUnitId}
+                  onShowAttachments={() => setTab('attachments')}
+                  onShowReservations={(itemNumber) => { setSearch(itemNumber); setTab('reservations'); }}
+                  onShowIncoming={() => setTab('incoming')} onShowTimeline={() => setTab('timeline')} />}
+
                 {tab === 'overview' && (
-                  <section className="mb-7" aria-labelledby="planning-action-heading">
+                  <section className="mt-5" aria-labelledby="planning-action-heading">
                     <h2 id="planning-action-heading" className="mb-2 text-base font-semibold text-slate-900">{label('planningRequiresAction')}</h2>
                     {exceptions.length === 0
                       ? <p className="text-sm text-slate-600">{label('planningNoRecords')}</p>
@@ -301,7 +337,7 @@ export default function PlanningPage() {
                   </section>
                 )}
 
-                {['overview', 'attachments', 'incoming', 'timeline'].includes(tab) && (
+                {['attachments', 'incoming', 'timeline'].includes(tab) && (
                   <>
                     <div className="mb-3">
                       <label className="relative block w-full max-w-sm">
@@ -311,7 +347,7 @@ export default function PlanningPage() {
                           placeholder={label('planningSearch')} className="h-9 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm" />
                       </label>
                     </div>
-                    {['overview', 'attachments'].includes(tab) && (
+                    {tab === 'attachments' && (
                       <div className="max-w-full overflow-x-auto rounded-md border border-slate-200 bg-white">
                         <table className="w-full min-w-[720px] text-left text-sm">
                           <thead className="bg-slate-50 text-xs uppercase text-slate-600">
@@ -320,19 +356,13 @@ export default function PlanningPage() {
                               <th key={key} scope="col" className="whitespace-nowrap px-3 py-2">{label(key)}</th>)}</tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
-                            {(tab === 'attachments'
-                              ? dedupedAttachments.map((item) => ({ key: item.varenr, itemNumber: item.varenr, name: typeof item.name === 'string' ? item.name : (item.name[uiLanguage] ?? item.name.en ?? item.name.da) }))
-                              : machineRows.map((row) => ({ key: row.key, itemNumber: row.product.varenr, name: typeof row.product.name === 'string' ? row.product.name : (row.product.name[uiLanguage] ?? row.product.name.en ?? row.product.name.da) }))
-                            ).filter((row) => matches(row.itemNumber, row.name)).map((row) => {
+                            {dedupedAttachments.map((item) => ({ key: item.varenr, itemNumber: item.varenr, name: typeof item.name === 'string' ? item.name : (item.name[uiLanguage] ?? item.name.en ?? item.name.da) }))
+                              .filter((row) => matches(row.itemNumber, row.name)).map((row) => {
                               const summary = planningItemSummary(data, row.itemNumber);
                               return (
                                 <tr key={row.key} className="hover:bg-slate-50">
                                   <td className="px-3 py-2 font-medium tabular-nums">{row.itemNumber}</td>
-                                  <td className="px-3 py-2">{tab === 'overview'
-                                    ? <button type="button" className="text-left font-medium text-emerald-800 underline"
-                                      onClick={() => { setSelectedMachine(row.key); setSelectedUnitId(null); }}>
-                                      {row.name}
-                                    </button> : row.name}</td>
+                                  <td className="px-3 py-2">{row.name}</td>
                                   <td className="px-3 py-2 tabular-nums">{summary?.stock ?? '—'}</td>
                                   <td className="px-3 py-2 tabular-nums">{summary?.softQuotes ?? '—'}</td>
                                   <td className="px-3 py-2 tabular-nums">{summary?.lockedQuotes ?? '—'}</td>
@@ -354,82 +384,12 @@ export default function PlanningPage() {
                       selectedUnitId={selectedUnitId} onSelectUnit={setSelectedUnitId} privateDetail={privateDetail}
                       onShowException={(key) => { setFocusedExceptionKey(key); setTab('overview'); }}
                       onShowReservations={() => setTab('reservations')} />}
-                    {tab === 'overview' && (
-                      <section className="mt-4">
-                        {selectedMachine && (() => {
-                          const itemNumber = PRODUCTS[selectedMachine]?.varenr;
-                          const units = data.units.filter((unit) => unit.item_number === itemNumber);
-                          const unitIds = new Set(units.map((unit) => unit.id));
-                          const events = data.events.filter((event) =>
-                            (event.previous_supply_unit_id && unitIds.has(event.previous_supply_unit_id))
-                            || (event.next_supply_unit_id && unitIds.has(event.next_supply_unit_id)))
-                            .sort((left, right) => right.created_at.localeCompare(left.created_at));
-                          const selectedUnit = units.find((unit) => unit.id === selectedUnitId);
-                          const orderReservation = activeReservations.find((reservation) => reservation.supply_unit_id === selectedUnitId
-                            && reservation.reservation_type === 'order');
-                          return <div className="mt-4 border-t border-slate-200 pt-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <h3 className="font-semibold text-slate-900">{selectedMachine} · {itemNumber}</h3>
-                              <button type="button" className="text-sm font-medium text-emerald-800 underline"
-                                onClick={() => setTab('attachments')}>{label('planningAttachments')}</button>
-                            </div>
-                            {units.length === 0 ? <p className="mt-2 text-sm text-slate-600">{label('planningNoRecords')}</p>
-                              : <div className="mt-3 max-w-full overflow-x-auto border border-slate-200 bg-white">
-                                <table className="w-full min-w-[550px] text-left text-sm">
-                                  <thead className="bg-slate-50"><tr>
-                                    {['planningSerial', 'planningStatus', 'planningAssignedDate', 'planningSource'].map((key) =>
-                                      <th key={key} scope="col" className="px-3 py-2 font-medium">{label(key)}</th>)}
-                                  </tr></thead>
-                                  <tbody className="divide-y divide-slate-100">{units.filter((unit) => {
-                                    const portalOrders = activeReservations.filter((reservation) => reservation.supply_unit_id === unit.id
-                                      && reservation.reservation_type === 'order')
-                                      .map((reservation) => data.orderNumbers?.[reservation.configuration_id])
-                                      .filter((number): number is string => !!number);
-                                    return planningUnitMatchesQuery(unit, search, portalOrders)
-                                      || (privateSearch?.query === search.trim() && privateSearch.ids.has(unit.id));
-                                  }).map((unit) =>
-                                    <tr key={unit.id}>
-                                      <td className="px-3 py-2 tabular-nums"><button type="button"
-                                        onClick={() => setSelectedUnitId(unit.id)}
-                                        className="text-left text-emerald-800 underline">
-                                        {unit.serial_number ?? unit.machine_ident_number ?? label('planningUnassigned')}
-                                      </button></td>
-                                      <td className="px-3 py-2">{label({
-                                        available: 'planningGreen', incoming: 'planningSupplyIncoming',
-                                        in_production: 'planningInProduction', blocked: 'planningBlocked',
-                                        demo: 'planningDemo', unavailable: 'planningUnavailable',
-                                      }[unit.supply_status] ?? 'planningUnknown')}</td>
-                                      <td className="px-3 py-2">{readableDate(unit.available_at, uiLanguage)}</td>
-                                      <td className="px-3 py-2">{unit.source_system}</td>
-                                    </tr>)}</tbody>
-                                </table>
-                              </div>}
-                            {selectedUnit && <PlanningUnitDetail unit={selectedUnit}
-                              portalOrderNumber={orderReservation ? data.orderNumbers?.[orderReservation.configuration_id] : undefined}
-                              language={uiLanguage} label={label} privateDetail={privateDetail} />}
-                            <h4 className="mt-4 text-sm font-semibold">{label('planningTimeline')}</h4>
-                            {events.length === 0 ? <p className="mt-1 text-sm text-slate-600">{label('planningNoRecords')}</p>
-                              : <ul className="mt-2 divide-y divide-slate-200 border-y border-slate-200">
-                                {events.slice(0, 50).map((event) => <li key={event.id} className="flex flex-wrap gap-x-3 px-2 py-2 text-xs">
-                                  <time>{readableDate(event.created_at, uiLanguage)}</time>
-                                  <span>{label({
-                                    quote_reservation: 'planningSoftQuotes', order_allocation: 'planningOrders',
-                                    quote_lock: 'planningLock', quote_unlock: 'planningUnlock',
-                                    manual_serial_change: 'planningChangeSerial', manual_release: 'planningRelease',
-                                    delivery_requested: 'planningRequestDelivery', delivery_answered: 'planningAnswerDelivery',
-                                  }[event.event_type] ?? 'planningReservations')}</span>
-                                  {event.reason && <span className="text-slate-600">{event.reason}</span>}
-                                </li>)}</ul>}
-                          </div>;
-                        })()}
-                      </section>
-                    )}
                   </>
                 )}
 
-                {tab === 'reservations' && (
+                {['reservations', 'orders', 'quotes'].includes(tab) && (
                   <section>
-                    <div className="mb-3 flex flex-wrap gap-1" aria-label={label('planningReservations')}>
+                    {tab === 'reservations' && <div className="mb-3 flex flex-wrap gap-1" aria-label={label('planningReservations')}>
                       {([
                         ['all', 'planningAllReservations'], ['soft_quote', 'planningSoftQuotes'],
                         ['locked_quote', 'planningLockedQuotes'], ['order', 'planningOrders'],
@@ -441,7 +401,7 @@ export default function PlanningPage() {
                             ? 'border-emerald-700 bg-emerald-50 text-emerald-800' : 'border-slate-300 bg-white text-slate-700'}`}>
                           {label(key)}
                         </button>)}
-                    </div>
+                    </div>}
                     <div className="max-w-full overflow-x-auto rounded-md border border-slate-200 bg-white">
                     <table className="w-full min-w-[1100px] text-left text-sm">
                       <thead className="bg-slate-50 text-xs uppercase text-slate-600">
