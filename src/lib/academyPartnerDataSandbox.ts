@@ -127,10 +127,12 @@ export const academyPartnerDataSandbox = {
   async upsertDealerContact(input: UpsertDealerContactInput) {
     assertActive();
     const state = read(); requireDealer(state, input.dealer_account_id);
-    const existing = input.id ? state.contacts.find((row) => row.id === input.id && row.dealer_account_id === input.dealer_account_id) : null;
+    const createId = input.createId ? `academy-contact-${input.createId}` : null;
+    const lookupId = input.id ?? createId;
+    const existing = lookupId ? state.contacts.find((row) => row.id === lookupId && row.dealer_account_id === input.dealer_account_id) : null;
     if (input.id && !existing) throw new Error('Contact is outside the Academy sandbox.');
     const row: DealerContact = {
-      id: existing?.id ?? `academy-contact-${crypto.randomUUID()}`, dealer_account_id: input.dealer_account_id,
+      id: existing?.id ?? createId ?? `academy-contact-${crypto.randomUUID()}`, dealer_account_id: input.dealer_account_id,
       contact_area: input.contact_area, role_title: input.role_title ?? null, name: input.name ?? null,
       phone: input.phone ?? null, email: input.email ?? null, is_primary: input.is_primary ?? false,
       created_at: existing?.created_at ?? new Date().toISOString(), updated_at: new Date().toISOString(),

@@ -91,6 +91,41 @@ describe('canonical Partnerdata with a local data adapter', () => {
     await expect(sandbox.deleteDealerContact('anything')).rejects.toThrow('active local session');
   });
 
+  it('keeps repeated creates idempotent while preserving legitimate multi-role contacts', async () => {
+    sandbox.start(1);
+    const dealer = sandbox.listDealers()[0];
+    const createId = '4f274a77-6598-4b61-9ba6-d5a5135159de';
+    const input = {
+      createId,
+      dealer_account_id: dealer.id,
+      contact_area: 'sales' as const,
+      role_title: 'Sælger',
+      name: 'QA Partnerdata Contact Test',
+      email: 'qa-partnerdata-contact@example.invalid',
+      is_primary: true,
+    };
+
+    const first = await sandbox.upsertDealerContact(input);
+    const retry = await sandbox.upsertDealerContact(input);
+    expect(retry.row?.id).toBe(first.row?.id);
+    expect(sandbox.listContacts(dealer.id)).toHaveLength(1);
+    expect(sandbox.listContacts(dealer.id).filter((row) => row.is_primary)).toHaveLength(1);
+
+    await sandbox.upsertDealerContact({ ...retry.row!, phone: '+45 12 34 56 78' });
+    expect(sandbox.listContacts(dealer.id)).toHaveLength(1);
+    expect(sandbox.listContacts(dealer.id)[0].phone).toBe('+45 12 34 56 78');
+
+    await sandbox.upsertDealerContact({
+      ...input,
+      createId: '7cb7c57a-8fab-42dc-8bf4-a6a82a1be92f',
+      contact_area: 'workshop',
+      role_title: 'Værkstedsansvarlig',
+      is_primary: false,
+    });
+    expect(sandbox.listContacts(dealer.id)).toHaveLength(2);
+    expect(sandbox.listContacts(dealer.id).map((row) => row.contact_area).sort()).toEqual(['sales', 'workshop']);
+  });
+
   it('does not reuse completion from the removed fake workspace', () => {
     localStorage.setItem('timan.academy.partnerdata.v1', JSON.stringify({ contactName: 'Test', primaryContactId: 'academy-contact-1', youtubeChannel: 'https://youtube.com/@test', relationReviewed: true, invoiceFlowReviewed: true }));
     expect(sandbox.getProgress().part1Completed).toBe(false);

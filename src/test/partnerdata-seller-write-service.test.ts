@@ -75,6 +75,48 @@ describe("Partnerdata scoped write services", () => {
     }));
   });
 
+  it("reuses the same create id for rapid retries of one logical contact", async () => {
+    const createId = "4f274a77-6598-4b61-9ba6-d5a5135159de";
+    const row = {
+      id: createId,
+      dealer_account_id: "dealer-10570",
+      contact_area: "sales",
+      role_title: "Sælger",
+      name: "QA Partnerdata Contact Test",
+      email: "qa-partnerdata-contact@example.invalid",
+      phone: null,
+      is_primary: false,
+      created_at: "2026-10-04T00:00:00Z",
+      updated_at: "2026-10-04T00:00:00Z",
+    };
+    rpc.mockResolvedValue({ data: row, error: null });
+
+    const input = {
+      createId,
+      dealer_account_id: "dealer-10570",
+      contact_area: "sales" as const,
+      role_title: "Sælger",
+      name: "QA Partnerdata Contact Test",
+      email: "qa-partnerdata-contact@example.invalid",
+    };
+    const [first, retry] = await Promise.all([
+      upsertDealerContact(input, "akr-id"),
+      upsertDealerContact(input, "akr-id"),
+    ]);
+
+    expect(first.row?.id).toBe(createId);
+    expect(retry.row?.id).toBe(createId);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    for (const [, args] of rpc.mock.calls) {
+      expect(args).toEqual(expect.objectContaining({
+        p_contact_id: null,
+        p_create_id: createId,
+        p_dealer_account_id: "dealer-10570",
+        p_effective_user_id: "akr-id",
+      }));
+    }
+  });
+
   it("deletes only through the scoped contact RPC", async () => {
     rpc.mockResolvedValue({ data: true, error: null });
 

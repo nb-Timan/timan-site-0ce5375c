@@ -143,6 +143,8 @@ export async function listDealerContactsForAccounts(
 
 export interface UpsertDealerContactInput {
   id?: string;
+  /** Stable UUID for one logical create operation; retries reuse the same canonical row. */
+  createId?: string;
   dealer_account_id: string;
   contact_area: DealerContactArea;
   role_title?: string | null;
@@ -168,6 +170,7 @@ export async function upsertDealerContact(
         p_phone: input.phone ?? null,
         p_is_primary: input.is_primary ?? false,
         p_effective_user_id: effectiveUserId,
+        p_create_id: input.createId ?? null,
       });
       if (error) throw error;
       const rpcRow = Array.isArray(data) ? data[0] : data;
@@ -191,6 +194,24 @@ export async function upsertDealerContact(
       if (error) throw error;
       return { ok: true, row: data ? rowToContact(data) : undefined };
     }
+    if (input.createId) {
+      const { data, error } = await supabase.rpc("upsert_partnerdata_contact", {
+        p_dealer_account_id: input.dealer_account_id,
+        p_contact_area: input.contact_area,
+        p_contact_id: null,
+        p_role_title: input.role_title ?? null,
+        p_name: input.name ?? null,
+        p_email: input.email ?? null,
+        p_phone: input.phone ?? null,
+        p_is_primary: input.is_primary ?? false,
+        p_effective_user_id: null,
+        p_create_id: input.createId,
+      });
+      if (error) throw error;
+      const rpcRow = Array.isArray(data) ? data[0] : data;
+      return { ok: true, row: rpcRow ? rowToContact(rpcRow as Record<string, unknown>) : undefined };
+    }
+
     const { data, error } = await supabase
       .from("dealer_contacts")
       .insert({
