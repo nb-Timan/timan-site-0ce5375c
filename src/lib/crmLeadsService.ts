@@ -501,8 +501,10 @@ export function formatLeadNo(n: number | null | undefined, referenceType?: strin
   if (n == null) return "—";
   return `${formatLeadRelation(n, referenceType)}${n}`;
 }
-export function formatDemoNo(n: number | null | undefined): string {
-  return n == null ? "—" : `${DEMO_NO_PREFIX}${n}`;
+export function formatDemoNo(n: number | string | null | undefined): string {
+  if (n == null) return "—";
+  const match = String(n).trim().match(/^(?:D-)?([0-9]+)$/i);
+  return match ? `${DEMO_NO_PREFIX}${Number(match[1])}` : "—";
 }
 
 const LS_LEAD_LOCAL_NO = "timan.crm.leads.localNo.v1";
@@ -875,6 +877,8 @@ export interface CrmLeadsPageRow {
   display_no: string;
   reference_no?: number | null;
   reference_type?: "L" | "G" | null;
+  demo_id?: string | null;
+  demo_no?: number | null;
   type: "open" | "demo";
   title: string;
   customer: string | null;
@@ -901,7 +905,7 @@ export interface CrmLeadsPageRow {
   incomplete?: boolean;
   demo_registration_pending?: boolean;
   shared?: boolean;
-  demo_registration?: Pick<CrmDemoLead, 'id' | 'demo_date' | 'completed_at' | 'result_status'> | null;
+  demo_registration?: Pick<CrmDemoLead, 'id' | 'demo_no' | 'demo_date' | 'completed_at' | 'result_status'> | null;
   quote_id?: string | null;
 }
 
@@ -1020,6 +1024,8 @@ function normalizePageResult(payload: unknown): CrmLeadsPageQueryResult {
       created_by_email: typeof row.created_by_email === 'string' ? row.created_by_email : null,
       created_by_partner: row.created_by_partner === true,
       owner_is_timan_seller: row.owner_is_timan_seller === true,
+      demo_id: typeof row.demo_id === 'string' ? row.demo_id : null,
+      demo_no: row.demo_no == null ? null : numberOrZero(row.demo_no),
       probability: row.probability == null ? null : numberOrZero(row.probability),
       value: row.value == null ? null : numberOrZero(row.value),
     })),

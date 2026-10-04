@@ -1104,6 +1104,9 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                   const compactReference = r.type === 'open'
                     ? formatLeadReferenceDisplay(r.reference_no, r.reference_type)
                     : r.display_no === '—' ? '' : r.display_no;
+                  const compactDemoReference = r.type === 'open' && r.demo_id && r.demo_no != null
+                    ? formatDemoNo(r.demo_no)
+                    : '';
                   return (
                     <tr key={`${r.type}-${r.id}`}
                       onClick={() => {
@@ -1128,6 +1131,14 @@ export default function CrmLeadsPage({ academyPart }: { academyPart?: 1 | 2 } = 
                               className="font-mono text-[11px] leading-none tabular-nums text-slate-500 whitespace-nowrap"
                             >
                               {compactReference}
+                            </span>
+                          )}
+                          {compactDemoReference && compactDemoReference !== '—' && (
+                            <span
+                              data-testid="crm-leads-compact-demo-reference"
+                              className="font-mono text-[10px] leading-none tabular-nums text-slate-400 whitespace-nowrap"
+                            >
+                              {compactDemoReference}
                             </span>
                           )}
                         </div>
