@@ -11,12 +11,15 @@ import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { readCrmLeadsReturnTarget } from '@/lib/crmLeadsNavigationState';
 import { crmLostReasonLabel, normalizeCrmLostReason, serializeCrmLostReason } from '@/lib/crmLostReason';
+import { listCrmCompetitors, type CrmCompetitor } from '@/lib/crmCompetitorsService';
+import { CrmCompetitorSelect, OTHER_COMPETITOR } from '@/components/crm/CrmCompetitorSelect';
+import { crmCompetitorText } from '@/lib/crmCompetitorI18n';
 import { addMonthsToIsoDate } from '@/lib/crmLeadExpectedClose';
 import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import {
   CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
-  CUSTOMER_TYPE_OPTIONS, LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
+  CUSTOMER_TYPE_OPTIONS, LOST_REASON_OPTIONS,
   getNextActivitySelectorOptions, MANUAL_NEXT_ACTIVITY_OPTIONS,
   PipelineStage, formatLeadNo, formatLeadRelation,
   getLeadAttachmentSignedUrl, getLeadAttachmentSignedUrls, getLeadImageAttachments, uploadLeadAttachments, type CrmLeadAttachment, type CrmLinkedSalesEvent,
@@ -188,8 +191,8 @@ const T: Record<TKey, Record<Language, string>> = {
                    hu: 'Ha > 0, a lead beleszámít a Munka-előrejelzésbe a gép + várható zárási dátum alapján. NEM befolyásolja a pipeline-t.' },
   lbl_probability:{ da: 'Sandsynlighed (%)', en: 'Probability (%)', de: 'Wahrscheinlichkeit (%)', it: 'Probabilità (%)', hu: 'Valószínűség (%)' },
   lbl_pipeline:  { da: 'Pipeline-stage', en: 'Pipeline stage', de: 'Pipeline-Phase', it: 'Fase pipeline', hu: 'Pipeline szakasz' },
-  lbl_lost_to:   { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve' },
-  lbl_lost_other:{ da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs' },
+  lbl_lost_to:   { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve', sv: 'Förlorat till konkurrent', fr: 'Perdu face à un concurrent', pl: 'Utracone na rzecz konkurenta', cs: 'Ztraceno ve prospěch konkurenta' },
+  lbl_lost_other:{ da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs', sv: 'Annan konkurrent', fr: 'Autre concurrent', pl: 'Inny konkurent', cs: 'Jiný konkurent' },
   lbl_lost_reason:{ da: 'Hvorfor mistede vi ordren', en: 'Why we lost the order', de: 'Warum wir den Auftrag verloren haben', it: 'Perché abbiamo perso', hu: 'Miért vesztettük el' },
   lbl_lost_comment:{ da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés' },
   pick_files:    { da: 'Klik for at vælge filer eller træk dem hertil', en: 'Click to choose files or drop them here', de: 'Dateien wählen oder hierher ziehen', it: 'Clicca per scegliere file o trascinali qui', hu: 'Kattintson fájlt választani vagy húzza ide' },
@@ -786,6 +789,14 @@ export default function CrmNewLeadPage() {
 
   const [lostCompetitor, setLostCompetitor] = useState<string>('');
   const [lostCompetitorCustom, setLostCompetitorCustom] = useState('');
+  const [competitors, setCompetitors] = useState<CrmCompetitor[]>([]);
+  const [competitorError, setCompetitorError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void listCrmCompetitors().then(rows => { if (!cancelled) { setCompetitors(rows); setCompetitorError(false); } })
+      .catch(() => { if (!cancelled) setCompetitorError(true); });
+    return () => { cancelled = true; };
+  }, []);
   const [lostReason, setLostReason] = useState<string>('');
   const [lostComment, setLostComment] = useState('');
 
@@ -967,7 +978,8 @@ export default function CrmNewLeadPage() {
       setMoveToWorking(loadedWorkingBudgetQuantity > 0 ? String(loadedWorkingBudgetQuantity) : '');
       setInitialWorkingBudgetQuantity(loadedWorkingBudgetQuantity);
       setStage((lead.pipeline_stage as PipelineStage) || 'Lead');
-      setLostCompetitor(lead.lost_competitor || '');
+      setLostCompetitor(lead.lost_competitor_id || (lead.lost_competitor ? OTHER_COMPETITOR : ''));
+      setLostCompetitorCustom(lead.lost_competitor_id ? '' : lead.lost_competitor || '');
       setLostReason(normalizeCrmLostReason(lead.lost_reason) ?? lead.lost_reason ?? '');
       setLostComment(lead.lost_comment || '');
       setFiles(lead.attachments || []);
@@ -1400,6 +1412,7 @@ export default function CrmNewLeadPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (isLost && competitorError && !repository.academy) { toast.error(crmCompetitorText('error', uiLanguage)); return; }
     if (!legacyWorkingBudgetOnlySave) {
       if (!title.trim())       { toast.error(tt('val_title', lang)); return; }
       if (!responsibleSellerId){ toast.error(tt('val_seller', lang)); return; }
@@ -1469,7 +1482,8 @@ export default function CrmNewLeadPage() {
         probability: probability ? Number(probability) : null,
         move_to_working_qty: normalizeWorkingBudgetQuantity(moveToWorking),
         pipeline_stage: stage,
-        lost_competitor: isLost ? (lostCompetitor === 'Andre' ? (lostCompetitorCustom || 'Andre') : lostCompetitor) || null : null,
+        lost_competitor_id: isLost ? (competitors.find(row => row.id === lostCompetitor)?.id ?? null) : null,
+        lost_competitor: isLost ? (competitors.find(row => row.id === lostCompetitor)?.name ?? (lostCompetitor === OTHER_COMPETITOR ? (lostCompetitorCustom || 'Andre') : null)) : null,
         lost_reason: isLost ? serializeCrmLostReason(lostReason) : null,
         lost_comment: isLost ? (lostComment || null) : null,
         attachments: files,
@@ -2027,12 +2041,10 @@ export default function CrmNewLeadPage() {
               </header>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-5 gap-y-4">
                 <Field label={tt('lbl_lost_to', lang)}>
-                  <select className={inputCls} value={lostCompetitor} onChange={e=>setLostCompetitor(e.target.value)}>
-                    <option value="">{tt('pick', lang)}</option>
-                    {LOST_COMPETITOR_OPTIONS.map(o => <option key={o} value={o}>{crmLeadChoiceLabel(o, uiLanguage)}</option>)}
-                  </select>
+                  <CrmCompetitorSelect className={inputCls} competitors={competitors} value={lostCompetitor} onChange={setLostCompetitor} language={uiLanguage} machine={machineTypes[0]} includeOther />
+                  {competitorError && <span role="alert" className="text-xs text-red-700">{crmCompetitorText('error', uiLanguage)}</span>}
                 </Field>
-                {lostCompetitor === 'Andre' && (
+                {lostCompetitor === OTHER_COMPETITOR && (
                   <Field label={tt('lbl_lost_other', lang)}>
                     <input className={inputCls} value={lostCompetitorCustom} onChange={e=>setLostCompetitorCustom(e.target.value)} />
                   </Field>

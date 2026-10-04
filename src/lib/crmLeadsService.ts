@@ -105,11 +105,6 @@ export const PIPELINE_STAGES = [
 ] as const;
 export type PipelineStage = typeof PIPELINE_STAGES[number];
 
-export const LOST_COMPETITOR_OPTIONS = [
-  "Egholm", "Hako", "Kärcher", "Vitra", "Fort", "AS Motor",
-  "Energreen", "X-Rot", "Husqvarna", "Andre",
-] as const;
-
 export { CRM_LOST_REASON_CODES as LOST_REASON_OPTIONS } from '@/lib/crmLostReason';
 
 // Demo lead specific
@@ -183,6 +178,7 @@ export const CRM_LEAD_SUMMARY_SELECT = [
   "probability",
   "pipeline_stage",
   "lost_competitor",
+  "lost_competitor_id",
   "lost_reason",
   "status",
   "move_to_working_qty",
@@ -335,6 +331,7 @@ export interface CrmLead {
   probability: number | null;
   pipeline_stage: PipelineStage;
   lost_competitor: string | null;
+  lost_competitor_id?: string | null;
   lost_reason: string | null;
   lost_comment: string | null;
   attachments: CrmLeadAttachment[];
@@ -393,6 +390,7 @@ export interface CrmDemoLead {
   probability: number | null;
   competitors_present: "yes" | "no" | null;
   competitor_name: string | null;
+  competitor_id?: string | null;
   notes_after_demo: string | null;
   result_status: string | null;
   attachments: CrmLeadAttachment[];
@@ -621,6 +619,7 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       probability: row.probability,
       pipeline_stage: row.pipeline_stage,
       lost_competitor: row.lost_competitor,
+      lost_competitor_id: row.lost_competitor_id ?? null,
       lost_reason: row.lost_reason,
       lost_comment: row.lost_comment,
       attachments: row.attachments ?? [],
@@ -812,6 +811,7 @@ export async function updateLead(
       probability: merged.probability,
       pipeline_stage: merged.pipeline_stage,
       lost_competitor: merged.lost_competitor,
+      lost_competitor_id: merged.lost_competitor_id ?? null,
       lost_reason: merged.lost_reason,
       lost_comment: merged.lost_comment,
       attachments: merged.attachments ?? [],
@@ -1270,10 +1270,10 @@ export async function getCrmDemo(id: string, ownerId?: string | null): Promise<C
   return data as CrmDemoLead | null;
 }
 
-export type CrmDemoResultInput = Pick<CrmDemoLead, 'interest_level' | 'competitors_present'>;
-export async function saveCrmDemoResult(id: string, result: CrmDemoResultInput, effectiveUserId: string | null): Promise<CrmDemoLead> {
+export type CrmDemoResultInput = Pick<CrmDemoLead, 'interest_level' | 'competitors_present' | 'competitor_id'>;
+export async function saveCrmDemoResult(id: string, result: CrmDemoResultInput, effectiveUserId: string | null, inlineOnly = false): Promise<CrmDemoLead> {
   const { data, error } = await supabase.rpc('save_crm_demo_result', {
-    p_demo_id: id, p_result: result, p_effective_user_id: effectiveUserId,
+    p_demo_id: id, p_result: inlineOnly ? { ...result, inline_only: true } : result, p_effective_user_id: effectiveUserId,
   });
   if (error) throw error;
   return data as unknown as CrmDemoLead;

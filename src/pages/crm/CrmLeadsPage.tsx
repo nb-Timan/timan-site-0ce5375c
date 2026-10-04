@@ -21,7 +21,7 @@ import {
   listLeadsPage, updateLead, getLead, deleteLead, deleteDemoLead,
   CrmLead, type CrmDemoLead, type CrmLeadAttachment, type CrmLeadAttachmentPreview, type CrmLeadsPageQueryResult,
   formatLeadNo, formatDemoNo, formatLeadReferenceDisplay,
-  LOST_COMPETITOR_OPTIONS, LOST_REASON_OPTIONS,
+  LOST_REASON_OPTIONS,
   getLeadAttachmentSignedUrls, getLeadImageAttachments,
 } from '@/lib/crmLeadsService';
 import {
@@ -62,6 +62,8 @@ import { formatConvertedMoney, type Currency } from '@/lib/currency';
 import { usePortalCurrency } from '@/lib/usePortalCurrency';
 import { listCrmLeadNotes, sortCrmLeadNotes, type CrmLeadNote } from '@/lib/crmLeadNotesService';
 import { CrmLeadHistoryPanel } from '@/components/crm/CrmLeadHistoryPanel';
+import { CrmCompetitorSelect, OTHER_COMPETITOR } from '@/components/crm/CrmCompetitorSelect';
+import { listCrmCompetitors, type CrmCompetitor } from '@/lib/crmCompetitorsService';
 import { getMissingStoredCrmLeadFields } from '@/lib/crmLeadValidation';
 import {
   CRM_LEAD_MACHINE_FAMILIES,
@@ -165,8 +167,8 @@ const T: Record<TKey, UiText> = {
   won_label:     { da: 'Ordre vundet', en: 'Order won', de: 'Auftrag gewonnen', it: 'Ordine vinto', hu: 'Megrendelés nyertes', fr: 'Commande gagnée', pl: 'Zamówienie wygrane', cs: 'Objednávka vyhrána' },
   lost_label:    { da: 'Ordre tabt', en: 'Order lost', de: 'Auftrag verloren', it: 'Ordine perso', hu: 'Megrendelés elveszett', fr: 'Commande perdue', pl: 'Zamówienie utracone', cs: 'Objednávka ztracena' },
   lost_analysis_title: { da: 'Lost Deal Analysis', en: 'Lost Deal Analysis', de: 'Lost-Deal-Analyse', it: 'Analisi affare perso', hu: 'Elveszített üzlet elemzése', fr: 'Analyse de l’affaire perdue', pl: 'Analiza utraconej sprzedaży', cs: 'Analýza ztraceného obchodu' },
-  lost_to:       { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve', fr: 'Perdu face à un concurrent', pl: 'Utracone na rzecz konkurenta', cs: 'Ztraceno ve prospěch konkurenta' },
-  lost_other:    { da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs', fr: 'Autre concurrent', pl: 'Inny konkurent', cs: 'Jiný konkurent' },
+  lost_to:       { da: 'Tabt til konkurrent', en: 'Lost to competitor', de: 'An Wettbewerber verloren', it: 'Perso a concorrente', hu: 'Versenytársnak veszítve', sv: 'Förlorat till konkurrent', fr: 'Perdu face à un concurrent', pl: 'Utracone na rzecz konkurenta', cs: 'Ztraceno ve prospěch konkurenta' },
+  lost_other:    { da: 'Anden konkurrent', en: 'Other competitor', de: 'Anderer Wettbewerber', it: 'Altro concorrente', hu: 'Más versenytárs', sv: 'Annan konkurrent', fr: 'Autre concurrent', pl: 'Inny konkurent', cs: 'Jiný konkurent' },
   lost_reason:   { da: 'Hvorfor mistede vi ordren', en: 'Why we lost the order', de: 'Warum verloren', it: 'Perché abbiamo perso', hu: 'Miért vesztettük el', fr: 'Pourquoi nous avons perdu la commande', pl: 'Dlaczego utraciliśmy zamówienie', cs: 'Proč jsme objednávku ztratili' },
   lost_comment:  { da: 'Kommentar', en: 'Comment', de: 'Kommentar', it: 'Commento', hu: 'Megjegyzés', fr: 'Commentaire', pl: 'Komentarz', cs: 'Komentář' },
   save:          { da: 'Gem', en: 'Save', de: 'Speichern', it: 'Salva', hu: 'Mentés', fr: 'Enregistrer', pl: 'Zapisz', cs: 'Uložit' },
@@ -1473,6 +1475,18 @@ function WonLostDialog({
   const [reason, setReason] = useState('');
   const [comment, setComment] = useState('');
   const [saving, setSaving] = useState(false);
+  const [competitors, setCompetitors] = useState<CrmCompetitor[]>([]);
+  const [competitorError, setCompetitorError] = useState(false);
+  const { uiLanguage } = useLanguage();
+  const leadId = lead?.id;
+
+  useEffect(() => {
+    if (!leadId) return;
+    let cancelled = false;
+    void listCrmCompetitors().then(rows => { if (!cancelled) { setCompetitors(rows); setCompetitorError(false); } })
+      .catch(() => { if (!cancelled) setCompetitorError(true); });
+    return () => { cancelled = true; };
+  }, [leadId]);
 
   useEffect(() => {
     setMode(null);
@@ -1482,19 +1496,21 @@ function WonLostDialog({
   if (!lead) return null;
 
   async function handleSave() {
-    if (!lead) return;
+    if (!lead || (mode === 'lost' && competitorError)) return;
     setSaving(true);
     try {
       const isWon = mode === 'won';
       const nextActivity = isWon ? NEXT_ACTIVITY_WON : NEXT_ACTIVITY_LOST;
       const closedAt = new Date().toISOString();
+      const selectedCompetitor = competitors.find(row => row.id === competitor);
       await updateLead(lead.id, {
         next_activity: nextActivity,
         probability: isWon ? 100 : 0,
         pipeline_stage: deriveLegacyPipelineStage(nextActivity),
         status: 'closed',
         ...(isWon ? {} : {
-          lost_competitor: competitor === 'Andre' ? (competitorOther || 'Andre') : (competitor || null),
+          lost_competitor_id: selectedCompetitor?.id ?? null,
+          lost_competitor: selectedCompetitor?.name ?? (competitor === OTHER_COMPETITOR ? (competitorOther || 'Andre') : null),
           lost_reason: serializeCrmLostReason(reason),
           lost_comment: comment || null,
         }),
@@ -1549,13 +1565,10 @@ function WonLostDialog({
             </div>
             <div>
               <label className="text-[12px] font-medium text-gray-700">{tt('lost_to', lang)}</label>
-              <select className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
-                value={competitor} onChange={e => setCompetitor(e.target.value)}>
-                <option value="">{tt('pick', lang)}</option>
-                {LOST_COMPETITOR_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
+              <CrmCompetitorSelect className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm" competitors={competitors} value={competitor} onChange={setCompetitor} language={uiLanguage} machine={lead.machine_types?.[0]} includeOther />
+              {competitorError && <p role="alert" className="text-xs text-red-700">{tt('close_err', lang)}</p>}
             </div>
-            {competitor === 'Andre' && (
+            {competitor === OTHER_COMPETITOR && (
               <div>
                 <label className="text-[12px] font-medium text-gray-700">{tt('lost_other', lang)}</label>
                 <input className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
@@ -1583,7 +1596,7 @@ function WonLostDialog({
             {tt('cancel', lang)}
           </Button>
           {mode !== null && (
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving || (mode === 'lost' && competitorError)}>
               {saving ? '…' : tt('save', lang)}
             </Button>
           )}

@@ -10,9 +10,10 @@ import { resolveSellerId } from '@/lib/resolveSellerId';
 import { getCrmDemo, saveCrmDemoResult, formatDemoNo, type CrmDemoLead, type CrmDemoResultInput } from '@/lib/crmLeadsService';
 import { crmDemoProgress, EMPTY_DEMO_RESULT } from '@/lib/crmDemoFlow';
 import { demoFlowText, type DemoFlowTextKey } from '@/lib/crmDemoFlowI18n';
+import { listCrmCompetitors, type CrmCompetitor } from '@/lib/crmCompetitorsService';
+import { CrmDemoResultControls } from '@/components/crm/CrmDemoResultControls';
 import { toast } from 'sonner';
 
-const input = 'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm';
 export default function CrmDemoLeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [params, setParams] = useSearchParams();
@@ -26,6 +27,14 @@ export default function CrmDemoLeadDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [result, setResult] = useState<CrmDemoResultInput>({ ...EMPTY_DEMO_RESULT });
+  const [competitors, setCompetitors] = useState<CrmCompetitor[]>([]);
+  const [competitorError, setCompetitorError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void listCrmCompetitors().then(rows => { if (!cancelled) { setCompetitors(rows); setCompetitorError(false); } })
+      .catch(() => { if (!cancelled) setCompetitorError(true); });
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => {
     if (!id || resolving || !effectiveUserReady) return;
     let cancelled = false;
@@ -39,7 +48,7 @@ export default function CrmDemoLeadDetailPage() {
       if (cancelled) return;
       setDemo(row);
       if (row) {
-        setResult({ interest_level: row.interest_level, competitors_present: row.competitors_present });
+        setResult({ interest_level: row.interest_level, competitors_present: row.competitors_present, competitor_id: row.competitor_id ?? null });
       }
     }).catch(() => { if (!cancelled) setDemo(null); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -49,7 +58,6 @@ export default function CrmDemoLeadDetailPage() {
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Copenhagen' });
   const canRecord = canEdit && demo?.source_lead_id && demo.demo_date && demo.demo_date <= today && progress !== 'cancelled';
   const editingResult = Boolean(canRecord && params.get('result'));
-  const patch = (value: Partial<CrmDemoResultInput>) => setResult(prev => ({ ...prev, ...value }));
   async function save(event: React.FormEvent) {
     event.preventDefault();
     if (!demo || saving) return;
@@ -64,7 +72,6 @@ export default function CrmDemoLeadDetailPage() {
     } finally { setSaving(false); }
   }
   const field = (key: DemoFlowTextKey, value: React.ReactNode) => <div key={key}><dt className="text-xs text-slate-500">{text(key)}</dt><dd className="whitespace-pre-wrap break-words text-sm">{value ?? '—'}</dd></div>;
-  const formField = (key: DemoFlowTextKey, children: React.ReactNode) => <label className="flex min-w-0 flex-col gap-1.5 text-sm">{text(key)}{children}</label>;
   return <CrmLayout pageTitle={text('demo')}>
     <div className="mx-auto max-w-5xl">
       {loading ? <p>{text('loading')}</p> : !demo ? <p role="alert">{text('unavailable')}</p> : <>
@@ -86,17 +93,16 @@ export default function CrmDemoLeadDetailPage() {
         </div>
         {editingResult ? <form onSubmit={save} className="border-t border-slate-200 py-5">
           <h3 className="mb-5 font-semibold">{text(progress === 'completed' ? 'editResult' : 'recordResult')}</h3>
-          <div className="grid gap-5 sm:grid-cols-2">
-            {formField('interest', <select required className={input} value={result.interest_level ?? ''} onChange={e => patch({interest_level: e.target.value ? Number(e.target.value) : null})}><option value="">{text('choose')}</option>{[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}</select>)}
-            {formField('competitors', <select className={input} value={result.competitors_present ?? ''} onChange={e => patch({competitors_present: (e.target.value || null) as 'yes' | 'no' | null})}><option value="">{text('notSpecified')}</option><option value="yes">{text('yes')}</option><option value="no">{text('no')}</option></select>)}
-          </div>
+          <CrmDemoResultControls value={result} onChange={setResult} competitors={competitors} language={uiLanguage} machine={demo.demo_machine} disabled={saving || competitorError} />
+          {competitorError && <p role="alert" className="mt-2 text-sm text-red-700">{text('error')}</p>}
           <div className="mt-5 flex justify-end gap-3">
             <button type="button" className="px-3 py-2 text-sm" onClick={() => setParams({})}>{text('cancel')}</button>
-            <button type="submit" disabled={saving} className="rounded-md bg-emerald-800 px-4 py-2 text-sm text-white disabled:opacity-50">{saving ? text('loading') : text('save')}</button>
+            <button type="submit" disabled={saving || competitorError || result.interest_level == null} className="rounded-md bg-emerald-800 px-4 py-2 text-sm text-white disabled:opacity-50">{saving ? text('loading') : text('save')}</button>
           </div>
-        </form> : demo.completed_at ? <dl className="grid gap-5 py-5 sm:grid-cols-2">
+        </form> : (demo.completed_at || demo.interest_level != null || demo.competitors_present != null) ? <dl className="grid gap-5 py-5 sm:grid-cols-2">
           {field('interest', demo.interest_level != null ? `${demo.interest_level}/5` : null)}
           {field('competitors', demo.competitors_present ? text(demo.competitors_present) : text('notSpecified'))}
+          {demo.competitors_present === 'yes' && field('competitorName', competitors.find(row => row.id === demo.competitor_id)?.name ?? demo.competitor_name)}
         </dl> : null}
       </>}
     </div>
