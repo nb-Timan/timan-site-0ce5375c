@@ -83,7 +83,6 @@ export function planningTimelineEntries(
   const startDate = start.toISOString().slice(0, 10);
   const endDate = end.toISOString().slice(0, 10);
   const today = localDate(now);
-  const place = (date: string | null) => date && date < startDate ? startDate : date;
   const inRange = (date: string | null): date is string => date !== null && date >= startDate && date < endDate;
   const active = data.reservations.filter((row) => row.item_number === itemNumber && row.status === 'active');
   const reservationByUnit = new Map(active.filter((row) => row.supply_unit_id)
@@ -97,8 +96,8 @@ export function planningTimelineEntries(
   for (const unit of data.units) {
     if (unit.item_number !== itemNumber || !sources.has(unit.source_system)) continue;
     const reservation = reservationByUnit.get(unit.id);
-    const date = place(planningSupplyDate(unit)
-      ?? (unit.supply_status === 'available' ? today : reservation?.requested_delivery_date ?? null));
+    const date = planningSupplyDate(unit)
+      ?? (unit.supply_status === 'available' ? today : reservation?.requested_delivery_date ?? null);
     if (!inRange(date)) continue;
     const state = problemKeys.has(unit.id) || (reservation && problemKeys.has(reservation.id))
       || ['blocked', 'unavailable'].includes(unit.supply_status) ? 'problem'
@@ -107,7 +106,7 @@ export function planningTimelineEntries(
   }
   for (const lot of data.lots) {
     if (lot.item_number !== itemNumber || !sources.has(lot.source_system)) continue;
-    const date = place(lot.available_at ?? (lot.supply_status === 'available' ? today : null));
+    const date = lot.available_at ?? (lot.supply_status === 'available' ? today : null);
     if (!inRange(date)) continue;
     const state = ['blocked', 'unavailable'].includes(lot.supply_status) ? 'problem'
       : lot.supply_status === 'available' ? 'available' : 'incoming';
@@ -115,7 +114,7 @@ export function planningTimelineEntries(
   }
   for (const reservation of active) {
     if (reservation.supply_unit_id) continue;
-    const date = place(reservation.requested_delivery_date);
+    const date = reservation.requested_delivery_date;
     if (!inRange(date)) continue;
     entries.push({ key: `reservation:${reservation.id}`, itemNumber, date,
       state: problemKeys.has(reservation.id) ? 'problem' : reservation.reservation_type,

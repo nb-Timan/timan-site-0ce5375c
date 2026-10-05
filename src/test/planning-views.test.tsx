@@ -62,7 +62,7 @@ describe('Planning incoming supply and timeline projections', () => {
     expect(entries.find((row) => row.unit?.id === incoming.units[1].id))?.toMatchObject({
       date: '2026-11-15', state: 'soft_quote',
     });
-    expect(entries.find((row) => row.unit?.id === '2')?.state).toBe('locked_quote');
+    expect(entries.find((row) => row.unit?.id === '2')).toBeUndefined();
     expect(entries.find((row) => row.unit?.id === '3')?.state).toBe('problem');
     expect(entries.find((row) => row.unit?.id === '4')?.state).toBe('order');
     expect(entries.find((row) => row.reservation?.id === 'missing')?.state).toBe('problem');
@@ -79,6 +79,22 @@ describe('Planning incoming supply and timeline projections', () => {
       available_at: null, expected_delivery_at: null }] };
     expect(planningTimelineEntries(undatedStock, '411000', periods[0].start, periods.at(-1)!.end, now))
       .toEqual(expect.arrayContaining([expect.objectContaining({ key: 'unit:stock', state: 'available' })]));
+  });
+
+  it('keeps a historical RC-751 availability date in its matching calendar month', () => {
+    const s25 = { ...unit('s25-8', '2026-06-15', 'available', '410040'),
+      serial_number: '410040-01-0397', production_reference: 'S25-8',
+      production_completed_at: '2026-06-12', production_completed_week: 24,
+      production_completed_year: 2026 };
+    const historical = { ...data, units: [s25], reservations: [] };
+    const entries = planningTimelineEntries(historical, '410040',
+      new Date('2026-06-01T00:00:00Z'), new Date('2026-07-01T00:00:00Z'), now);
+    expect(entries).toEqual([expect.objectContaining({
+      key: 'unit:s25-8', date: '2026-06-15', state: 'available', unit: s25,
+    })]);
+    expect(planningTimelineEntries(historical, '410040',
+      new Date('2026-10-01T00:00:00Z'), new Date('2027-04-01T00:00:00Z'), now))
+      .toEqual([]);
   });
 
   it('supports three, six and twelve months on both week and month axes', () => {

@@ -7,6 +7,7 @@ const quarantine = readFileSync('supabase/migrations/20261005174011_planning_sup
 const unknownDateReporting = readFileSync('supabase/migrations/20261005180150_planning_supply_unknown_date_reporting.sql', 'utf8');
 const perMachineIdempotency = readFileSync('supabase/migrations/20261005181330_planning_supply_import_per_machine_idempotency_fix.sql', 'utf8');
 const realConflictClassification = readFileSync('supabase/migrations/20261005192447_planning_supply_real_conflict_classification.sql', 'utf8');
+const s25AvailabilityReconciliation = readFileSync('supabase/migrations/20261005200112_planning_rc751_s25_availability_dates.sql', 'utf8');
 const service = readFileSync('src/lib/planningSupplyImport.ts', 'utf8');
 const page = readFileSync('src/pages/PlanningPage.tsx', 'utf8');
 const dialog = readFileSync('src/components/planning/PlanningSupplyImportDialog.tsx', 'utf8');
@@ -140,6 +141,15 @@ describe('Planning supply import server contract', () => {
     expect(migration).toContain("values ('manual_supply_import', false, 720)");
     expect(migration).toContain('public.planning_ingest_supply_unit(');
     expect(migration).toContain('planning_supply_unit_records');
+  });
+
+  it('reconciles only the documented RC-751 S25 availability dates', () => {
+    expect(s25AvailabilityReconciliation).toContain("unit.item_number = '410040'");
+    expect(s25AvailabilityReconciliation).toContain("('410040-01-0397', 'S25-8', date '2026-06-12', date '2026-06-15')");
+    expect(s25AvailabilityReconciliation).toContain('set available_at = source.available_at');
+    expect(s25AvailabilityReconciliation).toContain('unit.production_completed_at = source.production_completed_at');
+    expect(s25AvailabilityReconciliation).not.toContain('set production_completed_at');
+    expect(s25AvailabilityReconciliation).not.toContain('supply_status =');
   });
 
   it('shows parse, preview and explicit confirmation without writing on file selection', () => {

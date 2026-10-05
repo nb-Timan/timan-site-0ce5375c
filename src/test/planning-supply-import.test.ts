@@ -109,6 +109,17 @@ describe('Planning manual supply adapter', () => {
     expect(rows.every((row) => row.productionCompletedAt! <= '2026-10-05')).toBe(true);
   });
 
+  it('parses the Danish S25-8 delivery date without an offset or locale swap', () => {
+    const [row] = parsePlanningSupplyMatrix([headers, [
+      'Serie 25', '410040-01-0397', 'S25-8', '', '15-06-26', 'U24',
+      '', '', '', '', '', 2026,
+    ]], '410040');
+    expect(row.productionCompletedAt).toBe('2026-06-15');
+    expect(row.productionCompletedWeek).toBe(24);
+    expect(row.productionCompletedYear).toBe(2026);
+    expect(row.validationError).toBeNull();
+  });
+
   it('parses both supplied S27 batches as eight future units', () => {
     const sourceRows = Array.from({ length: 8 }, (_, index) => [
       'Serie 27', `410040-01-0${410 + index}`, `S27-${index + 1}`, '',
