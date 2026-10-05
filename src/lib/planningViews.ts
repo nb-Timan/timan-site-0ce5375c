@@ -27,6 +27,24 @@ export interface PlanningTimelineEntry {
   reservation?: PlanningReservation;
 }
 
+const planningSerialCollator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+
+export function comparePlanningSerialNumbers(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): number {
+  const leftSerial = left?.trim() ?? '';
+  const rightSerial = right?.trim() ?? '';
+  if (!leftSerial) return rightSerial ? 1 : 0;
+  if (!rightSerial) return -1;
+  return planningSerialCollator.compare(leftSerial, rightSerial);
+}
+
+export function sortPlanningUnitsBySerial(units: PlanningUnit[]): PlanningUnit[] {
+  return [...units].sort((left, right) => comparePlanningSerialNumbers(left.serial_number, right.serial_number)
+    || left.id.localeCompare(right.id));
+}
+
 export function planningSupplyDate(unit: PlanningUnit): string | null {
   return unit.available_at ?? unit.current_planned_delivery_date
     ?? unit.expected_delivery_at ?? unit.first_planned_delivery_date ?? null;

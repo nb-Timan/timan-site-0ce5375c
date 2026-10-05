@@ -2,7 +2,7 @@ import { useState } from 'react';
 import PlanningUnitDetail from '@/components/PlanningUnitDetail';
 import type { PlanningDeliveryMachineFamily } from '@/lib/planningDeliveryCatalog';
 import type { PlanningData, PlanningUnitPrivateDetail } from '@/lib/planningService';
-import { planningIncomingSupply, planningSupplyDate } from '@/lib/planningViews';
+import { planningIncomingSupply, planningSupplyDate, sortPlanningUnitsBySerial } from '@/lib/planningViews';
 
 type IncomingCategory = 'all' | 'machines' | 'attachments';
 
@@ -48,10 +48,11 @@ export default function PlanningIncomingView({ data, language, label, itemLabel,
       ? machineFamily === 'all' || itemNumber === selectedFamily?.itemNumber
       : equipmentItemNumber === 'all' || itemNumber === equipmentItemNumber);
   const needle = query.trim().toLocaleLowerCase();
-  const units = supply.units.filter((unit) => categoryMatch(unit.item_number) && familyMatch(unit.item_number)
+  const units = sortPlanningUnitsBySerial(supply.units.filter((unit) => categoryMatch(unit.item_number)
+    && familyMatch(unit.item_number)
     && (!needle || [itemLabel(unit.item_number), unit.item_number, unit.serial_number, unit.production_reference,
       unit.production_order_number, unit.erp_order_number]
-      .some((value) => value?.toLocaleLowerCase().includes(needle))));
+      .some((value) => value?.toLocaleLowerCase().includes(needle)))));
   const lots = supply.lots.filter((lot) => categoryMatch(lot.item_number) && familyMatch(lot.item_number)
     && (!needle || [itemLabel(lot.item_number), lot.item_number]
       .some((value) => value.toLocaleLowerCase().includes(needle))));

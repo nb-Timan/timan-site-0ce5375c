@@ -1,9 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import PlanningIncomingView from '@/components/planning/PlanningIncomingView';
 import PlanningTimelineView from '@/components/planning/PlanningTimelineView';
 import { PLANNING_TRANSLATIONS } from '@/lib/i18n/planningTranslations';
-import { planningIncomingSupply, planningTimelineEntries, planningTimelinePeriods } from '@/lib/planningViews';
+import {
+  comparePlanningSerialNumbers, planningIncomingSupply, planningTimelineEntries, planningTimelinePeriods,
+  sortPlanningUnitsBySerial,
+} from '@/lib/planningViews';
 import type { PlanningData, PlanningReservation, PlanningUnit } from '@/lib/planningService';
 
 const now = new Date('2026-10-04T12:00:00Z');
@@ -112,6 +115,23 @@ describe('Planning incoming supply and timeline projections', () => {
     expect(planningTimelinePeriods('week', 12, now).length).toBeGreaterThan(50);
   });
 
+  it('sorts serial numbers naturally without changing their leading zeros', () => {
+    const rows = [
+      { ...unit('serial-12', '2026-11-10', 'incoming', '410040'), serial_number: '410040-01-0412' },
+      { ...unit('serial-10', '2026-11-12', 'incoming', '410040'), serial_number: '410040-01-0410' },
+      { ...unit('serial-11', '2026-11-11', 'incoming', '410040'), serial_number: '410040-01-0411' },
+      { ...unit('serial-100', '2026-11-13', 'incoming', '410040'), serial_number: '410040-01-0100' },
+    ];
+
+    expect(sortPlanningUnitsBySerial(rows).map((row) => row.serial_number)).toEqual([
+      '410040-01-0100', '410040-01-0410', '410040-01-0411', '410040-01-0412',
+    ]);
+    expect(rows.map((row) => row.serial_number)).toEqual([
+      '410040-01-0412', '410040-01-0410', '410040-01-0411', '410040-01-0100',
+    ]);
+    expect(comparePlanningSerialNumbers('410040-01-0410', '410040-01-0411')).toBeLessThan(0);
+  });
+
   it('renders incoming units and quantity lots with detail, not the overview table', () => {
     const onSelectUnit = vi.fn();
     const props = { data, language: 'da', label, itemLabel: (id: string) => `Produkt ${id}`,
@@ -123,7 +143,7 @@ describe('Planning incoming supply and timeline projections', () => {
     expect(screen.getAllByText('S47-1').length).toBeGreaterThan(0);
     expect(screen.queryByText('På lager')).not.toBeInTheDocument();
     fireEvent.click(screen.getAllByRole('button', { name: 'Vis detaljer' })[0]);
-    expect(onSelectUnit).toHaveBeenCalledWith('4');
+    expect(onSelectUnit).toHaveBeenCalledWith('6');
     rerender(<PlanningIncomingView {...props} selectedUnitId="1" />);
     expect(screen.getByRole('region', { name: 'Produktion & ERP' })).toHaveTextContent('656331');
     rerender(<PlanningIncomingView {...props} data={{ ...data, units: [], lots: [], reservations: [] }} />);
@@ -175,6 +195,36 @@ describe('Planning incoming supply and timeline projections', () => {
     rerender(<PlanningIncomingView {...props} query=""
       data={{ ...data, lots: [] }} />);
     expect(screen.getByText('Ingen kommende redskaber')).toBeInTheDocument();
+  });
+
+  it('keeps RC-751 and RC-1000s naturally sorted after machine and search filters', () => {
+    const sortableData: PlanningData = {
+      ...data,
+      units: [
+        { ...unit('rc751-12', '2026-11-10', 'incoming', '410040'), serial_number: '410040-01-0412' },
+        { ...unit('rc1000-10', '2026-11-15', 'incoming'), serial_number: '411000-04-1610' },
+        { ...unit('rc751-10', '2026-11-12', 'incoming', '410040'), serial_number: '410040-01-0410' },
+        { ...unit('rc1000-08', '2026-11-17', 'incoming'), serial_number: '411000-04-1608' },
+        { ...unit('rc751-11', '2026-11-11', 'incoming', '410040'), serial_number: '410040-01-0411' },
+        { ...unit('rc1000-09', '2026-11-16', 'incoming'), serial_number: '411000-04-1609' },
+      ],
+      lots: [],
+      reservations: [],
+    };
+    const props = { data: sortableData, language: 'da', label, itemLabel: (id: string) => `Produkt ${id}`,
+      machineFamilies, query: '', selectedUnitId: null, onSelectUnit: vi.fn(), privateDetail: null };
+    const { rerender } = render(<PlanningIncomingView {...props} />);
+    const displayedSerials = () => screen.getAllByRole('row').slice(1)
+      .map((row) => within(row).getAllByRole('cell')[1].textContent);
+
+    fireEvent.click(screen.getByRole('button', { name: 'RC-751' }));
+    expect(displayedSerials()).toEqual(['410040-01-0410', '410040-01-0411', '410040-01-0412']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'RC-1000s' }));
+    expect(displayedSerials()).toEqual(['411000-04-1608', '411000-04-1609', '411000-04-1610']);
+
+    rerender(<PlanningIncomingView {...props} query="411000-04-16" />);
+    expect(displayedSerials()).toEqual(['411000-04-1608', '411000-04-1609', '411000-04-1610']);
   });
 
   it('renders a scroll-contained visual time axis and canonical unit blocks', () => {
