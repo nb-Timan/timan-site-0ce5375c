@@ -1,22 +1,17 @@
 import { useState } from 'react';
 import PlanningUnitDetail from '@/components/PlanningUnitDetail';
+import type { PlanningDeliveryMachineFamily } from '@/lib/planningDeliveryCatalog';
 import type { PlanningData, PlanningUnitPrivateDetail } from '@/lib/planningService';
 import { planningIncomingSupply, planningSupplyDate } from '@/lib/planningViews';
 
 type IncomingCategory = 'all' | 'machines' | 'attachments';
-
-interface MachineFamily {
-  id: string;
-  itemNumber: string;
-  label: string;
-}
 
 interface Props {
   data: PlanningData;
   language: string;
   label: (key: string) => string;
   itemLabel: (itemNumber: string) => string;
-  machineFamilies: MachineFamily[];
+  machineFamilies: PlanningDeliveryMachineFamily[];
   query: string;
   selectedUnitId: string | null;
   onSelectUnit: (id: string) => void;
@@ -33,15 +28,25 @@ export default function PlanningIncomingView({ data, language, label, itemLabel,
   selectedUnitId, onSelectUnit, privateDetail }: Props) {
   const [category, setCategory] = useState<IncomingCategory>('all');
   const [machineFamily, setMachineFamily] = useState('all');
+  const [equipmentItemNumber, setEquipmentItemNumber] = useState('all');
   const supply = planningIncomingSupply(data);
   if (!supply) return <p role="status" className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-900">
     {label(data.sources.some((source) => source.connected) ? 'planningStaleSupply' : 'planningNoSupply')}
   </p>;
   const machineItemNumbers = new Set(machineFamilies.map((family) => family.itemNumber));
+  const selectedFamily = machineFamilies.find((family) => family.id === machineFamily);
+  const compatibleEquipment = [...new Set((selectedFamily
+    ? selectedFamily.equipmentItemNumbers
+    : machineFamilies.flatMap((family) => family.equipmentItemNumbers)))];
+  const compatibleEquipmentNumbers = new Set(compatibleEquipment);
   const categoryMatch = (itemNumber: string) => category === 'all'
-    || (category === 'machines' ? machineItemNumbers.has(itemNumber) : !machineItemNumbers.has(itemNumber));
-  const familyMatch = (itemNumber: string) => category !== 'machines' || machineFamily === 'all'
-    || itemNumber === machineFamily;
+    || (category === 'machines'
+      ? machineItemNumbers.has(itemNumber)
+      : !machineItemNumbers.has(itemNumber) && compatibleEquipmentNumbers.has(itemNumber));
+  const familyMatch = (itemNumber: string) => category === 'all'
+    || (category === 'machines'
+      ? machineFamily === 'all' || itemNumber === selectedFamily?.itemNumber
+      : equipmentItemNumber === 'all' || itemNumber === equipmentItemNumber);
   const needle = query.trim().toLocaleLowerCase();
   const units = supply.units.filter((unit) => categoryMatch(unit.item_number) && familyMatch(unit.item_number)
     && (!needle || [itemLabel(unit.item_number), unit.item_number, unit.serial_number, unit.production_reference,
@@ -74,26 +79,52 @@ export default function PlanningIncomingView({ data, language, label, itemLabel,
         : 'planningNoRecords';
 
   return <div className="space-y-5">
-    <div className="flex min-w-0 flex-wrap items-end gap-3">
-      <div className="flex max-w-full gap-1 overflow-x-auto" role="group" aria-label={label('planningType')}>
-        {([['all', 'planningAllReservations'], ['machines', 'planningMachines'],
-          ['attachments', 'planningAttachments']] as const).map(([value, key]) => (
-          <button key={value} type="button" onClick={() => setCategory(value)} aria-pressed={category === value}
-            className={`h-9 shrink-0 rounded border px-3 text-sm font-medium ${category === value
-              ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
-              : 'border-slate-300 bg-white text-slate-700 hover:border-emerald-600'}`}>
-            {label(key)}
-          </button>
-        ))}
+    <div className="min-w-0 space-y-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5" role="group"
+        aria-label={label('planningMachineNavigation')}>
+        <span className="mr-1 text-xs font-medium text-slate-600">{label('planningMachineNavigation')}:</span>
+        <button type="button" onClick={() => {
+          setMachineFamily('all'); setEquipmentItemNumber('all'); setCategory('all');
+        }} aria-pressed={machineFamily === 'all'}
+          className={`h-9 rounded border px-3 text-sm font-medium ${machineFamily === 'all'
+            ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
+            : 'border-slate-300 bg-white text-slate-700 hover:border-emerald-600'}`}>
+          {label('planningAllReservations')}
+        </button>
+        {machineFamilies.map((family) => <button key={family.id} type="button" onClick={() => {
+          setMachineFamily(family.id); setEquipmentItemNumber('all');
+          if (category === 'all') setCategory('machines');
+        }} aria-pressed={machineFamily === family.id}
+          className={`h-9 rounded border px-3 text-sm font-medium ${machineFamily === family.id
+            ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
+            : 'border-slate-300 bg-white text-slate-700 hover:border-emerald-600'}`}>
+          {family.label}
+        </button>)}
       </div>
-      {category === 'machines' && <label className="min-w-0 text-xs font-medium text-slate-600">
-        <span className="sr-only">{label('planningMachineNavigation')}</span>
-        <select value={machineFamily} onChange={(event) => setMachineFamily(event.target.value)}
-          className="h-9 max-w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-800">
-          <option value="all">{label('planningAllMachines')}</option>
-          {machineFamilies.map((family) => <option key={family.id} value={family.itemNumber}>{family.label}</option>)}
-        </select>
-      </label>}
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <div className="flex items-center gap-1" role="group" aria-label={label('planningType')}>
+          <span className="mr-1 text-xs font-medium text-slate-600">{label('planningType')}:</span>
+          {([['machines', 'planningMachine'], ['attachments', 'planningAttachments']] as const)
+            .map(([value, key]) => <button key={value} type="button" onClick={() => {
+              setCategory(value); setEquipmentItemNumber('all');
+            }} aria-pressed={category === value}
+              className={`h-9 rounded border px-3 text-sm font-medium ${category === value
+                ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
+                : 'border-slate-300 bg-white text-slate-700 hover:border-emerald-600'}`}>
+              {label(key)}
+            </button>)}
+        </div>
+        {category === 'attachments' && <label className="w-full min-w-0 text-xs font-medium text-slate-600 sm:w-auto">
+          <span className="sr-only">{label('planningAttachments')}</span>
+          <select value={equipmentItemNumber} onChange={(event) => setEquipmentItemNumber(event.target.value)}
+            className="h-9 w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-800 sm:max-w-sm">
+            <option value="all">{label('planningAllAttachments')}</option>
+            {compatibleEquipment.map((itemNumber) => <option key={itemNumber} value={itemNumber}>
+              {itemLabel(itemNumber)}
+            </option>)}
+          </select>
+        </label>}
+      </div>
     </div>
 
     {units.length === 0 && lots.length === 0 && <p role="status"

@@ -11,8 +11,9 @@ import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { derivePortalRole } from '@/lib/portalAccess';
 import { useLanguage } from '@/context/LanguageContext';
-import { ACCESSORIES, PRODUCTS } from '@/data/machines';
+import { ACCESSORIES, PRODUCTS, getAccessoriesFlat } from '@/data/machines';
 import { t } from '@/lib/i18n/translations';
+import { planningDeliveryMachineFamilies } from '@/lib/planningDeliveryCatalog';
 import { supabase } from '@/lib/supabase';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
@@ -222,9 +223,11 @@ export default function PlanningPage() {
     ? (ACCESSORIES[selectedMachine] ?? []).filter((item) => item.varenr && item.varenr !== 'HEADER' && !item.isHeader)
     : Object.values(ACCESSORIES).flat().filter((item) => item.varenr && item.varenr !== 'HEADER' && !item.isHeader);
   const dedupedAttachments = [...new Map(attachmentRows.map((item) => [item.varenr, item])).values()];
+  const deliveryMachineFamilies = planningDeliveryMachineFamilies();
   const itemLabel = (itemNumber: string) => {
-    const item = machineRows.find((row) => row.product.varenr === itemNumber)?.product
-      ?? Object.values(ACCESSORIES).flat().find((candidate) => candidate.varenr === itemNumber);
+    const item = Object.values(PRODUCTS).find((product) => product.varenr === itemNumber)
+      ?? Object.keys(ACCESSORIES).flatMap((key) => getAccessoriesFlat(key))
+        .find((candidate) => candidate.varenr === itemNumber);
     const name = item?.name;
     const localized = typeof name === 'string' ? name : name?.[uiLanguage] ?? name?.en ?? name?.da;
     return localized ? `${localized} · ${itemNumber}` : itemNumber;
@@ -410,9 +413,8 @@ export default function PlanningPage() {
                       </div>
                     )}
                     {tab === 'incoming' && <PlanningIncomingView data={data} language={uiLanguage} label={label}
-                      itemLabel={itemLabel} machineFamilies={machineRows.map((row) => ({
-                        id: row.key, itemNumber: row.itemNumber, label: MACHINE_FAMILY_LABELS[row.key],
-                      }))} query={search} selectedUnitId={selectedUnitId}
+                      itemLabel={itemLabel} machineFamilies={deliveryMachineFamilies}
+                      query={search} selectedUnitId={selectedUnitId}
                       onSelectUnit={setSelectedUnitId} privateDetail={privateDetail} />}
                     {tab === 'timeline' && <PlanningTimelineView data={data} language={uiLanguage} label={label}
                       rows={timelineRows.filter((row) => matches(row.itemNumber, row.name))}

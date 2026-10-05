@@ -45,6 +45,13 @@ const data: PlanningData = {
   documents: { 'config-soft': { quoteNumber: 'T-QA', orderNumber: null,
     seller: null, dealer: null, customer: null } },
 };
+const machineFamilies = [
+  { id: 'RC-751', itemNumber: '410040', label: 'RC-751', equipmentItemNumbers: ['411687'] },
+  { id: 'RC-1000S', itemNumber: '411000', label: 'RC-1000s', equipmentItemNumbers: ['412594'] },
+  { id: 'Timan 3330', itemNumber: '712000', label: 'Timan 3330', equipmentItemNumbers: ['730035'] },
+  { id: 'Timan 2620', itemNumber: '761000', label: 'Timan 2620', equipmentItemNumbers: ['770007'] },
+  { id: 'Loader Line', itemNumber: '666-333', label: 'CS-200 til traktor', equipmentItemNumbers: ['725161'] },
+];
 
 describe('Planning incoming supply and timeline projections', () => {
   it('lists only future concrete supply, never generic catalogue rows or blocked units', () => {
@@ -107,12 +114,6 @@ describe('Planning incoming supply and timeline projections', () => {
 
   it('renders incoming units and quantity lots with detail, not the overview table', () => {
     const onSelectUnit = vi.fn();
-    const machineFamilies = [
-      { id: 'RC-751', itemNumber: '410040', label: 'RC-751' },
-      { id: 'RC-1000S', itemNumber: '411000', label: 'RC-1000s' },
-      { id: 'Timan 3330', itemNumber: '712000', label: 'Timan 3330' },
-      { id: 'Timan 2620', itemNumber: '761000', label: 'Timan 2620' },
-    ];
     const props = { data, language: 'da', label, itemLabel: (id: string) => `Produkt ${id}`,
       machineFamilies, query: '', selectedUnitId: null, onSelectUnit, privateDetail: null };
     const { rerender } = render(<PlanningIncomingView {...props} />);
@@ -132,36 +133,47 @@ describe('Planning incoming supply and timeline projections', () => {
   });
 
   it('combines the delivery category, canonical machine family and search filters', () => {
-    const machineFamilies = [
-      { id: 'RC-751', itemNumber: '410040', label: 'RC-751' },
-      { id: 'RC-1000S', itemNumber: '411000', label: 'RC-1000s' },
-      { id: 'Timan 3330', itemNumber: '712000', label: 'Timan 3330' },
-      { id: 'Timan 2620', itemNumber: '761000', label: 'Timan 2620' },
-    ];
     const props = { data, language: 'da', label, itemLabel: (id: string) => `Produkt ${id}`,
       machineFamilies, query: '', selectedUnitId: null, onSelectUnit: vi.fn(), privateDetail: null };
     const { rerender } = render(<PlanningIncomingView {...props} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Maskiner' }));
-    expect(screen.queryByText('Produkt 730035')).not.toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Vælg maskine' })).toHaveValue('all');
+    expect(screen.getByRole('button', { name: 'RC-751' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'RC-1000s' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Timan 3330' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Timan 2620' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'CS-200 til traktor' })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Vælg maskine' }), { target: { value: '410040' } });
+    fireEvent.click(screen.getByRole('button', { name: 'RC-751' }));
     expect(screen.getAllByText('Produkt 410040').length).toBeGreaterThan(0);
     expect(screen.queryByText('Produkt 411000')).not.toBeInTheDocument();
+    expect(screen.queryByText('Produkt 730035')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Redskaber' }));
+    expect(screen.getByRole('combobox', { name: 'Redskaber' })).toHaveTextContent('Produkt 411687');
+    expect(screen.getByRole('combobox', { name: 'Redskaber' })).not.toHaveTextContent('Produkt 730035');
+    expect(screen.getByText('Ingen kommende redskaber')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Timan 3330' }));
+    expect(screen.getByRole('combobox', { name: 'Redskaber' })).toHaveTextContent('Produkt 730035');
+    expect(screen.getAllByText('Produkt 730035').length).toBeGreaterThan(1);
 
     rerender(<PlanningIncomingView {...props} query="S47-6" />);
+    fireEvent.click(screen.getByRole('button', { name: 'RC-751' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Maskine' }));
     expect(screen.getAllByText('S47-6').length).toBeGreaterThan(0);
     rerender(<PlanningIncomingView {...props} query="findes-ikke" />);
     expect(screen.getByText('Ingen registreringer.')).toBeInTheDocument();
 
     rerender(<PlanningIncomingView {...props} query="730035" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Alle' }));
     fireEvent.click(screen.getByRole('button', { name: 'Redskaber' }));
-    expect(screen.getByText('Produkt 730035')).toBeInTheDocument();
+    expect(screen.getAllByText('Produkt 730035').length).toBeGreaterThan(1);
     expect(screen.queryByText('Produkt 410040')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Redskaber' }), { target: { value: '730035' } });
+    expect(screen.getByRole('combobox', { name: 'Redskaber' })).toHaveValue('730035');
 
     rerender(<PlanningIncomingView {...props} query=""
-      data={{ ...data, units: data.units.filter((row) => row.item_number !== '730035'), lots: [] }} />);
+      data={{ ...data, lots: [] }} />);
     expect(screen.getByText('Ingen kommende redskaber')).toBeInTheDocument();
   });
 
