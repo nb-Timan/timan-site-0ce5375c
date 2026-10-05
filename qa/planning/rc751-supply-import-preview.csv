@@ -1,0 +1,5 @@
+Serie Nr.,Maskin ident nr.,P-nr.,Salgsordre,Lev. Dato,Maskine færdig i produktion,Bekræftet levering til kunden,Forhandler,Kunde,Kommentar,Status,ÅR
+QA Serie 99,410040-QA-9001,S99-1,,25-09-26,U39,,,,,,2026
+QA Serie 99,410040-QA-9002,S99-2,QA-ERP-2,02-11-26,U45,,QA IGNORERES,QA IGNORERES,QA IGNORERES,QA,2026
+QA Serie 99,410040-QA-9003,S99-3,,02-11-26,U45,,,,,,2026
+QA Serie 99,410040-QA-9004,S99-4,,09-11-26,U46,,,,,,2026
