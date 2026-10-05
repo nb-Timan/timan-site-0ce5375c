@@ -159,7 +159,29 @@ describe('Planning manual supply adapter', () => {
     ], '411000');
     expect(numericPlaceholder.productionCompletedAt).toBeNull();
     expect(textPlaceholder.productionCompletedAt).toBeNull();
-    expect(numericPlaceholder.validationError).toBe('Ugyldig produktionsdato');
-    expect(textPlaceholder.validationError).toBe('Ugyldig produktionsdato');
+    expect(numericPlaceholder.validationError).toBeNull();
+    expect(textPlaceholder.validationError).toBeNull();
+  });
+
+  it('accepts a unique RC-1000s serial without P-number or production date', () => {
+    const [row] = parsePlanningSupplyMatrix([headers, [
+      'Serie 53', '411000-04-1630', '', 0, '05-01-1900', 'U52',
+      '00-01-1900', 0, 0, '', 0, 2026,
+    ]], '411000');
+    expect(row).toMatchObject({
+      serialNumber: '411000-04-1630',
+      productionReference: '',
+      productionCompletedAt: null,
+      validationError: null,
+    });
+  });
+
+  it('still rejects malformed non-empty P-numbers and production dates', () => {
+    const rows = parsePlanningSupplyMatrix([headers,
+      ['Serie 53', '411000-04-1631', 'wrong', 0, '', 'U52', '', '', '', '', '', 2026],
+      ['Serie 53', '411000-04-1632', '', 0, 'not-a-date', 'U52', '', '', '', '', '', 2026],
+    ], '411000');
+    expect(rows[0].validationError).toBe('Ugyldigt P-nr.');
+    expect(rows[1].validationError).toBe('Ugyldig produktionsdato');
   });
 });

@@ -148,6 +148,17 @@ export interface PlanningData {
   truncated: boolean;
 }
 
+export const UNRESOLVED_COMMERCIAL_RELATION_FIELD = 'commercial_relation';
+
+export function planningCommercialConflict(
+  data: PlanningData,
+  unitId: string,
+): PlanningConflict | null {
+  return data.conflicts?.find((conflict) => conflict.supply_unit_id === unitId
+    && conflict.field_name === UNRESOLVED_COMMERCIAL_RELATION_FIELD
+    && conflict.status === 'open') ?? null;
+}
+
 export interface PlanningDocument {
   quoteNumber: string | null;
   orderNumber: string | null;
@@ -281,14 +292,19 @@ export function planningItemSummary(data: PlanningData, itemNumber: string, now 
     unit.supply_status === 'available' && (unit.available_at ?? today) <= today,
   ).length + lots.filter((lot) => lot.supply_status === 'available' && (lot.available_at ?? today) <= today)
     .reduce((sum, lot) => sum + lot.quantity, 0);
-  const incoming = units.filter((unit) => ['incoming', 'in_production'].includes(unit.supply_status)).length
-    + lots.filter((lot) => ['incoming', 'in_production'].includes(lot.supply_status))
+  const incoming = units.filter((unit) => unit.supply_status === 'incoming'
+    || (unit.supply_status === 'in_production' && !!unit.available_at)).length
+    + lots.filter((lot) => lot.supply_status === 'incoming'
+      || (lot.supply_status === 'in_production' && !!lot.available_at))
       .reduce((sum, lot) => sum + lot.quantity, 0);
   const dates = [
-    ...units.filter((unit) => !reservedUnits.has(unit.id) && ['available', 'incoming', 'in_production'].includes(unit.supply_status))
+    ...units.filter((unit) => !reservedUnits.has(unit.id)
+      && ['available', 'incoming', 'in_production'].includes(unit.supply_status)
+      && (unit.supply_status === 'available' || !!unit.available_at))
       .map((unit) => unit.available_at ?? today),
     ...lots.filter((lot) => lot.quantity > (reservedLots.get(lot.id) ?? 0)
-      && ['available', 'incoming', 'in_production'].includes(lot.supply_status))
+      && ['available', 'incoming', 'in_production'].includes(lot.supply_status)
+      && (lot.supply_status === 'available' || !!lot.available_at))
       .map((lot) => lot.available_at ?? today),
   ].sort();
   return {

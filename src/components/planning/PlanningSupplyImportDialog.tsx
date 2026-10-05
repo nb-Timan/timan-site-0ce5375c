@@ -71,7 +71,7 @@ export default function PlanningSupplyImportDialog({ open, onOpenChange, label, 
 
   const summary = result?.summary;
   const canConfirm = !!result?.preview && !busy
-    && summary.invalidRows === 0 && summary.duplicates === 0 && summary.conflicts === 0;
+    && summary.invalidRows === 0 && summary.duplicates === 0;
 
   return (
     <Dialog open={open} onOpenChange={(next) => { onOpenChange(next); if (!next) resetFile(); }}>
@@ -116,6 +116,7 @@ export default function PlanningSupplyImportDialog({ open, onOpenChange, label, 
                   ['planningImportExisting', summary.existingMatches],
                   ['planningImportUpdated', summary.updatedMachines],
                   ['planningImportConflicts', summary.conflicts],
+                  ['planningImportDateUnknown', summary.plannedDateUnknown],
                   ['planningImportInvalid', summary.invalidRows + summary.duplicates],
                 ].map(([key, value]) => <div key={key} className="rounded-md border border-slate-200 bg-white p-2">
                   <p className="text-xs text-slate-600">{label(String(key))}</p>

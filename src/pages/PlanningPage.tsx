@@ -59,6 +59,7 @@ const PRODUCTION_FIELD_LABEL: Record<string, string> = {
   first_planned_delivery_date: 'planningFirstPlannedDelivery',
   current_planned_delivery_date: 'planningCurrentPlannedDelivery',
   confirmed_customer_delivery_date: 'planningConfirmedDelivery',
+  commercial_relation: 'planningCommercialRelation',
 };
 
 type PlanningAction =
@@ -327,11 +328,26 @@ export default function PlanningPage() {
                             {item.itemNumber && <span className="font-medium tabular-nums">{item.itemNumber}</span>}
                             {isPlanner && item.kind === 'source_conflict' && (() => {
                               const conflict = data.conflicts?.find((row) => row.id === item.key);
-                              return conflict ? <span className="break-words text-xs text-slate-700">
-                                {label(PRODUCTION_FIELD_LABEL[conflict.field_name] ?? 'planningSource')}:
-                                {' '}{conflict.existing_source_system} {conflict.existing_value}
-                                {' → '}{conflict.incoming_source_system} {conflict.incoming_value}
-                              </span> : null;
+                              if (!conflict) return null;
+                              const unit = data.units.find((row) => row.id === conflict.supply_unit_id);
+                              return <>
+                                <span className="break-words text-xs text-slate-700">
+                                  {conflict.field_name === 'commercial_relation'
+                                    ? label('planningCommercialRelationUnresolved')
+                                    : <>{label(PRODUCTION_FIELD_LABEL[conflict.field_name] ?? 'planningSource')}:
+                                      {' '}{conflict.existing_source_system} {conflict.existing_value}
+                                      {' → '}{conflict.incoming_source_system} {conflict.incoming_value}</>}
+                                </span>
+                                {unit && <button type="button" className="ml-auto text-emerald-800 underline"
+                                  onClick={() => {
+                                    const machine = machineRows.find((row) => row.itemNumber === unit.item_number);
+                                    if (machine) setSelectedMachine(machine.key);
+                                    setSelectedUnitId(unit.id);
+                                    setTab('overview');
+                                  }}>
+                                  {label('planningShowDetails')}
+                                </button>}
+                              </>;
                             })()}
                             {isPlanner && item.kind === 'delivery_request_open' && data.requests.find((request) => request.id === item.key)
                               && <button type="button" className="ml-auto text-emerald-800 underline"

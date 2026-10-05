@@ -24,7 +24,7 @@ export type PlanningSupplyPreviewOutcome =
 export interface PlanningSupplyPreviewRow extends PlanningSupplyImportRow {
   sourceRecordKey: string;
   outcome: PlanningSupplyPreviewOutcome;
-  supplyStatus: 'available' | 'incoming' | 'blocked' | 'unavailable';
+  supplyStatus: 'available' | 'incoming' | 'in_production' | 'blocked' | 'unavailable';
   portalState: 'none' | 'quote' | 'order' | 'historical';
   conflictReason: string | null;
 }
@@ -37,6 +37,7 @@ export interface PlanningSupplyImportSummary {
   updatedMachines: number;
   completedCandidates: number;
   futureUnits: number;
+  plannedDateUnknown: number;
   quoteReserved: number;
   orderReserved: number;
   soldCompleted: number;
@@ -137,8 +138,16 @@ function parseWeek(value: unknown): number | null {
 
 function parseYear(value: unknown, date: string | null): number | null {
   const year = Number(clean(value));
-  if (Number.isInteger(year) && year >= 1900 && year <= 2200) return year;
+  if (Number.isInteger(year) && year > 1900 && year <= 2200) return year;
   return date ? Number(date.slice(0, 4)) : null;
+}
+
+function isMissingProductionDate(value: unknown): boolean {
+  if (value === null || value === undefined || value === '' || value === 0) return true;
+  if (value instanceof Date) return value.getFullYear() === 1900 || value.getUTCFullYear() === 1900;
+  if (typeof value === 'number') return XLSX.SSF.parse_date_code(value)?.y === 1900;
+  const text = clean(value);
+  return !text || /^(?:(?:00|05)-01-1900|1900-01-(?:00|05))$/.test(text);
 }
 
 function hasCommercialSourceHint(value: unknown): boolean {
@@ -177,15 +186,17 @@ export function parsePlanningSupplyMatrix(
     .map(({ row, rowNumber }) => {
       const serialNumber = clean(cell(row, columns.serial)).toUpperCase();
       const productionReference = clean(cell(row, columns.productionReference)).toUpperCase();
-      const productionCompletedAt = parseDate(cell(row, columns.productionDate));
+      const productionDateCell = cell(row, columns.productionDate);
+      const productionCompletedAt = parseDate(productionDateCell);
       const validationError = !serialNumber
         ? 'Mangler maskinidentitet'
         : !serialKey(serialNumber).startsWith(serialKey(itemNumber))
           ? 'Maskinidentitet matcher ikke valgt varenummer'
-          : !/^S\d+-\d+$/i.test(productionReference)
+          : productionReference && !/^S\d+-\d+$/i.test(productionReference)
             ? 'Ugyldigt P-nr.'
-            : !productionCompletedAt ? 'Ugyldig produktionsdato' : null;
-      const ignored = [columns.dealer, columns.customer, columns.comment,
+            : !productionCompletedAt && !isMissingProductionDate(productionDateCell)
+              ? 'Ugyldig produktionsdato' : null;
+      const ignored = [columns.salesOrder, columns.dealer, columns.customer, columns.comment,
         columns.confirmedDelivery, columns.sourceStatus]
         .some((column) => hasCommercialSourceHint(cell(row, column)));
       return {

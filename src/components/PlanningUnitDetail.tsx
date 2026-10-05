@@ -6,6 +6,7 @@ interface Props {
   language: string;
   label: (key: string) => string;
   privateDetail?: PlanningUnitPrivateDetail | null;
+  unresolvedCommercialRelation?: boolean;
 }
 
 function formatDate(value: string | null | undefined, language: string): string | null {
@@ -16,7 +17,9 @@ function formatDate(value: string | null | undefined, language: string): string 
     : value;
 }
 
-export default function PlanningUnitDetail({ unit, portalOrderNumber, language, label, privateDetail }: Props) {
+export default function PlanningUnitDetail({
+  unit, portalOrderNumber, language, label, privateDetail, unresolvedCommercialRelation = false,
+}: Props) {
   const productionWeek = unit.production_completed_week
     ? `${label('planningWeek')} ${unit.production_completed_week}${unit.production_completed_year ? ` / ${unit.production_completed_year}` : ''}`
     : null;
@@ -49,6 +52,11 @@ export default function PlanningUnitDetail({ unit, portalOrderNumber, language, 
   return (
     <section aria-label={label('planningProductionErp')} className="mt-4 border-t border-slate-200 pt-4">
       <h4 className="text-sm font-semibold text-slate-900">{label('planningProductionErp')}</h4>
+      {unresolvedCommercialRelation && <div role="status"
+        className="mt-3 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+        <p className="font-semibold">{label('planningRequiresAction')}</p>
+        <p className="mt-1">{label('planningCommercialRelationUnresolved')}</p>
+      </div>}
       <dl className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
         {knownFields.map(([key, value]) => (
           <div key={key} className="min-w-0 border-b border-slate-100 pb-2 text-sm">

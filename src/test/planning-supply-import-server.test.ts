@@ -3,6 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync('supabase/migrations/20261005095300_planning_supply_manual_import.sql', 'utf8');
 const conflictGuard = readFileSync('supabase/migrations/20261005104048_planning_supply_import_conflict_guard.sql', 'utf8');
+const quarantine = readFileSync('supabase/migrations/20261005163659_planning_supply_requires_action_quarantine.sql', 'utf8');
+const unknownDateReporting = readFileSync('supabase/migrations/20261005175915_planning_supply_unknown_date_reporting.sql', 'utf8');
+const perMachineIdempotency = readFileSync('supabase/migrations/20261005181200_planning_supply_import_per_machine_idempotency_fix.sql', 'utf8');
 const service = readFileSync('src/lib/planningSupplyImport.ts', 'utf8');
 const page = readFileSync('src/pages/PlanningPage.tsx', 'utf8');
 const dialog = readFileSync('src/components/planning/PlanningSupplyImportDialog.tsx', 'utf8');
@@ -19,9 +22,14 @@ describe('Planning supply import server contract', () => {
 
   it('uses stable normalized serial identity and file-hash idempotency', () => {
     expect(migration).toContain('planning_supply_units_normalized_serial_unique');
-    expect(migration).toContain('unique (source_system, source_file_sha256)');
-    expect(migration).toContain("v_source_key := btrim(p_item_number) || ':' || v_serial_key");
-    expect(migration).toContain("'alreadyImported', true");
+    expect(quarantine).toContain('planning_supply_import_batches_file_item_unique');
+    expect(quarantine).toContain('(source_system, source_file_sha256, item_number)');
+    expect(quarantine).toContain("v_source_key := btrim(p_item_number) || ':' || v_serial_key");
+    expect(quarantine).toContain("'alreadyImported', true");
+    expect(perMachineIdempotency).toContain('planning_supply_import_batche_source_system_source_file_sha_key');
+    expect(perMachineIdempotency).toContain('planning_supply_import_batches_file_item_unique');
+    expect(perMachineIdempotency).toContain('source_file_sha256');
+    expect(perMachineIdempotency).toContain('item_number');
   });
 
   it('derives commercial state from Portal and excludes sheet commercial values', () => {
@@ -53,10 +61,12 @@ describe('Planning supply import server contract', () => {
   });
 
   it('derives past and future supply from the acceptance date', () => {
-    expect(migration).toContain("when v_completed <= p_as_of then 'available'");
-    expect(migration).toContain("else 'incoming'");
-    expect(migration).toContain("'completedCandidates', v_complete");
-    expect(migration).toContain("'futureUnits', v_future");
+    expect(quarantine).toContain("when v_completed is null then 'in_production'");
+    expect(quarantine).toContain("when v_completed <= p_as_of then 'available'");
+    expect(quarantine).toContain("else 'incoming'");
+    expect(quarantine).toContain("'completedCandidates', v_complete");
+    expect(quarantine).toContain("'futureUnits', v_future");
+    expect(quarantine).toContain("'plannedDateUnknown', v_unknown_date");
   });
 
   it('gives order, quote and historical Portal state precedence over free stock', () => {
@@ -75,11 +85,29 @@ describe('Planning supply import server contract', () => {
   });
 
   it('marks uncorroborated commercial hints as blocked conflicts', () => {
-    expect(migration).toContain("when v_has_hint and v_portal_state = 'none' then 'blocked'");
-    expect(migration).toContain("v_conflict_reason := 'commercial_source_hint_without_portal_match'");
-    expect(dialog).toContain('summary.conflicts === 0');
+    expect(quarantine).toContain("when v_has_hint and v_portal_state = 'none' then 'blocked'");
+    expect(quarantine).toContain("v_conflict_reason := 'commercial_source_hint_without_portal_match'");
+    expect(quarantine).toContain("'commercial_relation', 'portal_relation_missing'");
+    expect(dialog).not.toContain('summary.conflicts === 0');
     expect(conflictGuard).toContain("if new.outcome = 'conflict' then");
-    expect(conflictGuard).toContain('PLANNING_IMPORT_REQUIRES_CLEAN_PREVIEW');
+    expect(quarantine).toContain("new.conflict_reason = 'commercial_source_hint_without_portal_match'");
+    expect(quarantine).toContain("u.supply_status = 'blocked'");
+  });
+
+  it('keeps missing dates and P-numbers null without treating them as stock or incoming', () => {
+    expect(quarantine).toContain("v_reference is not null and v_reference !~ '^S[0-9]+-[0-9]+$'");
+    expect(quarantine).toContain('if extract(year from v_completed) = 1900 then v_completed := null');
+    expect(quarantine).toContain('if v_year = 1900 then v_year := null');
+    expect(quarantine).toContain("elsif v_supply_status = 'in_production' then v_unknown_date := v_unknown_date + 1");
+  });
+
+  it('reports missing dates independently while keeping conflicts quarantined', () => {
+    expect(unknownDateReporting).toContain("row_data ->> 'productionCompletedAt' is null");
+    expect(unknownDateReporting).toContain("row_data ->> 'portalState' = 'none'");
+    expect(unknownDateReporting).toContain("'{summary,plannedDateUnknown}'");
+    expect(unknownDateReporting).toContain('planning_process_supply_import_core');
+    expect(unknownDateReporting).toContain('from public, anon, authenticated');
+    expect(unknownDateReporting).not.toContain("supplyStatus' = 'in_production'");
   });
 
   it('keeps the manual file as an adapter into the shared canonical ingest function', () => {

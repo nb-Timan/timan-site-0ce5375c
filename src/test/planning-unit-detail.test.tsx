@@ -47,4 +47,12 @@ describe('Planning unit production detail', () => {
     expect(screen.getByText('Kun QA')).toBeInTheDocument();
     expect(screen.queryByText('Produktionsnoter')).not.toBeInTheDocument();
   });
+
+  it('shows a neutral action reason without inventing dealer or customer data', () => {
+    render(<PlanningUnitDetail unit={{ ...unit, supply_status: 'blocked' }} language="da" label={label}
+      unresolvedCommercialRelation />);
+    expect(screen.getByText('Kræver handling')).toBeInTheDocument();
+    expect(screen.getByText(/ingen sikker Portal-relation er fundet/)).toBeInTheDocument();
+    expect(screen.queryByText('Testforhandler')).not.toBeInTheDocument();
+  });
 });

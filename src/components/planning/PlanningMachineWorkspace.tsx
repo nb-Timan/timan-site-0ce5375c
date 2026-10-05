@@ -3,7 +3,7 @@ import { CalendarDays, ChevronRight, History, LayoutGrid, List, PackageSearch, T
 import PlanningUnitDetail from '@/components/PlanningUnitDetail';
 import { ACCESSORIES } from '@/data/machines';
 import {
-  planningItemSummary,
+  planningCommercialConflict, planningItemSummary,
   type PlanningData,
   type PlanningItemSummary,
   type PlanningUnitPrivateDetail,
@@ -79,6 +79,8 @@ export default function PlanningMachineWorkspace({
   const summary = selected?.summary ?? null;
   const units = data.units.filter((unit) => unit.item_number === selected.itemNumber);
   const selectedUnit = units.find((unit) => unit.id === selectedUnitId) ?? null;
+  const selectedCommercialConflict = selectedUnit
+    ? planningCommercialConflict(data, selectedUnit.id) : null;
   const orderReservation = data.reservations.find((reservation) => reservation.status === 'active'
     && reservation.reservation_type === 'order' && reservation.supply_unit_id === selectedUnitId);
   const unitIds = useMemo(() => new Set(units.map((unit) => unit.id)), [units]);
@@ -288,7 +290,8 @@ export default function PlanningMachineWorkspace({
         </section>}
         {selectedUnit && <PlanningUnitDetail unit={selectedUnit}
           portalOrderNumber={orderReservation ? data.orderNumbers?.[orderReservation.configuration_id] : undefined}
-          language={language} label={label} privateDetail={privateDetail} />}
+          language={language} label={label} privateDetail={privateDetail}
+          unresolvedCommercialRelation={!!selectedCommercialConflict} />}
         {!completeSupply && <p className="mt-4 border-l-2 border-amber-500 pl-2 text-xs text-amber-900">
           {label('planningNoSupply')}
         </p>}

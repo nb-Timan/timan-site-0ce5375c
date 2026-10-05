@@ -74,6 +74,22 @@ describe('Planning opt-in and source safety', () => {
     expect(planningItemSummary({ ...data, truncated: true }, '411000', now)).toBeNull();
   });
 
+  it('does not count production units without a real date as stock, incoming or next available', () => {
+    const data: PlanningData = {
+      ...emptyData, sources: [freshSource],
+      units: [{ id: 'unknown-date', source_system: 'qa-source', item_number: '411000',
+        serial_number: '411000-04-1630', machine_ident_number: '411000-04-1630',
+        production_reference: null, production_completed_at: null,
+        available_at: null, expected_delivery_at: null, supply_status: 'in_production',
+        warehouse_location: null, source_updated_at: '2026-10-04T11:00:00Z' }],
+    };
+    expect(planningItemSummary(data, '411000', now)).toMatchObject({
+      stock: 0, incoming: 0, nextAvailable: null,
+    });
+    expect(planningTimelineUnits(data, '411000', new Date('2026-10-01'),
+      new Date('2027-01-01'), now)).toBe(0);
+  });
+
   it('flags unassigned orders, late serials and overdue quote locks', () => {
     const data: PlanningData = {
       ...emptyData, sources: [freshSource],
