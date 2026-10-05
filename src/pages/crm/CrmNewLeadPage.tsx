@@ -57,7 +57,7 @@ import { fetchBackendUsers } from '@/lib/backendUsersService';
 import type { BackendUser } from '@/lib/backend-users-store';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon, CalendarIcon, CalendarPlus, Share2, Mail } from 'lucide-react';
+import { Save, X, Upload, AlertTriangle, ChevronsUpDown, Check, Lock, ExternalLink, Image as ImageIcon, CalendarIcon, CalendarPlus, Share2, Mail, Minus, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
@@ -83,6 +83,15 @@ import { crmLeadActivityLabel, crmLeadChoiceLabel, crmLeadEquipmentGroupLabel, c
 import { mapUiLanguageToLegacy, type PortalUiLanguage } from '@/lib/portalLanguages';
 import { formatCountry } from '@/lib/formatCountry';
 import { ACCESSORIES } from '@/data/machines';
+import {
+  canonicalCrmLeadInterestFromLegacyValue,
+  crmLeadInterestIdentity,
+  getCrmLeadInterestQuantity,
+  machineQuantityForCrmLeadInterest,
+  normalizeCrmLeadMachineInterestItems,
+  setCrmLeadInterestQuantity,
+  type CrmLeadMachineInterestItem,
+} from '@/lib/crmLeadMachineInterest';
 import {
   buildStructuredContactInformation,
   getMissingCrmLeadFields,
@@ -600,14 +609,96 @@ function localizedCatalogProductLabel(label: string, language: PortalUiLanguage)
   return label;
 }
 
-function MachineInterestPicker({ value, onChange, language }: { value: string[]; onChange: (v: string[]) => void; language: PortalUiLanguage }) {
+export function MachineInterestPicker({
+  value,
+  items,
+  onChange,
+  language,
+}: {
+  value: string[];
+  items: CrmLeadMachineInterestItem[];
+  onChange: (value: string[], items: CrmLeadMachineInterestItem[]) => void;
+  language: PortalUiLanguage;
+}) {
+  const removeCanonicalItem = (legacyValue: string) => {
+    const canonical = canonicalCrmLeadInterestFromLegacyValue(legacyValue);
+    if (!canonical) return items;
+    const key = crmLeadInterestIdentity(canonical);
+    return items.filter((item) => crmLeadInterestIdentity(item) !== key);
+  };
+  const addCanonicalItem = (legacyValue: string) => {
+    const canonical = canonicalCrmLeadInterestFromLegacyValue(legacyValue);
+    if (!canonical) return items;
+    const key = crmLeadInterestIdentity(canonical);
+    if (items.some((item) => crmLeadInterestIdentity(item) === key)) return items;
+    const quantity = canonical.interest_type === 'equipment'
+      ? machineQuantityForCrmLeadInterest(items, canonical.machine_key)
+      : 1;
+    return [...items, { ...canonical, quantity }];
+  };
   const toggleValue = (item: string) => {
-    onChange(value.includes(item) ? value.filter(v => v !== item) : [...value, item]);
+    const active = value.includes(item);
+    onChange(
+      active ? value.filter(v => v !== item) : [...value, item],
+      active ? removeCanonicalItem(item) : addCanonicalItem(item),
+    );
   };
   const toggleMain = (entry: typeof MACHINE_INTEREST_MAIN[number]) => {
     const active = entry.values.some(v => value.includes(v));
     const without = value.filter(v => !(entry.values as readonly string[]).includes(v));
-    onChange(active ? without : [...without, entry.values[0]]);
+    const nextValue = active ? without : [...without, entry.values[0]];
+    onChange(
+      nextValue,
+      active ? removeCanonicalItem(entry.values[0]) : addCanonicalItem(entry.values[0]),
+    );
+  };
+  const updateQuantity = (
+    canonical: Omit<CrmLeadMachineInterestItem, 'quantity'>,
+    quantity: number,
+  ) => {
+    if (!Number.isSafeInteger(quantity) || quantity < 1) return;
+    onChange(value, setCrmLeadInterestQuantity(items, canonical, quantity));
+  };
+  const QuantityControl = ({ legacyValue }: { legacyValue: string }) => {
+    const canonical = canonicalCrmLeadInterestFromLegacyValue(legacyValue);
+    if (!canonical) return null;
+    const quantity = getCrmLeadInterestQuantity(items, canonical);
+    return (
+      <div
+        data-testid={`lead-interest-quantity-${canonical.item_number}`}
+        className="inline-grid h-9 grid-cols-[36px_minmax(48px,64px)_36px] overflow-hidden rounded-md border border-slate-200 bg-white"
+      >
+        <button
+          type="button"
+          title={crmLeadText('decreaseQuantity', language)}
+          aria-label={crmLeadText('decreaseQuantity', language)}
+          disabled={quantity <= 1}
+          onClick={() => updateQuantity(canonical, quantity - 1)}
+          className="inline-flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-35"
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+        <input
+          type="number"
+          min={1}
+          step={1}
+          inputMode="numeric"
+          aria-label={crmLeadText('quantity', language)}
+          value={quantity}
+          onChange={(event) => updateQuantity(canonical, Number(event.target.value))}
+          className="min-w-0 border-x border-slate-200 px-1 text-center text-sm tabular-nums outline-none focus:bg-emerald-50"
+        />
+        <button
+          type="button"
+          title={crmLeadText('increaseQuantity', language)}
+          aria-label={crmLeadText('increaseQuantity', language)}
+          onClick={() => updateQuantity(canonical, quantity + 1)}
+          className="inline-flex items-center justify-center text-slate-600 hover:bg-slate-50"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
+    );
   };
   const knownEquipment = new Set<string>();
   for (const group of MACHINE_INTEREST_EQUIPMENT) {
@@ -641,16 +732,20 @@ function MachineInterestPicker({ value, onChange, language }: { value: string[];
         {MACHINE_INTEREST_MAIN.map(entry => {
           const active = entry.values.some(v => value.includes(v));
           return (
-            <button
-              type="button"
-              key={entry.label}
-              onClick={() => toggleMain(entry)}
-              className={cn('text-[12px] px-3 py-1.5 rounded-lg border transition',
-                active ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
-                       : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50')}
-            >
-              {crmLeadEquipmentGroupLabel(entry.label, language)}
-            </button>
+            <div key={entry.label} className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => toggleMain(entry)}
+                className={cn('min-h-9 text-[12px] px-3 py-1.5 rounded-lg border transition',
+                  active ? 'bg-[#2d5a27] border-[#2d5a27] text-white shadow-sm'
+                         : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50')}
+              >
+                {crmLeadEquipmentGroupLabel(entry.label, language)}
+              </button>
+              {active && canonicalCrmLeadInterestFromLegacyValue(entry.values[0]) && (
+                <QuantityControl legacyValue={entry.values[0]} />
+              )}
+            </div>
           );
         })}
       </div>
@@ -669,10 +764,13 @@ function MachineInterestPicker({ value, onChange, language }: { value: string[];
                       {sub.items.map(item => {
                         const val = equipmentValue(group.machine, item, sub.title);
                         return (
-                          <label key={val} className="flex items-start gap-2 text-sm text-slate-700">
-                            <input type="checkbox" checked={value.includes(val)} onChange={() => toggleValue(val)} className="mt-0.5 h-4 w-4 accent-emerald-700" />
-                            <span>{localizedCatalogProductLabel(item, language)}</span>
-                          </label>
+                          <div key={val} className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                            <label className="flex min-w-0 items-start gap-2 text-sm text-slate-700">
+                              <input type="checkbox" checked={value.includes(val)} onChange={() => toggleValue(val)} className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700" />
+                              <span className="min-w-0 break-words">{localizedCatalogProductLabel(item, language)}</span>
+                            </label>
+                            {value.includes(val) && <QuantityControl legacyValue={val} />}
+                          </div>
                         );
                       })}
                     </div>
@@ -683,10 +781,13 @@ function MachineInterestPicker({ value, onChange, language }: { value: string[];
                   {group.items.map(item => {
                     const val = equipmentValue(group.machine, item);
                     return (
-                      <label key={val} className="flex items-start gap-2 text-sm text-slate-700">
-                        <input type="checkbox" checked={value.includes(val)} onChange={() => toggleValue(val)} className="mt-0.5 h-4 w-4 accent-emerald-700" />
-                        <span>{localizedCatalogProductLabel(item, language)}</span>
-                      </label>
+                      <div key={val} className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+                        <label className="flex min-w-0 items-start gap-2 text-sm text-slate-700">
+                          <input type="checkbox" checked={value.includes(val)} onChange={() => toggleValue(val)} className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-700" />
+                          <span className="min-w-0 break-words">{localizedCatalogProductLabel(item, language)}</span>
+                        </label>
+                        {value.includes(val) && <QuantityControl legacyValue={val} />}
+                      </div>
                     );
                   })}
                 </div>
@@ -699,7 +800,7 @@ function MachineInterestPicker({ value, onChange, language }: { value: string[];
       {otherSelected.length > 0 && (
         <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-3">
           <div className="mb-2 text-xs font-bold text-amber-900">{crmLeadText('otherInterests', language)}</div>
-          <MultiChip options={otherSelected} value={value} onChange={onChange} />
+          <MultiChip options={otherSelected} value={value} onChange={(next) => onChange(next, items)} />
         </div>
       )}
     </div>
@@ -769,6 +870,7 @@ export default function CrmNewLeadPage() {
   const [addFollowupToCalendar, setAddFollowupToCalendar] = useState(false);
 
   const [machineTypes, setMachineTypes] = useState<string[]>([]);
+  const [machineInterestItems, setMachineInterestItems] = useState<CrmLeadMachineInterestItem[]>([]);
   const [nextActivity, setNextActivity] = useState<string>('');
   const [demoHasRun, setDemoHasRun] = useState<'yes' | 'no'>('no');
   const [contactType, setContactType] = useState<string>('');
@@ -941,6 +1043,10 @@ export default function CrmNewLeadPage() {
       setExpectedCloseChanged(true);
       setNextFollowupChanged(true);
       setMachineTypes(lead.machine_types || []);
+      setMachineInterestItems(normalizeCrmLeadMachineInterestItems(
+        lead.machine_types,
+        lead.machine_interest_items,
+      ));
       setNextActivity(normalizeDemoActivity(lead.next_activity || ''));
       setAddFollowupToCalendar(hasCalendarActivity);
       setLinkedSalesEvent(lead.linked_sales_event ?? null);
@@ -1025,6 +1131,10 @@ export default function CrmNewLeadPage() {
       setTitle(lead.title || '');
       setLinkedDealer(lead.linked_dealer_id || '');
       setMachineTypes(lead.machine_types || []);
+      setMachineInterestItems(normalizeCrmLeadMachineInterestItems(
+        lead.machine_types,
+        lead.machine_interest_items,
+      ));
       const parsedContact = readCrmLeadStructuredContact(lead);
       const syncedCountry = parsedContact.country || lead.country || country;
       setManualCustomerDraft({ ...contactInfoToDraft(parsedContact), country: syncedCountry });
@@ -1133,13 +1243,13 @@ export default function CrmNewLeadPage() {
   const selectedShareTarget = shareTargets.find((target) => target.id === shareTargetId) || null;
 
   const machineEstimate = useMemo(() => {
-    const estimate = calculateMachineInterestEstimate(machineTypes, 'da');
+    const estimate = calculateMachineInterestEstimate(machineTypes, 'da', machineInterestItems);
     return {
       value: estimate.total > 0 ? String(estimate.total) : '',
       unmappedItems: estimate.unmappedItems,
       pricedItems: estimate.pricedItems,
     };
-  }, [machineTypes]);
+  }, [machineTypes, machineInterestItems]);
   const machineEstimateNote = machineEstimate.unmappedItems.length > 0
     ? `Prisestimat baseret på ${machineEstimate.pricedItems.length} af ${machineTypes.length} valgte produkter. ${machineEstimate.unmappedItems.length} valgte produkter har ingen kendt pris og er ikke medregnet.`
     : '';
@@ -1298,9 +1408,10 @@ export default function CrmNewLeadPage() {
     setNextFollowup(value);
   }
 
-  function handleMachineTypesChange(next: string[]) {
+  function handleMachineTypesChange(next: string[], nextItems?: CrmLeadMachineInterestItem[]) {
     setMachineTypesChanged(true);
     setMachineTypes(next);
+    setMachineInterestItems(normalizeCrmLeadMachineInterestItems(next, nextItems ?? machineInterestItems));
     if (next.length > 0) clearFieldError('machineTypes');
   }
 
@@ -1480,6 +1591,7 @@ export default function CrmNewLeadPage() {
         expected_close_date: expectedClose || null,
         next_followup_date: nextFollowup || null,
         machine_types: machineTypes,
+        machine_interest_items: machineInterestItems,
         next_activity: nextActivity,
         ...(repository.academy ? { demo_has_run: demoHasRun } : !isEdit ? { demo_has_run: 'no' as const } : {}),
         contact_type: contactType,
@@ -1888,7 +2000,12 @@ export default function CrmNewLeadPage() {
           <Section title={tt('sec_machines', lang)} subtitle={tt('sec_machines_sub', lang)} required>
             <div className="md:col-span-2">
               <div className={cn('rounded-xl', fieldError('machineTypes') && 'ring-2 ring-rose-300 ring-offset-2')}>
-                <MachineInterestPicker value={machineTypes} onChange={handleMachineTypesChange} language={uiLanguage} />
+                <MachineInterestPicker
+                  value={machineTypes}
+                  items={machineInterestItems}
+                  onChange={handleMachineTypesChange}
+                  language={uiLanguage}
+                />
               </div>
               {fieldError('machineTypes') && (
                 <p className="mt-2 text-[11px] font-medium text-rose-600">{fieldError('machineTypes')}</p>

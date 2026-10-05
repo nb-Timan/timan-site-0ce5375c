@@ -17,7 +17,8 @@ type LeadTextKey =
   | 'select' | 'note' | 'clear' | 'today' | 'oneDayAgo' | 'inOneDay' | 'oneWeek'
   | 'oneMonth' | 'threeMonths' | 'sixMonths' | 'other'
   | 'syncSuccess' | 'syncError' | 'shareNoDealerUsers' | 'shareNoSeller'
-  | 'shareSuccess' | 'shareEmailSuccess' | 'quoteConversionError' | 'leadLoadError';
+  | 'shareSuccess' | 'shareEmailSuccess' | 'quoteConversionError' | 'leadLoadError'
+  | 'quantity' | 'increaseQuantity' | 'decreaseQuantity';
   
 
 const text: Record<LeadTextKey, { da: string; en: string; de: string }> = {
@@ -41,6 +42,9 @@ const text: Record<LeadTextKey, { da: string; en: string; de: string }> = {
   clear: { da: 'Ryd', en: 'Clear', de: 'Löschen' }, today: { da: 'I dag', en: 'Today', de: 'Heute' }, oneDayAgo: { da: '-1 dag', en: '-1 day', de: '-1 Tag' }, inOneDay: { da: '+1 dag', en: '+1 day', de: '+1 Tag' }, oneWeek: { da: '+1 uge', en: '+1 week', de: '+1 Woche' }, oneMonth: { da: '+1 måned', en: '+1 month', de: '+1 Monat' }, threeMonths: { da: '+3 måneder', en: '+3 months', de: '+3 Monate' }, sixMonths: { da: '+6 måneder', en: '+6 months', de: '+6 Monate' }, other: { da: 'Andet', en: 'Other', de: 'Andere' },
   syncSuccess: { da: 'Lead synkroniseret', en: 'Lead synchronized', de: 'Lead synchronisiert' }, syncError: { da: 'Kunne ikke synkronisere lead', en: 'Could not synchronize lead', de: 'Lead konnte nicht synchronisiert werden' }, shareNoDealerUsers: { da: 'Der er ingen aktive brugere på den valgte forhandler.', en: 'There are no active users for the selected dealer.', de: 'Für den ausgewählten Händler gibt es keine aktiven Benutzer.' }, shareNoSeller: { da: 'Der er ikke fundet en ansvarlig Timan-sælger på forhandleren.', en: 'No responsible Timan salesperson was found for the dealer.', de: 'Für den Händler wurde kein verantwortlicher Timan-Verkäufer gefunden.' }, shareSuccess: { da: 'Lead delt i portalen.', en: 'Lead shared in the portal.', de: 'Lead im Portal freigegeben.' }, shareEmailSuccess: { da: 'Lead delt. Mail åbnes nu.', en: 'Lead shared. Email opens now.', de: 'Lead freigegeben. Die E-Mail wird jetzt geöffnet.' },
   quoteConversionError: { da: 'Kunne ikke konvertere leadet til tilbud', en: 'Could not convert lead to quote', de: 'Lead konnte nicht in ein Angebot umgewandelt werden' }, leadLoadError: { da: 'Kunne ikke hente leads', en: 'Could not load leads', de: 'Leads konnten nicht geladen werden' },
+  quantity: { da: 'Antal', en: 'Quantity', de: 'Menge' },
+  increaseQuantity: { da: 'Forøg antal', en: 'Increase quantity', de: 'Menge erhöhen' },
+  decreaseQuantity: { da: 'Reducer antal', en: 'Decrease quantity', de: 'Menge verringern' },
 };
 
 export function crmLeadText(key: LeadTextKey, language: PortalUiLanguage): string { const copy = text[key]; return language === 'da' ? copy.da : language === 'de' ? copy.de : copy.en; }

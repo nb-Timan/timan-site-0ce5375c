@@ -29,6 +29,14 @@ import {
   NEXT_ACTIVITY_NOT_RELEVANT,
   NEXT_ACTIVITY_WON,
 } from '@/lib/leadStatus';
+import {
+  canonicalCrmLeadInterestFromLegacyValue,
+  crmLeadInterestIdentity,
+  formatCrmLeadMachineInterestSummary,
+  getCrmLeadInterestQuantity,
+  normalizeCrmLeadMachineInterestItems,
+  type CrmLeadMachineInterestItem,
+} from '@/lib/crmLeadMachineInterest';
 
 // ---------- Shared option lists (Danish UI) ----------
 
@@ -308,6 +316,8 @@ export interface CrmLead {
   expected_close_date: string | null;
   next_followup_date: string | null;
   machine_types: string[];
+  /** Canonical quantity-bearing machine/equipment lines. Legacy rows are projected from machine_types at quantity 1. */
+  machine_interest_items?: CrmLeadMachineInterestItem[];
   next_activity: string | null;
   demo_has_run: "yes" | "no" | null;
   contact_type: string | null;
@@ -565,6 +575,7 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
   }
   const now = new Date().toISOString();
   const row: CrmLead = { ...input, id: uuid(), created_at: now, updated_at: now };
+  row.machine_interest_items = normalizeCrmLeadMachineInterestItems(row.machine_types, row.machine_interest_items);
   const pipelineSnapshot = getLeadPipelineValueSnapshot(row);
   row.pipeline_value_snapshot = pipelineSnapshot.value;
   row.pipeline_value_snapshot_reason = pipelineSnapshot.reason;
@@ -633,6 +644,12 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
         removeLeadFromLocalCache(row.id);
         throw error;
       }
+    } else {
+      const { error: interestError } = await supabase.rpc('replace_crm_lead_machine_interests', {
+        p_lead_id: row.id,
+        p_items: row.machine_interest_items,
+      });
+      if (interestError) throw interestError;
     }
     if (data && typeof (data as { lead_no?: number }).lead_no === "number") {
       row.lead_no = (data as { lead_no: number }).lead_no;
@@ -672,6 +689,7 @@ export async function createLead(input: NewCrmLead, opts: { requireRemote?: bool
       meta: {
         lead_id: row.id,
         machine_types: row.machine_types,
+        machine_interest_items: row.machine_interest_items,
         probability: row.probability,
         lost_reason: row.lost_reason,
         lost_competitor: row.lost_competitor,
@@ -765,6 +783,14 @@ export async function updateLead(
     merged = { ...base, ...patch, id, updated_at: now } as CrmLead;
     local.unshift(merged);
   }
+  if (patch.machine_interest_items === undefined && !merged.machine_interest_items) {
+    const persistedInterests = (await fetchLeadMachineInterestMap([id])).get(id);
+    if (persistedInterests?.length) merged.machine_interest_items = persistedInterests;
+  }
+  merged.machine_interest_items = normalizeCrmLeadMachineInterestItems(
+    merged.machine_types,
+    merged.machine_interest_items,
+  );
   const pipelineSnapshot = getLeadPipelineValueSnapshot(merged);
   merged.pipeline_value_snapshot = pipelineSnapshot.value;
   merged.pipeline_value_snapshot_reason = pipelineSnapshot.reason;
@@ -832,6 +858,13 @@ export async function updateLead(
       const { error } = await supabase.from("crm_leads").update(remotePatch).eq("id", id);
       if (error) throw error;
     }
+    if (options.remoteOnly !== "move_to_working_qty" && patch.machine_interest_items !== undefined) {
+      const { error: interestError } = await supabase.rpc('replace_crm_lead_machine_interests', {
+        p_lead_id: id,
+        p_items: merged.machine_interest_items,
+      });
+      if (interestError) throw interestError;
+    }
   } catch (err) {
     notifyLocalFallback({ table: "crm_leads", action: "update", error: err });
     if (options.requireRemote) {
@@ -853,7 +886,7 @@ export async function getLead(id: string): Promise<CrmLead | null> {
   try {
     const { data } = await supabase.from("crm_leads").select("*").eq("id", id).maybeSingle();
     if (data) {
-      const remote = ensureLeadNumbers([data as unknown as CrmLead])[0];
+      const remote = (await attachLeadMachineInterests(ensureLeadNumbers([data as unknown as CrmLead])))[0];
       replaceLeadInLocalCache(remote);
       return (await attachLinkedSalesEvents([remote]))[0] || null;
     }
@@ -965,6 +998,44 @@ function numberOrZero(value: unknown): number {
 
 function arrayOrEmpty<T>(value: unknown): T[] {
   return Array.isArray(value) ? value as T[] : [];
+}
+
+async function fetchLeadMachineInterestMap(leadIds: string[]): Promise<Map<string, CrmLeadMachineInterestItem[]>> {
+  const uniqueIds = Array.from(new Set(leadIds.filter(Boolean)));
+  const grouped = new Map<string, CrmLeadMachineInterestItem[]>();
+  if (uniqueIds.length === 0) return grouped;
+
+  const batchSize = 100;
+  for (let index = 0; index < uniqueIds.length; index += batchSize) {
+    const batch = uniqueIds.slice(index, index + batchSize);
+    const { data, error } = await supabase
+      .from('crm_lead_machine_interests')
+      .select('id,lead_id,interest_type,machine_key,item_key,item_number,quantity')
+      .in('lead_id', batch)
+      .order('created_at', { ascending: true });
+    if (error) {
+      console.warn('[crm.lead-machine-interest] quantity lookup batch failed; using legacy quantity 1', error);
+      continue;
+    }
+    for (const row of (data || []) as CrmLeadMachineInterestItem[]) {
+      if (!row.lead_id) continue;
+      const current = grouped.get(row.lead_id) || [];
+      current.push(row);
+      grouped.set(row.lead_id, current);
+    }
+  }
+  return grouped;
+}
+
+async function attachLeadMachineInterests<T extends CrmLead>(rows: T[]): Promise<T[]> {
+  const grouped = await fetchLeadMachineInterestMap(rows.map((row) => row.id));
+  return rows.map((row) => ({
+    ...row,
+    machine_interest_items: normalizeCrmLeadMachineInterestItems(
+      row.machine_types,
+      grouped.get(row.id) || row.machine_interest_items,
+    ),
+  }));
 }
 
 /**
@@ -1087,6 +1158,7 @@ export async function listLeadsPage(opts: ListLeadsPageOpts): Promise<CrmLeadsPa
     console.warn('[crm.listLeadsPage] completeness lookup failed', completenessError);
     return page;
   }
+  const interestByLeadId = await fetchLeadMachineInterestMap(leadIds);
   const byId = new Map((leads || []).map((lead) => [lead.id, lead as StoredCrmLeadCompleteness]));
   page.rows = page.rows.map((row) => {
     const lead = byId.get(row.id);
@@ -1096,6 +1168,10 @@ export async function listLeadsPage(opts: ListLeadsPageOpts): Promise<CrmLeadsPa
           reference_no: typeof lead.lead_no === 'number' ? lead.lead_no : null,
           reference_type: lead.lead_reference_type === 'G' ? 'G' : 'L',
           customer: readCrmLeadStructuredContact(lead).company || row.customer,
+          machine: formatCrmLeadMachineInterestSummary(
+            lead.machine_types,
+            interestByLeadId.get(row.id),
+          ) || row.machine,
           incomplete: getMissingStoredCrmLeadFields(lead).length > 0,
         }
       : row;
@@ -1141,7 +1217,8 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
   const deletedIds = readDeletedIds(LS_DELETED_LEADS);
   supRows = supRows.filter((r) => !deletedIds.has(r.id));
   if (remoteReadOk) {
-    const remoteOnly = await attachLinkedSalesEvents(ensureLeadNumbers([...supRows]));
+    const withInterests = await attachLeadMachineInterests(ensureLeadNumbers([...supRows]));
+    const remoteOnly = await attachLinkedSalesEvents(withInterests);
     remoteOnly.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
     return remoteOnly.slice(0, limit);
   }
@@ -1166,7 +1243,8 @@ export async function listLeads(opts: ListLeadsOpts = {}): Promise<CrmLead[]> {
     else if (r.lead_no) { ls.push(r); lsChanged = true; }
   }
   if (lsChanged) writeLS(LS_LEADS, ls);
-  return merged.slice(0, limit);
+  const withInterests = await attachLeadMachineInterests(merged.slice(0, limit));
+  return attachLinkedSalesEvents(withInterests);
 }
 
 // ---------- Demo Leads ----------
@@ -1646,7 +1724,7 @@ function matchEquipmentProductKey(machineType: string): { product_key: string; l
       if (!itemName) continue;
       if (normalizedRaw.includes(normalizeWorkingText(itemName))) {
         return {
-          product_key: `${machineKey}::${item.key}`,
+          product_key: item.key,
           label: `${machineKey} - ${itemName}`,
         };
       }
@@ -1669,6 +1747,7 @@ export function buildLeadWorkingContributions(leads: CrmLead[]): LeadWorkingCont
     const month_idx = d.getUTCMonth();
     const types = (l.machine_types || []).filter(Boolean);
     if (types.length === 0) continue;
+    const interestItems = normalizeCrmLeadMachineInterestItems(l.machine_types, l.machine_interest_items);
     // One lead can add one working-budget item per selected machine or attachment.
     const seenProductKeys = new Set<string>();
     for (const t of types) {
@@ -1676,13 +1755,17 @@ export function buildLeadWorkingContributions(leads: CrmLead[]): LeadWorkingCont
       const pk = equipmentMatch?.product_key || matchMainProductKey(t);
       if (!pk || seenProductKeys.has(pk)) continue;
       seenProductKeys.add(pk);
+      const canonical = canonicalCrmLeadInterestFromLegacyValue(t);
+      const lineQuantity = canonical && interestItems.some((item) => crmLeadInterestIdentity(item) === crmLeadInterestIdentity(canonical))
+        ? getCrmLeadInterestQuantity(interestItems, canonical)
+        : qty;
       out.push({
         lead_id: l.id,
         lead_no: typeof l.lead_no === "number" ? l.lead_no : null,
         title: l.title,
         product_key: pk,
         machine_label: equipmentMatch?.label || t,
-        qty,
+        qty: lineQuantity,
         year,
         month_idx,
         expected_close_date: iso,

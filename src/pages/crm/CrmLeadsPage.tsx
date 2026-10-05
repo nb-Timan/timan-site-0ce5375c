@@ -7,6 +7,7 @@ import { useAcademyAccess } from '@/context/AcademyAccessContext';
 import { useLanguage } from '@/context/LanguageContext';
 import { crmDemoMissingLabel } from '@/lib/crmDemoStageI18n';
 import { crmLeadText } from '@/lib/crmLeadI18n';
+import { formatCrmLeadMachineInterestSummary } from '@/lib/crmLeadMachineInterest';
 import { crmLostReasonLabel, serializeCrmLostReason } from '@/lib/crmLostReason';
 import { Language } from '@/types/configurator';
 import type { PortalUiLanguage } from '@/lib/portalLanguages';
@@ -344,7 +345,7 @@ function mapOpen(l: CrmLead, dealerNameById: Map<string, string>): UnifiedLead {
     created_by_partner: false,
     owner_is_timan_seller: false,
     responsible_name: l.owner_name,
-    machine: (l.machine_types || []).join(', ') || null,
+    machine: formatCrmLeadMachineInterestSummary(l.machine_types, l.machine_interest_items) || null,
     equipment: null,
     date: l.first_contact_date || l.created_at,
     next_followup: l.next_followup_date,

@@ -15,6 +15,8 @@ import { deriveLegacyPipelineStage, NEXT_ACTIVITY_WON } from '@/lib/leadStatus';
 import { buildQuoteContentSummary } from '@/lib/quoteContentSummary';
 import { resolveSellerId } from '@/lib/resolveSellerId';
 import { supabase } from '@/lib/supabase';
+import { LOOSE_TOOL_KEY } from '@/data/machines';
+import type { CrmLeadMachineInterestItem } from '@/lib/crmLeadMachineInterest';
 import type { ConfiguratorState } from '@/types/configurator';
 
 const SYNC_START = '--- CONFIGURATOR SYNC START ---';
@@ -169,7 +171,10 @@ export function crmMachineInterestForConfiguratorItem(input: {
   return fallbackEquipmentInterest(input.machineType, input.itemName, input.itemNumber);
 }
 
-function buildMachineTypesFromState(state: ConfiguratorState, existingMachineTypes: string[] = []): string[] {
+export function buildCrmLeadMachineTypesFromConfigurationState(
+  state: ConfiguratorState,
+  existingMachineTypes: string[] = [],
+): string[] {
   const summary = buildQuoteContentSummary(state);
   const values: string[] = existingMachineTypes
     .map(canonicalizeExistingMachineInterest)
@@ -188,6 +193,42 @@ function buildMachineTypesFromState(state: ConfiguratorState, existingMachineTyp
     }
   }
   return mergeUnique(values);
+}
+
+export function buildCrmLeadMachineInterestItemsFromConfigurationState(
+  state: ConfiguratorState,
+): CrmLeadMachineInterestItem[] {
+  const summary = buildQuoteContentSummary(state);
+  const items = new Map<string, CrmLeadMachineInterestItem>();
+
+  for (const machine of summary.machines) {
+    if (machine.model_type !== LOOSE_TOOL_KEY) {
+      const machineItem: CrmLeadMachineInterestItem = {
+        interest_type: 'machine',
+        machine_key: machine.model_type,
+        item_key: machine.model_type,
+        item_number: machine.varenr,
+        quantity: Math.max(1, Math.trunc(machine.qty)),
+      };
+      items.set(`machine:${machine.model_type}:${machine.model_type}`, machineItem);
+    }
+
+    for (const unit of machine.units) {
+      for (const accessory of unit.accessories) {
+        const key = `equipment:${machine.model_type}:${accessory.id}`;
+        const existing = items.get(key);
+        items.set(key, {
+          interest_type: 'equipment',
+          machine_key: machine.model_type,
+          item_key: accessory.id,
+          item_number: accessory.varenr,
+          quantity: (existing?.quantity || 0) + Math.max(1, Math.trunc(accessory.qty)),
+        });
+      }
+    }
+  }
+
+  return Array.from(items.values());
 }
 
 function readStateField(state: ConfiguratorState, keys: string[]): string | null {
@@ -289,7 +330,7 @@ export function buildLeadPatchFromConfigurationState(
   syncedAt: string,
   sellerId?: string | null,
 ): CrmLeadPatch {
-  const machineTypes = buildMachineTypesFromState(state, lead.machine_types);
+  const machineTypes = buildCrmLeadMachineTypesFromConfigurationState(state, lead.machine_types);
   const estimatedValue = getConfigurationValueDkk(state, row);
   const linkedDealerId = preferNonEmpty(row.dealer_account_id, null)
     ?? preferNonEmpty(row.dealer_number, null)
@@ -300,6 +341,7 @@ export function buildLeadPatchFromConfigurationState(
   const patch: CrmLeadPatch = {
     title: preferNonEmpty(state.firmanavn, null) ?? preferNonEmpty(row.title, null) ?? lead.title,
     machine_types: machineTypes.length > 0 ? machineTypes : lead.machine_types,
+    machine_interest_items: buildCrmLeadMachineInterestItemsFromConfigurationState(state),
     ...structuredCrmLeadContactColumns(contact),
     contact_information: lead.contact_information || buildStructuredContactInformation(contact) || null,
     estimated_value: estimatedValue || lead.estimated_value,

@@ -83,7 +83,11 @@ import {
 import { resolveConfiguratorContractTerms } from '@/lib/contractCommercialTerms';
 import { getLead } from '@/lib/crmLeadsService';
 import { buildConfiguratorStateFromLead } from '@/lib/leadToConfiguratorDraft';
-import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
+import {
+  buildCrmLeadMachineInterestItemsFromConfigurationState,
+  buildCrmLeadMachineTypesFromConfigurationState,
+  syncLeadFromConfiguration,
+} from '@/lib/crmLeadConfigurationSync';
 import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection, recordOrderRevisionConfirmation } from '@/lib/submittedOrderCorrectionService';
 import { loadSubmittedOrderConfirmation } from '@/lib/configurationsService';
 import { buildSubmittedOrderDocument, buildSubmittedOrderMailSummary } from '@/lib/submittedOrderConfirmation';
@@ -1087,7 +1091,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         ? await resolveSid(ownership.sellerEmail)
         : await resolveSid(appUser?.email);
 
-      const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
+      const machineTypes = buildCrmLeadMachineTypesFromConfigurationState(state);
+      const machineInterestItems = buildCrmLeadMachineInterestItemsFromConfigurationState(state);
       const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
       const contact = {
         company: state.firmanavn,
@@ -1113,6 +1118,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         expected_close_date: null,
         next_followup_date: null,
         machine_types: machineTypes,
+        machine_interest_items: machineInterestItems,
         next_activity: 'Konfigurator-lead',
         demo_has_run: null,
         contact_type: null,
@@ -1131,7 +1137,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         attachments: [],
         status: 'open',
         incomplete_from_configurator: true,
-      });
+      }, { requireRemote: true });
       return created.id;
     } catch (err) {
       console.error('[createLeadFromCurrentState] failed:', err);
@@ -1369,7 +1375,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         ? await resolveSid(ownership.sellerEmail)
         : await resolveSid(appUser?.email);
 
-      const machineTypes = Array.from(new Set(state.machineConfigs.map(m => m.type)));
+      const machineTypes = buildCrmLeadMachineTypesFromConfigurationState(state);
+      const machineInterestItems = buildCrmLeadMachineInterestItemsFromConfigurationState(state);
       const title = state.firmanavn || ownership.dealerCompanyName || (machineTypes.join(', ') || 'Konfigurator');
       const contact = {
         company: state.firmanavn,
@@ -1395,6 +1402,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         expected_close_date: null,
         next_followup_date: null,
         machine_types: machineTypes,
+        machine_interest_items: machineInterestItems,
         next_activity: 'New lead',
         demo_has_run: null,
         contact_type: null,
@@ -1413,7 +1421,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         attachments: [],
         status: 'open',
         incomplete_from_configurator: true,
-      });
+      }, { requireRemote: true });
 
       setLinkedLeadId(created.id);
       setLeadPickerKey(k => k + 1);

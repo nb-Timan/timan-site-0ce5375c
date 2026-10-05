@@ -13,6 +13,7 @@ vi.mock('@/lib/supabase', () => ({
         update: (next: Record<string, unknown>) => { patch = next; updating = true; return chain; },
         eq: (_field: string, id: string) => { targetId = id; return chain; },
         in: () => chain,
+        order: async () => ({ data: [], error: null }),
         or: async () => ({ data: [], error: null }),
         select: () => chain,
         maybeSingle: async () => {
