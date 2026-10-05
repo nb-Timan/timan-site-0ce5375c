@@ -8,14 +8,16 @@ describe('configurator quote/order mail flow', () => {
     expect(getOrderWebhookUrl()).toBe('https://n8n.srv1509152.hstgr.cloud/webhook/timan-afsend-ordre');
   });
 
-  it('keeps Timan internal copy on sales BCC and out of visible recipients', () => {
+  it('keeps quote BCC compatibility while splitting the order attachment sets', () => {
     const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+    const mailSource = readFileSync('src/lib/configuratorOrderMail.ts', 'utf8');
 
-    expect(source).toContain("const INTERNAL_TIMAN_COPY_EMAIL = 'sales@timan.dk'");
+    expect(mailSource).toContain("INTERNAL_TIMAN_ORDER_EMAIL = 'sales@timan.dk'");
+    expect(source).toContain('buildCustomerOrderMailPayload(baseOrderWebhookPayload, recipients)');
+    expect(source).toContain('buildInternalOrderMailPayload(baseOrderWebhookPayload, csv)');
     expect(source).toContain('bcc_recipients: bccRecipients');
-    expect(source).toContain('bccRecipients,');
     expect(source).toContain('to_addresses: recipients');
-    expect(source).toContain('bccRecipients,');
+    expect(source).toContain("source_action: 'send_order_internal_csv'");
     expect(source).not.toContain('NB@Timan.dk');
     expect(source).not.toContain('nb@timan.dk');
   });
@@ -34,5 +36,20 @@ describe('configurator quote/order mail flow', () => {
     expect(source).toContain('to_addresses: recipients');
     expect(source).toContain('bcc_addresses: bccRecipients');
     expect(source).toContain('related_entity_id: activeCaseId');
+  });
+
+  it('generates the internal CSV only after verified order delivery and submission', () => {
+    const source = readFileSync('src/pages/ConfiguratorPage.tsx', 'utf8');
+    const orderStart = source.indexOf("if (effectiveFlowType === 'order')", source.indexOf('// Send webhook for Ordre flow'));
+    const delivered = source.indexOf('if (delivered) {', orderStart);
+    const submitted = source.indexOf('await markAsOrderSubmitted(activeCaseId', delivered);
+    const csv = source.indexOf('const csv = buildSubmittedOrderCsv({', submitted);
+    const quoteStart = source.indexOf('// Send webhook for Tilbud (Quote) flow', csv);
+
+    expect(orderStart).toBeGreaterThan(-1);
+    expect(delivered).toBeGreaterThan(orderStart);
+    expect(submitted).toBeGreaterThan(delivered);
+    expect(csv).toBeGreaterThan(submitted);
+    expect(source.slice(quoteStart)).not.toContain('buildSubmittedOrderCsv({');
   });
 });

@@ -1519,7 +1519,20 @@ export async function finalizeConfiguratorPricingSnapshot(
     { grossManualDiscountOnly: pricingMode === 'messe' },
   );
   const { buildAccountCaseLines } = await import('@/lib/configuratorAccountSummaries');
-  const lines = buildAccountCaseLines(stateWithSnapshot, state.language);
+  const lines = buildAccountCaseLines(stateWithSnapshot, state.language).map((line, index) => {
+    const commercialLine = calculation.commercialLines?.[index];
+    if (!commercialLine
+      || commercialLine.itemNo !== line.itemNo
+      || commercialLine.quantity !== line.quantity
+      || commercialLine.grossAmount !== line.total) {
+      throw new Error(`Ordrelinje ${index + 1} kunne ikke afstemmes med den canonical prisberegning.`);
+    }
+    return {
+      ...line,
+      finalNetAmount: commercialLine.finalNetAmount,
+      discountApplications: commercialLine.discountApplications,
+    };
+  });
   const totals = { subtotal: calculation.subtotal, totalDiscount: calculation.totalDiscount, finalPrice: calculation.currentPrice };
   return { ...stateWithSnapshot, pricingSnapshot: { ...snapshot, totals, lines, discountDetails: calculation.discountDetails, deliveryDiscounts: calculation.deliveryDiscounts, campaignLines: calculation.campaignLines } };
 }

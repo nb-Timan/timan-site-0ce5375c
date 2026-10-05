@@ -171,6 +171,9 @@ export interface ConfiguratorPricingSnapshot {
     unitPrice: number;
     quantity: number;
     total: number;
+    /** Exact line allocation captured by the canonical pricing engine. */
+    finalNetAmount?: number;
+    discountApplications?: ConfiguratorLineDiscountApplication[];
   }[];
   /** Price-relevant state only; customer/contact edits keep this unchanged. */
   signature?: string;
@@ -179,6 +182,23 @@ export interface ConfiguratorPricingSnapshot {
     totalDiscount: number;
     finalPrice: number;
   };
+}
+
+export interface ConfiguratorLineDiscountApplication {
+  kind: NonNullable<DiscountDetail['kind']>;
+  percent: number;
+  basis: number;
+  amount: number;
+}
+
+export interface ConfiguratorCommercialLine {
+  unitNumber?: number;
+  itemNo: string;
+  quantity: number;
+  unitPrice: number;
+  grossAmount: number;
+  finalNetAmount: number;
+  discountApplications: ConfiguratorLineDiscountApplication[];
 }
 
 export interface ConfiguratorState {
@@ -294,6 +314,7 @@ export interface CalcResult {
   currentPrice: number;
   totalPct: number;
   qtyPct: number;
+  commercialLines?: ConfiguratorCommercialLine[];
 }
 
 export interface MachineDeliveryDiscount {

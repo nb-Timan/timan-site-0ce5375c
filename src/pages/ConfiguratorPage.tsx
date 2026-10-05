@@ -87,6 +87,12 @@ import { syncLeadFromConfiguration } from '@/lib/crmLeadConfigurationSync';
 import { beginSubmittedOrderCorrection, completeSubmittedOrderCorrection, recordOrderRevisionConfirmation } from '@/lib/submittedOrderCorrectionService';
 import { loadSubmittedOrderConfirmation } from '@/lib/configurationsService';
 import { buildSubmittedOrderDocument, buildSubmittedOrderMailSummary } from '@/lib/submittedOrderConfirmation';
+import { buildSubmittedOrderCsv } from '@/lib/submittedOrderCsv';
+import {
+  buildCustomerOrderMailPayload,
+  buildInternalOrderMailPayload,
+  INTERNAL_TIMAN_ORDER_EMAIL,
+} from '@/lib/configuratorOrderMail';
 import { ACADEMY_BONUS_CASE_2, ACADEMY_CASE_1, ACADEMY_CASE_3, academySandbox } from '@/lib/academySandbox';
 import { ACADEMY_SALES_BONUS_CUSTOMER, isAcademySalesBonusCustomer, withAcademySalesBonusCampaign } from '@/lib/academySalesBonusCampaign';
 import { academyPartnerDataSandbox } from '@/lib/academyPartnerDataSandbox';
@@ -135,8 +141,6 @@ import {
 const LANGUAGES: { code: PortalUiLanguage; flag: string }[] = PORTAL_LANGUAGES.map(l => ({
   code: l.code, flag: l.emoji,
 }));
-
-const INTERNAL_TIMAN_COPY_EMAIL = 'sales@timan.dk';
 
 const IMAGE_UNAVAILABLE_COPY: Record<PortalUiLanguage, string> = {
   da: 'Billedet kunne ikke indlæses.',
@@ -2511,7 +2515,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           //  - Always include "E-mail på udfylder".
           //  - Also include "E-mail modtager" if filled (may contain multiple
           //    addresses separated by , or ;).
-          //  - Send Timan's internal copy as BCC.
+          //  - Customer/dealer mail is PDF-only. The internal sales copy is
+          //    sent separately after the order has been frozen successfully.
           //  - Deduplicate if both fields contain the same address.
           const emailUdfylder = (documentState.email || '').trim().toLowerCase();
           const emailModtagerRaw = (documentState.emailRecipient || '').trim().toLowerCase();
@@ -2527,7 +2532,6 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             return false;
           }
           const recipients = Array.from(new Set(allEmails));
-          const bccRecipients = [INTERNAL_TIMAN_COPY_EMAIL];
           const emailModtager = modtagerList.join(', ');
 
           // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
@@ -2535,14 +2539,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             flowType: 'order',
             enteredRecipient: state.emailRecipient || null,
             resolvedRecipients: recipients,
-            bccRecipients,
+            bccRecipients: [],
             fillerEmail: emailUdfylder || null,
-            internalCopyRecipient: INTERNAL_TIMAN_COPY_EMAIL,
+            internalCopyRecipient: INTERNAL_TIMAN_ORDER_EMAIL,
             quoteDefaultRecipients: [],
           });
 
 
-          const webhookPayload = appendInternalBcc({
+          const baseOrderWebhookPayload = {
             case_id: activeCaseId || '',
             document_type: 'Ordre',
             order_number: activeOrderNumber || '',
@@ -2579,7 +2583,8 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
               totals: { subtotal: documentCalc.subtotal, totalDiscount: documentCalc.totalDiscount, finalPrice: documentCalc.currentPrice },
             } : contentSummary,
             main_categories: buildMainCategories(documentState),
-          }, bccRecipients);
+          };
+          const webhookPayload = buildCustomerOrderMailPayload(baseOrderWebhookPayload, recipients);
 
           const orderWebhookUrl = getOrderWebhookUrl();
           console.log('[Order webhook] POST', orderWebhookUrl, {
@@ -2635,7 +2640,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                 subject: `Ordrebekræftelse ${activeOrderNumber || activeQuoteNumber || ''}${confirmationRevisionNumber ? ` · Revision ${confirmationRevisionNumber}` : ''}`.trim(),
                 to_addresses: recipients,
                 cc_addresses: [],
-                bcc_addresses: bccRecipients,
+                bcc_addresses: [],
                 responsible_user_id: responsibleSellerId,
                 responsible_seller_id: responsibleSellerId,
                 related_entity_type: 'configuration',
@@ -2657,32 +2662,101 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
             // markAsOrderSubmitted preserves any existing quote_sent_at —
             // sending an order from a case that previously sent a quote
             // must NOT clear the quote sent date.
-            if (activeCaseId) {
-              try {
-                if (completedRevisionId) {
-                  await recordOrderRevisionConfirmation(completedRevisionId, 'sent', effectiveUser?.id ?? null);
-                } else {
+            if (!activeCaseId) throw new Error('Ordren mangler en canonical sag.');
+
+            try {
+              if (completedRevisionId) {
+                await recordOrderRevisionConfirmation(completedRevisionId, 'sent', effectiveUser?.id ?? null);
+              } else {
                 const submittedOrderNumber = await markAsOrderSubmitted(activeCaseId, {
                   pricingMode: isExhibition ? 'messe' : undefined,
                   orderNumber: activeOrderNumber,
                   resend: Boolean(backendCorrectionSessionId),
                 });
-                if (!submittedOrderNumber) {
-                  throw new Error('Kunne ikke opdatere den gensendte ordre.');
-                }
+                if (!submittedOrderNumber) throw new Error('Kunne ikke fryse den afsendte ordre.');
                 activeOrderNumber = submittedOrderNumber;
                 setSavedOrderNumber(submittedOrderNumber);
-                }
-              } catch (markErr) {
-                console.error('Failed to mark order as submitted:', markErr);
-                if (completedRevisionId) {
-                  setConfirmModalOpen(false);
-                  toast.warning('Mailen er afsendt, men revisionens afsendelsestid kunne ikke registreres. Send ikke igen.', {
-                    description: markErr instanceof Error ? markErr.message : String(markErr),
-                  });
-                  return false;
-                }
               }
+            } catch (markErr) {
+              console.error('Failed to mark order as submitted:', markErr);
+              setConfirmModalOpen(false);
+              toast.warning('Kundemailen er afsendt, men ordren kunne ikke færdigregistreres. Send ikke igen.', {
+                description: markErr instanceof Error ? markErr.message : String(markErr),
+              });
+              return false;
+            }
+
+            // Only a successfully submitted/frozen order receives the internal
+            // C5/NAV copy. Customer/dealer delivery above is a distinct payload
+            // with one PDF attachment and can never inherit this CSV.
+            let internalDelivered = false;
+            let internalFailureReason = '';
+            let internalAttachmentCount = 0;
+            let internalCsvFilename: string | null = null;
+            try {
+              const submitted = await loadConfigurationByIdUnscoped(activeCaseId, appUser?.email || '');
+              if (!submitted) throw new Error('Det frosne ordre-snapshot kunne ikke genindlæses.');
+              const canonicalState = completedRevisionId ? documentState : submitted.state_json;
+              const csv = buildSubmittedOrderCsv({
+                state: canonicalState,
+                orderNumber: activeOrderNumber || submitted.order_number || '',
+                orderDate: submitted.submitted_at || submitted.order_sent_at || new Date().toISOString(),
+                dealerNumber: submitted.dealer_number,
+                dealerName: submitted.dealer_name,
+                sellerInitials: submitted.seller_initials,
+              });
+              internalCsvFilename = csv.filename;
+              const internalPayload = buildInternalOrderMailPayload(baseOrderWebhookPayload, csv);
+              const internalRes = await fetch(orderWebhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(internalPayload),
+              });
+              const internalResponseText = await internalRes.text().catch(() => '');
+              console.log('[Order internal webhook] response', internalRes.status, internalRes.type, internalResponseText);
+              if (internalRes.type === 'opaque' || internalRes.type === 'opaqueredirect') {
+                internalFailureReason = 'Opaque response (CORS) — cannot verify internal delivery';
+              } else if (internalRes.ok) {
+                internalDelivered = true;
+                internalAttachmentCount = 2;
+              } else {
+                internalFailureReason = `HTTP ${internalRes.status}`;
+              }
+            } catch (internalError) {
+              internalFailureReason = internalError instanceof Error ? internalError.message : String(internalError);
+              console.error('[Order internal CSV mail] failed:', internalError);
+            }
+
+            try {
+              const responsibleSellerId = await resolveSellerId(ownership.sellerEmail || appUser?.email);
+              await logMailAuditEvent({
+                sent_at: internalDelivered ? new Date().toISOString() : null,
+                category: 'order',
+                source_module: 'Configurator',
+                source_action: 'send_order_internal_csv',
+                subject: `Intern ordrekopi ${activeOrderNumber || ''}${internalCsvFilename ? ` · ${internalCsvFilename}` : ''}`.trim(),
+                to_addresses: [INTERNAL_TIMAN_ORDER_EMAIL],
+                cc_addresses: [],
+                bcc_addresses: [],
+                responsible_user_id: responsibleSellerId,
+                responsible_seller_id: responsibleSellerId,
+                related_entity_type: 'configuration',
+                related_entity_id: activeCaseId,
+                related_entity_label: activeOrderNumber || activeCaseId,
+                status: internalDelivered ? 'sent' : 'failed',
+                provider: 'n8n:timan-afsend-ordre',
+                provider_message_id: null,
+                attachment_count: internalAttachmentCount,
+                error_message: internalDelivered ? null : internalFailureReason || 'Intern CSV-mail blev ikke bekræftet.',
+              });
+            } catch (auditError) {
+              console.error('[order internal mail audit] failed:', auditError);
+            }
+
+            if (!internalDelivered) {
+              toast.warning('Ordren er afsendt, men den interne CSV-kopi kunne ikke bekræftes.', {
+                description: internalFailureReason || undefined,
+              });
             }
             toast.success(T('orderSentToTiman'));
             setConfirmModalOpen(false);
@@ -2767,7 +2841,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           return false;
         }
         const recipients = Array.from(new Set(allEmails));
-        const bccRecipients = [INTERNAL_TIMAN_COPY_EMAIL];
+        const bccRecipients = [INTERNAL_TIMAN_ORDER_EMAIL];
         const emailModtager = modtagerList.join(', ');
 
         // KRAV 2: visible recipient verification (no PDF/base64, no large payloads).
@@ -2777,7 +2851,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
           resolvedRecipients: recipients,
           bccRecipients,
           fillerEmail: emailUdfylder || null,
-          internalCopyRecipient: INTERNAL_TIMAN_COPY_EMAIL,
+          internalCopyRecipient: INTERNAL_TIMAN_ORDER_EMAIL,
           quoteDefaultRecipients: [],
         });
 

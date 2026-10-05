@@ -1,4 +1,4 @@
-import type { CalcResult, ConfiguratorState, DiscountDetail, LineItem, MachineDeliveryDiscount } from '@/types/configurator';
+import type { CalcResult, ConfiguratorLineDiscountApplication, ConfiguratorState, DiscountDetail, LineItem, MachineDeliveryDiscount } from '@/types/configurator';
 import { DEMO_FEE_ITEM_NUMBER, PRODUCTS, getAccessoriesFlat, getLocalizedName, getPriceForCurrency } from '@/data/machines';
 import { t } from '@/data/translations';
 import { configuratorCurrency, hasFrozenConfiguratorPricing, snapshotAccessoryPrice, snapshotDemoFee, snapshotMachinePrice, snapshotStartupPrice, snapshotProductName } from '@/lib/configuratorPricing';
@@ -18,7 +18,7 @@ export const shouldShowCampaignDisableControl = (
   grossPriceMode = false,
 ): boolean => state.pricingMode !== 'direct' && !grossPriceMode && Boolean(campaignLines?.length);
 type PricingOptions = { grossManualDiscountOnly?: boolean; now?: number };
-type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean; selectionOrder: number };
+type EconomicLine = { gross: number; net: number; quantity: number; unit: number; demo: boolean; quantityEligible: boolean; productKey: string; item: LineItem; campaignApplied: boolean; selectionOrder: number; discountApplications: ConfiguratorLineDiscountApplication[] };
 
 /** Keeps campaign SKU provenance in the detail while omitting it from summaries. */
 export function formatDiscountDetailLabel(detail: DiscountDetail, includeItemNumber = false, locale?: PortalUiLanguage): string {
@@ -90,7 +90,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     item.quantity = quantity;
     item.unitPrice = roundPricingMoney(item.price / Math.max(1, quantity));
     lineItems.push(item);
-    lines.push({ gross: item.price, net: item.price, quantity, unit: lineUnit, demo, quantityEligible, productKey, item, campaignApplied: false, selectionOrder });
+    lines.push({ gross: item.price, net: item.price, quantity, unit: lineUnit, demo, quantityEligible, productKey, item, campaignApplied: false, selectionOrder, discountApplications: [] });
   };
 
   for (const machine of state.machineConfigs ?? []) {
@@ -129,7 +129,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     add({ txt: `- ${description}`, description, price: snapshotStartupPrice(state, currency, option, fallback), varenr: '795050', sub: true }, 1, false, false, '', -1, 0);
   }
   const subtotal = roundPricingMoney(lines.reduce((sum, line) => sum + line.gross, 0));
-  const apply = (kind: DiscountDetail['kind'], percent: number, eligible: (line: EconomicLine) => boolean, label: string, varenr?: string) => {
+  const apply = (kind: NonNullable<DiscountDetail['kind']>, percent: number, eligible: (line: EconomicLine) => boolean, label: string, varenr?: string) => {
     if (!(percent > 0)) return;
     // Demo is an exclusive per-unit regime, including its existing surcharge.
     const affected = lines.filter(line => (kind === 'demo' || !line.demo) && eligible(line));
@@ -141,7 +141,15 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
     for (const line of affected) {
       cumulative += line.net;
       const next = basis ? roundPricingMoney(amount * cumulative / basis) : 0;
-      line.net = roundPricingMoney(line.net - (next - allocated));
+      const lineBasis = line.net;
+      const lineAmount = roundPricingMoney(next - allocated);
+      line.net = roundPricingMoney(line.net - lineAmount);
+      line.discountApplications.push({
+        kind,
+        percent,
+        basis: lineBasis,
+        amount: lineAmount,
+      });
       allocated = next;
     }
     if (amount > 0) details.push({ kind, percent, basis, txt: `${label.replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*%\s*\)/, '')} (${percent.toLocaleString(state.language, { maximumFractionDigits: 2 })}%)`, amount, ...(varenr ? { varenr } : {}) });
@@ -215,6 +223,7 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
         line.item.campaign = snapshot;
         if (amount > 0) {
           line.campaignApplied = true;
+          line.discountApplications.push({ kind: 'campaign', percent: snapshot.discountPct, basis: eligibleBasis, amount });
           details.push({ kind: 'campaign', campaignId: campaign.id, varenr: line.item.varenr, percent: snapshot.discountPct, basis: eligibleBasis, amount,
             txt: `${T('campaignDiscountLabel')} · ${campaign.code} (${snapshot.discountPct.toLocaleString(state.language, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%)` });
         }
@@ -259,7 +268,16 @@ export function calculateConfiguration(state: ConfiguratorState, options: Pricin
   }
   const currentPrice = roundPricingMoney(lines.reduce((sum, line) => sum + line.net, 0));
   const totalDiscount = roundPricingMoney(subtotal - currentPrice);
-  return { lineItems, subtotal, discountDetails: details, deliveryDiscounts, totalDiscount, currentPrice, totalPct: subtotal ? totalDiscount / subtotal * 100 : 0, qtyPct: directPricing ? 0 : quantityPct / 100, campaignLines };
+  const commercialLines = lines.map(line => ({
+    unitNumber: line.unit || undefined,
+    itemNo: line.item.varenr,
+    quantity: line.quantity,
+    unitPrice: line.item.unitPrice ?? roundPricingMoney(line.gross / Math.max(1, line.quantity)),
+    grossAmount: line.gross,
+    finalNetAmount: line.net,
+    discountApplications: line.discountApplications,
+  }));
+  return { lineItems, subtotal, discountDetails: details, deliveryDiscounts, totalDiscount, currentPrice, totalPct: subtotal ? totalDiscount / subtotal * 100 : 0, qtyPct: directPricing ? 0 : quantityPct / 100, campaignLines, commercialLines };
 }
 
 export function calcConfigurationTotals(state: ConfiguratorState, options: PricingOptions = {}): { subtotal: number; totalDiscount: number; finalPrice: number } {
