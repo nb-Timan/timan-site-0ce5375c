@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync('supabase/migrations/20261005095300_planning_supply_manual_import.sql', 'utf8');
 const conflictGuard = readFileSync('supabase/migrations/20261005104048_planning_supply_import_conflict_guard.sql', 'utf8');
-const quarantine = readFileSync('supabase/migrations/20261005163659_planning_supply_requires_action_quarantine.sql', 'utf8');
-const unknownDateReporting = readFileSync('supabase/migrations/20261005175915_planning_supply_unknown_date_reporting.sql', 'utf8');
-const perMachineIdempotency = readFileSync('supabase/migrations/20261005181200_planning_supply_import_per_machine_idempotency_fix.sql', 'utf8');
+const quarantine = readFileSync('supabase/migrations/20261005174011_planning_supply_requires_action_quarantine.sql', 'utf8');
+const unknownDateReporting = readFileSync('supabase/migrations/20261005180150_planning_supply_unknown_date_reporting.sql', 'utf8');
+const perMachineIdempotency = readFileSync('supabase/migrations/20261005181330_planning_supply_import_per_machine_idempotency_fix.sql', 'utf8');
+const realConflictClassification = readFileSync('supabase/migrations/20261005192023_planning_supply_real_conflict_classification.sql', 'utf8');
 const service = readFileSync('src/lib/planningSupplyImport.ts', 'utf8');
 const page = readFileSync('src/pages/PlanningPage.tsx', 'utf8');
 const dialog = readFileSync('src/components/planning/PlanningSupplyImportDialog.tsx', 'utf8');
@@ -35,7 +36,7 @@ describe('Planning supply import server contract', () => {
   it('derives commercial state from Portal and excludes sheet commercial values', () => {
     expect(migration).toContain('from public.warranty_registrations w');
     expect(migration).toContain("when v_portal_state = 'historical' then 'unavailable'");
-    expect(migration).toContain("when v_has_hint and v_portal_state = 'none' then 'blocked'");
+    expect(realConflictClassification).toContain("jsonb_set(value, '{has_ignored_commercial_data}', 'false'::jsonb, true)");
     const ingestPayload = migration.slice(migration.indexOf("v_unit_id := public.planning_ingest_supply_unit"),
       migration.indexOf("insert into public.planning_supply_import_batch_rows"));
     expect(ingestPayload).not.toContain('dealer_account_id');
@@ -84,14 +85,39 @@ describe('Planning supply import server contract', () => {
     expect(details).toContain('coalesce(u.customer_name, w.customer_name)');
   });
 
-  it('marks uncorroborated commercial hints as blocked conflicts', () => {
-    expect(quarantine).toContain("when v_has_hint and v_portal_state = 'none' then 'blocked'");
-    expect(quarantine).toContain("v_conflict_reason := 'commercial_source_hint_without_portal_match'");
-    expect(quarantine).toContain("'commercial_relation', 'portal_relation_missing'");
+  it('does not turn unmatched ERP or dealer hints into conflicts', () => {
+    expect(realConflictClassification).toContain("'{has_ignored_commercial_data}', 'false'::jsonb");
+    expect(realConflictClassification).toContain("'hasIgnoredCommercialData', coalesce((v_original ->> 'has_ignored_commercial_data')::boolean, false)");
+    expect(realConflictClassification).not.toContain("v_conflict_reason := 'commercial_source_hint_without_portal_match'");
+    expect(realConflictClassification).not.toContain("values (v_unit_id, 'commercial_relation', 'portal_relation_missing'");
     expect(dialog).not.toContain('summary.conflicts === 0');
-    expect(conflictGuard).toContain("if new.outcome = 'conflict' then");
-    expect(quarantine).toContain("new.conflict_reason = 'commercial_source_hint_without_portal_match'");
-    expect(quarantine).toContain("u.supply_status = 'blocked'");
+  });
+
+  it('classifies unmatched supply from dates without fabricating commercial state', () => {
+    expect(realConflictClassification).toContain("when v_row ->> 'productionCompletedAt' is null then 'in_production'");
+    expect(realConflictClassification).toContain("when (v_row ->> 'productionCompletedAt')::date <= p_as_of then 'available'");
+    expect(realConflictClassification).toContain("else 'incoming'");
+    expect(realConflictClassification).not.toContain("dealer_account_id', v_original");
+    expect(realConflictClassification).not.toContain("customer_name', v_original");
+  });
+
+  it('keeps objective canonical contradictions as requires-action conflicts', () => {
+    expect(realConflictClassification).toContain("return 'duplicate_serial_identity'");
+    expect(realConflictClassification).toContain("return 'serial_item_number_mismatch'");
+    expect(realConflictClassification).toContain("return 'multiple_active_order_relations'");
+    expect(realConflictClassification).toContain("return 'contradictory_order_quote_relations'");
+    expect(realConflictClassification).toContain("return 'multiple_portal_orders'");
+    expect(realConflictClassification).toContain("v_outcome := 'conflict'");
+    expect(realConflictClassification).toContain("set supply_status = 'blocked'");
+  });
+
+  it('resolves only the historical false-positive commercial conflict shape', () => {
+    expect(realConflictClassification).toContain("c.field_name = 'commercial_relation'");
+    expect(realConflictClassification).toContain("c.existing_value = 'portal_relation_missing'");
+    expect(realConflictClassification).toContain('planning_supply_import_real_conflict_reason(');
+    expect(realConflictClassification).toContain("set status = 'resolved', resolved_at = now()");
+    expect(realConflictClassification).toContain("when u.production_completed_at is null then 'in_production'");
+    expect(realConflictClassification).toContain("when u.production_completed_at <= current_date then 'available'");
   });
 
   it('keeps missing dates and P-numbers null without treating them as stock or incoming', () => {
