@@ -16,7 +16,8 @@ import { CrmCompetitorSelect, OTHER_COMPETITOR } from '@/components/crm/CrmCompe
 import { crmCompetitorText } from '@/lib/crmCompetitorI18n';
 import { addMonthsToIsoDate } from '@/lib/crmLeadExpectedClose';
 import { isCrmAdmin, isExternalCrmRole, isScopedSeller } from '@/lib/crmScope';
-import { resolveSellerId } from '@/lib/resolveSellerId';
+import { resolveCanonicalCrmLeadSellerId } from '@/lib/resolveSellerId';
+import { getEffectiveSellerEmail } from '@/lib/activeMode';
 import {
   CLOSE_FLOW_NEXT_ACTIVITY_OPTIONS, CONTACT_TYPE_OPTIONS,
   CUSTOMER_TYPE_OPTIONS, LOST_REASON_OPTIONS,
@@ -745,6 +746,7 @@ export default function CrmNewLeadPage() {
       : '/portal/crm/leads');
   const portalRole = derivePortalRole(appUser);
   const canCreate = isCrmAdmin(portalRole) || isScopedSeller(portalRole) || isExternalCrmRole(portalRole);
+  const effectiveSellerEmail = getEffectiveSellerEmail(appUser) || appUser?.email || null;
 
   // External users: dealer is auto-filled and locked.
   const isInternal = isCrmAdmin(portalRole) || isScopedSeller(portalRole);
@@ -872,6 +874,11 @@ export default function CrmNewLeadPage() {
     fetchBackendUsers()
       .then(res => {
         if (cancelled) return;
+        if (res.source !== 'supabase') {
+          console.error('[crm lead sellers] Canonical app_users could not be loaded:', res.error);
+          setSellers([]);
+          return;
+        }
         const list = res.users
           .filter(u => (u.role === 'timan_seller' || u.role === 'timan_backend') && u.status === 'active')
           .sort((a, b) => (a.initials || '').localeCompare(b.initials || ''));
@@ -885,13 +892,13 @@ export default function CrmNewLeadPage() {
   useEffect(() => {
     if (isEdit) return; // never override loaded values when editing
     if (responsibleSellerId) return;
-    if (!sellers.length || !appUser?.email) return;
-    const me = sellers.find(s => (s.email || '').toLowerCase() === appUser.email.toLowerCase());
+    if (!sellers.length || !effectiveSellerEmail) return;
+    const me = sellers.find(s => (s.email || '').toLowerCase() === effectiveSellerEmail.toLowerCase());
     if (me) {
       setResponsibleSellerId(me.id);
       setResponsibleName(me.name || me.email);
     }
-  }, [sellers, appUser?.email, responsibleSellerId, isEdit]);
+  }, [sellers, effectiveSellerEmail, responsibleSellerId, isEdit]);
 
   useEffect(() => {
     if (isEdit || !lockedDealerNumber || !dealers.length) return;
@@ -1047,7 +1054,7 @@ export default function CrmNewLeadPage() {
   const sellerDir = useSellerDirectory();
   const { mineOptions, otherOptions, allOptions } = useMemo(() => {
     const selectedSeller = sellers.find(s => s.id === responsibleSellerId);
-    const mineEmail = (selectedSeller?.email || appUser?.email || '').toLowerCase();
+    const mineEmail = (selectedSeller?.email || effectiveSellerEmail || '').toLowerCase();
     const mineInitials = (selectedSeller?.initials || '').toUpperCase();
     const opts: DealerOption[] = dealers.map(d => {
       const de = (d.assigned_seller_email || '').toLowerCase();
@@ -1059,7 +1066,7 @@ export default function CrmNewLeadPage() {
     const mine = opts.filter(o => o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     const others = opts.filter(o => !o.isMine).sort((a, b) => a.label.localeCompare(b.label));
     return { mineOptions: mine, otherOptions: others, allOptions: opts };
-  }, [dealers, appUser, sellers, responsibleSellerId, sellerDir]);
+  }, [dealers, effectiveSellerEmail, sellers, responsibleSellerId, sellerDir]);
 
   const selectedDealer = allOptions.find(o => o.value === linkedDealer) || null;
   const selectedDealerAccount = dealers.find((dealer) => dealer.id === linkedDealer) || null;
@@ -1454,7 +1461,11 @@ export default function CrmNewLeadPage() {
       const chosen = sellers.find(s => s.id === responsibleSellerId);
       const sellerId = repository.academy
         ? 'academy-local-sales-user'
-        : chosen?.id || (await resolveSellerId(appUser?.email));
+        : await resolveCanonicalCrmLeadSellerId(chosen, effectiveSellerEmail);
+      if (!sellerId) {
+        toast.error(tt('val_seller', lang));
+        return;
+      }
       const contactInformation = buildStructuredContactInformation(structuredContactInfo);
       const structuredContactColumns = structuredCrmLeadContactColumns(structuredContactInfo);
       const payload = {
@@ -1462,7 +1473,7 @@ export default function CrmNewLeadPage() {
         owner_user_id: sellerId,
         owner_name: chosen?.name || responsibleName || null,
         // Working-budget seller scope resolves against the canonical owner email.
-        owner_email: chosen?.email || appUser?.email || null,
+        owner_email: chosen?.email || effectiveSellerEmail,
         linked_dealer_id: linkedDealer,
         linked_dealer_contact_id: contactMode === 'dealer' ? selectedDealerContactId || null : null,
         first_contact_date: firstContact || null,
@@ -1498,7 +1509,10 @@ export default function CrmNewLeadPage() {
         savedLeadId = editId;
         toast.success(tt('updated_ok', lang));
       } else {
-        const created = await repository.createLead({ ...payload, demo_has_run: repository.academy ? demoHasRun : 'no' }, { requireRemote: pendingFiles.length > 0 });
+        const created = await repository.createLead(
+          { ...payload, demo_has_run: repository.academy ? demoHasRun : 'no' },
+          { requireRemote: !repository.academy },
+        );
         savedLeadId = created.id;
         toast.success(tt('created_ok', lang));
       }
