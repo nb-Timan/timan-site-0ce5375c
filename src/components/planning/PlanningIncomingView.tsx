@@ -1,12 +1,22 @@
+import { useState } from 'react';
 import PlanningUnitDetail from '@/components/PlanningUnitDetail';
 import type { PlanningData, PlanningUnitPrivateDetail } from '@/lib/planningService';
 import { planningIncomingSupply, planningSupplyDate } from '@/lib/planningViews';
+
+type IncomingCategory = 'all' | 'machines' | 'attachments';
+
+interface MachineFamily {
+  id: string;
+  itemNumber: string;
+  label: string;
+}
 
 interface Props {
   data: PlanningData;
   language: string;
   label: (key: string) => string;
   itemLabel: (itemNumber: string) => string;
+  machineFamilies: MachineFamily[];
   query: string;
   selectedUnitId: string | null;
   onSelectUnit: (id: string) => void;
@@ -19,26 +29,27 @@ function formatDate(value: string | null | undefined, language: string): string 
     .format(new Date(`${value}T12:00:00Z`));
 }
 
-export default function PlanningIncomingView({ data, language, label, itemLabel, query,
+export default function PlanningIncomingView({ data, language, label, itemLabel, machineFamilies, query,
   selectedUnitId, onSelectUnit, privateDetail }: Props) {
+  const [category, setCategory] = useState<IncomingCategory>('all');
+  const [machineFamily, setMachineFamily] = useState('all');
   const supply = planningIncomingSupply(data);
   if (!supply) return <p role="status" className="border-l-4 border-amber-500 bg-amber-50 p-3 text-sm text-amber-900">
     {label(data.sources.some((source) => source.connected) ? 'planningStaleSupply' : 'planningNoSupply')}
   </p>;
-  if (supply.units.length === 0 && supply.lots.length === 0) {
-    return <p role="status" className="border border-slate-200 bg-white p-4 text-sm text-slate-600">
-      {label('planningNoIncoming')}
-    </p>;
-  }
+  const machineItemNumbers = new Set(machineFamilies.map((family) => family.itemNumber));
+  const categoryMatch = (itemNumber: string) => category === 'all'
+    || (category === 'machines' ? machineItemNumbers.has(itemNumber) : !machineItemNumbers.has(itemNumber));
+  const familyMatch = (itemNumber: string) => category !== 'machines' || machineFamily === 'all'
+    || itemNumber === machineFamily;
   const needle = query.trim().toLocaleLowerCase();
-  const units = supply.units.filter((unit) => !needle || [itemLabel(unit.item_number), unit.item_number,
-    unit.serial_number, unit.production_reference, unit.production_order_number, unit.erp_order_number]
-    .some((value) => value?.toLocaleLowerCase().includes(needle)));
-  const lots = supply.lots.filter((lot) => !needle || [itemLabel(lot.item_number), lot.item_number]
-    .some((value) => value.toLocaleLowerCase().includes(needle)));
-  if (units.length === 0 && lots.length === 0) return <p role="status" className="text-sm text-slate-600">
-    {label('planningNoRecords')}
-  </p>;
+  const units = supply.units.filter((unit) => categoryMatch(unit.item_number) && familyMatch(unit.item_number)
+    && (!needle || [itemLabel(unit.item_number), unit.item_number, unit.serial_number, unit.production_reference,
+      unit.production_order_number, unit.erp_order_number]
+      .some((value) => value?.toLocaleLowerCase().includes(needle))));
+  const lots = supply.lots.filter((lot) => categoryMatch(lot.item_number) && familyMatch(lot.item_number)
+    && (!needle || [itemLabel(lot.item_number), lot.item_number]
+      .some((value) => value.toLocaleLowerCase().includes(needle))));
 
   const active = data.reservations.filter((row) => row.status === 'active');
   const selectedUnit = units.find((unit) => unit.id === selectedUnitId);
@@ -54,7 +65,40 @@ export default function PlanningIncomingView({ data, language, label, itemLabel,
   const statusLabel = (status: string) => label(status === 'in_production' ? 'planningInProduction'
     : status === 'incoming' ? 'planningSupplyIncoming' : 'planningGreen');
 
+  const emptyLabel = supply.units.length === 0 && supply.lots.length === 0
+    ? 'planningNoIncoming'
+    : category === 'attachments' && !needle
+      ? 'planningNoIncomingAttachments'
+      : category === 'machines' && machineFamily === 'all' && !needle
+        ? 'planningNoIncomingMachines'
+        : 'planningNoRecords';
+
   return <div className="space-y-5">
+    <div className="flex min-w-0 flex-wrap items-end gap-3">
+      <div className="flex max-w-full gap-1 overflow-x-auto" role="group" aria-label={label('planningType')}>
+        {([['all', 'planningAllReservations'], ['machines', 'planningMachines'],
+          ['attachments', 'planningAttachments']] as const).map(([value, key]) => (
+          <button key={value} type="button" onClick={() => setCategory(value)} aria-pressed={category === value}
+            className={`h-9 shrink-0 rounded border px-3 text-sm font-medium ${category === value
+              ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
+              : 'border-slate-300 bg-white text-slate-700 hover:border-emerald-600'}`}>
+            {label(key)}
+          </button>
+        ))}
+      </div>
+      {category === 'machines' && <label className="min-w-0 text-xs font-medium text-slate-600">
+        <span className="sr-only">{label('planningMachineNavigation')}</span>
+        <select value={machineFamily} onChange={(event) => setMachineFamily(event.target.value)}
+          className="h-9 max-w-full rounded border border-slate-300 bg-white px-3 text-sm text-slate-800">
+          <option value="all">{label('planningAllMachines')}</option>
+          {machineFamilies.map((family) => <option key={family.id} value={family.itemNumber}>{family.label}</option>)}
+        </select>
+      </label>}
+    </div>
+
+    {units.length === 0 && lots.length === 0 && <p role="status"
+      className="border border-slate-200 bg-white p-4 text-sm text-slate-600">{label(emptyLabel)}</p>}
+
     {units.length > 0 && <section aria-label={label('planningSerializedUnits')}>
       <h2 className="mb-2 text-sm font-semibold text-slate-900">{label('planningSerializedUnits')}</h2>
       <div className="space-y-2 md:hidden">

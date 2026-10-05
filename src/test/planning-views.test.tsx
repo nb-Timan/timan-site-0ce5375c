@@ -8,8 +8,8 @@ import type { PlanningData, PlanningReservation, PlanningUnit } from '@/lib/plan
 
 const now = new Date('2026-10-04T12:00:00Z');
 const label = (key: string) => PLANNING_TRANSLATIONS.da[key];
-const unit = (id: string, date: string, status: PlanningUnit['supply_status']): PlanningUnit => ({
-  id, source_system: 'qa-source', item_number: '411000', serial_number: `411000-04-${id}`,
+const unit = (id: string, date: string, status: PlanningUnit['supply_status'], itemNumber = '411000'): PlanningUnit => ({
+  id, source_system: 'qa-source', item_number: itemNumber, serial_number: `${itemNumber}-04-${id}`,
   machine_ident_number: null, production_reference: `S47-${id}`,
   production_order_number: '656331', erp_order_number: '138271',
   available_at: date, expected_delivery_at: date, supply_status: status,
@@ -24,11 +24,11 @@ const reservation = (id: string, unitId: string | null, type: PlanningReservatio
 });
 const data: PlanningData = {
   sources: [{ source_system: 'qa-source', connected: true,
-    last_synced_at: '2026-10-04T11:00:00Z', freshness_limit_hours: 24 }],
+    last_synced_at: '2026-10-04T11:00:00Z', freshness_limit_hours: 8760 }],
   units: [
     unit('1', '2026-11-15', 'incoming'), unit('2', '2026-09-20', 'available'),
     unit('3', '2026-12-01', 'incoming'), unit('4', '2026-11-10', 'available'),
-    unit('5', '2026-12-10', 'blocked'),
+    unit('5', '2026-12-10', 'blocked'), unit('6', '2026-11-20', 'incoming', '410040'),
   ],
   lots: [{ id: 'lot-1', source_system: 'qa-source', item_number: '730035',
     quantity: 4, available_at: '2026-12-10', supply_status: 'incoming' }],
@@ -49,7 +49,7 @@ const data: PlanningData = {
 describe('Planning incoming supply and timeline projections', () => {
   it('lists only future concrete supply, never generic catalogue rows or blocked units', () => {
     const incoming = planningIncomingSupply(data, now);
-    expect(incoming?.units.map((row) => row.id)).toEqual(['4', '1', '3']);
+    expect(incoming?.units.map((row) => row.id)).toEqual(['4', '1', '6', '3']);
     expect(incoming?.lots.map((row) => row.id)).toEqual(['lot-1']);
     expect(planningIncomingSupply({ ...data, sources: [] }, now)).toBeNull();
     expect(planningIncomingSupply({ ...data, truncated: true }, now)).toBeNull();
@@ -91,9 +91,16 @@ describe('Planning incoming supply and timeline projections', () => {
 
   it('renders incoming units and quantity lots with detail, not the overview table', () => {
     const onSelectUnit = vi.fn();
+    const machineFamilies = [
+      { id: 'RC-751', itemNumber: '410040', label: 'RC-751' },
+      { id: 'RC-1000S', itemNumber: '411000', label: 'RC-1000s' },
+      { id: 'Timan 3330', itemNumber: '712000', label: 'Timan 3330' },
+      { id: 'Timan 2620', itemNumber: '761000', label: 'Timan 2620' },
+    ];
     const props = { data, language: 'da', label, itemLabel: (id: string) => `Produkt ${id}`,
-      query: '', selectedUnitId: null, onSelectUnit, privateDetail: null };
+      machineFamilies, query: '', selectedUnitId: null, onSelectUnit, privateDetail: null };
     const { rerender } = render(<PlanningIncomingView {...props} />);
+    expect(screen.getByRole('button', { name: 'Alle' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('region', { name: 'Kommende enheder' })).toBeInTheDocument();
     expect(screen.getByText('Forventet ledigt antal')).toBeInTheDocument();
     expect(screen.getAllByText('S47-1').length).toBeGreaterThan(0);
@@ -106,6 +113,40 @@ describe('Planning incoming supply and timeline projections', () => {
     expect(screen.getByText('Ingen kommende leverancer')).toBeInTheDocument();
     rerender(<PlanningIncomingView {...props} data={{ ...data, sources: [] }} />);
     expect(screen.getByText('Forsyningsdata endnu ikke tilsluttet')).toBeInTheDocument();
+  });
+
+  it('combines the delivery category, canonical machine family and search filters', () => {
+    const machineFamilies = [
+      { id: 'RC-751', itemNumber: '410040', label: 'RC-751' },
+      { id: 'RC-1000S', itemNumber: '411000', label: 'RC-1000s' },
+      { id: 'Timan 3330', itemNumber: '712000', label: 'Timan 3330' },
+      { id: 'Timan 2620', itemNumber: '761000', label: 'Timan 2620' },
+    ];
+    const props = { data, language: 'da', label, itemLabel: (id: string) => `Produkt ${id}`,
+      machineFamilies, query: '', selectedUnitId: null, onSelectUnit: vi.fn(), privateDetail: null };
+    const { rerender } = render(<PlanningIncomingView {...props} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Maskiner' }));
+    expect(screen.queryByText('Produkt 730035')).not.toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Vælg maskine' })).toHaveValue('all');
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Vælg maskine' }), { target: { value: '410040' } });
+    expect(screen.getAllByText('Produkt 410040').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Produkt 411000')).not.toBeInTheDocument();
+
+    rerender(<PlanningIncomingView {...props} query="S47-6" />);
+    expect(screen.getAllByText('S47-6').length).toBeGreaterThan(0);
+    rerender(<PlanningIncomingView {...props} query="findes-ikke" />);
+    expect(screen.getByText('Ingen registreringer.')).toBeInTheDocument();
+
+    rerender(<PlanningIncomingView {...props} query="730035" />);
+    fireEvent.click(screen.getByRole('button', { name: 'Redskaber' }));
+    expect(screen.getByText('Produkt 730035')).toBeInTheDocument();
+    expect(screen.queryByText('Produkt 410040')).not.toBeInTheDocument();
+
+    rerender(<PlanningIncomingView {...props} query=""
+      data={{ ...data, units: data.units.filter((row) => row.item_number !== '730035'), lots: [] }} />);
+    expect(screen.getByText('Ingen kommende redskaber')).toBeInTheDocument();
   });
 
   it('renders a scroll-contained visual time axis and canonical unit blocks', () => {

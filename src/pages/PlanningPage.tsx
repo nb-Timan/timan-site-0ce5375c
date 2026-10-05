@@ -26,6 +26,12 @@ import {
 type PlanningTab = 'overview' | 'attachments' | 'incoming' | 'reservations' | 'orders' | 'quotes' | 'timeline';
 
 const MACHINE_KEYS = ['RC-751', 'RC-1000S', 'Timan 3330', 'Timan 2620'] as const;
+const MACHINE_FAMILY_LABELS: Record<(typeof MACHINE_KEYS)[number], string> = {
+  'RC-751': 'RC-751',
+  'RC-1000S': 'RC-1000s',
+  'Timan 3330': 'Timan 3330',
+  'Timan 2620': 'Timan 2620',
+};
 const TABS: { id: PlanningTab; label: string }[] = [
   { id: 'overview', label: 'planningMachines' },
   { id: 'attachments', label: 'planningAttachments' },
@@ -404,7 +410,9 @@ export default function PlanningPage() {
                       </div>
                     )}
                     {tab === 'incoming' && <PlanningIncomingView data={data} language={uiLanguage} label={label}
-                      itemLabel={itemLabel} query={search} selectedUnitId={selectedUnitId}
+                      itemLabel={itemLabel} machineFamilies={machineRows.map((row) => ({
+                        id: row.key, itemNumber: row.itemNumber, label: MACHINE_FAMILY_LABELS[row.key],
+                      }))} query={search} selectedUnitId={selectedUnitId}
                       onSelectUnit={setSelectedUnitId} privateDetail={privateDetail} />}
                     {tab === 'timeline' && <PlanningTimelineView data={data} language={uiLanguage} label={label}
                       rows={timelineRows.filter((row) => matches(row.itemNumber, row.name))}
