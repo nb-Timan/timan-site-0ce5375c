@@ -58,14 +58,20 @@ const HEADER_ALIASES: Record<string, string[]> = {
   serial: ['maskin ident nr', 'maskinident nr', 'maskinidentitet', 'serienr', 'serienummer'],
   productionReference: ['p nr', 'p nummer', 'produktionsreference'],
   salesOrder: ['salgsordre', 'erp nr', 'erp nummer'],
-  productionDate: ['lev dato', 'produktionsdato', 'produktions slutdato'],
-  productionWeek: ['maskine faerdig i produktion', 'maskine færdig i produktion', 'produktionsuge'],
+  productionDate: ['lev dato', 'dato faerdig i produktion', 'dato færdig i produktion', 'produktionsdato', 'produktions slutdato'],
+  productionWeek: ['uge faerdig i prod', 'uge færdig i prod', 'maskine faerdig i produktion', 'maskine færdig i produktion', 'produktionsuge'],
   productionYear: ['ar', 'år', 'produktionsar', 'produktionsår'],
   dealer: ['forhandler'],
   customer: ['kunde'],
   comment: ['kommentar'],
-  confirmedDelivery: ['bekraeftet levering til kunden', 'bekræftet levering til kunden'],
+  confirmedDelivery: ['bekraeftet lev dato til kunden', 'bekræftet lev dato til kunden',
+    'bekraeftet levering til kunden', 'bekræftet levering til kunden'],
   sourceStatus: ['status'],
+};
+
+const WORKBOOK_SHEET_ALIASES: Record<string, string[]> = {
+  '410040': ['rc751'],
+  '411000': ['rc1000', 'rc1000s'],
 };
 
 function normalizeHeader(value: unknown): string {
@@ -77,6 +83,20 @@ function clean(value: unknown): string {
   return String(value ?? '').trim();
 }
 
+function normalizeSheetName(value: string): string {
+  return value.toLocaleLowerCase('da-DK').replace(/[^a-z0-9]/g, '');
+}
+
+export function selectPlanningSupplySheetName(sheetNames: string[], itemNumber: string): string {
+  if (sheetNames.length === 0) throw new Error('Filen indeholder ikke et ark.');
+  if (sheetNames.length === 1) return sheetNames[0];
+  const aliases = WORKBOOK_SHEET_ALIASES[itemNumber] ?? [];
+  const matches = sheetNames.filter((name) => aliases.includes(normalizeSheetName(name)));
+  if (matches.length === 1) return matches[0];
+  if (matches.length > 1) throw new Error('Workbooken indeholder flere ark for den valgte maskine.');
+  throw new Error('Workbooken indeholder ikke et entydigt ark for den valgte maskine.');
+}
+
 function findColumn(headers: string[], key: keyof typeof HEADER_ALIASES): number {
   return headers.findIndex((header) => HEADER_ALIASES[key].includes(header));
 }
@@ -86,16 +106,22 @@ function cell(row: unknown[], column: number): unknown {
 }
 
 function parseDate(value: unknown): string | null {
-  if (value instanceof Date && Number.isFinite(value.getTime())) return value.toISOString().slice(0, 10);
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    if (value.getFullYear() === 1900 || value.getUTCFullYear() === 1900) return null;
+    return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+  }
   if (typeof value === 'number' && Number.isFinite(value)) {
     const parsed = XLSX.SSF.parse_date_code(value);
-    if (parsed) return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+    if (parsed && parsed.y !== 1900) {
+      return `${parsed.y}-${String(parsed.m).padStart(2, '0')}-${String(parsed.d).padStart(2, '0')}`;
+    }
   }
   const text = clean(value);
   if (!text) return null;
   const danish = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})$/.exec(text);
   if (danish) {
     const year = danish[3].length === 2 ? 2000 + Number(danish[3]) : Number(danish[3]);
+    if (year === 1900) return null;
     return `${year}-${danish[2].padStart(2, '0')}-${danish[1].padStart(2, '0')}`;
   }
   const iso = /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
@@ -113,6 +139,18 @@ function parseYear(value: unknown, date: string | null): number | null {
   const year = Number(clean(value));
   if (Number.isInteger(year) && year >= 1900 && year <= 2200) return year;
   return date ? Number(date.slice(0, 4)) : null;
+}
+
+function hasCommercialSourceHint(value: unknown): boolean {
+  if (value === null || value === undefined || value === 0) return false;
+  const text = clean(value);
+  if (!text || text === '0') return false;
+  return !/^(?:00|05)-01-1900$/.test(text);
+}
+
+function parseOptionalIdentifier(value: unknown): string | null {
+  const identifier = clean(value);
+  return !identifier || identifier === '0' ? null : identifier;
 }
 
 export function parsePlanningSupplyMatrix(
@@ -149,14 +187,14 @@ export function parsePlanningSupplyMatrix(
             : !productionCompletedAt ? 'Ugyldig produktionsdato' : null;
       const ignored = [columns.dealer, columns.customer, columns.comment,
         columns.confirmedDelivery, columns.sourceStatus]
-        .some((column) => clean(cell(row, column)).length > 0);
+        .some((column) => hasCommercialSourceHint(cell(row, column)));
       return {
         rowNumber,
         itemNumber,
         serialNumber,
         machineIdentNumber: serialNumber,
         productionReference,
-        salesOrderNumber: clean(cell(row, columns.salesOrder)) || null,
+        salesOrderNumber: parseOptionalIdentifier(cell(row, columns.salesOrder)),
         productionCompletedAt,
         productionCompletedWeek: parseWeek(cell(row, columns.productionWeek)),
         productionCompletedYear: parseYear(cell(row, columns.productionYear), productionCompletedAt),
@@ -167,9 +205,10 @@ export function parsePlanningSupplyMatrix(
 }
 
 export async function parsePlanningSupplyFile(file: File, itemNumber: string): Promise<PlanningSupplyImportRow[]> {
-  const workbook = XLSX.read(await file.arrayBuffer(), { cellDates: true, raw: true });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  if (!sheet) throw new Error('Filen indeholder ikke et ark.');
+  const workbook = XLSX.read(await file.arrayBuffer(), { cellDates: false, raw: true });
+  const sheetName = selectPlanningSupplySheetName(workbook.SheetNames, itemNumber);
+  const sheet = workbook.Sheets[sheetName];
+  if (!sheet) throw new Error('Det valgte ark kunne ikke læses.');
   const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: null, raw: true });
   return parsePlanningSupplyMatrix(matrix, itemNumber);
 }

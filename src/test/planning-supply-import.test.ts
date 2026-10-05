@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parsePlanningSupplyMatrix } from '@/lib/planningSupplyImport';
+import { parsePlanningSupplyMatrix, selectPlanningSupplySheetName } from '@/lib/planningSupplyImport';
 
 const headers = [
   'Serie Nr.', 'Maskin ident nr.', 'P-nr.', 'Salgsordre', 'Lev. Dato',
@@ -8,6 +8,17 @@ const headers = [
 ];
 
 describe('Planning manual supply adapter', () => {
+  it('selects only the canonical workbook sheet for each supported machine family', () => {
+    const sheets = ['3330', 'RC1000', 'RC751', 'Tool-Trac', 'VPlov '];
+    expect(selectPlanningSupplySheetName(sheets, '410040')).toBe('RC751');
+    expect(selectPlanningSupplySheetName(sheets, '411000')).toBe('RC1000');
+  });
+
+  it('does not cross-match another machine sheet or silently fall back in a multi-sheet workbook', () => {
+    expect(() => selectPlanningSupplySheetName(['RC1000', '3330'], '410040'))
+      .toThrow('Workbooken indeholder ikke et entydigt ark for den valgte maskine.');
+  });
+
   it('normalizes RC-751 identity, production reference, date, week and ERP reference', () => {
     const [row] = parsePlanningSupplyMatrix([headers, [
       'Serie 24', '410040-01-0387', 'S24-14', '', '25-09-25', 'U39',
@@ -39,6 +50,15 @@ describe('Planning manual supply adapter', () => {
     expect(row).not.toHaveProperty('confirmedCustomerDelivery');
     expect(row).not.toHaveProperty('sourceStatus');
     expect(row.salesOrderNumber).toBe('139151');
+  });
+
+  it('does not treat Excel zero and 1900 commercial placeholders as source hints', () => {
+    const [row] = parsePlanningSupplyMatrix([headers, [
+      'Serie 25', '410040-01-0390', 'S25-1', 0, '08-06-26', 'U23',
+      0, 0, 0, '', 0, 2026,
+    ]], '410040');
+    expect(row.hasIgnoredCommercialData).toBe(false);
+    expect(row.salesOrderNumber).toBeNull();
   });
 
   it('groups S27-1 through S27-4 as four source units on 02.11.2026', () => {
@@ -108,5 +128,38 @@ describe('Planning manual supply adapter', () => {
     ], '410040');
     expect(rows[0].validationError).toBe('Maskinidentitet matcher ikke valgt varenummer');
     expect(rows[1].validationError).toBe('Ugyldigt P-nr.');
+  });
+
+  it('parses the original production workbook headers without shifting the date', () => {
+    const [row] = parsePlanningSupplyMatrix([[
+      'ÅR', 'Serie Nr.', 'Maskin ident nr.', 'P-nr.', 'P-Ordre nr.', 'Uge færdig I prod.',
+      'Dato færdig i produktion', 'Shipping date', 'Salgsordre', 'Faktureret',
+      'Bekræftet Lev. Dato\r\nTil kunden', 'Forhandler', 'Ordre (Kommentar fra C5)', 'Kommentar', 'Status',
+    ], [
+      2026, 'Serie 51', '411000-04-1605', 'S51-1', '', 36, 46269, 46275, '140358', 'F',
+      46266, 'UNTRUSTED DEALER', 'UNTRUSTED COMMENT', '', 'Solgt',
+    ]], '411000');
+    expect(row).toMatchObject({
+      productionCompletedAt: '2026-09-04',
+      productionCompletedWeek: 36,
+      productionCompletedYear: 2026,
+      validationError: null,
+      hasIgnoredCommercialData: true,
+    });
+  });
+
+  it('treats 1900 placeholder dates as missing', () => {
+    const workbookHeaders = [
+      'ÅR', 'Serie Nr.', 'Maskin ident nr.', 'P-nr.', 'Uge færdig I prod.',
+      'Dato færdig i produktion', 'Shipping date',
+    ];
+    const [numericPlaceholder, textPlaceholder] = parsePlanningSupplyMatrix([workbookHeaders,
+      [2026, 'Serie 52', '411000-04-1618', 'S52-2', 43, 5, 5],
+      [2026, 'Serie 52', '411000-04-1619', 'S52-3', 43, '05-01-1900', '05-01-1900'],
+    ], '411000');
+    expect(numericPlaceholder.productionCompletedAt).toBeNull();
+    expect(textPlaceholder.productionCompletedAt).toBeNull();
+    expect(numericPlaceholder.validationError).toBe('Ugyldig produktionsdato');
+    expect(textPlaceholder.validationError).toBe('Ugyldig produktionsdato');
   });
 });

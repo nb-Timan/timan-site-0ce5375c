@@ -91,7 +91,7 @@ export default function PlanningSupplyImportDialog({ open, onOpenChange, label, 
             </label>
             <label className="grid min-w-0 gap-1 text-sm font-medium text-slate-800">
               {label('planningImportFile')}
-              <input type="file" accept=".csv,text/csv,.xlsx,.xls" disabled={busy}
+              <input type="file" accept=".csv,text/csv,.xlsx,.xls,.xlsm" disabled={busy}
                 onChange={(event) => void chooseFile(event.target.files?.[0] ?? null)}
                 className="h-10 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm" />
             </label>
