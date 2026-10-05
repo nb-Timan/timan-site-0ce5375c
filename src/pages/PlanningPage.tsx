@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertTriangle, Boxes, ClipboardList, Clock3, Search, Truck } from 'lucide-react';
+import { AlertTriangle, Boxes, ClipboardList, Clock3, Search, Truck, Upload } from 'lucide-react';
 import PortalHeader from '@/components/portal/PortalHeader';
 import PortalFooter from '@/components/portal/PortalFooter';
 import PlanningIncomingView from '@/components/planning/PlanningIncomingView';
 import PlanningMachineWorkspace from '@/components/planning/PlanningMachineWorkspace';
 import PlanningTimelineView from '@/components/planning/PlanningTimelineView';
+import PlanningSupplyImportDialog from '@/components/planning/PlanningSupplyImportDialog';
 import { useAppUser } from '@/context/AppUserContext';
 import { useEffectivePortalUser } from '@/lib/viewAsUser';
 import { derivePortalRole } from '@/lib/portalAccess';
@@ -96,6 +97,7 @@ export default function PlanningPage() {
   const [expectedDate, setExpectedDate] = useState('');
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const label = (key: string) => t(key, uiLanguage);
 
   const refresh = useCallback(() => {
@@ -249,10 +251,19 @@ export default function PlanningPage() {
         onLogout={async () => { await logout(); navigate('/portal', { replace: true }); }}
       />
       <main className="mx-auto w-full max-w-[1700px] min-w-0 flex-1 px-4 py-7 sm:px-6 xl:px-12">
-        <header className="mb-5">
-          <h1 className="text-2xl font-semibold text-slate-900">{label('area_planning_title')}</h1>
-          <p className="mt-1 text-sm text-slate-600">{label('area_planning_desc')}</p>
+        <header className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-slate-900">{label('area_planning_title')}</h1>
+            <p className="mt-1 text-sm text-slate-600">{label('area_planning_desc')}</p>
+          </div>
+          {isPlanner && <button type="button" onClick={() => setImportOpen(true)}
+            className="inline-flex h-10 items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 hover:border-emerald-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600">
+            <Upload className="h-4 w-4" aria-hidden />{label('planningImportTitle')}
+          </button>}
         </header>
+
+        {isPlanner && <PlanningSupplyImportDialog open={importOpen} onOpenChange={setImportOpen}
+          label={label} onImported={refresh} />}
 
         {error ? <p role="alert" className="border-l-4 border-red-500 bg-red-50 p-3 text-sm text-red-800">{label('planningLoadError')}</p>
           : !data ? <p className="text-sm text-slate-600">{label('planningLoading')}</p>
