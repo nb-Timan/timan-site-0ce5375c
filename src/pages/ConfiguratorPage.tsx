@@ -49,6 +49,7 @@ import { loadPublishedMarketingCampaigns } from '@/lib/marketingCampaignService'
 import { eligibleCampaignFor, replacePublishedCampaigns } from '@/lib/configuratorCampaigns';
 import { useMarketingBadgeClock } from '@/lib/marketingBadgeSchedule';
 import { ConfiguratorImageModal, type ConfiguratorImagePreview } from '@/components/configurator/ConfiguratorImageModal';
+import TimanVideoModal from '@/components/video/TimanVideoModal';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -922,6 +923,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
   // Modal states
   const [infoModal, setInfoModal] = useState<{ title: string; content: string; overviewImages?: { src: string; alt: string }[] } | null>(null);
   const [productImagePreview, setProductImagePreview] = useState<ConfiguratorImagePreview | null>(null);
+  const [productVideoPreview, setProductVideoPreview] = useState<{ title: string; url: string } | null>(null);
   const [marketingInformation, setMarketingInformation] = useState<{ title: string; description: string; keyFeatures: string[]; specs: { label: string; value: string }[]; overviewImages?: { src: string; alt: string }[] } | null>(null);
   const [deliveryInfoOpen, setDeliveryInfoOpen] = useState(false);
   const [oilModalOpen, setOilModalOpen] = useState(false);
@@ -1969,7 +1971,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
     return (
       <div className="mt-1 flex gap-2 whitespace-nowrap">
         {showVideoIcon && (videoUrl ? (
-          <a href={videoUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 text-xs flex items-center gap-0.5 hover:text-emerald-800 transition" onClick={e => e.stopPropagation()}>🎥 {T('videoLink')}</a>
+          <button type="button" className="flex items-center gap-0.5 bg-transparent p-0 text-xs text-emerald-600 transition hover:text-emerald-800" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductVideoPreview({ url: videoUrl, title: productTitle }); }}>🎥 {T('videoLink')}</button>
         ) : (
           <span className="text-gray-400 text-xs flex items-center gap-0.5 cursor-not-allowed">🎥 {T('videoLink')}</span>
         ))}
@@ -3116,6 +3118,14 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
         unavailableLabel={IMAGE_UNAVAILABLE_COPY[uiLanguage]}
         onClose={() => setProductImagePreview(null)}
       />
+      {productVideoPreview && (
+        <TimanVideoModal
+          language={uiLanguage}
+          title={productVideoPreview.title}
+          videoUrl={productVideoPreview.url}
+          onClose={() => setProductVideoPreview(null)}
+        />
+      )}
 
       {/* Info Modal */}
       {infoModal && (
@@ -3672,7 +3682,7 @@ export default function ConfiguratorPage({ marketingEditMode = false }: { market
                         editControl={marketingEditButton(key, p.id)}
                         actions={<>
                           {cardVideoUrl ? (
-                            <a href={cardVideoUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium">🎥 {T('videoLink')}</a>
+                            <button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); setProductVideoPreview({ url: cardVideoUrl, title: cardTitle }); }} className="flex items-center gap-1 bg-transparent p-0 text-sm font-medium text-emerald-600 hover:text-emerald-800">🎥 {T('videoLink')}</button>
                           ) : (key === 'Timan 2620' && (
                             <button onClick={(e) => { e.stopPropagation(); toast.info(T('contentComingSoon')); }} className="text-emerald-600 hover:text-emerald-800 text-sm flex items-center gap-1 font-medium p-0 bg-transparent">🎥 {T('videoLink')}</button>
                           ))}

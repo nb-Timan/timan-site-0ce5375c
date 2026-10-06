@@ -117,6 +117,7 @@ describe("marketing video library", () => {
       expect(tv("videoLibraryRemoveFavorite", lang)).not.toBe("videoLibraryRemoveFavorite");
       expect(tv("videoLibraryNoFavorites", lang)).not.toBe("videoLibraryNoFavorites");
       expect(tv("videoLibraryNoMesseVideos", lang)).not.toBe("videoLibraryNoMesseVideos");
+      expect(tv("videoLibraryUnavailable", lang)).not.toBe("videoLibraryUnavailable");
       expect(tv("videoMgmtAdd", lang)).not.toBe("videoMgmtAdd");
       expect(tv("videoMgmtContentType", lang)).not.toBe("videoMgmtContentType");
       expect(tv("videoMgmtStatus", lang)).not.toBe("videoMgmtStatus");
@@ -178,6 +179,8 @@ describe("marketing video library", () => {
     const portalAccess = readFileSync("src/lib/portalAccess.ts", "utf8");
     const usersPage = readFileSync("src/pages/backend/BackendUsersPage.tsx", "utf8");
     const filterBar = readFileSync("src/components/video/VideoLibraryFilterBar.tsx", "utf8");
+    const player = readFileSync("src/components/video/TimanVideoModal.tsx", "utf8");
+    const embedResolver = readFileSync("src/lib/timanVideoEmbed.ts", "utf8");
     const filterHelper = readFileSync("src/lib/videoLibraryFilters.ts", "utf8");
     const configurator = readFileSync("src/pages/ConfiguratorPage.tsx", "utf8");
     const migration = [
@@ -217,9 +220,11 @@ describe("marketing video library", () => {
     expect(filterHelper).toContain("filterAndSortVideos");
     expect(salesPage).toContain("listPublishedMarketingVideos(uiLanguage)");
     expect(salesPage).not.toContain("listAcademyVideos");
-    expect(salesPage).toContain("window.addEventListener(\"keydown\", closeOnEscape)");
-    expect(salesPage).toContain("videoLibraryEmbedFallback");
-    expect(salesPage).toContain("https://www.youtube.com/watch?v=");
+    expect(salesPage).toContain("TimanVideoModal");
+    expect(messePage).toContain("TimanVideoModal");
+    expect(player).toContain("DialogContent");
+    expect(embedResolver).toContain("extractYouTubeVideoId");
+    expect(player).toContain("videoLibraryEmbedFallback");
     expect(managementPage).toContain("findPrimaryProductConflict");
     expect(managementPage).toContain("dedupeVideoProductOptions");
     expect(managementPage).toContain('tv("videoMgmtSaveFailed", uiLanguage)');

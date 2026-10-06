@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { Play, Star, X } from "lucide-react";
+import { Play, Star } from "lucide-react";
 import PortalHeader from "@/components/portal/PortalHeader";
 import PortalFooter from "@/components/portal/PortalFooter";
 import VideoLibraryFilterBar from "@/components/video/VideoLibraryFilterBar";
@@ -30,6 +30,7 @@ import {
 import { academySandbox, ACADEMY_CASE_2, ACADEMY_CASE_2_TARGET_VIDEO_ID } from "@/lib/academySandbox";
 import { getAcademyVideoFallback, readAcademyVideoPreferences, saveAcademyVideoPreferences } from '@/lib/academyVideoData';
 import AcademyGuidancePanel from "@/components/academy/AcademyGuidancePanel";
+import TimanVideoModal from "@/components/video/TimanVideoModal";
 import { getLocalAcademyUser } from "@/lib/academyCurriculum";
 
 export default function VideoGalleryPage() {
@@ -217,7 +218,15 @@ export default function VideoGalleryPage() {
         )}
       </main>
 
-      {active && <VideoModal video={active} lang={uiLanguage} onClose={() => setActive(null)} />}
+      {active && (
+        <TimanVideoModal
+          language={uiLanguage}
+          title={active.title}
+          youtubeVideoId={active.youtube_video_id}
+          showExternalFallback
+          onClose={() => setActive(null)}
+        />
+      )}
       <PortalFooter language={language} />
     </div>
   );
@@ -286,62 +295,6 @@ function VideoCard({
         </div>
       </button>
     </article>
-  );
-}
-
-function VideoModal({ video, lang, onClose }: { video: MarketingVideo; lang: PortalUiLanguage; onClose: () => void }) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [onClose]);
-
-  const youtubeUrl = `https://www.youtube.com/watch?v=${video.youtube_video_id}`;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-3 sm:p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={video.title}
-    >
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label={tv("videoLibraryClosePlayer", lang)}
-        className="absolute right-3 top-3 z-10 rounded-full bg-white/15 p-2 text-white shadow-sm transition hover:bg-white/25 focus:outline-none focus:ring-2 focus:ring-white/70 sm:right-4 sm:top-4"
-      >
-        <X className="h-6 w-6" />
-      </button>
-      <div
-        className="w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="aspect-video w-full bg-black">
-          <iframe
-            className="h-full w-full"
-            src={`https://www.youtube.com/embed/${video.youtube_video_id}?autoplay=1&rel=0`}
-            title={video.title}
-            allow="autoplay; encrypted-media; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-        <div className="flex flex-col gap-2 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-          <p>{tv("videoLibraryEmbedFallback", lang)}</p>
-          <a
-            href={youtubeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-semibold text-emerald-700 hover:text-emerald-900"
-          >
-            {tv("videoLibraryOpenOnYoutube", lang)}
-          </a>
-        </div>
-      </div>
-    </div>
   );
 }
 
